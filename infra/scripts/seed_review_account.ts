@@ -88,7 +88,7 @@ const GROUP_FUNCTIONAL = 9;
 const GROUP_RUNNING = 4;
 const GROUP_ZONE2 = 5;
 
-// ── Exercise catalog slugs (canonical rows from seed_exercises.ts, guaranteed
+// ── Exercise catalog slugs (canonical rows from migration 0247, guaranteed
 //    present in every seeded catalog). Resolved to ids at runtime so the seed is
 //    portable across DBs; a missing slug hard-fails loudly. ─────────────────────
 const SLUGS = {
@@ -298,7 +298,7 @@ async function resolveExerciseIds(): Promise<Record<SlugKey, number>> {
   if (missing.length > 0) {
     throw new Error(
       `exercises catalog is missing ${missing.length} required slug(s): ${missing.join(', ')}. ` +
-        `Seed the catalog first (pnpm --filter @fahybrid/infra seed:exercises against this DB).`,
+        `Apply the migrations first (0247 creates the base catalog).`,
     );
   }
   return out;

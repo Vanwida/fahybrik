@@ -20,7 +20,7 @@ import { sql as defaultSql, type Sql, type TransactionClient } from '@/lib/db';
  * escriba en la fila tiene que ser exactamente esa cadena): no hay migración de
  * por medio, pero tampoco hay cadenas sueltas por el código.
  */
-export type EntitlementFeature = 'mcp_connector';
+export type EntitlementFeature = 'mcp_connector' | 'negocio';
 
 /**
  * En qué estado está lo contratado. Hoy dos, y solo el primero concede.

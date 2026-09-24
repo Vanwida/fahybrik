@@ -9,10 +9,10 @@
 // reflects the new truth. The session history (SessionReportsBlock) stays below.
 
 import { useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
 import { Panel } from '@/components/v2/atleta-detalle/parts';
 import { Pill, type PillTone } from '@/components/v2/Pill';
-import { SegmentedControl, type SegmentOption } from '@/components/v2/SegmentedControl';
+import { CalendarX, Send, Video } from 'lucide-react';
+import { Button, SegmentedControl, buttonVariants, type SegmentItem } from '@/components/v2/ui';
 import {
   REVIEW_CADENCES,
   REVIEW_CADENCE_LABELS,
@@ -25,17 +25,10 @@ const MS_PER_DAY = 86_400_000;
 
 // Cadence segments — labels from the shared domain (single source), so the selector never
 // drifts from the DB CHECK / the iOS copy.
-const CADENCE_OPTIONS: ReadonlyArray<SegmentOption<ReviewCadence>> = REVIEW_CADENCES.map((c) => ({
+const CADENCE_OPTIONS: SegmentItem<ReviewCadence>[] = REVIEW_CADENCES.map((c) => ({
   value: c,
   label: REVIEW_CADENCE_LABELS[c],
 }));
-
-const JOIN_CLS =
-  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-body font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]';
-const ACTION_CLS =
-  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-body font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:cursor-not-allowed disabled:opacity-50';
-const CANCEL_CLS =
-  'v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2 text-body font-semibold text-[color:var(--v2-danger)] transition-colors hover:underline disabled:cursor-not-allowed disabled:opacity-50';
 
 function fmtDateTime(iso: string): string {
   const d = new Date(iso);
@@ -71,6 +64,10 @@ function deriveStatus(review: AthleteReviewState, firstName: string): StatusView
     : 'aún sin primera revisión';
   if (review.due) {
     return { tone: 'warn', label: 'Toca revisión', detail: lastLabel };
+  }
+  // Sin ninguna revisión todavía no es «al día» (A3): es la primera, pendiente.
+  if (!review.last_review_at && review.cadence !== 'ninguna') {
+    return { tone: 'neutral', label: 'Primera revisión pendiente', detail: null };
   }
   // Al día — muestra el contexto de la última revisión salvo que no haya cadencia ni historial.
   const detail = review.last_review_at || review.cadence !== 'ninguna' ? lastLabel : null;
@@ -166,16 +163,16 @@ function ReviewPanelBody({
         {/* Cadencia */}
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-0.5">
-            <span className="v2-micro">Cadencia de revisión</span>
+            <span className="t-label text-v2-faint">Cadencia de revisión</span>
             <span className="text-xs text-[color:var(--v2-muted)]">
               Cada cuánto toca una videollamada 1:1 con {firstName}.
             </span>
           </div>
           <SegmentedControl
-            ariaLabel="Cadencia de revisión"
-            options={CADENCE_OPTIONS}
+            aria-label="Cadencia de revisión"
+            items={CADENCE_OPTIONS}
             value={cadence}
-            onChange={onCadence}
+            onValueChange={onCadence}
             size="sm"
           />
         </div>
@@ -197,29 +194,19 @@ function ReviewPanelBody({
             {next ? (
               <>
                 {next.meet_link ? (
-                  <a href={next.meet_link} target="_blank" rel="noreferrer" className={JOIN_CLS}>
-                    <MIcon name="videocam" size={16} />
+                  <a href={next.meet_link} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'secondary', size: 'md' })}>
+                    <Video aria-hidden strokeWidth={1.75} />
                     Unirse
                   </a>
                 ) : null}
-                <button type="button" onClick={onCancel} disabled={m.busy} className={CANCEL_CLS}>
-                  <MIcon
-                    name={active === 'cancel' ? 'progress_activity' : 'event_busy'}
-                    size={16}
-                    className={active === 'cancel' ? 'animate-spin' : undefined}
-                  />
+                <Button variant="ghost" icon={CalendarX} loading={active === 'cancel'} disabled={m.busy} onClick={onCancel}>
                   Cancelar revisión
-                </button>
+                </Button>
               </>
             ) : (
-              <button type="button" onClick={onPropose} disabled={m.busy} className={ACTION_CLS}>
-                <MIcon
-                  name={active === 'propose' ? 'progress_activity' : 'send'}
-                  size={16}
-                  className={active === 'propose' ? 'animate-spin' : undefined}
-                />
+              <Button icon={Send} loading={active === 'propose'} disabled={m.busy} onClick={onPropose}>
                 Proponer revisión
-              </button>
+              </Button>
             )}
           </div>
         </div>

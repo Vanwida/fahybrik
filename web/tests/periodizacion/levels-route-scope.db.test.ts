@@ -90,14 +90,13 @@ describeWithDb('/api/coach/levels/[id] — propiedad en el WHERE (DB real)', () 
   test('caso propio: A edita y borra SU nivel exactamente igual que siempre', async () => {
     vi.mocked(getCoachSession).mockResolvedValue(sessionFor(clubA));
 
-    const res = await PATCH(patchReq({ name: 'elite-a2', sort_order: 3 }), ctx(levelA));
+    // El orden va por /api/coach/levels/reorder (todos los activos a la vez).
+    const res = await PATCH(patchReq({ name: 'elite-a2' }), ctx(levelA));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
-      level: { name: string; sort_order: number; coach_id: string };
-    };
-    expect(body.level.name).toBe('elite-a2');
-    expect(body.level.sort_order).toBe(3);
-    expect(body.level.coach_id).toBe(String(clubA.coachId));
+    const [renamed] = await sql<{ name: string; coach_id: string }[]>`
+      select name, coach_id::text as coach_id from athlete_levels where id = ${levelA}
+    `;
+    expect(renamed).toEqual({ name: 'elite-a2', coach_id: String(clubA.coachId) });
 
     const del = await DELETE(patchReq({}), ctx(levelA));
     expect(del.status).toBe(204);

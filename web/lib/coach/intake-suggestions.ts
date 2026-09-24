@@ -13,16 +13,20 @@ import {
   BENCH_SNATCH_1RM,
   BENCH_STRICT_PULL_UP_MAX,
   BENCH_PUSH_UPS_PER_MIN,
+  BENCH_HYROX_OPEN,
   BENCH_RUN_5K,
-  BENCH_RUN_10K,
-  BENCH_RUN_HALF,
   BENCH_ROW_2K,
-  BENCH_SKI_1K,
-  BENCH_HYROX_PRO,
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import {
+  LEVEL_METRIC_SPEC,
+  resolveLadder,
+  suggestLevelOnLadder,
+  type AthleteMarks,
+  type LevelSuggestion,
+  type ResolvedRung,
+} from '@fahybrid/shared/domain/coach/level-criteria';
 import type {
   AthleteLevel,
-  IntakeBaselineTest,
 } from './intake-schema';
 
 export interface SuggestionBenchmark {
@@ -119,96 +123,71 @@ interface InferLevelParams {
   benchmarks: SuggestionBenchmark[];
   training_experience_years: number | null;
   goal?: IntakeGoalContext;
+  /** La escalera del coach (`loadCoachLadder`). Sin ella, la de los defectos del producto. */
+  ladder?: ResolvedRung[];
+  sex?: 'male' | 'female' | null;
 }
 
-// Level 1 = beginner, 2 = intermediate, 3 = pro, 4 = élite (4 niveles cerrados
-// por decisión #4). Heurística sobre experiencia + benchmarks. Pablo confirma
-// siempre — es punto de partida, no veredicto.
+// El TRAMO del cuestionario (1 principiante · 2 intermedio · 3 pro · 4 élite)
+// cuando el atleta no lo declaró. No hay una segunda tabla de cortes: se lee
+// con la MISMA escalera que la sugerencia de nivel del coach
+// (shared/domain/coach/level-criteria.ts — sus cortes o, sin escalera, los
+// defectos del producto) y el escalón se reparte en proporción sobre los cuatro
+// tramos, redondeando hacia abajo (con pocos datos, mejor quedarse corto). Antes había aquí una lista propia de «marcas élite» (sentadilla 130,
+// 5K 21′, HYROX Pro 70′…) que era método cableado y discrepaba de la otra.
+// Ver DECISIONS 2026-09-23 «Qué marca abre cada nivel».
 //
-// Promote a 4 (élite) solo con señales muy claras: tiempo HYROX pro declarado o
-// combinación de varios PRs en rango élite + experiencia alta. Mantener nivel 3
-// para "élite hits" más generales (regla original sigue intacta).
-export function inferLevel(params: InferLevelParams): AthleteLevel {
-  const yrs = params.training_experience_years ?? 0;
-  const eliteHits = countEliteHits(params.benchmarks);
-  const strongHits = countStrongHits(params.benchmarks);
-  const hasHyroxElite = params.benchmarks.some(
-    (b) => b.exercise_slug === BENCH_HYROX_PRO && b.value > 0 && b.value <= 60 * 60,
+// Es punto de partida, no veredicto: el coach confirma siempre.
+const TIERS = 4;
+
+function tierFromRung(position: number, rungs: number): AthleteLevel {
+  if (rungs <= 1) return 1;
+  const t = 1 + Math.floor(((position - 1) * TIERS) / rungs);
+  return Math.max(1, Math.min(TIERS, t)) as AthleteLevel;
+}
+
+/** Las marcas del alta en las unidades de la escalera (sin peso: la sentadilla relativa no entra). */
+function intakeMarks(params: InferLevelParams): AthleteMarks {
+  const marks: AthleteMarks = {};
+  const find = (slug: string) => params.benchmarks.find((b) => b.exercise_slug === slug)?.value ?? null;
+  const hyrox = find(BENCH_HYROX_OPEN);
+  if (hyrox != null && hyrox > 0) marks.hyrox_s = hyrox;
+  const run5k = find(BENCH_RUN_5K);
+  if (run5k != null && run5k > 0) marks.run_5k_s = run5k;
+  const row2k = find(BENCH_ROW_2K);
+  if (row2k != null && row2k > 0) marks.row_2k_s = row2k;
+  if (params.training_experience_years != null) marks.experience_years = params.training_experience_years;
+  return marks;
+}
+
+function defaultLadder(): ResolvedRung[] {
+  return resolveLadder(
+    Array.from({ length: 5 }, (_, i) => ({ id: String(i + 1), name: String(i + 1), criteria_set_at: null, criteria: [] })),
   );
+}
 
-  // Nivel 4 (élite competitivo): sub-1h HYROX + >=4y, o >=4 marcas élite + >=5y.
-  if (hasHyroxElite && yrs >= 4) return 4;
-  if (eliteHits >= 4 && yrs >= 5) return 4;
-  if (yrs >= 3 && eliteHits >= 2) return 3;
+function readLadder(params: InferLevelParams): { suggestion: LevelSuggestion; rungs: number } {
+  const ladder = params.ladder && params.ladder.length > 0 ? params.ladder : defaultLadder();
+  return { suggestion: suggestLevelOnLadder(ladder, intakeMarks(params), params.sex ?? null), rungs: ladder.length };
+}
 
-  const base: AthleteLevel = yrs >= 2 && (eliteHits >= 1 || strongHits >= 3) ? 2 : 1;
-
-  // Step-2 goal nudge: a "first HYROX" with no objective elite signal is a
-  // beginner regardless of years tinkering; "complete_fun" likewise caps at
-  // beginner unless real marks contradict it. Never PROMOTES (objective marks
-  // own the ceiling) — only guards against over-leveling on thin data.
+export function inferLevel(params: InferLevelParams): AthleteLevel {
+  const { suggestion, rungs } = readLadder(params);
+  if (suggestion.status !== 'suggested') return 1;
+  // Guarda del objetivo: una «primera HYROX» o «completar y disfrutar» sin una
+  // sola marca de rendimiento (solo años) es principiante. Nunca sube a nadie.
   const goal = params.goal?.goal_type ?? null;
-  if ((goal === 'first_hyrox' || goal === 'complete_fun') && eliteHits === 0) {
-    return 1;
-  }
-  return base;
+  const onlyYears = suggestion.signals.every((m) => m === 'experience_years');
+  if ((goal === 'first_hyrox' || goal === 'complete_fun') && onlyYears) return 1;
+  return tierFromRung(suggestion.position, rungs);
 }
 
-// Thresholds keyed by the CANONICAL benchmark slugs the onboarding route writes
-// (see @fahybrid/shared/domain/coach/benchmark-slugs). Values unchanged.
-const ELITE_THRESHOLDS: Record<string, { value: number; better_when: 'gte' | 'lte' }> = {
-  [BENCH_BACK_SQUAT_1RM]: { value: 130, better_when: 'gte' },
-  [BENCH_DEADLIFT_1RM]: { value: 170, better_when: 'gte' },
-  [BENCH_BENCH_PRESS_1RM]: { value: 95, better_when: 'gte' },
-  [BENCH_OHP_1RM]: { value: 60, better_when: 'gte' },
-  [BENCH_CLEAN_1RM]: { value: 90, better_when: 'gte' },
-  [BENCH_SNATCH_1RM]: { value: 65, better_when: 'gte' },
-  [BENCH_STRICT_PULL_UP_MAX]: { value: 20, better_when: 'gte' },
-  [BENCH_PUSH_UPS_PER_MIN]: { value: 60, better_when: 'gte' },
-  [BENCH_RUN_5K]: { value: 21 * 60, better_when: 'lte' },
-  [BENCH_RUN_10K]: { value: 44 * 60, better_when: 'lte' },
-  [BENCH_RUN_HALF]: { value: 1.6 * 3600, better_when: 'lte' },
-  [BENCH_ROW_2K]: { value: 7 * 60 + 20, better_when: 'lte' },
-  [BENCH_SKI_1K]: { value: 4 * 60 + 5, better_when: 'lte' },
-  [BENCH_HYROX_PRO]: { value: 70 * 60, better_when: 'lte' },
+const TIER_NAME: Record<AthleteLevel, string> = {
+  1: 'principiante',
+  2: 'intermedio',
+  3: 'pro',
+  4: 'élite competitivo',
 };
-
-const STRONG_THRESHOLDS: Record<string, { value: number; better_when: 'gte' | 'lte' }> = {
-  [BENCH_BACK_SQUAT_1RM]: { value: 110, better_when: 'gte' },
-  [BENCH_DEADLIFT_1RM]: { value: 140, better_when: 'gte' },
-  [BENCH_BENCH_PRESS_1RM]: { value: 80, better_when: 'gte' },
-  [BENCH_OHP_1RM]: { value: 50, better_when: 'gte' },
-  [BENCH_CLEAN_1RM]: { value: 75, better_when: 'gte' },
-  [BENCH_SNATCH_1RM]: { value: 55, better_when: 'gte' },
-  [BENCH_STRICT_PULL_UP_MAX]: { value: 12, better_when: 'gte' },
-  [BENCH_PUSH_UPS_PER_MIN]: { value: 45, better_when: 'gte' },
-  [BENCH_RUN_5K]: { value: 23 * 60, better_when: 'lte' },
-  [BENCH_RUN_10K]: { value: 48 * 60, better_when: 'lte' },
-  [BENCH_RUN_HALF]: { value: 1.85 * 3600, better_when: 'lte' },
-  [BENCH_ROW_2K]: { value: 7 * 60 + 50, better_when: 'lte' },
-  [BENCH_SKI_1K]: { value: 4 * 60 + 30, better_when: 'lte' },
-  [BENCH_HYROX_PRO]: { value: 80 * 60, better_when: 'lte' },
-};
-
-export function countEliteHits(bench: SuggestionBenchmark[]): number {
-  let n = 0;
-  for (const b of bench) {
-    const t = ELITE_THRESHOLDS[b.exercise_slug];
-    if (!t) continue;
-    if (t.better_when === 'gte' ? b.value >= t.value : b.value <= t.value) n += 1;
-  }
-  return n;
-}
-
-function countStrongHits(bench: SuggestionBenchmark[]): number {
-  let n = 0;
-  for (const b of bench) {
-    const t = STRONG_THRESHOLDS[b.exercise_slug];
-    if (!t) continue;
-    if (t.better_when === 'gte' ? b.value >= t.value : b.value <= t.value) n += 1;
-  }
-  return n;
-}
 
 export function explainLevel(
   level: AthleteLevel,
@@ -216,86 +195,27 @@ export function explainLevel(
     training_experience_years: number | null;
     benchmarks: SuggestionBenchmark[];
     division: string | null;
+    /** La misma escalera con la que se infirió el tramo (sin ella, los defectos). */
+    ladder?: ResolvedRung[];
+    sex?: 'male' | 'female' | null;
   },
 ): string {
-  const yrs = ctx.training_experience_years ?? 0;
-  const eliteCount = countEliteHits(ctx.benchmarks);
+  const { suggestion } = readLadder({
+    benchmarks: ctx.benchmarks,
+    training_experience_years: ctx.training_experience_years,
+    ladder: ctx.ladder,
+    sex: ctx.sex,
+  });
   const parts: string[] = [];
-  if (yrs > 0) parts.push(`${yrs}y experiencia`);
-  if (eliteCount > 0) parts.push(`${eliteCount} marcas en rango élite`);
+  const yrs = ctx.training_experience_years ?? 0;
+  if (yrs > 0) parts.push(`${yrs} ${yrs === 1 ? 'año' : 'años'} entrenando`);
+  if (suggestion.status === 'suggested') {
+    const marks = suggestion.signals.filter((m) => m !== 'experience_years').map((m) => LEVEL_METRIC_SPEC[m].label);
+    if (marks.length > 0) parts.push(`marcas: ${marks.join(', ')}`);
+  }
   if (ctx.division) parts.push(ctx.division);
-  if (parts.length === 0) parts.push('datos limitados de onboarding');
-  const tail =
-    level === 4
-      ? 'élite competitivo'
-      : level === 3
-        ? 'pro'
-        : level === 2
-          ? 'intermedio'
-          : 'principiante';
-  return `${parts.join(' · ')} → ${tail}`;
-}
-
-// =============================================================================
-// Baseline tests
-// =============================================================================
-
-interface RecommendTestsParams {
-  benchmarks: SuggestionBenchmark[];
-  is_compressive: boolean;
-}
-
-export function recommendBaselineTests(params: RecommendTestsParams): IntakeBaselineTest[] {
-  const slugs = new Set(params.benchmarks.map((b) => b.exercise_slug));
-  const tests: IntakeBaselineTest[] = [
-    {
-      slug: 'hrv_baseline_7d',
-      label: 'HRV baseline 7d',
-      kind: 'auto',
-      scheduled_for: null,
-    },
-    {
-      slug: 'sleep_baseline_7d',
-      label: 'Sleep tracking 7d',
-      kind: 'auto',
-      scheduled_for: null,
-    },
-  ];
-
-  if (!params.is_compressive) {
-    tests.push({
-      slug: 'hyrox_sim_half',
-      label: 'HYROX simulation half',
-      kind: 'programmed',
-      scheduled_for: null,
-    });
-  }
-
-  const missing1RM = [
-    BENCH_BACK_SQUAT_1RM,
-    BENCH_DEADLIFT_1RM,
-    BENCH_BENCH_PRESS_1RM,
-    BENCH_CLEAN_1RM,
-  ].filter((s) => !slugs.has(s));
-  if (missing1RM.length >= 2) {
-    tests.push({
-      slug: 'one_rm_battery',
-      label: `Update 1RMs (${missing1RM.length} faltan)`,
-      kind: 'programmed',
-      scheduled_for: null,
-    });
-  }
-
-  if (!slugs.has(BENCH_RUN_5K) && !slugs.has(BENCH_RUN_10K)) {
-    tests.push({
-      slug: 'endurance_5k',
-      label: '5K test endurance',
-      kind: 'programmed',
-      scheduled_for: null,
-    });
-  }
-
-  return tests;
+  if (parts.length === 0) parts.push('datos limitados del alta');
+  return `${parts.join(' · ')} → ${TIER_NAME[level]}`;
 }
 
 // =============================================================================
@@ -317,10 +237,7 @@ export function composeWelcomeDraft(params: {
   const first = params.full_name.split(' ')[0];
   const eventPhrase = params.target_event && !params.target_event.is_in_past
     ? `El plan apunta a ${params.target_event.name}.`
-    : 'Vamos a definir tu evento objetivo en los próximos días.';
-  const weekPhrase = params.is_compressive
-    ? 'Esta semana es testing + arranque comprimido.'
-    : 'Esta semana es testing + arranque del primer microciclo.';
+    : 'Si entrenas para alguna carrera, dime cuál y apuntamos el plan a esa fecha.';
   // The welcome adjective agrees with the athlete's sex. When sex is unknown or
   // 'other' we use a non-gendered phrasing ("te doy la bienvenida") so the draft
   // never assumes a gender — masculine-by-default was the bug.
@@ -334,7 +251,7 @@ export function composeWelcomeDraft(params: {
   const opener = params.has_intake_data
     ? `Hola ${first}, ${welcome ?? 'te doy la bienvenida'}. He revisado tu perfil — tienes buena base. ${eventPhrase}`
     : `Hola ${first}, ${welcome ? `${welcome} a bordo` : 'te doy la bienvenida'}. Cuéntame tus objetivos y tu punto de partida para ajustar el plan. ${eventPhrase}`;
-  return [opener, weekPhrase, 'Cualquier duda escríbeme. Vamos.'].join(' ');
+  return [opener, 'Cualquier duda, escríbeme. Vamos.'].join(' ');
 }
 
 // =============================================================================

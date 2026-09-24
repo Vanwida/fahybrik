@@ -1,4 +1,5 @@
 // DELETE /api/coach/availability/exceptions/[id] — unblock a previously-blocked day.
+// Scoped: another coach's day (or a missing id) → the same 404.
 
 import type { NextResponse } from 'next/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
@@ -19,6 +20,7 @@ export async function DELETE(_req: Request, ctx: Ctx): Promise<NextResponse> {
   const { id } = await ctx.params;
   if (!/^\d+$/.test(id)) return jsonError('invalid_id', 'id inválido', 400);
 
-  await removeException(BigInt(id));
+  const removed = await removeException(session.coach_id, BigInt(id));
+  if (!removed) return jsonError('not_found', 'Día no encontrado', 404);
   return jsonOk({ ok: true });
 }

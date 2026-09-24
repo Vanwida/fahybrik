@@ -22,6 +22,8 @@ import type {
   WeekAdjustmentProposalRecord,
   WeekFeedSummary,
 } from '@/lib/dashboard/coach/weekly-evaluation';
+import { Check, SlidersHorizontal, X } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
 
 // ── Normalised view shape (the GET pending + the POST propose response both map
 //    into this, so the panel has ONE render path) ────────────────────────────────
@@ -67,10 +69,12 @@ const VERDICT_META: Record<Verdict, { label: string; tone: Tone }> = {
 
 const TRIGGER_TONE: Record<FiredTrigger['tone'], Tone> = { warning: 'warn', danger: 'danger' };
 
+// Días del calendario (YYYY-MM-DD, medianoche UTC): se formatean en UTC para que
+// ningún huso los mueva al día anterior.
 const WEEK_FMT = new Intl.DateTimeFormat('es-ES', {
   day: 'numeric',
   month: 'short',
-  timeZone: 'Europe/Madrid',
+  timeZone: 'UTC',
 });
 
 function fromGet(r: GetResp): ShownProposal | null {
@@ -249,7 +253,7 @@ function EvaluateCta({
   return (
     <div className="flex flex-col items-start gap-3">
       <div className="flex items-start gap-2.5">
-        <MIcon name="tune" size={20} className="mt-0.5 text-[color:var(--v2-accent-text)]" />
+        <MIcon name="tune" size={20} className="mt-0.5 text-v2-muted" />
         <div className="flex flex-col gap-0.5">
           <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
             Sin ajuste pendiente
@@ -260,20 +264,10 @@ function EvaluateCta({
           </span>
         </div>
       </div>
-      {error ? <span className="text-label font-medium text-[color:var(--v2-danger)]">{error}</span> : null}
-      <button
-        type="button"
-        onClick={onEvaluate}
-        disabled={busy}
-        className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-xs font-semibold text-[color:var(--v2-bg)] transition-opacity hover:opacity-90 disabled:opacity-50"
-      >
-        {busy ? (
-          <MIcon name="progress_activity" size={15} className="animate-spin" />
-        ) : (
-          <MIcon name="tune" size={15} />
-        )}
+      {error ? <span className="t-meta font-medium text-[color:var(--v2-danger)]">{error}</span> : null}
+      <Button icon={SlidersHorizontal} loading={busy} onClick={onEvaluate}>
         Evaluar semana
-      </button>
+      </Button>
     </div>
   );
 }
@@ -302,14 +296,14 @@ function ProposalView({
       {/* Verdict + recommendation + evaluated week */}
       <div className="flex flex-wrap items-center gap-2">
         <span
-          className="inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2.5 py-1 text-label font-bold"
+          className="inline-flex items-center gap-1.5 rounded-ctl px-2.5 py-1 t-meta font-semibold"
           style={{ background: `var(--v2-${verdict.tone}-soft)`, color: `var(${TONE_VAR[verdict.tone]})` }}
         >
           <MIcon name={p.verdict === 'ok' ? 'check_circle' : 'warning'} size={14} filled />
           {verdict.label}
         </span>
         <Chip label="Recomendación" value={RECOMMENDATION_LABEL[p.recommendation]} tone="accent" />
-        <span className="v2-num ml-auto text-label text-[color:var(--v2-faint)]">
+        <span className="t-tnum ml-auto t-meta text-[color:var(--v2-faint)]">
           Semana del {WEEK_FMT.format(new Date(p.week_start))}
         </span>
       </div>
@@ -339,17 +333,17 @@ function ProposalView({
       {/* Concrete slot changes */}
       {p.slot_changes.length > 0 ? (
         <div className="flex flex-col gap-1.5">
-          <span className="v2-micro">Cambios propuestos</span>
+          <span className="t-label text-v2-faint">Cambios propuestos</span>
           <div className="flex flex-col gap-1.5">
             {p.slot_changes.map((c, i) => (
               <div
                 key={`${c.date}-${c.slot}-${i}`}
-                className="flex items-center gap-2 rounded-[var(--v2-r-s)] bg-[color:var(--v2-surface-2)] px-2.5 py-1.5"
+                className="flex items-center gap-2 rounded-ctl bg-[color:var(--v2-surface-2)] px-2.5 py-1.5"
               >
-                <span className="v2-num text-label text-[color:var(--v2-faint)]">
+                <span className="t-tnum t-meta text-[color:var(--v2-faint)]">
                   {WEEK_FMT.format(new Date(c.date))} · {c.slot.toUpperCase()}
                 </span>
-                <span className="ml-auto flex items-center gap-1.5 text-label text-[color:var(--v2-fg)]">
+                <span className="ml-auto flex items-center gap-1.5 t-meta text-[color:var(--v2-fg)]">
                   <span className="truncate text-[color:var(--v2-muted)]">
                     {templateName(p.template_names, c.from_template_id)}
                   </span>
@@ -365,51 +359,27 @@ function ProposalView({
       ) : null}
 
       {actionError ? (
-        <span className="text-label font-medium text-[color:var(--v2-danger)]">{actionError}</span>
+        <span className="t-meta font-medium text-[color:var(--v2-danger)]">{actionError}</span>
       ) : null}
 
       {/* Actions */}
       {actionable ? (
         <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onReject}
-            disabled={busy != null}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)] disabled:opacity-50"
-          >
-            {busy === 'reject' ? (
-              <MIcon name="progress_activity" size={15} className="animate-spin" />
-            ) : (
-              <MIcon name="close" size={15} />
-            )}
+          <Button variant="ghost" icon={X} loading={busy === 'reject'} disabled={busy != null} onClick={onReject}>
             Rechazar
-          </button>
-          <button
-            type="button"
-            onClick={onApprove}
-            disabled={busy != null}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3.5 text-xs font-semibold text-[color:var(--v2-bg)] transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {busy === 'approve' ? (
-              <MIcon name="progress_activity" size={15} className="animate-spin" />
-            ) : (
-              <MIcon name="check" size={15} />
-            )}
+          </Button>
+          <Button variant="primary" icon={Check} loading={busy === 'approve'} disabled={busy != null} onClick={onApprove}>
             Aprobar
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="flex items-center justify-between gap-2">
-          <span className="text-label text-[color:var(--v2-muted)]">
+          <span className="t-meta text-[color:var(--v2-muted)]">
             Semana correcta, el plan sigue sin cambios.
           </span>
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="v2-focus inline-flex h-8 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-          >
+          <Button size="sm" onClick={onDismiss}>
             Entendido
-          </button>
+          </Button>
         </div>
       )}
     </div>

@@ -20,6 +20,15 @@ export const NOW = new Date('2026-06-18T12:00:00.000Z');
 
 export const ATHLETE_ID = 'ath_1';
 
+/** El día del atleta en `NOW` (Europe/Madrid). */
+export const TODAY = '2026-06-18';
+
+/** YYYY-MM-DD a `d` días de TODAY. */
+export function dayOffset(d: number): string {
+  const t = new Date(Date.UTC(2026, 5, 18 + d));
+  return t.toISOString().slice(0, 10);
+}
+
 /**
  * `EffectiveThresholds` es un registro numérico de sólo lectura; la config real
  * es un superconjunto de string→number, así que lo satisface estructuralmente.
@@ -37,10 +46,18 @@ export function baseFacts(overrides: Partial<SignalFacts> = {}): SignalFacts {
     hrv_baseline_days: null,
     sync_minutes_ago: null,
     missed_sessions_7d: 0,
-    rpe_yesterday: null,
+    due_sessions_7d: 0,
+    last_missed_on: null,
+    sessions_7d_rpe: [],
     last_checkin_at: NOW, // reciente → checkin_skipped no dispara
+    checkins_prior_14d: 0,
     unread_message_age_min: null,
+    awaiting_reply_count: 0,
+    awaiting_reply_last_at: null,
     readiness_score: null,
+    readiness_series: [],
+    today_iso: TODAY,
+    timezone: 'Europe/Madrid',
 
     discomfort_area: null,
     discomfort_at: null,
@@ -50,6 +67,8 @@ export function baseFacts(overrides: Partial<SignalFacts> = {}): SignalFacts {
     programming_label: null,
     programming_detail: null,
     current_microcycle_end_iso: null,
+    next_program_start_iso: null,
+    last_program_end_iso: null,
     current_block_type: null,
     transition_recommendation: null,
     transition_detail: null,
@@ -78,6 +97,8 @@ export function baseFacts(overrides: Partial<SignalFacts> = {}): SignalFacts {
     latest_libre_at: null,
     latest_libre_title: null,
     latest_libre_detail: null,
+    latest_off_plan_at: null,
+    latest_off_plan_detail: null,
 
     // Revisiones 1:1 (#21): sin cadencia → review_1on1_due no dispara por defecto.
     review_cadence: 'ninguna',

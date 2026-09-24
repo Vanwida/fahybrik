@@ -1,19 +1,28 @@
 'use client';
 
-// Alta control (#5) — replaces the old disabled seam in LeadDetalle. Three states:
-//   • already converted → a link to the athlete it became;
-//   • alta already sent  → a "sent" marker + resend/edit;
-//   • otherwise (a live lead) → "Dar de alta como atleta" → the pre-filled modal.
-// The modal is pre-filled from the lead's onboarding (name, email, edad, sexo, nivel,
-// días, notas), the coach adjusts, and POST /api/coach/leads/[id]/alta creates the
-// athlete + mints the claim invite + emails the lead. The lead becomes `convertido`
-// only when the athlete redeems (not here).
+// Convertir un lead en atleta (#5). Tres estados:
+//   · ya convertido → enlace a su ficha;
+//   · alta enviada  → «Reenviar» + cuándo se envió (pendiente de que la reclame);
+//   · lead vivo     → «Convertir en atleta» abre el formulario pre-rellenado.
+// POST /api/coach/leads/[id]/alta crea el atleta, genera la invitación y le
+// escribe. El lead pasa a «Convertido» cuando el atleta la canjea, no aquí.
 
-import { useState, useTransition } from 'react';
+import { useId, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { Check, Copy, UserPlus } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/ui/MIcon';
-import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  Field,
+  Input,
+  SegmentedControl,
+  Select,
+  StatusBadge,
+  Textarea,
+  buttonVariants,
+} from '@/components/v2/ui';
 import type { AltaPrefill } from '@/lib/leads/alta-mapping';
 import type { CoachLevelOption } from '@/lib/dashboard/coach/leads';
 import type { LeadStatus } from '@/lib/dashboard/coach/leads-status';
@@ -24,25 +33,15 @@ interface AltaState {
   prefill: AltaPrefill;
 }
 
-const FIELD_CLS =
-  'v2-focus h-10 w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-border-strong)]';
-
 const SEX_OPTIONS: Array<{ value: 'male' | 'female' | 'other'; label: string }> = [
   { value: 'male', label: 'Hombre' },
   { value: 'female', label: 'Mujer' },
   { value: 'other', label: 'Otro / prefiere no decir' },
 ];
 
-const MODALITY_OPTIONS: Array<{ value: 'individual' | 'dobles'; label: string }> = [
-  { value: 'individual', label: 'Individual' },
-  { value: 'dobles', label: 'Dobles' },
-];
-
 function formatDate(iso: string): string {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? ''
-    : d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 }
 
 export function LeadAltaControl({
@@ -50,82 +49,62 @@ export function LeadAltaControl({
   status,
   alta,
   levels,
+  axisLabel,
   stripeConfigured = false,
 }: {
   leadId: string;
   status: LeadStatus;
   alta: AltaState;
   levels: CoachLevelOption[];
+  /** Cómo llama el coach a su clasificación («Nivel» por defecto). */
+  axisLabel: string;
   stripeConfigured?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
-  // Converted — the loop is closed. Link to the athlete.
   if (alta.converted_athlete_id) {
     return (
-      <div className="flex items-center gap-2 text-sm">
-        <MIcon name="check_circle" size={18} filled className="text-[color:var(--v2-ok)]" />
-        <span className="text-[color:var(--v2-fg)]">Convertido en atleta.</span>
-        <Link
-          href={`/atletas/${alta.converted_athlete_id}`}
-          className="v2-focus font-semibold text-[color:var(--v2-accent)] underline-offset-2 hover:underline"
-        >
-          Ver ficha →
-        </Link>
-      </div>
+      <Link href={`/atletas/${alta.converted_athlete_id}`} className={buttonVariants({ variant: 'secondary' })}>
+        Ver su ficha de atleta
+      </Link>
     );
   }
 
   const terminal = status === 'descartado';
-
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          disabled={terminal}
-          onClick={() => setOpen(true)}
-          className="inline-flex h-10 w-fit items-center gap-2 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <MIcon name="person_add" size={18} />
-          {alta.sent_at ? 'Reenviar / editar alta' : 'Dar de alta como atleta'}
-        </button>
-        {alta.sent_at ? (
-          <span className="inline-flex items-center gap-1.5 text-xs text-[color:var(--v2-muted)]">
-            <MIcon name="mark_email_read" size={16} className="text-[color:var(--v2-ok)]" />
-            Alta enviada · {formatDate(alta.sent_at)} — pendiente de que el atleta la reclame.
-          </span>
-        ) : null}
-      </div>
-      {terminal ? (
-        <span className="text-xs text-[color:var(--v2-muted)]">
-          El lead está descartado. Reábrelo antes de darlo de alta.
-        </span>
+    <>
+      <Button variant="primary" icon={UserPlus} disabled={terminal} onClick={() => setOpen(true)}>
+        {alta.sent_at ? 'Reenviar invitación' : 'Convertir en atleta'}
+      </Button>
+      {alta.sent_at ? (
+        <StatusBadge tone="info" size="sm" label={`Invitación enviada el ${formatDate(alta.sent_at)} · sin canjear`} />
       ) : null}
-
       {open ? (
-        <AltaModal
+        <AltaDialog
           leadId={leadId}
           prefill={alta.prefill}
           levels={levels}
+          axisLabel={axisLabel}
           stripeConfigured={stripeConfigured}
           onClose={() => setOpen(false)}
         />
       ) : null}
-    </div>
+    </>
   );
 }
 
-function AltaModal({
+function AltaDialog({
   leadId,
   prefill,
   levels,
+  axisLabel,
   stripeConfigured,
   onClose,
 }: {
   leadId: string;
   prefill: AltaPrefill;
   levels: CoachLevelOption[];
+  axisLabel: string;
   stripeConfigured: boolean;
   onClose: () => void;
 }) {
@@ -177,7 +156,7 @@ function AltaModal({
     const priceValue = Number(price);
     const priceValid = price.trim() !== '' && Number.isFinite(priceValue) && priceValue > 0;
     if (!cortesia && !founder && !priceValid) {
-      setError('Introduce el precio mensual, o marca "Cortesía" o "Fundador".');
+      setError('Pon el precio mensual, o marca cortesía o fundador.');
       return;
     }
 
@@ -209,219 +188,173 @@ function AltaModal({
         | { ok?: boolean; alta?: { invite_url: string; email_sent: boolean }; error?: { message?: string } }
         | null;
       if (!res.ok || !data?.alta) {
-        setError(data?.error?.message ?? 'No se pudo dar de alta al lead.');
+        setError(data?.error?.message ?? 'No se ha podido convertir en atleta.');
         return;
       }
       setDone({ inviteUrl: data.alta.invite_url, emailSent: data.alta.email_sent });
     } catch {
-      setError('Error de red. Inténtalo de nuevo.');
+      setError('Sin conexión. No se ha convertido.');
     } finally {
       setSubmitting(false);
     }
   }
 
+  const formId = useId();
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <button type="button" aria-label="Cerrar" onClick={close} className="absolute inset-0 bg-[color:var(--v2-scrim)]" />
-      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Dar de alta como atleta</h2>
-          <button type="button" aria-label="Cerrar" onClick={close} className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-[var(--v2-r-s)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]">
-            <MIcon name="close" size={20} />
-          </button>
-        </div>
-
-        {done ? (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-sm text-[color:var(--v2-fg)]">
-              <MIcon name="check_circle" size={20} filled className="text-[color:var(--v2-ok)]" />
-              Atleta creado.{' '}
-              {done.emailSent ? 'Le hemos enviado el email de alta.' : 'Copia el enlace y envíaselo (email no configurado).'}
-            </div>
-            <label className="flex flex-col gap-1.5">
-              <span className="v2-micro">Enlace de alta</span>
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        if (!o) close();
+      }}
+      title="Convertir en atleta"
+      description={done ? undefined : 'Sale de lo que contestó en tu formulario. Ajusta lo que haga falta; le llega un correo para bajarse la app.'}
+      footer={
+        done ? (
+          <Button variant="primary" onClick={close}>
+            Hecho
+          </Button>
+        ) : (
+          <>
+            <Button variant="ghost" onClick={close}>
+              Cancelar
+            </Button>
+            <Button variant="primary" type="submit" form={formId} loading={submitting}>
+              Convertir y enviar invitación
+            </Button>
+          </>
+        )
+      }
+    >
+      {done ? (
+        <div className="flex flex-col gap-3">
+          <StatusBadge
+            tone="ok"
+            label={done.emailSent ? 'Atleta creado. Le hemos enviado la invitación.' : 'Atleta creado. Envíale tú el enlace.'}
+          />
+          <Field label="Enlace de invitación">
+            {({ id }) => (
               <div className="flex items-center gap-2">
-                <input readOnly value={done.inviteUrl} className={FIELD_CLS} />
-                <button
-                  type="button"
+                <Input id={id} readOnly value={done.inviteUrl} size="lg" />
+                <Button
+                  icon={copied ? Check : Copy}
                   onClick={() => {
-                    navigator.clipboard?.writeText(done.inviteUrl);
+                    void navigator.clipboard?.writeText(done.inviteUrl);
                     setCopied(true);
                     setTimeout(() => setCopied(false), 1500);
                   }}
-                  className="v2-focus inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-sm font-semibold text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
                 >
-                  <MIcon name={copied ? 'check' : 'content_copy'} size={16} />
                   {copied ? 'Copiado' : 'Copiar'}
-                </button>
+                </Button>
               </div>
-            </label>
-            <div className="mt-1 flex justify-end">
-              <button type="button" onClick={close} className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]">
-                Hecho
-              </button>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
-            <p className="text-xs text-[color:var(--v2-muted)]">
-              Pre-rellenado desde su onboarding. Ajusta lo que quieras y confirma — le llega el email para descargar la app.
-            </p>
-            <label className="flex flex-col gap-1.5">
-              <span className="v2-micro">Nombre completo</span>
-              <input required value={fullName} onChange={(e) => setFullName(e.target.value)} className={FIELD_CLS} />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="v2-micro">Email</span>
-              <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={FIELD_CLS} />
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1.5">
-                <span className="v2-micro">Edad</span>
-                <input type="number" min={12} max={100} value={edad} onChange={(e) => setEdad(e.target.value)} className={FIELD_CLS} />
-              </label>
-              <label className="flex flex-col gap-1.5">
-                <span className="v2-micro">Días / semana</span>
-                <input type="number" min={1} max={14} value={days} onChange={(e) => setDays(e.target.value)} className={FIELD_CLS} />
-              </label>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1.5">
-                <span className="v2-micro">Sexo</span>
-                <select value={sex} onChange={(e) => setSex(e.target.value)} className={FIELD_CLS}>
-                  <option value="">—</option>
-                  {SEX_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1.5">
-                <span className="v2-micro">Nivel</span>
-                <select value={levelId} onChange={(e) => setLevelId(e.target.value)} className={FIELD_CLS}>
-                  <option value="">—</option>
-                  {levels.map((l) => (
-                    <option key={l.id} value={l.id}>{l.name} · {l.label}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="v2-micro">Modalidad</span>
-              <div className="flex gap-2">
-                {MODALITY_OPTIONS.map((o) => (
-                  <button
-                    key={o.value}
-                    type="button"
-                    onClick={() => setModality(o.value)}
-                    className={
-                      'v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] border px-3 text-xs font-semibold transition-colors ' +
-                      (modality === o.value
-                        ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]'
-                        : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]')
-                    }
-                  >
-                    {o.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* #15 — cobro: precio acordado €/mes o cortesía (sin cobro). */}
-            <div className="flex flex-col gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="v2-micro">Cobro</span>
-                <Checkbox
-                  size="dense"
-                  checked={cortesia}
-                  disabled={!stripeConfigured}
-                  onCheckedChange={setCortesia}
-                  label="Cortesía (sin cobro)"
-                />
-              </div>
-              {stripeConfigured ? (
-                <p className="text-label leading-relaxed text-[color:var(--v2-faint)]">
-                  <b className="text-[color:var(--v2-muted)]">Cortesía</b> = acceso libre, sin Stripe.{' '}
-                  <b className="text-[color:var(--v2-muted)]">Fundador</b> = suscripción real por Stripe
-                  a 0 €.
-                </p>
-              ) : null}
-              {!stripeConfigured ? (
-                <p className="flex items-start gap-1.5 text-xs text-[color:var(--v2-warn)]">
-                  <MIcon name="info" size={14} className="mt-px shrink-0" />
-                  El cobro por Stripe está pendiente de configurar. De momento el alta se hace como cortesía; el cobro se activará cuando esté listo.
-                </p>
-              ) : null}
-              {cortesia ? (
-                <p className="text-xs text-[color:var(--v2-muted)]">
-                  Acceso de cortesía: el atleta no paga y no se abre ningún cobro por Stripe.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-2.5">
-                  <Checkbox
-                    size="dense"
-                    align="start"
-                    checked={founder}
-                    onCheckedChange={setFounder}
-                    label={
-                      <>
-                        Fundador — suscripción real por Stripe a{' '}
-                        <b className="text-[color:var(--v2-accent)]">0 €/mes</b> (cupón FUNDADOR, sin
-                        tarjeta).
-                      </>
-                    }
-                  />
-                  <label className="flex flex-col gap-1.5">
-                    <span className="v2-micro">
-                      {founder ? 'Precio de lista (opcional)' : 'Precio acordado €/mes'}
-                    </span>
-                    <div className="relative w-40">
-                      <input
-                        type="number"
-                        min={founder ? 0 : 1}
-                        step="0.01"
-                        inputMode="decimal"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        placeholder={founder ? 'opcional' : 'p. ej. 90'}
-                        className={FIELD_CLS + ' pr-8'}
-                      />
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[color:var(--v2-faint)]">
-                        €
-                      </span>
-                    </div>
-                    {founder ? (
-                      <span className="text-label text-[color:var(--v2-muted)]">
-                        Se cobrará <b className="text-[color:var(--v2-fg)]">0 €</b>. El precio de lista
-                        es opcional (para tu MRR y el día que deje de ser fundador).
-                      </span>
-                    ) : pricePrefilled ? (
-                      <span className="inline-flex items-center gap-1 text-label text-[color:var(--v2-faint)]">
-                        <MIcon name="call" size={13} /> del parte de la llamada
-                      </span>
-                    ) : null}
-                  </label>
-                </div>
+            )}
+          </Field>
+        </div>
+      ) : (
+        <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Field label="Nombre y apellidos">
+            {({ id }) => <Input id={id} size="lg" required value={fullName} onChange={(e) => setFullName(e.target.value)} />}
+          </Field>
+          <Field label="Correo">
+            {({ id }) => <Input id={id} size="lg" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Edad" optional>
+              {({ id }) => (
+                <Input id={id} size="lg" inputMode="numeric" value={edad} onChange={(e) => setEdad(e.target.value)} />
               )}
-            </div>
+            </Field>
+            <Field label="Días por semana" optional>
+              {({ id }) => (
+                <Input id={id} size="lg" inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} />
+              )}
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Sexo" optional>
+              {({ id }) => (
+                <Select
+                  id={id}
+                  size="lg"
+                  value={sex || null}
+                  placeholder="Sin indicar"
+                  onValueChange={(v) => setSex(v)}
+                  options={SEX_OPTIONS.map((o) => ({ value: o.value as string, label: o.label }))}
+                />
+              )}
+            </Field>
+            <Field label={axisLabel} optional>
+              {({ id }) => (
+                <Select
+                  id={id}
+                  size="lg"
+                  value={levelId || null}
+                  placeholder={levels.length === 0 ? 'Aún no has creado ninguno' : 'Sin asignar'}
+                  disabled={levels.length === 0}
+                  onValueChange={(v) => setLevelId(v)}
+                  options={levels.map((l) => ({ value: l.id, label: l.label ? `${l.name} · ${l.label}` : l.name }))}
+                />
+              )}
+            </Field>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="t-meta text-v2-muted">Modalidad</span>
+            <SegmentedControl
+              aria-label="Modalidad"
+              items={[
+                { value: 'individual', label: 'Individual' },
+                { value: 'dobles', label: 'Dobles' },
+              ]}
+              value={modality}
+              onValueChange={setModality}
+              className="w-fit"
+            />
+          </div>
 
-            <label className="flex flex-col gap-1.5">
-              <span className="v2-micro">Notas para el coach</span>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className={FIELD_CLS + ' h-auto resize-y py-2 leading-relaxed'} />
-            </label>
+          <fieldset className="flex flex-col gap-3 rounded-panel border border-v2-border p-3">
+            <legend className="px-1 t-meta text-v2-muted">Cobro</legend>
+            <Checkbox
+              checked={cortesia}
+              disabled={!stripeConfigured}
+              onCheckedChange={setCortesia}
+              label="Cortesía: acceso sin cobro"
+            />
+            {!stripeConfigured ? (
+              <p className="t-body-sm text-v2-muted">El cobro con tarjeta aún no está conectado; de momento, cortesía.</p>
+            ) : cortesia ? null : (
+              <>
+                <Checkbox checked={founder} onCheckedChange={setFounder} label="Fundador: suscripción real a 0 €/mes, sin tarjeta" />
+                <Field
+                  label={founder ? 'Precio de lista (opcional)' : 'Precio acordado'}
+                  hint={founder ? 'No se cobra; sirve para tus cuentas y para el día que deje de ser fundador.' : pricePrefilled ? 'Del parte de la llamada.' : undefined}
+                >
+                  {({ id, describedBy }) => (
+                    <Input
+                      id={id}
+                      size="lg"
+                      inputMode="decimal"
+                      value={price}
+                      aria-describedby={describedBy}
+                      onChange={(e) => setPrice(e.target.value)}
+                      trailing="€/mes"
+                      className="w-44"
+                    />
+                  )}
+                </Field>
+              </>
+            )}
+          </fieldset>
 
-            {error ? <p className="text-xs font-medium text-[color:var(--v2-danger)]">{error}</p> : null}
+          <Field label="Notas para ti" optional>
+            {({ id }) => <Textarea id={id} rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />}
+          </Field>
 
-            <div className="mt-1 flex items-center justify-end gap-2">
-              <button type="button" onClick={close} className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]">
-                Cancelar
-              </button>
-              <button type="submit" disabled={submitting} className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50">
-                {submitting ? 'Dando de alta…' : 'Dar de alta y enviar'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+          {error ? (
+            <p role="alert" className="t-body-sm text-v2-danger">
+              {error}
+            </p>
+          ) : null}
+        </form>
+      )}
+    </Dialog>
   );
 }

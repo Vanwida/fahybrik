@@ -18,7 +18,6 @@
 // eso no se ve, se cuela.
 
 import { useCallback, useEffect, useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
 import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import { pedirComparativa } from '../del-coach/api';
 import { ErrorConReintento } from './ZonasAvisos';
@@ -31,6 +30,8 @@ import {
   type ComparePresetKey,
   type ZoneComparisonDTO,
 } from '@fahybrid/shared/domain/zone-compare';
+import { MessageSquareText } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
 
 type Eleccion = ComparePresetKey | 'libre';
 
@@ -38,14 +39,17 @@ const LIBRE: Eleccion = 'libre';
 
 export function ZonasComparar({
   athleteId,
+  hoy,
   onDarFeedback,
 }: {
   athleteId: string;
+  /** Hoy del ATLETA (YYYY-MM-DD, su huso): las semanas que se comparan son las suyas. */
+  hoy: string;
   /** Convertir lo que está a la vista en una nota. Null mientras no haya nada. */
   onDarFeedback: (periodos: ParDePeriodos) => void;
 }) {
   const [eleccion, setEleccion] = useState<Eleccion>(LIBRE);
-  const [libre, setLibre] = useState<ParDePeriodos>(() => parPorDefecto());
+  const [libre, setLibre] = useState<ParDePeriodos>(() => parPorDefecto(hoy));
   const [intento, setIntento] = useState(0);
   /** ¿Ya llegó la primera respuesta? Hasta entonces la elección la manda el
    *  servidor (su atajo de entrada) y no la pastilla que haya marcada. */
@@ -136,7 +140,7 @@ export function ZonasComparar({
   const apagados = presets.filter((p) => p.unavailable != null);
 
   return (
-    <div className="flex flex-col gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] p-3.5">
+    <div className="flex flex-col gap-3 rounded-panel border border-[color:var(--v2-border)] p-3.5">
       <ChipGroup
         options={opciones}
         value={eleccion}
@@ -148,7 +152,7 @@ export function ZonasComparar({
       {apagados.length > 0 ? (
         <ul className="flex flex-col gap-0.5">
           {apagados.map((p) => (
-            <li key={p.key} className="text-label text-[color:var(--v2-faint)]">
+            <li key={p.key} className="t-meta text-[color:var(--v2-faint)]">
               <b className="font-semibold">{p.label}:</b> {p.unavailable}
             </li>
           ))}
@@ -162,7 +166,7 @@ export function ZonasComparar({
       {error ? (
         <ErrorConReintento message={error} onRetry={() => setIntento((n) => n + 1)} />
       ) : !enOrden ? (
-        <p className="text-label text-[color:var(--v2-warn)]">
+        <p className="t-meta text-[color:var(--v2-warn)]">
           Los dos periodos se pisan. El segundo empieza cuando termina el primero.
         </p>
       ) : comparativa == null ? (
@@ -178,14 +182,9 @@ export function ZonasComparar({
       )}
 
       {comparativa != null && periodos != null && enOrden ? (
-        <button
-          type="button"
-          onClick={() => onDarFeedback(periodos)}
-          className="v2-focus inline-flex h-9 items-center justify-center gap-1.5 self-start rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-3.5 text-label font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-fg)]"
-        >
-          <MIcon name="rate_review" size={15} />
+        <Button icon={MessageSquareText} onClick={() => onDarFeedback(periodos)} className="self-start">
           Dar feedback con esto
-        </button>
+        </Button>
       ) : null}
     </div>
   );

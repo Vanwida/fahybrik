@@ -7,8 +7,10 @@ import {
   estimateRaceReadiness,
   RACE_READINESS_BANDS,
   RACE_READINESS_BAND_MAX,
+  raceReadinessMethodOf,
   readRaceReadiness,
 } from '@fahybrid/shared/domain/coach/race-readiness';
+import { mergeCoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds';
 import { readLoadCoverage, summarizeLoad } from '@fahybrid/shared/domain/training-load';
 import type { RaceReadinessInput } from '@fahybrid/shared/domain/coach/race-readiness';
 import type { DailyTss } from '@fahybrid/shared/domain/training-load';
@@ -308,5 +310,37 @@ describe('buildRaceReadinessHistory', () => {
       samples: [{ iso_date: '2019-01-01', at: new Date('2019-01-01T12:00:00Z') }],
     });
     expect(points).toEqual([]);
+  });
+});
+
+describe('el método del coach (0256)', () => {
+  test('sin fila, 40 / 30 / 20 / 10 y TSB ±10: el número de siempre', () => {
+    const m = raceReadinessMethodOf(mergeCoachThresholds(null));
+    expect(m.band_max).toEqual({ freshness: 40, compliance: 30, hrv: 20, activity: 10 });
+    expect(readRaceReadiness(input(), m)).toEqual(readRaceReadiness(input()));
+  });
+
+  test('sus pesos reparten los 100 puntos y el desglose sigue sumando el total', () => {
+    const m = raceReadinessMethodOf(
+      mergeCoachThresholds({ race_readiness_weight_freshness: 20, race_readiness_weight_adherence: 60 }),
+    );
+    const total = RACE_READINESS_BANDS.reduce((s, b) => s + m.band_max[b], 0);
+    expect(total).toBeCloseTo(100);
+    const { reading } = readRaceReadiness(input({ compliance_pct: 100, tsb: 10 }), m);
+    expect(reading!.bands.compliance).toBe(Math.round(m.band_max.compliance));
+    expect(reading!.score).toBe(RACE_READINESS_BANDS.reduce((s, b) => s + reading!.bands[b], 0));
+  });
+
+  test('una banda con peso 0 no puntúa ni se echa en falta', () => {
+    const m = raceReadinessMethodOf(mergeCoachThresholds({ race_readiness_weight_hrv: 0 }));
+    const { reading, gap } = readRaceReadiness(input({ hrv_delta_ms: null }), m);
+    expect(gap).toBeNull();
+    expect(reading!.bands.hrv).toBe(0);
+  });
+
+  test('su ventana de TSB: con ±20, un TSB de +10 da tres cuartos de frescura', () => {
+    const m = raceReadinessMethodOf(mergeCoachThresholds({ race_readiness_tsb_span: 20 }));
+    expect(readRaceReadiness(input({ tsb: 10 }), m).reading!.bands.freshness).toBe(30);
+    expect(readRaceReadiness(input({ tsb: 10 })).reading!.bands.freshness).toBe(40);
   });
 });

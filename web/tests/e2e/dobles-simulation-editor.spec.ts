@@ -28,8 +28,12 @@ test.describe('coach dobles simulation editor', () => {
     const cookies = await request.storageState();
     await page.context().addCookies(cookies.cookies);
 
-    // 2. Go to the roster and open the first pair's "Reparto" editor.
+    // 2. Go to the roster, open «···» › «Parejas de dobles» (the pairs live in
+    //    that sheet since the Atletas rebuild) and the first pair's "Reparto".
     await page.goto(`${BASE_URL}/es/atletas`);
+    await page.getByRole('button', { name: 'Más' }).first().click();
+    await page.getByRole('menuitem', { name: 'Parejas de dobles' }).click();
+    await expect(page.getByRole('dialog', { name: /Parejas de dobles/ })).toBeVisible();
     const repartoBtn = page.getByRole('button', { name: 'Reparto' }).first();
     test.skip((await repartoBtn.count()) === 0, 'no dobles pair on this demo coach');
     await repartoBtn.click();

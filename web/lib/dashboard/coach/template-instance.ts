@@ -41,9 +41,13 @@ export async function cloneTemplateAsInstance(params: {
   client: Sql;
   source_template_id: number | bigint;
   athlete_id: number | bigint;
+  /** El coach que actúa. Opcional porque la frontera ya se cumple sin él (ver
+   *  abajo); pasarlo añade una comprobación más: el atleta tiene que ser suyo. */
+  coach_id?: number | bigint | undefined;
 }): Promise<{ template_id: number; version: number } | null> {
   const src = Number(params.source_template_id);
   const ath = Number(params.athlete_id);
+  const actingCoach = params.coach_id == null ? null : Number(params.coach_id);
 
   // Deep-copy the template's content columns into a fresh row tagged as this
   // athlete's instance. Identity/versioning/pairing columns are intentionally
@@ -51,6 +55,16 @@ export async function cloneTemplateAsInstance(params: {
   // (dobles pairing) are library concepts, not instance concepts; `archived_at`
   // and the timestamps default fresh. `meta_json` IS copied — its
   // `store_results` drives the athlete week endpoint's is_test flag.
+  //
+  // FRONTERA DE TENANT. El id de origen llega de fuera (un body, un slot de
+  // `slots_json`, una propuesta): el origen SOLO se copia si es del mismo coach
+  // que el atleta destino, y la copia se escribe a nombre de ese coach. Vive aquí,
+  // en la primitiva, y no en cada llamador: todos los caminos que forkean pasan
+  // por esta función, así que ninguno puede olvidarse. Un origen ajeno se trata
+  // igual que uno borrado (null → el llamador salta la asignación o da 400/409),
+  // sin distinguir «no existe» de «no es tuyo»: no se filtra que el id exista.
+  // No hay catálogo base de entrenos (todas las filas tienen coach_id), así que
+  // no hay excepción para `coach_id is null`.
   const tplRows = await params.client<Array<{ id: string; version: number }>>`
     insert into templates (
       coach_id, name, description, format, target_level,
@@ -59,12 +73,15 @@ export async function cloneTemplateAsInstance(params: {
       instance_athlete_id, instance_of_template_id
     )
     select
-      coach_id, name, description, format, target_level,
-      version, day_position, is_draft, is_partner_workout, warmup, cooldown,
-      coach_notes, meta_json, methodology_group_id,
-      ${ath}, coalesce(instance_of_template_id, id)
-    from templates
-    where id = ${src}
+      a.coach_id, t.name, t.description, t.format, t.target_level,
+      t.version, t.day_position, t.is_draft, t.is_partner_workout, t.warmup, t.cooldown,
+      t.coach_notes, t.meta_json, t.methodology_group_id,
+      ${ath}, coalesce(t.instance_of_template_id, t.id)
+    from templates t
+    join athletes a on a.id = ${ath}
+    where t.id = ${src}
+      and t.coach_id = a.coach_id
+      and (${actingCoach}::bigint is null or a.coach_id = ${actingCoach}::bigint)
     returning id::text as id, version
   `;
   if (!tplRows[0]) return null;

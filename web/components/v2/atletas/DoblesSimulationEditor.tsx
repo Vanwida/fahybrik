@@ -12,14 +12,24 @@
 // the athlete API flips it so B sees 1 − share. The editor is A-centric (route
 // athlete = A), and speaks in REAL names, never bare "A/B".
 //
-// Idiom: V2 modal (matches LinkPairModal), reusing SegmentedControl + Pill + the
-// --v2-* tokens. One GET on open, one PUT on save; honest loading/error states.
+// Idiom: the panel's Dialog + primitives. One GET on open, one PUT on save;
+// honest loading/error states.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MIcon } from '@/components/ui/MIcon';
-import { SegmentedControl } from '@/components/v2/SegmentedControl';
-import { cn } from '@/lib/utils';
+import { Check } from 'lucide-react';
+import {
+  Button,
+  Dialog,
+  ErrorState,
+  Field,
+  Input,
+  SegmentedControl,
+  SkeletonRows,
+  Tag,
+  Textarea,
+  type SegmentItem,
+} from '@/components/v2/ui';
 import type {
   DoblesAssignedTo,
   DoblesSimulationCoachResponse,
@@ -39,9 +49,6 @@ interface StationState {
 // Slider step for the share — 5% granularity reads cleanly ("60 / 40") without
 // pretending to a precision a coach never means.
 const SHARE_STEP = 0.05;
-
-const BTN_BASE =
-  'v2-focus inline-flex items-center justify-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-body font-semibold transition-colors disabled:opacity-50';
 
 async function readError(res: Response): Promise<string> {
   try {
@@ -163,7 +170,7 @@ export function DoblesSimulationEditor({
     );
   }, []);
 
-  // "Propuesta de Pablo" (coach) / "Ajustado por Guillem · hace 2h" (athlete).
+  // «Propuesta de <coach>» / «Ajustado por <atleta> · hace 2h».
   const provenanceLabel = useMemo(() => {
     if (!provenanceName) return null;
     if (provenanceKind === 'coach') return `Propuesta de ${provenanceName}`;
@@ -174,7 +181,7 @@ export function DoblesSimulationEditor({
     return null;
   }, [provenanceKind, provenanceName, updatedAt]);
 
-  const assignedOptions = useMemo(
+  const assignedOptions = useMemo<SegmentItem<DoblesAssignedTo>[]>(
     () =>
       [
         { value: 'a' as const, label: aName },
@@ -222,117 +229,62 @@ export function DoblesSimulationEditor({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[color:var(--v2-scrim)] p-4 sm:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Reparto de la simulación"
-      onClick={onClose}
-    >
-      <div
-        className="my-4 w-full max-w-2xl rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="mb-1 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Reparto de la simulación</h2>
-            <p className="mt-0.5 truncate text-body text-[color:var(--v2-muted)]">
-              {aName} <span className="text-[color:var(--v2-accent-text)]">·</span> {bName}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="v2-focus shrink-0 rounded-full p-1 text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
-          >
-            <MIcon name="close" size={18} />
-          </button>
-        </div>
-
-        {/* Provenance — the reparto is the pair's; the coach recommends and either
-            athlete can adjust it from the app. Shows who last touched it. */}
-        {provenanceLabel ? (
-          <p className="mb-2 text-label font-semibold text-[color:var(--v2-muted)]">{provenanceLabel}</p>
-        ) : null}
-
-        {/* Effect explainer — what the coach edits here is what each athlete sees,
-            reframed as a recommendation the pair can adjust. */}
-        <div className="mb-4 flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2.5">
-          <MIcon name="info" size={15} className="mt-0.5 shrink-0 text-[color:var(--v2-accent-text)]" />
-          <p className="text-xs leading-snug text-[color:var(--v2-muted)]">
-            Tu recomendación de reparto para la simulación HYROX. La pareja puede ajustarla
-            desde la app; cada atleta ve lo que esté puesto en su sesión (móvil y reloj):
-            quién arranca cada estación, su parte y la nota.
-          </p>
-        </div>
-
-        {loading ? (
-          <p className="py-8 text-center text-body text-[color:var(--v2-muted)]">Cargando…</p>
-        ) : loadError ? (
-          <p className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 text-body text-[color:var(--v2-danger)]">
-            {loadError}
-          </p>
+    <Dialog
+      open
+      onOpenChange={(o) => (o || saving ? null : onClose())}
+      size="lg"
+      title="Reparto de la simulación"
+      description={`${aName} · ${bName}${provenanceLabel ? ` · ${provenanceLabel}` : ''}`}
+      footer={
+        loading || loadError ? (
+          <Button variant="ghost" onClick={onClose}>
+            Cerrar
+          </Button>
         ) : (
           <>
-            {/* 8 stations, race order */}
-            <div className="flex flex-col gap-2">
-              {stations.map((s) => (
-                <StationRow
-                  key={s.station_index}
-                  station={s}
-                  aName={aName}
-                  bName={bName}
-                  options={assignedOptions}
-                  onAssign={(v) => setAssigned(s.station_index, v)}
-                  onShare={(v) => setShare(s.station_index, v)}
-                  onNote={(v) => setNote(s.station_index, v)}
-                />
-              ))}
-            </div>
-
-            {/* Coach notes */}
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <NoteBox label="Carrera" value={runningNote} onChange={setRunningNote} placeholder="Ritmo, quién marca…" />
-              <NoteBox label="RoxZone" value={roxzoneNote} onChange={setRoxzoneNote} placeholder="Transiciones, relevos…" />
-              <NoteBox label="Táctica" value={tacticalNote} onChange={setTacticalNote} placeholder="Plan general del equipo…" />
-            </div>
-
-            {saveError ? (
-              <p className="mt-3 text-xs font-medium text-[color:var(--v2-danger)]">{saveError}</p>
-            ) : null}
-
-            {/* Footer */}
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={saving}
-                className={cn(
-                  BTN_BASE,
-                  'h-10 border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-                )}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={save}
-                disabled={saving}
-                className={cn(
-                  BTN_BASE,
-                  'h-10 bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',
-                )}
-              >
-                <MIcon name="check" size={16} />
-                {saving ? 'Guardando…' : 'Guardar reparto'}
-              </button>
-            </div>
+            {saveError ? <span className="mr-auto t-body-sm text-v2-danger">{saveError}</span> : null}
+            <Button variant="ghost" onClick={onClose} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button variant="primary" icon={Check} loading={saving} onClick={() => void save()}>
+              Guardar reparto
+            </Button>
           </>
-        )}
-      </div>
-    </div>
+        )
+      }
+    >
+      {loading ? (
+        <SkeletonRows rows={8} />
+      ) : loadError ? (
+        <ErrorState title="No se ha podido cargar el reparto" description={loadError} />
+      ) : (
+        <div className="flex flex-col gap-4">
+          <p className="t-body-sm text-v2-muted">
+            Es tu recomendación: la pareja puede ajustarla desde la app. Cada uno ve en su sesión (móvil y reloj) quién hace
+            cada estación, su parte y la nota.
+          </p>
+          <div className="flex flex-col divide-y divide-v2-border rounded-panel border border-v2-border">
+            {stations.map((s) => (
+              <StationRow
+                key={s.station_index}
+                station={s}
+                aName={aName}
+                bName={bName}
+                options={assignedOptions}
+                onAssign={(v) => setAssigned(s.station_index, v)}
+                onShare={(v) => setShare(s.station_index, v)}
+                onNote={(v) => setNote(s.station_index, v)}
+              />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <NoteBox label="Carrera" value={runningNote} onChange={setRunningNote} placeholder="Ritmo, quién marca…" />
+            <NoteBox label="RoxZone" value={roxzoneNote} onChange={setRoxzoneNote} placeholder="Transiciones, relevos…" />
+            <NoteBox label="Táctica" value={tacticalNote} onChange={setTacticalNote} placeholder="Plan general del equipo…" />
+          </div>
+        </div>
+      )}
+    </Dialog>
   );
 }
 
@@ -350,7 +302,7 @@ function StationRow({
   station: StationState;
   aName: string;
   bName: string;
-  options: ReadonlyArray<{ value: DoblesAssignedTo; label: string }>;
+  options: SegmentItem<DoblesAssignedTo>[];
   onAssign: (v: DoblesAssignedTo) => void;
   onShare: (v: number) => void;
   onNote: (v: string) => void;
@@ -364,59 +316,53 @@ function StationRow({
       ? `${aName} hace la estación completa`
       : station.assigned_to === 'b'
         ? `${bName} hace la estación completa`
-        : `${aName} ${aPct}% · ${bName} ${100 - aPct}%`;
+        : `${aName} ${aPct} % · ${bName} ${100 - aPct} %`;
 
   return (
-    <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3">
+    <div className="flex flex-col gap-2 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[color:var(--v2-surface-2)] text-label font-bold text-[color:var(--v2-muted)]">
-            {station.station_index}
-          </span>
-          <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">{station.label}</span>
+          <Tag className="t-tnum">{station.station_index}</Tag>
+          <span className="truncate t-body font-medium text-v2-fg">{station.label}</span>
         </div>
         <SegmentedControl<DoblesAssignedTo>
-          options={options}
+          items={options}
           value={station.assigned_to}
-          onChange={onAssign}
+          onValueChange={onAssign}
           size="sm"
-          ariaLabel={`Quién hace ${station.label}`}
+          aria-label={`Quién hace ${station.label}`}
         />
       </div>
-
-      {/* Effect line — always visible so the coach reads what each athlete will get. */}
-      <p className="mt-2 text-xs font-medium text-[color:var(--v2-muted)]">{effect}</p>
-
-      {/* Share slider — only when the station is shared. */}
+      <p className="t-meta text-v2-muted">{effect}</p>
       {isSplit ? (
-        <div className="mt-2 flex items-center gap-3">
-          <span className="w-16 shrink-0 text-right text-label font-semibold text-[color:var(--v2-fg)]">
-            {aName.split(' ')[0]} {aPct}%
+        <div className="flex items-center gap-3">
+          <span className="w-20 shrink-0 text-right t-meta font-medium text-v2-fg t-tnum">
+            {aName.split(' ')[0]} {aPct} %
           </span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={SHARE_STEP}
-            value={station.self_share}
-            onChange={(e) => onShare(Number(e.target.value))}
-            className="h-1.5 flex-1 cursor-pointer accent-[color:var(--v2-accent)]"
-            aria-label={`Parte de ${aName} en ${station.label}`}
-          />
-          <span className="w-16 shrink-0 text-label font-semibold text-[color:var(--v2-fg)]">
-            {bName.split(' ')[0]} {100 - aPct}%
+          {/* Sin primitivo de deslizador todavía: el estilo va en el contenedor. */}
+          <span className="flex flex-1 items-center [&>input]:h-1.5 [&>input]:w-full [&>input]:cursor-pointer [&>input]:accent-[var(--v2-fg)]">
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={SHARE_STEP}
+              value={station.self_share}
+              onChange={(e) => onShare(Number(e.target.value))}
+              aria-label={`Parte de ${aName} en ${station.label}`}
+            />
+          </span>
+          <span className="w-20 shrink-0 t-meta font-medium text-v2-fg t-tnum">
+            {bName.split(' ')[0]} {100 - aPct} %
           </span>
         </div>
       ) : null}
-
-      {/* Optional per-station note. */}
-      <input
-        type="text"
+      <Input
+        size="sm"
         value={station.note}
         onChange={(e) => onNote(e.target.value)}
         maxLength={120}
-        placeholder="Nota (ej. alterna 250m)"
-        className="v2-focus mt-2 h-8 w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] px-2.5 text-xs text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-muted)] focus:border-[color:var(--v2-border-strong)]"
+        placeholder="Nota (p. ej. alterna 250 m)"
+        aria-label={`Nota de ${station.label}`}
       />
     </div>
   );
@@ -436,16 +382,10 @@ function NoteBox({
   placeholder: string;
 }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-label font-semibold uppercase tracking-wide text-[color:var(--v2-muted)]">{label}</span>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        maxLength={500}
-        rows={2}
-        placeholder={placeholder}
-        className="v2-focus min-h-[52px] w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-2 text-xs text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-muted)] focus:border-[color:var(--v2-border-strong)]"
-      />
-    </label>
+    <Field label={label}>
+      {({ id }) => (
+        <Textarea id={id} value={value} onChange={(e) => onChange(e.target.value)} maxLength={500} rows={2} placeholder={placeholder} />
+      )}
+    </Field>
   );
 }

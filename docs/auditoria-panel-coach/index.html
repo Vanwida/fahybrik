@@ -1,0 +1,959 @@
+<title>FAHYBRID Coach Panel Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#F4F4F2; --surface:#FFFFFF; --surface-2:#ECECEA; --border:#DCDCD7; --border-strong:#C9C9C3;
+  --fg:#141413; --muted:#52524D; --faint:#67675F;
+  --ok:#1D7447; --ok-soft:rgba(29,116,71,.10);
+  --warn:#8F5400; --warn-soft:rgba(143,84,0,.10);
+  --danger:#BF3128; --danger-soft:rgba(191,49,40,.09);
+  --info:#2C5F9E; --info-soft:rgba(44,95,158,.10);
+  --accent:#141413; --accent-fg:#FFFFFF;
+  --m-fuerza:#4A3AA7; --m-ergo:#1BAF7A; --m-carrera:#2A78D6; --m-circuito:#E87BA4; --m-cal:#8A8A84;
+  --shadow:0 12px 32px -12px rgba(0,0,0,.18);
+  --font:"Figtree",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B0B0C; --surface:#161618; --surface-2:#1E1E21; --border:#2C2C30; --border-strong:#3A3A40;
+    --fg:#F2F2F2; --muted:#A6A6A6; --faint:#8C8C8C;
+    --ok:#3CCF85; --ok-soft:rgba(60,207,133,.13);
+    --warn:#F0A43A; --warn-soft:rgba(240,164,58,.13);
+    --danger:#FF5D55; --danger-soft:rgba(255,93,85,.13);
+    --info:#5AA7F5; --info-soft:rgba(90,167,245,.13);
+    --accent:#F2F2F2; --accent-fg:#0B0B0C;
+    --m-fuerza:#9085E9; --m-ergo:#199E70; --m-carrera:#3987E5; --m-circuito:#D55181; --m-cal:#77777F;
+    --shadow:0 12px 32px -12px rgba(0,0,0,.6);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B0B0C; --surface:#161618; --surface-2:#1E1E21; --border:#2C2C30; --border-strong:#3A3A40;
+  --fg:#F2F2F2; --muted:#A6A6A6; --faint:#8C8C8C;
+  --ok:#3CCF85; --ok-soft:rgba(60,207,133,.13);
+  --warn:#F0A43A; --warn-soft:rgba(240,164,58,.13);
+  --danger:#FF5D55; --danger-soft:rgba(255,93,85,.13);
+  --info:#5AA7F5; --info-soft:rgba(90,167,245,.13);
+  --accent:#F2F2F2; --accent-fg:#0B0B0C;
+  --m-fuerza:#9085E9; --m-ergo:#199E70; --m-carrera:#3987E5; --m-circuito:#D55181; --m-cal:#77777F;
+  --shadow:0 12px 32px -12px rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 var(--font);-webkit-font-smoothing:antialiased;padding-inline:20px}
+.wrap{max-width:1340px;margin:0 auto;padding-block:48px 96px}
+.layout{display:grid;grid-template-columns:1fr;gap:48px}
+@media (min-width:1180px){.layout{grid-template-columns:190px minmax(0,1fr)}}
+nav.toc{display:none}
+@media (min-width:1180px){
+  nav.toc{display:block;position:sticky;top:calc(env(safe-area-inset-top,0px) + 32px);align-self:start;font-size:13px;line-height:1.4}
+  nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:5px 0 5px 12px;border-left:2px solid var(--border)}
+  nav.toc a:hover{color:var(--fg);border-left-color:var(--fg)}
+  nav.toc .toc-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+}
+main{min-width:0}
+h1,h2,h3,h4{text-wrap:balance;margin:0;font-weight:600;letter-spacing:-.01em}
+h1{font-size:clamp(32px,5vw,44px);line-height:1.1;letter-spacing:-.02em}
+h2{font-size:28px;line-height:1.2;margin-top:88px;padding-top:24px;border-top:1px solid var(--border)}
+h3{font-size:20px;line-height:1.3;margin-top:48px}
+h4{font-size:16px;margin-top:28px}
+p,ul,ol{margin:14px 0 0;max-width:70ch}
+li{margin-top:6px}
+a{color:var(--fg);text-underline-offset:3px}
+a:focus-visible,button:focus-visible{outline:2px solid var(--fg);outline-offset:2px;border-radius:4px}
+code{font-family:var(--mono);font-size:.84em;background:var(--surface-2);padding:1px 5px;border-radius:4px;word-break:break-word}
+strong{font-weight:600}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.lede{font-size:19px;line-height:1.55;color:var(--fg);max-width:64ch;margin-top:20px}
+.meta{font-size:13px;color:var(--muted);margin-top:16px}
+.muted{color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+
+/* stat row */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:32px}
+.stat{background:var(--surface);padding:16px 18px}
+.stat b{display:block;font-size:30px;line-height:1.1;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stat span{display:block;font-size:13px;color:var(--muted);margin-top:4px;line-height:1.35}
+
+/* callouts */
+.callout{margin-top:24px;padding:16px 18px;border:1px solid var(--border);border-left:3px solid var(--fg);background:var(--surface);border-radius:8px;max-width:78ch}
+.callout p:first-child{margin-top:0}
+.callout.warn{border-left-color:var(--warn)}
+.callout.danger{border-left-color:var(--danger)}
+.callout.ok{border-left-color:var(--ok)}
+
+/* badges */
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;line-height:1;padding:5px 8px;border-radius:6px;white-space:nowrap}
+.badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.b-keep{color:var(--ok);background:var(--ok-soft)}
+.b-rework{color:var(--warn);background:var(--warn-soft)}
+.b-rebuild{color:var(--danger);background:var(--danger-soft)}
+.b-info{color:var(--info);background:var(--info-soft)}
+.sev{font-size:11px;font-weight:700;padding:3px 6px;border-radius:4px;font-variant-numeric:tabular-nums}
+.p0{color:var(--danger);background:var(--danger-soft)}
+.p1{color:var(--warn);background:var(--warn-soft)}
+
+/* tables */
+.tablewrap{overflow-x:auto;margin-top:20px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.45}
+th{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface)}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600;white-space:nowrap}
+td.why{color:var(--muted);min-width:320px}
+
+/* figures */
+figure{margin:28px 0 0}
+figure img{display:block;width:100%;height:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+figcaption{font-size:13px;color:var(--muted);margin-top:10px;max-width:78ch;line-height:1.5}
+.fig-pair{display:grid;gap:16px;grid-template-columns:1fr}
+@media (min-width:820px){.fig-pair{grid-template-columns:1fr 1fr}.fig-side{grid-template-columns:260px 1fr;align-items:start}}
+.fig-pair figure{margin-top:0}
+.figs{margin-top:28px}
+
+/* problem blocks */
+.problem{margin-top:56px}
+.problem .pnum{font-size:13px;font-weight:600;color:var(--faint);font-variant-numeric:tabular-nums}
+.problem h3{margin-top:6px}
+.evidence{list-style:none;padding:0;max-width:78ch}
+.evidence li{position:relative;padding-left:18px}
+.evidence li::before{content:"";position:absolute;left:2px;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--faint)}
+
+/* decisions */
+.decisions{display:grid;gap:12px;margin-top:24px;counter-reset:dec}
+.dec{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;counter-increment:dec}
+.dec h4{margin:0;font-size:16px;display:flex;gap:10px;align-items:baseline}
+.dec h4::before{content:counter(dec);font-variant-numeric:tabular-nums;color:var(--faint);font-weight:600;min-width:18px}
+.dec .opts{display:grid;gap:6px;margin-top:10px;padding-left:28px}
+.dec .opt{font-size:14px;color:var(--muted);line-height:1.45}
+.dec .opt.rec{color:var(--fg)}
+.dec .opt.rec::after{content:"Recommended";margin-left:8px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ok)}
+.dec .why{font-size:13px;color:var(--muted);margin-top:10px;padding-left:28px;max-width:none}
+.dec .challenges{display:inline-block;font-size:11px;font-weight:600;color:var(--warn);background:var(--warn-soft);padding:2px 6px;border-radius:4px;margin-left:28px;margin-top:10px}
+.defaults{columns:2 300px;column-gap:32px;padding-left:18px;max-width:none}
+.defaults li{break-inside:avoid}
+
+/* phases */
+.phases{display:grid;gap:12px;margin-top:24px}
+.phase{display:grid;grid-template-columns:1fr;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+@media (min-width:760px){.phase{grid-template-columns:160px 1fr}}
+.phase .ph{font-weight:600}
+.phase .ph small{display:block;font-weight:500;color:var(--faint);font-size:12px;margin-top:2px}
+.phase p{margin:0;font-size:15px;max-width:none}
+.phase p + p{margin-top:6px;font-size:14px;color:var(--muted)}
+
+/* ============ MOCKUPS (proposed direction) ============ */
+.mockwrap{overflow-x:auto;margin-top:24px;border-radius:12px;border:1px solid var(--border-strong);box-shadow:var(--shadow);-webkit-overflow-scrolling:touch}
+.mock{width:1100px;background:var(--bg);font:13px/1.4 var(--font);color:var(--fg);display:grid;grid-template-columns:160px 1fr;min-height:560px}
+.mock *{box-sizing:border-box}
+.m-rail{background:var(--surface);border-right:1px solid var(--border);padding:14px 10px;display:flex;flex-direction:column;gap:2px}
+.m-brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;padding:4px 8px 14px}
+.m-logo{width:24px;height:24px;border-radius:6px;background:var(--fg);color:var(--bg);display:grid;place-items:center;font-size:11px;font-weight:700}
+.m-nav{display:flex;align-items:center;justify-content:space-between;height:34px;padding:0 10px;border-radius:6px;color:var(--muted);font-weight:500;position:relative}
+.m-nav.on{background:var(--surface-2);color:var(--fg);font-weight:600}
+.m-nav.on::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:2px;background:var(--fg);border-radius:2px}
+.m-nav .n{font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.m-nav.on .n{color:var(--fg)}
+.m-spacer{flex:1}
+.m-setup{margin:8px 4px;padding:10px;border:1px dashed var(--border-strong);border-radius:8px;font-size:12px;color:var(--muted)}
+.m-setup b{color:var(--fg);font-weight:600}
+.m-bar{display:block;height:4px;background:var(--surface-2);border-radius:2px;margin-top:6px;overflow:hidden}
+.m-bar i{display:block;height:100%;background:var(--fg)}
+.m-main{display:flex;flex-direction:column;min-width:0}
+.m-top{height:48px;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid var(--border);background:var(--surface)}
+.m-search{flex:1;max-width:420px;height:30px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;padding:0 10px;color:var(--faint);gap:8px;background:var(--bg)}
+.m-search .kbd{margin-left:auto}
+.kbd{font:600 10.5px/1 var(--font);border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:4px;padding:3px 5px;color:var(--muted);background:var(--surface)}
+.m-btn{height:30px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border-radius:6px;font-weight:600;font-size:13px;border:1px solid var(--border-strong);background:var(--surface);color:var(--fg);white-space:nowrap}
+.m-btn.sm{height:26px;padding:0 9px;font-size:12px}
+.m-btn.pri{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.m-btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.m-avatar{width:26px;height:26px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font-size:10.5px;font-weight:700;color:var(--muted);flex:none}
+.m-body{padding:18px 20px 20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.m-head{display:flex;align-items:baseline;gap:12px}
+.m-title{font-size:20px;font-weight:600;letter-spacing:-.01em}
+.m-sub{color:var(--muted);font-size:13px}
+.m-tabs{display:flex;gap:4px;flex-wrap:wrap}
+.m-chip{height:26px;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border-radius:999px;border:1px solid var(--border);color:var(--muted);font-weight:500;font-size:12px;background:var(--surface);white-space:nowrap}
+.m-chip.on{background:var(--fg);color:var(--bg);border-color:var(--fg);font-weight:600}
+.m-chip .n{font-variant-numeric:tabular-nums;opacity:.8}
+.m-group{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:0 2px;margin-top:4px;display:flex;justify-content:space-between}
+.m-list{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.m-row{display:grid;align-items:center;gap:12px;padding:0 14px;min-height:44px;border-bottom:1px solid var(--border)}
+.m-row:last-child{border-bottom:0}
+.m-row.sel{background:var(--surface-2)}
+.m-q{grid-template-columns:18px 26px minmax(0,1fr) auto auto;padding-block:7px}
+.m-who{display:flex;flex-direction:column;gap:2px;min-width:0}
+.m-sys{grid-template-columns:26px 1fr auto}
+.m-ico{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;background:var(--surface-2);color:var(--muted);font-weight:700;font-size:12px}
+.m-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-name small{font-weight:500;color:var(--faint);margin-left:6px;font-size:11.5px}
+.m-sig{display:flex;align-items:center;gap:8px;min-width:0;color:var(--muted);white-space:nowrap;overflow:hidden}
+.m-sig .ev{overflow:hidden;text-overflow:ellipsis}
+.m-age{font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;white-space:nowrap}
+.m-acts{display:flex;gap:6px}
+.chk{width:14px;height:14px;border:1.5px solid var(--border-strong);border-radius:3px;display:block}
+.chk.on{background:var(--fg);border-color:var(--fg);position:relative}
+.chk.on::after{content:"";position:absolute;left:3.5px;top:1px;width:4px;height:7px;border:solid var(--bg);border-width:0 1.8px 1.8px 0;transform:rotate(45deg)}
+.st{display:inline-flex;align-items:center;gap:5px;font-weight:600;font-size:12px;white-space:nowrap}
+.st::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.st.danger{color:var(--danger)} .st.warn{color:var(--warn)} .st.ok{color:var(--ok)} .st.info{color:var(--info)} .st.neutral{color:var(--muted)}
+.tag{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;background:var(--surface-2);color:var(--muted);font-size:11px;font-weight:600;white-space:nowrap}
+.tag.warn{background:var(--warn-soft);color:var(--warn)} .tag.ok{background:var(--ok-soft);color:var(--ok)} .tag.danger{background:var(--danger-soft);color:var(--danger)}
+.m-foot{display:flex;justify-content:space-between;align-items:center;color:var(--faint);font-size:12px;gap:12px;flex-wrap:wrap}
+.m-keys{display:flex;gap:12px;align-items:center}
+.m-keys span{display:inline-flex;gap:5px;align-items:center}
+.m-split{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:14px;align-items:start}
+.m-panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.m-panel h5{margin:0;font-size:15px;font-weight:600}
+.m-kv{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12.5px;color:var(--muted)}
+.m-kv b{color:var(--fg);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.m-lab{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.spark{display:block;width:100%;height:36px}
+.spark .base{fill:var(--surface-2)}
+.spark .line{fill:none;stroke:var(--fg);stroke-width:1.5}
+.spark .end{fill:var(--danger)}
+.dots7{display:flex;gap:4px}
+.dots7 i{width:16px;height:16px;border-radius:4px;background:var(--surface-2);display:block;position:relative}
+.dots7 i.d{background:var(--ok)} .dots7 i.x{background:var(--danger)} .dots7 i.t{outline:2px solid var(--fg);outline-offset:1px}
+.m-msg{font-size:12.5px;background:var(--surface-2);border-radius:8px;padding:8px 10px;color:var(--fg)}
+.m-msg small{display:block;color:var(--faint);font-size:11px;margin-top:3px}
+/* table mock */
+.m-table{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.m-tr{display:grid;grid-template-columns:18px 150px 170px 64px 100px 88px 64px 100px 56px;gap:10px;align-items:center;padding:0 14px;height:40px;border-bottom:1px solid var(--border);white-space:nowrap}
+.m-tr:last-child{border-bottom:0}
+.m-tr.h{height:32px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.m-tr.sel{background:var(--surface-2)}
+.m-ath{display:flex;gap:8px;align-items:center;min-width:0}
+.m-ath .m-avatar{width:22px;height:22px;font-size:9.5px}
+.m-ath span{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.m-ath small{color:var(--faint);font-size:11.5px;font-weight:600}
+.rd{display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;font-weight:600}
+.rd svg{width:54px;height:16px}
+.rd svg polyline{fill:none;stroke:var(--muted);stroke-width:1.4}
+.adh{display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.adh i{display:block;width:44px;height:5px;border-radius:3px;background:var(--surface-2);overflow:hidden}
+.adh i b{display:block;height:100%;background:var(--fg)}
+.cell-m{color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
+.m-bulk{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--fg);color:var(--bg);box-shadow:var(--shadow);align-self:center}
+.m-bulk .m-btn{background:transparent;color:var(--bg);border-color:rgba(127,127,127,.45);height:28px}
+.m-bulk b{padding:0 6px 0 4px;font-weight:600}
+/* cockpit */
+.m-ahead{display:flex;align-items:center;gap:12px}
+.m-ahead .m-avatar{width:40px;height:40px;font-size:13px}
+.m-ahead .nm{font-size:20px;font-weight:600;letter-spacing:-.01em}
+.m-ahead .sub{color:var(--muted);font-size:12.5px}
+.m-status{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:8px;background:var(--danger-soft);color:var(--fg);font-size:13px}
+.m-status .st{color:var(--danger)}
+.m-do{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.m-subtabs{display:flex;gap:18px;border-bottom:1px solid var(--border);font-weight:500;color:var(--muted)}
+.m-subtabs span{padding:6px 0 9px}
+.m-subtabs span.on{color:var(--fg);font-weight:600;box-shadow:inset 0 -2px 0 var(--fg)}
+.cal{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.cal-r{display:grid;grid-template-columns:60px repeat(7,minmax(0,1fr)) 76px;border-bottom:1px solid var(--border)}
+.cal-r:last-child{border-bottom:0}
+.cal-r.h{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.cal-r > div{padding:7px 6px;border-right:1px solid var(--border);min-height:36px;display:flex;flex-direction:column;gap:4px}
+.cal-r > div:last-child{border-right:0}
+.cal-r .wk{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;font-weight:600}
+.cal-r .today{background:var(--surface-2)}
+.ses{display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:3px 5px;border-radius:5px;background:var(--bg);border:1px solid var(--border);white-space:nowrap;overflow:hidden}
+.ses i{flex:none;width:3px;align-self:stretch;border-radius:2px}
+.ses span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;line-height:1.25}
+.ses{white-space:normal;align-items:flex-start}
+.ses .ck{margin-left:auto;font-size:11px;flex:none}
+.ses .ck.ok{color:var(--ok)} .ses .ck.x{color:var(--danger)}
+.add{font-size:12px;color:var(--faint);padding:2px 5px}
+.wkact{align-items:flex-start;justify-content:center}
+/* builder */
+.m-build{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:14px;align-items:start}
+.lib{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.lib-item{display:flex;gap:8px;align-items:center;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:12px;font-weight:600}
+.lib-item i{width:3px;height:22px;border-radius:2px;flex:none}
+.lib-item small{display:block;color:var(--faint);font-weight:500;font-size:11px}
+.load{display:flex;align-items:flex-end;gap:2px;height:24px}
+.load i{display:block;width:9px;background:var(--muted);border-radius:2px 2px 0 0;opacity:.55}
+
+/* tokens */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:20px}
+.sw{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);font-size:12.5px}
+.sw i{display:block;height:44px;border-bottom:1px solid var(--border)}
+.sw div{padding:8px 10px;line-height:1.35}
+.sw code{background:none;padding:0;font-size:11.5px;color:var(--muted)}
+.typescale{margin-top:20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.ts{display:grid;grid-template-columns:120px 1fr;gap:16px;align-items:baseline;padding:10px 16px;border-bottom:1px solid var(--border)}
+.ts:last-child{border-bottom:0}
+.ts code{background:none;padding:0;color:var(--faint);font-size:12px}
+footer{margin-top:88px;padding-top:24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+html{scroll-behavior:smooth}
+</style>
+
+<div class="wrap">
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <div class="toc-label">Contents</div>
+  <a href="#short">The short version</a>
+  <a href="#method">How I tested it</a>
+  <a href="#scorecard">Scorecard</a>
+  <a href="#problems">Five root problems</a>
+  <a href="#blockers">Launch blockers</a>
+  <a href="#screens">Screen by screen</a>
+  <a href="#keep">What to keep</a>
+  <a href="#proposal">The proposal</a>
+  <a href="#visual">Visual direction</a>
+  <a href="#order">Build order</a>
+  <a href="#decisions">Your decisions</a>
+  <a href="#appendix">Appendix</a>
+</nav>
+
+<main>
+<header>
+  <div class="eyebrow">Audit · coach dashboard · 23 September 2026</div>
+  <h1 style="margin-top:12px">Can one coach run 100 athletes on this panel?</h1>
+  <p class="lede">Not yet. I ran the whole dashboard locally with 100 athletes. The screens are well made one by one, but together they don't do the coach's three jobs: see who needs you today, act on many athletes at once, and build and change a plan where you're looking at it. Below is what I found, the evidence, and a rebuild proposal, with the decisions only you can make at the end.</p>
+  <p class="meta">Prepared for Alex. Route group <code>web/app/[locale]/(v2)</code>, branch <code>claude/focused-bardeen-u9zz33</code>. The full reports from the five area audits are in the appendix.</p>
+</header>
+
+<section id="short">
+<h2>The short version</h2>
+<p>You said you don't like how it looks. The look is part of it, but the bigger problem is underneath: <strong>the panel is organised around the data model and around features added over time, not around what a coach does in a day.</strong> In practice:</p>
+<ul>
+  <li><strong>Hoy says "92 decisiones" for 100 athletes.</strong> It covers 70 different people shown on 114 cards, and nothing can be marked done or snoozed, so the list never gets shorter. The project's own spec for Hoy promised 8–15 items that go down to zero.</li>
+  <li><strong>The numbers contradict each other.</strong> For the same athlete and week, one screen says 100%, another 40% in red with "cayendo", and a third says "1%". A coach who can't trust what they're scanning goes back to WhatsApp.</li>
+  <li><strong>You can't act at scale.</strong> Building a 4-week block and giving it to 20 athletes takes about <strong>500 clicks</strong> across 9 screens; a spreadsheet does it in 15 minutes. There's no multi-select, no keyboard, no search box, and filters reset when you go back. On the athlete page you can't move a session, add one, or open any day except today.</li>
+  <li><strong>There is no design system actually in use.</strong> There are 553 hand-styled buttons and the shared Button component is used 5 times. That gives about 140 button looks and 30+ font sizes, with half the text under 12&nbsp;px.</li>
+  <li><strong>Some of it isn't ready for a second coach:</strong> leads and metrics aren't separated by coach, Pablo's name is in copy that other coaches' leads would see, and payments go to one Stripe account.</li>
+</ul>
+<div class="callout ok">
+  <p><strong>The good news:</strong> the hard parts are already built. The backend for an inbox that goes down to zero exists: attention items, snooze, bulk actions, broadcast. So do athlete search, moving a session, adding a session, bulk plan changes with preview and rollback, and an undo history for the editor. No screen uses any of them. A lot of the rebuild is <em>connecting what's already there</em> to screens designed around the coach's day.</p>
+</div>
+<p><strong>My recommendation:</strong> rebuild the panel's screens from scratch on a small set of foundations: one signal engine, one adherence formula, one status model, and a real component library. Keep the backend, the colour tokens, the club-colour mechanism and a handful of good screens. Start with Hoy, Atletas and the athlete page, because the 100-client goal lives or dies there. I need <a href="#decisions">seven decisions from you</a> before the mockups become a build.</p>
+</section>
+
+<section id="method">
+<h2>How I tested it</h2>
+<p>I didn't want to judge the panel from code or from an empty account. I ran the real dashboard in a disposable local copy: all 213 database migrations, the project's demo seed scaled up to <strong>100 athletes</strong> (about 70 with a 4-week block assigned through the app's own API, about 1,100 logged sessions, readiness, unread messages, overdue payments, pending intakes) and your real 97-block library imported from the spreadsheet. Then five auditors each took one area in parallel: triage and roster, athlete page, programming, navigation and secondary screens, visual system and performance. They took their own screenshots, clicked through flows and read the code behind each screen. I checked every headline claim in this document against the code myself before including it.</p>
+<div class="stats">
+  <div class="stat"><b>100</b><span>athletes in the test roster</span></div>
+  <div class="stat"><b>28</b><span>coach screens audited, desktop + phone + dark</span></div>
+  <div class="stat"><b>~330</b><span>screenshots taken</span></div>
+  <div class="stat"><b>5</b><span>area audits run in parallel</span></div>
+  <div class="stat"><b>14</b><span>headline claims re-checked in code by me</span></div>
+</div>
+<p class="muted" style="font-size:14px">Limits: the demo data is synthetic, so some numbers (like how many athletes have low readiness) are random. I judged how the design <em>behaves</em> at that scale, not the numbers themselves. There was no heart-rate, pace or GPS data, so the performance charts were judged from their empty states and code. Timings are from a local dev server: use them as relative, not absolute.</p>
+</section>
+
+<section id="scorecard">
+<h2>Scorecard</h2>
+<p>Area by area. <span class="badge b-keep">Keep</span> means polish only. <span class="badge b-rework">Rework</span> means same idea, rebuilt. <span class="badge b-rebuild">Rebuild</span> means the idea itself has to change.</p>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Area</th><th>Verdict</th><th>The one-line reason</th></tr></thead>
+  <tbody>
+    <tr><td>Hoy (daily triage)</td><td><span class="badge b-rebuild">Rebuild</span></td><td class="why">A wall of 114 cards that never gets shorter. It should be one list that goes down to zero.</td></tr>
+    <tr><td>Atletas (roster)</td><td><span class="badge b-rework">Rework</span></td><td class="why">Cards show 12 of 100 athletes, sorted with the healthiest first. It needs a dense table with saved views and bulk actions.</td></tr>
+    <tr><td>Athlete page</td><td><span class="badge b-rebuild">Rebuild</span></td><td class="why">12 views in 3 levels, numbers that disagree, and no way to edit the plan from where you see it.</td></tr>
+    <tr><td>Mensajes</td><td><span class="badge b-rework">Rework</span></td><td class="why">Good 3-pane chat, but "read" counts as "answered", and other screens open the wrong conversation.</td></tr>
+    <tr><td>Programming &amp; library</td><td><span class="badge b-rebuild">Rebuild</span></td><td class="why" id="score-prog">Strong engine, wrong workflow: about 500 clicks to give a 4-week block to 20 athletes, more than 20 concepts to learn, and no way to assign to many.</td></tr>
+    <tr><td>Navigation &amp; structure</td><td><span class="badge b-rebuild">Rebuild</span></td><td class="why">15 equal sidebar items, only 3 used daily; no search, no global "create", and "who needs me" spread over 5 places.</td></tr>
+    <tr><td>Negocio (leads, payments, funnel)</td><td><span class="badge b-rework">Rework</span></td><td class="why">The screens are decent, but the data isn't separated by coach, Pablo's name is in the copy, and it's mixed in with daily training work.</td></tr>
+    <tr><td>Settings screens</td><td><span class="badge b-rework">Rework</span></td><td class="why">Setup screens sit in the main nav, there are 4 different "name" fields, and Cuestionarios saves forms that nothing reads.</td></tr>
+    <tr><td>Visual system</td><td><span class="badge b-rebuild">Rebuild</span></td><td class="why">No components in use, 30+ font sizes, colours that mean different things on different screens.</td></tr>
+    <tr><td>Colour tokens, club colour, focus states</td><td><span class="badge b-keep">Keep</span></td><td class="why">Sound foundations: every colour comes from tokens, club colours are derived on the server with guaranteed contrast, and focus rings are visible everywhere.</td></tr>
+  </tbody>
+</table>
+</div>
+</section>
+
+<section id="problems">
+<h2>Five root problems</h2>
+<p>Most of the individual findings (there are about 200 across the five reports) trace back to these five causes. Fix the causes and most of the symptoms go away; patch the symptoms and they come back.</p>
+
+<div class="problem">
+  <div class="pnum">1 of 5</div>
+  <h3>The numbers can't be trusted</h3>
+  <p>A triage product only works if the coach believes what it flags. Right now three screens compute "needs attention" three different ways, and adherence is calculated in ways that raise alarms on healthy athletes.</p>
+  <ul class="evidence">
+    <li><strong>Adherence counts sessions that haven't happened yet.</strong> On a Wednesday, an athlete who has done everything due so far shows 40% in red with "▼ cayendo". Every athlete does, every Wednesday.</li>
+    <li><strong>One athlete-week, three numbers:</strong> 100% in the roster, 40% on the summary, and "1%" on the Plan tab. That last one is a real bug: a 0–1 fraction is printed as a percentage (<code>PlanTab.tsx:348</code>).</li>
+    <li><strong>Three definitions of "Atención".</strong> 44 athletes in the roster, 56 on Hoy, a third rule in Mensajes. 20 athletes flagged on Hoy show as green "Activa" in the roster.</li>
+    <li><strong>Readiness fires on a single value under 67</strong>, with no personal baseline and no date check, so a three-week-old score still raises an alert. "Fatiga CNS alta" is simply readiness under 45; it claims a cause nobody measured.</li>
+    <li><strong>"Vigilar fisiología" is mostly not physiology:</strong> 16 of its 46 cards say "Sin plan activo".</li>
+    <li><strong>Method is hard-coded.</strong> Thresholds (67, 45, 60, 70, 90), the N1–N5 level list and the "Referencias" markers are constants in code. That breaks your Hard Rule Nº0: another coach can't change them.</li>
+  </ul>
+  <div class="fig-pair figs">
+    <figure><img src="img/ficha-adherencia.jpg" alt="Athlete summary for Bernat Font: Monday and Tuesday done, Wednesday rest, yet adherence shows 40% in red" loading="lazy"><figcaption>Bernat did both sessions due (Mon, Tue; Wednesday is rest). Adherence: 40% in red. "Añadir objetivo" leads to a card that says the athlete sets it.</figcaption></figure>
+    <figure><img src="img/ficha-plan-1pct.jpg" alt="Plan tab showing Cumplimiento del microciclo S1 1%, S2 1%, S3 0%, S4 0%" loading="lazy"><figcaption>Plan tab, top right: "S1 1% · S2 1%". Those weeks were 80–100% done.</figcaption></figure>
+  </div>
+</div>
+
+<div class="problem">
+  <div class="pnum">2 of 5</div>
+  <h3>There is no single inbox, and Hoy is a wall</h3>
+  <p>"Who needs me today?" is answered in five places: Hoy, the Atletas strip (a second Hoy), Mensajes, the Leads badge, and Pagos (7 overdue payments that nothing surfaces). <code>/altas</code> isn't in the navigation at all. Hoy itself:</p>
+  <ul class="evidence">
+    <li><strong>"92 decisiones" is 70 people on 114 cards</strong>; 82 of 100 athletes appear somewhere. Aina Roig appears three times.</li>
+    <li><strong>30 cards come from one gap in your method setup</strong> (no 5-day sequence for N1–N5). The same paragraph is repeated 30 times; it should be one row with one fix.</li>
+    <li><strong>Nothing can be resolved, snoozed or done.</strong> The endpoints exist (<code>/api/coach/inbox/snooze</code>, <code>/bulk</code>); no button calls them.</li>
+    <li><strong>"+ 38 más" does nothing</strong>: the button has no click handler. 38 of the 46 physiology cards can only be reached by typing a name.</li>
+    <li><strong>"Responder" opens the wrong conversation</strong> and marks someone else's messages as read (it links to <code>/mensajes</code> without the thread id).</li>
+    <li><strong>The most important fact isn't on it:</strong> 47 athletes can't see their week because it's still a draft. Hoy shows that only as a small pill.</li>
+    <li><strong>Lanes are sorted A→Z</strong>, not worst first. The first lane starts 1,209&nbsp;px down the page; on a phone, 2,839&nbsp;px down.</li>
+  </ul>
+  <div class="fig-pair figs fig-side">
+    <figure><img src="img/hoy-largo.jpg" alt="The full Hoy page, 2,600 px tall" loading="lazy"><figcaption>The whole Hoy page (2,600&nbsp;px, or 4,000 with the list expanded).</figcaption></figure>
+    <figure><img src="img/hoy-hoy.jpg" alt="Hoy above the fold: red '92 decisiones', six black 'Revisar alta' bars and identical suggestion cards" loading="lazy"><figcaption>What the coach sees first: a red number that's always red, six heavy black bars for the least urgent task, and identical cards. None of the four lanes is visible without scrolling.</figcaption></figure>
+  </div>
+</div>
+
+<div class="problem">
+  <div class="pnum">3 of 5</div>
+  <h3>You can't act on many athletes at once</h3>
+  <p>With 10 clients you can click through them one by one. With 100 you need to see many at once and act on groups. The panel is built for the first case.</p>
+  <ul class="evidence">
+    <li><strong>12 of 100 athletes visible</strong> in either cards or table; on a phone, one. The default sort puts the 100%-adherence athletes on top: the ones who need you least.</li>
+    <li><strong>No multi-select anywhere.</strong> You can't assign a block, publish a week, message, tag or change the level of several athletes. The broadcast endpoint exists; nothing uses it.</li>
+    <li><strong>Filters and search reset</strong> when you open an athlete and go back. Working through 44 "Atención" athletes means re-applying the filter 44 times.</li>
+    <li><strong>No search box and no keyboard.</strong> ⌘K does nothing, though <code>/api/coach/search</code> was built for it. It takes 32 Tab presses to reach the first athlete.</li>
+    <li><strong>On the athlete page you can't move a session, add one, or open any day except today.</strong> The move and add endpoints exist with zero callers. Editing Thursday's session is only possible by typing the URL.</li>
+    <li><strong>Giving a plan to many is one athlete at a time:</strong> pick one athlete in a modal, then open that athlete's page and publish. That's about 5 clicks and 2 page loads per athlete, and there is no "group" to assign to.</li>
+    <li><strong>Adding athletes is one at a time</strong>, with no level, plan or group at invite time. There's no bulk invite or CSV.</li>
+  </ul>
+  <figure><img src="img/atletas-hoy.jpg" alt="Atletas card grid showing 12 athletes, all at 100%, a triage strip above and an empty Dobles panel on the right" loading="lazy"><figcaption>Atletas: 12 cards, all 100%. An unlabelled bar with no time window, a colour dot whose meaning only screen readers get, a second Hoy squeezed on top, and 28% of the width spent on an empty "Dobles" panel.</figcaption></figure>
+</div>
+
+<div class="problem">
+  <div class="pnum">4 of 5</div>
+  <h3>It's organised around the data model, not the coach's day</h3>
+  <p>The sidebar has 15 destinations of equal weight in three groups. Only Hoy, Atletas and Mensajes are daily; seven are screens you set up once. The athlete page advertises 5 tabs but really has <strong>12 views across 3 levels in 3 different tab styles</strong>, with content under the wrong labels (a rowing test under "Carrera", plan history under "Fuerza"). The vocabulary is where the complexity shows most:</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Word</th><th>What it means today</th></tr></thead>
+    <tbody>
+      <tr><td>bloque</td><td class="why">Four things: a library piece (97 of them), a part of a session, a sub-piece inside a block, <em>and</em> a 4-week plan on Hoy ("Todavía no tiene ningún bloque", "Reponer bloque").</td></tr>
+      <tr><td>microciclo</td><td class="why">A 4-week unit. In periodisation a microcycle is about one week, and 2–6 weeks is a mesocycle. A coach you sell to will notice.</td></tr>
+      <tr><td>receta · secuencia · periodización</td><td class="why">Three names for one thing: the ordered list of plans per level and days per week.</td></tr>
+      <tr><td>alta</td><td class="why">The intake review, the lead→athlete conversion, <em>and</em> the questionnaire. The roster calls the same thing "Nuevo", which is also a lead status.</td></tr>
+      <tr><td>No lo ve · Borrador · Oculta</td><td class="why">Three words for "the athlete can't see this week yet".</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>When the model is this complex, the screens start explaining themselves. Biblioteca stacks a "Pasos 2–3 de 4" strip, a "Cómo funciona" banner and an explanatory line before the first block: 372&nbsp;px, 41% of the screen. Periodización does the same. There are four separate onboarding systems and none of them covers the whole setup path.</p>
+  <figure><img src="img/biblioteca.jpg" alt="Biblioteca page with a step strip, a 'Cómo funciona' banner and an explanation line above the content; every block tagged 'sin tipar'" loading="lazy"><figcaption>Three layers of explanation before the content. A screen that needs a manual on top is a sign the concepts underneath are too many.</figcaption></figure>
+</div>
+
+<div class="problem">
+  <div class="pnum">5 of 5</div>
+  <h3>The look has no system underneath</h3>
+  <p>This is the part you feel as "I don't like it", and it's measurable:</p>
+  <ul class="evidence">
+    <li><strong>No components in use.</strong> 553 hand-styled <code>&lt;button&gt;</code>s against 5 uses of the shared Button. About 140 distinct button looks (36 just for the primary button), 48 hand-built pop-ups with no shared one (16 don't close with Escape), 5 tab styles. A design doc from 14 August already said "the primitives exist, nobody uses them."</li>
+    <li><strong>Text too small, hierarchy upside down.</strong> 31 font sizes, including half-pixels. Half the text on Hoy, Biblioteca, Microciclo and the athlete page is under 12&nbsp;px, while the 36&nbsp;px page title is the loudest thing on every screen and the numbers a coach acts on are 11–14&nbsp;px.</li>
+    <li><strong>Colour has no stable meaning.</strong> The running colour is the "failed" red, circuit is the "done" green, and warning amber is used as decoration on borders. "Atención" is red on one screen and amber on another. "92 decisiones" is always red, so red stops meaning anything.</li>
+    <li><strong>The club colour takes over.</strong> Your orange, applied as the club colour, spreads over the navigation, every primary button, badges and icons, and blurs into amber and red. For a product sold to many clubs, every saturated brand colour will do this.</li>
+    <li><strong>Surfaces barely separate</strong> (card vs background contrast 1.13:1), amber text fails accessibility contrast, and on a phone 84 of 118 tap targets on Hoy are under 32&nbsp;px.</li>
+    <li><strong>The icon font is 3.9&nbsp;MB</strong> to draw 126 icons. On a cold load it blocks rendering, then shows icon names as words ("groups", "arrow_forward"). The screenshot below is exactly what a coach on a slow phone connection sees.</li>
+  </ul>
+  <figure><img src="img/acento-naranja.jpg" alt="Hoy with an orange club accent: orange nav item, orange buttons, amber borders and a red headline, with icons rendered as text words" loading="lazy"><figcaption>Hoy with Fabrik orange as the club colour, on a cold load: orange nav, orange buttons, amber card borders and a red headline blur into one warm smear, and the icon font hasn't arrived.</figcaption></figure>
+</div>
+</section>
+
+<section id="blockers">
+<h2>Launch blockers that aren't about design</h2>
+<p>These came up during the audit. They are bugs that destroy or hide a coach's work, or gaps that block selling to a second coach. They need fixing whatever we decide about the design, so they shouldn't wait for the redesign.</p>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Sev</th><th>Issue</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr><td><span class="sev p0">P0</span></td><td class="why"><strong>Leads, calls, waitlist, funnel metrics and availability aren't separated by coach.</strong> Every coach would see every club's prospects. Verified: <code>listLeadsForCoach()</code> takes no coach id and the sidebar badge counts are global.</td><td class="why"><code>lib/dashboard/coach/leads.ts:95,349</code>, <code>lib/citas/store.ts:304</code></td></tr>
+    <tr><td><span class="sev p0">P0</span></td><td class="why"><strong>Pablo's name and the FAHYBRID domain in live copy</strong>: "Pablo te escribirá para cuadrar la llamada" in Disponibilidad, "fahybrid.com" in Leads and Métricas, and 39 occurrences in the Guía.</td><td class="why"><code>AvailabilityEditor.tsx:492</code>, <code>LeadsTable.tsx:35</code>, <code>FunnelChart.tsx:152</code></td></tr>
+    <tr><td><span class="sev p0">P0</span></td><td class="why"><strong>Payments go to one Stripe account</strong> (there's no Stripe Connect), so every coach's athletes would pay you.</td><td class="why">no <code>stripeAccount</code> anywhere; the guide says "se activa próximamente"</td></tr>
+    <tr><td><span class="sev p0">P0</span></td><td class="why"><strong>Cuestionarios saves forms that nothing reads.</strong> No public page, flow or iOS code uses <code>coach_onboarding_forms</code>. A coach who edits it changes nothing. Hide it until something reads it.</td><td class="why">grep: only the editor, its API and its schema</td></tr>
+    <tr><td><span class="sev p0">P0</span></td><td class="why"><strong>"Responder" marks another athlete's messages as read</strong> (it opens the first unread thread, not the athlete's).</td><td class="why"><code>LaneCard.tsx:32-33</code>, <code>MensajesScreen.tsx:79-86</code></td></tr>
+    <tr><td><span class="sev p0">P0</span></td><td class="why"><strong>One click on "Descanso" deletes that day's session</strong>, with no confirm and no undo, for every athlete on that block. This breaks DECISIONS 2026-08-11 (one tap never destroys authored work). Reproduced in the running app.</td><td class="why"><code>SemanaBoard.tsx:373-378</code>, <code>program-weeks/[id]/day/route.ts:91</code></td></tr>
+    <tr><td><span class="sev p0">P0</span></td><td class="why"><strong>Saving a new block lands on "Esto no existe".</strong> The block is created, but the coach believes it failed (a block id is sent to the session route). Reproduced.</td><td class="why"><code>BlockLibraryEditor.tsx:186</code></td></tr>
+    <tr><td><span class="sev p0">P0</span></td><td class="why"><strong>Unsaved day edits vanish</strong> when you switch days, with no prompt. Reproduced.</td><td class="why"><code>DayEditor.tsx:109</code></td></tr>
+    <tr><td><span class="sev p0">P0</span></td><td class="why"><strong>One coach's method is hard-wired for everyone</strong> (Hard Rule Nº0): the 10 "grupos metodológicos" are a global table with no coach id and a cap of 10, days per week are fixed at 3–6, the AI modal has its own level set, and the Excel import expects "Plantilla_HYROX".</td><td class="why"><code>methodology-groups.ts:19</code>, <code>shared/schema/blocks.ts:83-86</code>, <code>SuggestWorkoutModal.tsx:36</code></td></tr>
+    <tr><td><span class="sev p1">P1</span></td><td class="why"><strong>It won't scale:</strong> about 640 database queries per load of Hoy and Atletas, mostly an athlete-by-athlete loop. That's 1.1–1.4&nbsp;s even on a local database with no network in between; at 300 athletes it would be about 1,900 queries.</td><td class="why"><code>shared/domain/coach/programming-status.ts:193</code>, <code>hoy-lanes.ts</code></td></tr>
+    <tr><td><span class="sev p1">P1</span></td><td class="why"><strong>Loader failures look like "no data".</strong> The athlete's Rendimiento tab logs an enum error for a sleep metric and shows "Sin señales biométricas todavía". This may be drift in my local database; check it against production.</td><td class="why">server log <code>biometric_metric: "sleep_deep"</code></td></tr>
+  </tbody>
+</table>
+</div>
+</section>
+
+<section id="screens">
+<h2>Screen by screen</h2>
+<p>Every coach screen, with its verdict and the main reason. The full evidence is in the area reports.</p>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Screen</th><th>Verdict</th><th>Main reason</th></tr></thead>
+  <tbody>
+    <tr><td>/hoy</td><td><span class="badge b-rebuild">Rebuild</span></td><td class="why">See problem 2. It becomes the one inbox and the home screen.</td></tr>
+    <tr><td>/atletas</td><td><span class="badge b-rework">Rework</span></td><td class="why">Becomes a dense table with saved views, bulk actions and URL-kept filters. The triage strip and the right rail go.</td></tr>
+    <tr><td>/atletas/[id]</td><td><span class="badge b-rebuild">Rebuild</span></td><td class="why">12 views become 3. The default view shows why the athlete is flagged, what to do now, and an editable 3-week calendar.</td></tr>
+    <tr><td>/atletas/[id]/dia, /sesion</td><td><span class="badge b-rebuild">Rebuild</span></td><td class="why">The day editor contradicts the plan and can't change day. It becomes the session drawer, which is the editor.</td></tr>
+    <tr><td>/atletas/[id]/intake</td><td><span class="badge b-keep">Keep</span></td><td class="why">A clear 6-step checklist with a "ready to assign" gate. It becomes what a "Nuevo" athlete's page shows.</td></tr>
+    <tr><td>/mensajes</td><td><span class="badge b-rework">Rework</span></td><td class="why">Default to "Por responder" (last message from the athlete), oldest first, with done/snooze, search and send-to-several.</td></tr>
+    <tr><td>/altas</td><td><span class="badge b-rework">Merge</span></td><td class="why">A good list pattern, but it's a sixth way to reach the same 6 people. It becomes a group inside Hoy.</td></tr>
+    <tr><td>/biblioteca</td><td><span class="badge b-rebuild">Rebuild</span></td><td class="why">Becomes Programar. It turns into a dense, searchable table (in Spanish and English) that defaults to blocks ready to use. Library "Sesiones" can't be placed anywhere today.</td></tr>
+    <tr><td>/microciclos/[id]</td><td><span class="badge b-rebuild">Rebuild</span></td><td class="why">One week at a time, a one-click delete, lost edits, no drag, no undo. It becomes the all-weeks program editor.</td></tr>
+    <tr><td>/periodizacion</td><td><span class="badge b-rework">Merge</span></td><td class="why">A clean list, but 20 chains of setup before anything happens. It becomes Programar › Grupos (see decision 4).</td></tr>
+    <tr><td>/tests</td><td><span class="badge b-rework">Move</span></td><td class="why">A test is a kind of session. It becomes a Programar tab.</td></tr>
+    <tr><td>/leads, /pagos, /metricas</td><td><span class="badge b-rework">Merge</span></td><td class="why">One "Negocio" area with three tabs. Overdue payments and new leads feed Hoy. "Métricas" is renamed "Embudo", because it's sales-only.</td></tr>
+    <tr><td>/disponibilidad</td><td><span class="badge b-rework">Move</span></td><td class="why">A settings page promoted to the nav, and it contains the Pablo literal. It moves to Ajustes › Agenda.</td></tr>
+    <tr><td>/como-entrenas</td><td><span class="badge b-keep">Keep, move</span></td><td class="why">Strong idea (the interview with a live summary paragraph). It's used once, so it moves to Ajustes › Método and the setup checklist.</td></tr>
+    <tr><td>/cuestionarios</td><td><span class="badge b-rebuild">Hide</span></td><td class="why">Nothing reads it. Hide it until the intake flow does.</td></tr>
+    <tr><td>/club</td><td><span class="badge b-keep">Keep, move</span></td><td class="why">One of the best screens: a live preview of the panel and the athlete app. It moves to Ajustes › Club.</td></tr>
+    <tr><td>/ajustes</td><td><span class="badge b-rework">Rework</span></td><td class="why">A 2,580&nbsp;px single column with 4 save buttons and links that duplicate the nav. It becomes a real settings area with a sub-menu.</td></tr>
+    <tr><td>/guia</td><td><span class="badge b-rework">Move</span></td><td class="why">Useful content, but it teaches an old dark/orange panel that no longer exists, and it contains Pablo's name. It moves to a "?" in the top bar and gets linked from each screen.</td></tr>
+  </tbody>
+</table>
+</div>
+</section>
+
+<section id="keep">
+<h2>What's genuinely good, and stays</h2>
+<p>You asked me to be honest both ways. These are well made and the rebuild keeps them:</p>
+<ul>
+  <li><strong>The backend attention engine:</strong> attention items, the evaluators, signal-aware snooze, and the bulk and broadcast endpoints. It's the right foundation and it's already paid for.</li>
+  <li><strong>The week-visibility model</strong> (Visible / hidden / no plan / block finished). It's the most useful column in the roster; it just needs one set of words.</li>
+  <li><strong>Honest empty states:</strong> "sin programar" instead of a fake 0%, "Nadie ve esta semana" instead of green ticks over an undelivered week.</li>
+  <li><strong>Colour tokens and the club-colour derivation:</strong> computed on the server, with contrast guaranteed per surface. Only <em>where</em> the colour gets painted changes.</li>
+  <li><strong>Visible focus rings</strong> on every tab stop, reduced-motion respected, tabular numbers.</li>
+  <li><strong>The chat:</strong> 3 panes, live updates, deep links, a context panel, and a drawer that already opens over the athlete page.</li>
+  <li><strong>The typed-prescription engine</strong>: the fast-entry grammar, the RIR/rest/%RM controls, the live "El atleta ve…" sentence, and re-sync to athletes on save. The engine is strong; the workflow on top is what changes.</li>
+  <li><strong>The session drawer's "prescribed vs done" per exercise</strong>, and links that point to a specific session.</li>
+  <li><strong>The intake checklist</strong> with its gate, and the <strong>Club</strong> page's live preview.</li>
+  <li><strong>Avisos thresholds in Ajustes</strong>, with visible defaults and "restore defaults". That's Hard Rule Nº0 done right, and the pattern to copy everywhere.</li>
+  <li><strong>Pagos</strong> as the tone and density to aim for: a plain table, 40&nbsp;px rows, labelled status pills.</li>
+</ul>
+<figure><img src="img/pagos.jpg" alt="Pagos: a plain table with 40 px rows and labelled status pills" loading="lazy"><figcaption>The calmest screen in the panel, and the density and tone the rest should match.</figcaption></figure>
+</section>
+
+<section id="proposal">
+<h2>The proposal</h2>
+<p>Five principles, then the new map, then the four screens that matter most. The mockups below use the proposed visual direction and follow your light/dark setting, so you can see both.</p>
+
+<h3>Five principles</h3>
+<ol>
+  <li><strong>One inbox that goes down to zero.</strong> Everything that needs the coach (training signals, unanswered messages, intakes, unpublished weeks, overdue payments, new leads) lands in Hoy as one row per athlete, worst first. Each row can be resolved, snoozed or marked done. A good day ends at zero.</li>
+  <li><strong>Rows, not cards.</strong> About 18 athletes per screen, not 12. Select many, act on all of them.</li>
+  <li><strong>Act where you look.</strong> Reply, adjust, move, publish from the row or the athlete's calendar, in a side panel, without leaving the list.</li>
+  <li><strong>One source of truth for every number.</strong> One signal engine, one adherence formula (only sessions that were due), one status model. Every screen reads from them, so the numbers can't disagree.</li>
+  <li><strong>Method is the coach's data.</strong> Thresholds, levels, markers and phase names all start as editable defaults. Nothing about a method lives in code.</li>
+</ol>
+
+<h3>The new map</h3>
+<p>From 15 sidebar items down to 5, plus Ajustes. Search (⌘K) and "+ Nuevo" live in the top bar, on every screen.</p>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Destination</th><th>Job</th><th>Absorbs</th></tr></thead>
+  <tbody>
+    <tr><td>Hoy</td><td class="why">The home screen and the one inbox.</td><td class="why">/hoy, /altas, the Atletas triage strip, overdue payments, new leads and today's calls, unanswered messages, unpublished weeks</td></tr>
+    <tr><td>Atletas</td><td class="why">The roster table and the athlete page.</td><td class="why">/atletas, /atletas/[id] with its sub-pages, Dobles as a saved view</td></tr>
+    <tr><td>Mensajes</td><td class="why">Conversations, sorted by "por responder".</td><td class="why">/mensajes, comunicados sent to several athletes</td></tr>
+    <tr><td>Programar</td><td class="why">Build plans and give them to athletes. Three views: Programas, Biblioteca, Grupos.</td><td class="why">/biblioteca, /microciclos, /periodizacion (becomes Grupos), /tests</td></tr>
+    <tr><td>Negocio</td><td class="why">Leads, payments, the sales funnel. Only for coaches who use them.</td><td class="why">/leads, /pagos, /metricas</td></tr>
+    <tr><td>Ajustes</td><td class="why">Everything you set up once.</td><td class="why">/ajustes, /club, /como-entrenas, /disponibilidad, /cuestionarios (once it's used), plus a "Setup 5/9" checklist until it's done</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 id="prop-hoy">Hoy: the inbox</h3>
+<p>Shared-cause problems come first, as one row each with one fix. Then one row per athlete, grouped Crítico / Vigilar, worst first. Every row states its evidence (value, baseline, window, date) so the coach can trust it. Enter opens the athlete in a side panel; J/K moves down the list; E marks done; H snoozes; R replies. With the same 100 athletes this produces about 3 group rows and 10–15 athlete rows, instead of 114 cards.</p>
+<div class="mockwrap" role="img" aria-label="Mockup of the proposed Hoy inbox">
+<div class="mock">
+  <aside class="m-rail">
+    <div class="m-brand"><span class="m-logo">F</span>FAHYBRID</div>
+    <div class="m-nav on">Hoy <span class="n">14</span></div>
+    <div class="m-nav">Atletas <span class="n">100</span></div>
+    <div class="m-nav">Mensajes <span class="n">5</span></div>
+    <div class="m-nav">Programar</div>
+    <div class="m-nav">Negocio <span class="n">3</span></div>
+    <div class="m-spacer"></div>
+    <div class="m-nav">Ajustes</div>
+  </aside>
+  <div class="m-main">
+    <div class="m-top"><div class="m-search">Buscar atleta, sesión, pantalla… <span class="kbd">⌘K</span></div><span class="m-spacer"></span><span class="m-btn">+ Nuevo</span><span class="m-avatar">PA</span></div>
+    <div class="m-body">
+      <div class="m-head"><span class="m-title">Hoy</span><span class="m-sub"><b style="color:var(--fg)">14 te necesitan</b> · 23 de 100 ven su semana · miércoles 23 sept</span></div>
+      <div class="m-tabs"><span class="m-chip on">Todo <span class="n">14</span></span><span class="m-chip">Sin responder <span class="n">5</span></span><span class="m-chip">Sesiones <span class="n">3</span></span><span class="m-chip">Fisiología <span class="n">2</span></span><span class="m-chip">Plan <span class="n">4</span></span></div>
+      <div class="m-split">
+        <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
+          <div class="m-group"><span>Afecta a varios</span></div>
+          <div class="m-list">
+            <div class="m-row m-sys"><span class="m-ico">47</span><div><div class="m-name">47 atletas no ven su semana</div><div class="m-sub" style="font-size:12px">Semana 28 sept – 4 oct en borrador · se les publica el viernes si no haces nada</div></div><div class="m-acts"><span class="m-btn sm pri">Publicar a los 47</span><span class="m-btn sm">Revisar</span></div></div>
+            <div class="m-row m-sys"><span class="m-ico">30</span><div><div class="m-name">30 atletas sin programa</div><div class="m-sub" style="font-size:12px">Sus grupos no tienen plan para 5 días/sem (N1–N5) · un solo arreglo para los 30</div></div><div class="m-acts"><span class="m-btn sm">Crear plan del grupo</span><span class="m-btn sm">Asignar a los 30…</span></div></div>
+            <div class="m-row m-sys"><span class="m-ico">6</span><div><div class="m-name">6 altas sin revisar</div><div class="m-sub" style="font-size:12px">La más antigua hace 1 día</div></div><div class="m-acts"><span class="m-btn sm">Revisar en fila →</span></div></div>
+          </div>
+          <div class="m-group"><span>Crítico · 3</span></div>
+          <div class="m-list">
+            <div class="m-row m-q sel"><span class="chk"></span><span class="m-avatar">MC</span><span class="m-who"><span class="m-name">Marta Costa<small>N3</small></span><span class="m-sig"><span class="st danger">Readiness 31</span><span class="ev">−24 vs su base · 3 días seguidos</span></span></span><span class="m-age">2 h</span><span class="m-acts"><span class="m-btn sm">Proponer descarga</span><span class="m-btn sm ghost">Posponer</span></span></div>
+            <div class="m-row m-q"><span class="chk"></span><span class="m-avatar">XP</span><span class="m-who"><span class="m-name">Xavi Prat<small>N3</small></span><span class="m-sig"><span class="st info">Sin responder</span><span class="ev">«¿Qué peso pongo si no llego al pautado?»</span></span></span><span class="m-age">19 h</span><span class="m-acts"><span class="m-btn sm">Responder</span><span class="m-btn sm ghost">Posponer</span></span></div>
+            <div class="m-row m-q"><span class="chk"></span><span class="m-avatar">SM</span><span class="m-who"><span class="m-name">Sofia Mas<small>N2</small></span><span class="m-sig"><span class="st danger">Pago vencido</span><span class="ev">12 días · 79 €</span></span></span><span class="m-age">12 d</span><span class="m-acts"><span class="m-btn sm">Recordar pago</span><span class="m-btn sm ghost">Posponer</span></span></div>
+          </div>
+          <div class="m-group"><span>Vigilar · 8</span><span style="text-transform:none;letter-spacing:0;font-weight:500">+ 5 más</span></div>
+          <div class="m-list">
+            <div class="m-row m-q"><span class="chk"></span><span class="m-avatar">JO</span><span class="m-who"><span class="m-name">Joan Ortega<small>N4</small></span><span class="m-sig"><span class="st warn">Sesiones</span><span class="ev">2 de 4 debidas sin hacer (7 d) · +1 señal</span></span></span><span class="m-age">1 d</span><span class="m-acts"><span class="m-btn sm">Mensaje</span><span class="m-btn sm ghost">Posponer</span></span></div>
+            <div class="m-row m-q"><span class="chk"></span><span class="m-avatar">BF</span><span class="m-who"><span class="m-name">Bernat Font<small>N4</small></span><span class="m-sig"><span class="st warn">Readiness 52</span><span class="ev">−9 vs su base · 2 días</span></span></span><span class="m-age">5 h</span><span class="m-acts"><span class="m-btn sm">Ver semana</span><span class="m-btn sm ghost">Posponer</span></span></div>
+            <div class="m-row m-q"><span class="chk"></span><span class="m-avatar">DC</span><span class="m-who"><span class="m-name">David Costa<small>N4</small></span><span class="m-sig"><span class="st warn">Renovación</span><span class="ev">Se da de baja al final del periodo · 6 días</span></span></span><span class="m-age">1 d</span><span class="m-acts"><span class="m-btn sm">Mensaje</span><span class="m-btn sm ghost">Posponer</span></span></div>
+          </div>
+          <div class="m-foot"><span>Resuelto hoy 9 · Pospuesto 4</span><span class="m-keys"><span><span class="kbd">J</span><span class="kbd">K</span> moverse</span><span><span class="kbd">E</span> hecho</span><span><span class="kbd">H</span> posponer</span><span><span class="kbd">R</span> responder</span></span></div>
+        </div>
+        <div class="m-panel">
+          <div style="display:flex;gap:10px;align-items:center"><span class="m-avatar" style="width:34px;height:34px">MC</span><div><h5>Marta Costa</h5><div class="m-sub" style="font-size:12px">N3 · HYROX Valencia en 38 d</div></div></div>
+          <div><div class="m-kv"><span class="m-lab">Readiness · 14 días</span><b style="color:var(--danger)">31</b></div>
+            <svg class="spark" viewBox="0 0 260 36" preserveAspectRatio="none" aria-hidden="true"><rect class="base" x="0" y="8" width="260" height="12" rx="2"/><polyline class="line" points="0,12 20,10 40,14 60,11 80,13 100,9 120,12 140,11 160,15 180,18 200,24 220,27 240,29 256,30"/><circle class="end" cx="256" cy="30" r="3"/></svg>
+            <div class="m-sub" style="font-size:11.5px">Banda gris = su rango normal (28 d). Hoy, 22 sept, ayer.</div></div>
+          <div><div class="m-lab" style="margin-bottom:6px">Esta semana · 2 de 3 debidas</div><div class="dots7"><i class="d"></i><i class="d"></i><i class="x t"></i><i></i><i></i><i></i><i></i></div></div>
+          <div class="m-msg">«Muy cansada, dormí fatal dos noches seguidas»<small>Check-in · hoy 07:40</small></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="m-btn sm pri">Proponer descarga</span><span class="m-btn sm">Responder</span><span class="m-btn sm ghost">Abrir ficha</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<h3 id="prop-atletas">Atletas: the table</h3>
+<p>40&nbsp;px rows, about 18 per screen. Every column answers a coach question: what's wrong and why, can they see their week, how are they trending, when did they last train, what's next, when's the race. Saved views sit on top ("Necesitan algo", "Sin plan", "No ven su semana", your own). Filters live in the URL, so they survive going back. Select any number of rows and a bar appears: assign a programa, publish the week, message, change level, tag, pause.</p>
+<div class="mockwrap" role="img" aria-label="Mockup of the proposed Atletas table with bulk selection">
+<div class="mock">
+  <aside class="m-rail">
+    <div class="m-brand"><span class="m-logo">F</span>FAHYBRID</div>
+    <div class="m-nav">Hoy <span class="n">14</span></div>
+    <div class="m-nav on">Atletas <span class="n">100</span></div>
+    <div class="m-nav">Mensajes <span class="n">5</span></div>
+    <div class="m-nav">Programar</div>
+    <div class="m-nav">Negocio <span class="n">3</span></div>
+    <div class="m-spacer"></div>
+    <div class="m-nav">Ajustes</div>
+  </aside>
+  <div class="m-main">
+    <div class="m-top"><div class="m-search">Buscar atleta, sesión, pantalla… <span class="kbd">⌘K</span></div><span class="m-spacer"></span><span class="m-btn">+ Nuevo</span><span class="m-avatar">PA</span></div>
+    <div class="m-body">
+      <div class="m-head"><span class="m-title">Atletas</span><span class="m-sub">100 · 94 activos · 6 nuevos</span><span class="m-spacer" style="flex:1"></span><span class="m-btn">Importar lista</span><span class="m-btn pri">+ Invitar atletas</span></div>
+      <div class="m-tabs"><span class="m-chip on">Necesitan algo <span class="n">14</span></span><span class="m-chip">Todos <span class="n">100</span></span><span class="m-chip">Sin plan <span class="n">30</span></span><span class="m-chip">No ven su semana <span class="n">47</span></span><span class="m-chip">Grupo N4 <span class="n">27</span></span><span class="m-chip">Carrera &lt; 30 d <span class="n">11</span></span><span class="m-chip" style="border-style:dashed">+ Guardar vista</span></div>
+      <div class="m-table">
+        <div class="m-tr h"><span class="chk"></span><span>Atleta</span><span>Estado · motivo</span><span>Semana</span><span>Readiness 14 d</span><span>Adh. 14 d</span><span>Últ. ses.</span><span>Próxima</span><span>Carrera</span></div>
+        <div class="m-tr sel"><span class="chk on"></span><span class="m-ath"><span class="m-avatar">MC</span><span>Marta Costa</span><small>N3</small></span><span class="st danger">Readiness baja · 3 d</span><span class="tag ok">Visible</span><span class="rd">31<svg viewBox="0 0 54 16" aria-hidden="true"><polyline points="0,5 8,4 16,6 24,5 32,7 40,10 48,13 54,14"/></svg></span><span class="adh"><i><b style="width:67%"></b></i>67%</span><span class="cell-m">ayer</span><span class="cell-m">jue · Z2 45′</span><span class="cell-m">T-38 d</span></div>
+        <div class="m-tr sel"><span class="chk on"></span><span class="m-ath"><span class="m-avatar">JO</span><span>Joan Ortega</span><small>N4</small></span><span class="st warn">2 sesiones sin hacer</span><span class="tag ok">Visible</span><span class="rd">64<svg viewBox="0 0 54 16" aria-hidden="true"><polyline points="0,8 8,7 16,8 24,6 32,8 40,7 48,8 54,7"/></svg></span><span class="adh"><i><b style="width:50%"></b></i>50%</span><span class="cell-m">hace 3 d</span><span class="cell-m">jue · Fuerza</span><span class="cell-m">—</span></div>
+        <div class="m-tr sel"><span class="chk on"></span><span class="m-ath"><span class="m-avatar">BF</span><span>Bernat Font</span><small>N4</small></span><span class="st warn">Readiness baja · 2 d</span><span class="tag ok">Visible</span><span class="rd">52<svg viewBox="0 0 54 16" aria-hidden="true"><polyline points="0,6 8,5 16,6 24,5 32,6 40,8 48,10 54,10"/></svg></span><span class="adh"><i><b style="width:100%"></b></i>100%</span><span class="cell-m">ayer</span><span class="cell-m">jue · Umbral</span><span class="cell-m">—</span></div>
+        <div class="m-tr"><span class="chk"></span><span class="m-ath"><span class="m-avatar">XP</span><span>Xavi Prat</span><small>N3</small></span><span class="st info">Sin responder · 19 h</span><span class="tag ok">Visible</span><span class="rd">74<svg viewBox="0 0 54 16" aria-hidden="true"><polyline points="0,7 8,6 16,7 24,5 32,6 40,5 48,6 54,5"/></svg></span><span class="adh"><i><b style="width:83%"></b></i>83%</span><span class="cell-m">hoy</span><span class="cell-m">vie · Series</span><span class="cell-m">T-12 d</span></div>
+        <div class="m-tr"><span class="chk"></span><span class="m-ath"><span class="m-avatar">MV</span><span>Marc Vidal</span><small>N4</small></span><span class="st warn">Semana oculta</span><span class="tag warn">Oculta</span><span class="rd">42<svg viewBox="0 0 54 16" aria-hidden="true"><polyline points="0,6 8,6 16,7 24,8 32,9 40,10 48,11 54,11"/></svg></span><span class="adh"><i><b style="width:75%"></b></i>75%</span><span class="cell-m">ayer</span><span class="cell-m">jue · Umbral</span><span class="cell-m">T-24 d</span></div>
+        <div class="m-tr"><span class="chk"></span><span class="m-ath"><span class="m-avatar">AR</span><span>Aina Roig</span><small>N2</small></span><span class="st info">Alta sin revisar</span><span class="tag">Sin plan</span><span class="cell-m">—</span><span class="cell-m">—</span><span class="cell-m">—</span><span class="cell-m">—</span><span class="cell-m">—</span></div>
+        <div class="m-tr"><span class="chk"></span><span class="m-ath"><span class="m-avatar">SM</span><span>Sofia Mas</span><small>N2</small></span><span class="st danger">Pago vencido · 12 d</span><span class="tag ok">Visible</span><span class="rd">58<svg viewBox="0 0 54 16" aria-hidden="true"><polyline points="0,7 8,7 16,8 24,7 32,8 40,8 48,7 54,8"/></svg></span><span class="adh"><i><b style="width:33%"></b></i>33%</span><span class="cell-m">hace 3 d</span><span class="cell-m">jue · Z2</span><span class="cell-m">—</span></div>
+        <div class="m-tr"><span class="chk"></span><span class="m-ath"><span class="m-avatar">DC</span><span>David Costa</span><small>N4</small></span><span class="st warn">Renovación · 6 d</span><span class="tag ok">Visible</span><span class="rd">71<svg viewBox="0 0 54 16" aria-hidden="true"><polyline points="0,7 8,6 16,6 24,7 32,6 40,6 48,7 54,6"/></svg></span><span class="adh"><i><b style="width:80%"></b></i>80%</span><span class="cell-m">ayer</span><span class="cell-m">vie · HYROX sim</span><span class="cell-m">—</span></div>
+        <div class="m-tr"><span class="chk"></span><span class="m-ath"><span class="m-avatar">CT</span><span>Clara Torres</span><small>N5</small></span><span class="st ok">Al día</span><span class="tag ok">Visible</span><span class="rd">86<svg viewBox="0 0 54 16" aria-hidden="true"><polyline points="0,8 8,7 16,6 24,6 32,5 40,5 48,4 54,4"/></svg></span><span class="adh"><i><b style="width:100%"></b></i>100%</span><span class="cell-m">hoy</span><span class="cell-m">jue · Ergo</span><span class="cell-m">T-11 d</span></div>
+      </div>
+      <div class="m-bulk"><b>3 seleccionados</b><span class="m-btn">Asignar programa</span><span class="m-btn">Publicar semana</span><span class="m-btn">Mensaje</span><span class="m-btn">Nivel</span><span class="m-btn">Etiqueta</span><span class="m-btn">Pausar</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<h3 id="prop-ficha">The athlete page: a cockpit, not 12 tabs</h3>
+<p>It answers four things, in order and without clicking: why am I here, what state are they in, what's the plan for the next three weeks, and what do I do now. The calendar is the editor: drag to move, "+" to add from the library, click a session to edit it in a drawer, and use the week menu to copy, shift, scale volume, deload or publish. The rest goes behind two tabs: Rendimiento (one scroll, sections ordered by the coach's question, empty sections collapsed to one line) and Perfil (details, injuries, payments, and one timeline of messages, check-ins and comunicados). J and K move to the next and previous athlete in your current filter.</p>
+<div class="mockwrap" role="img" aria-label="Mockup of the proposed athlete cockpit">
+<div class="mock">
+  <aside class="m-rail">
+    <div class="m-brand"><span class="m-logo">F</span>FAHYBRID</div>
+    <div class="m-nav">Hoy <span class="n">14</span></div>
+    <div class="m-nav on">Atletas <span class="n">100</span></div>
+    <div class="m-nav">Mensajes <span class="n">5</span></div>
+    <div class="m-nav">Programar</div>
+    <div class="m-nav">Negocio <span class="n">3</span></div>
+    <div class="m-spacer"></div>
+    <div class="m-nav">Ajustes</div>
+  </aside>
+  <div class="m-main">
+    <div class="m-top"><span class="m-sub">Atletas › Necesitan algo · 5 de 14</span><span class="kbd">K</span><span class="kbd">J</span><div class="m-search" style="margin-left:12px">Buscar… <span class="kbd">⌘K</span></div><span class="m-spacer" style="flex:1"></span><span class="m-avatar">PA</span></div>
+    <div class="m-body">
+      <div class="m-ahead"><span class="m-avatar">MV</span><div style="flex:1"><div class="nm">Marc Vidal</div><div class="sub">N4 · División Pro · HYROX Barcelona en 24 días (17 oct)</div></div><span class="m-btn">Mensaje <span class="tag danger">2</span></span><span class="m-btn">Comunicado…</span><span class="m-btn pri">Publicar semana</span><span class="m-btn ghost">···</span></div>
+      <div class="m-status"><span class="st">Atención</span><span>Readiness 42 (−18 vs su base, 3 días) · 1 sesión debida sin hacer · <b>su semana está oculta</b></span></div>
+      <div class="m-do"><span class="m-lab" style="margin-right:4px">Hacer ahora</span><span class="m-btn sm">Publicar 21–27 sept</span><span class="m-btn sm">Responder check-in «la última me costó»</span><span class="m-btn sm">Ajustar miércoles (sin hacer)</span></div>
+      <div class="m-subtabs"><span class="on">Plan</span><span>Rendimiento</span><span>Perfil</span></div>
+      <div class="m-split" style="grid-template-columns:minmax(0,1fr) 230px">
+        <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+          <div style="display:flex;gap:8px;align-items:center;justify-content:space-between"><span class="m-tabs"><span class="m-chip">Semana</span><span class="m-chip on">3 semanas</span><span class="m-chip">Plan completo</span></span><span class="m-sub" style="font-size:12px">Adherencia (solo lo debido): <b style="color:var(--fg)">3 de 4</b> · Acumulación N3 · sem 3 de 4</span></div>
+          <div class="cal">
+            <div class="cal-r h"><div></div><div>Lun</div><div>Mar</div><div class="today">Mié 23</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div><div>Semana</div></div>
+            <div class="cal-r"><div class="wk">21–27<br><span style="font-weight:500;color:var(--faint)">sept</span></div>
+              <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>Umbral 5×1k</span><b class="ck ok">✓</b></span><span class="ses"><i style="background:var(--m-fuerza)"></i><span>Fuerza A</span><b class="ck ok">✓</b></span></div>
+              <div><span class="ses"><i style="background:var(--m-ergo)"></i><span>Ergo series</span><b class="ck ok">✓</b></span></div>
+              <div class="today"><span class="ses"><i style="background:var(--m-carrera)"></i><span>Z2 + movil.</span><b class="ck x">✕</b></span></div>
+              <div><span class="ses"><i style="background:var(--m-circuito)"></i><span>WOD estaciones</span></span><span class="add">+</span></div>
+              <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>Series 400</span></span></div>
+              <div><span class="ses"><i style="background:var(--m-fuerza)"></i><span>Fuerza B</span></span></div>
+              <div><span class="add">+</span></div>
+              <div class="wkact"><span class="tag warn">Oculta</span><span class="load" aria-hidden="true"><i style="height:40%"></i><i style="height:70%"></i><i style="height:55%"></i><i style="height:85%"></i></span></div></div>
+            <div class="cal-r"><div class="wk">28–4<br><span style="font-weight:500;color:var(--faint)">oct</span></div>
+              <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>Umbral 6×1k</span></span></div>
+              <div><span class="ses"><i style="background:var(--m-ergo)"></i><span>Ergo 2k test</span></span></div>
+              <div><span class="add">+</span></div>
+              <div><span class="ses"><i style="background:var(--m-circuito)"></i><span>WOD estaciones</span></span></div>
+              <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>Z2 60′</span></span></div>
+              <div><span class="ses"><i style="background:var(--m-circuito)"></i><span>HYROX sim ½</span></span></div>
+              <div><span class="add">+</span></div>
+              <div class="wkact"><span class="tag warn">Oculta</span><span class="load" aria-hidden="true"><i style="height:45%"></i><i style="height:75%"></i><i style="height:60%"></i><i style="height:95%"></i></span></div></div>
+            <div class="cal-r"><div class="wk">5–11<br><span style="font-weight:500;color:var(--faint)">oct</span></div>
+              <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>Umbral 4×1k</span></span></div>
+              <div><span class="ses"><i style="background:var(--m-fuerza)"></i><span>Fuerza A −30%</span></span></div>
+              <div><span class="add">+</span></div>
+              <div><span class="ses"><i style="background:var(--m-ergo)"></i><span>Ergo suave</span></span></div>
+              <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>Z2 40′</span></span></div>
+              <div><span class="add">+</span></div>
+              <div><span class="add">+</span></div>
+              <div class="wkact"><span class="tag">Descarga</span><span class="load" aria-hidden="true"><i style="height:30%"></i><i style="height:45%"></i><i style="height:35%"></i><i style="height:50%"></i></span></div></div>
+          </div>
+          <div class="m-sub" style="font-size:11.5px">Arrastra para mover · clic para editar en el panel · + para añadir de la biblioteca · menú de semana: copiar, desplazar, escalar volumen, descarga, publicar</div>
+        </div>
+        <div class="m-panel">
+          <div><div class="m-kv"><span class="m-lab">Readiness</span><b style="color:var(--danger)">42</b></div>
+            <svg class="spark" viewBox="0 0 230 36" preserveAspectRatio="none" aria-hidden="true"><rect class="base" x="0" y="6" width="230" height="12" rx="2"/><polyline class="line" points="0,10 20,9 40,12 60,10 80,11 100,9 120,11 140,13 160,16 180,20 200,24 226,26"/><circle class="end" cx="226" cy="26" r="3"/></svg></div>
+          <div class="m-kv"><span>Sueño (media 7 d)</span><b>6:10 <span style="color:var(--danger);font-weight:600">−0:40</span></b></div>
+          <div class="m-kv"><span>Agujetas</span><b>2 / 5</b></div>
+          <div class="m-msg">«Bien, pero la última me costó»<small>Check-in · ayer · sin responder</small></div>
+          <div class="m-kv"><span>Lesión</span><b>—</b></div>
+          <div class="m-kv"><span>Objetivo</span><b>1:12:00 · Pro</b></div>
+          <div><div class="m-lab" style="margin-bottom:6px">Tus marcadores</div><div class="m-kv"><span>5 km</span><b>19:40</b></div><div class="m-kv"><span>Remo 2 km</span><b style="color:var(--faint)">falta · programar</b></div></div>
+          <div class="m-msg" style="background:transparent;border:1px dashed var(--border-strong)">Nota privada: rodilla derecha molesta con volumen alto de lunges.<small>Editada 12 sept</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<h3 id="prop-programar">Programar: build once, give to many</h3>
+<div id="programar-body">
+<p>Today the typed-prescription engine underneath is strong: the fast-entry grammar ("press banca 4x4 @78-80% r90" becomes a structured prescription), the RIR and rest chips, the live "El atleta ve…" sentence, and re-sync to athletes on save. The workflow on top of it was built for one coach editing one template and handing it to one athlete at a time. The benchmark job, <strong>"build a 4-week block for my N3 HYROX group and give it to 20 athletes starting Monday"</strong>, measured in the running app:</p>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Step</th><th>Today</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Write week 1</td><td class="num">~130 clicks</td><td class="why">The fast-entry line never links an exercise (<code>exercise_id: null</code> is hard-coded), so every line blocks saving until you pick it again in a picker nested inside a drawer. That includes the placeholder's own examples.</td></tr>
+    <tr><td>Weeks 2–4 with progression</td><td class="num">~200 clicks</td><td class="why">You see one week at a time. "Copiar" makes an identical copy, and every load change is a drawer, 45 times. No undo (the hook was built and is imported nowhere).</td></tr>
+    <tr><td>Give it to 20 athletes</td><td class="num">~160 clicks + 20 page loads</td><td class="why">One athlete per modal, landing as a draft, then publish from each athlete's page. There is no "group". The bulk engine with preview and rollback (<code>/api/coach/mass-adjustments</code>) has no screen.</td></tr>
+    <tr><td><strong>Total</strong></td><td class="num"><strong>≈500 clicks</strong></td><td class="why"><strong>9 screens, pop-ups two deep. A spreadsheet does the same job in about 15 minutes.</strong></td></tr>
+  </tbody>
+</table>
+</div>
+<p>Also found: library "Sesiones" can't be placed in any day (a dead end), all 97 imported blocks say "no se puede insertar", searching "sentadilla" finds nothing because the exercise catalogue is in English, and <strong>"bloque" means four different things</strong>. The coach meets more than 20 terms before building a plan. The proposal cuts that to seven visible words:</p>
+<p style="font-size:17px;font-weight:600;max-width:none"><span class="tag" style="font-size:13px;height:26px">Ejercicio</span> → <span class="tag" style="font-size:13px;height:26px">Bloque</span> → <span class="tag" style="font-size:13px;height:26px">Entreno</span> → <span class="tag" style="font-size:13px;height:26px">Semana</span> → <span class="tag" style="font-size:13px;height:26px">Programa</span> → <span class="tag" style="font-size:13px;height:26px">Plan</span> · <span class="tag" style="font-size:13px;height:26px">Grupo</span></p>
+<p class="muted" style="font-size:14px">Ejercicio: a movement. Bloque: a lettered part of an entreno (A, B, C). Entreno: what an athlete does in one slot of a day. Programa: several weeks with a name the athlete sees. Plan: an athlete's or group's dated chain of programas and races. Grupo: a saved set of athletes. Gone from the UI: sub-bloque, pieza, componente, tipar, dosis, variante, celda, receta, secuencia, cadena, tramo, plantilla, microciclo.</p>
+
+<h4>The program editor: every week on one screen, spreadsheet-fast</h4>
+<p>All weeks as rows and days as columns, with the lines of each entreno visible in the cell. Arrow keys move between cells, Enter edits with the fast-entry line (exercises resolved as you type), ⌘C/⌘V copies a cell, week or range, and ⌘Z undoes. Drag from the library into a cell. Select a range and "Progresar" applies +2.5%/week, +1 set or a −30% deload to the typed prescription. Every cell autosaves, and each week row shows its planned volume per modality, derived from the prescription.</p>
+<div class="mockwrap" role="img" aria-label="Mockup of the proposed program editor with all weeks visible and a library panel">
+<div class="mock">
+  <aside class="m-rail">
+    <div class="m-brand"><span class="m-logo">F</span>FAHYBRID</div>
+    <div class="m-nav">Hoy <span class="n">14</span></div>
+    <div class="m-nav">Atletas <span class="n">100</span></div>
+    <div class="m-nav">Mensajes <span class="n">5</span></div>
+    <div class="m-nav on">Programar</div>
+    <div class="m-nav">Negocio <span class="n">3</span></div>
+    <div class="m-spacer"></div>
+    <div class="m-nav">Ajustes</div>
+  </aside>
+  <div class="m-main">
+    <div class="m-top"><span class="m-sub">Programar › Programas</span><div class="m-search" style="margin-left:12px">Buscar… <span class="kbd">⌘K</span></div><span class="m-spacer" style="flex:1"></span><span class="m-sub" style="font-size:12px">✓ Guardado</span><span class="m-avatar">PA</span></div>
+    <div class="m-body">
+      <div class="m-head"><span class="m-title">Acumulación HYROX</span><span class="m-sub">4 semanas · <span class="tag">N3</span> <span class="tag">HYROX</span> · usado por 22 atletas</span><span style="flex:1"></span><span class="m-btn">Vista atleta</span><span class="m-btn">Progresar selección…</span><span class="m-btn pri">Asignar…</span></div>
+      <div class="m-build">
+        <div class="cal">
+          <div class="cal-r h"><div></div><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div><div>Volumen</div></div>
+          <div class="cal-r"><div class="wk">S1<br><span style="font-weight:500;color:var(--faint)">Base</span></div>
+            <div><span class="ses"><i style="background:var(--m-fuerza)"></i><span>A Sentadilla 5×5 @75%</span></span><span class="ses"><i style="background:var(--m-fuerza)"></i><span>B Remo 3×8 RIR2</span></span></div>
+            <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>Z2 45′</span></span></div>
+            <div><span class="add">Descanso</span></div>
+            <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>5×1 km @umbral r2′</span></span><span class="ses"><i style="background:var(--m-circuito)"></i><span>Wall balls 3×20</span></span></div>
+            <div><span class="ses"><i style="background:var(--m-circuito)"></i><span>WOD estaciones 40′</span></span></div>
+            <div><span class="ses"><i style="background:var(--m-ergo)"></i><span>Ergo 6×500 r1′</span></span></div>
+            <div><span class="add">Descanso</span></div>
+            <div class="wkact"><span class="m-sub" style="font-size:11px">5 h 10</span><span class="load" aria-hidden="true"><i style="height:50%"></i><i style="height:70%"></i><i style="height:60%"></i><i style="height:45%"></i></span></div></div>
+          <div class="cal-r"><div class="wk">S2</div>
+            <div style="outline:2px solid var(--fg);outline-offset:-2px"><span class="ses"><i style="background:var(--m-fuerza)"></i><span>A Sentadilla 5×5 @77.5%</span></span><span class="ses"><i style="background:var(--m-fuerza)"></i><span>B Remo 4×8 RIR2</span></span></div>
+            <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>Z2 50′</span></span></div>
+            <div><span class="add">Descanso</span></div>
+            <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>6×1 km @umbral r2′</span></span><span class="ses"><i style="background:var(--m-circuito)"></i><span>Wall balls 3×25</span></span></div>
+            <div><span class="ses"><i style="background:var(--m-circuito)"></i><span>WOD estaciones 45′</span></span></div>
+            <div><span class="ses"><i style="background:var(--m-ergo)"></i><span>Ergo 7×500 r1′</span></span></div>
+            <div><span class="add">Descanso</span></div>
+            <div class="wkact"><span class="m-sub" style="font-size:11px">5 h 45</span><span class="load" aria-hidden="true"><i style="height:55%"></i><i style="height:80%"></i><i style="height:68%"></i><i style="height:50%"></i></span></div></div>
+          <div class="cal-r"><div class="wk">S3</div>
+            <div><span class="ses"><i style="background:var(--m-fuerza)"></i><span>A Sentadilla 4×4 @80%</span></span></div>
+            <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>Z2 55′</span></span></div>
+            <div><span class="add">Descanso</span></div>
+            <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>4×2 km @umbral r2′</span></span></div>
+            <div><span class="ses"><i style="background:var(--m-circuito)"></i><span>HYROX sim ½</span></span></div>
+            <div><span class="ses"><i style="background:var(--m-ergo)"></i><span>Ergo 2 km test</span></span></div>
+            <div><span class="add">Descanso</span></div>
+            <div class="wkact"><span class="m-sub" style="font-size:11px">6 h 05</span><span class="load" aria-hidden="true"><i style="height:60%"></i><i style="height:90%"></i><i style="height:75%"></i><i style="height:55%"></i></span></div></div>
+          <div class="cal-r"><div class="wk">S4<br><span style="font-weight:500;color:var(--faint)">Descarga</span></div>
+            <div><span class="ses"><i style="background:var(--m-fuerza)"></i><span>A Sentadilla 3×5 @70%</span></span></div>
+            <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>Z2 35′</span></span></div>
+            <div><span class="add">Descanso</span></div>
+            <div><span class="ses"><i style="background:var(--m-carrera)"></i><span>3×1 km @umbral</span></span></div>
+            <div><span class="ses"><i style="background:var(--m-circuito)"></i><span>WOD suave 25′</span></span></div>
+            <div><span class="add">+</span></div>
+            <div><span class="add">Descanso</span></div>
+            <div class="wkact"><span class="m-sub" style="font-size:11px">3 h 20</span><span class="load" aria-hidden="true"><i style="height:30%"></i><i style="height:45%"></i><i style="height:35%"></i><i style="height:30%"></i></span></div></div>
+        </div>
+        <div class="lib">
+          <div class="m-search" style="max-width:none">Buscar en tu biblioteca…</div>
+          <div class="m-tabs"><span class="m-chip on">Listos <span class="n">41</span></span><span class="m-chip">Por revisar <span class="n">56</span></span></div>
+          <div class="lib-item"><i style="background:var(--m-fuerza)"></i><div>Sentadilla 5×5 @75%<small>Fuerza · usado en 6 programas</small></div></div>
+          <div class="lib-item"><i style="background:var(--m-carrera)"></i><div>5×1 km umbral<small>Carrera · 35′ · usado en 9</small></div></div>
+          <div class="lib-item"><i style="background:var(--m-circuito)"></i><div>WOD estaciones HYROX<small>Circuito · 40′ · usado en 4</small></div></div>
+          <div class="lib-item"><i style="background:var(--m-ergo)"></i><div>Ergo 6×500 r1′<small>Ergo · 25′ · usado en 7</small></div></div>
+          <div class="lib-item"><i style="background:var(--m-cal)"></i><div>Entreno «Simulación 1»<small>Entreno completo · 70′</small></div></div>
+          <div class="m-sub" style="font-size:11.5px">Arrastra a una celda · Alt para copiar</div>
+        </div>
+      </div>
+      <div class="m-foot"><span>Celda S2 · Lun seleccionada: <b style="color:var(--fg)">Enter</b> editar</span><span class="m-keys"><span><span class="kbd">⌘C</span><span class="kbd">⌘V</span> copiar</span><span><span class="kbd">⌘Z</span> deshacer</span><span><span class="kbd">⌘D</span> duplicar</span></span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<h4>Assign to many: one sheet, called from everywhere</h4>
+<p>The same sheet opens from the program, from Hoy (suggested athletes preselected), from a multi-select in Atletas, and from a group. It shows conflicts before anything happens, publishes in one confirm, and offers undo (the mass-adjustments rollback that already exists).</p>
+<div class="mockwrap" role="img" aria-label="Mockup of the assign-to-many sheet">
+<div style="width:640px;background:var(--surface);color:var(--fg);font:13px/1.45 var(--font);padding:20px;display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:18px;font-weight:600">Asignar «Acumulación HYROX»</span><span class="m-sub">Esc para cerrar</span></div>
+  <div><div class="m-lab" style="margin-bottom:6px">Para</div><div style="display:flex;gap:6px;flex-wrap:wrap;border:1px solid var(--border);border-radius:6px;padding:6px"><span class="tag" style="height:24px">Grupo N3 HYROX · 20 ×</span><span class="tag" style="height:24px">Aina Roig ×</span><span class="tag" style="height:24px">Pol Serra ×</span><span class="m-sub" style="padding:3px 4px">Añadir atleta, grupo o filtro…</span></div>
+  <div class="m-sub" style="font-size:12px;margin-top:6px"><b style="color:var(--fg)">22 atletas</b> · 2 ya tienen un programa que se solapa → <span class="m-btn sm">Encadenar detrás</span> <span class="m-btn sm ghost">Sustituir</span> <span class="m-btn sm ghost">Saltar</span></div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><div class="m-lab" style="margin-bottom:6px">Empieza</div><div class="m-btn" style="width:100%;justify-content:space-between">lun 28 sept <span class="m-sub">▾</span></div></div><div><div class="m-lab" style="margin-bottom:6px">Entra en</div><div class="m-btn" style="width:100%;justify-content:space-between">Semana 1 <span class="m-sub">▾</span></div></div></div>
+  <div><div class="m-lab" style="margin-bottom:6px">Entrega</div><div class="m-tabs"><span class="m-chip">Todo visible ya</span><span class="m-chip on">Semana a semana (se publica el viernes antes)</span><span class="m-chip">Borrador</span></div></div>
+  <div style="background:var(--surface-2);border-radius:8px;padding:10px 12px;font-size:12.5px">Vista previa: 22 atletas × 4 semanas · 18 entrenos cada uno · 28 sept – 25 oct. Nadie pierde sesiones ya hechas.</div>
+  <div style="display:flex;justify-content:flex-end;gap:8px"><span class="m-btn ghost">Cancelar</span><span class="m-btn pri">Asignar a 22</span></div>
+</div>
+</div>
+
+<h4>Groups, and a plan you can see at a glance</h4>
+<p>A group is a saved set of athletes, either picked by hand or defined as a filter (level, days per week, target race). A group has a plan: its dated chain of programas, with races and the planned weekly volume drawn from the prescription. That's today's level × days "secuencia", moved to where coaches already think. The level × days matrix becomes an optional automatic-membership rule, not the entry point. The library becomes a dense table with "used in N programs", hover preview, likely-duplicate detection and bulk tagging, and it defaults to blocks that are ready to use.</p>
+</div>
+</section>
+
+<section id="visual">
+<h2>Visual direction</h2>
+<p>Neutral chrome; the numbers and statuses carry the colour. These values come from the visual audit and pass accessibility contrast in both themes. The swatches below follow your light/dark setting.</p>
+<h4>Colour</h4>
+<div class="swatches">
+  <div class="sw"><i style="background:var(--bg)"></i><div>Canvas<br><code>#F4F4F2 · #0B0B0C</code></div></div>
+  <div class="sw"><i style="background:var(--surface)"></i><div>Surface<br><code>#FFFFFF · #161618</code></div></div>
+  <div class="sw"><i style="background:var(--fg)"></i><div>Ink / accent<br><code>#141413 · #F2F2F2</code></div></div>
+  <div class="sw"><i style="background:var(--ok)"></i><div>OK · done<br><code>#1D7447 · #3CCF85</code></div></div>
+  <div class="sw"><i style="background:var(--warn)"></i><div>Watch<br><code>#8F5400 · #F0A43A</code></div></div>
+  <div class="sw"><i style="background:var(--danger)"></i><div>Act now<br><code>#BF3128 · #FF5D55</code></div></div>
+  <div class="sw"><i style="background:var(--info)"></i><div>Info<br><code>#2C5F9E · #5AA7F5</code></div></div>
+  <div class="sw"><i style="background:linear-gradient(90deg,var(--m-fuerza) 0 25%,var(--m-ergo) 25% 50%,var(--m-carrera) 50% 75%,var(--m-circuito) 75%)"></i><div>Modality (never a status)<br><code>fuerza · ergo · carrera · circuito</code></div></div>
+</div>
+<h4>Type: 8 sizes, 3 weights (today: 31 sizes)</h4>
+<div class="typescale">
+  <div class="ts"><code>40 / 600 tnum</code><span style="font-size:40px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums">14</span></div>
+  <div class="ts"><code>28 / 600 tnum</code><span style="font-size:28px;font-weight:600;font-variant-numeric:tabular-nums">86 · 1:12:00</span></div>
+  <div class="ts"><code>20 / 600</code><span style="font-size:20px;font-weight:600">Page title: Atletas</span></div>
+  <div class="ts"><code>16 / 600</code><span style="font-size:16px;font-weight:600">Card title, athlete name</span></div>
+  <div class="ts"><code>14 / 400</code><span style="font-size:14px">Body, inputs, buttons: Umbral 5×1 km + Wall balls</span></div>
+  <div class="ts"><code>13 / 400</code><span style="font-size:13px">Dense rows and chips</span></div>
+  <div class="ts"><code>12 / 500</code><span style="font-size:12px;font-weight:500;color:var(--muted)">Meta: hace 3 días · 22 sept</span></div>
+  <div class="ts"><code>11 / 600 caps</code><span class="eyebrow" style="color:var(--faint)">Table headers only</span></div>
+</div>
+<h4>Rules</h4>
+<ul>
+  <li><strong>The accent (and the club colour) has three jobs only:</strong> the one primary button per view, the focus ring, and the logo. Selection, filters and "today" are neutral. Any club colour then reads as brand, not highlighter.</li>
+  <li><strong>Red means "overdue or failed, act now".</strong> Never a headline count, never a new client, never decoration.</li>
+  <li><strong>Status is always icon + label</strong>, from one status model shared by every screen. A coloured dot never appears alone.</li>
+  <li><strong>Modality and zone colours never reuse a status colour.</strong> Running is not "failed".</li>
+  <li><strong>One component library</strong> (Base UI + cva, already installed): Button, Input, Select, Tabs, SegmentedControl, StatusBadge, Tag, DataTable, Dialog, Sheet, Menu, Toast with undo, CommandPalette, Sparkline, KPI, EmptyState. Hand-styled buttons get blocked by lint.</li>
+  <li><strong>Density:</strong> 40&nbsp;px rows, controls at 28/32/40&nbsp;px, radius 6 on controls and 10 on cards. Buttons are rectangles; pills are only for filters. No card inside a card.</li>
+  <li><strong>Icons:</strong> Lucide SVG icons (already a dependency) instead of the 3.9&nbsp;MB icon font.</li>
+  <li><strong>Charts:</strong> every chart states its question, shows a baseline or target, and labels its window. Empty modules collapse to one line.</li>
+</ul>
+</section>
+
+<section id="order">
+<h2>Build order</h2>
+<p>Foundations first, so every screen after them is built once and doesn't need patching. Each screen is replaced whole, not patched, after you sign off its mockup (the UX rule in <code>CLAUDE.md</code>).</p>
+<div class="phases">
+  <div class="phase"><div class="ph">0 · Foundations<small>no visible change</small></div><div><p>One signal engine feeding every screen (the attention items that already exist), one adherence formula, one status model. Thresholds, levels and markers become coach data. Leads, calls and metrics get separated by coach; the Pablo copy goes. Queries become set-based (from about 640 per page to a handful). A component library with a lint rule; Lucide icons.</p><p>Why first: every later screen reads from these. Built on today's foundations, the new screens would inherit the contradicting numbers.</p></div></div>
+  <div class="phase"><div class="ph">1 · Shell, Hoy, Atletas<small>the daily loop</small></div><div><p>The 5-item navigation, ⌘K, "+ Nuevo", the Hoy inbox with resolve/snooze/done and keyboard, the Atletas table with saved views and bulk actions, and the side panel shared by both. Mensajes switches to "por responder".</p><p>Done when: 100 athletes produce about 15 rows in Hoy, and you can assign a block to 20 athletes in one action.</p></div></div>
+  <div class="phase"><div class="ph">2 · Athlete page<small>the cockpit</small></div><div><p>Status with its reason, "hacer ahora", the editable 3-week calendar, the drawer as editor, per-week publishing, J/K between athletes. Rendimiento and Perfil rebuilt as one scroll each.</p><p>Done when: moving Thursday's session to Friday takes one drag, and every number matches the roster.</p></div></div>
+  <div class="phase"><div class="ph">3 · Programar<small>build once, give to many</small></div><div><p>The all-weeks program editor (keyboard, copy/paste, undo, progression, autosave), the fast-entry line that resolves exercises, groups with their plans, the assign-to-many sheet, and the library as a table.</p><p>Done when: the 4-week block for 20 athletes takes minutes, not 500 clicks.</p></div></div>
+  <div class="phase"><div class="ph">4 · Negocio, Ajustes, phone<small>the rest</small></div><div><p>Negocio as one area behind its add-on; Ajustes as a real settings area with the setup checklist; the phone as a triage companion (Hoy, Mensajes, athlete state), with 44&nbsp;px touch targets.</p></div></div>
+</div>
+</section>
+
+<section id="decisions">
+<h2>Your decisions</h2>
+<p>Everything objective (bugs, contradicting numbers, accessibility, performance, the multi-coach leaks) I'll just fix; you don't need to decide those. These seven are taste or product calls, and several reverse earlier decisions, so they're yours. You can reply with the numbers and letters (for example "1a 2a 3b…").</p>
+<div class="decisions">
+  <div class="dec"><h4>What opens after login?</h4>
+    <div class="opts"><div class="opt rec">(a) Hoy, the inbox that goes down to zero</div><div class="opt">(b) Atletas, the roster (today)</div><div class="opt">(c) Atletas with a Hoy strip on top (today's hybrid)</div></div>
+    <p class="why">At 100 clients the first screen has to answer "who needs me". A roster sorted by adherence answers "who's fine". The hybrid is what puts the same 6 intakes on screen three times today.</p>
+    <span class="challenges">Reverses DECISIONS 2026-08-19 (roster as home)</span></div>
+  <div class="dec"><h4>Default theme?</h4>
+    <div class="opts"><div class="opt rec">(a) Dark by default, light as a toggle</div><div class="opt">(b) Follow the device setting (today)</div><div class="opt">(c) Light by default (FLEXR, 19 Aug)</div></div>
+    <p class="why">Dark was your original ask. It matches Whoop, the athlete app and the landing, and it lets any club colour read as brand. The neutral chrome and club colour as tenant data stay either way.</p>
+    <span class="challenges">Reverses DECISIONS 2026-08-19/20 (light default)</span></div>
+  <div class="dec"><h4>What do we call the multi-week unit?</h4>
+    <div class="opts"><div class="opt rec">(a) "Programa", like TrueCoach and TrainHeroic</div><div class="opt">(b) "Mesociclo": correct in periodisation, and Spanish coaches know it</div><div class="opt">(c) Keep "Microciclo"</div></div>
+    <p class="why">"Microciclo" has to go either way: a microcycle is about one week, and coaches will read it wrong. Between the other two I prefer "Programa". "Mesociclo" belongs to one school of periodisation, and your rule is that the product doesn't hard-wire any school. It's also the most-used word in the product. "Bloque" then means only the lettered part of an entreno, and the athlete still sees the coach's own phase name.</p></div>
+  <div class="dec"><h4>How do you give a plan to many athletes?</h4>
+    <div class="opts"><div class="opt rec">(a) Grupos first (a saved set of athletes, picked by hand or by filter, with its own plan), with level × days as an optional automatic-membership rule</div><div class="opt">(b) Keep level × days as the only way (today)</div><div class="opt">(c) Explicit Grupos only</div></div>
+    <p class="why">Coaches think "my Tuesday HYROX group", not "N3 at 5 days". Today the matrix needs up to 20 chains built before anything can be suggested, which is why Hoy shows 30 identical cards.</p>
+    <span class="challenges">Reopens DECISIONS 2026-08-23 (level × days matrix)</span></div>
+  <div class="dec"><h4>How is the athlete page organised?</h4>
+    <div class="opts"><div class="opt rec">(a) A cockpit (why + state + editable 3-week calendar) with 2 more tabs: Rendimiento and Perfil</div><div class="opt">(b) Keep the 5 tabs, fixed and relabelled</div><div class="opt">(c) One long page with anchors</div></div>
+    <p class="why">The "5 tabs" are really 12 views, and the week and adjustment flows are scattered across three of them.</p>
+    <span class="challenges">Reverses DECISIONS 2026-08-13 (5 tabs)</span></div>
+  <div class="dec"><h4>How do plans get published to athletes?</h4>
+    <div class="opts"><div class="opt rec">(a) Per week, plus a coach setting "publish automatically N days before it starts"</div><div class="opt">(b) Per week, always by hand</div><div class="opt">(c) The whole block at once (today)</div></div>
+    <p class="why">Today 47 of 100 athletes can't see their week because nobody pressed publish. With 100 clients, publishing has to be the default, with the coach able to hold a week back.</p></div>
+  <div class="dec"><h4>Does every coach see Negocio?</h4>
+    <div class="opts"><div class="opt rec">(a) Only coaches with the funnel/billing add-on (<code>coach_entitlements</code> already exists)</div><div class="opt">(b) Every coach</div><div class="opt">(c) Take it out of v1</div></div>
+    <p class="why">Many FLEXR coaches will bring their own clients and payment system. For them, leads and a funnel are noise in the navigation.</p></div>
+</div>
+
+<h3>Defaults I'll take unless you say otherwise</h3>
+<ul class="defaults">
+  <li>Light theme uses a cool neutral canvas with white cards, not warm pearl.</li>
+  <li>One typeface (Figtree) for everything; big tabular numbers are the display voice, not Bricolage titles.</li>
+  <li>Buttons are 6&nbsp;px rectangles; pills only for filters.</li>
+  <li>Sidebar with 5 items, expanded, collapsible to icons.</li>
+  <li>The club colour appears in three places only: primary button, focus ring, logo.</li>
+  <li>Atletas defaults to the table; cards stay as an option for small rosters.</li>
+  <li>Comunicados become an action ("Comunicado…") on the athlete and in bulk, not a tab.</li>
+  <li>Training load uses the standard terms (CTL/ATL/TSB) with a plain-Spanish explanation.</li>
+  <li>On the phone, the panel is for triage (Hoy, Mensajes, athlete state and reply); editing is on desktop.</li>
+  <li>Snooze options: 1 day, 3 days, "until something changes" (default).</li>
+  <li>"Listo para progresar" moves out of the daily inbox into a weekly review.</li>
+  <li>"Leads" stays in English; everything else in Spanish ("funnel" → "embudo").</li>
+</ul>
+</section>
+
+<section id="appendix">
+<h2>Appendix</h2>
+<p>The five area reports have the full evidence: each finding with its screenshot, file and line, severity, and recommendation. They're in the repo next to this page:</p>
+<ul>
+  <li><a href="informes/A-ia-shell-secundarias.md">A · Navigation, shell and secondary screens</a></li>
+  <li><a href="informes/B-hoy-atletas-mensajes.md">B · Hoy, Atletas and Mensajes at 100 athletes</a></li>
+  <li><a href="informes/C-ficha-atleta.md">C · The athlete page</a></li>
+  <li><a href="informes/D-programar.md">D · Programming and the library</a></li>
+  <li><a href="informes/E-sistema-visual.md">E · Visual system, accessibility and performance</a></li>
+</ul>
+<p class="muted" style="font-size:14px">How the test environment was built: local Postgres 16 with pgvector, all 213 migrations, the dev login bypass, <code>infra/scripts/seed_demo.ts</code> scaled to 100 athletes, blocks imported with <code>import_blocks_xlsx.ts</code>, and 4-week blocks assigned through <code>POST /api/coach/athletes/[id]/assign-month</code>. Two notes for whoever maintains the seeds: <code>seed_demo.ts</code> no longer matches the schema (<code>chat_messages.sender_role</code> is now required), and migration <code>0051</code> can't run inside the migration runner's transaction (<code>CREATE INDEX CONCURRENTLY</code>), so a fresh database can't be migrated with <code>migrate.ts</code> alone.</p>
+</section>
+
+<footer>FAHYBRID coach panel audit · 23 September 2026 · Next step: your seven decisions, then the Hoy / Atletas / athlete-page mockups become the first build.</footer>
+</main>
+</div>
+</div>

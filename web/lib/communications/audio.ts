@@ -37,6 +37,7 @@ import {
 // Se importa en vez de repetirse: es una función delicada —un `NEXT_PUBLIC_APP_URL`
 // sin `https://` invalidaba TODOS los adjuntos— y dos copias acabarían divergiendo.
 import { attachmentBaseUrl } from '@/lib/chat/upload';
+import { ownerIdFromPathname } from '@/lib/storage/owned-pathname';
 
 /** Cuánto vive la URL de subida. Generoso para una nota de voz larga saliendo
  *  por una conexión mala; sigue siendo un enlace que muere solo. */
@@ -108,19 +109,13 @@ export function audioPathnameFromUrl(url: string): string | null {
  * esperada — nunca se confía en una ruta que llega de fuera.
  */
 export function coachIdFromAudioPathname(pathname: string): bigint | null {
-  // ['comunicados', '<coach_id>', '<yyyy>', '<mm>', '<fichero>']
-  const segments = pathname.split('/').filter(Boolean);
-  if (segments.length !== 5) return null;
-  if (segments[0] !== AUDIO_ROOT) return null;
-  const coachSeg = segments[1];
-  if (!coachSeg || !/^\d+$/.test(coachSeg)) return null;
-  const fichero = segments[4]!;
+  // ['comunicados', '<coach_id>', '<yyyy>', '<mm>', '<fichero>'] — forma exacta,
+  // sin `..` ni rutas absolutas (lib/storage/owned-pathname.ts).
+  const owner = ownerIdFromPathname(pathname, AUDIO_ROOT);
+  if (owner == null) return null;
+  const fichero = pathname.split('/')[4]!;
   if (!AUDIO_EXTENSIONS.includes(fileExtension(fichero))) return null;
-  try {
-    return BigInt(coachSeg);
-  } catch {
-    return null;
-  }
+  return owner;
 }
 
 /**

@@ -20,10 +20,10 @@
 //     form's VALUE.
 //   • origin      = 'base' | 'customized' | 'own', for the catalog's label.
 
-import { cn } from '@/lib/utils';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import type { ExerciseOrigin } from '@/lib/exercises/coach-override';
+import { FilterChip as UiFilterChip } from '@/components/v2/ui';
 
 export interface CatalogRow {
   id: string;
@@ -155,24 +155,9 @@ export function FilterChip({
   count?: number;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        'v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2.5 py-1 text-label font-bold transition-colors',
-        active
-          ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-          : 'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
-      )}
-    >
+    <UiFilterChip active={active} onClick={onClick} count={count}>
       {label}
-      {count != null ? (
-        <span className={cn('v2-num', active ? 'opacity-70' : 'text-[color:var(--v2-faint)]')}>
-          {count}
-        </span>
-      ) : null}
-    </button>
+    </UiFilterChip>
   );
 }
 

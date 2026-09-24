@@ -41,7 +41,13 @@ import { runStructureSchema, type RunStructure } from './run-structure';
 const RPE_MIN = 0; // a set can be prescribed at RPE 0 only as a floor; 1-10 is the live range
 const RPE_MAX = 10;
 const HR_ZONE_MIN = 1;
-const HR_ZONE_MAX = 5; // 5-zone model (locked by the model spec)
+// El canal de zona «hr_zone» lleva el NÚMERO de zona del modelo del coach: en
+// una carrera es su zona de RITMO (run-structure-convert pliega `pace_zone` aquí
+// y el resolutor lo pinta como banda de ritmo), y ese modelo tiene seis zonas
+// (Z6 = sprint, `methodology_zones`). En FC una Z6 se resuelve con la banda de Z5
+// (`HR_ZONE_Z6_FALLBACK`, zones.ts). Antes paraba en 5 y la Z6 de ritmo no se
+// podía guardar.
+const HR_ZONE_MAX = 6;
 const HR_BPM_MIN = 20; // physiological floor; below this is a data error
 const HR_BPM_MAX = 250; // physiological ceiling
 const PERCENT_MAX = 200; // %1RM can exceed 100 for supramaximal/eccentric work

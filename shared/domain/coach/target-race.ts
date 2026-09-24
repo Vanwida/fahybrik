@@ -1,5 +1,6 @@
 import type { Sql } from 'postgres';
-import { isoDateString, startOfDayInBox } from '../dates';
+import { isoDateString, parseIsoDate, startOfDayInBox } from '../dates';
+import { loadAthleteLocalDay } from '../db/athlete-timezone';
 import type {
   RaceEventType,
   RaceFormat,
@@ -20,9 +21,11 @@ import type {
 //
 // Predicate is identical to web `getTargetRace` (lib/races/next-race.ts) — that
 // function now delegates here so the countdown and the metric share ONE query.
-// "today" resolves in the box tz (Europe/Madrid), matching every other countdown
-// in the app; `days_until` = race_date - today (0 = today, never negative since
-// we filter to upcoming).
+// "today" is the ATHLETE's day (`athletes.timezone`): a race is his, so it is
+// counted in his calendar (docs/DECISIONS.md 2026-09-23, «Qué día es en cada
+// sitio») — resolved here when no `on_date` is given; a caller that passes one
+// passes that day already resolved. `days_until` = race_date - today (0 = today,
+// never negative since we filter to upcoming).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type TargetRaceRow = {
@@ -57,7 +60,11 @@ export async function getTargetRaceRow(
   client: Sql,
   on_date?: Date,
 ): Promise<TargetRaceRow | null> {
-  const todayIso = isoDateString(startOfDayInBox(on_date ?? new Date()));
+  // Sin fecha dada, el hoy del ATLETA (su huso), como el resto de lectores de
+  // carreras (lib/races). Quien pasa `on_date` ya resolvió su día: un día a
+  // medianoche UTC (`parseIsoDate`), no un instante — un instante se leería en el
+  // día del defecto, que no es el del atleta.
+  const todayIso = on_date ? isoDateString(startOfDayInBox(on_date)) : await loadAthleteLocalDay({ athlete_id, client });
 
   const rows = await client<
     Array<{
@@ -101,4 +108,24 @@ export async function getTargetRaceRow(
   `;
 
   return rows[0] ?? null;
+}
+
+/**
+ * Desde qué día se cuenta la cuenta atrás a la carrera objetivo. La carrera es
+ * del ATLETA y se cuenta en SU día (DECISIONS 2026-09-23, «Qué día es en cada
+ * sitio»); la posición en el plan, en cambio, va en el `on_date` que pasa quien
+ * llama (el día del club para el coach). Con `now` (o sin `on_date`), el día del
+ * atleta en ese instante; con solo `on_date`, ese día tal cual — quien lee un día
+ * fijo (una semana ya evaluada) cuenta desde él.
+ */
+export async function raceCountdownDay(params: {
+  athlete_id: number | bigint;
+  on_date?: Date;
+  now?: Date;
+  client: Sql;
+}): Promise<Date> {
+  if (params.on_date && !params.now) return startOfDayInBox(params.on_date);
+  return parseIsoDate(
+    await loadAthleteLocalDay({ athlete_id: params.athlete_id, now: params.now ?? new Date(), client: params.client }),
+  );
 }

@@ -8,7 +8,9 @@
 // Todo sale de los tokens v2 del dashboard. Ni un hex, ni un tamaño suelto.
 
 import { useRef, type ReactNode } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
+import { CircleAlert, GripVertical, Info, ListChecks, Plus, Route, Text, X } from 'lucide-react';
+import { Button, IconButton, Input, Switch, Textarea } from '@/components/v2/ui';
+import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import { cn } from '@/lib/utils';
 
 // ---------------------------------------------------------------------------
@@ -32,17 +34,15 @@ export function Campo({
   className?: string;
 }) {
   return (
-    <div className={cn('flex flex-col gap-2', className)}>
+    <div className={cn('flex flex-col gap-1.5', className)}>
       {htmlFor ? (
-        <label className="v2-micro" htmlFor={htmlFor}>
+        <label className="t-meta text-v2-muted" htmlFor={htmlFor}>
           {etiqueta}
         </label>
       ) : (
-        <span className="v2-micro">{etiqueta}</span>
+        <span className="t-meta text-v2-muted">{etiqueta}</span>
       )}
-      {ayuda ? (
-        <p className="text-label leading-relaxed text-[color:var(--v2-muted)]">{ayuda}</p>
-      ) : null}
+      {ayuda ? <p className="t-meta text-v2-faint">{ayuda}</p> : null}
       {children}
       {error ? <ErrorCampo mensaje={error} /> : null}
     </div>
@@ -51,8 +51,8 @@ export function Campo({
 
 export function ErrorCampo({ mensaje }: { mensaje: string }) {
   return (
-    <span className="inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-danger)]">
-      <MIcon name="error" size={13} />
+    <span className="inline-flex items-center gap-1 t-meta text-v2-danger">
+      <CircleAlert aria-hidden strokeWidth={2} className="size-3.5" />
       {mensaje}
     </span>
   );
@@ -61,13 +61,6 @@ export function ErrorCampo({ mensaje }: { mensaje: string }) {
 // ---------------------------------------------------------------------------
 // Entradas
 // ---------------------------------------------------------------------------
-
-const BASE_ENTRADA =
-  'w-full rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface)] px-3 py-2.5 text-body text-[color:var(--v2-fg)] transition-colors placeholder:text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border-strong)] focus:border-[color:var(--v2-accent)] focus:outline-none';
-
-function bordeDe(error?: boolean) {
-  return error ? 'border-[color:var(--v2-danger)]' : 'border-[color:var(--v2-border-strong)]';
-}
 
 export function Entrada({
   id,
@@ -94,22 +87,17 @@ export function Entrada({
   className?: string;
 }) {
   return (
-    <input
+    <Input
       id={id}
       type={type}
+      size="lg"
       value={value}
       maxLength={maxLength}
       aria-label={ariaLabel}
-      aria-invalid={error || undefined}
+      invalid={error}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className={cn(
-        BASE_ENTRADA,
-        bordeDe(error),
-        grande && 'v2-display text-lg leading-snug',
-        type === 'date' && 'v2-num max-w-[220px]',
-        className,
-      )}
+      className={cn(grande && 'font-semibold', type === 'date' && 'max-w-[220px] t-tnum', className)}
     />
   );
 }
@@ -134,16 +122,15 @@ export function AreaTexto({
   ariaLabel?: string;
 }) {
   return (
-    <textarea
+    <Textarea
       id={id}
       rows={rows}
       value={value}
       maxLength={maxLength}
       aria-label={ariaLabel}
-      aria-invalid={error || undefined}
+      invalid={error}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className={cn(BASE_ENTRADA, bordeDe(error), 'resize-y leading-relaxed')}
     />
   );
 }
@@ -164,25 +151,17 @@ export function Interruptor({
   detalle: string;
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className={cn(
-          'v2-focus peer relative mt-0.5 h-[23px] w-10 shrink-0 cursor-pointer appearance-none rounded-[var(--v2-r-pill)] border transition-colors',
-          'border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)]',
-          'checked:border-transparent checked:bg-[color:var(--v2-accent)]',
-          'after:absolute after:left-0.5 after:top-0.5 after:h-[17px] after:w-[17px] after:rounded-[var(--v2-r-pill)]',
-          'after:bg-[color:var(--v2-muted)] after:transition-transform after:content-[""]',
-          'checked:after:translate-x-[17px] checked:after:bg-[color:var(--v2-accent-fg)]',
-        )}
-      />
-      <span className="flex flex-col gap-1">
-        <span className="text-body font-semibold text-[color:var(--v2-fg)]">{titulo}</span>
-        <span className="text-label leading-relaxed text-[color:var(--v2-muted)]">{detalle}</span>
-      </span>
-    </label>
+    <Switch
+      checked={checked}
+      onCheckedChange={onChange}
+      className="items-start"
+      label={
+        <span className="flex flex-col gap-0.5">
+          <span className="t-body font-medium text-v2-fg">{titulo}</span>
+          <span className="t-meta text-v2-muted">{detalle}</span>
+        </span>
+      }
+    />
   );
 }
 
@@ -193,9 +172,9 @@ export function Interruptor({
 /**
  * Si un paso lleva casilla o es una línea que el atleta sólo lee.
  *
- * Va DENTRO de la fila del paso, así que no puede ser un `Interruptor`: sus
- * 40 px de raíl y sus dos líneas de texto competirían con el paso, que es el
- * sujeto. Es un botón que dice el estado en el que ESTÁ, y tocarlo lo cambia.
+ * Va DENTRO de la fila del paso, así que no puede ser un `Interruptor`: sus dos
+ * líneas de texto competirían con el paso, que es el sujeto. Es un botón que
+ * dice el estado en el que ESTÁ, y tocarlo lo cambia.
  */
 export function AlternadorCasilla({
   checkable,
@@ -209,25 +188,17 @@ export function AlternadorCasilla({
 }) {
   const estado = checkable ? 'Con casilla' : 'Solo lectura';
   return (
-    <button
-      type="button"
+    <Button
+      size="sm"
+      icon={checkable ? ListChecks : Text}
       onClick={() => onChange(!checkable)}
       aria-label={`Paso ${indice}: ${estado}`}
-      title={
-        checkable
-          ? 'Lo marca al hacerlo. Toca para dejarlo en solo lectura.'
-          : 'Solo lo lee. Toca para ponerle casilla.'
-      }
-      className={cn(
-        'v2-focus inline-flex h-9 shrink-0 items-center gap-1.5 self-start rounded-[var(--v2-r-pill)] border px-2.5 text-label font-semibold transition-colors',
-        checkable
-          ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
-          : 'border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
-      )}
+      aria-pressed={checkable}
+      title={checkable ? 'Lo marca al hacerlo. Toca para dejarlo en solo lectura.' : 'Solo lo lee. Toca para ponerle casilla.'}
+      className={cn('self-start', checkable ? 'text-v2-fg' : 'text-v2-muted')}
     >
-      <MIcon name={checkable ? 'check_box' : 'notes'} size={15} />
       {estado}
-    </button>
+    </Button>
   );
 }
 
@@ -240,40 +211,15 @@ export function ChipsUnicos<T extends string>({
   valor,
   onChange,
   ariaLabel,
-  compacto,
 }: {
   opciones: ReadonlyArray<{ value: T; label: string }>;
   valor: T;
   onChange: (v: T) => void;
   ariaLabel: string;
-  /** Dentro de una fila, no encabezando el formulario: el chip se encoge para no
-   *  competir con el campo que rotula. */
+  /** Heredado: dentro de una fila; el control ya es compacto (28 px). */
   compacto?: boolean;
 }) {
-  return (
-    <div className={cn('flex flex-wrap', compacto ? 'gap-1' : 'gap-2')} role="group" aria-label={ariaLabel}>
-      {opciones.map((o) => {
-        const activo = o.value === valor;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            aria-pressed={activo}
-            onClick={() => onChange(o.value)}
-            className={cn(
-              'v2-focus inline-flex items-center rounded-[var(--v2-r-pill)] border transition-colors',
-              compacto ? 'px-2.5 py-1 text-label' : 'px-3 py-1.5 text-body',
-              activo
-                ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] font-semibold text-[color:var(--v2-accent-text)]'
-                : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-            )}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
+  return <ChipGroup mono={false} ariaLabel={ariaLabel} options={opciones} value={valor} onChange={onChange} />;
 }
 
 /**
@@ -283,8 +229,8 @@ export function ChipsUnicos<T extends string>({
  */
 export function AvisoFila({ children }: { children: ReactNode }) {
   return (
-    <p className="flex items-start gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn)] bg-[color:var(--v2-warn-soft)] px-2.5 py-1.5 text-label leading-relaxed text-[color:var(--v2-fg)]">
-      <MIcon name="info" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
+    <p className="flex items-start gap-1.5 rounded-ctl bg-v2-warn-soft px-2.5 py-1.5 t-body-sm text-v2-fg">
+      <Info aria-hidden strokeWidth={2} className="mt-0.5 size-3.5 shrink-0 text-v2-warn" />
       <span>{children}</span>
     </p>
   );
@@ -294,8 +240,8 @@ export function AvisoFila({ children }: { children: ReactNode }) {
  *  ver, para que un campo ausente no se lea como un campo que falta. */
 export function LineaDeEmbed({ children }: { children: ReactNode }) {
   return (
-    <p className="flex items-start gap-1.5 rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border-strong)] px-2.5 py-2 text-label leading-relaxed text-[color:var(--v2-muted)]">
-      <MIcon name="route" size={14} className="mt-0.5 shrink-0" />
+    <p className="flex items-start gap-1.5 rounded-ctl bg-v2-surface-2 px-2.5 py-2 t-body-sm text-v2-muted">
+      <Route aria-hidden strokeWidth={1.75} className="mt-0.5 size-3.5 shrink-0" />
       <span>{children}</span>
     </p>
   );
@@ -353,10 +299,11 @@ export function FilasOrdenables<T extends { key: string }>({
             e.preventDefault();
             onMover(desde, i);
           }}
-          className="flex items-start gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-2 transition-colors hover:border-[color:var(--v2-border-strong)]"
+          className="flex items-start gap-1.5 rounded-panel border border-v2-border p-2"
         >
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             draggable
             onDragStart={() => {
               arrastrando.current = i;
@@ -375,22 +322,21 @@ export function FilasOrdenables<T extends { key: string }>({
               }
             }}
             aria-label={`Reordenar ${nombreFila} ${i + 1} de ${filas.length}. Usa las flechas arriba y abajo.`}
-            className="v2-focus mt-1 shrink-0 cursor-grab rounded-[var(--v2-r-2xs)] p-1 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-muted)] active:cursor-grabbing"
+            className="w-7 cursor-grab px-0 active:cursor-grabbing"
           >
-            <MIcon name="drag_indicator" size={16} />
-          </button>
+            <GripVertical aria-hidden strokeWidth={1.75} />
+          </Button>
 
           <div className="flex min-w-0 flex-1 flex-col gap-2">{render(fila, i)}</div>
 
-          <button
-            type="button"
+          <IconButton
+            icon={X}
+            size="sm"
             onClick={() => onQuitar(i)}
             disabled={filas.length <= minimo}
-            aria-label={`Quitar ${nombreFila} ${i + 1}`}
-            className="v2-focus mt-1 shrink-0 rounded-[var(--v2-r-2xs)] p-1 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-danger)] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <MIcon name="close" size={16} />
-          </button>
+            label={`Quitar ${nombreFila} ${i + 1}`}
+            className="hover:text-v2-danger"
+          />
         </div>
       ))}
     </div>
@@ -408,23 +354,14 @@ export function BotonAnadir({
   disabled?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="v2-focus self-start rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] px-3.5 py-2 text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-solid hover:border-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)] disabled:cursor-not-allowed disabled:opacity-40"
-    >
+    <Button size="sm" icon={Plus} onClick={onClick} disabled={disabled} className="self-start">
       {children}
-    </button>
+    </Button>
   );
 }
 
 /** Rótulo interno de una fila («Opción», «Si la elige»): dos campos seguidos sin
  *  nombre no se distinguen, y el segundo ES la consecuencia. */
 export function RotuloFila({ children }: { children: ReactNode }) {
-  return (
-    <span className="text-eyebrow font-bold uppercase tracking-[0.12em] text-[color:var(--v2-muted)]">
-      {children}
-    </span>
-  );
+  return <span className="t-meta text-v2-muted">{children}</span>;
 }

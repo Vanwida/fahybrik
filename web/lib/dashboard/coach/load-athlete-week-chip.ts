@@ -10,8 +10,10 @@ import { sql as defaultSql } from '@/lib/db';
 import {
   addDays,
   isoDateString,
+  BOX_TIMEZONE,
   mondayOfWeek,
-  startOfDayInBox,
+  parseIsoDate,
+  zonedDayString,
 } from '@fahybrid/shared/domain/dates';
 import {
   athleteSeesItFromWeeklyStatus,
@@ -23,12 +25,13 @@ import {
 export type { AthleteWeekChip };
 
 /**
- * Un mapa con entrada para CADA id pedido (default: Sin plan). `on_date` es el
- * día de caja, igual que `getAthleteProgrammingStatus`.
+ * Un mapa con entrada para CADA id pedido (default: Sin plan). `today` es el
+ * día del COACH (YYYY-MM-DD en su huso): el chip es de su panel. Sin él, el
+ * del huso por defecto.
  */
 export async function loadAthleteWeekChipMap(params: {
   athlete_ids: Array<number | bigint>;
-  on_date?: Date;
+  today?: string;
   client?: Sql;
 }): Promise<Map<string, AthleteWeekChip>> {
   const client = params.client ?? defaultSql;
@@ -37,7 +40,7 @@ export async function loadAthleteWeekChipMap(params: {
   for (const id of ids) map.set(String(id), SIN_PLAN_CHIP);
   if (ids.length === 0) return map;
 
-  const today = startOfDayInBox(params.on_date ?? new Date());
+  const today = parseIsoDate(params.today ?? zonedDayString(new Date(), BOX_TIMEZONE));
   const todayIso = isoDateString(today);
   const weekStart = isoDateString(mondayOfWeek(today));
   const weekEnd = isoDateString(addDays(mondayOfWeek(today), 6));

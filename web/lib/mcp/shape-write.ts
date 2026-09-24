@@ -17,6 +17,8 @@
 // lo primero que desmonta un «pensaba que estaba en borrador».
 
 import { longDateEs, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
+import { shortDate } from '@fahybrid/shared/domain/coach/athlete-state';
+import { autoPublishDate, effectiveAutoPublishDays } from '@fahybrid/shared/domain/coach/week-publishing';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { DELIVERY_MODE, type DeliveryMode } from '@/lib/coach/publish-week';
@@ -28,7 +30,7 @@ export interface WeekVisibility {
   /** El lunes de la semana del día tocado — la clave con la que se decide. */
   week_start: string;
   state: WeekPublishState;
-  /** Solo en 'draft': quién lo suelta (el sábado el cron, o el coach a mano). */
+  /** Solo en 'draft': quién lo suelta (el cron N días antes, o el coach a mano). */
   delivery_mode: DeliveryMode | null;
   /** ¿El atleta lo ve YA en su app? La respuesta, sin matices. */
   athlete_sees_it: boolean;
@@ -39,8 +41,14 @@ export interface WeekVisibility {
 /** Lo que `weekly_plans` dice de UNA semana, sin interpretar todavía. */
 export interface WeekState {
   state: WeekPublishState;
-  /** Solo en 'draft': quién lo suelta (el sábado el cron, o el coach a mano). */
+  /** Solo en 'draft': quién lo suelta (el cron N días antes, o el coach a mano). */
   delivery_mode: DeliveryMode | null;
+  /**
+   * Solo en borrador automático: cuántos días antes del lunes se abre sola (la
+   * regla del coach, `coaches.auto_publish_days_before` con su defecto) y qué
+   * día es eso. Opcional: quien construye un estado a mano puede no saberlo.
+   */
+  opens?: { days_before: number; on: string } | null;
   /**
    * El foco CRUDO de esta semana (`weekly_plans.focus`, migración 0182): lo que
    * hay en la fila, sin fundir con el de la plantilla y SIN aplicar el portón
@@ -78,15 +86,25 @@ export async function weekStates(params: {
     weeks.length === 0
       ? []
       : await client<
-          Array<{ week_start: string; status: string; delivery_mode: string; focus: string | null }>
+          Array<{
+            week_start: string;
+            status: string;
+            delivery_mode: string;
+            focus: string | null;
+            auto_days: string | null;
+          }>
         >`
-          select to_char(week_start, 'YYYY-MM-DD') as week_start,
-                 status::text as status,
-                 delivery_mode,
-                 focus
-          from weekly_plans
-          where athlete_id = ${Number(params.athlete_id)}
-            and week_start = any(${weeks}::date[])
+          select to_char(wp.week_start, 'YYYY-MM-DD') as week_start,
+                 wp.status::text as status,
+                 wp.delivery_mode,
+                 wp.focus,
+                 -- to_jsonb: tolera un entorno sin la columna (mig 0217) → defecto.
+                 to_jsonb(c) ->> 'auto_publish_days_before' as auto_days
+          from weekly_plans wp
+          join athletes a on a.id = wp.athlete_id
+          left join coaches c on c.id = a.coach_id
+          where wp.athlete_id = ${Number(params.athlete_id)}
+            and wp.week_start = any(${weeks}::date[])
         `;
 
   const byWeek = new Map(rows.map((r) => [r.week_start, r]));
@@ -95,21 +113,35 @@ export async function weekStates(params: {
       const row = byWeek.get(week);
       if (!row) return [week, { state: 'sin_marcar', delivery_mode: null, focus: null }];
       const state = row.status as Exclude<WeekPublishState, 'sin_marcar'>;
+      const delivery_mode =
+        state !== 'draft'
+          ? null
+          : row.delivery_mode === DELIVERY_MODE.manual
+            ? DELIVERY_MODE.manual
+            : DELIVERY_MODE.scheduled;
+      const days_before = effectiveAutoPublishDays(row.auto_days == null ? null : Number(row.auto_days));
       return [
         week,
         {
           state,
-          delivery_mode:
-            state !== 'draft'
-              ? null
-              : row.delivery_mode === DELIVERY_MODE.manual
-                ? DELIVERY_MODE.manual
-                : DELIVERY_MODE.scheduled,
+          delivery_mode,
+          opens:
+            delivery_mode === DELIVERY_MODE.scheduled
+              ? { days_before, on: autoPublishDate(week, days_before) }
+              : null,
           focus: row.focus,
         },
       ];
     }),
   );
+}
+
+/** «esa semana se le abre sola 2 días antes (el 26 sept)». */
+export function opensText(opens: WeekState['opens']): string {
+  if (!opens) return 'esa semana se le abre sola unos días antes de empezar';
+  const n = opens.days_before;
+  const when = n === 0 ? 'el mismo lunes' : `${n} ${n === 1 ? 'día' : 'días'} antes`;
+  return `esa semana se le abre sola ${when} (el ${shortDate(opens.on)})`;
 }
 
 /** El estado de una semana, dicho como lo lee el coach. */
@@ -133,7 +165,7 @@ export function visibilityOf(week_start: string, week: WeekState): WeekVisibilit
       text:
         week.delivery_mode === DELIVERY_MODE.manual
           ? 'borrador: el atleta NO lo ve hasta que publiques esa semana'
-          : 'borrador: el atleta NO lo ve todavía; esa semana se le abre sola el sábado',
+          : `borrador: el atleta NO lo ve todavía; ${opensText(week.opens)}`,
     };
   }
 

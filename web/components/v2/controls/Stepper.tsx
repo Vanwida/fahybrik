@@ -1,12 +1,13 @@
 'use client';
 
-// Stepper — número que se edita con los dedos, no con el teclado (rediseño del
-// editor de microciclos, ver docs/design/microciclos-editor-rediseno-mockup.html).
-// − / + con mantener-pulsado (useHoldRepeat); el valor es mono tabular para que
-// no baile al cambiar de cifras. `align-self:flex-start` es deliberado: dentro de
-// una columna flex un inline-flex se estira a lo ancho y el control parece un
-// campo vacío (el único fallo que señaló Alex en el mock).
+// Stepper — número que se edita con los dedos, no con el teclado. − / + con
+// mantener-pulsado (useHoldRepeat); el valor va en cifras tabulares para que no
+// baile al cambiar de cifras. `self-start` es deliberado: dentro de una columna
+// flex un inline-flex se estira a lo ancho y el control parece un campo vacío.
+// Alturas del sistema: md 40 (formulario) · sm 32 (barra).
 
+import { Minus, Plus } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
 import { cn } from '@/lib/utils';
 import { useHoldRepeat } from './useHoldRepeat';
 
@@ -35,51 +36,48 @@ export function Stepper({
   const clamp = (n: number) => Math.min(max, Math.max(min, n));
   const dec = useHoldRepeat(() => onChange(clamp(value - step)));
   const inc = useHoldRepeat(() => onChange(clamp(value + step)));
-
-  const btn = cn(
-    'grid select-none place-items-center font-semibold text-[color:var(--v2-muted)] transition-colors',
-    'hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]',
-    'active:bg-[color:var(--v2-accent-soft)] active:text-[color:var(--v2-accent-text)]',
-    size === 'md' ? 'w-11 text-[19px]' : 'w-9 text-[16px]',
-  );
+  const md = size === 'md';
+  const btn = cn('rounded-none border-0', md ? 'h-full w-10 px-0' : 'h-full w-8 px-0');
 
   return (
     <div
       role="group"
       aria-label={ariaLabel}
       className={cn(
-        'inline-flex touch-none select-none items-stretch self-start overflow-hidden',
-        'rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)]',
+        'inline-flex touch-none select-none items-stretch self-start overflow-hidden rounded-ctl border border-v2-border-strong bg-v2-surface',
+        md ? 'h-10' : 'h-8',
         className,
       )}
     >
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size={md ? 'lg' : 'md'}
         {...dec}
         disabled={value <= min}
         aria-label={`${ariaLabel}: menos`}
-        className={cn(btn, 'v2-focus disabled:opacity-40')}
+        className={btn}
       >
-        −
-      </button>
+        <Minus aria-hidden strokeWidth={2} />
+      </Button>
       <output
         aria-label={ariaLabel}
         className={cn(
-          'v2-num grid place-items-center border-x border-[color:var(--v2-border)] font-bold',
-          size === 'md' ? 'min-w-16 px-2.5 py-2 text-[21px]' : 'min-w-12 px-2 py-1.5 text-[17px]',
+          'grid place-items-center border-x border-v2-border font-semibold text-v2-fg t-tnum',
+          md ? 'min-w-14 px-2 text-base' : 'min-w-11 px-1.5 text-sm',
         )}
       >
         {format ? format(value) : value}
       </output>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size={md ? 'lg' : 'md'}
         {...inc}
         disabled={value >= max}
         aria-label={`${ariaLabel}: más`}
-        className={cn(btn, 'v2-focus disabled:opacity-40')}
+        className={btn}
       >
-        ＋
-      </button>
+        <Plus aria-hidden strokeWidth={2} />
+      </Button>
     </div>
   );
 }

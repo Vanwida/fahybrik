@@ -56,6 +56,24 @@ describe('healthkitSyncRequestSchema', () => {
     });
     expect(r.success).toBe(false);
   });
+
+  it('passes a known device timezone through', () => {
+    const r = healthkitSyncRequestSchema.safeParse({
+      batch: { sent_at: '2026-05-08T07:00:00.000Z', timezone: 'America/Mexico_City', workouts: [], samples: [] },
+    });
+    expect(r.success && r.data.batch.timezone).toBe('America/Mexico_City');
+  });
+
+  it('reads a timezone this server cannot use as not reported, and keeps the batch', () => {
+    // The workouts and samples are facts; the zone can wait for the next sync.
+    for (const timezone of ['Mars/Olympus_Mons', '', 'Europe/' + 'x'.repeat(60), 42]) {
+      const r = healthkitSyncRequestSchema.safeParse({
+        batch: { sent_at: '2026-05-08T07:00:00.000Z', timezone, workouts: [], samples: [] },
+      });
+      expect(r.success, String(timezone)).toBe(true);
+      expect(r.success && r.data.batch.timezone, String(timezone)).toBeNull();
+    }
+  });
 });
 
 describe('checkinRequestSchema', () => {

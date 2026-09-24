@@ -1,25 +1,17 @@
 import './guia.css';
-import { GuiaSidebar } from '@/components/v2/guia/GuiaSidebar';
+import { BrandFonts } from '@/components/brand/BrandFonts';
+import { GuiaReader } from '@/components/v2/guia/GuiaReader';
 
-// GUÍA DEL ENTRENADOR — the in-dashboard docs site. Nested under the (v2) route
-// group, so it inherits the coach auth gate + the thin global v2 rail (the coach
-// can still jump back to Hoy/Atletas while reading).
-//
-// We FORCE a light v2-root here — the warm cream docs chrome from the approved
-// prototype — regardless of the global theme toggle, and break out of the V2Shell
-// content padding (-m-4/-m-6) so the docs go edge-to-edge. The dark phone /
-// dashboard mockups carry their own nested data-theme="dark" root, so they read
-// the real near-black app palette while sitting inside the cream page.
+// GUÍA DEL ENTRENADOR — lector a todo lo ancho dentro del panel: sigue el tema
+// del panel, sin segunda barra lateral (el índice es un panel que se abre).
+// Fuera de la navegación principal: se llega desde «?» y desde el enlace de
+// ayuda de cada pantalla (GUIA_SLUGS). <BrandFonts>: las maquetas de la app del
+// atleta usan sus fuentes, que el panel ya no carga.
 
 export default function GuiaLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="v2-root -m-4 sm:-m-6" data-theme="light">
-      <div className="guia-shell">
-        <GuiaSidebar />
-        <main className="guia-main">
-          <div className="guia-doc">{children}</div>
-        </main>
-      </div>
-    </div>
+    <BrandFonts>
+      <GuiaReader>{children}</GuiaReader>
+    </BrandFonts>
   );
 }

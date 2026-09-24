@@ -22,7 +22,6 @@
  */
 import { describe, expect, test } from 'vitest';
 import { serializeDay } from '@/lib/dashboard/v2/editor-serialize';
-import { sessionsToWire } from '@/components/v2/editor/day-editor-io';
 import type { EditorSession } from '@/lib/dashboard/v2/editor-types';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import {
@@ -34,6 +33,34 @@ import {
   type WeekDayPartItem,
   type WeekSession,
 } from '@fahybrid/shared/schema/program-templates';
+
+// El «cable» de la pantalla (EditorSession → EditorSessionInput) que usaba el
+// editor de día. Copiado aquí: el editor de día ya no existe y lo que se prueba
+// es el esquema y el serializador, que siguen vivos (editor-bridge los usa).
+function sessionsToWire(sessions: EditorSession[]) {
+  return sessions.map((s) => ({
+    uid: s.uid,
+    slot: s.slot,
+    ...(s.focus && s.focus.trim() ? { focus: s.focus.trim() } : {}),
+    ...(s.notes && s.notes.trim() ? { notes: s.notes.trim() } : {}),
+    blocks: s.blocks.map((b) => ({
+      uid: b.uid,
+      title: b.title,
+      format: b.format,
+      methodology_group_id: b.methodology_group_id ?? null,
+      source_block_id: b.source_block_id ?? null,
+      ...(b.circuit ? { circuit: b.circuit } : {}),
+      items: b.items.map((it) => ({
+        uid: it.uid,
+        exercise_id: it.exercise_id,
+        exercise_name: it.exercise_name,
+        prescription: it.prescription,
+        ...(it.notes && it.notes.trim() ? { notes: it.notes.trim() } : {}),
+      })),
+    })),
+  }));
+}
+
 
 const PRESCRIPTION: Prescription = {
   scheme: 'sets',

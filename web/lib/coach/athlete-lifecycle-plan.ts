@@ -6,17 +6,19 @@
 // Wiring: athlete-lifecycle.ts owns the resumeAthlete transition and adds the
 // one-line call to reanchorPlanAfterResume itself (this module deliberately does NOT
 // import or edit that file). Everything here REUSES the existing sequence machinery
-// (getCoachSequenceCell + instantiateMonthFromTemplate + markFutureWeeksDraft) — the
-// SAME pipeline assign-sequence.ts uses, so a re-anchored cycle is byte-identical to
-// a freshly-assigned one, with staggered weekly delivery (only week 1 published).
+// (loadSequenceById + materializeItem) — the SAME pipeline assign-sequence.ts uses,
+// so a re-anchored cycle is byte-identical to a freshly-assigned one, with the same
+// weekly delivery. The sequence is loaded BY ITS ID (the enrollment's), never
+// re-resolved from a level × days cell: since 0215 a group may have no such rule
+// (level/days NULL), and the old cell lookup silently skipped those athletes.
 
 import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { addDays, isoDateString, mondayOfWeekInBox } from '@fahybrid/shared/domain/dates';
-import { getCoachSequenceCell } from '@/lib/dashboard/coach/sequences';
-import { instantiateMonthFromTemplate } from '@/lib/dashboard/coach/instantiate-program';
-import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
+import { addDays, isoDateString } from '@fahybrid/shared/domain/dates';
+import { mondayOfWeekInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
+import { loadSequenceById, materializeItem } from '@/lib/dashboard/coach/assign-sequence';
 
 /**
  * Re-materialize the athlete's CURRENT sequence microciclo at NEXT Monday.
@@ -50,27 +52,18 @@ export async function reanchorPlanAfterResume(
 
   const coachId = Number(enr.coach_id);
 
-  // 2) Resolve the enrolled sequence cell (by its coach + level/days) so we can read
-  //    the microciclo template at the athlete's CURRENT position.
-  const meta = await client<Array<{ level_id: string; days_per_week: number }>>`
-    select level_id::text as level_id, days_per_week
-    from program_sequences
-    where id = ${Number(enr.sequence_id)} and coach_id = ${coachId}
-    limit 1
-  `;
-  const m = meta[0];
-  if (!m) return;
-
-  const sequence = await getCoachSequenceCell(coachId, Number(m.level_id), m.days_per_week, client);
+  // 2) The enrolled sequence itself (by id, coach-scoped) — with or without the
+  //    level × days rule — to read the programa at the athlete's CURRENT position.
+  const sequence = await loadSequenceById(Number(enr.sequence_id), coachId, client);
   if (!sequence || sequence.items.length === 0) return;
 
   const item = sequence.items.find((it) => it.position === enr.current_position) ?? null;
   if (!item) return; // cursor drifted past the items → nothing to re-anchor
   const monthTemplateId = Number(item.month_template_id);
 
-  // 3) Start next Monday (box tz) — the "no elapsed days" discipline the initial
-  //    assign + the sequence walk use (assign-sequence.ts nextMicrocicloStartDate).
-  const startDate = isoDateString(addDays(mondayOfWeekInBox(new Date()), 7));
+  // 3) Start next Monday in the COACH's calendar — the "no elapsed days" discipline
+  //    the initial assign + the sequence walk use (assign-sequence.ts nextMicrocicloStartDate).
+  const startDate = isoDateString(addDays(mondayOfWeekInTz(new Date(), await loadCoachTimezone(coachId, client)), 7));
 
   // Idempotency-ish guard: a receipt for this position already starting at/after
   // next Monday means we re-anchored already → don't double-materialize.
@@ -83,20 +76,13 @@ export async function reanchorPlanAfterResume(
   `;
   if ((already[0]?.n ?? 0) > 0) return;
 
-  // 4) Re-materialize via the shared pipeline, then stagger future weeks (only week 1
-  //    delivered; the Saturday cron unlocks the rest — same as assign/advance).
-  const result = await instantiateMonthFromTemplate({
-    coach_id: coachId,
-    athlete_id,
-    month_template_id: monthTemplateId,
-    start_date: startDate,
-    client,
-  });
-  await markFutureWeeksDraft({
-    coach_id: coachId,
-    athlete_id,
-    start_date: result.start_date,
-    week_count: result.microcycle_ids.length,
+  // 4) Re-materialize via the shared pipeline (same delivery as assign/advance:
+  //    each week opens by itself N days before it starts).
+  await materializeItem({
+    coachId,
+    athleteId: Number(athlete_id),
+    monthTemplateId,
+    startDate,
     client,
   });
 }

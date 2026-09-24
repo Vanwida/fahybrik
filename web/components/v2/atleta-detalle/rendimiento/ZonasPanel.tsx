@@ -16,7 +16,8 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { MIcon } from '@/components/ui/MIcon';
-import { SegmentedControl } from '@/components/v2/SegmentedControl';
+import { Button, IconButton, SegmentedControl } from '@/components/v2/ui';
+import { X } from 'lucide-react';
 import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import { Panel } from '../parts';
 import { SinDatos } from './ui';
@@ -82,11 +83,14 @@ export function ZonasPanel({
   athleteId,
   athleteName,
   coachName,
+  athleteToday,
 }: {
   athleteId: string;
   athleteName: string;
   /** El nombre con el que el atleta ve firmados los comunicados (el del club). */
   coachName: string;
+  /** Hoy del ATLETA (YYYY-MM-DD, su huso): de él cuelga el par por defecto de «Comparar». */
+  athleteToday: string;
 }) {
   const router = useRouter();
   const [windowKey, setWindowKey] = useState<ZoneWindowKey>(DEFAULT_ZONE_WINDOW);
@@ -245,6 +249,7 @@ export function ZonasPanel({
         {comparando ? (
           <ZonasComparar
             athleteId={athleteId}
+            hoy={athleteToday}
             onDarFeedback={(periodos) => setComponiendo(notaDeComparativa(periodos))}
           />
         ) : null}
@@ -252,18 +257,11 @@ export function ZonasPanel({
         {aviso ? (
           <div
             role="status"
-            className="flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-ok)] bg-[color:var(--v2-ok-soft)] px-3 py-2"
+            className="flex items-center gap-2 rounded-ctl bg-v2-ok-soft px-3 py-1.5"
           >
             <MIcon name="check_circle" size={16} className="text-[color:var(--v2-ok)]" />
-            <span className="flex-1 text-label font-medium text-[color:var(--v2-fg)]">{aviso}</span>
-            <button
-              type="button"
-              onClick={() => setAviso(null)}
-              aria-label="Descartar el aviso"
-              className="v2-focus inline-flex h-6 w-6 items-center justify-center rounded-full text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
-            >
-              <MIcon name="close" size={14} />
-            </button>
+            <span className="flex-1 t-meta font-medium text-[color:var(--v2-fg)]">{aviso}</span>
+            <IconButton icon={X} size="sm" label="Descartar el aviso" onClick={() => setAviso(null)} />
           </div>
         ) : null}
 
@@ -382,17 +380,10 @@ function BotonDePanel({
   children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-expanded={activo}
-      className={`v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-semibold transition-colors hover:text-[color:var(--v2-fg)] ${
-        activo ? 'text-[color:var(--v2-fg)]' : 'text-[color:var(--v2-muted)]'
-      }`}
-    >
+    <Button size="sm" variant="ghost" onClick={onClick} aria-expanded={activo} className={activo ? 'text-v2-fg' : undefined}>
       <MIcon name={icon} size={14} />
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -410,11 +401,11 @@ function Controles({
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       <SegmentedControl
-        options={WINDOW_OPTIONS}
+        items={[...WINDOW_OPTIONS]}
         value={windowKey}
-        onChange={onWindow}
+        onValueChange={onWindow}
         size="sm"
-        ariaLabel="Cuánto tiempo se enseña"
+        aria-label="Cuánto tiempo se enseña"
       />
       <ChipGroup
         options={MODALITY_OPTIONS}

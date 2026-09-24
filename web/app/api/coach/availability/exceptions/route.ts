@@ -1,4 +1,5 @@
-// POST /api/coach/availability/exceptions — block a calendar day. Coach-guarded, Zod.
+// POST /api/coach/availability/exceptions — block a calendar day of the session coach's
+// agenda (0220: blocked days are per coach). Coach-guarded, Zod.
 
 import { availabilityExceptionInput } from '@fahybrid/shared/schema';
 import { getCoachSession } from '@/lib/auth/coach-session';
@@ -22,6 +23,6 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return jsonError('invalid_request', 'Fecha no válida', 400, parsed.error.flatten());
   }
-  const exception = await addException(parsed.data.fecha, parsed.data.motivo ?? null);
+  const exception = await addException(session.coach_id, parsed.data.fecha, parsed.data.motivo ?? null);
   return jsonOk({ exception }, 201);
 }

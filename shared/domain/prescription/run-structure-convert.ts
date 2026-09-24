@@ -38,6 +38,8 @@ import {
   flattenSegments,
   isRepeat,
   safeParseRunStructure,
+  PACE_ZONE_MAX,
+  PACE_ZONE_MIN,
 } from './run-structure';
 
 const MAX_REPEAT_TIMES = 20; // mirror the schema bound; over this we can't fold into a Repeat
@@ -49,7 +51,7 @@ type TargetConv = { ok: true; target: SegmentTarget | null } | { ok: false };
 
 function clampZone(z: number): number | null {
   const n = Math.round(z);
-  return n >= 1 && n <= 5 ? n : null;
+  return n >= PACE_ZONE_MIN && n <= PACE_ZONE_MAX ? n : null;
 }
 
 function legacyTargetToSegment(t: Target | undefined): TargetConv {

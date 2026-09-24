@@ -40,8 +40,11 @@ import {
   longDateEs,
   mondayOfWeek,
   parseIsoDate,
-  startOfDayInBox,
 } from '@fahybrid/shared/domain/dates';
+import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { programPosition } from '@fahybrid/shared/domain/coach/program-position';
+import { athleteSeesAssignment } from '@/lib/athlete/week-visibility';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import {
   planPathTone,
   weeksLabel,
@@ -70,6 +73,8 @@ type AsignacionRow = {
   start_date: string;
   end_date: string;
   week_count: number;
+  /** Semanas del PROGRAMA (`program_month_weeks`), no las del recibo. */
+  program_weeks: number;
 };
 
 type HitoRow = {
@@ -90,9 +95,18 @@ export async function resolvePlanPath(args: {
   athlete_id: number | bigint;
   on_date?: Date;
   sql?: Sql;
+  /**
+   * Lo que ve el ATLETA (su vista de ciclo, sus notas, la vista previa del coach
+   * de esas notas): los hitos de una semana que el coach tiene oculta no se
+   * anuncian — «Simulacro el sábado 10» era contenido de una semana retenida
+   * (auditoría D-19). Lo ya hecho sí se ve. Sin la marca, el camino del coach
+   * (Periodización, la cadena personal), que ve también lo que retiene.
+   */
+  visibleToAthlete?: boolean;
 }): Promise<PlanPathDTO | null> {
   const client = args.sql ?? defaultSql;
-  const today = startOfDayInBox(args.on_date ?? new Date());
+  // El camino es del ATLETA (lo lee él y el coach mirándole): su «hoy» es el de su huso.
+  const today = startOfDayInTz(args.on_date ?? new Date(), await loadAthleteTimezone(client, args.athlete_id));
 
   const asignaciones = await client<AsignacionRow[]>`
     select
@@ -102,7 +116,9 @@ export async function resolvePlanPath(args: {
       al.label                                              as level,
       to_char(ama.start_date, 'YYYY-MM-DD')                 as start_date,
       to_char(ama.end_date,   'YYYY-MM-DD')                 as end_date,
-      coalesce(array_length(ama.microcycle_ids, 1), 0)::int as week_count
+      coalesce(array_length(ama.microcycle_ids, 1), 0)::int as week_count,
+      (select count(*) from program_month_weeks pw
+        where pw.month_template_id = ama.month_template_id)::int as program_weeks
     from athlete_month_assignments ama
     join program_month_templates m on m.id = ama.month_template_id
     left join athlete_levels al on al.id = m.level_id
@@ -128,6 +144,8 @@ export async function resolvePlanPath(args: {
       month_template_id: row.month_template_id,
       name: row.name,
       level: row.level,
+      recibo: { start_date: row.start_date, end_date: row.end_date },
+      program_weeks: row.program_weeks,
       inicio,
       semanas,
       fin: addDays(inicio, semanas * 7 - 1),
@@ -136,17 +154,32 @@ export async function resolvePlanPath(args: {
 
   const primerLunes = ventanas[0]!.inicio;
   const ultimoDomingo = ventanas[ventanas.length - 1]!.fin;
-  const hitos = await cargarHitos(client, args.athlete_id, primerLunes, ultimoDomingo);
+  const hitos = await cargarHitos(client, args.athlete_id, primerLunes, ultimoDomingo, args.visibleToAthlete === true);
 
   let semanaAcumulada = 1;
   let current_position: number | null = null;
 
+  const todayIso = isoDateString(today);
   const segments: PlanPathSegmentDTO[] = ventanas.map((v, position) => {
-    const first_week = semanaAcumulada;
-    semanaAcumulada += v.semanas;
-
     const dentro = today >= v.inicio && today <= v.fin;
     if (dentro) current_position = position;
+
+    // DÓNDE ESTÁ, CON LA REGLA DEL PANEL (`programPosition`, auditoría D-08/F-07):
+    // la semana de hoy se cuenta en el PROGRAMA. Quien entró en un grupo en la
+    // semana 3 de 4 lee «3 de 4» aquí, en su Plan y en su ficha — no «1 de 2».
+    // Solo el tramo de hoy: el panel sitúa el recibo EN CURSO, y un recibo ya
+    // pasado que se recortó al sustituir no es alguien que entró a mitad.
+    // Las fechas siguen siendo las del recibo: son las que entrena.
+    let semanas = v.semanas;
+    let current_week: number | null = null;
+    if (dentro) {
+      const pos = programPosition(v.recibo, v.program_weeks, todayIso);
+      semanas = pos.weeks;
+      const enRecibo = Math.floor(diffDays(mondayOfWeek(today), v.inicio) / 7) + 1;
+      current_week = pos.week ?? Math.min(pos.weeks, pos.entered_week - 1 + enRecibo);
+    }
+    const first_week = semanaAcumulada;
+    semanaAcumulada += semanas;
 
     const mios = hitos.filter((h) => h.dia >= v.inicio && h.dia <= v.fin);
 
@@ -155,14 +188,14 @@ export async function resolvePlanPath(args: {
       month_template_id: v.month_template_id,
       position,
       first_week,
-      week_count: v.semanas,
-      weeks_label: weeksLabel(first_week, v.semanas),
+      week_count: semanas,
+      weeks_label: weeksLabel(first_week, semanas),
       title: v.name,
       detail: lineaDeHitos(mios),
       level: v.level,
       start_date: isoDateString(v.inicio),
       end_date: isoDateString(v.fin),
-      current_week: dentro ? Math.floor(diffDays(mondayOfWeek(today), v.inicio) / 7) + 1 : null,
+      current_week,
       milestone: mios.length > 0,
       tone: planPathTone(position),
       events: eventosDeHitos(mios),
@@ -215,6 +248,7 @@ async function cargarHitos(
   athlete_id: number | bigint,
   desde: Date,
   hasta: Date,
+  soloVisibles: boolean,
 ): Promise<Hito[]> {
   const rows = await client<HitoRow[]>`
     select
@@ -227,6 +261,7 @@ async function cargarHitos(
     where wa.athlete_id = ${athlete_id as number}
       and wa.scheduled_for between ${isoDateString(desde)}::date and ${isoDateString(hasta)}::date
       and (t.format = 'hyrox_sim' or wa.calibration_test_id is not null)
+      and (${!soloVisibles} or ${athleteSeesAssignment(client, { keepDone: true })})
     group by 1
     order by 1 asc
   `;

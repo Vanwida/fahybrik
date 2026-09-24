@@ -18,7 +18,6 @@ import {
   COMMUNICATION_ANCHORS,
   COMMUNICATION_KINDS,
   checkableItems,
-  compareInboxCommunications,
   type CoachAthleteCommunicationDTO,
   type CoachCommunicationDTO,
   type CommunicationAnchor,
@@ -234,55 +233,4 @@ export function seguimiento(c: CoachAthleteCommunicationDTO, hoy = hoyISO()): Se
 
   if (state === 'published') return { tono: 'accent', titular: 'Sin abrir', nota: null };
   return { tono: 'info', titular: 'Activo', nota: 'No caduca. Se retira cuando tú lo retires.' };
-}
-
-export interface CarrilesDelCoach {
-  /** Lo que todavía te reclama a ti. */
-  reclama: CoachAthleteCommunicationDTO[];
-  /** Publicado y cerrado: no hay nada que hacer con ello. */
-  alDia: CoachAthleteCommunicationDTO[];
-  /** Retirado. Es historial, y por eso va plegado al fondo. */
-  historial: CoachAthleteCommunicationDTO[];
-}
-
-/**
- * Los tres carriles. Dentro de cada uno manda el orden del dominio
- * (`compareInboxCommunications`): lo que bloquea, lo que vence, lo que no ha
- * abierto. Ordenar por fecha es lo que hace el chat, y es por lo que las cosas
- * se pierden.
- */
-export function carriles(lista: CoachAthleteCommunicationDTO[]): CarrilesDelCoach {
-  const ordenar = (xs: CoachAthleteCommunicationDTO[]) =>
-    [...xs].sort((a, b) =>
-      compareInboxCommunications(
-        {
-          kind: a.kind,
-          state: a.athlete_state.state,
-          blocks: a.blocks,
-          due_date: a.due_date,
-          published_at: a.published_at ?? a.created_at,
-          id: a.id,
-        },
-        {
-          kind: b.kind,
-          state: b.athlete_state.state,
-          blocks: b.blocks,
-          due_date: b.due_date,
-          published_at: b.published_at ?? b.created_at,
-          id: b.id,
-        },
-      ),
-    );
-
-  const vivos = lista.filter((c) => c.status !== 'archived');
-  return {
-    reclama: ordenar(vivos.filter((c) => c.athlete_state.claims_attention)),
-    alDia: ordenar(vivos.filter((c) => !c.athlete_state.claims_attention)),
-    historial: ordenar(lista.filter((c) => c.status === 'archived')),
-  };
-}
-
-/** Cuántos comunicados vivos le reclaman algo al coach — la insignia de la pestaña. */
-export function cuantosReclaman(lista: CoachAthleteCommunicationDTO[]): number {
-  return lista.filter((c) => c.status !== 'archived' && c.athlete_state.claims_attention).length;
 }

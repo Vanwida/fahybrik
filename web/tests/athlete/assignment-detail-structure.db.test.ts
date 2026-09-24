@@ -1,27 +1,106 @@
 // Real-DB test (#61) — the athlete wire emits the STRUCTURED running grammar for
-// the DEMO athlete's (id 70) actual prescribed run blocks. Read-only: it loads the
-// SAME assignment detail the iOS app consumes and asserts the emitted
-// `prescription_json.structure` is present and well-typed on real data (every work
-// bout has a valid measure; any resolved band is well-formed). This is the
-// end-to-end complement to the deterministic pure cases in assignment-detail.test.ts.
+// an athlete's actual prescribed run blocks. It loads the SAME assignment detail
+// the iOS app consumes and asserts the emitted `prescription_json.structure` is
+// present and well-typed on real rows (every work bout has a valid measure; any
+// resolved band is well-formed). This is the end-to-end complement to the
+// deterministic pure cases in assignment-detail.test.ts.
 //
-// Skips automatically when TEST_DATABASE_URL is unset (describeWithDb) — point it at
-// a branch that carries the demo seed to exercise locally.
+// It used to read the demo athlete (id 70) off the Neon demo branch; it now
+// seeds its own executed session with the two run shapes the wire has to emit,
+// and deletes it afterwards:
+//   · a STORED phased structure (warm-up · 4×1000 @Z4 with jog · cool-down),
+//   · a legacy sets-only pyramid (1200/1000/800 @Z4) with no structure — the
+//     real shape that motivated #61, seeded into a structure by the wire.
+//
+// Skips automatically when TEST_DATABASE_URL is unset (describeWithDb).
 
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
+import { makeAssignment, makeCoachAndAthlete, makeTemplate, type Fixture } from '../utils/db-fixtures';
+import {
+  makeRunExecution,
+  makeRunExercise,
+  makeRunZoneProfile,
+  makeTemplateSegment,
+  type RunLap,
+} from '../utils/run-fixtures';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { flattenSegments } from '@fahybrid/shared/domain/prescription';
 
-const ATHLETE_ID = 70;
-
-describeWithDb('#61 · athlete wire structure emission vs athlete 70 real run blocks', () => {
+describeWithDb('#61 · athlete wire structure emission vs real run blocks', () => {
   const sql = getTestSql();
+  let fx: Fixture;
 
   beforeAll(async () => {
-    await sql`select 1 as ok`; // wake / validate the branch
-  });
+    fx = await makeCoachAndAthlete(sql);
+    await makeRunZoneProfile(fx); // a tested athlete: zone bouts resolve to a band
+    const run = await makeRunExercise(fx);
+    const templateId = await makeTemplate({ fx, name: 'Umbral + pirámide', format: 'intervals' });
+
+    const phased = await makeTemplateSegment({
+      fx,
+      templateId,
+      exerciseId: run,
+      position: 0,
+      prescription: {
+        scheme: 'intervals',
+        modality: 'run',
+        structure: [
+          {
+            role: 'warmup',
+            elements: [{ kind: 'work', measure: { type: 'duration', s: 600 }, target: { type: 'pace_zone', zone: 2 } }],
+          },
+          {
+            role: 'main',
+            elements: [
+              {
+                times: 4,
+                elements: [
+                  { kind: 'work', measure: { type: 'distance', m: 1000 }, target: { type: 'pace_zone', zone: 4 } },
+                  { kind: 'recovery', measure: { type: 'duration', s: 90 }, target: null, recovery_mode: 'trote' },
+                ],
+              },
+            ],
+          },
+          { role: 'cooldown', elements: [{ kind: 'work', measure: { type: 'duration', s: 300 }, target: null }] },
+        ],
+      },
+    });
+    const pyramid = await makeTemplateSegment({
+      fx,
+      templateId,
+      exerciseId: run,
+      position: 1,
+      prescription: {
+        scheme: 'intervals',
+        modality: 'run',
+        sets: [1200, 1000, 800].map((m) => ({
+          measure: { kind: 'distance', meters: m },
+          target: { kind: 'hr_zone', value: 4 },
+          rest_s: 120,
+        })),
+      },
+    });
+
+    const assignmentId = await makeAssignment({ fx, templateId, scheduledForIso: '2026-08-04' });
+    // The phased block laps carry their leg attribution (warm-up, 4 reps + jogs,
+    // cool-down = 10 legs); the pyramid is logged one lap per rep, no attribution.
+    const laps: RunLap[] = [
+      { template_segment_id: phased, duration_s: 600, distance_m: 1800, leg: { index: 0, role: 'work', phase: 'warmup' } },
+    ];
+    for (let i = 0; i < 4; i++) {
+      laps.push({ template_segment_id: phased, duration_s: 285, distance_m: 1000, pace_s_per_km: 285, leg: { index: 1 + 2 * i, role: 'work', phase: 'main' } });
+      laps.push({ template_segment_id: phased, duration_s: 90, distance_m: 220, leg: { index: 2 + 2 * i, role: 'recovery', phase: 'main' } });
+    }
+    laps.push({ template_segment_id: phased, duration_s: 300, distance_m: 850, leg: { index: 9, role: 'work', phase: 'cooldown' } });
+    for (const m of [1200, 1000, 800]) {
+      laps.push({ template_segment_id: pyramid, duration_s: Math.round((m / 1000) * 280), distance_m: m, pace_s_per_km: 280 });
+    }
+    await makeRunExecution({ fx, assignmentId, startedAtIso: '2026-08-04T06:00:00Z', laps });
+  }, 60_000);
+
   afterAll(async () => {
+    await fx.cleanup();
     await closeTestSql();
   });
 
@@ -33,7 +112,7 @@ describeWithDb('#61 · athlete wire structure emission vs athlete 70 real run bl
       from workout_assignments a
       join workout_executions e on e.assignment_id = a.id
       join segment_executions s on s.execution_id = e.id
-      where a.athlete_id = ${ATHLETE_ID} and s.modality = 'run'
+      where a.athlete_id = ${fx.athleteId} and s.modality = 'run'
       order by 1
     `;
     expect(sessions.length).toBeGreaterThan(0);
@@ -46,7 +125,7 @@ describeWithDb('#61 · athlete wire structure emission vs athlete 70 real run bl
     for (const s of sessions) {
       const detail = await loadAssignmentDetail({
         sql,
-        athlete_id: BigInt(ATHLETE_ID),
+        athlete_id: BigInt(fx.athleteId),
         assignment_id: BigInt(s.assignment_id),
       });
       if (!detail?.workout) continue;
@@ -87,13 +166,15 @@ describeWithDb('#61 · athlete wire structure emission vs athlete 70 real run bl
       }
     }
 
-    // The demo athlete has real prescribed run work → the wire MUST emit at least one
-    // structure end-to-end (the whole point of the ola).
+    // Real prescribed run work → the wire MUST emit at least one structure
+    // end-to-end (the whole point of the ola).
     expect(runItems).toBeGreaterThan(0);
     expect(itemsWithStructure).toBeGreaterThan(0);
-    // Surfaced for signal (not asserted, to stay robust to the exact demo plan): how
-    // many heterogeneous (multi-measure) series and resolved bands the real data hit.
-    expect(itemsWithDistinctMeasures).toBeGreaterThanOrEqual(0);
-    expect(resolvedBands).toBeGreaterThanOrEqual(0);
+    // These two were only surfaced "for signal", to stay robust to whatever plan
+    // the demo branch held. The plan is now this test's own, and both of its
+    // blocks are heterogeneous series against a tested athlete, so both branches
+    // above MUST be exercised — otherwise their checks would pass vacuously.
+    expect(itemsWithDistinctMeasures).toBeGreaterThan(0);
+    expect(resolvedBands).toBeGreaterThan(0);
   }, 60_000);
 });

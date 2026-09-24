@@ -52,14 +52,14 @@ export function PerfTile({
   tone?: Tone;
 }) {
   return (
-    <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 shadow-[var(--v2-shadow-card)]">
+    <div className="rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 shadow-[var(--v2-shadow-card)]">
       <div className="flex items-baseline gap-1">
-        <span className="v2-display text-2xl tabular-nums" style={{ color: `var(${TONE_VAR[tone]})` }}>
+        <span className="t-title-sm tabular-nums" style={{ color: `var(${TONE_VAR[tone]})` }}>
           {value}
         </span>
-        {unit ? <span className="v2-num text-xs text-[color:var(--v2-faint)]">{unit}</span> : null}
+        {unit ? <span className="t-tnum text-xs text-[color:var(--v2-faint)]">{unit}</span> : null}
       </div>
-      <span className="v2-micro mt-1 block">{label}</span>
+      <span className="t-label mt-1 block text-v2-faint">{label}</span>
     </div>
   );
 }
@@ -79,7 +79,7 @@ export function MiniTrend({
   if (finiteCount(values) < 2) {
     return (
       <div
-        className="flex items-center text-label text-[color:var(--v2-faint)]"
+        className="flex items-center t-meta text-[color:var(--v2-faint)]"
         style={{ height }}
       >
         Sin serie suficiente
@@ -93,11 +93,11 @@ export function MiniTrend({
 export function Chip({ label, value, tone }: { label: string; value?: string; tone: Tone }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2.5 py-1 text-label font-semibold"
+      className="inline-flex items-center gap-1.5 rounded-ctl px-2.5 py-1 t-meta font-semibold"
       style={{ background: `var(${TONE_SOFT_VAR[tone]})`, color: `var(${TONE_VAR[tone]})` }}
     >
       <span>{label}</span>
-      {value ? <span className="v2-num opacity-90">{value}</span> : null}
+      {value ? <span className="t-tnum opacity-90">{value}</span> : null}
     </span>
   );
 }

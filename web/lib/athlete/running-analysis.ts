@@ -33,6 +33,7 @@ import { SEG_IS_WORK_EFFORT, SEG_MODALITY_SQL } from '@/lib/execution/segment-wo
 import { trainingPacesForVdot } from '@fahybrid/shared/domain/running/vdot';
 import { selectRunMark } from '@fahybrid/shared/domain/athlete/mark-projection';
 import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 
 /** The running marks the VDOT can be read off — the catalogue decides, not a
  *  hand-written list, so a new mark is admissible the day it is added. */
@@ -82,7 +83,7 @@ export interface TrainingLinkDTO {
 /** One past 5 km time trial — the run_5k benchmark history, oldest→newest, so the
  *  athlete sees their 5 km progression (e.g. 21:00 → 20:25 → 19:58). */
 export interface FiveKTrendPointDTO {
-  date: string; // YYYY-MM-DD the test was recorded
+  date: string; // YYYY-MM-DD the test was recorded, in the athlete's calendar
   seconds: number; // total 5 km time in seconds (drives the sparkline + delta)
   time: string; // pre-formatted "m:ss" (e.g. "19:58")
 }
@@ -92,7 +93,8 @@ export interface RunningAnalysisDTO {
   vo2_estimate: string | null;
   best_1k: string | null;
   /** Current ISO-week (Monday-start) running volume — the deep-dive's "esta
-   *  semana" figure (also available live via StatsService). */
+   *  semana" figure (also available live via StatsService). The week is the
+   *  athlete's: it starts at Monday 00:00 in his zone. */
   weekly_volume_km: string | null;
   /** Rolling last-7-days running volume — the Inicio "Volumen · 7 días" figure.
    *  Distinct from `weekly_volume_km` (ISO week) so each label stays honest. */
@@ -169,10 +171,20 @@ function severityVsBest(paceSec: number, bestSec: number): Severity {
 // ── Builder ───────────────────────────────────────────────────────────────--
 
 export async function buildRunningAnalysis(
-  args: { athlete_id: number | bigint },
+  args: {
+    athlete_id: number | bigint;
+    /** The instant every window and a mark's age are read at (tests); defaults to now. */
+    now?: Date;
+  },
   client: Sql = defaultSql,
 ): Promise<RunningAnalysisDTO> {
   const athleteId = Number(args.athlete_id);
+  const nowIso = (args.now ?? new Date()).toISOString();
+  // Everything this screen DATES — a test's day, "this week", a week's bar — is
+  // in the athlete's calendar (DECISIONS «Qué día es en cada sitio»). The base
+  // runs in UTC, so a bare `date_trunc`/`to_char` would date it by the UTC day.
+  // One zone per request, bound as a parameter.
+  const tz = await loadAthleteTimezone(client, athleteId);
   const mod = SEG_MODALITY_SQL(client);
   // «Esta fila es un intento» — se compone en toda consulta que mida calidad. Es
   // no-op sobre lo ya guardado: con `leg_role` nulo la fila sigue siendo trabajo.
@@ -181,12 +193,13 @@ export async function buildRunningAnalysis(
   // ── VDOT-derived tiles (VO₂ estimate / pace zones) ─────────────────────────
   // Source = `selectRunMark`, the one selector. It reads every running mark the
   // athlete has MEASURED and picks the one that needs the least stretching — the
-  // same winner the plan's paces come from, so Inicio and the plan agree.
+  // same winner the plan's paces come from, so Inicio and the plan agree. A mark's
+  // age is counted in HIS calendar, both ends (DECISIONS «Qué día es en cada sitio»).
   const markRows = await client<Array<{ exercise_slug: string; value: string; age_days: number | null; source: string; run_context: string | null }>>`
     select
       exercise_slug,
       value::text as value,
-      (current_date - recorded_at::date)::int as age_days,
+      ((${nowIso}::timestamptz at time zone ${tz})::date - (recorded_at at time zone ${tz})::date)::int as age_days,
       source,
       run_context
     from athlete_benchmarks
@@ -206,10 +219,11 @@ export async function buildRunningAnalysis(
   // ── 5 km trend (run_5k benchmark history, oldest→newest) ───────────────────
   // The full versioned history of the same canonical (slug, unit) the latest-row
   // VDOT query reads — so the athlete sees their 5 km progression, not just the
-  // current number. Empty when they have no run_5k benchmark.
+  // current number. Empty when they have no run_5k benchmark. Each test is dated
+  // on the day HE ran it: a 07:00 test in Auckland is the previous UTC day.
   const fiveKRows = await client<Array<{ value: string; recorded_on: string }>>`
     select value::text as value,
-           to_char(recorded_at, 'YYYY-MM-DD') as recorded_on
+           to_char(recorded_at at time zone ${tz}, 'YYYY-MM-DD') as recorded_on
     from athlete_benchmarks
     where athlete_id = ${athleteId}
       and exercise_slug = 'run_5k'
@@ -302,7 +316,7 @@ export async function buildRunningAnalysis(
         -- misma banda alimenta el listado del drill, que sí los contaría como
         -- esfuerzos — y un filtro que «da igual aquí» es el que se olvida allí.
         and ${work}
-        and coalesce(we.ended_at, we.started_at) >= now() - (${ANALYTICS_WINDOW_DAYS} || ' days')::interval
+        and coalesce(we.ended_at, we.started_at) >= ${nowIso}::timestamptz - (${ANALYTICS_WINDOW_DAYS} || ' days')::interval
     )
     select min(
       coalesce(
@@ -321,7 +335,9 @@ export async function buildRunningAnalysis(
 
   // weekly_volume_km: distance in the current ISO week (Monday start). This is a
   // fallback — the view prefers the live StatsService figure — but we provide it
-  // so the endpoint is self-sufficient.
+  // so the endpoint is self-sufficient. The week is HIS: it starts at Monday 00:00
+  // in his zone (truncate his wall clock, then read that instant back in his zone),
+  // not at the UTC Monday — hours off every Monday for anyone far from UTC.
   //
   // DECISIÓN — el VOLUMEN cuenta TODOS los metros, recuperaciones incluidas, y por
   // eso aquí NO se compone `${work}`. Esos metros se corrieron de verdad: en un
@@ -337,7 +353,8 @@ export async function buildRunningAnalysis(
     left join exercises ex on ex.id = ts.exercise_id
     where we.athlete_id = ${athleteId}
       and ${mod} = 'run'
-      and coalesce(we.ended_at, we.started_at) >= date_trunc('week', now())
+      and coalesce(we.ended_at, we.started_at)
+          >= (date_trunc('week', ${nowIso}::timestamptz at time zone ${tz}) at time zone ${tz})
   `;
   const weekly_volume_km = kmStr(weekVolRows[0]?.meters != null ? num(weekVolRows[0].meters) : 0);
 
@@ -354,7 +371,7 @@ export async function buildRunningAnalysis(
     left join exercises ex on ex.id = ts.exercise_id
     where we.athlete_id = ${athleteId}
       and ${mod} = 'run'
-      and coalesce(we.ended_at, we.started_at) >= now() - interval '7 days'
+      and coalesce(we.ended_at, we.started_at) >= ${nowIso}::timestamptz - interval '7 days'
   `;
   const volume_7d_km = kmStr(vol7Rows[0]?.meters != null ? num(vol7Rows[0].meters) : 0);
 
@@ -461,12 +478,13 @@ export async function buildRunningAnalysis(
   // Per week, the volume-weighted average running pace (total run time / total
   // run distance). Taller bar = slower (per iOS handoff); the latest week is the
   // accented "current" bar. We surface the last PROGRESSION_WEEKS weeks that have
-  // any running.
+  // any running. A run goes in the week of HIS calendar it was done in — the same
+  // week the "esta semana" figure above counts.
   const progRows = await client<
     Array<{ week_start: string; pace_s_per_km: string | null }>
   >`
     select
-      to_char(date_trunc('week', coalesce(we.ended_at, we.started_at))::date, 'YYYY-MM-DD') as week_start,
+      to_char(date_trunc('week', coalesce(we.ended_at, we.started_at) at time zone ${tz}), 'YYYY-MM-DD') as week_start,
       case
         when sum(coalesce(se.distance_meters, 0)) > 0
         then sum(
@@ -486,7 +504,7 @@ export async function buildRunningAnalysis(
       -- misma razón por la que el volumen de arriba sí los cuenta y esto no: allí
       -- la pregunta es cuánto corriste, aquí es a qué ritmo eres capaz.
       and ${work}
-      and coalesce(we.ended_at, we.started_at) >= now() - (${ANALYTICS_WINDOW_DAYS} || ' days')::interval
+      and coalesce(we.ended_at, we.started_at) >= ${nowIso}::timestamptz - (${ANALYTICS_WINDOW_DAYS} || ' days')::interval
     group by 1
     having sum(coalesce(se.distance_meters, 0)) > 0
     order by 1 asc

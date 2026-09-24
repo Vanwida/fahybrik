@@ -9,14 +9,8 @@
 
 import type { Modality, Target } from '@fahybrid/shared/domain/prescription';
 import { cn } from '@/lib/utils';
-import {
-  ClockCell,
-  DistanceCell,
-  FieldLabel,
-  NumberCell,
-  TextCell,
-  v2FieldCell,
-} from '../fields';
+import { SegmentedControl, Select } from '@/components/v2/ui';
+import { ClockCell, DistanceCell, FieldLabel, NumberCell, TextCell } from '../fields';
 
 /** A labeled field cell (label above, control below) — the form's row unit. */
 export function Field({
@@ -35,7 +29,7 @@ export function Field({
       <div className="flex items-baseline justify-between gap-2">
         <FieldLabel>{label}</FieldLabel>
         {hint ? (
-          <span className="text-eyebrow font-medium text-[color:var(--v2-faint)]">{hint}</span>
+          <span className="t-meta text-v2-faint">{hint}</span>
         ) : null}
       </div>
       {children}
@@ -56,35 +50,18 @@ export function InlineToggle<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div
-      role="group"
+    <SegmentedControl
+      size="sm"
       aria-label={ariaLabel}
-      className="inline-flex max-w-full shrink-0 flex-wrap items-center gap-0.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-0.5"
-    >
-      {options.map((o) => {
-        const active = o.value === value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(o.value)}
-            className={cn(
-              'v2-focus whitespace-nowrap rounded-[var(--v2-r-pill)] px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wide transition-colors',
-              active
-                ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-                : 'text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
-            )}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
+      items={options}
+      value={value}
+      onValueChange={onChange}
+      className="max-w-full flex-wrap"
+    />
   );
 }
 
-/** A native select styled to match the v2 field cell — for ergo sub-modality etc. */
+/** Desplegable de una opción dentro de un formulario de arquetipo (sub-modalidad de ergo…). */
 export function SelectCell<T extends string>({
   value,
   options,
@@ -97,18 +74,13 @@ export function SelectCell<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <select
+    <Select
       aria-label={ariaLabel}
       value={value}
-      onChange={(e) => onChange(e.target.value as T)}
-      className={cn(v2FieldCell, 'appearance-none font-semibold')}
-    >
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+      onValueChange={onChange}
+      options={options}
+      className="w-full"
+    />
   );
 }
 
@@ -135,7 +107,7 @@ export function PaceCell({
         className="flex-1"
         onChange={(s) => onChange({ kind: 'pace', unit, value_s: s ?? 0 })}
       />
-      <span className="shrink-0 text-label font-semibold text-[color:var(--v2-muted)]">
+      <span className="shrink-0 t-meta text-v2-muted">
         {unitLabel}
       </span>
     </div>

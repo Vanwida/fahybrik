@@ -1,6 +1,9 @@
 // The ONE batched per-athlete CTE backing rollupAthleteFacts. Extracted from
-// recompute.ts to keep both modules under the 500-line cap. Modelled on
-// cohort.ts::loadRealCohort's big CTE, EXTENDED with:
+// recompute.ts to keep both modules under the 500-line cap. The due-only missed
+// sessions (shared/domain/coach/adherence.ts), the readiness history, the plan
+// facts and the awaiting-reply threads come from their own batched loaders
+// (one query each), not from here. Modelled on cohort.ts::loadRealCohort's big
+// CTE, EXTENDED with:
 //   - hrv_baseline_days  (distinct HRV days in the 60d window — guards false crashes)
 //   - current_microciclo_name + current_microcycle_end_iso (the athlete's active
 //     microciclo = the athlete_month_assignments receipt, its name + window end —
@@ -9,6 +12,8 @@
 
 import 'server-only';
 import type { Sql } from '@/lib/db';
+import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 
 export interface BatchRow {
   athlete_id: string;
@@ -17,14 +22,16 @@ export interface BatchRow {
   hrv_baseline: number | null;
   hrv_baseline_days: number | null;
   last_sync_at: Date | null;
-  missed_sessions_7d: number;
-  rpe_yesterday: number | null;
+  /** Executed sessions of the last 7 days: athlete-local day + RPE (parallel arrays). */
+  rpe_days: string[] | null;
+  rpe_values: Array<number | null> | null;
   // Structured session feedback (#58): most recent reported body-area discomfort.
   latest_pain_area: string | null;
   latest_pain_at: Date | null;
   latest_pain_note: string | null;
   last_checkin_at: Date | null;
-  unread_message_age_min: number | null;
+  /** Check-ins in the 14 days up to (and including) the last one — the habit. */
+  checkins_prior_14d: number;
   a_event_iso: string | null;
   a_event_name: string | null;
   current_microciclo_name: string | null;
@@ -32,6 +39,7 @@ export interface BatchRow {
   billing_status: string | null;
   billing_cancel_at_period_end: boolean | null;
   billing_days_to_period_end: number | null;
+  billing_period_end_iso: string | null;
   // Progression / test events (KEYSTONE-fed)
   latest_test_at: Date | null;
   latest_test_slug: string | null;
@@ -45,6 +53,11 @@ export interface BatchRow {
   // executed session. The detail line is built in JS (assembleFacts), not SQL.
   latest_libre_at: Date | null;
   latest_libre_title: string | null;
+  // Fuera del plan (0270) — the most recent execution kept off-plan: when, why
+  // (`off_plan_reason`) and how long. The detail line is built in JS too.
+  latest_off_plan_at: Date | null;
+  latest_off_plan_reason: string | null;
+  latest_off_plan_duration_s: number | null;
   // Revisiones 1:1 recurrentes (#21) — cadencia + última 1:1 + revisión próxima.
   review_cadence: string;
   last_1on1_at: Date | null;
@@ -78,12 +91,24 @@ export async function loadBatch(
   now: Date,
   athlete_id: bigint | number | null,
 ): Promise<BatchRow[]> {
-  const todayIso = now.toISOString().slice(0, 10);
+  // De quién es cada «hoy» (DECISIONS 2026-09-23, «Qué día es en cada sitio»): el
+  // microciclo en curso y los cobros los lee el coach → día del CLUB; carreras,
+  // tests, tareas y protocolos los vive el atleta → SU día (`athlete_day`).
+  const clubTz = await loadCoachTimezone(coach_id, client);
+  const clubToday = zonedDayString(now, clubTz);
   const nowIso = now.toISOString();
   const athleteFilter = athlete_id != null ? Number(athlete_id) : null;
 
   return client<BatchRow[]>`
-    with hrv_recent as (
+    with athlete_day as (
+      -- «Hoy» de cada atleta en SU huso (sin él, el defecto), como rpe_7d.
+      select a.id as athlete_id,
+             coalesce(a.timezone, ${BOX_TIMEZONE}) as tz,
+             (${nowIso}::timestamptz at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date as today
+      from athletes a
+      where a.coach_id = ${coach_id as number}
+    ),
+    hrv_recent as (
       select bs.athlete_id, avg(bs.value_numeric)::float as v
       from biometric_streams bs
       where bs.metric_type = 'hrv'
@@ -105,21 +130,27 @@ export async function loadBatch(
       from biometric_streams bs
       group by bs.athlete_id
     ),
-    missed_7d as (
-      select wa.athlete_id, count(*)::int as n
-      from workout_assignments wa
-      where wa.status = 'missed'
-        and wa.scheduled_for >= ${todayIso}::date - interval '7 days'
-        and wa.scheduled_for <= ${todayIso}::date
-      group by wa.athlete_id
-    ),
-    rpe_yest as (
-      select we.athlete_id, max(we.perceived_exertion)::float as v
+    rpe_7d as (
+      -- Executed sessions of the last 7 days with their RPE, in the ATHLETE's day
+      -- (rpe_high is a trend of the week, not yesterday's single session).
+      select we.athlete_id,
+             array_agg(
+               to_char(
+                 (coalesce(we.ended_at, we.started_at, we.created_at)
+                    at time zone coalesce(ax.timezone, ${BOX_TIMEZONE}))::date,
+                 'YYYY-MM-DD'
+               )
+               order by coalesce(we.ended_at, we.started_at, we.created_at)
+             ) as days,
+             array_agg(
+               we.perceived_exertion
+               order by coalesce(we.ended_at, we.started_at, we.created_at)
+             ) as rpes
       from workout_executions we
+      join athletes ax on ax.id = we.athlete_id and ax.coach_id = ${coach_id as number}
       where coalesce(we.ended_at, we.started_at, we.created_at)
-              >= ${todayIso}::date - interval '1 day'
-        and coalesce(we.ended_at, we.started_at, we.created_at)
-              <  ${todayIso}::date
+              >= ${nowIso}::timestamptz - interval '7 days'
+        and coalesce(we.ended_at, we.started_at, we.created_at) <= ${nowIso}::timestamptz
       group by we.athlete_id
     ),
     recent_pain as (
@@ -139,56 +170,58 @@ export async function loadBatch(
       order by we.athlete_id, coalesce(we.ended_at, we.started_at, we.created_at) desc
     ),
     last_checkin as (
-      select dc.athlete_id, max(dc.recorded_at) as ts
+      select dc.athlete_id, max(dc.recorded_at) as ts, max(dc.recorded_for) as day
       from daily_checkins dc
+      group by dc.athlete_id
+    ),
+    checkin_habit as (
+      -- The habit behind a skip: check-ins in the 14 days up to the last one.
+      select dc.athlete_id, count(*)::int as n
+      from daily_checkins dc
+      join last_checkin lc on lc.athlete_id = dc.athlete_id
+      where dc.recorded_for > lc.day - 14 and dc.recorded_for <= lc.day
       group by dc.athlete_id
     ),
     a_events as (
       -- Target race per athlete (unified spine, priority='target'). Same predicate
       -- as getTargetRaceRow, batch form (DISTINCT ON joined into the rollup query).
+      -- «Upcoming» on the ATHLETE's day: the race is his.
       select distinct on (r.athlete_id)
         r.athlete_id,
         to_char(r.race_date, 'YYYY-MM-DD') as iso,
         r.name as name
       from races r
+      join athlete_day ad on ad.athlete_id = r.athlete_id
       where r.priority = 'target'
-        and r.race_date >= ${todayIso}::date
+        and r.race_date >= ad.today
         and r.status in ('planned', 'registered')
       order by r.athlete_id, r.race_date asc
     ),
-    unread_msgs as (
-      select ct.athlete_id,
-             extract(epoch from (${nowIso}::timestamptz - min(cm.created_at))) / 60 as age_min
-      from chat_threads ct
-      join chat_messages cm on cm.thread_id = ct.id
-      where cm.read_at is null
-        and cm.deleted_at is null
-        and cm.sender_user_id <> (select user_id from coaches where id = ct.coach_id)
-      group by ct.athlete_id
-    ),
     current_micro as (
       -- The athlete's active microciclo = the athlete_month_assignments receipt
-      -- whose window contains today (most recent wins). Its label = the month
-      -- template name; its end = the assignment window end. Agnostic: no phase
-      -- block, no macrocycle.
+      -- whose window contains the CLUB's today (most recent wins). Its label = the
+      -- month template name; its end = the assignment window end. Agnostic: no
+      -- phase block, no macrocycle.
       select distinct on (ama.athlete_id)
         ama.athlete_id,
         m.name                             as name,
         to_char(ama.end_date, 'YYYY-MM-DD') as iso
       from athlete_month_assignments ama
       join program_month_templates m on m.id = ama.month_template_id
-      where ${todayIso}::date between ama.start_date and ama.end_date
+      where ${clubToday}::date between ama.start_date and ama.end_date
       order by ama.athlete_id, ama.start_date desc
     ),
     billing as (
+      -- Business → the CLUB's calendar: its today and the day the period ends there.
       select distinct on (a.id)
         a.id as athlete_id,
         s.status::text as status,
         s.cancel_at_period_end as cancel_at_period_end,
         case
           when s.current_period_end is null then null
-          else (s.current_period_end::date - ${todayIso}::date)::int
-        end as days_to_period_end
+          else ((s.current_period_end at time zone ${clubTz})::date - ${clubToday}::date)::int
+        end as days_to_period_end,
+        to_char((s.current_period_end at time zone ${clubTz})::date, 'YYYY-MM-DD') as period_end_iso
       from athletes a
       join subscriptions s
         on s.user_id = a.user_id or s.partner_user_id = a.user_id
@@ -207,9 +240,11 @@ export async function loadBatch(
       order by b.athlete_id, b.recorded_at desc
     ),
     last_any_test as (
-      -- Most recent test of ANY kind (incl. onboarding) — drives test_due.
-      select b.athlete_id, max(b.recorded_at)::date as last_date
+      -- Most recent test of ANY kind (incl. onboarding) — drives test_due. The test
+      -- is the athlete's: its day in HIS zone, subtracted from his today below.
+      select b.athlete_id, max((b.recorded_at at time zone ad.tz)::date) as last_date
       from athlete_benchmarks b
+      join athlete_day ad on ad.athlete_id = b.athlete_id
       group by b.athlete_id
     ),
     recent_race as (
@@ -231,6 +266,18 @@ export async function loadBatch(
       join workout_assignments wa on wa.id = we.assignment_id and wa.origin = 'self'
       join templates t on t.id = wa.template_id
       order by we.athlete_id, we.ended_at desc nulls last
+    ),
+    recent_off_plan as (
+      -- The most recent workout kept OFF-PLAN (0270): the athlete finished a
+      -- session that was no longer in their plan. Drives workout_off_plan.
+      select distinct on (we.athlete_id)
+        we.athlete_id,
+        coalesce(we.ended_at, we.started_at, we.created_at) as ts,
+        we.off_plan_reason as reason,
+        we.total_duration_seconds as duration_s
+      from workout_executions we
+      where we.off_plan_reason is not null
+      order by we.athlete_id, coalesce(we.ended_at, we.started_at, we.created_at) desc
     ),
     last_1on1 as (
       -- La última 1:1 con el atleta = el parte de sesión más reciente con sujeto atleta
@@ -274,6 +321,7 @@ export async function loadBatch(
     comm_task as (
       -- Tareas vencidas sin hacer. Manda la de fecha límite más antigua: es la
       -- que fija el retraso con el que el evaluador decide crítico o vigilar.
+      -- Vencida en el día del ATLETA: es lo que él tenía que haber hecho.
       select
         r.athlete_id,
         count(*)::int                                                 as n,
@@ -282,10 +330,11 @@ export async function loadBatch(
         to_char(min(c.due_date), 'YYYY-MM-DD')                        as due_iso
       from coach_communications c
       join coach_communication_recipients r on r.communication_id = c.id
+      join athlete_day ad on ad.athlete_id = r.athlete_id
       where c.coach_id = ${coach_id as number}
         and c.kind = 'task'
         and c.status = 'published'
-        and c.due_date < ${todayIso}::date
+        and c.due_date < ad.today
         and r.done_at is null
         and (c.expires_at is null or c.expires_at > ${nowIso}::timestamptz)
       group by r.athlete_id
@@ -295,7 +344,7 @@ export async function loadBatch(
       -- un evento con fecha propia (carrera o test). La fecha se resuelve contra
       -- el evento del PROPIO atleta; si anchor_ref nombra uno concreto se exige
       -- ese. Sin fecha resoluble no sale fila: una señal con fecha inventada sería
-      -- peor que no tenerla.
+      -- peor que no tenerla. «Por venir» en el día del ATLETA: el evento es suyo.
       select
         r.athlete_id,
         c.id::text           as id,
@@ -304,12 +353,13 @@ export async function loadBatch(
         coalesce(rc.d, ts.d) as event_date
       from coach_communications c
       join coach_communication_recipients r on r.communication_id = c.id
+      join athlete_day ad on ad.athlete_id = r.athlete_id
       left join lateral (
         select min(ra.race_date) as d
         from races ra
         where c.anchor_kind = 'race'
           and ra.athlete_id = r.athlete_id
-          and ra.race_date >= ${todayIso}::date
+          and ra.race_date >= ad.today
           and ra.status in ('planned', 'registered')
           and (
             c.anchor_ref is null
@@ -324,7 +374,7 @@ export async function loadBatch(
         where c.anchor_kind = 'test'
           and wa.athlete_id = r.athlete_id
           and wa.calibration_test_id is not null
-          and wa.scheduled_for >= ${todayIso}::date
+          and wa.scheduled_for >= ad.today
           and (
             c.anchor_ref is null
             or (c.anchor_ref ~ '^[0-9]+$' and wa.id = c.anchor_ref::bigint)
@@ -356,13 +406,13 @@ export async function loadBatch(
       hb.v                                as hrv_baseline,
       hb.days                             as hrv_baseline_days,
       ls.ts                               as last_sync_at,
-      coalesce(m7.n, 0)                   as missed_sessions_7d,
-      ry.v                                as rpe_yesterday,
+      r7.days                             as rpe_days,
+      r7.rpes                             as rpe_values,
       rp.area                             as latest_pain_area,
       rp.at                               as latest_pain_at,
       rp.note                             as latest_pain_note,
       lc.ts                               as last_checkin_at,
-      um.age_min                          as unread_message_age_min,
+      coalesce(ch.n, 0)                   as checkins_prior_14d,
       ae.iso                              as a_event_iso,
       ae.name                             as a_event_name,
       cm.name                             as current_microciclo_name,
@@ -370,6 +420,7 @@ export async function loadBatch(
       bl.status                           as billing_status,
       bl.cancel_at_period_end             as billing_cancel_at_period_end,
       bl.days_to_period_end               as billing_days_to_period_end,
+      bl.period_end_iso                   as billing_period_end_iso,
       rt.ts                               as latest_test_at,
       rt.slug                             as latest_test_slug,
       rt.unit                             as latest_test_unit,
@@ -384,12 +435,15 @@ export async function loadBatch(
           )
       ))                                  as latest_test_is_pr,
       case when lat.last_date is null then null
-           else (${todayIso}::date - lat.last_date)::int end as days_since_last_test,
+           else (ad.today - lat.last_date)::int end as days_since_last_test,
       rr.ts                               as latest_race_completed_at,
       rr.name                             as latest_race_name,
       rr.id                               as latest_race_id,
       rl.ts                               as latest_libre_at,
       rl.title                            as latest_libre_title,
+      rop.ts                              as latest_off_plan_at,
+      rop.reason                          as latest_off_plan_reason,
+      rop.duration_s                      as latest_off_plan_duration_s,
       a.review_cadence                    as review_cadence,
       a.created_at                        as athlete_since,
       l1.ts                               as last_1on1_at,
@@ -409,21 +463,22 @@ export async function loadBatch(
       cp.event_iso                        as comm_protocol_event_iso,
       cp.n                                as comm_protocol_n
     from athletes a
+    join athlete_day       ad on ad.athlete_id = a.id
     left join hrv_recent   hr on hr.athlete_id = a.id
     left join hrv_baseline hb on hb.athlete_id = a.id
     left join last_sync    ls on ls.athlete_id = a.id
-    left join missed_7d    m7 on m7.athlete_id = a.id
-    left join rpe_yest     ry on ry.athlete_id = a.id
+    left join rpe_7d       r7 on r7.athlete_id = a.id
     left join recent_pain  rp on rp.athlete_id = a.id
     left join last_checkin lc on lc.athlete_id = a.id
+    left join checkin_habit ch on ch.athlete_id = a.id
     left join a_events     ae on ae.athlete_id = a.id
-    left join unread_msgs  um on um.athlete_id = a.id
     left join current_micro cm on cm.athlete_id = a.id
     left join billing      bl on bl.athlete_id = a.id
     left join recent_test  rt on rt.athlete_id = a.id
     left join last_any_test lat on lat.athlete_id = a.id
     left join recent_race  rr on rr.athlete_id = a.id
     left join recent_libre rl on rl.athlete_id = a.id
+    left join recent_off_plan rop on rop.athlete_id = a.id
     left join last_1on1    l1 on l1.athlete_id = a.id
     left join upcoming_review ur on ur.athlete_id = a.id
     left join comm_question cq on cq.athlete_id = a.id

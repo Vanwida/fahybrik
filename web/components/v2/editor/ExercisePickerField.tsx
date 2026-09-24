@@ -13,7 +13,8 @@
 import { useState } from 'react';
 import type { EditorItem } from '@/lib/dashboard/v2/editor-types';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
-import { MIcon } from '@/components/ui/MIcon';
+import { ChevronsUpDown, CircleAlert } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
 import { cn } from '@/lib/utils';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
 import { withPickedExercise } from '@/lib/dashboard/v2/pick-exercise';
@@ -47,40 +48,29 @@ export function ExercisePickerField({
 
   return (
     <>
-      <button
-        type="button"
+      <Button
+        size={compact ? 'md' : 'lg'}
         onClick={() => setOpen(true)}
         aria-label={hasExercise ? `Cambiar ejercicio (${item.exercise_name})` : 'Elegir ejercicio del catálogo'}
         className={cn(
-          'v2-focus flex w-full items-center gap-2 rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface-2)] text-left transition-colors',
-          compact ? 'px-2.5 py-1.5' : 'px-3 py-2',
-          hasExercise
-            ? 'border-[color:var(--v2-border-strong)] hover:border-[color:var(--v2-accent)]'
-            : 'border-[color:var(--v2-danger)] hover:border-[color:var(--v2-danger)]',
+          'w-full justify-start gap-2 px-2.5 font-normal',
+          hasExercise ? 'border-v2-border' : 'border-v2-danger text-v2-danger hover:border-v2-danger',
         )}
       >
         {hasExercise ? (
           <>
-            <span
-              aria-hidden
-              className="h-2 w-2 shrink-0 rounded-full"
-              style={{ background: `var(--v2-mod-${slug})` }}
-            />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-[color:var(--v2-fg)]">
-              {item.exercise_name || 'Ejercicio'}
-            </span>
-            <MIcon name="unfold_more" size={15} className="shrink-0 text-[color:var(--v2-faint)]" />
+            <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `var(--v2-mod-${slug})` }} />
+            <span className="min-w-0 flex-1 truncate text-left text-v2-fg">{item.exercise_name || 'Ejercicio'}</span>
+            <ChevronsUpDown aria-hidden strokeWidth={1.75} className="text-v2-faint" />
           </>
         ) : (
           <>
-            <MIcon name="error" size={15} className="shrink-0 text-[color:var(--v2-danger)]" />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-[color:var(--v2-danger)]">
-              Elegir ejercicio del catálogo
-            </span>
-            <MIcon name="unfold_more" size={15} className="shrink-0 text-[color:var(--v2-danger)]" />
+            <CircleAlert aria-hidden strokeWidth={2} />
+            <span className="min-w-0 flex-1 truncate text-left">Elegir ejercicio del catálogo</span>
+            <ChevronsUpDown aria-hidden strokeWidth={1.75} />
           </>
         )}
-      </button>
+      </Button>
 
       {open ? (
         <ExercisePicker

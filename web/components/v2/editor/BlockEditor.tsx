@@ -19,8 +19,9 @@ import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import { ITEM_NOTES_MAX } from '@fahybrid/shared/schema/program-templates';
 import { patternForBlock } from '@/lib/dashboard/v2/archetypes';
 import { isStrengthModality } from '@/lib/dashboard/v2/editor-axes';
-import { MIcon } from '@/components/ui/MIcon';
-import { cn } from '@/lib/utils';
+import { NotebookPen, Plus } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
+import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import { NoteField } from './fields';
 import { fetchTextSuggestions } from './ai-text-suggest';
 import { PrescriptionFields } from './PrescriptionFields';
@@ -166,39 +167,25 @@ export function BlockEditor({
       ) : block.items.length > 0 ? (
         // Legacy / unknown-format block — keep the per-item axes editor as fallback.
         <>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {block.items.map((it) => (
-              <button
-                key={it.uid}
-                type="button"
-                onClick={() => setActiveItemUid(it.uid)}
-                className={cn(
-                  'v2-focus rounded-[var(--v2-r-pill)] border px-3 py-1 text-xs font-semibold transition-colors',
-                  it.uid === activeItem?.uid
-                    ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
-                    : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
-                )}
-              >
-                {it.exercise_name || 'Ejercicio'}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-1">
+            <ChipGroup
+              mono={false}
+              ariaLabel="Ejercicio del bloque"
+              options={block.items.map((it) => ({ value: it.uid, label: it.exercise_name || 'Ejercicio' }))}
+              value={activeItem?.uid ?? null}
+              onChange={setActiveItemUid}
+            />
             {onAddItem ? (
-              <button
-                type="button"
-                onClick={onAddItem}
-                aria-label="Añadir ejercicio"
-                className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-3 py-1 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-              >
-                <MIcon name="add" size={14} />
+              <Button size="sm" variant="ghost" icon={Plus} onClick={onAddItem} aria-label="Añadir ejercicio">
                 ejercicio
-              </button>
+              </Button>
             ) : null}
           </div>
 
           {activeItem ? (
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <span className="v2-micro">Ejercicio</span>
+                <span className="t-meta text-v2-muted">Ejercicio</span>
                 <ExercisePickerField
                   item={activeItem}
                   destinationLabel={block.title || 'Ejercicio'}
@@ -217,24 +204,15 @@ export function BlockEditor({
           ) : null}
         </>
       ) : (
-        <div className="space-y-4">
-          <p className="text-sm text-[color:var(--v2-muted)]">
-            Este bloque aún no tiene ejercicios.
-          </p>
-          {onAddItem ? (
-            <button
-              type="button"
-              onClick={onAddItem}
-              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-            >
-              <MIcon name="add" size={16} />
-              Añadir ejercicio
-            </button>
-          ) : (
-            // Fallback: seed a first item locally so the coach can author it.
-            <button
-              type="button"
-              onClick={() =>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="t-body-sm text-v2-muted">Este bloque aún no tiene ejercicios.</p>
+          <Button
+            size="sm"
+            icon={Plus}
+            onClick={
+              onAddItem ??
+              // Fallback: seed a first item locally so the coach can author it.
+              (() =>
                 onChange({
                   ...block,
                   items: [
@@ -245,14 +223,11 @@ export function BlockEditor({
                       prescription: EMPTY_PRESCRIPTION,
                     },
                   ],
-                })
-              }
-              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-            >
-              <MIcon name="add" size={16} />
-              Añadir ejercicio
-            </button>
-          )}
+                }))
+            }
+          >
+            Añadir ejercicio
+          </Button>
         </div>
       )}
 
@@ -315,8 +290,8 @@ function LineNotes({
     <section className="space-y-2.5">
       {single ? null : (
         <div className="space-y-0.5">
-          <span className="v2-micro block">Notas para el atleta</span>
-          <p className="text-label leading-relaxed text-[color:var(--v2-faint)]">
+          <span className="block t-meta text-v2-muted">Notas para el atleta</span>
+          <p className="t-meta text-v2-faint">
             Las ve al abrir cada ejercicio en el móvil. {LINE_NOTE_HINT}
           </p>
         </div>
@@ -357,13 +332,13 @@ function ProposedStrip({
     <ul className="space-y-1.5">
       {lines.map((line) => (
         <li key={line.uid} className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-label font-semibold text-[color:var(--v2-fg)]">
+          <span className="t-meta text-v2-fg">
             {line.name || 'Línea sin ejercicio'}
           </span>
           {line.labels.map((label) => (
             <span
               key={label}
-              className="v2-num inline-flex items-center rounded-[var(--v2-r-xs)] border border-dashed border-[color:var(--v2-warn)] px-2 py-0.5 text-nano text-[color:var(--v2-warn)]"
+              className="inline-flex items-center rounded-[4px] border border-dashed border-v2-warn px-1.5 py-0.5 t-meta text-v2-warn t-tnum"
             >
               {label} · propuesto
             </span>
@@ -387,28 +362,21 @@ function ProposedStrip({
 function UndosedNotice({ lines }: { lines: UndosedLine[] }) {
   const one = lines.length === 1;
   return (
-    <div
-      className="flex gap-2 rounded-[var(--v2-r-m)] px-3 py-2"
-      style={{ background: 'var(--v2-warn-soft)' }}
-    >
-      <span className="shrink-0" style={{ color: 'var(--v2-warn)' }}>
-        <MIcon name="edit_note" size={16} aria-hidden />
-      </span>
-      <div className="min-w-0 text-xs leading-relaxed">
-        <p className="font-semibold" style={{ color: 'var(--v2-warn)' }}>
+    <div className="flex gap-2 rounded-ctl bg-v2-warn-soft px-3 py-2">
+      <NotebookPen aria-hidden strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-v2-warn" />
+      <div className="min-w-0 t-body-sm">
+        <p className="font-medium text-v2-warn">
           {one ? 'Dice el ejercicio pero no cuánto trabajo' : `${lines.length} líneas sin dosis`}
         </p>
-        <ul className="mt-0.5 space-y-0.5 text-[color:var(--v2-muted)]">
+        <ul className="mt-0.5 space-y-0.5 text-v2-muted">
           {lines.map((l) => (
             <li key={l.uid}>
-              {one ? null : <b>{l.exercise_name || 'Ejercicio'}: </b>}
+              {one ? null : <span className="font-medium text-v2-fg">{l.exercise_name || 'Ejercicio'}: </span>}
               {l.reasons.join(' ')}
             </li>
           ))}
         </ul>
-        <p className="mt-1 text-[color:var(--v2-faint)]">
-          Rellénalo aquí y queda arreglado para todos los días que usen este bloque.
-        </p>
+        <p className="mt-1 t-meta text-v2-faint">Rellénalo aquí y queda arreglado en todos los días que usen este bloque.</p>
       </div>
     </div>
   );

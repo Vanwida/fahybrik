@@ -4,6 +4,7 @@ import { MarketingHeader } from '@/components/landing/MarketingHeader';
 import { MarketingFooter } from '@/components/landing/MarketingFooter';
 import { StickyCta } from '@/components/landing/StickyCta';
 import '../../../components/landing/landing.css';
+import { BrandFonts } from '@/components/brand/BrandFonts';
 
 interface MarketingLayoutProps {
   children: React.ReactNode;
@@ -19,13 +20,15 @@ export default async function MarketingLayout({
   setRequestLocale(locale);
 
   return (
-    <div className="min-h-screen bg-[color:var(--bg)] text-[color:var(--fg)] antialiased">
-      <SmoothScroll>
-        <MarketingHeader />
-        <main>{children}</main>
-        <MarketingFooter />
-        <StickyCta />
-      </SmoothScroll>
-    </div>
+    <BrandFonts>
+      <div className="min-h-screen bg-[color:var(--bg)] text-[color:var(--fg)] antialiased">
+        <SmoothScroll>
+          <MarketingHeader />
+          <main>{children}</main>
+          <MarketingFooter />
+          <StickyCta />
+        </SmoothScroll>
+      </div>
+    </BrandFonts>
   );
 }

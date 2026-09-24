@@ -15,11 +15,14 @@
 import type { Target } from '../prescription/types';
 import type { SegmentTarget } from '../prescription/run-structure';
 import type { CoachZone } from './zone-model';
+import type { HrZoneFractions } from './hr-zones';
 import { resolveTarget, type AthleteBenchmarks, type ResolvedTarget } from './zones';
 
 export interface ResolveSegmentOpts {
   /** The coach's methodology_zones rows (0061). Forwarded to resolveTarget. */
   coachZones?: CoachZone[];
+  /** The coach's HR band cuts (coach_hr_method). Forwarded to resolveTarget. */
+  hrZoneFractions?: HrZoneFractions;
 }
 
 /**
@@ -52,11 +55,13 @@ export function resolveSegmentTarget(
       return resolveTarget(`Z${target.zone}`, benchmarks, {
         modality: 'run',
         ...(opts.coachZones ? { coachZones: opts.coachZones } : {}),
+        ...(opts.hrZoneFractions ? { hrZoneFractions: opts.hrZoneFractions } : {}),
       });
     case 'hr_zone':
       // No modality hint → resolveTarget takes the HR path (bpm band from LTHR).
       return resolveTarget(`Z${target.zone}`, benchmarks, {
         ...(opts.coachZones ? { coachZones: opts.coachZones } : {}),
+        ...(opts.hrZoneFractions ? { hrZoneFractions: opts.hrZoneFractions } : {}),
       });
   }
 }

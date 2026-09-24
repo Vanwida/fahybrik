@@ -17,14 +17,15 @@
 // que ahora se VE.
 
 import { useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
+import { Plus } from 'lucide-react';
+import { Button, Input, StatusBadge } from '@/components/v2/ui';
+import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import { MODALITY_OPTIONS, resolveModality } from '@/lib/dashboard/exercises/catalog-ui';
 import { VideoUrlField, videoUrlDraftInvalid } from '@/components/media/VideoUrlField';
 import {
   CATEGORY_OPTIONS,
-  FilterChip,
   extractApiErrorMessage,
   toCatalogRow,
   type ApiExercise,
@@ -97,34 +98,29 @@ export function CreateExerciseForm({
   };
 
   return (
-    <div className="space-y-4 overflow-y-auto p-5">
+    <div className="space-y-4">
       <label className="block space-y-1.5">
-        <span className="v2-micro">Nombre</span>
-        <input
+        <span className="t-meta text-v2-muted">Nombre</span>
+        <Input
           type="text"
+          size="lg"
           value={name}
           onChange={(e) => setName(e.target.value)}
           autoFocus
           maxLength={120}
           placeholder="p. ej. Zancada búlgara con mancuerna"
           aria-label="Nombre del ejercicio"
-          className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
         />
       </label>
 
-      <ChipField
-        label="Tipo"
-        aside="(de qué movimiento es)"
-        hint="Cómo se ordena y se busca en tu catálogo."
-      >
-        {CATEGORY_OPTIONS.map((c) => (
-          <FilterChip
-            key={c.value}
-            label={c.label}
-            active={category === c.value}
-            onClick={() => setCategory(c.value)}
-          />
-        ))}
+      <ChipField label="Tipo" aside="de qué movimiento es" hint="Cómo se ordena y se busca en tu catálogo.">
+        <ChipGroup
+          mono={false}
+          ariaLabel="Tipo"
+          options={CATEGORY_OPTIONS}
+          value={category}
+          onChange={setCategory}
+        />
       </ChipField>
 
       <ChipField
@@ -132,18 +128,17 @@ export function CreateExerciseForm({
         suggested={modalitySuggested}
         hint={
           modalitySuggested
-            ? 'La hemos deducido del nombre. Compruébala: es con lo que se compara en las analíticas.'
+            ? 'Deducida del nombre. Compruébala: es con lo que se compara en las analíticas.'
             : 'Con lo que se compara y cómo cuenta en las analíticas.'
         }
       >
-        {MODALITY_OPTIONS.map((m) => (
-          <FilterChip
-            key={m.value}
-            label={m.label}
-            active={modalityValue === m.value}
-            onClick={() => setModality(m.value)}
-          />
-        ))}
+        <ChipGroup
+          mono={false}
+          ariaLabel="Modalidad"
+          options={MODALITY_OPTIONS}
+          value={modalityValue}
+          onChange={setModality}
+        />
       </ChipField>
 
       {/* Sin `exerciseId`: el ejercicio todavía no existe. La subida se firma igual
@@ -156,50 +151,28 @@ export function CreateExerciseForm({
         onUploadingChange={setVideoUploading}
       />
 
-      <div className="flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">
-        <MIcon name="info" size={15} className="mt-px shrink-0 text-[color:var(--v2-accent-text)]" />
-        <p className="text-xs leading-snug text-[color:var(--v2-fg)]">
-          Se añade a tu catálogo y queda disponible para cualquier sesión. Será tuyo: sólo tú lo
-          verás.
-        </p>
-      </div>
+      <p className="t-body-sm text-v2-muted">Se añade a tu catálogo y será solo tuyo.</p>
 
       {error ? (
-        <p role="alert" className="text-xs text-[color:var(--v2-danger)]">
+        <p role="alert" className="t-body-sm text-v2-danger">
           {error}
         </p>
       ) : null}
 
-      <div className="flex items-center justify-between gap-3 border-t border-[color:var(--v2-border)] pt-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="v2-focus rounded-[var(--v2-r-s)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!canSave}
-          className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 py-2 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
-        >
-          <MIcon name={saving ? 'progress_activity' : 'add'} size={16} />
+      <div className="flex items-center justify-end gap-2 border-t border-v2-border pt-3">
+        <Button onClick={onCancel}>Cancelar</Button>
+        <Button variant="primary" icon={Plus} loading={saving} disabled={!canSave} onClick={submit}>
           {saving ? 'Creando…' : 'Crear y usar'}
-        </button>
+        </Button>
       </div>
     </div>
   );
 }
 
 /**
- * Un grupo de chips de elección única, con su etiqueta y su pista. `role="group"` +
- * `aria-label`: son botones sueltos con `aria-pressed`, así que sin la agrupación un
- * lector de pantalla los leería como nueve botones sin decir de qué campo son.
- *
- * "Sugerida" sólo aparece mientras el valor lo hayamos puesto nosotros: es lo que
- * convierte una adivinanza en una propuesta y lo que le dice al coach que ese campo
- * es suyo de mirar.
+ * Un grupo de elección única con su etiqueta y su pista. "Sugerida" sólo aparece
+ * mientras el valor lo hayamos puesto nosotros: es lo que convierte una adivinanza
+ * en una propuesta y lo que le dice al coach que ese campo es suyo de mirar.
  */
 function ChipField({
   label,
@@ -216,20 +189,13 @@ function ChipField({
 }) {
   return (
     <div className="space-y-1.5">
-      <span className="v2-micro flex items-center gap-1.5">
+      <span className="flex items-center gap-2 t-meta text-v2-muted">
         {label}
-        {aside ? <span className="text-[color:var(--v2-faint)]">{aside}</span> : null}
-        {suggested ? (
-          <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-info-soft)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em] text-[color:var(--v2-info)]">
-            <MIcon name="lightbulb" size={11} />
-            Sugerida
-          </span>
-        ) : null}
+        {aside ? <span className="font-normal text-v2-faint">({aside})</span> : null}
+        {suggested ? <StatusBadge size="sm" tone="info" label="Sugerida" /> : null}
       </span>
-      <div role="group" aria-label={label} className="flex flex-wrap gap-1.5">
-        {children}
-      </div>
-      <p className="text-label text-[color:var(--v2-faint)]">{hint}</p>
+      {children}
+      <p className="t-meta text-v2-faint">{hint}</p>
     </div>
   );
 }

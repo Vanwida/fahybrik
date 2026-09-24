@@ -27,6 +27,8 @@ import { ExercisePickerField } from '../ExercisePickerField';
 import { RestChips, STRENGTH_REST_VALUES } from '../dose-controls';
 import { SetsTableForm } from './SetsTableForm';
 import { Field } from './form-controls';
+import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
+import { Button, IconButton } from '@/components/v2/ui';
 
 /** Dos es el mínimo que hace que algo sea una superserie. */
 const MIN_EXERCISES = 2;
@@ -130,16 +132,11 @@ export function SupersetForm({
       </div>
 
       {items.length < MAX_EXERCISES ? (
-        <button
-          type="button"
-          onClick={addExercise}
-          className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 py-1 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-        >
-          <MIcon name="add" size={13} />
+        <Button size="sm" icon={Plus} onClick={addExercise} className="self-start">
           Añadir ejercicio
-        </button>
+        </Button>
       ) : (
-        <p className="text-xs text-[color:var(--v2-muted)]">
+        <p className="t-body-sm text-v2-muted">
           Con más de {MAX_EXERCISES} ejercicios ya es un circuito. Cambia el tipo de bloque.
         </p>
       )}
@@ -150,17 +147,17 @@ export function SupersetForm({
 /** La rotación, con los nombres reales: A1 va a A2, y al cerrar se vuelve a A1. */
 function RotationStrip({ items }: { items: EditorItem[] }) {
   return (
-    <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
-      <span className="v2-micro">Cómo se ejecuta</span>
+    <div className="rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
+      <span className="t-meta text-v2-muted">Cómo se ejecuta</span>
       <ol className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
         {items.map((it, i) => (
           <li key={it.uid} className="flex items-center gap-2">
             <span
-              className="inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2 py-1"
+              className="inline-flex items-center gap-1.5 rounded-ctl px-2 py-1"
               style={{ background: `var(--v2-mod-${TONE}-soft)` }}
             >
               <span
-                className="v2-num text-label font-bold"
+                className="t-tnum t-meta font-semibold"
                 style={{ color: `var(--v2-mod-${TONE})` }}
               >
                 {letterFor(i)}
@@ -210,11 +207,11 @@ function ExerciseCard({
   const letter = letterFor(index);
 
   return (
-    <div className="space-y-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3">
+    <div className="space-y-3 rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3">
       <div className="flex items-center gap-2">
         <span
           aria-hidden
-          className="v2-num inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] text-xs font-bold"
+          className="t-tnum inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-ctl text-xs font-semibold"
           style={{
             background: `var(--v2-mod-${TONE}-soft)`,
             color: `var(--v2-mod-${TONE})`,
@@ -232,33 +229,16 @@ function ExerciseCard({
           />
         </div>
         <div className="flex shrink-0 items-center">
-          <button
-            type="button"
-            aria-label={`Subir el ejercicio ${letter}`}
-            disabled={index === 0}
-            onClick={() => onMove(-1)}
-            className="v2-focus rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-30"
-          >
-            <MIcon name="keyboard_arrow_up" size={15} />
-          </button>
-          <button
-            type="button"
-            aria-label={`Bajar el ejercicio ${letter}`}
+          <IconButton icon={ChevronUp} size="sm" label={`Subir el ejercicio ${letter}`} disabled={index === 0} onClick={() => onMove(-1)} />
+          <IconButton
+            icon={ChevronDown}
+            size="sm"
+            label={`Bajar el ejercicio ${letter}`}
             disabled={index === count - 1}
             onClick={() => onMove(1)}
-            className="v2-focus rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-30"
-          >
-            <MIcon name="keyboard_arrow_down" size={15} />
-          </button>
+          />
           {onRemove ? (
-            <button
-              type="button"
-              onClick={onRemove}
-              aria-label={`Quitar el ejercicio ${letter}`}
-              className="v2-focus rounded-full p-1 text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-danger)]"
-            >
-              <MIcon name="close" size={14} />
-            </button>
+            <IconButton icon={X} size="sm" label={`Quitar el ejercicio ${letter}`} onClick={onRemove} className="hover:text-v2-danger" />
           ) : null}
         </div>
       </div>

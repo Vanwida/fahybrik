@@ -15,6 +15,7 @@ export async function notifyOpposite(args: {
   const rows = await sql<
     {
       coach_id: string;
+      athlete_id: string;
       athlete_user_id: string;
       coach_name: string;
       athlete_name: string;
@@ -22,6 +23,7 @@ export async function notifyOpposite(args: {
     }[]
   >`
     select t.coach_id::text as coach_id,
+           t.athlete_id::text as athlete_id,
            a.user_id::text as athlete_user_id,
            c.full_name as coach_name,
            a.full_name as athlete_name,
@@ -74,7 +76,9 @@ export async function notifyOpposite(args: {
       push: {
         title: senderName,
         body: trimmed,
-        deeplink: { kind: 'chat', thread_id: thread_id.toString() },
+        // `athlete_id` es lo que abre el hilo en el panel (`/mensajes?hilo=<atleta>`);
+        // `thread_id` sigue para la app del atleta.
+        deeplink: { kind: 'chat', thread_id: thread_id.toString(), athlete_id: ctx.athlete_id },
         badge,
       },
     });

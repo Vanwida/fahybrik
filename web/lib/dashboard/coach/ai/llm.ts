@@ -49,9 +49,9 @@ function readOpenRouterRouting(): { order: string[]; allow_fallbacks: boolean } 
 }
 
 export function isCoachIaLlmConfigured(): boolean {
-  const model = (process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL)?.trim() ?? process.env.LLM_CHAT_MODEL?.trim();
+  const model = process.env.COACH_IA_MODEL?.trim() ?? process.env.LLM_CHAT_MODEL?.trim();
   const key =
-    (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY)?.trim() ??
+    process.env.COACH_IA_API_KEY?.trim() ??
     process.env.LLM_API_KEY?.trim() ??
     process.env.OPENROUTER_API_KEY?.trim();
   return Boolean(model && key);
@@ -94,12 +94,12 @@ export async function callCoachIaLlmJson(args: CallArgs): Promise<unknown> {
     throw new CoachIaLlmError('unconfigured', 'Coach IA LLM no configurado');
   }
 
-  const provider = ((process.env.COACH_IA_PROVIDER ?? process.env.PABLO_IA_PROVIDER) ?? process.env.LLM_PROVIDER ?? 'openrouter')
+  const provider = (process.env.COACH_IA_PROVIDER ?? process.env.LLM_PROVIDER ?? 'openrouter')
     .trim()
     .toLowerCase();
-  const model = ((process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL) ?? process.env.LLM_CHAT_MODEL)!.trim();
+  const model = (process.env.COACH_IA_MODEL ?? process.env.LLM_CHAT_MODEL)!.trim();
   const apiKey = (
-    (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY) ??
+    process.env.COACH_IA_API_KEY ??
     process.env.LLM_API_KEY ??
     process.env.OPENROUTER_API_KEY
   )!.trim();
@@ -244,11 +244,11 @@ export async function callLlmJsonWithImage(args: LlmVisionCallArgs): Promise<unk
   }
 
   const fetchImpl = args.fetchImpl ?? fetch;
-  const provider = ((process.env.COACH_IA_PROVIDER ?? process.env.PABLO_IA_PROVIDER) ?? process.env.LLM_PROVIDER ?? 'openrouter')
+  const provider = (process.env.COACH_IA_PROVIDER ?? process.env.LLM_PROVIDER ?? 'openrouter')
     .trim()
     .toLowerCase();
   const apiKey = (
-    (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY) ??
+    process.env.COACH_IA_API_KEY ??
     process.env.LLM_API_KEY ??
     process.env.OPENROUTER_API_KEY ??
     ''

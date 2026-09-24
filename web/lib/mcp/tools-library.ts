@@ -98,7 +98,7 @@ export function registerLibraryTools(server: McpServer): void {
           wants('level')
             ? sql<Array<{ id: string; name: string }>>`
                 select id::text, name from athlete_levels
-                where coach_id = ${coach_id}
+                where coach_id = ${coach_id} and archived_at is null -- un retirado no se elige
                 order by sort_order asc, id asc
               `
             : null,

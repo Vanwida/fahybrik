@@ -6,8 +6,9 @@ import {
   parseIsoDate,
   startOfDayInBox,
 } from '../dates';
-import { buildAthleteContextPack, type AthleteContextPack } from './coach-ia-context';
+import { buildAthleteContextPack, type AthleteContextPack, type BodySignal } from './coach-ia-context';
 import {
+  BODY_SIGNAL_TRIGGER,
   evaluateWeeklyVerdictFromContext,
   type WeeklyVerdict,
 } from './weekly-verdict-rules';
@@ -67,29 +68,44 @@ function parseWeekStart(iso: string): Date {
   return mondayOfWeek(parseIsoDate(iso));
 }
 
+/**
+ * La semana que se evalúa cuando no se dice cuál: el lunes de la ANTERIOR a la
+ * que contiene `today` (YYYY-MM-DD). `today` es el día de quien decide — el del
+ * CLUB: el veredicto lo lee el coach y decide con él (DECISIONS 2026-09-23, «Qué
+ * día es en cada sitio»). Quien llama sin semana la calcula con esto.
+ */
+export function evaluationWeekStartFor(today: string): string {
+  // mondayOfWeek(today - 7d) = lunes de la semana anterior.
+  return isoDateString(mondayOfWeek(addDays(parseIsoDate(today), -7)));
+}
+
 /** Lunes de la semana N-1 respecto a hoy (zona del box) — default cuando no se pasa week_start. */
 export function defaultEvaluationWeekStart(now: Date = new Date()): string {
-  const today = startOfDayInBox(now);
-  // mondayOfWeek(today - 7d) = lunes de la semana anterior.
-  return isoDateString(mondayOfWeek(addDays(today, -7)));
+  return evaluationWeekStartFor(isoDateString(startOfDayInBox(now)));
 }
 
 export async function evaluateAthleteWeek(params: {
   athlete_id: number | bigint;
   week_start?: string;
+  /**
+   * Las señales vivas de Hoy que piden tocar la semana. Quien pide la evaluación
+   * las carga (`web/lib/coach/week-adjust-signals.ts`); son el veredicto: sin
+   * ellas, «ok».
+   */
+  body_signals?: BodySignal[];
   client: Sql;
 }): Promise<WeeklyEvaluationResult> {
   const client = params.client;
-  const today = startOfDayInBox(new Date());
-  const weekStart = params.week_start
-    ? parseWeekStart(params.week_start)
-    : mondayOfWeek(addDays(today, -7));
+  // Sin semana, la del defecto del producto. Los llamadores de la web la pasan
+  // ya resuelta en el calendario del club (`evaluationWeekStartFor`).
+  const weekStart = parseWeekStart(params.week_start ? params.week_start : defaultEvaluationWeekStart());
   const weekStartIso = isoDateString(weekStart);
   const weekEndIso = isoDateString(addDays(weekStart, 6));
 
-  const pack = await buildAthleteContextPack({
+  const pack: AthleteContextPack = await buildAthleteContextPack({
     athlete_id: params.athlete_id,
     on_date: addDays(weekStart, 6),
+    body_signals: params.body_signals ?? [],
     client,
   });
 
@@ -102,7 +118,7 @@ export async function evaluateAthleteWeek(params: {
     client,
   });
 
-  const fired_triggers = buildFiredTriggers(triggers, pack, week_feed);
+  const fired_triggers = buildFiredTriggers(triggers, pack);
 
   return {
     athlete_id: String(params.athlete_id),
@@ -196,83 +212,26 @@ export function firedTriggersFromContext(pack: AthleteContextPack): FiredTrigger
 }
 
 /**
- * Traduce los códigos de trigger disparados a {label, value, tone} con el
- * número REAL del context_pack. NO recalcula reglas — sólo da formato a lo que
- * `evaluateWeeklyVerdictFromContext` ya decidió. El conteo de cumplimiento
- * (done/scheduled) sale del feed de la semana evaluada para que cuadre con
- * "LO QUE HIZO".
+ * Traduce los códigos de trigger disparados a {label, value, tone} con las
+ * palabras de la señal de Hoy que los disparó (su etiqueta y su evidencia). NO
+ * recalcula reglas — sólo da formato a lo que `evaluateWeeklyVerdictFromContext`
+ * ya decidió.
  */
 function buildFiredTriggers(
   triggers: string[],
   pack: AthleteContextPack,
-  feed?: WeekFeedSummary,
 ): FiredTrigger[] {
   const fired: FiredTrigger[] = [];
-  const pct = pack.compliance_7d != null ? Math.round(pack.compliance_7d * 100) : null;
-
   for (const code of triggers) {
-    switch (code) {
-      case 'compliance_7d_below_60':
-        fired.push({
-          code,
-          label: 'Cumplimiento bajo',
-          // El conteo done/scheduled solo está cuando hay feed (evaluación en
-          // vivo). Para el "por qué" de la card (solo context_pack persistido) cae
-          // al porcentaje, que es el mismo número de la regla del veredicto.
-          value:
-            pct != null
-              ? feed
-                ? `${pct}% (${feed.completed}/${feed.scheduled})`
-                : `${pct}%`
-              : feed
-                ? `${feed.completed}/${feed.scheduled}`
-                : 'bajo',
-          tone: 'danger',
-        });
-        break;
-      case 'sub_score_below_40':
-        fired.push({
-          code,
-          label: 'Check-in bajo',
-          value:
-            pack.readiness_sub_score != null
-              ? `${pack.readiness_sub_score}/100`
-              : 'bajo',
-          tone: 'warning',
-        });
-        break;
-      case 'readiness_below_45':
-        fired.push({
-          code,
-          label: 'Readiness baja',
-          value:
-            pack.readiness.score != null ? `${pack.readiness.score} ▼` : 'baja',
-          tone: 'warning',
-        });
-        break;
-      case 'missed_sessions_2plus':
-        fired.push({
-          code,
-          label: 'Sesiones perdidas',
-          value: `${pack.compliance.missed_7d}`,
-          tone: 'danger',
-        });
-        break;
-      case 'hrv_drop_15':
-        fired.push({
-          code,
-          label: 'HRV en caída',
-          value:
-            pack.readiness.hrv_delta_pct != null
-              ? `${Math.round(pack.readiness.hrv_delta_pct * 100)}%`
-              : 'baja',
-          tone: 'warning',
-        });
-        break;
-      default:
-        // Trigger code desconocido (regla nueva sin formato) → fallback legible.
-        fired.push({ code, label: code, value: '—', tone: 'warning' });
-    }
+    // La señal viva que llevó a pedirlo, con SUS palabras (las de Hoy).
+    const kind = code.startsWith(BODY_SIGNAL_TRIGGER) ? code.slice(BODY_SIGNAL_TRIGGER.length) : code;
+    const s = (pack.body_signals ?? []).find((b) => b.kind === kind);
+    fired.push({
+      code,
+      label: s?.label ?? kind,
+      value: s?.evidence || '—',
+      tone: s?.severity === 'critical' ? 'danger' : 'warning',
+    });
   }
 
   return fired;

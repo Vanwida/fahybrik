@@ -2,57 +2,53 @@
  * Real-DB integration test for the #34 AUTO-SCHEDULE hook
  * (lib/coach/schedule-calibration). Verifies that scheduleWeek1Calibration injects
  * the 4 calibration tests into week 1 as per-athlete forks, on the right days, and
- * is idempotent. Runs against a coach that has the seeded calibration templates
- * (SEED_COACH_ID, default demo coach 29). Skips loudly without TEST_DATABASE_URL.
+ * is idempotent. Runs against a throwaway coach + athlete whose battery is the
+ * default one, restored exactly as the coach's «Restaurar batería por defecto»
+ * does (it used to borrow demo coach 29's seeded battery, so it only ran on the
+ * demo Neon branch). Skips loudly without TEST_DATABASE_URL.
  */
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { scheduleWeek1Calibration } from '@/lib/coach/schedule-calibration';
+import { restoreDefaultTests } from '@/lib/coach/restore-default-tests';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
+import { makeCoachAndAthlete, makeMicrocycle, type Fixture } from '../utils/db-fixtures';
 
 type Sql = ReturnType<typeof getTestSql>;
 
-const SEED_COACH_ID = Number(process.env.SEED_COACH_ID ?? 29);
-
 describeWithDb('#34 auto-schedule week-1 calibration (real DB)', () => {
   let sql: Sql;
+  let fx: Fixture | null = null;
+  let coachId: number;
   let athleteId: number;
-  let userId: number;
   let microcycleId: number;
 
   beforeAll(async () => {
     sql = getTestSql();
-    const u = await sql<{ id: string }[]>`
-      insert into users (email, role) values (${`cal-sched-${Date.now()}@test.local`}, 'athlete')
-      returning id::text
-    `;
-    userId = Number(u[0]!.id);
-    const a = await sql<{ id: string }[]>`
-      insert into athletes (user_id, coach_id, full_name)
-      values (${userId}, ${SEED_COACH_ID}, 'Cal Sched Test') returning id::text
-    `;
-    athleteId = Number(a[0]!.id);
-    const mc = await sql<{ id: string }[]>`
-      insert into microcycles (athlete_id, week_number, start_date, end_date)
-      values (${athleteId}, 1, '2026-07-06'::date, '2026-07-12'::date) returning id::text
-    `;
-    microcycleId = Number(mc[0]!.id);
+    fx = await makeCoachAndAthlete(sql);
+    coachId = fx.coachId;
+    athleteId = fx.athleteId;
+    // The default battery: 4 week-1 tests + 2 that live unscheduled in the catalog.
+    await restoreDefaultTests(coachId, sql);
+    const week1 = await makeMicrocycle({
+      sql,
+      athleteId,
+      startIso: '2026-07-06',
+      endIso: '2026-07-12',
+    });
+    microcycleId = week1.microcycleId;
   });
 
   afterAll(async () => {
-    if (athleteId) {
-      await sql`delete from workout_assignments where athlete_id = ${athleteId}`;
-      await sql`delete from templates where instance_athlete_id = ${athleteId}`;
-      await sql`delete from microcycles where athlete_id = ${athleteId}`;
-      await sql`delete from athletes where id = ${athleteId}`;
-      await sql`delete from users where id = ${userId}`;
-    }
+    // Assignments, per-athlete forks, the microcycle, the battery (cascades with
+    // its coach) and its content templates all go with the fixture.
+    if (fx) await fx.cleanup();
     await closeTestSql();
   });
 
   test('injects the 4 tests into week 1 on their spread days', async () => {
     const n = await scheduleWeek1Calibration({
       client: sql,
-      coach_id: SEED_COACH_ID,
+      coach_id: coachId,
       athlete_id: athleteId,
       week1_monday: new Date('2026-07-06T00:00:00Z'),
       microcycle_id: String(microcycleId),
@@ -81,7 +77,7 @@ describeWithDb('#34 auto-schedule week-1 calibration (real DB)', () => {
   test('is idempotent — a second call injects nothing', async () => {
     const n = await scheduleWeek1Calibration({
       client: sql,
-      coach_id: SEED_COACH_ID,
+      coach_id: coachId,
       athlete_id: athleteId,
       week1_monday: new Date('2026-07-06T00:00:00Z'),
       microcycle_id: String(microcycleId),

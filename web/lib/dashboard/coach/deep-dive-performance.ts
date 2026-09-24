@@ -42,7 +42,11 @@ import {
   type RaceReadinessGap,
   type RaceReadinessPoint,
   type RaceReadinessSample,
+  raceReadinessMethodOf,
 } from '@fahybrid/shared/domain/coach/race-readiness';
+import { loadCoachThresholdsForAthlete } from '@fahybrid/shared/domain/coach/signal-thresholds-db';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
+import { parseIsoDate, zonedDayString, zonedWallClockToUtc } from '@fahybrid/shared/domain/dates';
 import { AthleteAnalyticsError } from './deep-dive-body';
 import {
   loadDataCoverage,
@@ -197,11 +201,15 @@ export async function buildAthletePerformance(params: {
     throw new AthleteAnalyticsError('not_found', 'Atleta no encontrado', 404);
   }
 
+  // Todo lo de aquí lo hizo el atleta: sus días y sus meses van en SU huso, no en
+  // el UTC de la base (DECISIONS 2026-09-23, «Qué día es en cada sitio»).
+  const tz = await loadAthleteTimezone(client, params.athlete_id);
+
   // Each loader is guarded: when an underlying table/column doesn't exist yet
   // (sync pipeline still being built), we fall back to empty data so the UI
   // renders honestly instead of throwing 500.
   const exercises = await safeCall(
-    () => loadExerciseSeries(client, params.athlete_id, params.coach_id, now),
+    () => loadExerciseSeries(client, params.athlete_id, params.coach_id, now, tz),
     [] as ExerciseTimeSeries[],
   );
   // The athlete's own HR bands, resolved ONCE and shared by every polarization
@@ -234,20 +242,20 @@ export async function buildAthletePerformance(params: {
     [] as Array<{ iso_date: string; pct: PolarizationPct | null }>,
   );
   const running_economy = await safeCall(
-    () => loadRunningEconomy(client, params.athlete_id, now, hrZones),
+    () => loadRunningEconomy(client, params.athlete_id, now, tz, hrZones),
     [] as RunningEconomyPoint[],
   );
   const threshold_work = await safeCall(
-    () => loadThresholdWork(client, params.athlete_id, now),
+    () => loadThresholdWork(client, params.athlete_id, now, tz),
     [] as ThresholdWorkPoint[],
   );
   const anaerobic_capacity = await safeCall(
-    () => loadAnaerobic(client, params.athlete_id, now),
+    () => loadAnaerobic(client, params.athlete_id, now, tz),
     [] as AnaerobicPoint[],
   );
   const hyrox_prediction = await loadHyroxPrediction();
   const race_readiness_history = await safeCall(
-    () => loadRaceReadiness(client, params.athlete_id, now),
+    () => loadRaceReadiness(client, params.athlete_id, now, tz),
     [] as RaceReadinessPoint[],
   );
   const latestReadiness = race_readiness_history[race_readiness_history.length - 1];
@@ -290,6 +298,7 @@ async function loadExerciseSeries(
   athlete_id: number,
   coach_id: number | bigint,
   now: Date,
+  tz: string,
 ): Promise<ExerciseTimeSeries[]> {
   const since = addDays(now, -180).toISOString();
   // Name is DISPLAYED (the exercise_label the coach reads below) — coach's
@@ -322,7 +331,7 @@ async function loadExerciseSeries(
     Array<{ slug: string; iso: string; best: number | null; avg: number | null }>
   >`
     select ex.slug as slug,
-           to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as iso,
+           to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as iso,
            min(extract(epoch from (se.ended_at - se.started_at)))::float as best,
            avg(extract(epoch from (se.ended_at - se.started_at)))::float as avg
     from segment_executions se
@@ -485,6 +494,7 @@ async function loadRunningEconomy(
   client: Sql,
   athlete_id: number,
   now: Date,
+  tz: string,
   zones: AthleteHrZones | null,
 ): Promise<RunningEconomyPoint[]> {
   if (!zones) return [];
@@ -492,16 +502,14 @@ async function loadRunningEconomy(
   if (!z2 || z2.min_bpm == null) return [];
 
   const out: RunningEconomyPoint[] = [];
-  for (let i = MONTHLY_SERIES_MONTHS - 1; i >= 0; i--) {
-    const m = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-    const next = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 1));
+  for (const { m, from, to } of athleteMonths(now, tz)) {
     const rows = await client<Array<{ pace: number | null }>>`
       select avg(extract(epoch from (se.ended_at - se.started_at)) / nullif(se.distance_meters / 1000.0, 0))::float as pace
       from segment_executions se
       join workout_executions we on we.id = se.execution_id
       where we.athlete_id = ${athlete_id}
-        and coalesce(we.ended_at, we.started_at) >= ${m.toISOString()}::timestamptz
-        and coalesce(we.ended_at, we.started_at) <  ${next.toISOString()}::timestamptz
+        and coalesce(we.ended_at, we.started_at) >= ${from.toISOString()}::timestamptz
+        and coalesce(we.ended_at, we.started_at) <  ${to.toISOString()}::timestamptz
         and se.avg_hr between ${z2.min_bpm} and ${z2.max_bpm}
         and se.distance_meters > ${ECONOMY_MIN_DISTANCE_M}
         and ${SEG_IS_WORK_EFFORT(client)}
@@ -528,11 +536,10 @@ async function loadThresholdWork(
   client: Sql,
   athlete_id: number,
   now: Date,
+  tz: string,
 ): Promise<ThresholdWorkPoint[]> {
   const out: ThresholdWorkPoint[] = [];
-  for (let i = MONTHLY_SERIES_MONTHS - 1; i >= 0; i--) {
-    const m = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-    const next = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 1));
+  for (const { m, from, to } of athleteMonths(now, tz)) {
     const rows = await client<Array<{ hr: number | null; pace: number | null }>>`
       select avg(se.avg_hr)::float as hr,
              avg(extract(epoch from (se.ended_at - se.started_at)) / nullif(se.distance_meters / 1000.0, 0))::float as pace
@@ -541,8 +548,8 @@ async function loadThresholdWork(
       join template_segments ts on ts.id = se.template_segment_id
       join exercises ex on ex.id = ts.exercise_id
       where we.athlete_id = ${athlete_id}
-        and coalesce(we.ended_at, we.started_at) >= ${m.toISOString()}::timestamptz
-        and coalesce(we.ended_at, we.started_at) <  ${next.toISOString()}::timestamptz
+        and coalesce(we.ended_at, we.started_at) >= ${from.toISOString()}::timestamptz
+        and coalesce(we.ended_at, we.started_at) <  ${to.toISOString()}::timestamptz
         and ex.slug like 'run-threshold%'
         and se.distance_meters > ${THRESHOLD_MIN_DISTANCE_M}
         -- El umbral es lo que sostuvo EN las series, no lo que trotó entre ellas
@@ -563,10 +570,11 @@ async function loadAnaerobic(
   client: Sql,
   athlete_id: number,
   now: Date,
+  tz: string,
 ): Promise<AnaerobicPoint[]> {
   const since = addDays(now, -365).toISOString();
   const rows = await client<Array<{ iso: string; w: number | null }>>`
-    select to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as iso,
+    select to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as iso,
            max(se.avg_power_w)::float as w
     from segment_executions se
     join template_segments ts on ts.id = se.template_segment_id
@@ -621,11 +629,17 @@ async function loadRaceReadiness(
   client: Sql,
   athlete_id: number,
   now: Date,
+  tz: string,
 ): Promise<RaceReadinessPoint[]> {
+  // Cada muestra se busca en la serie de carga por su día, y esa serie va en el
+  // día del atleta: la muestra también (si no, la de hoy no casa y se pierde).
+  // La última muestra es HOY (i = 0): se arranca en el múltiplo del paso, no en 89,
+  // que dejaba el punto más nuevo dos días atrás del número de la ficha.
   const samples: RaceReadinessSample[] = [];
-  for (let i = READINESS_TREND_DAYS - 1; i >= 0; i -= READINESS_TREND_STEP_DAYS) {
+  const oldestStep = (READINESS_TREND_DAYS - 1) - ((READINESS_TREND_DAYS - 1) % READINESS_TREND_STEP_DAYS);
+  for (let i = oldestStep; i >= 0; i -= READINESS_TREND_STEP_DAYS) {
     const at = addDays(now, -i);
-    samples.push({ iso_date: at.toISOString().slice(0, 10), at });
+    samples.push({ iso_date: zonedDayString(at, tz), at });
   }
   const oldest = samples[0];
   if (!oldest) return [];
@@ -640,6 +654,7 @@ async function loadRaceReadiness(
       end_date: now,
       days: READINESS_TREND_DAYS + READINESS_LOAD_WINDOW_DAYS,
       client,
+      tz,
     }),
     loadDailyAssignmentCounts({
       athlete_id,
@@ -650,7 +665,9 @@ async function loadRaceReadiness(
     loadHrvSamples(client, athlete_id, now, READINESS_TREND_DAYS + HRV_BASELINE_FROM_DAYS),
   ]);
 
-  return buildRaceReadinessHistory({ series, assignments, hrv, samples });
+  // Los mismos pesos del coach que el número de la ficha: la tendencia acaba en ese número.
+  const method = raceReadinessMethodOf(await loadCoachThresholdsForAthlete(client, athlete_id));
+  return buildRaceReadinessHistory({ series, assignments, hrv, samples, method });
 }
 
 /** Raw HRV readings over the span. Raw, because the baseline windows are instants. */
@@ -679,6 +696,18 @@ async function loadHrvSamples(
 function addDays(d: Date, n: number): Date {
   const out = new Date(d.getTime());
   out.setUTCDate(out.getUTCDate() + n);
+  return out;
+}
+/** Los meses de la serie mensual en el calendario del atleta, el más viejo primero:
+ *  `m` es el día 1 (medianoche UTC, para la clave) y `from`/`to` sus medianoches reales. */
+function athleteMonths(now: Date, tz: string): Array<{ m: Date; from: Date; to: Date }> {
+  const today = parseIsoDate(zonedDayString(now, tz));
+  const out: Array<{ m: Date; from: Date; to: Date }> = [];
+  for (let i = MONTHLY_SERIES_MONTHS - 1; i >= 0; i--) {
+    const m = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - i, 1));
+    const next = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 1));
+    out.push({ m, from: zonedWallClockToUtc(m, tz), to: zonedWallClockToUtc(next, tz) });
+  }
   return out;
 }
 function monthKey(d: Date): string {

@@ -30,6 +30,8 @@ import 'server-only';
 import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
+import { parseIsoDate } from '@fahybrid/shared/domain/dates';
+import { loadCoachToday, loadCoachTodayOfAthlete } from '@/lib/coach/coach-timezone';
 import {
   AssignSequenceError,
   loadSequenceById,
@@ -77,14 +79,21 @@ type Phase1Outcome = {
  * whether to show "Volver a la periodización" at all (per the UX rule: a button
  * that doesn't apply is never shown disabled with an error after — it's not
  * shown).
+ *
+ * "Current" on the CLUB's day, like the revert itself (the coach decides it):
+ * `on_date` is that day when the caller already has it; without it, it is
+ * resolved from the athlete's coach.
  */
 export async function canRevertToSequence(params: {
   athlete_id: number | bigint;
+  /** The club's day (UTC-midnight Date, as `parseIsoDate` returns it). */
+  on_date?: Date;
   client?: Sql;
 }): Promise<boolean> {
   const client = params.client ?? defaultSql;
   const athlete_id = Number(params.athlete_id);
-  const current = await getCurrentMicrociclo({ athlete_id, client });
+  const on_date = params.on_date ?? parseIsoDate(await loadCoachTodayOfAthlete(athlete_id, { client }));
+  const current = await getCurrentMicrociclo({ athlete_id, on_date, client });
   if (!current || current.template_athlete_id == null) return false;
   const rows = await client<Array<{ id: string }>>`
     select id::text from athlete_sequence_progress
@@ -113,6 +122,8 @@ export async function revertPersonalPlanForAthlete(params: {
   if (!owned[0]) {
     throw new RevertPersonalPlanError('not_found', 'Atleta no encontrado', 404);
   }
+  // Qué plan va HOY lo dice el día del CLUB: volver lo decide el coach.
+  const today = parseIsoDate(await loadCoachToday(coach_id, { client }));
 
   // ── Fase 1 (bajo el MISMO advisory lock que personalizar/borrar usan para
   //    este atleta): valida en fresco + retira el plan personal. ────────────
@@ -121,6 +132,7 @@ export async function revertPersonalPlanForAthlete(params: {
 
     const current = await getCurrentMicrociclo({
       athlete_id,
+      on_date: today,
       client: tx as unknown as Parameters<typeof getCurrentMicrociclo>[0]['client'],
     });
     if (!current || current.template_athlete_id == null) {

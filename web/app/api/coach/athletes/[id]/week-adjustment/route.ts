@@ -42,7 +42,7 @@ export async function GET(
 
   const template_names =
     proposal.proposal.slot_changes.length > 0
-      ? await loadProposalTemplateNames({ proposal: proposal.proposal })
+      ? await loadProposalTemplateNames({ proposal: proposal.proposal, coach_id: session.coach_id })
       : {};
 
   const fired_triggers = proposal.context_pack

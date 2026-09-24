@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseNotationCell } from '../../../shared/domain/import/notation';
 import { legacyToStructure, isRepeat } from '../../../shared/domain/prescription';
+import { ambiguousBareRest, bareRestSeconds } from '../../../shared/domain/import/dose';
 
 function structureOf(text: string) {
   const line = parseNotationCell(text)[0];
@@ -28,5 +29,147 @@ describe('the advertised quick-line examples parse', () => {
   it("20' Z2 → a single steady duration bout", () => {
     const st = structureOf("20' Z2");
     expect(st).not.toBeNull();
+  });
+});
+
+// Wave-3 sweep: lo que un coach escribe de verdad en la línea rápida de fuerza.
+describe('fuerza en la línea rápida', () => {
+  const one = (text: string) => {
+    const l = parseNotationCell(text);
+    expect(l).toHaveLength(1);
+    return l[0]!;
+  };
+
+  it.each([
+    ["sentadilla 5x5 @75% r2'", 'sentadilla', 5, 5, { kind: 'percent_rm', value: 75 }, 120],
+    ["peso muerto 4x5 @80% r3'", 'peso muerto', 4, 5, { kind: 'percent_rm', value: 80 }, 180],
+    ["press banca 4x4 @78-80% r1'30''", 'press banca', 4, 4, { kind: 'percent_rm', min: 78, max: 80 }, 90],
+    ["hip thrust 3x10 @RPE8 rec 2'", 'hip thrust', 3, 10, { kind: 'rpe', value: 8 }, 120],
+  ])('«%s» → %s %i×%i con su carga y descanso en minutos', (text, token, sets, reps, target, rest) => {
+    const l = one(text);
+    expect(l.confidence).toBe('detected');
+    expect(l.exercise_token).toBe(token);
+    expect(l.prescription).toMatchObject({ scheme: 'sets', modality: 'strength' });
+    expect(l.prescription.sets).toHaveLength(sets);
+    for (const s of l.prescription.sets!) {
+      expect(s.measure).toEqual({ kind: 'reps', value: reps });
+      expect(s.target).toEqual(target);
+      expect(s.rest_s).toBe(rest);
+    }
+  });
+
+  it("«wall balls 4x25 r1'» → 4×25 con 1' de descanso", () => {
+    const l = one("wall balls 4x25 r1'");
+    expect(l.confidence).toBe('detected');
+    expect(l.exercise_token).toBe('wall balls');
+    expect(l.prescription.sets).toHaveLength(4);
+    expect(l.prescription.sets!.every((s) => s.measure?.kind === 'reps' && s.measure.value === 25 && s.rest_s === 60)).toBe(true);
+  });
+
+  it.each([
+    'remo con barra 3x8 RIR2',
+    'remo con mancuerna 4x10 @20kg',
+    'Remo invertido 3x12',
+    'remo al mentón 3x12',
+    'Pendlay row 5x5 @60kg',
+    'Renegade row 3x10',
+    'Seated cable row 3x12',
+  ])('«%s» es fuerza (un tirón), no el ergómetro', (text) => {
+    const l = one(text);
+    expect(l.confidence).toBe('detected');
+    expect(l.prescription).toMatchObject({ scheme: 'sets', modality: 'strength' });
+  });
+
+  it('«remo con barra 3x8 RIR2» lleva sus 3 series de 8 a RIR 2', () => {
+    const l = one('remo con barra 3x8 RIR2');
+    expect(l.exercise_token).toBe('remo con barra');
+    expect(l.prescription.sets).toEqual(
+      Array.from({ length: 3 }, () => ({ measure: { kind: 'reps', value: 8 }, target: { kind: 'rir', value: 2 } })),
+    );
+  });
+
+  it.each(['6x500 remo', "remo 20' Z2", 'Row 2000m', "10' row + 10' ski, todo Z2"])(
+    '«%s» sigue siendo el ergómetro',
+    (text) => {
+      const lines = parseNotationCell(text);
+      expect(lines.every((l) => l.confidence === 'detected')).toBe(true);
+      expect(lines[0]!.prescription.modality).toBe('row');
+    },
+  );
+
+  it('«5r 10-10-8» siguen siendo 5 rondas, no un descanso', () => {
+    const l = one("5r 10-10-8 sentadilla");
+    expect(l.prescription.sets?.[0]?.rest_s).toBeUndefined();
+  });
+});
+
+// Revisión de producto (ola 4, P0): «r2» se guardaba como 2 SEGUNDOS. La
+// unidad de un descanso sin unidad la dice su tamaño: ≤ 10 minutos, ≥ 15
+// segundos; entre medias no se adivina (la línea no se tipa y la línea rápida
+// pregunta). Una unidad escrita manda siempre.
+describe('descanso sin unidad: el tamaño dice la unidad, y lo dudoso se pregunta', () => {
+  const restOf = (text: string) => {
+    const [l] = parseNotationCell(text);
+    expect(l?.confidence, text).toBe('detected');
+    return l!.prescription.rest_s ?? l!.prescription.sets?.[0]?.rest_s;
+  };
+
+  it.each([
+    ['sentadilla 5x5 @75% r2', 120],
+    ['hip thrust 3x10 RPE8 r2', 120],
+    ['wall balls 4x25 r1', 60],
+    ['sentadilla 5x5 r10', 600],
+    ['6x1000 @4:30 r2', 120],
+    ['10x400m r1', 60],
+    ['sentadilla 4x8 descanso 3', 180],
+  ])('«%s» → %i s (minutos)', (text, seconds) => {
+    expect(restOf(text)).toBe(seconds);
+  });
+
+  it.each([
+    ['sentadilla 5x5 r15', 15],
+    ['press banca 4x4 @78-80% r90', 90],
+    ['sentadilla 4x8 rec 60', 60],
+    ['10x400m r45', 45],
+  ])('«%s» → %i s (segundos)', (text, seconds) => {
+    expect(restOf(text)).toBe(seconds);
+  });
+
+  it.each([
+    ["sentadilla 5x5 r2''", 2],
+    ["sentadilla 5x5 r2\"", 2],
+    ["sentadilla 5x5 r12'", 720],
+    ["sentadilla 5x5 r90'", 5400],
+    ['sentadilla 4x8 rec 2 min', 120],
+    ['sentadilla 4x8 rec 90s', 90],
+    ["sentadilla 4x8 rec 2'", 120],
+  ])('una unidad escrita manda: «%s» → %i s', (text, seconds) => {
+    expect(restOf(text)).toBe(seconds);
+  });
+
+  it.each([11, 12, 13, 14])('«r%i» es dudoso: no se tipa ni se pierde, va a revisión', (n) => {
+    const [l] = parseNotationCell(`sentadilla 5x5 @75% r${n}`);
+    expect(l!.confidence).toBe('review');
+    expect(l!.review_reasons[0]).toMatch(/minutos o segundos/);
+  });
+
+  it('ambiguousBareRest señala el número para reescribirlo con su unidad', () => {
+    const text = 'sentadilla 5x5 @75% r12';
+    const a = ambiguousBareRest(text)!;
+    expect(a.value).toBe(12);
+    expect(text.slice(a.start, a.end)).toBe('12');
+    expect(restOf(text.slice(0, a.end) + "'" + text.slice(a.end))).toBe(720);
+    expect(restOf(text.slice(0, a.end) + "''" + text.slice(a.end))).toBe(12);
+  });
+
+  it.each(['sentadilla 5x5 r2', 'sentadilla 5x5 r90', "sentadilla 5x5 r12'", 'sentadilla 4x8 cada 12', '5r 10-10-8 sentadilla'])(
+    '«%s» no es dudoso',
+    (text) => {
+      expect(ambiguousBareRest(text)).toBeNull();
+    },
+  );
+
+  it('la regla vive en un sitio: bareRestSeconds', () => {
+    expect([0, 1, 10, 11, 14, 15, 90].map(bareRestSeconds)).toEqual([0, 60, 600, undefined, undefined, 15, 90]);
   });
 });

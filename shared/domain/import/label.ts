@@ -28,11 +28,38 @@ const CARDIO_MODALITY_TESTS: ReadonlyArray<readonly [Modality, RegExp]> = [
   ],
 ];
 
+/**
+ * «Remo» / «row» es DOS cosas: el ergómetro (6x500 remo, row 2k) y una familia
+ * de ejercicios de FUERZA (remo con barra, remo con mancuerna, remo invertido,
+ * Pendlay row, renegade row, seated cable row…). Lo que los separa es el
+ * calificativo de implemento o variante que acompaña a la palabra. Con él, la
+ * palabra NO nombra la modalidad remo: es un ejercicio de tirón y la línea se lee
+ * como fuerza («remo con barra 3x8 RIR2» = 3 series de 8 a RIR 2, no un rodaje de
+ * remo). Sin calificativo, «remo» sigue siendo el ergómetro.
+ */
+const STRENGTH_ROW_RE = new RegExp(
+  [
+    // ES: remo + implemento / variante
+    String.raw`\bremo\s+(?:con\s+|en\s+|a\s+|al\s+)?(?:barra|mancuernas?|polea|kettlebells?|kb|landmine|trx|anillas|menton|invertido|gironda|pendlay|t\b|sentado|inclinado|unilateral|una\s+mano|un\s+brazo|renegado|meadows|yates|seal|banco|maquina)`,
+    // EN: implement / variant + row
+    String.raw`\b(?:barbell|bb|dumbbell|db|db\.|cable|seated|bent[- ]?over|upright|pendlay|renegade|inverted|t-?bar|landmine|kettlebell|kb|single[- ]arm|one[- ]arm|chest[- ]supported|meadows|yates|seal|machine|trx|ring)\s+rows?\b`,
+  ].join('|'),
+);
+
+/** ¿La palabra «remo»/«row» nombra un ejercicio de fuerza (no el ergómetro)? */
+export function isStrengthRow(seg: string): boolean {
+  return STRENGTH_ROW_RE.test(foldText(seg));
+}
+
 /** Every DISTINCT cardio modality the text names. >1 ⇒ a mixed/choice bout
- *  ("carrera + bike", "row/ski") whose single modality must NOT be guessed. */
+ *  ("carrera + bike", "row/ski") whose single modality must NOT be guessed.
+ *  A strength row («remo con barra») is not the row ergometer. */
 export function cardioModalities(seg: string): Modality[] {
   const n = foldText(seg);
-  return CARDIO_MODALITY_TESTS.filter(([, re]) => re.test(n)).map(([m]) => m);
+  const strengthRow = STRENGTH_ROW_RE.test(n);
+  return CARDIO_MODALITY_TESTS.filter(([m, re]) => !(m === 'row' && strengthRow) && re.test(n)).map(
+    ([m]) => m,
+  );
 }
 
 export function modalityFrom(seg: string): Modality | undefined {

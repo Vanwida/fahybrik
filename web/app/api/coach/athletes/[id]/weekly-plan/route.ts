@@ -11,7 +11,8 @@ export const dynamic = 'force-dynamic';
 // PATCH /api/coach/athletes/[id]/weekly-plan
 // Metadata-only: fija (o borra) el «Foco de la semana» de UNA semana concreta
 // del atleta ({ week_start, focus }). No toca `status`: no publica ni esconde
-// nada — eso sigue siendo cosa de .../weekly-plan/publish. Coach auth vía
+// nada — eso es cosa de .../weeks/[week_start]/publish y /hold (una semana, la
+// misma puerta que el móvil y el MCP). Coach auth vía
 // getCoachSession; ownership verificada dentro de setWeekFocus().
 export async function PATCH(
   request: Request,

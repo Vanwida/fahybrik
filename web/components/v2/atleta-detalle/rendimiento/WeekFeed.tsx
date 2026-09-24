@@ -28,7 +28,7 @@ const DOW_SHORT: Record<number, string> = {
 export function WeekFeed({ feed }: { feed: WeekFeedSummary }) {
   const daysWithSessions = feed.days.filter((d) => d.sessions.length > 0);
   return (
-    <div className="flex flex-col gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
+    <div className="flex flex-col gap-2 rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
       <div className="flex items-center gap-4">
         <FeedCount label="Planificadas" value={feed.scheduled} tone="info" />
         <FeedCount label="Hechas" value={feed.completed} tone="ok" />
@@ -38,7 +38,7 @@ export function WeekFeed({ feed }: { feed: WeekFeedSummary }) {
         <div className="flex flex-col gap-1 border-t border-[color:var(--v2-border)] pt-2">
           {daysWithSessions.map((d) => (
             <div key={d.iso_date} className="flex items-start gap-2">
-              <span className="v2-micro w-8 shrink-0 pt-0.5 text-nano">
+              <span className="t-label w-8 shrink-0 pt-0.5 t-label text-v2-faint">
                 {DOW_SHORT[d.day_of_week] ?? '—'}
               </span>
               <div className="flex min-w-0 flex-wrap gap-1.5">
@@ -47,7 +47,7 @@ export function WeekFeed({ feed }: { feed: WeekFeedSummary }) {
                   return (
                     <span
                       key={`${d.iso_date}-${i}`}
-                      className="inline-flex items-center gap-1 text-label text-[color:var(--v2-fg)]"
+                      className="inline-flex items-center gap-1 t-meta text-[color:var(--v2-fg)]"
                       title={meta.label}
                     >
                       <span
@@ -71,10 +71,10 @@ export function WeekFeed({ feed }: { feed: WeekFeedSummary }) {
 function FeedCount({ label, value, tone }: { label: string; value: number; tone: Tone }) {
   return (
     <div className="flex flex-col">
-      <span className="v2-num text-lg font-bold" style={{ color: `var(${TONE_VAR[tone]})` }}>
+      <span className="t-tnum text-lg font-semibold" style={{ color: `var(${TONE_VAR[tone]})` }}>
         {value}
       </span>
-      <span className="v2-micro">{label}</span>
+      <span className="t-label text-v2-faint">{label}</span>
     </div>
   );
 }

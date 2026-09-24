@@ -14,7 +14,7 @@ import 'server-only';
 import { z } from 'zod';
 import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { startOfDayInBox, isoDateString } from '@fahybrid/shared/domain/dates';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 import { emptyWeekSlots, normalizeWeekSlots } from './program-week-slots';
 import {
   ProgramMonthError,
@@ -49,7 +49,7 @@ export interface PersonalPlanListItem {
   week_count: number;
   updated_at: string;
   /** True when THIS template is the athlete's live plan right now (an
-   *  athlete_month_assignments window that contains today points at it). */
+   *  athlete_month_assignments window that contains the CLUB's today points at it). */
   is_current: boolean;
   /** Sessions still `scheduled` (or missed/skipped — never actually performed) —
    *  what "Borrar" / "Volver a la periodización" would remove. */
@@ -75,9 +75,11 @@ export interface PersonalPlanListItem {
 export async function listPersonalPlansForAthlete(params: {
   coach_id: number | bigint;
   athlete_id: number | bigint;
+  now?: Date;
   client?: Sql;
 }): Promise<PersonalPlanListItem[]> {
   const client = params.client ?? defaultSql;
+  const todayIso = await loadCoachToday(params.coach_id, { now: params.now, client }); // el del club, como `was_current`
   const rows = await client<
     Array<{
       id: string;
@@ -99,7 +101,7 @@ export async function listPersonalPlansForAthlete(params: {
         select 1 from athlete_month_assignments ama
         where ama.month_template_id = m.id
           and ama.athlete_id = ${params.athlete_id as number}
-          and current_date between ama.start_date and ama.end_date
+          and ${todayIso}::date between ama.start_date and ama.end_date
       ) as is_current,
       coalesce(counts.pending, 0)::int as pending_count,
       coalesce(counts.completed, 0)::int as completed_count,
@@ -349,7 +351,8 @@ export async function retirePersonalPlan(params: {
     );
   }
 
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  // Lo ya pasado se conserva: «hoy» es el del coach que retira el plan (su huso).
+  const todayIso = await loadCoachToday(coach_id, { client: tx });
 
   // Normalmente hay 0 (nunca activado) o 1 recibo, pero se procesan todos por
   // si un estado histórico dejó más de uno.

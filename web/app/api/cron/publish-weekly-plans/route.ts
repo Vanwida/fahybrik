@@ -1,15 +1,16 @@
 // GET /api/cron/publish-weekly-plans
 //
-// Vercel Cron entry-point — Saturday 23:59 UTC (see vercel.json). Publishes
-// every draft weekly_plan for the upcoming Monday and notifies the affected
-// athletes (`plan_published`).
+// Vercel Cron, DIARIO (see vercel.json). Abre cada semana en borrador AUTOMÁTICO
+// cuyo lunes está a N días o menos (N = coaches.auto_publish_days_before, con
+// defecto de dominio) y avisa a cada atleta una vez. Una semana retenida no se
+// toca. Sustituye al cron del sábado que solo soltaba «el lunes que viene».
 //
-// Auth: `Authorization: Bearer ${CRON_SECRET}` (fail-closed if unset). Logic
-// delegated to lib/cron/publish-weekly-plans.ts (pure, testable).
+// Auth: `Authorization: Bearer ${CRON_SECRET}` (fail-closed if unset). La lógica
+// vive en lib/coach/week-publishing-cron.ts (runAutoPublish).
 
 import { sql } from '@/lib/db';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { runPublishWeeklyPlans } from '@/lib/cron/publish-weekly-plans';
+import { runAutoPublish } from '@/lib/coach/week-publishing-cron';
 import { captureRouteError } from '@/lib/observability/capture';
 
 export const runtime = 'nodejs';
@@ -30,13 +31,8 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   try {
-    const result = await runPublishWeeklyPlans({ client: sql });
-    return jsonOk({
-      ok: true,
-      week_start: result.week_start,
-      published: result.published,
-      notified: result.notified,
-    });
+    const result = await runAutoPublish({ client: sql });
+    return jsonOk({ ok: true, today: result.today, published: result.published, notified: result.notified });
   } catch (err) {
     captureRouteError(err, { route: 'api/cron/publish-weekly-plans.GET' });
     return jsonError('internal', 'Publish weekly plans crashed', 500);

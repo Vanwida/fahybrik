@@ -1,16 +1,18 @@
 // GET /api/citas/google/callback — the registered Google OAuth redirect URI.
 //
-// Validates the HMAC-signed `state` (CSRF), exchanges the `code` for tokens, persists
-// the refresh_token (upsert, one 'google' row), and renders a self-contained on-brand
-// page. Handles ?error= (user denied consent) cleanly.
+// Validates the HMAC-signed `state` (CSRF) — which names the coach who started the
+// connect — requires that coach to be the one signed in, exchanges the `code` for
+// tokens, stores the refresh_token AS THAT COACH'S connection (0254) and renders a
+// self-contained page. Handles ?error= (user denied consent) cleanly.
 //
-// Coach identity is not re-checked here: the signed state proves the flow started from
-// our coach-guarded /connect, and the stored token is a single global row (single-coach
-// launch). Never logs the code or tokens.
+// Why re-check the session: without it, a coach could start the flow and send the
+// consent link to someone else; that person's Google account would end up wired to
+// the first coach's club. Never logs the code or tokens.
 
 import { z } from 'zod';
 import { exchangeCode, verifySignedState } from '@/lib/citas/google';
-import { saveGoogleRefreshToken } from '@/lib/citas/google-tokens';
+import { saveGoogleConnection } from '@/lib/citas/google-tokens';
+import { getCoachSession } from '@/lib/auth/coach-session';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,13 +40,18 @@ export async function GET(request: Request): Promise<Response> {
   if (!code || !state) {
     return page('error', 'Respuesta incompleta de Google.');
   }
-  if (!verifySignedState(state)) {
+  const coachId = verifySignedState(state);
+  if (coachId == null) {
     return page('error', 'La sesión de conexión caducó o no es válida. Vuelve a iniciar la conexión.');
+  }
+  const session = await getCoachSession();
+  if (!session || BigInt(session.coach_id) !== coachId) {
+    return page('error', 'Esta conexión la empezó otra cuenta. Entra con la tuya y vuelve a conectar Google.');
   }
 
   try {
     const { refresh_token } = await exchangeCode(code);
-    await saveGoogleRefreshToken(refresh_token);
+    await saveGoogleConnection(coachId, refresh_token);
   } catch {
     // Never surface token/exchange internals to the browser.
     return page('error', 'No pudimos completar la conexión con Google. Inténtalo de nuevo.');

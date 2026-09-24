@@ -6,9 +6,10 @@
 // The token IS the credential: on mount it fetches the public booking context
 // and then renders exactly one of four honest states — an existing
 // appointment's status, a live slot picker, a booked-confirmation, or the
-// "<coach> te escribirá" fallback (NEVER an empty calendar). All times are
-// Europe/Madrid, formatted for humans with Intl es-ES. Backend contract is
-// fixed; this only reads/writes it.
+// "<coach> te escribirá" fallback (NEVER an empty calendar). All times are in
+// the coach's timezone (the context carries it; the product default only as a
+// fallback), formatted for humans with Intl es-ES. Backend contract is fixed;
+// this only reads/writes it.
 //
 // El coach se nombra con lo que devuelve el contexto (`coach_name`, el coach de ESE
 // lead), nunca con un nombre escrito aquí.
@@ -21,6 +22,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowIcon } from '@/components/onboarding/icons';
 import { coachVoice } from '@/lib/coach/voice';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import './citas.css';
 
 // ── Contract types (mirror /api/citas/context + /api/citas/book) ──────────────
@@ -48,7 +50,7 @@ interface Appointment {
 interface Slot {
   start: string; // ISO instant
   ms: number;
-  time: string; // 'HH:MM' (Europe/Madrid)
+  time: string; // 'HH:MM' (coach's timezone)
 }
 interface DaySlots {
   date: string; // 'YYYY-MM-DD'
@@ -65,6 +67,8 @@ interface BookingContext {
   // show the "en lista de espera" state instead of any slots. A released lead
   // comes back with waitlisted=false → normal booking, no change.
   waitlisted: boolean;
+  /** Huso de la agenda del coach (los huecos se pintan en él). */
+  timezone?: string;
 }
 
 type LoadPhase = 'loading' | 'ready' | 'error';
@@ -87,34 +91,39 @@ const CONFIRM_NOTE: Record<Modality, string> = {
   presencial: 'Reservas tu sesión presencial — te llega el email con la dirección del box.',
 };
 
-// ── Time formatting — all human-facing times are Europe/Madrid ────────────────
-const TZ = 'Europe/Madrid';
+// ── Time formatting — every human-facing time is in the COACH's timezone ─────
+// (the agenda computes the slots in it since 0241; the context carries it).
+const DEFAULT_TZ = BOX_TIMEZONE;
 const LOCALE = 'es-ES';
 
-function partsOf(iso: string, opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormatPart[] {
-  return new Intl.DateTimeFormat(LOCALE, { timeZone: TZ, ...opts }).formatToParts(new Date(iso));
+function partsOf(iso: string, opts: Intl.DateTimeFormatOptions, tz: string): Intl.DateTimeFormatPart[] {
+  return new Intl.DateTimeFormat(LOCALE, { timeZone: tz, ...opts }).formatToParts(new Date(iso));
 }
 function capitalize(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
 /** Short day heading, e.g. "Mié 9 jul". */
-function formatDayLabel(iso: string): string {
-  const p = partsOf(iso, { weekday: 'short', day: 'numeric', month: 'short' });
+function formatDayLabel(iso: string, tz: string): string {
+  const p = partsOf(iso, { weekday: 'short', day: 'numeric', month: 'short' }, tz);
   const get = (type: string) => (p.find((x) => x.type === type)?.value ?? '').replace('.', '');
   return `${capitalize(get('weekday'))} ${get('day')} ${get('month')}`;
 }
 
 /** Long, human date + time, e.g. "miércoles 9 de julio a las 18:00". */
-function formatFecha(iso: string): string {
-  const p = partsOf(iso, {
+function formatFecha(iso: string, tz: string): string {
+  const p = partsOf(
+    iso,
+    {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-  });
+    },
+    tz,
+  );
   const get = (type: string) => p.find((x) => x.type === type)?.value ?? '';
   return `${get('weekday')} ${get('day')} de ${get('month')} a las ${get('hour')}:${get('minute')}`;
 }
@@ -261,6 +270,7 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
   // Cómo se nombra al coach de este lead en las tarjetas de abajo. Mientras carga (o si
   // el lead no tiene dueño) sale el sujeto neutro, nunca un hueco ni un nombre ajeno.
   const voice = coachVoice(ctx?.coach_name);
+  const tz = ctx?.timezone ?? DEFAULT_TZ;
 
   // The modality choice only makes sense while the lead is actually picking a
   // slot — never once they have a cita (booked / active) or are waitlisted, and
@@ -304,7 +314,7 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
           <span className="bk-dot" aria-hidden="true" /> Cita confirmada
         </span>
         <p className="bk-card-title">
-          Cita confirmada: <strong>{formatFecha(booked.requested_start)}</strong>.
+          Cita confirmada: <strong>{formatFecha(booked.requested_start, tz)}</strong>.
         </p>
         {bookedModality === 'presencial' ? (
           <p className="bk-card-note">{ADDRESS_NOTE}</p>
@@ -342,7 +352,7 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
             <span className="bk-dot" aria-hidden="true" /> Cita confirmada
           </span>
           <p className="bk-card-title">
-            Cita confirmada para el <strong>{formatFecha(appt.requested_start)}</strong>.
+            Cita confirmada para el <strong>{formatFecha(appt.requested_start, tz)}</strong>.
           </p>
           {appt.meet_link ? (
             <MeetButton href={appt.meet_link} />
@@ -359,7 +369,7 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
             <span className="bk-dot" aria-hidden="true" /> Pendiente de confirmar
           </span>
           <p className="bk-card-title">
-            Tu solicitud para el <strong>{formatFecha(appt.requested_start)}</strong> está
+            Tu solicitud para el <strong>{formatFecha(appt.requested_start, tz)}</strong> está
             pendiente de que {voice.object} la confirme.
           </p>
           <p className="bk-card-note">Te avisaremos por email.</p>
@@ -370,7 +380,7 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
     content = (
       <div className="bk-card bk-card--accent">
         <p className="bk-card-title">
-          ¿Reservar el <strong>{formatFecha(selected.start)}</strong>?
+          ¿Reservar el <strong>{formatFecha(selected.start, tz)}</strong>?
         </p>
         <p className="bk-card-note">{CONFIRM_NOTE[modality]}</p>
         <div className="bk-actions">
@@ -412,7 +422,7 @@ export function BookingSlotPicker({ token, variant = 'public', className }: Book
         ) : null}
         <div className="bk-scroll">
           {ctx.slots.map((day) => {
-            const dayLabel = formatDayLabel(day.slots[0]?.start ?? `${day.date}T12:00:00Z`);
+            const dayLabel = formatDayLabel(day.slots[0]?.start ?? `${day.date}T12:00:00Z`, tz);
             return (
               <div className="bk-day" key={day.date}>
                 <p className="bk-day-label">{dayLabel}</p>

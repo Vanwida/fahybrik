@@ -10,6 +10,7 @@ import {
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import { getLatestReadiness } from '@fahybrid/shared/domain/coach/athlete-daily-readiness';
 import { formatExecutionScore } from '@/lib/dashboard/coach/athlete-session-adapter';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 
 export type ReadinessLabel = 'READY' | 'CAUTION' | 'LOW';
 
@@ -91,9 +92,12 @@ function readinessLabel(score: number | null): ReadinessLabel | null {
 export async function fetchAthleteProfileShell(params: {
   coach_id: number | bigint;
   athlete_id: number;
+  now?: Date;
   client?: Sql;
 }): Promise<AthleteProfileShell | null> {
   const client = params.client ?? defaultSql;
+  // El programa en curso y su semana los lee el coach: día del CLUB (su huso).
+  const todayIso = await loadCoachToday(params.coach_id, { now: params.now, client });
 
   const rows = await client<
     Array<{
@@ -152,17 +156,17 @@ export async function fetchAthleteProfileShell(params: {
       on pa.user_id = u.partner_id and pa.coach_id = a.coach_id
     left join lateral (
       -- Current microciclo (AGNOSTIC): the assignment receipt whose dated window
-      -- contains today → its template NAME + the 1-based week within that window.
+      -- contains the club's today → its template NAME + the 1-based week within that window.
       select
         m.name as block_type,
         greatest(
           1,
-          (floor((current_date - date_trunc('week', ama.start_date)::date) / 7) + 1)::int
+          (floor((${todayIso}::date - date_trunc('week', ama.start_date)::date) / 7) + 1)::int
         ) as block_week
       from athlete_month_assignments ama
       join program_month_templates m on m.id = ama.month_template_id
       where ama.athlete_id = a.id
-        and current_date between ama.start_date and ama.end_date
+        and ${todayIso}::date between ama.start_date and ama.end_date
       order by ama.start_date desc
       limit 1
     ) ab on true

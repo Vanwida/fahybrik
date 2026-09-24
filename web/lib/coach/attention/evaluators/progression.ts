@@ -1,5 +1,10 @@
 // Progression evaluators — the athlete→coach improvement loop.
 //
+// INFORMATIVAS (DECISIONS 2026-09-23): un test registrado, una carrera acabada,
+// un entreno libre o un test que toca son decisiones de revisión, no tareas del
+// día. Se persisten (la ficha y la revisión semanal las leen) pero no entran en
+// la bandeja de Hoy.
+//
 // KEYSTONE-fed: now that every post-onboarding test appends an athlete_benchmarks
 // row, a self-entered/coach test (and a finished race) converts athlete progress
 // into a coach ACTION instead of a read-only number nobody acts on.
@@ -21,7 +26,7 @@ function wholeDaysSince(at: Date, now: Date): number {
 
 export const testLoggedEvaluator: SignalEvaluator = {
   kind: 'test_logged',
-  default_severity: 'warning',
+  default_severity: 'info',
   enabled: true,
   evaluate(facts, thresholds, now): SignalResult | null {
     if (facts.latest_test_at == null) return null;
@@ -31,7 +36,7 @@ export const testLoggedEvaluator: SignalEvaluator = {
     return {
       kind: 'test_logged',
       fires: true,
-      severity: 'warning',
+      severity: 'info',
       value: days,
       baseline: thresholds.test_logged_recent_days,
       trend: facts.latest_test_is_pr ? 'up' : null,
@@ -52,7 +57,7 @@ export const testLoggedEvaluator: SignalEvaluator = {
 
 export const raceCompletedEvaluator: SignalEvaluator = {
   kind: 'race_completed',
-  default_severity: 'warning',
+  default_severity: 'info',
   enabled: true,
   evaluate(facts, thresholds, now): SignalResult | null {
     if (facts.latest_race_completed_at == null) return null;
@@ -62,12 +67,12 @@ export const raceCompletedEvaluator: SignalEvaluator = {
     return {
       kind: 'race_completed',
       fires: true,
-      severity: 'warning',
+      severity: 'info',
       value: days,
       baseline: thresholds.race_completed_recent_days,
       trend: null,
       label: `${name} · completada`,
-      detail: 'Revisa nivel y el siguiente bloque',
+      detail: 'revisa su nivel y el siguiente programa',
       dedupe_key: dedupeKey('race_completed', facts.athlete_id, facts.latest_race_id ?? undefined),
     };
   },
@@ -75,7 +80,7 @@ export const raceCompletedEvaluator: SignalEvaluator = {
 
 export const workoutLibreEvaluator: SignalEvaluator = {
   kind: 'workout_libre',
-  default_severity: 'warning',
+  default_severity: 'info',
   enabled: true,
   evaluate(facts, thresholds, now): SignalResult | null {
     if (facts.latest_libre_at == null) return null;
@@ -84,7 +89,7 @@ export const workoutLibreEvaluator: SignalEvaluator = {
     return {
       kind: 'workout_libre',
       fires: true,
-      severity: 'warning',
+      severity: 'info',
       value: days,
       baseline: thresholds.workout_libre_recent_days,
       trend: null,
@@ -101,9 +106,45 @@ export const workoutLibreEvaluator: SignalEvaluator = {
   },
 };
 
+/**
+ * A workout the athlete finished on a session that was no longer in their plan
+ * (0270). Their work was kept as an off-plan execution instead of lost; the coach
+ * has to SEE it — their change reached the athlete too late, and the athlete may
+ * be about to do the replacement on top. So, unlike the informative ones above,
+ * it is «Vigilar» (it enters Hoy) with «Abrir ficha»; «Hecho» closes it.
+ */
+export const workoutOffPlanEvaluator: SignalEvaluator = {
+  kind: 'workout_off_plan',
+  default_severity: 'warning',
+  enabled: true,
+  evaluate(facts, thresholds, now): SignalResult | null {
+    if (facts.latest_off_plan_at == null) return null;
+    const window = thresholds.workout_off_plan_recent_days;
+    const days = wholeDaysSince(facts.latest_off_plan_at, now);
+    if (days < 0 || window == null || days > window) return null;
+    return {
+      kind: 'workout_off_plan',
+      fires: true,
+      severity: 'warning',
+      value: days,
+      baseline: window,
+      trend: null,
+      label: 'Hecho fuera del plan',
+      detail: facts.latest_off_plan_detail ?? 'Hecho sobre un entreno que ya no estaba en su plan',
+      // The day is part of the identity: a new off-plan session is a new item that
+      // a card closed for an earlier one never masks.
+      dedupe_key: dedupeKey(
+        'workout_off_plan',
+        facts.athlete_id,
+        facts.latest_off_plan_at.toISOString().slice(0, 10),
+      ),
+    };
+  },
+};
+
 export const testDueEvaluator: SignalEvaluator = {
   kind: 'test_due',
-  default_severity: 'warning',
+  default_severity: 'info',
   enabled: true,
   evaluate(facts, thresholds): SignalResult | null {
     // Only meaningful on an active plan — no microciclo, nothing to test for.
@@ -113,12 +154,12 @@ export const testDueEvaluator: SignalEvaluator = {
     return {
       kind: 'test_due',
       fires: true,
-      severity: 'warning',
+      severity: 'info',
       value: facts.days_since_last_test,
       baseline: thresholds.test_due_days,
       trend: null,
       label: 'Toca test',
-      detail: `Sin test desde hace ${facts.days_since_last_test}d · programa una prueba`,
+      detail: `sin test desde hace ${facts.days_since_last_test} d`,
       dedupe_key: dedupeKey('test_due', facts.athlete_id),
     };
   },

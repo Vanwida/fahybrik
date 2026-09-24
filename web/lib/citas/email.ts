@@ -21,6 +21,10 @@ import type { CitaModality } from '@fahybrid/shared/schema';
 import { coachVoice } from '@/lib/coach/voice';
 import { resolveClubEmailSkin, type ClubEmailSkin } from '@/lib/coach/club-skin';
 import { emailFromSender } from '@fahybrid/shared/domain/coach/club-notify';
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { timezoneCity } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 
 export interface CitaEmailResult {
   sent: boolean;
@@ -36,21 +40,26 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/** e.g. "jueves 10 de julio, 18:00" (Europe/Madrid). */
-export function formatMadrid(iso: string): string {
+/** e.g. "jueves 10 de julio, 18:00", en el huso del club (`coaches.timezone`). */
+export function formatCitaWhen(iso: string, tz: string = BOX_TIMEZONE): string {
   const d = new Date(iso);
   const day = new Intl.DateTimeFormat('es-ES', {
-    timeZone: 'Europe/Madrid',
+    timeZone: tz,
     weekday: 'long',
     day: 'numeric',
     month: 'long',
   }).format(d);
   const time = new Intl.DateTimeFormat('es-ES', {
-    timeZone: 'Europe/Madrid',
+    timeZone: tz,
     hour: '2-digit',
     minute: '2-digit',
   }).format(d);
   return `${day}, ${time}`;
+}
+
+/** El huso del club de la cita (sin coach, el defecto del producto). */
+async function coachTz(appt: { coach_id?: bigint | number | null }): Promise<string> {
+  return appt.coach_id != null ? loadCoachTimezone(appt.coach_id) : BOX_TIMEZONE;
 }
 
 function bookingUrl(token: string): string {
@@ -97,16 +106,33 @@ function presentAddress(location: { name: string | null; address: string | null 
   };
 }
 
+/**
+ * UID del evento `.ics`: único y estable por cita (un reenvío actualiza el mismo
+ * evento). El dominio es el del host que lo emite — la plataforma —, no una marca
+ * escrita a mano que vería el calendario de cualquier club.
+ */
+export function citaIcsUid(appointmentId: string, appUrl: string = AUTH_CONFIG.appUrl()): string {
+  let host = 'localhost';
+  try {
+    host = new URL(appUrl).hostname || host;
+  } catch {
+    // appUrl mal formada: el UID sigue siendo único por id.
+  }
+  return `appt-${appointmentId}@${host}`;
+}
+
+/** Nombre del adjunto `.ics`: neutro, lo ve el lead en su correo. */
+export const CITA_ICS_FILENAME = 'cita.ics';
+
 /** The noun for the cita in copy: "sesión presencial" vs "videollamada" (#40). */
 function citaNoun(modality: CitaModality): string {
   return modality === 'presencial' ? 'sesión presencial' : 'videollamada';
 }
 
 // `skin` es la piel del club de ESTA cita (`resolveClubEmailSkin`, superficie `light`
-// — este shell es de fondo blanco). Sin skin, pinta exactamente lo de hoy: wordmark
-// "FAHYBRID" en el naranja fijo.
+// — este shell es de fondo blanco). Sin skin, la marca de este binario en el naranja fijo.
 const shell = (inner: string, skin?: ClubEmailSkin) => {
-  const wordmark = skin?.wordmark ?? 'FAHYBRID';
+  const wordmark = skin?.wordmark ?? BRAND_WORDMARK;
   const textColor = skin?.light.text ?? '#F06A2A';
   return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#0a0a0a;background:#fff;">
      <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:${textColor};">${escapeHtml(wordmark)}</p>${inner}
@@ -148,7 +174,9 @@ async function send(opts: {
 /** Lead: "recibimos tu solicitud de cita". */
 export async function sendBookingReceived(appt: Appt): Promise<CitaEmailResult> {
   const skin = await resolveClubEmailSkin(appt.coach_id ?? null);
-  const when = formatMadrid(appt.requested_start);
+  const tz = await coachTz(appt);
+  const when = formatCitaWhen(appt.requested_start, tz);
+  const city = timezoneCity(tz);
   const hi = appt.lead_nombre ? `Hola ${escapeHtml(appt.lead_nombre.split(' ')[0])},` : 'Hola,';
   const noun = citaNoun(appt.modality);
   const v = coachVoice(appt.coach_name);
@@ -157,12 +185,12 @@ export async function sendBookingReceived(appt: Appt): Promise<CitaEmailResult> 
     subject: `Hemos recibido tu solicitud de cita · ${skin.wordmark}`,
     text:
       `${appt.lead_nombre ? `Hola ${appt.lead_nombre.split(' ')[0]},` : 'Hola,'}\n\n` +
-      `Hemos recibido tu solicitud de ${noun}${v.withCoach} para el ${when} (hora de Madrid). ` +
+      `Hemos recibido tu solicitud de ${noun}${v.withCoach} para el ${when} (hora de ${city}). ` +
       `${v.subject} la confirmará en breve y te llegará un email con los detalles.\n\nEl equipo de ${skin.wordmark}`,
     html: shell(
       `<h1 style="margin:8px 0 14px;font-size:22px;">Solicitud de cita recibida</h1>
        <p style="margin:0 0 12px;line-height:1.6;">${hi}</p>
-       <p style="margin:0 0 12px;line-height:1.6;">Hemos recibido tu solicitud de ${noun}${escapeHtml(v.withCoach)} para el <strong>${escapeHtml(when)}</strong> (hora de Madrid). ${escapeHtml(v.subject)} la confirmará en breve y te llegará un email con los detalles.</p>
+       <p style="margin:0 0 12px;line-height:1.6;">Hemos recibido tu solicitud de ${noun}${escapeHtml(v.withCoach)} para el <strong>${escapeHtml(when)}</strong> (hora de ${city}). ${escapeHtml(v.subject)} la confirmará en breve y te llegará un email con los detalles.</p>
        <p style="margin:24px 0 0;color:#666;">El equipo de ${escapeHtml(skin.wordmark)}</p>`,
       skin,
     ),
@@ -174,18 +202,20 @@ export async function sendBookingInternal(appt: Appt): Promise<CitaEmailResult> 
   const { resolveClubNotifyEmail } = await import('@/lib/coach/club-notify');
   const to = await resolveClubNotifyEmail(appt.coach_id ?? null);
   if (!to) return { sent: false, skipped_reason: 'no_inbox' };
-  const when = formatMadrid(appt.requested_start);
+  const tz = await coachTz(appt);
+  const when = formatCitaWhen(appt.requested_start, tz);
+  const city = timezoneCity(tz);
   const name = appt.lead_nombre || appt.lead_email;
   const noun = citaNoun(appt.modality);
   return send({
     to,
     replyTo: appt.lead_email,
     subject: `Nueva solicitud de cita · ${name}`,
-    text: `${name} (${appt.lead_email}) ha solicitado una ${noun} para el ${when} (Madrid). Acéptala o recházala en el dashboard.`,
+    text: `${name} (${appt.lead_email}) ha solicitado una ${noun} para el ${when} (${city}). Acéptala o recházala en el dashboard.`,
     html: shell(
       `<h1 style="margin:8px 0 14px;font-size:22px;">Nueva solicitud de cita</h1>
        <p style="margin:0 0 8px;line-height:1.6;"><strong>${escapeHtml(name)}</strong> · <a href="mailto:${escapeHtml(appt.lead_email)}" style="color:#0a0a0a;">${escapeHtml(appt.lead_email)}</a></p>
-       <p style="margin:0 0 12px;line-height:1.6;">Ha solicitado una ${noun} para el <strong>${escapeHtml(when)}</strong> (Madrid). Acéptala o recházala en el dashboard.</p>`,
+       <p style="margin:0 0 12px;line-height:1.6;">Ha solicitado una ${noun} para el <strong>${escapeHtml(when)}</strong> (${city}). Acéptala o recházala en el dashboard.</p>`,
     ),
   });
 }
@@ -198,7 +228,9 @@ export async function sendBookingInternal(appt: Appt): Promise<CitaEmailResult> 
  */
 export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResult> {
   const skin = await resolveClubEmailSkin(appt.coach_id ?? null);
-  const when = formatMadrid(appt.requested_start);
+  const tz = await coachTz(appt);
+  const when = formatCitaWhen(appt.requested_start, tz);
+  const city = timezoneCity(tz);
   const hi = appt.lead_nombre ? `Hola ${escapeHtml(appt.lead_nombre.split(' ')[0])},` : 'Hola,';
   const hiText = appt.lead_nombre ? `Hola ${appt.lead_nombre.split(' ')[0]},` : 'Hola,';
   const { resolveClubNotifyEmail } = await import('@/lib/coach/club-notify');
@@ -220,7 +252,7 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
       : `<p style="margin:0 0 12px;line-height:1.6;color:#444;">${escapeHtml(v.subject)} te confirmará el sitio antes de la cita.</p>`;
 
     const ics = buildIcs({
-      uid: `appt-${appt.id}@fahybrid.com`,
+      uid: citaIcsUid(appt.id),
       start: new Date(appt.requested_start),
       durationMinutes: appt.duration_minutes,
       summary: `Sesión${v.withCoach} (presencial) · ${skin.wordmark}`,
@@ -237,17 +269,17 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
       subject: `Sesión presencial confirmada${v.withCoach} · ${skin.wordmark}`,
       text:
         `${hiText}\n\n` +
-        `Tu sesión presencial${v.withCoach} está confirmada para el ${when} (hora de Madrid). 30 minutos.\n\n` +
+        `Tu sesión presencial${v.withCoach} está confirmada para el ${when} (hora de ${city}). 30 minutos.\n\n` +
         `${whereText}\n\nAdjuntamos el evento para tu calendario.\n\nEl equipo de ${skin.wordmark}`,
       html: shell(
         `<h1 style="margin:8px 0 14px;font-size:22px;">Sesión confirmada</h1>
          <p style="margin:0 0 12px;line-height:1.6;">${hi}</p>
-         <p style="margin:0 0 12px;line-height:1.6;">Tu sesión presencial${escapeHtml(v.withCoach)} está confirmada para el <strong>${escapeHtml(when)}</strong> (hora de Madrid). 30 minutos.</p>
+         <p style="margin:0 0 12px;line-height:1.6;">Tu sesión presencial${escapeHtml(v.withCoach)} está confirmada para el <strong>${escapeHtml(when)}</strong> (hora de ${city}). 30 minutos.</p>
          ${whereHtml}
          <p style="margin:16px 0 0;color:#666;font-size:13px;">Adjuntamos el evento para tu calendario.</p>`,
         skin,
       ),
-      ics: { filename: 'cita-fahybrid.ics', content: Buffer.from(ics, 'utf8').toString('base64') },
+      ics: { filename: CITA_ICS_FILENAME, content: Buffer.from(ics, 'utf8').toString('base64') },
     });
   }
 
@@ -260,7 +292,7 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
     : `<p style="margin:0 0 12px;line-height:1.6;color:#444;">El enlace de la videollamada te llegará antes de la cita.</p>`;
 
   const ics = buildIcs({
-    uid: `appt-${appt.id}@fahybrid.com`,
+    uid: citaIcsUid(appt.id),
     start: new Date(appt.requested_start),
     durationMinutes: appt.duration_minutes,
     summary: `Videollamada${v.withCoach} · ${skin.wordmark}`,
@@ -275,17 +307,17 @@ export async function sendAppointmentAccepted(appt: Appt): Promise<CitaEmailResu
     subject: `Cita confirmada${v.withCoach} · ${skin.wordmark}`,
     text:
       `${hiText}\n\n` +
-      `Tu videollamada${v.withCoach} está confirmada para el ${when} (hora de Madrid). 30 minutos.\n\n` +
+      `Tu videollamada${v.withCoach} está confirmada para el ${when} (hora de ${city}). 30 minutos.\n\n` +
       `${linkLine}\n\nAdjuntamos el evento para tu calendario.\n\nEl equipo de ${skin.wordmark}`,
     html: shell(
       `<h1 style="margin:8px 0 14px;font-size:22px;">Cita confirmada</h1>
        <p style="margin:0 0 12px;line-height:1.6;">${hi}</p>
-       <p style="margin:0 0 12px;line-height:1.6;">Tu videollamada${escapeHtml(v.withCoach)} está confirmada para el <strong>${escapeHtml(when)}</strong> (hora de Madrid). 30 minutos.</p>
+       <p style="margin:0 0 12px;line-height:1.6;">Tu videollamada${escapeHtml(v.withCoach)} está confirmada para el <strong>${escapeHtml(when)}</strong> (hora de ${city}). 30 minutos.</p>
        ${linkHtml}
        <p style="margin:16px 0 0;color:#666;font-size:13px;">Adjuntamos el evento para tu calendario.</p>`,
       skin,
     ),
-    ics: { filename: 'cita-fahybrid.ics', content: Buffer.from(ics, 'utf8').toString('base64') },
+    ics: { filename: CITA_ICS_FILENAME, content: Buffer.from(ics, 'utf8').toString('base64') },
   });
 }
 
@@ -315,7 +347,7 @@ export async function sendAppointmentRejected(appt: Appt): Promise<CitaEmailResu
 export async function sendAppointmentCancelled(appt: Appt): Promise<CitaEmailResult> {
   const skin = await resolveClubEmailSkin(appt.coach_id ?? null);
   const url = bookingUrl(appt.lead_token);
-  const when = formatMadrid(appt.requested_start);
+  const when = formatCitaWhen(appt.requested_start, await coachTz(appt));
   const hi = appt.lead_nombre ? `Hola ${escapeHtml(appt.lead_nombre.split(' ')[0])},` : 'Hola,';
   const noun = citaNoun(appt.modality);
   const v = coachVoice(appt.coach_name);

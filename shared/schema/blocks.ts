@@ -28,7 +28,9 @@ export const blockSchema = z.object({
   slug: slugSchema,
   title: z.string().min(1),
   description: z.string().min(1),
-  methodology_group_id: z.number().int().min(1).max(10),
+  // Opcional (0240): la clasificación en `methodology_groups` es método, no
+  // mecanismo. null = sin clasificar. La FK dice qué ids existen.
+  methodology_group_id: z.number().int().positive().nullable(),
   format: z.string().nullable(),
   source_ref: z.string().nullable(),
   // true when the verbatim couldn't be mapped to the catalog with confidence
@@ -49,7 +51,7 @@ export const blockUpdateSchema = z
   .object({
     title: z.string().trim().min(1).max(160),
     description: z.string().trim().min(1).max(4000),
-    methodology_group_id: z.number().int().min(1).max(10),
+    methodology_group_id: z.number().int().positive().nullable(),
     // Level range + days/week tags (migration 0057). FK to athlete_levels; null = any.
     min_level_id: z.number().int().positive().nullable(),
     max_level_id: z.number().int().positive().nullable(),
@@ -80,7 +82,8 @@ export type BlockExerciseWrite = z.infer<typeof blockExerciseWriteSchema>;
 export const blockWriteSchema = z.object({
   title: z.string().trim().min(1).max(160),
   description: z.string().trim().min(1).max(4000).optional(),
-  methodology_group_id: z.number().int().min(1).max(10),
+  // Opcional (0240): sin grupo, el bloque queda sin clasificar — nunca un defecto.
+  methodology_group_id: z.number().int().positive().nullable().optional(),
   format: z.string().max(40).nullable().optional(),
   min_level_id: z.number().int().positive().nullable().optional(),
   max_level_id: z.number().int().positive().nullable().optional(),

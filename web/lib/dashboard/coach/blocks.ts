@@ -1,6 +1,7 @@
 import type { TransactionSql } from 'postgres';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { checkAssignableLevel } from '@/lib/coach/level-options';
 import { invisibleExerciseIds, joinCoachOverride } from '@/lib/exercises/coach-override';
 import type { Block, BlockUpdate, BlockWrite } from '@fahybrid/shared/schema/blocks';
 import type { WeekDayPartItem } from '@fahybrid/shared/schema/program-templates';
@@ -146,9 +147,10 @@ export async function listBlocksWithStructure(
       left join block_exercises be on be.block_id = b.id
       left join exercises e on e.id = be.exercise_id
      where b.coach_id = ${cid}
+       and b.archived_at is null -- archivado (0236) = retirado: el asistente no lo propone
        ${groupId === null ? client`` : client`and b.methodology_group_id = ${groupId}`}
      group by b.id
-     order by b.methodology_group_id asc, b.id asc
+     order by b.methodology_group_id asc nulls last, b.id asc
   `;
   return rows.map((r) => ({ ...mapBlockRow(r), ...structureOf(r.lines ?? []) }));
 }
@@ -210,7 +212,8 @@ export async function listBlocks(
                  format, source_ref, needs_review
           from blocks
           where coach_id = ${cid}
-          order by methodology_group_id asc, id asc
+            and archived_at is null -- archivado (0236) = retirado: no se elige
+          order by methodology_group_id asc nulls last, id asc
         `
       : await client<BlockRow[]>`
           select id, slug, title, description, methodology_group_id,
@@ -218,6 +221,7 @@ export async function listBlocks(
           from blocks
           where coach_id = ${cid}
             and methodology_group_id = ${groupId}
+            and archived_at is null
           order by id asc
         `;
   return rows.map(mapBlockRow);
@@ -228,7 +232,7 @@ type BlockRow = {
   slug: string;
   title: string;
   description: string;
-  methodology_group_id: number;
+  methodology_group_id: number | null;
   format: string | null;
   source_ref: string | null;
   needs_review: boolean;
@@ -238,7 +242,7 @@ function mapBlockRow(r: BlockRow): Block {
   return {
     ...r,
     id: Number(r.id),
-    methodology_group_id: Number(r.methodology_group_id),
+    methodology_group_id: r.methodology_group_id == null ? null : Number(r.methodology_group_id),
     needs_review: Boolean(r.needs_review),
   };
 }
@@ -393,12 +397,22 @@ export async function getBlockLibraryExercises(
  * la lista de SET dinámicamente con tagged templates: cada fragmento es
  * parametrizado, nunca interpolación de strings.
  */
+/** Un grupo de metodología que no existe es un 400 claro, no un fallo de FK (0240: opcional). */
+async function assertMethodologyGroup(client: Sql, groupId: number | null | undefined): Promise<void> {
+  if (groupId == null) return;
+  const rows = await client<Array<{ id: number }>>`select id from methodology_groups where id = ${groupId} limit 1`;
+  if (rows.length === 0) {
+    throw new BlockError('invalid_group', 'Ese tipo de trabajo no existe', 400);
+  }
+}
+
 export async function updateBlock(
   coachId: number | bigint,
   blockId: number,
   patch: BlockUpdate,
   client: Sql = defaultSql,
 ): Promise<Block | null> {
+  await assertMethodologyGroup(client, patch.methodology_group_id);
   // Level range guard: min/max_level_id are FKs to athlete_levels, which are
   // PER-COACH content — a crafted id must never tag a block with another club's
   // level (same rule as createMonthTemplateWithEmptyWeeks).
@@ -406,12 +420,15 @@ export async function updateBlock(
     (v): v is number => v != null,
   ))];
   if (levelIds.length > 0) {
-    const owned = await client<Array<{ id: string }>>`
-      select id::text from athlete_levels
-      where coach_id = ${Number(coachId)} and id = any(${levelIds}::bigint[])
+    // Del coach y activos — o los que el bloque ya tenía (retirar no lo obliga a cambiar).
+    const current = await client<Array<{ min_level_id: string | null; max_level_id: string | null }>>`
+      select min_level_id::text, max_level_id::text from blocks
+      where id = ${blockId} and coach_id = ${Number(coachId)}
     `;
-    if (owned.length !== levelIds.length) {
-      throw new BlockError('invalid_level', 'El nivel no pertenece a este coach', 400);
+    const kept = [current[0]?.min_level_id, current[0]?.max_level_id];
+    for (const id of levelIds) {
+      const check = await checkAssignableLevel(client, coachId, id, kept);
+      if (!check.ok) throw new BlockError('invalid_level', check.message, 400);
     }
   }
 
@@ -514,6 +531,7 @@ export async function createBlock(
   input: BlockWrite,
   client: Sql = defaultSql,
 ): Promise<number> {
+  await assertMethodologyGroup(client, input.methodology_group_id);
   let blockId = 0;
   await client.begin(async (tx) => {
     const rows = await tx<Array<{ id: string }>>`
@@ -525,7 +543,7 @@ export async function createBlock(
         ${slugifyTitle(input.title)},
         ${input.title},
         ${input.description ?? input.title},
-        ${input.methodology_group_id},
+        ${input.methodology_group_id ?? null},
         ${input.format ?? null},
         ${false},
         ${Number(coachId)}
@@ -583,13 +601,15 @@ export async function updateBlockFull(
   input: BlockWrite,
   client: Sql = defaultSql,
 ): Promise<Block | null> {
+  await assertMethodologyGroup(client, input.methodology_group_id);
   let updated: BlockRow | null = null;
   await client.begin(async (tx) => {
     const rows = await tx<BlockRow[]>`
       update blocks set
         title                = ${input.title},
         description          = ${input.description ?? input.title},
-        methodology_group_id = ${input.methodology_group_id},
+        -- Sin el campo, se queda el que tenía (nunca se le pone uno por defecto).
+        methodology_group_id = ${input.methodology_group_id === undefined ? tx`methodology_group_id` : input.methodology_group_id},
         format               = ${input.format ?? null},
         needs_review         = ${false}
       where id = ${blockId}
@@ -607,18 +627,4 @@ export async function updateBlockFull(
     await insertBlockExercises(tx, blockId, input.exercises);
   });
   return updated ? mapBlockRow(updated) : null;
-}
-
-/** Coach's athlete levels (for the block editor's optional level selector). */
-export async function listCoachLevels(
-  coachId: number | bigint,
-  client: Sql = defaultSql,
-): Promise<Array<{ id: number; name: string; label: string }>> {
-  const rows = await client<Array<{ id: string; name: string; label: string }>>`
-    select id::text as id, name, label
-    from athlete_levels
-    where coach_id = ${Number(coachId)}
-    order by sort_order, id
-  `;
-  return rows.map((r) => ({ id: Number(r.id), name: r.name, label: r.label }));
 }

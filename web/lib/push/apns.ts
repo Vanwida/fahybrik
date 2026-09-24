@@ -1,11 +1,13 @@
 // Apple Push Notification Service client.
 //
 // APNS uses HTTP/2 with provider authentication tokens (JWT, ES256-signed
-// with the .p8 key from Apple Developer). We send via Node's `fetch` (Next
-// runtime supports HTTP/2 servers transparently — APNS over HTTP/1.1 is
-// unsupported, so this code requires Node's undici fetch which negotiates
-// h2; if the runtime falls back, individual sends will fail with 'h2
-// required' and the token will be marked failed).
+// with the .p8 key from Apple Developer). APNS accepts ONLY HTTP/2, so this
+// talks to it through `node:http2` — NOT `fetch`. Node's global fetch (undici)
+// offers only `http/1.1` in the TLS handshake unless an agent opts into h2, and
+// an h2-only server like APNS refuses it (`ERR_SSL_TLSV1_ALERT_NO_APPLICATION_
+// PROTOCOL`). Until 2026-09-24 this used `fetch`: every iOS push failed inside
+// a `catch` nobody read. One HTTP/2 connection per host is opened per send,
+// shared by all of the user's devices, and closed at the end.
 //
 // Required env (load lazily so missing creds → 503 only when push is
 // actually attempted):
@@ -21,11 +23,62 @@
 // process and rotate every 50 minutes.
 
 import { createPrivateKey, createSign } from 'node:crypto';
+import { connect, type ClientHttp2Session } from 'node:http2';
 import type { Sql } from '@/lib/db';
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
 
 const APNS_PRODUCTION_HOST = 'https://api.push.apple.com';
 const APNS_SANDBOX_HOST = 'https://api.sandbox.push.apple.com';
 const JWT_TTL_MS = 50 * 60 * 1000;
+/** Cap per request: a hung connection must not hold the function open. */
+const APNS_REQUEST_TIMEOUT_MS = 10_000;
+
+export type ApnsResponse = { status: number; body: string };
+
+/** Opens the HTTP/2 session to a host (ALPN h2). `ca` exists only for the transport test. */
+export function apnsConnect(host: string, opts: { ca?: string } = {}): Promise<ClientHttp2Session> {
+  return new Promise((resolve, reject) => {
+    const session = connect(host, opts.ca ? { ca: opts.ca } : {});
+    let open = false;
+    // A permanent listener: an 'error' after connect (GOAWAY, reset) with no
+    // listener would crash the process. In-flight requests reject on their own.
+    session.on('error', (err) => {
+      if (!open) reject(err);
+    });
+    session.once('connect', () => {
+      open = true;
+      resolve(session);
+    });
+  });
+}
+
+/** One HTTP/2 POST on an open session. */
+export function apnsPost(
+  session: ClientHttp2Session,
+  path: string,
+  headers: Record<string, string>,
+  body: string,
+): Promise<ApnsResponse> {
+  return new Promise((resolve, reject) => {
+    const req = session.request({ ':method': 'POST', ':path': path, ...headers });
+    let status = 0;
+    let data = '';
+    req.setEncoding('utf8');
+    req.setTimeout(APNS_REQUEST_TIMEOUT_MS, () => {
+      req.close();
+      reject(new Error('apns_timeout'));
+    });
+    req.on('response', (h) => {
+      status = Number(h[':status'] ?? 0);
+    });
+    req.on('data', (chunk: string) => {
+      data += chunk;
+    });
+    req.on('end', () => resolve({ status, body: data }));
+    req.on('error', reject);
+    req.end(body);
+  });
+}
 
 type ApnsConfig = {
   team_id: string;
@@ -139,58 +192,76 @@ export async function sendPush(args: SendPushArgs): Promise<PushSendResult> {
     ...(args.deeplink ?? {}),
   };
   const payloadStr = JSON.stringify(payload);
+  // One HTTP/2 session per host (production / sandbox), shared by every device
+  // of the user in this send.
+  const sessions = new Map<string, Promise<ClientHttp2Session>>();
+  const sessionFor = (host: string) => {
+    let session = sessions.get(host);
+    if (!session) {
+      session = apnsConnect(host);
+      sessions.set(host, session);
+    }
+    return session;
+  };
 
-  for (const t of tokens) {
-    result.attempted += 1;
-    const env = args.forceEnv ?? (t.apns_env === 'sandbox' ? 'sandbox' : 'production');
-    const host = env === 'sandbox' ? APNS_SANDBOX_HOST : APNS_PRODUCTION_HOST;
-    const url = `${host}/3/device/${t.device_token}`;
+  try {
+    for (const t of tokens) {
+      result.attempted += 1;
+      const env = args.forceEnv ?? (t.apns_env === 'sandbox' ? 'sandbox' : 'production');
+      const host = env === 'sandbox' ? APNS_SANDBOX_HOST : APNS_PRODUCTION_HOST;
 
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          authorization: `bearer ${jwt}`,
-          'apns-topic': cfg.config.bundle_id,
-          'apns-push-type': 'alert',
-          'apns-priority': '10',
-          'content-type': 'application/json',
-        },
-        body: payloadStr,
-      });
-
-      if (res.ok) {
-        result.sent += 1;
-        await args.sql`
-          update apns_push_tokens
-          set last_pushed_at = now(), updated_at = now()
-          where id = ${t.id}::bigint
-        `;
-        continue;
-      }
-
-      let reason = `http_${res.status}`;
       try {
-        const j = (await res.json()) as { reason?: string };
-        if (j.reason) reason = j.reason;
-      } catch {
-        // ignore JSON parse failures — keep http_<status> as reason.
-      }
-      result.failed += 1;
-      result.errors.push({ token_prefix: t.device_token.slice(0, 8), reason });
+        const res = await apnsPost(
+          await sessionFor(host),
+          `/3/device/${t.device_token}`,
+          {
+            authorization: `bearer ${jwt}`,
+            'apns-topic': cfg.config.bundle_id,
+            'apns-push-type': 'alert',
+            'apns-priority': '10',
+            'content-type': 'application/json',
+          },
+          payloadStr,
+        );
 
-      // 410 Unregistered or 400 BadDeviceToken → mark dead.
-      if (res.status === 410 || reason === 'BadDeviceToken' || reason === 'Unregistered') {
-        await args.sql`
-          update apns_push_tokens
-          set last_failure = ${reason}, failed_at = now(), updated_at = now()
-          where id = ${t.id}::bigint
-        `;
+        if (res.status >= 200 && res.status < 300) {
+          result.sent += 1;
+          await args.sql`
+            update apns_push_tokens
+            set last_pushed_at = now(), updated_at = now()
+            where id = ${t.id}::bigint
+          `;
+          continue;
+        }
+
+        let reason = `http_${res.status}`;
+        try {
+          const j = JSON.parse(res.body) as { reason?: string };
+          if (j.reason) reason = j.reason;
+        } catch {
+          // ignore JSON parse failures — keep http_<status> as reason.
+        }
+        result.failed += 1;
+        result.errors.push({ token_prefix: t.device_token.slice(0, 8), reason });
+
+        // 410 Unregistered or 400 BadDeviceToken → mark dead.
+        if (res.status === 410 || reason === 'BadDeviceToken' || reason === 'Unregistered') {
+          await args.sql`
+            update apns_push_tokens
+            set last_failure = ${reason}, failed_at = now(), updated_at = now()
+            where id = ${t.id}::bigint
+          `;
+        }
+      } catch (err) {
+        result.failed += 1;
+        const reason = err instanceof Error ? err.message : 'unknown_error';
+        result.errors.push({ token_prefix: t.device_token.slice(0, 8), reason });
       }
-    } catch (err) {
-      result.failed += 1;
-      const reason = err instanceof Error ? err.message : 'unknown_error';
-      result.errors.push({ token_prefix: t.device_token.slice(0, 8), reason });
+    }
+
+  } finally {
+    for (const session of sessions.values()) {
+      session.then((open) => open.close()).catch(() => undefined);
     }
   }
 
@@ -205,7 +276,7 @@ export async function smokeTestPush(args: {
   return sendPush({
     sql: args.sql,
     user_id: args.user_id,
-    title: 'FAHYBRID',
+    title: BRAND_WORDMARK,
     body: 'Test push',
     category: 'system',
   });

@@ -14,6 +14,7 @@ import {
   segmentDurationSeconds,
   segmentInputSchema,
 } from '@/lib/sync/ingest-execution-segments';
+import { lenient, lenientList } from '@/lib/sync/lenient';
 import { deriveExecutionProvenance } from '@fahybrid/shared/domain/execution-merge';
 import { polylinePointCount } from '@/lib/sync/polyline';
 import { setAssignmentStatus } from '@/lib/sync/assignment-status';
@@ -39,37 +40,49 @@ import {
   PAIN_NOTE_MAX,
 } from '@/lib/sync/sanitize-measurement';
 
+// A wire instant that is not a string, or not an instant, is omitted — never a 400.
 const wireInstantOrOmitted = z
-  .string()
-  .nullish()
-  .transform((v) => coerceWireInstant(v) ?? undefined);
+  .unknown()
+  .transform((v) => (typeof v === 'string' ? (coerceWireInstant(v) ?? undefined) : undefined));
 
-// Identity is strict. Evidence is not: a device/athlete field that does not
-// fit is accepted here and gated at persist. Zod rejecting one field used to
-// 400 the whole POST — a different field each day, same lost session.
+const num = () => lenient(z.number().nullish());
+const str = () => lenient(z.string().nullish());
+
+// Evidence is never a reason to lose the session: a device/athlete field that
+// does not fit — out of range OR of the wrong type — is accepted here and gated
+// at persist (or dropped, if its type is wrong). Zod rejecting one field used to
+// 400 the whole POST — a different field each day, same lost session. A tramo
+// without its own identity (position ≥ 0, modality) is dropped ALONE by
+// `lenientList`; the rest of the session is kept.
 export const executionMetricsSchema = z.object({
-  perceived_exertion: z.number().nullish(),
-  total_duration_seconds: z.number().nullish(),
-  notes: z.string().nullish(),
-  score_time_s: z.number().nullish(),
-  score_rounds: z.number().nullish(),
-  score_reps: z.number().nullish(),
+  perceived_exertion: num(),
+  total_duration_seconds: num(),
+  notes: str(),
+  score_time_s: num(),
+  score_rounds: num(),
+  score_reps: num(),
   // HINT only. Unknown tokens (`pm5`) are ignored; provenance reads the tramos.
-  source: z.string().nullish(),
-  recorded_via: z.string().nullish(),
-  source_workout_ref: z.string().nullish(),
-  completeness: z.string().nullish(),
-  perceived_difficulty: z.string().nullish(),
-  pain_area: z.string().nullish(),
-  pain_note: z.string().nullish(),
+  source: str(),
+  recorded_via: str(),
+  source_workout_ref: str(),
+  completeness: str(),
+  perceived_difficulty: str(),
+  pain_area: str(),
+  pain_note: str(),
   started_at: wireInstantOrOmitted,
   ended_at: wireInstantOrOmitted,
-  route_polyline: z.string().nullish(),
-  segments: z.array(segmentInputSchema).nullish(),
+  route_polyline: str(),
+  segments: lenientList(segmentInputSchema),
 });
 
+/**
+ * The solo POST body. `assignment_id` is read, never trusted to decide whether the
+ * session is kept: an id that no longer names a session of this athlete (the coach
+ * removed or replaced it while they trained, or it names someone else's) turns the
+ * save into an off-plan execution — see `record-athlete-workout.ts`.
+ */
 export const workoutExecutionSchema = executionMetricsSchema.extend({
-  assignment_id: z.union([z.string(), z.number()]),
+  assignment_id: z.unknown(),
 });
 
 export type ExecutionMetricsInput = z.infer<typeof executionMetricsSchema>;
@@ -137,17 +150,7 @@ async function persistWorkoutExecution(args: {
   if (!owned[0]) return { ok: false, reason: 'not_found' };
   const sessionFormat = owned[0].session_format;
 
-  const startedAt = coerceWireInstant(input.started_at) ?? new Date().toISOString();
-  const endedAt = coerceWireInstant(input.ended_at) ?? new Date().toISOString();
-
-  const provenance = deriveExecutionProvenance({
-    segments: (input.segments ?? []).map((seg) => ({
-      source: sanitizeSegmentSource(seg.source),
-      duration_seconds: segmentDurationSeconds(seg),
-    })),
-    declared_source: sanitizeDeclaredSource(input.source) ?? null,
-    declared_recorded_via: sanitizeRecordedVia(input.recorded_via) ?? null,
-  });
+  const v = executionRowValues(input);
 
   const execRows = await sql<Array<{ id: string }>>`
     insert into workout_executions (
@@ -160,24 +163,92 @@ async function persistWorkoutExecution(args: {
     values (
       ${assignmentId},
       ${athleteId},
-      ${startedAt}::timestamptz,
-      ${endedAt}::timestamptz,
-      ${sanitizeDurationSeconds(input.total_duration_seconds)},
-      ${sanitizePerceivedExertion(input.perceived_exertion)},
-      ${sanitizeNotes(input.notes)},
-      ${sanitizeNonNegativeInt(input.score_time_s)},
-      ${sanitizeNonNegativeInt(input.score_rounds)},
-      ${sanitizeNonNegativeInt(input.score_reps)},
-      ${provenance.source}::biometric_source,
-      ${sanitizeSourceWorkoutRef(input.source_workout_ref)},
-      ${sanitizePerceivedDifficulty(input.perceived_difficulty)},
-      ${sanitizePainArea(input.pain_area)},
-      ${clipText(input.pain_note, PAIN_NOTE_MAX)},
-      ${provenance.recorded_via}::execution_recording_method,
-      ${provenance.totals_source}::biometric_source,
-      ${provenance.contributing_sources}::text[]::biometric_source[]
+      ${v.started_at}::timestamptz,
+      ${v.ended_at}::timestamptz,
+      ${v.total_duration_seconds},
+      ${v.perceived_exertion},
+      ${v.notes},
+      ${v.score_time_s},
+      ${v.score_rounds},
+      ${v.score_reps},
+      ${v.source}::biometric_source,
+      ${v.source_workout_ref},
+      ${v.perceived_difficulty},
+      ${v.pain_area},
+      ${v.pain_note},
+      ${v.recorded_via}::execution_recording_method,
+      ${v.totals_source}::biometric_source,
+      ${v.contributing_sources}::text[]::biometric_source[]
     )
-    on conflict (assignment_id) do update set
+    on conflict (assignment_id) do update set ${executionMergeSet(sql)}
+    returning id::text
+  `;
+  const executionId = Number(execRows[0]?.id);
+
+  const children = await persistExecutionChildren({
+    sql,
+    athleteId,
+    executionId,
+    startedAt: v.started_at,
+    input,
+    sessionFormat,
+  });
+
+  const completeness = sanitizeCompleteness(input.completeness);
+  const assignmentStatus = completeness === 'partial' ? 'partial' : 'completed';
+  await setAssignmentStatus(sql, assignmentId, athleteId, assignmentStatus);
+
+  const prs = await detectPrs(sql, athleteId, executionId);
+
+  return {
+    ok: true,
+    assignment_id: String(assignmentId),
+    execution_id: String(executionId),
+    segments_saved: children.segments_saved,
+    prs,
+  };
+}
+
+/**
+ * Every column value of a `workout_executions` row, sanitized ONCE for every
+ * writer (prescribed, free, off-plan): the same field can never be cleaned two
+ * different ways depending on which door the session came through.
+ */
+export function executionRowValues(input: ExecutionMetricsInput) {
+  const provenance = deriveExecutionProvenance({
+    segments: (input.segments ?? []).map((seg) => ({
+      source: sanitizeSegmentSource(seg.source),
+      duration_seconds: segmentDurationSeconds(seg),
+    })),
+    declared_source: sanitizeDeclaredSource(input.source) ?? null,
+    declared_recorded_via: sanitizeRecordedVia(input.recorded_via) ?? null,
+  });
+  return {
+    started_at: coerceWireInstant(input.started_at) ?? new Date().toISOString(),
+    ended_at: coerceWireInstant(input.ended_at) ?? new Date().toISOString(),
+    total_duration_seconds: sanitizeDurationSeconds(input.total_duration_seconds),
+    perceived_exertion: sanitizePerceivedExertion(input.perceived_exertion),
+    notes: sanitizeNotes(input.notes),
+    score_time_s: sanitizeNonNegativeInt(input.score_time_s),
+    score_rounds: sanitizeNonNegativeInt(input.score_rounds),
+    score_reps: sanitizeNonNegativeInt(input.score_reps),
+    source: provenance.source,
+    source_workout_ref: sanitizeSourceWorkoutRef(input.source_workout_ref),
+    perceived_difficulty: sanitizePerceivedDifficulty(input.perceived_difficulty),
+    pain_area: sanitizePainArea(input.pain_area),
+    pain_note: clipText(input.pain_note, PAIN_NOTE_MAX),
+    recorded_via: provenance.recorded_via,
+    totals_source: provenance.totals_source,
+    contributing_sources: provenance.contributing_sources,
+  };
+}
+
+/**
+ * How a re-sent execution merges into the row it already wrote: a retry is the
+ * same session, so what it brings fills in and what it lacks never erases.
+ */
+export function executionMergeSet(sql: Sql | TransactionClient) {
+  return sql`
       perceived_exertion = coalesce(excluded.perceived_exertion, workout_executions.perceived_exertion),
       total_duration_seconds = coalesce(excluded.total_duration_seconds, workout_executions.total_duration_seconds),
       notes = coalesce(excluded.notes, workout_executions.notes),
@@ -190,18 +261,34 @@ async function persistWorkoutExecution(args: {
       pain_area = coalesce(excluded.pain_area, workout_executions.pain_area),
       pain_note = coalesce(excluded.pain_note, workout_executions.pain_note),
       recorded_via = coalesce(excluded.recorded_via, workout_executions.recorded_via),
+      -- Provisional: only the tramos of THIS payload. persistExecutionChildren
+      -- re-derives it over ALL the stored tramos (recomputeTotalsSource).
       totals_source = coalesce(excluded.totals_source, workout_executions.totals_source),
       contributing_sources = (
         select coalesce(array_agg(distinct s order by s), '{}'::biometric_source[])
         from unnest(workout_executions.contributing_sources || excluded.contributing_sources) as s
       ),
       updated_at = now()
-    returning id::text
   `;
-  const executionId = Number(execRows[0]?.id);
+}
+
+/**
+ * What hangs from an execution row: its GPS route, its tramos (template links
+ * limited to templates this athlete could have been given) and its totals.
+ */
+export async function persistExecutionChildren(args: {
+  sql: Sql | TransactionClient;
+  athleteId: number;
+  executionId: number;
+  startedAt: string;
+  input: ExecutionMetricsInput;
+  sessionFormat: string | null;
+}): Promise<{ segments_saved: number }> {
+  const { sql, athleteId, executionId, input } = args;
+  if (!Number.isFinite(executionId)) return { segments_saved: 0 };
 
   const routePolyline = sanitizeRoutePolyline(input.route_polyline);
-  if (Number.isFinite(executionId) && routePolyline) {
+  if (routePolyline) {
     await sql`
       insert into workout_routes (execution_id, polyline, point_count)
       values (${executionId}, ${routePolyline}, ${polylinePointCount(routePolyline)})
@@ -212,35 +299,67 @@ async function persistWorkoutExecution(args: {
   }
 
   let segmentsSaved = 0;
-  if (Number.isFinite(executionId) && input.segments && input.segments.length > 0) {
+  if (input.segments && input.segments.length > 0) {
     segmentsSaved = await ingestExecutionSegments({
       sql,
       executionId,
-      executionStartedAt: startedAt,
+      executionStartedAt: args.startedAt,
       segments: input.segments,
-      sessionFormat,
+      sessionFormat: args.sessionFormat,
+      templateOwnerAthleteId: athleteId,
     });
   }
 
-  if (Number.isFinite(executionId)) {
-    await computeSessionTotals({ execution_id: executionId, client: sql }).catch(() => {});
-  }
-
-  const completeness = sanitizeCompleteness(input.completeness);
-  const assignmentStatus = completeness === 'partial' ? 'partial' : 'completed';
-  await setAssignmentStatus(sql, assignmentId, athleteId, assignmentStatus);
-
-  let prs: RunningPR[] = [];
-  if (Number.isFinite(executionId)) {
-    prs = await detectExecutionRunningPRs({ sql, athleteId, executionId }).catch(() => []);
-  }
-
-  return {
-    ok: true,
-    assignment_id: String(assignmentId),
-    execution_id: String(executionId),
-    segments_saved: segmentsSaved,
-    prs,
-  };
+  await recomputeTotalsSource(sql, executionId);
+  await computeSessionTotals({ execution_id: executionId, client: sql }).catch(() => {});
+  return { segments_saved: segmentsSaved };
 }
 
+/**
+ * `totals_source` is the apparatus of the LONGEST tramo of the EXECUTION
+ * (`deriveExecutionProvenance`), and an execution's tramos can arrive over
+ * several syncs: the erg's in one, the treadmill's in the next. The upsert
+ * only sees the payload in hand, so on its own the last sync's apparatus won
+ * even when it brought the SHORTER tramo. Re-derived here over every tramo
+ * stored so far, through the same function: one rule, one place.
+ *
+ * Stored tramos keep no duration column; it is `ended_at − started_at`, the
+ * same measure the 0144 backfill ranks by. A tramo with no measured duration
+ * is stored with `ended_at = started_at` (see ingestExecutionSegments), so a
+ * non-positive span reads as unknown — ranked last, never as a real 0 s.
+ *
+ * When no stored tramo names an apparatus, the row keeps what it had: the
+ * tramos cannot contradict it, and the merge never erases (a row older than
+ * 0108 carries the value that migration backfilled from its `source`).
+ */
+async function recomputeTotalsSource(sql: Sql | TransactionClient, executionId: number): Promise<void> {
+  const tramos = await sql<Array<{ source: string | null; span_s: number | null }>>`
+    select source, extract(epoch from (ended_at - started_at))::float8 as span_s
+    from segment_executions
+    where execution_id = ${executionId}
+    order by position, round_index
+  `;
+  const { totals_source } = deriveExecutionProvenance({
+    segments: tramos.map((t) => ({
+      source: t.source,
+      duration_seconds: t.span_s != null && t.span_s > 0 ? Math.round(t.span_s) : null,
+    })),
+  });
+  if (totals_source == null) return;
+  await sql`
+    update workout_executions
+    set totals_source = ${totals_source}::biometric_source
+    where id = ${executionId}
+      and totals_source is distinct from ${totals_source}::biometric_source
+  `;
+}
+
+/** Running records this execution set. Best-effort: a failure costs the celebration. */
+export async function detectPrs(
+  sql: Sql | TransactionClient,
+  athleteId: number,
+  executionId: number,
+): Promise<RunningPR[]> {
+  if (!Number.isFinite(executionId)) return [];
+  return detectExecutionRunningPRs({ sql, athleteId, executionId }).catch(() => []);
+}

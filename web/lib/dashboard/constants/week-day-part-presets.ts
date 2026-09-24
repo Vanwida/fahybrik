@@ -7,7 +7,7 @@ import type { WeekDayPartConfig } from '@fahybrid/shared/schema/program-template
 //
 //   A) Estructura de sesión — piezas del día (calentamiento, movilidad,
 //      accesorios, vuelta a la calma). NO son grupos metodológicos.
-//   B) Entrenamiento — los 10 grupos metodológicos de Pablo (tabla
+//   B) Entrenamiento — los 10 grupos metodológicos por defecto (tabla
 //      methodology_groups, ids 1–10). Cada tipo clasifica el bloque a medida
 //      igual que los 97 de la Biblioteca, para que biblioteca/IA lo entiendan.
 //
@@ -47,7 +47,7 @@ export interface WeekDayPartPreset {
   title: string;
   /** Enum técnico que persisten part.format + materializador. Uno de los 8. */
   format: TemplateFormat;
-  /** Grupo metodológico de Pablo (1–10), o null para piezas de Estructura. */
+  /** Grupo metodológico (1–10), o null para piezas de Estructura. */
   methodology_group_id: number | null;
   /** Format real de la Biblioteca (los 10), referencia. Null para Estructura. */
   blockFormat: BlockFormat | null;
@@ -220,39 +220,6 @@ export const WEEK_DAY_PART_PRESETS: WeekDayPartPreset[] = [
     defaultConfig: { duration_seconds: 20 * 60 },
   },
 ];
-
-// Agrupación visual del menú "A medida": Estructura de sesión + Entrenamiento
-// (los 10 grupos metodológicos). Fuente única — la usa AddBlockMenu.
-const PART_GROUP_IDS: { label: string; ids: string[] }[] = [
-  { label: 'Estructura de sesión', ids: ['warmup', 'mobility', 'accessory', 'cooldown'] },
-  {
-    label: 'Entrenamiento · grupos de Pablo',
-    ids: [
-      'strength_base',
-      'power_plyo',
-      'erg_intervals',
-      'run_intervals',
-      'zone2',
-      'metcon',
-      'race_sim',
-      'core_mobility',
-      'functional_circuit',
-      'tapering',
-    ],
-  },
-];
-
-export interface GroupedPresets {
-  label: string;
-  presets: WeekDayPartPreset[];
-}
-
-export const GROUPED_PART_PRESETS: GroupedPresets[] = PART_GROUP_IDS.map((group) => ({
-  label: group.label,
-  presets: group.ids
-    .map((id) => WEEK_DAY_PART_PRESETS.find((p) => p.id === id))
-    .filter((p): p is WeekDayPartPreset => Boolean(p)),
-}));
 
 // Alias retro-compat de ids de preset previos a la taxonomía de 2 clusters, para
 // no romper callers existentes (p.ej. Coach IA usa 'strength' como bloque

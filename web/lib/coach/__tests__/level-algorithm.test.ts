@@ -1,105 +1,124 @@
-import { describe, expect, it } from 'vitest'
-import { suggestLevel, type Benchmark, type AthleteProfile } from '../level-algorithm'
+import { describe, expect, it } from 'vitest';
+import {
+  levelSuggestionGap,
+  resolveLadder,
+  suggestLevelOnLadder,
+  parseClock,
+  formatClock,
+  type LadderLevel,
+} from '@fahybrid/shared/domain/coach/level-criteria';
+import { marksFromBenchmarks, suggestLevelForAthlete, type AthleteProfile, type Benchmark } from '../level-algorithm';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// La sugerencia de nivel se calcula sobre la escalera DEL COACH: sus niveles
+// activos en su orden, con sus cortes o —sin tocar— los del producto por
+// posición. Ya no se busca un nivel llamado 'N'+n.
 
-function profile(overrides: Partial<AthleteProfile> = {}): AthleteProfile {
-  return {
-    sex: null,
-    weight_kg: null,
-    training_experience_years: null,
-    ...overrides,
-  }
+function ladderOf(names: string[], custom: Partial<Record<number, LadderLevel['criteria'] | null>> = {}): LadderLevel[] {
+  return names.map((name, i) => ({
+    id: String(100 + i),
+    name,
+    criteria_set_at: custom[i + 1] !== undefined ? '2026-09-23' : null,
+    criteria: custom[i + 1] ?? [],
+  }));
 }
 
-function bm(exercise_slug: string, value: number, unit = 's'): Benchmark {
-  return { exercise_slug, value, unit }
-}
+const profile = (o: Partial<AthleteProfile> = {}): AthleteProfile => ({
+  sex: null,
+  weight_kg: null,
+  training_experience_years: null,
+  ...o,
+});
+const bm = (exercise_slug: string, value: number, unit = 's'): Benchmark => ({ exercise_slug, value, unit });
 
-// ---------------------------------------------------------------------------
-// Test cases
-// ---------------------------------------------------------------------------
+const FIVE = resolveLadder(ladderOf(['N1', 'N2', 'N3', 'N4', 'N5']));
 
-describe('suggestLevel', () => {
-  // Case 1: No benchmarks, no profile data → level 1, confidence low, signals_used []
-  it('returns level 1 low confidence when no benchmarks and no profile data', () => {
-    const result = suggestLevel([], profile())
-    expect(result.suggested_level).toBe(1)
-    expect(result.confidence).toBe('low')
-    expect(result.signals_used).toEqual([])
-  })
+describe('sugerencia sobre la escalera del coach', () => {
+  it('con los defectos, un coach de cinco niveles recibe lo de siempre (HYROX 85′ hombre → 2.º)', () => {
+    const s = suggestLevelForAthlete({ ladder: FIVE, benchmarks: [bm('hyrox_open', 5100)], profile: profile({ sex: 'male' }) });
+    expect(s).toMatchObject({ status: 'suggested', position: 2, level_name: 'N2', confidence: 'low' });
+  });
 
-  // Case 2: hyrox_open = 5100s (85 min), sex=male
-  // Male thresholds: [5400, 4500, 3900, 3300]
-  // 5100 > 4500 (i=1) → level = i+1 = 2; 5100 ≤ 5400 so first check (i=0) fails
-  // Wait: loop checks i=0 first: 5100 > 5400? No. i=1: 5100 > 4500? Yes → level = 2.
-  it('hyrox_open 5100s male → level 2, confidence low', () => {
-    const result = suggestLevel(
-      [bm('hyrox_open', 5100)],
-      profile({ sex: 'male' }),
-    )
-    expect(result.suggested_level).toBe(2)
-    expect(result.confidence).toBe('low')
-    expect(result.signals_used).toEqual(['hyrox_open'])
-  })
+  it('usa el sexo: HYROX 70′ mujer → 4.º', () => {
+    const s = suggestLevelForAthlete({ ladder: FIVE, benchmarks: [bm('hyrox_open', 4200)], profile: profile({ sex: 'female' }) });
+    expect(s).toMatchObject({ status: 'suggested', position: 4 });
+  });
 
-  // Case 3: hyrox_open = 4200s (70 min), sex=female
-  // Female thresholds: [6000, 5100, 4500, 3900]
-  // i=0: 4200 > 6000? No. i=1: 4200 > 5100? No. i=2: 4200 > 4500? No. i=3: 4200 > 3900? Yes → level = 4.
-  it('hyrox_open 4200s female → level 4, confidence low', () => {
-    const result = suggestLevel(
-      [bm('hyrox_open', 4200)],
-      profile({ sex: 'female' }),
-    )
-    expect(result.suggested_level).toBe(4)
-    expect(result.confidence).toBe('low')
-    expect(result.signals_used).toEqual(['hyrox_open'])
-  })
+  it('tres marcas del mismo escalón → confianza alta', () => {
+    const s = suggestLevelForAthlete({
+      ladder: FIVE,
+      benchmarks: [bm('hyrox_open', 4050), bm('run_5k', 1350), bm('row_2k', 422)],
+      profile: profile({ sex: 'male' }),
+    });
+    expect(s).toMatchObject({ status: 'suggested', position: 3, confidence: 'high', signals: ['hyrox_s', 'run_5k_s', 'row_2k_s'] });
+  });
 
-  // Case 4: 3 benchmarks all pointing to level 3 → confidence high, level 3
-  // hyrox_open male: value 4050 → 4050 > 4500? No. 4050 > 3900? Yes (i=2) → level 3 ✓
-  // run_5k male: thresholds [1680,1440,1260,1080]; value 1350 → 1350>1440? No; 1350>1260? Yes (i=2) → level 3 ✓
-  // row_2k male: thresholds [480,440,410,380]; value 422 → 422>440? No; 422>410? Yes (i=2) → level 3 ✓
-  it('three benchmarks all level 3 → level 3 confidence high', () => {
-    const result = suggestLevel(
-      [
-        bm('hyrox_open', 4050), // male → level 3
-        bm('run_5k', 1350),     // male → level 3
-        bm('row_2k', 422),      // male → level 3
-      ],
-      profile({ sex: 'male' }),
-    )
-    expect(result.suggested_level).toBe(3)
-    expect(result.confidence).toBe('high')
-    expect(result.signals_used).toEqual(['hyrox_open', 'run_5k', 'row_2k'])
-  })
+  it('los nombres no importan: la escalera de otro coach («Base», «Medio», «Alto») también recibe sugerencia', () => {
+    const ladder = resolveLadder(ladderOf(['Base', 'Medio', 'Alto']));
+    const s = suggestLevelForAthlete({ ladder, benchmarks: [bm('run_5k', 1000)], profile: profile({ sex: 'male' }) });
+    // 5K 16:40 abre el 5.º escalón por defecto; con tres niveles se queda en el más alto.
+    expect(s).toMatchObject({ status: 'suggested', level_name: 'Alto', position: 3 });
+  });
 
-  // Case 5: No benchmarks, experience_years = 4 → level 3 (3 ≤ y < 5), confidence low
-  // EXPERIENCE_THRESHOLDS = [1, 3, 5]; years=4
-  // i=0: 4 < 1? No. i=1: 4 < 3? No. i=2: 4 < 5? Yes → level = i+1 = 3.
-  it('no benchmarks, experience_years=4 → level 3 confidence low, signals_used=[experience_years]', () => {
-    const result = suggestLevel(
-      [],
-      profile({ training_experience_years: 4 }),
-    )
-    expect(result.suggested_level).toBe(3)
-    expect(result.confidence).toBe('low')
-    expect(result.signals_used).toEqual(['experience_years'])
-  })
+  it('los cortes del coach mandan sobre el defecto', () => {
+    const ladder = resolveLadder(
+      ladderOf(['A', 'B'], { 2: [{ metric: 'run_5k_s', sex: null, threshold: 1500 }] }),
+    );
+    expect(suggestLevelForAthlete({ ladder, benchmarks: [bm('run_5k', 1490)], profile: profile() })).toMatchObject({ level_name: 'B' });
+    expect(suggestLevelForAthlete({ ladder, benchmarks: [bm('run_5k', 1510)], profile: profile() })).toMatchObject({ level_name: 'A' });
+  });
 
-  // Case 6: back_squat_1rm=80kg, weight_kg=70kg → ratio=1.14
-  // SQUAT_RATIOS = [0.9, 1.2, 1.5, 1.8]; ratio=1.14
-  // i=0: 1.14 < 0.9? No. i=1: 1.14 < 1.2? Yes → level = i+1 = 2.
-  // Slug is the canonical `back_squat_1rm` the onboarding route writes.
-  it('back_squat_1rm 80kg / weight 70kg → ratio 1.14 → level 2, confidence low', () => {
-    const result = suggestLevel(
-      [bm('back_squat_1rm', 80, 'kg')],
-      profile({ weight_kg: 70 }),
-    )
-    expect(result.suggested_level).toBe(2)
-    expect(result.confidence).toBe('low')
-    expect(result.signals_used).toEqual(['back_squat_1rm'])
-  })
-})
+  it('los años solo cuentan sin marcas de rendimiento', () => {
+    const s = suggestLevelForAthlete({ ladder: FIVE, benchmarks: [], profile: profile({ training_experience_years: 4 }) });
+    expect(s).toMatchObject({ status: 'suggested', position: 3, signals: ['experience_years'] });
+  });
+
+  it('la sentadilla se hace relativa al peso', () => {
+    expect(marksFromBenchmarks([bm('back_squat_1rm', 120, 'kg')], profile({ weight_kg: 80 })).squat_bw).toBeCloseTo(1.5);
+    expect(marksFromBenchmarks([bm('back_squat_1rm', 120, 'kg')], profile()).squat_bw).toBeUndefined();
+  });
+
+  it('un resultado real de HYROX decide solo y con confianza alta', () => {
+    const s = suggestLevelForAthlete({
+      ladder: FIVE,
+      benchmarks: [bm('run_5k', 1700)],
+      profile: profile({ sex: 'male' }),
+      realHyroxSeconds: 3200,
+    });
+    expect(s).toMatchObject({ status: 'suggested', position: 5, confidence: 'high', signals: ['hyrox_s'] });
+  });
+});
+
+describe('cuando no se puede sugerir, se dice por qué', () => {
+  it('sin niveles', () => {
+    const s = suggestLevelOnLadder([], { run_5k_s: 1200 }, 'male');
+    expect(s.status).toBe('no_levels');
+    expect(levelSuggestionGap(s, 'Nivel')).toMatch(/no has creado/);
+  });
+
+  it('un eje que no se abre por marcas (el coach vació los cortes de todos)', () => {
+    const ladder = resolveLadder(ladderOf(['Mañana', 'Tarde'], { 1: [], 2: [] }));
+    const s = suggestLevelOnLadder(ladder, { run_5k_s: 1200 }, 'male');
+    expect(s.status).toBe('no_criteria');
+    expect(levelSuggestionGap(s, 'Turno')).toBe('Sin sugerencia: ningún turno tuyo se abre por marcas.');
+  });
+
+  it('un atleta sin marcas que los cortes lean', () => {
+    expect(suggestLevelOnLadder(FIVE, {}, null).status).toBe('no_signals');
+  });
+
+  it('un solo nivel sin defecto (posición 1) tampoco tiene cortes', () => {
+    expect(suggestLevelOnLadder(resolveLadder(ladderOf(['Único'])), { run_5k_s: 1200 }, 'male').status).toBe('no_criteria');
+  });
+});
+
+describe('relojes del editor', () => {
+  it('lee y escribe h:mm:ss y mm:ss', () => {
+    expect(parseClock('1:15:00')).toBe(4500);
+    expect(parseClock('21:00')).toBe(1260);
+    expect(parseClock("7'20")).toBe(440);
+    expect(parseClock('7:75')).toBeNull();
+    expect(parseClock('abc')).toBeNull();
+    expect(formatClock(4500)).toBe('1:15:00');
+    expect(formatClock(440)).toBe('7:20');
+  });
+});

@@ -5,15 +5,16 @@ import 'server-only';
 // `intake.ts` porque aquel módulo ya es el commit entero (perfil, sugerencias,
 // avisos, bienvenida) y esto es otra cosa: qué microciclos existen después.
 //
-//   · MODO COMPARTIDO (`shared`, el defecto) — `materializeFirstMicrocicloDraft`
-//     materializa el PRIMER microciclo de la BIBLIOTECA del coach.
+//   · MODO COMPARTIDO (`shared`) — ya no vive aquí: el alta asigna su grupo o un
+//     programa por el motor de asignar a varios (`intake-commit.ts`). El viejo
+//     «primer microciclo de la biblioteca» (el de id más bajo, sin elegir) se
+//     retiró: DECISIONS 2026-09-23 «El alta dice qué plan recibe».
 //   · MODO PERSONAL (`personal`) — `materializePersonalChain` crea la cadena de
 //     tramos que el coach escribió en el alta como microciclos PROPIOS de ese
 //     atleta, encadenados sin hueco.
 //
-// Los dos terminan igual: todas las semanas en BORRADOR PRIVADO del coach
-// (`markWeeksAsPrivateDraft`), porque el contrato del alta es que él revisa
-// antes de que el atleta vea nada.
+// Los tramos personales nacen en BORRADOR PRIVADO del coach
+// (`markWeeksAsPrivateDraft`): están vacíos hasta que él los escriba.
 
 import type { Sql } from '@/lib/db';
 import { IntakeError } from './intake-error';
@@ -157,92 +158,4 @@ export async function markWeeksAsPrivateDraft(params: {
     weekStarts.push(weekStart);
   }
   return weekStarts;
-}
-
-// =============================================================================
-// First-microciclo draft (default intake path) — AGNOSTIC: materializes the
-// coach's FIRST month template (a microciclo) via the shared materializer, then
-// marks each week as a PRIVATE manual draft via markWeekDraft (same gate as the
-// /assign-draft route: delivery_mode='manual', so the publish cron NEVER
-// auto-releases it) so Pablo lands on a reviewable draft, not an empty calendar.
-// =============================================================================
-
-export type FirstBlockDraftResult = {
-  /** Microciclo NAME (coach data). */
-  block_type: string;
-  /** athlete_month_assignments.id of the materialized first microciclo. */
-  assignment_id: string;
-  start_date: string;
-  week_count: number;
-  week_starts: string[];
-  assignment_count: number;
-};
-
-export async function materializeFirstMicrocicloDraft(params: {
-  coach_id: bigint | number;
-  athlete_id: bigint | number;
-  now: Date;
-  client: Sql;
-}): Promise<FirstBlockDraftResult | null> {
-  const { instantiateMonthFromTemplate, InstantiateProgramError } = await import(
-    '@/lib/dashboard/coach/instantiate-program'
-  );
-  const { isoDateString, mondayOfWeek } = await import('@fahybrid/shared/domain/dates');
-
-  // The coach's first LIBRARY month template (a microciclo) — athlete_id is null
-  // (0164) is load-bearing here: without it, the lowest-id row could be another
-  // athlete's PERSONAL plan (e.g. the coach's own test plan), and this brand-new
-  // athlete would be bootstrapped straight onto a stranger's bespoke content. No
-  // library month templates yet → no draft (degrade gracefully; Pablo programs
-  // the first microciclo manually).
-  const tplRows = await params.client<Array<{ id: string; name: string }>>`
-    select id::text, name
-    from program_month_templates
-    where coach_id = ${Number(params.coach_id)}
-      and athlete_id is null
-    order by id asc
-    limit 1
-  `;
-  const tpl = tplRows[0];
-  if (!tpl) return null;
-
-  // Anchor to this week's Monday so the materializer's Monday-aligned microcycles
-  // line up with the draft week_start dates we mark below. MISMO ancla que la
-  // cadena personal: el atleta empieza el mismo día elija el coach lo que elija.
-  const startIso = isoDateString(mondayOfWeek(params.now));
-
-  let assign: Awaited<ReturnType<typeof instantiateMonthFromTemplate>>;
-  try {
-    assign = await instantiateMonthFromTemplate({
-      coach_id: params.coach_id,
-      athlete_id: params.athlete_id,
-      month_template_id: Number(tpl.id),
-      start_date: startIso,
-      client: params.client,
-    });
-  } catch (err) {
-    // Empty / unusable month template → degrade gracefully, no draft.
-    if (err instanceof InstantiateProgramError) {
-      return null;
-    }
-    throw err;
-  }
-
-  const weekCount = assign.microcycle_ids.length;
-  const weekStarts = await markWeeksAsPrivateDraft({
-    coach_id: params.coach_id,
-    athlete_id: params.athlete_id,
-    start_date: startIso,
-    week_count: weekCount,
-    client: params.client,
-  });
-
-  return {
-    block_type: tpl.name,
-    assignment_id: assign.month_assignment_id,
-    start_date: assign.start_date,
-    week_count: weekCount,
-    week_starts: weekStarts,
-    assignment_count: assign.assignment_count,
-  };
 }

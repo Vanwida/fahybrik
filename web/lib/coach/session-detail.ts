@@ -28,6 +28,7 @@ import 'server-only';
 // la fuga. Los dos motivos viajan separados porque la ruta los distingue en su
 // copy ("Atleta no encontrado" / "Entreno no encontrado") y ese contrato es viejo.
 
+import { resolveEffectiveRunningThresholds } from '@/lib/coach/running-thresholds';
 import type { Sql } from '@/lib/db';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
@@ -73,10 +74,14 @@ export async function loadCoachSessionDetail(params: {
   `;
   if (!ownership[0]) return { ok: false, reason: 'athlete_not_found' };
 
+  // La pendiente que retira el ritmo es del coach: viaja en `run_compliance`
+  // para que la lectura del panel compare contra la suya, no contra un defecto.
+  const running = await resolveEffectiveRunningThresholds(coach_id, sql);
   const detail = await loadAssignmentDetail({
     sql,
     athlete_id: BigInt(athlete_id),
     assignment_id: BigInt(assignment_id),
+    gradient_retires_pace_pct: running.gradient_retires_pace_pct,
   });
   if (!detail) return { ok: false, reason: 'session_not_found' };
 

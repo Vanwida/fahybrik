@@ -22,8 +22,6 @@ import {
   applyBlockType,
   selectedArchetypeId,
 } from '@/lib/dashboard/v2/apply-block-type';
-import { MODALITY_META } from '@/components/v2/constants';
-import { blockModalitySlug } from './block-helpers';
 import {
   domainToAxisModalidad,
   isStrengthModality,
@@ -31,8 +29,8 @@ import {
   modalityColorSlug,
 } from '@/lib/dashboard/v2/editor-axes';
 import { ChipGroup } from '@/components/v2/controls/ChipGroup';
-import { MIcon } from '@/components/ui/MIcon';
-import { cn } from '@/lib/utils';
+import { ChevronRight, Copy } from 'lucide-react';
+import { Button, Checkbox, Input, Select, Tag } from '@/components/v2/ui';
 
 /**
  * El tag de modalidad: un dato, no un control. `fixedByExercise` añade el
@@ -50,7 +48,7 @@ export function ModalityTag({
     MODALIDAD_OPTIONS.find((o) => o.value === domainToAxisModalidad(modality))?.label ?? 'Bloque';
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2.5 py-1 text-xs font-bold"
+      className="inline-flex h-6 items-center gap-1.5 rounded-[4px] px-2 t-meta"
       style={{ background: `var(--v2-mod-${slug}-soft)`, color: `var(--v2-mod-${slug})` }}
     >
       <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
@@ -82,31 +80,16 @@ export function OptionalBadge({
   optional: boolean;
   onToggle?: () => void;
 }) {
-  const base =
-    'v2-focus inline-flex shrink-0 items-center rounded-[var(--v2-r-2xs)] px-1.5 py-[3px] text-nano font-extrabold uppercase leading-none tracking-wide transition-colors';
-  const onStyle =
-    'border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] text-[color:var(--v2-muted)]';
-
   if (!onToggle) {
-    return optional ? <span className={cn(base, onStyle)}>Opcional</span> : null;
+    return optional ? <Tag>Opcional</Tag> : null;
   }
-
-  const offStyle =
-    'border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-muted)]';
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={optional}
-      title={
-        optional
-          ? 'Quitar «opcional»: vuelve a ser obligatorio'
-          : 'Marcar como opcional: el atleta puede saltárselo'
-      }
-      className={cn(base, optional ? onStyle : offStyle)}
-    >
-      Opcional
-    </button>
+    <Checkbox
+      label="Opcional"
+      checked={optional}
+      onCheckedChange={() => onToggle()}
+      className="t-body-sm text-v2-muted"
+    />
   );
 }
 
@@ -162,30 +145,16 @@ export function BlockTypePicker({
   onChange: (next: EditorBlock) => void;
 }) {
   const current = selectedArchetypeId(block);
-  const slug = blockModalitySlug(block);
-  const meta = MODALITY_META[slug];
   return (
-    <label className="inline-flex shrink-0 items-center">
-      <span className="sr-only">Tipo de bloque</span>
-      <select
-        value={current}
-        aria-label="Tipo de bloque"
-        onChange={(e) => {
-          const id = e.target.value;
-          if (!id) return;
-          onChange(applyBlockType(block, id as ArchetypeId));
-        }}
-        className="v2-focus max-w-[11rem] cursor-pointer appearance-none rounded-[var(--v2-r-2xs)] border-0 px-2 py-0.5 text-eyebrow font-bold uppercase tracking-wide outline-none"
-        style={{ background: `var(${meta.softVar})`, color: `var(${meta.colorVar})` }}
-      >
-        {current === '' ? <option value="">Tipo</option> : null}
-        {ARCHETYPES.map((a) => (
-          <option key={a.id} value={a.id}>
-            {a.shortName}
-          </option>
-        ))}
-      </select>
-    </label>
+    <Select
+      size="sm"
+      aria-label="Tipo de bloque"
+      placeholder="Tipo"
+      value={current === '' ? null : current}
+      onValueChange={(id: ArchetypeId) => onChange(applyBlockType(block, id))}
+      options={ARCHETYPES.map((a) => ({ value: a.id, label: a.shortName }))}
+      className="max-w-[12rem]"
+    />
   );
 }
 
@@ -205,7 +174,7 @@ function BlockFormatPicker({
     block.items[0]?.prescription.scheme === 'superset' ? 'superset' : 'sets';
   return (
     <div className="space-y-1">
-      <p className="v2-micro">Formato</p>
+      <p className="t-meta text-v2-muted">Formato</p>
       <ChipGroup
         mono={false}
         options={BLOCK_FORMAT_OPTIONS}
@@ -256,17 +225,17 @@ export function CompositorHeader({
   const shown = fixed ?? first?.prescription.modality ?? null;
 
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[color:var(--v2-border)] pb-3">
+    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-v2-border pb-3">
       <div className="min-w-0 flex-1 space-y-1.5">
-        <p className="v2-micro">{kicker}</p>
-        <input
+        <p className="t-label text-v2-faint">{kicker}</p>
+        <Input
           type="text"
           value={block.title}
           maxLength={120}
           placeholder={archetype?.defaultTitle ?? 'Nombre del bloque'}
           aria-label="Nombre del bloque"
           onChange={(e) => onChange({ ...block, title: e.target.value })}
-          className="v2-focus v2-display w-full rounded-[var(--v2-r-2xs)] bg-transparent text-2xl text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)]"
+          className="-ml-2 h-9 border-transparent bg-transparent px-2 t-title-sm hover:border-v2-border"
         />
         <div className="flex flex-wrap items-center gap-2">
           <BlockTypePicker block={block} onChange={onChange} />
@@ -278,19 +247,12 @@ export function CompositorHeader({
             />
           ) : null}
         </div>
-        {canPickBlockFormat(block) ? (
-          <BlockFormatPicker block={block} onChange={onChange} />
-        ) : null}
+        {canPickBlockFormat(block) ? <BlockFormatPicker block={block} onChange={onChange} /> : null}
       </div>
       {onDuplicate ? (
-        <button
-          type="button"
-          onClick={onDuplicate}
-          className="v2-focus inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
-        >
-          <MIcon name="content_copy" size={15} />
+        <Button size="sm" icon={Copy} onClick={onDuplicate}>
           Duplicar
-        </button>
+        </Button>
       ) : null}
     </div>
   );
@@ -319,7 +281,7 @@ export function QuickDoseLine({
     if (!raw) return;
     const name = exerciseName.trim();
     if (!name) {
-      setError('Elige primero el ejercicio y aquí escribes su dosis.');
+      setError('Elige primero el ejercicio y aquí escribes series, reps y carga.');
       return;
     }
     const line = parseNotationCell(`${name} ${raw}`)[0];
@@ -339,30 +301,24 @@ export function QuickDoseLine({
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center gap-2.5 rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-3 focus-within:border-[color:var(--v2-accent)]">
-        <span aria-hidden className="v2-num font-bold text-[color:var(--v2-accent-text)]">
-          ›
-        </span>
-        <input
-          type="text"
-          value={text}
-          placeholder="o escríbelo: 4x4 @rir2 c/1'30''"
-          aria-label="Escribir la dosis como siempre"
-          autoComplete="off"
-          spellCheck={false}
-          onChange={(e) => {
-            setText(e.target.value);
-            if (error) setError(null);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') submit();
-          }}
-          className="v2-num h-9 w-full bg-transparent text-body outline-none placeholder:font-sans placeholder:text-[color:var(--v2-faint)]"
-        />
-      </div>
-      {error ? (
-        <p className="px-1 text-label leading-snug text-[color:var(--v2-warn)]">{error}</p>
-      ) : null}
+      <Input
+        type="text"
+        icon={ChevronRight}
+        value={text}
+        placeholder="o escríbelo: 4x4 @rir2 c/1'30''"
+        aria-label="Escribir series, reps y carga como siempre"
+        autoComplete="off"
+        spellCheck={false}
+        onChange={(e) => {
+          setText(e.target.value);
+          if (error) setError(null);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') submit();
+        }}
+        className="t-tnum"
+      />
+      {error ? <p className="px-1 t-meta text-v2-warn">{error}</p> : null}
     </div>
   );
 }

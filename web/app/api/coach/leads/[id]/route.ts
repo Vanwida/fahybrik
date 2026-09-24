@@ -9,6 +9,7 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { getLeadDetail } from '@/lib/dashboard/coach/leads';
 import { LeadTransitionError, reopenLead, transitionLeadStatus } from '@/lib/leads/store';
 import { coachActor } from '@/lib/audit/record-edit';
+import { negocioForbidden } from '@/lib/coach/negocio-gate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,6 +31,8 @@ function parseLeadId(raw: string): bigint | null {
 export async function GET(_req: Request, ctx: Ctx): Promise<NextResponse> {
   const session = await getCoachSession();
   if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
+  const noNegocio = await negocioForbidden(session.coach_id);
+  if (noNegocio) return noNegocio;
 
   const { id } = await ctx.params;
   const leadId = parseLeadId(id);
@@ -44,6 +47,8 @@ export async function GET(_req: Request, ctx: Ctx): Promise<NextResponse> {
 export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
   const session = await getCoachSession();
   if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
+  const noNegocio = await negocioForbidden(session.coach_id);
+  if (noNegocio) return noNegocio;
 
   const { id } = await ctx.params;
   const leadId = parseLeadId(id);

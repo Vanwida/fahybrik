@@ -436,9 +436,15 @@ describeWithDb('resolveExercise + learnSynonym (real DB)', () => {
     //
     // Este número es la medida de cobertura del catálogo y se espera que SUBA.
     // Si baja, algo se ha desconectado; si sube, actualízalo aquí diciendo por
-    // qué. Los 4 que siguen sin resolver son nombres truncados o etiquetas de
+    // qué. Los que siguen sin resolver son nombres truncados o etiquetas de
     // bloque, no movimientos.
-    expect(resolved).toBe(21);
+    //
+    // 21 → 23 (ola 4): el catálogo base ya lo crean las migraciones (0247), así
+    // que «Push Jerk» y «Bici Libre» existen en una base nueva, y el nombre
+    // exacto mira también `name_es`/`name_en` («Bici libre» es el name_es de
+    // `bici-libre`). Donde esas dos filas son PROPIAS de otro coach siguen sin
+    // resolver para los demás, como debe ser.
+    expect(resolved).toBe(23);
   });
 
   test('an unknown term resolves to null with the normalized key (caller escalates)', async () => {

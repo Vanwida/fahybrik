@@ -13,11 +13,6 @@
 // hay muestra para afirmar, se dice cuánta falta en vez de pintar un cero.
 
 import { PACING_SHAPE_LABEL } from '@fahybrid/shared/domain/running/pacing-shape';
-import type { AthleteWeekChipKind } from '@fahybrid/shared/domain/coach/athlete-week-chip';
-import {
-  allowsFreshnessVerdict,
-  weekHasSessions,
-} from '@fahybrid/shared/domain/coach/honest-week';
 import type { RunningAnalyticsPayload } from '@/lib/coach/running-analytics';
 import {
   BarrasSemanales,
@@ -100,7 +95,7 @@ export function PanelCalibracion({ analytics }: { analytics: RunningAnalyticsPay
 
       {positions.length > 0 ? (
         <>
-          <h4 className="v2-micro mt-1">Dónde se rompe dentro de la serie</h4>
+          <h4 className="t-label mt-1 text-v2-faint">Dónde se rompe dentro de la serie</h4>
           <ColumnasPorPosicion posiciones={positions} minPorPosicion={thresholds.min_reps_per_position} />
         </>
       ) : null}
@@ -118,12 +113,12 @@ export function PanelCalibracion({ analytics }: { analytics: RunningAnalyticsPay
 // ---------------------------------------------------------------------------
 
 export function PanelComprometida({ analytics }: { analytics: RunningAnalyticsPayload }) {
-  const { compromised, thresholds } = analytics;
+  const { compromised } = analytics;
   const { points, valid_pairs, has_enough_data, min_pairs_required } = compromised;
 
   if (points.length === 0) {
     return (
-      <Panel titulo="Lo que le cuesta correr cansado" chip="Solo aquí" chipTono="accent">
+      <Panel titulo="Lo que le cuesta correr cansado">
         <SinBastante>
           Todavía no hay ninguna pareja con la que comparar. Hace falta el mismo objetivo corrido en fresco y detrás de
           trabajo: sin pareja no hay número, porque medir un rodaje suave contra unas series no diría nada.
@@ -144,7 +139,7 @@ export function PanelComprometida({ analytics }: { analytics: RunningAnalyticsPa
           : 'El coste no se mueve.';
 
   return (
-    <Panel titulo="Lo que le cuesta correr cansado" chip="Solo aquí" chipTono="accent">
+    <Panel titulo="Lo que le cuesta correr cansado">
       <Veredicto
         frase={frase}
         apoyo={
@@ -248,82 +243,6 @@ export function PanelVolumen({ analytics }: { analytics: RunningAnalyticsPayload
         La barra rayada es la semana en curso: lleva menos de siete días y no se compara con las cerradas. Aquí no hay
         listón ni color de aviso, porque dónde está el techo de una semana buena, y cuánto se puede subir de una a otra,
         es tuyo y no nuestro.
-      </NotaMetodo>
-    </Panel>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 5 · La carga, con el veredicto delante
-// ---------------------------------------------------------------------------
-
-export function PanelCarga({
-  analytics,
-  weekChipKind,
-}: {
-  analytics: RunningAnalyticsPayload;
-  weekChipKind: AthleteWeekChipKind;
-}) {
-  const { load } = analytics;
-  const { ctl, atl, tsb, acr, coverage, cold_start, allows_verdict, is_alert, freshness_alert_tsb } = load;
-
-  // El signo menos es el TIPOGRÁFICO (U+2212), el mismo que usa la lectura de
-  // una carrera para «al parar −34 ppm». Un guion ASCII al lado de una cifra
-  // grande se lee como un guion de relleno, que es justo lo que no hay aquí.
-  const conSigno = (n: number) => (n < 0 ? `−${Math.abs(Math.round(n))}` : `+${Math.round(n)}`);
-  const redondo = (n: number) => String(Math.round(n));
-  const frescura = conSigno(tsb);
-  const haySemana = weekHasSessions(weekChipKind);
-  const showVerdict = allowsFreshnessVerdict(allows_verdict, weekChipKind);
-
-  return (
-    <Panel titulo="Carga" chip={`Fondo sobre ${cold_start.ctl_window_days} días`}>
-      {showVerdict ? (
-        <Veredicto
-          frase={is_alert ? 'Está apretando.' : 'No está apretando.'}
-          tono={is_alert ? 'alerta' : null}
-          apoyo={
-            is_alert
-              ? `La carga reciente va ${Math.abs(Math.round(tsb))} por encima de su fondo.`
-              : `Su frescura está en ${frescura}, por encima del corte que pusiste.`
-          }
-        />
-      ) : (
-        <SinBastante>
-          {!haySemana
-            ? 'Esta semana no hay kilómetros de los que leer frescura.'
-            : (
-              <>
-                Los números están, pero no se puede decir si está apretando.{' '}
-                {!cold_start.is_warmed_up
-                  ? cold_start.days_of_history == null
-                    ? 'No tiene ninguna sesión ejecutada desde la que contar el fondo.'
-                    : `El fondo se calcula sobre ${cold_start.ctl_window_days} días y lleva ${cold_start.days_of_history}: le faltan ${cold_start.days_missing} para que se asiente.`
-                  : (coverage.note_es ?? 'Falta cobertura de carga en la ventana.')}
-              </>
-            )}
-        </SinBastante>
-      )}
-
-      <Cifras>
-        <Cifra etiqueta="Fondo" valor={redondo(ctl)} pie="lo que aguanta de normal" />
-        <Cifra etiqueta="Reciente" valor={redondo(atl)} pie="lo que ha metido estos días" />
-        <Cifra
-          etiqueta="Frescura"
-          valor={haySemana ? frescura : '—'}
-          pie={haySemana ? 'fondo menos reciente' : 'sin kilómetros esta semana'}
-          tono={showVerdict && is_alert ? 'var(--v2-warn)' : undefined}
-        />
-        {acr != null ? <Cifra etiqueta="Reciente contra fondo" valor={acr.toFixed(2).replace('.', ',')} /> : null}
-      </Cifras>
-
-      {coverage.state === 'partial' && coverage.note_es ? (
-        <NotaMetodo>{coverage.note_es}</NotaMetodo>
-      ) : null}
-
-      <NotaMetodo>
-        Avisa cuando la frescura baja de {conSigno(freshness_alert_tsb)}. Cuántos días son el fondo, cuántos lo reciente y a
-        partir de qué frescura esto es un aviso lo pones tú.
       </NotaMetodo>
     </Panel>
   );

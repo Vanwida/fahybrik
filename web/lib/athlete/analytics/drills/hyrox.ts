@@ -1,6 +1,7 @@
 // ANALYTICS · DRILL-DOWN · HYROX — `hyrox.race` opens the 16 race segments
 // (8 runs + 8 stations) in race order; `hyrox.scores` opens the scored sim /
-// metcon training sessions behind the history card.
+// metcon training sessions behind the history card, each on the athlete's day
+// (`tz`), the same day the card uses.
 
 import 'server-only';
 
@@ -152,6 +153,7 @@ export async function hyroxScoresDrill(
   client: Sql,
   athleteId: number,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<DrillDownResult> {
   const rows = await client<Array<{
     execution_id: string;
@@ -166,7 +168,7 @@ export async function hyroxScoresDrill(
     select
       we.id::text as execution_id,
       we.assignment_id::text as assignment_id,
-      to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
+      to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as day,
       we.score_time_s, we.score_rounds, we.score_reps,
       t.name as template_name, t.format::text as format
     from workout_executions we

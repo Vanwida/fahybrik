@@ -1,7 +1,9 @@
+import { leadOwnedBy } from './owner';
 import 'server-only';
 
 import { z } from 'zod';
 import { sql, type TransactionClient } from '@/lib/db';
+import { checkAssignableLevel } from '@/lib/coach/level-options';
 import { subscriptionPlanType } from '@fahybrid/shared/schema/_primitives';
 import {
   createCompAthlete,
@@ -106,7 +108,8 @@ export class AltaError extends Error {
       | 'email_in_use'
       | 'athlete_already_linked'
       | 'stripe_not_configured'
-      | 'stripe_checkout_failed',
+      | 'stripe_checkout_failed'
+      | 'invalid_level',
     message: string,
     readonly status: number,
   ) {
@@ -195,6 +198,7 @@ async function altaStripe(params: {
       amount_cents,
       currency: ALTA_CURRENCY,
       founder,
+      coach_id,
       metadata: {
         fahybrik_flow: 'athlete_alta',
         fahybrik_lead_id: String(lead_id),
@@ -270,6 +274,8 @@ async function createAthleteFromLead(
       carrera_mente, carrera_cual, carrera_cuando, categoria_objetivo, sexo
     from leads
     where id = ${Number(lead_id)}
+      -- Tenancy (leadOwnedBy): another club's lead is indistinguishable from a missing one.
+      and ${leadOwnedBy(trx, coach_id, trx`coach_id`)}
     limit 1
     for update
   `;
@@ -283,6 +289,13 @@ async function createAthleteFromLead(
       `El lead ya está "${lead.status}" — no se puede dar de alta.`,
       409,
     );
+  }
+
+  // El nivel elegido tiene que ser del coach y estar activo (un retirado no se
+  // pone a nadie nuevo, 0259).
+  if (input.level_id != null) {
+    const check = await checkAssignableLevel(trx, coach_id, input.level_id);
+    if (!check.ok) throw new AltaError('invalid_level', check.message, 422);
   }
 
   // 2) Create the athlete carrying the onboarding data, with the requested
@@ -365,7 +378,10 @@ async function createAthleteFromLead(
   // 4) Mark the alta as sent (visible on the lead card). Status is untouched —
   //    the lead only becomes `convertido` when the invite is redeemed.
   await trx`
-    update leads set alta_sent_at = now(), updated_at = now()
+    update leads
+       -- Dar el alta a un lead «sin asignar» es asignarlo a mano (0147): queda del club
+       -- que lo convierte. Un lead con dueño no cambia de dueño.
+       set alta_sent_at = now(), updated_at = now(), coach_id = coalesce(coach_id, ${Number(coach_id)})
     where id = ${Number(lead_id)}
   `;
 

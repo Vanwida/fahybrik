@@ -17,6 +17,7 @@ import {
   parseParenInterval,
   parseRepSeq,
   parseRest,
+  stripRestClocks,
   parseEffortTarget,
   parseZoneTarget,
   stripLoadPct,
@@ -79,7 +80,8 @@ export function parseBout(seg: string): Parsed | null {
     paren || interval || distIntervalRange || distInterval || wordInterval
       ? null
       : parseCaloriesInterval(seg);
-  const dur = parseDuration(seg);
+  // El reloj de un DESCANSO («r2'», «descanso 90''») no es la duración del bout.
+  const dur = parseDuration(stripRestClocks(seg));
   const dist = parseDistanceMeters(seg) ?? parseMilesMeters(seg);
   const cap = parsePaceCap(seg);
   const rest = parseRest(seg);

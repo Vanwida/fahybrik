@@ -1,12 +1,12 @@
 // GET / PUT /api/coach/signal-thresholds
 //
-// Los umbrales de señal que edita el coach: cuántos días aguanta una pregunta
-// sin respuesta antes de subir a /hoy, a partir de qué retraso una tarea vencida
-// pasa a crítica, y con cuánta antelación reclama un protocolo sin abrir. GET
-// resuelve la fila del coach, o los defectos del sistema cuando no ha escrito
-// ninguna (`is_custom` dice cuál de las dos). PUT reemplaza el conjunto entero
-// (Zod en servidor: enteros dentro de los límites). Sesión de coach obligatoria
-// y todo scoped a `session.coach_id`. Espejo de app/api/coach/import-defaults/route.ts.
+// Los umbrales de señal y las bandas de readiness que edita el coach (su método:
+// HARD RULE Nº0). GET devuelve los EFECTIVOS en plano, cuáles son suyos
+// (`custom_keys`) y los defectos del sistema. PUT escribe SOLO las claves que
+// recibe — número nuevo o `null` para volver al defecto — y rechaza con 422 si el
+// resultado es incoherente (p. ej. la banda de cautela por encima de la de
+// «bien»). Zod en servidor con los límites de `COACH_THRESHOLD_SPEC`. Sesión de
+// coach obligatoria y todo scoped a `session.coach_id`.
 
 import type { NextResponse } from 'next/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
@@ -15,8 +15,10 @@ import {
   coachSignalThresholdsPutSchema,
   type CoachSignalThresholdsResponse,
 } from '@fahybrid/shared/schema/coach-signal-thresholds';
+import { thresholdIssues } from '@fahybrid/shared/domain/coach/signal-thresholds';
 import {
   getCoachSignalThresholds,
+  previewCoachThresholds,
   upsertCoachSignalThresholds,
 } from '@/lib/coach/signal-thresholds';
 
@@ -46,6 +48,12 @@ export async function PUT(
   const parsedBody = coachSignalThresholdsPutSchema.safeParse(rawBody);
   if (!parsedBody.success) {
     return jsonError('validation_error', 'Datos inválidos', 422, parsedBody.error.flatten());
+  }
+
+  const next = await previewCoachThresholds(session.coach_id, parsedBody.data);
+  const issues = thresholdIssues(next);
+  if (issues.length > 0) {
+    return jsonError('validation_error', issues[0]!.message, 422, { issues });
   }
 
   const thresholds = await upsertCoachSignalThresholds(session.coach_id, parsedBody.data);

@@ -8,7 +8,7 @@ import 'server-only';
 // evaluadores, que es donde vive el método editable del coach.
 
 import {
-  daysFromNowToIso,
+  daysBetweenIso,
   type SignalFacts,
 } from '@fahybrid/shared/domain/coach/signals';
 import type { BatchRow } from './recompute-batch';
@@ -33,11 +33,11 @@ type CommunicationFacts = Pick<
  * evaluador: una pregunta y una tarea miden lo que YA lleva pasado, y un
  * protocolo mide lo que FALTA hasta su evento (0 = el evento es hoy).
  */
-export function communicationClaims(row: BatchRow, now: Date): CommunicationFacts {
+export function communicationClaims(row: BatchRow, now: Date, todayIso: string): CommunicationFacts {
   return {
     communication_question: questionClaim(row, now),
-    communication_task: taskClaim(row, now),
-    communication_protocol: protocolClaim(row, now),
+    communication_task: taskClaim(row, todayIso),
+    communication_protocol: protocolClaim(row, todayIso),
   };
 }
 
@@ -55,7 +55,8 @@ function questionClaim(row: BatchRow, now: Date): SignalFacts['communication_que
   };
 }
 
-function taskClaim(row: BatchRow, now: Date): SignalFacts['communication_task'] {
+/** `todayIso`: el día del ATLETA — la tarea es lo que él ya tenía que haber hecho. */
+function taskClaim(row: BatchRow, todayIso: string): SignalFacts['communication_task'] {
   const { comm_task_id: id, comm_task_title: title } = row;
   const dueIso = row.comm_task_due_iso;
   if (id == null || title == null || dueIso == null) return null;
@@ -64,7 +65,7 @@ function taskClaim(row: BatchRow, now: Date): SignalFacts['communication_task'] 
     id,
     title,
     // La fecha límite ya pasó, así que el retraso va en positivo.
-    days: -daysFromNowToIso(dueIso, now),
+    days: daysBetweenIso(dueIso, todayIso),
     others: others(row.comm_task_n),
   };
 }
@@ -74,7 +75,7 @@ function taskClaim(row: BatchRow, now: Date): SignalFacts['communication_task'] 
  * que necesita su propia guarda: un ancla que no reconozcamos no es un protocolo
  * a medias, es un protocolo del que no sabemos la fecha.
  */
-function protocolClaim(row: BatchRow, now: Date): SignalFacts['communication_protocol'] {
+function protocolClaim(row: BatchRow, todayIso: string): SignalFacts['communication_protocol'] {
   const { comm_protocol_id: id, comm_protocol_title: title } = row;
   const eventIso = row.comm_protocol_event_iso;
   const anchor = row.comm_protocol_anchor;
@@ -84,7 +85,7 @@ function protocolClaim(row: BatchRow, now: Date): SignalFacts['communication_pro
   return {
     id,
     title,
-    days: daysFromNowToIso(eventIso, now),
+    days: daysBetweenIso(todayIso, eventIso),
     others: others(row.comm_protocol_n),
     anchor,
   };

@@ -15,6 +15,11 @@
 //
 // As TREND, never a hero daily score (the doc's "no construir": a daily score in
 // isolation is anxiety). Honest: a metric with too few recent days is omitted.
+//
+// A reading's DAY is the athlete's (DECISIONS «Qué día es en cada sitio»): last
+// night's sleep or this morning's HRV, read in UTC, lands on the day before for
+// anyone east of it — and FC reposo, which comes from its resolver in his day,
+// would disagree with the cards next to it. Same for the drill (drills/recovery.ts).
 
 import 'server-only';
 
@@ -142,11 +147,17 @@ function buildMetricTrendCard(
 }
 
 export async function buildRecoverySection(
-  args: { athlete_id: number | bigint; period: ResolvedPeriod },
+  args: {
+    athlete_id: number | bigint;
+    period: ResolvedPeriod;
+    /** The athlete's zone, when the caller already resolved it; read here if not. */
+    tz?: string;
+  },
   client: Sql = defaultSql,
 ): Promise<AnalyticsSection> {
   const athleteId = Number(args.athlete_id);
   const { period } = args;
+  const tz = args.tz ?? (await loadAthleteTimezone(client, athleteId));
   // Resting HR is EXCLUDED from the bulk query on purpose — it is a daily aggregate
   // revised in place, so it needs last-revision-wins on the athlete's local day, not
   // a UTC-bucketed average of its own superseded revisions. It comes from THE
@@ -157,10 +168,11 @@ export async function buildRecoverySection(
     (t) => t !== RESTING_HR_METRIC,
   );
 
-  // Daily averages per metric across the period (one round-trip).
+  // Daily averages per metric across the period (one round-trip), per day of HIS
+  // calendar.
   const rows = await client<Array<{ metric_type: string; d: string; v: number | null }>>`
     select metric_type::text as metric_type,
-           to_char(date_trunc('day', recorded_at)::date, 'YYYY-MM-DD') as d,
+           to_char(recorded_at at time zone ${tz}, 'YYYY-MM-DD') as d,
            avg(value_numeric)::float as v
     from biometric_streams
     where athlete_id = ${athleteId}
@@ -178,7 +190,6 @@ export async function buildRecoverySection(
     byMetric.set(r.metric_type, list);
   }
 
-  const tz = await loadAthleteTimezone(client, athleteId);
   const restingHrDays = await loadRestingHrDays({
     athlete_id: athleteId,
     from_iso: zonedDayString(new Date(period.start_iso), tz),
@@ -213,7 +224,7 @@ export async function buildRecoverySection(
   cards.push(buildMetricTrendCard(SLEEP_CFG, byMetric.get(SLEEP_CFG.metric_type) ?? [], period));
 
   // ── Zonas de FC — REAL, reparto de segment_zone_seconds (ver buildHrZonesCard).
-  cards.push(await buildHrZonesCard(client, athleteId, period));
+  cards.push(await buildHrZonesCard(client, athleteId, period, tz));
 
   return { section: 'recovery', title_es: 'Recuperación', availability: 'real', period, cards };
 }
@@ -264,9 +275,16 @@ async function buildAcwr(client: Sql, athleteId: number, period: ResolvedPeriod)
  * Se lo decimos al atleta con la misma honestidad que ya usa "Mis zonas" en iOS
  * (HRZoneProfile.sourceLabel) — nunca lo escondemos ni lo hacemos pasar por medido.
  */
-async function buildHrZonesCard(client: Sql, athleteId: number, period: ResolvedPeriod): Promise<AnalyticsCard> {
+async function buildHrZonesCard(
+  client: Sql,
+  athleteId: number,
+  period: ResolvedPeriod,
+  tz: string,
+): Promise<AnalyticsCard> {
   const weeks = Math.max(1, Math.ceil(period.days / 7));
-  const week_start = mondayOf(period.start_iso);
+  // The Monday of the day the period starts on in HIS calendar: the zone window
+  // counts his local days (`loadZoneWindow`), so its first week has to be his too.
+  const week_start = mondayOf(zonedDayString(new Date(period.start_iso), tz));
   const { weeks_data, anchor } = await loadZoneWindow({ athlete_id: athleteId, week_start, weeks, client });
 
   // no_hr_s NUNCA entra en el total: es tiempo sin pulso, no una sexta zona (misma

@@ -4,7 +4,7 @@
 //   • lib/citas/google-tokens is mocked so we control "connected vs not" without a DB.
 //
 // Coverage:
-//   (a) no refresh_token → createMeeting returns null and never calls Google;
+//   (a) no connection for the cita's coach (or no coach) → null, never calls Google;
 //   (b) token present → the Calendar request is built correctly (conferenceDataVersion=1,
 //       hangoutsMeet createRequest, attendees incl. lead + coach, 30-min window, summary)
 //       and the Meet link is parsed from a mocked response;
@@ -16,20 +16,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 process.env.AUTH_SECRET = 'test-auth-secret-value';
 process.env.GOOGLE_CLIENT_ID = 'test-client-id';
 process.env.GOOGLE_CLIENT_SECRET = 'test-client-secret';
-process.env.GOOGLE_CALENDAR_ID = 'primary';
 process.env.APP_URL = 'https://fahybrid.com';
 
 // Control "connected vs not" without touching the DB.
 vi.mock('@/lib/citas/google-tokens', () => ({
-  getGoogleRefreshToken: vi.fn(),
-  saveGoogleRefreshToken: vi.fn(),
+  getGoogleConnection: vi.fn(),
+  saveGoogleConnection: vi.fn(),
 }));
 
 const resolveClubNotifyEmail = vi.fn(async () => null as string | null);
 vi.mock('@/lib/coach/club-notify', () => ({ resolveClubNotifyEmail }));
 
+// La piel del club de ESTA cita: el título del evento lleva SU nombre.
+const resolveClubEmailSkin = vi.fn(async () => ({ wordmark: 'Club Norte' }));
+vi.mock('@/lib/coach/club-skin', () => ({ resolveClubEmailSkin }));
+
 import { createMeeting } from '@/lib/citas/meeting';
-import { getGoogleRefreshToken } from '@/lib/citas/google-tokens';
+import { getGoogleConnection } from '@/lib/citas/google-tokens';
+
+const CONN = { refresh_token: 'stored-refresh-token', calendar_id: 'primary' };
 import { createSignedState, verifySignedState } from '@/lib/citas/google';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -76,7 +81,7 @@ function installFetchMock(): { calendarCall: () => CapturedCall | null; tokenCal
 }
 
 beforeEach(() => {
-  vi.mocked(getGoogleRefreshToken).mockReset();
+  vi.mocked(getGoogleConnection).mockReset();
   resolveClubNotifyEmail.mockReset();
   resolveClubNotifyEmail.mockResolvedValue(null);
   vi.unstubAllGlobals();
@@ -84,8 +89,8 @@ beforeEach(() => {
 });
 
 describe('createMeeting — not connected', () => {
-  it('returns a null link and never calls Google when there is no refresh_token', async () => {
-    vi.mocked(getGoogleRefreshToken).mockResolvedValue(null);
+  it('returns a null link and never calls Google when the coach has no connection', async () => {
+    vi.mocked(getGoogleConnection).mockResolvedValue(null);
     const { calendarCall, tokenCalls } = installFetchMock();
 
     const result = await createMeeting({
@@ -103,7 +108,7 @@ describe('createMeeting — not connected', () => {
   });
 
   it('swallows a DB error and falls back to a null link (accept flow must not break)', async () => {
-    vi.mocked(getGoogleRefreshToken).mockRejectedValue(new Error('db down'));
+    vi.mocked(getGoogleConnection).mockRejectedValue(new Error('db down'));
     installFetchMock();
 
     const result = await createMeeting({
@@ -121,7 +126,7 @@ describe('createMeeting — not connected', () => {
 
 describe('createMeeting — connected', () => {
   it('builds the Calendar+Meet request correctly and parses the meet_link', async () => {
-    vi.mocked(getGoogleRefreshToken).mockResolvedValue('stored-refresh-token');
+    vi.mocked(getGoogleConnection).mockResolvedValue(CONN);
     const { calendarCall } = installFetchMock();
 
     const result = await createMeeting({
@@ -131,8 +136,11 @@ describe('createMeeting — connected', () => {
       leadEmail: 'lead@example.com',
       leadName: 'Ana Ruiz',
       modality: 'video',
+      coach_id: BigInt(7),
     });
 
+    // La conexión es la del coach de ESTA cita (0254), nunca una global.
+    expect(getGoogleConnection).toHaveBeenCalledWith(BigInt(7));
     // Meet link parsed + event id returned for the cancel-hook.
     expect(result.meet_link).toBe(MEET_LINK);
     expect(result.event_id).toBe('evt_test_123');
@@ -153,8 +161,9 @@ describe('createMeeting — connected', () => {
     // 30-min window off the requested start.
     expect(body.start.dateTime).toBe('2026-07-15T09:00:00.000Z');
     expect(body.end.dateTime).toBe('2026-07-15T09:30:00.000Z');
-    // Summary carries the lead name.
-    expect(body.summary).toBe('Videollamada FAHYBRID · Ana Ruiz');
+    // Summary: el club de la cita (su piel) + el nombre del lead. Nunca otra marca.
+    expect(resolveClubEmailSkin).toHaveBeenCalledWith(BigInt(7));
+    expect(body.summary).toBe('Videollamada Club Norte · Ana Ruiz');
     // Meet conference requested via hangoutsMeet with a unique requestId.
     expect(body.conferenceData.createRequest.conferenceSolutionKey.type).toBe('hangoutsMeet');
     expect(typeof body.conferenceData.createRequest.requestId).toBe('string');
@@ -166,7 +175,7 @@ describe('createMeeting — connected', () => {
   });
 
   it('incluye el correo del club cuando existe, nunca hello@', async () => {
-    vi.mocked(getGoogleRefreshToken).mockResolvedValue('stored-refresh-token');
+    vi.mocked(getGoogleConnection).mockResolvedValue(CONN);
     resolveClubNotifyEmail.mockResolvedValue('avisos@northbox.test');
     const { calendarCall } = installFetchMock();
 
@@ -188,7 +197,7 @@ describe('createMeeting — connected', () => {
   });
 
   it('falls back to a null link when the Calendar insert fails (never throws)', async () => {
-    vi.mocked(getGoogleRefreshToken).mockResolvedValue('stored-refresh-token');
+    vi.mocked(getGoogleConnection).mockResolvedValue(CONN);
     // Token mints OK, but the Calendar insert 500s.
     const mock = vi.fn(async (input: string | URL | Request): Promise<Response> => {
       const url = typeof input === 'string' ? input : input.toString();
@@ -204,39 +213,41 @@ describe('createMeeting — connected', () => {
       leadEmail: 'lead@example.com',
       leadName: 'Ana Ruiz',
       modality: 'video',
+      coach_id: BigInt(7),
     });
 
     expect(result).toEqual({ meet_link: null });
   });
 });
 
-describe('OAuth state HMAC (CSRF)', () => {
-  it('a freshly-signed state verifies', () => {
-    const state = createSignedState();
-    expect(verifySignedState(state)).toBe(true);
+describe('OAuth state HMAC (CSRF), bound to the coach', () => {
+  it('a freshly-signed state verifies and names its coach', () => {
+    const state = createSignedState(BigInt(42));
+    expect(verifySignedState(state)).toBe(BigInt(42));
   });
 
-  it('a tampered state is rejected', () => {
-    const state = createSignedState();
+  it('a tampered state is rejected — also one whose coach was swapped', () => {
+    const state = createSignedState(BigInt(42));
     const parts = state.split('.');
     // Flip the signature segment.
-    const tampered = `${parts[0]}.${parts[1]}.${parts[2]}deadbeef`;
-    expect(verifySignedState(tampered)).toBe(false);
+    const tampered = `${parts[0]}.${parts[1]}.${parts[2]}.${parts[3]}deadbeef`;
+    expect(verifySignedState(tampered)).toBeNull();
 
-    // Flip the nonce (payload) but keep the old signature → MAC mismatch.
-    const forgedPayload = `${parts[0]}00.${parts[1]}.${parts[2]}`;
-    expect(verifySignedState(forgedPayload)).toBe(false);
+    // Another coach's id with the old signature → MAC mismatch.
+    const swapped = `43.${parts[1]}.${parts[2]}.${parts[3]}`;
+    expect(verifySignedState(swapped)).toBeNull();
   });
 
   it('an expired state is rejected', () => {
     // Issued 16 min ago (> 15-min TTL).
     const past = new Date(Date.now() - 16 * 60 * 1000);
-    const state = createSignedState(past);
-    expect(verifySignedState(state)).toBe(false);
+    const state = createSignedState(BigInt(42), past);
+    expect(verifySignedState(state)).toBeNull();
   });
 
-  it('a malformed state (wrong shape) is rejected', () => {
-    expect(verifySignedState('not-a-valid-state')).toBe(false);
-    expect(verifySignedState('')).toBe(false);
+  it('a malformed state (wrong shape, or the old unbound shape) is rejected', () => {
+    expect(verifySignedState('not-a-valid-state')).toBeNull();
+    expect(verifySignedState('')).toBeNull();
+    expect(verifySignedState('nonce.123.sig')).toBeNull();
   });
 });

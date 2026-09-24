@@ -16,7 +16,8 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { zonedDayString } from '@fahybrid/shared/domain/dates';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { loadRunSessionRows, type RunSessionRow } from './sessions';
 import { buildAthleteVo2Max } from '@/lib/athlete/vo2max';
 
@@ -129,20 +130,17 @@ function aggregateSessions(rows: readonly RunSessionRow[]): BucketAggregate {
  *  `generate_series` — el mismo mecanismo que ya usa `running-volume.ts`. */
 async function loadBucketStarts(
   client: Sql,
-  athlete_id: number,
   granularity: 'week' | 'month',
   since: Date,
   until: Date,
+  tz: string,
 ): Promise<string[]> {
   const interval = granularity === 'week' ? '7 days' : '1 month';
   const rows = await client<Array<{ start: string }>>`
-    with athlete_tz as (
-      select coalesce((select a.timezone from athletes a where a.id = ${athlete_id}), ${BOX_TIMEZONE}) as tz
-    ),
-    bounds as (
+    with bounds as (
       select
-        date_trunc(${granularity}, ${since.toISOString()}::timestamptz at time zone (select tz from athlete_tz)) as first_b,
-        date_trunc(${granularity}, ${until.toISOString()}::timestamptz at time zone (select tz from athlete_tz)) as last_b
+        date_trunc(${granularity}, ${since.toISOString()}::timestamptz at time zone ${tz}) as first_b,
+        date_trunc(${granularity}, ${until.toISOString()}::timestamptz at time zone ${tz}) as last_b
     )
     select to_char(
       generate_series((select first_b from bounds), (select last_b from bounds), ${interval}::interval),
@@ -201,10 +199,16 @@ export async function buildRunningTendencias(args: {
     return { buckets: [], prev: EMPTY_PREV };
   }
 
+  // Un huso para todo lo que se fecha aquí —los arranques de bucket, el día y la
+  // semana de cada sesión, el día de cada lectura de VO₂máx—: el del atleta
+  // (DECISIONS «Qué día es en cada sitio»). Con dos, una lectura caería en un
+  // bucket y su sesión en el de al lado.
+  const tz = await loadAthleteTimezone(client, args.athlete_id);
+
   const [starts, sessions, vo2] = await Promise.all([
-    loadBucketStarts(client, args.athlete_id, granularity, since, now),
-    loadRunSessionRows(client, args.athlete_id, since, now),
-    buildAthleteVo2Max({ athlete_id: args.athlete_id, client }),
+    loadBucketStarts(client, granularity, since, now, tz),
+    loadRunSessionRows(client, args.athlete_id, since, now, tz),
+    buildAthleteVo2Max({ athlete_id: args.athlete_id, on_date: now, client }),
   ]);
 
   const bucketKeyOf = (s: RunSessionRow) => (granularity === 'week' ? s.week_monday : s.month_start);
@@ -233,12 +237,13 @@ export async function buildRunningTendencias(args: {
     const days = WINDOW_DAYS[args.window];
     const prevUntil = new Date(since.getTime() - 1);
     const prevSince = new Date(since.getTime() - days * MS_PER_DAY);
-    const prevSessions = await loadRunSessionRows(client, args.athlete_id, prevSince, prevUntil);
+    const prevSessions = await loadRunSessionRows(client, args.athlete_id, prevSince, prevUntil, tz);
     if (prevSessions.length > 0) {
       const prevVo2 = await buildAthleteVo2Max({ athlete_id: args.athlete_id, on_date: since, client });
-      const prevVo2Points = prevVo2.series.filter(
-        (p) => p.iso_date >= prevSince.toISOString().slice(0, 10) && p.iso_date < since.toISOString().slice(0, 10),
-      );
+      // La serie viene en días de SU calendario; los bordes, también.
+      const prevFrom = zonedDayString(prevSince, tz);
+      const prevTo = zonedDayString(since, tz);
+      const prevVo2Points = prevVo2.series.filter((p) => p.iso_date >= prevFrom && p.iso_date < prevTo);
       prev = {
         ...aggregateSessions(prevSessions),
         vo2max:

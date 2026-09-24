@@ -37,7 +37,8 @@
 //     below, in the server's own words).
 
 import { useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
+import { Save } from 'lucide-react';
+import { Button, Input, Textarea } from '@/components/v2/ui';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
 import { VideoUrlField, videoUrlDraftInvalid } from '@/components/media/VideoUrlField';
 import {
@@ -122,63 +123,50 @@ export function EditExerciseForm({
   const originLabel = ORIGIN_LABEL[exercise.origin];
 
   return (
-    <div className="space-y-4 overflow-y-auto p-5">
+    <div className="space-y-4">
       <div className="flex items-center gap-2.5">
-        <span
-          aria-hidden
-          className="h-2.5 w-2.5 shrink-0 rounded-full"
-          style={{ background: `var(--v2-mod-${slug})` }}
-        />
+        <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: `var(--v2-mod-${slug})` }} />
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-[color:var(--v2-fg)]">{exercise.name}</p>
-          <p className="text-label text-[color:var(--v2-faint)]">
+          <p className="truncate t-body font-medium text-v2-fg">{exercise.name}</p>
+          <p className="t-meta text-v2-faint">
             {CATEGORY_LABEL[exercise.category]}
             {originLabel ? ` · ${originLabel}` : ''}
           </p>
         </div>
       </div>
 
-      <div className="flex items-start gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5">
-        <MIcon name="person" size={15} className="mt-px shrink-0 text-[color:var(--v2-accent-text)]" />
-        <p className="text-xs leading-snug text-[color:var(--v2-fg)]">
-          {isOwn ? (
-            <>
-              <b>Tu ejercicio.</b> Lo que edites aquí lo ven tus atletas directamente: no hay una
-              versión base a la que volver.
-            </>
-          ) : (
-            <>
-              <b>Tu versión.</b> Es lo que verán <b>tus</b> atletas en este ejercicio. Lo que dejes
-              vacío se hereda del contenido base.
-            </>
-          )}
-        </p>
-      </div>
+      <p className="t-body-sm text-v2-muted">
+        {isOwn ? (
+          <>
+            <span className="font-medium text-v2-fg">Tu ejercicio.</span> Lo que edites aquí lo ven tus atletas
+            directamente: no hay una versión base a la que volver.
+          </>
+        ) : (
+          <>
+            <span className="font-medium text-v2-fg">Tu versión.</span> Es lo que verán tus atletas en este
+            ejercicio. Lo que dejes vacío se hereda del contenido base.
+          </>
+        )}
+      </p>
 
       <label className="block space-y-1.5">
-        <span className="v2-micro">Nombre</span>
-        <input
+        <span className="t-meta text-v2-muted">Nombre</span>
+        <Input
           type="text"
+          size="lg"
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={120}
           placeholder={isOwn ? undefined : exercise.base_name}
           aria-label="Nombre del ejercicio"
-          aria-invalid={isOwn && name.trim().length === 0}
-          className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
+          invalid={isOwn && name.trim().length === 0}
         />
         {isOwn ? (
           // Same message the server would give (invalid_name) — validated here
           // too so the coach sees it before Guardar disables itself, not after.
-          name.trim().length === 0 ? (
-            <p className="text-label text-[color:var(--v2-danger)]">
-              Tu ejercicio necesita un nombre.
-            </p>
-          ) : null
+          name.trim().length === 0 ? <p className="t-meta text-v2-danger">Tu ejercicio necesita un nombre.</p> : null
         ) : (
-          <p className="text-label text-[color:var(--v2-faint)]">
-            Vacío = tus atletas verán el nombre base ({exercise.base_name}).
-          </p>
+          <p className="t-meta text-v2-faint">Vacío = tus atletas verán el nombre base ({exercise.base_name}).</p>
         )}
       </label>
 
@@ -198,9 +186,9 @@ export function EditExerciseForm({
         rows={3}
       />
 
-      {/* El vídeo de la base ya no es invisible aquí: hereda igual que las claves y
-          la descripción (mismo `base_*`), así que el campo lo enseña y lo reproduce
-          mientras el coach no ponga el suyo. */}
+      {/* El vídeo de la base hereda igual que las claves y la descripción (mismo
+          `base_*`), así que el campo lo enseña y lo reproduce mientras el coach no
+          ponga el suyo. */}
       <VideoUrlField
         id="editar-ej-video"
         label="Vídeo"
@@ -211,25 +199,17 @@ export function EditExerciseForm({
         onUploadingChange={setVideoUploading}
       />
 
-      {error ? <p className="text-xs text-[color:var(--v2-danger)]">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="t-body-sm text-v2-danger">
+          {error}
+        </p>
+      ) : null}
 
-      <div className="flex items-center justify-between gap-3 border-t border-[color:var(--v2-border)] pt-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="v2-focus rounded-[var(--v2-r-s)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!canSave}
-          className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 py-2 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
-        >
-          <MIcon name={saving ? 'progress_activity' : 'save'} size={16} />
-          {saving ? 'Guardando…' : 'Guardar'}
-        </button>
+      <div className="flex items-center justify-end gap-2 border-t border-v2-border pt-3">
+        <Button onClick={onCancel}>Cancelar</Button>
+        <Button variant="primary" icon={Save} loading={saving} disabled={!canSave} onClick={submit}>
+          Guardar
+        </Button>
       </div>
     </div>
   );
@@ -255,19 +235,16 @@ function OverrideTextField({
   const base = baseValue?.trim() || null;
   return (
     <label className="block space-y-1.5">
-      <span className="v2-micro">{label}</span>
-      <textarea
+      <span className="t-meta text-v2-muted">{label}</span>
+      <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
         maxLength={2000}
         placeholder={base ?? 'Sin contenido: escribe el tuyo…'}
-        className="v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm leading-snug text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
       />
-      <p className="text-label text-[color:var(--v2-faint)]">
-        {base
-          ? 'Vacío = tus atletas verán el contenido base (el del placeholder).'
-          : 'Vacío = no se mostrará nada.'}
+      <p className="t-meta text-v2-faint">
+        {base ? 'Vacío = tus atletas verán el contenido base (el del ejemplo).' : 'Vacío = no se mostrará nada.'}
       </p>
     </label>
   );

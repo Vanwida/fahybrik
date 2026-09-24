@@ -6,14 +6,14 @@
 //                     suscripción si este navegador ya estaba dado de alta.
 //   · <PushBanner>    en /mensajes: invita a activar (o a instalar, en iPhone)
 //                     justo donde duele no enterarse. Descartable.
-//   · <PushCard>      en /ajustes: estado + activar/desactivar del dispositivo.
+//   · <PushCard>      en Ajustes › Notificaciones: estado + activar/desactivar.
 //
 // Todo el estado se deriva DESPUÉS de montar (async): el primer render es null
 // y no hay nada que hidratar distinto entre servidor y cliente.
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
-import { Card } from '@/components/ui/card';
+import { BellRing, X } from 'lucide-react';
+import { Button, IconButton, Skeleton } from '@/components/v2/ui';
 import {
   disablePush,
   enablePush,
@@ -87,137 +87,109 @@ export function PushBanner() {
   const { state, vapidKey } = machine;
   if (state !== 'available' && state !== 'needs-install') return null;
 
-  const dismiss = dismissBanner;
-
   // Vive en la columna de conversaciones (300px): texto arriba a lo ancho y
   // botón debajo. Todo en una fila estrangulaba el texto a una palabra por línea.
   return (
-    <div
-      role="status"
-      className="rounded-[var(--v2-r-m)] border border-[color:color-mix(in_srgb,var(--v2-accent)_35%,var(--v2-border))] bg-[color:color-mix(in_srgb,var(--v2-accent)_8%,var(--v2-surface))] p-3"
-    >
+    <div role="status" className="rounded-panel border border-v2-border bg-v2-surface p-3">
       <div className="flex items-start gap-2.5">
-        <MIcon
-          name="notifications_active"
-          size={18}
-          className="mt-0.5 shrink-0 text-[color:var(--v2-accent-text)]"
-        />
-        <p className="min-w-0 flex-1 text-body leading-snug text-[color:var(--v2-fg)]">
+        <BellRing aria-hidden className="mt-0.5 size-4 shrink-0 text-v2-muted" strokeWidth={1.75} />
+        <p className="min-w-0 flex-1 t-body-sm text-v2-fg">
           {state === 'available' ? (
-            'Recibe un aviso cuando un atleta te escriba, aunque el dashboard esté cerrado.'
+            'Recibe un aviso cuando un atleta te escriba, aunque el panel esté cerrado.'
           ) : (
             <>
-              En iPhone: toca <strong>Compartir</strong> → <strong>Añadir a pantalla de inicio</strong>{' '}
-              para poder recibir avisos.
+              En iPhone: toca <strong>Compartir</strong> → <strong>Añadir a pantalla de inicio</strong> para poder
+              recibir avisos.
             </>
           )}
         </p>
-        <button
-          type="button"
-          onClick={dismiss}
-          aria-label="Descartar"
-          className="v2-focus -m-1 shrink-0 rounded-full p-1 text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-        >
-          <MIcon name="close" size={16} />
-        </button>
+        <IconButton icon={X} label="Descartar" size="sm" onClick={dismissBanner} className="-m-1" />
       </div>
       {state === 'available' ? (
-        <button
-          type="button"
-          disabled={busy || !vapidKey}
+        <Button
+          variant="primary"
+          size="sm"
+          className="mt-2.5 w-full"
+          loading={busy}
+          disabled={!vapidKey}
           onClick={async () => {
             if (!vapidKey) return;
             setBusy(true);
             try {
               const next = await enablePush(vapidKey);
               setState(next);
-              if (next === 'enabled') dismiss();
+              if (next === 'enabled') dismissBanner();
             } finally {
               setBusy(false);
             }
           }}
-          className="v2-focus mt-2.5 w-full rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 py-1.5 text-body font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60"
         >
-          {busy ? 'Activando…' : 'Activar avisos'}
-        </button>
+          Activar avisos
+        </Button>
       ) : null}
     </div>
   );
 }
 
-/** Sección de /ajustes: estado real del dispositivo + activar/desactivar. */
+const STATE_COPY: Record<Exclude<PushState, 'unsupported'>, string> = {
+  enabled: 'Activados. Cuando un atleta te escriba, este navegador te avisa aunque el panel esté cerrado.',
+  available: 'Desactivados. Actívalos para enterarte cuando un atleta te escriba, aunque no tengas el panel abierto.',
+  denied: 'Bloqueados por el navegador. Permite las notificaciones de este sitio en los ajustes del navegador y recarga.',
+  'needs-install':
+    'En iPhone, los avisos necesitan el panel en la pantalla de inicio: Compartir → Añadir a pantalla de inicio, y actívalos desde ahí.',
+};
+
+/** Ajustes › Notificaciones: estado real de ESTE navegador + activar/desactivar. */
 export function PushCard() {
   const [machine, setState] = usePushMachine();
   const [busy, setBusy] = useState(false);
 
-  // Sin soporte (o sin claves en el servidor) no hay nada que ajustar: mejor
-  // ninguna sección que una sección muerta.
-  if (machine.phase !== 'ready' || machine.state === 'unsupported') return null;
+  if (machine.phase !== 'ready') {
+    return (
+      <div className="flex flex-col gap-2 px-4 py-3.5" role="status" aria-label="Cargando">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-3 w-72" />
+      </div>
+    );
+  }
   const { state, vapidKey } = machine;
+  if (state === 'unsupported') {
+    return (
+      <div className="px-4 py-3.5 t-body-sm text-v2-muted">
+        Este navegador no admite avisos. Prueba con Chrome, Edge, Firefox o Safari actualizados.
+      </div>
+    );
+  }
 
   return (
-    <section>
-      <h2 className="v2-micro mb-2">Avisos en este dispositivo</h2>
-      <Card className="flex flex-col gap-3 p-4">
-        <div className="flex items-start gap-3">
-          <MIcon
-            name={state === 'enabled' ? 'notifications_active' : 'notifications'}
-            size={20}
-            className={
-              state === 'enabled'
-                ? 'mt-0.5 shrink-0 text-[color:var(--v2-accent-text)]'
-                : 'mt-0.5 shrink-0 text-[color:var(--v2-muted)]'
-            }
-          />
-          <p className="text-sm text-[color:var(--v2-fg)]">
-            {state === 'enabled' &&
-              'Activados: cuando un atleta te escriba, este dispositivo te avisa aunque el dashboard esté cerrado.'}
-            {state === 'available' &&
-              'Recibe un aviso cuando un atleta te escriba, aunque no tengas el dashboard abierto.'}
-            {state === 'denied' &&
-              'Los avisos están bloqueados en este navegador. Desbloquéalos en los ajustes del navegador y recarga la página.'}
-            {state === 'needs-install' && (
-              <>
-                En iPhone los avisos requieren tener el dashboard en la pantalla de inicio: toca{' '}
-                <strong>Compartir</strong> y elige <strong>Añadir a pantalla de inicio</strong>.
-                Luego actívalos desde ahí.
-              </>
-            )}
-          </p>
-        </div>
-        {(state === 'available' || state === 'enabled') && (
-          <div>
-            <button
-              type="button"
-              disabled={busy || (state === 'available' && !vapidKey)}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  if (state === 'enabled') {
-                    await disablePush();
-                    setState('available');
-                  } else if (vapidKey) {
-                    setState(await enablePush(vapidKey));
-                  }
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              className={
-                state === 'enabled'
-                  ? 'v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-4 py-2.5 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-accent)] disabled:opacity-60'
-                  : 'v2-focus inline-flex items-center gap-2 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 py-2.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-60'
+    <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="t-body font-medium text-v2-fg">Avisos en este navegador</span>
+        <p className="t-body-sm text-v2-muted">{STATE_COPY[state]}</p>
+      </div>
+      {state === 'available' || state === 'enabled' ? (
+        <Button
+          variant={state === 'enabled' ? 'secondary' : 'primary'}
+          loading={busy}
+          disabled={state === 'available' && !vapidKey}
+          className="shrink-0"
+          onClick={async () => {
+            setBusy(true);
+            try {
+              if (state === 'enabled') {
+                await disablePush();
+                setState('available');
+              } else if (vapidKey) {
+                setState(await enablePush(vapidKey));
               }
-            >
-              {busy
-                ? 'Un momento…'
-                : state === 'enabled'
-                  ? 'Desactivar en este dispositivo'
-                  : 'Activar avisos'}
-            </button>
-          </div>
-        )}
-      </Card>
-    </section>
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {state === 'enabled' ? 'Desactivar' : 'Activar avisos'}
+        </Button>
+      ) : null}
+    </div>
   );
 }

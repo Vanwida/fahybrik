@@ -8,6 +8,7 @@ import { leadDraftInput } from '@fahybrid/shared/schema';
 import { getClientIp, jsonError, jsonOk } from '@/lib/api/responses';
 import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 import { upsertLeadDraft } from '@/lib/leads/store';
+import { captureKeyFromCookieHeader, captureKeySetCookie } from '@/lib/leads/capture-key';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,7 +36,12 @@ export async function POST(req: Request) {
     return jsonOk({ ok: true }, 200);
   }
 
-  const res = await upsertLeadDraft(input);
+  // Un lead que ya existe solo lo retoca el navegador que lo creó (su clave de
+  // captura). La respuesta no dice nada de la fila: ni id ni estado — así un email
+  // ajeno no revela si esa persona es lead ni en qué punto está.
+  const res = await upsertLeadDraft(input, { key: captureKeyFromCookieHeader(req.headers.get('cookie')) });
 
-  return jsonOk({ ok: true, lead_id: res.id, status: res.status }, res.created ? 201 : 200);
+  const out = jsonOk({ ok: true }, res.created ? 201 : 200);
+  if (res.capture_key) out.headers.append('set-cookie', captureKeySetCookie(res.capture_key));
+  return out;
 }

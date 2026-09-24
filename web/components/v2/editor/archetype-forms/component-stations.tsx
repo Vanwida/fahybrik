@@ -22,9 +22,7 @@ import { setMeasure, setTarget } from '@fahybrid/shared/domain/prescription';
 import type { EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { emptyTargetOfKind, targetScalar } from '@/lib/programming/prescription-model';
 import { OBJETIVO_LABEL } from '@/lib/dashboard/v2/editor-axes';
-import { MIcon } from '@/components/ui/MIcon';
 import { Stepper } from '@/components/v2/controls/Stepper';
-import { cn } from '@/lib/utils';
 import { ExercisePickerField } from '../ExercisePickerField';
 import { defaultCategoryForModality } from '@/lib/dashboard/v2/pick-exercise';
 import { RestChips, ROUND_REST_VALUES } from '../dose-controls';
@@ -37,6 +35,8 @@ import {
   PaceCell,
   ScalarTargetCell,
 } from './form-controls';
+import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
+import { Button, IconButton } from '@/components/v2/ui';
 
 type DoseMode = 'reps' | 'distance' | 'duration';
 
@@ -90,7 +90,7 @@ export function FormatParamField({
               <>
                 <span
                   aria-hidden="true"
-                  className="v2-micro normal-case tracking-normal text-[color:var(--v2-faint)]"
+                  className="t-meta text-v2-faint"
                 >
                   hasta
                 </span>
@@ -104,8 +104,10 @@ export function FormatParamField({
                 />
               </>
             ) : null}
-            <button
-              type="button"
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={isRange ? undefined : Plus}
               onClick={toggleRange}
               aria-pressed={isRange}
               aria-label={
@@ -113,15 +115,9 @@ export function FormatParamField({
                   ? `Quitar el rango de ${label.toLowerCase()}`
                   : `Poner un rango de ${label.toLowerCase()}`
               }
-              className={cn(
-                'v2-focus inline-flex h-[34px] shrink-0 items-center rounded-[var(--v2-r-pill)] border px-3 text-body font-bold transition-colors',
-                isRange
-                  ? 'border-[color:var(--v2-fg)] bg-[color:var(--v2-fg)] text-[color:var(--v2-bg)]'
-                  : 'border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-              )}
             >
-              {isRange ? 'quitar rango' : '＋ rango'}
-            </button>
+              {isRange ? 'quitar rango' : 'rango'}
+            </Button>
           </div>
         </Field>
       );
@@ -257,29 +253,27 @@ export function ComponentStationRow({
   };
 
   return (
-    <div className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2">
-      <div className="flex items-center gap-2">
+    <div className="rounded-panel border border-v2-border p-2">
+      <div className="flex items-center gap-1.5">
         <div className="flex shrink-0 flex-col" aria-label={`Ordenar la estación ${index + 1}`}>
-          <button
-            type="button"
-            aria-label={`Subir la estación ${index + 1}`}
+          <IconButton
+            icon={ChevronUp}
+            size="sm"
+            label={`Subir la estación ${index + 1}`}
             disabled={index === 0}
             onClick={() => onMove(-1)}
-            className="v2-focus text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-30"
-          >
-            <MIcon name="keyboard_arrow_up" size={15} />
-          </button>
-          <button
-            type="button"
-            aria-label={`Bajar la estación ${index + 1}`}
+            className="h-4 w-6"
+          />
+          <IconButton
+            icon={ChevronDown}
+            size="sm"
+            label={`Bajar la estación ${index + 1}`}
             disabled={index === count - 1}
             onClick={() => onMove(1)}
-            className="v2-focus text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-30"
-          >
-            <MIcon name="keyboard_arrow_down" size={15} />
-          </button>
+            className="h-4 w-6"
+          />
         </div>
-        <span className="v2-num w-5 shrink-0 text-center text-xs font-bold text-[color:var(--v2-faint)]">
+        <span className="w-5 shrink-0 text-center t-meta text-v2-faint t-tnum">
           {index + 1}
         </span>
         <div className="min-w-0 flex-1">
@@ -291,14 +285,7 @@ export function ComponentStationRow({
             compact
           />
         </div>
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`Quitar la estación ${index + 1}`}
-          className="v2-focus shrink-0 rounded-full p-1 text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-danger)]"
-        >
-          <MIcon name="close" size={14} />
-        </button>
+        <IconButton icon={X} size="sm" label={`Quitar la estación ${index + 1}`} onClick={onRemove} className="hover:text-v2-danger" />
       </div>
 
       <div className="mt-2 grid grid-cols-1 gap-2 pl-9 sm:grid-cols-2">

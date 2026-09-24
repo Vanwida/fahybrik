@@ -1,3 +1,4 @@
+import type { ProgrammingStatus } from './programming-status';
 import { z } from 'zod';
 import type { LoadCoverage } from '../training-load/coverage';
 
@@ -79,13 +80,7 @@ export interface CohortRow {
     twice_daily_today: boolean;
     a_event_within_30d: boolean;
   };
-  programming_status:
-    | 'ok'
-    | 'no_month'
-    | 'pending_proposal'
-    | 'empty_week'
-    | 'month_2_pending'
-    | 'block_ended';
+  programming_status: ProgrammingStatus;
   programming_label: string | null;
   readiness_score: number | null;
 }

@@ -1,21 +1,20 @@
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import {
-  BOX_TIMEZONE,
-  addDays,
-  isoDateString,
-  startOfDayInBox,
-  startOfDayUtc,
-} from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import { ADHERENCE_WINDOW_DAYS } from '@fahybrid/shared/domain/adherence';
-import { weekCompliancePct } from '@fahybrid/shared/domain/coach/honest-compliance';
+import { loadAdherenceBatch } from '@fahybrid/shared/domain/coach/adherence';
+import {
+  isActionable,
+  isGroupOwnedSignal,
+} from '@fahybrid/shared/domain/coach/athlete-state';
+import { loadAthleteSignals } from '@/lib/coach/attention/signals-read';
 import {
   loadProgrammingStatusMap,
   type ProgrammingStatus,
 } from '@/lib/dashboard/coach/programming-status';
 import type { RacePriority } from '@fahybrid/shared/schema';
 import { isIntakePending } from '@fahybrid/shared/domain/coach/intake-pending';
-import { adherenceExclusionSql } from '@/lib/coach/adherence-pause-filter';
 import { getOrderAlteredByAthlete } from '@/lib/dashboard/v2/order-altered';
 import { getLatestReadinessBatch } from '@fahybrid/shared/domain/coach/athlete-daily-readiness';
 import type {
@@ -65,6 +64,8 @@ export interface AthleteRow {
   /** Total weeks in the current microciclo (the "de N" denominator). */
   block_total: number | null;
   readiness_score: number | null;
+  /** Adherencia DEBIDA (shared/domain/coach/adherence) en los últimos
+   *  ADHERENCE_WINDOW_DAYS días, 0–100, o null si no había nada debido. */
   compliance_pct: number | null;
   programming_status: ProgrammingStatus;
   programming_label: string | null;
@@ -113,16 +114,16 @@ export async function fetchAthletesForCoach(params: {
   coach_id: number | bigint;
   modality?: AthleteModality | null;
   client?: Sql;
+  now?: Date;
 }): Promise<AthleteRow[]> {
   const client = params.client ?? defaultSql;
-  const today = startOfDayUtc(new Date());
-  // Rolling adherence window: trailing N days up to today (single-sourced with
-  // the single-athlete resumen via @fahybrid/shared/domain/adherence).
-  const adhStart = isoDateString(addDays(today, -(ADHERENCE_WINDOW_DAYS - 1)));
-  const adhEnd = isoDateString(today);
-  // Race countdown resolves "today" in the box timezone (Europe/Madrid), matching
-  // getNextRace — never UTC, or the countdown shifts a day late in the evening.
-  const raceTodayIso = isoDateString(startOfDayInBox(new Date()));
+  const now = params.now ?? new Date();
+  // Two «todays», on purpose: the plan week and the open pause are the CLUB's
+  // calendar (the coach's timezone); the race countdown is the ATHLETE's (their
+  // timezone, per row), matching getNextRace / getTargetRaceRow.
+  const coachTz = await loadCoachTimezone(params.coach_id, client);
+  const coachTodayIso = zonedDayString(now, coachTz);
+  const athleteToday = client`(${now.toISOString()}::timestamptz at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date`;
 
   const modalityFilter = params.modality ?? null;
 
@@ -137,8 +138,6 @@ export async function fetchAthletesForCoach(params: {
       block_type: string | null;
       block_week: number | null;
       block_total: number | null;
-      scheduled: number;
-      completed: number;
       modality: string | null;
       sub_source: string | null;
       target_race_name: string | null;
@@ -169,8 +168,6 @@ export async function fetchAthletesForCoach(params: {
       ab.block_type as block_type,
       ab.block_week as block_week,
       ab.block_total as block_total,
-      coalesce(wa.scheduled, 0)::int as scheduled,
-      coalesce(wa.completed, 0)::int as completed,
       sub.plan_type as modality,
       sub.source as sub_source,
       tr.name as target_race_name,
@@ -196,41 +193,16 @@ export async function fetchAthletesForCoach(params: {
         m.name as block_type,
         greatest(
           1,
-          (floor((${raceTodayIso}::date - date_trunc('week', ama.start_date)::date) / 7) + 1)::int
+          (floor((${coachTodayIso}::date - date_trunc('week', ama.start_date)::date) / 7) + 1)::int
         ) as block_week,
         coalesce(array_length(ama.microcycle_ids, 1), 0)::int as block_total
       from athlete_month_assignments ama
       join program_month_templates m on m.id = ama.month_template_id
       where ama.athlete_id = a.id
-        and ${raceTodayIso}::date between ama.start_date and ama.end_date
+        and ${coachTodayIso}::date between ama.start_date and ama.end_date
       order by ama.start_date desc
       limit 1
     ) ab on true
-    left join lateral (
-      -- Rolling 30-day completion adherence (NOT current week): completed vs
-      -- scheduled across the trailing window, matching the resumen definition.
-      -- "completed" is EXECUTION-BACKED (a workout_executions row exists), not the
-      -- seed-inflatable status flag — record-workout-execution.ts creates the
-      -- execution AND flips status atomically, so the execution is the truth.
-      select
-        count(*)::int as scheduled,
-        count(*) filter (
-          where exists (
-            select 1 from workout_executions we where we.assignment_id = x.id
-          )
-        )::int as completed
-      from workout_assignments x
-      where x.athlete_id = a.id
-        and x.scheduled_for >= ${adhStart}::date
-        and x.scheduled_for <= ${adhEnd}::date
-        -- COACH-PLAN compliance only: a self-origin "entreno libre" (mig 0090)
-        -- complements the plan, it must never inflate nor dilute adherence.
-        and x.origin = 'coach'
-        -- #13: EXCLUDE days inside a pause (frozen), don't count them as 0%. Wraps
-        -- the row source so scheduled + completed shrink together; a whole paused
-        -- window ⇒ scheduled 0 ⇒ compliance_pct null ("—"). Shared with the ficha.
-        ${adherenceExclusionSql(client, client`x.athlete_id`, client`x.scheduled_for`, client`x.injury_adaptation`)}
-    ) wa on true
     left join lateral (
       select plan_type, source
       from subscriptions s
@@ -247,10 +219,10 @@ export async function fetchAthletesForCoach(params: {
         r.name,
         r.priority,
         to_char(r.race_date, 'YYYY-MM-DD') as race_date_iso,
-        (r.race_date - ${raceTodayIso}::date)::int as days_until
+        (r.race_date - ${athleteToday})::int as days_until
       from races r
       where r.athlete_id = a.id
-        and r.race_date >= ${raceTodayIso}::date
+        and r.race_date >= ${athleteToday}
         and r.status in ('planned', 'registered')
         and r.priority = 'target'
       order by r.race_date asc, r.id asc
@@ -269,7 +241,7 @@ export async function fetchAthletesForCoach(params: {
       -- future "vuelve el" date). Mirrors the closeCurrentPauseTx predicate so a
       -- planned-return pause still threads its motivo into the roster badge.
       select reason from athlete_pauses
-      where athlete_id = a.id and (end_date is null or end_date > ${raceTodayIso}::date)
+      where athlete_id = a.id and (end_date is null or end_date > ${coachTodayIso}::date)
       order by start_date desc
       limit 1
     ) op on true
@@ -310,12 +282,18 @@ export async function fetchAthletesForCoach(params: {
   // status, the soft order-altered info signal, and readiness — the last via the
   // shared motor (compute-on-miss + recorded_for <= today guard) so the roster
   // shows the SAME live score the athlete's own surface computes, never a raw '—'.
-  const [statusMap, orderAlteredMap, readinessMap, weekChipMap] = await Promise.all([
-    loadProgrammingStatusMap({ athlete_ids: ids, client }),
-    getOrderAlteredByAthlete(ids, client),
-    getLatestReadinessBatch({ athlete_ids: ids, client }),
-    loadAthleteWeekChipMap({ athlete_ids: ids, client }),
-  ]);
+  // Adherencia: la fórmula ÚNICA due-only (solo lo que ya tocaba). Alerta: la
+  // peor señal viva del motor (`coach_attention_items`), la misma que leen Hoy,
+  // Atletas y la ficha — ya no umbrales propios de esta lista.
+  const [statusMap, orderAlteredMap, readinessMap, weekChipMap, adherenceMap, signalsMap] =
+    await Promise.all([
+      loadProgrammingStatusMap({ athlete_ids: ids, tz: coachTz, client }),
+      getOrderAlteredByAthlete(ids, client),
+      getLatestReadinessBatch({ athlete_ids: ids, client }),
+      loadAthleteWeekChipMap({ athlete_ids: ids, today: coachTodayIso, client }),
+      loadAdherenceBatch({ client, athlete_ids: ids, window_days: ADHERENCE_WINDOW_DAYS }),
+      loadAthleteSignals({ coach_id: params.coach_id, athlete_ids: ids, client }),
+    ]);
 
   return rows.map((r) => {
     const prog = statusMap.get(r.athlete_id);
@@ -323,40 +301,19 @@ export async function fetchAthletesForCoach(params: {
     const programming_label = prog?.label ?? null;
     const readiness_score = readinessMap.get(r.athlete_id)?.score ?? null;
 
-    let alert_label: string | null = null;
-    let alert_severity: AthleteRow['alert_severity'] = null;
-
-    if (programming_status !== 'ok') {
-      alert_label =
-        programming_status === 'no_month'
-          ? 'Sin plan activo'
-          : programming_status === 'month_2_pending'
-            ? 'Propuesta de mes pendiente'
-            : programming_status === 'block_ended'
-              ? 'Bloque terminado'
-              : programming_status === 'empty_week'
-                ? 'Semana vacía'
-                : (prog?.detail ?? programming_label);
-      alert_severity =
-        programming_status === 'block_ended' || programming_status === 'no_month'
-          ? 'critical'
-          : 'warning';
-    } else if (readiness_score != null && readiness_score < 45) {
-      alert_label = 'Fatiga CNS alta';
-      alert_severity = 'warning';
-    } else if (readiness_score != null && readiness_score < 55) {
-      alert_label = `Readiness ${readiness_score}%`;
-      alert_severity = 'warning';
-    }
+    // La peor señal accionable del motor que no resuelve un grupo (el hueco de
+    // plan lo dice `programming_status`, no una alerta: así «Sin plan» se ve).
+    const worst = (signalsMap.get(r.athlete_id)?.live ?? []).find(
+      (x) => isActionable(x) && !isGroupOwnedSignal(x),
+    );
+    const alert_label: string | null = worst ? worst.label : null;
+    const alert_severity: AthleteRow['alert_severity'] =
+      worst?.severity === 'critical' ? 'critical' : worst ? 'warning' : null;
 
     const week_chip = weekChipMap.get(r.athlete_id) ?? SIN_PLAN_CHIP;
     // Entregado = el atleta VE sesiones esta semana. Un draft lleno no es Plan OK.
     const week_ok = weekIsDelivered(week_chip.kind) && !alert_label;
-    // % solo si el chip es Visible. Draft / bloque acabado / vacía no son 0 %.
-    const compliance_pct =
-      r.block_type != null
-        ? weekCompliancePct(week_chip.kind, r.scheduled, r.completed)
-        : null;
+    const compliance_pct = adherenceMap.get(r.athlete_id)?.pct ?? null;
 
     return {
       athlete_id: r.athlete_id,

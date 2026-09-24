@@ -33,6 +33,8 @@ import {
 } from './dose-controls';
 import { SharedControls, SharedTargetValue } from './strength-shared-controls';
 import { StrengthPyramid } from './strength-pyramid';
+import { Plus } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
 
 // Tipos de objetivo de un ejercicio de fuerza, en orden de uso real (%RM manda).
 const OBJECTIVE_OPTIONS: { value: TargetKind; label: string }[] = [
@@ -173,16 +175,12 @@ export function StrengthFields({
   if (sets.length === 0) {
     return (
       <div className="space-y-2">
-        <p className="px-1 py-1 text-xs text-[color:var(--v2-muted)]">
+        <p className="t-body-sm text-v2-muted">
           Sin series: añade la primera.
         </p>
-        <button
-          type="button"
-          onClick={addSet}
-          className="v2-focus inline-flex h-[34px] items-center rounded-[var(--v2-r-pill)] border border-dashed border-[color:var(--v2-border)] px-3.5 text-body font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
-        >
-          ＋ serie
-        </button>
+        <Button size="sm" icon={Plus} onClick={addSet}>
+          serie
+        </Button>
       </div>
     );
   }
@@ -271,7 +269,7 @@ export function StrengthFields({
       </Control>
 
       {anyProposed ? (
-        <p className="px-0.5 text-label leading-snug text-[color:var(--v2-warn)]">
+        <p className="px-0.5 t-meta leading-snug text-[color:var(--v2-warn)]">
           Lo del trazo discontinuo no salía en la fuente: lo pusimos con tus valores por defecto.
         </p>
       ) : null}

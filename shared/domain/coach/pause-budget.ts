@@ -22,9 +22,20 @@
 // the coach dashboard and the tests, with no database in the way.
 
 import { addDays, diffDays, isoDateString, parseIsoDate } from '../dates';
+import { COACH_THRESHOLD_SPEC, type CoachThresholds } from './signal-thresholds';
 
-/** Days of paused-and-not-billed an athlete gets per rolling window. Four weeks. */
-export const PAUSE_BUDGET_DAYS = 28;
+/**
+ * Days of paused-and-not-billed an athlete gets per rolling window — the DEFAULT.
+ * How many is club business policy, so it is the coach's (`pause_budget_days` in
+ * `coach_signal_thresholds`, migration 0256; HARD RULE Nº0). The rolling window
+ * below is the mechanism and stays ours.
+ */
+export const PAUSE_BUDGET_DAYS: number = COACH_THRESHOLD_SPEC.pause_budget_days.default;
+
+/** The allowance of a coach, from their effective thresholds. */
+export function pauseBudgetDaysOf(t: Pick<CoachThresholds, 'pause_budget_days'>): number {
+  return t.pause_budget_days;
+}
 
 /** Length of the rolling window the budget is measured over. Twelve months. */
 export const PAUSE_BUDGET_WINDOW_DAYS = 365;

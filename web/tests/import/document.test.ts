@@ -619,15 +619,18 @@ Volumen −45%. Intensidad mantenida en dosis pequeñas. **No la saltes.**
     expect(mar.text.startsWith('Mar')).toBe(false);
   });
 
-  test(`Martes's stripped cell reaches the grammar as PLAIN dose text — "descanso 3'" (prime-form, cue BEFORE the clock) is a real, pre-existing gap in parseRest (./dose.ts only reads that order for colon/word clocks, never prime), which trips isDenseWod's comma heuristic and reviews the line honestly rather than mistyping it. Not a bug in the document reader: the text handed to the grammar is exactly the source, verbatim, day-prefix removed — see the previous test`, () => {
+  test(`Martes's stripped cell reaches the grammar as PLAIN dose text and types whole — "descanso 3'" (cue BEFORE a prime clock) is read as the rest since the wave-3 grammar sweep (it used to be a parseRest gap that reviewed the line)`, () => {
     const mar = bullets.find((c) => c.day === 'Martes')!;
     const [line, ...rest] = parseNotationCell(mar.text);
     expect(rest).toHaveLength(0);
-    expect(line!.confidence).toBe('review');
-    // Honesty contract still holds: the full text survives in the review
-    // note (parseNotationCell normalizes "×" → "x" before this point, same
-    // as it would for any other caller — nothing beyond that changes).
-    expect(line!.prescription.note).toBe(`4x800 m Z5, descanso 3'. Nada más.`);
+    expect(line!.confidence).toBe('detected');
+    expect(line!.prescription).toMatchObject({
+      scheme: 'intervals',
+      rounds: 4,
+      rest_s: 180,
+      target: { kind: 'hr_zone', value: 5 },
+    });
+    expect(line!.prescription.sets).toHaveLength(4);
   });
 });
 

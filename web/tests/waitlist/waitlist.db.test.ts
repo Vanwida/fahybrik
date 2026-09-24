@@ -129,14 +129,16 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
     return { id, token: rows[0]!.token, unsubscribe_token: rows[0]!.unsubscribe_token };
   }
 
-  /** Global released-pending count — leads already handed a plaza but still nuevo/contactado
-   *  (they HOLD a slot). Mirrors the released_pending term inside releaseWaitlistToCapacity so
-   *  the auto-release tests can pin `available` relative to the branch baseline. */
+  /** The funnel club's released-pending count — its leads (own + unassigned, the funnel
+   *  operator's) already handed a plaza but still nuevo/contactado (they HOLD a slot). Mirrors
+   *  the released_pending term inside releaseWaitlistToCapacity so the auto-release tests can
+   *  pin `available` relative to the branch baseline. */
   async function countReleasedPending(): Promise<number> {
     const rows = await sql<{ n: number }[]>`
       select count(*)::int as n from leads
       where waitlist_released_at is not null
         and status in ('nuevo', 'contactado')
+        and (coach_id = ${Number(funnelCoach)} or coach_id is null)
     `;
     return rows[0]!.n;
   }
@@ -262,7 +264,7 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
     const mid = await seedLead({ status: 'nuevo', waitlistedAt: new Date(now - 2 * DAY_MS) });
     const newest = await seedLead({ status: 'nuevo', waitlistedAt: new Date(now - 1 * DAY_MS) });
 
-    const mine = (await listWaitlist()).filter((e) => leadIds.includes(Number(e.lead_id)));
+    const mine = (await listWaitlist(funnelCoach)).filter((e) => leadIds.includes(Number(e.lead_id)));
     expect(mine.map((e) => Number(e.lead_id))).toEqual([oldest.id, mid.id, newest.id]); // oldest first
     // Positions are strictly ascending in arrival order (global row_number, but monotonic).
     expect(mine[0]!.position).toBeLessThan(mine[1]!.position);
@@ -270,14 +272,14 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
   });
 
   test('countWaitlist counts only actively-waiting leads (excludes released + non nuevo/contactado)', async () => {
-    const base = await countWaitlist();
+    const base = await countWaitlist(funnelCoach);
     const t = new Date(Date.now() - DAY_MS);
     await seedLead({ status: 'nuevo', waitlistedAt: t }); // counts
     await seedLead({ status: 'contactado', waitlistedAt: t }); // counts
     await seedLead({ status: 'nuevo', waitlistedAt: t, releasedAt: new Date() }); // released → excluded
     await seedLead({ status: 'agendado', waitlistedAt: t }); // past the top of pipeline → excluded
 
-    expect(await countWaitlist()).toBe(base + 2);
+    expect(await countWaitlist(funnelCoach)).toBe(base + 2);
   });
 
   test('releaseWaitlistLead stamps released_at exactly once (idempotent)', async () => {
@@ -310,7 +312,7 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
 
     await setMaxAthletes(funnelCoach, active + pending + 2); // available = max − active − pending = 2
 
-    const res = await releaseWaitlistToCapacity();
+    const res = await releaseWaitlistToCapacity(funnelCoach);
     expect(res.released).toBe(2);
     // FIFO: the two OLDEST are released; the newest keeps waiting.
     expect((await leadStamps(oldest.id)).waitlist_released_at).not.toBeNull();
@@ -321,7 +323,7 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
   test('releaseWaitlistToCapacity releases nothing when uncapped (max null)', async () => {
     await seedLead({ status: 'nuevo', waitlistedAt: new Date(Date.now() - DAY_MS) });
     await setMaxAthletes(funnelCoach, null); // waitlist off
-    const res = await releaseWaitlistToCapacity();
+    const res = await releaseWaitlistToCapacity(funnelCoach);
     expect(res.released).toBe(0);
   });
 
@@ -330,7 +332,7 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
     const pending = await countReleasedPending();
     await seedLead({ status: 'nuevo', waitlistedAt: new Date(Date.now() - DAY_MS) });
     await setMaxAthletes(funnelCoach, active + pending); // available = 0
-    const res = await releaseWaitlistToCapacity();
+    const res = await releaseWaitlistToCapacity(funnelCoach);
     expect(res.released).toBe(0);
   });
 
@@ -351,7 +353,7 @@ describeWithDb('capacity cap + lead waitlist (#18, real DB)', () => {
     // Cap gives 2 free slots gross, but the held slot eats 1 → only 1 to give.
     await setMaxAthletes(funnelCoach, active + pending + 2);
 
-    const res = await releaseWaitlistToCapacity();
+    const res = await releaseWaitlistToCapacity(funnelCoach);
     expect(res.released).toBe(1); // 2 gross − 1 held = 1
     expect((await leadStamps(w1.id)).waitlist_released_at).not.toBeNull(); // oldest waiting
     expect((await leadStamps(w2.id)).waitlist_released_at).toBeNull();

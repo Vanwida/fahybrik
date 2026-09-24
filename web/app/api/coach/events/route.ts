@@ -1,18 +1,20 @@
 // Coach events admin API.
 //
-// GET  /api/coach/events       — Pablo's full event list (incl. invisible)
-// POST /api/coach/events       — Pablo creates a manual event
+// GET  /api/coach/events       — the coach's full event list (incl. invisible)
+// POST /api/coach/events       — the coach creates a manual event
+//
+// An empty list is an empty list: nothing is invented to fill it (the old demo
+// fallback showed made-up races to a real coach — DECISIONS 2026-09-23).
 
 import { NextResponse } from 'next/server';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import {
   EventsError,
-  createEvent,
   listEvents,
   type ListEventsOpts,
 } from '@/lib/coach/events';
-import { buildDemoEvents } from '@/lib/coach/demo-events';
+import { createEvent } from '@/lib/coach/events-write';
 import {
   eventRegion,
   type EventRegion,
@@ -58,25 +60,7 @@ export async function GET(req: Request): Promise<NextResponse> {
   };
 
   try {
-    const real = await listEvents(opts);
-    // Fall-through to demo seeds when DB has nothing — keeps Pablo's
-    // demo alive without hardcoding seeds in the UI. The demo set is
-    // filtered in-memory to honour the same query params.
-    let events = real;
-    if (real.length === 0) {
-      const demo = buildDemoEvents();
-      events = demo.filter((e) => {
-        if (opts.type && e.type !== opts.type) return false;
-        if (opts.region && e.region !== opts.region) return false;
-        if (opts.scope === 'upcoming' && e.is_past) return false;
-        if (opts.scope === 'past' && !e.is_past) return false;
-        if (opts.from_date && e.start_date != null && e.start_date < opts.from_date)
-          return false;
-        if (opts.to_date && e.start_date != null && e.start_date > opts.to_date)
-          return false;
-        return true;
-      });
-    }
+    const events = await listEvents(opts);
     return jsonOk({ events, scope: opts.scope });
   } catch (err) {
     console.error('[GET /api/coach/events]', err);

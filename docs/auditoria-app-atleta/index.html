@@ -1,0 +1,380 @@
+<title>FAHYBRID Athlete App Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#F4F4F2; --surface:#FFFFFF; --surface-2:#ECECEA; --border:#DCDCD7;
+  --fg:#141413; --muted:#52524D; --faint:#67675F;
+  --ok:#1D7447; --ok-soft:rgba(29,116,71,.10);
+  --warn:#8F5400; --warn-soft:rgba(143,84,0,.10);
+  --danger:#BF3128; --danger-soft:rgba(191,49,40,.09);
+  --info:#2C5F9E; --info-soft:rgba(44,95,158,.10);
+  --font:"Figtree",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B0B0C; --surface:#161618; --surface-2:#1E1E21; --border:#2C2C30;
+    --fg:#F2F2F2; --muted:#A6A6A6; --faint:#8C8C8C;
+    --ok:#3CCF85; --ok-soft:rgba(60,207,133,.13);
+    --warn:#F0A43A; --warn-soft:rgba(240,164,58,.13);
+    --danger:#FF5D55; --danger-soft:rgba(255,93,85,.13);
+    --info:#5AA7F5; --info-soft:rgba(90,167,245,.13);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B0B0C; --surface:#161618; --surface-2:#1E1E21; --border:#2C2C30;
+  --fg:#F2F2F2; --muted:#A6A6A6; --faint:#8C8C8C;
+  --ok:#3CCF85; --ok-soft:rgba(60,207,133,.13);
+  --warn:#F0A43A; --warn-soft:rgba(240,164,58,.13);
+  --danger:#FF5D55; --danger-soft:rgba(255,93,85,.13);
+  --info:#5AA7F5; --info-soft:rgba(90,167,245,.13);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 var(--font);-webkit-font-smoothing:antialiased;padding-inline:20px}
+.wrap{max-width:1100px;margin:0 auto;padding-block:48px 96px}
+h1,h2,h3{text-wrap:balance;margin:0;font-weight:600;letter-spacing:-.01em}
+h1{font-size:clamp(30px,5vw,42px);line-height:1.1;letter-spacing:-.02em}
+h2{font-size:26px;line-height:1.2;margin-top:80px;padding-top:24px;border-top:1px solid var(--border)}
+h3{font-size:19px;line-height:1.3;margin-top:40px}
+p,ul,ol{margin:14px 0 0;max-width:72ch}
+li{margin-top:6px}
+a{color:var(--fg);text-underline-offset:3px}
+a:focus-visible{outline:2px solid var(--fg);outline-offset:2px;border-radius:4px}
+code{font-family:var(--mono);font-size:.84em;background:var(--surface-2);padding:1px 5px;border-radius:4px;word-break:break-word}
+strong{font-weight:600}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+.lede{font-size:19px;line-height:1.55;max-width:68ch;margin-top:20px}
+.meta{font-size:13px;color:var(--muted);margin-top:16px;max-width:90ch}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:32px}
+.stat{background:var(--surface);padding:16px 18px}
+.stat b{display:block;font-size:28px;line-height:1.1;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stat s{color:var(--faint);font-size:15px;font-weight:500;margin-right:6px}
+.stat span{display:block;font-size:13px;color:var(--muted);margin-top:4px;line-height:1.35}
+.tablewrap{overflow-x:auto;margin-top:20px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.45}
+th{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.w{min-width:240px}
+td.n{white-space:nowrap}
+.sev{font-size:11px;font-weight:700;padding:3px 6px;border-radius:4px;white-space:nowrap}
+.p0{color:var(--danger);background:var(--danger-soft)}
+.p1{color:var(--warn);background:var(--warn-soft)}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;line-height:1;padding:5px 8px;border-radius:6px;white-space:nowrap}
+.badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.done{color:var(--ok);background:var(--ok-soft)}
+.prog{color:var(--info);background:var(--info-soft)}
+.app{color:var(--warn);background:var(--warn-soft)}
+.root{margin-top:48px}
+.root .rn{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.root h3{margin-top:6px}
+.answer{display:grid;gap:16px;grid-template-columns:1fr;margin-top:24px}
+@media (min-width:860px){.answer{grid-template-columns:1fr 1fr}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px}
+.panel h3{margin-top:0;font-size:17px}
+.panel p{font-size:15px}
+.panel ul{padding-left:18px;font-size:15px}
+.phase{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-top:16px}
+.phase h3{margin-top:0;font-size:17px}
+.phase .when{font-size:13px;color:var(--muted);margin-top:2px}
+.phase ul{padding-left:18px;font-size:15px}
+.why{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--info-soft);font-size:15px;max-width:none}
+.checklist{list-style:none;padding:0;max-width:none}
+.checklist li{padding:10px 0 10px 28px;position:relative;border-bottom:1px solid var(--border);font-size:15px}
+.checklist li::before{content:"";position:absolute;left:0;top:14px;width:13px;height:13px;border:1.5px solid var(--faint);border-radius:3px}
+.checklist li b{display:block}
+.checklist .exp{color:var(--muted);font-size:14px}
+pre.mermaid{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;overflow-x:auto;margin-top:20px}
+.note{font-size:14px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">FAHYBRID · athlete app · iPhone + Apple Watch · 24 Sept 2026</div>
+  <h1>Why the athlete app keeps breaking — and the order to fix it</h1>
+  <p class="lede">Six reviewers read the whole iPhone and Watch app (717 Swift files) and the server it talks to. The engine inside is well built. What breaks is around it: the Watch link is designed so it can fail, a finished workout isn't safe until the server accepts it, what the coach changes often doesn't reach the athlete, and the app says things no coach decided. Under all of it, nothing compiles or tests the iOS code before you do.</p>
+  <p class="meta"><strong>How this was checked.</strong> This environment has no Xcode, simulator, iPhone or Watch, so nothing in the app was compiled or run: every finding was traced line by line in the Swift and server code, and each is marked confirmed (traced) or suspected (needs your device). «El doble» was used where it's current, but 8 of its 9 app mirrors are stale. Anything only a device can prove is in <a href="#test">the tests to run</a>. Branch <code>claude/focused-bardeen-u9zz33</code>; full reports in the session scratchpad.</p>
+
+  <div class="stats">
+    <div class="stat"><b>16</b><span>P0s (broken or data loss) after removing duplicates across reviewers; 3 already fixed on the server</span></div>
+    <div class="stat"><b>5–7</b><span>taps from opening the app to a running strength session. Apple Workout, Strava, Runna: 1–3</span></div>
+    <div class="stat"><b>8 of 13</b><span>builds (86–98) failed to compile — found only at release time</span></div>
+    <div class="stat"><b>HTTP/1.1</b><span>what the server spoke to Apple's push service, which only accepts HTTP/2 — fixed on the server today</span></div>
+    <div class="stat"><b>1</b><span>chance the Watch gets to join a workout, at ▶ EMPEZAR, with no retry and no message if it fails</span></div>
+  </div>
+
+  <h2>Your two complaints, answered first</h2>
+  <div class="answer">
+    <div class="panel">
+      <h3>«The Watch sometimes connects, sometimes not»</h3>
+      <p>It isn't Bluetooth. Four design causes, all in the code:</p>
+      <ul>
+        <li><strong>The workout clock lives on the iPhone</strong>, and iOS may suspend the iPhone when it locks. The app never declares the background mode for workouts; it stays alive only by accident (GPS on outdoor runs, a silent audio engine on timed formats, nothing at all on strength days). The Watch then freezes on the last screen.</li>
+        <li><strong>One launch attempt.</strong> The Watch is asked to join once, at ▶ EMPEZAR. If the Watch is asleep, locked or slow, the workout runs without it and nothing says so. There's no «Reintentar» on the phone and no «Unirse» on the Watch.</li>
+        <li><strong>Messages without a name.</strong> The phone sends «workout ended» to the Watch after every session, even ones the Watch never joined, and that message carries no workout id and never expires. It can arrive when the next workout starts and end it — or discard it.</li>
+        <li><strong>Two ways to start on the wrist.</strong> The «Apple Watch» setting sends runs to Apple's own Workout app, which never mirrors to the phone. Our Watch app does. Same run, two paths, only one «connects».</li>
+      </ul>
+      <p>And the phone shows «Apple Watch» as connected whenever the Watch app is merely installed, so you can't tell which of these happened.</p>
+    </div>
+    <div class="panel">
+      <h3>«Too many issues»</h3>
+      <p>The root is the process, not any one bug:</p>
+      <ul>
+        <li><strong>No compiler in the loop.</strong> The Swift has been written by agents on Linux, where it can't be compiled. At least 8 of builds 86–98 failed to compile in Xcode Cloud, and 12 of the last 83 iOS commits exist only to fix compile or archive failures.</li>
+        <li><strong>Tests never run on their own.</strong> There are 1,884 unit tests, but they only run when someone runs them on a Mac. The one UI test skips itself. Several tests only grep the source text.</li>
+        <li><strong>No eyes on production.</strong> No crash reporting, no hang reports, no record of failed saves or Watch-link failures. Every problem is found by an athlete, one at a time.</li>
+      </ul>
+      <p>So the first fix is not a bug fix: it's a Mac that compiles and tests every iOS change before it merges. Without that, fixing the bugs below repeats the cause.</p>
+    </div>
+  </div>
+
+  <h2>Six root problems</h2>
+
+  <div class="root">
+    <div class="rn">Root 1</div>
+    <h3>The Watch link is built so it can fail, and it can't say what happened</h3>
+    <p>The direction of the last rewrite (FH-56) is right and stays: only Apple's own events change the link state, no home-made watchdogs, never throw away the athlete's recording. It was the seventh rewrite in 14 days and has never been run on a device. It still lacks the three things Apple leaves to the app: keep the coach alive, let either side (re)join, and name every message with its workout.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Sev</th><th>What the athlete sees</th><th>Cause</th></tr></thead>
+      <tbody>
+        <tr><td><span class="sev p0">P0</span></td><td class="w">The Watch HUD appears and vanishes a second later; if the last session ended with «Salir sin guardar», the new Watch recording is <strong>discarded</strong>.</td><td class="w">A stale «workout ended» message (no id, no expiry) from an earlier session lands when the Watch app launches.</td></tr>
+        <tr><td><span class="sev p0">P0</span></td><td class="w">Phone locked on a strength block: the Watch freezes on the last frame, rests disagree, and the saved workout is shorter than the one in Apple Health.</td><td class="w">The engine runs on the iPhone with no workout background mode, and on wake it discards any gap without measured work (wrist heart rate doesn't count).</td></tr>
+        <tr><td><span class="sev p0">P0</span></td><td class="w">Started on the Watch, then ▶ EMPEZAR on the phone: everything done on the wrist is lost.</td><td class="w">The phone's session pre-empts the Watch's and drops it without saving.</td></tr>
+        <tr><td><span class="sev p0">P0</span></td><td class="w">The Watch didn't join and nothing says so; opening the Watch app offers «Empezar», which starts a second, separate workout.</td><td class="w">One launch request, its failure is stored and never shown, no retry, no way to join from the Watch.</td></tr>
+        <tr><td><span class="sev p0">P0</span></td><td class="w">«Pulso · Apple Watch» in green with the Watch in a drawer; no Watch status at all during the workout; «Preparar grabación en el reloj» sends nothing.</td><td class="w">The status is derived from «paired and installed», not from the link.</td></tr>
+        <tr><td><span class="sev p0">P0</span></td><td class="w">Track session with the phone on a bench: the metres run out of range never reach the phone; distance legs don't close.</td><td class="w">The Watch sends distance as increments and drops the ones that fail to send; the phone's pedometer is off whenever a mirror exists.</td></tr>
+        <tr><td><span class="sev p0">P0</span></td><td class="w">The next morning the Watch shows yesterday's session as «Hoy toca»; a session the coach removed can still be started from the wrist.</td><td class="w">The Watch's «today» carries no date, is sent only when the phone opens Inicio, and reads the session from cache.</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Plus 10 P1s: the «already asked the Watch» flag keyed on a memory address (can skip the launch for the next workout), no re-link after walking out of range, HYROX station clocks on the wrist moving in 5-second jumps, one-tap «Descartar» with no confirmation, any tap advancing the workout even with the wrist down, a Watch crash on a solo workout coming back as the wrong kind.</p>
+
+    <pre class="mermaid">
+sequenceDiagram
+    participant A as Athlete
+    participant P as iPhone (runs the clock)
+    participant W as Watch (records)
+    A->>P: ▶ EMPEZAR
+    P->>W: startWatchApp — once. Fails silently if the Watch is asleep or locked
+    W->>W: a stale "ended" from an earlier session can end this one
+    W->>P: mirroring starts — if it fails, nobody retries
+    P->>W: screen updates every second
+    Note over P: phone locks → iOS may suspend it → the Watch freezes
+    W->>P: heart rate, distance increments — lost if the link blips
+    </pre>
+  </div>
+
+  <div class="root">
+    <div class="rn">Root 2</div>
+    <h3>The athlete's work isn't safe until the server says yes</h3>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Sev</th><th>What happens</th><th>Cause</th></tr></thead>
+      <tbody>
+        <tr><td><span class="sev p0">P0</span></td><td class="w">A finished workout is lost if the save gets any error: an expired session, the coach removing or replacing that session while the athlete trained, a server field check. The phone sits on REINTENTAR forever with no way out; from the Watch, both screens say «completada» and the server has nothing.</td><td class="w">After «Terminar» the workout lives only in memory until the server accepts it; errors other than 5xx are treated as «never retry». The coach's «Quitar» and «Sustituir» hard-delete pending sessions.</td></tr>
+        <tr><td><span class="sev p0">P0</span></td><td class="w">Logout loop: after the session expires (it expires 30 days after sign-in, always) with Apple Health connected, signing in again gets you signed out again within minutes, repeatedly, until the app is force-quit.</td><td class="w">The Apple Health uploader keeps the old token; its 401 signs out the new session.</td></tr>
+        <tr><td><span class="sev p0">P0</span></td><td class="w">19 onboarding screens answered, «Listo» shown, and the whole questionnaire is silently lost if one field is out of range — the «¿Cuánto depende de ti?» slider allows 0, the server only 1–10. The coach never gets «Alta pendiente».</td><td class="w">The draft is cleared before the server answers; the server rejects the whole payload for one field.</td></tr>
+        <tr><td><span class="sev p0">P0</span></td><td class="w">«Dominadas 4×8», «Wall balls 5×20», «Plancha 3×45 s»: the brief shows 4 sets, the live screen runs <strong>one</strong>, with no rest timer, and records one. The coach sees 25 % of the work.</td><td class="w">Multi-set logging depends on the exercise being in the «strength» category, not on the prescription having sets.</td></tr>
+        <tr><td><span class="sev p0">P0</span></td><td class="w">The load sheet at the end of an exercise overwrites every set with one number rounded to 2.5 kg: 16 kg → 15, 24 → 25, 6 kg wall ball → 5; a 60/70/80 pyramid becomes flat. HYROX official weights can't be recorded.</td><td class="w">The weight wheel counts 2.5 kg units and writes one value to every set.</td></tr>
+        <tr><td><span class="sev p0">P0</span></td><td class="w">A manual pause resumes on its own after 10 seconds. A phone call is recorded as training, and ending early has to happen inside that 10-second window.</td><td class="w">A countdown in the view — against the decision «a manual pause is only lifted by the athlete».</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Plus: offline workouts are dropped after 72 h; queued entries replay into whoever is signed in next; «Terminar y empezar» discards the running workout; coach-prescribed sessions done without the Watch never reach Apple Health.</p>
+  </div>
+
+  <div class="root">
+    <div class="rn">Root 3</div>
+    <h3>What the coach does often doesn't reach the athlete</h3>
+    <p>The data at the source is right (the panel and the server agree). The delivery is the problem: the app only fetches when a screen appears, and push notifications never arrived.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Coach does</th><th>Athlete gets</th></tr></thead>
+      <tbody>
+        <tr><td class="w">Anything, while the athlete's app is in the background</td><td class="w"><span class="sev p0">P0</span> Nothing until they switch tab or pull to refresh: the app never refreshes on returning to the foreground or on a new day, so the morning shows yesterday as «Hoy» with ▶ EMPEZAR — and training from there logs on yesterday's session.</td></tr>
+        <tr><td class="w">Sends a message, publishes a week, sends a comunicado</td><td class="w"><span class="badge done">fixed today</span> Almost certainly no push ever arrived: the server spoke HTTP/1.1 to Apple's push service, which only speaks HTTP/2 (reproduced here with the same Node version production runs; the push test below confirms it on your phone). Fixed on the server; takes effect with the next deploy.</td></tr>
+        <tr><td class="w">Edits the exercises of a session</td><td class="w">The phone shows the new version when the session is opened; our Watch app and Apple's Workout app keep the old one. The panel's «lo verá así» is false for the wrist. No push.</td></tr>
+        <tr><td class="w">Marks an injury adaptation (Reposo / Suavizada / Sustituida)</td><td class="w">Nothing: the athlete still gets the full session with ▶ EMPEZAR.</td></tr>
+        <tr><td class="w">Sets «Pendiente que retira el ritmo»</td><td class="w">Never applied: the server and the app use different names for the field.</td></tr>
+        <tr><td class="w">Edits the readiness bands</td><td class="w">Ignored: the app has 67/45 hard-coded, so coach and athlete see different colours for the same score.</td></tr>
+        <tr><td class="w">Assigns a program to a group mid-way</td><td class="w">«semana 1 de 2» in the app, «semana 3 de 4» in the panel.</td></tr>
+        <tr><td class="w">Anchors a comunicado to a session, race or test</td><td class="w">It never appears there, only in the inbox (whose only door is an icon on Inicio).</td></tr>
+        <tr><td class="w">Sets the club name, logo, time zone</td><td class="w">Accent colour only; the header keeps the FAHYBRID logo; «today» stays on Madrid time.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="root">
+    <div class="rn">Root 4</div>
+    <h3>The app says things no coach decided</h3>
+    <p>The panel was just made honest: no «critical» without a baseline, adherence only on sessions that were due, no load numbers without 42 days of history. The app contradicts it, and it breaks Hard Rule Nº0 (the method is the coach's, not the code's):</p>
+    <ul>
+      <li><span class="sev p0">P0</span> After a single reading, a red readiness ring and «Hoy toca aflojar: recorta volumen», while the coach sees «38 ayer · aún sin su base (1 de 7 lecturas)». In the local data, 14 athletes would get that advice on a day with a visible session.</li>
+      <li>Training advice written by nobody: «Aprieta menos esta semana», «Afina y descansa» from 21 days before a race, a daily «Haz una simulación de HYROX».</li>
+      <li>One coach's method stated as fact: a coach «pausing you while you recover» (even when the athlete paused themself), microcycles and CTL/ATL/TSB explanations in Perfil, N1–N4 self-levelling, a fixed HYROX questionnaire, a jump test fixed at 15 kg and 3 attempts.</li>
+    </ul>
+  </div>
+
+  <div class="root">
+    <div class="rn">Root 5</div>
+    <h3>Starting and ending a workout is harder than the market standard</h3>
+    <ul>
+      <li><strong>The home doesn't say what to train today.</strong> The app opens on Inicio, whose only orange button is «Crear entreno libre»; today's session lives in the Plan tab. Runna, TrainingPeaks and Garmin put it on the first screen.</li>
+      <li><strong>5–7 taps to start</strong>: brief → devices → the same brief again → ▶ EMPEZAR → ▶ ARRANCAR BLOQUE. Apple Workout, Strava, Runna: 1–3.</li>
+      <li><strong>Ending is hidden</strong> behind a 34-pt pause button next to an ✕ labelled «Salir del entreno» that only minimises; on an outdoor run the big button closes the segment.</li>
+      <li>The main session's actions (move, mark done, ask the coach) exist only as a long-press. The end of a rest is a vibration only, with no sound or notification.</li>
+      <li><strong>Legibility</strong>: the type tokens themselves are 11–13 pt, under the project's own 15-pt floor; about 1,300 text sites ignore Dynamic Type; the «faint» text colour is 2.8–3.3:1 contrast.</li>
+      <li>Notifications are asked cold right after sign-in, with no way back if refused; the icon badge never clears; a race-reminder push opens nowhere.</li>
+    </ul>
+  </div>
+
+  <div class="root">
+    <div class="rn">Root 6</div>
+    <h3>Nothing compiles, tests or watches the app before athletes do</h3>
+    <p>Covered above under «too many issues». It's listed as a root because it's why the other five exist and keep coming back.</p>
+  </div>
+
+  <h2>Already fixed, on the server</h2>
+  <p>Some breaks can be fixed entirely on the server. Those reach every athlete with the next web deploy, need no new app build, and can be tested here. These were objective bugs, so they're fixed, with tests, on the branch:</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Status</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w"><strong>Onboarding was broken in production.</strong> Since 5 September, <code>main</code> sets the same column twice in one database statement, which Postgres refuses, so every onboarding submission failed; the app retries for 72 h and then drops it. Found while fixing the next item; proven against a real database.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w"><strong>Push notifications to the iPhone.</strong> The server now talks HTTP/2 to Apple and sends after the response, so Vercel doesn't cut it off. Tested against a local HTTP/2-only server. After deploy, check with <code>/api/devices/test-push</code>.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w"><strong>A finished workout is never rejected.</strong> A workout on a session the coach removed or replaced (or with a bad optional field) is kept as the athlete's own session, flagged for the coach under Vigilar as «Hecho fuera del plan», and the phone and Watch get their «saved». No athlete can ever write onto another athlete's session.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w"><strong>An onboarding is never lost for one answer.</strong> Each answer is checked on its own; an impossible one is dropped and the coach sees «N respuestas fuera de rango». Four other crashes found on the way are fixed too.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w">The coach's hill threshold reaches the app (the app read a different field name). 29 athlete endpoints were decoded with Swift's rules for 100 athletes: no other mismatches.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w">Push texts name the right week in the athlete's own calendar («esta semana», «la semana que viene»), use the panel's words and accents, and «Tu plan está listo» only arrives when a week is actually visible.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w">«Semana N de M» in the app equals the panel's; weeks the coach holds hidden no longer leak into Ciclo or the tests card.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w"><strong>A set's RPE and RIR keep their half point.</strong> The set editor steps in 0.5 and the database stores one decimal, but the server rounded to a whole number: an athlete's RPE 8.5 was saved as 9 and an RIR of 1.5 as 2. A test that expected 8.5 had been failing since 5 September and was written off as «needs demo data».</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w">The race list decides «upcoming» or «past» in the athlete's own day (and the coach's club day), not in UTC, so a race never sits in the wrong list around midnight.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">None of this is live until the branch is merged and deployed, and migrations 0270–0272 are applied in production along with 0211–0260.</p>
+
+  <h2>The plan</h2>
+  <p>Ordered so each phase makes the next one safe. Everything from phase 1 on is Swift, so it waits for phase 0.</p>
+
+  <div class="phase">
+    <h3>Phase 0 · A compiler, tests and eyes in the loop</h3>
+    <div class="when">1–3 days · needs your OK for the Mac build minutes</div>
+    <ul>
+      <li>A Mac build on every change to <code>ios/</code>: generate the project, compile the iPhone and Watch apps, run the 1,884 tests. A red build can't merge. This also gives me a compiler from here: I push, the Mac compiles, I read the result.</li>
+      <li>Crash and hang reports (Apple's MetricKit, free, no third-party SDK) plus a small log of failed saves and Watch-link events, sent to our server.</li>
+      <li>A hidden «Diagnóstico del reloj» screen that shows the last link events from both devices and lets you send them, so testing the Watch doesn't need a Mac and a cable.</li>
+    </ul>
+  </div>
+
+  <div class="phase">
+    <h3>Phase 1 · Never lose the athlete's work, and tell the truth</h3>
+    <div class="when">1–2 weeks · app + the server fixes above</div>
+    <ul>
+      <li>A finished workout is saved on the phone at «Terminar», before anything else; the summary edits it; sending is separate. Three honest end states: «Guardado» / «Guardado en el móvil · se enviará solo» / «No se pudo guardar · motivo». Offline workouts never expire; the queue belongs to the athlete who made it.</li>
+      <li>One source for the session token (ends the logout loop), and a session that renews while it's used.</li>
+      <li>Refresh on returning to the app and on a new day; the Watch's «today» carries its date.</li>
+      <li>Readiness shows «calibrando · n de 7» until there's a baseline, uses the coach's bands, and gives no advice.</li>
+      <li>A manual pause never resumes on its own; sets follow the prescription, not the exercise category; the load sheet never overwrites a set.</li>
+    </ul>
+  </div>
+
+  <div class="phase">
+    <h3>Phase 2 · The Watch link, as reliable as Apple allows</h3>
+    <div class="when">1–2 weeks after phase 0 · proven on your devices with the tests below before and after</div>
+    <ul>
+      <li>Every message carries its workout id; an «ended» only ends its own workout, and old ones are cancelled at every start.</li>
+      <li>The phone declares the workout background mode, and while the Watch records, the Watch's clock is the session clock — no time is thrown away.</li>
+      <li>Either side can join the same workout: «Reintentar» on the phone, «Entreno en curso en el iPhone · Unirse» on the Watch. Re-link when the phone comes back in range.</li>
+      <li>One honest status on both screens (below). Distance sent as totals, not increments. Work started on the Watch is never dropped.</li>
+    </ul>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Link state</th><th>Defined by</th><th>iPhone</th><th>Watch</th></tr></thead>
+      <tbody>
+        <tr><td class="n">Abriendo el reloj</td><td>launch asked, no answer yet</td><td>«Reloj · abriendo…»</td><td>(app opening)</td></tr>
+        <tr><td class="n">No se ha unido</td><td>launch failed, or 10 s without an answer</td><td>«No se ha unido · Reintentar»</td><td>«Entreno en curso en el iPhone · Unirse»</td></tr>
+        <tr><td class="n">Conectado</td><td>Apple's handshake done and a packet in the last 10 s</td><td>«Reloj ✓»</td><td>normal screen</td></tr>
+        <tr><td class="n">El iPhone no responde</td><td>no update for 15 s while recording</td><td>—</td><td>«El iPhone no responde · ábrelo», and the Watch shows its own clock and heart rate</td></tr>
+        <tr><td class="n">Sin conexión</td><td>Apple reports the disconnect</td><td>«Reloj sin conexión · sigue grabando en la muñeca»</td><td>«Sin conexión con el iPhone · grabando aquí»</td></tr>
+      </tbody>
+    </table></div>
+    <p class="why">No state ever ends, discards or relaunches anything. That was the flaw of every earlier watchdog: acting on a guess. Time without updates only changes what's shown.</p>
+  </div>
+
+  <div class="phase">
+    <h3>Phase 3 · The workout and the app at market standard</h3>
+    <div class="when">2–4 weeks · design first in «el doble», then build</div>
+    <ul>
+      <li>Today's session on the home screen; one pre-workout screen and one «Empezar» that also starts the first block.</li>
+      <li>A clear End control; a big pause at the bottom on runs; ✕ becomes «Minimizar»; 44-pt targets; the 15-pt floor and Dynamic Type everywhere.</li>
+      <li>Timed and distance sets with their own timer and record; load and effort on the same set (80 % + RIR 2); a score per block and per HYROX station; the EMOM button marks the minute done instead of skipping the rest.</li>
+      <li>Rest as a deadline with a sound and a lock-screen Live Activity for every workout, not only outdoor runs.</li>
+      <li>Notifications asked in context with a way back in Perfil; the badge in sync; comunicados shown where the coach anchored them.</li>
+    </ul>
+  </div>
+
+  <div class="phase">
+    <h3>Phase 4 · Your call: the Watch as the clock</h3>
+    <div class="when">After phase 2 is proven</div>
+    <p>Phase 2 makes the link as good as it can be <em>while the clock lives on the iPhone</em>, which iOS is still allowed to suspend. Every app that feels solid on the wrist — Apple Workout, Runna, Nike Run Club, Strava, WorkOutDoors — keeps the clock on the Watch, which is never suspended during a workout, and treats the phone as a second screen. The engine already runs on the Watch for solo workouts, so it's a change of owner, not a new engine. The cost: the phone's richer live screens become followers.</p>
+  </div>
+
+  <h2 id="test">Tests to run on your iPhone and Watch</h2>
+  <p>These settle what reading code can't. Run them before phase 2 and again after it; note both build numbers. With phase 0's diagnostic screen, you'll be able to send me the log straight from the phone.</p>
+  <ul class="checklist">
+    <li><b>Watch on the charger, then the next session.</b> Watch on the charger, app closed; do a phone-only session and leave with «Salir sin guardar». Put the Watch on, start another session from the phone.<span class="exp">Bug: the Watch HUD appears and vanishes within ~2 s, and Health lacks the new workout. Try it 5 times.</span></li>
+    <li><b>Phone locked on a strength day.</b> Start with the Watch joined, lock the phone for 3 minutes during a strength block, tap «Siguiente» on the Watch twice.<span class="exp">Bug: the Watch doesn't change; after unlocking, the phone's rest disagrees with the Watch's; the saved duration is shorter than in Health.</span></li>
+    <li><b>Watch locked at start.</b> Take the Watch off and put it back without unlocking; ▶ EMPEZAR.<span class="exp">Bug: nothing on the phone says the Watch didn't join; the Watch app offers «Empezar», not «Unirse».</span></li>
+    <li><b>Start on the Watch, then the phone.</b> 3 minutes on the Watch app, then ▶ EMPEZAR on the phone.<span class="exp">Bug: those 3 minutes never reach the server.</span></li>
+    <li><b>Out of range.</b> A 3×800 m on a track with the phone on a bench.<span class="exp">Bug: the metres freeze on the Watch and the saved legs are short.</span></li>
+    <li><b>Kill the app after finishing.</b> Finish a session, reach the summary, swipe the app away, reopen.<span class="exp">Bug: the workout is gone.</span></li>
+    <li><b>Coach removes the session mid-workout.</b> Start today's session; in the panel, remove it; press GUARDAR.<span class="exp">Before the server fix: REINTENTAR forever. After it: saved, and flagged in the panel.</span></li>
+    <li><b>Pause.</b> Pause and wait 15 seconds.<span class="exp">Bug: the clock restarts at about 10 s.</span></li>
+    <li><b>Overnight.</b> Leave the app on Inicio at night; reopen it in the morning without killing it.<span class="exp">Bug: yesterday's session as «Hoy»; the Watch shows it too.</span></li>
+    <li><b>Push.</b> After the next deploy, open <code>/api/devices/test-push</code> as admin with your iPhone registered.<span class="exp">Expected: <code>sent: 1</code> and the notification arrives.</span></li>
+  </ul>
+
+  <h2 id="decisions">Your decisions</h2>
+  <p>Each has my recommendation. As with the panel, you can approve them all at once or change any.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>#</th><th>Decision</th><th>Recommendation</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td class="w">A Mac build and tests on every iOS change (GitHub macOS minutes or an Xcode Cloud build-and-test workflow)</td><td class="w"><strong>Yes, first.</strong> Nothing else is safe to build without it.</td></tr>
+      <tr><td>2</td><td class="w">Who owns the workout clock when a Watch is present</td><td class="w">Phone for now (phase 2), then <strong>the Watch</strong> (phase 4) once phase 2 is proven.</td></tr>
+      <tr><td>3</td><td class="w">«Reintentar» on the phone and «Unirse» on the Watch</td><td class="w"><strong>Both.</strong> Both are athlete actions, consistent with FH-56.</td></tr>
+      <tr><td>4</td><td class="w">Runs on the wrist: our Watch app, or Apple's Workout app</td><td class="w"><strong>Our app</strong> for coached sessions; Apple's Workout only as an explicit option, labelled as such.</td></tr>
+      <tr><td>5</td><td class="w">A manual pause</td><td class="w"><strong>Never resumes on its own.</strong> Auto-pause only from GPS movement.</td></tr>
+      <tr><td>6</td><td class="w">Offline workouts</td><td class="w"><strong>Never expire.</strong> The 72 h limit stays for check-ins only.</td></tr>
+      <tr><td>7</td><td class="w">Staying signed in</td><td class="w"><strong>Until the athlete signs out</strong>, renewing while used, like Whoop, Strava and Runna.</td></tr>
+      <tr><td>8</td><td class="w">Today's session on the home screen (revisits 2026-08-06)</td><td class="w"><strong>Yes.</strong></td></tr>
+      <tr><td>9</td><td class="w">Training advice written by the app</td><td class="w"><strong>None now</strong>, state only. Later, only text each coach writes per readiness band.</td></tr>
+      <tr><td>10</td><td class="w">Readiness before a baseline exists</td><td class="w"><strong>«Calibrando · n de 7»</strong>, no number and no colour.</td></tr>
+      <tr><td>11</td><td class="w">Start flow</td><td class="w"><strong>One screen, one «Empezar»</strong>; gates only between blocks.</td></tr>
+      <tr><td>12</td><td class="w">Loads per set, and the weight steps per implement</td><td class="w"><strong>Per set</strong>; steps are the gym's data (1 / 1.25 / 2 / 2.5 kg, kettlebell and dumbbell lists).</td></tr>
+      <tr><td>13</td><td class="w">Load and effort on the same set (80 % + RIR 2)</td><td class="w"><strong>Yes</strong>; it touches the shared model, the editor, the importer and the app.</td></tr>
+      <tr><td>14</td><td class="w">EMOM main button</td><td class="w"><strong>«Marcar cumplido»</strong>; skipping a minute becomes a deliberate secondary action.</td></tr>
+      <tr><td>15</td><td class="w">Time while the phone slept and nothing was measured</td><td class="w"><strong>Count it</strong> when the Watch was recording; otherwise ask at the end.</td></tr>
+      <tr><td>16</td><td class="w">Phone-only outdoor distance: step counter or GPS</td><td class="w"><strong>GPS</strong> (filtered), step counter indoors — the market standard. Record it in DECISIONS.</td></tr>
+      <tr><td>17</td><td class="w">Prescribed sessions without the Watch written to Apple Health</td><td class="w"><strong>Yes</strong> (rings).</td></tr>
+      <tr><td>18</td><td class="w">Dark only (CLAUDE.md) or follow the phone's setting (today's code)</td><td class="w"><strong>Dark only</strong>, as decided; it also fixes the club accent on light phones.</td></tr>
+      <tr><td>19</td><td class="w">Payment lapse</td><td class="w"><strong>7 days' grace, then read-only</strong> (history and chat always), with a way to update the card.</td></tr>
+      <tr><td>20</td><td class="w">The onboarding questionnaire</td><td class="w"><strong>About 5 essentials now</strong>, the rest later in context; each coach's own form after FLEXR.</td></tr>
+      <tr><td>21</td><td class="w">Crash reports</td><td class="w"><strong>MetricKit to our own server</strong>: free, no third party.</td></tr>
+      <tr><td>22</td><td class="w">The daily check-in sheet</td><td class="w"><strong>Only for athletes whose coach uses check-ins</strong>, and not «Buenos días» at 20:00.</td></tr>
+      <tr><td>23</td><td class="w">Two coach channels (Chat and «Del coach»)</td><td class="w"><strong>One inbox</strong>, with comunicados shown where they're anchored.</td></tr>
+      <tr><td>24</td><td class="w">Who owns the target race</td><td class="w"><strong>The coach</strong>; the athlete proposes, the coach confirms.</td></tr>
+      <tr><td>25</td><td class="w">Nutrition (unreachable, 1,819 lines)</td><td class="w"><strong>Delete</strong> (needs your permission for deletions).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>What's good and must stay</h2>
+  <ul>
+    <li><strong>The engine</strong>: one workout engine shared by phone and Watch, one rule for «next», what was prescribed kept separate from what was done, every leg of a structured run recorded, one writer on the server.</li>
+    <li><strong>FH-56's rules</strong> for the link: only Apple's events decide, no watchdog acts on a guess, one launch per workout, never discard the athlete's recording.</li>
+    <li><strong>The Watch canvas</strong>: one subject per page, the zone as a colour field, Always-On handled once, the bezel ring that draws the structure. Closer to Apple Workout than most third-party apps.</li>
+    <li><strong>Things no competitor has</strong>: chat that knows which session you're asking about, structured coach items (protocols, tasks, questions), the «5 de 6 dentro» verdict after a run.</li>
+    <li><strong>Honest data habits</strong>: no invented pace or zones, empty states that say what's missing, a cache that opens instantly, the session in the Keychain, Apple Health anchors that never skip data.</li>
+    <li>Brand and version in one place, and the build number visible in both apps.</li>
+  </ul>
+
+  <p class="meta">Six full reviewer reports (UX, workout, Watch, coach to athlete, platform, other screens), about 195 findings with file and line, ~90 device tests and the questions behind the decisions above, are in the session's scratchpad (<code>ios-audit/</code>).</p>
+</div>

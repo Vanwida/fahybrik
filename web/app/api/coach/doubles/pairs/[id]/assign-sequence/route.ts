@@ -6,8 +6,7 @@ import {
   DoublesPairError,
 } from '@/lib/dashboard/coach/doubles-pairs';
 import { assignPairSequenceInputSchema } from '@fahybrid/shared/schema/doubles-pairs';
-import { notifyAthlete } from '@/lib/notifications/dispatch';
-import { planPublishedPush } from '@/lib/notifications/plan-published';
+import { notifyPlanAssignedIfVisible } from '@/lib/notifications/plan-published';
 import type { AssignSequenceResult } from '@/lib/dashboard/coach/assign-sequence';
 
 export const runtime = 'nodejs';
@@ -19,8 +18,11 @@ function parsePairId(id: string): number | null {
 }
 
 // Best-effort push: tell an athlete their plan was published, only when we
-// actually materialized sessions this call (skip idempotent no-op re-enrolls).
-// Mirrors the individual assign-sequence route's notification.
+// actually materialized sessions this call (skip idempotent no-op re-enrolls)
+// AND the athlete already sees one of those weeks — the same rule as the
+// individual assign-sequence route. The pair's weeks open N days before (auto
+// delivery), so a plan starting in three weeks gets its notice from the publish
+// cron that day, not a «Tu plan está listo» onto an empty Plan today (D-10).
 async function notifyIfMaterialized(
   athleteId: number,
   result: AssignSequenceResult,
@@ -33,20 +35,12 @@ async function notifyIfMaterialized(
     return;
   }
   const { sql } = await import('@/lib/db');
-  await notifyAthlete({
+  await notifyPlanAssignedIfVisible({
     sql,
-    athlete_id: BigInt(athleteId),
-    type: 'plan_published',
-    payload: {
-      athlete_id: athleteId,
-      week_start: result.materialization.start_date,
-      deep_link: `/plan?week=${result.materialization.start_date}`,
-    },
-    push: {
-      ...(await planPublishedPush(sql, BigInt(athleteId), 'assigned')),
-      deeplink: { screen: 'plan', week_start: result.materialization.start_date },
-    },
-  }).catch(() => undefined);
+    athlete_id: athleteId,
+    start_date: result.materialization.start_date,
+    week_count: result.materialization.microcycle_ids.length,
+  });
 }
 
 // POST /api/coach/doubles/pairs/[id]/assign-sequence — ONE call materializes the

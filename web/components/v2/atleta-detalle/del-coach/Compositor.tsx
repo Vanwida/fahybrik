@@ -19,7 +19,6 @@
 //     eso publicar DESDE una plantilla es escribir una copia y publicar la copia.
 
 import { useCallback, useMemo, useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
 import { ModalPortal } from '@/components/v2/editor/ModalPortal';
 import {
   COMMUNICATION_KINDS,
@@ -52,6 +51,8 @@ import { FormNota } from './formulario-nota';
 import { FormularioDelTipo } from './formularios';
 import { PieCompositor } from './pie-compositor';
 import { ColumnaPrevia } from './previa';
+import { Library, X } from 'lucide-react';
+import { Button, IconButton } from '@/components/v2/ui';
 
 /** Los dos tipos que dicen «esto sale de aquello». Un protocolo, una pregunta y
  *  un foco se sostienen solos: enlazarlos sería decorar. */
@@ -304,12 +305,7 @@ export function Compositor({
   return (
     <ModalPortal onEscape={cerrar} escapeEnabled={!ocupado}>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 pb-[calc(var(--v2-tabbar-h)+0.75rem)] sm:p-6 sm:pb-[calc(var(--v2-tabbar-h)+1.5rem)] lg:pb-6">
-      <button
-        type="button"
-        aria-label="Cerrar el compositor"
-        onClick={cerrar}
-        className="absolute inset-0 bg-[color:var(--v2-scrim)]"
-      />
+      <div aria-hidden onClick={cerrar} className="absolute inset-0 bg-v2-scrim" />
 
       <div
         role="dialog"
@@ -319,23 +315,24 @@ export function Compositor({
         // `max-h-full` = todo el hueco que deja el envoltorio, que ya descuenta
         // por abajo la barra de pestañas de la app: sin eso el pie del diálogo
         // queda justo detrás de ella (medido a 390 y a 768).
-        className="v2-focus relative flex max-h-full w-full max-w-[1180px] flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]"
+        className="relative flex max-h-full w-full max-w-[1180px] flex-col rounded-panel border border-v2-border bg-v2-elevated shadow-pop outline-none"
       >
         {/* ── Cabecera: quién lo recibe, de qué tipo es y de dónde parte ──── */}
         <div className="flex shrink-0 flex-col gap-3.5 border-b border-[color:var(--v2-border)] p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 flex-col gap-1">
-              <h2 id="compositor-titulo" className="v2-display text-xl text-[color:var(--v2-fg)]">
+              <h2 id="compositor-titulo" className="t-title-sm text-v2-fg">
                 {titulo}
               </h2>
-              <p className="text-label text-[color:var(--v2-muted)]">{subtitulo}</p>
+              <p className="t-body-sm text-v2-muted">{subtitulo}</p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               {/* Escribiendo un molde no se ofrece: sería la biblioteca dentro de
                   la biblioteca, y cargar otra plantilla encima reescribiría ésta. */}
               {esPlantilla ? null : (
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  icon={Library}
                   onClick={() => {
                     // La carga la dispara el click, no un efecto: traer la
                     // biblioteca es una reacción a lo que pide el coach.
@@ -343,20 +340,11 @@ export function Compositor({
                     setVerBiblioteca((v) => !v);
                   }}
                   aria-expanded={verBiblioteca}
-                  className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-3 text-label font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)]"
                 >
-                  <MIcon name="inventory_2" size={15} />
                   Desde biblioteca…
-                </button>
+                </Button>
               )}
-              <button
-                type="button"
-                aria-label="Cerrar"
-                onClick={cerrar}
-                className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
-              >
-                <MIcon name="close" size={20} />
-              </button>
+              <IconButton icon={X} label="Cerrar" shortcut="Esc" onClick={cerrar} />
             </div>
           </div>
 
@@ -369,7 +357,7 @@ export function Compositor({
             }}
             ariaLabel="Tipo de comunicado"
           />
-          <p className="text-label leading-relaxed text-[color:var(--v2-muted)]">
+          <p className="t-meta leading-relaxed text-[color:var(--v2-muted)]">
             Elige por lo que quieres que haga, no por lo que quieres contarle. Este le pide{' '}
             <b className="font-semibold text-[color:var(--v2-fg)]">{KIND_COACH_ASKS[b.kind]}</b>.
           </p>

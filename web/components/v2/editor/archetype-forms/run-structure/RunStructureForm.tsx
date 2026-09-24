@@ -14,6 +14,8 @@ import { legacyToStructure, prescriptionFromStructure } from '@fahybrid/shared/d
 import { parseNotationCell } from '@fahybrid/shared/domain/import/notation';
 import { cn } from '@/lib/utils';
 import { MIcon } from '@/components/ui/MIcon';
+import { Plus, TriangleAlert, X, Zap } from 'lucide-react';
+import { Button, IconButton, Input } from '@/components/v2/ui';
 import {
   structureBars,
   structureTotals,
@@ -162,19 +164,13 @@ export function RunStructureForm({
 
       {/* Archetype prefills — one tap fills the Principal */}
       <div className="space-y-1.5">
-        <span className="v2-micro">Plantilla del principal</span>
-        <div className="flex flex-wrap gap-1.5">
+        <span className="t-meta text-v2-muted">Plantilla del principal</span>
+        <div className="flex flex-wrap gap-1">
           {RUN_ARCHETYPES.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              title={a.hint}
-              onClick={() => requestArchetype(a.id, a.name)}
-              className="v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 py-1 text-label font-bold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-text)]"
-            >
+            <Button key={a.id} size="sm" title={a.hint} onClick={() => requestArchetype(a.id, a.name)}>
               <MIcon name={a.icon} size={14} />
               {a.name}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -199,59 +195,51 @@ export function RunStructureForm({
       ) : null}
 
       {/* Phase tabs */}
-      <div className="flex items-center gap-1 border-b border-[color:var(--v2-border)]">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-v2-border">
         {PHASE_TABS.map((tab) => {
           const present = !!phaseFor(tab.role);
           if (!present && tab.optional) {
             return (
-              <button
+              <Button
                 key={tab.role}
-                type="button"
+                size="sm"
+                variant="ghost"
+                icon={Plus}
                 onClick={() => addPhase(tab.role)}
-                className="v2-focus inline-flex items-center gap-1 px-2.5 py-2 text-label font-semibold text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-accent-text)]"
+                className="mb-1 text-v2-faint"
               >
-                <MIcon name="add" size={13} />
                 {tab.label}
-              </button>
+              </Button>
             );
           }
           const isActive = tab.role === activeRole;
           return (
-            <button
+            <span
               key={tab.role}
-              type="button"
-              onClick={() => setActiveRole(tab.role)}
               className={cn(
-                'v2-focus -mb-px inline-flex items-center gap-1.5 border-b-2 px-2.5 py-2 text-xs font-bold transition-colors',
-                isActive
-                  ? 'border-[color:var(--v2-accent)] text-[color:var(--v2-fg)]'
-                  : 'border-transparent text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
+                '-mb-px inline-flex shrink-0 items-center border-b-2 pb-1',
+                isActive ? 'border-v2-select-bar' : 'border-transparent',
               )}
             >
-              {tab.label}
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-pressed={isActive}
+                onClick={() => setActiveRole(tab.role)}
+                className={cn(isActive && 'text-v2-fg')}
+              >
+                {tab.label}
+              </Button>
               {tab.optional ? (
-                <span
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Quitar ${tab.label}`}
-                  title={`Quitar ${tab.label}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    requestRemovePhase(tab.role, tab.label);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      requestRemovePhase(tab.role, tab.label);
-                    }
-                  }}
-                  className="inline-flex text-[color:var(--v2-faint)] hover:text-[color:var(--v2-danger)]"
-                >
-                  <MIcon name="close" size={13} />
-                </span>
+                <IconButton
+                  icon={X}
+                  size="sm"
+                  label={`Quitar ${tab.label}`}
+                  onClick={() => requestRemovePhase(tab.role, tab.label)}
+                  className="size-6 w-6 hover:text-v2-danger"
+                />
               ) : null}
-            </button>
+            </span>
           );
         })}
       </div>
@@ -260,7 +248,7 @@ export function RunStructureForm({
       <PhaseEditor elements={active.elements} onChange={(elements) => setPhaseElements(active.role, elements)} />
 
       {/* La sesión suma — the coach's mental math, done for him */}
-      <p className="pt-1 text-label font-semibold text-[color:var(--v2-faint)]">
+      <p className="pt-1 t-meta font-semibold text-[color:var(--v2-faint)]">
         {totalsSentence(totals)}
       </p>
     </div>
@@ -284,25 +272,16 @@ function ConfirmBar({
     <div
       role="alertdialog"
       aria-label={message}
-      className="flex flex-wrap items-center gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-warn)] bg-[color:var(--v2-warn-soft)] px-3 py-2"
+      className="flex flex-wrap items-center gap-2 rounded-ctl bg-v2-warn-soft px-3 py-2"
     >
-      <MIcon name="warning" size={15} className="shrink-0 text-[color:var(--v2-warn)]" />
-      <span className="min-w-0 flex-1 text-xs text-[color:var(--v2-fg)]">{message}</span>
-      <button
-        type="button"
-        autoFocus
-        onClick={onConfirm}
-        className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-warn)] px-2.5 text-label font-bold text-[color:var(--v2-bg)]"
-      >
+      <TriangleAlert aria-hidden strokeWidth={2} className="size-4 shrink-0 text-v2-warn" />
+      <span className="min-w-0 flex-1 t-body-sm text-v2-fg">{message}</span>
+      <Button size="sm" variant="destructive" autoFocus onClick={onConfirm}>
         {confirmLabel}
-      </button>
-      <button
-        type="button"
-        onClick={onCancel}
-        className="v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-2.5 text-label font-bold text-[color:var(--v2-fg)]"
-      >
+      </Button>
+      <Button size="sm" onClick={onCancel}>
         Cancelar
-      </button>
+      </Button>
     </div>
   );
 }
@@ -323,9 +302,9 @@ function QuickLine({ onSubmit }: { onSubmit: (text: string) => boolean }) {
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] py-1 pl-3 pr-1">
-        <MIcon name="bolt" size={15} className="shrink-0 text-[color:var(--v2-accent-text)]" />
-        <input
+      <div className="flex items-center gap-2">
+        <Input
+          icon={Zap}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
@@ -339,21 +318,16 @@ function QuickLine({ onSubmit }: { onSubmit: (text: string) => boolean }) {
           }}
           placeholder="Escríbelo como siempre: 6x1000 @4:30 r2'"
           aria-label="Añadir tramos escribiendo la serie"
-          className="v2-focus w-full bg-transparent py-1.5 font-mono text-body text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:outline-none"
+          className="t-tnum"
         />
-        <button
-          type="button"
-          onClick={go}
-          disabled={!text.trim()}
-          className="v2-focus shrink-0 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 py-1.5 text-xs font-bold text-[color:var(--v2-accent-fg)] transition-opacity disabled:opacity-30"
-        >
+        <Button onClick={go} disabled={!text.trim()}>
           Añadir
-        </button>
+        </Button>
       </div>
       {failed ? (
-        <p role="alert" className="pl-1 text-label text-[color:var(--v2-warn)]">
-          No lo he entendido: prueba como <span className="font-mono">6x1000 @4:30 r2&apos;</span>{' '}
-          o <span className="font-mono">20&apos; Z2</span>. También puedes montarlo abajo.
+        <p role="alert" className="pl-1 t-meta text-v2-warn">
+          No lo he entendido: prueba como <span className="text-v2-fg">6x1000 @4:30 r2&apos;</span> o{' '}
+          <span className="text-v2-fg">20&apos; Z2</span>. También puedes montarlo abajo.
         </p>
       ) : null}
     </div>
@@ -368,12 +342,12 @@ function IntensityStrip({ bars }: { bars: IntensityBar[] }) {
   return (
     <div
       aria-hidden
-      className="flex h-14 items-end gap-px overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 pt-2"
+      className="flex h-14 items-end gap-px overflow-hidden rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 pt-2"
     >
       {bars.map((b, i) => (
         <div
           key={i}
-          className={cn('rounded-t-[2px]', b.kind === 'recovery' ? 'bg-[color:var(--v2-info)]/25' : 'bg-[color:var(--v2-accent)]')}
+          className={cn('rounded-t-[2px]', b.kind === 'recovery' ? 'bg-[color:var(--v2-info)]/25' : 'bg-v2-fg')}
           style={{
             width: `${Math.max(1.2, (Math.max(1, b.seconds) / totalS) * 100)}%`,
             height: `${Math.round(b.intensity * 100)}%`,

@@ -10,6 +10,641 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · El reloj es el producto: la muñeca lleva la sesión desde el primer día
+
+**Decidido (Alex, 24-09):** «Nuestro argumento de venta es el reloj; la app no tiene sentido sin él. Todo está conectado y hay que medirlo todo. No sirve un sistema de conexión pobre aunque funcione: lo que importa es llevar la tecnología al límite.»
+
+**En consecuencia:** se descarta la escalera de la auditoría de la app del atleta (`docs/auditoria-app-atleta/`, fase 2 «el teléfono lleva el reloj de la sesión por ahora» → fase 4 «el reloj después»). El Apple Watch pasa a ser el **dispositivo de registro y el dueño del reloj de la sesión** desde la primera versión del rediseño; el iPhone, la segunda pantalla y el concentrador de lo que solo él alcanza. El listón deja de ser «tan fiable como Apple permite con el motor en el teléfono» y pasa a ser «como Apple Workout, y midiendo lo que Apple Workout no mide».
+
+**El listón, dicho por Alex (24-09):** «Tenemos que competir directamente con TrainingPeaks; no podemos ser menos.» Donde TrainingPeaks es fuerte (entrenos estructurados en cualquier aparato, analíticas de carga y rendimiento, sincronía con dispositivos, herramientas del coach) no se queda por debajo; el reloj es donde se les supera. TrainingPeaks queda marcado como fuente de comparación.
+
+**Se mantiene de FH-56 (2026-09-21):** el estado del enlace solo lo cambian eventos de Apple; ningún temporizador actúa sobre una inferencia; nunca se descarta lo que grabó el atleta. Y la fase 0 de la auditoría sigue primero: sin un Mac que compile y pruebe cada cambio de Swift, empujar el reloj al límite es reescribir el enlace por octava vez.
+
+**Firmado por Alex (24-09, preguntas y respuestas)** sobre el diseño `docs/el-reloj-primero/`:
+1. **Arquitectura aprobada:** el Apple Watch es dueño de cada sesión desde la primera versión; el iPhone, segunda pantalla y concentrador.
+2. **Mínimos: iOS 26 y watchOS 26**, con lo de watchOS 27 (zonas nativas, RMSSD) encendido donde el reloj lo tenga. 26 es lo que pide la sesión de entreno en el iPhone.
+3. **Sin reloj, el iPhone es respaldo:** graba la sesión él solo (sesión de entreno de iOS 26), marcada como respaldo; nunca se vende como camino principal.
+4. **Mac de CI: GitHub macOS.** Compila iPhone y reloj y pasa los tests en cada cambio de `ios/`; un rojo no se fusiona. Se monta en el repo y los errores se leen desde aquí.
+
+---
+
+## 2026-09-24 · Recolocar la cadena personal: se valida todo antes de escribir y se libera antes de ocupar
+
+**Qué:** mover, alargar, acortar o borrar un tramo del plan personal valida el plan entero en la fase 1, bajo el lock: sesiones hechas en los tramos que se mueven, y que ninguna ventana nueva caiga sobre un recibo que la operación no reescribe (→ 409 `overlapping_plan`, limpio). La fase 2 escribe en el orden de `reflowWriteOrder` (`personal-plan-chain-write-order.ts`): antes de colocar un tramo retira todo recibo viejo de la operación que pise su ventana nueva. Un intercambio retira los dos antes de colocar ninguno; alargar aparta lo de detrás y luego crece; acortar encoge y luego adelanta lo de detrás (`resizeInPlaceAndReflow`).
+
+**Por qué:** un intercambio es un ciclo (cada tramo cae en las fechas del otro) y fallaba con «se solapa», dejando un tramo sin fechas; alargar con un tramo detrás reventaba con 23P01 (500) y ya había cambiado la plantilla. El test que esperaba el rechazo del intercambio fijaba el bug; el de encoger esperaba un suelo de 2 semanas donde el real es 3 (estaba mal desde 41868e80).
+
+**Queda abierto (producto, de Alex):** la cadena empaqueta todos los tramos personales tras el ancla uno detrás de otro; si hay un mes de biblioteca en medio, acortar o borrar el anterior se rechaza (409) en vez de dejar el hueco. Sabido y no hecho: sesiones hechas que quedaron en un hueco se reabsorben por fecha si un tramo lo cubre luego; mover un tramo lo reconstruye desde su plantilla (se pierden ediciones por atleta y calibraciones pendientes, como ya pasaba al borrar); la plantilla cambia en la fase 1 y el recibo en la 2 (si la 2 falla, reintentar no hace nada). El editor de la cadena en el panel se retiró en 220276e: hoy solo la llaman las rutas `plan-chain` y el alta.
+
+**NO hacer:** no colocar un tramo sin haber retirado antes lo que pisa; no escribir nada antes de validar el plan entero.
+
+---
+
+## 2026-09-24 · Un huso se guarda solo si lo conocen Intl y Postgres
+
+**El hueco:** los husos se guardan en dos columnas (`coaches.timezone` desde Ajustes › Tu club; `athletes.timezone` desde el lote de HealthKit) y se leen con dos motores que no comparten base de husos: Intl en TS, `at time zone` en SQL. Intl acepta nombres heredados que un Postgres con el tzdata recortado rechaza ('Europe/Kiev', 'Asia/Calcutta' en el Postgres 16 de Ubuntu sin `tzdata-legacy`), nombres que tzdata ya borró ('US/Pacific-New') y desfases ('+01:00', que Postgres lee con el signo al revés). El combo ofrecía la lista del navegador y el lote solo miraba Intl: un huso así tumbaba cada consulta que lo usaba («time zone not recognized»), y solo dos lectores se protegían consulta a consulta.
+
+**Decidido:**
+- **Se valida al escribir** (`isSafeTimezone`, `web/lib/time-zones.ts`): vale si Intl lo entiende Y está en `pg_timezone_names` de esa base, nombre a nombre. `setCoachTimezone` lanza `CoachTimezoneError` (422, «Ese huso no se puede usar. Elige uno de la lista.») sin tocar la columna. La sincronización no escribe un huso que no pase y se queda el anterior; el lote entra igual (sus entrenos y muestras son hechos), así que el esquema lee un huso que el servidor no entiende como «no informado» en vez de rechazar el lote.
+- **El combo ofrece solo husos seguros, calculados en el servidor** (`loadOfferableTimezones`): la lista de Intl y, para cada zona cuyo nombre CLDR no conoce Postgres, el nombre que sí conoce para la MISMA zona ('Asia/Calcutta' → 'Asia/Kolkata', 'Europe/Kiev' → 'Europe/Kyiv'). Intersecar a secas quitaba 18 ciudades en ese Postgres, entre ellas India, Kyiv, Buenos Aires y Ho Chi Minh.
+- **Al leer**, `loadAthleteTimezone(s)` da el defecto si Intl no entiende lo guardado (el coach ya lo tenía con `effectiveCoachTimezone`). Con la consulta de abajo en cero filas, un lector nuevo puede fiarse de la columna; los que ya se protegen en SQL (`history`, `dobles-streak`, `runAutoPublish`) se quedan como red.
+
+**Descartado:** una migración que pusiera a NULL los husos guardados que Postgres no conoce. `coaches.timezone` nace en esta misma tanda (0241), así que producción no tiene valores, y los iPhone mandan nombres canónicos. En su lugar, esta consulta de solo lectura (no debe devolver filas; `to_jsonb` tolera una base sin 0241):
+`with known as materialized (select name from pg_timezone_names) select 'coaches' as tabla, c.id, to_jsonb(c) ->> 'timezone' as timezone from coaches c where to_jsonb(c) ->> 'timezone' not in (select name from known) union all select 'athletes', a.id, a.timezone from athletes a where a.timezone not in (select name from known) order by 1, 2;`
+
+**NO hacer:** no escribir un huso en una columna sin `isSafeTimezone`; no ofrecer la lista de husos del navegador sin pasarla por Postgres; no rechazar un lote de sincronización por su huso.
+
+---
+
+## 2026-09-24 · Un bloque archivado no se elige; la revisión semanal no inventa plan; fuera PABLO_IA_*
+
+**Bloque archivado (0236).** Archivar retira: la Biblioteca lo sigue mostrando en «Archivados», pero ningún lector que ofrece bloques para USAR lo devuelve. Eran tres que no filtraban `archived_at`: `loadComposableBlocks` (compositor de semanas de la IA e importador), `listBlocks` (`/api/coach/blocks`, sugerencia de entreno del editor) y `listBlocksWithStructure` (búsqueda del asistente, MCP). Las plantillas y los niveles ya lo cumplían. **NO hacer:** un lector nuevo de bloques «para elegir» sin `archived_at is null`.
+
+**Revisión semanal: plan inventado, eliminado.** `getCurrentReview` devolvía `plan` construido con una rotación fija («Strength / Z2 long / Threshold…») como si fueran las dos semanas del club; `computePlan`, `buildPlanWeek` y la rotación se han borrado y `plan` va vacío. La revisión no tiene pantalla (entrada «Ajustes masivos se retira»); si la recupera, su plan sale de las semanas reales de los atletas. Su semana y «posponer a mañana» van ya en el calendario del club.
+
+**Alias `PABLO_IA_*` eliminado.** La IA del coach leía `COACH_IA_*` y, si faltaban, `PABLO_IA_*` («deprecados, transición» en `.env.example`). Cerrada la transición: `COACH_IA_*` y, sin ellas, `LLM_*`. En Vercel no hay ninguna de las dos familias (producción usa `LLM_*`). Quien las tenga en su `.env` local las renombra.
+
+---
+
+## 2026-09-24 · Una fecha sin hora que da el atleta se guarda a mediodía de SU huso
+
+**El caso.** Una carrera registrada a mano (`registerRaceMark`) trae un día (AAAA-MM-DD), pero `athlete_benchmarks.recorded_at` es `timestamptz`. `${date}::date` en la sesión de Neon (UTC) es medianoche UTC: leída en el calendario de un atleta al oeste de UTC, la carrera del 5 era del 4.
+
+**Decidido:** un hecho de solo fecha que va a una columna de instante se guarda a las 12:00 de ese día en el huso del atleta (`(date + time '12:00') at time zone <su huso>`, con la zona comprobada contra `pg_timezone_names`). Leído en su calendario es siempre ese día, y el mediodía aguanta que después cambie de huso varias horas. Lo ya guardado es de atletas en España, donde medianoche UTC cae en su mismo día.
+
+**NO hacer:** `::date` hacia un `timestamptz`; si el hecho es solo un día y se lee como día, o columna `date` o mediodía local.
+
+---
+
+## 2026-09-24 · El migrador aplica una migración con CONCURRENTLY sentencia a sentencia
+
+`infra/scripts/migrate.ts` mandaba el fichero entero como una sola consulta, y Postgres ejecuta varias sentencias en una consulta como un bloque de transacción implícito: `CREATE INDEX CONCURRENTLY` se negaba y la 0051 no se podía aplicar. El camino sin transacción parte ahora el fichero (`infra/scripts/sql-split.ts`, reglas del lexer de Postgres y de psql) y manda cada sentencia por la misma conexión reservada; el camino con transacción no cambia. Con eso, **una base vacía migra de cero** (las 238, comprobado en Postgres 16): la opción «una base por club» de la revisión FLEXR ya no tiene ese obstáculo. Si una sentencia N falla, las 1…N−1 quedan aplicadas y el diario no se escribe; la 0051 es re-ejecutable (`if not exists`).
+
+---
+
+## 2026-09-24 · La RPE y la RIR de una serie guardan su medio punto
+
+**El bug.** El editor de series de la app va de 0,5 en 0,5 (`EditorDeSerie.swift`, `PasoDecimal(paso: 0.5)`) y `set_executions.rpe` / `.rir` son `numeric(3,1)`, pero `sanitizeRpe` (`web/lib/sync/sanitize-measurement.ts`) hacía `Math.round`: el 8,5 que el atleta marcaba se guardaba como 9 y una RIR de 1,5 como 2. El test de ingesta que esperaba 8,5 llevaba fallando desde la importación del 5 sept.
+
+**Decidido:** una serie guarda su RPE y su RIR con un decimal, de 0 a 10: el medio punto es el estándar de la fuerza (RPE 8,5 = «quedaban una o dos»). La RPE de la sesión entera sigue en puntos enteros (`workout_executions.perceived_exertion` es `integer`, `sanitizePerceivedExertion`). La app lee esos campos de serie como `Double`.
+
+**NO hacer:** no redondear a entero un dato del atleta que su columna y su pantalla admiten con decimal; si una columna pide menos precisión que la pantalla, se arregla la columna, no el dato.
+
+---
+
+## 2026-09-24 · El aviso de plan lo escribe un solo módulo, nombra su semana y solo llega si hay algo que ver
+
+**El hueco (auditoría de la app del atleta, D-10):** cada camino armaba su propio `plan_published` (dos rutas de asignar, asignar a varios, dobles, avanzar la cadena, publicar una semana o varias, el cron). El aviso semanal decía «para la proxima semana» también al publicar la semana EN CURSO; avanzar decía «Nuevo microciclo listo … el siguiente bloque» (el panel dice «programa»; para el atleta un «bloque» es un tramo de su sesión); ninguno llevaba tildes. Dobles y avanzar avisaban SIEMPRE, aunque ninguna semana fuera visible todavía: «Tu plan está listo» sobre un Plan vacío (la regla «no avisar si ninguna semana es visible», 2026-09-23, solo estaba en asignar). Y la app instalada abre la pestaña Plan en la semana en curso sin mirar `week_start`: la frase es el único sitio donde el atleta lee qué semana es.
+
+**Decidido:**
+- **Un envío:** `notifyPlanPublished` (`web/lib/notifications/plan-published.ts`) arma la fila de la bandeja y el push de todos esos caminos, con el payload de siempre (`week_start`, `deep_link`; la app enruta por `type`). Dobles y avanzar pasan por `notifyPlanAssignedIfVisible` (la primera semana visible, o nada; el día que se abra, avisa el cron).
+- **Toda frase nombra su semana**, contada desde el «hoy» del ATLETA (su huso; lo lee él — «Qué día es en cada sitio», 2026-09-23): «esta semana», «la semana que viene» o «la semana del lunes 12 de octubre». Asignar: «Tu plan está listo — X ha publicado tu plan de entrenamiento. Empieza …» («Empezó …» si la fecha de inicio ya pasó). Publicar una semana: «Tu plan de la semana está listo — … tu plan para …»; varias de golpe: «Tu plan está listo — … a partir de …». Avanzar: «Nuevo programa listo — … el siguiente programa de tu plan. Empieza …». El nombre del coach sigue siendo dato; sin nombre, «Tu entrenador».
+
+**Queda (fuera de este cambio):** la app debería ir a la semana de `week_start` al tocar el aviso y enrutar `event_reminder` a Carreras (lado app). Con el horizonte por defecto de un coach nuevo («Solo esta semana»), el aviso del cron del sábado anuncia la semana que viene y el atleta no puede abrirla hasta el lunes: o el cron espera al horizonte o el horizonte deja ver lo publicado (producto). `publish_week` del MCP avisa aunque la semana ya estuviera visible o esté vacía, a diferencia de los actos del panel (producto). Qué cambios silenciosos merecen aviso (editar, mover, quitar, pausar, revisión) sigue en Q1.
+
+**NO hacer:** no volver a escribir `type: 'plan_published'` fuera de `plan-published.ts`; no decir «la próxima semana» sin contar la semana desde el día del atleta; no usar «microciclo» ni «bloque» con el atleta para un programa; no avisar de un plan que el atleta todavía no puede ver.
+
+---
+
+## 2026-09-24 · El umbral de pendiente del coach viaja también con la clave que lee la app instalada
+
+**El hueco (auditoría de la app del atleta, D-06):** el detalle de una sesión sirve el umbral de pendiente del coach en `run_compliance.gradient_retires_pace_pct`; la app instalada lo busca en `gradient_threshold_pct` (`RunCompliance.gradientThresholdPct`, `ios/FAHYBRIKCore/Plan/RunCompliance.swift`, que dejó el nombre «pendiente de confirmar»). La clave nunca casaba: el número del coach no llegaba y la app leía la carrera con su suelo del 3 %.
+
+**Decidido:** `RunComplianceResult` lleva el MISMO número con las dos claves. `gradient_retires_pace_pct` sigue siendo la canónica (la del panel y la del dominio); `gradient_threshold_pct` es la que decodifica la app que ya está en los teléfonos, y no se puede actualizar pronto. Barrido del resto del contrato atleta ↔ Swift (D §2.5): las respuestas reales de 29 endpoints GET del atleta × 100 atletas locales decodificadas con las reglas de Swift, más un cruce estático de campos obligatorios en Swift contra tipos que el servidor puede mandar nulos — nada más roto (los datos locales no tienen tramos ejecutados, comunicados, tests ni resultados de carrera: esas formas solo pasaron el cruce estático). Lo que queda de §2.5 (`days[].recovery_suggestions`/`kind`, `sessions[].template_id` sin decodificar; `injury_adaptation` sin servir) es de la app o de producto.
+
+**NO hacer:** no quitar `gradient_threshold_pct` mientras haya instalada una app que la lea; cuando la app lea la canónica, se retira en un cambio con su propia entrada aquí.
+
+---
+
+## 2026-09-24 · Lo que el coach tiene oculto no se anuncia: hitos del ciclo y tarjeta de tests pasan por la puerta de visibilidad
+
+**El hueco (auditoría de la app del atleta, D-19):** la puerta de visibilidad del atleta es una (una semana con `weekly_plans.status = 'draft'` no se ve; sin fila, se ve — 2026-08-10). El Plan, el historial y los endpoints del reloj la aplicaban; la vista de ciclo (`resolvePlanPath` → hitos) y la tarjeta de tests de Inicio (`loadBatteryStatus`) no: una semana retenida seguía anunciando «Simulacro el sábado 10» y contando «3/4 · falta remo 2K», y desde esa tarjeta se podía abrir y empezar el test oculto.
+
+**Decidido:**
+- La puerta vive en SQL en un sitio para lo nuevo: `athleteSeesAssignment` (`web/lib/athlete/week-visibility.ts`, alias `wa`). Las copias de `week-plan.ts` no se tocan en este cambio.
+- Los hitos del ciclo y la tarjeta de tests del ATLETA la aplican con `keepDone`: lo que el atleta ya hizo (`completed`/`partial`) se sigue viendo aunque su semana esté retenida — su trabajo es suyo; lo pendiente de una semana retenida no se anuncia. Entran por una marca explícita (`visibleToAthlete`), que ponen la ruta del ciclo, la tarjeta de tests, las notas del atleta y la vista previa del coach de esas notas (enseña lo que verá el atleta).
+- El coach sigue viéndolo todo sin la marca: ficha, Periodización, cadena personal.
+
+**Queda (decisión de producto, con D-18):** `GET /api/athlete/assignments/[id]/detail` sigue sin puerta. Con estas dos lecturas cerradas, a una sesión oculta solo se llega con un id viejo (una caché). Aplicarle hoy la regla del Plan, que retiene la semana ENTERA, rompería lo que el atleta tiene en la mano cuando el coach retiene la semana EN CURSO: la tarjeta de hoy del reloj, el constructor del entreno libre o un entreno que está empezando. Primero hay que decidir qué esconde retener la semana en curso (D-18: ¿solo desde mañana?, ¿lo ya hecho sigue?). Si se cierra, el candidato es: días posteriores a hoy de una semana retenida, sin lo hecho ni lo que creó el propio atleta.
+
+**NO hacer:** no escribir otra copia de la puerta en una lectura nueva del atleta: se usa `athleteSeesAssignment`. No quitar al atleta lo que ya hizo por retener su semana.
+
+---
+
+## 2026-09-24 · «Semana N de M» de la app sale de la misma regla que el panel
+
+**El hueco (auditoría de la app del atleta, D-08 / F-07):** quien entra en un grupo a mitad de programa recibe un recibo más corto que el programa. El panel ya contaba la semana en el PROGRAMA (`programPosition`, entrada «Hoy honesto…», 2026-09-23); la cabecera del Plan de la app (`buildAthleteMacroSummary`) y la vista de ciclo (`web/lib/plan/camino.ts`) la contaban en el RECIBO: «semana 1 de 2» en la app, «semana 3 de 4» en la ficha (visto en los datos locales).
+
+**Decidido:** las dos lecturas del atleta usan `programPosition` con las semanas del programa (`program_month_weeks`; sin filas, las del recibo). En el camino, solo el tramo de HOY: su `current_week`/`week_count` son los del programa y sus `first_week`/`weeks_label`/`total_weeks` se acumulan con esa cuenta; las fechas siguen siendo las del recibo (las que entrena). Los tramos pasados y futuros no cambian: el panel solo sitúa el recibo en curso, y un recibo pasado recortado al sustituir no es alguien que entró a mitad.
+
+**Límite conocido (es de la regla, no de este cambio):** la regla deduce «entró a mitad» porque su recibo es más corto que el programa y termina con él. Un recibo en curso recortado por una sustitución que empieza el lunes que viene se lee igual que un recién llegado, en la app y en el panel a la vez. La raíz es guardar en el recibo en qué semana del programa entra (el materializador ya lo sabe: `start_week_number`). Y el «hoy» de cada lado sigue siendo el suyo (club en el panel, Madrid en la app, deuda de «Qué día es en cada sitio»): con un club fuera de Madrid pueden discrepar unas horas el lunes.
+
+**NO hacer:** no volver a contar la semana del atleta en el recibo; una pantalla nueva que diga «semana N de M» llama a `programPosition`.
+
+---
+
+## 2026-09-24 · El cuestionario de entrada se lee respuesta a respuesta; una respuesta imposible no tumba el alta (0271, 0272)
+
+**El hueco (auditoría de la app del atleta, F-01, y lo que salió al probarlo contra base real):** `POST /api/onboarding/submit` rechazaba el cuestionario ENTERO si una respuesta no cabía (400; la app lo descarta en silencio). Y al probarlo aparecieron cuatro fallos más, peores: (1) el `UPDATE athletes` asignaba `max_hr_bpm` DOS veces — Postgres rechaza la sentencia («multiple assignments to same column») y **todo** envío daba 500, también en `main` (el mismo código desde 926a47b); (2) no marcar ningún día como «Programa» (saltar el paso) escribía `training_days_per_week = 0` contra un CHECK 1–14 → 500; (3) un 1RM de 0 kg violaba `athlete_strength_maxes_one_rm_chk` → 500; (4) «Triatlón», que la app ofrece, no existía en el enum `discipline` → 500. Un 500 la app lo reintenta hasta que caduca (72 h): el alta se perdía igual. Y las notas del alta (`intake_notes_json`) se escribían con `JSON.stringify(...)::jsonb`, que postgres.js vuelve a serializar: la columna acababa siendo un ARRAY que ningún lector abre.
+
+**Decidido:**
+- **Cada respuesta se valida sola** (`web/lib/athlete/onboarding-snapshot.ts`), con el dominio que la base acepta. La que no cabe: un texto largo se **recorta**; un número imposible o un valor que no existe se **descarta** (recortar un número al borde sería inventarlo: una altura de 300 no se guarda como 260). Una carrera se queda sin su tiempo objetivo imposible; una lesión, con sus textos recortados. Solo un cuerpo sin cuestionario es 400.
+- **El coach lo ve:** cada incidencia queda en `intake_notes_json.onboarding_out_of_range` con lo que llegó, y el alta enseña el aviso «N respuestas fuera de rango — No se guardaron: ¿Cuánto depende de ti? (…) · Altura (300)… Se guardaron recortadas: …» (`web/lib/coach/intake-out-of-range.ts`), que marca «Visto» antes de asignar. Un reenvío limpio vacía la lista.
+- **Lo que la app ofrece es válido:** 0271 abre `pct_depends_on_me` a 0–10 (0 = «Nada») y añade `triathlon` a `discipline` (y a su espejo zod). Cero días «Programa» = sin dato (NULL), no 0. Un 1RM o un tiempo de 0 no es una marca.
+- **Una sola asignación de `max_hr_bpm`**; las notas se escriben con `tx.json`; 0272 repara las filas que quedaron como array (funde sus elementos en orden, como hacía `||`).
+
+**Queda (necesita la app):** F-04 — los pasos saltados llegan con los valores por defecto (sueño 5, estrés 5, compromiso 7, «¿cuánto depende de ti?» 5, 60 min, todos los días «Libre»): el servidor no puede distinguir «saltado» de «contestado 5», así que se guardan como respuestas. Arreglo: la app manda `nil` en lo que el atleta no tocó. Y el borrador se borra antes de que el servidor conteste (F-01, lado app).
+
+**NO hacer:** no validar el cuestionario como un bloque; no escribir jsonb con `JSON.stringify(...)::jsonb` (usar `sql.json`); no asignar dos veces la misma columna en un `UPDATE`; no ofrecer en la app un valor que la base no acepta sin abrir la base primero.
+
+---
+
+## 2026-09-24 · Un entreno hecho no se pierde: lo que no casa con su plan se guarda «fuera del plan» (0270)
+
+**El hueco (auditoría de la app del atleta, E1 / D-04):** el coach «Quita» o «Sustituye» una sesión pendiente (borrado duro) mientras el atleta la entrena, o el reloj ofrece la tarjeta de ayer. Al guardar, `POST /api/sync/workout-execution` contestaba 404; un campo con el tipo equivocado o un tramo sin posición, 400. La app trata todo 4xx como veneno: REINTENTAR para siempre en el móvil, «Sesión completada» en el reloj con nada en el servidor, la cola offline lo tira. El trabajo del atleta, perdido, y el coach sin enterarse.
+
+**Decidido:**
+- **El servidor no contesta 4xx a un entreno hecho.** Si el id nombra una sesión SUYA, se guarda sobre ella como siempre (movida de día incluida). Si no — ya no existe, es de otro atleta, o no se lee — se guarda como una ejecución SUYA sin asignación, la misma forma que un entreno importado de Apple Salud (2026-08-13), marcada `workout_executions.off_plan_reason` (`assignment_gone` · `not_own_assignment` · `no_assignment`) y, solo si ya no existe, `claimed_assignment_id` (sin FK). Vale para la ruta solo (móvil, reloj vía móvil, captura por foto) y para el log de Dobles. Un solo sitio: `web/lib/sync/record-athlete-workout.ts`.
+- **La seguridad no cambia:** nunca se escribe sobre la sesión de otro atleta; ese envío queda del que lo manda, sin su id y sin enlazar la plantilla del otro. Además, los `template_segment_id` que manda el cliente solo enlazan con plantillas del coach del atleta o instancias suyas (`ingestExecutionSegments` · `templateOwnerAthleteId`), también en el camino prescrito: un id de un cuerpo no cruza sin el dueño en el `where`.
+- **Idempotente:** la llave de un «fuera del plan» es la hora de inicio que sella el motor (índice único parcial `(athlete_id, started_at) where off_plan_reason is not null`, el ON CONFLICT repite el predicado). Si el mismo entreno del reloj ya entró como importación plana de Salud (mismo `source_workout_ref`), el registro estructurado la sustituye (la regla del materializador FIT).
+- **Evidencia, no identidad:** un campo con el tipo equivocado cuesta ese campo (`lib/sync/lenient.ts`); un tramo sin identidad (posición ≥ 0, modalidad) o una serie sin índice se caen ELLOS solos y la ruta lo avisa en el servidor (`captureRouteError`). La identidad de un tramo sigue estricta; lo que cambia es que ya no se lleva la sesión por delante (revisa «Una sesión guardada es un solo hecho», 2026-09-07).
+- **Dobles:** una sesión marcada privada (`self_only`) o una pareja que el coach deshizo mientras entrenaban ya no son 409/404: se guarda el trabajo propio, sin enlazar (`joint: false`). Nunca se cambia `partner_visibility`.
+- **El coach lo ve:** señal `workout_off_plan` en Hoy, «Hecho fuera del plan — Hecho sobre un entreno que ya no estaba en su plan · 48 min», Vigilar (no informativa: tiene que verla), «Abrir ficha», ventana de 7 días (`workout_off_plan_recent_days`).
+- **Sigue siendo error:** 401 (sin sesión), 400 (el cuerpo no es un objeto JSON) y 404 solo para un «Marcar como hecha» SIN trabajo sobre una sesión que ya no está (no hay nada que perder; el 404 hace que la app recargue).
+
+**Queda (app o producto):** el historial del atleta es por asignación, así que un «fuera del plan» no sale en su calendario (sí en carga, zonas y Correr); un «Deshacer» del coach que repone la sesión con el mismo id no le devuelve la ejecución (se puede casar por `claimed_assignment_id`); la cola del móvil reenvía con la sesión de quien esté dentro (E4 d): un entreno del atleta A reenviado con la sesión de B queda como «fuera del plan» de B — lo arregla la app (cola por atleta), no el servidor; y el borrado duro de «Quitar/Sustituir» sigue (lápida + «puede estar entrenándolo ahora» es la raíz del lado del coach).
+
+**NO hacer:** no volver a contestar 4xx a un entreno con trabajo porque su sesión no está; no escribir nunca sobre la asignación de otro atleta; no seguir un `template_segment_id` del cliente sin el dueño en el `where`; no convertir un campo de evidencia en motivo de rechazo.
+
+---
+
+## 2026-09-24 · Los push a iOS van por HTTP/2 (node:http2), no por `fetch`; y se envían con `after()`
+
+**El hueco:** `web/lib/push/apns.ts` mandaba cada push a APNS con el `fetch` global de Node. APNS solo acepta HTTP/2, y el `fetch` de Node 22 (undici 6) solo ofrece `http/1.1` en el ALPN salvo que un agente active h2: contra un servidor solo-h2 la conexión muere en el TLS (`ERR_SSL_TLSV1_ALERT_NO_APPLICATION_PROTOCOL`, reproducido en local con el mismo Node que usa producción). El error caía en un `catch` que nadie leía, así que ningún aviso al iPhone (chat, plan publicado, comunicados…) llegaba. Además `dispatch.ts` lanzaba el envío sin esperarlo: en Vercel la función se puede congelar al salir la respuesta y cortar el envío a medias. Lo encontró la auditoría de la app del atleta (revisor D).
+
+**Decidido:** transporte `node:http2` — una sesión por host (producción / sandbox) por envío, compartida por todos los dispositivos del usuario, con tope de 10 s por petición y un listener de `error` permanente (un `error` tras conectar sin listener tumbaría el proceso). Los envíos (APNS y Web Push) salen por `after()` de `next/server`, que en Vercel mantiene viva la función hasta que terminan; fuera de una petición (scripts, tests) corren en segundo plano como antes. Test de transporte contra un servidor HTTP/2-only local (`web/tests/push/apns-transport.test.ts`).
+
+**Verificar en el aparato:** tras desplegar, `/api/devices/test-push` (admin) con un iPhone registrado debe devolver `sent: 1` y el aviso debe llegar.
+
+**NO hacer:** no volver a `fetch` (ni axios) para APNS; si se cambia de cliente, que hable h2.
+
+---
+
+## 2026-09-23 · Un nivel retirado no se elige; la ficha dice por qué no hay sugerencia; el tramo del alta lee la escalera del coach
+
+**Decidido:**
+- **Un nivel retirado (`athlete_levels.archived_at`) sale de todo lo que se ELIGE y se queda en quien ya lo lleva.** Un solo sitio: `lib/coach/level-options.ts` — `listLevelOptions(coach, { keep })` (los activos en su orden, más el valor actual de lo que se edita aunque esté retirado, marcado «(retirado)») y `checkAssignableLevel(client, coach, level, current)` (del coach y activo, o el que ya estaba puesto; el mensaje dice cuáles se pueden elegir). Lo usan: Programas (nuevo), editor de programa, regla de grupo, alta desde lead, Atletas (invitar, cambiar en bloque; el FILTRO sí añade los retirados que alguien lleva, porque filtrar no es elegir), ficha, MCP `search_library`; y las validaciones del nivel de un atleta (uno, en bloque, MCP), grupo, programa (crear/editar), bloque, celdas de secuencia y alta desde lead (que además no comprobaba que el nivel fuera del coach). «Subir de nivel» (fin de grupo) salta los retirados. Los pasos de puesta en marcha cuentan solo los activos.
+- **Las lecturas que RESUELVEN el nivel actual** (el nombre en una fila, la ficha, el contexto de un grupo en `groups-read.ts`) no filtran: tienen que encontrar el retirado.
+- **La ficha (Clasificación) dice por qué no hay sugerencia**, con el siguiente paso: sin nivel puesto, la sugerencia se calcula al leer (`computeLevelSuggestion`, sin escribir; la guardada puede venir de una escalera que el coach ya cambió) y, si no la hay, una línea con `levelSuggestionGap` + enlace: `no_levels` / `no_criteria` → Ajustes › Método (`#niveles`); `no_signals` → Programar › Tests.
+- **El tramo 1–4 del cuestionario se queda** (tiene lector: la foto del alta → contexto de la IA) y se lee con la escalera del coach, con el sexo del atleta; `explainLevel` usa la misma.
+
+**NO hacer:** no escribir otra consulta de «niveles para un selector» a mano — `listLevelOptions`; no validar un nivel nuevo solo por dueño — `checkAssignableLevel`.
+
+---
+
+## 2026-09-23 · Qué día es en cada sitio: el del club para lo que decide el coach, el del atleta para lo que vive el atleta
+
+**La regla:** lo que DECIDE o LEE el coach sobre el plan y el roster va en el calendario del CLUB (`coaches.timezone` vía `loadCoachTimezone` / `loadCoachToday` / `loadCoachTodayOfAthlete` / `mondayOfWeekInTz`; `BOX_TIMEZONE` solo como defecto). Lo que VIVE el atleta (su carrera, su test, lo que ya tenía que haber hecho) va en el suyo (`athletes.timezone`, `loadAthleteLocalDay`).
+
+**Decidido, sitio a sitio:**
+- **Club:** pausas y bajas (`athlete-lifecycle.ts`, `lifecycle-self-service.ts`, `athlete-lifecycle-detail.ts` — el mismo intervalo lo crean el coach y el atleta, así que un solo calendario), el lunes del plan al volver de una pausa y en los grupos (`athlete-lifecycle-plan.ts`, `assign-sequence.ts`), retirar un plan personal (`personal-plans.ts`), bandeja, actividad de hoy, qué microciclo se puede publicar, el chip de semana y el estado de programación del roster (`inbox`, `activity-today`, `program-publish-state`, `load-athlete-week-chip`, `programming-status` con `tz`, como `loadPlanFacts`), el roster del MCP (`cohort.ts`, que usaba el día UTC), las fechas de Cobros, el catálogo de carreras del coach.
+- **Atleta:** todas las lecturas de carreras (`races/{athlete-races,next-race}`, `getTargetRaceRow` sin `on_date`, la cuenta atrás del roster y de `cohort`, la del chat, `goal-gap`, `dobles-gap`, el catálogo de su app) — un solo «hoy» para que una carrera nunca caiga entre «próximas» y «pasadas»; empezar un test desde la app (`start-calibration`); desde qué día se suaviza un entreno (`suggestFrom`, ahora recibe el día); el camino del plan (`plan/camino.ts`: es suyo, lo leen él y el coach mirándole).
+- **El cron de pausas y bajas va coach a coach** (`runDueLifecycleTransitions`, con `coach_id` opcional) y pasa de diario a **cada hora** (`vercel.json`, «30 * * * *»): una vuelta del día 23 de un club en México cae dentro de la hora siguiente a SU medianoche, no a las 23:30 del día siguiente. Idempotente como antes. El informe da el día de cada coach (`days`).
+
+**Cerrado el 2026-09-24 (lo que aquí quedaba en el defecto):** lectores del plan y del panel con el día del club (`d99cdc9`, `8b93840`, `778e108`, `c131215` — roster: «Hoy/Mañana» y días a la carrera A); superficies del atleta con el suyo (`ef75668`, `c283723`, `7c28277`, `afe6bf6`, y analíticas/carrera/VO2max/tendencias agrupadas por su día, `0c20992`); dobles en el huso del coach de la pareja (`4df09f5`, `0a430fd`, sin `'Europe/Madrid'` literal); señales contadas desde el «hoy» que toca (`c7bd54c`); un huso solo se guarda si lo conocen Intl y Postgres (`3e301bc`).
+
+**Cerrado también el 2026-09-24:** carga diaria (`getDailyTssSeries`), racha, series y sparklines del deep dive en el día del atleta (`1846b3d`); semanas de polarización y de zonas = sus semanas lunes–domingo, y la cuenta atrás a su carrera en `macro-progress` / `coach-ia-context` desde su día (`8cd51b1`; la posición en el plan sigue en el `on_date` del club).
+
+**Queda en el defecto (a propósito o pendiente):** `resolvePeriod` necesita que la app mande su día local (cambio de iOS); los crons de cuenta atrás y evaluación semanal disparan a hora UTC fija (falta hora de entrega por coach: dato del coach, pide migración); `evaluateAthleteWeek` cuenta la carrera desde el domingo evaluado (a propósito: lee una semana cerrada); el fallback de `runAutoPublish` y `BOX_TIMEZONE` como defecto de los formateadores.
+
+**NO hacer:** no escribir otra `'Europe/Madrid'` ni otro `startOfDayInBox(new Date())`; antes de pedir «hoy», decidir de quién es el día y dejarlo en una línea de comentario.
+
+---
+
+## 2026-09-23 · El método que ya era dato del coach tiene editor (0259)
+
+**El hueco (revisión pre-FLEXR, B):** cuatro piezas de método estaban modeladas como dato del coach pero no había pantalla para tocarlas, así que un coach nuevo se quedaba con los defectos o con nada: las bandas de FC y el reparto que persigue (`coach_hr_method`, 0168), los umbrales de las lecturas de carrera (`coach_running_thresholds`, 0183–0187), sus zonas de ritmo (`methodology_zones`, 0061) y la lista de niveles (`athlete_levels`: 0057 sembró N1–N5 solo a los coaches que existían; uno nuevo no tenía ni niveles ni forma de crearlos). Y `coaches.max_microcycle_weeks` (tope 8) no tenía editor: un programa de 12 semanas se rechazaba.
+
+**Decidido:**
+- **Ajustes › Método** gana: «Cómo agrupas a tus atletas» (el nombre del eje + sus valores: crear, renombrar, ordenar con ↑/↓, retirar, borrar si nadie lo usa, qué marca abre cada uno; vacío con «Empezar con cinco (N1 a N5)»), «Zonas de frecuencia cardiaca», «Zonas de ritmo» (carrera y ergómetro, con un umbral de ejemplo al lado de cada banda) y «Lecturas de carrera». **Ajustes › Plan del atleta** gana «Duración máxima de un programa». Rutas: `/api/coach/{levels,levels/reorder,levels/[id]/criteria,hr-method,running-thresholds,pace-zones,settings}`.
+- **Retirar un nivel** = `athlete_levels.archived_at` (0259). Sale de los selectores nuevos y de la sugerencia; se queda en quien ya lo lleva. **Borrar** solo si nadie lo usa (atletas, grupos, programas, bloques); si no, 409 con quién lo usa.
+- **`max_microcycle_weeks` pasa a NULL = defecto** (0259 quita el `default 8` y el NOT NULL; los 8 guardados pasan a NULL porque eran el defecto).
+- Bandas de FC y zonas de ritmo se guardan como CONJUNTO (sus CHECK de coherencia son de conjunto); «Restaurar» borra la fila (sin fila = defectos). Umbrales de carrera por clave (null = el defecto de esa clave); si todo vuelve al defecto, se borra la fila. En las zonas de ritmo la Z4 empieza siempre en 0 s: el resultado del test ES su borde rápido (definición del ancla, no método); editar el modelo no recalcula los perfiles ya guardados de cada atleta (son una foto del test, 0061).
+
+**Hecho después (ola 6):** todos los selectores y validaciones de nivel pasan por `lib/coach/level-options.ts` — ver la entrada «Un nivel retirado no se elige…» arriba.
+
+**NO hacer:** no volver a sembrar niveles por coach en una migración; no poner `default` de columna a ningún ajuste de método.
+
+---
+
+## 2026-09-23 · Qué marca abre cada nivel: una escalera del coach, sin buscar «N»+n (0259)
+
+**El hueco:** había dos motores de nivel con cortes cableados — `level-algorithm.ts` (HYROX/5K/2K/sentadilla por sexo, N1–N5) y `intake-suggestions.ts` (una lista propia de «marcas élite»: sentadilla 130, 5K 21′, HYROX Pro 70′…) — y la sugerencia buscaba el nivel llamado literalmente `'N'+n`: un coach con otros nombres nunca recibía sugerencia, sin que nadie se lo dijera.
+
+**Decidido:**
+- **Mecanismo** (`shared/domain/coach/level-criteria.ts`): cada marca que el sistema sabe leer (HYROX individual, 5 km, remo 2000 m por sexo; sentadilla relativa al peso; años entrenando, solo sin otra marca) coloca al atleta en el escalón más alto cuyo corte cumple; se promedian y se redondea. Un resultado REAL de HYROX decide solo, con confianza alta. La escalera son los niveles ACTIVOS del coach en su orden — nunca por nombre.
+- **Método**: los cortes son del coach, por nivel (`athlete_level_criteria`, 0259). `athlete_levels.criteria_set_at` NULL = ese nivel usa el defecto del producto **por su posición** (los cortes de siempre, así que un coach con cinco niveles que no toca nada recibe lo mismo que antes); no nulo = sus filas, que pueden ser ninguna («este nivel no se abre por marcas» — para ejes de turno u objetivo).
+- **Cuando no se puede sugerir se dice por qué** (`no_levels` / `no_criteria` / `no_signals`, `levelSuggestionGap`) y se BORRA la sugerencia vieja. Un atleta sin sexo conocido se lee con los cortes de hombre, como siempre (anotado, no cambiado).
+- **Una sola tabla de cortes:** el tramo del cuestionario de entrada (1–4) deja su lista de marcas élite y se lee con la misma escalera (la del coach si se la pasan, si no la de los defectos), repartiendo el escalón en proporción y redondeando hacia abajo.
+
+**Hecho después (ola 6):** el tramo 1–4 SÍ tiene lector (la foto del alta `intake_notes_json.level` → `coach-ia-context` `identity.level`, contexto de la IA), así que se queda y se lee con la escalera del coach (`loadIntakeProfile` pasa `loadCoachLadder`). La ficha enseña el porqué cuando no hay sugerencia (ver la entrada «Un nivel retirado no se elige…»).
+
+**NO hacer:** no volver a buscar un nivel por su nombre; no escribir una segunda tabla de cortes en otro motor.
+
+---
+
+## 2026-09-23 · «Toca test» sale de la cadencia de tests del coach (0259)
+
+**Decidido:** `coaches.test_retest_weeks smallint[]` (1–52, hasta 4; NULL = defecto [6, 12] de `shared/domain/coach/test-cadence.ts`), editable en Ajustes › Método › Tests. Son las opciones de «Repetir» al aplicar un test y, la más corta, cuándo salta «Toca test» (`testDueDays`): `resolveEffectiveThresholds` pisa el `test_due_days` fijo. **Cambia el defecto de 35 a 42 días**: con una cadencia por defecto de 6 semanas, avisar a las 5 contradecía la propia cadencia.
+
+«Aplicar test» (Programar › Tests) lee las semanas del coach de `GET /api/coach/settings` al abrirse.
+
+**NO hacer:** no volver a un número de días de test independiente de la cadencia.
+
+---
+
+## 2026-09-23 · El día del coach es el de su huso, no el de Madrid
+
+**Decidido:** el huso del club (`coaches.timezone`, 0241) se edita en Ajustes › Tu club (combo con todas las zonas IANA; el defecto se guarda como NULL) y manda en: el calendario de Hoy y Atletas (`coachCalendar(now, tz)`, `loadPlanFacts`), lo resuelto hoy / actividad de hoy, la hora de «llamadas hoy», la publicación automática (el cron calcula el «hoy» de CADA coach en SQL; un huso que Postgres no conoce cae al defecto sin tumbar el barrido), el lunes de «asignar» y «entrar en un grupo», el «hoy» de los grupos y del alta, cuándo vence un «posponer», la serie semanal de Negocio, los correos de citas («hora de <ciudad>») y el recordatorio, la página pública de reserva (el contexto trae el huso) y los relojes del panel (chat, mensajes, citas, pagos, leads, embudo, carrera) vía `CoachTimeZoneProvider` en el layout. Los días sueltos del calendario (YYYY-MM-DD) se pintan en UTC para que ningún huso los mueva. `BOX_TIMEZONE` queda solo como defecto.
+
+**Dejado a propósito:** lo que es el día del ATLETA (`athletes.timezone`: readiness, check-ins, zonas, volumen de carrera, ficha) ya usa el suyo. `analytics/visits.ts` (sal diaria de la web pública) no es del coach. La lista de lo que quedaba en Madrid se cerró en la ola 6 (entrada «Qué día es en cada sitio…» arriba), con lo que aún queda escrito allí.
+
+**NO hacer:** no escribir otra `'Europe/Madrid'` en el panel; un formateador nuevo lee `useCoachTimeZone()` (cliente) o `loadCoachTimezone` (servidor).
+
+---
+
+## 2026-09-23 · Se prescribe lo que tiene el modelo: Z6 de ritmo, cinco de FC
+
+**Decidido:** las zonas prescribibles salen del modelo, no de un número del editor: `run-structure.ts` usa `ZONE_ROLES.length` (6, `methodology_zones`) para `pace_zone` y `HR_ZONES.length` (5) para `hr_zone`; el selector del editor pinta esas. El canal plano `hr_zone` de `Target` (al que se pliega `pace_zone` para la app instalada) sube su tope a 6: en carrera lleva la zona de RITMO y el resolutor ya pinta Z6 como banda de ritmo (en FC, Z6 usa la banda de Z5, `HR_ZONE_Z6_FALLBACK`).
+
+**NO hacer:** no clavar el número de zonas en un selector.
+
+---
+
+## 2026-09-23 · Días por semana de un grupo o una pareja: 1 a 7 (0260)
+
+**Decidido:** `SEQUENCE_DAYS_MIN/MAX` (shared/schema/program-sequences.ts) pasa de 3–6 a 1–7, como ya decía DECISIONS «Grupos…» y el CHECK de `program_sequences` (0215). `doubles_pairs` tenía su propio CHECK 3–6 (0065): 0260 lo alinea, o una pareja de 2 días pasaba el zod y la base la rechazaba.
+
+---
+
+## 2026-09-23 · «Redactar con IA» usa los niveles del coach; la lectura de carrera, su pendiente
+
+**Decidido:** el modal de «Redactar con IA» deja la escala fija Inic./Inter./Pro/Élite (y el `'pro'` por defecto del servidor): ofrece los niveles activos del coach con el nombre de su eje, parte del del atleta si lo tiene y, sin nivel, no filtra ni inventa uno (`level_id` validado como suyo y activo). La lectura de carrera del panel (`carrera/modelo.ts`) compara la pendiente contra la del coach (`gradient_retires_pace_pct`, que ahora el detalle de sesión del coach resuelve y manda en `run_compliance`); el 3 del panel deja de ser un número propio y es solo el defecto del dominio.
+
+---
+
+## 2026-09-23 · Quién habla en cada texto: el club con su piel, la plataforma con UNA constante
+
+**El hueco (revisión FLEXR, P0 5–7; revisión de método):** el nombre del tenant #1 salía en lo que ve otro club — «Videollamada FAHYBRID · Ana» en su calendario, «FAHYBRID · Entrenamiento personalizado» en el cobro de su atleta, «Únete … en FAHYBRID» en la invitación de pareja, adjunto `cita-fahybrid.ics` y UID `@fahybrid.com`; el webhook de Clerk sobrescribía `coaches.full_name` (el nombre del CLUB) con el nombre personal del dueño en cada cambio de perfil; `/api/coach/events` inventaba carreras «demo» a un coach real con la lista vacía; y la etiqueta muerta «Entrenamiento · grupos de Pablo».
+
+**Decidido (la regla, para todo texto nuevo):**
+- **Habla el club → su piel** (`resolveClubEmailSkin(coach).wordmark`): título del evento de calendario (`meetingSummary`), producto de Stripe (`altaProductName`, en el alta y al cambiar el precio), correo de pareja («entrenar en <club>», con el club de quien invita).
+- **Habla la plataforma → `BRAND_WORDMARK`** (`shared/domain/coach/club-skin.ts`), la única constante de marca del binario: push de prueba, mensaje del conector MCP, aviso interno de lead/cita al coach (es la plataforma avisando, ya estaba probado así), respaldo de los shells de correo, «la app X» (el binario que se instala). Su valor sigue siendo FAHYBRID hasta que Alex decida el binario de FLEXR (informe D, opciones A/B/C).
+- `.ics`: UID `appt-<id>@<host que lo emite>` (`citaIcsUid`), adjunto `cita.ics`.
+- **El webhook de Clerk no escribe en `coaches`.** Solo mantiene `users`. El nombre del club se edita en Ajustes.
+- **Una lista vacía es una lista vacía:** fuera el relleno demo de carreras; `lib/coach/demo-events.ts` queda sin uso.
+- Guardia: `web/tests/tenancy/brand-literals.test.ts` barre el texto de ejecución de los ficheros limpiados (sin FAHYBRID/Fabrik/Pablo ni `@fahybrid.com`).
+
+**En la misma tanda (piezas sueltas de la ola 4):** deshacer un lote de asignar (y el alta) retira también la calibración que el primer plan inyectó fuera de la ventana del programa (el lote apunta toda sesión de calibración nueva); la ficha pasa `baseline_readings` («aún sin su base (n de 7 lecturas)»); vista de serie «Empieza pronto» (`semana=empieza`) al lado de «Sin plan»; el texto del recordatorio de pago vive en `components/v2/hoy/payment-reminder.ts` para Hoy y Cobros; las barras de acciones pegadas abajo se marcan con `BOTTOM_BAR_ATTR` y los avisos se levantan por encima (`bottomBarLift`); «volver» del PageHeader con 44 px en el móvil.
+
+**Queda (fuera de este lote, para Alex / dueños):** literales en títulos de páginas públicas (`cita`, `empieza`, `invite`, `partner/redeem`, `no-mas-emails`, `pago/*`), `InviteLandingCard` «Abrir en FAHYBRID», `UnsubscribeConfirm`, `Wordmark` aria-label, `manifest.ts`/`layout.tsx`, `api/citas/google/callback`, `api/devices/test-push`, `api/coros/status`, `lib/coros/config.ts`, `lib/stripe/client.ts` (appInfo), `PRODID` de `shared/domain/citas/ics.ts`, `DEFAULT_WORDMARK` duplicado en `lib/coach/voice.ts`, la opción «Fabrik» del embudo (`shared/domain/leads/questions.ts`), y landing + legal (términos y privacidad nombran al responsable de datos del tenant #1).
+
+**NO hacer:** no escribir una marca a mano en un texto de ejecución — o es el club (su piel) o es la plataforma (`BRAND_WORDMARK`); no escribir en `coaches` desde la identidad de una persona; no rellenar con datos inventados lo que un coach real tiene vacío.
+
+## 2026-09-23 · Los motores secundarios leen el método del coach; el veredicto semanal y los avisos son las señales de Hoy (0256)
+
+**El hueco (revisión pre-FLEXR, informe B):** varios motores seguían con el método de un club en `const`: el readiness compuesto (pesos 0,35/0,25/0,2/0,1/0,1, 8 h de sueño, −5 bajo el 60 % de adherencia), el índice de disposición (40/30/20/10, TSB ±10), «Listo para progresar» (75 %, ACWR 1,5/0,5, TSB −25, tests −2 %; la cabecera decía «defecto editable» y no lo era), la pausa (28 días al año) y los avisos del alta (sueño ≤ 4, estrés ≥ 7). El veredicto semanal y la lectura de progresión de la IA tenían SUS reglas (adherencia < 60 %, check-in < 40, readiness < 45, 2 sin hacer, VFC −15 %) sin mirar los umbrales del coach, así que Hoy y el lunes se contradecían (8 de 10 = «al día» en Hoy y «necesita ajuste» en el veredicto). El cron diario de avisos decidía por su cuenta (check-in saltado a cualquiera sin check-in en 48 h, VFC −10 % frente a 7 días) y le mandaba al atleta «Considera Z2 hoy» y «Foco en taper» en nombre de un coach que no lo eligió.
+
+**Decidido:**
+- **Método como dato (0256).** 21 claves nuevas en `COACH_THRESHOLD_SPEC` (grupos `calculo_readiness`, `disposicion`, `progresion`, `pausas`, `alta`), columnas nullable sin `default` en `coach_signal_thresholds`, NULL = el valor de hoy; editables en Ajustes › Método (secciones «Cómo se calcula el readiness», «Índice de disposición», «Listo para progresar», «Pausas», «Cuestionario de entrada»). Magnitudes siempre positivas y enteras (TSB «−25» se guarda 25; ACWR 1,5 se guarda 150 %): la pantalla no pide signos ni decimales.
+- **Pesos relativos, normalizados.** Ajustes guarda campo a campo, así que exigir «suman 100» dejaría al coach sin poder moverlos. El motor divide por la suma (`normalizedWeights`): los efectivos suman 1 por construcción, cada fila dice «ahora cuenta el N % del total», y el PUT rechaza un grupo entero a cero y un ACWR bajo ≥ alto. Un peso 0 quita esa parte: en el índice, esa banda ni puntúa ni se echa en falta (un coach sin atletas con reloj pone VFC a 0).
+- **Lectores.** `shared/domain/coach/signal-thresholds-db.ts` lee la fila del coach para los motores de `shared` con la misma mezcla que el resolutor de la web. El compuesto lee el método del coach del atleta; la adherencia de su castigo pasa a ser LA del panel (solo lo debido).
+- **Veredicto semanal = señales de Hoy.** El veredicto (`weekly-verdict-rules.ts`) son las señales vivas de Hoy que piden tocar la semana: las de «Proponer descarga» (readiness baja con base, VFC, RPE alto) y «entrenos sin hacer» (número y proporción del coach), sin lo pospuesto ni lo hecho. Fuera las cinco reglas con número propio: sus conceptos ya los decide el motor de señales con los umbrales del coach, con la guarda de base que el veredicto no tenía; un check-in suelto (una foto) deja de bastar. Los números de la semana evaluada quedan en el paquete como contexto de la IA. Test de acuerdo en base real (barrido de Hoy + estado + evaluación, `verdict-agrees-with-hoy.db.test.ts`).
+- **Progresión para la IA** (`progressionVerdictOf`): «down» si Hoy pide ajuste; «up» si no y la adherencia de 7 días llega al mínimo del coach para progresar (`progress_adherence_min_pct`, el de «Listo para progresar» — un concepto, una clave; el «up» pasa de 85 % a 75 % por defecto); «flat» si no.
+- **Cron de avisos = señales persistidas.** «Check-in saltado» y «VFC baja» empujan al coach (a todos sus miembros) las señales vivas de Hoy, una vez por episodio (`dedupe_key`). Al atleta no se le manda ningún consejo de entrenamiento; la cuenta atrás de carrera dice solo la fecha.
+- «Alta pendiente» se descarta al leer en cuanto `intake_completed_at` existe (no espera al barrido). El deep-dive (MCP / API de la ficha) lee los check-ins de `daily_checkins`, como Fisiología.
+
+**Queda (fuera de este lote):** pasar el método del coach en `lib/coach/cohort.ts` (roster/MCP: `estimateRaceReadiness(…, raceReadinessMethodOf(t))`), `lib/dashboard/coach/deep-dive-performance.ts` (`buildRaceReadinessHistory({…, method})`) y en el presupuesto de pausa (`lib/athlete/lifecycle-self-service.ts`, `lib/dashboard/coach/athlete-lifecycle-detail.ts`: `computePauseBudget(spans, today, t.pause_budget_days)`); hasta entonces esas superficies usan los defectos. Los snapshots de readiness ya guardados no se recalculan con un método nuevo (se recalcula el día al leerlo). `lib/coach/deep-dive-body.ts` y `deep-dive-body-demo.ts` están muertos (nada los importa).
+
+**NO hacer:** no volver a darle al veredicto o a un cron reglas o números propios — se leen las señales de Hoy; no escribir un peso, un objetivo o un umbral de método como `const`; no validar «suma 100» en una pantalla que guarda campo a campo; no mandar al atleta consejos de entrenamiento que su coach no escribió.
+
+---
+
+## 2026-09-23 · Hoy honesto: sin base no hay «Acción»; la descarga lee su señal; «Todo» incluye Por responder; una definición de «Sin plan» (0244)
+
+**El hueco (revisión de producto, informe C):** los 9 «Crítico» de Hoy eran «Readiness 3x · sin base aún (0 lecturas)», con «Proponer descarga» como acción; al pulsarla, el motor contestaba «mantener · Cumplimiento 100 % 7d» porque solo miraba la semana pasada, y la fila decía «Descarga propuesta». Hoy decía «Crítico 9» y Atletas «Acción 15»; «6 sin programa» frente a «Sin plan 11»; «No ven su semana 0» junto a «89 de 100 ven su semana»; el grupo decía «empieza 21 sept» y Atletas «28 sept» del mismo atleta; «nunca ha tenido programa» a quien entrenó una semana del coach; y los 15 que esperaban respuesta no estaban en «Todo».
+
+**Decidido:**
+- **Sin base, «Vigilar» como mucho.** Con menos de 7 lecturas previas (la regla estadística de la base, `READINESS_BASELINE_MIN_READINGS`, ahora en `shared/domain/coach/readiness-evidence.ts`), el suelo del coach deja la señal en vigilar y su acción es «Mensaje», no «Proponer descarga» (`signalActionFor`). Con base, las reglas del coach (suelo, caída, días) siguen igual. **Una frase** para decirlo en Hoy, vistazo, roster y ficha: `readinessEvidence` → «38 hoy · aún sin su base (0 de 7 lecturas)» / «31 hoy · −39 vs su base 70 (28 d)»; la etiqueta de la señal es «Readiness baja».
+- **La descarga lee la señal que la pidió.** El motor de ajuste (`evaluateAthleteWeek`, los dos caminos: botón y cron) recibe las señales vivas del cuerpo con acción «Proponer descarga» (`web/lib/coach/week-adjust-signals.ts`) y las guarda en `context_pack.body_signals`; una sola ya pide ajuste y el «por qué» la cita con sus palabras. La adherencia del paquete es la del panel (due-only, `adherence.ts`) y se llama «Adherencia (7 d)». Si el motor no puede proponer un cambio concreto, dice por qué en una línea (`week-adjust-copy.ts`) y Hoy lo enseña con «Hecho»; una propuesta solo cuenta para la fila si leyó esa señal.
+- **«Todo» es todo.** Por responder entra en Todo como UN grupo («15 por responder → Responder en fila», la espera más antigua primero; en su filtro, una fila por hilo). **Regla de la cifra:** quien espera respuesta te necesita desde el primer minuto, esté como esté (`athleteNeedsYou` con `awaiting_reply`); la cifra de Hoy, su insignia de la barra y «Necesitan algo» de Atletas cuentan lo mismo (52 = 52 en la base de 100). El umbral de horas del coach solo decide cuándo la espera pasa a «Vigilar» en su estado. El mensaje es causa de grupo (`isGroupOwnedSignal`): el «Hecho» de otra fila no lo cierra; se cierra en su hilo o en su fila del filtro.
+- **Secciones = estado.** Hoy dice «Acción» y «Vigilar» (fuera «Crítico») y reparte por el estado del atleta (el de Atletas). Quien está en acción solo por algo que cubre un grupo (un pago vencido) no tiene fila; la cabecera lo dice («+5 con el pago vencido»): filas + eso = Acción de Atletas. Un alta pendiente o un «sin plan» con otros avisos va en su grupo (ese es su estado), no en otra fila de Vigilar: Vigilar de Hoy = Vigilar de Atletas (32 = 32); el invitado sin cuestionario, que no tiene grupo, conserva su fila.
+- **Una definición de «Sin plan»** (`isWithoutPlan`): activo, alta revisada, sin programa ni entrenos del coach desde esta semana. La usan el grupo de Hoy, el estado y el chip de Atletas (6 = 6). Quien tiene su programa empezando la semana que viene es **«Empieza pronto»** (`programming_status = starts_soon`, sin señal), no «Sin plan». «Nunca ha tenido» solo si nunca tuvo entrenos del coach; si los tuvo, «programa terminado el …». La semana de Atletas dice: visible · oculta · sin plan · empieza (con el día) · vacía; «terminado» de las vistas viejas se lee como «sin plan». El subtítulo de Hoy: «89 de 89 ven su semana programada» (suma con «No ven su semana»).
+- **Dónde está y cuándo empieza, una regla** (`shared/domain/coach/program-position.ts`): empieza = el primer día de SU recibo; la semana se cuenta en el programa (quien entra en la semana 2 de 4 va «semana 2 de 4»). La leen el roster/vistazo (`plan-facts`) y la página del grupo (`groups-read`).
+- **Bajas en Hoy (0244):** `renewal_alert_days` (defecto 7, 1–60) pasa de `const` a `coach_signal_thresholds` (columna nullable, sin default). Dentro de esos días, «Se da de baja en N d» es Vigilar con «Mensaje»; los días se cuentan desde la fecha de fin en el día del atleta.
+- «Recordar pagos» confirma en el sitio y manda a cada uno un mensaje con su nombre (el mismo texto que Cobros), sin salir de Hoy.
+
+**Deuda anotada:** los números de las reglas de la semana del motor de ajuste (adherencia < 60 %, check-in < 40, readiness < 45, 2 sin hacer, HRV −15 %) siguen en código (`weekly-verdict-rules.ts`): son método y deberían salir de `coach_signal_thresholds`. El texto del recordatorio de pago vive dos veces (Hoy `payment-reminder.ts` y Cobros): debe quedar uno.
+
+**Cerrada (24 sept):** las dos. El veredicto semanal dejó de tener números propios: son las señales de Hoy con los umbrales del coach (0256, entrada «Los motores secundarios leen el método del coach» arriba). Y el recordatorio de pago es UN texto (`components/v2/hoy/payment-reminder.ts`) que usan Hoy y Cobros, con su test.
+
+**NO hacer:** no marcar «Acción» ni ofrecer descarga por un readiness sin base; no pintar una propuesta como respuesta a una señal que no leyó; no dejar fuera de «Todo» algo que cuenta en «te necesitan»; no volver a escribir otra definición de «Sin plan» ni de «dónde está en su programa» en una pantalla.
+
+## 2026-09-23 · El alta dice qué plan recibe y cuándo lo ve (y se puede deshacer)
+
+**El hueco:** firmar el alta en modo «compartido» materializaba **el programa de biblioteca de id más bajo** del coach, en borrador privado — sin que nadie lo eligiera, ignorando el grupo en el que el atleta ya había entrado al invitarle (y chocando con su plan si ya lo tenía). La pantalla decía «Seguir su grupo» sin nombrar grupo ni programa, no decía cuándo lo vería el atleta y, tras asignar, saltaba a la siguiente alta sin confirmar nada. Los «tests de la semana 1» eran una lista cableada en inglés (HRV baseline 7d, HYROX simulation half, Update 1RMs, 5K test) — método de una escuela — y marcarlos o no **no hacía nada** (solo quedaba en la foto). La carrera objetivo era obligatoria para asignar, aunque no todo atleta entrena para una fecha.
+
+**Decidido (`web/lib/coach/intake-commit.ts`, `intake-plan-options.ts`, `intake-plan-line.ts`; esquema `shared/schema/coach-intake.ts`):**
+- El alta elige `plan`: **`keep`** (se queda con lo que tiene: su grupo), **`group`** (entra en un grupo el lunes que viene, en el programa y semana en que está el grupo), **`program`** (un programa desde un lunes) o **`personal`**. Grupo y programa van por el **motor de asignar a varios** (`runGroupJoin` / `runAssign`, lote con registro), con **entrega automática** (cada semana se abre N días antes, N del coach) y `replace` desde ese lunes (lo entrenado no se toca). Fuera `materializeFirstMicrocicloDraft` y `month_template_id`/`month_start_date` del esquema.
+- La pantalla enseña, antes de asignar, la línea de lo que recibe — «Entra en HYROX mañanas · Base, semana 2 · empieza lun 28 sept · semana visible el sáb 26» — calculada con la misma previa (sin escribir). Tras asignar, un aviso con esa línea y **Deshacer** (`DELETE /api/coach/intake/[id]` → `undoIntake`): repone el lote, retira la bienvenida (borrado lógico) y deja el alta pendiente. La foto guarda `assign_batch_id`, `welcome_message_id`, `prior_plan_mode`. Si ya entrenó algo del plan nuevo, se niega con el motivo.
+- Primero el plan: si no se puede dar, el alta **no** queda firmada; si algo falla después, el lote se deshace.
+- Los tests del alta son la **batería del coach** (`listCoachTests`, activos), de solo lectura: entran solos con su primer plan (`scheduleWeek1Calibration`). Fuera `recommendBaselineTests`.
+- La carrera objetivo **no es requisito** (`target_event_id` nullable): sin ella, un aviso informativo.
+- La ficha de un atleta «Nuevo» enseña el alta en vez del calendario aunque ya tenga semanas (plan §6).
+
+**Queda:** deshacer un lote no retira las sesiones de tests que el primer plan inyectó (`scheduleWeek1Calibration`) — hoy ningún coach local tiene batería, pero con batería quedarían; es del motor de deshacer (DOM). La señal «Alta pendiente» del barrido sigue viva unos minutos tras firmar (reconciliar como las de plan; SIG).
+
+**NO hacer:** no volver a darle a un atleta un programa que nadie eligió; no escribir tests o fases con nombre en código; no firmar un alta cuyo plan no se ha podido dar.
+
+---
+
+## 2026-09-23 · Aislamiento entre coaches: las referencias que viajan en JSON se validan al escribir y se filtran al leer
+
+**El hueco (revisión de aislamiento, hallazgos 1, 2 y 4):** los ids que llegan en un body o dentro de un JSON guardado (`template_id` de «añadir sesión», `sessions[].template_id` / `blocks[].source_block_id` / `items[].exercise_id` de `slots_json`, el `to_template_id` de una propuesta, `athlete_id` / `lead_id` / `appointment_id` de un parte de sesión, el atleta del GET de la propuesta mensual) se seguían sin mirar de quién eran. El coach A clonaba el entreno de B en su atleta y lo leía; escribía partes en la ficha de otro club y mandaba correos a sus leads.
+
+**Decidido (la regla, para todo lo que venga):**
+- **La frontera vive en la primitiva, no en cada llamador.** `cloneTemplateAsInstance` solo copia un template del mismo coach que el atleta destino y escribe la copia a nombre de ese coach; todos los caminos que forkean (día, semana, propuesta, calibración, ficha) pasan por ahí. Un origen ajeno se trata como uno borrado. No hay catálogo base de entrenos ni de bloques (todas sus filas llevan coach), así que no hay excepción.
+- **Un JSON con ids se valida AL ESCRIBIR** (`upsertWeekTemplate`, que usan el editor, la rejilla, el conector y la importación: `lib/dashboard/coach/week-slot-refs.ts`) **y se filtra AL LEER** (`hydrateBlockParts`, la vista previa de publicar): lo segundo cubre lo que se guardó antes de la regla. Un id que ya no existe se deja pasar al escribir (los ids no se reutilizan).
+- Un parte de sesión exige atleta del coach, lead suyo (`leadOwnedBy`) y cita de ESE sujeto; sus listas devuelven solo partes del coach que atiende al sujeto; el resumen por correo solo sale hacia un lead propio. La propuesta mensual pendiente se lee con el coach.
+- Cada regla tiene su test de dos coaches en `web/tests/tenancy/` (falla con el código anterior).
+
+**NO hacer:** no seguir un id de un body o de un JSON sin el coach en el `where`; no poner la comprobación solo en la ruta cuando existe una primitiva por la que pasan todas.
+
+---
+
+## 2026-09-23 · Google Calendar es de cada coach (0254)
+
+**El hueco (revisión de aislamiento, hallazgo 3; la deuda que dejó «Negocio con dueño»):** un solo refresh_token para toda la plataforma (`google_oauth_tokens`, 0096) y el calendario en una variable de entorno (`GOOGLE_CALENDAR_ID`). El siguiente coach que pulsara «conectar Google» se quedaba las llamadas y revisiones de todos los clubs en su calendario (nombres, emails, horas), y cancelar borraba en ese calendario. El `state` del OAuth no sabía qué coach lo había empezado.
+
+**Decidido:**
+- `coach_google_connections (coach_id pk, refresh_token, calendar_id)`. `calendar_id` NULL = el principal de la cuenta conectada. Se retira `GOOGLE_CALENDAR_ID` del código: un calendario global es justo el fallo.
+- **El `state` va firmado con el coach** (`coach.nonce.issuedAt.hmac`) y el callback exige además que el coach con sesión sea ése. Sin lo segundo, un coach podría empezar la conexión y mandar el enlace de consentimiento a otra persona, cuya cuenta de Google acabaría conectada a su club.
+- **Cada cita usa la conexión del coach de ESA cita:** el dueño del lead (o el operador del embudo si no tiene dueño — el coach cuya agenda ocupa, `bookAppointment.coach_id`), el coach del atleta en una revisión, el coach con sesión al aceptar o cancelar. Sin conexión o sin coach, **no hay evento**: la cita sigue, y el coach pega el enlace a mano como siempre (el bloque de la cita ya lo ofrece).
+- **La fila global que existía se atribuye por evidencia, nunca por descarte:** (1) si las citas que ya tienen `google_event_id` son todas de un mismo coach, suya; (2) si no hay ninguna, el dueño único de los leads (el único embudo que ha existido, el mismo hecho de 0147/0220); (3) una instalación de un solo coach. Si nada da un coach único no se migra y cada coach reconecta. No se escribe ningún id a mano en la migración. La tabla vieja se queda (nadie la lee) hasta una limpieza. El calendario de la fila migrada queda NULL: si en producción `GOOGLE_CALENDAR_ID` apuntaba a otro calendario de esa cuenta, se fija con un `update` tras desplegar.
+
+**Pendiente de producto (no de aislamiento):** no hay botón «Conectar Google» en el panel nuevo (la ruta existe) ni forma de elegir calendario; es Ajustes.
+
+**NO hacer:** no volver a una conexión o un calendario de plataforma; no aceptar un callback cuyo coach no es el de la sesión; no crear eventos con la conexión de otro coach «porque es la que hay».
+
+---
+
+## 2026-09-23 · Embudo público: un lead es único por dueño, y solo lo reescribe quien lo abrió (0253)
+
+**El hueco (revisión de aislamiento, hallazgo 6):** `leads.email` era único en toda la plataforma y `/api/leads` + `/api/leads/complete` (públicos, sin sesión) hacían `on conflict (email) do update`. Escribir el email de otra persona en el formulario sobrescribía sus respuestas (teléfono, lesiones…) fuese del club que fuese, y la respuesta devolvía su `token` de reserva. Además, una persona solo podía ser lead de UN club: el embudo del segundo se fundía en la fila del primero.
+
+**Decidido:**
+- **Unicidad por (dueño, email)** — índice `leads_owner_email_uq` sobre `(coalesce(coach_id, 0), email)`. «Sin asignar» (NULL) cuenta como un dueño más. Un mismo email puede ser lead de varios clubs; cada fila es de su club.
+- **Clave de captura** (`leads.capture_key_hash`, `lib/leads/capture-key.ts`): el navegador que CREA la fila recibe una clave aleatoria en una cookie HttpOnly (`Path=/api/leads`, un día) y la fila guarda su sha-256. Retocar el borrador o completar un lead que ya existe exige esa clave, dentro del `where` del `on conflict`. Sin ella no se escribe nada.
+- **Lo que recibe el que no la tiene:** la misma respuesta que un envío sin hueco inline (`{ ok, waitlisted: false }`), sin token, sin id, sin estado — no se revela si el email existe. Si el lead está en `parcial`/`nuevo` y admite correo, se le manda su enlace de reserva a SU dirección (confirmación por email). El borrador (`/api/leads`) deja de devolver `lead_id` y `status`.
+- **Filas anteriores a 0253:** `capture_key_hash` NULL = nadie tiene la clave, así que desde el embudo ya no se reescriben. Es lo seguro.
+- **El dueño del embudo** sigue saliendo de `FUNNEL_COACH_ID` (un solo embudo público existe). El store ya trabaja por dueño; el día que haya un embudo por club, el dueño saldrá del enlace (`/empieza/<club>`) y lo único que cambia es `funnelCoachId()`. No se ha construido aquí: es producto (la URL pública de cada club), no aislamiento.
+
+**Lo que se pierde, a sabiendas:** quien rellenó el formulario hace semanas y vuelve desde otro dispositivo no actualiza sus respuestas desde el embudo (le llega su enlace; el coach las actualiza en la llamada). Ese reenvío tampoco avisa al coach: sus datos no están verificados.
+
+**NO hacer:** no volver a `on conflict (email)`; no devolver el token de un lead existente a una petición sin su clave; no usar el email como identidad en el embudo público.
+
+---
+
+## 2026-09-23 · Un grupo va «cada uno en su semana»; alinearlo es sustituir desde un lunes
+
+**Decidido:** un grupo sigue siendo rodante (cada miembro por su semana de la cadena, DECISIONS «Grupos, asignar a varios…»), y ahora se dice: la cabecera del grupo añade «cada atleta sigue en su semana» (o «van juntos: semana N de …») y cada miembro muestra su semana también en el móvil; un inicio pasado dice «empezó». Al asignar un programa a un grupo con gente a mitad de programa, el panel pregunta en palabras del coach: **«Cada uno sigue en su semana»** (= `on_conflict: chain`, el nuevo llega detrás de lo de cada uno), **«Empiezan todos el lunes X»** (= `replace`: todos arrancan juntos ese lunes; lo entrenado no se toca) o «Solo a quien no tiene programa» (= `skip`).
+
+**Sin cambio de dominio:** las tres ya existían en el motor de asignar (`plan-placement.ts`); solo cambia cómo se nombran cuando el destinatario es un grupo.
+
+**NO hacer:** no crear un «modo cohorte» aparte ni una columna nueva para alinear: alinear es sustituir desde un lunes.
+
+---
+
+## 2026-09-23 · Primeros pasos: empieza con un atleta; el método es opcional y no bloquea
+
+**El hueco:** la lista de puesta en marcha (`web/lib/coach/setup-checklist.ts`) pedía seis pasos obligatorios antes de «Invitar a tu primer atleta» — club, «Cómo entrenas» (la entrevista de 24 preguntas), un entreno, un programa, **un grupo con plan** y **una batería de tests** —, y el atleta iba el último. Un coach 1:1 que quiere probar con una persona chocaba con una pared. Grupos y tests son MÉTODO de cada coach (HARD RULE Nº0), no requisitos del producto. Y el tenant #1, con 100 atletas entrenando, arrastraba «Setup 5/9» en la barra lateral para siempre.
+
+**Decidido:** dos caminos. **«Empieza con un atleta»** es lo único obligatorio: invitar → darle un programa (algún entreno del coach) → que vea una semana (la puerta de siempre: sin fila `draft` en `weekly_plans`). **«Monta tu método»** — club, cómo entrenas, biblioteca, niveles, grupos, tests, agenda (con Negocio) — es todo opcional y en cualquier orden. `complete` = hay ≥ 1 atleta que ya ve una semana; desde ahí «Primeros pasos n/3» sale de la barra lateral y de Hoy. «Primer programa» deja de ser paso aparte: vive dentro de «Dale un programa» (sin programas lleva a escribir uno; con programas, a asignarlo). Verificado con un coach nuevo en BD real (`lib/coach/__tests__/setup-checklist.db.test.ts`) y con un coach desechable en la base local.
+
+**NO hacer:** no volver a poner un paso de método (grupos, tests, entrevista, niveles) como requisito para invitar; no medir «en marcha» por lo configurado sino por un atleta que ve su semana.
+
+---
+
+## 2026-09-23 · Catálogo de carreras: se lee compartido, se escribe por club
+
+**El hueco (revisión de aislamiento, hallazgo 5):** `ownedEventPredicate` dejaba a cualquier coach editar las filas del catálogo compartido (`events.created_by_coach_id is null`), que ven los atletas de todos los clubs: un club podía renombrar, cambiar la fecha u ocultar una carrera HYROX para todos. Un test (`tests/races/events-scope.db.test.ts`) lo fijaba como correcto. Además, `/api/events` enseñaba al atleta TODAS las carreras visibles, también las manuales de otros clubs.
+
+**Decidido:** un coach edita solo sus carreras (`created_by_coach_id = el suyo`); una fila del catálogo le devuelve **403 «solo la edita el administrador»** (no 404: el catálogo lo ven todos, su existencia no es secreta) y la de otro club, 404. El catálogo lo cura el admin (`/admin/races`). El atleta ve el catálogo + las carreras de SU club; una llamada anónima, solo el catálogo. El test viejo se reescribe al revés.
+
+**Lo que no se hizo:** ocultar una carrera del catálogo solo para los atletas de un club (hoy nadie lo usa desde el panel; la vía sería una tabla `coach_event_overrides`, el mismo patrón que `coach_exercise_overrides`). El slug de `events` sigue siendo único global. `lib/races/target-race-write.ts` fija la fecha de una carrera «por confirmar» del catálogo cuando un atleta la elige como objetivo, sin mirar el club: queda anotado para su dueño.
+
+**NO hacer:** no volver a abrir la escritura del catálogo a los coaches; no listar carreras a un atleta sin su club.
+
+---
+
+## 2026-09-23 · El catálogo base nace de las migraciones (0247)
+
+**Decidido:** las ~77 filas base del catálogo que 0178 traducía y clasificaba (sentadilla, peso muerto, press banca, dominadas, las estaciones de HYROX, ergómetros, core…) las crea ahora una migración, `0247_exercise_base_catalog.sql`, con los mismos slugs y nombres ES/EN de 0178, la categoría y modalidad que exige el esquema, y la posición de las 8 estaciones. Vuelve a pasar los alias de 0178. Globales (`coach_id` null), `on conflict do nothing`: en producción, donde esas filas ya existen, no cambia nada. Las siete filas que 0178 archiva no se crean. Un test (`tests/exercises/base-catalog.db.test.ts`) resuelve 45 nombres ES/EN contra el catálogo que dejan las migraciones.
+
+**Por qué:** 0178 era un UPDATE sobre filas que ninguna migración creaba (entraron a mano). Toda base que no fuera la de producción —local, tests, una rama nueva, otro cliente de FLEXR— arrancaba con 71 ejercicios de movilidad y ni una sentadilla, y la línea rápida fallaba en el primer levantamiento que se teclea en una demo.
+
+**Se retira `infra/scripts/seed_exercises.ts`:** no rellena `modality` (NOT NULL) y siembra otro catálogo (free-exercise-db, en inglés, con slugs que duplican movimientos: «barbell-squat» junto a «back-squat»), que haría dudar al resolutor. Se niega a correr y queda para borrar junto a `seed:exercises`/`seed:all` en `infra/package.json`.
+
+**NO hacer:** no volver a meter filas del catálogo base fuera de una migración; no sembrar catálogos externos en bloque (una fila es un movimiento, 0205).
+
+---
+
+## 2026-09-23 · Un descanso sin unidad: su tamaño dice la unidad, y lo dudoso se pregunta
+
+**Decidido:** en la gramática de notación (`shared/domain/import/dose.ts`, `bareRestSeconds`), un número sin unidad tras una señal de descanso (`r2`, `rec 90`, `descanso 3`) se lee por su tamaño: **≤ 10 → minutos** (`r2` = 2'), **≥ 15 → segundos** (`r90` = 90''). **11–14 no se adivina**: la línea va a revisión con el motivo «¿minutos o segundos?» y la línea rápida pregunta en el sitio («12 min» / «12 s»), reescribiendo el texto con la unidad elegida. Una unidad escrita (`r2'`, `r90''`, `2 min`, `90s`) manda siempre. La vista previa de la línea rápida pinta cada reloj con su unidad en negrita (2′ / 90″).
+
+**Por qué:** antes todo número desnudo eran segundos, así que `r2` —como escribe un coach «2 minutos»— se guardaba como `descanso 2''` sin aviso. Es mecanismo de lectura (cómo se entiende una grafía), no método: no depende del coach. De paso, `stripRestClocks` dejaba de comerse una comilla de `r90''` (la regla de las comillas), y «sentadilla 5x5 r90''» se tipa.
+
+**NO hacer:** no volver a «número desnudo = segundos»; no resolver la franja 11–14 con un valor por defecto silencioso ni tirar el descanso sin decirlo.
+
+---
+
+## 2026-09-23 · «Entrenos sin hacer» avisa por número Y por proporción de lo debido (0243)
+
+**El hueco:** la señal `missed_sessions` saltaba con 2 entrenos debidos sin hacer en 7 días, fuera cual fuera el total. Con 100 atletas eso metía en «Te necesitan» a quien hizo 8 de 10 — una semana normal. Medido en local (100 atletas, tras correr la publicación automática): 45 atletas «te necesitan»; 3 eran «2 de 9» o «2 de 10».
+
+**Decidido:** nuevo umbral `missed_sessions_share_pct` en `COACH_THRESHOLD_SPEC` (defecto 30 %, 0–100, grupo «sesiones»), columna nullable en `coach_signal_thresholds` (0243). La señal pide las dos cosas: `n ≥ missed_sessions_min` y `n ≥ share × debidas`. Con 0 basta el número (el comportamiento anterior). Editable en Ajustes › Método. Tras el cambio: 42 de 100, todos casos reales (alta pendiente, pago vencido, sin programa, readiness baja, semana con 3+ sin hacer).
+
+**NO hacer:** no volver a una señal de adherencia que cuente solo en absoluto; la proporción es la forma de que el aviso escale con el volumen del atleta.
+
+---
+
+## 2026-09-23 · La espera para volver a proponer una revisión 1:1 es del coach (0242)
+
+**El hueco:** `proposeReview` no volvía a proponer una revisión 1:1 al mismo atleta durante `const PROPOSAL_DEDUPE_DAYS = 14` (web/lib/citas/reviews.ts). Otro entrenador la re-propondría a la semana o al mes: es método.
+
+**Decidido:** nuevo umbral `review_reproposal_days` en `COACH_THRESHOLD_SPEC` (defecto 14, 1–90 días, grupo «revisiones»), columna nullable en `coach_signal_thresholds` (0242, CHECK con los mismos límites, sin `default`). `proposeReview` y `getAthleteReviewState` lo leen con `resolveCoachThresholds`; el PUT de umbrales y Ajustes › Método lo editan solos (sección «Revisiones 1:1»). Un coach que no toca nada sigue en 14.
+
+**NO hacer:** no volver a poner la ventana como `const`.
+
+---
+
+## 2026-09-23 · Las bandas de FC del coach llegan también a la prescripción y al reloj
+
+**El hueco:** los cortes de las zonas de FC (0.81 / 0.82–0.88 / … de LTHR) ya eran dato del coach desde 0168 (`coach_hr_method`, defectos en `shared/domain/methodology/hr-zones.ts` vía `shared/domain/coach/hr-method.ts`) y el teléfono, la ficha y el tiempo en zona los leían. Pero el resolvedor de etiquetas de la prescripción (`resolveTarget` / `resolveSegmentTarget`) llamaba a `resolveHrZones` sin fracciones: una «Z2» de FC en el reloj (Garmin/Suunto/FIT) se cortaba siempre con los defectos, aunque el coach hubiera movido sus bandas.
+
+**Decidido:** no hace falta tabla nueva (se reutiliza `coach_hr_method`). `ResolveOpts` y `ResolveSegmentOpts` aceptan `hrZoneFractions`; `watch-workout-source.ts` carga el método del coach del atleta (`resolveCoachHrMethod` → `hrZoneFractionsFrom`) y lo pasa. Sin coach, los defectos de siempre.
+
+**NO hacer:** no llamar a `resolveHrZones` sin las fracciones del coach cuando hay coach; no copiar fracciones a mano en ningún otro sitio (la única fuente de defectos es `DEFAULT_HR_ZONE_FRACTIONS`).
+
+---
+
+## 2026-09-23 · El huso del coach es dato (0241): la agenda deja de estar en Madrid
+
+**El hueco:** la agenda de citas razonaba en `'Europe/Madrid'` escrito a mano — los huecos que ve un lead, los días bloqueados «desde hoy» y el recuento de «llamadas hoy». Un coach en otro huso ofrecía horas que no eran las suyas.
+
+**Decidido:** `coaches.timezone` (IANA, migración 0241, sin `default` de columna; un CHECK de forma). El dominio (`shared/domain/coach/coach-timezone.ts`: `effectiveCoachTimezone`) usa el del coach si es una zona válida y, si no, el defecto del producto `BOX_TIMEZONE` — así un coach que no ha tocado nada se comporta exactamente igual que antes. El motor de huecos (`generateSlots`) recibe el huso; `computeSlots`, `getAvailability` y `countCallsToday` lo leen del coach (`loadCoachTimezone`).
+
+**Queda (deuda anotada, no tocada aquí):** el resto de «día del coach» (su Hoy, la fecha de publicación, los emails de citas con `timeZone: 'Europe/Madrid'`, `week-publishing.boxToday`) sigue en `BOX_TIMEZONE`; debe pasar a `loadCoachTimezone` pieza a pieza. Falta el campo para editarlo (Ajustes › Tu club).
+
+**NO hacer:** no volver a escribir un huso a mano en la agenda; no poner `default 'Europe/Madrid'` en la columna.
+
+---
+
+## 2026-09-23 · El grupo de metodología de un bloque deja de ser obligatorio (0240)
+
+**El hueco:** `blocks.methodology_group_id` era NOT NULL contra `methodology_groups`, una tabla GLOBAL con los diez tipos de trabajo de una escuela («Fuerza Base», «Series de Running»…), y el editor de la biblioteca ponía el 1 por defecto: todo bloque nuevo de cualquier coach nacía como «Fuerza Base». Eso es método cableado (HARD RULE Nº0) y además un dato falso.
+
+**Decidido:** migración 0240 quita el NOT NULL (la FK se queda para los bloques que sí tienen grupo). Los esquemas (`shared/schema/blocks.ts`) aceptan `null` y dejan de limitar a 1–10 (la FK dice qué existe). Crear sin grupo = sin clasificar; un reemplazo completo que no menciona el grupo lo conserva; `null` explícito lo quita. El compositor IA (`loadComposableBlocks`) solo considera bloques clasificados — elige por grupo —; uno sin clasificar se usa a mano. La modalidad derivada (`modalityForGroup`) ya toleraba null.
+
+**Queda:** el selector del editor (`components/v2/biblioteca/LibraryItemEditor.tsx`, `?? 1`) debe dejar de enviar 1 por defecto — cambio de una línea pedido a su dueño. La clasificación en sí (tipos de trabajo) debería ser del coach, no una tabla global; hasta entonces, sin grupo es la opción honesta.
+
+**NO hacer:** no volver a poner un grupo por defecto a un bloque; no añadir grupos a `methodology_groups` como si fuera un catálogo del coach.
+
+---
+
+## 2026-09-23 · «Ajustes masivos» (`mass-adjustments`) se retira
+
+**El hueco:** `/api/coach/mass-adjustments` (+ preview, historial, rollback; servicio `lib/coach/mass-adjustments.ts`, esquema `shared/schema/coach-mass-adjustments.ts`, migración 0006) aplicaba un ajuste a varios atletas escribiendo un prefijo `[mass-adj …]` en `workout_assignments.notes`. Ese campo es la **identidad del hueco** para el materializador (`slot:am`, `slot:pm`… en `instantiate-program.ts`): una nota reescrita hace que el re-sync de una semana no reconozca el hueco y lo duplique o lo borre. Y el tipo «carga %» nunca cambiaba una carga: solo dejaba texto. Ninguna pantalla lo usaba desde el rehacer del panel.
+
+**Decidido:** se retira entero — rutas, servicio, esquema compartido, su test y las cadenas de i18n. **Las tablas `coach_mass_adjustments` / `coach_mass_adjustment_targets` se quedan** (historial; no se borra dato de nadie; en local no había ni una fila ni ninguna nota con el prefijo). Lo que el coach necesita ya existe con su modelo: escalar volumen / descarga de una semana desde la ficha (`progress-ops`, cambia la prescripción de verdad), «Progresar selección» en el editor de programas y asignar/publicar a varios (`/api/coach/assign`, `/api/coach/weeks/publish`).
+
+**Queda (a propósito):** la revisión semanal (`lib/coach/weekly-review.ts`, sin pantalla) sigue calculando «oportunidades de ajuste en bloque» como sugerencia y su historial guarda `mass_adjustment_applied`; es texto, no toca prescripciones. Si esa revisión vuelve a tener pantalla, sus oportunidades deben apuntar a las acciones de arriba, no a este flujo.
+
+**NO hacer:** no volver a guardar ajustes en `workout_assignments.notes` (es identidad de hueco); un ajuste de carga que no cambia la carga no es un ajuste. Si hace falta «ajustar a varios», se construye sobre `progress-ops` por atleta y semana, con deshacer por lote.
+
+---
+
+## 2026-09-23 · Una sola cuenta de quién te necesita (Hoy = Atletas) y «Por responder» = Mensajes
+
+**El hueco:** la cifra de Hoy (22) contaba FILAS (grupos + filas de atleta) y «Necesitan algo» de Atletas (23) contaba estados `accion`+`vigilar`: dos unidades y dos definiciones que no podían casar. Además, 38 atletas salían «Al día» con la semana oculta (Hoy los contaba en «47 no ven su semana»); atletas con entrenos sueltos sin programa asignado salían «Sin plan» con un próximo entreno al lado; señales de plan persistidas por el barrido («sin programa») seguían vivas después de asignar; y el filtro «Por responder» de Hoy decía 0 con 15 hilos esperando en Mensajes, porque solo miraba la señal del motor (que espera 12 h).
+
+**Decidido:**
+- **«Te necesita» es UNA función** (`athleteNeedsYou`, `shared/domain/coach/athlete-state.ts`) y sale en el estado como `needs_you`. Atleta activo con: una señal crítica o de vigilar · el alta pendiente · hueco de plan (sin programa o terminado; el invitado sin cuestionario no) · su semana oculta (la de ahora, o la que viene cuando por la regla «N días antes» del coach ya debería verse). La cifra de Hoy, su insignia y la vista de serie «Necesitan algo» (`atencion=si`) cuentan **atletas** con esa función. Un grupo de 47 son 47 personas; un atleta con grupo y fila cuenta una vez. Leads y llamadas no entran (son de Negocio, con su insignia).
+- **Una semana oculta no es «Al día»:** el estado pasa a «Vigilar» con motivo «Su semana está oculta al atleta» / «retenida por ti» (una señal de vigilar gana el motivo).
+- **Entrenos sueltos también son plan:** `classifyProgrammingStatus` y `athleteWeekChip` reciben los entrenos del coach desde el lunes en adelante; sin programa pero con entrenos → no es «Sin plan»; programa terminado con entrenos más adelante → «Semana vacía», no «Terminado».
+- **El dato fresco gana al barrido** (`reconcileSignals`): una señal `programming_status` solo sigue viva si su estado coincide con el de ahora; `message_unanswered` cae si el hilo ya no está por responder. Hoy, el roster, el vistazo y la ficha leen igual.
+- **«Por responder» es el conjunto de Mensajes** (`loadReplyStates`: último mensaje del atleta, ni hecho ni pospuesto — `threadState`). El filtro de Hoy lo cuenta entero desde el primer minuto y enseña las esperas sin fila (informativas, «Hecho/Posponer» sobre `message_unanswered`); la insignia de Mensajes sale de la misma cuenta. **El umbral de horas del coach solo decide cuándo una espera pasa a ser fila de la bandeja y «te necesita»**, no si existe.
+
+**NO hacer:** no volver a contar filas como «te necesitan»; no definir «Necesitan algo» por claves de estado (`accion,vigilar`) — las vistas guardadas viejas siguen valiendo, pero no son la de serie; no leer una señal de plan o de mensaje persistida sin reconciliarla con el hecho de ahora; no usar el umbral de mensajes para decidir si un hilo está por responder.
+
+---
+
+## 2026-09-23 · Cuestionarios de entrada: oculto hasta que algo lo lea
+
+**El hueco:** `/cuestionarios` editaba `coach_onboarding_forms` (migración 0201) con aspecto de pantalla terminada — lista, duplicar, editar, reordenar, correo de destino —, pero **nada lo consume**: ni el embudo público, ni la cola de altas, ni la app del atleta leen esas filas (auditoría A §2.8). Un coach que lo edita no cambia nada, y eso es peor que no tenerlo.
+
+**Decidido:** la pantalla se oculta. `/cuestionarios` y `/ajustes/alta` redirigen a `/ajustes/perfil`; el editor (`components/v2/cuestionarios/**`) sale del panel. **El backend se queda intacto** (tabla, `/api/coach/onboarding-forms`, esquema): no se borra dato de nadie y el día que un flujo lo lea, vuelve como Ajustes › Alta con el nombre «Cuestionario de entrada».
+
+**NO hacer:** no volver a enseñar el editor sin un lector real en el mismo lote; no borrar `coach_onboarding_forms` ni su API por estar oculta.
+
+**En el mismo rehacer de Ajustes (anotado aquí para que no se pierda):** cada campo tiene UN editor — nombre del club, logo, color, box, dirección y correo de avisos solo en Ajustes › Tu club; nombre, foto y bio de la persona solo en Tu perfil (fuera los cuatro editores duplicados de la auditoría A S7). Todo Ajustes guarda al salir de cada campo, sin botones «Guardar». Y el nombre del eje de clasificación pasa a ser del coach: `coaches.level_axis_label` (0223, NULL = «Nivel», defecto en `shared/domain/coach/level-axis.ts`), editable en Ajustes › Método — cierra lo que 2026-08-23 dejó abierto; las pantallas que aún escriben «Nivel» a mano deben leer `effectiveLevelAxisLabel`.
+
+---
+
+## 2026-09-23 · Negocio con dueño: un lead responde a su coach; «sin asignar» solo al operador del embudo; la agenda es por coach (0220)
+
+**El hueco:** todo el grupo Negocio era club-global. `listLeadsForCoach`, `countNewLeads`, las llamadas, la lista de espera, el embudo y la agenda de citas leían la tabla entera: con un segundo coach, cada club veía los prospectos (con datos de salud) de todos, guardar un horario borraba el de otro y la reserva de un lead bloqueaba la hora de otro club. DECISIONS 2026-08-10 lo tenía apuntado como deuda.
+
+**Decidido (una sola regla, `leadOwnedBy` en `web/lib/leads/owner.ts`):**
+- El dueño de un lead es `leads.coach_id` (0147, se graba al captar). Listado, contadores, ficha, transición, reabrir, alta, lista de espera, llamadas, embudo (cohortes, resultados de llamada, serie semanal, por objetivo) y la ocupación de la agenda filtran por él.
+- **Lead sin dueño (NULL):** ya NO es accionable por cualquier club (**revoca esa parte de 2026-08-10**). Solo lo ve y lo tría el coach que opera el embudo público (`FUNNEL_COACH_ID`, configuración explícita). Sin embudo declarado no lo ve nadie desde el panel. No se rellena ningún dueño por descarte (se mantiene). Dar el alta a un lead sin dueño es asignarlo a mano: queda del club que lo convierte.
+- **La agenda es del coach (migración 0220):** `coach_availability` y `coach_availability_exceptions` ganan `coach_id`; el día bloqueado es único por (coach, fecha). Relleno por evidencia: quién la escribió → su club; si no, el club 60 (el del único embudo que ha existido, mismo hecho que 0147); si no, la instalación de un solo coach. Lo que no encaja queda NULL e inerte; un CHECK `not valid` impide filas nuevas sin dueño.
+- Los huecos que ve un lead son los de su dueño (o del operador del embudo si no tiene); los de una revisión 1:1, los del coach del atleta. La ocupación y el re-chequeo de reserva miran solo las citas de ESE coach; el lock va por (coach, hueco). Las citas siguen sin `coach_id`: su dueño deriva del lead o del atleta (se mantiene 2026-08-10).
+- La cola de espera y la liberación automática son por coach contra SU cupo; el cron sin coach recorre cada coach con cupo.
+- Visitas de la landing: solo las ve el operador del embudo. Cobros (`buildBusinessMetrics`) acepta `coach_id` (suscripciones de los atletas del coach); sin él es plataforma y solo lo usa /admin.
+
+**Deuda que queda, y por qué no se tocó aquí:** el token de Google Calendar (`google_oauth_tokens`) sigue siendo UNO para la plataforma — con varios coaches, las reuniones de todos se crean en ese calendario. Hacerlo por coach exige rehacer el flujo de conexión (`/api/citas/google/*`). `TIER_PRICE_EUR` (precios en código) es método del coach y debería ser dato.
+
+**NO hacer:** no volver a leer leads, citas o agenda sin `leadOwnedBy`/`coach_id`; no reabrir el fallback «sin asignar lo ve cualquiera»; no escribir en la agenda sin coach; no añadir `coach_id` a `appointments` mientras el dueño derive del lead o del atleta.
+
+**Dónde vive:** `web/lib/leads/owner.ts`, `web/lib/citas/{store,availability,calls,reviews,reminder}.ts`, `web/lib/leads/{store,waitlist,alta}.ts`, `web/lib/dashboard/coach/{leads,metrics,business-metrics}.ts`, `infra/migrations/0220_availability_owner.sql`, tests en `web/tests/negocio/two-coaches.db.test.ts` y `web/tests/leads/tenancy.db.test.ts`.
+
+---
+
+## 2026-09-23 · Grupos, asignar a varios y publicar por semana
+
+**Decidido (migraciones 0215–0218):**
+- **Retener una semana = `draft` + `delivery_mode='manual'`**: el mismo estado que ya escribían el borrador privado, el alta y `unpublish_week`. No hay columna `held`. La visibilidad sigue decidiéndose solo en `weekly_plans` (solo `draft` esconde).
+- **Publicación automática**: cada semana se abre N días antes de empezar (`coaches.auto_publish_days_before`, NULL → defecto 2 en `shared/domain/coach/week-publishing.ts`). Cron diario (`0 4 * * *`) que recupera días perdidos y salta semanas retenidas y atletas en pausa. **Fuera el cron del sábado.**
+- **Un grupo es una fila de `program_sequences` con nombre** y una cadena ordenada de programas; nivel y días son opcionales y, si están los dos, son la regla de pertenencia automática (índice único parcial). Miembros = cursores activos; **un atleta, un grupo** (entrar en otro marca el anterior `left`). **Fuera la banda de 3–6 días** (1–7).
+- **Entrar en un grupo** = recibir el programa y la semana en que está el grupo el lunes de inicio (posición del grupo = mayoría de los recibos de sus miembros). Quien ya hace un programa de la cadena **lo conserva** (`adopt`, no se materializa nada).
+- **Asignar a varios y entrar en un grupo son un solo motor con lotes**: cada atleta en su transacción, cada fila tocada registrada. **Deshacer repone exactamente** lo que había (incluido lo que «Sustituir» cortó) y **nunca borra lo ya entrenado**: si el atleta ya hizo una sesión del programa nuevo, se niega con motivo.
+- `plan_week_horizon` (cuánto futuro puede ojear el atleta) se queda como capa aparte y se presenta junto a la publicación automática en Ajustes › Plan del atleta, explicado en una línea.
+
+**NO hacer:** no añadir una columna `held`; no volver al cron del sábado; no notificar «Tu plan está listo» si ninguna semana es visible; no mostrar «Ajustar a varios» hasta arreglar `mass-adjustments` (escribe en `workout_assignments.notes`, que el materializador usa como identidad de hueco).
+
+---
+
+## 2026-09-23 · Una señal compara al atleta consigo mismo; una adherencia; un estado
+
+**El hueco:** con 100 atletas el motor marcaba 93: el readiness disparaba con una sola lectura bajo 67 sin base ni fecha, «sesiones fallidas» contaba días sin actividad, la adherencia contaba sesiones futuras (un miércoles perfecto salía 40 % en rojo) y había tres definiciones de «Atención».
+
+**Decidido (mecanismo en código, números en `coach_signal_thresholds`, migraciones 0211–0212; NULL = defecto de `shared/domain/coach/signal-thresholds.ts`):**
+- **Readiness** contra la mediana propia de 28 días (con ≥7 lecturas): crítico si la última está bajo el suelo del coach (40); vigilar si está ≥15 puntos bajo su base 3 días seguidos (un día sin lectura rompe la racha); nada si la última lectura tiene más de 2 días. La evidencia dice valor, base, ventana y fecha. El episodio se identifica por su primer día, así que uno nuevo vuelve aunque se marcara «hecho».
+- **Adherencia due-only** (`shared/domain/coach/adherence.ts`): cuenta lo que ya tocaba (antes de hoy, u hoy si ya está hecho); completada o a medias = hecha; sin nada debido = sin dato, nunca 0.
+- **Sesiones sin hacer** = debidas en 7 días en semanas visibles; **RPE alto** = ≥50 % de la semana a RPE ≥9 (mín. 2); **check-in saltado** solo en quien tiene el hábito (10 de 14 días); **por responder** = el último mensaje es del atleta, leído o no.
+- Fuera de la bandeja diaria (informativas): listo para progresar, carrera cerca, tests, entreno libre, cancelación programada; reloj sin sincronizar nunca es crítico.
+- **Un estado del atleta** (`shared/domain/coach/athlete-state.ts`), en este orden: pausado > acción (alguna crítica) > nuevo > sin plan > vigilar > al día. Lo leen Hoy, Atletas, Mensajes y la ficha.
+- **Posponer / hecho** guardan tipo, severidad y clave del momento: «hecho» no vuelve por lo mismo; un episodio nuevo sí; un posponer con fecha se rompe si la señal escala a crítica.
+- Guardar umbrales es **por campo** (`PUT` de uno; `null` restaura el defecto), no «reemplaza el conjunto» como decía 0161.
+
+**NO hacer:** no pintar un número de readiness sin base ni fecha; no contar sesiones futuras en ninguna adherencia; no escribir otra definición de «Atención» en una pantalla — se lee el estado.
+
+---
+
+## 2026-09-23 · El panel del coach se rehace alrededor del día del entrenador (auditoría aprobada)
+
+**El hueco:** la auditoría con 100 atletas (`docs/auditoria-panel-coach/index.html`) mostró que el panel está organizado por el modelo de datos y por acumulación de funciones, no por los tres trabajos del coach (saber quién le necesita hoy, actuar sobre muchos a la vez, construir y cambiar el plan donde lo mira). Hoy decía «92 decisiones» para 100 atletas, los números se contradecían entre pantallas y dar un bloque a 20 atletas costaba ~500 clics. Alex aprobó la propuesta entera («plan approved 100 %, every decision you recommended»).
+
+**Decidido (las siete + los defectos):**
+
+1. **La casa es Hoy**, la bandeja única que tiende a cero (una fila por atleta, peor primero, resolver/posponer/hecho, teclado). **Revoca 2026-08-19** («Atletas va primero, el triage es una franja»).
+2. **Oscuro por defecto**, claro como alternativa en el mismo botón. **Revoca el claro por defecto de 2026-08-19/20.** Sigue en pie: cromo neutro y el acento como dato del club.
+3. **«Programa»** sustituye a «Microciclo» en toda la interfaz del coach (un microciclo es ~1 semana; «Mesociclo» es vocabulario de una escuela y el producto no cablea escuelas). Vocabulario visible: Ejercicio → Bloque (parte A/B/C de un entreno) → Entreno → Semana → Programa → Plan · Grupo. Los identificadores técnicos (`program_month_templates`, etc.) NO se renombran.
+4. **Grupos primero.** Un grupo es un conjunto de atletas con su plan (cadena ordenada de programas). Se construye sobre `program_sequences`: la secuencia gana nombre y `level_id`/`days_per_week` pasan a opcionales; la celda nivel×días queda como regla opcional de pertenencia automática. **Reabre 2026-08-23** (la matriz exigía nivel).
+5. **La ficha es un cockpit** (por qué está marcado + estado + calendario editable de 3 semanas + «hacer ahora») con dos pestañas más: Rendimiento y Perfil. **Revoca las 5 pestañas de 2026-08-13.**
+6. **Publicación por semana, automática N días antes** (N es dato del coach, con defecto). El coach puede retener una semana. Sustituye a «publicar el microciclo entero».
+7. **Negocio** (leads, cobros, embudo) solo para coaches con el add-on (`coach_entitlements`).
+
+Defectos aceptados: lienzo claro neutro frío con tarjetas blancas; una sola familia (Figtree), números tabulares grandes como voz display; botones rectángulo 6 px y pastillas solo para filtros; barra lateral de 5 destinos + Ajustes, plegable; el color del club solo en botón primario, anillo de foco y logo; Atletas por defecto en tabla; comunicados como acción (no pestaña); carga con términos estándar (CTL/ATL/TSB) y glosa; en el móvil el panel es triaje; posponer 1 d / 3 d / hasta nueva señal; «Listo para progresar» sale de la bandeja diaria a una revisión semanal; «Leads» en inglés, el resto en castellano.
+
+**Mecanismo que se unifica:** una sola fuente de señales (`coach_attention_items`) para Hoy, Atletas, Mensajes y la ficha; una sola fórmula de adherencia (solo lo que ya tocaba); un solo modelo de estado. Umbrales, niveles y marcadores son dato del coach con defecto.
+
+**NO hacer:** no volver a poner el roster como casa ni una segunda Hoy dentro de Atletas; no pintar un número de adherencia que cuente sesiones futuras; no escribir «microciclo», «receta», «secuencia», «tipar» o «dosis» en la interfaz del coach; no pintar el acento del club en navegación, filtros o «hoy»; no usar rojo para un recuento de cabecera.
+
+---
+
+## 2026-09-23 · ClickUp sale del flujo: el estado se cuenta en el chat y en git
+
+**El hueco:** los hooks `clickup-recordatorio.sh` (UserPromptSubmit) y `clickup-guard.sh` (Stop) obligaban a abrir y cerrar una card de ClickUp por cada tarea y bloqueaban el turno si el último commit no estaba registrado. Alex ya no usa ClickUp («talk to me here, forget notion or clickup»).
+
+**Decidido:** fuera los dos hooks, su registro en `.claude/settings.json` y la skill `.claude/skills/clickup/`. El estado se le cuenta a Alex en el chat de la sesión; lo persistente sigue en git (`FOCUS.md`, `docs/DECISIONS.md`, `docs/`).
+
+**NO hacer:** no volver a meter un paso obligatorio hacia ClickUp ni Notion; no escribir cards ni páginas «para que conste». Si el registro de Alex vuelve a otra herramienta, lo dice él.
+
+---
+
 ## 2026-09-21 · FH-56 — El enlace muñeca↔móvil lo dice Apple: qué se borra y por qué
 
 **El hueco:** el enlace lo gobernaban tres máquinas caseras — bucle

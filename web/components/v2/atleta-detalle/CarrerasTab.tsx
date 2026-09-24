@@ -30,6 +30,8 @@ import {
   type RacePriority,
   type UpcomingRace,
 } from '@fahybrid/shared/schema';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Button, ErrorState } from '@/components/v2/ui';
 
 interface RacesResponse {
   target_race: NextRace | null;
@@ -138,14 +140,14 @@ function UpcomingCard({ race }: { race: UpcomingRace }) {
         style={{ background: 'var(--v2-accent)' }}
       />
       <div className="flex items-center gap-2">
-        <span className="v2-micro text-[color:var(--v2-accent-text)]">Próxima carrera</span>
+        <span className="t-label text-v2-fg">Próxima carrera</span>
         <Pill tone={badge.tone} variant="soft">
           {badge.label}
         </Pill>
       </div>
 
       <div className="flex items-baseline gap-1.5">
-        <span className="v2-num text-3xl font-bold leading-none text-[color:var(--v2-accent-text)]">
+        <span className="t-tnum text-3xl font-semibold leading-none text-v2-fg">
           {days}
         </span>
         <span className="text-xs text-[color:var(--v2-muted)]">
@@ -154,15 +156,15 @@ function UpcomingCard({ race }: { race: UpcomingRace }) {
       </div>
 
       <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-bold text-[color:var(--v2-fg)]">{race.name}</span>
+        <span className="text-sm font-semibold text-[color:var(--v2-fg)]">{race.name}</span>
         <span className="text-xs text-[color:var(--v2-muted)]">{raceCategoryLineEs(race)}</span>
         {dateLine ? (
-          <span className="v2-num text-label text-[color:var(--v2-faint)]">{dateLine}</span>
+          <span className="t-tnum t-meta text-[color:var(--v2-faint)]">{dateLine}</span>
         ) : null}
         {goal ? (
-          <span className="mt-0.5 inline-flex items-center gap-1 text-label font-semibold text-[color:var(--v2-muted)]">
-            <MIcon name="target" size={13} className="text-[color:var(--v2-accent-text)]" />
-            <span className="v2-num">Objetivo {goal}</span>
+          <span className="mt-0.5 inline-flex items-center gap-1 t-meta font-semibold text-[color:var(--v2-muted)]">
+            <MIcon name="target" size={13} className="text-v2-fg" />
+            <span className="t-tnum">Objetivo {goal}</span>
           </span>
         ) : null}
       </div>
@@ -193,7 +195,7 @@ function PastRaceCard({ race }: { race: RaceHistoryItem }) {
       <div className="flex items-start gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-sm font-bold text-[color:var(--v2-fg)]">{race.name}</span>
+            <span className="text-sm font-semibold text-[color:var(--v2-fg)]">{race.name}</span>
             <Pill tone="neutral" variant="soft">
               {RACE_FORMAT_LABEL[race.format]}
             </Pill>
@@ -204,38 +206,39 @@ function PastRaceCard({ race }: { race: RaceHistoryItem }) {
             ) : null}
           </div>
           {metaLine ? (
-            <span className="v2-num text-label text-[color:var(--v2-faint)]">{metaLine}</span>
+            <span className="t-tnum t-meta text-[color:var(--v2-faint)]">{metaLine}</span>
           ) : null}
           {teammates ? (
-            <span className="text-label text-[color:var(--v2-muted)]">Con {teammates}</span>
+            <span className="t-meta text-[color:var(--v2-muted)]">Con {teammates}</span>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-0.5">
-          <span className="v2-num text-base font-bold text-[color:var(--v2-fg)]">
+          <span className="t-tnum text-base font-semibold text-[color:var(--v2-fg)]">
             {result ?? 'Sin resultado'}
           </span>
           {topPct != null ? (
-            <span className="v2-num text-label font-semibold text-[color:var(--v2-accent-text)]">
+            <span className="t-tnum t-meta font-semibold text-v2-fg">
               Top {topPct}%
             </span>
           ) : null}
           {rankLine ? (
-            <span className="v2-num text-label text-[color:var(--v2-faint)]">{rankLine}</span>
+            <span className="t-tnum t-meta text-[color:var(--v2-faint)]">{rankLine}</span>
           ) : null}
         </div>
       </div>
 
       {hasSplits ? (
         <>
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="ghost"
+            iconEnd={expanded ? ChevronUp : ChevronDown}
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
-            className="v2-focus inline-flex w-fit items-center gap-1 rounded-[var(--v2-r-s)] text-label font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
+            className="w-fit"
           >
-            <MIcon name={expanded ? 'expand_less' : 'expand_more'} size={16} />
             {expanded ? 'Ocultar splits' : 'Ver splits'}
-          </button>
+          </Button>
           {expanded ? <SplitsPanel race={race} /> : null}
         </>
       ) : null}
@@ -248,9 +251,9 @@ function SplitsPanel({ race }: { race: RaceHistoryItem }) {
   const roxzone = formatClock(race.roxzone_seconds);
 
   return (
-    <div className="mt-1 flex flex-col gap-3 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
+    <div className="mt-1 flex flex-col gap-3 rounded-ctl border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
       {race.is_team_result ? (
-        <span className="text-label font-medium text-[color:var(--v2-muted)]">
+        <span className="t-meta font-medium text-[color:var(--v2-muted)]">
           Tiempos del equipo (no individuales).
         </span>
       ) : null}
@@ -264,7 +267,7 @@ function SplitsPanel({ race }: { race: RaceHistoryItem }) {
 
       {race.run_splits.length > 0 ? (
         <div className="flex flex-col gap-1.5">
-          <span className="v2-micro">Carreras (1 km)</span>
+          <span className="t-label text-v2-faint">Carreras (1 km)</span>
           <div className="grid grid-cols-4 gap-1.5">
             {race.run_splits.map((seconds, i) => (
               <SplitCell key={`run-${i}`} label={`Run ${i + 1}`} value={formatClock(seconds)} />
@@ -275,7 +278,7 @@ function SplitsPanel({ race }: { race: RaceHistoryItem }) {
 
       {race.station_splits.length > 0 ? (
         <div className="flex flex-col gap-1.5">
-          <span className="v2-micro">Estaciones</span>
+          <span className="t-label text-v2-faint">Estaciones</span>
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {race.station_splits.map((s) => (
               <SplitCell
@@ -294,12 +297,12 @@ function SplitsPanel({ race }: { race: RaceHistoryItem }) {
 function SummaryTile({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="v2-micro">{label}</span>
+      <span className="t-label text-v2-faint">{label}</span>
       <span
         className={
           accent
-            ? 'v2-num text-sm font-bold text-[color:var(--v2-accent-text)]'
-            : 'v2-num text-sm font-bold text-[color:var(--v2-fg)]'
+            ? 't-tnum text-sm font-semibold text-v2-fg'
+            : 't-tnum text-sm font-semibold text-[color:var(--v2-fg)]'
         }
       >
         {value}
@@ -310,9 +313,9 @@ function SummaryTile({ label, value, accent }: { label: string; value: string; a
 
 function SplitCell({ label, value }: { label: string; value: string | null }) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-[var(--v2-r-xs)] bg-[color:var(--v2-surface)] px-2 py-1.5">
-      <span className="truncate text-label text-[color:var(--v2-muted)]">{label}</span>
-      <span className="v2-num shrink-0 text-label font-semibold text-[color:var(--v2-fg)]">
+    <div className="flex items-center justify-between gap-2 rounded-ctl bg-[color:var(--v2-surface)] px-2 py-1.5">
+      <span className="truncate t-meta text-[color:var(--v2-muted)]">{label}</span>
+      <span className="t-tnum shrink-0 t-meta font-semibold text-[color:var(--v2-fg)]">
         {value ?? '—'}
       </span>
     </div>
@@ -330,16 +333,6 @@ function LoadingRow() {
 
 function ErrorRow({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[var(--v2-r-card)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] p-4">
-      <span className="text-xs font-medium text-[color:var(--v2-danger)]">{message}</span>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] px-2.5 text-label font-semibold text-[color:var(--v2-danger)]"
-      >
-        <MIcon name="refresh" size={13} />
-        Reintentar
-      </button>
-    </div>
+    <ErrorState title={message} onRetry={onRetry} />
   );
 }

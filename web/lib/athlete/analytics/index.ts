@@ -6,6 +6,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import type { AnalyticsSection, ResolvedPeriod, SectionKey } from './core';
 import { buildRunningSection } from './running';
 import { buildErgoSection, type ErgKey } from './ergo';
@@ -23,7 +24,10 @@ export async function buildAnalyticsSection(
   args: { athlete_id: number | bigint; section: SectionKey; period: ResolvedPeriod; erg?: ErgKey },
   client: Sql = defaultSql,
 ): Promise<AnalyticsSection> {
-  const a = { athlete_id: args.athlete_id, period: args.period };
+  // Every section dates what it shows on the ATHLETE's day (DECISIONS «Qué día
+  // es en cada sitio»): his zone, resolved once here and handed down.
+  const tz = await loadAthleteTimezone(client, args.athlete_id);
+  const a = { athlete_id: args.athlete_id, period: args.period, tz };
   switch (args.section) {
     case 'running':
       return buildRunningSection(a, client);

@@ -18,6 +18,7 @@ import { leadFirstName } from '@fahybrid/shared/domain/leads/questions';
 import { groupLeadSummary, summarizeLead } from '@fahybrid/shared/domain/leads/summary';
 import { coachVoice } from '@/lib/coach/voice';
 import { resolveClubEmailSkin } from '@/lib/coach/club-skin';
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
 
 export interface LeadEmailResult {
   sent: boolean;
@@ -34,7 +35,11 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/** Internal notification to the coach of THIS lead. Vacío = no se envía. */
+/**
+ * Internal notification to the coach of THIS lead. Vacío = no se envía.
+ * Habla la PLATAFORMA al coach (no el club a su lead): firma con la marca del
+ * producto (`BRAND_WORDMARK`), nunca con un nombre escrito a mano.
+ */
 export async function sendLeadNotification(
   input: LeadSubmitInput,
   coachId?: bigint | number | null,
@@ -85,7 +90,7 @@ export async function sendLeadNotification(
 
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:620px;margin:0 auto;padding:32px 24px;color:#0a0a0a;background:#fff;">
-      <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#F06A2A;">FAHYBRID · Nuevo lead</p>
+      <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#F06A2A;">${escapeHtml(BRAND_WORDMARK)} · Nuevo lead</p>
       <h1 style="margin:0 0 16px;font-size:24px;letter-spacing:-0.01em;">${escapeHtml(nombre)}</h1>
       <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:8px;">
         <tr><td style="padding:4px 12px 4px 0;color:#666;">Email</td><td style="padding:4px 0;font-weight:600;"><a href="mailto:${escapeHtml(input.email)}" style="color:#0a0a0a;">${escapeHtml(input.email)}</a></td></tr>

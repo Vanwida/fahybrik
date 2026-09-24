@@ -25,10 +25,10 @@
 // shared with the server: a YouTube link or a file the coach uploaded. No new schema.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ModalPortal } from './ModalPortal';
+import { Pencil, Plus, PlayCircle, Search } from 'lucide-react';
+import { Button, Dialog, IconButton, Input } from '@/components/v2/ui';
 import { EditExerciseForm } from './ExerciseEditForm';
 import { CreateExerciseForm } from './ExerciseCreateForm';
-import { MIcon } from '@/components/ui/MIcon';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
@@ -66,7 +66,6 @@ export function ExercisePicker({
   onPick: (exercise: PickedExercise) => void;
   onClose: () => void;
 }) {
-  const dialogRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const [mode, setMode] = useState<Mode>('search');
@@ -152,70 +151,60 @@ export function ExercisePicker({
     setMode('search');
   }, []);
 
-  return (
-    <ModalPortal onEscape={onClose}>
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-[color:var(--v2-scrim)] p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal
-        aria-label="Elegir ejercicio"
-        tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
-        className="v2-focus flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]"
-      >
-        <header className="flex items-center justify-between gap-3 border-b border-[color:var(--v2-border)] px-5 py-4">
-          <div className="min-w-0">
-            <h2 className="v2-display text-xl">
-              {mode === 'create'
-                ? 'Crear ejercicio'
-                : mode === 'edit'
-                  ? 'Editar ejercicio'
-                  : 'Añadir ejercicio'}
-              <span className="text-[color:var(--v2-muted)]"> · {destinationLabel}</span>
-            </h2>
-            {mode === 'search' ? <p className="v2-micro mt-0.5">Busca y elige del catálogo</p> : null}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cancelar"
-            className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
-          >
-            <MIcon name="close" size={20} />
-          </button>
-        </header>
+  const title = mode === 'create' ? 'Crear ejercicio' : mode === 'edit' ? 'Editar ejercicio' : 'Añadir ejercicio';
 
-        {mode === 'create' ? (
-          <CreateExerciseForm
-            seedName={query.trim()}
-            defaultCategory={defaultCategory ?? 'strength'}
-            onCancel={() => setMode('search')}
-            onCreated={onCreated}
-          />
-        ) : mode === 'edit' && editing ? (
-          <EditExerciseForm exercise={editing} onCancel={() => { setMode('search'); setEditing(null); }} onEdited={onEdited} />
-        ) : (
-          <SearchBody
-            searchRef={searchRef}
-            query={query}
-            onQuery={setQuery}
-            categoryFilter={categoryFilter}
-            onCategory={setCategoryFilter}
-            loading={loading}
-            recents={recents}
-            filtered={filtered}
-            onSelect={select}
-            onEdit={(ex) => { setEditing(ex); setMode('edit'); }}
-            onCreate={() => setMode('create')}
-          />
-        )}
-      </div>
-    </div>
-    </ModalPortal>
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      title={title}
+      description={destinationLabel}
+      footer={
+        mode === 'search' ? (
+          <Button variant="ghost" icon={Plus} onClick={() => setMode('create')} className="mr-auto max-w-full">
+            <span className="truncate">
+              Crear {query.trim() ? <span className="text-v2-fg">«{query.trim()}»</span> : null} como ejercicio nuevo
+            </span>
+          </Button>
+        ) : undefined
+      }
+    >
+      {mode === 'create' ? (
+        <CreateExerciseForm
+          seedName={query.trim()}
+          defaultCategory={defaultCategory ?? 'strength'}
+          onCancel={() => setMode('search')}
+          onCreated={onCreated}
+        />
+      ) : mode === 'edit' && editing ? (
+        <EditExerciseForm
+          exercise={editing}
+          onCancel={() => {
+            setMode('search');
+            setEditing(null);
+          }}
+          onEdited={onEdited}
+        />
+      ) : (
+        <SearchBody
+          searchRef={searchRef}
+          query={query}
+          onQuery={setQuery}
+          categoryFilter={categoryFilter}
+          onCategory={setCategoryFilter}
+          loading={loading}
+          recents={recents}
+          filtered={filtered}
+          onSelect={select}
+          onEdit={(ex) => {
+            setEditing(ex);
+            setMode('edit');
+          }}
+        />
+      )}
+    </Dialog>
   );
 }
 
@@ -231,7 +220,6 @@ function SearchBody({
   filtered,
   onSelect,
   onEdit,
-  onCreate,
 }: {
   searchRef: React.RefObject<HTMLInputElement | null>;
   query: string;
@@ -243,27 +231,19 @@ function SearchBody({
   filtered: CatalogRow[];
   onSelect: (ex: CatalogRow) => void;
   onEdit: (ex: CatalogRow) => void;
-  onCreate: () => void;
 }) {
   return (
     <>
-      <div className="space-y-2.5 border-b border-[color:var(--v2-border)] px-4 py-3">
-        <div className="relative">
-          <MIcon
-            name="search"
-            size={16}
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[color:var(--v2-faint)]"
-          />
-          <input
-            ref={searchRef}
-            type="text"
-            value={query}
-            onChange={(e) => onQuery(e.target.value)}
-            placeholder="Buscar ejercicio…"
-            aria-label="Buscar ejercicio"
-            className="v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] py-2 pl-8 pr-3 text-sm text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-accent)]"
-          />
-        </div>
+      <div className="sticky top-0 z-[1] -mx-5 space-y-2.5 border-b border-v2-border bg-v2-elevated px-5 pb-3">
+        <Input
+          ref={searchRef}
+          type="text"
+          icon={Search}
+          value={query}
+          onChange={(e) => onQuery(e.target.value)}
+          placeholder="Buscar ejercicio…"
+          aria-label="Buscar ejercicio"
+        />
         <div className="flex flex-wrap gap-1.5">
           <FilterChip label="Todo" active={categoryFilter === 'all'} onClick={() => onCategory('all')} />
           {CATEGORY_OPTIONS.map((c) => (
@@ -277,50 +257,30 @@ function SearchBody({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+      <div className="-mx-2 pt-2">
         {loading ? (
-          <p className="px-2 py-3 text-sm text-[color:var(--v2-muted)]">Cargando catálogo…</p>
+          <p className="px-2 py-3 t-body-sm text-v2-muted">Cargando catálogo…</p>
         ) : (
           <>
             {recents.length > 0 ? (
               <>
-                <p className="v2-micro px-2 pb-1 pt-1">Recientes</p>
+                <p className="px-2 pb-1 pt-1 t-label text-v2-faint">Recientes</p>
                 {recents.map((ex) => (
                   <ExerciseRow key={`r-${ex.id}`} ex={ex} onSelect={onSelect} onEdit={onEdit} />
                 ))}
-                <p className="v2-micro px-2 pb-1 pt-2.5">Catálogo</p>
+                <p className="px-2 pb-1 pt-2.5 t-label text-v2-faint">Catálogo</p>
               </>
             ) : null}
             {filtered.length === 0 ? (
-              <p className="px-2 py-3 text-sm text-[color:var(--v2-muted)]">
-                Sin resultados{query.trim() ? ` para “${query.trim()}”` : ''}.
+              <p className="px-2 py-3 t-body-sm text-v2-muted">
+                Sin resultados{query.trim() ? ` para «${query.trim()}»` : ''}.
               </p>
             ) : (
-              filtered.map((ex) => (
-                <ExerciseRow key={ex.id} ex={ex} onSelect={onSelect} onEdit={onEdit} />
-              ))
+              filtered.map((ex) => <ExerciseRow key={ex.id} ex={ex} onSelect={onSelect} onEdit={onEdit} />)
             )}
           </>
         )}
       </div>
-
-      {/* Create-new row — last, with the typed text */}
-      <button
-        type="button"
-        onClick={onCreate}
-        className="v2-focus flex items-center gap-2 border-t border-[color:var(--v2-border)] px-4 py-3 text-left text-sm text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)]"
-      >
-        <MIcon name="add" size={16} className="text-[color:var(--v2-accent-text)]" />
-        <span>
-          Crear{' '}
-          {query.trim() ? (
-            <>
-              “<b className="text-[color:var(--v2-fg)]">{query.trim()}</b>”
-            </>
-          ) : null}{' '}
-          como ejercicio nuevo
-        </span>
-      </button>
     </>
   );
 }
@@ -344,58 +304,35 @@ function ExerciseRow({
   // video_url arrives already MERGED — read it directly.
   const hasVideo = ex.video_url != null;
   return (
-    <div className="group flex items-center gap-2 rounded-[var(--v2-r-s)] px-2 transition-colors hover:bg-[color:var(--v2-elevated)]">
-      <button
-        type="button"
+    <div className="flex items-center gap-2 rounded-ctl px-1 hover:bg-v2-hover">
+      <Button
+        variant="ghost"
         onClick={() => onSelect(ex)}
-        className="v2-focus flex min-w-0 flex-1 items-center gap-2.5 py-2 text-left"
+        className="h-auto min-w-0 flex-1 justify-start gap-2.5 px-1 py-1.5 text-left font-normal hover:bg-transparent"
       >
-        <span
-          aria-hidden
-          className="h-2 w-2 shrink-0 rounded-full"
-          style={{ background: `var(--v2-mod-${slug})` }}
-        />
+        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `var(--v2-mod-${slug})` }} />
         <span className="min-w-0">
-          <span className="block truncate text-sm font-medium text-[color:var(--v2-fg)]">
-            {ex.name}
-          </span>
-          {sub ? (
-            <span className="block truncate text-label text-[color:var(--v2-faint)]">{sub}</span>
-          ) : null}
+          <span className="block truncate t-body font-medium text-v2-fg">{ex.name}</span>
+          {sub ? <span className="block truncate t-meta text-v2-faint">{sub}</span> : null}
         </span>
-      </button>
-      {/* El COLOR sale del cubo (remo/ski/bici comparten el naranja de "ergo": un
-          punto no distingue máquinas), pero el TEXTO dice la modalidad REAL — "Remo",
-          no "Ergómetro". Es el dato que guarda la fila y ahora el que el coach declara
-          al crearla, así que la etiqueta que lee tiene que ser exactamente ése.
-          Antes vivía aquí un mapa local de cinco cubos que además ya había derivado
-          de MODALITY_META ("Circuito" allí, "Funcional" aquí). */}
+      </Button>
+      {/* El COLOR sale del cubo (remo/ski/bici comparten el color de "ergo"), pero
+          el TEXTO dice la modalidad REAL — "Remo", no "Ergómetro". */}
       <span
-        className="shrink-0 rounded-[var(--v2-r-pill)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-wide"
-        style={{
-          background: `var(--v2-mod-${slug}-soft)`,
-          color: `var(--v2-mod-${slug})`,
-        }}
+        className="shrink-0 rounded-[4px] px-1.5 py-0.5 t-meta"
+        style={{ background: `var(--v2-mod-${slug}-soft)`, color: `var(--v2-mod-${slug})` }}
       >
         {MODALITY_LABELS[ex.modality]}
       </span>
-      {/* SIEMPRE visible, nunca `opacity-0 group-hover:opacity-100`: en un móvil
-          no existe el hover, así que este botón era invisible — y el dashboard
-          se usa desde el móvil (§9.3 del contrato). Se apoya en el COLOR para no
-          competir con el nombre del ejercicio, no en desaparecer. El que ya
-          tiene vídeo va en tinta plena porque es un dato de la fila; el resto,
-          apagado. Nada de naranja de marca: no es un color de dato (§9.1). */}
-      <button
-        type="button"
+      {/* SIEMPRE visible: en un móvil no existe el hover. El que ya tiene vídeo va
+          en tinta plena porque es un dato de la fila; el resto, apagado. */}
+      <IconButton
+        icon={hasVideo ? PlayCircle : Pencil}
+        size="sm"
         onClick={() => onEdit(ex)}
-        aria-label={hasVideo ? `Editar ${ex.name} (tiene vídeo)` : `Editar ${ex.name}`}
-        className={`v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 transition-colors hover:text-[color:var(--v2-fg)] ${
-          hasVideo ? 'text-[color:var(--v2-fg)]' : 'text-[color:var(--v2-faint)]'
-        }`}
-        title={hasVideo ? 'Editar (tiene vídeo)' : 'Editar indicaciones y vídeo'}
-      >
-        <MIcon name={hasVideo ? 'play_circle' : 'edit'} size={16} />
-      </button>
+        label={hasVideo ? `Editar ${ex.name} (tiene vídeo)` : `Editar ${ex.name}`}
+        className={hasVideo ? 'text-v2-fg' : undefined}
+      />
     </div>
   );
 }

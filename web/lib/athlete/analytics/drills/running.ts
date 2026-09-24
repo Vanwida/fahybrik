@@ -1,7 +1,8 @@
 // ANALYTICS · DRILL-DOWN · RUNNING — the source sessions behind a running
 // aggregate. `running.volume|type|zone` open the run executions in the window;
 // `running.best_effort` opens the qualifying 1k/3k segments or the 5k test
-// history. Same window the section card used → the exact rows that made the number.
+// history. Same window the section card used → the exact rows that made the number,
+// dated on the same day as the card: the athlete's (`tz`), never the UTC day.
 
 import 'server-only';
 
@@ -46,6 +47,7 @@ async function loadRunExecutions(
   client: Sql,
   athleteId: number,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<RunExecAgg[]> {
   const rows = await client<Array<{
     execution_id: string;
@@ -61,7 +63,7 @@ async function loadRunExecutions(
     select
       we.id::text as execution_id,
       we.assignment_id::text as assignment_id,
-      to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
+      to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as day,
       se.distance_meters::text as distance_meters,
       coalesce(
         se.avg_pace_s_per_km::float,
@@ -125,8 +127,9 @@ export async function runningDrill(
   kind: string,
   params: Record<string, string>,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<DrillDownResult> {
-  let execs = await loadRunExecutions(client, athleteId, period);
+  let execs = await loadRunExecutions(client, athleteId, period, tz);
   let title = 'Carrera · sesiones';
   const subtitle: string | null = `${period.label_es}`;
 
@@ -215,12 +218,13 @@ export async function bestEffortDrill(
   athleteId: number,
   params: Record<string, string>,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<DrillDownResult> {
   const distance = Number(params.distance ?? '1000');
 
   if (distance === 5000) {
     const rows = await client<Array<{ id: string; value: string; recorded_on: string }>>`
-      select id::text as id, value::text as value, to_char(recorded_at, 'YYYY-MM-DD') as recorded_on
+      select id::text as id, value::text as value, to_char(recorded_at at time zone ${tz}, 'YYYY-MM-DD') as recorded_on
       from athlete_benchmarks
       where athlete_id = ${athleteId} and exercise_slug = 'run_5k' and unit = 'seconds'
       order by recorded_at desc
@@ -255,7 +259,7 @@ export async function bestEffortDrill(
     const rows = await client<Array<{ execution_id: string; assignment_id: string; day: string; dist: string; dur: string }>>`
       select we.id::text as execution_id,
         we.assignment_id::text as assignment_id,
-        to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
+        to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as day,
         sum(se.distance_meters)::text as dist,
         sum(extract(epoch from (se.ended_at - se.started_at)))::text as dur
       from segment_executions se
@@ -290,7 +294,7 @@ export async function bestEffortDrill(
   const rows = await client<Array<{ execution_id: string; assignment_id: string; day: string; pace: string; dist: string }>>`
     select we.id::text as execution_id,
       we.assignment_id::text as assignment_id,
-      to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
+      to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as day,
       coalesce(se.avg_pace_s_per_km::float, extract(epoch from (se.ended_at - se.started_at))::float / (se.distance_meters::float/1000.0))::text as pace,
       se.distance_meters::text as dist
     from segment_executions se

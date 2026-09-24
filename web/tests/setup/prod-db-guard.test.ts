@@ -218,7 +218,12 @@ describe('assertTestDatabaseNotProduction', () => {
 });
 
 describe('vitest setup wiring', () => {
-  test('setup always pins DATABASE_URL to the dummy', () => {
-    expect(process.env.DATABASE_URL).toBe(DUMMY_DATABASE_URL);
+  // The shell's DATABASE_URL never survives setup: without TEST_DATABASE_URL the
+  // app client gets the dummy; with it (already vetted by the guard above as not
+  // being the shell's or .env.local's host) the app client follows the throwaway
+  // test DB, so route-handler suites hit the same database as their fixtures.
+  test('setup pins DATABASE_URL to the dummy, or to the vetted TEST_DATABASE_URL', () => {
+    const vetted = process.env.TEST_DATABASE_URL?.trim();
+    expect(process.env.DATABASE_URL).toBe(vetted ? vetted : DUMMY_DATABASE_URL);
   });
 });

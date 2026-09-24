@@ -1,6 +1,6 @@
 'use client';
 
-// CÓMO CORRE — la pestaña donde las analíticas de carrera se VEN.
+// CÓMO CORRE — las analíticas de carrera, dentro de Rendimiento › Running.
 //
 // POR QUÉ UNA PESTAÑA PROPIA Y NO UN PANEL DENTRO DE «RENDIMIENTO». Dos razones:
 //
@@ -18,27 +18,15 @@
 // al abrir ESTA pestaña y no al abrir la ficha.
 
 import { useCallback, useEffect, useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
-import { EmptyState } from '@/components/v2/EmptyState';
+import { EmptyState, ErrorState, Skeleton } from '@/components/v2/ui';
 import type { RunningAnalyticsPayload } from '@/lib/coach/running-analytics';
-import { PanelCalibracion, PanelCarga, PanelComprometida, PanelHuella, PanelVolumen } from './correr/paneles';
-import type { AthleteWeekChipKind } from '@fahybrid/shared/domain/coach/athlete-week-chip';
+import { PanelCalibracion, PanelComprometida, PanelHuella, PanelVolumen } from './correr/paneles';
+import { useCoachTimeZone, zonedFormat } from '@/lib/coach/coach-timezone-context';
 
-const GENERADO = new Intl.DateTimeFormat('es-ES', {
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'Europe/Madrid',
-});
+const GENERADO_OPTS: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' };
 
-export function CorrerTab({
-  athleteId,
-  weekChipKind,
-}: {
-  athleteId: string;
-  weekChipKind: AthleteWeekChipKind;
-}) {
+export function CorrerTab({ athleteId }: { athleteId: string }) {
+  const GENERADO = zonedFormat(useCoachTimeZone(), 'es-ES', GENERADO_OPTS);
   const [analytics, setAnalytics] = useState<RunningAnalyticsPayload | null>(null);
   const [estado, setEstado] = useState<'cargando' | 'listo' | 'error'>('cargando');
 
@@ -78,44 +66,50 @@ export function CorrerTab({
 
   if (estado === 'cargando') {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-[color:var(--v2-muted)]">
-        <MIcon name="progress_activity" size={18} className="animate-spin" />
-        <span className="text-sm">Calculando cómo corre…</span>
+      <div role="status" aria-label="Calculando cómo corre" className="flex flex-col gap-2">
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
       </div>
     );
   }
 
   if (estado === 'error' || !analytics) {
     return (
+      <ErrorState
+        title="No se han podido calcular sus analíticas de carrera"
+        onRetry={() => {
+          setEstado('cargando');
+          void cargar();
+        }}
+      />
+    );
+  }
+
+  // Sin nada que leer en ninguna de las cuatro: UNA línea, no cuatro tarjetas vacías (RD1).
+  const vacio =
+    analytics.calibration.positions.length === 0 &&
+    analytics.compromised.points.length === 0 &&
+    analytics.pacing_shape.total === 0 &&
+    analytics.volume.weeks.every((w) => w.km === 0);
+  if (vacio) {
+    return (
       <EmptyState
-        icon="error_outline"
-        title="No se pudieron calcular las analíticas de carrera"
-        description="Vuelve a abrir la pestaña. Si sigue fallando, es un fallo del servidor y no del atleta."
+        title={`Sin carreras con datos en ${analytics.window_weeks} semanas`}
+        description="llegan al registrar sus carreras con el reloj o con la app"
       />
     );
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <p className="max-w-[70ch] text-sm leading-relaxed text-[color:var(--v2-muted)]">
-          Cómo está aterrizando lo que le mandas, y cómo corre él. Las tres primeras miran las últimas{' '}
-          {analytics.window_weeks} semanas.
-        </p>
-        <span className="v2-num text-[11px] text-[color:var(--v2-faint)]">
-          {GENERADO.format(new Date(analytics.generated_at_iso))}
-        </span>
-      </div>
-
+    <div className="flex flex-col gap-4">
+      <p className="t-meta text-v2-faint">
+        Cómo aterriza lo que le mandas · últimas {analytics.window_weeks} semanas · calculado el{' '}
+        {GENERADO.format(new Date(analytics.generated_at_iso))}
+      </p>
       <PanelCalibracion analytics={analytics} />
       <PanelComprometida analytics={analytics} />
       <PanelHuella analytics={analytics} />
-
-      <div className="mt-1 flex flex-col gap-5">
-        <h3 className="v2-micro">Volumen y carga</h3>
-        <PanelVolumen analytics={analytics} />
-        <PanelCarga analytics={analytics} weekChipKind={weekChipKind} />
-      </div>
+      <PanelVolumen analytics={analytics} />
     </div>
   );
 }

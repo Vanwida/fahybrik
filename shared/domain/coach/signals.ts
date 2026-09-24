@@ -6,6 +6,7 @@
 // those facts into `SignalResult`s. That purity is what makes the engine
 // unit-testable against Pablo's real cohort without a database.
 
+import type { ProgrammingStatus } from './programming-status';
 import type { ReviewCadence } from './reviews';
 //
 // WHY A SEPARATE `SIGNAL_KINDS` FROM `ALERT_KINDS`
@@ -69,6 +70,12 @@ export const SIGNAL_KINDS = [
   // themselves. It COMPLEMENTS the coach's plan (never alters compliance) and
   // surfaces here so the coach sees the extra work and can react.
   'workout_libre',
+  // A workout the athlete FINISHED on a session that was no longer in their plan
+  // (the coach removed or replaced it while they trained, or the id wasn't
+  // theirs). Kept as their own off-plan execution instead of lost (0270, audit
+  // E1/D-04); surfaced so the coach sees «hecho sobre un entreno que ya no
+  // estaba en su plan» and knows their change reached the athlete too late.
+  'workout_off_plan',
   // Coach-queue decision items (fed by existing loaders, persisted here so the
   // HOY queue is ONE indexed read instead of N+1 across surfaces)
   'intake_pending',
@@ -138,16 +145,48 @@ export interface SignalFacts {
   hrv_baseline_days: number | null;
   /** Minutes since the most recent wearable sample of any kind. */
   sync_minutes_ago: number | null;
-  /** Sessions with status='missed' in the trailing 7 days. */
+  /**
+   * Plan sessions of the trailing 7 days that were DUE and not done (due-only,
+   * `shared/domain/coach/adherence.ts`: today counts only if done, future never,
+   * pauses / injury rest / hidden-week-not-done excluded).
+   */
   missed_sessions_7d: number;
-  /** Max perceived_exertion logged yesterday (0–10), or null if none. */
-  rpe_yesterday: number | null;
+  /** Plan sessions DUE in the trailing 7 days (the denominator of the above). */
+  due_sessions_7d: number;
+  /** YYYY-MM-DD of the most recent due-and-not-done session, or null. */
+  last_missed_on: string | null;
+  /** Executed sessions of the trailing 7 days with their RPE (null = not logged). */
+  sessions_7d_rpe: Array<{ on: string; rpe: number | null }>;
   /** Most recent daily check-in timestamp (drives "skipped" age). */
   last_checkin_at: Date | null;
-  /** Age in minutes of the oldest unanswered athlete message, or null. */
+  /** Check-ins in the 14 days up to (and including) the last one — the habit. */
+  checkins_prior_14d: number;
+  /**
+   * Minutes the athlete has been waiting for a reply: since their oldest message
+   * after the coach's last one, when the LAST message in the thread is theirs.
+   * null = nothing awaiting a reply (read-but-unanswered still counts).
+   */
   unread_message_age_min: number | null;
+  /** Athlete messages awaiting a reply (the count behind the age above). */
+  awaiting_reply_count: number;
+  /** The newest of those messages — writing again after a «hecho» is a new wait. */
+  awaiting_reply_last_at: Date | null;
   /** Latest daily readiness score (0–100), or null if uncomputed. */
   readiness_score: number | null;
+  /**
+   * Readiness snapshots of the recent history (athlete-local days, ascending),
+   * enough for the 28-day baseline + persistence + recency (READINESS_HISTORY_DAYS).
+   */
+  readiness_series: Array<{ on: string; score: number }>;
+  /** The athlete's own "today" (YYYY-MM-DD, their timezone). */
+  today_iso: string;
+  /**
+   * The CLUB's "today" (YYYY-MM-DD, the coach's timezone) — for what is plan
+   * (the microcycle ending). Absent → the athlete's `today_iso`.
+   */
+  club_today_iso?: string;
+  /** The athlete's IANA timezone (fallback: the box's) — for "hoy/ayer" of an instant. */
+  timezone: string;
 
   // Structured session feedback (#58). The athlete's most recent reported body-area
   // discomfort — a generic area token, when it was reported, and any note. Absent
@@ -161,17 +200,15 @@ export interface SignalFacts {
 
   // Programming
   /** Programming health from getAthleteProgrammingStatus. */
-  programming_status:
-    | 'ok'
-    | 'no_month'
-    | 'pending_proposal'
-    | 'empty_week'
-    | 'month_2_pending'
-    | 'block_ended';
+  programming_status: ProgrammingStatus;
   programming_label: string | null;
   programming_detail: string | null;
   /** End date (YYYY-MM-DD) of the athlete's CURRENT microcycle, or null. */
   current_microcycle_end_iso: string | null;
+  /** Start (YYYY-MM-DD) of a programa assigned AFTER today, or null (none next). */
+  next_program_start_iso: string | null;
+  /** End (YYYY-MM-DD) of the athlete's last programa ever, or null. */
+  last_program_end_iso: string | null;
   /** Current microciclo NAME (coach data), null when none active. */
   current_block_type: string | null;
   /** Readiness engine says 'advance' → ready to move to the next microciclo. */
@@ -198,6 +235,8 @@ export interface SignalFacts {
   billing_risk: 'past_due' | 'renewal_soon' | null;
   /** Days to period end when billing_risk === 'renewal_soon'. */
   billing_days_to_period_end: number | null;
+  /** YYYY-MM-DD del fin del periodo pagado (la fecha de la baja), si se conoce. */
+  billing_period_end_iso?: string | null;
 
   // Progression / test events (KEYSTONE-fed — real athlete_benchmarks history)
   /** Timestamp of the athlete's most recent POST-onboarding test (a coach/athlete
@@ -222,6 +261,12 @@ export interface SignalFacts {
   latest_libre_at: Date | null;
   latest_libre_title: string | null;
   latest_libre_detail: string | null;
+
+  // Entreno fuera del plan (0270): the most recent execution kept off-plan
+  // (`workout_executions.off_plan_reason`), when it happened, and the prebuilt
+  // detail line. Drives workout_off_plan.
+  latest_off_plan_at: Date | null;
+  latest_off_plan_detail: string | null;
 
   // Revisiones 1:1 recurrentes (#21). Drives review_1on1_due.
   /** Cadencia de revisión que el coach fijó para el atleta ('ninguna' → no dispara). */
@@ -277,8 +322,12 @@ export interface SignalResult {
   trend: SignalTrend | null;
   /** Short human label for the card chip (e.g. "HRV crash"). */
   label: string;
-  /** One-line evidence detail (e.g. "▼ 14 ms vs baseline 60d"). */
+  /** One-line evidence detail: value, baseline, window and date (plan §4.1). */
   detail: string;
+  /** ISO instant of what the signal describes (the reading, the message…), or null. */
+  observed_at?: string | null;
+  /** The window the evidence is measured over («7 d», «28 d»), or null. */
+  window_label?: string | null;
   /**
    * Stable identity within (athlete, kind). For value-only signals this is just
    * `${kind}:${athlete_id}`; for proposal-backed signals it includes the proposal
@@ -343,6 +392,20 @@ export function hoursBetween(earlier: Date, later: Date): number {
 }
 
 /** Whole days from a YYYY-MM-DD date to `now` (positive when the date is future). */
+/**
+ * Días de `fromIso` a `toIso` (AAAA-MM-DD los dos): positivo si `toIso` cae
+ * después. Los dos son días de calendario YA resueltos en el huso que toca
+ * (DECISIONS «Qué día es en cada sitio»): el del atleta para lo que él vive (su
+ * carrera, su tarea, su protocolo), el del club para el plan (fin del
+ * microciclo). Es lo que usan los evaluadores; `daysFromNowToIso` cuenta desde
+ * el día UTC de `now` y solo sirve a quien no tiene un día resuelto.
+ */
+export function daysBetweenIso(fromIso: string, toIso: string): number {
+  const [fy, fm, fd] = fromIso.split('-').map(Number);
+  const [ty, tm, td] = toIso.split('-').map(Number);
+  return Math.round((Date.UTC(ty!, tm! - 1, td!) - Date.UTC(fy!, fm! - 1, fd!)) / 86_400_000);
+}
+
 export function daysFromNowToIso(iso: string, now: Date): number {
   const [y, m, d] = iso.split('-').map(Number);
   const target = Date.UTC(y!, m! - 1, d!);

@@ -1,161 +1,30 @@
 /* ════════════════════════════════════════════════════════════════════════════
-   GUÍA DEL ENTRENADOR — scoped docs chrome + dark mockups.
+   GUÍA DEL ENTRENADOR — la columna de lectura + las maquetas de la app del atleta.
 
-   Two surfaces, both driven by the REAL v2 tokens (v2-theme.css) so the guide can
-   never drift from the product:
-
-   · .guia-doc      — the readable docs chrome. Mounted inside a forced
-                      `.v2-root[data-theme="light"]`, so every var(--v2-*) below
-                      resolves to the warm cream light palette (the Stripe/Linear
-                      vibe from the prototype). Brand orange = --v2-accent.
-
-   · .guia-phone /  — faithful frames of the athlete app + coach dashboard. Each is
-     .guia-win        wrapped in `.v2-root[data-theme="dark"]`, so they read the
-                      real near-black app palette + the canonical modality hues
-                      (--v2-mod-*). All their internal classes are scoped under the
-                      frame so the generic names (.hero, .tile, .day…) never leak
-                      into the rest of the app.
+   · .guia-doc   — el texto. Sigue el tema del panel (claro u oscuro) con sus
+                   tokens; tinta neutra, sin el acento del club (tres trabajos
+                   y solo tres: botón principal, foco y logo).
+   · .guia-phone — maqueta de la app del atleta dentro de un
+                   `.v2-root[data-theme="dark"]`: la app es oscura de verdad.
+                   Sus clases viven bajo .guia-phone para no escaparse.
    ════════════════════════════════════════════════════════════════════════════ */
+
 
 /* ════════════════════════════════════════════════════════════════════════════
-   LAYOUT — fixed docs sidebar + readable column
+   LECTOR — una columna de lectura; el índice es un menú (GuiaReader), nunca una
+   segunda barra lateral junto a la del panel.
    ════════════════════════════════════════════════════════════════════════════ */
-.guia-shell {
-  --guia-sidebar-w: 270px;
-  /* The V2Shell utility bar is h-14 (56px) and sticks to the viewport top; the
-     docs sidebar parks just below it so its first link is never hidden. */
-  --guia-topbar: 56px;
-  display: flex;
-  align-items: flex-start;
-  background: var(--v2-bg);
-  color: var(--v2-fg);
-  min-height: 100%;
-}
-
-/* ── Docs sidebar (the full index) ───────────────────────────────────────────
-   Sticky within the shell so it scrolls with the page but stays pinned beside the
-   content. It sits to the RIGHT of the thin global v2 rail (which lets the coach
-   jump back to Hoy/Atletas), so it is sticky rather than viewport-fixed. */
-.guia-sidebar {
-  position: sticky;
-  top: var(--guia-topbar);
-  align-self: flex-start;
-  width: var(--guia-sidebar-w);
-  flex-shrink: 0;
-  height: calc(100dvh - var(--guia-topbar));
-  overflow-y: auto;
-  padding: 22px 0 40px;
-  border-right: 1px solid var(--v2-border);
-  background: color-mix(in srgb, var(--v2-surface) 60%, var(--v2-bg));
-}
-.guia-sb-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 2px 22px 18px;
-  text-decoration: none;
-}
-.guia-sb-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--v2-r-s);
-  object-fit: contain;
-  flex-shrink: 0;
-}
-.guia-sb-brand .nm {
-  font-family: var(--v2-font-display);
-  font-weight: 900;
-  font-size: 15px;
-  letter-spacing: -0.02em;
-  color: var(--v2-fg);
-  line-height: 1.1;
-}
-.guia-sb-brand .nm small {
-  display: block;
-  font-family: var(--v2-font-sans);
-  font-style: normal;
-  font-weight: 600;
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--v2-muted);
-}
-.guia-sb-group {
-  padding: 16px 22px 4px;
-  font-size: 10.5px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--v2-faint);
-}
-.guia-sb-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 22px;
-  font-size: 13px;
-  color: var(--v2-muted);
-  text-decoration: none;
-  border-left: 2px solid transparent;
-  transition: color 0.12s, background 0.12s;
-}
-.guia-sb-link .num {
-  font-family: var(--v2-font-mono);
-  font-size: 10.5px;
-  font-weight: 700;
-  color: var(--v2-faint);
-  min-width: 16px;
-}
-.guia-sb-link:hover {
-  color: var(--v2-fg);
-  background: var(--v2-surface-2);
-}
-.guia-sb-link.active {
-  border-left-color: var(--v2-accent);
-  background: var(--v2-accent-soft);
-  color: var(--v2-fg);
-  font-weight: 700;
-}
-.guia-sb-link.active .num {
-  color: var(--v2-accent);
-}
-.guia-sb-soon {
-  margin-left: auto;
-  font-size: 8.5px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--v2-faint);
-  border: 1px solid var(--v2-border);
-  border-radius: 5px;
-  padding: 1px 5px;
-}
-.guia-sb-dot {
-  margin-left: auto;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--v2-accent);
-  flex-shrink: 0;
-}
-
-/* ── Content column ──────────────────────────────────────────────────────────*/
-.guia-main {
-  flex: 1;
-  min-width: 0;
-  padding: 48px 56px 96px;
-}
 .guia-doc {
-  max-width: 840px;
+  max-width: 720px;
+  margin: 0 auto;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
    DOC CHROME — typography + content primitives (light cream)
    ════════════════════════════════════════════════════════════════════════════ */
 .guia-doc h1 {
-  font-family: var(--v2-font-display);
   font-size: 32px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.05;
   margin-bottom: 6px;
@@ -167,9 +36,8 @@
   margin-bottom: 24px;
 }
 .guia-doc h2 {
-  font-family: var(--v2-font-display);
   font-size: 24px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.02em;
   margin: 10px 0 8px;
   scroll-margin-top: 24px;
@@ -177,7 +45,7 @@
 }
 .guia-doc h3 {
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 600;
   margin: 28px 0 4px;
   letter-spacing: -0.01em;
   color: var(--v2-fg);
@@ -204,13 +72,13 @@
   color: var(--v2-fg);
 }
 .guia-doc .em {
-  color: var(--v2-accent);
+  color: var(--v2-fg);
   font-weight: 600;
   font-style: normal;
 }
 .guia-doc b {
   color: var(--v2-fg);
-  font-weight: 700;
+  font-weight: 600;
 }
 .guia-doc ul.clean {
   list-style: none;
@@ -227,14 +95,14 @@
   content: '→';
   position: absolute;
   left: 0;
-  color: var(--v2-accent);
-  font-weight: 800;
+  color: var(--v2-fg);
+  font-weight: 600;
 }
 
 /* numbered section eyebrow with trailing rule */
 .guia-doc .seclbl {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--v2-muted);
@@ -250,7 +118,7 @@
   background: var(--v2-border);
 }
 .guia-doc .seclbl .pin {
-  color: var(--v2-accent);
+  color: var(--v2-fg);
 }
 
 /* north-star principle (inverted, always dark: ink bg + pearl text — the accent
@@ -258,13 +126,13 @@
    emphasis instead). */
 .guia-doc .principle {
   background: var(--v2-fg);
-  color: var(--v2-accent-fg);
+  color: var(--v2-bg);
   border-radius: var(--v2-r-card);
   padding: 22px 26px;
   margin: 18px 0 6px;
 }
 .guia-doc .principle p {
-  color: color-mix(in srgb, var(--v2-accent-fg) 85%, transparent);
+  color: color-mix(in srgb, var(--v2-bg) 85%, transparent);
   margin: 0 0 10px;
   font-size: 14.5px;
 }
@@ -276,65 +144,39 @@
    clave de la sección 01). Aquí la negrita y el énfasis hablan en perla. */
 .guia-doc .principle b,
 .guia-doc .principle .em {
-  color: var(--v2-accent-fg);
+  color: var(--v2-bg);
 }
 
-/* qué/cómo/por qué triad */
+/* qué es / cómo / para qué: una tarjeta, tres filas */
 .guia-doc .triad {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
   margin: 18px 0;
-}
-.guia-doc .qc {
-  background: var(--v2-surface);
   border: 1px solid var(--v2-border);
   border-radius: var(--v2-r-card);
-  padding: 15px 17px;
-  box-shadow: var(--v2-shadow-card);
+  background: var(--v2-surface);
 }
-.guia-doc .qc .h {
-  font-size: 10.5px;
-  font-weight: 800;
+.guia-doc .qc {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--v2-border);
+}
+.guia-doc .qc:first-child {
+  border-top: 0;
+}
+.guia-doc .qc dt {
+  font-size: 11px;
+  line-height: 20px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  margin-bottom: 7px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
+  letter-spacing: 0.06em;
+  color: var(--v2-faint);
 }
-.guia-doc .qc .h .ic {
-  width: 20px;
-  height: 20px;
-  border-radius: var(--v2-r-xs);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-}
-.guia-doc .qc.q .h {
-  color: var(--v2-info);
-}
-.guia-doc .qc.q .h .ic {
-  background: var(--v2-info-soft);
-}
-.guia-doc .qc.c .h {
-  color: var(--v2-accent);
-}
-.guia-doc .qc.c .h .ic {
-  background: var(--v2-accent-soft);
-}
-.guia-doc .qc.w .h {
-  color: var(--v2-ok);
-}
-.guia-doc .qc.w .h .ic {
-  background: var(--v2-ok-soft);
-}
-.guia-doc .qc p {
-  font-size: 13px;
-  color: var(--v2-muted);
+.guia-doc .qc dd {
   margin: 0;
+  font-size: 14px;
   line-height: 1.55;
+  color: var(--v2-muted);
 }
 
 /* notes / callouts */
@@ -347,7 +189,7 @@
   box-shadow: var(--v2-shadow-card);
 }
 .guia-doc .note .h {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 13.5px;
   margin-bottom: 8px;
   display: flex;
@@ -366,16 +208,16 @@
   flex-shrink: 0;
 }
 .guia-doc .note.cue .h .ic {
-  background: var(--v2-accent-soft);
-  color: var(--v2-accent);
+  background: var(--v2-surface-2);
+  color: var(--v2-fg);
 }
 .guia-doc .note.log .h .ic {
   background: var(--v2-ok-soft);
   color: var(--v2-ok);
 }
 .guia-doc .note.bad .h .ic {
-  background: var(--v2-danger-soft);
-  color: var(--v2-danger);
+  background: var(--v2-warn-soft);
+  color: var(--v2-warn);
 }
 .guia-doc .note ul {
   list-style: none;
@@ -393,16 +235,16 @@
   content: '→';
   position: absolute;
   left: 0;
-  color: var(--v2-accent);
-  font-weight: 700;
+  color: var(--v2-fg);
+  font-weight: 600;
 }
 .guia-doc .note.bad li::before {
-  content: '✕';
-  color: var(--v2-danger);
-  font-weight: 800;
+  content: '!';
+  color: var(--v2-warn);
+  font-weight: 600;
 }
 .guia-doc .note .k {
-  font-weight: 700;
+  font-weight: 600;
   color: var(--v2-fg);
 }
 .guia-doc .note p {
@@ -411,40 +253,6 @@
   color: var(--v2-muted);
 }
 
-/* flow strip */
-.guia-doc .flow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  background: var(--v2-surface);
-  border: 1px solid var(--v2-border);
-  border-radius: var(--v2-r-card);
-  padding: 15px 16px;
-  margin: 18px 0;
-  font-size: 12.5px;
-  box-shadow: var(--v2-shadow-card);
-}
-.guia-doc .flow .step {
-  font-weight: 700;
-  color: var(--v2-fg);
-  background: var(--v2-surface-2);
-  border: 1px solid var(--v2-border);
-  padding: 7px 12px;
-  border-radius: var(--v2-r-s);
-}
-.guia-doc .flow .step.app {
-  background: var(--v2-accent-soft);
-  border-color: color-mix(in srgb, var(--v2-accent) 35%, transparent);
-  color: var(--v2-accent);
-}
-.guia-doc .flow .arr {
-  color: var(--v2-accent);
-  font-weight: 800;
-  font-size: 15px;
-}
-
-/* bridge legend (coach vs athlete) */
 .guia-doc .legend {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -460,7 +268,7 @@
 }
 .guia-doc .lg .ico {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-bottom: 6px;
@@ -468,9 +276,8 @@
   color: var(--v2-muted);
 }
 .guia-doc .lg .lt {
-  font-family: var(--v2-font-display);
   font-size: 17px;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.02em;
   margin-bottom: 4px;
   color: var(--v2-fg);
@@ -485,13 +292,13 @@
   background: var(--v2-fg);
 }
 .guia-doc .lg.ath .ico {
-  color: color-mix(in srgb, var(--v2-accent-fg) 70%, transparent);
+  color: color-mix(in srgb, var(--v2-bg) 70%, transparent);
 }
 .guia-doc .lg.ath .lt {
-  color: var(--v2-accent-fg);
+  color: var(--v2-bg);
 }
 .guia-doc .lg.ath p {
-  color: color-mix(in srgb, var(--v2-accent-fg) 80%, transparent);
+  color: color-mix(in srgb, var(--v2-bg) 80%, transparent);
 }
 
 /* TOC grid (index cards) */
@@ -513,18 +320,18 @@
   box-shadow: var(--v2-shadow-card);
 }
 .guia-doc .toc a:hover {
-  border-color: var(--v2-accent);
+  border-color: var(--v2-fg);
 }
 .guia-doc .toc .n {
   font-size: 10.5px;
-  font-weight: 800;
-  color: var(--v2-accent);
+  font-weight: 600;
+  color: var(--v2-fg);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 .guia-doc .toc .t {
   font-size: 14.5px;
-  font-weight: 700;
+  font-weight: 600;
   margin: 4px 0 3px;
   color: var(--v2-fg);
 }
@@ -555,7 +362,7 @@
   transition: border-color 0.15s;
 }
 .guia-doc .guia-foot a:hover {
-  border-color: var(--v2-accent);
+  border-color: var(--v2-fg);
 }
 .guia-doc .guia-foot a.next {
   text-align: right;
@@ -563,56 +370,19 @@
 }
 .guia-doc .guia-foot .dir {
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--v2-muted);
 }
 .guia-doc .guia-foot .ttl {
   font-size: 13.5px;
-  font-weight: 700;
+  font-weight: 600;
   margin-top: 2px;
   color: var(--v2-fg);
 }
 
-/* stub state for not-yet-written sections */
-.guia-doc .guia-stub {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  text-align: center;
-  border: 1px dashed var(--v2-border);
-  border-radius: var(--v2-r-card);
-  background: var(--v2-surface-2);
-  padding: 40px 24px;
-  margin: 18px 0;
-}
-.guia-doc .guia-stub .ic {
-  width: 46px;
-  height: 46px;
-  border-radius: var(--v2-r-m);
-  background: var(--v2-accent-soft);
-  color: var(--v2-accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.guia-doc .guia-stub .st {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--v2-fg);
-}
-.guia-doc .guia-stub .sd {
-  font-size: 12.5px;
-  color: var(--v2-muted);
-  max-width: 30rem;
-  line-height: 1.55;
-}
-
-/* ════════════════════════════════════════════════════════════════════════════
-   MOVIL BAND — the orange bridge band that hosts the athlete-app phones
-   ════════════════════════════════════════════════════════════════════════════ */
+/* «En el móvil del atleta» */
 .guia-doc .movil-band {
   background: linear-gradient(
     180deg,
@@ -632,17 +402,17 @@
 }
 .guia-doc .mb-chip {
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.09em;
-  color: var(--v2-accent-fg);
-  background: var(--v2-accent);
+  color: var(--v2-bg);
+  background: var(--v2-fg);
   padding: 4px 10px;
   border-radius: var(--v2-r-pill);
 }
 .guia-doc .mb-head .t {
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--v2-fg);
 }
@@ -676,7 +446,7 @@
 }
 .guia-phone-cap b {
   color: var(--v2-fg);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -1265,502 +1035,57 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   DASHBOARD MOCKUP — faithful coach dashboard window (real dark app palette)
-   ════════════════════════════════════════════════════════════════════════════ */
-.guia-win {
-  --acc: var(--v2-accent);
-  --accOn: var(--v2-accent-fg);
-  --accSoft: var(--v2-accent-soft);
-  --fg: var(--v2-fg);
-  --muted: var(--v2-muted);
-  --faint: var(--v2-faint);
-  --surface: var(--v2-surface);
-  --elev: var(--v2-elevated);
-  --sunken: #0f0f0f;
-  --hair: var(--v2-border);
-  --hair2: var(--v2-border-strong);
-  --ok: var(--v2-ok);
-  --okSoft: var(--v2-ok-soft);
-  --warn: var(--v2-warn);
-  --warnSoft: var(--v2-warn-soft);
-  --dng: var(--v2-danger);
-  --dngSoft: var(--v2-danger-soft);
-  border-radius: var(--v2-r-l);
-  border: 1px solid var(--v2-border-strong);
-  overflow: hidden;
-  background: var(--v2-bg);
-  color: var(--fg);
-  box-shadow: 0 28px 64px -28px rgba(0, 0, 0, 0.55);
-  margin: 18px 0 8px;
-  font-family: var(--v2-font-sans);
-}
-.guia-win .win-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--hair);
-  padding: 9px 14px;
-}
-.guia-win .win-bar .tl {
-  display: flex;
-  gap: 6px;
-}
-.guia-win .win-bar .tl i {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  display: block;
-}
-.guia-win .win-bar .tl i:nth-child(1) {
-  background: #ff5f57;
-}
-.guia-win .win-bar .tl i:nth-child(2) {
-  background: #febc2e;
-}
-.guia-win .win-bar .tl i:nth-child(3) {
-  background: #28c840;
-}
-.guia-win .win-url {
-  font-size: 11px;
-  color: var(--faint);
-  background: var(--sunken);
-  border: 1px solid var(--hair);
-  border-radius: 7px;
-  padding: 4px 12px;
-  font-family: var(--v2-font-mono);
-}
-.guia-win .win-body {
-  padding: 18px 20px;
-}
-.guia-win .num2 {
-  font-family: var(--v2-font-mono);
-  font-variant-numeric: tabular-nums;
-}
-.guia-win .wk-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-.guia-win .wk-title {
-  font-family: var(--v2-font-display);
-  font-size: 16px;
-  font-weight: 900;
-  font-style: italic;
-  letter-spacing: -0.02em;
-}
-.guia-win .wk-title small {
-  font-style: normal;
-  font-weight: 600;
-  color: var(--acc);
-  font-size: 13px;
-}
-.guia-win .wk-tools {
-  display: flex;
-  gap: 7px;
-}
-.guia-win .btn {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 5px 10px;
-  border-radius: 7px;
-  border: 1px solid var(--hair2);
-  color: var(--fg);
-  background: var(--elev);
-}
-.guia-win .btn.pri {
-  background: var(--acc);
-  color: var(--accOn);
-  border-color: var(--acc);
-}
-.guia-win .wk-sum {
-  font-size: 11px;
-  color: var(--muted);
-  margin-bottom: 12px;
-  display: flex;
-  gap: 7px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.guia-win .chip {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 99px;
-  border: 1px solid var(--hair);
-}
-.guia-win .cal {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 7px;
-}
-.guia-win .col {
-  background: var(--surface);
-  border: 1px solid var(--hair);
-  border-radius: 9px;
-  padding: 8px 7px;
-  min-height: 118px;
-  position: relative;
-  overflow: hidden;
-}
-.guia-win .col.today {
-  border-color: var(--acc);
-}
-.guia-win .col .cd {
-  font-family: var(--v2-font-mono);
-  font-size: 8.5px;
-  font-weight: 800;
-  color: var(--faint);
-  letter-spacing: 0.05em;
-  margin-bottom: 5px;
-}
-.guia-win .col.today .cd {
-  color: var(--acc);
-}
-.guia-win .col .ch {
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.25;
-  margin-bottom: 5px;
-}
-.guia-win .col .blk {
-  font-size: 8.5px;
-  color: var(--muted);
-  line-height: 1.35;
-  margin-bottom: 2px;
-}
-.guia-win .col .blk .x {
-  color: var(--faint);
-}
-.guia-win .col .rest {
-  font-size: 9px;
-  color: var(--faint);
-}
-.guia-win .col .foot {
-  position: absolute;
-  bottom: 6px;
-  left: 7px;
-  font-size: 8px;
-  color: var(--faint);
-  font-family: var(--v2-font-mono);
-}
-.guia-win .col .topbar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-}
-.guia-win .md {
-  display: grid;
-  grid-template-columns: 150px 1fr;
-  gap: 12px;
-  margin-top: 12px;
-}
-.guia-win .md .rail {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.guia-win .md .rc {
-  background: var(--surface);
-  border: 1px solid var(--hair);
-  border-radius: 8px;
-  padding: 7px 9px;
-  font-size: 10.5px;
-}
-.guia-win .md .rc.on {
-  border-color: var(--acc);
-  background: var(--elev);
-}
-.guia-win .md .rc .d {
-  font-family: var(--v2-font-mono);
-  font-size: 8px;
-  font-weight: 800;
-  color: var(--faint);
-}
-.guia-win .md .rc.on .d {
-  color: var(--acc);
-}
-.guia-win .md .rc .s {
-  color: var(--muted);
-  font-size: 9.5px;
-}
-.guia-win .md .edit {
-  background: var(--surface);
-  border: 1px solid var(--hair);
-  border-radius: 10px;
-  padding: 13px;
-}
-.guia-win .ed-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 9px;
-}
-.guia-win .ed-slot {
-  font-size: 9px;
-  font-weight: 800;
-  background: var(--accSoft);
-  color: var(--acc);
-  padding: 2px 7px;
-  border-radius: 5px;
-}
-.guia-win .ed-input {
-  flex: 1;
-  background: var(--sunken);
-  border: 1px solid var(--hair);
-  border-radius: 7px;
-  padding: 7px 10px;
-  font-size: 12px;
-  color: var(--fg);
-}
-.guia-win .ed-ai {
-  font-size: 10px;
-  color: var(--acc);
-  border: 1px solid var(--hair2);
-  border-radius: 7px;
-  padding: 6px 9px;
-  white-space: nowrap;
-}
-.guia-win .ed-block {
-  border: 1px solid var(--hair);
-  border-radius: 8px;
-  padding: 9px 10px;
-  margin-bottom: 8px;
-}
-.guia-win .ed-block .bt {
-  font-size: 11px;
-  font-weight: 700;
-  margin-bottom: 6px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.guia-win .mdot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.guia-win .extbl {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 10px;
-}
-.guia-win .extbl th {
-  text-align: left;
-  font-size: 8px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--faint);
-  padding: 3px 6px;
-  border-bottom: 1px solid var(--hair);
-}
-.guia-win .extbl td {
-  padding: 5px 6px;
-  border-bottom: 1px solid var(--hair);
-  color: var(--fg);
-}
-.guia-win .extbl td.n {
-  font-family: var(--v2-font-mono);
-  color: var(--muted);
-}
-.guia-win .ath-hd {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-.guia-win .ath-hd .av {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--accSoft);
-  color: var(--acc);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-}
-.guia-win .ath-hd .nm {
-  font-size: 15px;
-  font-weight: 800;
-}
-.guia-win .ath-hd .nm small {
-  display: block;
-  font-weight: 600;
-  color: var(--muted);
-  font-size: 11px;
-}
-.guia-win .adh {
-  margin-left: auto;
-  text-align: right;
-}
-.guia-win .adh .l {
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.guia-win .adh .v {
-  font-size: 22px;
-  font-weight: 800;
-}
-.guia-win .adhbar {
-  height: 7px;
-  width: 130px;
-  border-radius: 99px;
-  background: var(--sunken);
-  overflow: hidden;
-  margin-top: 4px;
-  margin-left: auto;
-}
-.guia-win .adhbar > span {
-  display: block;
-  height: 100%;
-  border-radius: 99px;
-}
-.guia-win .sesstbl {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-.guia-win .sesstbl th {
-  text-align: left;
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--faint);
-  padding: 7px 8px;
-  border-bottom: 1px solid var(--hair);
-}
-.guia-win .sesstbl td {
-  padding: 9px 8px;
-  border-bottom: 1px solid var(--hair);
-  color: var(--fg);
-}
-.guia-win .sesstbl td.n {
-  font-family: var(--v2-font-mono);
-  color: var(--muted);
-}
-.guia-win .sp {
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 3px 9px;
-  border-radius: 99px;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.guia-win .sp.done {
-  background: var(--okSoft);
-  color: var(--ok);
-}
-.guia-win .sp.pend {
-  background: var(--warnSoft);
-  color: var(--warn);
-}
-.guia-win .sp.miss {
-  background: var(--dngSoft);
-  color: var(--dng);
-}
-.guia-win .lane {
-  background: var(--surface);
-  border: 1px solid var(--hair);
-  border-radius: 11px;
-  padding: 12px 14px;
-  margin-top: 14px;
-  max-width: 340px;
-}
-.guia-win .lane .lh {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: var(--dng);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 9px;
-}
-.guia-win .lane .ac {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  background: var(--elev);
-  border: 1px solid var(--hair);
-  border-radius: 9px;
-  padding: 8px 10px;
-}
-.guia-win .lane .ac .av {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--accSoft);
-  color: var(--acc);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 10px;
-}
-.guia-win .lane .ac .nm {
-  font-size: 12px;
-  font-weight: 700;
-}
-.guia-win .lane .ac .rs {
-  margin-left: auto;
-  font-size: 10px;
-  color: var(--dng);
-  font-weight: 700;
-}
-
-/* savegate banner (honest save) */
-.guia-win .savegate {
-  background: var(--dngSoft);
-  border: 1px solid color-mix(in srgb, var(--dng) 35%, transparent);
-  border-radius: 8px;
-  padding: 8px 11px;
-  font-size: 10.5px;
-  color: var(--dng);
-  margin-top: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* ════════════════════════════════════════════════════════════════════════════
    RESPONSIVE
    ════════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 1100px) {
-  .guia-doc .triad,
   .guia-doc .legend,
   .guia-doc .toc {
     grid-template-columns: 1fr;
   }
-  .guia-win .md {
+}
+
+@media (max-width: 520px) {
+  .guia-doc .qc {
     grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .guia-doc .movil-band {
+    padding: 16px 12px 20px;
   }
 }
-@media (max-width: 920px) {
-  .guia-sidebar {
-    position: static;
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--v2-border);
-  }
-  .guia-shell {
-    flex-direction: column;
-  }
-  .guia-main {
-    padding: 32px 22px 70px;
-  }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   EN EL PANEL — trocitos de los primitivos de verdad (doc/PanelBits), inertes.
+   ════════════════════════════════════════════════════════════════════════════ */
+.guia-doc .guia-panel {
+  margin: 16px 0 18px;
+}
+.guia-doc .guia-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-r-card);
+  background: var(--v2-bg);
+  padding: 14px;
+  overflow: hidden;
+}
+.guia-doc .guia-panel-body.flush,
+.guia-doc .guia-panel-body > .flush {
+  padding: 0;
+}
+.guia-doc .guia-panel-cap {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--v2-muted);
+}
+.guia-doc .guia-panel-cap b {
+  color: var(--v2-fg);
+}
+
+/* La maqueta del móvil es un .v2-root (para sus tokens), que en el panel
+   ocupa toda la altura de la ventana: aquí mide lo que su contenido. */
+.v2-root.guia-phone {
+  min-height: 0;
 }

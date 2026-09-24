@@ -40,7 +40,7 @@ import {
 import type { EvidenceSource } from '@fahybrid/shared/domain/evidence';
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import { supportsHyroxGoalGap } from '@fahybrid/shared/domain/objectives/catalog';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { buildRaceTransfer } from './race-transfer';
 import { STATION_CATALOGUE } from './station-detail';
 
@@ -338,7 +338,8 @@ export async function buildGoalGap(
   client: Sql = defaultSql,
 ): Promise<GoalGapDTO> {
   const athleteId = Number(args.athlete_id);
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  // El hoy del ATLETA (su huso), el mismo con el que getTargetRaceRow elige su carrera.
+  const todayIso = await loadAthleteLocalDay({ athlete_id: athleteId, client });
   const updated_at = new Date().toISOString();
 
   const target = await getTargetRaceRow(athleteId, client);

@@ -16,6 +16,7 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { ingestHealthkitBatch } from '@/lib/sync/ingest-healthkit';
 import { healthkitSyncRequestSchema } from '@/lib/sync/schema';
+import { isSafeTimezone } from '@/lib/time-zones';
 import { captureRouteError } from '@/lib/observability/capture';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 import { refreshAthleteReadinessDays } from '@/lib/coach/athlete-daily-readiness';
@@ -66,15 +67,13 @@ export async function POST(req: Request): Promise<NextResponse> {
     `;
 
     // Persist the device's IANA timezone so readiness windows the day in the
-    // athlete's own zone. Validated by the batch schema; only written when the
-    // device reported one and it actually changed (travel keeps it fresh).
+    // athlete's own zone (see `recordDeviceTimezone` below). A zone the schema
+    // already dropped (unknown to Intl) is still said out loud.
     if (parsed.data.batch.timezone) {
-      await sql`
-        update athletes
-          set timezone = ${parsed.data.batch.timezone}, updated_at = now()
-        where id = ${auth.athlete_id as unknown as number}
-          and timezone is distinct from ${parsed.data.batch.timezone}
-      `;
+      await recordDeviceTimezone(auth.athlete_id, parsed.data.batch.timezone);
+    } else {
+      const sent = sentTimezone(body);
+      if (sent != null) reportRejectedTimezone(auth.athlete_id, sent, 'unreadable');
     }
 
     // The batch may carry last night's sleep / HRV / resting HR — recompute the
@@ -105,4 +104,60 @@ export async function POST(req: Request): Promise<NextResponse> {
     });
     return jsonError('internal', 'HealthKit ingest failed', 500);
   }
+}
+
+/**
+ * The device's zone goes to `athletes.timezone` only when it changed (travel keeps
+ * it fresh) and BOTH date engines know it (`isSafeTimezone`: Intl, and Postgres's
+ * `pg_timezone_names` name for name), because every SQL reader hands the column to
+ * `at time zone`. Otherwise the stored zone stays: a device's zone is a fact that
+ * can wait for the next sync, and it never costs the batch — not even when the
+ * check itself fails. A zone that is not written is logged
+ * (`reportRejectedTimezone`): the device keeps sending it, and a silent drop
+ * would leave the athlete on the default calendar with nobody knowing why.
+ */
+async function recordDeviceTimezone(athlete_id: bigint, tz: string): Promise<void> {
+  const id = athlete_id as unknown as number;
+  try {
+    const [row] = await sql<Array<{ timezone: string | null }>>`
+      select timezone from athletes where id = ${id}
+    `;
+    if (!row || row.timezone === tz) return;
+    if (!(await isSafeTimezone(tz, sql))) {
+      reportRejectedTimezone(athlete_id, tz, 'unknown_to_postgres');
+      return;
+    }
+    await sql`
+      update athletes
+        set timezone = ${tz}, updated_at = now()
+      where id = ${id}
+        and timezone is distinct from ${tz}
+    `;
+  } catch (err) {
+    captureRouteError(err, { route: 'api/sync/healthkit.POST', meta: { athlete_id: String(athlete_id), step: 'timezone' } });
+  }
+}
+
+/** The zone the device sent, before the schema dropped it (a string, else null). */
+function sentTimezone(body: unknown): string | null {
+  const tz = (body as { batch?: { timezone?: unknown } } | null)?.batch?.timezone;
+  return typeof tz === 'string' && tz.length > 0 ? tz : null;
+}
+
+/**
+ * A device zone that was NOT written to `athletes.timezone`: unreadable here (not
+ * an Intl zone, or too long — the schema reads it as "not reported") or unknown to
+ * this Postgres (`isSafeTimezone`). The
+ * batch still goes in; this leaves the trace. Same channel as the other sync
+ * warnings (`captureRouteError`: Sentry, or one structured stderr line).
+ */
+function reportRejectedTimezone(
+  athlete_id: bigint,
+  tz: string,
+  reason: 'unreadable' | 'unknown_to_postgres',
+): void {
+  captureRouteError(new Error('healthkit: device timezone not stored'), {
+    route: 'api/sync/healthkit.POST',
+    meta: { athlete_id: String(athlete_id), step: 'timezone', timezone: tz.slice(0, 64), reason },
+  });
 }

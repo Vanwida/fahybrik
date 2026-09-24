@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { withSentryConfig } from "@sentry/nextjs";
+import { PANEL_REDIRECTS } from "./panel-redirects";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
@@ -82,6 +83,9 @@ const nextConfig: NextConfig = {
       // because these are transactional, not canonical SEO URLs.
       { source: "/partner/redeem", destination: "/es/partner/redeem", permanent: false },
       { source: "/invite/:token", destination: "/es/invite/:token", permanent: false },
+      // El panel del coach se rehízo (DECISIONS 2026-09-23): toda URL vieja lleva
+      // a su sitio nuevo. Lista y orden en panel-redirects.ts (con su prueba).
+      ...PANEL_REDIRECTS,
     ];
   },
 };

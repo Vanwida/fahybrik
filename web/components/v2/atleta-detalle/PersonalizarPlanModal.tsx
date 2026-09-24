@@ -8,9 +8,8 @@
 
 import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
-import { MIcon } from '@/components/ui/MIcon';
-import { ModalPortal } from '@/components/v2/editor/ModalPortal';
-import { SegmentedControl } from '@/components/v2/SegmentedControl';
+import { Check, TriangleAlert, WandSparkles } from 'lucide-react';
+import { Button, Dialog, SegmentedControl } from '@/components/v2/ui';
 
 type StartChoice = 'current_week' | 'next_week';
 
@@ -58,7 +57,7 @@ export function PersonalizarPlanModal({
         setSubmitting(false);
         return;
       }
-      router.push(`/microciclos/${body.personalize.month_template_id}`);
+      router.push(`/programar/programas/${body.personalize.month_template_id}`);
     } catch {
       setError('No se pudo personalizar el plan. Inténtalo de nuevo.');
       setSubmitting(false);
@@ -66,95 +65,60 @@ export function PersonalizarPlanModal({
   }
 
   return (
-    <ModalPortal onEscape={onClose}>
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Personalizar plan"
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        if (!o && !submitting) onClose();
+      }}
+      title="Personalizar plan"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button variant="primary" icon={WandSparkles} loading={submitting} onClick={confirm}>
+            Personalizar y editar
+          </Button>
+        </>
+      }
     >
-      <button
-        type="button"
-        aria-label="Cerrar"
-        onClick={onClose}
-        className="absolute inset-0 bg-[color:var(--v2-scrim)]"
-      />
-      <div className="relative flex w-full max-w-md flex-col rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Personalizar plan</h2>
-          <button
-            type="button"
-            aria-label="Cerrar"
-            onClick={onClose}
-            className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
-          >
-            <MIcon name="close" size={20} />
-          </button>
+      <div className="flex flex-col gap-4">
+        <p className="t-body text-v2-fg">
+          Vas a coger el programa de <span className="font-medium">{athleteName}</span>: «{currentBlockName}»
+          {currentWeek != null ? ` (semana ${currentWeek})` : ''}, y convertirlo en un plan solo para {athleteName}.
+        </p>
+        <div className="flex flex-col gap-1.5">
+          <span className="t-meta text-v2-muted">Empieza</span>
+          <SegmentedControl
+            items={startOptions}
+            value={start}
+            onValueChange={setStart}
+            aria-label="Cuándo empieza el plan personal"
+            className="self-start"
+          />
         </div>
-
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-[color:var(--v2-fg)]">
-            Vas a coger el plan de <span className="font-semibold">{athleteName}</span>:{' '}
-            «{currentBlockName}»{currentWeek != null ? ` (semana ${currentWeek})` : ''}, y
-            convertirlo en un plan solo para {athleteName}.
+        <ul className="flex flex-col gap-2 t-body-sm text-v2-muted">
+          <li className="flex items-start gap-2">
+            <Check aria-hidden strokeWidth={2} className="mt-0.5 size-3.5 shrink-0 text-v2-ok" />
+            {start === 'next_week'
+              ? 'Esta semana sigue igual: lo ya hecho nunca cambia.'
+              : 'Lo ya hecho no cambia: solo se copia desde la semana en curso.'}
+          </li>
+          <li className="flex items-start gap-2">
+            <Check aria-hidden strokeWidth={2} className="mt-0.5 size-3.5 shrink-0 text-v2-ok" />
+            El programa original de la biblioteca queda intacto: esto es una copia.
+          </li>
+          <li className="flex items-start gap-2">
+            <TriangleAlert aria-hidden strokeWidth={2} className="mt-0.5 size-3.5 shrink-0 text-v2-warn" />
+            {athleteName} deja de recibir los programas de su grupo: a partir de ahora sigue este plan a medida.
+          </li>
+        </ul>
+        {error ? (
+          <p role="alert" className="t-body-sm text-v2-danger">
+            {error}
           </p>
-          <label className="flex flex-col gap-1.5">
-            <span className="v2-micro">Empieza</span>
-            <SegmentedControl
-              options={startOptions}
-              value={start}
-              onChange={setStart}
-              ariaLabel="Cuándo empieza el plan personal"
-            />
-          </label>
-          <ul className="flex flex-col gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3 text-xs text-[color:var(--v2-muted)]">
-            <li className="flex items-start gap-2">
-              <MIcon name="check" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-ok)]" />
-              {start === 'next_week'
-                ? 'Esta semana sigue igual: lo ya hecho nunca cambia.'
-                : 'Lo ya hecho no cambia: solo se copia desde la semana en curso.'}
-            </li>
-            <li className="flex items-start gap-2">
-              <MIcon name="check" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-ok)]" />
-              La plantilla original de la biblioteca queda intacta: esto es una copia.
-            </li>
-            <li className="flex items-start gap-2">
-              <MIcon name="priority_high" size={14} className="mt-0.5 shrink-0 text-[color:var(--v2-warn)]" />
-              {athleteName} deja de recibir microciclos automáticos por nivel: a partir de
-              ahora sigue este plan a medida.
-            </li>
-          </ul>
-          {error ? <p className="text-xs font-medium text-[color:var(--v2-danger)]">{error}</p> : null}
-          <div className="mt-1 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-s)] px-3 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={confirm}
-              disabled={submitting}
-              className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
-            >
-              {submitting ? (
-                <>
-                  <MIcon name="progress_activity" size={16} className="animate-spin" />
-                  Personalizando…
-                </>
-              ) : (
-                <>
-                  <MIcon name="auto_fix_high" size={16} />
-                  Personalizar y editar
-                </>
-              )}
-            </button>
-          </div>
-        </div>
+        ) : null}
       </div>
-    </div>
-    </ModalPortal>
+    </Dialog>
   );
 }

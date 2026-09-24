@@ -1,10 +1,10 @@
-// Weekly review service. Produces the snapshot Pablo sees Sunday morning,
+// Weekly review service. Produces the snapshot the coach sees Sunday morning,
 // loads the current draft (or starts a fresh one), persists drafts, commits
 // approvals, and exposes history.
 //
 // Design principles:
 //   * snapshot is computed fresh on first open and frozen after — once a review
-//     is approved, the snapshot reflects the cohort state Pablo actually saw,
+//     is approved, the snapshot reflects the cohort state the coach actually saw,
 //     not the current state. This is critical for "review hace 4 semanas, ¿qué
 //     decidí entonces?" — the rationale must remain legible.
 //   * attention / transition / mass-adjustment lists are derived from the live
@@ -17,6 +17,8 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { coerceJson, toJsonValue } from '@/lib/json-column';
 import { buildCohort } from './cohort';
+import { loadCoachTimezone } from './coach-timezone';
+import { parseIsoDate, zonedDayString } from '@fahybrid/shared/domain/dates';
 import type { CohortRow } from '@fahybrid/shared/domain/coach/types';
 import {
   aggregatePolarization,
@@ -25,7 +27,6 @@ import {
 } from '@fahybrid/shared/domain/coach/polarization';
 import {
   type CoachWeeklyReview,
-  type CohortPlanDay,
   type CohortPlanWeek,
   type MassAdjustmentOpportunity,
   type WeeklyAttentionItem,
@@ -68,7 +69,11 @@ export async function getCurrentReview(params: {
 }): Promise<CurrentReviewResult> {
   const client = params.client ?? defaultSql;
   const now = params.now ?? new Date();
-  const weekStart = isoWeekStart(now);
+  // La semana de la revisión es la del CLUB (DECISIONS «Qué día es en cada
+  // sitio»): su lunes en su huso, no el lunes UTC. `now` sigue siendo el instante
+  // para las ventanas de datos del cohorte.
+  const clubDay = parseIsoDate(zonedDayString(now, await loadCoachTimezone(params.coach_id, client)));
+  const weekStart = isoWeekStart(clubDay);
 
   const cohort = await buildCohort({ coach_id: params.coach_id, now, client });
 
@@ -81,7 +86,7 @@ export async function getCurrentReview(params: {
     review = existing;
   } else {
     isNew = true;
-    const snapshot = computeSnapshot(cohort, now);
+    const snapshot = computeSnapshot(cohort, clubDay);
     review = {
       id: null,
       coach_id: BigInt(params.coach_id as number),
@@ -103,7 +108,11 @@ export async function getCurrentReview(params: {
     attention: computeAttention(cohort),
     transitions: computeTransitions(cohort),
     mass_adjustments: computeMassAdjustments(cohort),
-    plan: computePlan(now),
+    // Sin plan inventado: esto era una rotación fija («Strength / Z2 long /
+    // Threshold…») presentada como el plan del club. La revisión no tiene pantalla
+    // (DECISIONS); si vuelve a tenerla, el plan sale de las semanas reales de sus
+    // atletas, no de aquí.
+    plan: [],
     is_new: isNew,
   };
 }
@@ -125,8 +134,9 @@ export async function saveReview(
 ): Promise<CoachWeeklyReview> {
   const client = params.client ?? defaultSql;
   const now = params.now ?? new Date();
+  const clubToday = zonedDayString(now, await loadCoachTimezone(params.coach_id, client));
   const cohort = await buildCohort({ coach_id: params.coach_id, now, client });
-  const snapshot = computeSnapshot(cohort, now);
+  const snapshot = computeSnapshot(cohort, parseIsoDate(clubToday));
 
   const decisionsJson = toJsonValue(
     z.array(weeklyReviewDecisionSchema).parse(params.decisions ?? []),
@@ -143,14 +153,14 @@ export async function saveReview(
 
   const approvedAt = status === 'approved' ? now.toISOString() : null;
   const deferredUntil =
-    status === 'deferred' ? new Date(now.getTime() + 86_400_000).toISOString().slice(0, 10) : null;
+    status === 'deferred' ? isoDateAddDays(clubToday, 1) : null; // mañana, en el calendario del club
 
   const existing = await loadDraft(client, params.coach_id, params.iso_week_start);
 
   if (existing && existing.id != null) {
     // Update path. If we're approving, snapshot stays as-is (the draft already
     // froze it on first open); if we're saving a draft, refresh the snapshot
-    // so Pablo sees current numbers if cohort changed since he opened.
+    // so the coach sees current numbers if the cohort changed since they opened it.
     const snapshotJson = status === 'approved'
       ? toJsonValue(weeklyReviewSnapshotSchema.parse(existing.snapshot))
       : toJsonValue(snapshot);
@@ -350,7 +360,7 @@ export function computeSnapshot(cohort: CohortRow[], now: Date): WeeklyReviewSna
     active_athlete_count: cohort.length,
     compliance_pct: compliance,
     // Live cohort row doesn't currently surface "vs last week" deltas — leave
-    // null until the briefing layer is plumbed in. Pablo gets the snapshot;
+    // null until the briefing layer is plumbed in. The coach gets the snapshot;
     // future work can enrich.
     compliance_pct_delta_vs_lw: null,
     total_volume_hours: totalVolume,
@@ -411,7 +421,7 @@ export function computeAttention(cohort: CohortRow[]): WeeklyAttentionItem[] {
 
     // The gap ANNOTATES an athlete already in the queue; it does not summon one.
     // Whether "no está valorando sus sesiones" deserves its own attention item is
-    // a call about Pablo's inbox, not about honesty — and honesty only requires
+    // a call about the coach's inbox, not about honesty — and honesty only requires
     // that the load signals above never read as solid when they are not.
     if (row.load_coverage.state === 'partial' && row.load_coverage.badge_es) {
       signals.push(`Carga ${row.load_coverage.badge_es}`);
@@ -580,15 +590,6 @@ export function computeMassAdjustments(cohort: CohortRow[]): MassAdjustmentOppor
   return opportunities;
 }
 
-export function computePlan(now: Date): CohortPlanWeek[] {
-  const weekStart = isoWeekStart(now);
-  const week2Start = isoDateAddDays(weekStart, 7);
-  return [
-    buildPlanWeek(weekStart, now),
-    buildPlanWeek(week2Start, now),
-  ];
-}
-
 // =============================================================================
 // DB plumbing
 // =============================================================================
@@ -718,44 +719,6 @@ function transitionRank(t: WeeklyTransitionItem): number {
   if (t.recommendation === 'advance') return t.confidence === 'high' ? 0 : 1;
   if (t.recommendation === 'hold') return 2;
   return 3;
-}
-
-const WEEKDAY_LABELS_ES = ['L', 'Ma', 'Mi', 'J', 'V', 'S', 'D'];
-const TEMPLATE_ROTATION: Array<{ am: string | null; pm: string | null; highlights: string | null }> = [
-  { am: 'Strength', pm: 'Z2 long', highlights: null },
-  { am: 'Threshold', pm: 'Skill', highlights: null },
-  { am: 'HYROX-sim', pm: 'Recovery', highlights: null },
-  { am: 'Strength', pm: 'Mobility', highlights: null },
-  { am: 'VO2max', pm: 'Strength', highlights: null },
-  { am: 'Long-run', pm: 'Optional', highlights: null },
-  { am: 'Rest', pm: null, highlights: null },
-];
-
-function buildPlanWeek(weekStartIso: string, now: Date): CohortPlanWeek {
-  const days: CohortPlanDay[] = [];
-  for (let i = 0; i < 7; i += 1) {
-    const iso = isoDateAddDays(weekStartIso, i);
-    const tpl = TEMPLATE_ROTATION[i];
-    days.push({
-      iso_date: iso,
-      weekday_label: WEEKDAY_LABELS_ES[i],
-      am_focus: tpl.am,
-      pm_focus: tpl.pm,
-      highlights: tpl.highlights,
-      is_today: iso === now.toISOString().slice(0, 10),
-    });
-  }
-  const baseWeekNumber = isoWeekNumber(parseIso(weekStartIso));
-  return {
-    iso_week_start: weekStartIso,
-    week_label: `Sem ${baseWeekNumber}`,
-    days,
-  };
-}
-
-function parseIso(iso: string): Date {
-  const [y, m, d] = iso.split('-').map((s) => Number(s));
-  return new Date(Date.UTC(y, m - 1, d));
 }
 
 function round1(n: number): number {

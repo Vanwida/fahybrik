@@ -1,81 +1,76 @@
 import 'server-only';
-import { sql } from '@/lib/db';
-import {
-  suggestLevel,
-  scoreHyroxTime,
-  type Benchmark,
-  type AthleteProfile,
-  type LevelResult,
-} from './level-algorithm';
+import type { Sql } from '@/lib/db';
+import { sql as defaultSql } from '@/lib/db';
+import type { LevelSuggestion } from '@fahybrid/shared/domain/coach/level-criteria';
+import { suggestLevelForAthlete, type AthleteProfile, type Benchmark } from './level-algorithm';
+import { loadCoachLadder } from './levels';
 import { getBestRealHyroxResult } from '@/lib/races/athlete-races';
 
 /**
- * Runs the level-suggestion for a newly onboarded athlete and writes the result
- * to athletes.suggested_level_id + athletes.level_confidence.
+ * La sugerencia de nivel de un atleta sobre la escalera de SU coach, sin
+ * escribir nada: la ficha la lee para decir por qué no hay sugerencia.
  *
- * Signal priority:
- *   1. A REAL HYROX singles result (an actual finish, imported or logged) is the
- *      gold standard — it sets the level directly via the single-source time→level
- *      mapping (scoreHyroxTime), with high confidence. You don't average a proxy
- *      (5k, squat, a self-declared time) once you have the real measurement.
- *   2. Otherwise fall back to the benchmark/experience algorithm (suggestLevel),
- *      which already factors the self-declared HYROX time + 5k + 2k row + squat.
+ * La escalera son los niveles activos del coach en su orden, con los cortes de
+ * cada uno (los suyos o, sin tocar, el defecto por posición) — nunca un nivel
+ * buscado por el nombre literal 'N'+n. Null si el atleta no es del coach.
+ */
+export async function computeLevelSuggestion(
+  athleteId: number,
+  coachId: number,
+  client: Sql = defaultSql,
+): Promise<LevelSuggestion | null> {
+  const profileRows = await client<AthleteProfile[]>`
+    select sex, weight_kg::float8 as weight_kg, training_experience_years::float8 as training_experience_years
+    from athletes
+    where id = ${athleteId} and coach_id = ${coachId}
+    limit 1
+  `;
+  const athlete = profileRows[0];
+  if (!athlete) return null;
+
+  const [benchmarks, ladder, realHyrox] = await Promise.all([
+    client<Benchmark[]>`
+      select exercise_slug, value::float8 as value, unit
+      from athlete_benchmarks
+      where athlete_id = ${athleteId}
+    `,
+    loadCoachLadder(coachId, client),
+    getBestRealHyroxResult(athleteId, client),
+  ]);
+
+  const sex = athlete.sex === 'male' || athlete.sex === 'female' ? athlete.sex : null;
+  return suggestLevelForAthlete({
+    ladder,
+    benchmarks,
+    profile: { ...athlete, sex },
+    realHyroxSeconds: realHyrox.best_time_seconds,
+  });
+}
+
+/**
+ * Calcula la sugerencia (`computeLevelSuggestion`) y la guarda en
+ * `athletes.suggested_level_id` + `level_confidence`. Cuando no se puede
+ * sugerir, se BORRA la sugerencia anterior (una vieja que ya no se sostiene es
+ * peor que ninguna) y se devuelve el porqué, para que quien la pinte lo diga
+ * (`levelSuggestionGap`).
  *
- * Safe to fire-and-forget: never throws past the guard clause (unknown errors
- * are rethrown so they surface in server logs, not silently eaten).
- *
- * Only writes when level_id IS NULL — i.e. the coach hasn't manually assigned
- * a level yet. Re-running after manual assignment is a no-op, so it's safe to
- * call again whenever new races are imported (e.g. on intake-review load).
+ * Solo escribe mientras el coach no haya fijado el nivel a mano (`level_id is
+ * null`), así que se puede volver a llamar cuando entren carreras nuevas.
  */
 export async function computeAndStoreLevelSuggestion(
   athleteId: number,
   coachId: number,
-): Promise<void> {
-  // 1. Load benchmarks
-  const benchmarks = await sql<Benchmark[]>`
-    SELECT exercise_slug, value::float AS value, unit
-    FROM athlete_benchmarks
-    WHERE athlete_id = ${athleteId}
+  client: Sql = defaultSql,
+): Promise<LevelSuggestion | null> {
+  const result = await computeLevelSuggestion(athleteId, coachId, client);
+  if (!result) return null;
+  await client`
+    update athletes
+    set suggested_level_id = ${result.status === 'suggested' ? Number(result.level_id) : null},
+        level_confidence = ${result.status === 'suggested' ? result.confidence : null}
+    where id = ${athleteId}
+      and coach_id = ${coachId}
+      and level_id is null
   `;
-
-  // 2. Load profile (sex, weight_kg, training_experience_years)
-  const profileRows = await sql<AthleteProfile[]>`
-    SELECT sex, weight_kg, training_experience_years
-    FROM athletes
-    WHERE id = ${athleteId} AND coach_id = ${coachId}
-    LIMIT 1
-  `;
-  const athlete = profileRows[0];
-  if (!athlete) return;
-
-  // 3. Resolve the level. Real HYROX result wins; else the benchmark algorithm.
-  const realHyrox = await getBestRealHyroxResult(athleteId, sql);
-  const result: LevelResult =
-    realHyrox.best_time_seconds != null
-      ? {
-          suggested_level: scoreHyroxTime(realHyrox.best_time_seconds, athlete.sex),
-          confidence: 'high',
-          signals_used: ['hyrox_real_result'],
-        }
-      : suggestLevel(benchmarks, athlete);
-
-  // 4. Find the matching level_id for this coach (levels are named 'N1'–'N5')
-  const levelRows = await sql<Array<{ id: number }>>`
-    SELECT id FROM athlete_levels
-    WHERE coach_id = ${coachId} AND name = ${'N' + result.suggested_level}
-    LIMIT 1
-  `;
-  const level = levelRows[0];
-  if (!level) return;
-
-  // 5. Write suggested_level_id + level_confidence (only when not yet manually assigned)
-  await sql`
-    UPDATE athletes
-    SET suggested_level_id = ${level.id},
-        level_confidence = ${result.confidence}
-    WHERE id = ${athleteId}
-      AND coach_id = ${coachId}
-      AND level_id IS NULL
-  `;
+  return result;
 }

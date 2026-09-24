@@ -3,23 +3,30 @@ import { setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { emptyClubSkin } from '@fahybrid/shared/domain/coach/club-skin';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import { listThreadsForCoach } from '@/lib/chat/service';
-import { countNewLeads } from '@/lib/dashboard/coach/leads';
-import { countUpcomingCallsSoon } from '@/lib/citas/store';
+import { loadShellBadges } from '@/lib/dashboard/coach/shell-badges';
 import { getClubSkin } from '@/lib/coach/club-skin';
+import { loadSetupChecklist } from '@/lib/coach/setup-checklist';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
+import { CoachTimeZoneProvider } from '@/lib/coach/coach-timezone-context';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import { V2Shell } from '@/components/v2/V2Shell';
+import { SetupProgress } from '@/components/v2/shared';
 import { V2ThemeScript } from '@/components/v2/theme/V2ThemeScript';
+import { RailPrepaintScript } from '@/components/v2/shell/RailPrepaintScript';
+import { hasNegocioForRequest, loadHoyShellCounts } from '@/components/v2/shell/shell-counts';
 import { PushSync } from '@/components/v2/push/PushNotifications';
 import { flexrFontVars } from './fonts';
 import './v2-theme.css';
 
-// v2 route-group layout — the FOUNDATION of the redesign. Lives ALONGSIDE the
-// v1 app: same auth gate (coach session), but a fully scoped theme + shell. The
-// FLEXR theme (claro perla / oscuro del panel) is isolated to `.v2-root`
-// (V2Shell → V2ThemeProvider); we never touch the <html> dark class, so the
-// landing and the legacy app stay dark. The pre-paint V2ThemeScript sets
-// data-theme before hydration. The sidebar's Mensajes badge reads the live
-// unread count.
+// Layout del panel del coach: la puerta (sesión de coach) y el shell. El tema
+// (oscuro por defecto, claro en el mismo botón) vive acotado a `.v2-root`
+// (V2Shell → V2ThemeProvider). El script del menú plegado va DENTRO del shell
+// para encontrar su contenedor antes de hidratar.
+//
+// Las cifras de la barra salen a la vez, cada una con dueño y cayendo sola:
+// Mensajes = hilos por responder; Hoy = lo que pinta Hoy (needs_you); Negocio =
+// leads nuevos + llamadas de hoy + pagos vencidos, solo con el add-on. «Primeros
+// pasos n/3» sale solo hasta que un atleta ve su primera semana.
 
 // Identidad PWA SOLO del dashboard: el icono COACH al anclar a la pantalla de
 // inicio. Scoped aquí (no en el layout raíz) para que la web pública conserve
@@ -41,51 +48,50 @@ export default async function V2Layout({
 
   const session = await getCoachSession();
   if (!session) redirect('/sign-in');
+  const coach_id = Number(session.coach_id);
 
-  // Unread message count for the sidebar badge — degrades to 0 if the threads
-  // loader fails (the rest of the shell stays up).
-  let unread_messages = 0;
-  try {
-    const threads = await listThreadsForCoach({ coach_id: session.coach_id });
-    unread_messages = threads.filter((t) => t.unread_count > 0).length;
-  } catch {
-    unread_messages = 0;
-  }
+  const [badges, club, hoy, negocio, setup, tz] = await Promise.all([
+    loadShellBadges(session.coach_id),
+    getClubSkin(session.coach_id)
+      .then((skin) => skin ?? emptyClubSkin())
+      .catch(() => emptyClubSkin()),
+    loadHoyShellCounts(coach_id),
+    hasNegocioForRequest(coach_id),
+    loadSetupChecklist(session.coach_id).catch(() => null),
+    loadCoachTimezone(session.coach_id).catch(() => BOX_TIMEZONE),
+  ]);
 
-  // Sidebar "Leads" badge = new leads + pending call requests (both need Pablo's
-  // attention in the leads area). Degrades to 0 on failure.
-  let leads_nuevo = 0;
-  try {
-    // Badge = new leads + calls in the next 48h (today/tomorrow), the day's actionables.
-    const [newLeads, callsSoon] = await Promise.all([countNewLeads(), countUpcomingCallsSoon()]);
-    leads_nuevo = newLeads + callsSoon;
-  } catch {
-    leads_nuevo = 0;
-  }
-
-  let club = emptyClubSkin();
-  try {
-    club = (await getClubSkin(session.coach_id)) ?? emptyClubSkin();
-  } catch {
-    club = emptyClubSkin();
-  }
+  const counts = {
+    hoy: hoy.needs_you,
+    // La misma cifra que «Por responder» de Hoy; si Hoy no cargó, la cuenta barata.
+    mensajes: hoy.awaiting_reply ?? badges.awaiting_reply,
+    negocio: negocio ? badges.negocio + (hoy.payments_overdue ?? 0) : null,
+  };
 
   return (
     <>
       {/* Headless: registra el SW y refresca la suscripción push de este
           navegador si ya estaba dada de alta. */}
       <PushSync />
-      <V2ThemeScript />
       <V2Shell
         font_vars={flexrFontVars}
+        // Dentro de `.v2-root`: el tema y el menú plegado se aplican antes de pintar
+        // (sin destello del tema claro; V2ThemeProvider tolera la diferencia).
+        prepaint={
+          <>
+            <V2ThemeScript />
+            <RailPrepaintScript />
+          </>
+        }
         coach_name={session.full_name}
         coach_email={session.email}
         coach_avatar_url={session.avatar_url}
         club={club}
-        unread_messages={unread_messages}
-        leads_nuevo={leads_nuevo}
+        counts={counts}
+        negocio={negocio}
+        setup={setup && !setup.complete ? <SetupProgress checklist={setup} /> : null}
       >
-        {children}
+        <CoachTimeZoneProvider tz={tz}>{children}</CoachTimeZoneProvider>
       </V2Shell>
     </>
   );

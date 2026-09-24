@@ -6,20 +6,47 @@
 //     (/api/citas/google/connect → a refresh_token is stored), create a Calendar event
 //     with conferenceData (Meet) + attendees and return the hangoutLink.
 //
-// The switch is DATA, not env: a stored refresh_token (getGoogleRefreshToken) means
-// "connected". No token → null (unchanged v1 behavior). NEVER throws — a null link is
-// valid, and any Google failure falls back to the manual-paste path.
+// The switch is DATA, not env, and it is PER COACH (0254): the cita's coach has a
+// connection (getGoogleConnection) → the event goes on THAT coach's calendar. No coach or
+// no connection → null (the manual-paste path). NEVER throws — a null link is valid, and
+// any Google failure falls back to the manual-paste path.
 //
 // #21: generalized to an ATTENDEE {email,name} so the SAME engine mints a Meet for a
 // lead intro call (createMeeting) OR an athlete 1:1 review (createReviewMeeting), reusing
 // createCalendarEventWithMeet with zero duplication. The cancel-hook (deleteCalendarEvent)
 // is already generic (keys on google_event_id), so it covers both.
 
-import { getGoogleRefreshToken } from './google-tokens';
+import { getGoogleConnection, type GoogleConnection } from './google-tokens';
 import { createCalendarEventWithMeet, createCalendarEventInPerson } from './google';
 import type { CitaModality } from '@fahybrid/shared/schema';
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
 
 const DEFAULT_DURATION_MINUTES = 30;
+
+/**
+ * El título del evento de calendario de una cita. Habla el CLUB (el evento vive en
+ * el calendario del coach y le llega al lead/atleta como invitado), así que lleva
+ * el wordmark de SU piel — nunca la marca de otro club escrita a mano.
+ */
+export function meetingSummary(
+  kind: 'video' | 'presencial' | 'review',
+  wordmark: string,
+  who: string,
+): string {
+  const noun = kind === 'presencial' ? 'Sesión presencial' : kind === 'review' ? 'Revisión' : 'Videollamada';
+  return `${noun} ${wordmark} · ${who}`;
+}
+
+/** El wordmark del club de esta cita; ante cualquier fallo, la marca de este binario. */
+async function clubWordmark(coach_id: bigint | number | null | undefined): Promise<string> {
+  if (coach_id == null) return BRAND_WORDMARK;
+  try {
+    const { resolveClubEmailSkin } = await import('@/lib/coach/club-skin');
+    return (await resolveClubEmailSkin(coach_id)).wordmark;
+  } catch {
+    return BRAND_WORDMARK;
+  }
+}
 
 export interface MeetingResult {
   meet_link: string | null;
@@ -38,28 +65,31 @@ async function createAttendeeMeeting(args: {
   attendee: MeetingAttendee;
   start: Date;
   durationMinutes: number;
-  /** Event title, e.g. "Videollamada FAHYBRID · Ana" or "Revisión FAHYBRID · Ana". */
-  summary: string;
+  /** Event title from the club's wordmark (`meetingSummary`). Resolved only once the
+   *  coach is connected, so a not-connected cita never reads the skin. */
+  summary: (wordmark: string) => string;
   /** #40: video → Calendar event with a Meet room; presencial → event with a location, no Meet. */
   modality: CitaModality;
   /** #40: presencial address string (box name + street). Ignored for video. */
   location?: string | null;
-  /** Club that owns this cita — attendees include its notify inbox when set. */
+  /** Club that owns this cita: the event goes on ITS Google calendar, and the attendees
+   *  include its notify inbox. No coach → no calendar event. */
   coach_id?: bigint | number | null;
 }): Promise<MeetingResult> {
-  // Connected only if a coach completed the one-shot Google connect. Any DB hiccup here
+  // Connected only if THIS cita's coach completed the Google connect. Any DB hiccup here
   // must not break the accept/book flow → treat as "not connected".
-  let refreshToken: string | null = null;
+  let conn: GoogleConnection | null = null;
   try {
-    refreshToken = await getGoogleRefreshToken();
+    conn = await getGoogleConnection(args.coach_id);
   } catch {
     return { meet_link: null };
   }
   // Not connected: no calendar event either way. Presencial still shows its address in the
   // email (the caller passes the location there regardless of Google).
-  if (!refreshToken) return { meet_link: null };
+  if (!conn) return { meet_link: null };
 
   const end = new Date(args.start.getTime() + args.durationMinutes * 60 * 1000);
+  const summary = args.summary(await clubWordmark(args.coach_id));
   let clubInbox: string | null = null;
   try {
     const { resolveClubNotifyEmail } = await import('@/lib/coach/club-notify');
@@ -76,8 +106,8 @@ async function createAttendeeMeeting(args: {
     // have an address to put on it. No address → no event, null link (the manual-paste path).
     if (args.modality === 'presencial') {
       if (!args.location) return { meet_link: null };
-      const { event_id } = await createCalendarEventInPerson({
-        summary: args.summary,
+      const { event_id } = await createCalendarEventInPerson(conn, {
+        summary,
         startIso: args.start.toISOString(),
         endIso: end.toISOString(),
         attendeeEmails,
@@ -87,8 +117,8 @@ async function createAttendeeMeeting(args: {
       return { meet_link: null, event_id };
     }
 
-    const { event_id, meet_link } = await createCalendarEventWithMeet({
-      summary: args.summary,
+    const { event_id, meet_link } = await createCalendarEventWithMeet(conn, {
+      summary,
       startIso: args.start.toISOString(),
       endIso: end.toISOString(),
       attendeeEmails,
@@ -121,15 +151,11 @@ export interface MeetingRequest {
  *  returns a meet_link (event_id may still be set for the cancel-hook). */
 export async function createMeeting(req: MeetingRequest): Promise<MeetingResult> {
   const who = req.leadName ?? req.leadEmail;
-  const summary =
-    req.modality === 'presencial'
-      ? `Sesión presencial FAHYBRID · ${who}`
-      : `Videollamada FAHYBRID · ${who}`;
   return createAttendeeMeeting({
     attendee: { email: req.leadEmail, name: req.leadName },
     start: req.start,
     durationMinutes: req.durationMinutes,
-    summary,
+    summary: (wordmark) => meetingSummary(req.modality === 'presencial' ? 'presencial' : 'video', wordmark, who),
     modality: req.modality,
     location: req.location,
     coach_id: req.coach_id,
@@ -153,7 +179,7 @@ export async function createReviewMeeting(req: ReviewMeetingRequest): Promise<Me
     attendee: { email: req.athleteEmail, name: req.athleteName },
     start: req.start,
     durationMinutes: req.durationMinutes ?? DEFAULT_DURATION_MINUTES,
-    summary: `Revisión FAHYBRID · ${req.athleteName ?? req.athleteEmail}`,
+    summary: (wordmark) => meetingSummary('review', wordmark, req.athleteName ?? req.athleteEmail),
     modality: 'video',
     coach_id: req.coach_id,
   });

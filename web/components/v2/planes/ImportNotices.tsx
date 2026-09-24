@@ -35,7 +35,7 @@ export function ImportNotices({ notices }: { notices: WeekNotice[] }) {
         return (
           <li
             key={n.code}
-            className={`flex items-start gap-2.5 rounded-[var(--v2-r-m)] border p-3 ${tone.wrap}`}
+            className={`flex items-start gap-2.5 rounded-panel border p-3 ${tone.wrap}`}
           >
             <MIcon name={tone.name} size={16} className={`mt-px shrink-0 ${tone.icon}`} />
             <div className="min-w-0 space-y-1.5">
@@ -43,7 +43,7 @@ export function ImportNotices({ notices }: { notices: WeekNotice[] }) {
               {n.href && n.cta ? (
                 <Link
                   href={n.href}
-                  className="v2-focus inline-flex items-center gap-1 text-label font-bold text-[color:var(--v2-accent-text)] hover:underline"
+                  className="v2-focus inline-flex items-center gap-1 t-meta font-semibold text-v2-fg hover:underline"
                 >
                   {n.cta}
                   <MIcon name="arrow_forward" size={13} />

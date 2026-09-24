@@ -16,7 +16,8 @@
 // foco con la captura y lo cantan por `aria-live`.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
+import { ArrowLeft, ArrowRight, CircleAlert, CircleCheck, Image as ImageIcon, Plus, TriangleAlert, X } from 'lucide-react';
+import { Button, IconButton } from '@/components/v2/ui';
 import { cn } from '@/lib/utils';
 import {
   MAX_PHOTOS,
@@ -121,12 +122,8 @@ function PhotoTile({
     >
       <div
         className={cn(
-          'relative aspect-[3/2] overflow-hidden rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface-2)]',
-          isDragTarget
-            ? 'border-[color:var(--v2-accent)]'
-            : photo.error
-              ? 'border-[color:var(--v2-danger)]'
-              : 'border-[color:var(--v2-border-strong)]',
+          'relative aspect-[3/2] overflow-hidden rounded-ctl border bg-v2-surface-2',
+          isDragTarget ? 'border-v2-fg' : photo.error ? 'border-v2-danger' : 'border-v2-border-strong',
         )}
       >
         {photo.preview && !previewFailed ? (
@@ -138,67 +135,63 @@ function PhotoTile({
             className="h-full w-full object-cover"
           />
         ) : (
-          <span className="flex h-full w-full items-center justify-center text-[color:var(--v2-faint)]">
-            <MIcon name="image" size={22} />
+          <span className="flex h-full w-full items-center justify-center text-v2-faint">
+            <ImageIcon aria-hidden strokeWidth={1.75} className="size-5" />
           </span>
         )}
 
         {/* El número: es lo que decide dónde cae, así que se ve siempre. */}
-        <span className="absolute left-1 top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-1.5 text-nano font-bold text-[color:var(--v2-accent-fg)]">
+        <span className="absolute left-1 top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-[4px] bg-v2-fg px-1 t-meta font-semibold text-v2-bg t-tnum">
           {position}
         </span>
 
-        <button
-          type="button"
+        <IconButton
+          icon={X}
+          size="sm"
+          variant="secondary"
           onClick={() => onRemove(photo.id)}
           disabled={disabled}
-          aria-label={`Quitar la captura ${position}, ${photo.file.name}`}
-          className="v2-focus absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-bg)]/80 text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-danger)] hover:text-[color:var(--v2-accent-fg)] disabled:opacity-50"
-        >
-          <MIcon name="close" size={13} />
-        </button>
+          label={`Quitar la captura ${position}, ${photo.file.name}`}
+          className="absolute right-1 top-1 size-6 w-6"
+        />
 
         {uploading ? (
-          <span className="absolute inset-x-0 bottom-0 h-1 bg-[color:var(--v2-surface-2)]">
+          <span className="absolute inset-x-0 bottom-0 h-1 bg-v2-surface-2">
             <span
-              className="block h-full bg-[color:var(--v2-accent)] transition-[width]"
+              className="block h-full bg-v2-fg transition-[width]"
               style={{ width: `${photo.progress ?? 0}%` }}
             />
           </span>
         ) : null}
 
         {photo.pathname ? (
-          <span className="absolute bottom-1 right-1 text-[color:var(--v2-ok)]">
-            <MIcon name="check_circle" size={14} filled />
+          <span className="absolute bottom-1 right-1 rounded-full bg-v2-surface text-v2-ok">
+            <CircleCheck aria-hidden strokeWidth={2} className="size-3.5" />
           </span>
         ) : null}
       </div>
 
-      <p className="truncate text-nano text-[color:var(--v2-faint)]" title={photo.file.name}>
+      <p className="truncate t-meta text-v2-faint" title={photo.file.name}>
         {uploading ? `Subiendo ${photo.progress ?? 0}%` : photo.file.name}
       </p>
 
       <div className="flex items-center gap-1">
-        <button
-          type="button"
+        <IconButton
           ref={(el) => registerButton(`${photo.id}:prev`, el)}
+          icon={ArrowLeft}
+          size="sm"
           onClick={() => onMove(index, index - 1, 'prev')}
           disabled={disabled || index === 0}
-          aria-label={`Mover la captura ${position} una posición antes`}
-          className="v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-30"
-        >
-          <MIcon name="arrow_back" size={14} />
-        </button>
-        <button
-          type="button"
+          label={`Mover la captura ${position} una posición antes`}
+        />
+        <IconButton
           ref={(el) => registerButton(`${photo.id}:next`, el)}
+          icon={ArrowRight}
+          size="sm"
           onClick={() => onMove(index, index + 1, 'next')}
           disabled={disabled || index === total - 1}
-          aria-label={`Mover la captura ${position} una posición después`}
-          className="v2-focus inline-flex h-6 w-6 items-center justify-center rounded-[var(--v2-r-2xs)] border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)] disabled:opacity-30"
-        >
-          <MIcon name="arrow_forward" size={14} />
-        </button>
+          label={`Mover la captura ${position} una posición después`}
+        />
       </div>
     </li>
   );
@@ -336,7 +329,7 @@ export function ImportPhotoPicker({
         type="file"
         accept={PHOTO_ACCEPT_ATTR}
         multiple
-        className="sr-only"
+        hidden
         onChange={(e) => {
           addFiles(e.target.files);
           // Sin esto, volver a elegir el MISMO fichero no dispara el evento.
@@ -360,14 +353,14 @@ export function ImportPhotoPicker({
           setDragOver(null);
         }}
         className={cn(
-          'rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] p-4',
+          'rounded-panel border border-dashed border-v2-border-strong bg-v2-surface-2 p-4',
           disabled ? 'opacity-60' : null,
         )}
       >
-        <p className="text-center text-sm font-semibold text-[color:var(--v2-fg)]">
+        <p className="text-center t-body font-medium text-v2-fg">
           Arrastra las capturas
         </p>
-        <p className="mt-1 text-center text-xs text-[color:var(--v2-muted)]">
+        <p className="mt-1 text-center t-body-sm text-v2-muted">
           Varias fotos por importación · JPG, PNG o HEIC
         </p>
 
@@ -398,17 +391,14 @@ export function ImportPhotoPicker({
           ))}
           {!full ? (
             <li className="w-28 shrink-0">
-              <button
-                type="button"
+              <Button
                 onClick={openPicker}
                 disabled={disabled}
-                aria-label={
-                  photos.length === 0 ? 'Elegir las capturas' : 'Añadir más capturas'
-                }
-                className="v2-focus flex aspect-[3/2] w-full items-center justify-center rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border-strong)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-accent)] hover:text-[color:var(--v2-accent-text)] disabled:opacity-50"
+                aria-label={photos.length === 0 ? 'Elegir las capturas' : 'Añadir más capturas'}
+                className="aspect-[3/2] h-auto w-full border-dashed"
               >
-                <MIcon name="add" size={22} />
-              </button>
+                <Plus aria-hidden strokeWidth={1.75} className="!size-5" />
+              </Button>
             </li>
           ) : null}
         </ol>
@@ -418,15 +408,14 @@ export function ImportPhotoPicker({
           ruido en el caso más común. Sale solo desde la segunda, que es cuando
           hay algo que ordenar. */}
       {photos.length > 1 ? (
-        <p className="text-xs leading-snug text-[color:var(--v2-muted)]">
-          Se colocan en ESTE orden a partir de donde has dicho arriba: la <strong>1</strong> va
-          primero. Lo que ponga escrito dentro de la foto no cuenta. Arrastra una miniatura o usa
-          sus flechas para cambiarlo.
+        <p className="t-body-sm text-v2-muted">
+          Se colocan en este orden a partir de donde has dicho arriba; lo que ponga dentro de la foto
+          no cuenta. Arrastra una miniatura o usa sus flechas para cambiarlo.
         </p>
       ) : null}
 
       {full ? (
-        <p className="text-xs text-[color:var(--v2-muted)]">
+        <p className="t-body-sm text-v2-muted">
           Ya van {MAX_PHOTOS} capturas, el máximo por importación.
         </p>
       ) : null}
@@ -436,9 +425,9 @@ export function ImportPhotoPicker({
           {rejections.map((reason) => (
             <li
               key={reason}
-              className="flex items-start gap-1.5 text-xs leading-snug text-[color:var(--v2-warn)]"
+              className="flex items-start gap-1.5 t-body-sm text-v2-warn"
             >
-              <MIcon name="warning" size={14} className="mt-px shrink-0" />
+              <TriangleAlert aria-hidden strokeWidth={2} className="mt-0.5 size-3.5 shrink-0" />
               {reason}
             </li>
           ))}
@@ -452,9 +441,9 @@ export function ImportPhotoPicker({
             .map((p) => (
               <li
                 key={p.id}
-                className="flex items-start gap-1.5 text-xs leading-snug text-[color:var(--v2-danger)]"
+                className="flex items-start gap-1.5 t-body-sm text-v2-danger"
               >
-                <MIcon name="error" size={14} className="mt-px shrink-0" />
+                <CircleAlert aria-hidden strokeWidth={2} className="mt-0.5 size-3.5 shrink-0" />
                 {p.error}
               </li>
             ))}

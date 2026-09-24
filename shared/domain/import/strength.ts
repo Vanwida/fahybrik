@@ -16,6 +16,7 @@ import {
   parseRepRange,
   parseRepSeq,
   parseRest,
+  stripRestClocks,
   parseSetCount,
   parseSetsByRepRange,
   parseSetsByReps,
@@ -282,8 +283,10 @@ export function parseStrength(seg: string): Parsed | null {
   // COVERAGE: a clock the strength reading did not consume (as rest, cada or a
   // timed set) means the line carries work this parser would silently drop
   // ("4-5 strides de 30''") — not a provable strength line.
-  let clockScan = seg
+  let clockScan = stripRestClocks(seg)
     .replace(/c\/\s*\d+\s*'(?:\s*\d+\s*'')?/gi, ' ')
+    // «r2'», «rec 1'30''», «descanso 3'»: un reloj tras una señal de descanso ES
+    // el descanso (parseRest lo lee así), no trabajo sin consumir.
     .replace(
       /[/\-–—]?\s*\d+\s*'(?:\s*\d+\s*'')?\s*(?:de\s+)?(?:rest|descanso|recovery|walking|caminando|trote|off|float|est[aá]tico)/gi,
       ' ',

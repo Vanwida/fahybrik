@@ -3,6 +3,7 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { listRaceCalendar } from '@/lib/races/race-calendar';
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
 import { sql } from '@/lib/db';
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 import type { RaceCalendarResponse } from '@fahybrid/shared/schema';
 
 export const runtime = 'nodejs';
@@ -29,8 +30,11 @@ export async function GET(request: Request) {
       ? familyRaw
       : undefined;
 
+  // «Futuras» desde el hoy del ATLETA (su huso).
+  const today = await loadAthleteLocalDay({ athlete_id: auth.athlete_id, client: sql });
   const [events, target] = await Promise.all([
     listRaceCalendar({
+      today,
       family,
       series: q.get('series') ?? undefined,
       country: q.get('country') ?? undefined,

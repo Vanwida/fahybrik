@@ -7,8 +7,8 @@
 // MUTATION itself (useLifecycleMutation) — it never re-implements pausing.
 
 import { useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
-import { cn } from '@/lib/utils';
+import { Checkbox, Input, Textarea } from '@/components/v2/ui';
+import { ChipGroup as ValueChips } from '@/components/v2/controls/ChipGroup';
 import {
   INJURY_ZONES,
   INJURY_ZONE_LABEL,
@@ -24,12 +24,10 @@ import type { InjuryDTO, InjuryUpdateInput } from '@fahybrid/shared/schema/injur
 import { LifecycleDialog } from '../lifecycle/LifecycleDialog';
 import { useLifecycleMutation } from '../lifecycle/lifecycle-mutations';
 import {
-  DATE_INPUT_CLS,
   DialogError,
   DialogField,
   DialogGhostButton,
   DialogPrimaryButton,
-  TEXTAREA_CLS,
   todayIsoLocal,
 } from '../lifecycle/lifecycle-ui';
 import { statusMeta } from './injury-presentation';
@@ -49,9 +47,6 @@ const ADAPTATION_META: Record<InjuryAdaptation, { label: string; hint: string }>
   rest: { label: 'Reposo', hint: 'Día excluido: no cuenta como fallo' },
 };
 
-const TEXT_INPUT_CLS =
-  'v2-focus h-10 w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-border-strong)]';
-
 // ── Single-select chip group (zones, severity) ────────────────────────────────────
 function ChipGroup<T extends string>({
   options,
@@ -59,36 +54,23 @@ function ChipGroup<T extends string>({
   labelFor,
   onChange,
   disabled,
+  ariaLabel,
 }: {
   options: readonly T[];
   value: T | null;
   labelFor: (v: T) => string;
   onChange: (v: T) => void;
   disabled?: boolean;
+  ariaLabel: string;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((o) => {
-        const active = o === value;
-        return (
-          <button
-            key={o}
-            type="button"
-            disabled={disabled}
-            aria-pressed={active}
-            onClick={() => onChange(o)}
-            className={cn(
-              'v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] border px-3 text-xs font-semibold transition-colors disabled:opacity-50',
-              active
-                ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
-                : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-            )}
-          >
-            {labelFor(o)}
-          </button>
-        );
-      })}
-    </div>
+    <ValueChips
+      mono={false}
+      ariaLabel={ariaLabel}
+      value={value}
+      onChange={onChange}
+      options={options.map((o) => ({ value: o, label: labelFor(o), disabled }))}
+    />
   );
 }
 
@@ -154,6 +136,7 @@ export function RegisterInjuryDialog({
     >
       <DialogField label="Zona" required>
         <ChipGroup
+          ariaLabel="Zona"
           options={INJURY_ZONES}
           value={zone}
           labelFor={(z) => INJURY_ZONE_LABEL[z]}
@@ -163,6 +146,7 @@ export function RegisterInjuryDialog({
       </DialogField>
       <DialogField label="Gravedad" required>
         <ChipGroup
+          ariaLabel="Gravedad"
           options={INJURY_SEVERITIES}
           value={severity}
           labelFor={(s) => INJURY_SEVERITY_LABEL[s]}
@@ -171,36 +155,36 @@ export function RegisterInjuryDialog({
         />
       </DialogField>
       <DialogField label="Tipo" hint="opcional">
-        <input
+        <Input
           type="text"
+          size="lg"
           value={type}
           maxLength={TYPE_MAX}
           disabled={busy}
           onChange={(e) => setType(e.target.value)}
           placeholder="p. ej. tendinitis rotuliana"
-          className={TEXT_INPUT_CLS}
+          aria-label="Tipo"
         />
       </DialogField>
       <DialogField label="Desde" hint="opcional">
-        <input
+        <Input
           type="date"
+          size="lg"
           value={onset}
           max={todayIsoLocal()}
           disabled={busy}
           onChange={(e) => setOnset(e.target.value)}
-          className={DATE_INPUT_CLS}
           aria-label="Fecha de inicio"
         />
       </DialogField>
       <DialogField label="Nota" hint="opcional">
-        <textarea
+        <Textarea
           value={note}
           rows={2}
           maxLength={NOTE_MAX}
           disabled={busy}
           onChange={(e) => setNote(e.target.value)}
           placeholder="p. ej. molestia tras la tirada larga…"
-          className={TEXTAREA_CLS}
         />
       </DialogField>
       {error ? <DialogError>{error}</DialogError> : null}
@@ -273,38 +257,38 @@ export function InjuryUpdateDialog({
       }
     >
       {target ? (
-        <p className="text-sm leading-relaxed text-[color:var(--v2-muted)]">
+        <p className="t-body text-v2-muted">
           {transitionHint(target)}
         </p>
       ) : null}
       {showResolved ? (
         <DialogField label="Fecha de alta" hint="opcional">
-          <input
+          <Input
             type="date"
+            size="lg"
             value={resolvedDate}
             max={todayIsoLocal()}
             disabled={busy}
             onChange={(e) => setResolvedDate(e.target.value)}
-            className={DATE_INPUT_CLS}
             aria-label="Fecha de alta"
           />
         </DialogField>
       ) : null}
       {showExpectedReturn ? (
         <DialogField label="Retorno estimado" hint="opcional">
-          <input
+          <Input
             type="date"
+            size="lg"
             value={expectedReturn}
             min={todayIsoLocal()}
             disabled={busy}
             onChange={(e) => setExpectedReturn(e.target.value)}
-            className={DATE_INPUT_CLS}
             aria-label="Retorno estimado"
           />
         </DialogField>
       ) : null}
       <DialogField label="Nota" hint={target ? 'opcional' : undefined} required={target === null}>
-        <textarea
+        <Textarea
           value={note}
           rows={2}
           maxLength={NOTE_MAX}
@@ -312,7 +296,6 @@ export function InjuryUpdateDialog({
           autoFocus
           onChange={(e) => setNote(e.target.value)}
           placeholder="p. ej. molestia 2/5, bajando…"
-          className={TEXTAREA_CLS}
         />
       </DialogField>
       {error ? <DialogError>{error}</DialogError> : null}
@@ -391,7 +374,7 @@ export function AdaptSessionsDialog({
 
   return (
     <LifecycleDialog
-      title="Adaptar sesiones"
+      title="Adaptar entrenos"
       onClose={onClose}
       busy={busy}
       footer={
@@ -409,84 +392,47 @@ export function AdaptSessionsDialog({
         </>
       }
     >
-      <p className="text-sm leading-relaxed text-[color:var(--v2-muted)]">
-        Marca las sesiones que adaptas por esta lesión. Las de reposo se excluyen de la adherencia;
+      <p className="t-body text-v2-muted">
+        Marca los entrenos que adaptas por esta lesión. Las de reposo se excluyen de la adherencia;
         las sustituidas o suavizadas cuentan al hacerlas. El atleta las verá etiquetadas en su plan.
       </p>
       {sessions.length === 0 ? (
-        <p className="rounded-[var(--v2-r-m)] border border-dashed border-[color:var(--v2-border)] px-3.5 py-4 text-center text-sm text-[color:var(--v2-faint)]">
-          No hay sesiones próximas programadas para adaptar.
-        </p>
+        <p className="t-body-sm text-v2-faint">No hay entrenos próximos programados para adaptar.</p>
       ) : (
-        <div className="flex max-h-[46vh] flex-col gap-1.5 overflow-y-auto">
+        <ul className="flex max-h-[46vh] flex-col divide-y divide-v2-border overflow-y-auto rounded-panel border border-v2-border">
           {sessions.map((s) => {
             const kind = picked[s.assignment_id];
             const on = kind != null;
             return (
-              <div
-                key={s.assignment_id}
-                className={cn(
-                  'rounded-[var(--v2-r-m)] border p-2.5 transition-colors',
-                  on
-                    ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)]'
-                    : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]',
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggle(s.assignment_id)}
+              <li key={s.assignment_id} className={on ? 'bg-v2-select px-3 py-2' : 'px-3 py-2'}>
+                <Checkbox
+                  checked={on}
                   disabled={busy}
-                  aria-pressed={on}
-                  className="v2-focus flex w-full items-center gap-2.5 text-left"
-                >
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-[var(--v2-r-2xs)] border',
-                      on
-                        ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-                        : 'border-[color:var(--v2-border-strong)]',
-                    )}
-                  >
-                    {on ? <MIcon name="check" size={13} /> : null}
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-body font-semibold text-[color:var(--v2-fg)]">
-                      {s.title}
+                  onCheckedChange={() => toggle(s.assignment_id)}
+                  className="w-full"
+                  label={
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate t-body font-medium text-v2-fg">{s.title}</span>
+                      <span className="t-meta text-v2-muted t-tnum">{s.date_label}</span>
                     </span>
-                    <span className="v2-num text-label text-[color:var(--v2-muted)]">
-                      {s.date_label}
-                    </span>
-                  </span>
-                </button>
+                  }
+                />
                 {on ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5 pl-7">
-                    {INJURY_ADAPTATIONS.map((a) => {
-                      const active = kind === a;
-                      return (
-                        <button
-                          key={a}
-                          type="button"
-                          disabled={busy}
-                          onClick={() => setKind(s.assignment_id, a)}
-                          title={ADAPTATION_META[a].hint}
-                          className={cn(
-                            'v2-focus inline-flex h-7 items-center rounded-[var(--v2-r-pill)] border px-2.5 text-label font-semibold transition-colors disabled:opacity-50',
-                            active
-                              ? 'border-[color:var(--v2-fg)] bg-[color:var(--v2-surface)] text-[color:var(--v2-fg)]'
-                              : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
-                          )}
-                        >
-                          {ADAPTATION_META[a].label}
-                        </button>
-                      );
-                    })}
+                  <div className="mt-2 pl-6">
+                    <ValueChips
+                      mono={false}
+                      ariaLabel={`Cómo se adapta ${s.title}`}
+                      value={kind}
+                      onChange={(a) => setKind(s.assignment_id, a)}
+                      options={INJURY_ADAPTATIONS.map((a) => ({ value: a, label: ADAPTATION_META[a].label, disabled: busy }))}
+                    />
+                    <p className="mt-1 t-meta text-v2-faint">{ADAPTATION_META[kind].hint}</p>
                   </div>
                 ) : null}
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
       {error ? <DialogError>{error}</DialogError> : null}
     </LifecycleDialog>
@@ -538,30 +484,29 @@ export function InjuryPauseDialog({
         </>
       }
     >
-      <p className="text-sm leading-relaxed text-[color:var(--v2-muted)]">
+      <p className="t-body text-v2-muted">
         Congela el plan mientras se recupera y excluye estos días de la adherencia. El motivo queda
         como lesión. Podrás reactivarlo cuando vuelva.
       </p>
       <DialogField label="Vuelve el" hint="opcional">
-        <input
+        <Input
           type="date"
+          size="lg"
           value={endDate}
           min={todayIsoLocal()}
           disabled={busy}
           onChange={(e) => setEndDate(e.target.value)}
-          className={DATE_INPUT_CLS}
           aria-label="Fecha de vuelta"
         />
       </DialogField>
       <DialogField label="Nota" hint="opcional">
-        <textarea
+        <Textarea
           value={note}
           rows={2}
           maxLength={NOTE_MAX}
           disabled={busy}
           onChange={(e) => setNote(e.target.value)}
           placeholder="p. ej. retorno progresivo en 3 semanas…"
-          className={TEXTAREA_CLS}
         />
       </DialogField>
       {error ? <DialogError>{error}</DialogError> : null}

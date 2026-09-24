@@ -216,12 +216,34 @@ describeWithDb('GET .../sessions/[session_id]/detail — contrato (DB real)', ()
       tramos: Array<Record<string, unknown>>;
     };
     expect(compliance.tramos).toHaveLength(2);
-    expect(compliance.tramos[0]).toEqual({
+    // Este contrato se clavó (188de27, 10-ago) cuando un tramo eran tres claves.
+    // El 12-ago creció a propósito en `lib/dashboard/coach/run-compliance.ts`:
+    // `duration_verdict` (49e3437, DECISIONS «La duración es la SEGUNDA pregunta
+    // de un tramo»), `rep_ordinal` + `band_axis` (26c9924, DECISIONS «Los
+    // agregados del entrenador»), `band` (885a616, DECISIONS «la precedencia de
+    // la banda vive en dos sitios») y `prescribed_incline_pct` (60d6b9f). Todo
+    // sale de la prescripción del propio coach y de la ejecución de su atleta:
+    // es el MISMO objeto que lee la app del atleta, nada de otro club.
+    // Las tres claves de siempre, y cada campo nuevo con su valor de este caso.
+    expect(compliance.tramos[0]).toMatchObject({
       item_uid: `segment-${segmentIds[0]}`,
       position: 0,
       verdict: 'dentro',
     });
+    // La banda contra la que se juzgó viaja resuelta: la 4:00-4:10 que pidió el
+    // coach, en el eje de ritmo (la que el panel pinta sobre la curva).
+    expect(compliance.tramos[0]!.band).toEqual({ axis: 'pace', fast_s: 240, slow_s: 250 });
+    expect(compliance.tramos[0]!.band_axis).toBe('pace');
+    // 1000 m se prescribió por DISTANCIA: no hay duración que juzgar y no se inventa.
+    expect(compliance.tramos[0]!.duration_verdict).toBeNull();
+    // Un lap por línea y sin leg_index (camino heredado): no hay estructura
+    // alineada de la que sacar la posición dentro de la serie, así que no se da.
+    expect(compliance.tramos[0]!.rep_ordinal).toBeNull();
+    // Nadie pidió cuesta.
+    expect(compliance.tramos[0]!.prescribed_incline_pct).toBeNull();
     expect(compliance.tramos[1]!.verdict).toBe('fuera_lento');
+    // La serie lenta se juzgó contra la MISMA banda: se fue por lento, no por otra vara.
+    expect(compliance.tramos[1]!.band).toEqual({ axis: 'pace', fast_s: 240, slow_s: 250 });
     expect(compliance.summary).toMatchObject({
       total: 2,
       evaluable: 2,

@@ -1,4 +1,5 @@
-// v2 · ATLETA · INTAKE — server component for the per-athlete intake review. Gates
+// v2 · ATLETA · INTAKE — server component for the per-athlete intake review
+// (`?fila=<ids>`: «Revisar en fila» de Hoy — ofrece «Siguiente alta»). Gates
 // on the coach session, loads the composed review payload (profile + level-matched
 // month proposal + agnostic classification), and renders the client review screen.
 // A non-existent / not-owned athlete → notFound().
@@ -13,10 +14,18 @@ export const dynamic = 'force-dynamic';
 
 export default async function IntakeReviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; id: string }>;
+  searchParams: Promise<{ fila?: string }>;
 }) {
   const { locale, id } = await params;
+  const { fila } = await searchParams;
+  // «Revisar en fila» desde Hoy: las siguientes altas, en orden.
+  const queue = (fila ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter((x) => /^\d{1,18}$/.test(x) && x !== id);
   setRequestLocale(locale);
 
   const session = await getCoachSession();
@@ -31,5 +40,5 @@ export default async function IntakeReviewPage({
   });
   if (!review) notFound();
 
-  return <IntakeReview review={review} athleteId={String(athleteId)} />;
+  return <IntakeReview review={review} athleteId={String(athleteId)} queue={queue} />;
 }

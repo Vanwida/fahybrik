@@ -1,8 +1,11 @@
 import type { Sql } from 'postgres';
 import { getCurrentMicrociclo } from './current-microciclo';
-import { getTargetRaceRow } from './target-race';
+import { getTargetRaceRow, raceCountdownDay } from './target-race';
 import { addDays, isoDateString, startOfDayInBox } from '../dates';
 import { computeAthleteDailyReadiness } from './athlete-daily-readiness';
+import { loadAdherenceBatch } from './adherence';
+import { loadCoachThresholdsForAthlete } from './signal-thresholds-db';
+import { progressionVerdictOf } from './weekly-verdict-rules';
 
 export type ProgressionVerdict = 'up' | 'flat' | 'down';
 
@@ -68,11 +71,35 @@ export type AthleteContextPack = {
   compliance_7d: number | null;
   readiness_sub_score: number | null;
   data_gaps: string[];
+  /**
+   * Las señales VIVAS de Hoy que piden tocar la semana (readiness baja con base,
+   * VFC, RPE alto, entrenos sin hacer), tal y como las ve el coach — con su
+   * etiqueta y su evidencia. Las pone quien pide la evaluación (el botón
+   * «Proponer descarga», el cron): son el veredicto (`weekly-verdict-rules`),
+   * así que el motor y Hoy no pueden discrepar. Se guardan con el paquete para
+   * que el «por qué» de la propuesta se pueda volver a leer.
+   */
+  body_signals?: BodySignal[];
+};
+
+/** Una señal de Hoy que pide tocar la semana (ver `body_signals`). */
+export type BodySignal = {
+  kind: string;
+  severity: 'critical' | 'warning';
+  label: string;
+  evidence: string;
 };
 
 export async function buildAthleteContextPack(params: {
   athlete_id: number | bigint;
+  /** El día del plan (el del club, para el coach; el domingo evaluado, para la revisión semanal). */
   on_date?: Date;
+  /** El instante de la lectura: la cuenta atrás a la carrera va en el día del atleta (`raceCountdownDay`). */
+  now?: Date;
+  /** Las señales vivas de Hoy que piden tocar la semana (sin ellas, ninguna). */
+  body_signals?: BodySignal[];
+  /** El mínimo de adherencia del coach para progresar; sin él, se lee de su fila. */
+  progress_adherence_min_pct?: number;
   client: Sql;
 }): Promise<AthleteContextPack> {
   const client = params.client;
@@ -92,39 +119,25 @@ export async function buildAthleteContextPack(params: {
     from athletes where id = ${params.athlete_id as number} limit 1
   `;
 
-  // Días hasta la carrera objetivo (unified `races` spine, priority='target').
-  const targetRace = await getTargetRaceRow(params.athlete_id, client, today);
+  // Días hasta la carrera objetivo (unified `races` spine, priority='target'),
+  // en el día del ATLETA: la carrera es suya.
+  const targetRace = await getTargetRaceRow(params.athlete_id, client, await raceCountdownDay(params));
 
-  const complianceRows = await client<
-    Array<{ scheduled_7d: number; completed_7d: number; scheduled_28d: number; completed_28d: number; missed_7d: number }>
-  >`
-    select
-      count(*) filter (
-        where wa.scheduled_for >= ${weekAgoIso}::date and wa.scheduled_for <= ${todayIso}::date
-      )::int as scheduled_7d,
-      count(*) filter (
-        where wa.scheduled_for >= ${weekAgoIso}::date and wa.scheduled_for <= ${todayIso}::date
-          and wa.status = 'completed'
-      )::int as completed_7d,
-      count(*) filter (
-        where wa.scheduled_for >= ${monthAgoIso}::date and wa.scheduled_for <= ${todayIso}::date
-      )::int as scheduled_28d,
-      count(*) filter (
-        where wa.scheduled_for >= ${monthAgoIso}::date and wa.scheduled_for <= ${todayIso}::date
-          and wa.status = 'completed'
-      )::int as completed_28d,
-      count(*) filter (
-        where wa.status = 'missed'
-          and wa.scheduled_for >= ${weekAgoIso}::date and wa.scheduled_for <= ${todayIso}::date
-      )::int as missed_7d
-    from workout_assignments wa
-    where wa.athlete_id = ${params.athlete_id as number}
-  `;
-  const c = complianceRows[0];
-  const pct7 =
-    c && c.scheduled_7d > 0 ? Math.round((c.completed_7d / c.scheduled_7d) * 100) / 100 : null;
-  const pct28 =
-    c && c.scheduled_28d > 0 ? Math.round((c.completed_28d / c.scheduled_28d) * 100) / 100 : null;
+  // Adherencia: LA fórmula del panel (solo lo que ya tocaba; `adherence.ts`). La
+  // IA y el coach leen el mismo número que el roster y la ficha — antes contaba
+  // hoy sin hacer y solo `completed`, y el motor de la descarga decía otra cosa.
+  // `on_date` es el último día de la ventana (el domingo de la semana evaluada):
+  // se pasa a mediodía para que el día del atleta no se corra por el huso.
+  const adherenceNow = new Date(`${todayIso}T12:00:00.000Z`);
+  const [adh7, adh28] = await Promise.all([
+    loadAdherenceBatch({ client, athlete_ids: [params.athlete_id], window_days: 7, now: adherenceNow }),
+    loadAdherenceBatch({ client, athlete_ids: [params.athlete_id], window_days: 28, now: adherenceNow }),
+  ]);
+  const a7 = adh7.get(String(params.athlete_id)) ?? null;
+  const a28 = adh28.get(String(params.athlete_id)) ?? null;
+  const pct7 = a7?.pct != null ? a7.pct / 100 : null;
+  const pct28 = a28?.pct != null ? a28.pct / 100 : null;
+  const missed7 = a7?.missed ?? 0;
 
   const checkinRows = await client<Array<{ sub_score: number; notes: string | null }>>`
     select sub_score, notes from daily_checkins
@@ -207,20 +220,21 @@ export async function buildAthleteContextPack(params: {
   if (hrvRecent == null) dataGaps.push('hrv');
   if (subScore == null) dataGaps.push('checkin');
 
-  const progression = computeProgressionVerdict({
-    compliance_7d: pct7,
-    hrv_delta_pct: hrvDeltaPct,
-    sub_score: subScore,
-    readiness_score: readinessScore,
-    missed_7d: c?.missed_7d ?? 0,
+  const body_signals = params.body_signals ?? [];
+  const progression = progressionVerdictOf({
+    body_signals,
+    adherence_7d: pct7,
+    progress_adherence_min_pct:
+      params.progress_adherence_min_pct ??
+      (await loadCoachThresholdsForAthlete(client, params.athlete_id)).progress_adherence_min_pct,
   });
 
   const summaryParts: string[] = [];
-  if (pct7 != null) summaryParts.push(`Cumplimiento ${Math.round(pct7 * 100)}% 7d`);
+  if (pct7 != null && a7) summaryParts.push(`Adherencia (7 d) ${a7.pct} % · ${a7.done} de ${a7.due} hechas`);
   if (hrvDeltaPct != null) summaryParts.push(`HRV ${hrvDeltaPct >= 0 ? '+' : ''}${Math.round(hrvDeltaPct * 100)}%`);
   if (subScore != null) summaryParts.push(`Check-in ${subScore}/100`);
   if (readinessScore != null) summaryParts.push(`Readiness ${readinessScore}`);
-  const summary = summaryParts.slice(0, 5).join('; ') || 'Datos limitados esta semana';
+  const summary = summaryParts.slice(0, 5).join(' · ') || 'Datos limitados esta semana';
 
   return {
     identity: {
@@ -232,7 +246,7 @@ export async function buildAthleteContextPack(params: {
     compliance: {
       pct_7d: pct7,
       pct_28d: pct28,
-      missed_7d: c?.missed_7d ?? 0,
+      missed_7d: missed7,
     },
     readiness: {
       score: readinessScore,
@@ -252,26 +266,8 @@ export async function buildAthleteContextPack(params: {
     compliance_7d: pct7,
     readiness_sub_score: subScore,
     data_gaps: dataGaps,
+    ...(body_signals.length > 0 ? { body_signals } : {}),
   };
-}
-
-function computeProgressionVerdict(input: {
-  compliance_7d: number | null;
-  hrv_delta_pct: number | null;
-  sub_score: number | null;
-  readiness_score: number | null;
-  missed_7d: number;
-}): ProgressionVerdict {
-  const bad =
-    (input.compliance_7d != null && input.compliance_7d < 0.6) ||
-    (input.hrv_delta_pct != null && input.hrv_delta_pct < -0.15) ||
-    (input.sub_score != null && input.sub_score < 40) ||
-    (input.readiness_score != null && input.readiness_score < 45) ||
-    input.missed_7d >= 2;
-
-  if (bad) return 'down';
-  if (input.compliance_7d != null && input.compliance_7d >= 0.85) return 'up';
-  return 'flat';
 }
 
 function truncate(s: string, max: number): string {

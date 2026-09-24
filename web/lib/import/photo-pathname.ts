@@ -1,3 +1,5 @@
+import { ownerIdFromPathname } from '@/lib/storage/owned-pathname';
+
 // #28 importer — the coach_id folder segment of an
 // `import-photos/<coach_id>/…` pathname. Its own tiny module (not inline in
 // photo-proposal.ts) purely so `photo-blob-resolve.ts` can use it without
@@ -14,13 +16,6 @@
  * (lib/chat/upload.ts).
  */
 export function importPhotoPathnameOwner(pathname: string): bigint | null {
-  const segments = pathname.split('/').filter(Boolean);
-  if (segments.length < 5 || segments[0] !== 'import-photos') return null;
-  const idSeg = segments[1];
-  if (!idSeg || !/^\d+$/.test(idSeg)) return null;
-  try {
-    return BigInt(idSeg);
-  } catch {
-    return null;
-  }
+  // Forma exacta, sin `..` ni rutas absolutas (lib/storage/owned-pathname.ts).
+  return ownerIdFromPathname(pathname, 'import-photos');
 }

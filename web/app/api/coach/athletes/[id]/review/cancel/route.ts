@@ -32,7 +32,7 @@ export async function POST(_req: Request, ctx: Ctx) {
     // Best-effort: si la reunión se creó en Google, borra el evento para no dejar un Meet
     // huérfano en el calendario. Nunca bloquea la cancelación.
     if (result.cancelled && result.google_event_id) {
-      await deleteCalendarEvent(result.google_event_id).catch(() => {});
+      await deleteCalendarEvent(session.coach_id, result.google_event_id).catch(() => {});
     }
     return jsonOk({ cancelled: result.cancelled });
   } catch (err) {

@@ -1,5 +1,5 @@
 import type { Sql } from 'postgres';
-import { addDays, mondayOfWeek, mondayOfWeekInBox, isoDateString, parseIsoDate } from '../dates';
+import { addDays, mondayOfWeek, isoDateString, parseIsoDate } from '../dates';
 
 export type IntakeMonthProposal = {
   month_template_id: string;
@@ -13,6 +13,13 @@ export async function proposeFirstMonthForIntake(params: {
   coach_id: number | bigint;
   athlete_id: number | bigint;
   level_id: number | bigint;
+  /**
+   * The CLUB's today, already resolved (a UTC-midnight day, `parseIsoDate`):
+   * when the first plan starts is the coach's decision, so «this week» is the
+   * club's week (`coaches.timezone`; docs/DECISIONS.md 2026-09-23, «Qué día es
+   * en cada sitio»). Required: the caller decides whose day it is.
+   */
+  on_date: Date;
   client: Sql;
 }): Promise<IntakeMonthProposal | null> {
   const client = params.client;
@@ -34,8 +41,8 @@ export async function proposeFirstMonthForIntake(params: {
   if (!tpl) return null;
 
   // Suggested start (AGNOSTIC): the day after the athlete's last assigned
-  // microciclo ends, or this week's Monday when they have no plan yet (the common
-  // first-intake case).
+  // microciclo ends, or this week's Monday — the club's week, `on_date` — when
+  // they have no plan yet (the common first-intake case).
   const lastRows = await client<Array<{ end_date: string | null }>>`
     select to_char(max(end_date), 'YYYY-MM-DD') as end_date
     from athlete_month_assignments
@@ -43,7 +50,7 @@ export async function proposeFirstMonthForIntake(params: {
   `;
   const start = lastRows[0]?.end_date
     ? isoDateString(addDays(parseIsoDate(lastRows[0].end_date), 1))
-    : isoDateString(mondayOfWeekInBox(new Date()));
+    : isoDateString(mondayOfWeek(params.on_date));
 
   return {
     month_template_id: tpl.id,

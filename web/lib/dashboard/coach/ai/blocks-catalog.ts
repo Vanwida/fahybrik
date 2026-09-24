@@ -99,6 +99,12 @@ export async function loadComposableBlocks(
            format, source_ref, default_modifiers
     from blocks
     where coach_id = ${Number(coachId)}
+      -- El compositor elige POR grupo; un bloque sin clasificar (0240: el grupo
+      -- es opcional) no tiene dónde caer y se usa a mano, no por la IA.
+      and methodology_group_id is not null
+      -- Un bloque archivado (0236) está retirado: ni la IA ni el importador lo
+      -- eligen. Sigue en la Biblioteca, en «Archivados».
+      and archived_at is null
     order by methodology_group_id asc, id asc
   `;
   if (rows.length === 0) return [];

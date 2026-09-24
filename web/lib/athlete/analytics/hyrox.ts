@@ -29,6 +29,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { buildGoalGap } from '@/lib/athlete/goal-gap';
 import {
   buildRaceTransfer,
@@ -63,7 +64,12 @@ interface RaceRow {
 }
 
 export async function buildHyroxSection(
-  args: { athlete_id: number | bigint; period: ResolvedPeriod },
+  args: {
+    athlete_id: number | bigint;
+    period: ResolvedPeriod;
+    /** The athlete's zone, when the caller already resolved it; read here if not. */
+    tz?: string;
+  },
   client: Sql = defaultSql,
 ): Promise<AnalyticsSection> {
   const athleteId = Number(args.athlete_id);
@@ -190,7 +196,8 @@ export async function buildHyroxSection(
   // Training sessions scored by TIME (For Time / HYROX sim / …) or ROUNDS+reps
   // (AMRAP / Tabata) — workout_executions.score_* (mig 0069). Unlike the races
   // above these ARE training, so they honour the period window.
-  cards.push(await buildScoresCard(client, athleteId, period));
+  const tz = args.tz ?? (await loadAthleteTimezone(client, athleteId));
+  cards.push(await buildScoresCard(client, athleteId, period, tz));
 
   const hasScores = cards.some((c) => c.id === 'sim_scores' && c.availability === 'real');
   return {
@@ -292,11 +299,14 @@ async function buildScoresCard(
   client: Sql,
   athleteId: number,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<AnalyticsCard> {
+  // A session is dated on the ATHLETE's day (DECISIONS «Qué día es en cada
+  // sitio»), not the UTC one — same as its drill (drills/hyrox.ts).
   const scored = await client<ScoreRow[]>`
     select
       we.id::text as execution_id,
-      to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
+      to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as day,
       we.score_time_s, we.score_rounds, we.score_reps,
       t.name as template_name, t.format::text as format
     from workout_executions we

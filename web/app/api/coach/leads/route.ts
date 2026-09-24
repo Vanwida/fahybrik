@@ -1,10 +1,11 @@
 // GET /api/coach/leads — list web-onboarding leads for the coach dashboard.
-// Coach-guarded. Leads are a standalone pipeline (not athletes); single-coach launch
-// so no per-coach scoping. See web/lib/dashboard/coach/leads.ts.
+// Coach-guarded. Leads are a standalone pipeline (not athletes), scoped to the session's
+// coach (`leadOwnedBy`, lib/leads/owner.ts). See web/lib/dashboard/coach/leads.ts.
 
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { listLeadsForCoach } from '@/lib/dashboard/coach/leads';
+import { negocioForbidden } from '@/lib/coach/negocio-gate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,9 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const session = await getCoachSession();
   if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
+  const noNegocio = await negocioForbidden(session.coach_id);
+  if (noNegocio) return noNegocio;
 
-  const data = await listLeadsForCoach();
+  const data = await listLeadsForCoach(session.coach_id);
   return jsonOk(data);
 }

@@ -93,7 +93,7 @@ export function ArchetypeBlockForm({
           Picking sets the real exercise_id (A3 fix) + inherits modality. */}
       {!isMultiItem && !isTest && firstItem ? (
         <div className="space-y-1.5">
-          <span className="v2-micro">Ejercicio</span>
+          <span className="t-meta text-v2-muted">Ejercicio</span>
           <ExercisePickerField
             item={firstItem}
             destinationLabel={block.title || 'Ejercicio'}

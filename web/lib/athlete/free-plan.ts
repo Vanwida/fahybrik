@@ -11,6 +11,7 @@ import {
 } from '@fahybrid/shared/domain/free-plan';
 import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
 import type { MarkRow } from '@fahybrid/shared/domain/athlete/mark-projection';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { sql as defaultSql, type Sql } from '@/lib/db';
 
 // Loader for the FREE Plan tab — the athlete WITHOUT a coach.
@@ -93,12 +94,19 @@ function toRaceRow(row: RaceQueryRow): RaceRow {
 export async function loadFreePlan(
   athlete_id: number,
   client: Sql = defaultSql,
+  /** `now`: the instant «today» is read at (tests); defaults to now. */
+  opts: { now?: Date } = {},
 ): Promise<FreePlanPayload> {
   const markSlugs = MARKS.map((m) => m.slug);
+  // «Today» is HIS day (DECISIONS «Qué día es en cada sitio»): whether his target
+  // is still ahead and how old a mark is are read in his calendar, on both ends.
+  // Only the two reads that need it wait for his zone.
+  const nowIso = (opts.now ?? new Date()).toISOString();
+  const tzP = loadAthleteTimezone(client, athlete_id);
   const [raceRows, benchmarkRows, strengthRows, vo2maxRows] = await Promise.all([
     // Completed races (the evidence) AND the upcoming target (the goal) in one
     // read — they come from the same table and the domain splits them.
-    client<RaceQueryRow[]>`
+    tzP.then((tz) => client<RaceQueryRow[]>`
       select
         r.id::text as race_id,
         r.name,
@@ -117,24 +125,27 @@ export async function loadFreePlan(
       where r.athlete_id = ${athlete_id}
         and (
           r.status = 'completed'
-          or (r.status in ('planned', 'registered') and r.priority = 'target' and r.race_date >= current_date)
+          or (
+            r.status in ('planned', 'registered') and r.priority = 'target'
+            and r.race_date >= (${nowIso}::timestamptz at time zone ${tz})::date
+          )
         )
       order by r.race_date
-    `,
+    `),
     // His measured marks. The provenance filter (onboarding / unknown are
     // refused) lives in the pure projection, so this stays a plain read.
-    client<BenchmarkQueryRow[]>`
+    tzP.then((tz) => client<BenchmarkQueryRow[]>`
       select
         exercise_slug,
         value::text as value,
-        (current_date - recorded_at::date)::int as age_days,
+        ((${nowIso}::timestamptz at time zone ${tz})::date - (recorded_at at time zone ${tz})::date)::int as age_days,
         source,
         run_context
       from athlete_benchmarks
       where athlete_id = ${athlete_id}
         and exercise_slug = any(${markSlugs}::text[])
       order by recorded_at desc
-    `,
+    `),
     // His stored one-rep maxes — latest version per lift. NO coach join.
     client<StrengthQueryRow[]>`
       select distinct on (exercise_slug)

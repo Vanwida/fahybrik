@@ -33,8 +33,6 @@ import {
   sanitizeHrBpm,
   sanitizeHrSource,
   sanitizeInclinePct,
-  sanitizeLegPhase,
-  sanitizeLegRole,
   sanitizeNonNegative,
   sanitizeNonNegativeInt,
   sanitizeNumericColumn,
@@ -46,6 +44,7 @@ import {
   sanitizeSegmentSource,
 } from '@/lib/sync/sanitize-measurement';
 import { type SegmentInput } from '@/lib/sync/segment-input-schema';
+import { legAttribution, normalizeModality, priorWorkSeconds } from '@/lib/sync/segment-derivations';
 
 // Re-export the honest-logging vocabulary (single source lives in shared) so the
 // sync layer's public surface stays self-contained for callers/tests.
@@ -78,98 +77,7 @@ export {
 
 export { deriveRepsStatus } from '@/lib/sync/ingest-segment-sets';
 
-/** Normalise a free-ish modality string from the client to the canonical set. */
-export function normalizeModality(raw: string | null | undefined): SegmentModality {
-  if (!raw) return 'other';
-  const v = raw.trim().toLowerCase();
-  switch (v) {
-    case 'run':
-    case 'running':
-      return 'run';
-    case 'row':
-    case 'rowing':
-    case 'rowerg':
-    case 'row-erg':
-      return 'row';
-    case 'ski':
-    case 'skierg':
-    case 'ski-erg':
-      return 'ski';
-    case 'bike':
-    case 'bikeerg':
-    case 'bike-erg':
-    case 'cycling':
-    case 'assault-bike':
-      return 'bike';
-    case 'strength':
-    case 'lift':
-    case 'weights':
-      return 'strength';
-    default:
-      return 'other';
-  }
-}
-
-/**
- * Honest per-segment duration in whole seconds: explicit `duration_seconds`
- * wins; else derive it from explicit started/ended timestamps; else UNKNOWN
- * (null) — we never invent a duration from the execution window.
- *
- * Exported because the execution recorder ranks the tramos by this SAME
- * duration to pick `totals_source` (the longest tramo owns the totals). One
- * rule, one place: a second definition would let the two disagree.
- */
-export function segmentDurationSeconds(seg: SegmentInput): number | null {
-  const explicit = sanitizeDurationSeconds(seg.duration_seconds);
-  if (explicit != null) return explicit;
-  const started = coerceWireInstant(seg.started_at);
-  const ended = coerceWireInstant(seg.ended_at);
-  if (started && ended) {
-    const d = (new Date(ended).getTime() - new Date(started).getTime()) / 1000;
-    return Number.isFinite(d) && d >= 0 ? Math.round(d) : null;
-  }
-  return null;
-}
-
-/**
- * prior_work_s for one segment = summed duration of the payload segments that
- * come BEFORE it (lower position) — a fatigue proxy for analytics/prediction.
- * Honest-or-nothing: if ANY earlier segment has no measurable duration, prior
- * work is unknown → null (never a partial sum). The first segment has 0 prior
- * work — a fact, not a fabrication.
- */
-function priorWorkSeconds(segments: SegmentInput[], current: SegmentInput): number | null {
-  let sum = 0;
-  for (const s of segments) {
-    if (s.position >= current.position) continue;
-    const d = segmentDurationSeconds(s);
-    if (d == null) return null;
-    sum += d;
-  }
-  return sanitizeNonNegativeInt(sum);
-}
-
-/**
- * La atribución de tramo de una carrera estructurada (mig 0146): índice plano +
- * rol + fase. TODO o NADA — el CHECK `segment_executions_leg_all_or_none_chk` lo
- * exige, y por una razón: media atribución no responde ninguna de las dos
- * preguntas para las que existe (¿contra qué tramo prescrito casa? ¿es una serie
- * o el trote de vuelta?). Un cliente que mande solo una parte aterriza como «esta
- * fila no es un bout de carrera», que es la respuesta honesta.
- */
-function legAttribution(seg: SegmentInput): {
-  index: number | null;
-  role: string | null;
-  phase: string | null;
-} {
-  const index = sanitizeNonNegativeInt(seg.leg_index);
-  const role = sanitizeLegRole(seg.leg_role);
-  const phase = sanitizeLegPhase(seg.leg_phase);
-  if (index == null || role == null || phase == null) {
-    return { index: null, role: null, phase: null };
-  }
-  return { index, role, phase };
-}
+export { normalizeModality, segmentDurationSeconds } from '@/lib/sync/segment-derivations';
 
 /** The effort CONTEXT copied off a template_segment (see migration 0120). */
 type SegmentContext = {
@@ -206,8 +114,19 @@ export async function ingestExecutionSegments(args: {
    * caller has no session format.
    */
   sessionFormat?: string | null;
+  /**
+   * The athlete who owns this execution. When given, a tramo's
+   * `template_segment_id` (it comes from the client) only links to a template
+   * this athlete could have been given: their coach's, or their own instance.
+   * Anything else — another athlete's instance, another coach's library — is
+   * treated like an id that no longer exists (no link, no prescription copied).
+   * DECISIONS 2026-09-23 «Aislamiento entre coaches»: an id from a body never
+   * crosses without the owner in the `where`.
+   */
+  templateOwnerAthleteId?: number;
 }): Promise<number> {
   const { sql, executionId, executionStartedAt, sessionFormat } = args;
+  const ownerAthleteId = args.templateOwnerAthleteId ?? null;
   const segments = args.segments.slice(0, SEGMENTS_PER_EXECUTION_MAX);
   if (segments.length === 0) return 0;
 
@@ -235,13 +154,26 @@ export async function ingestExecutionSegments(args: {
       }>
     >`
       select
-        id::text,
-        block_format,
-        prescription_json->>'scheme' as scheme,
-        exercise_id::text as exercise_id,
-        prescription_json
-      from template_segments
-      where id in ${sql(templateSegmentIds)}
+        ts.id::text,
+        ts.block_format,
+        ts.prescription_json->>'scheme' as scheme,
+        ts.exercise_id::text as exercise_id,
+        ts.prescription_json
+      from template_segments ts
+      where ts.id in ${sql(templateSegmentIds)}
+        and (
+          ${ownerAthleteId}::bigint is null
+          or exists (
+            select 1
+            from templates t
+            join athletes a on a.id = ${ownerAthleteId}::bigint
+            where t.id = ts.template_id
+              and (
+                t.instance_athlete_id = a.id
+                or (t.instance_athlete_id is null and t.coach_id = a.coach_id)
+              )
+          )
+        )
     `;
     for (const r of rows) {
       contextById.set(Number(r.id), {

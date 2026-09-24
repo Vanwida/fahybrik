@@ -1,65 +1,68 @@
 'use client';
 
-// V2MobileNav — the mobile shell navigation (< lg). The V2Sidebar is desktop-only
-// (`hidden lg:flex`) and before this component NOTHING replaced it on a phone: no
-// way to change section, reach Ajustes or sign out. Market-standard fix, signed
-// off by Alex on the HTML mockup: a fixed bottom tab bar with the operational
-// four (Hoy · Atletas · Mensajes · Leads) plus «Más», a bottom sheet holding the
-// remaining sections and the account block (identity + cerrar sesión).
-//
-// Nav data is the SAME module the sidebar reads (components/v2/nav.ts) — one
-// source of truth for hrefs, labels, icons and badge wiring.
+// La navegación del móvil (< lg): barra de pestañas fija — Hoy · Atletas ·
+// Mensajes · Programar · Más — y la hoja «Más» con Negocio (si lo tiene), Ajustes,
+// Ayuda, el tema, la cuenta y Cerrar sesión. Objetivos de 44 px, zona segura,
+// scroll bloqueado detrás de la hoja, Esc cierra, cerrar al navegar.
+// Los datos son los mismos que la barra lateral (components/v2/nav.ts).
 
 import { useEffect, useState } from 'react';
+import { ChevronRight, CircleHelp, LogOut, Moon, MoreHorizontal, Store, UserRound } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
-import { MIcon } from '@/components/ui/MIcon';
-import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
-import { LogoutButton } from '@/components/v2/ajustes/LogoutButton';
+import { Avatar, Button, Switch } from '@/components/v2/ui';
+import { useV2Theme } from '@/components/v2/theme/V2ThemeProvider';
+import { useSignOut } from '@/components/v2/AccountMenu';
 import {
-  V2_NAV_CLUB,
-  V2_NAV_GROUP_LABELS,
-  V2_NAV_GUIDE,
-  V2_NAV_ITEMS,
-  V2_NAV_SETTINGS,
-  isV2NavActive,
-  type V2NavItem,
+  GUIA_HREF,
+  MOBILE_TAB_KEYS,
+  NAV_SETTINGS,
+  badgeLabel,
+  isNavActive,
+  visibleNavItems,
+  type NavItem,
 } from '@/components/v2/nav';
+import type { ShellCounts } from '@/components/v2/V2Sidebar';
 import { cn } from '@/lib/utils';
 
-/** The four operational tabs that live directly in the bar (thumb reach).
- *  Atletas primero: es la casa del panel (rediseño FLEXR). */
-const PRIMARY_TAB_HREFS = ['/atletas', '/hoy', '/mensajes', '/leads'] as const;
-
-const primaryTabs: V2NavItem[] = PRIMARY_TAB_HREFS.map(
-  (href) => V2_NAV_ITEMS.find((item) => item.href === href),
-).filter((item): item is V2NavItem => item !== undefined);
-
-/** Everything else lives in the «Más» sheet, keeping the sidebar's grouping. */
-const sheetGroups: { label: string | null; items: V2NavItem[] }[] = [
-  {
-    label: V2_NAV_GROUP_LABELS.negocio,
-    items: V2_NAV_ITEMS.filter(
-      (item) => item.group === 'negocio' && !PRIMARY_TAB_HREFS.includes(item.href as (typeof PRIMARY_TAB_HREFS)[number]),
-    ),
-  },
-  {
-    label: V2_NAV_GROUP_LABELS.metodo,
-    items: V2_NAV_ITEMS.filter((item) => item.group === 'metodo'),
-  },
-  { label: null, items: [V2_NAV_GUIDE, V2_NAV_CLUB, V2_NAV_SETTINGS] },
-];
-
-const sheetHrefs = sheetGroups.flatMap((g) => g.items.map((i) => i.href));
-
-function TabBadge({ count }: { count: number }) {
-  if (count <= 0) return null;
+function CountPill({ count, className }: { count: number | null; className?: string }) {
+  const label = badgeLabel(count);
+  if (!label) return null;
   return (
     <span
-      className="absolute -right-2.5 -top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-nano font-bold"
-      style={{ background: 'var(--v2-accent)', color: 'var(--v2-accent-fg)' }}
+      aria-hidden
+      className={cn(
+        'flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-v2-fg px-1 t-meta font-semibold leading-none text-v2-bg t-tnum',
+        className,
+      )}
     >
-      {count > 9 ? '9+' : count}
+      {label}
     </span>
+  );
+}
+
+function SheetLink({ href, label, icon: Icon, count, active, onNavigate }: {
+  href: string;
+  label: string;
+  icon: NavItem['icon'];
+  count?: number | null;
+  active: boolean;
+  onNavigate: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'flex min-h-12 items-center gap-3 rounded-ctl px-3 t-body outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--v2-accent)]',
+        active ? 'bg-v2-select font-semibold text-v2-select-fg' : 'text-v2-fg active:bg-v2-hover',
+      )}
+    >
+      <Icon aria-hidden strokeWidth={1.75} className="size-5 shrink-0 text-v2-muted" />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <CountPill count={count ?? null} />
+      <ChevronRight aria-hidden strokeWidth={1.75} className="size-4 shrink-0 text-v2-faint" />
+    </Link>
   );
 }
 
@@ -67,34 +70,33 @@ export function V2MobileNav({
   coach_name,
   coach_email,
   coach_avatar_url,
-  unread_messages = 0,
-  leads_nuevo = 0,
+  counts,
+  negocio,
 }: {
   coach_name: string;
   coach_email: string;
   coach_avatar_url: string | null;
-  unread_messages?: number;
-  leads_nuevo?: number;
+  counts: ShellCounts;
+  negocio: boolean;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { theme, setTheme } = useV2Theme();
+  const { signOut, signingOut } = useSignOut();
 
-  const badgeCounts: Record<NonNullable<V2NavItem['badge']>, number> = {
-    mensajes: unread_messages,
-    leads: leads_nuevo,
-  };
-  const badgeFor = (item: V2NavItem) => (item.badge ? badgeCounts[item.badge] : 0);
-  const masActive = sheetHrefs.some((href) => isV2NavActive(pathname, href));
+  const items = visibleNavItems({ negocio });
+  const tabs = items.filter((i) => MOBILE_TAB_KEYS.includes(i.key));
+  const negocioItem = items.find((i) => i.key === 'negocio') ?? null;
+  const sheetHrefs = [negocioItem?.href, NAV_SETTINGS.href, GUIA_HREF].filter(Boolean) as string[];
+  const masActive = sheetHrefs.some((href) => isNavActive(pathname, href));
 
-  // Close the sheet on navigation (state adjusted during render, per React docs —
-  // an effect here would trigger a cascading re-render lint error).
+  // Cerrar la hoja al navegar (ajuste durante el render, como indica React).
   const [lastPath, setLastPath] = useState(pathname);
   if (lastPath !== pathname) {
     setLastPath(pathname);
     if (open) setOpen(false);
   }
 
-  // Lock the page scroll behind the open sheet.
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -109,131 +111,109 @@ export function V2MobileNav({
     };
   }, [open]);
 
-  const tabClass = (active: boolean) =>
+  const close = () => setOpen(false);
+  const tabCls = (active: boolean) =>
     cn(
-      'v2-focus relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-[var(--v2-r-s)] px-1 pb-1 pt-1.5',
-      'text-eyebrow font-bold tracking-[0.02em] transition-colors',
-      active ? 'text-[color:var(--v2-accent-text)]' : 'text-[color:var(--v2-muted)]',
+      'relative flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-ctl px-1 t-meta outline-none',
+      'focus-visible:shadow-[inset_0_0_0_2px_var(--v2-accent)]',
+      active ? 'font-semibold text-v2-fg' : 'font-medium text-v2-muted',
     );
 
   return (
     <div className="lg:hidden">
-      {/* Scrim + sheet «Más» */}
       {open ? (
-        <button
-          type="button"
-          aria-label="Cerrar menú"
-          onClick={() => setOpen(false)}
-          className="fixed inset-0 z-30 cursor-default"
-          style={{ background: 'var(--v2-scrim)' }}
-        />
+        <div aria-hidden onClick={close} className="fixed inset-0 z-30 bg-v2-scrim" />
       ) : null}
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Más secciones"
+        aria-label="Más"
         aria-hidden={!open}
+        inert={!open}
         className={cn(
-          'fixed inset-x-0 bottom-0 z-40 flex max-h-[78dvh] flex-col gap-4 overflow-y-auto',
-          'rounded-t-[var(--v2-r-l)] border-t border-[color:var(--v2-border)]',
-          'bg-[color:var(--v2-elevated)] shadow-[var(--v2-shadow-pop)]',
-          'px-4 pt-2.5 pb-[calc(16px+env(safe-area-inset-bottom))]',
-          'transition-transform duration-200 ease-out motion-reduce:transition-none',
+          'fixed inset-x-0 bottom-0 z-40 flex max-h-[85dvh] flex-col overflow-y-auto',
+          'rounded-t-panel border-t border-v2-border bg-v2-elevated shadow-pop',
+          'px-3 pt-2 pb-[calc(12px+env(safe-area-inset-bottom))]',
+          'transition-transform duration-[var(--v2-dur)] ease-[var(--v2-ease)] motion-reduce:transition-none',
           open ? 'translate-y-0' : 'pointer-events-none translate-y-full',
         )}
       >
-        <span aria-hidden className="mx-auto h-1 w-9 shrink-0 rounded-full bg-[color:var(--v2-border-strong)]" />
-        {sheetGroups.map((group, gi) => (
-          <div key={group.label ?? `group-${gi}`} className="flex flex-col gap-2">
-            {group.label ? (
-              <span className="text-eyebrow font-bold uppercase tracking-[0.12em] text-[color:var(--v2-faint)]">
-                {group.label}
-              </span>
-            ) : null}
-            <div className="grid grid-cols-2 gap-2">
-              {group.items.map((item) => {
-                const active = isV2NavActive(pathname, item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={active ? 'page' : undefined}
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      'v2-focus flex min-h-[48px] items-center gap-2.5 rounded-[var(--v2-r-m)] border px-3 py-2.5 text-sm font-semibold transition-colors',
-                      active
-                        ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-fg)]'
-                        : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] text-[color:var(--v2-fg)]',
-                    )}
-                  >
-                    <MIcon
-                      name={item.icon}
-                      size={19}
-                      filled={active}
-                      className={active ? 'text-[color:var(--v2-accent-text)]' : 'text-[color:var(--v2-muted)]'}
-                    />
-                    {item.label}
-                  </Link>
-                );
-              })}
+        <span aria-hidden className="mx-auto mb-2 h-1 w-9 shrink-0 rounded-full bg-v2-border-strong" />
+        <nav aria-label="Más secciones" className="flex flex-col">
+          {negocioItem ? (
+            <SheetLink
+              href={negocioItem.href}
+              label={negocioItem.label}
+              icon={negocioItem.icon}
+              count={counts.negocio}
+              active={isNavActive(pathname, negocioItem.href)}
+              onNavigate={close}
+            />
+          ) : null}
+          <SheetLink href={NAV_SETTINGS.href} label={NAV_SETTINGS.label} icon={NAV_SETTINGS.icon} active={isNavActive(pathname, NAV_SETTINGS.href)} onNavigate={close} />
+          <SheetLink href={GUIA_HREF} label="Ayuda" icon={CircleHelp} active={isNavActive(pathname, GUIA_HREF)} onNavigate={close} />
+          <div className="flex min-h-12 items-center gap-3 rounded-ctl px-3 t-body text-v2-fg">
+            <Moon aria-hidden strokeWidth={1.75} className="size-5 shrink-0 text-v2-muted" />
+            <span className="min-w-0 flex-1">Tema oscuro</span>
+            <Switch aria-label="Tema oscuro" checked={theme === 'dark'} onCheckedChange={(on) => setTheme(on ? 'dark' : 'light')} />
+          </div>
+        </nav>
+
+        <div className="mt-2 flex flex-col border-t border-v2-border pt-3">
+          <div className="flex items-center gap-3 px-3 pb-2">
+            <Avatar name={coach_name} src={coach_avatar_url} size="xl" />
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate t-body font-semibold text-v2-fg">{coach_name}</span>
+              <span className="truncate t-meta text-v2-muted">{coach_email}</span>
             </div>
           </div>
-        ))}
-
-        {/* Account — on a phone this is the only place identity + sign-out live. */}
-        <div className="flex items-center gap-3 border-t border-[color:var(--v2-border)] pt-4">
-          <AthleteAvatar name={coach_name} imageUrl={coach_avatar_url} size="md" />
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-semibold text-[color:var(--v2-fg)]">{coach_name}</span>
-            <span className="truncate text-xs text-[color:var(--v2-muted)]">{coach_email}</span>
-          </div>
-          <div className="ml-auto shrink-0">
-            <LogoutButton />
-          </div>
+          <SheetLink href="/ajustes/perfil" label="Tu perfil" icon={UserRound} active={false} onNavigate={close} />
+          <SheetLink href="/ajustes/club" label="Tu club" icon={Store} active={false} onNavigate={close} />
+          <Button variant="ghost" size="lg" icon={LogOut} loading={signingOut} onClick={signOut} className="mt-1 h-12 justify-start px-3 text-v2-fg">
+            Cerrar sesión
+          </Button>
         </div>
       </div>
 
-      {/* Bottom tab bar */}
       <nav
         aria-label="Navegación principal"
-        className={cn(
-          'fixed inset-x-0 bottom-0 z-30 grid grid-cols-5',
-          'border-t border-[color:var(--v2-border)] backdrop-blur',
-          'px-1 pt-1 pb-[calc(4px+env(safe-area-inset-bottom))]',
-        )}
-        style={{ background: 'color-mix(in srgb, var(--v2-surface) 92%, transparent)' }}
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-v2-border bg-v2-surface px-1 pt-1 pb-[calc(4px+env(safe-area-inset-bottom))]"
       >
-        {primaryTabs.map((item) => {
-          const active = isV2NavActive(pathname, item.href);
+        {tabs.map((item) => {
+          const active = isNavActive(pathname, item.href) && !open;
+          const Icon = item.icon;
+          const badge = item.badge ? counts[item.badge] : null;
           return (
             <Link
-              key={item.href}
+              key={item.key}
               href={item.href}
-              aria-label={item.label}
               aria-current={active ? 'page' : undefined}
-              className={tabClass(active && !open)}
+              aria-label={badgeLabel(badge) ? `${item.label}, ${badgeLabel(badge)}` : item.label}
+              className={tabCls(active)}
             >
-              <span className="relative flex h-6 w-6 items-center justify-center">
-                <MIcon name={item.icon} filled={active && !open} size={23} />
-                <TabBadge count={badgeFor(item)} />
+              <span className="relative flex size-6 items-center justify-center">
+                <Icon aria-hidden strokeWidth={active ? 2.1 : 1.75} className="size-[22px]" />
+                <CountPill count={badge} className="absolute -right-3 -top-1.5" />
               </span>
               {item.label}
+              {active ? <span aria-hidden className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-v2-select-bar" /> : null}
             </Link>
           );
         })}
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => setOpen((o) => !o)}
           aria-haspopup="dialog"
           aria-expanded={open}
-          aria-label="Más secciones"
-          className={tabClass(open || masActive)}
+          className={cn(tabCls(open || masActive), 'h-auto border-0 hover:bg-transparent')}
         >
-          <span className="flex h-6 w-6 items-center justify-center">
-            <MIcon name="more_horiz" filled={open || masActive} size={23} />
+          <span className="relative flex size-6 items-center justify-center">
+            <MoreHorizontal aria-hidden strokeWidth={open || masActive ? 2.1 : 1.75} className="!size-[22px]" />
+            {negocioItem && !open ? <CountPill count={counts.negocio} className="absolute -right-3 -top-1.5" /> : null}
           </span>
           Más
-        </button>
+          {open || masActive ? <span aria-hidden className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-v2-select-bar" /> : null}
+        </Button>
       </nav>
     </div>
   );

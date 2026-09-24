@@ -549,8 +549,9 @@ async function insertSlotAssignment(params: {
       client: params.client,
       source_template_id: Number(params.session.template_id),
       athlete_id: params.athlete_id,
+      coach_id: params.coach_id,
     });
-    // Plantilla de origen desaparecida → nada que asignar.
+    // Plantilla de origen desaparecida (o de otro coach) → nada que asignar.
     if (instance == null) return 0;
     templateId = instance.template_id;
     version = instance.version;
@@ -674,9 +675,15 @@ async function pruneRemovedSlotAssignments(params: {
  * es la otra mitad de este contrato, no un olvido.
  *
  * `coachId` — el nombre de cada ejercicio hidratado es el MERGED (override del
- * coach si renombró la base, si no la base, 0132). El `source_block_id` llega
- * aquí por FK desde un part ya scoped a este coach; el join es solo para el
- * nombre — NUNCA le añadas un filtro de visibilidad.
+ * coach si renombró la base, si no la base, 0132). El join de ejercicios es
+ * solo para el nombre — NUNCA le añadas un filtro de visibilidad de ejercicio.
+ *
+ * Lo que SÍ lleva es la frontera de tenant sobre el BLOQUE: `source_block_id`
+ * viaja dentro del JSON de la semana (no es una FK), así que un part puede
+ * apuntar a un id cualquiera. Solo se hidratan bloques de `coachId`; uno ajeno
+ * se queda sin items, exactamente como un bloque sin desglosar. Así ni un JSON
+ * escrito antes de validar las referencias en la escritura puede traer el
+ * contenido de otro club.
  */
 export async function hydrateBlockParts(
   client: Sql,
@@ -697,6 +704,7 @@ export async function hydrateBlockParts(
            be.exercise_id::text, coalesce(ceo.name, e.name) as exercise_name,
            be.params_json, be.prescription_json, be.notes
     from block_exercises be
+    join blocks b on b.id = be.block_id and b.coach_id = ${Number(coachId)}
     join exercises e on e.id = be.exercise_id
     ${joinCoachOverride(client, coachId)}
     where be.block_id = any(${blockIds}::bigint[])

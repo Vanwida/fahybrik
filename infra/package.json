@@ -6,8 +6,7 @@
   "scripts": {
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"no tests\" && exit 0",
-    "seed:exercises": "tsx scripts/seed_exercises.ts",
+    "test": "tsx scripts/sql-split.test.ts",
     "seed:events": "tsx scripts/seed_events.ts",
     "seed:demo-race": "tsx scripts/seed_demo_race.ts",
     "seed:demo-dobles-race": "tsx scripts/seed_demo_dobles_race.ts",
@@ -15,7 +14,7 @@
     "seed:demo-coaches": "cd ../web && NODE_OPTIONS=--conditions=react-server ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json ../infra/scripts/seed_demo_coaches.ts",
     "seed:demo-draft-week": "cd ../web && NODE_OPTIONS=--conditions=react-server ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json ../infra/scripts/seed_demo_draft_week.ts",
     "cloudflare:variants": "node scripts/cloudflare-image-variants.ts",
-    "seed:all": "pnpm seed:exercises && pnpm seed:events",
+    "seed:all": "pnpm seed:events",
     "import:blocks": "tsx scripts/import_blocks_xlsx.ts",
     "import:plan": "tsx scripts/import_plan_html.ts",
     "parse:blocks": "tsx scripts/parse_blocks_structured.ts",

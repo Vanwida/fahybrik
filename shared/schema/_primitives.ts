@@ -25,7 +25,8 @@ export type UserRole = z.infer<typeof userRole>;
 export const athleteSex = z.enum(['male', 'female', 'other']);
 export type AthleteSex = z.infer<typeof athleteSex>;
 
-export const discipline = z.enum(['hyrox', 'crossfit', 'hybrid', 'running', 'strength', 'other']);
+// Mirrors the DB enum `discipline` (0271 added 'triathlon', which the athlete app offers).
+export const discipline = z.enum(['hyrox', 'crossfit', 'hybrid', 'running', 'triathlon', 'strength', 'other']);
 export type Discipline = z.infer<typeof discipline>;
 
 export const equipmentAccess = z.enum(['full_gym', 'home_gym', 'minimal', 'travel']);

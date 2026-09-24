@@ -3,6 +3,7 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { buildCohort } from '@/lib/coach/cohort';
 import { buildBriefing } from '@/lib/coach/briefing';
 import { countUnreadForCoach } from '@/lib/chat/service';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,15 +15,17 @@ export async function GET() {
   }
 
   // The unread count is READ, not guessed. Skipping it here is what made the
-  // builder's fallback fire on every single request.
-  const [cohort, unread_messages] = await Promise.all([
+  // builder's fallback fire on every single request. The date is the club's.
+  const [cohort, unread_messages, tz] = await Promise.all([
     buildCohort({ coach_id: session.coach_id }),
     countUnreadForCoach({ coach_id: session.coach_id }),
+    loadCoachTimezone(session.coach_id),
   ]);
   const briefing = buildBriefing({
     coach_first_name: session.full_name,
     cohort,
     unread_messages,
+    tz,
   });
   return jsonOk({ briefing });
 }

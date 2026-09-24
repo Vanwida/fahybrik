@@ -114,9 +114,10 @@ describeWithDb('PATCH /api/coach/blocks/[id] update (real DB)', () => {
     expect(blockUpdateSchema.safeParse({ title: '   ' }).success).toBe(false);
   });
 
-  test('rejects an out-of-range methodology group', () => {
+  test('rejects a non-positive methodology group and accepts none (0240: optional)', () => {
     expect(blockUpdateSchema.safeParse({ methodology_group_id: 0 }).success).toBe(false);
-    expect(blockUpdateSchema.safeParse({ methodology_group_id: 11 }).success).toBe(false);
+    expect(blockUpdateSchema.safeParse({ methodology_group_id: null }).success).toBe(true);
+    // An id that does not exist is refused by the service (FK-backed), not by a 1–10 range.
   });
 
   test('trims title', () => {

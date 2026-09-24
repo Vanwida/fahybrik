@@ -7,17 +7,17 @@
 
 import { describe, it, expect } from 'vitest';
 import type { EffectiveThresholds } from '@fahybrid/shared/domain/coach/signals';
-import { DEFAULT_COACH_SIGNAL_THRESHOLDS } from '@fahybrid/shared/domain/coach/signal-thresholds';
+import { DEFAULT_COACH_THRESHOLDS } from '@fahybrid/shared/domain/coach/signal-thresholds';
 import { THRESHOLDS, ATHLETE_ID, baseFacts, fired, notFired } from './facts';
 
 /** Los umbrales vigentes con los de este coach encima, como en el barrido real. */
-function conUmbrales(overrides: Partial<typeof DEFAULT_COACH_SIGNAL_THRESHOLDS>) {
+function conUmbrales(overrides: Partial<typeof DEFAULT_COACH_THRESHOLDS>) {
   return { ...THRESHOLDS, ...overrides } as EffectiveThresholds;
 }
 
-const N = DEFAULT_COACH_SIGNAL_THRESHOLDS.communication_question_unanswered_days;
-const CRITICA = DEFAULT_COACH_SIGNAL_THRESHOLDS.communication_task_overdue_critical_days;
-const M = DEFAULT_COACH_SIGNAL_THRESHOLDS.communication_protocol_unopened_days;
+const N = DEFAULT_COACH_THRESHOLDS.communication_question_unanswered_days;
+const CRITICA = DEFAULT_COACH_THRESHOLDS.communication_task_overdue_critical_days;
+const M = DEFAULT_COACH_THRESHOLDS.communication_protocol_unopened_days;
 
 function pregunta(over: Partial<{ days: number; others: number; blocks: boolean }> = {}) {
   return baseFacts({

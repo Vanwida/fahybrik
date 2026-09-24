@@ -11,7 +11,7 @@
  */
 
 /** Ruta de la biblioteca de bloques del coach (destino de los avisos). */
-export const BIBLIOTECA_HREF = '/biblioteca';
+export const BIBLIOTECA_HREF = '/programar/biblioteca';
 
 export type WeekNoticeCode =
   /** Bloques sin `block_exercises`: solo prosa → nada ejecutable que insertar. */

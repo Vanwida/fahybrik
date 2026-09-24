@@ -25,6 +25,12 @@ vi.mock('resend', () => ({
 
 const resolveClubNotifyEmail = vi.fn(async () => null as string | null);
 vi.mock('@/lib/coach/club-notify', () => ({ resolveClubNotifyEmail }));
+// Los correos de citas leen el huso del coach (DECISIONS 2026-09-23 · huso). Aquí
+// no hay base de datos: el huso por defecto, igual que las otras dos resoluciones.
+vi.mock('@/lib/coach/coach-timezone', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/coach/coach-timezone')>()),
+  loadCoachTimezone: vi.fn(async () => 'Europe/Madrid'),
+}));
 vi.mock('@/lib/coach/club-skin', () => ({
   resolveClubEmailSkin: vi.fn(async () => ({
     wordmark: 'FAHYBRID',

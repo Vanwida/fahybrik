@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
@@ -15,6 +16,7 @@ import {
   type WeekAdjustmentProposalJson,
 } from '@fahybrid/shared/schema/week-adjustment';
 import { loadCoachMethodMirror } from '@/lib/coach/method-interview';
+import { heuristicNoChangeReason, keepSummary, suggestFrom } from './week-adjust-copy';
 
 export type WeekAdjustmentProposalRecord = {
   id: string;
@@ -42,7 +44,7 @@ export class WeekAdjustmentError extends Error {
 // --------------------------------------------------------------------------
 //
 // Two-tier config:
-//   1) COACH_IA_MODEL (o PABLO_IA_MODEL, fallback) → optional override SOLO para esta tarea (semana adapt)
+//   1) COACH_IA_MODEL → optional override SOLO para esta tarea (semana adapt)
 //   2) Fallback: LLM_CHAT_MODEL + LLM_API_KEY (shared OpenRouter wiring,
 //      same as ai-chat). Reusamos chatCompletion() en lugar de duplicar fetch.
 //
@@ -50,11 +52,11 @@ export class WeekAdjustmentError extends Error {
 // (comportamiento actual, cero regresión).
 
 function isCoachIaLlmConfigured(): boolean {
-  // Si Alex puso COACH_IA_MODEL (o PABLO_IA_MODEL) + alguna API key específica → ready.
+  // Si el despliegue define COACH_IA_MODEL + alguna API key específica → ready.
   const hasCoachIaOverride =
-    Boolean((process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL)?.trim()) &&
+    Boolean(process.env.COACH_IA_MODEL?.trim()) &&
     Boolean(
-      (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY)?.trim() ??
+      process.env.COACH_IA_API_KEY?.trim() ??
         process.env.LLM_API_KEY?.trim() ??
         process.env.OPENROUTER_API_KEY?.trim(),
     );
@@ -214,8 +216,8 @@ async function callCoachIaLlm(args: LlmCallArgs): Promise<WeekAdjustmentProposal
   // chatCompletion() lee LLM_CHAT_MODEL del entorno (estándar del repo).
   const prevModel = process.env.LLM_CHAT_MODEL;
   const prevKey = process.env.LLM_API_KEY;
-  const override = (process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL)?.trim();
-  const overrideKey = (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY)?.trim();
+  const override = process.env.COACH_IA_MODEL?.trim();
+  const overrideKey = process.env.COACH_IA_API_KEY?.trim();
   try {
     if (override) process.env.LLM_CHAT_MODEL = override;
     if (overrideKey) process.env.LLM_API_KEY = overrideKey;
@@ -284,9 +286,9 @@ export async function proposeWeekAdjustment(params: {
   if (evaluation.verdict === 'ok') {
     proposal = {
       recommendation: 'keep',
-      rationale: 'Semana evaluada OK — mantener plan N+1 sin cambios',
+      rationale: 'Semana evaluada sin motivo de ajuste: se mantiene la semana que viene.',
       slot_changes: [],
-      coach_summary: evaluation.context_pack.summary,
+      coach_summary: keepSummary(evaluation.context_pack.summary),
     } satisfies WeekAdjustmentProposalJson;
   } else if (isCoachIaLlmConfigured()) {
     // Va mal + LLM disponible → intento LLM, fallback heurístico si falla.
@@ -415,6 +417,7 @@ async function buildHeuristicProposal(params: {
   client: Sql;
 }): Promise<WeekAdjustmentProposalJson> {
   const weekEnd = isoDateString(addDays(parseIsoDate(params.week_start), 6));
+  const athleteToday = await loadAthleteLocalDay({ athlete_id: params.athlete_id, client: params.client });
 
   const assignments = await params.client<
     Array<{ iso_date: string; template_id: string; notes: string | null }>
@@ -425,7 +428,7 @@ async function buildHeuristicProposal(params: {
       wa.notes
     from workout_assignments wa
     where wa.athlete_id = ${params.athlete_id as number}
-      and wa.scheduled_for >= ${params.week_start}::date
+      and wa.scheduled_for >= ${suggestFrom(params.week_start, weekEnd, athleteToday)}::date
       and wa.scheduled_for <= ${weekEnd}::date
       and wa.status = 'scheduled'
     order by wa.scheduled_for asc
@@ -461,8 +464,8 @@ async function buildHeuristicProposal(params: {
     rationale: `Coach IA: ${params.context_pack.summary}. Sugerencia conservadora v1.`,
     slot_changes: slotChanges,
     coach_summary: slotChanges.length
-      ? 'Va mal — suavizar primera sesión dura de la semana.'
-      : 'Va mal — revisar manualmente.',
+      ? 'Suavizar su próximo entreno (se cambia por uno de recuperación).'
+      : heuristicNoChangeReason(assignments.length, recoveryId),
   });
 }
 

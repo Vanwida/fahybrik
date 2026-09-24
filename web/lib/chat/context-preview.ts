@@ -28,8 +28,8 @@
 // `sessionDuration` que ya sirve la semana del atleta. `session` con `sub`
 // reutiliza `prescriptionToText` (`shared/domain/prescription/to-text.ts`), el
 // mismo formateador de dosis que el detalle de asignación. La cuenta atrás de
-// `race` reutiliza `diffDays`/`parseIsoDate`/`startOfDayInBox`
-// (`shared/domain/dates.ts`) y `exactTimeLabel`
+// `race` reutiliza `diffDays`/`parseIsoDate` (`shared/domain/dates.ts`) con el
+// día del atleta y `exactTimeLabel`
 // (`shared/domain/goal-gap/label.ts`); su día-mes reutiliza `raceDayLabel` de
 // `./context.ts`. `exercise` reutiliza los diccionarios de etiqueta ya
 // existentes del catálogo (`EXERCISE_CATEGORY_LABELS`, `MODALITY_LABELS`).
@@ -46,7 +46,7 @@ import {
   safeParsePrescription,
   type Modality,
 } from '@fahybrid/shared/domain/prescription';
-import { diffDays, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, diffDays, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import { exactTimeLabel } from '@fahybrid/shared/domain/goal-gap';
 import { raceDayLabel } from './context';
 import type { ChatContext } from './schema';
@@ -301,11 +301,14 @@ async function resolveRacePreviews(
 
   const refs = Array.from(new Set(contexts.map((c) => c.ref)));
   const rows = await sql<
-    { ref: string; race_date: string; goal_time_seconds: number | null }[]
+    { ref: string; race_date: string; goal_time_seconds: number | null; today: string }[]
   >`
-    select id::text as ref, race_date::text as race_date, goal_time_seconds
-    from races
-    where id = any(${refs}::bigint[])
+    -- «Hoy» del ATLETA de la carrera (su huso), como getNextRace.
+    select r.id::text as ref, r.race_date::text as race_date, r.goal_time_seconds,
+           (now() at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date::text as today
+    from races r
+    left join athletes a on a.id = r.athlete_id
+    where r.id = any(${refs}::bigint[])
   `;
   const byRef = new Map(rows.map((r) => [r.ref, r]));
 
@@ -316,7 +319,7 @@ async function resolveRacePreviews(
       continue;
     }
     out.set(previewKey(c), {
-      preview: raceCountdownPreview(row.race_date, row.goal_time_seconds),
+      preview: raceCountdownPreview(row.race_date, row.goal_time_seconds, row.today),
       exists: true,
       state: null,
     });
@@ -326,10 +329,10 @@ async function resolveRacePreviews(
 /** "11 nov · en 91 días · objetivo 1:25:00" — fecha (mismo formato que la
  *  etiqueta congelada, `raceDayLabel`), cuenta atrás (positiva = queda;
  *  negativa = ya pasó, una carrera de la que se sigue hablando después) y
- *  objetivo si el atleta lo fijó. "Hoy" en huso del box — igual que cada
- *  otra cuenta atrás de carrera de la app (`getNextRace`). */
-function raceCountdownPreview(raceDate: string, goalTimeSeconds: number | null): string {
-  const days = diffDays(parseIsoDate(raceDate), startOfDayInBox(new Date()));
+ *  objetivo si el atleta lo fijó. `today` es el día del ATLETA (su huso) —
+ *  igual que cada otra cuenta atrás de carrera de la app (`getNextRace`). */
+function raceCountdownPreview(raceDate: string, goalTimeSeconds: number | null, today: string): string {
+  const days = diffDays(parseIsoDate(raceDate), parseIsoDate(today));
   const parts = [raceDayLabel(raceDate), countdownWord(days)];
   if (goalTimeSeconds != null) parts.push(`objetivo ${exactTimeLabel(goalTimeSeconds)}`);
   return parts.join(' · ');

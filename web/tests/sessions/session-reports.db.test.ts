@@ -35,10 +35,12 @@ describeWithDb('session reports (#14, real DB)', () => {
     coachIds.push(Number(c[0]!.id));
     return Number(c[0]!.id);
   }
-  async function seedLead(convertedAthleteId?: number): Promise<number> {
+  // El lead es del coach que escribe el parte: desde la frontera de tenant
+  // (tests/tenancy/session-reports) no se puede escribir sobre un lead ajeno.
+  async function seedLead(coachId: number, convertedAthleteId?: number): Promise<number> {
     const r = await sql<{ id: string }[]>`
-      insert into leads (email, nombre, status, source, converted_athlete_id)
-      values (${email('lead')}, 'SR Lead', 'agendado', 'onboarding_web', ${convertedAthleteId ?? null})
+      insert into leads (email, nombre, status, source, converted_athlete_id, coach_id)
+      values (${email('lead')}, 'SR Lead', 'agendado', 'onboarding_web', ${convertedAthleteId ?? null}, ${coachId})
       returning id::text as id`;
     leadIds.push(Number(r[0]!.id));
     return Number(r[0]!.id);
@@ -65,7 +67,7 @@ describeWithDb('session reports (#14, real DB)', () => {
 
   test('lead sales call: create with outcome + price, appears in lead history', async () => {
     const coachId = await seedCoach();
-    const leadId = await seedLead();
+    const leadId = await seedLead(coachId);
     const rep = await createSessionReport({
       coach_id: coachId,
       input: {
@@ -101,7 +103,7 @@ describeWithDb('session reports (#14, real DB)', () => {
   test('follow-the-person: a converted lead sales call surfaces on the athlete card', async () => {
     const coachId = await seedCoach();
     const athId = await seedAthlete(coachId);
-    const leadId = await seedLead(athId); // lead already converted into this athlete
+    const leadId = await seedLead(coachId, athId); // lead already converted into this athlete
     await createSessionReport({ coach_id: coachId, input: { lead_id: leadId, outcome: 'quiere_empezar', quoted_price_eur: 99, notes: 'Llamada de venta.' } });
     await createSessionReport({ coach_id: coachId, input: { athlete_id: athId, notes: 'Primer 1:1 tras el alta.' } });
 
@@ -112,7 +114,7 @@ describeWithDb('session reports (#14, real DB)', () => {
 
   test('edit + soft-delete', async () => {
     const coachId = await seedCoach();
-    const leadId = await seedLead();
+    const leadId = await seedLead(coachId);
     const rep = await createSessionReport({ coach_id: coachId, input: { lead_id: leadId, outcome: 'pensandoselo', notes: 'A' } });
 
     const upd = await updateSessionReport({ id: BigInt(rep.id), coach_id: coachId, input: { outcome: 'quiere_empezar', notes: 'B' } });

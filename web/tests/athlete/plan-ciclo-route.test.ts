@@ -49,7 +49,8 @@ describe('GET /api/athlete/plan/ciclo', () => {
     const res = await GET(req());
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ camino: null, al_acabar: null, carrera: null });
-    expect(resolvePlanPath).toHaveBeenCalledWith({ athlete_id: BigInt(9) });
+    // La vista del ATLETA: sin los hitos de una semana que el coach tiene oculta (D-19).
+    expect(resolvePlanPath).toHaveBeenCalledWith({ athlete_id: BigInt(9), visibleToAthlete: true });
   });
 
   it('camino y al_acabar viajan tal cual los devuelven sus resolutores', async () => {

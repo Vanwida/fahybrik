@@ -36,3 +36,13 @@ assertTestDatabaseNotProduction({
   envLocalDatabaseUrl,
   envLocalUnreadable,
 });
+
+// Route-handler suites (`*.db.test.ts` that import a real `app/api/**/route.ts`)
+// read `@/lib/db`, which connects with DATABASE_URL. Their contract is "the
+// runner points DATABASE_URL and TEST_DATABASE_URL at the same throwaway
+// branch", but the dummy above overrode it unconditionally, so those suites could
+// only ever reach the dummy host. Once the guard has accepted TEST_DATABASE_URL
+// (it throws above otherwise), the app client follows it.
+if (process.env.TEST_DATABASE_URL?.trim()) {
+  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL.trim();
+}

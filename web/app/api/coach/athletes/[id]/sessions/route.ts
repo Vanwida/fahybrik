@@ -12,6 +12,8 @@ const createBodySchema = z.object({
   display_title: z.string().max(200).optional(),
   notes: z.string().max(2000).optional(),
   template_id: z.coerce.number().int().positive().optional(),
+  /** `authored` = entreno en blanco (instancia vacía); por defecto se copia de la biblioteca. */
+  content_source: z.enum(['fork', 'authored']).optional(),
 });
 
 export async function POST(
@@ -45,6 +47,7 @@ export async function POST(
       display_title: parsed.data.display_title,
       notes: parsed.data.notes,
       template_id: parsed.data.template_id,
+      content_source: parsed.data.content_source,
     });
     return jsonOk({ session: result }, 201);
   } catch (err) {

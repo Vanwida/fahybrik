@@ -21,7 +21,10 @@ export async function GET(
   const parsedId = AthleteIdParamSchema.safeParse({ id });
   if (!parsedId.success) return jsonError('bad_request', 'ID de atleta inválido', 400);
 
-  const pending = await loadPendingMonthlyBlock({ athlete_id: Number(parsedId.data.id) });
+  const pending = await loadPendingMonthlyBlock({
+    coach_id: session.coach_id,
+    athlete_id: Number(parsedId.data.id),
+  });
   return jsonOk({ proposal: pending });
 }
 

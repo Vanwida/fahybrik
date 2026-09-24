@@ -14,7 +14,9 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { SEG_IS_WORK_EFFORT } from '@/lib/execution/segment-work';
 import { computePredictionReview, type SnapshotSegment } from '@fahybrid/shared/domain/goal-gap';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { isValidTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { STATION_CATALOGUE } from './station-detail';
 import { segmentLabels } from './goal-gap';
 
@@ -141,7 +143,15 @@ async function executionActuals(athleteId: number, executionId: number, client: 
   `;
   const exec = execRows[0];
   if (!exec) return null;
-  const eventDateIso = isoDateString(startOfDayInBox(new Date(exec.started_at)));
+  // The session's day is the ATHLETE's (`athletes.timezone`): a sim at 20:00 in Los
+  // Angeles belongs to that day, not to the next one in the box's calendar — and
+  // the snapshot that counts is the last one frozen BEFORE it. A stored zone the
+  // date engine doesn't know falls back to the default instead of failing the review.
+  const storedTz = await loadAthleteTimezone(client, athleteId);
+  const eventDateIso = zonedDayString(
+    new Date(exec.started_at),
+    isValidTimezone(storedTz) ? storedTz : BOX_TIMEZONE,
+  );
 
   // Solo tramos de TRABAJO (mig 0146), y se filtra aquí porque aquí es donde ya se
   // decide qué fila entra — el bucle de abajo solo reparte por slug. Una recuperación

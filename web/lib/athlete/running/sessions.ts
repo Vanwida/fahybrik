@@ -86,16 +86,24 @@ interface SegRow {
  * Todas las sesiones de carrera del atleta entre `since` y `until` (ambos
  * inclusive), colapsadas a una fila por ejecución. `since === null` = sin
  * suelo (el histórico entero).
+ *
+ * `tz`: el huso del atleta cuando quien llama ya lo resolvió (para fechar lo
+ * suyo con el MISMO huso — p. ej. las marcas del historial); sin él, se lee aquí.
  */
 export async function loadRunSessionRows(
   client: Sql,
   athlete_id: number,
   since: Date | null,
   until: Date,
+  tz?: string,
 ): Promise<RunSessionRow[]> {
   const rows = await client<SegRow[]>`
     with athlete_tz as (
-      select coalesce((select a.timezone from athletes a where a.id = ${athlete_id}), ${BOX_TIMEZONE}) as tz
+      select coalesce(
+        ${tz ?? null}::text,
+        (select a.timezone from athletes a where a.id = ${athlete_id}),
+        ${BOX_TIMEZONE}
+      ) as tz
     )
     select
       we.id::text as execution_id,

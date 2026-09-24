@@ -25,6 +25,9 @@ import {
 } from '@fahybrid/shared/domain/wearables/watch-workout';
 import { buildAthleteWeekPlan, type AthleteWeekDaySession } from '@/lib/athlete/week-plan';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
+import { resolveCoachHrMethod } from '@/lib/coach/hr-method';
+import { defaultCoachHrMethod, hrZoneFractionsFrom } from '@fahybrid/shared/domain/coach/hr-method';
+import type { HrZoneFractions } from '@fahybrid/shared/domain/methodology/hr-zones';
 import { loadCoachZonesForUnit } from '@/lib/dashboard/v2/zone-derivation';
 import { sql } from '@/lib/db';
 import { runStructureForSession } from './run-structure-source';
@@ -56,6 +59,8 @@ function ageYearsFrom(dob: string | null): number | null {
 interface AthleteZoneInputs {
   benchmarks: AthleteBenchmarks;
   coachZones: CoachZone[];
+  /** Where the coach cuts his HR bands (coach_hr_method; defaults without a coach). */
+  hrZoneFractions: HrZoneFractions;
 }
 
 /**
@@ -90,11 +95,14 @@ async function loadAthleteZoneInputs(athlete_id: bigint): Promise<AthleteZoneInp
 
   // El modelo de zonas es dato del COACH. Sin coach no hay modelo: se resuelve con
   // el estándar que el propio cargador aplica por defecto.
-  const coachZones = athlete?.coach_id
-    ? await loadCoachZonesForUnit(sql, Number(athlete.coach_id), 'per_km')
-    : [];
+  const [coachZones, hrMethod] = athlete?.coach_id
+    ? await Promise.all([
+        loadCoachZonesForUnit(sql, Number(athlete.coach_id), 'per_km'),
+        resolveCoachHrMethod(Number(athlete.coach_id), sql),
+      ])
+    : [[], defaultCoachHrMethod()];
 
-  return { benchmarks, coachZones };
+  return { benchmarks, coachZones, hrZoneFractions: hrZoneFractionsFrom(hrMethod) };
 }
 
 // ── Resolución de la sesión ──────────────────────────────────────────────────
@@ -159,8 +167,8 @@ export async function loadRunWatchWorkout(params: {
   const structure = runStructureForSession(detail.workout);
   if (!structure) return { ok: false, reason: 'not_a_run_session', assignment_id: id, title };
 
-  const { benchmarks, coachZones } = await loadAthleteZoneInputs(params.athlete_id);
-  const workout = buildWatchWorkout(structure, benchmarks, { name: title, coachZones });
+  const { benchmarks, coachZones, hrZoneFractions } = await loadAthleteZoneInputs(params.athlete_id);
+  const workout = buildWatchWorkout(structure, benchmarks, { name: title, coachZones, hrZoneFractions });
 
   return {
     ok: true,

@@ -2,6 +2,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { getAdminSession } from '@/lib/auth/admin-session';
 import { AdminShell } from '@/components/admin/AdminShell';
+import { BrandFonts } from '@/components/brand/BrandFonts';
 
 // Admin surface layout (multi-role RBAC, migration 0041).
 //
@@ -27,5 +28,9 @@ export default async function AdminLayout({
     redirect('/');
   }
 
-  return <AdminShell email={session.email}>{children}</AdminShell>;
+  return (
+    <BrandFonts>
+      <AdminShell email={session.email}>{children}</AdminShell>
+    </BrandFonts>
+  );
 }

@@ -3,12 +3,15 @@
 // Spec: docs/ux/07-daily-morning-checkin.md.
 //
 // Persists into daily_checkins and runs the adaptive override rule:
-//   sub_score < 40 AND today's planned RPE >= 8 AND HRV trend down
-//   → flag adaptive_flag='consider_swap_z2_30' and notify Pablo.
+//   sub_score in the risk band (CHECKIN_RISK_SUB_SCORE_MAX) AND today's planned
+//   RPE >= 8 AND HRV trend down → flag adaptive_flag='consider_swap_z2_30' and
+//   notify the athlete's coach (a flag for the coach to read, never a message
+//   to the athlete).
 //
-// Two-day-skip alert (separate from this fn): handled by an off-hours job
-// that scans for athletes who haven't filed a daily_checkin row in the last
-// 48h (see lib/notifications/triggers.ts:checkSkippedCheckins).
+// «Check-in saltado» does not live here: it is a Hoy signal decided by the
+// signal engine with the coach's own thresholds (only for athletes who have the
+// check-in habit), which the daily cron pushes to the coach once per episode
+// (lib/notifications/triggers.ts:checkSkippedCheckins).
 
 import type { Sql } from '@/lib/db';
 import type { CheckinSnapshot } from './schema';
@@ -65,7 +68,7 @@ export async function ingestCheckin(args: {
   `;
 
   if (adaptive.flag) {
-    // Fire-and-forget Pablo notification. Failures here must not break the
+    // Fire-and-forget notification to the coach. Failures here must not break the
     // ingest path — the check-in is the source of truth, the alert is a
     // courtesy.
     notifyCoach({

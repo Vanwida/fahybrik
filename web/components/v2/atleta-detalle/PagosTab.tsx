@@ -19,12 +19,13 @@ import { EmptyState } from '@/components/v2/EmptyState';
 import { paymentState } from '@/lib/coach/billing-state';
 import { formatCents } from '@/components/v2/metricas/format';
 import type { AthleteBilling, AthleteInvoice } from '@/lib/coach/billing';
+import { Pencil } from 'lucide-react';
+import { Button, Input } from '@/components/v2/ui';
+import { useCoachTimeZone } from '@/lib/coach/coach-timezone-context';
 
-const FIELD_CLS =
-  'v2-focus h-10 w-32 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-border-strong)]';
 
 /** ISO instant / calendar date → "8 jul 2026". null → em-dash. */
-function formatLongDate(iso: string | null): string {
+function formatLongDate(iso: string | null, tz: string): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
@@ -33,17 +34,17 @@ function formatLongDate(iso: string | null): string {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
-      timeZone: 'Europe/Madrid',
+      timeZone: tz,
     })
     .replace(/\.(?=\s|$)/, '');
 }
 
 /** Period date / created instant → "jul 2026" (the invoice's billing month). */
-function formatMonth(iso: string): string {
+function formatMonth(iso: string, tz: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d
-    .toLocaleDateString('es-ES', { month: 'short', year: 'numeric', timeZone: 'Europe/Madrid' })
+    .toLocaleDateString('es-ES', { month: 'short', year: 'numeric', timeZone: tz })
     .replace(/\.(?=\s|$)/, '');
 }
 
@@ -106,21 +107,22 @@ function PriceEditor({
   if (!editing) {
     return (
       <div className="flex items-center gap-3">
-        <span className="v2-display text-3xl tabular-nums text-[color:var(--v2-fg)]">
+        <span className="t-num-l text-v2-fg">
           {formatCents(amountCents)}
         </span>
         <span className="text-xs text-[color:var(--v2-muted)]">/mes</span>
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={Pencil}
           onClick={() => {
             setEuros(amountCents != null ? String(amountCents / 100) : '');
             setStatus('idle');
             setEditing(true);
           }}
-          className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-muted)] transition-colors hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]"
         >
-          <MIcon name="edit" size={14} /> Editar
-        </button>
+          Editar
+        </Button>
       </div>
     );
   }
@@ -128,49 +130,37 @@ function PriceEditor({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <div className="relative">
-          <input
-            type="number"
-            min={1}
-            step="0.01"
-            inputMode="decimal"
-            autoFocus
-            value={euros}
-            onChange={(e) => setEuros(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void save();
-              if (e.key === 'Escape') setEditing(false);
-            }}
-            className={FIELD_CLS + ' pr-8'}
-            aria-label={`Precio mensual en ${currency.toUpperCase()}`}
-          />
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[color:var(--v2-faint)]">
-            €
-          </span>
-        </div>
+        <Input
+          type="number"
+          size="lg"
+          min={1}
+          step="0.01"
+          inputMode="decimal"
+          autoFocus
+          value={euros}
+          onChange={(e) => setEuros(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void save();
+            if (e.key === 'Escape') setEditing(false);
+          }}
+          trailing="€"
+          className="w-36 t-tnum"
+          aria-label={`Precio mensual en ${currency.toUpperCase()}`}
+        />
         <span className="text-xs text-[color:var(--v2-muted)]">/mes</span>
-        <button
-          type="button"
-          disabled={status === 'saving'}
-          onClick={() => void save()}
-          className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
-        >
-          {status === 'saving' ? 'Guardando…' : 'Guardar'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setEditing(false)}
-          className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] px-2.5 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-        >
+        <Button variant="primary" loading={status === 'saving'} onClick={() => void save()}>
+          Guardar
+        </Button>
+        <Button variant="ghost" onClick={() => setEditing(false)}>
           Cancelar
-        </button>
+        </Button>
       </div>
       {status === 'error' ? (
         <p className="text-xs font-medium text-[color:var(--v2-danger)]">
           Introduce un importe válido en euros e inténtalo de nuevo.
         </p>
       ) : (
-        <p className="text-label text-[color:var(--v2-faint)]">
+        <p className="t-meta text-[color:var(--v2-faint)]">
           Se aplica al próximo cobro; no se cobra de forma prorrateada a mitad de mes.
         </p>
       )}
@@ -180,6 +170,7 @@ function PriceEditor({
 
 // ── Invoice history ─────────────────────────────────────────────────────────────
 function InvoiceHistory({ invoices }: { invoices: AthleteInvoice[] }) {
+  const tz = useCoachTimeZone();
   if (invoices.length === 0) {
     return (
       <p className="text-sm text-[color:var(--v2-muted)]">
@@ -189,19 +180,19 @@ function InvoiceHistory({ invoices }: { invoices: AthleteInvoice[] }) {
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-body">
+      <table className="w-full border-collapse t-body-sm">
         <thead>
           <tr className="border-b border-[color:var(--v2-border)] text-[color:var(--v2-faint)]">
-            <th scope="col" className="px-2.5 py-2 text-left font-bold uppercase tracking-wide text-eyebrow">
+            <th scope="col" className="px-2.5 py-2 text-left font-semibold t-label">
               Mes
             </th>
-            <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-eyebrow">
+            <th scope="col" className="px-2.5 py-2 text-right font-semibold t-label">
               Importe
             </th>
-            <th scope="col" className="px-2.5 py-2 text-left font-bold uppercase tracking-wide text-eyebrow">
+            <th scope="col" className="px-2.5 py-2 text-left font-semibold t-label">
               Estado
             </th>
-            <th scope="col" className="px-2.5 py-2 text-right font-bold uppercase tracking-wide text-eyebrow">
+            <th scope="col" className="px-2.5 py-2 text-right font-semibold t-label">
               Fecha
             </th>
           </tr>
@@ -212,16 +203,16 @@ function InvoiceHistory({ invoices }: { invoices: AthleteInvoice[] }) {
             return (
               <tr key={inv.id} className="border-b border-[color:var(--v2-border)] last:border-b-0">
                 <th scope="row" className="px-2.5 py-2.5 text-left font-semibold text-[color:var(--v2-fg)]">
-                  {formatMonth(inv.period_start ?? inv.created_at)}
+                  {formatMonth(inv.period_start ?? inv.created_at, tz)}
                 </th>
-                <td className="v2-num px-2.5 py-2.5 text-right text-[color:var(--v2-fg)]">
+                <td className="t-tnum px-2.5 py-2.5 text-right text-[color:var(--v2-fg)]">
                   {formatCents(inv.amount_cents)}
                 </td>
                 <td className="px-2.5 py-2.5 text-left">
                   <Pill tone={pill.tone}>{pill.label}</Pill>
                 </td>
-                <td className="v2-num px-2.5 py-2.5 text-right text-[color:var(--v2-muted)]">
-                  {formatLongDate(inv.paid_at ?? inv.created_at)}
+                <td className="t-tnum px-2.5 py-2.5 text-right text-[color:var(--v2-muted)]">
+                  {formatLongDate(inv.paid_at ?? inv.created_at, tz)}
                 </td>
               </tr>
             );
@@ -242,10 +233,11 @@ export function PagosTab({
   invoices: AthleteInvoice[];
   athleteId: string;
 }) {
+  const tz = useCoachTimeZone();
   // No subscription at all → honest empty state.
   if (!billing) {
     return (
-      <div className="mx-auto w-full max-w-[880px]">
+      <div className="w-full">
         <EmptyState
           icon="payments"
           title="Sin cobro configurado"
@@ -258,11 +250,11 @@ export function PagosTab({
   const state = paymentState({ status: billing.status, is_comp: billing.is_comp });
 
   return (
-    <div className="mx-auto flex w-full max-w-[880px] flex-col gap-4">
+    <div className="flex w-full flex-col gap-4">
       <Panel title="Estado de cobro" action={<Pill tone={state.tone}>{state.label}</Pill>}>
         {billing.is_comp ? (
           <div className="flex flex-col gap-2">
-            <span className="v2-display text-2xl text-[color:var(--v2-fg)]">Cortesía</span>
+            <span className="t-title-sm text-[color:var(--v2-fg)]">Cortesía</span>
             <p className="text-sm text-[color:var(--v2-muted)]">
               Acceso de cortesía sin cobro. No hay precio ni facturación asociados.
             </p>
@@ -270,7 +262,7 @@ export function PagosTab({
         ) : (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
-              <span className="v2-micro">Precio acordado</span>
+              <span className="t-label text-v2-faint">Precio acordado</span>
               <PriceEditor
                 athleteId={athleteId}
                 amountCents={billing.agreed_price_cents}
@@ -279,14 +271,14 @@ export function PagosTab({
             </div>
             <div className="flex flex-wrap gap-x-8 gap-y-2 border-t border-[color:var(--v2-border)] pt-3">
               <div className="flex flex-col gap-0.5">
-                <span className="v2-micro">Próxima renovación</span>
+                <span className="t-label text-v2-faint">Próxima renovación</span>
                 <span className="text-sm font-semibold text-[color:var(--v2-fg)]">
-                  {formatLongDate(billing.current_period_end)}
+                  {formatLongDate(billing.current_period_end, tz)}
                 </span>
               </div>
               {billing.cancel_at_period_end ? (
                 <div className="flex flex-col gap-0.5">
-                  <span className="v2-micro">Aviso</span>
+                  <span className="t-label text-v2-faint">Aviso</span>
                   <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[color:var(--v2-warn)]">
                     <MIcon name="event_busy" size={16} />
                     Se cancela al final del periodo

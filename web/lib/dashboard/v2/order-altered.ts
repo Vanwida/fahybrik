@@ -6,6 +6,7 @@ import {
   isOrderAltered,
   type CompletedSessionOrder,
 } from '@fahybrid/shared/domain/adherence';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 
 // order_altered — a SOFT, derived INFO signal for the coach: did the athlete
 // complete THIS week's sessions OUT of their planned order? `true` reads as
@@ -19,8 +20,10 @@ import {
 // one; merely moving a session to another day is NOT a violation. This module only
 // supplies the DB read that feeds that function.
 //
-// "Current week" = the microcycle whose dated window contains today
-// (`current_date between start_date and end_date`). The baseline rank is the frozen
+// "Current week" = the microcycle whose dated window contains today — the CLUB's
+// today (the zone of each athlete's coach, DECISIONS 2026-09-23 «Qué día es en cada
+// sitio»: it is a signal the coach reads), never the UTC `current_date` of the
+// Postgres session. The baseline rank is the frozen
 // `planned_sequence`; when absent we fall back to the ORIGINAL `(scheduled_for, id)`
 // order, which equals the plan for a never-moved week. Completion time =
 // `coalesce(ended_at, started_at)` (existence of a workout_executions row = done).
@@ -39,16 +42,32 @@ type OrderRow = {
  * with fewer than 2 completions can never be altered → `false`. Empty input →
  * empty Map (no query). Optional `client` so callers inside a test branch / tx
  * read the same connection they were handed (defaults to the shared pool).
+ * `opts.now` fixes the instant (tests); by default, now.
+ *
+ * The ids may span several clubs, so each athlete's day is resolved per row from
+ * their coach's zone (one that Postgres does not know — or no coach — falls back
+ * to the default, the `runAutoPublish` guard).
  */
 export async function getOrderAlteredByAthlete(
   athleteIds: number[],
   client: Sql = sql,
+  opts: { now?: Date } = {},
 ): Promise<Map<number, boolean>> {
   const result = new Map<number, boolean>();
   for (const id of athleteIds) result.set(id, false);
   if (athleteIds.length === 0) return result;
+  const nowIso = (opts.now ?? new Date()).toISOString();
 
   const rows = await client<OrderRow[]>`
+    with valid_tz as materialized (select name from pg_timezone_names),
+    club_day as (
+      select a.id as athlete_id,
+             (${nowIso}::timestamptz at time zone coalesce(v.name, ${BOX_TIMEZONE}))::date as today
+      from athletes a
+      left join coaches c on c.id = a.coach_id
+      left join valid_tz v on v.name = c.timezone
+      where a.id = any(${athleteIds}::bigint[])
+    )
     select wa.athlete_id::int as athlete_id,
            coalesce(
              wa.planned_sequence,
@@ -59,9 +78,10 @@ export async function getOrderAlteredByAthlete(
            )::int as seq,
            extract(epoch from coalesce(we.ended_at, we.started_at))::float8 as completed_at
     from workout_assignments wa
+    join club_day d on d.athlete_id = wa.athlete_id
     join microcycles m
       on m.id = wa.microcycle_id
-     and current_date between m.start_date and m.end_date
+     and d.today between m.start_date and m.end_date
     join workout_executions we on we.assignment_id = wa.id
     where wa.athlete_id = any(${athleteIds}::bigint[])
     order by wa.athlete_id, completed_at
@@ -91,7 +111,8 @@ export async function getOrderAlteredByAthlete(
 export async function getOrderAlteredForAthlete(
   athleteId: number,
   client: Sql = sql,
+  opts: { now?: Date } = {},
 ): Promise<boolean> {
-  const map = await getOrderAlteredByAthlete([athleteId], client);
+  const map = await getOrderAlteredByAthlete([athleteId], client, opts);
   return map.get(athleteId) ?? false;
 }

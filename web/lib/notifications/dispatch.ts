@@ -15,6 +15,7 @@
 
 import type postgres from 'postgres';
 import type { Sql } from '@/lib/db';
+import { after } from 'next/server';
 import { sendPush } from '@/lib/push/apns';
 import { sendWebPush } from '@/lib/push/webpush';
 
@@ -59,9 +60,10 @@ export function webUrlForNotification(
   deeplink?: Record<string, unknown>,
 ): string {
   if (type === 'chat_message') {
-    const thread = deeplink?.thread_id;
-    return typeof thread === 'string' && /^\d+$/.test(thread)
-      ? `/mensajes?hilo=${thread}`
+    // El panel abre el hilo por ATLETA (`?hilo=<athlete_id>`), no por id de hilo.
+    const athlete = deeplink?.athlete_id;
+    return typeof athlete === 'string' && /^\d+$/.test(athlete)
+      ? `/mensajes?hilo=${athlete}`
       : '/mensajes';
   }
   // El comunicado NO tiene pestaña propia en el dashboard a propósito
@@ -72,6 +74,21 @@ export function webUrlForNotification(
   // Los pendientes del coach (ajuste semanal, bloque mensual, intake) viven en
   // el triaje de /hoy; cualquier tipo futuro sin pantalla propia también.
   return '/hoy';
+}
+
+/**
+ * Runs a send after the response is out. On Vercel `after()` keeps the function
+ * alive until the send finishes; a bare un-awaited promise can be frozen with
+ * the function the moment the response is sent. Outside a request (scripts,
+ * tests) `after()` throws, and the send just runs in the background.
+ */
+function afterResponse(task: () => Promise<unknown>): void {
+  const run = () => task().catch(() => undefined);
+  try {
+    after(run);
+  } catch {
+    void run();
+  }
 }
 
 export async function dispatchNotification(input: DispatchInput): Promise<{ id: string }> {
@@ -95,31 +112,35 @@ export async function dispatchNotification(input: DispatchInput): Promise<{ id: 
     // to PushNotificationKind → tab/sheet). Inject `type` alongside any deeplink
     // payload so the deep link actually fires. `type` already matches the iOS
     // enum raw values (chat_message, plan_published, week_adjustment_pending, …).
-    sendPush({
-      sql,
-      user_id,
-      title: push.title,
-      body: push.body,
-      deeplink: { type, ...(push.deeplink ?? {}) },
-      badge: push.badge,
-      category: type,
-    }).catch(() => undefined);
+    afterResponse(() =>
+      sendPush({
+        sql,
+        user_id,
+        title: push.title,
+        body: push.body,
+        deeplink: { type, ...(push.deeplink ?? {}) },
+        badge: push.badge,
+        category: type,
+      }),
+    );
 
     // Mismo aviso al dashboard instalado (PWA). El tag agrupa por hilo: dos
     // mensajes seguidos del mismo atleta sustituyen el aviso en vez de apilarse.
     const thread = push.deeplink?.thread_id;
-    sendWebPush({
-      sql,
-      user_id,
-      payload: {
-        title: push.title,
-        body: push.body,
-        url: webUrlForNotification(type, push.deeplink),
-        badge: push.badge,
-        tag: type === 'chat_message' && typeof thread === 'string' ? `chat-${thread}` : type,
-        type,
-      },
-    }).catch(() => undefined);
+    afterResponse(() =>
+      sendWebPush({
+        sql,
+        user_id,
+        payload: {
+          title: push.title,
+          body: push.body,
+          url: webUrlForNotification(type, push.deeplink),
+          badge: push.badge,
+          tag: type === 'chat_message' && typeof thread === 'string' ? `chat-${thread}` : type,
+          type,
+        },
+      }),
+    );
   }
 
   return { id };

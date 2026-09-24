@@ -9,6 +9,7 @@
 // convention.
 
 import { z } from 'zod';
+import { isValidTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
 
 const isoDateTime = z.string().datetime({ offset: true });
 
@@ -49,30 +50,25 @@ export const hkBiometricSampleSchema = z.object({
 });
 export type HKBiometricSampleDTO = z.infer<typeof hkBiometricSampleSchema>;
 
-// IANA timezone id (e.g. 'Europe/Madrid'), validated by whether the runtime's
-// Intl database recognises it — the only correct way to check an IANA id (a regex
-// can't). Persisted to athletes.timezone so readiness windows the day in the
-// athlete's own zone.
-const ianaTimezone = z
+// The device's IANA timezone id (e.g. 'Europe/Madrid'), checked against the
+// runtime's Intl database — the only correct way to check an IANA id (a regex
+// can't). A zone this server can't read (unknown to its Intl, malformed, too long)
+// reads as "not reported" instead of failing the batch: the workouts and samples
+// it carries are facts, and the zone can wait for the next sync. Whether a zone is
+// WRITTEN to athletes.timezone is the route's call (`isSafeTimezone`: Intl AND
+// Postgres), so readiness windows the day in the athlete's own zone.
+const deviceTimezone = z
   .string()
   .min(1)
   .max(64)
-  .refine(
-    (tz) => {
-      try {
-        Intl.DateTimeFormat(undefined, { timeZone: tz });
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    { message: 'invalid IANA timezone' },
-  );
+  .refine(isValidTimezone, { message: 'invalid IANA timezone' })
+  .nullish()
+  .catch(null);
 
 export const hkSyncBatchSchema = z.object({
   athlete_id: z.string().nullish(),
   sent_at: isoDateTime,
-  timezone: ianaTimezone.nullish(),
+  timezone: deviceTimezone,
   workouts: z.array(hkWorkoutSchema).default([]),
   samples: z.array(hkBiometricSampleSchema).default([]),
 });

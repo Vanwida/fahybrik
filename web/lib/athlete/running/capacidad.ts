@@ -35,6 +35,8 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { diffDays, parseIsoDate, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { loadPaceThreshold, loadRunMarkRows } from '../analytics/running-progress';
 import { loadMarksOverview } from '../marks';
 import { selectRunMark } from '@fahybrid/shared/domain/athlete/mark-projection';
@@ -42,7 +44,6 @@ import { paceForRaceDistance } from '@fahybrid/shared/domain/running/vdot';
 import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
 import type { ZonaRitmo } from '@fahybrid/shared/domain/running/progress';
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 /** Dentro de este margen, una marca es "reciente" — mismo corte que el doble
  *  de diseño (`correr-capacidad/datos.ts::esRecord`). */
 const RECORD_FRESH_DAYS = 30;
@@ -126,13 +127,22 @@ async function loadTestZonas(client: Sql, athlete_id: number): Promise<{ slug: s
   return rows[0] ?? null;
 }
 
+/**
+ * Un récord tal como lo lee el atleta: su FECHA es el día de SU calendario en que
+ * lo hizo, y su edad los días de su calendario hasta su hoy (DECISIONS «Qué día
+ * es en cada sitio») — la misma cuenta que `age_days` en el predictor de abajo.
+ * `recorded_at` es un instante; cortarlo en UTC fechaba un test de las 7:00 en
+ * Auckland el día anterior.
+ */
 function markResultView(
   v: { value: number; recorded_at: string } | null,
-  now: Date,
+  todayIso: string,
+  tz: string,
 ): { valor: number; fecha: string; reciente: boolean } | null {
   if (!v) return null;
-  const ageDays = Math.floor((now.getTime() - Date.parse(v.recorded_at)) / MS_PER_DAY);
-  return { valor: v.value, fecha: v.recorded_at.slice(0, 10), reciente: ageDays <= RECORD_FRESH_DAYS };
+  const fecha = zonedDayString(new Date(v.recorded_at), tz);
+  const ageDays = diffDays(parseIsoDate(todayIso), parseIsoDate(fecha));
+  return { valor: v.value, fecha, reciente: ageDays <= RECORD_FRESH_DAYS };
 }
 
 export async function buildRunningCapacidad(args: {
@@ -142,11 +152,15 @@ export async function buildRunningCapacidad(args: {
 }): Promise<CapacidadPayload> {
   const client = args.client ?? defaultSql;
   const now = args.now ?? new Date();
+  // Un huso y un instante para toda la pantalla: la edad del umbral, la de cada
+  // marca del predictor y la fecha de cada récord se cuentan en SU calendario.
+  const tz = await loadAthleteTimezone(client, args.athlete_id);
+  const todayIso = zonedDayString(now, tz);
 
   const [umbralData, marksOverview, markRows, testZonas] = await Promise.all([
-    loadPaceThreshold(client, args.athlete_id),
+    loadPaceThreshold(client, args.athlete_id, { now, tz }),
     loadMarksOverview(BigInt(args.athlete_id), client),
-    loadRunMarkRows(client, args.athlete_id),
+    loadRunMarkRows(client, args.athlete_id, { now, tz }),
     loadTestZonas(client, args.athlete_id),
   ]);
 
@@ -179,14 +193,14 @@ export async function buildRunningCapacidad(args: {
     if (!view) continue;
     const unidad: 'seconds' | 'meters' = spec.unit === 'meters' ? 'meters' : 'seconds';
     if (spec.group === 'run') {
-      const outdoor = markResultView(view.best_outdoor, now);
+      const outdoor = markResultView(view.best_outdoor, todayIso, tz);
       if (outdoor) records.push({ slug: spec.slug, label_es: spec.label, contexto: 'street', unidad, ...outdoor });
-      const treadmill = markResultView(view.best_treadmill, now);
+      const treadmill = markResultView(view.best_treadmill, todayIso, tz);
       if (treadmill) records.push({ slug: spec.slug, label_es: spec.label, contexto: 'treadmill', unidad, ...treadmill });
     } else {
       // Carreras registradas: sin distinción de contexto — una maratón se
       // corre en calle por definición.
-      const best = markResultView(view.best, now);
+      const best = markResultView(view.best, todayIso, tz);
       if (best) records.push({ slug: spec.slug, label_es: spec.label, contexto: 'street', unidad, ...best });
     }
   }

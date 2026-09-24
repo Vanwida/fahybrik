@@ -2,15 +2,17 @@
 // a lead that finishes onboarding is stamped `waitlisted_at` (FIFO order) instead of booking
 // a call. The coach later MANUALLY releases a plaza (stamps `waitlist_released_at` + the lead
 // is emailed the booking link). Everything is keyed off the two stamps on `leads` (migration
-// 0102); leads have no per-club scoping until obra 3 — the whole queue belongs to the funnel
-// club (lib/leads/funnel-coach.ts).
+// 0102). The queue is PER COACH: a lead waits in the queue of its owner (`leads.coach_id`,
+// 0147) and is measured against THAT coach's cupo — one rule, `leadOwnedBy`
+// (lib/leads/owner.ts).
 //
 // All writes are idempotent so a replayed onboarding-complete / double-click never
 // double-stamps or double-emails.
 
 import { sql, type Sql, type TransactionClient } from '@/lib/db';
 import { getCapacityState } from '@/lib/coach/capacity';
-import { coachIdForLead, coachNameForLead, funnelCoachId } from './funnel-coach';
+import { coachIdForLead, coachNameForLead, readFunnelCoachId } from './funnel-coach';
+import { leadOwnedBy } from './owner';
 import { sendWaitlistReleasedEmail } from './waitlist-email';
 import { WAITLIST_RELEASED_TOUCH } from '@fahybrid/shared/domain/leads/nurture';
 
@@ -91,7 +93,7 @@ export async function joinWaitlist(
  * listed (their `released_at` is populated) so the coach can see who has already been let
  * through vs who is still waiting.
  */
-export async function listWaitlist(): Promise<WaitlistEntry[]> {
+export async function listWaitlist(coach_id: bigint | number): Promise<WaitlistEntry[]> {
   const rows = await sql<
     {
       lead_id: string;
@@ -111,6 +113,7 @@ export async function listWaitlist(): Promise<WaitlistEntry[]> {
     from leads
     where waitlisted_at is not null
       and status in ('nuevo', 'contactado')
+      and ${leadOwnedBy(sql, coach_id, sql`coach_id`)}
     order by waitlisted_at asc
   `;
   return rows.map((r) => ({
@@ -127,15 +130,20 @@ export async function listWaitlist(): Promise<WaitlistEntry[]> {
 }
 
 /**
- * The actively-waiting count — leads on the list, NOT yet released, still nuevo/contactado.
- * Feeds the dashboard "en espera" badge and the onboarding-complete waitlist position.
+ * The actively-waiting count of ONE coach's queue — leads on the list, NOT yet released,
+ * still nuevo/contactado. Feeds the "en espera" badge and the onboarding-complete waitlist
+ * position. `coach_id` omitted = the public funnel's queue (`FUNNEL_COACH_ID`); no funnel
+ * declared → 0 (there is no queue without an owner).
  */
-export async function countWaitlist(): Promise<number> {
+export async function countWaitlist(coach_id?: bigint | number | null): Promise<number> {
+  const owner = coach_id ?? readFunnelCoachId();
+  if (owner == null) return 0;
   const rows = await sql<{ n: number }[]>`
     select count(*)::int as n from leads
     where waitlisted_at is not null
       and waitlist_released_at is null
       and status in ('nuevo', 'contactado')
+      and ${leadOwnedBy(sql, owner, sql`coach_id`)}
   `;
   return rows[0]?.n ?? 0;
 }
@@ -246,7 +254,7 @@ export async function releaseAndNotifyLead(
  * we never over-release.
  *
  *   available = max_athletes − active − released_pending
- *     • max_athletes    the single coach's cap (null ⇒ uncapped ⇒ waitlist off ⇒ release nothing)
+ *     • max_athletes    THIS coach's cap (null ⇒ uncapped ⇒ waitlist off ⇒ release nothing)
  *     • active          distinct athletes with an active subscription (getCapacityState — DRY,
  *                        the exact same active-count query the capacity gate uses)
  *     • released_pending leads already handed a plaza but not yet booked/converted (still
@@ -260,11 +268,19 @@ export async function releaseAndNotifyLead(
  * freed plaza to the next in line. It also runs on a cupo increase (api/coach/capacity) and daily
  * (api/cron/nurture) as a safety net for slots freed by any other means.
  */
-export async function releaseWaitlistToCapacity(): Promise<{ released: number }> {
-  // Leads have no club column yet, so the waitlist is the FUNNEL club's queue and
-  // it is measured against THAT club's cap (see lib/leads/funnel-coach.ts).
-  const coachId = await funnelCoachId();
-  if (coachId === null) return { released: 0 }; // no club yet → no cap → nothing to release
+export async function releaseWaitlistToCapacity(
+  coach_id?: bigint | number,
+): Promise<{ released: number }> {
+  // Sin coach concreto (cron diario, baja de un atleta): cada coach con cupo, uno a uno.
+  if (coach_id === undefined) {
+    const capped = await sql<{ id: string }[]>`
+      select id::text as id from coaches where max_athletes is not null order by id
+    `;
+    let released = 0;
+    for (const c of capped) released += (await releaseWaitlistToCapacity(BigInt(c.id))).released;
+    return { released };
+  }
+  const coachId = BigInt(coach_id);
 
   const [{ active, max }, pendingRows] = await Promise.all([
     getCapacityState(coachId),
@@ -272,6 +288,7 @@ export async function releaseWaitlistToCapacity(): Promise<{ released: number }>
       select count(*)::int as n from leads
       where waitlist_released_at is not null
         and status in ('nuevo', 'contactado')
+        and ${leadOwnedBy(sql, coachId, sql`coach_id`)}
     `,
   ]);
   if (max === null) return { released: 0 }; // uncapped → waitlist disabled → nothing to release
@@ -280,12 +297,13 @@ export async function releaseWaitlistToCapacity(): Promise<{ released: number }>
   const available = max - active - releasedPending;
   if (available <= 0) return { released: 0 };
 
-  // Oldest actively-waiting leads first (FIFO), capped at the free-slot count.
+  // Oldest actively-waiting leads OF THIS COACH first (FIFO), capped at the free-slot count.
   const waiting = await sql<{ id: string }[]>`
     select id::text as id from leads
     where waitlisted_at is not null
       and waitlist_released_at is null
       and status in ('nuevo', 'contactado')
+      and ${leadOwnedBy(sql, coachId, sql`coach_id`)}
     order by waitlisted_at asc
     limit ${available}
   `;

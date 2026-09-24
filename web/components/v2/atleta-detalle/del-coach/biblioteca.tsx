@@ -18,6 +18,8 @@ import { Pill } from '@/components/v2/Pill';
 import { KIND_LABEL, type CoachCommunicationDTO } from '@fahybrid/shared/domain/coach-communications';
 import { ANCHOR_COACH_LABEL } from '@/lib/dashboard/v2/del-coach';
 import { borrarOArchivar, listarVista } from './api';
+import { Trash2, X } from 'lucide-react';
+import { Button, ErrorState, IconButton } from '@/components/v2/ui';
 
 /** Lo que distingue a una plantilla de otra de un vistazo: su tamaño y dónde cae.
  *  Exportado porque la pestaña Comunicados enseña lo MISMO en su rejilla. */
@@ -153,42 +155,23 @@ export function PanelBiblioteca({
     !cargando && plantillas !== null && borradores !== null && plantillas.length === 0 && borradores.length === 0;
 
   return (
-    <div className="flex flex-col gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3.5">
+    <div className="flex flex-col gap-3 rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3.5">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="v2-micro">Empezar desde algo escrito</h3>
-        <button
-          type="button"
-          onClick={onCerrar}
-          aria-label="Cerrar la biblioteca"
-          className="v2-focus inline-flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-pill)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
-        >
-          <MIcon name="close" size={16} />
-        </button>
+        <h3 className="t-label text-v2-faint">Empezar desde algo escrito</h3>
+        <IconButton icon={X} size="sm" onClick={onCerrar} label="Cerrar la biblioteca" />
       </div>
 
-      {error ? (
-        <div className="flex items-center justify-between gap-3 rounded-[var(--v2-r-s)] border border-[color:var(--v2-danger)] bg-[color:var(--v2-danger-soft)] px-3 py-2">
-          <span className="text-label font-medium text-[color:var(--v2-danger)]">{error}</span>
-          <button
-            type="button"
-            onClick={reintentar}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-danger)] px-2 py-1 text-label font-semibold text-[color:var(--v2-danger)]"
-          >
-            <MIcon name="refresh" size={13} />
-            Reintentar
-          </button>
-        </div>
-      ) : null}
+      {error ? <ErrorState title={error} onRetry={reintentar} /> : null}
 
       {cargando ? (
-        <span className="inline-flex items-center gap-2 py-2 text-label text-[color:var(--v2-faint)]">
+        <span className="inline-flex items-center gap-2 py-2 t-meta text-[color:var(--v2-faint)]">
           <MIcon name="progress_activity" size={15} className="animate-spin" />
           Cargando…
         </span>
       ) : null}
 
       {vacio ? (
-        <p className="py-1 text-label leading-relaxed text-[color:var(--v2-muted)]">
+        <p className="py-1 t-meta leading-relaxed text-[color:var(--v2-muted)]">
           Todavía no has guardado nada. Al publicar un comunicado marca «Guardar en biblioteca» y
           aparecerá aquí para reutilizarlo con otro atleta, cambiando sólo lo que cambie.
         </p>
@@ -225,7 +208,7 @@ export function PanelBiblioteca({
 function Grupo({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-eyebrow font-bold uppercase tracking-[0.12em] text-[color:var(--v2-faint)]">
+      <span className="t-label font-semibold text-[color:var(--v2-faint)]">
         {titulo}
       </span>
       <ul className="flex flex-col gap-1.5">{children}</ul>
@@ -245,34 +228,29 @@ function Fila({
   borrando?: boolean;
 }) {
   return (
-    <li className="flex items-center gap-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2">
+    <li className="flex items-center gap-2.5 rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2">
       <Pill tone={c.kind === 'note' ? 'neutral' : c.kind === 'focus' ? 'info' : 'accent'} variant="soft">
         {KIND_LABEL[c.kind]}
       </Pill>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-body font-semibold text-[color:var(--v2-fg)]">{c.title}</span>
-        <span className="truncate text-label text-[color:var(--v2-muted)]">
+        <span className="truncate t-body-sm font-semibold text-[color:var(--v2-fg)]">{c.title}</span>
+        <span className="truncate t-meta text-[color:var(--v2-muted)]">
           {metaComunicado(c)}
         </span>
       </span>
       {onBorrar ? (
-        <button
-          type="button"
+        <IconButton
+          icon={Trash2}
+          size="sm"
           onClick={onBorrar}
-          disabled={borrando}
-          aria-label={`Borrar el borrador ${c.title}`}
-          className="v2-focus inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--v2-r-pill)] text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-danger)] disabled:opacity-50"
-        >
-          <MIcon name={borrando ? 'progress_activity' : 'delete'} size={15} className={borrando ? 'animate-spin' : undefined} />
-        </button>
+          loading={borrando}
+          label={`Borrar el borrador ${c.title}`}
+          className="hover:text-v2-danger"
+        />
       ) : null}
-      <button
-        type="button"
-        onClick={onUsar}
-        className="v2-focus inline-flex h-7 shrink-0 items-center rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-2.5 text-label font-bold text-[color:var(--v2-accent-fg)] transition-opacity hover:opacity-90"
-      >
+      <Button size="sm" onClick={onUsar}>
         Usar
-      </button>
+      </Button>
     </li>
   );
 }

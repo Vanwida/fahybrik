@@ -1,45 +1,35 @@
 // La caja de escribir: texto, adjunto y nota de voz.
 //
-// Antes el clip existía como botón pero nadie le pasaba el manejador, así que el
-// coach literalmente no podía mandar una foto ni un archivo. Ahora hay tres vías
-// —elegir fichero, pegar del portapapeles y grabar voz— y todas terminan en el
-// mismo sitio: un adjunto pendiente que SE VE antes de salir y se puede descartar.
-// Enviar algo a ciegas es de las pocas cosas que no se pueden deshacer bien.
+// Tres vías para adjuntar —elegir fichero, pegar del portapapeles y grabar voz—
+// y todas terminan en el mismo sitio: un adjunto pendiente que SE VE antes de
+// salir y se puede descartar. Enviar algo a ciegas es de las pocas cosas que no
+// se pueden deshacer bien.
+//
+// Teclado: ⌘Enter (Ctrl+Enter) envía; Enter es salto de línea, como en el
+// ChatDrawer — un coach escribe párrafos y un Enter suelto no debe dispararlos.
 //
 // El envío se delega entero: aquí no se sabe qué es un hilo ni cómo se sube un
 // fichero. Eso vive en `useConversation`.
 
 'use client';
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
-import {
-  ChatError,
-  prepareAttachment,
-  CHAT_BODY_MAX,
-  type PendingAttachment,
-} from '@/lib/chat/client';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type Ref } from 'react';
+import { AudioLines, File, Film, Mic, Paperclip, Send, Square, X } from 'lucide-react';
+import { Button, IconButton, Kbd, Textarea } from '@/components/v2/ui';
+import { ChatError, prepareAttachment, CHAT_BODY_MAX, type PendingAttachment } from '@/lib/chat/client';
 import { canRecordVoice, VoiceRecorder, VoiceRecordingError } from './voice-recorder';
 import { cn } from '@/lib/utils';
 
-/** Alto máximo de la caja antes de que empiece a hacer scroll (~5 líneas). */
-const TEXTAREA_MAX_HEIGHT = 120;
 /** Cada cuánto se refresca el contador mientras se graba, en ms. */
 const TIMER_TICK_MS = 200;
 
 /**
- * ¿Se puede grabar en este navegador? El servidor no lo sabe —no hay `window`—,
- * así que responde que no y el cliente corrige tras montar.
- *
- * Va por `useSyncExternalStore` y no por un estado con efecto porque es
- * exactamente para lo que existe: leer durante el render algo que solo el cliente
- * conoce, con una respuesta declarada para el servidor. Preguntarlo a pelo
- * pintaba el micro en el cliente y no en el HTML del servidor, y React tiraba
- * toda la caja de escribir por no cuadrar la hidratación.
+ * ¿Se puede grabar en este navegador? El servidor no lo sabe (no hay `window`),
+ * así que responde que no y el cliente corrige tras montar, sin desajustar la
+ * hidratación.
  */
 function useCanRecordVoice(): boolean {
   return useSyncExternalStore(
-    // La capacidad no cambia mientras la página vive: no hay a qué suscribirse.
     () => () => undefined,
     () => canRecordVoice(),
     () => false,
@@ -54,6 +44,9 @@ export interface ChatComposerProps {
   /** Avisos que el componente no puede enseñar por su cuenta (adjunto rechazado,
    *  micrófono denegado) suben aquí para que la pantalla los muestre en un sitio. */
   onNotice?: (message: string) => void;
+  autoFocus?: boolean;
+  /** Para llevar el foco a la caja desde fuera (atajo R de la bandeja). */
+  inputRef?: Ref<HTMLTextAreaElement>;
   className?: string;
 }
 
@@ -62,6 +55,8 @@ export function ChatComposer({
   disabled = false,
   placeholder = 'Escribe un mensaje…',
   onNotice,
+  autoFocus,
+  inputRef,
   className,
 }: ChatComposerProps) {
   const [value, setValue] = useState('');
@@ -70,22 +65,15 @@ export function ChatComposer({
   const [recorder, setRecorder] = useState<VoiceRecorder | null>(null);
   const [recordedSeconds, setRecordedSeconds] = useState(0);
   const canRecord = useCanRecordVoice();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const trimmed = value.trim();
   const canSend = (trimmed.length > 0 || attachment != null) && !sending && !disabled;
 
-  const notify = useCallback(
-    (message: string) => {
-      onNotice?.(message);
-    },
-    [onNotice],
-  );
+  const notify = useCallback((message: string) => onNotice?.(message), [onNotice]);
 
   /** El object URL de la vista previa se revoca cuando el adjunto deja de estar en
-   *  pantalla; si no, cada foto descartada se queda ocupando memoria hasta que se
-   *  recargue la página. */
+   *  pantalla; si no, cada foto descartada se queda en memoria. */
   const replaceAttachment = useCallback((next: PendingAttachment | null) => {
     setAttachment((prev) => {
       if (prev && prev.preview_url !== next?.preview_url) URL.revokeObjectURL(prev.preview_url);
@@ -105,28 +93,14 @@ export function ChatComposer({
     [notify, replaceAttachment],
   );
 
-  // Pegar una captura directamente en la conversación. Es la vía natural cuando
-  // el coach está mirando una gráfica en otra pestaña.
-  const handlePaste = useCallback(
-    (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-      const file = Array.from(event.clipboardData.files)[0];
-      if (!file) return;
-      event.preventDefault();
-      acceptFile(file);
-    },
-    [acceptFile],
-  );
-
   const submit = useCallback(async () => {
     if (!canSend) return;
     const body = trimmed.length > 0 ? trimmed : undefined;
     const outgoing = attachment ?? undefined;
     setSending(true);
     setValue('');
-    // La vista previa la hereda la burbuja optimista, así que aquí se suelta la
-    // referencia SIN revocar la URL: revocarla dejaría la burbuja en blanco.
+    // La vista previa la hereda la burbuja optimista: se suelta SIN revocar.
     setAttachment(null);
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     try {
       await onSend({ body, attachment: outgoing });
     } finally {
@@ -142,9 +116,7 @@ export function ChatComposer({
       setRecordedSeconds(0);
       setRecorder(next);
     } catch (err) {
-      notify(
-        err instanceof VoiceRecordingError ? err.message : 'No se pudo iniciar la grabación.',
-      );
+      notify(err instanceof VoiceRecordingError ? err.message : 'No se pudo iniciar la grabación.');
     }
   }, [notify]);
 
@@ -167,153 +139,116 @@ export function ChatComposer({
     setRecorder(null);
   }, [recorder]);
 
-  // Contador de la grabación. Se para solo al desmontar o al cortar.
   useEffect(() => {
     if (!recorder) return;
     const id = setInterval(() => setRecordedSeconds(recorder.elapsedSeconds), TIMER_TICK_MS);
     return () => clearInterval(id);
   }, [recorder]);
 
-  // Si la pantalla se cierra en mitad de una grabación, soltar el micrófono: el
-  // piloto de la pestaña se quedaría encendido.
+  // Si la pantalla se cierra en mitad de una grabación, soltar el micrófono.
   useEffect(() => () => recorder?.cancel(), [recorder]);
 
   if (recorder) {
+    const label = `${Math.floor(recordedSeconds / 60)}:${String(Math.floor(recordedSeconds % 60)).padStart(2, '0')}`;
     return (
-      <RecordingBar
-        seconds={recordedSeconds}
-        onCancel={cancelRecording}
-        onStop={() => void stopRecording()}
-        className={className}
-      />
+      <div className={cn('flex items-center gap-3 border-t border-v2-border px-3 py-2.5', className)}>
+        <span aria-hidden className="size-2.5 shrink-0 animate-pulse rounded-full bg-v2-danger motion-reduce:animate-none" />
+        <span className="t-body font-medium text-v2-fg">Grabando</span>
+        <span role="timer" className="t-body text-v2-muted t-tnum">
+          {label}
+        </span>
+        <span className="flex-1" />
+        <Button size="md" variant="ghost" onClick={cancelRecording}>
+          Descartar
+        </Button>
+        <Button size="md" variant="secondary" icon={Square} onClick={() => void stopRecording()}>
+          Listo
+        </Button>
+      </div>
     );
   }
 
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-2 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2.5',
-        className,
-      )}
-    >
-      {attachment ? (
-        <AttachmentPreview attachment={attachment} onDiscard={() => replaceAttachment(null)} />
-      ) : null}
+    <div className={cn('flex flex-col gap-2 border-t border-v2-border px-3 py-2.5', className)}>
+      {attachment ? <AttachmentPreview attachment={attachment} onDiscard={() => replaceAttachment(null)} /> : null}
 
-      {/* Un único pill: el texto entra por la izquierda y las acciones (adjuntar,
-          grabar, enviar) se apoyan a la derecha, como en el resto de la app. */}
-      <div className="flex items-end gap-2.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] py-1.5 pl-4 pr-1.5">
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="sr-only"
-          onChange={(e) => {
-            acceptFile(e.target.files?.[0]);
-            // Permite volver a elegir el MISMO fichero después de descartarlo.
-            e.target.value = '';
-          }}
-        />
+      <input
+        ref={fileInputRef}
+        type="file"
+        hidden
+        onChange={(e) => {
+          acceptFile(e.target.files?.[0]);
+          // Permite volver a elegir el MISMO fichero después de descartarlo.
+          e.target.value = '';
+        }}
+      />
 
-        <textarea
-          ref={textareaRef}
-          rows={1}
-          value={value}
-          onChange={(e) => {
-            setValue(e.target.value.slice(0, CHAT_BODY_MAX));
-            e.target.style.height = 'auto';
-            e.target.style.height = `${Math.min(e.target.scrollHeight, TEXTAREA_MAX_HEIGHT)}px`;
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              void submit();
-            }
-          }}
-          onPaste={handlePaste}
-          placeholder={placeholder}
-          disabled={disabled}
-          aria-label="Mensaje"
-          className={cn(
-            'v2-focus min-h-6 flex-1 resize-none self-center bg-transparent py-1 text-body',
-            'text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)]',
-            'disabled:opacity-50',
-          )}
-        />
+      <Textarea
+        ref={inputRef}
+        rows={1}
+        value={value}
+        onChange={(e) => setValue(e.target.value.slice(0, CHAT_BODY_MAX))}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            void submit();
+          }
+        }}
+        onPaste={(e) => {
+          // Pegar una captura directamente: la vía natural si el coach está
+          // mirando una gráfica en otra pestaña.
+          const file = Array.from(e.clipboardData.files)[0];
+          if (!file) return;
+          e.preventDefault();
+          acceptFile(file);
+        }}
+        placeholder={placeholder}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        aria-label="Mensaje"
+        className="max-h-40 min-h-10 resize-none"
+      />
 
+      <div className="flex items-center gap-1">
         <IconButton
-          icon="attach_file"
+          icon={Paperclip}
           label="Adjuntar un archivo"
           disabled={disabled || sending}
           onClick={() => fileInputRef.current?.click()}
         />
         {canRecord ? (
           <IconButton
-            icon="mic"
+            icon={Mic}
             label="Grabar una nota de voz"
             disabled={disabled || sending}
             onClick={() => void startRecording()}
           />
         ) : null}
-
-        <button
-          type="button"
-          onClick={() => void submit()}
+        <span className="ml-auto hidden items-center gap-1 t-meta text-v2-faint pointer-fine:inline-flex">
+          <Kbd>⌘</Kbd>
+          <Kbd>Enter</Kbd>
+        </span>
+        <Button
+          size="md"
+          variant="primary"
+          icon={Send}
+          loading={sending}
           disabled={!canSend}
-          aria-label="Enviar"
-          title="Enviar"
-          className={cn(
-            'v2-focus flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors',
-            'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',
-            'disabled:cursor-not-allowed disabled:opacity-40',
-          )}
+          onClick={() => void submit()}
+          className="ml-2 pointer-coarse:ml-auto"
         >
-          <MIcon name="send" size={16} filled />
-        </button>
+          Enviar
+        </Button>
       </div>
     </div>
   );
 }
 
-function IconButton({
-  icon,
-  label,
-  disabled,
-  onClick,
-}: {
-  icon: string;
-  label: string;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      className={cn(
-        'v2-focus flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-        'text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]',
-        'disabled:opacity-50',
-      )}
-    >
-      <MIcon name={icon} size={19} />
-    </button>
-  );
-}
-
-/** Lo que se va a enviar, antes de enviarlo. Una imagen se ve; lo demás se
- *  nombra. Sin esto no hay forma de saber si adjuntaste la foto correcta. */
-function AttachmentPreview({
-  attachment,
-  onDiscard,
-}: {
-  attachment: PendingAttachment;
-  onDiscard: () => void;
-}) {
+/** Lo que se va a enviar, antes de enviarlo. Una imagen se ve; lo demás se nombra. */
+function AttachmentPreview({ attachment, onDiscard }: { attachment: PendingAttachment; onDiscard: () => void }) {
   const isImage = attachment.kind === 'image';
   const isVoice = attachment.kind === 'voice';
+  const Icon = attachment.kind === 'video' ? Film : isVoice ? AudioLines : File;
   const duration = attachment.meta.duration_ms
     ? `${Math.floor(attachment.meta.duration_ms / 60000)}:${String(
         Math.round((attachment.meta.duration_ms % 60000) / 1000),
@@ -321,88 +256,24 @@ function AttachmentPreview({
     : null;
 
   return (
-    <div className="flex items-center gap-2.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] p-2">
+    <div className="flex items-center gap-2.5 rounded-ctl border border-v2-border bg-v2-bg p-2">
       {isImage ? (
         // eslint-disable-next-line @next/next/no-img-element -- object URL local.
-        <img
-          src={attachment.preview_url}
-          alt=""
-          className="h-11 w-11 shrink-0 rounded-[var(--v2-r-xs)] object-cover"
-        />
+        <img src={attachment.preview_url} alt="" className="size-11 shrink-0 rounded-[4px] object-cover" />
       ) : (
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--v2-r-xs)] bg-[color:var(--v2-surface-2)]">
-          <MIcon
-            name={attachment.kind === 'video' ? 'movie' : isVoice ? 'graphic_eq' : 'description'}
-            size={20}
-            className="text-[color:var(--v2-muted)]"
-          />
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-[4px] bg-v2-surface-2">
+          <Icon aria-hidden strokeWidth={1.75} className="size-5 text-v2-muted" />
         </span>
       )}
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-body font-medium text-[color:var(--v2-fg)]">
+        <span className="block truncate t-body font-medium text-v2-fg">
           {isVoice ? 'Nota de voz' : attachment.file.name}
         </span>
-        <span className="v2-num block text-label text-[color:var(--v2-faint)]">
+        <span className="block t-meta text-v2-faint t-tnum">
           {duration ?? `${Math.max(1, Math.round(attachment.file.size / 1024))} KB`}
         </span>
       </span>
-      <button
-        type="button"
-        onClick={onDiscard}
-        aria-label="Descartar el adjunto"
-        className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
-      >
-        <MIcon name="close" size={17} />
-      </button>
-    </div>
-  );
-}
-
-/** Mientras se graba, la caja de escribir cede el sitio: no se puede escribir y
- *  grabar a la vez, y dejar los dos controles a la vez solo confunde. */
-function RecordingBar({
-  seconds,
-  onCancel,
-  onStop,
-  className,
-}: {
-  seconds: number;
-  onCancel: () => void;
-  onStop: () => void;
-  className?: string;
-}) {
-  const label = `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
-  return (
-    <div
-      className={cn(
-        'flex items-center gap-3 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2.5',
-        className,
-      )}
-    >
-      <span
-        className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-[color:var(--v2-danger)] motion-reduce:animate-none"
-        aria-hidden
-      />
-      <span className="text-body font-medium text-[color:var(--v2-fg)]">Grabando</span>
-      <span className="v2-num text-body tabular-nums text-[color:var(--v2-muted)]" role="timer">
-        {label}
-      </span>
-      <span className="flex-1" />
-      <button
-        type="button"
-        onClick={onCancel}
-        className="v2-focus rounded-[var(--v2-r-s)] px-2.5 py-1.5 text-body font-semibold text-[color:var(--v2-muted)] hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
-      >
-        Descartar
-      </button>
-      <button
-        type="button"
-        onClick={onStop}
-        className="v2-focus flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-body font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
-      >
-        <MIcon name="stop" size={16} filled />
-        Listo
-      </button>
+      <IconButton icon={X} label="Descartar el adjunto" onClick={onDiscard} />
     </div>
   );
 }

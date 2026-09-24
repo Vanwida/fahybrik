@@ -1,77 +1,63 @@
 import 'server-only';
 
-// v2 · ATLETA · DETALLE — server data orchestrator for the athlete detail screen
-// (5 pestañas: resumen · plan · rendimiento · del-coach · atleta). One safe load
-// fans out all existing per-athlete loaders in parallel; any single failure
-// degrades that section (null) without 500-ing the page, mirroring the Hoy
-// screen's resilience contract. The client component renders from this payload.
-//
-// Client-safe types + the tab enum + the pure perfil-tab mapper live in
-// ./atleta-detalle-types (no DB / no `server-only`) so the client components can
-// import them; we re-export them here for callers that already import this module.
-//
-// Reference tests are REAL recorded results: pace/endurance from athlete_benchmarks
-// and 1RM from athlete_strength_maxes (versioned). They are NEVER derived from
-// in-WOD segment durations (a segment time inside a workout is not a test). The
-// derived-objectives table reads the stored zone profiles (resolver output) and
-// marks itself TODO(endpoint) until the resolver exposes a typed loader — never
-// inventing fake athletes/values.
+// v2 · FICHA DEL ATLETA — cargadores con BD. La ficha carga por partes:
+//   loadFichaShell    — cabecera, estado, «Hacer ahora» (todas las pestañas). Se
+//                       apoya en el VISTAZO (`loadAthletePeek`) para que el
+//                       estado, el readiness y la adherencia sean los mismos
+//                       números que el roster y Hoy.
+//   loadFichaEstado   — la columna «Estado» de Plan.
+//   loadFichaPerfil   — la pestaña Perfil.
+//   (el calendario vive en ./ficha-calendar.ts; Rendimiento carga cada sección
+//    por su cuenta, a la vista.)
+// Cada pieza degrada por separado: un fallo se devuelve como error de ESA pieza,
+// nunca como «sin datos».
 
+import { effectiveLevelAxisLabel } from '@fahybrid/shared/domain/coach/level-axis';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-
-import {
-  fetchAthleteProfileShell,
-  type AthleteProfileShell,
-} from '@/lib/dashboard/coach/athlete-profile-shell';
-import { buildAthleteResumen, type AthleteResumen } from '@/lib/dashboard/coach/resumen';
-import { buildAthletePlan, type AthletePlanPayload } from '@/lib/dashboard/coach/athlete-plan';
-import { getAthleteSubscriptionStatus } from '@/lib/dashboard/coach/subscription-status';
-import { getAthleteBilling, listAthleteInvoices } from '@/lib/coach/billing';
+import { loadAthletePeek } from '@/lib/coach/athlete-peek';
 import { loadAthleteLifecycleDetail } from '@/lib/dashboard/coach/athlete-lifecycle-detail';
-import { LIFECYCLE_STATUS_LABELS } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
-import { buildAthleteBody, type BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
-import { listSessionReportsForAthlete } from '@/lib/coach/session-reports';
+import { getTargetRace } from '@/lib/races/next-race';
+import { listLevelOptions } from '@/lib/coach/level-options';
+import { computeLevelSuggestion } from '@/lib/coach/level-proposal';
+import { levelSuggestionGapLine } from '@/lib/dashboard/v2/level-gap';
+import { listAthleteWeeks } from '@/lib/coach/week-publishing';
+import { loadAthleteKeyMarkers } from '@/lib/coach/key-markers';
+import { getAthleteBilling, listAthleteInvoices } from '@/lib/coach/billing';
 import { getAthleteReviewState } from '@/lib/citas/reviews';
-import { listMessages, getOrCreateThread } from '@/lib/chat/service';
-import type { MessageDTO } from '@/lib/chat/schema';
-import { athleteLevel } from '@/lib/dashboard/v2/level';
-import { loadAthleteZoneProfiles } from '@/lib/dashboard/v2/zone-profile';
-import { loadStrengthMaxes, loadStrengthMaxHistory } from '@/lib/strength/strength-max';
-import { loadBatteryStatus } from '@/lib/coach/battery-status';
-import { listCoachTests } from '@/lib/coach/coach-tests';
-import { listCommunicationsForAthlete } from '@/lib/coach/communications';
-import { EMPTY_FICHA, loadFichaResumenExtras } from '@/lib/dashboard/v2/ficha-resumen-load';
-import { loadAthleteWeekChipMap } from '@/lib/dashboard/coach/load-athlete-week-chip';
-import { SIN_PLAN_CHIP } from '@fahybrid/shared/domain/coach/athlete-week-chip';
-import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
-import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
-import { tenureSuffix } from '@/lib/dashboard/relative-time';
-import { loadCoachLevels } from '@/lib/dashboard/v2/periodizacion';
+import { listSessionReportsForAthlete } from '@/lib/coach/session-reports';
+import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
+import { BOX_TIMEZONE, addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import {
-  SEQUENCE_DAYS_MIN,
-  SEQUENCE_DAYS_MAX,
-} from '@fahybrid/shared/schema/program-sequences';
+  INJURY_SEVERITY_LABEL,
+  INJURY_ZONE_LABEL,
+  type InjurySeverity,
+  type InjuryZone,
+} from '@fahybrid/shared/domain/coach/injury-taxonomy';
+import { SEQUENCE_DAYS_MAX, SEQUENCE_DAYS_MIN } from '@fahybrid/shared/schema/program-sequences';
 import {
-  parseAvailability,
-  deriveTrainingDaysPerWeek,
   WEEKDAY_KEYS,
+  deriveTrainingDaysPerWeek,
+  parseAvailability,
 } from '@fahybrid/shared/domain/coach/intake-availability';
 import { DAY_LABELS, DAY_LABELS_FULL } from '@/lib/dashboard/constants/calendar';
-import type { V2Status } from '@/components/v2/StatusDot';
-import {
-  EM_DASH,
-  type DetalleHeader,
-  type DetalleLifecycle,
-  type DetalleStat,
-  type ClasificacionData,
-  type TrainingDaysData,
-  type V2AthleteDetalle,
-  type StrengthMaxView,
-  type BenchmarkSeries,
+import { INTAKE_PLAN_MODE_DEFAULT } from '@fahybrid/shared/schema/coach-intake';
+import type {
+  ClasificacionData,
+  DetalleLifecycle,
+  FichaEstado,
+  FichaPerfil,
+  FichaShell,
+  TrainingDaysData,
 } from './atleta-detalle-types';
+import { divisionLabel, raceCategoryLabel } from './ficha-format';
+import { loadFichaTimeline } from './ficha-timeline';
+import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
+import { canRevertToSequence } from '@/lib/dashboard/coach/revert-personal-plan';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 
-/** An athlete with no lifecycle row loaded → treat as plain activo (no banner/actions gap). */
+export { resolveAtletaUrl, canonicalFichaQuery } from './atleta-detalle-types';
+
 const ACTIVE_LIFECYCLE: DetalleLifecycle = {
   status: 'activo',
   pause_reason: null,
@@ -88,207 +74,372 @@ const ACTIVE_LIFECYCLE: DetalleLifecycle = {
   pause_days_available: null,
 };
 
-/** No declared availability (or a failed load) → honest empty state; no day is
- *  ever invented as a real training day. */
-const EMPTY_TRAINING_DAYS: TrainingDaysData = {
-  days: WEEKDAY_KEYS.map((key, i) => ({
-    key,
-    label: DAY_LABELS[i]!,
-    full_label: DAY_LABELS_FULL[i]!,
-    trains: false,
-  })),
-  training_days_per_week: null,
-  has_availability: false,
-};
+// ── Cabecera + estado ────────────────────────────────────────────────────────
 
-// Re-export the client-safe surface so existing import sites keep working.
-export {
-  ATLETA_TABS,
-  DEFAULT_ATLETA_TAB,
-  normalizeAtletaTab,
-  resolveAtletaUrl,
-  buildPerfilTab,
-  selectPerfilTab,
-  buildTestProgression,
-} from './atleta-detalle-types';
-export type {
-  AtletaTab,
-  DetalleHeader,
-  DetalleStat,
-  ClasificacionData,
-  ClasificacionLevelOption,
-  TrainingDaysData,
-  TrainingDayCell,
-  V2AthleteDetalle,
-  StrengthMaxView,
-  BenchmarkSeries,
-  BenchmarkResult,
-  TestProgressionRow,
-  ReferenceTest,
-  DerivedZone,
-  DerivedObjectiveGroup,
-  PerfilTabData,
-  JointSession,
-} from './atleta-detalle-types';
-
-const MODALITY_LABEL: Record<string, string> = {
-  individual: 'Individual',
-  dobles: 'Dobles',
-  pro_elite: 'Pro · Elite',
-};
-
-/**
- * Header microciclo label. The name comes from `buildAthletePlan`
- * (→ `plan.current_block_label`, the coach's microciclo name). We append the
- * relative week from the shell. Falls back to the shell's raw microciclo name
- * only when there's no resolved label and no plan.
- */
-function phaseLabel(
-  shell: AthleteProfileShell | null,
-  plan: AthletePlanPayload | null,
-): string | null {
-  const name = plan?.current_block_label ?? shell?.block_type ?? null;
-  if (!name) return null;
-  return shell?.block_week != null ? `${name} · sem ${shell.block_week}` : name;
+interface ShellExtras {
+  email: string | null;
+  modality: string | null;
+  has_upcoming: boolean;
+  pending_comms: number;
+  missed_id: string | null;
+  missed_date: string | null;
+  missed_title: string | null;
+  missed_notes: string | null;
+  checkin_answered: boolean;
 }
 
-/** Account/training status — lifecycle (pausa/baja) wins over everything, then the
- *  readiness alarm over the plain active state. Both paused + baja map to the 'pausa'
- *  StatusDot (faint), differentiated by the label + the banner under the header. */
-function deriveStatus(
-  shell: AthleteProfileShell | null,
-  resumen: AthleteResumen | null,
-  lifecycle: DetalleLifecycle,
-): { status: V2Status; label: string } {
-  if (lifecycle.status === 'pausado')
-    return { status: 'pausa', label: LIFECYCLE_STATUS_LABELS.pausado };
-  if (lifecycle.status === 'baja')
-    return { status: 'pausa', label: LIFECYCLE_STATUS_LABELS.baja };
-  // Still activo and still training, but leaving on a date (0137). It has to read as
-  // something other than "Activa" — the roster scan is where a coach notices at all.
-  if (lifecycle.baja_scheduled_for) return { status: 'atencion', label: 'Baja programada' };
-  if (shell?.intake_pending) return { status: 'alta', label: 'Alta · revisar intake' };
-  const r = resumen?.readiness_score ?? shell?.readiness_score ?? null;
-  if (r != null && r < 45) return { status: 'atencion', label: 'Atención · fisiología' };
-  if (resumen?.programming.status === 'no_month')
-    return { status: 'atencion', label: 'Sin plan asignado' };
-  return { status: 'activa', label: 'Activa' };
+async function loadShellExtras(client: Sql, coach_id: number, athlete_id: number, today: string) {
+  const rows = await client<ShellExtras[]>`
+    select
+      u.email,
+      sub.plan_type as modality,
+      exists (
+        select 1 from workout_assignments wa
+        where wa.athlete_id = a.id and wa.origin = 'coach' and wa.scheduled_for >= ${today}::date
+      ) as has_upcoming,
+      (
+        select count(*)::int
+        from coach_communication_recipients r
+        join coach_communications c on c.id = r.communication_id
+        where r.athlete_id = a.id and c.coach_id = a.coach_id and c.status = 'published'
+          and r.done_at is null and r.answered_at is null
+      ) as pending_comms,
+      ms.id as missed_id, ms.date as missed_date, ms.title as missed_title, ms.notes as missed_notes,
+      coalesce(ck.answered, false) as checkin_answered
+    from athletes a
+    left join users u on u.id = a.user_id
+    -- La debida sin hacer más reciente (14 días), con la misma regla que la
+    -- adherencia: semana visible, sin pausa ni reposo por lesión, sin ejecución.
+    left join lateral (
+      select wa.id::text as id, to_char(wa.scheduled_for, 'YYYY-MM-DD') as date, t.name as title, wa.notes
+      from workout_assignments wa
+      join templates t on t.id = wa.template_id
+      left join weekly_plans wp on wp.athlete_id = wa.athlete_id
+        and wp.week_start = date_trunc('week', wa.scheduled_for)::date
+      where wa.athlete_id = a.id and wa.origin = 'coach'
+        and wa.scheduled_for < ${today}::date and wa.scheduled_for >= ${today}::date - 14
+        and wa.status not in ('completed', 'partial')
+        and coalesce(wa.injury_adaptation, '') <> 'rest'
+        and coalesce(wp.status::text, 'published') <> 'draft'
+        and not exists (select 1 from workout_executions we where we.assignment_id = wa.id)
+        and not exists (
+          select 1 from athlete_pauses ap where ap.athlete_id = wa.athlete_id
+            and wa.scheduled_for >= ap.start_date and wa.scheduled_for <= coalesce(ap.end_date, wa.scheduled_for)
+        )
+      order by wa.scheduled_for desc, wa.id desc
+      limit 1
+    ) ms on true
+    left join lateral (
+      select exists (
+        select 1 from chat_threads th
+        join chat_messages m on m.thread_id = th.id and m.deleted_at is null
+        where th.athlete_id = a.id and m.sender_role::text = 'coach' and m.created_at > dc.recorded_at
+      ) as answered
+      from daily_checkins dc where dc.athlete_id = a.id
+      order by dc.recorded_for desc limit 1
+    ) ck on true
+    left join lateral (
+      select s.plan_type from subscriptions s
+      where s.user_id = a.user_id
+      order by (s.status = 'active') desc, s.created_at desc
+      limit 1
+    ) sub on true
+    where a.id = ${athlete_id} and a.coach_id = ${coach_id}
+  `;
+  return rows[0] ?? null;
 }
 
-/** "alta hace N meses/semanas/días" from the REAL onboarding timestamp
- *  (athletes.onboarded_at, surfaced by the shell). Shares the elapsed-time helper
- *  with the Altas screen, so the SAME athlete shows the SAME number in both. */
-function tenureLabel(onboarded_at: string | null): string | null {
-  const suffix = tenureSuffix(onboarded_at);
-  return suffix ? `alta hace ${suffix}` : null;
+/** Cabecera, estado y lo que decide «Hacer ahora». null si el atleta no es del coach. */
+export async function loadFichaShell(params: {
+  coach_id: number | bigint;
+  athlete_id: number;
+  club_name: string;
+  client?: Sql;
+}): Promise<FichaShell | null> {
+  const client = params.client ?? defaultSql;
+  const coachId = Number(params.coach_id);
+  // Qué plan lleva ahora (y si se puede volver a la periodización) lo decide el
+  // coach: día del CLUB. La semana y la adherencia de la cabecera son del atleta.
+  const [peek, clubToday] = await Promise.all([
+    loadAthletePeek({ coach_id: coachId, athlete_id: params.athlete_id, client }),
+    loadCoachToday(coachId, { client }),
+  ]);
+  if (!peek) return null;
+  const clubDay = parseIsoDate(clubToday);
+  const today = peek.week.today;
+  const thisMonday = peek.week.week_start;
+  const lastMonday = isoDateString(addDays(parseIsoDate(thisMonday), 14));
+
+  const [extras, lifecycle, target, weeks, micro] = await Promise.all([
+    loadShellExtras(client, coachId, params.athlete_id, today),
+    loadAthleteLifecycleDetail({ athlete_id: params.athlete_id, client }).catch(() => null),
+    getTargetRace(params.athlete_id, client).catch(() => null),
+    listAthleteWeeks({ coach_id: coachId, athlete_id: params.athlete_id, from: thisMonday, to: lastMonday, client }).catch(
+      () => [],
+    ),
+    getCurrentMicrociclo({ athlete_id: params.athlete_id, on_date: clubDay, client }).catch(() => null),
+  ]);
+  const isPersonal = micro?.template_athlete_id != null;
+  const canRevert = isPersonal
+    ? await canRevertToSequence({ athlete_id: params.athlete_id, on_date: clubDay, client }).catch(() => false)
+    : false;
+
+  // Una semana RETENIDA la ocultó el coach a propósito: no se le pide publicarla.
+  const hidden = weeks.find((w) => !w.visible && !w.held && w.sessions > 0);
+  const race =
+    peek.race && target && target.race_date === peek.race.date
+      ? {
+          name: peek.race.name,
+          date: peek.race.date,
+          days: peek.race.days,
+          category_label: raceCategoryLabel(target.format, target.division),
+          goal_time_seconds: target.goal_time_seconds,
+        }
+      : peek.race
+        ? { ...peek.race, category_label: null, goal_time_seconds: null }
+        : null;
+
+  return {
+    athlete_id: peek.athlete_id,
+    name: peek.name,
+    avatar_url: peek.avatar_url,
+    email: extras?.email ?? null,
+    level: peek.level,
+    division_label: divisionLabel(extras?.modality ?? null),
+    race,
+    program: peek.program,
+    group: peek.group,
+    status: peek.status,
+    lifecycle: lifecycle ?? ACTIVE_LIFECYCLE,
+    unread: peek.unread,
+    awaiting_reply: peek.awaiting_reply,
+    today,
+    readiness: peek.readiness
+      ? {
+          value: peek.readiness.value,
+          baseline: peek.readiness.baseline,
+          baseline_readings: peek.readiness.baseline_readings,
+          trend_14d: peek.readiness.trend_14d,
+          observed_at: peek.readiness.observed_at,
+          band: peek.readiness.band,
+        }
+      : null,
+    week_days: peek.week.days,
+    adherence: peek.adherence,
+    intake_pending: peek.status.key === 'nuevo',
+    has_upcoming_plan: extras?.has_upcoming ?? false,
+    publish_target: hidden
+      ? {
+          week_start: hidden.week_start,
+          sessions: hidden.sessions,
+          due: hidden.opens_on == null || hidden.opens_on <= today,
+          opens_on: hidden.opens_on ?? null,
+        }
+      : null,
+    pending_comunicados: extras?.pending_comms ?? 0,
+    last_missed:
+      extras?.missed_id && extras.missed_date
+        ? {
+            id: extras.missed_id,
+            date: extras.missed_date,
+            title: decodeCoachAssignmentNotes(extras.missed_notes).display_title ?? extras.missed_title ?? 'Entreno',
+          }
+        : null,
+    last_checkin: peek.last_checkin
+      ? {
+          on: peek.last_checkin.on,
+          notes: peek.last_checkin.notes,
+          score: peek.last_checkin.score,
+          answered: extras?.checkin_answered ?? false,
+        }
+      : null,
+    personal_plan: micro
+      ? { current_name: micro.name, is_personal: isPersonal, can_revert: canRevert }
+      : null,
+    club_name: params.club_name,
+  };
 }
 
-function fmtPct(n: number | null): string {
-  return n == null ? EM_DASH : `${Math.round(n)}%`;
+// ── Columna «Estado» ─────────────────────────────────────────────────────────
+
+function median(values: number[]): number {
+  const s = [...values].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
 }
 
-/** Builds the 4 header StatTiles from real signals (VO₂ est · FC reposo ·
- *  adherencia · VFC). Missing signals render an em-dash, never a fake value. */
-function buildStats(resumen: AthleteResumen | null, body: BodyPayload | null): DetalleStat[] {
-  const vo2 = body?.vo2max.current_value ?? null;
-  const rhr = body?.rhr.last_bpm ?? null;
-  const adher = resumen?.adherence_pct_30d ?? null;
-  const hrv = body?.hrv.last_value_ms ?? null;
+/** Noches mínimas para que exista una base de sueño (como el readiness). */
+const SLEEP_BASELINE_MIN_NIGHTS = 7;
 
-  const adherTone: DetalleStat['tone'] =
-    adher == null ? 'fg' : adher >= 75 ? 'ok' : adher >= 60 ? 'warn' : 'danger';
+export async function loadFichaEstado(params: {
+  coach_id: number | bigint;
+  athlete_id: number;
+  readiness: FichaEstado['readiness'];
+  client?: Sql;
+}): Promise<FichaEstado> {
+  const client = params.client ?? defaultSql;
+  const coachId = Number(params.coach_id);
+  const ath = params.athlete_id;
 
-  return [
-    { label: 'VO₂ est', value: vo2 != null ? `${Math.round(vo2)}` : EM_DASH, tone: 'fg' },
-    { label: 'FC reposo', value: rhr != null ? `${Math.round(rhr)}` : EM_DASH, tone: 'fg' },
-    { label: 'Adherencia', value: fmtPct(adher), tone: adherTone },
-    { label: 'VFC', value: hrv != null ? `${Math.round(hrv)}` : EM_DASH, tone: 'info' },
-  ];
+  const [sleepRows, checkin, injury, note, markers] = await Promise.all([
+    client<Array<{ on: string; hours: number; recent: boolean }>>`
+      with a as (
+        select id, (now() at time zone coalesce(timezone, ${BOX_TIMEZONE}))::date as today
+        from athletes where id = ${ath} and coach_id = ${coachId}
+      )
+      select to_char(s.recorded_for, 'YYYY-MM-DD') as on,
+             (s.breakdown_json->>'sleep_hours')::float8 as hours,
+             s.recorded_for > a.today - 7 as recent
+      from athlete_daily_readiness_snapshots s join a on a.id = s.athlete_id
+      where s.recorded_for > a.today - 35
+        and jsonb_typeof(s.breakdown_json->'sleep_hours') = 'number'
+    `,
+    client<
+      Array<{
+        on: string;
+        at: Date;
+        score: number;
+        notes: string | null;
+        soreness: number | null;
+        fatigue: number | null;
+        answered: boolean;
+      }>
+    >`
+      select to_char(dc.recorded_for, 'YYYY-MM-DD') as on, dc.recorded_at as at, dc.sub_score::int as score,
+             nullif(btrim(dc.notes), '') as notes, dc.soreness::int as soreness, dc.fatigue::int as fatigue,
+             exists (
+               select 1 from chat_threads t
+               join chat_messages m on m.thread_id = t.id and m.deleted_at is null
+               where t.athlete_id = dc.athlete_id and m.sender_role::text = 'coach' and m.created_at > dc.recorded_at
+             ) as answered
+      from daily_checkins dc
+      join athletes a on a.id = dc.athlete_id and a.coach_id = ${coachId}
+      where dc.athlete_id = ${ath}
+      order by dc.recorded_for desc
+      limit 1
+    `,
+    client<Array<{ id: string; zone: InjuryZone; severity: InjurySeverity; status: string; onset: string }>>`
+      select i.id::text, i.zone::text as zone, i.severity::text as severity, i.status::text as status,
+             to_char(i.onset_date, 'YYYY-MM-DD') as onset
+      from injuries i
+      join athletes a on a.id = i.athlete_id and a.coach_id = ${coachId}
+      where i.athlete_id = ${ath} and i.status in ('activa', 'en_recuperacion')
+      order by (i.status = 'activa') desc, i.onset_date desc
+      limit 1
+    `,
+    client<Array<{ body: string; created_at: Date }>>`
+      select body, created_at from athlete_coach_notes
+      where athlete_id = ${ath} and coach_id = ${coachId} and deleted_at is null
+      order by created_at desc
+      limit 1
+    `,
+    loadAthleteKeyMarkers({ coach_id: coachId, athlete_id: ath, client }),
+  ]);
+
+  const recent = sleepRows.filter((r) => r.recent).map((r) => r.hours);
+  const older = sleepRows.filter((r) => !r.recent).map((r) => r.hours);
+  const c = checkin[0];
+  const inj = injury[0];
+
+  return {
+    readiness: params.readiness,
+    sleep:
+      recent.length > 0
+        ? {
+            avg_7d_hours: recent.reduce((a, b) => a + b, 0) / recent.length,
+            baseline_hours: older.length >= SLEEP_BASELINE_MIN_NIGHTS ? median(older) : null,
+            nights: recent.length,
+          }
+        : null,
+    last_checkin: c
+      ? { on: c.on, score: c.score, notes: c.notes, soreness: c.soreness, fatigue: c.fatigue, answered: c.answered }
+      : null,
+    injury: inj
+      ? {
+          id: inj.id,
+          zone_label: INJURY_ZONE_LABEL[inj.zone] ?? inj.zone,
+          severity_label: INJURY_SEVERITY_LABEL[inj.severity] ?? inj.severity,
+          status: inj.status,
+          onset_date: inj.onset,
+        }
+      : null,
+    note: note[0] ? { body: note[0].body, created_at: note[0].created_at.toISOString() } : null,
+    markers,
+  };
 }
 
-/**
- * Loads the athlete's assignment classification: their current level_id +
- * training_days_per_week, the algorithmic level suggestion (so the coach can
- * confirm it inline), and the coach's full level set for the picker. Ownership is
- * already gated by the shell load upstream; this reads the same athlete row.
- */
+// ── Perfil ───────────────────────────────────────────────────────────────────
+
+/** Nivel + días objetivo + la sugerencia del algoritmo + los niveles del coach. */
 export async function loadClassification(params: {
   coach_id: number | bigint;
   athlete_id: number;
   client: Sql;
 }): Promise<ClasificacionData> {
   const { coach_id, athlete_id, client } = params;
-
-  const [rows, levels] = await Promise.all([
-    client<
+  const rows = await client<
       Array<{
         level_id: string | null;
         level_name: string | null;
         suggested_level_id: string | null;
         suggested_level_name: string | null;
         training_days_per_week: number | null;
+        axis_label: string | null;
       }>
     >`
-      select
-        a.level_id::text             as level_id,
-        al.name                      as level_name,
-        a.suggested_level_id::text   as suggested_level_id,
-        sal.name                     as suggested_level_name,
-        a.training_days_per_week
+      select a.level_id::text as level_id, al.name as level_name,
+             a.suggested_level_id::text as suggested_level_id, sal.name as suggested_level_name,
+             a.training_days_per_week,
+             (select c.level_axis_label from coaches c where c.id = a.coach_id) as axis_label
       from athletes a
       left join athlete_levels al  on al.id = a.level_id
       left join athlete_levels sal on sal.id = a.suggested_level_id
       where a.id = ${athlete_id} and a.coach_id = ${coach_id}
       limit 1
-    `,
-    loadCoachLevels(coach_id, client),
-  ]);
-
+    `;
   const row = rows[0];
+  const axis = effectiveLevelAxisLabel(row?.axis_label);
+  // Los que se pueden elegir, más el que ya lleva aunque esté retirado. Sin
+  // nivel puesto, la sugerencia se calcula al leer (sin escribir): la guardada
+  // puede ser de una escalera que el coach ya cambió, y si no hay, se dice por qué.
+  const [levels, fresh] = await Promise.all([
+    listLevelOptions(coach_id, { keep: [row?.level_id], client }),
+    row && row.level_id == null ? computeLevelSuggestion(athlete_id, Number(coach_id), client) : Promise.resolve(null),
+  ]);
+  const suggested = fresh
+    ? fresh.status === 'suggested'
+      ? { id: fresh.level_id, name: fresh.level_name }
+      : null
+    : row?.suggested_level_id
+      ? { id: row.suggested_level_id, name: row.suggested_level_name ?? '' }
+      : null;
   return {
     level_id: row?.level_id ?? null,
     level_name: row?.level_name ?? null,
-    suggested_level_id: row?.suggested_level_id ?? null,
-    suggested_level_name: row?.suggested_level_name ?? null,
-    // The "por qué" is enriched only by the intake-review loader (it has the race
-    // context); the generic classification load leaves it null.
+    suggested_level_id: suggested?.id ?? null,
+    suggested_level_name: suggested?.name ?? null,
     suggested_level_reason: null,
+    suggestion_gap: fresh ? levelSuggestionGapLine(fresh, axis) : null,
     training_days_per_week: row?.training_days_per_week ?? null,
-    levels: levels.map((l) => ({ id: l.id, name: l.name, label: l.label })),
+    levels: levels.map((l) => ({ id: l.id, name: l.name, label: l.label, archived: l.archived })),
     days_band: { min: SEQUENCE_DAYS_MIN, max: SEQUENCE_DAYS_MAX },
+    level_axis_label: axis,
   };
 }
 
 /**
- * Loads the athlete's REAL weekly training pattern (#47) from their own declared
- * `availability_json` ({mon..sun -> program|other_activity|rest}, Step 5
- * onboarding / iOS "Mis días" — mig 0047). Distinct from ClasificacionData's
- * training_days_per_week (the coach's plain declared TARGET): this resolves
- * WHICH days, from the athlete's own input, not just how many. The summary count
- * falls back to the coach's declared value only when the athlete hasn't marked
- * any day yet — the per-day grid itself never guesses.
+ * Qué días entrena, según lo que marcó el propio atleta (`availability_json`).
+ * El número sale de los días marcados (A2: el rótulo coincide con la rejilla);
+ * solo si no marcó ninguno se enseña el objetivo del coach.
  */
-async function loadTrainingDays(params: {
-  coach_id: number | bigint;
-  athlete_id: number;
-  client: Sql;
-}): Promise<TrainingDaysData> {
-  const { coach_id, athlete_id, client } = params;
-
-  const rows = await client<
-    Array<{ availability_json: unknown; training_days_per_week: number | null }>
-  >`
-    select availability_json, training_days_per_week
-    from athletes
+async function loadTrainingDays(client: Sql, coach_id: number, athlete_id: number): Promise<TrainingDaysData> {
+  const rows = await client<Array<{ availability_json: unknown; training_days_per_week: number | null }>>`
+    select availability_json, training_days_per_week from athletes
     where id = ${athlete_id} and coach_id = ${coach_id}
     limit 1
   `;
-  const row = rows[0];
-  if (!row) return EMPTY_TRAINING_DAYS;
-
-  const availability = parseAvailability(row.availability_json);
-  const declaredDays = deriveTrainingDaysPerWeek(availability);
-
+  const availability = parseAvailability(rows[0]?.availability_json ?? null);
+  const declared = deriveTrainingDaysPerWeek(availability);
   return {
     days: WEEKDAY_KEYS.map((key, i) => ({
       key,
@@ -296,237 +447,89 @@ async function loadTrainingDays(params: {
       full_label: DAY_LABELS_FULL[i]!,
       trains: availability[key] === 'program',
     })),
-    training_days_per_week: declaredDays ?? row.training_days_per_week,
-    has_availability: declaredDays != null,
+    // Solo lo marcado: el objetivo del coach vive en Clasificación (A2).
+    training_days_per_week: declared ?? null,
+    has_availability: declared != null,
   };
 }
 
-// ── Main orchestrator ───────────────────────────────────────────────────────────
-export async function loadAthleteDetalle(params: {
+const EMPTY_DAYS: TrainingDaysData = {
+  days: WEEKDAY_KEYS.map((key, i) => ({ key, label: DAY_LABELS[i]!, full_label: DAY_LABELS_FULL[i]!, trains: false })),
+  training_days_per_week: null,
+  has_availability: false,
+};
+
+export async function loadFichaPerfil(params: {
   coach_id: number | bigint;
   athlete_id: number;
   client?: Sql;
-}): Promise<V2AthleteDetalle | null> {
+}): Promise<FichaPerfil> {
   const client = params.client ?? defaultSql;
-  const { coach_id, athlete_id } = params;
+  const coachId = Number(params.coach_id);
+  const ath = params.athlete_id;
+  const errors: FichaPerfil['errors'] = [];
+  const guard = <T>(p: Promise<T>, fallback: T, key: FichaPerfil['errors'][number]) =>
+    p.catch(() => {
+      errors.push(key);
+      return fallback;
+    });
 
-  // The shell is the gate: if it's null the athlete doesn't belong to the coach
-  // (or doesn't exist) → 404 upstream.
-  const shell = await fetchAthleteProfileShell({ coach_id, athlete_id, client }).catch(() => null);
-  if (!shell) return null;
-
-  const [
-    resumen,
-    plan,
-    body,
-    subscription,
-    lifecycle,
-    chat,
-    zone_profiles,
-    classification,
-    trainingDays,
-    strengthCurrent,
-    strengthHistory,
-    benchmarks,
-    sessions,
-    billing,
-    invoices,
-    review,
-    battery,
-    testLibrary,
-    communications,
-    ficha,
-    weekChipMap,
-  ] = await Promise.all([
-    buildAthleteResumen({ coach_id, athlete_id, client }).catch(() => null),
-    buildAthletePlan({ coach_id, athlete_id, view_mode: 'month', client }).catch(() => null),
-    buildAthleteBody({ coach_id, athlete_id, client }).catch(() => null),
-    getAthleteSubscriptionStatus({ coach_id, athlete_id, client }).catch(() => null),
-    // Lifecycle (#13): state + current pause + baja context + any pending pause request.
-    loadAthleteLifecycleDetail({ athlete_id, client }).catch(() => null),
-    loadInitialChat({ coach_id, athlete_id, client }).catch(() => null),
-    loadAthleteZoneProfiles({ coach_id, athlete_id, client }).catch(() => []),
-    loadClassification({ coach_id, athlete_id, client }).catch(() => null),
-    loadTrainingDays({ coach_id, athlete_id, client }).catch(() => EMPTY_TRAINING_DAYS),
-    loadStrengthMaxes({ coach_id, athlete_id, client }).catch(() => []),
-    loadStrengthMaxHistory({ athlete_id, client }).catch(() => []),
-    loadBenchmarkHistory({ coach_id, athlete_id, client }).catch(() => []),
-    listSessionReportsForAthlete(BigInt(athlete_id)).catch(() => []),
-    // Pagos tab (#15): current billing + mirrored invoice history. Degrade to
-    // null / [] on failure so a billing hiccup never 500s the whole ficha.
-    getAthleteBilling(BigInt(athlete_id), client).catch(() => null),
-    listAthleteInvoices(BigInt(athlete_id), client).catch(() => []),
-    // Revisiones 1:1 (#21): cadencia + estado (próxima / propuesta / vencida). Degrada a
-    // null si falla, como el resto del fan-out — un fallo aquí nunca 500-ea la ficha.
-    getAthleteReviewState({ athlete_id, coach_id }).catch(() => null),
-    // Tests (#34): the athlete's calibration sessions + the coach's library, so the
-    // ficha can both SHOW their tests and schedule a new one without a round-trip.
-    // Degrades to empty — a test hiccup never 500s the ficha.
-    loadBatteryStatus(athlete_id, client).catch(() => ({ total: 0, completed: 0, tests: [] })),
-    listCoachTests(Number(coach_id), { onlyEnabled: true }, client).catch(() => []),
-    // Del coach: lo publicado a ESTE atleta con su estado. Se lee con la ficha
-    // (y no al abrir la pestaña) porque la insignia de «te reclama algo» tiene
-    // que verse estando en cualquier otra pestaña. Degrada a vacío como el resto.
-    listCommunicationsForAthlete({ coach_id, athlete_id, sql: client }).catch(() => []),
-    loadFichaResumenExtras({ coach_id, athlete_id, client }).catch(() => EMPTY_FICHA),
-    loadAthleteWeekChipMap({ athlete_ids: [athlete_id], client }).catch(
-      () => new Map(),
+  const [base, classification, trainingDays, review, sessions, billing, invoices, timeline, upcoming] = await Promise.all([
+    client<Array<{ email: string | null; plan_mode: string; onboarded_at: Date | null }>>`
+      select u.email, a.plan_mode, a.onboarded_at
+      from athletes a left join users u on u.id = a.user_id
+      where a.id = ${ath} and a.coach_id = ${coachId}
+    `,
+    guard(
+      loadClassification({ coach_id: coachId, athlete_id: ath, client }),
+      {
+        level_id: null,
+        level_name: null,
+        suggested_level_id: null,
+        suggested_level_name: null,
+        suggested_level_reason: null,
+        training_days_per_week: null,
+        levels: [],
+        suggestion_gap: null,
+        days_band: { min: SEQUENCE_DAYS_MIN, max: SEQUENCE_DAYS_MAX },
+        level_axis_label: effectiveLevelAxisLabel(null),
+      },
+      'clasificacion',
     ),
+    guard(loadTrainingDays(client, coachId, ath), EMPTY_DAYS, 'dias'),
+    guard(getAthleteReviewState({ athlete_id: ath, coach_id: coachId }), null, 'revisiones'),
+    guard(listSessionReportsForAthlete(BigInt(ath)), [], 'revisiones'),
+    guard(getAthleteBilling(BigInt(ath), client), null, 'pagos'),
+    guard(listAthleteInvoices(BigInt(ath), client), [], 'pagos'),
+    guard(loadFichaTimeline({ coach_id: coachId, athlete_id: ath, client }), [], 'historial'),
+    client<Array<{ id: string; date: string; title: string | null; notes: string | null }>>`
+      select wa.id::text, to_char(wa.scheduled_for, 'YYYY-MM-DD') as date, t.name as title, wa.notes
+      from workout_assignments wa
+      join athletes a on a.id = wa.athlete_id and a.coach_id = ${coachId}
+      join templates t on t.id = wa.template_id
+      where wa.athlete_id = ${ath} and wa.origin = 'coach' and wa.status = 'scheduled'
+        and wa.scheduled_for >= (now() at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date
+        and wa.scheduled_for < (now() at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date + 28
+      order by wa.scheduled_for, wa.id
+    `.catch(() => []),
   ]);
 
-  const lifecycleDetail: DetalleLifecycle = lifecycle ?? ACTIVE_LIFECYCLE;
-
-  // Group each current 1RM with its full version history (oldest→newest) → the
-  // client-safe Perfil view. The label is resolved here (server) so the view stays
-  // pure. No max → empty array (the Fuerza section renders its honest empty state).
-  const strength_maxes: StrengthMaxView[] = strengthCurrent.map((m) => ({
-    exercise_slug: m.exercise_slug,
-    exercise_label: strengthLiftLabel(m.exercise_slug),
-    one_rm_kg: m.one_rm_kg,
-    version: m.version,
-    recorded_at: m.recorded_at,
-    source: m.source,
-    assignment_id: m.assignment_id != null ? String(m.assignment_id) : null,
-    test_weight_kg: m.test_weight_kg,
-    test_reps: m.test_reps,
-    history: strengthHistory
-      .filter((h) => h.exercise_slug === m.exercise_slug)
-      .map((h) => ({ one_rm_kg: h.one_rm_kg, version: h.version, recorded_at: h.recorded_at })),
-  }));
-
-  const { status, label } = deriveStatus(shell, resumen, lifecycleDetail);
-  const header: DetalleHeader = {
-    athlete_id: shell.athlete_id,
-    full_name: shell.full_name,
-    level: athleteLevel(shell),
-    status,
-    status_label: label,
-    tenure_label: tenureLabel(shell.onboarded_at),
-    phase_label: phaseLabel(shell, plan),
-    modality_label: shell.modality ? (MODALITY_LABEL[shell.modality] ?? shell.modality) : null,
-    lifecycle: lifecycleDetail,
-    authored: {
-      alta_by_name: shell.alta_by_name,
-      alta_at: shell.alta_at,
-      edited_by_name: shell.edited_by_name,
-      edited_at: shell.edited_at,
-    },
-    week_chip: weekChipMap.get(String(athlete_id)) ?? SIN_PLAN_CHIP,
-  };
-
-  // Degrade safely: a failed classification load renders the picker in its empty
-  // state (no level / no days) rather than 500-ing the page.
-  const safeClassification: ClasificacionData = classification ?? {
-    level_id: null,
-    level_name: null,
-    suggested_level_id: null,
-    suggested_level_name: null,
-    suggested_level_reason: null,
-    training_days_per_week: null,
-    levels: [],
-    days_band: { min: SEQUENCE_DAYS_MIN, max: SEQUENCE_DAYS_MAX },
-  };
-
-  // The library shown in the sheet, each entry carrying THIS athlete's last completed
-  // occurrence — the one fact that decides whether repeating it now is worth anything.
-  const lastDoneBySlug = new Map<string, string>();
-  for (const t of battery.tests) {
-    if (!t.result_captured) continue;
-    const prev = lastDoneBySlug.get(t.calibration_slug);
-    if (!prev || t.scheduled_for > prev) lastDoneBySlug.set(t.calibration_slug, t.scheduled_for);
-  }
-
   return {
-    header,
-    tests: battery.tests,
-    test_library: testLibrary.map((t) => ({
-      id: String(t.id),
-      name: t.name,
-      last_done: lastDoneBySlug.get(t.slug) ?? null,
-    })),
-    stats: buildStats(resumen, body),
-    classification: safeClassification,
-    max_hr_bpm: shell.max_hr_bpm,
+    email: base[0]?.email ?? null,
+    plan_mode: base[0]?.plan_mode === 'personal' ? 'personal' : INTAKE_PLAN_MODE_DEFAULT,
+    onboarded_at: base[0]?.onboarded_at ? base[0].onboarded_at.toISOString() : null,
+    classification,
     training_days: trainingDays,
-    resumen,
-    plan,
-    plan_mode: shell.plan_mode,
-    body,
-    subscription,
+    review,
+    sessions,
     billing,
     invoices,
-    chat,
-    zone_profiles,
-    strength_maxes,
-    benchmarks,
-    joint_sessions: shell.joint_sessions,
-    sessions,
-    review,
-    communications,
-    ficha: ficha ?? EMPTY_FICHA,
+    timeline,
+    upcoming: upcoming.map((u) => ({
+      id: u.id,
+      date: u.date,
+      title: decodeCoachAssignmentNotes(u.notes).display_title ?? u.title ?? 'Entreno',
+    })),
+    errors: [...new Set(errors)],
   };
-}
-
-/**
- * Reference-test history per slug from `athlete_benchmarks` (coach-scoped via the
- * athletes join). Rows are real recorded RESULTS — never in-WOD segment durations.
- * Grouped oldest→newest per slug for the progression deltas; the label resolves
- * server-side so the client view stays pure. Empty = no test recorded.
- */
-async function loadBenchmarkHistory(params: {
-  coach_id: number | bigint;
-  athlete_id: number;
-  client: Sql;
-}): Promise<BenchmarkSeries[]> {
-  const { coach_id, athlete_id, client } = params;
-  const rows = await client<
-    Array<{ exercise_slug: string; value: number; unit: string; recorded_at: Date }>
-  >`
-    select ab.exercise_slug, ab.value::float8 as value, ab.unit, ab.recorded_at
-    from athlete_benchmarks ab
-    join athletes a on a.id = ab.athlete_id and a.coach_id = ${coach_id}
-    where ab.athlete_id = ${athlete_id}
-    order by ab.exercise_slug asc, ab.recorded_at asc
-  `;
-
-  const grouped = new Map<string, BenchmarkSeries>();
-  for (const r of rows) {
-    let series = grouped.get(r.exercise_slug);
-    if (!series) {
-      series = {
-        exercise_slug: r.exercise_slug,
-        label: benchmarkLabel(r.exercise_slug),
-        unit: r.unit,
-        results: [],
-      };
-      grouped.set(r.exercise_slug, series);
-    }
-    series.results.push({ value: r.value, recorded_at: r.recorded_at.toISOString() });
-  }
-  return [...grouped.values()];
-}
-
-async function loadInitialChat(params: {
-  coach_id: number | bigint;
-  athlete_id: number;
-  client: Sql;
-}): Promise<{ thread_id: string; messages: MessageDTO[] }> {
-  const { thread_id } = await getOrCreateThread({
-    coach_id: params.coach_id,
-    athlete_id: params.athlete_id,
-    sql: params.client,
-  });
-  // El DTO viaja entero, adjuntos incluidos: es el mismo que sirve la API y el
-  // mismo que llega por el canal en vivo, así que la pantalla no tiene que
-  // reconciliar dos formas distintas del mismo mensaje.
-  //
-  // `listMessages` devuelve del más nuevo al más viejo (pagina hacia atrás); la
-  // conversación se pinta al revés, así que se invierte aquí una vez.
-  const { messages } = await listMessages({
-    thread_id,
-    cursor: null,
-    limit: 50,
-    sql: params.client,
-  });
-  return { thread_id, messages: messages.slice().reverse() };
 }

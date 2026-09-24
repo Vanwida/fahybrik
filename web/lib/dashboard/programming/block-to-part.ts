@@ -162,9 +162,9 @@ export function createPartFromLibraryBlock(
     format,
     title: block.title.slice(0, 120),
     // Carry the block's methodology group forward so the studio can color-code
-    // the inserted block (left accent bar + group chip). Library blocks always
-    // have one (1–10); custom blocks set it from their preset (part-factory).
-    methodology_group_id: block.methodology_group_id,
+    // the inserted block (left accent bar + group chip). Optional since 0240: a
+    // block the coach never classified carries none.
+    methodology_group_id: block.methodology_group_id ?? undefined,
     config_json: configFromModifiers(format, mods),
     coach_note: buildBlockCoachNote(block.description, mods),
     items: exercises && exercises.length > 0 ? itemsFromBlockExercises(exercises) : [],

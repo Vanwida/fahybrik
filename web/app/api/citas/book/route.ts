@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     const coach_id = await coachIdForLead(sql, BigInt(res.lead.id));
 
     // #40: presencial → the box address (coach profile). Single-coach global; null if unset.
-    const studio = modality === 'presencial' ? await getStudioLocation() : null;
+    const studio = modality === 'presencial' ? await getStudioLocation(res.coach_id) : null;
     const locationStr = studio
       ? [studio.name, studio.address].filter((s) => s && s.trim()).join(' — ') || null
       : null;
@@ -65,7 +65,9 @@ export async function POST(req: Request) {
         leadName: res.lead.nombre,
         modality,
         location: locationStr,
-        coach_id,
+        // El evento va al Google del coach cuya AGENDA ocupa la cita (el dueño del lead,
+        // o el operador del embudo si no tiene): su conexión, nunca una global (0254).
+        coach_id: res.coach_id,
       });
       if (m.meet_link) {
         await setAppointmentMeetLink({

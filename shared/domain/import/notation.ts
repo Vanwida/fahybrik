@@ -27,6 +27,7 @@
 
 import { type Modality, type Prescription, type PrescriptionSet } from '../prescription/types';
 import {
+  ambiguousBareRest,
   foldText,
   isPureRest,
   normalizeNotation,
@@ -130,6 +131,14 @@ export function parseNotationCell(
       }
     }
     if (isNoiseLine(line)) continue;
+    // «r12»: un descanso sin unidad cuyo tamaño no dice si son minutos o
+    // segundos (ver bareRestSeconds). Ni se adivina ni se pierde: la línea
+    // entera va a revisión y quien la escribió elige la unidad.
+    const ambiguous = ambiguousBareRest(line);
+    if (ambiguous) {
+      out.push(reviewLine(line, `descanso «${ambiguous.value}» sin unidad: ¿minutos o segundos?`));
+      continue;
+    }
     for (const parsed of parseLine(line)) {
       if (
         parsed.confidence === 'detected' &&

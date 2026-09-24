@@ -19,11 +19,14 @@ import {
   type AthleteLifecycleStatus,
   type PauseReason,
 } from '@fahybrid/shared/domain/coach/athlete-lifecycle';
-import { diffDays, isoDateString, parseIsoDate, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { diffDays, parseIsoDate } from '@fahybrid/shared/domain/dates';
+import { loadCoachTodayOfAthlete } from '@/lib/coach/coach-timezone';
 import {
   PAUSE_BUDGET_WINDOW_DAYS,
   computePauseBudget,
+  pauseBudgetDaysOf,
 } from '@fahybrid/shared/domain/coach/pause-budget';
+import { loadCoachThresholdsForAthlete } from '@fahybrid/shared/domain/coach/signal-thresholds-db';
 import type { DetalleLifecycle } from '@/lib/dashboard/v2/atleta-detalle-types';
 
 const ACTIVE_DEFAULT: DetalleLifecycle = {
@@ -54,10 +57,12 @@ function toReason(v: string | null): PauseReason | null {
 
 export async function loadAthleteLifecycleDetail(params: {
   athlete_id: number | bigint;
+  now?: Date;
   client?: Sql;
 }): Promise<DetalleLifecycle> {
   const client = params.client ?? defaultSql;
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  // Pausas y bajas van en el calendario del club (el huso de su coach), como al crearlas.
+  const todayIso = await loadCoachTodayOfAthlete(params.athlete_id, { now: params.now, client });
 
   const rows = await client<
     {
@@ -122,14 +127,18 @@ export async function loadAthleteLifecycleDetail(params: {
   const isBaja = r.status === 'baja';
   // Pause budget: the same arithmetic the athlete sees, so the two surfaces can never
   // disagree about how many days are left. Cheap enough to read every span — an athlete
-  // accumulates a handful of rows, not thousands.
+  // accumulates a handful of rows, not thousands. An open pause runs to the club's today.
   const spans = await client<{ start_date: string; end_date: string | null }[]>`
     select start_date::text as start_date, end_date::text as end_date
     from athlete_pauses
     where athlete_id = ${params.athlete_id}
-      and coalesce(end_date, current_date) >= ${todayIso}::date - ${PAUSE_BUDGET_WINDOW_DAYS}::int
+      and coalesce(end_date, ${todayIso}::date) >= ${todayIso}::date - ${PAUSE_BUDGET_WINDOW_DAYS}::int
   `;
-  const budget = computePauseBudget(spans, todayIso);
+  const budget = computePauseBudget(
+    spans,
+    todayIso,
+    pauseBudgetDaysOf(await loadCoachThresholdsForAthlete(client, params.athlete_id)),
+  );
 
   return {
     status: r.status,

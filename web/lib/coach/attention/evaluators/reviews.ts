@@ -39,8 +39,8 @@ export const reviewDueEvaluator: SignalEvaluator = {
       value: days,
       baseline: thresholdDays,
       trend: null,
-      label: 'Revisión 1:1 vencida',
-      detail: `${days}d sin revisión · cadencia cada ${thresholdDays}d`,
+      label: 'Revisión 1:1 pendiente',
+      detail: `${days} d sin revisión · la tienes cada ${thresholdDays} d`,
       // Una revisión pendiente por atleta a la vez → sin sufijo.
       dedupe_key: dedupeKey('review_1on1_due', facts.athlete_id),
     };

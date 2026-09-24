@@ -26,7 +26,8 @@ import type { AppointmentStatus } from '@fahybrid/shared/domain/citas/status';
 import type { CitaModality } from '@fahybrid/shared/schema';
 import type { CitaEmailResult } from './email';
 import { sendCitaReminderEmail } from './reminder-email';
-import { getStudioLocation } from './store';
+import { getStudioLocation } from './availability';
+import { calendarCoachForLead } from '@/lib/leads/owner';
 
 const HOUR_MS = 60 * 60 * 1000;
 // Window edges around the T-24h target. 23h–25h = ±1h so the hourly cron always covers it.
@@ -111,11 +112,19 @@ export async function sendDueCitaReminders(
     order by a.requested_start asc
   `;
 
-  // #40: the presencial address is coach-global (single-coach) — load it ONCE and reuse for
-  // every presencial reminder in this batch. Null for a video-only batch (or no coach row).
-  const studioLocation = candidates.some((c) => c.modality === 'presencial')
-    ? await getStudioLocation()
-    : null;
+  // #40: the presencial address is the calendar coach's (per coach) — load each distinct
+  // coach's ONCE and reuse it across the batch. An unassigned lead's cita sits on the funnel
+  // coach's calendar (calendarCoachForLead). Nothing loaded for a video-only batch.
+  const studioByCoach = new Map<string, { name: string | null; address: string | null } | null>();
+  for (const c of candidates) {
+    if (c.modality !== 'presencial') continue;
+    const owner = calendarCoachForLead(c.coach_id == null ? null : BigInt(c.coach_id));
+    const key = owner?.toString() ?? '';
+    if (!studioByCoach.has(key)) studioByCoach.set(key, await getStudioLocation(owner));
+  }
+  const studioFor = (c: CandidateRow) =>
+    studioByCoach.get(calendarCoachForLead(c.coach_id == null ? null : BigInt(c.coach_id))?.toString() ?? '') ??
+    null;
 
   let sent = 0;
   let skipped = 0;
@@ -141,7 +150,7 @@ export async function sendDueCitaReminders(
         lead_email: c.lead_email,
         lead_nombre: c.lead_nombre,
         modality: c.modality,
-        location: c.modality === 'presencial' ? studioLocation : null,
+        location: c.modality === 'presencial' ? studioFor(c) : null,
         coach_name: c.coach_name,
         coach_id: c.coach_id,
       });

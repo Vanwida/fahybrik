@@ -1,5 +1,6 @@
 import type { Sql } from 'postgres';
 import { BOX_TIMEZONE, zonedDayString } from '../dates';
+import { isValidTimezone } from '../coach/coach-timezone';
 
 // "Which calendar day is it FOR THIS ATHLETE" — one lookup, because every
 // biometric window in the app is a local-day window and each surface used to
@@ -10,13 +11,23 @@ import { BOX_TIMEZONE, zonedDayString } from '../dates';
  * Until an athlete's device reports its IANA timezone (HealthKit sync batch →
  * `athletes.timezone`), fall back to the deployment default (`BOX_TIMEZONE`).
  * It is a FALLBACK, not an assumption — the column wins the moment it is
- * populated, and it is the only tz link that exists today: there is no
- * `coaches.timezone`, so a coach outside the default zone still reads a clock
- * that is not his. See the note on `BOX_TIMEZONE` in `../dates.ts`.
+ * populated. It is the athlete's clock only: the club's is `coaches.timezone`
+ * (mig 0241, `loadCoachTimezone`), for what the coach decides about the plan.
+ * See the note on `BOX_TIMEZONE` in `../dates.ts`.
  */
 export const LAUNCH_FALLBACK_TIMEZONE = BOX_TIMEZONE;
 
-/** The athlete's IANA timezone, or the launch fallback when unset. */
+/**
+ * A stored zone the date engine (Intl) knows, else the launch fallback: a bad
+ * value costs the athlete his calendar, never the screen. Postgres's half is
+ * guarded where the column is written (the HealthKit sync only stores zones both
+ * engines know, `isSafeTimezone` in web/lib/time-zones.ts).
+ */
+function usableTimezone(stored: string | null | undefined): string {
+  return stored != null && isValidTimezone(stored) ? stored : LAUNCH_FALLBACK_TIMEZONE;
+}
+
+/** The athlete's IANA timezone, or the launch fallback when unset or unknown to Intl. */
 export async function loadAthleteTimezone(
   client: Sql,
   athlete_id: number | bigint,
@@ -24,7 +35,7 @@ export async function loadAthleteTimezone(
   const rows = await client<Array<{ timezone: string | null }>>`
     select timezone from athletes where id = ${athlete_id as number} limit 1
   `;
-  return rows[0]?.timezone ?? LAUNCH_FALLBACK_TIMEZONE;
+  return usableTimezone(rows[0]?.timezone);
 }
 
 /** Same, for a cohort — one query, keyed by athlete id as a string. Ids with no
@@ -39,7 +50,7 @@ export async function loadAthleteTimezones(
   const rows = await client<Array<{ id: string; timezone: string | null }>>`
     select id::text as id, timezone from athletes where id = any(${ids}::bigint[])
   `;
-  for (const r of rows) out.set(r.id, r.timezone ?? LAUNCH_FALLBACK_TIMEZONE);
+  for (const r of rows) out.set(r.id, usableTimezone(r.timezone));
   return out;
 }
 

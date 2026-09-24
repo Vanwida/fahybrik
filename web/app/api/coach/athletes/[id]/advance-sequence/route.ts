@@ -5,8 +5,7 @@ import {
   AssignSequenceError,
   advanceSequenceForAthlete,
 } from '@/lib/dashboard/coach/assign-sequence';
-import { notifyAthlete } from '@/lib/notifications/dispatch';
-import { planPublishedPush } from '@/lib/notifications/plan-published';
+import { notifyPlanAssignedIfVisible } from '@/lib/notifications/plan-published';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,24 +35,20 @@ export async function POST(
     );
 
     // Notify the athlete only when we actually materialized new sessions this call
-    // (advanced / looped / leveled_up with content). Best-effort: the advancement is
-    // already committed; a failed push must not roll it back (same posture as assign).
+    // (advanced / looped / leveled_up with content) AND they already see one of
+    // its weeks: the next programa opens N days before (auto delivery), and that
+    // day the publish cron tells them — a notice today pointed at an empty Plan
+    // (D-10). Best-effort: the advancement is already committed; a failed push
+    // must not roll it back (same posture as assign).
     if (result.materialization && result.materialization.assignment_count > 0) {
       const { sql } = await import('@/lib/db');
-      await notifyAthlete({
+      await notifyPlanAssignedIfVisible({
         sql,
-        athlete_id: BigInt(parsedId.data.id),
-        type: 'plan_published',
-        payload: {
-          athlete_id: parsedId.data.id,
-          week_start: result.materialization.start_date,
-          deep_link: `/plan?week=${result.materialization.start_date}`,
-        },
-        push: {
-          ...(await planPublishedPush(sql, BigInt(parsedId.data.id), 'next_block')),
-          deeplink: { screen: 'plan', week_start: result.materialization.start_date },
-        },
-      }).catch(() => undefined);
+        athlete_id: Number(parsedId.data.id),
+        start_date: result.materialization.start_date,
+        week_count: result.materialization.microcycle_ids.length,
+        variant: 'next_block',
+      });
     }
 
     return jsonOk({ advance_sequence: result });

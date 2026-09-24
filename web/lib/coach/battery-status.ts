@@ -9,6 +9,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { athleteSeesAssignment } from '@/lib/athlete/week-visibility';
 import { captureModeForSpecs, type JumpCaptureMode } from '@fahybrid/shared/domain/jump/protocol';
 import { buildJumpBrief, type JumpBrief } from '@fahybrid/shared/domain/jump/brief';
 import {
@@ -61,7 +62,14 @@ export interface BatteryStatus {
 export async function loadBatteryStatus(
   athlete_id: number,
   client: Sql = defaultSql,
+  /**
+   * La tarjeta del ATLETA: sin los tests de una semana que el coach tiene oculta
+   * («3/4 · falta remo 2K» contaba un test retenido, auditoría D-19); lo ya hecho
+   * se queda. La ficha del coach no lo pasa: ve también lo que retiene.
+   */
+  opts: { visibleToAthlete?: boolean } = {},
 ): Promise<BatteryStatus> {
+  const soloVisibles = opts.visibleToAthlete === true;
   const rows = await client<
     {
       assignment_id: string;
@@ -90,6 +98,7 @@ export async function loadBatteryStatus(
     left join coach_test_results ctr on ctr.test_id = cct.id
     where wa.athlete_id = ${athlete_id}
       and wa.calibration_test_id is not null
+      and (${!soloVisibles} or ${athleteSeesAssignment(client, { keepDone: true })})
     group by wa.id, wa.scheduled_for, wa.status, cct.slug, cct.name
     order by wa.scheduled_for asc
   `;

@@ -6,8 +6,7 @@ import {
   assignSequenceToAthlete,
 } from '@/lib/dashboard/coach/assign-sequence';
 import { assignSequenceInputSchema } from '@fahybrid/shared/schema/assign-sequence';
-import { notifyAthlete } from '@/lib/notifications/dispatch';
-import { planPublishedPush } from '@/lib/notifications/plan-published';
+import { notifyPlanAssignedIfVisible } from '@/lib/notifications/plan-published';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -50,30 +49,22 @@ export async function POST(
       parsed.data.start_date,
     );
 
-    // Notify the athlete that a plan was published — only when we actually
-    // materialized sessions this call (skip the idempotent no-op re-enroll and
-    // empty materializations). Best-effort: the assign is already committed; a
-    // failed push must not roll it back (same posture as assign-month).
+    // «Tu plan está listo» — only when this call materialized sessions (not the
+    // idempotent re-enroll) AND the athlete already sees one of those weeks; a
+    // programa starting later opens N days before and the publish cron tells
+    // them then. Best-effort: the assign is committed.
     if (
       !result.already_enrolled &&
       result.materialization &&
       result.materialization.assignment_count > 0
     ) {
       const { sql } = await import('@/lib/db');
-      await notifyAthlete({
+      await notifyPlanAssignedIfVisible({
         sql,
         athlete_id: BigInt(parsedId.data.id),
-        type: 'plan_published',
-        payload: {
-          athlete_id: parsedId.data.id,
-          week_start: result.materialization.start_date,
-          deep_link: `/plan?week=${result.materialization.start_date}`,
-        },
-        push: {
-          ...(await planPublishedPush(sql, BigInt(parsedId.data.id), 'assigned')),
-          deeplink: { screen: 'plan', week_start: result.materialization.start_date },
-        },
-      }).catch(() => undefined);
+        start_date: result.materialization.start_date,
+        week_count: result.materialization.microcycle_ids.length,
+      });
     }
 
     return jsonOk({ assign_sequence: result });

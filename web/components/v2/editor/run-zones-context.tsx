@@ -97,12 +97,12 @@ export function PaceRuler({ target }: { target: SegmentTarget | null }) {
   }
 
   return (
-    <div className="mt-2.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2.5">
-      <div className="mb-1.5 flex items-center justify-between text-eyebrow font-bold uppercase tracking-[0.1em] text-[color:var(--v2-faint)]">
+    <div className="mt-2.5 rounded-ctl border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2.5">
+      <div className="mb-1.5 flex items-center justify-between t-label font-semibold text-[color:var(--v2-faint)]">
         <span>Dónde cae para {ctx.athlete_name}</span>
         <span>sus zonas reales</span>
       </div>
-      <div className="relative flex h-5 overflow-hidden rounded-[var(--v2-r-xs)]">
+      <div className="relative flex h-5 overflow-hidden rounded-ctl">
         {bands.map((b, i) => {
           const bandSpan = (b.slow_s ?? b.fast_s + OPEN_BAND_PAD_S) - b.fast_s;
           return (
@@ -120,14 +120,14 @@ export function PaceRuler({ target }: { target: SegmentTarget | null }) {
           />
         ) : null}
       </div>
-      <div className="mt-1 flex justify-between font-mono text-eyebrow text-[color:var(--v2-faint)]">
+      <div className="mt-1 flex justify-between t-tnum t-meta text-[color:var(--v2-faint)]">
         {bands.map((b) => (
           <span key={b.code}>
             {b.code} · {clock(b.fast_s)}
           </span>
         ))}
       </div>
-      <p className="mt-1.5 text-label text-[color:var(--v2-muted)]">{caption}</p>
+      <p className="mt-1.5 t-meta text-[color:var(--v2-muted)]">{caption}</p>
     </div>
   );
 }

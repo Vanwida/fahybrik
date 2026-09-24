@@ -1,7 +1,7 @@
 // v2 · ATLETA · SESIÓN — la sesión en profundidad, a página entera.
 //
-// POR QUÉ PÁGINA Y NO EL CAJÓN. El cajón de la ficha (`SessionDetailDrawer`)
-// sigue siendo el vistazo y no se toca: para una sesión de fuerza, una lista de
+// POR QUÉ PÁGINA Y NO EL PANEL. El panel del calendario de la ficha sigue siendo
+// el vistazo (y el editor): para una sesión de fuerza, una lista de
 // números se lee perfecta en 512 px. Una carrera archivada trae un EJE DE
 // TIEMPO, y un eje de tiempo pide ancho: un fartlek de ocho tramos en 41 minutos
 // pone cada uno en 11 px dentro del cajón y en 22 aquí. Además trae siete piezas
@@ -14,6 +14,7 @@
 
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
+import { redirect } from '@/i18n/navigation';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { sql } from '@/lib/db';
 import { loadCoachSessionDetail } from '@/lib/coach/session-detail';
@@ -44,12 +45,16 @@ export default async function V2AthleteSessionPage({
     assignment_id: assignmentId,
   });
   if (!result.ok) notFound();
+  // Sin traza no hay nada que ver a lo ancho: el entreno se lee en su panel (A7).
+  if (!result.session.execution?.trace.available) {
+    redirect({ href: `/atletas/${athleteId}?sesion=${assignmentId}`, locale });
+  }
 
   return (
     <SesionScreen
       detail={result.session}
       athleteName={result.athlete_name}
-      backHref={`/atletas/${id}`}
+      backHref={`/atletas/${id}?sesion=${assignmentId}`}
     />
   );
 }

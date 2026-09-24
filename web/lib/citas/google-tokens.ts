@@ -1,39 +1,52 @@
-// DB access for the single Google OAuth refresh_token used by the citas
-// videollamada adapter. There is exactly ONE row (provider='google'), upserted on
-// the provider unique constraint. Access tokens are NEVER stored — they are minted
-// on demand from this refresh_token (see lib/citas/google.ts:getAccessToken).
+// La conexión de Google Calendar de CADA COACH (migración 0254): su refresh_token y
+// el calendario donde se crean sus citas. Antes era una fila para toda la
+// plataforma (0096) y el siguiente coach que conectaba se quedaba las citas de
+// todos. Los access tokens NUNCA se guardan: se piden al vuelo con el refresh_token
+// (lib/citas/google.ts:getAccessToken).
 //
-// Schema: infra/migrations/0096_google_oauth_tokens.sql
-//
-// Both helpers accept an optional `client` so they can run inside a transaction or
-// be driven by a fake `sql` in unit tests (same DI pattern as lib/citas/reminder.ts).
+// Toda lectura y escritura lleva `coach_id`. Sin coach no hay conexión: una cita
+// sin coach resoluble no crea evento (y el coach pega el enlace a mano).
 
 import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 
 type Client = Sql | TransactionClient;
 
-// Single provider for now. Kept as a constant so the upsert target and the read
-// filter can never drift apart.
-const PROVIDER = 'google';
-
-/** The stored Google refresh_token, or null if the coach hasn't connected yet. */
-export async function getGoogleRefreshToken(client: Client = defaultSql): Promise<string | null> {
-  const rows = await client<{ refresh_token: string }[]>`
-    select refresh_token from google_oauth_tokens where provider = ${PROVIDER} limit 1
-  `;
-  return rows[0]?.refresh_token ?? null;
+export interface GoogleConnection {
+  refresh_token: string;
+  /** El calendario de las citas del coach. `'primary'` si no eligió otro. */
+  calendar_id: string;
 }
 
-/** Upsert the Google refresh_token (one row per provider; re-connect overwrites it). */
-export async function saveGoogleRefreshToken(
+/** El calendario principal de la cuenta conectada (NULL en la fila). */
+export const PRIMARY_CALENDAR = 'primary';
+
+/** La conexión del coach, o null si no ha conectado Google (o no hay coach). */
+export async function getGoogleConnection(
+  coach_id: bigint | number | null | undefined,
+  client: Client = defaultSql,
+): Promise<GoogleConnection | null> {
+  if (coach_id == null) return null;
+  const db = client as unknown as Sql;
+  const rows = await db<{ refresh_token: string; calendar_id: string | null }[]>`
+    select refresh_token, calendar_id from coach_google_connections
+    where coach_id = ${Number(coach_id)} limit 1
+  `;
+  const r = rows[0];
+  return r ? { refresh_token: r.refresh_token, calendar_id: r.calendar_id ?? PRIMARY_CALENDAR } : null;
+}
+
+/** Guarda (o renueva) el refresh_token del coach. Reconectar no toca su calendario. */
+export async function saveGoogleConnection(
+  coach_id: bigint | number,
   refresh_token: string,
   client: Client = defaultSql,
 ): Promise<void> {
-  await client`
-    insert into google_oauth_tokens (provider, refresh_token)
-    values (${PROVIDER}, ${refresh_token})
-    on conflict (provider)
+  const db = client as unknown as Sql;
+  await db`
+    insert into coach_google_connections (coach_id, refresh_token)
+    values (${Number(coach_id)}, ${refresh_token})
+    on conflict (coach_id)
       do update set refresh_token = excluded.refresh_token, updated_at = now()
   `;
 }

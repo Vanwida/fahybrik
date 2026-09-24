@@ -22,6 +22,7 @@ import {
   sendAppointmentCancelled,
   sendAppointmentRejected,
 } from '@/lib/citas/email';
+import { negocioForbidden } from '@/lib/coach/negocio-gate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,6 +44,8 @@ function parseId(raw: string): bigint | null {
 export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
   const session = await getCoachSession();
   if (!session) return jsonError('unauthorized', 'Sesión requerida', 401);
+  const noNegocio = await negocioForbidden(session.coach_id);
+  if (noNegocio) return noNegocio;
 
   const { id } = await ctx.params;
   const apptId = parseId(id);
@@ -86,8 +89,9 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
     let a = res.appointment;
 
     if (res.newStatus === 'aceptada') {
-      // #40: presencial → the box address (coach profile). Single-coach global; null if unset.
-      const studio = a.modality === 'presencial' ? await getStudioLocation() : null;
+      // #40: presencial → the box address of the session's club (the cita's owner, or the
+      // funnel coach triaging an unassigned lead — leadOwnedBy). Null if unset.
+      const studio = a.modality === 'presencial' ? await getStudioLocation(session.coach_id) : null;
       const locationStr = studio
         ? [studio.name, studio.address].filter((s) => s && s.trim()).join(' — ') || null
         : null;
@@ -122,7 +126,7 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<NextResponse> {
     } else if (res.newStatus === 'cancelada') {
       // Best-effort: if the meeting was auto-created on Google, delete the calendar
       // event so a cancelled cita doesn't leave a stray Meet on Alex's calendar.
-      if (a.google_event_id) await deleteCalendarEvent(a.google_event_id).catch(() => {});
+      if (a.google_event_id) await deleteCalendarEvent(session.coach_id, a.google_event_id).catch(() => {});
       await sendAppointmentCancelled(emailPayload(a));
     }
     // completada / no_show → no lead email.

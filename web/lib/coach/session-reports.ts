@@ -2,13 +2,15 @@ import 'server-only';
 
 import { sql } from '@/lib/db';
 import { recordAudit, type DbClient } from '@/lib/audit/record-edit';
+import { calendarCoachForLead, leadOwnedBy } from '@/lib/leads/owner';
 import type { SessionOutcome } from '@fahybrid/shared/domain/sessions/outcome';
 import type { SessionReportInput, SessionReportUpdateInput } from '@fahybrid/shared/schema';
 
 // 1:1 session-report data layer (#14). A report is the coach's write-up of a videollamada:
 // with a LEAD (sales call → outcome + price) or an ATHLETE (1:1 seguimiento). History is
 // per-person; a converted lead's sales calls follow onto the athlete card via
-// leads.converted_athlete_id. Single-coach today, but coach_id is stamped for the future.
+// leads.converted_athlete_id. Multi-coach: every id in the body is ownership-checked on
+// create, and every read is scoped to the coach who serves the subject.
 
 export interface SessionReportView {
   id: string;
@@ -118,14 +120,27 @@ async function readSessionReportById(client: DbClient, id: bigint): Promise<Sess
   return rows[0] ? toView(rows[0]) : null;
 }
 
+// FRONTERA DE TENANT de las lecturas. Quien llama ya comprobó que el lead o el
+// atleta es suyo; aquí, además, solo salen los partes escritos por el coach que
+// ATIENDE a ese sujeto (el del atleta, el dueño del lead). Un parte que otro club
+// hubiera colado antes de validar la escritura no aparece en la ficha de nadie.
+
 /** Reports for a lead (its sales calls), newest first. */
 export async function listSessionReportsForLead(leadId: bigint): Promise<SessionReportView[]> {
   const rows = await sql<RawRow[]>`
     select ${sql.unsafe(COLS)} ${sql.unsafe(FROM_JOINED)}
+    join leads l on l.id = s.lead_id
     where s.lead_id = ${Number(leadId)} and s.deleted_at is null
+      and s.coach_id = coalesce(l.coach_id, ${funnelCoach()})
     order by s.occurred_at desc
   `;
   return rows.map(toView);
+}
+
+/** El coach del embudo público, dueño de los leads sin dueño (ver `leadOwnedBy`). */
+function funnelCoach(): number | null {
+  const id = calendarCoachForLead(null);
+  return id == null ? null : Number(id);
 }
 
 /**
@@ -136,6 +151,7 @@ export async function listSessionReportsForAthlete(athleteId: bigint): Promise<S
   const rows = await sql<RawRow[]>`
     select ${sql.unsafe(COLS)} ${sql.unsafe(FROM_JOINED)}
     where s.deleted_at is null
+      and s.coach_id = (select a.coach_id from athletes a where a.id = ${Number(athleteId)})
       and (
         s.athlete_id = ${Number(athleteId)}
         or s.lead_id in (select id from leads where converted_athlete_id = ${Number(athleteId)})
@@ -156,17 +172,37 @@ export async function createSessionReport(args: {
   const { coach_id, input, by_user_id } = args;
 
   return await sql.begin(async (tx) => {
+    // FRONTERA DE TENANT. Los tres ids llegan del body: el atleta tiene que ser de
+    // este coach, el lead tiene que ser suyo (`leadOwnedBy`) y la cita, de ESE
+    // sujeto. Cualquiera ajeno → el mismo 404 que uno que no existe.
+    const coach = Number(coach_id);
+    if (input.athlete_id != null) {
+      const a = await tx`select 1 from athletes where id = ${input.athlete_id} and coach_id = ${coach}`;
+      if (!a[0]) throw new SessionReportError('not_found', 'Atleta no encontrado', 404);
+    }
+    if (input.lead_id != null) {
+      const l = await tx`
+        select 1 from leads l where l.id = ${input.lead_id} and ${leadOwnedBy(tx, coach, tx`l.coach_id`)}
+      `;
+      if (!l[0]) throw new SessionReportError('not_found', 'Lead no encontrado', 404);
+    }
+
     // Default the timing from the linked appointment when the coach didn't set it.
     let occurredAt = input.occurred_at ?? null;
     let duration = input.duration_minutes ?? null;
-    if (input.appointment_id != null && (occurredAt == null || duration == null)) {
+    if (input.appointment_id != null) {
       const appt = await tx<{ requested_start: Date; duration_minutes: number }[]>`
-        select requested_start, duration_minutes from appointments where id = ${input.appointment_id} limit 1
+        select requested_start, duration_minutes from appointments
+        where id = ${input.appointment_id}
+          and (
+            (${input.lead_id ?? null}::bigint is not null and lead_id = ${input.lead_id ?? null}::bigint)
+            or (${input.athlete_id ?? null}::bigint is not null and athlete_id = ${input.athlete_id ?? null}::bigint)
+          )
+        limit 1
       `;
-      if (appt[0]) {
-        occurredAt = occurredAt ?? appt[0].requested_start.toISOString();
-        duration = duration ?? appt[0].duration_minutes;
-      }
+      if (!appt[0]) throw new SessionReportError('not_found', 'Cita no encontrada', 404);
+      occurredAt = occurredAt ?? appt[0].requested_start.toISOString();
+      duration = duration ?? appt[0].duration_minutes;
     }
 
     // Authorship (#43): stamp created_by inline (the INSERT builds the row), kind
@@ -178,7 +214,7 @@ export async function createSessionReport(args: {
         occurred_at, duration_minutes, notes, next_steps, outcome, quoted_price_eur,
         created_by_user_id, created_by_kind
       ) values (
-        ${input.lead_id ?? null}, ${input.athlete_id ?? null}, ${input.appointment_id ?? null}, ${Number(coach_id)},
+        ${input.lead_id ?? null}, ${input.athlete_id ?? null}, ${input.appointment_id ?? null}, ${coach},
         ${occurredAt ?? new Date().toISOString()}::timestamptz, ${duration ?? 30},
         ${input.notes ?? null}, ${input.next_steps ?? null},
         ${input.outcome ?? null}, ${input.quoted_price_eur ?? null},
@@ -267,6 +303,10 @@ export async function getSessionReportForSummary(args: {
     left join users cu on cu.id = sr.created_by_user_id
     left join users eu on eu.id = sr.last_edited_by_user_id
     where sr.id = ${Number(args.id)} and sr.coach_id = ${Number(args.coach_id)} and sr.deleted_at is null
+      and l.id is not null
+      -- El resumen se envía SOLO a un lead de este coach: ni un parte antiguo
+      -- colado sobre el lead de otro club puede mandarle un correo.
+      and ${leadOwnedBy(sql, args.coach_id, sql`l.coach_id`)}
     limit 1
   `;
   const r = rows[0];

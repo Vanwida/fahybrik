@@ -11,9 +11,18 @@
 // con su propio vocabulario, era decir dos veces lo mismo y romper el esquema
 // del resto de la app. Ver shared/domain/coach/test-derive.ts.
 
-import { useEffect, useMemo, useState } from 'react';
-import { SidePanel, Field, TextInput, TextArea } from '@/components/v2/periodizacion/SidePanel';
-import { MIcon } from '@/components/ui/MIcon';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, Plus, X } from 'lucide-react';
+import {
+  Button,
+  Checkbox,
+  Field,
+  IconButton,
+  Input,
+  SectionHeader,
+  SegmentedControl,
+  Textarea,
+} from '@/components/v2/ui';
 import { cn } from '@/lib/utils';
 import {
   derivedMeasureFor,
@@ -30,10 +39,13 @@ import {
 } from '@fahybrid/shared/domain/coach/test-catalog';
 import { BlockEditor } from '@/components/v2/editor/BlockEditor';
 import { ArchetypeGrid } from '@/components/v2/editor/ArchetypePicker';
-import { PanelButton } from './chrome';
+import { OptionTile } from '@/components/v2/editor/OptionTile';
 import { type TestDraft } from './draft';
 
-const DOW_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
+const DOW_ITEMS = (['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const).map((label, i) => ({
+  value: String(i + 1),
+  label,
+}));
 
 /**
  * El bloque por defecto de un test: UN ESFUERZO. Sin `format` ni `archetype_id`,
@@ -80,6 +92,20 @@ export function TestEditorPanel({
   contentLoading?: boolean;
 }) {
   const [blockPickerOpen, setBlockPickerOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Escape cierra el editor — solo si el foco está en el propio editor. Un
+  // desplegable abierto (Select, menú) vive en un portal y se cierra solo, sin
+  // tirar el borrador entero.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      const el = document.activeElement;
+      if (el === document.body || (el && rootRef.current?.contains(el))) onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   // slug del catálogo → ejercicio real. Es lo que permite que picar «Remo 2 km»
   // deje el bloque montado y no un hueco que el coach tenga que rellenar. Si el
@@ -208,318 +234,213 @@ export function TestEditorPanel({
   const removeSchedule = (i: number) =>
     onChange({ ...draft, schedule: draft.schedule.filter((_, j) => j !== i) });
 
+  const title = draft.id === null ? 'Nuevo test' : 'Editar test';
+
   return (
-    <SidePanel
-      title={draft.id === null ? 'Nuevo test' : 'Editar test'}
-      onClose={onClose}
-      footer={
-        <>
-          <PanelButton variant="ghost" onClick={onClose}>
-            Cancelar
-          </PanelButton>
-          <PanelButton variant="primary" onClick={onSave} disabled={saving}>
-            <MIcon name="check" size={15} /> {saving ? 'Guardando…' : 'Guardar'}
-          </PanelButton>
-        </>
-      }
-    >
-      <Field label="Nombre">
-        <TextInput
-          value={draft.name}
-          onChange={(v) => onChange({ ...draft, name: v })}
-          placeholder="5K control"
-          maxLength={120}
-          autoFocus
-        />
-      </Field>
+    <div ref={rootRef} role="region" aria-label={title} className="flex flex-col rounded-panel border border-v2-border bg-v2-surface">
+      <div className="flex items-center gap-3 border-b border-v2-border px-4 py-3">
+        <h2 className="min-w-0 flex-1 t-title-sm text-v2-fg">{title}</h2>
+        <IconButton icon={X} label="Cerrar" shortcut="Esc" onClick={onClose} />
+      </div>
 
-      <Field label="Nota" hint="la lee el atleta justo antes de empezar · opcional">
-        <TextArea
-          value={draft.protocol}
-          onChange={(v) => onChange({ ...draft, protocol: v })}
-          placeholder="Calienta bien antes de salir a por todas."
-          maxLength={4000}
-        />
-      </Field>
+      <div className="flex flex-col gap-6 px-4 py-4">
+        <Field label="Nombre">
+          {({ id }) => (
+            <Input
+              id={id}
+              size="lg"
+              value={draft.name}
+              onChange={(e) => onChange({ ...draft, name: e.target.value })}
+              placeholder="5K control"
+              maxLength={120}
+              autoFocus
+            />
+          )}
+        </Field>
 
-      {/* Contenido — el bloque real de la sesión: ejercicio + dosis, igual que
-          un entreno normal (docs/DECISIONS.md, 2026-08-08). Sin bloques el test
-          sigue siendo válido: el atleta lo hace según sus resultados, sin una
-          sesión guiada (el mecanismo automático de siempre). */}
-      <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-label font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
-            Contenido
-          </span>
-          {!blockPickerOpen ? (
-            <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={addEsfuerzo}
-                className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-accent-text)] hover:bg-[color:var(--v2-accent-soft)]"
-              >
-                <MIcon name="add" size={14} /> Añadir ejercicio
-              </button>
-              {/* Escape para el test que SÍ tiene forma: una simulación HYROX, un
-                  circuito, un EMOM. Secundario a propósito: es la excepción. */}
-              <button
-                type="button"
-                onClick={() => setBlockPickerOpen(true)}
-                className="v2-focus rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-semibold text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)]"
-              >
-                o un bloque con forma
-              </button>
-            </div>
-          ) : null}
-        </div>
+        <Field label="Nota" optional hint="La lee el atleta justo antes de empezar.">
+          {({ id, describedBy }) => (
+            <Textarea
+              id={id}
+              aria-describedby={describedBy}
+              value={draft.protocol}
+              onChange={(e) => onChange({ ...draft, protocol: e.target.value })}
+              placeholder="Calienta bien antes de salir a por todas."
+              maxLength={4000}
+            />
+          )}
+        </Field>
 
-        {contentLoading ? (
-          <p className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-label leading-snug text-[color:var(--v2-faint)]">
-            Cargando el contenido…
-          </p>
-        ) : draft.content.length === 0 && !blockPickerOpen ? (
-          /* El catálogo, de entrada y sin un clic previo: es el camino del 90 %
-             de los tests. Picar uno lo deja montado y rellena el nombre. */
-          <div className="@container">
-            <p className="mb-3 text-label leading-snug text-[color:var(--v2-faint)]">
-              <b className="text-[color:var(--v2-muted)]">Atajos</b>: picas uno y
-              queda montado. ¿Otra cosa (10 min de remo, 40 cal, lo que sea)? Dale
-              a <b className="text-[color:var(--v2-accent-text)]">Añadir ejercicio</b>{' '}
-              y lo montas tú: ejercicio, medida (distancia · tiempo · calorías ·
-              reps) y el número.
-            </p>
-            <div className="flex flex-col gap-4">
+        {/* Contenido — el bloque real de la sesión: ejercicio + dosis, igual que
+            un entreno normal (docs/DECISIONS.md, 2026-08-08). Sin bloques el test
+            sigue siendo válido: el atleta lo hace según sus resultados, sin una
+            sesión guiada (el mecanismo automático de siempre). */}
+        <section className="flex flex-col gap-2">
+          <SectionHeader
+            title="Contenido"
+            action={
+              !blockPickerOpen ? (
+                <>
+                  {/* Escape para el test que SÍ tiene forma: una simulación
+                      HYROX, un circuito, un EMOM. Secundario a propósito. */}
+                  <Button size="sm" variant="ghost" onClick={() => setBlockPickerOpen(true)}>
+                    Bloque con forma
+                  </Button>
+                  <Button size="sm" icon={Plus} onClick={addEsfuerzo}>
+                    Añadir ejercicio
+                  </Button>
+                </>
+              ) : null
+            }
+          />
+
+          {contentLoading ? (
+            <p className="t-body-sm text-v2-faint">Cargando el contenido…</p>
+          ) : draft.content.length === 0 && !blockPickerOpen ? (
+            /* El catálogo, de entrada y sin un clic previo: es el camino del 90 %
+               de los tests. Picar uno lo deja montado y rellena el nombre. */
+            <div className="@container flex flex-col gap-4">
+              <p className="t-body-sm text-v2-muted">
+                Elige uno y queda montado, o añade un ejercicio y fija tú la medida.
+              </p>
               {TEST_FAMILY_ORDER.map((fam) => (
-                <div key={fam}>
-                  <span className="mb-1.5 block text-label font-bold uppercase tracking-[0.05em] text-[color:var(--v2-faint)]">
-                    {TEST_FAMILY_LABEL[fam]}
-                  </span>
+                <div key={fam} className="flex flex-col gap-2">
+                  <span className="t-label text-v2-faint">{TEST_FAMILY_LABEL[fam]}</span>
                   <div className="grid grid-cols-1 gap-2 @md:grid-cols-2 @2xl:grid-cols-3">
                     {TEST_PRESETS_BY_FAMILY[fam].map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => pickPreset(p)}
-                        className="v2-focus flex min-w-0 flex-col gap-0.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2.5 text-left transition-colors hover:border-[color:var(--v2-accent)]"
-                      >
-                        <span className="truncate text-body font-bold text-[color:var(--v2-fg)]">
-                          {p.label}
-                        </span>
-                        <span className="text-label leading-snug text-[color:var(--v2-muted)]">
-                          {p.hint}
-                        </span>
-                      </button>
+                      <OptionTile key={p.id} title={p.label} detail={p.hint} onClick={() => pickPreset(p)} />
                     ))}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {draft.content.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            {draft.content.map((block, i) => (
-              <div
-                key={block.uid}
-                className="rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3"
-              >
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-label font-bold text-[color:var(--v2-faint)]">
-                    Bloque {i + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeBlock(i)}
-                    aria-label="Quitar bloque"
-                    className="v2-focus flex h-7 w-7 items-center justify-center rounded-full border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
-                  >
-                    <MIcon name="close" size={14} />
-                  </button>
+          {draft.content.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {draft.content.map((block, i) => (
+                <div key={block.uid} className="rounded-panel bg-v2-surface-2 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="t-meta text-v2-muted">Bloque {i + 1}</span>
+                    <IconButton icon={X} label="Quitar bloque" size="sm" onClick={() => removeBlock(i)} />
+                  </div>
+                  <BlockEditor block={block} onChange={(next) => setBlock(i, next)} onAddItem={() => addItemTo(i)} />
                 </div>
-                <BlockEditor
-                  block={block}
-                  onChange={(next) => setBlock(i, next)}
-                  onAddItem={() => addItemTo(i)}
-                />
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        {blockPickerOpen ? (
-          <div className="mt-2.5 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] p-3.5">
-            <div className="mb-3 flex items-baseline justify-between gap-3">
-              <span className="text-body font-bold text-[color:var(--v2-fg)]">
-                Elige el tipo de bloque
-              </span>
-              <button
-                type="button"
-                onClick={() => setBlockPickerOpen(false)}
-                aria-label="Cerrar el selector de tipo"
-                className="v2-focus shrink-0 rounded-[var(--v2-r-s)] p-1 text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
-              >
-                <MIcon name="close" size={16} />
-              </button>
+              ))}
             </div>
-            <ArchetypeGrid onPick={addBlock} />
-          </div>
+          ) : null}
+
+          {blockPickerOpen ? (
+            <div className="rounded-panel border border-v2-border-strong p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="t-body font-medium text-v2-fg">Elige el tipo de bloque</span>
+                <IconButton icon={X} label="Cerrar el selector de tipo" size="sm" onClick={() => setBlockPickerOpen(false)} />
+              </div>
+              <ArchetypeGrid onPick={addBlock} />
+            </div>
+          ) : null}
+        </section>
+
+        {/* Qué mide — DEDUCIDO del contenido, no preguntado (test-derive.ts).
+            En un esfuerzo máximo se mide la variable que NO fijas: pones 1000 m y
+            se mide el tiempo; pones 10 min y se mide la distancia. */}
+        {medido.length > 0 ? (
+          <section className="flex flex-col gap-2">
+            <SectionHeader title="Qué mide" />
+            <ul className="divide-y divide-v2-border rounded-panel border border-v2-border">
+              {medido.map((m) => (
+                <li key={m.uid} className="flex items-baseline justify-between gap-3 px-3 py-2 t-body-sm">
+                  <span className="truncate text-v2-fg">{m.nombre}</span>
+                  <span className="shrink-0 text-v2-muted">
+                    {m.texto}
+                    {m.calibra ? <span className="ml-1.5 font-medium text-v2-fg">· calibra {m.calibra}</span> : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="t-meta text-v2-faint">Al terminar, la app rellena la marca con lo que midió.</p>
+          </section>
         ) : null}
+
+        <section className="flex flex-col gap-2">
+          <SectionHeader
+            title="Agenda"
+            action={
+              <Button size="sm" icon={Plus} onClick={addSchedule}>
+                Añadir semana
+              </Button>
+            }
+          />
+          {draft.schedule.length === 0 ? (
+            <p className="t-body-sm text-v2-faint">
+              Sin agenda: queda en tu batería pero no se programa solo.
+            </p>
+          ) : (
+            <ul className="divide-y divide-v2-border rounded-panel border border-v2-border">
+              {draft.schedule.map((s, i) => {
+                const semanaCero = s.week_offset === 0;
+                return (
+                  <li key={i} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
+                    {/* SEMANA CERO (week_offset 0): los días entre que asignas el
+                        plan y el lunes que arranca. Ahí el día es una PREFERENCIA:
+                        lo que no cabe se desliza, y lo que no entra se dice. */}
+                    <Button
+                      size="sm"
+                      aria-pressed={semanaCero}
+                      onClick={() => setSchedule(i, { week_offset: semanaCero ? 1 : 0 })}
+                      className={cn(semanaCero && 'border-v2-fg bg-v2-fg text-v2-bg hover:border-v2-fg hover:bg-v2-fg')}
+                    >
+                      Antes de empezar
+                    </Button>
+                    {semanaCero ? null : (
+                      <label className="inline-flex items-center gap-2 t-body-sm text-v2-muted">
+                        Semana
+                        <Input
+                          type="number"
+                          size="sm"
+                          min={1}
+                          max={52}
+                          value={s.week_offset}
+                          onChange={(e) =>
+                            setSchedule(i, { week_offset: Math.min(52, Math.max(1, Number(e.target.value) || 1)) })
+                          }
+                          className="w-16 text-center t-tnum"
+                        />
+                      </label>
+                    )}
+                    <SegmentedControl
+                      size="sm"
+                      aria-label="Día de la semana"
+                      items={DOW_ITEMS}
+                      value={String(s.day_of_week)}
+                      onValueChange={(v) => setSchedule(i, { day_of_week: Number(v) })}
+                    />
+                    {/* Solo en semana cero: ahí las piezas se reparten y hay que
+                        saber cuáles no pueden ir pegadas. */}
+                    {semanaCero ? (
+                      <Checkbox
+                        label="Día libre detrás"
+                        checked={(s.rest_days_after ?? 0) > 0}
+                        onCheckedChange={(on) => setSchedule(i, { rest_days_after: on ? 1 : 0 })}
+                        className="t-body-sm"
+                      />
+                    ) : null}
+                    <IconButton icon={X} label="Quitar semana" size="sm" onClick={() => removeSchedule(i)} className="ml-auto" />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p className="t-meta text-v2-faint">La semana 1 es la primera del plan del atleta. Añade más para repetirlo.</p>
+        </section>
       </div>
 
-      {/* Qué mide — DEDUCIDO del contenido, no preguntado (test-derive.ts).
-          En un esfuerzo máximo se mide la variable que NO fijas: pones 1000 m y
-          se mide el tiempo; pones 10 min y se mide la distancia. Pedírselo
-          aparte al coach era decir dos veces lo mismo, y permitía que las dos
-          se contradijeran. */}
-      {medido.length > 0 ? (
-        <div>
-          <span className="mb-1.5 block text-label font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
-            Qué mide
-          </span>
-          <div className="flex flex-col gap-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2.5">
-            {medido.map((m) => (
-              <div key={m.uid} className="flex items-baseline justify-between gap-3 text-label">
-                <span className="truncate text-[color:var(--v2-fg)]">{m.nombre}</span>
-                <span className="shrink-0 text-[color:var(--v2-muted)]">
-                  {m.texto}
-                  {m.calibra ? (
-                    <span className="ml-1.5 font-bold text-[color:var(--v2-accent-text)]">
-                      · calibra {m.calibra}
-                    </span>
-                  ) : null}
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-1 text-label leading-snug text-[color:var(--v2-faint)]">
-            Se deduce de lo que fijas en cada bloque. Al terminar, la app rellena
-            la marca con lo que midió.
-          </p>
-        </div>
-      ) : null}
-      {/* Agenda */}
-      <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-label font-bold uppercase tracking-[0.05em] text-[color:var(--v2-muted)]">
-            Agenda
-          </span>
-          <button
-            type="button"
-            onClick={addSchedule}
-            className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-s)] px-1.5 py-0.5 text-label font-bold text-[color:var(--v2-accent-text)] hover:bg-[color:var(--v2-accent-soft)]"
-          >
-            <MIcon name="add" size={14} /> Añadir semana
-          </button>
-        </div>
-        {draft.schedule.length === 0 ? (
-          <p className="rounded-[var(--v2-r-s)] border border-dashed border-[color:var(--v2-border)] px-3 py-2.5 text-label leading-snug text-[color:var(--v2-faint)]">
-            Sin agenda: el test queda en tu catálogo pero no se programa solo. Añade una semana para que se inyecte en el plan del atleta.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {draft.schedule.map((s, i) => (
-              <div
-                key={i}
-                className="flex flex-wrap items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2"
-              >
-                {/* SEMANA CERO (week_offset 0): los días entre que asignas el
-                    plan y el lunes que arranca. La ventana mide de 1 a 7 días
-                    según cuándo asignes, así que ahí el día es una PREFERENCIA:
-                    lo que no cabe se desliza, y lo que no entra se dice. */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSchedule(i, { week_offset: s.week_offset === 0 ? 1 : 0 })
-                  }
-                  aria-pressed={s.week_offset === 0}
-                  title="Antes de que arranque el plan, en los días que queden libres"
-                  className={cn(
-                    'v2-focus h-7 rounded-[var(--v2-r-pill)] px-2.5 text-label font-bold transition-colors',
-                    s.week_offset === 0
-                      ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-                      : 'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-                  )}
-                >
-                  Antes de empezar
-                </button>
-                {s.week_offset === 0 ? null : (
-                  <label className="inline-flex items-center gap-1.5 text-label font-semibold text-[color:var(--v2-muted)]">
-                    Semana
-                    <input
-                      type="number"
-                      min={1}
-                      max={52}
-                      value={s.week_offset}
-                      onChange={(e) =>
-                        setSchedule(i, {
-                          week_offset: Math.min(52, Math.max(1, Number(e.target.value) || 1)),
-                        })
-                      }
-                      className="v2-focus h-7 w-14 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2 text-center text-body text-[color:var(--v2-fg)]"
-                    />
-                  </label>
-                )}
-                <div className="flex items-center gap-1">
-                  {DOW_LABELS.map((lbl, idx) => {
-                    const dow = idx + 1;
-                    const active = s.day_of_week === dow;
-                    return (
-                      <button
-                        key={dow}
-                        type="button"
-                        onClick={() => setSchedule(i, { day_of_week: dow })}
-                        aria-label={`Día ${lbl}`}
-                        aria-pressed={active}
-                        className={cn(
-                          'v2-focus flex h-7 w-7 items-center justify-center rounded-[var(--v2-r-pill)] text-label font-bold transition-colors',
-                          active
-                            ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-                            : 'border border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-fg)]',
-                        )}
-                      >
-                        {lbl}
-                      </button>
-                    );
-                  })}
-                </div>
-                {/* Solo en semana cero: ahí las piezas se reparten y hay que
-                    saber cuáles no pueden ir pegadas. En una semana del plan el
-                    día es fijo y no hay nada que deslizar. */}
-                {s.week_offset === 0 ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSchedule(i, { rest_days_after: (s.rest_days_after ?? 0) > 0 ? 0 : 1 })
-                    }
-                    aria-pressed={(s.rest_days_after ?? 0) > 0}
-                    title="Deja un día libre detrás (para un test que fatiga)"
-                    className={cn(
-                      'v2-focus h-7 rounded-[var(--v2-r-pill)] px-2.5 text-label font-semibold transition-colors',
-                      (s.rest_days_after ?? 0) > 0
-                        ? 'border border-[color:var(--v2-accent)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent-text)]'
-                        : 'border border-dashed border-[color:var(--v2-border)] text-[color:var(--v2-faint)] hover:border-[color:var(--v2-border-strong)] hover:text-[color:var(--v2-muted)]',
-                    )}
-                  >
-                    + día libre detrás
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => removeSchedule(i)}
-                  aria-label="Quitar ocurrencia"
-                  className="v2-focus ml-auto flex h-7 w-7 items-center justify-center rounded-full border border-[color:var(--v2-border)] text-[color:var(--v2-faint)] transition-colors hover:border-[color:var(--v2-danger)] hover:text-[color:var(--v2-danger)]"
-                >
-                  <MIcon name="close" size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <p className="mt-1.5 text-label leading-snug text-[color:var(--v2-faint)]">
-          Repite un test en varias semanas (re-tests) añadiendo más filas. La semana 1 es la primera del plan del atleta.
-        </p>
+      <div className="flex items-center justify-end gap-2 border-t border-v2-border px-4 py-3">
+        <Button onClick={onClose}>Cancelar</Button>
+        <Button variant="primary" icon={Check} loading={saving} onClick={onSave}>
+          Guardar
+        </Button>
       </div>
-    </SidePanel>
+    </div>
   );
 }

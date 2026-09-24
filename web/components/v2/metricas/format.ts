@@ -2,6 +2,8 @@
 // logic (that lives in lib/dashboard/coach/metrics.ts). Numbers use es-ES so the
 // coach reads "1.240" and "120 €" the way Barcelona does.
 
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+
 const NUM_FMT = new Intl.NumberFormat('es-ES');
 const EUR_FMT = new Intl.NumberFormat('es-ES', {
   style: 'currency',
@@ -84,13 +86,14 @@ export function formatIsoDayShort(iso: string): string {
 }
 
 /** ISO instant → "8 jul" for the cohort subtitle range. */
-export function formatDayShort(iso: string): string {
+/** «23 sept» — un instante, en el huso del club (`useCoachTimeZone`). */
+export function formatDayShort(iso: string, tz: string = BOX_TIMEZONE): string {
   const dt = new Date(iso);
   if (Number.isNaN(dt.getTime())) return '';
   return new Intl.DateTimeFormat('es-ES', {
     day: 'numeric',
     month: 'short',
-    timeZone: 'Europe/Madrid',
+    timeZone: tz,
   })
     .format(dt)
     .replace(/\.$/, '');

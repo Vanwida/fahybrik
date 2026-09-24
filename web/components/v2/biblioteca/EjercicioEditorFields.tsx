@@ -7,7 +7,9 @@
 // Las dos piezas que llevan el modelo encima son `OverrideField` (heredar / forkear
 // / restaurar) y `SharedIdentity` (lo que no se toca y por qué).
 
-import { MIcon } from '@/components/ui/MIcon';
+import { useId, type ReactNode } from 'react';
+import { Lock, Plus, Undo2 } from 'lucide-react';
+import { Button, Input, Select, StatusBadge, Textarea } from '@/components/v2/ui';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import type { CoachExerciseRow } from '@/lib/exercises/coach-override';
@@ -19,18 +21,52 @@ import {
   muscleLabel,
 } from '@/lib/dashboard/exercises/catalog-ui';
 import { EXERCISE_CATEGORY_LABELS } from '@/lib/dashboard/exercises/filter-chips';
-import { cn } from '@/lib/utils';
 
 // Los topes del servidor (create/updateExerciseSchema). Se repiten en cliente para
 // que el coach vea el error ANTES de mandar, no después.
 export const MAX_NAME = 120;
 export const MAX_TEXT = 2000;
 
-export const inputCls =
-  'v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2.5 py-2 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)]';
-export const labelCls =
-  'mb-1 flex items-center justify-between gap-2 text-label font-semibold uppercase tracking-[0.08em] text-[color:var(--v2-muted)]';
-export const hintCls = 'mt-1 text-label leading-relaxed text-[color:var(--v2-faint)]';
+/**
+ * Etiqueta + control + línea de ayuda del formulario de ejercicio. `aside` va a la
+ * derecha de la etiqueta (Restaurar, «Sugerida»). El control recibe el id.
+ */
+export function FormRow({
+  id,
+  label,
+  aside,
+  hint,
+  error,
+  children,
+}: {
+  id: string;
+  label: string;
+  aside?: ReactNode;
+  hint?: ReactNode;
+  error?: string | null;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex min-h-6 items-center justify-between gap-2">
+        <label htmlFor={id} className="t-meta text-v2-muted">
+          {label}
+        </label>
+        {aside}
+      </div>
+      {children}
+      {error ? (
+        <p id={`${id}-err`} className="t-meta text-v2-danger">
+          {error}
+        </p>
+      ) : hint ? (
+        <p id={`${id}-hint`} className="t-meta text-v2-faint">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 /** Texto separado por comas ↔ array (músculos / material). */
 export function parseList(text: string): string[] {
@@ -46,14 +82,9 @@ export const sameList = (a: string[], b: string[]) =>
 /** "Restaurar" — vaciar el campo = borrar el override = volver a heredar. */
 export function RestoreButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-xs)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em] text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-    >
-      <MIcon name="undo" size={12} />
+    <Button size="sm" variant="ghost" icon={Undo2} onClick={onClick} className="-my-1">
       Restaurar
-    </button>
+    </Button>
   );
 }
 
@@ -83,31 +114,28 @@ export function OverrideField({
   placeholder: string;
 }) {
   const overriding = inherits && value.trim() !== '';
+  // La promesa de herencia sólo se hace si HAY algo que heredar: en un Base sin
+  // claves, "vacío = usas lo de la base" no significaría nada.
+  const hint =
+    overriding && baseValue ? (
+      <>
+        En la base: <span className="text-v2-muted">“{baseValue}”</span>
+      </>
+    ) : inherits && baseValue ? (
+      'Vacío = usas lo de la base.'
+    ) : null;
   return (
-    <div>
-      <label className={labelCls} htmlFor={id}>
-        <span>{label}</span>
-        {overriding ? <RestoreButton onClick={() => onChange('')} /> : null}
-      </label>
-      <textarea
+    <FormRow id={id} label={label} aside={overriding ? <RestoreButton onClick={() => onChange('')} /> : null} hint={hint}>
+      <Textarea
         id={id}
         rows={rows}
         value={value}
         maxLength={MAX_TEXT}
         onChange={(e) => onChange(e.target.value)}
         placeholder={inherits && baseValue ? baseValue : placeholder}
-        className={cn(inputCls, 'resize-y leading-relaxed')}
+        aria-describedby={hint ? `${id}-hint` : undefined}
       />
-      {/* La promesa de herencia sólo se hace si HAY algo que heredar: en un Base
-          sin claves, "vacío = usas lo de la base" no significaría nada. */}
-      {overriding && baseValue ? (
-        <p className={hintCls}>
-          En la base: <span className="text-[color:var(--v2-muted)]">“{baseValue}”</span>
-        </p>
-      ) : inherits && baseValue ? (
-        <p className={hintCls}>Vacío = usas lo de la base.</p>
-      ) : null}
-    </div>
+    </FormRow>
   );
 }
 
@@ -138,31 +166,25 @@ export function SharedIdentity({
     ['Material', ex.equipment.map(equipmentLabel).join(', ') || '—'],
   ];
   return (
-    <div className="rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3">
-      <p className="flex items-center gap-1.5 text-label font-semibold uppercase tracking-[0.08em] text-[color:var(--v2-muted)]">
-        <MIcon name="lock" size={13} />
+    <div className="rounded-panel bg-v2-surface-2 p-3">
+      <p className="flex items-center gap-1.5 t-label text-v2-faint">
+        <Lock aria-hidden strokeWidth={2} className="size-3" />
         Esto define el movimiento
       </p>
-      <dl className="mt-2 flex flex-col gap-1.5">
+      <dl className="mt-2 flex flex-col gap-1">
         {facts.map(([k, v]) => (
-          <div key={k} className="flex gap-2 text-xs">
-            <dt className="w-[72px] shrink-0 text-[color:var(--v2-faint)]">{k}</dt>
-            <dd className="min-w-0 flex-1 text-[color:var(--v2-fg)]">{v}</dd>
+          <div key={k} className="flex gap-2 t-body-sm">
+            <dt className="w-20 shrink-0 text-v2-faint">{k}</dt>
+            <dd className="min-w-0 flex-1 text-v2-fg">{v}</dd>
           </div>
         ))}
       </dl>
-      <p className="mt-2.5 text-label leading-relaxed text-[color:var(--v2-muted)]">
-        Es igual para todos y no se cambia: la app cuenta con ello para las analíticas y para
-        adaptar el entreno. ¿Necesitas otro movimiento?
+      <p className="mt-2.5 t-body-sm text-v2-muted">
+        Es igual para todos: la app cuenta con ello para las analíticas y para adaptar el entreno.
       </p>
-      <button
-        type="button"
-        onClick={onCreateOwn}
-        className="v2-focus mt-2 inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-2.5 py-1.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-elevated)]"
-      >
-        <MIcon name="add" size={14} />
+      <Button size="sm" icon={Plus} onClick={onCreateOwn} className="mt-2">
         Crear un ejercicio propio
-      </button>
+      </Button>
     </div>
   );
 }
@@ -173,12 +195,7 @@ export function SharedIdentity({
  * lo pusimos nosotros y que mirarlo es su trabajo.
  */
 function SuggestedTag() {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-info-soft)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em] text-[color:var(--v2-info)]">
-      <MIcon name="lightbulb" size={11} />
-      Sugerida
-    </span>
-  );
+  return <StatusBadge tone="info" size="sm" label="Sugerida" />;
 }
 
 /** La identidad de un ejercicio del coach: suya entera, así que se edita. */
@@ -206,89 +223,72 @@ export function OwnIdentity({
   equipment: string;
   onEquipment: (v: string) => void;
 }) {
+  const uid = useId();
+  const catId = `${uid}-cat`;
+  const modId = `${uid}-mod`;
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <label className={labelCls} htmlFor="ej-cat">
-          <span>Categoría</span>
-        </label>
-        <select
-          id="ej-cat"
+      <FormRow id={catId} label="Categoría" hint="Cómo se ordena y se busca en tu catálogo.">
+        <Select
+          id={catId}
+          size="lg"
+          options={EXERCISE_CATEGORY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
           value={category}
-          onChange={(e) => onCategory(e.target.value as ExerciseCategory)}
-          className={cn(inputCls, 'h-[38px] py-0')}
-        >
-          {EXERCISE_CATEGORY_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <p className={hintCls}>Cómo se ordena y se busca en tu catálogo.</p>
-      </div>
+          onValueChange={onCategory}
+          className="w-full"
+        />
+      </FormRow>
 
       {/* La MODALIDAD se declara, no se adivina. Antes salía del nombre con regex en
           inglés, así que un "Remo 500m" entraba como `other` y las analíticas que
           enrutan por modalidad se rompían sin decir nada. Se pre-selecciona una
           sugerencia — pero se ve, y quien acaba de escribir el movimiento sabe lo que
           es. Ver `suggestModality` y create-exercise.ts. */}
-      <div>
-        <label className={labelCls} htmlFor="ej-mod">
-          <span>Modalidad</span>
-          {modalitySuggested ? <SuggestedTag /> : null}
-        </label>
-        <select
-          id="ej-mod"
+      <FormRow
+        id={modId}
+        label="Modalidad"
+        aside={modalitySuggested ? <SuggestedTag /> : null}
+        hint={
+          modalitySuggested
+            ? 'Deducida del nombre y la categoría. Compruébala: es con lo que se compara en las analíticas.'
+            : 'Con qué se compara y cómo cuenta en las analíticas.'
+        }
+      >
+        <Select
+          id={modId}
+          size="lg"
+          options={MODALITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
           value={modality}
-          onChange={(e) => onModality(e.target.value as Modality)}
-          className={cn(inputCls, 'h-[38px] py-0')}
-          aria-describedby="ej-mod-hint"
-        >
-          {MODALITY_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <p id="ej-mod-hint" className={hintCls}>
-          {modalitySuggested
-            ? 'Lo hemos deducido del nombre y la categoría. Compruébalo: es con lo que se compara en las analíticas.'
-            : 'Con qué se compara y cómo cuenta en las analíticas.'}
-        </p>
-      </div>
+          onValueChange={onModality}
+          className="w-full"
+        />
+      </FormRow>
 
       {/* Al CREAR sólo se pide lo imprescindible: la API de crear sólo acepta
           nombre + categoría + modalidad + vídeo. Músculos y material se editan
-          después, ya con la fila creada — pedirlos aquí sería pedir algo que no se
-          puede guardar. */}
+          después, ya con la fila creada. */}
       {creating ? null : (
         <>
-          <div>
-            <label className={labelCls} htmlFor="ej-muscles">
-              <span>Músculos</span>
-            </label>
-            <input
+          <FormRow id="ej-muscles" label="Músculos" hint="Sepáralos con comas.">
+            <Input
               id="ej-muscles"
+              size="lg"
               value={muscles}
               onChange={(e) => onMuscles(e.target.value)}
               placeholder="cuádriceps, glúteo"
-              className={inputCls}
+              aria-describedby="ej-muscles-hint"
             />
-            <p className={hintCls}>Sepáralos con comas.</p>
-          </div>
-          <div>
-            <label className={labelCls} htmlFor="ej-equip">
-              <span>Material</span>
-            </label>
-            <input
+          </FormRow>
+          <FormRow id="ej-equip" label="Material" hint="Sepáralos con comas.">
+            <Input
               id="ej-equip"
+              size="lg"
               value={equipment}
               onChange={(e) => onEquipment(e.target.value)}
               placeholder="barra, banco"
-              className={inputCls}
+              aria-describedby="ej-equip-hint"
             />
-            <p className={hintCls}>Sepáralos con comas.</p>
-          </div>
+          </FormRow>
         </>
       )}
     </div>

@@ -1,180 +1,223 @@
 /* ════════════════════════════════════════════════════════════════════════════
-   Panel del coach — tokens FLEXR (claro perla + oscuro del mismo cromo).
+   Panel del coach — tokens (oscuro por defecto, claro como alternativa).
 
-   THEME ISOLATION (hard constraint): every token lives under `.v2-root`, NEVER
-   on <html>. The legacy app / landing are dark-only and toggle `.dark` on
-   <html>; v2 must not bleed into them. El panel pinta `data-theme="light|dark"`
-   en `.v2-root` (V2ThemeProvider + V2ThemeScript).
+   Contrato: docs/auditoria-panel-coach/PLAN-CONSTRUCCION.md §3 y el informe
+   E-sistema-visual.md §4. Los NOMBRES --v2-* no cambian (las pantallas que aún
+   no se han rehecho siguen funcionando); los valores sí.
 
-   FLEXR: el cromo es NEUTRO (perla + tinta en claro; casi negro + tinta
-   invertida en oscuro). La marca la pone el coach: clubAccentCssVars pisa
-   --v2-accent* con la familia de esa superficie. Vacío = tinta, NUNCA el
-   naranja de sistema. Fuentes del panel: Bricolage + Figtree (fonts.ts).
-   Los mockups de la guía (.guia-phone / .guia-win) conservan naranja + Archivo
-   itálica, que es la voz de la app del atleta, no la del panel.
+   AISLAMIENTO: todo token vive bajo `.v2-root`, NUNCA en <html>. La landing y
+   la web pública no se tocan. El tema se pinta con `data-theme="dark|light"`
+   en `.v2-root` (V2ThemeProvider + V2ThemeScript). Sin atributo = oscuro.
+
+   CROMO NEUTRO. El color lo llevan los números y el estado. El acento (piel del
+   club, `--v2-club-*`, que deriva el servidor) tiene TRES trabajos y ninguno
+   más: el botón primario, el anillo de foco y el logo. La selección (nav,
+   filtros, pestañas, «hoy») es NEUTRA: `--v2-select*`.
+
+   Tres paletas que no se mezclan nunca:
+   · ESTADO   ok / warn / danger / info (+ neutro). Siempre icono + etiqueta.
+   · MODALIDAD fuerza / ergo / carrera / circuito / calentamiento (categórica).
+   · ZONAS    z1…z6, una sola tinta azul de claro a oscuro (secuencial).
+   Modalidad y zonas validadas con el validador de la skill dataviz (ver notas).
    ════════════════════════════════════════════════════════════════════════════ */
 
-.v2-root {
-  /* ── Acento del sistema = TINTA. El naranja era marca del tenant y salió del
-        cromo; "accent" conserva el nombre porque todo el panel lo lee como
-        "selección/acción primaria". ── */
-  /* El acento sale de la piel del club si la hay (`--v2-club-l-*`, que el
-     servidor deriva para ESTE lienzo y clava en línea) y del neutro FLEXR si
-     no. La elección vive aquí y no en el estilo en línea porque solo el CSS
-     sabe en qué tema está el panel. */
-  --v2-accent: var(--v2-club-l-fill, #201f1b);
-  --v2-accent-press: var(--v2-club-l-press, #3a3833);
-  --v2-accent-fg: var(--v2-club-l-on, #f1efeb);
-  --v2-accent-soft: var(--v2-club-l-soft, rgba(32, 31, 27, 0.07));
-  /* El acento cuando hace de TEXTO sobre el lienzo: distinto del relleno,
-     porque un color puede valer de botón y no llegar a 4,5:1 como letra. */
-  --v2-accent-text: var(--v2-club-l-text, #201f1b);
+/* ── OSCURO (por defecto) ─────────────────────────────────────────────────── */
+.v2-root,
+.v2-root[data-theme="dark"] {
+  color-scheme: dark;
 
-  /* ── Superficies y tinta (perla FLEXR) ── */
-  --v2-bg: #f1efeb; /* lienzo perla */
-  --v2-surface: #fefdfb; /* cards, sidebar, tablas (hueso, no blanco puro) */
-  --v2-surface-2: #ece9e2; /* relleno anidado (tracks, chips) */
-  --v2-elevated: #f7f5f0; /* hover / panel levantado */
-  --v2-border: #e4e1da; /* borde */
-  --v2-border-strong: #d6d2c8;
-  --v2-fg: #201f1b; /* tinta principal */
-  --v2-muted: #56534c; /* secundario */
-  --v2-faint: #6f6b62; /* terciario; mínimo permitido en texto pequeño */
+  /* Acento = piel del club (familia OSCURA) o tinta invertida si no hay. */
+  --v2-accent: var(--v2-club-d-fill, #f2f2f2);
+  --v2-accent-press: var(--v2-club-d-press, #d4d4d4);
+  --v2-accent-fg: var(--v2-club-d-on, #0b0b0c);
+  --v2-accent-soft: var(--v2-club-d-soft, rgba(242, 242, 242, 0.12));
+  /* El acento cuando hace de TEXTO: puede diferir del relleno (4,5:1). */
+  --v2-accent-text: var(--v2-club-d-text, #f2f2f2);
 
-  --v2-scrim: rgba(32, 31, 27, 0.35);
+  /* Superficies y tinta. Las tarjetas se separan por BORDE, no por luminancia. */
+  --v2-bg: #0b0b0c;
+  --v2-surface: #161618;
+  --v2-surface-2: #1e1e21;
+  --v2-elevated: #1b1b1e;
+  --v2-border: #2c2c30;
+  --v2-border-strong: #3a3a40;
+  --v2-fg: #f2f2f2;
+  --v2-muted: #a6a6a6;
+  --v2-faint: #8c8c8c; /* mínimo para texto: 5,4:1 sobre surface */
+  --v2-scrim: rgba(0, 0, 0, 0.62);
 
-  /* ── Semánticos (texto/dot); fondos = -soft al 10% ── */
-  --v2-ok: #2f7050;
-  --v2-ok-soft: rgba(47, 112, 80, 0.1);
-  --v2-warn: #b36a00;
-  --v2-warn-soft: rgba(179, 106, 0, 0.1);
-  --v2-danger: #b0402f;
-  --v2-danger-soft: rgba(176, 64, 47, 0.1);
-  --v2-info: #46688c;
-  --v2-info-soft: rgba(70, 104, 140, 0.1);
+  /* Selección neutra (nav activa, filtro activo, pestaña, «hoy»). */
+  --v2-select: #232327;
+  --v2-select-fg: #f2f2f2;
+  --v2-select-bar: #f2f2f2;
+  --v2-hover: rgba(255, 255, 255, 0.045);
 
-  /* ── Eje de MODALIDAD (significado, no decoración): tonos FLEXR apagados,
-        distintos entre sí y del acento-tinta. El color nunca es la única señal:
-        toda tarjeta lleva también su etiqueta. ── */
-  --v2-mod-carrera: #c0453a;
-  --v2-mod-ergo: #46688c;
-  --v2-mod-fuerza: #a9791d;
-  --v2-mod-circuito: #2f7050;
-  --v2-mod-calentamiento: #7c736b;
-  --v2-mod-carrera-soft: rgba(192, 69, 58, 0.1);
-  --v2-mod-ergo-soft: rgba(70, 104, 140, 0.1);
-  --v2-mod-fuerza-soft: rgba(169, 121, 29, 0.1);
-  --v2-mod-circuito-soft: rgba(47, 112, 80, 0.1);
-  --v2-mod-calentamiento-soft: rgba(124, 115, 107, 0.1);
+  /* Estado. `-fg` = texto encima del relleno macizo (danger en oscuro lleva
+     texto OSCURO: blanco sobre rojo claro no llega a AA). */
+  --v2-ok: #3ccf85;
+  --v2-ok-soft: rgba(60, 207, 133, 0.13);
+  --v2-ok-fg: #0b0b0c;
+  --v2-warn: #f0a43a;
+  --v2-warn-soft: rgba(240, 164, 58, 0.13);
+  --v2-warn-fg: #0b0b0c;
+  --v2-danger: #ff5d55;
+  --v2-danger-soft: rgba(255, 93, 85, 0.13);
+  --v2-danger-fg: #0b0b0c;
+  --v2-info: #5aa7f5;
+  --v2-info-soft: rgba(90, 167, 245, 0.13);
+  --v2-info-fg: #0b0b0c;
 
-  /* ── Eje de ZONAS (calculadora de zonas): misma semántica de intensidad,
-        entonada a la paleta. Z6 = tinta sobre claro. ── */
-  --v2-z1: #2f7050;
-  --v2-z1-soft: rgba(47, 112, 80, 0.1);
-  --v2-z2: #46688c;
-  --v2-z2-soft: rgba(70, 104, 140, 0.1);
-  --v2-z3: #a9791d;
-  --v2-z3-soft: rgba(169, 121, 29, 0.1);
-  --v2-z4: #b0402f;
-  --v2-z4-soft: rgba(176, 64, 47, 0.1);
-  --v2-z5: #8e3450;
-  --v2-z5-soft: rgba(142, 52, 80, 0.12);
-  --v2-z6: #201f1b;
-  --v2-z6-soft: rgba(32, 31, 27, 0.06);
+  /* Modalidad — pasos oscuros re-escalonados y validados TODOS los pares
+     (validate_palette.js --mode dark --surface #161618 --pairs all):
+     CVD peor 14,8 · visión normal peor 16,3 · contraste ≥ 3:1. */
+  --v2-mod-fuerza: #764ec7;
+  --v2-mod-ergo: #41ab77;
+  --v2-mod-carrera: #3f9dda;
+  --v2-mod-circuito: #9d466a;
+  --v2-mod-calentamiento: #77777f;
+  --v2-mod-fuerza-soft: rgba(118, 78, 199, 0.18);
+  --v2-mod-ergo-soft: rgba(65, 171, 119, 0.16);
+  --v2-mod-carrera-soft: rgba(63, 157, 218, 0.16);
+  --v2-mod-circuito-soft: rgba(157, 70, 106, 0.2);
+  --v2-mod-calentamiento-soft: rgba(119, 119, 127, 0.16);
 
-  /* ── Tipografía FLEXR: Bricolage Grotesque (display) + Figtree (cuerpo).
-        Los números tabulares van en Figtree (tnum), ya no en mono. ── */
-  --v2-font-display: var(--font-bricolage), "Helvetica Neue", system-ui, sans-serif;
-  --v2-font-sans: var(--font-figtree), "SF Pro Text", system-ui, sans-serif;
-  --v2-font-mono: var(--font-figtree), "SF Pro Text", system-ui, sans-serif;
+  /* Zonas — azul secuencial; en oscuro la zona alta es la más luminosa
+     (--ordinal --mode dark: monótona, saltos ≥ 0,06, extremo ≥ 2:1). */
+  --v2-z1: #184f95;
+  --v2-z2: #256abf;
+  --v2-z3: #3987e5;
+  --v2-z4: #6da7ec;
+  --v2-z5: #9ec5f4;
+  --v2-z6: #cde2fb;
+  --v2-z1-soft: rgba(24, 79, 149, 0.22);
+  --v2-z2-soft: rgba(37, 106, 191, 0.2);
+  --v2-z3-soft: rgba(57, 135, 229, 0.18);
+  --v2-z4-soft: rgba(109, 167, 236, 0.16);
+  --v2-z5-soft: rgba(158, 197, 244, 0.14);
+  --v2-z6-soft: rgba(205, 226, 251, 0.12);
 
-  /* Radii + spacing — escala FLEXR: panel 16 · card 14 · bloque 12 · nav 10,
-     y los peldaños micro heredados (2 · 4 · 6 · 8) que la UI fina necesita. */
-  --v2-r-3xs: 2px; /* barra fina, muestra de color diminuta */
-  --v2-r-2xs: 4px; /* casilla, botón micro */
-  --v2-r-xs: 6px;
-  --v2-r-s: 8px;
-  --v2-r-nav: 10px; /* item de navegación */
-  --v2-r-m: 12px; /* bloque anidado, día */
-  --v2-r-card: 14px; /* card, contenedor de tabla */
-  --v2-r-l: 16px; /* panel grande, sidebar */
-  --v2-r-pill: 9999px; /* botón, chip, buscador, toggle */
-
-  --v2-shadow-card: 0 1px 2px rgba(32, 31, 27, 0.04);
-  --v2-shadow-pop: 0 16px 40px -12px rgba(32, 31, 27, 0.22);
-
-  /* Alto de la barra de pestañas móvil (V2MobileNav: item 52px + pt 4 + pb 4 +
-     borde 1) más la safe area del iPhone. Lo que mida a pantalla completa
-     (mensajes) se lo resta por debajo de lg — si la barra cambia, cambiar AQUÍ. */
-  --v2-tabbar-h: calc(61px + env(safe-area-inset-bottom));
-
-  /* Ancho máximo de la COLUMNA DE PÁGINA del dashboard. Uno solo: convivían
-     cuatro (1480 ×15, 1280, 1180 ×2) y Pagos y Métricas quedaban 300 px más
-     estrechas que Atletas y Hoy, así que el contenido saltaba de sitio al
-     cambiar de sección. NO aplica ni al landing (tiene su propio ritmo de
-     1180) ni al ancho de un modal, que se dimensiona a su contenido. */
-  --v2-container: 1480px;
+  /* Tarjetas planas (borde); una sola sombra para lo que flota. */
+  --v2-shadow-card: none;
+  --v2-shadow-pop: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 16px 40px -12px rgba(0, 0, 0, 0.75);
 }
 
-/* ── DARK — superficies ya existentes (casi negro). Acento = tinta invertida
-      (cromo FLEXR neutro). El naranja NO vuelve aquí: o lo clava la piel del
-      club en inline, o los mockups de la guía lo pisan más abajo. ── */
-.v2-root[data-theme="dark"] {
-  /* Misma piel, familia OSCURA: el color se derivó contra el casi negro. */
-  --v2-accent: var(--v2-club-d-fill, #f5f5f5);
-  --v2-accent-press: var(--v2-club-d-press, #d0d0d0);
-  --v2-accent-fg: var(--v2-club-d-on, #0a0a0a);
-  --v2-accent-soft: var(--v2-club-d-soft, rgba(245, 245, 245, 0.14));
-  --v2-accent-text: var(--v2-club-d-text, #f5f5f5);
-  --v2-bg: #0a0a0a;
-  --v2-surface: #141414;
-  --v2-surface-2: #1a1a1a;
-  --v2-elevated: #1f1f1f;
-  --v2-border: rgba(255, 255, 255, 0.08);
-  --v2-border-strong: rgba(255, 255, 255, 0.16);
-  --v2-fg: #f5f5f5;
-  --v2-muted: #a1a1a1;
-  --v2-faint: #6e6e6e;
-  --v2-scrim: rgba(0, 0, 0, 0.6);
-  --v2-ok: #3fc773;
-  --v2-ok-soft: rgba(63, 199, 115, 0.14);
-  --v2-warn: #f2a52e;
-  --v2-warn-soft: rgba(242, 165, 46, 0.14);
-  --v2-danger: #f2504f;
-  --v2-danger-soft: rgba(242, 80, 79, 0.14);
-  --v2-info: #4d9eeb;
-  --v2-info-soft: rgba(77, 158, 235, 0.14);
-  --v2-mod-carrera: #e5484d;
-  --v2-mod-ergo: #4d9eeb;
-  --v2-mod-fuerza: #e0a93b;
-  --v2-mod-circuito: #3fc773;
-  --v2-mod-calentamiento: #9b9b9b;
-  --v2-mod-carrera-soft: rgba(229, 72, 77, 0.14);
-  --v2-mod-ergo-soft: rgba(77, 158, 235, 0.14);
-  --v2-mod-fuerza-soft: rgba(224, 169, 59, 0.14);
-  --v2-mod-circuito-soft: rgba(63, 199, 115, 0.14);
-  --v2-mod-calentamiento-soft: rgba(155, 155, 155, 0.14);
-  --v2-z1: #34c46a;
-  --v2-z1-soft: rgba(52, 196, 106, 0.13);
-  --v2-z2: #4d9eeb;
-  --v2-z2-soft: rgba(77, 158, 235, 0.13);
-  --v2-z3: #e0a93b;
-  --v2-z3-soft: rgba(224, 169, 59, 0.13);
-  --v2-z4: #f2504f;
-  --v2-z4-soft: rgba(242, 80, 79, 0.13);
-  --v2-z5: #b13a52;
-  --v2-z5-soft: rgba(177, 58, 82, 0.16);
-  --v2-z6: #e8e8e8;
-  --v2-z6-soft: rgba(255, 255, 255, 0.06);
-  --v2-shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px -12px rgba(0, 0, 0, 0.7);
-  --v2-shadow-pop: 0 16px 40px -12px rgba(0, 0, 0, 0.8);
+/* ── CLARO ─────────────────────────────────────────────────────────────────── */
+.v2-root[data-theme="light"] {
+  color-scheme: light;
+
+  --v2-accent: var(--v2-club-l-fill, #141413);
+  --v2-accent-press: var(--v2-club-l-press, #2e2e2b);
+  --v2-accent-fg: var(--v2-club-l-on, #ffffff);
+  --v2-accent-soft: var(--v2-club-l-soft, rgba(20, 20, 19, 0.07));
+  --v2-accent-text: var(--v2-club-l-text, #141413);
+
+  --v2-bg: #f4f4f2;
+  --v2-surface: #ffffff;
+  --v2-surface-2: #ececea;
+  --v2-elevated: #f8f8f6;
+  --v2-border: #dcdcd7;
+  --v2-border-strong: #c9c9c3;
+  --v2-fg: #141413;
+  --v2-muted: #52524d;
+  --v2-faint: #67675f; /* 5,7:1 sobre surface, ≥ 4,8 sobre surface-2 */
+  --v2-scrim: rgba(20, 20, 19, 0.32);
+
+  --v2-select: #ececea;
+  --v2-select-fg: #141413;
+  --v2-select-bar: #141413;
+  --v2-hover: rgba(20, 20, 19, 0.04);
+
+  --v2-ok: #1d7447;
+  --v2-ok-soft: rgba(29, 116, 71, 0.1);
+  --v2-ok-fg: #ffffff;
+  --v2-warn: #8f5400;
+  --v2-warn-soft: rgba(143, 84, 0, 0.1);
+  --v2-warn-fg: #ffffff;
+  --v2-danger: #bf3128;
+  --v2-danger-soft: rgba(191, 49, 40, 0.09);
+  --v2-danger-fg: #ffffff;
+  --v2-info: #2c5f9e;
+  --v2-info-soft: rgba(44, 95, 158, 0.1);
+  --v2-info-fg: #ffffff;
+
+  /* Modalidad (claro) — validada todos los pares sobre #FFFFFF y #F4F4F2:
+     visión normal 16,3; CVD 6,1 (franja suelo) → etiqueta SIEMPRE obligatoria,
+     y ergo/circuito < 3:1 → nunca como texto, solo como marca con etiqueta. */
+  --v2-mod-fuerza: #4a3aa7;
+  --v2-mod-ergo: #1baf7a;
+  --v2-mod-carrera: #2a78d6;
+  --v2-mod-circuito: #e87ba4;
+  --v2-mod-calentamiento: #8a8a84;
+  --v2-mod-fuerza-soft: rgba(74, 58, 167, 0.1);
+  --v2-mod-ergo-soft: rgba(27, 175, 122, 0.12);
+  --v2-mod-carrera-soft: rgba(42, 120, 214, 0.1);
+  --v2-mod-circuito-soft: rgba(232, 123, 164, 0.14);
+  --v2-mod-calentamiento-soft: rgba(138, 138, 132, 0.12);
+
+  /* Zonas (claro): z1 la más clara, z6 la más oscura (--ordinal: pasa). */
+  --v2-z1: #89b7f3;
+  --v2-z2: #5b9df0;
+  --v2-z3: #3683e0;
+  --v2-z4: #226bc0;
+  --v2-z5: #17559b;
+  --v2-z6: #0c3f78;
+  --v2-z1-soft: rgba(137, 183, 243, 0.2);
+  --v2-z2-soft: rgba(91, 157, 240, 0.16);
+  --v2-z3-soft: rgba(54, 131, 224, 0.12);
+  --v2-z4-soft: rgba(34, 107, 192, 0.1);
+  --v2-z5-soft: rgba(23, 85, 155, 0.1);
+  --v2-z6-soft: rgba(12, 63, 120, 0.1);
+
+  --v2-shadow-card: none;
+  --v2-shadow-pop: 0 0 0 1px rgba(20, 20, 19, 0.06), 0 12px 32px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Lo que no depende del tema ───────────────────────────────────────────── */
+.v2-root {
+  /* Una sola familia: Figtree (fonts.ts). Display = los números grandes. */
+  --v2-font-sans: var(--font-figtree), "SF Pro Text", system-ui, sans-serif;
+  --v2-font-display: var(--v2-font-sans);
+  --v2-font-mono: var(--v2-font-sans);
+
+  /* Radios: 6 controles · 10 tarjetas/paneles/diálogos · full avatares/chips
+     de filtro. Los nombres viejos apuntan a esa escala para que lo no rehecho
+     converja solo. */
+  --v2-r-control: 6px;
+  --v2-r-panel: 10px;
+  --v2-r-3xs: 2px;
+  --v2-r-2xs: 4px;
+  --v2-r-xs: 6px;
+  --v2-r-s: 6px;
+  --v2-r-nav: 6px;
+  --v2-r-m: 8px; /* anidado dentro de una tarjeta: nunca más que ella */
+  --v2-r-card: 10px;
+  --v2-r-l: 10px;
+  --v2-r-pill: 9999px;
+
+  /* Alturas: filas 40 (tablas densas) / 48 cómoda / 56 táctil;
+     controles 28 (en fila) / 32 (barras) / 40 (formularios, primario). */
+  --v2-row: 40px;
+  --v2-row-comfy: 48px;
+  --v2-row-touch: 56px;
+  --v2-ctl-sm: 28px;
+  --v2-ctl-md: 32px;
+  --v2-ctl-lg: 40px;
+
+  /* Movimiento: una curva, dos duraciones. */
+  --v2-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --v2-dur-fast: 120ms;
+  --v2-dur: 200ms;
+
+  /* Alto de la barra de pestañas móvil (V2MobileNav) + safe area. */
+  --v2-tabbar-h: calc(61px + env(safe-area-inset-bottom));
+
+  /* Ancho máximo de la COLUMNA DE PÁGINA del dashboard (uno solo). */
+  --v2-container: 1480px;
 }
 
 /* Mockups de la app del atleta (guía): naranja + Archivo, anidados en su
    propio `.v2-root`. No sangran al panel del coach. */
-.v2-root.guia-phone[data-theme="dark"],
-.v2-root.guia-win[data-theme="dark"] {
+.v2-root.guia-phone[data-theme="dark"] {
   --v2-accent: #f06a2a;
   --v2-accent-press: #d85a20;
   --v2-accent-fg: #0a0a0a;
@@ -186,10 +229,10 @@
 }
 
 /* ── PUENTE shadcn ⇄ v2 ──────────────────────────────────────────────────────
-   Los primitivos de `components/ui/` hablan los nombres de shadcn
-   (--primary, --border, --muted…). `app/globals.css` los define una sola vez
-   y SIN tema claro, así que aquí se reapuntan a los --v2-* del propio
-   `.v2-root` y la cascada llega tematizada a Button y Card. */
+   Los primitivos viejos de `components/ui/` hablan los nombres de shadcn
+   (--primary, --border, --muted…). `app/globals.css` los define una vez y sin
+   tema claro; aquí se reapuntan a los --v2-* del propio `.v2-root`, que ya
+   están tematizados, así que una sola regla sirve para claro y oscuro. */
 .v2-root {
   --background: var(--v2-bg);
   --foreground: var(--v2-fg);
@@ -208,104 +251,54 @@
   --border: var(--v2-border);
   --input: var(--v2-border);
   --ring: var(--v2-accent);
-  --radius: var(--v2-r-s);
-  /* La forma de la tarjeta en la escala FLEXR: card 14, anidado 12. */
+  --radius: var(--v2-r-control);
   --card-radius: var(--v2-r-card);
   --card-radius-inset: var(--v2-r-m);
   --card-elevation: var(--v2-shadow-card);
 }
 
-/* ── PUENTE shadcn ⇄ v2 ──────────────────────────────────────────────────────
-   Los primitivos de `components/ui/` hablan los nombres de shadcn
-   (--primary, --border, --muted…). `app/globals.css` los define una sola vez
-   y SIN tema claro ("No light theme variant"), así que un primitivo puesto
-   dentro del dashboard se quedaba oscuro cuando el coach pulsa el toggle.
-
-   Aquí se reapuntan a los --v2-* del propio `.v2-root`. Como los tres bloques
-   de arriba teman --v2-* sobre ESTE MISMO elemento, una sola regla sirve para
-   claro y oscuro: var(--v2-bg) resuelve al valor ya tematizado.
-
-   `@theme inline` en globals.css es lo que lo hace posible: las utilidades
-   emiten var(--primary) en vez de un valor congelado, así que la cascada llega.
-
-   No crea ningún token --v2-* nuevo, y en oscuro los valores coinciden con los
-   de globals.css (#0a0a0a, #141414, #f5f5f5, #f06a2a) → cero cambio visual.
-   Es la ola 1 de docs/design-system-web.html, acotada a lo que usan Button
-   y Card. */
-.v2-root {
-  --background: var(--v2-bg);
-  --foreground: var(--v2-fg);
-  --card: var(--v2-surface);
-  --card-foreground: var(--v2-fg);
-  --popover: var(--v2-surface);
-  --popover-foreground: var(--v2-fg);
-  --primary: var(--v2-accent);
-  --primary-foreground: var(--v2-accent-fg);
-  /* El naranja pulsado. globals.css ya expone --accent-press como token
-     (@theme → bg-accent-press), así que el hover no necesita opacidad:
-     con /90 el naranja se ACLARA sobre el lienzo claro y se oscurece sobre
-     el oscuro — el pulsado iría al revés según el tema. */
-  --accent: var(--v2-accent);
-  --accent-press: var(--v2-accent-press);
-  --accent-on: var(--v2-accent-fg);
-  --muted: var(--v2-surface-2);
-  --muted-foreground: var(--v2-muted);
-  --destructive: var(--v2-danger);
-  --border: var(--v2-border);
-  --input: var(--v2-border);
-  --ring: var(--v2-accent);
-  --radius: var(--v2-r-s);
-  /* La forma de la tarjeta, en la escala del dashboard: el panel a 16, el
-     bloque anidado a 12 (un anidado nunca redondea mas que su contenedor).
-     Son EXACTAMENTE los valores que hoy escriben a mano las tarjetas del
-     dashboard (--v2-r-l / --v2-r-m / --v2-shadow-card), asi que migrar una a
-     <Card> no mueve un pixel. */
-  --card-radius: var(--v2-r-l);
-  --card-radius-inset: var(--v2-r-m);
-  --card-elevation: var(--v2-shadow-card);
-}
-
 /* ════════════════════════════════════════════════════════════════════════════
-   Base surface styling for the v2 root + a few reusable helpers. Scoped so the
-   block can never touch the legacy app. Everything else is Tailwind utilities
-   reading the vars above via arbitrary `[color:var(--v2-…)]` values.
+   Superficie base + ayudas. La escala de tipo (t-label … t-num-xl) vive en
+   app/globals.css (@layer components) para que las utilidades la puedan pisar.
    ════════════════════════════════════════════════════════════════════════════ */
 
 .v2-root {
   background: var(--v2-bg);
   color: var(--v2-fg);
   font-family: var(--v2-font-sans);
+  font-size: 14px;
+  line-height: 20px;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   min-height: 100dvh;
 }
 
-/* Display heading — Bricolage bold, tracking cerrado (voz neutra FLEXR).
-   La itálica-black de la app vive solo en los mockups de la guía. */
+/* Titular: ya no es otra familia. Figtree 600 con tracking cerrado. */
 .v2-display {
   font-family: var(--v2-font-display);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
 }
-.v2-root.guia-phone[data-theme="dark"] .v2-display,
-.v2-root.guia-win[data-theme="dark"] .v2-display {
+.v2-root.guia-phone[data-theme="dark"] .v2-display {
   font-weight: 900;
   font-style: italic;
   letter-spacing: -0.01em;
   line-height: 1;
 }
 
-/* Tracked uppercase micro-label (lane headers, stat labels). */
+/* Etiqueta en mayúsculas (heredada; igual que t-label). */
 .v2-micro {
   font-family: var(--v2-font-sans);
-  font-size: 0.6875rem;
+  font-size: 11px;
+  line-height: 14px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   color: var(--v2-faint);
 }
 
-/* Número tabular — counts + stats never jitter (Figtree tnum en FLEXR). */
+/* Número tabular — cifras que no bailan. */
 .v2-num {
   font-family: var(--v2-font-mono);
   font-variant-numeric: tabular-nums;
@@ -313,22 +306,23 @@
   letter-spacing: -0.01em;
 }
 
-/* Focus ring (WCAG 2.4.7) — two-layer ring legible on any v2 surface. */
+/* Anillo de foco (WCAG 2.4.7): dos capas, legible en cualquier superficie. */
 .v2-focus:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--v2-bg), 0 0 0 4px var(--v2-accent);
   border-radius: inherit;
 }
 
-/* Staggered reveal on mount — one orchestrated entrance, reduced-motion safe.
-   OJO AL FILL: con `both`, el navegador retiene el valor MUESTREADO final de
-   TODAS las propiedades animadas — incluido un transform en matriz identidad —
-   y una identidad sigue contando como transform: todo .v2-stagger se volvía
-   containing block permanente de sus `position: fixed`, y los overlays de la
-   ficha (cajón de sesión, modales) salían atrapados y desplazados dentro de la
-   tarjeta (el «fondo raro movido»). Por eso: base = estado FINAL (visible, sin
-   transform) y fill `backwards`, que solo cubre el delay con el frame inicial
-   y al acabar lo suelta todo. */
+/* Barras de scroll discretas dentro del panel. */
+.v2-root * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--v2-border-strong) transparent;
+}
+
+/* Entrada escalonada al montar — respeta reduced-motion.
+   OJO AL FILL: `backwards` y base = estado FINAL. Con `both` el navegador
+   retiene un transform identidad y cada .v2-stagger se vuelve containing block
+   de sus `position: fixed` (los overlays salían atrapados en la tarjeta). */
 @keyframes v2-reveal {
   from {
     opacity: 0;
@@ -340,7 +334,7 @@
   }
 }
 .v2-stagger {
-  animation: v2-reveal 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation: v2-reveal 0.4s var(--v2-ease) backwards;
   animation-delay: calc(var(--v2-stagger-i, 0) * 40ms);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -349,31 +343,19 @@
   }
 }
 
-/* ── View Transitions (microciclo canvas) ─────────────────────────────────
-   The canvas (SEMANA ↔ DÍA, DÍA ↔ DÍA) animates as ONE surface reorganizing,
-   via document.startViewTransition wrapped around the `?dia` soft-nav.
-   - .vt-day-editor: shared name carried by BOTH the open-day editor container
-     AND the day column/card it grew from → the morph (column ↔ editor).
-   - .vt-active-day: the master-list active highlight → slides between days.
-   Only one element may carry each name at paint time (the off-breakpoint copy
-   is display:none, so it is excluded from the snapshot). */
+/* ── View Transitions (lienzo del programa) ───────────────────────────────── */
 .vt-day-editor {
   view-transition-name: vt-day-editor;
 }
 .vt-active-day {
   view-transition-name: vt-active-day;
 }
-
-/* Premium easing/duration for every snapshot pair (~280ms). */
 ::view-transition-group(vt-day-editor),
 ::view-transition-group(vt-active-day),
 ::view-transition-group(root) {
   animation-duration: 280ms;
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
-
-/* Respect reduced-motion: the JS guard already falls back to an instant push,
-   this is the belt-and-braces for any transition that still gets created. */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),

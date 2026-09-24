@@ -1,69 +1,75 @@
 'use client';
 
-// v2 · ATLETA · INTAKE REVIEW — the coach's review-and-activate screen for a new
-// athlete. Left column = the decisions that build the intake commit; right column =
-// the athlete's onboarding answers (read-only). The footer gate unlocks "Asignar
-// plan", which POSTs to the EXISTING commit endpoint (/api/coach/intake/[id]) — the
-// same call that marks the intake reviewed (intake_completed_at), drops the athlete
-// from the "alta sin revisar" lane, and materialises the first microciclo in DRAFT.
+// v2 · ALTA PENDIENTE — revisar el cuestionario de entrada de un atleta nuevo y
+// darle su plan. Izquierda: las decisiones (su plan, su nivel, avisos, carrera,
+// tests, bienvenida). Derecha: lo que contestó. El pie dice en una línea qué
+// recibe y cuándo lo ve, y «Asignar plan» lo firma (POST /api/coach/intake/[id]).
+// Después, un aviso con lo que recibió y «Deshacer» (DELETE, repone lo que había),
+// y la siguiente alta de la fila.
 //
-// AGNOSTIC: the LEVEL decision reuses ClasificacionCard (coach-owned athlete_levels,
-// the same control as PerfilTab). The plan-mode step only asks shared vs personal —
-// it does not invent a microciclo skeleton. Nothing here hardcodes a method.
+// `embedded` = dentro de la ficha de un atleta «Nuevo» (plan §6): sin cabecera
+// propia, y al asignar se recarga la ficha.
 
 import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/i18n/navigation';
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/ui/MIcon';
-import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
+import { ArrowRight, CircleCheck } from 'lucide-react';
+import { EmptyState, PageHeader, buttonVariants, useToast } from '@/components/v2/ui';
+import { apiJson, errorMessage } from '@/components/v2/shared/api';
 import { ClasificacionCard } from '@/components/v2/atleta-detalle/ClasificacionCard';
 import { AthleteAnswers } from '@/components/v2/intake/AthleteAnswers';
 import { IntakeRaces } from '@/components/v2/intake/IntakeRaces';
+import { IntakePlanStep, defaultPlanDraft, planSummary, type PlanDraft } from '@/components/v2/intake/IntakePlanStep';
 import {
   AssignBar,
-  BaselineTestsStep,
-  EventAnchorStep,
-  StepShell,
+  EVENT_WARNING_KINDS,
+  RaceStep,
+  TestsStep,
   WarningsStep,
   WelcomeNotesStep,
-  type GateCheck,
 } from '@/components/v2/intake/IntakeSteps';
-import { BlockStructureStep } from '@/components/v2/intake/IntakeBlockStructure';
 import type { IntakeReviewPayload } from '@/lib/dashboard/v2/intake-review';
-import { INTAKE_PLAN_MODE_DEFAULT, type IntakePlanMode } from '@fahybrid/shared/schema/coach-intake';
+import type { CommitResult } from '@/lib/coach/intake-commit';
+import { intakePlanLine } from '@/lib/coach/intake-plan-line';
+import type { IntakeCommitInput } from '@fahybrid/shared/schema/coach-intake';
 import { tenureSuffix } from '@/lib/dashboard/relative-time';
+import { useLevelAxisLabel } from '@/components/v2/controls/useLevelAxisLabel';
 
-const EVENT_WARNING_KINDS = new Set(['a_event_invalid', 'a_event_close']);
-const SEX_LABEL: Record<string, string> = { male: 'Masculino', female: 'Femenino', other: 'Otro' };
+/** La siguiente alta de la fila, con el resto de la fila detrás. */
+function nextHref(queue: string[]): string {
+  const [next, ...rest] = queue;
+  return `/atletas/${next}/intake${rest.length > 0 ? `?fila=${rest.join(',')}` : ''}`;
+}
 
-/** "esperando N días/h" tenure from onboarding — SAME elapsed source (tenureSuffix)
- *  as the athlete ficha, so the same athlete shows the same number in both. */
-function waitingLabel(onboardedAt: string | null): string | null {
-  const suffix = tenureSuffix(onboardedAt);
-  if (suffix == null) return null;
-  return suffix === 'instantes' ? 'recién llegado' : `esperando ${suffix}`;
+const SEX_LABEL: Record<string, string> = { male: 'hombre', female: 'mujer', other: 'otro' };
+
+function planPayload(d: PlanDraft, firstMonday: string | null): IntakeCommitInput['plan'] {
+  if (d.kind === 'group' && d.group_id && firstMonday) return { kind: 'group', group_id: Number(d.group_id), start_date: firstMonday };
+  if (d.kind === 'program' && d.program_id && d.start_date) return { kind: 'program', program_id: Number(d.program_id), start_date: d.start_date };
+  if (d.kind === 'personal') return { kind: 'personal' };
+  return { kind: 'keep' };
 }
 
 export function IntakeReview({
   review,
   athleteId,
+  embedded = false,
+  queue = [],
 }: {
   review: IntakeReviewPayload;
   athleteId: string;
+  embedded?: boolean;
+  /** «Revisar en fila» (Hoy): las altas que vienen detrás, en orden. */
+  queue?: string[];
 }) {
   const router = useRouter();
-  const { profile, classification, month_proposal } = review;
+  const { toast } = useToast();
+  const axisLabel = useLevelAxisLabel();
+  const { profile, classification, plan_options: options } = review;
   const { athlete, suggestions, warnings, target_event } = profile;
+  const firstName = athlete.full_name.split(/\s+/)[0] || athlete.full_name;
 
-  const alreadyReviewed = athlete.intake_completed_at != null;
-
-  // ── Form state (defaults seeded from the auto-suggestions) ────────────────────
-  // De qué nace el plan: la periodización que el coach ya tiene montada (defecto,
-  // el comportamiento de siempre) o una cadena de microciclos solo para él.
-  const [planMode, setPlanMode] = useState<IntakePlanMode>(INTAKE_PLAN_MODE_DEFAULT);
-  const [includedTests, setIncludedTests] = useState<Set<string>>(
-    () => new Set(suggestions.baseline_tests.map((t) => t.slug)),
-  );
+  const [plan, setPlan] = useState<PlanDraft>(() => defaultPlanDraft(options));
   const [welcomeSend, setWelcomeSend] = useState(true);
   const [welcomeBody, setWelcomeBody] = useState(suggestions.welcome_draft);
   const [notes, setNotes] = useState('');
@@ -71,229 +77,143 @@ export function IntakeReview({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Gate derivation ───────────────────────────────────────────────────────────
-  const eventOk = target_event != null && !target_event.is_in_past;
-  // Level is required only when the coach actually has a level catalog to pick from;
-  // otherwise we degrade (the numeric snapshot still records a level suggestion).
+  const manualWarnings = useMemo(() => warnings.filter((w) => !EVENT_WARNING_KINDS.has(w.kind)), [warnings]);
+  const summary = planSummary(options, plan);
   const nivelOk = classification.levels.length === 0 || classification.level_id != null;
-  const manualWarnings = useMemo(
-    () => warnings.filter((w) => !EVENT_WARNING_KINDS.has(w.kind)),
-    [warnings],
-  );
-  const avisosOk = manualWarnings.every((w) => acknowledged.has(w.kind));
-  const canAssign = eventOk && nivelOk && avisosOk;
+  const unread = manualWarnings.filter((w) => !acknowledged.has(w.kind)).length;
+  const pending = [
+    summary ? null : 'Elige qué plan recibe',
+    nivelOk ? null : `Elige su ${axisLabel.toLowerCase()}`,
+    unread > 0 ? `${unread} ${unread === 1 ? 'aviso' : 'avisos'} por leer` : null,
+  ].filter((x): x is string => x != null);
+  const canAssign = pending.length === 0;
+  const today = options?.today ?? '';
 
-  const checks: GateCheck[] = [
-    { key: 'evento', label: 'Evento', state: eventOk ? 'ok' : 'blocked' },
-    { key: 'nivel', label: 'Nivel', state: nivelOk ? 'ok' : 'pending' },
-    {
-      key: 'avisos',
-      label: `Avisos ${manualWarnings.filter((w) => acknowledged.has(w.kind)).length}/${manualWarnings.length}`,
-      state: avisosOk ? 'ok' : 'pending',
-    },
-    { key: 'bienvenida', label: 'Bienvenida', state: 'ok' },
-  ];
-
-  function toggleTest(slug: string) {
-    setIncludedTests((prev) => {
-      const next = new Set(prev);
-      if (next.has(slug)) next.delete(slug);
-      else next.add(slug);
-      return next;
-    });
-  }
-  function ackWarning(kind: string) {
-    setAcknowledged((prev) => new Set(prev).add(kind));
+  async function undo() {
+    try {
+      await apiJson(`/api/coach/intake/${athleteId}`, { method: 'DELETE' });
+      toast({ title: `Alta de ${athlete.full_name} deshecha`, description: 'Vuelve a estar pendiente' });
+      router.push(`/atletas/${athleteId}/intake${queue.length > 0 ? `?fila=${queue.join(',')}` : ''}`);
+      router.refresh();
+    } catch (err) {
+      toast({ title: 'No se ha podido deshacer', description: errorMessage(err), tone: 'danger' });
+    }
   }
 
   async function assign() {
-    if (!canAssign || submitting || !target_event) return;
+    if (!canAssign || submitting) return;
     setSubmitting(true);
     setError(null);
-    const body = {
-      target_event_id: target_event.event_id,
-      plan_mode: planMode,
-      // Numeric snapshot level (1-4) — the algorithm's reading; the functional,
-      // agnostic level is the catalog level set via ClasificacionCard above.
+    const body: IntakeCommitInput = {
+      target_event_id: target_event && !target_event.is_in_past ? Number(target_event.event_id) : null,
+      plan: planPayload(plan, options?.mondays[0] ?? null),
+      plan_mode: plan.kind === 'personal' ? 'personal' : 'shared',
+      // Nivel numérico del cuestionario (1-4): la lectura del algoritmo. El nivel
+      // del coach es el del catálogo, que fija ClasificacionCard.
       level: suggestions.level,
-      baseline_tests: suggestions.baseline_tests.filter((t) => includedTests.has(t.slug)),
+      baseline_tests: suggestions.baseline_tests,
       welcome: { send: welcomeSend, body: welcomeSend ? welcomeBody.trim() || null : null },
       acknowledged_warnings: Array.from(acknowledged),
       notes: notes.trim() ? notes.trim() : null,
     };
     try {
-      const res = await fetch(`/api/coach/intake/${athleteId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+      const res = await apiJson<CommitResult>(`/api/coach/intake/${athleteId}`, { method: 'POST', body });
+      toast({
+        title: `${athlete.full_name}: plan asignado`,
+        // «Seguir con lo que tiene» no materializa nada: la línea es la de su plan actual.
+        description: intakePlanLine(res.plan.kind === 'keep' && summary ? summary : res.plan, today),
+        undo,
       });
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as
-          | { error?: { message?: string } }
-          | null;
-        setError(payload?.error?.message ?? 'No se pudo asignar. Inténtalo de nuevo.');
-        setSubmitting(false);
-        return;
-      }
-      // Intake committed → land on the athlete's plan (the new draft microciclo).
-      router.push(`/atletas/${athleteId}?tab=plan`);
-    } catch {
-      setError('No se pudo asignar. Inténtalo de nuevo.');
+      if (embedded) router.refresh();
+      else if (queue.length > 0) router.push(nextHref(queue));
+      else router.push(`/atletas/${athleteId}`);
+    } catch (err) {
+      setError(errorMessage(err, 'No se ha podido asignar. Inténtalo de nuevo.'));
       setSubmitting(false);
     }
   }
 
-  // ── Already-reviewed guard ────────────────────────────────────────────────────
-  if (alreadyReviewed) {
+  if (athlete.intake_completed_at != null) {
     return (
-      <div className="mx-auto flex w-full max-w-[560px] flex-col items-center gap-4 py-16 text-center">
-        <span className="text-[color:var(--v2-ok)]">
-          <MIcon name="task_alt" size={40} />
-        </span>
-        <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-semibold text-[color:var(--v2-fg)]">Alta ya revisada</h1>
-          <p className="text-sm text-[color:var(--v2-muted)]">
-            El intake de {athlete.full_name} ya está completado. Su plan está en marcha.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/atletas/${athleteId}?tab=plan`}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
-          >
-            Ver plan del atleta
-            <MIcon name="arrow_forward" size={15} />
-          </Link>
-          <Link
-            href="/altas"
-            className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
-          >
-            Volver a altas
-          </Link>
-        </div>
-      </div>
+      <EmptyState
+        variant="page"
+        icon={CircleCheck}
+        title="Alta ya revisada"
+        description={`${athlete.full_name} ya tiene su plan en marcha`}
+        action={
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Link href={`/atletas/${athleteId}`} className={buttonVariants({ variant: 'primary' })}>
+              Ver su plan
+              <ArrowRight aria-hidden strokeWidth={1.75} />
+            </Link>
+            {queue.length > 0 ? (
+              <Link href={nextHref(queue)} className={buttonVariants({ variant: 'secondary' })}>
+                Siguiente alta · quedan {queue.length}
+              </Link>
+            ) : null}
+          </div>
+        }
+      />
     );
   }
 
-  const tenure = waitingLabel(athlete.onboarded_at);
+  const tenure = tenureSuffix(athlete.onboarded_at);
+  const meta = [
+    athlete.age != null ? `${athlete.age} años` : null,
+    athlete.sex ? (SEX_LABEL[athlete.sex] ?? null) : null,
+    tenure ? (tenure === 'instantes' ? 'recién llegado' : `esperando ${tenure}`) : null,
+  ].filter(Boolean);
 
   return (
     <div className="mx-auto flex w-full max-w-[var(--v2-container)] flex-col gap-5">
-      {/* ── Breadcrumb ───────────────────────────────────────────────────────── */}
-      <nav aria-label="Ruta" className="flex items-center gap-1 text-xs text-[color:var(--v2-muted)]">
-        <Link href="/altas" className="v2-focus hover:text-[color:var(--v2-fg)]">
-          Altas
-        </Link>
-        <MIcon name="chevron_right" size={14} className="text-[color:var(--v2-faint)]" />
-        <Link
-          href={`/atletas/${athleteId}`}
-          className="v2-focus hover:text-[color:var(--v2-fg)]"
-        >
-          {athlete.full_name}
-        </Link>
-        <MIcon name="chevron_right" size={14} className="text-[color:var(--v2-faint)]" />
-        <span className="text-[color:var(--v2-fg)]">Intake</span>
-      </nav>
+      {embedded ? null : (
+        <PageHeader
+          back={{ href: '/hoy?vista=altas', label: 'Altas pendientes' }}
+          title={athlete.full_name}
+          subtitle={['Alta pendiente', ...meta].join(' · ')}
+          actions={
+            queue.length > 0 ? (
+              <Link href={nextHref(queue)} className={buttonVariants({ variant: 'ghost', className: 'pointer-coarse:h-11' })}>
+                Siguiente alta · quedan {queue.length}
+                <ArrowRight aria-hidden strokeWidth={1.75} />
+              </Link>
+            ) : null
+          }
+        />
+      )}
 
-      {/* ── Header ───────────────────────────────────────────────────────────── */}
-      <header className="flex flex-wrap items-center gap-3">
-        <AthleteAvatar name={athlete.full_name} size="lg" />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="v2-micro text-[color:var(--v2-accent-text)]">Intake pendiente de revisión</span>
-          <h1 className="v2-display text-2xl text-[color:var(--v2-fg)] sm:text-3xl">
-            {athlete.full_name}
-          </h1>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[color:var(--v2-muted)]">
-            {athlete.age != null ? <span className="v2-num">{athlete.age} años</span> : null}
-            {athlete.sex ? <span>· {SEX_LABEL[athlete.sex] ?? athlete.sex}</span> : null}
-            {athlete.primary_discipline ? (
-              <span className="uppercase">· {athlete.primary_discipline}</span>
-            ) : null}
-            {tenure ? (
-              <span className="inline-flex items-center gap-1 text-[color:var(--v2-faint)]">
-                <MIcon name="hourglass_top" size={13} />
-                {tenure}
-              </span>
-            ) : null}
-          </div>
-        </div>
-      </header>
-
-      {/* ── Two columns ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        {/* Left — decisions */}
-        <div className="flex flex-col gap-4">
-          <StepShell n={1}>
-            <EventAnchorStep targetEvent={target_event} />
-          </StepShell>
-
-          <StepShell n={2}>
-            <div className="flex flex-col gap-2">
-              <ClasificacionCard athleteId={athleteId} data={classification} />
-              {planMode === 'shared' && month_proposal ? (
-                <p className="flex items-start gap-1.5 px-0.5 text-label text-[color:var(--v2-faint)]">
-                  <MIcon name="auto_awesome" size={13} className="mt-px" />
-                  <span>
-                    Para su nivel, plantilla de referencia: {month_proposal.month_name}.
-                  </span>
-                </p>
-              ) : null}
-            </div>
-          </StepShell>
-
-          <StepShell n={3}>
-            <BlockStructureStep mode={planMode} onChangeMode={setPlanMode} />
-          </StepShell>
-
-          <StepShell n={4}>
-            <BaselineTestsStep
-              tests={suggestions.baseline_tests}
-              included={includedTests}
-              onToggle={toggleTest}
-            />
-          </StepShell>
-
-          <StepShell n={5}>
-            <WarningsStep
-              warnings={warnings}
-              acknowledged={acknowledged}
-              onAck={ackWarning}
-              eventResolved={eventOk}
-            />
-          </StepShell>
-
-          <StepShell n={6}>
-            <WelcomeNotesStep
-              send={welcomeSend}
-              body={welcomeBody}
-              notes={notes}
-              onChangeSend={setWelcomeSend}
-              onChangeBody={setWelcomeBody}
-              onChangeNotes={setNotes}
-            />
-          </StepShell>
+        <div className="flex min-w-0 flex-col gap-4">
+          <IntakePlanStep options={options} draft={plan} onChange={setPlan} />
+          <ClasificacionCard athleteId={athleteId} data={classification} />
+          <WarningsStep
+            warnings={warnings}
+            acknowledged={acknowledged}
+            onAck={(kind) => setAcknowledged((prev) => new Set(prev).add(kind))}
+          />
+          <RaceStep targetEvent={target_event} />
+          <TestsStep tests={suggestions.baseline_tests} />
+          <WelcomeNotesStep
+            send={welcomeSend}
+            body={welcomeBody}
+            notes={notes}
+            onChangeSend={setWelcomeSend}
+            onChangeBody={setWelcomeBody}
+            onChangeNotes={setNotes}
+          />
         </div>
-
-        {/* Right — athlete data (read-only): real races, then onboarding answers */}
-        <aside className="flex flex-col gap-3">
+        <aside aria-label={`Lo que contestó ${firstName}`} className="flex min-w-0 flex-col gap-4">
+          <AthleteAnswers profile={profile} />
           <IntakeRaces past={review.races.past} upcoming={review.races.upcoming} />
-          <div className="flex flex-col gap-2">
-            <span className="v2-micro">Respuestas del atleta</span>
-            <AthleteAnswers profile={profile} />
-          </div>
         </aside>
       </div>
 
       <AssignBar
-        checks={checks}
+        pending={pending}
         canAssign={canAssign}
         submitting={submitting}
         error={error}
-        readyHint={
-          planMode === 'personal'
-            ? 'No se crea ningún microciclo todavía. Los escribes tú desde su plan.'
-            : 'Se creará el primer microciclo en borrador para que lo revises antes de publicar.'
-        }
+        line={summary ? intakePlanLine(summary, today) : null}
         onAssign={assign}
       />
     </div>

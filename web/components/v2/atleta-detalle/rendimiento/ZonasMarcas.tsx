@@ -12,12 +12,13 @@
 // sistema no opina sobre si un reparto de zonas está bien (eso es método suyo);
 // sólo le da tres formas de decirlo y las pinta.
 
-import { MIcon } from '@/components/ui/MIcon';
 import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import { MAX_RANGE_LABEL_CHARS, type RangeTone } from '@fahybrid/shared/domain/zone-chart';
 import { RANGE_TONE_COACH_LABEL, RANGE_TONE_ORDER } from '@/lib/dashboard/v2/zonas-feedback';
 import type { RangoBorrador } from '@/lib/dashboard/v2/del-coach-borrador';
 import { formatWeekLong, ZONE_TOKENS_V2 } from '@/lib/zones/chart';
+import { Check, Megaphone, SquarePen, X } from 'lucide-react';
+import { Button, IconButton, Input } from '@/components/v2/ui';
 
 const OPCIONES_TONO = RANGE_TONE_ORDER.map((t) => ({ value: t, label: RANGE_TONE_COACH_LABEL[t] }));
 
@@ -53,30 +54,21 @@ export function BarraDeMarcado({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
+      <Button
+        size="sm"
+        icon={marcando ? Check : SquarePen}
         onClick={onMarcar}
         aria-pressed={marcando}
-        className={
-          marcando
-            ? 'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)]/12 px-3 text-label font-semibold text-[color:var(--v2-fg)]'
-            : 'v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-3 text-label font-semibold text-[color:var(--v2-fg)] transition-colors hover:bg-[color:var(--v2-surface-2)]'
-        }
+        className={marcando ? 'border-v2-fg' : undefined}
       >
-        <MIcon name={marcando ? 'done' : 'edit_square'} size={15} />
         {marcando ? 'Terminar de marcar' : 'Marcar un tramo'}
-      </button>
+      </Button>
 
-      <button
-        type="button"
-        onClick={onDarFeedback}
-        className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-3 text-label font-bold text-[color:var(--v2-accent-fg)] transition-opacity hover:opacity-90"
-      >
-        <MIcon name="campaign" size={15} />
+      <Button size="sm" icon={Megaphone} onClick={onDarFeedback}>
         Dar feedback
-      </button>
+      </Button>
 
-      <span className="text-label text-[color:var(--v2-muted)]">
+      <span className="t-meta text-[color:var(--v2-muted)]">
         {marcando
           ? desde
             ? 'Ahora toca la última semana del tramo.'
@@ -107,7 +99,7 @@ export function ZonasMarcas({
         return (
           <li
             key={r.key}
-            className="flex flex-col gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2.5"
+            className="flex flex-col gap-2 rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-2.5"
           >
             <div className="flex items-center gap-2">
               <span
@@ -115,27 +107,20 @@ export function ZonasMarcas({
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ background: ZONE_TOKENS_V2.tone[r.tone] }}
               />
-              <input
+              <Input
                 value={r.label}
                 maxLength={MAX_RANGE_LABEL_CHARS}
                 onChange={(e) => onCambiar(r.key, { label: e.target.value })}
                 placeholder="Qué ves aquí"
                 aria-label={`Qué ves en las semanas del ${formatWeekLong(r.week_start)} al ${formatWeekLong(r.week_end)}`}
-                className="v2-focus min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-bg)] px-2.5 py-1.5 text-body text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)]"
+                className="min-w-0 flex-1"
               />
-              <button
-                type="button"
-                onClick={() => onQuitar(r.key)}
-                aria-label="Quitar esta marca"
-                className="v2-focus shrink-0 rounded-[var(--v2-r-2xs)] p-1 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-danger)]"
-              >
-                <MIcon name="close" size={16} />
-              </button>
+              <IconButton icon={X} size="sm" label="Quitar esta marca" onClick={() => onQuitar(r.key)} className="hover:text-v2-danger" />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-label text-[color:var(--v2-muted)]">
+              <span className="t-meta text-[color:var(--v2-muted)]">
                 Del {formatWeekLong(r.week_start)} al {formatWeekLong(r.week_end)} ·{' '}
-                <span className="v2-num">{semanas}</span> {semanas === 1 ? 'semana' : 'semanas'}
+                <span className="t-tnum">{semanas}</span> {semanas === 1 ? 'semana' : 'semanas'}
               </span>
               <ChipGroup
                 options={OPCIONES_TONO}

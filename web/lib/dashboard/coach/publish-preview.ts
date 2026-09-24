@@ -248,18 +248,19 @@ async function previewSession(params: {
              (select count(*)::int from template_segments s where s.template_id = t.id) as seg_count
       from templates t
       where t.id = ${Number(session.template_id)}
+        and t.coach_id = ${Number(coach_id)}
       limit 1
     `;
     const tpl = rows[0];
-    // Un template_id que ya no existe → la materialización igualmente inserta
-    // el assignment (template_id NOT NULL, FK), así que materializes = true,
-    // pero reportamos honesto que no podemos previsualizar su contenido.
+    // Espejo del materializador: `cloneTemplateAsInstance` devuelve null para un
+    // template que ya no existe o que es de otro coach, y la sesión se salta. Aquí
+    // igual: no materializa, y no se enseña ni el nombre ni el contenido ajeno.
     return {
       focus: session.focus ?? null,
       blocks: [],
       exercise_count: tpl?.seg_count ?? 0,
-      materializes: true,
-      template_name: tpl?.name ?? 'Template asignado',
+      materializes: tpl != null,
+      template_name: tpl?.name ?? null,
     };
   }
 

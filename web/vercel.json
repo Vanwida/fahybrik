@@ -16,7 +16,7 @@
     },
     {
       "path": "/api/cron/publish-weekly-plans",
-      "schedule": "59 23 * * 6"
+      "schedule": "0 4 * * *"
     },
     {
       "path": "/api/cron/recompute-attention",
@@ -52,7 +52,7 @@
     },
     {
       "path": "/api/cron/lifecycle",
-      "schedule": "30 5 * * *"
+      "schedule": "30 * * * *"
     }
   ]
 }

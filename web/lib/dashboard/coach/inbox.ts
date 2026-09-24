@@ -16,7 +16,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { isPgMissingRelation } from '@/lib/dashboard/db/pg-errors';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 import { listPendingIntake } from '@/lib/coach/intake';
 import { listPendingWeekAdjustments } from '@/lib/dashboard/coach/week-adjustments';
 import { listPendingMonthlyBlocksForCoach } from '@/lib/dashboard/coach/monthly-block-proposal';
@@ -173,9 +173,9 @@ export async function loadCoachInbox(params: {
       if (c.to_template_id != null) templateIds.add(String(c.to_template_id));
     }
   }
-  const templateNames = await loadTemplateNames({ ids: [...templateIds], client });
+  const templateNames = await loadTemplateNames({ ids: [...templateIds], coach_id: params.coach_id, client });
 
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  const todayIso = await loadCoachToday(params.coach_id, { client });
 
   const intakeItems: InboxIntakeItem[] = intakes.map((a) => ({
     id: `intake_pending:${a.athlete_id}`,
@@ -295,7 +295,7 @@ async function listInboxAlerts(params: {
   coach_id: number | bigint;
   client: Sql;
 }): Promise<AlertItem[]> {
-  const todayIso = isoDateString(startOfDayInBox(new Date()));
+  const todayIso = await loadCoachToday(params.coach_id, { client: params.client });
   const out: AlertItem[] = [];
 
   try {
@@ -453,14 +453,21 @@ async function listPendingMonthlyBlocksForCoachSafe(params: {
   }
 }
 
+/**
+ * Los nombres de los entrenos de una propuesta, SOLO de este coach: un id de
+ * otro club (una propuesta vieja o manipulada) sale como «Sesión #id», nunca con
+ * el nombre del entreno de otro coach.
+ */
 export async function loadTemplateNames(params: {
   ids: string[];
+  coach_id: number | bigint;
   client: Sql;
 }): Promise<Map<string, string>> {
   if (params.ids.length === 0) return new Map();
   const rows = await params.client<Array<{ id: string; name: string }>>`
     select id::text, name from templates
     where id = any(${params.ids.map(Number)}::bigint[])
+      and coach_id = ${Number(params.coach_id)}
   `;
   return new Map(rows.map((r) => [r.id, r.name]));
 }

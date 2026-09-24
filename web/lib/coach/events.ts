@@ -4,8 +4,8 @@
 //   listEvents(opts)                catalog + (with opts.coach_id) the club's own
 //                                   manual events; visibility 'visible' = athlete view
 //   getEvent(event_id)              single event (no perm filter — internal reads)
-//   createEvent({ coach_id, input })            a coach adds a manual event
-//   updateEvent({ event_id, owner, input })     edit / toggle visibility, owner-gated
+//   createEvent / updateEvent live in ./events-write.ts (a coach adds or edits
+//   a manual event; owner-gated).
 //
 // The athlete's TARGET is no longer a separate event-pin row: it lives on the
 // unified `races` spine (priority='target'). target_count below counts athletes
@@ -15,14 +15,11 @@
 // bigint; we stringify with ::text on read and Number() coerce on write.
 
 import { sql as defaultSql, type Sql } from '@/lib/db';
-import {
-  eventCreateInput,
-  eventUpdateInput,
-  type EventCreateInput,
-  type EventRegion,
-  type EventSeries,
-  type EventUpdateInput,
-} from '@fahybrid/shared/schema/events';
+import { type EventRegion, type EventSeries } from '@fahybrid/shared/schema/events';
+import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { isValidTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 
 export class EventsError extends Error {
   constructor(
@@ -95,25 +92,35 @@ export interface ListEventsOpts {
   // THIS club's own manual events — never another club's. Omit for the athlete
   // view (visible-only) and for the admin curator (sees everything).
   coach_id?: number | bigint;
+  // Athlete caller: the shared catalog plus the manual events of THEIR coach's
+  // club — never another club's, even if that club made its event visible.
+  athlete_id?: number | bigint;
+  // Anonymous caller: the shared catalog only.
+  catalog_only?: boolean;
   // Date range filter (ISO YYYY-MM-DD). Inclusive.
   from_date?: string;
   to_date?: string;
+  // The instant «today» is read at (tests); defaults to now.
+  now?: Date;
 }
 
 /**
  * Who is mutating an event. Admin (the catalog curator) may touch any row; a
- * coach may touch the shared catalog and their OWN manual events, never another
- * club's. The predicate goes INSIDE the WHERE of every mutation (no
+ * coach may touch ONLY their own manual events. The shared catalog
+ * (`created_by_coach_id is null`) is what every club's athletes see, so one
+ * coach renaming or hiding a HYROX race would do it for everyone: it is
+ * read-only for coaches and curated by admin (DECISIONS 2026-09-23 «Catálogo de
+ * carreras»). The predicate goes INSIDE the WHERE of every mutation (no
  * check-then-act window).
  */
 export type EventOwner =
   | { kind: 'admin' }
   | { kind: 'coach'; coach_id: number | bigint };
 
-function ownedEventPredicate(client: Sql, owner: EventOwner) {
+export function ownedEventPredicate(client: Sql, owner: EventOwner) {
   return owner.kind === 'admin'
     ? client`true`
-    : client`(created_by_coach_id is null or created_by_coach_id = ${Number(owner.coach_id)})`;
+    : client`created_by_coach_id = ${Number(owner.coach_id)}`;
 }
 
 function toListItem(row: RawEventRow, today: string): EventListItem {
@@ -145,8 +152,21 @@ function toListItem(row: RawEventRow, today: string): EventListItem {
   };
 }
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+/**
+ * The «today» a race turns «past» against, in the calendar of whoever is looking
+ * (DECISIONS «Qué día es en cada sitio»): an athlete in THEIR own day — one
+ * «today» for every race read, so a race never sits between «upcoming» and
+ * «past» by the box clock — a coach in their club's, the admin curator and an
+ * anonymous visitor in the default. It used to be the UTC day for everyone.
+ */
+async function viewerToday(opts: ListEventsOpts, client: Sql): Promise<string> {
+  const now = opts.now ?? new Date();
+  if (opts.athlete_id != null) {
+    const tz = await loadAthleteTimezone(client, opts.athlete_id);
+    return zonedDayString(now, isValidTimezone(tz) ? tz : BOX_TIMEZONE);
+  }
+  if (opts.coach_id != null) return loadCoachToday(opts.coach_id, { now, client });
+  return zonedDayString(now, BOX_TIMEZONE);
 }
 
 // =============================================================================
@@ -157,7 +177,7 @@ export async function listEvents(
   opts: ListEventsOpts = {},
   client: Sql = defaultSql,
 ): Promise<EventListItem[]> {
-  const today = todayIso();
+  const today = await viewerToday(opts, client);
   const scope = opts.scope ?? 'upcoming';
   const visibility = opts.visibility ?? 'all';
 
@@ -167,8 +187,10 @@ export async function listEvents(
   // composition trivial. The narrow date / visibility filters that always
   // apply stay in SQL.
   const onlyVisibleClause = visibility === 'visible';
-  const scopeToCoach = opts.coach_id != null;
+  // Sin coach, atleta ni «solo catálogo» = el curador (admin): todo.
+  const scopeToClub = opts.coach_id != null || opts.athlete_id != null || opts.catalog_only === true;
   const coachIdParam = opts.coach_id != null ? Number(opts.coach_id) : 0;
+  const athleteIdParam = opts.athlete_id != null ? Number(opts.athlete_id) : 0;
   const rows = await client<RawEventRow[]>`
     select
       e.id::text                                              as id,
@@ -201,9 +223,10 @@ export async function listEvents(
     ) t on t.event_id = e.id
     where (${onlyVisibleClause}::boolean = false or e.is_visible_to_athletes = true)
       and (
-        ${scopeToCoach}::boolean = false
+        ${scopeToClub}::boolean = false
         or e.created_by_coach_id is null
         or e.created_by_coach_id = ${coachIdParam}
+        or e.created_by_coach_id = (select a.coach_id from athletes a where a.id = ${athleteIdParam})
       )
     order by e.start_date asc nulls last, e.name asc
     limit 1000
@@ -258,241 +281,6 @@ export async function getEvent(
   `;
   const row = rows[0];
   if (!row) return null;
-  return toListItem(row, todayIso());
+  // Internal read after a write (admin or coach): the default calendar.
+  return toListItem(row, zonedDayString(new Date(), BOX_TIMEZONE));
 }
-
-// =============================================================================
-// Coach mutations
-// =============================================================================
-
-export async function createEvent(args: {
-  // Pablo's manual events carry his coach_id; admin-curated catalog rows have no
-  // coach (null) — the curator is recorded via verified_by_user_id instead.
-  coach_id?: bigint | null;
-  // When set, the row is marked owner/admin-verified at creation (scraper-safe).
-  verified_by_user_id?: bigint | null;
-  input: unknown;
-  client?: Sql;
-}): Promise<EventListItem> {
-  const parsed = eventCreateInput.safeParse(args.input);
-  if (!parsed.success) {
-    throw new EventsError(
-      'invalid_input',
-      parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
-      400,
-    );
-  }
-  const input: EventCreateInput = parsed.data;
-  const client = args.client ?? defaultSql;
-
-  // Slug must be unique. Surface a friendly error rather than a 500.
-  const collision = await client<{ exists: boolean }[]>`
-    select true as exists from events where slug = ${input.slug} limit 1
-  `;
-  if (collision.length > 0) {
-    throw new EventsError(
-      'slug_taken',
-      `Ya existe un evento con el slug "${input.slug}".`,
-      409,
-    );
-  }
-
-  const createdByCoachId =
-    args.coach_id != null ? (args.coach_id as unknown as number) : null;
-  const verifiedByUserId =
-    args.verified_by_user_id != null
-      ? (args.verified_by_user_id as unknown as number)
-      : null;
-  const verifiedAt = verifiedByUserId != null ? new Date() : null;
-
-  const inserted = await client<{ id: string }[]>`
-    insert into events (
-      slug,
-      name,
-      type,
-      location,
-      country,
-      region,
-      start_date,
-      end_date,
-      division,
-      division_options,
-      source_url,
-      is_visible_to_athletes,
-      series,
-      is_tentative,
-      source,
-      source_ref,
-      created_by_coach_id,
-      verified_by_user_id,
-      verified_at
-    ) values (
-      ${input.slug},
-      ${input.name},
-      ${input.type},
-      ${input.location ?? null},
-      ${input.country ?? null},
-      ${input.region ?? null},
-      ${input.start_date ?? null},
-      ${input.end_date ?? null},
-      ${input.division ?? null},
-      ${input.division_options ?? []},
-      ${input.source_url ?? null},
-      ${input.is_visible_to_athletes ?? false},
-      ${input.series ?? null},
-      ${input.is_tentative ?? false},
-      ${input.source ?? null},
-      ${input.source_ref ?? null},
-      ${createdByCoachId},
-      ${verifiedByUserId},
-      ${verifiedAt}
-    )
-    returning id::text as id
-  `;
-  const id = inserted[0]?.id;
-  if (!id) {
-    throw new EventsError('insert_failed', 'No se pudo crear el evento.', 500);
-  }
-  const event = await getEvent(BigInt(id), client);
-  if (!event) {
-    throw new EventsError('insert_failed', 'Evento creado pero no recuperable.', 500);
-  }
-  return event;
-}
-
-export async function updateEvent(args: {
-  event_id: bigint;
-  /** Who is editing — enforced INSIDE every WHERE (a coach can never touch
-   *  another club's event; a cross-club id reads as not_found). */
-  owner: EventOwner;
-  // Owner/admin verification toggle: undefined = leave unchanged, a bigint =
-  // mark verified by that user (sets verified_at = now()), null = clear it.
-  verified_by_user_id?: bigint | null;
-  input: unknown;
-  client?: Sql;
-}): Promise<EventListItem> {
-  const parsed = eventUpdateInput.safeParse(args.input);
-  if (!parsed.success) {
-    throw new EventsError(
-      'invalid_input',
-      parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
-      400,
-    );
-  }
-  const input: EventUpdateInput = parsed.data;
-  const client = args.client ?? defaultSql;
-
-  // Ownership gate FIRST — an event the caller may not edit is a 404, never
-  // disclosed. The same predicate rides every UPDATE below, so there is no
-  // check-then-act window either.
-  const owned = await client<{ ok: boolean }[]>`
-    select true as ok from events
-    where id = ${args.event_id as unknown as number}
-      and ${ownedEventPredicate(client, args.owner)}
-    limit 1
-  `;
-  if (!owned[0]) {
-    throw new EventsError('not_found', 'Evento no encontrado.', 404);
-  }
-
-  // Read-modify-write keeps the SQL trivially correct in the face of mixed
-  // "leave alone" vs "set to null" semantics. The events table is small
-  // enough that the round-trip cost is negligible.
-  const existing = await getEvent(args.event_id, client);
-  if (!existing) {
-    throw new EventsError('not_found', 'Evento no encontrado.', 404);
-  }
-
-  const next = {
-    slug: input.slug ?? existing.slug,
-    name: input.name ?? existing.name,
-    type: input.type ?? existing.type,
-    location: input.location === undefined ? existing.location : input.location,
-    country: input.country === undefined ? existing.country : input.country,
-    region: input.region === undefined ? existing.region : input.region,
-    // undefined = keep; null = clear (e.g. confirmed→por confirmar).
-    start_date:
-      input.start_date === undefined ? existing.start_date : input.start_date,
-    end_date: input.end_date === undefined ? existing.end_date : input.end_date,
-    division: input.division === undefined ? existing.division : input.division,
-    division_options: input.division_options ?? existing.division_options,
-    source_url:
-      input.source_url === undefined ? existing.source_url : input.source_url,
-    is_visible_to_athletes:
-      input.is_visible_to_athletes ?? existing.is_visible_to_athletes,
-    series: input.series === undefined ? existing.series : input.series,
-    is_tentative: input.is_tentative ?? existing.is_tentative,
-    source: input.source === undefined ? existing.source : input.source,
-    source_ref:
-      input.source_ref === undefined ? existing.source_ref : input.source_ref,
-  };
-
-  // Slug uniqueness check when slug changed
-  if (next.slug !== existing.slug) {
-    const collision = await client<{ exists: boolean }[]>`
-      select true as exists
-      from events
-      where slug = ${next.slug}
-        and id != ${args.event_id as unknown as number}
-      limit 1
-    `;
-    if (collision.length > 0) {
-      throw new EventsError(
-        'slug_taken',
-        `Ya existe un evento con el slug "${next.slug}".`,
-        409,
-      );
-    }
-  }
-
-  await client`
-    update events set
-      slug                   = ${next.slug},
-      name                   = ${next.name},
-      type                   = ${next.type},
-      location               = ${next.location},
-      country                = ${next.country},
-      region                 = ${next.region},
-      start_date             = ${next.start_date},
-      end_date               = ${next.end_date},
-      division               = ${next.division},
-      division_options       = ${next.division_options},
-      source_url             = ${next.source_url},
-      is_visible_to_athletes = ${next.is_visible_to_athletes},
-      series                 = ${next.series},
-      is_tentative           = ${next.is_tentative},
-      source                 = ${next.source},
-      source_ref             = ${next.source_ref},
-      updated_at             = now()
-    where id = ${args.event_id as unknown as number}
-      and ${ownedEventPredicate(client, args.owner)}
-  `;
-
-  // Verification is set ONLY when explicitly requested — a plain field edit must
-  // not silently (un)verify a row. verified_at tracks WHEN it was vouched for.
-  if (args.verified_by_user_id !== undefined) {
-    const verifiedByUserId =
-      args.verified_by_user_id != null
-        ? (args.verified_by_user_id as unknown as number)
-        : null;
-    await client`
-      update events set
-        verified_by_user_id = ${verifiedByUserId},
-        verified_at         = ${verifiedByUserId != null ? new Date() : null},
-        updated_at          = now()
-      where id = ${args.event_id as unknown as number}
-        and ${ownedEventPredicate(client, args.owner)}
-    `;
-  }
-
-  const refreshed = await getEvent(args.event_id, client);
-  if (!refreshed) {
-    throw new EventsError('update_failed', 'Evento actualizado pero no recuperable.', 500);
-  }
-  return refreshed;
-}
-
-// Athlete target mutations (the legacy event-pin table) were removed in the
-// unified race system: the athlete's target is a `races` row (priority='target'),
-// set via the race-creation flow — not a separate event pin. The iOS target
-// picker is rebuilt on `races` in phase 2.

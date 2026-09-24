@@ -43,11 +43,12 @@ describeWithDb('lead alta → athlete (real DB, closed loop)', () => {
     return { coachId, levelId: Number(lvl[0]!.id) };
   }
 
-  async function seedLead(email: string, status: string): Promise<number> {
+  /** A lead OWNED by `coachId` (leads.coach_id, 0147) — the alta is scoped by it. */
+  async function seedLead(email: string, status: string, coachId: number): Promise<number> {
     const r = await sql<Array<{ id: string }>>`
-      insert into leads (email, nombre, nivel, sexo, edad, dias_semana, dobles_pareja, objetivo, nota_libre, status, source)
+      insert into leads (email, nombre, nivel, sexo, edad, dias_semana, dobles_pareja, objetivo, nota_libre, status, source, coach_id)
       values (${email}, 'Marc Test', 'intermedio', 'hombre', 30, 'd3_4', 'si_plan_compartido',
-              'mejorar_marca', 'quiere bajar de 1:20', ${status}::lead_status, 'onboarding_web')
+              'mejorar_marca', 'quiere bajar de 1:20', ${status}::lead_status, 'onboarding_web', ${coachId})
       returning id::text as id
     `;
     const id = Number(r[0]!.id);
@@ -94,7 +95,7 @@ describeWithDb('lead alta → athlete (real DB, closed loop)', () => {
   test('alta carries the onboarding data, stamps the invite with the lead, and does NOT convert until redeem', async () => {
     const { coachId, levelId } = await seedCoach();
     const athleteEmail = uniqueEmail('athlete');
-    const leadId = await seedLead(athleteEmail, 'agendado');
+    const leadId = await seedLead(athleteEmail, 'agendado', coachId);
 
     const res = await altaLeadAsAthlete({
       lead_id: BigInt(leadId),
@@ -168,7 +169,7 @@ describeWithDb('lead alta → athlete (real DB, closed loop)', () => {
 
   test('alta on a convertido / descartado lead is rejected', async () => {
     const { coachId } = await seedCoach();
-    const leadId = await seedLead(uniqueEmail('done'), 'convertido');
+    const leadId = await seedLead(uniqueEmail('done'), 'convertido', coachId);
 
     await expect(
       altaLeadAsAthlete({

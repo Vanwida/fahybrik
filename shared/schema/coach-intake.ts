@@ -28,9 +28,8 @@ export type IntakeBlockSpec = z.infer<typeof intakeBlockSpecSchema>;
 /**
  * DE QUÉ NACE EL PLAN DEL ATLETA AL DARLE DE ALTA. Dos caminos con el mismo peso:
  *
- *  · `shared`   — sigue la periodización que el coach ya tiene montada: el alta
- *                 materializa un microciclo de su BIBLIOTECA. Es el defecto, y
- *                 es lo que hacía el alta antes de que existiera esta elección.
+ *  · `shared`   — sigue lo que el coach ya tiene montado: su grupo, un grupo o
+ *                 un programa de la biblioteca (ver `intakePlanChoiceSchema`).
  *  · `personal` — un plan solo para este atleta. El alta NO inventa microciclos:
  *                 el esqueleto nace cuando el coach planifica en la ficha. Aquí
  *                 solo se marca que no sigue la periodización compartida.
@@ -74,9 +73,46 @@ export const intakeWelcomeSchema = z.object({
 });
 export type IntakeWelcome = z.infer<typeof intakeWelcomeSchema>;
 
+/**
+ * QUÉ PLAN RECIBE AL FIRMAR EL ALTA (DECISIONS 2026-09-23 «El alta dice qué plan
+ * recibe y cuándo lo ve»). Cuatro caminos, todos por el motor de «asignar a
+ * varios» (un lote deshacible), nunca inventados:
+ *
+ *  · `keep`     — se queda con lo que ya tiene (p. ej. entró en su grupo al
+ *                 invitarle). No se materializa nada.
+ *  · `group`    — entra en un grupo el lunes `start_date`, en el programa y la
+ *                 semana en que está el grupo ese lunes.
+ *  · `program`  — un programa de la biblioteca desde el lunes `start_date`.
+ *  · `personal` — un plan solo para él: no se crea programa; lo escribe el coach.
+ *
+ * En `group` y `program` las semanas se entregan en automático (cada una se
+ * publica sola N días antes, N = dato del coach) y lo que ya tuviera desde ese
+ * lunes se sustituye (lo entrenado nunca se toca).
+ */
+export const INTAKE_PLAN_KINDS = ['keep', 'group', 'program', 'personal'] as const;
+export type IntakePlanKind = (typeof INTAKE_PLAN_KINDS)[number];
+
+const mondayIso = isoDate.refine((v) => new Date(`${v}T00:00:00Z`).getUTCDay() === 1, {
+  message: 'El plan empieza en lunes.',
+});
+
+export const intakePlanChoiceSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('keep') }),
+  z.object({ kind: z.literal('group'), group_id: idSchema, start_date: mondayIso }),
+  z.object({
+    kind: z.literal('program'),
+    program_id: idSchema,
+    start_date: mondayIso,
+    start_week: z.number().int().min(1).max(52).optional(),
+  }),
+  z.object({ kind: z.literal('personal') }),
+]);
+export type IntakePlanChoice = z.infer<typeof intakePlanChoiceSchema>;
+
 export const intakeCommitSchema = z
   .object({
-    target_event_id: idSchema,
+    /** La carrera objetivo no es requisito: no todo atleta entrena para una fecha. */
+    target_event_id: idSchema.nullable().default(null),
     // El esqueleto no se exige: inventarlo en el alta es mentir. En modo
     // personal, si el coach ya lo tiene, puede mandarlo; si no, la lista
     // vacía deja al atleta en personal sin contenedores.
@@ -86,19 +122,17 @@ export const intakeCommitSchema = z
     welcome: intakeWelcomeSchema,
     acknowledged_warnings: z.array(z.string().max(120)).default([]),
     notes: z.string().max(2000).nullable().default(null),
+    /** Qué plan recibe. Sin él: `personal` si `plan_mode` lo dice; si no, `keep`. */
+    plan: intakePlanChoiceSchema.optional(),
     plan_mode: intakePlanModeSchema.default(INTAKE_PLAN_MODE_DEFAULT),
-    month_template_id: idSchema.optional(),
-    month_start_date: isoDate.optional(),
   })
   .superRefine((v, ctx) => {
-    // Los dos modos son excluyentes por definición: un plan personal no nace de
-    // una plantilla de la biblioteca. Rechazarlo aquí evita un pago ambiguo en
-    // el que el servidor tendría que elegir por su cuenta cuál gana.
-    if (v.plan_mode === 'personal' && v.month_template_id != null) {
+    // `plan` y `plan_mode` no pueden contradecirse: el servidor no elige cuál gana.
+    if (v.plan && (v.plan.kind === 'personal') !== (v.plan_mode === 'personal')) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['month_template_id'],
-        message: 'Un plan personal no se asigna desde una plantilla de la biblioteca',
+        path: ['plan_mode'],
+        message: 'plan_mode y plan no coinciden',
       });
     }
   });
@@ -120,5 +154,11 @@ export const intakeNotesSnapshotSchema = z.object({
   welcome_sent: z.boolean(),
   notes: z.string().nullable(),
   committed_at: z.string(),
+  /** Lo que hace falta para DESHACER el alta: el lote de asignación (si lo hubo),
+   *  el mensaje de bienvenida enviado y el `plan_mode` que tenía antes. */
+  plan_kind: z.enum(INTAKE_PLAN_KINDS).optional(),
+  assign_batch_id: z.string().nullable().optional(),
+  welcome_message_id: z.string().nullable().optional(),
+  prior_plan_mode: z.string().nullable().optional(),
 });
 export type IntakeNotesSnapshot = z.infer<typeof intakeNotesSnapshotSchema>;

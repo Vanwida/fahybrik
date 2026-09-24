@@ -1,104 +1,98 @@
-// Section registry — maps a section slug to the component that renders its body.
-// The single config (components/v2/guia/config) owns the index + ordering; this
-// owns the slug→component wiring. Each phase-2 agent owns ONE file in this folder;
-// adding/replacing a section means editing that file + (if new) one line here.
+// El componente de cada artículo, por slug. El índice y el orden viven en
+// ../config.ts; cada artículo es un fichero ./<slug>.tsx.
 
 import type { ComponentType } from 'react';
 import type { GuiaSection } from '../config';
 
-import Section01 from './01-que-es-esta-guia';
-import Section02 from './02-tu-cuenta-y-tu-marca';
-import Section03 from './03-tu-catalogo-de-ejercicios';
-import Section04 from './04-tus-tipos-de-trabajo';
-import Section05 from './05-tu-metodologia-y-tus-fases';
-import Section06 from './06-como-se-estructura-un-plan';
-import Section07 from './07-monta-la-semana';
-import Section08 from './08-carga-e-intensidad';
-import Section09 from './09-periodizacion-nombrar-fases';
-import Section10 from './10-da-de-alta-e-invita';
-import Section11 from './11-cuestionario-inicial-y-tests';
-import Section12 from './12-asigna-el-plan';
-import Section13 from './13-tu-pantalla-hoy';
-import Section14 from './14-estado-de-cada-entreno';
-import Section15 from './15-habla-con-tu-atleta';
-import Section16 from './16-readiness-y-checkin';
-import Section17 from './17-adherencia-y-constancia';
-import Section18 from './18-carreras-y-objetivos';
-import Section19 from './19-progreso-y-rendimiento';
-// Tu negocio / Ciclo de vida / Dobles — todo lo que se construyó en producción estos días.
-import Section20 from './20-leads-tu-embudo';
-import Section21 from './21-la-videollamada';
-import Section22 from './22-nurturing-de-leads';
-import Section23 from './23-cupo-y-lista-de-espera';
-import Section24 from './24-pagos';
-import Section25 from './25-metricas-del-funnel';
-import Section26 from './26-pausas-y-bajas';
-import Section27 from './27-lesiones';
-import Section28 from './28-revision-1a1';
-import Section29 from './29-entrenar-en-dobles';
-import Section30 from './30-importador-de-entrenos';
-import Section31 from './31-objetivo-y-prediccion';
-// Carrera — el editor de carrera, el cumplimiento por tramo y el modo cinta.
-import Section32 from './32-editor-de-carrera';
-import Section33 from './33-cumplimiento-por-serie';
-import Section34 from './34-correr-en-cinta';
-import Section35 from './35-correr-al-aire-libre';
-import Section36 from './36-al-acabar-el-entreno';
-// Dobles en directo + historial del atleta — la tanda "wow" (dobles en vivo, relevo
-// dirigido, cierre juntos + el calendario del atleta).
-import Section37 from './37-dobles-en-vivo-y-juntos';
-import Section38 from './38-historial-del-atleta';
-// Aparatos y sensores — la capa de hardware/medición: el erg a fondo (PM5) y las
-// zonas de pulso personalizadas por la FC máxima real del atleta.
-import Section39 from './39-remo-y-ergometros';
-import Section40 from './40-zonas-de-pulso';
-// El conector del coach con su asistente (área "Herramientas"): mirar el club,
-// tocar el plan y publicar desde el chat, con las mismas reglas que el panel.
-import Section41 from './41-el-conector-con-tu-asistente';
+import S_que_es_esta_guia from './que-es-esta-guia';
+import S_tu_cuenta_y_tu_marca from './tu-cuenta-y-tu-marca';
+import S_tu_metodologia_y_tus_fases from './tu-metodologia-y-tus-fases';
+import S_tu_pantalla_hoy from './tu-pantalla-hoy';
+import S_atletas from './atletas';
+import S_habla_con_tu_atleta from './habla-con-tu-atleta';
+import S_ficha_del_atleta from './ficha-del-atleta';
+import S_como_se_estructura_un_plan from './como-se-estructura-un-plan';
+import S_monta_un_programa from './monta-un-programa';
+import S_biblioteca from './biblioteca';
+import S_tu_catalogo_de_ejercicios from './tu-catalogo-de-ejercicios';
+import S_carga_e_intensidad from './carga-e-intensidad';
+import S_editor_de_carrera from './editor-de-carrera';
+import S_importador_de_entrenos from './importador-de-entrenos';
+import S_grupos from './grupos';
+import S_tests from './tests';
+import S_invita_a_tus_atletas from './invita-a-tus-atletas';
+import S_altas_pendientes from './altas-pendientes';
+import S_asigna_el_plan from './asigna-el-plan';
+import S_readiness_y_checkin from './readiness-y-checkin';
+import S_adherencia_y_constancia from './adherencia-y-constancia';
+import S_progreso_y_rendimiento from './progreso-y-rendimiento';
+import S_carreras_y_objetivos from './carreras-y-objetivos';
+import S_objetivo_y_prediccion from './objetivo-y-prediccion';
+import S_cumplimiento_por_serie from './cumplimiento-por-serie';
+import S_zonas_de_pulso from './zonas-de-pulso';
+import S_pausas_y_bajas from './pausas-y-bajas';
+import S_lesiones from './lesiones';
+import S_revision_1a1 from './revision-1a1';
+import S_entrenar_en_dobles from './entrenar-en-dobles';
+import S_dobles_en_vivo_y_juntos from './dobles-en-vivo-y-juntos';
+import S_leads from './leads';
+import S_la_videollamada from './la-videollamada';
+import S_nurturing_de_leads from './nurturing-de-leads';
+import S_cupo_y_lista_de_espera from './cupo-y-lista-de-espera';
+import S_cobros from './cobros';
+import S_embudo from './embudo';
+import S_correr_en_cinta from './correr-en-cinta';
+import S_correr_al_aire_libre from './correr-al-aire-libre';
+import S_remo_y_ergometros from './remo-y-ergometros';
+import S_al_acabar_el_entreno from './al-acabar-el-entreno';
+import S_historial_del_atleta from './historial-del-atleta';
+import S_el_conector_con_tu_asistente from './el-conector-con-tu-asistente';
 
-/** A section body component — receives its own config metadata. */
+/** Un artículo: recibe sus propios metadatos del índice. */
 export type GuiaSectionComponent = ComponentType<{ meta: GuiaSection }>;
 
 export const GUIA_SECTION_REGISTRY: Record<string, GuiaSectionComponent> = {
-  'que-es-esta-guia': Section01,
-  'tu-cuenta-y-tu-marca': Section02,
-  'tu-catalogo-de-ejercicios': Section03,
-  'tus-tipos-de-trabajo': Section04,
-  'tu-metodologia-y-tus-fases': Section05,
-  'como-se-estructura-un-plan': Section06,
-  'monta-la-semana': Section07,
-  'carga-e-intensidad': Section08,
-  'periodizacion-nombrar-fases': Section09,
-  'da-de-alta-e-invita': Section10,
-  'cuestionario-inicial-y-tests': Section11,
-  'asigna-el-plan': Section12,
-  'tu-pantalla-hoy': Section13,
-  'estado-de-cada-entreno': Section14,
-  'habla-con-tu-atleta': Section15,
-  'readiness-y-checkin': Section16,
-  'adherencia-y-constancia': Section17,
-  'carreras-y-objetivos': Section18,
-  'progreso-y-rendimiento': Section19,
-  'leads-tu-embudo': Section20,
-  'la-videollamada': Section21,
-  'nurturing-de-leads': Section22,
-  'cupo-y-lista-de-espera': Section23,
-  'pagos': Section24,
-  'metricas-del-funnel': Section25,
-  'pausas-y-bajas': Section26,
-  'lesiones': Section27,
-  'revision-1a1': Section28,
-  'entrenar-en-dobles': Section29,
-  'importador-de-entrenos': Section30,
-  'objetivo-y-prediccion': Section31,
-  'editor-de-carrera': Section32,
-  'cumplimiento-por-serie': Section33,
-  'correr-en-cinta': Section34,
-  'correr-al-aire-libre': Section35,
-  'al-acabar-el-entreno': Section36,
-  'dobles-en-vivo-y-juntos': Section37,
-  'historial-del-atleta': Section38,
-  'remo-y-ergometros': Section39,
-  'zonas-de-pulso': Section40,
-  'el-conector-con-tu-asistente': Section41,
+  'que-es-esta-guia': S_que_es_esta_guia,
+  'tu-cuenta-y-tu-marca': S_tu_cuenta_y_tu_marca,
+  'tu-metodologia-y-tus-fases': S_tu_metodologia_y_tus_fases,
+  'tu-pantalla-hoy': S_tu_pantalla_hoy,
+  'atletas': S_atletas,
+  'habla-con-tu-atleta': S_habla_con_tu_atleta,
+  'ficha-del-atleta': S_ficha_del_atleta,
+  'como-se-estructura-un-plan': S_como_se_estructura_un_plan,
+  'monta-un-programa': S_monta_un_programa,
+  'biblioteca': S_biblioteca,
+  'tu-catalogo-de-ejercicios': S_tu_catalogo_de_ejercicios,
+  'carga-e-intensidad': S_carga_e_intensidad,
+  'editor-de-carrera': S_editor_de_carrera,
+  'importador-de-entrenos': S_importador_de_entrenos,
+  'grupos': S_grupos,
+  'tests': S_tests,
+  'invita-a-tus-atletas': S_invita_a_tus_atletas,
+  'altas-pendientes': S_altas_pendientes,
+  'asigna-el-plan': S_asigna_el_plan,
+  'readiness-y-checkin': S_readiness_y_checkin,
+  'adherencia-y-constancia': S_adherencia_y_constancia,
+  'progreso-y-rendimiento': S_progreso_y_rendimiento,
+  'carreras-y-objetivos': S_carreras_y_objetivos,
+  'objetivo-y-prediccion': S_objetivo_y_prediccion,
+  'cumplimiento-por-serie': S_cumplimiento_por_serie,
+  'zonas-de-pulso': S_zonas_de_pulso,
+  'pausas-y-bajas': S_pausas_y_bajas,
+  'lesiones': S_lesiones,
+  'revision-1a1': S_revision_1a1,
+  'entrenar-en-dobles': S_entrenar_en_dobles,
+  'dobles-en-vivo-y-juntos': S_dobles_en_vivo_y_juntos,
+  'leads': S_leads,
+  'la-videollamada': S_la_videollamada,
+  'nurturing-de-leads': S_nurturing_de_leads,
+  'cupo-y-lista-de-espera': S_cupo_y_lista_de_espera,
+  'cobros': S_cobros,
+  'embudo': S_embudo,
+  'correr-en-cinta': S_correr_en_cinta,
+  'correr-al-aire-libre': S_correr_al_aire_libre,
+  'remo-y-ergometros': S_remo_y_ergometros,
+  'al-acabar-el-entreno': S_al_acabar_el_entreno,
+  'historial-del-atleta': S_historial_del_atleta,
+  'el-conector-con-tu-asistente': S_el_conector_con_tu_asistente,
 };

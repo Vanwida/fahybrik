@@ -5,6 +5,7 @@
 // copy live in each caller (nurture-email.ts, waitlist-email.ts).
 
 import { AUTH_CONFIG } from '@/lib/auth/config';
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
 
 // Inlined brand palette (mail clients strip CSS custom properties).
 export const BRAND_INK = '#0a0a0a';
@@ -42,11 +43,11 @@ export function unsubscribeUrl(token: string): string {
  * The light brand shell wrapping every leads email body.
  *
  * `skin` es la piel del club de ESE lead (`resolveClubEmailSkin`, superficie
- * `light` — este shell es de fondo blanco). Sin skin, pinta exactamente lo de
- * hoy: wordmark "FAHYBRID" en el naranja fijo.
+ * `light` — este shell es de fondo blanco). Sin skin, la marca de este binario
+ * (`BRAND_WORDMARK`) en el naranja fijo.
  */
 export function brandShell(inner: string, skin?: { wordmark: string; text: string }): string {
-  const wordmark = skin?.wordmark ?? 'FAHYBRID';
+  const wordmark = skin?.wordmark ?? BRAND_WORDMARK;
   const textColor = skin?.text ?? BRAND_ORANGE;
   return (
     `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:${BRAND_INK};background:#fff;">` +

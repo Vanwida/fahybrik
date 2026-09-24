@@ -6,10 +6,16 @@
 // (exacto o banda) · Sin objetivo, matching the closed grammar exactly.
 
 import type { SegmentMeasure, SegmentTarget } from '@fahybrid/shared/domain/prescription';
-import { cn } from '@/lib/utils';
+import {
+  HR_ZONE_MAX,
+  HR_ZONE_MIN,
+  PACE_ZONE_MAX,
+  PACE_ZONE_MIN,
+} from '@fahybrid/shared/domain/prescription/run-structure';
 import { ClockCell, NumberCell } from '../../fields';
 import { InlineToggle } from '../form-controls';
 import { objetivoKindOf, targetOfKind, type ObjetivoKind } from './tree-ops';
+import { SegmentedControl } from '@/components/v2/ui';
 
 const OBJETIVO_OPTIONS: { value: ObjetivoKind; label: string }[] = [
   { value: 'pace_zone', label: 'Z. ritmo' },
@@ -19,7 +25,9 @@ const OBJETIVO_OPTIONS: { value: ObjetivoKind; label: string }[] = [
   { value: 'none', label: 'Libre' },
 ];
 
-const ZONES = [1, 2, 3, 4, 5];
+// Las zonas del modelo: seis de ritmo (Z6 = sprint) y cinco de FC.
+const PACE_ZONES = Array.from({ length: PACE_ZONE_MAX - PACE_ZONE_MIN + 1 }, (_, i) => PACE_ZONE_MIN + i);
+const HR_ZONE_LIST = Array.from({ length: HR_ZONE_MAX - HR_ZONE_MIN + 1 }, (_, i) => HR_ZONE_MIN + i);
 
 // ── Measure (Distancia ↔ Tiempo) ─────────────────────────────────────────────
 export function MeasureCell({
@@ -66,30 +74,26 @@ export function MeasureCell({
   );
 }
 
-// ── Zone 1..5 segmented picker ───────────────────────────────────────────────
-function ZonePicker({ zone, onChange, ariaLabel }: { zone: number; onChange: (z: number) => void; ariaLabel: string }) {
+// ── Zone segmented picker (las zonas del modelo) ─────────────────────────────
+function ZonePicker({
+  zone,
+  zones,
+  onChange,
+  ariaLabel,
+}: {
+  zone: number;
+  zones: number[];
+  onChange: (z: number) => void;
+  ariaLabel: string;
+}) {
   return (
-    <div role="group" aria-label={ariaLabel} className="inline-flex items-center gap-0.5">
-      {ZONES.map((z) => {
-        const active = z === zone;
-        return (
-          <button
-            key={z}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(z)}
-            className={cn(
-              'v2-focus h-7 w-7 rounded-[var(--v2-r-s)] text-xs font-bold transition-colors',
-              active
-                ? 'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-                : 'border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
-            )}
-          >
-            Z{z}
-          </button>
-        );
-      })}
-    </div>
+    <SegmentedControl
+      size="sm"
+      aria-label={ariaLabel}
+      items={zones.map((z) => ({ value: String(z), label: `Z${z}` }))}
+      value={String(zone)}
+      onValueChange={(v) => onChange(Number(v))}
+    />
   );
 }
 
@@ -113,10 +117,10 @@ export function ObjetivoCell({
       {target?.type === 'pace' ? <PaceValue target={target} onChange={onChange} /> : null}
       {target?.type === 'rpe' ? <RpeValue target={target} onChange={onChange} /> : null}
       {target?.type === 'pace_zone' ? (
-        <ZonePicker zone={target.zone} ariaLabel="Zona de ritmo" onChange={(z) => onChange({ type: 'pace_zone', zone: z })} />
+        <ZonePicker zone={target.zone} zones={PACE_ZONES} ariaLabel="Zona de ritmo" onChange={(z) => onChange({ type: 'pace_zone', zone: z })} />
       ) : null}
       {target?.type === 'hr_zone' ? (
-        <ZonePicker zone={target.zone} ariaLabel="Zona de frecuencia cardíaca" onChange={(z) => onChange({ type: 'hr_zone', zone: z })} />
+        <ZonePicker zone={Math.min(target.zone, HR_ZONE_MAX)} zones={HR_ZONE_LIST} ariaLabel="Zona de frecuencia cardíaca" onChange={(z) => onChange({ type: 'hr_zone', zone: z })} />
       ) : null}
     </div>
   );
@@ -154,12 +158,12 @@ function PaceValue({
           <ClockCell seconds={target.min_s ?? null} ariaLabel="Ritmo más rápido (m:ss)" className="w-16" onChange={(s) => onChange({ type: 'pace', min_s: s ?? 0, max_s: target.max_s ?? (s ?? 0) })} />
           <span className="text-xs text-[color:var(--v2-muted)]">–</span>
           <ClockCell seconds={target.max_s ?? null} ariaLabel="Ritmo más lento (m:ss)" className="w-16" onChange={(s) => onChange({ type: 'pace', min_s: target.min_s ?? (s ?? 0), max_s: s ?? 0 })} />
-          <span className="text-label font-semibold text-[color:var(--v2-muted)]">/km</span>
+          <span className="t-meta font-semibold text-[color:var(--v2-muted)]">/km</span>
         </div>
       ) : (
         <div className="flex items-center gap-1">
           <ClockCell seconds={target.value_s ?? null} ariaLabel="Ritmo (m:ss)" className="w-16" onChange={(s) => onChange({ type: 'pace', value_s: s ?? 0 })} />
-          <span className="text-label font-semibold text-[color:var(--v2-muted)]">/km</span>
+          <span className="t-meta font-semibold text-[color:var(--v2-muted)]">/km</span>
         </div>
       )}
     </div>

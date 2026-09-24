@@ -17,17 +17,17 @@ import { newBlockUid } from '@/lib/dashboard/programming/studio-types';
 import { isCoachIaLlmConfigured, callCoachIaLlmJson, CoachIaLlmError } from './llm';
 import { loadTemplateAsBlocks } from './template-to-blocks';
 import { loadCoachExerciseCatalog, type CoachCatalogExercise } from './exercise-catalog';
+import { effectiveLevelAxisLabel } from '@fahybrid/shared/domain/coach/level-axis';
 
 // ---------------------------------------------------------------------------
 // Request / response
 // ---------------------------------------------------------------------------
 
-const programLevel = z.enum(['beginner', 'intermediate', 'pro', 'elite']);
-
 export const suggestWorkoutRequestSchema = z
   .object({
     focus: z.string().min(2).max(400),
-    level: programLevel.optional(),
+    /** Un nivel DEL COACH (`athlete_levels`, suyo y activo). Sin él, la IA no filtra por nivel. */
+    level_id: z.union([z.string().regex(/^\d+$/), z.number().int().positive()]).nullable().optional(),
     /** Modo: rápido = solo plantillas catálogo, lento = LLM compone bloques nuevos. */
     mode: z.enum(['fast', 'slow']).default('fast'),
     athlete_id: z.union([z.string(), z.number()]).optional(),
@@ -72,12 +72,12 @@ export async function suggestWorkout(params: {
   }
   const client = params.client ?? defaultSql;
   const req = parsed.data;
+  const level = await resolveCoachLevel(client, params.coach_id, req.level_id ?? null);
 
   // ---- Fast mode: pick a template from the coach's library ------------------
   if (req.mode === 'fast') {
     const tpl = await pickLibraryTemplate({
       coach_id: params.coach_id,
-      level: req.level,
       focus: req.focus,
       client,
     });
@@ -105,7 +105,6 @@ export async function suggestWorkout(params: {
     // Fallback automático a modo fast.
     const tpl = await pickLibraryTemplate({
       coach_id: params.coach_id,
-      level: req.level,
       focus: req.focus,
       client,
     });
@@ -135,7 +134,7 @@ export async function suggestWorkout(params: {
   try {
     const blocks = await llmSuggestBlocks({
       focus: req.focus,
-      level: req.level ?? 'pro',
+      level,
       exercises,
       coach_id: params.coach_id,
       athlete_id: req.athlete_id != null ? Number(req.athlete_id) : null,
@@ -145,7 +144,6 @@ export async function suggestWorkout(params: {
     // Cualquier fallo LLM → fallback rápido.
     const tpl = await pickLibraryTemplate({
       coach_id: params.coach_id,
-      level: req.level,
       focus: req.focus,
       client,
     });
@@ -177,7 +175,6 @@ export async function suggestWorkout(params: {
 
 interface PickArgs {
   coach_id: number | bigint;
-  level?: z.infer<typeof programLevel> | undefined;
   focus: string;
   client: Sql;
 }
@@ -191,21 +188,13 @@ interface PickedTemplate {
 
 async function pickLibraryTemplate(args: PickArgs): Promise<PickedTemplate | null> {
   // Buscamos templates con segmentos del coach. Filtrado heurístico simple por
-  // tokens del focus contra el nombre, más el nivel del atleta.
-  const levelMap: Record<NonNullable<PickArgs['level']>, number> = {
-    beginner: 1,
-    intermediate: 2,
-    pro: 3,
-    elite: 3,
-  };
-  const targetLevel = args.level ? levelMap[args.level] : null;
-
+  // tokens del focus contra el nombre. (Los entrenos no llevan nivel del coach:
+  // `templates.target_level` es una escala vieja sin dueño y está vacía.)
   const rows = await args.client<
     Array<{
       id: string;
       name: string;
       format: string;
-      target_level: number | null;
       segment_count: number;
     }>
   >`
@@ -213,7 +202,6 @@ async function pickLibraryTemplate(args: PickArgs): Promise<PickedTemplate | nul
       t.id::text as id,
       t.name,
       t.format::text as format,
-      t.target_level,
       coalesce(seg.cnt, 0)::int as segment_count
     from templates t
     left join (
@@ -239,7 +227,6 @@ async function pickLibraryTemplate(args: PickArgs): Promise<PickedTemplate | nul
       for (const tok of focusTokens) {
         if (tok.length >= 3 && nameLc.includes(tok)) score += 3;
       }
-      if (targetLevel != null && t.target_level === targetLevel) score += 1;
       return { tpl: t, score };
     })
     .sort((a, b) => b.score - a.score);
@@ -302,7 +289,8 @@ const llmWorkoutSchema = z.object({
 
 interface LlmArgs {
   focus: string;
-  level: 'beginner' | 'intermediate' | 'pro' | 'elite';
+  /** El nivel del coach con su eje («Nivel N3 · Rendimiento»), o null = sin filtro. */
+  level: { axis: string; name: string; label: string } | null;
   exercises: CoachCatalogExercise[];
   coach_id: number | bigint;
   athlete_id?: number | bigint | null;
@@ -329,7 +317,9 @@ async function llmSuggestBlocks(args: LlmArgs): Promise<WeekDayPart[]> {
   const exerciseList = args.exercises.map((e) => `- ${e.name} (${e.category})`).join('\n');
   const user = [
     `Foco del día: ${args.focus}`,
-    `Nivel: ${args.level}`,
+    args.level
+      ? `${args.level.axis} del atleta (escala del coach): ${args.level.name}${args.level.label && args.level.label !== args.level.name ? ` · ${args.level.label}` : ''}`
+      : 'Nivel: sin especificar (entreno general, ajustable).',
     '',
     'Catálogo de ejercicios disponibles:',
     exerciseList,
@@ -405,4 +395,25 @@ function matchExercise(
     if (key.includes(n) || n.includes(key)) return e;
   }
   return null;
+}
+
+/**
+ * El nivel pedido, si es del coach y está activo, con el nombre de su eje. Un id
+ * ajeno o retirado se ignora (sin filtro), nunca se inventa uno.
+ */
+async function resolveCoachLevel(
+  client: Sql,
+  coach_id: number | bigint,
+  level_id: string | number | null,
+): Promise<LlmArgs['level']> {
+  if (level_id == null) return null;
+  const rows = await client<Array<{ name: string; label: string; axis: string | null }>>`
+    select l.name, l.label, c.level_axis_label as axis
+    from athlete_levels l
+    join coaches c on c.id = l.coach_id
+    where l.id = ${Number(level_id)} and l.coach_id = ${Number(coach_id)} and l.archived_at is null
+    limit 1
+  `;
+  const r = rows[0];
+  return r ? { axis: effectiveLevelAxisLabel(r.axis), name: r.name, label: r.label } : null;
 }

@@ -3,8 +3,10 @@
  *
  * Zod no rechaza un campo: rechaza la PETICIÓN. Un valor imposible de aparato
  * o un instante con offset local 400aba el POST entero — error distinto cada
- * día, misma sesión perdida. Identidad (assignment, position, modality) sigue
- * estricta. Lo demás entra y se gatea al persistir.
+ * día, misma sesión perdida. Desde 2026-09-24 (auditoría app atleta E1) tampoco
+ * lo hace un tipo equivocado ni un tramo sin identidad (se cae él solo), y el id
+ * de sesión ya no decide si se guarda (`record-athlete-workout.ts`). Lo demás
+ * entra y se gatea al persistir.
  *
  * Puro: sin base de datos.
  */
@@ -174,9 +176,58 @@ test('emom o set_index imposibles no 400; el conteo se anula', () => {
   expect(sanitizeNonNegativeInt(-1)).toBeNull();
 });
 
-test('la identidad sigue estricta', () => {
-  expect(parse({ segments: [{ position: -1, modality: 'run' }] }).success).toBe(false);
-  expect(parse({ segments: [{ position: 0, modality: '' }] }).success).toBe(false);
+// La identidad de un TRAMO sigue estricta (segment-input-bands.test.ts lo fija),
+// pero ya no se lleva la sesión por delante: el tramo que no la cumple se cae él
+// solo y la ruta lo avisa en el servidor (auditoría app atleta E1, 2026-09-24).
+test('un tramo sin identidad se cae él solo; la sesión entra', () => {
+  const parsed = parse({
+    segments: [
+      { position: -1, modality: 'run' },
+      { position: 0, modality: '' },
+      { position: 1, modality: 'run', duration_seconds: 60 },
+    ],
+  });
+  expect(parsed.success).toBe(true);
+  if (parsed.success) expect(parsed.data.segments?.map((s) => s.position)).toEqual([1]);
+});
+
+test('un campo de evidencia con el tipo equivocado cuesta ese campo, no la sesión', () => {
+  const parsed = parse({
+    perceived_exertion: 'alto',
+    total_duration_seconds: '2820',
+    notes: 42,
+    started_at: 1_700_000_000,
+    completeness: true,
+    segments: [
+      {
+        position: 0,
+        modality: 'strength',
+        duration_seconds: 'mucho',
+        reps_confirmed: 'sí',
+        sets: [{ set_index: 1, load_actual_kg: '100' }, { reps_actual: 5 }],
+      },
+    ],
+  });
+  expect(parsed.success).toBe(true);
+  if (!parsed.success) return;
+  expect(parsed.data.perceived_exertion).toBeUndefined();
+  expect(parsed.data.total_duration_seconds).toBeUndefined();
+  expect(parsed.data.notes).toBeUndefined();
+  expect(parsed.data.started_at).toBeUndefined();
+  expect(parsed.data.completeness).toBeUndefined();
+  const seg = parsed.data.segments?.[0];
+  expect(seg?.duration_seconds).toBeUndefined();
+  expect(seg?.reps_confirmed).toBeUndefined();
+  // La serie sin índice se cae; la otra entra sin su carga mal tipada.
+  expect(seg?.sets).toHaveLength(1);
+  expect(seg?.sets?.[0]?.load_actual_kg).toBeUndefined();
+});
+
+test('el id de sesión no decide si la sesión se guarda; solo un cuerpo que no es objeto se rechaza', () => {
+  expect(workoutExecutionSchema.safeParse({ started_at: '2026-04-06T08:00:00Z' }).success).toBe(true);
+  expect(workoutExecutionSchema.safeParse({ assignment_id: null, notes: 'x' }).success).toBe(true);
+  expect(workoutExecutionSchema.safeParse(null).success).toBe(false);
+  expect(workoutExecutionSchema.safeParse([1, 2]).success).toBe(false);
 });
 
 test('un id de bloque o un GPS disparado no 400; no caben en columna → hueco', () => {

@@ -10,6 +10,9 @@ import { Resend } from 'resend';
 import { z } from 'zod';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { timezoneCity } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
 import { citaModality } from '@fahybrid/shared/schema';
 import { coachVoice } from '@/lib/coach/voice';
 import { resolveClubEmailSkin, type ClubEmailSkin } from '@/lib/coach/club-skin';
@@ -33,7 +36,7 @@ function escapeHtml(str: string): string {
 // `skin` es la piel del club de esta cita (`resolveClubEmailSkin`, superficie `light`
 // — este shell es de fondo blanco). Sin skin, pinta exactamente lo de hoy.
 const shell = (inner: string, skin?: ClubEmailSkin) => {
-  const wordmark = skin?.wordmark ?? 'FAHYBRID';
+  const wordmark = skin?.wordmark ?? BRAND_WORDMARK;
   const textColor = skin?.light.text ?? '#F06A2A';
   return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:${BRAND_INK};background:#fff;">
      <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:${textColor};">${escapeHtml(wordmark)}</p>${inner}
@@ -58,7 +61,7 @@ const reminderInputSchema = z.object({
   meet_link: z.string().url().nullable(),
   lead_email: z.string().email(),
   lead_nombre: z.string().nullable(),
-  // No timezone column on leads today → defaults to Europe/Madrid (BOX_TIMEZONE).
+  // No timezone column on leads today → the club's (coaches.timezone), else BOX_TIMEZONE.
   // Kept as a param so adding a lead tz later is a one-line change in reminder.ts.
   timezone: z.string().optional(),
   // #40: modality (default video for backward-compat) + the presencial address (coach
@@ -80,7 +83,7 @@ export type CitaReminderInput = z.infer<typeof reminderInputSchema>;
 
 /**
  * Lead: "Mañana a las HH:MM · tu videollamada con <coach>" (+ Meet link if present).
- * Time is rendered in the lead's timezone when provided, else Europe/Madrid.
+ * Time is rendered in the lead's timezone when provided, else the club's.
  */
 export async function sendCitaReminderEmail(input: CitaReminderInput): Promise<CitaEmailResult> {
   const {
@@ -96,13 +99,14 @@ export async function sendCitaReminderEmail(input: CitaReminderInput): Promise<C
   } = reminderInputSchema.parse(input);
   const v = coachVoice(coach_name);
   const skin = await resolveClubEmailSkin(coach_id ? BigInt(coach_id) : null);
-  const tz = timezone ?? BOX_TIMEZONE;
-  const madrid = tz === BOX_TIMEZONE;
+  // Sin huso del lead, la hora del CLUB (la agenda razona en ella) y se dice cuál.
+  const tz = timezone ?? (coach_id ? await loadCoachTimezone(BigInt(coach_id)) : BOX_TIMEZONE);
+  const clubClock = timezone == null;
 
   const time = formatTime(requested_start, tz);
   const hi = lead_nombre ? `Hola ${escapeHtml(lead_nombre.split(' ')[0])},` : 'Hola,';
   const hiText = lead_nombre ? `Hola ${lead_nombre.split(' ')[0]},` : 'Hola,';
-  const tzNote = madrid ? ' (hora de Madrid)' : '';
+  const tzNote = clubClock ? ` (hora de ${timezoneCity(tz)})` : '';
 
   // #40: presencial → address + Maps link; video → Meet button (unchanged).
   const isPresencial = modality === 'presencial';

@@ -10,6 +10,7 @@
 // lo renderizaba NADIE: el selector de tipo entra por AddBlockModal (modal) y por
 // el picker inline de SessionPartCard, y los dos montan la rejilla directamente.
 
+import { OptionTile } from './OptionTile';
 import { MIcon } from '@/components/ui/MIcon';
 import { ARCHETYPES, type Archetype, type ArchetypeId } from '@/lib/dashboard/v2/archetypes';
 
@@ -41,24 +42,21 @@ function ArchetypeCard({
 }) {
   const { name, icon, modalitySlug } = archetype;
   return (
-    <button
-      type="button"
+    <OptionTile
       onClick={onPick}
-      className="v2-focus group flex min-w-0 items-center gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3 text-left transition-colors hover:border-[color:var(--v2-border-strong)]"
-    >
-      <span
-        aria-hidden
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--v2-r-s)]"
-        style={{
-          background: `var(--v2-mod-${modalitySlug}-soft)`,
-          color: `var(--v2-mod-${modalitySlug})`,
-        }}
-      >
-        <MIcon name={icon} size={20} />
-      </span>
-      <span className="min-w-0 text-sm font-bold leading-tight text-[color:var(--v2-fg)]">
-        {name}
-      </span>
-    </button>
+      leading={
+        <span
+          aria-hidden
+          className="inline-flex size-8 shrink-0 items-center justify-center rounded-ctl"
+          style={{
+            background: `var(--v2-mod-${modalitySlug}-soft)`,
+            color: `var(--v2-mod-${modalitySlug})`,
+          }}
+        >
+          <MIcon name={icon} size={18} />
+        </span>
+      }
+      title={name}
+    />
   );
 }

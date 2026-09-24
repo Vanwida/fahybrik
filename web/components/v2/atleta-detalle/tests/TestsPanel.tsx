@@ -6,7 +6,6 @@
 
 import { useMemo, useState } from 'react';
 import { Link } from '@/i18n/navigation';
-import { MIcon } from '@/components/ui/MIcon';
 import { Pill } from '@/components/v2/Pill';
 import { FichaCard, FichaLabel } from '../resumen/piezas';
 import { ProgramarTestSheet } from './ProgramarTestSheet';
@@ -15,6 +14,8 @@ import { Compositor } from '../del-coach/Compositor';
 import { notaDeTest } from '@/lib/dashboard/v2/zonas-feedback';
 import type { Borrador } from '@/lib/dashboard/v2/del-coach-borrador';
 import type { CalibrationTestStatus } from '@/lib/coach/battery-status';
+import { Plus } from 'lucide-react';
+import { Button, EmptyState, buttonVariants } from '@/components/v2/ui';
 
 const DATE_FMT = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' });
 
@@ -45,10 +46,10 @@ function TestRow({
   return (
     <li className="flex items-center justify-between gap-3 py-2.5">
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate text-[13px] font-semibold">{test.label}</span>
-        <span className="v2-num text-[12px] text-[color:var(--v2-muted)]">{formatDay(test.scheduled_for)}</span>
+        <span className="truncate t-body-sm font-semibold">{test.label}</span>
+        <span className="t-tnum t-meta text-[color:var(--v2-muted)]">{formatDay(test.scheduled_for)}</span>
         {test.jump_profile?.lri != null ? (
-          <span className="text-[12px] text-[color:var(--v2-muted)]">
+          <span className="t-meta text-[color:var(--v2-muted)]">
             LRI {test.jump_profile.lri.toFixed(2).replace('.', ',')}
             {test.jump_profile.lri_label ? ` · ${test.jump_profile.lri_label}` : ''}
           </span>
@@ -57,15 +58,11 @@ function TestRow({
       <div className="flex shrink-0 items-center gap-2.5">
         {done ? (
           report ? (
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              className="v2-focus v2-num text-[13px] font-semibold underline-offset-2 hover:underline"
-            >
+            <Button size="sm" variant="ghost" onClick={() => setOpen(true)} className="t-tnum text-v2-fg underline-offset-2 hover:underline">
               {test.result_label}
-            </button>
+            </Button>
           ) : (
-            <span className="v2-num text-[13px] font-semibold">{test.result_label}</span>
+            <span className="t-tnum t-body-sm font-semibold">{test.result_label}</span>
           )
         ) : null}
         {done ? (
@@ -79,7 +76,7 @@ function TestRow({
             </Pill>
             <Link
               href={`/atletas/${athleteId}?tab=rendimiento&vista=zonas`}
-              className="v2-focus inline-flex h-7 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-2.5 text-[12px] font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]"
+              className="v2-focus inline-flex h-7 items-center gap-1 rounded-ctl bg-v2-fg px-2.5 t-meta font-semibold text-v2-bg hover:bg-[color:var(--v2-accent-press)]"
             >
               Registrar
             </Link>
@@ -146,35 +143,28 @@ export function TestsPanel({
                 {missingResult} sin resultado
               </Pill>
             ) : null}
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              disabled={library.length === 0}
-              className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3 text-[12px] font-semibold text-[color:var(--v2-accent-fg)] transition-opacity hover:opacity-90 disabled:opacity-40"
-            >
-              <MIcon name="add" size={15} />
+            <Button size="sm" icon={Plus} onClick={() => setOpen(true)} disabled={library.length === 0}>
               Programar test
-            </button>
+            </Button>
           </div>
         </div>
 
         {ordered.length === 0 ? (
-          <p className="mt-3 text-[13px] text-[color:var(--v2-muted)]">
-            {library.length === 0 ? (
-              'Crea tu batería en Método › Tests y podrás programárselos desde aquí.'
-            ) : (
-              <>
-                No hay tests programados.{' '}
-                <button
-                  type="button"
-                  onClick={() => setOpen(true)}
-                  className="font-semibold text-[color:var(--v2-accent-text)]"
-                >
-                  Programar →
-                </button>
-              </>
-            )}
-          </p>
+          <EmptyState
+            className="mt-2"
+            title={library.length === 0 ? 'Todavía no tienes batería de tests' : 'No hay tests programados'}
+            action={
+              library.length === 0 ? (
+                <Link href="/programar/tests" className={buttonVariants({ size: 'sm', variant: 'ghost' })}>
+                  Crearla en Programar › Tests
+                </Link>
+              ) : (
+                <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
+                  Programar uno
+                </Button>
+              )
+            }
+          />
         ) : (
           <ul className="mt-3 divide-y divide-[color:var(--v2-border)]">
             {ordered.map((t) => (

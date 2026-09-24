@@ -17,7 +17,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AthleteAvatar } from '@/components/v2/AthleteAvatar';
-import { MIcon } from '@/components/ui/MIcon';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
 import {
   MODALITY_LABEL,
@@ -30,6 +29,8 @@ import {
   type ProfileModality,
 } from '@/lib/dashboard/v2/zone-view';
 import { TEST_TARGET_RPE } from '@fahybrid/shared/domain/methodology';
+import { Check } from 'lucide-react';
+import { Button } from '@/components/v2/ui';
 
 // Review strip shown atop a column whose current profile is an auto-derived
 // (onboarding) one the coach hasn't confirmed yet. "Confirmar" validates the
@@ -68,20 +69,13 @@ function AutoReviewStrip({
   };
 
   return (
-    <div className="mb-2 flex items-center gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-warn)]/40 bg-[color:var(--v2-warn-soft)] px-2.5 py-1.5">
-      <MIcon name="auto_awesome" size={13} className="shrink-0 text-[color:var(--v2-muted)]" />
-      <span className="min-w-0 flex-1 text-eyebrow font-semibold leading-tight text-[color:var(--v2-muted)]">
+    <div className="mb-2 flex items-center gap-2 rounded-ctl bg-v2-warn-soft px-2.5 py-1">
+      <span className="min-w-0 flex-1 t-meta text-v2-warn">
         Auto del onboarding · revisar
       </span>
-      <button
-        type="button"
-        onClick={confirm}
-        disabled={saving}
-        className="v2-focus inline-flex shrink-0 items-center gap-1 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-2 py-0.5 text-eyebrow font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-60"
-      >
-        <MIcon name={saving ? 'hourglass_empty' : 'check'} size={12} />
-        {error ? 'Reintenta' : saving ? 'Guardando…' : 'Confirmar'}
-      </button>
+      <Button size="sm" icon={Check} loading={saving} onClick={confirm}>
+        {error ? 'Reintenta' : 'Confirmar'}
+      </Button>
     </div>
   );
 }
@@ -98,7 +92,7 @@ function ZoneCard({
   const dotVar = zoneVar(zone.sort_order);
   return (
     <div
-      className="flex items-center gap-3 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2.5"
+      className="flex items-center gap-3 rounded-ctl border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-3 py-2.5"
       style={{ borderLeft: `3px solid var(${dotVar})` }}
     >
       <span
@@ -111,22 +105,22 @@ function ZoneCard({
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold leading-tight text-[color:var(--v2-fg)]">
+          <span className="text-xs font-semibold leading-tight text-[color:var(--v2-fg)]">
             Zona {zone.sort_order}
           </span>
           {isZ6 ? (
-            <span className="rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-z6-soft)] px-1.5 py-px text-nano font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
+            <span className="rounded-ctl border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-z6-soft)] px-1.5 py-px t-label font-semibold text-[color:var(--v2-muted)]">
               ≤30 s
             </span>
           ) : null}
         </div>
-        <div className="mt-0.5 truncate text-label leading-snug text-[color:var(--v2-muted)]">
+        <div className="mt-0.5 truncate t-meta leading-snug text-[color:var(--v2-muted)]">
           {zone.label}
         </div>
       </div>
-      <div className="v2-num shrink-0 whitespace-nowrap text-body font-bold text-[color:var(--v2-fg)]">
+      <div className="t-tnum shrink-0 whitespace-nowrap t-body-sm font-semibold text-[color:var(--v2-fg)]">
         {formatZoneRange(zone)}
-        <span className="ml-0.5 text-eyebrow font-semibold text-[color:var(--v2-faint)]">
+        <span className="ml-0.5 t-meta font-semibold text-[color:var(--v2-faint)]">
           {paceUnitLabel(unit)}
         </span>
       </div>
@@ -149,10 +143,10 @@ function ZoneColumn({ profile, athleteId }: { profile: AthleteZoneProfile; athle
           className="h-2.5 w-2.5 shrink-0 rounded-[var(--v2-r-3xs)]"
           style={{ background: `var(--v2-mod-${profile.modality === 'run' ? 'carrera' : 'ergo'})` }}
         />
-        <span className="text-xs font-bold text-[color:var(--v2-fg)]">
+        <span className="text-xs font-semibold text-[color:var(--v2-fg)]">
           {MODALITY_LABEL[profile.modality]}
         </span>
-        <span className="v2-num ml-auto text-label text-[color:var(--v2-muted)]">
+        <span className="t-tnum ml-auto t-meta text-[color:var(--v2-muted)]">
           test{' '}
           <b className="text-[color:var(--v2-fg)]">{formatThreshold(profile.threshold_s)}</b>{' '}
           {paceUnitLabel(unit)}
@@ -181,26 +175,26 @@ function ResultBar({
     .sort()
     .at(-1);
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-4 py-3">
-      <span className="text-eyebrow font-bold uppercase tracking-[0.12em] text-[color:var(--v2-accent-text)]">
+    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-panel border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-4 py-3">
+      <span className="t-label font-semibold text-v2-fg">
         Resultado del test
       </span>
       <span aria-hidden className="h-4 w-px self-stretch bg-[color:var(--v2-border)]" />
       {profiles.map((p) => (
         <div key={`${p.modality}-${p.id}`} className="flex items-baseline gap-1.5">
-          <span className="text-eyebrow font-semibold uppercase tracking-wide text-[color:var(--v2-faint)]">
+          <span className="t-label font-semibold text-[color:var(--v2-faint)]">
             {MODALITY_LABEL[p.modality]}
           </span>
-          <span className="v2-num text-data font-bold text-[color:var(--v2-fg)]">
+          <span className="t-tnum t-num-l font-semibold text-[color:var(--v2-fg)]">
             {formatThreshold(p.threshold_s)}
           </span>
-          <span className="text-label font-semibold text-[color:var(--v2-muted)]">
+          <span className="t-meta font-semibold text-[color:var(--v2-muted)]">
             {paceUnitLabel(p.pace_unit)}
           </span>
         </div>
       ))}
       {latestIso ? (
-        <span className="v2-num ml-auto text-label text-[color:var(--v2-faint)]">
+        <span className="t-tnum ml-auto t-meta text-[color:var(--v2-faint)]">
           {athleteName} · {formatProfileDate(latestIso)}
         </span>
       ) : null}
@@ -241,18 +235,18 @@ export function ZoneCalculator({
         <div className="flex items-center gap-3">
           <AthleteAvatar name={athleteName} size="lg" />
           <div>
-            <div className="text-reading font-extrabold text-[color:var(--v2-fg)]">
+            <div className="t-body font-semibold text-[color:var(--v2-fg)]">
               {athleteName}
             </div>
-            <div className="text-label text-[color:var(--v2-muted)]">
+            <div className="t-meta text-[color:var(--v2-muted)]">
               {latestIso ? `Test · ${formatProfileDate(latestIso)}` : 'Test'} · RPE{' '}
               {TEST_TARGET_RPE}
             </div>
           </div>
         </div>
-        <div className="text-right text-eyebrow font-bold uppercase leading-tight tracking-[0.12em] text-[color:var(--v2-faint)]">
+        <div className="text-right t-label font-semibold leading-tight text-[color:var(--v2-faint)]">
           Calculadora de zonas
-          <b className="block text-body tracking-[0.04em] text-[color:var(--v2-accent-text)]">
+          <b className="block t-body-sm tracking-[0.04em] text-v2-fg">
             {titleFamily(profiles)}
           </b>
         </div>
@@ -282,19 +276,19 @@ export function ZoneCalculator({
 
       {/* Feeds-the-plan callout — the chain that makes the test the resolver */}
       <div
-        className="mt-4 flex items-center gap-3 rounded-[var(--v2-r-s)] border border-[color:var(--v2-accent-soft)] px-4 py-3"
+        className="mt-4 flex items-center gap-3 rounded-ctl border border-v2-border px-4 py-3"
         style={{
           borderLeft: '3px solid var(--v2-accent)',
           background: 'linear-gradient(90deg, var(--v2-accent-soft), transparent)',
         }}
       >
-        <span aria-hidden className="text-[color:var(--v2-accent-text)]">
+        <span aria-hidden className="text-v2-fg">
           ⤓
         </span>
         <p className="text-xs leading-snug text-[color:var(--v2-muted)]">
           Estas zonas <b className="text-[color:var(--v2-fg)]">alimentan el plan</b>: cada bloque
-          escrito en relativo (<span className="v2-num text-[color:var(--v2-accent-text)]">Z2</span> /{' '}
-          <span className="v2-num text-[color:var(--v2-accent-text)]">Z4</span> / “ritmo umbral”) se
+          escrito en relativo (<span className="t-tnum text-v2-fg">Z2</span> /{' '}
+          <span className="t-tnum text-v2-fg">Z4</span> / “ritmo umbral”) se
           resuelve al rango concreto de {athleteName.split(' ')[0]}.
         </p>
       </div>

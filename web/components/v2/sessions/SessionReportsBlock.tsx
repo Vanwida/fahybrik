@@ -7,10 +7,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MIcon } from '@/components/ui/MIcon';
-import { Card } from '@/components/ui/card';
-import { Pill } from '@/components/v2/Pill';
-import { EmptyState } from '@/components/v2/EmptyState';
+import { Check, Mail, Pencil, Plus, Send, Trash2, Video } from 'lucide-react';
+import { Button, Card, Dialog, EmptyState, IconButton, Input, Select, StatusBadge, Textarea } from '@/components/v2/ui';
 import { AuthorStamp } from '@/components/v2/AuthorStamp';
 import {
   SESSION_OUTCOMES,
@@ -21,9 +19,6 @@ import {
 import type { SessionReportView } from '@/lib/coach/session-reports';
 
 type Subject = { lead_id: string } | { athlete_id: string };
-
-const FIELD =
-  'v2-focus w-full rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-border-strong)]';
 
 function fmtDate(iso: string): string {
   const d = new Date(iso);
@@ -175,44 +170,40 @@ export function SessionReportsBlock({
     }
   }
 
+  const label = (text: string) => <span className="t-meta text-v2-muted">{text}</span>;
+
   return (
-    <Card className="flex flex-col gap-4 p-4 lg:p-5">
+    <Card className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="v2-display text-lg text-[color:var(--v2-fg)]">Sesiones 1:1</h2>
+        <h2 className="t-title-sm text-v2-fg">Sesiones 1:1</h2>
         {editing == null ? (
-          <button
-            type="button"
-            onClick={openNew}
-            className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-3.5 text-sm font-semibold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)]"
-          >
-            <MIcon name="add" size={18} />
+          <Button size="sm" icon={Plus} onClick={openNew}>
             Registrar sesión
-          </button>
+          </Button>
         ) : null}
       </div>
 
       {/* Form (add / edit) */}
       {editing != null ? (
-        <div className="flex flex-col gap-3 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] p-3.5">
+        <div className="flex flex-col gap-3 rounded-panel bg-v2-surface-2 p-3">
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1.5">
-              <span className="v2-micro">Fecha y hora</span>
-              <input
+              {label('Fecha y hora')}
+              <Input
                 type="datetime-local"
                 value={form.occurred_at}
                 onChange={(e) => setForm({ ...form, occurred_at: e.target.value })}
-                className={FIELD}
               />
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="v2-micro">Duración (min)</span>
-              <input
+              {label('Duración (min)')}
+              <Input
                 type="number"
                 min={5}
                 max={300}
                 value={form.duration_minutes}
                 onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })}
-                className={FIELD}
+                className="t-tnum"
               />
             </label>
           </div>
@@ -220,149 +211,109 @@ export function SessionReportsBlock({
           {isLead ? (
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1.5">
-                <span className="v2-micro">Resultado</span>
-                <select
-                  value={form.outcome}
-                  onChange={(e) => setForm({ ...form, outcome: e.target.value })}
-                  className={FIELD}
-                >
-                  <option value="">—</option>
-                  {SESSION_OUTCOMES.map((o) => (
-                    <option key={o} value={o}>
-                      {SESSION_OUTCOME_LABEL[o]}
-                    </option>
-                  ))}
-                </select>
+                {label('Resultado')}
+                <Select
+                  aria-label="Resultado"
+                  value={form.outcome || 'none'}
+                  onValueChange={(v) => setForm({ ...form, outcome: v === 'none' ? '' : v })}
+                  options={[
+                    { value: 'none', label: '—' },
+                    ...SESSION_OUTCOMES.map((o) => ({ value: o as string, label: SESSION_OUTCOME_LABEL[o] })),
+                  ]}
+                  className="w-full"
+                />
               </label>
               <label className="flex flex-col gap-1.5">
-                <span className="v2-micro">Precio acordado (€/mes)</span>
-                <input
+                {label('Precio acordado (€/mes)')}
+                <Input
                   type="number"
                   min={0}
                   step="0.01"
                   value={form.quoted_price_eur}
                   onChange={(e) => setForm({ ...form, quoted_price_eur: e.target.value })}
-                  className={FIELD}
                   placeholder="—"
+                  className="t-tnum"
                 />
               </label>
             </div>
           ) : null}
 
           <label className="flex flex-col gap-1.5">
-            <span className="v2-micro">Lo que hablasteis</span>
-            <textarea
+            {label('Lo que hablasteis')}
+            <Textarea
               rows={4}
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              className={FIELD + ' resize-y leading-relaxed'}
               placeholder="Notas de la llamada, la fuente del email de resumen."
             />
           </label>
           <label className="flex flex-col gap-1.5">
-            <span className="v2-micro">Próximos pasos</span>
-            <textarea
+            {label('Próximos pasos')}
+            <Textarea
               rows={2}
               value={form.next_steps}
               onChange={(e) => setForm({ ...form, next_steps: e.target.value })}
-              className={FIELD + ' resize-y leading-relaxed'}
               placeholder="Qué toca después."
             />
           </label>
 
-          {error ? <p className="text-xs font-medium text-[color:var(--v2-danger)]">{error}</p> : null}
+          {error ? (
+            <p role="alert" className="t-body-sm text-v2-danger">
+              {error}
+            </p>
+          ) : null}
           <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={close}
-              className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]"
-            >
+            <Button variant="ghost" onClick={close}>
               Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              disabled={busy}
-              className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
-            >
-              {busy ? 'Guardando…' : 'Guardar parte'}
-            </button>
+            </Button>
+            <Button variant="primary" loading={busy} onClick={save}>
+              Guardar parte
+            </Button>
           </div>
         </div>
       ) : null}
 
       {/* History */}
       {sessions.length === 0 && editing == null ? (
-        <EmptyState
-          icon="videocam"
-          title="Sin sesiones registradas"
-          description="Al terminar una videollamada, registra aquí lo que hablasteis."
-        />
+        <EmptyState icon={Video} title="Sin sesiones registradas" description="al terminar una videollamada, apunta aquí lo que hablasteis" />
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col divide-y divide-v2-border">
           {sessions.map((s) => (
-            <li
-              key={s.id}
-              className="flex flex-col gap-2 rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-3.5"
-            >
+            <li key={s.id} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="v2-num text-sm font-semibold text-[color:var(--v2-fg)]">{fmtDate(s.occurred_at)}</span>
-                <span className="text-xs text-[color:var(--v2-muted)]">{s.duration_minutes} min</span>
+                <span className="t-body font-medium text-v2-fg t-tnum">{fmtDate(s.occurred_at)}</span>
+                <span className="t-meta text-v2-muted t-tnum">{s.duration_minutes} min</span>
                 {s.outcome ? (
-                  <Pill tone={SESSION_OUTCOME_TONE[s.outcome as SessionOutcome]} variant="soft">
-                    {SESSION_OUTCOME_LABEL[s.outcome as SessionOutcome]}
-                  </Pill>
+                  <StatusBadge
+                    size="sm"
+                    variant="soft"
+                    tone={SESSION_OUTCOME_TONE[s.outcome as SessionOutcome]}
+                    label={SESSION_OUTCOME_LABEL[s.outcome as SessionOutcome]}
+                  />
                 ) : null}
                 {s.quoted_price_eur != null ? (
-                  <span className="v2-num text-xs font-semibold text-[color:var(--v2-fg)]">
-                    {s.quoted_price_eur}€/mes
-                  </span>
+                  <span className="t-meta text-v2-fg t-tnum">{s.quoted_price_eur} €/mes</span>
                 ) : null}
-                {isLead && s.from_lead === false ? null : null}
-                <div className="ml-auto flex items-center gap-1">
-                  <button
-                    type="button"
-                    aria-label="Editar"
-                    onClick={() => openEdit(s)}
-                    className="v2-focus inline-flex h-7 w-7 items-center justify-center rounded-full text-[color:var(--v2-faint)] hover:text-[color:var(--v2-fg)]"
-                  >
-                    <MIcon name="edit" size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Borrar"
-                    onClick={() => remove(s.id)}
-                    className="v2-focus inline-flex h-7 w-7 items-center justify-center rounded-full text-[color:var(--v2-faint)] hover:text-[color:var(--v2-danger)]"
-                  >
-                    <MIcon name="delete" size={16} />
-                  </button>
+                <div className="ml-auto flex items-center gap-0.5">
+                  <IconButton icon={Pencil} size="sm" label="Editar" onClick={() => openEdit(s)} />
+                  <IconButton icon={Trash2} size="sm" label="Borrar" onClick={() => remove(s.id)} className="hover:text-v2-danger" />
                 </div>
               </div>
-              {s.notes ? (
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-[color:var(--v2-fg)]">{s.notes}</p>
-              ) : null}
+              {s.notes ? <p className="whitespace-pre-wrap t-body text-v2-fg">{s.notes}</p> : null}
               {s.next_steps ? (
-                <p className="text-sm leading-relaxed text-[color:var(--v2-muted)]">
-                  <span className="v2-micro">Próximos pasos · </span>
+                <p className="t-body text-v2-muted">
+                  <span className="font-medium text-v2-fg">Próximos pasos · </span>
                   <span className="whitespace-pre-wrap">{s.next_steps}</span>
                 </p>
               ) : null}
               {/* #11 — post-call summary email (leads only). */}
               {s.from_lead && (s.notes || s.next_steps) ? (
                 <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setSummaryReport(s)}
-                    className="v2-focus inline-flex h-8 items-center gap-1.5 rounded-[var(--v2-r-pill)] border border-[color:var(--v2-border)] px-3 text-xs font-semibold text-[color:var(--v2-fg)] hover:border-[color:var(--v2-border-strong)]"
-                  >
-                    <MIcon name="mail" size={15} />
+                  <Button size="sm" icon={Mail} onClick={() => setSummaryReport(s)}>
                     {s.summary_email_sent_at ? 'Reenviar resumen' : 'Enviar resumen al lead'}
-                  </button>
+                  </Button>
                   {s.summary_email_sent_at ? (
-                    <span className="inline-flex items-center gap-1 text-xs text-[color:var(--v2-muted)]">
-                      <MIcon name="check" size={14} className="text-[color:var(--v2-ok)]" />
-                      Resumen enviado · {fmtDate(s.summary_email_sent_at)}
-                    </span>
+                    <StatusBadge size="sm" tone="ok" icon={Check} label={`Resumen enviado · ${fmtDate(s.summary_email_sent_at)}`} />
                   ) : null}
                 </div>
               ) : null}
@@ -370,18 +321,8 @@ export function SessionReportsBlock({
                   Each self-hides when unattributed (historical rows). */}
               {s.created_by_name || s.last_edited_by_name ? (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-0.5">
-                  <AuthorStamp
-                    kind="coach"
-                    name={s.created_by_name}
-                    verb="escribió el parte"
-                    at={s.created_at}
-                  />
-                  <AuthorStamp
-                    kind="coach"
-                    name={s.last_edited_by_name}
-                    verb="editó"
-                    at={s.updated_at}
-                  />
+                  <AuthorStamp kind="coach" name={s.created_by_name} verb="escribió el parte" at={s.created_at} />
+                  <AuthorStamp kind="coach" name={s.last_edited_by_name} verb="editó" at={s.updated_at} />
                 </div>
               ) : null}
             </li>
@@ -445,37 +386,39 @@ function SummaryModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <button type="button" aria-label="Cerrar" onClick={onClose} className="absolute inset-0 bg-[color:var(--v2-scrim)]" />
-      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-5 shadow-[var(--v2-shadow-pop)]">
-        <div className="mb-1 flex items-start justify-between gap-3">
-          <h2 className="v2-display text-xl text-[color:var(--v2-fg)]">Resumen al lead</h2>
-          <button type="button" aria-label="Cerrar" onClick={onClose} className="v2-focus inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--v2-faint)] hover:text-[color:var(--v2-fg)]">
-            <MIcon name="close" size={20} />
-          </button>
-        </div>
-        <p className="mb-3 text-xs text-[color:var(--v2-muted)]">
-          Repasa el texto antes de enviarlo. Editar aquí no cambia el parte guardado.
-        </p>
-        <label className="mb-3 flex flex-col gap-1.5">
-          <span className="v2-micro">Lo que hablasteis</span>
-          <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={5} className={FIELD + ' resize-y leading-relaxed'} />
-        </label>
-        <label className="mb-3 flex flex-col gap-1.5">
-          <span className="v2-micro">Próximos pasos</span>
-          <textarea value={nextSteps} onChange={(e) => setNextSteps(e.target.value)} rows={2} className={FIELD + ' resize-y leading-relaxed'} />
-        </label>
-        {error ? <p className="mb-2 text-xs font-medium text-[color:var(--v2-danger)]">{error}</p> : null}
-        <div className="flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className="v2-focus inline-flex h-9 items-center rounded-[var(--v2-r-pill)] px-3.5 text-sm font-semibold text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]">
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        if (!o && !busy) onClose();
+      }}
+      title="Resumen al lead"
+      description="Repasa el texto antes de enviarlo. Editar aquí no cambia el parte guardado."
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
             Cancelar
-          </button>
-          <button type="button" onClick={send} disabled={busy || !summary.trim()} className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-semibold text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50">
-            <MIcon name="send" size={16} />
-            {busy ? 'Enviando…' : alreadySent ? 'Reenviar' : 'Enviar resumen'}
-          </button>
-        </div>
+          </Button>
+          <Button variant="primary" icon={Send} loading={busy} disabled={!summary.trim()} onClick={send}>
+            {alreadySent ? 'Reenviar' : 'Enviar resumen'}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <label className="flex flex-col gap-1.5">
+          <span className="t-meta text-v2-muted">Lo que hablasteis</span>
+          <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={5} />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="t-meta text-v2-muted">Próximos pasos</span>
+          <Textarea value={nextSteps} onChange={(e) => setNextSteps(e.target.value)} rows={2} />
+        </label>
+        {error ? (
+          <p role="alert" className="t-body-sm text-v2-danger">
+            {error}
+          </p>
+        ) : null}
       </div>
-    </div>
+    </Dialog>
   );
 }

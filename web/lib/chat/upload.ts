@@ -30,6 +30,7 @@ import {
   fileExtension,
   type ChatAttachmentKind,
 } from './schema';
+import { ownerIdFromPathname } from '@/lib/storage/owned-pathname';
 
 // Las listas de extensiones y los topes viven en `./schema` (módulo sin Node) para
 // que la caja de texto del navegador valide con las MISMAS reglas y avise antes de
@@ -181,15 +182,7 @@ export function attachmentBaseUrl(): string {
  * doesn't match the expected layout (defensive — never trust path input).
  */
 export function athleteIdFromPathname(pathname: string): bigint | null {
-  const segments = pathname.split('/').filter(Boolean);
-  // ['chat', '<athlete_id>', '<yyyy>', '<mm>', '<file>']
-  if (segments.length < 5) return null;
-  if (segments[0] !== 'chat') return null;
-  const athleteSeg = segments[1];
-  if (!athleteSeg || !/^\d+$/.test(athleteSeg)) return null;
-  try {
-    return BigInt(athleteSeg);
-  } catch {
-    return null;
-  }
+  // ['chat', '<athlete_id>', '<yyyy>', '<mm>', '<file>'] — forma exacta, sin `..`
+  // ni rutas absolutas (lib/storage/owned-pathname.ts).
+  return ownerIdFromPathname(pathname, 'chat');
 }

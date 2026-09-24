@@ -3,8 +3,10 @@
 // Three entry points (SPEC §8):
 //   - rollupAthleteFacts: one SignalFacts per athlete of a coach. Coach-level
 //     loaders run ONCE (indexed into Maps); biometrics/microciclo/billing come
-//     from ONE batched CTE; per-athlete readiness/progress services run per
-//     athlete (acceptable in the 300s cron budget) inside a try/catch so one
+//     from ONE batched CTE; plan facts, readiness history, due-only sessions and
+//     awaiting-reply threads from one batched query each. Only the
+//     progress-readiness service (info-tier «Listo para progresar») still runs
+//     per athlete (acceptable in the 300s cron budget) inside a try/catch so one
 //     bad athlete never aborts the rollup.
 //   - recomputeCoach: the SWEEP — evaluate every athlete, upsert firing signals,
 //     auto-clear the rest, per-athlete transaction + try/catch.
@@ -12,30 +14,35 @@
 //     throws into the caller's mutation).
 
 import 'server-only';
-import { updateTag } from 'next/cache';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { captureRouteError } from '@/lib/observability/capture';
-import { SIGNAL_THRESHOLDS } from '@/lib/coach/signal-config';
-import { resolveEffectiveThresholds } from '@/lib/coach/signal-thresholds';
+import { resolveCoachThresholds, resolveEffectiveThresholds } from '@/lib/coach/signal-thresholds';
+import type { CoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds';
 import { evaluateAll } from '@/lib/coach/attention/evaluators';
 import { communicationClaims } from './communication-claims';
-import { attentionTag } from './queue';
+import { invalidateAttention } from './invalidate';
 import { assessAthleteProgressReadiness } from '@fahybrid/shared/domain/coach/progress-readiness';
-import { getAthleteProgrammingStatus } from '@/lib/dashboard/coach/programming-status';
-import { getLatestReadiness } from '@/lib/dashboard/coach/athlete-daily-readiness';
+import { loadPlanFacts, type AthletePlanFacts } from '@/lib/dashboard/athletes/plan-facts';
 import { listPendingIntake } from '@/lib/coach/intake';
 import { listPendingWeekAdjustments } from '@/lib/dashboard/coach/week-adjustments';
 import { listPendingMonthlyBlocksForCoach } from '@/lib/dashboard/coach/monthly-block-proposal';
-import { listThreadsForCoach } from '@/lib/chat/service';
+import { loadAwaitingReply, type AwaitingReply } from './awaiting-reply';
+import { loadReadinessHistory, type ReadinessHistory } from './readiness-history';
+import { latestReading } from './readiness-baseline';
 import {
-  daysFromNowToIso,
-  type SignalFacts,
-  type SignalResult,
-} from '@fahybrid/shared/domain/coach/signals';
+  computeAdherence,
+  loadAdherenceSessionsBatch,
+  type AdherenceSessionsBatch,
+} from '@fahybrid/shared/domain/coach/adherence';
+import { BOX_TIMEZONE, isoDateString, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
+import { daysBetweenIso, type SignalFacts } from '@fahybrid/shared/domain/coach/signals';
 import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
 import { loadBatch, type BatchRow } from './recompute-batch';
+import { clearUnevaluated, persistAthlete } from './persist';
 
 /** Human label for a recorded test's benchmark (strength labels live with the
  *  lift catalog — single source per concept). */
@@ -44,6 +51,9 @@ function testLabel(slug: string | null, unit: string | null): string | null {
   return unit === 'kg' ? strengthLiftLabel(slug) : benchmarkLabel(slug);
 }
 
+/** Window of the due-only «sesiones perdidas» signal. */
+const MISSED_WINDOW_DAYS = 7;
+
 interface CoachLevelMaps {
   intake: Map<
     string,
@@ -51,7 +61,12 @@ interface CoachLevelMaps {
   >;
   weekAdj: Map<string, { proposal_id: string; summary: string | null }>;
   monthly: Map<string, { proposal_id: string; month_name: string | null }>;
-  unanswered: Map<string, number>;
+  awaiting: Map<string, AwaitingReply>;
+  plan: Map<string, AthletePlanFacts>;
+  readiness: Map<string, ReadinessHistory>;
+  sessions: AdherenceSessionsBatch;
+  /** El método del coach (umbrales de «Listo para progresar», 0256). */
+  thresholds: CoachThresholds;
 }
 
 // ── Public: rollupAthleteFacts ────────────────────────────────────────────────
@@ -66,15 +81,25 @@ export async function rollupAthleteFacts(params: {
   const client = params.client ?? defaultSql;
   const { now } = params;
 
-  const [maps, batch] = await Promise.all([
-    loadCoachLevelMaps(client, params.coach_id),
+  const [batch, coachTz] = await Promise.all([
     loadBatch(client, params.coach_id, now, params.athlete_id ?? null),
+    loadCoachTimezone(params.coach_id, client),
   ]);
+  // «Listo para progresar» es una señal para que el coach decida: el microciclo
+  // en curso se busca en el día del CLUB (DECISIONS 2026-09-23).
+  const clubDay = startOfDayInTz(now, coachTz);
+  const maps = await loadCoachLevelMaps(
+    client,
+    params.coach_id,
+    batch.map((r) => r.athlete_id),
+    now,
+    coachTz,
+  );
 
   const facts: SignalFacts[] = [];
   for (const row of batch) {
     try {
-      facts.push(await assembleFacts(row, maps, String(params.coach_id), client, now));
+      facts.push(await assembleFacts(row, maps, String(params.coach_id), client, now, clubDay));
     } catch (err) {
       captureRouteError(err, {
         route: 'lib/coach/attention/recompute.rollupAthleteFacts',
@@ -94,14 +119,29 @@ async function assembleFacts(
   coach_id: string,
   client: Sql,
   now: Date,
+  clubDay: Date,
 ): Promise<SignalFacts> {
   const athleteIdNum = Number(row.athlete_id);
 
-  const [programming, readiness, progress] = await Promise.all([
-    getAthleteProgrammingStatus({ athlete_id: athleteIdNum, on_date: now, client }),
-    getLatestReadiness({ athlete_id: athleteIdNum, on_date: now, client }),
-    assessAthleteProgressReadiness({ athlete_id: athleteIdNum, on_date: now, client }),
-  ]);
+  const progress = await assessAthleteProgressReadiness({
+    athlete_id: athleteIdNum,
+    on_date: clubDay,
+    thresholds: maps.thresholds,
+    client,
+  });
+  const plan = maps.plan.get(row.athlete_id) ?? null;
+  const readiness = maps.readiness.get(row.athlete_id) ?? null;
+  const timezone = readiness?.timezone ?? BOX_TIMEZONE;
+  const today_iso =
+    readiness?.today ?? maps.sessions.as_of.get(row.athlete_id) ?? zonedDayString(now, timezone);
+  const missed = computeAdherence(
+    maps.sessions.sessions.get(row.athlete_id) ?? [],
+    maps.sessions.as_of.get(row.athlete_id) ?? today_iso,
+    MISSED_WINDOW_DAYS,
+  );
+  const awaiting = maps.awaiting.get(row.athlete_id) ?? null;
+  const rpeDays = row.rpe_days ?? [];
+  const rpeValues = row.rpe_values ?? [];
 
   const hrv_delta_ms =
     row.hrv_recent != null && row.hrv_baseline != null
@@ -113,12 +153,15 @@ async function assembleFacts(
       ? null
       : Math.floor((now.getTime() - row.last_sync_at.getTime()) / 60_000);
 
-  const days_to_a_event = row.a_event_iso ? daysFromNowToIso(row.a_event_iso, now) : null;
+  // Su carrera, en SU calendario (DECISIONS «Qué día es en cada sitio»).
+  const days_to_a_event = row.a_event_iso ? daysBetweenIso(today_iso, row.a_event_iso) : null;
 
   const intake = maps.intake.get(row.athlete_id) ?? null;
   const weekAdj = maps.weekAdj.get(row.athlete_id) ?? null;
   const monthly = maps.monthly.get(row.athlete_id) ?? null;
-  const unread_message_age_min = maps.unanswered.get(row.athlete_id) ?? null;
+  const unread_message_age_min =
+    awaiting?.since != null ? Math.floor((now.getTime() - awaiting.since.getTime()) / 60_000) : null;
+  const programming = plan?.programming ?? null;
 
   return {
     athlete_id: row.athlete_id,
@@ -128,20 +171,31 @@ async function assembleFacts(
     hrv_delta_ms,
     hrv_baseline_days: row.hrv_baseline_days,
     sync_minutes_ago,
-    missed_sessions_7d: row.missed_sessions_7d,
-    rpe_yesterday: row.rpe_yesterday,
+    missed_sessions_7d: missed.missed,
+    due_sessions_7d: missed.due,
+    last_missed_on: missed.last_missed_on,
+    sessions_7d_rpe: rpeDays.map((on, i) => ({ on, rpe: rpeValues[i] ?? null })),
     last_checkin_at: row.last_checkin_at,
+    checkins_prior_14d: row.checkins_prior_14d,
     unread_message_age_min,
-    readiness_score: readiness?.score ?? null,
+    awaiting_reply_count: awaiting?.count ?? 0,
+    awaiting_reply_last_at: awaiting?.last_at ?? null,
+    readiness_score: readiness ? (latestReading(readiness.series)?.score ?? null) : null,
+    readiness_series: readiness?.series ?? [],
+    today_iso,
+    club_today_iso: isoDateString(clubDay),
+    timezone,
 
     discomfort_area: row.latest_pain_area,
     discomfort_at: row.latest_pain_at,
     discomfort_note: row.latest_pain_note,
 
-    programming_status: programming.status,
-    programming_label: programming.label ?? null,
-    programming_detail: programming.detail ?? null,
+    programming_status: programming?.status ?? 'ok',
+    programming_label: programming?.label ?? null,
+    programming_detail: programming?.detail ?? null,
     current_microcycle_end_iso: row.current_microcycle_end_iso,
+    next_program_start_iso: plan?.next_program_start ?? null,
+    last_program_end_iso: plan?.last_program_end ?? null,
     current_block_type: row.current_microciclo_name,
     transition_recommendation: mapTransition(progress?.recommendation ?? null),
     transition_detail: progress?.reasons.length ? progress.reasons.join(' · ') : null,
@@ -151,7 +205,7 @@ async function assembleFacts(
     intake_pending_hours: intake?.hours_since_onboarded ?? null,
     intake_a_event_name: intake?.a_event_name ?? null,
     intake_a_event_days:
-      intake?.a_event_iso != null ? daysFromNowToIso(intake.a_event_iso, now) : null,
+      intake?.a_event_iso != null ? daysBetweenIso(today_iso, intake.a_event_iso) : null,
     week_adjustment_proposal_id: weekAdj?.proposal_id ?? null,
     week_adjustment_summary: weekAdj?.summary ?? null,
     monthly_block_proposal_id: monthly?.proposal_id ?? null,
@@ -160,6 +214,7 @@ async function assembleFacts(
     billing_risk: deriveBillingRisk(row),
     billing_days_to_period_end:
       deriveBillingRisk(row) === 'renewal_soon' ? row.billing_days_to_period_end : null,
+    billing_period_end_iso: deriveBillingRisk(row) === 'renewal_soon' ? row.billing_period_end_iso : null,
 
     latest_test_at: row.latest_test_at,
     latest_test_label: testLabel(row.latest_test_slug, row.latest_test_unit),
@@ -175,6 +230,9 @@ async function assembleFacts(
       ? `${row.latest_libre_title} · no prescrito · suma al plan`
       : null,
 
+    latest_off_plan_at: row.latest_off_plan_at,
+    latest_off_plan_detail: offPlanDetail(row.latest_off_plan_reason, row.latest_off_plan_duration_s),
+
     // Revisiones 1:1 (#21). days_since = desde la última 1:1 o, si nunca hubo, desde el
     // alta del atleta (así una cadencia recién puesta no vence al instante).
     review_cadence: row.review_cadence as SignalFacts['review_cadence'],
@@ -183,8 +241,23 @@ async function assembleFacts(
     ),
     has_upcoming_review: row.has_upcoming_review,
 
-    ...communicationClaims(row, now),
+    ...communicationClaims(row, now, today_iso),
   };
+}
+
+/**
+ * La línea de un entreno guardado fuera del plan (0270): por qué no casa y cuánto
+ * duró. «Ya no estaba» solo cuando la sesión existió y se quitó; si el id no era
+ * suyo o no se leía, nunca estuvo.
+ */
+export function offPlanDetail(reason: string | null, durationS: number | null): string | null {
+  if (reason == null) return null;
+  const base =
+    reason === 'assignment_gone'
+      ? 'Hecho sobre un entreno que ya no estaba en su plan'
+      : 'Hecho sobre un entreno que no estaba en su plan';
+  const minutes = durationS != null && durationS > 0 ? Math.round(durationS / 60) : null;
+  return minutes != null && minutes > 0 ? `${base} · ${minutes} min` : base;
 }
 
 /**
@@ -207,9 +280,10 @@ function deriveBillingRisk(row: BatchRow): SignalFacts['billing_risk'] {
     row.billing_status === 'active' &&
     row.billing_cancel_at_period_end === true &&
     row.billing_days_to_period_end != null &&
-    row.billing_days_to_period_end >= 0 &&
-    row.billing_days_to_period_end <= SIGNAL_THRESHOLDS.renewal_alert_days
+    row.billing_days_to_period_end >= 0
   ) {
+    // Cuántos días antes pasa a Hoy lo decide el evaluador con el umbral del
+    // coach (`renewal_alert_days`, mig 0244); aquí solo el hecho.
     return 'renewal_soon';
   }
   return null;
@@ -220,25 +294,37 @@ function deriveBillingRisk(row: BatchRow): SignalFacts['billing_risk'] {
 async function loadCoachLevelMaps(
   client: Sql,
   coach_id: bigint | number,
+  athlete_ids: string[],
+  now: Date,
+  /** The coach's zone, already loaded by the rollup (so plan facts don't reload it). */
+  tz: string,
 ): Promise<CoachLevelMaps> {
-  const [intakeRows, weekAdjRows, monthlyRows, threadRows] = await Promise.all([
-    listPendingIntake({ coach_id, client }).catch((err) => {
-      captureRouteError(err, { route: 'recompute.listPendingIntake' });
-      return [];
-    }),
-    listPendingWeekAdjustments({ coach_id, client }).catch((err) => {
-      captureRouteError(err, { route: 'recompute.listPendingWeekAdjustments' });
-      return [];
-    }),
-    listPendingMonthlyBlocksForCoach({ coach_id, client }).catch((err) => {
-      captureRouteError(err, { route: 'recompute.listPendingMonthlyBlocks' });
-      return [];
-    }),
-    listThreadsForCoach({ coach_id, sql: client }).catch((err) => {
-      captureRouteError(err, { route: 'recompute.listThreadsForCoach' });
-      return [];
-    }),
-  ]);
+  const scope = athlete_ids.length > 0 ? athlete_ids : ['0'];
+  const [intakeRows, weekAdjRows, monthlyRows, awaiting, planRows, readiness, sessions, thresholds] =
+    await Promise.all([
+      listPendingIntake({ coach_id, client }).catch((err) => {
+        captureRouteError(err, { route: 'recompute.listPendingIntake' });
+        return [];
+      }),
+      listPendingWeekAdjustments({ coach_id, client }).catch((err) => {
+        captureRouteError(err, { route: 'recompute.listPendingWeekAdjustments' });
+        return [];
+      }),
+      listPendingMonthlyBlocksForCoach({ coach_id, client }).catch((err) => {
+        captureRouteError(err, { route: 'recompute.listPendingMonthlyBlocks' });
+        return [];
+      }),
+      loadAwaitingReply({ coach_id, athlete_ids: scope, client }),
+      loadPlanFacts({ coach_id, athlete_ids: scope, now, tz, client }),
+      loadReadinessHistory({ coach_id, athlete_ids: scope, now, client }),
+      loadAdherenceSessionsBatch({
+        client,
+        athlete_ids: scope,
+        window_days: MISSED_WINDOW_DAYS,
+        now,
+      }),
+      resolveCoachThresholds(coach_id, client),
+    ]);
 
   const intake: CoachLevelMaps['intake'] = new Map();
   for (const r of intakeRows) {
@@ -266,16 +352,9 @@ async function loadCoachLevelMaps(
     monthly.set(r.athlete_id, { proposal_id: r.id, month_name: r.month_name ?? null });
   }
 
-  // Oldest unanswered athlete message age, in minutes, per athlete.
-  const unanswered: CoachLevelMaps['unanswered'] = new Map();
-  for (const t of threadRows) {
-    if (t.unread_count <= 0 || t.last_message_at == null) continue;
-    const ageMin = Math.floor((Date.now() - new Date(t.last_message_at).getTime()) / 60_000);
-    const prev = unanswered.get(t.athlete_id);
-    if (prev == null || ageMin > prev) unanswered.set(t.athlete_id, ageMin);
-  }
+  const plan: CoachLevelMaps['plan'] = new Map(planRows.map((p) => [p.athlete_id, p]));
 
-  return { intake, weekAdj, monthly, unanswered };
+  return { intake, weekAdj, monthly, awaiting, plan, readiness, sessions, thresholds };
 }
 
 // ── Public: recomputeCoach (the sweep) ────────────────────────────────────────
@@ -297,6 +376,10 @@ export async function recomputeCoach(params: {
 
   let fired = 0;
   let cleared = 0;
+  // Items of athletes the sweep no longer evaluates (paused, baja, moved to
+  // another coach) would otherwise stay in the queue forever: the per-athlete
+  // auto-clear below only touches the athletes it evaluated.
+  cleared += await clearUnevaluated(client, params.coach_id);
   for (const f of facts) {
     try {
       const results = evaluateAll(f, thresholds, now);
@@ -311,7 +394,7 @@ export async function recomputeCoach(params: {
     }
   }
 
-  updateTag(attentionTag(params.coach_id));
+  invalidateAttention(params.coach_id);
   return { evaluated: facts.length, fired, cleared };
 }
 
@@ -350,7 +433,7 @@ export async function recomputeAthlete(params: {
       }
     }
 
-    updateTag(attentionTag(coach_id));
+    invalidateAttention(coach_id);
   } catch (err) {
     // Best-effort: never throw into the caller's mutation.
     captureRouteError(err, {
@@ -358,60 +441,6 @@ export async function recomputeAthlete(params: {
       meta: { athlete_id: String(params.athlete_id) },
     });
   }
-}
-
-// ── Upsert firing + auto-clear (one athlete, one transaction) ─────────────────
-
-async function persistAthlete(
-  client: Sql,
-  coach_id: bigint | number,
-  athlete_id: string,
-  results: SignalResult[],
-  now: Date,
-): Promise<number> {
-  const athleteIdNum = Number(athlete_id);
-  const firingKinds = results.map((r) => r.kind);
-
-  return client.begin(async (tx) => {
-    for (const r of results) {
-      await tx`
-        insert into coach_attention_items (
-          coach_id, athlete_id, signal_kind, severity,
-          value_numeric, baseline_numeric, trend, label, detail, dedupe_key,
-          first_seen_at, computed_at
-        )
-        values (
-          ${coach_id as number}, ${athleteIdNum}, ${r.kind}, ${r.severity},
-          ${r.value}, ${r.baseline}, ${r.trend}, ${r.label}, ${r.detail}, ${r.dedupe_key},
-          ${now.toISOString()}::timestamptz, ${now.toISOString()}::timestamptz
-        )
-        on conflict (athlete_id, signal_kind) do update set
-          severity = excluded.severity,
-          value_numeric = excluded.value_numeric,
-          baseline_numeric = excluded.baseline_numeric,
-          trend = excluded.trend,
-          label = excluded.label,
-          detail = excluded.detail,
-          dedupe_key = excluded.dedupe_key,
-          computed_at = excluded.computed_at
-      `;
-    }
-
-    // Auto-clear: delete this athlete's rows whose kind no longer fires.
-    const deleted = firingKinds.length
-      ? await tx<Array<{ signal_kind: string }>>`
-          delete from coach_attention_items
-          where athlete_id = ${athleteIdNum}
-            and signal_kind <> all(${firingKinds}::text[])
-          returning signal_kind
-        `
-      : await tx<Array<{ signal_kind: string }>>`
-          delete from coach_attention_items
-          where athlete_id = ${athleteIdNum}
-          returning signal_kind
-        `;
-    return deleted.length;
-  });
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

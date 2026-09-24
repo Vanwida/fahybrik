@@ -13,10 +13,12 @@
 //     DONE state — workout_executions has NO status column; done/pending lives on
 //     workout_assignments.status (see lib/sync/assignment-status.ts), so we join and
 //     gate on it. The mere existence of an execution row is NOT enough.
-//   • Sessions plot by the LOCAL calendar day (Europe/Madrid, the box timezone —
-//     BOX_TIMEZONE) the work was done on, the same day convention week-plan.ts uses
-//     for the athlete's "today"; a timestamptz bucketed in UTC would drift a late
-//     23:30 BCN session onto the next day.
+//   • Sessions plot by the ATHLETE's local calendar day the work was done on
+//     (`athletes.timezone`, resolved once per request; BOX_TIMEZONE only when it is
+//     unset or unknown), the same day convention week-plan.ts uses for the
+//     athlete's "today" (docs/DECISIONS.md 2026-09-23 «Qué día es en cada sitio»).
+//     A timestamptz bucketed in UTC would drift a late 23:30 session onto the next
+//     day; bucketed in the box zone, a 20:00 session in Los Angeles did the same.
 //   • `is_rest` reuses week-plan.ts's SOURCE + LOGIC: the athlete's rest days are
 //     the days WITHOUT a scheduled assignment inside a week that IS planned (has ≥1
 //     assignment). A month with no plan produces no rest days — never a fabricated
@@ -34,6 +36,8 @@ import {
   mondayOfWeek,
   parseIsoDate,
 } from '@fahybrid/shared/domain/dates';
+import { isValidTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 
@@ -56,7 +60,7 @@ export interface AthleteHistorySession {
 }
 
 export interface AthleteHistoryDay {
-  /** ISO YYYY-MM-DD, box-local. */
+  /** ISO YYYY-MM-DD, in the athlete's own calendar. */
   date: string;
   /** A scheduled rest day (no assignment that day, inside a planned week). */
   is_rest: boolean;
@@ -86,9 +90,9 @@ interface ExecRow {
 
 /**
  * Build one month of the athlete's history. `month` MUST be a validated `YYYY-MM`
- * (the route enforces the regex). Days are natural-calendar, box-local. Takes an
- * injectable `client` (defaults to the prod pool) so the real-DB tests exercise the
- * exact SQL against a Neon branch.
+ * (the route enforces the regex). Days are natural-calendar, in the athlete's own
+ * time zone. Takes an injectable `client` (defaults to the prod pool) so the
+ * real-DB tests exercise the exact SQL against a Neon branch.
  */
 export async function buildAthleteHistoryMonth(
   athlete_id: number | bigint,
@@ -109,13 +113,27 @@ export async function buildAthleteHistoryMonth(
   const rangeStartIso = isoDateString(mondayOfWeek(monthStart));
   const rangeEndIso = isoDateString(addDays(mondayOfWeek(monthEnd), 6));
 
+  // The athlete's zone, resolved ONCE and bound as a parameter. A stored zone the
+  // date engine doesn't know falls back to the default here. The query checks it
+  // again against Postgres's own list (`pg_timezone_names`): the two tz databases
+  // differ (Intl accepts 'US/Pacific-New', Postgres rejects it), and an unknown
+  // zone in `at time zone` would fail the whole query.
+  const storedTz = await loadAthleteTimezone(client, athlete_id);
+  const tz = isValidTimezone(storedTz) ? storedTz : BOX_TIMEZONE;
+
   const [execRows, schedRows] = await Promise.all([
-    // Completed executions in the month, dated by the box-local day the work was
-    // done on (started_at, falling back to the row's created_at when a legacy sync
-    // left started_at null). Gated on the assignment's DONE status.
+    // Completed executions in the month, dated by the athlete's local day the work
+    // was done on (started_at, falling back to the row's created_at when a legacy
+    // sync left started_at null). Gated on the assignment's DONE status.
     client<ExecRow[]>`
+      with tz as (
+        select coalesce(
+          (select n.name from pg_timezone_names n where n.name = ${tz}),
+          ${BOX_TIMEZONE}
+        ) as name
+      )
       select
-        (coalesce(we.started_at, we.created_at) at time zone ${BOX_TIMEZONE})::date::text as done_date,
+        (coalesce(we.started_at, we.created_at) at time zone tz.name)::date::text as done_date,
         we.assignment_id::text                     as assignment_id,
         coalesce(t.name, 'Sesión')                 as title,
         we.total_duration_seconds                  as total_duration_seconds,
@@ -127,12 +145,13 @@ export async function buildAthleteHistoryMonth(
         )                                          as has_route,
         wa.origin::text                            as origin
       from workout_executions we
+      cross join tz
       join workout_assignments wa on wa.id = we.assignment_id
       left join templates t on t.id = wa.template_id
       where we.athlete_id = ${athlete_id as number}
         and wa.status::text in ('completed', 'partial')
-        and (coalesce(we.started_at, we.created_at) at time zone ${BOX_TIMEZONE})::date >= ${monthStartIso}::date
-        and (coalesce(we.started_at, we.created_at) at time zone ${BOX_TIMEZONE})::date <= ${monthEndIso}::date
+        and (coalesce(we.started_at, we.created_at) at time zone tz.name)::date >= ${monthStartIso}::date
+        and (coalesce(we.started_at, we.created_at) at time zone tz.name)::date <= ${monthEndIso}::date
       order by done_date asc, we.started_at asc nulls last, we.id asc
     `,
     // Scheduled assignment days in the widened range, used only to derive which days

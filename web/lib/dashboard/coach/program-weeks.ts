@@ -8,6 +8,7 @@ import {
   type ProgramWeekUpsert,
 } from '@fahybrid/shared/schema/program-templates';
 import { normalizeWeekSlots, parseWeekSlotsFromDb } from './program-week-slots';
+import { countForeignWeekSlotRefs } from './week-slot-refs';
 
 export async function listWeekTemplates(params: {
   coach_id: number | bigint;
@@ -87,6 +88,18 @@ export async function upsertWeekTemplate(params: {
   const slotsJson = JSON.parse(
     JSON.stringify(slotsForDb, (_, v) => (typeof v === 'bigint' ? Number(v) : v)),
   );
+  // Frontera de tenant: los ids de entreno/bloque/ejercicio del JSON no tienen
+  // FK; ninguno puede ser de otro club (ver week-slot-refs). Todos los escritores
+  // de semanas completas —editor, rejilla (writeCells), conector, importación—
+  // pasan por aquí. Mismo rechazo para «no existe» que para «no es tuyo» no hace
+  // falta: un id ajeno se rechaza y ya.
+  if ((await countForeignWeekSlotRefs(client, params.coach_id, slotsJson)) > 0) {
+    throw new ProgramWeekError(
+      'invalid_reference',
+      'La semana usa un entreno, bloque o ejercicio que no es de tu biblioteca.',
+      400,
+    );
+  }
 
   if (params.id) {
     const rows = await client<Array<{ id: string }>>`

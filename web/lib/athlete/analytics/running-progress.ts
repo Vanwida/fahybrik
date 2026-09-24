@@ -45,7 +45,9 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { diffDays, isoDateString, parseIsoDate, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { mondayOfWeekInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { SEG_IS_WORK_EFFORT } from '@/lib/execution/segment-work';
 import { resolveEffectiveRunningThresholds } from '@/lib/coach/running-thresholds';
 import {
@@ -201,12 +203,17 @@ export async function buildRunningProgress(args: {
   // coach (atleta huérfano), los defectos del sistema — nunca un fallo duro:
   // la pantalla del atleta no puede caerse porque le falte un vínculo.
   const coach_id = await loadCoachId(client, args.athlete_id);
+  // Todo lo que esta pantalla FECHA —la semana de un tramo, el lunes de la
+  // ventana de zonas, el día de su primera sesión, la edad de una marca— va en
+  // el calendario del ATLETA (DECISIONS «Qué día es en cada sitio»), nunca en el
+  // día UTC de la base. Un huso por petición, resuelto aquí y pasado abajo.
+  const tz = await loadAthleteTimezone(client, args.athlete_id);
 
   const [thresholds, hrMethod, zones, vo2max, volume, firstDayIso, targetRace] = await Promise.all([
     resolveEffectiveRunningThresholds(coach_id ?? 0, client),
     resolveAthleteHrMethod(args.athlete_id, client),
     loadAthleteHrZones(args.athlete_id, client),
-    buildAthleteVo2Max({ athlete_id: args.athlete_id, client }),
+    buildAthleteVo2Max({ athlete_id: args.athlete_id, on_date: now, client }),
     loadWeeklyRunVolume({ athlete_id: args.athlete_id, weeks: window_weeks, now, client }),
     loadFirstActivityDate(client, args.athlete_id),
     getTargetRace(args.athlete_id, client),
@@ -262,12 +269,12 @@ export async function buildRunningProgress(args: {
 
   // ── LO QUE PIDE UNA CONSULTA PROPIA ────────────────────────────────────────
   const [sameHrRows, curveRows, zoneWindow, compromisedObs, tipoRows, perfilRitmo] = await Promise.all([
-    loadSameHrObservations(client, args.athlete_id, since, now),
+    loadSameHrObservations(client, args.athlete_id, since, now, tz),
     loadCurveCandidates(client, args.athlete_id, shadowSince, now),
-    loadZonesForWindow(client, args.athlete_id, since, window_weeks),
+    loadZonesForWindow(client, args.athlete_id, since, window_weeks, tz),
     loadCompromisedPaceObservations(client, args.athlete_id, now),
-    loadTypeAndCadence(client, args.athlete_id, since, now),
-    loadPaceThreshold(client, args.athlete_id),
+    loadTypeAndCadence(client, args.athlete_id, since, now, tz),
+    loadPaceThreshold(client, args.athlete_id, { now, tz }),
   ]);
 
   // ── FORMA: el ritmo al mismo pulso ─────────────────────────────────────────
@@ -348,7 +355,7 @@ export async function buildRunningProgress(args: {
     por_tipo,
   };
 
-  const primera = await loadPrimeraSesion(client, args.athlete_id);
+  const primera = await loadPrimeraSesion(client, args.athlete_id, now, tz);
 
   return {
     athlete_id: String(args.athlete_id),
@@ -477,15 +484,23 @@ function cadenciaPorSemana(rows: readonly TipoRow[]): PuntoSemana[] {
     .sort((a, b) => a.semana.localeCompare(b.semana));
 }
 
-/** Semanas enteras desde la primera sesión ejecutada. 0 cuando no ha corrido
- *  nunca — y 0 semanas de historia es una respuesta, no un hueco. */
 /**
  * La PRIMERA sesión del atleta, sin ventana que la acote — la que decide si lo
- * que se enseña es «desde que empezaste» o sólo «las últimas N semanas».
+ * que se enseña es «desde que empezaste» o sólo «las últimas N semanas». UNA
+ * lectura para las dos pantallas que lo dicen (esta y `lecturas.ts`): con dos,
+ * cada una fechaba su «desde» a su manera.
+ *
+ * Su día y los días que han pasado se cuentan en el calendario del ATLETA, por
+ * los dos lados — el día en que entrenó y su «hoy» del instante `now` del
+ * builder—, no en días UTC ni en bloques de 24 h desde el reloj del servidor:
+ * un rodaje a las 7:00 en Auckland es del día anterior en UTC, y la pantalla le
+ * diría que empezó un día antes de lo que empezó.
  */
-async function loadPrimeraSesion(
+export async function loadPrimeraSesion(
   client: Sql,
   athlete_id: number,
+  now: Date,
+  tz: string,
 ): Promise<{ dias: number | null; iso: string | null }> {
   const rows = await client<Array<{ first_at: Date | null }>>`
     select min(coalesce(we.ended_at, we.started_at, we.created_at)) as first_at
@@ -494,13 +509,15 @@ async function loadPrimeraSesion(
   `;
   const first = rows[0]?.first_at ?? null;
   if (first == null) return { dias: null, iso: null };
-  const d = new Date(first);
+  const iso = zonedDayString(new Date(first), tz);
   return {
-    dias: Math.max(0, Math.floor((Date.now() - d.getTime()) / (24 * 60 * 60 * 1000))),
-    iso: d.toISOString().slice(0, 10),
+    dias: Math.max(0, diffDays(parseIsoDate(zonedDayString(now, tz)), parseIsoDate(iso))),
+    iso,
   };
 }
 
+/** Semanas enteras desde la primera sesión ejecutada. 0 cuando no ha corrido
+ *  nunca — y 0 semanas de historia es una respuesta, no un hueco. */
 function weeksSince(firstDayIso: string | null, now: Date): number {
   if (!firstDayIso) return 0;
   const t = Date.parse(firstDayIso);
@@ -542,6 +559,7 @@ async function loadSameHrObservations(
   athlete_id: number,
   since: Date,
   until: Date,
+  tz: string,
 ): Promise<SameHrRow[]> {
   const rows = await client<
     Array<{
@@ -558,11 +576,7 @@ async function loadSameHrObservations(
   >`
     select
       to_char(
-        date_trunc(
-          'week',
-          coalesce(we.ended_at, we.started_at) at time zone
-            coalesce((select a.timezone from athletes a where a.id = ${athlete_id}), ${BOX_TIMEZONE})
-        )::date,
+        date_trunc('week', coalesce(we.ended_at, we.started_at) at time zone ${tz})::date,
         'YYYY-MM-DD'
       )                                                     as week_start,
       se.avg_hr                                             as avg_hr,
@@ -702,6 +716,7 @@ async function loadTypeAndCadence(
   athlete_id: number,
   since: Date,
   until: Date,
+  tz: string,
 ): Promise<TipoRow[]> {
   const rows = await client<
     Array<{
@@ -715,11 +730,7 @@ async function loadTypeAndCadence(
   >`
     select
       to_char(
-        date_trunc(
-          'week',
-          coalesce(we.ended_at, we.started_at) at time zone
-            coalesce((select a.timezone from athletes a where a.id = ${athlete_id}), ${BOX_TIMEZONE})
-        )::date,
+        date_trunc('week', coalesce(we.ended_at, we.started_at) at time zone ${tz})::date,
         'YYYY-MM-DD'
       )                                                     as week_start,
       se.execution_id::text                                 as execution_id,
@@ -763,6 +774,18 @@ async function loadTypeAndCadence(
 }
 
 /**
+ * Con qué reloj se cuenta la edad de una marca o de un perfil: en el calendario
+ * del ATLETA, por los dos lados — su «hoy» y el día en que la registró (DECISIONS
+ * «Qué día es en cada sitio»). Nunca el día UTC de la sesión de la base.
+ */
+export interface MarkAgeClock {
+  /** El instante del que se lee «hoy» (tests); por defecto, ahora. */
+  now?: Date;
+  /** Su huso, si quien llama ya lo resolvió; si no, se lee aquí. */
+  tz?: string;
+}
+
+/**
  * Las marcas de correr/carrera del atleta (catálogo `RUN_MARK_SLUGS`), en la
  * forma que pide `selectRunMark`. UN solo lector: `loadPaceThreshold` (el
  * VDOT del umbral) y `capacidad.ts` (el predictor, obra carrera-hub-ios,
@@ -770,12 +793,18 @@ async function loadTypeAndCadence(
  * parecidas es exactamente el bug que `mark-projection.ts` (cabecera) existe
  * para prevenir.
  */
-export async function loadRunMarkRows(client: Sql, athlete_id: number): Promise<MarkRow[]> {
+export async function loadRunMarkRows(
+  client: Sql,
+  athlete_id: number,
+  clock: MarkAgeClock = {},
+): Promise<MarkRow[]> {
+  const nowIso = (clock.now ?? new Date()).toISOString();
+  const tz = clock.tz ?? (await loadAthleteTimezone(client, athlete_id));
   const marcas = await client<
     Array<{ exercise_slug: string; value: string; age_days: number | null; source: string; run_context: string | null }>
   >`
     select exercise_slug, value::text as value,
-           (current_date - recorded_at::date)::int as age_days,
+           ((${nowIso}::timestamptz at time zone ${tz})::date - (recorded_at at time zone ${tz})::date)::int as age_days,
            source, run_context
     from athlete_benchmarks
     where athlete_id = ${athlete_id} and exercise_slug = any(${RUN_MARK_SLUGS}::text[])
@@ -810,7 +839,12 @@ export async function loadRunMarkRows(client: Sql, athlete_id: number): Promise<
 export async function loadPaceThreshold(
   client: Sql,
   athlete_id: number,
+  clock: MarkAgeClock = {},
 ): Promise<{ umbral: UmbralRitmo | null; zonas: ZonaRitmo[]; hace_dias: number | null }> {
+  // Un huso para las dos edades (la del perfil y la de cada marca), leído una vez.
+  const now = clock.now ?? new Date();
+  const nowIso = now.toISOString();
+  const tz = clock.tz ?? (await loadAthleteTimezone(client, athlete_id));
   const [perfil, marcas] = await Promise.all([
     client<
       Array<{
@@ -822,13 +856,13 @@ export async function loadPaceThreshold(
       }>
     >`
       select threshold_s::text as threshold_s, zones_json, source, needs_review,
-             (current_date - recorded_at::date)::int as hace_dias
+             ((${nowIso}::timestamptz at time zone ${tz})::date - (recorded_at at time zone ${tz})::date)::int as hace_dias
       from athlete_zone_profiles
       where athlete_id = ${athlete_id} and modality = 'run'
       order by version desc
       limit 1
     `,
-    loadRunMarkRows(client, athlete_id),
+    loadRunMarkRows(client, athlete_id, { now, tz }),
   ]);
 
   const runMark = selectRunMark(marcas);
@@ -874,12 +908,13 @@ async function loadZonesForWindow(
   athlete_id: number,
   since: Date,
   weeks: number,
+  tz: string,
 ): Promise<{
   zonas_s: Partial<Record<'z1' | 'z2' | 'z3' | 'z4' | 'z5', number>>;
   total_s: number;
   has_hr: boolean;
 }> {
-  const week_start = isoMonday(since);
+  const week_start = isoMonday(since, tz);
   const { weeks_data, anchors } = await loadZoneWindow({
     athlete_id,
     week_start,
@@ -906,14 +941,13 @@ async function loadZonesForWindow(
   return { zonas_s, total_s, has_hr };
 }
 
-/** El lunes de la semana de una fecha, en ISO. La ventana de zonas se pide por
- *  semana entera, así que la fecha suelta hay que llevarla a su lunes. */
-function isoMonday(d: Date): string {
-  const utc = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-  // getUTCDay: 0 = domingo. El lunes de un domingo está 6 días atrás, no mañana.
-  const shift = (utc.getUTCDay() + 6) % 7;
-  utc.setUTCDate(utc.getUTCDate() - shift);
-  return utc.toISOString().slice(0, 10);
+/** El lunes de la semana de un instante, en ISO. La ventana de zonas se pide por
+ *  semana entera, así que el instante suelto hay que llevarlo a su lunes — el de
+ *  SU calendario: la ventana cuenta los días locales del atleta (`loadZoneWindow`),
+ *  y el lunes UTC de un lunes por la mañana en Auckland es el de la semana
+ *  anterior (una semana de más en el reparto). */
+function isoMonday(d: Date, tz: string): string {
+  return isoDateString(mondayOfWeekInTz(d, tz));
 }
 
 /**

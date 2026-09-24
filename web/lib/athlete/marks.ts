@@ -19,6 +19,9 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { notifyCoach } from '@/lib/notifications/dispatch';
 import { loadMarkBoxViews, type MarkBoxView } from '@/lib/athlete/marks-box';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
+import { isValidTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
 import {
   MARKS,
   isPersonalBest,
@@ -265,6 +268,8 @@ export async function registerRaceMark(params: {
   /** ISO YYYY-MM-DD of the race day. Never in the future. */
   date: string;
   event_name?: string | null;
+  /** The instant «today» is read at (tests); defaults to now. */
+  now?: Date;
   client?: Sql;
 }): Promise<{ ok: true; data: MarkWriteResult } | { ok: false; error: MarkWriteError }> {
   const client = params.client ?? defaultSql;
@@ -274,9 +279,13 @@ export async function registerRaceMark(params: {
   }
   const spec = checked.spec;
   if (spec.measured_by !== 'registered') return { ok: false, error: 'not_registrable' };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.date) || params.date > new Date().toISOString().slice(0, 10)) {
-    return { ok: false, error: 'invalid_date' };
-  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.date)) return { ok: false, error: 'invalid_date' };
+  // «In the future» means after HIS today (DECISIONS «Qué día es en cada sitio»):
+  // a race he ran this morning in Auckland is dated a day the UTC clock hasn't reached.
+  const storedTz = await loadAthleteTimezone(client, params.athlete_id);
+  const tz = isValidTimezone(storedTz) ? storedTz : BOX_TIMEZONE;
+  const athleteToday = zonedDayString(params.now ?? new Date(), tz);
+  if (params.date > athleteToday) return { ok: false, error: 'invalid_date' };
 
   const prior = await loadComparableHistory(client, params.athlete_id, spec, null);
   const is_pr = isPersonalBest(spec, params.value, prior, null);
@@ -290,7 +299,16 @@ export async function registerRaceMark(params: {
       athlete_id, exercise_slug, value, unit, notes, source, event_name, recorded_at
     ) values (
       ${params.athlete_id as unknown as number}, ${spec.slug}, ${params.value}, ${spec.unit},
-      'registered', 'registered', ${name}, ${params.date}::date
+      'registered', 'registered', ${name},
+      -- The race DAY lands at noon of that day in HIS zone: read back in his
+      -- calendar it is always that day (a bare date::timestamptz is UTC midnight,
+      -- the day before for anyone west of UTC), and noon survives a later move of
+      -- several hours. The zone is re-checked against Postgres's own list: Intl
+      -- and Postgres do not share a tz database.
+      ((${params.date}::date + time '12:00') at time zone coalesce(
+        (select n.name from pg_timezone_names n where n.name = ${tz}),
+        ${BOX_TIMEZONE}
+      ))
     )
   `;
 

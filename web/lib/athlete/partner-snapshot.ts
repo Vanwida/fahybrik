@@ -3,11 +3,13 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import {
+  BOX_TIMEZONE,
   addDays,
   isoDateString,
   mondayOfWeek,
-  startOfDayInBox,
 } from '@fahybrid/shared/domain/dates';
+import { isValidTimezone, startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { getActiveDoublesPairForAthlete } from '@/lib/dashboard/coach/doubles-pairs';
 
 // =============================================================================
@@ -69,9 +71,10 @@ export interface PartnerTrainingSnapshot {
    * still-present partner.
    */
   partner_paused: boolean;
-  /** The partner's session scheduled for today (box tz), or null if none/private. */
+  /** The partner's session scheduled for the partner's today (their own calendar,
+   *  `athletes.timezone`), or null if none/private. */
   today: PartnerTodayWorkout | null;
-  /** This week's shared-session progress (Mon–Sun, box tz). */
+  /** This week's shared-session progress (Mon–Sun of the partner's calendar). */
   week: { completed: number; total: number };
   /** Most recent finished sessions (newest first), up to RECENT_LIMIT. */
   recent: PartnerRecentSession[];
@@ -116,7 +119,13 @@ export async function buildPartnerSnapshot(
   const fullName = nameRows[0]!.full_name;
   const partnerPaused = nameRows[0]!.lifecycle_status === 'pausado';
 
-  const today = startOfDayInBox(new Date());
+  // "Today", "this week" and "recent" all read the PARTNER's plan, and its days
+  // are dated in the partner's calendar (`athletes.timezone` of the partner): not
+  // the viewer's, not the box's. None of the three is a joint view of the pair.
+  // A stored zone the date engine doesn't know falls back to the default instead
+  // of failing the panel.
+  const partnerTz = await loadAthleteTimezone(client, partnerId);
+  const today = startOfDayInTz(new Date(), isValidTimezone(partnerTz) ? partnerTz : BOX_TIMEZONE);
   const todayIso = isoDateString(today);
   const weekStartIso = isoDateString(mondayOfWeek(today));
   const weekEndIso = isoDateString(addDays(mondayOfWeek(today), 6));

@@ -9,7 +9,8 @@
 import { NextResponse } from 'next/server';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { requireAdmin } from '@/lib/auth/require-admin';
-import { EventsError, updateEvent } from '@/lib/coach/events';
+import { EventsError } from '@/lib/coach/events';
+import { updateEvent } from '@/lib/coach/events-write';
 import { adminRaceUpdateInput } from '@fahybrid/shared/schema/events';
 
 export const runtime = 'nodejs';

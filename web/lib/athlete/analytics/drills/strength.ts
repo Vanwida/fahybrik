@@ -2,6 +2,7 @@
 // numbers. `strength.lift` opens the versioned 1RM test history
 // (athlete_strength_maxes); `strength.volume` opens the logged strength sessions
 // and `strength.exercise` the best set per session for one lift (set_executions).
+// Every row is dated on the athlete's day (`tz`), the same day the cards use.
 
 import 'server-only';
 
@@ -20,11 +21,12 @@ export async function strengthDrill(
   athleteId: number,
   params: Record<string, string>,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<DrillDownResult> {
   const slug = params.slug ?? '';
   const rows = await client<Array<{ id: string; one_rm: string; version: number; on: string; source: string; method: string | null; tw: string | null; tr: number | null }>>`
     select id::text as id, one_rm_kg::text as one_rm, version,
-      to_char(recorded_at, 'YYYY-MM-DD') as on, source, one_rm_method as method,
+      to_char(recorded_at at time zone ${tz}, 'YYYY-MM-DD') as on, source, one_rm_method as method,
       test_weight_kg::text as tw, test_reps as tr
     from athlete_strength_maxes
     where athlete_id = ${athleteId} and exercise_slug = ${slug}
@@ -59,8 +61,9 @@ export async function strengthVolumeDrill(
   client: Sql,
   athleteId: number,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<DrillDownResult> {
-  const sets = await loadStrengthSets(client, athleteId, period);
+  const sets = await loadStrengthSets(client, athleteId, period, tz);
   const byExec = new Map<string, { day: string; assignmentId: string; kg: number; sets: number; exercises: Set<string> }>();
   for (const s of sets) {
     const e = byExec.get(s.executionId) ?? { day: s.day, assignmentId: s.assignmentId, kg: 0, sets: 0, exercises: new Set<string>() };
@@ -105,9 +108,10 @@ export async function strengthExerciseDrill(
   athleteId: number,
   params: Record<string, string>,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<DrillDownResult> {
   const exerciseId = params.exercise_id ?? '';
-  const sets = (await loadStrengthSets(client, athleteId, period)).filter((s) => s.exerciseId === exerciseId);
+  const sets = (await loadStrengthSets(client, athleteId, period, tz)).filter((s) => s.exerciseId === exerciseId);
 
   // Best set (max magnitude) per session.
   const byExec = new Map<string, { set: WorkSet; mag: number }>();

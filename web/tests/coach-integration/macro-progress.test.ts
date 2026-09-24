@@ -92,15 +92,15 @@ describeWithDb('buildMacroProgress (real DB)', () => {
     const [w1, w2, w3] = p.weeks;
     expect(w1!.week_start).toBe('2026-03-02');
     expect(w1!.status).toBe('completed');
-    expect(w1!.compliance_pct).toBe(1); // 2/2
+    expect(w1!.compliance_ratio).toBe(1); // 2/2
 
     expect(w2!.week_start).toBe('2026-03-09');
     expect(w2!.status).toBe('current');
-    expect(w2!.compliance_pct).toBe(0.5); // 1/2
+    expect(w2!.compliance_ratio).toBe(0.5); // 1/2
 
     expect(w3!.week_start).toBe('2026-03-16');
     expect(w3!.status).toBe('upcoming');
-    expect(w3!.compliance_pct).toBe(0); // 0/2
+    expect(w3!.compliance_ratio).toBe(0); // 0/2
   });
 
   test('past week below 50% completion is marked missed', async () => {
@@ -128,7 +128,7 @@ describeWithDb('buildMacroProgress (real DB)', () => {
     const p = await buildMacroProgress({ athlete_id: fx.athleteId, on_date: ON_DATE, client: sql });
     const w1 = p.weeks.find((w) => w.week_start === '2026-03-02');
     expect(w1?.status).toBe('missed');
-    expect(w1?.compliance_pct).toBe(0);
+    expect(w1?.compliance_ratio).toBe(0);
   });
 
   test('lo que NO es del plan no crea semanas de progreso', async () => {

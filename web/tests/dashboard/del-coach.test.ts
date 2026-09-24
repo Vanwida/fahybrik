@@ -5,9 +5,7 @@ import type {
 } from '@fahybrid/shared/domain/coach-communications';
 import {
   avisoPublicado,
-  carriles,
   coincideComunicado,
-  cuantosReclaman,
   estaVencida,
   paraQuien,
   porTipo,
@@ -198,33 +196,6 @@ describe('el seguimiento, dicho en una línea', () => {
   it('lo retirado lo dice antes que cualquier otra cosa', () => {
     const c = dto({ status: 'archived', due_date: '2026-08-01' });
     expect(seguimiento(c, HOY).titular).toBe('Retirado');
-  });
-});
-
-describe('los tres carriles de la ficha', () => {
-  it('lo que reclama va arriba, lo retirado al fondo y la pregunta que bloquea la primera', () => {
-    const bloqueante = dto({
-      id: '2',
-      kind: 'question',
-      blocks: true,
-      published_at: '2026-08-01T09:00:00.000Z',
-    });
-    const tarea = dto({ id: '3', due_date: '2026-08-20' });
-    const cerrado = dto({
-      id: '4',
-      kind: 'note',
-      athlete_state: { ...dto().athlete_state, state: 'seen', seen_at: 'x', claims_attention: false },
-    });
-    const retirado = dto({ id: '5', status: 'archived' });
-
-    const { reclama, alDia, historial } = carriles([retirado, cerrado, tarea, bloqueante]);
-    expect(reclama.map((c) => c.id)).toEqual(['2', '3']);
-    expect(alDia.map((c) => c.id)).toEqual(['4']);
-    expect(historial.map((c) => c.id)).toEqual(['5']);
-  });
-
-  it('la insignia de la pestaña no cuenta lo retirado', () => {
-    expect(cuantosReclaman([dto({ id: '1' }), dto({ id: '2', status: 'archived' })])).toBe(1);
   });
 });
 

@@ -17,6 +17,7 @@ import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import { COMPARE_WINDOWS, type ParDePeriodos } from '@/lib/zones/comparativa';
 import { formatWeekLong, mondayOf } from '@/lib/zones/chart';
 import { finDeComparacion } from '@fahybrid/shared/domain/zone-compare';
+import { Input } from '@/components/v2/ui';
 
 export function SelectorDePeriodos({
   periodos,
@@ -55,7 +56,7 @@ export function SelectorDePeriodos({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <span className="v2-micro">De cuánto es cada lado</span>
+        <span className="t-label text-v2-faint">De cuánto es cada lado</span>
         <ChipGroup
           options={COMPARE_WINDOWS.map((w) => ({ value: String(w.weeks), label: w.label }))}
           value={String(periodos.weeks)}
@@ -65,7 +66,7 @@ export function SelectorDePeriodos({
         />
       </div>
 
-      <p className="text-label text-[color:var(--v2-faint)]">
+      <p className="t-meta text-[color:var(--v2-faint)]">
         {resumen(periodos)} Los dos lados miden lo mismo a propósito: con ventanas distintas, el
         total diría que el calendario es más largo, no que ha entrenado más.
       </p>
@@ -94,16 +95,10 @@ function CampoFecha({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="v2-micro">
+      <label htmlFor={id} className="t-meta text-v2-muted">
         {etiqueta}
       </label>
-      <input
-        id={id}
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value || value)}
-        className="v2-focus v2-num h-9 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2.5 text-body text-[color:var(--v2-fg)]"
-      />
+      <Input id={id} type="date" value={value} onChange={(e) => onChange(e.target.value || value)} className="t-tnum" />
     </div>
   );
 }

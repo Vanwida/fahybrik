@@ -27,7 +27,8 @@
 // que este campo tiene que contestar.
 
 import { useEffect, useRef, useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
+import { CircleAlert, CirclePlay, Film, Info, LoaderCircle, Undo2, Upload, X } from 'lucide-react';
+import { Button, Input } from '@/components/v2/ui';
 import {
   EXERCISE_VIDEO_REJECTION,
   EXERCISE_VIDEO_URL_MAX,
@@ -54,13 +55,8 @@ export function videoUrlDraftInvalid(draft: string): boolean {
   return v !== '' && !isValidExerciseVideo(v);
 }
 
-const INPUT_CLS =
-  'v2-focus w-full rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm text-[color:var(--v2-fg)] outline-none placeholder:text-[color:var(--v2-faint)]';
-
-const HINT_CLS = 'flex items-start gap-1.5 text-label leading-snug';
-
-const BTN_CLS =
-  'v2-focus inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] px-3 py-2 text-sm font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-accent)] disabled:opacity-50';
+const HINT_CLS = 'flex items-start gap-1.5 t-body-sm';
+const HINT_ICON = 'mt-0.5 size-3.5 shrink-0';
 
 export function VideoUrlField({
   id,
@@ -152,9 +148,9 @@ export function VideoUrlField({
             vídeo ya subido no hay enlace que pegar y el `htmlFor` quedaría
             colgando de un id inexistente. */}
         {ownIsUploaded || uploading ? (
-          <span className="v2-micro">{label}</span>
+          <span className="t-meta text-v2-muted">{label}</span>
         ) : (
-          <label htmlFor={id} className="v2-micro">
+          <label htmlFor={id} className="t-meta text-v2-muted">
             {label}
           </label>
         )}
@@ -171,7 +167,7 @@ export function VideoUrlField({
         ref={fileRef}
         type="file"
         accept={EXERCISE_VIDEO_ACCEPT_ATTR}
-        className="sr-only"
+        hidden
         tabIndex={-1}
         aria-hidden
         onChange={(e) => void onFile(e.target.files?.[0])}
@@ -183,33 +179,27 @@ export function VideoUrlField({
         <UploadedStrip onReplace={pickFile} />
       ) : (
         <div className="flex items-start gap-2">
-          <input
+          <Input
             id={id}
             type="url"
             inputMode="url"
             value={value}
             maxLength={EXERCISE_VIDEO_URL_MAX}
             onChange={(e) => onChange(e.target.value)}
-            placeholder={inheritedLink ? inherited : placeholder}
-            aria-invalid={invalid || undefined}
+            placeholder={(inheritedLink ? inherited : placeholder) ?? undefined}
+            invalid={invalid}
             aria-describedby={hintId}
-            className={cn(
-              INPUT_CLS,
-              invalid
-                ? 'border-[color:var(--v2-danger)]'
-                : 'border-[color:var(--v2-border-strong)] focus:border-[color:var(--v2-accent)]',
-            )}
+            className="min-w-0 flex-1"
           />
-          <button type="button" onClick={pickFile} className={BTN_CLS}>
-            <MIcon name="upload" size={15} />
+          <Button icon={Upload} onClick={pickFile} className="shrink-0">
             Subir vídeo
-          </button>
+          </Button>
         </div>
       )}
 
       {uploadError ? (
-        <p role="alert" className={cn(HINT_CLS, 'text-[color:var(--v2-danger)]')}>
-          <MIcon name="error" size={13} className="mt-px shrink-0" />
+        <p role="alert" className={cn(HINT_CLS, 'text-v2-danger')}>
+          <CircleAlert className={HINT_ICON} aria-hidden />
           {uploadError}
         </p>
       ) : null}
@@ -234,17 +224,9 @@ export function VideoUrlField({
 /** Vaciar el campo: "Restaurar" si eso devuelve el vídeo de la base, "Quitar" si no. */
 function ClearButton({ onClick, restores }: { onClick: () => void; restores: boolean }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-xs)] px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-[0.04em] text-[color:var(--v2-muted)] transition-colors',
-        restores ? 'hover:text-[color:var(--v2-fg)]' : 'hover:text-[color:var(--v2-danger)]',
-      )}
-    >
-      <MIcon name={restores ? 'undo' : 'close'} size={12} />
+    <Button variant="ghost" size="sm" icon={restores ? Undo2 : X} onClick={onClick}>
       {restores ? 'Restaurar' : 'Quitar'}
-    </button>
+    </Button>
   );
 }
 
@@ -252,15 +234,14 @@ function ClearButton({ onClick, restores }: { onClick: () => void; restores: boo
  *  cambiar; la caja de texto sobraría y sólo enseñaría un identificador interno. */
 function UploadedStrip({ onReplace }: { onReplace: () => void }) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2">
-      <span className="flex min-w-0 items-center gap-2 text-sm text-[color:var(--v2-fg)]">
-        <MIcon name="movie" size={15} className="shrink-0 text-[color:var(--v2-accent-text)]" />
+    <div className="flex items-center justify-between gap-2 rounded-[var(--v2-r-s)] border border-v2-border-strong bg-v2-surface-2 px-3 py-1.5">
+      <span className="t-body flex min-w-0 items-center gap-2 text-v2-fg">
+        <Film className="size-4 shrink-0 text-v2-muted" aria-hidden />
         Vídeo listo
       </span>
-      <button type="button" onClick={onReplace} className={BTN_CLS}>
-        <MIcon name="upload" size={15} />
+      <Button icon={Upload} onClick={onReplace}>
         Cambiar
-      </button>
+      </Button>
     </div>
   );
 }
@@ -280,16 +261,12 @@ function UploadProgress({ fase }: { fase: ExerciseVideoUploadPhase }) {
   const pct = Math.round(fase.pct);
   return (
     <div
-      className="space-y-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-3 py-2"
+      className="space-y-1.5 rounded-[var(--v2-r-s)] border border-v2-border-strong bg-v2-surface-2 px-3 py-2"
       aria-busy
     >
-      <p className="flex items-center gap-2 text-sm text-[color:var(--v2-fg)]">
-        <MIcon
-          name="progress_activity"
-          size={15}
-          className="shrink-0 animate-spin text-[color:var(--v2-accent-text)]"
-        />
-        {FASE_LABEL[fase.phase]}… {pct}%
+      <p className="t-body flex items-center gap-2 text-v2-fg">
+        <LoaderCircle className="size-4 shrink-0 animate-spin text-v2-muted" aria-hidden />
+        {FASE_LABEL[fase.phase]}… <span className="t-tnum">{pct}%</span>
       </p>
       <div
         role="progressbar"
@@ -324,8 +301,8 @@ function Hint({
 }) {
   if (fase) {
     return (
-      <p id={id} className={cn(HINT_CLS, 'text-[color:var(--v2-faint)]')}>
-        <MIcon name="info" size={13} className="mt-px shrink-0" />
+      <p id={id} className={cn(HINT_CLS, 'text-v2-faint')}>
+        <Info className={HINT_ICON} aria-hidden />
         {fase.phase === 'subiendo'
           ? 'No cierres esta ventana hasta que termine.'
           : 'Ya lo tenemos. Lo estamos dejando listo para que tu atleta lo vea en cualquier móvil.'}
@@ -334,23 +311,23 @@ function Hint({
   }
   if (invalid) {
     return (
-      <p id={id} className={cn(HINT_CLS, 'text-[color:var(--v2-danger)]')}>
-        <MIcon name="error" size={13} className="mt-px shrink-0" />
+      <p id={id} className={cn(HINT_CLS, 'text-v2-danger')}>
+        <CircleAlert className={HINT_ICON} aria-hidden />
         {EXERCISE_VIDEO_REJECTION}
       </p>
     );
   }
   if (hasOwn) {
     return (
-      <p id={id} className={cn(HINT_CLS, 'text-[color:var(--v2-ok)]')}>
-        <MIcon name="play_circle" size={13} className="mt-px shrink-0" />
+      <p id={id} className={cn(HINT_CLS, 'text-v2-ok')}>
+        <CirclePlay className={HINT_ICON} aria-hidden />
         Así lo verá tu atleta al abrir el ejercicio.
       </p>
     );
   }
   return (
-    <p id={id} className={cn(HINT_CLS, 'text-[color:var(--v2-faint)]')}>
-      <MIcon name="info" size={13} className="mt-px shrink-0" />
+    <p id={id} className={cn(HINT_CLS, 'text-v2-faint')}>
+      <Info className={HINT_ICON} aria-hidden />
       {inherits
         ? 'Vacío: tu atleta seguirá viendo el vídeo de la base.'
         : 'Sin vídeo. Sube el tuyo o pega un enlace de YouTube y tu atleta lo verá al abrir el ejercicio.'}

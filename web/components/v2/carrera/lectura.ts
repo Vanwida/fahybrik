@@ -222,6 +222,7 @@ export function leerCarrera(detail: CoachSessionDetail): Lectura | null {
     zonaPedida,
     segundosEnZona: zonaPedida != null ? segundosEnZona(detail.segment_actuals, zonaPedida) : null,
     veredictoUnico: veredictoUnico(detail.run_compliance.tramos),
+    pendienteQueRetiraPct: detail.run_compliance.gradient_retires_pace_pct,
   });
 
   return {

@@ -3,39 +3,39 @@ import 'server-only';
 // Coach-side publish gate for a single athlete-week.
 //
 // The athlete plan endpoint (app/api/athlete/plan/week) hides any week whose
-// weekly_plans row has status='draft'. These helpers are the coach-side writers
-// of that lifecycle:
+// weekly_plans row has status='draft'. These helpers are the LEGACY coach-side
+// writers of that lifecycle, still used by the MCP tools, the intake and the
+// per-athlete publish routes:
 //
-//   - publishWeek():  upsert weekly_plans(status='published') for (athlete, week)
-//                     and fire the same `plan_published` notification the cron
-//                     sends, so the athlete is told their week is live.
-//   - markWeekDraft(): upsert weekly_plans(status='draft') — the future
-//                     create-in-draft flow uses this so a week is built privately
-//                     and stays hidden from the athlete until publishWeek() runs.
+//   - publishWeek() / publishBlock(): upsert weekly_plans(status='published') and
+//                     fire the `plan_published` notification.
+//   - markWeekDraft(): upsert weekly_plans(status='draft'); `manual` = RETENIDA.
+//   - markFutureWeeksDraft(): the AUTO delivery of a just-materialized programme
+//                     (each week opens by itself N days before it starts).
 //
-// Notification dispatch is reused verbatim from lib/cron/publish-weekly-plans.ts
-// (same payload + push copy) — single source of truth for what "plan published"
-// means to the athlete.
+// The per-week rules and the new coach acts (publish / hold one week, publish a
+// week to many, the daily cron) live in `./week-publishing.ts` — one rule for
+// every delivery path.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
-import { notifyAthlete } from '@/lib/notifications/dispatch';
-import { planPublishedPush } from '@/lib/notifications/plan-published';
+import { notifyPlanPublished } from '@/lib/notifications/plan-published';
+import { applyDeliveryToWeeks } from './week-publishing';
 
 /** A materialized week spans 7 days; the materializer Monday-aligns each week. */
 const DAYS_PER_WEEK = 7;
 
 /**
  * How a DRAFT weekly_plan reaches the athlete (weekly_plans.delivery_mode) — the
- * SINGLE source of truth for the publish-cron discriminator. Written by the draft
- * writers below; read by lib/cron/publish-weekly-plans (which releases ONLY
- * `scheduled` drafts).
- *   · scheduled — staggered delivery (/assign-month): the Saturday cron releases
- *                 one draft week each weekend. The DEFAULT for every row.
- *   · manual    — a PRIVATE coach draft (/assign-draft, intake first-microciclo):
- *                 hidden until the coach publishes by hand; the cron NEVER touches
- *                 it. This is the real publish gate.
+ * SINGLE source of truth for the publish-cron discriminator. Read by the daily
+ * cron (`runAutoPublish` in ./week-publishing.ts), which releases ONLY
+ * `scheduled` drafts.
+ *   · scheduled — AUTO delivery: the week opens by itself N days before it
+ *                 starts (N = coaches.auto_publish_days_before, mig 0217).
+ *   · manual    — HELD: hidden until the coach publishes it by hand (hold button,
+ *                 /assign-draft, intake first-microciclo, MCP unpublish_week).
+ *                 The cron NEVER touches it.
  */
 export const DELIVERY_MODE = {
   scheduled: 'scheduled',
@@ -99,25 +99,12 @@ export async function publishWeek(params: {
     do update set status = 'published', approved_by = ${coachId}, updated_at = now()
   `;
 
-  // Mirror the cron's notification verbatim (payload shape + push copy). Best-
-  // effort: the publish is already committed; a missed notification is a courtesy
-  // loss, not a correctness issue.
+  // The cron's notification (same sender, payload shape and copy, naming THIS
+  // week from the athlete's today). Best-effort: the publish is already
+  // committed; a missed notification is a courtesy loss, not a correctness issue.
   let notified = false;
   try {
-    const out = await notifyAthlete({
-      sql: client,
-      athlete_id: BigInt(athleteId),
-      type: 'plan_published',
-      payload: {
-        athlete_id: String(athleteId),
-        week_start: weekStart,
-        deep_link: `/plan?week=${weekStart}`,
-      },
-      push: {
-        ...(await planPublishedPush(client, BigInt(athleteId), 'weekly')),
-        deeplink: { screen: 'plan', week_start: weekStart },
-      },
-    });
+    const out = await notifyPlanPublished({ sql: client, athlete_id: athleteId, variant: 'weekly', week_start: weekStart });
     notified = Boolean(out);
   } catch {
     // best-effort
@@ -176,25 +163,18 @@ export async function publishBlock(params: {
     `;
   }
 
-  // ONE notification for the whole block, anchored to its first week (same
-  // payload shape + push copy as publishWeek). Best-effort: the publish is
-  // already committed; a missed notification is a courtesy loss.
+  // ONE notification for the whole block, anchored to its first week («a partir
+  // de …»: it opens several). Best-effort: the publish is already committed; a
+  // missed notification is a courtesy loss.
   const firstWeek = weekStarts[0] as string;
   let notified = false;
   try {
-    const out = await notifyAthlete({
+    const out = await notifyPlanPublished({
       sql: client,
-      athlete_id: BigInt(athleteId),
-      type: 'plan_published',
-      payload: {
-        athlete_id: String(athleteId),
-        week_start: firstWeek,
-        deep_link: `/plan?week=${firstWeek}`,
-      },
-      push: {
-        ...(await planPublishedPush(client, BigInt(athleteId), 'weekly')),
-        deeplink: { screen: 'plan', week_start: firstWeek },
-      },
+      athlete_id: athleteId,
+      variant: 'weekly',
+      week_start: firstWeek,
+      weeks: weekStarts.length,
     });
     notified = Boolean(out);
   } catch {
@@ -216,9 +196,9 @@ export async function publishBlock(params: {
  * is not athlete-facing.
  *
  * `delivery_mode` decides WHO releases the draft (default `scheduled`):
- *   · scheduled — the Saturday cron releases it week-by-week (assign-month).
- *   · manual    — a PRIVATE coach draft the cron NEVER auto-publishes; the coach
- *                 publishes it by hand (assign-draft / intake first-microciclo).
+ *   · scheduled — the daily cron opens it N days before it starts.
+ *   · manual    — HELD: the cron NEVER auto-publishes it; the coach publishes it
+ *                 by hand (hold / assign-draft / intake first-microciclo).
  */
 export async function markWeekDraft(params: {
   coach_id: number | bigint;
@@ -247,28 +227,24 @@ export async function markWeekDraft(params: {
 
 export interface MarkFutureWeeksDraftResult {
   athlete_id: string;
-  /** Week left published (delivered now) — the assignment's first week. */
+  /** First week of the assignment. */
   current_week_start: string;
-  /** Future weeks marked draft (hidden until the Saturday cron unlocks each). */
+  /** Weeks left hidden (auto draft, or held before this call). */
   draft_week_starts: string[];
 }
 
 /**
- * STAGGERED WEEKLY DELIVERY — given a just-materialized assignment that spans
- * `weekCount` weeks starting at `startDate`, leave the FIRST week published
- * (delivered to the athlete now) and mark every SUBSEQUENT week as `draft`.
+ * AUTO DELIVERY of a just-materialized assignment that spans `week_count` weeks
+ * from `start_date`: every week follows the one rule of
+ * `shared/domain/coach/week-publishing.ts` — a week that is already due (its
+ * Monday is N days away or less) is visible now, a later one is an auto draft the
+ * daily cron opens N days before it starts, a HELD week stays held and a week the
+ * athlete can already see is never hidden again.
  *
- * The athlete plan endpoint (app/api/athlete/plan/week) hides any week with a
- * `draft` weekly_plans row, so the athlete sees only the current week. The
- * Saturday cron (lib/cron/publish-weekly-plans) flips exactly ONE draft → the
- * upcoming Monday's, unlocking the next week each weekend. Without this, an
- * assignment with no weekly_plans rows reads as all-published and the athlete
- * sees every future week at once.
- *
- * Anchored to the Monday of `startDate` (the materializer Monday-aligns each
- * week), so the draft week_starts match EXACTLY the materialized microcycles.
- * A single week (weekCount <= 1) marks nothing — there's no future week to hide.
- * Idempotent: re-running re-stamps the same draft rows (markWeekDraft upserts).
+ * Replaces the old staggered rule (first week always visible at once, the rest
+ * released by a Saturday-only cron): with it a programme assigned three weeks
+ * ahead showed its first week immediately. Keeps its name and shape because the
+ * MCP, the sequence walk and the personal-plan chain call it.
  */
 export async function markFutureWeeksDraft(params: {
   coach_id: number | bigint;
@@ -280,26 +256,25 @@ export async function markFutureWeeksDraft(params: {
   client?: Sql;
 }): Promise<MarkFutureWeeksDraftResult> {
   const client = params.client ?? defaultSql;
-  const startMonday = mondayOfWeek(parseIsoDate(params.start_date));
-  const currentWeekStart = isoDateString(startMonday);
+  const coachId = Number(params.coach_id);
+  const athleteId = Number(params.athlete_id);
+  await assertCoachOwnsAthlete(client, coachId, athleteId);
 
-  const draftWeekStarts: string[] = [];
-  for (let i = 1; i < params.week_count; i += 1) {
-    const weekStart = isoDateString(addDays(startMonday, i * DAYS_PER_WEEK));
-    // Staggered weeks are `scheduled` (markWeekDraft's default) so the Saturday
-    // cron releases them one weekend at a time — NOT a private manual draft.
-    await markWeekDraft({
-      coach_id: params.coach_id,
-      athlete_id: params.athlete_id,
-      week_start: weekStart,
-      client,
-    });
-    draftWeekStarts.push(weekStart);
+  const startMonday = mondayOfWeek(parseIsoDate(params.start_date));
+  const weeks: string[] = [];
+  for (let i = 0; i < params.week_count; i += 1) {
+    weeks.push(isoDateString(addDays(startMonday, i * DAYS_PER_WEEK)));
   }
+  const outcome = await applyDeliveryToWeeks(client, {
+    coach_id: coachId,
+    athlete_id: athleteId,
+    week_starts: weeks,
+    delivery: 'auto',
+  });
 
   return {
-    athlete_id: String(Number(params.athlete_id)),
-    current_week_start: currentWeekStart,
-    draft_week_starts: draftWeekStarts,
+    athlete_id: String(athleteId),
+    current_week_start: isoDateString(startMonday),
+    draft_week_starts: weeks.filter((w) => outcome.after.get(w)?.status === 'draft'),
   };
 }

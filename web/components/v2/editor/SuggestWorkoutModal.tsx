@@ -11,34 +11,30 @@
 // inserted draft is indistinguishable from a hand-built block.
 
 import { useEffect, useMemo, useState } from 'react';
-import { ModalPortal } from './ModalPortal';
-import { MIcon } from '@/components/ui/MIcon';
+import { BookmarkPlus, CircleCheck, Library, LoaderCircle, PenLine, RotateCcw, Undo2, X, type LucideIcon } from 'lucide-react';
+import { Button, Checkbox, Dialog, IconButton, Select, StatusBadge, Textarea, type StatusTone } from '@/components/v2/ui';
 import { ChipGroup } from '@/components/v2/controls/ChipGroup';
 import { cn } from '@/lib/utils';
 import { prescriptionToText } from '@fahybrid/shared/domain/prescription';
 import { weekDayPartsToEditorBlocks } from '@/lib/dashboard/v2/ai-blocks-to-editor';
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import {
-  getLlmConfigured,
+  getSuggestContext,
   getMethodologyGroups,
   requestSuggestion,
   saveBlockToLibrary,
   SuggestWorkoutError,
   type AiSuggestion,
+  type CoachLevelOption,
   type MethodologyGroupOption,
-  type ProgramLevel,
   type SuggestMode,
 } from './ai-suggest-workout';
 
 const FOCUS_MIN = 2;
 const FOCUS_MAX = 400;
 
-const LEVELS: { id: ProgramLevel; label: string }[] = [
-  { id: 'beginner', label: 'Inic.' },
-  { id: 'intermediate', label: 'Inter.' },
-  { id: 'pro', label: 'Pro' },
-  { id: 'elite', label: 'Élite' },
-];
+/** Sin nivel = la IA no filtra por nivel (no se inventa uno). */
+const NO_LEVEL = '';
 
 // Block left-border modality color from its format (same axis as the editor).
 function blockColorVar(format: string | null): string {
@@ -59,13 +55,12 @@ function blockColorVar(format: string | null): string {
   }
 }
 
-// El tono dice DE QUIÉN es el bloque, y usa el mismo idioma de autoría que
-// AuthorStamp (el sello canónico): contenido del coach = acento, IA = info,
+// El tono dice DE QUIÉN es el bloque: contenido del coach = neutro, IA = info,
 // respaldo del sistema = aviso.
-const SOURCE_META: Record<AiSuggestion['source'], { label: string; tone: string; soft: string; icon: string }> = {
-  library: { label: 'De tu biblioteca', tone: '--v2-accent', soft: '--v2-accent-soft', icon: 'inventory_2' },
-  llm: { label: 'IA compuesta', tone: '--v2-info', soft: '--v2-info-soft', icon: 'neurology' },
-  library_fallback: { label: 'Plantilla de respaldo', tone: '--v2-warn', soft: '--v2-warn-soft', icon: 'undo' },
+const SOURCE_META: Record<AiSuggestion['source'], { label: string; tone: StatusTone; icon: LucideIcon }> = {
+  library: { label: 'De tu biblioteca', tone: 'neutral', icon: Library },
+  llm: { label: 'IA compuesta', tone: 'info', icon: PenLine },
+  library_fallback: { label: 'Propuesta de respaldo', tone: 'warn', icon: Undo2 },
 };
 
 type Phase = 'form' | 'thinking' | 'proposal';
@@ -73,20 +68,22 @@ type Phase = 'form' | 'thinking' | 'proposal';
 export function SuggestWorkoutModal({
   destinationLabel,
   athleteId,
-  defaultLevel = 'pro',
   onClose,
   onInsert,
 }: {
   destinationLabel: string;
   athleteId?: string | number;
-  defaultLevel?: ProgramLevel;
   onClose: () => void;
   onInsert: (blocks: EditorBlock[]) => void;
 }) {
   const [phase, setPhase] = useState<Phase>('form');
   const [focus, setFocus] = useState('');
   const [mode, setMode] = useState<SuggestMode>('fast');
-  const [level, setLevel] = useState<ProgramLevel>(defaultLevel);
+  // Los niveles son los DEL COACH (su eje, con su nombre); por defecto el del
+  // atleta si lo tiene, si no ninguno.
+  const [level, setLevel] = useState<string>(NO_LEVEL);
+  const [levels, setLevels] = useState<CoachLevelOption[]>([]);
+  const [axisLabel, setAxisLabel] = useState('Nivel');
   const [llmConfigured, setLlmConfigured] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,15 +95,18 @@ export function SuggestWorkoutModal({
 
   useEffect(() => {
     let live = true;
-    void getLlmConfigured().then((ok) => {
+    void getSuggestContext(athleteId).then((ctx) => {
       if (!live) return;
-      setLlmConfigured(ok);
-      if (!ok) setMode('fast'); // no LLM → only Rápido is real
+      setLlmConfigured(ctx.llm_configured);
+      if (!ctx.llm_configured) setMode('fast'); // no LLM → only Rápido is real
+      setLevels(ctx.levels);
+      setAxisLabel(ctx.axis_label);
+      if (ctx.athlete_level_id) setLevel(ctx.athlete_level_id);
     });
     return () => {
       live = false;
     };
-  }, []);
+  }, [athleteId]);
 
 
   const canGenerate = focus.trim().length >= FOCUS_MIN;
@@ -119,7 +119,7 @@ export function SuggestWorkoutModal({
       const s = await requestSuggestion({
         focus: focus.trim(),
         mode,
-        level,
+        level_id: level === NO_LEVEL ? null : level,
         ...(athleteId != null ? { athlete_id: athleteId } : {}),
       });
       const eb = weekDayPartsToEditorBlocks(s.blocks);
@@ -159,126 +159,82 @@ export function SuggestWorkoutModal({
 
   const title = phase === 'thinking' ? 'Redactando…' : phase === 'proposal' ? 'Propuesta' : 'Redactar con IA';
 
+  const thinking = phase === 'thinking';
+
   return (
-    // Mientras la IA redacta, Escape se traga (no se cierra a media generación).
-    <ModalPortal onEscape={onClose} escapeEnabled={phase !== 'thinking'}>
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[color:var(--v2-scrim)] p-4 backdrop-blur-sm sm:p-8"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Redactar con IA"
-    >
-      <button
-        type="button"
-        aria-label="Cerrar"
-        onClick={() => phase !== 'thinking' && onClose()}
-        className="absolute inset-0 -z-10 h-full w-full cursor-default"
-        tabIndex={-1}
-      />
-      <div className="w-full max-w-[480px] overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]">
-        {/* header */}
-        <div className="flex items-center justify-between gap-2 border-b border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-4 py-3">
-          <div className="flex min-w-0 flex-col">
-            <h2 className="v2-display text-lg text-[color:var(--v2-fg)]">{title}</h2>
-            <span className="truncate text-label text-[color:var(--v2-muted)]">{destinationLabel}</span>
-          </div>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        // Mientras la IA redacta no se cierra (ni Escape ni clic fuera).
+        if (!open && !thinking) onClose();
+      }}
+      title={title}
+      description={
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="truncate">{destinationLabel}</span>
           {phase === 'proposal' && suggestion ? <SourceBadge source={suggestion.source} /> : null}
-          <button
-            type="button"
-            aria-label="Cerrar"
-            onClick={() => phase !== 'thinking' && onClose()}
-            disabled={phase === 'thinking'}
-            className="v2-focus inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-40"
-          >
-            <MIcon name="close" size={20} />
-          </button>
-        </div>
-
-        <div className="max-h-[70vh] overflow-y-auto p-4">
-          {phase === 'form' ? (
-            <FormBody
-              focus={focus}
-              setFocus={setFocus}
-              mode={mode}
-              setMode={setMode}
-              level={level}
-              setLevel={setLevel}
-              llmConfigured={llmConfigured}
-              error={error}
-            />
-          ) : phase === 'thinking' ? (
-            <ThinkingBody mode={mode} focus={focus.trim()} />
-          ) : (
-            <ProposalBody
-              suggestion={suggestion!}
-              blocks={blocks}
-              selected={selected}
-              removedItems={removedItems}
-              groups={groups}
-              onToggleBlock={(uid) =>
-                setSelected((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(uid)) next.delete(uid);
-                  else next.add(uid);
-                  return next;
-                })
-              }
-              onRemoveItem={(key) => setRemovedItems((prev) => new Set(prev).add(key))}
-            />
-          )}
-        </div>
-
-        {/* footer */}
-        <div className="flex items-center justify-between gap-2 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-4 py-3">
-          {phase === 'proposal' ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setPhase('form')}
-                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] px-3 text-body font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-              >
-                <MIcon name="refresh" size={15} /> Otra
-              </button>
-              <button
-                type="button"
-                onClick={insert}
-                disabled={insertBlocks.length === 0}
-                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-body font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
-              >
-                Insertar {insertBlocks.length} bloque{insertBlocks.length === 1 ? '' : 's'}
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="text-label text-[color:var(--v2-faint)]">Se insertan como bloques editables.</span>
-              <button
-                type="button"
-                onClick={generate}
-                disabled={!canGenerate || phase === 'thinking'}
-                className="v2-focus inline-flex h-9 items-center gap-1.5 rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent)] px-4 text-body font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
-              >
-                <MIcon name={phase === 'thinking' ? 'progress_activity' : 'draw'} size={16} className={phase === 'thinking' ? 'animate-spin' : undefined} />
-                Generar
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-    </ModalPortal>
+        </span>
+      }
+      footer={
+        phase === 'proposal' ? (
+          <>
+            <Button variant="ghost" icon={RotateCcw} onClick={() => setPhase('form')} className="mr-auto">
+              Otra
+            </Button>
+            <Button variant="primary" onClick={insert} disabled={insertBlocks.length === 0}>
+              Insertar {insertBlocks.length} bloque{insertBlocks.length === 1 ? '' : 's'}
+            </Button>
+          </>
+        ) : (
+          <>
+            <span className="mr-auto t-meta text-v2-faint">Se insertan como bloques editables.</span>
+            <Button variant="primary" icon={PenLine} loading={thinking} disabled={!canGenerate} onClick={generate}>
+              Generar
+            </Button>
+          </>
+        )
+      }
+    >
+      {phase === 'form' ? (
+        <FormBody
+          focus={focus}
+          setFocus={setFocus}
+          mode={mode}
+          setMode={setMode}
+          level={level}
+          setLevel={setLevel}
+          levels={levels}
+          axisLabel={axisLabel}
+          llmConfigured={llmConfigured}
+          error={error}
+        />
+      ) : thinking ? (
+        <ThinkingBody mode={mode} focus={focus.trim()} />
+      ) : (
+        <ProposalBody
+          suggestion={suggestion!}
+          blocks={blocks}
+          selected={selected}
+          removedItems={removedItems}
+          groups={groups}
+          onToggleBlock={(uid) =>
+            setSelected((prev) => {
+              const next = new Set(prev);
+              if (next.has(uid)) next.delete(uid);
+              else next.add(uid);
+              return next;
+            })
+          }
+          onRemoveItem={(key) => setRemovedItems((prev) => new Set(prev).add(key))}
+        />
+      )}
+    </Dialog>
   );
 }
 
 function SourceBadge({ source }: { source: AiSuggestion['source'] }) {
   const m = SOURCE_META[source];
-  return (
-    <span
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--v2-r-pill)] px-2.5 py-1 text-eyebrow font-bold"
-      style={{ color: `var(${m.tone})`, background: `var(${m.soft})` }}
-    >
-      <MIcon name={m.icon} size={12} /> {m.label}
-    </span>
-  );
+  return <StatusBadge variant="soft" size="sm" tone={m.tone} icon={m.icon} label={m.label} />;
 }
 
 function FormBody({
@@ -288,6 +244,8 @@ function FormBody({
   setMode,
   level,
   setLevel,
+  levels,
+  axisLabel,
   llmConfigured,
   error,
 }: {
@@ -295,8 +253,10 @@ function FormBody({
   setFocus: (v: string) => void;
   mode: SuggestMode;
   setMode: (m: SuggestMode) => void;
-  level: ProgramLevel;
-  setLevel: (l: ProgramLevel) => void;
+  level: string;
+  setLevel: (l: string) => void;
+  levels: CoachLevelOption[];
+  axisLabel: string;
   llmConfigured: boolean | null;
   error: string | null;
 }) {
@@ -304,21 +264,20 @@ function FormBody({
   return (
     <div className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5">
-        <span className="v2-micro">Foco de la sesión</span>
-        <textarea
+        <span className="t-meta text-v2-muted">Foco del entreno</span>
+        <Textarea
           value={focus}
           maxLength={FOCUS_MAX}
           rows={2}
           autoFocus
           onChange={(e) => setFocus(e.target.value)}
           placeholder="p. ej. umbral 5×1000m + fuerza de empuje, 60 min"
-          className="v2-focus w-full resize-y rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-3 py-2 text-sm leading-relaxed text-[color:var(--v2-fg)] placeholder:text-[color:var(--v2-faint)] focus:border-[color:var(--v2-border-strong)]"
         />
       </label>
 
       <div className="flex flex-col gap-1.5">
-        <span className="v2-micro">Modo</span>
-        <div className="flex gap-2">
+        <span className="t-meta text-v2-muted">Modo</span>
+        <div role="radiogroup" aria-label="Modo" className="grid grid-cols-2 gap-2">
           <ModeOption active={mode === 'fast'} big="Rápido" hint="de tu biblioteca" onClick={() => setMode('fast')} />
           <ModeOption
             active={mode === 'slow'}
@@ -330,21 +289,24 @@ function FormBody({
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <span className="v2-micro">
-          Nivel <span className="font-medium normal-case text-[color:var(--v2-faint)]">· auto del atleta</span>
-        </span>
-        <ChipGroup
-          options={LEVELS.map((l) => ({ value: l.id, label: l.label }))}
-          value={level}
-          onChange={setLevel}
-          ariaLabel="Nivel"
-          mono={false}
-        />
-      </div>
+      {levels.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="t-meta text-v2-muted">{axisLabel}</span>
+          <ChipGroup
+            options={[
+              { value: NO_LEVEL, label: 'Cualquiera' },
+              ...levels.map((l) => ({ value: l.id, label: l.name })),
+            ]}
+            value={level}
+            onChange={setLevel}
+            ariaLabel={axisLabel}
+            mono={false}
+          />
+        </div>
+      ) : null}
 
       {error ? (
-        <p role="alert" className="text-xs font-medium text-[color:var(--v2-danger)]">
+        <p role="alert" className="t-body-sm font-medium text-v2-danger">
           {error}
         </p>
       ) : null}
@@ -366,33 +328,30 @@ function ModeOption({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      role="radio"
+      aria-checked={active}
       onClick={onClick}
       disabled={disabled}
-      aria-pressed={active}
       className={cn(
-        'v2-focus flex flex-1 flex-col items-center rounded-[var(--v2-r-s)] border px-2 py-2.5 transition-colors',
-        active
-          ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-          : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:border-[color:var(--v2-border-strong)]',
-        disabled && 'cursor-not-allowed opacity-45 hover:border-[color:var(--v2-border)]',
+        'h-auto flex-col gap-0.5 px-2 py-2',
+        active ? 'border-v2-fg bg-v2-fg text-v2-bg hover:border-v2-fg hover:bg-v2-fg' : 'border-v2-border text-v2-muted',
       )}
     >
-      <span className="text-xs font-bold">{big}</span>
-      <span className="mt-0.5 text-nano font-medium opacity-80">{hint}</span>
-    </button>
+      <span className="t-body-sm font-medium">{big}</span>
+      <span className="t-meta opacity-80">{hint}</span>
+    </Button>
   );
 }
 
 function ThinkingBody({ mode, focus }: { mode: SuggestMode; focus: string }) {
   return (
-    <div className="flex flex-col items-center gap-3 py-9 text-center">
-      <MIcon name="progress_activity" size={34} className="animate-spin text-[color:var(--v2-accent-text)]" />
-      <span className="text-body font-bold text-[color:var(--v2-fg)]">
-        {mode === 'slow' ? 'Coach IA compone los bloques' : 'Buscando en tu biblioteca'}
+    <div role="status" className="flex flex-col items-center gap-3 py-9 text-center">
+      <LoaderCircle aria-hidden strokeWidth={1.75} className="size-7 animate-spin text-v2-muted" />
+      <span className="t-body font-medium text-v2-fg">
+        {mode === 'slow' ? 'La IA compone los bloques' : 'Buscando en tu biblioteca'}
       </span>
-      <span className="max-w-[36ch] text-label text-[color:var(--v2-muted)]">{focus}</span>
+      <span className="max-w-[36ch] t-body-sm text-v2-muted">{focus}</span>
     </div>
   );
 }
@@ -422,12 +381,12 @@ function ProposalBody({
   return (
     <div className="flex flex-col gap-2.5">
       {note ? (
-        <p className="border-l-2 border-[color:var(--v2-border-strong)] pl-2.5 text-label leading-relaxed text-[color:var(--v2-faint)]">
+        <p className="border-l-2 border-v2-border-strong pl-2.5 t-body-sm text-v2-muted">
           {note}
         </p>
       ) : null}
       {blocks.length === 0 ? (
-        <p className="py-6 text-center text-sm text-[color:var(--v2-faint)]">
+        <p className="py-6 text-center t-body-sm text-v2-faint">
           La IA no devolvió bloques. Prueba otro foco o el modo Completo.
         </p>
       ) : (
@@ -437,37 +396,21 @@ function ProposalBody({
             <div
               key={b.uid}
               className={cn(
-                'overflow-hidden rounded-[var(--v2-r-m)] border border-[color:var(--v2-border)] transition-opacity',
+                'overflow-hidden rounded-panel border border-v2-border transition-opacity',
                 !on && 'opacity-45',
               )}
               style={{ borderLeft: `3px solid var(${blockColorVar(b.format)})` }}
             >
-              <button
-                type="button"
-                onClick={() => onToggleBlock(b.uid)}
-                aria-pressed={on}
-                className="v2-focus flex w-full items-center gap-2.5 bg-[color:var(--v2-elevated)] px-3 py-2 text-left"
-              >
-                <span
-                  aria-hidden
-                  className={cn(
-                    'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--v2-r-2xs)] border',
-                    on
-                      ? 'border-[color:var(--v2-accent)] bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)]'
-                      : 'border-[color:var(--v2-border-strong)]',
-                  )}
-                >
-                  {on ? <MIcon name="check" size={13} /> : null}
-                </span>
-                <span className="text-body font-bold text-[color:var(--v2-fg)]">{b.title}</span>
-                {b.format ? (
-                  <span className="rounded-[var(--v2-r-pill)] bg-[color:var(--v2-surface-2)] px-2 py-0.5 text-nano font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
-                    {b.format}
-                  </span>
-                ) : null}
-              </button>
+              <div className="flex items-center gap-2.5 px-3 py-2">
+                <Checkbox
+                  checked={on}
+                  onCheckedChange={() => onToggleBlock(b.uid)}
+                  label={<span className="t-body font-medium">{b.title}</span>}
+                />
+                {b.format ? <span className="t-meta text-v2-faint">{b.format}</span> : null}
+              </div>
               {b.items.length === 0 ? (
-                <p className="px-3 py-2 text-label text-[color:var(--v2-faint)]">
+                <p className="px-3 py-2 t-body-sm text-v2-faint">
                   Bloque vacío: rellénalo tras insertar.
                 </p>
               ) : (
@@ -477,22 +420,11 @@ function ProposalBody({
                   return (
                     <div
                       key={it.uid}
-                      className="flex items-baseline gap-2.5 border-t border-[color:var(--v2-border)] px-3 py-1.5"
+                      className="flex items-center gap-2.5 border-t border-v2-border py-1 pl-3 pr-1"
                     >
-                      <span className="min-w-[130px] text-xs font-semibold text-[color:var(--v2-fg)]">
-                        {it.exercise_name}
-                      </span>
-                      <span className="v2-num flex-1 text-label text-[color:var(--v2-muted)]">
-                        {prescriptionToText(it.prescription)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => onRemoveItem(key)}
-                        aria-label={`Quitar ${it.exercise_name}`}
-                        className="v2-focus shrink-0 text-[color:var(--v2-faint)] transition-colors hover:text-[color:var(--v2-danger)]"
-                      >
-                        <MIcon name="close" size={14} />
-                      </button>
+                      <span className="min-w-[130px] t-body-sm font-medium text-v2-fg">{it.exercise_name}</span>
+                      <span className="flex-1 t-body-sm text-v2-muted t-tnum">{prescriptionToText(it.prescription)}</span>
+                      <IconButton icon={X} size="sm" onClick={() => onRemoveItem(key)} label={`Quitar ${it.exercise_name}`} />
                     </div>
                   );
                 })
@@ -510,8 +442,8 @@ function ProposalBody({
           );
         })
       )}
-      <p className="mt-1 text-eyebrow leading-relaxed text-[color:var(--v2-faint)]">
-        Se añaden al final de la sesión. Edita cargas, ritmos y descansos en el editor tras insertar.
+      <p className="mt-1 t-meta text-v2-faint">
+        Se añaden al final del entreno. Edita cargas, ritmos y descansos en el editor tras insertar.
       </p>
     </div>
   );
@@ -519,7 +451,7 @@ function ProposalBody({
 
 // Opt-in save of ONE composed block to the coach's library (#33 fork e). Never
 // automatic — the coach must pick the methodology group (1..10), so a drafted block
-// never lands ungrouped in Pablo's curated library. Reuses POST /api/coach/blocks.
+// never lands ungrouped in the coach's curated library. Reuses POST /api/coach/blocks.
 function SaveToLibrary({ block, groups }: { block: EditorBlock; groups: MethodologyGroupOption[] }) {
   const [groupId, setGroupId] = useState<number | ''>('');
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -544,48 +476,37 @@ function SaveToLibrary({ block, groups }: { block: EditorBlock; groups: Methodol
   if (status === 'saved') {
     const name = groups.find((g) => g.id === groupId)?.name ?? 'biblioteca';
     return (
-      <div className="flex items-center gap-1.5 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-3 py-2 text-label font-semibold text-[color:var(--v2-ok)]">
-        <MIcon name="check_circle" size={14} /> Guardada en biblioteca · {name}
+      <div className="flex items-center gap-1.5 border-t border-v2-border px-3 py-2 t-body-sm font-medium text-v2-ok">
+        <CircleCheck aria-hidden strokeWidth={2} className="size-3.5" /> Guardada en biblioteca · {name}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-1.5 border-t border-[color:var(--v2-border)] bg-[color:var(--v2-elevated)] px-3 py-2">
-      <span className="inline-flex items-center gap-1.5 text-eyebrow font-bold uppercase tracking-wide text-[color:var(--v2-muted)]">
-        <MIcon name="bookmark_add" size={13} />
-        Guardar en biblioteca
-      </span>
+    <div className="flex flex-col gap-1.5 border-t border-v2-border px-3 py-2">
+      <span className="t-meta text-v2-muted">Guardar en biblioteca</span>
       <div className="flex items-center gap-2">
-        <select
-          value={groupId}
-          onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : '')}
+        <Select
+          size="sm"
+          value={groupId === '' ? null : groupId}
+          onValueChange={(v: number) => setGroupId(v)}
           disabled={status === 'saving' || groups.length === 0}
           aria-label="Grupo de metodología"
-          className="v2-focus h-8 min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] px-2 text-xs text-[color:var(--v2-fg)] focus:border-[color:var(--v2-border-strong)] disabled:opacity-50"
-        >
-          <option value="">{groups.length === 0 ? 'Cargando grupos…' : 'Elige grupo…'}</option>
-          {groups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
+          placeholder={groups.length === 0 ? 'Cargando grupos…' : 'Elige grupo…'}
+          options={groups.map((g) => ({ value: g.id, label: g.name }))}
+          className="min-w-0 flex-1"
+        />
+        <Button
+          size="sm"
+          icon={BookmarkPlus}
+          loading={status === 'saving'}
+          disabled={groupId === ''}
           onClick={() => void save()}
-          disabled={groupId === '' || status === 'saving'}
-          className="v2-focus inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] px-2.5 text-xs font-semibold text-[color:var(--v2-fg)] transition-colors hover:border-[color:var(--v2-border-strong)] disabled:opacity-45"
         >
-          <MIcon
-            name={status === 'saving' ? 'progress_activity' : 'bookmark_add'}
-            size={14}
-            className={status === 'saving' ? 'animate-spin' : undefined}
-          />
           Guardar
-        </button>
+        </Button>
       </div>
-      {error ? <p className="text-label font-medium text-[color:var(--v2-danger)]">{error}</p> : null}
+      {error ? <p className="t-meta text-v2-danger">{error}</p> : null}
     </div>
   );
 }

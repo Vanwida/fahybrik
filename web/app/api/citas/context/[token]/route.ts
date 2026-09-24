@@ -44,6 +44,7 @@ export async function GET(req: Request, ctx: Ctx): Promise<NextResponse> {
       active_appointment: context.active_appointment,
       slots: context.slots,
       waitlisted: context.waitlisted, // #18: UI shows the "en lista de espera" state instead of slots
+      timezone: context.timezone, // el reloj de la agenda del coach: los huecos se pintan en él
     });
   } catch (err) {
     if (err instanceof CitasError) return jsonError(err.code, err.message, err.status);

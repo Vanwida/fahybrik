@@ -1,5 +1,6 @@
 import type { Sql } from 'postgres';
-import { addDays, isoDateString, startOfDayUtc } from '../dates';
+import { addDays, isoDateString, parseIsoDate, zonedDayString, zonedWallClockToUtc } from '../dates';
+import { loadAthleteTimezone } from '../db/athlete-timezone';
 import { GRADIENT_RETIRES_PACE_PCT } from '../running/gradient';
 import { resolveThresholdHr } from '../methodology/hr-zones';
 import { computeTss, type TssThresholdHr } from './tss';
@@ -57,7 +58,8 @@ const PACE_UNIT_BY_MODALITY: Record<string, 'per_km' | 'per_500m'> = {
 const MEASURED_ZONE_SOURCES: ReadonlySet<string> = new Set(['coach_test', 'athlete_test']);
 
 type ExecutionRow = {
-  d: Date;
+  /** The athlete's calendar day of the session, `YYYY-MM-DD`. */
+  d: string;
   duration_seconds: number;
   rpe: number | null;
   segments: Array<{
@@ -121,6 +123,10 @@ async function loadThresholdHr(
   return { bpm: resolved.lthr_bpm, estimated: resolved.estimated };
 }
 
+// Each session lands on the ATHLETE's calendar day (`athletes.timezone`), not the
+// UTC day the database cuts on: load is something he lived, so a run at 00:30 in
+// Madrid is today's load, not yesterday's (DECISIONS «Qué día es en cada sitio»).
+// The window ends on HIS day at `end_date`, and its edges are his midnights.
 export async function getDailyTssSeries(params: {
   athlete_id: number | bigint;
   end_date: Date;
@@ -128,15 +134,20 @@ export async function getDailyTssSeries(params: {
   client: Sql;
   /** Coach method: gradient at or above which pace stops pricing. */
   gradient_retires_pace_pct?: number;
+  /** The athlete's IANA zone when the caller already has it; else it is read. */
+  tz?: string;
 }): Promise<DailyTss[]> {
   const client = params.client;
-  const end = startOfDayUtc(params.end_date);
+  const tz = params.tz ?? (await loadAthleteTimezone(client, params.athlete_id));
+  const end = parseIsoDate(zonedDayString(params.end_date, tz));
   const start = addDays(end, -(params.days - 1));
+  const fromInstant = zonedWallClockToUtc(start, tz);
+  const toInstant = zonedWallClockToUtc(addDays(end, 1), tz);
 
   const [rows, thresholdPaces, lthr] = await Promise.all([
     client<Array<ExecutionRow>>`
       select
-        date_trunc('day', coalesce(we.ended_at, we.started_at, we.created_at) at time zone 'UTC')::date as d,
+        to_char(coalesce(we.ended_at, we.started_at, we.created_at) at time zone ${tz}, 'YYYY-MM-DD') as d,
         coalesce(we.total_duration_seconds, 0)::int as duration_seconds,
         we.perceived_exertion::int as rpe,
         coalesce(
@@ -156,8 +167,8 @@ export async function getDailyTssSeries(params: {
       from workout_executions we
       left join segment_executions se on se.execution_id = we.id
       where we.athlete_id = ${params.athlete_id as number}
-        and coalesce(we.ended_at, we.started_at, we.created_at) >= ${start.toISOString()}
-        and coalesce(we.ended_at, we.started_at, we.created_at) < ${addDays(end, 1).toISOString()}
+        and coalesce(we.ended_at, we.started_at, we.created_at) >= ${fromInstant.toISOString()}
+        and coalesce(we.ended_at, we.started_at, we.created_at) < ${toInstant.toISOString()}
       group by we.id, 1, 2, 3
       order by 1
     `,
@@ -180,7 +191,7 @@ export async function getDailyTssSeries(params: {
   const byDate = new Map<string, DayTotals>();
 
   for (const r of rows) {
-    const key = isoDateString(r.d);
+    const key = r.d;
     const day =
       byDate.get(key) ??
       {

@@ -21,7 +21,8 @@ import {
   getTestType,
 } from '@fahybrid/shared/domain/methodology';
 import { MODALITY_LABEL, paceUnitLabel } from '@/lib/dashboard/v2/zone-view';
-import { cn } from '@/lib/utils';
+import { Check } from 'lucide-react';
+import { Button, Select } from '@/components/v2/ui';
 
 export function RegistrarResultadoForm({
   athleteId,
@@ -81,13 +82,13 @@ export function RegistrarResultadoForm({
       <div className="mb-3 flex items-center gap-2.5 border-b border-[color:var(--v2-border)] pb-3">
         <span
           aria-hidden
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--v2-r-s)] bg-[color:var(--v2-accent-soft)] text-[color:var(--v2-accent)]"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-ctl bg-v2-select text-v2-fg"
         >
           <MIcon name="speed" size={18} />
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-bold text-[color:var(--v2-fg)]">Registrar resultado de test</p>
-          <p className="text-label text-[color:var(--v2-muted)]">
+          <p className="text-sm font-semibold text-[color:var(--v2-fg)]">Registrar resultado de test</p>
+          <p className="t-meta text-[color:var(--v2-muted)]">
             Esfuerzo máximo · calcula las 6 zonas y alimenta los ritmos del plan
           </p>
         </div>
@@ -96,26 +97,21 @@ export function RegistrarResultadoForm({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.3fr_1fr_0.9fr]">
         {/* Test type — modality + unit derive from it */}
         <label className="block min-w-0 space-y-1.5">
-          <span className="v2-micro">Tipo de test</span>
-          <select
+          <span className="t-label text-v2-faint">Tipo de test</span>
+          <Select
             aria-label="Tipo de test"
             value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            className="v2-focus w-full appearance-none rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-1.5 text-sm font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-border-strong)]"
-          >
-            {TEST_TYPES.map((t) => (
-              <option key={t.slug} value={t.slug}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+            onValueChange={setSlug}
+            options={TEST_TYPES.map((t) => ({ value: t.slug, label: t.label }))}
+            className="w-full"
+          />
         </label>
 
         {/* Modality (auto) */}
         <div className="min-w-0 space-y-1.5">
-          <span className="v2-micro">Modalidad</span>
+          <span className="t-label text-v2-faint">Modalidad</span>
           <div
-            className="flex min-h-[34px] items-center rounded-[var(--v2-r-s)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)] px-2 py-1.5 text-sm font-semibold"
+            className="flex h-8 items-center rounded-ctl bg-v2-surface-2 px-2.5 t-body-sm font-medium"
             style={{
               color: `var(--v2-mod-${testType.modality === 'run' ? 'carrera' : 'ergo'})`,
             }}
@@ -126,7 +122,7 @@ export function RegistrarResultadoForm({
 
         {/* Result pace */}
         <label className="block min-w-0 space-y-1.5">
-          <span className="v2-micro">Resultado</span>
+          <span className="t-label text-v2-faint">Resultado</span>
           <div className="flex items-center gap-1">
             <ClockCell
               seconds={thresholdS}
@@ -134,7 +130,7 @@ export function RegistrarResultadoForm({
               className="flex-1"
               onChange={setThresholdS}
             />
-            <span className="shrink-0 text-label font-semibold text-[color:var(--v2-muted)]">
+            <span className="shrink-0 t-meta font-semibold text-[color:var(--v2-muted)]">
               {paceUnitLabel(unit)}
             </span>
           </div>
@@ -142,10 +138,10 @@ export function RegistrarResultadoForm({
       </div>
 
       <Card variant="inset" className="mt-3 flex items-center gap-2 px-3 py-2">
-        <MIcon name="info" size={14} className="shrink-0 text-[color:var(--v2-accent)]" />
-        <p className="text-label leading-snug text-[color:var(--v2-muted)]">
+        <MIcon name="info" size={14} className="shrink-0 text-v2-muted" />
+        <p className="t-meta leading-snug text-[color:var(--v2-muted)]">
           {testType.protocol} · objetivo{' '}
-          <b className="v2-num text-[color:var(--v2-accent)]">RPE {TEST_TARGET_RPE}</b>. El cálculo
+          <b className="t-tnum font-medium text-v2-fg">RPE {TEST_TARGET_RPE}</b>. El cálculo
           (ritmo → 6 zonas) lo aplica tu modelo de zonas — no a ojo.
         </p>
       </Card>
@@ -156,27 +152,13 @@ export function RegistrarResultadoForm({
 
       <div className="mt-3 flex items-center justify-end gap-2">
         {onDone ? (
-          <button
-            type="button"
-            onClick={onDone}
-            className="v2-focus rounded-[var(--v2-r-s)] px-3 py-1.5 text-xs font-bold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)]"
-          >
+          <Button variant="ghost" onClick={onDone}>
             Cancelar
-          </button>
+          </Button>
         ) : null}
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className={cn(
-            'v2-focus inline-flex items-center gap-1.5 rounded-[var(--v2-r-s)] px-3.5 py-1.5 text-xs font-bold transition-colors',
-            'bg-[color:var(--v2-accent)] text-[color:var(--v2-accent-fg)] hover:bg-[color:var(--v2-accent-press)]',
-            saving && 'opacity-60',
-          )}
-        >
-          <MIcon name={saving ? 'hourglass_empty' : 'check'} size={15} />
-          {saving ? 'Guardando…' : 'Registrar'}
-        </button>
+        <Button variant="primary" icon={Check} loading={saving} onClick={save}>
+          Registrar
+        </Button>
       </div>
     </Card>
   );

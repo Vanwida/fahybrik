@@ -679,6 +679,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
       // inventado aquí — un coach de trail vería el suyo en una pantalla y el
       // nuestro en otra.
       gradient_retires_pace_pct: null,
+      gradient_threshold_pct: null,
     });
   });
 

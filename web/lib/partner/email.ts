@@ -7,13 +7,20 @@
 // (secondary line — opens the app directly).
 import { Resend } from 'resend';
 import { AUTH_CONFIG } from '@/lib/auth/config';
+import { sql as defaultSql, type Sql } from '@/lib/db';
 import { partnerRedeemDeepLink } from '@/lib/invites/deeplinks';
+import { BRAND_WORDMARK } from '@fahybrid/shared/domain/coach/club-skin';
 
 export interface PartnerInvitationEmailInput {
   to: string;
   inviter_name: string | null;
   token: string;
   expires_at: Date;
+  /**
+   * Quien invita (su `users.id`). Con él, el correo habla con la voz de SU club
+   * (nombre y acento de la piel); sin él, con la marca de este binario.
+   */
+  inviter_user_id?: bigint | number | null;
 }
 
 export interface PartnerInvitationEmailResult {
@@ -42,6 +49,53 @@ function buildRedeemLink(token: string): string {
   const url = new URL(`${base}/partner/redeem`);
   url.searchParams.set('token', token);
   return url.toString();
+}
+
+/**
+ * La marca con la que habla el correo. «Entrenar en X» es el CLUB de quien invita;
+ * «la app X» es el binario que se instala — dos cosas distintas, cada una de su
+ * sitio (la piel del club y `BRAND_WORDMARK`).
+ */
+export interface PartnerEmailBrand {
+  club: string;
+  app: string;
+  fill: string;
+  on_fill: string;
+  text: string;
+}
+
+const DEFAULT_PARTNER_BRAND: PartnerEmailBrand = {
+  club: BRAND_WORDMARK,
+  app: BRAND_WORDMARK,
+  fill: '#ff5b1f',
+  on_fill: '#fff',
+  text: '#ff5b1f',
+};
+
+/** El club de quien invita (su piel), o la marca del binario si no hay club o algo falla. */
+export async function resolvePartnerEmailBrand(
+  inviter_user_id: bigint | number | null | undefined,
+  client: Sql = defaultSql,
+): Promise<PartnerEmailBrand> {
+  if (inviter_user_id == null) return DEFAULT_PARTNER_BRAND;
+  try {
+    const rows = await client<Array<{ coach_id: string | null }>>`
+      select coach_id::text as coach_id from athletes where user_id = ${Number(inviter_user_id)} limit 1
+    `;
+    const coachId = rows[0]?.coach_id;
+    if (!coachId) return DEFAULT_PARTNER_BRAND;
+    const { resolveClubEmailSkin } = await import('@/lib/coach/club-skin');
+    const skin = await resolveClubEmailSkin(Number(coachId), client);
+    return {
+      club: skin.wordmark,
+      app: BRAND_WORDMARK,
+      fill: skin.light.fill,
+      on_fill: skin.light.on_fill,
+      text: skin.light.text,
+    };
+  } catch {
+    return DEFAULT_PARTNER_BRAND;
+  }
 }
 
 /**
@@ -77,19 +131,23 @@ export async function sendPartnerInvitationEmail(
     Math.round((input.expires_at.getTime() - Date.now()) / 86_400_000),
   );
 
+  const brand = await resolvePartnerEmailBrand(input.inviter_user_id);
+  const clubHtml = escapeHtml(brand.club);
+  const appHtml = escapeHtml(brand.app);
+
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({
     from: AUTH_CONFIG.resendFromEmail(),
     to: input.to,
-    subject: `Únete a ${inviterLabelHtml} en FAHYBRID`,
+    subject: `Únete a ${inviterLabelHtml} en ${brand.club}`,
     text:
-      `${inviterLabel} te ha invitado a entrenar en pareja en FAHYBRID (modalidad Dobles HYROX).\n\n` +
+      `${inviterLabel} te ha invitado a entrenar en pareja en ${brand.club} (modalidad Dobles HYROX).\n\n` +
       `Acepta la invitación aquí (sin pago, tu compañero/a ya cubre la suscripción Dobles):\n\n${link}\n\n` +
-      `¿Ya tienes la app FAHYBRID? Ábrela directamente:\n${appLink}\n\n` +
+      `¿Ya tienes la app ${brand.app}? Ábrela directamente:\n${appLink}\n\n` +
       `El enlace expira en ${expiresDays} días.\n\nSi no esperabas este correo, ignóralo.`,
     html: `
       <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#0a0a0a;background:#fff;">
-        <h1 style="margin:0 0 12px;font-size:22px;letter-spacing:-0.01em;">FAHYBRID · Dobles HYROX</h1>
+        <h1 style="margin:0 0 12px;font-size:22px;letter-spacing:-0.01em;">${clubHtml} · Dobles HYROX</h1>
         <p style="margin:0 0 8px;line-height:1.5;">
           <strong>${inviterLabelHtml}</strong> te ha invitado a entrenar en pareja.
         </p>
@@ -97,10 +155,10 @@ export async function sendPartnerInvitationEmail(
           Modalidad Dobles HYROX. Sin pago — tu compañero/a ya cubre la suscripción compartida.
         </p>
         <p style="margin:0 0 12px;">
-          <a href="${link}" style="display:inline-block;padding:12px 20px;background:#ff5b1f;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Aceptar invitación</a>
+          <a href="${link}" style="display:inline-block;padding:12px 20px;background:${brand.fill};color:${brand.on_fill};text-decoration:none;border-radius:8px;font-weight:600;">Aceptar invitación</a>
         </p>
         <p style="margin:0 0 28px;font-size:13px;line-height:1.5;">
-          <a href="${appLink}" style="color:#ff5b1f;text-decoration:none;font-weight:600;">Abrir directamente en la app FAHYBRID →</a>
+          <a href="${appLink}" style="color:${brand.text};text-decoration:none;font-weight:600;">Abrir directamente en la app ${appHtml} →</a>
         </p>
         <p style="margin:0 0 8px;font-size:13px;color:#666;line-height:1.5;">
           El enlace expira en ${expiresDays} días.<br>

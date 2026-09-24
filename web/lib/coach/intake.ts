@@ -13,18 +13,17 @@
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { toJsonValue } from '@/lib/json-column';
 import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import {
   composeWelcomeDraft,
   detectBenchmarkOutliers,
   explainLevel,
   inferLevel,
-  recommendBaselineTests,
 } from './intake-suggestions';
 import { proposeBlockEmphasis, type BlockEmphasis } from './intake-suggestions';
 import { suggestAthleteTrainingLevel } from './athlete-training-level';
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import {
   BENCH_BACK_SQUAT_1RM,
   BENCH_DEADLIFT_1RM,
@@ -54,20 +53,17 @@ import {
   type InjuryContraindication,
 } from '@fahybrid/shared/domain/coach/intake-availability';
 import {
-  intakeCommitSchema,
   type AthleteLevel,
   type IntakeBaselineTest,
   type IntakeBlockSpec,
-  type IntakeCommit,
-  type IntakeNotesSnapshot,
 } from './intake-schema';
 import { IntakeError } from './intake-error';
-import {
-  materializeFirstMicrocicloDraft,
-  materializePersonalChain,
-  type FirstBlockDraftResult,
-  type PersonalChainResult,
-} from './intake-plan';
+import { outOfRangeWarning } from './intake-out-of-range';
+import { loadCoachLadder } from './levels';
+import type { ResolvedRung } from '@fahybrid/shared/domain/coach/level-criteria';
+import { listCoachTests } from './coach-tests';
+import { resolveCoachThresholds } from './signal-thresholds';
+import type { CoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds';
 
 // Re-export pure helpers for callers / tests.
 export {
@@ -75,8 +71,10 @@ export {
   detectBenchmarkOutliers,
   explainLevel,
   inferLevel,
-  recommendBaselineTests,
 };
+// Firmar y deshacer el alta viven en `intake-commit.ts` (el plan va por el motor
+// de asignar a varios); se reexportan para no mover a nadie.
+export { commitIntake, undoIntake, type CommitResult } from './intake-commit';
 // El error del alta vive en su propio módulo (para que `intake-plan.ts` lo use
 // sin importarse en círculo con éste); se reexporta para no mover a nadie.
 export { IntakeError };
@@ -235,7 +233,9 @@ export interface IntakeWarning {
     | 'benchmarks_outliers'
     | 'active_injury'
     | 'equipment_gap'
-    | 'low_readiness_self_report';
+    | 'low_readiness_self_report'
+    /** Respuestas del cuestionario que no cabían: recortadas o no guardadas (F-01). */
+    | 'answers_out_of_range';
   severity: 'warning' | 'critical';
   label: string;
   detail: string;
@@ -248,55 +248,18 @@ type BenchmarkGroup =
   | 'anaerobic_threshold'
   | 'other';
 
-export interface CommitResult {
-  athlete_id: string;
-  /** Id of the first microciclo (month assignment) materialized at intake, or null. */
-  macrocycle_id: string | null;
-  scheduled_assignments: number;
-  month_assignment_count?: number;
-  welcome_sent: boolean;
-  /**
-   * First microciclo materialized IN DRAFT on commit (default path), from the
-   * coach's first month template. `null` when a month template was explicitly
-   * assigned instead, or when the coach has no month templates yet (degraded: no
-   * draft — the coach programs the first microciclo manually).
-   */
-  first_block_draft?: {
-    /** Microciclo NAME (coach data). */
-    block_type: string;
-    start_date: string;
-    week_count: number;
-    week_starts: string[];
-    assignment_count: number;
-  } | null;
-  /**
-   * Cadena de microciclos PERSONALES creada al asignar en modo «plan solo para
-   * él»: un contenedor propio del atleta por tramo, encadenados sin hueco desde
-   * el lunes de esta semana y todos en borrador privado. `null` en modo
-   * compartido (donde el plan sale de la biblioteca del coach).
-   */
-  personal_plan?: {
-    tramos: Array<{
-      month_template_id: string;
-      /** Nombre que le puso el coach en el alta. */
-      name: string;
-      week_count: number;
-      start_date: string;
-      end_date: string;
-    }>;
-    week_starts: string[];
-  } | null;
-}
-
 // =============================================================================
 // Pending intake list
 // =============================================================================
 
 export async function listPendingIntake(params: {
   coach_id: bigint | number;
+  /** The instant «today» is read at (tests); defaults to now. */
+  now?: Date;
   client?: Sql;
 }): Promise<PendingIntakeAthlete[]> {
   const client = params.client ?? defaultSql;
+  const now = params.now ?? new Date();
   const rows = await client<
     Array<{
       athlete_id: string;
@@ -314,12 +277,14 @@ export async function listPendingIntake(params: {
       e.name                                          as a_event_name
     from athletes a
     left join lateral (
-      -- Target race = soonest upcoming race with priority='target' (unified spine).
+      -- Target race = soonest upcoming race with priority='target' (unified spine),
+      -- upcoming in the ATHLETE's day: his race, his calendar (DECISIONS «Qué día
+      -- es en cada sitio»), not the UTC day of the database session.
       select r.race_date as start_date, r.name
       from races r
       where r.athlete_id = a.id
         and r.priority = 'target'
-        and r.race_date >= current_date
+        and r.race_date >= (${now.toISOString()}::timestamptz at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date
         and r.status in ('planned', 'registered')
       order by r.race_date asc
       limit 1
@@ -330,12 +295,12 @@ export async function listPendingIntake(params: {
     order by a.onboarded_at asc
   `;
 
-  const now = Date.now();
+  const nowMs = now.getTime();
   return rows.map((r) => ({
     athlete_id: r.athlete_id,
     full_name: r.full_name,
     onboarded_at: r.onboarded_at.toISOString(),
-    hours_since_onboarded: Math.max(0, Math.floor((now - r.onboarded_at.getTime()) / 3_600_000)),
+    hours_since_onboarded: Math.max(0, Math.floor((nowMs - r.onboarded_at.getTime()) / 3_600_000)),
     a_event_iso: r.a_event_iso,
     a_event_name: r.a_event_name,
   }));
@@ -621,7 +586,15 @@ export async function loadIntakeProfile(params: {
   );
 
   // Compute auto-suggestions.
+  // Los tests del alta son la batería del COACH (su catálogo, lo que entra solo
+  // con el primer plan), no una lista cableada: cada coach mide con lo suyo.
+  const coachTests = await listCoachTests(params.coach_id, { onlyEnabled: true }, client).catch(() => []);
+  // El tramo 1–4 (va a la foto del alta y al contexto de la IA) se lee con la
+  // escalera del COACH, la misma que la sugerencia de nivel; sin ella, los defectos.
+  const ladder = await loadCoachLadder(params.coach_id, client).catch(() => []);
   const suggestions = buildSuggestions({
+    ladder,
+    coach_tests: coachTests.map((t) => ({ slug: t.slug, label: t.name, kind: 'programmed' as const, scheduled_for: null })),
     target_event,
     benchmarks,
     training_experience_years: a.training_experience_years,
@@ -635,7 +608,10 @@ export async function loadIntakeProfile(params: {
     has_intake_data,
   });
 
+  // Los avisos de sueño y estrés del alta usan los umbrales del coach (0256).
+  const thresholds = await resolveCoachThresholds(params.coach_id, client);
   const warnings = buildWarnings({
+    thresholds,
     target_event,
     benchmarks,
     training_days_per_week: effectiveTrainingDays,
@@ -648,6 +624,8 @@ export async function loadIntakeProfile(params: {
     sleep_quality: a.sleep_quality,
     stress_level: a.stress_level,
   });
+  const outOfRange = outOfRangeWarning(a.intake_notes_json);
+  if (outOfRange) warnings.push(outOfRange);
 
   return {
     athlete: {
@@ -791,6 +769,8 @@ async function buildEquipmentReview(params: {
 // =============================================================================
 
 interface BuildSuggestionsParams {
+  /** La batería del coach (tests activos de su catálogo). */
+  coach_tests: IntakeBaselineTest[];
   target_event: IntakeProfile['target_event'];
   benchmarks: IntakeProfile['benchmarks'];
   training_experience_years: number | null;
@@ -798,6 +778,8 @@ interface BuildSuggestionsParams {
   sex: 'male' | 'female' | 'other' | null;
   now: Date;
   onboarding_training_level: AthleteLevel | null;
+  /** La escalera del coach (`loadCoachLadder`); vacía = los defectos del producto. */
+  ladder: ResolvedRung[];
   hours_per_week: number | null;
   goal: {
     goal_type: import('./intake-suggestions').GoalType | null;
@@ -848,10 +830,13 @@ function buildSuggestions(params: BuildSuggestionsParams): IntakeSuggestions {
   }));
 
   const levelFromOnboarding = params.onboarding_training_level;
+  const sex = params.sex === 'male' || params.sex === 'female' ? params.sex : null;
   const inferred = inferLevel({
     benchmarks: suggestionBench,
     training_experience_years: params.training_experience_years,
     goal: params.goal,
+    ladder: params.ladder,
+    sex,
   });
   const levelSuggestion = suggestAthleteTrainingLevel({
     athlete_level: levelFromOnboarding,
@@ -861,10 +846,7 @@ function buildSuggestions(params: BuildSuggestionsParams): IntakeSuggestions {
   });
   const level: AthleteLevel = levelFromOnboarding ?? inferred;
 
-  const baseline_tests = recommendBaselineTests({
-    benchmarks: suggestionBench,
-    is_compressive,
-  });
+  const baseline_tests = params.coach_tests;
 
   const welcome_draft = composeWelcomeDraft({
     full_name: params.full_name,
@@ -885,6 +867,8 @@ function buildSuggestions(params: BuildSuggestionsParams): IntakeSuggestions {
         : explainLevel(level, {
             training_experience_years: params.training_experience_years,
             benchmarks: suggestionBench,
+            ladder: params.ladder,
+            sex,
             division: params.target_event?.division ?? null,
           }),
     baseline_tests,
@@ -901,6 +885,7 @@ function buildSuggestions(params: BuildSuggestionsParams): IntakeSuggestions {
 // =============================================================================
 
 interface BuildWarningsParams {
+  thresholds: Pick<CoachThresholds, 'intake_low_sleep_max' | 'intake_high_stress_min'>;
   target_event: IntakeProfile['target_event'];
   benchmarks: IntakeProfile['benchmarks'];
   training_days_per_week: number | null;
@@ -914,10 +899,24 @@ interface BuildWarningsParams {
   stress_level: number | null;
 }
 
-// Low sleep or high stress at intake is a load-calibration flag (we run softer
-// the first weeks). 1-10 scales; thresholds are deliberately conservative.
-const LOW_SLEEP_THRESHOLD = 4;
-const HIGH_STRESS_THRESHOLD = 7;
+/**
+ * Low sleep or high stress at intake is a load-calibration flag (the coach may
+ * start softer). 1–10 scales. Where each one starts is the coach's method
+ * (`intake_low_sleep_max` 4, `intake_high_stress_min` 7 by default — 0256).
+ */
+export function intakeLoadFlags(
+  answers: { sleep_quality: number | null; stress_level: number | null },
+  t: Pick<CoachThresholds, 'intake_low_sleep_max' | 'intake_high_stress_min'>,
+): string[] {
+  const flags: string[] = [];
+  if (answers.sleep_quality != null && answers.sleep_quality <= t.intake_low_sleep_max) {
+    flags.push(`sueño ${answers.sleep_quality}/10`);
+  }
+  if (answers.stress_level != null && answers.stress_level >= t.intake_high_stress_min) {
+    flags.push(`estrés ${answers.stress_level}/10`);
+  }
+  return flags;
+}
 
 function buildWarnings(params: BuildWarningsParams): IntakeWarning[] {
   const out: IntakeWarning[] = [];
@@ -925,37 +924,37 @@ function buildWarnings(params: BuildWarningsParams): IntakeWarning[] {
   if (!params.target_event) {
     out.push({
       kind: 'a_event_invalid',
-      severity: 'critical',
-      label: 'Sin A-event configurado',
-      detail: 'Asigna un evento prioridad A antes de cerrar intake',
+      severity: 'warning',
+      label: 'Sin carrera objetivo',
+      detail: 'El plan no apunta a ninguna fecha. Si entrena para una, añádela en su perfil.',
     });
   } else if (params.target_event.is_in_past) {
     out.push({
       kind: 'a_event_invalid',
-      severity: 'critical',
-      label: 'A-event en el pasado',
-      detail: 'Reasigna fecha o elige otro evento',
+      severity: 'warning',
+      label: 'Su carrera objetivo ya pasó',
+      detail: 'Si entrena para otra, elígela en su perfil.',
     });
   } else if (params.target_event.days_to_event <= 30) {
     out.push({
       kind: 'a_event_close',
       severity: 'warning',
-      label: `<30d para A-event (${params.target_event.days_to_event}d)`,
-      detail: 'Plan compresivo, revisa viabilidad',
+      label: `Su carrera es en ${params.target_event.days_to_event} días`,
+      detail: 'Poco margen: revisa que el plan llegue a tiempo.',
     });
   }
 
   const onboardingMissing: string[] = [];
-  if (params.training_days_per_week == null) onboardingMissing.push('días/sem');
+  if (params.training_days_per_week == null) onboardingMissing.push('días por semana');
   if (params.height_cm == null) onboardingMissing.push('altura');
   if (params.weight_kg == null) onboardingMissing.push('peso');
-  if (params.benchmarks.length === 0) onboardingMissing.push('benchmarks');
+  if (params.benchmarks.length === 0) onboardingMissing.push('marcas');
   if (onboardingMissing.length > 0) {
     out.push({
       kind: 'onboarding_incomplete',
       severity: 'warning',
-      label: 'Onboarding incompleto',
-      detail: `Faltan: ${onboardingMissing.join(', ')}`,
+      label: 'Cuestionario de entrada incompleto',
+      detail: `Falta: ${onboardingMissing.join(', ')}`,
     });
   }
 
@@ -964,8 +963,8 @@ function buildWarnings(params: BuildWarningsParams): IntakeWarning[] {
     out.push({
       kind: 'benchmarks_outliers',
       severity: 'warning',
-      label: '1RMs reportados altos',
-      detail: `Validar primera semana con tests (${outliers.join(', ')})`,
+      label: 'Marcas de fuerza muy altas',
+      detail: `Compruébalas con un test la primera semana (${outliers.join(', ')})`,
     });
   }
 
@@ -976,13 +975,13 @@ function buildWarnings(params: BuildWarningsParams): IntakeWarning[] {
     const detail =
       params.injury_contraindications.length > 0
         ? params.injury_contraindications
-            .map((c) => `${c.area} → evita ${c.flag}`)
-            .join(' | ')
+            .map((c) => `${c.area}: evita ${c.flag}`)
+            .join(' · ')
         : activeInjuries.map((i) => i.area).join(', ');
     out.push({
       kind: 'active_injury',
       severity: 'warning',
-      label: `${activeInjuries.length} lesión activa — contraindicaciones`,
+      label: activeInjuries.length === 1 ? 'Una lesión activa' : `${activeInjuries.length} lesiones activas`,
       detail,
     });
   }
@@ -993,249 +992,22 @@ function buildWarnings(params: BuildWarningsParams): IntakeWarning[] {
       kind: 'equipment_gap',
       severity: 'warning',
       label: `${params.equipment_incompatible_count} ejercicios necesitan material que no tiene`,
-      detail: `Sustituir segmentos con: ${params.missing_equipment_tags.join(', ')}`,
+      detail: `Le falta: ${params.missing_equipment_tags.map((t) => t.replace(/_/g, ' ')).join(', ')}`,
     });
   }
 
   // Step 3 — sleep/stress load-calibration flag.
-  const loadFlags: string[] = [];
-  if (params.sleep_quality != null && params.sleep_quality <= LOW_SLEEP_THRESHOLD) {
-    loadFlags.push(`sueño ${params.sleep_quality}/10`);
-  }
-  if (params.stress_level != null && params.stress_level >= HIGH_STRESS_THRESHOLD) {
-    loadFlags.push(`estrés ${params.stress_level}/10`);
-  }
+  const loadFlags = intakeLoadFlags(params, params.thresholds);
   if (loadFlags.length > 0) {
     out.push({
       kind: 'low_readiness_self_report',
       severity: 'warning',
-      label: 'Estado basal comprometido',
-      detail: `${loadFlags.join(', ')} → arrancar con carga conservadora`,
+      label: 'Llega con poco sueño o mucho estrés',
+      detail: `${loadFlags.join(', ')}: empieza con carga suave`,
     });
   }
 
   return out;
-}
-
-// =============================================================================
-// Commit (atomic)
-// =============================================================================
-
-export async function commitIntake(params: {
-  athlete_id: bigint | number;
-  coach_id: bigint | number;
-  coach_user_id: bigint | number;
-  payload: unknown;
-  now?: Date;
-  client?: Sql;
-}): Promise<CommitResult> {
-  const client = params.client ?? defaultSql;
-  const now = params.now ?? new Date();
-
-  const parsed = intakeCommitSchema.safeParse(params.payload);
-  if (!parsed.success) {
-    throw new IntakeError('invalid_payload', parsed.error.message, 400);
-  }
-  const commit: IntakeCommit = parsed.data;
-
-  // Verify ownership and that intake hasn't already been committed.
-  const checkRows = await client<
-    Array<{ coach_id: string | null; intake_completed_at: Date | null }>
-  >`
-    select a.coach_id::text as coach_id, a.intake_completed_at
-    from athletes a
-    where a.id = ${params.athlete_id as number}
-    limit 1
-  `;
-  const check = checkRows[0];
-  if (!check) {
-    throw new IntakeError('not_found', `athlete ${params.athlete_id} not found`, 404);
-  }
-  if (check.coach_id !== String(params.coach_id)) {
-    throw new IntakeError('forbidden', 'athlete is not assigned to this coach', 403);
-  }
-  if (check.intake_completed_at) {
-    throw new IntakeError('already_committed', 'intake already completed', 409);
-  }
-
-  // AGNOSTIC: el alta no inventa un esqueleto. `block_specs` es snapshot de lo
-  // que el coach escribió (a menudo vacío). Las semanas reales salen de la
-  // biblioteca (modo shared) o de lo que planifique después en la ficha
-  // (modo personal). Si en personal manda tramos, SÍ se materializan — los
-  // escribió él, no los inventamos nosotros.
-  const snapshot: IntakeNotesSnapshot = {
-    level: commit.level,
-    plan_mode: commit.plan_mode,
-    block_specs: commit.block_specs,
-    baseline_tests: commit.baseline_tests,
-    acknowledged_warnings: commit.acknowledged_warnings,
-    welcome_sent: commit.welcome.send && Boolean(commit.welcome.body && commit.welcome.body.trim()),
-    notes: commit.notes,
-    committed_at: now.toISOString(),
-  };
-
-  // Mark intake completed + persist snapshot.
-  await client`
-    update athletes
-    set intake_completed_at = ${now.toISOString()}::timestamptz,
-        intake_by_coach_id = ${params.coach_id as number},
-        intake_notes_json = ${client.json(toJsonValue(snapshot))},
-        plan_mode = ${commit.plan_mode},
-        updated_at = now()
-    where id = ${params.athlete_id as number}
-  `;
-
-  // Schedule programmed baseline tests. We don't have a dedicated tests table —
-  // baseline tests are recorded in intake_notes_json (and surfaced from there
-  // by the cohort UI). Auto tests need no scheduling.
-  // Note: when actual workout templates exist for these tests (HYROX sim, 1RM
-  // battery, 5K) we'll insert into workout_assignments; for now the intake
-  // notes are the source of truth. Count what we *would* schedule.
-  const programmedCount = commit.baseline_tests.filter(
-    (t: IntakeBaselineTest) => t.kind === 'programmed' && t.scheduled_for !== null,
-  ).length;
-
-  // Welcome message — open or reuse a chat thread, append message.
-  let welcome_sent = false;
-  if (commit.welcome.send && commit.welcome.body && commit.welcome.body.trim().length > 0) {
-    welcome_sent = await sendWelcomeMessage({
-      client,
-      coach_id: params.coach_id,
-      coach_user_id: params.coach_user_id,
-      athlete_id: params.athlete_id,
-      body: commit.welcome.body.trim(),
-      now,
-    });
-  }
-
-  // Optional: assign first month from template when Pablo confirms in intake.
-  let month_assignment_count = 0;
-  let first_block_draft: FirstBlockDraftResult | null = null;
-  let personal_plan: PersonalChainResult | null = null;
-  let first_assignment_id: string | null = null;
-  if (commit.plan_mode === 'personal') {
-    // «Plan solo para él»: no se toca la biblioteca. Si el coach escribió
-    // tramos, se crean. Si no, el atleta queda marcado personal y el
-    // esqueleto nace cuando planifique en su ficha.
-    if (commit.block_specs.length > 0) {
-      personal_plan = await materializePersonalChain({
-        coach_id: params.coach_id,
-        coach_user_id: params.coach_user_id,
-        athlete_id: params.athlete_id,
-        specs: commit.block_specs,
-        now,
-        client,
-      });
-      first_assignment_id = personal_plan.first_assignment_id;
-    }
-  } else if (commit.month_template_id && commit.month_start_date) {
-    // Use the SHARED materializer (lib/dashboard/coach/instantiate-program). It
-    // materializes a session's inline `blocks[]` into a real template + segments
-    // (carrying prescription_json), not just `template_id` references — so an
-    // intake-committed month whose sessions are inline-block-authored creates the
-    // workout_assignments instead of silently dropping them. Single source of
-    // truth: every assign path (assign-month, assign-sequence, /hoy approve) uses
-    // this same materializer.
-    const { instantiateMonthFromTemplate } = await import(
-      '@/lib/dashboard/coach/instantiate-program'
-    );
-    const assignResult = await instantiateMonthFromTemplate({
-      coach_id: params.coach_id,
-      athlete_id: params.athlete_id,
-      month_template_id: commit.month_template_id,
-      start_date: commit.month_start_date,
-      client,
-    });
-    month_assignment_count = assignResult.assignment_count;
-    first_assignment_id = assignResult.month_assignment_id;
-  } else {
-    // Default path (the form never sends month_template_id): materialize the
-    // coach's FIRST month template as a first microciclo IN DRAFT, so Pablo lands
-    // on a reviewable draft, NOT an empty calendar. AGNOSTIC — reuses the shared
-    // materializer; no phase fabrication. Soft-fails: if the coach has no month
-    // templates yet, no draft is created and Pablo programs the first microciclo
-    // manually — intake must not 500 over a template gap.
-    first_block_draft = await materializeFirstMicrocicloDraft({
-      coach_id: params.coach_id,
-      athlete_id: params.athlete_id,
-      now,
-      client,
-    });
-    first_assignment_id = first_block_draft?.assignment_id ?? null;
-  }
-
-  return {
-    athlete_id: String(params.athlete_id),
-    macrocycle_id: first_assignment_id,
-    scheduled_assignments:
-      month_assignment_count || first_block_draft?.assignment_count || programmedCount,
-    month_assignment_count,
-    welcome_sent,
-    first_block_draft: first_block_draft
-      ? {
-          block_type: first_block_draft.block_type,
-          start_date: first_block_draft.start_date,
-          week_count: first_block_draft.week_count,
-          week_starts: first_block_draft.week_starts,
-          assignment_count: first_block_draft.assignment_count,
-        }
-      : null,
-    personal_plan: personal_plan
-      ? { tramos: personal_plan.tramos, week_starts: personal_plan.week_starts }
-      : null,
-  };
-}
-
-
-async function sendWelcomeMessage(params: {
-  client: Sql;
-  coach_id: bigint | number;
-  coach_user_id: bigint | number;
-  athlete_id: bigint | number;
-  body: string;
-  now: Date;
-}): Promise<boolean> {
-  // Find or create the 1:1 thread.
-  const threadRows = await params.client<Array<{ id: string }>>`
-    insert into chat_threads (coach_id, athlete_id, last_message_at, unread_for_athlete)
-    values (
-      ${params.coach_id as number},
-      ${params.athlete_id as number},
-      ${params.now.toISOString()}::timestamptz,
-      1
-    )
-    on conflict (coach_id, athlete_id) do update
-      set last_message_at = excluded.last_message_at,
-          unread_for_athlete = chat_threads.unread_for_athlete + 1,
-          updated_at = now()
-    returning id::text as id
-  `;
-  const threadId = threadRows[0]?.id;
-  if (!threadId) return false;
-
-  await params.client`
-    insert into chat_messages (thread_id, sender_user_id, sender_role, body)
-    values (
-      ${Number(threadId)},
-      ${params.coach_user_id as number},
-      'coach',
-      ${params.body}
-    )
-  `;
-
-  // Notify the athlete.
-  await params.client`
-    insert into notifications (user_id, type, payload_json)
-    select a.user_id, 'chat_message', ${params.client.json({
-      kind: 'welcome',
-      thread_id: threadId,
-      coach_id: String(params.coach_id),
-    })}
-    from athletes a
-    where a.id = ${params.athlete_id as number}
-  `;
-
-  return true;
 }
 
 // =============================================================================

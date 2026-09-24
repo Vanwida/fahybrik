@@ -19,7 +19,8 @@
 // tumba el envío de la carrera del día al reloj.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { MIcon } from '@/components/ui/MIcon';
+import { Check, ChevronDown, ListPlus, Undo2, X } from 'lucide-react';
+import { Button, Dialog, IconButton, Input, Menu, Select, StatusBadge } from '@/components/v2/ui';
 import { cn } from '@/lib/utils';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
@@ -240,290 +241,182 @@ export function ImportMissingExercisesPanel({
 
   const realCount = missing.filter((m) => !m.notAnExercise).length;
 
+  const submitLabel = saving
+    ? 'Aplicando…'
+    : (() => {
+        const parts: string[] = [];
+        if (toCreate.length > 0) parts.push(`Crear ${toCreate.length}`);
+        if (toMerge.length > 0) parts.push(`unir ${toMerge.length}`);
+        if (toDiscard.length > 0 && toCreate.length + toMerge.length === 0) {
+          return toDiscard.length === 1 ? 'Descartar 1 y seguir' : `Descartar ${toDiscard.length} y seguir`;
+        }
+        if (parts.length === 0) return 'Aplicar';
+        return parts.join(' y ');
+      })();
+
   return (
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-[color:var(--v2-scrim)] p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal
-        aria-label="Crear los ejercicios que faltan"
-        onClick={(e) => e.stopPropagation()}
-        className="flex h-[min(90vh,900px)] w-full max-w-[880px] flex-col overflow-hidden rounded-[var(--v2-r-l)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] shadow-[var(--v2-shadow-pop)]"
-      >
-        <header className="flex items-start justify-between gap-3 border-b border-[color:var(--v2-border)] px-5 py-4">
-          <div className="min-w-0">
-            <h2 className="v2-display text-xl">
-              {realCount === 1
-                ? 'Falta 1 ejercicio en tu catálogo'
-                : `Faltan ${realCount} ejercicios en tu catálogo`}
-            </h2>
-            <p className="mt-1 max-w-prose text-label leading-snug text-[color:var(--v2-muted)]">
-              Se crean como tuyos y solo los verás tú. Al confirmar la importación se aprende cómo
-              los escribe tu fuente, así que la próxima semana estos ya entrarán solos.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="v2-focus flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface-2)] hover:text-[color:var(--v2-fg)]"
-          >
-            <MIcon name="close" size={20} />
-          </button>
-        </header>
-
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
-          {groups.map(([title, rows]) => (
-            <section key={title} className="space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-label font-bold uppercase tracking-wide text-[color:var(--v2-accent-text)]">
-                  {title}
-                </h3>
-                <label className="flex items-center gap-1.5 text-label text-[color:var(--v2-muted)]">
-                  <span className="whitespace-nowrap">
-                    {groupApplied.get(title)
-                      ? `Todos: ${groupApplied.get(title)}`
-                      : 'Todos · modalidad'}
-                  </span>
-                  <select
-                    aria-label={`Modalidad para todos los ejercicios de ${title}`}
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        setGroupModality(title, rows.map((r) => r.key), e.target.value as Modality);
-                      }
-                    }}
-                    className="v2-focus rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface-2)] px-2 py-1 text-xs font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]"
-                  >
-                    <option value="">
-                      {groupApplied.get(title) ? 'cambiar…' : '(elige)'}
-                    </option>
-                    {MODALITY_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <ul className="space-y-2">
-                {rows.map((m) => {
-                  const d = decisions.get(m.key)!;
-                  const falta = blockers(d);
-                  const sugerencias = candidates.get(m.key) ?? [];
-                  return (
-                    <li
-                      key={m.key}
-                      className={cn(
-                        'rounded-[var(--v2-r-m)] border p-3',
-                        d.action === 'discard'
-                          ? 'border-dashed border-[color:var(--v2-border)] opacity-60'
-                          : falta.length > 0
-                            ? 'border-[color:var(--v2-warn)]/50 bg-[color:var(--v2-warn-soft)]'
-                            : 'border-[color:var(--v2-border)] bg-[color:var(--v2-surface-2)]',
-                      )}
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <input
-                          type="text"
-                          value={d.name}
-                          maxLength={120}
-                          disabled={d.action !== 'create'}
-                          aria-label={`Nombre del ejercicio, leído «${m.token}»`}
-                          onChange={(e) => patch(m.key, { name: e.target.value })}
-                          className="v2-focus min-w-0 flex-1 rounded-[var(--v2-r-s)] border border-[color:var(--v2-border-strong)] bg-[color:var(--v2-surface)] px-2.5 py-1.5 text-sm text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)] disabled:opacity-60"
-                        />
-                        <span className="text-nano text-[color:var(--v2-faint)]">
-                          {m.lineCount === 1 ? '1 línea' : `${m.lineCount} líneas`}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            patch(m.key, { action: d.action === 'discard' ? 'create' : 'discard' })
-                          }
-                          aria-label={
-                            d.action === 'discard'
-                              ? `Volver a incluir «${m.token}»`
-                              : `No crear «${m.token}»`
-                          }
-                          className="v2-focus flex h-7 w-7 items-center justify-center rounded-full text-[color:var(--v2-muted)] transition-colors hover:bg-[color:var(--v2-surface)] hover:text-[color:var(--v2-fg)]"
-                        >
-                          <MIcon name={d.action === 'discard' ? 'undo' : 'close'} size={16} />
-                        </button>
-                      </div>
-
-                      {m.notAnExercise && d.action === 'discard' ? (
-                        <p className="mt-1.5 text-nano text-[color:var(--v2-faint)]">
-                          {m.notAnExercise === 'titulo'
-                            ? 'Esto es el título de una tarjeta, no un ejercicio.'
-                            : 'Esto no parece el nombre de un ejercicio.'}
-                        </p>
-                      ) : null}
-
-                      {d.action !== 'discard' && sugerencias.length > 0 ? (
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          <span className="text-nano text-[color:var(--v2-muted)]">Ya tienes:</span>
-                          {sugerencias.map((c) => {
-                            const elegido = d.mergeId === c.id;
-                            return (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onClick={() =>
-                                  patch(
-                                    m.key,
-                                    elegido
-                                      ? { action: 'create', mergeId: null, mergeName: null }
-                                      : { action: 'merge', mergeId: c.id, mergeName: c.name },
-                                  )
-                                }
-                                className={cn(
-                                  'v2-focus inline-flex items-center gap-1 rounded-[var(--v2-r-pill)] border px-2 py-0.5 text-nano font-semibold transition-colors',
-                                  elegido
-                                    ? 'border-[color:var(--v2-ok)] bg-[color:var(--v2-ok)]/15 text-[color:var(--v2-ok)]'
-                                    : 'border-[color:var(--v2-border)] text-[color:var(--v2-muted)] hover:text-[color:var(--v2-fg)]',
-                                )}
-                              >
-                                {elegido ? <MIcon name="check" size={12} /> : null}
-                                {c.name}
-                                <span className="text-[color:var(--v2-faint)]">
-                                  · {MODALITY_OPTIONS.find((o) => o.value === c.modality)?.label}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-
-                      {d.action === 'create' ? (
-                        <div className="mt-2 flex flex-wrap items-center gap-3">
-                          <label className="flex items-center gap-1.5 text-nano text-[color:var(--v2-muted)]">
-                            <span className="font-semibold">Modalidad</span>
-                            <select
-                              value={d.modality ?? ''}
-                              aria-label={`Modalidad de ${d.name || m.token}`}
-                              onChange={(e) => {
-                                const modality = e.target.value as Modality;
-                                patch(m.key, {
-                                  modality,
-                                  category: defaultCategoryForModality(modality),
-                                });
-                              }}
-                              className={cn(
-                                'v2-focus rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface)] px-2 py-1 text-xs font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]',
-                                d.modality
-                                  ? 'border-[color:var(--v2-border-strong)]'
-                                  : 'border-dashed border-[color:var(--v2-warn)]',
-                              )}
-                            >
-                              <option value="">(elige)</option>
-                              {MODALITY_OPTIONS.map((o) => (
-                                <option key={o.value} value={o.value}>
-                                  {o.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="flex items-center gap-1.5 text-nano text-[color:var(--v2-muted)]">
-                            <span className="font-semibold">Tipo</span>
-                            <select
-                              value={d.category ?? ''}
-                              aria-label={`Tipo de ${d.name || m.token}`}
-                              onChange={(e) =>
-                                patch(m.key, { category: e.target.value as ExerciseCategory })
-                              }
-                              className={cn(
-                                'v2-focus rounded-[var(--v2-r-s)] border bg-[color:var(--v2-surface)] px-2 py-1 text-xs font-semibold text-[color:var(--v2-fg)] outline-none focus:border-[color:var(--v2-accent)]',
-                                d.category
-                                  ? 'border-[color:var(--v2-border-strong)]'
-                                  : 'border-dashed border-[color:var(--v2-warn)]',
-                              )}
-                            >
-                              <option value="">(elige)</option>
-                              {CATEGORY_OPTIONS.map((o) => (
-                                <option key={o.value} value={o.value}>
-                                  {o.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          {m.evidence !== 'ninguna' && d.modality ? (
-                            <span className="text-nano text-[color:var(--v2-warn)]">
-                              {m.evidence === 'linea'
-                                ? 'sugerida por la línea'
-                                : 'sugerida por la tarjeta'}
-                            </span>
-                          ) : null}
-                          {falta.length > 0 ? (
-                            <span className="text-nano text-[color:var(--v2-warn)]">
-                              Falta {falta.join(' y ')}.
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          ))}
-        </div>
-
-        <footer className="space-y-2 border-t border-[color:var(--v2-border)] px-5 py-3">
+    <Dialog
+      open
+      size="lg"
+      onOpenChange={(open) => {
+        if (!open && !saving) onClose();
+      }}
+      title={realCount === 1 ? 'Falta 1 ejercicio en tu catálogo' : `Faltan ${realCount} ejercicios en tu catálogo`}
+      description="Se crean como tuyos. Al confirmar, se aprende cómo los escribe tu fuente y la próxima vez entran solos."
+      footer={
+        <>
           {error ? (
-            <p className="flex items-start gap-1.5 text-xs text-[color:var(--v2-danger)]">
-              <MIcon name="error" size={14} className="mt-px shrink-0" />
+            <p role="alert" className="mr-auto t-body-sm text-v2-danger">
               {error}
             </p>
           ) : pending.length > 0 ? (
-            <p className="flex items-center gap-1.5 text-xs text-[color:var(--v2-warn)]">
-              <MIcon name="info" size={14} />
-              {pending.length === 1
-                ? 'A 1 ejercicio le falta decidir la modalidad o el tipo.'
-                : `A ${pending.length} ejercicios les falta decidir la modalidad o el tipo.`}
-            </p>
+            <StatusBadge
+              tone="warn"
+              className="mr-auto"
+              label={
+                pending.length === 1
+                  ? 'A 1 le falta la modalidad o el tipo'
+                  : `A ${pending.length} les falta la modalidad o el tipo`
+              }
+            />
           ) : null}
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="v2-focus rounded-[var(--v2-r-pill)] px-3.5 py-2 text-sm font-semibold text-[color:var(--v2-muted)] transition-colors hover:text-[color:var(--v2-fg)] disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={!canSubmit}
-              className="v2-focus inline-flex h-10 items-center gap-1.5 rounded-[var(--v2-r-pill)] bg-[color:var(--v2-accent)] px-4 text-sm font-bold text-[color:var(--v2-accent-fg)] transition-colors hover:bg-[color:var(--v2-accent-press)] disabled:opacity-50"
-            >
-              <MIcon
-                name={saving ? 'progress_activity' : 'library_add'}
-                size={17}
-                className={saving ? 'animate-spin' : undefined}
+          <Button onClick={onClose} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button variant="primary" icon={ListPlus} loading={saving} disabled={!canSubmit} onClick={submit}>
+            {submitLabel}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        {groups.map(([title, rows]) => (
+          <section key={title} className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="t-label text-v2-faint">{title}</h3>
+              <Menu
+                trigger={
+                  <Button size="sm" variant="ghost" iconEnd={ChevronDown} aria-label={`Modalidad para todos los ejercicios de ${title}`}>
+                    {groupApplied.get(title) ? `Todos: ${groupApplied.get(title)}` : 'Modalidad para todos'}
+                  </Button>
+                }
+                items={MODALITY_OPTIONS.map((o) => ({
+                  label: o.label,
+                  onSelect: () => setGroupModality(title, rows.map((r) => r.key), o.value),
+                }))}
               />
-              {saving
-                ? 'Aplicando…'
-                : (() => {
-                    const parts: string[] = [];
-                    if (toCreate.length > 0) parts.push(`Crear ${toCreate.length}`);
-                    if (toMerge.length > 0) parts.push(`unir ${toMerge.length}`);
-                    if (toDiscard.length > 0 && toCreate.length + toMerge.length === 0) {
-                      return toDiscard.length === 1
-                        ? 'Descartar 1 y seguir'
-                        : `Descartar ${toDiscard.length} y seguir`;
-                    }
-                    if (parts.length === 0) return 'Aplicar';
-                    return parts.join(' y ');
-                  })()}
-            </button>
-          </div>
-        </footer>
+            </div>
+
+            <ul className="divide-y divide-v2-border rounded-panel border border-v2-border">
+              {rows.map((m) => {
+                const d = decisions.get(m.key)!;
+                const falta = blockers(d);
+                const sugerencias = candidates.get(m.key) ?? [];
+                return (
+                  <li key={m.key} className={cn('p-3', d.action === 'discard' && 'opacity-60')}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Input
+                        type="text"
+                        value={d.name}
+                        maxLength={120}
+                        disabled={d.action !== 'create'}
+                        aria-label={`Nombre del ejercicio, leído «${m.token}»`}
+                        onChange={(e) => patch(m.key, { name: e.target.value })}
+                        className="min-w-0 flex-1 basis-48"
+                      />
+                      <span className="t-meta text-v2-faint t-tnum">
+                        {m.lineCount === 1 ? '1 línea' : `${m.lineCount} líneas`}
+                      </span>
+                      <IconButton
+                        icon={d.action === 'discard' ? Undo2 : X}
+                        size="sm"
+                        onClick={() => patch(m.key, { action: d.action === 'discard' ? 'create' : 'discard' })}
+                        label={d.action === 'discard' ? `Volver a incluir «${m.token}»` : `No crear «${m.token}»`}
+                      />
+                    </div>
+
+                    {m.notAnExercise && d.action === 'discard' ? (
+                      <p className="mt-1.5 t-meta text-v2-faint">
+                        {m.notAnExercise === 'titulo'
+                          ? 'Esto es el título de una tarjeta, no un ejercicio.'
+                          : 'Esto no parece el nombre de un ejercicio.'}
+                      </p>
+                    ) : null}
+
+                    {d.action !== 'discard' && sugerencias.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span className="t-meta text-v2-muted">Ya tienes:</span>
+                        {sugerencias.map((c) => {
+                          const elegido = d.mergeId === c.id;
+                          return (
+                            <Button
+                              key={c.id}
+                              size="sm"
+                              aria-pressed={elegido}
+                              icon={elegido ? Check : undefined}
+                              onClick={() =>
+                                patch(
+                                  m.key,
+                                  elegido
+                                    ? { action: 'create', mergeId: null, mergeName: null }
+                                    : { action: 'merge', mergeId: c.id, mergeName: c.name },
+                                )
+                              }
+                              className={cn(elegido && 'border-v2-fg bg-v2-fg text-v2-bg hover:border-v2-fg hover:bg-v2-fg')}
+                            >
+                              {c.name}
+                              <span className={elegido ? 'opacity-70' : 'text-v2-faint'}>
+                                · {MODALITY_OPTIONS.find((o) => o.value === c.modality)?.label}
+                              </span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+
+                    {d.action === 'create' ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-3">
+                        <label className="flex items-center gap-1.5 t-meta text-v2-muted">
+                          Modalidad
+                          <Select
+                            size="sm"
+                            placeholder="Elige"
+                            value={d.modality ?? null}
+                            aria-label={`Modalidad de ${d.name || m.token}`}
+                            onValueChange={(modality: Modality) =>
+                              patch(m.key, { modality, category: defaultCategoryForModality(modality) })
+                            }
+                            options={MODALITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                          />
+                        </label>
+                        <label className="flex items-center gap-1.5 t-meta text-v2-muted">
+                          Tipo
+                          <Select
+                            size="sm"
+                            placeholder="Elige"
+                            value={d.category ?? null}
+                            aria-label={`Tipo de ${d.name || m.token}`}
+                            onValueChange={(category: ExerciseCategory) => patch(m.key, { category })}
+                            options={CATEGORY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                          />
+                        </label>
+                        {m.evidence !== 'ninguna' && d.modality ? (
+                          <span className="t-meta text-v2-faint">
+                            {m.evidence === 'linea' ? 'Sugerida por la línea' : 'Sugerida por la tarjeta'}
+                          </span>
+                        ) : null}
+                        {falta.length > 0 ? (
+                          <StatusBadge size="sm" tone="warn" label={`Falta ${falta.join(' y ')}`} />
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
       </div>
-    </div>
+    </Dialog>
   );
 }

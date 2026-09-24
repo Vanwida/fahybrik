@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { toJsonValue } from '@/lib/json-column';
@@ -10,6 +11,7 @@ import {
 } from '@fahybrid/shared/domain/dates';
 import {
   evaluateAthleteWeek as _evaluateAthleteWeek,
+  evaluationWeekStartFor,
   type FiredTrigger,
   type WeekFeedSummary,
   type WeeklyEvaluationResult,
@@ -21,6 +23,10 @@ import {
   type WeekAdjustmentProposalJson,
 } from '@fahybrid/shared/schema/week-adjustment';
 import { recordLlmInvocation } from '@/lib/observability/llm-cost';
+import { loadBodySignals } from '@/lib/coach/week-adjust-signals';
+import { loadCoachTodayOfAthlete } from '@/lib/coach/coach-timezone';
+import { heuristicNoChangeReason, keepSummary, suggestFrom } from '@/lib/coach/week-adjust-copy';
+
 
 export type { WeeklyVerdict, WeeklyEvaluationResult };
 export { defaultEvaluationWeekStart } from '@fahybrid/shared/domain/coach/weekly-evaluation';
@@ -53,18 +59,20 @@ export class WeekAdjustmentError extends Error {
   }
 }
 
-export function evaluateAthleteWeek(params: {
+export async function evaluateAthleteWeek(params: {
   athlete_id: number | bigint;
   week_start?: string | undefined;
   client?: Sql | undefined;
 }): Promise<WeeklyEvaluationResult> {
-  // Omit week_start when undefined: the shared signature uses exactOptionalPropertyTypes
-  // and treats the optional key as absent rather than explicitly undefined.
-  return _evaluateAthleteWeek({
-    athlete_id: params.athlete_id,
-    client: params.client ?? defaultSql,
-    ...(params.week_start !== undefined ? { week_start: params.week_start } : {}),
-  });
+  // Las señales vivas del cuerpo (las de Hoy) entran en el veredicto: el motor
+  // responde a lo que llevó al coach a pedir la descarga.
+  const client = params.client ?? defaultSql;
+  // Sin semana («Evaluar semana», «Proponer descarga»), la anterior a la de hoy
+  // en el calendario del CLUB: la decide el coach (DECISIONS 2026-09-23).
+  const week_start =
+    params.week_start ?? evaluationWeekStartFor(await loadCoachTodayOfAthlete(params.athlete_id, { client }));
+  const body_signals = await loadBodySignals({ athlete_id: params.athlete_id, client });
+  return _evaluateAthleteWeek({ athlete_id: params.athlete_id, week_start, client, body_signals });
 }
 
 /**
@@ -100,9 +108,9 @@ export async function proposeWeekAdjustment(params: {
   if (evaluation.verdict === 'ok') {
     proposal = weekAdjustmentProposalJsonSchema.parse({
       recommendation: 'keep',
-      rationale: 'Semana evaluada OK — mantener plan N+1 sin cambios',
+      rationale: 'Semana evaluada sin motivo de ajuste: se mantiene la semana que viene.',
       slot_changes: [],
-      coach_summary: evaluation.context_pack.summary,
+      coach_summary: keepSummary(evaluation.context_pack.summary),
     });
   } else if (isCoachIaLlmConfigured()) {
     try {
@@ -190,6 +198,7 @@ async function buildHeuristicProposal(params: {
   client: Sql;
 }): Promise<WeekAdjustmentProposalJson> {
   const weekEnd = isoDateString(addDays(parseIsoDate(params.week_start), 6));
+  const athleteToday = await loadAthleteLocalDay({ athlete_id: params.athlete_id, client: params.client });
 
   const assignments = await params.client<
     Array<{ iso_date: string; template_id: string; notes: string | null }>
@@ -200,16 +209,21 @@ async function buildHeuristicProposal(params: {
       wa.notes
     from workout_assignments wa
     where wa.athlete_id = ${params.athlete_id as number}
-      and wa.scheduled_for >= ${params.week_start}::date
+      and wa.scheduled_for >= ${suggestFrom(params.week_start, weekEnd, athleteToday)}::date
       and wa.scheduled_for <= ${weekEnd}::date
       and wa.status = 'scheduled'
     order by wa.scheduled_for asc
   `;
 
+  // El entreno de recuperación sale de la biblioteca de ESTE coach (nunca de la
+  // de otro club ni de la instancia de un atleta), como en el motor del cron.
   const recoveryTpl = await params.client<Array<{ id: string }>>`
-    select id::text from templates
-    where format::text = 'recovery' or name ilike '%recovery%' or name ilike '%recuper%'
-    order by id asc limit 1
+    select t.id::text from templates t
+    join athletes a on a.id = ${params.athlete_id as number} and a.coach_id = t.coach_id
+    where t.instance_athlete_id is null
+      and t.archived_at is null
+      and (t.format::text = 'recovery' or t.name ilike '%recovery%' or t.name ilike '%recuper%')
+    order by t.id asc limit 1
   `;
   const recoveryId = recoveryTpl[0]?.id ?? null;
 
@@ -230,8 +244,8 @@ async function buildHeuristicProposal(params: {
     rationale: `Coach IA: ${params.context_pack.summary}. Sugerencia conservadora v1.`,
     slot_changes: slotChanges,
     coach_summary: slotChanges.length
-      ? 'Va mal — suavizar primera sesión dura de la semana.'
-      : 'Va mal — revisar manualmente.',
+      ? 'Suavizar su próximo entreno (se cambia por uno de recuperación).'
+      : heuristicNoChangeReason(assignments.length, recoveryId),
   });
 }
 
@@ -243,9 +257,9 @@ async function buildHeuristicProposal(params: {
 
 function isCoachIaLlmConfigured(): boolean {
   const model =
-    (process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL)?.trim() ?? process.env.LLM_CHAT_MODEL?.trim();
+    process.env.COACH_IA_MODEL?.trim() ?? process.env.LLM_CHAT_MODEL?.trim();
   const key =
-    (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY)?.trim() ??
+    process.env.COACH_IA_API_KEY?.trim() ??
     process.env.LLM_API_KEY?.trim() ??
     process.env.OPENROUTER_API_KEY?.trim();
   return Boolean(model && key);
@@ -374,12 +388,12 @@ function buildUserPrompt(args: LlmCallArgs): string {
 }
 
 async function callCoachIaLlm(args: LlmCallArgs): Promise<unknown> {
-  const provider = ((process.env.COACH_IA_PROVIDER ?? process.env.PABLO_IA_PROVIDER) ?? process.env.LLM_PROVIDER ?? 'openrouter')
+  const provider = (process.env.COACH_IA_PROVIDER ?? process.env.LLM_PROVIDER ?? 'openrouter')
     .trim()
     .toLowerCase();
-  const model = ((process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL) ?? process.env.LLM_CHAT_MODEL)!.trim();
+  const model = (process.env.COACH_IA_MODEL ?? process.env.LLM_CHAT_MODEL)!.trim();
   const apiKey = (
-    (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY) ??
+    process.env.COACH_IA_API_KEY ??
     process.env.LLM_API_KEY ??
     process.env.OPENROUTER_API_KEY
   )!.trim();

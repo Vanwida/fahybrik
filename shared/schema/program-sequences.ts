@@ -21,11 +21,14 @@ export type SequenceEndPolicy = z.infer<typeof sequenceEndPolicy>;
 export const sequenceProgressionTarget = z.enum(['strength_load', 'volume', 'pace']);
 export type SequenceProgressionTarget = z.infer<typeof sequenceProgressionTarget>;
 
-// HYROX/hybrid realistic training cadence. SINGLE SOURCE for the band: the Zod
-// schema, the assign-sequence resolver, the training-days endpoint and the
-// athlete-detail selector all derive from these two constants.
-export const SEQUENCE_DAYS_MIN = 3;
-export const SEQUENCE_DAYS_MAX = 6;
+// Días por semana de un grupo o atleta: 1–7, lo que tiene una semana (DECISIONS
+// 2026-09-23 «Grupos, asignar a varios y publicar por semana»: fuera la banda de
+// 3–6, que era la cadencia de una escuela; la base ya lo dice con
+// `program_sequences_days_chk`). SINGLE SOURCE for the band: the Zod schema, the
+// assign-sequence resolver, the training-days endpoint and the athlete-detail
+// selector all derive from these two constants.
+export const SEQUENCE_DAYS_MIN = 1;
+export const SEQUENCE_DAYS_MAX = 7;
 export const sequenceDaysPerWeek = z
   .number()
   .int()

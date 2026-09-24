@@ -1,6 +1,6 @@
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { commitIntake, IntakeError, loadIntakeProfile } from '@/lib/coach/intake';
+import { commitIntake, IntakeError, loadIntakeProfile, undoIntake } from '@/lib/coach/intake';
 import { proposeFirstMonthForIntake } from '@/lib/coach/intake-month-proposal';
 import { computeAndStoreLevelSuggestion } from '@/lib/coach/level-proposal';
 import { sql } from '@/lib/db';
@@ -108,4 +108,28 @@ export async function POST(req: Request, ctx: Ctx) {
   });
 
   return jsonOk(result);
+}
+
+/** Deshacer el alta recién firmada: repone su plan anterior, retira la bienvenida
+ *  y la deja pendiente otra vez (lib/coach/intake-commit · undoIntake). */
+export async function DELETE(_req: Request, ctx: Ctx) {
+  const session = await getCoachSession();
+  if (!session) {
+    return jsonError('unauthorized', 'Coach session required', 401);
+  }
+  const { athlete_id } = await ctx.params;
+  const id = parseAthleteId(athlete_id);
+  if (id == null) {
+    return jsonError('invalid_id', 'athlete_id must be a positive integer', 400);
+  }
+  try {
+    return jsonOk(
+      await undoIntake({ athlete_id: id, coach_id: session.coach_id, coach_user_id: session.user_id }),
+    );
+  } catch (err) {
+    if (err instanceof IntakeError) {
+      return jsonError(err.code, err.message, err.status);
+    }
+    throw err;
+  }
 }

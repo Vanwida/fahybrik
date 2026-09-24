@@ -12,16 +12,17 @@ import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 describeWithDb('auto-accept booking (real DB)', () => {
   const sql = getTestSql();
   const leadIds: number[] = [];
-  const availIds: number[] = [];
   const emails: string[] = [];
+  let coachUserId = 0;
+  let coachId = BigInt(0);
 
   async function seedLead(): Promise<{ id: number; token: string }> {
     const email = `qa-book-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`;
     emails.push(email);
     const token = `bk-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
     const r = await sql<{ id: string }[]>`
-      insert into leads (email, nombre, token, status, source)
-      values (${email}, 'QA Book', ${token}, 'nuevo', 'onboarding_web')
+      insert into leads (email, nombre, token, status, source, coach_id)
+      values (${email}, 'QA Book', ${token}, 'nuevo', 'onboarding_web', ${Number(coachId)})
       returning id::text as id`;
     const id = Number(r[0]!.id);
     leadIds.push(id);
@@ -30,13 +31,20 @@ describeWithDb('auto-accept booking (real DB)', () => {
 
   beforeAll(async () => {
     await sql`select 1 as ok`;
-    // Broad availability every weekday 08:00–20:00 so slots are offered in the next 14 days.
-    // weekday 0=Sun … 6=Sat (coach_availability check constraint).
+    // The leads' owner, with broad availability every weekday 08:00–20:00 on ITS agenda
+    // (0220: per coach) so slots are offered in the next 14 days. 0=Sun … 6=Sat.
+    const u = await sql<{ id: string }[]>`
+      insert into users (email, role) values (${`qa-book-coach-${Date.now()}@test.local`}, 'coach')
+      returning id::text as id`;
+    coachUserId = Number(u[0]!.id);
+    const c = await sql<{ id: string }[]>`
+      insert into coaches (user_id, full_name) values (${coachUserId}, 'QA Book Coach')
+      returning id::text as id`;
+    coachId = BigInt(c[0]!.id);
     for (let wd = 0; wd <= 6; wd++) {
-      const r = await sql<{ id: string }[]>`
-        insert into coach_availability (weekday, start_time, end_time, activo)
-        values (${wd}, '08:00', '20:00', true) returning id::text as id`;
-      availIds.push(Number(r[0]!.id));
+      await sql`
+        insert into coach_availability (coach_id, weekday, start_time, end_time, activo)
+        values (${Number(coachId)}, ${wd}, '08:00', '20:00', true)`;
     }
   });
 
@@ -50,13 +58,14 @@ describeWithDb('auto-accept booking (real DB)', () => {
   });
 
   afterAll(async () => {
-    if (availIds.length) await sql`delete from coach_availability where id in ${sql(availIds)}`;
+    // Deleting the coach's user cascades the coach row and its agenda.
+    if (coachUserId) await sql`delete from users where id = ${coachUserId}`;
     await closeTestSql();
   });
 
   async function firstOfferedSlotIso(now: Date): Promise<string> {
     // computeSlots already excludes busy/blocked, so every slot in DaySlots.slots is offered.
-    const days = await computeSlots('video', now);
+    const days = await computeSlots(coachId, 'video', now);
     for (const d of days) {
       if (d.slots.length > 0) return d.slots[0]!.start;
     }
@@ -70,6 +79,7 @@ describeWithDb('auto-accept booking (real DB)', () => {
 
     const res = await bookAppointment({ token: lead.token, startIso, modality: 'video', now });
     expect(res.appointment.status).toBe('aceptada');
+    expect(res.coach_id).toBe(coachId); // booked on the lead owner's calendar
 
     const appt = await sql<{ status: string }[]>`select status::text as status from appointments where id = ${Number(res.appointment.id)}`;
     expect(appt[0]!.status).toBe('aceptada');
