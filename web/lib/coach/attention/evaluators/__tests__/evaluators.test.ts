@@ -489,6 +489,35 @@ describe('workout_libre', () => {
   });
 });
 
+describe('workout_off_plan', () => {
+  it('fires as Vigilar when a workout was kept off-plan within the window', () => {
+    const r = fired(
+      'workout_off_plan',
+      baseFacts({
+        latest_off_plan_at: NOW,
+        latest_off_plan_detail: 'Hecho sobre un entreno que ya no estaba en su plan · 48 min',
+      }),
+    );
+    expect(r.severity).toBe('warning');
+    expect(r.value).toBe(0);
+    expect(r.baseline).toBe(SIGNAL_THRESHOLDS.workout_off_plan_recent_days);
+    expect(r.label).toBe('Hecho fuera del plan');
+    expect(r.detail).toBe('Hecho sobre un entreno que ya no estaba en su plan · 48 min');
+    expect(r.dedupe_key).toBe(`workout_off_plan:${ATHLETE_ID}:${NOW.toISOString().slice(0, 10)}`);
+  });
+
+  it('falls back to the plain sentence when no detail was built', () => {
+    const r = fired('workout_off_plan', baseFacts({ latest_off_plan_at: NOW }));
+    expect(r.detail).toBe('Hecho sobre un entreno que ya no estaba en su plan');
+  });
+
+  it('does NOT fire past the window or without one', () => {
+    const old = new Date(NOW.getTime() - 10 * 86_400_000);
+    notFired('workout_off_plan', baseFacts({ latest_off_plan_at: old }));
+    notFired('workout_off_plan', baseFacts({ latest_off_plan_at: null }));
+  });
+});
+
 describe('billing_at_risk', () => {
   it("fires critical on 'past_due'", () => {
     const r = fired('billing_at_risk', baseFacts({ billing_risk: 'past_due' }));

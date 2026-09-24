@@ -106,6 +106,42 @@ export const workoutLibreEvaluator: SignalEvaluator = {
   },
 };
 
+/**
+ * A workout the athlete finished on a session that was no longer in their plan
+ * (0270). Their work was kept as an off-plan execution instead of lost; the coach
+ * has to SEE it — their change reached the athlete too late, and the athlete may
+ * be about to do the replacement on top. So, unlike the informative ones above,
+ * it is «Vigilar» (it enters Hoy) with «Abrir ficha»; «Hecho» closes it.
+ */
+export const workoutOffPlanEvaluator: SignalEvaluator = {
+  kind: 'workout_off_plan',
+  default_severity: 'warning',
+  enabled: true,
+  evaluate(facts, thresholds, now): SignalResult | null {
+    if (facts.latest_off_plan_at == null) return null;
+    const window = thresholds.workout_off_plan_recent_days;
+    const days = wholeDaysSince(facts.latest_off_plan_at, now);
+    if (days < 0 || window == null || days > window) return null;
+    return {
+      kind: 'workout_off_plan',
+      fires: true,
+      severity: 'warning',
+      value: days,
+      baseline: window,
+      trend: null,
+      label: 'Hecho fuera del plan',
+      detail: facts.latest_off_plan_detail ?? 'Hecho sobre un entreno que ya no estaba en su plan',
+      // The day is part of the identity: a new off-plan session is a new item that
+      // a card closed for an earlier one never masks.
+      dedupe_key: dedupeKey(
+        'workout_off_plan',
+        facts.athlete_id,
+        facts.latest_off_plan_at.toISOString().slice(0, 10),
+      ),
+    };
+  },
+};
+
 export const testDueEvaluator: SignalEvaluator = {
   kind: 'test_due',
   default_severity: 'info',

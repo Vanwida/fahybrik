@@ -70,6 +70,12 @@ export const SIGNAL_KINDS = [
   // themselves. It COMPLEMENTS the coach's plan (never alters compliance) and
   // surfaces here so the coach sees the extra work and can react.
   'workout_libre',
+  // A workout the athlete FINISHED on a session that was no longer in their plan
+  // (the coach removed or replaced it while they trained, or the id wasn't
+  // theirs). Kept as their own off-plan execution instead of lost (0270, audit
+  // E1/D-04); surfaced so the coach sees «hecho sobre un entreno que ya no
+  // estaba en su plan» and knows their change reached the athlete too late.
+  'workout_off_plan',
   // Coach-queue decision items (fed by existing loaders, persisted here so the
   // HOY queue is ONE indexed read instead of N+1 across surfaces)
   'intake_pending',
@@ -250,6 +256,12 @@ export interface SignalFacts {
   latest_libre_at: Date | null;
   latest_libre_title: string | null;
   latest_libre_detail: string | null;
+
+  // Entreno fuera del plan (0270): the most recent execution kept off-plan
+  // (`workout_executions.off_plan_reason`), when it happened, and the prebuilt
+  // detail line. Drives workout_off_plan.
+  latest_off_plan_at: Date | null;
+  latest_off_plan_detail: string | null;
 
   // Revisiones 1:1 recurrentes (#21). Drives review_1on1_due.
   /** Cadencia de revisión que el coach fijó para el atleta ('ninguna' → no dispara). */

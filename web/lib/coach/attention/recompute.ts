@@ -218,6 +218,9 @@ async function assembleFacts(
       ? `${row.latest_libre_title} · no prescrito · suma al plan`
       : null,
 
+    latest_off_plan_at: row.latest_off_plan_at,
+    latest_off_plan_detail: offPlanDetail(row.latest_off_plan_reason, row.latest_off_plan_duration_s),
+
     // Revisiones 1:1 (#21). days_since = desde la última 1:1 o, si nunca hubo, desde el
     // alta del atleta (así una cadencia recién puesta no vence al instante).
     review_cadence: row.review_cadence as SignalFacts['review_cadence'],
@@ -228,6 +231,21 @@ async function assembleFacts(
 
     ...communicationClaims(row, now),
   };
+}
+
+/**
+ * La línea de un entreno guardado fuera del plan (0270): por qué no casa y cuánto
+ * duró. «Ya no estaba» solo cuando la sesión existió y se quitó; si el id no era
+ * suyo o no se leía, nunca estuvo.
+ */
+export function offPlanDetail(reason: string | null, durationS: number | null): string | null {
+  if (reason == null) return null;
+  const base =
+    reason === 'assignment_gone'
+      ? 'Hecho sobre un entreno que ya no estaba en su plan'
+      : 'Hecho sobre un entreno que no estaba en su plan';
+  const minutes = durationS != null && durationS > 0 ? Math.round(durationS / 60) : null;
+  return minutes != null && minutes > 0 ? `${base} · ${minutes} min` : base;
 }
 
 /**

@@ -40,6 +40,7 @@ import {
   testLoggedEvaluator,
   raceCompletedEvaluator,
   workoutLibreEvaluator,
+  workoutOffPlanEvaluator,
   testDueEvaluator,
 } from './progression';
 import { reviewDueEvaluator } from './reviews';
@@ -70,6 +71,7 @@ const BACKED_EVALUATORS: SignalEvaluator[] = [
   testLoggedEvaluator,
   raceCompletedEvaluator,
   workoutLibreEvaluator,
+  workoutOffPlanEvaluator,
   testDueEvaluator,
   reviewDueEvaluator,
   communicationQuestionUnansweredEvaluator,

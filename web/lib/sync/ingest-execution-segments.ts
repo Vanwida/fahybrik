@@ -206,8 +206,19 @@ export async function ingestExecutionSegments(args: {
    * caller has no session format.
    */
   sessionFormat?: string | null;
+  /**
+   * The athlete who owns this execution. When given, a tramo's
+   * `template_segment_id` (it comes from the client) only links to a template
+   * this athlete could have been given: their coach's, or their own instance.
+   * Anything else — another athlete's instance, another coach's library — is
+   * treated like an id that no longer exists (no link, no prescription copied).
+   * DECISIONS 2026-09-23 «Aislamiento entre coaches»: an id from a body never
+   * crosses without the owner in the `where`.
+   */
+  templateOwnerAthleteId?: number;
 }): Promise<number> {
   const { sql, executionId, executionStartedAt, sessionFormat } = args;
+  const ownerAthleteId = args.templateOwnerAthleteId ?? null;
   const segments = args.segments.slice(0, SEGMENTS_PER_EXECUTION_MAX);
   if (segments.length === 0) return 0;
 
@@ -235,13 +246,26 @@ export async function ingestExecutionSegments(args: {
       }>
     >`
       select
-        id::text,
-        block_format,
-        prescription_json->>'scheme' as scheme,
-        exercise_id::text as exercise_id,
-        prescription_json
-      from template_segments
-      where id in ${sql(templateSegmentIds)}
+        ts.id::text,
+        ts.block_format,
+        ts.prescription_json->>'scheme' as scheme,
+        ts.exercise_id::text as exercise_id,
+        ts.prescription_json
+      from template_segments ts
+      where ts.id in ${sql(templateSegmentIds)}
+        and (
+          ${ownerAthleteId}::bigint is null
+          or exists (
+            select 1
+            from templates t
+            join athletes a on a.id = ${ownerAthleteId}::bigint
+            where t.id = ts.template_id
+              and (
+                t.instance_athlete_id = a.id
+                or (t.instance_athlete_id is null and t.coach_id = a.coach_id)
+              )
+          )
+        )
     `;
     for (const r of rows) {
       contextById.set(Number(r.id), {

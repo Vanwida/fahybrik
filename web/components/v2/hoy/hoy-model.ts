@@ -326,6 +326,7 @@ export const SIGNAL_KIND_LABEL: Record<SignalKind, string> = {
   test_logged: 'Test registrado',
   race_completed: 'Carrera hecha',
   workout_libre: 'Entreno libre',
+  workout_off_plan: 'Fuera del plan',
   intake_pending: 'Alta pendiente',
   week_adjustment_pending: 'Ajuste de semana',
   monthly_block_pending: 'Propuesta de programa',

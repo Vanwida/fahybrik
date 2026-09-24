@@ -100,6 +100,10 @@ export const SIGNAL_THRESHOLDS = {
   test_due_days: testDueDays(null),
   /** An athlete-originated "entreno libre" within this many days → workout_libre. */
   workout_libre_recent_days: 3,
+  /** A workout kept off-plan (0270: its session was gone or not theirs) within
+   *  this many days → workout_off_plan. A week: the coach learns their change
+   *  reached the athlete too late even if they don't open Hoy every day. */
+  workout_off_plan_recent_days: 7,
 
   // ── Revisiones 1:1 recurrentes (#21) ──────────────────────────────────────
   /** Cadencia mensual: revisión vencida si pasan más de estos días sin 1:1 → review_1on1_due. */
@@ -148,6 +152,7 @@ export const signalThresholdsSchema = z
     race_completed_recent_days: z.number().int().positive(),
     test_due_days: z.number().int().positive(),
     workout_libre_recent_days: z.number().int().positive(),
+    workout_off_plan_recent_days: z.number().int().positive(),
     review_due_mensual_days: z.number().int().positive(),
     review_due_trimestral_days: z.number().int().positive(),
     ...coachEditableShape,

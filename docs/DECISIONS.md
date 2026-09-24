@@ -10,6 +10,25 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · Un entreno hecho no se pierde: lo que no casa con su plan se guarda «fuera del plan» (0270)
+
+**El hueco (auditoría de la app del atleta, E1 / D-04):** el coach «Quita» o «Sustituye» una sesión pendiente (borrado duro) mientras el atleta la entrena, o el reloj ofrece la tarjeta de ayer. Al guardar, `POST /api/sync/workout-execution` contestaba 404; un campo con el tipo equivocado o un tramo sin posición, 400. La app trata todo 4xx como veneno: REINTENTAR para siempre en el móvil, «Sesión completada» en el reloj con nada en el servidor, la cola offline lo tira. El trabajo del atleta, perdido, y el coach sin enterarse.
+
+**Decidido:**
+- **El servidor no contesta 4xx a un entreno hecho.** Si el id nombra una sesión SUYA, se guarda sobre ella como siempre (movida de día incluida). Si no — ya no existe, es de otro atleta, o no se lee — se guarda como una ejecución SUYA sin asignación, la misma forma que un entreno importado de Apple Salud (2026-08-13), marcada `workout_executions.off_plan_reason` (`assignment_gone` · `not_own_assignment` · `no_assignment`) y, solo si ya no existe, `claimed_assignment_id` (sin FK). Vale para la ruta solo (móvil, reloj vía móvil, captura por foto) y para el log de Dobles. Un solo sitio: `web/lib/sync/record-athlete-workout.ts`.
+- **La seguridad no cambia:** nunca se escribe sobre la sesión de otro atleta; ese envío queda del que lo manda, sin su id y sin enlazar la plantilla del otro. Además, los `template_segment_id` que manda el cliente solo enlazan con plantillas del coach del atleta o instancias suyas (`ingestExecutionSegments` · `templateOwnerAthleteId`), también en el camino prescrito: un id de un cuerpo no cruza sin el dueño en el `where`.
+- **Idempotente:** la llave de un «fuera del plan» es la hora de inicio que sella el motor (índice único parcial `(athlete_id, started_at) where off_plan_reason is not null`, el ON CONFLICT repite el predicado). Si el mismo entreno del reloj ya entró como importación plana de Salud (mismo `source_workout_ref`), el registro estructurado la sustituye (la regla del materializador FIT).
+- **Evidencia, no identidad:** un campo con el tipo equivocado cuesta ese campo (`lib/sync/lenient.ts`); un tramo sin identidad (posición ≥ 0, modalidad) o una serie sin índice se caen ELLOS solos y la ruta lo avisa en el servidor (`captureRouteError`). La identidad de un tramo sigue estricta; lo que cambia es que ya no se lleva la sesión por delante (revisa «Una sesión guardada es un solo hecho», 2026-09-07).
+- **Dobles:** una sesión marcada privada (`self_only`) o una pareja que el coach deshizo mientras entrenaban ya no son 409/404: se guarda el trabajo propio, sin enlazar (`joint: false`). Nunca se cambia `partner_visibility`.
+- **El coach lo ve:** señal `workout_off_plan` en Hoy, «Hecho fuera del plan — Hecho sobre un entreno que ya no estaba en su plan · 48 min», Vigilar (no informativa: tiene que verla), «Abrir ficha», ventana de 7 días (`workout_off_plan_recent_days`).
+- **Sigue siendo error:** 401 (sin sesión), 400 (el cuerpo no es un objeto JSON) y 404 solo para un «Marcar como hecha» SIN trabajo sobre una sesión que ya no está (no hay nada que perder; el 404 hace que la app recargue).
+
+**Queda (app o producto):** el historial del atleta es por asignación, así que un «fuera del plan» no sale en su calendario (sí en carga, zonas y Correr); un «Deshacer» del coach que repone la sesión con el mismo id no le devuelve la ejecución (se puede casar por `claimed_assignment_id`); la cola del móvil reenvía con la sesión de quien esté dentro (E4 d): un entreno del atleta A reenviado con la sesión de B queda como «fuera del plan» de B — lo arregla la app (cola por atleta), no el servidor; y el borrado duro de «Quitar/Sustituir» sigue (lápida + «puede estar entrenándolo ahora» es la raíz del lado del coach).
+
+**NO hacer:** no volver a contestar 4xx a un entreno con trabajo porque su sesión no está; no escribir nunca sobre la asignación de otro atleta; no seguir un `template_segment_id` del cliente sin el dueño en el `where`; no convertir un campo de evidencia en motivo de rechazo.
+
+---
+
 ## 2026-09-24 · Los push a iOS van por HTTP/2 (node:http2), no por `fetch`; y se envían con `after()`
 
 **El hueco:** `web/lib/push/apns.ts` mandaba cada push a APNS con el `fetch` global de Node. APNS solo acepta HTTP/2, y el `fetch` de Node 22 (undici 6) solo ofrece `http/1.1` en el ALPN salvo que un agente active h2: contra un servidor solo-h2 la conexión muere en el TLS (`ERR_SSL_TLSV1_ALERT_NO_APPLICATION_PROTOCOL`, reproducido en local con el mismo Node que usa producción). El error caía en un `catch` que nadie leía, así que ningún aviso al iPhone (chat, plan publicado, comunicados…) llegaba. Además `dispatch.ts` lanzaba el envío sin esperarlo: en Vercel la función se puede congelar al salir la respuesta y cortar el envío a medias. Lo encontró la auditoría de la app del atleta (revisor D).

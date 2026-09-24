@@ -52,6 +52,11 @@ export interface BatchRow {
   // executed session. The detail line is built in JS (assembleFacts), not SQL.
   latest_libre_at: Date | null;
   latest_libre_title: string | null;
+  // Fuera del plan (0270) — the most recent execution kept off-plan: when, why
+  // (`off_plan_reason`) and how long. The detail line is built in JS too.
+  latest_off_plan_at: Date | null;
+  latest_off_plan_reason: string | null;
+  latest_off_plan_duration_s: number | null;
   // Revisiones 1:1 recurrentes (#21) — cadencia + última 1:1 + revisión próxima.
   review_cadence: string;
   last_1on1_at: Date | null;
@@ -244,6 +249,18 @@ export async function loadBatch(
       join templates t on t.id = wa.template_id
       order by we.athlete_id, we.ended_at desc nulls last
     ),
+    recent_off_plan as (
+      -- The most recent workout kept OFF-PLAN (0270): the athlete finished a
+      -- session that was no longer in their plan. Drives workout_off_plan.
+      select distinct on (we.athlete_id)
+        we.athlete_id,
+        coalesce(we.ended_at, we.started_at, we.created_at) as ts,
+        we.off_plan_reason as reason,
+        we.total_duration_seconds as duration_s
+      from workout_executions we
+      where we.off_plan_reason is not null
+      order by we.athlete_id, coalesce(we.ended_at, we.started_at, we.created_at) desc
+    ),
     last_1on1 as (
       -- La última 1:1 con el atleta = el parte de sesión más reciente con sujeto atleta
       -- (#14). Cualquier 1:1 (seguimiento o no) reinicia el reloj de la cadencia (#21).
@@ -403,6 +420,9 @@ export async function loadBatch(
       rr.id                               as latest_race_id,
       rl.ts                               as latest_libre_at,
       rl.title                            as latest_libre_title,
+      rop.ts                              as latest_off_plan_at,
+      rop.reason                          as latest_off_plan_reason,
+      rop.duration_s                      as latest_off_plan_duration_s,
       a.review_cadence                    as review_cadence,
       a.created_at                        as athlete_since,
       l1.ts                               as last_1on1_at,
@@ -436,6 +456,7 @@ export async function loadBatch(
     left join last_any_test lat on lat.athlete_id = a.id
     left join recent_race  rr on rr.athlete_id = a.id
     left join recent_libre rl on rl.athlete_id = a.id
+    left join recent_off_plan rop on rop.athlete_id = a.id
     left join last_1on1    l1 on l1.athlete_id = a.id
     left join upcoming_review ur on ur.athlete_id = a.id
     left join comm_question cq on cq.athlete_id = a.id

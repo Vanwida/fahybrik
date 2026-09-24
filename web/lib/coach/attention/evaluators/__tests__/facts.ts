@@ -97,6 +97,8 @@ export function baseFacts(overrides: Partial<SignalFacts> = {}): SignalFacts {
     latest_libre_at: null,
     latest_libre_title: null,
     latest_libre_detail: null,
+    latest_off_plan_at: null,
+    latest_off_plan_detail: null,
 
     // Revisiones 1:1 (#21): sin cadencia → review_1on1_due no dispara por defecto.
     review_cadence: 'ninguna',
