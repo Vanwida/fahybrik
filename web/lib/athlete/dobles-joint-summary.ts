@@ -9,7 +9,10 @@ import 'server-only';
 // BOTH reciprocal links and reports each side's real numbers.
 //
 // HONEST-NULL — never fabricate the other side. `partner` is null until the
-// partner has actually logged their own execution for the same Madrid day.
+// partner has actually logged their own execution for the same day. The day is
+// the pair's CLUB day (`doubles_pairs.coach_id` → `coaches.timezone`, resolved
+// once by `loadDoublesPairTimezone`; DECISIONS 2026-09-23, «Qué día es en cada
+// sitio»), the same calendar the streak counts in.
 //
 // INJECTABLE CLIENT — the whole DB chain (partner resolution, both selects, the PR
 // detector, the streak counts) runs on the ONE `client` passed in, so a test can
@@ -21,7 +24,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { loadDoublesTrainingPartner } from '@/lib/athlete/doubles-training-partner';
 import { detectExecutionRunningPRs } from '@/lib/sync/running-prs';
-import { computeDoublesStreak } from '@/lib/athlete/dobles-streak';
+import { computeDoublesStreak, loadDoublesPairTimezone } from '@/lib/athlete/dobles-streak';
 
 /** One athlete's side of the summary. All fields honest-null when unrecorded. */
 export interface JointSummarySide {
@@ -84,10 +87,12 @@ export async function buildJointSummary(
   const partner = await loadDoublesTrainingPartner(args.selfAthleteId, client);
   if (!partner) return { ok: false, reason: 'no_partner' };
   const partnerAthleteId = Number(partner.partner_athlete_id);
+  // The pair's club day, resolved once: this SQL and the streak counts share it.
+  const tz = await loadDoublesPairTimezone(args.selfAthleteId, client);
 
   // My own execution for this assignment. Must exist AND link the CURRENT partner,
   // else it isn't a joint session with this pair → not_joint. local_day anchors the
-  // partner-side lookup to the same Madrid calendar day.
+  // partner-side lookup to the same club calendar day.
   const selfRows = await client<
     Array<ExecStatsRow & { partner_athlete_id: string | null; local_day: string }>
   >`
@@ -96,7 +101,7 @@ export async function buildJointSummary(
       we.total_duration_seconds as total_time_s,
       we.perceived_exertion as rpe,
       we.partner_athlete_id::text as partner_athlete_id,
-      to_char((coalesce(we.started_at, we.created_at) at time zone 'Europe/Madrid'), 'YYYY-MM-DD') as local_day,
+      to_char((coalesce(we.started_at, we.created_at) at time zone ${tz}), 'YYYY-MM-DD') as local_day,
       (
         select sum(coalesce(se.weight_used_kg, 0) * coalesce(se.reps_completed, 0))
         from segment_executions se
@@ -111,7 +116,7 @@ export async function buildJointSummary(
     return { ok: false, reason: 'not_joint' };
   }
 
-  // The partner's OWN execution linking back to me on the SAME Madrid day. The
+  // The partner's OWN execution linking back to me on the SAME club day. The
   // most recent that day when they logged more than once. Absent → honest null.
   const partnerRows = await client<Array<ExecStatsRow>>`
     select
@@ -126,7 +131,7 @@ export async function buildJointSummary(
     from workout_executions we
     where we.athlete_id = ${partnerAthleteId}
       and we.partner_athlete_id = ${selfAthleteId}
-      and to_char((coalesce(we.started_at, we.created_at) at time zone 'Europe/Madrid'), 'YYYY-MM-DD') = ${self.local_day}
+      and to_char((coalesce(we.started_at, we.created_at) at time zone ${tz}), 'YYYY-MM-DD') = ${self.local_day}
     order by coalesce(we.started_at, we.created_at) desc
     limit 1
   `;
@@ -148,7 +153,7 @@ export async function buildJointSummary(
       })
     : [];
 
-  const counts = await computeDoublesStreak({ athleteId: args.selfAthleteId }, client);
+  const counts = await computeDoublesStreak({ athleteId: args.selfAthleteId, tz }, client);
 
   return {
     ok: true,
