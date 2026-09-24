@@ -24,7 +24,8 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { CTL_WARMUP_DAYS, getDailyTssSeries } from '@/lib/training-load';
 import { resolveEffectiveAnalyticsMethod } from '@/lib/coach/analytics-method';
 import { resolveEffectiveRunningThresholds } from '@/lib/coach/running-thresholds';
@@ -45,7 +46,7 @@ import {
   type Lectura,
 } from '@fahybrid/shared/domain/analytics';
 import { loadLecturasRecuperacion } from './recuperacion-datos';
-import { loadCurveCandidates, toCandidate } from './running-progress';
+import { loadCurveCandidates, loadPrimeraSesion, toCandidate } from './running-progress';
 
 /**
  * Ventanas, en semanas. El tope llega a una carrera deportiva entera para que
@@ -117,29 +118,6 @@ async function loadAthleteContext(
 }
 
 /**
- * Desde cuándo hay historia. Null cuando el atleta no ha ejecutado nada: no hay
- * desde cuándo contar, que es distinto de llevar cero días.
- */
-async function loadDaysOfHistory(
-  athlete_id: number,
-  now: Date,
-  client: Sql,
-): Promise<{ dias: number | null; primera_iso: string | null }> {
-  const rows = await client<Array<{ first_at: Date | null }>>`
-    select min(coalesce(we.ended_at, we.started_at, we.created_at)) as first_at
-    from workout_executions we
-    where we.athlete_id = ${athlete_id}
-  `;
-  const first = rows[0]?.first_at ?? null;
-  if (first == null) return { dias: null, primera_iso: null };
-  const d = new Date(first);
-  return {
-    dias: Math.max(0, Math.floor((now.getTime() - d.getTime()) / MS_PER_DAY)),
-    primera_iso: isoDay(d),
-  };
-}
-
-/**
  * El umbral de carrera del atleta como VELOCIDAD, solo si está medido.
  *
  * Sirve de cordura al ajuste de velocidad crítica: las dos miden casi lo mismo
@@ -200,7 +178,11 @@ export async function buildAnaliticasAtleta(args: {
       client,
       gradient_retires_pace_pct: running.gradient_retires_pace_pct,
     }),
-    loadDaysOfHistory(args.athlete_id, now, client),
+    // Desde cuándo hay historia, en SU calendario. `dias` null cuando no ha
+    // ejecutado nada: no hay desde cuándo contar, que no es llevar cero días.
+    loadAthleteTimezone(client, args.athlete_id).then((tz) =>
+      loadPrimeraSesion(client, args.athlete_id, now, tz),
+    ),
     loadLecturasRecuperacion({ athlete_id: args.athlete_id, hasta: hoyLocal, dias, metodo, client }),
     loadCurveCandidates(client, args.athlete_id, desde, now),
     loadRunThresholdSpeed(args.athlete_id, client),
@@ -230,11 +212,14 @@ export async function buildAnaliticasAtleta(args: {
   return {
     athlete_id: String(args.athlete_id),
     generado_iso: now.toISOString(),
-    ventana: { semanas, dias, desde: isoDay(desde), hasta: hoyLocal },
+    // Los dos bordes en SU calendario: `dias` días que acaban en su hoy. Antes
+    // `desde` era el día UTC de un instante y `hasta` su día local, y para quien
+    // vive lejos de UTC la etiqueta abarcaba un día de más o de menos.
+    ventana: { semanas, dias, desde: isoDateString(addDays(parseIsoDate(hoyLocal), -(dias - 1))), hasta: hoyLocal },
     metodo,
     historia: historiaDe({
       dias_de_historia: historial.dias,
-      primera_sesion_iso: historial.primera_iso,
+      primera_sesion_iso: historial.iso,
       ventana_dias: dias,
     }),
     lecturas,

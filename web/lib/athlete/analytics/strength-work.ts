@@ -109,11 +109,13 @@ function drill(kind: string, params: Record<string, string>, count: number, labe
 // ── Loader ───────────────────────────────────────────────────────────────────
 // One round-trip: every logged strength set in the window. SKIPS are excluded in
 // SQL (status <> 'skipped'); structural (warm-up) segments never count; modality
-// resolves from the segment tag, falling back to the exercise category.
+// resolves from the segment tag, falling back to the exercise category. A set's
+// `day` (and so its week) is the athlete's (`tz`), not the UTC day.
 async function loadStrengthSets(
   client: Sql,
   athleteId: number,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<WorkSet[]> {
   // The athlete's owning coach — drives the exercise-name merge below so a lift
   // the coach renamed shows THEIR name here too (0132). One lookup per call
@@ -138,7 +140,7 @@ async function loadStrengthSets(
       ${mergedExerciseContent(client, 'exercise_')},
       we.id::text                 as execution_id,
       we.assignment_id::text      as assignment_id,
-      to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day
+      to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as day
     from set_executions st
     join segment_executions se on se.id = st.segment_execution_id
     join workout_executions we on we.id = se.execution_id
@@ -179,8 +181,9 @@ export async function buildStrengthWorkCards(
   client: Sql,
   athleteId: number,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<{ cards: AnalyticsCard[]; hasData: boolean }> {
-  const sets = await loadStrengthSets(client, athleteId, period);
+  const sets = await loadStrengthSets(client, athleteId, period, tz);
 
   if (sets.length === 0) {
     return {

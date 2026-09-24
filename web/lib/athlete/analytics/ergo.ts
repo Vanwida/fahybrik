@@ -8,11 +8,15 @@
 //
 // Honest: an ergo with zero logged segments simply doesn't appear in the splits,
 // and the scoped trend/volume degrade to 'needs_logging'. Nothing is faked.
+//
+// A session's `day` (and so its week) is the ATHLETE's (DECISIONS «Qué día es en
+// cada sitio»), never the UTC day the base runs in — same as drills/ergo.ts.
 
 import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import {
   type AnalyticsCard,
   type AnalyticsSection,
@@ -65,13 +69,20 @@ function rateRow(erg: ErgKey, spm: number | null): CardRow {
 }
 
 export async function buildErgoSection(
-  args: { athlete_id: number | bigint; period: ResolvedPeriod; erg?: ErgKey },
+  args: {
+    athlete_id: number | bigint;
+    period: ResolvedPeriod;
+    erg?: ErgKey;
+    /** The athlete's zone, when the caller already resolved it; read here if not. */
+    tz?: string;
+  },
   client: Sql = defaultSql,
 ): Promise<AnalyticsSection> {
   const athleteId = Number(args.athlete_id);
   const { period } = args;
   const erg: ErgKey = args.erg && isErgKey(args.erg) ? args.erg : 'row';
   const label = ERGO_LABEL[erg];
+  const tz = args.tz ?? (await loadAthleteTimezone(client, athleteId));
 
   // All ergo segments in the period (explicit modality wins, else derived).
   const segs = await client<ErgRow[]>`
@@ -82,7 +93,7 @@ export async function buildErgoSection(
         when ex.category = 'cardio' and (ex.slug ilike '%bike%' or ex.slug ilike '%cycl%') then 'bike'
         else 'x' end) as modality,
       we.id::text as execution_id,
-      to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
+      to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as day,
       se.avg_pace_s_per_500m::text as pace_500,
       se.avg_power_w::text as power_w,
       se.stroke_rate_spm::text as stroke_spm,

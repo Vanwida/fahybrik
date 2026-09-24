@@ -1,5 +1,6 @@
 // ANALYTICS · DRILL-DOWN · ERGO — the source ergo segments behind a `/500m`
-// split, one modality (row/ski/bike) at a time, fastest first.
+// split, one modality (row/ski/bike) at a time, fastest first. Each row is dated
+// on the athlete's day (`tz`), the same day the section's cards use.
 
 import 'server-only';
 
@@ -19,12 +20,13 @@ export async function ergoDrill(
   athleteId: number,
   params: Record<string, string>,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<DrillDownResult> {
   const modality = params.modality ?? 'row';
   const rows = await client<Array<{ day: string; pace: string | null; power: string | null; spm: string | null; dist: string | null; id: string; assignment_id: string }>>`
     select se.id::text as id,
       we.assignment_id::text as assignment_id,
-      to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
+      to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as day,
       se.avg_pace_s_per_500m::text as pace,
       se.avg_power_w::text as power,
       se.stroke_rate_spm::text as spm,
@@ -72,13 +74,14 @@ export async function ergoPowerDrill(
   athleteId: number,
   params: Record<string, string>,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<DrillDownResult> {
   const modality = params.modality ?? 'row';
   const rateUnit = modality === 'bike' ? 'rpm' : 'spm';
   const rows = await client<Array<{ day: string; power: string | null; pace: string | null; spm: string | null; dist: string | null; id: string; assignment_id: string }>>`
     select se.id::text as id,
       we.assignment_id::text as assignment_id,
-      to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
+      to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as day,
       se.avg_power_w::text as power,
       se.avg_pace_s_per_500m::text as pace,
       se.stroke_rate_spm::text as spm,
@@ -126,12 +129,13 @@ export async function ergoCaloriesDrill(
   athleteId: number,
   params: Record<string, string>,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<DrillDownResult> {
   const modality = params.modality ?? 'row';
   const rows = await client<Array<{ day: string; cal: string | null; pace: string | null; dist: string | null; id: string; assignment_id: string }>>`
     select se.id::text as id,
       we.assignment_id::text as assignment_id,
-      to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
+      to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as day,
       se.calories::text as cal,
       se.avg_pace_s_per_500m::text as pace,
       se.distance_meters::text as dist

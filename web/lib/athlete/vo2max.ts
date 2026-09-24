@@ -2,8 +2,8 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { BOX_TIMEZONE, addDays } from '@fahybrid/shared/domain/dates';
-import { isValidTimezone, startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { addDays, isoDateString } from '@fahybrid/shared/domain/dates';
+import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
 import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
 import {
@@ -96,25 +96,28 @@ export async function buildAthleteVo2Max(params: {
 }): Promise<AthleteVo2Max> {
   const client = params.client ?? defaultSql;
   const athleteId = Number(params.athlete_id);
-  // The window ends on the ATHLETE's day (`athletes.timezone`): the day `on_date`,
-  // or now, falls on in their calendar, not the box's. A stored zone the date
+  // Everything here is dated in the ATHLETE's calendar (`athletes.timezone`;
+  // DECISIONS «Qué día es en cada sitio»), not the box's and not the UTC day the
+  // base runs in: the window ends on the day `on_date`, or now, falls on for him;
+  // it starts at HIS midnight 90 days earlier; a reading belongs to the day he
+  // took it; a mark's age and date are counted in his days. A stored zone the date
   // engine doesn't know falls back to the default instead of failing the screen.
-  const storedTz = await loadAthleteTimezone(client, athleteId);
-  const today = startOfDayInTz(
-    params.on_date ?? new Date(),
-    isValidTimezone(storedTz) ? storedTz : BOX_TIMEZONE,
-  );
-  const startIso = addDays(today, -(WINDOW_DAYS - 1)).toISOString();
+  const now = params.on_date ?? new Date();
+  const tz = await loadAthleteTimezone(client, athleteId);
+  const today = startOfDayInTz(now, tz);
+  const startDay = isoDateString(addDays(today, -(WINDOW_DAYS - 1)));
 
   const watchRows = await client<Array<{ d: string; v: number | null }>>`
-    select to_char(date_trunc('day', recorded_at)::date, 'YYYY-MM-DD') as d,
+    select to_char(recorded_at at time zone ${tz}, 'YYYY-MM-DD') as d,
            avg(value_numeric)::float as v
     from biometric_streams
     where athlete_id = ${athleteId}
       -- metric_type is the biometric_metric ENUM; compare as text so the bound
       -- string matches (enum = text has no operator).
       and metric_type::text = 'vo2max'
-      and recorded_at >= ${startIso}::timestamptz
+      -- His midnight of the first day, as an instant: the local wall clock read
+      -- back in his zone (a bare date would be UTC midnight).
+      and recorded_at >= (${startDay}::timestamp at time zone ${tz})
     group by 1
     order by 1
   `;
@@ -129,8 +132,8 @@ export async function buildAthleteVo2Max(params: {
     select
       exercise_slug,
       value::text as value,
-      (current_date - recorded_at::date)::int as age_days,
-      to_char(recorded_at, 'YYYY-MM-DD') as recorded_on,
+      ((${now.toISOString()}::timestamptz at time zone ${tz})::date - (recorded_at at time zone ${tz})::date)::int as age_days,
+      to_char(recorded_at at time zone ${tz}, 'YYYY-MM-DD') as recorded_on,
       source,
       run_context
     from athlete_benchmarks

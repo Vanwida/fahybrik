@@ -90,6 +90,11 @@ export async function buildAthleteBiometricTrend(params: {
   client?: Sql;
 }): Promise<AthleteBiometricTrend> {
   const client = params.client ?? defaultSql;
+  // Every point is a day of the ATHLETE's calendar (DECISIONS «Qué día es en cada
+  // sitio»): the window is his last TREND_DAYS days, from HIS midnight, and a
+  // reading belongs to the day he took it — last night's sleep or this morning's
+  // HRV, read in UTC, is the day before for anyone east of it, and would disagree
+  // with FC reposo, which its resolver already dates in his day.
   const tz = await loadAthleteTimezone(client, params.athlete_id);
   const todayIso = zonedDayString(params.on_date ?? new Date(), tz);
   const fromIso = isoDateString(addDays(parseIsoDate(todayIso), -(TREND_DAYS - 1)));
@@ -102,14 +107,14 @@ export async function buildAthleteBiometricTrend(params: {
   // One round-trip: daily averages per metric across the window.
   const rows = await client<Array<{ metric_type: string; d: string; v: number | null }>>`
     select metric_type,
-           to_char(date_trunc('day', recorded_at)::date, 'YYYY-MM-DD') as d,
+           to_char(recorded_at at time zone ${tz}, 'YYYY-MM-DD') as d,
            avg(value_numeric)::float as v
     from biometric_streams
     where athlete_id = ${params.athlete_id as number}
       -- metric_type is the biometric_metric ENUM; compare as text so the bound
       -- string[] param matches (enum = text[] has no operator).
       and metric_type::text = any(${types})
-      and recorded_at >= ${parseIsoDate(fromIso)}
+      and recorded_at >= (${fromIso}::timestamp at time zone ${tz})
     group by 1, 2
     order by 1, 2
   `;

@@ -14,6 +14,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import {
   type AnalyticsCard,
   type AnalyticsSection,
@@ -49,16 +50,24 @@ function kg(v: number): string {
 }
 
 export async function buildStrengthSection(
-  args: { athlete_id: number | bigint; period: ResolvedPeriod },
+  args: {
+    athlete_id: number | bigint;
+    period: ResolvedPeriod;
+    /** The athlete's zone, when the caller already resolved it; read here if not. */
+    tz?: string;
+  },
   client: Sql = defaultSql,
 ): Promise<AnalyticsSection> {
   const athleteId = Number(args.athlete_id);
   const { period } = args;
+  // A test's date and a session's day are the ATHLETE's (DECISIONS «Qué día es
+  // en cada sitio»), never the UTC day the base runs in.
+  const tz = args.tz ?? (await loadAthleteTimezone(client, athleteId));
 
   // Full versioned history per lift (asc) — drives current value + delta + trend.
   const rows = await client<MaxRow[]>`
     select exercise_slug, one_rm_kg::text as one_rm_kg, version,
-           to_char(recorded_at, 'YYYY-MM-DD') as recorded_on
+           to_char(recorded_at at time zone ${tz}, 'YYYY-MM-DD') as recorded_on
     from athlete_strength_maxes
     where athlete_id = ${athleteId}
     order by exercise_slug asc, version asc
@@ -120,7 +129,7 @@ export async function buildStrengthSection(
   }
 
   // ── CARDS: the per-set WORK half (volume / progression / adherence / effort) ─
-  const work = await buildStrengthWorkCards(client, athleteId, period);
+  const work = await buildStrengthWorkCards(client, athleteId, period, tz);
   cards.push(...work.cards);
 
   // ── CARD: lifts que mueven tu HYROX (honest "—" for untested) ──────────────

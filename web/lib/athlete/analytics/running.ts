@@ -11,6 +11,11 @@
 //
 // Every aggregate carries a DrillRef whose `count` is the REAL number of source
 // rows; the drill-down endpoint re-runs the same window and returns that list.
+//
+// EVERY DAY HERE IS THE ATHLETE'S (DECISIONS «Qué día es en cada sitio»): a
+// session's `day`, a test's date and so the weekly bars are read in his zone,
+// never as the UTC day the base runs in. The drill-down dates the same rows the
+// same way (drills/running.ts), so a card and its list agree on the day.
 
 import 'server-only';
 
@@ -111,12 +116,15 @@ export async function buildRunningSection(
     /** The instant a mark's age is read at (tests); defaults to now. The period
      *  carries its own window. */
     now?: Date;
+    /** The athlete's zone, when the caller already resolved it; read here if not. */
+    tz?: string;
   },
   client: Sql = defaultSql,
 ): Promise<AnalyticsSection> {
   const athleteId = Number(args.athlete_id);
   const { period } = args;
   const cards: AnalyticsCard[] = [];
+  const tz = args.tz ?? (await loadAthleteTimezone(client, athleteId));
 
   // ── Zone profile (run) — threshold + the resolved bands ────────────────────
   const zoneRows = await client<Array<{ threshold_s: string; zones_json: ZoneBand[] }>>`
@@ -131,7 +139,7 @@ export async function buildRunningSection(
 
   // ── run_5k benchmarks (asc) — VDOT input + 5k trend + best 5k ──────────────
   const benchRows = await client<Array<{ value: string; recorded_on: string; id: string }>>`
-    select value::text as value, to_char(recorded_at, 'YYYY-MM-DD') as recorded_on, id::text as id
+    select value::text as value, to_char(recorded_at at time zone ${tz}, 'YYYY-MM-DD') as recorded_on, id::text as id
     from athlete_benchmarks
     where athlete_id = ${athleteId} and exercise_slug = 'run_5k' and unit = 'seconds'
     order by recorded_at asc
@@ -149,7 +157,6 @@ export async function buildRunningSection(
   // mark's age is counted in HIS calendar, both ends (DECISIONS «Qué día es en
   // cada sitio»).
   const nowIso = (args.now ?? new Date()).toISOString();
-  const tz = await loadAthleteTimezone(client, athleteId);
   const runMarkRows = await client<Array<{ exercise_slug: string; value: string; age_days: number | null; source: string; run_context: string | null }>>`
     select
       exercise_slug,
@@ -177,7 +184,7 @@ export async function buildRunningSection(
   const segs = await client<RunSegRow[]>`
     select
       we.id::text as execution_id,
-      to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
+      to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as day,
       se.distance_meters::text as distance_meters,
       coalesce(
         se.avg_pace_s_per_km::float,
@@ -315,7 +322,7 @@ export async function buildRunningSection(
   );
 
   // ── CARD: Mejores esfuerzos · PRs (all-time) ───────────────────────────────
-  cards.push(await buildBestEfforts(client, athleteId, latest5k));
+  cards.push(await buildBestEfforts(client, athleteId, latest5k, tz));
 
   // ── CARD: Por tipo de entreno ──────────────────────────────────────────────
   cards.push(buildByType(effort));
@@ -367,6 +374,7 @@ async function buildBestEfforts(
   client: Sql,
   athleteId: number,
   latest5k: { seconds: number; date: string } | null,
+  tz: string,
 ): Promise<AnalyticsCard> {
   // best 1k: fastest ~1km run segment, scaled to 1km.
   const best1kRows = await client<Array<{ pace: string | null; day: string | null }>>`
@@ -375,7 +383,7 @@ async function buildBestEfforts(
         se.distance_meters::float as dist,
         extract(epoch from (se.ended_at - se.started_at))::float as dur,
         se.avg_pace_s_per_km::float as explicit_pace,
-        to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day
+        to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as day
       from segment_executions se
       join workout_executions we on we.id = se.execution_id
       left join template_segments ts on ts.id = se.template_segment_id
@@ -398,7 +406,7 @@ async function buildBestEfforts(
   const best3kRows = await client<Array<{ secs: string | null; day: string | null }>>`
     with by_exec as (
       select we.id,
-        to_char(coalesce(we.ended_at, we.started_at)::date, 'YYYY-MM-DD') as day,
+        to_char(coalesce(we.ended_at, we.started_at) at time zone ${tz}, 'YYYY-MM-DD') as day,
         sum(se.distance_meters)::float as dist,
         sum(extract(epoch from (se.ended_at - se.started_at)))::float as dur
       from segment_executions se

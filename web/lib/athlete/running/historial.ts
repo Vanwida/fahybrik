@@ -23,6 +23,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { loadRunSessionRows, type RunSessionRow } from './sessions';
 import {
   classifyRunSessionType,
@@ -91,15 +92,19 @@ function sessionType(row: RunSessionRow): { tipo_slug: RunSessionType | null; do
 }
 
 /** Día+contexto en los que el atleta registró una marca del catálogo de
- *  correr — el cruce barato que decide `record` sin recalcular nada. */
+ *  correr — el cruce barato que decide `record` sin recalcular nada. El día es
+ *  el de SU calendario, con el mismo huso que fecha la sesión con la que se
+ *  cruza: con la marca en día UTC y la sesión en día local, un test a primera
+ *  hora en Auckland no casaba con su propia sesión. */
 async function loadMarkDayKeys(
   client: Sql,
   athlete_id: number,
   since: Date | null,
   until: Date,
+  tz: string,
 ): Promise<{ exact: Set<string>; anyContext: Set<string> }> {
   const rows = await client<Array<{ day: string; run_context: string | null }>>`
-    select to_char(recorded_at::date, 'YYYY-MM-DD') as day, run_context
+    select to_char(recorded_at at time zone ${tz}, 'YYYY-MM-DD') as day, run_context
     from athlete_benchmarks
     where athlete_id = ${athlete_id}
       and exercise_slug = any(${RUN_MARK_SLUGS}::text[])
@@ -128,10 +133,13 @@ export async function buildRunningHistorial(args: {
   const client = args.client ?? defaultSql;
   const now = args.now ?? new Date();
   const since = windowSince(args.window, now);
+  // Un huso para las dos lecturas que se cruzan por día (sesiones y marcas):
+  // DECISIONS «Qué día es en cada sitio».
+  const tz = await loadAthleteTimezone(client, args.athlete_id);
 
   const [sessions, marks] = await Promise.all([
-    loadRunSessionRows(client, args.athlete_id, since, now),
-    loadMarkDayKeys(client, args.athlete_id, since, now),
+    loadRunSessionRows(client, args.athlete_id, since, now, tz),
+    loadMarkDayKeys(client, args.athlete_id, since, now, tz),
   ]);
 
   const enriched = sessions.map((s) => ({ session: s, ...sessionType(s) }));

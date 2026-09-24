@@ -270,9 +270,14 @@ describeWithDb('el «hoy» de la app del atleta es el de su calendario (real DB)
       `;
       // Con el lunes 21 de Auckland la ventana empieza el 24-jun; con el domingo 20
       // de Madrid empezaba el 23-jun y se colaba esta lectura.
-      await reading('2026-06-23T12:00:00Z', 40);
+      // Las lecturas van a las 02:00 UTC (14:00 en Auckland) para que su día sea el
+      // mismo en UTC y en su calendario: este test mira dónde ACABA la ventana. A
+      // las 12:00 UTC caían en la medianoche de Auckland, que ya es el día
+      // siguiente — en qué día cae una lectura lo prueba
+      // tests/athlete/analytics-athlete-day.db.test.ts.
+      await reading('2026-06-23T02:00:00Z', 40);
       const recent = ['2026-09-10', '2026-09-12', '2026-09-14', '2026-09-16'];
-      for (const d of recent) await reading(`${d}T12:00:00Z`, 50);
+      for (const d of recent) await reading(`${d}T02:00:00Z`, 50);
 
       const now = await frozenAt(AUCKLAND_MONDAY_EARLY, () =>
         buildAthleteVo2Max({ athlete_id: akl.athleteId, client: sql }),

@@ -54,22 +54,6 @@ export async function loadAthleteTimezones(
   return out;
 }
 
-/**
- * The zone the athlete's LIVED things are dated in — his sessions, marks, trends
- * and weeks (docs/DECISIONS.md, 2026-09-23 «Qué día es en cada sitio»). Same as
- * `loadAthleteTimezone`, except that a stored zone the date engine doesn't know
- * falls back to the default: the result is bound into SQL (`at time zone $tz`)
- * and into `Intl`, and a bad zone must cost the athlete his calendar, not the
- * screen. Resolve it once per request and pass it down.
- */
-export async function loadEffectiveAthleteTimezone(
-  client: Sql,
-  athlete_id: number | bigint,
-): Promise<string> {
-  const stored = await loadAthleteTimezone(client, athlete_id);
-  return isValidTimezone(stored) ? stored : LAUNCH_FALLBACK_TIMEZONE;
-}
-
 /** The athlete's own "today" as YYYY-MM-DD. */
 export async function loadAthleteLocalDay(params: {
   athlete_id: number | bigint;

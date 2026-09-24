@@ -14,6 +14,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import type { DrillDownResult, ResolvedPeriod } from './core';
 import { runningDrill, bestEffortDrill } from './drills/running';
 import { ergoDrill, ergoPowerDrill, ergoCaloriesDrill } from './drills/ergo';
@@ -27,34 +28,37 @@ export async function buildDrillDown(
 ): Promise<DrillDownResult | null> {
   const athleteId = Number(args.athlete_id);
   const { kind, params, period } = args;
+  // A row is dated on the ATHLETE's day, like the card it opens (DECISIONS «Qué
+  // día es en cada sitio»): his zone, resolved once here.
+  const tz = await loadAthleteTimezone(client, athleteId);
 
   switch (kind) {
     case 'running.volume':
     case 'running.type':
     case 'running.zone':
-      return runningDrill(client, athleteId, kind, params, period);
+      return runningDrill(client, athleteId, kind, params, period, tz);
     case 'running.best_effort':
-      return bestEffortDrill(client, athleteId, params, period);
+      return bestEffortDrill(client, athleteId, params, period, tz);
     case 'ergo.split':
-      return ergoDrill(client, athleteId, params, period);
+      return ergoDrill(client, athleteId, params, period, tz);
     case 'ergo.power':
-      return ergoPowerDrill(client, athleteId, params, period);
+      return ergoPowerDrill(client, athleteId, params, period, tz);
     case 'ergo.calories':
-      return ergoCaloriesDrill(client, athleteId, params, period);
+      return ergoCaloriesDrill(client, athleteId, params, period, tz);
     case 'strength.lift':
-      return strengthDrill(client, athleteId, params, period);
+      return strengthDrill(client, athleteId, params, period, tz);
     case 'strength.volume':
-      return strengthVolumeDrill(client, athleteId, period);
+      return strengthVolumeDrill(client, athleteId, period, tz);
     case 'strength.exercise':
-      return strengthExerciseDrill(client, athleteId, params, period);
+      return strengthExerciseDrill(client, athleteId, params, period, tz);
     case 'hyrox.race':
       return hyroxRaceDrill(client, athleteId, params, period);
     case 'hyrox.scores':
-      return hyroxScoresDrill(client, athleteId, period);
+      return hyroxScoresDrill(client, athleteId, period, tz);
     case 'hyrox.transfer':
       return hyroxTransferDrill(client, athleteId, period);
     case 'recovery.metric':
-      return recoveryDrill(client, athleteId, params, period);
+      return recoveryDrill(client, athleteId, params, period, tz);
     default:
       return null;
   }

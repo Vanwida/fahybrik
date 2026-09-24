@@ -1,5 +1,6 @@
 // ANALYTICS · DRILL-DOWN · RECOVERY — the daily readings behind a recovery
 // metric's trend (biometric_streams), newest first, capped at RECOVERY_MAX_ROWS.
+// A reading's day is the athlete's (`tz`), the same day the section's card uses.
 
 import 'server-only';
 
@@ -18,10 +19,11 @@ export async function recoveryDrill(
   athleteId: number,
   params: Record<string, string>,
   period: ResolvedPeriod,
+  tz: string,
 ): Promise<DrillDownResult> {
   const metric = params.metric ?? 'hrv';
   const rows = await client<Array<{ d: string; v: number | null }>>`
-    select to_char(date_trunc('day', recorded_at)::date, 'YYYY-MM-DD') as d, avg(value_numeric)::float as v
+    select to_char(recorded_at at time zone ${tz}, 'YYYY-MM-DD') as d, avg(value_numeric)::float as v
     from biometric_streams
     where athlete_id = ${athleteId} and metric_type::text = ${metric}
       and recorded_at >= ${period.start_iso}::timestamptz
