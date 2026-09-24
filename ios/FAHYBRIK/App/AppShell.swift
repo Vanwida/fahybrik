@@ -198,6 +198,9 @@ struct AppShell: View {
                     )
                 }
                 await WorkoutTraceUploader.sweep(bearer: bearer)
+                // B-02: un entreno terminado que no llegó a GUARDAR en el arranque
+                // anterior entra en la cola antes de drenarla.
+                await FinishedWorkoutDraft.recoverIntoQueue(bearer: bearer)
                 await RequestQueue.shared.drain(bearer: bearer)
                 await DiagnosticsUploader.shared.flush(bearer: bearer)
                 await renewSessionIfDue()

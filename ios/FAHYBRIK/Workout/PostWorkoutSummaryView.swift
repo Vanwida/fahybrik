@@ -168,7 +168,7 @@ struct PostWorkoutSummaryView: View {
                 DoblesJointSummaryView(data: jointData, onDone: dismissJoint)
             }
         }
-        .onAppear { seedCapturedScore(); renderSummaryCard() }
+        .onAppear { seedCapturedScore(); renderSummaryCard(); stageFinishedDraft() }
         .onChange(of: rpe) { _, _ in renderSummaryCard() }
         .fullScreenCover(isPresented: $showDeclareSheet) {
             FreeDeclareMovementsSheet(
@@ -372,8 +372,10 @@ struct PostWorkoutSummaryView: View {
                             : nil
                         Task { await MarkAttemptAPI.submit(slug: tag.slug, value: value, runContext: runContext, bearer: bearer) }
                     }
+                    FinishedWorkoutDraft.clear()
                     finishAfterSave(records: [])
                 case .queued:
+                    FinishedWorkoutDraft.clear()   // la cola lo tiene
                     retryFromQueue = true
                     saveFailed = true
                     isSaving = false
@@ -414,6 +416,7 @@ struct PostWorkoutSummaryView: View {
             guard !didFinish else { return }
             switch outcome {
             case .saved(let response):
+                FinishedWorkoutDraft.clear()
                 Task {
                     let parkId = await WorkoutTraceUploader.park(
                         await Self.closedTraces(recorder: session.trace, startedAt: session.startedAt)
@@ -446,6 +449,7 @@ struct PostWorkoutSummaryView: View {
                     isSaving = false
                 }
             case .queued:
+                FinishedWorkoutDraft.clear()   // la cola lo tiene
                 retryFromQueue = true
                 saveFailed = true
                 isSaving = false
@@ -455,6 +459,20 @@ struct PostWorkoutSummaryView: View {
                 isSaving = false
             }
         }
+    }
+
+    /// B-02: al aparecer el resumen, lo que se enviaría ahora (sin RPE todavía) queda
+    /// en disco. Si la app muere antes de GUARDAR, el siguiente arranque lo entrega
+    /// (`FinishedWorkoutDraft`). Mismo cuerpo y misma ruta que GUARDAR.
+    private func stageFinishedDraft() {
+        if let free = freeContext {
+            if let body = try? JSONEncoder().encode(buildFreePayload(free)) {
+                FinishedWorkoutDraft.stage(path: FreeWorkoutAPI.path, body: body)
+            }
+            return
+        }
+        guard let payload = buildPayload(), let body = try? JSONEncoder().encode(payload) else { return }
+        FinishedWorkoutDraft.stage(path: queuedSavePath, body: body)
     }
 
     // #28 — the joint card's "Seguir": close, still passing any PRs to the review gate.

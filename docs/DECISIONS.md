@@ -28,6 +28,8 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **NO hacer:** volver a poner caducidad a las entradas de la cola.
 
+**Y el entreno se guarda al terminar, no al pulsar GUARDAR (auditoría B-02):** tras «Terminar» el entreno vivía solo en memoria durante el resumen; si iOS mataba la app antes de que el servidor contestara, se perdía entero. Ahora, al aparecer el resumen, lo que se enviaría (sin RPE todavía) queda en disco (`FinishedWorkoutDraft`); GUARDAR con 2xx o encolado lo borra; si la app muere antes, el siguiente arranque lo pasa a la cola offline. Solo borradores de un arranque ANTERIOR (llevan el id del proceso): el arranque se repite en el mismo proceso con el resumen en pantalla y ese borrador sin RPE podría llegar después del GUARDAR bueno. Sin pantalla nueva: el modelo de Garmin/Strava (guardado al parar; subir y revisar aparte). Queda para una pantalla (con propuesta en «el doble»): qué ve el atleta si el servidor RECHAZA (hoy REINTENTAR sin salida).
+
 ---
 
 ## 2026-09-24 · El registro técnico de los aparatos: a todos, solo técnico, 30 días

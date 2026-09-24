@@ -71,6 +71,10 @@ enum DiagName: String, CaseIterable, Sendable {
     case transferFailed = "transfer_failed"
     /// Móvil: llegó un entreno terminado desde la muñeca (decodificado o no).
     case watchExecutionReceived = "watch_execution_received"
+    /// Móvil: al aparecer el resumen, el entreno terminado queda en disco (B-02).
+    case draftStaged = "draft_staged"
+    /// Móvil: al arrancar, un entreno terminado que no llegó a GUARDAR pasa a la cola.
+    case draftRecovered = "draft_recovered"
     /// Móvil: la cola offline guardó / entregó / no pudo entregar una petición.
     case queueEnqueued = "queue_enqueued"
     case queueDelivered = "queue_delivered"
