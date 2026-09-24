@@ -10,6 +10,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · El cuestionario de entrada se lee respuesta a respuesta; una respuesta imposible no tumba el alta (0271, 0272)
+
+**El hueco (auditoría de la app del atleta, F-01, y lo que salió al probarlo contra base real):** `POST /api/onboarding/submit` rechazaba el cuestionario ENTERO si una respuesta no cabía (400; la app lo descarta en silencio). Y al probarlo aparecieron cuatro fallos más, peores: (1) el `UPDATE athletes` asignaba `max_hr_bpm` DOS veces — Postgres rechaza la sentencia («multiple assignments to same column») y **todo** envío daba 500, también en `main` (el mismo código desde 926a47b); (2) no marcar ningún día como «Programa» (saltar el paso) escribía `training_days_per_week = 0` contra un CHECK 1–14 → 500; (3) un 1RM de 0 kg violaba `athlete_strength_maxes_one_rm_chk` → 500; (4) «Triatlón», que la app ofrece, no existía en el enum `discipline` → 500. Un 500 la app lo reintenta hasta que caduca (72 h): el alta se perdía igual. Y las notas del alta (`intake_notes_json`) se escribían con `JSON.stringify(...)::jsonb`, que postgres.js vuelve a serializar: la columna acababa siendo un ARRAY que ningún lector abre.
+
+**Decidido:**
+- **Cada respuesta se valida sola** (`web/lib/athlete/onboarding-snapshot.ts`), con el dominio que la base acepta. La que no cabe: un texto largo se **recorta**; un número imposible o un valor que no existe se **descarta** (recortar un número al borde sería inventarlo: una altura de 300 no se guarda como 260). Una carrera se queda sin su tiempo objetivo imposible; una lesión, con sus textos recortados. Solo un cuerpo sin cuestionario es 400.
+- **El coach lo ve:** cada incidencia queda en `intake_notes_json.onboarding_out_of_range` con lo que llegó, y el alta enseña el aviso «N respuestas fuera de rango — No se guardaron: ¿Cuánto depende de ti? (…) · Altura (300)… Se guardaron recortadas: …» (`web/lib/coach/intake-out-of-range.ts`), que marca «Visto» antes de asignar. Un reenvío limpio vacía la lista.
+- **Lo que la app ofrece es válido:** 0271 abre `pct_depends_on_me` a 0–10 (0 = «Nada») y añade `triathlon` a `discipline` (y a su espejo zod). Cero días «Programa» = sin dato (NULL), no 0. Un 1RM o un tiempo de 0 no es una marca.
+- **Una sola asignación de `max_hr_bpm`**; las notas se escriben con `tx.json`; 0272 repara las filas que quedaron como array (funde sus elementos en orden, como hacía `||`).
+
+**Queda (necesita la app):** F-04 — los pasos saltados llegan con los valores por defecto (sueño 5, estrés 5, compromiso 7, «¿cuánto depende de ti?» 5, 60 min, todos los días «Libre»): el servidor no puede distinguir «saltado» de «contestado 5», así que se guardan como respuestas. Arreglo: la app manda `nil` en lo que el atleta no tocó. Y el borrador se borra antes de que el servidor conteste (F-01, lado app).
+
+**NO hacer:** no validar el cuestionario como un bloque; no escribir jsonb con `JSON.stringify(...)::jsonb` (usar `sql.json`); no asignar dos veces la misma columna en un `UPDATE`; no ofrecer en la app un valor que la base no acepta sin abrir la base primero.
+
+---
+
 ## 2026-09-24 · Un entreno hecho no se pierde: lo que no casa con su plan se guarda «fuera del plan» (0270)
 
 **El hueco (auditoría de la app del atleta, E1 / D-04):** el coach «Quita» o «Sustituye» una sesión pendiente (borrado duro) mientras el atleta la entrena, o el reloj ofrece la tarjeta de ayer. Al guardar, `POST /api/sync/workout-execution` contestaba 404; un campo con el tipo equivocado o un tramo sin posición, 400. La app trata todo 4xx como veneno: REINTENTAR para siempre en el móvil, «Sesión completada» en el reloj con nada en el servidor, la cola offline lo tira. El trabajo del atleta, perdido, y el coach sin enterarse.

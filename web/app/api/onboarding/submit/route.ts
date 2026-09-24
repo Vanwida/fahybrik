@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { suggestAthleteTrainingLevel } from '@/lib/coach/athlete-training-level';
@@ -32,271 +31,25 @@ import {
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { STRENGTH_LIFT_SLUGS } from '@fahybrid/shared/schema/strength';
 import { seedOnboardingStrengthMaxes } from '@/lib/strength/strength-max';
+import {
+  readOnboardingSnapshot,
+  type IntakeAnswerIssue,
+  type OnboardingSnapshot,
+} from '@/lib/athlete/onboarding-snapshot';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// M10: the iOS onboarding sends a rich, ~60-field snapshot (PRs, station
-// benchmarks, devices, goals…) that we persist verbatim into
-// `intake_notes_json` for the coach/IA to read. The previous `.passthrough()`
-// accepted ANY shape, so an athlete could inflate the row with MBs of junk.
-//
-// Instead of duplicating the entire iOS DTO here (drift-prone), we model the
-// fields we read in code explicitly and apply a BOUNDED catchall to everything
-// else: unknown keys are allowed but only as small primitives / short strings /
-// small arrays of short strings. Anything bigger (the DoS vector) is rejected.
-const MAX_FREE_TEXT_CHARS = 4_000; // generous bound for any single text field
-const MAX_PASSTHROUGH_ARRAY_ITEMS = 64; // e.g. devices_owned, divisions
-const MAX_PASSTHROUGH_KEYS = 128; // far above the legit ~60-field snapshot
+// The iOS onboarding sends a rich ~95-key snapshot (PRs, station benchmarks,
+// devices, goals…). It is read ANSWER BY ANSWER (`lib/athlete/onboarding-
+// snapshot.ts`): an answer that doesn't fit is clipped or dropped and listed for
+// the coach («respuesta fuera de rango»), the rest is stored. Rejecting the whole
+// intake for one field used to lose it silently (audit F-01). Every modeled field
+// maps 1:1 to a normalized destination (athletes column, athlete_benchmarks row,
+// races row, athletes.injuries_json); unmodeled keys (the legacy flat draft:
+// station_*, a_event_*, …) are kept bounded in intake_notes_json.
 
-// A single extra (unmodeled) snapshot value: a short string, a finite number,
-// a boolean, null, or a small array of short strings. Caps the byte footprint
-// of anything an athlete can smuggle through.
-const boundedScalar = z.union([
-  z.string().max(MAX_FREE_TEXT_CHARS),
-  z.number().finite(),
-  z.boolean(),
-  z.null(),
-]);
-const passthroughValue = z.union([
-  boundedScalar,
-  z.array(z.string().max(MAX_FREE_TEXT_CHARS)).max(MAX_PASSTHROUGH_ARRAY_ITEMS),
-]);
-
-// ── CANONICAL CONTRACT — expanded 13-step intake (migration 0047) ───────────
-// Single source of truth for the structured payload iOS + web build against.
-// Every field below maps 1:1 to a normalized destination (athletes column,
-// athlete_benchmarks row, races row, or athletes.injuries_json). The bounded
-// .catchall is RETAINED for backward-compat with the legacy flat iOS draft
-// (subjective_stress, sleep_hours_avg, station_* …) so the current onboarding
-// keeps working while implementers migrate the UI to this shape.
-//
-// WRITE NOTE: this route currently persists the whole snapshot into
-// intake_notes_json + a handful of athletes columns. The NORMALIZED writes for
-// the new fields (athletes.* columns, athlete_benchmarks rows, races rows,
-// structured injuries_json) are intentionally left as TODO for the web
-// implementer — see the TODO block in POST(). This file's job is the CONTRACT.
-
-// Shared scalar shapes (reused across steps).
-const intRange = (min: number, max: number) => z.number().int().min(min).max(max);
-const scale1to10 = intRange(1, 10); // subjective 1-10 scales
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/); // YYYY-MM-DD
-const timeOfDay = z.string().regex(/^\d{2}:\d{2}$/); // HH:MM (24h, local)
-const shortText = z.string().max(500);
-const longText = z.string().max(MAX_FREE_TEXT_CHARS);
-
-const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
-
-// Step 4 — structured injuries -> athletes.injuries_json
-const injurySchema = z.object({
-  area: z.string().max(80), // e.g. "left_knee", "lower_back"
-  type: z.string().max(80), // e.g. "tendinitis", "sprain"
-  active: z.boolean(),
-  note: z.string().max(500).optional(),
-});
-
-// Step 5 — per-day availability status -> athletes.availability_json
-const dayAvailabilitySchema = z.enum(['program', 'other_activity', 'rest']);
-const availabilitySchema = z.record(z.enum(WEEKDAYS), dayAvailabilitySchema);
-
-// Step 6 — per-day preferred training types -> athletes.preferred_week_json
-const preferredTypeSchema = z.enum([
-  'isolated_run',
-  'strength_gym',
-  'hyrox_transitions',
-  'ergo_conditioning',
-  'specific_material',
-]);
-const preferredWeekSchema = z.record(z.enum(WEEKDAYS), z.array(preferredTypeSchema).max(5));
-
-// Step 7 — reconciled equipment list -> athletes.equipment_json
-const equipmentSchema = z.enum([
-  'barbells_plates',
-  'dumbbells',
-  'sleds',
-  'bags_kb',
-  'open_space',
-  'pulleys',
-  'treadmill',
-  'stationary_bike',
-  'rower',
-  'skierg',
-  'other',
-]);
-
-// Step 8 — watch brand (reuses the DB device_type enum surface)
-const watchBrandSchema = z.enum([
-  'apple_watch',
-  'garmin',
-  'polar',
-  'coros',
-  'suunto',
-  'whoop',
-  'oura',
-  'other',
-]);
-
-// Step 12 — A-event + intermediate races -> races rows (0046)
-const raceSchema = z.object({
-  name: z.string().max(200),
-  event_type: z.enum(['hyrox', 'deka', 'other']),
-  format: z.enum(['singles', 'doubles', 'relay']),
-  division: z.enum(['open', 'pro']),
-  gender_category: z.enum(['men', 'women', 'mixed']),
-  priority: z.enum(['target', 'secondary', 'tune_up']),
-  race_date: isoDate,
-  location: z.string().max(200).optional(),
-  goal_time_seconds: intRange(0, 86_400).optional(),
-});
-
-// The 13-step canonical intake. All fields optional (per-step skippable —
-// Pablo programs tests for what's left empty).
-const onboardingSnapshotSchema = z
-  .object({
-    // ── Step 1 — datos personales (EXISTS) ──────────────────────────────────
-    full_name: z.string().max(200).optional(),
-    date_of_birth: isoDate.optional(),
-    sex: z.enum(['male', 'female', 'other']).optional(),
-    height_cm: z.number().min(80).max(260).optional(),
-    weight_kg: z.number().min(25).max(250).optional(),
-
-    // ── Step 2 — relación con el deporte (NEW; feeds plan) ───────────────────
-    goal_type: z
-      .enum(['first_hyrox', 'improve_hyrox_mark', 'improve_running', 'complete_fun', 'other'])
-      .optional(),
-    goal_other_text: shortText.optional(),
-    run_experience: z.enum(['enthusiast', 'comfortable', 'reluctant', 'none']).optional(),
-    strength_experience: z.enum(['loves_lifting', 'weekly_ish', 'with_guidance', 'none']).optional(),
-
-    // ── Step 3 — hábitos & estado (NEW; subjective 1-10; feeds readiness) ─────
-    sleep_quality: scale1to10.optional(),
-    stress_level: scale1to10.optional(),
-    commitment_level: scale1to10.optional(),
-
-    // ── Step 4 — lesiones & limitaciones -> injuries_json + text ─────────────
-    injuries: z.array(injurySchema).max(32).optional(),
-    movement_limitations: longText.optional(),
-
-    // ── Step 5 — disponibilidad (feeds planner day-assignment) ───────────────
-    availability: availabilitySchema.optional(),
-    available_from: timeOfDay.optional(),
-    available_to: timeOfDay.optional(),
-    session_minutes: intRange(10, 360).optional(),
-    schedule_flexible: z.boolean().optional(),
-
-    // ── Step 6 — semana típica preferida (feeds planner day-type) ────────────
-    preferred_week: preferredWeekSchema.optional(),
-
-    // ── Step 7 — instalación & material (feeds template/exercise filtering) ───
-    facility_type: z.enum(['commercial_gym', 'crossfit_box', 'multiple', 'other']).optional(),
-    facility_other_text: shortText.optional(),
-    equipment: z.array(equipmentSchema).max(16).optional(),
-    has_track: z.boolean().optional(),
-    has_flat_run: z.boolean().optional(),
-
-    // ── Step 8 — dispositivos -> athletes quick-read + devices rows ──────────
-    watch_brand: watchBrandSchema.optional(),
-    watch_model: shortText.optional(),
-    has_hr_belt: z.boolean().optional(),
-
-    // ── Step 9 — metas (coach/IA narrative; anchors macro) ───────────────────
-    goal_short: longText.optional(),
-    goal_mid: longText.optional(),
-    goal_long: longText.optional(),
-    achievable_2_4_months: z.enum(['yes', 'no', 'unknown']).optional(),
-    biggest_obstacle: longText.optional(),
-    pct_depends_on_me: scale1to10.optional(),
-    coach_role: longText.optional(),
-
-    // ── Step 10 — métricas fuerza -> athlete_benchmarks rows (kg, except reps) ─
-    one_rm_back_squat_kg: z.number().min(0).max(500).optional(),
-    one_rm_deadlift_kg: z.number().min(0).max(500).optional(),
-    one_rm_bench_press_kg: z.number().min(0).max(400).optional(),
-    one_rm_ohp_kg: z.number().min(0).max(300).optional(), // strict press == OHP (deduped)
-    one_rm_clean_kg: z.number().min(0).max(300).optional(),
-    one_rm_snatch_kg: z.number().min(0).max(250).optional(),
-    strict_pull_ups_max: intRange(0, 100).optional(),
-    push_ups_per_minute: intRange(0, 200).optional(),
-
-    // ── Step 11 — resistencia & híbrido -> athlete_benchmarks rows (seconds) ──
-    time_5k_seconds: intRange(0, 14_400).optional(),
-    time_10k_seconds: intRange(0, 28_800).optional(),
-    time_half_seconds: intRange(0, 43_200).optional(),
-    time_marathon_seconds: intRange(0, 86_400).optional(),
-    // Ergo time trials — captured by iOS onboarding, previously dropped into the
-    // catchall blob; now modeled + persisted as benchmark rows (the level
-    // algorithm + intake suggestions read row_2k / ski_1k).
-    time_2k_row_seconds: intRange(0, 3_600).optional(),
-    time_1k_ski_seconds: intRange(0, 1_800).optional(),
-    // El 1K de remo lo pregunta el paso de resistencia desde siempre y hasta hoy
-    // caía en el catchall — con su fila `row_1k` ya esperándole en la biblioteca
-    // de Marcas. Declararlo aquí es lo único que faltaba para que se vea.
-    time_1k_row_seconds: intRange(0, 1_800).optional(),
-    hybrid_tests_notes: longText.optional(),
-
-    // ── Step 13 (ThresholdStep) — los umbrales que el atleta DECLARA ──────────
-    // iOS lleva enviando estos cinco desde siempre y el servidor los tiraba: no
-    // estaban modelados aquí, así que el catchall se los tragaba y no llegaban a
-    // ninguna columna que alguien lea. Cada uno es el peldaño ALTO de una escalera
-    // cuyo resolvedor ya lo prefiere (`resolveThresholdHr`, `resolveRunThreshold-
-    // PerKm`, `resolveRowSplit500`), o sea que el atleta tecleaba su mejor
-    // evidencia en un campo que no alimentaba nada mientras la app le pintaba
-    // bandas sacadas de su cumpleaños.
-    //
-    // `ftp_watts` y `time_1_mile_seconds` NO son de adorno aunque lo parezcan:
-    // los leen `bikePowerTarget` y `resolvePace5kPerKm` respectivamente, y eran
-    // código muerto para todos los atletas justamente porque nadie los escribía.
-    //
-    // Entran como DECLARADOS, nunca como medidos: un test guiado los sustituye.
-    // Los rangos replican el CHECK de athletes.max_hr_bpm y las cotas sanas de
-    // cada benchmark.
-    //
-    // `max_hr_bpm` merece su nota aparte: la columna existía y estaba vacía en
-    // TODOS los atletas por este mismo agujero — se preguntaba aquí, se tiraba, y
-    // después «Mis zonas» le pedía al mismo atleta que la volviera a teclear en
-    // Perfil. Entra como ancla ESTIMADA, no como medición: `resolveThresholdHr`
-    // la marca `from_max_hr` y la UI dice «Estimado desde tu FC máxima».
-    lthr_bpm: intRange(80, 220).optional(),
-    max_hr_bpm: intRange(100, 230).optional(),
-    ftp_watts: intRange(30, 700).optional(),
-    threshold_pace_seconds_per_km: intRange(120, 1_200).optional(),
-    time_1_mile_seconds: intRange(180, 3_600).optional(),
-
-    // ── HYROX history (carried from the legacy flat snapshot) ─────────────────
-    // hyrox_best_time_seconds + the declared division feed the level algorithm's
-    // hyrox_open / hyrox_pro benchmark. Previously only reached intake_notes_json.
-    hyrox_best_time_seconds: intRange(0, 14_400).optional(),
-    hyrox_divisions: z.array(z.string().max(40)).max(8).optional(),
-
-    // ── Step 12 — A-event + carreras -> races rows ───────────────────────────
-    races: z.array(raceSchema).max(12).optional(),
-
-    // ── Step 13 — conexiones (client truth) ──────────────────────────────────
-    healthkit_granted: z.boolean().optional(),
-    garmin_connected: z.boolean().optional(),
-
-    // ── Carried over from the legacy flat snapshot (still written today) ──────
-    training_years: z.number().int().min(0).max(80).optional(),
-    training_level: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
-    hours_per_week: z.number().int().min(0).max(40).optional(),
-    primary_discipline: z.string().max(40).optional(),
-    days_per_week: z.number().int().min(1).max(14).optional(),
-  })
-  // Bounded catchall keeps the legacy flat iOS draft fields (station_*,
-  // sleep_hours_avg, subjective_stress, hyrox_*, a_event_*, …) accepted until
-  // the iOS UI is migrated to the structured shape above.
-  .catchall(passthroughValue)
-  .refine((obj) => Object.keys(obj).length <= MAX_PASSTHROUGH_KEYS, {
-    message: `snapshot has too many fields (max ${MAX_PASSTHROUGH_KEYS})`,
-  });
-
-const submitSchema = z.object({
-  snapshot: onboardingSnapshotSchema,
-});
-
-// ── NORMALIZED-WRITE HELPERS (migration 0047) ───────────────────────────────
-
-type Snapshot = z.infer<typeof onboardingSnapshotSchema>;
+type Snapshot = OnboardingSnapshot;
 
 // Tags onboarding-sourced benchmark rows so re-submits replace ONLY them
 // (coach-entered / later PRs are never touched).
@@ -374,9 +127,13 @@ function benchmarksFromSnapshot(
 }
 
 // training_days_per_week is DERIVED — count of availability days == 'program'.
+// Zero is "no day marked" (the step skipped, every day left «Libre»), not an
+// answer: the column only holds 1–14, and writing 0 used to fail the whole intake
+// with a 500 the app retried until it expired.
 function programDayCount(availability: Snapshot['availability']): number | null {
   if (!availability) return null;
-  return Object.values(availability).filter((v) => v === 'program').length;
+  const n = Object.values(availability).filter((v) => v === 'program').length;
+  return n > 0 ? n : null;
 }
 
 export async function POST(request: Request) {
@@ -390,12 +147,16 @@ export async function POST(request: Request) {
     return jsonError('bad_request', 'invalid JSON', 400);
   }
 
-  const parsed = submitSchema.safeParse(body);
-  if (!parsed.success) {
-    return jsonError('bad_request', 'invalid payload', 400, parsed.error.flatten());
-  }
+  // Only a body without a questionnaire is refused. Every answer is read on its
+  // own: what doesn't fit is clipped or dropped and listed for the coach.
+  const read =
+    typeof body === 'object' && body !== null && !Array.isArray(body)
+      ? readOnboardingSnapshot((body as { snapshot?: unknown }).snapshot)
+      : null;
+  if (!read) return jsonError('bad_request', 'snapshot required', 400);
 
-  const snap = parsed.data.snapshot;
+  const snap = read.snapshot;
+  const outOfRange: IntakeAnswerIssue[] = read.issues;
   const level = snap.training_level ?? null;
 
   const { sql } = await import('@/lib/db');
@@ -445,9 +206,12 @@ export async function POST(request: Request) {
         run_experience = coalesce(${snap.run_experience ?? null}::run_experience, run_experience),
         strength_experience = coalesce(${snap.strength_experience ?? null}::strength_experience, strength_experience),
 
-        -- Step 13 — FC maxima declarada. Es la columna que resolveThresholdHr lee
-        -- como tercer peldano; hasta hoy iOS la enviaba y se perdia, y por eso los
-        -- 8 atletas de produccion la tienen a null.
+        -- Step 13 — FC máxima declarada. Es la columna que resolveThresholdHr lee
+        -- como tercer peldaño. coalesce, como el resto: si el atleta ya tiene una
+        -- (del editor de Perfil o de un test), un re-submit NUNCA la pisa.
+        -- UNA sola asignación: estaba escrita dos veces y Postgres rechaza el
+        -- UPDATE entero («multiple assignments to same column»), así que TODO
+        -- envío del cuestionario daba 500 desde el 5-sept (926a47b).
         max_hr_bpm = coalesce(${snap.max_hr_bpm ?? null}, max_hr_bpm),
 
         -- Step 3 — hábitos & estado (1-10)
@@ -490,20 +254,27 @@ export async function POST(request: Request) {
         pct_depends_on_me = coalesce(${snap.pct_depends_on_me ?? null}, pct_depends_on_me),
         coach_role = coalesce(${snap.coach_role ?? null}, coach_role),
 
-        -- Paso «Anaeróbico / umbral» — la FC máxima declarada. coalesce, como el
-        -- resto: si el atleta ya tiene una (del editor de Perfil o de un test),
-        -- un re-submit del onboarding NUNCA la pisa.
-        max_hr_bpm = coalesce(${snap.max_hr_bpm ?? null}, max_hr_bpm),
-
         -- Step 13 — connections (client truth)
         healthkit_granted = coalesce(${snap.healthkit_granted ?? null}, healthkit_granted),
 
         onboarded_at = coalesce(onboarded_at, now()),
-        intake_notes_json = intake_notes_json || ${JSON.stringify({
-          onboarding: snap,
-          suggested_training_level: level,
-          training_level_suggestion: suggestion,
-        })}::jsonb,
+        -- tx.json, NOT JSON.stringify(...)::jsonb: with the cast postgres.js types
+        -- the parameter as jsonb and serializes the string AGAIN, so the column got
+        -- a jsonb STRING and \`object || string\` turned the notes into an ARRAY
+        -- ([{…}, "{…}"]) that no reader could open (0272 repairs those rows).
+        intake_notes_json = intake_notes_json || ${tx.json(
+          JSON.parse(
+            JSON.stringify({
+              onboarding: snap,
+              // The answers that didn't fit (clipped or dropped), as they arrived —
+              // the coach reads them in the alta as «respuestas fuera de rango».
+              // Always written: a clean re-submit clears the previous list.
+              onboarding_out_of_range: outOfRange,
+              suggested_training_level: level,
+              training_level_suggestion: suggestion,
+            }),
+          ) as Parameters<typeof tx.json>[0],
+        )},
         updated_at = now()
       where id = ${athleteId}
       returning (xmax = 0 or onboarded_at = updated_at) as onboarded_first_time, full_name
@@ -657,5 +428,6 @@ export async function POST(request: Request) {
     onboarded: true,
     suggested_training_level: level,
     training_level_suggestion: suggestion,
+    out_of_range: outOfRange.map((i) => i.field),
   });
 }

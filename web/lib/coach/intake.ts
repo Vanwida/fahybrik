@@ -57,6 +57,7 @@ import {
   type IntakeBlockSpec,
 } from './intake-schema';
 import { IntakeError } from './intake-error';
+import { outOfRangeWarning } from './intake-out-of-range';
 import { loadCoachLadder } from './levels';
 import type { ResolvedRung } from '@fahybrid/shared/domain/coach/level-criteria';
 import { listCoachTests } from './coach-tests';
@@ -231,7 +232,9 @@ export interface IntakeWarning {
     | 'benchmarks_outliers'
     | 'active_injury'
     | 'equipment_gap'
-    | 'low_readiness_self_report';
+    | 'low_readiness_self_report'
+    /** Respuestas del cuestionario que no cabían: recortadas o no guardadas (F-01). */
+    | 'answers_out_of_range';
   severity: 'warning' | 'critical';
   label: string;
   detail: string;
@@ -615,6 +618,8 @@ export async function loadIntakeProfile(params: {
     sleep_quality: a.sleep_quality,
     stress_level: a.stress_level,
   });
+  const outOfRange = outOfRangeWarning(a.intake_notes_json);
+  if (outOfRange) warnings.push(outOfRange);
 
   return {
     athlete: {
