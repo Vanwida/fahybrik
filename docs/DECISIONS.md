@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · La RPE y la RIR de una serie guardan su medio punto
+
+**El bug.** El editor de series de la app va de 0,5 en 0,5 (`EditorDeSerie.swift`, `PasoDecimal(paso: 0.5)`) y `set_executions.rpe` / `.rir` son `numeric(3,1)`, pero `sanitizeRpe` (`web/lib/sync/sanitize-measurement.ts`) hacía `Math.round`: el 8,5 que el atleta marcaba se guardaba como 9 y una RIR de 1,5 como 2. El test de ingesta que esperaba 8,5 llevaba fallando desde la importación del 5 sept.
+
+**Decidido:** una serie guarda su RPE y su RIR con un decimal, de 0 a 10: el medio punto es el estándar de la fuerza (RPE 8,5 = «quedaban una o dos»). La RPE de la sesión entera sigue en puntos enteros (`workout_executions.perceived_exertion` es `integer`, `sanitizePerceivedExertion`). La app lee esos campos de serie como `Double`.
+
+**NO hacer:** no redondear a entero un dato del atleta que su columna y su pantalla admiten con decimal; si una columna pide menos precisión que la pantalla, se arregla la columna, no el dato.
+
+---
+
 ## 2026-09-24 · El aviso de plan lo escribe un solo módulo, nombra su semana y solo llega si hay algo que ver
 
 **El hueco (auditoría de la app del atleta, D-10):** cada camino armaba su propio `plan_published` (dos rutas de asignar, asignar a varios, dobles, avanzar la cadena, publicar una semana o varias, el cron). El aviso semanal decía «para la proxima semana» también al publicar la semana EN CURSO; avanzar decía «Nuevo microciclo listo … el siguiente bloque» (el panel dice «programa»; para el atleta un «bloque» es un tramo de su sesión); ninguno llevaba tildes. Dobles y avanzar avisaban SIEMPRE, aunque ninguna semana fuera visible todavía: «Tu plan está listo» sobre un Plan vacío (la regla «no avisar si ninguna semana es visible», 2026-09-23, solo estaba en asignar). Y la app instalada abre la pestaña Plan en la semana en curso sin mirar `week_start`: la frase es el único sitio donde el atleta lee qué semana es.
