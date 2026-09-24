@@ -66,10 +66,24 @@ export async function getCoachTimezoneSetting(coach_id: bigint | number, client:
 export class CoachTimezoneError extends Error {}
 
 /**
+ * La forma que admite la columna (`coaches_timezone_chk`, mig 0241): 3–64
+ * caracteres, un primer tramo solo de letras y «_», y los siguientes tras «/».
+ * Intl y Postgres conocen husos que no la cumplen ('EST5EDT', 'PST8PDT'…); sin
+ * mirarla aquí, el CHECK los rechazaba al escribir y la ruta daba un 500 en vez
+ * del «no se puede usar». El combo nunca los ofrece.
+ */
+const COACH_TIMEZONE_COLUMN_SHAPE = /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/;
+
+function fitsCoachTimezoneColumn(tz: string): boolean {
+  return tz.length >= 3 && tz.length <= 64 && COACH_TIMEZONE_COLUMN_SHAPE.test(tz);
+}
+
+/**
  * Guardar el huso. El mismo defecto se guarda como NULL. Solo se guarda uno que
  * conocen los dos motores de fechas (`isSafeTimezone`: Intl y Postgres, nombre a
- * nombre); si no, `CoachTimezoneError` y la columna no cambia, porque cada lectura
- * en SQL lo pasa a `at time zone` y uno desconocido la tumbaría.
+ * nombre) y que cabe en la columna; si no, `CoachTimezoneError` y la columna no
+ * cambia, porque cada lectura en SQL lo pasa a `at time zone` y uno desconocido
+ * la tumbaría.
  */
 export async function setCoachTimezone(
   coach_id: bigint | number,
@@ -77,7 +91,7 @@ export async function setCoachTimezone(
   client: Sql = defaultSql,
 ): Promise<CoachTimezoneSetting> {
   const value = tz == null || tz === BOX_TIMEZONE ? null : tz;
-  if (value != null && !(await isSafeTimezone(value, client))) {
+  if (value != null && !(fitsCoachTimezoneColumn(value) && (await isSafeTimezone(value, client)))) {
     throw new CoachTimezoneError('Ese huso no se puede usar. Elige uno de la lista.');
   }
   await client`update coaches set timezone = ${value}, updated_at = now() where id = ${Number(coach_id)}`;

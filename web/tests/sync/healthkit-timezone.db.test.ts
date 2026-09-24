@@ -21,6 +21,9 @@ import { makeCoachAndAthlete, type Fixture } from '../utils/db-fixtures';
 vi.mock('@/lib/auth/athlete-session', () => ({ getAthleteSessionFromBearer: vi.fn() }));
 // Va sin esperar después de responder: fuera de la prueba, o escribiría tras la limpieza.
 vi.mock('@/lib/coach/attention/recompute', () => ({ recomputeAthlete: vi.fn(async () => undefined) }));
+// El canal de avisos del servidor: aquí se mira qué se dijo en voz alta.
+vi.mock('@/lib/observability/capture', () => ({ captureRouteError: vi.fn() }));
+const { captureRouteError } = await import('@/lib/observability/capture');
 const { getAthleteSessionFromBearer } = await import('@/lib/auth/athlete-session');
 const { POST } = await import('@/app/api/sync/healthkit/route');
 
@@ -77,6 +80,29 @@ describeWithDb('sincronización de HealthKit: el huso del teléfono (base real)'
       expect(res.status, tz).toBe(200);
       expect(await stored(), tz).toBe('America/Mexico_City');
     }
+  });
+
+  test('un huso que no se escribe deja rastro en el servidor, con el porqué; uno que se escribe, no', async () => {
+    await sql`update athletes set timezone = 'America/Mexico_City' where id = ${fx.athleteId}`;
+    const logged = () =>
+      vi.mocked(captureRouteError).mock.calls.map(([, ctx]) => ctx.meta as Record<string, unknown>);
+
+    vi.mocked(captureRouteError).mockClear();
+    expect((await sync('Mars/Olympus_Mons')).status).toBe(200);
+    expect(logged()).toEqual([
+      expect.objectContaining({ athlete_id: String(fx.athleteId), timezone: 'Mars/Olympus_Mons', reason: 'unreadable' }),
+    ]);
+
+    for (const tz of unknownToPostgres) {
+      vi.mocked(captureRouteError).mockClear();
+      expect((await sync(tz)).status, tz).toBe(200);
+      expect(logged(), tz).toEqual([expect.objectContaining({ timezone: tz, reason: 'unknown_to_postgres' })]);
+    }
+
+    vi.mocked(captureRouteError).mockClear();
+    expect((await sync('Asia/Tokyo')).status).toBe(200);
+    expect(await stored()).toBe('Asia/Tokyo');
+    expect(captureRouteError).not.toHaveBeenCalled();
   });
 
   test('al leer, un huso guardado que Intl no entiende cae al defecto (y vacío, también)', async () => {

@@ -11,9 +11,9 @@ import { isValidTimezone } from '../coach/coach-timezone';
  * Until an athlete's device reports its IANA timezone (HealthKit sync batch →
  * `athletes.timezone`), fall back to the deployment default (`BOX_TIMEZONE`).
  * It is a FALLBACK, not an assumption — the column wins the moment it is
- * populated, and it is the only tz link that exists today: there is no
- * `coaches.timezone`, so a coach outside the default zone still reads a clock
- * that is not his. See the note on `BOX_TIMEZONE` in `../dates.ts`.
+ * populated. It is the athlete's clock only: the club's is `coaches.timezone`
+ * (mig 0241, `loadCoachTimezone`), for what the coach decides about the plan.
+ * See the note on `BOX_TIMEZONE` in `../dates.ts`.
  */
 export const LAUNCH_FALLBACK_TIMEZONE = BOX_TIMEZONE;
 

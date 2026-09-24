@@ -140,4 +140,27 @@ describeWithDb('un huso se guarda solo si lo conocen Intl y Postgres (base real)
     expect((await patch(null)).status).toBe(200);
     expect(await stored()).toBeNull();
   });
+
+  test('Ajustes › Tu club: uno que conocen los dos motores pero no cabe en la columna es un 422, no un 500', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+    vi.mocked(getCoachSession).mockResolvedValue({ coach_id: BigInt(fx.coachId) } as never);
+    const patch = (timezone: string) =>
+      PATCH(new Request('http://x/api/coach/club/timezone', { method: 'PATCH', body: JSON.stringify({ timezone }) }));
+    await sql`update coaches set timezone = 'America/Mexico_City' where id = ${fx.coachId}`;
+
+    // Premisa: los husos POSIX con cifras en el primer tramo los conocen Intl y
+    // Postgres, pero el CHECK de la columna (0241) no los admite.
+    const posix = ['EST5EDT', 'PST8PDT'].filter((tz) => isValidTimezone(tz) && pgNames.has(tz));
+    expect(posix.length).toBeGreaterThan(0);
+    for (const tz of posix) {
+      const res = await patch(tz);
+      expect(res.status, tz).toBe(422);
+      expect(((await res.json()) as { error: { message: string } }).error.message).toBe(
+        'Ese huso no se puede usar. Elige uno de la lista.',
+      );
+      const [row] = await sql<Array<{ tz: string | null }>>`select timezone as tz from coaches where id = ${fx.coachId}`;
+      expect(row!.tz, tz).toBe('America/Mexico_City');
+    }
+  });
 });
