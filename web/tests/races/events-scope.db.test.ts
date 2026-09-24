@@ -7,7 +7,8 @@
 // aviso cuando no hay TEST_DATABASE_URL.
 
 import { afterAll, beforeAll, expect, test } from 'vitest';
-import { EventsError, listEvents, updateEvent } from '@/lib/coach/events';
+import { EventsError, listEvents } from '@/lib/coach/events';
+import { updateEvent } from '@/lib/coach/events-write';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, type Fixture } from '../utils/db-fixtures';
 

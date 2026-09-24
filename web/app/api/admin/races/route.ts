@@ -11,7 +11,8 @@
 import { NextResponse } from 'next/server';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { requireAdmin } from '@/lib/auth/require-admin';
-import { EventsError, createEvent, listEvents } from '@/lib/coach/events';
+import { EventsError, listEvents } from '@/lib/coach/events';
+import { createEvent } from '@/lib/coach/events-write';
 import { adminRaceCreateInput } from '@fahybrid/shared/schema/events';
 
 export const runtime = 'nodejs';

@@ -11,10 +11,10 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import {
   EventsError,
-  createEvent,
   listEvents,
   type ListEventsOpts,
 } from '@/lib/coach/events';
+import { createEvent } from '@/lib/coach/events-write';
 import {
   eventRegion,
   type EventRegion,

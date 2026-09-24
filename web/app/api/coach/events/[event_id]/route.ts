@@ -5,7 +5,8 @@
 import { NextResponse } from 'next/server';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { getCoachSession } from '@/lib/auth/coach-session';
-import { EventsError, updateEvent } from '@/lib/coach/events';
+import { EventsError } from '@/lib/coach/events';
+import { updateEvent } from '@/lib/coach/events-write';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

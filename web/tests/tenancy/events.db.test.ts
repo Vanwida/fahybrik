@@ -5,7 +5,8 @@
  */
 import { afterAll, expect, test } from 'vitest';
 
-import { listEvents, updateEvent } from '@/lib/coach/events';
+import { listEvents } from '@/lib/coach/events';
+import { updateEvent } from '@/lib/coach/events-write';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete } from '../utils/db-fixtures';
 
