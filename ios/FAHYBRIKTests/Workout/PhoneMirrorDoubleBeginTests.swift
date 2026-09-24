@@ -8,12 +8,25 @@ final class PhoneMirrorDoubleBeginTests: XCTestCase {
 
     private var mirror: PhoneLiveSession { PhoneLiveSession.shared }
 
+    // The suite runs in random order (project.yml `randomExecutionOrder`) and
+    // `PhoneLiveSession.shared` outlives every test: other classes `begin` on it
+    // and leave `startWatchAppCallCount` / engine / latches behind. Each test
+    // starts — and leaves — a cold mirror.
+    override func setUp() {
+        super.setUp()
+        resetMirror()
+    }
+
     override func tearDown() {
+        resetMirror()
+        super.tearDown()
+    }
+
+    private func resetMirror() {
         mirror.sendOverride = nil
         mirror.teardown()
         mirror.resetAthleteEndFlagsForTests()
         mirror.resetPrimaryBindingForTests()
-        super.tearDown()
     }
 
     func testDoubleBeginSameSessionDoesNotSecondLaunchWatch() {
@@ -34,12 +47,16 @@ final class PhoneMirrorDoubleBeginTests: XCTestCase {
 
     func testPrepThenReleaseOnlyOneLaunch() {
         let s = WorkoutSession(plan: .minimal(title: "FH-96-prep"))
-        s.runEnvironment = .outdoor
+        // calle/cinta is the gate's answer: prep and release stamp
+        // `answers.runEnvironment` on the staging session (a run without it
+        // asks the wrist for nothing — PhoneLiveHandoffPolicy).
+        var answers = SessionStartAnswers.empty
+        answers.runEnvironment = .outdoor
         mirror.startWatchAppOverride = { _ in true }
 
         PreWorkoutReleaseLive.prepWatchRecording(
             staging: s,
-            answers: .empty,
+            answers: answers,
             activityKind: "running",
             stampSession: nil
         )
@@ -49,7 +66,7 @@ final class PhoneMirrorDoubleBeginTests: XCTestCase {
 
         _ = PreWorkoutReleaseLive.release(
             staging: s,
-            answers: .empty,
+            answers: answers,
             activityKind: "running",
             stampSession: nil
         )
@@ -60,12 +77,13 @@ final class PhoneMirrorDoubleBeginTests: XCTestCase {
 
     func testEmpezarAloneStillLaunchesWatch() {
         let s = WorkoutSession(plan: .minimal(title: "FH-96-solo"))
-        s.runEnvironment = .indoor
+        var answers = SessionStartAnswers.empty
+        answers.runEnvironment = .indoor
         mirror.startWatchAppOverride = { _ in true }
 
         _ = PreWorkoutReleaseLive.release(
             staging: s,
-            answers: .empty,
+            answers: answers,
             activityKind: "running",
             stampSession: nil
         )

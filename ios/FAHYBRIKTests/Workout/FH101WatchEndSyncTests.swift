@@ -7,12 +7,25 @@ final class FH101WatchEndSyncTests: XCTestCase {
 
     private var mirror: PhoneLiveSession { PhoneLiveSession.shared }
 
+    // Random order + a shared singleton: every test starts from a cold mirror
+    // (`startWatchAppCallCount` is absolute) and leaves none of its PRIMARY
+    // binding behind for the next class.
+    override func setUp() {
+        super.setUp()
+        resetMirror()
+    }
+
     override func tearDown() {
+        resetMirror()
+        LiveWorkoutResume.shared.dismissFully()
+        super.tearDown()
+    }
+
+    private func resetMirror() {
         mirror.sendOverride = nil
         mirror.teardown()
         mirror.resetAthleteEndFlagsForTests()
-        LiveWorkoutResume.shared.dismissFully()
-        super.tearDown()
+        mirror.resetPrimaryBindingForTests()
     }
 
     /// Watch-initiated end via WCSession durable path (simulated delayed delivery).
