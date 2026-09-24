@@ -6,11 +6,11 @@
 // toca. Sustituye al cron del sábado que solo soltaba «el lunes que viene».
 //
 // Auth: `Authorization: Bearer ${CRON_SECRET}` (fail-closed if unset). La lógica
-// vive en lib/coach/week-publishing.ts (runAutoPublish).
+// vive en lib/coach/week-publishing-cron.ts (runAutoPublish).
 
 import { sql } from '@/lib/db';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { runAutoPublish } from '@/lib/coach/week-publishing';
+import { runAutoPublish } from '@/lib/coach/week-publishing-cron';
 import { captureRouteError } from '@/lib/observability/capture';
 
 export const runtime = 'nodejs';

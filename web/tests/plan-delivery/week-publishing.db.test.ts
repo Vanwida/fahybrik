@@ -10,11 +10,11 @@ import {
   listAthleteWeeks,
   publishAthleteWeek,
   publishWeekForAthletes,
-  runAutoPublish,
   setAthleteWeekHeld,
   setAutoPublishDays,
   WeekPublishingError,
 } from '@/lib/coach/week-publishing';
+import { runAutoPublish } from '@/lib/coach/week-publishing-cron';
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
 import { instantiateMonthFromTemplate } from '@/lib/dashboard/coach/instantiate-program';
 

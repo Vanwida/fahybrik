@@ -7,7 +7,7 @@ import { getTestCadenceSetting, setTestCadence } from '@/lib/coach/test-cadence'
 import { resolveEffectiveThresholds } from '@/lib/coach/signal-thresholds';
 import { getMaxProgramWeeksSetting, loadCoachMaxMicrocicloWeeks, setMaxProgramWeeks } from '@/lib/coach/microcycle-limits';
 import { getCoachTimezoneSetting, loadCoachTimezone, setCoachTimezone } from '@/lib/coach/coach-timezone';
-import { runAutoPublish } from '@/lib/coach/week-publishing';
+import { runAutoPublish } from '@/lib/coach/week-publishing-cron';
 import {
   getCoachRunningThresholdsSetting,
   patchCoachRunningThresholds,
