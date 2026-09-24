@@ -257,9 +257,9 @@ async function buildHeuristicProposal(params: {
 
 function isCoachIaLlmConfigured(): boolean {
   const model =
-    (process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL)?.trim() ?? process.env.LLM_CHAT_MODEL?.trim();
+    process.env.COACH_IA_MODEL?.trim() ?? process.env.LLM_CHAT_MODEL?.trim();
   const key =
-    (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY)?.trim() ??
+    process.env.COACH_IA_API_KEY?.trim() ??
     process.env.LLM_API_KEY?.trim() ??
     process.env.OPENROUTER_API_KEY?.trim();
   return Boolean(model && key);
@@ -388,12 +388,12 @@ function buildUserPrompt(args: LlmCallArgs): string {
 }
 
 async function callCoachIaLlm(args: LlmCallArgs): Promise<unknown> {
-  const provider = ((process.env.COACH_IA_PROVIDER ?? process.env.PABLO_IA_PROVIDER) ?? process.env.LLM_PROVIDER ?? 'openrouter')
+  const provider = (process.env.COACH_IA_PROVIDER ?? process.env.LLM_PROVIDER ?? 'openrouter')
     .trim()
     .toLowerCase();
-  const model = ((process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL) ?? process.env.LLM_CHAT_MODEL)!.trim();
+  const model = (process.env.COACH_IA_MODEL ?? process.env.LLM_CHAT_MODEL)!.trim();
   const apiKey = (
-    (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY) ??
+    process.env.COACH_IA_API_KEY ??
     process.env.LLM_API_KEY ??
     process.env.OPENROUTER_API_KEY
   )!.trim();

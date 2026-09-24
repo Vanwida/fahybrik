@@ -44,7 +44,7 @@ export class WeekAdjustmentError extends Error {
 // --------------------------------------------------------------------------
 //
 // Two-tier config:
-//   1) COACH_IA_MODEL (o PABLO_IA_MODEL, fallback) → optional override SOLO para esta tarea (semana adapt)
+//   1) COACH_IA_MODEL → optional override SOLO para esta tarea (semana adapt)
 //   2) Fallback: LLM_CHAT_MODEL + LLM_API_KEY (shared OpenRouter wiring,
 //      same as ai-chat). Reusamos chatCompletion() en lugar de duplicar fetch.
 //
@@ -52,11 +52,11 @@ export class WeekAdjustmentError extends Error {
 // (comportamiento actual, cero regresión).
 
 function isCoachIaLlmConfigured(): boolean {
-  // Si Alex puso COACH_IA_MODEL (o PABLO_IA_MODEL) + alguna API key específica → ready.
+  // Si el despliegue define COACH_IA_MODEL + alguna API key específica → ready.
   const hasCoachIaOverride =
-    Boolean((process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL)?.trim()) &&
+    Boolean(process.env.COACH_IA_MODEL?.trim()) &&
     Boolean(
-      (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY)?.trim() ??
+      process.env.COACH_IA_API_KEY?.trim() ??
         process.env.LLM_API_KEY?.trim() ??
         process.env.OPENROUTER_API_KEY?.trim(),
     );
@@ -216,8 +216,8 @@ async function callCoachIaLlm(args: LlmCallArgs): Promise<WeekAdjustmentProposal
   // chatCompletion() lee LLM_CHAT_MODEL del entorno (estándar del repo).
   const prevModel = process.env.LLM_CHAT_MODEL;
   const prevKey = process.env.LLM_API_KEY;
-  const override = (process.env.COACH_IA_MODEL ?? process.env.PABLO_IA_MODEL)?.trim();
-  const overrideKey = (process.env.COACH_IA_API_KEY ?? process.env.PABLO_IA_API_KEY)?.trim();
+  const override = process.env.COACH_IA_MODEL?.trim();
+  const overrideKey = process.env.COACH_IA_API_KEY?.trim();
   try {
     if (override) process.env.LLM_CHAT_MODEL = override;
     if (overrideKey) process.env.LLM_API_KEY = overrideKey;

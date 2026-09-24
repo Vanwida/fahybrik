@@ -29,8 +29,6 @@ import {
 // Env vars que, si están, enrutarían al LLM. Las limpiamos para forzar el
 // camino determinista (y restauramos después).
 const LLM_ENV_KEYS = [
-  'PABLO_IA_MODEL',
-  'PABLO_IA_API_KEY',
   'LLM_PROVIDER',
   'LLM_CHAT_MODEL',
   'LLM_MODEL',

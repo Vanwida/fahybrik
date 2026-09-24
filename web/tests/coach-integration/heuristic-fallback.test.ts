@@ -25,8 +25,6 @@ import {
 // Env vars that, if set, would route to the LLM. We clear them per-test so the
 // fallback is exercised deterministically (and restore after).
 const LLM_ENV_KEYS = [
-  'PABLO_IA_MODEL',
-  'PABLO_IA_API_KEY',
   'LLM_PROVIDER',
   'LLM_CHAT_MODEL',
   'LLM_MODEL',
