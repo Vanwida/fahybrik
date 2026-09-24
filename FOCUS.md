@@ -2,13 +2,14 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-24** (PR #191 en verde, espera migraciones en Neon; diseño Watch-first firmado → fase 0)
+Última actualización: **2026-09-24** (PR #191 fusionado; diseño Watch-first firmado → fase 0)
 
 ## Ahora
 
 **EL RELOJ ES EL PRODUCTO y el listón es TrainingPeaks (Alex, 24-09).** La muñeca lleva la sesión
 desde el primer día; nunca por debajo de TrainingPeaks. Diseño FIRMADO (arquitectura, iOS/watchOS 26,
-iPhone de respaldo, CI GitHub macOS; DECISIONS 24-09): `docs/el-reloj-primero/`. Siguiente: fase 0 (CI macOS).
+iPhone de respaldo, CI GitHub macOS, otros relojes 14 días, app Entreno de Apple opcional): `docs/el-reloj-primero/`.
+EN CURSO: fase 0 (CI macOS en GitHub). Luego fase 4 (analíticas web) en su propio PR.
 **Auditoría de la app del atleta (iOS + watchOS) — ENTREGADA.** `docs/auditoria-app-atleta/`.
 6 raíces: enlace del reloj diseñado para fallar · entreno terminado no durable · lo del coach
 no llega · la app dice lo que ningún coach decidió · empezar/terminar peor que el mercado ·
@@ -27,9 +28,7 @@ pre-FLEXR (4 lentes: aislamiento, método, producto, plataforma) y decisiones de
 - PENDIENTE DE ALEX (revisión §decisiones): app de los atletas, quién cobra, alta de
   coaches, precio, despliegue, dominios, deportes, idioma, arranque de un club, RLS,
   legal, permiso para borrar código muerto.
-- PR #191 → `main`: CI verde. Se fusiona cuando Alex aplique en Neon 0211–0260 y 0270–0272
-  (revisadas contra datos reales: seguras; migrar y fusionar seguido) y el entitlement 'negocio'
-  del club 60 (pasos y SQL en el PR). Hasta entonces `main` (prod) da 500 en cada alta desde 09-05.
+- PR #191 FUSIONADO a `main` (24-09, `da08a40`) tras aplicar Alex 0211–0272 y el add-on 'negocio' del club 60.
 - Tras el deploy: reconectar Google Calendar (ahora por coach); cron lifecycle pasa a horario (vercel.json); alta de pago apagada para cualquier club que no sea FAHYBRID hasta decidir quién cobra.
 
 **FH-56 — El enlace muñeca↔móvil lo dice Apple (PR pendiente de Devil's Advocate CODE gate).**

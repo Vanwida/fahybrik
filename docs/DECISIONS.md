@@ -25,6 +25,9 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 2. **Mínimos: iOS 26 y watchOS 26**, con lo de watchOS 27 (zonas nativas, RMSSD) encendido donde el reloj lo tenga. 26 es lo que pide la sesión de entreno en el iPhone.
 3. **Sin reloj, el iPhone es respaldo:** graba la sesión él solo (sesión de entreno de iOS 26), marcada como respaldo; nunca se vende como camino principal.
 4. **Mac de CI: GitHub macOS.** Compila iPhone y reloj y pasa los tests en cada cambio de `ios/`; un rojo no se fusiona. Se monta en el repo y los errores se leen desde aquí.
+5. **Otros relojes: sí.** Carrera y piezas de ergo a Garmin, COROS, Polar y Suunto con 14 días de antelación (paridad con TrainingPeaks). Antes, comprobar si Garmin ha congelado su API de desarrolladores tras comprar TrainingPeaks.
+6. **App Entreno de Apple: solo como opción explícita.** Por defecto se corre con nuestra app; el envío de carreras a la app de Apple (WorkoutKit) deja de ser automático y lo activa quien lo quiera, sabiendo qué cuenta.
+7. **Orden:** fase 0 (CI macOS) ya; fase 4 (analíticas web) en su propio PR, después de fusionar el #191 (fusionado el 24-09 con las migraciones 0211–0272 aplicadas por Alex).
 
 ---
 
