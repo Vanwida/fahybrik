@@ -101,7 +101,7 @@ pre.mermaid{background:var(--surface);border:1px solid var(--border);border-radi
   <p class="meta"><strong>How this was checked.</strong> This environment has no Xcode, simulator, iPhone or Watch, so nothing in the app was compiled or run: every finding was traced line by line in the Swift and server code, and each is marked confirmed (traced) or suspected (needs your device). «El doble» was used where it's current, but 8 of its 9 app mirrors are stale. Anything only a device can prove is in <a href="#test">the tests to run</a>. Branch <code>claude/focused-bardeen-u9zz33</code>; full reports in the session scratchpad.</p>
 
   <div class="stats">
-    <div class="stat"><b>16</b><span>P0s (broken or data loss) after removing duplicates across reviewers; 1 already fixed</span></div>
+    <div class="stat"><b>16</b><span>P0s (broken or data loss) after removing duplicates across reviewers; 3 already fixed on the server</span></div>
     <div class="stat"><b>5–7</b><span>taps from opening the app to a running strength session. Apple Workout, Strava, Runna: 1–3</span></div>
     <div class="stat"><b>8 of 13</b><span>builds (86–98) failed to compile — found only at release time</span></div>
     <div class="stat"><b>HTTP/1.1</b><span>what the server spoke to Apple's push service, which only accepts HTTP/2 — fixed on the server today</span></div>
@@ -236,16 +236,20 @@ sequenceDiagram
   </div>
 
   <h2>Already fixed, on the server</h2>
-  <p>Some breaks can be fixed entirely on the server. Those reach every athlete with the next web deploy, need no new app build, and can be tested here. These are objective bugs, so they're being fixed now:</p>
+  <p>Some breaks can be fixed entirely on the server. Those reach every athlete with the next web deploy, need no new app build, and can be tested here. These were objective bugs, so they're fixed, with tests, on the branch:</p>
   <div class="tablewrap"><table>
     <thead><tr><th>Status</th><th>Fix</th></tr></thead>
     <tbody>
-      <tr><td class="n"><span class="badge done">Done</span></td><td class="w"><strong>Push notifications to the iPhone.</strong> The server now talks HTTP/2 to Apple, and sends after the response so Vercel doesn't cut it off. Tested against a local HTTP/2-only server. After deploy, check with <code>/api/devices/test-push</code>.</td></tr>
-      <tr><td class="n"><span class="badge prog">In progress</span></td><td class="w"><strong>Never reject a finished workout</strong>: a workout on a session the coach removed is kept as the athlete's own session, flagged for the coach, and the phone and Watch get their «saved».</td></tr>
-      <tr><td class="n"><span class="badge prog">In progress</span></td><td class="w"><strong>Never lose an onboarding questionnaire</strong> for one out-of-range answer.</td></tr>
-      <tr><td class="n"><span class="badge prog">In progress</span></td><td class="w">The hill threshold reaches the app (field name); push copy says the right week and uses the panel's words; «semana N de M» equals the panel's; hidden weeks don't leak into Ciclo or the tests card.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w"><strong>Onboarding was broken in production.</strong> Since 5 September, <code>main</code> sets the same column twice in one database statement, which Postgres refuses, so every onboarding submission failed; the app retries for 72 h and then drops it. Found while fixing the next item; proven against a real database.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w"><strong>Push notifications to the iPhone.</strong> The server now talks HTTP/2 to Apple and sends after the response, so Vercel doesn't cut it off. Tested against a local HTTP/2-only server. After deploy, check with <code>/api/devices/test-push</code>.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w"><strong>A finished workout is never rejected.</strong> A workout on a session the coach removed or replaced (or with a bad optional field) is kept as the athlete's own session, flagged for the coach under Vigilar as «Hecho fuera del plan», and the phone and Watch get their «saved». No athlete can ever write onto another athlete's session.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w"><strong>An onboarding is never lost for one answer.</strong> Each answer is checked on its own; an impossible one is dropped and the coach sees «N respuestas fuera de rango». Four other crashes found on the way are fixed too.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w">The coach's hill threshold reaches the app (the app read a different field name). 29 athlete endpoints were decoded with Swift's rules for 100 athletes: no other mismatches.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w">Push texts name the right week in the athlete's own calendar («esta semana», «la semana que viene»), use the panel's words and accents, and «Tu plan está listo» only arrives when a week is actually visible.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w">«Semana N de M» in the app equals the panel's; weeks the coach holds hidden no longer leak into Ciclo or the tests card.</td></tr>
     </tbody>
   </table></div>
+  <p class="note">None of this is live until the branch is merged and deployed, and migrations 0270–0272 are applied in production along with 0211–0260.</p>
 
   <h2>The plan</h2>
   <p>Ordered so each phase makes the next one safe. Everything from phase 1 on is Swift, so it waits for phase 0.</p>

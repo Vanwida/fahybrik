@@ -28,8 +28,8 @@ pre-FLEXR (4 lentes: aislamiento, método, producto, plataforma) y decisiones de
 - PENDIENTE DE ALEX (revisión §decisiones): app de los atletas, quién cobra, alta de
   coaches, precio, despliegue, dominios, deportes, idioma, arranque de un club, RLS,
   legal, permiso para borrar código muerto.
-- OJO: la rama NO está en `main` (sin PR); esperando el OK de Alex para abrir PR y fusionar.
-- PROD: migraciones 0211–0260 en Neon (`cd infra && DATABASE_URL=… pnpm migrate --dry-run`, luego sin --dry-run; el deploy NO las aplica); entitlement 'negocio' del club; reconectar Google
+- OJO: rama NO en `main`; en `main` (prod) el onboarding da 500 desde 09-05 (arreglo: c36effd).
+- PROD: migraciones 0211–0260 y 0270–0272 en Neon (`cd infra && DATABASE_URL=… pnpm migrate --dry-run`, luego sin --dry-run; el deploy NO las aplica); entitlement 'negocio' del club; reconectar Google
   Calendar (ahora por coach); cron lifecycle pasa a horario (vercel.json); alta de pago
   apagada para cualquier club que no sea FAHYBRID hasta decidir quién cobra.
 
