@@ -43,6 +43,20 @@ describeWithDb('registrar una carrera: «futuro» es después de SU hoy (DB real
     expect(await register('2031-03-12')).toEqual({ ok: false, error: 'invalid_date' });
   });
 
+  it('la carrera se guarda en SU día: leída en su calendario, es la fecha que dio', async () => {
+    // Los Ángeles (UTC−7/−8): una fecha pelada guardada como medianoche UTC se lee
+    // allí como el día anterior. Una marca del 5, en su calendario, es del 5.
+    await sql`update athletes set timezone = 'America/Los_Angeles' where id = ${fx.athleteId}`;
+    expect((await register('2031-03-05')).ok).toBe(true);
+    const row = await sql<{ local_day: string }[]>`
+      select to_char(recorded_at at time zone 'America/Los_Angeles', 'YYYY-MM-DD') as local_day
+      from athlete_benchmarks
+      where athlete_id = ${fx.athleteId} and exercise_slug = 'run_10k'
+      order by id desc limit 1
+    `;
+    expect(row[0]!.local_day).toBe('2031-03-05');
+  });
+
   it('sin huso guardado, el defecto: el 11 todavía es futuro', async () => {
     await sql`update athletes set timezone = null where id = ${fx.athleteId}`;
     expect(await register('2031-03-11')).toEqual({ ok: false, error: 'invalid_date' });
