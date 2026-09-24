@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
 import { addDays, isoDateString, mondayOfWeek } from '@fahybrid/shared/domain/dates';
 import { maxWeekOffset } from '@fahybrid/shared/domain/coach/plan-week-horizon';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
-import { makeCoachAndAthlete, type Fixture } from '../utils/db-fixtures';
+import { makeAssignment, makeCoachAndAthlete, makeTemplate, type Fixture } from '../utils/db-fixtures';
 
 const DB_TIMEOUT = 30_000;
 
@@ -50,11 +50,11 @@ describeWithDb('FH-27 — plan week visibility horizon', () => {
     `;
   }
 
-  async function seedAssignment(athleteId: number, iso: string) {
-    await sql`
-      insert into workout_assignments (athlete_id, scheduled_for, status, origin)
-      values (${athleteId}, ${iso}::date, 'pending', 'coach')
-    `;
+  // Una sesión programada de verdad: con su plantilla (template_id es NOT NULL)
+  // y en estado 'scheduled' (el enum nunca ha tenido 'pending').
+  async function seedAssignment(fx: Fixture, iso: string) {
+    const templateId = await makeTemplate({ fx, name: 'Rodaje' });
+    await makeAssignment({ fx, templateId, scheduledForIso: iso });
   }
 
   test(
@@ -67,8 +67,8 @@ describeWithDb('FH-27 — plan week visibility horizon', () => {
 
       const monday = isoDateString(mondayOfWeek(new Date()));
       const nextMonday = isoDateString(addDays(new Date(monday), 7));
-      await seedAssignment(fxA.athleteId, nextMonday);
-      await seedAssignment(fxB.athleteId, nextMonday);
+      await seedAssignment(fxA, nextMonday);
+      await seedAssignment(fxB, nextMonday);
 
       const visA = await resolveAthletePlanWeekVisibility(fxA.athleteId);
       const visB = await resolveAthletePlanWeekVisibility(fxB.athleteId);
