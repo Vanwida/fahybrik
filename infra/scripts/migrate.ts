@@ -38,6 +38,7 @@ import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getSql } from './_db.ts';
+import { splitSqlStatements } from './sql-split.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(HERE, '..', 'migrations');
@@ -163,11 +164,27 @@ async function main(): Promise<void> {
       const body = stripTxn(m.sql);
       // `CREATE INDEX CONCURRENTLY` (and a few other statements) cannot run
       // inside a transaction block. Such migrations are authored WITHOUT
-      // begin/commit; we run them via unsafe() outside a txn, then record the
-      // journal row separately. Everything else gets the safe single-txn wrap.
+      // begin/commit; we run them outside a txn, then record the journal row
+      // separately. Everything else gets the safe single-txn wrap.
+      //
+      // Outside a txn means ONE QUERY PER STATEMENT: Postgres runs a query
+      // string holding several statements as an implicit transaction block,
+      // which CONCURRENTLY refuses too (see sql-split.ts). All of them go through
+      // one reserved connection, so a `set …` in the file still reaches the
+      // statements after it. Each statement commits on its own: if one fails,
+      // the ones before it stay applied and the journal row is not written.
       const isConcurrent = /\bconcurrently\b/i.test(body);
       if (isConcurrent) {
-        await sql.unsafe(body);
+        const statements = splitSqlStatements(body);
+        const conn = await sql.reserve();
+        try {
+          for (const [i, statement] of statements.entries()) {
+            console.log(`  · ${i + 1}/${statements.length} ${statement.split('\n', 1)[0]}`);
+            await conn.unsafe(statement);
+          }
+        } finally {
+          conn.release();
+        }
         await sql`
           insert into schema_migrations (version, checksum)
           values (${m.version}, ${m.checksum})

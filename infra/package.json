@@ -6,7 +6,7 @@
   "scripts": {
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"no tests\" && exit 0",
+    "test": "tsx scripts/sql-split.test.ts",
     "seed:events": "tsx scripts/seed_events.ts",
     "seed:demo-race": "tsx scripts/seed_demo_race.ts",
     "seed:demo-dobles-race": "tsx scripts/seed_demo_dobles_race.ts",
