@@ -10,6 +10,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · Ningún deploy sin su migración; y tres decisiones de FLEXR (cobro, alta de coaches, aislamiento)
+
+**Qué pasó:** el PR #191 salió a producción (deploy de las 21:45 UTC) con código que lee `workout_executions.off_plan_reason` (0270) y la base de producción no tenía 0270 (ni, previsiblemente, 0271–0272, añadidas al final del PR): el cron `recompute-attention` falló para todos los coaches desde su primera pasada — la bandeja «Hoy» deja de recalcularse. Nada comparaba el código que se publica con el esquema que lo sirve.
+
+**Decidido (Alex, 24-09, preguntas y respuestas):**
+1. **La build de producción se para si falta una migración.** `web/scripts/migraciones-al-dia.mjs` corre antes de `next build`: compara `infra/migrations/*.sql` con el diario `schema_migrations` (la misma llave que el migrador) y, en `VERCEL_ENV=production`, falla nombrando las que faltan y cómo aplicarlas; si no puede leer la base, también falla (sin comprobarlo no se publica). En preview solo avisa; fuera de Vercel no hace nada. Una migración vieja sin registrar (anterior a la última registrada) se nombra aparte: se registra con `migrate:backfill --through=`, no se ejecuta. Descartado: que el deploy aplique las migraciones solo (una migración correría en la base real sin que nadie la mire) y el simple aviso (el fallo de hoy se repetiría).
+2. **Cobro de los atletas de otros clubs: Stripe Connect.** Cada club con su cuenta; la plataforma se lleva una comisión. Hasta tenerlo, el alta de pago sigue apagada para todo club que no sea FAHYBRID (revisión FLEXR, decisión 2). Descartado: cobrar en nuestra cuenta y repartir (contabilidad e impuestos ajenos) y que cada club cobre fuera.
+3. **Alta de un coach: solicitud + aprobación nuestra**, para los primeros ~20. Falta el paso que crea el club al aprobar (la lista de permitidos ya existe). Descartado por ahora: alta libre con prueba e invitación manual.
+4. **Aislamiento entre clubs: un check en CI ya, RLS completo antes del coach nº 20.** El check marca consultas sobre tablas de club sin filtro de coach; el patrón de test de dos coaches (`web/tests/tenancy/`) se extiende a toda ruta que recibe un id.
+
+**NO hacer:** no quitar ni saltar la puerta de migraciones para «desbloquear» un deploy — se aplican las migraciones. No construir cobro en la cuenta de la plataforma para clubs ajenos. No abrir un alta libre de coaches.
+
+---
+
 ## 2026-09-24 · FLEXR será un repo nuevo; mientras tanto se construye como FAHYBRID
 
 **Decidido (Alex, 24-09):** «De momento lo hacemos en nombre de FAHYBRID. Una vez esté todo finalizado hacemos el cambio: creamos un repo nuevo, creamos todo nuevo para llamarlo FLEXR, y FAHYBRID será un tenant de FLEXR.»

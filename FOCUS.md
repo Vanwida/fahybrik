@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-24** (PR #191 fusionado; diseño Watch-first firmado → fase 0)
+Última actualización: **2026-09-24** (prod sin 0270–0272 → puerta de migraciones en la build; fase 0)
 
 ## Ahora
 
@@ -10,6 +10,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 desde el primer día; nunca por debajo de TrainingPeaks. Diseño FIRMADO (arquitectura, iOS/watchOS 26,
 iPhone de respaldo, CI GitHub macOS, otros relojes 14 días, app Entreno de Apple opcional): `docs/el-reloj-primero/`.
 EN CURSO: fase 0 (CI macOS en GitHub). Luego fase 4 (analíticas web) en su propio PR.
+**PROD (24-09 21:45):** a la base le faltan 0270–0272 → cron de atención roto para todos. Alex:
+`pnpm --dir infra migrate`. Desde ahora la build de producción se para si falta una (`web/scripts/migraciones-al-dia.mjs`).
 **Auditoría de la app del atleta (iOS + watchOS) — ENTREGADA.** `docs/auditoria-app-atleta/`.
 6 raíces: enlace del reloj diseñado para fallar · entreno terminado no durable · lo del coach
 no llega · la app dice lo que ningún coach decidió · empezar/terminar peor que el mercado ·
@@ -25,9 +27,9 @@ pre-FLEXR (4 lentes: aislamiento, método, producto, plataforma) y decisiones de
   Google Calendar global → por coach 0254) + P1; tests de dos coaches en `web/tests/tenancy/`.
 - Método = dato del coach con defecto (0211–0260): motores secundarios, niveles,
   zonas, lecturas de carrera, cadencia de tests, huso del coach; editores en Ajustes.
-- PENDIENTE DE ALEX (revisión §decisiones): app de los atletas, quién cobra, alta de
-  coaches, precio, despliegue, dominios, deportes, idioma, arranque de un club, RLS,
-  legal, permiso para borrar código muerto.
+- DECIDIDO 24-09: app FLEXR (repo nuevo al final), Stripe Connect, alta por solicitud +
+  aprobación, check de coach en CI ya + RLS antes del coach 20. PENDIENTE DE ALEX: precio,
+  despliegue, dominios, deportes, idioma, arranque de un club, legal, borrar código muerto.
 - PR #191 FUSIONADO a `main` (24-09, `da08a40`) tras aplicar Alex 0211–0272 y el add-on 'negocio' del club 60.
 - Tras el deploy: reconectar Google Calendar (ahora por coach); cron lifecycle pasa a horario (vercel.json); alta de pago apagada para cualquier club que no sea FAHYBRID hasta decidir quién cobra.
 
