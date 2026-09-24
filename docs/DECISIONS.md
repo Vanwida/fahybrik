@@ -65,6 +65,12 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · Fases 0+1 a main en un PR; la primera prueba en aparato, desde Xcode Cloud tras fusionar
+
+**Decidido (Alex, 24-09, preguntas y respuestas):** con el CI de iOS en verde se abre el PR de las fases 0 y 1 contra `main`; lo fusiona Alex tras aplicar 0270–0273 en producción (la build de producción se para sola si falta una). La primera prueba en aparato — la salida de la fase 0 — sale de la build de Xcode Cloud desde `main` a TestFlight: con el deploy, el registro técnico de los dos aparatos se lee en el log del servidor. Descartado: esperar a la fase 2 para fusionar, y builds desde la rama (el servidor de producción aún no tendría `/api/devices/events`).
+
+---
+
 ## 2026-09-24 · FLEXR será un repo nuevo; mientras tanto se construye como FAHYBRID
 
 **Decidido (Alex, 24-09):** «De momento lo hacemos en nombre de FAHYBRID. Una vez esté todo finalizado hacemos el cambio: creamos un repo nuevo, creamos todo nuevo para llamarlo FLEXR, y FAHYBRID será un tenant de FLEXR.»
