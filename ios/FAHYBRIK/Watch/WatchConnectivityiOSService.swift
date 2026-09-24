@@ -262,8 +262,9 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     }
 
     /// Decode a raw execution envelope and submit it through the phone's own
-    /// offline-first path. Returns `false` ONLY when the bytes fail to decode (the
-    /// dead-letter trigger). A network failure still returns `true`: the submit
+    /// offline-first path. Returns `false` when the work is NOT durably captured —
+    /// the bytes fail to decode, or the server rejected it (auditoría B-12) — the
+    /// dead-letter trigger. A network failure still returns `true`: the submit
     /// enqueues via RequestQueue, so the work is durably captured, not lost.
     @MainActor
     private func submitEncodedExecution(_ data: Data) async -> Bool {
@@ -305,7 +306,12 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         case .queued:
             submission = ExecutionSubmission(response: nil, queuedRequestId: nil, persisted: false)
         case .rejected:
-            submission = .none
+            // B-12: antes se marcaba el día hecho y el reloj decía «Sesión completada»
+            // con nada en el servidor. Ahora el sobre se queda en el buzón de muertos
+            // (se reintenta en cada activación) y ni el día ni el reloj dicen que está.
+            DiagnosticsLog.shared.record(.save, .watchExecutionReceived, outcome: .failed,
+                                         domain: "rejected", detail: "dead_letter")
+            return false
         }
 
         // EL ARCHIVO DE LA MUÑECA encuentra aquí su ejecución. La respuesta se
