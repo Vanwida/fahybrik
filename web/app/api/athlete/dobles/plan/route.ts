@@ -9,8 +9,10 @@
 // → convertFromSnakeCase).
 //
 // Both weeks come from the SAME resolver the individual "Tu semana" uses
-// (lib/athlete/week-plan.ts) so the two surfaces never diverge; the togetherness
-// classification is a pure mapping over the two weeks (lib/athlete/dobles-plan.ts).
+// (lib/athlete/week-plan.ts) so the two surfaces never diverge — both dated in
+// the pair's club calendar, so they cover the same Monday–Sunday; the
+// togetherness classification is a pure mapping over the two weeks
+// (lib/athlete/dobles-plan.ts).
 //
 // Auth: athlete bearer (Sign in with Apple JWT) validated by
 // getAthleteSessionFromBearer; an absent/invalid bearer yields 401.
@@ -28,7 +30,11 @@ import {
   buildDoblesConnectedPlan,
   type DoblesConnectedPlanDTO,
 } from '@/lib/athlete/dobles-plan';
-import { computeDoublesStreak, loadLastJoint } from '@/lib/athlete/dobles-streak';
+import {
+  computeDoublesStreak,
+  loadDoublesPairTimezone,
+  loadLastJoint,
+} from '@/lib/athlete/dobles-streak';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,16 +61,24 @@ export async function GET(
     return jsonError('no_partner', 'No linked partner for this athlete', 404);
   }
 
+  // WHOSE CALENDAR: a pair belongs to the CLUB (docs/DECISIONS.md 2026-09-23,
+  // «Qué día es en cada sitio»), so the hub is dated in the pair coach's zone,
+  // resolved ONCE and handed to both weeks, the streak and the last joint. Each
+  // member's own zone could put the two windows a week apart around Sunday /
+  // Monday midnight, and the day-by-day matching needs one Monday–Sunday window.
+  const tz = await loadDoublesPairTimezone(auth.athlete_id);
+
   // Both athletes' current week from the shared resolver. The training pair
   // always references an existing athlete row, so the partner week resolves.
   // The pair-rhythm block comes from the shared streak lib (self-athlete-keyed).
   const [selfWeek, partnerWeek, counts, last_joint] = await Promise.all([
-    buildAthleteWeekPlan(auth.athlete_id, 0),
-    buildAthleteWeekPlan(partner.partner_athlete_id, 0),
-    computeDoublesStreak({ athleteId: auth.athlete_id }),
+    buildAthleteWeekPlan(auth.athlete_id, 0, undefined, { tz }),
+    buildAthleteWeekPlan(partner.partner_athlete_id, 0, undefined, { tz }),
+    computeDoublesStreak({ athleteId: auth.athlete_id, tz }),
     loadLastJoint({
       athleteId: auth.athlete_id,
       partnerAthleteId: partner.partner_athlete_id,
+      tz,
     }),
   ]);
 

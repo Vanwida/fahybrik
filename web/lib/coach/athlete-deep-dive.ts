@@ -24,8 +24,9 @@ import {
   type RaceReadinessMethod,
 } from '@fahybrid/shared/domain/coach/race-readiness';
 import { loadCoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds-db';
-import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import { loadAdherenceWindows, loadCompliancePct } from '@/lib/coach/compliance-window';
 import {
@@ -143,10 +144,18 @@ export async function buildAthleteDeepDive(
   `;
   const hasRecentActivity = (exec[0]?.n ?? 0) > 0;
 
-  // Qué microciclo va y si está listo para progresar lo lee el COACH: su día es
-  // el del club, no el del defecto (DECISIONS 2026-09-23, «Qué día es en cada sitio»).
+  // Qué microciclo va, si está listo para progresar y qué día de la semana es en
+  // la cinta lo lee el COACH: su día es el del club, no el del defecto. La
+  // carrera es del ATLETA: su cuenta atrás va en el día de él (DECISIONS
+  // 2026-09-23, «Qué día es en cada sitio»).
   const clubDay = startOfDayInTz(now, await loadCoachTimezone(params.coach_id, client));
-  const micro = await getCurrentMicrociclo({ athlete_id: numericId, on_date: clubDay, client });
+  const athleteDay = parseIsoDate(await loadAthleteLocalDay({ athlete_id: numericId, now, client }));
+  const micro = await getCurrentMicrociclo({
+    athlete_id: numericId,
+    on_date: clubDay,
+    race_on_date: athleteDay,
+    client,
+  });
 
   const tssSeries = await getDailyTssSeries({
     athlete_id: numericId,
@@ -158,9 +167,9 @@ export async function buildAthleteDeepDive(
   const { acr } = computeAcr(tssSeries);
   const loadCoverage = readLoadCoverage(load);
 
-  const aEvent = await loadAEvent(client, numericId, now);
+  const aEvent = await loadAEvent(client, numericId, athleteDay);
   const microciclos = await loadMicrociclos(client, numericId);
-  const macrocycle = buildMacrocycleRibbon(microciclos, micro);
+  const macrocycle = buildMacrocycleRibbon(microciclos, micro, clubDay);
   const compliance = await loadCompliance(client, numericId, now);
   // Days with executed work in the last 7, rated or not: showing up is measured
   // by the clock, so skipping the RPE must not erase the day.
@@ -313,9 +322,11 @@ async function loadHeader(
 // A-event
 // ---------------------------------------------------------------------------
 
-async function loadAEvent(client: Sql, athlete_id: number, now: Date): Promise<AEvent | null> {
-  // Target race = soonest upcoming race with priority='target' (unified spine).
-  const row = await getTargetRaceRow(athlete_id, client, now);
+async function loadAEvent(client: Sql, athlete_id: number, athleteDay: Date): Promise<AEvent | null> {
+  // Target race = soonest upcoming race with priority='target' (unified spine),
+  // upcoming and counted down from the ATHLETE's day (a resolved day, never an
+  // instant: an instant would be read in the box's day).
+  const row = await getTargetRaceRow(athlete_id, client, athleteDay);
   if (!row) return null;
   return { name: row.name, iso_date: row.race_date, days_until: row.days_until };
 }
@@ -353,6 +364,8 @@ async function loadMicrociclos(client: Sql, athlete_id: number): Promise<Microci
 function buildMacrocycleRibbon(
   microciclos: ReadonlyArray<MicrocicloRow>,
   current: Awaited<ReturnType<typeof getCurrentMicrociclo>>,
+  /** The club's today (UTC midnight): the coach reads the athlete's week as plan. */
+  clubDay: Date,
 ): MacrocycleRibbon | null {
   if (microciclos.length === 0) return null;
   const currentId = current ? String(current.assignment_id) : null;
@@ -367,7 +380,8 @@ function buildMacrocycleRibbon(
     blocks,
     current_block: current?.name ?? null,
     current_week: current?.week_index ?? null,
-    current_day_of_week: ((new Date()).getUTCDay() + 6) % 7 + 1,
+    // 1 = lunes … 7 = domingo, en el día del CLUB (no el reloj UTC).
+    current_day_of_week: ((clubDay.getUTCDay() + 6) % 7) + 1,
     total_weeks,
     weeks_to_event: current?.weeks_to_event ?? null,
   };

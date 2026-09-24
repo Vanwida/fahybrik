@@ -49,7 +49,8 @@ export type CurrentMicrociclo = {
   /** Monday / Sunday ISO of the current week. */
   week_start: string;
   week_end: string;
-  /** Days until the athlete's A event (>= 0), null when none scheduled. */
+  /** Days until the athlete's A event (>= 0), null when none scheduled. Counted
+   *  from `race_on_date` (the athlete's day) when given, else from `on_date`. */
   a_event_days: number | null;
   /** Whole weeks until the A event (ceil), null when no A event. */
   weeks_to_event: number | null;
@@ -57,7 +58,16 @@ export type CurrentMicrociclo = {
 
 export async function getCurrentMicrociclo(params: {
   athlete_id: number | bigint;
+  /** The day the PLAN position is read on — the club's when the coach reads it. */
   on_date?: Date;
+  /**
+   * The ATHLETE's day (`athletes.timezone`), for the race countdown only
+   * (`a_event_days`, `weeks_to_event`): a race is his, counted in his calendar,
+   * while the plan position stays on `on_date` (docs/DECISIONS.md 2026-09-23,
+   * «Qué día es en cada sitio»). A caller that SHOWS the countdown passes it;
+   * without it the countdown counts from `on_date`.
+   */
+  race_on_date?: Date;
   client: Sql;
 }): Promise<CurrentMicrociclo | null> {
   const client = params.client;
@@ -106,8 +116,10 @@ export async function getCurrentMicrociclo(params: {
 
   const weekStart = mondayOfWeek(today);
 
-  // Days to the athlete's target race (unified `races` spine, priority='target').
-  const targetRace = await getTargetRaceRow(params.athlete_id, client, today);
+  // Days to the athlete's target race (unified `races` spine, priority='target'),
+  // counted from HIS day when the caller gives it (`race_on_date`), else from the
+  // plan's day.
+  const targetRace = await getTargetRaceRow(params.athlete_id, client, params.race_on_date ?? today);
   const a_event_days = targetRace?.days_until ?? null;
   const weeks_to_event = a_event_days == null ? null : Math.max(0, Math.ceil(a_event_days / 7));
 

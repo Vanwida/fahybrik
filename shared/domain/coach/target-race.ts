@@ -21,9 +21,11 @@ import type {
 //
 // Predicate is identical to web `getTargetRace` (lib/races/next-race.ts) — that
 // function now delegates here so the countdown and the metric share ONE query.
-// "today" resolves in the box tz (Europe/Madrid), matching every other countdown
-// in the app; `days_until` = race_date - today (0 = today, never negative since
-// we filter to upcoming).
+// "today" is the ATHLETE's day (`athletes.timezone`): a race is his, so it is
+// counted in his calendar (docs/DECISIONS.md 2026-09-23, «Qué día es en cada
+// sitio») — resolved here when no `on_date` is given; a caller that passes one
+// passes that day already resolved. `days_until` = race_date - today (0 = today,
+// never negative since we filter to upcoming).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type TargetRaceRow = {
@@ -59,7 +61,9 @@ export async function getTargetRaceRow(
   on_date?: Date,
 ): Promise<TargetRaceRow | null> {
   // Sin fecha dada, el hoy del ATLETA (su huso), como el resto de lectores de
-  // carreras (lib/races). Quien pasa `on_date` ya resolvió su día.
+  // carreras (lib/races). Quien pasa `on_date` ya resolvió su día: un día a
+  // medianoche UTC (`parseIsoDate`), no un instante — un instante se leería en el
+  // día del defecto, que no es el del atleta.
   const todayIso = on_date ? isoDateString(startOfDayInBox(on_date)) : await loadAthleteLocalDay({ athlete_id, client });
 
   const rows = await client<

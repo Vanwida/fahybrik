@@ -142,17 +142,24 @@ export async function buildAthleteWeekPlan(
   athlete_id: number | bigint,
   weekOffset = 0,
   visibility?: ResolvedPlanWeekVisibility,
+  calendar: {
+    /** The zone that dates the week (its Monday and `today_iso`) instead of the
+     *  athlete's own. Omitted = the athlete's calendar. */
+    tz?: string;
+  } = {},
 ): Promise<AthleteWeekPlan> {
   // "Today" is the ATHLETE's day: this is their week, dated in their calendar
   // (`athletes.timezone`; docs/DECISIONS.md 2026-09-23 «Qué día es en cada
   // sitio»). Not UTC, and not the box: on the box's day an athlete in Los
-  // Angeles saw next week from 15:00 on their Sunday. A stored zone the date
-  // engine doesn't know falls back to the default instead of failing the week.
-  // `weekOffset` shifts the window forward by N weeks (0 = this week, 1 = the
-  // next-week peek); `today_iso` stays the real today, so a peeked week has no
-  // "today" row and reads as a preview.
-  const storedTz = await loadAthleteTimezone(sql, athlete_id);
-  const today = startOfDayInTz(new Date(), isValidTimezone(storedTz) ? storedTz : BOX_TIMEZONE);
+  // Angeles saw next week from 15:00 on their Sunday. `calendar.tz` dates it in
+  // another calendar: the Dobles hub passes the pair's club zone, so both
+  // members' weeks share ONE Monday–Sunday window (a pair is the club's). A zone
+  // the date engine doesn't know falls back to the default instead of failing
+  // the week. `weekOffset` shifts the window forward by N weeks (0 = this week,
+  // 1 = the next-week peek); `today_iso` stays the real today, so a peeked week
+  // has no "today" row and reads as a preview.
+  const tz = calendar.tz ?? (await loadAthleteTimezone(sql, athlete_id));
+  const today = startOfDayInTz(new Date(), isValidTimezone(tz) ? tz : BOX_TIMEZONE);
   const weekStart = addDays(mondayOfWeek(today), weekOffset * 7);
   const weekStartIso = isoDateString(weekStart);
   const weekEndIso = isoDateString(addDays(weekStart, 6));

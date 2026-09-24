@@ -190,8 +190,9 @@ export interface TrainTogetherCandidate {
  * The self assignment id for the "Entrenar a la vez" CTA: the EARLIEST
  * optional-together day at or after `todayIso` (today first, else the next
  * pending one) — never a day that's already passed. `todayIso` must come from
- * the same resolved week (AthleteWeekPlan.today_iso), the Madrid "today"
- * buildAthleteWeekPlan already computed; no timezone logic duplicated here.
+ * the same resolved week (AthleteWeekPlan.today_iso): the pair's CLUB "today"
+ * the route had buildAthleteWeekPlan compute (a pair is the club's —
+ * docs/DECISIONS.md 2026-09-23); no timezone logic duplicated here.
  * Pure and testable in isolation. Null when no optional-together day remains
  * this week (the CTA then stays disabled honestly).
  */
@@ -218,8 +219,9 @@ export interface DoblesConnectedPlanInput {
 
 /**
  * Build the connected plan from BOTH resolved weeks. Both weeks cover the same
- * Mon–Sun window (buildAthleteWeekPlan(offset=0)) so the day arrays align 1:1 by
- * index. Pure: no DB, no I/O.
+ * Mon–Sun window — the route builds both with buildAthleteWeekPlan(offset=0)
+ * dated in the pair's club zone, never each member's own — so the day arrays
+ * align 1:1 by index. Pure: no DB, no I/O.
  */
 export function buildDoblesConnectedPlan(
   input: DoblesConnectedPlanInput,
