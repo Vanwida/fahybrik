@@ -192,7 +192,7 @@ describeWithDb('un entreno hecho no se pierde (DB real)', () => {
     const instanceId = Number(instance[0]!.id);
     const seg = await sql<Array<{ id: string }>>`
       insert into template_segments (template_id, position, exercise_id, params_json, prescription_json)
-      values (${instanceId}, 0, ${exercise}, '{}'::jsonb, ${sql.json({ modality: 'strength', sets: [] })})
+      values (${instanceId}, 0, ${exercise}, '{}'::jsonb, ${sql.json({ scheme: 'sets', sets: [{ set_index: 1, reps: 5, load_kg: 60 }] })})
       returning id::text
     `;
     const foreignSegmentId = Number(seg[0]!.id);
