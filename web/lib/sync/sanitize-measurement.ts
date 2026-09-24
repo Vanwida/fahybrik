@@ -105,9 +105,16 @@ export function sanitizePositiveInt(v: number | null | undefined): number | null
   return int4OrNull(v);
 }
 
+/**
+ * RPE / RIR of ONE set (`set_executions.rpe` / `.rir`, numeric(3,1)), 0–10. The
+ * app's set editor steps in halves (RPE 8.5, RIR 1.5 — the strength standard), so
+ * the value keeps its one decimal: rounding to a whole number turned the
+ * athlete's 8.5 into 9. The session-level effort is whole points
+ * (`sanitizePerceivedExertion`, an integer column).
+ */
 export function sanitizeRpe(v: number | null | undefined): number | null {
   if (v == null || !Number.isFinite(v)) return null;
-  const r = Math.round(v);
+  const r = Math.round(v * 10) / 10;
   return r >= 0 && r <= 10 ? r : null;
 }
 
