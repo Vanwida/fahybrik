@@ -10,6 +10,32 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · Un bloque archivado no se elige; la revisión semanal no inventa plan; fuera PABLO_IA_*
+
+**Bloque archivado (0236).** Archivar retira: la Biblioteca lo sigue mostrando en «Archivados», pero ningún lector que ofrece bloques para USAR lo devuelve. Eran tres que no filtraban `archived_at`: `loadComposableBlocks` (compositor de semanas de la IA e importador), `listBlocks` (`/api/coach/blocks`, sugerencia de entreno del editor) y `listBlocksWithStructure` (búsqueda del asistente, MCP). Las plantillas y los niveles ya lo cumplían. **NO hacer:** un lector nuevo de bloques «para elegir» sin `archived_at is null`.
+
+**Revisión semanal: plan inventado, eliminado.** `getCurrentReview` devolvía `plan` construido con una rotación fija («Strength / Z2 long / Threshold…») como si fueran las dos semanas del club; `computePlan`, `buildPlanWeek` y la rotación se han borrado y `plan` va vacío. La revisión no tiene pantalla (entrada «Ajustes masivos se retira»); si la recupera, su plan sale de las semanas reales de los atletas. Su semana y «posponer a mañana» van ya en el calendario del club.
+
+**Alias `PABLO_IA_*` eliminado.** La IA del coach leía `COACH_IA_*` y, si faltaban, `PABLO_IA_*` («deprecados, transición» en `.env.example`). Cerrada la transición: `COACH_IA_*` y, sin ellas, `LLM_*`. En Vercel no hay ninguna de las dos familias (producción usa `LLM_*`). Quien las tenga en su `.env` local las renombra.
+
+---
+
+## 2026-09-24 · Una fecha sin hora que da el atleta se guarda a mediodía de SU huso
+
+**El caso.** Una carrera registrada a mano (`registerRaceMark`) trae un día (AAAA-MM-DD), pero `athlete_benchmarks.recorded_at` es `timestamptz`. `${date}::date` en la sesión de Neon (UTC) es medianoche UTC: leída en el calendario de un atleta al oeste de UTC, la carrera del 5 era del 4.
+
+**Decidido:** un hecho de solo fecha que va a una columna de instante se guarda a las 12:00 de ese día en el huso del atleta (`(date + time '12:00') at time zone <su huso>`, con la zona comprobada contra `pg_timezone_names`). Leído en su calendario es siempre ese día, y el mediodía aguanta que después cambie de huso varias horas. Lo ya guardado es de atletas en España, donde medianoche UTC cae en su mismo día.
+
+**NO hacer:** `::date` hacia un `timestamptz`; si el hecho es solo un día y se lee como día, o columna `date` o mediodía local.
+
+---
+
+## 2026-09-24 · El migrador aplica una migración con CONCURRENTLY sentencia a sentencia
+
+`infra/scripts/migrate.ts` mandaba el fichero entero como una sola consulta, y Postgres ejecuta varias sentencias en una consulta como un bloque de transacción implícito: `CREATE INDEX CONCURRENTLY` se negaba y la 0051 no se podía aplicar. El camino sin transacción parte ahora el fichero (`infra/scripts/sql-split.ts`, reglas del lexer de Postgres y de psql) y manda cada sentencia por la misma conexión reservada; el camino con transacción no cambia. Con eso, **una base vacía migra de cero** (las 238, comprobado en Postgres 16): la opción «una base por club» de la revisión FLEXR ya no tiene ese obstáculo. Si una sentencia N falla, las 1…N−1 quedan aplicadas y el diario no se escribe; la 0051 es re-ejecutable (`if not exists`).
+
+---
+
 ## 2026-09-24 · La RPE y la RIR de una serie guardan su medio punto
 
 **El bug.** El editor de series de la app va de 0,5 en 0,5 (`EditorDeSerie.swift`, `PasoDecimal(paso: 0.5)`) y `set_executions.rpe` / `.rir` son `numeric(3,1)`, pero `sanitizeRpe` (`web/lib/sync/sanitize-measurement.ts`) hacía `Math.round`: el 8,5 que el atleta marcaba se guardaba como 9 y una RIR de 1,5 como 2. El test de ingesta que esperaba 8,5 llevaba fallando desde la importación del 5 sept.
