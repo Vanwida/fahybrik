@@ -14,12 +14,14 @@
 
 import { z } from 'zod';
 import {
+  BOX_TIMEZONE,
   addDays,
   isoDateString,
   mondayOfWeek,
   parseIsoDate,
-  startOfDayInBox,
 } from '@fahybrid/shared/domain/dates';
+import { isValidTimezone, startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import {
   recoverySuggestionSchema,
   type RecoverySuggestion,
@@ -141,12 +143,16 @@ export async function buildAthleteWeekPlan(
   weekOffset = 0,
   visibility?: ResolvedPlanWeekVisibility,
 ): Promise<AthleteWeekPlan> {
-  // "Today" must resolve in the box timezone (Europe/Madrid), not UTC —
-  // otherwise between 00:00–02:00 BCN the athlete is shown yesterday's week.
+  // "Today" is the ATHLETE's day: this is their week, dated in their calendar
+  // (`athletes.timezone`; docs/DECISIONS.md 2026-09-23 «Qué día es en cada
+  // sitio»). Not UTC, and not the box: on the box's day an athlete in Los
+  // Angeles saw next week from 15:00 on their Sunday. A stored zone the date
+  // engine doesn't know falls back to the default instead of failing the week.
   // `weekOffset` shifts the window forward by N weeks (0 = this week, 1 = the
   // next-week peek); `today_iso` stays the real today, so a peeked week has no
   // "today" row and reads as a preview.
-  const today = startOfDayInBox(new Date());
+  const storedTz = await loadAthleteTimezone(sql, athlete_id);
+  const today = startOfDayInTz(new Date(), isValidTimezone(storedTz) ? storedTz : BOX_TIMEZONE);
   const weekStart = addDays(mondayOfWeek(today), weekOffset * 7);
   const weekStartIso = isoDateString(weekStart);
   const weekEndIso = isoDateString(addDays(weekStart, 6));
@@ -194,7 +200,7 @@ export async function buildAthleteWeekPlan(
       and wa.scheduled_for >= ${weekStartIso}::date
       and wa.scheduled_for <= ${weekEndIso}::date
       -- PUBLISH GATE: hide assignments whose week is still a coach DRAFT.
-      -- All rows here belong to one week (weekStartIso = Monday in box tz), so a
+      -- All rows here belong to one week (weekStartIso = the athlete's Monday), so a
       -- single weekly_plans lookup gates the whole result. Backward-compatible:
       -- existing data + /hoy's live-approve create NO draft row, so NOT EXISTS is
       -- true and everything stays visible exactly as before. Only weeks the coach

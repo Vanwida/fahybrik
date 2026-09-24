@@ -2,7 +2,9 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { addDays, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, addDays } from '@fahybrid/shared/domain/dates';
+import { isValidTimezone, startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
 import {
   selectCooperVo2max,
@@ -94,7 +96,14 @@ export async function buildAthleteVo2Max(params: {
 }): Promise<AthleteVo2Max> {
   const client = params.client ?? defaultSql;
   const athleteId = Number(params.athlete_id);
-  const today = startOfDayInBox(params.on_date ?? new Date());
+  // The window ends on the ATHLETE's day (`athletes.timezone`): the day `on_date`,
+  // or now, falls on in their calendar, not the box's. A stored zone the date
+  // engine doesn't know falls back to the default instead of failing the screen.
+  const storedTz = await loadAthleteTimezone(client, athleteId);
+  const today = startOfDayInTz(
+    params.on_date ?? new Date(),
+    isValidTimezone(storedTz) ? storedTz : BOX_TIMEZONE,
+  );
   const startIso = addDays(today, -(WINDOW_DAYS - 1)).toISOString();
 
   const watchRows = await client<Array<{ d: string; v: number | null }>>`

@@ -1,7 +1,9 @@
 import 'server-only';
 
 import { sql as defaultSql, type Sql, type TransactionClient } from '@/lib/db';
-import { isoDateString, startOfDayInBox } from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { isValidTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import type { Modality, Prescription } from '@fahybrid/shared/domain/prescription';
 import { visibleToCoach } from '@/lib/exercises/coach-override';
 import {
@@ -43,8 +45,9 @@ import {
 //          `meta_json.prescription`, which is what the week reader uses to colour
 //          the day and time the session. Readers that need EXERCISES (the coach's
 //          per-exercise deep dive) correctly see nothing to analyse.
-//   3. a `workout_assignments` row — `origin = 'self'`, scheduled for today (box
-//      tz), no microcycle (it is not part of the coach's periodization).
+//   3. a `workout_assignments` row — `origin = 'self'`, scheduled for the day it
+//      was done (the ATHLETE's day, `athletes.timezone`), no microcycle (it is not
+//      part of the coach's periodization).
 //   4. the EXISTING shared recorder (`recordWorkoutExecution`) writes the
 //      execution + segment actuals and flips the assignment to completed/partial.
 //      Reused verbatim, run inside the SAME tx — there is one execution model.
@@ -122,7 +125,8 @@ export type SaveFreeWorkoutPlanInput = {
   coachId: number | null;
   title: string;
   scheme: string;
-  /** Calendar day for the self-origin assignment (box tz, YYYY-MM-DD). Defaults to today. */
+  /** Calendar day for the self-origin assignment (YYYY-MM-DD, the athlete's
+   *  calendar). Defaults to the athlete's today. */
   scheduledFor?: string;
   sql?: Sql;
 } & (MeasuredInput | ItemsInput | ClockInput);
@@ -149,20 +153,36 @@ const FUTURE_CLOCK_SKEW_MS = 5 * 60 * 1000;
  * el 19 se quedaba vacío y el 20 con cinco sesiones que no ocurrieron.
  *
  * El envío ya trae la hora real de inicio; sólo faltaba usarla. Se resuelve al día
- * de calendario del box, igual que el resto de «hoy» del producto, para que un
- * entreno de las 00:30 caiga donde el atleta lo vivió.
+ * de calendario del ATLETA (`tz`, su `athletes.timezone`), para que un entreno de
+ * las 00:30 caiga donde el atleta lo vivió — y uno de las 20:00 en Los Ángeles
+ * no salte al día siguiente de Madrid. El defecto de `tz` es el del producto,
+ * para quien no sabe el huso del atleta; quien lo sabe lo pasa.
  *
  * Sin hora de inicio (un cliente viejo) o con una hora que no nos podemos creer
  * —un reloj adelantado archivando en el futuro— se cae al día de hoy, que es el
  * comportamiento de siempre.
  */
-export function freeWorkoutDay(startedAtIso: string | undefined, now: Date): string {
-  const today = isoDateString(startOfDayInBox(now));
+export function freeWorkoutDay(
+  startedAtIso: string | undefined,
+  now: Date,
+  tz: string = BOX_TIMEZONE,
+): string {
+  const today = zonedDayString(now, tz);
   if (!startedAtIso) return today;
   const at = new Date(startedAtIso);
   if (Number.isNaN(at.getTime())) return today;
   if (at.getTime() > now.getTime() + FUTURE_CLOCK_SKEW_MS) return today;
-  return isoDateString(startOfDayInBox(at));
+  return zonedDayString(at, tz);
+}
+
+/**
+ * El huso del atleta (`athletes.timezone`) para fechar su entreno libre. Uno
+ * guardado que el motor de fechas no conoce cae al defecto en vez de tumbar el
+ * guardado: un entreno hecho no se pierde por un huso roto.
+ */
+async function athleteTimezone(db: Sql, athleteId: number): Promise<string> {
+  const tz = await loadAthleteTimezone(db, athleteId);
+  return isValidTimezone(tz) ? tz : BOX_TIMEZONE;
 }
 
 /** Steps 1–3 only: instance template + ordered segments + self-origin assignment.
@@ -170,8 +190,9 @@ export function freeWorkoutDay(startedAtIso: string | undefined, now: Date): str
 export async function saveFreeWorkoutPlan(
   input: SaveFreeWorkoutPlanInput,
 ): Promise<{ assignment_id: string }> {
-  const scheduledFor = input.scheduledFor ?? isoDateString(startOfDayInBox(new Date()));
   const db = input.sql ?? defaultSql;
+  const scheduledFor =
+    input.scheduledFor ?? zonedDayString(new Date(), await athleteTimezone(db, input.athleteId));
   const assignmentId = await persistFreeWorkoutPlan(db, { ...input, scheduledFor });
   void recomputeAthlete({ athlete_id: input.athleteId, client: db }).catch(() => {});
   return { assignment_id: String(assignmentId) };
@@ -182,7 +203,8 @@ export async function updateFreeWorkoutPlan(
   input: SaveFreeWorkoutPlanInput & { assignmentId: number },
 ): Promise<{ assignment_id: string }> {
   const db = input.sql ?? defaultSql;
-  const scheduledFor = input.scheduledFor ?? isoDateString(startOfDayInBox(new Date()));
+  const scheduledFor =
+    input.scheduledFor ?? zonedDayString(new Date(), await athleteTimezone(db, input.athleteId));
 
   const rows = await db<
     Array<{ template_id: string; origin: string; status: string; exec_count: string }>
@@ -256,7 +278,6 @@ export async function createFreeWorkout(
 ): Promise<{ assignment_id: string; execution_id: string }> {
   const { athleteId, metrics } = input;
   const db = input.sql ?? defaultSql;
-  const scheduledFor = freeWorkoutDay(metrics.started_at, new Date());
 
   // UN ENTRENO REENVIADO ES EL MISMO ENTRENO (card 120).
   //
@@ -283,6 +304,15 @@ export async function createFreeWorkout(
     `;
     if (yaEntro[0]) return yaEntro[0];
   }
+
+  // El día del entreno, en el calendario del atleta. Se lee FUERA de la
+  // transacción: dentro, pedir otra conexión al pool puede esperar a la que la
+  // propia transacción tiene cogida.
+  const scheduledFor = freeWorkoutDay(
+    metrics.started_at,
+    new Date(),
+    await athleteTimezone(db, athleteId),
+  );
 
   const ids = await db.begin(async (tx) => {
     const segments = await resolveSegments(db, input);
