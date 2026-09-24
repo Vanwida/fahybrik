@@ -31,7 +31,6 @@ import type {
   OnConflict,
   WeekDelivery,
 } from '@fahybrid/shared/schema/assign-many';
-import type { AutoPublishSetting } from '@fahybrid/shared/schema/week-publishing';
 import {
   Button,
   Combobox,
@@ -51,6 +50,7 @@ import { useGroupOptions } from './GroupPicker';
 import { searchAthletes } from './pickers';
 import { localToday, mondayLabel, shortDate, upcomingMondays } from './format';
 import { deliveryLine } from './logic';
+import { CONFLICT_ITEMS, DELIVERY_ITEMS, MONDAYS_AHEAD, useProgramsAndSetting } from './assign-sheet-data';
 
 export interface AssignSheetProps {
   open: boolean;
@@ -62,53 +62,6 @@ export interface AssignSheetProps {
   athletes?: Array<{ id: string; name: string; avatar_url?: string | null }>;
   /** Tras asignar (con el lote) y tras deshacer (con null). */
   onAssigned?: (applied: AssignApplied | null) => void;
-}
-
-interface ProgramRow {
-  id: string;
-  name: string;
-  level: string | null;
-  week_count: number;
-}
-
-const MONDAYS_AHEAD = 16;
-
-const DELIVERY_ITEMS: { value: WeekDelivery; label: string }[] = [
-  { value: 'auto', label: 'Semana a semana' },
-  { value: 'visible', label: 'Todo visible' },
-  { value: 'draft', label: 'Todo oculto' },
-];
-
-const CONFLICT_ITEMS: { value: OnConflict; label: string }[] = [
-  { value: 'chain', label: 'Encadenar detrás' },
-  { value: 'replace', label: 'Sustituir' },
-  { value: 'skip', label: 'Saltar' },
-];
-
-function useProgramsAndSetting(open: boolean) {
-  const [programs, setPrograms] = useState<ProgramRow[] | null>(null);
-  const [days, setDays] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    if (!open) return;
-    const ctrl = new AbortController();
-    Promise.all([
-      apiJson<{ months: ProgramRow[] }>('/api/coach/program-months', { signal: ctrl.signal }),
-      apiJson<AutoPublishSetting>('/api/coach/weeks/auto-publish', { signal: ctrl.signal }).catch(() => null),
-    ])
-      .then(([p, s]) => {
-        setPrograms(p.months);
-        setDays(s?.effective_days ?? null);
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        setError(errorMessage(err, 'No se han podido cargar tus programas'));
-      });
-    return () => ctrl.abort();
-  }, [open, attempt]);
-  return { programs, days, error, retry: () => setAttempt((a) => a + 1) };
 }
 
 export function AssignSheet({
