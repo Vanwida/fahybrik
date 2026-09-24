@@ -55,14 +55,6 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
-      # Si project.yml y el .pbxproj del repo no coinciden, alguien editó uno
-      # sin regenerar el otro (o añadió ficheros sin xcodegen: los agentes
-      # escriben Swift en Linux, sin xcodegen). De momento avisa; no bloquea.
-      # El diff ENTERO va al log: es lo que se copia para ponerlo al día.
-      - name: Project in sync with project.yml
-        continue-on-error: true
-        run: git diff --exit-code -- FAHYBRIK.xcodeproj/project.pbxproj
-
       # Destino genérico de simulador, NUNCA -sdk: -sdk fuerza el SDK del iPhone
       # también al reloj y el build muere (comentario del esquema en project.yml).
       # El esquema FAHYBRIK arrastra el reloj y los widgets como dependencias.
@@ -116,6 +108,38 @@ jobs:
             -maximum-test-execution-time-allowance 120 \
             CODE_SIGNING_ALLOWED=NO \
             -quiet test
+
+      # Qué falló y por qué, legible en el log (el .xcresult no se puede abrir
+      # desde donde se escribe el Swift).
+      - name: Test failures
+        if: failure()
+        run: |
+          xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/tests.xcresult" --format json > "$RUNNER_TEMP/tests.json" || exit 0
+          python3 - "$RUNNER_TEMP/tests.json" <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          def walk(node, suite):
+              kind, name = node.get('nodeType'), node.get('name', '')
+              if kind == 'Test Case' and node.get('result') == 'Failed':
+                  print(f"FAIL {suite} › {name}")
+                  for child in node.get('children') or []:
+                      if child.get('nodeType') == 'Failure Message':
+                          print('    ' + child.get('name', '')[:700])
+              for child in node.get('children') or []:
+                  walk(child, name if kind == 'Test Suite' else suite)
+          for node in data.get('testNodes', []):
+              walk(node, '')
+          PY
+
+      # Si project.yml y el .pbxproj del repo no coinciden, alguien editó uno
+      # sin regenerar el otro (o añadió ficheros sin xcodegen: los agentes
+      # escriben Swift en Linux, sin xcodegen). Avisa, no bloquea. Va AL FINAL y
+      # con el diff entero: el log se lee por la cola, y ese diff es lo que se
+      # copia para poner al día el .pbxproj del repo.
+      - name: Project in sync with project.yml
+        if: always()
+        continue-on-error: true
+        run: git diff --exit-code -- FAHYBRIK.xcodeproj/project.pbxproj
 
       - name: Keep the test results
         if: failure()
