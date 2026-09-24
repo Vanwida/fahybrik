@@ -10,6 +10,19 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · FLEXR será un repo nuevo; mientras tanto se construye como FAHYBRID
+
+**Decidido (Alex, 24-09):** «De momento lo hacemos en nombre de FAHYBRID. Una vez esté todo finalizado hacemos el cambio: creamos un repo nuevo, creamos todo nuevo para llamarlo FLEXR, y FAHYBRID será un tenant de FLEXR.»
+
+**En consecuencia:**
+- Todo el trabajo actual (fase 0–5 del reloj, analíticas, panel) sigue en este repo y bajo la marca FAHYBRID. No se renombra nada ahora.
+- La decisión 1 de la revisión FLEXR («qué app instalan los atletas de otros clubs») queda resuelta en dirección: una app FLEXR, con FAHYBRID como un club dentro. El cuándo es al terminar, en un repo nuevo.
+- La HARD RULE Nº0 (multi-coach, ni «Pablo» ni «Fabrik» en el código, método como dato) es lo que hace barato ese traslado: todo lo que se escriba ahora tiene que poder copiarse al repo FLEXR sin tocar nombres ni supuestos de un solo club.
+
+**NO hacer:** no empezar el renombrado ni el repo FLEXR por iniciativa propia; no meter la marca FAHYBRID en mecanismo (va en la configuración de marca que ya existe: `BRAND_*` en `ios/project.yml`, `Marca.swift`, la piel del club en web).
+
+---
+
 ## 2026-09-24 · El reloj es el producto: la muñeca lleva la sesión desde el primer día
 
 **Decidido (Alex, 24-09):** «Nuestro argumento de venta es el reloj; la app no tiene sentido sin él. Todo está conectado y hay que medirlo todo. No sirve un sistema de conexión pobre aunque funcione: lo que importa es llevar la tecnología al límite.»
