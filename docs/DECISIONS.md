@@ -10,6 +10,21 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · Lo que el coach tiene oculto no se anuncia: hitos del ciclo y tarjeta de tests pasan por la puerta de visibilidad
+
+**El hueco (auditoría de la app del atleta, D-19):** la puerta de visibilidad del atleta es una (una semana con `weekly_plans.status = 'draft'` no se ve; sin fila, se ve — 2026-08-10). El Plan, el historial y los endpoints del reloj la aplicaban; la vista de ciclo (`resolvePlanPath` → hitos) y la tarjeta de tests de Inicio (`loadBatteryStatus`) no: una semana retenida seguía anunciando «Simulacro el sábado 10» y contando «3/4 · falta remo 2K», y desde esa tarjeta se podía abrir y empezar el test oculto.
+
+**Decidido:**
+- La puerta vive en SQL en un sitio para lo nuevo: `athleteSeesAssignment` (`web/lib/athlete/week-visibility.ts`, alias `wa`). Las copias de `week-plan.ts` no se tocan en este cambio.
+- Los hitos del ciclo y la tarjeta de tests del ATLETA la aplican con `keepDone`: lo que el atleta ya hizo (`completed`/`partial`) se sigue viendo aunque su semana esté retenida — su trabajo es suyo; lo pendiente de una semana retenida no se anuncia. Entran por una marca explícita (`visibleToAthlete`), que ponen la ruta del ciclo, la tarjeta de tests, las notas del atleta y la vista previa del coach de esas notas (enseña lo que verá el atleta).
+- El coach sigue viéndolo todo sin la marca: ficha, Periodización, cadena personal.
+
+**Queda (decisión de producto, con D-18):** `GET /api/athlete/assignments/[id]/detail` sigue sin puerta. Con estas dos lecturas cerradas, a una sesión oculta solo se llega con un id viejo (una caché). Aplicarle hoy la regla del Plan, que retiene la semana ENTERA, rompería lo que el atleta tiene en la mano cuando el coach retiene la semana EN CURSO: la tarjeta de hoy del reloj, el constructor del entreno libre o un entreno que está empezando. Primero hay que decidir qué esconde retener la semana en curso (D-18: ¿solo desde mañana?, ¿lo ya hecho sigue?). Si se cierra, el candidato es: días posteriores a hoy de una semana retenida, sin lo hecho ni lo que creó el propio atleta.
+
+**NO hacer:** no escribir otra copia de la puerta en una lectura nueva del atleta: se usa `athleteSeesAssignment`. No quitar al atleta lo que ya hizo por retener su semana.
+
+---
+
 ## 2026-09-24 · «Semana N de M» de la app sale de la misma regla que el panel
 
 **El hueco (auditoría de la app del atleta, D-08 / F-07):** quien entra en un grupo a mitad de programa recibe un recibo más corto que el programa. El panel ya contaba la semana en el PROGRAMA (`programPosition`, entrada «Hoy honesto…», 2026-09-23); la cabecera del Plan de la app (`buildAthleteMacroSummary`) y la vista de ciclo (`web/lib/plan/camino.ts`) la contaban en el RECIBO: «semana 1 de 2» en la app, «semana 3 de 4» en la ficha (visto en los datos locales).

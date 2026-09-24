@@ -30,7 +30,8 @@ export async function GET(request: Request) {
   if (!auth) return jsonError('unauthorized', 'Bearer token required', 401);
 
   const [camino, al_acabar, target_race, next_race] = await Promise.all([
-    resolvePlanPath({ athlete_id: auth.athlete_id }),
+    // Lo que ve el atleta: sin los hitos de una semana que el coach tiene oculta.
+    resolvePlanPath({ athlete_id: auth.athlete_id, visibleToAthlete: true }),
     resolveEndPolicy({ athlete_id: auth.athlete_id }),
     getTargetRace(auth.athlete_id),
     getNextRace(auth.athlete_id),

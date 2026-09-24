@@ -43,6 +43,7 @@ import {
 } from '@fahybrid/shared/domain/dates';
 import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
 import { programPosition } from '@fahybrid/shared/domain/coach/program-position';
+import { athleteSeesAssignment } from '@/lib/athlete/week-visibility';
 import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import {
   planPathTone,
@@ -94,6 +95,14 @@ export async function resolvePlanPath(args: {
   athlete_id: number | bigint;
   on_date?: Date;
   sql?: Sql;
+  /**
+   * Lo que ve el ATLETA (su vista de ciclo, sus notas, la vista previa del coach
+   * de esas notas): los hitos de una semana que el coach tiene oculta no se
+   * anuncian — «Simulacro el sábado 10» era contenido de una semana retenida
+   * (auditoría D-19). Lo ya hecho sí se ve. Sin la marca, el camino del coach
+   * (Periodización, la cadena personal), que ve también lo que retiene.
+   */
+  visibleToAthlete?: boolean;
 }): Promise<PlanPathDTO | null> {
   const client = args.sql ?? defaultSql;
   // El camino es del ATLETA (lo lee él y el coach mirándole): su «hoy» es el de su huso.
@@ -145,7 +154,7 @@ export async function resolvePlanPath(args: {
 
   const primerLunes = ventanas[0]!.inicio;
   const ultimoDomingo = ventanas[ventanas.length - 1]!.fin;
-  const hitos = await cargarHitos(client, args.athlete_id, primerLunes, ultimoDomingo);
+  const hitos = await cargarHitos(client, args.athlete_id, primerLunes, ultimoDomingo, args.visibleToAthlete === true);
 
   let semanaAcumulada = 1;
   let current_position: number | null = null;
@@ -239,6 +248,7 @@ async function cargarHitos(
   athlete_id: number | bigint,
   desde: Date,
   hasta: Date,
+  soloVisibles: boolean,
 ): Promise<Hito[]> {
   const rows = await client<HitoRow[]>`
     select
@@ -251,6 +261,7 @@ async function cargarHitos(
     where wa.athlete_id = ${athlete_id as number}
       and wa.scheduled_for between ${isoDateString(desde)}::date and ${isoDateString(hasta)}::date
       and (t.format = 'hyrox_sim' or wa.calibration_test_id is not null)
+      and (${!soloVisibles} or ${athleteSeesAssignment(client, { keepDone: true })})
     group by 1
     order by 1 asc
   `;

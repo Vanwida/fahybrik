@@ -104,7 +104,7 @@ export async function listAthleteCommunications(args: {
   // decirle que su plan está vacío cuando lo que pasa es que aún no empieza.
   const pideCamino = [...items.values()].some(needsCamino);
   const camino = pideCamino
-    ? await resolvePlanPath({ athlete_id: args.athlete_id, sql: client })
+    ? await resolvePlanPath({ athlete_id: args.athlete_id, sql: client, visibleToAthlete: true })
     : null;
 
   // Y sus barras de tiempo en zonas, una consulta por PERIODO distinto (no por

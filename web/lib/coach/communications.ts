@@ -221,7 +221,7 @@ export async function listCommunicationsForAthlete(args: {
   // consulta para toda la ficha, y sólo si alguna sección la pide.
   const pideCamino = [...items.values()].some(needsCamino);
   const camino = pideCamino
-    ? await resolvePlanPath({ athlete_id: args.athlete_id, sql: client })
+    ? await resolvePlanPath({ athlete_id: args.athlete_id, sql: client, visibleToAthlete: true })
     : null;
 
   // Las gráficas se resuelven con los datos de ESTE atleta por la misma razón

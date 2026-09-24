@@ -15,6 +15,7 @@ export async function GET(req: Request) {
     return jsonError('unauthorized', 'Athlete bearer token required', 401);
   }
 
-  const battery = await loadBatteryStatus(Number(auth.athlete_id));
+  // Lo que ve el atleta: sin los tests de una semana que el coach tiene oculta.
+  const battery = await loadBatteryStatus(Number(auth.athlete_id), undefined, { visibleToAthlete: true });
   return jsonOk(battery);
 }
