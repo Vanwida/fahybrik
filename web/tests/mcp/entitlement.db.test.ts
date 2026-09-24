@@ -52,6 +52,8 @@ function argValue(name: string, athleteId: number): unknown {
       return 'Rodaje largo';
     case 'body':
       return 'Un texto cualquiera.';
+    case 'focus':
+      return 'Series de umbral';
     case 'blocks':
       return [{ title: 'Rodaje', items: [{ exercise_id: 1, prescription: RUN_90_Z2 }] }];
     case 'weeks':
@@ -154,7 +156,8 @@ describeWithDb('MCP · el portón del add-on (DB real)', () => {
     const { client, close } = await connectAs(sinElClerkId);
     try {
       const { tools } = await client.listTools();
-      expect(tools).toHaveLength(27);
+      // 26: FH-106 (10 sept) quitó set_target_race — el objetivo es del atleta.
+      expect(tools).toHaveLength(26);
 
       for (const tool of tools) {
         const required = tool.inputSchema.required ?? [];

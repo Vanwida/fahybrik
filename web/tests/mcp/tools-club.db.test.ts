@@ -246,12 +246,12 @@ describeWithDb('MCP · carreras, biblioteca, metodología y comunicados (DB real
     }
   });
 
-  test('search_library sin kind: busca en los tres peldaños y los devuelve aparte', async () => {
+  test('search_library sin kind: busca en los cuatro peldaños y los devuelve aparte', async () => {
     const { client, close } = await connectAs(coachAClerkId);
     try {
       const body = payload(await call(client, 'search_library', { query: 'remo' }));
 
-      expect(body.searched).toEqual(['exercise', 'block', 'template']);
+      expect(body.searched).toEqual(['exercise', 'block', 'template', 'level']);
 
       const exercises = body.exercises as Json[];
       expect(exercises.map((e) => e.name)).toContain('Remo Concept2');
