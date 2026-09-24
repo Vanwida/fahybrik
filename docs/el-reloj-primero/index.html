@@ -1,0 +1,453 @@
+<title>FAHYBRID Watch-First Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#F4F4F2; --surface:#FFFFFF; --surface-2:#ECECEA; --border:#DCDCD7;
+  --fg:#141413; --muted:#52524D; --faint:#67675F;
+  --ok:#1D7447; --ok-soft:rgba(29,116,71,.10);
+  --warn:#8F5400; --warn-soft:rgba(143,84,0,.10);
+  --danger:#BF3128; --danger-soft:rgba(191,49,40,.09);
+  --info:#2C5F9E; --info-soft:rgba(44,95,158,.10);
+  --font:"Figtree",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B0B0C; --surface:#161618; --surface-2:#1E1E21; --border:#2C2C30;
+    --fg:#F2F2F2; --muted:#A6A6A6; --faint:#8C8C8C;
+    --ok:#3CCF85; --ok-soft:rgba(60,207,133,.13);
+    --warn:#F0A43A; --warn-soft:rgba(240,164,58,.13);
+    --danger:#FF5D55; --danger-soft:rgba(255,93,85,.13);
+    --info:#5AA7F5; --info-soft:rgba(90,167,245,.13);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B0B0C; --surface:#161618; --surface-2:#1E1E21; --border:#2C2C30;
+  --fg:#F2F2F2; --muted:#A6A6A6; --faint:#8C8C8C;
+  --ok:#3CCF85; --ok-soft:rgba(60,207,133,.13);
+  --warn:#F0A43A; --warn-soft:rgba(240,164,58,.13);
+  --danger:#FF5D55; --danger-soft:rgba(255,93,85,.13);
+  --info:#5AA7F5; --info-soft:rgba(90,167,245,.13);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 var(--font);-webkit-font-smoothing:antialiased;padding-inline:20px}
+.wrap{max-width:1100px;margin:0 auto;padding-block:48px 96px}
+h1,h2,h3{text-wrap:balance;margin:0;font-weight:600;letter-spacing:-.01em}
+h1{font-size:clamp(30px,5vw,42px);line-height:1.1;letter-spacing:-.02em;margin-top:10px}
+h2{font-size:26px;line-height:1.2;margin-top:80px;padding-top:24px;border-top:1px solid var(--border)}
+h3{font-size:19px;line-height:1.3;margin-top:40px}
+p,ul,ol{margin:14px 0 0;max-width:72ch}
+li{margin-top:6px}
+a{color:var(--fg);text-underline-offset:3px}
+a:focus-visible{outline:2px solid var(--fg);outline-offset:2px;border-radius:4px}
+code{font-family:var(--mono);font-size:.84em;background:var(--surface-2);padding:1px 5px;border-radius:4px;word-break:break-word}
+strong{font-weight:600}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+.lede{font-size:19px;line-height:1.55;max-width:68ch;margin-top:20px}
+.meta{font-size:13px;color:var(--muted);margin-top:16px;max-width:90ch}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:32px}
+.stat{background:var(--surface);padding:16px 18px}
+.stat b{display:block;font-size:28px;line-height:1.1;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stat span{display:block;font-size:13px;color:var(--muted);margin-top:4px;line-height:1.35}
+.tablewrap{overflow-x:auto;margin-top:20px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.45}
+th{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:0}
+tr.group td{background:var(--surface-2);font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);padding:8px 14px}
+td.w{min-width:220px}
+td.n{white-space:nowrap;font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;line-height:1;padding:5px 8px;border-radius:6px;white-space:nowrap}
+.badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.ahead{color:var(--ok);background:var(--ok-soft)}
+.level{color:var(--info);background:var(--info-soft)}
+.behind{color:var(--danger);background:var(--danger-soft)}
+.choice{color:var(--warn);background:var(--warn-soft)}
+.tally{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.answer{display:grid;gap:16px;grid-template-columns:1fr;margin-top:24px}
+@media (min-width:860px){.answer{grid-template-columns:1fr 1fr}}
+.roles{display:grid;gap:16px;grid-template-columns:1fr;margin-top:24px}
+@media (min-width:860px){.roles{grid-template-columns:1fr 1fr 1fr}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px}
+.panel h3{margin-top:0;font-size:17px}
+.panel p,.panel li{font-size:15px}
+.panel ul{padding-left:18px}
+.phase{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-top:16px}
+.phase h3{margin-top:0;font-size:17px}
+.phase .when{font-size:13px;color:var(--muted);margin-top:2px}
+.phase ul{padding-left:18px;font-size:15px}
+.exit{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--ok-soft);font-size:15px;max-width:none}
+.why{margin-top:16px;padding:12px 14px;border-radius:8px;background:var(--info-soft);font-size:15px;max-width:none}
+.rules{padding-left:22px;max-width:80ch}
+.rules li{margin-top:10px}
+.checklist{list-style:none;padding:0;max-width:none}
+.checklist li{padding:12px 0 12px 28px;position:relative;border-bottom:1px solid var(--border);font-size:15px}
+.checklist li::before{content:"";position:absolute;left:0;top:16px;width:13px;height:13px;border:1.5px solid var(--faint);border-radius:3px}
+.checklist li b{display:block}
+.checklist .exp{color:var(--muted);font-size:14px;display:block;margin-top:2px}
+pre.mermaid{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;overflow-x:auto;margin-top:20px}
+.note{font-size:14px;color:var(--muted)}
+.src{font-size:13px;color:var(--muted);columns:2 320px;column-gap:32px;padding-left:18px}
+.src li{break-inside:avoid}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">FAHYBRID · Watch-first design · for your sign-off · 24 Sept 2026</div>
+  <h1>The Watch runs the session. That is how we beat TrainingPeaks.</h1>
+  <p class="lede">You set two bars today: the Watch is the product, and we can't be below TrainingPeaks anywhere. This page is the design that meets both. It covers where we stand against TrainingPeaks today, the architecture that puts the whole session on the wrist, what the Watch will measure, the real sessions I tested the design against, where it can still fail, and the order to build it. Nothing here is built yet. It needs your sign-off first.</p>
+  <p class="meta"><strong>How this was checked.</strong> Our side comes from a line-by-line inventory of the iPhone, Watch and server code. Apple's side comes from Apple's developer documentation, read directly, plus the WWDC 2023, 2025 and 2026 sessions. TrainingPeaks comes from their help centre and their public API wiki. This environment's network blocked trainingpeaks.com, so their help-centre pages were read through search summaries; only the API wiki was read in full. Nothing was compiled or run on a device, and anything only a device can prove is marked. Full research notes are in the session scratchpad.</p>
+
+  <div class="stats">
+    <div class="stat"><b>0</b><span>TrainingPeaks Apple Watch apps. They push run, bike and swim workouts into Apple's Workout app and read results back through Apple Health</span></div>
+    <div class="stat"><b>3</b><span>things our Watch reads during a workout: heart rate, calories, running distance. Apple also offers running power, stride, ground contact and more</span></div>
+    <div class="stat"><b>0</b><span>motion recordings that reach our server. The Watch records reps and bar speed; the files stop on the phone</span></div>
+    <div class="stat"><b>1 day</b><span>of plan on the Watch. It needs the phone to know tomorrow's session</span></div>
+    <div class="stat"><b>Jul 2026</b><span>Garmin bought TrainingPeaks and TrainHeroic, a strength platform</span></div>
+  </div>
+
+  <h2>The short version</h2>
+  <div class="answer">
+    <div class="panel">
+      <h3>Against TrainingPeaks</h3>
+      <p><strong>We're ahead on execution.</strong> We have our own Watch app for every format (runs, strength, EMOM, HYROX stations, ergs), live PM5 and treadmill control, HYROX and strength formats they don't have, a readiness score, and coach AI built on the coach's own method.</p>
+      <p><strong>We're behind on analytics and reach.</strong> They price load from power, draw best-effort curves, detect new thresholds, let you tune the fitness chart, plan the season, send workouts to five watch brands two weeks ahead, run on Android and speak nine languages.</p>
+      <p><strong>Their weak side is ours.</strong> They market themselves for HYROX, but rest, tempo and RIR are free text, there's no EMOM, AMRAP or For Time, and strength never reaches a watch. Garmin now owns them, so a first-class Apple Watch experience is unlikely to come from them.</p>
+    </div>
+    <div class="panel">
+      <h3>Our Watch today</h3>
+      <p><strong>It's the phone's sensor, not the owner of the session.</strong> In nine sessions out of ten the phone runs the clock, and the Watch shows what the phone sends.</p>
+      <ul>
+        <li>Motion capture (reps, bar speed) runs only when the Watch trains alone.</li>
+        <li>It records no GPS route, asks no RPE, and holds only today's plan.</li>
+        <li>Its motion recordings never leave the phone.</li>
+      </ul>
+      <p><strong>Apple's own guidance is the opposite.</strong> At WWDC25 Apple said to start the workout on the Watch "to get all available metrics" and mirror it to the iPhone. The design below does exactly that, then turns on everything the hardware can measure.</p>
+    </div>
+  </div>
+
+  <h2 id="tp">Where we stand against TrainingPeaks</h2>
+  <p>Every area, side by side. "What changes it" is the work that turns a <span class="badge behind">Behind</span> into <span class="badge level">Level</span> or better. <span class="badge choice">Yours</span> marks a business decision rather than engineering.</p>
+  <div class="tally">
+    <span class="badge ahead">Ahead · 10</span>
+    <span class="badge level">Level · 2</span>
+    <span class="badge behind">Behind · 10</span>
+    <span class="badge choice">Yours · 3</span>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Area</th><th>TrainingPeaks</th><th>FAHYBRID today</th><th>Verdict</th><th>What changes it</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="5">Execution and devices</td></tr>
+        <tr><td class="n">Apple Watch</td><td class="w">No Watch app. Run, bike and swim workouts go to Apple's Workout app 7 days ahead. Results come back only through Apple Health, and only from Apple's app.</td><td class="w">Our own Watch app runs every format. But the phone owns the session, and the link fails in the ways the audit found.</td><td><span class="badge ahead">Ahead</span></td><td class="w">This design: the Watch owns the session.</td></tr>
+        <tr><td class="n">Other watches</td><td class="w">Structured workouts to Garmin 15 days ahead (not strength), plus Wahoo, COROS, Polar, Suunto, Zwift and TrainerRoad.</td><td class="w">Garmin through our Connect IQ app: runs only, today only. Apple's Workout app: runs, 7 days. Suunto code not connected. COROS and Polar receive nothing.</td><td><span class="badge behind">Behind</span></td><td class="w">Push runs and erg pieces to Garmin, COROS, Polar and Suunto 14 days ahead. Check first: a headline says Garmin paused developer API access in September.</td></tr>
+        <tr><td class="n">Recording on the phone</td><td class="w">None. Their own guide tells athletes to record with another device.</td><td class="w">A full live engine on the phone: GPS, PM5, treadmill, chest strap.</td><td><span class="badge ahead">Ahead</span></td><td class="w">Keep it as the fallback when there's no Watch. iOS 26 lets the iPhone run a real workout session.</td></tr>
+        <tr><td class="n">Gym machines</td><td class="w">Concept2 through the Logbook, after the session.</td><td class="w">PM5 live: programs the piece, reads pace, watts, stroke rate and force. Controls FTMS treadmills.</td><td><span class="badge ahead">Ahead</span></td><td class="w">Move the connection to the Watch (§ measure everything).</td></tr>
+        <tr><td class="n">Importing other devices</td><td class="w">100+ sources, file upload, merging two files of the same session, automatic pairing with the plan.</td><td class="w">Apple Health, Garmin, COROS, Polar, FIT files. Amazfit, WHOOP and the COROS webhook are empty stubs.</td><td><span class="badge behind">Behind</span></td><td class="w">Finish the stubs and add file upload. Lower priority than the Watch.</td></tr>
+        <tr><td class="n">Live data</td><td class="w">Only inside their indoor-cycling app.</td><td class="w">Live between Watch and phone. Nothing live for the coach.</td><td><span class="badge ahead">Ahead</span></td><td class="w">Optional: a live board for the box, fed by every athlete's Watch.</td></tr>
+
+        <tr class="group"><td colspan="5">Planning</td></tr>
+        <tr><td class="n">Workout formats</td><td class="w">Steps and repeats with targets as % of threshold power, heart rate or pace, or RPE. No EMOM, AMRAP, For Time or rounds.</td><td class="w">15 formats including EMOM, AMRAP, For Time and HYROX simulation. Strength sets carry reps, load, RIR, tempo and rest as fields. Two gaps: load and effort on the same set, and timed or distance sets.</td><td><span class="badge ahead">Ahead</span></td><td class="w">Close the two gaps from the audit.</td></tr>
+        <tr><td class="n">Strength</td><td class="w">1,000+ exercises with video. Logged in the phone app only. Rest, tempo and RIR in free-text notes. Review: compliance, volume, estimated 1RM.</td><td class="w">Logged on the phone or the Watch. Bar speed per rep on the Watch exists but is switched off and only runs when the Watch trains alone.</td><td><span class="badge level">Level</span></td><td class="w">Turn motion on in every session. Then we're ahead: TrainingPeaks has no measured strength.</td></tr>
+        <tr><td class="n">Season plan</td><td class="w">Annual Training Plan: weekly load, hours or fitness targets toward A races, on Joe Friel's model.</td><td class="w">Programs, microcycles, progress through the plan, race countdown. No weekly load targets or projected fitness.</td><td><span class="badge behind">Behind</span></td><td class="w">Weekly load targets and a projected fitness line, as the coach's data. No built-in school of periodization.</td></tr>
+        <tr><td class="n">Calendar tools</td><td class="w">Copy and paste ranges, week controls, two calendars side by side, group calendar, recurring workouts.</td><td class="w">Assign a program to 20 athletes in 4 clicks, groups, publish by week, personal plan chains.</td><td><span class="badge level">Level</span></td><td class="w">—</td></tr>
+        <tr><td class="n">AI for the coach</td><td class="w">Text-to-workout generator on the web. No strength.</td><td class="w">AI that picks and adapts the coach's own templates, weekly evaluation, an assistant with 26 tools, search over the coach's methodology.</td><td><span class="badge ahead">Ahead</span></td><td class="w">Feed it what the Watch measures (reps, bar speed, stations).</td></tr>
+        <tr><td class="n">Marketplace and directory</td><td class="w">Plan store (30% cut), coach directory, Coach Match, coach accreditation.</td><td class="w">None.</td><td><span class="badge choice">Yours</span></td><td class="w">Business decision.</td></tr>
+
+        <tr class="group"><td colspan="5">Analytics</td></tr>
+        <tr><td class="n">Training load</td><td class="w">TSS from power, then pace, then heart rate, then a heart-rate formula. The source can be switched per workout. RPE estimate as a guide.</td><td class="w">Per segment from pace (run, row, ski, against a measured threshold), then heart rate, then RPE. Unmeasured time is shown as unmeasured, never guessed. No power, no strength-specific load.</td><td><span class="badge behind">Behind</span></td><td class="w">A power threshold per machine (row, ski, bike, from tests) so watts price ergs. Strength load from bar speed and volume. We keep our honesty rule; TrainingPeaks doesn't have one.</td></tr>
+        <tr><td class="n">Fitness and fatigue chart</td><td class="w">Fitness, fatigue and form with editable time constants and starting values. Projected forward by the season plan.</td><td class="w">Same model. Constants fixed in code at 42 and 7 days.</td><td><span class="badge behind">Behind</span></td><td class="w">Constants become the coach's data, defaults unchanged.</td></tr>
+        <tr><td class="n">Per-workout metrics</td><td class="w">Normalized power, grade-adjusted pace, intensity factor, efficiency factor, pace-to-heart-rate decoupling, variability index.</td><td class="w">Decoupling, elevation, gradient, heart-rate recovery, km splits, pacing shape, pace at the same heart rate. No grade-adjusted pace, efficiency or intensity factor.</td><td><span class="badge behind">Behind</span></td><td class="w">Add grade-adjusted pace (the gradient is already stored), efficiency factor and intensity factor per segment.</td></tr>
+        <tr><td class="n">Best efforts</td><td class="w">Bests by duration for power, heart rate and pace. Bike, run and mountain bike only.</td><td class="w">1, 3 and 5 km bests, an effort curve from 400 m to 10 km, critical speed, best 500 m on the erg. Nothing from the second-by-second data.</td><td><span class="badge behind">Behind</span></td><td class="w">Best-effort curves from the second-by-second data for run pace, erg watts and heart rate. Add ergs and HYROX stations, which TrainingPeaks doesn't cover.</td></tr>
+        <tr><td class="n">Thresholds</td><td class="w">Suggests higher thresholds from training. Never suggests a lower one.</td><td class="w">Only tests, marks or the coach set a threshold.</td><td><span class="badge behind">Behind</span></td><td class="w">Detect changes in both directions from training data. The coach approves. Detection windows are the coach's data.</td></tr>
+        <tr><td class="n">Compliance</td><td class="w">Green, yellow, orange, red on duration, distance or TSS (±20%).</td><td class="w">Adherence counts only what was due. Per-leg run compliance (in band, too fast, too slow). Strength load vs prescribed.</td><td><span class="badge ahead">Ahead</span></td><td class="w">Tolerance bands become the coach's data.</td></tr>
+        <tr><td class="n">Readiness and recovery</td><td class="w">Hand-entered metrics log plus heart-rate variability, resting heart rate and sleep trends. No readiness score.</td><td class="w">Daily readiness from the check-in plus variability, resting heart rate and sleep against the athlete's own baseline. Signals for the coach.</td><td><span class="badge ahead">Ahead</span></td><td class="w">Also read respiratory rate, blood oxygen, wrist temperature and sleep stages, which Apple exposes and we skip.</td></tr>
+        <tr><td class="n">HYROX</td><td class="w">Marketed as "built for all 8 stations". No station formats.</td><td class="w">Race breakdown, field percentile, projection, simulation scores, race transfer. But a simulation is saved as one segment: the station splits are lost.</td><td><span class="badge ahead">Ahead</span></td><td class="w">Save every station and run leg as its own segment.</td></tr>
+        <tr><td class="n">Custom analysis</td><td class="w">Overlay any channels, custom laps, automatic interval detection, workout comparison, planned structure over the recording.</td><td class="w">Fixed cards and drill-downs.</td><td><span class="badge behind">Behind</span></td><td class="w">A session explorer over the second-by-second data. After the items above.</td></tr>
+
+        <tr class="group"><td colspan="5">Coach and business</td></tr>
+        <tr><td class="n">Coach home</td><td class="w">"Who needs my attention", compliance dots, alerts, activity feed.</td><td class="w">One inbox with signals against each athlete's own baseline.</td><td><span class="badge ahead">Ahead</span></td><td class="w">—</td></tr>
+        <tr><td class="n">Athlete payments</td><td class="w">Built on Stripe. US, UK, Canada and Australia only, in dollars.</td><td class="w">The Negocio add-on reads Stripe but can't charge yet.</td><td><span class="badge behind">Behind</span></td><td class="w">Their gap is our opening: they can't bill athletes in Spain or the EU. Who charges is already on your list.</td></tr>
+        <tr><td class="n">Public API</td><td class="w">Closed; approved partners only.</td><td class="w">Assistant tools for AI (26); no public API.</td><td><span class="badge choice">Yours</span></td><td class="w">Business decision.</td></tr>
+
+        <tr class="group"><td colspan="5">Platform</td></tr>
+        <tr><td class="n">Apps and languages</td><td class="w">iOS, Android, web; about nine languages.</td><td class="w">iPhone and Apple Watch; the coach panel in Spanish.</td><td><span class="badge choice">Yours</span></td><td class="w">Android athletes can't get the Watch edge. Languages are already on your list.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="arch">The architecture: the Watch owns the session</h2>
+  <p>Today the phone runs the clock and the Watch is a sensor with a screen. We flip it. The Watch already runs the whole engine when it trains alone; it becomes the owner every time. Three roles:</p>
+  <div class="roles">
+    <div class="panel">
+      <h3>Apple Watch · owns the session</h3>
+      <ul>
+        <li>Runs the engine (the same shared code it runs today when training alone) and the clock. Apple never suspends it during a workout.</li>
+        <li>Reads every sensor, and connects to machines over Bluetooth itself: up to two, e.g. a PM5 and a chest strap.</li>
+        <li>Writes every sample to its own storage first, then sends.</li>
+        <li>Holds 7 days of plan, so a morning run needs no phone.</li>
+        <li>Uploads itself over Wi-Fi or cellular, or through the phone when it's near.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>iPhone · second screen and hub</h3>
+      <ul>
+        <li>Shows the Watch's session in full and sends commands: next, pause, load typed, notes.</li>
+        <li>Apple relaunches it in the background when the Watch starts, and reconnects it by itself after a dropout.</li>
+        <li>Lock Screen Live Activity. Bridges a third machine when the Watch's two Bluetooth slots are full.</li>
+        <li>Without a Watch it runs the session itself (iOS 26 workout session). That's the fallback, never the default.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Server · the record</h3>
+      <ul>
+        <li>Accepts every finished workout. If the coach removed the session, it's stored as off-plan and flagged. This is already live in PR #191.</li>
+        <li>Identifies every session by the id the Watch gave it, so a repeated upload never duplicates.</li>
+        <li>Joins the Watch's and phone's parts of the same session.</li>
+        <li>Computes every analysis on the page above.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Six rules the whole design keeps</h3>
+  <ol class="rules">
+    <li><strong>One owner.</strong> While a Watch records, the phone never runs its own clock. The rest timer, the EMOM minute and the station clock all come from the Watch.</li>
+    <li><strong>Only Apple's events change the link.</strong> No timer ever ends, relaunches or discards anything. This keeps the rule from the last rewrite (FH-56), which was right.</li>
+    <li><strong>Every message names its session.</strong> Each carries the session id and a sequence number. Totals travel instead of increments, so a lost message costs nothing. An "end" only ends its own session, which removes the stale-end bug at the root.</li>
+    <li><strong>Write first, send second.</strong> Nothing exists only in memory or only in transit. A finished session waits on the Watch until the server confirms it, with no expiry.</li>
+    <li><strong>Either side can start or join.</strong> Starting on the Watch is a first-class path. Starting on the phone asks the Watch to start. If the Watch doesn't answer, the phone shows «Reintentar» and the Watch shows «Unirse».</li>
+    <li><strong>One honest status on both screens.</strong> Every status comes from a fact: joined, watch app not installed, phone out of range. A silence changes what's shown, never what happens.</li>
+  </ol>
+
+  <h3>One session, start to finish</h3>
+  <pre class="mermaid">
+sequenceDiagram
+    participant S as Server
+    participant W as Apple Watch (owner)
+    participant P as iPhone (second screen)
+    participant M as PM5 / strap
+    S-->>W: 7 days of plan, refreshed when the coach edits
+    W->>W: Empezar (or the phone asks the Watch to start)
+    W->>W: session id minted, clock and sensors start at once
+    W->>P: mirror to phone (Apple relaunches it if needed)
+    W->>M: Bluetooth: PM5 programs the piece, strap sends heart rate
+    loop every second
+        W->>W: write samples to storage first
+        W-->>P: session state (totals, clocks, current leg)
+        P-->>W: commands (next, load 82.5 kg), acknowledged
+    end
+    Note over W,P: out of range: the Watch keeps going, Apple reconnects and delivers the backlog
+    W->>W: Terminar, RPE on the crown, sealed on the Watch
+    W->>S: upload (Wi-Fi, cellular or through the phone), receipt back
+  </pre>
+
+  <h3>What changes against today</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Moment</th><th>Today</th><th>Watch-first</th></tr></thead>
+      <tbody>
+        <tr><td class="n">Before</td><td class="w">The Watch knows today's session only when the phone opens its home screen. The payload has no date.</td><td class="w">7 days on the Watch, dated and fingerprinted, refreshed when the coach edits. A stale day says it's stale.</td></tr>
+        <tr><td class="n">Start</td><td class="w">One launch attempt from the phone, silent if it fails. Starting on the Watch and then on the phone throws away what the wrist recorded.</td><td class="w">The Watch starts first-class. The phone asks the Watch. «Reintentar» and «Unirse». One session, whatever the order.</td></tr>
+        <tr><td class="n">During</td><td class="w">The phone runs the clock and iOS can suspend it: the Watch freezes. Distance travels as increments and is lost in gaps. No motion capture.</td><td class="w">The Watch runs the clock and can't be suspended. Totals travel. Motion, route, running form and machines are all recorded on the wrist.</td></tr>
+        <tr><td class="n">End</td><td class="w">"Workout ended" messages carry no session id and never expire, so a stale one can end the next workout.</td><td class="w">One end per session id. RPE on the crown. The athlete's rating is written to Apple Health next to the workout.</td></tr>
+        <tr><td class="n">After</td><td class="w">A rejected save can be lost. The queue drops workouts after 72 hours. Motion files never upload.</td><td class="w">Nothing is lost: an outbox with receipts and no expiry, and motion files upload with the athlete's consent.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="measure">Measure everything: what the Watch will record</h2>
+  <p>Each row passes the three-part test: the athlete understands it, the app computes analytics with it, and the AI can adapt with it. "Today" is what the code does now.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Signal</th><th>Source</th><th>When</th><th>What it feeds</th><th>Today</th></tr></thead>
+      <tbody>
+        <tr><td class="n">Heart rate, beat-to-beat with a strap</td><td class="w">Watch optical sensor; chest strap over Bluetooth takes priority, and its RR intervals are kept</td><td class="w">Every session</td><td class="w">Zones, load, decoupling, recovery, heart-rate variability after the session</td><td class="w">Heart rate yes; the strap's RR intervals are thrown away</td></tr>
+        <tr><td class="n">Route, distance, pace</td><td class="w">Watch GPS, saved as a route in Apple Health and in our data</td><td class="w">Outdoor runs</td><td class="w">Splits, maps, grade-adjusted pace</td><td class="w">Distance yes; no route from the Watch</td></tr>
+        <tr><td class="n">Elevation</td><td class="w">Watch barometer</td><td class="w">Outdoor runs</td><td class="w">Gradient, grade-adjusted pace, load on hills</td><td class="w">Phone only</td></tr>
+        <tr><td class="n">Running form: power, stride length, vertical oscillation, ground contact time</td><td class="w">Apple, automatically (Series 6 / SE and later; Apple documents outdoor runs only)</td><td class="w">Outdoor runs</td><td class="w">Running economy, form breaking down under fatigue</td><td class="w">Recorded by Apple, never read</td></tr>
+        <tr><td class="n">Cadence</td><td class="w">Watch step counter</td><td class="w">Runs</td><td class="w">Cadence trend, which already waits for the data</td><td class="w">Hard-coded empty</td></tr>
+        <tr><td class="n">Reps, work and rest, bar speed per rep, range of motion</td><td class="w">Wrist motion: 100 Hz everywhere, up to 800 Hz on Series 8 / Ultra and later; stored at 50 Hz</td><td class="w">Strength, WODs, stations</td><td class="w">Sets logged without typing, bar-speed trends at the same load, station timing</td><td class="w">Switched off, and only when the Watch trains alone</td></tr>
+        <tr><td class="n">HYROX station and run splits</td><td class="w">The engine's legs, confirmed by motion in the known race order</td><td class="w">Simulations and races</td><td class="w">Station analytics, race projection</td><td class="w">Saved as one segment</td></tr>
+        <tr><td class="n">Erg data per stroke: pace, watts, stroke rate, drive length, force</td><td class="w">PM5 over Bluetooth, from the Watch</td><td class="w">Row, ski, bike erg</td><td class="w">Power-based load, erg power curves</td><td class="w">Phone only; averages kept, per-stroke data dropped</td></tr>
+        <tr><td class="n">Treadmill speed and incline</td><td class="w">FTMS treadmill over Bluetooth</td><td class="w">Treadmill runs</td><td class="w">Splits, load, incline-aware pace</td><td class="w">Phone only</td></tr>
+        <tr><td class="n">Effort</td><td class="w">The athlete's RPE on the crown, written to Apple Health; Apple's own estimate where it exists (runs, rides)</td><td class="w">Every session</td><td class="w">Load for time nothing measured</td><td class="w">The Watch asks no RPE</td></tr>
+        <tr><td class="n">Heart-rate recovery</td><td class="w">The 1–3 minutes after the session</td><td class="w">Every session</td><td class="w">Fitness trend</td><td class="w">Tests only</td></tr>
+        <tr><td class="n">Overnight and daily: variability (SDNN; RMSSD from watchOS 27), resting heart rate, respiratory rate, blood oxygen, wrist temperature, sleep stages, VO₂max</td><td class="w">Apple Health in the background</td><td class="w">Every day</td><td class="w">Readiness; illness and strain flags</td><td class="w">4 of 9 read. Sleep arrives as one total, no stages</td></tr>
+        <tr><td class="n">Calories</td><td class="w">Apple, during the session</td><td class="w">Every session</td><td class="w">Nutrition, session summary</td><td class="w">Read, then dropped</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">The coach's zones travel to the Watch as today. From watchOS 27, Apple also lets an app set its own heart-rate zones per workout (3 to 9 zones) and computes time in zone. The coach's zones stay the source; Apple does the counting.</p>
+
+  <h2 id="cases">Tested against 14 real sessions</h2>
+  <p>Each session was walked through the design step by step. If a session didn't fit, the design changed, not the session.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Session</th><th>What happens</th><th>What can still go wrong</th></tr></thead>
+      <tbody>
+        <tr><td class="n">HYROX simulation, phone in the locker</td><td class="w">The Watch runs all 16 legs. Runs by GPS, ski and row by the PM5 over Bluetooth from the Watch, wall balls and burpees counted by motion, the other stations timed by the engine. Saved on the Watch, uploaded over the gym's Wi-Fi or at the next contact with the phone.</td><td class="w">Two Bluetooth slots: one PM5 at a time plus the strap. Battery on a 90-minute session with GPS, Bluetooth and motion, to measure on device.</td></tr>
+        <tr><td class="n">3×800 m on a track, phone on the bench</td><td class="w">The Watch's GPS closes each 800. Splits show on the wrist. Out of range, the phone's view pauses and catches up when Apple reconnects; nothing is lost.</td><td class="w">GPS accuracy on a track is a few percent. A track mode that snaps to 400 m laps is a possible later step.</td></tr>
+        <tr><td class="n">EMOM 10 × 3 front squat at 80%</td><td class="w">The Watch owns the minute clock. Motion counts the reps and bar speed. Load is set once on the crown, and RIR is asked per set on the crown. If the phone is near, it shows the full set table.</td><td class="w">Published studies show wrist bar speed getting less accurate near 1RM, so it's recorded with its confidence and never shown as a 1RM estimate.</td></tr>
+        <tr><td class="n">PM5 row 8×500 m, 1:30 rest</td><td class="w">The Watch connects to the PM5, programs the piece, and records every stroke and split on its own timeline.</td><td class="w">A PM5 connected from the Watch hasn't been tested yet. Day-one device test; if it fails, the phone bridges the PM5 as today.</td></tr>
+        <tr><td class="n">75' zone 2 run, phone at home</td><td class="w">The Watch alone records route, pace, heart rate and running form, and uploads over Wi-Fi or cellular. Tomorrow's plan is already on the Watch.</td><td class="w">A Watch without cellular and away from Wi-Fi uploads when it's back near the phone.</td></tr>
+        <tr><td class="n">5×5 at the rack, sweaty hands</td><td class="w">Double tap closes the set (Series 9 / Ultra 2 and later). The crown sets load. Water Lock stops sweat taps.</td><td class="w">Older Watches get a deliberate button, never "tap anywhere to advance".</td></tr>
+        <tr><td class="n">The coach edits today's session mid-workout</td><td class="w">The Watch finishes the version it started, and the save records which version that was. The server never rejects it (already live). The next session gets the new version.</td><td class="w">A coach may expect the change live. The panel says "applies from the next session".</td></tr>
+        <tr><td class="n">A run in the morning, strength in the evening</td><td class="w">Two session ids. Ends and results can't cross between them.</td><td class="w">—</td></tr>
+        <tr><td class="n">Watch battery dies at station 5</td><td class="w">Everything up to station 5 is saved on the Watch. If the phone is near, it offers «Seguir en el iPhone» and continues from the last state it received. The server joins both parts by session id.</td><td class="w">The seconds between the Watch dying and the tap. The athlete decides; nothing switches by itself.</td></tr>
+        <tr><td class="n">Phone app killed mid-run</td><td class="w">The run doesn't notice. Apple relaunches the phone app and reconnects it when the athlete opens it or the Watch reaches it.</td><td class="w">—</td></tr>
+        <tr><td class="n">Start on the Watch, then open the phone</td><td class="w">The phone joins as a second screen. No second workout, nothing discarded. The audit's lost-wrist-work bug can't happen by construction.</td><td class="w">—</td></tr>
+        <tr><td class="n">Apple's Workout app or Strava started by mistake</td><td class="w">Apple allows one workout at a time, so ours is ended by the system. What's recorded is saved, the Watch says why, and the athlete can carry on as a continuation.</td><td class="w">The gap until the athlete notices.</td></tr>
+        <tr><td class="n">Doubles: two athletes, two Watches</td><td class="w">Each Watch records its own athlete. The shared split comes from the prescription. The server joins both (the joint endpoint exists).</td><td class="w">A live view of the partner has to go through the phones or the server: Apple blocks WebSockets on the Watch.</td></tr>
+        <tr><td class="n">Basement gym, no signal</td><td class="w">Nothing leaves the Watch until there's a route out. Results wait with no expiry, and the coach sees them when they land.</td><td class="w">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="fail">Where it can still fail</h2>
+  <div class="answer">
+    <div class="panel">
+      <h3>Apple's limits we can't remove</h3>
+      <ul>
+        <li>A Watch that's off, locked or charging can't be launched from the phone. That's why starting on the Watch must be first-class.</li>
+        <li>One workout app at a time on the Watch.</li>
+        <li>Two Bluetooth connections for our app on the Watch.</li>
+        <li>Running form is documented for outdoor runs only.</li>
+        <li>Apple Health can't store a HYROX race as one workout with mixed station types. Health gets one functional workout; our own data keeps every leg.</li>
+        <li>Apple blocks WebSockets on the Watch. Anything live for the coach goes over plain web requests.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Not proven until a device runs it</h3>
+      <ul>
+        <li>A PM5 connected from the Watch through a full session.</li>
+        <li>The size limit of messages between Watch and phone. Apple doesn't document it, so the session state must stay compact.</li>
+        <li>Battery on a 90-minute HYROX simulation.</li>
+        <li><strong>One correction to the audit:</strong> Apple lists the workout background mode as Watch-only. The audit's fix of "declare it on the phone" wouldn't work. Watch-first makes it unnecessary.</li>
+        <li>Rep counting: about 96% of sets are within ±1 rep in published studies. Sled push and farmers carry can't be recognised from the wrist, so the race order times them.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Hardware tiers</h3>
+      <ul>
+        <li>High-rate motion (800 Hz): Series 8 / Ultra and later. Older Watches get 100 Hz, which is what the published studies use.</li>
+        <li>Double tap: Series 9 / Ultra 2 and later.</li>
+        <li>Upload without the phone: Wi-Fi anywhere; away from Wi-Fi only on cellular Watches.</li>
+        <li>watchOS 27 features (native zones, RMSSD variability): reportedly Series 9, SE 3, Ultra 2 and later. That list comes from press reports, not Apple.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Process and market</h3>
+      <ul>
+        <li>None of this is proven until a Mac compiles it and it runs on your iPhone and Watch. That's why phase 0 comes first.</li>
+        <li>Garmin now owns TrainingPeaks. An unverified headline says Garmin paused developer API access in September, and our Garmin sync depends on that API.</li>
+        <li>Android athletes get none of the Watch edge.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 id="build">Build order</h2>
+  <p>Each phase has an exit test run on your devices. A phase isn't done because the code compiles.</p>
+
+  <div class="phase">
+    <h3>Phase 0 · Proof before code</h3>
+    <div class="when">Needs you: a Mac build service, and an hour of device tests per phase</div>
+    <ul>
+      <li>A Mac builds the phone and Watch apps and runs the 1,884 tests on every change. A red build can't merge.</li>
+      <li>Crash and hang reports, plus a log of failed saves and link events, sent to our server.</li>
+      <li>A hidden «Diagnóstico del reloj» screen showing the last link events from both devices.</li>
+    </ul>
+    <p class="exit"><strong>Exit:</strong> the first device run is logged and readable from here.</p>
+  </div>
+  <div class="phase">
+    <h3>Phase 1 · Nothing is ever lost</h3>
+    <ul>
+      <li>The Watch writes each sample to storage before sending anything.</li>
+      <li>A finished session waits in an outbox with receipts and no expiry.</li>
+      <li>Athletes stay signed in: no more hard 30-day expiry and logout loops.</li>
+      <li>Motion files upload, with a consent screen.</li>
+      <li>The server side is already done: it never rejects a finished workout.</li>
+    </ul>
+    <p class="exit"><strong>Exit:</strong> the audit's kill tests (force-quit, airplane mode, expired session, coach deletes mid-workout) all end with the workout on the server.</p>
+  </div>
+  <div class="phase">
+    <h3>Phase 2 · The Watch owns the session</h3>
+    <ul>
+      <li>Flip the owner. The phone becomes a second screen and remote.</li>
+      <li>Named messages, start or join from either side, one honest status.</li>
+      <li>7 days of plan on the Watch. The Watch uploads by itself.</li>
+      <li>RPE on the crown. Double tap, the crown and Water Lock instead of tap-anywhere.</li>
+      <li>The screens for every link state are designed first as proposal screens in «el doble», for your sign-off, per the UX rule.</li>
+    </ul>
+    <p class="exit"><strong>Exit:</strong> the 14 sessions above pass on your devices.</p>
+  </div>
+  <div class="phase">
+    <h3>Phase 3 · Measure everything</h3>
+    <ul>
+      <li>Route, elevation, cadence and running form from the Watch.</li>
+      <li>Motion on in every session, with rep counting and bar speed on by default and shown with their confidence.</li>
+      <li>HYROX splits saved leg by leg. PM5 and strap connected from the Watch. Heart-rate recovery after every session.</li>
+      <li>The recovery data we skip today: respiratory rate, blood oxygen, wrist temperature, sleep stages.</li>
+    </ul>
+    <p class="exit"><strong>Exit:</strong> every row of the measurement table reads "yes" on a real session.</p>
+  </div>
+  <div class="phase">
+    <h3>Phase 4 · Analytics level with TrainingPeaks</h3>
+    <div class="when">Web and server work, so it can run alongside phases 0–3 and be tested here</div>
+    <ul>
+      <li>Load from power on the ergs; fitness-chart constants as the coach's data.</li>
+      <li>Grade-adjusted pace, efficiency and intensity factor.</li>
+      <li>Best-effort curves from the second-by-second data. Threshold detection in both directions.</li>
+      <li>Weekly load targets with a projected fitness line.</li>
+      <li>Structured workouts to Garmin, COROS, Polar and Suunto 14 days ahead.</li>
+      <li>A session explorer.</li>
+    </ul>
+    <p class="exit"><strong>Exit:</strong> no row left "Behind" in the TrainingPeaks table.</p>
+  </div>
+  <div class="phase">
+    <h3>Phase 5 · Past them</h3>
+    <ul>
+      <li>A live board for the box: every athlete's heart rate, zone and station on a screen.</li>
+      <li>The coach's AI adapts on what was measured (bar speed, stations, readiness), not only on what was typed.</li>
+      <li>A movement-recognition model trained on our own recordings. That's why phase 1 starts collecting them.</li>
+    </ul>
+  </div>
+
+  <h2 id="decide">Decisions that are yours</h2>
+  <ul class="checklist">
+    <li><b>Sign off the architecture: the Watch owns every session from the first version.</b><span class="exp">My recommendation: yes. It's Apple's own guidance, and it's the one thing TrainingPeaks, now owned by Garmin, is least likely to copy.</span></li>
+    <li><b>Minimum devices.</b><span class="exp">My recommendation: iOS 26 and watchOS 26 as the floor, since iPhone workout sessions need iOS 26. Switch on the watchOS 27 features (native zones, RMSSD) where the Watch has them. The alternative is a watchOS 27 floor: more capability, but it drops Series 8 and older, going by press reports.</span></li>
+    <li><b>Training without a Watch.</b><span class="exp">My recommendation: iOS 26 now lets the iPhone run a real workout session, so keep the phone as a labelled fallback for dead-battery or forgotten-Watch days. Never market it. The alternative is Watch required, with sessions only logged afterwards.</span></li>
+    <li><b>The Mac that builds and tests every change.</b><span class="exp">GitHub's macOS machines or an Xcode Cloud build-and-test workflow. Both cost money and need your account.</span></li>
+    <li><b>Apple's Workout app for runs.</b><span class="exp">My recommendation: keep it only as an explicit opt-in. Our own app records more, and TrainingPeaks can only offer Apple's app.</span></li>
+    <li><b>Structured workouts to Garmin, COROS, Polar and Suunto.</b><span class="exp">My recommendation: yes, for runs and erg pieces, 14 days ahead. That's TrainingPeaks parity. First check Garmin's API status after the acquisition.</span></li>
+    <li><b>A live board for the box.</b><span class="exp">Every athlete's heart rate, zone and station on a screen during a class. TrainingPeaks has nothing like it. Phase 5, if you want it.</span></li>
+    <li><b>Business items the comparison raised.</b><span class="exp">A plan marketplace and coach directory; athlete billing in the EU, where TrainingPeaks can't bill; Android; languages.</span></li>
+  </ul>
+
+  <h2 id="sources">Sources</h2>
+  <ul class="src">
+    <li>Apple · <a href="https://developer.apple.com/videos/play/wwdc2025/322/">WWDC25 · Track workouts with HealthKit on iOS and iPadOS</a></li>
+    <li>Apple · <a href="https://developer.apple.com/documentation/healthkit/hkhealthstore/workoutsessionmirroringstarthandler">Mirroring handler and automatic reconnection</a></li>
+    <li>Apple · <a href="https://developer.apple.com/documentation/healthkit/running-workout-sessions">Running workout sessions (background runtime)</a></li>
+    <li>Apple · <a href="https://developer.apple.com/videos/play/wwdc2022/10135/">WWDC22 · Bluetooth on watchOS (two connections per app)</a></li>
+    <li>Apple · <a href="https://developer.apple.com/videos/play/wwdc2023/10179/">WWDC23 · High-rate motion (CMBatchedSensorManager)</a></li>
+    <li>Apple · <a href="https://developer.apple.com/documentation/healthkit/hkquantitytypeidentifier/runningpower">Running power and form metrics</a></li>
+    <li>Apple · <a href="https://developer.apple.com/documentation/swiftui/handgestureshortcut/primaryaction">Double tap for third-party apps</a></li>
+    <li>Apple · <a href="https://developer.apple.com/videos/play/wwdc2026/207/">WWDC26 · Workout zones in HealthKit</a></li>
+    <li>Apple · <a href="https://developer.apple.com/documentation/healthkit/dividing-a-healthkit-workout-into-activities">One workout, one activity type</a></li>
+    <li>Apple · <a href="https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos">TN3135 · No WebSockets on watchOS</a></li>
+    <li>Apple · <a href="https://developer.apple.com/documentation/xcode/configuring-background-execution-modes">Background modes (workout processing is watchOS-only)</a></li>
+    <li>TrainingPeaks · <a href="https://help.trainingpeaks.com/hc/en-us/articles/360039727152-TrainingPeaks-and-Apple-Watch">TrainingPeaks and Apple Watch</a></li>
+    <li>TrainingPeaks · <a href="https://help.trainingpeaks.com/hc/en-us/articles/27889930846861-How-Do-I-Program-Rest-Periods-RPE-Rep-Ranges-Tempo-RIR-in-Strength-Workouts">Rest, tempo and RIR in coach notes</a></li>
+    <li>TrainingPeaks · <a href="https://help.trainingpeaks.com/hc/en-us/articles/204071944-Training-Stress-Scores-TSS-Explained">Training Stress Scores explained</a></li>
+    <li>TrainingPeaks · <a href="https://help.trainingpeaks.com/hc/en-us/articles/204070864-Garmin-Connect-AutoSync-FAQ-and-tips-activities-workouts-and-daily-health-metrics">Garmin AutoSync (no strength to the watch)</a></li>
+    <li>TrainingPeaks · <a href="https://help.trainingpeaks.com/hc/en-us/articles/35662075770893-TrainingPeaks-Payments-General-Questions">Payments: US, UK, Canada, Australia</a></li>
+    <li>TrainingPeaks · <a href="https://www.trainingpeaks.com/hyrox/">HYROX page</a> · <a href="https://github.com/TrainingPeaks/PartnersAPI/wiki">Partner API wiki</a></li>
+    <li>Garmin · <a href="https://www.garmin.com/en-US/newsroom/press-release/corporate/garmin-acquires-trainingpeaks-and-trainheroic-leading-endurance-and-strength-training-platforms-for-athletes-and-coaches/">Garmin acquires TrainingPeaks and TrainHeroic</a></li>
+  </ul>
+</div>
