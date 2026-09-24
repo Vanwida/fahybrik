@@ -24,9 +24,14 @@ import {
   type RaceReadinessMethod,
 } from '@fahybrid/shared/domain/coach/race-readiness';
 import { loadCoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds-db';
-import { BOX_TIMEZONE, parseIsoDate } from '@fahybrid/shared/domain/dates';
+import {
+  BOX_TIMEZONE,
+  parseIsoDate,
+  zonedDayString,
+  zonedWallClockToUtc,
+} from '@fahybrid/shared/domain/dates';
 import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
-import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import { loadAdherenceWindows, loadCompliancePct } from '@/lib/coach/compliance-window';
 import {
@@ -125,6 +130,12 @@ export async function buildAthleteDeepDive(
     throw new AthleteDeepDiveError('not_found', `athlete ${params.athlete_id} not found`);
   }
 
+  // Lo que VIVIÓ el atleta — su carga, su racha, sus días con sesión, sus
+  // lecturas — va en SU día (`athletes.timezone`), no en el UTC de la base
+  // (DECISIONS 2026-09-23, «Qué día es en cada sitio»). Se resuelve una vez aquí.
+  const athleteTz = await loadAthleteTimezone(client, numericId);
+  const athleteDay = parseIsoDate(zonedDayString(now, athleteTz));
+
   // Has this athlete executed anything in the trends window? The answer used to
   // decide whether to SHORT-CIRCUIT into canned demo numbers — Marc Vidal's CTL,
   // his 1RMs, his sleep, his A-event — with the real athlete's name written on
@@ -140,7 +151,7 @@ export async function buildAthleteDeepDive(
     from workout_executions we
     where we.athlete_id = ${numericId}
       and coalesce(we.ended_at, we.started_at, we.created_at)
-            >= ${isoDate(addDays(now, -TRENDS_DAYS))}::date
+            >= ${zonedWallClockToUtc(addDays(athleteDay, -TRENDS_DAYS), athleteTz).toISOString()}::timestamptz
   `;
   const hasRecentActivity = (exec[0]?.n ?? 0) > 0;
 
@@ -149,7 +160,6 @@ export async function buildAthleteDeepDive(
   // carrera es del ATLETA: su cuenta atrás va en el día de él (DECISIONS
   // 2026-09-23, «Qué día es en cada sitio»).
   const clubDay = startOfDayInTz(now, await loadCoachTimezone(params.coach_id, client));
-  const athleteDay = parseIsoDate(await loadAthleteLocalDay({ athlete_id: numericId, now, client }));
   const micro = await getCurrentMicrociclo({
     athlete_id: numericId,
     on_date: clubDay,
@@ -162,6 +172,7 @@ export async function buildAthleteDeepDive(
     end_date: now,
     days: 90,
     client,
+    tz: athleteTz,
   });
   const load = summarizeLoad(tssSeries);
   const { acr } = computeAcr(tssSeries);
@@ -170,7 +181,7 @@ export async function buildAthleteDeepDive(
   const aEvent = await loadAEvent(client, numericId, athleteDay);
   const microciclos = await loadMicrociclos(client, numericId);
   const macrocycle = buildMacrocycleRibbon(microciclos, micro, clubDay);
-  const compliance = await loadCompliance(client, numericId, now);
+  const compliance = await loadCompliance(client, numericId, now, athleteDay);
   // Days with executed work in the last 7, rated or not: showing up is measured
   // by the clock, so skipping the RPE must not erase the day.
   const active_days_7d = tssSeries
@@ -185,6 +196,7 @@ export async function buildAthleteDeepDive(
     now,
     { tsb: load.tsb, coverage: loadCoverage, active_days_7d },
     raceReadinessMethodOf(thresholds),
+    athleteDay,
   );
   const progressReadiness = await assessAthleteProgressReadiness({
     athlete_id: numericId,
@@ -192,12 +204,12 @@ export async function buildAthleteDeepDive(
     thresholds,
     client,
   });
-  const modality = await loadModality(client, numericId, now);
+  const modality = await loadModality(client, numericId, now, athleteTz);
   // The FULL 90-day series: the chart warms its EWMA over all of it and slices
   // the plotted tail itself, so it cannot ramp from a cold zero.
-  const trends = await loadTrends(client, numericId, now, tssSeries);
-  const performance = await loadPerformance(client, numericId, params.coach_id, now);
-  const recent_days = await loadRecentDays(client, numericId, now);
+  const trends = await loadTrends(client, numericId, now, tssSeries, athleteTz, athleteDay);
+  const performance = await loadPerformance(client, numericId, params.coach_id, now, athleteTz, athleteDay);
+  const recent_days = await loadRecentDays(client, numericId, now, athleteTz, athleteDay);
   const notes = await loadNotes(client, numericId, params.coach_id);
 
   const carga = buildCarga({
@@ -395,8 +407,10 @@ async function loadCompliance(
   client: Sql,
   athlete_id: number,
   now: Date,
+  athleteDay: Date,
 ): Promise<KpiCompliance> {
-  const todayIso = isoDate(now);
+  // La racha es lo que ha cumplido el atleta: hasta SU hoy, el mismo que la adherencia.
+  const todayIso = isoDate(athleteDay);
 
   // The one due-only rule (plan §4.2), same rows as the roster and Hoy: today's
   // not-yet-done session and a hidden week never count as missed, partial is done.
@@ -456,6 +470,7 @@ async function loadReadiness(
   now: Date,
   load: { tsb: number; coverage: LoadCoverage; active_days_7d: number },
   method: RaceReadinessMethod,
+  athleteDay: Date,
 ): Promise<KpiReadiness> {
   const rows = await client<
     Array<{
@@ -504,13 +519,14 @@ async function loadReadiness(
   // 60→14-day mean of the daily winners, so a revised day counts once, not twice.
   const rhrDays = await loadRestingHrDays({
     athlete_id,
-    from_iso: isoDate(addDays(now, -RHR_BASELINE_FROM_DAYS)),
-    to_iso: isoDate(now),
+    // Los días de FC en reposo son días del atleta: el tramo acaba en SU hoy.
+    from_iso: isoDate(addDays(athleteDay, -RHR_BASELINE_FROM_DAYS)),
+    to_iso: isoDate(athleteDay),
     client,
   });
-  const rhrNow = resolveRestingHrOn(rhrDays, isoDate(now));
+  const rhrNow = resolveRestingHrOn(rhrDays, isoDate(athleteDay));
   const rhrBaselineDays = rhrDays.filter(
-    (d) => d.on < isoDate(addDays(now, -RHR_BASELINE_TO_DAYS)),
+    (d) => d.on < isoDate(addDays(athleteDay, -RHR_BASELINE_TO_DAYS)),
   );
   const rhrBaseline =
     rhrBaselineDays.length > 0
@@ -587,6 +603,7 @@ async function loadModality(
   client: Sql,
   athlete_id: number,
   now: Date,
+  tz: string,
 ): Promise<ModalityDistribution> {
   const sinceIso = addDays(now, -RECENT_DAYS).toISOString();
   // Sum seconds + km + kg per exercise category, plus session count + 2x/day days.
@@ -630,9 +647,9 @@ async function loadModality(
     group by ex.category
   `;
 
-  // sessions_count + 2x/day days
+  // sessions_count + 2x/day days — «dos en un día» es en el día del atleta.
   const dayRows = await client<Array<{ d: string; n: number }>>`
-    select to_char(coalesce(we.ended_at, we.started_at, we.created_at)::date, 'YYYY-MM-DD') as d,
+    select to_char(coalesce(we.ended_at, we.started_at, we.created_at) at time zone ${tz}, 'YYYY-MM-DD') as d,
            count(*)::int as n
     from workout_executions we
     where we.athlete_id = ${athlete_id}
@@ -700,6 +717,8 @@ async function loadTrends(
   athlete_id: number,
   now: Date,
   tssSeries: ReadonlyArray<DailyTss>,
+  tz: string,
+  athleteDay: Date,
 ): Promise<TrendsBlock> {
   // CTL/ATL/TSB series — ONE engine (computeLoadSeries), warmed over the FULL
   // 90-day window and only then sliced to the plotted 30, exactly like the KPI
@@ -728,7 +747,7 @@ async function loadTrends(
     };
   });
 
-  const hrv = await loadDailyMetric(client, athlete_id, 'hrv', now, TRENDS_DAYS);
+  const hrv = await loadDailyMetric(client, athlete_id, 'hrv', athleteDay, tz, TRENDS_DAYS);
   const hrvBaselineRows = await client<Array<{ v: number | null }>>`
     select avg(value_numeric)::float as v from biometric_streams
     where athlete_id = ${athlete_id} and metric_type = 'hrv'
@@ -737,7 +756,7 @@ async function loadTrends(
   `;
   const hrvBaseline = hrvBaselineRows[0]?.v != null ? Math.round(hrvBaselineRows[0].v) : null;
 
-  const sleepRaw = await loadDailyMetric(client, athlete_id, 'sleep_duration', now, TRENDS_DAYS);
+  const sleepRaw = await loadDailyMetric(client, athlete_id, 'sleep_duration', athleteDay, tz, TRENDS_DAYS);
   const sleep = sleepRaw.map((p) => ({
     iso_date: p.iso_date,
     value: p.value != null ? round1(p.value / 3600) : null,
@@ -745,7 +764,7 @@ async function loadTrends(
   const sleepValid = sleep.filter((p) => p.value != null).map((p) => p.value as number);
   const sleepAvg = sleepValid.length > 0 ? round1(sleepValid.reduce((s, v) => s + v, 0) / sleepValid.length) : null;
 
-  const compliance = await loadComplianceSeries(client, athlete_id, now);
+  const compliance = await loadComplianceSeries(client, athlete_id, athleteDay);
   const compDone = compliance.filter((p) => p.state === 'completed').length;
   const compTotal = compliance.filter((p) => p.state !== 'rest' && p.state !== 'future').length;
   const compPct = compTotal > 0 ? Math.round((compDone / compTotal) * 100) : null;
@@ -770,12 +789,14 @@ async function loadDailyMetric(
   client: Sql,
   athlete_id: number,
   metric: string,
-  now: Date,
+  athleteDay: Date,
+  tz: string,
   days: number,
 ): Promise<SparkPoint[]> {
-  const startIso = addDays(now, -(days - 1)).toISOString();
+  // Una lectura es del día del atleta en que la tomó: los días y su borde, en su huso.
+  const startIso = zonedWallClockToUtc(addDays(athleteDay, -(days - 1)), tz).toISOString();
   const rows = await client<Array<{ d: string; v: number | null }>>`
-    select to_char(date_trunc('day', recorded_at)::date, 'YYYY-MM-DD') as d,
+    select to_char(recorded_at at time zone ${tz}, 'YYYY-MM-DD') as d,
            avg(value_numeric)::float as v
     from biometric_streams
     where athlete_id = ${athlete_id}
@@ -787,7 +808,7 @@ async function loadDailyMetric(
   const byDate = new Map(rows.map((r) => [r.d, r.v]));
   const out: SparkPoint[] = [];
   for (let i = days - 1; i >= 0; i--) {
-    const day = addDays(now, -i);
+    const day = addDays(athleteDay, -i);
     const key = isoDate(day);
     const v = byDate.get(key) ?? null;
     out.push({ iso_date: key, value: v });
@@ -798,21 +819,22 @@ async function loadDailyMetric(
 async function loadComplianceSeries(
   client: Sql,
   athlete_id: number,
-  now: Date,
+  athleteDay: Date,
 ): Promise<CompliancePoint[]> {
-  const startIso = isoDate(addDays(now, -(TRENDS_DAYS - 1)));
+  // Lo que tenía que hacer y lo que hizo, en los días del atleta hasta SU hoy.
+  const startIso = isoDate(addDays(athleteDay, -(TRENDS_DAYS - 1)));
   const rows = await client<Array<{ d: string; status: string }>>`
     select to_char(scheduled_for, 'YYYY-MM-DD') as d, status::text as status
     from workout_assignments
     where athlete_id = ${athlete_id}
       and scheduled_for >= ${startIso}::date
-      and scheduled_for <= ${isoDate(now)}::date
+      and scheduled_for <= ${isoDate(athleteDay)}::date
   `;
   const byDate = new Map<string, string>();
   for (const r of rows) byDate.set(r.d, r.status);
   const out: CompliancePoint[] = [];
   for (let i = TRENDS_DAYS - 1; i >= 0; i--) {
-    const day = addDays(now, -i);
+    const day = addDays(athleteDay, -i);
     const key = isoDate(day);
     const status = byDate.get(key);
     if (!status) {
@@ -881,6 +903,8 @@ async function loadPerformance(
   athlete_id: number,
   coach_id: bigint | number,
   now: Date,
+  tz: string,
+  athleteDay: Date,
 ): Promise<PerformanceBlock> {
   const since = addDays(now, -90).toISOString();
   const rows = await client<
@@ -965,7 +989,7 @@ async function loadPerformance(
       trend: null,
       trend_pct: null,
       variability,
-      last_done_label: relativeDayLabel(r.last_done_at, now),
+      last_done_label: relativeDayLabel(dayInTz(r.last_done_at, tz), athleteDay),
       hint_text: cv != null && cv >= 0.12 ? 'CV alto' : null,
     });
   }
@@ -979,7 +1003,7 @@ async function loadPerformance(
       trend: null,
       trend_pct: null,
       variability: null,
-      last_done_label: `tested ${relativeDayLabel(b.recorded_at, now) ?? ''}`.trim(),
+      last_done_label: `tested ${relativeDayLabel(dayInTz(b.recorded_at, tz), athleteDay) ?? ''}`.trim(),
       hint_text: null,
     });
   }
@@ -1001,12 +1025,17 @@ async function loadRecentDays(
   client: Sql,
   athlete_id: number,
   now: Date,
+  tz: string,
+  athleteDay: Date,
 ): Promise<RecentDay[]> {
   const sinceIso = addDays(now, -RECENT_DAYS).toISOString();
+  // Cada sesión, en el día y la hora del atleta: la de las 00:30 es de hoy y por la mañana.
   const rows = await client<
     Array<{
       execution_id: string;
       ts: Date;
+      local_day: string;
+      local_hour: number;
       title: string;
       duration_seconds: number | null;
       rpe: number | null;
@@ -1019,6 +1048,8 @@ async function loadRecentDays(
     select
       we.id::text as execution_id,
       coalesce(we.ended_at, we.started_at, we.created_at) as ts,
+      to_char(coalesce(we.ended_at, we.started_at, we.created_at) at time zone ${tz}, 'YYYY-MM-DD') as local_day,
+      extract(hour from coalesce(we.ended_at, we.started_at, we.created_at) at time zone ${tz})::int as local_hour,
       coalesce(t.name, 'Sesión') as title,
       we.total_duration_seconds as duration_seconds,
       we.perceived_exertion::float as rpe,
@@ -1037,8 +1068,8 @@ async function loadRecentDays(
 
   const byDay = new Map<string, RecentSession[]>();
   for (const r of rows) {
-    const dayKey = isoDate(new Date(r.ts));
-    const slot = slotFromTimestamp(r.ts);
+    const dayKey = r.local_day;
+    const slot = slotFromLocalHour(r.local_hour);
     const arr = byDay.get(dayKey) ?? [];
     arr.push({
       slot,
@@ -1056,13 +1087,13 @@ async function loadRecentDays(
 
   const out: RecentDay[] = [];
   for (let i = 0; i < RECENT_DAYS; i++) {
-    const day = addDays(now, -i);
+    const day = addDays(athleteDay, -i);
     const key = isoDate(day);
     const sessions = byDay.get(key) ?? [];
     if (sessions.length === 1) sessions[0].slot = 'SOLO';
     out.push({
       iso_date: key,
-      label: relativeDayLabel(day, now) ?? labelDayShort(key),
+      label: relativeDayLabel(day, athleteDay) ?? labelDayShort(key),
       sessions: sessions.sort((a, b) => slotOrder(a.slot) - slotOrder(b.slot)),
     });
   }
@@ -1073,8 +1104,7 @@ function slotOrder(slot: RecentSession['slot']): number {
   return slot === 'AM' ? 0 : slot === 'PM' ? 1 : 2;
 }
 
-function slotFromTimestamp(ts: Date): RecentSession['slot'] {
-  const hour = ts.getUTCHours();
+function slotFromLocalHour(hour: number): RecentSession['slot'] {
   if (hour < 12) return 'AM';
   return 'PM';
 }
@@ -1294,6 +1324,12 @@ function relativeDayLabel(d: Date | null, now: Date): string | null {
   if (days < 0) return null;
   if (days <= 14) return `−${days}d`;
   return new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+}
+
+/** El día (medianoche UTC) en que cae un instante en el huso `tz`: «hoy», «ayer» y
+ *  «−Nd» se cuentan en el calendario del atleta, no en el de la base. */
+function dayInTz(d: Date | null, tz: string): Date | null {
+  return d == null ? null : parseIsoDate(zonedDayString(new Date(d), tz));
 }
 
 function labelDayShort(iso: string): string {

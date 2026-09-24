@@ -25,6 +25,8 @@ export function getDailyTssSeries(params: {
   client?: Sql;
   /** Método del coach: pendiente a partir de la cual el ritmo deja de preciar. */
   gradient_retires_pace_pct?: number;
+  /** Huso del atleta si el llamador ya lo tiene; si no, se lee (la serie va en SU día). */
+  tz?: string;
 }): Promise<DailyTss[]> {
   return _getDailyTssSeries({ ...params, client: params.client ?? sql });
 }
