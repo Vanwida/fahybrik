@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · Los push a iOS van por HTTP/2 (node:http2), no por `fetch`; y se envían con `after()`
+
+**El hueco:** `web/lib/push/apns.ts` mandaba cada push a APNS con el `fetch` global de Node. APNS solo acepta HTTP/2, y el `fetch` de Node 22 (undici 6) solo ofrece `http/1.1` en el ALPN salvo que un agente active h2: contra un servidor solo-h2 la conexión muere en el TLS (`ERR_SSL_TLSV1_ALERT_NO_APPLICATION_PROTOCOL`, reproducido en local con el mismo Node que usa producción). El error caía en un `catch` que nadie leía, así que ningún aviso al iPhone (chat, plan publicado, comunicados…) llegaba. Además `dispatch.ts` lanzaba el envío sin esperarlo: en Vercel la función se puede congelar al salir la respuesta y cortar el envío a medias. Lo encontró la auditoría de la app del atleta (revisor D).
+
+**Decidido:** transporte `node:http2` — una sesión por host (producción / sandbox) por envío, compartida por todos los dispositivos del usuario, con tope de 10 s por petición y un listener de `error` permanente (un `error` tras conectar sin listener tumbaría el proceso). Los envíos (APNS y Web Push) salen por `after()` de `next/server`, que en Vercel mantiene viva la función hasta que terminan; fuera de una petición (scripts, tests) corren en segundo plano como antes. Test de transporte contra un servidor HTTP/2-only local (`web/tests/push/apns-transport.test.ts`).
+
+**Verificar en el aparato:** tras desplegar, `/api/devices/test-push` (admin) con un iPhone registrado debe devolver `sent: 1` y el aviso debe llegar.
+
+**NO hacer:** no volver a `fetch` (ni axios) para APNS; si se cambia de cliente, que hable h2.
+
+---
+
 ## 2026-09-23 · Un nivel retirado no se elige; la ficha dice por qué no hay sugerencia; el tramo del alta lee la escalera del coach
 
 **Decidido:**
