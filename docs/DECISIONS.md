@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · «Semana N de M» de la app sale de la misma regla que el panel
+
+**El hueco (auditoría de la app del atleta, D-08 / F-07):** quien entra en un grupo a mitad de programa recibe un recibo más corto que el programa. El panel ya contaba la semana en el PROGRAMA (`programPosition`, entrada «Hoy honesto…», 2026-09-23); la cabecera del Plan de la app (`buildAthleteMacroSummary`) y la vista de ciclo (`web/lib/plan/camino.ts`) la contaban en el RECIBO: «semana 1 de 2» en la app, «semana 3 de 4» en la ficha (visto en los datos locales).
+
+**Decidido:** las dos lecturas del atleta usan `programPosition` con las semanas del programa (`program_month_weeks`; sin filas, las del recibo). En el camino, solo el tramo de HOY: su `current_week`/`week_count` son los del programa y sus `first_week`/`weeks_label`/`total_weeks` se acumulan con esa cuenta; las fechas siguen siendo las del recibo (las que entrena). Los tramos pasados y futuros no cambian: el panel solo sitúa el recibo en curso, y un recibo pasado recortado al sustituir no es alguien que entró a mitad.
+
+**Límite conocido (es de la regla, no de este cambio):** la regla deduce «entró a mitad» porque su recibo es más corto que el programa y termina con él. Un recibo en curso recortado por una sustitución que empieza el lunes que viene se lee igual que un recién llegado, en la app y en el panel a la vez. La raíz es guardar en el recibo en qué semana del programa entra (el materializador ya lo sabe: `start_week_number`). Y el «hoy» de cada lado sigue siendo el suyo (club en el panel, Madrid en la app, deuda de «Qué día es en cada sitio»): con un club fuera de Madrid pueden discrepar unas horas el lunes.
+
+**NO hacer:** no volver a contar la semana del atleta en el recibo; una pantalla nueva que diga «semana N de M» llama a `programPosition`.
+
+---
+
 ## 2026-09-24 · El cuestionario de entrada se lee respuesta a respuesta; una respuesta imposible no tumba el alta (0271, 0272)
 
 **El hueco (auditoría de la app del atleta, F-01, y lo que salió al probarlo contra base real):** `POST /api/onboarding/submit` rechazaba el cuestionario ENTERO si una respuesta no cabía (400; la app lo descarta en silencio). Y al probarlo aparecieron cuatro fallos más, peores: (1) el `UPDATE athletes` asignaba `max_hr_bpm` DOS veces — Postgres rechaza la sentencia («multiple assignments to same column») y **todo** envío daba 500, también en `main` (el mismo código desde 926a47b); (2) no marcar ningún día como «Programa» (saltar el paso) escribía `training_days_per_week = 0` contra un CHECK 1–14 → 500; (3) un 1RM de 0 kg violaba `athlete_strength_maxes_one_rm_chk` → 500; (4) «Triatlón», que la app ofrece, no existía en el enum `discipline` → 500. Un 500 la app lo reintenta hasta que caduca (72 h): el alta se perdía igual. Y las notas del alta (`intake_notes_json`) se escribían con `JSON.stringify(...)::jsonb`, que postgres.js vuelve a serializar: la columna acababa siendo un ARRAY que ningún lector abre.

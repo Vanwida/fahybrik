@@ -1,7 +1,8 @@
 import type { Sql } from 'postgres';
 import { getCurrentMicrociclo } from './current-microciclo';
 import { getTargetRaceRow } from './target-race';
-import { addDays, diffDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '../dates';
+import { programPosition } from './program-position';
+import { addDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '../dates';
 
 export type MacroWeekStatus = 'completed' | 'current' | 'upcoming' | 'missed';
 
@@ -403,7 +404,7 @@ export async function buildAthleteMacroSummary(params: {
   // directo (semanas dictadas o montadas a mano) también tiene «en qué semana
   // vas», y dejarlo en blanco era mentir por omisión (Alex, 12-ago).
   const week_label =
-    (await currentMicrocicloLabel(params.athlete_id, today, todayIso, client)) ??
+    (await currentMicrocicloLabel(params.athlete_id, todayIso, client)) ??
     (await semanaDelPlanDirecto(params.athlete_id, today, client));
 
   // Días hasta la carrera objetivo (unified `races` spine, priority='target').
@@ -419,27 +420,31 @@ export async function buildAthleteMacroSummary(params: {
 }
 
 /**
- * The athlete's CURRENT microciclo label: "<coach microciclo name> · semana N de M".
- * The current microciclo = the materialization receipt (athlete_month_assignments)
- * whose dated window contains today. N = which Mon–Sun week within that window today
- * falls in (1-indexed); M = the microciclo's week count (its microcycle_ids[], with a
- * date-span fallback). null when today is outside any materialized microciclo
- * (free-planned / between plans) → the athlete keeps the generic "Tu semana" subtitle.
+ * The athlete's CURRENT program label: "<coach program name> · semana N de M".
+ * The current program = the materialization receipt (athlete_month_assignments)
+ * whose dated window contains today. N and M come from THE shared rule the panel
+ * uses (`programPosition`, shared/domain/coach/program-position.ts): the week is
+ * counted in the PROGRAM, not in the receipt, so an athlete who joined a group in
+ * week 3 of 4 reads «semana 3 de 4» here, as in their ficha and on the group page
+ * — not «semana 1 de 2» (audit D-08 / F-07). M = the program's weeks
+ * (`program_month_weeks`); a program with no week rows falls back to the
+ * receipt's own span. null when today is outside any materialized program
+ * (free-planned / between plans) → the athlete keeps the generic "Tu semana".
  */
 async function currentMicrocicloLabel(
   athlete_id: number | bigint,
-  today: Date,
   todayIso: string,
   client: Sql,
 ): Promise<string | null> {
   const rows = await client<
-    Array<{ name: string | null; start_date: string; end_date: string; week_count: number }>
+    Array<{ name: string | null; start_date: string; end_date: string; program_weeks: number }>
   >`
     select
       m.name                                                 as name,
       to_char(ama.start_date, 'YYYY-MM-DD')                  as start_date,
       to_char(ama.end_date,   'YYYY-MM-DD')                  as end_date,
-      coalesce(array_length(ama.microcycle_ids, 1), 0)::int  as week_count
+      (select count(*) from program_month_weeks pw
+        where pw.month_template_id = ama.month_template_id)::int as program_weeks
     from athlete_month_assignments ama
     join program_month_templates m on m.id = ama.month_template_id
     where ama.athlete_id = ${athlete_id as number}
@@ -451,13 +456,8 @@ async function currentMicrocicloLabel(
   const r = rows[0];
   if (!r || !r.name) return null;
 
-  const startMonday = mondayOfWeek(parseIsoDate(r.start_date));
-  const spanWeeks = Math.floor(diffDays(mondayOfWeek(parseIsoDate(r.end_date)), startMonday) / 7) + 1;
-  const totalWeeks = r.week_count > 0 ? r.week_count : Math.max(1, spanWeeks);
-  const idx = Math.floor(diffDays(mondayOfWeek(today), startMonday) / 7) + 1;
-  const weekN = Math.min(Math.max(idx, 1), totalWeeks);
-
-  return `${r.name} · semana ${weekN} de ${totalWeeks}`;
+  const pos = programPosition({ start_date: r.start_date, end_date: r.end_date }, r.program_weeks, todayIso);
+  return `${r.name} · semana ${pos.week ?? pos.entered_week} de ${pos.weeks}`;
 }
 
 /**
