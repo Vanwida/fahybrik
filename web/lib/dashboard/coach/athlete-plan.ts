@@ -17,6 +17,7 @@ import {
 } from '@/lib/dashboard/v2/editor-axes';
 import { buildMacroProgress, type MacroProgressPayload } from './macro-progress';
 import { canRevertToSequence } from './revert-personal-plan';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 import { weekStates } from '@/lib/mcp/shape-write';
 
 export type PlanViewMode = 'macro' | 'month' | 'week';
@@ -248,8 +249,12 @@ export async function buildAthletePlan(params: {
 }): Promise<AthletePlanPayload> {
   const client = params.client ?? defaultSql;
   const view = params.view_mode ?? 'month';
-  const baseAnchor = params.anchor_iso ? parseIsoDate(params.anchor_iso) : new Date();
-  const todayIso = isoDateString(startOfDayUtc(new Date()));
+  // «Hoy» es el del CLUB: el plan del atleta lo lee y lo decide el coach
+  // (DECISIONS 2026-09-23, «Qué día es en cada sitio»). Uno para toda la vista:
+  // el ancla, qué microciclo va, cuál está programado, el día marcado como hoy.
+  const todayIso = await loadCoachToday(params.coach_id, { client });
+  const today = parseIsoDate(todayIso);
+  const baseAnchor = params.anchor_iso ? parseIsoDate(params.anchor_iso) : today;
 
   const monthSpan =
     view === 'month'
@@ -386,8 +391,8 @@ export async function buildAthletePlan(params: {
     };
   });
 
-  const micro = await getCurrentMicrociclo({ athlete_id: params.athlete_id, client });
-  const macro = await buildMacroProgress({ athlete_id: params.athlete_id, client });
+  const micro = await getCurrentMicrociclo({ athlete_id: params.athlete_id, on_date: today, client });
+  const macro = await buildMacroProgress({ athlete_id: params.athlete_id, on_date: today, client });
   const microciclo = await loadMicrocicloPublishState({ athlete_id: params.athlete_id, client });
   const upcoming_plan = await resolveUpcomingPlan({
     athlete_id: params.athlete_id,
@@ -399,7 +404,7 @@ export async function buildAthletePlan(params: {
   // Only worth the extra query when the athlete IS on a personal plan — the
   // common case (not personal) skips it entirely.
   const canRevert = isPersonal
-    ? await canRevertToSequence({ athlete_id: params.athlete_id, client })
+    ? await canRevertToSequence({ athlete_id: params.athlete_id, on_date: today, client })
     : false;
 
   // Current microciclo label = the coach's microciclo NAME (agnostic), null when

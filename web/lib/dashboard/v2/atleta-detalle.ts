@@ -54,6 +54,7 @@ import { divisionLabel, raceCategoryLabel } from './ficha-format';
 import { loadFichaTimeline } from './ficha-timeline';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
 import { canRevertToSequence } from '@/lib/dashboard/coach/revert-personal-plan';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 
 export { resolveAtletaUrl, canonicalFichaQuery } from './atleta-detalle-types';
 
@@ -157,8 +158,14 @@ export async function loadFichaShell(params: {
 }): Promise<FichaShell | null> {
   const client = params.client ?? defaultSql;
   const coachId = Number(params.coach_id);
-  const peek = await loadAthletePeek({ coach_id: coachId, athlete_id: params.athlete_id, client });
+  // Qué plan lleva ahora (y si se puede volver a la periodización) lo decide el
+  // coach: día del CLUB. La semana y la adherencia de la cabecera son del atleta.
+  const [peek, clubToday] = await Promise.all([
+    loadAthletePeek({ coach_id: coachId, athlete_id: params.athlete_id, client }),
+    loadCoachToday(coachId, { client }),
+  ]);
   if (!peek) return null;
+  const clubDay = parseIsoDate(clubToday);
   const today = peek.week.today;
   const thisMonday = peek.week.week_start;
   const lastMonday = isoDateString(addDays(parseIsoDate(thisMonday), 14));
@@ -170,11 +177,11 @@ export async function loadFichaShell(params: {
     listAthleteWeeks({ coach_id: coachId, athlete_id: params.athlete_id, from: thisMonday, to: lastMonday, client }).catch(
       () => [],
     ),
-    getCurrentMicrociclo({ athlete_id: params.athlete_id, client }).catch(() => null),
+    getCurrentMicrociclo({ athlete_id: params.athlete_id, on_date: clubDay, client }).catch(() => null),
   ]);
   const isPersonal = micro?.template_athlete_id != null;
   const canRevert = isPersonal
-    ? await canRevertToSequence({ athlete_id: params.athlete_id, client }).catch(() => false)
+    ? await canRevertToSequence({ athlete_id: params.athlete_id, on_date: clubDay, client }).catch(() => false)
     : false;
 
   // Una semana RETENIDA la ocultó el coach a propósito: no se le pide publicarla.

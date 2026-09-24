@@ -16,6 +16,7 @@ import { loadCoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresh
 import { loadCompliancePct } from './compliance-window';
 import { loadCoachTimezone } from './coach-timezone';
 import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
 import { getDailyTssSeries, readLoadCoverage, summarizeLoad } from '@/lib/training-load';
 import { getAthleteProgrammingStatus } from './programming-status';
 import { getLatestReadiness } from './athlete-daily-readiness';
@@ -227,10 +228,12 @@ async function rollupAthlete(
   coachTz: string,
 ): Promise<CohortRow> {
   const athlete_id_num = Number(a.athlete_id);
+  // El microciclo en curso y «listo para progresar» los lee el coach: día del club.
+  const clubDay = startOfDayInTz(now, coachTz);
 
   const micro = await getCurrentMicrociclo({
     athlete_id: athlete_id_num,
-    on_date: now,
+    on_date: clubDay,
     client,
   });
 
@@ -309,7 +312,7 @@ async function rollupAthlete(
   const [programming, readiness, progress] = await Promise.all([
     getAthleteProgrammingStatus({ athlete_id: athlete_id_num, on_date: now, tz: coachTz, client }),
     getLatestReadiness({ athlete_id: athlete_id_num, on_date: now, client }),
-    assessAthleteProgressReadiness({ athlete_id: athlete_id_num, on_date: now, client }),
+    assessAthleteProgressReadiness({ athlete_id: athlete_id_num, on_date: clubDay, client }),
   ]);
 
   if (progress?.recommendation === 'advance') {

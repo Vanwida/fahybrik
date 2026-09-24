@@ -1,8 +1,9 @@
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { AthleteIdParamSchema } from '@/lib/coach/deep-dive-types';
-import { AthleteDeepDiveError } from '@/lib/coach/athlete-deep-dive';
 import { buildMacroProgress } from '@/lib/coach/macro-progress';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
+import { parseIsoDate } from '@fahybrid/shared/domain/dates';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,8 @@ export async function GET(
   `;
   if (!owned[0]) return jsonError('not_found', 'Athlete not found', 404);
 
-  const progress = await buildMacroProgress({ athlete_id: athleteId });
+  // El progreso lo lee el coach: «hoy» es el día del club, no el del defecto.
+  const today = parseIsoDate(await loadCoachToday(session.coach_id));
+  const progress = await buildMacroProgress({ athlete_id: athleteId, on_date: today });
   return jsonOk({ macro_progress: progress });
 }

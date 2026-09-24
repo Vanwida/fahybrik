@@ -36,6 +36,8 @@ import {
   type AdherenceSessionsBatch,
 } from '@fahybrid/shared/domain/coach/adherence';
 import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import { daysFromNowToIso, type SignalFacts } from '@fahybrid/shared/domain/coach/signals';
 import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
@@ -79,18 +81,25 @@ export async function rollupAthleteFacts(params: {
   const client = params.client ?? defaultSql;
   const { now } = params;
 
-  const batch = await loadBatch(client, params.coach_id, now, params.athlete_id ?? null);
+  const [batch, coachTz] = await Promise.all([
+    loadBatch(client, params.coach_id, now, params.athlete_id ?? null),
+    loadCoachTimezone(params.coach_id, client),
+  ]);
+  // «Listo para progresar» es una señal para que el coach decida: el microciclo
+  // en curso se busca en el día del CLUB (DECISIONS 2026-09-23).
+  const clubDay = startOfDayInTz(now, coachTz);
   const maps = await loadCoachLevelMaps(
     client,
     params.coach_id,
     batch.map((r) => r.athlete_id),
     now,
+    coachTz,
   );
 
   const facts: SignalFacts[] = [];
   for (const row of batch) {
     try {
-      facts.push(await assembleFacts(row, maps, String(params.coach_id), client, now));
+      facts.push(await assembleFacts(row, maps, String(params.coach_id), client, now, clubDay));
     } catch (err) {
       captureRouteError(err, {
         route: 'lib/coach/attention/recompute.rollupAthleteFacts',
@@ -110,12 +119,13 @@ async function assembleFacts(
   coach_id: string,
   client: Sql,
   now: Date,
+  clubDay: Date,
 ): Promise<SignalFacts> {
   const athleteIdNum = Number(row.athlete_id);
 
   const progress = await assessAthleteProgressReadiness({
     athlete_id: athleteIdNum,
-    on_date: now,
+    on_date: clubDay,
     thresholds: maps.thresholds,
     client,
   });
@@ -284,6 +294,8 @@ async function loadCoachLevelMaps(
   coach_id: bigint | number,
   athlete_ids: string[],
   now: Date,
+  /** The coach's zone, already loaded by the rollup (so plan facts don't reload it). */
+  tz: string,
 ): Promise<CoachLevelMaps> {
   const scope = athlete_ids.length > 0 ? athlete_ids : ['0'];
   const [intakeRows, weekAdjRows, monthlyRows, awaiting, planRows, readiness, sessions, thresholds] =
@@ -301,7 +313,7 @@ async function loadCoachLevelMaps(
         return [];
       }),
       loadAwaitingReply({ coach_id, athlete_ids: scope, client }),
-      loadPlanFacts({ coach_id, athlete_ids: scope, now, client }),
+      loadPlanFacts({ coach_id, athlete_ids: scope, now, tz, client }),
       loadReadinessHistory({ coach_id, athlete_ids: scope, now, client }),
       loadAdherenceSessionsBatch({
         client,

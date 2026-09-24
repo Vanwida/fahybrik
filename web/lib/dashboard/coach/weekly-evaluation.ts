@@ -11,6 +11,7 @@ import {
 } from '@fahybrid/shared/domain/dates';
 import {
   evaluateAthleteWeek as _evaluateAthleteWeek,
+  evaluationWeekStartFor,
   type FiredTrigger,
   type WeekFeedSummary,
   type WeeklyEvaluationResult,
@@ -23,6 +24,7 @@ import {
 } from '@fahybrid/shared/schema/week-adjustment';
 import { recordLlmInvocation } from '@/lib/observability/llm-cost';
 import { loadBodySignals } from '@/lib/coach/week-adjust-signals';
+import { loadCoachTodayOfAthlete } from '@/lib/coach/coach-timezone';
 import { heuristicNoChangeReason, keepSummary, suggestFrom } from '@/lib/coach/week-adjust-copy';
 
 
@@ -62,18 +64,15 @@ export async function evaluateAthleteWeek(params: {
   week_start?: string | undefined;
   client?: Sql | undefined;
 }): Promise<WeeklyEvaluationResult> {
-  // Omit week_start when undefined: the shared signature uses exactOptionalPropertyTypes
-  // and treats the optional key as absent rather than explicitly undefined.
   // Las señales vivas del cuerpo (las de Hoy) entran en el veredicto: el motor
   // responde a lo que llevó al coach a pedir la descarga.
   const client = params.client ?? defaultSql;
+  // Sin semana («Evaluar semana», «Proponer descarga»), la anterior a la de hoy
+  // en el calendario del CLUB: la decide el coach (DECISIONS 2026-09-23).
+  const week_start =
+    params.week_start ?? evaluationWeekStartFor(await loadCoachTodayOfAthlete(params.athlete_id, { client }));
   const body_signals = await loadBodySignals({ athlete_id: params.athlete_id, client });
-  return _evaluateAthleteWeek({
-    athlete_id: params.athlete_id,
-    client,
-    body_signals,
-    ...(params.week_start !== undefined ? { week_start: params.week_start } : {}),
-  });
+  return _evaluateAthleteWeek({ athlete_id: params.athlete_id, week_start, client, body_signals });
 }
 
 /**

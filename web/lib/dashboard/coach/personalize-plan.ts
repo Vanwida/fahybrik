@@ -66,6 +66,7 @@ import {
 } from './instantiate-program';
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
 import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 
 export class PersonalizePlanError extends Error {
   constructor(
@@ -143,6 +144,9 @@ export async function personalizePlanForAthlete(params: {
   if (!owned[0]) {
     throw new PersonalizePlanError('not_found', 'Atleta no encontrado', 404);
   }
+  // «Esta semana» / «la que viene» se cuentan desde el día del CLUB: personalizar
+  // lo decide el coach (DECISIONS 2026-09-23, «Qué día es en cada sitio»).
+  const today = parseIsoDate(await loadCoachToday(coach_id, { client }));
 
   // ── Guard + fork, ATOMIC (0166) ─────────────────────────────────────────
   // The advisory lock key is namespaced via hashtext() so it can never collide
@@ -161,6 +165,7 @@ export async function personalizePlanForAthlete(params: {
     // type) keeps this correct even if that import ever changes.
     const current = await getCurrentMicrociclo({
       athlete_id,
+      on_date: today,
       client: tx as unknown as Parameters<typeof getCurrentMicrociclo>[0]['client'],
     });
     if (!current) {

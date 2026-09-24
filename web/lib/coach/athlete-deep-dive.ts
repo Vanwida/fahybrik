@@ -25,6 +25,8 @@ import {
 } from '@fahybrid/shared/domain/coach/race-readiness';
 import { loadCoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds-db';
 import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import { loadAdherenceWindows, loadCompliancePct } from '@/lib/coach/compliance-window';
 import {
   computeAcr,
@@ -141,7 +143,10 @@ export async function buildAthleteDeepDive(
   `;
   const hasRecentActivity = (exec[0]?.n ?? 0) > 0;
 
-  const micro = await getCurrentMicrociclo({ athlete_id: numericId, on_date: now, client });
+  // Qué microciclo va y si está listo para progresar lo lee el COACH: su día es
+  // el del club, no el del defecto (DECISIONS 2026-09-23, «Qué día es en cada sitio»).
+  const clubDay = startOfDayInTz(now, await loadCoachTimezone(params.coach_id, client));
+  const micro = await getCurrentMicrociclo({ athlete_id: numericId, on_date: clubDay, client });
 
   const tssSeries = await getDailyTssSeries({
     athlete_id: numericId,
@@ -174,7 +179,7 @@ export async function buildAthleteDeepDive(
   );
   const progressReadiness = await assessAthleteProgressReadiness({
     athlete_id: numericId,
-    on_date: now,
+    on_date: clubDay,
     thresholds,
     client,
   });

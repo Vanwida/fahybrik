@@ -7,6 +7,7 @@ import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/sh
 import { buildAthleteContextPack } from './coach-ia-context';
 import { proposeFirstMonthForIntake } from './intake-month-proposal';
 import { instantiateMonthFromTemplate } from './instantiate-program';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 
 export type MonthlyBlockProposal = {
   id: string;
@@ -164,8 +165,10 @@ export async function proposeNextMonthlyBlock(params: {
     );
   }
 
+  // El contexto se lee en el día del CLUB: el siguiente bloque lo decide el coach.
   const pack = await buildAthleteContextPack({
     athlete_id: params.athlete_id,
+    on_date: parseIsoDate(await loadCoachToday(params.coach_id, { client })),
     client,
   });
 

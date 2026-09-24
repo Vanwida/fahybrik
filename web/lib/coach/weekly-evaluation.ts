@@ -6,24 +6,32 @@ import { sql as defaultSql } from '@/lib/db';
 import { toJsonValue } from '@/lib/json-column';
 import {
   evaluateAthleteWeek as _evaluateAthleteWeek,
+  evaluationWeekStartFor,
   type WeeklyEvaluationResult,
   type WeeklyVerdict,
 } from '@fahybrid/shared/domain/coach/weekly-evaluation';
 import { notifyCoach } from '@/lib/notifications/dispatch';
 import { loadBodySignals } from './week-adjust-signals';
+import { loadCoachTodayOfAthlete } from './coach-timezone';
 
 export type { WeeklyVerdict, WeeklyEvaluationResult };
 export { evaluateWeeklyVerdictFromContext } from '@fahybrid/shared/domain/coach/weekly-evaluation';
 
-/** La evaluación de la semana con las señales vivas del cuerpo (las de Hoy) dentro. */
+/**
+ * La evaluación de la semana con las señales vivas del cuerpo (las de Hoy) dentro.
+ * Sin `week_start`, la semana anterior a la de hoy en el calendario del CLUB (el
+ * veredicto lo lee y lo decide el coach), no en el del defecto.
+ */
 export async function evaluateAthleteWeek(params: {
   athlete_id: number | bigint;
   week_start?: string;
   client?: Sql;
 }): Promise<WeeklyEvaluationResult> {
   const client = params.client ?? defaultSql;
+  const week_start =
+    params.week_start ?? evaluationWeekStartFor(await loadCoachTodayOfAthlete(params.athlete_id, { client }));
   const body_signals = await loadBodySignals({ athlete_id: params.athlete_id, client });
-  return _evaluateAthleteWeek({ ...params, client, body_signals });
+  return _evaluateAthleteWeek({ athlete_id: params.athlete_id, week_start, client, body_signals });
 }
 
 export async function persistWeeklyEvaluationSummary(params: {

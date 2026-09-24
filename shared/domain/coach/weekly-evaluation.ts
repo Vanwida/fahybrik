@@ -68,11 +68,20 @@ function parseWeekStart(iso: string): Date {
   return mondayOfWeek(parseIsoDate(iso));
 }
 
+/**
+ * La semana que se evalúa cuando no se dice cuál: el lunes de la ANTERIOR a la
+ * que contiene `today` (YYYY-MM-DD). `today` es el día de quien decide — el del
+ * CLUB: el veredicto lo lee el coach y decide con él (DECISIONS 2026-09-23, «Qué
+ * día es en cada sitio»). Quien llama sin semana la calcula con esto.
+ */
+export function evaluationWeekStartFor(today: string): string {
+  // mondayOfWeek(today - 7d) = lunes de la semana anterior.
+  return isoDateString(mondayOfWeek(addDays(parseIsoDate(today), -7)));
+}
+
 /** Lunes de la semana N-1 respecto a hoy (zona del box) — default cuando no se pasa week_start. */
 export function defaultEvaluationWeekStart(now: Date = new Date()): string {
-  const today = startOfDayInBox(now);
-  // mondayOfWeek(today - 7d) = lunes de la semana anterior.
-  return isoDateString(mondayOfWeek(addDays(today, -7)));
+  return evaluationWeekStartFor(isoDateString(startOfDayInBox(now)));
 }
 
 export async function evaluateAthleteWeek(params: {
@@ -87,10 +96,9 @@ export async function evaluateAthleteWeek(params: {
   client: Sql;
 }): Promise<WeeklyEvaluationResult> {
   const client = params.client;
-  const today = startOfDayInBox(new Date());
-  const weekStart = params.week_start
-    ? parseWeekStart(params.week_start)
-    : mondayOfWeek(addDays(today, -7));
+  // Sin semana, la del defecto del producto. Los llamadores de la web la pasan
+  // ya resuelta en el calendario del club (`evaluationWeekStartFor`).
+  const weekStart = parseWeekStart(params.week_start ? params.week_start : defaultEvaluationWeekStart());
   const weekStartIso = isoDateString(weekStart);
   const weekEndIso = isoDateString(addDays(weekStart, 6));
 
