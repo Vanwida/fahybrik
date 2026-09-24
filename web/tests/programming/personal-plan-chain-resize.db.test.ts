@@ -81,8 +81,13 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
     });
     await trackForCleanup(fx, Number(build.month_template_id));
 
-    // Una sesión EJECUTADA en la ÚLTIMA semana de "Base" (semana 3, índice 2)
-    // — el suelo real de "acortar" pasa a ser 2 semanas.
+    // Una sesión EJECUTADA en la ÚLTIMA semana de "Base" (semana 3, índice 2):
+    // quitar la semana 3 borraría lo hecho, así que no se puede quitar
+    // NINGUNA — el suelo real de "acortar" es 3. (Este test esperaba un «2»
+    // desde el commit que lo escribió junto al suelo y al mensaje, 41868e80;
+    // ni `tramoSafety` ni el mensaje han cambiado desde entonces: contaba mal
+    // el comentario. El suelo de 2 — algo hecho en la semana 2 de 3 — lo
+    // prueba el test siguiente.)
     const baseMicroIds = await microcycleIdsOf(Number(base.month_template_id));
     expect(baseMicroIds).toHaveLength(3);
     const thirdWeekMonday = addDays(parseIsoDate(base.start_date), 2 * 7);
@@ -94,7 +99,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       microcycleId: baseMicroIds[2]!,
     });
 
-    // Pedir 1 semana (por debajo del suelo de 2) se rechaza.
+    // Pedir 1 semana (por debajo del suelo de 3) se rechaza, con ese suelo exacto.
     let err: PersonalChainError | null = null;
     try {
       await updatePersonalTramoMeta({
@@ -110,7 +115,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
     }
     expect(err).toBeInstanceOf(PersonalChainError);
     expect(err!.code).toBe('shrink_blocked_by_history');
-    expect(err!.message).toContain('2');
+    expect(err!.message).toContain('no puedes bajar de 3 semanas');
 
     // Nada cambió: "Base" sigue con sus 3 semanas y sus fechas originales.
     const stillThree = await microcycleIdsOf(Number(base.month_template_id));
@@ -120,6 +125,83 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
       from athlete_month_assignments where month_template_id = ${Number(build.month_template_id)}
     `;
     expect(buildUnchanged[0]!.start_date).toBe(build.start_date);
+  }, 30000);
+
+  test('con algo hecho en la semana 2 de 3 el suelo es 2: bajar a 1 se niega con ese 2, bajar a 2 se puede', async () => {
+    const fx = await makeCoachAndAthlete(sql);
+    fixtures.push(fx);
+    const actor = coachActor({ user_id: BigInt(fx.coachUserId) });
+    const workoutTemplateId = await makeTemplate({ fx, name: 'Sesión base' });
+    const { monthId: sourceMonthId } = await makeMonthTemplate({
+      fx,
+      weekCount: 1,
+      workoutDays: [1],
+      workoutTemplateId,
+    });
+    await instantiateMonthFromTemplate({
+      coach_id: fx.coachId,
+      athlete_id: fx.athleteId,
+      month_template_id: sourceMonthId,
+      start_date: isoDateString(mondayOfWeek(new Date())),
+      client: sql,
+    });
+    const base = await addPersonalTramoToChain({
+      coach_id: fx.coachId,
+      athlete_id: fx.athleteId,
+      payload: { name: 'Base', week_count: 3 },
+      actor,
+      client: sql,
+    });
+    await trackForCleanup(fx, Number(base.month_template_id));
+    const build = await addPersonalTramoToChain({
+      coach_id: fx.coachId,
+      athlete_id: fx.athleteId,
+      payload: { name: 'Build', week_count: 2 },
+      actor,
+      client: sql,
+    });
+    await trackForCleanup(fx, Number(build.month_template_id));
+
+    const baseMicroIds = await microcycleIdsOf(Number(base.month_template_id));
+    const executedId = await makeAssignment({
+      fx,
+      templateId: workoutTemplateId,
+      scheduledForIso: isoDateString(addDays(parseIsoDate(base.start_date), 7)),
+      status: 'completed',
+      microcycleId: baseMicroIds[1]!,
+    });
+
+    await expect(
+      updatePersonalTramoMeta({
+        coach_id: fx.coachId,
+        athlete_id: fx.athleteId,
+        month_template_id: Number(base.month_template_id),
+        payload: { week_count: 1 },
+        actor,
+        client: sql,
+      }),
+    ).rejects.toMatchObject({
+      code: 'shrink_blocked_by_history',
+      message: expect.stringContaining('no puedes bajar de 2 semanas'),
+    });
+
+    // Justo en el suelo sí: sale la semana 3 (limpia) y "Build" se adelanta una.
+    const result = await updatePersonalTramoMeta({
+      coach_id: fx.coachId,
+      athlete_id: fx.athleteId,
+      month_template_id: Number(base.month_template_id),
+      payload: { week_count: 2 },
+      actor,
+      client: sql,
+    });
+    expect(result.week_count).toBe(2);
+    expect(await microcycleIdsOf(Number(base.month_template_id))).toEqual(baseMicroIds.slice(0, 2));
+    expect(result.reflowed[0]!.start_date).toBe(isoDateString(addDays(parseIsoDate(build.start_date), -7)));
+    const survivor = await sql<Array<{ status: string; microcycle_id: string }>>`
+      select status::text, microcycle_id::text from workout_assignments where id = ${executedId}
+    `;
+    expect(survivor[0]!.status).toBe('completed');
+    expect(Number(survivor[0]!.microcycle_id)).toBe(baseMicroIds[1]);
   }, 30000);
 
   test('acortar hasta el suelo exacto funciona y recoloca lo que viene detrás', async () => {

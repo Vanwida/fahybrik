@@ -19,10 +19,33 @@ import 'server-only';
 // `.savepoint`, no `.begin` — así que `instantiateMonthFromTemplate` (que
 // SIEMPRE abre su propia transacción) no puede llamarse dentro de una ya
 // abierta. `planPersonalReflow` valida TODO bajo el advisory lock del atleta
-// (fase 1, bloqueada); `applyPersonalReflow` escribe después (fase 2, sin
-// lock) — mismo hueco residual que el resto del archivo de plan personal,
-// cerrado por el lock para el caso realista y por la restricción 0166 (23P01)
-// como red para el cruce más raro.
+// (fase 1, bloqueada): lo ejecutado Y que ninguna fecha nueva caiga encima de
+// un recibo que la operación no reescribe. `applyPersonalReflow` escribe
+// después (fase 2, sin lock) — mismo hueco residual que el resto del archivo
+// de plan personal, cerrado por el lock para el caso realista y por la
+// restricción 0166 (23P01) como red para el cruce más raro.
+//
+// EL ORDEN DE LA FASE 2: SE LIBERA ANTES DE OCUPAR
+// -------------------------------------------------
+// La 0166 (dos recibos de un atleta no comparten un día) no es diferible:
+// Postgres la mira en CADA escritura, no al final. Y la fase 2 no es una
+// transacción: retirar el recibo viejo de un tramo y materializarlo en su
+// fecha nueva son commits distintos. Así que cada recibo nuevo tiene que caer
+// en días que ya estén libres. Tampoco basta con que la 0166 lo pare:
+// `resolveOrCreateMicrocycle` reutiliza por FECHA cualquier microciclo del
+// atleta, así que colocar un tramo sobre semanas que otro aún no ha soltado
+// le quitaría sus microciclos antes de que el recibo choque. Por eso:
+//   · lo que se ADELANTA (borrar, acortar) cae en el hueco del de delante:
+//     de primero a último;
+//   · lo que se RETRASA (alargar) cae en el sitio del de detrás: de último a
+//     primero;
+//   · un intercambio es un ciclo (cada uno cae en el sitio del otro): los dos
+//     recibos viejos se retiran antes de colocar ninguno.
+// `reflowWriteOrder` (personal-plan-chain-write-order.ts) decide ese orden sin
+// tocar la base; `applyPersonalReflow` lo ejecuta. El tramo que se
+// redimensiona EN SITIO sigue la misma regla (`resizeInPlaceAndReflow`): al
+// alargar, primero se aparta lo de detrás y luego crece; al acortar, primero
+// encoge y luego se adelanta lo de detrás.
 //
 // UN TRAMO QUE SÓLO CAMBIA DE TAMAÑO NO ES UN TRAMO QUE SE MUEVE.
 // -----------------------------------------------------------------
@@ -44,6 +67,7 @@ import {
   InstantiateProgramError,
 } from './instantiate-program';
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
+import { reflowWriteOrder } from './personal-plan-chain-write-order';
 
 export class PersonalChainError extends Error {
   constructor(
@@ -124,8 +148,10 @@ export type TramoSafety = {
   /** El nº de semanas MÍNIMO al que este tramo se puede acortar sin tocar una
    *  sola sesión ejecutada — no "cuántas se pueden quitar". Cuenta desde el
    *  FINAL: una semana limpia rodeada de semanas con historial no es
-   *  "quitable" (dejaría un hueco a mitad del propio tramo). Igual al
-   *  week_count actual cuando no hay nada ejecutado en absoluto. */
+   *  "quitable" (dejaría un hueco a mitad del propio tramo). Es la posición
+   *  (1-based) de la ÚLTIMA semana con algo ejecutado: algo hecho en la semana
+   *  3 de 3 da 3 (no se puede quitar ninguna); en la 2 de 3, da 2. 0 cuando no
+   *  hay nada ejecutado (el tope lo pone entonces MICROCICLO_MIN_WEEKS). */
   min_week_count: number;
   /** Pendientes por semana, en orden (índice 0 = primera semana del tramo).
    *  Deja que la UI diga un número REAL antes de acortar — "vas a perder 3
@@ -178,29 +204,42 @@ export type ReflowStep = {
   name: string;
   week_count: number;
   old_start: string | null;
+  /** Último día del recibo viejo (null = tramo nuevo, sin recibo todavía). */
+  old_end: string | null;
   new_start: string;
   new_end: string;
   /** false = la ventana no cambia; el llamador no lo toca en la fase 2. */
   moved: boolean;
 };
 
+/** Una ventana de fechas que una operación va a ocupar (ISO, ambos días incluidos). */
+export type PlannedWindow = { month_template_id: number; name: string; start: string; end: string };
+
 /**
  * Calcula las fechas nuevas de una lista ORDENADA y COMPLETA de tramos
  * personales, encadenados sin hueco desde `anchor_start`, cada uno con el
  * `week_count` que traiga en `desired` (puede ser distinto del actual — así es
  * como "editar duración" reusa esto mismo). NO escribe nada: valida que TODO
- * tramo cuya ventana cambiaría esté libre de sesiones ejecutadas y lanza
- * `PersonalChainError` (nombrando cuál) si no lo está, antes de tocar una fila.
+ * tramo cuya ventana cambiaría esté libre de sesiones ejecutadas, y que
+ * ninguna ventana nueva caiga encima de un recibo que esta operación NO
+ * reescribe (`assertWindowsFree`); si algo falla lanza `PersonalChainError`
+ * (nombrando qué tramo) antes de tocar una fila.
  *
  * `current` sólo necesita traer los tramos que YA EXISTEN — uno de `desired`
  * ausente en `current` es NUEVO (se crea desde cero en la fase 2, nunca
  * "cambia" de sitio, así que no hace falta protegerlo).
+ *
+ * `resized` es el tramo que la MISMA operación redimensiona en sitio (editar
+ * duración): su recibo tampoco cuenta como obstáculo — va a cambiar —, y su
+ * ventana NUEVA se comprueba igual que las del reflow.
  */
 export async function planPersonalReflow(params: {
   client: Sql;
+  athlete_id: number;
   anchor_start: string;
   desired: Array<{ month_template_id: number; name: string; week_count: number }>;
   current: Map<number, PersonalTramoRow>;
+  resized?: PlannedWindow;
 }): Promise<ReflowStep[]> {
   const steps: ReflowStep[] = [];
   let cursor = parseIsoDate(params.anchor_start);
@@ -217,6 +256,7 @@ export async function planPersonalReflow(params: {
       name: d.name,
       week_count: d.week_count,
       old_start: cur?.start_date ?? null,
+      old_end: cur?.end_date ?? null,
       new_start: startIso,
       new_end: endIso,
       moved,
@@ -238,7 +278,60 @@ export async function planPersonalReflow(params: {
     }
   }
 
+  const windows: PlannedWindow[] = [
+    ...(params.resized ? [params.resized] : []),
+    ...steps
+      .filter((s) => s.moved)
+      .map((s) => ({ month_template_id: s.month_template_id, name: s.name, start: s.new_start, end: s.new_end })),
+  ];
+  await assertWindowsFree({
+    client: params.client,
+    athlete_id: params.athlete_id,
+    windows,
+    rewritten: windows.map((w) => w.month_template_id),
+  });
+
   return steps;
+}
+
+/**
+ * Ninguna ventana NUEVA puede caer encima de un recibo que la operación NO
+ * reescribe — p. ej. un mes de biblioteca asignado entre dos tramos
+ * personales, o justo detrás del último. Se mira aquí, bajo el lock y antes de
+ * escribir nada, en vez de dejar que la 0166 lo pare en la fase 2 con la
+ * operación a medias. Los recibos de `rewritten` no cuentan: son los de la
+ * propia operación, que van a dejar su sitio.
+ */
+async function assertWindowsFree(params: {
+  client: Sql;
+  athlete_id: number;
+  windows: PlannedWindow[];
+  rewritten: number[];
+}): Promise<void> {
+  const { client, athlete_id, windows, rewritten } = params;
+  if (windows.length === 0) return;
+  const rows = await client<Array<{ ord: number; other_name: string }>>`
+    select w.ord::int as ord, m.name as other_name
+    from unnest(
+      ${windows.map((w) => w.start)}::date[],
+      ${windows.map((w) => w.end)}::date[]
+    ) with ordinality as w(start_date, end_date, ord)
+    join athlete_month_assignments ama
+      on ama.athlete_id = ${athlete_id}
+     and not (ama.month_template_id = any(${rewritten}::bigint[]))
+     and daterange(ama.start_date, ama.end_date, '[]') && daterange(w.start_date, w.end_date, '[]')
+    join program_month_templates m on m.id = ama.month_template_id
+    order by w.ord asc, ama.start_date asc
+    limit 1
+  `;
+  const hit = rows[0];
+  if (!hit) return;
+  const tramo = windows[hit.ord - 1]!;
+  throw new PersonalChainError(
+    'overlapping_plan',
+    `«${tramo.name}» chocaría con «${hit.other_name}», que ya está asignado en esas fechas — no se puede mover ni cambiar de tamaño.`,
+    409,
+  );
 }
 
 /**
@@ -297,16 +390,17 @@ async function clearPersonalTramoAssignment(params: {
 }
 
 /**
- * Aplica un plan de reflow YA VALIDADO (`planPersonalReflow`): para cada paso
- * que se mueve (en orden de fecha NUEVA), retira su recibo actual si lo tenía
- * y rematerializa en la fecha nueva — el contenido de sus semanas (lo que el
+ * Aplica un plan de reflow YA VALIDADO (`planPersonalReflow`) en el orden de
+ * `reflowWriteOrder`: retira el recibo actual de cada tramo que se mueve y lo
+ * rematerializa en la fecha nueva — el contenido de sus semanas (lo que el
  * coach ya haya escrito) viaja intacto porque es la MISMA plantilla, sólo con
  * fecha distinta. Los pasos que no se mueven no se tocan.
  *
- * Corre en la fase 2 (sin el advisory lock — ver cabecera del archivo). Si un
- * paso falla a mitad, los anteriores YA se movieron: el error final dice
- * cuántos se completaron para que el llamador lo cuente con honestidad en vez
- * de fingir que la cadena entera sigue como estaba.
+ * Corre en la fase 2 (sin el advisory lock — ver cabecera del archivo). Si una
+ * escritura falla a mitad, lo anterior YA pasó: el error final dice cuántos
+ * tramos se movieron y cuáles se quedaron sin fechas (recibo retirado, todavía
+ * sin colocar), para que el llamador lo cuente con honestidad en vez de fingir
+ * que la cadena entera sigue como estaba.
  */
 export async function applyPersonalReflow(params: {
   coach_id: number;
@@ -315,20 +409,23 @@ export async function applyPersonalReflow(params: {
   client: Sql;
 }): Promise<{ moved: ReflowStep[] }> {
   const { coach_id, athlete_id, client } = params;
-  const toMove = params.steps
-    .filter((s) => s.moved)
-    .sort((a, b) => (a.new_start < b.new_start ? -1 : a.new_start > b.new_start ? 1 : 0));
+  const writes = reflowWriteOrder(params.steps);
+  const total = writes.filter((w) => w.kind === 'place').length;
 
   const moved: ReflowStep[] = [];
-  for (const s of toMove) {
+  const unplaced: ReflowStep[] = [];
+  for (const w of writes) {
+    const s = w.step;
     try {
-      if (s.old_start != null) {
+      if (w.kind === 'clear') {
         await clearPersonalTramoAssignment({
           coach_id,
           athlete_id,
           month_template_id: s.month_template_id,
           client,
         });
+        unplaced.push(s);
+        continue;
       }
       const materialization = await instantiateMonthFromTemplate({
         coach_id,
@@ -337,6 +434,9 @@ export async function applyPersonalReflow(params: {
         start_date: s.new_start,
         client,
       });
+      const wasCleared = unplaced.indexOf(s);
+      if (wasCleared >= 0) unplaced.splice(wasCleared, 1);
+      moved.push(s);
       await markFutureWeeksDraft({
         coach_id,
         athlete_id,
@@ -344,14 +444,8 @@ export async function applyPersonalReflow(params: {
         week_count: materialization.microcycle_ids.length,
         client,
       });
-      moved.push(s);
     } catch (err) {
-      const already = moved.length;
-      const total = toMove.length;
-      const suffix =
-        already > 0
-          ? ` Ya se movieron ${already} de ${total} microciclo(s) antes de este fallo — revisa la cadena antes de reintentar.`
-          : '';
+      const suffix = partialReflowSuffix(moved.length, total, unplaced);
       if (err instanceof InstantiateProgramError) {
         throw new PersonalChainError(err.code, `${err.message}${suffix}`, err.status);
       }
@@ -361,5 +455,22 @@ export async function applyPersonalReflow(params: {
       throw err;
     }
   }
+  // Se escribe en el orden de `reflowWriteOrder`; se devuelve en el de la cadena.
+  moved.sort((a, b) => (a.new_start < b.new_start ? -1 : a.new_start > b.new_start ? 1 : 0));
   return { moved };
+}
+
+/** Lo que ya pasó cuando una escritura de la fase 2 falla a mitad. Vacío si
+ *  todavía no se había tocado nada. */
+function partialReflowSuffix(already: number, total: number, unplaced: ReflowStep[]): string {
+  const parts: string[] = [];
+  if (already > 0) parts.push(`Ya se movieron ${already} de ${total} microciclo(s) antes de este fallo`);
+  if (unplaced.length > 0) {
+    const names = unplaced.map((s) => `«${s.name}»`);
+    const list = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]!}`;
+    parts.push(
+      `${list} ${unplaced.length === 1 ? 'se quedó' : 'se quedaron'} sin fechas (su contenido sigue guardado)`,
+    );
+  }
+  return parts.length > 0 ? ` ${parts.join('; ')} — revisa la cadena antes de reintentar.` : '';
 }

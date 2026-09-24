@@ -43,7 +43,10 @@ export type MovePersonalTramoResult = {
  * (`components/v2/periodizacion/secuencias`). Como los dos tramos conservan su
  * propio nº de semanas, el hueco combinado no cambia: nada MÁS ALLÁ del par
  * intercambiado se recoloca nunca. Ninguno de los dos se mueve si cualquiera
- * de los dos ya tiene algo ejecutado.
+ * de los dos ya tiene algo ejecutado, ni si el cambio los dejaría encima de
+ * otro recibo (un mes de biblioteca asignado entre los dos). En la fase 2 los
+ * dos recibos viejos se retiran antes de colocar ninguno: cada uno cae en el
+ * sitio del otro (ver «SE LIBERA ANTES DE OCUPAR», personal-plan-chain-reflow.ts).
  */
 export async function movePersonalTramoInChain(params: {
   coach_id: number | bigint;
@@ -99,14 +102,20 @@ export async function movePersonalTramoInChain(params: {
       [first.month_template_id, first],
       [second.month_template_id, second],
     ]);
-    const steps = await planPersonalReflow({ client: tx, anchor_start: first.start_date, desired, current });
+    const steps = await planPersonalReflow({
+      client: tx,
+      athlete_id,
+      anchor_start: first.start_date,
+      desired,
+      current,
+    });
 
     // Auditoría DENTRO de esta transacción — planPersonalReflow ya validó
-    // (arriba, mismo lock) que ninguno de los dos tiene sesiones ejecutadas,
-    // así que las fechas de `steps` son las que de verdad se van a aplicar en
-    // la fase 2. entity_id es el tramo que el coach pulsó "mover"; el vecino
-    // (el otro lado del swap) va en el diff, no como entity — un swap es una
-    // operación, no dos.
+    // (arriba, mismo lock) que ninguno de los dos tiene sesiones ejecutadas ni
+    // cae encima de otro recibo, así que las fechas de `steps` son las que de
+    // verdad se van a aplicar en la fase 2. entity_id es el tramo que el coach
+    // pulsó "mover"; el vecino (el otro lado del swap) va en el diff, no como
+    // entity — un swap es una operación, no dos.
     const selfStep = steps.find((s) => s.month_template_id === month_template_id) ?? null;
     const neighborStep = steps.find((s) => s.month_template_id !== month_template_id) ?? null;
     await recordAudit(tx, {
@@ -218,7 +227,13 @@ export async function deletePersonalTramoFromChain(params: {
         week_count: t.week_count,
       }));
       const current = new Map<number, PersonalTramoRow>(rest.map((t) => [t.month_template_id, t]));
-      steps = await planPersonalReflow({ client: tx, anchor_start: target.start_date, desired, current });
+      steps = await planPersonalReflow({
+        client: tx,
+        athlete_id,
+        anchor_start: target.start_date,
+        desired,
+        current,
+      });
     }
 
     // Auditoría DENTRO de esta transacción (mismo motivo que

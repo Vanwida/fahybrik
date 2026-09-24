@@ -31,7 +31,7 @@ import {
 } from './instantiate-program';
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
 import { appendEmptyWeekToMonth, removeWeekFromMonth } from './program-months';
-import { resizeAssignmentInPlace } from './personal-plan-chain-resize';
+import { resizeInPlaceAndReflow } from './personal-plan-chain-resize';
 import { insertEmptyPersonalMonthTemplate } from './personal-plans';
 import {
   MICROCICLO_MIN_WEEKS,
@@ -42,9 +42,9 @@ import {
   loadPersonalTramoChain,
   tramoSafety,
   planPersonalReflow,
-  applyPersonalReflow,
   PersonalChainError,
   type PersonalTramoRow,
+  type ReflowStep,
 } from './personal-plan-chain-reflow';
 import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
 
@@ -270,7 +270,9 @@ export type UpdatePersonalTramoResult = {
  * fecha de inicio nunca cambia, así que una sesión ejecutada en su primera
  * semana no puede bloquear alargarlo por el final. Sólo lo que viene DETRÁS
  * en la cadena se recoloca de verdad (mismo motor que reordenar/borrar) — y
- * sólo cuando el tramo ya estaba materializado y su duración cambió.
+ * sólo cuando el tramo ya estaba materializado y su duración cambió. Todo eso
+ * se valida en la fase 1, bajo el lock y antes de escribir nada; la fase 2
+ * escribe en el orden que la 0166 acepta (`resizeInPlaceAndReflow`).
  */
 export async function updatePersonalTramoMeta(params: {
   coach_id: number | bigint;
@@ -297,8 +299,9 @@ export async function updatePersonalTramoMeta(params: {
     name: string;
     targetWeekCount: number;
     delta: number;
-    mineStartDate: string | null;
-    rest: PersonalTramoRow[];
+    mine: PersonalTramoRow | null;
+    plannedEnd: string | null;
+    steps: ReflowStep[];
   };
   const outcome: Phase1Outcome = await client.begin(async (txRaw) => {
     const tx = txRaw as unknown as Sql;
@@ -364,6 +367,27 @@ export async function updatePersonalTramoMeta(params: {
       }
     }
 
+    // El plan ENTERO se valida aquí, bajo el lock y antes de escribir nada: que
+    // lo de detrás se pueda mover (sin ejecutadas) y que ni este tramo con su
+    // tamaño nuevo ni lo de detrás en su sitio nuevo caigan encima de otro
+    // recibo. Si algo falla se deshace esta transacción entera — nada de
+    // redimensionar para luego no poder recolocar.
+    let plannedEnd: string | null = null;
+    let steps: ReflowStep[] = [];
+    if (delta !== 0 && mine) {
+      plannedEnd = isoDateString(
+        addDays(mondayOfWeek(parseIsoDate(mine.start_date)), targetWeekCount * 7 - 1),
+      );
+      steps = await planPersonalReflow({
+        client: tx,
+        athlete_id,
+        anchor_start: isoDateString(addDays(parseIsoDate(plannedEnd), 1)),
+        desired: rest.map((t) => ({ month_template_id: t.month_template_id, name: t.name, week_count: t.week_count })),
+        current: new Map<number, PersonalTramoRow>(rest.map((t) => [t.month_template_id, t])),
+        resized: { month_template_id, name: newName, start: mine.start_date, end: plannedEnd },
+      });
+    }
+
     if (delta > 0) {
       for (let i = 0; i < delta; i++) {
         await appendEmptyWeekToMonth({ coach_id, month_id: month_template_id, client: tx });
@@ -407,10 +431,11 @@ export async function updatePersonalTramoMeta(params: {
       },
     });
 
-    return { name: newName, targetWeekCount, delta, mineStartDate: mine?.start_date ?? null, rest };
+    return { name: newName, targetWeekCount, delta, mine, plannedEnd, steps };
   });
 
-  if (outcome.delta === 0 || outcome.mineStartDate == null) {
+  const { mine, plannedEnd } = outcome;
+  if (outcome.delta === 0 || mine == null || plannedEnd == null) {
     // Sin cambio de tamaño, o el contenedor todavía no está materializado
     // (un borrador sin fecha) — nada que redimensionar ni recolocar.
     const finalRow = await client<Array<{ start_date: string | null; end_date: string | null }>>`
@@ -428,42 +453,30 @@ export async function updatePersonalTramoMeta(params: {
     };
   }
 
-  const resized = await resizeAssignmentInPlace({
+  const { resized, moved } = await resizeInPlaceAndReflow({
     coach_id,
     athlete_id,
     month_template_id,
+    current_end: mine.end_date,
+    planned_end: plannedEnd,
+    steps: outcome.steps,
     actor: params.actor,
     channel: params.channel,
     client,
   });
-  const newEnd = resized?.end_date ?? null;
-
-  let reflowed: UpdatePersonalTramoResult['reflowed'] = [];
-  if (outcome.rest.length > 0 && newEnd) {
-    const desired = outcome.rest.map((t) => ({
-      month_template_id: t.month_template_id,
-      name: t.name,
-      week_count: t.week_count,
-    }));
-    const current = new Map<number, PersonalTramoRow>(outcome.rest.map((t) => [t.month_template_id, t]));
-    const anchorStart = isoDateString(addDays(parseIsoDate(newEnd), 1));
-    const steps = await planPersonalReflow({ client, anchor_start: anchorStart, desired, current });
-    const { moved } = await applyPersonalReflow({ coach_id, athlete_id, steps, client });
-    reflowed = moved.map((m) => ({
-      month_template_id: String(m.month_template_id),
-      name: m.name,
-      start_date: m.new_start,
-      end_date: m.new_end,
-    }));
-  }
 
   return {
     month_template_id: String(month_template_id),
     name: outcome.name,
     week_count: outcome.targetWeekCount,
-    start_date: outcome.mineStartDate,
-    end_date: newEnd,
-    reflowed,
+    start_date: mine.start_date,
+    end_date: resized?.end_date ?? null,
+    reflowed: moved.map((m) => ({
+      month_template_id: String(m.month_template_id),
+      name: m.name,
+      start_date: m.new_start,
+      end_date: m.new_end,
+    })),
   };
 }
 

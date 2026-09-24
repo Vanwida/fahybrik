@@ -12,12 +12,75 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
-import { instantiateWeekIntoMicrocycle } from './instantiate-program';
+import { instantiateWeekIntoMicrocycle, InstantiateProgramError } from './instantiate-program';
 import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
-import { tramoSafety, PersonalChainError } from './personal-plan-chain-reflow';
+import {
+  tramoSafety,
+  applyPersonalReflow,
+  PersonalChainError,
+  type ReflowStep,
+} from './personal-plan-chain-reflow';
 import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
 
 export type ResizeInPlaceResult = { end_date: string; week_count: number };
+
+/**
+ * Redimensiona el tramo EN SITIO y recoloca lo que va DETRÁS (`steps`, ya
+ * validado bajo el lock por `planPersonalReflow`) en el único orden que la
+ * 0166 acepta — «se libera antes de ocupar» (personal-plan-chain-reflow.ts):
+ *   · si CRECE, lo de detrás se aparta primero y el tramo crece después sobre
+ *     el sitio que dejó. Al revés, crecería sobre semanas que otro no ha
+ *     soltado: `resolveOrCreateMicrocycle` le quitaría sus microciclos y la
+ *     0166 pararía el recibo, con la plantilla ya alargada por la fase 1;
+ *   · si ENCOGE (o se queda igual), encoge primero y lo de detrás se adelanta
+ *     sobre el hueco que deja.
+ */
+export async function resizeInPlaceAndReflow(params: {
+  coach_id: number;
+  athlete_id: number;
+  month_template_id: number;
+  /** Último día del recibo hoy, y el que tendrá tras redimensionar. */
+  current_end: string;
+  planned_end: string;
+  steps: ReflowStep[];
+  actor: Actor;
+  channel?: AuditChannel;
+  client: Sql;
+}): Promise<{ resized: ResizeInPlaceResult | null; moved: ReflowStep[] }> {
+  const { coach_id, athlete_id, steps, client } = params;
+  const resize = () =>
+    resizeAssignmentInPlace({
+      coach_id,
+      athlete_id,
+      month_template_id: params.month_template_id,
+      actor: params.actor,
+      channel: params.channel,
+      client,
+    });
+
+  if (params.planned_end <= params.current_end) {
+    const resized = await resize();
+    if (!resized) return { resized, moved: [] };
+    const { moved } = await applyPersonalReflow({ coach_id, athlete_id, steps, client });
+    return { resized, moved };
+  }
+
+  const { moved } = await applyPersonalReflow({ coach_id, athlete_id, steps, client });
+  try {
+    return { resized: await resize(), moved };
+  } catch (err) {
+    // Lo de detrás YA se apartó: el error lo dice, en vez de dejar creer que
+    // la cadena sigue como estaba.
+    if (moved.length > 0 && (err instanceof PersonalChainError || err instanceof InstantiateProgramError)) {
+      throw new PersonalChainError(
+        err.code,
+        `${err.message} Ya se movieron ${moved.length} microciclo(s) de detrás para hacerle sitio — revisa la cadena antes de reintentar.`,
+        err.status,
+      );
+    }
+    throw err;
+  }
+}
 
 /**
  * Alarga o acorta EN SITIO la materialización de un tramo. `null` cuando el

@@ -143,24 +143,12 @@ describeWithDb('auditoría — cadena de tramos personales (DB real)', () => {
     expect(diff.week_count_before).toBe(diff.week_count_after);
   }, 30000);
 
-  // LAS DOS SIGUIENTES llaman resizeAssignmentInPlace DIRECTAMENTE en vez de
-  // pasar por updatePersonalTramoMeta({payload:{week_count}}) — que es como
-  // llega en producción. Motivo, verificado y AJENO a esta entrega: cambiar
-  // el nº de semanas de un tramo hoy revienta con "client.begin is not a
-  // function" — appendEmptyWeekToMonth/removeWeekFromMonth
-  // (shared/domain/coach/program-months.ts) abren su PROPIA transacción
-  // sobre un cliente que updatePersonalTramoMeta YA tiene en transacción, y
-  // un cliente en transacción de postgres.js no expone `.begin` (solo
-  // `.savepoint`). Reproducido IDÉNTICO ejecutando
-  // personal-plan-chain-resize.db.test.ts tal cual está en main, sin tocar
-  // una sola línea — no es un efecto de este cambio. Como el fallo ocurre
-  // ANTES de llegar a la fila de auditoría de updatePersonalTramoMeta (está
-  // dentro de la MISMA transacción, y por tanto también se deshace), hoy no
-  // hay forma de probar "redimensionar vía la ruta pública" de punta a
-  // punta — así que estos dos tests prueban la pieza que SÍ es de esta
-  // entrega (resizeAssignmentInPlace, personal-plan-chain-resize.ts) de
-  // forma aislada, reproduciendo a mano la precondición que su propio
-  // comentario exige: program_month_weeks ya con el nº de semanas objetivo.
+  // LAS DOS SIGUIENTES prueban resizeAssignmentInPlace aislada: su propia fila
+  // de auditoría, con la precondición que su comentario exige a mano
+  // (program_month_weeks ya con el nº de semanas objetivo). El camino público
+  // (updatePersonalTramoMeta con week_count, que ya no revienta con «client.begin
+  // is not a function» desde ad8aa67e) lo cubren personal-plan-chain-resize y
+  // personal-plan-chain-reflow-order.
   test('resizeAssignmentInPlace (alargar) escribe su propia fila update, con fechas y semanas antes/después', async () => {
     const { fx } = await seedAnchoredAthlete();
     const actor = coachActor({ user_id: BigInt(fx.coachUserId) });
@@ -297,25 +285,20 @@ describeWithDb('auditoría — cadena de tramos personales (DB real)', () => {
 
     // movePersonalTramoInChain es DOS fases: la 1ª (el lock + planPersonalReflow
     // + MI fila de auditoría) commitea sola, ANTES de que la 2ª
-    // (applyPersonalReflow) toque un solo recibo. La 2ª tiene hoy un bug
-    // preexistente y AJENO a esta entrega: mueve el tramo que avanza (Build)
-    // ANTES que el que le cede el sitio (Base), así que el recibo nuevo de
-    // Build choca un instante con el recibo viejo — todavía sin borrar — de
-    // Base (23P01). Reproducido IDÉNTICO ejecutando
-    // personal-plan-chain-move.db.test.ts tal cual está en main, sin tocar una
-    // sola línea — no es un efecto de este cambio. La fila de auditoría de
-    // ESTE test ya quedó escrita (fase 1 commiteada) cuando la fase 2 falla —
-    // el .rejects confirma que el error es justo ese, no otro.
-    await expect(
-      movePersonalTramoInChain({
-        coach_id: fx.coachId,
-        athlete_id: fx.athleteId,
-        month_template_id: Number(build.month_template_id),
-        payload: { direction: 'up' },
-        actor,
-        client: sql,
-      }),
-    ).rejects.toMatchObject({ message: expect.stringContaining('se solapa') });
+    // (applyPersonalReflow) toque un solo recibo. Hasta ahora este test
+    // esperaba que la 2ª fallara (23P01: colocaba "Build" antes de retirar el
+    // recibo viejo de "Base"); con «se libera antes de ocupar»
+    // (personal-plan-chain-reflow.ts) el intercambio se completa, y la fila de
+    // la fase 1 dice justo lo que pasó.
+    const moved = await movePersonalTramoInChain({
+      coach_id: fx.coachId,
+      athlete_id: fx.athleteId,
+      month_template_id: Number(build.month_template_id),
+      payload: { direction: 'up' },
+      actor,
+      client: sql,
+    });
+    expect(moved.moved).toHaveLength(2);
 
     const rows = await sql<Array<{ action: string; diff_json: unknown }>>`
       select action::text, diff_json from audit_log
@@ -332,6 +315,13 @@ describeWithDb('auditoría — cadena de tramos personales (DB real)', () => {
     expect(self.month_template_id).toBe(Number(build.month_template_id));
     expect(self.start_after).toBe(base.start_date); // "Build" ocupa el sitio de "Base".
     expect(neighbor.month_template_id).toBe(Number(base.month_template_id));
+
+    // Y ahora que la fase 2 termina, lo auditado es lo que de verdad quedó.
+    const baseNow = await sql<Array<{ start_date: string }>>`
+      select to_char(start_date, 'YYYY-MM-DD') as start_date
+      from athlete_month_assignments where month_template_id = ${Number(base.month_template_id)}
+    `;
+    expect(neighbor.start_after).toBe(baseNow[0]!.start_date);
   }, 30000);
 
   test('borrar un tramo de la cadena escribe una fila delete con sesiones borradas/conservadas y qué se recolocó', async () => {
