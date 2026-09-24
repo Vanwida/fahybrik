@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · Recolocar la cadena personal: se valida todo antes de escribir y se libera antes de ocupar
+
+**Qué:** mover, alargar, acortar o borrar un tramo del plan personal valida el plan entero en la fase 1, bajo el lock: sesiones hechas en los tramos que se mueven, y que ninguna ventana nueva caiga sobre un recibo que la operación no reescribe (→ 409 `overlapping_plan`, limpio). La fase 2 escribe en el orden de `reflowWriteOrder` (`personal-plan-chain-write-order.ts`): antes de colocar un tramo retira todo recibo viejo de la operación que pise su ventana nueva. Un intercambio retira los dos antes de colocar ninguno; alargar aparta lo de detrás y luego crece; acortar encoge y luego adelanta lo de detrás (`resizeInPlaceAndReflow`).
+
+**Por qué:** un intercambio es un ciclo (cada tramo cae en las fechas del otro) y fallaba con «se solapa», dejando un tramo sin fechas; alargar con un tramo detrás reventaba con 23P01 (500) y ya había cambiado la plantilla. El test que esperaba el rechazo del intercambio fijaba el bug; el de encoger esperaba un suelo de 2 semanas donde el real es 3 (estaba mal desde 41868e80).
+
+**Queda abierto (producto, de Alex):** la cadena empaqueta todos los tramos personales tras el ancla uno detrás de otro; si hay un mes de biblioteca en medio, acortar o borrar el anterior se rechaza (409) en vez de dejar el hueco. Sabido y no hecho: sesiones hechas que quedaron en un hueco se reabsorben por fecha si un tramo lo cubre luego; mover un tramo lo reconstruye desde su plantilla (se pierden ediciones por atleta y calibraciones pendientes, como ya pasaba al borrar); la plantilla cambia en la fase 1 y el recibo en la 2 (si la 2 falla, reintentar no hace nada). El editor de la cadena en el panel se retiró en 220276e: hoy solo la llaman las rutas `plan-chain` y el alta.
+
+**NO hacer:** no colocar un tramo sin haber retirado antes lo que pisa; no escribir nada antes de validar el plan entero.
+
+---
+
 ## 2026-09-24 · Un huso se guarda solo si lo conocen Intl y Postgres
 
 **El hueco:** los husos se guardan en dos columnas (`coaches.timezone` desde Ajustes › Tu club; `athletes.timezone` desde el lote de HealthKit) y se leen con dos motores que no comparten base de husos: Intl en TS, `at time zone` en SQL. Intl acepta nombres heredados que un Postgres con el tzdata recortado rechaza ('Europe/Kiev', 'Asia/Calcutta' en el Postgres 16 de Ubuntu sin `tzdata-legacy`), nombres que tzdata ya borró ('US/Pacific-New') y desfases ('+01:00', que Postgres lee con el signo al revés). El combo ofrecía la lista del navegador y el lote solo miraba Intl: un huso así tumbaba cada consulta que lo usaba («time zone not recognized»), y solo dos lectores se protegían consulta a consulta.

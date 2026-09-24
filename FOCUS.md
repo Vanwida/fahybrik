@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-24** (PR #191 en verde, espera las migraciones en Neon; auditoría iOS entregada)
+Última actualización: **2026-09-24** (PR #191 en verde, espera las migraciones en Neon; husos, tests locales y cadena personal cerrados)
 
 ## Ahora
 
@@ -71,10 +71,10 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 ## Sabido y no hecho
 
 - Panel coach: sin Stripe Connect (Cobros lee, no cobra); crons en serie por coach
-  (no aguantan ~20 clubs); sin RLS; panel solo en castellano; lecturas del plan compartido
-  y de la app del atleta aún en el huso por defecto (lista en DECISIONS «Qué día es…»).
-- Seeds: `seed_demo.ts` desfasado (`chat_messages.sender_role`); `0051` no corre en
-  `migrate.ts` (CONCURRENTLY dentro de transacción).
+  (no aguantan ~20 clubs); sin RLS; panel solo en castellano; quedan en día UTC la cuenta
+  atrás de macro-progress, deep dive, TSS diario y bordes de semana (DECISIONS «Qué día es…»).
+- Seeds: `seed_demo.ts` desfasado (`chat_messages.sender_role`). Cadena personal: un mes de
+  biblioteca en medio bloquea acortar/borrar (409; decisión de producto en DECISIONS).
 - FH-30: `PhoneLiveSession.applyCommand` no relaya `.newLap` al motor (latente).
 - FH-30: `GuionSeries` queda sin vía viva en el espejo — retirada pendiente.
 - FH-56: la fila «Reconectar reloj» en `LiveConectividadSheet` es subjetiva — no añadida.
