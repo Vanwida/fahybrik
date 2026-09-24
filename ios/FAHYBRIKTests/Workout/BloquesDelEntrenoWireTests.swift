@@ -14,6 +14,56 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
     private static let lienzo = CGSize(width: 402, height: 874)
     private let etiqueta = "Ver el entreno entero"
 
+    // EL INTERRUPTOR DE ACCESIBILIDAD — sin él la cosecha sale vacía.
+    //
+    // SwiftUI no publica su árbol de accesibilidad (los `accessibilityLabel` de
+    // sus `Button`) a quien lo lea desde dentro del proceso salvo que la
+    // automatización de accesibilidad esté encendida, que es lo que hacen
+    // XCUITest y VoiceOver. Apagada, `recolectar` no ve NINGÚN botón: fallaban
+    // los cinco tests a la vez, también el `BotonVerBloques` suelto, que no tiene
+    // cable ninguno. Es el mismo interruptor que KIF (`KIFEnableAccessibility`) y
+    // AccessibilitySnapshot (`ASAccessibilityEnabler`). Se deja como estaba al
+    // acabar la clase: la suite corre en orden aleatorio.
+    private enum Automatizacion {
+        typealias Lee = @convention(c) () -> Int32
+        typealias Pone = @convention(c) (Int32) -> Void
+
+        static let simbolos: (lee: Lee, pone: Pone)? = {
+            let ruta = "/usr/lib/libAccessibility.dylib"
+            var candidatas = [ruta]
+            if let raiz = ProcessInfo.processInfo.environment["IPHONE_SIMULATOR_ROOT"] {
+                candidatas.insert((raiz as NSString).appendingPathComponent(ruta), at: 0)
+            }
+            var handle: UnsafeMutableRawPointer?
+            for candidata in candidatas where handle == nil {
+                handle = dlopen(candidata, RTLD_NOW | RTLD_LOCAL)
+            }
+            guard let handle,
+                  let lee = dlsym(handle, "_AXSAutomationEnabled"),
+                  let pone = dlsym(handle, "_AXSSetAutomationEnabled") else { return nil }
+            return (unsafeBitCast(lee, to: Lee.self), unsafeBitCast(pone, to: Pone.self))
+        }()
+
+        static var previa: Int32?
+    }
+
+    override class func setUp() {
+        super.setUp()
+        guard let ax = Automatizacion.simbolos else { return }
+        Automatizacion.previa = ax.lee()
+        ax.pone(1)
+        // El cambio se anuncia por notificación: una vuelta de bucle para que
+        // UIKit/SwiftUI la reciban antes del primer anfitrión.
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
+    }
+
+    override class func tearDown() {
+        if let ax = Automatizacion.simbolos, let previa = Automatizacion.previa {
+            ax.pone(previa)
+        }
+        super.tearDown()
+    }
+
     @MainActor
     func testElBotonDiceLaMismaEtiquetaDeAgosto() {
         XCTAssertTrue(etiquetas(de: BotonVerBloques(accion: {})).contains(etiqueta))
@@ -131,11 +181,23 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
 
     @MainActor
     private func etiquetas(de vista: some View) -> [String] {
+        XCTAssertNotNil(Automatizacion.simbolos,
+                        "sin libAccessibility no se enciende la automatización y SwiftUI no publica ninguna etiqueta")
         let host = UIHostingController(rootView: vista.environment(\.colorScheme, .dark))
         let window = UIWindow(frame: CGRect(origin: .zero, size: Self.lienzo))
         window.rootViewController = host
         window.makeKeyAndVisible()
+        defer {
+            // Misma higiene que `Volcado`: una ventana clave viva se la lleva
+            // puesta la prueba de al lado en una suite en orden aleatorio.
+            window.isHidden = true
+            window.rootViewController = nil
+        }
         host.view.frame = window.bounds
+        host.view.layoutIfNeeded()
+        // Una vuelta de bucle, como `Volcado`: hay bandas que se colocan en dos
+        // pasadas (se miden con una preferencia).
+        RunLoop.current.run(until: Date())
         host.view.layoutIfNeeded()
         return recolectar(host.view)
     }
