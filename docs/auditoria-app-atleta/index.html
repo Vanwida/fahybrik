@@ -247,6 +247,8 @@ sequenceDiagram
       <tr><td class="n"><span class="badge done">Done</span></td><td class="w">The coach's hill threshold reaches the app (the app read a different field name). 29 athlete endpoints were decoded with Swift's rules for 100 athletes: no other mismatches.</td></tr>
       <tr><td class="n"><span class="badge done">Done</span></td><td class="w">Push texts name the right week in the athlete's own calendar («esta semana», «la semana que viene»), use the panel's words and accents, and «Tu plan está listo» only arrives when a week is actually visible.</td></tr>
       <tr><td class="n"><span class="badge done">Done</span></td><td class="w">«Semana N de M» in the app equals the panel's; weeks the coach holds hidden no longer leak into Ciclo or the tests card.</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w"><strong>A set's RPE and RIR keep their half point.</strong> The set editor steps in 0.5 and the database stores one decimal, but the server rounded to a whole number: an athlete's RPE 8.5 was saved as 9 and an RIR of 1.5 as 2. A test that expected 8.5 had been failing since 5 September and was written off as «needs demo data».</td></tr>
+      <tr><td class="n"><span class="badge done">Done</span></td><td class="w">The race list decides «upcoming» or «past» in the athlete's own day (and the coach's club day), not in UTC, so a race never sits in the wrong list around midnight.</td></tr>
     </tbody>
   </table></div>
   <p class="note">None of this is live until the branch is merged and deployed, and migrations 0270–0272 are applied in production along with 0211–0260.</p>

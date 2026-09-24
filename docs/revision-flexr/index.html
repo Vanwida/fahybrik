@@ -147,6 +147,11 @@ td.st{white-space:nowrap}
     <li>Groups say plainly that each athlete continues at their own week, and assigning offers «everyone starts Monday».</li>
   </ul>
 
+  <h3>Platform</h3>
+  <ul>
+    <li>A fresh database now migrates from zero in one run: all 238 migrations, checked on an empty Postgres 16. The only thing that blocked it was the migration runner itself, which sent 0051's three <code>CREATE INDEX CONCURRENTLY</code> as one query; it now sends them one by one. The «tenant #1 data in old migrations» feared in the first review did not break anything.</li>
+  </ul>
+
   <h3>The coach's method is the coach's data</h3>
   <p>Following Hard Rule Nº0, each of these was a constant and is now a coach setting whose default is today's value — a coach who touches nothing behaves exactly as before:</p>
   <div class="cols">
@@ -212,7 +217,7 @@ td.st{white-space:nowrap}
       <h3>5 · One deployment for everyone, or one per club?</h3>
       <ol>
         <li>One multi-tenant deployment — today's direction; background jobs must be split per coach before ~20 coaches.</li>
-        <li>A deployment and database per club — strongest isolation, N× operations, and a fresh database must first migrate cleanly (it doesn't today).</li>
+        <li>A deployment and database per club — strongest isolation, N× operations, and a fresh database migrates cleanly from zero (fixed after the review).</li>
       </ol>
       <p class="rec"><strong>I'd pick 1</strong>, plus decision 10 for defence in depth.</p>
     </div>
@@ -286,7 +291,6 @@ td.st{white-space:nowrap}
       <tr><td class="what">Background jobs process every coach one after another</td><td class="what">Architecture; decision 5</td><td>~20 coaches</td></tr>
       <tr><td class="what">Row-level security</td><td class="what">Decision 10</td><td>Before ~20 coaches</td></tr>
       <tr><td class="what">Panel translation</td><td class="what">Decision 8</td><td>First non-Spanish coach</td></tr>
-      <tr><td class="what">A fresh database does not migrate cleanly (0051 in a transaction; tenant #1 data in old migrations)</td><td class="what">Only matters for a silo per club or a clean staging</td><td>Decision 5 (option 2)</td></tr>
       <tr><td class="what">27 files over the 500-line rule; ~27 test files need a Neon demo branch to pass locally</td><td class="what">Hygiene, no user impact</td><td>Before more people work on the code</td></tr>
     </tbody>
   </table></div>
