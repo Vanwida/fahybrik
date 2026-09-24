@@ -33,6 +33,7 @@ import { SEG_IS_WORK_EFFORT, SEG_MODALITY_SQL } from '@/lib/execution/segment-wo
 import { trainingPacesForVdot } from '@fahybrid/shared/domain/running/vdot';
 import { selectRunMark } from '@fahybrid/shared/domain/athlete/mark-projection';
 import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 
 /** The running marks the VDOT can be read off — the catalogue decides, not a
  *  hand-written list, so a new mark is admissible the day it is added. */
@@ -169,10 +170,15 @@ function severityVsBest(paceSec: number, bestSec: number): Severity {
 // ── Builder ───────────────────────────────────────────────────────────────--
 
 export async function buildRunningAnalysis(
-  args: { athlete_id: number | bigint },
+  args: {
+    athlete_id: number | bigint;
+    /** The instant every window and a mark's age are read at (tests); defaults to now. */
+    now?: Date;
+  },
   client: Sql = defaultSql,
 ): Promise<RunningAnalysisDTO> {
   const athleteId = Number(args.athlete_id);
+  const nowIso = (args.now ?? new Date()).toISOString();
   const mod = SEG_MODALITY_SQL(client);
   // «Esta fila es un intento» — se compone en toda consulta que mida calidad. Es
   // no-op sobre lo ya guardado: con `leg_role` nulo la fila sigue siendo trabajo.
@@ -181,12 +187,14 @@ export async function buildRunningAnalysis(
   // ── VDOT-derived tiles (VO₂ estimate / pace zones) ─────────────────────────
   // Source = `selectRunMark`, the one selector. It reads every running mark the
   // athlete has MEASURED and picks the one that needs the least stretching — the
-  // same winner the plan's paces come from, so Inicio and the plan agree.
+  // same winner the plan's paces come from, so Inicio and the plan agree. A mark's
+  // age is counted in HIS calendar, both ends (DECISIONS «Qué día es en cada sitio»).
+  const tz = await loadAthleteTimezone(client, athleteId);
   const markRows = await client<Array<{ exercise_slug: string; value: string; age_days: number | null; source: string; run_context: string | null }>>`
     select
       exercise_slug,
       value::text as value,
-      (current_date - recorded_at::date)::int as age_days,
+      ((${nowIso}::timestamptz at time zone ${tz})::date - (recorded_at at time zone ${tz})::date)::int as age_days,
       source,
       run_context
     from athlete_benchmarks
@@ -302,7 +310,7 @@ export async function buildRunningAnalysis(
         -- misma banda alimenta el listado del drill, que sí los contaría como
         -- esfuerzos — y un filtro que «da igual aquí» es el que se olvida allí.
         and ${work}
-        and coalesce(we.ended_at, we.started_at) >= now() - (${ANALYTICS_WINDOW_DAYS} || ' days')::interval
+        and coalesce(we.ended_at, we.started_at) >= ${nowIso}::timestamptz - (${ANALYTICS_WINDOW_DAYS} || ' days')::interval
     )
     select min(
       coalesce(
@@ -337,7 +345,7 @@ export async function buildRunningAnalysis(
     left join exercises ex on ex.id = ts.exercise_id
     where we.athlete_id = ${athleteId}
       and ${mod} = 'run'
-      and coalesce(we.ended_at, we.started_at) >= date_trunc('week', now())
+      and coalesce(we.ended_at, we.started_at) >= date_trunc('week', ${nowIso}::timestamptz)
   `;
   const weekly_volume_km = kmStr(weekVolRows[0]?.meters != null ? num(weekVolRows[0].meters) : 0);
 
@@ -354,7 +362,7 @@ export async function buildRunningAnalysis(
     left join exercises ex on ex.id = ts.exercise_id
     where we.athlete_id = ${athleteId}
       and ${mod} = 'run'
-      and coalesce(we.ended_at, we.started_at) >= now() - interval '7 days'
+      and coalesce(we.ended_at, we.started_at) >= ${nowIso}::timestamptz - interval '7 days'
   `;
   const volume_7d_km = kmStr(vol7Rows[0]?.meters != null ? num(vol7Rows[0].meters) : 0);
 
@@ -486,7 +494,7 @@ export async function buildRunningAnalysis(
       -- misma razón por la que el volumen de arriba sí los cuenta y esto no: allí
       -- la pregunta es cuánto corriste, aquí es a qué ritmo eres capaz.
       and ${work}
-      and coalesce(we.ended_at, we.started_at) >= now() - (${ANALYTICS_WINDOW_DAYS} || ' days')::interval
+      and coalesce(we.ended_at, we.started_at) >= ${nowIso}::timestamptz - (${ANALYTICS_WINDOW_DAYS} || ' days')::interval
     group by 1
     having sum(coalesce(se.distance_meters, 0)) > 0
     order by 1 asc

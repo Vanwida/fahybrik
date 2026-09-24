@@ -13,6 +13,7 @@ import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { exportAthleteData } from '@/lib/athlete/data-export';
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { captureRouteError } from '@/lib/observability/capture';
 import { RATE_LIMITS, rateLimitResponse, withRateLimit } from '@/lib/security/rate-limit';
 
@@ -44,7 +45,9 @@ export async function GET(request: Request) {
       athlete_id: auth.athlete_id,
     });
 
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    // The file carries HIS date (DECISIONS «Qué día es en cada sitio»), not the
+    // UTC one. YYYY-MM-DD.
+    const today = await loadAthleteLocalDay({ athlete_id: auth.athlete_id, client: sql });
     const filename = `fahybrik-datos-${auth.athlete_id.toString()}-${today}.json`;
     const body = JSON.stringify(data, bigintJsonReplacer, 2);
 

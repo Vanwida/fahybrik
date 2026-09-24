@@ -2,6 +2,7 @@ import 'server-only';
 
 import { sql, type Sql } from '@/lib/db';
 import { canTransition, type InjuryStatus } from '@fahybrid/shared/domain/coach/injury-taxonomy';
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 import type {
   InjuryCreateInput,
   InjuryUpdateInput,
@@ -100,7 +101,8 @@ export async function openInjuries(athleteId: bigint, client: Sql = sql): Promis
 /**
  * Update an injury: an optional status transition (validated) + a timeline entry.
  * Any caller-supplied note/severity/expected_return is applied; a resolved status
- * stamps resolved_date. Records ONE injury_updates row capturing the change.
+ * stamps resolved_date — by default the injured athlete's today, read at `now`.
+ * Records ONE injury_updates row capturing the change.
  */
 export async function updateInjury(
   injuryId: bigint,
@@ -108,6 +110,7 @@ export async function updateInjury(
   recordedBy: 'athlete' | 'coach',
   input: InjuryUpdateInput,
   client: Sql = sql,
+  now: Date = new Date(),
 ): Promise<InjuryDTO> {
   return await client.begin(async (tx) => {
     const cur = (await tx<RawInjury[]>`
@@ -121,9 +124,14 @@ export async function updateInjury(
     }
 
     const newStatus = input.status ?? cur.status;
+    // The injury is his, so «resolved today» is HIS day, whoever records it
+    // (DECISIONS «Qué día es en cada sitio»). Read on the transaction's own
+    // connection: with a one-connection pool a second one would never come.
     const resolvedDate =
       newStatus === 'resuelta'
-        ? (input.resolved_date ?? cur.resolved_date ?? new Date().toISOString().slice(0, 10))
+        ? (input.resolved_date ??
+          cur.resolved_date ??
+          (await loadAthleteLocalDay({ athlete_id: athleteId, now, client: tx as unknown as Sql })))
         : null;
 
     const updated = (await tx<RawInjury[]>`

@@ -23,6 +23,7 @@ import {
 import { proposeBlockEmphasis, type BlockEmphasis } from './intake-suggestions';
 import { suggestAthleteTrainingLevel } from './athlete-training-level';
 import { getTargetRaceRow } from '@fahybrid/shared/domain/coach/target-race';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import {
   BENCH_BACK_SQUAT_1RM,
   BENCH_DEADLIFT_1RM,
@@ -253,9 +254,12 @@ type BenchmarkGroup =
 
 export async function listPendingIntake(params: {
   coach_id: bigint | number;
+  /** The instant «today» is read at (tests); defaults to now. */
+  now?: Date;
   client?: Sql;
 }): Promise<PendingIntakeAthlete[]> {
   const client = params.client ?? defaultSql;
+  const now = params.now ?? new Date();
   const rows = await client<
     Array<{
       athlete_id: string;
@@ -273,12 +277,14 @@ export async function listPendingIntake(params: {
       e.name                                          as a_event_name
     from athletes a
     left join lateral (
-      -- Target race = soonest upcoming race with priority='target' (unified spine).
+      -- Target race = soonest upcoming race with priority='target' (unified spine),
+      -- upcoming in the ATHLETE's day: his race, his calendar (DECISIONS «Qué día
+      -- es en cada sitio»), not the UTC day of the database session.
       select r.race_date as start_date, r.name
       from races r
       where r.athlete_id = a.id
         and r.priority = 'target'
-        and r.race_date >= current_date
+        and r.race_date >= (${now.toISOString()}::timestamptz at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date
         and r.status in ('planned', 'registered')
       order by r.race_date asc
       limit 1
@@ -289,12 +295,12 @@ export async function listPendingIntake(params: {
     order by a.onboarded_at asc
   `;
 
-  const now = Date.now();
+  const nowMs = now.getTime();
   return rows.map((r) => ({
     athlete_id: r.athlete_id,
     full_name: r.full_name,
     onboarded_at: r.onboarded_at.toISOString(),
-    hours_since_onboarded: Math.max(0, Math.floor((now - r.onboarded_at.getTime()) / 3_600_000)),
+    hours_since_onboarded: Math.max(0, Math.floor((nowMs - r.onboarded_at.getTime()) / 3_600_000)),
     a_event_iso: r.a_event_iso,
     a_event_name: r.a_event_name,
   }));

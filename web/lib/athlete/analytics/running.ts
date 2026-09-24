@@ -19,6 +19,7 @@ import { sql as defaultSql } from '@/lib/db';
 import { SEG_IS_WORK_EFFORT, isWorkEffort } from '@/lib/execution/segment-work';
 import { selectRunMark } from '@fahybrid/shared/domain/athlete/mark-projection';
 import { RUN_MARK_SLUGS } from '@fahybrid/shared/domain/athlete/marks';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import {
   type AnalyticsCard,
@@ -104,7 +105,13 @@ function drill(kind: string, params: Record<string, string>, count: number, labe
 
 // ── Builder ──────────────────────────────────────────────────────────────────
 export async function buildRunningSection(
-  args: { athlete_id: number | bigint; period: ResolvedPeriod },
+  args: {
+    athlete_id: number | bigint;
+    period: ResolvedPeriod;
+    /** The instant a mark's age is read at (tests); defaults to now. The period
+     *  carries its own window. */
+    now?: Date;
+  },
   client: Sql = defaultSql,
 ): Promise<AnalyticsSection> {
   const athleteId = Number(args.athlete_id);
@@ -138,12 +145,16 @@ export async function buildRunningSection(
   // The 5 km series above is a distinct concept (test progress) and legitimately
   // shows every row. The VDOT is the athlete's running LEVEL, and it has to be
   // the same number the plan prescribes from, so it goes through `selectRunMark`
-  // like every other surface: measured marks only, least-extrapolated wins.
+  // like every other surface: measured marks only, least-extrapolated wins. A
+  // mark's age is counted in HIS calendar, both ends (DECISIONS «Qué día es en
+  // cada sitio»).
+  const nowIso = (args.now ?? new Date()).toISOString();
+  const tz = await loadAthleteTimezone(client, athleteId);
   const runMarkRows = await client<Array<{ exercise_slug: string; value: string; age_days: number | null; source: string; run_context: string | null }>>`
     select
       exercise_slug,
       value::text as value,
-      (current_date - recorded_at::date)::int as age_days,
+      ((${nowIso}::timestamptz at time zone ${tz})::date - (recorded_at at time zone ${tz})::date)::int as age_days,
       source,
       run_context
     from athlete_benchmarks

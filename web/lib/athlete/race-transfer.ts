@@ -52,6 +52,7 @@ import {
   type MarkRow,
 } from '@fahybrid/shared/domain/athlete/mark-projection';
 import { MARKS } from '@fahybrid/shared/domain/athlete/marks';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { STATION_CATALOGUE, type StationEntry } from './station-detail';
 
 export type { RaceTransferResult } from '@fahybrid/shared/domain/race-transfer';
@@ -149,7 +150,11 @@ function parseStationSplits(raw: unknown): Array<{ index: number; seconds: numbe
  * when the athlete has races but none singles; `no_singles_race` when none at all.
  */
 export async function buildRaceTransfer(
-  args: { athlete_id: number | bigint },
+  args: {
+    athlete_id: number | bigint;
+    /** The instant a mark's age is read at (tests); defaults to now. */
+    now?: Date;
+  },
   client: Sql = defaultSql,
 ): Promise<RaceTransferResult> {
   const athleteId = Number(args.athlete_id);
@@ -158,7 +163,11 @@ export async function buildRaceTransfer(
   // Every read below is independent of the others, so they go together. It used
   // to be four sequential awaits; the doubles board builds this cross TWICE (once
   // per athlete), so the serial latency was paid eight times over on one screen.
+  // The two dated reads count their age in the athlete's calendar, both ends
+  // (DECISIONS «Qué día es en cada sitio»), so only they wait for his zone.
   const markSlugs = MARKS.map((m) => m.slug);
+  const nowIso = (args.now ?? new Date()).toISOString();
+  const tzP = loadAthleteTimezone(client, athleteId);
   const [raceRows, modalityRows, stationRows, thresholdRows, benchmarkRows, vo2maxRows] = await Promise.all([
     // Competed side: the latest SINGLES race with splits (doubles excluded).
     client<RaceRow[]>`
@@ -241,29 +250,29 @@ export async function buildRaceTransfer(
     // Trained side: the athlete's MEASURED marks («Probarme»). The provenance
     // filter (onboarding / unknown are refused) lives in the pure projection, so
     // this stays a plain read.
-    client<BenchmarkRow[]>`
+    tzP.then((tz) => client<BenchmarkRow[]>`
       select
         exercise_slug,
         value::text as value,
-        (current_date - recorded_at::date)::int as age_days,
+        ((${nowIso}::timestamptz at time zone ${tz})::date - (recorded_at at time zone ${tz})::date)::int as age_days,
         source,
         run_context
       from athlete_benchmarks
       where athlete_id = ${athleteId}
         and exercise_slug = any(${markSlugs}::text[])
       order by recorded_at desc
-    `,
+    `),
     // Trained side: the watch's latest VO₂max.
-    client<Vo2maxRow[]>`
+    tzP.then((tz) => client<Vo2maxRow[]>`
       select
         value_numeric::text as value,
-        (current_date - recorded_at::date)::int as age_days
+        ((${nowIso}::timestamptz at time zone ${tz})::date - (recorded_at at time zone ${tz})::date)::int as age_days
       from biometric_streams
       where athlete_id = ${athleteId}
         and metric_type = 'vo2max'
       order by recorded_at desc
       limit 1
-    `,
+    `),
   ]);
 
   const raceRow = raceRows[0] ?? null;

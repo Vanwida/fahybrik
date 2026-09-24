@@ -3,6 +3,7 @@
 // before inserting — otherwise a re-run would spam the coach with duplicates.
 
 import type { Sql } from '@/lib/db';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import type { AthleteSignal } from '@fahybrid/shared/domain/coach/athlete-state';
 import type { SignalKind } from '@fahybrid/shared/domain/coach/signals';
 import { loadAthleteSignals } from '@/lib/coach/attention/signals-read';
@@ -143,11 +144,16 @@ export function checkHrvCrashes(args: { sql: Sql }): Promise<{ flagged: number }
 // =============================================================================
 //
 // Sends a 24h-before-race notif for each athlete's TARGET race (unified spine,
-// priority='target'). Designed to run from a daily cron at 06:00 UTC. The 2h/30m
+// priority='target'). Designed to run from a daily cron (vercel.json). The 2h/30m
 // sub-day checkpoints are blocked until a timestamptz race start lands — races
 // store race_date, which gives day-level granularity.
+//
+// The days left are counted in the ATHLETE's calendar, per row (his race;
+// DECISIONS «Qué día es en cada sitio»): «mañana» is his tomorrow, not the UTC
+// one — in Auckland the UTC date is still his yesterday until about midday.
 
-export async function checkRaceCountdown(args: { sql: Sql }): Promise<{ sent: number }> {
+export async function checkRaceCountdown(args: { sql: Sql; now?: Date }): Promise<{ sent: number }> {
+  const now = args.now ?? new Date();
   // `event_id` in the row + notification payload is the races.id post-unification
   // (the dedup key is self-consistent: it matches against the same payload key).
   const rows = await args.sql<
@@ -156,18 +162,22 @@ export async function checkRaceCountdown(args: { sql: Sql }): Promise<{ sent: nu
     select r.athlete_id::text as athlete_id,
            r.id::text as event_id,
            r.name as event_name,
-           (r.race_date - current_date)::text as days_to
+           d.days_to::text as days_to
     from races r
+    join athletes a on a.id = r.athlete_id
+    cross join lateral (
+      select r.race_date
+             - (${now.toISOString()}::timestamptz at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date as days_to
+    ) d
     where r.priority = 'target'
       and r.status in ('planned', 'registered')
-      and r.race_date - current_date in (1, 7)
+      and d.days_to in (1, 7)
       and not exists (
         select 1 from notifications n
-        join athletes a on a.user_id = n.user_id
-        where a.id = r.athlete_id
+        where n.user_id = a.user_id
           and n.type = 'event_reminder'
           and n.payload_json->>'event_id' = r.id::text
-          and n.payload_json->>'checkpoint' = (r.race_date - current_date)::text
+          and n.payload_json->>'checkpoint' = d.days_to::text
       )
   `;
   let sent = 0;

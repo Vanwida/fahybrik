@@ -3,6 +3,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { importAllRaces } from '@/lib/hyrox/hyresult';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 
 // =============================================================================
 // AUTO-RESULT-ON-PASS (phase 2b of the unified race system).
@@ -56,13 +57,22 @@ interface DueAthlete {
   slug: string;
 }
 
+/**
+ * «Today» for the race's athlete, per row (`a` = athletes): a race passes in the
+ * calendar of whoever runs it, not on the UTC day of the database session
+ * (DECISIONS «Qué día es en cada sitio»). A fresh fragment per use.
+ */
+function athleteToday(client: Sql, now: Date) {
+  return client`(${now.toISOString()}::timestamptz at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date`;
+}
+
 // The "passed pending objective" predicates, shared so the due-list and the
 // observability counts never drift. A pending objective = a planned/registered
 // race with no result yet (a pure objective, not an imported row) whose real date
-// passed within the chase window. `due` additionally requires a slug AND
-// attempts under the cap; `gaveUp` is the chased-but-capped set; `noSlug` is the
-// can't-attempt set.
-function passedPendingRaceQueries(client: Sql) {
+// passed — in its athlete's day — within the chase window. `due` additionally
+// requires a slug AND attempts under the cap; `gaveUp` is the chased-but-capped
+// set; `noSlug` is the can't-attempt set.
+function passedPendingRaceQueries(client: Sql, now: Date) {
   return {
     due: client<DueAthlete[]>`
       select distinct a.id::int as athlete_id, a.hyresult_slug as slug
@@ -73,8 +83,8 @@ function passedPendingRaceQueries(client: Sql) {
         and r.result_time_seconds is null
         and r.source_idp is null
         and r.race_date is not null
-        and r.race_date < current_date
-        and r.race_date >= current_date - make_interval(weeks => ${AUTO_IMPORT_WINDOW_WEEKS})
+        and r.race_date < ${athleteToday(client, now)}
+        and r.race_date >= ${athleteToday(client, now)} - make_interval(weeks => ${AUTO_IMPORT_WINDOW_WEEKS})
         and r.auto_import_attempts < ${MAX_AUTO_IMPORT_ATTEMPTS}
       order by athlete_id
     `,
@@ -87,8 +97,8 @@ function passedPendingRaceQueries(client: Sql) {
         and r.result_time_seconds is null
         and r.source_idp is null
         and r.race_date is not null
-        and r.race_date < current_date
-        and r.race_date >= current_date - make_interval(weeks => ${AUTO_IMPORT_WINDOW_WEEKS})
+        and r.race_date < ${athleteToday(client, now)}
+        and r.race_date >= ${athleteToday(client, now)} - make_interval(weeks => ${AUTO_IMPORT_WINDOW_WEEKS})
         and r.auto_import_attempts >= ${MAX_AUTO_IMPORT_ATTEMPTS}
     `,
     noSlug: client<{ n: number }[]>`
@@ -100,8 +110,8 @@ function passedPendingRaceQueries(client: Sql) {
         and r.result_time_seconds is null
         and r.source_idp is null
         and r.race_date is not null
-        and r.race_date < current_date
-        and r.race_date >= current_date - make_interval(weeks => ${AUTO_IMPORT_WINDOW_WEEKS})
+        and r.race_date < ${athleteToday(client, now)}
+        and r.race_date >= ${athleteToday(client, now)} - make_interval(weeks => ${AUTO_IMPORT_WINDOW_WEEKS})
     `,
   };
 }
@@ -114,18 +124,20 @@ function passedPendingRaceQueries(client: Sql) {
  * cron gives up. Runs whether the import succeeded or failed (a hard upstream
  * failure still counts as a try).
  */
-async function recordAttempt(client: Sql, athleteId: number): Promise<void> {
+async function recordAttempt(client: Sql, athleteId: number, now: Date): Promise<void> {
   await client`
-    update races
-    set auto_import_attempts = auto_import_attempts + 1,
-        last_auto_import_at = now()
-    where athlete_id = ${athleteId}
-      and status in ('planned', 'registered')
-      and result_time_seconds is null
-      and source_idp is null
-      and race_date is not null
-      and race_date < current_date
-      and race_date >= current_date - make_interval(weeks => ${AUTO_IMPORT_WINDOW_WEEKS})
+    update races r
+    set auto_import_attempts = r.auto_import_attempts + 1,
+        last_auto_import_at = ${now.toISOString()}::timestamptz
+    from athletes a
+    where a.id = r.athlete_id
+      and r.athlete_id = ${athleteId}
+      and r.status in ('planned', 'registered')
+      and r.result_time_seconds is null
+      and r.source_idp is null
+      and r.race_date is not null
+      and r.race_date < ${athleteToday(client, now)}
+      and r.race_date >= ${athleteToday(client, now)} - make_interval(weeks => ${AUTO_IMPORT_WINDOW_WEEKS})
   `;
 }
 
@@ -136,11 +148,14 @@ type ImportRacesFn = typeof importAllRaces;
 export async function runAutoImportResults(args?: {
   client?: Sql;
   importRaces?: ImportRacesFn;
+  /** The instant the run reads «today» at (tests); defaults to now. */
+  now?: Date;
 }): Promise<AutoImportResultsSummary> {
   const client = args?.client ?? defaultSql;
   const importRaces = args?.importRaces ?? importAllRaces;
+  const now = args?.now ?? new Date();
 
-  const queries = passedPendingRaceQueries(client);
+  const queries = passedPendingRaceQueries(client, now);
   const [due, gaveUpRows, noSlugRows] = await Promise.all([
     queries.due,
     queries.gaveUp,
@@ -166,7 +181,7 @@ export async function runAutoImportResults(args?: {
     } finally {
       // Count the try on whatever targets stayed unmatched — success or failure —
       // so a permanently unmatchable target crosses the cap and stops being due.
-      await recordAttempt(client, a.athlete_id);
+      await recordAttempt(client, a.athlete_id, now);
     }
   }
 

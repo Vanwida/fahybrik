@@ -46,6 +46,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { SEG_IS_WORK_EFFORT } from '@/lib/execution/segment-work';
 import { resolveEffectiveRunningThresholds } from '@/lib/coach/running-thresholds';
 import {
@@ -267,7 +268,7 @@ export async function buildRunningProgress(args: {
     loadZonesForWindow(client, args.athlete_id, since, window_weeks),
     loadCompromisedPaceObservations(client, args.athlete_id, now),
     loadTypeAndCadence(client, args.athlete_id, since, now),
-    loadPaceThreshold(client, args.athlete_id),
+    loadPaceThreshold(client, args.athlete_id, { now }),
   ]);
 
   // ── FORMA: el ritmo al mismo pulso ─────────────────────────────────────────
@@ -763,6 +764,18 @@ async function loadTypeAndCadence(
 }
 
 /**
+ * Con qué reloj se cuenta la edad de una marca o de un perfil: en el calendario
+ * del ATLETA, por los dos lados — su «hoy» y el día en que la registró (DECISIONS
+ * «Qué día es en cada sitio»). Nunca el día UTC de la sesión de la base.
+ */
+export interface MarkAgeClock {
+  /** El instante del que se lee «hoy» (tests); por defecto, ahora. */
+  now?: Date;
+  /** Su huso, si quien llama ya lo resolvió; si no, se lee aquí. */
+  tz?: string;
+}
+
+/**
  * Las marcas de correr/carrera del atleta (catálogo `RUN_MARK_SLUGS`), en la
  * forma que pide `selectRunMark`. UN solo lector: `loadPaceThreshold` (el
  * VDOT del umbral) y `capacidad.ts` (el predictor, obra carrera-hub-ios,
@@ -770,12 +783,18 @@ async function loadTypeAndCadence(
  * parecidas es exactamente el bug que `mark-projection.ts` (cabecera) existe
  * para prevenir.
  */
-export async function loadRunMarkRows(client: Sql, athlete_id: number): Promise<MarkRow[]> {
+export async function loadRunMarkRows(
+  client: Sql,
+  athlete_id: number,
+  clock: MarkAgeClock = {},
+): Promise<MarkRow[]> {
+  const nowIso = (clock.now ?? new Date()).toISOString();
+  const tz = clock.tz ?? (await loadAthleteTimezone(client, athlete_id));
   const marcas = await client<
     Array<{ exercise_slug: string; value: string; age_days: number | null; source: string; run_context: string | null }>
   >`
     select exercise_slug, value::text as value,
-           (current_date - recorded_at::date)::int as age_days,
+           ((${nowIso}::timestamptz at time zone ${tz})::date - (recorded_at at time zone ${tz})::date)::int as age_days,
            source, run_context
     from athlete_benchmarks
     where athlete_id = ${athlete_id} and exercise_slug = any(${RUN_MARK_SLUGS}::text[])
@@ -810,7 +829,12 @@ export async function loadRunMarkRows(client: Sql, athlete_id: number): Promise<
 export async function loadPaceThreshold(
   client: Sql,
   athlete_id: number,
+  clock: MarkAgeClock = {},
 ): Promise<{ umbral: UmbralRitmo | null; zonas: ZonaRitmo[]; hace_dias: number | null }> {
+  // Un huso para las dos edades (la del perfil y la de cada marca), leído una vez.
+  const now = clock.now ?? new Date();
+  const nowIso = now.toISOString();
+  const tz = clock.tz ?? (await loadAthleteTimezone(client, athlete_id));
   const [perfil, marcas] = await Promise.all([
     client<
       Array<{
@@ -822,13 +846,13 @@ export async function loadPaceThreshold(
       }>
     >`
       select threshold_s::text as threshold_s, zones_json, source, needs_review,
-             (current_date - recorded_at::date)::int as hace_dias
+             ((${nowIso}::timestamptz at time zone ${tz})::date - (recorded_at at time zone ${tz})::date)::int as hace_dias
       from athlete_zone_profiles
       where athlete_id = ${athlete_id} and modality = 'run'
       order by version desc
       limit 1
     `,
-    loadRunMarkRows(client, athlete_id),
+    loadRunMarkRows(client, athlete_id, { now, tz }),
   ]);
 
   const runMark = selectRunMark(marcas);

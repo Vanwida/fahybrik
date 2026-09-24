@@ -6,6 +6,7 @@ import 'server-only';
 // vienen de sus miembros. Dos consultas, las tenga el grupo como las tenga.
 
 import { sql as defaultSql, type Sql } from '@/lib/db';
+import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import type { WeekDay } from '@fahybrid/shared/schema/program-templates';
 import { parseWeekSlotsFromDb } from '@/lib/dashboard/coach/program-week-slots';
 import { volumeParts, weekVolume, type Volume } from './week-volume';
@@ -31,9 +32,12 @@ export async function loadGroupPlanExtras(params: {
   coach_id: number | bigint;
   program_ids: string[];
   member_ids: string[];
+  /** The instant «today» is read at (tests); defaults to now. */
+  now?: Date;
   client?: Sql;
 }): Promise<{ volumes: Record<string, PlanWeekVolume[]>; races: GroupRace[] }> {
   const client = params.client ?? defaultSql;
+  const now = params.now ?? new Date();
   const coachId = Number(params.coach_id);
   const programIds = [...new Set(params.program_ids.map(Number))];
   const memberIds = params.member_ids.map(Number);
@@ -48,12 +52,15 @@ export async function loadGroupPlanExtras(params: {
           order by mw.month_template_id, mw.position
         `
       : Promise.resolve([]),
+    // A race is still ahead in the calendar of the member who runs it: each
+    // member's own day, per row (DECISIONS «Qué día es en cada sitio»).
     memberIds.length
       ? client<Array<{ name: string; date: string; athletes: number }>>`
           select r.name, r.race_date::text as date, count(distinct r.athlete_id)::int as athletes
           from races r
           join athletes a on a.id = r.athlete_id and a.coach_id = ${coachId}
-          where r.athlete_id = any(${memberIds}::bigint[]) and r.race_date >= current_date
+          where r.athlete_id = any(${memberIds}::bigint[])
+            and r.race_date >= (${now.toISOString()}::timestamptz at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date
           group by r.name, r.race_date
           order by r.race_date, athletes desc
           limit 8

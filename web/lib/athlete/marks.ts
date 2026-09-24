@@ -19,6 +19,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { notifyCoach } from '@/lib/notifications/dispatch';
 import { loadMarkBoxViews, type MarkBoxView } from '@/lib/athlete/marks-box';
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 import {
   MARKS,
   isPersonalBest,
@@ -265,6 +266,8 @@ export async function registerRaceMark(params: {
   /** ISO YYYY-MM-DD of the race day. Never in the future. */
   date: string;
   event_name?: string | null;
+  /** The instant «today» is read at (tests); defaults to now. */
+  now?: Date;
   client?: Sql;
 }): Promise<{ ok: true; data: MarkWriteResult } | { ok: false; error: MarkWriteError }> {
   const client = params.client ?? defaultSql;
@@ -274,9 +277,11 @@ export async function registerRaceMark(params: {
   }
   const spec = checked.spec;
   if (spec.measured_by !== 'registered') return { ok: false, error: 'not_registrable' };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.date) || params.date > new Date().toISOString().slice(0, 10)) {
-    return { ok: false, error: 'invalid_date' };
-  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.date)) return { ok: false, error: 'invalid_date' };
+  // «In the future» means after HIS today (DECISIONS «Qué día es en cada sitio»):
+  // a race he ran this morning in Auckland is dated a day the UTC clock hasn't reached.
+  const athleteToday = await loadAthleteLocalDay({ athlete_id: params.athlete_id, now: params.now, client });
+  if (params.date > athleteToday) return { ok: false, error: 'invalid_date' };
 
   const prior = await loadComparableHistory(client, params.athlete_id, spec, null);
   const is_pr = isPersonalBest(spec, params.value, prior, null);
