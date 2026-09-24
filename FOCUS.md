@@ -28,7 +28,8 @@ pre-FLEXR (4 lentes: aislamiento, método, producto, plataforma) y decisiones de
 - Método = dato del coach con defecto (0211–0260): motores secundarios, niveles,
   zonas, lecturas de carrera, cadencia de tests, huso del coach; editores en Ajustes.
 - DECIDIDO 24-09: app FLEXR (repo nuevo al final), Stripe Connect, alta por solicitud +
-  aprobación, check de coach en CI ya + RLS antes del coach 20. PENDIENTE DE ALEX: precio,
+  aprobación, check de coach en CI ya (hecho: `web/tests/tenancy/ambito-de-club.test.ts`, 962 sin
+  ámbito en baseline que solo encoge) + RLS antes del coach 20. PENDIENTE DE ALEX: precio,
   despliegue, dominios, deportes, idioma, arranque de un club, legal, borrar código muerto.
 - PR #191 FUSIONADO a `main` (24-09, `da08a40`) tras aplicar Alex 0211–0272 y el add-on 'negocio' del club 60.
 - Tras el deploy: reconectar Google Calendar (ahora por coach); cron lifecycle pasa a horario (vercel.json); alta de pago apagada para cualquier club que no sea FAHYBRID hasta decidir quién cobra.
@@ -47,8 +48,7 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 - Code gate NO (P0 A+B) cerrado: `project.pbxproj` regenerado con xcodegen 2.46.0
   (5 fantasmas fuera, 33 fuentes que faltaban dentro, build 100);
   `PreWorkoutFlowSourceTests` contra `startAction` / `configurationsCompatible`
-- **Swift sin compilar aquí** (hay toolchain Linux para xcodegen, no Xcode): el
-  primer `xcodebuild` del Owner es la verificación de compilación
+- Compila en el CI macOS (`.github/workflows/ios.yml`, 24-09); los tests se están poniendo al día.
 
 **FH-30 — Cara rodaje muñeca (PR #189, mergeado).** Lámina redo cerrada.
 
