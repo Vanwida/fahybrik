@@ -95,6 +95,9 @@ jobs:
 
       # Un test colgado falla a los 120 s en vez de retener el job hasta el
       # timeout (con -quiet no se ve nada hasta el final).
+      # Firma AD HOC («Sign to Run Locally», sin equipo ni certificado): sin firma,
+      # el Keychain del simulador rechaza a la app y los tests del token fallan por
+      # el entorno, no por el código.
       - name: Unit tests
         run: |
           set -o pipefail
@@ -106,7 +109,8 @@ jobs:
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 60 \
             -maximum-test-execution-time-allowance 120 \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
+            PROVISIONING_PROFILE_SPECIFIER= \
             -quiet test
 
       # Qué falló y por qué, legible en el log (el .xcresult no se puede abrir
