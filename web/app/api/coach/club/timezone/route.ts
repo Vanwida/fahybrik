@@ -3,13 +3,14 @@
 //
 // El huso del club (`coaches.timezone`, mig 0241): el reloj del «día» del coach
 // — su Hoy, la fecha de publicación, cuándo vence un «posponer», la agenda y los
-// correos. NULL = el defecto del producto.
+// correos. NULL = el defecto del producto. Solo se guarda un huso que conocen Intl
+// y Postgres (`setCoachTimezone`); si no, 422 con el porqué.
 
 import { z } from 'zod';
 import { requireCoach } from '@/lib/auth/require-coach';
-import { jsonOk } from '@/lib/api/responses';
+import { jsonError, jsonOk } from '@/lib/api/responses';
 import { parseBody } from '@/lib/coach/api-input';
-import { getCoachTimezoneSetting, setCoachTimezone } from '@/lib/coach/coach-timezone';
+import { CoachTimezoneError, getCoachTimezoneSetting, setCoachTimezone } from '@/lib/coach/coach-timezone';
 import { isValidTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
 
 export const runtime = 'nodejs';
@@ -38,5 +39,10 @@ export async function PATCH(req: Request) {
   const body = await parseBody(req, patchSchema);
   if (!body.ok) return body.response;
   const tz = body.data.timezone;
-  return jsonOk(await setCoachTimezone(auth.session.coach_id, tz ? tz : null));
+  try {
+    return jsonOk(await setCoachTimezone(auth.session.coach_id, tz ? tz : null));
+  } catch (err) {
+    if (err instanceof CoachTimezoneError) return jsonError('validation_error', err.message, 422);
+    throw err;
+  }
 }

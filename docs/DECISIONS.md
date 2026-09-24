@@ -10,6 +10,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · Un huso se guarda solo si lo conocen Intl y Postgres
+
+**El hueco:** los husos se guardan en dos columnas (`coaches.timezone` desde Ajustes › Tu club; `athletes.timezone` desde el lote de HealthKit) y se leen con dos motores que no comparten base de husos: Intl en TS, `at time zone` en SQL. Intl acepta nombres heredados que un Postgres con el tzdata recortado rechaza ('Europe/Kiev', 'Asia/Calcutta' en el Postgres 16 de Ubuntu sin `tzdata-legacy`), nombres que tzdata ya borró ('US/Pacific-New') y desfases ('+01:00', que Postgres lee con el signo al revés). El combo ofrecía la lista del navegador y el lote solo miraba Intl: un huso así tumbaba cada consulta que lo usaba («time zone not recognized»), y solo dos lectores se protegían consulta a consulta.
+
+**Decidido:**
+- **Se valida al escribir** (`isSafeTimezone`, `web/lib/time-zones.ts`): vale si Intl lo entiende Y está en `pg_timezone_names` de esa base, nombre a nombre. `setCoachTimezone` lanza `CoachTimezoneError` (422, «Ese huso no se puede usar. Elige uno de la lista.») sin tocar la columna. La sincronización no escribe un huso que no pase y se queda el anterior; el lote entra igual (sus entrenos y muestras son hechos), así que el esquema lee un huso que el servidor no entiende como «no informado» en vez de rechazar el lote.
+- **El combo ofrece solo husos seguros, calculados en el servidor** (`loadOfferableTimezones`): la lista de Intl y, para cada zona cuyo nombre CLDR no conoce Postgres, el nombre que sí conoce para la MISMA zona ('Asia/Calcutta' → 'Asia/Kolkata', 'Europe/Kiev' → 'Europe/Kyiv'). Intersecar a secas quitaba 18 ciudades en ese Postgres, entre ellas India, Kyiv, Buenos Aires y Ho Chi Minh.
+- **Al leer**, `loadAthleteTimezone(s)` da el defecto si Intl no entiende lo guardado (el coach ya lo tenía con `effectiveCoachTimezone`). Con la consulta de abajo en cero filas, un lector nuevo puede fiarse de la columna; los que ya se protegen en SQL (`history`, `dobles-streak`, `runAutoPublish`) se quedan como red.
+
+**Descartado:** una migración que pusiera a NULL los husos guardados que Postgres no conoce. `coaches.timezone` nace en esta misma tanda (0241), así que producción no tiene valores, y los iPhone mandan nombres canónicos. En su lugar, esta consulta de solo lectura (no debe devolver filas; `to_jsonb` tolera una base sin 0241):
+`with known as materialized (select name from pg_timezone_names) select 'coaches' as tabla, c.id, to_jsonb(c) ->> 'timezone' as timezone from coaches c where to_jsonb(c) ->> 'timezone' not in (select name from known) union all select 'athletes', a.id, a.timezone from athletes a where a.timezone not in (select name from known) order by 1, 2;`
+
+**NO hacer:** no escribir un huso en una columna sin `isSafeTimezone`; no ofrecer la lista de husos del navegador sin pasarla por Postgres; no rechazar un lote de sincronización por su huso.
+
+---
+
 ## 2026-09-24 · Un bloque archivado no se elige; la revisión semanal no inventa plan; fuera PABLO_IA_*
 
 **Bloque archivado (0236).** Archivar retira: la Biblioteca lo sigue mostrando en «Archivados», pero ningún lector que ofrece bloques para USAR lo devuelve. Eran tres que no filtraban `archived_at`: `loadComposableBlocks` (compositor de semanas de la IA e importador), `listBlocks` (`/api/coach/blocks`, sugerencia de entreno del editor) y `listBlocksWithStructure` (búsqueda del asistente, MCP). Las plantillas y los niveles ya lo cumplían. **NO hacer:** un lector nuevo de bloques «para elegir» sin `archived_at is null`.

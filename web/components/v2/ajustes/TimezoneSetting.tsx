@@ -3,6 +3,8 @@
 // El huso de tu club: el reloj de tu día — Hoy, cuándo se abre cada semana,
 // cuándo vence un «posponer», la agenda y las horas de los correos
 // (`coaches.timezone`, NULL = defecto del producto). Se guarda al elegir.
+// La lista llega del servidor (`loadOfferableTimezones`): solo husos que conocen
+// Intl y Postgres, no la lista entera del navegador.
 
 import { useId, useMemo, useState } from 'react';
 import { Button, Combobox } from '@/components/v2/ui';
@@ -30,24 +32,15 @@ function labelOf(tz: string): string {
   return rest.length > 0 ? `${city} · ${region}` : city;
 }
 
-function allZones(): string[] {
-  try {
-    return (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.('timeZone') ?? [];
-  } catch {
-    return [];
-  }
-}
-
-export function TimezoneSetting({ initial }: { initial: TimezoneSettingData }) {
+export function TimezoneSetting({ initial, zones }: { initial: TimezoneSettingData; zones: readonly string[] }) {
   const id = useId();
   const [setting, setSetting] = useState(initial);
   const { state, error, run } = useSaveState();
   const options = useMemo(() => {
     const now = new Date();
-    const zones = allZones();
-    if (!zones.includes(setting.effective)) zones.unshift(setting.effective);
-    return zones.map((tz) => ({ value: tz, label: labelOf(tz), hint: offsetOf(tz, now) }));
-  }, [setting.effective]);
+    const list = zones.includes(setting.effective) ? zones : [setting.effective, ...zones];
+    return list.map((tz) => ({ value: tz, label: labelOf(tz), hint: offsetOf(tz, now) }));
+  }, [setting.effective, zones]);
 
   const save = (tz: string | null) =>
     run(async () => {

@@ -16,6 +16,7 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { ingestHealthkitBatch } from '@/lib/sync/ingest-healthkit';
 import { healthkitSyncRequestSchema } from '@/lib/sync/schema';
+import { isSafeTimezone } from '@/lib/time-zones';
 import { captureRouteError } from '@/lib/observability/capture';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 import { refreshAthleteReadinessDays } from '@/lib/coach/athlete-daily-readiness';
@@ -66,15 +67,9 @@ export async function POST(req: Request): Promise<NextResponse> {
     `;
 
     // Persist the device's IANA timezone so readiness windows the day in the
-    // athlete's own zone. Validated by the batch schema; only written when the
-    // device reported one and it actually changed (travel keeps it fresh).
+    // athlete's own zone (see `recordDeviceTimezone` below).
     if (parsed.data.batch.timezone) {
-      await sql`
-        update athletes
-          set timezone = ${parsed.data.batch.timezone}, updated_at = now()
-        where id = ${auth.athlete_id as unknown as number}
-          and timezone is distinct from ${parsed.data.batch.timezone}
-      `;
+      await recordDeviceTimezone(auth.athlete_id, parsed.data.batch.timezone);
     }
 
     // The batch may carry last night's sleep / HRV / resting HR — recompute the
@@ -104,5 +99,31 @@ export async function POST(req: Request): Promise<NextResponse> {
       },
     });
     return jsonError('internal', 'HealthKit ingest failed', 500);
+  }
+}
+
+/**
+ * The device's zone goes to `athletes.timezone` only when it changed (travel keeps
+ * it fresh) and BOTH date engines know it (`isSafeTimezone`: Intl, and Postgres's
+ * `pg_timezone_names` name for name), because every SQL reader hands the column to
+ * `at time zone`. Otherwise the stored zone stays: a device's zone is a fact that
+ * can wait for the next sync, and it never costs the batch — not even when the
+ * check itself fails.
+ */
+async function recordDeviceTimezone(athlete_id: bigint, tz: string): Promise<void> {
+  const id = athlete_id as unknown as number;
+  try {
+    const [row] = await sql<Array<{ timezone: string | null }>>`
+      select timezone from athletes where id = ${id}
+    `;
+    if (!row || row.timezone === tz || !(await isSafeTimezone(tz, sql))) return;
+    await sql`
+      update athletes
+        set timezone = ${tz}, updated_at = now()
+      where id = ${id}
+        and timezone is distinct from ${tz}
+    `;
+  } catch (err) {
+    captureRouteError(err, { route: 'api/sync/healthkit.POST', meta: { athlete_id: String(athlete_id), step: 'timezone' } });
   }
 }

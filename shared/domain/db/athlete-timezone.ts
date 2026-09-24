@@ -1,5 +1,6 @@
 import type { Sql } from 'postgres';
 import { BOX_TIMEZONE, zonedDayString } from '../dates';
+import { isValidTimezone } from '../coach/coach-timezone';
 
 // "Which calendar day is it FOR THIS ATHLETE" — one lookup, because every
 // biometric window in the app is a local-day window and each surface used to
@@ -16,7 +17,17 @@ import { BOX_TIMEZONE, zonedDayString } from '../dates';
  */
 export const LAUNCH_FALLBACK_TIMEZONE = BOX_TIMEZONE;
 
-/** The athlete's IANA timezone, or the launch fallback when unset. */
+/**
+ * A stored zone the date engine (Intl) knows, else the launch fallback: a bad
+ * value costs the athlete his calendar, never the screen. Postgres's half is
+ * guarded where the column is written (the HealthKit sync only stores zones both
+ * engines know, `isSafeTimezone` in web/lib/time-zones.ts).
+ */
+function usableTimezone(stored: string | null | undefined): string {
+  return stored != null && isValidTimezone(stored) ? stored : LAUNCH_FALLBACK_TIMEZONE;
+}
+
+/** The athlete's IANA timezone, or the launch fallback when unset or unknown to Intl. */
 export async function loadAthleteTimezone(
   client: Sql,
   athlete_id: number | bigint,
@@ -24,7 +35,7 @@ export async function loadAthleteTimezone(
   const rows = await client<Array<{ timezone: string | null }>>`
     select timezone from athletes where id = ${athlete_id as number} limit 1
   `;
-  return rows[0]?.timezone ?? LAUNCH_FALLBACK_TIMEZONE;
+  return usableTimezone(rows[0]?.timezone);
 }
 
 /** Same, for a cohort — one query, keyed by athlete id as a string. Ids with no
@@ -39,8 +50,24 @@ export async function loadAthleteTimezones(
   const rows = await client<Array<{ id: string; timezone: string | null }>>`
     select id::text as id, timezone from athletes where id = any(${ids}::bigint[])
   `;
-  for (const r of rows) out.set(r.id, r.timezone ?? LAUNCH_FALLBACK_TIMEZONE);
+  for (const r of rows) out.set(r.id, usableTimezone(r.timezone));
   return out;
+}
+
+/**
+ * The zone the athlete's LIVED things are dated in — his sessions, marks, trends
+ * and weeks (docs/DECISIONS.md, 2026-09-23 «Qué día es en cada sitio»). Same as
+ * `loadAthleteTimezone`, except that a stored zone the date engine doesn't know
+ * falls back to the default: the result is bound into SQL (`at time zone $tz`)
+ * and into `Intl`, and a bad zone must cost the athlete his calendar, not the
+ * screen. Resolve it once per request and pass it down.
+ */
+export async function loadEffectiveAthleteTimezone(
+  client: Sql,
+  athlete_id: number | bigint,
+): Promise<string> {
+  const stored = await loadAthleteTimezone(client, athlete_id);
+  return isValidTimezone(stored) ? stored : LAUNCH_FALLBACK_TIMEZONE;
 }
 
 /** The athlete's own "today" as YYYY-MM-DD. */

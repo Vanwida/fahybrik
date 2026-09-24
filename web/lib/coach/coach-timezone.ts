@@ -3,6 +3,7 @@
 
 import type { Sql, TransactionClient } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { isSafeTimezone } from '@/lib/time-zones';
 import { effectiveCoachTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
 import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
 
@@ -61,13 +62,24 @@ export async function getCoachTimezoneSetting(coach_id: bigint | number, client:
   return toSetting(rows[0]?.tz ?? null);
 }
 
-/** Guardar el huso (validado IANA por quien llama). El mismo defecto se guarda como NULL. */
+/** Un huso que no se guarda. El mensaje es para el coach. */
+export class CoachTimezoneError extends Error {}
+
+/**
+ * Guardar el huso. El mismo defecto se guarda como NULL. Solo se guarda uno que
+ * conocen los dos motores de fechas (`isSafeTimezone`: Intl y Postgres, nombre a
+ * nombre); si no, `CoachTimezoneError` y la columna no cambia, porque cada lectura
+ * en SQL lo pasa a `at time zone` y uno desconocido la tumbaría.
+ */
 export async function setCoachTimezone(
   coach_id: bigint | number,
   tz: string | null,
   client: Sql = defaultSql,
 ): Promise<CoachTimezoneSetting> {
   const value = tz == null || tz === BOX_TIMEZONE ? null : tz;
+  if (value != null && !(await isSafeTimezone(value, client))) {
+    throw new CoachTimezoneError('Ese huso no se puede usar. Elige uno de la lista.');
+  }
   await client`update coaches set timezone = ${value}, updated_at = now() where id = ${Number(coach_id)}`;
   return toSetting(value);
 }

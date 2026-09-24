@@ -10,6 +10,8 @@ vi.mock('next-intl/server', () => ({ setRequestLocale: vi.fn(), getLocale: vi.fn
 vi.mock('@/lib/auth/coach-session', () => ({ getCoachSession: vi.fn() }));
 vi.mock('@/lib/coach/club-skin', () => ({ getClubSkin: vi.fn() }));
 vi.mock('@/lib/coach/profile', () => ({ getCoachProfile: vi.fn() }));
+vi.mock('@/lib/coach/coach-timezone', () => ({ getCoachTimezoneSetting: vi.fn() }));
+vi.mock('@/lib/time-zones', () => ({ loadOfferableTimezones: vi.fn() }));
 vi.mock('@/components/v2/club/ClubForm', () => ({
   ClubForm: function ClubForm(props: { initial: unknown }) {
     return { type: 'ClubForm', props };
@@ -24,6 +26,8 @@ vi.mock('@/components/v2/ajustes/AjustesLoadError', () => ({
 const { getCoachSession } = await import('@/lib/auth/coach-session');
 const { getClubSkin } = await import('@/lib/coach/club-skin');
 const { getCoachProfile } = await import('@/lib/coach/profile');
+const { getCoachTimezoneSetting } = await import('@/lib/coach/coach-timezone');
+const { loadOfferableTimezones } = await import('@/lib/time-zones');
 const { default: ClubPage } = await import('@/app/[locale]/(v2)/ajustes/(area)/club/page');
 
 function find(node: unknown, name: string): { props: Record<string, unknown> } | undefined {
@@ -49,6 +53,8 @@ const profile = {
   location: 'Calle 1',
 };
 
+const tzSetting = { timezone: null, effective: 'Europe/Madrid', default_timezone: 'Europe/Madrid' };
+
 describe('Ajustes › Tu club', () => {
   beforeEach(() => {
     vi.mocked(getCoachSession).mockReset().mockResolvedValue({ coach_id: BigInt(7) } as Awaited<
@@ -56,6 +62,8 @@ describe('Ajustes › Tu club', () => {
     >);
     vi.mocked(getClubSkin).mockReset();
     vi.mocked(getCoachProfile).mockReset().mockResolvedValue(profile);
+    vi.mocked(getCoachTimezoneSetting).mockReset().mockResolvedValue(tzSetting);
+    vi.mocked(loadOfferableTimezones).mockReset().mockResolvedValue(['Asia/Kolkata', 'Europe/Kyiv', 'Europe/Madrid']);
   });
 
   test('si la piel no se lee (columnas ausentes), dice que no ha cargado en vez de tirar', async () => {
@@ -73,5 +81,22 @@ describe('Ajustes › Tu club', () => {
       studio_name: 'Box Norte',
       location: 'Calle 1',
     });
+  });
+
+  test('el combo del huso recibe la lista del servidor (husos que conocen Intl y Postgres), no la del navegador', async () => {
+    vi.mocked(getClubSkin).mockResolvedValue({ name: 'Norte', logo_url: null, accent_hex: '#2e86ff', notify_email: null });
+    const tree = await ClubPage({ params: Promise.resolve({ locale: 'es' }) });
+    expect(find(tree, 'TimezoneSetting')?.props).toEqual({
+      initial: tzSetting,
+      zones: ['Asia/Kolkata', 'Europe/Kyiv', 'Europe/Madrid'],
+    });
+  });
+
+  test('si la lista de husos no se lee, el huso dice que no ha cargado en vez de ofrecer una lista sin filtrar', async () => {
+    vi.mocked(getClubSkin).mockResolvedValue({ name: 'Norte', logo_url: null, accent_hex: '#2e86ff', notify_email: null });
+    vi.mocked(loadOfferableTimezones).mockRejectedValue(new Error('connection refused'));
+    const tree = await ClubPage({ params: Promise.resolve({ locale: 'es' }) });
+    expect(find(tree, 'TimezoneSetting')).toBeUndefined();
+    expect(find(tree, 'AjustesLoadError')?.props).toEqual({ what: 'tu huso horario' });
   });
 });
