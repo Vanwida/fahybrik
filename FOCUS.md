@@ -60,7 +60,7 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
   OrderAlteredSignal,Rail,SessionLine}.tsx`, `v2/periodizacion/SidePanel.tsx`,
   `v2/tests/chrome.tsx`, `v2/intake/IntakeBlockStructure.tsx`, `v2/ajustes/LevelAxisSetting.tsx`,
   `web/lib/coach/{deep-dive-body,deep-dive-body-demo,demo-events,program-weeks}.ts`,
-  `infra/scripts/seed_exercises.ts`; tabla `google_oauth_tokens`. Luego quitar los
+  `infra/scripts/seed_exercises.ts`, `buildAthletePlan` de `coach/deep-dive-plan.ts`, `athlete-profile-shell.ts` (solo lo usa un test); tabla `google_oauth_tokens`. Luego quitar los
   `ignores` de eslint.config.mjs.
 - FH-56 paso 0 con aparato: ¿acepta Apple `startMirroringToCompanionDevice` sobre
   una sesión recuperada? Si no, el HUD dice «Sin conexión con el iPhone» y hace
@@ -71,8 +71,8 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 ## Sabido y no hecho
 
 - Panel coach: sin Stripe Connect (Cobros lee, no cobra); crons en serie por coach
-  (no aguantan ~20 clubs); sin RLS; panel solo en castellano; quedan en día UTC la cuenta
-  atrás de macro-progress, deep dive, TSS diario y bordes de semana (DECISIONS «Qué día es…»).
+  (no aguantan ~20 clubs); sin RLS; panel solo en castellano; crons a hora UTC fija (falta hora
+  de entrega por coach) y `resolvePeriod` sin el día local de la app (DECISIONS «Qué día es…»).
 - Seeds: `seed_demo.ts` desfasado (`chat_messages.sender_role`). Cadena personal: un mes de
   biblioteca en medio bloquea acortar/borrar (409; decisión de producto en DECISIONS).
 - FH-30: `PhoneLiveSession.applyCommand` no relaya `.newLap` al motor (latente).
