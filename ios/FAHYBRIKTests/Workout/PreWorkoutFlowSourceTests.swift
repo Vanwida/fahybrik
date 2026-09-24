@@ -5,8 +5,9 @@ final class PreWorkoutFlowSourceTests: XCTestCase {
 
     private var iosRoot: URL {
         URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
+            .deletingLastPathComponent()  // Workout/
+            .deletingLastPathComponent()  // FAHYBRIKTests/
+            .deletingLastPathComponent()  // ios/
     }
 
     func testBriefReadyToStartIsSoleEmpezarOnPreLivePath() throws {

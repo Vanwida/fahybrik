@@ -9,7 +9,7 @@ final class FH99LiveOwnershipTests: XCTestCase {
     }
 
     private func structuredSession(_ legs: [RunElement]) -> WorkoutSession {
-        let structure = RunStructure(phases: [RunPhase(role: .main, elements: legs)])
+        let structure: RunStructure = [RunPhase(role: .main, elements: legs)]
         let rx = Prescription(scheme: .intervals, modality: .run, sets: nil, rounds: nil,
                               workS: nil, restS: nil, totalS: nil, target: nil, note: nil,
                               start: nil, increment: nil, structure: structure)
@@ -61,8 +61,9 @@ final class FH99LiveOwnershipTests: XCTestCase {
     func testWatchTruthUIUsesMirrorLiveNotBindAlone() throws {
         let card = try String(contentsOf:
             URL(fileURLWithPath: #filePath)
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
+                .deletingLastPathComponent()  // Workout/
+                .deletingLastPathComponent()  // FAHYBRIKTests/
+                .deletingLastPathComponent()  // ios/
                 .appendingPathComponent("FAHYBRIK/Workout/PreWorkoutWatchCard.swift"))
         XCTAssertTrue(card.contains("wristMirrorLive"))
         XCTAssertFalse(card.contains("mirror.wristJoined {"))
