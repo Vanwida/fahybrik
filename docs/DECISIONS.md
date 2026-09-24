@@ -65,6 +65,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · Las migraciones de producción las corre el agente, no Alex
+
+**Decidido (Alex, 24-09):** «you always run the migrations, is your job». Aplicar migraciones a producción es trabajo del agente; no se le vuelve a pasar el comando a Alex.
+
+**Bloqueado hoy por dos cosas que solo Alex puede dar:**
+1. **Permiso:** el sistema de permisos de Claude Code trata aplicar migraciones a producción como un despliegue y lo para. Hace falta una regla de permiso en su configuración (o aprobarlo cuando se pida).
+2. **Acceso:** el contenedor del agente no tiene credenciales de producción y su política de red no deja llegar al host de Neon. Camino recomendado: un secreto de GitHub Actions `PROD_DATABASE_URL` (cadena directa, sin pooler, del rol dueño) y un workflow `migrate` que hace dry-run en cada cambio de migraciones y aplica solo lo que pide un fichero commiteado (`infra/migrations/APLICAR`) si coincide exactamente con lo pendiente — cada cambio de producción, un commit y un log. El borrador del workflow está listo para commitearlo en cuanto haya permiso y secreto. Alternativa: `DATABASE_URL` como variable del entorno cloud + el host de Neon permitido en la red (vale para una sesión nueva).
+
+**Mientras tanto:** lo pendiente en producción lo dice la build de Vercel (`web/scripts/migraciones-al-dia.mjs`) y el log de errores; el agente avisa, no manda el comando.
+
+---
+
 ## 2026-09-24 · Fases 0+1 a main en un PR; la primera prueba en aparato, desde Xcode Cloud tras fusionar
 
 **Decidido (Alex, 24-09, preguntas y respuestas):** con el CI de iOS en verde se abre el PR de las fases 0 y 1 contra `main`; lo fusiona Alex tras aplicar 0270–0273 en producción (la build de producción se para sola si falta una). La primera prueba en aparato — la salida de la fase 0 — sale de la build de Xcode Cloud desde `main` a TestFlight: con el deploy, el registro técnico de los dos aparatos se lee en el log del servidor. Descartado: esperar a la fase 2 para fusionar, y builds desde la rama (el servidor de producción aún no tendría `/api/devices/events`).

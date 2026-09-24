@@ -11,8 +11,8 @@ desde el primer día; nunca por debajo de TrainingPeaks. Diseño FIRMADO (arquit
 iPhone de respaldo, CI GitHub macOS, otros relojes 14 días, app Entreno de Apple opcional): `docs/el-reloj-primero/`.
 EN CURSO: fase 0 — CI macOS (compila todo; tests al día) + registro técnico de los aparatos (0273,
 `/api/devices/events`, `ios/*/Diagnostics/`, pantalla «Diagnóstico del reloj»). Luego fase 4 (web) en su PR.
-**PROD (24-09 21:45→):** a la base le faltan 0270–0272 (+0273 de esta rama) → cron de atención roto. Alex:
-`pnpm --dir infra migrate`. Con el CI iOS en verde: PR fases 0+1 → Alex fusiona → TestFlight → prueba en aparato.
+**PROD (24-09 21:45→):** a la base le faltan 0270–0272 (+0273 de esta rama) → cron de atención roto. Migrar es
+trabajo del AGENTE (Alex, 24-09) — bloqueado por permiso + secreto `PROD_DATABASE_URL` (DECISIONS). CI iOS verde → PR 0+1.
 **Auditoría de la app del atleta (iOS + watchOS) — ENTREGADA.** `docs/auditoria-app-atleta/`.
 6 raíces: enlace del reloj diseñado para fallar · entreno terminado no durable · lo del coach
 no llega · la app dice lo que ningún coach decidió · empezar/terminar peor que el mercado ·
