@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · El umbral de pendiente del coach viaja también con la clave que lee la app instalada
+
+**El hueco (auditoría de la app del atleta, D-06):** el detalle de una sesión sirve el umbral de pendiente del coach en `run_compliance.gradient_retires_pace_pct`; la app instalada lo busca en `gradient_threshold_pct` (`RunCompliance.gradientThresholdPct`, `ios/FAHYBRIKCore/Plan/RunCompliance.swift`, que dejó el nombre «pendiente de confirmar»). La clave nunca casaba: el número del coach no llegaba y la app leía la carrera con su suelo del 3 %.
+
+**Decidido:** `RunComplianceResult` lleva el MISMO número con las dos claves. `gradient_retires_pace_pct` sigue siendo la canónica (la del panel y la del dominio); `gradient_threshold_pct` es la que decodifica la app que ya está en los teléfonos, y no se puede actualizar pronto. Barrido del resto del contrato atleta ↔ Swift (D §2.5): las respuestas reales de 29 endpoints GET del atleta × 100 atletas locales decodificadas con las reglas de Swift, más un cruce estático de campos obligatorios en Swift contra tipos que el servidor puede mandar nulos — nada más roto (los datos locales no tienen tramos ejecutados, comunicados, tests ni resultados de carrera: esas formas solo pasaron el cruce estático). Lo que queda de §2.5 (`days[].recovery_suggestions`/`kind`, `sessions[].template_id` sin decodificar; `injury_adaptation` sin servir) es de la app o de producto.
+
+**NO hacer:** no quitar `gradient_threshold_pct` mientras haya instalada una app que la lea; cuando la app lea la canónica, se retira en un cambio con su propia entrada aquí.
+
+---
+
 ## 2026-09-24 · Lo que el coach tiene oculto no se anuncia: hitos del ciclo y tarjeta de tests pasan por la puerta de visibilidad
 
 **El hueco (auditoría de la app del atleta, D-19):** la puerta de visibilidad del atleta es una (una semana con `weekly_plans.status = 'draft'` no se ve; sin fila, se ve — 2026-08-10). El Plan, el historial y los endpoints del reloj la aplicaban; la vista de ciclo (`resolvePlanPath` → hitos) y la tarjeta de tests de Inicio (`loadBatteryStatus`) no: una semana retenida seguía anunciando «Simulacro el sábado 10» y contando «3/4 · falta remo 2K», y desde esa tarjeta se podía abrir y empezar el test oculto.

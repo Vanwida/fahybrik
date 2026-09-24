@@ -87,6 +87,7 @@ function cumplimiento(tramos: RunComplianceTramo[]): RunComplianceResult {
     recovery_tramos: [],
     work_duration_summary: { total: 0, evaluable: 0, completa: 0, incompleta: 0, sin_dato: 0, pct_completa: null },
     gradient_retires_pace_pct: null,
+    gradient_threshold_pct: null,
     recovery_duration_summary: {
       total: 0,
       evaluable: 0,

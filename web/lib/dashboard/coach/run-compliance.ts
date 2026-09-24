@@ -171,6 +171,15 @@ export interface RunComplianceResult {
    * vive UNA vez, allí. Ver `shared/domain/running/gradient.ts`.
    */
   gradient_retires_pace_pct: number | null;
+  /**
+   * EL MISMO número, con el nombre que decodifica la app del atleta instalada
+   * (`RunCompliance.gradientThresholdPct` en FAHYBRIKCore/Plan/RunCompliance.swift,
+   * vía convertFromSnakeCase). La app buscaba esta clave y el servidor mandaba la
+   * otra: el umbral del coach nunca llegaba y la app leía la carrera con su 3 %
+   * (auditoría D-06). Las dos claves viajan hasta que la app lea la canónica;
+   * `gradient_retires_pace_pct` sigue siendo la que lee el panel.
+   */
+  gradient_threshold_pct: number | null;
 }
 
 // The representative intensity target for a line: block-level, else the first
@@ -521,5 +530,6 @@ export function buildRunCompliance(
     work_duration_summary: summarizeWorkDuration(workDurationVerdicts),
     recovery_duration_summary: summarizeRecoveryDuration(recoveryDurationVerdicts),
     gradient_retires_pace_pct: opts?.gradient_retires_pace_pct ?? null,
+    gradient_threshold_pct: opts?.gradient_retires_pace_pct ?? null,
   };
 }
