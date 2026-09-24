@@ -38,7 +38,7 @@ export const groupProgramRefSchema = z.object({
   item_id: apiIdSchema.optional(),
 });
 
-const progressionPair = <T extends { progression_pct?: number | null; progression_applies_to?: string | null }>(v: T) =>
+const progressionPair = <T extends { progression_pct?: number | null | undefined; progression_applies_to?: string | null | undefined }>(v: T) =>
   (v.progression_pct === undefined) === (v.progression_applies_to === undefined) &&
   (v.progression_pct == null) === (v.progression_applies_to == null);
 
