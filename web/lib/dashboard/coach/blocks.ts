@@ -147,6 +147,7 @@ export async function listBlocksWithStructure(
       left join block_exercises be on be.block_id = b.id
       left join exercises e on e.id = be.exercise_id
      where b.coach_id = ${cid}
+       and b.archived_at is null -- archivado (0236) = retirado: el asistente no lo propone
        ${groupId === null ? client`` : client`and b.methodology_group_id = ${groupId}`}
      group by b.id
      order by b.methodology_group_id asc nulls last, b.id asc
@@ -211,6 +212,7 @@ export async function listBlocks(
                  format, source_ref, needs_review
           from blocks
           where coach_id = ${cid}
+            and archived_at is null -- archivado (0236) = retirado: no se elige
           order by methodology_group_id asc nulls last, id asc
         `
       : await client<BlockRow[]>`
@@ -219,6 +221,7 @@ export async function listBlocks(
           from blocks
           where coach_id = ${cid}
             and methodology_group_id = ${groupId}
+            and archived_at is null
           order by id asc
         `;
   return rows.map(mapBlockRow);
