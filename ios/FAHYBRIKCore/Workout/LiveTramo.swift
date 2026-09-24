@@ -273,13 +273,33 @@ extension WorkoutSegment {
     ///
     /// AMRAP is excluded on purpose: its list repeats for a whole window and its
     /// strike counts rounds, not stations.
+    ///
+    /// `sets.count` is not the movement count when `setsAreRounds`: there the
+    /// list is ONE movement written once per round, so it stays "repeat this one
+    /// thing" (card 146 — 10 rondas de SkiErg read as 10 estaciones × 10 rondas).
     var fixedListIsStations: Bool {
         guard let scheme = formatScheme, scheme.presentation == .fixed else { return false }
         switch scheme {
         case .chipper, .forTime, .ladder, .rounds, .hyroxSim:
-            return declaredComponents.count > 1
+            return declaredComponents.count > 1 && !setsAreRounds
         default:
             return false
+        }
+    }
+
+    /// True when `sets[]` is not the movement list of ONE round but the rounds
+    /// themselves: exactly one set per declared round, every one the same movement
+    /// at the same dose. It is the shape a single exercise arrives in when the
+    /// plan writes «10 × 250 m SkiErg» as `rounds` + the bout repeated once per
+    /// round (`legacyRowToPrescription`, shared/domain/prescription/parse.ts).
+    /// Only the round's own rest / tempo may differ from one set to the next.
+    var setsAreRounds: Bool {
+        guard let sets = prescription?.sets, sets.count > 1,
+              let rounds = formatRounds, sets.count == rounds,
+              let first = sets.first else { return false }
+        return sets.allSatisfy {
+            $0.note == first.note && $0.modality == first.modality
+                && $0.measure == first.measure && $0.target == first.target
         }
     }
 

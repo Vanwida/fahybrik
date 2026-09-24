@@ -784,6 +784,8 @@ final class AssignmentDetailTests: XCTestCase {
         """
         let plan = try XCTUnwrap(WorkoutPlan.from(detail: try decode(json)))
         XCTAssertEqual(plan.segments.count, 2, "Un tramo POR MOVIMIENTO — el calentamiento no se pliega aunque su formato lo permita.")
+        // Sin dos tramos el índice de abajo tumbaría el proceso entero: se falla aquí.
+        guard plan.segments.count == 2 else { return }
         XCTAssertEqual(plan.segments[0].title, "Assault Bike", "El título de cada tramo es el del ejercicio, nunca una concatenación.")
         XCTAssertEqual(plan.segments[1].title, "Foam roll lower body")
         XCTAssertTrue(plan.segments.allSatisfy { $0.blockPhase == .warmup })
