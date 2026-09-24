@@ -261,6 +261,8 @@ export function executionMergeSet(sql: Sql | TransactionClient) {
       pain_area = coalesce(excluded.pain_area, workout_executions.pain_area),
       pain_note = coalesce(excluded.pain_note, workout_executions.pain_note),
       recorded_via = coalesce(excluded.recorded_via, workout_executions.recorded_via),
+      -- Provisional: only the tramos of THIS payload. persistExecutionChildren
+      -- re-derives it over ALL the stored tramos (recomputeTotalsSource).
       totals_source = coalesce(excluded.totals_source, workout_executions.totals_source),
       contributing_sources = (
         select coalesce(array_agg(distinct s order by s), '{}'::biometric_source[])
@@ -308,8 +310,48 @@ export async function persistExecutionChildren(args: {
     });
   }
 
+  await recomputeTotalsSource(sql, executionId);
   await computeSessionTotals({ execution_id: executionId, client: sql }).catch(() => {});
   return { segments_saved: segmentsSaved };
+}
+
+/**
+ * `totals_source` is the apparatus of the LONGEST tramo of the EXECUTION
+ * (`deriveExecutionProvenance`), and an execution's tramos can arrive over
+ * several syncs: the erg's in one, the treadmill's in the next. The upsert
+ * only sees the payload in hand, so on its own the last sync's apparatus won
+ * even when it brought the SHORTER tramo. Re-derived here over every tramo
+ * stored so far, through the same function: one rule, one place.
+ *
+ * Stored tramos keep no duration column; it is `ended_at − started_at`, the
+ * same measure the 0144 backfill ranks by. A tramo with no measured duration
+ * is stored with `ended_at = started_at` (see ingestExecutionSegments), so a
+ * non-positive span reads as unknown — ranked last, never as a real 0 s.
+ *
+ * When no stored tramo names an apparatus, the row keeps what it had: the
+ * tramos cannot contradict it, and the merge never erases (a row older than
+ * 0108 carries the value that migration backfilled from its `source`).
+ */
+async function recomputeTotalsSource(sql: Sql | TransactionClient, executionId: number): Promise<void> {
+  const tramos = await sql<Array<{ source: string | null; span_s: number | null }>>`
+    select source, extract(epoch from (ended_at - started_at))::float8 as span_s
+    from segment_executions
+    where execution_id = ${executionId}
+    order by position, round_index
+  `;
+  const { totals_source } = deriveExecutionProvenance({
+    segments: tramos.map((t) => ({
+      source: t.source,
+      duration_seconds: t.span_s != null && t.span_s > 0 ? Math.round(t.span_s) : null,
+    })),
+  });
+  if (totals_source == null) return;
+  await sql`
+    update workout_executions
+    set totals_source = ${totals_source}::biometric_source
+    where id = ${executionId}
+      and totals_source is distinct from ${totals_source}::biometric_source
+  `;
 }
 
 /** Running records this execution set. Best-effort: a failure costs the celebration. */
