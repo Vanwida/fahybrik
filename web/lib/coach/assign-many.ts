@@ -27,8 +27,7 @@ import type {
   AssignPreview,
   AssignResponse,
 } from '@fahybrid/shared/schema/assign-many';
-import { notifyAthlete } from '@/lib/notifications/dispatch';
-import { planPublishedPush } from '@/lib/notifications/plan-published';
+import { notifyPlanPublished } from '@/lib/notifications/plan-published';
 import { boxToday, getAutoPublishSetting } from './week-publishing';
 import {
   AssignManyError,
@@ -117,16 +116,7 @@ async function appliedFromItems(client: Sql, batch_id: number, replayed: boolean
 
 async function notifyAssigned(client: Sql, athlete_id: number, week_start: string): Promise<void> {
   try {
-    await notifyAthlete({
-      sql: client,
-      athlete_id: BigInt(athlete_id),
-      type: 'plan_published',
-      payload: { athlete_id: String(athlete_id), week_start, deep_link: `/plan?week=${week_start}` },
-      push: {
-        ...(await planPublishedPush(client, BigInt(athlete_id), 'assigned')),
-        deeplink: { screen: 'plan', week_start },
-      },
-    });
+    await notifyPlanPublished({ sql: client, athlete_id, variant: 'assigned', week_start });
   } catch {
     // Cortesía: el plan ya está; la bandeja in-app es lo durable.
   }

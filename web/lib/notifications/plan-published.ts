@@ -1,4 +1,5 @@
-// Copy de los avisos «tu plan está publicado», en UN solo sitio.
+// El aviso «tienes plan nuevo a la vista», en UN solo sitio: la frase, la semana
+// que nombra y el envío.
 //
 // Por qué existe este módulo: la misma frase estaba copiada verbatim en seis
 // ficheros (dos rutas de assign, advance, dobles, publishWeek ×2 y el cron), y
@@ -7,10 +8,32 @@
 //
 // El nombre es DATO del coach (`coaches.full_name`); la frase es MECANISMO
 // nuestro. Por eso el nombre se resuelve en cada envío y la plantilla vive aquí.
+//
+// LA SEMANA (auditoría de la app del atleta, D-10): el aviso decía «para la
+// próxima semana» también al publicar la semana en curso, «Nuevo microciclo … el
+// siguiente bloque» (palabras que el panel ya no usa; para el atleta un «bloque»
+// es un tramo de su sesión) y sin tildes. Y la app instalada abre la pestaña Plan
+// en la semana EN CURSO, sin mirar `week_start`: si la semana avisada es otra, el
+// único sitio donde el atleta lee cuál es, es la frase. Por eso toda frase nombra
+// su semana, contada desde el «hoy» del ATLETA (lo lee él: DECISIONS 2026-09-23,
+// «Qué día es en cada sitio»).
+//
+// CUÁNDO se avisa no se decide aquí salvo en un caso: tras asignar o avanzar un
+// programa, solo si el atleta ya ve alguna semana (`notifyPlanAssignedIfVisible`);
+// publicar una semana la hace visible por definición y quien publica decide.
 
 import type { Sql } from '@/lib/db';
-import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
+import {
+  addDays,
+  BOX_TIMEZONE,
+  isoDateString,
+  longDateEs,
+  mondayOfWeek,
+  parseIsoDate,
+  zonedDayString,
+} from '@fahybrid/shared/domain/dates';
 import { athleteSeesItFromWeeklyStatus } from '@fahybrid/shared/domain/coach/athlete-week-chip';
+import { loadAthleteLocalDay } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { notifyAthlete } from './dispatch';
 
 /** Cómo se nombra al coach cuando su ficha aún no tiene nombre (alta recién
@@ -39,46 +62,140 @@ export async function coachDisplayNameForAthlete(
 
 /** Las tres cosas distintas que se le publican a un atleta. */
 export type PlanPublishedVariant =
-  /** Se le acaba de asignar un plan (assign-sequence, assign-month, dobles). */
+  /** Se le acaba de asignar un programa (asignar, asignar a varios, dobles, MCP). */
   | 'assigned'
-  /** El cron soltó la semana que viene, o el coach la publicó a mano. */
+  /** Se le abrió una semana (o varias): el coach la publicó o llegó su día. */
   | 'weekly'
-  /** Avanzó al siguiente microciclo de la secuencia. */
+  /** Avanzó al siguiente programa de su cadena. */
   | 'next_block';
 
-const TEMPLATES: Record<PlanPublishedVariant, { title: string; body: (coach: string) => string }> = {
-  assigned: {
-    title: 'Tu plan esta listo',
-    body: (coach) => `${coach} ha publicado tu plan de entrenamiento.`,
-  },
-  weekly: {
-    title: 'Tu plan de la semana esta listo',
-    body: (coach) => `${coach} ha publicado tu plan para la proxima semana.`,
-  },
-  next_block: {
-    title: 'Nuevo microciclo listo',
-    body: (coach) => `${coach} ha publicado el siguiente bloque de tu plan.`,
-  },
-};
+/** La semana que nombra el aviso, y desde qué «hoy» se cuenta. */
+export interface PlanPublishedWeek {
+  /** La semana a la que lleva el aviso (cualquier día; se lee su lunes). */
+  week_start: string;
+  /** Cuántas semanas abre este acto desde `week_start` (publicar un bloque). Defecto 1. */
+  weeks?: number;
+  /** El «hoy» del ATLETA, YYYY-MM-DD. */
+  today: string;
+}
+
+function mondayIso(iso: string): string {
+  return isoDateString(mondayOfWeek(parseIsoDate(iso)));
+}
+
+/**
+ * La semana dicha como la entiende el atleta, desde SU hoy: «esta semana», «la
+ * semana que viene» o «la semana del lunes 12 de octubre» (sin año: dentro de un
+ * plan no aporta nada). Nunca «la próxima» para la que ya está en curso.
+ */
+export function weekPhrase(week_start: string, today: string): string {
+  const target = mondayIso(week_start);
+  const thisMonday = mondayIso(today);
+  if (target === thisMonday) return 'esta semana';
+  if (target === isoDateString(addDays(parseIsoDate(thisMonday), 7))) return 'la semana que viene';
+  return `la semana del lunes ${longDateEs(target)}`;
+}
+
+/** «Empieza …» o, si esa semana ya pasó (una fecha de inicio atrasada), «Empezó …». */
+function startsSentence(week: PlanPublishedWeek): string {
+  const past = mondayIso(week.week_start) < mondayIso(week.today);
+  return `${past ? 'Empezó' : 'Empieza'} ${weekPhrase(week.week_start, week.today)}.`;
+}
+
+/**
+ * Título + cuerpo del aviso. Puro: el nombre del coach y la semana entran hechos.
+ * Con el vocabulario del panel («programa», «semana»).
+ */
+export function planPublishedCopy(
+  variant: PlanPublishedVariant,
+  coach: string,
+  week: PlanPublishedWeek,
+): { title: string; body: string } {
+  const when = weekPhrase(week.week_start, week.today);
+  switch (variant) {
+    case 'assigned':
+      return {
+        title: 'Tu plan está listo',
+        body: `${coach} ha publicado tu plan de entrenamiento. ${startsSentence(week)}`,
+      };
+    case 'next_block':
+      return {
+        title: 'Nuevo programa listo',
+        body: `${coach} ha publicado el siguiente programa de tu plan. ${startsSentence(week)}`,
+      };
+    case 'weekly':
+      return (week.weeks ?? 1) > 1
+        ? { title: 'Tu plan está listo', body: `${coach} ha publicado tu plan a partir de ${when}.` }
+        : { title: 'Tu plan de la semana está listo', body: `${coach} ha publicado tu plan para ${when}.` };
+    default: {
+      const exhaustive: never = variant;
+      return exhaustive;
+    }
+  }
+}
 
 /**
  * Título + cuerpo del push, ya con el nombre del coach de ESTE atleta.
  * Best-effort por diseño: si la consulta falla, se usa el sujeto neutro antes
- * que perder el aviso (el push es cortesía; la bandeja in-app es lo durable).
+ * que perder el aviso (el plan ya está; el aviso es cortesía).
  */
 export async function planPublishedPush(
   sql: Sql,
   athlete_id: bigint,
   variant: PlanPublishedVariant,
+  week: PlanPublishedWeek,
 ): Promise<{ title: string; body: string }> {
-  const tpl = TEMPLATES[variant];
   let coach = COACH_FALLBACK_NAME;
   try {
     coach = await coachDisplayNameForAthlete(sql, athlete_id);
   } catch {
     // se queda el sujeto neutro
   }
-  return { title: tpl.title, body: tpl.body(coach) };
+  return planPublishedCopy(variant, coach, week);
+}
+
+/**
+ * El «hoy» del ATLETA (lo lee él). Un huso guardado que no se puede usar no
+ * tumba el aviso: cae al del producto.
+ */
+async function athleteToday(sql: Sql, athlete_id: bigint, now: Date): Promise<string> {
+  try {
+    return await loadAthleteLocalDay({ athlete_id, now, client: sql });
+  } catch {
+    return zonedDayString(now, BOX_TIMEZONE);
+  }
+}
+
+/**
+ * Avisa al atleta de que tiene plan a la vista desde `week_start`: la fila de la
+ * bandeja y el push, con el mismo payload de siempre (`week_start`, `deep_link`;
+ * la app enruta por `type`). Lanza si falla el envío: cada llamador decide si
+ * es cortesía (todos lo son hoy).
+ */
+export async function notifyPlanPublished(params: {
+  sql: Sql;
+  athlete_id: bigint | number;
+  variant: PlanPublishedVariant;
+  week_start: string;
+  /** Semanas que abre este acto desde `week_start` (publicar un bloque). */
+  weeks?: number;
+  now?: Date;
+}): Promise<{ id: string } | null> {
+  const { sql, week_start } = params;
+  const athlete = BigInt(params.athlete_id);
+  const today = await athleteToday(sql, athlete, params.now ?? new Date());
+  const push = await planPublishedPush(sql, athlete, params.variant, {
+    week_start,
+    weeks: params.weeks,
+    today,
+  });
+  return notifyAthlete({
+    sql,
+    athlete_id: athlete,
+    type: 'plan_published',
+    payload: { athlete_id: String(athlete), week_start, deep_link: `/plan?week=${week_start}` },
+    push: { ...push, deeplink: { screen: 'plan', week_start } },
+  });
 }
 
 /**
@@ -105,10 +222,11 @@ export async function firstVisibleWeek(
 }
 
 /**
- * «Tu plan está listo» tras asignar — SOLO si el atleta ya ve alguna semana de lo
- * asignado. Un programa que empieza dentro de tres semanas se abre solo N días
- * antes (y ese día avisa el cron de publicación): avisar hoy era mandarle a una
- * pantalla vacía. Best-effort: el plan ya está; un aviso fallido no lo deshace.
+ * «Tu plan está listo» (o «Nuevo programa listo» al avanzar la cadena) — SOLO si
+ * el atleta ya ve alguna semana de lo asignado, y nombrando esa semana. Un
+ * programa que empieza dentro de tres semanas se abre solo N días antes (y ese
+ * día avisa el cron de publicación): avisar hoy era mandarle a una pantalla
+ * vacía. Best-effort: el plan ya está; un aviso fallido no lo deshace.
  * Devuelve la semana avisada (o null).
  */
 export async function notifyPlanAssignedIfVisible(params: {
@@ -116,21 +234,20 @@ export async function notifyPlanAssignedIfVisible(params: {
   athlete_id: bigint | number;
   start_date: string;
   week_count: number;
+  /** `next_block` al avanzar al siguiente programa de la cadena. Defecto `assigned`. */
+  variant?: Extract<PlanPublishedVariant, 'assigned' | 'next_block'>;
+  now?: Date;
 }): Promise<string | null> {
   const { sql } = params;
-  const athlete = BigInt(params.athlete_id);
   try {
-    const week = await firstVisibleWeek(sql, athlete, params.start_date, params.week_count);
+    const week = await firstVisibleWeek(sql, params.athlete_id, params.start_date, params.week_count);
     if (!week) return null;
-    await notifyAthlete({
+    await notifyPlanPublished({
       sql,
-      athlete_id: athlete,
-      type: 'plan_published',
-      payload: { athlete_id: String(athlete), week_start: week, deep_link: `/plan?week=${week}` },
-      push: {
-        ...(await planPublishedPush(sql, athlete, 'assigned')),
-        deeplink: { screen: 'plan', week_start: week },
-      },
+      athlete_id: params.athlete_id,
+      variant: params.variant ?? 'assigned',
+      week_start: week,
+      now: params.now,
     });
     return week;
   } catch {

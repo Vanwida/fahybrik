@@ -10,6 +10,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · El aviso de plan lo escribe un solo módulo, nombra su semana y solo llega si hay algo que ver
+
+**El hueco (auditoría de la app del atleta, D-10):** cada camino armaba su propio `plan_published` (dos rutas de asignar, asignar a varios, dobles, avanzar la cadena, publicar una semana o varias, el cron). El aviso semanal decía «para la proxima semana» también al publicar la semana EN CURSO; avanzar decía «Nuevo microciclo listo … el siguiente bloque» (el panel dice «programa»; para el atleta un «bloque» es un tramo de su sesión); ninguno llevaba tildes. Dobles y avanzar avisaban SIEMPRE, aunque ninguna semana fuera visible todavía: «Tu plan está listo» sobre un Plan vacío (la regla «no avisar si ninguna semana es visible», 2026-09-23, solo estaba en asignar). Y la app instalada abre la pestaña Plan en la semana en curso sin mirar `week_start`: la frase es el único sitio donde el atleta lee qué semana es.
+
+**Decidido:**
+- **Un envío:** `notifyPlanPublished` (`web/lib/notifications/plan-published.ts`) arma la fila de la bandeja y el push de todos esos caminos, con el payload de siempre (`week_start`, `deep_link`; la app enruta por `type`). Dobles y avanzar pasan por `notifyPlanAssignedIfVisible` (la primera semana visible, o nada; el día que se abra, avisa el cron).
+- **Toda frase nombra su semana**, contada desde el «hoy» del ATLETA (su huso; lo lee él — «Qué día es en cada sitio», 2026-09-23): «esta semana», «la semana que viene» o «la semana del lunes 12 de octubre». Asignar: «Tu plan está listo — X ha publicado tu plan de entrenamiento. Empieza …» («Empezó …» si la fecha de inicio ya pasó). Publicar una semana: «Tu plan de la semana está listo — … tu plan para …»; varias de golpe: «Tu plan está listo — … a partir de …». Avanzar: «Nuevo programa listo — … el siguiente programa de tu plan. Empieza …». El nombre del coach sigue siendo dato; sin nombre, «Tu entrenador».
+
+**Queda (fuera de este cambio):** la app debería ir a la semana de `week_start` al tocar el aviso y enrutar `event_reminder` a Carreras (lado app). Con el horizonte por defecto de un coach nuevo («Solo esta semana»), el aviso del cron del sábado anuncia la semana que viene y el atleta no puede abrirla hasta el lunes: o el cron espera al horizonte o el horizonte deja ver lo publicado (producto). `publish_week` del MCP avisa aunque la semana ya estuviera visible o esté vacía, a diferencia de los actos del panel (producto). Qué cambios silenciosos merecen aviso (editar, mover, quitar, pausar, revisión) sigue en Q1.
+
+**NO hacer:** no volver a escribir `type: 'plan_published'` fuera de `plan-published.ts`; no decir «la próxima semana» sin contar la semana desde el día del atleta; no usar «microciclo» ni «bloque» con el atleta para un programa; no avisar de un plan que el atleta todavía no puede ver.
+
+---
+
 ## 2026-09-24 · El umbral de pendiente del coach viaja también con la clave que lee la app instalada
 
 **El hueco (auditoría de la app del atleta, D-06):** el detalle de una sesión sirve el umbral de pendiente del coach en `run_compliance.gradient_retires_pace_pct`; la app instalada lo busca en `gradient_threshold_pct` (`RunCompliance.gradientThresholdPct`, `ios/FAHYBRIKCore/Plan/RunCompliance.swift`, que dejó el nombre «pendiente de confirmar»). La clave nunca casaba: el número del coach no llegaba y la app leía la carrera con su suelo del 3 %.

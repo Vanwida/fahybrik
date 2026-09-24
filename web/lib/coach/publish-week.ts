@@ -20,8 +20,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
-import { notifyAthlete } from '@/lib/notifications/dispatch';
-import { planPublishedPush } from '@/lib/notifications/plan-published';
+import { notifyPlanPublished } from '@/lib/notifications/plan-published';
 import { applyDeliveryToWeeks } from './week-publishing';
 
 /** A materialized week spans 7 days; the materializer Monday-aligns each week. */
@@ -100,25 +99,12 @@ export async function publishWeek(params: {
     do update set status = 'published', approved_by = ${coachId}, updated_at = now()
   `;
 
-  // Mirror the cron's notification verbatim (payload shape + push copy). Best-
-  // effort: the publish is already committed; a missed notification is a courtesy
-  // loss, not a correctness issue.
+  // The cron's notification (same sender, payload shape and copy, naming THIS
+  // week from the athlete's today). Best-effort: the publish is already
+  // committed; a missed notification is a courtesy loss, not a correctness issue.
   let notified = false;
   try {
-    const out = await notifyAthlete({
-      sql: client,
-      athlete_id: BigInt(athleteId),
-      type: 'plan_published',
-      payload: {
-        athlete_id: String(athleteId),
-        week_start: weekStart,
-        deep_link: `/plan?week=${weekStart}`,
-      },
-      push: {
-        ...(await planPublishedPush(client, BigInt(athleteId), 'weekly')),
-        deeplink: { screen: 'plan', week_start: weekStart },
-      },
-    });
+    const out = await notifyPlanPublished({ sql: client, athlete_id: athleteId, variant: 'weekly', week_start: weekStart });
     notified = Boolean(out);
   } catch {
     // best-effort
@@ -177,25 +163,18 @@ export async function publishBlock(params: {
     `;
   }
 
-  // ONE notification for the whole block, anchored to its first week (same
-  // payload shape + push copy as publishWeek). Best-effort: the publish is
-  // already committed; a missed notification is a courtesy loss.
+  // ONE notification for the whole block, anchored to its first week («a partir
+  // de …»: it opens several). Best-effort: the publish is already committed; a
+  // missed notification is a courtesy loss.
   const firstWeek = weekStarts[0] as string;
   let notified = false;
   try {
-    const out = await notifyAthlete({
+    const out = await notifyPlanPublished({
       sql: client,
-      athlete_id: BigInt(athleteId),
-      type: 'plan_published',
-      payload: {
-        athlete_id: String(athleteId),
-        week_start: firstWeek,
-        deep_link: `/plan?week=${firstWeek}`,
-      },
-      push: {
-        ...(await planPublishedPush(client, BigInt(athleteId), 'weekly')),
-        deeplink: { screen: 'plan', week_start: firstWeek },
-      },
+      athlete_id: athleteId,
+      variant: 'weekly',
+      week_start: firstWeek,
+      weeks: weekStarts.length,
     });
     notified = Boolean(out);
   } catch {

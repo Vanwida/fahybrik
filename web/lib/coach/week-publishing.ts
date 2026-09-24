@@ -38,8 +38,7 @@ import type {
   BulkWeekPublishResult,
   WeekPublishResult,
 } from '@fahybrid/shared/schema/week-publishing';
-import { notifyAthlete } from '@/lib/notifications/dispatch';
-import { planPublishedPush } from '@/lib/notifications/plan-published';
+import { notifyPlanPublished } from '@/lib/notifications/plan-published';
 
 export class WeekPublishingError extends Error {
   constructor(
@@ -278,18 +277,17 @@ export async function listAthleteWeeks(params: {
 
 // ── Actos del coach ──────────────────────────────────────────────────────────
 
-async function notifyWeekVisible(client: Sql, athlete_id: number, week_start: string): Promise<boolean> {
+/** «Tu plan de la semana está listo», nombrando ESA semana desde el hoy del
+ *  atleta («esta semana», «la semana que viene»…): el cron abre también la semana
+ *  en curso, y el aviso decía «la próxima» para las dos (D-10). */
+async function notifyWeekVisible(
+  client: Sql,
+  athlete_id: number,
+  week_start: string,
+  now?: Date,
+): Promise<boolean> {
   try {
-    const out = await notifyAthlete({
-      sql: client,
-      athlete_id: BigInt(athlete_id),
-      type: 'plan_published',
-      payload: { athlete_id: String(athlete_id), week_start, deep_link: `/plan?week=${week_start}` },
-      push: {
-        ...(await planPublishedPush(client, BigInt(athlete_id), 'weekly')),
-        deeplink: { screen: 'plan', week_start },
-      },
-    });
+    const out = await notifyPlanPublished({ sql: client, athlete_id, variant: 'weekly', week_start, now });
     return Boolean(out);
   } catch {
     // Cortesía: la semana ya está publicada; la bandeja in-app es lo durable.
@@ -505,7 +503,7 @@ export async function runAutoPublish(
   let notified = 0;
   for (const [id, week] of firstByAthlete) {
     if ((sessions.get(`${id}|${week}`) ?? 0) === 0) continue;
-    if (await notifyWeekVisible(client, id, week)) notified += 1;
+    if (await notifyWeekVisible(client, id, week, now)) notified += 1;
   }
   return { today, published: opened.length, notified };
 }
