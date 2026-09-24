@@ -74,7 +74,13 @@ final class SuperficieVivaTests: XCTestCase {
         XCTAssertEqual(SuperficieViva.de(s), .run)
     }
 
-    func testUnaSerieDeIntervalosEnCarreraSigueSiendoElSujetoDeFormato() {
+    /// FH-107: la banda sujeto la decide la MODALIDAD del tramo y el único formato que
+    /// gana al tramo es el EMOM («Carrera manda sobre el formato»; docs/pr/fh107-live-
+    /// structure.md). Una serie plana sigue conducida por el rotativo —y eso es lo que
+    /// lee la banda de cinta vía `isRunSeries`—, pero se pinta en el live de correr
+    /// (calle/cinta, DECISIONS 2026-08-05 «Series · calle / Series · cinta»), no en el
+    /// HUD de un For Time: con `.conditioning` no se monta ni la cinta ni el GPS.
+    func testUnaSerieDeIntervalosEnCarreraSePintaEnElLiveDeCorrer() {
         let s = sesion(tramo: WorkoutSegment(
             order: 1, title: "Series", kind: .running,
             blockTitle: "Principal", blockPosition: 1,
@@ -84,7 +90,8 @@ final class SuperficieVivaTests: XCTestCase {
         ), nombre: "Series", formato: .intervals)
         XCTAssertTrue(s.currentSegment?.isConditioningTimer == true)
         XCTAssertTrue(s.currentSegment.map(TreadmillLegResolver.isRunSeries) == true)
-        XCTAssertEqual(SuperficieViva.de(s), .conditioning)
+        XCTAssertEqual(SuperficieViva.de(s), .run)
+        XCTAssertTrue(SuperficieViva.de(s).esCarrera)
     }
 
     func testElDescansoIntraEmomSigueEnSuperficieEmom() {

@@ -32,8 +32,14 @@ final class FH99LiveOwnershipTests: XCTestCase {
         ])
         s.primaryAdvance(fromAthleteTap: true)
         XCTAssertEqual(s.runLegIndex, 0)
+        // Sin vigilante no hay auto-pausa (DECISIONS 2026-08-05): el que la vigila en
+        // la calle es el modelo del GPS, y se registra así.
+        s.beginAutoPauseEvaluation()
         s.autoPause()
         XCTAssertTrue(s.autoPaused)
+        // Parado en el semáforo un rato: el toque que cierra el tramo es OTRO toque,
+        // no el rebote del primero (antirrebote de `primaryAdvance`, card 113).
+        s.lastPrimaryAdvanceAt = Date(timeIntervalSinceNow: -5)
         s.primaryAdvance(fromAthleteTap: true)
         XCTAssertEqual(s.runLegIndex, 1, "athlete tap must advance leg even under auto-pause")
     }
