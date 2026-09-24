@@ -29,6 +29,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { buildCohort } from '@/lib/coach/cohort';
 import { buildBriefing } from '@/lib/coach/briefing';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 import { buildAthleteDeepDive } from '@/lib/coach/athlete-deep-dive';
 import { fetchAthletesForCoach } from '@/lib/dashboard/athletes/list';
 import { countUnreadForCoach } from '@/lib/chat/service';
@@ -65,14 +66,17 @@ export function registerCoachTools(server: McpServer): void {
       withCoach(extra.authInfo, async (coach_id, coach_name) => {
         // The unread count is READ, never guessed: skipping it makes the
         // builder drop the line entirely rather than paint a plausible number.
-        const [cohort, unread_messages] = await Promise.all([
+        // The date and the greeting are the club's (its zone).
+        const [cohort, unread_messages, tz] = await Promise.all([
           buildCohort({ coach_id }),
           countUnreadForCoach({ coach_id }),
+          loadCoachTimezone(coach_id),
         ]);
         const briefing = buildBriefing({
           coach_first_name: coach_name,
           cohort,
           unread_messages,
+          tz,
         });
         return ok(
           { briefing },

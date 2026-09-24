@@ -96,7 +96,12 @@ export function RendimientoView({ data, seccion }: { data: FichaRendimiento; sec
 
       <Section id="running" title="Running">
         <CorrerTab athleteId={shell.athlete_id} />
-        <ZonasPanel athleteId={shell.athlete_id} athleteName={shell.name} coachName={shell.club_name} />
+        <ZonasPanel
+          athleteId={shell.athlete_id}
+          athleteName={shell.name}
+          coachName={shell.club_name}
+          athleteToday={shell.today}
+        />
         {data.load.ok ? <LoadBlock load={data.load.data} /> : <ErrorState title="No se ha podido calcular su carga" onRetry={retry} />}
       </Section>
 

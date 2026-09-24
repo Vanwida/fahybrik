@@ -12,7 +12,8 @@
 
 import 'server-only';
 import type { Sql } from '@/lib/db';
-import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
 
 export interface BatchRow {
   athlete_id: string;
@@ -90,12 +91,24 @@ export async function loadBatch(
   now: Date,
   athlete_id: bigint | number | null,
 ): Promise<BatchRow[]> {
-  const todayIso = now.toISOString().slice(0, 10);
+  // De quién es cada «hoy» (DECISIONS 2026-09-23, «Qué día es en cada sitio»): el
+  // microciclo en curso y los cobros los lee el coach → día del CLUB; carreras,
+  // tests, tareas y protocolos los vive el atleta → SU día (`athlete_day`).
+  const clubTz = await loadCoachTimezone(coach_id, client);
+  const clubToday = zonedDayString(now, clubTz);
   const nowIso = now.toISOString();
   const athleteFilter = athlete_id != null ? Number(athlete_id) : null;
 
   return client<BatchRow[]>`
-    with hrv_recent as (
+    with athlete_day as (
+      -- «Hoy» de cada atleta en SU huso (sin él, el defecto), como rpe_7d.
+      select a.id as athlete_id,
+             coalesce(a.timezone, ${BOX_TIMEZONE}) as tz,
+             (${nowIso}::timestamptz at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date as today
+      from athletes a
+      where a.coach_id = ${coach_id as number}
+    ),
+    hrv_recent as (
       select bs.athlete_id, avg(bs.value_numeric)::float as v
       from biometric_streams bs
       where bs.metric_type = 'hrv'
@@ -172,40 +185,43 @@ export async function loadBatch(
     a_events as (
       -- Target race per athlete (unified spine, priority='target'). Same predicate
       -- as getTargetRaceRow, batch form (DISTINCT ON joined into the rollup query).
+      -- «Upcoming» on the ATHLETE's day: the race is his.
       select distinct on (r.athlete_id)
         r.athlete_id,
         to_char(r.race_date, 'YYYY-MM-DD') as iso,
         r.name as name
       from races r
+      join athlete_day ad on ad.athlete_id = r.athlete_id
       where r.priority = 'target'
-        and r.race_date >= ${todayIso}::date
+        and r.race_date >= ad.today
         and r.status in ('planned', 'registered')
       order by r.athlete_id, r.race_date asc
     ),
     current_micro as (
       -- The athlete's active microciclo = the athlete_month_assignments receipt
-      -- whose window contains today (most recent wins). Its label = the month
-      -- template name; its end = the assignment window end. Agnostic: no phase
-      -- block, no macrocycle.
+      -- whose window contains the CLUB's today (most recent wins). Its label = the
+      -- month template name; its end = the assignment window end. Agnostic: no
+      -- phase block, no macrocycle.
       select distinct on (ama.athlete_id)
         ama.athlete_id,
         m.name                             as name,
         to_char(ama.end_date, 'YYYY-MM-DD') as iso
       from athlete_month_assignments ama
       join program_month_templates m on m.id = ama.month_template_id
-      where ${todayIso}::date between ama.start_date and ama.end_date
+      where ${clubToday}::date between ama.start_date and ama.end_date
       order by ama.athlete_id, ama.start_date desc
     ),
     billing as (
+      -- Business → the CLUB's calendar: its today and the day the period ends there.
       select distinct on (a.id)
         a.id as athlete_id,
         s.status::text as status,
         s.cancel_at_period_end as cancel_at_period_end,
         case
           when s.current_period_end is null then null
-          else (s.current_period_end::date - ${todayIso}::date)::int
+          else ((s.current_period_end at time zone ${clubTz})::date - ${clubToday}::date)::int
         end as days_to_period_end,
-        to_char(s.current_period_end::date, 'YYYY-MM-DD') as period_end_iso
+        to_char((s.current_period_end at time zone ${clubTz})::date, 'YYYY-MM-DD') as period_end_iso
       from athletes a
       join subscriptions s
         on s.user_id = a.user_id or s.partner_user_id = a.user_id
@@ -224,9 +240,11 @@ export async function loadBatch(
       order by b.athlete_id, b.recorded_at desc
     ),
     last_any_test as (
-      -- Most recent test of ANY kind (incl. onboarding) — drives test_due.
-      select b.athlete_id, max(b.recorded_at)::date as last_date
+      -- Most recent test of ANY kind (incl. onboarding) — drives test_due. The test
+      -- is the athlete's: its day in HIS zone, subtracted from his today below.
+      select b.athlete_id, max((b.recorded_at at time zone ad.tz)::date) as last_date
       from athlete_benchmarks b
+      join athlete_day ad on ad.athlete_id = b.athlete_id
       group by b.athlete_id
     ),
     recent_race as (
@@ -303,6 +321,7 @@ export async function loadBatch(
     comm_task as (
       -- Tareas vencidas sin hacer. Manda la de fecha límite más antigua: es la
       -- que fija el retraso con el que el evaluador decide crítico o vigilar.
+      -- Vencida en el día del ATLETA: es lo que él tenía que haber hecho.
       select
         r.athlete_id,
         count(*)::int                                                 as n,
@@ -311,10 +330,11 @@ export async function loadBatch(
         to_char(min(c.due_date), 'YYYY-MM-DD')                        as due_iso
       from coach_communications c
       join coach_communication_recipients r on r.communication_id = c.id
+      join athlete_day ad on ad.athlete_id = r.athlete_id
       where c.coach_id = ${coach_id as number}
         and c.kind = 'task'
         and c.status = 'published'
-        and c.due_date < ${todayIso}::date
+        and c.due_date < ad.today
         and r.done_at is null
         and (c.expires_at is null or c.expires_at > ${nowIso}::timestamptz)
       group by r.athlete_id
@@ -324,7 +344,7 @@ export async function loadBatch(
       -- un evento con fecha propia (carrera o test). La fecha se resuelve contra
       -- el evento del PROPIO atleta; si anchor_ref nombra uno concreto se exige
       -- ese. Sin fecha resoluble no sale fila: una señal con fecha inventada sería
-      -- peor que no tenerla.
+      -- peor que no tenerla. «Por venir» en el día del ATLETA: el evento es suyo.
       select
         r.athlete_id,
         c.id::text           as id,
@@ -333,12 +353,13 @@ export async function loadBatch(
         coalesce(rc.d, ts.d) as event_date
       from coach_communications c
       join coach_communication_recipients r on r.communication_id = c.id
+      join athlete_day ad on ad.athlete_id = r.athlete_id
       left join lateral (
         select min(ra.race_date) as d
         from races ra
         where c.anchor_kind = 'race'
           and ra.athlete_id = r.athlete_id
-          and ra.race_date >= ${todayIso}::date
+          and ra.race_date >= ad.today
           and ra.status in ('planned', 'registered')
           and (
             c.anchor_ref is null
@@ -353,7 +374,7 @@ export async function loadBatch(
         where c.anchor_kind = 'test'
           and wa.athlete_id = r.athlete_id
           and wa.calibration_test_id is not null
-          and wa.scheduled_for >= ${todayIso}::date
+          and wa.scheduled_for >= ad.today
           and (
             c.anchor_ref is null
             or (c.anchor_ref ~ '^[0-9]+$' and wa.id = c.anchor_ref::bigint)
@@ -414,7 +435,7 @@ export async function loadBatch(
           )
       ))                                  as latest_test_is_pr,
       case when lat.last_date is null then null
-           else (${todayIso}::date - lat.last_date)::int end as days_since_last_test,
+           else (ad.today - lat.last_date)::int end as days_since_last_test,
       rr.ts                               as latest_race_completed_at,
       rr.name                             as latest_race_name,
       rr.id                               as latest_race_id,
@@ -442,6 +463,7 @@ export async function loadBatch(
       cp.event_iso                        as comm_protocol_event_iso,
       cp.n                                as comm_protocol_n
     from athletes a
+    join athlete_day       ad on ad.athlete_id = a.id
     left join hrv_recent   hr on hr.athlete_id = a.id
     left join hrv_baseline hb on hb.athlete_id = a.id
     left join last_sync    ls on ls.athlete_id = a.id

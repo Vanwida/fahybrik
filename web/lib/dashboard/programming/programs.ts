@@ -20,6 +20,7 @@ import { upsertWeekTemplate } from '@/lib/dashboard/coach/program-weeks';
 import { resyncWeekTemplateAssignments } from '@/lib/dashboard/coach/instantiate-program';
 import { invisibleExerciseIds } from '@/lib/exercises/coach-override';
 import { loadCoachMaxMicrocicloWeeks } from '@/lib/coach/microcycle-limits';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 import { checkAssignableLevel, listLevelOptions, type LevelOption } from '@/lib/coach/level-options';
 import { mergeDayIntoDays } from '@/lib/dashboard/v2/editor-serialize';
 
@@ -53,10 +54,13 @@ export interface ProgramRow {
 
 export async function listPrograms(params: {
   coach_id: number | bigint;
+  now?: Date;
   client?: Sql;
 }): Promise<ProgramRow[]> {
   const client = params.client ?? defaultSql;
   const coachId = Number(params.coach_id);
+  // «En curso o por empezar» lo lee el coach: día del CLUB (su huso).
+  const todayIso = await loadCoachToday(coachId, { now: params.now, client });
   const rows = await client<
     Array<{
       id: string;
@@ -98,7 +102,7 @@ export async function listPrograms(params: {
       from athlete_month_assignments a
       join progs p on p.id = a.month_template_id
       join athletes ath on ath.id = a.athlete_id and ath.coach_id = ${coachId}
-      where a.end_date >= current_date
+      where a.end_date >= ${todayIso}::date
       group by a.month_template_id
     ),
     grp as (

@@ -14,6 +14,8 @@ import {
   polarizationDrift,
   TARGET_POLARIZATION,
 } from '@fahybrid/shared/domain/coach/polarization';
+import { effectiveCoachTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { zonedDayString } from '@fahybrid/shared/domain/dates';
 
 /** Drift beyond this many points is worth flagging to the coach. */
 const POLARIZATION_DRIFT_WARN = 6;
@@ -22,6 +24,13 @@ interface BuildParams {
   coach_first_name: string;
   cohort: CohortRow[];
   now?: Date;
+  /**
+   * El huso del club (`loadCoachTimezone`). El briefing abre el día del COACH, así
+   * que la fecha, el saludo y la cuenta atrás van en su calendario (DECISIONS
+   * 2026-09-23, «Qué día es en cada sitio»). Sin él, el reloj del proceso: lo de
+   * antes, que en producción es UTC.
+   */
+  tz?: string;
   active_athlete_count?: number;
   next_a_event?: { name: string; iso_date: string; athlete_count: number; phase?: string | null } | null;
   /**
@@ -39,18 +48,33 @@ interface BuildParams {
   pending_intakes?: Array<{ athlete_id: string; full_name: string }>;
 }
 
-const DATE_FORMATTER = new Intl.DateTimeFormat('es-ES', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-});
+/** «jueves, 24 de septiembre de 2026» en un huso; uno por huso (crearlos cuesta). */
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+function dateFormatterFor(tz: string): Intl.DateTimeFormat {
+  let f = dateFormatters.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: tz,
+    });
+    dateFormatters.set(tz, f);
+  }
+  return f;
+}
 
 export function buildBriefing(params: BuildParams): BriefingPayload {
   const now = params.now ?? new Date();
-  const tod = timeOfDay(now);
+  const tz =
+    params.tz != null
+      ? effectiveCoachTimezone(params.tz)
+      : Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const today = zonedDayString(now, tz);
+  const tod = timeOfDay(now, tz);
   const greeting = greetingFor(tod, params.coach_first_name);
-  const dateLabel = DATE_FORMATTER.format(now).replace(/\sde\s/g, ' ');
+  const dateLabel = dateFormatterFor(tz).format(now).replace(/\sde\s/g, ' ');
 
   const active_athlete_count = params.active_athlete_count ?? params.cohort.length;
   const sessionsToday = params.cohort.reduce(
@@ -155,7 +179,7 @@ export function buildBriefing(params: BuildParams): BriefingPayload {
     lines.push({
       id: 'event',
       icon: 'flag',
-      primary: `${params.next_a_event.name} en ${daysUntil(now, params.next_a_event.iso_date)}d`,
+      primary: `${params.next_a_event.name} en ${daysUntil(today, params.next_a_event.iso_date)}d`,
       secondary: `${params.next_a_event.athlete_count} atletas A-event${
         params.next_a_event.phase ? ` · fase ${params.next_a_event.phase}` : ''
       }`,
@@ -181,7 +205,7 @@ export function buildBriefing(params: BuildParams): BriefingPayload {
   return {
     greeting,
     date_label: dateLabel,
-    iso_date: now.toISOString().slice(0, 10),
+    iso_date: today,
     active_athlete_count,
     time_of_day: tod,
     is_quiet_day,
@@ -190,8 +214,19 @@ export function buildBriefing(params: BuildParams): BriefingPayload {
   };
 }
 
-function timeOfDay(d: Date): TimeOfDay {
-  const h = d.getHours();
+const hourFormatters = new Map<string, Intl.DateTimeFormat>();
+/** La hora (0–23) que marca el reloj de pared en `tz`. */
+function hourIn(d: Date, tz: string): number {
+  let f = hourFormatters.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', hourCycle: 'h23' });
+    hourFormatters.set(tz, f);
+  }
+  return Number(f.format(d)) % 24;
+}
+
+function timeOfDay(d: Date, tz: string): TimeOfDay {
+  const h = hourIn(d, tz);
   if (h < 12) return 'morning';
   if (h < 18) return 'afternoon';
   if (h < 22) return 'evening';
@@ -236,9 +271,9 @@ function inferUpcomingEvent(
   };
 }
 
-function daysUntil(now: Date, iso: string): number {
+/** Días de calendario desde `today` (el día del club) hasta `iso`; nunca negativo. */
+function daysUntil(today: string, iso: string): number {
   const [y, m, d] = iso.split('-').map((s) => Number(s));
-  const target = Date.UTC(y, m - 1, d);
-  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  return Math.max(0, Math.round((target - today) / 86_400_000));
+  const [ty, tm, td] = today.split('-').map((s) => Number(s));
+  return Math.max(0, Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86_400_000));
 }

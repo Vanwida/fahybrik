@@ -39,14 +39,17 @@ const LIBRE: Eleccion = 'libre';
 
 export function ZonasComparar({
   athleteId,
+  hoy,
   onDarFeedback,
 }: {
   athleteId: string;
+  /** Hoy del ATLETA (YYYY-MM-DD, su huso): las semanas que se comparan son las suyas. */
+  hoy: string;
   /** Convertir lo que está a la vista en una nota. Null mientras no haya nada. */
   onDarFeedback: (periodos: ParDePeriodos) => void;
 }) {
   const [eleccion, setEleccion] = useState<Eleccion>(LIBRE);
-  const [libre, setLibre] = useState<ParDePeriodos>(() => parPorDefecto());
+  const [libre, setLibre] = useState<ParDePeriodos>(() => parPorDefecto(hoy));
   const [intento, setIntento] = useState(0);
   /** ¿Ya llegó la primera respuesta? Hasta entonces la elección la manda el
    *  servidor (su atajo de entrada) y no la pastilla que haya marcada. */

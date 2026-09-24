@@ -154,9 +154,18 @@ export function filaVacia(): FilaBorrador {
     display: 'texto',
     segments: [segmentoVacio(), segmentoVacio()],
     grafica: ventanaPorDefecto(),
-    comparativa: parPorDefecto(),
+    comparativa: parPorDefecto(hoyDeQuienEscribe()),
     test_assignment_id: '',
   };
+}
+
+/** Hoy en el calendario de quien escribe: una nota puede ir a varios atletas o a la
+ *  biblioteca, sin un «hoy» de atleta (el par con SU día lo monta «Comparar»). */
+function hoyDeQuienEscribe(): string {
+  const hoy = new Date();
+  const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+  const dd = String(hoy.getDate()).padStart(2, '0');
+  return `${hoy.getFullYear()}-${mm}-${dd}`;
 }
 
 /**
@@ -173,10 +182,7 @@ export function ventanaPorDefecto(weeks = zoneWindowWeeks(DEFAULT_ZONE_WINDOW)):
  *  tamaño de la ventana se mueve el principio y no el final: el coach está
  *  mirando lo reciente y estirar la ventana es pedir más pasado, no otro tramo. */
 export function ventanaQueAcabaHoy(weeks: number): { week_start: string; weeks: number } {
-  const hoy = new Date();
-  const mm = String(hoy.getMonth() + 1).padStart(2, '0');
-  const dd = String(hoy.getDate()).padStart(2, '0');
-  const ultimoLunes = mondayOf(`${hoy.getFullYear()}-${mm}-${dd}`);
+  const ultimoLunes = mondayOf(hoyDeQuienEscribe());
   return { week_start: addWeeks(ultimoLunes, -(weeks - 1)), weeks };
 }
 
@@ -297,7 +303,7 @@ function graficaDeDto(g: ZoneChartDTO | null): GraficaBorrador {
  *  forma que no sea comparativa) se cae al par por defecto, para que cambiarle la
  *  forma a una sección no deje el formulario en blanco. */
 function comparativaDeDto(c: ZoneComparisonDTO | null): ParDePeriodos {
-  if (c == null) return parPorDefecto();
+  if (c == null) return parPorDefecto(hoyDeQuienEscribe());
   return { a_start: c.a.week_start, b_start: c.b.week_start, weeks: c.weeks };
 }
 

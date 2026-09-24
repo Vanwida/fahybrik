@@ -83,11 +83,14 @@ export function ZonasPanel({
   athleteId,
   athleteName,
   coachName,
+  athleteToday,
 }: {
   athleteId: string;
   athleteName: string;
   /** El nombre con el que el atleta ve firmados los comunicados (el del club). */
   coachName: string;
+  /** Hoy del ATLETA (YYYY-MM-DD, su huso): de él cuelga el par por defecto de «Comparar». */
+  athleteToday: string;
 }) {
   const router = useRouter();
   const [windowKey, setWindowKey] = useState<ZoneWindowKey>(DEFAULT_ZONE_WINDOW);
@@ -246,6 +249,7 @@ export function ZonasPanel({
         {comparando ? (
           <ZonasComparar
             athleteId={athleteId}
+            hoy={athleteToday}
             onDarFeedback={(periodos) => setComponiendo(notaDeComparativa(periodos))}
           />
         ) : null}

@@ -66,8 +66,15 @@ export interface ParDePeriodos {
  * La semana en curso se queda fuera a propósito. Va a medias por definición, y
  * meterla hundiría la media de horas del lado reciente por una razón que no tiene
  * nada que ver con el atleta.
+ *
+ * `hoyIso` lo pone quien llama, y es el día del ATLETA (su huso): las semanas son
+ * las suyas, y su «última cerrada» es la que él ha terminado. Sin reloj propio a
+ * propósito: el día UTC dejaba la semana anterior hasta la 01:00–02:00 del lunes
+ * en España, y hasta las 12:00–13:00 en Nueva Zelanda (DECISIONS, «Qué día es en
+ * cada sitio»). Solo el compositor, que puede escribir para varios atletas o para
+ * la biblioteca y no tiene el día de ninguno, pasa el de quien escribe.
  */
-export function parPorDefecto(hoyIso = new Date().toISOString().slice(0, 10)): ParDePeriodos {
+export function parPorDefecto(hoyIso: string): ParDePeriodos {
   const ultimaCerrada = addWeeks(mondayOf(hoyIso), -1);
   const b_start = addWeeks(ultimaCerrada, -(COMPARE_TRIMESTRE_WEEKS - 1));
   return {
