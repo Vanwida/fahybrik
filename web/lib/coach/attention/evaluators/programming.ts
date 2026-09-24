@@ -9,7 +9,7 @@ import {
   type SignalEvaluator,
   type SignalResult,
   dedupeKey,
-  daysFromNowToIso,
+  daysBetweenIso,
 } from '@fahybrid/shared/domain/coach/signals';
 import { shortDate, dias } from '@fahybrid/shared/domain/coach/athlete-state';
 
@@ -86,11 +86,12 @@ export const microcycleEndingEvaluator: SignalEvaluator = {
   kind: 'microcycle_ending',
   default_severity: 'warning',
   enabled: true,
-  evaluate(facts, thresholds, now): SignalResult | null {
+  evaluate(facts, thresholds): SignalResult | null {
     if (facts.current_microcycle_end_iso == null) return null;
     // Si ya tiene el siguiente programa asignado, que acabe este no es una tarea.
     if (facts.next_program_start_iso != null) return null;
-    const days = daysFromNowToIso(facts.current_microcycle_end_iso, now);
+    // El plan va en el calendario del CLUB; sin él, el del atleta.
+    const days = daysBetweenIso(facts.club_today_iso ?? facts.today_iso, facts.current_microcycle_end_iso);
     const fires = days >= 0 && days <= thresholds.microcycle_ending_days;
     if (!fires) return null;
     const end = shortDate(facts.current_microcycle_end_iso);

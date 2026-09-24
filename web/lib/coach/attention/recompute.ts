@@ -35,10 +35,10 @@ import {
   loadAdherenceSessionsBatch,
   type AdherenceSessionsBatch,
 } from '@fahybrid/shared/domain/coach/adherence';
-import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { BOX_TIMEZONE, isoDateString, zonedDayString } from '@fahybrid/shared/domain/dates';
 import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
 import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
-import { daysFromNowToIso, type SignalFacts } from '@fahybrid/shared/domain/coach/signals';
+import { daysBetweenIso, type SignalFacts } from '@fahybrid/shared/domain/coach/signals';
 import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
 import { loadBatch, type BatchRow } from './recompute-batch';
@@ -153,7 +153,8 @@ async function assembleFacts(
       ? null
       : Math.floor((now.getTime() - row.last_sync_at.getTime()) / 60_000);
 
-  const days_to_a_event = row.a_event_iso ? daysFromNowToIso(row.a_event_iso, now) : null;
+  // Su carrera, en SU calendario (DECISIONS «Qué día es en cada sitio»).
+  const days_to_a_event = row.a_event_iso ? daysBetweenIso(today_iso, row.a_event_iso) : null;
 
   const intake = maps.intake.get(row.athlete_id) ?? null;
   const weekAdj = maps.weekAdj.get(row.athlete_id) ?? null;
@@ -182,6 +183,7 @@ async function assembleFacts(
     readiness_score: readiness ? (latestReading(readiness.series)?.score ?? null) : null,
     readiness_series: readiness?.series ?? [],
     today_iso,
+    club_today_iso: isoDateString(clubDay),
     timezone,
 
     discomfort_area: row.latest_pain_area,
@@ -203,7 +205,7 @@ async function assembleFacts(
     intake_pending_hours: intake?.hours_since_onboarded ?? null,
     intake_a_event_name: intake?.a_event_name ?? null,
     intake_a_event_days:
-      intake?.a_event_iso != null ? daysFromNowToIso(intake.a_event_iso, now) : null,
+      intake?.a_event_iso != null ? daysBetweenIso(today_iso, intake.a_event_iso) : null,
     week_adjustment_proposal_id: weekAdj?.proposal_id ?? null,
     week_adjustment_summary: weekAdj?.summary ?? null,
     monthly_block_proposal_id: monthly?.proposal_id ?? null,
@@ -239,7 +241,7 @@ async function assembleFacts(
     ),
     has_upcoming_review: row.has_upcoming_review,
 
-    ...communicationClaims(row, now),
+    ...communicationClaims(row, now, today_iso),
   };
 }
 

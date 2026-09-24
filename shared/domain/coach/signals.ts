@@ -180,6 +180,11 @@ export interface SignalFacts {
   readiness_series: Array<{ on: string; score: number }>;
   /** The athlete's own "today" (YYYY-MM-DD, their timezone). */
   today_iso: string;
+  /**
+   * The CLUB's "today" (YYYY-MM-DD, the coach's timezone) — for what is plan
+   * (the microcycle ending). Absent → the athlete's `today_iso`.
+   */
+  club_today_iso?: string;
   /** The athlete's IANA timezone (fallback: the box's) — for "hoy/ayer" of an instant. */
   timezone: string;
 
@@ -387,6 +392,20 @@ export function hoursBetween(earlier: Date, later: Date): number {
 }
 
 /** Whole days from a YYYY-MM-DD date to `now` (positive when the date is future). */
+/**
+ * Días de `fromIso` a `toIso` (AAAA-MM-DD los dos): positivo si `toIso` cae
+ * después. Los dos son días de calendario YA resueltos en el huso que toca
+ * (DECISIONS «Qué día es en cada sitio»): el del atleta para lo que él vive (su
+ * carrera, su tarea, su protocolo), el del club para el plan (fin del
+ * microciclo). Es lo que usan los evaluadores; `daysFromNowToIso` cuenta desde
+ * el día UTC de `now` y solo sirve a quien no tiene un día resuelto.
+ */
+export function daysBetweenIso(fromIso: string, toIso: string): number {
+  const [fy, fm, fd] = fromIso.split('-').map(Number);
+  const [ty, tm, td] = toIso.split('-').map(Number);
+  return Math.round((Date.UTC(ty!, tm! - 1, td!) - Date.UTC(fy!, fm! - 1, fd!)) / 86_400_000);
+}
+
 export function daysFromNowToIso(iso: string, now: Date): number {
   const [y, m, d] = iso.split('-').map(Number);
   const target = Date.UTC(y!, m! - 1, d!);
