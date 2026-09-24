@@ -20,7 +20,10 @@ export const AUTH_CONFIG = {
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean),
 
-  athleteSessionTtlSeconds: 30 * 24 * 60 * 60,
+  // Desde la última renovación (`/api/auth/refresh`, que la app pide a lo sumo una
+  // vez al día): quien abre la app al menos una vez cada 180 días no vuelve a ver
+  // el login. Antes eran 30 días desde que entró, usara la app o no (auditoría E3).
+  athleteSessionTtlSeconds: 180 * 24 * 60 * 60,
   coachSessionTtlSeconds: 7 * 24 * 60 * 60,
   magicLinkTtlSeconds: 15 * 60,
   // Passwordless athlete email-login codes (iOS). Short-lived by design: a

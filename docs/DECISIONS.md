@@ -10,6 +10,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · El atleta sigue dentro: la sesión se renueva con el uso
+
+**Por qué (auditoría de la app, E2/E3; fase 1 firmada «los atletas siguen dentro»):** la sesión del atleta caducaba 30 días después de entrar, usara la app o no; con Apple Salud conectado acababa en el bucle de salidas (el subidor de Salud guarda el token viejo y su 401 echa a la sesión nueva). Whoop, Strava, TrainingPeaks y Runna te mantienen dentro.
+
+**Decidido (mecanismo; lo firmado es el qué):**
+- `POST /api/auth/refresh`: con un token de atleta válido devuelve otro nuevo. La app lo pide a lo sumo una vez al día, al abrir.
+- La sesión dura **180 días desde la última renovación** (`athleteSessionTtlSeconds`, antes 30 desde la entrada): quien abre la app al menos una vez cada seis meses no vuelve a ver el login.
+- **El token viejo NO se revoca al renovar**: caduca en su fecha. Revocarlo convertiría en 401 cualquier petición en vuelo con él — el bucle que esto cierra. Cerrar sesión sigue revocando.
+- Lo sustituye: el comentario de `AuthState.handleUnauthorized` («no inventamos un endpoint de refresco») queda superado por la fase 1.
+
+**Falta (iOS, fase 1):** que la app lo pida, y que todo lo que sube lea el token vigente en el momento de enviar (una sola fuente; E2), y que un 401 solo cierre sesión si el token que falló ES el vigente.
+
+---
+
 ## 2026-09-24 · El registro técnico de los aparatos: a todos, solo técnico, 30 días
 
 **Decidido (Alex, 24-09, preguntas y respuestas):** las apps del iPhone y del Apple Watch nos envían un registro técnico — cierres inesperados, bloqueos, eventos del enlace muñeca↔móvil y guardados fallidos — **de todos los atletas, sin interruptor**, porque es lo que hace falta para que el servicio funcione (interés legítimo). Nunca datos de salud, ubicación ni contenido del entreno. **Se borra a los 30 días.** Política de privacidad v1.2 (2.6, 4 y 7) lo dice. Descartado: interruptor apagado por defecto (casi nadie lo enciende: no veríamos los fallos reales) y solo TestFlight (nos quedamos sin los atletas reales).
