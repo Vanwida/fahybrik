@@ -27,8 +27,10 @@ export async function GET(
   `;
   if (!owned[0]) return jsonError('not_found', 'Athlete not found', 404);
 
-  // El progreso lo lee el coach: «hoy» es el día del club, no el del defecto.
-  const today = parseIsoDate(await loadCoachToday(session.coach_id));
-  const progress = await buildMacroProgress({ athlete_id: athleteId, on_date: today });
+  // El progreso lo lee el coach: la posición en el plan va en el día del club;
+  // la cuenta atrás a SU carrera, en el del atleta en este mismo instante.
+  const now = new Date();
+  const today = parseIsoDate(await loadCoachToday(session.coach_id, { now }));
+  const progress = await buildMacroProgress({ athlete_id: athleteId, on_date: today, now });
   return jsonOk({ macro_progress: progress });
 }

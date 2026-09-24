@@ -1,6 +1,6 @@
 import type { Sql } from 'postgres';
 import { getCurrentMicrociclo } from './current-microciclo';
-import { getTargetRaceRow } from './target-race';
+import { getTargetRaceRow, raceCountdownDay } from './target-race';
 import { addDays, isoDateString, startOfDayInBox } from '../dates';
 import { computeAthleteDailyReadiness } from './athlete-daily-readiness';
 import { loadAdherenceBatch } from './adherence';
@@ -92,7 +92,10 @@ export type BodySignal = {
 
 export async function buildAthleteContextPack(params: {
   athlete_id: number | bigint;
+  /** El día del plan (el del club, para el coach; el domingo evaluado, para la revisión semanal). */
   on_date?: Date;
+  /** El instante de la lectura: la cuenta atrás a la carrera va en el día del atleta (`raceCountdownDay`). */
+  now?: Date;
   /** Las señales vivas de Hoy que piden tocar la semana (sin ellas, ninguna). */
   body_signals?: BodySignal[];
   /** El mínimo de adherencia del coach para progresar; sin él, se lee de su fila. */
@@ -116,8 +119,9 @@ export async function buildAthleteContextPack(params: {
     from athletes where id = ${params.athlete_id as number} limit 1
   `;
 
-  // Días hasta la carrera objetivo (unified `races` spine, priority='target').
-  const targetRace = await getTargetRaceRow(params.athlete_id, client, today);
+  // Días hasta la carrera objetivo (unified `races` spine, priority='target'),
+  // en el día del ATLETA: la carrera es suya.
+  const targetRace = await getTargetRaceRow(params.athlete_id, client, await raceCountdownDay(params));
 
   // Adherencia: LA fórmula del panel (solo lo que ya tocaba; `adherence.ts`). La
   // IA y el coach leen el mismo número que el roster y la ficha — antes contaba

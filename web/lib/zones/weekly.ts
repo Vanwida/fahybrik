@@ -20,7 +20,9 @@ import { DEFAULT_ZONE_WINDOW, zoneWindowWeeks } from '@/lib/zones/chart';
 import { resolvePlanPath } from '@/lib/plan/camino';
 import { loadAthleteHrZones } from '@/lib/athlete/hr-zones';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@/lib/sync/ingest-execution-segments';
-import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
+import { addDays, BOX_TIMEZONE, isoDateString } from '@fahybrid/shared/domain/dates';
+import { mondayOfWeekInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import type { PlanPathSegmentDTO } from '@fahybrid/shared/domain/plan-path';
 import type { ZoneWeekSecondsDTO } from '@fahybrid/shared/domain/zone-chart';
 import type { HrAnchorConfidence, HrAnchorSource } from '@fahybrid/shared/domain/methodology';
@@ -108,9 +110,14 @@ export async function loadWeeklyZones(args: {
     Math.max(1, Math.trunc(args.weeks ?? WEEKLY_ZONES_DEFAULT_WEEKS)),
   );
   const modality = args.modality ?? null;
-  const since = new Date(now.getTime() - weeks * 7 * 24 * 60 * 60 * 1000);
+  // Las N semanas del ATLETA, de lunes a domingo en su huso, la última la que
+  // está en curso: la misma rejilla que pinta la gráfica (`buildWeekCells`). Con
+  // «ahora − N × 7 días» la ventana abría a media semana y salía una barra de
+  // más, recortada, que además contaba como semana medida.
+  const tz = await loadAthleteTimezone(client, args.athlete_id);
+  const week_start = isoDateString(addDays(mondayOfWeekInTz(now, tz), -(weeks - 1) * 7));
 
-  const ventana: Ventana = { kind: 'rodante', since, until: now };
+  const ventana: Ventana = { kind: 'rodante', week_start, until: now };
   const [rows, computed, anchorZones, planPath] = await Promise.all([
     weekRows(client, args.athlete_id, ventana, modality),
     computedWith(client, args.athlete_id, ventana, modality),
@@ -118,8 +125,7 @@ export async function loadWeeklyZones(args: {
     resolvePlanPath({ athlete_id: args.athlete_id, sql: client }),
   ]);
 
-  const sinceIso = since.toISOString().slice(0, 10);
-  const plan_segments = (planPath?.segments ?? []).filter((s) => s.end_date >= sinceIso);
+  const plan_segments = (planPath?.segments ?? []).filter((s) => s.end_date >= week_start);
 
   return {
     athlete_id: String(args.athlete_id),
@@ -148,7 +154,8 @@ export async function loadWeeklyZones(args: {
  * DE QUÉ TROZO DEL CALENDARIO SE HABLA, y son dos cosas distintas:
  *
  *   · `rodante` — «los últimos N meses», que es lo que mira el coach en la ficha
- *     y se mueve con el reloj.
+ *     y se mueve con el reloj: las N semanas del atleta que acaban en la que
+ *     está en curso, hasta ahora.
  *   · `fija` — un periodo del calendario, del lunes X y N semanas. Es lo que
  *     lleva dentro una nota firmada: se congela al escribirla para que el atleta
  *     que la abre en octubre lea exactamente la misma historia.
@@ -158,21 +165,23 @@ export async function loadWeeklyZones(args: {
  * cuentan lo mismo.
  */
 type Ventana =
-  | { kind: 'rodante'; since: Date; until: Date }
+  | { kind: 'rodante'; week_start: string; until: Date }
   | { kind: 'fija'; week_start: string; weeks: number };
 
 /**
  * El filtro temporal de cada clase de ventana.
  *
- * La fija compara por el DÍA LOCAL del atleta y no por instantes, porque es lo
+ * Las dos comparan por el DÍA LOCAL del atleta y no por instantes, porque es lo
  * mismo por lo que se agrupa (`date_trunc('week', … at time zone …)`): con
  * bordes en UTC, un entreno del domingo por la noche caería en la semana de al
- * lado y la primera y la última barra saldrían recortadas.
+ * lado y la primera y la última barra saldrían recortadas. La rodante, además,
+ * no pasa de ahora.
  */
 function ventanaFilter(client: Sql, v: Ventana) {
   if (v.kind === 'rodante') {
     return client`
-      coalesce(we.ended_at, we.started_at) >= ${v.since.toISOString()}::timestamptz
+      (coalesce(we.ended_at, we.started_at) at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date
+        >= ${v.week_start}::date
       and coalesce(we.ended_at, we.started_at) <= ${v.until.toISOString()}::timestamptz
     `;
   }

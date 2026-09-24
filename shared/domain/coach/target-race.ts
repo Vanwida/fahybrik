@@ -1,5 +1,5 @@
 import type { Sql } from 'postgres';
-import { isoDateString, startOfDayInBox } from '../dates';
+import { isoDateString, parseIsoDate, startOfDayInBox } from '../dates';
 import { loadAthleteLocalDay } from '../db/athlete-timezone';
 import type {
   RaceEventType,
@@ -108,4 +108,24 @@ export async function getTargetRaceRow(
   `;
 
   return rows[0] ?? null;
+}
+
+/**
+ * Desde qué día se cuenta la cuenta atrás a la carrera objetivo. La carrera es
+ * del ATLETA y se cuenta en SU día (DECISIONS 2026-09-23, «Qué día es en cada
+ * sitio»); la posición en el plan, en cambio, va en el `on_date` que pasa quien
+ * llama (el día del club para el coach). Con `now` (o sin `on_date`), el día del
+ * atleta en ese instante; con solo `on_date`, ese día tal cual — quien lee un día
+ * fijo (una semana ya evaluada) cuenta desde él.
+ */
+export async function raceCountdownDay(params: {
+  athlete_id: number | bigint;
+  on_date?: Date;
+  now?: Date;
+  client: Sql;
+}): Promise<Date> {
+  if (params.on_date && !params.now) return startOfDayInBox(params.on_date);
+  return parseIsoDate(
+    await loadAthleteLocalDay({ athlete_id: params.athlete_id, now: params.now ?? new Date(), client: params.client }),
+  );
 }

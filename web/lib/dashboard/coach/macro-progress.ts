@@ -28,6 +28,8 @@ export type {
 export function buildMacroProgress(params: {
   athlete_id: number | bigint;
   on_date?: Date;
+  /** El instante de la lectura: la cuenta atrás a la carrera va en el día del atleta. */
+  now?: Date;
   client?: Sql;
 }): Promise<MacroProgressPayload> {
   return _buildMacroProgress({ ...params, client: params.client ?? defaultSql });
@@ -44,6 +46,8 @@ export function loadMicrocycleDetail(params: {
 export function buildAthleteMacroSummary(params: {
   athlete_id: number | bigint;
   on_date?: Date;
+  /** El instante de la lectura: la cuenta atrás a la carrera va en el día del atleta. */
+  now?: Date;
   client?: Sql;
 }): ReturnType<typeof _buildAthleteMacroSummary> {
   return _buildAthleteMacroSummary({ ...params, client: params.client ?? defaultSql });

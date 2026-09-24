@@ -29,8 +29,9 @@ import {
   type PolarizationSplit,
 } from '@fahybrid/shared/domain/coach/hr-method';
 import type { ZoneSecondsByZone } from '@fahybrid/shared/domain/methodology';
-
-const SECONDS_PER_WEEK = 7 * 24 * 60 * 60;
+import { mondayOfWeekInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
+import { addDays, isoDateString, parseIsoDate } from '@fahybrid/shared/domain/dates';
 
 type ZoneSumRow = {
   z1_s: number;
@@ -107,6 +108,14 @@ export async function loadPolarizationWindow(args: {
 /**
  * El reparto semana a semana, hacia atrás. UNA consulta para las N semanas.
  *
+ * Las semanas son las DEL ATLETA: de lunes a domingo en su huso
+ * (`athletes.timezone`), la última la que está en curso, y cada punto lleva su
+ * lunes. Es lo que vivió él (DECISIONS 2026-09-23, «Qué día es en cada sitio») y
+ * el mismo corte que la gráfica de zonas (`zones/weekly.ts`) y el volumen de
+ * carrera. Antes eran tramos de 7 × 24 h contados desde AHORA y rotulados con el
+ * día UTC: un domingo por la noche y el lunes siguiente caían en la misma semana,
+ * y el rótulo se movía con la hora de la consulta.
+ *
  * Una semana sin nada medido sale con `pct: null` y no con un 0/0/0: la línea se
  * ROMPE, que es lo honesto — no es una semana en la que el atleta hizo el 0 % de
  * su trabajo suave.
@@ -120,16 +129,19 @@ export async function loadPolarizationHistory(args: {
 }): Promise<Array<{ iso_date: string; pct: PolarizationSplit | null }>> {
   const client = args.client ?? defaultSql;
   const now = args.now ?? new Date();
-  const since = new Date(now.getTime() - args.weeks * SECONDS_PER_WEEK * 1000);
+  const weeks = Math.max(1, Math.trunc(args.weeks));
+  const tz = await loadAthleteTimezone(client, args.athlete_id);
+  const thisMonday = mondayOfWeekInTz(now, tz);
+  const firstMonday = isoDateString(addDays(thisMonday, -(weeks - 1) * 7));
 
-  // El cubo es «cuántas semanas hace», medido desde AHORA hacia atrás, para que
-  // cada punto siga cayendo donde caía cuando esto eran doce consultas sueltas.
-  const rows = await client<Array<ZoneSumRow & { weeks_ago: number }>>`
+  // Cubo = el lunes de la semana del atleta en que acabó el entreno; ventana =
+  // desde el primer lunes (su día, no el de la sesión de Postgres) hasta ahora.
+  const rows = await client<Array<ZoneSumRow & { week_start: string }>>`
     select
-      floor(
-        extract(epoch from (${now.toISOString()}::timestamptz - coalesce(we.ended_at, we.started_at)))
-        / ${SECONDS_PER_WEEK}
-      )::int as weeks_ago,
+      to_char(
+        date_trunc('week', coalesce(we.ended_at, we.started_at) at time zone ${tz})::date,
+        'YYYY-MM-DD'
+      ) as week_start,
       coalesce(sum(z.z1_s), 0)::int as z1_s,
       coalesce(sum(z.z2_s), 0)::int as z2_s,
       coalesce(sum(z.z3_s), 0)::int as z3_s,
@@ -137,18 +149,18 @@ export async function loadPolarizationHistory(args: {
       coalesce(sum(z.z5_s), 0)::int as z5_s
     ${zoneJoin(client)}
     where we.athlete_id = ${args.athlete_id}
-      and coalesce(we.ended_at, we.started_at) >= ${since.toISOString()}::timestamptz
+      and (coalesce(we.ended_at, we.started_at) at time zone ${tz})::date >= ${firstMonday}::date
       and coalesce(we.ended_at, we.started_at) <= ${now.toISOString()}::timestamptz
     group by 1
   `;
-  const byWeeksAgo = new Map(rows.map((r) => [r.weeks_ago, r]));
+  const byWeek = new Map(rows.map((r) => [r.week_start, r]));
 
   const out: Array<{ iso_date: string; pct: PolarizationSplit | null }> = [];
-  for (let i = args.weeks - 1; i >= 0; i--) {
-    const at = new Date(now.getTime() - i * SECONDS_PER_WEEK * 1000);
-    const row = byWeeksAgo.get(i);
+  for (let i = 0; i < weeks; i++) {
+    const iso_date = isoDateString(addDays(parseIsoDate(firstMonday), i * 7));
+    const row = byWeek.get(iso_date);
     out.push({
-      iso_date: at.toISOString().slice(0, 10),
+      iso_date,
       pct: row ? polarizationPct(collapseToPolarization(toByZone(row), args.method)) : null,
     });
   }

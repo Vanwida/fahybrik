@@ -19,6 +19,8 @@ export type { AthleteContextPack, ProgressionVerdict };
 export async function buildAthleteContextPack(params: {
   athlete_id: number | bigint;
   on_date?: Date;
+  /** El instante de la lectura: la cuenta atrás a la carrera va en el día del atleta. */
+  now?: Date;
   client?: Sql;
 }): Promise<AthleteContextPack> {
   const client = params.client ?? sql;

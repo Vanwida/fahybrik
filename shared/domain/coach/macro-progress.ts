@@ -1,6 +1,6 @@
 import type { Sql } from 'postgres';
 import { getCurrentMicrociclo } from './current-microciclo';
-import { getTargetRaceRow } from './target-race';
+import { getTargetRaceRow, raceCountdownDay } from './target-race';
 import { programPosition } from './program-position';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate, startOfDayInBox } from '../dates';
 
@@ -67,7 +67,10 @@ export type MacroProgressPayload = {
 
 export async function buildMacroProgress(params: {
   athlete_id: number | bigint;
+  /** El día del plan (el del club, para el coach). */
   on_date?: Date;
+  /** El instante de la lectura: la cuenta atrás a la carrera va en el día del atleta (`raceCountdownDay`). */
+  now?: Date;
   client: Sql;
 }): Promise<MacroProgressPayload> {
   const client = params.client;
@@ -103,8 +106,9 @@ export async function buildMacroProgress(params: {
   // Semana actual dentro del microciclo activo (1-indexed) desde el receipt.
   const block_week = current ? current.week_index : null;
 
-  // Días hasta la carrera objetivo (unified `races` spine, priority='target').
-  const targetRace = await getTargetRaceRow(params.athlete_id, client, today);
+  // Días hasta la carrera objetivo (unified `races` spine, priority='target'),
+  // en el día del ATLETA: la carrera es suya.
+  const targetRace = await getTargetRaceRow(params.athlete_id, client, await raceCountdownDay(params));
 
   const assignmentWeeks = await client<
     Array<{
@@ -386,6 +390,8 @@ export async function loadMicrocycleDetail(params: {
 export async function buildAthleteMacroSummary(params: {
   athlete_id: number | bigint;
   on_date?: Date;
+  /** El instante de la lectura: la cuenta atrás a la carrera va en el día del atleta (`raceCountdownDay`). */
+  now?: Date;
   client: Sql;
 }): Promise<{
   block: string | null;
@@ -407,8 +413,9 @@ export async function buildAthleteMacroSummary(params: {
     (await currentMicrocicloLabel(params.athlete_id, todayIso, client)) ??
     (await semanaDelPlanDirecto(params.athlete_id, today, client));
 
-  // Días hasta la carrera objetivo (unified `races` spine, priority='target').
-  const targetRace = await getTargetRaceRow(params.athlete_id, client, today);
+  // Días hasta la carrera objetivo (unified `races` spine, priority='target'),
+  // en el día del ATLETA: la carrera es suya.
+  const targetRace = await getTargetRaceRow(params.athlete_id, client, await raceCountdownDay(params));
 
   return {
     block: null,

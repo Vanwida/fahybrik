@@ -252,7 +252,10 @@ export async function buildAthletePlan(params: {
   // «Hoy» es el del CLUB: el plan del atleta lo lee y lo decide el coach
   // (DECISIONS 2026-09-23, «Qué día es en cada sitio»). Uno para toda la vista:
   // el ancla, qué microciclo va, cuál está programado, el día marcado como hoy.
-  const todayIso = await loadCoachToday(params.coach_id, { client });
+  // La cuenta atrás a la carrera es la excepción: va en el día del ATLETA en
+  // este mismo instante (`now` a `buildMacroProgress`).
+  const now = new Date();
+  const todayIso = await loadCoachToday(params.coach_id, { now, client });
   const today = parseIsoDate(todayIso);
   const baseAnchor = params.anchor_iso ? parseIsoDate(params.anchor_iso) : today;
 
@@ -392,7 +395,7 @@ export async function buildAthletePlan(params: {
   });
 
   const micro = await getCurrentMicrociclo({ athlete_id: params.athlete_id, on_date: today, client });
-  const macro = await buildMacroProgress({ athlete_id: params.athlete_id, on_date: today, client });
+  const macro = await buildMacroProgress({ athlete_id: params.athlete_id, on_date: today, now, client });
   const microciclo = await loadMicrocicloPublishState({ athlete_id: params.athlete_id, client });
   const upcoming_plan = await resolveUpcomingPlan({
     athlete_id: params.athlete_id,
