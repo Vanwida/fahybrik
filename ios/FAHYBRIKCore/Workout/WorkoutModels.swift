@@ -661,9 +661,15 @@ extension WorkoutSegment {
     /// True when this segment runs a NON-EMOM conditioning timer (For Time, AMRAP,
     /// Tabata, Intervals, Death By, Steady, Chipper, Ladder, Rounds, HYROX sim).
     /// EMOM is excluded — it keeps its own dedicated engine (`isEMOM`).
+    ///
+    /// Y la carrera con estructura también: su esquema plano (`intervals` / `steady`)
+    /// se lee como reloj, pero la conduce el cursor de tramos, no el rotativo — la
+    /// misma precedencia que `onEnterSegment` (estructura > EMOM > rotativo). Si las
+    /// pantallas leen otra cosa que el motor, a la carrera le montan el HUD de otro
+    /// formato (el fartlek en blanco del 10-ago). Ver DECISIONS 2026-08-10.
     var isConditioningTimer: Bool {
-        guard let s = formatScheme, !isEMOM else { return false }
-        return s.runsConditioningTimer
+        guard let s = formatScheme, !isEMOM, s.runsConditioningTimer else { return false }
+        return !hasRunStructure
     }
 
     /// The block's movement list — one row per movement, from the folded
