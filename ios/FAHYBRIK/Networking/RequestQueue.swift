@@ -100,12 +100,17 @@ actor RequestQueue {
         self.fileURL = dir.appendingPathComponent(filename)
     }
 
-    /// Replay window. An entry older than this is dropped instead of replayed:
-    /// days-old wellness/workout submissions landing out of the blue would
-    /// mislead the coach's "what happened this week" more than help it, and any
-    /// genuinely-offline stretch worth recovering (a weekend without signal)
-    /// fits well inside it.
-    private static let maxEntryAge: TimeInterval = 72 * 3600
+    /// LO QUE EL ATLETA HIZO NO CADUCA (fase 1, «nada se pierde»; auditoría: «los
+    /// entrenos offline se tiran a las 72 h»). Antes una entrada de más de 72 h se
+    /// tiraba sin decir nada, con la idea de no confundir la semana del coach. Pero el
+    /// servidor coloca cada cosa por SU fecha (un entreno del viernes que llega el
+    /// martes cae en el viernes): llegar tarde corrige la semana, perderlo la falsea.
+    /// Solo sale de la cola lo entregado (2xx) o lo que el servidor rechaza por
+    /// construcción (4xx que no es 401) — y eso queda en el registro técnico.
+    ///
+    /// Los ACUSES sí caducan: son avisos para quien esperaba la entrega (la traza que
+    /// espera su `execution_id`), y pasado este plazo ya nadie los espera.
+    private static let maxReceiptAge: TimeInterval = 7 * 24 * 3600
 
     /// Re-entrance guard: drain is fired from several places (launch, bearer
     /// change, foreground) and must never interleave two replay loops.
@@ -159,15 +164,6 @@ actor RequestQueue {
     private func deliverEntries(bearer: String?) async -> Bool {
         var delivered = false
         while let entry = entries.first {
-            if Date().timeIntervalSince(entry.createdAt) > Self.maxEntryAge {
-                // Lo que caduca se pierde: que quede contado (auditoría, entreno offline).
-                let hours = Int(Date().timeIntervalSince(entry.createdAt) / 3600)
-                DiagnosticsLog.shared.record(.save, .queueFailed, outcome: .failed, domain: "expired",
-                                             detail: "path=\(entry.path) age_h=\(hours)")
-                entries.removeFirst()
-                persist()
-                continue
-            }
             do {
                 let response = try await transport(
                     entry.path,
@@ -216,14 +212,14 @@ actor RequestQueue {
     /// señal, fuente), así que contarla dos veces actualiza la misma fila. Al revés
     /// (borrar y luego avisar) sería rápido y perdería el id en esa ventana.
     ///
-    /// Un acuse caducado se tira con el mismo criterio que una entrada: pasada la
-    /// ventana de replay, quien lo esperaba ya no lo quiere.
+    /// Un acuse caducado (`maxReceiptAge`) se tira: pasado ese plazo, quien lo
+    /// esperaba ya no lo quiere.
     @discardableResult
     private func flushReceipts() async -> Bool {
         guard let observer = deliveryObserver, !receipts.isEmpty else { return false }
         var told = false
         while let receipt = receipts.first {
-            if Date().timeIntervalSince(receipt.deliveredAt) <= Self.maxEntryAge {
+            if Date().timeIntervalSince(receipt.deliveredAt) <= Self.maxReceiptAge {
                 await observer(receipt.id, receipt.response)
                 told = true
             }

@@ -137,7 +137,8 @@ final class AppDataStore {
     /// swallow the 401 and keep showing stale cache indefinitely (the "readiness
     /// stuck empty while the token is dead, plan still shows cached" bug). Not
     /// persisted; a transient closure set per session.
-    var onUnauthorized: (() -> Void)?
+    /// Recibe el token que recibió el 401: la app solo cierra sesión si es el vigente.
+    var onUnauthorized: ((String?) -> Void)?
 
     /// A slice older than this is silently revalidated on the next access; a
     /// fresher one is served straight from memory with NO network — this is what
@@ -150,6 +151,16 @@ final class AppDataStore {
     /// A new bearer hydrates from disk when the persisted snapshot belongs to it
     /// (offline-first), otherwise starts empty and purges a stranger's blob.
     /// Call from AppShell on appear + whenever the bearer changes.
+    /// El token de la MISMA sesión se renovó (fase 1, `AuthState+Renewal`): se cambia
+    /// sin tocar la caché y la foto en disco pasa a colgar del token nuevo. Va ANTES
+    /// de que la app publique el token: si no, el `activate` que dispara el cambio
+    /// vería un token desconocido y vaciaría la caché como si fuera otra persona.
+    func rotate(to newBearer: String) {
+        guard bearer != nil, newBearer != bearer else { return }
+        bearer = newBearer
+        persist()
+    }
+
     func activate(bearer: String?) {
         guard bearer != self.bearer else { return }
         self.bearer = bearer
@@ -597,7 +608,7 @@ final class AppDataStore {
             // keeps the last good value — offline-first, unchanged.
             if case APIError.http(401, _) = error {
                 set(done)
-                onUnauthorized?()
+                onUnauthorized?(bearer)
             } else {
                 // AUDIT-B5 — with a cached value we stay silent (offline-first); with
                 // NONE (fresh install) mark the honest error state so a view can retry.

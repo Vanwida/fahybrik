@@ -29,7 +29,7 @@ struct AppRoot: View {
         )
         // A dead bearer on an upload surfaces the same session recovery as the rest
         // of the app (clear session → login) instead of re-queuing a doomed request.
-        HealthKitSyncService.shared.onUnauthorized = { auth.handleUnauthorized() }
+        HealthKitSyncService.shared.onUnauthorized = { used in auth.handleUnauthorized(usedToken: used) }
         HealthKitSyncService.shared.start()
     }
 

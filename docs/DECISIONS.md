@@ -20,7 +20,13 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 - **El token viejo NO se revoca al renovar**: caduca en su fecha. Revocarlo convertiría en 401 cualquier petición en vuelo con él — el bucle que esto cierra. Cerrar sesión sigue revocando.
 - Lo sustituye: el comentario de `AuthState.handleUnauthorized` («no inventamos un endpoint de refresco») queda superado por la fase 1.
 
-**Falta (iOS, fase 1):** que la app lo pida, y que todo lo que sube lea el token vigente en el momento de enviar (una sola fuente; E2), y que un 401 solo cierre sesión si el token que falló ES el vigente.
+**En la app (fase 1):** `AuthState+Renewal` lo pide al arrancar y al volver a primer plano, a lo sumo una vez al día. El almacén de datos cambia de token **antes** de que la app lo publique (`AppDataStore.rotate`): su caché cuelga de una huella del token y, sin eso, cada renovación la vaciaba como si entrara otra persona. Un 401 cierra sesión **solo si el token que lo recibió es el vigente** (E2); el subidor de Salud lee el token vigente del Keychain al enviar, no la copia de cuando se configuró.
+
+## 2026-09-24 · La cola offline no tira lo que el atleta hizo
+
+**Decidido (fase 1 firmada: «un entreno terminado espera en la bandeja, sin caducidad»):** la cola offline (`RequestQueue`) ya no tira entradas de más de 72 h. El motivo de entonces —no confundir la semana del coach con envíos viejos— no se sostiene: el servidor coloca cada cosa en su fecha, así que llegar tarde corrige la semana y perderlo la falsea. Solo sale de la cola lo entregado (2xx) o lo que el servidor rechaza por construcción (4xx que no es 401), y eso queda en el registro técnico. Los acuses de entrega sí caducan (7 días): son avisos para quien esperaba, no datos del atleta.
+
+**NO hacer:** volver a poner caducidad a las entradas de la cola.
 
 ---
 

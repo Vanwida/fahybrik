@@ -82,6 +82,8 @@ enum DiagName: String, CaseIterable, Sendable {
     case appBackground = "app_background"
     /// La sesión anterior murió con un entreno en marcha (la marca no se borró).
     case uncleanExit = "unclean_exit"
+    /// La sesión del atleta se renovó (`/api/auth/refresh`) o falló al renovarse.
+    case sessionRenewed = "session_renewed"
 
     // MARK: diagnostic — lo que Apple entrega por MetricKit (solo iPhone)
     case crash

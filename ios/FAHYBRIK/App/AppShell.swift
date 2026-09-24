@@ -178,7 +178,7 @@ struct AppShell: View {
         .task(id: bearer) {
             // A dead bearer (401 on any slice) clears the session and routes to
             // login — instead of the SWR engine silently keeping stale cache.
-            store.onUnauthorized = { auth.handleUnauthorized() }
+            store.onUnauthorized = { used in auth.handleUnauthorized(usedToken: used) }
             // FREE: sin coach no hay hilo ni comunicados — ni las porciones del
             // chat ni la de la bandeja se piden nunca.
             store.hasCoach = hasCoach
@@ -200,6 +200,7 @@ struct AppShell: View {
                 await WorkoutTraceUploader.sweep(bearer: bearer)
                 await RequestQueue.shared.drain(bearer: bearer)
                 await DiagnosticsUploader.shared.flush(bearer: bearer)
+                await renewSessionIfDue()
             }
             await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: store.identity.value?.hrZones)
         }
@@ -220,6 +221,7 @@ struct AppShell: View {
                     await WorkoutTraceUploader.sweep(bearer: bearer)
                     await RequestQueue.shared.drain(bearer: bearer)
                     await DiagnosticsUploader.shared.flush(bearer: bearer)
+                    await renewSessionIfDue()
                 }
             }
         }
@@ -243,6 +245,17 @@ struct AppShell: View {
     //
     // Maps a tapped-notification destination to a tab. Chat is no longer a tab —
     // a chat push raises the chat cover instead of switching tabs.
+    /// Fase 1, «los atletas siguen dentro»: renueva la sesión si toca (a lo sumo una
+    /// vez al día). El almacén cambia de token ANTES de que la app lo publique
+    /// (`AppDataStore.rotate`): así el `.task(id: bearer)` que dispara el cambio no
+    /// lo toma por otra persona ni vacía la caché.
+    @MainActor
+    private func renewSessionIfDue() async {
+        guard let renewed = await auth.renewedTokenIfDue() else { return }
+        store.rotate(to: renewed)
+        auth.adoptRenewedToken(renewed)
+    }
+
     private func handlePushDestination(_ dest: PushRouter.Destination?) {
         guard let dest else { return }
         switch dest {
