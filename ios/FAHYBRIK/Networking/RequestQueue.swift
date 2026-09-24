@@ -160,6 +160,10 @@ actor RequestQueue {
         var delivered = false
         while let entry = entries.first {
             if Date().timeIntervalSince(entry.createdAt) > Self.maxEntryAge {
+                // Lo que caduca se pierde: que quede contado (auditoría, entreno offline).
+                let hours = Int(Date().timeIntervalSince(entry.createdAt) / 3600)
+                DiagnosticsLog.shared.record(.save, .queueFailed, outcome: .failed, domain: "expired",
+                                             detail: "path=\(entry.path) age_h=\(hours)")
                 entries.removeFirst()
                 persist()
                 continue
@@ -172,6 +176,7 @@ actor RequestQueue {
                 )
                 // UNA sola escritura atómica: la entrada desaparece y el acuse queda.
                 // Separarlas es abrir la ventana en la que una caída pierde el id.
+                DiagnosticsLog.shared.recordSave(.queueDelivered, path: entry.path, error: nil)
                 entries.removeFirst()
                 if deliveryObserver != nil {
                     receipts.append(
@@ -185,11 +190,16 @@ actor RequestQueue {
                 delivered = true
             } catch {
                 if case APIError.http(let code, _) = error, (400..<500).contains(code) {
-                    if code == 401 { return delivered }
+                    if code == 401 {
+                        DiagnosticsLog.shared.recordSave(.queueFailed, path: entry.path, error: error, detail: "kept")
+                        return delivered
+                    }
+                    DiagnosticsLog.shared.recordSave(.queueFailed, path: entry.path, error: error, detail: "dropped")
                     entries.removeFirst()
                     persist()
                     continue
                 }
+                DiagnosticsLog.shared.recordSave(.queueFailed, path: entry.path, error: error, detail: "kept")
                 return delivered
             }
         }
@@ -238,6 +248,7 @@ actor RequestQueue {
         )
         entries.append(r)
         persist()
+        DiagnosticsLog.shared.record(.save, .queueEnqueued, detail: "path=\(path)")
         return r.id
     }
 

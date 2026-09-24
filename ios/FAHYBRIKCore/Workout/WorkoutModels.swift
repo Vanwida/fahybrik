@@ -1189,18 +1189,22 @@ enum WorkoutExecutionAPI {
             let resp: WorkoutExecutionResponse = try await APIClient.shared.post(
                 path: path, body: payload, bearer: bearer
             )
+            DiagnosticsLog.shared.recordSave(.executionSaved, path: path, error: nil)
             return .saved(resp)
         } catch APIError.decoding {
             // 2xx but an unexpected body: the execution WAS saved — never replay
             // (that would double-count), just skip the celebration.
+            DiagnosticsLog.shared.recordSave(.executionSaved, path: path, error: nil, detail: "body=unreadable")
             return .saved(nil)
         } catch {
             // AUDIT — queue ONLY a transient failure; a deterministic 4xx must not sit
             // in the replay queue forever (a 2xx-bad-body is already caught above).
             if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
+                DiagnosticsLog.shared.recordSave(.executionSaved, path: path, error: error, detail: "queued")
                 await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
                 return .queued
             }
+            DiagnosticsLog.shared.recordSave(.executionSaved, path: path, error: error, detail: "rejected")
             return .rejected
         }
     }

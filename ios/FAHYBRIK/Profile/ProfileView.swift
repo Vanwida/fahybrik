@@ -46,6 +46,8 @@ struct ProfileView: View {
     /// La hoja de la foto de perfil: elegirla, verla antes de confirmarla y
     /// quitarla. Se abre tocando el avatar.
     @State private var showFotoPerfil: Bool = false
+    /// «Diagnóstico del reloj» (fase 0): siete toques en la versión.
+    @State private var showDiagnostico: Bool = false
 
     // COROS «¿esto es el entreno?» — sigue apareciendo al abrir Perfil aunque
     // la conexión viva en Dispositivos y apps.
@@ -60,6 +62,9 @@ struct ProfileView: View {
                 EditProfileView(bearer: bearer, identity: identity) { updated in
                     store.setIdentity(updated)
                 }
+            }
+            .sheet(isPresented: $showDiagnostico) {
+                DiagnosticoRelojView(bearer: bearer)
             }
             .sheet(isPresented: $showFotoPerfil) {
                 FotoPerfilSheet(
@@ -402,6 +407,7 @@ struct ProfileView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, Theme.Spacing.m)
                     .accessibilityLabel("Versión \(version)")
+                    .onTapGesture(count: 7) { showDiagnostico = true }
             }
         }
     }

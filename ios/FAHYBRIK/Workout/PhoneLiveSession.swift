@@ -156,6 +156,9 @@ final class PhoneLiveSession {
             watchLaunch = .notRequested
             watchJoinStartedAt = Date()
         }
+        DiagnosticsLog.shared.record(.session, .liveBegin, workoutId: session.hkSessionUUID,
+                                     detail: "kind=\(activityKind) continuing=\(continuingSamePrimary)")
+        DiagnosticsLog.shared.markRunning(workoutId: session.hkSessionUUID, role: "phone")
         guard HKHealthStore.isHealthDataAvailable() else { return }
         prepare()
         requestWatchPrimaryIfNeeded()
@@ -169,6 +172,8 @@ final class PhoneLiveSession {
     func end(save: Bool) {
         if PhoneLiveHandoffPolicy.phoneEndIsNoOp(wristFinishedByAthlete: wristFinishedByAthlete) { return }
         guard phase != .ending else { return }
+        DiagnosticsLog.shared.record(.session, .liveEnd, workoutId: engine?.hkSessionUUID,
+                                     detail: "save=\(save) mirror=\(hk.session != nil)")
         WatchConnectivityiOSService.shared.endLiveWorkout(save: save)
         phase = .ending
         endingSave = save
@@ -199,6 +204,8 @@ final class PhoneLiveSession {
     /// FH-101 — single sink for wrist `MirrorEnded` (HK mirror or WCSession).
     /// Idempotent: a duplicate packet must not flip flags back or re-idle mid-workout.
     func applyWristEnded(_ ended: MirrorEnded) {
+        DiagnosticsLog.shared.record(.link, .liveEndReceived, workoutId: engine?.hkSessionUUID,
+                                     detail: "reason=\(ended.reason) phase=\(phase)")
         if let uuid = ended.workoutUuid { endedWorkoutUuid = uuid }
         guard ended.reason == MirrorWire.EndReason.athlete else {
             enterIdle()
@@ -218,6 +225,8 @@ final class PhoneLiveSession {
         let log = Self.log
         let recovered: HKWorkoutSession? = await withCheckedContinuation { cont in
             healthStore.recoverActiveWorkoutSession { session, error in
+                DiagnosticsLog.shared.record(.link, .mirrorRecovered, error: error,
+                                             detail: session == nil ? "none" : "found")
                 if let error {
                     log.warning("recoverActiveWorkoutSession: \(error.localizedDescription, privacy: .public)")
                 }
@@ -324,6 +333,8 @@ final class PhoneLiveSession {
     /// Links and does not decide — except to find the coach plan. Never
     /// `save: false` from here: the recording is the athlete's (FH-56).
     private func adopt(_ incoming: HKWorkoutSession) {
+        DiagnosticsLog.shared.record(.link, .mirrorAdopted, workoutId: engine?.hkSessionUUID, outcome: .ok,
+                                     detail: "state=\(incoming.state.rawValue) phase=\(phase) engine=\(engine != nil)")
         hk.bind(incoming)
         link = .bound
         watchJoinStartedAt = nil
@@ -366,6 +377,7 @@ final class PhoneLiveSession {
     }
 
     func applyAdoptAction(_ action: PhoneLiveHandoffPolicy.AdoptAction) {
+        DiagnosticsLog.shared.record(.session, .adoptAction, workoutId: engine?.hkSessionUUID, detail: "\(action)")
         switch action {
         case .coach:
             startFrameLoop()
@@ -390,6 +402,8 @@ final class PhoneLiveSession {
     /// Mid-coaching: keep the coach, drop the handle, do NOT relaunch — a wrist
     /// that relaunches re-mirrors on its own and lands in the handler again.
     private func handleMirrorSessionEnded() {
+        DiagnosticsLog.shared.record(.session, .mirrorEnded, workoutId: engine?.hkSessionUUID,
+                                     detail: "phase=\(phase) finished=\(engine?.isFinished == true)")
         stopFrameLoop()
         hk.unbind()
         link = .none
@@ -403,6 +417,9 @@ final class PhoneLiveSession {
     /// Apple `didDisconnectFromRemoteDeviceWithError`. Coaching continues; the
     /// wrist still records; the handle stays until Apple ends it.
     private func handleRemoteDisconnect(_ error: Error?) {
+        DiagnosticsLog.shared.record(.link, .remoteDisconnected, workoutId: engine?.hkSessionUUID,
+                                     outcome: .failed, code: (error as NSError?)?.code,
+                                     domain: (error as NSError?)?.domain, detail: error?.localizedDescription)
         link = .disconnected(error?.localizedDescription)
         stopFrameLoop()
         Self.log.warning("remote device disconnected: \(error?.localizedDescription ?? "sin error", privacy: .public)")
@@ -432,6 +449,7 @@ final class PhoneLiveSession {
     /// FH-100 — post-workout idle: channel released + latches cleared so the
     /// next Empezar is a cold launch.
     private func enterIdle() {
+        DiagnosticsLog.shared.markStopped()
         releaseChannel()
         pendingEndSave = nil
         endingSave = nil
@@ -452,6 +470,11 @@ final class PhoneLiveSession {
                 }
             }
         }
+        DiagnosticsLog.shared.record(
+            .link, .startWatchApp, workoutId: engine?.hkSessionUUID,
+            error: outcome.ok ? nil : (outcome.error ?? NSError(domain: "startWatchApp", code: 0)),
+            detail: outcome.ok ? "activity=\(config.activityType.rawValue) late=\(watchLaunch != .requesting)" : nil
+        )
         guard watchLaunch == .requesting else { return }
         if outcome.ok {
             watchLaunch = .launched
@@ -567,9 +590,21 @@ final class PhoneMirrorHKChannel {
         session = nil
     }
 
+    /// Primer fallo de una racha ya contado: no se anota uno por frame.
+    private var sendFailing = false
+
     func send(_ data: Data) {
         guard let session else { return }
-        Task { try? await session.sendToRemoteWorkoutSession(data: data) }
+        Task { @MainActor [weak self] in
+            do {
+                try await session.sendToRemoteWorkoutSession(data: data)
+                self?.sendFailing = false
+            } catch {
+                guard let self, !self.sendFailing else { return }
+                self.sendFailing = true
+                DiagnosticsLog.shared.record(.link, .remoteSendFailed, error: error)
+            }
+        }
     }
 
     /// Events from a session that is no longer ours (a late `.ended` after the
@@ -610,12 +645,15 @@ private final class PhoneMirrorHKDelegate: NSObject, HKWorkoutSessionDelegate {
         from fromState: HKWorkoutSessionState,
         date: Date
     ) {
+        DiagnosticsLog.shared.record(.session, .hkState,
+                                     detail: "side=phone-mirror from=\(fromState.rawValue) to=\(toState.rawValue)")
         Task { @MainActor [weak self] in
             self?.channel?.handleStateChange(of: workoutSession, to: toState)
         }
     }
 
     func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) {
+        DiagnosticsLog.shared.record(.session, .hkFailed, error: error, detail: "side=phone-mirror")
         Task { @MainActor [weak self] in self?.channel?.handleFailure(of: workoutSession) }
     }
 

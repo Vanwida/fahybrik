@@ -208,6 +208,8 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         guard session.activationState == .activated,
               session.isPaired, session.isWatchAppInstalled else { return }
         let body: [String: Any] = [WatchWireKeys.liveEnd: save]
+        DiagnosticsLog.shared.record(.link, .liveEndSent,
+                                     detail: "save=\(save) via=\(session.isReachable ? "message" : "userInfo")")
         if session.isReachable {
             session.sendMessage(body, replyHandler: nil) { _ in
                 Task { @MainActor in session.transferUserInfo(body) }
@@ -267,7 +269,12 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     private func submitEncodedExecution(_ data: Data) async -> Bool {
         guard let envelope = try? WatchWire.decoder.decode(WatchExecutionEnvelope.self, from: data),
               let payload = try? WatchWire.decoder.decode(WorkoutExecutionPayload.self, from: envelope.payloadJson)
-        else { return false }
+        else {
+            DiagnosticsLog.shared.record(.save, .watchExecutionReceived, outcome: .failed, domain: "decode",
+                                         detail: "bytes=\(data.count) dead_letter")
+            return false
+        }
+        DiagnosticsLog.shared.record(.save, .watchExecutionReceived, outcome: .ok, detail: "bytes=\(data.count)")
 
         let bearer = KeychainTokenStore.shared.read()   // AUDIT-B1 — bearer moved to the Keychain
 
@@ -447,6 +454,10 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     // MARK: - WCSessionDelegate
 
     func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
+        DiagnosticsLog.shared.record(
+            .link, .wcActivated, error: error,
+            detail: "state=\(state.rawValue) paired=\(session.isPaired) installed=\(session.isWatchAppInstalled) reachable=\(session.isReachable)"
+        )
         guard state == .activated else { return }
         // Read the paired/installed flags off the delegate queue and hand the plain
         // Bools to the MainActor (WCSession isn't Sendable). This is the first point
@@ -468,9 +479,16 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     func sessionWatchStateDidChange(_ session: WCSession) {
         let paired = session.isPaired
         let installed = session.isWatchAppInstalled
+        DiagnosticsLog.shared.record(.link, .wcWatchState, detail: "paired=\(paired) installed=\(installed)")
         Task { @MainActor in
             WatchPresence.shared.refresh(paired: paired, installed: installed)
         }
+    }
+
+    /// Solo para el registro técnico: el alcance no decide nada del enlace (FH-56:
+    /// el estado lo dicen los eventos de HealthKit), pero sin él no se lee una prueba.
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        DiagnosticsLog.shared.record(.link, .wcReachability, detail: "reachable=\(session.isReachable)")
     }
 
     func sessionDidBecomeInactive(_ session: WCSession) {}
@@ -487,6 +505,14 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
+        // El registro técnico de la muñeca: se guarda aquí mismo (síncrono) y se sube.
+        if let data = userInfo[WatchWireKeys.diagnostics] as? Data {
+            if let events = try? JSONDecoder().decode([DiagEvent].self, from: data) {
+                DiagnosticsLog.shared.ingest(events)
+                DiagnosticsUploader.flushSoon()
+            }
+            return
+        }
         Task { @MainActor in
             if Self.applyLiveEnded(userInfo) { return }
             guard let data = userInfo[WatchWireKeys.executionResult] as? Data else { return }

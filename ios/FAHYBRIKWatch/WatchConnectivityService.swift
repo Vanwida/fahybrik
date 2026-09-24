@@ -42,7 +42,10 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     /// first, then handed to WCSession.transferUserInfo (which queues across launches
     /// and reachability). The phone decodes it and submits to the backend.
     func sendExecutionResult(_ envelope: WatchExecutionEnvelope) {
-        guard let data = try? WatchWire.encoder.encode(envelope) else { return }
+        guard let data = try? WatchWire.encoder.encode(envelope) else {
+            DiagnosticsLog.shared.record(.save, .executionHandedToPhone, outcome: .failed, domain: "encode")
+            return
+        }
         enqueueOutbox(data)
         transfer(data)
     }
@@ -83,6 +86,11 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     func notifyPhoneLiveEnded(_ ended: MirrorEnded) {
         guard let body = WatchLiveEnded.encode(ended) else { return }
         let session = WCSession.default
+        DiagnosticsLog.shared.record(
+            .link, .liveEndSent,
+            outcome: session.activationState == .activated ? .ok : .failed,
+            detail: "reason=\(ended.reason) activated=\(session.activationState == .activated) reachable=\(session.isReachable)"
+        )
         guard session.activationState == .activated else { return }
         if session.isReachable {
             session.sendMessage(body, replyHandler: nil) { _ in
@@ -105,8 +113,13 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
 
     private func transfer(_ data: Data) {
         let session = WCSession.default
-        guard session.activationState == .activated else { return }   // drained on activation
+        guard session.activationState == .activated else {   // drained on activation
+            DiagnosticsLog.shared.record(.save, .executionHandedToPhone, outcome: .failed,
+                                         domain: "not_activated", detail: "bytes=\(data.count) outbox")
+            return
+        }
         session.transferUserInfo([WatchWireKeys.executionResult: data])
+        DiagnosticsLog.shared.record(.save, .executionHandedToPhone, outcome: .ok, detail: "bytes=\(data.count)")
     }
 
     // MARK: - Outbox
@@ -157,6 +170,10 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     // MARK: - WCSessionDelegate
 
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        DiagnosticsLog.shared.record(
+            .link, .wcActivated, error: error,
+            detail: "state=\(activationState.rawValue) companion=\(session.isCompanionAppInstalled) reachable=\(session.isReachable)"
+        )
         DispatchQueue.main.async { [weak self] in
             self?.isReachable = session.isReachable
         }
@@ -172,9 +189,11 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         // La traza medida en la muñeca lleva su propio buzón de ficheros, y este es
         // el momento en que el teléfono puede haber vuelto a estar a tiro.
         WatchTraceOutbox.shared.drain()
+        DiagnosticsForwarder.forwardPending()
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
+        DiagnosticsLog.shared.record(.link, .wcReachability, detail: "reachable=\(session.isReachable)")
         DispatchQueue.main.async { [weak self] in
             self?.isReachable = session.isReachable
         }
@@ -210,12 +229,22 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     @MainActor
     private static func applyLiveEnd(_ body: [String: Any]) -> Bool {
         guard let save = WatchLiveEnd.saveFlag(in: body) else { return false }
+        // C-01: un `live_end` viejo que llega al arrancar termina la grabación nueva.
+        DiagnosticsLog.shared.record(
+            .link, .liveEndReceived,
+            detail: "save=\(save) primary=\(WatchPrimaryOwner.shared.phase) coordinator=\(WatchWorkoutCoordinator.shared.phase)"
+        )
         WatchWorkoutCoordinator.shared.finishFromPhone()
         WatchPrimaryOwner.shared.finishFromPhone(save: save)
         return true
     }
 
     func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {
+        if let error {
+            DiagnosticsLog.shared.record(.save, .transferFailed, error: error,
+                                         detail: userInfoTransfer.userInfo.keys.sorted().joined(separator: ","))
+            DiagnosticsForwarder.transferFailed(userInfoTransfer.userInfo)
+        }
         guard let data = userInfoTransfer.userInfo[WatchWireKeys.executionResult] as? Data else { return }
         // Delivered → drop it. On error, leave it queued: WCSession retries the
         // transfer, and drainOutbox re-issues it on the next activation.

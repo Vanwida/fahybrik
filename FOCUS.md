@@ -9,7 +9,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 **EL RELOJ ES EL PRODUCTO y el listón es TrainingPeaks (Alex, 24-09).** La muñeca lleva la sesión
 desde el primer día; nunca por debajo de TrainingPeaks. Diseño FIRMADO (arquitectura, iOS/watchOS 26,
 iPhone de respaldo, CI GitHub macOS, otros relojes 14 días, app Entreno de Apple opcional): `docs/el-reloj-primero/`.
-EN CURSO: fase 0 (CI macOS en GitHub). Luego fase 4 (analíticas web) en su propio PR.
+EN CURSO: fase 0 — CI macOS (compila todo; tests al día) + registro técnico de los aparatos (0273,
+`/api/devices/events`, `ios/*/Diagnostics/`, pantalla «Diagnóstico del reloj»). Luego fase 4 (web) en su PR.
 **PROD (24-09 21:45):** a la base le faltan 0270–0272 → cron de atención roto para todos. Alex:
 `pnpm --dir infra migrate`. Desde ahora la build de producción se para si falta una (`web/scripts/migraciones-al-dia.mjs`).
 **Auditoría de la app del atleta (iOS + watchOS) — ENTREGADA.** `docs/auditoria-app-atleta/`.
@@ -31,8 +32,8 @@ pre-FLEXR (4 lentes: aislamiento, método, producto, plataforma) y decisiones de
   aprobación, check de coach en CI ya (hecho: `web/tests/tenancy/ambito-de-club.test.ts`, 962 sin
   ámbito en baseline que solo encoge) + RLS antes del coach 20. PENDIENTE DE ALEX: precio,
   despliegue, dominios, deportes, idioma, arranque de un club, legal, borrar código muerto.
-- PR #191 FUSIONADO a `main` (24-09, `da08a40`) tras aplicar Alex 0211–0272 y el add-on 'negocio' del club 60.
-- Tras el deploy: reconectar Google Calendar (ahora por coach); cron lifecycle pasa a horario (vercel.json); alta de pago apagada para cualquier club que no sea FAHYBRID hasta decidir quién cobra.
+- PR #191 FUSIONADO (24-09, `da08a40`). Tras el deploy: reconectar Google Calendar (por coach); alta de pago
+  apagada para todo club que no sea FAHYBRID hasta Stripe Connect.
 
 **FH-56 — El enlace muñeca↔móvil lo dice Apple (PR pendiente de Devil's Advocate CODE gate).**
 Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISIONS.md`
@@ -49,8 +50,6 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
   (5 fantasmas fuera, 33 fuentes que faltaban dentro, build 100);
   `PreWorkoutFlowSourceTests` contra `startAction` / `configurationsCompatible`
 - Compila en el CI macOS (`.github/workflows/ios.yml`, 24-09); los tests se están poniendo al día.
-
-**FH-30 — Cara rodaje muñeca (PR #189, mergeado).** Lámina redo cerrada.
 
 ## Pendiente decisión Alex
 

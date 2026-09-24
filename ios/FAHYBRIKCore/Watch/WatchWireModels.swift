@@ -187,6 +187,9 @@ enum WorkoutLocationType {
 enum WatchWireKeys {
     static let today = "today_v2"
     static let executionResult = "execution_result_v1"
+    /// Reloj → teléfono (`transferUserInfo`): un lote del registro técnico de la
+    /// muñeca (`[DiagEvent]` en JSON). El teléfono lo guarda y lo sube con lo suyo.
+    static let diagnostics = "diag_v1"
     /// Clave de la metadata de `transferFile` que marca un fichero como TRAZA (el
     /// otro fichero que cruza este cable es el archivo inercial de sensores, que va
     /// con `execution_local_id`). Con esto el teléfono sabe a quién dárselo sin

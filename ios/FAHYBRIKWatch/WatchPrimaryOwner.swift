@@ -67,7 +67,15 @@ final class WatchPrimaryOwner: NSObject {
     static func requestWorkoutAuthorization() async {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         let store = HKHealthStore()
-        try? await store.requestAuthorization(toShare: workoutDataTypes, read: workoutDataTypes)
+        let asked = Date()
+        do {
+            try await store.requestAuthorization(toShare: workoutDataTypes, read: workoutDataTypes)
+            // Rápido = ya estaba concedido; lento = la hoja estaba delante en la muñeca (T10).
+            let ms = Int(Date().timeIntervalSince(asked) * 1000)
+            DiagnosticsLog.shared.record(.session, .hkAuthorization, outcome: .ok, detail: "waited_ms=\(ms)")
+        } catch {
+            DiagnosticsLog.shared.record(.session, .hkAuthorization, error: error)
+        }
     }
 
     private static let log = Logger(subsystem: Marca.subsistemaLog("primary"), category: "watch-lifecycle")
@@ -100,6 +108,8 @@ final class WatchPrimaryOwner: NSObject {
     func recoverActiveIfNeeded() {
         guard phase == .idle, session == nil, finishing == nil else { return }
         store.recoverActiveWorkoutSession { [weak self] incoming, error in
+            DiagnosticsLog.shared.record(.link, .mirrorRecovered, error: error,
+                                         detail: incoming == nil ? "none" : "found state=\(incoming?.state.rawValue ?? -1)")
             Task { @MainActor in
                 guard let self else { return }
                 if let error {
@@ -113,6 +123,8 @@ final class WatchPrimaryOwner: NSObject {
     }
 
     func startFromPhone(configuration: HKWorkoutConfiguration) {
+        DiagnosticsLog.shared.record(.link, .launchedByPhone, outcome: .ok,
+                                     detail: "activity=\(configuration.activityType.rawValue) location=\(configuration.locationType.rawValue)")
         requestStart(configuration: configuration, role: .mirror)
     }
 
@@ -164,6 +176,10 @@ final class WatchPrimaryOwner: NSObject {
             compatible: compatible
         )
         Self.log.info("start(\(String(describing: incomingRole), privacy: .public)) → \(String(describing: action), privacy: .public) phase=\(String(describing: self.phase), privacy: .public) role=\(String(describing: self.role), privacy: .public)")
+        DiagnosticsLog.shared.record(
+            .session, .startRequest,
+            detail: "incoming=\(incomingRole) action=\(action) phase=\(phase) role=\(role.map { "\($0)" } ?? "none") compatible=\(compatible)"
+        )
         switch action {
         case .begin:
             Task { await begin(configuration: configuration, role: incomingRole) }
@@ -195,14 +211,18 @@ final class WatchPrimaryOwner: NSObject {
             // next `handle(_:)` (Apple serializes; we do not).
             lastStartError = error.localizedDescription
             Self.log.error("HKWorkoutSession init failed: \(error.localizedDescription, privacy: .public)")
+            DiagnosticsLog.shared.record(.session, .hkFailed, error: error, detail: "init role=\(role)")
             forceIdle()
             return
         }
         lastStartError = nil
         if role == .mirror, WatchWorkoutCoordinator.shared.phase != .idle {
+            DiagnosticsLog.shared.record(.session, .soloYieldedToMirror, detail: "at=begin")
             WatchWorkoutCoordinator.shared.yieldForPhoneMirror()
         }
         bind(created, role: role, configuration: configuration)
+        DiagnosticsLog.shared.record(.session, .primaryBegin, outcome: .ok, detail: "role=\(role)")
+        DiagnosticsLog.shared.markRunning(workoutId: nil, role: "watch-\(role)")
         if role == .mirror {
             await mirror(created)
         }
@@ -223,11 +243,13 @@ final class WatchPrimaryOwner: NSObject {
             guard target === session else { return }
             link = .mirroring
             Self.log.info("mirroring to companion")
+            DiagnosticsLog.shared.record(.link, .mirroringStarted, outcome: .ok)
             sendCommand(MirrorWire.CommandKind.sync)
         } catch {
             guard target === session else { return }
             link = .unlinked(error.localizedDescription)
             Self.log.warning("startMirroringToCompanionDevice failed: \(error.localizedDescription, privacy: .public) — wrist keeps recording")
+            DiagnosticsLog.shared.record(.link, .mirroringStarted, error: error)
         }
     }
 
@@ -237,9 +259,12 @@ final class WatchPrimaryOwner: NSObject {
     func adopt(_ incoming: HKWorkoutSession) {
         guard phase == .idle, session == nil, finishing == nil else { return }
         if WatchWorkoutCoordinator.shared.phase != .idle {
+            DiagnosticsLog.shared.record(.session, .soloYieldedToMirror, detail: "at=recover")
             WatchWorkoutCoordinator.shared.yieldForPhoneMirror()
         }
         bind(incoming, role: .mirror, configuration: incoming.workoutConfiguration)
+        DiagnosticsLog.shared.record(.session, .primaryBegin, outcome: .ok, detail: "role=mirror recovered state=\(incoming.state.rawValue)")
+        DiagnosticsLog.shared.markRunning(workoutId: nil, role: "watch-mirror-recovered")
         hkPaused = incoming.state == .paused
         Task { await mirror(incoming) }
         WatchHaptics.start()
@@ -433,6 +458,8 @@ final class WatchPrimaryOwner: NSObject {
     }
 
     private func requestEnd(save: Bool, reason: String) {
+        DiagnosticsLog.shared.record(.session, .primaryEnd,
+                                     detail: "save=\(save) reason=\(reason) phase=\(phase) accepted=\(WatchPrimaryLifecycle.acceptsEnd(current: phase))")
         guard WatchPrimaryLifecycle.acceptsEnd(current: phase) else { return }
         phase = .ending
         armTeardownDeadline()
@@ -505,9 +532,12 @@ final class WatchPrimaryOwner: NSObject {
         do {
             try await builder.endCollection(at: date)
             let workout = try await builder.finishWorkout()
+            DiagnosticsLog.shared.record(.save, .hkWorkoutSaved, outcome: workout == nil ? DiagEvent.Outcome.failed : DiagEvent.Outcome.ok,
+                                         detail: workout == nil ? "nil_workout" : nil)
             return workout?.uuid.uuidString
         } catch {
             Self.log.error("finishWorkout failed: \(error.localizedDescription, privacy: .public)")
+            DiagnosticsLog.shared.record(.save, .hkWorkoutSaved, error: error)
             return nil
         }
     }
@@ -535,6 +565,8 @@ final class WatchPrimaryOwner: NSObject {
         link = .unlinked(nil)
         role = nil
         phase = .idle
+        DiagnosticsLog.shared.markStopped()
+        DiagnosticsForwarder.forwardPending()
         firePendingStartIfClean()
     }
 
@@ -639,6 +671,7 @@ extension WatchPrimaryOwner: HKWorkoutSessionDelegate {
         from fromState: HKWorkoutSessionState,
         date: Date
     ) {
+        DiagnosticsLog.shared.record(.session, .hkState, detail: "side=watch from=\(fromState.rawValue) to=\(toState.rawValue)")
         Task { @MainActor [weak self] in
             guard let self else { return }
             Self.log.info("session state \(fromState.rawValue, privacy: .public) → \(toState.rawValue, privacy: .public)")
@@ -662,6 +695,8 @@ extension WatchPrimaryOwner: HKWorkoutSessionDelegate {
         _ workoutSession: HKWorkoutSession,
         didDisconnectFromRemoteDeviceWithError error: (any Error)?
     ) {
+        DiagnosticsLog.shared.record(.link, .remoteDisconnected, outcome: .failed, code: (error as NSError?)?.code,
+                                     domain: (error as NSError?)?.domain, detail: error?.localizedDescription)
         Task { @MainActor [weak self] in
             guard let self, workoutSession === self.session else { return }
             self.link = .unlinked(error?.localizedDescription)
@@ -673,6 +708,7 @@ extension WatchPrimaryOwner: HKWorkoutSessionDelegate {
         _ workoutSession: HKWorkoutSession,
         didFailWithError error: Error
     ) {
+        DiagnosticsLog.shared.record(.session, .hkFailed, error: error, detail: "side=watch")
         Task { @MainActor [weak self] in
             guard let self else { return }
             Self.log.error("HK session error: \(error.localizedDescription, privacy: .public)")

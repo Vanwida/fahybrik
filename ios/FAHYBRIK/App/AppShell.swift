@@ -199,6 +199,7 @@ struct AppShell: View {
                 }
                 await WorkoutTraceUploader.sweep(bearer: bearer)
                 await RequestQueue.shared.drain(bearer: bearer)
+                await DiagnosticsUploader.shared.flush(bearer: bearer)
             }
             await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: store.identity.value?.hrZones)
         }
@@ -206,7 +207,11 @@ struct AppShell: View {
             if phase == .background || phase == .inactive {
                 LiveWorkoutResume.shared.persistTracked()
             }
+            if phase == .background {
+                DiagnosticsLog.shared.record(.lifecycle, .appBackground)
+            }
             guard phase == .active else { return }
+            DiagnosticsLog.shared.record(.lifecycle, .appForeground)
             Task {
                 let zones = store.identity.value?.hrZones
                 await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: zones)
@@ -214,6 +219,7 @@ struct AppShell: View {
                 if let bearer {
                     await WorkoutTraceUploader.sweep(bearer: bearer)
                     await RequestQueue.shared.drain(bearer: bearer)
+                    await DiagnosticsUploader.shared.flush(bearer: bearer)
                 }
             }
         }
