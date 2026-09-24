@@ -405,11 +405,15 @@ actor APIClient {
 
 struct Empty: Codable {}
 
-// Shared ISO 8601 parsing for API date fields. The backend may send timestamps
+// Shared parsing for API instants. The backend may send ISO 8601 timestamps
 // with or without fractional seconds (e.g. chat `created_at` carries millis,
 // other endpoints don't), so we try the fractional formatter first and fall
 // back to the plain one. Both formatters are reused (instantiating
 // ISO8601DateFormatter is comparatively expensive).
+//
+// Y NO TODO LO QUE LLEGA ES ISO: el detalle de una sesión sirve sus instantes
+// como `timestamptz::text` de Postgres (`InstanteDePostgres`, App/Formatters.swift).
+// Si tampoco es eso, nil — nunca una fecha adivinada.
 enum ISO8601DateFormatters {
     private static let withFraction: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -424,7 +428,7 @@ enum ISO8601DateFormatters {
     }()
 
     static func parse(_ raw: String) -> Date? {
-        withFraction.date(from: raw) ?? plain.date(from: raw)
+        withFraction.date(from: raw) ?? plain.date(from: raw) ?? InstanteDePostgres.parse(raw)
     }
 }    /// The ONE place that body gets assembled. `postImage` sends it to our own
     /// API; the athlete's profile photo sends the same shape straight to the

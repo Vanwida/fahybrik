@@ -97,7 +97,9 @@ struct ExecutionSummary: Codable, Equatable {
     /// session was not outdoors — drives the executed-detail mini-map.
     let routePolyline: String?
 
-    /// Cuándo arrancó la ejecución (ISO). Es el ANCLA de la traza: los `offsets_s`
+    /// Cuándo arrancó la ejecución, como `timestamptz::text` de Postgres
+    /// (`2026-08-20 11:49:53+00` — NO es ISO; se lee con
+    /// `ISO8601DateFormatters.parse`). Es el ANCLA de la traza: los `offsets_s`
     /// de la curva se cuentan desde aquí.
     let startedAt: String?
 
@@ -237,7 +239,8 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
     /// Nula = no se sabe, que **no es cero**: cero es «llano medido».
     let avgGradientPct: Double?
 
-    /// Cuándo empezó ESTE tramo (ISO). Es lo que lo sitúa sobre la curva —
+    /// Cuándo empezó ESTE tramo (`timestamptz::text`, igual que
+    /// `ExecutionSummary.startedAt`). Es lo que lo sitúa sobre la curva —
     /// repartirlos por igual del ancho los pondría donde no fueron.
     let startedAt: String?
     /// A qué tramo PRESCRITO corresponde, como índice (base 0) de la lista plana

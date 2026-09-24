@@ -189,6 +189,26 @@ final class LecturaDeCarreraDesdeDetalleTests: XCTestCase {
         XCTAssertEqual(trabajo[5].inicioS, 40)
     }
 
+    /// EL MISMO TEXTO ES EL MISMO INSTANTE, lo lea el móvil que lo lea: manda el
+    /// desfase que trae `timestamptz::text`, nunca el huso del aparato. Y lo que
+    /// no es un instante completo no se adivina.
+    func testUnInstanteDePostgresSeLeeConSuDesfase() throws {
+        let utc = try XCTUnwrap(ISO8601DateFormatters.parse("2026-08-12T07:00:08Z"))
+        XCTAssertEqual(ISO8601DateFormatters.parse("2026-08-12 07:00:08+00"), utc)
+        XCTAssertEqual(ISO8601DateFormatters.parse("2026-08-12 09:00:08+02"), utc)
+        XCTAssertEqual(ISO8601DateFormatters.parse("2026-08-12 12:30:08+05:30"), utc)
+        XCTAssertEqual(ISO8601DateFormatters.parse("2026-08-12 03:00:08-04"), utc)
+        let conDecimales = try XCTUnwrap(
+            ISO8601DateFormatters.parse("2026-08-12 07:00:08.561668+00")
+        )
+        XCTAssertEqual(conDecimales.timeIntervalSince(utc), 0.561668, accuracy: 0.001)
+        XCTAssertNil(ISO8601DateFormatters.parse("2026-02-31 07:00:08+00"),
+                     "un 31 de febrero no existe: no se rueda al 3 de marzo")
+        XCTAssertNil(ISO8601DateFormatters.parse("2026-08-12 07:00:08"),
+                     "sin desfase no se sabe qué instante es")
+        XCTAssertNil(ISO8601DateFormatters.parse("infinity"))
+    }
+
     /// LOS KILÓMETROS: el cruce se acumula, y en cuanto uno se queda sin duración
     /// los de detrás dejan de tener sitio conocido. La fila sigue, y dice qué falta.
     func testUnKilometroSinSenalDejaSinSitioALosDeDetras() throws {
