@@ -56,10 +56,12 @@ jobs:
         run: xcodegen generate
 
       # Si project.yml y el .pbxproj del repo no coinciden, alguien editó uno
-      # sin regenerar el otro. De momento avisa; no bloquea.
+      # sin regenerar el otro (o añadió ficheros sin xcodegen: los agentes
+      # escriben Swift en Linux, sin xcodegen). De momento avisa; no bloquea.
+      # El diff ENTERO va al log: es lo que se copia para ponerlo al día.
       - name: Project in sync with project.yml
         continue-on-error: true
-        run: git diff --exit-code --stat -- FAHYBRIK.xcodeproj/project.pbxproj
+        run: git diff --exit-code -- FAHYBRIK.xcodeproj/project.pbxproj
 
       # Destino genérico de simulador, NUNCA -sdk: -sdk fuerza el SDK del iPhone
       # también al reloj y el build muere (comentario del esquema en project.yml).
@@ -99,6 +101,8 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           xcrun simctl list devices available | grep "$UDID"
 
+      # Un test colgado falla a los 120 s en vez de retener el job hasta el
+      # timeout (con -quiet no se ve nada hasta el final).
       - name: Unit tests
         run: |
           set -o pipefail
@@ -107,6 +111,9 @@ jobs:
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -only-testing:FAHYBRIKTests \
             -resultBundlePath "$RUNNER_TEMP/tests.xcresult" \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 60 \
+            -maximum-test-execution-time-allowance 120 \
             CODE_SIGNING_ALLOWED=NO \
             -quiet test
 
