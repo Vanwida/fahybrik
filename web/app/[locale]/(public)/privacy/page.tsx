@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-const LAST_UPDATED = '22 de junio de 2026';
-const VERSION = '1.1';
+const LAST_UPDATED = '24 de septiembre de 2026';
+const VERSION = '1.2';
 
 function H2({ children, id }: { children: React.ReactNode; id: string }) {
   return (
@@ -203,7 +203,12 @@ export default function PrivacyPage() {
         <li>Modelo de iPhone, versión de iOS, idioma del sistema.</li>
         <li>Modelo del wearable conectado (Garmin, COROS, WHOOP, Amazfit, Apple Watch).</li>
         <li>Identificadores opacos de sesión (no compartidos con redes publicitarias).</li>
-        <li>Logs técnicos de errores (sin contenido personal).</li>
+        <li>
+          Registro técnico de la app del iPhone y del Apple Watch: cierres inesperados,
+          bloqueos, eventos de la conexión entre el reloj y el móvil y guardados fallidos, con
+          la versión de la app y del sistema y el modelo del aparato. Nunca datos de salud,
+          ubicación ni el contenido de tus entrenos.
+        </li>
       </UL>
 
       <H2 id="finalidad">3. Para qué los usamos</H2>
@@ -256,7 +261,8 @@ export default function PrivacyPage() {
         </li>
         <li>
           <Term>Interés legítimo (Art. 6(1)(f) RGPD)</Term> para seguridad de la
-          plataforma y prevención de fraude, siempre proporcionado y revisable.
+          plataforma y prevención de fraude, y para que la app funcione de forma fiable (el
+          registro técnico del apartado 2.6), siempre proporcionado y revisable.
         </li>
       </UL>
 
@@ -397,6 +403,10 @@ export default function PrivacyPage() {
           proveedor; los datos ya almacenados se eliminan en un máximo de 30 días y los
           tokens OAuth se destruyen inmediatamente. Los datos de WHOOP no se archivan y se
           purgan al desconectar (ver sección de proveedores).
+        </li>
+        <li>
+          <Term>Registro técnico de la app (apartado 2.6):</Term> 30 días; después se
+          borra automáticamente.
         </li>
         <li>
           <Term>Datos contables (facturas, pagos):</Term> conservados durante el período

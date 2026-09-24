@@ -91,6 +91,7 @@ export const TABLAS: Record<string, Ambito> = {
   coros_mcp_oauth_client: { clase: 'plataforma', porque: 'cliente OAuth de la plataforma con COROS' },
   daily_checkins: { clase: 'club', via: 'athlete_id → athletes' },
   devices: { clase: 'club', via: 'athlete_id → athletes' },
+  device_events: { clase: 'club', via: 'athlete_id → athletes' },
   dobles_live_status: { clase: 'club', via: 'athlete_id → athletes' },
   dobles_simulations: { clase: 'club', via: 'created_by_coach_id' },
   doubles_pairs: { clase: 'club', via: 'coach_id' },

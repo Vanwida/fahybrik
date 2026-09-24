@@ -11,6 +11,10 @@
       "schedule": "0 4 * * *"
     },
     {
+      "path": "/api/cron/device-events-retention",
+      "schedule": "20 4 * * *"
+    },
+    {
       "path": "/api/cron/weekly-evaluation",
       "schedule": "0 9 * * 1"
     },

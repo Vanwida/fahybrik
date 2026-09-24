@@ -10,6 +10,21 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · El registro técnico de los aparatos: a todos, solo técnico, 30 días
+
+**Decidido (Alex, 24-09, preguntas y respuestas):** las apps del iPhone y del Apple Watch nos envían un registro técnico — cierres inesperados, bloqueos, eventos del enlace muñeca↔móvil y guardados fallidos — **de todos los atletas, sin interruptor**, porque es lo que hace falta para que el servicio funcione (interés legítimo). Nunca datos de salud, ubicación ni contenido del entreno. **Se borra a los 30 días.** Política de privacidad v1.2 (2.6, 4 y 7) lo dice. Descartado: interruptor apagado por defecto (casi nadie lo enciende: no veríamos los fallos reales) y solo TestFlight (nos quedamos sin los atletas reales).
+
+**Cómo es (fase 0 del diseño Watch-first):**
+- Tabla `device_events` (0273), columnas explícitas: instalación + seq (el aparato numera sus eventos; un reenvío es el mismo evento, único por atleta+instalación+seq), `device` phone|watch, `kind` link|session|save|lifecycle|diagnostic, `name` (snake_case; la lista vive en la app, el servidor no la cierra para no rechazar nombres de una versión nueva), `workout_id` (la intención sellada al pulsar Empezar: junta los eventos de los dos aparatos de una sesión), resultado/código/dominio del error, una línea técnica corta, versión/sistema/modelo.
+- `POST /api/devices/events` (bearer del atleta, lotes de hasta 500, 2xx = el lote entero guardado): el móvil manda los suyos y los del reloj. Poda lo del atleta de más de 30 días al escribir; el cron diario `device-events-retention` poda lo de todos.
+- **Se lee desde aquí** por el log de Vercel: una línea `[device_events]` por lote con los eventos compactos. Es la salida de la fase 0: «la primera prueba en aparato queda registrada y se lee desde aquí».
+- El vocabulario de eventos sale de las 14 pruebas en aparato de la auditoría (`docs/auditoria-app-atleta/`, T1–T14): cada una se lee en el registro.
+- **MetricKit solo existe en iOS** (no en watchOS): los cierres y bloqueos del iPhone llegan por MetricKit; los del reloj, por una marca propia — «la sesión anterior no terminó limpia» — al volver a abrir la app.
+
+**NO hacer:** meter en `detail` nada personal (nombres, correos, notas, ubicación, valores de salud); cerrar la lista de `name` en el servidor; alargar la retención sin volver a Alex (la política dice 30 días).
+
+---
+
 ## 2026-09-24 · Ningún deploy sin su migración; y tres decisiones de FLEXR (cobro, alta de coaches, aislamiento)
 
 **Qué pasó:** el PR #191 salió a producción (deploy de las 21:45 UTC) con código que lee `workout_executions.off_plan_reason` (0270) y la base de producción no tenía 0270 (ni, previsiblemente, 0271–0272, añadidas al final del PR): el cron `recompute-attention` falló para todos los coaches desde su primera pasada — la bandeja «Hoy» deja de recalcularse. Nada comparaba el código que se publica con el esquema que lo sirve.
