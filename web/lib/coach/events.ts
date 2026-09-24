@@ -16,6 +16,10 @@
 
 import { sql as defaultSql, type Sql } from '@/lib/db';
 import { type EventRegion, type EventSeries } from '@fahybrid/shared/schema/events';
+import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
+import { isValidTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
 
 export class EventsError extends Error {
   constructor(
@@ -96,6 +100,8 @@ export interface ListEventsOpts {
   // Date range filter (ISO YYYY-MM-DD). Inclusive.
   from_date?: string;
   to_date?: string;
+  // The instant «today» is read at (tests); defaults to now.
+  now?: Date;
 }
 
 /**
@@ -146,8 +152,21 @@ function toListItem(row: RawEventRow, today: string): EventListItem {
   };
 }
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+/**
+ * The «today» a race turns «past» against, in the calendar of whoever is looking
+ * (DECISIONS «Qué día es en cada sitio»): an athlete in THEIR own day — one
+ * «today» for every race read, so a race never sits between «upcoming» and
+ * «past» by the box clock — a coach in their club's, the admin curator and an
+ * anonymous visitor in the default. It used to be the UTC day for everyone.
+ */
+async function viewerToday(opts: ListEventsOpts, client: Sql): Promise<string> {
+  const now = opts.now ?? new Date();
+  if (opts.athlete_id != null) {
+    const tz = await loadAthleteTimezone(client, opts.athlete_id);
+    return zonedDayString(now, isValidTimezone(tz) ? tz : BOX_TIMEZONE);
+  }
+  if (opts.coach_id != null) return loadCoachToday(opts.coach_id, { now, client });
+  return zonedDayString(now, BOX_TIMEZONE);
 }
 
 // =============================================================================
@@ -158,7 +177,7 @@ export async function listEvents(
   opts: ListEventsOpts = {},
   client: Sql = defaultSql,
 ): Promise<EventListItem[]> {
-  const today = todayIso();
+  const today = await viewerToday(opts, client);
   const scope = opts.scope ?? 'upcoming';
   const visibility = opts.visibility ?? 'all';
 
@@ -262,5 +281,6 @@ export async function getEvent(
   `;
   const row = rows[0];
   if (!row) return null;
-  return toListItem(row, todayIso());
+  // Internal read after a write (admin or coach): the default calendar.
+  return toListItem(row, zonedDayString(new Date(), BOX_TIMEZONE));
 }
