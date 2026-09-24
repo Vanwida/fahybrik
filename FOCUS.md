@@ -6,9 +6,9 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**EL RELOJ ES EL PRODUCTO (Alex, 24-09).** La muñeca lleva la sesión desde el primer día; se
-descarta «teléfono ahora, reloj después» (DECISIONS 24-09). EN CURSO: diseño Watch-first
-(modelo + roto contra sesiones reales + dónde falla) para firmar antes de tocar Swift.
+**EL RELOJ ES EL PRODUCTO y el listón es TrainingPeaks (Alex, 24-09).** La muñeca lleva la sesión
+desde el primer día; nunca por debajo de TrainingPeaks (DECISIONS 24-09). EN CURSO: diseño Watch-first
++ comparativa con TrainingPeaks (modelo, roto contra sesiones reales, dónde falla) antes de tocar Swift.
 **Auditoría de la app del atleta (iOS + watchOS) — ENTREGADA.** `docs/auditoria-app-atleta/`.
 6 raíces: enlace del reloj diseñado para fallar · entreno terminado no durable · lo del coach
 no llega · la app dice lo que ningún coach decidió · empezar/terminar peor que el mercado ·

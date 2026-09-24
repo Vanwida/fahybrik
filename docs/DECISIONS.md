@@ -16,6 +16,8 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **En consecuencia:** se descarta la escalera de la auditoría de la app del atleta (`docs/auditoria-app-atleta/`, fase 2 «el teléfono lleva el reloj de la sesión por ahora» → fase 4 «el reloj después»). El Apple Watch pasa a ser el **dispositivo de registro y el dueño del reloj de la sesión** desde la primera versión del rediseño; el iPhone, la segunda pantalla y el concentrador de lo que solo él alcanza. El listón deja de ser «tan fiable como Apple permite con el motor en el teléfono» y pasa a ser «como Apple Workout, y midiendo lo que Apple Workout no mide».
 
+**El listón, dicho por Alex (24-09):** «Tenemos que competir directamente con TrainingPeaks; no podemos ser menos.» Donde TrainingPeaks es fuerte (entrenos estructurados en cualquier aparato, analíticas de carga y rendimiento, sincronía con dispositivos, herramientas del coach) no se queda por debajo; el reloj es donde se les supera. TrainingPeaks queda marcado como fuente de comparación.
+
 **Se mantiene de FH-56 (2026-09-21):** el estado del enlace solo lo cambian eventos de Apple; ningún temporizador actúa sobre una inferencia; nunca se descarta lo que grabó el atleta. Y la fase 0 de la auditoría sigue primero: sin un Mac que compile y pruebe cada cambio de Swift, empujar el reloj al límite es reescribir el enlace por octava vez.
 
 **Pendiente:** el diseño completo (modelo, roto contra sesiones reales, dónde puede fallar) se firma con Alex antes de escribir Swift. Decisiones suyas: suelo de dispositivos, qué pasa sin reloj, coste del Mac de CI.
