@@ -8,9 +8,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 **Auditoría de la app del atleta (iOS + watchOS) — EN CURSO.** Petición de Alex: lo mismo
 que el panel, ahora para el atleta: UX/UI, que funcione, estándar de mercado, que lo que
-hace el coach llegue al atleta, y el enlace muñeca↔móvil desde primeros principios («a
-veces conecta, a veces no»). 6 revisores (UX, entreno, reloj+enlace, reflejo coach→atleta,
-plataforma, resto de superficies). Sin Xcode aquí: lectura del Swift + el doble; lo que
+hace el coach llegue al atleta, y el enlace muñeca↔móvil desde primeros principios. 6
+revisores (UX, entreno, reloj+enlace, reflejo coach→atleta, plataforma, resto). Sin Xcode aquí: lectura del Swift + el doble; lo que
 solo prueba un aparato va en «verificar en el aparato». Entregable: documento con
 diagnóstico y propuestas para que Alex apruebe ANTES de construir.
 
