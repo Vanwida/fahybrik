@@ -16,7 +16,7 @@ final class LiveLaunchPolicyTests: XCTestCase {
     func testFreshSnapshotAloneDoesNotBlockStart() {
         let snap = PersistedWorkoutState(
             plan: WorkoutPlan(id: UUID(), name: "S", format: .forTime,
-                              estimatedDurationSeconds: 0, blockContext: "", zoneTargets: [],
+                              estimatedDurationSeconds: 0, blockContext: "", zoneTargets: [], equipment: [],
                               segments: [], coachNote: nil, demoVideoUrl: nil, warmupChecklist: []),
             startedAt: Date(), currentSegmentIndex: 0, elapsedSeconds: 1, lapElapsedSeconds: 0,
             laps: [], repsByCurrentSegment: 0, isPaused: false, savedAt: Date(),

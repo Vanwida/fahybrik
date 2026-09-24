@@ -132,22 +132,7 @@ final class WearablesServiceTests: XCTestCase {
     }
 }
 
-private extension WearablesResponse {
-    init(
-        providers: [WearableProvider],
-        pendingLinks: [WearablePendingLink],
-        imported: Int?,
-        asked: Int?,
-        activitiesFound: Int?,
-        skipReason: String?,
-        errored: Int?
-    ) {
-        self.providers = LossyArray(wrappedValue: providers)
-        self.pendingLinks = LossyArray(wrappedValue: pendingLinks)
-        self.imported = imported
-        self.asked = asked
-        self.activitiesFound = activitiesFound
-        self.skipReason = skipReason
-        self.errored = errored
-    }
-}
+// `WearablesResponse(providers:pendingLinks:imported:asked:activitiesFound:skipReason:errored:)`
+// above is the struct's synthesized memberwise init (the @LossyArray params take the
+// wrapped `[T]`). A hand-written init here could not compile: `self.providers` is the
+// wrapped `[WearableProvider]`, not `LossyArray`, and the `_providers` storage is private.

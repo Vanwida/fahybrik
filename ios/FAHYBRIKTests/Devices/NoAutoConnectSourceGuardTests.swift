@@ -33,7 +33,7 @@ final class NoAutoConnectSourceGuardTests: XCTestCase {
                           "sources not present in this run — behavioural tests still cover the rule")
         guard let walker = fm.enumerator(at: deviceDirectory,
                                          includingPropertiesForKeys: nil) else { return [] }
-        var out: [(String, String)] = []
+        var out: [(name: String, text: String)] = []
         for case let url as URL in walker where url.pathExtension == "swift" {
             out.append((url.lastPathComponent, try String(contentsOf: url, encoding: .utf8)))
         }
@@ -113,7 +113,7 @@ final class NoAutoConnectSourceGuardTests: XCTestCase {
 
     /// FH-72: one `CBCentralManager` per iOS process, in `DeviceCentral` only.
     func testProductHasExactlyOneCBCentralManagerInit() throws {
-        var hits: [(String, Int)] = []
+        var hits: [(name: String, Int)] = []
         for (name, text) in try swiftSources() {
             let n = code(text).components(separatedBy: "CBCentralManager(").count - 1
             if n > 0 { hits.append((name, n)) }
