@@ -2,9 +2,17 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-23** (panel reconstruido + revisión pre-FLEXR cerrada; esperando decisiones de Alex)
+Última actualización: **2026-09-24** (auditoría de la app del atleta iOS + watchOS en curso)
 
 ## Ahora
+
+**Auditoría de la app del atleta (iOS + watchOS) — EN CURSO.** Petición de Alex: lo mismo
+que el panel, ahora para el atleta: UX/UI, que funcione, estándar de mercado, que lo que
+hace el coach llegue al atleta, y el enlace muñeca↔móvil desde primeros principios («a
+veces conecta, a veces no»). 6 revisores (UX, entreno, reloj+enlace, reflejo coach→atleta,
+plataforma, resto de superficies). Sin Xcode aquí: lectura del Swift + el doble; lo que
+solo prueba un aparato va en «verificar en el aparato». Entregable: documento con
+diagnóstico y propuestas para que Alex apruebe ANTES de construir.
 
 **Panel del coach (web `(v2)`) — RECONSTRUIDO y REVISADO para FLEXR.** Rama
 `claude/focused-bardeen-u9zz33`. Auditoría: `docs/auditoria-panel-coach/`. Revisión
@@ -20,7 +28,9 @@ pre-FLEXR (4 lentes: aislamiento, método, producto, plataforma) y decisiones de
 - PENDIENTE DE ALEX (revisión §decisiones): app de los atletas, quién cobra, alta de
   coaches, precio, despliegue, dominios, deportes, idioma, arranque de un club, RLS,
   legal, permiso para borrar código muerto.
-- PROD: migraciones 0211–0260 en Neon; entitlement 'negocio' del club; reconectar Google
+- OJO: NADA de esta rama está en `main` todavía (0 de sus ~180 commits; sin PR). Alex
+  cree que sí — esperando su OK para abrir PR y fusionar.
+- PROD: migraciones 0211–0260 en Neon (`cd infra && DATABASE_URL=… pnpm migrate --dry-run`, luego sin --dry-run; el deploy NO las aplica); entitlement 'negocio' del club; reconectar Google
   Calendar (ahora por coach); cron lifecycle pasa a horario (vercel.json); alta de pago
   apagada para cualquier club que no sea FAHYBRID hasta decidir quién cobra.
 
