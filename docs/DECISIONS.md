@@ -270,6 +270,8 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Deuda anotada:** los números de las reglas de la semana del motor de ajuste (adherencia < 60 %, check-in < 40, readiness < 45, 2 sin hacer, HRV −15 %) siguen en código (`weekly-verdict-rules.ts`): son método y deberían salir de `coach_signal_thresholds`. El texto del recordatorio de pago vive dos veces (Hoy `payment-reminder.ts` y Cobros): debe quedar uno.
 
+**Cerrada (24 sept):** las dos. El veredicto semanal dejó de tener números propios: son las señales de Hoy con los umbrales del coach (0256, entrada «Los motores secundarios leen el método del coach» arriba). Y el recordatorio de pago es UN texto (`components/v2/hoy/payment-reminder.ts`) que usan Hoy y Cobros, con su test.
+
 **NO hacer:** no marcar «Acción» ni ofrecer descarga por un readiness sin base; no pintar una propuesta como respuesta a una señal que no leyó; no dejar fuera de «Todo» algo que cuenta en «te necesitan»; no volver a escribir otra definición de «Sin plan» ni de «dónde está en su programa» en una pantalla.
 
 ## 2026-09-23 · El alta dice qué plan recibe y cuándo lo ve (y se puede deshacer)
