@@ -20,7 +20,11 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Se mantiene de FH-56 (2026-09-21):** el estado del enlace solo lo cambian eventos de Apple; ningún temporizador actúa sobre una inferencia; nunca se descarta lo que grabó el atleta. Y la fase 0 de la auditoría sigue primero: sin un Mac que compile y pruebe cada cambio de Swift, empujar el reloj al límite es reescribir el enlace por octava vez.
 
-**Pendiente:** el diseño completo (modelo, roto contra sesiones reales, dónde puede fallar) se firma con Alex antes de escribir Swift. Decisiones suyas: suelo de dispositivos, qué pasa sin reloj, coste del Mac de CI.
+**Firmado por Alex (24-09, preguntas y respuestas)** sobre el diseño `docs/el-reloj-primero/`:
+1. **Arquitectura aprobada:** el Apple Watch es dueño de cada sesión desde la primera versión; el iPhone, segunda pantalla y concentrador.
+2. **Mínimos: iOS 26 y watchOS 26**, con lo de watchOS 27 (zonas nativas, RMSSD) encendido donde el reloj lo tenga. 26 es lo que pide la sesión de entreno en el iPhone.
+3. **Sin reloj, el iPhone es respaldo:** graba la sesión él solo (sesión de entreno de iOS 26), marcada como respaldo; nunca se vende como camino principal.
+4. **Mac de CI: GitHub macOS.** Compila iPhone y reloj y pasa los tests en cada cambio de `ios/`; un rojo no se fusiona. Se monta en el repo y los errores se leen desde aquí.
 
 ---
 

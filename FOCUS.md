@@ -2,13 +2,13 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-24** (PR #191 en verde, espera migraciones en Neon; diseño Watch-first entregado, espera firma)
+Última actualización: **2026-09-24** (PR #191 en verde, espera migraciones en Neon; diseño Watch-first firmado → fase 0)
 
 ## Ahora
 
 **EL RELOJ ES EL PRODUCTO y el listón es TrainingPeaks (Alex, 24-09).** La muñeca lleva la sesión
-desde el primer día; nunca por debajo de TrainingPeaks (DECISIONS 24-09). Diseño ENTREGADO, espera firma:
-`docs/el-reloj-primero/` (https://claude.ai/artifact/FY4iFQHYuaitygDHCsM5sg). Nada de Swift antes de firmar.
+desde el primer día; nunca por debajo de TrainingPeaks. Diseño FIRMADO (arquitectura, iOS/watchOS 26,
+iPhone de respaldo, CI GitHub macOS; DECISIONS 24-09): `docs/el-reloj-primero/`. Siguiente: fase 0 (CI macOS).
 **Auditoría de la app del atleta (iOS + watchOS) — ENTREGADA.** `docs/auditoria-app-atleta/`.
 6 raíces: enlace del reloj diseñado para fallar · entreno terminado no durable · lo del coach
 no llega · la app dice lo que ningún coach decidió · empezar/terminar peor que el mercado ·
