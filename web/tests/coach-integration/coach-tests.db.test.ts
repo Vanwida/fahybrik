@@ -19,6 +19,7 @@ import { recordBatteryResults } from '@/lib/coach/test-battery-bridge';
 import { loadBatteryStatus } from '@/lib/coach/battery-status';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { addDays, isoDateString, mondayOfWeek } from '@fahybrid/shared/domain/dates';
+import { CMJ_PROFILE_SLUG, captureModeForSpecs } from '@fahybrid/shared/domain/jump/protocol';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import {
   makeCoachAndAthlete,
@@ -41,7 +42,7 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
     await closeTestSql();
   });
 
-  test('restoreDefaultTests seeds the 4 FABRIK tests + content templates + meta_json mirror', async () => {
+  test('restoreDefaultTests seeds the default battery + content templates + meta_json mirror', async () => {
     const fx = await makeCoachAndAthlete(sql);
     fixtures.push(fx);
 
@@ -74,7 +75,21 @@ describeWithDb('#34 coach calibration tests (real DB)', () => {
       `;
       expect(tpl.calibration).toBe(t.slug);
       expect(tpl.store_len).toBe(t.results.length);
-      expect(tpl.segs).toBeGreaterThan(0); // one segment per resolvable result
+      // One segment per RESOLVABLE result. The jump profile (cmj_profile, added
+      // to the battery by 038e38d on 13-ago) is a video measurement, not a
+      // workout: its results are baselines with no benchmark or modality to
+      // anchor an exercise on (CMJ_PROFILE_RESULTS), so its template is born
+      // empty on purpose — calibration-content.ts, "a baseline with no modality
+      // gets no segment (honest)" — and the phone opens the camera for it, not
+      // the live session. That commit bumped the count above to 6 but left this
+      // line demanding content from every test. Every other test still must
+      // carry content; the jump profile must carry none (nothing fabricated).
+      if (t.slug === CMJ_PROFILE_SLUG) {
+        expect(captureModeForSpecs(t.results)).toBe('jump_video');
+        expect(tpl.segs).toBe(0);
+      } else {
+        expect(tpl.segs).toBeGreaterThan(0);
+      }
     }
   }, 60000);
 

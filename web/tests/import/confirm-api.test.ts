@@ -1,21 +1,23 @@
 /**
  * Real-DB API-level test for the #28 CONFIRM service (the /confirm route's core).
- * Creates a throwaway microcycle + one empty week template owned by the seed
- * coach, then asserts:
+ * Creates a throwaway coach (+ one exercise of their own), a microcycle and one
+ * empty week template owned by that coach, then asserts:
  *   1) an approved day WRITES into the mapped week template (the #33 shape lands);
  *   2) a resolved token is LEARNED into coach_exercise_synonyms;
  *   3) an unresolved line (exercise_id null) REJECTS the whole confirm (nothing saved);
  *   4) a target week not in the microcycle is refused (Fork B ownership).
- * All fixtures are torn down. Skips loudly without TEST_DATABASE_URL.
+ * All fixtures are torn down (it used to borrow demo coach 29 and the first
+ * exercise in the DB, so it only ran on the demo Neon branch). Skips loudly
+ * without TEST_DATABASE_URL.
  */
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { confirmImport, mergeDayNote } from '@/lib/import/confirm-service';
 import { ImportError } from '@/lib/import/proposal-service';
 import { getWeekTemplate } from '@/lib/dashboard/coach/program-weeks';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
+import { makeCoachAndAthlete, makeExercise, type Fixture } from '../utils/db-fixtures';
 
 type Sql = ReturnType<typeof getTestSql>;
-const SEED_COACH_ID = Number(process.env.SEED_COACH_ID ?? 29);
 const LEARN_TERM = `import-test-token-${Date.now()}`;
 
 function sessionWith(exerciseId: number | null) {
@@ -50,26 +52,32 @@ function sessionWith(exerciseId: number | null) {
 
 describeWithDb('#28 confirm service — write approved days (real DB)', () => {
   let sql: Sql;
+  let fx: Fixture | null = null;
+  let coachId = 0;
   let microcycleId = 0;
   let weekId = 0;
   let exerciseId = 0;
 
   beforeAll(async () => {
     sql = getTestSql();
+    fx = await makeCoachAndAthlete(sql);
+    coachId = fx.coachId;
 
-    const ex = await sql<Array<{ id: string }>>`select id::text from exercises order by id asc limit 1`;
-    exerciseId = Number(ex[0]!.id);
+    // The coach's OWN exercise: a line resolves to it and a synonym may point at
+    // it (both are gated on "visible to this coach"), and it never touches the
+    // shared base catalog other suites read.
+    exerciseId = await makeExercise({ fx, name: 'Back Squat', coachId });
 
     const month = await sql<Array<{ id: string }>>`
       insert into program_month_templates (coach_id, name)
-      values (${SEED_COACH_ID}, ${`IMPORT-CONFIRM-TEST-${Date.now()}`})
+      values (${coachId}, ${`IMPORT-CONFIRM-TEST-${Date.now()}`})
       returning id::text
     `;
     microcycleId = Number(month[0]!.id);
 
     const week = await sql<Array<{ id: string }>>`
       insert into program_week_templates (coach_id, name, slots_json)
-      values (${SEED_COACH_ID}, ${'IMPORT-CONFIRM-WK'}, ${sql.json({ days: [] })})
+      values (${coachId}, ${'IMPORT-CONFIRM-WK'}, ${sql.json({ days: [] })})
       returning id::text
     `;
     weekId = Number(week[0]!.id);
@@ -78,19 +86,19 @@ describeWithDb('#28 confirm service — write approved days (real DB)', () => {
       insert into program_month_weeks (month_template_id, week_template_id, position)
       values (${microcycleId}, ${weekId}, 0)
     `;
+    // Registered with the fixture so its teardown removes them in FK order.
+    fx.monthTemplates.push({ monthId: microcycleId, weekIds: [weekId] });
   });
 
   afterAll(async () => {
-    if (weekId) await sql`delete from program_month_weeks where week_template_id = ${weekId}`;
-    if (weekId) await sql`delete from program_week_templates where id = ${weekId}`;
-    if (microcycleId) await sql`delete from program_month_templates where id = ${microcycleId}`;
-    await sql`delete from coach_exercise_synonyms where coach_id = ${SEED_COACH_ID} and term_normalized = ${LEARN_TERM}`;
+    // Learned synonyms go with the coach (and the exercise): ON DELETE CASCADE.
+    if (fx) await fx.cleanup();
     await closeTestSql();
   });
 
   test('writes the approved day into the mapped week + learns the resolved token', async () => {
     const result = await confirmImport({
-      coach_id: SEED_COACH_ID,
+      coach_id: coachId,
       body: {
         microcycle_id: microcycleId,
         weeks: [{ target_week_template_id: weekId, day_of_week: 2, sessions: [sessionWith(exerciseId)] }],
@@ -103,7 +111,7 @@ describeWithDb('#28 confirm service — write approved days (real DB)', () => {
     expect(result.learned).toBe(1);
 
     // The day actually LANDED in the week template's slots_json (the #33 shape).
-    const week = await getWeekTemplate({ coach_id: SEED_COACH_ID, id: weekId, client: sql });
+    const week = await getWeekTemplate({ coach_id: coachId, id: weekId, client: sql });
     const day = week!.slots_json.days.find((d) => d.day_of_week === 2);
     expect(day).toBeTruthy();
     const item = day!.sessions[0]!.blocks![0]!.items[0]!;
@@ -113,7 +121,7 @@ describeWithDb('#28 confirm service — write approved days (real DB)', () => {
     // The synonym was learned for this coach (aprende su notación).
     const syn = await sql<Array<{ exercise_id: string }>>`
       select exercise_id::text from coach_exercise_synonyms
-      where coach_id = ${SEED_COACH_ID} and term_normalized = ${LEARN_TERM} limit 1
+      where coach_id = ${coachId} and term_normalized = ${LEARN_TERM} limit 1
     `;
     expect(syn[0]).toBeTruthy();
     expect(Number(syn[0]!.exercise_id)).toBe(exerciseId);
@@ -122,7 +130,7 @@ describeWithDb('#28 confirm service — write approved days (real DB)', () => {
   test('una tarjeta de nota acaba en WeekDay.notes, y una nota previa NO se pierde', async () => {
     // 1) Primera importación: el día no tenía nota, así que entra la de la foto.
     await confirmImport({
-      coach_id: SEED_COACH_ID,
+      coach_id: coachId,
       body: {
         microcycle_id: microcycleId,
         weeks: [
@@ -136,13 +144,13 @@ describeWithDb('#28 confirm service — write approved days (real DB)', () => {
       },
       client: sql,
     });
-    let week = await getWeekTemplate({ coach_id: SEED_COACH_ID, id: weekId, client: sql });
+    let week = await getWeekTemplate({ coach_id: coachId, id: weekId, client: sql });
     let day = week!.slots_json.days.find((d) => d.day_of_week === 6);
     expect(day!.notes).toBe('Control test salto');
 
     // 2) Segunda importación con OTRA nota: la primera sigue ahí, arriba.
     await confirmImport({
-      coach_id: SEED_COACH_ID,
+      coach_id: coachId,
       body: {
         microcycle_id: microcycleId,
         weeks: [
@@ -156,13 +164,13 @@ describeWithDb('#28 confirm service — write approved days (real DB)', () => {
       },
       client: sql,
     });
-    week = await getWeekTemplate({ coach_id: SEED_COACH_ID, id: weekId, client: sql });
+    week = await getWeekTemplate({ coach_id: coachId, id: weekId, client: sql });
     day = week!.slots_json.days.find((d) => d.day_of_week === 6);
     expect(day!.notes).toBe('Control test salto\n\nPesaje el viernes');
 
     // 3) Reimportar la MISMA nota no la duplica.
     await confirmImport({
-      coach_id: SEED_COACH_ID,
+      coach_id: coachId,
       body: {
         microcycle_id: microcycleId,
         weeks: [
@@ -176,7 +184,7 @@ describeWithDb('#28 confirm service — write approved days (real DB)', () => {
       },
       client: sql,
     });
-    week = await getWeekTemplate({ coach_id: SEED_COACH_ID, id: weekId, client: sql });
+    week = await getWeekTemplate({ coach_id: coachId, id: weekId, client: sql });
     day = week!.slots_json.days.find((d) => d.day_of_week === 6);
     expect(day!.notes).toBe('Control test salto\n\nPesaje el viernes');
   });
@@ -185,7 +193,7 @@ describeWithDb('#28 confirm service — write approved days (real DB)', () => {
     let thrown: unknown;
     try {
       await confirmImport({
-        coach_id: SEED_COACH_ID,
+        coach_id: coachId,
         body: {
           microcycle_id: microcycleId,
           weeks: [{ target_week_template_id: weekId, day_of_week: 4, sessions: [sessionWith(null)] }],
@@ -200,14 +208,14 @@ describeWithDb('#28 confirm service — write approved days (real DB)', () => {
     expect((thrown as ImportError).status).toBe(400);
 
     // Day 4 was never written (the reject fired before any write).
-    const week = await getWeekTemplate({ coach_id: SEED_COACH_ID, id: weekId, client: sql });
+    const week = await getWeekTemplate({ coach_id: coachId, id: weekId, client: sql });
     expect(week!.slots_json.days.find((d) => d.day_of_week === 4)).toBeUndefined();
   });
 
   test('refuses a target week outside the microcycle (Fork B ownership)', async () => {
     await expect(
       confirmImport({
-        coach_id: SEED_COACH_ID,
+        coach_id: coachId,
         body: {
           microcycle_id: microcycleId,
           weeks: [

@@ -1,7 +1,8 @@
 /**
  * Real-DB API-level test for the #28 PROPOSAL service (the /proposal route's core,
- * minus the HTTP/session shell). Creates a throwaway microcycle owned by the seed
- * coach, then drives buildImportProposalFromRequest against a REAL workbook fixture
+ * minus the HTTP/session shell). Creates a throwaway coach and a microcycle they
+ * own (it used to borrow demo coach 29, so it only ran on the demo Neon branch),
+ * then drives buildImportProposalFromRequest against a REAL workbook fixture
  * + the real per-coach exercise resolver, asserting the TYPED per-day proposal and
  * that ownership is enforced. LLM is disabled (llmAssist:null) so the grammar half
  * is exercised deterministically. Saves nothing. Skips loudly without
@@ -19,37 +20,41 @@ import {
   ImportError,
 } from '@/lib/import/proposal-service';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
+import { makeCoachAndAthlete, type Fixture } from '../utils/db-fixtures';
 
 type Sql = ReturnType<typeof getTestSql>;
-const SEED_COACH_ID = Number(process.env.SEED_COACH_ID ?? 29);
 const XLSX = resolve(process.cwd(), '..', 'docs', 'Plantilla_HYROX_12sem (1) 2.xlsx');
 const hasXlsx = existsSync(XLSX);
 
 describeWithDb('#28 proposal service — request → typed proposal (real DB)', () => {
   let sql: Sql;
+  let fx: Fixture | null = null;
+  let coachId = 0;
   let microcycleId = 0;
 
   beforeAll(async () => {
     sql = getTestSql();
+    fx = await makeCoachAndAthlete(sql);
+    coachId = fx.coachId;
     const rows = await sql<Array<{ id: string }>>`
       insert into program_month_templates (coach_id, name)
-      values (${SEED_COACH_ID}, ${`IMPORT-PROPOSAL-TEST-${Date.now()}`})
+      values (${coachId}, ${`IMPORT-PROPOSAL-TEST-${Date.now()}`})
       returning id::text
     `;
     microcycleId = Number(rows[0]!.id);
+    // Registered with the fixture so its teardown removes it before the coach.
+    fx.monthTemplates.push({ monthId: microcycleId, weekIds: [] });
   });
 
   afterAll(async () => {
-    if (microcycleId) {
-      await sql`delete from program_month_templates where id = ${microcycleId}`;
-    }
+    if (fx) await fx.cleanup();
     await closeTestSql();
   });
 
   test('rejects a foreign / missing microcycle (ownership)', async () => {
     await expect(
       buildImportProposalFromRequest({
-        coach_id: SEED_COACH_ID,
+        coach_id: coachId,
         body: { microcycle_id: 2_000_000_000, variant: 'estandar', range_text: 'la 1' },
         client: sql,
         llmAssist: null,
@@ -60,7 +65,7 @@ describeWithDb('#28 proposal service — request → typed proposal (real DB)', 
   test('rejects an out-of-season range (400 before any read)', async () => {
     await expect(
       buildImportProposalFromRequest({
-        coach_id: SEED_COACH_ID,
+        coach_id: coachId,
         body: { microcycle_id: microcycleId, variant: 'estandar', range_text: 'de la 10 a la 14' },
         client: sql,
         llmAssist: null,
@@ -72,7 +77,7 @@ describeWithDb('#28 proposal service — request → typed proposal (real DB)', 
     'range 1-4 estándar → 4 typed weeks, strength resolves, honest review split',
     async () => {
       const proposal = await buildImportProposalFromRequest({
-        coach_id: SEED_COACH_ID,
+        coach_id: coachId,
         body: {
           microcycle_id: microcycleId,
           variant: 'estandar',
@@ -120,7 +125,7 @@ describeWithDb('#28 proposal service — request → typed proposal (real DB)', 
 
   test('pasted text → one typed day (no xlsx needed)', async () => {
     const proposal = await buildImportProposalFromRequest({
-      coach_id: SEED_COACH_ID,
+      coach_id: coachId,
       body: {
         microcycle_id: microcycleId,
         variant: 'estandar',

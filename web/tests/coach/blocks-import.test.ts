@@ -6,10 +6,11 @@
  *      group headers map to methodology_group_id 1..10, focus/header rows are
  *      skipped, descriptions are kept VERBATIM, titles are derived, and slugs
  *      are stable (idempotency relies on deterministic slugs).
- *   2) Real DB (describeWithDb): the seeded 97 blocks are queryable via
- *      listBlocks, filtered by group, with the group mapping intact.
+ *   2) Real DB (describeWithDb): parsed blocks written into ONE coach's library
+ *      come back through listBlocks — all ten groups, verbatim, filterable by
+ *      group, never mixed with another coach's — with the group mapping intact.
  */
-import { describe, expect, test, afterAll } from 'vitest';
+import { describe, expect, test, afterAll, beforeAll } from 'vitest';
 import {
   parseBlocks,
   deriveTitle,
@@ -18,6 +19,7 @@ import {
 } from '../../../infra/scripts/import_blocks_xlsx';
 import { listBlocks } from '@/lib/dashboard/coach/blocks';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
+import { makeCoachAndAthlete, makeLibraryBlock, type Fixture } from '../utils/db-fixtures';
 
 type Row = (string | number | null)[];
 
@@ -94,34 +96,80 @@ describe('deriveTitle / slugify helpers', () => {
   });
 });
 
-// Real-DB layer: the seeded blocks (97) are queryable and correctly grouped.
-// The library is PER-COACH: blocks belong to their owning coach. We resolve the
-// coach who owns the bulk of the seeded library and assert against THEIR list.
-// Skipped (loud) when TEST_DATABASE_URL is unset — never a false green.
-describeWithDb('listBlocks (real DB — seeded library)', () => {
-  const sql = getTestSql();
-
-  /** The coach that owns the seeded library (most blocks). */
-  async function libraryOwnerId(): Promise<number> {
-    const rows = await sql<Array<{ coach_id: string }>>`
-      select coach_id::text as coach_id
-      from blocks
-      where coach_id is not null
-      group by coach_id
-      order by count(*) desc
-      limit 1
-    `;
-    return Number(rows[0]!.coach_id);
+/** A sheet in the importer's layout with two data rows in EACH group 1..10. */
+function libraryRows(): Row[] {
+  const rows: Row[] = [
+    ['CLASIFICACIÓN DE ENTRENAMIENTOS POR GRUPOS', null, null, null],
+    ['#', 'Sesión (Semana – Día)', 'Descripción del Entrenamiento', 'Grupo'],
+  ];
+  for (let g = 1; g <= 10; g += 1) {
+    rows.push([`  GRUPO ${g}  —  GRUPO ${g}`, null, null, null]);
+    rows.push(['📌 ENFOQUE: …', null, null, null]);
+    rows.push([g * 10, `S${g} – Lunes`, `Bloque ${g}A 5 rounds 10/8/6 + accesorio ${g}`, `GRUPO ${g}`]);
+    rows.push([g * 10 + 1, `S${g} – Jueves`, `Bloque ${g}B 4x40''/20''`, `GRUPO ${g}`]);
+    rows.push([null, null, null, null]);
   }
+  return rows;
+}
+
+// Real-DB layer: what the importer parses, written into ONE coach's library,
+// comes back through listBlocks — all ten groups, verbatim, filterable by group.
+// The library is PER-COACH: a second coach's block sits in the same group and
+// must never show up in the first coach's list.
+//
+// Self-contained: the coaches and both libraries are this suite's own fixtures,
+// torn down after it. It used to read "the coach who owns the most blocks" —
+// the ~97-block Excel import living only on the demo Neon branch — so it could
+// only ever run there.
+// Skipped (loud) when TEST_DATABASE_URL is unset — never a false green.
+describeWithDb("listBlocks (real DB — the coach's own library)", () => {
+  const sql = getTestSql();
+  const parsed = parseBlocks(libraryRows());
+  const cleanups: Array<() => Promise<void>> = [];
+  let owner: Fixture;
+  let otherCoach: Fixture;
+
+  beforeAll(async () => {
+    owner = await makeCoachAndAthlete(sql);
+    cleanups.push(owner.cleanup);
+    otherCoach = await makeCoachAndAthlete(sql);
+    cleanups.push(otherCoach.cleanup);
+
+    // Each parsed block lands as the importer writes it: in its group, with the
+    // description verbatim, the derived title, the group's format hint and the
+    // session reference.
+    for (const b of parsed) {
+      await makeLibraryBlock({
+        fx: owner,
+        title: b.title,
+        description: b.description,
+        methodologyGroupId: b.methodology_group_id,
+        format: b.format,
+        sourceRef: b.source_ref,
+      });
+    }
+    await makeLibraryBlock({
+      fx: otherCoach,
+      title: 'Bloque de otro club',
+      description: 'Fuerza de otro coach, mismo grupo',
+      methodologyGroupId: 1,
+    });
+  });
 
   afterAll(async () => {
+    while (cleanups.length) await cleanups.pop()!();
     await closeTestSql();
   });
 
   test("returns the owning coach's full library across all 10 groups", async () => {
-    const coachId = await libraryOwnerId();
-    const all = await listBlocks(coachId, null, sql);
-    expect(all.length).toBeGreaterThanOrEqual(97);
+    expect(parsed).toHaveLength(20);
+    const all = await listBlocks(owner.coachId, null, sql);
+    // The whole library and nothing else: every block written for this coach
+    // (the demo branch asserted `>= 97`, the size of its one import).
+    expect(all).toHaveLength(parsed.length);
+    expect(all.map((b) => b.id).sort((a, b) => a - b)).toEqual(
+      [...owner.blockIds].sort((a, b) => a - b),
+    );
     const groups = new Set(all.map((b) => b.methodology_group_id));
     expect([...groups].sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     // every block carries the verbatim description (non-empty) + a title
@@ -129,13 +177,25 @@ describeWithDb('listBlocks (real DB — seeded library)', () => {
       expect(b.description.length).toBeGreaterThan(0);
       expect(b.title.length).toBeGreaterThan(0);
     }
+    // ...and each one is the parsed block, untouched on its way through the DB.
+    const byDescription = new Map(all.map((b) => [b.description, b]));
+    for (const p of parsed) {
+      expect(byDescription.get(p.description)).toMatchObject({
+        title: p.title,
+        methodology_group_id: p.methodology_group_id,
+        format: p.format,
+        source_ref: p.source_ref,
+      });
+    }
   });
 
   test('filters to a single methodology group', async () => {
-    const coachId = await libraryOwnerId();
-    const g1 = await listBlocks(coachId, 1, sql);
+    const g1 = await listBlocks(owner.coachId, 1, sql);
     expect(g1.length).toBeGreaterThan(0);
     expect(g1.every((b) => b.methodology_group_id === 1)).toBe(true);
+    // Exactly this coach's group-1 blocks: the other coach's one never leaks in.
+    expect(g1).toHaveLength(parsed.filter((p) => p.methodology_group_id === 1).length);
+    expect(g1.some((b) => otherCoach.blockIds.includes(b.id))).toBe(false);
   });
 
   test('group mapping matches methodology_groups by name', async () => {

@@ -7,10 +7,11 @@
  *      balance de carga; y el materializador de la respuesta LLM resuelve
  *      block_ids reales, descarta inventados y nunca repite el mismo bloque.
  *   2) Real DB (describeWithDb): el servicio completo `suggestWeekFromBlocks`
- *      contra la biblioteca seeded, SIN LLM (env limpio), produce una semana
- *      que referencia block_ids reales — el fallback heurístico de producción.
+ *      contra la biblioteca de un coach de prueba, SIN LLM (env limpio), produce
+ *      una semana que referencia block_ids reales — el fallback heurístico de
+ *      producción.
  */
-import { afterAll, afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import {
   composeWeekHeuristic,
   materializeLlmWeek,
@@ -18,6 +19,12 @@ import {
   type ComposableBlock,
 } from '@/lib/dashboard/coach/ai/suggest-week-from-blocks';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
+import {
+  makeCoachAndAthlete,
+  makeExercise,
+  makeLibraryBlock,
+  type Fixture,
+} from '../utils/db-fixtures';
 
 // Env vars que, si están, enrutarían al LLM. Las limpiamos para forzar el
 // camino determinista (y restauramos después).
@@ -223,11 +230,73 @@ describe('materializeLlmWeek (parseo respuesta LLM, pure)', () => {
   });
 });
 
-// Real-DB: el servicio completo SIN LLM contra la biblioteca seeded.
+// Real-DB: el servicio completo SIN LLM contra la biblioteca de UN coach.
+// Autocontenido: el coach, sus ejercicios (PROPIOS, para no ensuciar el catálogo
+// base que leen otras suites) y su biblioteca son fixtures de esta suite y se
+// borran al acabar. Antes leía la biblioteca del coach 1 de la rama demo de Neon,
+// así que solo podía correr allí.
 // Skipped (loud) si TEST_DATABASE_URL no está — nunca un falso verde.
 describeWithDb('suggestWeekFromBlocks heuristic fallback (real DB, no LLM)', () => {
   const sql = getTestSql();
   const saved: Record<string, string | undefined> = {};
+  const cleanups: Array<() => Promise<void>> = [];
+  let fx: Fixture;
+  let ergGroupId = 0;
+  let proseErgBlockId = 0;
+
+  beforeAll(async () => {
+    fx = await makeCoachAndAthlete(sql);
+    cleanups.push(fx.cleanup);
+
+    // Los grupos se resuelven por slug (0030), como hace el servicio: nada de ids a mano.
+    const groups = await sql<Array<{ id: string; slug: string }>>`
+      select id::text as id, slug from methodology_groups
+    `;
+    const groupId = (slug: string): number => Number(groups.find((g) => g.slug === slug)!.id);
+    ergGroupId = groupId('series-ergometros');
+
+    const squat = await makeExercise({ fx, name: 'Back squat', coachId: fx.coachId });
+    const row = await makeExercise({ fx, name: 'Remo', category: 'cardio', modality: 'row', coachId: fx.coachId });
+    const run = await makeExercise({ fx, name: 'Carrera', category: 'cardio', modality: 'run', coachId: fx.coachId });
+
+    // Un bloque de SOLO prosa en el grupo pedido, creado el primero (id menor):
+    // si el filtro de tipados fallara, la rotación por id lo cogería el lunes.
+    proseErgBlockId = await makeLibraryBlock({
+      fx,
+      title: 'Remo en texto',
+      description: 'Row 5x1000m rec 2min, sin tipar',
+      methodologyGroupId: ergGroupId,
+    });
+    // Biblioteca tipada repartida por grupos: el foco tiene de dónde elegir y de dónde no.
+    await makeLibraryBlock({
+      fx,
+      title: 'Back squat 5x5',
+      description: 'Back squat 5x5 al 75%',
+      methodologyGroupId: groupId('fuerza-base'),
+      exercises: [{ exercise_id: squat, position: 0, params_json: { sets: 5, reps: 5 } }],
+    });
+    await makeLibraryBlock({
+      fx,
+      title: 'Row 4x3min',
+      description: 'Row 4x3min rec 1min',
+      methodologyGroupId: ergGroupId,
+      exercises: [{ exercise_id: row, position: 0, params_json: { sets: 4, duration_seconds: 180 } }],
+    });
+    await makeLibraryBlock({
+      fx,
+      title: 'Row 6x500m',
+      description: 'Row 6x500m rec 90s',
+      methodologyGroupId: ergGroupId,
+      exercises: [{ exercise_id: row, position: 0, params_json: { sets: 6, distance_meters: 500 } }],
+    });
+    await makeLibraryBlock({
+      fx,
+      title: 'Rodaje Z2 45min',
+      description: 'Rodaje 45min en Z2',
+      methodologyGroupId: groupId('zona2-recuperacion'),
+      exercises: [{ exercise_id: run, position: 0, params_json: { duration_seconds: 2700 } }],
+    });
+  });
 
   beforeEach(() => {
     for (const k of LLM_ENV_KEYS) {
@@ -242,12 +311,13 @@ describeWithDb('suggestWeekFromBlocks heuristic fallback (real DB, no LLM)', () 
     }
   });
   afterAll(async () => {
+    while (cleanups.length) await cleanups.pop()!();
     await closeTestSql();
   });
 
   test('compone semana ACC desde bloques reales sin LLM', async () => {
     const res = await suggestWeekFromBlocks({
-      coach_id: 1,
+      coach_id: fx.coachId,
       body: { focus: 'acumulación volumen + ergómetros', mode: 'fast' },
       client: sql,
     });
@@ -256,12 +326,19 @@ describeWithDb('suggestWeekFromBlocks heuristic fallback (real DB, no LLM)', () 
     expect(res.days).toHaveLength(7);
     expect(res.matched_blocks.length).toBeGreaterThan(0);
 
-    // todos los block_id materializados existen realmente en la biblioteca
+    // todos los block_id materializados existen realmente en la biblioteca DE ESTE coach
     const ids = res.matched_blocks.map((m) => m.block_id);
     const real = await sql<Array<{ id: number }>>`
-      select id from blocks where id in ${sql(ids)}
+      select id from blocks where id in ${sql(ids)} and coach_id = ${fx.coachId}
     `;
     expect(real.length).toBe(new Set(ids).size);
+
+    // El foco pide ergómetros y la biblioteca los tiene: la semana sale SOLO de
+    // ahí (EL FOCO MANDA, con el slug resuelto contra methodology_groups real).
+    expect(res.matched_blocks.every((m) => m.methodology_group_id === ergGroupId)).toBe(true);
+    // El bloque de solo prosa no se compone nunca — se deja fuera y se dice.
+    expect(ids).not.toContain(proseErgBlockId);
+    expect(res.notices.map((n) => n.code)).toContain('untyped_blocks');
   });
 });
 

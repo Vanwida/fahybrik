@@ -359,13 +359,18 @@ export async function makeExercise(params: {
 /**
  * Insert a library block (0037) + its structured `block_exercises` (0038).
  * `needs_review` blocks pass an empty `exercises` array (no structure). The
- * block FKs methodology_group 1 (seeded). Registered for fixture teardown.
+ * block FKs a methodology group (0030, seeded by migration; 1 by default).
+ * `format`/`sourceRef` are the importer's per-block hints and stay NULL unless
+ * given. Registered for fixture teardown.
  */
 export async function makeLibraryBlock(params: {
   fx: Fixture;
   title: string;
   description: string;
   needsReview?: boolean;
+  methodologyGroupId?: number;
+  format?: string | null;
+  sourceRef?: string | null;
   exercises?: Array<{
     exercise_id: number;
     position: number;
@@ -377,8 +382,14 @@ export async function makeLibraryBlock(params: {
 }): Promise<number> {
   const sql = params.fx.sql;
   const rows = await sql<Array<{ id: string }>>`
-    insert into blocks (slug, title, description, methodology_group_id, needs_review, coach_id)
-    values (${uniq('blk')}, ${params.title}, ${params.description}, 1, ${params.needsReview ?? false}, ${params.fx.coachId})
+    insert into blocks (
+      slug, title, description, methodology_group_id, format, source_ref, needs_review, coach_id
+    )
+    values (
+      ${uniq('blk')}, ${params.title}, ${params.description}, ${params.methodologyGroupId ?? 1},
+      ${params.format ?? null}, ${params.sourceRef ?? null}, ${params.needsReview ?? false},
+      ${params.fx.coachId}
+    )
     returning id::text
   `;
   const blockId = Number(rows[0]!.id);
