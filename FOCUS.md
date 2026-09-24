@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-24** (auditoría de la app del atleta iOS + watchOS en curso)
+Última actualización: **2026-09-24** (PR #191 en verde, espera las migraciones en Neon; auditoría iOS entregada)
 
 ## Ahora
 
@@ -12,8 +12,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 startWatchApp, avisos sin id) · entreno terminado no es durable (4xx = perdido, bucle de
 logout) · lo del coach no llega (sin refresh al volver; push por HTTP/1.1 → ARREGLADO en
 servidor) · la app dice lo que ningún coach decidió · empezar/terminar peor que el mercado ·
-nada compila ni prueba el iOS antes que Alex (fase 0 = CI macOS). Arreglos de servidor en
-curso (entreno huérfano, alta nunca perdida, claves, copy de push, semana N de M).
+nada compila ni prueba el iOS antes que Alex (fase 0 = CI macOS). Arreglos de servidor
+HECHOS, van en el PR #191 (entreno huérfano, alta nunca perdida, claves, copy de push, semana N de M).
 
 **Panel del coach (web `(v2)`) — RECONSTRUIDO y REVISADO para FLEXR.** Rama
 `claude/focused-bardeen-u9zz33`. Auditoría: `docs/auditoria-panel-coach/`. Revisión
@@ -28,10 +28,10 @@ pre-FLEXR (4 lentes: aislamiento, método, producto, plataforma) y decisiones de
 - PENDIENTE DE ALEX (revisión §decisiones): app de los atletas, quién cobra, alta de
   coaches, precio, despliegue, dominios, deportes, idioma, arranque de un club, RLS,
   legal, permiso para borrar código muerto.
-- OJO: rama NO en `main`; en `main` (prod) el onboarding da 500 desde 09-05 (arreglo: c36effd).
-- PROD: migraciones 0211–0260 y 0270–0272 en Neon (`cd infra && DATABASE_URL=… pnpm migrate --dry-run`, luego sin --dry-run; el deploy NO las aplica); entitlement 'negocio' del club; reconectar Google
-  Calendar (ahora por coach); cron lifecycle pasa a horario (vercel.json); alta de pago
-  apagada para cualquier club que no sea FAHYBRID hasta decidir quién cobra.
+- PR #191 → `main`: CI verde. Se fusiona cuando Alex aplique en Neon 0211–0260 y 0270–0272
+  (revisadas contra datos reales: seguras; migrar y fusionar seguido) y el entitlement 'negocio'
+  del club 60 (pasos y SQL en el PR). Hasta entonces `main` (prod) da 500 en cada alta desde 09-05.
+- Tras el deploy: reconectar Google Calendar (ahora por coach); cron lifecycle pasa a horario (vercel.json); alta de pago apagada para cualquier club que no sea FAHYBRID hasta decidir quién cobra.
 
 **FH-56 — El enlace muñeca↔móvil lo dice Apple (PR pendiente de Devil's Advocate CODE gate).**
 Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISIONS.md`
