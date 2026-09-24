@@ -2,18 +2,17 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-24** (PR #191 en verde, espera las migraciones en Neon; husos, tests locales y cadena personal cerrados)
+Última actualización: **2026-09-24** (PR #191 en verde, espera migraciones en Neon; el reloj es el producto → diseño Watch-first)
 
 ## Ahora
 
-**Auditoría de la app del atleta (iOS + watchOS) — ENTREGADA, esperando decisiones de Alex.**
-`docs/auditoria-app-atleta/index.html` (https://claude.ai/artifact/5qZuHvNA46VQVwdV8cVGen).
-6 raíces: enlace del reloj diseñado para fallar (motor en el iPhone suspendible, un solo
-startWatchApp, avisos sin id) · entreno terminado no es durable (4xx = perdido, bucle de
-logout) · lo del coach no llega (sin refresh al volver; push por HTTP/1.1 → ARREGLADO en
-servidor) · la app dice lo que ningún coach decidió · empezar/terminar peor que el mercado ·
-nada compila ni prueba el iOS antes que Alex (fase 0 = CI macOS). Arreglos de servidor
-HECHOS, van en el PR #191 (entreno huérfano, alta nunca perdida, claves, copy de push, semana N de M).
+**EL RELOJ ES EL PRODUCTO (Alex, 24-09).** La muñeca lleva la sesión desde el primer día; se
+descarta «teléfono ahora, reloj después» (DECISIONS 24-09). EN CURSO: diseño Watch-first
+(modelo + roto contra sesiones reales + dónde falla) para firmar antes de tocar Swift.
+**Auditoría de la app del atleta (iOS + watchOS) — ENTREGADA.** `docs/auditoria-app-atleta/`.
+6 raíces: enlace del reloj diseñado para fallar · entreno terminado no durable · lo del coach
+no llega · la app dice lo que ningún coach decidió · empezar/terminar peor que el mercado ·
+nada compila ni prueba el iOS (fase 0 = CI macOS). Arreglos de servidor HECHOS en el PR #191.
 
 **Panel del coach (web `(v2)`) — RECONSTRUIDO y REVISADO para FLEXR.** Rama
 `claude/focused-bardeen-u9zz33`. Auditoría: `docs/auditoria-panel-coach/`. Revisión

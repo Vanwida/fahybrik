@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-24 · El reloj es el producto: la muñeca lleva la sesión desde el primer día
+
+**Decidido (Alex, 24-09):** «Nuestro argumento de venta es el reloj; la app no tiene sentido sin él. Todo está conectado y hay que medirlo todo. No sirve un sistema de conexión pobre aunque funcione: lo que importa es llevar la tecnología al límite.»
+
+**En consecuencia:** se descarta la escalera de la auditoría de la app del atleta (`docs/auditoria-app-atleta/`, fase 2 «el teléfono lleva el reloj de la sesión por ahora» → fase 4 «el reloj después»). El Apple Watch pasa a ser el **dispositivo de registro y el dueño del reloj de la sesión** desde la primera versión del rediseño; el iPhone, la segunda pantalla y el concentrador de lo que solo él alcanza. El listón deja de ser «tan fiable como Apple permite con el motor en el teléfono» y pasa a ser «como Apple Workout, y midiendo lo que Apple Workout no mide».
+
+**Se mantiene de FH-56 (2026-09-21):** el estado del enlace solo lo cambian eventos de Apple; ningún temporizador actúa sobre una inferencia; nunca se descarta lo que grabó el atleta. Y la fase 0 de la auditoría sigue primero: sin un Mac que compile y pruebe cada cambio de Swift, empujar el reloj al límite es reescribir el enlace por octava vez.
+
+**Pendiente:** el diseño completo (modelo, roto contra sesiones reales, dónde puede fallar) se firma con Alex antes de escribir Swift. Decisiones suyas: suelo de dispositivos, qué pasa sin reloj, coste del Mac de CI.
+
+---
+
 ## 2026-09-24 · Recolocar la cadena personal: se valida todo antes de escribir y se libera antes de ocupar
 
 **Qué:** mover, alargar, acortar o borrar un tramo del plan personal valida el plan entero en la fase 1, bajo el lock: sesiones hechas en los tramos que se mueven, y que ninguna ventana nueva caiga sobre un recibo que la operación no reescribe (→ 409 `overlapping_plan`, limpio). La fase 2 escribe en el orden de `reflowWriteOrder` (`personal-plan-chain-write-order.ts`): antes de colocar un tramo retira todo recibo viejo de la operación que pise su ventana nueva. Un intercambio retira los dos antes de colocar ninguno; alargar aparta lo de detrás y luego crece; acortar encoge y luego adelanta lo de detrás (`resizeInPlaceAndReflow`).
