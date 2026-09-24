@@ -81,7 +81,13 @@ export async function loadWeeklyRunVolume(args: {
       where we.athlete_id = ${args.athlete_id}
         and se.modality = 'run'
         and ${SEG_COUNTS_AS_VOLUME(client)}
-        and coalesce(we.ended_at, we.started_at) >= (select min(week_start) from weeks)::timestamptz
+        -- El primer lunes a las 00:00 EN LA ZONA DEL ATLETA. Un date a secas
+        -- convertido a timestamptz es la medianoche de la zona de la SESIÓN
+        -- (UTC en Neon): la primera barra perdía lo corrido el lunes antes de
+        -- esa hora al este de UTC (00:00-02:00 en UTC+2) — el mismo recorte
+        -- que web/lib/zones/weekly.ts documenta y evita.
+        and coalesce(we.ended_at, we.started_at)
+          >= ((select min(week_start) from weeks)::timestamp at time zone (select tz from athlete_tz))
       group by 1
     )
     select w.week_start::text as week_start, coalesce(k.km, 0) as km
