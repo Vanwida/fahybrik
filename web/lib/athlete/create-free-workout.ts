@@ -314,8 +314,13 @@ export async function createFreeWorkout(
     await athleteTimezone(db, athleteId),
   );
 
+  // Los tramos se resuelven contra el catálogo ANTES de abrir la transacción,
+  // como en persistFreeWorkoutPlan: es solo lectura y, dentro, pediría otra
+  // conexión al pool mientras la transacción tiene cogida la suya (con un pool de
+  // una, se bloquea; con uno lleno, espera).
+  const segments = await resolveSegments(db, input);
+
   const ids = await db.begin(async (tx) => {
-    const segments = await resolveSegments(db, input);
     const assignmentId = await persistFreeWorkoutPlanInTx(tx, { ...input, scheduledFor }, segments);
 
     const rec = await recordWorkoutExecution({
