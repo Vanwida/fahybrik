@@ -69,7 +69,8 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 
 ## Sabido y no hecho
 
-- Panel coach: sin Stripe Connect (Cobros lee, no cobra); crons en serie por coach
+- Carga: CTL/ATL del coach (`coach_analytics_method`, sin editor aún) solo los lee `lecturas.ts`; ficha, deep dive, cohorte, app del atleta y race-readiness usan 42/7 fijos → fase 4.
+- Panel coach: sin Stripe Connect (Cobros lee, no cobra — decidido: Connect); crons en serie por coach
   (no aguantan ~20 clubs); sin RLS; panel solo en castellano; crons a hora UTC fija (falta hora
   de entrega por coach) y `resolvePeriod` sin el día local de la app (DECISIONS «Qué día es…»).
 - Seeds: `seed_demo.ts` desfasado (`chat_messages.sender_role`). Cadena personal: un mes de
