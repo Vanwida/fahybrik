@@ -42,11 +42,22 @@ struct PostWorkoutSummaryView: View {
     @State private var scoreRounds: Int? = nil
     @State private var scoreReps: Int? = nil
     @State private var isSaving: Bool = false
-    /// Last POST was not 2xx — stay on the summary. The button becomes REINTENTAR.
+    /// Last POST was queued (5xx/offline) — stay on the summary. The button becomes
+    /// REINTENTAR. Un 4xx no pasa por aquí: va a `keptOnPhone`.
     @State private var saveFailed: Bool = false
     /// 5xx/offline already sits in RequestQueue. Retry drains that queue; it does
     /// not POST again (a second free POST would create a second session).
     @State private var retryFromQueue: Bool = false
+    /// La entrada de la cola de ese GUARDAR sin cobertura: tras drenar, dice si el
+    /// servidor la entregó, la sigue esperando o la RECHAZÓ.
+    @State private var queuedRequestId: UUID? = nil
+    /// El servidor RECHAZÓ el entreno (4xx) y el móvil lo guarda (`RequestQueue.rejected`):
+    /// la franja de abajo pasa a «Guardado en tu móvil» + CERRAR (DECISIONS 2026-09-25).
+    /// Sin REINTENTAR: repetir un 4xx da el mismo 4xx, y era una pantalla sin salida.
+    @State private var keptOnPhone: Bool = false
+    /// La hoja del movimiento del reloj tras GUARDAR el primer entreno grabado en la
+    /// muñeca (DECISIONS 2026-09-25). El resumen se cierra cuando la hoja se va.
+    @State private var askSensorConsent: Bool = false
 
     // MARK: #58 — structured feedback to the coach (prescribed sessions only)
     @State private var difficulty: PerceivedDifficulty? = nil
@@ -181,6 +192,7 @@ struct PostWorkoutSummaryView: View {
                 onClose: { showDeclareSheet = false }
             )
         }
+        .sensorConsentSheet(isPresented: $askSensorConsent, onClosed: onSave)
     }
 
     // MARK: - Cronómetro · "¿Qué hiciste?"
@@ -219,7 +231,7 @@ struct PostWorkoutSummaryView: View {
                     // athlete enters the session-level result by hand instead.
                     if manualEntry {
                         if !isTimeScored {
-                            manualDurationCard
+                            manualDurationCard.disabled(keptOnPhone)
                         }
                     } else {
                         if let coverage = zoneCoverage {
@@ -237,46 +249,65 @@ struct PostWorkoutSummaryView: View {
                                 laps: session.laps,
                                 ritmosManuales: $manualSegmentPaceSeconds
                             )
+                            .disabled(keptOnPhone)
                         }
                     }
                     if showScore {
-                        scoreCard
+                        scoreCard.disabled(keptOnPhone)
                     }
-                    // Cronómetro: the clock ran without declared content, so ask for
-                    // it NOW — after the work, when the athlete knows what they did
-                    // and has nothing left to rush.
-                    if freeContext?.awaitsMovementDeclaration == true {
-                        declareMovementsCard
+                    // Rechazado y guardado en el móvil: el registro se queda como
+                    // estaba, pero lo que se ANOTABA (qué hiciste, esfuerzo, cómo ha
+                    // ido, notas) ya viajó en el envío que el móvil guarda. Ofrecer
+                    // editarlo aquí sería editar algo que ya no va a ningún sitio.
+                    if !keptOnPhone {
+                        // Cronómetro: the clock ran without declared content, so ask for
+                        // it NOW — after the work, when the athlete knows what they did
+                        // and has nothing left to rush.
+                        if freeContext?.awaitsMovementDeclaration == true {
+                            declareMovementsCard
+                        }
+                        rpeCard
+                        // #58 — "Cómo ha ido" feedback to the coach. Only for a
+                        // prescribed session: a free workout has no coach prescription
+                        // to judge "fácil/duro" against, and the free endpoint doesn't
+                        // carry these fields.
+                        if freeContext == nil {
+                            SessionFeedbackCard(
+                                difficulty: $difficulty,
+                                painExpanded: $painExpanded,
+                                painArea: $painArea,
+                                painNote: $painNote
+                            )
+                        }
+                        notesCard
                     }
-                    rpeCard
-                    // #58 — "Cómo ha ido" feedback to the coach. Only for a
-                    // prescribed session: a free workout has no coach prescription
-                    // to judge "fácil/duro" against, and the free endpoint doesn't
-                    // carry these fields.
-                    if freeContext == nil {
-                        SessionFeedbackCard(
-                            difficulty: $difficulty,
-                            painExpanded: $painExpanded,
-                            painArea: $painArea,
-                            painNote: $painNote
-                        )
-                    }
-                    notesCard
                 }
                 .padding(.horizontal, Theme.Spacing.m)
                 .padding(.bottom, Theme.Spacing.xxl)
             }
             .layoutPriority(1)
-            ExpertPrimaryButton(
-                title: saveButtonTitle,
-                height: 46,
-                action: { if !isSaving { handleSave() } }
-            )
+            bottomAction
                 .padding(.horizontal, Theme.Spacing.m)
                 .padding(.bottom, Theme.Spacing.m)
                 .padding(.top, Theme.Spacing.s)
         }
         .background(Theme.Color.background.ignoresSafeArea())
+    }
+
+    /// GUARDAR / REINTENTAR; o, si el servidor lo rechazó, dónde está el entreno y CERRAR.
+    /// Se asienta sin sacudida ni rojo: el atleta no ha perdido nada.
+    @ViewBuilder
+    private var bottomAction: some View {
+        if keptOnPhone {
+            FranjaGuardadoEnElMovil(onCerrar: closeKeptOnPhone)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+        } else {
+            ExpertPrimaryButton(
+                title: saveButtonTitle,
+                height: 46,
+                action: { if !isSaving { handleSave() } }
+            )
+        }
     }
 
     // Pre-fill the result from what the live timer already counted (the athlete
@@ -297,8 +328,9 @@ struct PostWorkoutSummaryView: View {
 
     // Save the execution. Close as success only on 2xx (or a drain that delivered
     // the queued body). A 5xx/offline stays in RequestQueue; REINTENTAR drains it.
-    // A 4xx is not enqueued (`RequestQueue.isRetriable`). URLSession.shared waits
-    // out the POST — no timeout-as-success.
+    // A 4xx is not enqueued (`RequestQueue.isRetriable`): se guarda en el móvil y el
+    // resumen se asienta en «Guardado en tu móvil» (`keepOnPhone`). URLSession.shared
+    // waits out the POST — no timeout-as-success.
     private func handleSave() {
         guard !isSaving else { return }
         isSaving = true
@@ -308,6 +340,16 @@ struct PostWorkoutSummaryView: View {
             Task { @MainActor in
                 await RequestQueue.shared.drain(bearer: bearer)
                 guard !didFinish else { return }
+                // Rechazada al vaciar la cola: la cola ya la guardó (`keepOnReject`).
+                // Antes esto se leía como «ya no está en la cola» y cerraba como si
+                // se hubiera guardado.
+                if let requestId = queuedRequestId {
+                    let rejected = await RequestQueue.shared.rejectedRequests()
+                    if rejected.contains(where: { $0.id == requestId }) {
+                        settleKeptOnPhone()
+                        return
+                    }
+                }
                 let left = await RequestQueue.shared.snapshot()
                 if left.contains(where: { $0.path == queuedSavePath }) {
                     saveFailed = true
@@ -348,7 +390,10 @@ struct PostWorkoutSummaryView: View {
                 }
                 var sent = payload
                 sent.source_workout_ref = ref
-                let outcome = await FreeWorkoutAPI.submit(sent, bearer: bearer)
+                let enviado = await FreeWorkoutAPI.submit(sent, bearer: bearer)
+                let body = FreeWorkoutAPI.cuerpoDeCola(sent)   // el codificador del cable
+                let outcome = await Self.sesionCaducadaALaCola(enviado, path: FreeWorkoutAPI.path,
+                                                               body: body, bearer: bearer)
                 guard !didFinish else { return }
                 switch outcome {
                 case .saved(let response):
@@ -387,13 +432,14 @@ struct PostWorkoutSummaryView: View {
                             parkId: parkId, executionId: nil, queuedRequestId: requestId, bearer: bearer
                         )
                     }
+                    queuedRequestId = requestId
                     retryFromQueue = true
                     saveFailed = true
                     isSaving = false
-                case .rejected:
-                    retryFromQueue = false
-                    saveFailed = true
-                    isSaving = false
+                case .rejected(let status):
+                    // Lo que se envió (con RPE y notas): el mismo contenido que el
+                    // servidor rechazó.
+                    await keepOnPhone(path: FreeWorkoutAPI.path, body: body, bearer: bearer, status: status)
                 }
             }
             return
@@ -414,16 +460,24 @@ struct PostWorkoutSummaryView: View {
         let submitted = payload
         let target = logTarget
         Task { @MainActor in
-            let outcome: WorkoutSaveOutcome
+            let enviado: WorkoutSaveOutcome
             switch target {
             case .solo:
-                outcome = await WorkoutExecutionAPI.submitReturning(submitted, bearer: bearer)
+                enviado = await WorkoutExecutionAPI.submitReturning(submitted, bearer: bearer)
             case .doublesJoint:
                 // sessionId == this athlete's own assignment id == payload.assignment_id.
-                outcome = await DoblesExecutionAPI.submitReturning(
+                enviado = await DoblesExecutionAPI.submitReturning(
                     sessionId: submitted.assignment_id, submitted, bearer: bearer
                 )
             }
+            // La misma ruta y el mismo codificador con los que la cola lo guarda
+            // (`WorkoutExecutionAPI` / `DoblesExecutionAPI`): lo enviado, con RPE,
+            // notas y «cómo ha ido».
+            let path = target == .doublesJoint
+                ? DoblesExecutionAPI.path(sessionId: submitted.assignment_id)
+                : WorkoutExecutionAPI.path
+            let body = try? JSONEncoder().encode(submitted)
+            let outcome = await Self.sesionCaducadaALaCola(enviado, path: path, body: body, bearer: bearer)
             guard !didFinish else { return }
             switch outcome {
             case .saved(let response):
@@ -470,23 +524,65 @@ struct PostWorkoutSummaryView: View {
                         parkId: parkId, executionId: nil, queuedRequestId: requestId, bearer: bearer
                     )
                 }
+                queuedRequestId = requestId
                 retryFromQueue = true
                 saveFailed = true
                 isSaving = false
-            case .rejected:
-                retryFromQueue = false
-                saveFailed = true
-                isSaving = false
+            case .rejected(let status):
+                await keepOnPhone(path: path, body: body, bearer: bearer, status: status)
             }
         }
     }
 
+    /// Un 401 no es un rechazo del ENTRENO: es la sesión la que ha caducado. Va como
+    /// sin cobertura —a la cola, que se queda con los 401 y lo entrega al volver a
+    /// entrar (`RequestQueue.drain`)—, no a «Guardado en tu móvil», que es para lo que
+    /// el servidor no aceptará tal cual. Encolado, la traza se aparca colgada de su
+    /// entrada como la de cualquier envío sin cobertura.
+    private static func sesionCaducadaALaCola(
+        _ outcome: WorkoutSaveOutcome, path: String, body: Data?, bearer: String?
+    ) async -> WorkoutSaveOutcome {
+        guard case .rejected(let status) = outcome, status == 401, let body else { return outcome }
+        let id = await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer, keepOnReject: true)
+        return .queued(id)
+    }
+
+    /// Un rechazo del servidor (4xx que no es 401): el entreno se queda en el móvil tal
+    /// y como se envió, y el resumen se asienta en «Guardado en tu móvil».
+    @MainActor
+    private func keepOnPhone(path: String, body: Data?, bearer: String?, status: Int?) async {
+        await GuardadoEnElMovil.guardar(path: path, body: body, bearer: bearer, status: status)
+        settleKeptOnPhone()
+    }
+
+    private func settleKeptOnPhone() {
+        retryFromQueue = false
+        saveFailed = false
+        isSaving = false
+        withAnimation(Theme.Motion.reveal) { keptOnPhone = true }
+    }
+
+    /// CERRAR tras un rechazo: el mismo cierre del flujo (`onSave`), pero SIN contar un
+    /// entreno guardado para la petición de reseña (`finishAfterSave` cuenta lo que el
+    /// servidor tiene, y este no lo tiene); pedir una valoración justo después de «no
+    /// se ha podido subir» sería leer mal el momento.
+    private func closeKeptOnPhone() {
+        guard !didFinish else { return }
+        didFinish = true
+        onSave()
+    }
+
     /// B-02: al aparecer el resumen, lo que se enviaría ahora (sin RPE todavía) queda
     /// en disco. Si la app muere antes de GUARDAR, el siguiente arranque lo entrega
-    /// (`FinishedWorkoutDraft`). Mismo cuerpo y misma ruta que GUARDAR.
+    /// (`FinishedWorkoutDraft`). Mismo cuerpo y misma ruta que GUARDAR — el libre con el
+    /// codificador del cable (`cuerpoDeCola`): el pelado mandaba `Prescription` en
+    /// camelCase (`workS`), otro cuerpo distinto del que sale al GUARDAR.
     private func stageFinishedDraft() {
+        // Ya guardado en el móvil como rechazado (y el resumen vuelve a aparecer):
+        // otro borrador iría a la cola y al mismo rechazo — dos copias del entreno.
+        guard !keptOnPhone else { return }
         if let free = freeContext {
-            if let body = try? JSONEncoder().encode(buildFreePayload(free)) {
+            if let body = FreeWorkoutAPI.cuerpoDeCola(buildFreePayload(free)) {
                 FinishedWorkoutDraft.stage(path: FreeWorkoutAPI.path, body: body)
             }
             return
@@ -509,6 +605,17 @@ struct PostWorkoutSummaryView: View {
         guard !didFinish else { return }
         didFinish = true
         ReviewPromptStore.shared.recordWorkoutSaved()
+        // Primer entreno grabado en la muñeca: la hoja del movimiento, y el resumen se
+        // cierra cuando se va (DECISIONS 2026-09-25). `!manualEntry` porque la marca
+        // de la muñeca solo se limpia al empezar otro entreno en vivo, y un «Ya lo
+        // hice» la heredaría de uno anterior. Esa vez no se pide reseña: dos hojas a
+        // la vez serían una de más, y la reseña se vuelve a intentar la próxima.
+        if SensorConsentPrompt.shouldAsk(
+            wristRecorded: !manualEntry && PhoneLiveSession.shared.wristRecordedWorkout
+        ) {
+            askSensorConsent = true
+            return
+        }
         maybeRequestReview(afterGenuinePR: records.contains { !$0.isFirstMark })
         onSave()
     }
@@ -927,7 +1034,8 @@ struct PostWorkoutSummaryView: View {
     private var hrSection: some View {
         VStack(spacing: 6) {
             if hasHRData { metricTiles }
-            if !faltanPorDeclarar.isEmpty { declararFCCard }
+            // Rechazado: anotar la FC ya no va a ningún sitio (ver `keptOnPhone`).
+            if !faltanPorDeclarar.isEmpty && !keptOnPhone { declararFCCard }
         }
     }
 

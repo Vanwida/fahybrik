@@ -763,14 +763,12 @@ enum FreeWorkoutAPI {
             return .saved(nil)
         } catch {
             // AUDIT — a deterministic 4xx is never queued (it would replay forever).
-            let enc = JSONEncoder()
-            enc.keyEncodingStrategy = .convertToSnakeCase
-            enc.dateEncodingStrategy = .iso8601
-            if RequestQueue.isRetriable(error), let body = try? enc.encode(payload) {
+            // El cuerpo, con el codificador del cable (`cuerpoDeCola`, GuardadoEnElMovil.swift).
+            if RequestQueue.isRetriable(error), let body = cuerpoDeCola(payload) {
                 let id = await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer, keepOnReject: true)
                 return .queued(id)
             }
-            return .rejected
+            return .rejected(status: RequestQueue.httpStatus(error))
         }
     }
 }

@@ -28,13 +28,21 @@ export const meta: TwinMeta = {
   id: 'guardado-en-movil',
   titulo: 'Un entreno que no se pudo subir',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'construida',
   actualizado: '2026-09-25',
   descripcion:
     'Si el servidor rechaza un entreno terminado, el resumen no se queda atascado en REINTENTAR: dice «Guardado en tu móvil», que no hay nada que hacer, y se cierra. El entreno sigue en el historial, marcado «Sin subir».',
-  fuentes: ['ios/FAHYBRIK/Workout/PostWorkoutSummaryView.swift', 'ios/FAHYBRIK/Networking/RequestQueue.swift'],
+  fuentes: [
+    'ios/FAHYBRIK/Workout/PostWorkoutSummaryView.swift',
+    'ios/FAHYBRIK/Workout/Outbox/GuardadoEnElMovil.swift',
+    'ios/FAHYBRIK/Networking/RequestQueue.swift',
+    'ios/FAHYBRIK/History/EntrenoSinSubir.swift',
+    'ios/FAHYBRIK/History/HistoryModels.swift',
+    'ios/FAHYBRIK/History/HistorialDelMes.swift',
+    'ios/FAHYBRIK/History/HistoryView.swift',
+  ],
   enApp:
-    'Mecanismo hecho (25-09): la cola guarda el entreno rechazado (`RequestQueue.rejectedRequests()`) y el reloj lo conserva; falta pintar esta pantalla en Swift tras la firma.',
+    'Shipeado en Swift (25-09): un 4xx al GUARDAR (libre, sesión del coach o dobles, y también el que llega al vaciar la cola con REINTENTAR; un 401 no, que es la sesión caducada y va a la cola como sin cobertura) deja el entreno en el móvil tal y como se envió (`RequestQueue.keepRejected`, el mismo `rejected` de la cola) y el resumen se asienta en «Guardado en tu móvil» + CERRAR; el historial cose esos entrenos marcados «Sin subir», con su punto en el calendario, y la fila abre la ficha local, no la del servidor. Queda fuera: un sobre del reloj rechazado en su primer envío va al buzón de muertos (`WatchExecutionDeadLetter`), no a `rejected`, así que ese caso aún no sale en el historial.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

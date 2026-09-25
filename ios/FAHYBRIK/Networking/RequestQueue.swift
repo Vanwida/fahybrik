@@ -19,10 +19,16 @@ struct QueuedRequest: Codable, Identifiable {
 /// recibe un 4xx (que no es 401) no se tira: se guarda aquí, en la misma escritura
 /// atómica que la saca de la cola, y quien pidió saberlo (`onRejection`) se entera.
 /// Reintentarla no la arregla —por eso sale de la cola—, pero perderla falsea la
-/// semana del atleta. Sin caducidad; qué ve el atleta de esto es una pantalla
-/// pendiente de firma (DECISIONS 2026-09-24).
+/// semana del atleta. Sin caducidad. El atleta lo ve como «Guardado en tu móvil» al
+/// cerrar el resumen y como «Sin subir» en su historial (DECISIONS 2026-09-25).
+///
+/// Llega aquí por dos caminos, con la misma forma: al vaciar la cola (un GUARDAR
+/// sin cobertura que luego se rechaza) y directamente desde el resumen, cuando el
+/// primer envío ya vuelve con 4xx (`keepRejected`).
 struct RejectedRequest: Codable, Identifiable {
     let request: QueuedRequest
+    /// El código del rechazo. 0 = no se sabe (un fallo sin respuesta HTTP que tampoco
+    /// se pudo encolar; no debería pasar).
     let status: Int
     let rejectedAt: Date
     /// Si ya se le contó a quien esperaba (`onRejection`).
@@ -69,6 +75,12 @@ actor RequestQueue {
     nonisolated static func isRetriable(_ error: Error) -> Bool {
         if case APIError.http(let code, _) = error { return code >= 500 }
         return true
+    }
+
+    /// El código HTTP de un fallo, si lo trae (nil sin respuesta: sin red, timeout…).
+    nonisolated static func httpStatus(_ error: Error) -> Int? {
+        if case APIError.http(let code, _) = error { return code }
+        return nil
     }
 
     /// Cómo se entrega una entrada. Es un punto de sustitución, no una capa: la única
@@ -282,6 +294,37 @@ actor RequestQueue {
     func rejectedRequests() async -> [RejectedRequest] {
         await loadIfNeeded()
         return rejected
+    }
+
+    /// UN RECHAZO QUE NO PASÓ POR LA COLA: el GUARDAR del resumen con cobertura, cuyo
+    /// primer envío ya vuelve con 4xx. Antes el resumen se quedaba en REINTENTAR —y
+    /// reintentar un 4xx da el mismo 4xx— con el entreno solo en memoria.
+    ///
+    /// Se guarda en el MISMO sitio y con la MISMA forma que un rechazo al vaciar la
+    /// cola, para que el historial lo encuentre («Sin subir») venga por donde venga.
+    /// `told: true` porque no hay nadie más a quien avisar: `onRejection` existe para
+    /// los sobres del reloj que esperan su entrada de la cola, y este nunca la tuvo.
+    ///
+    /// `status` 0 = no se sabe (ver `RejectedRequest.status`).
+    @discardableResult
+    func keepRejected(path: String, body: Data, bearer: String?, status: Int = 0) async -> UUID {
+        await loadIfNeeded()
+        let request = QueuedRequest(
+            id: UUID(),
+            path: path,
+            bodyJson: body,
+            bearer: bearer,
+            createdAt: Date(),
+            keepOnReject: true
+        )
+        rejected.append(RejectedRequest(request: request, status: status, rejectedAt: Date(), told: true))
+        persist()
+        // Nosotros lo vemos en el registro técnico (DECISIONS 2026-09-25): el libre no
+        // anota su rechazo en ningún otro sitio.
+        DiagnosticsLog.shared.record(.save, .queueFailed, outcome: .failed,
+                                     code: status > 0 ? status : nil,
+                                     detail: "path=\(path) rejected_kept_direct")
+        return request.id
     }
 
     /// Encola y devuelve el id de la entrada, que es con lo que quien encoló puede

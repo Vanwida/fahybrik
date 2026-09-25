@@ -1175,7 +1175,10 @@ enum WorkoutSaveOutcome {
     /// En la cola sin cobertura, con el id de su entrada: quien quiera saber cuándo
     /// llega al servidor (el acuse al reloj, la traza) lo pide con él.
     case queued(UUID)
-    case rejected
+    /// No encolado. Con el código HTTP cuando lo hay: un 401 no es un rechazo del
+    /// entreno sino de la sesión, y quien lo recibe tiene que poder distinguirlo
+    /// (PostWorkoutSummaryView lo manda a la cola; el resto, «Guardado en tu móvil»).
+    case rejected(status: Int?)
 }
 
 enum WorkoutExecutionAPI {
@@ -1213,7 +1216,7 @@ enum WorkoutExecutionAPI {
                 return .queued(id)
             }
             DiagnosticsLog.shared.recordSave(.executionSaved, path: path, error: error, detail: "rejected")
-            return .rejected
+            return .rejected(status: RequestQueue.httpStatus(error))
         }
     }
 }
@@ -1265,7 +1268,7 @@ enum DoblesExecutionAPI {
                 let id = await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer, keepOnReject: true)
                 return .queued(id)
             }
-            return .rejected
+            return .rejected(status: RequestQueue.httpStatus(error))
         }
     }
 }

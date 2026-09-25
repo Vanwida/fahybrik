@@ -66,11 +66,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
   - `SensorFileReceiver.drainPending` no tiene quien lo llame.
   - El fichero llega con `execution_local_id` (la asignación), no con el `execution_id` que pide la subida.
   - Construir el subidor (resolver la ejecución y firmar → PUT → registrar) es lo siguiente. Hasta entonces el texto de la hoja es verdad sobre el uso, pero no se sube nada.
+- **«Guardado en tu móvil», construido en Swift (25-09):**
+  - `WorkoutSaveOutcome.rejected(status:)` lleva el código HTTP. Un **401 no es un rechazo del entreno** sino de la sesión: el resumen lo manda a la cola como sin cobertura (la cola se queda con los 401 y lo entrega al volver a entrar).
+  - Un 4xx en el PRIMER envío (libre, sesión del coach, dobles) no pasaba por la cola: `RequestQueue.keepRejected` lo guarda en el mismo `rejected` y con la misma forma. `status` 0 = no se sabe.
+  - Un 4xx al vaciar la cola con REINTENTAR también asienta el resumen en «Guardado en tu móvil» (antes se leía como «ya no está en la cola» y cerraba como guardado).
+  - Guardado el rechazo, se borra el borrador B-02: si no, el próximo arranque encolaría el mismo entreno y habría dos copias.
+  - El historial cose lo guardado sin subir con el mes del servidor. Si el servidor ya tiene esa sesión del coach, **manda la del servidor** (una fila por entreno). El día lleva su punto en el calendario; la fila abre una ficha local.
+  - De paso: el cuerpo del libre en la cola y en el borrador B-02 sale del codificador del cable (`cuerpoDeCola`). Antes un `JSONEncoder()` pelado mandaba `Prescription` en camelCase.
+  - **Queda fuera:** un sobre del reloj rechazado en su primer envío va al buzón de muertos (`WatchExecutionDeadLetter`), no a `rejected`, así que aún no sale en «Sin subir».
 
 **NO hacer:**
 - Borrar un sobre de la muñeca por haber llegado al teléfono.
 - Tirar un 4xx de un entreno.
 - Enviar lo escenificado antes de «Listo» con la app viva.
+- Tratar un 401 como un rechazo del entreno: es la sesión caducada, y el entreno va a la cola.
+- Abrir la ficha del servidor (`ExecutedWorkoutView`) desde una fila «Sin subir»: el servidor no la tiene.
+- Ofrecer REINTENTAR tras un 4xx: repetirlo da el mismo 4xx.
 
 ## 2026-09-25 · El contador de rondas cabe en su banda: número al suelo, orientación una vez
 

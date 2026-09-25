@@ -129,4 +129,55 @@ final class HistoryCalendarTests: XCTestCase {
         let rows = HistoryListRow.rows(from: month)
         XCTAssertEqual(rows.map(\.session.assignmentId), ["B", "C", "A"])   // 10 (B,C in order) then 08
     }
+
+    // MARK: - «Sin subir»: lo que el móvil guarda, cosido en el mes (DECISIONS 2026-09-25)
+
+    private func local(_ asignacion: String?, _ date: String) -> LocalUnsyncedWorkout {
+        LocalUnsyncedWorkout(
+            id: UUID(), date: date, startedAt: Date(timeIntervalSince1970: 1_784_000_000),
+            title: "Circuito", assignmentId: asignacion, totalDurationSeconds: 600,
+            scoreTimeS: nil, scoreRounds: nil, scoreReps: nil, rpe: nil, notes: nil,
+            distanceMeters: nil, avgHR: nil, maxHR: nil
+        )
+    }
+
+    /// El rechazado va primero en su día (es lo último que hizo el atleta; el mes del
+    /// servidor no trae hora); si el servidor ya tiene esa sesión, manda la suya; y solo
+    /// entra lo del mes que se mira.
+    func testSinSubirVaPrimeroEnSuDiaYElServidorMandaSiYaLoTiene() {
+        let month = AthleteHistoryMonth(month: "2026-07", days: [
+            day("2026-07-13", sessions: [session(id: "235")]),
+            day("2026-07-15", sessions: [session(id: "237")]),
+        ])
+        let rechazado = local("297", "2026-07-15")
+        let yaEnElServidor = local("237", "2026-07-15")
+        let deOtroMes = local("400", "2026-06-30")
+        let libre = local(nil, "2026-07-14")
+        let rows = HistoryListRow.rows(from: month, sinSubir: [rechazado, yaEnElServidor, deOtroMes, libre],
+                                       in: YearMonth(year: 2026, month: 7))
+        XCTAssertEqual(rows.map(\.id), [
+            "2026-07-15#local-\(rechazado.id.uuidString)",
+            "2026-07-15#237",
+            "2026-07-14#local-\(libre.id.uuidString)",
+            "2026-07-13#235",
+        ])
+        XCTAssertEqual(rows.first?.sinSubir, rechazado)
+        XCTAssertNil(rows[1].sinSubir)
+    }
+
+    /// El calendario pinta lo hecho, no lo que el servidor confirmó.
+    func testUnDiaConSoloUnSinSubirLlevaElPuntoDeHecho() {
+        let days = [
+            day("2026-07-12", rest: true),
+            day("2026-07-13", sessions: [session(id: "1", partner: true)]),
+        ]
+        let states = HistoryCalendar.dayStates(days, in: YearMonth(year: 2026, month: 7), sinSubir: [
+            local("297", "2026-07-15"), local("298", "2026-07-12"),
+            local("299", "2026-07-13"), local("300", "2026-08-01"),
+        ])
+        XCTAssertEqual(states[15], .trained(withPartner: false))
+        XCTAssertEqual(states[12], .trained(withPartner: false), "entrenar en un día de descanso es trabajo hecho")
+        XCTAssertEqual(states[13], .trained(withPartner: true), "no pisa lo que el servidor ya pintó")
+        XCTAssertNil(states[1])
+    }
 }
