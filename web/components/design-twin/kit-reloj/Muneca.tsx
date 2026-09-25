@@ -38,6 +38,8 @@ import { ConfirmarTerminar, PaginaControles, AhoraSuena, type PaginaControlesPro
 import { PrimariaContexto, RelojContexto, type ModeloReloj } from './piezas';
 import {
   AvisoDeshacer,
+  CapaAro,
+  Fondo,
   GotaAgua,
   KEYFRAMES,
   PASOS_AGUA,
@@ -324,24 +326,7 @@ export function Muneca(props: MunecaProps) {
           touchAction: 'none',
         }}
       >
-        {/* El tinte de zona: banda central, negro arriba (aro) y abajo (OLED). */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: fondo,
-            opacity: area === 'vivo' ? 1 : 0,
-            transition: 'background-color 700ms ease, opacity 250ms ease',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background:
-              'linear-gradient(180deg, #000 0%, rgba(0,0,0,0.7) 16%, rgba(0,0,0,0) 44%, rgba(0,0,0,0.55) 72%, #000 100%)',
-          }}
-        />
+        <Fondo color={fondo} visible={area === 'vivo'} />
 
         {/* Las tres áreas, en fila. */}
         <div
@@ -435,20 +420,7 @@ export function Muneca(props: MunecaProps) {
           </section>
         </div>
 
-        {/* El aro: la sesión, solo en el Vivo. */}
-        {props.aro ? (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              pointerEvents: 'none',
-              opacity: area !== 'vivo' ? 0 : aod ? AOD.aro : 1,
-              transition: 'opacity 250ms ease',
-            }}
-          >
-            {props.aro}
-          </div>
-        ) : null}
+        {props.aro ? <CapaAro opacidad={area !== 'vivo' ? 0 : aod ? AOD.aro : 1}>{props.aro}</CapaAro> : null}
 
         {/* El destello de un evento con háptico: luz, sin háptico propio. */}
         {eventos.ultimo?.vibra && DESTELLA.has(eventos.ultimo.vibra) && !aod ? (

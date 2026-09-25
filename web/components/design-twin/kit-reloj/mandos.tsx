@@ -39,7 +39,8 @@ const S = {
   barra: {
     position: 'absolute',
     left: '50%',
-    top: 'calc(50% + 152px)',
+    // Debajo del reloj; en un escenario bajo (móvil), pegado al borde de abajo.
+    top: 'min(calc(50% + 152px), calc(100% - 118px))',
     transform: 'translateX(-50%)',
     width: 'min(560px, calc(100% - 24px))',
     display: 'flex',

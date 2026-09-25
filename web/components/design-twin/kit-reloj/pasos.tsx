@@ -16,11 +16,11 @@
 // filas presentes (`altoHeroe`), así que ninguna cara escribe un tamaño.
 
 import type { CSSProperties, ReactNode } from 'react';
-import { laminaDelPaso, heroeDelPaso } from './lamina';
+import { heroeDelPaso, laminaDelPaso, lineaPulso } from './lamina';
 import { NOMBRE_CLASE_DEFECTO, type Lecturas, type Paso, type PasoBase, type ZonasCoach } from './paso';
 import { contextoDe, fmtObjetivo, principal, textoPasoCorto } from './reglas';
+import { BandaObjetivo } from './banda';
 import {
-  BandaObjetivo,
   BotonAccion,
   ContextoLinea,
   Heroe,
@@ -80,7 +80,7 @@ export function PasoCorrer({ paso, lecturas, zonas }: { paso: PasoBase; lecturas
   // La nota va ARRIBA, bajo el contexto: abajo las esquinas del reloj dejan
   // ~150 pt y una nota de honestidad no puede quedarse a medias.
   const filas: NombreFila[] = ['contexto'];
-  if (l.nota) filas.push(...(lineasDeNota(l.nota) === 2 ? (['nota', 'nota'] as const) : (['nota'] as const)));
+  if (l.nota) filas.push(lineasDeNota(l.nota) === 2 ? 'nota2' : 'nota');
   if (l.banda) filas.push('banda');
   if (l.instruccion) filas.push('instruccion');
   if (l.segundo) filas.push('segundo');
@@ -190,19 +190,25 @@ export function Descanso({
   const primaria = usePrimaria();
   const empezar = onEmpezarYa ?? primaria ?? (() => undefined);
   const heroe = { ...heroeDelPaso(paso, lecturas, null), etiqueta: undefined };
+  // El pulso bajando, monocromo: el descanso tampoco se tiñe (P6).
+  const pulso = lecturas.ppm != null ? { ...lineaPulso(paso, lecturas, null), zona: undefined } : null;
   const filas: NombreFila[] = ['contexto', 'boton'];
   if (paso.siguiente) filas.push('nota');
+  if (pulso) filas.push('tercero');
   return (
     <Columna>
       <ContextoLinea partes={contextoDe(paso)} />
       <Centro>
         <Heroe heroe={heroe} altoMax={altoHeroe(filas)} />
       </Centro>
+      {pulso ? <Linea linea={pulso} cuerpo={22} /> : null}
       {paso.siguiente ? <LuegoLinea prefijo="Viene:" siguiente={paso.siguiente} /> : null}
-      {/* Los botones se meten 8 pt por lado: sus extremos redondos caen en las esquinas del aro. */}
-      <div style={{ display: 'flex', gap: 8, width: '100%', height: FILA.boton, alignItems: 'center', padding: '0 8px', boxSizing: 'border-box' }}>
-        <BotonAccion etiqueta="+30 s" variante="superficie" onPulsa={onMas30} ancho="42%" />
-        <BotonAccion etiqueta="Empezar ya" onPulsa={empezar} ancho="58%" />
+      {/* Los extremos redondos de los botones caen en las esquinas del aro: la
+          fila se mete 4 pt por lado y «+30 s» es corto para que «Empezar ya»
+          quepa entero a 17 pt. */}
+      <div style={{ display: 'flex', gap: 6, width: '100%', height: FILA.boton, alignItems: 'center', padding: '0 4px', boxSizing: 'border-box' }}>
+        <BotonAccion etiqueta="+30 s" variante="superficie" onPulsa={onMas30} ancho={60} />
+        <BotonAccion etiqueta="Empezar ya" onPulsa={empezar} ancho={114} />
       </div>
     </Columna>
   );

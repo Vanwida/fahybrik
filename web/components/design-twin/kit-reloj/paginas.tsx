@@ -335,7 +335,7 @@ export function textoFila(f: FilaEstructura): { linea: string; detalle: string |
   if (f.tandas && f.veces) {
     const dentro = `${f.veces} × ${fmtPrescrito(f.trabajo.medida)}${f.recupera ? ` / ${fmtPrescrito(f.recupera.medida)}` : ''}`;
     const entre = `${fmtDuracion(f.tandas.descanso.medida.prescrito ?? 0)} entre tandas`;
-    return { linea: `${f.tandas.veces} × (${dentro})`, detalle: [objetivo, entre].filter(Boolean).join(' · ') };
+    return { linea: `${f.tandas.veces} × (${dentro})`, detalle: [objetivo, rec, entre].filter(Boolean).join(' · ') };
   }
   if (f.veces) {
     return { linea: `${f.veces} × ${quien}${fmtPrescrito(f.trabajo.medida)}`, detalle: [objetivo, rec].filter(Boolean).join(' · ') || null };

@@ -58,7 +58,7 @@ function PaginaHeroe() {
 
 function Fila({ muestra, rotulo }: { muestra: ReactNode; rotulo: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', width: '100%', gap: 8, padding: '0 4px', boxSizing: 'border-box' }}>
+    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', width: '100%', gap: 8, padding: '0 12px 0 4px', boxSizing: 'border-box' }}>
       <span style={{ whiteSpace: 'nowrap', lineHeight: 1.05 }}>{muestra}</span>
       <span style={{ fontSize: T.nota.cuerpo, color: C.tinta2, whiteSpace: 'nowrap' }}>{rotulo}</span>
     </div>
@@ -115,7 +115,7 @@ function PaginaColor() {
     <Columna estilo={{ gap: 7 }}>
       <ContextoLinea partes={['Un color, un significado']} tono={C.tinta2} />
       {COLORES.map((c) => (
-        <div key={c.nombre} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '0 6px', boxSizing: 'border-box' }}>
+        <div key={c.nombre} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '0 12px 0 6px', boxSizing: 'border-box' }}>
           <span style={{ width: 22, height: 22, borderRadius: 7, background: c.hex, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.22)', flex: '0 0 auto' }} />
           <span style={{ fontSize: 16, fontWeight: 600 }}>{c.nombre}</span>
           <span style={{ marginLeft: 'auto', fontSize: T.nota.cuerpo, color: C.tinta2 }}>{c.uso}</span>

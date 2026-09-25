@@ -45,12 +45,12 @@ export function CaraFuerza({ seq }: { seq: Secuencia }) {
       <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', alignItems: 'center' }}>
         <Heroe
           heroe={{ clase: 'crono', texto: String(p.medida.prescrito ?? ''), unidad: 'reps' }}
-          altoMax={altoHeroe(['contexto', 'instruccion', 'instruccion', fila, 'tercero'])}
+          altoMax={altoHeroe(fila === 'pista' ? ['contexto', 'instruccion', 'instruccion', 'pista', 'tercero'] : ['contexto', 'instruccion', 'instruccion', 'boton'])}
         />
       </div>
       {ejes ? <Instruccion texto={ejes} tono={C.tinta2} /> : null}
       <PistaAccion accion="serie hecha" />
-      <Linea linea={lineaPulso(p, seq.lecturas, ZONAS)} cuerpo={22} ancho={ANCHO_PIE} />
+      {fila === 'pista' ? <Linea linea={lineaPulso(p, seq.lecturas, ZONAS)} cuerpo={22} ancho={ANCHO_PIE} /> : null}
     </Columna>
   );
 }
@@ -71,11 +71,12 @@ export function CaraEstacion({ seq }: { seq: Secuencia }) {
       <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', alignItems: 'center' }}>
         <Heroe
           heroe={{ clase: 'crono', texto: fmtReloj(seq.lecturas.t), etiqueta: 'lo dices tú' }}
-          altoMax={altoHeroe(['contexto', 'instruccion', 'instruccion', fila, 'tercero'])}
+          altoMax={altoHeroe(fila === 'pista' ? ['contexto', 'instruccion', 'instruccion', 'pista', 'tercero'] : ['contexto', 'instruccion', 'instruccion', 'boton'])}
         />
       </div>
       <PistaAccion accion="estación hecha" />
-      <Linea linea={lineaPulso(p, seq.lecturas, ZONAS)} cuerpo={22} ancho={ANCHO_PIE} />
+      {/* Con botón (reloj sin doble toque) el botón ocupa la fila de abajo. */}
+      {fila === 'pista' ? <Linea linea={lineaPulso(p, seq.lecturas, ZONAS)} cuerpo={22} ancho={ANCHO_PIE} /> : null}
     </Columna>
   );
 }

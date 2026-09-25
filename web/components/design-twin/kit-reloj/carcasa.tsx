@@ -5,6 +5,7 @@
 // pausa, la gota del Water Lock, el aviso de deshacer y el «Terminado».
 // Separado de `Muneca.tsx` solo por tamaño; nadie más debería usarlas.
 
+import type { ReactNode } from 'react';
 import type { Area } from './mandos';
 import { BotonAccion } from './piezas';
 import { C, T } from './tokens';
@@ -160,6 +161,39 @@ export function Terminado({ titulo }: { titulo: string }) {
       </svg>
       <span style={{ fontSize: T.tercero.cuerpo, fontWeight: 600 }}>{titulo}</span>
       <span style={{ fontSize: T.nota.cuerpo, color: C.tinta2 }}>guardando…</span>
+    </div>
+  );
+}
+
+/** El fondo: el tinte de zona en una banda central, negro arriba (el aro) y abajo (el OLED no gasta). */
+export function Fondo({ color, visible }: { color: string; visible: boolean }) {
+  return (
+    <>
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: color,
+          opacity: visible ? 1 : 0,
+          transition: 'background-color 700ms ease, opacity 250ms ease',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(180deg, #000 0%, rgba(0,0,0,0.7) 16%, rgba(0,0,0,0) 44%, rgba(0,0,0,0.55) 72%, #000 100%)',
+        }}
+      />
+    </>
+  );
+}
+
+/** El aro de la sesión: solo en el Vivo, atenuado en Always-On. */
+export function CapaAro({ opacidad, children }: { opacidad: number; children: ReactNode }) {
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: opacidad, transition: 'opacity 250ms ease' }}>
+      {children}
     </div>
   );
 }

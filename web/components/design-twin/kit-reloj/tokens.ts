@@ -53,8 +53,8 @@ export const ANCHO_HEROE = ANCHO_UTIL - 2;
  * de la última línea quedan ~160 pt entre aro y aro. Lo ancho va más arriba.
  */
 export const ANCHO_PIE = 160;
-/** Ancho de la PRIMERA fila (el contexto), bajo las esquinas de arriba: ~184 pt. */
-export const ANCHO_CABEZA = 184;
+/** Ancho de la PRIMERA fila (el contexto), bajo las esquinas de arriba: ~176 pt. */
+export const ANCHO_CABEZA = 176;
 
 // ---------------------------------------------------------------------------
 // Tipo
@@ -87,6 +87,8 @@ export const FILA = {
   segundo: 34,
   tercero: 26,
   nota: 18,
+  /** Una nota en dos líneas (la de «sin enlace · la muñeca sigue grabando»). */
+  nota2: 32,
   pista: 18,
   boton: 48,
 } as const;

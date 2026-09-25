@@ -17,7 +17,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import type { BandaVista, HeroeVista, LineaVista } from './lamina';
+import type { HeroeVista, LineaVista } from './lamina';
 import {
   ANCHO_CABEZA,
   ANCHO_HEROE,
@@ -109,18 +109,18 @@ const fila: CSSProperties = {
  */
 export function ContextoLinea({ partes, tono = C.tinta }: { partes: string[]; tono?: string }) {
   const ref = useCabe<HTMLSpanElement>();
+  // Primero baja de 16 a 15 pt (el suelo); solo si ni así cabe, quita partes
+  // por el final: «Tanda 2/3 · Serie 4/6 · 1′» pierde el «1′» antes que la posición.
   let usadas = partes.filter(Boolean);
-  while (usadas.length > 1 && anchoTexto(usadas.join(' · '), T.contexto.cuerpo) > ANCHO_CABEZA) {
-    usadas = usadas.slice(0, -1);
-  }
+  const cabe = (x: string[]) => anchoTexto(x.join(' · '), T.suelo, T.contexto.peso) <= ANCHO_CABEZA;
+  while (usadas.length > 1 && !cabe(usadas)) usadas = usadas.slice(0, -1);
+  const texto = usadas.join(' · ');
+  const cuerpo = cuerpoQueCabe(texto, T.contexto.cuerpo, ANCHO_CABEZA, T.contexto.peso);
   return (
     <div style={{ ...fila, height: FILA.contexto, alignItems: 'center' }}>
       <div style={{ maxWidth: ANCHO_CABEZA, width: '100%', display: 'flex', justifyContent: 'center' }}>
-        <span
-          ref={ref}
-          style={{ ...linea, fontSize: T.contexto.cuerpo, fontWeight: T.contexto.peso, color: tono, lineHeight: 1 }}
-        >
-          {usadas.join(' · ')}
+        <span ref={ref} style={{ ...linea, fontSize: cuerpo, fontWeight: T.contexto.peso, color: tono, lineHeight: 1 }}>
+          {texto}
         </span>
       </div>
     </div>
@@ -162,14 +162,14 @@ export function Nota({
   const cabeza = prefijo ? <span style={{ color: C.tinta2, marginRight: '0.3em' }}>{prefijo}</span> : null;
   if (lineasDeNota(completo, ancho) === 2) {
     return (
-      <div style={{ ...fila, height: FILA.nota * 2, alignItems: 'center' }}>
+      <div style={{ ...fila, height: FILA.nota2, alignItems: 'center' }}>
         <span
           style={{
             maxWidth: ancho,
             fontSize: T.nota.cuerpo,
             fontWeight: T.nota.peso,
             color: tono,
-            lineHeight: `${FILA.nota - 1}px`,
+            lineHeight: `${FILA.nota2 / 2}px`,
             textAlign: 'center',
             textWrap: 'balance',
           }}
@@ -345,91 +345,6 @@ export function Linea({
 }
 
 // ---------------------------------------------------------------------------
-// La banda del objetivo
-// ---------------------------------------------------------------------------
-
-/**
- * LA BANDA DEL OBJETIVO — el calibre horizontal. A la izquierda lo suave, a
- * la derecha lo fuerte. La banda del coach, y tu marca encima. Fuera de la
- * banda la marca pasa de raya a triángulo (▲ por encima, ▼ por debajo) y sale
- * la palabra; el color NO cambia (P6). A zona, se dibuja sobre el espectro
- * del coach con la zona objetivo encendida.
- */
-export function BandaObjetivo({ banda }: { banda: BandaVista }) {
-  const fuera = banda.veredicto != null && banda.veredicto !== 'dentro';
-  const palabraVisible = banda.palabra && (fuera || !banda.zonas);
-  const pista = 8;
-  return (
-    <div style={{ width: '100%', height: FILA.banda, flex: '0 0 auto', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '0 2px', lineHeight: 1 }}>
-        <span style={{ fontSize: T.nota.cuerpo, fontWeight: T.nota.peso, color: C.tinta2, whiteSpace: 'nowrap' }}>
-          {banda.rotulo}
-        </span>
-        {palabraVisible && banda.palabra ? (
-          <span
-            style={{
-              fontSize: T.nota.cuerpo,
-              fontWeight: fuera ? 700 : T.nota.peso,
-              color: fuera ? C.tinta : C.tinta2,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {banda.palabra.marca ? `${banda.palabra.marca} ` : ''}
-            {banda.palabra.texto}
-          </span>
-        ) : null}
-      </div>
-      <div style={{ position: 'relative', height: 16, marginTop: 3 }}>
-        <div style={{ position: 'absolute', left: 0, right: 0, top: (16 - pista) / 2, height: pista, borderRadius: pista / 2, overflow: 'hidden', background: C.carril, display: 'flex', gap: banda.zonas ? 2 : 0 }}>
-          {banda.zonas
-            ? banda.zonas.colores.map((c, i) => {
-                const z = i + 1;
-                const enObjetivo = z >= banda.zonas!.objetivo[0] && z <= banda.zonas!.objetivo[1];
-                return <span key={i} style={{ flex: 1, background: c, opacity: enObjetivo ? 1 : 0.26 }} />;
-              })
-            : null}
-        </div>
-        {!banda.zonas ? (
-          <div
-            style={{
-              position: 'absolute',
-              top: (16 - pista) / 2,
-              height: pista,
-              left: `${banda.desde * 100}%`,
-              width: `${(banda.hasta - banda.desde) * 100}%`,
-              background: '#6B6B70',
-              borderRadius: 2,
-            }}
-          />
-        ) : null}
-        {banda.marca != null ? (
-          <Marca x={banda.marca} fuera={banda.veredicto === 'dentro' ? null : banda.veredicto} />
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function Marca({ x, fuera }: { x: number; fuera: 'por-encima' | 'por-debajo' | null }) {
-  const pos: CSSProperties = {
-    position: 'absolute',
-    left: `${x * 100}%`,
-    top: 0,
-    transform: 'translateX(-50%)',
-    transition: 'left 700ms ease-out',
-  };
-  if (!fuera) {
-    return <span style={{ ...pos, width: 4, height: 16, borderRadius: 2, background: C.tinta, boxShadow: `0 0 0 1.5px ${C.fondo}` }} />;
-  }
-  const arriba = fuera === 'por-encima';
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" style={pos} aria-hidden>
-      <path d={arriba ? 'M8 1.5 15 14.5H1Z' : 'M8 14.5 1 1.5h14Z'} fill={C.tinta} stroke={C.fondo} strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Botones y la pista de la acción del momento
 // ---------------------------------------------------------------------------
 
@@ -448,6 +363,8 @@ export function BotonAccion({
   icono?: ReactNode;
 }) {
   const accion = variante === 'accion';
+  // Con ancho fijo, la etiqueta se ajusta (sin bajar de 15 pt) para no salirse del botón.
+  const cuerpo = typeof ancho === 'number' ? cuerpoQueCabe(etiqueta, T.boton.cuerpo, ancho - 16, T.boton.peso) : T.boton.cuerpo;
   return (
     <button
       type="button"
@@ -458,12 +375,13 @@ export function BotonAccion({
       style={{
         width: ancho,
         minHeight: T.boton.alto,
-        padding: '0 12px',
+        padding: typeof ancho === 'number' ? '0 8px' : '0 12px',
+        flex: '0 0 auto',
         border: 0,
         borderRadius: T.boton.alto / 2,
         background: accion ? C.accion : C.superficie2,
         color: accion ? C.sobreAccion : C.tinta,
-        fontSize: T.boton.cuerpo,
+        fontSize: cuerpo,
         fontWeight: T.boton.peso,
         fontFamily: 'inherit',
         display: 'inline-flex',
@@ -471,8 +389,8 @@ export function BotonAccion({
         justifyContent: 'center',
         gap: 6,
         cursor: 'pointer',
-        flex: '0 0 auto',
         whiteSpace: 'nowrap',
+        overflow: 'hidden',
       }}
     >
       {icono}
