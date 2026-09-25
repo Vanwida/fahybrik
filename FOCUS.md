@@ -49,7 +49,7 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 - Code gate NO (P0 A+B) cerrado: `project.pbxproj` regenerado con xcodegen 2.46.0
   (5 fantasmas fuera, 33 fuentes que faltaban dentro, build 100);
   `PreWorkoutFlowSourceTests` contra `startAction` / `configurationsCompatible`
-- CI macOS (`.github/workflows/ios.yml`): los 23 fallos del run 7 → 7 bugs de app arreglados + tests viejos al día (25-09).
+- CI macOS (`.github/workflows/ios.yml`): los 23 fallos del run 7 → 6 bugs de app arreglados + tests viejos al día (25-09).
 
 ## Pendiente decisión Alex
 
