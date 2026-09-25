@@ -10,6 +10,26 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-25 · La muñeca se rehace: un estado, un pintor, el objetivo manda y la gramática de Apple
+
+**Por qué (Alex, 25-09):** «la UX del reloj es un lío… no podemos competir con TrainingPeaks así; tiene que sentirse una herramienta nativa, fuerte, hecha por y para corredores (70 % del uso), y la carrera comprometida con los entrenos tiene que tener sentido». Una auditoría de seis lentes lo confirma con evidencia: el modelo completo, las causas y los casos están en `docs/reloj-muneca/modelo.md`.
+
+**Decidido (el modelo):** un estado vivo y un pintor para las dos vías (relojes y hápticos calculados en la muñeca); el paso como unidad (medida × objetivo(s) × rol × fase); la gramática de Apple Entreno (controles a la izquierda, corona en vertical, Ahora suena a la derecha); tocar la pantalla corriendo no cierra nada (doble toque, botón Acción o botón visible con deshacer); un evento, un háptico; un color, un significado; el descanso como fase común; sin puertas a mitad de carrera; cada estación y cada tramo del circuito, su vuelta.
+
+**Elegido por Alex (25-09, preguntas y respuestas):**
+- **El objetivo manda en la pantalla de correr:** el número grande es lo que el coach pide controlar (ritmo si va a ritmo, pulso y zona si va a zona); lo que falta, debajo. Descartados: «lo que falta manda» (lo de FH-30, que se queda en recuperación y pasos sin objetivo) y «cuatro datos iguales».
+- **Números en SF nativo**, cifras fijas. Descartada la itálica de marca en el vivo (sigue en la marca y en el iPhone). Sale Menlo, que quizá ni existe en watchOS.
+- **Voz en los auriculares al cambiar de paso y cada km**, desde el propio reloj; los avisos de ritmo, solo vibración.
+- **Carrera comprometida juzgada en vivo contra el objetivo del coach;** el coste propio (s/km sobre tu fresco) sale en el resumen, porque el cálculo sigue sin validar con carreras reales.
+
+**Se retira (al construir en Swift):** el toque en cualquier sitio para avanzar; el paginador propio `WatchReloj` dentro del `TabView`; `LiveScaffold`/`GiantNumber` en el vivo; los dos descansos y las tres cuentas atrás; el `.partial` cableado; el ritmo-media rotulado «ritmo»; el tinte de zona detrás de una serie juzgada por ritmo; y el código muerto que ya señalaba FH-30 (`GuionSeries`, `GuionRuta`, las ramas `.rodaje`/`.series` del espejo, `MirrorHUDTreadmill`).
+
+**Arreglos de modelo aguas arriba que exige (M1–M8 en el modelo):** dos objetivos por paso, recuperación y entorno como dato, series anidadas sin aplanar, EMOM con duración, HYROX sim como estructura, máquina e implemento como dato, cue del coach por paso.
+
+**NO hacer:** diseñar una pantalla de la muñeca fuera del kit `kit-reloj` del doble; decidir el número grande en una vista en vez de con el objetivo del paso; dar un significado nuevo al naranja o a un háptico existente; poner texto por debajo de 15 pt; volver a cerrar una serie con un toque en la pantalla.
+
+---
+
 ## 2026-09-25 · El reloj guarda el entreno hasta que el servidor lo confirma (acuses); un rechazo no se tira
 
 **Por qué (fase 1 firmada, «a finished session waits on the Watch until the server confirms it, with no expiry»):** la muñeca borraba el sobre en cuanto `transferUserInfo` lo entregaba al teléfono. «Llegó al teléfono» no es «está guardado». Si iOS mataba la app del teléfono mientras subía, la única copia ya no existía. Y la cola del teléfono tiraba cualquier 4xx, también un entreno terminado.
