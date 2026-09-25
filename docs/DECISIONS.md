@@ -28,6 +28,12 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **NO hacer:** diseñar una pantalla de la muñeca fuera del kit `kit-reloj` del doble; decidir el número grande en una vista en vez de con el objetivo del paso; dar un significado nuevo al naranja o a un háptico existente; poner texto por debajo de 15 pt; volver a cerrar una serie con un toque en la pantalla.
 
+**Elegido por Alex (25-09, segundo lote):**
+- **Doble toque = el estándar del mercado:** «no reinventar la rueda; los usuarios esperan que se use como las demás apps». En Apple Entreno, dos toques en la pantalla pasan al siguiente intervalo; en Garmin, la tecla LAP pasa al siguiente paso aunque no se haya completado. Queda así: dos toques en la pantalla o el gesto de doble toque cierran el paso, también una serie medida, y dejan 5 s para deshacer (Garmin no deja deshacer). Un solo toque no cierra nada.
+- **AMRAP:** las reps de la ronda sin acabar se meten en la campana. Durante el AMRAP, el doble toque solo cuenta rondas.
+- **«Seguir» tras terminar:** se guarda solo a los 10′ sin movimiento ni toques. Los 10′ son un dato con defecto.
+- **Descanso de fuerza:** Alex no lo decidió; se aplica el patrón del mercado (Hevy, Strong: se anota la serie y luego corre el descanso). Primero se confirman reps · kg · RPE y luego sale el reloj grande del descanso.
+
 **Construido (25-09, propuestas en el doble, pendientes de la firma de Alex):** `reloj-correr`, `reloj-gramatica`, `reloj-circuito`, `reloj-wod`, `reloj-fuerza`, `reloj-antes-despues`, todas sobre `kit-reloj`. Al construirlas salieron reglas de mecanismo que el Swift tiene que espejar tal cual (tests: `web/tests/design-twin/kit-reloj-veredicto.test.ts`):
 - **Un veredicto por paso.** Lo que vibra (`veredictoDelPaso`), lo que pinta la banda (`veredictoPrincipal`) y lo que canta la serie al cerrarse usan la misma holgura del coach. Antes la banda decía «rápido» sin vibrar y la serie se juzgaba con tolerancia cero.
 - **El techo manda por arriba.** Un techo pasado avisa esté en la magnitud que esté (ritmo con techo de pulso). Si está en la misma magnitud que el principal («Z1, máx 142»), el borde alto es el techo, no el del principal. Antes el techo no vibraba nunca.
