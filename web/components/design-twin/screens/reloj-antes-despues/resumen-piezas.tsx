@@ -157,7 +157,11 @@ export function Dato({ valor, unidad, etiqueta, tono = C.tinta }: { valor: strin
   );
 }
 
-/** Una fila de lista con columnas: número, valor grande, apoyos y el juicio a la derecha. */
+/**
+ * Una fila de lista con columnas: número, valor grande, apoyo y el juicio a la
+ * derecha. Cabe en 176 pt (el ancho de la primera fila, el más estrecho de los
+ * de arriba): «6 · 2:48 · 3:30 · dentro» sin encoger ninguna columna.
+ */
 export function FilaLista({
   n,
   valor,
@@ -165,6 +169,7 @@ export function FilaLista({
   derecha,
   tenue = false,
   apagado = false,
+  anchoN = 24,
 }: {
   n: string;
   valor: string;
@@ -174,14 +179,15 @@ export function FilaLista({
   tenue?: boolean;
   /** Solo el apoyo atenuado: lo que se quedó con el valor por defecto (P11). */
   apagado?: boolean;
+  /** Ancho de la columna del número («0,49» del último km parcial necesita más). */
+  anchoN?: number;
 }) {
+  const fijo = { flex: '0 0 auto', fontVariantNumeric: 'tabular-nums' } as const;
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, height: 24, width: 166, whiteSpace: 'nowrap', opacity: tenue ? 0.55 : 1 }}>
-      <span style={{ fontSize: T.nota.cuerpo, color: C.tinta2, width: 30, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
-      <span style={{ fontSize: T.tercero.cuerpo, fontWeight: 600, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{valor}</span>
-      {apoyo ? (
-        <span style={{ fontSize: T.nota.cuerpo, color: C.tinta2, opacity: apagado ? 0.6 : 1, fontVariantNumeric: 'tabular-nums' }}>{apoyo}</span>
-      ) : null}
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, height: 24, width: ANCHO_CABEZA, whiteSpace: 'nowrap', opacity: tenue ? 0.55 : 1 }}>
+      <span style={{ ...fijo, fontSize: T.nota.cuerpo, color: C.tinta2, width: anchoN }}>{n}</span>
+      <span style={{ ...fijo, fontSize: T.tercero.cuerpo, fontWeight: 600, lineHeight: 1 }}>{valor}</span>
+      {apoyo ? <span style={{ ...fijo, fontSize: T.nota.cuerpo, color: C.tinta2, opacity: apagado ? 0.6 : 1 }}>{apoyo}</span> : null}
       <span style={{ marginLeft: 'auto', fontSize: T.nota.cuerpo }}>{derecha}</span>
     </div>
   );

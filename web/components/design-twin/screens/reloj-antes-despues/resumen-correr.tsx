@@ -142,8 +142,7 @@ function PaginaSeries({ r, pasos, titulo, metodo }: { r: Resultado; pasos: PasoB
             <FilaLista
               key={p.id}
               n={n}
-              valor={fmtReloj(s.segundos)}
-              apoyo={p.medida.tipo === 'distancia' && s.metros != null ? `${s.metros}\u00A0m` : null}
+              valor={p.medida.tipo === 'distancia' && s.metros != null ? `${s.metros}\u00A0m` : fmtReloj(s.segundos)}
               derecha={<span style={{ color: C.tinta2 }}>cortada</span>}
             />
           );
@@ -180,6 +179,7 @@ function PaginaKm({ r, desde, hasta, primera }: { r: Resultado; desde: number; h
         return (
           <FilaLista
             key={k.n}
+            anchoN={32}
             n={parcial ? (k.metros! / 1000).toFixed(2).replace('.', ',') : String(k.n)}
             valor={fmtRitmo(k.ritmo)}
             apoyo={k.desnivel == null ? '—' : conSigno(k.desnivel)}
