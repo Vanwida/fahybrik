@@ -162,6 +162,23 @@ export const NOMBRE_CLASE_DEFECTO: Record<Clase, string> = {
   movilidad: 'Movilidad',
 };
 
+/**
+ * Los nombres por defecto que son femeninos («Serie 2 cerrada», «Tramo 3
+ * cerrado»). El género va con el nombre: si el coach renombra una clase, lo
+ * trae con él.
+ */
+export const FEMENINO_DEFECTO: ReadonlySet<Clase> = new Set<Clase>([
+  'vuelta-calma',
+  'tirada',
+  'series',
+  'cuestas',
+  'carrera',
+  'estacion',
+  'roxzone',
+  'fuerza',
+  'movilidad',
+]);
+
 // ---------------------------------------------------------------------------
 // El paso
 // ---------------------------------------------------------------------------

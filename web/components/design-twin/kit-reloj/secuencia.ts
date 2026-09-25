@@ -44,7 +44,18 @@ import type {
   Vuelta,
   ZonasCoach,
 } from './paso';
-import { RITMO_TECHO_S, faltaDe, fmtReloj, fmtRitmo, holguraDe, principal, valorDeEje, veredictoDe } from './reglas';
+import {
+  RITMO_TECHO_S,
+  faltaDe,
+  fmtReloj,
+  fmtRitmo,
+  holguraDe,
+  objetivoDe,
+  principal,
+  veredictoDe,
+  veredictoDelPaso,
+  veredictoPrincipal,
+} from './reglas';
 import { VOZ_SESION, vozDescanso, vozFinSerie, vozInicio, vozKm, vozPreaviso, vozRecupera } from './voz';
 
 export interface PlanSesion {
@@ -81,6 +92,12 @@ export interface EstadoSecuencia {
   ppmN: number;
   pasoPpmSuma: number;
   pasoPpmN: number;
+  /**
+   * Segundos del paso juzgados contra una zona o un pulso, tras la gracia:
+   * dentro, por encima, por debajo. Una serie a zona se juzga por aquí, no por
+   * la media (que castiga el retraso del pulso al arrancar).
+   */
+  pasoZonaS: [number, number, number];
   kmN: number;
   kmDesdeT: number;
   /** La vuelta manual (el control «Vuelta»): desde cuándo y desde qué metro. */
@@ -179,6 +196,7 @@ export function estadoInicial(plan: PlanSesion, sim: Simulador, ini: InicioSecue
     ppmN: ini.ppmMedio ? sesionT : 0,
     pasoPpmSuma: 0,
     pasoPpmN: 0,
+    pasoZonaS: [0, 0, 0],
     kmN,
     kmDesdeT: ini.kmDesdeT ?? sesionT - Math.round(((sesionM - kmN * 1000) / Math.max(1, sesionM)) * sesionT),
     tramosN: 0,
@@ -250,14 +268,23 @@ export function avanzar(s: EstadoSecuencia, plan: PlanSesion, sim: Simulador): S
     eventos.push({ evento: 'cuenta' });
   }
 
-  // Fuera de objetivo, con holgura y cadencia.
+  // Fuera de objetivo, con holgura y cadencia. UN veredicto (el techo pasado
+  // manda) para lo que vibra y lo que pinta la banda.
   const o = principal(p);
-  if (o && p.rol === 'trabajo') {
-    const valor = valorDeEje(o.eje, l);
-    const ver = valor == null ? null : veredictoDe(o, valor, holguraDe(o.eje, plan.reglas), plan.zonas);
-    const d = decidirAviso(n.aviso, ver, t, p, o.eje, plan.reglas);
+  if (p.rol === 'trabajo' && (o || objetivoDe(p, 'techo'))) {
+    const ver = veredictoDelPaso(p, l, plan.zonas, plan.reglas);
+    const d = decidirAviso(n.aviso, ver, t, p, o?.eje ?? null, plan.reglas);
     n = { ...n, aviso: d.estado };
     if (d.evento) eventos.push({ evento: d.evento });
+  }
+
+  // El tiempo en zona de una serie a pulso, pasada la gracia.
+  if (o && p.rol === 'trabajo' && (o.eje === 'zona' || o.eje === 'ppm') && t > plan.reglas.graciaZonaS) {
+    const ver = veredictoPrincipal(p, l, plan.zonas, plan.reglas);
+    if (ver != null) {
+      const [d, a, b] = n.pasoZonaS;
+      n = { ...n, pasoZonaS: ver === 'dentro' ? [d + 1, a, b] : ver === 'por-encima' ? [d, a + 1, b] : [d, a, b + 1] };
+    }
   }
 
   // Cierre por medida.
@@ -266,6 +293,27 @@ export function avanzar(s: EstadoSecuencia, plan: PlanSesion, sim: Simulador): S
     return { estado: c.estado, eventos: [...eventos, ...c.eventos] };
   }
   return { estado: n, eventos };
+}
+
+/**
+ * El veredicto de una serie cerrada, con la holgura con la que juzgó el motor
+ * en vivo (la frase no canta «rápida» una serie que la banda dio por buena).
+ * A ritmo: su ritmo medio. A zona o pulso: donde pasó MÁS tiempo tras la
+ * gracia; si la serie fue más corta que la gracia, no se juzga (null): el
+ * pulso aún no había llegado.
+ */
+function veredictoDeVuelta(
+  o: NonNullable<ReturnType<typeof principal>>,
+  ritmo: number | null,
+  zonaS: [number, number, number],
+  plan: PlanSesion,
+): Vuelta['veredicto'] {
+  if (o.eje === 'ritmo') return ritmo == null ? null : veredictoDe(o, ritmo, holguraDe('ritmo', plan.reglas), plan.zonas);
+  if (o.eje !== 'zona' && o.eje !== 'ppm') return null;
+  const [dentro, encima, debajo] = zonaS;
+  if (dentro + encima + debajo === 0) return null;
+  if (dentro >= encima && dentro >= debajo) return 'dentro';
+  return encima >= debajo ? 'por-encima' : 'por-debajo';
 }
 
 /** Cierra el paso en curso — solo (por medida) o a mano (el atleta). */
@@ -279,7 +327,6 @@ export function cerrar(s: EstadoSecuencia, plan: PlanSesion, quien: 'medida' | '
     const ritmo = s.midio && s.metros > 50 ? s.t / (s.metros / 1000) : null;
     const ppm = s.pasoPpmN > 0 ? Math.round(s.pasoPpmSuma / s.pasoPpmN) : null;
     const o = principal(p);
-    const valor = o?.eje === 'ritmo' ? ritmo : o?.eje === 'zona' || o?.eje === 'ppm' ? ppm : null;
     const v: Vuelta = {
       n: cuenta.n,
       tanda: p.posicion?.tanda?.n,
@@ -288,7 +335,7 @@ export function cerrar(s: EstadoSecuencia, plan: PlanSesion, quien: 'medida' | '
       metros: s.midio ? Math.round(s.metros) : null,
       ritmo,
       ppm,
-      veredicto: o && valor != null ? veredictoDe(o, valor, 0, plan.zonas) : null,
+      veredicto: o ? veredictoDeVuelta(o, ritmo, s.pasoZonaS, plan) : null,
       eje: o?.eje,
     };
     vueltas = [...vueltas, v];
@@ -320,6 +367,7 @@ export function cerrar(s: EstadoSecuencia, plan: PlanSesion, quien: 'medida' | '
       extraS: 0,
       pasoPpmSuma: 0,
       pasoPpmN: 0,
+      pasoZonaS: [0, 0, 0],
       vueltas,
       aviso: AVISO_INICIAL,
       preavisado: false,

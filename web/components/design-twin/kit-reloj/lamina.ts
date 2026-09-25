@@ -27,9 +27,11 @@ import {
   principal,
   rangoPpm,
   objetivoDe,
+  techoPasado,
   tinteDelPaso,
   valorDeEje,
   veredictoDe,
+  veredictoPrincipal,
   zonaDe,
 } from './reglas';
 import {
@@ -188,9 +190,11 @@ export function bandaDe(
   const v = valor;
   // Un objetivo de valor único («@5:20») se juzga con la holgura del coach como
   // banda: sin ella, 5:21 ya sería «lento». El rótulo sigue diciendo «5:20».
+  // El veredicto, con la MISMA holgura con la que juzga el motor: la banda no
+  // dice «rápido» a 4:03 en una serie a 4:05–4:15 que el reloj no avisa.
   const unico = o.eje !== 'zona' && o.min != null && o.min === o.max && holgura > 0;
   const oj: Objetivo = unico ? { ...o, min: o.min! - holgura, max: o.max! + holgura } : o;
-  const veredicto = v == null ? null : veredictoDe(oj, v, 0, zonas);
+  const veredicto = v == null ? null : veredictoDe(o, v, holgura, zonas);
   const palabra = veredicto == null ? null : palabraVeredicto(o.eje, veredicto);
 
   if (o.eje === 'zona' && zonas) {
@@ -243,14 +247,22 @@ export function bandaDe(
 // Las líneas de apoyo
 // ---------------------------------------------------------------------------
 
-/** La línea del pulso (con su zona y, si hay techo, «▲ alto»): va abajo en toda cara. */
-export function lineaPulso(p: PasoBase, l: Lecturas, zonas: ZonasCoach | null): LineaVista {
+/**
+ * La línea del pulso (con su zona y, si el techo de pulso está pasado, «▲ alto»):
+ * va abajo en toda cara. El techo con la holgura del coach: el «alto» sale
+ * cuando vibra, no dos pulsaciones antes.
+ */
+export function lineaPulso(
+  p: PasoBase,
+  l: Lecturas,
+  zonas: ZonasCoach | null,
+  reglas: ReglasAviso = REGLAS_AVISO_DEFECTO,
+): LineaVista {
   const v = valorDeEje('ppm', l);
   const techo = objetivoDe(p, 'techo');
   let aviso: LineaVista['aviso'];
-  if (v != null && techo && (techo.eje === 'ppm' || techo.eje === 'zona')) {
-    const ver = veredictoDe(techo, v, 0, zonas);
-    if (ver === 'por-encima') aviso = { marca: '▲', texto: 'alto' };
+  if (v != null && techo && (techo.eje === 'ppm' || techo.eje === 'zona') && techoPasado(p, l, zonas, reglas)) {
+    aviso = { marca: '▲', texto: 'alto' };
   }
   return {
     glifo: 'pulso',
@@ -313,21 +325,27 @@ export function laminaDelPaso(
   if (o && p.rol === 'trabajo') {
     if (o.eje === 'rpe') instruccion = `${fmtObjetivo(o)} · ${palabraRpe(o)}`;
     else if (['kg', 'pctRM', 'rir', 'inclinacion'].includes(o.eje)) instruccion = fmtObjetivo(o);
-    else banda = bandaDe(o, valorDeEje(o.eje, l), zonas, holguraDe(o.eje, reglas));
+    else {
+      banda = bandaDe(o, valorDeEje(o.eje, l), zonas, holguraDe(o.eje, reglas));
+      // Con un techo en la misma magnitud, el borde alto es el techo (P1: la
+      // banda dice lo mismo que vibra).
+      const ver = veredictoPrincipal(p, l, zonas, reglas);
+      if (banda) banda = { ...banda, veredicto: ver, palabra: ver == null ? null : palabraVeredicto(o.eje, ver) };
+    }
   }
 
   let segundo: LineaVista | null;
   let tercero: LineaVista | null;
   if (esObjetivo) {
     segundo = lineaFalta(p, l);
-    tercero = heroe.clase === 'pulso' ? (esCarrera(p) ? lineaRitmo(l) : null) : lineaPulso(p, l, zonas);
+    tercero = heroe.clase === 'pulso' ? (esCarrera(p) ? lineaRitmo(l) : null) : lineaPulso(p, l, zonas, reglas);
   } else {
     // Sin objetivo vivo: lo que falta ya es el héroe. Si se corre, el ritmo
     // sube a segundo; el pulso, siempre en la principal.
     // Con banda (un paso a ritmo sin GPS todavía) el ritmo ya está dicho: la
     // banda sin marca. Repetirlo como «— /km» solo quita sitio al héroe.
     segundo = !instruccion && !banda && esCarrera(p) ? lineaRitmo(l) : null;
-    tercero = lineaPulso(p, l, zonas);
+    tercero = lineaPulso(p, l, zonas, reglas);
   }
 
   return {

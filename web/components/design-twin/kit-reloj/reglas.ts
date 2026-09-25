@@ -104,7 +104,7 @@ export function fmtObjetivo(o: Objetivo): string {
     case 'potencia':
       return `${rango(o.min, o.max, num)}\u00A0W`;
     case 'pctRM':
-      return `${rango(o.min, o.max, num)}\u00A0%`;
+      return `${rango(o.min, o.max, num)}\u00A0%\u00A0RM`;
     case 'kg':
       return `${rango(o.min, o.max, num)}\u00A0kg`;
     case 'rir':
@@ -226,7 +226,9 @@ export function limitesZona(k: number, z: ZonasCoach): [number, number] {
 export function rangoPpm(o: Objetivo, z: ZonasCoach | null): [number | null, number | null] {
   if (o.eje === 'ppm') return [o.min, o.max];
   if (o.eje !== 'zona' || !z) return [null, null];
-  const lo = o.min != null && o.papel !== 'techo' ? limitesZona(o.min, z)[0] : null;
+  // Z1 no tiene suelo: por debajo de Z1 no hay zona. El suelo de `limitesZona`
+  // es solo para dibujarla; juzgar con él mandaría «aprieta» en un rodaje a Z1.
+  const lo = o.min != null && o.min > 1 && o.papel !== 'techo' ? limitesZona(o.min, z)[0] : null;
   const hi = o.max != null ? limitesZona(o.max, z)[1] : null;
   return [lo, hi];
 }
@@ -281,6 +283,57 @@ export function holguraDe(eje: EjeObjetivo, r: ReglasAviso): number {
   if (eje === 'potencia') return r.holgura.vatios;
   if (eje === 'cadencia') return r.holgura.cadencia;
   return 0;
+}
+
+/** Un objetivo contra su lectura en vivo, con la holgura del coach. `null` = no lo mide nadie ahora. */
+function juzgar(o: Objetivo, l: Lecturas, zonas: ZonasCoach | null, reglas: ReglasAviso): Veredicto | null {
+  const v = valorDeEje(o.eje, l);
+  return v == null ? null : veredictoDe(o, v, holguraDe(o.eje, reglas), zonas);
+}
+
+const esPulso = (e: EjeObjetivo) => e === 'zona' || e === 'ppm';
+const mismaMagnitud = (a: EjeObjetivo, b: EjeObjetivo) => a === b || (esPulso(a) && esPulso(b));
+
+/**
+ * El veredicto del objetivo principal — el que pinta la banda. Si el paso lleva
+ * un techo en la MISMA magnitud («Z1, máx 142 ppm»), el borde alto lo pone el
+ * techo: el coach ya dijo hasta dónde se puede subir, así que 141 no es «alto».
+ */
+export function veredictoPrincipal(
+  p: PasoBase,
+  l: Lecturas,
+  zonas: ZonasCoach | null,
+  reglas: ReglasAviso,
+): Veredicto | null {
+  const o = principal(p);
+  if (!o) return null;
+  const vp = juzgar(o, l, zonas, reglas);
+  const techo = objetivoDe(p, 'techo');
+  if (!techo || !mismaMagnitud(o.eje, techo.eje)) return vp;
+  if (juzgar(techo, l, zonas, reglas) === 'por-encima') return 'por-encima';
+  return vp === 'por-encima' ? 'dentro' : vp;
+}
+
+/**
+ * EL veredicto del paso (P1: uno solo, el que vibra). Un techo pasado manda
+ * («afloja»), esté en la magnitud que esté: un ritmo con techo de pulso avisa
+ * por el pulso aunque el ritmo vaya dentro. Si no, el del principal.
+ */
+export function veredictoDelPaso(
+  p: PasoBase,
+  l: Lecturas,
+  zonas: ZonasCoach | null,
+  reglas: ReglasAviso,
+): Veredicto | null {
+  const techo = objetivoDe(p, 'techo');
+  if (techo && juzgar(techo, l, zonas, reglas) === 'por-encima') return 'por-encima';
+  return veredictoPrincipal(p, l, zonas, reglas);
+}
+
+/** ¿El techo del paso está pasado ahora? (la línea del pulso lo dice: «▲ alto»). */
+export function techoPasado(p: PasoBase, l: Lecturas, zonas: ZonasCoach | null, reglas: ReglasAviso): boolean {
+  const techo = objetivoDe(p, 'techo');
+  return !!techo && juzgar(techo, l, zonas, reglas) === 'por-encima';
 }
 
 /** El valor en vivo que se juzga contra un objetivo, o `null` si no lo mide nadie ahora. */

@@ -223,12 +223,19 @@ export function Descanso({
  * qué entras; en el centro, el número; debajo, contra qué. `n = 0` es el GO.
  */
 export function TresDosUno({ n, paso }: { n: number; paso: PasoBase }) {
+  // Debajo del contexto, solo lo que el contexto no dice: el movimiento («Wall
+  // Balls») y contra qué entras («a 3:45–3:55»). Un rodaje «Rodaje · Z2 · 40′»
+  // ya lo lleva todo arriba: el 3-2-1 gana la fila.
+  const contexto = contextoDe(paso);
   const o = principal(paso);
-  const filas: NombreFila[] = ['contexto', 'instruccion'];
+  const obj = o ? fmtObjetivo(o) : null;
+  const nombre = paso.nombre && !contexto.some((c) => c.includes(paso.nombre!)) ? paso.nombre : null;
+  const texto = [nombre, obj && !contexto.includes(obj) ? `a ${obj}` : null].filter(Boolean).join(' · ') || null;
+  const filas: NombreFila[] = texto ? ['contexto', 'instruccion'] : ['contexto'];
   return (
     <Columna estilo={{ background: C.fondo }}>
-      <ContextoLinea partes={contextoDe(paso)} />
-      <Instruccion texto={o ? `a ${fmtObjetivo(o)}` : textoPasoCorto(paso)} tono={C.tinta2} />
+      <ContextoLinea partes={contexto} />
+      {texto ? <Instruccion texto={texto} tono={C.tinta2} /> : null}
       <Centro>
         <Heroe heroe={{ clase: 'crono', texto: n > 0 ? String(n) : 'GO' }} altoMax={altoHeroe(filas)} />
       </Centro>

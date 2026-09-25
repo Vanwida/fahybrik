@@ -35,7 +35,7 @@ export function CaraFuerza({ seq }: { seq: Secuencia }) {
   const carga = objetivoDe(p, 'secundario');
   const esfuerzo = principal(p);
   const serie = p.posicion?.serie;
-  const ejes = [carga ? fmtObjetivo(carga) : null, esfuerzo ? `${fmtObjetivo(esfuerzo)}${esfuerzo.eje === 'pctRM' ? ' RM' : ''}` : null]
+  const ejes = [carga ? fmtObjetivo(carga) : null, esfuerzo ? fmtObjetivo(esfuerzo) : null]
     .filter(Boolean)
     .join(' · ');
   return (

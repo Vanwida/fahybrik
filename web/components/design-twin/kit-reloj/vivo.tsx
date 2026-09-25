@@ -18,7 +18,7 @@ import { AroSesion } from './aro';
 import { useEventos } from './eventos';
 import { Muneca, type AccionPrimaria, type MunecaProps } from './Muneca';
 import { PaginaDatos, PaginaEstructura, PaginaVueltas } from './paginas';
-import { NOMBRE_CLASE_DEFECTO, type FilaEstructura, type Paso, type Sesion } from './paso';
+import { FEMENINO_DEFECTO, NOMBRE_CLASE_DEFECTO, type FilaEstructura, type Paso, type Sesion } from './paso';
 import { AvisoVuelta, Descanso, PasoCorrer, Recupera, TresDosUno } from './pasos';
 import type { ModeloReloj } from './piezas';
 import { fmtObjetivo, fmtReloj, principal, tinteDelPaso } from './reglas';
@@ -61,7 +61,7 @@ export function avisoDeCierre(paso: Paso): string {
   const tramo = paso.posicion?.tramo;
   if (tramo) return `Tramo ${tramo.n} cerrado`;
   const serie = paso.posicion?.serie;
-  if (serie) return `${NOMBRE_CLASE_DEFECTO[paso.clase]} ${serie.n} ${paso.clase === 'series' ? 'cerrada' : 'cerrado'}`;
+  if (serie) return `${NOMBRE_CLASE_DEFECTO[paso.clase]} ${serie.n} ${FEMENINO_DEFECTO.has(paso.clase) ? 'cerrada' : 'cerrado'}`;
   if (paso.nombre) return `${paso.nombre} hecho`;
   return 'Paso cerrado';
 }
