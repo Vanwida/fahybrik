@@ -4,8 +4,8 @@
 // que «Muñeca · correr») y cuadran entre sí: la suma de las zonas es el tiempo
 // total, el ritmo de una serie es su tiempo entre sus metros.
 
-import type { PasoBase, Veredicto } from '../../kit-reloj';
-import type { EjercicioHecho, KmHecho, Resultado, SerieFuerza, SerieHecha, TramoHecho } from './calculo';
+import type { PasoBase, SerieHecha, TramoHecho, Veredicto } from '../../kit-reloj';
+import type { EjercicioHecho, KmHecho, Resultado, SerieFuerza } from './calculo';
 import { ZONAS, sesion482, sesion493, sesion494Brief, sesion529, sesionSeisPorMil, sesion479Brief, type Sesion } from './sesiones';
 
 const base = (s: Sesion): Omit<Resultado, 't' | 'metros' | 'ppmMedio' | 'ppmMax' | 'zonasS'> => ({

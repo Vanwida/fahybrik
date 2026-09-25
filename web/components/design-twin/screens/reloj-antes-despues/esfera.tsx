@@ -13,8 +13,7 @@
 // forma de la sesión se reconoce antes de leerla.
 
 import { useEffect, useState } from 'react';
-import { AOD, C, Corazon, T, arcosDePlan, type PasoBase } from '../../kit-reloj';
-import { hoyDe } from './calculo';
+import { AOD, C, Corazon, T, arcosDePlan, hoyDe, type PasoBase } from '../../kit-reloj';
 
 // ---------------------------------------------------------------------------
 // La tira — el aro desenrollado

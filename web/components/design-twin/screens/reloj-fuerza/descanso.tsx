@@ -15,32 +15,31 @@
 //             héroe— con la serie en una línea «✓ …» que se puede reabrir.
 //
 // La acción del momento (doble toque, botón Acción, el botón naranja) es
-// «Confirmar» mientras quede algo propuesto, y «Empezar ya» después.
+// «Confirmar» mientras quede algo propuesto, y «Empezar ya» después. Con un
+// dato encendido, la corona lo gira: la enfoca el vivo (`VistaVivo.corona`).
 
-import { useRef, type CSSProperties, type ReactNode, type WheelEvent } from 'react';
 import {
   ANCHO_UTIL,
-  BotonAccion,
+  BotonesDescanso,
   C,
+  Centro,
   Columna,
   ContextoLinea,
-  FILA,
-  Heroe,
+  Descanso,
+  Marca,
   Nota,
   T,
+  VieneLinea,
   anchoTexto,
   faltaDe,
   fmtReloj,
-  heroeDelPaso,
-  useCabe,
-  usePrimaria,
+  vieneEnUna,
   type Lecturas,
   type Paso,
+  type PasoFuerza,
+  type Viene,
 } from '../../kit-reloj';
 import { camposPendientes, fmtValor, pendiente, textoAnotacion, type Anotacion, type Campo, type Dato } from './anotar';
-import type { PasoFuerza } from './modelo';
-import { Centro, altoLibre } from './caras';
-import type { Viene } from './textos';
 
 export interface SerieAnotable {
   paso: PasoFuerza;
@@ -62,20 +61,8 @@ export interface DescansoFuerzaProps {
   pistaCorona: string | null;
   onAbrir: (k: number) => void;
   onFoco: (c: Campo) => void;
-  onCorona: (dir: 1 | -1) => void;
   onResumen: () => void;
   onMas30: () => void;
-}
-
-/** La marca de una serie: ✓ declarada, anillo hueco sin confirmar. */
-function Marca({ hecha }: { hecha: boolean }) {
-  return hecha ? (
-    <svg width="15" height="15" viewBox="0 0 24 24" aria-label="anotada" style={{ flex: '0 0 auto' }}>
-      <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke={C.tinta} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ) : (
-    <span aria-label="sin confirmar" style={{ width: 11, height: 11, borderRadius: 6, boxShadow: `inset 0 0 0 1.6px ${C.tinta2}`, flex: '0 0 auto' }} />
-  );
 }
 
 /** Una serie en una píldora (≥ 32 pt, se toca para abrirla). */
@@ -175,66 +162,6 @@ function Columnas({ serie, foco, onFoco }: { serie: SerieAnotable; foco: Campo |
   );
 }
 
-const HOLGURA = 1.04;
-
-/** ¿Va «Viene:» en una línea? Si no, en dos: qué arriba, la dosis debajo (nunca partida por la mitad). */
-function vieneEnUna(v: Viene): boolean {
-  const t = `Viene: ${v.que}${v.dosis ? ` · ${v.dosis}` : ''}`;
-  return anchoTexto(t, T.nota.cuerpo, T.nota.peso) <= ANCHO_UTIL * HOLGURA;
-}
-
-function altoViene(v: Viene | null): number {
-  return !v ? -4 : vieneEnUna(v) ? FILA.nota : FILA.nota2;
-}
-
-/** «Viene: B1 · Deadlift» / «4 × 8 · RIR 3» — lo que viene, con su dosis. */
-function VieneLinea({ v }: { v: Viene }) {
-  const cabeza = <span style={{ color: C.tinta2, marginRight: '0.3em' }}>Viene:</span>;
-  const estilo = { fontSize: T.nota.cuerpo, fontWeight: T.nota.peso, color: C.tinta, lineHeight: `${FILA.nota2 / 2}px`, whiteSpace: 'nowrap' as const };
-  if (vieneEnUna(v)) {
-    return (
-      <div style={{ height: FILA.nota, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', flex: '0 0 auto' }}>
-        <span style={estilo}>
-          {cabeza}
-          {v.que}
-          {v.dosis ? ` · ${v.dosis}` : ''}
-        </span>
-      </div>
-    );
-  }
-  return (
-    <div style={{ height: FILA.nota2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', flex: '0 0 auto' }}>
-      <LineaCabe estilo={estilo}>
-        {cabeza}
-        {v.que}
-      </LineaCabe>
-      {v.dosis ? <LineaCabe estilo={estilo}>{v.dosis}</LineaCabe> : null}
-    </div>
-  );
-}
-
-function LineaCabe({ estilo, children }: { estilo: CSSProperties; children: ReactNode }) {
-  const ref = useCabe<HTMLSpanElement>();
-  return (
-    <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-      <span ref={ref} style={{ ...estilo, transformOrigin: 'center' }}>
-        {children}
-      </span>
-    </div>
-  );
-}
-
-/** +30 s y la acción del momento (naranja): «Confirmar», «Listo» o «Empezar ya». */
-function Botones({ etiqueta, onMas30 }: { etiqueta: string; onMas30: () => void }) {
-  const primaria = usePrimaria();
-  return (
-    <div style={{ display: 'flex', gap: 6, width: '100%', height: FILA.boton, alignItems: 'center', padding: '0 4px', boxSizing: 'border-box', flex: '0 0 auto' }}>
-      <BotonAccion etiqueta="+30 s" variante="superficie" onPulsa={onMas30} ancho={60} />
-      <BotonAccion etiqueta={etiqueta} onPulsa={primaria ?? (() => undefined)} ancho={114} />
-    </div>
-  );
-}
-
 /** «Serie 2», «A1 · serie 1», «Ronda 1». */
 function quien(series: SerieAnotable[], k: number | null): string {
   if (k == null) return `Ronda ${series[0]?.paso.posicion?.serie?.n ?? ''}`;
@@ -258,38 +185,21 @@ function estadoSerie(s: SerieAnotable): string {
 }
 
 export function DescansoFuerza(p: DescansoFuerzaProps) {
-  const rueda = useRef({ acumulado: 0, ultimo: 0 });
   const cuenta = fmtReloj(Math.ceil(faltaDe(p.paso, p.lecturas) ?? 0));
 
-  // La corona, con un dato encendido, gira ESE dato (y no pasa de página).
-  const onWheel = (e: WheelEvent) => {
-    if (!p.foco) return;
-    e.stopPropagation();
-    const r = rueda.current;
-    const ahora = Date.now();
-    r.acumulado += e.deltaY;
-    if (Math.abs(r.acumulado) >= 40 && ahora - r.ultimo > 180) {
-      p.onCorona(r.acumulado < 0 ? 1 : -1);
-      r.acumulado = 0;
-      r.ultimo = ahora;
-    }
-  };
-
   if (p.vista === 'resumen') {
-    const heroe = { ...heroeDelPaso(p.paso, p.lecturas, null), etiqueta: undefined };
+    // El descanso común del kit, sin pulso y con la serie en una píldora que se reabre.
     const resumen =
       p.series.length === 0 ? null : p.series.length === 1 ? textoAnotacion(p.series[0]!.anot, p.series[0]!.paso.fuerza) : `${quien(p.series, null)} anotada`;
-    const alto = altoLibre([FILA.contexto, resumen ? 32 : -4, altoViene(p.viene), FILA.boton]);
     return (
-      <Columna>
-        <ContextoLinea partes={['Descanso']} />
-        <Centro>
-          <Heroe heroe={heroe} altoMax={alto} />
-        </Centro>
-        {resumen ? <Pildora texto={resumen} hecha onPulsa={p.onResumen} /> : null}
-        {p.viene ? <VieneLinea v={p.viene} /> : null}
-        <Botones etiqueta="Empezar ya" onMas30={p.onMas30} />
-      </Columna>
+      <Descanso
+        paso={p.paso}
+        lecturas={p.lecturas}
+        onMas30={p.onMas30}
+        viene={p.viene}
+        pulso={false}
+        hueco={resumen ? { alto: 32, nodo: <Pildora texto={resumen} hecha onPulsa={p.onResumen} /> } : null}
+      />
     );
   }
 
@@ -311,7 +221,7 @@ export function DescansoFuerza(p: DescansoFuerzaProps) {
             {p.viene ? <VieneLinea v={p.viene} /> : null}
           </div>
         </Centro>
-        <Botones etiqueta={pendientes > 0 ? 'Confirmar' : 'Listo'} onMas30={p.onMas30} />
+        <BotonesDescanso etiqueta={pendientes > 0 ? 'Confirmar' : 'Listo'} onMas30={p.onMas30} />
       </Columna>
     );
   }
@@ -321,24 +231,22 @@ export function DescansoFuerza(p: DescansoFuerzaProps) {
   if (!s) return null;
   const pend = pendiente(s.anot);
   return (
-    <div onWheel={onWheel} style={{ position: 'absolute', inset: 0 }}>
-      <Columna>
-        <ContextoLinea partes={['Descanso', cuenta]} />
-        <Centro>
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-            <Nota>{`${quien(p.series, k)} · ${estadoSerie(s)}`}</Nota>
-            <Columnas serie={s} foco={p.foco} onFoco={p.onFoco} />
-            {s.velocidad ? <Nota>{s.velocidad}</Nota> : null}
-            {p.foco && p.pistaCorona ? (
-              <Nota tono={C.tinta}>{p.pistaCorona}</Nota>
-            ) : p.viene && !(s.velocidad && !vieneEnUna(p.viene)) ? (
-              // Con la velocidad, «Viene:» en dos líneas no cabe: vuelve al confirmar.
-              <VieneLinea v={p.viene} />
-            ) : null}
-          </div>
-        </Centro>
-        <Botones etiqueta={pend ? 'Confirmar' : 'Listo'} onMas30={p.onMas30} />
-      </Columna>
-    </div>
+    <Columna>
+      <ContextoLinea partes={['Descanso', cuenta]} />
+      <Centro>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+          <Nota>{`${quien(p.series, k)} · ${estadoSerie(s)}`}</Nota>
+          <Columnas serie={s} foco={p.foco} onFoco={p.onFoco} />
+          {s.velocidad ? <Nota>{s.velocidad}</Nota> : null}
+          {p.foco && p.pistaCorona ? (
+            <Nota tono={C.tinta}>{p.pistaCorona}</Nota>
+          ) : p.viene && !(s.velocidad && !vieneEnUna(p.viene)) ? (
+            // Con la velocidad, «Viene:» en dos líneas no cabe: vuelve al confirmar.
+            <VieneLinea v={p.viene} />
+          ) : null}
+        </div>
+      </Centro>
+      <BotonesDescanso etiqueta={pend ? 'Confirmar' : 'Listo'} onMas30={p.onMas30} />
+    </Columna>
   );
 }

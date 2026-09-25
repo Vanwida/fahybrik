@@ -112,6 +112,8 @@ const MOMENTOS: Momento[] = [
     i: 5,
     cara: () => <PasoCorrer paso={serie3} lecturas={lect({ viejos: ['hecho', 'ritmo'] })} zonas={ZONAS} />,
   },
+  // Antes de empezar, en el brief: el GPS fija (.success). Va al final para no mover los demás.
+  { evento: 'gps', i: 0, cara: () => <Hito titulo="GPS listo" detalle="antes de empezar · Empezar" /> },
 ];
 
 const PASO_MS = 3500;

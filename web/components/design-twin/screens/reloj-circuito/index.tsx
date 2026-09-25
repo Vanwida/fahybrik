@@ -8,8 +8,8 @@
 // puntuación, siempre bajo el contexto. Cada estación dice nombre, dosis y
 // carga; si algo la mide (el PM5) el número grande es lo que falta, y si nada
 // la mide es su crono con «lo dices tú». La Roxzone es un paso propio si el
-// coach la activa. Cada tramo, estación y Roxzone deja su parcial (la página
-// Ruta de la corona). La carrera comprometida se juzga en vivo contra el
+// coach la activa. Cada tramo, estación y Roxzone deja su parcial (el motor del
+// kit; la página Ruta de la corona). La carrera comprometida se juzga en vivo contra el
 // objetivo del coach; el coste propio (s/km sobre tu fresco) es del resumen.
 
 import { useState } from 'react';
@@ -55,7 +55,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'c493-descanso',
     titulo: '493 · el descanso de 90″ entre rondas',
     descripcion:
-      'Sesión 493, quedan 14 s del r90″ tras los burpees. Visible y monocromo: cuenta atrás, «Viene: Ronda 3/5 · Run 1000 m · RPE 8», +30 s y Empezar ya. Tocar la pantalla no lo salta; Empezar ya y el doble toque dejan 5 s para deshacer. A 10 s el preaviso, 3-2-1 y GO a la ronda 3.',
+      'Sesión 493, quedan 14 s del r90″ tras los burpees. Visible y monocromo: cuenta atrás, «Viene: Ronda 3/5 · Run 1000 m · RPE 8», +30 s y Empezar ya. Un toque no lo salta; Empezar ya y el doble toque (en la pantalla o con la mano) dejan 5 s para deshacer. A 10 s el preaviso, 3-2-1 y GO a la ronda 3.',
   },
   {
     id: 'c492-ronda5',
@@ -67,7 +67,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'c506-amrap',
     titulo: '506 · el AMRAP 4′ dentro del chipper',
     descripcion:
-      'Sesión 506, ronda 2/4: tras el Run 800 m, AMRAP 4′ de Walking Lunge. La tarea en la muñeca, lo que queda de la ventana y las reps que dices tú con la corona (el atleta suma 8 a los 2,5 s y otras 8 a los 9 s; la rueda del ratón sobre la esfera también las gira). Al acabar los 4′, vuelve a correr solo.',
+      'Sesión 506, ronda 2/4: tras el Run 800 m, AMRAP 4′ de Walking Lunge. La tarea en la muñeca y lo que queda de la ventana; nada que contar en vivo: las reps se dicen en la campana (Alex, 25-09). A los 11 s suena (.stop + «Tiempo. ¿Cuántas Walking Lunge?») y la corona —el bisel, «Corona ▲▼» o la rueda sobre la esfera— pasa a las reps: el atleta sube a 16 y guarda con doble toque («Walking Lunge: 16 reps.» y el GO del Run 3). Lo que no se diga en 20 s queda sin declarar, nunca 0; la Ruta enseña las reps de la ronda 1.',
   },
   {
     id: 'hyrox-carrera',
@@ -91,7 +91,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'hyrox-sin-gesto',
     titulo: 'HYROX · Sled Push en un reloj sin doble toque',
     descripcion:
-      'El mismo Sled Push en un reloj anterior a Series 9 / Ultra 2: la acción del momento es un botón visible de 44 pt, «Estación hecha», con el mismo deshacer de 5 s. La dosis sube al título para que el crono siga siendo grande; tocar fuera del botón no cierra nada.',
+      'El mismo Sled Push en un reloj anterior a Series 9 / Ultra 2: la acción del momento es un botón visible de 44 pt, «Estación hecha», con el mismo deshacer de 5 s. La dosis sube al título para que el crono siga siendo grande; un toque fuera del botón no cierra nada (dos seguidos en la pantalla sí, como en Apple Entreno).',
   },
   {
     id: 'hyrox-ruta',

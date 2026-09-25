@@ -21,14 +21,14 @@ import {
   FILA,
   Instruccion,
   Nota,
+  Pila,
   T,
+  hoyDe,
   type Emision,
   type Entorno,
   type GestoGuion,
   type PasoBase,
 } from '../../kit-reloj';
-import { hoyDe } from './calculo';
-import { Pila } from './pila';
 
 const SIN_LADOS = 'Antes de empezar no hay Controles ni Ahora suena';
 const NOMBRE_ENTORNO: Record<Entorno, string> = { calle: 'Calle', cinta: 'Cinta', pista: 'Pista' };

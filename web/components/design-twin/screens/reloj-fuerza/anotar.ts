@@ -13,8 +13,17 @@
 // CASCADA: la última carga declarada de un ejercicio es la propuesta de sus
 // series siguientes, hasta que el atleta declare otra.
 
-import type { EstadoSecuencia, PlanSesion, Simulador } from '../../kit-reloj';
-import { esFuerza, fmtKg, kgDelPlan, type FichaFuerza, type PasoFuerza } from './modelo';
+import {
+  FICHA_FUERZA_DEFECTO,
+  esFuerza,
+  fmtKg,
+  kgDelPlan,
+  type EstadoSecuencia,
+  type FichaFuerza,
+  type PasoFuerza,
+  type PlanSesion,
+  type Simulador,
+} from '../../kit-reloj';
 
 export type EstadoDato = 'propuesto' | 'medido' | 'declarado';
 export type Campo = 'reps' | 'kg' | 'esfuerzo';
@@ -127,21 +136,35 @@ export function confirmar(registro: Registro, id: string, a: Anotacion): Registr
 // La corona
 // ---------------------------------------------------------------------------
 
-/** Paso, suelo y techo de la corona en cada campo. De «—» se arranca en la barra vacía. */
-export function girar(p: PasoFuerza, campo: Campo, actual: number | null, dir: 1 | -1): number {
+/**
+ * Hasta dónde llega la corona al anotar. MÉTODO, dato con defecto (HARD RULE
+ * Nº0): otro coach anota el RPE desde 1, o el RIR hasta 10.
+ */
+export const RANGO_ANOTAR_DEFECTO = {
+  /** Reps por encima de lo prescrito que la corona deja subir. */
+  repsDeMas: 10,
+  rpe: { min: 5, max: 10, paso: 0.5 },
+  rir: { min: 0, max: 6, paso: 1 },
+  kgMax: 500,
+} as const;
+
+/**
+ * Paso, suelo y techo de la corona en cada campo. De «—» se arranca en la
+ * barra vacía (dato del implemento: `vaciaKg`); con lastre, en un clic.
+ */
+export function girar(p: PasoFuerza, campo: Campo, actual: number | null, dir: 1 | -1, rango = RANGO_ANOTAR_DEFECTO): number {
   const f = p.fuerza;
   if (campo === 'reps') {
-    const techo = (p.medida.prescrito ?? 10) + 10;
+    const techo = (p.medida.prescrito ?? 10) + rango.repsDeMas;
     return Math.min(techo, Math.max(0, (actual ?? p.medida.prescrito ?? 0) + dir));
   }
   if (campo === 'kg') {
-    if (actual == null) return f.carga.tipo === 'tuya' && f.carga.lastre ? f.pasoKg : 20;
-    return Math.min(500, Math.max(0, alPaso(actual + dir * f.pasoKg, f.pasoKg / 2)));
+    if (actual == null) return f.carga.tipo === 'tuya' && f.carga.lastre ? f.pasoKg : (f.vaciaKg ?? FICHA_FUERZA_DEFECTO.vaciaKg);
+    return Math.min(rango.kgMax, Math.max(0, alPaso(actual + dir * f.pasoKg, f.pasoKg / 2)));
   }
-  const rpe = f.esfuerzo?.eje === 'rpe';
-  const paso = rpe ? 0.5 : 1;
-  const base = actual ?? centroEsfuerzo(f) ?? (rpe ? 7 : 2);
-  return Math.min(rpe ? 10 : 6, Math.max(rpe ? 5 : 0, base + dir * paso));
+  const escala = f.esfuerzo?.eje === 'rpe' ? rango.rpe : rango.rir;
+  const base = actual ?? centroEsfuerzo(f) ?? (f.esfuerzo?.eje === 'rpe' ? 7 : 2);
+  return Math.min(escala.max, Math.max(escala.min, base + dir * escala.paso));
 }
 
 // ---------------------------------------------------------------------------

@@ -11,10 +11,15 @@
 //
 // Lo que la carcasa hace cumplir, y por eso ninguna pantalla puede saltárselo:
 //   · Se abre en Vivo, página 1. Bajar y subir la muñeca vuelve ahí.
-//   · Tocar el vivo NO cierra nada (queda en la cronología, para que se vea).
-//   · La acción del momento sale por doble toque (S9 / Ultra 2+), botón
-//     Acción (Ultra) o un botón visible y acotado de la propia cara; si se
-//     puede deshacer, sale el aviso «Deshacer» 5 s.
+//   · UN toque en el vivo NO cierra nada (queda en la cronología, para que se vea).
+//   · La acción del momento sale por doble toque — dos toques seguidos en la
+//     pantalla (como Apple Entreno pasa de intervalo; todo reloj) o el gesto
+//     de la mano (S9 / Ultra 2+) —, botón Acción (Ultra) o un botón visible y
+//     acotado de la propia cara; si se puede deshacer, sale el aviso
+//     «Deshacer» 5 s, en la franja del pie (nunca sobre el héroe, P3).
+//   · Una cara puede ENFOCAR la corona en un valor (`corona`: anotar la carga,
+//     la puntuación del AMRAP): entonces la corona, la rueda, el bisel y los
+//     mandos giran ese valor y no pasan página.
 //   · Pausa: el vivo se atenúa con «EN PAUSA» y Reanudar (doble toque = Reanudar).
 //   · Always-On: sin tintes, tinta al 60 %, aro atenuado.
 //   · Water Lock: la esfera ignora el dedo; se sale girando la corona.
@@ -23,16 +28,9 @@
 // Los mandos simulados (doble toque, Acción, corona, muñeca) van FUERA del
 // lienzo, en `mandos.tsx`.
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-  type WheelEvent as ReactWheelEvent,
-} from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import type { EventoVivo, Eventos } from './eventos';
+import { useArrastreValor, useDestinos, useGuion, useRueda, type Direccion, type GestoGuion, type OrigenPrimario } from './gestos';
 import { CoronaBisel, Mandos, type Area } from './mandos';
 import { ConfirmarTerminar, PaginaControles, AhoraSuena, type PaginaControlesProps } from './paginas';
 import { PrimariaContexto, RelojContexto, type ModeloReloj } from './piezas';
@@ -47,10 +45,11 @@ import {
   PuntosVerticales,
   Terminado,
   VeloPausa,
+  VeloPie,
 } from './carcasa';
 import { AOD, C, TINTE_ZONA_PCT, tinte as mezclar } from './tokens';
 
-export type { Area };
+export type { Area, GestoGuion };
 
 export interface PaginaVivo {
   id: string;
@@ -95,19 +94,29 @@ export interface MunecaProps {
    */
   guion?: Array<{ en: number; gesto: GestoGuion }>;
   modelo?: ModeloReloj;
+  /**
+   * La cara enfoca la corona en un valor: se llama con cada paso de corona
+   * (`1` = abajo, `-1` = arriba; arriba es «más»). Si devuelve `true`, el
+   * paso era suyo: ni el bisel, ni la rueda, ni «Corona ▲▼» pasan página.
+   */
+  corona?: (dir: Direccion) => boolean;
+  /** Cualquier entrada del atleta (toque, corona, mandos): el guardado por inactividad la escucha. */
+  onEntrada?: () => void;
   onLog: (linea: string) => void;
 }
 
-export type GestoGuion = 'doble-toque' | 'accion' | 'bajar' | 'subir' | 'corona-abajo' | 'corona-arriba' | 'controles' | 'vivo';
-
 const AREAS: Area[] = ['controles', 'vivo', 'musica'];
 const DESLIZ = 30;
+/** Dos toques en la pantalla a menos de esto son UN doble toque (el de Apple Entreno). */
+const DOBLE_TOQUE_MS = 300;
+/** …y a menos de esto uno del otro (el mismo sitio, no dos dedos distintos). */
+const DOBLE_TOQUE_PX = 30;
 /** Los cambios de paso llevan destello de luz (sin háptico propio); los avisos, no. */
 const DESTELLA: ReadonlySet<EventoVivo> = new Set(['go', 'recupera', 'bloque', 'sesion']);
 
 
 export function Muneca(props: MunecaProps) {
-  const { paginas, eventos, onLog, accion, pausado, modelo = 'doble-toque' } = props;
+  const { paginas, eventos, onLog, accion, pausado, modelo = 'doble-toque', onEntrada } = props;
   const [area, setArea] = useState<Area>(props.inicial?.area ?? 'vivo');
   const [pagina, setPagina] = useState(props.inicial?.pagina ?? 0);
   const [muneca, setMuneca] = useState<'arriba' | 'abajo'>(props.inicial?.muneca ?? 'arriba');
@@ -116,15 +125,15 @@ export function Muneca(props: MunecaProps) {
   const [confirmar, setConfirmar] = useState(false);
   const [terminado, setTerminado] = useState(false);
   const [toast, setToast] = useState<{ n: number; aviso: string; hacer: () => void } | null>(null);
-  const [destinos, setDestinos] = useState<{ bisel: HTMLElement | null; escena: HTMLElement; suelto: boolean } | null>(null);
   const [pasoVisto, setPasoVisto] = useState(props.alPaso);
   const [movido, setMovido] = useState({ pagina: 0, area: 0 });
-  const rueda = useRef({ acumulado: 0, ultimo: 0 });
   const toque = useRef<{ x: number; y: number } | null>(null);
+  /** El toque anterior en la pantalla, para reconocer el doble toque. */
+  const ultimoToque = useRef<{ t: number; x: number; y: number } | null>(null);
+  const { raiz, destinos } = useDestinos();
 
   const activa = Math.min(pagina, paginas.length - 1);
   const aod = muneca === 'abajo';
-  const gestos = useRef<(g: GestoGuion) => void>(() => undefined);
 
   // Un paso nuevo devuelve a Vivo · página 1 (estado derivado, sin efecto).
   if (props.alPaso !== pasoVisto) {
@@ -142,17 +151,6 @@ export function Muneca(props: MunecaProps) {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const raiz = useCallback((el: HTMLDivElement | null) => {
-    if (!el) return;
-    const escena = el.closest<HTMLElement>('.studio-stage');
-    const lienzo = el.closest<HTMLElement>('.twin-root');
-    setDestinos({
-      bisel: escena ? (lienzo?.parentElement ?? null) : null,
-      escena: escena ?? document.body,
-      suelto: !escena,
-    });
-  }, []);
-
   const irArea = (a: Area) => {
     if (a === area) return;
     setArea(a);
@@ -160,7 +158,16 @@ export function Muneca(props: MunecaProps) {
     onLog(`Área → ${a === 'controles' ? 'Controles' : a === 'vivo' ? 'Vivo' : 'Ahora suena'}`);
   };
 
-  const girar = (dir: 1 | -1) => {
+  /** ¿Enfoca una cara la corona? Si sí, el paso es suyo (solo en el vivo, sin agua ni muñeca abajo). */
+  const capturar = (dir: Direccion): boolean => {
+    if (agua || aod || area !== 'vivo' || !props.corona) return false;
+    const suyo = props.corona(dir);
+    if (suyo) onEntrada?.();
+    return suyo;
+  };
+
+  const girar = (dir: Direccion) => {
+    onEntrada?.();
     if (agua) {
       const g = giroAgua + 1;
       if (g >= PASOS_AGUA) {
@@ -181,6 +188,7 @@ export function Muneca(props: MunecaProps) {
       onLog('Corona fuera del Vivo — no mueve nada');
       return;
     }
+    if (capturar(dir)) return;
     const n = Math.min(paginas.length - 1, Math.max(0, activa + dir));
     if (n === activa) return;
     setPagina(n);
@@ -196,6 +204,7 @@ export function Muneca(props: MunecaProps) {
   };
 
   const alternarMuneca = () => {
+    onEntrada?.();
     if (aod) subirMuneca();
     else {
       setMuneca('abajo');
@@ -203,9 +212,10 @@ export function Muneca(props: MunecaProps) {
     }
   };
 
-  const gestoPrimario = (origen: 'Doble toque' | 'Botón Acción' | 'Botón en pantalla') => {
+  const gestoPrimario = (origen: OrigenPrimario) => {
+    onEntrada?.();
     if (origen === 'Doble toque' && modelo !== 'doble-toque') {
-      onLog('Este reloj no tiene doble toque — la acción está en pantalla');
+      onLog('Este reloj no tiene doble toque con la mano — la acción está en pantalla');
       return;
     }
     if (origen === 'Botón Acción' && modelo === 'sin-gesto') {
@@ -242,13 +252,17 @@ export function Muneca(props: MunecaProps) {
     if (d) setToast((t) => ({ n: (t?.n ?? 0) + 1, aviso: d.aviso, hacer: d.hacer }));
   };
 
+  const arrastre = useArrastreValor(capturar);
   const abajo = (e: ReactPointerEvent) => {
+    onEntrada?.();
     toque.current = { x: e.clientX, y: e.clientY };
+    arrastre.abajo(e);
   };
   const arriba = (e: ReactPointerEvent) => {
     const o = toque.current;
     toque.current = null;
-    if (!o || aod) return;
+    arrastre.suelta();
+    if (!o || aod || arrastre.arrastrado()) return;
     const dx = e.clientX - o.x;
     const dy = e.clientY - o.y;
     const enBoton = (e.target as HTMLElement).closest('button');
@@ -265,42 +279,32 @@ export function Muneca(props: MunecaProps) {
       girar(dy < 0 ? 1 : -1);
       return;
     }
-    if (!enBoton && area === 'vivo' && !pausado) onLog('Toque en la pantalla — corriendo no cierra nada');
-  };
-
-  const onWheel = (e: ReactWheelEvent) => {
-    const r = rueda.current;
+    if (enBoton || area !== 'vivo') return;
+    // Dos toques seguidos en el mismo sitio = la acción del momento (Apple
+    // Entreno: doble toque en la pantalla pasa de intervalo). Uno solo, nada.
     const ahora = Date.now();
-    r.acumulado += e.deltaY;
-    if (Math.abs(r.acumulado) >= 40 && ahora - r.ultimo > 220) {
-      girar(r.acumulado > 0 ? 1 : -1);
-      r.acumulado = 0;
-      r.ultimo = ahora;
+    const previo = ultimoToque.current;
+    if (previo && ahora - previo.t <= DOBLE_TOQUE_MS && Math.hypot(e.clientX - previo.x, e.clientY - previo.y) <= DOBLE_TOQUE_PX) {
+      ultimoToque.current = null;
+      gestoPrimario('Doble toque en pantalla');
+      return;
     }
+    ultimoToque.current = { t: ahora, x: e.clientX, y: e.clientY };
+    if (!pausado) onLog('Toque en la pantalla — corriendo no cierra nada');
   };
 
-  // El guion llama siempre a la versión más reciente de los gestos (ref que
-  // se actualiza tras cada render), así un gesto guionizado ve el estado vivo.
-  useEffect(() => {
-    gestos.current = (g: GestoGuion) => {
-      if (g === 'doble-toque') gestoPrimario('Doble toque');
-      else if (g === 'accion') gestoPrimario('Botón Acción');
-      else if (g === 'bajar' && !aod) alternarMuneca();
-      else if (g === 'subir' && aod) alternarMuneca();
-      else if (g === 'corona-abajo') girar(1);
-      else if (g === 'corona-arriba') girar(-1);
-      else if (g === 'controles') irArea('controles');
-      else if (g === 'vivo') irArea('vivo');
-    };
+  const onWheel = useRueda(girar, capturar);
+
+  useGuion(props.guion, (g: GestoGuion) => {
+    if (g === 'doble-toque') gestoPrimario('Doble toque');
+    else if (g === 'accion') gestoPrimario('Botón Acción');
+    else if (g === 'bajar' && !aod) alternarMuneca();
+    else if (g === 'subir' && aod) alternarMuneca();
+    else if (g === 'corona-abajo') girar(1);
+    else if (g === 'corona-arriba') girar(-1);
+    else if (g === 'controles') irArea('controles');
+    else if (g === 'vivo') irArea('vivo');
   });
-  const guion = props.guion;
-  useEffect(() => {
-    if (!guion) return;
-    const t = guion.map((x) => setTimeout(() => gestos.current(x.gesto), x.en));
-    return () => t.forEach(clearTimeout);
-    // El guion es fijo por montaje (cada escenario remonta).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const idx = AREAS.indexOf(area);
   const fondo = props.tinte && !aod ? mezclar(props.tinte, TINTE_ZONA_PCT) : C.fondo;
@@ -312,6 +316,7 @@ export function Muneca(props: MunecaProps) {
       <div
         ref={raiz}
         onPointerDown={abajo}
+        onPointerMove={arrastre.mueve}
         onPointerUp={arriba}
         onWheel={onWheel}
         style={{
@@ -411,6 +416,7 @@ export function Muneca(props: MunecaProps) {
                 </div>
               ))}
             </div>
+            {toast && !aod ? <VeloPie key={`velo-${toast.n}`} /> : null}
             {props.capa}
             {pausado && !terminado ? <VeloPausa onReanudar={() => props.onPausa(false)} /> : null}
           </section>
@@ -420,6 +426,18 @@ export function Muneca(props: MunecaProps) {
           </section>
         </div>
 
+        {/* El aviso de deshacer, en la franja del pie (su velo, `VeloPie`, va dentro del Vivo). */}
+        {toast && !aod ? (
+          <AvisoDeshacer
+            key={`deshacer-${toast.n}`}
+            aviso={toast.aviso}
+            onDeshacer={() => {
+              toast.hacer();
+              setToast(null);
+              onLog(`Deshacer → ${toast.aviso}: vuelve atrás`);
+            }}
+          />
+        ) : null}
         {props.aro ? <CapaAro opacidad={area !== 'vivo' ? 0 : aod ? AOD.aro : 1}>{props.aro}</CapaAro> : null}
 
         {/* El destello de un evento con háptico: luz, sin háptico propio. */}
@@ -434,17 +452,6 @@ export function Muneca(props: MunecaProps) {
         <PuntosAreas activa={idx} n={movido.area} />
 
         {agua ? <GotaAgua giro={giroAgua} /> : null}
-        {toast && !aod ? (
-          <AvisoDeshacer
-            key={`deshacer-${toast.n}`}
-            aviso={toast.aviso}
-            onDeshacer={() => {
-              toast.hacer();
-              setToast(null);
-              onLog(`Deshacer → ${toast.aviso}: vuelve atrás`);
-            }}
-          />
-        ) : null}
         {terminado || props.completada ? <Terminado titulo={terminado ? 'Terminado' : 'Sesión completada'} /> : null}
       </div>
 
@@ -459,6 +466,7 @@ export function Muneca(props: MunecaProps) {
           muneca={muneca}
           ultimo={eventos.ultimo}
           onArea={(a) => {
+            onEntrada?.();
             if (aod) subirMuneca();
             irArea(a);
           }}

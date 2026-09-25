@@ -1,7 +1,8 @@
 // LOS CASOS — cada escenario como (plan, cuerpo, punto de partida). El cuerpo
 // es determinista: el mismo escenario, el mismo WOD, segundo a segundo. Los
-// ergómetros dan su /500 al motor como ritmo por km (× 2): así el motor cuenta
-// los metros y cierra la serie al llegar, igual que con el GPS.
+// ergómetros dan su /500 al motor (`split500`, como el PM5): de ahí cuenta los
+// metros de la máquina y cierra la serie al llegar, sin mezclarlos con los km
+// corridos de la sesión.
 
 import type { GestoGuion, InicioSecuencia, ModeloReloj, Simulador, Vuelta } from '../../kit-reloj';
 import {
@@ -16,9 +17,9 @@ import {
   escalera536,
   forTimeWod,
   tabata,
-  wodDe,
   type PlanWod,
 } from './planes';
+import { wodDe } from '../../kit-reloj';
 import type { WodInicial } from './vivo';
 
 export interface CasoWod {
@@ -39,8 +40,8 @@ const ruido = (t: number, a: number) => Math.sin(t * 1.3) * a * 0.6 + Math.sin(t
 /** El pulso va hacia `obj` con retraso (τ s): el corazón llega tarde a todo. */
 const hacia = (obj: number, desde: number, t: number, tau = 20) => obj - (obj - desde) * Math.exp(-t / tau);
 
-/** Un /500 del PM5, dado al motor como s/km. */
-const pm5 = (split: number, t: number) => Math.round(2 * (split + ruido(t, 1.2)));
+/** Un /500 del PM5, al medio segundo (lo que da el monitor). */
+const pm5 = (split: number, t: number) => Math.round(2 * (split + ruido(t, 1.2))) / 2;
 
 const ppm = (x: number, t: number) => Math.round(x + ruido(t + 3, 1));
 
@@ -68,7 +69,7 @@ export function casoDe(escenario: string): CasoWod {
         sim: (p, _i, t) =>
           p.nombre === 'Run'
             ? { ritmo: Math.round(305 + ruido(t, 1.2)), ppm: ppm(hacia(166, 160, t + 30, 15), t), gps: 'no-aplica' }
-            : { ritmo: pm5(p.nombre === 'Row' ? 125 : 132, t), ppm: ppm(hacia(162, 166, t, 18), t), gps: 'no-aplica' },
+            : { ritmo: null, split500: pm5(p.nombre === 'Row' ? 125 : 132, t), ppm: ppm(hacia(162, 166, t, 18), t), gps: 'no-aplica' },
         inicio: {
           i: 8,
           t: 62,
@@ -112,9 +113,9 @@ export function casoDe(escenario: string): CasoWod {
         datos: forTimeWod(),
         sim: (p, _i, t) =>
           wodDe(p)?.formato === 'fortime' && p.nombre === 'Row'
-            ? { ritmo: pm5(122, t), ppm: ppm(166, t), gps: 'no-aplica' }
+            ? { ritmo: null, split500: pm5(122, t), ppm: ppm(166, t), gps: 'no-aplica' }
             : { ritmo: null, ppm: ppm(hacia(172, 166, t, 15), t), gps: 'no-aplica' },
-        inicio: { i: 6, t: 107, metros: 440, sesionT: 850, sesionM: 1440, ppmMedio: 163 },
+        inicio: { i: 6, t: 107, metros: 440, sesionT: 850, sesionErgoM: 1440, ppmMedio: 163 },
       };
     case 'carrera-5k':
       return {
@@ -147,9 +148,9 @@ export function casoDe(escenario: string): CasoWod {
         sim: (p, _i, t) => {
           if (p.clase === 'rodaje') return { ritmo: Math.round(330 + ruido(t, 2)), ppm: ppm(145, t), gps: 'listo' };
           const split = p.nombre === 'SkiErg' ? 138 : 136;
-          return { ritmo: p.nombre === 'Assault Bike' ? null : pm5(split, t), ppm: ppm(hacia(144, 141, t, 20), t), gps: 'no-aplica' };
+          return { ritmo: null, split500: p.nombre === 'Assault Bike' ? null : pm5(split, t), ppm: ppm(hacia(144, 141, t, 20), t), gps: 'no-aplica' };
         },
-        inicio: { i: 4, t: 48, metros: 176, sesionT: 528, sesionM: 1487, ppmMedio: 139 },
+        inicio: { i: 4, t: 48, metros: 176, sesionT: 528, sesionErgoM: 1487, ppmMedio: 139 },
       };
     case 'ergo-escalera': {
       // Z2 146 → Z3 156 → Z4 168: el pulso llega tarde a cada escalón.
@@ -159,14 +160,14 @@ export function casoDe(escenario: string): CasoWod {
         datos: escalera536(),
         sim: (p, i, t) => {
           if (p.rol !== 'trabajo') return { ritmo: null, ppm: ppm(hacia(126, 168, t, 30), t), ppmTendencia: 'baja', gps: 'no-aplica' };
-          return { ritmo: pm5(split[i] ?? 120, t), ppm: ppm(hacia(obj[i] ?? 150, i === 1 ? 148 : 156, t, 15), t), gps: 'no-aplica' };
+          return { ritmo: null, split500: pm5(split[i] ?? 120, t), ppm: ppm(hacia(obj[i] ?? 150, i === 1 ? 148 : 156, t, 15), t), gps: 'no-aplica' };
         },
         inicio: {
           i: 1,
           t: 47,
           metros: 196,
           sesionT: 137,
-          sesionM: 548,
+          sesionErgoM: 548,
           ppmMedio: 146,
           vueltas: [{ n: 1, clase: 'tramo', segundos: 90, metros: 352, ritmo: 256, ppm: 145, veredicto: 'dentro', eje: 'zona' }],
         },
@@ -197,9 +198,9 @@ export function casoDe(escenario: string): CasoWod {
         sim: (p, i, t) => {
           if (p.rol !== 'trabajo') return { ritmo: null, ppm: ppm(hacia(130, 160, t, 30), t), ppmTendencia: 'baja', gps: 'no-aplica' };
           const split = i !== 4 ? 124 : t < 38 ? 119 : t < 44 ? 119 + (t - 38) * 0.85 : 124;
-          return { ritmo: pm5(split, t), ppm: ppm(hacia(160, 142, t, 20), t), gps: 'no-aplica' };
+          return { ritmo: null, split500: pm5(split, t), ppm: ppm(hacia(160, 142, t, 20), t), gps: 'no-aplica' };
         },
-        inicio: { i: 4, t: 30, metros: 126, sesionT: 238, sesionM: 626, ppmMedio: 145, vueltas: [serie(1, 59, 250, 147), serie(2, 60, 250, 151)] },
+        inicio: { i: 4, t: 30, metros: 126, sesionT: 238, sesionErgoM: 626, ppmMedio: 145, vueltas: [serie(1, 59, 250, 147), serie(2, 60, 250, 151)] },
       };
     case 'emom-alterno':
     default:
@@ -208,7 +209,7 @@ export function casoDe(escenario: string): CasoWod {
         datos: emom498(),
         sim: (p, _i, t) => {
           const w = wodDe(p);
-          if (w?.formato === 'emom' && !w.tarea.dosis) return { ritmo: pm5(132, t), ppm: ppm(hacia(158, 130, t, 18), t), gps: 'no-aplica' };
+          if (w?.formato === 'emom' && !w.tarea.dosis) return { ritmo: null, split500: pm5(132, t), ppm: ppm(hacia(158, 130, t, 18), t), gps: 'no-aplica' };
           const x = t < 24 ? hacia(136, 124, t, 10) : 136 - (t - 24) * 0.3;
           return { ritmo: null, ppm: ppm(x, t), gps: 'no-aplica' };
         },
@@ -216,7 +217,7 @@ export function casoDe(escenario: string): CasoWod {
           i: 2,
           t: 19,
           sesionT: 139,
-          sesionM: 225,
+          sesionErgoM: 225,
           ppmMedio: 134,
           vueltas: [
             { ...serie(1, 60, null, 124), eje: undefined },

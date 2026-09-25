@@ -17,6 +17,7 @@ import type { ReactNode } from 'react';
 import {
   ANCHO_PIE,
   C,
+  Centro,
   Columna,
   ContextoLinea,
   Heroe,
@@ -24,6 +25,8 @@ import {
   Linea,
   Nota,
   PaginaDatos,
+  PaginaFilas,
+  PaginaLista,
   PaginaVueltas,
   PistaAccion,
   altoHeroe,
@@ -34,14 +37,14 @@ import {
   lineaPulso,
   lineasDeNota,
   sesionDe,
+  textoTarea,
   useFilaAccion,
+  wodDe,
   type FILA,
   type PaginaVivo,
 } from '../../kit-reloj';
-import { PaginaFilas, PaginaLista } from './paginas';
-import { Centro } from './piezas';
-import { textoTarea, wodDe, type PlanWod } from './planes';
-import { lecturasErgo, type Vivo } from './vivo';
+import type { PlanWod } from './planes';
+import type { Vivo } from './vivo';
 
 type NombreFila = keyof typeof FILA;
 
@@ -57,7 +60,7 @@ export function CaraForTime({ v }: { v: Vivo }) {
   if (w?.formato !== 'fortime' || !w.tarea) return null;
   const ronda = p.posicion?.ronda;
   const medido = w.tarea.mide !== 'atleta';
-  const falta = faltaDe(p, lecturasErgo(p, seq.lecturas));
+  const falta = faltaDe(p, seq.lecturas);
   const quedan = falta == null ? '—' : `${fmtDistancia(falta).valor} ${fmtDistancia(falta).unidad}`;
   const tarea = medido ? `${w.tarea.nombre} · quedan ${quedan}` : textoTarea(w.tarea);
 

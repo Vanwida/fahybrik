@@ -19,7 +19,8 @@ import { CaraErgo, paginasErgo } from './caras-ergo';
 import { CaraCarreraForTime, CaraForTime, FinalForTime, paginasCarrera, paginasForTime } from './caras-fortime';
 import { CaraPared, paginasPared } from './caras-pared';
 import { casoDe } from './casos';
-import { wodDe, type PlanWod } from './planes';
+import { wodDe } from '../../kit-reloj';
+import type { PlanWod } from './planes';
 import { VivoWod, type Vivo } from './vivo';
 
 export const meta: TwinMeta = {
@@ -120,12 +121,14 @@ export const escenarios: TwinEscenario[] = [
     id: 'amrap-boton',
     titulo: 'AMRAP sin doble toque · botón acotado',
     descripcion:
-      'El AMRAP 15′ en un reloj sin doble toque ni botón Acción: «Ronda hecha» es un botón visible de 44 pt con el mismo deshacer de 5 s. Tocar fuera del botón no anota nada.',
+      'El AMRAP 15′ en un reloj sin doble toque ni botón Acción: «Ronda hecha» es un botón visible de 44 pt con el mismo deshacer de 5 s. Un toque fuera del botón no anota nada; dos seguidos en la pantalla, sí.',
   },
 ];
 
 function caraDe(v: Vivo): ReactNode | null {
   const w = wodDe(v.seq.paso);
+  // El ergómetro es su clase de paso, no un formato: su cara lee el PM5.
+  if (v.seq.paso.clase === 'ergo') return <CaraErgo v={v} />;
   switch (w?.formato) {
     case 'emom':
       // La ventana de correr usa la cara de correr (P10).
@@ -136,8 +139,6 @@ function caraDe(v: Vivo): ReactNode | null {
       return <CaraPuntuacion v={v} />;
     case 'fortime':
       return w.tarea ? <CaraForTime v={v} /> : <CaraCarreraForTime v={v} />;
-    case 'ergo':
-      return <CaraErgo v={v} />;
     case 'pared':
       return <CaraPared v={v} />;
     default:

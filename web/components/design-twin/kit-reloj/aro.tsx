@@ -5,28 +5,21 @@
 // dato: un arco por paso del plan, el trabajo de la parte principal en naranja
 // y todo lo demás (calentamiento, recuperaciones, descansos, vuelta a la
 // calma) en gris. El brillo dice dónde estás: hecho, en curso, por venir.
+//
+// Cuánto perímetro lleva cada paso lo dice un ESTIMADOR (`duracionEstimada`
+// por defecto, en estructura.ts). Una familia que sabe más (el circuito sabe
+// lo que dura una estación de HYROX a su dosis) pasa el suyo en `duracion`.
 
 import { AroEstructura, type ArcoDeTramo } from '../kit-watch/bisel';
+import { duracionEstimada } from './estructura';
 import type { Lecturas, PasoBase } from './paso';
-import { faltaDe, principal } from './reglas';
+import { faltaDe } from './reglas';
 
-/** Ritmo neutro para repartir el perímetro cuando un paso por metros no trae ritmo. Solo dibuja. */
-const RITMO_DIBUJO_S_KM = 300;
+/** Cuánto dura un paso, en s, SOLO para repartir el aro (nunca se pinta como tiempo). */
+export type Estimador = (p: PasoBase) => number;
 
-/** Cuánto dura un paso, estimado, para darle su parte del perímetro. */
-export function duracionEstimada(p: PasoBase): number {
-  const pr = p.medida.prescrito ?? 0;
-  if (p.medida.tipo === 'tiempo') return pr;
-  if (p.medida.tipo === 'distancia') {
-    const o = principal(p);
-    const ritmo = o?.eje === 'ritmo' && o.min != null && o.max != null ? (o.min + o.max) / 2 : RITMO_DIBUJO_S_KM;
-    return (pr / 1000) * ritmo;
-  }
-  return 60;
-}
-
-export function arcosDePlan(pasos: PasoBase[]): ArcoDeTramo[] {
-  return pasos.map((p) => ({ trabajo: p.rol === 'trabajo' && p.fase === 'principal', peso: duracionEstimada(p) }));
+export function arcosDePlan(pasos: PasoBase[], duracion: Estimador = duracionEstimada): ArcoDeTramo[] {
+  return pasos.map((p) => ({ trabajo: p.rol === 'trabajo' && p.fase === 'principal', peso: duracion(p) }));
 }
 
 /** Avance dentro del paso, 0..1. Cero si nadie lo mide (el arco no promete lo que no sabe). */
@@ -37,6 +30,18 @@ export function fraccionDelPaso(p: PasoBase, l: Lecturas): number {
   return Math.min(1, Math.max(0, 1 - f / pr));
 }
 
-export function AroSesion({ pasos, i, paso, lecturas }: { pasos: PasoBase[]; i: number; paso: PasoBase; lecturas: Lecturas }) {
-  return <AroEstructura arcos={arcosDePlan(pasos)} enCurso={i} fraccion={fraccionDelPaso(paso, lecturas)} />;
+export function AroSesion({
+  pasos,
+  i,
+  paso,
+  lecturas,
+  duracion,
+}: {
+  pasos: PasoBase[];
+  i: number;
+  paso: PasoBase;
+  lecturas: Lecturas;
+  duracion?: Estimador;
+}) {
+  return <AroEstructura arcos={arcosDePlan(pasos, duracion)} enCurso={i} fraccion={fraccionDelPaso(paso, lecturas)} />;
 }

@@ -1,40 +1,36 @@
 'use client';
 
-// EL VIVO DE FUERZA — montado a mano con el kit (`useEventos` + `useSecuencia`
-// + `Muneca`), porque `VivoDePlan` trae la pila de correr (Paso → Datos →
-// Vueltas → Estructura) y la de fuerza es Serie → Ejercicios → Datos.
-//
-// Lo que añade a la composición estándar, y nada más:
+// EL VIVO DE FUERZA — `useVivo` + `VistaVivo` del kit, configurados. Lo que
+// añade fuerza, y nada más:
 //   · la anotación del descanso (el `Registro`: solo lo declarado);
-//   · la corona con foco: con un dato encendido, gira el dato y la pila se
-//     queda en una página (watchOS: `digitalCrownRotation` con foco);
-//   · la voz de fuerza: los eventos del motor salen por una cola y se dicen
-//     con el paso YA avanzado («A1, Back Squat. Serie 2 de 4…»);
+//   · la corona con foco: con un dato encendido, `VistaVivo.corona` gira el
+//     dato y la pila se queda en una página (watchOS: `digitalCrownRotation`
+//     con foco); la rueda, el bisel y «Corona ▲▼» hacen lo mismo;
+//   · su voz (`vozFuerza`): el GO con la carga que está en la barra y el
+//     descanso con el ejercicio que abre;
 //   · la acción del momento: «serie hecha» (con su deshacer de 5 s),
-//     «confirmar» mientras quede algo propuesto, «empezar ya» después.
+//     «confirmar» mientras quede algo propuesto, «empezar ya» después;
+//   · sus caras (serie, colócate, el descanso que anota), su 3-2-1 con la
+//     carga y la pila Serie → Ejercicios → Datos.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  AroSesion,
-  Muneca,
-  PasoCorrer,
-  Recupera,
-  TresDosUno,
+  VistaVivo,
+  avisoDeCierre,
+  esFuerza,
+  fmtKg,
   num,
-  useEventos,
-  useSecuencia,
+  useVivo,
   type AccionPrimaria,
-  type EventoVivo,
-  type Eventos,
   type PaginaVivo,
+  type Secuencia,
 } from '../../kit-reloj';
 import { anotacionDe, cargaArrastrada, confirmar, girar, medidaDe, pendiente, seriesDelDescanso, type Campo, type Registro } from './anotar';
 import type { AccionGuion, CasoFuerza } from './casos';
 import { CaraColocate, CaraSerie, CuentaFuerza } from './caras';
 import { DescansoFuerza, type SerieAnotable, type VistaDescanso } from './descanso';
-import { avisoSerie, esFuerza, fmtKg } from './modelo';
 import { PaginaDatosFuerza, PaginaEjercicios } from './paginas';
-import { textoLuego, textoPistaCorona, textoViene, vozDe } from './textos';
+import { textoLuego, textoPistaCorona, textoViene, vozFuerza } from './textos';
 
 /** Lo que el atleta tiene abierto en un descanso. Se olvida solo al cambiar de paso. */
 interface UiDescanso {
@@ -52,35 +48,13 @@ const NOMBRE_CAMPO: Record<Campo, string> = { reps: 'reps', kg: 'carga', esfuerz
 
 export function VivoFuerza({ caso, onLog }: { caso: CasoFuerza; onLog: (linea: string) => void }) {
   const { plan, sim } = caso;
-  const ev = useEventos(onLog);
-
-  // La cola de la voz: el motor emite al cerrar un paso, y la frase se
-  // compone cuando el estado nuevo ya está pintado (el paso al que se entra).
-  const cola = useRef<Array<{ evento: EventoVivo; voz?: string }>>([]);
-  const [lote, setLote] = useState(0);
-  const encolar = useMemo<Eventos>(
-    () => ({
-      emitir: (evento, voz) => {
-        cola.current.push({ evento, voz });
-        setLote((n) => n + 1);
-      },
-      ultimo: null,
-    }),
-    [],
-  );
-  const seq = useSecuencia(plan, sim, caso.inicio, encolar);
   const [registro, setRegistro] = useState<Registro>(caso.registro);
   const [uiGuardada, setUi] = useState<UiDescanso>(UI_VACIA);
+  const { seq, eventos: ev } = useVivo(plan, sim, caso.inicio, { traducir: vozFuerza(plan, registro), onLog });
 
   const { estado, paso, lecturas } = seq;
   const i = estado.i;
   const emitir = ev.emitir;
-  useEffect(() => {
-    const l = cola.current;
-    if (l.length === 0) return;
-    cola.current = [];
-    l.forEach((e) => emitir(e.evento, vozDe(e.evento, e.voz, plan, i, registro)));
-  }, [lote, i, emitir, plan, registro]);
 
   // ── El descanso: qué se anota y cómo se ve ──────────────────────────────
   const ui = uiGuardada.paso === paso.id ? uiGuardada : UI_VACIA;
@@ -119,7 +93,8 @@ export function VivoFuerza({ caso, onLog }: { caso: CasoFuerza; onLog: (linea: s
     setUi({ paso: paso.id, abierta: abierta ?? 0, foco: nuevo, lista: false });
     onLog(nuevo ? `Toque → foco en ${NOMBRE_CAMPO[campo]}: la corona gira ese dato` : 'Toque → sin foco: la corona vuelve a pasar página');
   };
-  const corona = (dir: 1 | -1) => {
+  /** La corona con un dato encendido: `dir` = +1 sube el dato, −1 lo baja. */
+  const girarDato = (dir: 1 | -1) => {
     if (!foco || !serieAbierta) return;
     const dato = serieAbierta.anot[foco];
     if (!dato) return;
@@ -153,7 +128,7 @@ export function VivoFuerza({ caso, onLog }: { caso: CasoFuerza; onLog: (linea: s
       ? { etiqueta: pendientes.length > 0 ? 'confirmar' : 'listo', hacer: confirmarDescanso }
       : paso.rol !== 'trabajo'
         ? { etiqueta: 'empezar ya', hacer: seq.cerrar, deshacer: enDescanso ? { aviso: 'Descanso cortado', hacer: seq.deshacer } : undefined }
-        : { etiqueta: 'serie hecha', hacer: seq.cerrar, deshacer: { aviso: avisoSerie(paso), hacer: seq.deshacer } };
+        : { etiqueta: 'serie hecha', hacer: seq.cerrar, deshacer: { aviso: avisoDeCierre(paso), hacer: seq.deshacer } };
 
   // ── Los gestos guionizados de la anotación (los de la carcasa van por `guion`) ──
   const hacer = useRef<(a: AccionGuion) => void>(() => undefined);
@@ -161,7 +136,7 @@ export function VivoFuerza({ caso, onLog }: { caso: CasoFuerza; onLog: (linea: s
     hacer.current = (a) => {
       if (a.tipo === 'abrir') abrir(a.serie);
       else if (a.tipo === 'foco') enfocar(a.campo, true);
-      else if (a.tipo === 'corona') corona(a.dir);
+      else if (a.tipo === 'corona') girarDato(a.dir);
       else reabrir();
     };
   });
@@ -172,80 +147,62 @@ export function VivoFuerza({ caso, onLog }: { caso: CasoFuerza; onLog: (linea: s
 
   // ── Las caras ───────────────────────────────────────────────────────────
   const sig = plan.pasos[i + 1];
-  const cara = esFuerza(paso) && paso.rol === 'trabajo' ? (
-    <CaraSerie paso={paso} lecturas={lecturas} arrastrada={cargaArrastrada(plan, i, registro)} luego={textoLuego(plan, i)} />
-  ) : paso.rol === 'transicion' && esFuerza(sig) ? (
-    <CaraColocate paso={paso} lecturas={lecturas} siguiente={sig} />
-  ) : enDescanso ? (
-    <DescansoFuerza
-      paso={paso}
-      lecturas={lecturas}
-      viene={textoViene(plan, i, registro)}
-      series={series}
-      vista={vista}
-      abierta={abierta}
-      foco={foco}
-      pistaCorona={foco && jAbierta >= 0 ? textoPistaCorona(plan, jAbierta, foco, registro) : null}
-      onAbrir={abrir}
-      onFoco={(c) => enfocar(c)}
-      onCorona={corona}
-      onResumen={reabrir}
-      onMas30={seq.sumar30}
-    />
-  ) : paso.rol === 'recuperacion' ? (
-    <Recupera paso={paso} lecturas={lecturas} zonas={plan.zonas} />
-  ) : (
-    <PasoCorrer paso={paso} lecturas={lecturas} zonas={plan.zonas} />
-  );
-
-  const capa =
-    seq.cuenta != null && paso.siguiente ? (
-      esFuerza(paso.siguiente) ? (
-        <CuentaFuerza n={seq.cuenta} paso={paso.siguiente} arrastrada={cargaArrastrada(plan, i + 1, registro)} />
-      ) : (
-        <TresDosUno n={seq.cuenta} paso={paso.siguiente} />
-      )
-    ) : seq.go ? (
-      esFuerza(paso) ? (
-        <CuentaFuerza n={0} paso={paso} arrastrada={cargaArrastrada(plan, i, registro)} />
-      ) : (
-        <TresDosUno n={0} paso={paso} />
-      )
+  const cara = () =>
+    esFuerza(paso) && paso.rol === 'trabajo' ? (
+      <CaraSerie paso={paso} lecturas={lecturas} arrastrada={cargaArrastrada(plan, i, registro)} luego={textoLuego(plan, i)} />
+    ) : paso.rol === 'transicion' && esFuerza(sig) ? (
+      <CaraColocate paso={paso} lecturas={lecturas} siguiente={sig} />
+    ) : enDescanso ? (
+      <DescansoFuerza
+        paso={paso}
+        lecturas={lecturas}
+        viene={textoViene(plan, i, registro)}
+        series={series}
+        vista={vista}
+        abierta={abierta}
+        foco={foco}
+        pistaCorona={foco && jAbierta >= 0 ? textoPistaCorona(plan, jAbierta, foco, registro) : null}
+        onAbrir={abrir}
+        onFoco={(c) => enfocar(c)}
+        onResumen={reabrir}
+        onMas30={seq.sumar30}
+      />
     ) : null;
 
-  const pSerie: PaginaVivo = { id: 'serie', titulo: 'Serie', contenido: cara };
-  // Con un dato encendido la corona es del dato: la pila se queda en una página.
-  const paginas: PaginaVivo[] = foco
-    ? [pSerie]
-    : [
-        pSerie,
-        { id: 'ejercicios', titulo: 'Ejercicios', contenido: <PaginaEjercicios plan={plan} estado={estado} registro={registro} sim={sim} /> },
-        {
-          id: 'datos',
-          titulo: 'Datos',
-          contenido: <PaginaDatosFuerza plan={plan} estado={estado} registro={registro} sim={sim} ppm={lecturas.ppm} zonas={plan.zonas} />,
-        },
-      ];
+  // El 3-2-1 y el GO de una serie, con su nombre y la carga que está en la barra.
+  const capa = (s: Secuencia, kit: ReactNode) =>
+    s.cuenta != null && paso.siguiente && esFuerza(paso.siguiente) ? (
+      <CuentaFuerza n={s.cuenta} paso={paso.siguiente} arrastrada={cargaArrastrada(plan, i + 1, registro)} />
+    ) : s.cuenta == null && s.go && esFuerza(paso) ? (
+      <CuentaFuerza n={0} paso={paso} arrastrada={cargaArrastrada(plan, i, registro)} />
+    ) : kit;
+
+  const paginas = (_s: Secuencia, contenido: ReactNode): PaginaVivo[] => {
+    const pSerie: PaginaVivo = { id: 'serie', titulo: 'Serie', contenido };
+    // Con un dato encendido la corona es del dato: la pila se queda en una página.
+    if (foco) return [pSerie];
+    return [
+      pSerie,
+      { id: 'ejercicios', titulo: 'Ejercicios', contenido: <PaginaEjercicios plan={plan} estado={estado} registro={registro} sim={sim} /> },
+      { id: 'datos', titulo: 'Datos', contenido: <PaginaDatosFuerza plan={plan} estado={estado} registro={registro} sim={sim} ppm={lecturas.ppm} zonas={plan.zonas} /> },
+    ];
+  };
 
   return (
-    <Muneca
-      paginas={paginas}
-      aro={<AroSesion pasos={plan.pasos} i={i} paso={paso} lecturas={lecturas} />}
-      tinte={null}
-      capa={capa}
-      pausado={seq.pausado}
-      onPausa={seq.pausar}
-      siguiente={{
-        etiqueta: 'Siguiente serie',
-        icono: 'siguiente',
-        onPulsa: seq.cerrar,
-        deshacer: { aviso: paso.rol === 'trabajo' ? avisoSerie(paso) : enDescanso ? 'Descanso cortado' : 'Colócate cortado', hacer: seq.deshacer },
-      }}
-      onTerminar={seq.terminar}
-      completada={estado.terminado}
-      accion={accion}
+    <VistaVivo
+      seq={seq}
       eventos={ev}
-      alPaso={paso.id}
+      cara={cara}
+      capa={capa}
+      paginas={paginas}
+      accion={() => accion}
+      corona={(_s, dir) => {
+        if (!foco) return false;
+        // La corona hacia arriba (-1) sube el dato, como un selector de watchOS.
+        girarDato(dir === 1 ? -1 : 1);
+        return true;
+      }}
+      etiquetaSiguiente="Siguiente serie"
       inicial={caso.inicial}
       guion={caso.guion}
       modelo={caso.modelo}

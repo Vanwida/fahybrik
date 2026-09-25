@@ -28,10 +28,16 @@ import {
   fmtRitmo,
   num,
   principal,
+  costeTrasEstacion,
+  paginar,
+  type Coste,
+  type Completitud,
+  type MetodoResumen,
   type PaginaVivo,
   type PasoBase,
+  type TramoHecho,
 } from '../../kit-reloj';
-import { costeTrasEstacion, paginar, type Coste, type Completitud, type EstadoGuardado, type MetodoResumen, type Resultado, type TramoHecho } from './calculo';
+import type { EstadoGuardado, Resultado } from './calculo';
 import { LineaAjustada } from './ajuste';
 import { tiempoCircuito } from './resultados';
 import { Dato, FilaLista, LineaGuardado } from './resumen-piezas';

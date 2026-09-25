@@ -17,8 +17,18 @@
 //   · RM de peso muerto 200 kg, última carga de peso muerto 140 kg y las dos
 //     series de aproximación de 488: ILUSTRATIVAS (ninguna sesión las da).
 
-import { REGLAS_AVISO_DEFECTO, type Objetivo, type PasoBase, type PlanSesion, type ZonasCoach } from '../../kit-reloj';
-import type { CargaFuerza, EsfuerzoFuerza, FichaFuerza, PasoFuerza } from './modelo';
+import {
+  FICHA_FUERZA_DEFECTO,
+  REGLAS_AVISO_DEFECTO,
+  type CargaFuerza,
+  type EsfuerzoFuerza,
+  type FichaFuerza,
+  type Objetivo,
+  type PasoBase,
+  type PasoFuerza,
+  type PlanSesion,
+  type ZonasCoach,
+} from '../../kit-reloj';
 
 /** Zonas del atleta 64 con las bandas del coach (umbral 170): las de las otras propuestas de la muñeca. */
 export const ZONAS: ZonasCoach = { techos: [138, 150, 160, 173, 192] };
@@ -26,8 +36,8 @@ export const ZONAS: ZonasCoach = { techos: [138, 150, 160, 173, 192] };
 /** Segundos para colocarse antes de una isometría que no viene de un descanso. Método: dato con defecto. */
 export const COLOCATE_S_DEFECTO = 5;
 
-/** Barra y discos: 2,5 kg por clic. Mancuernas: 2 kg. Dato del gimnasio. */
-const BARRA = 2.5;
+/** Barra y discos: 2,5 kg por clic (el defecto del kit). Mancuernas: 2 kg. Dato del gimnasio. */
+const BARRA = FICHA_FUERZA_DEFECTO.pasoKg;
 const MANCUERNA = 2;
 
 const RM_SENTADILLA = 186.5;

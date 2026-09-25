@@ -13,6 +13,7 @@ import type { ReactNode } from 'react';
 import {
   ANCHO_PIE,
   C,
+  Centro,
   Columna,
   ContextoLinea,
   Heroe,
@@ -25,13 +26,15 @@ import {
   fmtObjetivo,
   fmtReloj,
   lineaPulso,
+  PaginaFilas,
+  PaginaLista,
   principal,
+  wodDe,
   type FILA,
   type PaginaVivo,
 } from '../../kit-reloj';
-import { PaginaFilas, PaginaLista } from './paginas';
-import { Centro, RondasPared } from './piezas';
-import { wodDe, type PlanWod } from './planes';
+import { RondasPared } from './piezas';
+import type { PlanWod } from './planes';
 import type { Vivo } from './vivo';
 
 type NombreFila = keyof typeof FILA;

@@ -19,26 +19,36 @@ import type { ReactNode } from 'react';
 import {
   ANCHO_PIE,
   C,
+  Centro,
   Columna,
   ContextoLinea,
   Heroe,
   Instruccion,
   Linea,
+  Luego,
+  PaginaFilas,
+  PaginaLista,
+  PaginaSplits,
+  ParDatos,
   PistaAccion,
   altoHeroe,
+  cargaTarea,
   contextoDe,
   faltaDe,
+  filasLuego,
   fmtReloj,
   fmtRitmo,
   lineaPulso,
+  textoTarea,
+  textoTareaCorto,
   useFilaAccion,
+  wodDe,
   type FILA,
+  type FilaSplit,
   type PaginaVivo,
 } from '../../kit-reloj';
-import { PaginaFilas, PaginaLista, PaginaSplits, type FilaSplit } from './paginas';
-import { Centro, Luego, ParDatos, filasLuego } from './piezas';
-import { cargaDe, textoTarea, textoTareaCorto, wodDe, type PlanWod } from './planes';
-import { esErgo, lecturasErgo, type Vivo } from './vivo';
+import type { PlanWod } from './planes';
+import { esErgo, type Vivo } from './vivo';
 
 type NombreFila = keyof typeof FILA;
 
@@ -50,10 +60,10 @@ export function CaraEmom({ v }: { v: Vivo }) {
   if (w?.formato !== 'emom') return null;
   const hecha = v.wod.hechas[p.id];
   const falta = faltaDe(p, seq.lecturas) ?? 0;
-  const l = lecturasErgo(p, seq.lecturas);
+  const l = seq.lecturas;
   const pm5 = !w.tarea.dosis && esErgo(p);
   const sig = wodDe(p.siguiente);
-  const luego = sig?.formato === 'emom' ? { que: textoTareaCorto({ ...sig.tarea, carga: undefined }, sig.ventanaS), carga: cargaDe(sig.tarea) } : null;
+  const luego = sig?.formato === 'emom' ? { que: textoTareaCorto({ ...sig.tarea, carga: undefined }, sig.ventanaS), carga: cargaTarea(sig.tarea) } : null;
   const conPista = v.accion != null;
 
   const filas: NombreFila[] = ['contexto', 'instruccion'];

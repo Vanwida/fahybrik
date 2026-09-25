@@ -7,15 +7,19 @@
 
 import type { ReactNode } from 'react';
 import type { Area } from './mandos';
-import { BotonAccion } from './piezas';
-import { C, T } from './tokens';
+import { BotonAccion, useCabe } from './piezas';
+import { ANCHO_PIE, C, T } from './tokens';
 
 export const PASOS_AGUA = 3;
+
+/** Lo que funde el velo del pie con lo de encima (pt): una fila cortada se disuelve. */
+const VELO_PIE_FUNDIDO = 12;
 
 const AREAS: Area[] = ['controles', 'vivo', 'musica'];
 
 export const KEYFRAMES = `
 @keyframes reloj-entra { from { opacity: 0; transform: translateY(-6px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes reloj-aparece { from { opacity: 0; } to { opacity: 1; } }
 @keyframes reloj-drena { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 @keyframes reloj-puntos { 0%, 55% { opacity: 1; } 100% { opacity: 0.38; } }
 @keyframes reloj-apaga { 0%, 60% { opacity: 1; } 100% { opacity: 0; } }
@@ -118,37 +122,83 @@ export function GotaAgua({ giro }: { giro: number }) {
 }
 
 /**
- * EL AVISO DE DESHACER — 5 s, con su barra que se vacía. Dos filas: qué se
- * cerró (entero, sin cortar) y el botón, a lo ancho y ≥ 44 pt.
+ * EL AVISO DE DESHACER — 5 s, con su barra que se vacía. Vive en la FRANJA
+ * DEL PIE (`ANCHO_PIE`, el alto de un botón): tapa la fila de abajo, nunca el
+ * héroe (P3), que es lo que el atleta mira justo después de cerrar (el GO, la
+ * serie siguiente). La píldora entera es el botón (44 pt): arriba qué se
+ * cerró, debajo «Deshacer» en naranja, la acción. Debajo, `VeloPie`.
  */
 export function AvisoDeshacer({ aviso, onDeshacer }: { aviso: string; onDeshacer: () => void }) {
+  const ref = useCabe<HTMLSpanElement>();
   return (
-    <div
+    <button
+      type="button"
+      aria-label={`${aviso} · Deshacer`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onDeshacer();
+      }}
       style={{
         position: 'absolute',
-        left: 'calc(var(--twin-safe-left) + 6px)',
-        right: 'calc(var(--twin-safe-right) + 6px)',
-        bottom: 'calc(var(--twin-safe-bottom) + 2px)',
-        borderRadius: 26,
+        // Centrada sin `transform`: la animación de entrada lo usa entero.
+        left: 0,
+        right: 0,
+        marginInline: 'auto',
+        bottom: 'var(--twin-safe-bottom)',
+        width: ANCHO_PIE,
+        height: T.boton.alto,
+        border: 0,
+        borderRadius: T.boton.alto / 2,
         background: C.superficie2,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'stretch',
-        gap: 6,
-        padding: '10px 6px 6px',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 3,
+        padding: '0 8px',
+        boxSizing: 'border-box',
         overflow: 'hidden',
-        boxShadow: '0 -10px 28px rgba(0,0,0,0.75)',
+        fontFamily: 'inherit',
+        cursor: 'pointer',
         animation: 'reloj-entra 200ms ease-out',
       }}
     >
       <span
+        aria-hidden
         style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 2, background: C.tinta2, transformOrigin: 'left', animation: 'reloj-drena 5s linear forwards' }}
       />
-      <span style={{ fontSize: T.nota.cuerpo, fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap', lineHeight: 1.1 }}>
-        {aviso}
+      <span style={{ maxWidth: '100%', display: 'flex', justifyContent: 'center' }}>
+        <span ref={ref} style={{ fontSize: T.nota.cuerpo, fontWeight: T.nota.peso, color: C.tinta, whiteSpace: 'nowrap', lineHeight: 1, transformOrigin: 'center' }}>
+          {aviso}
+        </span>
       </span>
-      <BotonAccion etiqueta="Deshacer" onPulsa={onDeshacer} />
-    </div>
+      <span style={{ fontSize: T.boton.cuerpo, fontWeight: T.boton.peso, color: C.accion, lineHeight: 1 }}>Deshacer</span>
+    </button>
+  );
+}
+
+/**
+ * EL VELO DEL PIE — mientras vive el aviso, la franja es suya: un negro de
+ * lado a lado tapa lo que hubiera en el pie (los botones del descanso son más
+ * anchos que la píldora y asomarían por los lados) y funde la fila que la
+ * píldora corta, en vez de rebanarla. Va DENTRO del Vivo, bajo la capa (el GO
+ * no se vela: es el héroe) y bajo el aro (la sesión no se tapa).
+ */
+export function VeloPie() {
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: `calc(var(--twin-safe-bottom) + ${T.boton.alto + VELO_PIE_FUNDIDO}px)`,
+        background: `linear-gradient(180deg, transparent, ${C.fondo} ${VELO_PIE_FUNDIDO}px)`,
+        pointerEvents: 'none',
+        animation: 'reloj-aparece 200ms ease-out',
+      }}
+    />
   );
 }
 

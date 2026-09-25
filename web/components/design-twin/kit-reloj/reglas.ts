@@ -116,6 +116,24 @@ export function fmtObjetivo(o: Objetivo): string {
   }
 }
 
+/**
+ * EL OBJETIVO EN UNA NOTA — la única notación del objetivo detrás de lo
+ * prescrito, en el brief, la esfera, el Smart Stack y la página Estructura:
+ * «a 3:45–3:55», «a Z2», «RPE 7», «RIR 3», «máx 142 ppm», «al 1 %». Sin «@».
+ * Cambiar la notación es cambiar esto (subjetivo de Alex, un solo sitio).
+ */
+export function textoObjetivo(o: Objetivo): string {
+  if (o.eje === 'inclinacion') return `al ${fmtObjetivo(o)}`;
+  if (o.papel === 'techo' || o.eje === 'rpe' || o.eje === 'rir' || o.eje === 'kg' || o.eje === 'pctRM') return fmtObjetivo(o);
+  return `a ${fmtObjetivo(o)}`;
+}
+
+/** M7 · La carga del implemento: «180 kg», «2 × 32 kg» (el peso de CADA uno, nunca multiplicado). */
+export function textoCargaImplemento(c: PasoBase['carga']): string | null {
+  if (!c) return null;
+  return c.implementos && c.implementos > 1 ? `${c.implementos} × ${num(c.kg)}\u00A0kg` : `${num(c.kg)}\u00A0kg`;
+}
+
 /** La palabra de un RPE: la del coach si la trae, si no la del defecto. */
 export function palabraRpe(o: Objetivo): string {
   if (o.palabra) return o.palabra;
@@ -192,15 +210,21 @@ export function contextoDe(p: PasoBase): string[] {
   return partes;
 }
 
-/** El paso en una línea corta, para «Luego · …» y «Viene: …»: «1000 m a 3:45–3:55». */
+/**
+ * El paso en una línea corta, para «Luego · …» y «Viene: …»: «1000 m a
+ * 3:45–3:55», «Sled Pull · 25 m · 135 kg». La carga del implemento va
+ * detrás (M7): el trineo hay que cargarlo antes de empezar.
+ */
 export function textoPasoCorto(p: PasoBase): string {
   const o = principal(p);
   const pr = fmtPrescrito(p.medida);
   if (p.rol === 'descanso') return `${NOMBRE_CLASE_DEFECTO[p.clase]} · ${pr}`;
   const quien = p.nombre ? `${p.nombre} · ` : '';
-  if (!o) return `${quien}${pr}`;
+  const carga = textoCargaImplemento(p.carga);
+  const conCarga = carga ? ` · ${carga}` : '';
+  if (!o) return `${quien}${pr}${conCarga}`;
   const obj = o.eje === 'rpe' ? `RPE ${num(o.min ?? o.max ?? 0)}` : fmtObjetivo(o);
-  return `${quien}${pr} a ${obj}`;
+  return `${quien}${pr}${conCarga} a ${obj}`;
 }
 
 // ---------------------------------------------------------------------------

@@ -97,7 +97,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'sin-gesto',
     titulo: 'Sin doble toque · el botón «Serie hecha»',
     descripcion:
-      'La serie de A1 en un reloj sin doble toque ni botón Acción: la acción es un botón visible de 44 pt, «Serie hecha», con el mismo deshacer de 5 s. «Luego ·» cede su sitio al botón (está en el descanso y en Ejercicios). Tocar fuera del botón no cierra nada.',
+      'La serie de A1 en un reloj sin doble toque ni botón Acción: la acción es un botón visible de 44 pt, «Serie hecha», con el mismo deshacer de 5 s. «Luego ·» cede su sitio al botón (está en el descanso y en Ejercicios). Un toque fuera del botón no cierra nada; dos seguidos en la pantalla sí, como en Apple Entreno.',
   },
 ];
 

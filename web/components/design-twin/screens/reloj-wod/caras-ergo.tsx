@@ -3,7 +3,8 @@
 // EL ERGO (remo, ski, bici) — el objetivo manda, como corriendo (P3).
 //
 //   a /500 con PM5    héroe = el /500 ACTUAL contra su banda (BandaObjetivo, ▲▼
-//                     y palabra), debajo los metros que quedan y el pulso
+//                     y palabra), debajo los metros que quedan y el pulso; el
+//                     motor del kit lee el /500 del PM5 y avisa contra él
 //   a /500 sin PM5    los metros los dices tú: el héroe cae a lo que llevas, el
 //                     /500 va como instrucción (lo lees en el monitor) y la
 //                     serie se cierra con la acción; lo que va por tiempo CUENTA
@@ -16,6 +17,7 @@ import type { ReactNode } from 'react';
 import {
   ANCHO_PIE,
   BandaObjetivo,
+  Centro,
   Columna,
   ContextoLinea,
   Heroe,
@@ -31,17 +33,19 @@ import {
   laminaDelPaso,
   lineasDeNota,
   objetivoDe,
+  PaginaFilas,
+  PaginaLista,
+  PaginaSplits,
   palabraVeredicto,
   principal,
   useFilaAccion,
   type FILA,
+  type FilaSplit,
   type LineaVista,
   type PaginaVivo,
 } from '../../kit-reloj';
-import { PaginaFilas, PaginaLista, PaginaSplits, type FilaSplit } from './paginas';
-import { Centro } from './piezas';
-import { wodDe, type PlanWod } from './planes';
-import { esErgo, lecturasErgo, splitDe, veredictoSerie, type Vivo } from './vivo';
+import type { PlanWod } from './planes';
+import { esErgo, splitDe, veredictoSerie, type Vivo } from './vivo';
 
 type NombreFila = keyof typeof FILA;
 
@@ -49,8 +53,8 @@ export function CaraErgo({ v }: { v: Vivo }) {
   const fila = useFilaAccion();
   const { seq, plan } = v;
   const p = seq.paso;
-  if (wodDe(p)?.formato !== 'ergo') return null;
-  const l = lecturasErgo(p, seq.lecturas);
+  if (p.clase !== 'ergo') return null;
+  const l = seq.lecturas;
   const lam = laminaDelPaso(p, l, plan.zonas, plan.reglas);
   const o = principal(p);
   const techo = objetivoDe(p, 'techo');
@@ -111,7 +115,7 @@ export function paginasErgo(datos: PlanWod) {
   return (v: Vivo, cara: ReactNode): PaginaVivo[] => {
     const { seq, plan } = v;
     const e = seq.estado;
-    const trabajo = plan.pasos.find((x) => wodDe(x)?.formato === 'ergo' && (x.posicion?.serie || x.posicion?.tramo));
+    const trabajo = plan.pasos.find((x) => x.clase === 'ergo' && (x.posicion?.serie || x.posicion?.tramo));
     const o = trabajo ? principal(trabajo) : null;
     const porSplit = o?.eje === 'split500';
     const filas: FilaSplit[] = e.vueltas.map((vv) => {
@@ -150,7 +154,8 @@ export function paginasErgo(datos: PlanWod) {
             zonas={plan.zonas}
             filas={[
               { valor: fmtReloj(e.sesionT), unidad: 'total' },
-              ...(e.sesionM > 0 ? [{ valor: String(Math.round(e.sesionM)), unidad: 'm' }] : []),
+              // Los metros de la máquina (PM5) y los corridos, juntos: lo que se movió.
+              ...(e.sesionM + e.sesionErgoM > 0 ? [{ valor: String(Math.round(e.sesionM + e.sesionErgoM)), unidad: 'm' }] : []),
               ...(medio != null ? [{ valor: fmtRitmo(medio), unidad: '/500 medio' }] : []),
               { valor: seq.lecturas.ppm == null ? '—' : String(Math.round(seq.lecturas.ppm)), unidad: 'ppm', ppm: seq.lecturas.ppm },
             ]}

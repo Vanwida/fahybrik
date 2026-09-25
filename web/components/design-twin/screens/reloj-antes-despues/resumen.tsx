@@ -10,9 +10,8 @@
 // confirma (saved) o lo rechaza (rejected). La muñeca pinta lo último que sabe.
 
 import { useEffect, useState } from 'react';
-import type { Emision, GestoGuion, PaginaVivo } from '../../kit-reloj';
-import { METODO_RESUMEN_DEFECTO, completitud, type EstadoGuardado, type MetodoResumen, type Resultado } from './calculo';
-import { Pila } from './pila';
+import { METODO_RESUMEN_DEFECTO, Pila, completitud, type Emision, type GestoGuion, type MetodoResumen, type PaginaVivo } from '../../kit-reloj';
+import type { EstadoGuardado, Resultado } from './calculo';
 import { paginasCircuito } from './resumen-circuito';
 import { paginasCorrer } from './resumen-correr';
 import { paginasFuerza } from './resumen-fuerza';

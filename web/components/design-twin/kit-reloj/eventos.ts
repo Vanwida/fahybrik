@@ -30,7 +30,8 @@ export type EventoVivo =
   | 'bloque' // bloque hecho
   | 'sesion' // sesión hecha
   | 'accion' // el atleta hizo algo (pausa, serie hecha…)
-  | 'enlace'; // enlace perdido
+  | 'enlace' // enlace perdido
+  | 'gps'; // GPS listo, antes de empezar
 
 export type HapticoWK =
   | 'click'
@@ -66,6 +67,7 @@ export const VOCABULARIO: Record<EventoVivo, Vocablo> = {
   sesion: { nombre: 'Sesión hecha', haptico: 'success', veces: 2, voz: true, prioridad: 11 },
   accion: { nombre: 'Acción del atleta', haptico: 'click', veces: 1, voz: false, prioridad: 2 },
   enlace: { nombre: 'Enlace perdido', haptico: 'failure', veces: 1, voz: false, prioridad: 7 },
+  gps: { nombre: 'GPS listo', haptico: 'success', veces: 1, voz: false, prioridad: 1 },
 };
 
 /** «.start×2», «.click». */

@@ -24,10 +24,16 @@ import {
   fmtRitmo,
   palabraVeredicto,
   principal,
+  filasDePasos,
+  grupoPrincipal,
+  hoyDe,
+  paginar,
+  type Completitud,
+  type MetodoResumen,
   type PaginaVivo,
   type PasoBase,
 } from '../../kit-reloj';
-import { filasDePasos, grupoPrincipal, hoyDe, paginar, type Completitud, type EstadoGuardado, type MetodoResumen, type Resultado } from './calculo';
+import type { EstadoGuardado, Resultado } from './calculo';
 import { paginasEjercicios } from './resumen-fuerza';
 import { FilaLista, LineaGuardado } from './resumen-piezas';
 

@@ -402,7 +402,8 @@ export function BotonAccion({
 /**
  * LA ACCIÓN DEL MOMENTO, dicha según el reloj: «doble toque · empezar ya» en
  * un Series 9+, «botón Acción · …» en un Ultra, y un botón de verdad en el
- * resto. Tocar la pantalla nunca es el gesto.
+ * resto. Un toque en la pantalla nunca es el gesto; dos seguidos (el doble
+ * toque de Apple Entreno) sí, en todo reloj: lo reconoce la carcasa.
  */
 export function PistaAccion({ accion, onPulsa }: { accion: string; onPulsa?: () => void }) {
   const { modelo } = useReloj();

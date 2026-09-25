@@ -2,43 +2,45 @@
 
 // LAS CARAS DEL CIRCUITO (P10) — una por lo que haces, con las piezas del kit.
 //
-//   CaraCarrera   el tramo de carrera: LA MISMA lámina de correr
-//                 (`laminaDelPaso`: el objetivo del coach manda) con la posición
-//                 «Ronda 2/5 · Run 1000 m» y el crono total bajo el contexto.
+//   carrera       LA MISMA cara de correr del kit (`PasoCorrer`: el objetivo del
+//                 coach manda) con la posición «Ronda 2/5 · Run 1000 m» y el
+//                 crono total bajo el contexto.
 //   CaraEstacion  nombre, dosis y carga. Si algo la mide (el PM5), el número
 //                 grande es lo que falta; si nada la mide, el crono de la
 //                 estación con «lo dices tú».
 //   CaraRoxzone   «Roxzone · entras a Wall Balls» con su crono; la de salida
-//                 sigue sola al volver a correr.
-//   CaraAmrap     el AMRAP dentro del chipper: lo que falta de la ventana y las
-//                 reps con la corona.
+//                 sigue sola al volver a correr (el motor la cierra por detección).
+//   CaraAmrap     el AMRAP dentro del chipper: lo que falta de la ventana y la
+//                 tarea. Las reps se dicen en la campana (`CaraPuntuacion` del
+//                 kit), no durante el AMRAP (Alex, 25-09).
 //
 // Todas llevan el total en el mismo sitio y el pulso en la fila de abajo.
 
-import type { WheelEvent as ReactWheelEvent } from 'react';
-import { useRef } from 'react';
 import {
   ANCHO_PIE,
-  BandaObjetivo,
   C,
+  Centro,
+  CaraPuntuacion,
   Columna,
   ContextoLinea,
   Heroe,
-  Instruccion,
   Linea,
   Nota,
-  BotonAccion,
+  PasoCorrer,
+  PistaAccion,
+  Titulo,
   altoHeroe,
-  esCarrera,
   fmtObjetivo,
   fmtReloj,
   fmtRitmo,
   heroeDelPaso,
-  laminaDelPaso,
   lineaPulso,
+  lineaTotal,
+  pistaCerrar,
+  pistaDeclarar,
   principal,
-  usePrimaria,
   useReloj,
+  type Dial,
   type FILA,
   type HeroeVista,
   type Lecturas,
@@ -46,8 +48,7 @@ import {
   type PasoBase,
   type ZonasCoach,
 } from '../../kit-reloj';
-import { sentidoRoxzone, type Circuito } from './planes';
-import { Centro, FilaReps, Titulo, lineaTotal, pistaCerrar, pistaDeclarar } from './piezas';
+import { esPuntuacion, type Circuito } from './planes';
 import { dosisCompleta, dosisDe, estacionMedida, posicionDe } from './texto';
 
 type Fila = keyof typeof FILA;
@@ -64,54 +65,6 @@ interface Comun {
 /** El total, bajo el contexto: la puntuación nunca se va de la pantalla (hoy se va en los tramos). */
 function Total({ total, c }: { total: number | null; c: Circuito }) {
   return total != null ? <Linea linea={lineaTotal(total, c.cap)} cuerpo={22} /> : null;
-}
-
-/** El botón de cerrar en un reloj sin doble toque ni botón Acción (≥ 44 pt, acotado). */
-function BotonCerrar({ etiqueta }: { etiqueta: string }) {
-  const primaria = usePrimaria();
-  return (
-    <div style={{ width: '100%', padding: '0 8px', boxSizing: 'border-box' }}>
-      <BotonAccion etiqueta={etiqueta} onPulsa={primaria ?? (() => undefined)} />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// El tramo de carrera
-// ---------------------------------------------------------------------------
-
-/**
- * La lámina de correr tal cual (P10): la decide `laminaDelPaso`. Solo cambian
- * el contexto (la posición en el circuito) y la línea del total. Si el
- * objetivo es un RPE («RPE 8 · ritmo de carrera»), el ritmo ACTUAL va debajo:
- * la palabra del coach habla de ritmo y sin él no se puede cumplir.
- */
-export function CaraCarrera({ paso, lecturas, zonas, c, total }: Comun) {
-  const l = laminaDelPaso(paso, lecturas, zonas);
-  const ritmo = l.instruccion && !l.segundo && esCarrera(paso) ? { valor: fmtRitmo(lecturas.ritmo), unidad: '/km' } : null;
-  const filas: Fila[] = ['contexto'];
-  if (l.nota) filas.push('nota');
-  if (total != null) filas.push('tercero');
-  if (l.banda) filas.push('banda');
-  if (l.instruccion) filas.push('instruccion');
-  if (l.segundo) filas.push('segundo');
-  if (ritmo) filas.push('tercero');
-  if (l.tercero) filas.push('tercero');
-  return (
-    <Columna>
-      <ContextoLinea partes={posicionDe(paso, c)} />
-      {l.nota ? <Nota>{l.nota}</Nota> : null}
-      <Total total={total} c={c} />
-      <Centro>
-        <Heroe heroe={l.heroe} altoMax={altoHeroe(filas)} />
-      </Centro>
-      {l.banda ? <BandaObjetivo banda={l.banda} /> : null}
-      {l.instruccion ? <Instruccion texto={l.instruccion} /> : null}
-      {l.segundo ? <Linea linea={l.segundo} cuerpo={30} ancho={l.tercero ? undefined : ANCHO_PIE} /> : null}
-      {ritmo ? <Linea linea={ritmo} cuerpo={22} /> : null}
-      {l.tercero ? <Linea linea={l.tercero} cuerpo={22} ancho={ANCHO_PIE} /> : null}
-    </Columna>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -141,7 +94,7 @@ export function CaraEstacion({ paso, lecturas, zonas, c, total }: Comun) {
     // Sin gesto, «Estación hecha» ya dice que la cierras tú: el héroe va sin etiqueta y gana alto.
     heroe = { clase: 'crono', texto: fmtReloj(lecturas.t), etiqueta: sinGesto ? undefined : pistaDeclarar(modelo) };
   }
-  const split = paso.medida.mide === 'ergo' ? { valor: fmtRitmo(lecturas.ritmo != null ? lecturas.ritmo / 2 : null), unidad: '/500' } : null;
+  const split = paso.medida.mide === 'ergo' ? { valor: fmtRitmo(lecturas.split500), unidad: '/500' } : null;
   const pulso = lineaPulso(paso, lecturas, zonas);
 
   const filas: Fila[] = ['contexto', 'instruccion'];
@@ -161,7 +114,7 @@ export function CaraEstacion({ paso, lecturas, zonas, c, total }: Comun) {
       </Centro>
       {split ? <Linea linea={split} cuerpo={22} /> : null}
       {/* El botón encima del pulso: la última fila es la más estrecha y el pulso no se va nunca (P3). */}
-      {sinGesto ? <BotonCerrar etiqueta="Estación hecha" /> : null}
+      {sinGesto ? <PistaAccion accion="estación hecha" /> : null}
       <Linea linea={pulso} cuerpo={22} ancho={ANCHO_PIE} />
     </Columna>
   );
@@ -179,7 +132,7 @@ export function CaraEstacion({ paso, lecturas, zonas, c, total }: Comun) {
 export function CaraRoxzone({ paso, lecturas, zonas, c, total }: Comun) {
   const { modelo } = useReloj();
   const sig: PasoBase | null = paso.siguiente;
-  const entrada = sentidoRoxzone(paso) === 'entrada';
+  const entrada = paso.roxzone === 'entrada';
   const sinGesto = modelo === 'sin-gesto' && entrada;
   const r = sig?.posicion?.ronda;
 
@@ -205,7 +158,7 @@ export function CaraRoxzone({ paso, lecturas, zonas, c, total }: Comun) {
       <Centro>
         <Heroe heroe={heroe} altoMax={altoHeroe(filas)} />
       </Centro>
-      {sinGesto ? <BotonCerrar etiqueta="Empiezo" /> : null}
+      {sinGesto ? <PistaAccion accion="empiezo" /> : null}
       <Linea linea={lineaPulso(paso, lecturas, zonas)} cuerpo={22} ancho={ANCHO_PIE} />
     </Columna>
   );
@@ -216,40 +169,24 @@ export function CaraRoxzone({ paso, lecturas, zonas, c, total }: Comun) {
 // ---------------------------------------------------------------------------
 
 /**
- * EL AMRAP (506): la tarea en la muñeca, lo que falta de la ventana y las reps
- * que declaras con la corona. En el doble la rueda del ratón sobre la esfera
- * gira la corona; la corona del bisel sigue pasando páginas (el kit aún no deja
- * que una cara la capture — «Para el kit»).
+ * EL AMRAP (506): la tarea en la muñeca y lo que falta de la ventana. Nada que
+ * contar en vivo: las reps se dicen en la campana, con la corona.
  */
-export function CaraAmrap({ paso, lecturas, zonas, c, total, reps, onCorona }: Comun & { reps: number; onCorona: (d: 1 | -1) => void }) {
-  const rueda = useRef({ acumulado: 0, ultimo: 0 });
+export function CaraAmrap({ paso, lecturas, zonas, c, total }: Comun) {
   const heroe = heroeDelPaso(paso, lecturas, zonas);
-  const filas: Fila[] = ['contexto', 'instruccion', 'tercero', 'tercero'];
+  const filas: Fila[] = ['contexto', 'instruccion', 'nota', 'tercero'];
   if (total != null) filas.push('tercero');
-  const onWheel = (e: ReactWheelEvent) => {
-    e.stopPropagation();
-    const w = rueda.current;
-    const ahora = Date.now();
-    w.acumulado += e.deltaY;
-    if (Math.abs(w.acumulado) >= 30 && ahora - w.ultimo > 90) {
-      onCorona(w.acumulado > 0 ? 1 : -1);
-      w.acumulado = 0;
-      w.ultimo = ahora;
-    }
-  };
   return (
-    <div onWheel={onWheel} style={{ position: 'absolute', inset: 0 }}>
-      <Columna>
-        <ContextoLinea partes={posicionDe(paso, c)} />
-        <Titulo texto={paso.nombre ?? ''} />
-        <Total total={total} c={c} />
-        <Centro>
-          <Heroe heroe={heroe} altoMax={altoHeroe(filas)} />
-        </Centro>
-        <FilaReps reps={reps} />
-        <Linea linea={lineaPulso(paso, lecturas, zonas)} cuerpo={22} ancho={ANCHO_PIE} />
-      </Columna>
-    </div>
+    <Columna>
+      <ContextoLinea partes={posicionDe(paso, c)} />
+      <Titulo texto={paso.nombre ?? ''} />
+      <Total total={total} c={c} />
+      <Centro>
+        <Heroe heroe={heroe} altoMax={altoHeroe(filas)} />
+      </Centro>
+      <Nota>reps: al final, con la corona</Nota>
+      <Linea linea={lineaPulso(paso, lecturas, zonas)} cuerpo={22} ancho={ANCHO_PIE} />
+    </Columna>
   );
 }
 
@@ -257,11 +194,23 @@ export function CaraAmrap({ paso, lecturas, zonas, c, total, reps, onCorona }: C
 // Qué cara lleva cada paso
 // ---------------------------------------------------------------------------
 
-export function caraDelPaso(p: Comun & { reps: number; onCorona: (d: 1 | -1) => void }) {
+export function caraDelPaso(p: Comun & { dial: Dial | null }) {
   const { paso } = p;
+  if (esPuntuacion(paso) && p.dial) return <CaraPuntuacion paso={paso} lecturas={p.lecturas} zonas={p.zonas} dial={p.dial} />;
   if (paso.clase === 'estacion') return <CaraEstacion {...p} />;
   if (paso.clase === 'roxzone') return <CaraRoxzone {...p} />;
   if (paso.clase === 'amrap') return <CaraAmrap {...p} />;
-  return <CaraCarrera {...p} />;
+  // La carrera: la cara de correr del kit, con la posición y el total. Si el
+  // objetivo es un RPE («RPE 8 · ritmo de carrera»), el ritmo ACTUAL va debajo:
+  // la palabra del coach habla de ritmo y sin él no se puede cumplir.
+  return (
+    <PasoCorrer
+      paso={paso}
+      lecturas={p.lecturas}
+      zonas={p.zonas}
+      contexto={posicionDe(paso, p.c)}
+      bajoContexto={p.total != null ? lineaTotal(p.total, p.c.cap) : null}
+      ritmoConRpe
+    />
+  );
 }
-

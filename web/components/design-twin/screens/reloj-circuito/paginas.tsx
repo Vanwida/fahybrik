@@ -3,31 +3,29 @@
 // LAS PÁGINAS DE LA CORONA en un circuito: Paso → Ruta → Datos.
 //
 //   Ruta   la lista del coach (tramos y estaciones, agrupados por ronda), con
-//          lo hecho y su parcial, lo de ahora con su crono y lo que viene. En
-//          492 se ve que la ronda 5 ya no lleva Farmers (cuentas por ítem, M4).
-//   Datos  la sesión: el total, los km CORRIDOS y su ritmo medio (solo los
-//          tramos de carrera: hoy se divide por el tiempo con estaciones y sale
-//          9:30/km), la Roxzone sumada y el pulso.
+//          lo hecho y su parcial (el que deja el motor del kit por paso), lo
+//          de ahora con su crono y lo que viene. En 492 se ve que la ronda 5
+//          ya no lleva Farmers (cuentas por ítem, M4).
+//   Datos  la sesión (`PaginaFilas` del kit): el total, los km CORRIDOS y su
+//          ritmo medio (solo los tramos de carrera: hoy se divide por el tiempo
+//          con estaciones y sale 9:30/km), la Roxzone sumada y el pulso.
 
-import type { ReactNode } from 'react';
 import {
   ANCHO_CABEZA,
   C,
-  ChipZona,
   Columna,
   ContextoLinea,
+  PaginaFilas,
   T,
-  colorZona,
   fmtDistancia,
   fmtPrescrito,
   fmtReloj,
   fmtRitmo,
-  zonaDe,
+  type EstadoSecuencia,
   type Lecturas,
   type ZonasCoach,
 } from '../../kit-reloj';
-import type { EstadoCircuito } from './motor';
-import { sentidoRoxzone, type Circuito } from './planes';
+import { esPuntuacion, type Circuito } from './planes';
 
 // ---------------------------------------------------------------------------
 // Ruta
@@ -40,19 +38,22 @@ type FilaRuta =
 /** Cuántas líneas caben bajo la cabecera sin scroll. */
 const LINEAS = 6;
 
-function filasDeRuta(c: Circuito, e: EstadoCircuito): FilaRuta[] {
+/** Las reps dichas en la campana del paso `i` (la del AMRAP `i - 1`), si las hay. */
+export type RepsDe = (i: number) => number | null;
+
+function filasDeRuta(c: Circuito, e: EstadoSecuencia, reps: RepsDe): FilaRuta[] {
   const filas: FilaRuta[] = [];
   const hechos = new Map(e.parciales.map((x) => [x.i, x]));
   let ronda: number | null = null;
   c.plan.pasos.forEach((p, i) => {
     if (i < c.inicio) return;
-    const ahora = i === e.s.i && !e.s.terminado;
-    const listado = p.clase === 'carrera' || p.clase === 'estacion' || p.clase === 'amrap';
-    // Un paso que no está en la lista del coach (Roxzone, descanso) solo sale mientras estás en él.
+    const ahora = i === e.i && !e.terminado;
+    const listado = (p.clase === 'carrera' || p.clase === 'estacion' || p.clase === 'amrap') && p.rol === 'trabajo';
+    // Un paso que no está en la lista del coach (Roxzone, descanso, campana) solo sale mientras estás en él.
     if (!listado) {
       if (ahora) {
-        const nombre = p.clase === 'roxzone' ? `Roxzone · ${sentidoRoxzone(p) === 'entrada' ? 'entrada' : 'salida'}` : 'Descanso';
-        filas.push({ tipo: 'paso', nombre, estado: 'ahora', valor: fmtReloj(e.s.t), suelta: true });
+        const nombre = p.roxzone ? `Roxzone · ${p.roxzone}` : esPuntuacion(p) ? 'Puntuación' : 'Descanso';
+        filas.push({ tipo: 'paso', nombre, estado: 'ahora', valor: fmtReloj(e.t), suelta: true });
       }
       return;
     }
@@ -64,19 +65,18 @@ function filasDeRuta(c: Circuito, e: EstadoCircuito): FilaRuta[] {
     const nombre =
       p.clase === 'carrera' ? (c.formato === 'hyrox' && r ? `Run ${r.n}` : `Run ${fmtPrescrito(p.medida)}`) : (p.nombre ?? '');
     const hecho = hechos.get(i);
-    const reps = p.clase === 'amrap' ? (hecho?.reps ?? e.reps[i] ?? null) : null;
-    const valor = hecho
-      ? reps != null
-        ? `${reps} reps`
-        : fmtReloj(hecho.segundos)
-      : ahora
-        ? reps != null
-          ? `${reps} reps`
-          : fmtReloj(e.s.t)
-        : null;
+    // El AMRAP enseña las reps que se dijeron en su campana; mientras no se digan, su tiempo.
+    const dichas = p.clase === 'amrap' ? reps(i + 1) : null;
+    const valor = dichas != null ? `${dichas} reps` : hecho ? fmtReloj(hecho.segundos) : ahora ? fmtReloj(e.t) : null;
     filas.push({ tipo: 'paso', nombre, estado: hecho ? 'hecho' : ahora ? 'ahora' : 'pendiente', valor });
   });
   return filas;
+}
+
+/** La Roxzone sumada: lo cerrado más lo de ahora. `null` si el coach no la activó. */
+function roxzoneDe(c: Circuito, e: EstadoSecuencia): number | null {
+  if (!c.roxzone) return null;
+  return e.parciales.filter((x) => c.plan.pasos[x.i]?.clase === 'roxzone').reduce((a, x) => a + x.segundos, 0) + (c.plan.pasos[e.i]?.clase === 'roxzone' ? e.t : 0);
 }
 
 function Punto({ estado }: { estado: 'hecho' | 'ahora' | 'pendiente' }) {
@@ -111,16 +111,13 @@ function ventanaDe(filas: FilaRuta[], idx: number): Array<{ f: FilaRuta; k: numb
   return [cab, ...conK.slice(d, d + LINEAS - 1)];
 }
 
-export function PaginaRuta({ c, e }: { c: Circuito; e: EstadoCircuito }) {
-  const filas = filasDeRuta(c, e);
+export function PaginaRuta({ c, e, reps }: { c: Circuito; e: EstadoSecuencia; reps: RepsDe }) {
+  const filas = filasDeRuta(c, e, reps);
   const idx = Math.max(0, filas.findIndex((f) => f.tipo === 'paso' && f.estado === 'ahora'));
   const ventana = ventanaDe(filas, idx);
   const listados = filas.filter((f) => f.tipo === 'paso' && !f.suelta);
   const hechos = listados.filter((f) => f.tipo === 'paso' && f.estado === 'hecho').length;
-  const rox = c.roxzone
-    ? e.parciales.filter((x) => c.plan.pasos[x.i]?.clase === 'roxzone').reduce((a, x) => a + x.segundos, 0) +
-      (c.plan.pasos[e.s.i]?.clase === 'roxzone' ? e.s.t : 0)
-    : null;
+  const rox = roxzoneDe(c, e);
   return (
     <Columna estilo={{ alignItems: 'stretch', gap: 6 }}>
       <ContextoLinea partes={['Ruta', rox != null ? `Roxzone ${fmtReloj(rox)}` : `${hechos}/${listados.length}`]} tono={C.tinta2} />
@@ -170,16 +167,6 @@ export function PaginaRuta({ c, e }: { c: Circuito; e: EstadoCircuito }) {
 // Datos
 // ---------------------------------------------------------------------------
 
-function FilaDato({ valor, unidad, extra }: { valor: string; unidad: string; extra?: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, height: 34, width: '100%', whiteSpace: 'nowrap' }}>
-      <span style={{ fontSize: T.segundo.cuerpo, fontWeight: 600, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{valor}</span>
-      <span style={{ fontSize: T.nota.cuerpo, color: C.tinta2, fontWeight: 500 }}>{unidad}</span>
-      {extra}
-    </div>
-  );
-}
-
 export function PaginaDatosCircuito({
   c,
   e,
@@ -188,7 +175,7 @@ export function PaginaDatosCircuito({
   zonas,
 }: {
   c: Circuito;
-  e: EstadoCircuito;
+  e: EstadoSecuencia;
   total: number | null;
   lecturas: Lecturas;
   zonas: ZonasCoach | null;
@@ -196,28 +183,24 @@ export function PaginaDatosCircuito({
   // Solo los tramos de carrera: ni el calentamiento ni el PM5 ni la Roxzone.
   const esTramo = (i: number) => i >= c.inicio && c.plan.pasos[i]?.clase === 'carrera';
   const corridos = e.parciales.filter((x) => esTramo(x.i) && x.metros != null);
-  const enCurso = esTramo(e.s.i) && e.s.midio ? { m: e.s.metros, s: e.s.t } : { m: 0, s: 0 };
+  const enCurso = esTramo(e.i) && e.midio ? { m: e.metros, s: e.t } : { m: 0, s: 0 };
   const m = corridos.reduce((a, x) => a + (x.metros ?? 0), 0) + enCurso.m;
   const s = corridos.reduce((a, x) => a + x.segundos, 0) + enCurso.s;
   const d = m > 0 ? fmtDistancia(m) : null;
-  const rox = c.roxzone
-    ? e.parciales.filter((x) => c.plan.pasos[x.i]?.clase === 'roxzone').reduce((a, x) => a + x.segundos, 0) +
-      (c.plan.pasos[e.s.i]?.clase === 'roxzone' ? e.s.t : 0)
-    : null;
+  const rox = roxzoneDe(c, e);
   const ppm = lecturas.viejos?.includes('ppm') ? null : lecturas.ppm;
-  const z = ppm != null && zonas ? zonaDe(ppm, zonas) : null;
   return (
-    <Columna estilo={{ alignItems: 'flex-start', paddingLeft: 'calc(var(--twin-safe-left) + 10px)' }}>
-      <ContextoLinea partes={['Sesión']} tono={C.tinta2} />
-      <FilaDato valor={fmtReloj(total ?? e.s.sesionT)} unidad={c.cap != null ? `total · cap ${Math.round(c.cap / 60)}′` : 'total'} />
-      <FilaDato valor={d ? d.valor : '—'} unidad={`${d ? d.unidad : 'km'} corridos`} />
-      <FilaDato valor={m > 50 ? fmtRitmo(s / (m / 1000)) : '—'} unidad="/km al correr" />
-      {rox != null ? <FilaDato valor={fmtReloj(rox)} unidad="Roxzone" /> : null}
-      <FilaDato
-        valor={ppm == null ? '—' : String(Math.round(ppm))}
-        unidad="ppm"
-        extra={z != null && zonas ? <ChipZona n={z} color={colorZona(z, zonas.techos.length)} /> : undefined}
-      />
-    </Columna>
+    <PaginaFilas
+      titulo={['Sesión']}
+      zonas={zonas}
+      alto={34}
+      filas={[
+        { valor: fmtReloj(total ?? e.sesionT), unidad: c.cap != null ? `total · cap ${Math.round(c.cap / 60)}′` : 'total' },
+        { valor: d ? d.valor : '—', unidad: `${d ? d.unidad : 'km'} corridos` },
+        { valor: m > 50 ? fmtRitmo(s / (m / 1000)) : '—', unidad: '/km al correr' },
+        ...(rox != null ? [{ valor: fmtReloj(rox), unidad: 'Roxzone' }] : []),
+        { valor: ppm == null ? '—' : String(Math.round(ppm)), unidad: 'ppm', ppm },
+      ]}
+    />
   );
 }

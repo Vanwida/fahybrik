@@ -4,19 +4,18 @@
 // escenario) son del atleta SIMULADO, no de una ejecución real: 493 se hizo en
 // 24′ sin un solo parcial guardado, que es justo lo que esta pantalla arregla.
 
-import type { ModeloReloj, MunecaProps, Simulador } from '../../kit-reloj';
-import type { InicioCircuito, Parcial } from './motor';
-import { dibujoDe, sentidoRoxzone, sesion492, sesion493, sesion506, simulacionHyrox, type Circuito } from './planes';
+import type { Dial, InicioSecuencia, ModeloReloj, MunecaProps, Parcial, Simulador } from '../../kit-reloj';
+import { dibujoDe, sesion492, sesion493, sesion506, simulacionHyrox, type Circuito } from './planes';
 
 export interface CasoCircuito {
   c: Circuito;
   sim: Simulador;
-  inicio: InicioCircuito;
+  inicio: InicioSecuencia;
+  /** La puntuación ya dicha en cada campana de AMRAP, por índice de paso. */
+  diales?: Record<number, Dial>;
   inicial?: MunecaProps['inicial'];
   guion?: MunecaProps['guion'];
   modelo?: ModeloReloj;
-  /** El atleta girando la corona (reps del AMRAP): cuándo y cuántas. */
-  corona?: Array<{ en: number; n: number }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -83,15 +82,16 @@ export function cuerpo(o: OpcionesCuerpo): Simulador {
       case 'estacion': {
         const obj = PPM_ESTACION[p.nombre ?? ''] ?? 171;
         if (p.medida.mide === 'ergo') {
+          // El PM5 da su /500, al medio segundo.
           const s = SPLIT_500[p.nombre ?? ''] ?? 118;
-          return { ritmo: Math.round(s * 2 + ruido(t, 3)), ppm: ppm(hacia(obj, 164, 30)), gps: 'no-aplica' };
+          return { ritmo: null, split500: Math.round(s * 2 + ruido(t, 3)) / 2, ppm: ppm(hacia(obj, 164, 30)), gps: 'no-aplica' };
         }
         return { ritmo: null, ppm: ppm(hacia(obj, 164, 30)), gps: 'no-aplica' };
       }
       case 'amrap':
         return { ritmo: null, ppm: ppm(hacia(164, 170, 30)), gps: 'no-aplica' };
       case 'roxzone':
-        return sentidoRoxzone(p) === 'salida'
+        return p.roxzone === 'salida'
           ? { ritmo: t < 6 ? 690 : Math.round(o.ritmoRun + ruido(t, 2.5)), ppm: ppm(168), gps: 'listo' }
           : { ritmo: null, ppm: ppm(170), gps: 'listo' };
       default:
@@ -105,11 +105,11 @@ export function cuerpo(o: OpcionesCuerpo): Simulador {
 // ---------------------------------------------------------------------------
 
 /** Los parciales de los pasos anteriores, del atleta simulado (deterministas). */
-function historia(c: Circuito, hasta: number, ritmoRun: number, reps: Record<number, number> = {}): Parcial[] {
+function historia(c: Circuito, hasta: number, ritmoRun: number): Parcial[] {
   return c.plan.pasos.slice(0, hasta).map((p, i) => {
     const vario = 1 + Math.sin(i * 2.1) * 0.04;
     const pr = p.medida.prescrito ?? 0;
-    const base = { i, reps: reps[i] ?? null };
+    const base = { i, hecho: null };
     switch (p.clase) {
       case 'carrera': {
         const m = pr + 3;
@@ -127,7 +127,7 @@ function historia(c: Circuito, hasta: number, ritmoRun: number, reps: Record<num
           ppm: PPM_ESTACION[p.nombre ?? ''] ?? 171,
         };
       case 'roxzone':
-        return { ...base, segundos: Math.round((sentidoRoxzone(p) === 'entrada' ? 34 : 17) * vario), metros: null, ppm: 168 };
+        return { ...base, segundos: Math.round((p.roxzone === 'entrada' ? 34 : 17) * vario), metros: null, ppm: 168 };
       case 'amrap':
         return { ...base, segundos: pr, metros: null, ppm: 163 };
       default:
@@ -136,12 +136,24 @@ function historia(c: Circuito, hasta: number, ritmoRun: number, reps: Record<num
   });
 }
 
-function caso(c: Circuito, i: number, t: number, ritmoRun: number, extra: Partial<CasoCircuito> & { metros?: number; reps?: Record<number, number> } = {}): CasoCircuito {
-  const { metros, reps, ...resto } = extra;
+function caso(c: Circuito, i: number, t: number, ritmoRun: number, extra: Partial<CasoCircuito> & { metros?: number } = {}): CasoCircuito {
+  const { metros, ...resto } = extra;
+  const parciales = historia(c, i, ritmoRun);
+  // Los metros corridos (GPS) y los del PM5, cada uno en su cuenta: un remo no es una carrera.
+  const de = (mide: string) => parciales.filter((x) => c.plan.pasos[x.i]!.medida.mide === mide).reduce((a, x) => a + (x.metros ?? 0), 0);
+  const ahora = c.plan.pasos[i]!.medida.mide;
   return {
     c,
     sim: cuerpo({ ritmoRun, partida: i }),
-    inicio: { i, t, metros, parciales: historia(c, i, ritmoRun, reps), reps, ppmMedio: 162 },
+    inicio: {
+      i,
+      t,
+      metros,
+      parciales,
+      sesionM: de('gps') + (ahora === 'gps' ? (metros ?? 0) : 0),
+      sesionErgoM: de('ergo') + (ahora === 'ergo' ? (metros ?? 0) : 0),
+      ppmMedio: 162,
+    },
     ...resto,
   };
 }
@@ -172,11 +184,13 @@ export function casoDe(escenario: string): CasoCircuito {
       // El descanso tras los Farmers de la ronda 4, con 12 s: viene la ronda 5, que ya no lleva Farmers.
       return caso(sesion492(), 23, 78, RITMO_493);
     case 'c506-amrap':
-      return caso(sesion506(), 3, 106, RITMO_493, {
-        reps: { 1: 31, 3: 34 },
-        corona: [
-          { en: 2500, n: 8 },
-          { en: 9000, n: 8 },
+      // Ronda 2, a 11 s de la campana. La ronda 1 dijo 31 reps en la suya.
+      // En la campana el atleta sube la corona a 16 y guarda con doble toque.
+      return caso(sesion506(), 4, 229, RITMO_493, {
+        diales: { 2: { rondas: 0, reps: 31 } },
+        guion: [
+          ...Array.from({ length: 16 }, (_, k) => ({ en: 12500 + k * 130, gesto: 'corona-arriba' as const })),
+          { en: 16000, gesto: 'doble-toque' as const },
         ],
       });
     case 'hyrox-carrera':

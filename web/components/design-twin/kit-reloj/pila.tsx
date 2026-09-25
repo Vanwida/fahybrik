@@ -7,41 +7,29 @@
 // a la izquierda (Pausa, Water Lock, Terminar) ni Ahora suena a la derecha,
 // que antes de empezar o con la sesión ya guardada no significan nada.
 //
-// Se monta con las piezas de la carcasa del kit (los mandos simulados, la
-// corona del bisel, los puntos de la pila): se ve y se toca igual que el vivo.
-// Candidata al kit — ver «Para el kit» en el index.
+// Se monta con las piezas de la carcasa (los mandos simulados, la corona del
+// bisel, los puntos de la pila) y los gestos de `gestos.ts`: se ve y se toca
+// igual que el vivo.
 //
-// `corona` convierte la corona en VALOR (el RPE): girar cambia el número y no
-// la página, como el selector de esfuerzo de Apple.
-// `fija` es la barra de abajo de watchOS 10: no se desliza con la corona.
+// `corona` enfoca la corona en un VALOR (el RPE), con el mismo contrato que
+// `Muneca`: girar cambia el número y no la página, como el selector de
+// esfuerzo de Apple. `fija` es la barra de abajo de watchOS 10: no se desliza
+// con la corona.
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-  type WheelEvent as ReactWheelEvent,
-} from 'react';
-import {
-  AOD,
-  C,
-  PrimariaContexto,
-  RelojContexto,
-  type AccionPrimaria,
-  type Emision,
-  type GestoGuion,
-  type ModeloReloj,
-  type PaginaVivo,
-} from '../../kit-reloj';
-import { KEYFRAMES, PuntosVerticales } from '../../kit-reloj/carcasa';
-import { CoronaBisel, Mandos } from '../../kit-reloj/mandos';
+import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { KEYFRAMES, PuntosVerticales } from './carcasa';
+import type { Emision } from './eventos';
+import { useDestinos, useGuion, useRueda, type Direccion, type GestoGuion, type OrigenPrimario } from './gestos';
+import { CoronaBisel, Mandos } from './mandos';
+import type { AccionPrimaria, PaginaVivo } from './Muneca';
+import { PrimariaContexto, RelojContexto, type ModeloReloj } from './piezas';
+import { AOD, C } from './tokens';
 
 export interface PilaProps {
   paginas: PaginaVivo[];
   fija?: ReactNode;
-  corona?: (dir: 1 | -1) => void;
+  /** La corona enfocada en un valor (el RPE): `true` = el paso era suyo, no se pasa página. */
+  corona?: (dir: Direccion) => boolean;
   accion?: AccionPrimaria | null;
   /** La última emisión (háptico + voz) para el lector de debajo del reloj. */
   ultimo: Emision | null;
@@ -63,19 +51,10 @@ export function Pila(p: PilaProps) {
   const [pagina, setPagina] = useState(p.inicial?.pagina ?? 0);
   const [muneca, setMuneca] = useState<'arriba' | 'abajo'>(p.inicial?.muneca ?? 'arriba');
   const [movido, setMovido] = useState(0);
-  const [destinos, setDestinos] = useState<{ bisel: HTMLElement | null; escena: HTMLElement; suelto: boolean } | null>(null);
-  const rueda = useRef({ acumulado: 0, ultimo: 0 });
+  const { raiz, destinos } = useDestinos();
   const toque = useRef<{ x: number; y: number } | null>(null);
-  const gestos = useRef<(g: GestoGuion) => void>(() => undefined);
   const activa = Math.min(pagina, Math.max(0, paginas.length - 1));
   const aod = muneca === 'abajo';
-
-  const raiz = useCallback((el: HTMLDivElement | null) => {
-    if (!el) return;
-    const escena = el.closest<HTMLElement>('.studio-stage');
-    const lienzo = el.closest<HTMLElement>('.twin-root');
-    setDestinos({ bisel: escena ? (lienzo?.parentElement ?? null) : null, escena: escena ?? document.body, suelto: !escena });
-  }, []);
 
   const irPagina = (n: number) => {
     setPagina(n);
@@ -84,23 +63,22 @@ export function Pila(p: PilaProps) {
     onLog(`Corona → página ${n + 1}/${paginas.length} · ${paginas[n]!.titulo}`);
   };
 
-  const girar = (dir: 1 | -1) => {
+  const capturar = (dir: Direccion) => !aod && !!p.corona && p.corona(dir);
+
+  const girar = (dir: Direccion) => {
     if (aod) {
       setMuneca('arriba');
       onLog('Muñeca arriba');
       return;
     }
-    if (p.corona) {
-      p.corona(dir);
-      return;
-    }
+    if (capturar(dir)) return;
     const n = Math.min(paginas.length - 1, Math.max(0, activa + dir));
     if (n !== activa) irPagina(n);
   };
 
-  const primario = (origen: 'Doble toque' | 'Botón Acción' | 'Botón en pantalla') => {
+  const primario = (origen: OrigenPrimario) => {
     if (origen === 'Doble toque' && modelo !== 'doble-toque') {
-      onLog('Este reloj no tiene doble toque — la acción está en pantalla');
+      onLog('Este reloj no tiene doble toque con la mano — la acción está en pantalla');
       return;
     }
     if (origen === 'Botón Acción' && modelo === 'sin-gesto') {
@@ -138,37 +116,18 @@ export function Pila(p: PilaProps) {
     else if (Math.abs(dy) >= DESLIZ) girar(dy < 0 ? 1 : -1);
   };
 
-  const onWheel = (e: ReactWheelEvent) => {
-    const r = rueda.current;
-    const ahora = Date.now();
-    r.acumulado += e.deltaY;
-    if (Math.abs(r.acumulado) >= 40 && ahora - r.ultimo > 220) {
-      girar(r.acumulado > 0 ? 1 : -1);
-      r.acumulado = 0;
-      r.ultimo = ahora;
-    }
-  };
+  const onWheel = useRueda(girar, capturar);
 
   // El guion pasa por el MISMO camino que los mandos, con el estado más reciente.
-  useEffect(() => {
-    gestos.current = (g: GestoGuion) => {
-      if (g === 'doble-toque') primario('Doble toque');
-      else if (g === 'accion') primario('Botón Acción');
-      else if (g === 'corona-abajo') girar(1);
-      else if (g === 'corona-arriba') girar(-1);
-      else if (g === 'bajar' && !aod) alternarMuneca();
-      else if (g === 'subir' && aod) alternarMuneca();
-      else if (g === 'controles' || g === 'vivo') onLog(p.sinLados);
-    };
+  useGuion(p.guion, (g: GestoGuion) => {
+    if (g === 'doble-toque') primario('Doble toque');
+    else if (g === 'accion') primario('Botón Acción');
+    else if (g === 'corona-abajo') girar(1);
+    else if (g === 'corona-arriba') girar(-1);
+    else if (g === 'bajar' && !aod) alternarMuneca();
+    else if (g === 'subir' && aod) alternarMuneca();
+    else if (g === 'controles' || g === 'vivo') onLog(p.sinLados);
   });
-  const guion = p.guion;
-  useEffect(() => {
-    if (!guion) return;
-    const t = guion.map((x) => setTimeout(() => gestos.current(x.gesto), x.en));
-    return () => t.forEach(clearTimeout);
-    // El guion es fijo por montaje (cada escenario remonta).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <RelojContexto.Provider value={{ modelo, aod }}>

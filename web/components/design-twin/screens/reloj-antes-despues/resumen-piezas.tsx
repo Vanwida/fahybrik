@@ -80,7 +80,7 @@ export function LineaGuardado({ estado }: { estado: EstadoGuardado }) {
   );
 }
 
-const palabraRpe = (v: number) => (v === 0 ? 'nada' : (RPE_PALABRA_DEFECTO[v] ?? ''));
+const palabraRpe = (v: number) => RPE_PALABRA_DEFECTO[v] ?? '';
 
 /** La última página: dónde está la sesión, el RPE que se dio y «Listo». */
 export function PaginaGuardado({ estado, rpe, onListo }: { estado: EstadoGuardado; rpe: number | null; onListo: () => void }) {

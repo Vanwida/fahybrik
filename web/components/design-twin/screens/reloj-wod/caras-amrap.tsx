@@ -10,40 +10,44 @@
 //   corona     Ronda → Tarea (la ronda EN LA MUÑECA, no en el móvil) → Rondas → Datos
 //   campana    la corona pasa a las reps de la ronda a medias: la puntuación es
 //              rondas + reps, y lo que no se dice queda «sin declarar», nunca 0.
+//              Es la cara del kit (`CaraPuntuacion`): las reps SOLO se dicen
+//              aquí (Alex, 25-09); durante el AMRAP no hay corona de reps.
 
 import type { ReactNode } from 'react';
 import {
-  ANCHO_HEROE,
   ANCHO_PIE,
   C,
-  FILA,
-  T,
+  CaraPuntuacion as Campana,
+  Centro,
   Columna,
   ContextoLinea,
   Heroe,
   Instruccion,
   Linea,
   Nota,
+  PaginaFilas,
+  PaginaLista,
+  PaginaSplits,
   PistaAccion,
   altoHeroe,
+  cargaTarea,
   faltaDe,
   fmtReloj,
   lineaPulso,
   lineasDeNota,
-  tallaHeroe,
+  repsPorRonda,
   textoPasoCorto,
-  useCabe,
   useFilaAccion,
+  wodDe,
+  type FILA,
+  type FilaSplit,
   type PaginaVivo,
 } from '../../kit-reloj';
-import { PaginaFilas, PaginaLista, PaginaSplits, PaginaTarea, type FilaSplit } from './paginas';
-import { CapturaCorona, Centro } from './piezas';
-import { cargaDe, wodDe, type PlanWod, type Tarea } from './planes';
+import { PaginaTarea } from './paginas';
+import type { PlanWod } from './planes';
 import type { Vivo } from './vivo';
 
 type NombreFila = keyof typeof FILA;
-
-const repsPorRonda = (tareas: Tarea[]) => tareas.reduce((a, t) => a + (t.dosis?.prescrito ?? 0), 0);
 
 /** Lo que viene tras la puntuación de un AMRAP en un chipper: «Run · 800 m a RPE 8». */
 function trasPuntuacion(plan: Vivo['plan'], i: number): string | null {
@@ -80,7 +84,7 @@ export function CaraAmrap({ v }: { v: Vivo }) {
         <Centro>
           <Heroe heroe={{ clase: 'crono', texto: fmtReloj(falta), etiqueta: 'quedan' }} altoMax={altoHeroe(filas)} />
         </Centro>
-        <Instruccion texto={[t.nombre, cargaDe(t)].filter(Boolean).join(' · ')} />
+        <Instruccion texto={[t.nombre, cargaTarea(t)].filter(Boolean).join(' · ')} />
         <Nota>reps: al final, con la corona</Nota>
         {luego ? (
           <Nota tono={C.tinta} prefijo="Luego ·">
@@ -113,100 +117,13 @@ export function CaraAmrap({ v }: { v: Vivo }) {
 }
 
 // ---------------------------------------------------------------------------
-// La campana: la puntuación con la corona
+// La campana: la puntuación con la corona (la cara del kit; la corona la enfoca el vivo)
 // ---------------------------------------------------------------------------
 
-/** 18 reps de una ronda 12/10/8 → «12 Wall Ball + 6 KB Swing»: dónde te quedaste. */
-function desglose(tareas: Tarea[], reps: number): string {
-  const partes: string[] = [];
-  let resto = reps;
-  for (const t of tareas) {
-    if (resto <= 0) break;
-    const n = Math.min(resto, t.dosis?.prescrito ?? 0);
-    partes.push(`${n} ${t.nombre}`);
-    resto -= n;
-  }
-  return partes.join(' + ');
-}
-
-/**
- * «7 + 18»: las rondas (contadas en vivo) en tinta; el «+» y las reps en tinta2
- * hasta que se dicen. El tamaño, el del héroe del kit (`tallaHeroe`).
- */
-function HeroePuntuacion({ rondas, reps, altoMax }: { rondas: number; reps: number | null; altoMax: number }) {
-  const texto = `${rondas} + ${reps ?? '—'}`;
-  // Tres piezas y dos huecos: 20 pt de aire para que no toque el bisel.
-  const talla = tallaHeroe(texto, undefined, ANCHO_HEROE - 20, altoMax - FILA.etiquetaHeroe);
-  const cifra = { fontSize: talla.cuerpo, fontWeight: T.heroe.peso, lineHeight: T.heroe.caja, fontVariantNumeric: 'tabular-nums' as const };
-  // El cinturón del kit: si el navegador no tiene SF y se pasa de ancho, escala.
-  const ref = useCabe<HTMLSpanElement>();
-  return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <span style={{ fontSize: T.nota.cuerpo, fontWeight: T.nota.peso, color: C.tinta2, lineHeight: `${FILA.etiquetaHeroe}px` }}>rondas + reps</span>
-      <span ref={ref} style={{ whiteSpace: 'nowrap', display: 'inline-block', transformOrigin: 'center' }}>
-        <span style={{ ...cifra, color: C.tinta }}>{rondas}</span>
-        <span style={{ ...cifra, color: C.tinta2 }}>{' + '}</span>
-        <span style={{ ...cifra, color: reps == null ? C.tinta2 : C.tinta }}>{reps ?? '—'}</span>
-      </span>
-    </div>
-  );
-}
-
 export function CaraPuntuacion({ v }: { v: Vivo }) {
-  const fila = useFilaAccion();
   const { seq, plan, dial } = v;
-  const p = seq.paso;
-  const w = wodDe(p);
-  if (w?.formato !== 'puntuacion' || !dial) return null;
-  // La campana es «deja de trabajar»: monocroma, como Recupera (P6).
-  const pulso = { ...lineaPulso(p, seq.lecturas, plan.zonas), zona: undefined };
-  const multi = w.tareas.length > 1;
-  const reps = dial.reps == null ? '—' : String(dial.reps);
-  // En un chipper el reloj sigue: lo que viene, y cuándo.
-  const falta = faltaDe(p, seq.lecturas);
-  const luego = falta != null ? trasPuntuacion(plan, seq.estado.i) : null;
-
-  const lineas: string[] = [];
-  if (multi) {
-    lineas.push(dial.reps == null || dial.reps === 0 ? `reps de la ronda ${dial.rondas + 1}` : desglose(w.tareas, dial.reps));
-  }
-  lineas.push(dial.reps == null ? 'gira la corona' : 'sin guardar');
-
-  const filas: NombreFila[] = ['contexto', ...lineas.map(() => 'nota' as const)];
-  if (luego) filas.push('nota');
-  filas.push(fila, 'tercero');
-  // Lo que falta por decir va en tinta2: «7 + —» no puede leerse como un número.
-  const pendiente = dial.reps == null;
-  return (
-    <CapturaCorona onPaso={v.girar}>
-      <Columna>
-        <ContextoLinea partes={['Puntuación', `AMRAP ${w.duracionS / 60}′`]} />
-        <Centro>
-          {multi ? (
-            <HeroePuntuacion rondas={dial.rondas} reps={dial.reps} altoMax={altoHeroe(filas)} />
-          ) : (
-            <Heroe
-              heroe={{ clase: 'crono', texto: reps, unidad: 'reps', etiqueta: w.tareas[0]!.nombre }}
-              altoMax={altoHeroe(filas)}
-              tono={pendiente ? C.tinta2 : C.tinta}
-            />
-          )}
-        </Centro>
-        {lineas.map((x, k) => (
-          <Nota key={k} tono={k === 0 && multi && dial.reps ? C.tinta : C.tinta2}>
-            {x}
-          </Nota>
-        ))}
-        {luego && falta != null ? (
-          <Nota tono={C.tinta} prefijo="Luego ·">
-            {`${luego.split(' · ')[0]} en ${fmtReloj(Math.ceil(falta))}`}
-          </Nota>
-        ) : null}
-        <PistaAccion accion="guardar" />
-        <Linea linea={pulso} cuerpo={22} ancho={ANCHO_PIE} />
-      </Columna>
-    </CapturaCorona>
-  );
+  if (wodDe(seq.paso)?.formato !== 'puntuacion' || !dial) return null;
+  return <Campana paso={seq.paso} lecturas={seq.lecturas} zonas={plan.zonas} dial={dial} />;
 }
 
 // ---------------------------------------------------------------------------

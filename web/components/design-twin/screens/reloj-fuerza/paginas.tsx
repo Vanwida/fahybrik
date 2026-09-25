@@ -12,35 +12,35 @@
 // Una ventana alrededor de «ahora» si no cabe todo: nunca scroll dentro de
 // una página de la corona.
 
-import type { ReactNode } from 'react';
 import {
   ALTO_UTIL,
   ANCHO_PIE,
   C,
-  ChipZona,
   Columna,
   ContextoLinea,
-  Corazon,
+  Marca,
   Nota,
+  PaginaFilas,
   T,
-  colorZona,
+  dosisEjercicio,
+  dosisSerie,
+  esFuerza,
   fmtDuracion,
   fmtPrescrito,
   fmtReloj,
-  zonaDe,
   type EstadoSecuencia,
   type PlanSesion,
   type Simulador,
   type ZonasCoach,
 } from '../../kit-reloj';
 import { anotacionDe, cargaArrastrada, medidaDe, pendiente, textoAnotacion, volumen, type Registro } from './anotar';
-import { anteriorTrabajo, dosisEjercicio, dosisSerie, ejerciciosDe, esFuerza, fmtMiles, siguienteTrabajo, type Ejercicio } from './modelo';
+import { anteriorTrabajo, ejerciciosDe, fmtMiles, siguienteTrabajo, type Ejercicio } from './modelo';
 
-type Marca = 'hecha' | 'propuesta' | 'ahora' | 'luego';
+type MarcaLinea = 'hecha' | 'propuesta' | 'ahora' | 'luego';
 
 type LineaEj =
   | { tipo: 'ej'; slot?: string; nombre: string; sinConfirmar: boolean; estado: 'hecho' | 'ahora' | 'pendiente'; ahora: boolean }
-  | { tipo: 'serie'; n: number | null; texto: string; marca: Marca; ahora: boolean };
+  | { tipo: 'serie'; n: number | null; texto: string; marca: MarcaLinea; ahora: boolean };
 
 const ALTO = { ej: 24, serie: 21 } as const;
 
@@ -124,16 +124,10 @@ function ventana(ls: LineaEj[], alto: number): LineaEj[] {
   return ls.slice(desde, desde + cabe(desde));
 }
 
-function MarcaSerie({ marca }: { marca: Marca }) {
+function MarcaSerie({ marca }: { marca: MarcaLinea }) {
   if (marca === 'ahora') return <span style={{ fontSize: T.nota.cuerpo, color: C.tinta, fontWeight: 600 }}>ahora</span>;
-  if (marca === 'propuesta')
-    return <span aria-label="sin confirmar" style={{ width: 10, height: 10, borderRadius: 5, boxShadow: `inset 0 0 0 1.6px ${C.tinta2}`, flex: '0 0 auto' }} />;
-  if (marca === 'hecha')
-    return (
-      <svg width="14" height="14" viewBox="0 0 24 24" aria-label="anotada" style={{ flex: '0 0 auto' }}>
-        <path d="M5 12.5 9.5 17 19 7.5" fill="none" stroke={C.tinta} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
+  if (marca === 'propuesta') return <Marca hecha={false} talla={14} />;
+  if (marca === 'hecha') return <Marca hecha talla={14} />;
   return null;
 }
 
@@ -190,21 +184,6 @@ export function PaginaEjercicios({ plan, estado, registro, sim }: { plan: PlanSe
   );
 }
 
-function FilaDato({ valor, unidad, glifo, extra }: { valor: string; unidad: string; glifo?: boolean; extra?: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, height: 38, width: '100%', whiteSpace: 'nowrap' }}>
-      {glifo ? (
-        <span style={{ alignSelf: 'center', display: 'inline-flex' }}>
-          <Corazon talla={18} />
-        </span>
-      ) : null}
-      <span style={{ fontSize: T.segundo.cuerpo, fontWeight: 600, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{valor}</span>
-      <span style={{ fontSize: T.nota.cuerpo, color: C.tinta2, fontWeight: 500 }}>{unidad}</span>
-      {extra}
-    </div>
-  );
-}
-
 export function PaginaDatosFuerza({
   plan,
   estado,
@@ -221,24 +200,18 @@ export function PaginaDatosFuerza({
   zonas: ZonasCoach | null;
 }) {
   const v = volumen(plan, estado, registro, sim);
-  const z = ppm != null && zonas ? zonaDe(ppm, zonas) : null;
   return (
-    <Columna estilo={{ alignItems: 'flex-start', paddingLeft: 'calc(var(--twin-safe-left) + 12px)' }}>
-      <ContextoLinea partes={['Sesión']} tono={C.tinta2} />
-      <FilaDato valor={fmtReloj(estado.sesionT)} unidad="total" />
-      <FilaDato valor={`${v.hechas}/${v.total}`} unidad="series" />
-      <FilaDato valor={v.kg > 0 ? fmtMiles(v.kg) : '—'} unidad="kg de volumen" />
-      <FilaDato
-        glifo
-        valor={ppm == null ? '—' : String(Math.round(ppm))}
-        unidad="ppm"
-        extra={z != null && zonas ? <ChipZona n={z} color={colorZona(z, zonas.techos.length)} /> : undefined}
-      />
-      {v.sinConfirmar > 0 ? (
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-          <Nota ancho={ANCHO_PIE}>{`${v.sinConfirmar} ${v.sinConfirmar === 1 ? 'serie' : 'series'} sin confirmar`}</Nota>
-        </div>
-      ) : null}
-    </Columna>
+    <PaginaFilas
+      titulo={['Sesión']}
+      zonas={zonas}
+      sangria={12}
+      filas={[
+        { valor: fmtReloj(estado.sesionT), unidad: 'total' },
+        { valor: `${v.hechas}/${v.total}`, unidad: 'series' },
+        { valor: v.kg > 0 ? fmtMiles(v.kg) : '—', unidad: 'kg de volumen' },
+        { valor: ppm == null ? '—' : String(Math.round(ppm)), unidad: 'ppm', ppm, glifo: 'pulso' },
+      ]}
+      pie={v.sinConfirmar > 0 ? <Nota ancho={ANCHO_PIE}>{`${v.sinConfirmar} ${v.sinConfirmar === 1 ? 'serie' : 'series'} sin confirmar`}</Nota> : null}
+    />
   );
 }

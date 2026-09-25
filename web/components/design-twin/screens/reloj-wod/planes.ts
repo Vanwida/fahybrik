@@ -19,85 +19,27 @@
 
 import {
   REGLAS_AVISO_DEFECTO,
+  dosisTarea,
   fmtDuracion,
-  fmtPrescrito,
-  num,
+  textoTarea,
+  wodDe,
+  type FilaLista,
+  type InfoWod,
   type Medida,
   type Objetivo,
   type PasoBase,
   type PlanSesion,
   type QuienMide,
+  type Tarea,
   type ZonasCoach,
 } from '../../kit-reloj';
 
 /** Umbral 170 ppm, 5 zonas del coach (Z1 ≤ 138 · Z2 ≤ 150 · Z3 ≤ 160 · Z4 ≤ 173 · Z5 ≤ 192). */
 export const ZONAS: ZonasCoach = { techos: [138, 150, 160, 173, 192] };
 
-// ---------------------------------------------------------------------------
-// La tarea de un WOD — lo que el kit todavía no sabe decir (Para el kit)
-// ---------------------------------------------------------------------------
-
-/**
- * Un movimiento dentro de una ventana (EMOM), de una ronda (AMRAP) o de un
- * For Time. `dosis: null` = todo el intervalo (el remo de 498 «6 × 1′»).
- */
-export interface Tarea {
-  nombre: string;
-  dosis: Medida | null;
-  carga?: { kg: number; implementos?: number };
-  /** «@ peso corporal» (506): un dato, no la ausencia de carga. */
-  corporal?: boolean;
-  /** Quién la mide: el PM5 (metros y /500), la cinta, o nadie («lo dices tú»). */
-  mide: QuienMide;
-  /** Una tarea de correr usa la cara de correr (P10). */
-  corre?: boolean;
-}
-
-export type InfoWod =
-  | { formato: 'emom'; tarea: Tarea; ciclo: Tarea[]; ventanas: number; ventanaS: number }
-  | { formato: 'amrap'; tareas: Tarea[]; duracionS: number }
-  /** Derivado del formato (no lo escribe el coach): tras el AMRAP se dice la puntuación. */
-  | { formato: 'puntuacion'; tareas: Tarea[]; duracionS: number }
-  | { formato: 'fortime'; tarea: Tarea | null; capS: number | null }
-  | { formato: 'ergo' }
-  | { formato: 'pared'; trabajoS: number; descansoS: number; rondas: number };
-
-export type PasoWod = PasoBase & { wod?: InfoWod };
-
-export const wodDe = (p: PasoBase | null | undefined): InfoWod | undefined => (p as PasoWod | null | undefined)?.wod;
-
-// ---------------------------------------------------------------------------
-// Textos de la tarea — un sitio, notación de pizarra: «20 Wall Ball · 9 kg»
-// ---------------------------------------------------------------------------
-
-const kg = (t: Tarea) => (t.carga ? `${t.carga.implementos ? `${t.carga.implementos} × ` : ''}${num(t.carga.kg)} kg` : null);
-
-/** «6 Bench Press · 60 kg», «500 m Row», «10 Burpee», «Row · todo el minuto». */
-export function textoTarea(t: Tarea, ventanaS?: number): string {
-  if (!t.dosis || t.dosis.tipo === 'abierta') {
-    const todo = ventanaS === 60 ? 'todo el minuto' : 'todo el intervalo';
-    return ventanaS ? `${t.nombre} · ${todo}` : t.nombre;
-  }
-  const pr = t.dosis.tipo === 'reps' ? String(t.dosis.prescrito) : fmtPrescrito(t.dosis);
-  return [`${pr} ${t.nombre}`, kg(t)].filter(Boolean).join(' · ');
-}
-
-/** Lo mismo, en corto para «Luego ·»: la ventana entera es su duración («Row · 1′»). */
-export function textoTareaCorto(t: Tarea, ventanaS?: number): string {
-  if ((!t.dosis || t.dosis.tipo === 'abierta') && ventanaS) return `${t.nombre}${t.corre ? ' en cinta' : ''} · ${fmtDuracion(ventanaS)}`;
-  return textoTarea(t);
-}
-
-/** La dosis sin el nombre: «6 reps · 60 kg», «500 m»; `null` si es la ventana entera. */
-export function dosisDe(t: Tarea): string | null {
-  if (!t.dosis || t.dosis.tipo === 'abierta') return null;
-  return [fmtPrescrito(t.dosis), cargaDe(t)].filter(Boolean).join(' · ');
-}
-
-/** La carga o su ausencia declarada: «9 kg», «peso corporal», o nada. */
-export function cargaDe(t: Tarea): string | null {
-  return kg(t) ?? (t.corporal ? 'peso corporal' : null);
-}
+// La tarea y su formato son del kit (`PasoBase.wod`, `Tarea`, `InfoWod`), y
+// también sus textos (`textoTarea`, `dosisTarea`, `cargaTarea`): el mismo EMOM
+// se dice igual en la muñeca, en la voz y en la Estructura.
 
 // ---------------------------------------------------------------------------
 // Constructores
@@ -114,17 +56,10 @@ const split = (s: number): Objetivo => ({ eje: 'split500', min: s, max: s, papel
 let cuenta = 0;
 const id = (p: string) => `${p}-${++cuenta}`;
 
-type Parcial = Omit<PasoWod, 'id' | 'cierre' | 'objetivos' | 'fase'> & Partial<Pick<PasoWod, 'cierre' | 'objetivos' | 'fase'>>;
-const paso = (p: Parcial): PasoWod => ({ id: id(p.clase), cierre: 'medida', objetivos: [], fase: 'principal', ...p });
+type Parcial = Omit<PasoBase, 'id' | 'cierre' | 'objetivos' | 'fase'> & Partial<Pick<PasoBase, 'cierre' | 'objetivos' | 'fase'>>;
+const paso = (p: Parcial): PasoBase => ({ id: id(p.clase), cierre: 'medida', objetivos: [], fase: 'principal', ...p });
 
 const base = (pasos: PasoBase[]): PlanSesion => ({ pasos, zonas: ZONAS, reglas: REGLAS_AVISO_DEFECTO });
-
-/** Una fila de las páginas de lista (Estructura, Tarea, Rotación). */
-export interface FilaLista {
-  linea: string;
-  detalle?: string | null;
-  estado: 'hecho' | 'ahora' | 'pendiente';
-}
 
 export type Formato = 'emom' | 'amrap' | 'chipper' | 'fortime' | 'carrera' | 'ergo' | 'pared';
 
@@ -146,7 +81,7 @@ const estado = (i: number, desde: number, hasta: number): FilaLista['estado'] =>
 const maquinaDe = (t: Tarea): PasoBase['maquina'] =>
   t.nombre === 'Row' ? { tipo: 'remo' } : t.nombre === 'SkiErg' ? { tipo: 'ski' } : undefined;
 
-function emom(ciclo: Tarea[], rondas: number, ventanaS: number): PasoWod[] {
+function emom(ciclo: Tarea[], rondas: number, ventanaS: number): PasoBase[] {
   const n = ciclo.length * rondas;
   return Array.from({ length: n }, (_, k) => {
     const tarea = ciclo[k % ciclo.length]!;
@@ -170,7 +105,7 @@ function filasEmom(ciclo: Tarea[], ventanaS: number, pasos: PasoBase[]) {
     const actual = wodDe(pasos[i]);
     return ciclo.map((t, k) => ({
       linea: `${k + 1} · ${t.nombre}${t.corre ? ' en cinta' : ''}`,
-      detalle: dosisDe(t) ?? `${fmtDuracion(ventanaS)} entero`,
+      detalle: dosisTarea(t) ?? `${fmtDuracion(ventanaS)} entero`,
       estado: actual?.formato === 'emom' && actual.tarea === t ? 'ahora' : 'pendiente',
     }));
   };
@@ -199,7 +134,7 @@ export function emom572(): PlanWod {
 // AMRAP — la ventana y, detrás, la puntuación (rondas + reps, o reps)
 // ---------------------------------------------------------------------------
 
-function amrap(tareas: Tarea[], duracionS: number, extra: Partial<Parcial> = {}): PasoWod[] {
+function amrap(tareas: Tarea[], duracionS: number, extra: Partial<Parcial> = {}): PasoBase[] {
   const ventana = paso({
     clase: 'amrap',
     rol: 'trabajo',
@@ -244,7 +179,7 @@ export function amrap15(): PlanWod {
 /** 506 · Chipper: 4 × [Run 800 m @RPE 8 → AMRAP 4′ de un movimiento, a peso corporal]. */
 export function chipper506(): PlanWod {
   const movimientos = ['Pull-up', 'Walking Lunge', 'Push-up', 'Air Squat'];
-  const pasos: PasoWod[] = [];
+  const pasos: PasoBase[] = [];
   movimientos.forEach((m, k) => {
     const ronda = { n: k + 1, de: 4 };
     pasos.push(
@@ -277,7 +212,7 @@ export function forTimeWod(): PlanWod {
     { nombre: 'Wall Ball', dosis: reps(20), carga: { kg: 9 }, mide: 'atleta' },
     { nombre: 'Burpee', dosis: reps(10), corporal: true, mide: 'atleta' },
   ];
-  const pasos: PasoWod[] = [];
+  const pasos: PasoBase[] = [];
   for (let r = 1; r <= 3; r++) {
     tareas.forEach((t, k) =>
       pasos.push(
@@ -327,7 +262,7 @@ export function carrera552(): PlanWod {
 
 /** 505 · SkiErg 8 × 250 m @2:05/500 · r 45″. Sin PM5, los 250 m los dices tú. */
 export function ergo505(pm5: boolean): PlanWod {
-  const pasos: PasoWod[] = [];
+  const pasos: PasoBase[] = [];
   for (let k = 1; k <= 8; k++) {
     pasos.push(
       paso({
@@ -340,7 +275,6 @@ export function ergo505(pm5: boolean): PlanWod {
         objetivos: [split(125)],
         posicion: { serie: { n: k, de: 8 } },
         bloque: 0,
-        wod: { formato: 'ergo' },
       }),
     );
     if (k < 8) pasos.push(paso({ clase: 'recuperacion', rol: 'recuperacion', medida: tiempo(45), modoRecupera: 'parado', bloque: 0 }));
@@ -360,7 +294,7 @@ export function ergo530(): PlanWod {
     ['Row', { tipo: 'remo' }, 'ergo'],
     ['Assault Bike', { tipo: 'bici' }, 'reloj'],
   ];
-  const pasos: PasoWod[] = [];
+  const pasos: PasoBase[] = [];
   for (let r = 1; r <= 3; r++) {
     maquinas.forEach(([nombre, maquina, mide]) =>
       pasos.push(
@@ -374,8 +308,7 @@ export function ergo530(): PlanWod {
           objetivos: [zona(2)],
           posicion: { ronda: { n: r, de: 3 } },
           bloque: 0,
-          wod: { formato: 'ergo' },
-        }),
+          }),
       ),
     );
   }
@@ -399,7 +332,7 @@ export function escalera536(): PlanWod {
     [60, 3],
     [30, 4],
   ];
-  const pasos: PasoWod[] = tramos.map(([s, z], k) =>
+  const pasos: PasoBase[] = tramos.map(([s, z], k) =>
     paso({
       clase: 'ergo',
       rol: 'trabajo',
@@ -409,7 +342,6 @@ export function escalera536(): PlanWod {
       objetivos: [zona(z)],
       posicion: { tramo: { n: k + 1, de: 3 } },
       bloque: 0,
-      wod: { formato: 'ergo' },
     }),
   );
   pasos.push(paso({ clase: 'recuperacion', rol: 'recuperacion', medida: tiempo(240), modoRecupera: 'parado', bloque: 0 }));
@@ -434,7 +366,6 @@ export function bike514(): PlanWod {
     medida: tiempo(2700),
     objetivos: [zona(1, 'solo-arriba'), { eje: 'ppm', min: null, max: 142, papel: 'techo' }],
     bloque: 0,
-    wod: { formato: 'ergo' },
   });
   return { plan: base([bici]), formato: 'ergo', titulo: 'Assault Bike · 45′', estructura: () => [{ linea: 'Assault Bike · 45′', detalle: 'a Z1 · máx 142 ppm', estado: 'ahora' }] };
 }
@@ -445,7 +376,7 @@ export function bike514(): PlanWod {
 
 export function tabata(): PlanWod {
   const info: InfoWod = { formato: 'pared', trabajoS: 20, descansoS: 10, rondas: 8 };
-  const pasos: PasoWod[] = [];
+  const pasos: PasoBase[] = [];
   for (let k = 1; k <= 8; k++) {
     pasos.push(paso({ clase: 'series', rol: 'trabajo', nombre: 'Burpee', medida: tiempo(20), objetivos: [rpe(10)], posicion: { ronda: { n: k, de: 8 } }, bloque: 0, wod: info }));
     if (k < 8) pasos.push(paso({ clase: 'descanso', rol: 'descanso', medida: tiempo(10), bloque: 0, wod: info }));

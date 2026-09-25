@@ -1,5 +1,3 @@
-'use client';
-
 // LA SECUENCIA — el motor mínimo del doble: pasos anclados, cierres, eventos.
 //
 // P1 dice que los relojes se calculan en la muñeca desde anclas y que los
@@ -7,56 +5,44 @@
 // puro: `avanzar` recibe el estado de un segundo y devuelve el del siguiente
 // más los eventos que la transición produce; `cerrar` hace lo mismo cuando el
 // atleta cierra a mano. La pantalla solo pone el cuerpo (el `Simulador`: qué
-// ritmo y qué pulso da el atleta en cada segundo) y pinta.
+// ritmo, qué /500 y qué pulso da el atleta en cada segundo) y pinta. El gancho
+// que lo mueve en React vive en `gancho.ts`.
 //
 // Sirve a todas las familias: un descanso de fuerza, una estación de HYROX o
 // una serie de 1000 m son pasos con su medida; cambia quién los mide y quién
 // los cierra, no el motor.
 //
 // Lo que hace, y por qué:
-//   · cierre por medida (tiempo o metros) o por el atleta (hasta pulsar);
+//   · cierre por medida (tiempo o metros), por el atleta (hasta pulsar) o por
+//     DETECCIÓN (un paso abierto que mide el sensor: la Roxzone de salida se
+//     cierra sola al ver que vuelves a correr);
+//   · un PARCIAL por paso cerrado (estación, km, Roxzone: P10);
+//   · el PM5 da su /500 y sus metros directos: cuentan para el paso, no para
+//     los km corridos de la sesión (un remo no es una carrera);
 //   · preaviso a 10 s / 100 m en pasos que no son cortos (dato del coach);
 //   · 3-2-1 a pantalla completa SOLO al entrar en un paso de trabajo de la
-//     parte principal desde algo que no es trabajo (recuperación, descanso,
-//     calentamiento): cortar un progresivo con una cuenta atrás a pantalla
-//     completa sería tapar el reloj corriendo;
+//     parte principal desde algo que no es trabajo;
 //   · la serie cerrada deja su vuelta y su frase («Serie 3: 3:48, dentro.»);
 //   · vuelta automática por km donde el coach la pide;
-//   · aviso fuera de objetivo con histéresis y cadencia (`decidirAviso`);
-//   · deshacer: el cierre manual guarda el estado de antes y el tiempo sigue.
+//   · aviso fuera de objetivo con histéresis y cadencia (`decidirAviso`), en
+//     cualquier eje que se lea en vivo (ritmo, pulso, /500, vatios);
+//   · el tiempo en cada zona del coach y el pulso máximo (el resumen los pide).
 
-import { useEffect, useRef, useState } from 'react';
-import { useTicker } from '../sim';
-import {
-  AVISO_INICIAL,
-  decidirAviso,
-  type EstadoAviso,
-  type EventoVivo,
-  type Eventos,
-} from './eventos';
-import type {
-  CampoVivo,
-  EstadoGps,
-  Lecturas,
-  Paso,
-  PasoBase,
-  ReglasAviso,
-  Vuelta,
-  ZonasCoach,
-} from './paso';
+import { AVISO_INICIAL, decidirAviso, type EstadoAviso, type EventoVivo } from './eventos';
+import type { CampoVivo, EstadoGps, Lecturas, Parcial, Paso, PasoBase, ReglasAviso, Vuelta, ZonasCoach } from './paso';
 import {
   RITMO_TECHO_S,
   faltaDe,
   fmtReloj,
-  fmtRitmo,
   holguraDe,
   objetivoDe,
   principal,
   veredictoDe,
   veredictoDelPaso,
   veredictoPrincipal,
+  zonaDe,
 } from './reglas';
-import { VOZ_SESION, vozDescanso, vozFinSerie, vozInicio, vozKm, vozPreaviso, vozRecupera } from './voz';
+import { VOZ_SESION, vozDescanso, vozFinSerie, vozInicio, vozKm, vozPreaviso, vozRecupera, vozTransicion } from './voz';
 
 export interface PlanSesion {
   /** Los pasos en orden, planos. El anidado vive en la `posicion` de cada uno (M4). */
@@ -75,6 +61,13 @@ export interface LecturaSim {
   viejos?: CampoVivo[];
   /** Para pasos de reps o calorías: lo hecho, si alguien lo cuenta. */
   hecho?: number | null;
+  /** El /500 del PM5 (remo, SkiErg), s. De él salen los metros del ergómetro. */
+  split500?: number | null;
+  vatios?: number | null;
+  /** Paladas o pasos por minuto. */
+  cadencia?: number | null;
+  /** Metros del PM5 en este segundo, si los da directos (si no, salen del /500). */
+  metros?: number | null;
 }
 
 export type Simulador = (paso: PasoBase, i: number, t: number, sesionT: number) => LecturaSim;
@@ -82,14 +75,21 @@ export type Simulador = (paso: PasoBase, i: number, t: number, sesionT: number) 
 export interface EstadoSecuencia {
   i: number;
   t: number;
+  /** Metros de ESTE paso, midiera quien midiera (GPS, cinta o PM5). */
   metros: number;
   /** ¿Alguien ha medido metros en este paso? Si no, lo hecho es null, no cero. */
   midio: boolean;
   extraS: number;
   sesionT: number;
+  /** Metros CORRIDOS de la sesión (GPS o cinta): los km, el ritmo medio. */
   sesionM: number;
+  /** Metros de ergómetro de la sesión (PM5): cuentan aparte, no son km corridos. */
+  sesionErgoM: number;
   ppmSuma: number;
   ppmN: number;
+  /** Segundos en cada zona del coach (Z1..ZN) y el pulso más alto: el resumen los pide. */
+  zonasS: number[];
+  ppmMax: number;
   pasoPpmSuma: number;
   pasoPpmN: number;
   /**
@@ -98,6 +98,8 @@ export interface EstadoSecuencia {
    * la media (que castiga el retraso del pulso al arrancar).
    */
   pasoZonaS: [number, number, number];
+  /** Segundos seguidos corriendo en un paso que se cierra por detección. */
+  corriendoS: number;
   kmN: number;
   kmDesdeT: number;
   /** La vuelta manual (el control «Vuelta»): desde cuándo y desde qué metro. */
@@ -105,6 +107,8 @@ export interface EstadoSecuencia {
   tramoDesdeT: number;
   tramoDesdeM: number;
   vueltas: Vuelta[];
+  /** Un parcial por paso cerrado, en orden (P10). */
+  parciales: Parcial[];
   aviso: EstadoAviso;
   preavisado: boolean;
   /** Hasta qué segundo de sesión se ve el GO (0 = no se ve). */
@@ -119,18 +123,43 @@ export interface InicioSecuencia {
   i: number;
   t?: number;
   metros?: number;
+  /** Si falta: la suma de los parciales de lo ya hecho más `t`. */
   sesionT?: number;
+  /** Km corridos de la sesión, con los de este paso. Si falta: `metros`, salvo que los mida la máquina. */
   sesionM?: number;
+  /** Metros de ergómetro de la sesión, con los de este paso. Si falta: `metros` si los mide la máquina (PM5). */
+  sesionErgoM?: number;
   vueltas?: Vuelta[];
+  /** Los pasos ya hechos, con su parcial. */
+  parciales?: Parcial[];
   /** Media de pulso de lo que ya se corrió (para la página Datos). */
   ppmMedio?: number;
   /** Segundo de sesión en que empezó el km en curso (si no, se estima a ritmo uniforme). */
   kmDesdeT?: number;
   /** Arranca en pausa (escenarios de la pausa). */
   pausado?: boolean;
+  /**
+   * ¿Ya sonó el preaviso de este paso? Si falta, se deduce: un escenario que
+   * arranca dentro de los últimos 10 s (o 100 m) ya lo oyó, y no se repite
+   * con otra cifra.
+   */
+  preavisado?: boolean;
 }
 
-type Salida = { estado: EstadoSecuencia; eventos: Array<{ evento: EventoVivo; voz?: string }> };
+/** Lo que emite una transición: un evento del vocabulario y, si toca, su frase. */
+export interface Emitido {
+  evento: EventoVivo;
+  voz?: string;
+}
+
+export type Salida = { estado: EstadoSecuencia; eventos: Emitido[] };
+
+/**
+ * DETECCIÓN (mecanismo nuestro, no método del coach): más rápido que 8:00/km
+ * durante 3 s seguidos es volver a correr. Cierra la Roxzone de salida. A
+ * VALIDAR EN APARATO.
+ */
+export const DETECCION = { ritmoCorrerS: 480, seguidosS: 3 } as const;
 
 // ---------------------------------------------------------------------------
 // Proyecciones: del estado del motor al contrato del pintor
@@ -157,6 +186,9 @@ export function lecturasDe(p: PasoBase, s: EstadoSecuencia): Lecturas {
     ritmo: s.lect.ritmo,
     ppm: s.lect.ppm,
     ppmTendencia: s.lect.ppmTendencia,
+    split500: s.lect.split500 ?? null,
+    vatios: s.lect.vatios ?? null,
+    cadencia: s.lect.cadencia ?? null,
     gps: s.lect.gps ?? 'no-aplica',
     viejos: s.lect.viejos,
   };
@@ -174,6 +206,23 @@ function entraConCuenta(p: PasoBase, sig: PasoBase | null): boolean {
   return !!sig && sig.rol === 'trabajo' && sig.fase === 'principal' && (p.rol !== 'trabajo' || p.fase !== 'principal');
 }
 
+/** El tiempo total de lo ya hecho y de lo de ahora: la suma de los parciales más el paso en curso. */
+export const segundosDeParciales = (ps: Parcial[]) => ps.reduce((a, x) => a + x.segundos, 0);
+
+/** Metros de este segundo: los del GPS/cinta (corridos) y los del PM5 (ergómetro). */
+function metrosDelSegundo(l: LecturaSim): { corridos: number; ergo: number } {
+  const corridos = l.ritmo != null && l.ritmo > 0 && l.ritmo < RITMO_TECHO_S ? 1000 / l.ritmo : 0;
+  const ergo = l.metros != null ? Math.max(0, l.metros) : l.split500 != null && l.split500 > 0 ? 500 / l.split500 : 0;
+  return { corridos, ergo };
+}
+
+/** Suma un segundo de pulso a las zonas del coach. */
+function conZona(zonasS: number[], ppm: number | null, zonas: ZonasCoach | null): number[] {
+  if (ppm == null || !zonas || zonasS.length === 0) return zonasS;
+  const z = zonaDe(ppm, zonas) - 1;
+  return zonasS.map((s, k) => (k === z ? s + 1 : s));
+}
+
 // ---------------------------------------------------------------------------
 // El motor puro
 // ---------------------------------------------------------------------------
@@ -181,10 +230,16 @@ function entraConCuenta(p: PasoBase, sig: PasoBase | null): boolean {
 export function estadoInicial(plan: PlanSesion, sim: Simulador, ini: InicioSecuencia): EstadoSecuencia {
   const p = plan.pasos[ini.i]!;
   const t = ini.t ?? 0;
-  const sesionT = ini.sesionT ?? t;
-  const sesionM = ini.sesionM ?? ini.metros ?? 0;
+  const parciales = ini.parciales ?? [];
+  const sesionT = ini.sesionT ?? segundosDeParciales(parciales) + t;
+  const lect = sim(p, ini.i, t, sesionT);
+  // Los metros ya hechos del paso son de la máquina si la máquina los mide
+  // (PM5): no son km corridos ni cuentan para la vuelta automática.
+  const deMaquina = lect.split500 != null || lect.metros != null;
+  const sesionM = ini.sesionM ?? (deMaquina ? 0 : (ini.metros ?? 0));
   const kmN = Math.floor(sesionM / 1000);
-  return {
+  const n = plan.zonas?.techos.length ?? 0;
+  const s: EstadoSecuencia = {
     i: ini.i,
     t,
     metros: ini.metros ?? 0,
@@ -192,24 +247,35 @@ export function estadoInicial(plan: PlanSesion, sim: Simulador, ini: InicioSecue
     extraS: 0,
     sesionT,
     sesionM,
+    sesionErgoM: ini.sesionErgoM ?? (deMaquina ? (ini.metros ?? 0) : 0),
     ppmSuma: (ini.ppmMedio ?? 0) * sesionT,
     ppmN: ini.ppmMedio ? sesionT : 0,
+    zonasS: conZona(Array.from({ length: n }, () => 0), lect.ppm, plan.zonas),
+    ppmMax: lect.ppm != null ? Math.round(lect.ppm) : 0,
     pasoPpmSuma: 0,
     pasoPpmN: 0,
     pasoZonaS: [0, 0, 0],
+    corriendoS: 0,
     kmN,
     kmDesdeT: ini.kmDesdeT ?? sesionT - Math.round(((sesionM - kmN * 1000) / Math.max(1, sesionM)) * sesionT),
     tramosN: 0,
     tramoDesdeT: sesionT,
     tramoDesdeM: sesionM,
     vueltas: ini.vueltas ?? [],
+    parciales,
     aviso: AVISO_INICIAL,
     preavisado: false,
     goHasta: 0,
     banner: null,
     terminado: false,
-    lect: sim(p, ini.i, t, sesionT),
+    lect,
   };
+  if (ini.preavisado != null) return { ...s, preavisado: ini.preavisado };
+  // Si el escenario arranca ya dentro del preaviso, ese preaviso ya sonó.
+  const f = faltaDe(p, lecturasDe(p, s));
+  const r = plan.reglas;
+  const ya = f != null && ((p.medida.tipo === 'distancia' && f <= r.preavisoM) || (p.medida.tipo === 'tiempo' && f <= r.preavisoS));
+  return { ...s, preavisado: ya };
 }
 
 /** Un segundo de motor. */
@@ -219,18 +285,21 @@ export function avanzar(s: EstadoSecuencia, plan: PlanSesion, sim: Simulador): S
   const t = s.t + 1;
   const sesionT = s.sesionT + 1;
   const lect = sim(p, s.i, t, sesionT);
-  const dm = lect.ritmo != null && lect.ritmo > 0 && lect.ritmo < RITMO_TECHO_S ? 1000 / lect.ritmo : 0;
-  const eventos: Salida['eventos'] = [];
+  const dm = metrosDelSegundo(lect);
+  const eventos: Emitido[] = [];
   let n: EstadoSecuencia = {
     ...s,
     t,
     sesionT,
     lect,
-    metros: s.metros + dm,
-    midio: s.midio || dm > 0,
-    sesionM: s.sesionM + dm,
+    metros: s.metros + dm.corridos + dm.ergo,
+    midio: s.midio || dm.corridos + dm.ergo > 0,
+    sesionM: s.sesionM + dm.corridos,
+    sesionErgoM: s.sesionErgoM + dm.ergo,
     ppmSuma: s.ppmSuma + (lect.ppm ?? 0),
     ppmN: s.ppmN + (lect.ppm != null ? 1 : 0),
+    zonasS: conZona(s.zonasS, lect.ppm, plan.zonas),
+    ppmMax: lect.ppm != null ? Math.max(s.ppmMax, Math.round(lect.ppm)) : s.ppmMax,
     pasoPpmSuma: s.pasoPpmSuma + (lect.ppm ?? 0),
     pasoPpmN: s.pasoPpmN + (lect.ppm != null ? 1 : 0),
     banner: s.banner && s.banner.hasta > sesionT ? s.banner : null,
@@ -287,6 +356,17 @@ export function avanzar(s: EstadoSecuencia, plan: PlanSesion, sim: Simulador): S
     }
   }
 
+  // Cierre por detección: un paso abierto que mide el sensor se cierra cuando
+  // la muñeca ve que vuelves a correr unos segundos seguidos.
+  if (p.cierre === 'medida' && p.medida.tipo === 'abierta' && p.medida.mide === 'sensor') {
+    const corre = lect.ritmo != null && lect.ritmo <= DETECCION.ritmoCorrerS;
+    n = { ...n, corriendoS: corre ? n.corriendoS + 1 : 0 };
+    if (n.corriendoS >= DETECCION.seguidosS) {
+      const c = cerrar(n, plan, 'medida');
+      return { estado: c.estado, eventos: [...eventos, ...c.eventos] };
+    }
+  }
+
   // Cierre por medida.
   if (p.cierre === 'medida' && f != null && f <= 0) {
     const c = cerrar(n, plan, 'medida');
@@ -298,17 +378,21 @@ export function avanzar(s: EstadoSecuencia, plan: PlanSesion, sim: Simulador): S
 /**
  * El veredicto de una serie cerrada, con la holgura con la que juzgó el motor
  * en vivo (la frase no canta «rápida» una serie que la banda dio por buena).
- * A ritmo: su ritmo medio. A zona o pulso: donde pasó MÁS tiempo tras la
+ * A ritmo o a /500: su media. A zona o pulso: donde pasó MÁS tiempo tras la
  * gracia; si la serie fue más corta que la gracia, no se juzga (null): el
  * pulso aún no había llegado.
  */
 function veredictoDeVuelta(
   o: NonNullable<ReturnType<typeof principal>>,
-  ritmo: number | null,
+  v: Pick<Vuelta, 'ritmo' | 'segundos' | 'metros'>,
   zonaS: [number, number, number],
   plan: PlanSesion,
 ): Vuelta['veredicto'] {
-  if (o.eje === 'ritmo') return ritmo == null ? null : veredictoDe(o, ritmo, holguraDe('ritmo', plan.reglas), plan.zonas);
+  if (o.eje === 'ritmo') return v.ritmo == null ? null : veredictoDe(o, v.ritmo, holguraDe('ritmo', plan.reglas), plan.zonas);
+  if (o.eje === 'split500') {
+    if (v.metros == null || v.metros <= 0) return null;
+    return veredictoDe(o, (v.segundos * 500) / v.metros, holguraDe('split500', plan.reglas), plan.zonas);
+  }
   if (o.eje !== 'zona' && o.eje !== 'ppm') return null;
   const [dentro, encima, debajo] = zonaS;
   if (dentro + encima + debajo === 0) return null;
@@ -316,26 +400,44 @@ function veredictoDeVuelta(
   return encima >= debajo ? 'por-encima' : 'por-debajo';
 }
 
-/** Cierra el paso en curso — solo (por medida) o a mano (el atleta). */
+/** Lo que emite la entrada en el paso siguiente: GO, recupera o la transición. */
+function entradaEn(plan: PlanSesion, j: number): Emitido {
+  const sig = plan.pasos[j]!;
+  const tras = plan.pasos[j + 1] ?? null;
+  if (sig.rol === 'trabajo') return { evento: 'go', voz: vozInicio(sig) };
+  if (sig.rol === 'recuperacion') return { evento: 'recupera', voz: vozRecupera(sig, tras) };
+  if (sig.rol === 'descanso') return { evento: 'recupera', voz: vozDescanso(sig) };
+  // La Roxzone es parte de la carrera (P10): se entra con .start×2, como a una
+  // estación. Colocarse o dar la puntuación es dejar de trabajar: .stop.
+  return { evento: sig.roxzone ? 'go' : 'recupera', voz: vozTransicion(sig, tras) };
+}
+
+/** Cierra el paso en curso — solo (por medida o por detección) o a mano (el atleta). */
 export function cerrar(s: EstadoSecuencia, plan: PlanSesion, quien: 'medida' | 'atleta'): Salida {
   const p = pasoVivo(plan, s);
-  const eventos: Salida['eventos'] = [];
+  const eventos: Emitido[] = [];
   if (quien === 'atleta') eventos.push({ evento: 'accion' });
+  const ppm = s.pasoPpmN > 0 ? Math.round(s.pasoPpmSuma / s.pasoPpmN) : null;
+  const parcial: Parcial = {
+    i: s.i,
+    segundos: s.t,
+    metros: s.midio ? Math.round(s.metros) : null,
+    ppm,
+    hecho: p.medida.tipo === 'reps' || p.medida.tipo === 'cal' ? (s.lect.hecho ?? null) : null,
+  };
   let vueltas = s.vueltas;
   const cuenta = p.posicion?.serie ?? p.posicion?.tramo;
   if (p.rol === 'trabajo' && p.fase === 'principal' && cuenta) {
     const ritmo = s.midio && s.metros > 50 ? s.t / (s.metros / 1000) : null;
-    const ppm = s.pasoPpmN > 0 ? Math.round(s.pasoPpmSuma / s.pasoPpmN) : null;
     const o = principal(p);
+    const base = { segundos: s.t, metros: s.midio ? Math.round(s.metros) : null, ritmo };
     const v: Vuelta = {
       n: cuenta.n,
       tanda: p.posicion?.tanda?.n,
       clase: p.posicion?.tramo ? 'tramo' : 'serie',
-      segundos: s.t,
-      metros: s.midio ? Math.round(s.metros) : null,
-      ritmo,
+      ...base,
       ppm,
-      veredicto: o ? veredictoDeVuelta(o, ritmo, s.pasoZonaS, plan) : null,
+      veredicto: o ? veredictoDeVuelta(o, base, s.pasoZonaS, plan) : null,
       eje: o?.eje,
     };
     vueltas = [...vueltas, v];
@@ -345,16 +447,15 @@ export function cerrar(s: EstadoSecuencia, plan: PlanSesion, quien: 'medida' | '
       eventos.push({ evento: 'fin-serie', voz: vozFinSerie(p, v) });
     }
   }
+  const parciales = [...s.parciales, parcial];
 
   const sig = plan.pasos[s.i + 1];
   if (!sig) {
     eventos.push({ evento: 'sesion', voz: VOZ_SESION });
-    return { estado: { ...s, vueltas, terminado: true }, eventos };
+    return { estado: { ...s, vueltas, parciales, terminado: true }, eventos };
   }
   if (sig.bloque != null && p.bloque != null && sig.bloque !== p.bloque) eventos.push({ evento: 'bloque' });
-  if (sig.rol === 'trabajo') eventos.push({ evento: 'go', voz: vozInicio(sig) });
-  else if (sig.rol === 'recuperacion') eventos.push({ evento: 'recupera', voz: vozRecupera(sig, plan.pasos[s.i + 2] ?? null) });
-  else eventos.push({ evento: 'recupera', voz: vozDescanso(sig) });
+  eventos.push(entradaEn(plan, s.i + 1));
 
   const verGo = sig.rol === 'trabajo' && sig.fase === 'principal' && (p.rol !== 'trabajo' || quien === 'atleta');
   return {
@@ -368,127 +469,13 @@ export function cerrar(s: EstadoSecuencia, plan: PlanSesion, quien: 'medida' | '
       pasoPpmSuma: 0,
       pasoPpmN: 0,
       pasoZonaS: [0, 0, 0],
+      corriendoS: 0,
       vueltas,
+      parciales,
       aviso: AVISO_INICIAL,
       preavisado: false,
       goHasta: verGo ? s.sesionT + 1 : 0,
     },
     eventos,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// El gancho
-// ---------------------------------------------------------------------------
-
-export interface Secuencia {
-  estado: EstadoSecuencia;
-  paso: Paso;
-  lecturas: Lecturas;
-  /** 3, 2, 1 durante la cuenta atrás a pantalla completa; si no, null. */
-  cuenta: number | null;
-  /** El GO del primer segundo de un paso de trabajo. */
-  go: boolean;
-  pausado: boolean;
-  pausar: (si: boolean) => void;
-  /** Cierre a mano (doble toque, Acción, «Empezar ya»). Guarda el estado para deshacer. */
-  cerrar: () => void;
-  deshacer: () => void;
-  /** +30 s al descanso en curso. */
-  sumar30: () => void;
-  /** Vuelta manual (el control «Vuelta» de un rodaje): parte sin cerrar el paso. */
-  vuelta: () => void;
-  terminar: () => void;
-}
-
-/**
- * El motor de un escenario. `corriendo: false` lo congela (escenarios
- * estáticos como «color y tipo»). Los eventos van a `eventos.emitir`, que los
- * junta por instante y los escribe en la cronología.
- */
-export function useSecuencia(
-  plan: PlanSesion,
-  sim: Simulador,
-  inicio: InicioSecuencia,
-  eventos: Eventos,
-  corriendo = true,
-): Secuencia {
-  const [s, setS] = useState(() => estadoInicial(plan, sim, inicio));
-  const [pausado, setPausado] = useState(inicio.pausado ?? false);
-  // El estado MÁS RECIENTE y el de antes del último cierre a mano, en refs:
-  // el aviso de deshacer guarda la función 5 s, y un cierre de hace 5 s no
-  // puede leer el estado de su render (sería el de antes de cerrar).
-  const ultimo = useRef(s);
-  const antes = useRef<EstadoSecuencia | null>(null);
-  useEffect(() => {
-    ultimo.current = s;
-  });
-
-  const aplicar = (nuevo: EstadoSecuencia) => {
-    ultimo.current = nuevo;
-    setS(nuevo);
-  };
-
-  useTicker(corriendo && !pausado && !s.terminado, () => {
-    const r = avanzar(ultimo.current, plan, sim);
-    aplicar(r.estado);
-    r.eventos.forEach((e) => eventos.emitir(e.evento, e.voz));
-  });
-
-  const paso = pasoVivo(plan, s);
-  return {
-    estado: s,
-    paso,
-    lecturas: lecturasDe(paso, s),
-    cuenta: cuentaDe(plan, s),
-    go: s.goHasta > s.sesionT,
-    pausado,
-    pausar: (si) => {
-      setPausado(si);
-      eventos.emitir('accion');
-    },
-    cerrar: () => {
-      const actual = ultimo.current;
-      if (actual.terminado) return;
-      const r = cerrar(actual, plan, 'atleta');
-      antes.current = actual;
-      aplicar(r.estado);
-      r.eventos.forEach((e) => eventos.emitir(e.evento, e.voz));
-    },
-    deshacer: () => {
-      const a = antes.current;
-      const actual = ultimo.current;
-      if (!a) return;
-      // El tiempo no se deshace: el paso reabierto sigue contando desde donde iba.
-      const pasado = actual.sesionT - a.sesionT;
-      aplicar({ ...a, t: a.t + pasado, sesionT: actual.sesionT, sesionM: actual.sesionM, lect: actual.lect, goHasta: 0 });
-      antes.current = null;
-      eventos.emitir('accion');
-    },
-    sumar30: () => {
-      const actual = ultimo.current;
-      aplicar({ ...actual, extraS: actual.extraS + 30, preavisado: false });
-      eventos.emitir('accion');
-    },
-    vuelta: () => {
-      const actual = ultimo.current;
-      const seg = actual.sesionT - actual.tramoDesdeT;
-      const m = actual.sesionM - actual.tramoDesdeM;
-      const ritmo = m > 50 ? seg / (m / 1000) : null;
-      const n = actual.tramosN + 1;
-      const v: Vuelta = { n, clase: 'tramo', segundos: seg, metros: Math.round(m), ritmo, ppm: actual.lect.ppm, veredicto: null };
-      aplicar({
-        ...actual,
-        tramosN: n,
-        tramoDesdeT: actual.sesionT,
-        tramoDesdeM: actual.sesionM,
-        vueltas: [...actual.vueltas, v],
-        banner: { titulo: `Vuelta ${n}`, valor: fmtReloj(seg), pie: `${fmtRitmo(ritmo)} /km`, hasta: actual.sesionT + 4 },
-      });
-      eventos.emitir('accion');
-    },
-    terminar: () => {
-      aplicar({ ...ultimo.current, terminado: true });
-    },
   };
 }

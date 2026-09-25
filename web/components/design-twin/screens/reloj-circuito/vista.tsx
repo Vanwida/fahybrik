@@ -1,91 +1,111 @@
 'use client';
 
-// EL VIVO DEL CIRCUITO — montado a mano con el kit (`useEventos` + el motor +
-// `<Muneca>`), porque `VivoDePlan` fija sus cuatro páginas y el circuito
-// recorre otras tres con la corona: Paso → Ruta → Datos (Para el kit: que
-// `VivoDePlan` acepte sus páginas).
+// EL VIVO DEL CIRCUITO — `useVivo` + `VistaVivo` del kit, configurados. El
+// motor del kit ya hace lo que el circuito necesitaba en local (P10): un
+// parcial por paso, la Roxzone de salida cerrada por detección, el preaviso
+// que no se repite al arrancar dentro de él. Lo que pone el circuito encima:
+//   · su voz (`traductorCircuito`): el parcial de cada tramo y estación y la
+//     entrada dicha en circuito;
+//   · sus caras (estación, Roxzone, AMRAP; la carrera es la de correr del kit),
+//     su descanso con su «Viene:» y sus capas (3-2-1 con la posición, «Entras a…»);
+//   · la corona de la Ruta: Paso → Ruta → Datos;
+//   · el crono total (la puntuación) y el aro con lo que dura cada estación;
+//   · la puntuación del AMRAP en la campana, con la corona.
 
-import { useEffect, useMemo, useRef } from 'react';
-import { AroSesion, Muneca, tinteDelPaso, useEventos, type AccionPrimaria, type PasoBase } from '../../kit-reloj';
-import type { CasoCircuito } from './casos';
-import { DescansoCircuito, CapaCuenta, CapaEntras } from './capas';
+import { useState } from 'react';
+import {
+  Descanso,
+  VistaVivo,
+  girarDial,
+  segundosDeParciales,
+  useVivo,
+  type AccionPrimaria,
+  type Dial,
+  type EstadoSecuencia,
+  type Secuencia,
+} from '../../kit-reloj';
+import { CapaCuenta, CapaEntras } from './capas';
 import { caraDelPaso } from './caras';
-import { useCircuito } from './motor';
+import type { CasoCircuito } from './casos';
 import { PaginaDatosCircuito, PaginaRuta } from './paginas';
-import { accionDe, avisoDe } from './texto';
+import { dibujoDe, esEstacion, esPuntuacion, type Circuito } from './planes';
+import { accionDe, avisoDe, vieneDe } from './texto';
+import { traductorCircuito } from './voz';
+
+/** Lo que dura la capa «Entras a…». */
+const ENTRAS_S = 3;
+
+/** El crono total (la puntuación): desde el primer paso del circuito. `null` = aún en el calentamiento. */
+export function totalDe(e: EstadoSecuencia, c: Circuito): number | null {
+  if (e.i < c.inicio) return null;
+  return e.sesionT - segundosDeParciales(e.parciales.filter((x) => x.i < c.inicio));
+}
+
+/**
+ * «Entras a…» cuando nada ha anunciado la estación: ni una Roxzone de entrada
+ * ni el GO de un descanso (el motor deja `goHasta` a 0 si no hubo GO).
+ */
+function entras(seq: Secuencia): boolean {
+  const { paso, estado, plan } = seq;
+  const anterior = plan.pasos[estado.i - 1];
+  return esEstacion(paso) && !estado.terminado && estado.goHasta === 0 && estado.t < ENTRAS_S && anterior?.roxzone !== 'entrada' && estado.i > 0;
+}
 
 export function VivoCircuito({ caso, onLog }: { caso: CasoCircuito; onLog: (linea: string) => void }) {
   const { c, sim, inicio } = caso;
-  const ev = useEventos(onLog);
-  const m = useCircuito(c, sim, inicio, ev);
-  const { paso, lecturas, e, total } = m;
   const zonas = c.plan.zonas;
+  // La puntuación dicha en cada campana, por índice de paso.
+  const [diales, setDiales] = useState<Record<number, Dial>>(caso.diales ?? {});
+  const reps = (i: number) => diales[i]?.reps ?? null;
+  const { seq, eventos } = useVivo(c.plan, sim, inicio, { traducir: traductorCircuito(c, reps), onLog });
+  const { paso, lecturas, estado } = seq;
+  const total = totalDe(estado, c);
+  const dial = esPuntuacion(paso) ? (diales[estado.i] ?? { rondas: 0, reps: null }) : null;
 
-  // El atleta simulado girando la corona en el AMRAP (el guion del escenario).
-  const ultimo = useRef(m);
-  useEffect(() => {
-    ultimo.current = m;
-  });
-  useEffect(() => {
-    const t = (caso.corona ?? []).map((x) =>
-      setTimeout(() => {
-        const v = ultimo.current.sumarReps(x.n);
-        onLog(`Corona +${x.n} → ${v} reps (las dices tú)`);
-      }, x.en),
-    );
-    return () => t.forEach(clearTimeout);
-    // El guion es fijo por montaje (cada escenario remonta).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // El aro reparte el perímetro con la ESTIMACIÓN de cada paso (no se pinta como tiempo).
-  const pasosDibujo = useMemo<PasoBase[]>(
-    () => c.plan.pasos.map((p, k) => ({ ...p, medida: { tipo: 'tiempo', prescrito: c.dibujoS[k] ?? 60, mide: 'reloj' } })),
-    [c],
-  );
-
-  const reps = e.reps[e.s.i] ?? 0;
-  const onCorona = (d: 1 | -1) => {
-    const v = m.sumarReps(d);
-    onLog(`Corona ${d > 0 ? '+1' : '−1'} → ${v} reps`);
+  // La corona, en la campana: arriba es «más».
+  const corona = (_s: Secuencia, dir: 1 | -1) => {
+    if (!esPuntuacion(paso)) return false;
+    const i = estado.i;
+    setDiales((d) => ({ ...d, [i]: girarDial(d[i] ?? { rondas: 0, reps: null }, dir === 1 ? -1 : 1, 0) }));
+    return true;
   };
-  const cara =
+
+  const cara = () =>
     paso.rol === 'descanso' ? (
-      <DescansoCircuito paso={paso} lecturas={lecturas} c={c} onMas30={m.sumar30} />
+      <Descanso paso={paso} lecturas={lecturas} onMas30={seq.sumar30} viene={paso.siguiente ? vieneDe(paso.siguiente, c) : null} />
     ) : (
-      caraDelPaso({ paso, lecturas, zonas, c, total, reps, onCorona })
+      caraDelPaso({ paso, lecturas, zonas, c, total, dial })
     );
 
-  const capa =
-    m.cuenta != null && paso.siguiente ? (
-      <CapaCuenta n={m.cuenta} paso={paso.siguiente} c={c} />
-    ) : m.go ? (
+  const capa = (s: Secuencia) =>
+    s.cuenta != null && paso.siguiente ? (
+      <CapaCuenta n={s.cuenta} paso={paso.siguiente} c={c} />
+    ) : s.go ? (
       <CapaCuenta n={0} paso={paso} c={c} />
-    ) : m.entras ? (
+    ) : entras(s) ? (
       <CapaEntras paso={paso} c={c} />
     ) : null;
 
-  const deshacer = { aviso: avisoDe(paso, c), hacer: m.deshacer };
-  const accion: AccionPrimaria | null = e.s.terminado ? null : { etiqueta: accionDe(paso), hacer: m.cerrar, deshacer };
+  const accion = (_s: Secuencia, kit: AccionPrimaria | null): AccionPrimaria | null => {
+    const etiqueta = accionDe(paso);
+    return kit && etiqueta ? { ...kit, etiqueta } : null;
+  };
 
   return (
-    <Muneca
-      paginas={[
-        { id: 'paso', titulo: 'Paso', contenido: cara },
-        { id: 'ruta', titulo: 'Ruta', contenido: <PaginaRuta c={c} e={e} /> },
-        { id: 'datos', titulo: 'Datos', contenido: <PaginaDatosCircuito c={c} e={e} total={total} lecturas={lecturas} zonas={zonas} /> },
+    <VistaVivo
+      seq={seq}
+      eventos={eventos}
+      cara={cara}
+      paginas={(_s, contenido) => [
+        { id: 'paso', titulo: 'Paso', contenido },
+        { id: 'ruta', titulo: 'Ruta', contenido: <PaginaRuta c={c} e={estado} reps={reps} /> },
+        { id: 'datos', titulo: 'Datos', contenido: <PaginaDatosCircuito c={c} e={estado} total={total} lecturas={lecturas} zonas={zonas} /> },
       ]}
-      aro={<AroSesion pasos={pasosDibujo} i={e.s.i} paso={paso} lecturas={lecturas} />}
-      tinte={tinteDelPaso(paso, lecturas, zonas)}
       capa={capa}
-      pausado={m.pausado}
-      onPausa={m.pausar}
-      siguiente={{ etiqueta: 'Siguiente paso', icono: 'siguiente', onPulsa: m.cerrar, deshacer }}
-      onTerminar={m.terminar}
-      completada={e.s.terminado}
       accion={accion}
-      eventos={ev}
-      alPaso={paso.id}
+      corona={corona}
+      avisoCierre={(p) => avisoDe(p, c)}
+      duracion={dibujoDe}
       inicial={caso.inicial}
       guion={caso.guion}
       modelo={caso.modelo}

@@ -180,6 +180,102 @@ export const FEMENINO_DEFECTO: ReadonlySet<Clase> = new Set<Clase>([
 ]);
 
 // ---------------------------------------------------------------------------
+// Lo propio de cada familia, como DATO del paso (P10, P11, P12)
+// ---------------------------------------------------------------------------
+
+/**
+ * P10 · La Roxzone tiene dos mitades: entrar a la estación (la cierra el
+ * atleta al empezarla) y salir a correr (se cierra sola al detectar que vuelve
+ * a correr: `medida.mide = 'sensor'`).
+ */
+export type SentidoRoxzone = 'entrada' | 'salida';
+
+/**
+ * P12 · Un movimiento dentro de una ventana (EMOM), de una ronda (AMRAP) o de
+ * un For Time. `dosis: null` = todo el intervalo (el remo de 498 «6 × 1′»).
+ */
+export interface Tarea {
+  nombre: string;
+  dosis: Medida | null;
+  carga?: { kg: number; implementos?: number };
+  /** «@ peso corporal» (506): un dato, no la ausencia de carga. */
+  corporal?: boolean;
+  /** Quién la mide: el PM5 (metros y /500), la cinta, o nadie («lo dices tú»). */
+  mide: QuienMide;
+  /** Una tarea de correr usa la cara de correr (P10). */
+  corre?: boolean;
+}
+
+/**
+ * P12 · El formato que enmarca la tarea (M5: el EMOM con su total explícito).
+ * `puntuacion` no la escribe el coach: es el paso que sigue a un AMRAP, donde
+ * se dicen las reps de la ronda a medias con la corona.
+ */
+export type InfoWod =
+  | { formato: 'emom'; tarea: Tarea; ciclo: Tarea[]; ventanas: number; ventanaS: number }
+  | { formato: 'amrap'; tareas: Tarea[]; duracionS: number }
+  | { formato: 'puntuacion'; tareas: Tarea[]; duracionS: number }
+  | { formato: 'fortime'; tarea: Tarea | null; capS: number | null }
+  | { formato: 'pared'; trabajoS: number; descansoS: number; rondas: number };
+
+/** P11 · El eje de la CARGA. Uno por serie; el esfuerzo es el otro eje. */
+export type CargaFuerza =
+  /** Kilos directos del coach: «155 kg», «150–160 kg». */
+  | { tipo: 'kg'; min: number; max: number }
+  /** %RM del coach, resuelto en kg con la RM del atleta (`null` = no la tiene). */
+  | { tipo: 'rm'; pctMin: number; pctMax: number; rmKg: number | null }
+  /** Peso corporal: no hay carga que anotar. */
+  | { tipo: 'corporal' }
+  /**
+   * El coach no pone carga (manda el RIR o el RPE): la pone el atleta. Se
+   * propone la de la última vez, que no cuenta como declarada. Con `lastre`,
+   * lo que se anota es el lastre (dominada lastrada).
+   */
+  | { tipo: 'tuya'; ultimaKg: number | null; lastre?: boolean };
+
+/** P11 · El eje del ESFUERZO: RIR o RPE, valor o rango. */
+export interface EsfuerzoFuerza {
+  eje: 'rir' | 'rpe';
+  min: number;
+  max: number;
+}
+
+/**
+ * P11/M1 · LA FICHA DE LA SERIE DE FUERZA: los DOS ejes de la dosis, si es
+ * por lado, si es de aproximación y lo que mueve la corona al anotar la carga.
+ *
+ * Va en el paso (`PasoBase.fuerza`), no en un tipo aparte: el paso del cable
+ * es uno solo y el Swift lo espeja como un `struct`; con un tipo aparte cada
+ * consumidor genérico (la voz, el aviso de deshacer, «Viene:») tendría que
+ * adivinar de qué familia es. `esFuerza` estrecha el tipo donde hace falta.
+ *
+ * Los objetivos del paso siguen diciendo lo mismo en su idioma (`rir`/`rpe`
+ * principal, `pctRM`/`kg` secundario): la ficha es lo que la anotación
+ * necesita y un objetivo no dice (la RM del atleta, la última carga, el
+ * implemento).
+ */
+export interface FichaFuerza {
+  /** Clave del ejercicio en la sesión: agrupa sus series y aproximaciones. */
+  ejercicio: string;
+  carga: CargaFuerza;
+  esfuerzo: EsfuerzoFuerza | null;
+  /** «10 por pierna» es dato, no nota. */
+  porLado?: 'pierna' | 'brazo' | 'lado';
+  /** Serie de aproximación: se marca, no es de trabajo y no se anota. */
+  aproximacion?: boolean;
+  /** Lo que mueve la carga un clic de corona, en kg (barra 2,5, mancuernas 2…). Del gimnasio. */
+  pasoKg: number;
+  /** De dónde arranca la corona si no hay carga propuesta: la barra vacía. Del implemento. */
+  vaciaKg?: number;
+}
+
+/**
+ * Lo que es del implemento y del gimnasio, no del plan: dato con defecto
+ * (HARD RULE Nº0). Una barra técnica pesa 10 kg; una de mujer, 15.
+ */
+export const FICHA_FUERZA_DEFECTO = { pasoKg: 2.5, vaciaKg: 20 } as const;
+
+// ---------------------------------------------------------------------------
 // El paso
 // ---------------------------------------------------------------------------
 
@@ -219,6 +315,12 @@ export interface PasoBase {
   vueltaAutoM?: number;
   /** Índice del bloque del coach: cambiar de bloque es el evento «bloque hecho». */
   bloque?: number;
+  /** P10 · Qué mitad de la Roxzone es (solo en un paso `roxzone`). */
+  roxzone?: SentidoRoxzone;
+  /** P12 · El formato del WOD y su tarea (EMOM, AMRAP, For Time, reloj de pared). */
+  wod?: InfoWod;
+  /** P11 · La ficha de la serie de fuerza (los dos ejes de la dosis). */
+  fuerza?: FichaFuerza;
 }
 
 export interface Paso extends PasoBase {
@@ -316,6 +418,23 @@ export interface Vuelta {
   veredicto: Veredicto | null;
   /** Contra qué eje se juzgó: decide la palabra («rápido» o «alto»). */
   eje?: EjeObjetivo;
+}
+
+/**
+ * EL PARCIAL DE UN PASO — cada paso cerrado deja el suyo (P10: cada estación y
+ * cada tramo de carrera es su propia vuelta). Lo deja el motor al cerrar,
+ * mida quien mida: la estación que dices tú deja su tiempo; la del PM5, sus
+ * metros; la Roxzone, lo que tardaste en cruzarla.
+ */
+export interface Parcial {
+  /** El índice del paso en el plan. */
+  i: number;
+  segundos: number;
+  /** Metros de ESTE paso si alguien los midió (GPS, cinta, PM5); si no, null. */
+  metros: number | null;
+  ppm: number | null;
+  /** Lo hecho en la unidad de la medida cuando la cuenta un sensor (reps del reloj, cal del PM5). */
+  hecho: number | null;
 }
 
 /** Una fila de la página Estructura: un bloque del coach y dónde estás en él. */

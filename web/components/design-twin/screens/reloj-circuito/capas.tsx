@@ -1,73 +1,29 @@
 'use client';
 
-// EL DESCANSO Y LOS MOMENTOS DE CAMBIO del circuito.
+// LOS MOMENTOS DE CAMBIO del circuito (el descanso es el `Descanso` del kit,
+// con el «Viene:» del circuito: `vieneDe`).
 //
-//   DescansoCircuito  la fase común del kit (P8) — cuenta atrás, «Viene: …», +30 s,
-//                     Empezar ya — con la ÚNICA diferencia de que el «Viene» dice
-//                     la carga («Sled Pull · 25 m · 135 kg»): el `textoViene` del
-//                     kit no la lleva (Para el kit). Nada lo pisa por accidente:
-//                     tocar no hace nada; Empezar ya y el doble toque dejan 5 s
-//                     para deshacer.
 //   CapaCuenta        el 3-2-1 y el GO con la posición del circuito.
 //   CapaEntras        «Entras a Sled Push» al llegar a una estación sin Roxzone.
 
 import {
-  BotonAccion,
+  ANCHO_UTIL,
   C,
+  Centro,
   Columna,
   ContextoLinea,
-  FILA,
   Heroe,
   Instruccion,
-  Linea,
-  Nota,
-  ANCHO_UTIL,
   T,
   altoHeroe,
-  contextoDe,
   cuerpoQueCabe,
-  heroeDelPaso,
-  lineaPulso,
-  lineasDeNota,
-  usePrimaria,
-  type Lecturas,
-  type Paso,
+  type FILA,
   type PasoBase,
 } from '../../kit-reloj';
 import type { Circuito } from './planes';
-import { Centro } from './piezas';
-import { cortoDe, dosisCompleta, posicionDe, vieneDe } from './texto';
+import { cortoDe, dosisCompleta, posicionDe } from './texto';
 
 type Fila = keyof typeof FILA;
-
-export function DescansoCircuito({ paso, lecturas, c, onMas30 }: { paso: Paso; lecturas: Lecturas; c: Circuito; onMas30: () => void }) {
-  const primaria = usePrimaria();
-  const heroe = { ...heroeDelPaso(paso, lecturas, null), etiqueta: undefined };
-  // Monocromo (P6): el pulso bajando, sin la marca de color de su zona.
-  const pulso = lecturas.ppm != null ? { ...lineaPulso(paso, lecturas, null), zona: undefined } : null;
-  const viene = paso.siguiente ? vieneDe(paso.siguiente, c) : null;
-  const filas: Fila[] = ['contexto', 'boton'];
-  if (viene) filas.push(lineasDeNota(`Viene: ${viene}`) === 2 ? 'nota2' : 'nota');
-  if (pulso) filas.push('tercero');
-  return (
-    <Columna>
-      <ContextoLinea partes={contextoDe(paso)} />
-      <Centro>
-        <Heroe heroe={heroe} altoMax={altoHeroe(filas)} />
-      </Centro>
-      {pulso ? <Linea linea={pulso} cuerpo={22} /> : null}
-      {viene ? (
-        <Nota tono={C.tinta} prefijo="Viene:">
-          {viene}
-        </Nota>
-      ) : null}
-      <div style={{ display: 'flex', gap: 6, width: '100%', height: FILA.boton, alignItems: 'center', padding: '0 4px', boxSizing: 'border-box' }}>
-        <BotonAccion etiqueta="+30 s" variante="superficie" onPulsa={onMas30} ancho={60} />
-        <BotonAccion etiqueta="Empezar ya" onPulsa={primaria ?? (() => undefined)} ancho={114} />
-      </div>
-    </Columna>
-  );
-}
 
 /** El 3-2-1 (n > 0) y el GO (n = 0) antes de un paso de trabajo: a qué entras y contra qué. */
 export function CapaCuenta({ n, paso, c }: { n: number; paso: PasoBase; c: Circuito }) {

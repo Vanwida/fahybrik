@@ -25,10 +25,12 @@ import {
   fmtPrescrito,
   fmtReloj,
   num,
+  paginar,
+  type Completitud,
   type PaginaVivo,
 } from '../../kit-reloj';
 import { LineaAjustada, cuerpoNombre, enLineas } from './ajuste';
-import { masPesada, miles, paginar, volumen, type Completitud, type EjercicioHecho, type EstadoGuardado, type Resultado, type SerieFuerza } from './calculo';
+import { masPesada, miles, volumen, type EjercicioHecho, type EstadoGuardado, type Resultado, type SerieFuerza } from './calculo';
 import { Dato, FilaLista, LineaGuardado } from './resumen-piezas';
 
 const L_NOMBRE = 18;

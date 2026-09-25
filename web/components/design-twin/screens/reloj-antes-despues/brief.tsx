@@ -22,14 +22,18 @@ import {
   HUECO,
   SAFE,
   LIENZO,
+  Pila,
   T,
+  filasDePasos,
+  hoyDe,
+  lineaBrief,
+  paginar,
   type Emision,
   type GestoGuion,
+  type LineaBrief,
   type ModeloReloj,
 } from '../../kit-reloj';
 import { LineaAjustada, cuerpoNombre, enLineas } from './ajuste';
-import { filasDePasos, hoyDe, lineaBrief, paginar, type LineaBrief } from './calculo';
-import { Pila } from './pila';
 import type { Sesion } from './sesiones';
 
 // ---------------------------------------------------------------------------

@@ -16,24 +16,22 @@
 // RPE) · resumen + resumen-{correr,fuerza,circuito,piezas} · pila (la carcasa
 // de antes y después) · calculo (puro) · sesiones · resultados.
 //
-// PARA EL KIT (lo que aquí se construye porque el kit no lo tiene):
-//   · `Pila`: la carcasa de antes/después — `Muneca` sin Controles ni Ahora
-//     suena (antes de empezar o ya guardada, Pausa/Terminar no significan
-//     nada), con `onPagina`, la corona como VALOR (el RPE) y una capa fija.
-//   · El evento «GPS listo» (.success, §4) no está en `EventoVivo`: aquí se
-//     escribe a mano con el háptico de `bloque`.
-//   · `Terminado` dice «guardando…» nada más acabar: debería llevar la
-//     completitud y, en el final natural, la decisión Guardar / Seguir.
-//   · `filasDePasos` + `lineaBrief` + `hoyDe`: la estructura en líneas de dato
-//     (brief, complicación, Smart Stack); `textoFila` no enseña la carga (M7)
-//     ni la superserie, y escribe «a 3:45» donde el brief dice «@3:45».
-//   · `RPE_PALABRA_DEFECTO` no tiene el 0 (el RPE va de 0 a 10).
-//   · `PaginaVueltas` es del vivo (las 5 últimas, al revés): el resumen
-//     necesita todas, en orden, con las que no se hicieron.
-//   · `TresDosUno` repite lo prescrito cuando el paso no tiene objetivo
-//     («Calentamiento · 15′» / «15′»); aquí el 3-2-1 de inicio lo omite.
-//   · El nombre de catálogo necesita versión corta para la muñeca
-//     («Burpee Broad Jump», «Bulgarian Split Squat»): hoy se ajusta o parte.
+// YA EN EL KIT (se construyó aquí y se subió en la consolidación del 25-09):
+//   · `Pila` (la carcasa de antes/después) y los gestos que comparte con `Muneca`.
+//   · `VivoDePlan` con `onFin` (el final lo lleva esta pantalla) y el guardado
+//     solo tras un rato quieto (`guardarQuieto`, `METODO_RESUMEN_DEFECTO.guardarQuietoS`).
+//   · `Completada` y `completitud` (libre ≠ parcial; pares mínimos y umbral de
+//     serie cortada = dato del coach), el coste de la carrera comprometida.
+//   · `filasDePasos` + `lineaBrief` + `hoyDe`: la estructura en líneas de dato,
+//     con UNA notación del objetivo (`textoObjetivo`, sin «@»).
+//   · El evento «GPS listo» (.success, §4) y el 0 de `RPE_PALABRA_DEFECTO` («nada»).
+//   · El 3-2-1 de inicio es el `TresDosUno` del kit (no repite lo que dice el contexto).
+//
+// SIGUE AQUÍ, y por qué:
+//   · El resumen (`resumen-*`): su lista de series va en orden y con las que
+//     no se hicieron; la de Vueltas del vivo es otra lectura (la última arriba).
+//   · El nombre corto de catálogo para la muñeca («Burpee Broad Jump»): es un
+//     dato de la biblioteca, no del kit; hoy `ajuste.tsx` parte o escala.
 
 import { useState } from 'react';
 import type { InicioSecuencia, Vuelta } from '../../kit-reloj';
@@ -148,6 +146,12 @@ export const escenarios: TwinEscenario[] = [
       'Serie 5 de 6, en Controles. Pulsa Terminar → «¿Terminar y guardar?» → Terminar: «Sesión terminada · Parcial · 4 de 6 series» y el motivo, «Terminaste en la serie 5 de 6». Ya confirmado, no pregunta más: pasa al RPE, y el resumen enseña las series 5 y 6 «sin hacer».',
   },
   {
+    id: 'seguir-quieto',
+    titulo: 'Seguir · se guarda sola tras 10′ quieto',
+    descripcion:
+      'Tras «Seguir» en el final natural, el enfriamiento libre sigue grabando. El atleta trota 6 s y se para. Sin moverse y sin tocar nada durante 10′ (dato del coach: `guardarQuietoS`, 600 s por defecto) la sesión se guarda sola: «Guardada sola · 10′ sin moverte», con el enfriamiento hasta que se paró, y pasa al RPE. Un toque, la corona o cualquier mando reinician la cuenta. En el doble el reloj de la inactividad va comprimido ×50: los 10′ pasan en 12 s.',
+  },
+  {
     id: 'rpe',
     titulo: 'RPE en la corona · 0–10',
     descripcion:
@@ -247,6 +251,14 @@ function escenaDe(id: string): Escena {
         acuses: [{ en: 1800, estado: 'guardado' }],
       };
     }
+    case 'seguir-quieto':
+      return {
+        sesion: sesionSeisPorMil(),
+        // Trota 6 s tras «Seguir» y se para: sin GPS que avance, nada se mueve.
+        arranque: { en: 'seguir', r: resultado6x1000(), sim: cuerpo({ ppmDesde: 150, ritmo: (_p, _i, t) => (t < 6 ? 400 : null) }) },
+        compresion: 50,
+        acuses: [{ en: 1800, estado: 'guardado' }],
+      };
     case 'rpe':
       return { sesion: sesionSeisPorMil(), arranque: { en: 'rpe', r: resultado6x1000() }, guiones: { rpe: corona(1200, 7) }, acuses: [{ en: 1800, estado: 'guardado' }] };
     case 'resumen-479':

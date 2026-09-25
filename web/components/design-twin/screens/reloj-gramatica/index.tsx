@@ -5,7 +5,8 @@
 //
 // La carcasa común a TODO el vivo, igual en correr, fuerza, estaciones y WOD:
 // izquierda = controles, centro = pila vertical con la corona, derecha = Ahora
-// suena. Tocar la pantalla no cierra nada; cerrar a mano es doble toque, botón
+// suena. Un toque en la pantalla no cierra nada; cerrar a mano es doble toque
+// (dos toques en la pantalla, o el gesto de la mano en S9 / Ultra 2+), botón
 // Acción o un botón acotado, con 5 s para deshacer. Y el lenguaje: un evento,
 // un háptico (con su voz), un color, un significado, SF recto con cifras fijas.
 
@@ -72,7 +73,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'sin-gesto',
     titulo: 'Sin doble toque · botón acotado',
     descripcion:
-      'La misma estación en un reloj sin doble toque ni botón Acción (anterior a Series 9 / Ultra 2): la acción del momento es un botón visible de 44 pt, «Estación hecha», y deja el mismo deshacer de 5 s. Tocar fuera del botón sigue sin cerrar nada.',
+      'La misma estación en un reloj sin doble toque ni botón Acción (anterior a Series 9 / Ultra 2): la acción del momento es un botón visible de 44 pt, «Estación hecha», y deja el mismo deshacer de 5 s. Un toque fuera del botón sigue sin cerrar nada; dos seguidos en la pantalla, sí (en todo reloj, como Apple Entreno).',
   },
   {
     id: 'dato-viejo',
@@ -88,9 +89,9 @@ export const escenarios: TwinEscenario[] = [
   },
   {
     id: 'lenguaje',
-    titulo: 'El lenguaje · los doce eventos',
+    titulo: 'El lenguaje · los trece eventos',
     descripcion:
-      'Uno tras otro, lo que se ve y lo que vibra y se dice (debajo del reloj y en la cronología): 3-2-1 (.click), GO (.start×2 + voz), recupera (.stop + voz), preaviso (.notification + «Quedan cien.»), afloja (.directionDown×2), aprieta (.directionUp×2), vuelta del km (.click×2 + voz), fin de serie (solo voz), bloque (.success), sesión (.success×2 + voz), acción (.click) y enlace perdido (.failure).',
+      'Uno tras otro, lo que se ve y lo que vibra y se dice (debajo del reloj y en la cronología): 3-2-1 (.click), GO (.start×2 + voz), recupera (.stop + voz), preaviso (.notification + «Quedan cien.»), afloja (.directionDown×2), aprieta (.directionUp×2), vuelta del km (.click×2 + voz), fin de serie (solo voz), bloque (.success), sesión (.success×2 + voz), acción (.click), enlace perdido (.failure) y, antes de empezar, GPS listo (.success).',
   },
   {
     id: 'color-tipo',

@@ -27,6 +27,8 @@ import {
   type Objetivo,
   type PasoBase,
   type Posicion,
+  type SentidoRoxzone,
+  type Tarea,
   type ZonasCoach,
   type PlanSesion,
 } from '../../kit-reloj';
@@ -45,14 +47,6 @@ export const ZONAS: ZonasCoach = { techos: [138, 150, 160, 173, 192] };
  */
 export type Formato = 'rondas' | 'hyrox' | 'chipper';
 
-/** La Roxzone tiene dos mitades: entrar a la estación y salir a correr. */
-export type SentidoRoxzone = 'entrada' | 'salida';
-
-/** Un paso del circuito: el del kit y, si es Roxzone, qué mitad (para el kit: `PasoBase.roxzone`). */
-export interface PasoCircuito extends PasoBase {
-  roxzone?: SentidoRoxzone;
-}
-
 export interface Circuito {
   plan: PlanSesion;
   formato: Formato;
@@ -62,14 +56,12 @@ export interface Circuito {
   cap: number | null;
   /** ¿Roxzone como paso propio? Dato del coach. */
   roxzone: boolean;
-  /** Estimación de duración de cada paso, SOLO para repartir el aro. Nunca se pinta como tiempo. */
-  dibujoS: number[];
 }
 
-export const sentidoRoxzone = (p: PasoBase): SentidoRoxzone | null => (p as PasoCircuito).roxzone ?? null;
-export const esCarreraCircuito = (p: PasoBase) => p.clase === 'carrera';
 /** Estación o AMRAP: lo que se hace parado en un sitio y se «entra a». */
-export const esEstacion = (p: PasoBase) => p.clase === 'estacion' || p.clase === 'amrap';
+export const esEstacion = (p: PasoBase) => (p.clase === 'estacion' || p.clase === 'amrap') && p.rol === 'trabajo';
+/** La campana del AMRAP: el paso en que se dice la puntuación con la corona. */
+export const esPuntuacion = (p: PasoBase | null | undefined) => p?.wod?.formato === 'puntuacion';
 
 // ---------------------------------------------------------------------------
 // Constructores
@@ -135,7 +127,7 @@ function descanso(s: number, posicion: Posicion, bloque: number): PasoBase {
  * Salida: se cierra sola al detectar que vuelve a correr (`mide: 'sensor'`; la
  * detección es de la muñeca y está A VALIDAR EN APARATO).
  */
-function roxzone(sentido: SentidoRoxzone, posicion: Posicion, bloque: number): PasoCircuito {
+function roxzone(sentido: SentidoRoxzone, posicion: Posicion, bloque: number): PasoBase {
   return {
     id: id(`rox-${sentido}`),
     clase: 'roxzone',
@@ -173,6 +165,7 @@ const DIBUJO_ESTACION_S: Record<HyroxStationSlug, number> = {
   'hyrox-wall-balls': 300,
 };
 
+/** El estimador del aro del circuito (`VistaVivo.duracion`): sabe lo que dura una estación de HYROX. */
 export function dibujoDe(p: PasoBase): number {
   const pr = p.medida.prescrito ?? 0;
   if (p.medida.tipo === 'tiempo') return pr;
@@ -184,8 +177,8 @@ export function dibujoDe(p: PasoBase): number {
   return DIBUJO_ESTACION_S[est.slug] * (pr / Math.max(1, dosis));
 }
 
-function circuito(pasos: PasoBase[], c: Omit<Circuito, 'plan' | 'dibujoS'>): Circuito {
-  return { ...c, plan: { pasos, zonas: ZONAS, reglas: REGLAS_AVISO_DEFECTO }, dibujoS: pasos.map(dibujoDe) };
+function circuito(pasos: PasoBase[], c: Omit<Circuito, 'plan'>): Circuito {
+  return { ...c, plan: { pasos, zonas: ZONAS, reglas: REGLAS_AVISO_DEFECTO } };
 }
 
 // ---------------------------------------------------------------------------
@@ -261,11 +254,22 @@ export function sesion492(): Circuito {
 // 506 · Chipper — 4 × [Run 800 m @RPE 8 → AMRAP 4′ de un movimiento]
 // ---------------------------------------------------------------------------
 
+/** Lo que dura la campana de un AMRAP dentro de un chipper: el reloj no para (el mismo dato que reloj-wod). */
+const CAMPANA_CHIPPER_S = 20;
+
+/**
+ * El AMRAP de un movimiento se escribe con su tarea (`wod`, P12) y lleva
+ * detrás su campana: las reps se dicen AHÍ con la corona (Alex, 25-09), no
+ * durante el AMRAP. En un chipper la campana dura lo que tarda en volver a
+ * correr (`CAMPANA_CHIPPER_S`); lo que no se diga queda «sin declarar».
+ */
 export function sesion506(): Circuito {
   const movimientos = ['Pull-up', 'Walking Lunge', 'Push-up', 'Air Squat'];
   const pasos: PasoBase[] = [];
   movimientos.forEach((m, k) => {
     const ronda = { n: k + 1, de: movimientos.length };
+    const tareas: Tarea[] = [{ nombre: m, dosis: { tipo: 'abierta', prescrito: null, mide: 'atleta' }, corporal: true, mide: 'atleta' }];
+    const posicion = { ronda, estacion: { n: 1, de: 1 } };
     pasos.push(carrera(800, { ronda }, [rpe(8)], 0));
     pasos.push({
       id: id('amrap'),
@@ -275,11 +279,28 @@ export function sesion506(): Circuito {
       nombre: m,
       medida: segundos(240),
       objetivos: [],
-      posicion: { ronda, estacion: { n: 1, de: 1 } },
+      posicion,
       cierre: 'medida',
       bloque: 0,
+      wod: { formato: 'amrap', tareas, duracionS: 240 },
+    });
+    pasos.push({
+      id: id('puntuacion'),
+      clase: 'amrap',
+      rol: 'transicion',
+      fase: 'principal',
+      nombre: m,
+      medida: segundos(CAMPANA_CHIPPER_S),
+      objetivos: [],
+      posicion,
+      cierre: 'medida',
+      bloque: 0,
+      wod: { formato: 'puntuacion', tareas, duracionS: 240 },
     });
   });
+  // Tras el último AMRAP no viene nada que corra: su campana espera a que se guarde.
+  const ultima = pasos[pasos.length - 1]!;
+  pasos[pasos.length - 1] = { ...ultima, medida: { tipo: 'abierta', prescrito: null, mide: 'atleta' }, cierre: 'atleta' };
   return circuito(pasos, { formato: 'chipper', inicio: 0, cap: null, roxzone: false });
 }
 

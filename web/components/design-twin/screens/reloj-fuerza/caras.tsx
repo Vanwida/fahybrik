@@ -9,19 +9,18 @@
 //   CaraColocate  el paso corto antes de una isometría que no sale de un
 //                 descanso: cuenta atrás con el 3-2-1 del kit.
 //   CuentaFuerza  el 3-2-1 / GO a pantalla completa con el nombre y la dosis
-//                 (el `TresDosUno` del kit dice «a 65–70 %», sin «RM» ni kg).
+//                 que está en la barra (la carga declarada, en cascada).
 //
 // Presupuesto vertical: el héroe se queda lo que sobra. Si una fila no cabe
 // sin bajar el héroe de `HEROE_MIN`, se cae la de menos prioridad: primero
 // el cue, luego «Luego ·» (también está en el descanso y en Ejercicios).
 
-import type { ReactNode } from 'react';
 import {
-  ALTO_UTIL,
   ANCHO_CABEZA,
   ANCHO_PIE,
   ANCHO_UTIL,
   C,
+  Centro,
   Columna,
   ContextoLinea,
   FILA,
@@ -31,39 +30,31 @@ import {
   Linea,
   Nota,
   PistaAccion,
+  altoLibre,
   anchoTexto,
+  dosisSerie,
   faltaDe,
   fmtDuracion,
   fmtReloj,
   lineaPulso,
   lineasDeNota,
+  quienSerie,
+  textoCarga,
+  textoEsfuerzo,
+  textoPct,
+  textoTempo,
   useCabe,
   useFilaAccion,
   type HeroeVista,
   type Lecturas,
   type PasoBase,
+  type PasoFuerza,
 } from '../../kit-reloj';
-import { dosisSerie, textoCarga, textoEsfuerzo, textoPct, textoTempo, type PasoFuerza } from './modelo';
-import { quienSerie } from './textos';
 
 /** El héroe no baja de aquí (alto de caja en pt: ≈ 45 pt de cuerpo, por encima del suelo del héroe). */
 const HEROE_MIN = 38;
 
-/** Lo que le queda de alto al héroe con estas filas. */
-export function altoLibre(filas: number[]): number {
-  return ALTO_UTIL - filas.reduce((a, h) => a + h + HUECO, 0) - HUECO;
-}
-
 const altoNota = (texto: string, ancho: number = ANCHO_UTIL) => (lineasDeNota(texto, ancho) === 2 ? FILA.nota2 : FILA.nota);
-
-/** El hueco elástico donde se centra el héroe. */
-export function Centro({ children }: { children: ReactNode }) {
-  return (
-    <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {children}
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // El nombre del ejercicio: una línea si cabe bajo las esquinas; si no, dos

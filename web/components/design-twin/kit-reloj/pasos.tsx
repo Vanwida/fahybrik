@@ -16,12 +16,12 @@
 // filas presentes (`altoHeroe`), así que ninguna cara escribe un tamaño.
 
 import type { CSSProperties, ReactNode } from 'react';
-import { heroeDelPaso, laminaDelPaso, lineaPulso } from './lamina';
+import { BotonesDescanso, Centro, VieneLinea, altoLibre, altoViene, type Viene } from './apoyos';
+import { heroeDelPaso, laminaDelPaso, lineaPulso, type LineaVista } from './lamina';
 import { NOMBRE_CLASE_DEFECTO, type Lecturas, type Paso, type PasoBase, type ZonasCoach } from './paso';
-import { contextoDe, fmtObjetivo, principal, textoPasoCorto } from './reglas';
+import { contextoDe, esCarrera, fmtObjetivo, fmtRitmo, principal, textoPasoCorto, valorDeEje } from './reglas';
 import { BandaObjetivo } from './banda';
 import {
-  BotonAccion,
   ContextoLinea,
   Heroe,
   Instruccion,
@@ -30,7 +30,6 @@ import {
   PistaAccion,
   lineasDeNota,
   useFilaAccion,
-  usePrimaria,
 } from './piezas';
 import { ANCHO_PIE, C, FILA, HUECO, T, altoHeroe } from './tokens';
 
@@ -58,15 +57,6 @@ export function Columna({ children, estilo }: { children: ReactNode; estilo?: CS
   );
 }
 
-/** El hueco elástico donde se centra el héroe. */
-function Centro({ children }: { children: ReactNode }) {
-  return (
-    <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {children}
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // El paso de correr
 // ---------------------------------------------------------------------------
@@ -74,27 +64,53 @@ function Centro({ children }: { children: ReactNode }) {
 /**
  * EL PASO DE CORRER (calle, cinta, pista; rodaje, tirada, tempo, series,
  * progresivo, strides…). La decisión es de `laminaDelPaso`; esto la pinta.
+ *
+ * La carrera dentro de un circuito usa ESTA cara (P10): cambia el contexto
+ * (su posición, «Ronda 2/5 · Run 1000 m») y lleva una línea bajo el contexto
+ * (el crono total, la puntuación). `ritmoConRpe` pone el ritmo ACTUAL bajo una
+ * instrucción de RPE cuando la palabra del coach habla de ritmo («RPE 8 ·
+ * ritmo de carrera»): sin él no se puede cumplir.
  */
-export function PasoCorrer({ paso, lecturas, zonas }: { paso: PasoBase; lecturas: Lecturas; zonas: ZonasCoach | null }) {
+export function PasoCorrer({
+  paso,
+  lecturas,
+  zonas,
+  contexto,
+  bajoContexto,
+  ritmoConRpe = false,
+}: {
+  paso: PasoBase;
+  lecturas: Lecturas;
+  zonas: ZonasCoach | null;
+  contexto?: string[];
+  bajoContexto?: LineaVista | null;
+  ritmoConRpe?: boolean;
+}) {
   const l = laminaDelPaso(paso, lecturas, zonas);
+  const ritmo: LineaVista | null =
+    ritmoConRpe && l.instruccion && !l.segundo && esCarrera(paso) ? { valor: fmtRitmo(valorDeEje('ritmo', lecturas)), unidad: '/km' } : null;
   // La nota va ARRIBA, bajo el contexto: abajo las esquinas del reloj dejan
   // ~150 pt y una nota de honestidad no puede quedarse a medias.
   const filas: NombreFila[] = ['contexto'];
   if (l.nota) filas.push(lineasDeNota(l.nota) === 2 ? 'nota2' : 'nota');
+  if (bajoContexto) filas.push('tercero');
   if (l.banda) filas.push('banda');
   if (l.instruccion) filas.push('instruccion');
   if (l.segundo) filas.push('segundo');
+  if (ritmo) filas.push('tercero');
   if (l.tercero) filas.push('tercero');
   return (
     <Columna>
-      <ContextoLinea partes={l.contexto} />
+      <ContextoLinea partes={contexto ?? l.contexto} />
       {l.nota ? <Nota>{l.nota}</Nota> : null}
+      {bajoContexto ? <Linea linea={bajoContexto} cuerpo={22} /> : null}
       <Centro>
         <Heroe heroe={l.heroe} altoMax={altoHeroe(filas)} />
       </Centro>
       {l.banda ? <BandaObjetivo banda={l.banda} /> : null}
       {l.instruccion ? <Instruccion texto={l.instruccion} /> : null}
       {l.segundo ? <Linea linea={l.segundo} cuerpo={30} ancho={l.tercero ? undefined : ANCHO_PIE} /> : null}
+      {ritmo ? <Linea linea={ritmo} cuerpo={22} /> : null}
       {l.tercero ? <Linea linea={l.tercero} cuerpo={22} ancho={ANCHO_PIE} /> : null}
     </Columna>
   );
@@ -174,42 +190,55 @@ export function Recupera({
  * EL DESCANSO — la misma fase en fuerza, circuito y entre tandas. Cuenta
  * atrás, «Viene: …» con su objetivo, +30 s y Empezar ya. El preaviso a 10 s,
  * el 3-2-1 y el GO los pone la secuencia (eventos), no esta cara.
+ *
+ * Lo que cambia por familia, como dato: qué viene (`viene`: el texto del kit,
+ * uno propio o partido en qué y dosis), un hueco bajo el héroe (`hueco`: la
+ * serie anotada en fuerza), si va el pulso y cómo se llama la acción.
  */
 export function Descanso({
   paso,
   lecturas,
   onMas30,
   onEmpezarYa,
+  viene,
+  hueco,
+  pulso: conPulso = true,
+  etiqueta = 'Empezar ya',
 }: {
   paso: Paso;
   lecturas: Lecturas;
   onMas30: () => void;
   /** Sin él, la acción de la carcasa (con su deshacer). */
   onEmpezarYa?: () => void;
+  /** Lo que viene; sin él, `textoViene` del paso siguiente. `null` = nada. */
+  viene?: string | Viene | null;
+  /** Un hueco bajo el héroe, con su alto (para el presupuesto del héroe). */
+  hueco?: { alto: number; nodo: ReactNode } | null;
+  pulso?: boolean;
+  etiqueta?: string;
 }) {
-  const primaria = usePrimaria();
-  const empezar = onEmpezarYa ?? primaria ?? (() => undefined);
   const heroe = { ...heroeDelPaso(paso, lecturas, null), etiqueta: undefined };
   // El pulso bajando, monocromo: el descanso tampoco se tiñe (P6).
-  const pulso = lecturas.ppm != null ? { ...lineaPulso(paso, lecturas, null), zona: undefined } : null;
-  const filas: NombreFila[] = ['contexto', 'boton'];
-  if (paso.siguiente) filas.push('nota');
-  if (pulso) filas.push('tercero');
+  const pulso = conPulso && lecturas.ppm != null ? { ...lineaPulso(paso, lecturas, null), zona: undefined } : null;
+  const que = viene === undefined ? (paso.siguiente ? textoViene(paso.siguiente) : null) : viene;
+  const altoQue = que == null ? -HUECO : typeof que === 'string' ? (lineasDeNota(`Viene: ${que}`) === 2 ? FILA.nota2 : FILA.nota) : altoViene(que);
+  const alto = altoLibre([FILA.contexto, FILA.boton, altoQue, pulso ? FILA.tercero : -HUECO, hueco ? hueco.alto : -HUECO]);
   return (
     <Columna>
       <ContextoLinea partes={contextoDe(paso)} />
       <Centro>
-        <Heroe heroe={heroe} altoMax={altoHeroe(filas)} />
+        <Heroe heroe={heroe} altoMax={alto} />
       </Centro>
       {pulso ? <Linea linea={pulso} cuerpo={22} /> : null}
-      {paso.siguiente ? <LuegoLinea prefijo="Viene:" siguiente={paso.siguiente} /> : null}
-      {/* Los extremos redondos de los botones caen en las esquinas del aro: la
-          fila se mete 4 pt por lado y «+30 s» es corto para que «Empezar ya»
-          quepa entero a 17 pt. */}
-      <div style={{ display: 'flex', gap: 6, width: '100%', height: FILA.boton, alignItems: 'center', padding: '0 4px', boxSizing: 'border-box' }}>
-        <BotonAccion etiqueta="+30 s" variante="superficie" onPulsa={onMas30} ancho={60} />
-        <BotonAccion etiqueta="Empezar ya" onPulsa={empezar} ancho={114} />
-      </div>
+      {hueco ? hueco.nodo : null}
+      {que == null ? null : typeof que === 'string' ? (
+        <Nota tono={C.tinta} prefijo="Viene:">
+          {que}
+        </Nota>
+      ) : (
+        <VieneLinea v={que} />
+      )}
+      <BotonesDescanso etiqueta={etiqueta} onMas30={onMas30} onPulsa={onEmpezarYa} />
     </Columna>
   );
 }

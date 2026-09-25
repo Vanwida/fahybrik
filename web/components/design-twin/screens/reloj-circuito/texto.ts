@@ -3,34 +3,28 @@
 //   posicionDe   «Ronda 2/5 · Run 1000 m», «Ronda 5/5 · Estación 2/2»,
 //                «Run 3/8 · 1000 m», «Estación 3/8», «Ronda 2/4 · AMRAP 4′».
 //   dosisDe      lo que NADIE mide, dicho: «50 m · 152 kg», «1000 m · sin PM5».
-//   vieneDe      el «Viene:» del descanso con la carga: «Sled Pull · 25 m · 135 kg».
-//   avisoDe      el texto del deshacer: «Sled Push hecho», «Run 3 cerrado».
+//   vieneDe      el «Viene:» del descanso: «Ronda 3/5 · Run 1000 m · RPE 8»,
+//                «Sled Pull · 25 m · 135 kg» (la carga del kit, M7).
+//   avisoDe      el texto del deshacer: el del kit, salvo la carrera («Run 3 cerrado»).
+//   accionDe     la acción del momento, dicha corta.
 
 import {
-  ANCHO_PIE,
-  T,
-  anchoTexto,
+  avisoDeCierre,
   contextoDe,
   fmtDuracion,
   fmtObjetivo,
   fmtPrescrito,
-  num,
   principal,
+  textoCargaImplemento,
+  type Paso,
   type PasoBase,
 } from '../../kit-reloj';
-import { sentidoRoxzone, type Circuito } from './planes';
+import type { Circuito } from './planes';
 
-const NBSP = '\u00A0';
+const NBSP = ' ';
 
 /** ¿La mide algo que no sea el atleta? El PM5 (ergo) o un sensor de reps. */
 export const estacionMedida = (p: PasoBase) => p.medida.mide === 'ergo' || p.medida.mide === 'sensor';
-
-/** «180 kg», «2 × 32 kg» (M7: el peso de CADA implemento, nunca multiplicado). */
-export function cargaTexto(p: PasoBase): string | null {
-  const c = p.carga;
-  if (!c) return null;
-  return c.implementos && c.implementos > 1 ? `${c.implementos} × ${num(c.kg)}${NBSP}kg` : `${num(c.kg)}${NBSP}kg`;
-}
 
 export function objetivoTexto(p: PasoBase): string | null {
   const o = principal(p);
@@ -47,7 +41,7 @@ export function posicionDe(p: PasoBase, c: Circuito): string[] {
       if (c.formato === 'hyrox' && r) return [`Run ${r.n}/${r.de}`, fmtPrescrito(p.medida)];
       return [ronda, `Run ${fmtPrescrito(p.medida)}`].filter((x): x is string => !!x);
     case 'amrap':
-      return [ronda, `AMRAP ${fmtDuracion(p.medida.prescrito ?? 0)}`].filter((x): x is string => !!x);
+      return [ronda, `AMRAP ${fmtDuracion(p.wod?.formato === 'amrap' ? p.wod.duracionS : (p.medida.prescrito ?? 0))}`].filter((x): x is string => !!x);
     case 'estacion':
       if (c.formato === 'hyrox' && e) return [`Estación ${e.n}/${e.de}`];
       // Una sola estación por ronda (493): basta «Ronda 2/5». El nombre de la
@@ -67,14 +61,14 @@ export function posicionDe(p: PasoBase, c: Circuito): string[] {
  */
 export function dosisDe(p: PasoBase): string[] {
   if (estacionMedida(p)) return [];
-  const partes = [fmtPrescrito(p.medida) || null, cargaTexto(p), objetivoTexto(p), p.maquina ? 'sin PM5' : null];
+  const partes = [fmtPrescrito(p.medida) || null, textoCargaImplemento(p.carga), objetivoTexto(p), p.maquina ? 'sin PM5' : null];
   return partes.filter((x): x is string => !!x);
 }
 
 /** La dosis entera, mida quien mida: para lo que AÚN no ha empezado (Roxzone, «Entras a…»). */
 export function dosisCompleta(p: PasoBase): string[] {
   if (p.clase === 'amrap') return [`AMRAP ${fmtDuracion(p.medida.prescrito ?? 0)}`];
-  return [fmtPrescrito(p.medida) || null, cargaTexto(p), objetivoTexto(p)].filter((x): x is string => !!x);
+  return [fmtPrescrito(p.medida) || null, textoCargaImplemento(p.carga), objetivoTexto(p)].filter((x): x is string => !!x);
 }
 
 /** Las partes unidas con « · », y cada parte entera: la línea solo se parte en un « · ». */
@@ -84,12 +78,16 @@ const juntas = (partes: Array<string | null>) =>
     .map((x) => x.replace(/ /g, NBSP))
     .join(`${NBSP}· `);
 
-/** Lo que viene, para el «Viene:» del descanso: con la carga (el trineo hay que cargarlo antes). */
+/**
+ * Lo que viene, para el «Viene:» del descanso, con la carga (el trineo hay que
+ * cargarlo antes). Propio del circuito: la carrera se nombra «Run 1000 m» y la
+ * ronda que abre va delante; el `textoViene` del kit diría «Run · 1000 m a RPE 8».
+ */
 export function vieneDe(p: PasoBase, c: Circuito): string {
   const r = p.posicion?.ronda;
   const abre = r && r.de > 1 && (p.posicion?.estacion?.n ?? 1) === 1 && c.formato !== 'hyrox' ? `Ronda ${r.n}/${r.de}` : null;
   if (p.clase === 'carrera') return juntas([abre, `Run ${fmtPrescrito(p.medida)}`, objetivoTexto(p)]);
-  return juntas([abre, p.nombre ?? null, fmtPrescrito(p.medida) || null, cargaTexto(p), objetivoTexto(p)]);
+  return juntas([abre, p.nombre ?? null, fmtPrescrito(p.medida) || null, textoCargaImplemento(p.carga), objetivoTexto(p)]);
 }
 
 /** Debajo del 3-2-1 y del GO: contra qué entras. */
@@ -98,35 +96,26 @@ export function cortoDe(p: PasoBase): string {
     const o = objetivoTexto(p);
     return o ? `a ${o}` : fmtPrescrito(p.medida);
   }
-  return [p.nombre ?? null, fmtPrescrito(p.medida) || null, cargaTexto(p)].filter(Boolean).join(' · ');
+  return [p.nombre ?? null, fmtPrescrito(p.medida) || null, textoCargaImplemento(p.carga)].filter(Boolean).join(' · ');
 }
 
-const cabeAviso = (s: string) => anchoTexto(s, T.nota.cuerpo) <= ANCHO_PIE;
-
-/** Lo que dice el aviso de deshacer: entero, sin cortar (si el nombre es largo, el genérico). */
-export function avisoDe(p: PasoBase, c: Circuito): string {
-  if (p.rol === 'descanso') return 'Descanso cortado';
-  if (p.clase === 'roxzone') return 'Roxzone cerrada';
-  if (p.clase === 'amrap') return 'AMRAP cerrado';
+/** Lo que dice el aviso de deshacer: el del kit; la carrera, con su número de Run. */
+export function avisoDe(p: Paso, c: Circuito): string {
   if (p.clase === 'carrera') {
     const r = p.posicion?.ronda;
     return c.formato === 'hyrox' && r ? `Run ${r.n} cerrado` : 'Tramo cerrado';
   }
-  if (p.clase === 'estacion') {
-    const s = `${p.nombre} hecho`;
-    return p.nombre && cabeAviso(s) ? s : 'Estación hecha';
-  }
-  return 'Paso cerrado';
+  return avisoDeCierre(p);
 }
 
-/** Lo que hace la acción del momento, dicho corto (la cronología y la pista). */
-export function accionDe(p: PasoBase): string {
+/** Lo que hace la acción del momento, dicho corto (la cronología y la pista). `null` = no hay (el AMRAP: manda el reloj). */
+export function accionDe(p: PasoBase): string | null {
   if (p.rol === 'descanso') return 'empezar ya';
-  const rox = sentidoRoxzone(p);
-  if (rox === 'entrada') return 'empiezo';
-  if (rox === 'salida') return 'salgo a correr';
+  if (p.wod?.formato === 'puntuacion') return 'guardar';
+  if (p.roxzone === 'entrada') return 'empiezo';
+  if (p.roxzone === 'salida') return 'salgo a correr';
   if (p.clase === 'estacion') return 'estación hecha';
-  if (p.clase === 'amrap') return 'cerrar el AMRAP';
+  if (p.clase === 'amrap') return null;
   if (p.clase === 'carrera') return 'cerrar el tramo';
   return 'siguiente paso';
 }

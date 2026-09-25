@@ -186,6 +186,8 @@ export const AOD = {
 // ---------------------------------------------------------------------------
 
 export const RPE_PALABRA_DEFECTO: Record<number, string> = {
+  // El RPE va de 0 a 10 (CR-10): el 0 también tiene palabra.
+  0: 'nada',
   1: 'muy suave',
   2: 'muy suave',
   3: 'suave',
