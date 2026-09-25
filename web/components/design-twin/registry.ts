@@ -42,6 +42,14 @@ import * as watchVivo from './screens/watch-vivo';
 // numeral; `watch-legible` ataca el CROMO que se quedó a 9–11 pt y suma la
 // corona, el bloqueo por agua, Ahora/Después y terminar en modo espejo.
 import * as watchLegible from './screens/watch-legible';
+// La muñeca, rehecha (25-sep): la auditoría de seis lentes y el modelo de
+// docs/reloj-muneca/modelo.md. Un kit (`kit-reloj`), una gramática, el objetivo manda.
+import * as relojCorrer from './screens/reloj-correr';
+import * as relojGramatica from './screens/reloj-gramatica';
+import * as relojCircuito from './screens/reloj-circuito';
+import * as relojFuerza from './screens/reloj-fuerza';
+import * as relojWod from './screens/reloj-wod';
+import * as relojAntesDespues from './screens/reloj-antes-despues';
 import * as resumenCarrera from './screens/resumen-carrera';
 import * as watchResumen from './screens/watch-resumen';
 import * as planCiclo from './screens/plan-ciclo';
@@ -225,6 +233,13 @@ export const SCREENS: TwinScreenModule[] = [
   // mismo resumen la primera vez que el reloj graba.
   guardadoEnMovil,
   consentimientoSensores,
+  // La muñeca, rehecha (25-sep).
+  relojCorrer,
+  relojGramatica,
+  relojCircuito,
+  relojFuerza,
+  relojWod,
+  relojAntesDespues,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -238,6 +253,19 @@ export function getScreen(id: string): TwinScreenModule | undefined {
  * entreno en vivo y se enseña sola, agrupada por su propia lógica.
  */
 export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
+  // La dirección vigente de la muñeca (25-sep): va primero porque manda sobre
+  // las tandas «La muñeca» de abajo, que quedan como historia de cómo se llegó.
+  {
+    grupo: 'La muñeca, rehecha',
+    ids: [
+      'reloj-correr',
+      'reloj-gramatica',
+      'reloj-circuito',
+      'reloj-fuerza',
+      'reloj-wod',
+      'reloj-antes-despues',
+    ],
+  },
   { grupo: 'Antes de entrenar', ids: ['plan-bloque', 'sesion-previa'] },
   {
     grupo: 'En vivo, por quién gobierna',
