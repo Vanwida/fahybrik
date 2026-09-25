@@ -42,7 +42,7 @@ Especificación del rediseño de la app del Apple Watch. Sale de la auditoría d
 
 **P12 · WOD.** EMOM: la ventana del minuto y la tarea con su carga. AMRAP: rondas y reps con la corona, la tarea en la muñeca. For Time: el crono total es la puntuación y siempre está a la vista, con el cap.
 
-**P13 · Antes y después.** Complicación y Smart Stack con lo de hoy (un toque). El brief dice la estructura real («6 × 1000 m @3:45–3:55 · r 90″ trote»), no «N bloques». 3-2-1 al empezar. Al terminar: RPE en la corona (también a Salud como esfuerzo) y un resumen primero de corredor (distancia, ritmo de lo fuerte, «5 de 6 dentro», lista de series frente a su objetivo; en circuitos, parciales por carrera y estación, Roxzone y coste comprometido). Estado de guardado honesto.
+**P13 · Antes y después.** Complicación y Smart Stack con lo de hoy (un toque). El brief dice la estructura real («6 × 1000 m a 3:45–3:55 · r 90″ trote»; una sola notación de objetivo en toda la muñeca, `textoObjetivo` del kit), no «N bloques». 3-2-1 al empezar. Al terminar: RPE en la corona (también a Salud como esfuerzo) y un resumen primero de corredor (distancia, ritmo de lo fuerte, «5 de 6 dentro», lista de series frente a su objetivo; en circuitos, parciales por carrera y estación, Roxzone y coste comprometido). Estado de guardado honesto.
 
 ## 3. Tokens del kit (`kit-reloj`)
 
@@ -105,4 +105,4 @@ Reglas (todas dato del coach con defecto):
 
 22 sesiones reales asignadas (atletas 63, 64 y 65): 491, 494, 573, 479, 551, 509, 511, 535, 538, 488, 529, 492, 498, 572, 506, 552, 542, 493, 482, 505, 530, 536, 513, 514. Todas entran en el modelo con M1–M8. 542 (HYROX half-sim) solo entra con M6; 536 (escalera de ergo), solo con M4.
 
-**Dónde puede fallar:** el doble toque solo existe en S9 / Ultra 2 en adelante y el botón Acción solo en Ultra (en el resto, botón visible acotado); los toques con la muñeca bajada; el GPS en series cortas y en los km del circuito; la Roxzone detectada por movimiento y el coste comprometido, sin validar; P1 exige mover el motor al reloj (fases 2–3 de `docs/el-reloj-primero/`), y hasta entonces el espejo tiene que calcular relojes y hápticos en local.
+**Dónde puede fallar:** el gesto de doble toque solo existe en S9 / Ultra 2 en adelante y el botón Acción solo en Ultra; en el resto quedan los dos toques en la pantalla (como Apple Entreno) y el botón visible acotado; dos toques con la pantalla mojada o con guantes (Water Lock los anula); los toques con la muñeca bajada; el GPS en series cortas y en los km del circuito; la Roxzone detectada por movimiento y el coste comprometido, sin validar; P1 exige mover el motor al reloj (fases 2–3 de `docs/el-reloj-primero/`), y hasta entonces el espejo tiene que calcular relojes y hápticos en local.

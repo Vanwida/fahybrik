@@ -26,6 +26,7 @@ import {
   FILA,
   HUECO,
   Heroe,
+  HuecoPie,
   Instruccion,
   Linea,
   Nota,
@@ -45,6 +46,7 @@ import {
   textoTempo,
   useCabe,
   useFilaAccion,
+  useReloj,
   type HeroeVista,
   type Lecturas,
   type PasoBase,
@@ -173,6 +175,9 @@ export function CaraSerie({
   luego: string | null;
 }) {
   const filaAccion = useFilaAccion();
+  // Mientras vive el aviso de deshacer (la serie anterior de una superserie),
+  // la pista y «Luego ·» le ceden el pie: la carga y el esfuerzo quedan enteros.
+  const { pieOcupado } = useReloj();
   const nombre = medirNombre(paso.posicion?.slot, paso.nombre ?? '');
   let carga = lineaCarga(paso, arrastrada);
   let esfuerzo = lineaEsfuerzo(paso);
@@ -180,7 +185,7 @@ export function CaraSerie({
   let cue = esfuerzo.length === 0 && paso.cue ? `Coach\u00A0·\u00A0${paso.cue}` : null;
   // La velocidad de la barra NO va aquí: sale en el descanso, con la serie
   // entera y su confianza (DECISIONS 2026-08-06/11), junto al RIR que la etiqueta.
-  let pie = luego ? `Luego · ${luego}` : null;
+  let pie = luego && !pieOcupado ? `Luego · ${luego}` : null;
 
   const alto = () =>
     altoLibre([
@@ -189,7 +194,7 @@ export function CaraSerie({
       carga ? FILA.instruccion : -HUECO,
       esfuerzo.length ? FILA.contexto : -HUECO,
       cue ? altoNota(cue) : -HUECO,
-      filaAccion === 'pista' ? FILA.pista : FILA.boton,
+      filaAccion === 'pista' && !pieOcupado ? FILA.pista : FILA.boton,
       pie ? altoNota(pie, ANCHO_PIE) : -HUECO,
     ]);
   // Primero se cae el cue; «Luego ·» solo si la acción es un botón (la pista
@@ -213,7 +218,7 @@ export function CaraSerie({
       {carga ? <Instruccion texto={carga} /> : null}
       {esfuerzo.length ? <ContextoLinea partes={esfuerzo} /> : null}
       {cue ? <Nota>{cue}</Nota> : null}
-      <PistaAccion accion="serie hecha" />
+      {pieOcupado ? <HuecoPie /> : <PistaAccion accion="serie hecha" />}
       {pie ? <Nota ancho={ANCHO_PIE}>{pie}</Nota> : null}
     </Columna>
   );
