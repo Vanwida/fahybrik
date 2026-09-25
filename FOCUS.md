@@ -2,16 +2,16 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-25** (la muñeca: las 6 propuestas hechas; consolidación del kit y firma de Alex en curso)
+Última actualización: **2026-09-25** (la muñeca: 6 propuestas + kit consolidado; falta la firma de Alex)
 
 ## Ahora
 
 **LA MUÑECA SE REHACE (Alex, 25-09: «es un lío, así no competimos con TrainingPeaks»).** Auditoría de 6 lentes
 + modelo: `docs/reloj-muneca/` (https://claude.ai/artifact/3LzhCpYCr6H7rgktymoG8r; spec `modelo.md`; DECISIONS 25-09).
 Alex eligió: el objetivo manda, SF nativo, voz al cambiar de paso y cada km, comprometida vs objetivo del coach.
-HECHAS (25-09) las 6 propuestas `reloj-*` sobre `kit-reloj` (correr, gramática, circuito, wod, fuerza, antes/después)
-+ un veredicto por paso (tests `kit-reloj-veredicto`). EN CURSO: consolidar el kit (lo genérico de las 6, sube al kit)
-y el lote final de preguntas subjetivas a Alex → su firma → Swift (correr primero).
+HECHAS (25-09) las 6 propuestas `reloj-*` sobre UN kit consolidado (`kit-reloj`, 611c2c6) + un veredicto por
+paso (tests `kit-reloj-veredicto`, `kit-reloj-motor`). Alex decidió el 2.º lote (doble toque estándar, AMRAP en la
+campana, «Seguir» autoguarda 10′). FALTA: la firma de Alex sobre las pantallas → Swift (correr primero).
 Exige arreglos de modelo M1–M8 (dos objetivos por paso, recuperación/entorno como dato, anidadas sin aplanar…).
 
 **EL RELOJ ES EL PRODUCTO y el listón es TrainingPeaks (Alex, 24-09).** La muñeca lleva la sesión
