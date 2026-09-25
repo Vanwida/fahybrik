@@ -23,11 +23,11 @@ import {
   SAFE,
   LIENZO,
   T,
-  anchoTexto,
   type Emision,
   type GestoGuion,
   type ModeloReloj,
 } from '../../kit-reloj';
+import { LineaAjustada, cuerpoNombre, enLineas } from './ajuste';
 import { filasDePasos, hoyDe, lineaBrief, paginar, type LineaBrief } from './calculo';
 import { Pila } from './pila';
 import type { Sesion } from './sesiones';
@@ -53,20 +53,23 @@ const ALTO_BARRA = FUNDIDO + FILA.nota + HUECO + FILA.boton;
 /** Lo que queda para las filas en cada página. */
 const ALTO_FILAS = LIENZO.alto - SAFE.arriba - SAFE.abajo - FILA.contexto - HUECO_FILAS - ALTO_BARRA;
 
-const lineas = (t: string, cuerpo: number, peso: 500 | 600, ancho: number) =>
-  anchoTexto(t, T.suelo, peso) <= ancho || anchoTexto(t, cuerpo, peso) <= ancho ? 1 : 2;
+/** El cue del coach (M8) va con su procedencia: es coaching, no prescripción. */
+const PREFIJO_CUE = 'Coach · ';
 
-function altoFila(f: LineaBrief, ancho: number): number {
-  let h = lineas(f.linea, T.contexto.cuerpo, 600, ancho) * L_LINEA;
-  if (f.detalle) h += lineas(f.detalle, T.nota.cuerpo, 500, ancho) * L_NOTA;
-  if (f.cue) h += lineas(`Coach · ${f.cue}`, T.nota.cuerpo, 500, ancho) * L_NOTA;
-  return h;
+/** Las líneas de una fila, decididas de antemano: así cada fila sabe su alto. */
+function lineasDeFila(f: LineaBrief, ancho: number) {
+  const cuerpo = cuerpoNombre(f.linea, ancho);
+  return {
+    cuerpo,
+    linea: enLineas(f.linea, ancho, cuerpo, 600),
+    detalle: f.detalle ? enLineas(f.detalle, ancho, T.nota.cuerpo, 500, true) : [],
+    cue: f.cue ? enLineas(`${PREFIJO_CUE}${f.cue}`, ancho, T.nota.cuerpo, 500) : [],
+  };
 }
 
-/** Una línea que cabe a 16 pt se queda a 16; si solo cabe a 15, baja; si ni así, va en dos. */
-function cuerpoFila(t: string, cuerpo: number, peso: 500 | 600, ancho: number): number {
-  if (anchoTexto(t, cuerpo, peso) <= ancho) return cuerpo;
-  return anchoTexto(t, T.suelo, peso) <= ancho ? T.suelo : cuerpo;
+function altoFila(f: LineaBrief, ancho: number): number {
+  const l = lineasDeFila(f, ancho);
+  return l.linea.length * L_LINEA + (l.detalle.length + l.cue.length) * L_NOTA;
 }
 
 /** Las páginas del brief: si no cabe en una, se vuelve a medir dejando el carril de los puntos. */
@@ -82,34 +85,36 @@ function paginasBrief(filas: LineaBrief[]): { paginas: number[][]; ancho: number
 // ---------------------------------------------------------------------------
 
 export function FilaBrief({ f, ancho = ANCHO_FILA }: { f: LineaBrief; ancho?: number }) {
-  const texto = { lineHeight: `${L_NOTA}px`, textWrap: 'balance' } as const;
+  const l = lineasDeFila(f, ancho);
+  const nota = { fontSize: T.nota.cuerpo, fontWeight: 500, lineHeight: `${L_NOTA}px` } as const;
   return (
     <div style={{ display: 'flex', gap: 8, width: '100%', padding: '0 4px 0 2px', boxSizing: 'border-box' }}>
       <span
         aria-hidden
         style={{ width: 3, borderRadius: 2, flex: '0 0 auto', background: f.principal ? C.accion : C.tinta2, opacity: f.principal ? 1 : 0.38 }}
       />
-      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, maxWidth: ancho }}>
-        <span
-          style={{
-            fontSize: cuerpoFila(f.linea, T.contexto.cuerpo, 600, ancho),
-            fontWeight: 600,
-            color: f.principal ? C.tinta : C.tinta2,
-            lineHeight: `${L_LINEA}px`,
-            textWrap: 'balance',
-          }}
-        >
-          {f.linea}
-        </span>
-        {f.detalle ? (
-          <span style={{ ...texto, fontSize: T.nota.cuerpo, fontWeight: 500, color: C.tinta2 }}>{f.detalle}</span>
-        ) : null}
-        {f.cue ? (
-          <span style={{ ...texto, fontSize: T.nota.cuerpo, fontWeight: 500, color: C.tinta }}>
-            <span style={{ color: C.tinta2 }}>Coach · </span>
-            {f.cue}
-          </span>
-        ) : null}
+      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, width: ancho }}>
+        {l.linea.map((t, i) => (
+          <LineaAjustada
+            key={`l${i}`}
+            texto={t}
+            estilo={{ fontSize: l.cuerpo, fontWeight: 600, color: f.principal ? C.tinta : C.tinta2, lineHeight: `${L_LINEA}px` }}
+          />
+        ))}
+        {l.detalle.map((t, i) => (
+          <LineaAjustada key={`d${i}`} texto={t} estilo={{ ...nota, color: C.tinta2 }} />
+        ))}
+        {l.cue.map((t, i) => {
+          const pre = i === 0 && t.startsWith(PREFIJO_CUE);
+          return (
+            <LineaAjustada
+              key={`c${i}`}
+              texto={pre ? t.slice(PREFIJO_CUE.length) : t}
+              prefijo={pre ? { texto: PREFIJO_CUE, color: C.tinta2 } : undefined}
+              estilo={{ ...nota, color: C.tinta }}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -145,7 +150,17 @@ export function Preparado({ sesion, gps, ppm }: { sesion: Sesion; gps: EstadoGps
   const nota = { fontSize: T.nota.cuerpo, fontWeight: 500, whiteSpace: 'nowrap', lineHeight: 1 } as const;
   let izquierda: ReactNode;
   if (sesion.entorno === 'cinta') izquierda = <span style={{ ...nota, color: C.tinta2 }}>Cinta · sin GPS</span>;
-  else if (!necesitaGps(sesion)) izquierda = <span style={{ ...nota, color: C.tinta2 }}>Sin GPS que esperar</span>;
+  else if (!necesitaGps(sesion))
+    // Sin GPS que esperar (fuerza): solo el pulso dice si se puede salir.
+    izquierda =
+      ppm == null ? (
+        <span style={{ ...nota, color: C.tinta2 }}>Fijando pulso</span>
+      ) : (
+        <span style={{ ...nota, color: C.tinta, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <Hecho />
+          Listo
+        </span>
+      );
   else if (gps === 'buscando')
     izquierda = (
       <span style={{ ...nota, color: C.tinta2, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
@@ -164,8 +179,8 @@ export function Preparado({ sesion, gps, ppm }: { sesion: Sesion; gps: EstadoGps
     <div style={{ height: FILA.nota, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 14px' }}>
       {izquierda}
       <span style={{ ...nota, display: 'inline-flex', alignItems: 'center', gap: 4, color: ppm == null ? C.tinta2 : C.tinta }}>
-        {ppm == null ? <Buscando /> : <Corazon talla={12} />}
-        {ppm == null ? 'pulso' : ppm}
+        <Corazon talla={12} />
+        {ppm == null ? <Buscando /> : ppm}
       </span>
     </div>
   );

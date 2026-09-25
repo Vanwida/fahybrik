@@ -23,7 +23,6 @@ import {
   Nota,
   T,
   altoHeroe,
-  anchoTexto,
   fmtPrescrito,
   fmtReloj,
   fmtRitmo,
@@ -33,12 +32,14 @@ import {
   type PasoBase,
 } from '../../kit-reloj';
 import { costeTrasEstacion, paginar, type Coste, type Completitud, type EstadoGuardado, type MetodoResumen, type Resultado, type TramoHecho } from './calculo';
+import { LineaAjustada } from './ajuste';
 import { tiempoCircuito } from './resultados';
 import { Dato, FilaLista, LineaGuardado } from './resumen-piezas';
 
 const ESTADO = { completa: 'completa', parcial: 'parcial', libre: 'libre' } as const;
 const HUECO_LISTA = 4;
-const ALTO_LISTA = ALTO_UTIL - FILA.contexto - HUECO_LISTA;
+/** Entre estaciones, menos aire: cinco caben en una página. */
+const HUECO_ESTACIONES = 2;
 const COL_TIEMPO = 54;
 const ANCHO_NOMBRE = ANCHO_UTIL - 12 - COL_TIEMPO - 8;
 
@@ -117,21 +118,19 @@ function dosisEstacion(p: PasoBase): string {
   return [fmtPrescrito(p.medida), carga].filter(Boolean).join(' · ');
 }
 
-const enUna = (t: TramoHecho) => anchoTexto(`${t.paso.nombre ?? ''} · ${dosisEstacion(t.paso)}`, T.nota.cuerpo, 500) <= ANCHO_NOMBRE;
-const altoEstacion = (t: TramoHecho) => (enUna(t) ? 24 : 36);
+/** Cada estación en dos líneas fijas: el nombre de catálogo y su dosis. Nada se parte ni se sale (`LineaAjustada`). */
+const ALTO_ESTACION = 36;
 
 function FilaEstacion({ t }: { t: TramoHecho }) {
-  const nombre = t.paso.nombre ?? '';
-  const dosis = dosisEstacion(t.paso);
-  const una = enUna(t);
+  const linea = { fontSize: T.nota.cuerpo, lineHeight: '18px' } as const;
   return (
-    <div style={{ display: 'flex', alignItems: una ? 'baseline' : 'flex-start', gap: 8, width: '100%', padding: '0 6px', boxSizing: 'border-box', height: altoEstacion(t) }}>
-      <span style={{ width: COL_TIEMPO, flex: '0 0 auto', fontSize: T.tercero.cuerpo, fontWeight: 600, fontVariantNumeric: 'tabular-nums', lineHeight: una ? 1 : '24px' }}>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, width: '100%', padding: '0 6px', boxSizing: 'border-box', height: ALTO_ESTACION }}>
+      <span style={{ width: COL_TIEMPO, flex: '0 0 auto', fontSize: T.tercero.cuerpo, fontWeight: 600, fontVariantNumeric: 'tabular-nums', lineHeight: '18px' }}>
         {fmtReloj(t.segundos)}
       </span>
-      <div style={{ display: 'flex', flexDirection: una ? 'row' : 'column', gap: una ? 5 : 0, minWidth: 0, whiteSpace: 'nowrap' }}>
-        <span style={{ fontSize: T.nota.cuerpo, fontWeight: 600, lineHeight: una ? 1 : '18px' }}>{nombre}</span>
-        <span style={{ fontSize: T.nota.cuerpo, fontWeight: 500, color: C.tinta2, lineHeight: una ? 1 : '17px' }}>{una ? `· ${dosis}` : dosis}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', width: ANCHO_NOMBRE, minWidth: 0 }}>
+        <LineaAjustada texto={t.paso.nombre ?? ''} estilo={{ ...linea, fontWeight: 600 }} />
+        <LineaAjustada texto={dosisEstacion(t.paso)} estilo={{ ...linea, fontWeight: 500, color: C.tinta2 }} />
       </div>
     </div>
   );
@@ -139,7 +138,7 @@ function FilaEstacion({ t }: { t: TramoHecho }) {
 
 function PaginaEstaciones({ ts, total }: { ts: TramoHecho[]; total: string }) {
   return (
-    <Columna estilo={{ gap: HUECO_LISTA, alignItems: 'stretch' }}>
+    <Columna estilo={{ gap: HUECO_ESTACIONES, alignItems: 'stretch' }}>
       <ContextoLinea partes={['Estaciones', total]} tono={C.tinta2} />
       {ts.map((t) => (
         <FilaEstacion key={t.paso.id} t={t} />
@@ -163,20 +162,24 @@ function PaginaCoste({ coste }: { coste: Coste }) {
         </div>
         <Instruccion texto="sobre tu fresco" />
         <Nota>{`${fmtRitmo(coste.fresco)} fresco · ${fmtRitmo(coste.tras)} tras`}</Nota>
-        <Nota>{`${coste.pares} pares · cálculo en prueba`}</Nota>
+        <Nota>{`${coste.pares} pares · en prueba`}</Nota>
       </Columna>
     );
   }
-  const instruccion = coste.estado === 'faltan' ? 'Faltan pares' : 'Sin km fresco';
-  const nota = coste.estado === 'faltan' ? `Hoy ${coste.pares}; tu coach pide ${coste.minimo}` : 'Hoy no hubo con qué comparar';
+  // Sin coste: el número grande dice cuántos pares hay frente a los que pide el coach.
+  const faltan = coste.estado === 'faltan';
   return (
     <Columna>
       <ContextoLinea partes={['Tus km tras estación']} tono={C.tinta2} />
       <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Heroe heroe={{ clase: 'crono', texto: '—' }} altoMax={altoHeroe(filas)} tono={C.tinta2} />
+        <Heroe
+          heroe={faltan ? { clase: 'crono', texto: `${coste.pares} de ${coste.minimo}`, unidad: 'pares' } : { clase: 'crono', texto: '—' }}
+          altoMax={altoHeroe(filas)}
+          tono={C.tinta2}
+        />
       </div>
-      <Instruccion texto={instruccion} />
-      <Nota>{nota}</Nota>
+      <Instruccion texto={faltan ? 'Aún sin coste' : 'Sin km fresco'} />
+      <Nota>{faltan ? `Tu coach pide ${coste.minimo} pares` : 'Hoy no hubo con qué comparar'}</Nota>
       <Nota>Con menos, sería adivinar</Nota>
     </Columna>
   );
@@ -194,7 +197,7 @@ export function paginasCircuito(r: Resultado, c: Completitud, guardado: EstadoGu
     { id: 'resumen', titulo: 'Resumen', contenido: <PaginaCircuito r={r} c={c} guardado={guardado} /> },
     { id: 'carrera', titulo: 'Carrera', contenido: <PaginaCarrera r={r} coste={coste} /> },
   ];
-  paginar(est.map(altoEstacion), ALTO_LISTA, HUECO_LISTA).forEach((idx, k) => {
+  paginar(est.map(() => ALTO_ESTACION), ALTO_UTIL - FILA.contexto - HUECO_ESTACIONES, HUECO_ESTACIONES).forEach((idx, k) => {
     paginas.push({ id: `estaciones-${k}`, titulo: 'Estaciones', contenido: <PaginaEstaciones ts={idx.map((i) => est[i]!)} total={total} /> });
   });
   paginas.push({ id: 'coste', titulo: 'Tras estación', contenido: <PaginaCoste coste={coste} /> });

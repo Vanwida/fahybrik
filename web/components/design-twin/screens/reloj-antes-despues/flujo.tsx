@@ -14,10 +14,18 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   C,
-  TresDosUno,
+  Columna,
+  ContextoLinea,
+  FILA,
+  Heroe,
+  Instruccion,
+  altoHeroe,
+  contextoDe,
   fmtDistancia,
+  fmtObjetivo,
   fmtReloj,
   fmtRitmo,
+  principal,
   useEventos,
   vozInicio,
   type Emision,
@@ -84,6 +92,8 @@ type Fase =
 
 const HORA = '7:24';
 const PPM_EN_REPOSO = 72;
+/** El ritmo del cuerpo simulado en «Correr libre», s/km. Solo el guion. */
+const RITMO_LIBRE = 318;
 
 const KEYFRAMES = `
 @keyframes ad-gira { to { transform: rotate(360deg); } }
@@ -127,6 +137,28 @@ function faseInicial(a: Arranque): Fase {
     case 'vivo':
       return { f: 'cuenta', n: -1 };
   }
+}
+
+/**
+ * EL 3-2-1 AL EMPEZAR (P13): a qué entras y contra qué. Es la cara del kit
+ * (`TresDosUno`) salvo en una cosa: si el primer paso no tiene objetivo (un
+ * calentamiento libre), no repite lo prescrito debajo («Calentamiento · 15′ /
+ * 15′»): el contexto ya lo dice.
+ */
+function CuentaInicio({ n, paso }: { n: number; paso: PasoBase }) {
+  const o = principal(paso);
+  const filas: Array<keyof typeof FILA> = o ? ['contexto', 'instruccion'] : ['contexto'];
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: C.fondo, fontFamily: 'var(--twin-font-sans)', fontVariantNumeric: 'tabular-nums', color: C.tinta }}>
+      <Columna>
+        <ContextoLinea partes={contextoDe(paso)} />
+        {o ? <Instruccion texto={`a ${fmtObjetivo(o)}`} tono={C.tinta2} /> : null}
+        <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Heroe heroe={{ clase: 'crono', texto: n > 0 ? String(n) : 'GO' }} altoMax={altoHeroe(filas)} />
+        </div>
+      </Columna>
+    </div>
+  );
 }
 
 /** Las caras que no son de correr, las mínimas del kit (las de verdad: «Muñeca · fuerza» y «· circuito»). */
@@ -184,7 +216,12 @@ export function Flujo({ escena, onLog }: { escena: Escena; onLog: (l: string) =>
   const arrancarVivo = (s: Sesion) => {
     // Sin esperar al GPS: sigue buscando lo que le quedaba (el ritmo es «—» hasta entonces).
     const restante = sinGps ? Math.ceil((escena.gpsEn ?? 4200) / 1000) + 3 : 0;
-    const sim = cuerpo({ ppmDesde: PPM_EN_REPOSO, gps: restante > 0 ? (t) => (t < restante ? 'buscando' : 'listo') : undefined });
+    const sim = cuerpo({
+      ppmDesde: PPM_EN_REPOSO,
+      gps: restante > 0 ? (t) => (t < restante ? 'buscando' : 'listo') : undefined,
+      // Correr libre, sin objetivo: un rodaje cómodo (el cuerpo por defecto corre a 4:00).
+      ritmo: s.familia === 'libre' ? () => RITMO_LIBRE : undefined,
+    });
     setFase({ f: 'vivo', plan: s.plan, inicio: { i: 0, t: 0, sesionT: 0, sesionM: 0 }, sim, enfriamiento: false });
   };
 
@@ -316,11 +353,7 @@ export function Flujo({ escena, onLog }: { escena: Escena; onLog: (l: string) =>
       break;
     case 'cuenta': {
       const primero = sesion?.plan.pasos.find((p) => p.rol === 'trabajo');
-      vista = primero && fase.n >= 0 ? (
-        <div style={{ position: 'absolute', inset: 0, background: C.fondo, fontFamily: 'var(--twin-font-sans)', fontVariantNumeric: 'tabular-nums', color: C.tinta }}>
-          <TresDosUno n={fase.n} paso={primero} />
-        </div>
-      ) : null;
+      vista = primero && fase.n >= 0 ? <CuentaInicio n={fase.n} paso={primero} /> : null;
       break;
     }
     case 'vivo':

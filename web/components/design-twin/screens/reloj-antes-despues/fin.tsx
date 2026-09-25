@@ -211,7 +211,7 @@ export function Rpe({
               </div>
               <Escala valor={valor} />
               <Instruccion texto={valor == null ? 'gira la corona' : palabra(valor)} tono={valor == null ? C.tinta2 : C.tinta} />
-              <Nota>{valor === 0 ? 'Solo a la sesión: Salud va de 1 a 10' : 'También a Salud · esfuerzo'}</Nota>
+              <Nota>{valor === 0 ? '0 no va a Salud (1–10)' : 'También a Salud · esfuerzo'}</Nota>
               <div style={{ display: 'flex', gap: 6, width: '100%', height: FILA.boton, alignItems: 'center', justifyContent: 'center', padding: '0 4px', boxSizing: 'border-box' }}>
                 {valor == null ? (
                   <BotonAccion etiqueta="Saltar" variante="superficie" onPulsa={saltar} />

@@ -19,7 +19,6 @@ import {
   ChipZona,
   Columna,
   ContextoLinea,
-  Corazon,
   FILA,
   Nota,
   RPE_PALABRA_DEFECTO,
@@ -62,8 +61,8 @@ export function GlifoGuardado({ estado, talla = 14 }: { estado: EstadoGuardado; 
       ) : null}
       {estado === 'en-movil' ? (
         <>
-          <rect x="7" y="2.8" width="10" height="18.4" rx="2.6" stroke={tono} {...p} />
-          <path d="M10 8.8h4" stroke={tono} {...p} />
+          <rect x="6.8" y="2.5" width="10.4" height="19" rx="2.8" stroke={tono} {...p} />
+          <path d="M11 5.4h2M10.2 18.6h3.6" stroke={tono} {...p} strokeWidth={1.8} />
         </>
       ) : null}
     </svg>
@@ -89,7 +88,7 @@ export function PaginaGuardado({ estado, rpe, onListo }: { estado: EstadoGuardad
   return (
     <Columna estilo={{ justifyContent: 'center', gap: 6 }}>
       <GlifoGuardado estado={estado} talla={28} />
-      <span style={{ fontSize: cuerpoQueCabe(g.titulo, T.tercero.cuerpo, ANCHO_CABEZA), fontWeight: 600, lineHeight: 1.1, whiteSpace: 'nowrap' }}>{g.titulo}</span>
+      <span style={{ fontSize: cuerpoQueCabe(g.titulo, T.tercero.cuerpo, ANCHO_PIE), fontWeight: 600, lineHeight: 1.1, whiteSpace: 'nowrap' }}>{g.titulo}</span>
       <span style={{ fontSize: T.nota.cuerpo, fontWeight: 500, color: C.tinta2, textAlign: 'center', lineHeight: 1.15, textWrap: 'balance', maxWidth: ANCHO_CABEZA }}>
         {g.detalle}
       </span>
@@ -111,14 +110,18 @@ export function PaginaPulso({ r }: { r: Resultado }) {
   const alto = n <= 5 ? 20 : n <= 7 ? 17 : 15;
   return (
     <Columna estilo={{ gap: 6 }}>
-      <ContextoLinea partes={['Pulso']} tono={C.tinta2} />
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, height: 34, whiteSpace: 'nowrap' }}>
-        <span style={{ display: 'inline-flex', alignSelf: 'center' }}>
-          <Corazon talla={16} />
-        </span>
-        <span style={{ fontSize: T.segundo.cuerpo, fontWeight: 600, lineHeight: 1 }}>{r.ppmMedio == null ? '—' : Math.round(r.ppmMedio)}</span>
+      <ContextoLinea partes={['Pulso', 'ppm']} tono={C.tinta2} />
+      {/* Medio y máximo, sin pasar de ANCHO_PIE: arriba a la derecha viven los puntos de la corona. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 5, height: FILA.tercero, maxWidth: ANCHO_PIE, whiteSpace: 'nowrap', lineHeight: 1 }}>
+        <span style={{ fontSize: T.tercero.cuerpo, fontWeight: 600 }}>{r.ppmMedio == null ? '—' : Math.round(r.ppmMedio)}</span>
         <span style={{ fontSize: T.nota.cuerpo, color: C.tinta2 }}>medio</span>
-        <span style={{ fontSize: T.nota.cuerpo, color: C.tinta2, marginLeft: 6 }}>{r.ppmMax == null ? '' : `máx ${r.ppmMax}`}</span>
+        {r.ppmMax != null ? (
+          <>
+            <span style={{ fontSize: T.nota.cuerpo, color: C.tinta2, margin: '0 1px' }}>·</span>
+            <span style={{ fontSize: T.tercero.cuerpo, fontWeight: 600 }}>{r.ppmMax}</span>
+            <span style={{ fontSize: T.nota.cuerpo, color: C.tinta2 }}>máx</span>
+          </>
+        ) : null}
       </div>
       {Array.from({ length: n }, (_, i) => {
         const s = r.zonasS[i] ?? 0;
@@ -155,12 +158,30 @@ export function Dato({ valor, unidad, etiqueta, tono = C.tinta }: { valor: strin
 }
 
 /** Una fila de lista con columnas: número, valor grande, apoyos y el juicio a la derecha. */
-export function FilaLista({ n, valor, apoyo, derecha, tenue = false }: { n: string; valor: string; apoyo?: string | null; derecha?: ReactNode; tenue?: boolean }) {
+export function FilaLista({
+  n,
+  valor,
+  apoyo,
+  derecha,
+  tenue = false,
+  apagado = false,
+}: {
+  n: string;
+  valor: string;
+  apoyo?: string | null;
+  derecha?: ReactNode;
+  /** La fila entera atenuada: lo que no se hizo. */
+  tenue?: boolean;
+  /** Solo el apoyo atenuado: lo que se quedó con el valor por defecto (P11). */
+  apagado?: boolean;
+}) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, height: 24, width: 166, whiteSpace: 'nowrap', opacity: tenue ? 0.55 : 1 }}>
       <span style={{ fontSize: T.nota.cuerpo, color: C.tinta2, width: 30, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
       <span style={{ fontSize: T.tercero.cuerpo, fontWeight: 600, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{valor}</span>
-      {apoyo ? <span style={{ fontSize: T.nota.cuerpo, color: C.tinta2, fontVariantNumeric: 'tabular-nums' }}>{apoyo}</span> : null}
+      {apoyo ? (
+        <span style={{ fontSize: T.nota.cuerpo, color: C.tinta2, opacity: apagado ? 0.6 : 1, fontVariantNumeric: 'tabular-nums' }}>{apoyo}</span>
+      ) : null}
       <span style={{ marginLeft: 'auto', fontSize: T.nota.cuerpo }}>{derecha}</span>
     </div>
   );

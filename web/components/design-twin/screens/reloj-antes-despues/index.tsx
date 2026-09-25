@@ -153,18 +153,18 @@ export const escenarios: TwinEscenario[] = [
     id: 'resumen-479',
     titulo: 'Resumen de corredor · 479',
     descripcion:
-      'Primero lo de corredor: «6 de 6 dentro», 8,24 km · 44:36 y 3:29 /km en las series (no la media). Corona: cada 800 m contra Z5, las Wall Ball 5 × 12 · 9 kg (reps por defecto, sin anotar), el pulso con las zonas del coach y dónde está guardada, con Listo.',
+      'Primero lo de corredor: «6 de 6 dentro», 8,24 km · 44:36 y 3:28 /km en las series (no la media). Corona: cada 800 m contra Z5 con su ritmo, las Wall Ball serie a serie (el tiempo medido; las reps, por defecto y atenuadas), el pulso con las zonas del coach y dónde está guardada, con Listo.',
   },
   {
     id: 'resumen-494',
     titulo: 'Tirada 494 · km a km con desnivel',
-    descripcion: 'Sin series: manda la distancia (16,49 km), 80:00 · 4:51 /km y «98 % hasta Z2». Corona: los 16 km y el último parcial, con su ritmo, su desnivel y su pulso (+104 m).',
+    descripcion: 'Sin series: manda la distancia (16,49 km), 80:00 · 4:51 /km y «98 % hasta Z2». Corona: los 16 km y el último parcial, con su ritmo, su desnivel y su pulso (+100 m).',
   },
   {
     id: 'resumen-529',
     titulo: 'Resumen de fuerza · 529',
     descripcion:
-      '«22 de 22 series», el volumen y «19 anotadas · 3 por defecto». Corona: la superserie A junta (A1 con la carga serie a serie, la más pesada y el RIR; A2 con sus reps), la B, y el trineo con su tiempo. Lo que quedó por defecto se ve atenuado.',
+      '«22 de 22 series», el volumen y «19 anotadas · 3 por defecto». Corona: la superserie A junta (A1 con la carga serie a serie, la más pesada y el RIR; A2 con sus reps), la B, y el trineo serie a serie con su tiempo. Lo que quedó por defecto se ve atenuado.',
   },
   {
     id: 'resumen-493',
@@ -175,7 +175,7 @@ export const escenarios: TwinEscenario[] = [
   {
     id: 'resumen-482',
     titulo: 'Circuito 482 · sin pares suficientes',
-    descripcion: 'Cuatro rondas: tres km tras estación. El coste no se da («Faltan pares · Hoy 3; tu coach pide 4»), y los segundos de más por tramo tampoco. Sin Roxzone: el coach no la activó.',
+    descripcion: 'Cuatro rondas: tres km tras estación. El coste no se da («3 de 4 pares · Aún sin coste · Tu coach pide 4 pares»), y los segundos de más por tramo tampoco. Sin Roxzone: el coach no la activó.',
   },
   {
     id: 'guardado',

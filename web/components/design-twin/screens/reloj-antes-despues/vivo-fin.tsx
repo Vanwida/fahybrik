@@ -177,7 +177,11 @@ export function VivoFin({
           : { etiqueta: paso.clase === 'fuerza' ? 'Siguiente serie' : 'Siguiente paso', icono: 'siguiente', onPulsa: seq.cerrar, deshacer: { aviso, hacer: seq.deshacer } }
       }
       // «Terminar y guardar» ya confirmado: el final, con lo hecho hasta aquí.
-      onTerminar={() => onFin({ estado, final: 'atleta', zonasS: acum.zonas, ppmMax: acum.max })}
+      // (un tic después: que la cronología recoja antes el .click de la confirmación).
+      onTerminar={() => {
+        const fin: FinDeVivo = { estado, final: 'atleta', zonasS: acum.zonas, ppmMax: acum.max };
+        setTimeout(() => onFin(fin), 0);
+      }}
       completada={false}
       accion={accion}
       eventos={ev}
@@ -200,6 +204,23 @@ export function resultadoDeVivo(plan: PlanSesion, fin: FinDeVivo, base: Resultad
   const series: SerieHecha[] = e.vueltas
     .filter((v) => v.clase !== 'km')
     .map((v, k) => ({ ...v, pasoId: conPosicion[k]?.id ?? `sin-paso-${k}` }));
+  // Terminada a mitad de una serie: lo corrido de esa serie también es dato (cortada, sin juicio).
+  const actual = plan.pasos[e.i];
+  const cuenta = actual?.posicion?.serie ?? actual?.posicion?.tramo;
+  if (fin.final === 'atleta' && actual?.rol === 'trabajo' && actual.fase === 'principal' && cuenta && e.t > 0) {
+    series.push({
+      pasoId: actual.id,
+      n: cuenta.n,
+      tanda: actual.posicion?.tanda?.n,
+      clase: actual.posicion?.tramo ? 'tramo' : 'serie',
+      segundos: e.t,
+      metros: e.midio ? Math.round(e.metros) : null,
+      ritmo: e.midio && e.metros > 50 ? e.t / (e.metros / 1000) : null,
+      ppm: e.pasoPpmN > 0 ? Math.round(e.pasoPpmSuma / e.pasoPpmN) : null,
+      veredicto: null,
+      eje: principal(actual)?.eje,
+    });
+  }
   const km: KmHecho[] = e.vueltas.filter((v) => v.clase === 'km').map((v) => ({ ...v, desnivel: null }));
   return {
     pasos: plan.pasos,
