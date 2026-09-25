@@ -310,7 +310,7 @@ export function Muneca(props: MunecaProps) {
   const fondo = props.tinte && !aod ? mezclar(props.tinte, TINTE_ZONA_PCT) : C.fondo;
 
   return (
-    <RelojContexto.Provider value={{ modelo, aod }}>
+    <RelojContexto.Provider value={{ modelo, aod, pieOcupado: !!toast && !aod }}>
       <PrimariaContexto.Provider value={() => gestoPrimario('Botón en pantalla')}>
       <style>{KEYFRAMES}</style>
       <div

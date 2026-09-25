@@ -14,7 +14,8 @@
 //                 tarea. Las reps se dicen en la campana (`CaraPuntuacion` del
 //                 kit), no durante el AMRAP (Alex, 25-09).
 //
-// Todas llevan el total en el mismo sitio y el pulso en la fila de abajo.
+// Todas llevan el total en el mismo sitio y el pulso en la fila de abajo (la
+// estación y la Roxzone se lo ceden al aviso de deshacer mientras vive).
 
 import {
   ANCHO_PIE,
@@ -24,6 +25,7 @@ import {
   Columna,
   ContextoLinea,
   Heroe,
+  HuecoPie,
   Linea,
   Nota,
   PasoCorrer,
@@ -77,7 +79,7 @@ function Total({ total, c }: { total: number | null; c: Circuito }) {
  * «50 m · 152 kg», el crono de la estación con «lo dices tú · doble toque».
  */
 export function CaraEstacion({ paso, lecturas, zonas, c, total }: Comun) {
-  const { modelo } = useReloj();
+  const { modelo, pieOcupado } = useReloj();
   const medida = estacionMedida(paso);
   const o = principal(paso);
   const sinGesto = modelo === 'sin-gesto' && !medida;
@@ -102,7 +104,9 @@ export function CaraEstacion({ paso, lecturas, zonas, c, total }: Comun) {
   if (total != null) filas.push('tercero');
   if (split) filas.push('tercero');
   if (sinGesto) filas.push('boton');
-  filas.push('tercero');
+  // El héroe va justo encima del pulso: mientras vive el aviso de deshacer, el
+  // pulso le deja su sitio (y el héroe encoge lo justo para quedar entero encima).
+  filas.push(pieOcupado ? 'boton' : 'tercero');
   return (
     <Columna>
       <ContextoLinea partes={posicionDe(paso, c)} />
@@ -115,7 +119,7 @@ export function CaraEstacion({ paso, lecturas, zonas, c, total }: Comun) {
       {split ? <Linea linea={split} cuerpo={22} /> : null}
       {/* El botón encima del pulso: la última fila es la más estrecha y el pulso no se va nunca (P3). */}
       {sinGesto ? <PistaAccion accion="estación hecha" /> : null}
-      <Linea linea={pulso} cuerpo={22} ancho={ANCHO_PIE} />
+      {pieOcupado ? <HuecoPie /> : <Linea linea={pulso} cuerpo={22} ancho={ANCHO_PIE} />}
     </Columna>
   );
 }
@@ -130,7 +134,7 @@ export function CaraEstacion({ paso, lecturas, zonas, c, total }: Comun) {
  * Salida: a qué tramo sales; se cierra sola cuando la muñeca ve que corres.
  */
 export function CaraRoxzone({ paso, lecturas, zonas, c, total }: Comun) {
-  const { modelo } = useReloj();
+  const { modelo, pieOcupado } = useReloj();
   const sig: PasoBase | null = paso.siguiente;
   const entrada = paso.roxzone === 'entrada';
   const sinGesto = modelo === 'sin-gesto' && entrada;
@@ -148,7 +152,7 @@ export function CaraRoxzone({ paso, lecturas, zonas, c, total }: Comun) {
   if (dosis.length) filas.push('contexto');
   if (total != null) filas.push('tercero');
   if (sinGesto) filas.push('boton');
-  filas.push('tercero');
+  filas.push(pieOcupado ? 'boton' : 'tercero');
   return (
     <Columna>
       <ContextoLinea partes={contexto} />
@@ -159,7 +163,7 @@ export function CaraRoxzone({ paso, lecturas, zonas, c, total }: Comun) {
         <Heroe heroe={heroe} altoMax={altoHeroe(filas)} />
       </Centro>
       {sinGesto ? <PistaAccion accion="empiezo" /> : null}
-      <Linea linea={lineaPulso(paso, lecturas, zonas)} cuerpo={22} ancho={ANCHO_PIE} />
+      {pieOcupado ? <HuecoPie /> : <Linea linea={lineaPulso(paso, lecturas, zonas)} cuerpo={22} ancho={ANCHO_PIE} />}
     </Columna>
   );
 }

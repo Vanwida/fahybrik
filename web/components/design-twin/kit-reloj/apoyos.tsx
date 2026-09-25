@@ -231,6 +231,16 @@ export function Marca({ hecha, talla = 15 }: { hecha: boolean; talla?: number })
 }
 
 /**
+ * El sitio del aviso de deshacer en una cara cuyo héroe va justo encima de la
+ * última fila (la estación, la Roxzone): mientras vive el aviso
+ * (`useReloj().pieOcupado`), esa fila se aparta y este hueco, del alto de la
+ * píldora, la sustituye. Así el héroe queda por encima del aviso, entero.
+ */
+export function HuecoPie() {
+  return <div aria-hidden style={{ height: T.boton.alto, flex: '0 0 auto' }} />;
+}
+
+/**
  * La fila de abajo de todo descanso: «+30 s» y la acción del momento en
  * naranja («Empezar ya», «Confirmar»). Los extremos redondos caen en las
  * esquinas del aro: la fila se mete 4 pt por lado y «+30 s» es corto para que

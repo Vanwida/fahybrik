@@ -45,6 +45,12 @@ export type ModeloReloj = 'doble-toque' | 'boton-accion' | 'sin-gesto';
 export interface EntornoReloj {
   modelo: ModeloReloj;
   aod: boolean;
+  /**
+   * El aviso de deshacer ocupa la franja del pie (5 s). Una cara cuyo héroe
+   * va justo encima de la última fila le deja el sitio (`HuecoPie`) en vez de
+   * quedar rebanada: el aviso nunca tapa el héroe.
+   */
+  pieOcupado?: boolean;
 }
 
 export const RelojContexto = createContext<EntornoReloj>({ modelo: 'doble-toque', aod: false });
