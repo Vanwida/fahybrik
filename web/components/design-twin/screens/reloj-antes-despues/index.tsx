@@ -30,6 +30,10 @@
 //   · `RPE_PALABRA_DEFECTO` no tiene el 0 (el RPE va de 0 a 10).
 //   · `PaginaVueltas` es del vivo (las 5 últimas, al revés): el resumen
 //     necesita todas, en orden, con las que no se hicieron.
+//   · `TresDosUno` repite lo prescrito cuando el paso no tiene objetivo
+//     («Calentamiento · 15′» / «15′»); aquí el 3-2-1 de inicio lo omite.
+//   · El nombre de catálogo necesita versión corta para la muñeca
+//     («Burpee Broad Jump», «Bulgarian Split Squat»): hoy se ajusta o parte.
 
 import { useState } from 'react';
 import type { InicioSecuencia, Vuelta } from '../../kit-reloj';

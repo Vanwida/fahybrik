@@ -260,10 +260,16 @@ export function Flujo({ escena, onLog }: { escena: Escena; onLog: (l: string) =>
   const empezar = () => {
     const s = sesion;
     if (!s) return;
-    onLog('Empezar (toque 2 desde la esfera)');
-    if (s.familia !== 'fuerza' && s.entorno == null) setFase({ f: 'donde' });
-    else if (necesitaGps(s) && gps !== 'listo') setFase({ f: 'gps' });
-    else setFase({ f: 'cuenta', n: 3 });
+    if (s.familia !== 'fuerza' && s.entorno == null) {
+      onLog('Empezar → el plan no dice dónde: se pregunta, una vez');
+      setFase({ f: 'donde' });
+    } else if (necesitaGps(s) && gps !== 'listo') {
+      onLog('Empezar → el GPS aún no ha fijado: se espera (o se sale sin él)');
+      setFase({ f: 'gps' });
+    } else {
+      onLog('Empezar → 3-2-1');
+      setFase({ f: 'cuenta', n: 3 });
+    }
   };
 
   const elegirEntorno = (e: Entorno) => {
