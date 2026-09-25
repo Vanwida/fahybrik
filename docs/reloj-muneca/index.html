@@ -1,0 +1,283 @@
+<title>La muñeca, rehecha</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#F4F4F2; --surface:#FFFFFF; --surface-2:#ECECEA; --border:#DCDCD7;
+  --fg:#141413; --muted:#52524D; --faint:#67675F;
+  --accent:#C4501B; --accent-soft:rgba(196,80,27,.10);
+  --ok:#1D7447; --ok-soft:rgba(29,116,71,.10);
+  --warn:#8F5400; --warn-soft:rgba(143,84,0,.10);
+  --danger:#BF3128; --danger-soft:rgba(191,49,40,.09);
+  --info:#2C5F9E; --info-soft:rgba(44,95,158,.10);
+  --font:"Figtree",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B0B0C; --surface:#161618; --surface-2:#1E1E21; --border:#2C2C30;
+    --fg:#F2F2F2; --muted:#A6A6A6; --faint:#8C8C8C;
+    --accent:#F06A2A; --accent-soft:rgba(240,106,42,.14);
+    --ok:#3CCF85; --ok-soft:rgba(60,207,133,.13);
+    --warn:#F0A43A; --warn-soft:rgba(240,164,58,.13);
+    --danger:#FF5D55; --danger-soft:rgba(255,93,85,.13);
+    --info:#5AA7F5; --info-soft:rgba(90,167,245,.13);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B0B0C; --surface:#161618; --surface-2:#1E1E21; --border:#2C2C30;
+  --fg:#F2F2F2; --muted:#A6A6A6; --faint:#8C8C8C;
+  --accent:#F06A2A; --accent-soft:rgba(240,106,42,.14);
+  --ok:#3CCF85; --ok-soft:rgba(60,207,133,.13);
+  --warn:#F0A43A; --warn-soft:rgba(240,164,58,.13);
+  --danger:#FF5D55; --danger-soft:rgba(255,93,85,.13);
+  --info:#5AA7F5; --info-soft:rgba(90,167,245,.13);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 var(--font);-webkit-font-smoothing:antialiased;padding-inline:20px}
+.wrap{max-width:1100px;margin:0 auto;padding-block:48px 96px}
+h1,h2,h3{text-wrap:balance;margin:0;font-weight:600;letter-spacing:-.01em}
+h1{font-size:clamp(30px,5vw,42px);line-height:1.1;letter-spacing:-.02em;margin-top:10px}
+h2{font-size:26px;line-height:1.2;margin-top:72px;padding-top:24px;border-top:1px solid var(--border)}
+h3{font-size:19px;line-height:1.3;margin-top:36px}
+p,ul,ol{margin:14px 0 0;max-width:72ch}
+li{margin-top:6px}
+a{color:var(--fg);text-underline-offset:3px}
+a:focus-visible{outline:2px solid var(--fg);outline-offset:2px;border-radius:4px}
+code{font-family:var(--mono);font-size:.84em;background:var(--surface-2);padding:1px 5px;border-radius:4px;word-break:break-word}
+strong{font-weight:600}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+.lede{font-size:19px;line-height:1.55;max-width:68ch;margin-top:20px}
+.meta{font-size:13px;color:var(--muted);margin-top:16px;max-width:90ch}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:32px}
+.stat{background:var(--surface);padding:16px 18px}
+.stat b{display:block;font-size:28px;line-height:1.1;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stat span{display:block;font-size:13px;color:var(--muted);margin-top:4px;line-height:1.35}
+.tablewrap{overflow-x:auto;margin-top:20px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.45}
+th{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.n{font-weight:600;min-width:8.5em;width:34%}
+@media (min-width:700px){td.n{white-space:nowrap;width:auto}}
+td.c{text-align:center;white-space:nowrap;font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;line-height:1;padding:5px 8px;border-radius:6px;white-space:nowrap}
+.badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.p0{color:var(--danger);background:var(--danger-soft)}
+.p1{color:var(--warn);background:var(--warn-soft)}
+.ok{color:var(--ok);background:var(--ok-soft)}
+.info{color:var(--info);background:var(--info-soft)}
+.list{display:grid;gap:12px;margin-top:20px;max-width:none;padding:0;list-style:none}
+.list li{margin:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:grid;gap:6px}
+.list li .head{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.list li .head strong{font-size:16px}
+.list li p{margin:0;font-size:15px;color:var(--muted);max-width:none}
+.grid2{display:grid;gap:16px;grid-template-columns:1fr;margin-top:24px}
+@media (min-width:860px){.grid2{grid-template-columns:1fr 1fr}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px}
+.panel h3{margin-top:0;font-size:17px}
+.panel p,.panel li{font-size:15px}
+.panel ul{padding-left:18px}
+.faces{display:flex;flex-wrap:wrap;gap:28px;margin-top:28px;align-items:flex-start}
+.face{display:grid;gap:10px;justify-items:start;max-width:260px}
+.face svg{width:220px;max-width:100%;height:auto;display:block}
+.face figcaption{font-size:14px;color:var(--muted);line-height:1.45}
+.face figcaption strong{color:var(--fg)}
+.principles{counter-reset:p;display:grid;gap:10px;margin-top:20px;padding:0;list-style:none;max-width:none}
+.principles li{margin:0;display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:start;font-size:15px}
+.principles li b{font-variant-numeric:tabular-nums;font-size:13px;color:var(--accent);font-weight:700;padding-top:2px}
+.choice{display:grid;gap:16px;grid-template-columns:1fr;margin-top:24px}
+@media (min-width:760px){.choice{grid-template-columns:1fr 1fr}}
+.choice .panel{border-left:3px solid var(--accent)}
+.note{margin-top:28px;background:var(--info-soft);border-radius:10px;padding:14px 16px;font-size:15px;max-width:none}
+.note strong{color:var(--info)}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">FAHYBRID · Apple Watch · auditoría y modelo · 25 de septiembre de 2026</div>
+  <h1>La muñeca, rehecha</h1>
+  <p class="lede">La app del reloj pinta lo que otro calcula, no sabe contra qué mide cada paso y se maneja como una pantalla de gimnasio. El rediseño la convierte en la herramienta de un corredor: un solo estado, el objetivo del coach como número grande y la gramática de Apple Entreno.</p>
+  <p class="meta">Seis lentes en paralelo leyendo el código (correr en solitario, espejo del iPhone, fuerza/WOD/HYROX, sistema visual y nativo, referencia competitiva) y 22 sesiones reales asignadas a Alex, Gerard y Pablo. Todo leído en el código, sin probar en un reloj: lo que necesita aparato va marcado. Especificación completa: <code>docs/reloj-muneca/modelo.md</code>.</p>
+
+  <div class="stats">
+    <div class="stat"><b>6</b><span>lentes de auditoría en paralelo</span></div>
+    <div class="stat"><b>22</b><span>sesiones reales contra las que se rompió el modelo</span></div>
+    <div class="stat"><b>7</b><span>causas raíz detrás de todos los fallos</span></div>
+    <div class="stat"><b>4</b><span>decisiones tuyas, tomadas el 25-09</span></div>
+  </div>
+
+  <h2>Qué vive hoy un atleta con el reloj</h2>
+  <p>Lo más grave, contado desde la muñeca. <span class="badge p0">P0</span> engaña o se rompe; <span class="badge p1">P1</span> está por debajo de lo que da el mercado.</p>
+  <ul class="list">
+    <li><div class="head"><span class="badge p0">P0</span><strong>Con el móvil encima, el reloj no vibra nunca</strong></div><p>El iPhone manda cada aviso (3-2-1, GO, fin del descanso, cambio de minuto del EMOM) y la muñeca no lo escucha. Y sus relojes solo avanzan cuando llega un dato del móvil: con el móvil en el bolsillo los números se congelan sin ningún aviso.</p></li>
+    <li><div class="head"><span class="badge p0">P0</span><strong>Tocar la pantalla cierra la serie</strong></div><p>Durante una serie, toda la pantalla es un botón invisible de «siguiente». El sudor, la lluvia o la manga cierran un 1.000 a los 400 m, y no hay forma de deshacerlo.</p></li>
+    <li><div class="head"><span class="badge p0">P0</span><strong>El objetivo no se ve mientras corres</strong></div><p>Ni la banda de ritmo, ni la zona, ni el RPE. Solo existe un «en objetivo» interno. El «ritmo» es la media acumulada, no el actual, y el pulso no está en la pantalla principal: con el móvil encima no aparece en ninguna.</p></li>
+    <li><div class="head"><span class="badge p0">P0</span><strong>Un rodaje de 50′ dice «llevas» en vez de «te quedan»</strong></div><p>Con el móvil, el rodaje por tiempo, que es la sesión más común, cuenta hacia arriba; sin móvil cuenta hacia abajo. Son dos pantallas distintas para el mismo entreno.</p></li>
+    <li><div class="head"><span class="badge p0">P0</span><strong>El final natural no tiene pantalla, y todo se guarda «parcial»</strong></div><p>Al acabar la última serie la pantalla se congela (o vuelve a «Calentamiento 15:00»), y cada toque graba vueltas fantasma. Terminar desde el reloj marca «parcial» siempre, aunque la sesión esté completa.</p></li>
+    <li><div class="head"><span class="badge p0">P0</span><strong>La fuerza se atasca tras la última serie</strong></div><p>El toque arranca el descanso y lo cancela a la vez. El ejercicio no se cierra y la única salida es saltarse el bloque o terminar la sesión.</p></li>
+    <li><div class="head"><span class="badge p0">P0</span><strong>Un HYROX se guarda como una vuelta con un ritmo inventado</strong></div><p>Los parciales de cada estación y cada km viven solo en memoria. Se guarda un ritmo que mezcla carreras y estaciones: 9:30/km cuando se corrió a 4:50. La Roxzone no existe y el análisis de carrera comprometida no recibe ni un dato.</p></li>
+    <li><div class="head"><span class="badge p0">P0</span><strong>Estaciones con una cuenta atrás congelada</strong></div><p>Trineo, burpees, farmers y lunges muestran «te faltan 50 m» sin moverse, porque nada los mide. El descanso entre estaciones no se ve, y un toque en ese rato tacha la estación siguiente.</p></li>
+    <li><div class="head"><span class="badge p1">P1</span><strong>Nada de lo nativo</strong></div><p>Ni corona, ni doble toque, ni botón Acción, ni Water Lock. Los controles están a la derecha (Apple los pone a la izquierda) y un paginador propio compite con el del sistema. Tampoco hay complicación, ruta en Salud, esfuerzo del entreno ni voz desde el reloj.</p></li>
+    <li><div class="head"><span class="badge p1">P1</span><strong>Un háptico, cuatro significados</strong></div><p>El mismo golpe es «botón pulsado», «fuera de ritmo» y el 3-2-1. «Rápido» y «lento» vibran igual. Volver a trabajar tras la recuperación suena a «para».</p></li>
+    <li><div class="head"><span class="badge p1">P1</span><strong>Tres lenguajes visuales en un mismo entreno</strong></div><p>Tres tipos de letra para el número, tamaños entre 110 y 31 pt sin criterio y texto a 8–11 pt. El verde quiere decir seis cosas, el naranja siete y Z1 tiene el mismo gris que «sin dato». Hay tres flujos para terminar, dos descansos y tres cuentas atrás.</p></li>
+    <li><div class="head"><span class="badge p1">P1</span><strong>Media prescripción se pierde por el camino</strong></div><p>En las 22 sesiones reales, el %RM y los kg, el RPE, el techo de pulso, la inclinación de la cinta, el modo de la recuperación y el nombre del ejercicio no llegan a la muñeca. El HYROX half-sim entero va en la nota del coach, que el reloj no lee.</p></li>
+  </ul>
+
+  <h2>Por qué pasa: siete causas</h2>
+  <p>Los síntomas de arriba salen de siete causas estructurales. Arreglar pantallas una a una no las toca.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Causa</th><th>Lo que produce</th></tr></thead>
+    <tbody>
+      <tr><td class="n">La muñeca pinta, no manda</td><td>Números congelados, saltos de 5 s, cero hápticos con el móvil, silencio al cortarse el enlace, dos relojes y dos bases de metros.</td></tr>
+      <tr><td class="n">Dos repartidores de pantallas</td><td>Una pantalla distinta para el mismo entreno según lleves el móvil. Solo la carrera estaba unificada.</td></tr>
+      <tr><td class="n">El paso no sabe contra qué</td><td>Ni objetivo, ni dirección, ni ritmo actual, ni pulso en la principal, ni «qué viene» durante el trabajo.</td></tr>
+      <tr><td class="n">Correr sobre un motor de gimnasio</td><td>Puertas a mitad de carrera, final sin pantalla, «parcial» cableado, series anidadas aplanadas.</td></tr>
+      <tr><td class="n">El circuito se pliega en uno</td><td>Sin parciales, ritmo mezclado, sin Roxzone, sin datos para la carrera comprometida.</td></tr>
+      <tr><td class="n">Interacción inventada</td><td>Toque en cualquier sitio, paginador propio, controles al revés, un háptico con cuatro significados.</td></tr>
+      <tr><td class="n">La muñeca no puede anotar nada</td><td>Ni reps, ni RIR, ni RPE de sesión, ni deshacer. La fuerza se atasca y la plataforma se queda sin usar.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>El modelo</h2>
+  <p>Una sola idea ordena el resto: la muñeca pinta el paso que estás haciendo con los objetivos que el coach escribió, y la manejas como manejas Apple Entreno.</p>
+
+  <div class="faces" aria-label="La pantalla de correr, rehecha">
+    <figure class="face" style="margin:0">
+      <svg viewBox="0 0 208 248" role="img" aria-label="Serie a ritmo: 3:47 por kilómetro dentro de la banda 3:45 a 3:55, quedan 420 metros, pulso 172 en zona 4">
+        <rect x="1" y="1" width="206" height="246" rx="54" fill="#000" stroke="#2C2C30" stroke-width="2"/>
+        <path d="M 60 3 H 148" stroke="#F06A2A" stroke-width="4" stroke-linecap="round"/>
+        <path d="M 148 3 Q 205 3 205 60 V 120" stroke="#F06A2A" stroke-width="4" stroke-linecap="round" fill="none" opacity=".35"/>
+        <text x="104" y="44" text-anchor="middle" fill="#A1A1A6" font-family="-apple-system,system-ui,sans-serif" font-size="16" font-weight="600">Serie 3/6 · 1000 m</text>
+        <text x="96" y="108" text-anchor="middle" fill="#FFF" font-family="-apple-system,system-ui,sans-serif" font-size="62" font-weight="700" style="font-variant-numeric:tabular-nums">3:47</text>
+        <text x="163" y="108" fill="#A1A1A6" font-family="-apple-system,system-ui,sans-serif" font-size="15">/km</text>
+        <rect x="18" y="122" width="172" height="6" rx="3" fill="#2C2C30"/>
+        <rect x="70" y="122" width="70" height="6" rx="3" fill="#FFFFFF" opacity=".45"/>
+        <circle cx="80" cy="125" r="6" fill="#FFF"/>
+        <text x="190" y="146" text-anchor="end" fill="#A1A1A6" font-family="-apple-system,system-ui,sans-serif" font-size="15">3:45–3:55</text>
+        <text x="18" y="190" fill="#FFF" font-family="-apple-system,system-ui,sans-serif" font-size="30" font-weight="600" style="font-variant-numeric:tabular-nums">420 m</text>
+        <text x="122" y="190" fill="#A1A1A6" font-family="-apple-system,system-ui,sans-serif" font-size="15">quedan</text>
+        <text x="18" y="224" fill="#FFB340" font-family="-apple-system,system-ui,sans-serif" font-size="22" font-weight="600" style="font-variant-numeric:tabular-nums">♥ 172 · Z4</text>
+      </svg>
+      <figcaption><strong>Serie a ritmo.</strong> El número grande es el ritmo actual contra su banda. Debajo, lo que falta y el pulso. El aro dibuja la sesión entera.</figcaption>
+    </figure>
+    <figure class="face" style="margin:0">
+      <svg viewBox="0 0 208 248" role="img" aria-label="Rodaje en zona 2: pulso 138, a 6 pulsaciones de zona 3, quedan 37 minutos 26 segundos, ritmo 5:12">
+        <rect x="1" y="1" width="206" height="246" rx="54" fill="#08122A" stroke="#2C2C30" stroke-width="2"/>
+        <path d="M 60 3 H 148 Q 205 3 205 60 V 150" stroke="#F06A2A" stroke-width="4" stroke-linecap="round" fill="none"/>
+        <text x="104" y="44" text-anchor="middle" fill="#A1A1A6" font-family="-apple-system,system-ui,sans-serif" font-size="16" font-weight="600">Rodaje · Z2</text>
+        <text x="104" y="108" text-anchor="middle" fill="#FFF" font-family="-apple-system,system-ui,sans-serif" font-size="62" font-weight="700" style="font-variant-numeric:tabular-nums">♥ 138</text>
+        <rect x="18" y="122" width="34" height="6" rx="3" fill="#8FB3D9"/>
+        <rect x="55" y="122" width="34" height="6" rx="3" fill="#2A6CFF"/>
+        <rect x="92" y="122" width="34" height="6" rx="3" fill="#2FD14F" opacity=".5"/>
+        <rect x="129" y="122" width="28" height="6" rx="3" fill="#FFB340" opacity=".5"/>
+        <rect x="160" y="122" width="30" height="6" rx="3" fill="#FF4D4D" opacity=".5"/>
+        <circle cx="80" cy="125" r="6" fill="#FFF"/>
+        <text x="190" y="146" text-anchor="end" fill="#A1A1A6" font-family="-apple-system,system-ui,sans-serif" font-size="15">Z2 · a 6 de Z3</text>
+        <text x="18" y="190" fill="#FFF" font-family="-apple-system,system-ui,sans-serif" font-size="30" font-weight="600" style="font-variant-numeric:tabular-nums">37:26</text>
+        <text x="118" y="190" fill="#A1A1A6" font-family="-apple-system,system-ui,sans-serif" font-size="15">quedan</text>
+        <text x="18" y="224" fill="#FFF" font-family="-apple-system,system-ui,sans-serif" font-size="22" font-weight="600" style="font-variant-numeric:tabular-nums">5:12 /km</text>
+      </svg>
+      <figcaption><strong>Rodaje a zona.</strong> El coach pidió pulso, así que el número grande es el pulso, con la distancia al techo de Z2. El fondo lleva el color de la zona solo cuando el paso va a zona.</figcaption>
+    </figure>
+  </div>
+
+  <ol class="principles">
+    <li><b>P1</b><span><strong>Un estado, un pintor.</strong> La misma pantalla con o sin móvil. Relojes y hápticos se calculan en la muñeca, y un dato que no llega se marca, nunca se congela en silencio.</span></li>
+    <li><b>P2</b><span><strong>El paso es la unidad:</strong> medida × objetivo(s) × rol × fase, con su posición anidada, quién lo mide, el siguiente paso y el cue del coach.</span></li>
+    <li><b>P3</b><span><strong>El objetivo manda.</strong> Ritmo contra su banda, pulso contra su techo o RPE con lo que falta. Ritmo actual, no media; el veredicto con dirección (▲ rápido, ▼ lento).</span></li>
+    <li><b>P4</b><span><strong>La gramática de Apple Entreno.</strong> Controles a la izquierda, la corona en vertical, Ahora suena a la derecha. Corriendo, tocar no cierra nada: doble toque, botón Acción o un botón visible, con 5 s para deshacer.</span></li>
+    <li><b>P5</b><span><strong>Un evento, un háptico</strong>, y voz en español desde el propio reloj.</span></li>
+    <li><b>P6</b><span><strong>Un color, un significado.</strong> Zonas con las bandas del coach, naranja solo para acción, la recuperación sin color.</span></li>
+    <li><b>P7</b><span><strong>SF nativo</strong>, una escala por papel, nada por debajo de 15 pt.</span></li>
+    <li><b>P8</b><span><strong>El descanso, una fase común</strong> a fuerza, circuito y series.</span></li>
+    <li><b>P9</b><span><strong>Correr es correr.</strong> Sin puertas a mitad de carrera, con pantalla de final, «GPS listo», calle o cinta desde la prescripción y la ruta en Salud.</span></li>
+    <li><b>P10</b><span><strong>El circuito, estación a estación.</strong> Cada km y cada estación son su vuelta. La carrera usa la pantalla de correr con el crono total a la vista, y lo que nada mide «lo dices tú».</span></li>
+    <li><b>P11</b><span><strong>Fuerza con nombre y dos ejes</strong> («5 × 100 kg · RIR 2»). Se anota en el propio descanso y nunca se atasca.</span></li>
+    <li><b>P12</b><span><strong>Cada WOD con su pregunta:</strong> la ventana del EMOM, las rondas y reps del AMRAP, el crono que puntúa en el For Time.</span></li>
+    <li><b>P13</b><span><strong>Antes y después.</strong> Lo de hoy desde la esfera, el brief con la estructura real, RPE en la corona y un resumen de corredor.</span></li>
+  </ol>
+
+  <h2>Tus cuatro decisiones</h2>
+  <div class="choice">
+    <div class="panel"><h3>El objetivo manda</h3><p>El número grande de la pantalla de correr es lo que el coach pide controlar. «Lo que falta» se queda de número grande en la recuperación y en los pasos sin objetivo.</p></div>
+    <div class="panel"><h3>Números en SF nativo</h3><p>La letra de Apple Entreno, con cifras de ancho fijo y recta. La marca vive en el negro, el naranja y el aro. Sale Menlo, que quizá ni existe en watchOS.</p></div>
+    <div class="panel"><h3>Voz al cambiar de paso y cada km</h3><p>«Serie 3 de 6. Mil metros a 3:50», «Quedan cien», «Kilómetro 5: 4:52». Los avisos de ritmo van solo por vibración.</p></div>
+    <div class="panel"><h3>Carrera comprometida contra el objetivo del coach</h3><p>En vivo, el km tras una estación se juzga como cualquier serie. Tu coste sobre el ritmo fresco sale en el resumen, porque aún no está validado con carreras reales.</p></div>
+  </div>
+
+  <h2>Contra TrainingPeaks y el resto</h2>
+  <p>En el Apple Watch, TrainingPeaks no tiene app propia: manda sus entrenos al entreno personalizado de la app Entreno de Apple, sin RPE, sin segundo objetivo y sin fuerza. El listón real es la app de Apple, Garmin y Runna.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>En la muñeca</th><th>TrainingPeaks</th><th>Apple Entreno</th><th>Garmin</th><th>FAHYBRID hoy</th><th>Con el modelo</th></tr></thead>
+    <tbody>
+      <tr><td>Objetivo visible con dirección</td><td class="c">parcial</td><td class="c">parcial</td><td class="c">sí</td><td class="c">no</td><td class="c">sí, dos objetivos</td></tr>
+      <tr><td>Cierre deliberado (sin tocar en cualquier sitio)</td><td class="c">sí</td><td class="c">sí</td><td class="c">sí</td><td class="c">no</td><td class="c">sí + deshacer</td></tr>
+      <tr><td>Voz en auriculares</td><td class="c">parcial</td><td class="c">sí</td><td class="c">sí</td><td class="c">solo con móvil</td><td class="c">sí, desde el reloj</td></tr>
+      <tr><td>Estaciones HYROX y Roxzone</td><td class="c">no</td><td class="c">no</td><td class="c">vía app de terceros</td><td class="c">una vuelta</td><td class="c">cada estación</td></tr>
+      <tr><td>Fuerza con carga y RIR en la muñeca</td><td class="c">no</td><td class="c">no</td><td class="c">sí</td><td class="c">atascada</td><td class="c">sí, en el descanso</td></tr>
+      <tr><td>Cumplimiento por serie</td><td class="c">solo web</td><td class="c">parcial</td><td class="c">splits</td><td class="c">sí</td><td class="c">sí, en vivo y al final</td></tr>
+      <tr><td>Empezar desde la esfera</td><td class="c">parcial</td><td class="c">sí</td><td class="c">sí</td><td class="c">no</td><td class="c">sí</td></tr>
+      <tr><td>RPE al terminar</td><td class="c">?</td><td class="c">sí</td><td class="c">sí</td><td class="c">no</td><td class="c">sí, en la corona</td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid2">
+    <div class="panel"><h3>Dónde se les gana</h3><ul>
+      <li>La estructura del coach sin pérdidas: dos objetivos, RPE como objetivo, recuperación con su modo.</li>
+      <li>Una sesión híbrida continua: carrera, estación, ergo y fuerza, cada una con su pantalla.</li>
+      <li>El aro como mapa de toda la sesión, no solo del paso.</li>
+      <li>La zona con su posición («Z2, a 6 de Z3») con las bandas del coach.</li>
+      <li>El veredicto por serie con las mismas palabras que ve el coach.</li>
+      <li>La carrera comprometida medida estación a estación.</li>
+    </ul></div>
+    <div class="panel"><h3>Mínimos que hay que cumplir antes</h3><ul>
+      <li>Empezar en el reloj sin iPhone, con 7 días de plan.</li>
+      <li>«GPS listo», ruta en Salud y ritmo estable.</li>
+      <li>Pantalla de paso completa, cuenta atrás y aviso fuera de rango con histéresis.</li>
+      <li>Control deliberado y Water Lock.</li>
+      <li>Always-On legible y resumen con RPE.</li>
+      <li>Tirada larga: splits por km, desnivel y avituallamiento.</li>
+    </ul></div>
+  </div>
+
+  <h2>Lo que hay que arreglar antes, en el modelo de prescripción</h2>
+  <p>Sin estos ocho cambios, parte de lo que escribe el coach sigue llegando como texto y la muñeca no puede pintarlo. Tocan el editor del coach y el cable, no solo el reloj.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Cambio</th><th>Caso real que lo pide</th></tr></thead>
+    <tbody>
+      <tr><td class="n">Dos objetivos por paso</td><td>529: «65-70 % RM» + «RIR 3»; 514: Z1 con «máx 142 ppm».</td></tr>
+      <tr><td class="n">Recuperación como dato</td><td>551: «caminando o trote suave» vive en la nota.</td></tr>
+      <tr><td class="n">Entorno e inclinación</td><td>509 y 535: cinta al 1 %, y el reloj asume calle.</td></tr>
+      <tr><td class="n">Series anidadas sin aplanar</td><td>509: 3×(6×1′) acaba en «serie 7 de 18»; 492: el trineo pierde 4 de 5 series.</td></tr>
+      <tr><td class="n">EMOM con duración</td><td>498: ¿6′ o 12′?</td></tr>
+      <tr><td class="n">HYROX sim como estructura</td><td>542: «4 estaciones + 4×500 m» solo en la nota.</td></tr>
+      <tr><td class="n">Máquina e implemento</td><td>488: damper y split; 530: «peso competición».</td></tr>
+      <tr><td class="n">Cue del coach por paso</td><td>494: «mirar el pulso» no llega a la muñeca.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>Dónde puede fallar</h2>
+  <ul>
+    <li>El doble toque solo existe desde el Series 9 y el Ultra 2, y el botón Acción solo en el Ultra. En el resto, el cierre es un botón visible con deshacer.</li>
+    <li>El GPS en series cortas (200–400 m) y en los km del circuito. Detectar la Roxzone por el movimiento y el coste comprometido está sin validar.</li>
+    <li>Que la muñeca calcule sus relojes con el móvil llevando la sesión exige mover el motor al reloj (fases 2 y 3 del diseño firmado). Mientras tanto, el espejo tiene que hacerlo en local.</li>
+    <li>Menlo en watchOS, el choque de gestos y los toques con la muñeca bajada solo se confirman en un reloj de verdad.</li>
+  </ul>
+
+  <h2>Qué viene</h2>
+  <p>El rediseño se construye primero en el doble, como propuesta, con un kit propio. Son seis pantallas:</p>
+  <ul>
+    <li><strong>Correr</strong>: series, rodaje, tirada, tempo, strides, progresivo, cinta y GPS.</li>
+    <li><strong>La gramática</strong>: controles, pausa, deshacer y el lenguaje de hápticos, voz, color y tipo.</li>
+    <li><strong>Circuito y HYROX</strong></li>
+    <li><strong>Fuerza</strong></li>
+    <li><strong>EMOM, AMRAP, For Time y ergo</strong></li>
+    <li><strong>Antes y después</strong></li>
+  </ul>
+  <p>Con tu firma pasa a Swift, familia a familia, empezando por correr.</p>
+  <div class="note"><strong>Aparte, visto al auditar:</strong> la búsqueda en la biblioteca del asistente (MCP) falla con <code>column b.archived_at does not exist</code>. El código de <code>main</code> ya lee esa columna (migración 0236), pero la base a la que apunta el asistente no la tiene. Si esa base es producción, le falta la 0236 además de las 0270–0273.</div>
+</div>
