@@ -34,7 +34,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
   - la traza de un sobre del reloj encolado ya encuentra su ejecución (antes se pasaba `nil`);
   - la traza de una sesión del móvil guardada sin cobertura ya se aparca colgada de la entrada de la cola (antes solo se aparcaba con 2xx, y sin cobertura la curva se perdía).
 
-**Pendiente (Alex, pantalla):** qué ve el atleta de un entreno rechazado. `RequestQueue.rejectedRequests()` y el estado `rejected` del reloj ya lo guardan.
+**Qué ve el atleta (Alex, 25-09, preguntas y respuestas):**
+- **Un rechazo → «Guardado en tu móvil».**
+  - El resumen se cierra con «No se ha podido subir. Lo estamos revisando; no tienes que hacer nada», y CERRAR.
+  - El entreno sale en su historial marcado «Sin subir».
+  - Nosotros lo vemos en el registro técnico.
+  - Descartado: «subir como entreno libre», porque pierde el vínculo con la sesión del coach; y un aviso sin lista, porque el entreno no se ve en ningún sitio.
+- **El consentimiento para subir el movimiento del reloj se pide al terminar el primer entreno grabado en la muñeca.**
+  - Es una hoja: qué se sube, para qué (cadencia y rebote, que verá el coach) y que no es salud ni ubicación.
+  - Botones: SUBIRLO / Ahora no.
+  - Luego se cambia en Perfil › Privacidad.
+  - Descartado: solo un interruptor en Perfil (nadie lo enciende) y preguntarlo en el alta (antes de haber entrenado con el reloj).
+- Las dos pantallas pasan por «el doble» como propuesta antes del Swift.
 
 **NO hacer:**
 - Borrar un sobre de la muñeca por haber llegado al teléfono.
