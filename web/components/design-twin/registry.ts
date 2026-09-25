@@ -42,6 +42,14 @@ import * as watchVivo from './screens/watch-vivo';
 // numeral; `watch-legible` ataca el CROMO que se quedó a 9–11 pt y suma la
 // corona, el bloqueo por agua, Ahora/Después y terminar en modo espejo.
 import * as watchLegible from './screens/watch-legible';
+// La muñeca, rehecha (25-sep): la auditoría de seis lentes y el modelo de
+// docs/reloj-muneca/modelo.md. Un kit (`kit-reloj`), una gramática, el objetivo manda.
+import * as relojCorrer from './screens/reloj-correr';
+import * as relojGramatica from './screens/reloj-gramatica';
+import * as relojCircuito from './screens/reloj-circuito';
+import * as relojFuerza from './screens/reloj-fuerza';
+import * as relojWod from './screens/reloj-wod';
+import * as relojAntesDespues from './screens/reloj-antes-despues';
 import * as resumenCarrera from './screens/resumen-carrera';
 import * as watchResumen from './screens/watch-resumen';
 import * as planCiclo from './screens/plan-ciclo';
@@ -129,6 +137,13 @@ import * as correrFicha from './screens/correr-ficha';
 import * as correrTendencias from './screens/correr-tendencias';
 import * as correrCapacidad from './screens/correr-capacidad';
 import * as correrPorTipo from './screens/correr-por-tipo';
+// Lo que el atleta hizo no se pierde (25-sep, decisiones de Alex en la misma
+// tanda que la cola que ya no tira un 4xx). Dos propuestas: qué ve si el
+// servidor RECHAZA su entreno — «Guardado en tu móvil» y «Sin subir» en el
+// historial, en vez de un REINTENTAR sin salida — y el permiso para subir lo que
+// graba el reloj, que se pide una vez al acabar el primer entreno de muñeca.
+import * as guardadoEnMovil from './screens/guardado-en-movil';
+import * as consentimientoSensores from './screens/consentimiento-sensores';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -213,6 +228,18 @@ export const SCREENS: TwinScreenModule[] = [
   vivoClave,
   contadorReps,
   velocidadSerie,
+  // La tanda de «nada se pierde» (25-sep): el rechazo primero, porque es el
+  // resumen de siempre en otro estado; el consentimiento después, que sale del
+  // mismo resumen la primera vez que el reloj graba.
+  guardadoEnMovil,
+  consentimientoSensores,
+  // La muñeca, rehecha (25-sep).
+  relojCorrer,
+  relojGramatica,
+  relojCircuito,
+  relojFuerza,
+  relojWod,
+  relojAntesDespues,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -226,6 +253,19 @@ export function getScreen(id: string): TwinScreenModule | undefined {
  * entreno en vivo y se enseña sola, agrupada por su propia lógica.
  */
 export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
+  // La dirección vigente de la muñeca (25-sep): va primero porque manda sobre
+  // las tandas «La muñeca» de abajo, que quedan como historia de cómo se llegó.
+  {
+    grupo: 'La muñeca, rehecha',
+    ids: [
+      'reloj-correr',
+      'reloj-gramatica',
+      'reloj-circuito',
+      'reloj-fuerza',
+      'reloj-wod',
+      'reloj-antes-despues',
+    ],
+  },
   { grupo: 'Antes de entrenar', ids: ['plan-bloque', 'sesion-previa'] },
   {
     grupo: 'En vivo, por quién gobierna',

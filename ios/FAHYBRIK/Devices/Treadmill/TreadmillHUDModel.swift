@@ -559,10 +559,23 @@ final class TreadmillHUDModel {
 
     /// Metros del tramo que pinta el HUD: cinta si ella firma, si no lo que
     /// `RunDistanceAuthority` ya aceptó (HK indoor del reloj).
+    ///
+    /// El total OFICIAL (arrastre + fuente activa, FH-102) es del SEGMENTO: sólo es
+    /// «los metros de esta pierna» cuando la pierna ES el segmento — la carrera
+    /// continua. En una serie, una carrera estructurada o una estación cada pierna
+    /// cuenta desde su propia lectura de apertura (`resetLegState`); leer ahí el
+    /// total del segmento daba por cubierto el tramo 2 de una pirámide con los
+    /// metros del tramo 1, y el auto-avance lo cerraba al primer metro.
     var coveredMeters: Double {
-        if let official = session.officialRunDistanceMeters { return official }
+        if piernaEsElSegmento, let official = session.officialRunDistanceMeters { return official }
         if session.lapBeltOwnsDistance { return legDistanceM }
         return session.tramoRunCoveredMeters ?? session.liveRunDistanceMeters ?? 0
+    }
+
+    /// La misma partición que `legKey`: la pierna es el segmento entero sólo cuando
+    /// no la trocea ni una estación, ni la estructura, ni la serie.
+    private var piernaEsElSegmento: Bool {
+        !session.currentTramo.isFixedStation && !isStructured && !isSeries
     }
 
     /// Preferred HR: the BLE strap when live, else the watch/HealthKit stream the

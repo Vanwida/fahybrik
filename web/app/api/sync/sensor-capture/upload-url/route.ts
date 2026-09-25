@@ -2,10 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { issueSignedToken, presignUrl } from '@vercel/blob';
 import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
-import { z } from 'zod';
 import {
+  resolveSensorCaptureExecution,
   SENSOR_CAPTURE_CONSENT_VERSION,
   SENSOR_CAPTURE_MAX_BYTES,
+  sensorCaptureUploadUrlSchema,
 } from '@/lib/sync/ingest-sensor-capture';
 import { sql } from '@/lib/db';
 
@@ -14,13 +15,10 @@ export const dynamic = 'force-dynamic';
 
 const UPLOAD_URL_TTL_MS = 30 * 60 * 1000;
 
-const bodySchema = z.object({
-  execution_id: z.number().int().positive(),
-  size_bytes: z.number().int().positive().max(SENSOR_CAPTURE_MAX_BYTES),
-});
-
 // POST /api/sync/sensor-capture/upload-url — prefirma el destino del archivo
-// inercial. Exige consentimiento del atleta (fase 0).
+// inercial. Exige consentimiento del atleta. Acepta la asignación (lo que sabe el
+// reloj) o la ejecución, y devuelve `execution_id` para registrar después. 404 =
+// la ejecución aún no está: la app espera y vuelve a probar.
 export async function POST(request: Request) {
   const auth = await getAthleteSessionFromBearer(request.headers.get('authorization'));
   if (!auth) return jsonError('unauthorized', 'Bearer token required', 401);
@@ -32,7 +30,7 @@ export async function POST(request: Request) {
   } catch {
     return jsonError('bad_request', 'invalid JSON', 400);
   }
-  const parsed = bodySchema.safeParse(body);
+  const parsed = sensorCaptureUploadUrlSchema.safeParse(body);
   if (!parsed.success) {
     return jsonError('bad_request', 'invalid payload', 400, parsed.error.flatten());
   }
@@ -45,12 +43,11 @@ export async function POST(request: Request) {
     return jsonError('forbidden', 'sensor capture consent required', 403);
   }
 
-  const owned = await sql<Array<{ id: string }>>`
-    select id::text as id from workout_executions
-    where id = ${parsed.data.execution_id} and athlete_id = ${athleteId}
-    limit 1
-  `;
-  if (owned.length === 0) return jsonError('not_found', 'Execution not found', 404);
+  const executionId = await resolveSensorCaptureExecution({
+    athleteId,
+    target: parsed.data,
+  });
+  if (executionId === null) return jsonError('not_found', 'Execution not found', 404);
 
   const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
   if (!blobToken) {
@@ -59,7 +56,7 @@ export async function POST(request: Request) {
 
   const now = new Date();
   const id = randomUUID();
-  const pathname = `sensor/${athleteId}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${parsed.data.execution_id}-${id}.fhsc`;
+  const pathname = `sensor/${athleteId}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${executionId}-${id}.fhsc`;
   const mime = 'application/octet-stream';
   const validUntil = now.getTime() + UPLOAD_URL_TTL_MS;
 
@@ -82,6 +79,7 @@ export async function POST(request: Request) {
       addRandomSuffix: false,
     });
     return jsonOk({
+      execution_id: executionId,
       upload_url: presignedUrl,
       storage_pathname: pathname,
       content_type: mime,

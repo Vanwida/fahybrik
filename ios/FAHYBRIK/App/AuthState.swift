@@ -191,7 +191,7 @@ final class AuthState {
             accessGated = !info.isActiveAccess
         } catch {
             if case APIError.http(401, _) = error {
-                handleUnauthorized()
+                handleUnauthorized(usedToken: bearer)
             } else {
                 accessGated = false
             }
@@ -204,15 +204,21 @@ final class AuthState {
     /// across an app REINSTALL (an Xcode "Run" is an upgrade install: the data
     /// container — and thus the persisted bearer — survives, but the old session
     /// may not). There is no reliable SILENT Sign-in-with-Apple re-auth (minting
-    /// a fresh identity token needs a user-initiated authorization), and we do
-    /// NOT invent a server refresh endpoint — so we clear the dead session and
-    /// drop the athlete on the login screen, where one SiwA tap re-mints a valid
-    /// session. Idempotent: a launch fires every slice's revalidation at once, so
+    /// a fresh identity token needs a user-initiated authorization); a LIVE token
+    /// is renewed before it dies (`AuthState+Renewal`, fase 1), so reaching here
+    /// means the session really is dead — we clear it and drop the athlete on the
+    /// login screen, where one SiwA tap re-mints a valid session. Idempotent: a launch fires every slice's revalidation at once, so
     /// a dead token produces a BURST of 401s — they all collapse to a single
     /// sign-out (and clearing the bearer stops the rest mid-flight).
+    ///
+    /// E2 (auditoría): un 401 cierra la sesión SOLO si el token que lo recibió es el
+    /// vigente. Con renovación hay tokens viejos en vuelo (el subidor de Salud, una
+    /// petición que salió antes de renovar): su 401 no dice nada de la sesión de hoy,
+    /// y tratarlo como si lo dijera era el bucle de salidas.
     @MainActor
-    func handleUnauthorized() {
+    func handleUnauthorized(usedToken: String? = nil) {
         guard stage != .unauthenticated else { return }
+        if let usedToken, usedToken != bearer { return }
         signOut()
     }
 

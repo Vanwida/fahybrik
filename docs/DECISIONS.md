@@ -10,6 +10,216 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-25 · La muñeca se rehace: un estado, un pintor, el objetivo manda y la gramática de Apple
+
+**Por qué (Alex, 25-09):** «la UX del reloj es un lío… no podemos competir con TrainingPeaks así; tiene que sentirse una herramienta nativa, fuerte, hecha por y para corredores (70 % del uso), y la carrera comprometida con los entrenos tiene que tener sentido». Una auditoría de seis lentes lo confirma con evidencia: el modelo completo, las causas y los casos están en `docs/reloj-muneca/modelo.md`.
+
+**Decidido (el modelo):** un estado vivo y un pintor para las dos vías (relojes y hápticos calculados en la muñeca); el paso como unidad (medida × objetivo(s) × rol × fase); la gramática de Apple Entreno (controles a la izquierda, corona en vertical, Ahora suena a la derecha); tocar la pantalla corriendo no cierra nada (doble toque, botón Acción o botón visible con deshacer); un evento, un háptico; un color, un significado; el descanso como fase común; sin puertas a mitad de carrera; cada estación y cada tramo del circuito, su vuelta.
+
+**Elegido por Alex (25-09, preguntas y respuestas):**
+- **El objetivo manda en la pantalla de correr:** el número grande es lo que el coach pide controlar (ritmo si va a ritmo, pulso y zona si va a zona); lo que falta, debajo. Descartados: «lo que falta manda» (lo de FH-30, que se queda en recuperación y pasos sin objetivo) y «cuatro datos iguales».
+- **Números en SF nativo**, cifras fijas. Descartada la itálica de marca en el vivo (sigue en la marca y en el iPhone). Sale Menlo, que quizá ni existe en watchOS.
+- **Voz en los auriculares al cambiar de paso y cada km**, desde el propio reloj; los avisos de ritmo, solo vibración.
+- **Carrera comprometida juzgada en vivo contra el objetivo del coach;** el coste propio (s/km sobre tu fresco) sale en el resumen, porque el cálculo sigue sin validar con carreras reales.
+
+**Se retira (al construir en Swift):** el toque en cualquier sitio para avanzar; el paginador propio `WatchReloj` dentro del `TabView`; `LiveScaffold`/`GiantNumber` en el vivo; los dos descansos y las tres cuentas atrás; el `.partial` cableado; el ritmo-media rotulado «ritmo»; el tinte de zona detrás de una serie juzgada por ritmo; y el código muerto que ya señalaba FH-30 (`GuionSeries`, `GuionRuta`, las ramas `.rodaje`/`.series` del espejo, `MirrorHUDTreadmill`).
+
+**Arreglos de modelo aguas arriba que exige (M1–M8 en el modelo):** dos objetivos por paso, recuperación y entorno como dato, series anidadas sin aplanar, EMOM con duración, HYROX sim como estructura, máquina e implemento como dato, cue del coach por paso.
+
+**NO hacer:** diseñar una pantalla de la muñeca fuera del kit `kit-reloj` del doble; decidir el número grande en una vista en vez de con el objetivo del paso; dar un significado nuevo al naranja o a un háptico existente; poner texto por debajo de 15 pt; volver a cerrar una serie con un toque en la pantalla.
+
+**Elegido por Alex (25-09, segundo lote):**
+- **Doble toque = el estándar del mercado:** «no reinventar la rueda; los usuarios esperan que se use como las demás apps». En Apple Entreno, dos toques en la pantalla pasan al siguiente intervalo; en Garmin, la tecla LAP pasa al siguiente paso aunque no se haya completado. Queda así: dos toques en la pantalla o el gesto de doble toque cierran el paso, también una serie medida, y dejan 5 s para deshacer (Garmin no deja deshacer). Un solo toque no cierra nada.
+- **AMRAP:** las reps de la ronda sin acabar se meten en la campana. Durante el AMRAP, el doble toque solo cuenta rondas.
+- **«Seguir» tras terminar:** se guarda solo a los 10′ sin movimiento ni toques. Los 10′ son un dato con defecto.
+- **Descanso de fuerza:** Alex no lo decidió; se aplica el patrón del mercado (Hevy, Strong: se anota la serie y luego corre el descanso). Primero se confirman reps · kg · RPE y luego sale el reloj grande del descanso.
+
+**Construido (25-09, propuestas en el doble, pendientes de la firma de Alex):** `reloj-correr`, `reloj-gramatica`, `reloj-circuito`, `reloj-wod`, `reloj-fuerza`, `reloj-antes-despues`, todas sobre `kit-reloj`. Al construirlas salieron reglas de mecanismo que el Swift tiene que espejar tal cual (tests: `web/tests/design-twin/kit-reloj-veredicto.test.ts`):
+- **Un veredicto por paso.** Lo que vibra (`veredictoDelPaso`), lo que pinta la banda (`veredictoPrincipal`) y lo que canta la serie al cerrarse usan la misma holgura del coach. Antes la banda decía «rápido» sin vibrar y la serie se juzgaba con tolerancia cero.
+- **El techo manda por arriba.** Un techo pasado avisa esté en la magnitud que esté (ritmo con techo de pulso). Si está en la misma magnitud que el principal («Z1, máx 142»), el borde alto es el techo, no el del principal. Antes el techo no vibraba nunca.
+- **Serie a zona = tiempo en zona tras la gracia:** gana donde pasó más segundos (dentro, por encima, por debajo). Más corta que la gracia, no se juzga. Descartado: la media del pulso, que castiga el retraso al arrancar.
+- **Z1 no tiene suelo al juzgar.** El suelo de `limitesZona` es solo para dibujarla; juzgar con él mandaba «aprieta» en un rodaje a Z1.
+- **Completitud de la sesión** (`reloj-antes-despues/calculo.ts`): completa / parcial / libre, de lo hecho, nunca del botón que se pulsó. Un libre nunca es «parcial». El umbral para contar una serie cortada como hecha (90 %) y el mínimo de pares para calcular el coste de la comprometida (4) son dato del coach con defecto.
+
+---
+
+## 2026-09-25 · El reloj guarda el entreno hasta que el servidor lo confirma (acuses); un rechazo no se tira
+
+**Por qué (fase 1 firmada, «a finished session waits on the Watch until the server confirms it, with no expiry»):** la muñeca borraba el sobre en cuanto `transferUserInfo` lo entregaba al teléfono. «Llegó al teléfono» no es «está guardado». Si iOS mataba la app del teléfono mientras subía, la única copia ya no existía. Y la cola del teléfono tiraba cualquier 4xx, también un entreno terminado.
+
+**Decidido (mecanismo):**
+- **El sobre lleva nombre.** `WatchExecutionEnvelope.envelopeId` es un UUID que se pone al sellar.
+- **El teléfono acusa.** Manda un `WatchExecutionReceipt` por `transferUserInfo` (clave `execution_receipt_v1`) con uno de tres resultados:
+  - `held`: el teléfono lo tiene en disco, en su cola sin cobertura. La muñeca deja de reenviar.
+  - `saved`: el servidor contestó 2xx. La muñeca lo borra.
+  - `rejected`: el servidor contestó 4xx. La muñeca lo guarda y no lo reenvía.
+- **Los acuses van a disco antes de salir** (`WatchSaveReceipts`). El vínculo entre la entrada de la cola y su sobre sobrevive a que maten la app.
+- **La muñeca guarda su buzón** (`WatchSaveLedger`, en `FAHYBRIKCore`).
+  - Si pasa **1 h** desde que el sobre llegó al teléfono sin acuse, lo reenvía. Es mecanismo, no método.
+  - Reenviar es seguro porque el servidor guarda una ejecución por asignación, o por atleta + hora de inicio si va fuera de plan.
+- **Lo escenificado de dobles** espera a «Listo» y solo sale solo al arrancar tras una caída. Así el conmutador de compartir no se salta.
+- **Compatibilidad:** un sobre sin nombre, de un reloj anterior, se borra al llegar al teléfono, como siempre.
+- **La cola no tira lo que el atleta hizo.** `RequestQueue.enqueue(keepOnReject:)` está activado en los envíos de entreno: ejecución, dobles, libre y el borrador B-02.
+  - Un 4xx saca la entrada de la cola y la guarda en `rejected`, en la misma escritura atómica.
+  - Quien lo esperaba se entera (`onRejection`).
+  - Sin caducidad.
+- **`WorkoutSaveOutcome.queued` lleva el id de su entrada.** De paso arregla dos huecos:
+  - la traza de un sobre del reloj encolado ya encuentra su ejecución (antes se pasaba `nil`);
+  - la traza de una sesión del móvil guardada sin cobertura ya se aparca colgada de la entrada de la cola (antes solo se aparcaba con 2xx, y sin cobertura la curva se perdía).
+
+**Qué ve el atleta (Alex, 25-09, preguntas y respuestas):**
+- **Un rechazo → «Guardado en tu móvil».**
+  - El resumen se cierra con «No se ha podido subir. Lo estamos revisando; no tienes que hacer nada», y CERRAR.
+  - El entreno sale en su historial marcado «Sin subir».
+  - Nosotros lo vemos en el registro técnico.
+  - Descartado: «subir como entreno libre», porque pierde el vínculo con la sesión del coach; y un aviso sin lista, porque el entreno no se ve en ningún sitio.
+- **El consentimiento para subir el movimiento del reloj se pide al terminar el primer entreno grabado en la muñeca.**
+  - Es una hoja: qué se sube, para qué y que no es pulso ni ubicación.
+  - Para qué se sube, leído en el código: para que la app aprenda a contar repeticiones y a reconocer ejercicios, cada vez mejor. Con la corrección del atleta como etiqueta (`docs/reconocer-el-movimiento.html`).
+  - NO se sube para «cadencia y rebote que verá el coach», que decía el borrador de la pregunta; eso no existe en el código.
+  - El conteo en vivo en la muñeca funciona diga lo que diga: el consentimiento solo abre la subida del archivo (`WatchWorkoutCoordinator`). La hoja no puede dar a entender que decir no apaga nada.
+  - Botones: SUBIRLO / Ahora no.
+  - Luego se cambia en Perfil › Privacidad.
+  - Descartado: solo un interruptor en Perfil (nadie lo enciende) y preguntarlo en el alta (antes de haber entrenado con el reloj).
+- Las dos pantallas pasan por «el doble» como propuesta antes del Swift: `guardado-en-movil` y `consentimiento-sensores` (25-09).
+- La hoja sale tras un GUARDAR bueno: el archivo se sube cuando la ejecución existe.
+- **Cerrado con Alex (25-09, preguntas y respuestas):**
+  - **Puerta nueva «Perfil › Privacidad».** Recoge el interruptor, «Exportar mis datos» (hoy en Cuenta) y la política (hoy en Ayuda y legal).
+  - **Primer entreno grabado solo en el reloj:** la hoja sale la próxima vez que se abre la app del móvil, una vez. El archivo espera en el móvil.
+  - **«Ahora no» no vuelve a preguntar.** Solo se cambia desde Perfil.
+  - **Apagar el interruptor borra lo ya subido.** Retirar el permiso es retirarlo del todo. Exige, antes del Swift, un mecanismo en el servidor que borre los archivos de movimiento del atleta al retirarse el consentimiento.
+  - ~~No decidido: si encenderlo suba los entrenos de antes.~~ Resuelto por el mecanismo (ver «el subidor»).
+- **Construido en Swift (25-09):**
+  - la hoja (`SensorConsentSheet`), con sus reglas (`SensorConsentPrompt`);
+  - el estado por atleta (`SensorConsentState`/`Store`);
+  - el PUT y el DELETE reintentados hasta que el servidor los confirma (`SensorConsentSync`);
+  - Perfil › Privacidad (`ProfilePrivacidadView`).
+- **Tras un no, el móvil no guarda lo que llega del reloj:** «Ahora no» o el interruptor apagado vacían el buzón y los ficheros nuevos no se copian. Sin contestar sí se guardan: son lo que hace salir la hoja tras un entreno solo con el reloj.
+- **El subidor, construido (25-09; cierra el hueco que dejaba el Swift del permiso):** `SensorUploader` + `SensorCaptureInbox`.
+  - **La ejecución la resuelve el servidor por la asignación.** El reloj solo sabe la asignación (`execution_local_id`); `upload-url` acepta `assignment_id` y devuelve `execution_id` (una ejecución por asignación). Un 404 = el entreno aún viaja en la cola: el archivo espera. Así el orden entre el sobre y el archivo no importa en el móvil. Descartado: casarlos en el móvil con un cupón, como la traza; más estado y las mismas carreras.
+  - **Tres pasos por archivo:** destino → PUT al almacén desde el fichero → registro con la cabecera que escribió el reloj. Tras el PUT se apunta la ruta, así que un reintento solo registra y no sube otra copia.
+  - **El buzón es por atleta.** Solo sube con la sesión de quien tenía la sesión al llegar.
+  - **Caduca a los 30 días sin subir.** Un archivo sin entreno en el servidor (rechazado, o perdido con el móvil) no ocupa ~3 MB/h para siempre. Es mecanismo, no método.
+  - **Un 403 vuelve a abrir el sí** (`serverLacksGrant`): no sube nada hasta que el PUT se confirme otra vez.
+  - **La retirada espera a la subida en curso** (`settle`) antes del DELETE. Si no, un archivo podría aterrizar en el almacén justo después del borrado.
+  - **Tope de 4 MB → 32 MB.** El reloj archiva 50 Hz × 9 canales × int16 ≈ 3,2 MB/h sin tope de duración; con 4 MB se rechazaba todo lo que pasara de ~74 min (una simulación de HYROX).
+  - El reloj solo manda el archivo si el entreno tiene asignación; el móvil descarta uno sin ella.
+  - Corre al abrir la app y al volver (tras la cola y el permiso), al llegar un archivo, al guardarse un entreno del reloj (directo o por la cola) y al decir que sí.
+- **Corrección: el reloj solo graba el movimiento en los entrenos que lleva él solo.** Cuando el entreno lo lleva el móvil, el reloj espeja y no graba. La hoja tras GUARDAR en el móvil se disparaba con «la muñeca acompañó el entreno» y habría dicho «el reloj ha grabado» sin archivo. Ahora sale solo si hay un archivo de la muñeca esperando: la misma regla al abrir la app que tras GUARDAR.
+- **«Si encenderlo suba los entrenos de antes» ya no queda abierto:** tras un no, el móvil no guarda lo que llega del reloj (ver arriba). Al encenderlo después, sube desde entonces. Lo único que espera antes de contestar es el archivo por el que la hoja pregunta, y SUBIRLO lo sube.
+- **«Guardado en tu móvil», construido en Swift (25-09):**
+  - `WorkoutSaveOutcome.rejected(status:)` lleva el código HTTP. Un **401 no es un rechazo del entreno** sino de la sesión: el resumen lo manda a la cola como sin cobertura (la cola se queda con los 401 y lo entrega al volver a entrar).
+  - Un 4xx en el PRIMER envío (libre, sesión del coach, dobles) no pasaba por la cola: `RequestQueue.keepRejected` lo guarda en el mismo `rejected` y con la misma forma. `status` 0 = no se sabe.
+  - Un 4xx al vaciar la cola con REINTENTAR también asienta el resumen en «Guardado en tu móvil» (antes se leía como «ya no está en la cola» y cerraba como guardado).
+  - Guardado el rechazo, se borra el borrador B-02: si no, el próximo arranque encolaría el mismo entreno y habría dos copias.
+  - El historial cose lo guardado sin subir con el mes del servidor. Si el servidor ya tiene esa sesión del coach, **manda la del servidor** (una fila por entreno). El día lleva su punto en el calendario; la fila abre una ficha local.
+  - De paso: el cuerpo del libre en la cola y en el borrador B-02 sale del codificador del cable (`cuerpoDeCola`). Antes un `JSONEncoder()` pelado mandaba `Prescription` en camelCase.
+  - **Queda fuera:** un sobre del reloj rechazado en su primer envío va al buzón de muertos (`WatchExecutionDeadLetter`), no a `rejected`, así que aún no sale en «Sin subir».
+
+**NO hacer:**
+- Borrar un sobre de la muñeca por haber llegado al teléfono.
+- Tirar un 4xx de un entreno.
+- Enviar lo escenificado antes de «Listo» con la app viva.
+- Tratar un 401 como un rechazo del entreno: es la sesión caducada, y el entreno va a la cola.
+- Abrir la ficha del servidor (`ExecutedWorkoutView`) desde una fila «Sin subir»: el servidor no la tiene.
+- Ofrecer REINTENTAR tras un 4xx: repetirlo da el mismo 4xx.
+
+## 2026-09-25 · El contador de rondas cabe en su banda: número al suelo, orientación una vez
+
+**Por qué (CI macOS, `RondasContadorTests`):** FH-107 metió el vivo en el marco común (`MarcoVivo`), cuya banda del sujeto tiene techo en 340 pt (`BandaViva.sujeto`), y añadió la franja «ronda · estación» también dentro de cada cara de rondas, además de en los apoyos. El contador compacto pedía 392: con muchas rondas el móvil pintaba siempre el suelo de la cascada, sin la cuenta grande, que es justo el dato que se pierde sudando.
+
+**Decidido (Alex, 25-09, preguntas y respuestas, «número más pequeño»):** el numeral de la cuenta va al **suelo de la escala del sujeto** (`EscalaNumeral.sujeto.minimo`, 64; antes 96) y la franja de orientación sale **una sola vez, en los apoyos del marco** (`RunLiveShellView`), no dentro de las caras de rondas. Métricas y trabajo se quedan donde estaban. El doble (`vivo-rondas`) lo refleja.
+
+**Descartado:** bajar la fila de métricas a los apoyos (movía la lectura de la ronda fuera del sujeto) y aceptar la cara mínima con el test ajustado (la cuenta grande no salía nunca en vertical).
+
+**NO hacer:** medir las caras de rondas contra el hueco del cromo viejo (~380); la cota es `BandaViva.sujeto`. No volver a pintar la franja de orientación dentro de un sujeto que ya vive en el marco.
+
+## 2026-09-24 · El atleta sigue dentro: la sesión se renueva con el uso
+
+**Por qué (auditoría de la app, E2/E3; fase 1 firmada «los atletas siguen dentro»):** la sesión del atleta caducaba 30 días después de entrar, usara la app o no; con Apple Salud conectado acababa en el bucle de salidas (el subidor de Salud guarda el token viejo y su 401 echa a la sesión nueva). Whoop, Strava, TrainingPeaks y Runna te mantienen dentro.
+
+**Decidido (mecanismo; lo firmado es el qué):**
+- `POST /api/auth/refresh`: con un token de atleta válido devuelve otro nuevo. La app lo pide a lo sumo una vez al día, al abrir.
+- La sesión dura **180 días desde la última renovación** (`athleteSessionTtlSeconds`, antes 30 desde la entrada): quien abre la app al menos una vez cada seis meses no vuelve a ver el login.
+- **El token viejo NO se revoca al renovar**: caduca en su fecha. Revocarlo convertiría en 401 cualquier petición en vuelo con él — el bucle que esto cierra. Cerrar sesión sigue revocando.
+- Lo sustituye: el comentario de `AuthState.handleUnauthorized` («no inventamos un endpoint de refresco») queda superado por la fase 1.
+
+**En la app (fase 1):** `AuthState+Renewal` lo pide al arrancar y al volver a primer plano, a lo sumo una vez al día. El almacén de datos cambia de token **antes** de que la app lo publique (`AppDataStore.rotate`): su caché cuelga de una huella del token y, sin eso, cada renovación la vaciaba como si entrara otra persona. Un 401 cierra sesión **solo si el token que lo recibió es el vigente** (E2); el subidor de Salud lee el token vigente del Keychain al enviar, no la copia de cuando se configuró.
+
+## 2026-09-24 · La cola offline no tira lo que el atleta hizo
+
+**Decidido (fase 1 firmada: «un entreno terminado espera en la bandeja, sin caducidad»):** la cola offline (`RequestQueue`) ya no tira entradas de más de 72 h. El motivo de entonces —no confundir la semana del coach con envíos viejos— no se sostiene: el servidor coloca cada cosa en su fecha, así que llegar tarde corrige la semana y perderlo la falsea. Solo sale de la cola lo entregado (2xx) o lo que el servidor rechaza por construcción (4xx que no es 401), y eso queda en el registro técnico. Los acuses de entrega sí caducan (7 días): son avisos para quien esperaba, no datos del atleta.
+
+**NO hacer:** volver a poner caducidad a las entradas de la cola.
+
+**Y el entreno se guarda al terminar, no al pulsar GUARDAR (auditoría B-02):** tras «Terminar» el entreno vivía solo en memoria durante el resumen; si iOS mataba la app antes de que el servidor contestara, se perdía entero. Ahora, al aparecer el resumen, lo que se enviaría (sin RPE todavía) queda en disco (`FinishedWorkoutDraft`); GUARDAR con 2xx o encolado lo borra; si la app muere antes, el siguiente arranque lo pasa a la cola offline. Solo borradores de un arranque ANTERIOR (llevan el id del proceso): el arranque se repite en el mismo proceso con el resumen en pantalla y ese borrador sin RPE podría llegar después del GUARDAR bueno. Sin pantalla nueva: el modelo de Garmin/Strava (guardado al parar; subir y revisar aparte). Queda para una pantalla (con propuesta en «el doble»): qué ve el atleta si el servidor RECHAZA (hoy REINTENTAR sin salida).
+
+---
+
+## 2026-09-24 · El registro técnico de los aparatos: a todos, solo técnico, 30 días
+
+**Decidido (Alex, 24-09, preguntas y respuestas):** las apps del iPhone y del Apple Watch nos envían un registro técnico — cierres inesperados, bloqueos, eventos del enlace muñeca↔móvil y guardados fallidos — **de todos los atletas, sin interruptor**, porque es lo que hace falta para que el servicio funcione (interés legítimo). Nunca datos de salud, ubicación ni contenido del entreno. **Se borra a los 30 días.** Política de privacidad v1.2 (2.6, 4 y 7) lo dice. Descartado: interruptor apagado por defecto (casi nadie lo enciende: no veríamos los fallos reales) y solo TestFlight (nos quedamos sin los atletas reales).
+
+**Cómo es (fase 0 del diseño Watch-first):**
+- Tabla `device_events` (0273), columnas explícitas: instalación + seq (el aparato numera sus eventos; un reenvío es el mismo evento, único por atleta+instalación+seq), `device` phone|watch, `kind` link|session|save|lifecycle|diagnostic, `name` (snake_case; la lista vive en la app, el servidor no la cierra para no rechazar nombres de una versión nueva), `workout_id` (la intención sellada al pulsar Empezar: junta los eventos de los dos aparatos de una sesión), resultado/código/dominio del error, una línea técnica corta, versión/sistema/modelo.
+- `POST /api/devices/events` (bearer del atleta, lotes de hasta 500, 2xx = el lote entero guardado): el móvil manda los suyos y los del reloj. Poda lo del atleta de más de 30 días al escribir; el cron diario `device-events-retention` poda lo de todos.
+- **Se lee desde aquí** por el log de Vercel: una línea `[device_events]` por lote con los eventos compactos. Es la salida de la fase 0: «la primera prueba en aparato queda registrada y se lee desde aquí».
+- El vocabulario de eventos sale de las 14 pruebas en aparato de la auditoría (`docs/auditoria-app-atleta/`, T1–T14): cada una se lee en el registro.
+- **MetricKit solo existe en iOS** (no en watchOS): los cierres y bloqueos del iPhone llegan por MetricKit; los del reloj, por una marca propia — «la sesión anterior no terminó limpia» — al volver a abrir la app.
+- **En los aparatos** (`ios/FAHYBRIKCore/Diagnostics/`): cada evento se escribe en disco (una línea JSON, seq por instalación, techo 2000) antes de enviarse. El reloj lo pasa al móvil por `transferUserInfo` (el sistema lo entrega en orden aunque las apps estén cerradas; un fallo de entrega lo vuelve pendiente); el móvil lo sube con un 2xx como único acuse (un 400 suelta el lote: reintentarlo tal cual sería un bucle). Se instrumentó sin cambiar comportamiento: `startWatchApp`, espejo (lanzado, adoptado, recuperado, desconectado, envío fallido), estados de HealthKit en los dos lados, el permiso de HealthKit con su espera (T10), la decisión ante cada petición de empezar (T3/T9), el `live_end` en los dos sentidos (C-01), guardado en HealthKit, entrega al móvil, subida del entreno y la cola offline — incluido lo que la cola **tira por caducado o por 4xx** (hasta hoy, en silencio).
+- **Pantalla escondida «Diagnóstico del reloj»**: siete toques en el número de versión de Perfil. Los últimos 300 eventos de los dos aparatos, «Solo fallos», «Enviar ahora» y compartir como texto. No es producto: no tiene espejo en «el doble».
+- La pila de llamadas de un cierre (MetricKit) no viaja todavía: sin los símbolos de la build no se lee; guardarla y simbolizarla es el paso siguiente.
+
+**NO hacer:** meter en `detail` nada personal (nombres, correos, notas, ubicación, valores de salud); cerrar la lista de `name` en el servidor; alargar la retención sin volver a Alex (la política dice 30 días).
+
+---
+
+## 2026-09-24 · Ningún deploy sin su migración; y tres decisiones de FLEXR (cobro, alta de coaches, aislamiento)
+
+**Qué pasó:** el PR #191 salió a producción (deploy de las 21:45 UTC) con código que lee `workout_executions.off_plan_reason` (0270) y la base de producción no tenía 0270 (ni, previsiblemente, 0271–0272, añadidas al final del PR): el cron `recompute-attention` falló para todos los coaches desde su primera pasada — la bandeja «Hoy» deja de recalcularse. Nada comparaba el código que se publica con el esquema que lo sirve.
+
+**Decidido (Alex, 24-09, preguntas y respuestas):**
+1. **La build de producción se para si falta una migración.** `web/scripts/migraciones-al-dia.mjs` corre antes de `next build`: compara `infra/migrations/*.sql` con el diario `schema_migrations` (la misma llave que el migrador) y, en `VERCEL_ENV=production`, falla nombrando las que faltan y cómo aplicarlas; si no puede leer la base, también falla (sin comprobarlo no se publica). En preview solo avisa; fuera de Vercel no hace nada. Una migración vieja sin registrar (anterior a la última registrada) se nombra aparte: se registra con `migrate:backfill --through=`, no se ejecuta. Descartado: que el deploy aplique las migraciones solo (una migración correría en la base real sin que nadie la mire) y el simple aviso (el fallo de hoy se repetiría).
+2. **Cobro de los atletas de otros clubs: Stripe Connect.** Cada club con su cuenta; la plataforma se lleva una comisión. Hasta tenerlo, el alta de pago sigue apagada para todo club que no sea FAHYBRID (revisión FLEXR, decisión 2). Descartado: cobrar en nuestra cuenta y repartir (contabilidad e impuestos ajenos) y que cada club cobre fuera.
+3. **Alta de un coach: solicitud + aprobación nuestra**, para los primeros ~20. Falta el paso que crea el club al aprobar (la lista de permitidos ya existe). Descartado por ahora: alta libre con prueba e invitación manual.
+4. **Aislamiento entre clubs: un check en CI ya, RLS completo antes del coach nº 20.** El check marca consultas sobre tablas de club sin filtro de coach; el patrón de test de dos coaches (`web/tests/tenancy/`) se extiende a toda ruta que recibe un id.
+   **Cómo es el check** (`web/tests/tenancy/ambito-de-club.test.ts`, corre en el job `web + shared` sin base): el mapa `ambito/tablas.ts` clasifica las 143 tablas — 128 de club (con su camino de propiedad hasta el coach, lo que recorrerá cada política RLS), 6 de usuario, 9 de plataforma — y falla si una migración crea una tabla sin clasificar. Una consulta que toca una tabla de club está atada si compara un `…coach_id` (o lo escribe en el insert), o si es el coach/atleta encontrándose por su identidad de sesión (el atleta SOLO por `user_id`: un `athletes.id` puede venir de la petición, que es como era el agujero de los partes de sesión). Si no, declara encima `// tenancy: <razón>` con una de cinco: `athlete-session`, `verified-owner`, `platform`, `shared-catalog`, `coach-fragment` — cada una, una política RLS futura. Las 962 que hoy no cumplen nada (en 252 archivos; 943 SQL distintos) están en `ambito/sin-ambito.baseline.json`: **el baseline solo encoge** — una consulta nueva o cambiada sin ámbito falla; al atar una, `PODAR_AMBITO=1` la quita. Ese baseline es la lista de auditoría antes de RLS. Es un análisis de texto, no un parser de SQL: puede dar por atada una consulta cuyo `coach_id` está en una subconsulta que no filtra lo que parece; RLS es lo que lo cierra.
+
+**NO hacer:** no quitar ni saltar la puerta de migraciones para «desbloquear» un deploy — se aplican las migraciones. No construir cobro en la cuenta de la plataforma para clubs ajenos. No abrir un alta libre de coaches.
+
+---
+
+## 2026-09-24 · Las migraciones de producción las corre el agente, no Alex
+
+**Decidido (Alex, 24-09):** «you always run the migrations, is your job». Aplicar migraciones a producción es trabajo del agente; no se le vuelve a pasar el comando a Alex.
+
+**Bloqueado hoy por dos cosas que solo Alex puede dar:**
+1. **Permiso:** el sistema de permisos de Claude Code trata aplicar migraciones a producción como un despliegue y lo para. Hace falta una regla de permiso en su configuración (o aprobarlo cuando se pida).
+2. **Acceso:** el contenedor del agente no tiene credenciales de producción y su política de red no deja llegar al host de Neon. Camino recomendado: un secreto de GitHub Actions `PROD_DATABASE_URL` (cadena directa, sin pooler, del rol dueño) y un workflow `migrate` que hace dry-run en cada cambio de migraciones y aplica solo lo que pide un fichero commiteado (`infra/migrations/APLICAR`) si coincide exactamente con lo pendiente — cada cambio de producción, un commit y un log. El borrador del workflow está listo para commitearlo en cuanto haya permiso y secreto. Alternativa: `DATABASE_URL` como variable del entorno cloud + el host de Neon permitido en la red (vale para una sesión nueva).
+
+**Mientras tanto:** lo pendiente en producción lo dice la build de Vercel (`web/scripts/migraciones-al-dia.mjs`) y el log de errores; el agente avisa, no manda el comando.
+
+---
+
+## 2026-09-24 · Fases 0+1 a main en un PR; la primera prueba en aparato, desde Xcode Cloud tras fusionar
+
+**Decidido (Alex, 24-09, preguntas y respuestas):** con el CI de iOS en verde se abre el PR de las fases 0 y 1 contra `main`; lo fusiona Alex tras aplicar 0270–0273 en producción (la build de producción se para sola si falta una). La primera prueba en aparato — la salida de la fase 0 — sale de la build de Xcode Cloud desde `main` a TestFlight: con el deploy, el registro técnico de los dos aparatos se lee en el log del servidor. Descartado: esperar a la fase 2 para fusionar, y builds desde la rama (el servidor de producción aún no tendría `/api/devices/events`).
+
+---
+
+## 2026-09-24 · FLEXR será un repo nuevo; mientras tanto se construye como FAHYBRID
+
+**Decidido (Alex, 24-09):** «De momento lo hacemos en nombre de FAHYBRID. Una vez esté todo finalizado hacemos el cambio: creamos un repo nuevo, creamos todo nuevo para llamarlo FLEXR, y FAHYBRID será un tenant de FLEXR.»
+
+**En consecuencia:**
+- Todo el trabajo actual (fase 0–5 del reloj, analíticas, panel) sigue en este repo y bajo la marca FAHYBRID. No se renombra nada ahora.
+- La decisión 1 de la revisión FLEXR («qué app instalan los atletas de otros clubs») queda resuelta en dirección: una app FLEXR, con FAHYBRID como un club dentro. El cuándo es al terminar, en un repo nuevo.
+- La HARD RULE Nº0 (multi-coach, ni «Pablo» ni «Fabrik» en el código, método como dato) es lo que hace barato ese traslado: todo lo que se escriba ahora tiene que poder copiarse al repo FLEXR sin tocar nombres ni supuestos de un solo club.
+
+**NO hacer:** no empezar el renombrado ni el repo FLEXR por iniciativa propia; no meter la marca FAHYBRID en mecanismo (va en la configuración de marca que ya existe: `BRAND_*` en `ios/project.yml`, `Marca.swift`, la piel del club en web).
+
+---
+
 ## 2026-09-24 · El reloj es el producto: la muñeca lleva la sesión desde el primer día
 
 **Decidido (Alex, 24-09):** «Nuestro argumento de venta es el reloj; la app no tiene sentido sin él. Todo está conectado y hay que medirlo todo. No sirve un sistema de conexión pobre aunque funcione: lo que importa es llevar la tecnología al límite.»
@@ -25,6 +235,9 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 2. **Mínimos: iOS 26 y watchOS 26**, con lo de watchOS 27 (zonas nativas, RMSSD) encendido donde el reloj lo tenga. 26 es lo que pide la sesión de entreno en el iPhone.
 3. **Sin reloj, el iPhone es respaldo:** graba la sesión él solo (sesión de entreno de iOS 26), marcada como respaldo; nunca se vende como camino principal.
 4. **Mac de CI: GitHub macOS.** Compila iPhone y reloj y pasa los tests en cada cambio de `ios/`; un rojo no se fusiona. Se monta en el repo y los errores se leen desde aquí.
+5. **Otros relojes: sí.** Carrera y piezas de ergo a Garmin, COROS, Polar y Suunto con 14 días de antelación (paridad con TrainingPeaks). Antes, comprobar si Garmin ha congelado su API de desarrolladores tras comprar TrainingPeaks.
+6. **App Entreno de Apple: solo como opción explícita.** Por defecto se corre con nuestra app; el envío de carreras a la app de Apple (WorkoutKit) deja de ser automático y lo activa quien lo quiera, sabiendo qué cuenta.
+7. **Orden:** fase 0 (CI macOS) ya; fase 4 (analíticas web) en su propio PR, después de fusionar el #191 (fusionado el 24-09 con las migraciones 0211–0272 aplicadas por Alex).
 
 ---
 

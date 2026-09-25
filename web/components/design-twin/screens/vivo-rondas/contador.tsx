@@ -89,7 +89,7 @@ function RondaAnterior({ indice, parcialS, onDeshacer }: { indice: number; parci
           línea es la ÚNICA memoria de lo que costó la ronda anterior y además es
           el blanco del deshacer, así que tiene que pasar el contraste AA (faint
           se queda en 3,4:1 sobre el lienzo). Subordinada lo está de sobra: 13 px
-          contra un numeral de 125. */}
+          contra un numeral de 64. */}
       <span
         style={{
           font: '600 13px/1.2 var(--twin-font-sans)',
@@ -164,7 +164,11 @@ export function SujetoContador({
         <span style={{ height: 19 }} aria-hidden />
       )}
       <EtiquetaSujeto>Ronda</EtiquetaSujeto>
-      <Numeral>{`${activa + 1}/${metcon.rondas}`}</Numeral>
+      {/* Al SUELO de la escala, como en iOS: la banda del sujeto tiene techo
+          (340 pt) y con el numeral grande el contador no cabía — el móvil
+          pintaba siempre el suelo de la cascada, sin cuenta. Alex (25-09)
+          eligió encoger el número antes que mover las métricas. */}
+      <Numeral alSuelo>{`${activa + 1}/${metcon.rondas}`}</Numeral>
       <TrabajoDeLaRonda metcon={metcon} />
       {haySiguiente ? <RondaSiguiente indice={activa + 2} /> : <span style={{ height: 16 }} aria-hidden />}
     </>

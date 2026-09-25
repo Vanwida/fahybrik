@@ -201,7 +201,14 @@ enum HistoryCalendar {
 struct HistoryListRow: Identifiable, Equatable {
     let date: String                 // YYYY-MM-DD
     let session: AthleteHistorySession
-    var id: String { "\(date)#\(session.assignmentId)" }
+    /// Solo existe en el móvil: el servidor lo rechazó y la cola lo guarda
+    /// (`LocalUnsyncedWorkout`). `session` es entonces su proyección para pintar la
+    /// fila igual que las demás; tocarla NO va al servidor (no lo tiene).
+    var sinSubir: LocalUnsyncedWorkout? = nil
+    var id: String {
+        if let local = sinSubir { return "\(date)#local-\(local.id.uuidString)" }
+        return "\(date)#\(session.assignmentId)"
+    }
 
     /// Flatten a month's days into rows, most recent DAY first; within a two-a-day the
     /// server's session order is preserved (a stable tiebreak, since Swift's sort is not
@@ -215,5 +222,65 @@ struct HistoryListRow: Identifiable, Equatable {
                 a.element.date != b.element.date ? a.element.date > b.element.date : a.offset < b.offset
             }
             .map(\.element)
+    }
+}
+
+// MARK: - Sin subir: cosido con el mes del servidor
+//
+// Lo que el móvil guarda sin subir (`LocalUnsyncedWorkout`, EntrenoSinSubir.swift) entra
+// en la lista y en el calendario del mes como lo que es: trabajo hecho.
+
+extension HistoryListRow {
+    /// El mes del servidor con lo que el móvil guarda sin subir, cosido por fecha.
+    ///
+    /// - Solo los del mes que se mira.
+    /// - Si el servidor YA tiene esa sesión del coach en el mes (llegó por otro
+    ///   camino, p. ej. el reloj), manda la del servidor: es la confirmada, y dos
+    ///   filas del mismo entreno mentirían sobre la semana.
+    /// - Dentro de su día, el local va PRIMERO (el más reciente antes): el mes del
+    ///   servidor no trae hora, y lo rechazado es casi siempre lo último que se hizo
+    ///   —el atleta acaba de cerrar su resumen—; al final de la lista no lo encontraría.
+    static func rows(
+        from month: AthleteHistoryMonth,
+        sinSubir: [LocalUnsyncedWorkout],
+        in ym: YearMonth
+    ) -> [HistoryListRow] {
+        let servidor = rows(from: month)
+        let yaEnElServidor = Set(servidor.map(\.session.assignmentId))
+        let locales = sinSubir
+            .filter { HistoryCalendar.isIn($0.date, ym) }
+            .filter { local in local.assignmentId.map { !yaEnElServidor.contains($0) } ?? true }
+            .sorted { ($0.startedAt ?? .distantPast) > ($1.startedAt ?? .distantPast) }
+            .map { HistoryListRow(date: $0.date, session: $0.session, sinSubir: $0) }
+        return (locales + servidor).enumerated()
+            .sorted { a, b in
+                a.element.date != b.element.date ? a.element.date > b.element.date : a.offset < b.offset
+            }
+            .map(\.element)
+    }
+}
+
+extension HistoryCalendar {
+    /// Los estados del mes con lo que el móvil guarda sin subir. Un día cuyo ÚNICO
+    /// entreno esté «Sin subir» también lleva el punto: el trabajo se hizo, y el
+    /// calendario pinta lo hecho, no lo que el servidor confirmó.
+    static func dayStates(
+        _ days: [AthleteHistoryDay],
+        in ym: YearMonth,
+        sinSubir: [LocalUnsyncedWorkout]
+    ) -> [Int: CalendarDayState] {
+        var out = dayStates(days, in: ym)
+        for local in sinSubir {
+            guard let p = parseISO(local.date), p.year == ym.year, p.month == ym.month else { continue }
+            if let actual = out[p.day], case .trained = actual { continue }
+            out[p.day] = .trained(withPartner: false)
+        }
+        return out
+    }
+
+    /// Si un YYYY-MM-DD cae en el mes `ym`.
+    static func isIn(_ iso: String, _ ym: YearMonth) -> Bool {
+        guard let p = parseISO(iso) else { return false }
+        return p.year == ym.year && p.month == ym.month
     }
 }

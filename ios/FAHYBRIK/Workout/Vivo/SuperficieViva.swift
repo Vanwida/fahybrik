@@ -50,8 +50,10 @@ enum SuperficieViva: Equatable, Hashable {
         // porque `.steady` es `presentation.continuous` (el motor del timer).
         // Eso no lo convierte en un metcon: la lectura es el ritmo, la misma
         // familia que la tapa de cinta. Cerrar la X no puede caer a
-        // `.conditioning`. rotating/fixed en una carrera (serie de intervalos)
-        // sí son sujeto de formato — `TreadmillLegResolver.isRunSeries`.
+        // `.conditioning`. Una serie de correr tampoco cae: su tramo es carrera y
+        // ya salió `.run` arriba (FH-107, la carrera manda sobre el formato; el
+        // rotativo lo lee la banda de cinta vía `TreadmillLegResolver.isRunSeries`).
+        // Aquí sólo llega un `.running` cuyo tramo no es ni carrera ni máquina.
         if session.currentSegment?.kind == .running {
             switch session.currentSegment?.formatScheme?.presentation {
             case .rotating, .fixed: return .conditioning

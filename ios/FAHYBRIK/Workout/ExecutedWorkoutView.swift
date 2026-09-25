@@ -767,11 +767,10 @@ struct ExecutedWorkoutView: View {
     // MARK: - Derived display
 
     private var whenLabel: String? {
-        guard let iso = execution?.endedAt else { return nil }
-        let parser = ISO8601DateFormatter()
-        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = parser.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
-        guard let date else { return nil }
+        // `ended_at` llega como `timestamptz::text` de Postgres, no ISO: un
+        // `ISO8601DateFormatter` suelto no lo leía y la etiqueta no salía nunca.
+        guard let iso = execution?.endedAt,
+              let date = ISO8601DateFormatters.parse(iso) else { return nil }
         let f = DateFormatter()
         f.locale = Locale(identifier: "es_ES")
         f.dateFormat = "d MMM · HH:mm"

@@ -117,15 +117,24 @@ final class RodajeMedidaTests: XCTestCase {
         XCTAssertFalse(s.isRunLegWork)
     }
 
-    func testLibreElToqueNoAvanzaYNuevoTramoOcultoSinMotor() {
+    /// FH-30 (1ce5334) cableó el motor que faltaba (`applyCommand(.newLap)`), así que
+    /// «Nuevo tramo» ya no se oculta: aparece cuando los cortes son del atleta y
+    /// desaparece sólo cuando el coach escribió la estructura (card 105: «si el coach
+    /// escribió la estructura, el corte ya está escrito y el botón no está»).
+    func testLibreElToqueNoAvanzaYNuevoTramoSoloSinEstructura() {
         let s = continuousSession(free: true)
         XCTAssertTrue(s.isFreeRun)
         XCTAssertFalse(RodajeVivoToca.avanza(s))
-        XCTAssertFalse(RodajeVivoToca.muestraNuevoTramo(s), "FH-31: sin motor no se muestra el control")
+        XCTAssertTrue(RodajeVivoToca.muestraNuevoTramo(s), "FH-30: con motor, el corte libre se ofrece")
         let prescrito = continuousSession(free: false)
         XCTAssertFalse(RodajeVivoToca.avanza(prescrito))
-        XCTAssertFalse(RodajeVivoToca.muestraNuevoTramo(prescrito))
-        XCTAssertFalse(RodajeVivoToca.muestraNuevoTramo(structuredSession()))
+        XCTAssertTrue(RodajeVivoToca.muestraNuevoTramo(prescrito),
+                      "un rodaje continuo no trae cortes escritos: los pone el atleta")
+        XCTAssertFalse(RodajeVivoToca.muestraNuevoTramo(structuredSession()),
+                       "con estructura el corte ya lo escribió el coach")
+        prescrito.togglePause()
+        XCTAssertFalse(RodajeVivoToca.muestraNuevoTramo(prescrito),
+                       "en pausa no se ofrece: `.newLap` tampoco corta en pausa")
     }
 
     func testPausaYRodajeContinuoNoSonBoton() {

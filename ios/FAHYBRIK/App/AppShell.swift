@@ -59,6 +59,9 @@ struct AppShell: View {
     // recreated on switch. See AppDataStore.
     @State private var store = AppDataStore()
     @State private var liveResume = LiveWorkoutResume.shared
+    /// La hoja del movimiento del reloj cuando el primer entreno de muñeca no tuvo
+    /// resumen en el móvil (`askSensorConsentIfDue`).
+    @State private var askSensorConsent = false
 
     // Push deep-link router — a tapped notification routes to a tab (chat opens
     // its tab directly now that Chat is a first-class destination).
@@ -172,13 +175,14 @@ struct AppShell: View {
             )
             .environment(store)
         }
+        .sensorConsentSheet(isPresented: $askSensorConsent)
         // Scope the store to the session and warm every slice once, so whichever
         // tab the athlete opens first already has its data (or loads it centrally,
         // not per-view). Re-runs if the bearer changes (sign-out / athlete switch).
         .task(id: bearer) {
             // A dead bearer (401 on any slice) clears the session and routes to
             // login — instead of the SWR engine silently keeping stale cache.
-            store.onUnauthorized = { auth.handleUnauthorized() }
+            store.onUnauthorized = { used in auth.handleUnauthorized(usedToken: used) }
             // FREE: sin coach no hay hilo ni comunicados — ni las porciones del
             // chat ni la de la bandeja se piden nunca.
             store.hasCoach = hasCoach
@@ -196,17 +200,40 @@ struct AppShell: View {
                         responseBody: response,
                         bearer: KeychainTokenStore.shared.read()
                     )
+                    // Si era un sobre del reloj, la muñeca ya puede borrar su copia.
+                    await WatchSaveReceipts.queueDelivered(requestId: requestId)
+                    // Y su archivo del movimiento ya tiene entreno del que colgarse.
+                    await SensorUploader.shared.kick()
+                }
+                // Un entreno que el servidor rechaza al vaciar la cola se guarda
+                // (`keepOnReject`), y el reloj se entera si era suyo.
+                await RequestQueue.shared.onRejection { requestId in
+                    await WatchSaveReceipts.queueRejected(requestId: requestId)
                 }
                 await WorkoutTraceUploader.sweep(bearer: bearer)
+                // B-02: un entreno terminado que no llegó a GUARDAR en el arranque
+                // anterior entra en la cola antes de drenarla.
+                await FinishedWorkoutDraft.recoverIntoQueue(bearer: bearer)
                 await RequestQueue.shared.drain(bearer: bearer)
+                await DiagnosticsUploader.shared.flush(bearer: bearer)
+                // El sí o la retirada del movimiento del reloj que no llegó al servidor,
+                // y después lo que espera subir (tras la cola: sus entrenos ya están).
+                await SensorConsentSync.shared.push(bearer: bearer)
+                await SensorUploader.shared.run(bearer: bearer)
+                await renewSessionIfDue()
             }
             await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: store.identity.value?.hrZones)
+            askSensorConsentIfDue()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background || phase == .inactive {
                 LiveWorkoutResume.shared.persistTracked()
             }
+            if phase == .background {
+                DiagnosticsLog.shared.record(.lifecycle, .appBackground)
+            }
             guard phase == .active else { return }
+            DiagnosticsLog.shared.record(.lifecycle, .appForeground)
             Task {
                 let zones = store.identity.value?.hrZones
                 await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: zones)
@@ -214,7 +241,12 @@ struct AppShell: View {
                 if let bearer {
                     await WorkoutTraceUploader.sweep(bearer: bearer)
                     await RequestQueue.shared.drain(bearer: bearer)
+                    await DiagnosticsUploader.shared.flush(bearer: bearer)
+                    await SensorConsentSync.shared.push(bearer: bearer)
+                    await SensorUploader.shared.run(bearer: bearer)
+                    await renewSessionIfDue()
                 }
+                askSensorConsentIfDue()
             }
         }
         .onChange(of: PhoneLiveSession.shared.wristFinishedByAthlete) { _, finished in
@@ -237,6 +269,27 @@ struct AppShell: View {
     //
     // Maps a tapped-notification destination to a tab. Chat is no longer a tab —
     // a chat push raises the chat cover instead of switching tabs.
+    /// Fase 1, «los atletas siguen dentro»: renueva la sesión si toca (a lo sumo una
+    /// vez al día). El almacén cambia de token ANTES de que la app lo publique
+    /// (`AppDataStore.rotate`): así el `.task(id: bearer)` que dispara el cambio no
+    /// lo toma por otra persona ni vacía la caché.
+    @MainActor
+    private func renewSessionIfDue() async {
+        guard let renewed = await auth.renewedTokenIfDue() else { return }
+        store.rotate(to: renewed)
+        auth.adoptRenewedToken(renewed)
+    }
+
+    /// Primer entreno grabado SOLO en el reloj: no hubo resumen en el móvil donde
+    /// preguntar, así que la hoja del movimiento sale al abrir la app, una vez
+    /// (DECISIONS 2026-09-25). Va DESPUÉS de recuperar un entreno en vivo: si hay uno,
+    /// manda él, y la hoja no sale sobre nada (`SensorConsentPrompt.shouldAskOnOpen`).
+    @MainActor
+    private func askSensorConsentIfDue() {
+        guard !askSensorConsent, SensorConsentPrompt.shouldAskOnOpen() else { return }
+        askSensorConsent = true
+    }
+
     private func handlePushDestination(_ dest: PushRouter.Destination?) {
         guard let dest else { return }
         switch dest {

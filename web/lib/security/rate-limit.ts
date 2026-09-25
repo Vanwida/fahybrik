@@ -132,6 +132,12 @@ export const RATE_LIMITS = {
   exportData: { endpoint: 'export-data', limit: 3, windowSec: 60 * 60 },
   chatSend: { endpoint: 'chat-send', limit: 60, windowSec: 60 },
   devicesRegister: { endpoint: 'devices-register', limit: 30, windowSec: 60 },
+  // La app renueva su sesión a lo sumo una vez al día; esto es el techo de un bucle.
+  authRefresh: { endpoint: 'auth-refresh', limit: 20, windowSec: 60 * 60 },
+  // El registro técnico de los aparatos (0273): un lote al volver a primer plano,
+  // al terminar un entreno y cuando el reloj entrega los suyos. Holgado para una
+  // cola atrasada; cierra la puerta a un bucle.
+  deviceEvents: { endpoint: 'device-events', limit: 60, windowSec: 60 },
   // In-app product feedback (#59). A real athlete sends one at a time; generous
   // enough for that, tight enough to blunt a scripted flood.
   appFeedback: { endpoint: 'app-feedback', limit: 10, windowSec: 60 * 10 },

@@ -5,17 +5,29 @@ final class PreWorkoutFlowSourceTests: XCTestCase {
 
     private var iosRoot: URL {
         URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
+            .deletingLastPathComponent()  // Workout/
+            .deletingLastPathComponent()  // FAHYBRIKTests/
+            .deletingLastPathComponent()  // ios/
+    }
+
+    /// The compiled text of a source file: whole-line comments (`//`, `///`,
+    /// `// MARK:`) removed. FH-95's own comments NAME the button («the sole
+    /// ▶ EMPEZAR», «not pre-live ▶ EMPEZAR») — they are not buttons. The rule
+    /// counts what the athlete can tap, so it reads code, not prose.
+    private func code(_ relativePath: String) throws -> String {
+        let text = try String(contentsOf: iosRoot.appendingPathComponent(relativePath), encoding: .utf8)
+        return text.components(separatedBy: "\n")
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: "\n")
     }
 
     func testBriefReadyToStartIsSoleEmpezarOnPreLivePath() throws {
-        let brief = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PreWorkoutBriefView.swift"))
+        let brief = try code("FAHYBRIK/Workout/PreWorkoutBriefView.swift")
         XCTAssertEqual(brief.components(separatedBy: "▶ EMPEZAR").count - 1, 1)
-        let hub = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PreWorkoutDevicesHubView.swift"))
+        let hub = try code("FAHYBRIK/Workout/PreWorkoutDevicesHubView.swift")
         XCTAssertFalse(hub.contains("▶ EMPEZAR"))
         XCTAssertFalse(hub.contains("▶ Empezar"))
-        let blockGate = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/BlockPreviewGate.swift"))
+        let blockGate = try code("FAHYBRIK/Workout/BlockPreviewGate.swift")
         XCTAssertFalse(blockGate.contains("▶ EMPEZAR"))
         XCTAssertTrue(blockGate.contains("ARRANCAR BLOQUE"))
     }

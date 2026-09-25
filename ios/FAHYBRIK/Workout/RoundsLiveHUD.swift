@@ -132,8 +132,10 @@ struct RoundsLiveHUD: View {
     // con un «1/4» sería gastar el sitio bueno en el dato fácil.
     private var caraLista: some View {
         VStack(spacing: 12) {
+            // Sin franja de orientación: «ronda · estación» la pinta UNA vez el
+            // marco, en sus apoyos (`RunLiveShellView`). Aquí era la misma línea
+            // dos veces en la misma pantalla (Alex, 25-09).
             RoundsContextStrip(session: session)
-            LiveOrientationStrip(orientation: session.liveOrientation)
             SujetoTrabajoRonda(seg: seg, grande: true, interiorActivo: session.roundsHUDInnerIndex)
             RoundRowsList(session: session)
         }
@@ -171,7 +173,6 @@ struct RoundsLiveHUD: View {
                 session: session,
                 posicion: "Ronda \(activa + 1)/\(session.roundsHUDTotal)"
             )
-            LiveOrientationStrip(orientation: session.liveOrientation)
             // El deshacer NO se recorta (verif3 cazó al suelo recortándolo):
             // con una cerrada, su chip tachado viaja también aquí — 19 pt que
             // el peor cromo real (~187) sigue absorbiendo.
@@ -205,7 +206,6 @@ struct RoundsLiveHUD: View {
             // Con el contador la cuenta ya gobierna la banda: ahí el cromo dice
             // el BLOQUE, que no está en ningún otro sitio (contrato §cromo).
             RoundsContextStrip(session: session)
-            LiveOrientationStrip(orientation: session.liveOrientation)
             SujetoContadorRonda(session: session, seg: seg, compacto: compacto)
             if conHilo { HiloDeRondas(session: session) }
             MetricRow3(cells: [
@@ -385,6 +385,9 @@ private struct SujetoContadorRonda: View {
 
     private var activa: Int { min(session.roundsHUDDone, max(0, session.roundsHUDTotal - 1)) }
 
+    /// El alto del numeral de la cuenta: el suelo de la escala del sujeto.
+    static let numeral: CGFloat = EscalaNumeral.sujeto.minimo
+
     var body: some View {
         VStack(spacing: 6) {
             if let seconds = session.roundsHUDLastClosedSeconds {
@@ -411,16 +414,18 @@ private struct SujetoContadorRonda: View {
             // El numeral DESNUDO, sin tarjeta: el sujeto gobierna la pantalla
             // (§10.2) y una CardSurface alrededor lo encogía a una celda más.
             // La tipografía es la del readout de la casa (mono de cifra), al
-            // tamaño que el presupuesto del hueco permite — 96, no los 125 del
-            // doble, y queda declarado como adaptación.
+            // SUELO de la escala del sujeto (`EscalaNumeral.sujeto.minimo`): la
+            // banda tiene techo (`BandaViva.sujeto`) y con 96 el contador no
+            // cabía — el móvil pintaba siempre el suelo de la cascada, sin
+            // número. Alex (25-09) eligió encoger el número antes que moverlo.
             LabelText(text: "Ronda", size: 10)
             Text("\(activa + 1)/\(session.roundsHUDTotal)")
-                .font(.system(size: 96, weight: .heavy, design: .monospaced))
+                .font(.system(size: Self.numeral, weight: .heavy, design: .monospaced))
                 .monospacedDigit()
                 .foregroundStyle(Theme.Color.foreground)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
-                .frame(height: 96)
+                .frame(height: Self.numeral)
 
             SujetoTrabajoRonda(seg: seg, grande: false, interiorActivo: session.roundsHUDInnerIndex)
 

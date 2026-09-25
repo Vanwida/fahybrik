@@ -46,6 +46,8 @@ struct ProfileView: View {
     /// La hoja de la foto de perfil: elegirla, verla antes de confirmarla y
     /// quitarla. Se abre tocando el avatar.
     @State private var showFotoPerfil: Bool = false
+    /// «Diagnóstico del reloj» (fase 0): siete toques en la versión.
+    @State private var showDiagnostico: Bool = false
 
     // COROS «¿esto es el entreno?» — sigue apareciendo al abrir Perfil aunque
     // la conexión viva en Dispositivos y apps.
@@ -60,6 +62,9 @@ struct ProfileView: View {
                 EditProfileView(bearer: bearer, identity: identity) { updated in
                     store.setIdentity(updated)
                 }
+            }
+            .sheet(isPresented: $showDiagnostico) {
+                DiagnosticoRelojView(bearer: bearer)
             }
             .sheet(isPresented: $showFotoPerfil) {
                 FotoPerfilSheet(
@@ -142,8 +147,8 @@ struct ProfileView: View {
                         profileDoorSection(
                             title: "Cuenta",
                             subtitle: hasCoach
-                                ? "Apariencia, metodología y privacidad de datos"
-                                : "Apariencia y privacidad de datos",
+                                ? "Apariencia, metodología y eliminar tu cuenta"
+                                : "Apariencia y eliminar tu cuenta",
                             destination: ProfileCuentaView(
                                 bearer: bearer,
                                 hasCoach: hasCoach,
@@ -153,9 +158,18 @@ struct ProfileView: View {
                             )
                         )
 
+                        // Puerta nueva (Alex, 25-09): el permiso del movimiento del
+                        // reloj, y lo que antes andaba suelto — exportar (Cuenta) y
+                        // la política (Ayuda y legal).
+                        profileDoorSection(
+                            title: "Privacidad",
+                            subtitle: "Movimiento del reloj, tus datos y la política de privacidad",
+                            destination: ProfilePrivacidadView(bearer: bearer)
+                        )
+
                         profileDoorSection(
                             title: "Ayuda y legal",
-                            subtitle: "Sugerencias, privacidad y términos",
+                            subtitle: "Sugerencias y términos",
                             destination: ProfileAyudaLegalView(bearer: bearer, hasCoach: hasCoach)
                         )
 
@@ -219,6 +233,7 @@ struct ProfileView: View {
         case "Entreno": return "figure.run"
         case "Dispositivos y apps": return "applewatch.and.arrow.forward"
         case "Cuenta": return "gearshape"
+        case "Privacidad": return "hand.raised"
         case "Ayuda y legal": return "questionmark.circle"
         default: return "chevron.right"
         }
@@ -402,6 +417,7 @@ struct ProfileView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, Theme.Spacing.m)
                     .accessibilityLabel("Versión \(version)")
+                    .onTapGesture(count: 7) { showDiagnostico = true }
             }
         }
     }

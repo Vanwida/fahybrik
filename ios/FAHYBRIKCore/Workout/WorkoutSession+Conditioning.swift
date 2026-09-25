@@ -512,6 +512,13 @@ extension WorkoutSession {
         } else if multiStation {
             rest = setRest
             kind = setRest > 0 ? .betweenSeries : .none
+        } else if seg.setsAreRounds {
+            // Cada set ES una ronda (card 146): su descanso es el de ESA ronda y
+            // manda; si no lo trae, el del ejercicio. El mismo orden con el que la
+            // previa le dijo al atleta cuánto descansa (`PrescriptionRenderer`,
+            // `set?.restS ?? blockRest`).
+            rest = setRest > 0 ? setRest : blockRest
+            kind = rest > 0 ? .betweenRounds : .none
         } else {
             rest = blockRest > 0 ? blockRest : setRest
             kind = rest > 0 ? .betweenRounds : .none

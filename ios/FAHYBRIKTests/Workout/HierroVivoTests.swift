@@ -276,14 +276,12 @@ final class HierroVivoTests: XCTestCase {
         ZStack {
             Theme.Color.background.ignoresSafeArea()
             Ambiente(zona: s.liveZone)
-            FuerzaVivoView(session: s, accionTitulo: "HECHO", alTocarAccion: {}) {
-                HStack {
-                    Image(systemName: "xmark").foregroundStyle(Theme.Color.muted)
-                    Text("‖").foregroundStyle(Theme.Color.muted)
-                    Spacer()
-                    MonoText(text: "BACK SQUAT", size: 11, color: Theme.Color.muted)
-                }
-            }
+            // El cromo (salir, pausa, bloques, pulso) lo pinta la vista desde que
+            // recibe acciones en vez de un cromo prefabricado; mismos argumentos
+            // que su #Preview.
+            FuerzaVivoView(session: s, accionTitulo: "HECHO", alTocarAccion: {},
+                           alSalir: {}, alVerBloques: {}, alConectividad: {},
+                           alTapHR: {}, alPausa: {}, hrLink: .idle)
         }
         .environment(\.colorScheme, .dark)
     }

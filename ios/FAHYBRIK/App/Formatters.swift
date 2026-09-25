@@ -170,3 +170,99 @@ enum StatsDateParser {
         return f.string(from: date)
     }
 }
+
+// `timestamptz::text` — LO QUE ESCRIBE POSTGRES cuando el servidor castea un
+// instante a texto, que es como llegan `execution.started_at` / `ended_at` y el
+// `started_at` de cada tramo (`web/lib/athlete/assignment-detail.ts`,
+// `web/lib/dashboard/coach/session-actuals.ts`):
+//
+//     2026-08-20 11:49:53+00      2026-08-20 11:49:53.561668+00
+//     2026-08-20 13:49:53+02      2026-08-20 17:19:53+05:30
+//
+// NO es ISO 8601 —espacio entre fecha y hora, desfase que puede venir solo con
+// horas— y `ISO8601DateFormatter` lo rechaza. Sin leerlo, la lectura de la
+// sesión se quedaba sin hora de inicio y de fin, y los tramos de una carrera se
+// colocaban encadenando duraciones en vez de en su marca de tiempo real.
+//
+// Se lee a mano y SIEMPRE con el desfase que trae el texto, sobre un calendario
+// gregoriano fijo en UTC: nunca con el huso, la región ni el calendario del
+// aparato. El mismo texto es el mismo instante en un móvil en Madrid, en Nueva
+// York o con el calendario budista puesto.
+enum InstanteDePostgres {
+    private static let calendarioUTC: Calendar = {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(secondsFromGMT: 0)!
+        return c
+    }()
+
+    static func parse(_ raw: String) -> Date? {
+        let texto = raw.trimmingCharacters(in: .whitespaces)
+        // AAAA-MM-DD (10) + separador + HH:MM:SS (8) + desfase (al menos `Z`).
+        guard texto.count >= 20 else { return nil }
+        let separador = texto.index(texto.startIndex, offsetBy: 10)
+        guard texto[separador] == " " || texto[separador] == "T" else { return nil }
+        let resto = texto[texto.index(after: separador)...]
+        // El desfase empieza en el primer signo o en la `Z`: la hora no lleva ninguno.
+        guard let corte = resto.firstIndex(where: { $0 == "+" || $0 == "-" || $0 == "Z" })
+        else { return nil }
+
+        let fecha = String(texto[..<separador]).components(separatedBy: "-")
+        let hora = String(resto[..<corte]).components(separatedBy: ".")
+        guard fecha.count == 3, hora.count == 1 || hora.count == 2 else { return nil }
+        let reloj = hora[0].components(separatedBy: ":")
+        guard reloj.count == 3,
+              let anio = entero(fecha[0], cifras: 4),
+              let mes = entero(fecha[1], cifras: 2),
+              let dia = entero(fecha[2], cifras: 2),
+              let h = entero(reloj[0], cifras: 2),
+              let m = entero(reloj[1], cifras: 2),
+              let s = entero(reloj[2], cifras: 2),
+              let fraccion = fraccionDe(hora.count == 2 ? hora[1] : nil),
+              let desfase = segundosDeDesfase(String(resto[corte...]))
+        else { return nil }
+
+        let componentes = DateComponents(
+            year: anio, month: mes, day: dia, hour: h, minute: m, second: s
+        )
+        // `isValidDate` descarta un 31 de febrero en vez de rodarlo al 3 de marzo.
+        guard componentes.isValidDate(in: calendarioUTC),
+              let enUTC = calendarioUTC.date(from: componentes)
+        else { return nil }
+        return enUTC.addingTimeInterval(fraccion - desfase)
+    }
+
+    /// Los decimales de los segundos (Postgres escribe hasta seis). Sin decimales
+    /// es 0; unos decimales mal formados son nil, no 0.
+    private static func fraccionDe(_ cifras: String?) -> Double? {
+        guard let cifras else { return 0 }
+        guard (1...9).contains(cifras.count), soloCifras(cifras) else { return nil }
+        return Double("0.\(cifras)")
+    }
+
+    /// `Z`, `±HH`, `±HH:MM` o `±HH:MM:SS` (Postgres), y `±HHMM` — en segundos.
+    private static func segundosDeDesfase(_ texto: String) -> Double? {
+        if texto == "Z" { return 0 }
+        guard let signo = texto.first, signo == "+" || signo == "-" else { return nil }
+        var partes = String(texto.dropFirst()).components(separatedBy: ":")
+        if partes.count == 1, partes[0].count == 4 {
+            partes = [String(partes[0].prefix(2)), String(partes[0].suffix(2))]
+        }
+        guard (1...3).contains(partes.count) else { return nil }
+        let pesos = [3600, 60, 1]
+        var total = 0
+        for (i, parte) in partes.enumerated() {
+            guard let n = entero(parte, cifras: 2), n < (i == 0 ? 24 : 60) else { return nil }
+            total += n * pesos[i]
+        }
+        return Double(signo == "-" ? -total : total)
+    }
+
+    private static func entero(_ texto: String, cifras: Int) -> Int? {
+        guard texto.count == cifras, soloCifras(texto) else { return nil }
+        return Int(texto)
+    }
+
+    private static func soloCifras(_ texto: String) -> Bool {
+        !texto.isEmpty && texto.allSatisfy { $0.isASCII && $0.isNumber }
+    }
+}

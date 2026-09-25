@@ -198,6 +198,10 @@ export function Fogonazo({ activo, tono = 'var(--twin-ok)' }: { activo: boolean;
  * Con el lienzo del iPhone 17 Pro (781 pt útiles en vertical) el 16 % sale a
  * ~125 pt: se lee de pie, a dos metros y con el móvil en el suelo.
  */
+/** El SUELO de cada escala: por debajo el número deja de ser un instrumento.
+ *  Espejo de `EscalaNumeral.minimo` (ios/FAHYBRIKCore/Theme/LenguajeVivo.swift). */
+const SUELO_PX: Record<'sujeto' | 'segundo', number> = { sujeto: 64, segundo: 30 };
+
 const ESCALA: Record<'sujeto' | 'segundo', Record<'portrait' | 'landscape', string>> = {
   sujeto: { portrait: 'clamp(64px, 16cqh, 140px)', landscape: 'clamp(64px, 16cqw, 140px)' },
   segundo: { portrait: 'clamp(30px, 7cqh, 56px)', landscape: 'clamp(30px, 7cqw, 56px)' },
@@ -256,6 +260,7 @@ export function Numeral({
   escala = 'sujeto',
   tono = 'var(--twin-fg)',
   unidad,
+  alSuelo = false,
   style,
 }: {
   children: ReactNode;
@@ -263,9 +268,12 @@ export function Numeral({
   escala?: 'sujeto' | 'segundo';
   tono?: string;
   unidad?: string;
+  /** Fijo en el suelo de su escala: para el sujeto que comparte su banda con
+   *  apoyos que no se pueden ir (el contador de rondas, 25-09). */
+  alSuelo?: boolean;
   style?: CSSProperties;
 }) {
-  const alto = ESCALA[escala][horizontal ? 'landscape' : 'portrait'];
+  const alto = alSuelo ? `${SUELO_PX[escala]}px` : ESCALA[escala][horizontal ? 'landscape' : 'portrait'];
   const ancho = techoDeAncho(children, unidad);
   return (
     // `wrap` porque la ranura de unidad no siempre recibe una unidad: el erg le

@@ -661,9 +661,15 @@ extension WorkoutSegment {
     /// True when this segment runs a NON-EMOM conditioning timer (For Time, AMRAP,
     /// Tabata, Intervals, Death By, Steady, Chipper, Ladder, Rounds, HYROX sim).
     /// EMOM is excluded — it keeps its own dedicated engine (`isEMOM`).
+    ///
+    /// Y la carrera con estructura también: su esquema plano (`intervals` / `steady`)
+    /// se lee como reloj, pero la conduce el cursor de tramos, no el rotativo — la
+    /// misma precedencia que `onEnterSegment` (estructura > EMOM > rotativo). Si las
+    /// pantallas leen otra cosa que el motor, a la carrera le montan el HUD de otro
+    /// formato (el fartlek en blanco del 10-ago). Ver DECISIONS 2026-08-10.
     var isConditioningTimer: Bool {
-        guard let s = formatScheme, !isEMOM else { return false }
-        return s.runsConditioningTimer
+        guard let s = formatScheme, !isEMOM, s.runsConditioningTimer else { return false }
+        return !hasRunStructure
     }
 
     /// The block's movement list — one row per movement, from the folded
@@ -1166,8 +1172,13 @@ struct WorkoutExecutionPayload: Codable {
 // 2xx (or 2xx with an unreadable body) is saved; 5xx/offline is queued; 4xx is not.
 enum WorkoutSaveOutcome {
     case saved(WorkoutExecutionResponse?)
-    case queued
-    case rejected
+    /// En la cola sin cobertura, con el id de su entrada: quien quiera saber cuándo
+    /// llega al servidor (el acuse al reloj, la traza) lo pide con él.
+    case queued(UUID)
+    /// No encolado. Con el código HTTP cuando lo hay: un 401 no es un rechazo del
+    /// entreno sino de la sesión, y quien lo recibe tiene que poder distinguirlo
+    /// (PostWorkoutSummaryView lo manda a la cola; el resto, «Guardado en tu móvil»).
+    case rejected(status: Int?)
 }
 
 enum WorkoutExecutionAPI {
@@ -1189,19 +1200,23 @@ enum WorkoutExecutionAPI {
             let resp: WorkoutExecutionResponse = try await APIClient.shared.post(
                 path: path, body: payload, bearer: bearer
             )
+            DiagnosticsLog.shared.recordSave(.executionSaved, path: path, error: nil)
             return .saved(resp)
         } catch APIError.decoding {
             // 2xx but an unexpected body: the execution WAS saved — never replay
             // (that would double-count), just skip the celebration.
+            DiagnosticsLog.shared.recordSave(.executionSaved, path: path, error: nil, detail: "body=unreadable")
             return .saved(nil)
         } catch {
             // AUDIT — queue ONLY a transient failure; a deterministic 4xx must not sit
             // in the replay queue forever (a 2xx-bad-body is already caught above).
             if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
-                await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
-                return .queued
+                DiagnosticsLog.shared.recordSave(.executionSaved, path: path, error: error, detail: "queued")
+                let id = await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer, keepOnReject: true)
+                return .queued(id)
             }
-            return .rejected
+            DiagnosticsLog.shared.recordSave(.executionSaved, path: path, error: error, detail: "rejected")
+            return .rejected(status: RequestQueue.httpStatus(error))
         }
     }
 }
@@ -1250,10 +1265,10 @@ enum DoblesExecutionAPI {
         } catch {
             // AUDIT — a 404 no_partner on a joint log is deterministic: don't queue it.
             if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
-                await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer)
-                return .queued
+                let id = await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer, keepOnReject: true)
+                return .queued(id)
             }
-            return .rejected
+            return .rejected(status: RequestQueue.httpStatus(error))
         }
     }
 }
@@ -1342,6 +1357,25 @@ extension WorkoutPlan {
         let segments: [WorkoutSegment] = workout.blocks
             .sorted { $0.blockPosition < $1.blockPosition }
             .flatMap { block -> [WorkoutSegment] in
+                // Calentamiento y vuelta a la calma NUNCA se pliegan, sea cual sea su
+                // `format` — es el contrato que ya documentaban `conditioningFold` y
+                // `StructuralBlockChecklist` («un tramo por movimiento») pero que
+                // ningún guard comprobaba de verdad: los tres pliegues de abajo miran
+                // el FORMATO del bloque, no su FASE, así que un calentamiento montado
+                // como circuito/rondas (un activation flow de verdad, no un caso raro)
+                // se plegaba en un solo tramo opaco — el título salía concatenando los
+                // nombres de los 9 ejercicios y «hecho» saltaba directo al siguiente
+                // bloque sin pasar por ninguno (Alex, 7-ago). Cortar aquí, antes de
+                // los tres pliegues, es la única forma de que ninguno futuro repita el
+                // mismo fallo. (Se perdió en el unify del 1-sep, que se quedó con el
+                // WorkoutModels de un main viejo; el padre de feat d90fc597 lo tenía.)
+                let phase = BlockPhase.classify(title: block.title)
+                if phase == .warmup || phase == .cooldown {
+                    return block.items.map { item in
+                        order += 1
+                        return segment(from: item, order: order, block: block)
+                    }
+                }
                 // An ALTERNATING EMOM is ONE block with several movements that the
                 // athlete cycles minute by minute (min1 wallballs / min2 run / min3
                 // wallballs …) — a SINGLE 15-min EMOM, not back-to-back ones. The

@@ -9,6 +9,31 @@ struct QueuedRequest: Codable, Identifiable {
     let bodyJson: Data
     let bearer: String?
     let createdAt: Date
+    /// Un entreno terminado: si el servidor lo rechaza (4xx), no se tira — pasa a
+    /// `rejected` (fase 1, «nada se pierde»). Opcional: las entradas escritas antes
+    /// no lo llevan y siguen la regla de siempre.
+    var keepOnReject: Bool? = nil
+}
+
+/// LO QUE EL SERVIDOR RECHAZÓ Y ERA DEL ATLETA. Una entrada con `keepOnReject` que
+/// recibe un 4xx (que no es 401) no se tira: se guarda aquí, en la misma escritura
+/// atómica que la saca de la cola, y quien pidió saberlo (`onRejection`) se entera.
+/// Reintentarla no la arregla —por eso sale de la cola—, pero perderla falsea la
+/// semana del atleta. Sin caducidad. El atleta lo ve como «Guardado en tu móvil» al
+/// cerrar el resumen y como «Sin subir» en su historial (DECISIONS 2026-09-25).
+///
+/// Llega aquí por dos caminos, con la misma forma: al vaciar la cola (un GUARDAR
+/// sin cobertura que luego se rechaza) y directamente desde el resumen, cuando el
+/// primer envío ya vuelve con 4xx (`keepRejected`).
+struct RejectedRequest: Codable, Identifiable {
+    let request: QueuedRequest
+    /// El código del rechazo. 0 = no se sabe (un fallo sin respuesta HTTP que tampoco
+    /// se pudo encolar; no debería pasar).
+    let status: Int
+    let rejectedAt: Date
+    /// Si ya se le contó a quien esperaba (`onRejection`).
+    var told: Bool
+    var id: UUID { request.id }
 }
 
 /// EL ACUSE DE UNA ENTREGA, guardado hasta que a quien le importaba se le ha dicho.
@@ -34,6 +59,8 @@ struct DeliveryReceipt: Codable, Identifiable {
 private struct QueueFile: Codable {
     var entries: [QueuedRequest]
     var receipts: [DeliveryReceipt]
+    /// Opcional para leer los ficheros escritos antes de que existiera.
+    var rejected: [RejectedRequest]?
 }
 
 actor RequestQueue {
@@ -48,6 +75,12 @@ actor RequestQueue {
     nonisolated static func isRetriable(_ error: Error) -> Bool {
         if case APIError.http(let code, _) = error { return code >= 500 }
         return true
+    }
+
+    /// El código HTTP de un fallo, si lo trae (nil sin respuesta: sin red, timeout…).
+    nonisolated static func httpStatus(_ error: Error) -> Int? {
+        if case APIError.http(let code, _) = error { return code }
+        return nil
     }
 
     /// Cómo se entrega una entrada. Es un punto de sustitución, no una capa: la única
@@ -65,6 +98,7 @@ actor RequestQueue {
     private let transport: Transport
     private var entries: [QueuedRequest] = []
     private var receipts: [DeliveryReceipt] = []
+    private var rejected: [RejectedRequest] = []
     private var loaded = false
 
     /// A quién se le cuenta que una entrada se entregó, con el cuerpo de su respuesta.
@@ -74,6 +108,13 @@ actor RequestQueue {
 
     func onDelivery(_ observer: @escaping @Sendable (UUID, Data) async -> Void) {
         deliveryObserver = observer
+    }
+
+    /// A quién se le cuenta que una entrada con `keepOnReject` fue rechazada.
+    private var rejectionObserver: (@Sendable (UUID) async -> Void)?
+
+    func onRejection(_ observer: @escaping @Sendable (UUID) async -> Void) {
+        rejectionObserver = observer
     }
 
     /// Cuántos acuses se guardan a la vez. Sin observador instalado no se escribe
@@ -100,12 +141,17 @@ actor RequestQueue {
         self.fileURL = dir.appendingPathComponent(filename)
     }
 
-    /// Replay window. An entry older than this is dropped instead of replayed:
-    /// days-old wellness/workout submissions landing out of the blue would
-    /// mislead the coach's "what happened this week" more than help it, and any
-    /// genuinely-offline stretch worth recovering (a weekend without signal)
-    /// fits well inside it.
-    private static let maxEntryAge: TimeInterval = 72 * 3600
+    /// LO QUE EL ATLETA HIZO NO CADUCA (fase 1, «nada se pierde»; auditoría: «los
+    /// entrenos offline se tiran a las 72 h»). Antes una entrada de más de 72 h se
+    /// tiraba sin decir nada, con la idea de no confundir la semana del coach. Pero el
+    /// servidor coloca cada cosa por SU fecha (un entreno del viernes que llega el
+    /// martes cae en el viernes): llegar tarde corrige la semana, perderlo la falsea.
+    /// Solo sale de la cola lo entregado (2xx) o lo que el servidor rechaza por
+    /// construcción (4xx que no es 401) — y eso queda en el registro técnico.
+    ///
+    /// Los ACUSES sí caducan: son avisos para quien esperaba la entrega (la traza que
+    /// espera su `execution_id`), y pasado este plazo ya nadie los espera.
+    private static let maxReceiptAge: TimeInterval = 7 * 24 * 3600
 
     /// Re-entrance guard: drain is fired from several places (launch, bearer
     /// change, foreground) and must never interleave two replay loops.
@@ -150,6 +196,7 @@ actor RequestQueue {
             // Los acuses se cuentan DESPUÉS de entregar, e incluyen los que quedaran
             // de una caída anterior — de ahí que la primera ronda ya los recoja.
             let told = await flushReceipts()
+            await flushRejections()
             if !delivered && !told { break }
         }
     }
@@ -159,11 +206,6 @@ actor RequestQueue {
     private func deliverEntries(bearer: String?) async -> Bool {
         var delivered = false
         while let entry = entries.first {
-            if Date().timeIntervalSince(entry.createdAt) > Self.maxEntryAge {
-                entries.removeFirst()
-                persist()
-                continue
-            }
             do {
                 let response = try await transport(
                     entry.path,
@@ -172,6 +214,7 @@ actor RequestQueue {
                 )
                 // UNA sola escritura atómica: la entrada desaparece y el acuse queda.
                 // Separarlas es abrir la ventana en la que una caída pierde el id.
+                DiagnosticsLog.shared.recordSave(.queueDelivered, path: entry.path, error: nil)
                 entries.removeFirst()
                 if deliveryObserver != nil {
                     receipts.append(
@@ -185,11 +228,22 @@ actor RequestQueue {
                 delivered = true
             } catch {
                 if case APIError.http(let code, _) = error, (400..<500).contains(code) {
-                    if code == 401 { return delivered }
+                    if code == 401 {
+                        DiagnosticsLog.shared.recordSave(.queueFailed, path: entry.path, error: error, detail: "kept")
+                        return delivered
+                    }
                     entries.removeFirst()
+                    if entry.keepOnReject == true {
+                        // UNA escritura: sale de la cola y queda en los rechazados.
+                        rejected.append(RejectedRequest(request: entry, status: code, rejectedAt: Date(), told: false))
+                        DiagnosticsLog.shared.recordSave(.queueFailed, path: entry.path, error: error, detail: "rejected_kept")
+                    } else {
+                        DiagnosticsLog.shared.recordSave(.queueFailed, path: entry.path, error: error, detail: "dropped")
+                    }
                     persist()
                     continue
                 }
+                DiagnosticsLog.shared.recordSave(.queueFailed, path: entry.path, error: error, detail: "kept")
                 return delivered
             }
         }
@@ -206,14 +260,14 @@ actor RequestQueue {
     /// señal, fuente), así que contarla dos veces actualiza la misma fila. Al revés
     /// (borrar y luego avisar) sería rápido y perdería el id en esa ventana.
     ///
-    /// Un acuse caducado se tira con el mismo criterio que una entrada: pasada la
-    /// ventana de replay, quien lo esperaba ya no lo quiere.
+    /// Un acuse caducado (`maxReceiptAge`) se tira: pasado ese plazo, quien lo
+    /// esperaba ya no lo quiere.
     @discardableResult
     private func flushReceipts() async -> Bool {
         guard let observer = deliveryObserver, !receipts.isEmpty else { return false }
         var told = false
         while let receipt = receipts.first {
-            if Date().timeIntervalSince(receipt.deliveredAt) <= Self.maxEntryAge {
+            if Date().timeIntervalSince(receipt.deliveredAt) <= Self.maxReceiptAge {
                 await observer(receipt.id, receipt.response)
                 told = true
             }
@@ -223,21 +277,74 @@ actor RequestQueue {
         return told
     }
 
+    /// Cuenta cada rechazo guardado que nadie ha oído todavía; marca y guarda DESPUÉS
+    /// de avisar (el mismo orden que `flushReceipts`, y por lo mismo: el observador
+    /// es idempotente y una caída a medio aviso solo lo repite). El rechazado se
+    /// queda: contarlo no lo resuelve.
+    private func flushRejections() async {
+        guard let observer = rejectionObserver else { return }
+        for index in rejected.indices where !rejected[index].told {
+            await observer(rejected[index].id)
+            rejected[index].told = true
+            persist()
+        }
+    }
+
+    /// Lo rechazado que era del atleta, del más viejo al más nuevo.
+    func rejectedRequests() async -> [RejectedRequest] {
+        await loadIfNeeded()
+        return rejected
+    }
+
+    /// UN RECHAZO QUE NO PASÓ POR LA COLA: el GUARDAR del resumen con cobertura, cuyo
+    /// primer envío ya vuelve con 4xx. Antes el resumen se quedaba en REINTENTAR —y
+    /// reintentar un 4xx da el mismo 4xx— con el entreno solo en memoria.
+    ///
+    /// Se guarda en el MISMO sitio y con la MISMA forma que un rechazo al vaciar la
+    /// cola, para que el historial lo encuentre («Sin subir») venga por donde venga.
+    /// `told: true` porque no hay nadie más a quien avisar: `onRejection` existe para
+    /// los sobres del reloj que esperan su entrada de la cola, y este nunca la tuvo.
+    ///
+    /// `status` 0 = no se sabe (ver `RejectedRequest.status`).
+    @discardableResult
+    func keepRejected(path: String, body: Data, bearer: String?, status: Int = 0) async -> UUID {
+        await loadIfNeeded()
+        let request = QueuedRequest(
+            id: UUID(),
+            path: path,
+            bodyJson: body,
+            bearer: bearer,
+            createdAt: Date(),
+            keepOnReject: true
+        )
+        rejected.append(RejectedRequest(request: request, status: status, rejectedAt: Date(), told: true))
+        persist()
+        // Nosotros lo vemos en el registro técnico (DECISIONS 2026-09-25): el libre no
+        // anota su rechazo en ningún otro sitio.
+        DiagnosticsLog.shared.record(.save, .queueFailed, outcome: .failed,
+                                     code: status > 0 ? status : nil,
+                                     detail: "path=\(path) rejected_kept_direct")
+        return request.id
+    }
+
     /// Encola y devuelve el id de la entrada, que es con lo que quien encoló puede
     /// pedir que le cuenten su entrega (ver `onDelivery`). Descartable: casi todo el
-    /// mundo encola y se olvida.
+    /// mundo encola y se olvida. `keepOnReject` es para lo que el atleta hizo (un
+    /// entreno terminado): un rechazo del servidor lo guarda en vez de tirarlo.
     @discardableResult
-    func enqueue(path: String, body: Data, bearer: String? = nil) async -> UUID {
+    func enqueue(path: String, body: Data, bearer: String? = nil, keepOnReject: Bool = false) async -> UUID {
         await loadIfNeeded()
         let r = QueuedRequest(
             id: UUID(),
             path: path,
             bodyJson: body,
             bearer: bearer,
-            createdAt: Date()
+            createdAt: Date(),
+            keepOnReject: keepOnReject ? true : nil
         )
         entries.append(r)
         persist()
+        DiagnosticsLog.shared.record(.save, .queueEnqueued, detail: "path=\(path)")
         return r.id
     }
 
@@ -264,6 +371,7 @@ actor RequestQueue {
         if let file = try? JSONDecoder().decode(QueueFile.self, from: data) {
             entries = file.entries
             receipts = file.receipts
+            rejected = file.rejected ?? []
         } else if let legacy = try? JSONDecoder().decode([QueuedRequest].self, from: data) {
             entries = legacy
         }
@@ -271,7 +379,7 @@ actor RequestQueue {
 
     private func persist() {
         do {
-            let data = try JSONEncoder().encode(QueueFile(entries: entries, receipts: receipts))
+            let data = try JSONEncoder().encode(QueueFile(entries: entries, receipts: receipts, rejected: rejected))
             try data.write(to: fileURL, options: [.atomic])
         } catch {
             // intentional swallow: a queue persist failure must not crash the app

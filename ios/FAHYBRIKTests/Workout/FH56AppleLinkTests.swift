@@ -74,12 +74,23 @@ final class PhoneAppleLinkTests: XCTestCase {
 
     private var mirror: PhoneLiveSession { PhoneLiveSession.shared }
 
+    // Orden aleatorio + un singleton compartido: cada test empieza con el espejo en
+    // frío (`startWatchAppCallCount` es absoluto), no solo lo deja limpio al salir.
+    override func setUp() {
+        super.setUp()
+        resetMirror()
+    }
+
     override func tearDown() {
+        resetMirror()
+        super.tearDown()
+    }
+
+    private func resetMirror() {
         mirror.sendOverride = nil
         mirror.teardown()
         mirror.resetAthleteEndFlagsForTests()
         mirror.resetPrimaryBindingForTests()
-        super.tearDown()
     }
 
     /// UN `startWatchApp` por Empezar. Ni bucle, ni generación, ni reintento.

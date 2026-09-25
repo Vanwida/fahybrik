@@ -5,6 +5,11 @@ import SwiftUI
 // navigation is capped at the current month (no future); back is free. The grid math is
 // pure (HistoryModels); this file is presentation + the fetch per month.
 //
+// Una excepción a «el detalle es ExecutedWorkoutView»: las filas «Sin subir» (lo que el
+// servidor rechazó y el móvil guarda) abren su ficha local, `EntrenoSinSubirView` —el
+// servidor no las tiene y la ficha de siempre daría un 404—. La lista, en
+// HistorialDelMes.swift.
+//
 // ARQUETIPO **Lista** que degrada a **Vacío** (contrato §6.2). ESTRATEGIA `llena`,
 // montada sobre las TRES posiciones de `CenteredScreen`:
 //
@@ -42,12 +47,22 @@ struct HistoryView: View {
     /// picking one for them. Nil = showing the whole month.
     @State private var selectedDay: String? = nil
     @State private var deleteFreeTarget: AthleteHistorySession? = nil
+    /// Lo que el servidor rechazó y el móvil guarda (`RequestQueue.rejected`): se cose
+    /// en el mes marcado «Sin subir» (DECISIONS 2026-09-25). Solo con el mes leído: sin
+    /// él, una lista con solo esas filas se leería como «el mes tuvo esto y nada más».
+    @State private var sinSubir: [LocalUnsyncedWorkout] = []
+    /// La fila «Sin subir» que se abrió: su ficha local, nunca la del servidor.
+    @State private var sinSubirTarget: LocalUnsyncedWorkout? = nil
 
     // Derived (pure)
     private var grid: [CalendarGridCell] { HistoryCalendar.grid(viewed) }
-    private var states: [Int: CalendarDayState] { HistoryCalendar.dayStates(month?.days ?? [], in: viewed) }
+    private var states: [Int: CalendarDayState] {
+        HistoryCalendar.dayStates(month?.days ?? [], in: viewed, sinSubir: month == nil ? [] : sinSubir)
+    }
     private var todayDay: Int? { HistoryCalendar.todayDay(in: viewed) }
-    private var allRows: [HistoryListRow] { month.map(HistoryListRow.rows) ?? [] }
+    private var allRows: [HistoryListRow] {
+        month.map { HistoryListRow.rows(from: $0, sinSubir: sinSubir, in: viewed) } ?? []
+    }
     /// What the list actually renders: the focused day alone, or the whole month.
     private var rows: [HistoryListRow] {
         guard let selectedDay else { return allRows }
@@ -92,6 +107,9 @@ struct HistoryView: View {
                 onStale: { Task { await load() } }
             )
         }
+        .fullScreenCover(item: $sinSubirTarget) { entreno in
+            EntrenoSinSubirView(entreno: entreno, onClose: { sinSubirTarget = nil })
+        }
         .confirmationDialog(
             "¿Borrar este entreno libre?",
             isPresented: Binding(
@@ -129,6 +147,9 @@ struct HistoryView: View {
     @MainActor
     private func load() async {
         loading = true
+        // Del móvil, sin red: se relee en cada carga porque un GUARDAR sin cobertura
+        // puede recibir su rechazo al vaciarse la cola, con esta pantalla abierta.
+        sinSubir = await LocalUnsyncedWorkout.guardados()
         do {
             month = try await HistoryService.fetch(month: viewed, bearer: bearer)
             failed = false
@@ -297,17 +318,29 @@ struct HistoryView: View {
 
     private func openDay(_ n: Int) {
         let iso = isoDate(n)
-        guard let day = month?.days.first(where: { $0.date == iso }),
-              !day.sessions.isEmpty else { return }
+        // Las filas del día, las del servidor y las «Sin subir»: un día cuyo único
+        // entreno está sin subir también se abre.
+        let delDia = allRows.filter { $0.date == iso }
+        guard !delDia.isEmpty else { return }
         Haptics.light()
-        if day.sessions.count == 1, let only = day.sessions.first {
-            executedTarget = WorkoutLaunch(assignmentId: only.assignmentId, title: only.title)
+        if delDia.count == 1, let only = delDia.first {
+            abrir(only)
             return
         }
         // Tapping the focused day again clears the focus (a toggle, so the
         // athlete is never stuck inside one day with no way back to the month).
         withAnimation(.easeInOut(duration: 0.15)) {
             selectedDay = (selectedDay == iso) ? nil : iso
+        }
+    }
+
+    /// Una fila → su ficha: la del servidor, o la local si está «Sin subir» (el
+    /// servidor no la tiene: `ExecutedWorkoutView` daría un 404).
+    private func abrir(_ row: HistoryListRow) {
+        if let local = row.sinSubir {
+            sinSubirTarget = local
+        } else {
+            executedTarget = WorkoutLaunch(assignmentId: row.session.assignmentId, title: row.session.title)
         }
     }
 
@@ -368,6 +401,10 @@ struct HistoryView: View {
             onPreguntar: onPreguntar,
             onRequestDeleteFree: { session in
                 deleteFreeTarget = session
+            },
+            onAbrirSinSubir: { entreno in
+                Haptics.light()
+                sinSubirTarget = entreno
             }
         )
     }
@@ -389,210 +426,5 @@ private extension String {
     var capitalizedFirst: String {
         guard let first = first else { return self }
         return first.uppercased() + dropFirst()
-    }
-}
-
-// MARK: - La lista del mes, con sus cuatro estados
-
-/// Lo que va debajo del calendario: la lista de sesiones del mes, su cargando, su
-/// vacío y su error. Sin estado propio — lo recibe todo y devuelve toques.
-///
-/// Vive fuera de `HistoryView` para poder renderizarse en una captura (dentro
-/// cuelga del `CenteredScreen`, que es un `ScrollView`, e `ImageRenderer` no dibuja
-/// ScrollView) y porque es la parte de la pantalla que tiene estados: separarla
-/// hace que los cuatro se puedan mirar uno a uno.
-struct HistorialDelMes: View {
-    let viewed: YearMonth
-    let rows: [HistoryListRow]
-    let loading: Bool
-    let failed: Bool
-    /// El día enfocado cuando el atleta tocó uno con varias sesiones.
-    let selectedDay: String?
-    let onReintentar: () -> Void
-    let onVerMesAnterior: () -> Void
-    let onVerElMes: () -> Void
-    let onAbrir: (AthleteHistorySession) -> Void
-    /// Preguntarle al coach por esta sesión. Nil = sin coach, y entonces la fila
-    /// del menú no existe. Con defecto para no obligar a las pruebas de render
-    /// —ni a ningún futuro llamador— a declarar algo que no les importa.
-    var onPreguntar: ((AthleteHistorySession, String) -> Void)? = nil
-    var onRequestDeleteFree: ((AthleteHistorySession) -> Void)? = nil
-
-    var body: some View {
-        if loading {
-            HStack { Spacer(); ProgressView().tint(Theme.Color.accent); Spacer() }
-        } else if failed {
-            RedesignEmptyState(
-                symbol: "arrow.clockwise",
-                title: "No pudimos cargar \(HistoryCalendar.monthNameEs(viewed.month))",
-                message: "Revisa tu conexión e inténtalo de nuevo.",
-                exit: .action(title: "Reintentar", perform: onReintentar)
-            )
-        } else if rows.isEmpty {
-            mesVacio
-        } else {
-            VStack(spacing: 0) {
-                if selectedDay != nil { focusedDayHeader }
-                ForEach(Array(rows.enumerated()), id: \.element.id) { idx, row in
-                    if idx > 0 { Divider().overlay(Theme.Color.hairline) }
-                    listRow(row)
-                }
-            }
-        }
-    }
-
-    /// Un mes sin entrenos. Lleva salida SIEMPRE (§5), y la salida es el acto que
-    /// el atleta viene a hacer aquí: **mirar hacia atrás**. «Ver junio» nombra su
-    /// destino, cabe en un toque y no le deja adivinando si hay algo detrás.
-    ///
-    /// Un mes ya cerrado y otro en curso no dicen lo mismo: en el que corre todavía
-    /// puede pasar algo, y eso es información; en el que pasó, ya no.
-    private var mesVacio: some View {
-        RedesignEmptyState(
-            symbol: "calendar",
-            title: "Sin entrenos en \(HistoryCalendar.monthNameEs(viewed.month))",
-            message: HistoryCalendar.todayDay(in: viewed) != nil
-                ? "Lo que entrenes este mes aparece aquí en cuanto lo cierres."
-                : "No hay ninguna sesión registrada en este mes.",
-            exit: .action(
-                title: "Ver \(HistoryCalendar.monthNameEs(viewed.previous().month))",
-                perform: onVerMesAnterior
-            )
-        )
-    }
-
-    /// Shown when a multi-session day is focused: says WHICH day is on screen and
-    /// gives one obvious way back to the full month. Without it the filtered list
-    /// would look like a month that lost most of its sessions.
-    @ViewBuilder
-    private var focusedDayHeader: some View {
-        if let selectedDay {
-            HStack(spacing: 8) {
-                LabelText(text: focusedDayLabel(selectedDay), color: Theme.Color.accentText, size: 10)
-                Spacer(minLength: 0)
-                Button(action: onVerElMes) {
-                    Text("Ver el mes")
-                        .scaledFont(11, weight: .semibold, relativeTo: .caption2)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Ver todo el mes")
-            }
-            .padding(.vertical, Theme.Spacing.s)
-        }
-    }
-
-    /// "MIÉ 28 JUL · 4 SESIONES" — the focused day and how many it holds.
-    private func focusedDayLabel(_ iso: String) -> String {
-        let count = rows.count
-        let unit = count == 1 ? "sesión" : "sesiones"
-        guard let p = HistoryCalendar.parseISO(iso) else { return "\(count) \(unit)" }
-        let dow = HistoryCalendar.dowAbbrev(iso)
-        let mon = HistoryCalendar.monthAbbrevEs[max(0, min(11, p.month - 1))]
-        return "\(dow) \(p.day) \(mon) · \(count) \(unit)"
-    }
-
-    private func listRow(_ row: HistoryListRow) -> some View {
-        let s = row.session
-        return Button(action: { onAbrir(s) }) {
-            HStack(alignment: .center, spacing: 12) {
-                // Date stamp — DOW + day number.
-                VStack(spacing: 1) {
-                    Text(HistoryCalendar.dowAbbrev(row.date))
-                        .font(.system(size: 8, weight: .heavy)).tracking(0.4).textCase(.uppercase)
-                        .foregroundStyle(Theme.Color.faint)
-                    if let day = dayNumber(row.date) {
-                        Text(day)
-                            .font(.system(size: 16, weight: .heavy).monospacedDigit())
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
-                }
-                .frame(width: 34)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(s.title)
-                        .scaledFont(13, weight: .semibold, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(1)
-                    subChips(s)
-                }
-                Spacer(minLength: 8)
-
-                if let time = s.headlineTime {
-                    VStack(alignment: .trailing, spacing: 1) {
-                        Text(time)
-                            .font(.system(size: 17, weight: .heavy).italic().monospacedDigit())
-                            .foregroundStyle(Theme.Color.foreground)
-                        if let label = s.headlineLabel {
-                            Text(label)
-                                .font(.system(size: 8, weight: .heavy)).tracking(0.3).textCase(.uppercase)
-                                .foregroundStyle(Theme.Color.faint)
-                        }
-                    }
-                }
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
-            }
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        // Pulsación larga sobre la fila. VA SOBRE EL BOTÓN, nunca dentro de su
-        // `label:`: ahí dentro el botón se queda el gesto y el menú no se abre.
-        .contextMenu {
-            Button {
-                onAbrir(s)
-            } label: {
-                Label("Ver el entreno", systemImage: "list.bullet.rectangle")
-            }
-            if let onPreguntar {
-                Button {
-                    onPreguntar(s, row.date)
-                } label: {
-                    Label("Preguntar al coach", systemImage: "message")
-                }
-            }
-            if s.isSelfOrigin, let onRequestDeleteFree {
-                Button(role: .destructive) {
-                    onRequestDeleteFree(s)
-                } label: {
-                    Label("Borrar entreno libre", systemImage: "trash")
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func subChips(_ s: AthleteHistorySession) -> some View {
-        HStack(spacing: 6) {
-            if let rpe = s.rpeLabel {
-                chip(text: rpe, tint: Theme.Color.muted)
-            }
-            if s.withPartner {
-                chip(icon: "person.2.fill", text: "en pareja", tint: Theme.Color.partner)
-            }
-            if s.hasRoute {
-                chip(icon: "map", text: "ruta", tint: Theme.Color.muted)
-            }
-        }
-    }
-
-    private func chip(icon: String? = nil, text: String, tint: Color) -> some View {
-        HStack(spacing: 3) {
-            if let icon {
-                Image(systemName: icon).font(.system(size: 8, weight: .bold))
-            }
-            Text(text).font(.system(size: 10, weight: .semibold))
-        }
-        .foregroundStyle(tint)
-    }
-
-    /// El día del mes del sello. Nil cuando la fecha no se puede leer: entonces no
-    /// hay sello que pintar, igual que `dowAbbrev` ya devuelve vacío. La columna
-    /// sigue reservada para que la lista no se desalinee.
-    private func dayNumber(_ iso: String) -> String? {
-        HistoryCalendar.parseISO(iso).map { String($0.day) }
     }
 }

@@ -1,0 +1,154 @@
+# Compila la app del iPhone, la del reloj y los widgets, y pasa los tests
+# unitarios, en cada cambio de ios/. Es la fase 0 del diseño Watch-first
+# (docs/el-reloj-primero/, DECISIONS 2026-09-24): el Swift se escribe en Linux,
+# donde no compila, y hasta hoy el primer compilador era el archivo de Xcode
+# Cloud — 8 de las builds 86–98 fallaron ahí. Un rojo aquí no se fusiona.
+#
+# Simulador, sin firma: no sube nada a ningún sitio ni necesita certificados.
+name: ios
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  # También las ramas de trabajo de los agentes: así un cambio de Swift se
+  # compila en cuanto se empuja, sin esperar a abrir un PR.
+  push:
+    branches: [main, 'claude/**']
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: build + unit tests (iPhone + Watch)
+    runs-on: macos-26
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      # La versión con la que se regeneró el .pbxproj que está en el repo.
+      # Con otra versión el proyecto sale distinto (docs/ios-clonabilidad.md §6.3).
+      - name: XcodeGen 2.46.0
+        run: |
+          curl -fsSL -o /tmp/xcodegen.zip https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip
+          unzip -q /tmp/xcodegen.zip -d /tmp/xcodegen
+          echo "/tmp/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+
+      # Los Generated-Info.plist no están en git: sin esto no compila nada
+      # (lo mismo que hace ci_scripts/ci_post_clone.sh en Xcode Cloud).
+      - name: Generate project
+        run: xcodegen generate
+
+      # Destino genérico de simulador, NUNCA -sdk: -sdk fuerza el SDK del iPhone
+      # también al reloj y el build muere (comentario del esquema en project.yml).
+      # El esquema FAHYBRIK arrastra el reloj y los widgets como dependencias.
+      - name: Build iPhone + Watch + widgets
+        run: |
+          set -o pipefail
+          xcodebuild -project FAHYBRIK.xcodeproj -scheme FAHYBRIK \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            -quiet build
+
+      - name: Build Watch scheme on its own
+        run: |
+          set -o pipefail
+          xcodebuild -project FAHYBRIK.xcodeproj -scheme FAHYBRIKWatch \
+            -configuration Debug \
+            -destination 'generic/platform=watchOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            -quiet build
+
+      # El primer iPhone disponible en el runner: los nombres cambian con cada
+      # versión de Xcode, así que no se fija uno.
+      - name: Pick a simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)["devices"]
+          ios = sorted([k for k in d if "iOS" in k], reverse=True)
+          for rt in ios:
+              for dev in d[rt]:
+                  if dev["name"].startswith("iPhone"):
+                      print(dev["udid"]); sys.exit(0)
+          sys.exit(1)')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl list devices available | grep "$UDID"
+
+      # Un test colgado falla a los 120 s en vez de retener el job hasta el
+      # timeout (con -quiet no se ve nada hasta el final).
+      # Firma AD HOC («Sign to Run Locally», sin equipo ni certificado): sin firma,
+      # el Keychain del simulador rechaza a la app y los tests del token fallan por
+      # el entorno, no por el código.
+      - name: Unit tests
+        run: |
+          set -o pipefail
+          xcodebuild -project FAHYBRIK.xcodeproj -scheme FAHYBRIK \
+            -configuration Debug \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:FAHYBRIKTests \
+            -resultBundlePath "$RUNNER_TEMP/tests.xcresult" \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 60 \
+            -maximum-test-execution-time-allowance 120 \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
+            PROVISIONING_PROFILE_SPECIFIER= \
+            -quiet test
+
+      # Qué falló y por qué, legible en el log (el .xcresult no se puede abrir
+      # desde donde se escribe el Swift).
+      - name: Test failures
+        if: failure()
+        run: |
+          xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/tests.xcresult" --format json > "$RUNNER_TEMP/tests.json" || exit 0
+          python3 - "$RUNNER_TEMP/tests.json" <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          def walk(node, suite):
+              kind, name = node.get('nodeType'), node.get('name', '')
+              if kind == 'Test Case' and node.get('result') == 'Failed':
+                  print(f"FAIL {suite} › {name}")
+                  for child in node.get('children') or []:
+                      if child.get('nodeType') == 'Failure Message':
+                          print('    ' + child.get('name', '')[:700])
+              for child in node.get('children') or []:
+                  walk(child, name if kind == 'Test Suite' else suite)
+          for node in data.get('testNodes', []):
+              walk(node, '')
+          PY
+
+      # Si project.yml y el .pbxproj del repo no coinciden, alguien editó uno
+      # sin regenerar el otro (o añadió ficheros sin xcodegen: los agentes
+      # escriben Swift en Linux, sin xcodegen). Avisa, no bloquea. Va AL FINAL y
+      # con el diff entero: el log se lee por la cola, y ese diff es lo que se
+      # copia para poner al día el .pbxproj del repo.
+      - name: Project in sync with project.yml
+        if: always()
+        continue-on-error: true
+        run: git diff --exit-code -- FAHYBRIK.xcodeproj/project.pbxproj
+
+      - name: Keep the test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tests-xcresult
+          path: ${{ runner.temp }}/tests.xcresult
+          retention-days: 7

@@ -25,8 +25,9 @@ final class HealthKitSyncService {
     /// Invoked when an upload is rejected with 401 (dead bearer). Set by AppRoot
     /// to the app's session recovery (clear session → login), so a dead token
     /// doesn't just re-queue a request that will 401 forever. @MainActor because
-    /// it mutates AuthState / UI state.
-    var onUnauthorized: (@MainActor () -> Void)?
+    /// it mutates AuthState / UI state. Recibe el token que recibió el 401: la app
+    /// solo cierra sesión si es el vigente (auditoría E2, el bucle de salidas).
+    var onUnauthorized: (@MainActor (String?) -> Void)?
 
     /// `enableBackgroundDelivery` / `disableAllBackgroundDelivery` threw
     /// `HKError.Code.errorAuthorizationDenied`. Profile wires this to the existing
@@ -517,15 +518,18 @@ final class HealthKitSyncService {
         }
         let wrapper = Wrapper(batch: batch)
 
+        // E2: el token VIGENTE en el momento de enviar (Keychain), no la copia que se
+        // guardó al configurar — esa podía ser de una sesión ya renovada o cerrada.
+        let used = KeychainTokenStore.shared.read() ?? bearer
         do {
-            try await APIClient.shared.postRaw(path: Self.endpointPath, body: wrapper, bearer: bearer)
+            try await APIClient.shared.postRaw(path: Self.endpointPath, body: wrapper, bearer: used)
             return .sent
         } catch {
             // A dead bearer (401) will 401 on every retry — don't enqueue a doomed
             // request; trigger the app's session recovery (clear session → login).
             if case APIError.http(401, _) = error {
                 let handler = onUnauthorized
-                await MainActor.run { handler?() }
+                await MainActor.run { handler?(used) }
                 return .unauthorized
             }
             // AUDIT — generalizes the 401 guard above: no deterministic 4xx is queued.
@@ -533,7 +537,7 @@ final class HealthKitSyncService {
                 await RequestQueue.shared.enqueue(
                     path: Self.endpointPath,
                     body: body,
-                    bearer: bearer
+                    bearer: used
                 )
                 return .queued
             }

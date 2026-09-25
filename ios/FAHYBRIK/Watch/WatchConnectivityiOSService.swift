@@ -208,6 +208,8 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         guard session.activationState == .activated,
               session.isPaired, session.isWatchAppInstalled else { return }
         let body: [String: Any] = [WatchWireKeys.liveEnd: save]
+        DiagnosticsLog.shared.record(.link, .liveEndSent,
+                                     detail: "save=\(save) via=\(session.isReachable ? "message" : "userInfo")")
         if session.isReachable {
             session.sendMessage(body, replyHandler: nil) { _ in
                 Task { @MainActor in session.transferUserInfo(body) }
@@ -251,23 +253,29 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     @MainActor
     private func handleIncomingExecution(_ data: Data) async {
         // A finished workout must never be lost: if the bytes don't decode, park
-        // the raw envelope in the dead-letter store and retry on every activation
-        // (the WCSession transfer is consumed once, and the watch outbox entry was
-        // already removed on didFinish — there is no second copy anywhere else).
+        // the raw envelope in the dead-letter store and retry on every activation.
+        // (Un reloj con acuses conserva además su copia hasta que el servidor
+        // contesta — `WatchSaveReceipts`; uno anterior ya la borró.)
         if await submitEncodedExecution(data) == false {
             WatchExecutionDeadLetter.append(data)
         }
     }
 
     /// Decode a raw execution envelope and submit it through the phone's own
-    /// offline-first path. Returns `false` ONLY when the bytes fail to decode (the
-    /// dead-letter trigger). A network failure still returns `true`: the submit
+    /// offline-first path. Returns `false` when the work is NOT durably captured —
+    /// the bytes fail to decode, or the server rejected it (auditoría B-12) — the
+    /// dead-letter trigger. A network failure still returns `true`: the submit
     /// enqueues via RequestQueue, so the work is durably captured, not lost.
     @MainActor
     private func submitEncodedExecution(_ data: Data) async -> Bool {
         guard let envelope = try? WatchWire.decoder.decode(WatchExecutionEnvelope.self, from: data),
               let payload = try? WatchWire.decoder.decode(WorkoutExecutionPayload.self, from: envelope.payloadJson)
-        else { return false }
+        else {
+            DiagnosticsLog.shared.record(.save, .watchExecutionReceived, outcome: .failed, domain: "decode",
+                                         detail: "bytes=\(data.count) dead_letter")
+            return false
+        }
+        DiagnosticsLog.shared.record(.save, .watchExecutionReceived, outcome: .ok, detail: "bytes=\(data.count)")
 
         let bearer = KeychainTokenStore.shared.read()   // AUDIT-B1 — bearer moved to the Keychain
 
@@ -295,10 +303,23 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         switch outcome {
         case .saved(let response):
             submission = ExecutionSubmission(response: response, queuedRequestId: nil, persisted: true)
-        case .queued:
-            submission = ExecutionSubmission(response: nil, queuedRequestId: nil, persisted: false)
+            WatchSaveReceipts.record(.saved, envelopeId: envelope.envelopeId)
+            // Su archivo del movimiento, si ya llegó, tiene por fin de qué colgarse.
+            SensorUploader.shared.kick()
+        case .queued(let requestId):
+            // Con el id de la entrada: la traza de la muñeca lo necesita para
+            // encontrar su ejecución cuando la cola la entregue, y el acuse al reloj
+            // para decir «guardado» en ese momento.
+            submission = ExecutionSubmission(response: nil, queuedRequestId: requestId, persisted: false)
+            WatchSaveReceipts.awaitQueue(requestId: requestId, envelopeId: envelope.envelopeId)
         case .rejected:
-            submission = .none
+            // B-12: antes se marcaba el día hecho y el reloj decía «Sesión completada»
+            // con nada en el servidor. Ahora el sobre se queda en el buzón de muertos
+            // (se reintenta en cada activación) y ni el día ni el reloj dicen que está.
+            DiagnosticsLog.shared.record(.save, .watchExecutionReceived, outcome: .failed,
+                                         domain: "rejected", detail: "dead_letter")
+            WatchSaveReceipts.record(.rejected, envelopeId: envelope.envelopeId)
+            return false
         }
 
         // EL ARCHIVO DE LA MUÑECA encuentra aquí su ejecución. La respuesta se
@@ -447,6 +468,10 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     // MARK: - WCSessionDelegate
 
     func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
+        DiagnosticsLog.shared.record(
+            .link, .wcActivated, error: error,
+            detail: "state=\(state.rawValue) paired=\(session.isPaired) installed=\(session.isWatchAppInstalled) reachable=\(session.isReachable)"
+        )
         guard state == .activated else { return }
         // Read the paired/installed flags off the delegate queue and hand the plain
         // Bools to the MainActor (WCSession isn't Sendable). This is the first point
@@ -458,6 +483,8 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
             // Flush any push/clear held during the activation race, then replay any
             // executions that failed to decode on a prior launch.
             self.flushPendingContext()
+            // Los acuses que no salieron (sesión sin activar, app muerta) salen ahora.
+            WatchSaveReceipts.flush()
             await self.retryDeadLetters()
         }
     }
@@ -468,9 +495,16 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     func sessionWatchStateDidChange(_ session: WCSession) {
         let paired = session.isPaired
         let installed = session.isWatchAppInstalled
+        DiagnosticsLog.shared.record(.link, .wcWatchState, detail: "paired=\(paired) installed=\(installed)")
         Task { @MainActor in
             WatchPresence.shared.refresh(paired: paired, installed: installed)
         }
+    }
+
+    /// Solo para el registro técnico: el alcance no decide nada del enlace (FH-56:
+    /// el estado lo dicen los eventos de HealthKit), pero sin él no se lee una prueba.
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        DiagnosticsLog.shared.record(.link, .wcReachability, detail: "reachable=\(session.isReachable)")
     }
 
     func sessionDidBecomeInactive(_ session: WCSession) {}
@@ -487,6 +521,14 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
+        // El registro técnico de la muñeca: se guarda aquí mismo (síncrono) y se sube.
+        if let data = userInfo[WatchWireKeys.diagnostics] as? Data {
+            if let events = try? JSONDecoder().decode([DiagEvent].self, from: data) {
+                DiagnosticsLog.shared.ingest(events)
+                DiagnosticsUploader.flushSoon()
+            }
+            return
+        }
         Task { @MainActor in
             if Self.applyLiveEnded(userInfo) { return }
             guard let data = userInfo[WatchWireKeys.executionResult] as? Data else { return }
@@ -523,40 +565,5 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         // Sensor archive from the wrist (fase 0). Only the metadata+path land here;
         // upload runs when consent is present and an execution_id is known.
         SensorFileReceiver.shared.didReceive(file: file)
-    }
-}
-
-// MARK: - Dead-letter store for undecodable executions
-//
-// A finished workout that arrives from the wrist but fails to decode must NOT be
-// dropped — the WCSession transfer is consumed once and the watch already cleared
-// its outbox on didFinish, so this is the only remaining copy. We persist the raw
-// envelope bytes to UserDefaults (Data is plist-native) and replay them on every
-// activation until they submit. Capped so a persistent decode bug can't grow the
-// store unbounded (oldest evicted first).
-private enum WatchExecutionDeadLetter {
-    private static let key = "fahybrik.watchExecutionDeadLetter.v1"
-    /// Max parked envelopes — a hard ceiling against an unbounded decode-bug backlog.
-    static let maxEntries = 20
-
-    static func all() -> [Data] {
-        (UserDefaults.standard.array(forKey: key) as? [Data]) ?? []
-    }
-
-    static func append(_ data: Data) {
-        var entries = all()
-        entries.append(data)
-        if entries.count > maxEntries {
-            entries.removeFirst(entries.count - maxEntries)
-        }
-        UserDefaults.standard.set(entries, forKey: key)
-    }
-
-    static func replace(_ entries: [Data]) {
-        if entries.isEmpty {
-            UserDefaults.standard.removeObject(forKey: key)
-        } else {
-            UserDefaults.standard.set(entries, forKey: key)
-        }
     }
 }

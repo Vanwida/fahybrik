@@ -47,12 +47,26 @@ struct FAHYBRIKWatchApp: App {
 /// `live_ended_v1` aviso (FH-101) needs an activated session.
 final class WatchPrimaryAppDelegate: NSObject, WKApplicationDelegate {
     func applicationDidFinishLaunching() {
+        // Registro técnico (DECISIONS 2026-09-24): lo primero, que una salida no limpia
+        // de la vez anterior quede contada antes de que nada la pise.
+        DiagnosticsLog.shared.reportUncleanExit()
+        DiagnosticsLog.shared.record(.lifecycle, .appLaunch)
         WatchConnectivityService.shared.activate()
         recoverActiveWorkout()
     }
 
     func handleActiveWorkoutRecovery() {
+        DiagnosticsLog.shared.record(.lifecycle, .appLaunch, detail: "workout_recovery")
         recoverActiveWorkout()
+    }
+
+    func applicationDidBecomeActive() {
+        DiagnosticsLog.shared.record(.lifecycle, .appForeground)
+    }
+
+    func applicationDidEnterBackground() {
+        DiagnosticsLog.shared.record(.lifecycle, .appBackground)
+        DiagnosticsForwarder.forwardPending()
     }
 
     func handle(_ workoutConfiguration: HKWorkoutConfiguration) {

@@ -201,13 +201,17 @@ final class RondasContadorTests: XCTestCase {
         }
 
         let hud = RoundsLiveHUD(session: s)
+        // La cota es la BANDA DEL SUJETO del marco vivo (`BandaViva.sujeto`), no
+        // el hueco del cromo viejo (~380), que FH-107 borró. Con el número a 96
+        // el nivel compacto pedía 392 y el móvil pintaba siempre el suelo: la
+        // cuenta grande no salía nunca (Alex, 25-09: se encoge el número).
         let nivel3 = mide(AnyView(hud.contadorNucleo(conHilo: false, conLectura: false, compacto: true)))
-        XCTAssertLessThanOrEqual(nivel3, 380,
-            "el nivel compacto pide \(Int(nivel3)) pt y el cromo de ergo sin emparejar deja ~380")
+        XCTAssertLessThanOrEqual(nivel3, BandaViva.sujeto,
+            "el nivel compacto pide \(Int(nivel3)) pt y la banda del sujeto tiene techo en \(Int(BandaViva.sujeto))")
 
         let suelo = mide(AnyView(hud.contadorSuelo))
         XCTAssertLessThanOrEqual(suelo, 170,
-            "el SUELO pide \(Int(suelo)) pt; el cromo de dobles deja ~187 y ViewThatFits pinta el último candidato aunque no quepa")
+            "el SUELO pide \(Int(suelo)) pt; con el ergo pintando su franja dentro de la banda queda poco más, y ViewThatFits pinta el último candidato aunque no quepa")
 
         let completo = mide(AnyView(hud.contadorNucleo(conHilo: true, conLectura: true, compacto: false)))
         XCTAssertLessThanOrEqual(completo, 500,

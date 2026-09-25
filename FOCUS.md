@@ -2,13 +2,27 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-24** (PR #191 en verde, espera migraciones en Neon; diseño Watch-first firmado → fase 0)
+Última actualización: **2026-09-25** (la muñeca: 6 propuestas + kit consolidado; falta la firma de Alex)
 
 ## Ahora
 
+**LA MUÑECA SE REHACE (Alex, 25-09: «es un lío, así no competimos con TrainingPeaks»).** Auditoría de 6 lentes
++ modelo: `docs/reloj-muneca/` (https://claude.ai/artifact/3LzhCpYCr6H7rgktymoG8r; spec `modelo.md`; DECISIONS 25-09).
+Alex eligió: el objetivo manda, SF nativo, voz al cambiar de paso y cada km, comprometida vs objetivo del coach.
+HECHAS (25-09) las 6 propuestas `reloj-*` sobre UN kit consolidado (`kit-reloj`, 611c2c6) + un veredicto por
+paso (tests `kit-reloj-veredicto`, `kit-reloj-motor`). Alex decidió el 2.º lote (doble toque estándar, AMRAP en la
+campana, «Seguir» autoguarda 10′). FALTA: la firma de Alex sobre las pantallas → Swift (correr primero).
+Exige arreglos de modelo M1–M8 (dos objetivos por paso, recuperación/entorno como dato, anidadas sin aplanar…).
+
 **EL RELOJ ES EL PRODUCTO y el listón es TrainingPeaks (Alex, 24-09).** La muñeca lleva la sesión
 desde el primer día; nunca por debajo de TrainingPeaks. Diseño FIRMADO (arquitectura, iOS/watchOS 26,
-iPhone de respaldo, CI GitHub macOS; DECISIONS 24-09): `docs/el-reloj-primero/`. Siguiente: fase 0 (CI macOS).
+iPhone de respaldo, CI GitHub macOS, otros relojes 14 días, app Entreno de Apple opcional): `docs/el-reloj-primero/`.
+HECHO fases 0+1 (CI macOS, registro técnico 0273, sesión 180 d, cola sin caducidad, B-02/B-12, acuses del reloj
++ rechazados guardados + mínimos 26, 25-09). Firmadas y en Swift (25-09): «Guardado en tu móvil» + «Sin subir»
+en el historial, el permiso del movimiento (hoja, Perfil › Privacidad, retirar borra) y su subidor. Luego fase 4.
+**PROD (24-09 21:45→):** a la base le faltan 0270–0272 (+0273 de esta rama) → cron de atención roto. Migrar es
+trabajo del AGENTE (Alex, 24-09) — bloqueado por permiso + secreto `PROD_DATABASE_URL` (DECISIONS). CI iOS VERDE (run 12)
+→ PR #192 fases 0+1 abierto (25-09): https://github.com/Vanwida/fahybrik/pull/192 — no fusionar sin 0270–0273 en prod.
 **Auditoría de la app del atleta (iOS + watchOS) — ENTREGADA.** `docs/auditoria-app-atleta/`.
 6 raíces: enlace del reloj diseñado para fallar · entreno terminado no durable · lo del coach
 no llega · la app dice lo que ningún coach decidió · empezar/terminar peor que el mercado ·
@@ -24,32 +38,16 @@ pre-FLEXR (4 lentes: aislamiento, método, producto, plataforma) y decisiones de
   Google Calendar global → por coach 0254) + P1; tests de dos coaches en `web/tests/tenancy/`.
 - Método = dato del coach con defecto (0211–0260): motores secundarios, niveles,
   zonas, lecturas de carrera, cadencia de tests, huso del coach; editores en Ajustes.
-- PENDIENTE DE ALEX (revisión §decisiones): app de los atletas, quién cobra, alta de
-  coaches, precio, despliegue, dominios, deportes, idioma, arranque de un club, RLS,
-  legal, permiso para borrar código muerto.
-- PR #191 → `main`: CI verde. Se fusiona cuando Alex aplique en Neon 0211–0260 y 0270–0272
-  (revisadas contra datos reales: seguras; migrar y fusionar seguido) y el entitlement 'negocio'
-  del club 60 (pasos y SQL en el PR). Hasta entonces `main` (prod) da 500 en cada alta desde 09-05.
-- Tras el deploy: reconectar Google Calendar (ahora por coach); cron lifecycle pasa a horario (vercel.json); alta de pago apagada para cualquier club que no sea FAHYBRID hasta decidir quién cobra.
+- DECIDIDO 24-09: app FLEXR (repo nuevo al final), Stripe Connect, alta por solicitud +
+  aprobación, check de coach en CI ya (hecho: `web/tests/tenancy/ambito-de-club.test.ts`, 962 sin
+  ámbito en baseline que solo encoge) + RLS antes del coach 20. PENDIENTE DE ALEX: precio,
+  despliegue, dominios, deportes, idioma, arranque de un club, legal, borrar código muerto.
+- PR #191 FUSIONADO (24-09, `da08a40`). Tras el deploy: reconectar Google Calendar (por coach); alta de pago
+  apagada para todo club que no sea FAHYBRID hasta Stripe Connect.
 
-**FH-56 — El enlace muñeca↔móvil lo dice Apple (PR pendiente de Devil's Advocate CODE gate).**
-Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISIONS.md`
-(2026-09-21 · FH-56); nota `docs/pr/fh56-apple-link.md`.
-- `didDisconnectFromRemoteDeviceWithError` implementado en móvil y reloj; el enlace
-  es tri-estado de Apple en los dos lados, sin watchdog ni ventana de señal
-- UN `startWatchApp` por Empezar (`watchLaunch` con el resultado de Apple en la card)
-- Adoptar sin motor GUARDA (`adoptAction` → coach / reopenFromDisk / endSaving); nunca descarta
-- Primario recuperado = `.mirror` que re-espeja; `handle(_:)` redundante = re-espejar
-- Handle HK hasta `.ended` (`finishing`); deadline 5 s sólo UI; start encolado dispara en `.ended`
-- Borrado: `PhoneWorkoutRun`, `WorkoutRunClock`, `WristMirrorTruth`, `.orphan`,
-  reintento ×5 de `MirrorEnd`, overlay «Conectando…»
-- Code gate NO (P0 A+B) cerrado: `project.pbxproj` regenerado con xcodegen 2.46.0
-  (5 fantasmas fuera, 33 fuentes que faltaban dentro, build 100);
-  `PreWorkoutFlowSourceTests` contra `startAction` / `configurationsCompatible`
-- **Swift sin compilar aquí** (hay toolchain Linux para xcodegen, no Xcode): el
-  primer `xcodebuild` del Owner es la verificación de compilación
-
-**FH-30 — Cara rodaje muñeca (PR #189, mergeado).** Lámina redo cerrada.
+**FH-56 — El enlace muñeca↔móvil lo dice Apple** (build 100; DECISIONS 2026-09-21; nota `docs/pr/fh56-apple-link.md`).
+Enlace tri-estado de Apple sin watchdog; un `startWatchApp` por Empezar; adoptar sin motor GUARDA; borrados
+`PhoneWorkoutRun`/`WorkoutRunClock`/`WristMirrorTruth`/`.orphan`. CI macOS: los 23 fallos del run 7 arreglados (25-09).
 
 ## Pendiente decisión Alex
 
@@ -64,16 +62,16 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 - FH-56 paso 0 con aparato: ¿acepta Apple `startMirroringToCompanionDevice` sobre
   una sesión recuperada? Si no, el HUD dice «Sin conexión con el iPhone» y hace
   falta Terminar+Empezar (no se inventa un segundo motor).
-- FH-56 riesgo §7: `.endSaving` deja en Salud una grabación sin ejecución atada (se guarda, no se tira).
-- Smoke TF build **100** con la matriz §6 del plan (7 casos + soak 2 h).
+- FH-56 riesgo §7: `.endSaving` deja en Salud una grabación sin ejecución atada (se guarda, no se tira). Smoke TF build **100** con la matriz §6 del plan (7 casos + soak 2 h).
 
 ## Sabido y no hecho
 
-- Panel coach: sin Stripe Connect (Cobros lee, no cobra); crons en serie por coach
+- Carga: CTL/ATL del coach (`coach_analytics_method`, sin editor aún) solo los lee `lecturas.ts`; ficha, deep dive, cohorte, app del atleta y race-readiness usan 42/7 fijos → fase 4.
+- Panel coach: sin Stripe Connect (Cobros lee, no cobra — decidido: Connect); crons en serie por coach
   (no aguantan ~20 clubs); sin RLS; panel solo en castellano; crons a hora UTC fija (falta hora
   de entrega por coach) y `resolvePeriod` sin el día local de la app (DECISIONS «Qué día es…»).
+- MCP del asistente: la búsqueda en la biblioteca falla con `column b.archived_at does not exist` (0236): la base a la que apunta no la tiene.
 - Seeds: `seed_demo.ts` desfasado (`chat_messages.sender_role`). Cadena personal: un mes de
   biblioteca en medio bloquea acortar/borrar (409; decisión de producto en DECISIONS).
-- FH-30: `PhoneLiveSession.applyCommand` no relaya `.newLap` al motor (latente).
-- FH-30: `GuionSeries` queda sin vía viva en el espejo — retirada pendiente.
+- FH-30: `PhoneLiveSession.applyCommand` no relaya `.newLap` al motor (latente); `GuionSeries` sin vía viva en el espejo.
 - FH-56: la fila «Reconectar reloj» en `LiveConectividadSheet` es subjetiva — no añadida.

@@ -66,7 +66,10 @@ enum SensorFileCodec {
         return data
     }
 
-    static func decode(_ data: Data) throws -> Decoded {
+    /// Solo la cabecera, sin tocar las muestras: lo que el móvil necesita para
+    /// registrar el archivo (cuándo empezó, a qué frecuencia, cuántas muestras) sin
+    /// decodificar horas de señal.
+    static func header(_ data: Data) throws -> (header: SensorFileHeader, version: UInt16, bodyOffset: Int) {
         guard data.count >= 10 else { throw CodecError.tooShort }
         guard data.prefix(4) == SensorFileFormat.magic else { throw CodecError.badMagic }
 
@@ -80,6 +83,11 @@ enum SensorFileCodec {
         let headerEnd = headerStart + headerLen
         guard headerEnd <= data.count else { throw CodecError.truncatedHeader }
         let header = try JSONDecoder().decode(SensorFileHeader.self, from: data.subdata(in: headerStart..<headerEnd))
+        return (header, version, headerEnd)
+    }
+
+    static func decode(_ data: Data) throws -> Decoded {
+        let (header, version, headerEnd) = try Self.header(data)
 
         let body = data.subdata(in: headerEnd..<data.count)
         // El nº de canales lo manda la cabecera, no la versión: un archivo de una
