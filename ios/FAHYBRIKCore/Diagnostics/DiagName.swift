@@ -71,6 +71,9 @@ enum DiagName: String, CaseIterable, Sendable {
     case transferFailed = "transfer_failed"
     /// Móvil: llegó un entreno terminado desde la muñeca (decodificado o no).
     case watchExecutionReceived = "watch_execution_received"
+    /// El acuse de un sobre de la muñeca: el móvil lo manda (held / saved /
+    /// rejected) y el reloj lo aplica a su buzón (`WatchSaveLedger`).
+    case executionReceipt = "execution_receipt"
     /// Móvil: al aparecer el resumen, el entreno terminado queda en disco (B-02).
     case draftStaged = "draft_staged"
     /// Móvil: al arrancar, un entreno terminado que no llegó a GUARDAR pasa a la cola.

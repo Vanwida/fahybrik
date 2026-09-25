@@ -103,6 +103,32 @@ struct WatchExecutionEnvelope: Codable {
     /// Opcional para que un binario de reloj anterior siga decodificando (misma razón
     /// que `shareWithPartner`); nil = ese reloj no manda traza.
     var traceLocalId: String? = nil
+    /// EL NOMBRE DEL SOBRE, para el acuse (fase 1, «nada se pierde»). La muñeca lo
+    /// pone al sellar y el teléfono lo devuelve en `WatchExecutionReceipt` cuando el
+    /// servidor ha contestado: hasta entonces el sobre sigue en el buzón del reloj.
+    /// Opcional por la misma razón que los dos de arriba: un reloj anterior no lo
+    /// manda y su sobre se sigue borrando al llegar al teléfono, como siempre.
+    var envelopeId: String? = nil
+}
+
+/// iPhone → reloj: qué ha sido de un sobre (`WatchExecutionEnvelope.envelopeId`).
+///
+/// Va por `transferUserInfo` bajo `WatchWireKeys.executionReceipt`. Tres estados,
+/// porque «llegó al teléfono» no es «está en el servidor»:
+/// - `held`: el teléfono lo tiene en disco (su cola sin cobertura o su buzón de
+///   rechazados) — la muñeca deja de reenviarlo, pero no lo borra.
+/// - `saved`: el servidor lo guardó (2xx) — la muñeca lo borra.
+/// - `rejected`: el servidor lo rechazó por construcción (4xx) — la muñeca lo
+///   guarda sin reenviarlo; reintentar no lo arregla y perderlo tampoco.
+struct WatchExecutionReceipt: Codable, Equatable {
+    enum Outcome: String, Codable {
+        case held
+        case saved
+        case rejected
+    }
+
+    let envelopeId: String
+    let outcome: Outcome
 }
 
 /// Reloj → iPhone: la SERIE medida en la muñeca, como fichero.
@@ -187,6 +213,9 @@ enum WorkoutLocationType {
 enum WatchWireKeys {
     static let today = "today_v2"
     static let executionResult = "execution_result_v1"
+    /// Teléfono → reloj (`transferUserInfo`): el acuse de un sobre, un
+    /// `WatchExecutionReceipt` en JSON. Ver `WatchSaveLedger`.
+    static let executionReceipt = "execution_receipt_v1"
     /// Reloj → teléfono (`transferUserInfo`): un lote del registro técnico de la
     /// muñeca (`[DiagEvent]` en JSON). El teléfono lo guarda y lo sube con lo suyo.
     static let diagnostics = "diag_v1"

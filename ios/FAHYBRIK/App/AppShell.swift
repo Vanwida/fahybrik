@@ -196,6 +196,13 @@ struct AppShell: View {
                         responseBody: response,
                         bearer: KeychainTokenStore.shared.read()
                     )
+                    // Si era un sobre del reloj, la muñeca ya puede borrar su copia.
+                    await WatchSaveReceipts.queueDelivered(requestId: requestId)
+                }
+                // Un entreno que el servidor rechaza al vaciar la cola se guarda
+                // (`keepOnReject`), y el reloj se entera si era suyo.
+                await RequestQueue.shared.onRejection { requestId in
+                    await WatchSaveReceipts.queueRejected(requestId: requestId)
                 }
                 await WorkoutTraceUploader.sweep(bearer: bearer)
                 // B-02: un entreno terminado que no llegó a GUARDAR en el arranque

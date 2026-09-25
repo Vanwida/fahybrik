@@ -10,6 +10,37 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-25 · El reloj guarda el entreno hasta que el servidor lo confirma (acuses); un rechazo no se tira
+
+**Por qué (fase 1 firmada, «a finished session waits on the Watch until the server confirms it, with no expiry»):** la muñeca borraba el sobre en cuanto `transferUserInfo` lo entregaba al teléfono. «Llegó al teléfono» no es «está guardado». Si iOS mataba la app del teléfono mientras subía, la única copia ya no existía. Y la cola del teléfono tiraba cualquier 4xx, también un entreno terminado.
+
+**Decidido (mecanismo):**
+- **El sobre lleva nombre.** `WatchExecutionEnvelope.envelopeId` es un UUID que se pone al sellar.
+- **El teléfono acusa.** Manda un `WatchExecutionReceipt` por `transferUserInfo` (clave `execution_receipt_v1`) con uno de tres resultados:
+  - `held`: el teléfono lo tiene en disco, en su cola sin cobertura. La muñeca deja de reenviar.
+  - `saved`: el servidor contestó 2xx. La muñeca lo borra.
+  - `rejected`: el servidor contestó 4xx. La muñeca lo guarda y no lo reenvía.
+- **Los acuses van a disco antes de salir** (`WatchSaveReceipts`). El vínculo entre la entrada de la cola y su sobre sobrevive a que maten la app.
+- **La muñeca guarda su buzón** (`WatchSaveLedger`, en `FAHYBRIKCore`).
+  - Si pasa **1 h** desde que el sobre llegó al teléfono sin acuse, lo reenvía. Es mecanismo, no método.
+  - Reenviar es seguro porque el servidor guarda una ejecución por asignación, o por atleta + hora de inicio si va fuera de plan.
+- **Lo escenificado de dobles** espera a «Listo» y solo sale solo al arrancar tras una caída. Así el conmutador de compartir no se salta.
+- **Compatibilidad:** un sobre sin nombre, de un reloj anterior, se borra al llegar al teléfono, como siempre.
+- **La cola no tira lo que el atleta hizo.** `RequestQueue.enqueue(keepOnReject:)` está activado en los envíos de entreno: ejecución, dobles, libre y el borrador B-02.
+  - Un 4xx saca la entrada de la cola y la guarda en `rejected`, en la misma escritura atómica.
+  - Quien lo esperaba se entera (`onRejection`).
+  - Sin caducidad.
+- **`WorkoutSaveOutcome.queued` lleva el id de su entrada.** De paso arregla dos huecos:
+  - la traza de un sobre del reloj encolado ya encuentra su ejecución (antes se pasaba `nil`);
+  - la traza de una sesión del móvil guardada sin cobertura ya se aparca colgada de la entrada de la cola (antes solo se aparcaba con 2xx, y sin cobertura la curva se perdía).
+
+**Pendiente (Alex, pantalla):** qué ve el atleta de un entreno rechazado. `RequestQueue.rejectedRequests()` y el estado `rejected` del reloj ya lo guardan.
+
+**NO hacer:**
+- Borrar un sobre de la muñeca por haber llegado al teléfono.
+- Tirar un 4xx de un entreno.
+- Enviar lo escenificado antes de «Listo» con la app viva.
+
 ## 2026-09-25 · El contador de rondas cabe en su banda: número al suelo, orientación una vez
 
 **Por qué (CI macOS, `RondasContadorTests`):** FH-107 metió el vivo en el marco común (`MarcoVivo`), cuya banda del sujeto tiene techo en 340 pt (`BandaViva.sujeto`), y añadió la franja «ronda · estación» también dentro de cada cara de rondas, además de en los apoyos. El contador compacto pedía 392: con muchas rondas el móvil pintaba siempre el suelo de la cascada, sin la cuenta grande, que es justo el dato que se pierde sudando.

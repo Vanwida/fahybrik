@@ -11,13 +11,19 @@ import WatchConnectivity
 //     launches/reachability; we ALSO keep a durable outbox and re-drain on
 //     activation so a result survives an app kill before the system flush
 //     (at-least-once delivery). The phone submits it to the backend.
+//
+//     El sobre sale del buzón con el ACUSE del teléfono, no con la entrega
+//     (`WatchSaveLedger`, fase 1): hasta que el servidor contesta, la muñeca guarda
+//     su copia.
 final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDelegate {
     static let shared = WatchConnectivityService()
 
     @Published private(set) var isReachable: Bool = false
 
-    /// Durable outbox for finished-execution envelopes (array of encoded Data).
-    private let outboxKey = "fahybrik.watch.outbox.v1"
+    /// Durable outbox for finished-execution envelopes: a `WatchSaveLedger` in JSON.
+    private let outboxKey = "fahybrik.watch.outbox.v2"
+    /// El buzón anterior (una lista de sobres). Se lee una vez y pasa al nuevo.
+    private let legacyOutboxKey = "fahybrik.watch.outbox.v1"
 
     /// Serializes ALL outbox reads/writes. enqueue (coordinator, MainActor), remove
     /// (didFinish, WCSession delegate queue) and drain (activation, delegate queue)
@@ -42,7 +48,7 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     /// first, then handed to WCSession.transferUserInfo (which queues across launches
     /// and reachability). The phone decodes it and submits to the backend.
     func sendExecutionResult(_ envelope: WatchExecutionEnvelope) {
-        guard let data = try? WatchWire.encoder.encode(envelope) else {
+        guard let data = try? WatchWire.encoder.encode(Self.named(envelope)) else {
             DiagnosticsLog.shared.record(.save, .executionHandedToPhone, outcome: .failed, domain: "encode")
             return
         }
@@ -60,8 +66,8 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     /// Returns the encoded bytes so the caller can later swap or transfer exactly
     /// this entry. Nil only on an encode failure.
     func stageExecutionResult(_ envelope: WatchExecutionEnvelope) -> Data? {
-        guard let data = try? WatchWire.encoder.encode(envelope) else { return nil }
-        enqueueOutbox(data)
+        guard let data = try? WatchWire.encoder.encode(Self.named(envelope)) else { return nil }
+        mutateOutbox { $0.insert(data, staged: true) }
         return data
     }
 
@@ -69,10 +75,21 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     /// Removes `previous` and enqueues the new bytes; still NOT transferred. Returns
     /// the new bytes (the caller's new staged handle), or `previous` on encode failure.
     func restageExecutionResult(previous: Data?, envelope: WatchExecutionEnvelope) -> Data? {
-        guard let data = try? WatchWire.encoder.encode(envelope) else { return previous }
-        if let previous, previous != data { removeFromOutbox(previous) }
-        enqueueOutbox(data)
+        // El sobre re-escenificado es el MISMO entreno: conserva su nombre, así que
+        // un acuse del escenificado (si ya salió tras una caída) también lo nombra.
+        var renamed = envelope
+        renamed.envelopeId = previous.flatMap(WatchSaveLedger.envelopeId(of:)) ?? envelope.envelopeId
+        guard let data = try? WatchWire.encoder.encode(Self.named(renamed)) else { return previous }
+        mutateOutbox { $0.replace(previous, with: data) }
         return data
+    }
+
+    /// Un sobre sale del reloj siempre con nombre: es lo que el acuse devuelve.
+    private static func named(_ envelope: WatchExecutionEnvelope) -> WatchExecutionEnvelope {
+        guard envelope.envelopeId == nil else { return envelope }
+        var named = envelope
+        named.envelopeId = UUID().uuidString
+        return named
     }
 
     /// Transfer an already-staged entry (fired by "Listo"). It stays in the outbox
@@ -119,6 +136,7 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
             return
         }
         session.transferUserInfo([WatchWireKeys.executionResult: data])
+        mutateOutbox { $0.markHanded(data, at: Date()) }
         DiagnosticsLog.shared.record(.save, .executionHandedToPhone, outcome: .ok, detail: "bytes=\(data.count)")
     }
 
@@ -128,43 +146,66 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     // `outboxQueue`; the public mutators wrap a whole load→mutate→save as one
     // critical section on that queue so concurrent callers can't clobber each other.
 
-    private func loadOutboxLocked() -> [Data] {
-        UserDefaults.standard.array(forKey: outboxKey) as? [Data] ?? []
+    private func loadOutboxLocked() -> WatchSaveLedger {
+        let defaults = UserDefaults.standard
+        if let data = defaults.data(forKey: outboxKey),
+           let ledger = try? JSONDecoder().decode(WatchSaveLedger.self, from: data) {
+            return ledger
+        }
+        // Primera vez con el buzón nuevo: lo que hubiera en el viejo pasa entero.
+        let legacy = defaults.array(forKey: legacyOutboxKey) as? [Data] ?? []
+        return WatchSaveLedger.migrating(legacy: legacy)
     }
 
-    private func saveOutboxLocked(_ items: [Data]) {
-        UserDefaults.standard.set(items, forKey: outboxKey)
+    private func saveOutboxLocked(_ ledger: WatchSaveLedger) {
+        guard let data = try? JSONEncoder().encode(ledger) else { return }
+        UserDefaults.standard.set(data, forKey: outboxKey)
+        UserDefaults.standard.removeObject(forKey: legacyOutboxKey)
+    }
+
+    /// Una mutación del buzón = una sección crítica entera (leer → cambiar → guardar).
+    @discardableResult
+    private func mutateOutbox<T>(_ change: (inout WatchSaveLedger) -> T) -> T {
+        outboxQueue.sync {
+            var ledger = loadOutboxLocked()
+            let result = change(&ledger)
+            saveOutboxLocked(ledger)
+            return result
+        }
     }
 
     private func enqueueOutbox(_ data: Data) {
-        outboxQueue.sync {
-            var items = loadOutboxLocked()
-            guard !items.contains(data) else { return }
-            items.append(data)
-            saveOutboxLocked(items)
-        }
+        mutateOutbox { $0.insert(data) }
     }
 
-    private func removeFromOutbox(_ data: Data) {
-        outboxQueue.sync {
-            var items = loadOutboxLocked()
-            items.removeAll { $0 == data }
-            saveOutboxLocked(items)
-        }
-    }
-
-    /// Re-transfer any queued result not already in flight — so a result enqueued
-    /// while unreachable (or across a kill) still reaches the phone.
-    private func drainOutbox() {
+    /// Entrega lo que el buzón dice que toca (`WatchSaveLedger.toHand`): lo
+    /// pendiente, y lo entregado hace más de una hora sin acuse. Al arrancar
+    /// (`afterLaunch`), también lo escenificado que se quedó sin «Listo».
+    private func drainOutbox(afterLaunch: Bool = false) {
         let session = WCSession.default
         guard session.activationState == .activated else { return }
-        let queued = outboxQueue.sync { loadOutboxLocked() }
         let inFlight = session.outstandingUserInfoTransfers.compactMap {
             $0.userInfo[WatchWireKeys.executionResult] as? Data
         }
-        for data in queued where !inFlight.contains(data) {
-            session.transferUserInfo([WatchWireKeys.executionResult: data])
+        let due = outboxQueue.sync { loadOutboxLocked() }
+            .toHand(now: Date(), inFlight: inFlight, afterLaunch: afterLaunch)
+        for data in due { transfer(data) }
+    }
+
+    /// El acuse del teléfono: el servidor guardó, rechazó, o el teléfono lo tiene.
+    private func applyReceipt(_ body: [String: Any]) -> Bool {
+        guard let raw = body[WatchWireKeys.executionReceipt] as? Data else { return false }
+        guard let receipt = try? JSONDecoder().decode(WatchExecutionReceipt.self, from: raw) else {
+            DiagnosticsLog.shared.record(.save, .executionReceipt, outcome: .failed, domain: "decode")
+            return true
         }
+        let known = mutateOutbox { $0.apply(receipt) }
+        DiagnosticsLog.shared.record(
+            .save, .executionReceipt,
+            outcome: receipt.outcome == .rejected ? .failed : .ok,
+            detail: "outcome=\(receipt.outcome.rawValue) known=\(known)"
+        )
+        return true
     }
 
     // MARK: - WCSessionDelegate
@@ -185,7 +226,9 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         if !context.isEmpty {
             Task { @MainActor in WatchPlanModel.shared.update(from: context) }
         }
-        drainOutbox()
+        // Una sola activación por proceso: es el arranque, y un sobre escenificado
+        // que se quedó sin «Listo» es de un proceso que murió.
+        drainOutbox(afterLaunch: true)
         // La traza medida en la muñeca lleva su propio buzón de ficheros, y este es
         // el momento en que el teléfono puede haber vuelto a estar a tiro.
         WatchTraceOutbox.shared.drain()
@@ -197,6 +240,9 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         DispatchQueue.main.async { [weak self] in
             self?.isReachable = session.isReachable
         }
+        // El teléfono vuelve a estar a tiro: lo que espera acuse desde hace más de
+        // una hora sale otra vez.
+        if session.isReachable { drainOutbox() }
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
@@ -213,6 +259,7 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
     }
 
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any]) {
+        if applyReceipt(userInfo) { return }
         // La vía encolada del mismo aviso: si al pulsar Terminar en el móvil el
         // reloj estaba fuera de alcance, llega por aquí en cuanto vuelve.
         Task { @MainActor in
@@ -246,10 +293,11 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
             DiagnosticsForwarder.transferFailed(userInfoTransfer.userInfo)
         }
         guard let data = userInfoTransfer.userInfo[WatchWireKeys.executionResult] as? Data else { return }
-        // Delivered → drop it. On error, leave it queued: WCSession retries the
-        // transfer, and drainOutbox re-issues it on the next activation.
+        // Llegó al teléfono: un sobre con nombre espera ahora su acuse (el del
+        // servidor); uno sin nombre, de un reloj anterior, se borra como siempre.
+        // Con error se queda: WCSession lo reintenta y el drenado lo vuelve a sacar.
         if error == nil {
-            removeFromOutbox(data)
+            mutateOutbox { $0.deliveredToPhone(data, at: Date()) }
         }
     }
 

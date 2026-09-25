@@ -9,7 +9,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 **EL RELOJ ES EL PRODUCTO y el listón es TrainingPeaks (Alex, 24-09).** La muñeca lleva la sesión
 desde el primer día; nunca por debajo de TrainingPeaks. Diseño FIRMADO (arquitectura, iOS/watchOS 26,
 iPhone de respaldo, CI GitHub macOS, otros relojes 14 días, app Entreno de Apple opcional): `docs/el-reloj-primero/`.
-HECHO fases 0+1 (CI macOS, registro técnico 0273, sesión 180 d, cola sin caducidad, B-02/B-12). Luego fase 4 (web).
+HECHO fases 0+1 (CI macOS, registro técnico 0273, sesión 180 d, cola sin caducidad, B-02/B-12, acuses del reloj
++ rechazados guardados 25-09). Queda de la 1 (firma Alex): pantalla del rechazo, consentimiento de sensores. Luego fase 4 (web).
 **PROD (24-09 21:45→):** a la base le faltan 0270–0272 (+0273 de esta rama) → cron de atención roto. Migrar es
 trabajo del AGENTE (Alex, 24-09) — bloqueado por permiso + secreto `PROD_DATABASE_URL` (DECISIONS). CI iOS VERDE (run 12)
 → PR #192 fases 0+1 abierto (25-09): https://github.com/Vanwida/fahybrik/pull/192 — no fusionar sin 0270–0273 en prod.
@@ -75,6 +76,5 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
   de entrega por coach) y `resolvePeriod` sin el día local de la app (DECISIONS «Qué día es…»).
 - Seeds: `seed_demo.ts` desfasado (`chat_messages.sender_role`). Cadena personal: un mes de
   biblioteca en medio bloquea acortar/borrar (409; decisión de producto en DECISIONS).
-- FH-30: `PhoneLiveSession.applyCommand` no relaya `.newLap` al motor (latente).
-- FH-30: `GuionSeries` queda sin vía viva en el espejo — retirada pendiente.
+- FH-30: `PhoneLiveSession.applyCommand` no relaya `.newLap` al motor (latente); `GuionSeries` sin vía viva en el espejo.
 - FH-56: la fila «Reconectar reloj» en `LiveConectividadSheet` es subjetiva — no añadida.
