@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-25 · Una sola línea de trabajo: sin usuarios, se fusiona a `main` sin esperar a producción
+
+**Por qué (Alex, 25-09):** «uso muchos agentes; cada uno abre su rama y la última vez que hubo tantas nos liamos. No hay usuarios: solo tú y yo». En el repo hay 150 ramas además de `main`, y solo 6 están ya dentro de `main`.
+
+**Decidido:**
+- **El PR #192 se fusionó sin aplicar antes 0270–0273 en producción** (`7f73af5`). Esto cambia la decisión del 24-09 («lo fusiona Alex tras migrar»). Mientras falten, la build web de producción se para sola y el servidor sigue con la versión anterior. La app sale a TestFlight desde `main` por Xcode Cloud.
+- **Lo terminado va a `main` pronto**, sin acumular trabajo en ramas largas. Con usuarios reales se vuelve a esperar a producción antes de fusionar.
+
+**NO hacer:** abrir una rama nueva por tarea; dejar trabajo terminado fuera de `main` días enteros; borrar ramas viejas sin mirar si llevan trabajo que no está en `main` (144 de las 150 lo llevan).
+
+---
+
 ## 2026-09-25 · La muñeca se rehace: un estado, un pintor, el objetivo manda y la gramática de Apple
 
 **Por qué (Alex, 25-09):** «la UX del reloj es un lío… no podemos competir con TrainingPeaks así; tiene que sentirse una herramienta nativa, fuerte, hecha por y para corredores (70 % del uso), y la carrera comprometida con los entrenos tiene que tener sentido». Una auditoría de seis lentes lo confirma con evidencia: el modelo completo, las causas y los casos están en `docs/reloj-muneca/modelo.md`.

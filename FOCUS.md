@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-25** (la muñeca: 6 propuestas + kit consolidado; falta la firma de Alex)
+Última actualización: **2026-09-25** (PR #192 fusionado a main; la muñeca: falta la firma de Alex)
 
 ## Ahora
 
@@ -22,7 +22,8 @@ HECHO fases 0+1 (CI macOS, registro técnico 0273, sesión 180 d, cola sin caduc
 en el historial, el permiso del movimiento (hoja, Perfil › Privacidad, retirar borra) y su subidor. Luego fase 4.
 **PROD (24-09 21:45→):** a la base le faltan 0270–0272 (+0273 de esta rama) → cron de atención roto. Migrar es
 trabajo del AGENTE (Alex, 24-09) — bloqueado por permiso + secreto `PROD_DATABASE_URL` (DECISIONS). CI iOS VERDE (run 12)
-→ PR #192 fases 0+1 abierto (25-09): https://github.com/Vanwida/fahybrik/pull/192 — no fusionar sin 0270–0273 en prod.
+→ PR #192 FUSIONADO a main (25-09, `7f73af5`) sin esperar a prod (Alex: no hay usuarios; DECISIONS 25-09). Xcode Cloud → TestFlight;
+la web de prod no sale hasta aplicar 0270–0273.
 **Auditoría de la app del atleta (iOS + watchOS) — ENTREGADA.** `docs/auditoria-app-atleta/`.
 6 raíces: enlace del reloj diseñado para fallar · entreno terminado no durable · lo del coach
 no llega · la app dice lo que ningún coach decidió · empezar/terminar peor que el mercado ·
