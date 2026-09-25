@@ -374,8 +374,19 @@ struct PostWorkoutSummaryView: View {
                     }
                     FinishedWorkoutDraft.clear()
                     finishAfterSave(records: [])
-                case .queued:
+                case .queued(let requestId):
                     FinishedWorkoutDraft.clear()   // la cola lo tiene
+                    // La traza espera a su ejecución: se aparca colgada de la entrada
+                    // de la cola y sube cuando la cola entregue (antes solo se aparcaba
+                    // al guardar con cobertura, y sin ella la curva se perdía).
+                    Task {
+                        let parkId = await WorkoutTraceUploader.park(
+                            await Self.closedTraces(recorder: session.trace, startedAt: session.startedAt)
+                        )
+                        await WorkoutTraceUploader.resolve(
+                            parkId: parkId, executionId: nil, queuedRequestId: requestId, bearer: bearer
+                        )
+                    }
                     retryFromQueue = true
                     saveFailed = true
                     isSaving = false
@@ -448,8 +459,17 @@ struct PostWorkoutSummaryView: View {
                     withAnimation(.easeInOut(duration: 0.2)) { celebrationRecords = records }
                     isSaving = false
                 }
-            case .queued:
+            case .queued(let requestId):
                 FinishedWorkoutDraft.clear()   // la cola lo tiene
+                // Igual que el entreno libre: la traza cuelga de la entrada de la cola.
+                Task {
+                    let parkId = await WorkoutTraceUploader.park(
+                        await Self.closedTraces(recorder: session.trace, startedAt: session.startedAt)
+                    )
+                    await WorkoutTraceUploader.resolve(
+                        parkId: parkId, executionId: nil, queuedRequestId: requestId, bearer: bearer
+                    )
+                }
                 retryFromQueue = true
                 saveFailed = true
                 isSaving = false

@@ -1172,7 +1172,9 @@ struct WorkoutExecutionPayload: Codable {
 // 2xx (or 2xx with an unreadable body) is saved; 5xx/offline is queued; 4xx is not.
 enum WorkoutSaveOutcome {
     case saved(WorkoutExecutionResponse?)
-    case queued
+    /// En la cola sin cobertura, con el id de su entrada: quien quiera saber cuándo
+    /// llega al servidor (el acuse al reloj, la traza) lo pide con él.
+    case queued(UUID)
     case rejected
 }
 
@@ -1207,8 +1209,8 @@ enum WorkoutExecutionAPI {
             // in the replay queue forever (a 2xx-bad-body is already caught above).
             if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
                 DiagnosticsLog.shared.recordSave(.executionSaved, path: path, error: error, detail: "queued")
-                await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
-                return .queued
+                let id = await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer, keepOnReject: true)
+                return .queued(id)
             }
             DiagnosticsLog.shared.recordSave(.executionSaved, path: path, error: error, detail: "rejected")
             return .rejected
@@ -1260,8 +1262,8 @@ enum DoblesExecutionAPI {
         } catch {
             // AUDIT — a 404 no_partner on a joint log is deterministic: don't queue it.
             if RequestQueue.isRetriable(error), let body = try? JSONEncoder().encode(payload) {
-                await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer)
-                return .queued
+                let id = await RequestQueue.shared.enqueue(path: p, body: body, bearer: bearer, keepOnReject: true)
+                return .queued(id)
             }
             return .rejected
         }

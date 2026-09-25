@@ -9,6 +9,25 @@ struct QueuedRequest: Codable, Identifiable {
     let bodyJson: Data
     let bearer: String?
     let createdAt: Date
+    /// Un entreno terminado: si el servidor lo rechaza (4xx), no se tira — pasa a
+    /// `rejected` (fase 1, «nada se pierde»). Opcional: las entradas escritas antes
+    /// no lo llevan y siguen la regla de siempre.
+    var keepOnReject: Bool? = nil
+}
+
+/// LO QUE EL SERVIDOR RECHAZÓ Y ERA DEL ATLETA. Una entrada con `keepOnReject` que
+/// recibe un 4xx (que no es 401) no se tira: se guarda aquí, en la misma escritura
+/// atómica que la saca de la cola, y quien pidió saberlo (`onRejection`) se entera.
+/// Reintentarla no la arregla —por eso sale de la cola—, pero perderla falsea la
+/// semana del atleta. Sin caducidad; qué ve el atleta de esto es una pantalla
+/// pendiente de firma (DECISIONS 2026-09-24).
+struct RejectedRequest: Codable, Identifiable {
+    let request: QueuedRequest
+    let status: Int
+    let rejectedAt: Date
+    /// Si ya se le contó a quien esperaba (`onRejection`).
+    var told: Bool
+    var id: UUID { request.id }
 }
 
 /// EL ACUSE DE UNA ENTREGA, guardado hasta que a quien le importaba se le ha dicho.
@@ -34,6 +53,8 @@ struct DeliveryReceipt: Codable, Identifiable {
 private struct QueueFile: Codable {
     var entries: [QueuedRequest]
     var receipts: [DeliveryReceipt]
+    /// Opcional para leer los ficheros escritos antes de que existiera.
+    var rejected: [RejectedRequest]?
 }
 
 actor RequestQueue {
@@ -65,6 +86,7 @@ actor RequestQueue {
     private let transport: Transport
     private var entries: [QueuedRequest] = []
     private var receipts: [DeliveryReceipt] = []
+    private var rejected: [RejectedRequest] = []
     private var loaded = false
 
     /// A quién se le cuenta que una entrada se entregó, con el cuerpo de su respuesta.
@@ -74,6 +96,13 @@ actor RequestQueue {
 
     func onDelivery(_ observer: @escaping @Sendable (UUID, Data) async -> Void) {
         deliveryObserver = observer
+    }
+
+    /// A quién se le cuenta que una entrada con `keepOnReject` fue rechazada.
+    private var rejectionObserver: (@Sendable (UUID) async -> Void)?
+
+    func onRejection(_ observer: @escaping @Sendable (UUID) async -> Void) {
+        rejectionObserver = observer
     }
 
     /// Cuántos acuses se guardan a la vez. Sin observador instalado no se escribe
@@ -155,6 +184,7 @@ actor RequestQueue {
             // Los acuses se cuentan DESPUÉS de entregar, e incluyen los que quedaran
             // de una caída anterior — de ahí que la primera ronda ya los recoja.
             let told = await flushReceipts()
+            await flushRejections()
             if !delivered && !told { break }
         }
     }
@@ -190,8 +220,14 @@ actor RequestQueue {
                         DiagnosticsLog.shared.recordSave(.queueFailed, path: entry.path, error: error, detail: "kept")
                         return delivered
                     }
-                    DiagnosticsLog.shared.recordSave(.queueFailed, path: entry.path, error: error, detail: "dropped")
                     entries.removeFirst()
+                    if entry.keepOnReject == true {
+                        // UNA escritura: sale de la cola y queda en los rechazados.
+                        rejected.append(RejectedRequest(request: entry, status: code, rejectedAt: Date(), told: false))
+                        DiagnosticsLog.shared.recordSave(.queueFailed, path: entry.path, error: error, detail: "rejected_kept")
+                    } else {
+                        DiagnosticsLog.shared.recordSave(.queueFailed, path: entry.path, error: error, detail: "dropped")
+                    }
                     persist()
                     continue
                 }
@@ -229,18 +265,39 @@ actor RequestQueue {
         return told
     }
 
+    /// Cuenta cada rechazo guardado que nadie ha oído todavía; marca y guarda DESPUÉS
+    /// de avisar (el mismo orden que `flushReceipts`, y por lo mismo: el observador
+    /// es idempotente y una caída a medio aviso solo lo repite). El rechazado se
+    /// queda: contarlo no lo resuelve.
+    private func flushRejections() async {
+        guard let observer = rejectionObserver else { return }
+        for index in rejected.indices where !rejected[index].told {
+            await observer(rejected[index].id)
+            rejected[index].told = true
+            persist()
+        }
+    }
+
+    /// Lo rechazado que era del atleta, del más viejo al más nuevo.
+    func rejectedRequests() async -> [RejectedRequest] {
+        await loadIfNeeded()
+        return rejected
+    }
+
     /// Encola y devuelve el id de la entrada, que es con lo que quien encoló puede
     /// pedir que le cuenten su entrega (ver `onDelivery`). Descartable: casi todo el
-    /// mundo encola y se olvida.
+    /// mundo encola y se olvida. `keepOnReject` es para lo que el atleta hizo (un
+    /// entreno terminado): un rechazo del servidor lo guarda en vez de tirarlo.
     @discardableResult
-    func enqueue(path: String, body: Data, bearer: String? = nil) async -> UUID {
+    func enqueue(path: String, body: Data, bearer: String? = nil, keepOnReject: Bool = false) async -> UUID {
         await loadIfNeeded()
         let r = QueuedRequest(
             id: UUID(),
             path: path,
             bodyJson: body,
             bearer: bearer,
-            createdAt: Date()
+            createdAt: Date(),
+            keepOnReject: keepOnReject ? true : nil
         )
         entries.append(r)
         persist()
@@ -271,6 +328,7 @@ actor RequestQueue {
         if let file = try? JSONDecoder().decode(QueueFile.self, from: data) {
             entries = file.entries
             receipts = file.receipts
+            rejected = file.rejected ?? []
         } else if let legacy = try? JSONDecoder().decode([QueuedRequest].self, from: data) {
             entries = legacy
         }
@@ -278,7 +336,7 @@ actor RequestQueue {
 
     private func persist() {
         do {
-            let data = try JSONEncoder().encode(QueueFile(entries: entries, receipts: receipts))
+            let data = try JSONEncoder().encode(QueueFile(entries: entries, receipts: receipts, rejected: rejected))
             try data.write(to: fileURL, options: [.atomic])
         } catch {
             // intentional swallow: a queue persist failure must not crash the app

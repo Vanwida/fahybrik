@@ -767,8 +767,8 @@ enum FreeWorkoutAPI {
             enc.keyEncodingStrategy = .convertToSnakeCase
             enc.dateEncodingStrategy = .iso8601
             if RequestQueue.isRetriable(error), let body = try? enc.encode(payload) {
-                await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
-                return .queued
+                let id = await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer, keepOnReject: true)
+                return .queued(id)
             }
             return .rejected
         }

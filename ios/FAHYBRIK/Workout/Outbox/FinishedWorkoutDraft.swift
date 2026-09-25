@@ -69,7 +69,8 @@ enum FinishedWorkoutDraft {
         at url: URL = defaultURL,
         launch: UUID = launchId,
         enqueue: Enqueue = { path, body, bearer in
-            await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer)
+            // Un entreno terminado: si el servidor lo rechaza, se guarda, no se tira.
+            await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer, keepOnReject: true)
         }
     ) async -> Bool {
         guard let draft = load(at: url), draft.launchId != launch else { return false }
