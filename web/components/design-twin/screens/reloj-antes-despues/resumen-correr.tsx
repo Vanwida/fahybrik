@@ -27,7 +27,7 @@ import {
   type PaginaVivo,
   type PasoBase,
 } from '../../kit-reloj';
-import { filasDePasos, grupoPrincipal, hoyDe, paginar, type Completitud, type EstadoGuardado, type Resultado } from './calculo';
+import { filasDePasos, grupoPrincipal, hoyDe, paginar, type Completitud, type EstadoGuardado, type MetodoResumen, type Resultado } from './calculo';
 import { paginasEjercicios } from './resumen-fuerza';
 import { FilaLista, LineaGuardado } from './resumen-piezas';
 
@@ -125,7 +125,7 @@ function PaginaCorredor({ r, c, guardado }: { r: Resultado; c: Completitud; guar
 // Las series contra su objetivo
 // ---------------------------------------------------------------------------
 
-function PaginaSeries({ r, pasos, titulo }: { r: Resultado; pasos: PasoBase[]; titulo: string[] }) {
+function PaginaSeries({ r, pasos, titulo, metodo }: { r: Resultado; pasos: PasoBase[]; titulo: string[]; metodo: MetodoResumen }) {
   return (
     <Columna estilo={{ gap: HUECO_LISTA }}>
       <ContextoLinea partes={titulo} tono={C.tinta2} />
@@ -134,6 +134,20 @@ function PaginaSeries({ r, pasos, titulo }: { r: Resultado; pasos: PasoBase[]; t
         const pos = p.posicion!;
         const n = `${pos.tanda ? `${pos.tanda.n}·` : ''}${(pos.serie ?? pos.tramo)!.n}`;
         if (!s) return <FilaLista key={p.id} n={n} valor="—" derecha={<span style={{ color: C.tinta2 }}>sin hacer</span>} tenue />;
+        const pr = p.medida.prescrito ?? 0;
+        const hecho = p.medida.tipo === 'distancia' ? (s.metros ?? 0) : s.segundos;
+        if (hecho < pr * metodo.umbralHecho) {
+          // Cortada: lo que se corrió, sin juicio (no llegó a ser la serie del coach).
+          return (
+            <FilaLista
+              key={p.id}
+              n={n}
+              valor={fmtReloj(s.segundos)}
+              apoyo={p.medida.tipo === 'distancia' && s.metros != null ? `${s.metros}\u00A0m` : null}
+              derecha={<span style={{ color: C.tinta2 }}>cortada</span>}
+            />
+          );
+        }
         const j = s.veredicto ? palabraVeredicto(s.eje ?? 'ritmo', s.veredicto) : null;
         const ritmo = s.metros != null && s.metros !== 1000 ? fmtRitmo(s.ritmo) : null;
         return (
@@ -181,7 +195,7 @@ function PaginaKm({ r, desde, hasta, primera }: { r: Resultado; desde: number; h
 // Las páginas de correr
 // ---------------------------------------------------------------------------
 
-export function paginasCorrer(r: Resultado, c: Completitud, guardado: EstadoGuardado): PaginaVivo[] {
+export function paginasCorrer(r: Resultado, c: Completitud, guardado: EstadoGuardado, metodo: MetodoResumen): PaginaVivo[] {
   const paginas: PaginaVivo[] = [{ id: 'resumen', titulo: 'Resumen', contenido: <PaginaCorredor r={r} c={c} guardado={guardado} /> }];
   bloquesDeSeries(r.pasos).forEach((pasos, b) => {
     const o = principal(pasos[0]!);
@@ -190,7 +204,7 @@ export function paginasCorrer(r: Resultado, c: Completitud, guardado: EstadoGuar
       paginas.push({
         id: `series-${b}-${k}`,
         titulo: 'Series',
-        contenido: <PaginaSeries r={r} pasos={idx.map((i) => pasos[i]!)} titulo={titulo} />,
+        contenido: <PaginaSeries r={r} pasos={idx.map((i) => pasos[i]!)} titulo={titulo} metodo={metodo} />,
       });
     });
   });

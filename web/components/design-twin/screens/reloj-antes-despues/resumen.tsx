@@ -68,7 +68,7 @@ export function Resumen({
 
   const c = completitud(r, metodo);
   const propias =
-    familia === 'fuerza' ? paginasFuerza(r, c, guardado) : familia === 'circuito' ? paginasCircuito(r, c, guardado, metodo) : paginasCorrer(r, c, guardado);
+    familia === 'fuerza' ? paginasFuerza(r, c, guardado) : familia === 'circuito' ? paginasCircuito(r, c, guardado, metodo) : paginasCorrer(r, c, guardado, metodo);
   const paginas: PaginaVivo[] = [
     ...propias,
     { id: 'pulso', titulo: 'Pulso', contenido: <PaginaPulso r={r} /> },
