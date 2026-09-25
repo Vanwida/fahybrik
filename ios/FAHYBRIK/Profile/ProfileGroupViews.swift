@@ -153,11 +153,7 @@ struct ProfileCuentaView: View {
     @AppStorage(ThemeMode.storageKey) private var themeMode: ThemeMode = .system
 
     @State private var sheet: CuentaSheetKind? = nil
-    @State private var exporting: Bool = false
-    @State private var exportShareItem: ExportShareItem? = nil
-    @State private var exportError: String? = nil
     @State private var showDeleteAccount: Bool = false
-    @State private var exportToast: String? = nil
 
     private enum CuentaSheetKind: String, Identifiable {
         case methodology
@@ -165,6 +161,8 @@ struct ProfileCuentaView: View {
         var id: String { rawValue }
     }
 
+    // «Exportar mis datos» vive ahora en Perfil › Privacidad (Alex, 25-09), con su
+    // fila y su comportamiento de siempre (ProfilePrivacidadView.swift).
     var body: some View {
         ZStack(alignment: .top) {
             Theme.Color.background.ignoresSafeArea()
@@ -174,18 +172,12 @@ struct ProfileCuentaView: View {
                     if hasCoach {
                         methodologyCard
                     }
-                    privacyAndDataCard
                     deleteAccountRow
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
                 .padding(.top, Theme.Spacing.l)
                 .padding(.bottom, Theme.Spacing.xxl)
                 .clampedToContainerWidth()
-            }
-            if let exportToast {
-                ToastBanner(text: exportToast)
-                    .padding(.top, Theme.Spacing.l)
-                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .navigationTitle("Cuenta")
@@ -204,9 +196,6 @@ struct ProfileCuentaView: View {
                     onCompleted: { onSignOut() }
                 )
             }
-        }
-        .sheet(item: $exportShareItem) { item in
-            ShareSheet(items: [item.fileURL])
         }
     }
 
@@ -241,43 +230,6 @@ struct ProfileCuentaView: View {
         }
     }
 
-    private var privacyAndDataCard: some View {
-        CardSurface(padding: 0) {
-            Button {
-                Haptics.light()
-                Task { await exportData() }
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "square.and.arrow.up.on.square")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
-                        .frame(width: 26)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Exportar mis datos")
-                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.foreground)
-                        Text(exportError ?? "Descarga un JSON con todo lo que guardamos sobre ti")
-                            .scaledFont(11, relativeTo: .caption2)
-                            .foregroundStyle(exportError == nil ? Theme.Color.muted : Theme.Color.danger)
-                            .lineLimit(2)
-                    }
-                    Spacer()
-                    if exporting {
-                        ProgressView().tint(Theme.Color.accentText)
-                    } else {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Theme.Color.faint)
-                    }
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 14)
-            }
-            .buttonStyle(.plain)
-            .disabled(exporting || bearer == nil)
-        }
-    }
-
     private var deleteAccountRow: some View {
         Button {
             Haptics.medium()
@@ -299,45 +251,6 @@ struct ProfileCuentaView: View {
         }
         .buttonStyle(.plain)
     }
-
-    private func exportData() async {
-        guard let bearer, !exporting else { return }
-        exporting = true
-        exportError = nil
-        defer { exporting = false }
-        do {
-            let (data, filename) = try await AccountService.exportData(bearer: bearer)
-            let safeName = filename.isEmpty ? "fahybrid-export.json" : filename
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent(safeName)
-            try? FileManager.default.removeItem(at: url)
-            try data.write(to: url, options: [.atomic])
-            await MainActor.run {
-                exportShareItem = ExportShareItem(fileURL: url)
-                showToast("Datos exportados")
-            }
-        } catch let APIError.http(status, _) {
-            await MainActor.run {
-                exportError = status == 401
-                    ? "Sesión caducada. Vuelve a iniciar sesión."
-                    : "No pudimos exportar tus datos (HTTP \(status))."
-            }
-        } catch {
-            await MainActor.run {
-                exportError = "No pudimos exportar tus datos. Revisa tu conexión."
-            }
-        }
-    }
-
-    private func showToast(_ text: String) {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            exportToast = text
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
-            withAnimation(.easeOut(duration: 0.25)) {
-                exportToast = nil
-            }
-        }
-    }
 }
 
 // MARK: - Ayuda y legal
@@ -348,8 +261,8 @@ struct ProfileAyudaLegalView: View {
 
     @State private var sheet: AyudaSheetKind? = nil
 
+    // La política de privacidad vive ahora en Perfil › Privacidad (Alex, 25-09).
     private enum AyudaSheetKind: String, Identifiable {
-        case privacy
         case terms
         case feedback
         var id: String { rawValue }
@@ -371,7 +284,6 @@ struct ProfileAyudaLegalView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $sheet) { kind in
             switch kind {
-            case .privacy:  LegalSheet(title: "Política de privacidad", bodyText: LegalCopy.privacy)
             case .terms:    LegalSheet(title: "Términos de uso", bodyText: LegalCopy.terms(hasCoach: hasCoach))
             case .feedback: AppFeedbackSheet(bearer: bearer)
             }
@@ -396,11 +308,6 @@ struct ProfileAyudaLegalView: View {
     private var legalCard: some View {
         CardSurface(padding: 0) {
             VStack(spacing: 0) {
-                Button(action: { Haptics.light(); sheet = .privacy }) {
-                    ProfileNavRow(icon: "lock.shield", title: "Privacidad", subtitle: Marca.privacidadTexto)
-                }
-                .buttonStyle(.plain)
-                Hairline()
                 Button(action: { Haptics.light(); sheet = .terms }) {
                     ProfileNavRow(icon: "doc.text", title: "Términos", subtitle: Marca.terminosTexto)
                 }

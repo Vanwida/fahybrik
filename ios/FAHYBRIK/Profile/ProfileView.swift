@@ -147,8 +147,8 @@ struct ProfileView: View {
                         profileDoorSection(
                             title: "Cuenta",
                             subtitle: hasCoach
-                                ? "Apariencia, metodología y privacidad de datos"
-                                : "Apariencia y privacidad de datos",
+                                ? "Apariencia, metodología y eliminar tu cuenta"
+                                : "Apariencia y eliminar tu cuenta",
                             destination: ProfileCuentaView(
                                 bearer: bearer,
                                 hasCoach: hasCoach,
@@ -158,9 +158,18 @@ struct ProfileView: View {
                             )
                         )
 
+                        // Puerta nueva (Alex, 25-09): el permiso del movimiento del
+                        // reloj, y lo que antes andaba suelto — exportar (Cuenta) y
+                        // la política (Ayuda y legal).
+                        profileDoorSection(
+                            title: "Privacidad",
+                            subtitle: "Movimiento del reloj, tus datos y la política de privacidad",
+                            destination: ProfilePrivacidadView(bearer: bearer)
+                        )
+
                         profileDoorSection(
                             title: "Ayuda y legal",
-                            subtitle: "Sugerencias, privacidad y términos",
+                            subtitle: "Sugerencias y términos",
                             destination: ProfileAyudaLegalView(bearer: bearer, hasCoach: hasCoach)
                         )
 
@@ -224,6 +233,7 @@ struct ProfileView: View {
         case "Entreno": return "figure.run"
         case "Dispositivos y apps": return "applewatch.and.arrow.forward"
         case "Cuenta": return "gearshape"
+        case "Privacidad": return "hand.raised"
         case "Ayuda y legal": return "questionmark.circle"
         default: return "chevron.right"
         }

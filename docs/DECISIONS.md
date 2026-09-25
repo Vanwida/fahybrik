@@ -56,6 +56,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
   - **«Ahora no» no vuelve a preguntar.** Solo se cambia desde Perfil.
   - **Apagar el interruptor borra lo ya subido.** Retirar el permiso es retirarlo del todo. Exige, antes del Swift, un mecanismo en el servidor que borre los archivos de movimiento del atleta al retirarse el consentimiento.
   - **No decidido:** si encenderlo suba los entrenos de antes.
+- **Construido en Swift (25-09):**
+  - la hoja (`SensorConsentSheet`), con sus reglas (`SensorConsentPrompt`);
+  - el estado por atleta (`SensorConsentState`/`Store`);
+  - el PUT y el DELETE reintentados hasta que el servidor los confirma (`SensorConsentSync`);
+  - Perfil › Privacidad (`ProfilePrivacidadView`).
+- **Tras un no, el móvil no guarda lo que llega del reloj:** «Ahora no» o el interruptor apagado vacían el buzón y los ficheros nuevos no se copian. Sin contestar sí se guardan: son lo que hace salir la hoja tras un entreno solo con el reloj.
+- **HUECO ABIERTO:** el sí llega al servidor, pero ningún archivo sale todavía.
+  - `SensorFileReceiver.drainPending` no tiene quien lo llame.
+  - El fichero llega con `execution_local_id` (la asignación), no con el `execution_id` que pide la subida.
+  - Construir el subidor (resolver la ejecución y firmar → PUT → registrar) es lo siguiente. Hasta entonces el texto de la hoja es verdad sobre el uso, pero no se sube nada.
 
 **NO hacer:**
 - Borrar un sobre de la muñeca por haber llegado al teléfono.

@@ -11,7 +11,7 @@ import Foundation
 //                                        at end-of-period.
 //
 // Both endpoints are blocking legal requirements (RGPD / GDPR Art. 15 + 17).
-// The iOS UI lives in ProfileView → "Privacidad y datos".
+// The iOS UI lives in Perfil › Privacidad (export) and Perfil › Cuenta (delete).
 enum AccountService {
     // Confirmation string the server expects on the delete request body.
     // Mirrors the visible copy the user types in DeleteAccountConfirmView so

@@ -2,7 +2,7 @@
 
 // El movimiento de tu muñeca — el consentimiento para subir lo que graba el reloj.
 //
-// PROPUESTA. Decidido por Alex el 25-09 (docs/DECISIONS.md): el permiso para
+// CONSTRUIDA (25-09). Decidido por Alex el 25-09 (docs/DECISIONS.md): el permiso para
 // SUBIR las grabaciones de movimiento del reloj se pide en una hoja al acabar el
 // primer entreno grabado en la muñeca — SUBIRLO / Ahora no — y luego se cambia
 // en Perfil › Privacidad.
@@ -27,17 +27,21 @@ export const meta: TwinMeta = {
   id: 'consentimiento-sensores',
   titulo: 'El movimiento de tu muñeca',
   zona: 'Perfil y ajustes',
-  estado: 'propuesta',
+  estado: 'construida',
   actualizado: '2026-09-25',
   descripcion:
     'El permiso para subir lo que graba el reloj se pide una vez, en una hoja al acabar el primer entreno de muñeca: qué es, para qué, que no es ni pulso ni ubicación y que decir que no no cuesta nada. Luego se cambia en Perfil › Privacidad.',
   fuentes: [
+    'ios/FAHYBRIK/Watch/SensorConsentSheet.swift',
+    'ios/FAHYBRIK/Watch/SensorConsentSync.swift',
     'ios/FAHYBRIK/Watch/SensorFileReceiver.swift',
-    'ios/FAHYBRIKWatch/Sensor/SensorCapture.swift',
-    'docs/reconocer-el-movimiento.html',
+    'ios/FAHYBRIK/Profile/ProfilePrivacidadView.swift',
+    'ios/FAHYBRIK/Profile/ProfileView.swift',
+    'ios/FAHYBRIK/Profile/ProfileGroupViews.swift',
+    'ios/FAHYBRIK/App/AppShell.swift',
   ],
   enApp:
-    'El consentimiento existe como bandera local (`SensorCaptureConsent`, v 2026-08-06.v1) sin pantalla; falta la hoja y la fila de Perfil en Swift tras la firma.',
+    'Construido en Swift: la hoja (SUBIRLO / Ahora no; cerrarla sin elegir es «Ahora no») tras el primer entreno de muñeca, o al abrir la app si ese entreno fue solo del reloj; Perfil › Privacidad con el interruptor, «Exportar mis datos» y la política. El sí (PUT) y la retirada que borra lo subido (DELETE) se reintentan hasta que el servidor los confirma. Pendiente fuera de esta pantalla: la subida del archivo en sí (`SensorFileReceiver.drainPending` aún no tiene quien la llame).',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

@@ -59,6 +59,9 @@ struct AppShell: View {
     // recreated on switch. See AppDataStore.
     @State private var store = AppDataStore()
     @State private var liveResume = LiveWorkoutResume.shared
+    /// La hoja del movimiento del reloj cuando el primer entreno de muñeca no tuvo
+    /// resumen en el móvil (`askSensorConsentIfDue`).
+    @State private var askSensorConsent = false
 
     // Push deep-link router — a tapped notification routes to a tab (chat opens
     // its tab directly now that Chat is a first-class destination).
@@ -172,6 +175,7 @@ struct AppShell: View {
             )
             .environment(store)
         }
+        .sensorConsentSheet(isPresented: $askSensorConsent)
         // Scope the store to the session and warm every slice once, so whichever
         // tab the athlete opens first already has its data (or loads it centrally,
         // not per-view). Re-runs if the bearer changes (sign-out / athlete switch).
@@ -210,9 +214,12 @@ struct AppShell: View {
                 await FinishedWorkoutDraft.recoverIntoQueue(bearer: bearer)
                 await RequestQueue.shared.drain(bearer: bearer)
                 await DiagnosticsUploader.shared.flush(bearer: bearer)
+                // El sí o la retirada del movimiento del reloj que no llegó al servidor.
+                await SensorConsentSync.shared.push(bearer: bearer)
                 await renewSessionIfDue()
             }
             await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: store.identity.value?.hrZones)
+            askSensorConsentIfDue()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background || phase == .inactive {
@@ -231,8 +238,10 @@ struct AppShell: View {
                     await WorkoutTraceUploader.sweep(bearer: bearer)
                     await RequestQueue.shared.drain(bearer: bearer)
                     await DiagnosticsUploader.shared.flush(bearer: bearer)
+                    await SensorConsentSync.shared.push(bearer: bearer)
                     await renewSessionIfDue()
                 }
+                askSensorConsentIfDue()
             }
         }
         .onChange(of: PhoneLiveSession.shared.wristFinishedByAthlete) { _, finished in
@@ -264,6 +273,16 @@ struct AppShell: View {
         guard let renewed = await auth.renewedTokenIfDue() else { return }
         store.rotate(to: renewed)
         auth.adoptRenewedToken(renewed)
+    }
+
+    /// Primer entreno grabado SOLO en el reloj: no hubo resumen en el móvil donde
+    /// preguntar, así que la hoja del movimiento sale al abrir la app, una vez
+    /// (DECISIONS 2026-09-25). Va DESPUÉS de recuperar un entreno en vivo: si hay uno,
+    /// manda él, y la hoja no sale sobre nada (`SensorConsentPrompt.shouldAskOnOpen`).
+    @MainActor
+    private func askSensorConsentIfDue() {
+        guard !askSensorConsent, SensorConsentPrompt.shouldAskOnOpen() else { return }
+        askSensorConsent = true
     }
 
     private func handlePushDestination(_ dest: PushRouter.Destination?) {

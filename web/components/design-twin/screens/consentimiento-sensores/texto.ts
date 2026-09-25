@@ -22,7 +22,7 @@
 //    la forma de andar. Es dato personal y se dice sin asustar.
 
 /** La versión que se guarda al decir que sí — `SensorCaptureConsent.currentVersion`. */
-export const VERSION_CONSENTIMIENTO = '2026-08-06.v1';
+export const VERSION_CONSENTIMIENTO = '2026-09-25.v1';
 
 export const HOJA = {
   titulo: 'El movimiento de tu muñeca',
