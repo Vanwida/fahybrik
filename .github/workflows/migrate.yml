@@ -1,0 +1,105 @@
+# Migraciones de producción — las corre el agente, no Alex (Alex, 24-09: «you always
+# run the migrations, is your job»). DECISIONS 2026-09-24 «Las migraciones las corre el
+# agente, desde GitHub Actions».
+#
+# Por qué aquí: el contenedor donde trabaja el agente no llega a Neon y no guarda
+# credenciales de producción; los runners de GitHub sí llegan, y el secreto
+# (PROD_DATABASE_URL, la cadena DIRECTA —sin pooler— del rol dueño) nunca pasa por el
+# contexto de nadie. Cada ejecución deja su log.
+#
+# Cómo:
+#   · Cada push que toca infra/migrations/ → DRY-RUN: lista lo pendiente. Solo lee.
+#   · Aplicar = un commit que escribe en infra/migrations/APLICAR las versiones
+#     exactas a aplicar (una por línea). El job aplica SOLO si lo pendiente en la base
+#     es exactamente esa lista; si no coincide, falla sin tocar nada. Con la base al
+#     día, la petición ya cumplida no hace nada. Cada cambio de producción es un commit.
+#   · workflow_dispatch (cuando este fichero esté en main): dry-run o apply a mano.
+#
+# La build de producción de Vercel se para si falta una migración
+# (web/scripts/migraciones-al-dia.mjs): esto es lo que la pone al día.
+name: migrate
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths:
+      - 'infra/migrations/**'
+      - '.github/workflows/migrate.yml'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run o apply'
+        type: choice
+        options: [dry-run, apply]
+        default: dry-run
+
+# Nunca dos a la vez contra la misma base, y nunca se cancela una a medias.
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: migrations (production)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install (infra)
+        run: pnpm install --frozen-lockfile --filter @fahybrid/infra...
+
+      - name: Secret present
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Falta el secreto PROD_DATABASE_URL (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+
+      - name: Dry-run (pendientes en producción)
+        run: pnpm --dir infra migrate:dry-run | tee "$RUNNER_TEMP/dry-run.txt"
+
+      # Qué pide aplicar el repo: la petición commiteada, o el botón manual.
+      - name: Decide
+        id: decide
+        run: |
+          pending=$(grep -E '^  · ' "$RUNNER_TEMP/dry-run.txt" | sed 's/^  · //' | sort || true)
+          if [ -z "$pending" ]; then
+            echo "Base al día: nada que aplicar."
+            echo "apply=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ inputs.mode }}" = "apply" ]; then echo "apply=yes" >> "$GITHUB_OUTPUT"; else echo "apply=no" >> "$GITHUB_OUTPUT"; fi
+            exit 0
+          fi
+          if [ ! -f infra/migrations/APLICAR ]; then
+            echo "Pendientes y sin petición (infra/migrations/APLICAR): solo dry-run."
+            echo "apply=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          requested=$(grep -vE '^\s*(#|$)' infra/migrations/APLICAR | sed 's/\.sql$//' | sort)
+          if [ "$pending" != "$requested" ]; then
+            echo "::error::Lo pendiente en producción no es lo pedido en APLICAR. No se toca nada."
+            echo "--- pendiente ---"; echo "$pending"
+            echo "--- pedido ---"; echo "$requested"
+            exit 1
+          fi
+          echo "apply=yes" >> "$GITHUB_OUTPUT"
+
+      - name: Apply
+        if: steps.decide.outputs.apply == 'yes'
+        run: pnpm --dir infra migrate
+
+      - name: After (debe estar al día)
+        if: steps.decide.outputs.apply == 'yes'
+        run: pnpm --dir infra migrate:dry-run
