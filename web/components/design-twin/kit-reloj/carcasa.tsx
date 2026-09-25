@@ -8,12 +8,12 @@
 import type { ReactNode } from 'react';
 import type { Area } from './mandos';
 import { BotonAccion, useCabe } from './piezas';
-import { ANCHO_PIE, C, T } from './tokens';
+import { ANCHO_PIE, C, FILA, T } from './tokens';
 
 export const PASOS_AGUA = 3;
 
 /** Lo que funde el velo del pie con lo de encima (pt): una fila cortada se disuelve. */
-const VELO_PIE_FUNDIDO = 12;
+const VELO_PIE_FUNDIDO = 8;
 
 const AREAS: Area[] = ['controles', 'vivo', 'musica'];
 
@@ -193,7 +193,8 @@ export function VeloPie() {
         left: 0,
         right: 0,
         bottom: 0,
-        height: `calc(var(--twin-safe-bottom) + ${T.boton.alto + VELO_PIE_FUNDIDO}px)`,
+        // Negro desde lo alto de la fila de botones del pie (FILA.boton), fundido encima.
+        height: `calc(var(--twin-safe-bottom) + ${FILA.boton + VELO_PIE_FUNDIDO}px)`,
         background: `linear-gradient(180deg, transparent, ${C.fondo} ${VELO_PIE_FUNDIDO}px)`,
         pointerEvents: 'none',
         animation: 'reloj-aparece 200ms ease-out',
