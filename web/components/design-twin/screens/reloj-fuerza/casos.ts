@@ -198,10 +198,6 @@ export function casoDe(escenario: string): CasoFuerza {
         guion: [{ en: 3500, gesto: 'corona-abajo' }],
       };
     }
-    case 'tmp-ronda538': {
-      const plan = sesion538();
-      return { plan, sim: cuerpo, inicio: inicioEn(plan, indiceDe(plan, '538-A4-s2') + 1, 5), registro: {}, acciones: [{ en: 2500, accion: { tipo: 'abrir', serie: 1 } }] };
-    }
     case 'sin-gesto': {
       const plan = sesion529();
       return { plan, sim: cuerpo, inicio: inicioEn(plan, indiceDe(plan, '529-A1-s1'), 6), registro: {}, modelo: 'sin-gesto' };

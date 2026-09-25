@@ -117,7 +117,7 @@ export function VivoFuerza({ caso, onLog }: { caso: CasoFuerza; onLog: (linea: s
     const nuevo = foco === campo && !fijo ? null : campo;
     if (nuevo === foco) return;
     setUi({ paso: paso.id, abierta: abierta ?? 0, foco: nuevo, lista: false });
-    onLog(nuevo ? `Toque → ${NOMBRE_CAMPO[campo]} encendida: la corona la gira` : `Toque → ${NOMBRE_CAMPO[campo]} apagada: la corona vuelve a pasar página`);
+    onLog(nuevo ? `Toque → foco en ${NOMBRE_CAMPO[campo]}: la corona gira ese dato` : 'Toque → sin foco: la corona vuelve a pasar página');
   };
   const corona = (dir: 1 | -1) => {
     if (!foco || !serieAbierta) return;
@@ -127,7 +127,7 @@ export function VivoFuerza({ caso, onLog }: { caso: CasoFuerza; onLog: (linea: s
     setRegistro((r) => ({ ...r, [serieAbierta.paso.id]: { ...r[serieAbierta.paso.id], [foco]: nv } }));
     const texto = foco === 'kg' ? fmtKg(nv) : num(nv);
     const cascada = foco === 'kg' ? ` · ${textoPistaCorona(plan, jAbierta, 'kg', registro)}` : '';
-    onLog(`Corona ${dir > 0 ? '▲' : '▼'} → ${NOMBRE_CAMPO[foco]} ${texto} (declarada)${cascada}`);
+    onLog(`Corona ${dir > 0 ? '▲' : '▼'} → ${NOMBRE_CAMPO[foco]} ${texto}, declarado${cascada}`);
   };
   const confirmarDescanso = () => {
     const alcance = vista === 'columnas' && serieAbierta ? [serieAbierta] : series;

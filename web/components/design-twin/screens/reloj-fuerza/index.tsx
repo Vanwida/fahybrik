@@ -33,7 +33,6 @@ export const meta: TwinMeta = {
 };
 
 export const escenarios: TwinEscenario[] = [
-  { id: 'tmp-ronda538', titulo: 'TMP3', descripcion: 'tmp' },
   {
     id: 'superserie',
     titulo: 'Superserie A1 → A2 sin descanso (529)',
