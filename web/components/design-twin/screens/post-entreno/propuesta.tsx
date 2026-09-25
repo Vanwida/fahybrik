@@ -52,10 +52,7 @@ export function Propuesta({ sesion, medido, onLog }: { sesion: SesionReal; medid
   const [notas, setNotas] = useState('');
   const [abierta, setAbierta] = useState<Abierta>(null);
 
-  const hasFC = medido.fcMediaPpm != null;
-  const hasZonas = Object.keys(medido.zonasS).length > 0;
   const esPrescrita = sesion.origen === 'coach';
-  const compacto = totalItems(sesion) > 3;
 
   const toggle = (id: Abierta) => setAbierta((a) => (a === id ? null : id));
 
@@ -70,27 +67,7 @@ export function Propuesta({ sesion, medido, onLog }: { sesion: SesionReal; medid
         </div>
       }
     >
-      <Card elevated fill>
-        {/* `safe center`: con poco registro el bloque se centra y el aire queda
-            simétrico — es `previsualiza` degradando a `centra` cuando ya no hay
-            más verdad que enseñar, el mismo movimiento que hace la puerta del
-            bloque con un solo ítem. El `safe` importa: cuando SÍ desborda (el
-            plan del coach, 11 ítems en 3 bloques) vuelve a alinear arriba en vez
-            de dejar la cabecera fuera de alcance del scroll. */}
-        <div
-          className="twin-scroll"
-          style={{
-            flex: '1 1 auto',
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'safe center',
-            gap: compacto ? 14 : 20,
-          }}
-        >
-          <RegistroContenido sesion={sesion} medido={medido} hasFC={hasFC} hasZonas={hasZonas} compacto={compacto} onLog={onLog} />
-        </div>
-      </Card>
+      <TarjetaRegistro sesion={sesion} medido={medido} onLog={onLog} />
 
       <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column' }}>
         <Hairline />
@@ -154,6 +131,61 @@ export function Propuesta({ sesion, medido, onLog }: { sesion: SesionReal; medid
 }
 
 // ---------------------------------------------------------------------------
+// La tarjeta del registro — exportada (25-sep) porque el registro es el MISMO
+// objeto cuando el servidor lo rechaza (`guardado-en-movil`) y cuando se pide
+// el consentimiento del reloj encima (`consentimiento-sensores`). Una segunda
+// copia de esta tarjeta sería la vía por la que nacieron los seis relojes.
+// ---------------------------------------------------------------------------
+
+export function TarjetaRegistro({
+  sesion,
+  medido,
+  onLog,
+  encabezado = 'Se va a guardar',
+}: {
+  sesion: SesionReal;
+  medido: MedidoReal;
+  onLog: (linea: string) => void;
+  /** La línea de arriba. `null` la quita: cuando ya no «se va a guardar», no se dice. */
+  encabezado?: string | null;
+}) {
+  const hasFC = medido.fcMediaPpm != null;
+  const hasZonas = Object.keys(medido.zonasS).length > 0;
+  const compacto = totalItems(sesion) > 3;
+  return (
+    <Card elevated fill>
+      {/* `safe center`: con poco registro el bloque se centra y el aire queda
+          simétrico — es `previsualiza` degradando a `centra` cuando ya no hay
+          más verdad que enseñar, el mismo movimiento que hace la puerta del
+          bloque con un solo ítem. El `safe` importa: cuando SÍ desborda (el
+          plan del coach, 11 ítems en 3 bloques) vuelve a alinear arriba en vez
+          de dejar la cabecera fuera de alcance del scroll. */}
+      <div
+        className="twin-scroll"
+        style={{
+          flex: '1 1 auto',
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'safe center',
+          gap: compacto ? 14 : 20,
+        }}
+      >
+        <RegistroContenido
+          sesion={sesion}
+          medido={medido}
+          hasFC={hasFC}
+          hasZonas={hasZonas}
+          compacto={compacto}
+          encabezado={encabezado}
+          onLog={onLog}
+        />
+      </div>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // El contenido de la tarjeta del registro
 // ---------------------------------------------------------------------------
 
@@ -163,6 +195,7 @@ function RegistroContenido({
   hasFC,
   hasZonas,
   compacto,
+  encabezado,
   onLog,
 }: {
   sesion: SesionReal;
@@ -170,13 +203,16 @@ function RegistroContenido({
   hasFC: boolean;
   hasZonas: boolean;
   compacto: boolean;
+  encabezado: string | null;
   onLog: (linea: string) => void;
 }) {
   return (
     <>
-      <span style={{ font: '600 11px/1.1 var(--twin-font-sans)', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--twin-accent-text)' }}>
-        Se va a guardar
-      </span>
+      {encabezado && (
+        <span style={{ font: '600 11px/1.1 var(--twin-font-sans)', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--twin-accent-text)' }}>
+          {encabezado}
+        </span>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <span style={{ font: '600 11px/1.1 var(--twin-font-sans)', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--twin-muted)' }}>

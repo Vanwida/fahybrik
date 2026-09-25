@@ -21,7 +21,7 @@
 // justo lo que el Swift también pinta cuando no encuentra el lap (línea 1022:
 // `lap.map(...) ?? "—"`). No es una carencia del mockup: es la app hoy.
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { CTA, Card, Display, Hairline, Label, Mono, Muerto } from '../../kit';
 import { reloj, totalItems, UMBRAL, type MedidoReal, type SesionReal } from '../../datos-reales';
 import { distribucionZonas } from '../../zonas';
@@ -37,7 +37,22 @@ import {
   umbralLabel,
 } from './piezas';
 
-export function Hoy({ sesion, medido, onLog }: { sesion: SesionReal; medido: MedidoReal; onLog: (linea: string) => void }) {
+export function Hoy({
+  sesion,
+  medido,
+  onLog,
+  accion,
+}: {
+  sesion: SesionReal;
+  medido: MedidoReal;
+  onLog: (linea: string) => void;
+  /**
+   * La franja de abajo, cuando no es la de siempre. La usa `guardado-en-movil`
+   * para reproducir el REINTENTAR que deja hoy un rechazo del servidor: la
+   * pantalla es ESTA, y copiarla para cambiar un botón la separaría de la app.
+   */
+  accion?: ReactNode;
+}) {
   const [rpe, setRpe] = useState<number | null>(null);
   const [comoHaIdo, setComoHaIdo] = useState(estadoComoHaIdoInicial());
 
@@ -188,7 +203,7 @@ export function Hoy({ sesion, medido, onLog }: { sesion: SesionReal; medido: Med
            distintos, cero regla común (CONTRATO-UI §4, "nada de medios puntos
            ni dos niveles separados por 1 pt: eso no es jerarquía, es ruido" —
            esto es peor, son 3 valores sin relación). */}
-        <CTA title="GUARDAR" height={46} onClick={() => onLog('GUARDAR (46 pt)')} />
+        {accion ?? <CTA title="GUARDAR" height={46} onClick={() => onLog('GUARDAR (46 pt)')} />}
       </div>
     </div>
   );

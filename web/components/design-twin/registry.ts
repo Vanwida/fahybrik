@@ -129,6 +129,13 @@ import * as correrFicha from './screens/correr-ficha';
 import * as correrTendencias from './screens/correr-tendencias';
 import * as correrCapacidad from './screens/correr-capacidad';
 import * as correrPorTipo from './screens/correr-por-tipo';
+// Lo que el atleta hizo no se pierde (25-sep, decisiones de Alex en la misma
+// tanda que la cola que ya no tira un 4xx). Dos propuestas: qué ve si el
+// servidor RECHAZA su entreno — «Guardado en tu móvil» y «Sin subir» en el
+// historial, en vez de un REINTENTAR sin salida — y el permiso para subir lo que
+// graba el reloj, que se pide una vez al acabar el primer entreno de muñeca.
+import * as guardadoEnMovil from './screens/guardado-en-movil';
+import * as consentimientoSensores from './screens/consentimiento-sensores';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -213,6 +220,11 @@ export const SCREENS: TwinScreenModule[] = [
   vivoClave,
   contadorReps,
   velocidadSerie,
+  // La tanda de «nada se pierde» (25-sep): el rechazo primero, porque es el
+  // resumen de siempre en otro estado; el consentimiento después, que sale del
+  // mismo resumen la primera vez que el reloj graba.
+  guardadoEnMovil,
+  consentimientoSensores,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {

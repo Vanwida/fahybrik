@@ -41,11 +41,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
   - Nosotros lo vemos en el registro técnico.
   - Descartado: «subir como entreno libre», porque pierde el vínculo con la sesión del coach; y un aviso sin lista, porque el entreno no se ve en ningún sitio.
 - **El consentimiento para subir el movimiento del reloj se pide al terminar el primer entreno grabado en la muñeca.**
-  - Es una hoja: qué se sube, para qué (cadencia y rebote, que verá el coach) y que no es salud ni ubicación.
+  - Es una hoja: qué se sube, para qué y que no es pulso ni ubicación.
+  - Para qué se sube, leído en el código: para que la app aprenda a contar repeticiones y a reconocer ejercicios, cada vez mejor. Con la corrección del atleta como etiqueta (`docs/reconocer-el-movimiento.html`).
+  - NO se sube para «cadencia y rebote que verá el coach», que decía el borrador de la pregunta; eso no existe en el código.
+  - El conteo en vivo en la muñeca funciona diga lo que diga: el consentimiento solo abre la subida del archivo (`WatchWorkoutCoordinator`). La hoja no puede dar a entender que decir no apaga nada.
   - Botones: SUBIRLO / Ahora no.
   - Luego se cambia en Perfil › Privacidad.
   - Descartado: solo un interruptor en Perfil (nadie lo enciende) y preguntarlo en el alta (antes de haber entrenado con el reloj).
-- Las dos pantallas pasan por «el doble» como propuesta antes del Swift.
+- Las dos pantallas pasan por «el doble» como propuesta antes del Swift: `guardado-en-movil` y `consentimiento-sensores` (25-09).
+- Abierto para Alex en esas propuestas:
+  - la puerta «Perfil › Privacidad», que la app no tiene todavía;
+  - cuándo sale la hoja si el entreno se grabó solo en el reloj, sin resumen en el móvil;
+  - si «Ahora no» vuelve a preguntar;
+  - qué promete el interruptor al apagarse: si borra lo subido.
+- Por defecto en la propuesta: la hoja sale tras un GUARDAR bueno (el archivo se sube cuando la ejecución existe) y «Ahora no» no vuelve a preguntar.
 
 **NO hacer:**
 - Borrar un sobre de la muñeca por haber llegado al teléfono.
