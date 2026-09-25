@@ -304,6 +304,8 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         case .saved(let response):
             submission = ExecutionSubmission(response: response, queuedRequestId: nil, persisted: true)
             WatchSaveReceipts.record(.saved, envelopeId: envelope.envelopeId)
+            // Su archivo del movimiento, si ya llegó, tiene por fin de qué colgarse.
+            SensorUploader.shared.kick()
         case .queued(let requestId):
             // Con el id de la entrada: la traza de la muñeca lo necesita para
             // encontrar su ejecución cuando la cola la entregue, y el acuse al reloj

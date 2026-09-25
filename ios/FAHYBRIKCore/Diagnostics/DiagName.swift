@@ -82,6 +82,8 @@ enum DiagName: String, CaseIterable, Sendable {
     case queueEnqueued = "queue_enqueued"
     case queueDelivered = "queue_delivered"
     case queueFailed = "queue_failed"
+    /// Móvil: el archivo del movimiento de la muñeca, subido / esperando / descartado.
+    case sensorCaptureUpload = "sensor_capture_upload"
 
     // MARK: lifecycle
     case appLaunch = "app_launch"

@@ -202,6 +202,8 @@ struct AppShell: View {
                     )
                     // Si era un sobre del reloj, la muñeca ya puede borrar su copia.
                     await WatchSaveReceipts.queueDelivered(requestId: requestId)
+                    // Y su archivo del movimiento ya tiene entreno del que colgarse.
+                    await SensorUploader.shared.kick()
                 }
                 // Un entreno que el servidor rechaza al vaciar la cola se guarda
                 // (`keepOnReject`), y el reloj se entera si era suyo.
@@ -214,8 +216,10 @@ struct AppShell: View {
                 await FinishedWorkoutDraft.recoverIntoQueue(bearer: bearer)
                 await RequestQueue.shared.drain(bearer: bearer)
                 await DiagnosticsUploader.shared.flush(bearer: bearer)
-                // El sí o la retirada del movimiento del reloj que no llegó al servidor.
+                // El sí o la retirada del movimiento del reloj que no llegó al servidor,
+                // y después lo que espera subir (tras la cola: sus entrenos ya están).
                 await SensorConsentSync.shared.push(bearer: bearer)
+                await SensorUploader.shared.run(bearer: bearer)
                 await renewSessionIfDue()
             }
             await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: store.identity.value?.hrZones)
@@ -239,6 +243,7 @@ struct AppShell: View {
                     await RequestQueue.shared.drain(bearer: bearer)
                     await DiagnosticsUploader.shared.flush(bearer: bearer)
                     await SensorConsentSync.shared.push(bearer: bearer)
+                    await SensorUploader.shared.run(bearer: bearer)
                     await renewSessionIfDue()
                 }
                 askSensorConsentIfDue()

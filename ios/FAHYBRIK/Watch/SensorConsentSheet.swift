@@ -4,10 +4,11 @@ import SwiftUI
 // entreno grabado en el reloj (DECISIONS 2026-09-25; el doble:
 // web/components/design-twin/screens/consentimiento-sensores/hoja.tsx).
 //
-// SALE TRAS UN GUARDAR BUENO, justo antes de que el resumen se cierre: antes
-// taparía el registro en el único momento en que el atleta lo quiere mirar, y el
-// archivo cuelga de la ejecución guardada. Si el entreno fue solo del reloj y el
-// móvil no tuvo resumen, sale la próxima vez que se abre la app (AppShell).
+// SALE CUANDO HAY UN ARCHIVO DE LA MUÑECA ESPERANDO, y solo lo hay tras un entreno
+// que llevó el reloj él solo (cuando lo lleva el móvil, el reloj no graba el
+// movimiento). Ese entreno no tiene resumen en el móvil, así que sale la próxima vez
+// que se abre la app (AppShell). Si el archivo espera cuando se GUARDA un entreno en
+// el móvil, sale tras el GUARDAR bueno, justo antes de que el resumen se cierre.
 //
 // LAS DOS SALIDAS PESAN IGUAL: SUBIRLO relleno y «Ahora no» contorneado, los dos a
 // lo ancho y con alto de botón. Un «no» escondido en un enlace sería arrancar el
@@ -18,12 +19,13 @@ import SwiftUI
 /// frase. UNA fuente para la hoja y para Perfil: si cada superficie lo redactara por
 /// su cuenta, acabarían prometiendo cosas distintas. Cada frase tiene que ser verdad
 /// sobre lo que el código hace hoy (el porqué de cada una está en texto.ts):
-/// el reloj graba siempre y cuenta en vivo digas lo que digas; lo único que depende
-/// del sí es que el archivo SALGA del móvil.
+/// el reloj graba en todo entreno que lleva él solo y cuenta en vivo digas lo que
+/// digas; lo único que depende del sí es que el archivo SALGA del móvil.
 enum SensorConsentCopy {
     // La hoja
     static let titulo = "El movimiento de tu muñeca"
-    /// Qué es y para qué. «Ha grabado», en pasado: se graba siempre; se pide subirlo.
+    /// Qué es y para qué. «Ha grabado», en pasado, y es verdad: la hoja solo sale con
+    /// un archivo de la muñeca esperando en el móvil (`SensorConsentPrompt`).
     static let queYParaQue = "Mientras entrenabas, el reloj ha grabado cómo se movía tu muñeca. Si nos dejas subirlo, lo usamos para que la app aprenda a contar tus repeticiones y a reconocer los ejercicios sola, cada vez mejor."
     /// Qué NO es, y por qué aun así se pregunta.
     static let queNoEs = "Es solo movimiento: ni tu pulso ni dónde estabas. Aun así es tuyo y puede identificarte, así que te lo preguntamos."

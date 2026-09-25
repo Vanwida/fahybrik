@@ -18,21 +18,24 @@ enum SensorConsentPrompt {
         case ahoraNo
     }
 
-    /// Tras GUARDAR (2xx) un entreno: ¿sale la hoja antes de cerrar el resumen?
+    /// Tras GUARDAR (2xx) un entreno en el móvil: ¿sale la hoja antes de cerrar el
+    /// resumen?
     ///
-    /// Solo si la muñeca grabó ESTE entreno (el reloj graba el movimiento en todos
-    /// los suyos, así que «ha grabado» es verdad) y el atleta aún no ha contestado.
-    static func shouldAsk(wristRecorded: Bool) -> Bool {
-        shouldAsk(wristRecorded: wristRecorded, state: SensorCaptureConsent.state)
+    /// Solo si hay un archivo de la muñeca esperando y el atleta aún no ha
+    /// contestado. NO basta con que la muñeca acompañara el entreno: cuando lo lleva
+    /// el móvil, el reloj espeja y no graba el movimiento (solo graba en los entrenos
+    /// que lleva él solo), y la hoja diría «el reloj ha grabado» sin que hubiera nada.
+    static func shouldAskAfterSave() -> Bool {
+        shouldAsk(hasWristCapture: SensorFileReceiver.shared.hasPendingCaptures, state: SensorCaptureConsent.state)
     }
 
     /// La regla, pura.
     nonisolated static func shouldAsk(
-        wristRecorded: Bool,
+        hasWristCapture: Bool,
         state: SensorConsentState,
         currentVersion: String = SensorCaptureConsent.currentVersion
     ) -> Bool {
-        wristRecorded && state.needsAnswer(current: currentVersion)
+        hasWristCapture && state.needsAnswer(current: currentVersion)
     }
 
     /// Al abrir la app: el primer entreno grabado SOLO en el reloj no tuvo resumen en
@@ -57,13 +60,13 @@ enum SensorConsentPrompt {
         return shellIsUncovered
     }
 
-    /// La regla, pura.
+    /// La regla, pura: la misma que tras GUARDAR.
     nonisolated static func shouldAskOnOpen(
         hasPendingWatchCapture: Bool,
         state: SensorConsentState,
         currentVersion: String = SensorCaptureConsent.currentVersion
     ) -> Bool {
-        hasPendingWatchCapture && state.needsAnswer(current: currentVersion)
+        shouldAsk(hasWristCapture: hasPendingWatchCapture, state: state, currentVersion: currentVersion)
     }
 
     /// La respuesta de la hoja. Las dos cuentan como contestada: «Ahora no» no vuelve
@@ -82,7 +85,11 @@ enum SensorConsentPrompt {
             SensorFileReceiver.shared.discardPending()
             return
         }
-        Task { await SensorConsentSync.shared.push(bearer: bearer) }
+        Task {
+            await SensorConsentSync.shared.push(bearer: bearer)
+            // El archivo por el que se preguntó sube en cuanto el servidor tiene el sí.
+            await SensorUploader.shared.run(bearer: bearer)
+        }
     }
 
     /// El interruptor de Perfil › Privacidad. Sin «¿seguro?»: retirar cuesta un toque,
@@ -100,7 +107,10 @@ enum SensorConsentPrompt {
             }
         }
         if !on { SensorFileReceiver.shared.discardPending() }
-        Task { await SensorConsentSync.shared.push(bearer: bearer) }
+        Task {
+            await SensorConsentSync.shared.push(bearer: bearer)
+            if on { await SensorUploader.shared.run(bearer: bearer) }
+        }
     }
 
     /// Nada presentado sobre las pestañas. Se recorre el árbol entero y no solo la
@@ -166,6 +176,9 @@ final class SensorConsentSync {
         for _ in 0..<Self.maxCallsPerPass {
             let state = store.load()
             guard let call = state.nextCall(current: SensorCaptureConsent.currentVersion) else { return }
+            // Antes de borrar lo subido, que acabe la subida en curso: si no, un archivo
+            // podría aterrizar en el almacén justo DESPUÉS del borrado y quedarse allí.
+            if call == .withdraw { await SensorUploader.shared.settle() }
             guard await Self.send(call, bearer: bearer) else { return }
             store.update { $0.confirm(call, revision: state.revision) }
         }

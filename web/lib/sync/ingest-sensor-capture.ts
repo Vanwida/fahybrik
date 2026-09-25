@@ -9,7 +9,60 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 
 export const SENSOR_CAPTURE_CONSENT_VERSION = '2026-09-25.v1';
-export const SENSOR_CAPTURE_MAX_BYTES = 4 * 1024 * 1024; // 4 MB (plan: <3 MB / 45 min)
+/**
+ * El reloj archiva 50 Hz × 9 canales × int16 = 900 B/s ≈ 3,2 MB por hora, sin tope
+ * de duración. Los 4 MB de antes cortaban a los ~74 min: una simulación de HYROX
+ * o una tirada larga se rechazaban enteras. 32 MB son ~10 h. Es mecanismo, no
+ * método: el tamaño lo decide el formato del archivo, no el coach.
+ */
+export const SENSOR_CAPTURE_MAX_BYTES = 32 * 1024 * 1024;
+
+/**
+ * Pedir dónde subir el archivo. La app manda la ASIGNACIÓN, que es lo único que el
+ * reloj sabe del entreno (`execution_local_id`), y aquí se resuelve la ejecución:
+ * el servidor guarda una por asignación (`on conflict (assignment_id)`). Así el
+ * orden entre el sobre de la ejecución y el archivo deja de importar en el móvil.
+ * `execution_id` sigue valiendo para quien ya lo tenga.
+ */
+export const sensorCaptureUploadUrlSchema = z
+  .object({
+    execution_id: z.number().int().positive().optional(),
+    assignment_id: z.number().int().positive().optional(),
+    size_bytes: z.number().int().positive().max(SENSOR_CAPTURE_MAX_BYTES),
+  })
+  .refine((b) => b.execution_id !== undefined || b.assignment_id !== undefined, {
+    message: 'execution_id or assignment_id required',
+  });
+
+export type SensorCaptureUploadUrl = z.infer<typeof sensorCaptureUploadUrlSchema>;
+
+/**
+ * La ejecución del atleta a la que cuelga el archivo, o null si todavía no existe
+ * (el entreno aún viaja en la cola del móvil) o no es suya. La app trata ese null
+ * como «todavía no» y vuelve a probar más tarde.
+ */
+export async function resolveSensorCaptureExecution(args: {
+  athleteId: number;
+  target: Pick<SensorCaptureUploadUrl, 'execution_id' | 'assignment_id'>;
+  client?: Sql;
+}): Promise<number | null> {
+  const client = args.client ?? defaultSql;
+  const { execution_id: executionId, assignment_id: assignmentId } = args.target;
+  const rows =
+    executionId !== undefined
+      ? await client<Array<{ id: string }>>`
+          select id::text as id from workout_executions
+          where id = ${executionId} and athlete_id = ${args.athleteId}
+          limit 1
+        `
+      : await client<Array<{ id: string }>>`
+          select id::text as id from workout_executions
+          where assignment_id = ${assignmentId!} and athlete_id = ${args.athleteId}
+          limit 1
+        `;
+  const id = Number(rows[0]?.id);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
 
 export const sensorCaptureRegisterSchema = z.object({
   execution_id: z.number().int().positive(),

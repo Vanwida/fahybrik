@@ -1,16 +1,15 @@
 import Foundation
 import WatchConnectivity
 
-/// iPhone side of fase 0 archive delivery.
+/// El lado del móvil del archivo del movimiento de la muñeca.
 ///
-/// The watch finishes a session, writes the sensor file, and hands it over with
-/// WCSession.transferFile. We park it on disk, then upload via the same
-/// presigned-blob pattern as chat attachments — never through the API body.
+/// El reloj termina un entreno que lleva él solo, escribe el archivo y lo entrega con
+/// `WCSession.transferFile`. Aquí se copia al buzón y se apunta
+/// (`SensorCaptureInbox`); lo sube `SensorUploader`, con el mismo patrón de destino
+/// firmado que los adjuntos del chat — nunca por el cuerpo de la API.
 @MainActor
 final class SensorFileReceiver {
     static let shared = SensorFileReceiver()
-
-    private let pendingKey = "fahybrik.sensor.pendingUploads.v1"
 
     /// El buzón en disco. `static` porque la recepción del fichero corre fuera del
     /// actor principal (ver `didReceive`) y necesita la ruta sin tocar el actor.
@@ -22,6 +21,8 @@ final class SensorFileReceiver {
         return dir
     }()
 
+    var inbox = SensorCaptureInbox()
+
     private init() {}
 
     /// Called from WCSessionDelegate when a file arrives from the wrist.
@@ -31,113 +32,112 @@ final class SensorFileReceiver {
     /// pasar dentro de la llamada. Estando esto aislado al actor principal, el
     /// delegado sólo podía invocarlo desde un `Task`, que corre DESPUÉS del retorno —
     /// es decir, la copia llegaba a un fichero que el sistema ya había borrado. Ahora
-    /// se copia síncrono y sólo el apunte de pendientes salta al hilo principal.
+    /// se copia síncrono y sólo el apunte salta al hilo principal.
     nonisolated func didReceive(file: WCSessionFile) {
         // Quien ya dijo que no (en la hoja o en Perfil) no acumula en el móvil un
-        // archivo de ~1 MB por hora que nunca va a salir: el temporal se va con el
+        // archivo de ~3 MB por hora que nunca va a salir: el temporal se va con el
         // retorno y no se copia. Sin contestar todavía sí se guarda — es lo que hace
         // que la hoja salga al abrir la app tras un entreno solo con el reloj.
         if SensorCaptureConsent.state.hasDeclined { return }
         let meta = file.metadata ?? [:]
-        let localId = (meta["execution_local_id"] as? String) ?? UUID().uuidString
-        let dest = Self.inboxDirectory.appendingPathComponent("\(localId).fhsc")
-        let src = file.fileURL
+        // Sin asignación no hay entreno del que colgarlo: nunca podría subir.
+        guard let assignmentId = SensorCaptureInbox.assignmentId(fromMetadata: meta["execution_local_id"])
+        else { return }
+        let athleteId = AuthState.persistedAthleteId()
+        let fileName = "\(assignmentId).fhsc"
+        let dest = Self.inboxDirectory.appendingPathComponent(fileName)
         do {
             if FileManager.default.fileExists(atPath: dest.path) {
                 try FileManager.default.removeItem(at: dest)
             }
-            try FileManager.default.copyItem(at: src, to: dest)
+            try FileManager.default.copyItem(at: file.fileURL, to: dest)
         } catch {
             // El fichero temporal se va con el retorno; no hay nada que reintentar.
             return
         }
+        let row = SensorPendingCapture(
+            fileName: fileName, assignmentId: assignmentId, athleteId: athleteId, receivedAt: Date()
+        )
         Task { @MainActor in
-            self.enqueuePending(path: dest.path, meta: meta)
+            self.inbox.add(row)
+            // Si el sí ya está, sube ahora (o en cuanto su entreno llegue al servidor).
+            SensorUploader.shared.kick()
         }
     }
 
-    /// Attempt to upload every parked capture that has an execution_id.
-    ///
-    /// SIN EL SÍ NO SALE NADA. El permiso se mira antes de empezar y otra vez antes de
-    /// cada fichero: el atleta puede apagarlo en Perfil mientras esto sube, y desde
-    /// ese toque no sale ni uno más. Mientras el sí (o la retirada) no ha llegado al
-    /// servidor tampoco: el servidor contestaría 403 sin la versión en su fila, y con
-    /// una retirada pendiente subir sería justo lo contrario de lo que se pidió.
-    func drainPending(upload: @escaping (URL, [String: Any]) async throws -> Void) async {
-        guard SensorCaptureConsent.canUpload else { return }
-        var sent: Set<String> = []
-        for item in loadPending() {
-            guard SensorCaptureConsent.canUpload else { break }
-            guard let url = Self.fileURL(of: item) else { continue }
-            do {
-                try await upload(url, item)
-                try? FileManager.default.removeItem(at: url)
-                sent.insert(url.lastPathComponent)
-            } catch {
+    /// Hay al menos un archivo de la muñeca de este atleta esperando en el móvil. Es
+    /// lo que dice que ha entrenado con el reloj aunque el móvil no viera el entreno.
+    var hasPendingCaptures: Bool {
+        SensorCaptureInbox.mine(inbox.load(), athleteId: AuthState.persistedAthleteId())
+            .contains { Self.fileURL(named: $0.fileName) != nil }
+    }
+
+    /// Retirar el permiso (o «Ahora no») borra lo que espera en el móvil: nunca tuvo
+    /// un sí que lo dejara salir, y es del atleta. Lo suyo; lo de otra cuenta en el
+    /// mismo teléfono no se toca.
+    func discardPending() {
+        let athleteId = AuthState.persistedAthleteId()
+        for row in SensorCaptureInbox.mine(inbox.load(), athleteId: athleteId) {
+            remove(row)
+        }
+        purge(now: Date())
+    }
+
+    /// Fuera del buzón: el fichero y su apunte.
+    func remove(_ row: SensorPendingCapture) {
+        if let url = Self.fileURL(named: row.fileName) {
+            try? FileManager.default.removeItem(at: url)
+        }
+        inbox.remove(fileName: row.fileName)
+    }
+
+    /// Un fichero sin apunte se deja en paz este rato: la copia llega fuera del hilo
+    /// principal y el apunte un instante después (`didReceive`), y barrer en medio
+    /// tiraría un archivo recién llegado.
+    static let unlistedGrace: TimeInterval = 10 * 60
+
+    /// Barre lo que ya no puede subir: apuntes caducados o sin fichero, y ficheros sin
+    /// apunte (llegó el fichero y la app murió antes de apuntarlo, o una versión
+    /// anterior lo dejó sin asignación).
+    func purge(now: Date) {
+        let rows = inbox.load()
+        var kept: [SensorPendingCapture] = []
+        for row in rows {
+            if SensorCaptureInbox.isExpired(row, now: now) || Self.fileURL(named: row.fileName) == nil {
+                if let url = Self.fileURL(named: row.fileName) { try? FileManager.default.removeItem(at: url) }
                 continue
             }
+            kept.append(row)
         }
-        // Se relee la lista en vez de guardar la que se leyó al empezar: lo que llegó
-        // de la muñeca mientras se subía (o lo que se borró al retirar el permiso) no
-        // se pisa con una foto vieja.
-        savePending(loadPending().filter { item in
-            guard let url = Self.fileURL(of: item) else { return false }
-            return !sent.contains(url.lastPathComponent)
-        })
-    }
-
-    /// Hay al menos un archivo de la muñeca esperando en el móvil. Es lo que dice que
-    /// el atleta ya ha entrenado con el reloj aunque el móvil no viera el entreno.
-    var hasPendingCaptures: Bool {
-        loadPending().contains { Self.fileURL(of: $0) != nil }
-    }
-
-    /// Retirar el permiso borra también lo que espera en el móvil: nunca tuvo un sí
-    /// que lo dejara salir, y es del atleta. Se vacía el buzón entero, no solo lo
-    /// apuntado, para no dejar un fichero cuyo apunte aún no había llegado.
-    func discardPending() {
+        if kept.count != rows.count { inbox.save(kept) }
+        let known = Set(kept.map(\.fileName))
         let fm = FileManager.default
-        if let files = try? fm.contentsOfDirectory(at: Self.inboxDirectory, includingPropertiesForKeys: nil) {
-            for file in files { try? fm.removeItem(at: file) }
+        guard let files = try? fm.contentsOfDirectory(
+            at: Self.inboxDirectory, includingPropertiesForKeys: [.creationDateKey]
+        ) else { return }
+        for file in files where !known.contains(file.lastPathComponent) {
+            let created = (try? file.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
+            guard now.timeIntervalSince(created) > Self.unlistedGrace else { continue }
+            try? fm.removeItem(at: file)
         }
-        savePending([])
     }
 
     /// El fichero de un apunte, si sigue en el buzón. Se busca POR NOMBRE dentro del
-    /// buzón de hoy y no por la ruta absoluta guardada: iOS puede mover el contenedor
-    /// de la app al actualizarla, y la ruta vieja apuntaría a un sitio que ya no existe.
-    private static func fileURL(of item: [String: Any]) -> URL? {
-        guard let path = item["path"] as? String else { return nil }
-        let url = inboxDirectory.appendingPathComponent(URL(fileURLWithPath: path).lastPathComponent)
+    /// buzón de hoy y no por una ruta absoluta guardada: iOS puede mover el contenedor
+    /// de la app al actualizarla.
+    nonisolated static func fileURL(named fileName: String) -> URL? {
+        let url = inboxDirectory.appendingPathComponent(fileName)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
-    }
-
-    // MARK: - pending store
-
-    private func enqueuePending(path: String, meta: [String: Any]) {
-        var items = loadPending()
-        var row: [String: Any] = ["path": path]
-        for (k, v) in meta { row[k] = v }
-        items.append(row)
-        savePending(items)
-    }
-
-    private func loadPending() -> [[String: Any]] {
-        (UserDefaults.standard.array(forKey: pendingKey) as? [[String: Any]]) ?? []
-    }
-
-    private func savePending(_ items: [[String: Any]]) {
-        UserDefaults.standard.set(items, forKey: pendingKey)
     }
 }
 
 // MARK: - Consent
 //
 // EL PERMISO PARA SUBIR EL MOVIMIENTO DEL RELOJ (DECISIONS 2026-09-25). El reloj
-// graba siempre y cuenta en vivo diga el atleta lo que diga; lo único que depende
-// del sí es que el archivo SALGA del móvil. Se pregunta una vez, en una hoja, tras
-// el primer entreno grabado en la muñeca (`SensorConsentPrompt`), y se cambia en
-// Perfil › Privacidad.
+// graba en todo entreno que lleva él solo y cuenta en vivo diga el atleta lo que
+// diga; lo único que depende del sí es que el archivo SALGA del móvil. Se pregunta
+// una vez, en una hoja, cuando el primer archivo espera en el móvil
+// (`SensorConsentPrompt`), y se cambia en Perfil › Privacidad.
 //
 // Lo que decide el atleta vive aquí; lo que sabe el servidor, en
 // `athletes.sensor_capture_consent_version`. Entre los dos hay un hueco (sin
@@ -220,6 +220,13 @@ struct SensorConsentState: Codable, Equatable {
         grantedVersion = version
         pendingGrant = true
         revision += 1
+    }
+
+    /// El servidor contestó 403 a una subida: no tiene el sí que aquí se daba por
+    /// confirmado. Se vuelve a mandar el sí y, hasta que llegue, no sube nada.
+    mutating func serverLacksGrant(current: String) {
+        guard isGranted(current: current), !pendingWithdrawal else { return }
+        pendingGrant = true
     }
 
     /// Siempre manda la retirada, aunque el sí no llegara a salir: el DELETE es

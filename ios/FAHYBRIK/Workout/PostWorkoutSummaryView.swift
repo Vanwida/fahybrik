@@ -605,14 +605,11 @@ struct PostWorkoutSummaryView: View {
         guard !didFinish else { return }
         didFinish = true
         ReviewPromptStore.shared.recordWorkoutSaved()
-        // Primer entreno grabado en la muñeca: la hoja del movimiento, y el resumen se
-        // cierra cuando se va (DECISIONS 2026-09-25). `!manualEntry` porque la marca
-        // de la muñeca solo se limpia al empezar otro entreno en vivo, y un «Ya lo
-        // hice» la heredaría de uno anterior. Esa vez no se pide reseña: dos hojas a
-        // la vez serían una de más, y la reseña se vuelve a intentar la próxima.
-        if SensorConsentPrompt.shouldAsk(
-            wristRecorded: !manualEntry && PhoneLiveSession.shared.wristRecordedWorkout
-        ) {
+        // Un archivo del movimiento de la muñeca espera y el atleta no ha contestado:
+        // la hoja, y el resumen se cierra cuando se va (DECISIONS 2026-09-25). Esa vez
+        // no se pide reseña: dos hojas a la vez serían una de más, y la reseña se
+        // vuelve a intentar la próxima.
+        if SensorConsentPrompt.shouldAskAfterSave() {
             askSensorConsent = true
             return
         }

@@ -30,18 +30,20 @@ export const meta: TwinMeta = {
   estado: 'construida',
   actualizado: '2026-09-25',
   descripcion:
-    'El permiso para subir lo que graba el reloj se pide una vez, en una hoja al acabar el primer entreno de muñeca: qué es, para qué, que no es ni pulso ni ubicación y que decir que no no cuesta nada. Luego se cambia en Perfil › Privacidad.',
+    'El permiso para subir lo que graba el reloj se pide una vez, en una hoja, cuando el reloj ha grabado su primer entreno: qué es, para qué, que no es ni pulso ni ubicación y que decir que no no cuesta nada. Luego se cambia en Perfil › Privacidad.',
   fuentes: [
     'ios/FAHYBRIK/Watch/SensorConsentSheet.swift',
     'ios/FAHYBRIK/Watch/SensorConsentSync.swift',
     'ios/FAHYBRIK/Watch/SensorFileReceiver.swift',
+    'ios/FAHYBRIK/Watch/SensorCaptureInbox.swift',
+    'ios/FAHYBRIK/Watch/SensorUploader.swift',
     'ios/FAHYBRIK/Profile/ProfilePrivacidadView.swift',
     'ios/FAHYBRIK/Profile/ProfileView.swift',
     'ios/FAHYBRIK/Profile/ProfileGroupViews.swift',
     'ios/FAHYBRIK/App/AppShell.swift',
   ],
   enApp:
-    'Construido en Swift: la hoja (SUBIRLO / Ahora no; cerrarla sin elegir es «Ahora no») tras el primer entreno de muñeca, o al abrir la app si ese entreno fue solo del reloj; Perfil › Privacidad con el interruptor, «Exportar mis datos» y la política. El sí (PUT) y la retirada que borra lo subido (DELETE) se reintentan hasta que el servidor los confirma. Pendiente fuera de esta pantalla: la subida del archivo en sí (`SensorFileReceiver.drainPending` aún no tiene quien la llame).',
+    'Construido en Swift: la hoja (SUBIRLO / Ahora no; cerrarla sin elegir es «Ahora no») sale cuando un archivo de la muñeca espera en el móvil y aún no hay respuesta — al abrir la app, o tras un GUARDAR en el móvil si el archivo ya estaba. El reloj solo graba el movimiento en los entrenos que lleva él solo: cuando lo lleva el móvil no hay archivo y no se pregunta. Perfil › Privacidad con el interruptor, «Exportar mis datos» y la política. El sí (PUT) y la retirada que borra lo subido (DELETE) se reintentan hasta que el servidor los confirma. El subidor (`SensorUploader`) sube cada archivo cuando su entreno está en el servidor: destino por la asignación → PUT al almacén → registro.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

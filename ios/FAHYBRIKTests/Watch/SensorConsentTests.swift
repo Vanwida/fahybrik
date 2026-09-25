@@ -45,23 +45,24 @@ final class SensorConsentTests: XCTestCase {
     // MARK: - Cuándo sale la hoja
 
     func testShouldAskTruthTable() {
-        // Sin muñeca no se pregunta nunca: la hoja dice «el reloj ha grabado».
-        XCTAssertFalse(SensorConsentPrompt.shouldAsk(wristRecorded: false, state: state(asked: false)))
-        XCTAssertFalse(SensorConsentPrompt.shouldAsk(wristRecorded: false, state: state(asked: true)))
-        // Primer entreno de muñeca, sin contestar: sale.
-        XCTAssertTrue(SensorConsentPrompt.shouldAsk(wristRecorded: true, state: state(asked: false)))
+        // Sin un archivo de la muñeca esperando no se pregunta nunca: la hoja dice «el
+        // reloj ha grabado», y cuando el entreno lo lleva el móvil el reloj no graba.
+        XCTAssertFalse(SensorConsentPrompt.shouldAsk(hasWristCapture: false, state: state(asked: false)))
+        XCTAssertFalse(SensorConsentPrompt.shouldAsk(hasWristCapture: false, state: state(asked: true)))
+        // Primer archivo de la muñeca, sin contestar: sale.
+        XCTAssertTrue(SensorConsentPrompt.shouldAsk(hasWristCapture: true, state: state(asked: false)))
         // «Ahora no» no vuelve a preguntar.
-        XCTAssertFalse(SensorConsentPrompt.shouldAsk(wristRecorded: true, state: state(asked: true)))
+        XCTAssertFalse(SensorConsentPrompt.shouldAsk(hasWristCapture: true, state: state(asked: true)))
         // Ya dijo que sí a este texto.
-        XCTAssertFalse(SensorConsentPrompt.shouldAsk(wristRecorded: true, state: state(asked: true, granted: current)))
+        XCTAssertFalse(SensorConsentPrompt.shouldAsk(hasWristCapture: true, state: state(asked: true, granted: current)))
     }
 
     func testTouchingTheProfileSwitchCountsAsAnswered() {
-        // Quien lo encendió en Perfil antes de su primer entreno de muñeca no ve la hoja.
+        // Quien lo encendió en Perfil antes de su primer archivo de muñeca no ve la hoja.
         var s = SensorConsentState()
         s.markAsked()
         s.grant(version: current)
-        XCTAssertFalse(SensorConsentPrompt.shouldAsk(wristRecorded: true, state: s))
+        XCTAssertFalse(SensorConsentPrompt.shouldAsk(hasWristCapture: true, state: s))
     }
 
     func testShouldAskOnOpenNeedsAWaitingWatchFile() {
@@ -108,12 +109,33 @@ final class SensorConsentTests: XCTestCase {
         XCTAssertFalse(SensorCaptureConsent.isGranted)
         XCTAssertFalse(SensorCaptureConsent.pendingGrant)
         XCTAssertFalse(SensorCaptureConsent.pendingWithdrawal)
-        XCTAssertFalse(SensorConsentPrompt.shouldAsk(wristRecorded: true))
+        XCTAssertFalse(SensorConsentPrompt.shouldAsk(hasWristCapture: true, state: SensorCaptureConsent.state))
         XCTAssertTrue(SensorCaptureConsent.state.hasDeclined, "dijo que no: lo que llegue del reloj no se guarda")
     }
 
     /// Sin contestar, lo del reloj se guarda (la hoja saldrá al abrir); tras un no, o
     /// con el interruptor apagado, ya no; con el sí, tampoco es «no».
+    /// Un 403 del servidor a una subida: el sí vuelve a pendiente y no sube nada hasta
+    /// que el servidor lo confirme otra vez. Con una retirada en marcha no se toca.
+    func testServerLacksGrantReopensTheGrant() {
+        var s = SensorConsentState()
+        s.grant(version: current)
+        s.confirm(.grant(version: current), revision: s.revision)
+        XCTAssertTrue(s.canUpload(current: current))
+
+        s.serverLacksGrant(current: current)
+
+        XCTAssertFalse(s.canUpload(current: current))
+        XCTAssertEqual(s.nextCall(current: current), .grant(version: current))
+        s.confirm(.grant(version: current), revision: s.revision)
+        XCTAssertTrue(s.canUpload(current: current))
+
+        var off = SensorConsentState()
+        off.withdraw()
+        off.serverLacksGrant(current: current)
+        XCTAssertFalse(off.pendingGrant, "sin sí no hay nada que volver a mandar")
+    }
+
     func testHasDeclinedOnlyAfterAnAnsweredNo() {
         var state = SensorConsentState()
         XCTAssertFalse(state.hasDeclined, "sin contestar no es un no")

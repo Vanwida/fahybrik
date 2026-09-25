@@ -55,17 +55,25 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
   - **Primer entreno grabado solo en el reloj:** la hoja sale la próxima vez que se abre la app del móvil, una vez. El archivo espera en el móvil.
   - **«Ahora no» no vuelve a preguntar.** Solo se cambia desde Perfil.
   - **Apagar el interruptor borra lo ya subido.** Retirar el permiso es retirarlo del todo. Exige, antes del Swift, un mecanismo en el servidor que borre los archivos de movimiento del atleta al retirarse el consentimiento.
-  - **No decidido:** si encenderlo suba los entrenos de antes.
+  - ~~No decidido: si encenderlo suba los entrenos de antes.~~ Resuelto por el mecanismo (ver «el subidor»).
 - **Construido en Swift (25-09):**
   - la hoja (`SensorConsentSheet`), con sus reglas (`SensorConsentPrompt`);
   - el estado por atleta (`SensorConsentState`/`Store`);
   - el PUT y el DELETE reintentados hasta que el servidor los confirma (`SensorConsentSync`);
   - Perfil › Privacidad (`ProfilePrivacidadView`).
 - **Tras un no, el móvil no guarda lo que llega del reloj:** «Ahora no» o el interruptor apagado vacían el buzón y los ficheros nuevos no se copian. Sin contestar sí se guardan: son lo que hace salir la hoja tras un entreno solo con el reloj.
-- **HUECO ABIERTO:** el sí llega al servidor, pero ningún archivo sale todavía.
-  - `SensorFileReceiver.drainPending` no tiene quien lo llame.
-  - El fichero llega con `execution_local_id` (la asignación), no con el `execution_id` que pide la subida.
-  - Construir el subidor (resolver la ejecución y firmar → PUT → registrar) es lo siguiente. Hasta entonces el texto de la hoja es verdad sobre el uso, pero no se sube nada.
+- **El subidor, construido (25-09; cierra el hueco que dejaba el Swift del permiso):** `SensorUploader` + `SensorCaptureInbox`.
+  - **La ejecución la resuelve el servidor por la asignación.** El reloj solo sabe la asignación (`execution_local_id`); `upload-url` acepta `assignment_id` y devuelve `execution_id` (una ejecución por asignación). Un 404 = el entreno aún viaja en la cola: el archivo espera. Así el orden entre el sobre y el archivo no importa en el móvil. Descartado: casarlos en el móvil con un cupón, como la traza; más estado y las mismas carreras.
+  - **Tres pasos por archivo:** destino → PUT al almacén desde el fichero → registro con la cabecera que escribió el reloj. Tras el PUT se apunta la ruta, así que un reintento solo registra y no sube otra copia.
+  - **El buzón es por atleta.** Solo sube con la sesión de quien tenía la sesión al llegar.
+  - **Caduca a los 30 días sin subir.** Un archivo sin entreno en el servidor (rechazado, o perdido con el móvil) no ocupa ~3 MB/h para siempre. Es mecanismo, no método.
+  - **Un 403 vuelve a abrir el sí** (`serverLacksGrant`): no sube nada hasta que el PUT se confirme otra vez.
+  - **La retirada espera a la subida en curso** (`settle`) antes del DELETE. Si no, un archivo podría aterrizar en el almacén justo después del borrado.
+  - **Tope de 4 MB → 32 MB.** El reloj archiva 50 Hz × 9 canales × int16 ≈ 3,2 MB/h sin tope de duración; con 4 MB se rechazaba todo lo que pasara de ~74 min (una simulación de HYROX).
+  - El reloj solo manda el archivo si el entreno tiene asignación; el móvil descarta uno sin ella.
+  - Corre al abrir la app y al volver (tras la cola y el permiso), al llegar un archivo, al guardarse un entreno del reloj (directo o por la cola) y al decir que sí.
+- **Corrección: el reloj solo graba el movimiento en los entrenos que lleva él solo.** Cuando el entreno lo lleva el móvil, el reloj espeja y no graba. La hoja tras GUARDAR en el móvil se disparaba con «la muñeca acompañó el entreno» y habría dicho «el reloj ha grabado» sin archivo. Ahora sale solo si hay un archivo de la muñeca esperando: la misma regla al abrir la app que tras GUARDAR.
+- **«Si encenderlo suba los entrenos de antes» ya no queda abierto:** tras un no, el móvil no guarda lo que llega del reloj (ver arriba). Al encenderlo después, sube desde entonces. Lo único que espera antes de contestar es el archivo por el que la hoja pregunta, y SUBIRLO lo sube.
 - **«Guardado en tu móvil», construido en Swift (25-09):**
   - `WorkoutSaveOutcome.rejected(status:)` lleva el código HTTP. Un **401 no es un rechazo del entreno** sino de la sesión: el resumen lo manda a la cola como sin cobertura (la cola se queda con los 401 y lo entrega al volver a entrar).
   - Un 4xx en el PRIMER envío (libre, sesión del coach, dobles) no pasaba por la cola: `RequestQueue.keepRejected` lo guarda en el mismo `rejected` y con la misma forma. `status` 0 = no se sabe.

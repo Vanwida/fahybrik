@@ -341,15 +341,18 @@ final class WatchWorkoutCoordinator {
             let workoutRef = await self?.primary.endPrimary(save: true)
             // Fase 0 — stop the inertial stream and hand the archive to the phone
             // (consent is enforced on the phone before upload; transfer itself is cheap).
+            // Solo con asignación: el archivo cuelga del entreno que se guarda con ella,
+            // y sin ella no se guarda ninguno — en el móvil nunca podría subir.
             SensorCapture.shared.stop()
-            if let data = try? SensorCapture.shared.archiveData(appVersion: nil), !data.isEmpty {
+            if let assignmentId = capturedAssignmentId, !assignmentId.isEmpty,
+               let data = try? SensorCapture.shared.archiveData(appVersion: nil), !data.isEmpty {
                 let tmp = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("sensor-\(capturedAssignmentId ?? "x").fhsc")
+                    .appendingPathComponent("sensor-\(assignmentId).fhsc")
                 try? data.write(to: tmp, options: .atomic)
                 WatchConnectivityService.shared.transferSensorCapture(
                     fileURL: tmp,
                     metadata: [
-                        "execution_local_id": capturedAssignmentId as Any,
+                        "execution_local_id": assignmentId,
                         "sample_hz": SensorFileFormat.targetHz,
                         "capture_mode": SensorCapture.shared.pipeline.captureMode.rawValue,
                         "byte_size": data.count,
