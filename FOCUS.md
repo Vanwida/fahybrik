@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-25** (CI iOS verde; PR #192 de fases 0+1 abierto)
+Última actualización: **2026-09-25** (PR #192 verde con acuses + mínimos 26; propuestas de fase 1 en el doble)
 
 ## Ahora
 
@@ -10,7 +10,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 desde el primer día; nunca por debajo de TrainingPeaks. Diseño FIRMADO (arquitectura, iOS/watchOS 26,
 iPhone de respaldo, CI GitHub macOS, otros relojes 14 días, app Entreno de Apple opcional): `docs/el-reloj-primero/`.
 HECHO fases 0+1 (CI macOS, registro técnico 0273, sesión 180 d, cola sin caducidad, B-02/B-12, acuses del reloj
-+ rechazados guardados 25-09). Queda de la 1 (firma Alex): pantalla del rechazo, consentimiento de sensores. Luego fase 4 (web).
++ rechazados guardados + mínimos 26, 25-09). Queda de la 1: firma de Alex a las propuestas del doble
+`guardado-en-movil` y `consentimiento-sensores` → Swift + borrado en servidor al retirar el permiso. Luego fase 4 (web).
 **PROD (24-09 21:45→):** a la base le faltan 0270–0272 (+0273 de esta rama) → cron de atención roto. Migrar es
 trabajo del AGENTE (Alex, 24-09) — bloqueado por permiso + secreto `PROD_DATABASE_URL` (DECISIONS). CI iOS VERDE (run 12)
 → PR #192 fases 0+1 abierto (25-09): https://github.com/Vanwida/fahybrik/pull/192 — no fusionar sin 0270–0273 en prod.
@@ -65,8 +66,7 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 - FH-56 paso 0 con aparato: ¿acepta Apple `startMirroringToCompanionDevice` sobre
   una sesión recuperada? Si no, el HUD dice «Sin conexión con el iPhone» y hace
   falta Terminar+Empezar (no se inventa un segundo motor).
-- FH-56 riesgo §7: `.endSaving` deja en Salud una grabación sin ejecución atada (se guarda, no se tira).
-- Smoke TF build **100** con la matriz §6 del plan (7 casos + soak 2 h).
+- FH-56 riesgo §7: `.endSaving` deja en Salud una grabación sin ejecución atada (se guarda, no se tira). Smoke TF build **100** con la matriz §6 del plan (7 casos + soak 2 h).
 
 ## Sabido y no hecho
 
