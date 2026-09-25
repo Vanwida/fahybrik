@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-24** (prod sin 0270–0272 → puerta de migraciones en la build; fase 0)
+Última actualización: **2026-09-25** (CI iOS: los 23 fallos del primer run, arreglados; contador de rondas firmado)
 
 ## Ahora
 
@@ -49,7 +49,7 @@ Build 100. Plan: `/workspace/fh56-plan/FH-56-PLAN.md`; decisión en `docs/DECISI
 - Code gate NO (P0 A+B) cerrado: `project.pbxproj` regenerado con xcodegen 2.46.0
   (5 fantasmas fuera, 33 fuentes que faltaban dentro, build 100);
   `PreWorkoutFlowSourceTests` contra `startAction` / `configurationsCompatible`
-- Compila en el CI macOS (`.github/workflows/ios.yml`, 24-09); los tests se están poniendo al día.
+- CI macOS (`.github/workflows/ios.yml`): los 23 fallos del run 7 → 7 bugs de app arreglados + tests viejos al día (25-09).
 
 ## Pendiente decisión Alex
 

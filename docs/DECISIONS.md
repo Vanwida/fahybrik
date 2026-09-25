@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-25 · El contador de rondas cabe en su banda: número al suelo, orientación una vez
+
+**Por qué (CI macOS, `RondasContadorTests`):** FH-107 metió el vivo en el marco común (`MarcoVivo`), cuya banda del sujeto tiene techo en 340 pt (`BandaViva.sujeto`), y añadió la franja «ronda · estación» también dentro de cada cara de rondas, además de en los apoyos. El contador compacto pedía 392: con muchas rondas el móvil pintaba siempre el suelo de la cascada, sin la cuenta grande, que es justo el dato que se pierde sudando.
+
+**Decidido (Alex, 25-09, preguntas y respuestas, «número más pequeño»):** el numeral de la cuenta va al **suelo de la escala del sujeto** (`EscalaNumeral.sujeto.minimo`, 64; antes 96) y la franja de orientación sale **una sola vez, en los apoyos del marco** (`RunLiveShellView`), no dentro de las caras de rondas. Métricas y trabajo se quedan donde estaban. El doble (`vivo-rondas`) lo refleja.
+
+**Descartado:** bajar la fila de métricas a los apoyos (movía la lectura de la ronda fuera del sujeto) y aceptar la cara mínima con el test ajustado (la cuenta grande no salía nunca en vertical).
+
+**NO hacer:** medir las caras de rondas contra el hueco del cromo viejo (~380); la cota es `BandaViva.sujeto`. No volver a pintar la franja de orientación dentro de un sujeto que ya vive en el marco.
+
 ## 2026-09-24 · El atleta sigue dentro: la sesión se renueva con el uso
 
 **Por qué (auditoría de la app, E2/E3; fase 1 firmada «los atletas siguen dentro»):** la sesión del atleta caducaba 30 días después de entrar, usara la app o no; con Apple Salud conectado acababa en el bucle de salidas (el subidor de Salud guarda el token viejo y su 401 echa a la sesión nueva). Whoop, Strava, TrainingPeaks y Runna te mantienen dentro.

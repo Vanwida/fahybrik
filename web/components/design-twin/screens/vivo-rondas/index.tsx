@@ -39,7 +39,7 @@ export const meta: TwinMeta = {
   titulo: 'Muchas rondas — el contador que no crece',
   zona: 'Entreno en vivo',
   estado: 'espejo',
-  actualizado: '2026-08-11',
+  actualizado: '2026-09-25',
   descripcion:
     'La lista de rondas del vivo pinta una fila por ronda y no scrollea, así que a partir de cuatro empuja lo que tiene debajo: es lo que el 10-ago dejó EMPEZAR fuera de pantalla. El trabajo sale de las filas y se escribe una vez, y cuando ni así cabe la lista se colapsa en un contador con la ronda actual grande, la anterior y la siguiente insinuadas. Con cuatro rondas o con treinta, la pantalla mide lo mismo.',
   fuentes: [
@@ -48,7 +48,7 @@ export const meta: TwinMeta = {
     'ios/FAHYBRIK/Workout/WorkoutSessionLiveDescriptor.swift',
   ],
   enApp:
-    'Portada el 11-ago: `RoundsLiveHUD` — la lista de una línea mientras cabe (banda del trabajo fija, umbral derivado del hueco real en `RoundsListBudget`) y el contador con la ronda actual grande cuando no. El botón del host cierra ronda a ronda («RONDA HECHA») y la muñeca dice el mismo número que la pantalla.',
+    'Portada el 11-ago: `RoundsLiveHUD` — la lista de una línea mientras cabe (banda del trabajo fija, umbral derivado del hueco real en `RoundsListBudget`) y el contador con la ronda actual grande cuando no. El botón del host cierra ronda a ronda («RONDA HECHA») y la muñeca dice el mismo número que la pantalla. 25-09: el numeral de la cuenta va al suelo de la escala (64) y la franja «ronda · estación» sale solo en los apoyos del marco — con 96 y la franja repetida el contador no cabía en la banda del sujeto (340) y el móvil pintaba siempre el suelo de la cascada, sin cuenta.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
   composicion: {
