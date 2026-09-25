@@ -51,6 +51,7 @@ Especificación del rediseño de la app del Apple Watch. Sale de la auditoría d
 - **Color:** fondo #000; superficie #141414 / #1F1F1F; tinta #FFF; tinta2 #A1A1A6; acción = naranja de marca #F06A2A (solo acción); zonas por espectro azul → verde → ámbar → rojo con N zonas del coach, Z1 azul pizarra (#8FB3D9), nunca el gris de tinta2; descanso y recuperación monocromos.
 - **Always-On:** fondo negro, sin tintes, números en tinta al 60 %, aro atenuado, 1 Hz.
 - **Dato viejo:** el campo que depende del móvil y no llega en 5 s se pinta «—» con la nota «sin enlace · la muñeca sigue grabando».
+- **Esquinas:** la esquina redondeada y el aro dejan ~176 pt de ancho a la primera fila y ~160 pt a la última (`ANCHO_CABEZA`, `ANCHO_PIE`). Por eso la nota va bajo el contexto, el pulso siempre es la fila de abajo, y el contexto baja a 15 pt antes de perder una parte.
 
 ## 4. Vocabulario háptico y de voz
 
@@ -68,8 +69,16 @@ Especificación del rediseño de la app del Apple Watch. Sale de la auditoría d
 | Sesión hecha | `.success` × 2 | «Sesión completada.» |
 | Acción del atleta (pausa, serie hecha…) | `.click` | — |
 | Enlace perdido | `.failure` | — |
+| Enlace recuperado | `.click` | — |
+| GPS listo (antes de empezar) | `.success` | — |
 
-Reglas: ningún aviso fuera de objetivo en calentamiento ni en recuperación (salvo que la recuperación tenga objetivo propio y el coach lo pida); histéresis y cadencia mínima son dato del coach (defecto 20 s).
+Reglas (todas dato del coach con defecto):
+- Ningún aviso fuera de objetivo en calentamiento ni en recuperación, salvo que la recuperación tenga objetivo propio y el coach lo pida.
+- Histéresis y cadencia mínima: defecto 20 s.
+- **Dirección del aviso por objetivo** (`Objetivo.avisa`): un techo de zona en un rodaje avisa solo por arriba; una serie a ritmo o a Z5, en los dos sentidos.
+- **Preaviso solo en pasos largos:** mínimo 30 s (`preavisoMinimoS`), para que no salte a mitad de un stride de 20″.
+- **Una serie a zona se juzga por el tiempo en zona tras un margen de gracia**, no por la media de pulso, que castiga el retraso del pulso al arrancar.
+- El descanso comparte `.stop` con la recuperación: los dos son «deja de trabajar».
 
 ## 5. Pantallas (una por lo que haces)
 
