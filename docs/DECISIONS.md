@@ -28,6 +28,13 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **NO hacer:** diseñar una pantalla de la muñeca fuera del kit `kit-reloj` del doble; decidir el número grande en una vista en vez de con el objetivo del paso; dar un significado nuevo al naranja o a un háptico existente; poner texto por debajo de 15 pt; volver a cerrar una serie con un toque en la pantalla.
 
+**Construido (25-09, propuestas en el doble, pendientes de la firma de Alex):** `reloj-correr`, `reloj-gramatica`, `reloj-circuito`, `reloj-wod`, `reloj-fuerza`, `reloj-antes-despues`, todas sobre `kit-reloj`. Al construirlas salieron reglas de mecanismo que el Swift tiene que espejar tal cual (tests: `web/tests/design-twin/kit-reloj-veredicto.test.ts`):
+- **Un veredicto por paso.** Lo que vibra (`veredictoDelPaso`), lo que pinta la banda (`veredictoPrincipal`) y lo que canta la serie al cerrarse usan la misma holgura del coach. Antes la banda decía «rápido» sin vibrar y la serie se juzgaba con tolerancia cero.
+- **El techo manda por arriba.** Un techo pasado avisa esté en la magnitud que esté (ritmo con techo de pulso). Si está en la misma magnitud que el principal («Z1, máx 142»), el borde alto es el techo, no el del principal. Antes el techo no vibraba nunca.
+- **Serie a zona = tiempo en zona tras la gracia:** gana donde pasó más segundos (dentro, por encima, por debajo). Más corta que la gracia, no se juzga. Descartado: la media del pulso, que castiga el retraso al arrancar.
+- **Z1 no tiene suelo al juzgar.** El suelo de `limitesZona` es solo para dibujarla; juzgar con él mandaba «aprieta» en un rodaje a Z1.
+- **Completitud de la sesión** (`reloj-antes-despues/calculo.ts`): completa / parcial / libre, de lo hecho, nunca del botón que se pulsó. Un libre nunca es «parcial». El umbral para contar una serie cortada como hecha (90 %) y el mínimo de pares para calcular el coste de la comprometida (4) son dato del coach con defecto.
+
 ---
 
 ## 2026-09-25 · El reloj guarda el entreno hasta que el servidor lo confirma (acuses); un rechazo no se tira
