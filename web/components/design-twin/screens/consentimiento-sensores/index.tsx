@@ -57,7 +57,7 @@ export const escenarios: TwinEscenario[] = [
   {
     id: 'perfil-apagado',
     titulo: 'Perfil › Privacidad · apagado',
-    descripcion: 'Tras «Ahora no»: el mismo sitio, apagado. La línea cambia a lo que pasa sin el sí — nada se sube y el entreno no pierde nada.',
+    descripcion: 'Tras «Ahora no»: el mismo sitio, apagado. La línea cambia a lo que pasa sin el sí — nada se sube, lo subido se borra y el entreno no pierde nada. «Ahora no» no vuelve a preguntar (Alex, 25-09).',
   },
 ];
 

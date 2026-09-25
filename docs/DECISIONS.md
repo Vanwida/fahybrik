@@ -49,12 +49,13 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
   - Luego se cambia en Perfil › Privacidad.
   - Descartado: solo un interruptor en Perfil (nadie lo enciende) y preguntarlo en el alta (antes de haber entrenado con el reloj).
 - Las dos pantallas pasan por «el doble» como propuesta antes del Swift: `guardado-en-movil` y `consentimiento-sensores` (25-09).
-- Abierto para Alex en esas propuestas:
-  - la puerta «Perfil › Privacidad», que la app no tiene todavía;
-  - cuándo sale la hoja si el entreno se grabó solo en el reloj, sin resumen en el móvil;
-  - si «Ahora no» vuelve a preguntar;
-  - qué promete el interruptor al apagarse: si borra lo subido.
-- Por defecto en la propuesta: la hoja sale tras un GUARDAR bueno (el archivo se sube cuando la ejecución existe) y «Ahora no» no vuelve a preguntar.
+- La hoja sale tras un GUARDAR bueno: el archivo se sube cuando la ejecución existe.
+- **Cerrado con Alex (25-09, preguntas y respuestas):**
+  - **Puerta nueva «Perfil › Privacidad».** Recoge el interruptor, «Exportar mis datos» (hoy en Cuenta) y la política (hoy en Ayuda y legal).
+  - **Primer entreno grabado solo en el reloj:** la hoja sale la próxima vez que se abre la app del móvil, una vez. El archivo espera en el móvil.
+  - **«Ahora no» no vuelve a preguntar.** Solo se cambia desde Perfil.
+  - **Apagar el interruptor borra lo ya subido.** Retirar el permiso es retirarlo del todo. Exige, antes del Swift, un mecanismo en el servidor que borre los archivos de movimiento del atleta al retirarse el consentimiento.
+  - **No decidido:** si encenderlo suba los entrenos de antes.
 
 **NO hacer:**
 - Borrar un sobre de la muñeca por haber llegado al teléfono.

@@ -44,8 +44,17 @@ export const PERFIL = {
   fila: 'Subir el movimiento del reloj',
   /** La línea bajo la fila cambia con el interruptor: dice qué pasa AHORA. */
   filaSi: 'Para que la app aprenda a contar repeticiones y a reconocer ejercicios.',
-  filaNo: 'No se sube. Tus entrenos se guardan igual.',
+  /** Apagar retira el permiso Y borra lo subido (Alex, 25-09): la línea lo dice. */
+  filaNo: 'No se sube, y lo que ya subiste se borra. Tus entrenos se guardan igual.',
   /** La letra pequeña de debajo del grupo — lo mismo que la hoja, en seco. */
   notaAlPie:
     'Solo el movimiento del reloj —aceleración y giro— mientras dura el entreno: ni tu pulso ni dónde estabas. Aun así puede identificarte; por eso decides tú.',
+  /** La puerta nueva recoge lo que hoy anda suelto (Alex, 25-09): las filas son las
+   *  de la app, con su texto de hoy (ProfileGroupViews.swift). */
+  grupoDatos: 'Tus datos',
+  grupoDatosPie: 'Todo lo que guardamos sobre ti, y cómo lo tratamos.',
+  exportar: 'Exportar mis datos',
+  exportarLinea: 'Descarga un JSON con todo lo que guardamos sobre ti',
+  politica: 'Política de privacidad',
+  politicaLinea: 'fahybrid.com/privacy',
 } as const;
