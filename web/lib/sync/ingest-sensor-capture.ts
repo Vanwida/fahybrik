@@ -8,7 +8,7 @@ import { z } from 'zod';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 
-export const SENSOR_CAPTURE_CONSENT_VERSION = '2026-08-06.v1';
+export const SENSOR_CAPTURE_CONSENT_VERSION = '2026-09-25.v1';
 export const SENSOR_CAPTURE_MAX_BYTES = 4 * 1024 * 1024; // 4 MB (plan: <3 MB / 45 min)
 
 export const sensorCaptureRegisterSchema = z.object({

@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-const LAST_UPDATED = '24 de septiembre de 2026';
-const VERSION = '1.2';
+const LAST_UPDATED = '25 de septiembre de 2026';
+const VERSION = '1.3';
 
 function H2({ children, id }: { children: React.ReactNode; id: string }) {
   return (
@@ -211,6 +211,17 @@ export default function PrivacyPage() {
         </li>
       </UL>
 
+      <H3>2.7 Movimiento de la muñeca (solo si lo autorizas)</H3>
+      <P>
+        Mientras entrenas, el Apple Watch registra cómo se mueve tu muñeca: aceleración y giro,
+        50 muestras por segundo. Solo lo subimos si nos das permiso en la app (te lo
+        preguntamos al acabar tu primer entreno con el reloj). No incluye tu pulso ni tu
+        ubicación, pero el movimiento puede identificarte, como la forma de andar. Lo usamos
+        para enseñar a la app a contar repeticiones y a reconocer ejercicios, para ti y para el
+        resto de atletas. Puedes retirar el permiso cuando quieras en Perfil › Privacidad: desde
+        ese momento no subimos nada más y borramos lo que ya habías subido.
+      </P>
+
       <H2 id="finalidad">3. Para qué los usamos</H2>
       <P>Cada dato se procesa con una finalidad concreta y verificable:</P>
       <UL>
@@ -248,8 +259,9 @@ export default function PrivacyPage() {
       <UL>
         <li>
           <Term>Consentimiento explícito (Art. 6(1)(a) y Art. 9(2)(a) RGPD)</Term> para
-          datos de salud, biométricos y recuperación. Te lo solicitamos antes de procesar
-          estos datos y puedes retirarlo en cualquier momento.
+          datos de salud, biométricos y recuperación, y para subir el movimiento de tu muñeca
+          (apartado 2.7). Te lo solicitamos antes de procesar estos datos y puedes retirarlo en
+          cualquier momento.
         </li>
         <li>
           <Term>Ejecución del contrato (Art. 6(1)(b) RGPD)</Term> para los datos
@@ -407,6 +419,10 @@ export default function PrivacyPage() {
         <li>
           <Term>Registro técnico de la app (apartado 2.6):</Term> 30 días; después se
           borra automáticamente.
+        </li>
+        <li>
+          <Term>Movimiento de la muñeca (apartado 2.7):</Term> mientras mantengas el permiso. Al
+          retirarlo en Perfil › Privacidad lo borramos entero.
         </li>
         <li>
           <Term>Datos contables (facturas, pagos):</Term> conservados durante el período
