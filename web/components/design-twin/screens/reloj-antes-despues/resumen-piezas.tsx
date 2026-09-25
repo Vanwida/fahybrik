@@ -127,12 +127,13 @@ export function PaginaPulso({ r }: { r: Resultado }) {
         const s = r.zonasS[i] ?? 0;
         const color = colorZona(i + 1, n);
         return (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: '30px 1fr 42px', alignItems: 'center', gap: 6, width: 164, height: alto }}>
+          // La columna del tiempo se ajusta a «1:03:20» (una tirada larga): lo que cede es la barra.
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: '30px 1fr auto', alignItems: 'center', gap: 6, width: ANCHO_PIE, height: alto }}>
             <ChipZona n={i + 1} color={color} />
             <span style={{ height: 8, borderRadius: 4, background: C.carril, position: 'relative', overflow: 'hidden' }}>
               <span style={{ position: 'absolute', inset: 0, width: `${(s / max) * 100}%`, background: color, borderRadius: 4 }} />
             </span>
-            <span style={{ fontSize: T.nota.cuerpo, color: s > 0 ? C.tinta : C.tinta2, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ minWidth: 40, fontSize: T.nota.cuerpo, color: s > 0 ? C.tinta : C.tinta2, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
               {s > 0 ? fmtReloj(s) : '—'}
             </span>
           </div>
@@ -158,9 +159,14 @@ export function Dato({ valor, unidad, etiqueta, tono = C.tinta }: { valor: strin
 }
 
 /**
+ * El ancho de una fila de lista: el de la primera fila (`ANCHO_CABEZA`) menos
+ * el carril de los puntos de la corona, que viven arriba a la derecha.
+ */
+const ANCHO_FILA_LISTA = ANCHO_CABEZA - 4;
+
+/**
  * Una fila de lista con columnas: número, valor grande, apoyo y el juicio a la
- * derecha. Cabe en 176 pt (el ancho de la primera fila, el más estrecho de los
- * de arriba): «6 · 2:48 · 3:30 · dentro» sin encoger ninguna columna.
+ * derecha. «6 · 2:48 · 3:30 · dentro» cabe sin encoger ninguna columna.
  */
 export function FilaLista({
   n,
@@ -184,7 +190,7 @@ export function FilaLista({
 }) {
   const fijo = { flex: '0 0 auto', fontVariantNumeric: 'tabular-nums' } as const;
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, height: 24, width: ANCHO_CABEZA, whiteSpace: 'nowrap', opacity: tenue ? 0.55 : 1 }}>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, height: 24, width: ANCHO_FILA_LISTA, whiteSpace: 'nowrap', opacity: tenue ? 0.55 : 1 }}>
       <span style={{ ...fijo, fontSize: T.nota.cuerpo, color: C.tinta2, width: anchoN }}>{n}</span>
       <span style={{ ...fijo, fontSize: T.tercero.cuerpo, fontWeight: 600, lineHeight: 1 }}>{valor}</span>
       {apoyo ? <span style={{ ...fijo, fontSize: T.nota.cuerpo, color: C.tinta2, opacity: apagado ? 0.6 : 1 }}>{apoyo}</span> : null}

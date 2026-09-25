@@ -32,10 +32,17 @@ export function partir(piezas: string[], sep: string, ancho: number, cuerpo: num
   return lineas;
 }
 
-/** Un texto en líneas: por palabras si es un nombre, por partes si es una dosis. */
+/**
+ * Un texto en líneas. Primero se parte entre partes («Vuelta a la calma 3′ ·
+ * Z1» → «Vuelta a la calma 3′» / «Z1»): así un dato nunca queda partido ni
+ * cuelga un «·» al final. Una parte que sola no cabe (un nombre largo) se
+ * parte entre palabras, salvo en una dosis (`porPartes`), que nunca se parte.
+ */
 export function enLineas(texto: string, ancho: number, cuerpo: number, peso: Peso, porPartes = false): string[] {
   if (anchoTexto(texto, cuerpo, peso) <= ancho) return [texto];
-  return porPartes ? partir(texto.split(' · '), ' · ', ancho, cuerpo, peso) : partir(texto.split(' '), ' ', ancho, cuerpo, peso);
+  const lineas = partir(texto.split(' · '), ' · ', ancho, cuerpo, peso);
+  if (porPartes) return lineas;
+  return lineas.flatMap((l) => (anchoTexto(l, cuerpo, peso) <= ancho ? [l] : partir(l.split(' '), ' ', ancho, cuerpo, peso)));
 }
 
 /** Una línea sin salto que, si aun así no cabe en su columna, se escala lo justo (desde la izquierda). */
