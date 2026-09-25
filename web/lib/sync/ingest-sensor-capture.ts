@@ -48,18 +48,22 @@ export async function resolveSensorCaptureExecution(args: {
 }): Promise<number | null> {
   const client = args.client ?? defaultSql;
   const { execution_id: executionId, assignment_id: assignmentId } = args.target;
-  const rows =
-    executionId !== undefined
-      ? await client<Array<{ id: string }>>`
-          select id::text as id from workout_executions
-          where id = ${executionId} and athlete_id = ${args.athleteId}
-          limit 1
-        `
-      : await client<Array<{ id: string }>>`
-          select id::text as id from workout_executions
-          where assignment_id = ${assignmentId!} and athlete_id = ${args.athleteId}
-          limit 1
-        `;
+  let rows: Array<{ id: string }>;
+  if (executionId !== undefined) {
+    // tenancy: athlete-session
+    rows = await client<Array<{ id: string }>>`
+      select id::text as id from workout_executions
+      where id = ${executionId} and athlete_id = ${args.athleteId}
+      limit 1
+    `;
+  } else {
+    // tenancy: athlete-session
+    rows = await client<Array<{ id: string }>>`
+      select id::text as id from workout_executions
+      where assignment_id = ${assignmentId!} and athlete_id = ${args.athleteId}
+      limit 1
+    `;
+  }
   const id = Number(rows[0]?.id);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
@@ -114,6 +118,7 @@ export async function registerSensorCapture(args: {
     return { ok: false, reason: 'no_consent' };
   }
 
+  // tenancy: athlete-session
   const owned = await client<Array<{ id: string }>>`
     select id::text as id from workout_executions
     where id = ${p.execution_id} and athlete_id = ${args.athlete_id}
