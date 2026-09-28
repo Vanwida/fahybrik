@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+
+## 2026-09-28 · Alex firma el vivo nuevo del iPhone
+
+**Firmado (Alex, 28-09: «perfecto, me encanta el diseño»)** sobre la galería antes/después (https://claude.ai/artifact/YN3iFbkZYGHSn1S5hsgb8t) de las propuestas `iphone-vivo-{gramatica,correr,ergo,fuerza,wod,circuito}` del doble. Modelo: `docs/vivo-iphone/modelo.md`. Las tres decisiones subjetivas quedan como se vieron: numeral SF tabular (como la muñeca), tinte de zona solo cuando el paso va a zona (sustituye §10.1 del CONTRATO-UI en el vivo) y mapa en página lateral.
+
+**Siguiente:** el Swift del vivo del iPhone se construye sobre estas propuestas como contrato, elemento a elemento; al construir, cada pantalla pasa de `propuesta` a `espejo`.
+
+**NO hacer:** construir una pantalla en vivo del iPhone fuera de este kit; volver a pintar el título plegado del bloque, «TERMINAR» que cierra otra cosa, RX/Escalado dentro del vivo o una cuenta atrás propia por vista.
+
+---
 ## 2026-09-28 · Una importación de Salud, una fila (0276)
 
 **El hueco:** el iPhone reenvía el lote de Apple Salud antes de tener la respuesta del primero. Las dos peticiones pasaban el «¿ya existe este `source_workout_ref`?» antes de que ninguna escribiera y nacían dos sesiones importadas idénticas, sin asignación, creadas a milisegundos. Atleta 64: 2478/2479, 2510/2511, 2642/2643, 2690/2691, 2693/2694. Contaban doble en carga, zonas y volumen.
