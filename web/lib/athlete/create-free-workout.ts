@@ -366,7 +366,7 @@ async function persistFreeWorkoutPlanInTx(
   `;
   const templateId = Number(tplRows[0]!.id);
 
-  await writeFreeWorkoutTemplate(tx, templateId, input, segments, opts);
+  await writeFreeWorkoutTemplate(tx, templateId, input, segments, { ...opts, fresh: true });
 
   const asgRows = await tx<Array<{ id: string }>>`
     insert into workout_assignments (
@@ -393,7 +393,7 @@ async function writeFreeWorkoutTemplate(
   templateId: number,
   input: SaveFreeWorkoutPlanInput,
   segments: ResolvedSegment[],
-  opts: { gate: boolean },
+  opts: { gate: boolean; fresh?: boolean },
 ): Promise<WrittenSegment[]> {
   const blocks = freeWorkoutContentBlocks(
     input.title,
@@ -410,6 +410,7 @@ async function writeFreeWorkoutTemplate(
   }
   return writeTemplateContent(tx, templateId, built.content, {
     clock: input.kind === 'clock' ? input.prescription : null,
+    fresh: opts.fresh === true,
   });
 }
 

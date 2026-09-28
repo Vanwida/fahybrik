@@ -565,7 +565,6 @@
     {"archivo":"lib/dashboard/coach/doubles-pairs.ts","huella":"f1dd72167afa","tablas":["athlete_levels","athlete_sequence_progress","athletes","doubles_pairs"],"veces":1},
     {"archivo":"lib/dashboard/coach/instantiate-program.ts","huella":"141d1645b608","tablas":["workout_assignments"],"veces":1},
     {"archivo":"lib/dashboard/coach/instantiate-program.ts","huella":"229fbdf4efd4","tablas":["microcycles"],"veces":1},
-    {"archivo":"lib/dashboard/coach/instantiate-program.ts","huella":"4a3fe45445e0","tablas":["exercises"],"veces":1},
     {"archivo":"lib/dashboard/coach/instantiate-program.ts","huella":"4ae882031032","tablas":["microcycles"],"veces":1},
     {"archivo":"lib/dashboard/coach/instantiate-program.ts","huella":"66f071b5d636","tablas":["microcycles"],"veces":1},
     {"archivo":"lib/dashboard/coach/instantiate-program.ts","huella":"847d65e2a188","tablas":["workout_assignments"],"veces":1},

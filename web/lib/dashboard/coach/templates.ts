@@ -315,7 +315,9 @@ export async function createTemplate(params: {
     templateId = rows[0]!.id;
 
     if (body.segments && body.segments.length > 0) {
-      await writeTemplatePayload(tx, params.coach_id, Number(templateId), body.segments, body.blocks ?? []);
+      await writeTemplatePayload(tx, params.coach_id, Number(templateId), body.segments, body.blocks ?? [], {
+        fresh: true,
+      });
     }
   });
 

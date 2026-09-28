@@ -19,6 +19,7 @@ import { templateFormat, type TemplateFormat } from '@fahybrid/shared/schema/_pr
 import {
   applyProgression,
   safeParsePrescription,
+  type Modality,
   type Prescription,
   type ProgressionSpec,
 } from '@fahybrid/shared/domain/prescription';
@@ -768,12 +769,16 @@ async function materializeInlineSessionTemplate(params: {
   // referenced id here arrives verbatim from the session's own JSON blocks,
   // not by FK from an already-scoped row, so it must be resolved through the
   // same visibility every enumeration/resolver uses (mig 0132).
-  const existingRows = await params.client<Array<{ id: string }>>`
-    select e.id::text from exercises e
+  // La modalidad viaja en la misma consulta: el escritor la necesita (0053) y así
+  // no vuelve a pedir el catálogo por cada sesión materializada.
+  // tenancy: coach-fragment — visibleToCoach filtra por el coach de la sesión.
+  const existingRows = await params.client<Array<{ id: string; modality: string | null }>>`
+    select e.id::text, e.modality::text as modality from exercises e
     where e.id = any(${referencedIds}::bigint[])
       and ${visibleToCoach(params.client, params.coach_id)}
   `;
-  const existingExerciseIds = new Set(existingRows.map((r) => Number(r.id)));
+  const modalityById = new Map(existingRows.map((r) => [Number(r.id), (r.modality as Modality | null) ?? null]));
+  const existingExerciseIds = new Set(modalityById.keys());
   if (existingExerciseIds.size === 0) return null;
 
   // format del template = primer block format válido, o fallback.
@@ -820,13 +825,14 @@ async function materializeInlineSessionTemplate(params: {
       .filter((item) => existingExerciseIds.has(Number(item.exercise_id)))
       .map((item) => ({
         exercise_id: Number(item.exercise_id),
+        exercise_modality: modalityById.get(Number(item.exercise_id)) ?? null,
         prescription: toSegmentPrescription(item.prescription_json, params.progression),
         params_json: item.params_json ?? null,
         notes: item.notes ?? null,
       })),
   }));
   const built = await buildTemplateContent(params.client, content);
-  await writeTemplateContent(params.client, templateId, built.content);
+  await writeTemplateContent(params.client, templateId, built.content, { fresh: true });
 
   return templateId;
 }

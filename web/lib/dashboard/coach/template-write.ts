@@ -36,6 +36,7 @@ export async function writeTemplatePayload(
   template_id: number,
   segments: TemplateSegmentInput[],
   blocks: Array<{ block_position: number; circuit: CircuitConfig }>,
+  opts: { fresh?: boolean } = {},
 ): Promise<void> {
   if (segments.length > 0) await assertSegmentExercisesVisible(tx, coach_id, segments);
   let built: Awaited<ReturnType<typeof buildTemplateContent>>;
@@ -55,7 +56,7 @@ export async function writeTemplatePayload(
   if (undosed.length > 0) {
     throw new TemplateError('undosed_line', new UndosedContentError(undosed).message, 422);
   }
-  await writeTemplateContent(tx, template_id, built.content);
+  await writeTemplateContent(tx, template_id, built.content, { fresh: opts.fresh === true });
 }
 
 /**

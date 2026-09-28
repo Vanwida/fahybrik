@@ -82,29 +82,37 @@ async function loadExerciseFacts(client: Client, ids: number[]): Promise<Map<num
  * Bloques → filas canónicas, con la modalidad y el nombre del catálogo. La
  * visibilidad de cada ejercicio para el coach la decide ANTES el llamador (unos
  * rechazan un id ajeno, otros lo saltan): aquí solo se leen hechos del catálogo.
+ *
+ * Una línea que ya trae `exercise_modality` la trae porque el SERVIDOR la leyó
+ * del catálogo en esa misma operación (el materializador de semanas, que ya
+ * consulta los ejercicios para saber cuáles existen): esa no se vuelve a pedir.
+ * Lo que llega de un cliente se rehace desde filas sin modalidad, así que siempre
+ * se lee del catálogo — nunca se fía de la que mande el navegador.
  */
 export async function buildTemplateContent(
   client: Client,
   blocks: readonly TemplateContentBlock[],
 ): Promise<{ content: TemplateContent; modalityByExercise: Map<number, Modality | null> }> {
-  const ids = [
+  const lines = blocks.flatMap((b) => b.items);
+  const unknown = [
     ...new Set(
-      blocks.flatMap((b) => b.items.map((it) => Number(it.exercise_id))).filter((id) => Number.isFinite(id) && id > 0),
+      lines
+        .filter((it) => it.exercise_modality === undefined)
+        .map((it) => Number(it.exercise_id))
+        .filter((id) => Number.isFinite(id) && id > 0),
     ),
   ];
-  const facts = await loadExerciseFacts(client, ids);
+  const facts = await loadExerciseFacts(client, unknown);
+  const modalityByExercise = new Map<number, Modality | null>();
   const withFacts: TemplateContentBlock[] = blocks.map((block) => ({
     ...block,
     items: block.items.map((it) => {
       const known = facts.get(Number(it.exercise_id));
-      return {
-        ...it,
-        exercise_name: it.exercise_name || known?.name || '',
-        exercise_modality: known ? known.modality : (it.exercise_modality ?? null),
-      };
+      const modality = it.exercise_modality !== undefined ? it.exercise_modality : (known?.modality ?? null);
+      modalityByExercise.set(Number(it.exercise_id), modality);
+      return { ...it, exercise_name: it.exercise_name || known?.name || '', exercise_modality: modality };
     }),
   }));
-  const modalityByExercise = new Map([...facts].map(([id, f]) => [id, f.modality]));
   return { content: serializeTemplateContent(withFacts), modalityByExercise };
 }
 
@@ -149,7 +157,11 @@ export async function writeTemplateContent(
   client: Client,
   templateId: number,
   content: TemplateContent,
-  opts: { clock?: Prescription | null } = {},
+  opts: {
+    clock?: Prescription | null;
+    /** La plantilla se acaba de crear en esta transacción: no hay nada que borrar. */
+    fresh?: boolean;
+  } = {},
 ): Promise<WrittenSegment[]> {
   // Tres o cuatro viajes a la base por plantilla, sea cual sea su número de líneas:
   // materializar una semana para veinte atletas escribe cientos de plantillas, y
@@ -157,19 +169,21 @@ export async function writeTemplateContent(
   const clock = content.segments.length === 0 && opts.clock ? canonicalPrescription(opts.clock) : null;
 
   // 1 · Fuera lo que había, y el reloj si no es un reloj lo que se escribe.
-  // tenancy: verified-owner — el llamador comprobó que la plantilla es de su coach (o del atleta).
-  await client`
-    with del_segments as (
-      delete from template_segments where template_id = ${templateId}
-    ), del_blocks as (
-      delete from template_blocks where template_id = ${templateId}
-    )
-    update templates set meta_json = meta_json - 'prescription'
-    where id = ${templateId}
-      and ${clock === null}
-      and jsonb_typeof(meta_json) = 'object'
-      and meta_json ? 'prescription'
-  `;
+  if (!opts.fresh) {
+    // tenancy: verified-owner — el llamador comprobó que la plantilla es de su coach (o del atleta).
+    await client`
+      with del_segments as (
+        delete from template_segments where template_id = ${templateId}
+      ), del_blocks as (
+        delete from template_blocks where template_id = ${templateId}
+      )
+      update templates set meta_json = meta_json - 'prescription'
+      where id = ${templateId}
+        and ${clock === null}
+        and jsonb_typeof(meta_json) = 'object'
+        and meta_json ? 'prescription'
+    `;
+  }
 
   // 2 · Las líneas, en una sola sentencia. `null` en el JSON llega como NULL.
   let written: WrittenSegment[] = [];
