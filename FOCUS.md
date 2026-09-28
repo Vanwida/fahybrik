@@ -6,10 +6,7 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**LIBRE = COACH EN LOS LECTORES (28-09, rama `worktree-agent-acf4f0bae662f59a6`, sin fusionar).** El coach ve los libres
-hechos («Libre», solo lectura, fuera de la adherencia); detalle serie a serie (`sets[]`, `volume_kg`); historial con lo
-hecho sin asignación (`include_unplanned=1`) + `GET /api/athlete/executions/[id]/detail`; deep dive por tramo (`erg`,
-`other`, % = 100); marcas sin 500. Contrato para iOS: `docs/pr/lectores-libre-coach.md`. DECISIONS 28-09. Pendiente: iOS.
+**LIBRE = COACH EN LOS LECTORES (28-09, rama `worktree-agent-acf4f0bae662f59a6`, sin fusionar).** Coach ve libres hechos (solo lectura, sin adherencia); series + volumen; historial con lo sin asignación (`include_unplanned=1`) + detalle por ejecución; deep dive por tramo; marcas sin 500. iOS: `docs/pr/lectores-libre-coach.md`. DECISIONS 28-09.
 
 **LA MUÑECA SE REHACE (Alex, 25-09: «es un lío, así no competimos con TrainingPeaks»).** Auditoría de 6 lentes
 + modelo: `docs/reloj-muneca/` (https://claude.ai/artifact/3LzhCpYCr6H7rgktymoG8r; spec `modelo.md`; DECISIONS 25-09).
