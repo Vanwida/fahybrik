@@ -24,8 +24,9 @@ final class VivoIphoneCapturasFuerzaTests: XCTestCase {
     @MainActor
     private func captura(_ s: WorkoutSession, _ nombre: String, espera: TimeInterval = 0.8, arranque: VivoArranque = VivoArranque(),
                          trasMontar: (WorkoutSession) -> Void = { _ in }) {
+        // El pulso, de una banda (el contrato: `MOVIL`, sin reloj ni máquina).
         let vista = VivoIphoneView(session: s, hrZones: s.hrZones, pm5: PM5ConnectionStore.shared,
-                                   hrLink: .idle, treadmillLink: .idle, gpsActive: false, isBenchmark: false,
+                                   hrLink: .connected(name: "Banda"), treadmillLink: .idle, gpsActive: false, isBenchmark: false,
                                    alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {}, arranque: arranque)
             .environment(\.colorScheme, .dark)
         let host = UIHostingController(rootView: vista)
@@ -218,7 +219,7 @@ final class VivoIphoneCapturasFuerzaTests: XCTestCase {
     /// A los 20″ la serie se cierra sola y entra «Colócate» con sus 5″.
     @MainActor func testFuerzaPlanchaColocate() throws {
         let s = try plancha()
-        captura(s, "fuerza-plancha-colocate") { s in s.injectLiveHR(123, source: .strap); s.elapsedSeconds = 46; s.lapElapsedSeconds += 20 }
+        captura(s, "fuerza-plancha-colocate", espera: 1.3) { s in s.injectLiveHR(123, source: .strap); s.elapsedSeconds = 46; s.lapElapsedSeconds += 20 }
         XCTAssertEqual(s.pendingSetIndex, 2, "la serie 2 la cerró el reloj")
     }
 
