@@ -31,7 +31,9 @@ El kit SwiftUI (esta carpeta): `VivoTokens` (escala con suelo 15 pt, `Alto` de c
 
 ## Cómo se enciende
 
-`VivoIphoneBandera.activa`: ENCENDIDA en Debug, APAGADA en Release hasta que estén las cinco familias. `ActiveWorkoutView.superficieMontada` monta `VivoIphoneView` o el shell antiguo (`RunLiveShellView`, que sigue intacto). Forzar: `UserDefaults` clave `fahybrid.vivoIphone.nuevo`.
+`VivoIphoneBandera.activa`: ENCENDIDA en Debug y en Release (29-09). `ActiveWorkoutView.superficieMontada` monta `VivoIphoneView` o, con la bandera forzada a NO, el shell antiguo (`RunLiveShellView`, intacto como vuelta atrás hasta la prueba en aparato). Forzar: `UserDefaults` clave `fahybrid.vivoIphone.nuevo`.
+
+**Lo que el vivo nuevo hereda del shell viejo** (mismo negocio, pintado con el kit): dobles (`Vivo+Dobles.swift`: el relevo es UN paso de recuperación con la primaria «Relevo» → `advanceRelay`, el reparto lleva TU parte como dosis, el turno delante en la fila del formato; `VivoPareja` = la tira de presencia), las salidas (`VivoSalidas` en la hoja de terminar: guardar para luego, cerrar solo este bloque, descartar con confirmación; y el chevrón de la cabecera = minimizar sin parar) y el salto de tramo desde la Estructura (`Vivo.segmentoDeSalto` → `requestJump` del host, que confirma si se omite trabajo).
 
 ## Cómo se añade una familia
 
