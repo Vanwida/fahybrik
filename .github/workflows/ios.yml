@@ -145,8 +145,10 @@ jobs:
         continue-on-error: true
         run: git diff --exit-code -- FAHYBRIK.xcodeproj/project.pbxproj
 
+      # Siempre, no solo en rojo: las capturas del vivo (XCTAttachment) viven en el
+      # .xcresult y se comparan con las del contrato del doble aunque todo pase.
       - name: Keep the test results
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: tests-xcresult
