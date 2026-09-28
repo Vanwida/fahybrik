@@ -10,6 +10,79 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-28 · Un libre y uno del coach son el mismo objeto; el motor se corrige formato a formato
+
+**El hueco (auditoría de hoy, verificada en el código y en la base):** el entreno libre
+era OTRO objeto. Un libre guardado en el Plan se abría con un contexto de libre encima y
+se guardaba por `POST /free`, que crea otra plantilla y otra ejecución: la sesión quedaba
+duplicada. Los constructores (`Workout/Free/*`) copiaban `WorkoutPlan.from` a mano, con
+sus escalares, y la hidratación para editar perdía datos. En el motor: un bloque continuo
+con varias máquinas (plantilla 86) era un tramo con la máquina del primero que se cerraba
+a los 15′ de 45′; la simulación HYROX escrita bloque a bloque (plantilla 342) corría 15
+puertas y no capturaba el tiempo; Tabata/Death By/intervalos sin máquina se pintaban con
+la cara por rondas congelada en «Ronda 1/N»; `simulation`/`superserie` caían a Rondas.
+
+**Decidido:**
+
+1. **Un libre ES una asignación.** Correrlo y guardarlo es el camino del coach
+   (`WorkoutPlan.from` + `/api/sync/workout-execution`). La fila libre del Plan se abre
+   como cualquier sesión. Un libre creado en el momento guarda su plan al pulsar EMPEZAR
+   (`POST /free/plan`, en segundo plano, `FreePlanFirst`) y desde la respuesta es una
+   asignación normal; sus tramos se enlazan por su posición en el plan (`itemIndex`)
+   contra los ids devueltos EN SU ORDEN, nunca por el valor de `position`. Sin conexión:
+   `POST /free` al final con `item_index` en cada tramo. Si el plan llega tarde (el
+   resumen ya guardó por `/free`) o el atleta descarta el entreno, ese plan se borra.
+2. **El vivo del libre sale de `WorkoutPlan.from`.** `FreePlanDetail` construye en el
+   móvil el detalle que devolverá el servidor (bloques, formato = esquema, modalidad del
+   ejercicio sobre la de la prescripción, categoría de pantalla, escalares derivados como
+   `prescriptionToParams` → `WorkoutItemParams(derivedFrom:)`). Editar es sin pérdidas
+   (prueba de ida y vuelta por formato) y el TIPO sale de `workout.modality`
+   (`meta_json`), nunca del primer ejercicio.
+3. **Un bloque continuo no se pliega:** cada ejercicio es su tramo, con su máquina; el
+   bloque dura la suma.
+4. **El formato del bloque manda** sobre el esquema de su único ejercicio cuando el
+   bloque es puntuable (fixed) y el ejercicio solo dice su dosis (`steady` sin ventana).
+   Medido contra la base: en los demás desajustes (un `circuit` con 4×4 de fuerza, un
+   `intervals` con un test de 30′) el ejercicio trae estructura propia y se respeta.
+5. **Una simulación HYROX por bloques es UNA ruta:** los bloques `hyrox_sim` consecutivos
+   de un ejercicio se unen en una ruta de estaciones (crono acumulado, sin puertas,
+   tiempo final como puntuación). En dobles no: el reparto va estación a estación.
+6. **Una ruta graba un lap por estación** (su `template_segment_id`, su máquina, su
+   tiempo, sus metros, su pulso, `leg_index`, `round_index`) y no la vuelta agregada.
+   La estación abierta al cerrar el bloque también se graba; deshacer una la borra.
+7. **Rotativos y continuo sin máquina leen el motor** (`RelojRotativo`): ronda del
+   motor, cuenta atrás de fase, reps del Tabata, objetivo del minuto del Death By.
+   Fuera de una ruta, una fila de rondas no se toca: la ronda la cierra «RONDA HECHA».
+8. **«Luego» es el siguiente TRAMO** (estación, ronda, minuto), no el siguiente segmento.
+9. **La pierna de correr se resuelve por tramo, igual en calle y cinta**
+   (`TreadmillLegResolver.leg(for: session)`), y una ruta de solo correr no hereda la
+   dosis de su primera pierna (`itemsShareOneDose`).
+10. **La BikeErg se lee como BikeErg** (`LecturaErgo`: /1000m, rpm, «sin pedalear»);
+    las calorías se ven en todo ergo. En un AMRAP con máquina el PM5 se lee por
+    máquina, como la puerta.
+11. **Lo que la app no mandaba:** RPE/RIR por serie (un toque en el descanso, en la
+    escala que prescribió el coach), cadencia de carrera (podómetro), pendiente e
+    `round_index` por bout, ruta GPS / «cómo ha ido» / molestia en el libre, y
+    `source` del libre igual que el del coach (no «manual» si se midió en vivo).
+
+**Se retira:** los constructores de segmento a mano del libre
+(`FreeStrengthItem.segment`, el segmento de `FreeWorkoutDraft.buildContext`, el título
+plegado de funcional); `FreePlanHydration.runContext` y el parámetro
+`planSessionIsSelfOrigin` / `WorkoutLaunch.isSelfOrigin`; `withStationGoal` de la cinta
+(lo absorbe el resolutor por tramo); la `modality: .functional` forzada en un funcional
+con movimientos.
+
+**Pendiente de servidor** (exacto en `docs/pr/ios-motor-libre.md`): leer `round_index`
+en `segmentInputSchema`; guardar y servir `workout.modality`; devolver los segmentos en
+`POST /free/plan`.
+
+**En consecuencia, no hacer:** no volver a montar un `WorkoutSegment` a mano para un
+libre — si el libre necesita algo que el coach no tiene, falta en `WorkoutPlan.from`;
+no enlazar tramos por el valor de `position`; no plegar un bloque continuo; no deducir
+el tipo de un libre de su primer ejercicio; no pintar un rotativo con la cara por rondas.
+
+---
+
 ## 2026-09-25 · La muñeca se rehace: un estado, un pintor, el objetivo manda y la gramática de Apple
 
 **Por qué (Alex, 25-09):** «la UX del reloj es un lío… no podemos competir con TrainingPeaks así; tiene que sentirse una herramienta nativa, fuerte, hecha por y para corredores (70 % del uso), y la carrera comprometida con los entrenos tiene que tener sentido». Una auditoría de seis lentes lo confirma con evidencia: el modelo completo, las causas y los casos están en `docs/reloj-muneca/modelo.md`.

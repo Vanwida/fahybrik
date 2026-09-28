@@ -2,9 +2,12 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-25** (la muñeca: 6 propuestas + kit consolidado; falta la firma de Alex)
+Última actualización: **2026-09-28** (iOS: un libre = una asignación; motor formato a formato)
 
 ## Ahora
+
+**iOS · libre = asignación + motor por formato (28-09, rama `ios/motor-libre-un-objeto`, sin fusionar; DECISIONS 28-09).**
+FALTA servidor (`docs/pr/ios-motor-libre.md`): `round_index` en el esquema, `workout.modality`, segmentos en /free/plan.
 
 **LA MUÑECA SE REHACE (Alex, 25-09: «es un lío, así no competimos con TrainingPeaks»).** Auditoría de 6 lentes
 + modelo: `docs/reloj-muneca/` (https://claude.ai/artifact/3LzhCpYCr6H7rgktymoG8r; spec `modelo.md`; DECISIONS 25-09).
