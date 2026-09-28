@@ -17,15 +17,21 @@ final class VivoIphoneCapturasTests: XCTestCase {
         ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"].map { URL(fileURLWithPath: $0) }
     }
 
+    /// Interna (no privada): una familia añade sus escenarios en su propio fichero
+    /// (`VivoIphoneCapturasTests+Ergo.swift`) con el MISMO arnés. `hrLink`: la
+    /// banda de pulso enlazada (el chip «Banda»).
     @MainActor
-    private func captura(_ s: WorkoutSession, _ nombre: String, test: Bool = false, horizontal: Bool = false,
-                         espera: TimeInterval = 0.8, antesDeEsperar: TimeInterval = 0.4,
-                         trasMontar: (WorkoutSession) -> Void = { _ in }) {
+    func captura(_ s: WorkoutSession, _ nombre: String, test: Bool = false, horizontal: Bool = false,
+                 espera: TimeInterval = 0.8, antesDeEsperar: TimeInterval = 0.4, hrLink: DeviceLink = .idle,
+                 trasMontar: (WorkoutSession) -> Void = { _ in }) {
         let vista = VivoIphoneView(session: s, hrZones: s.hrZones, pm5: PM5ConnectionStore.shared,
-                                   hrLink: .idle, treadmillLink: .idle, gpsActive: false, isBenchmark: test,
+                                   hrLink: hrLink, treadmillLink: .idle, gpsActive: false, isBenchmark: test,
                                    alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {})
             .environment(\.colorScheme, .dark)
         let host = UIHostingController(rootView: vista)
+        // La escena del simulador sigue en vertical: sus zonas seguras (62 arriba)
+        // no son las de un iPhone tumbado. En horizontal, sin ellas (como el contrato).
+        if horizontal { host.safeAreaRegions = [] }
         let base = UIScreen.main.bounds
         let bounds = horizontal ? CGRect(x: 0, y: 0, width: base.height, height: base.width) : base
         let escena = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first

@@ -110,7 +110,9 @@ extension Vivo {
         switch m {
         case let .reps(v, _)?: return Medida(tipo: .reps, prescrito: Double(v), mide: .atleta)
         case let .distance(mt, _)?: return Medida(tipo: .distancia, prescrito: mt, mide: quien == .atleta ? .atleta : quien)
-        case let .duration(sec, _)?: return Medida(tipo: .tiempo, prescrito: Double(sec), mide: .reloj)
+        // En una máquina el tiempo también lo lleva su monitor: sus lecturas (el /500,
+        // las paladas) son del paso aunque lo cierre el reloj (espejo de planes.ts).
+        case let .duration(sec, _)?: return Medida(tipo: .tiempo, prescrito: Double(sec), mide: quien == .ergo ? .ergo : .reloj)
         case let .calories(c, _)?: return Medida(tipo: .cal, prescrito: Double(c), mide: quien == .ergo ? .ergo : .atleta)
         case .repsToFailure?: return Medida(tipo: .abierta, prescrito: nil, mide: .atleta)
         default: return Medida(tipo: .abierta, prescrito: nil, mide: .atleta)
@@ -123,8 +125,16 @@ extension Vivo {
         var out: [Objetivo] = []
         switch t {
         case let .pace(unit, v, mn, mx)?:
-            let factor: Double = unit == .perMile ? 1 / 1.609344 : 1
-            let eje: EjeObjetivo = unit == .per500m ? .split500 : .ritmo
+            // En una máquina el dato viaja en s/500 m (la bici se ENSEÑA por 1000:
+            // `fmtSplit`); el coach puede escribirlo por km o por milla.
+            let enMaquina = maquina != nil
+            let factor: Double
+            switch unit {
+            case .per500m: factor = 1
+            case .perKm: factor = enMaquina ? 0.5 : 1
+            case .perMile: factor = enMaquina ? 500 / 1609.344 : 1 / 1.609344
+            }
+            let eje: EjeObjetivo = (unit == .per500m || enMaquina) ? .split500 : .ritmo
             let lo = (v ?? mn).map { Double($0) * factor }
             let hi = (v ?? mx ?? mn).map { Double($0) * factor }
             if lo != nil || hi != nil { out.append(Objetivo(eje: eje, min: lo, max: hi, papel: .principal)) }
@@ -301,7 +311,7 @@ extension Vivo {
                                 rol: .trabajo, fase: fase, medida: medida,
                                 objetivos: objetivosDe(set?.target ?? seg.prescription?.target, zona: seg.targetZone, ritmoSKm: seg.targetPaceSecondsPerKm, vatios: seg.targetPowerWatts, maquina: maquina),
                                 posicion: esPared ? Posicion(ronda: Contador(n: r + 1, de: rondas)) : Posicion(serie: Contador(n: r + 1, de: rondas)),
-                                nombre: esPared ? nombre : (maquina != nil ? nombre : (mod == .run ? nil : nombre)),
+                                nombre: esPared ? nombre : (maquina != nil ? nombreDeBox(nombre, maquina) : (mod == .run ? nil : nombre)),
                                 entorno: mod == .run ? entornoDe(entorno) : nil, carga: cargaDe(set?.target), maquina: maquina,
                                 cierre: medida.tipo == .tiempo || medida.mide == .ergo || (medida.mide == .gps || medida.mide == .cinta) ? .medida : .atleta,
                                 bloque: bloque, wod: wod, origen: Origen(segmento: s, ventana: .ronda(r))))
@@ -526,7 +536,7 @@ extension Vivo {
         }
         let cierre: Cierre = (medida.tipo == .tiempo || medida.mide == .ergo || (esCorrer && medida.tipo == .distancia)) ? .medida : .atleta
         return Paso(id: "s\(s)", clase: clase, rol: .trabajo, fase: fase, medida: medida, objetivos: objetivos,
-                    nombre: (esCorrer && !estructural) ? nil : seg.title,
+                    nombre: (esCorrer && !estructural) ? nil : (maquina != nil && !estructural ? nombreDeBox(seg.title, maquina) : seg.title),
                     entorno: esCorrer ? entornoDe(entorno) : nil, carga: clase == .fuerza ? nil : cargaDe(set?.target) ?? seg.loadKg.map { Carga(kg: $0) },
                     maquina: maquina, tempo: tempoDe(set?.tempo), cierre: cierre,
                     vueltaAutoM: clase == .rodaje ? 1000 : nil, bloque: bloque, fuerza: ficha,

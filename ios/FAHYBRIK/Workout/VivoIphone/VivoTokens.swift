@@ -89,6 +89,10 @@ enum VivoTokens {
         static let padding: CGFloat = 10
         /// A partir de esta altura de celda el valor crece (30 → 40 pt).
         static let alta: CGFloat = 132
+        /// Horizontal (§3): la rejilla comparte la columna derecha con «Luego», la
+        /// tira y la acción; la celda se aprieta y el valor baja un punto de escala.
+        static let paddingApretada: CGFloat = 8
+        static let datoApretado: CGFloat = 26
     }
 
     enum Radio {
@@ -106,6 +110,10 @@ enum VivoTokens {
         static let destello: TimeInterval = 0.38
         static let vuelta: TimeInterval = 4
         static let deshacer: TimeInterval = Vivo.deshacerMs / 1000
+        /// «GO» a pantalla completa al entrar en trabajo (espejo de `goHasta` del kit: 1 s).
+        static let go: TimeInterval = 1
+        /// Cada cuánto se mira si toca el preaviso (10 s / 100 m).
+        static let miraPreaviso: TimeInterval = 0.5
     }
 }
 
