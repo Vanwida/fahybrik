@@ -10,6 +10,33 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-28 · El reloj no inventa ni retiene: sin detalle no hay Empezar, el resultado sale al terminar
+
+**Por qué:** antes de la demo, seis fallos de lógica de la muñeca sola (la pantalla espera su rediseño; esto no toca diseño). Cada uno perdía dato o lo inventaba.
+
+**Decidido (mecanismo):**
+- **Sin el detalle del coach, la muñeca no empieza nada contra la asignación.** Si el detalle pasaba de 60 KB o el móvil no lo tenía en caché, el reloj corría `WorkoutPlan.minimal` («Sesión», un tramo) y lo guardaba contra la sesión del coach como hecha, con el tiempo de la sesión como marca. Ahora:
+  - el detalle que no cabe en el contexto viaja como **fichero** (`transferFile`, metadata `detail_assignment_id_v1`); la muñeca lo guarda aparte, por asignación;
+  - si le falta, **lo pide** (`detail_request_v1`: mensaje con el móvil a tiro, que despierta la app; `transferUserInfo` si no). Lo pide al recibir el día, al activarse y al volver a tener el móvil a tiro. El móvil contesta desde su caché o el servidor; sin detalle no manda sustituto;
+  - mientras falte, el brief dice «Falta la sesión en el reloj» y no hay Empezar. Un test de salto dice que se hace con la cámara del iPhone; una sesión sin cuerpo, que se hace desde el iPhone (`WatchSessionPlan`).
+  - **Se retira** el `runnablePlan` con fallback a `minimal` de la muñeca. `minimal` queda solo para la sesión ad hoc del móvil (sin asignación). Una guardia de código (`WatchSessionPlanTests`) falla si la muñeca vuelve a construirlo.
+- **Solo un dobles compartible espera a «Listo».** Todo lo demás sale al terminar, al buzón y al móvil, con su traza detrás, y se queda en la muñeca hasta el acuse del servidor (entrada del 25-09). Antes se retenía siempre y un entreno de la muñeca sola no salía hasta tocar «Listo» o relanzar la app.
+- **El enlace con el reloj se abre al arrancar la app** (`FAHYBRIKApp.init`), no al pintar Inicio. Sin coach no se abría nunca: «Sin Apple Watch» en el brief con el reloj unido, y lo que mandaba la muñeca sin leer. El brief lee ahora «Sin Apple Watch» de Apple en vivo.
+- **Un 401 a un sobre del reloj va a la cola**, como el resumen del móvil (entrada del 25-09): es la sesión, no el entreno. Con el enlace abierto desde el arranque, un sobre puede llegar antes de iniciar sesión.
+- **Un test del coach hecho con la muñeca sola pide su número en el móvil.** Al guardar o encolar su ejecución, el móvil abre la misma hoja de captura, precargada con lo que midió el reloj (`TestBatteryPrefill.map(payload:)`). Se guarda en disco y sale una vez por sesión (`WatchTestResultPrompt`). El salto no: su número sale del vídeo.
+- **Fuerza:** la serie activa es la del motor (`pendingSetIndex`) y el toque de la muñeca es `primaryAdvance`, como el «Siguiente» del espejo. La corona escribe con `setPendingSetLoad` (la pendiente y las de detrás, sin cerrarla). **La última serie no hereda el descanso del bloque** («la última no abre ninguno»); el que escribe la propia serie sí vale.
+- **Lo que no se sabe va nulo:** las reps de la ronda sin acabar de un AMRAP solo viajan si alguien las contó (la muñeca no las cuenta y mandaba 0). El `score_time_s` de la muñeca es el del bloque que puntúa o nada, nunca el total de la sesión.
+
+**NO hacer:**
+- Correr en la muñeca un plan que no salga del detalle del coach, ni guardar nada contra una asignación sin él.
+- Retener en la muñeca un resultado que no es un dobles compartible.
+- Abrir WatchConnectivity solo desde una pantalla.
+- Mandar un 0 o un total como marca de algo que no se midió.
+
+**Queda fuera:** el rediseño de la muñeca (pendiente de firma); la cuenta de reps de la ronda sin acabar en el AMRAP de la muñeca (el lote de Alex la mete en la campana); una foto de un entreno a medias hecha por un binario anterior con el plan «Sesión» aún podría reanudarse (caduca a las 6 h).
+
+---
+
 ## 2026-09-25 · La muñeca se rehace: un estado, un pintor, el objetivo manda y la gramática de Apple
 
 **Por qué (Alex, 25-09):** «la UX del reloj es un lío… no podemos competir con TrainingPeaks así; tiene que sentirse una herramienta nativa, fuerte, hecha por y para corredores (70 % del uso), y la carrera comprometida con los entrenos tiene que tener sentido». Una auditoría de seis lentes lo confirma con evidencia: el modelo completo, las causas y los casos están en `docs/reloj-muneca/modelo.md`.

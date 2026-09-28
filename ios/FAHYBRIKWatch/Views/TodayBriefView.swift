@@ -7,9 +7,13 @@ import SwiftUI
 // invented. Mockup 2.
 struct TodayBriefView: View {
     let payload: WatchTodayPayload
-    /// The runnable plan preview (nil for a rest day / bodyless assignment).
-    let plan: WorkoutPlan?
+    /// What the wrist can do with today's session (`WatchSessionPlan`).
+    let sessionPlan: WatchSessionPlan
     let onStart: () -> Void
+
+    /// The runnable plan preview (nil while the detail is missing, or for a session
+    /// the wrist cannot run).
+    private var plan: WorkoutPlan? { sessionPlan.runnable }
 
     private var isRestDay: Bool { payload.dayKind == WatchDayKind.rest }
 
@@ -38,10 +42,11 @@ struct TodayBriefView: View {
         Spacer(minLength: 0)
     }
 
-    // A session day always gets the start button — even summary-only (plan == nil,
-    // the detail dropped over the size cap or none cached): starting then runs the
-    // minimal honest fallback the coordinator builds (duration + HR). Block count +
-    // first-block hint show only when the full prescription is present.
+    // Only the coach's plan gets the start button. Without its detail (on its way
+    // from the iPhone), or for a session the wrist cannot run, the brief says why
+    // instead: a title-only session used to be saved against the assignment as
+    // done, with an invented time (28-sep). Block count + first-block hint show only
+    // when the full prescription is present.
     @ViewBuilder
     private var sessionContent: some View {
         WatchLabel(text: "Hoy toca", accent: true)
@@ -63,8 +68,27 @@ struct TodayBriefView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
+        if let why = cannotStartReason {
+            Text(why)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(WatchTheme.dim)
+                .lineLimit(3)
+                .minimumScaleFactor(0.8)
+        }
         Spacer(minLength: 0)
-        BigTapButton(title: "Empezar", systemImage: "play.fill") { onStart() }
+        if plan != nil {
+            BigTapButton(title: "Empezar", systemImage: "play.fill") { onStart() }
+        }
+    }
+
+    /// Why there is no Empezar, said plainly.
+    private var cannotStartReason: String? {
+        switch sessionPlan {
+        case .run:                  return nil
+        case .needsDetail:          return "Falta la sesión en el reloj. Abre \(Marca.nombre) en el iPhone."
+        case .phoneOnly(.jumpTest): return "El test de salto se hace con la cámara del iPhone."
+        case .phoneOnly(.noBody):   return "Esta sesión se hace desde el iPhone."
+        }
     }
 
     private var pills: some View {

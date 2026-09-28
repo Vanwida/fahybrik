@@ -8,10 +8,16 @@ import SwiftUI
 //   · Bisel segmentado = serie N de M.
 //   · Carga con corona (±2,5 kg). Página del cuerpo aparte.
 // El descanso lo pinta `RestBannerView` a pantalla completa (mando + cuenta atrás).
+//
+// LA SERIE LA LLEVA EL MOTOR, no esta vista (28-sep). La vista guardaba su propio
+// índice y confirmaba ella la serie antes de avanzar: tras la última serie con
+// descanso, el toque la confirmaba, arrancaba el descanso y el avance lo quitaba, sin
+// salir nunca del ejercicio; y tras reanudar volvía a la serie 1 y la corona pisaba
+// el peso de series ya hechas. Ahora la serie es `session.pendingSetIndex` y el
+// toque es un paso del motor, el mismo que el «Siguiente» del espejo.
 struct SetTableLiveView: View {
     let session: WorkoutSession
 
-    @State private var activeSetIndex = 0
     @State private var crownLoad: Double = 0
     @State private var seedingCrown = true
     @State private var destello = WatchDestello()
@@ -30,9 +36,21 @@ struct SetTableLiveView: View {
             sensitivity: .low, isContinuous: false
         )
         .onChange(of: crownLoad) { _, newValue in applyCrownLoad(newValue) }
-        .onChange(of: session.currentSegmentIndex) { _, _ in resetForSegment() }
-        .onChange(of: activeSetIndex) { _, _ in seedCrown() }
-        .onAppear { resetForSegment() }
+        .onChange(of: session.currentSegmentIndex) { _, _ in seedCrown() }
+        .onChange(of: session.pendingSetIndex) { _, _ in seedCrown() }
+        .onAppear { seedCrown() }
+    }
+
+    // MARK: - La serie (del motor)
+
+    /// La serie que se lee: la pendiente o, con todas cerradas, la última.
+    private var shownSetIndex: Int? {
+        session.pendingSetIndex ?? (session.setRecords.isEmpty ? nil : session.setRecords.count - 1)
+    }
+
+    /// Todas las series cerradas: el siguiente toque cierra el ejercicio.
+    private var allSetsClosed: Bool {
+        !session.setRecords.isEmpty && session.pendingSetIndex == nil
     }
 
     // MARK: - Páginas
@@ -52,7 +70,7 @@ struct SetTableLiveView: View {
     private var paginaSerie: WatchPagina {
         let lectura = lecturaDeSerie
         let total = max(1, session.setRecords.isEmpty ? 1 : session.setRecords.count)
-        let n = session.setRecords.isEmpty ? 1 : min(activeSetIndex + 1, total)
+        let n = min((shownSetIndex ?? 0) + 1, total)
         return WatchPagina(
             id: "serie",
             contexto: session.setRecords.isEmpty
@@ -64,7 +82,7 @@ struct SetTableLiveView: View {
             segundoEtiqueta: lectura.detalle != nil ? nil : nil,
             segundoValor: lectura.detalle,
             segundoTono: WatchTheme.orangeSoft,
-            accion: "Toca · serie hecha",
+            accion: allSetsClosed ? "Toca · siguiente" : "Toca · serie hecha",
             onToca: { completeSet() },
             nota: WatchNota.loDicesTu
         )
@@ -75,7 +93,7 @@ struct SetTableLiveView: View {
         guard total > 0 else { return nil }
         return WatchAroSegmentado(
             total: total,
-            hechas: activeSetIndex,
+            hechas: session.pendingSetIndex ?? total,
             fraccion: 0
         ).watchBisel()
     }
@@ -111,24 +129,12 @@ struct SetTableLiveView: View {
 
     // MARK: - Actions
 
+    /// Un toque = un paso del motor (`strengthPrimary`): cierra la serie pendiente y
+    /// arranca su descanso; sin serie pendiente, cierra el ejercicio. Con dedo detrás,
+    /// así que pasa por el antirrebote, como el «Siguiente» del espejo.
     private func completeSet() {
         destello = WatchDestello(n: destello.n + 1, color: WatchTheme.zoneGreen)
-        if session.setRecords.isEmpty {
-            session.primaryAdvance()
-            return
-        }
-        let total = session.setRecords.count
-        session.confirmSet(activeSetIndex)
-        if activeSetIndex + 1 < total {
-            activeSetIndex += 1
-        } else {
-            session.primaryAdvance()
-        }
-    }
-
-    private func resetForSegment() {
-        activeSetIndex = 0
-        seedCrown()
+        session.primaryAdvance(fromAthleteTap: true)
     }
 
     private func seedCrown() {
@@ -144,34 +150,35 @@ struct SetTableLiveView: View {
     private func applyCrownLoad(_ value: Double) {
         if seedingCrown { seedingCrown = false; return }
         let clamped = max(0, value)
-        if session.setRecords.indices.contains(activeSetIndex) {
-            session.setSetLoad(activeSetIndex, clamped)
-        } else {
+        if session.setRecords.isEmpty {
             session.manualLoadKg = clamped
+        } else {
+            // La pendiente y las que vienen detrás; nunca una serie ya hecha.
+            session.setPendingSetLoad(clamped)
         }
     }
 
     // MARK: - Derived
 
     private var currentLoadKg: Double? {
-        if session.setRecords.indices.contains(activeSetIndex) {
-            let s = session.setRecords[activeSetIndex]
+        if let i = shownSetIndex, session.setRecords.indices.contains(i) {
+            let s = session.setRecords[i]
             return s.loadActualKg ?? s.loadPrescribedKg
         }
         return session.manualLoadKg ?? session.currentSegment?.loadKg
     }
 
     private var currentReps: Int? {
-        if session.setRecords.indices.contains(activeSetIndex) {
-            let s = session.setRecords[activeSetIndex]
+        if let i = shownSetIndex, session.setRecords.indices.contains(i) {
+            let s = session.setRecords[i]
             return s.repsActual ?? s.repsPrescribed
         }
         return session.currentSegment?.prescribedRepsForLog
     }
 
     private var prescribedSet: PrescriptionSet? {
-        guard let sets = session.currentSegment?.prescription?.sets,
-              sets.indices.contains(activeSetIndex) else { return nil }
-        return sets[activeSetIndex]
+        guard let i = shownSetIndex, let sets = session.currentSegment?.prescription?.sets,
+              sets.indices.contains(i) else { return nil }
+        return sets[i]
     }
 }

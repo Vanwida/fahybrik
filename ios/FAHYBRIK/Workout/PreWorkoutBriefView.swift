@@ -185,9 +185,16 @@ struct PreWorkoutBriefView: View {
             if stagingSession == nil {
                 stagingSession = WorkoutSession(plan: plan, hrZones: hrZones)
             }
-            if !WatchPresence.shared.appAvailable, let answers = startAnswers {
-                answers.wrappedValue.watchUnavailable = true
+            if let answers = startAnswers {
+                answers.wrappedValue.watchUnavailable = !WatchPresence.shared.appAvailable
             }
+        }
+        // «Sin Apple Watch» dice lo que Apple dice AHORA: el enlace termina de abrirse
+        // después de pintar el brief, y el reloj puede instalarse o emparejarse con el
+        // brief abierto. Antes se decidía una vez al aparecer y no volvía a mirarse.
+        .onChange(of: WatchPresence.shared.appAvailable) { _, available in
+            guard readyToStart, let answers = startAnswers else { return }
+            answers.wrappedValue.watchUnavailable = !available
         }
     }
 

@@ -90,6 +90,48 @@ enum TestBatteryPrefill {
         return out
     }
 
+    /// Lo mismo desde la ejecución que manda el reloj cuando el test se hizo con la
+    /// muñeca sola: el móvil no tuvo la sesión viva, tiene lo que midió el reloj.
+    /// Misma regla que desde la sesión; la carga mira también las series declaradas,
+    /// que es donde vive el peso de un 1RM hecho serie a serie.
+    static func map(payload: WorkoutExecutionPayload, specs: [StoreResultSpec]) -> [String: Double] {
+        var out: [String: Double] = [:]
+        for spec in specs {
+            if let v = value(payload: payload, measure: TestMeasure(spec.measure)) {
+                out[spec.slug] = v
+            }
+        }
+        return out
+    }
+
+    private static func value(payload: WorkoutExecutionPayload, measure: TestMeasure) -> Double? {
+        let segments = payload.segments ?? []
+        switch measure {
+        case .time:
+            if let t = payload.score_time_s, t > 0 { return Double(t) }
+            if let t = payload.total_duration_seconds, t > 0 { return Double(t) }
+            return nil
+        case .load:
+            let series = segments.flatMap { $0.sets ?? [] }
+                .filter { $0.status != "skipped" }
+                .compactMap(\.load_actual_kg)
+            return (segments.compactMap(\.weight_used_kg) + series).max()
+        case .distance:
+            let d = segments.compactMap(\.distance_meters).reduce(0, +)
+            return d > 0 ? d : nil
+        case .reps:
+            let r = segments.compactMap(\.reps_completed).reduce(0, +)
+            return r > 0 ? Double(r) : nil
+        case .calories:
+            let c = segments.compactMap(\.calories).reduce(0, +)
+            return c > 0 ? c : nil
+        case .hrr, .hr, .height, .other:
+            // Lo mismo que desde la sesión: ni la recuperación (la mide la ventana
+            // del móvil), ni el umbral, ni un salto salen de aquí.
+            return nil
+        }
+    }
+
     private static func value(session: WorkoutSession, measure: TestMeasure) -> Double? {
         switch measure {
         case .time:

@@ -240,6 +240,14 @@ enum WatchWireKeys {
     /// canal durable que `executionResult` — porque el espejo HK puede no existir
     /// o no ser alcanzable cuando el atleta termina lejos del móvil.
     static let liveEnded = "live_ended_v1"
+    /// Reloj → teléfono (`sendMessage`, o `transferUserInfo` sin alcance): «me falta
+    /// el detalle de esta sesión». El valor es el id de la asignación. El teléfono
+    /// contesta con el fichero de abajo. Ver `WatchSessionPlan`.
+    static let detailRequest = "detail_request_v1"
+    /// Clave de la metadata de `transferFile` que marca un fichero como el DETALLE de
+    /// una sesión (el `AssignmentDetail` que no cupo en el contexto). El valor es el
+    /// id de la asignación.
+    static let detailAssignmentId = "detail_assignment_id_v1"
 }
 
 /// Phone → watch: the iPhone already finished this workout.
@@ -275,8 +283,9 @@ enum WatchLiveEnded {
 enum WatchWire {
     /// applicationContext has a ~65 KB practical ceiling; keep the encoded
     /// `WatchTodayPayload` comfortably under it. When the embedded detail pushes
-    /// past this, the push drops `detailJson` and the watch falls back to the
-    /// summary-only brief (it can still run a minimal session from the title).
+    /// past this, the push drops `detailJson` and the detail travels as a FILE
+    /// (`WatchWireKeys.detailAssignmentId`). The watch never runs a title-only
+    /// session against the assignment meanwhile (`WatchSessionPlan`).
     static let maxContextBytes = 60_000
 
     /// Coder for the WRAPPER payloads (`WatchTodayPayload` / `WatchExecutionEnvelope`)
@@ -376,8 +385,8 @@ extension WatchTodayPayload {
     }
 
     /// A copy WITHOUT the embedded detail — the size-cap fallback. The watch still
-    /// gets the brief (title / focus / duration / readiness) and runs a minimal
-    /// title-only session, re-fetching the full body on next open.
+    /// gets the brief (title / focus / duration / readiness); the full body follows
+    /// as a file, and the watch asks for it if it is missing.
     func droppingDetail() -> WatchTodayPayload {
         with(isDone: isDone, doneCompleteness: doneCompleteness, detailJson: nil)
     }

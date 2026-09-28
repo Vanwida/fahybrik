@@ -62,6 +62,8 @@ struct AppShell: View {
     /// La hoja del movimiento del reloj cuando el primer entreno de muñeca no tuvo
     /// resumen en el móvil (`askSensorConsentIfDue`).
     @State private var askSensorConsent = false
+    /// El número de un test del coach hecho con la muñeca sola (`WatchTestResultPrompt`).
+    @State private var watchTestPrompt = WatchTestResultPrompt.shared
 
     // Push deep-link router — a tapped notification routes to a tab (chat opens
     // its tab directly now that Chat is a first-class destination).
@@ -176,6 +178,25 @@ struct AppShell: View {
             .environment(store)
         }
         .sensorConsentSheet(isPresented: $askSensorConsent)
+        // Un test hecho en el reloj: la misma captura que tras guardar en el móvil,
+        // precargada con lo que midió la muñeca. Cerrarla sin guardar es omitirla
+        // (la batería lo sigue ofreciendo como «resultado pendiente»).
+        .sheet(item: Binding(
+            get: { askSensorConsent ? nil : watchTestPrompt.pending },
+            set: { if $0 == nil { watchTestPrompt.done() } }
+        )) { pending in
+            TestResultCaptureSheet(
+                assignmentId: pending.assignmentId,
+                specs: pending.specs,
+                prefill: pending.prefill,
+                bearer: bearer,
+                onDone: {
+                    watchTestPrompt.done()
+                    Task { await store.planMutated() }
+                    askSensorConsentIfDue()
+                }
+            )
+        }
         // Scope the store to the session and warm every slice once, so whichever
         // tab the athlete opens first already has its data (or loads it centrally,
         // not per-view). Re-runs if the bearer changes (sign-out / athlete switch).
@@ -286,7 +307,10 @@ struct AppShell: View {
     /// manda él, y la hoja no sale sobre nada (`SensorConsentPrompt.shouldAskOnOpen`).
     @MainActor
     private func askSensorConsentIfDue() {
-        guard !askSensorConsent, SensorConsentPrompt.shouldAskOnOpen() else { return }
+        // Una hoja cada vez: si espera el número de un test del reloj, va primero y
+        // esta sale al cerrarla.
+        guard !askSensorConsent, watchTestPrompt.pending == nil,
+              SensorConsentPrompt.shouldAskOnOpen() else { return }
         askSensorConsent = true
     }
 
