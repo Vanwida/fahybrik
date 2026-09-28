@@ -400,7 +400,7 @@ interface AssignmentRow {
   partner_visibility: 'shared' | 'self_only';
 }
 
-interface ExecutionRow {
+export interface ExecutionRow {
   ended_at: string | null;
   perceived_exertion: number | null;
   // Extended actuals for the read-only executed-session view. Optional so the
@@ -541,65 +541,15 @@ export async function loadAssignmentDetail(
   // Execution (1:1 with assignment, may not exist yet if scheduled). We pull the
   // full executed aggregate (id / duration / score / notes / source) so the
   // read-only athlete summary renders real numbers, not just completed_at + RPE.
-  const executionRows = await sql<ExecutionRow[]>`
-    select
-      we.id::text                as execution_id,
-      we.started_at::text        as started_at,
-      we.ended_at::text          as ended_at,
-      we.perceived_exertion      as perceived_exertion,
-      we.total_duration_seconds  as total_duration_seconds,
-      we.score_time_s            as score_time_s,
-      we.score_rounds            as score_rounds,
-      we.score_reps              as score_reps,
-      we.notes                   as notes,
-      we.source::text            as source,
-      we.recorded_via::text      as recorded_via,
-      we.contributing_sources::text[] as contributing_sources,
-      we.perceived_difficulty::text   as perceived_difficulty,
-      we.pain_area::text              as pain_area,
-      we.pain_note                    as pain_note,
-      wr.polyline                as route_polyline,
-      we.elevation_gain_m        as elevation_gain_m,
-      we.elevation_loss_m        as elevation_loss_m,
-      we.hr_recovery_60_bpm      as hr_recovery_60_bpm,
-      we.decoupling_pct          as decoupling_pct,
-      we.avg_hr                  as avg_hr,
-      we.max_hr                  as max_hr,
-      we.total_distance_m        as total_distance_m,
-      we.total_calories          as total_calories
-    from workout_executions we
-    left join workout_routes wr on wr.execution_id = we.id
-    where we.assignment_id = ${assignment_id as unknown as number}
-    limit 1
-  `;
-  const execution = executionRows[0] ?? null;
+  const execution = await loadExecutionRow(sql, { assignment_id });
 
-  // Per-exercise actuals (segment_executions) for the executed view — only when
-  // there's a real execution to attribute them to. Empty otherwise (no fabrication).
-  const executionSegments =
-    execution?.execution_id != null
-      ? await loadSegmentActuals(sql, Number(execution.execution_id))
-      : [];
-
-  // El corte por kilómetro + la curva reducida — la traza ENTERA se deriva
-  // antes de reducir nada (ver session-trace.ts). `EMPTY_TRACE` sin ejecución
-  // o sin `started_at`: no hay eje del que colgar ninguna señal.
-  //
-  // El mapa (#71) cuelga de la MISMA llamada: la polilínea ya viene en
-  // `execution.route_polyline` (join con workout_routes, arriba) y las
-  // bandas de ritmo del atleta para correr salen de `zoneProfiles` — ya
-  // cargado (G1) — pasando por el MISMO `buildZoneLookup` que usa
-  // `buildAssignmentDetail` más abajo, nunca una segunda forma de resolverlas.
-  const executionTrace =
-    execution?.execution_id != null
-      ? await loadSessionTrace({
-          execution_id: Number(execution.execution_id),
-          started_at: execution.started_at ? new Date(execution.started_at) : null,
-          route_polyline: execution.route_polyline,
-          pace_zones: buildZoneLookup(zoneProfiles).run?.bands ?? null,
-          client: sql,
-        })
-      : EMPTY_TRACE;
+  // Per-exercise actuals + the trace, from the SAME helper the by-execution
+  // detail uses (execution-detail.ts): one way to read what was done.
+  const { segments: executionSegments, trace: executionTrace } = await loadExecutionParts({
+    sql,
+    execution,
+    zoneProfiles,
+  });
 
   // Template + segments. Archived templates still resolve — the athlete
   // already has the assignment, we don't strip it out.
@@ -767,6 +717,88 @@ export async function loadAssignmentDetail(
   });
 }
 
+// =============================================================================
+// The execution read — shared by the by-assignment detail (above) and the
+// by-execution detail (execution-detail.ts), so both surfaces read the SAME
+// columns, tramos and trace. `by` picks the row: an assignment's (1:1) or one
+// execution of the athlete by id (work that has no assignment: an Apple Salud
+// import, a workout kept «fuera del plan»).
+// =============================================================================
+
+export async function loadExecutionRow(
+  sql: Sql,
+  by: { assignment_id: bigint } | { execution_id: bigint; athlete_id: bigint },
+): Promise<ExecutionRow | null> {
+  const where =
+    'assignment_id' in by
+      ? sql`we.assignment_id = ${by.assignment_id as unknown as number}`
+      : sql`we.id = ${by.execution_id as unknown as number} and we.athlete_id = ${by.athlete_id as unknown as number}`;
+  const rows = await sql<ExecutionRow[]>`
+    select
+      we.id::text                as execution_id,
+      we.started_at::text        as started_at,
+      we.ended_at::text          as ended_at,
+      we.perceived_exertion      as perceived_exertion,
+      we.total_duration_seconds  as total_duration_seconds,
+      we.score_time_s            as score_time_s,
+      we.score_rounds            as score_rounds,
+      we.score_reps              as score_reps,
+      we.notes                   as notes,
+      we.source::text            as source,
+      we.recorded_via::text      as recorded_via,
+      we.contributing_sources::text[] as contributing_sources,
+      we.perceived_difficulty::text   as perceived_difficulty,
+      we.pain_area::text              as pain_area,
+      we.pain_note                    as pain_note,
+      wr.polyline                as route_polyline,
+      we.elevation_gain_m        as elevation_gain_m,
+      we.elevation_loss_m        as elevation_loss_m,
+      we.hr_recovery_60_bpm      as hr_recovery_60_bpm,
+      we.decoupling_pct          as decoupling_pct,
+      we.avg_hr                  as avg_hr,
+      we.max_hr                  as max_hr,
+      we.total_distance_m        as total_distance_m,
+      we.total_calories          as total_calories
+    from workout_executions we
+    left join workout_routes wr on wr.execution_id = we.id
+    where ${where}
+    limit 1
+  `;
+  return rows[0] ?? null;
+}
+
+/**
+ * Per-exercise actuals (segment_executions + set_executions) and the trace of an
+ * execution — only when there is a real execution to attribute them to; empty
+ * otherwise (no fabrication).
+ *
+ * El corte por kilómetro + la curva reducida — la traza ENTERA se deriva antes de
+ * reducir nada (ver session-trace.ts). `EMPTY_TRACE` sin ejecución o sin
+ * `started_at`: no hay eje del que colgar ninguna señal. El mapa (#71) cuelga de
+ * la MISMA llamada: la polilínea ya viene en `execution.route_polyline` y las
+ * bandas de ritmo del atleta para correr salen de `zoneProfiles`, pasando por el
+ * MISMO `buildZoneLookup` que usa `buildAssignmentDetail`.
+ */
+export async function loadExecutionParts(params: {
+  sql: Sql;
+  execution: ExecutionRow | null;
+  zoneProfiles: AthleteZoneProfile[];
+}): Promise<{ segments: SegmentActual[]; trace: AssignmentDetailTrace }> {
+  const { sql, execution, zoneProfiles } = params;
+  if (execution?.execution_id == null) return { segments: [], trace: EMPTY_TRACE };
+  const [segments, trace] = await Promise.all([
+    loadSegmentActuals(sql, Number(execution.execution_id)),
+    loadSessionTrace({
+      execution_id: Number(execution.execution_id),
+      started_at: execution.started_at ? new Date(execution.started_at) : null,
+      route_polyline: execution.route_polyline ?? null,
+      pace_zones: buildZoneLookup(zoneProfiles).run?.bands ?? null,
+      client: sql,
+    }),
+  ]);
+  return { segments, trace };
+}
+
 // A modality → resolved-zone-bands lookup, built once per request from the
 // athlete's stored profiles. The plan target carries a modality (run/row/ski/
 // bike); we index the matching profile's snapshot bands by it. `bike` and `ski`
@@ -776,7 +808,7 @@ export type ZoneLookup = Partial<
   Record<AthleteZoneProfile['modality'], { bands: ResolvedZone[]; needs_review: boolean }>
 >;
 
-function buildZoneLookup(profiles: AthleteZoneProfile[]): ZoneLookup {
+export function buildZoneLookup(profiles: AthleteZoneProfile[]): ZoneLookup {
   const out: ZoneLookup = {};
   for (const p of profiles) {
     // zones_json already holds the resolved absolute bands (snapshot). Adapt the
@@ -801,7 +833,7 @@ function buildZoneLookup(profiles: AthleteZoneProfile[]): ZoneLookup {
 // there's no execution AND the session isn't marked done — a still-pending session
 // has nothing to show. A done session with no execution row (legacy / edge) still
 // yields a block so the UI can render the "hecho" state honestly with no numbers.
-function buildExecutionBlock(
+export function buildExecutionBlock(
   status: AssignmentRow['status'],
   execution: ExecutionRow | null,
   segments: SegmentActual[],

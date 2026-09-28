@@ -233,4 +233,97 @@ describeWithDb('athlete history by month (real DB)', () => {
     },
     DB_TEST_TIMEOUT_MS,
   );
+
+  // Lo hecho sin asignación (importación de Salud, «fuera del plan») cuenta en carga
+  // y en zonas; en el historial solo salía lo que tenía asignación (INNER JOIN).
+  // Y el descanso lo decide el plan del COACH: un libre no convierte días en «descanso».
+  test(
+    'libres, importaciones y fuera del plan: filas completas; el descanso es solo del coach',
+    async () => {
+      const fx = await makeCoachAndAthlete(sql);
+      cleanups.push(async () => {
+        await sql`delete from workout_executions where athlete_id = ${fx.athleteId}`;
+      });
+      cleanups.push(fx.cleanup);
+      const templateId = await makeTemplate({ fx, name: 'Series 6×800' });
+
+      // Semana del coach lun 11 → dom 17 de mayo de 2026: solo el lunes.
+      const mon = await makeAssignment({ fx, templateId, scheduledForIso: '2026-05-11', status: 'completed' });
+      const monEx = await insertExecution({ assignmentId: mon, athleteId: fx.athleteId, startedAt: '2026-05-11T08:00:00Z', durationS: 3000 });
+      await sql`
+        insert into segment_executions (execution_id, position, modality, started_at, ended_at, distance_meters)
+        values (${monEx}, 0, 'run', '2026-05-11T08:00:00Z', '2026-05-11T08:40:00Z', 8000),
+               (${monEx}, 1, 'strength', '2026-05-11T08:40:00Z', '2026-05-11T08:50:00Z', null)
+      `;
+      await sql`update workout_executions set total_distance_m = 8000 where id = ${monEx}`;
+
+      // Miércoles: un libre hecho. Martes: un libre montado y NO hecho (no es plan).
+      const libre = await sql<{ id: string }[]>`
+        insert into workout_assignments (athlete_id, scheduled_for, template_id, template_version, status, origin)
+        values (${fx.athleteId}, '2026-05-13', ${templateId}, 1, 'completed', 'self'),
+               (${fx.athleteId}, '2026-05-12', ${templateId}, 1, 'scheduled', 'self')
+        returning id::text
+      `;
+      await insertExecution({ assignmentId: Number(libre[0]!.id), athleteId: fx.athleteId, startedAt: '2026-05-13T08:00:00Z', durationS: 1800 });
+
+      // Jueves: remo importado de Salud, sin asignación. Viernes: un AMRAP guardado
+      // fuera del plan porque el coach quitó la sesión mientras entrenaba.
+      const imp = await sql<{ id: string }[]>`
+        insert into workout_executions (assignment_id, athlete_id, started_at, ended_at, total_duration_seconds, total_distance_m, source, recorded_via)
+        values (null, ${fx.athleteId}, '2026-05-14T07:00:00Z', '2026-05-14T07:30:00Z', 1800, 6000, 'healthkit', 'imported')
+        returning id::text
+      `;
+      await sql`
+        insert into segment_executions (execution_id, position, modality, started_at, ended_at, distance_meters)
+        values (${imp[0]!.id}, 0, 'row', '2026-05-14T07:00:00Z', '2026-05-14T07:30:00Z', 6000)
+      `;
+      const off = await sql<{ id: string }[]>`
+        insert into workout_executions (assignment_id, athlete_id, started_at, total_duration_seconds, score_rounds, score_reps, source, recorded_via, off_plan_reason, claimed_assignment_id)
+        values (null, ${fx.athleteId}, '2026-05-15T17:00:00Z', 1200, 7, 12, 'manual', 'live', 'assignment_gone', 999999)
+        returning id::text
+      `;
+
+      // Sin opt-in: la respuesta de siempre (la app instalada no decodifica un
+      // assignment_id nulo), con los campos nuevos.
+      const legacy = await buildAthleteHistoryMonth(fx.athleteId, '2026-05', sql);
+      const legacyDays = new Map(legacy.days.map((d) => [d.date, d]));
+      expect(legacy.days.flatMap((d) => d.sessions).every((s) => s.assignment_id != null)).toBe(true);
+      expect(legacyDays.get('2026-05-11')!.sessions[0]).toMatchObject({
+        execution_id: String(monEx),
+        modality: 'run',
+        distance_m: 8000,
+        origin: 'coach',
+      });
+      expect(legacyDays.get('2026-05-13')!.sessions[0]).toMatchObject({ origin: 'self' });
+      // El martes del libre sin hacer es descanso: el plan del coach no puso nada.
+      expect(legacyDays.get('2026-05-12')).toMatchObject({ is_rest: true, sessions: [] });
+
+      // Con opt-in: la importación y el fuera del plan, con su ejecución y sin asignación.
+      const full = await buildAthleteHistoryMonth(fx.athleteId, '2026-05', sql, { include_unplanned: true });
+      const fullDays = new Map(full.days.map((d) => [d.date, d]));
+      expect(fullDays.get('2026-05-14')!.sessions[0]).toMatchObject({
+        execution_id: imp[0]!.id,
+        assignment_id: null,
+        title: 'Remo',
+        modality: 'row',
+        distance_m: 6000,
+        recorded_via: 'imported',
+        origin: null,
+        off_plan_reason: null,
+      });
+      expect(fullDays.get('2026-05-15')!.sessions[0]).toMatchObject({
+        execution_id: off[0]!.id,
+        assignment_id: null,
+        title: 'Entreno',
+        modality: null,
+        score_rounds: 7,
+        score_reps: 12,
+        off_plan_reason: 'assignment_gone',
+      });
+      // Un día con trabajo nunca es descanso; el sábado y el domingo siguen siéndolo.
+      expect(fullDays.get('2026-05-14')!.is_rest).toBe(false);
+      expect(fullDays.get('2026-05-16')!.is_rest).toBe(true);
+    },
+    DB_TEST_TIMEOUT_MS,
+  );
 });
