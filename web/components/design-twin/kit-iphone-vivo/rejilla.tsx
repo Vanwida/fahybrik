@@ -31,8 +31,30 @@ import { ALTO, CELDA, CI, HUECO, MARGEN, TI } from './tokens';
  */
 const CELDA_ALTA = 132;
 
-function Celda({ m, alta, compacta }: { m: Metrica; alta: boolean; compacta: boolean }) {
-  const cuerpo = alta && !m.texto ? TI.trabajo.cuerpo : compacta ? TI.datoTexto.cuerpo + 2 : TI.dato.cuerpo;
+/**
+ * `ancho`: el de la celda. El valor solo crece a 40 pt si la fila entera
+ * («128 ppm ↓ Z1») cabe en UNA línea: se mide en el DOM tras pintar, y si
+ * se partió, vuelve a 30. Se vuelve a intentar cuando cambia el ancho.
+ */
+function Celda({ m, alta, compacta, ancho }: { m: Metrica; alta: boolean; compacta: boolean; ancho?: number }) {
+  const fila = useRef<HTMLSpanElement>(null);
+  const quiereCrecer = alta && !m.texto;
+  const piezas = [m.unidad, m.tendencia, m.zona?.n, m.aviso?.texto].filter((x) => x != null).length;
+  // Lo medido vale para ESTE ancho y estas piezas: si cambian, se vuelve a intentar a 40.
+  const [medida, setMedida] = useState<{ ancho?: number; piezas: number; ok: boolean } | null>(null);
+  const cabe = medida && medida.ancho === ancho && medida.piezas === piezas ? medida.ok : true;
+  useLayoutEffect(() => {
+    const el = fila.current;
+    if (!el || !quiereCrecer || !cabe) return;
+    const comprobar = () => {
+      const hijos = Array.from(el.children);
+      const arriba = hijos[0]?.getBoundingClientRect().top ?? 0;
+      if (hijos.some((h) => h.getBoundingClientRect().top > arriba + 2)) setMedida({ ancho, piezas, ok: false });
+    };
+    comprobar();
+  });
+  const crece = quiereCrecer && cabe;
+  const cuerpo = crece ? TI.trabajo.cuerpo : compacta ? TI.datoTexto.cuerpo + 2 : TI.dato.cuerpo;
   return (
     <div
       style={{
@@ -60,7 +82,7 @@ function Celda({ m, alta, compacta }: { m: Metrica; alta: boolean; compacta: boo
       {m.texto ? (
         <span style={{ fontSize: alta ? TI.datoTexto.cuerpo + 4 : TI.datoTexto.cuerpo, fontWeight: TI.datoTexto.peso, color: CI.tinta, lineHeight: 1.15, textWrap: 'balance', overflowWrap: 'anywhere' }}>{m.valor}</span>
       ) : (
-        <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4, whiteSpace: 'nowrap', flexWrap: 'wrap', rowGap: 2 }}>
+        <span ref={fila} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4, whiteSpace: 'nowrap', flexWrap: 'wrap', rowGap: 2 }}>
           <Numeral texto={m.valor} cuerpo={cuerpo} />
           {m.unidad ? <Etiqueta>{m.unidad}</Etiqueta> : null}
           {m.tendencia ? <Etiqueta tono={CI.tinta}>{m.tendencia === 'baja' ? '↓' : '↑'}</Etiqueta> : null}
@@ -94,13 +116,17 @@ export function Rejilla({ metricas, children, compacta = false }: { metricas: Me
   const celdas = metricas.slice(0, 4);
   const ref = useRef<HTMLDivElement>(null);
   const [altoCelda, setAltoCelda] = useState(0);
+  const [anchoRejilla, setAnchoRejilla] = useState(0);
   const filas = filasDe(celdas);
   // Con N impar sin anchas, la última va a lo ancho para no dejar un hueco.
   const ultimaSuelta = celdas.length % 2 === 1 && !celdas.some(aLoAncho);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const medir = () => setAltoCelda((el.clientHeight - HUECO * (filas - 1)) / filas);
+    const medir = () => {
+      setAltoCelda((el.clientHeight - HUECO * (filas - 1)) / filas);
+      setAnchoRejilla(el.clientWidth);
+    };
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(el);
@@ -112,13 +138,16 @@ export function Rejilla({ metricas, children, compacta = false }: { metricas: Me
       {children}
       {celdas.length > 0 ? (
         <div ref={ref} style={{ flex: compacta ? '0 0 auto' : '1 1 auto', minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gridAutoRows: compacta ? 'auto' : 'minmax(0, 1fr)', gap: HUECO }}>
-          {celdas.map((m, k) => (
-            <div key={`${m.clave}-${k}`} style={{ display: 'flex', minHeight: 0, gridColumn: aLoAncho(m) || (ultimaSuelta && k === celdas.length - 1) ? '1 / -1' : undefined }}>
+          {celdas.map((m, k) => {
+            const ancha = aLoAncho(m) || (ultimaSuelta && k === celdas.length - 1);
+            return (
+            <div key={`${m.clave}-${k}`} style={{ display: 'flex', minHeight: 0, gridColumn: ancha ? '1 / -1' : undefined }}>
               <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                <Celda m={m} alta={alta} compacta={compacta} />
+                <Celda m={m} alta={alta} compacta={compacta} ancho={anchoRejilla > 0 ? (ancha ? anchoRejilla : (anchoRejilla - HUECO) / 2) : undefined} />
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div style={{ flex: '1 1 auto' }} />

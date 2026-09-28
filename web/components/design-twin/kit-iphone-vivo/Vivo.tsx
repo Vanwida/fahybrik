@@ -28,7 +28,7 @@ import { laminaDelPaso, type HeroeVista } from '../kit-reloj/lamina';
 import { esTest, familiaDe, formatoDe } from '../kit-reloj/familia';
 import { heroeDeFamilia, metricasDelPaso, trabajoDe, type ExtraFamilia } from '../kit-reloj/metricas';
 import { luegoDe, posicionDe, type LuegoVista } from '../kit-reloj/posicion';
-import { fmtReloj, tinteDelPaso } from '../kit-reloj/reglas';
+import { esCarrera, fmtReloj, tinteDelPaso } from '../kit-reloj/reglas';
 import type { InicioSecuencia, PlanSesion, Simulador } from '../kit-reloj/secuencia';
 import { avisoDeCierre, sesionDe, useVivo } from '../kit-reloj/vivo';
 import { AvisoDeshacer, FranjaAccion, HojaTerminar, Terminado, VeloPausa, resumenParaTerminar, type ClavePrimaria, type PrimariaVista } from './accion';
@@ -38,7 +38,7 @@ import { SIN_DISPOSITIVOS, enlacesDe, notaEnlace, usaGps, type ChipEnlace, type 
 import { PaginaEstructura, PaginaMapa, PaginasLaterales, type IdPagina, type PaginaLateral } from './paginas';
 import { KEYFRAMES_IPHONE, LienzoContexto, useMedidaLienzo } from './piezas';
 import { Luego, Rejilla, TiraEstructura } from './rejilla';
-import { AvisoVuelta, BandaObjetivo, CuentaAtras, Sujeto, Trabajo, type TrabajoVista } from './sujeto';
+import { AvisoVuelta, BandaObjetivo, CuentaAtras, Instruccion, Sujeto, Trabajo, type TrabajoVista } from './sujeto';
 import { ALTO, CI, DURACION, HUECO, MARGEN, anchoUtil, tinteAmbiente } from './tokens';
 
 /** Los gestos que un escenario puede guionizar: pasan por el MISMO camino que el dedo. */
@@ -164,6 +164,9 @@ export function VistaIphone(p: VistaIphoneProps) {
   const heroe = p.heroe ? p.heroe(seq, heroeKit) : heroeKit;
   const lamina = laminaDelPaso(paso, lecturas, zonas, plan.reglas);
   const banda = paso.rol === 'trabajo' ? lamina.banda : null;
+  // Correr a RPE (P3): la instrucción ocupa el sitio de la banda. Fuerza ya la
+  // lleva en la etiqueta del héroe («65–70 % RM · RIR 2»): no se repite.
+  const instruccion = paso.rol === 'trabajo' && !banda && esCarrera(paso) ? lamina.instruccion : null;
   const chips: ChipEnlace[] = enlacesDe(dispositivos, paso, lecturas);
   const nota = notaEnlace(chips) ?? (paso.cue ? `Coach · ${paso.cue}` : null);
   const metricas = metricasDelPaso(paso, lecturas, heroe.clase, zonas, extraCompleto, plan.reglas);
@@ -177,7 +180,9 @@ export function VistaIphone(p: VistaIphoneProps) {
   // El total en la cabecera (la puntuación, que no se va); si el héroe YA es el total, el de sesión.
   const crono =
     total != null && heroe.etiqueta !== 'total' ? { valor: fmtReloj(total), etiqueta: 'total' as const } : { valor: fmtReloj(estado.sesionT), etiqueta: 'sesión' as const };
-  const formato = formatoDe(pasoDelFormato(seq));
+  // Un formato que solo repite el nombre de lo que haces («Rodaje» bajo «Rodaje · Z2 · 50′») no dice nada: fuera (un dato, un sitio).
+  const formatoKit = formatoDe(pasoDelFormato(seq));
+  const formato = posicion[0]?.startsWith(formatoKit) ? '' : formatoKit;
   const tinte = tinteDelPaso(paso, lecturas, zonas);
   const arcos = arcosDePlan(plan.pasos, p.duracion);
   const conMapa = plan.pasos.some(usaGps);
@@ -253,7 +258,7 @@ export function VistaIphone(p: VistaIphoneProps) {
   const horizontal = lienzo.horizontal;
   // En horizontal el sujeto vive en la columna izquierda (§3): su ancho y su alto son los de la columna.
   const anchoColumna = Math.floor(((lienzo.ancho - 2 * 59 - HUECO) * 1.1) / 2.1);
-  const altoColumna = lienzo.alto - 21 - ALTO.cabecera - (banda ? ALTO.banda + HUECO : 0) - (trabajo ? ALTO.trabajo + HUECO : 0) - 2 * HUECO;
+  const altoColumna = lienzo.alto - 21 - ALTO.cabecera - (banda || instruccion ? ALTO.banda + HUECO : 0) - (trabajo ? ALTO.trabajo + HUECO : 0) - 2 * HUECO;
   const sujeto = horizontal ? (
     <Sujeto heroe={heroe} nota={nota} alto={Math.max(120, altoColumna)} ancho={anchoColumna - 2 * MARGEN} />
   ) : (
@@ -262,7 +267,7 @@ export function VistaIphone(p: VistaIphoneProps) {
   const bloqueSujeto = (
     <>
       {sujeto}
-      {banda ? <BandaObjetivo banda={banda} /> : null}
+      {banda ? <BandaObjetivo banda={banda} /> : instruccion ? <Instruccion texto={instruccion} /> : null}
       {trabajo ? <Trabajo trabajo={trabajo} extra={enDescanso && paso.rol === 'descanso' ? <Mas30 onMas30={seq.sumar30} /> : undefined} /> : null}
     </>
   );

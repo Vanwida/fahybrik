@@ -19,7 +19,6 @@ import { esFuerza, fmtKg, kgDelPlan, textoEsfuerzo, textoKgPlan, textoPct, texto
 import { heroeDelPaso, lineaPulso, type HeroeVista, type LineaVista } from './lamina';
 import { REGLAS_AVISO_DEFECTO, type Lecturas, type PasoBase, type ReglasAviso, type ZonasCoach } from './paso';
 import {
-  esCarrera,
   faltaDe,
   fmtDistancia,
   fmtDuracion,
@@ -348,7 +347,8 @@ export function metricasDelPaso(
       m.push(distancia(x), rondaDe(p, x), cadencia(l, 'pasos'));
       break;
     case 'cinta':
-      if (heroe !== 'ritmo') m.push(ritmo(l));
+      // Sin la cinta conectada nadie mide el ritmo: no se pinta (solo «—» si se medía y se perdió).
+      if (heroe !== 'ritmo' && medido(l, l.ritmo, 'ritmo')) m.push(ritmo(l));
       if (conPulso) m.push(pulso(p, l, zonas, reglas));
       m.push(inclinacion(p), distancia(x));
       break;
@@ -438,7 +438,8 @@ export function metricasDelPaso(
     case 'movilidad':
     default:
       if (conPulso) m.push(pulso(p, l, zonas, reglas));
-      if (f === 'recupera' && esCarrera(p)) m.push(ritmo(l));
+      // Trotando o caminando el GPS sigue midiendo: el ritmo si alguien lo mide, nunca por la clase.
+      if (f === 'recupera' && medido(l, l.ritmo, 'ritmo')) m.push(ritmo(l));
       m.push(totalDe(x));
       break;
   }
