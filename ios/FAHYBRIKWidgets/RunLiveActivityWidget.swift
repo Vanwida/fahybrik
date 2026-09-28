@@ -21,7 +21,13 @@ private let acentoMarca = Color(red: 0xF0 / 255, green: 0x6A / 255, blue: 0x2A /
 struct RunLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RunActivityAttributes.self) { context in
-            RunLiveActivityLockScreen(state: context.state)
+            Group {
+                if context.state.positionLabel != nil {
+                    VivoLiveActivityLockScreen(state: context.state)
+                } else {
+                    RunLiveActivityLockScreen(state: context.state)
+                }
+            }
                 // SIN OPACIDAD, y esto es doctrina de Apple, no gusto: el fondo por
                 // defecto de una Live Activity en la pantalla bloqueada YA es opaco
                 // (blanco en claro, negro en oscuro). En cuanto le pones opacidad al
@@ -35,45 +41,71 @@ struct RunLiveActivityWidget: Widget {
                 .activitySystemActionForegroundColor(acentoMarca)
         } dynamicIsland: { context in
             let s = context.state
+            let vivo = s.positionLabel != nil
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    islandMetric(value: s.paceLabel.isEmpty ? s.timeLabel : s.paceLabel,
-                                 unit: s.paceLabel.isEmpty ? "tiempo" : "/km",
-                                 accent: !s.paused)
+                    if vivo {
+                        islandMetric(value: s.heroLabel ?? s.timeLabel, unit: s.heroUnit ?? "", accent: !s.paused)
+                    } else {
+                        islandMetric(value: s.paceLabel.isEmpty ? s.timeLabel : s.paceLabel,
+                                     unit: s.paceLabel.isEmpty ? "tiempo" : "/km",
+                                     accent: !s.paused)
+                    }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     // Sin zona la métrica SE VA de la isla, no se queda como guion: la
                     // pantalla bloqueada no ofrece ninguna acción para arreglarlo, y la
                     // región de al lado ya dice el porqué (`paceLabel` trae la razón).
                     // Es lo mismo que hace la banda de abajo, que omite su chip (§7).
-                    if !s.zoneLabel.isEmpty {
+                    if vivo {
+                        if let a = s.actionLabel, !a.isEmpty, !s.paused { VivoLiveActivityAccion(texto: a) }
+                    } else if !s.zoneLabel.isEmpty {
                         islandMetric(value: s.zoneLabel, unit: "zona", accent: false)
                     }
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    Text(s.paused ? "PAUSA" : (s.legLabel.isEmpty ? "Carrera" : s.legLabel))
-                        .font(.system(size: 13, weight: .heavy).italic())
-                        .foregroundStyle(s.paused ? acentoMarca : .secondary)
+                    Text(s.paused ? "PAUSA" : vivo ? (s.positionLabel ?? "") : (s.legLabel.isEmpty ? "Carrera" : s.legLabel))
+                        .font(vivo ? .system(size: 15, weight: .bold) : .system(size: 13, weight: .heavy).italic())
+                        .foregroundStyle(s.paused ? acentoMarca : vivo ? .primary : .secondary)
                         .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
-                        Label(s.distanceLabel, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-                            .labelStyle(.titleAndIcon)
-                        Spacer()
-                        Label(s.timeLabel, systemImage: "clock")
-                            .labelStyle(.titleAndIcon)
+                        if vivo {
+                            if let v = s.verdictLabel, !v.isEmpty { Text(v).font(.system(size: 13, weight: .semibold)) }
+                            Spacer()
+                            Label(s.timeLabel, systemImage: "clock").labelStyle(.titleAndIcon)
+                        } else {
+                            Label(s.distanceLabel, systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                                .labelStyle(.titleAndIcon)
+                            Spacer()
+                            Label(s.timeLabel, systemImage: "clock")
+                                .labelStyle(.titleAndIcon)
+                        }
                     }
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.secondary)
                 }
             } compactLeading: {
-                Image(systemName: s.paused ? "pause.fill" : "figure.run")
-                    .foregroundStyle(acentoMarca)
+                if vivo {
+                    Text(s.heroLabel ?? "")
+                        .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(s.paused ? .secondary : .primary)
+                } else {
+                    Image(systemName: s.paused ? "pause.fill" : "figure.run")
+                        .foregroundStyle(acentoMarca)
+                }
             } compactTrailing: {
-                Text(s.paceLabel)
-                    .font(.system(size: 13, weight: .heavy, design: .monospaced))
-                    .foregroundStyle(s.paused ? .secondary : .primary)
+                if vivo {
+                    HStack(spacing: 4) {
+                        Image(systemName: "heart.fill").font(.system(size: 10)).foregroundStyle(acentoMarca)
+                        Text(s.timeLabel).font(.system(size: 13, weight: .semibold).monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text(s.paceLabel)
+                        .font(.system(size: 13, weight: .heavy, design: .monospaced))
+                        .foregroundStyle(s.paused ? .secondary : .primary)
+                }
             } minimal: {
                 Image(systemName: s.paused ? "pause.fill" : "figure.run")
                     .foregroundStyle(acentoMarca)
@@ -143,5 +175,73 @@ struct RunLiveActivityLockScreen: View {
             .font(.system(size: 13, weight: .semibold, design: .monospaced))
             .foregroundStyle(.secondary)
             .labelStyle(.titleAndIcon)
+    }
+}
+
+
+// MARK: - El vivo rehecho (28-09, I11): la MISMA lámina que la pantalla
+
+/// La acción primaria, pintada como en el vivo (superficie, texto en tinta).
+/// NO se pulsa: un botón interactivo exige un `LiveActivityIntent` (App Intents)
+/// compilado en la app y en esta extensión, que no existe todavía.
+struct VivoLiveActivityAccion: View {
+    let texto: String
+    var body: some View {
+        Text(texto)
+            .font(.system(size: 15, weight: .bold))
+            .foregroundStyle(.primary)
+            .lineLimit(1)
+            .padding(.horizontal, 14)
+            .frame(height: 36)
+            .background(Color.white.opacity(0.12), in: Capsule())
+    }
+}
+
+/// La tarjeta de la pantalla de bloqueo del vivo rehecho: la marca y la posición
+/// arriba con el crono; el héroe con su unidad y el veredicto abajo, y la acción.
+struct VivoLiveActivityLockScreen: View {
+    let state: RunActivityAttributes.ContentState
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 8) {
+                Text("F")
+                    .font(.system(size: 12, weight: .black).italic())
+                    .foregroundStyle(.black)
+                    .frame(width: 22, height: 22)
+                    .background(acentoMarca, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                Text(state.paused ? "En pausa" : (state.positionLabel ?? ""))
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Text(state.timeLabel)
+                    .font(.system(size: 17, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            HStack(alignment: .bottom, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    if let c = state.heroCaption, !c.isEmpty {
+                        Text(c).font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary)
+                    }
+                    HStack(alignment: .lastTextBaseline, spacing: 6) {
+                        Text(state.heroLabel ?? "")
+                            .font(.system(size: 44, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(state.paused ? .secondary : .primary)
+                            .lineLimit(1).minimumScaleFactor(0.6)
+                        if let u = state.heroUnit, !u.isEmpty {
+                            Text(u).font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary)
+                        }
+                        if let v = state.verdictLabel, !v.isEmpty {
+                            Text(v).font(.system(size: 15, weight: .semibold)).foregroundStyle(.primary)
+                        }
+                    }
+                }
+                Spacer(minLength: 0)
+                if let a = state.actionLabel, !a.isEmpty, !state.paused { VivoLiveActivityAccion(texto: a) }
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
     }
 }
