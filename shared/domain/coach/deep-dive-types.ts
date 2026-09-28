@@ -11,9 +11,13 @@ import { z } from 'zod';
 import { type AlertReason } from './types';
 import type { LoadCoverage } from '../training-load/coverage';
 
-// Modality categories Pablo cares about — mapped from exercise.category +
-// segment heuristics. See deep-dive helpers.
-export const MODALITY_KEYS = ['running', 'strength', 'hyrox', 'skill', 'recovery'] as const;
+// The weekly work split of the deep dive. Classified per TRAMO from what was
+// actually done (`segment_executions.modality`), with the movement's catalog
+// category only for the rest (web/lib/coach/deep-dive-modality.ts). `erg` exists
+// because a row or a SkiErg is not running (they used to land in «running» and
+// add their metres to the running km); `other` so that nothing done vanishes
+// from the split and the percentages add up to 100.
+export const MODALITY_KEYS = ['running', 'erg', 'strength', 'hyrox', 'skill', 'recovery', 'other'] as const;
 export type ModalityKey = (typeof MODALITY_KEYS)[number];
 
 export const PERFORMANCE_GROUPS = ['running', 'hyrox_stations', 'strength'] as const;
@@ -102,8 +106,8 @@ export interface ModalityRow {
   key: ModalityKey;
   label: string;
   hours: number;
-  pct: number;          // share of last-7d session time
-  km: number | null;          // running only
+  pct: number;          // share of last-7d session time; the rows add up to 100
+  km: number | null;          // running only (run tramos' metres, never erg metres)
   kg: number | null;          // strength only (volume tonnage)
 }
 
