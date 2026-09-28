@@ -27,7 +27,7 @@ import { useGuion } from '../kit-reloj/gestos';
 import { laminaDelPaso, type HeroeVista } from '../kit-reloj/lamina';
 import { esTest, familiaDe, formatoDe } from '../kit-reloj/familia';
 import { heroeDeFamilia, metricasDelPaso, trabajoDe, type ExtraFamilia } from '../kit-reloj/metricas';
-import { luegoDe, posicionDe } from '../kit-reloj/posicion';
+import { luegoDe, posicionDe, type LuegoVista } from '../kit-reloj/posicion';
 import { fmtReloj, tinteDelPaso } from '../kit-reloj/reglas';
 import type { InicioSecuencia, PlanSesion, Simulador } from '../kit-reloj/secuencia';
 import { avisoDeCierre, sesionDe, useVivo } from '../kit-reloj/vivo';
@@ -62,6 +62,18 @@ export interface VistaIphoneProps {
   cronoTotal?: (seq: Secuencia) => number | null;
   /** La anotación de la serie en el descanso de fuerza (I7): va en la franja elástica, sobre la rejilla. */
   anotar?: ReactNode | null;
+  /**
+   * Lo que la familia mete en la franja elástica DURANTE el trabajo o una
+   * transición (la lista ±1 del chipper, la puntuación del AMRAP): sobre las
+   * celdas, que pasan a compactas y se recortan a `celdasConApoyo`.
+   */
+  apoyo?: (seq: Secuencia, kit: { irA: (id: IdPagina) => void }) => ReactNode | null;
+  /** Cuántas celdas quedan bajo el apoyo (por defecto 2, como en la anotación). */
+  celdasConApoyo?: number;
+  /** «Luego ·», si la familia lo cambia; `null` lo quita (cuando el apoyo ya dice lo que viene: un dato, un sitio). */
+  luego?: (seq: Secuencia, porDefecto: LuegoVista | null) => LuegoVista | null;
+  /** El detalle de «Sesión completada» cuando el motor cierra el último paso (la puntuación de un death by). */
+  detalleFin?: (seq: Secuencia) => string | null;
   /** El estimador de duración de cada paso para repartir la tira. */
   duracion?: Estimador;
   /** Qué dice el aviso de deshacer al cerrar a mano. */
@@ -91,7 +103,7 @@ function clavePorDefecto(seq: Secuencia): ClavePrimaria | null {
     if (f === 'fuerza') return 'serie hecha';
     if (f === 'emom') return 'hecho';
     if (f === 'amrap') return null;
-    if (f === 'estacion') return 'estación hecha';
+    if (f === 'estacion' || f === 'fortime') return 'estación hecha';
     if (f === 'remo' || f === 'ski' || f === 'bici') return paso.posicion?.serie ? 'serie hecha' : 'estación hecha';
     return 'siguiente paso';
   }
@@ -150,12 +162,15 @@ export function VistaIphone(p: VistaIphoneProps) {
   // La ronda en curso de un circuito: lo hecho de esta ronda más este paso.
   const ronda = paso.posicion?.ronda?.n;
   const rondaS = ronda != null ? estado.parciales.filter((x) => plan.pasos[x.i]?.posicion?.ronda?.n === ronda).reduce((a, x) => a + x.segundos, 0) + lecturas.t : null;
+  // El paso de trabajo anterior con su parcial (la ronda anterior del tabata): del motor, no de la familia.
+  const parcialAnterior = [...estado.parciales].reverse().find((x) => plan.pasos[x.i]?.rol === 'trabajo') ?? null;
   const extraCompleto: ExtraFamilia = {
     metrosPaso: estado.midio ? estado.metros : null,
     total,
     totalEnCabecera: total != null,
     rondaS,
     siguienteNombre: paso.siguiente?.nombre ?? null,
+    anterior: parcialAnterior ? { paso: plan.pasos[parcialAnterior.i]!, parcial: parcialAnterior } : null,
     ...extra,
   };
   const heroeKit = heroeDeFamilia(paso, lecturas, zonas, extraCompleto);
@@ -165,11 +180,12 @@ export function VistaIphone(p: VistaIphoneProps) {
   const chips: ChipEnlace[] = enlacesDe(dispositivos, paso, lecturas);
   const nota = notaEnlace(chips) ?? (paso.cue ? `Coach · ${paso.cue}` : null);
   const metricas = metricasDelPaso(paso, lecturas, heroe.clase, zonas, extraCompleto, plan.reglas);
-  const luego = luegoDe(plan.pasos, estado.i);
+  const luegoKit = luegoDe(plan.pasos, estado.i);
+  const luego = p.luego ? p.luego(seq, luegoKit) : luegoKit;
   const enDescanso = paso.rol === 'descanso' || paso.rol === 'recuperacion';
   const trabajoKit = trabajoDe(paso, lecturas, heroe.clase);
   // El tempo de fuerza ya tiene celda en la rejilla: la fila del trabajo no lo repite (un dato, un sitio).
-  const trabajo: TrabajoVista | null = enDescanso && luego ? { etiqueta: 'viene', valor: luego.que, texto: true } : trabajoKit?.etiqueta === 'tempo' ? null : trabajoKit;
+  const trabajo: TrabajoVista | null = enDescanso && luegoKit ? { etiqueta: 'viene', valor: luegoKit.que, texto: true } : trabajoKit?.etiqueta === 'tempo' ? null : trabajoKit;
   const posicion = p.posicion ? p.posicion(seq) : posicionDe(paso, extraCompleto);
   // El total en la cabecera (la puntuación, que no se va); si el héroe YA es el total, el de sesión.
   const crono =
@@ -193,7 +209,19 @@ export function VistaIphone(p: VistaIphoneProps) {
     const clave = clavePorDefecto(seq);
     if (clave) primariaKit = { clave, hacer: clave === 'vuelta' ? seq.vuelta : cerrar };
   }
-  const primaria = p.primaria ? p.primaria(seq, primariaKit) : primariaKit;
+  const primariaFamilia = p.primaria ? p.primaria(seq, primariaKit) : primariaKit;
+  // Una acción de la familia con deshacer pasa por el mismo aviso de 5 s que un cierre a mano.
+  const primaria: PrimariaVista | null =
+    primariaFamilia?.deshacer
+      ? {
+          ...primariaFamilia,
+          hacer: () => {
+            const d = primariaFamilia.deshacer!;
+            primariaFamilia.hacer();
+            setToast((t) => ({ n: (t?.n ?? 0) + 1, aviso: d.aviso, hacer: d.hacer }));
+          },
+        }
+      : primariaFamilia;
 
   // ── gestos ──────────────────────────────────────────────────────────────
   const pausar = (si: boolean) => {
@@ -206,6 +234,8 @@ export function VistaIphone(p: VistaIphoneProps) {
     setPagina(n);
     onLog(`Página → ${id === 'vivo' ? 'Vivo' : id === 'estructura' ? 'Estructura' : 'Mapa'}`);
   };
+  // Lo que la familia mete en la franja elástica: la anotación en el descanso, o su apoyo en el trabajo.
+  const apoyo = enDescanso ? (p.anotar ?? null) : (p.apoyo?.(seq, { irA }) ?? null);
   const terminarYGuardar = () => {
     setHoja(false);
     setTerminado(true);
@@ -265,8 +295,8 @@ export function VistaIphone(p: VistaIphoneProps) {
   );
   const bloqueApoyo = (
     <>
-      <Rejilla metricas={enDescanso && p.anotar ? metricas.slice(0, 2) : metricas} compacta={enDescanso && !!p.anotar}>
-        {enDescanso ? p.anotar : null}
+      <Rejilla metricas={apoyo ? metricas.slice(0, p.celdasConApoyo ?? 2) : metricas} compacta={!!apoyo}>
+        {apoyo}
       </Rejilla>
       {enDescanso ? null : <Luego luego={luego} />}
       <TiraEstructura arcos={arcos} enCurso={estado.i} fraccion={fraccionDelPaso(paso, lecturas)} onAbrir={() => irA('estructura')} />
@@ -364,7 +394,7 @@ export function VistaIphone(p: VistaIphoneProps) {
             }}
           />
         ) : null}
-        {terminado ? <Terminado titulo="Sesión terminada" detalle="guardando lo hecho…" /> : completada ? <Terminado titulo="Sesión completada" detalle="guardando…" /> : null}
+        {terminado ? <Terminado titulo="Sesión terminada" detalle="guardando lo hecho…" /> : completada ? <Terminado titulo="Sesión completada" detalle={p.detalleFin?.(seq) ?? 'guardando…'} /> : null}
       </div>
     </LienzoContexto.Provider>
   );

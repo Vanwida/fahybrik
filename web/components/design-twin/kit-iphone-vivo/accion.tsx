@@ -53,6 +53,12 @@ export interface PrimariaVista {
   hacer: () => void;
   /** Se puede ver pero no pulsar todavía, y por qué («sin GPS»). */
   desactivada?: string | null;
+  /**
+   * Una acción de la familia que no cierra el paso (+1 ronda, «hecho» en el
+   * EMOM) también se deshace 5 s: el kit enseña el MISMO aviso que en un
+   * cierre a mano. Sin esto, solo se deshacen los cierres del motor.
+   */
+  deshacer?: { aviso: string; hacer: () => void } | null;
 }
 
 /** La etiqueta y el peso de una clave del vocabulario. Una clave fuera del vocabulario no compila. */
