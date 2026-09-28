@@ -134,7 +134,7 @@ export function emom572(): PlanWod {
 // AMRAP — la ventana y, detrás, la puntuación (rondas + reps, o reps)
 // ---------------------------------------------------------------------------
 
-function amrap(tareas: Tarea[], duracionS: number, extra: Partial<Parcial> = {}): PasoBase[] {
+export function amrap(tareas: Tarea[], duracionS: number, extra: Partial<Parcial> = {}): PasoBase[] {
   const ventana = paso({
     clase: 'amrap',
     rol: 'trabajo',

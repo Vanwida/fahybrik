@@ -54,7 +54,7 @@ const ruido = (t: number, a: number) => Math.sin(t * 1.3) * a * 0.6 + Math.sin(t
  * calorías. Concept2 da los vatios del /500 (2,8 / (s/m)³) y ~1000 kcal/h a
  * 180 W; aquí, lo justo para que la rejilla enseñe lo que la máquina manda.
  */
-function conMaquina(sim: Simulador, cadencia: number, tipo: 'remo' | 'ski' | 'bici' = 'ski'): Simulador {
+export function conMaquina(sim: Simulador, cadencia: number, tipo: 'remo' | 'ski' | 'bici' = 'ski'): Simulador {
   return (p, i, t, sesionT) => {
     const l: LecturaSim = sim(p, i, t, sesionT);
     if (l.split500 == null || p.rol !== 'trabajo') return l;
