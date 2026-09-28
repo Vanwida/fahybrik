@@ -15,6 +15,13 @@ import {
   FREE_WORKOUT_MODALITY_SLUGS,
   type MeasuredModality,
 } from '@/lib/athlete/free-workout-validate';
+import { freeWorkoutContentBlocks } from '@/lib/athlete/free-workout-content';
+import { undosedContentLines } from '@/lib/templates/template-content';
+import {
+  buildTemplateContent,
+  writeTemplateContent,
+  type WrittenSegment,
+} from '@/lib/templates/template-content-db';
 
 // ENTRENO LIBRE — persist an athlete's OWN ("no prescrito") workout.
 //
@@ -27,7 +34,8 @@ import {
 //      table carries no `origin` column — origin is a property of the ASSIGNMENT
 //      (mig 0090), which is the single source every reader keys off. `format` is
 //      the workout's scheme (a measured scheme | 'sets' | the shared metcon).
-//   2. N `template_segments` rows in EXECUTION ORDER (position 1..N), one per
+//   2. N `template_segments` rows in EXECUTION ORDER (position 0..N-1, written by
+//      the single template writer — lib/templates, DECISIONS 2026-09-28), one per
 //      exercise line, each carrying its validated Prescription in
 //      `prescription_json`. Three shapes feed this uniformly:
 //        · MEASURED (row|ski|bike|run): exactly ONE segment — the canonical
@@ -70,7 +78,7 @@ const SELF_ORIGIN = 'self' as const;
 /** A recoverable, request-mappable failure (→ 422 at the route boundary). */
 export class FreeWorkoutError extends Error {
   constructor(
-    public readonly code: 'exercise_not_found' | 'record_failed' | 'plan_not_editable',
+    public readonly code: 'exercise_not_found' | 'record_failed' | 'plan_not_editable' | 'undosed_line',
     message: string,
   ) {
     super(message);
@@ -231,37 +239,16 @@ export async function updateFreeWorkoutPlan(
   }
 
   const segments = await resolveSegments(db, input);
-  const metaJson =
-    input.kind === 'clock'
-      ? { origin: SELF_ORIGIN, prescription: toJson(input.prescription) }
-      : { origin: SELF_ORIGIN };
   const templateId = Number(row.template_id);
-  const hasWarmup = segments.some((s) => s.part === 'warmup');
 
   await db.begin(async (tx) => {
     await tx`
       update templates
       set name = ${input.title}, format = ${input.scheme}::template_format,
-          meta_json = ${tx.json(metaJson)}
+          meta_json = ${tx.json({ origin: SELF_ORIGIN })}
       where id = ${templateId}
     `;
-    await tx`delete from template_segments where template_id = ${templateId}`;
-    for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i]!;
-      const isWarm = seg.part === 'warmup';
-      await tx`
-        insert into template_segments (
-          template_id, position, exercise_id, params_json,
-          block_position, block_format, block_title, prescription_json
-        )
-        values (
-          ${templateId}, ${i + 1}, ${seg.exerciseId}, '{}'::jsonb,
-          ${hasWarmup ? (isWarm ? 1 : 2) : 1}, ${input.scheme},
-          ${hasWarmup ? (isWarm ? 'Calentamiento' : input.title) : input.title},
-          ${tx.json(seg.prescriptionForDb)}
-        )
-      `;
-    }
+    await writeFreeWorkoutTemplate(tx, templateId, input, segments, { gate: true });
     await tx`
       update workout_assignments
       set scheduled_for = ${scheduledFor}::date, template_version = 1
@@ -321,7 +308,7 @@ export async function createFreeWorkout(
   const segments = await resolveSegments(db, input);
 
   const ids = await db.begin(async (tx) => {
-    const assignmentId = await persistFreeWorkoutPlanInTx(tx, { ...input, scheduledFor }, segments);
+    const assignmentId = await persistFreeWorkoutPlanInTx(tx, { ...input, scheduledFor }, segments, { gate: false });
 
     const rec = await recordWorkoutExecution({
       athleteId,
@@ -355,20 +342,16 @@ async function persistFreeWorkoutPlan(
   input: SaveFreeWorkoutPlanInput & { scheduledFor: string },
 ): Promise<number> {
   const segments = await resolveSegments(db, input);
-  return db.begin(async (tx) => persistFreeWorkoutPlanInTx(tx, input, segments));
+  return db.begin(async (tx) => persistFreeWorkoutPlanInTx(tx, input, segments, { gate: true }));
 }
 
 async function persistFreeWorkoutPlanInTx(
   tx: TransactionClient,
   input: SaveFreeWorkoutPlanInput & { scheduledFor: string },
   segments: ResolvedSegment[],
+  opts: { gate: boolean },
 ): Promise<number> {
   const { athleteId, coachId, title, scheme, scheduledFor } = input;
-
-  const metaJson =
-    input.kind === 'clock'
-      ? { origin: SELF_ORIGIN, prescription: toJson(input.prescription) }
-      : { origin: SELF_ORIGIN };
 
   const tplRows = await tx<Array<{ id: string }>>`
     insert into templates (
@@ -377,29 +360,13 @@ async function persistFreeWorkoutPlanInTx(
     )
     values (
       ${coachId}, ${title}, ${scheme}::template_format, 1,
-      false, false, ${athleteId}, ${tx.json(metaJson)}
+      false, false, ${athleteId}, ${tx.json({ origin: SELF_ORIGIN })}
     )
     returning id::text as id
   `;
   const templateId = Number(tplRows[0]!.id);
 
-  const hasWarmup = segments.some((s) => s.part === 'warmup');
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i]!;
-    const isWarm = seg.part === 'warmup';
-    await tx`
-      insert into template_segments (
-        template_id, position, exercise_id, params_json,
-        block_position, block_format, block_title, prescription_json
-      )
-      values (
-        ${templateId}, ${i + 1}, ${seg.exerciseId}, '{}'::jsonb,
-        ${hasWarmup ? (isWarm ? 1 : 2) : 1}, ${scheme},
-        ${hasWarmup ? (isWarm ? 'Calentamiento' : title) : title},
-        ${tx.json(seg.prescriptionForDb)}
-      )
-    `;
-  }
+  await writeFreeWorkoutTemplate(tx, templateId, input, segments, opts);
 
   const asgRows = await tx<Array<{ id: string }>>`
     insert into workout_assignments (
@@ -411,6 +378,39 @@ async function persistFreeWorkoutPlanInTx(
     returning id::text as id
   `;
   return Number(asgRows[0]!.id);
+}
+
+/**
+ * La plantilla del libre por el escritor ÚNICO (docs/DECISIONS.md 2026-09-28): los
+ * mismos bloques, filas, circuitos y reloj que escribiría el coach para la misma
+ * sesión. `gate` = el listón mínimo de dosis ejecutable, que pasa un plan para
+ * hacer después y NUNCA un entreno ya hecho (un entreno hecho no se pierde).
+ * Devuelve los segmentos en su orden (`{id, position, block_position}`), que es
+ * con lo que se enlazan los tramos ejecutados — nunca con el valor de `position`.
+ */
+async function writeFreeWorkoutTemplate(
+  tx: TransactionClient,
+  templateId: number,
+  input: SaveFreeWorkoutPlanInput,
+  segments: ResolvedSegment[],
+  opts: { gate: boolean },
+): Promise<WrittenSegment[]> {
+  const blocks = freeWorkoutContentBlocks(
+    input.title,
+    segments.map((s) => ({
+      exerciseId: s.exerciseId,
+      prescription: s.prescriptionForDb as unknown as Prescription,
+      ...(s.part ? { part: s.part } : {}),
+    })),
+  );
+  const built = await buildTemplateContent(tx, blocks);
+  if (opts.gate) {
+    const undosed = undosedContentLines(built.content, built.modalityByExercise);
+    if (undosed.length > 0) throw new FreeWorkoutError('undosed_line', undosed.join(' · '));
+  }
+  return writeTemplateContent(tx, templateId, built.content, {
+    clock: input.kind === 'clock' ? input.prescription : null,
+  });
 }
 
 /**

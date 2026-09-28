@@ -111,8 +111,6 @@
     {"archivo":"lib/athlete/communications.ts","huella":"d7195be6cc4d","tablas":["coach_communication_recipients","coach_communications"],"veces":1},
     {"archivo":"lib/athlete/create-free-workout.ts","huella":"051f9e428077","tablas":["workout_assignments","workout_executions"],"veces":1},
     {"archivo":"lib/athlete/create-free-workout.ts","huella":"1bf09abcf63e","tablas":["workout_assignments"],"veces":1},
-    {"archivo":"lib/athlete/create-free-workout.ts","huella":"2a8ad04a5f5d","tablas":["template_segments"],"veces":1},
-    {"archivo":"lib/athlete/create-free-workout.ts","huella":"2f0f6497523e","tablas":["template_segments"],"veces":2},
     {"archivo":"lib/athlete/create-free-workout.ts","huella":"812218790e9d","tablas":["workout_assignments"],"veces":1},
     {"archivo":"lib/athlete/create-free-workout.ts","huella":"d34e69315f4c","tablas":["templates"],"veces":1},
     {"archivo":"lib/athlete/create-free-workout.ts","huella":"e5faee0bb69a","tablas":["exercises"],"veces":1},
