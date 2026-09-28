@@ -141,6 +141,20 @@ function Marca({ x, fuera }: { x: number; fuera: 'por-encima' | 'por-debajo' | n
   );
 }
 
+/**
+ * LA INSTRUCCIÓN (P3): el objetivo que no es un número vivo —«RPE 7 · fuerte»—
+ * ocupa el sitio de la banda, con su misma altura: el sujeto no baila. Sin
+ * banda y sin instrucción, el pintor no monta ninguna de las dos.
+ */
+export function Instruccion({ texto }: { texto: string }) {
+  return (
+    <div style={{ height: ALTO.banda, flex: '0 0 auto', padding: `0 ${MARGEN}px`, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <Etiqueta>objetivo</Etiqueta>
+      <span style={{ fontSize: TI.posicion.cuerpo, fontWeight: TI.posicion.peso, color: CI.tinta, whiteSpace: 'nowrap', lineHeight: 1 }}>{texto}</span>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // El trabajo
 // ---------------------------------------------------------------------------

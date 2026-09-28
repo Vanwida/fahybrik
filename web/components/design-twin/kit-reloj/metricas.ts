@@ -345,7 +345,8 @@ export function metricasDelPaso(
       m.push(distancia(x), rondaDe(p, x), cadencia(l, 'pasos'));
       break;
     case 'cinta':
-      if (heroe !== 'ritmo') m.push(ritmo(l));
+      // Sin la cinta conectada nadie mide el ritmo: no se pinta (solo «—» si se medía y se perdió).
+      if (heroe !== 'ritmo' && medido(l, l.ritmo, 'ritmo')) m.push(ritmo(l));
       if (conPulso) m.push(pulso(p, l, zonas, reglas));
       m.push(inclinacion(p), distancia(x));
       break;
