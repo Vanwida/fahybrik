@@ -36,6 +36,11 @@ struct VivoIphoneCuadro {
     let registro: Vivo.Registro
     let seriesAnotables: [VivoSerieAnotable]
     let avisoCierre: String
+    /// El 3-2-1 del final de un paso de tiempo que entra en trabajo (la
+    /// recuperación parada, el descanso), con el paso al que se entra. El motor
+    /// solo cuenta al arrancar el bloque; esto es la cuenta del kit
+    /// (`Vivo.cuentaDeEntrada`). La carrera estructurada y el EMOM llevan la suya.
+    let entrada: (n: Int, paso: Vivo.Paso)?
 
     /// `declaradas`: los campos que el atleta confirmó o tocó en la anotación
     /// (por id de paso); lo demás sigue propuesto (I7).
@@ -52,7 +57,8 @@ struct VivoIphoneCuadro {
         var x = Vivo.ExtraFamilia()
         x.metrosPaso = e.metrosPaso
         let fijo = seg?.isConditioningTimer == true && [PrescriptionScheme.forTime, .chipper, .ladder, .rounds, .hyroxSim].contains(seg?.formatScheme)
-        if fijo, s.condCountInRemaining <= 0 { x.total = s.condElapsed }
+        // Un test es la sesión entera: su crono es el de la sesión, no un «total» de WOD.
+        if fijo, s.condCountInRemaining <= 0, !Vivo.esTest(p) { x.total = s.condElapsed }
         x.totalEnCabecera = x.total != nil
         if seg?.formatScheme == .amrap { x.rondas = s.fixedRoundsDone; x.repsSueltas = s.repsCurrentSegment > 0 ? s.repsCurrentSegment : nil }
         if fijo, p.posicion?.ronda != nil { x.rondaS = Swift.max(0, s.condElapsed - s.roundsHUDClosedElapsed) }
@@ -117,6 +123,8 @@ struct VivoIphoneCuadro {
         fraccion = Vivo.fraccionDelPaso(p, e.lecturas)
         conMapa = e.pasos.contains(where: Vivo.usaGps)
         avisoCierre = Vivo.avisoDeCierre(p)
+        let cuentaPropia = s.isRunStructureActive || seg?.isEMOM == true
+        entrada = (e.cuenta == nil && !cuentaPropia && !e.pausado) ? Vivo.cuentaDeEntrada(e.pasos, e.i, e.lecturas) : nil
 
         // ── la anotación del descanso de fuerza (I7) ─────────────────────
         var series: [VivoSerieAnotable] = []

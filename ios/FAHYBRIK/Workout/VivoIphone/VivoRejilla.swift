@@ -13,10 +13,11 @@ private struct VivoCelda: View {
     let m: Vivo.Metrica
     let alta: Bool
     let compacta: Bool
+    var apretada = false
 
     var body: some View {
         let crece = alta && !m.texto
-        let cuerpo: CGFloat = crece ? VivoTokens.TI.trabajo : compacta ? VivoTokens.TI.datoTexto + 2 : VivoTokens.TI.dato
+        let cuerpo: CGFloat = crece ? VivoTokens.TI.trabajo : compacta ? VivoTokens.TI.datoTexto + 2 : apretada ? VivoTokens.Celda.datoApretado : VivoTokens.TI.dato
         let fila = HStack(alignment: .firstTextBaseline, spacing: 4) {
             VivoNumeral(texto: m.valor, cuerpo: cuerpo)
             if let u = m.unidad { VivoEtiqueta(texto: u) }
@@ -36,15 +37,15 @@ private struct VivoCelda: View {
                 .padding(.horizontal, VivoTokens.Celda.padding + 2)
                 .frame(maxWidth: .infinity, minHeight: VivoTokens.Celda.compacta)
             } else {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: apretada ? 0 : 6) {
                     if alta { Spacer(minLength: 0) }
                     etiqueta
                     if !alta { Spacer(minLength: 0) }
                     if m.texto { textoValor } else { fila }
                     if alta { Spacer(minLength: 0) }
                 }
-                .padding(VivoTokens.Celda.padding)
-                .frame(maxWidth: .infinity, minHeight: VivoTokens.Celda.minAlto, alignment: .leading)
+                .padding(apretada ? VivoTokens.Celda.paddingApretada : VivoTokens.Celda.padding)
+                .frame(maxWidth: .infinity, minHeight: apretada ? 0 : VivoTokens.Celda.minAlto, alignment: .leading)
             }
         }
         .frame(maxHeight: .infinity)
@@ -77,11 +78,14 @@ private func aLoAncho(_ m: Vivo.Metrica) -> Bool { m.texto && m.valor.count > 12
 struct VivoRejilla<Apoyo: View>: View {
     let metricas: [Vivo.Metrica]
     var compacta = false
+    /// Horizontal (§3): celdas sin alto mínimo, el valor un punto más bajo.
+    var apretada = false
     @ViewBuilder var apoyo: () -> Apoyo
 
-    init(metricas: [Vivo.Metrica], compacta: Bool = false, @ViewBuilder apoyo: @escaping () -> Apoyo = { EmptyView() }) {
+    init(metricas: [Vivo.Metrica], compacta: Bool = false, apretada: Bool = false, @ViewBuilder apoyo: @escaping () -> Apoyo = { EmptyView() }) {
         self.metricas = metricas
         self.compacta = compacta
+        self.apretada = apretada
         self.apoyo = apoyo
     }
 
@@ -94,12 +98,12 @@ struct VivoRejilla<Apoyo: View>: View {
                 GeometryReader { g in
                     let filas = filasDe(celdas)
                     let altoCelda = (g.size.height - VivoTokens.hueco * CGFloat(Swift.max(0, filas - 1))) / CGFloat(Swift.max(1, filas))
-                    let alta = !compacta && altoCelda >= VivoTokens.Celda.alta
+                    let alta = !compacta && !apretada && altoCelda >= VivoTokens.Celda.alta
                     VStack(spacing: VivoTokens.hueco) {
                         ForEach(filasCeldas(celdas, ultimaSuelta: ultimaSuelta), id: \.self) { fila in
                             HStack(spacing: VivoTokens.hueco) {
                                 ForEach(fila, id: \.self) { k in
-                                    VivoCelda(m: celdas[k], alta: alta, compacta: compacta)
+                                    VivoCelda(m: celdas[k], alta: alta, compacta: compacta, apretada: apretada)
                                 }
                             }
                             .frame(maxHeight: .infinity)

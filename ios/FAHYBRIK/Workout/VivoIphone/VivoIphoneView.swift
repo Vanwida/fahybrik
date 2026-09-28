@@ -39,20 +39,36 @@ struct VivoIphoneView: View {
     @State private var treadmillModel: TreadmillHUDModel?
     @State private var planCache: (clave: String, plan: Vivo.PlanVivo)? = nil
     @State private var actividad = VivoActividadEnVivo()
+    /// «GO» a pantalla completa: el paso al que se acaba de entrar (1 s).
+    @State private var go: Vivo.Paso? = nil
+    /// El último toque de la primaria: el GO de un trabajo cerrado por el atleta.
+    @State private var toqueAtleta: Date? = nil
+    /// El paso cuyo preaviso ya sonó (una vez por paso).
+    @State private var preavisado: String? = nil
 
     // MARK: - El estado, desde el motor
 
-    private var plan: Vivo.PlanVivo {
+    /// El plan tal como lo escribió el coach (sin mirar qué está enlazado).
+    private var planBase: Vivo.PlanVivo {
         let clave = "\(session.plan.id)|\(session.runEnvironment?.rawValue ?? "-")|\(hrZones?.lthrBpm ?? 0)|\(isBenchmark)"
         if let c = planCache, c.clave == clave { return c.plan }
         return Vivo.planDe(session.plan, zonas: hrZones, entorno: session.runEnvironment, test: isBenchmark)
     }
 
+    /// El plan que se pinta: sin la máquina enlazada, lo suyo lo dices tú.
+    private var plan: Vivo.PlanVivo {
+        Vivo.segunEnlace(planBase, maquina: dispositivos.maquina)
+    }
+
+    /// La máquina de ergo cuenta como enlazada si llega (el monitor o el motor lo
+    /// dicen) o si SE PERDIÓ: una perdida sigue siendo suya, con sus datos «—».
+    private var ergoEnlazado: Bool { pm5.isConnected || session.ergConnected || pm5.connectionLost }
+
     private var dispositivos: Vivo.Dispositivos {
-        let paso = Vivo.estadoDe(session, plan: plan).paso
+        let paso = Vivo.estadoDe(session, plan: planBase).paso
         var maquina: Vivo.Maquina.Tipo? = nil
         if let m = paso.maquina?.tipo {
-            if m == .cinta { maquina = treadmillLink.isLive ? .cinta : nil } else if pm5.isConnected { maquina = m }
+            if m == .cinta { maquina = treadmillLink.isLive ? .cinta : nil } else if ergoEnlazado { maquina = m }
         } else if Vivo.familiaDe(paso) == .cinta, treadmillLink.isLive { maquina = .cinta }
         let reloj: Vivo.Dispositivos.Reloj = PhoneLiveSession.shared.hasMirroredHKSession ? .segundaPantalla : .sin
         let pulso: Vivo.Dispositivos.Pulsometro = hrLink.isLive ? .banda : (session.liveHRBpm != nil || reloj != .sin ? .reloj : .sin)
@@ -111,6 +127,8 @@ struct VivoIphoneView: View {
                 }
                 if session.isPaused, !hoja { VivoVeloPausa() }
                 if let n = c.estado.cuenta { VivoCuentaAtras(n: n, paso: c.paso) }
+                else if let e = c.entrada { VivoCuentaAtras(n: e.n, paso: e.paso) }
+                else if let g = go { VivoCuentaAtras(n: 0, paso: g) }
                 if hoja {
                     VivoHojaTerminar(resumen: Vivo.resumenParaTerminar(c.paso, sesionM: c.estado.sesion.metros ?? 0, sesionErgoM: c.estado.sesionErgoM, sesionT: c.estado.sesion.t),
                                      alTerminar: { hoja = false; terminado = true; alTerminarYGuardar() },
@@ -125,6 +143,7 @@ struct VivoIphoneView: View {
         }
         .onAppear { pagina = paginaInicial; refrescarPlan(); syncRunModels(); actividad.empezar(titulo: session.plan.name) }
         .onChange(of: session.currentSegmentIndex) { _, _ in syncRunModels(); foco = nil }
+        .onChange(of: indiceVivo) { antes, ahora in entrar(desde: antes, en: ahora) }
         .onChange(of: session.tramoKey) { _, _ in syncRunModels() }
         .onChange(of: session.runEnvironment) { _, _ in refrescarPlan(); syncRunModels() }
         .onDisappear {
@@ -139,6 +158,44 @@ struct VivoIphoneView: View {
                 try? await Task.sleep(for: .seconds(2))
             }
         }
+        .task {
+            // El preaviso (10 s / 100 m): lo decide el kit, suena una vez por paso.
+            var primera = true
+            while !Task.isCancelled {
+                preavisar(primera: primera)
+                primera = false
+                try? await Task.sleep(for: .seconds(VivoTokens.Duracion.miraPreaviso))
+            }
+        }
+    }
+
+    // MARK: - La entrada a un paso: GO y preaviso
+
+    private var indiceVivo: Int { Vivo.indiceActual(planBase.pasos, session) }
+
+    /// Al pasar de un paso al siguiente: «GO» si se entra en trabajo (kit `veGo`).
+    /// La carrera estructurada y el EMOM tienen su propia entrada en el motor.
+    private func entrar(desde a: Int, en b: Int) {
+        let pasos = plan.pasos
+        guard b == a + 1, pasos.indices.contains(a), pasos.indices.contains(b),
+              !session.isRunStructureActive, session.currentSegment?.isEMOM != true, !session.isTramoCountIn else { return }
+        let porAtleta = toqueAtleta.map { Date().timeIntervalSince($0) < VivoTokens.Duracion.go } ?? false
+        guard Vivo.veGo(desde: pasos[a], hacia: pasos[b], cerroElAtleta: porAtleta) else { return }
+        let paso = pasos[b]
+        go = paso
+        DispatchQueue.main.asyncAfter(deadline: .now() + VivoTokens.Duracion.go) { if go?.id == paso.id { go = nil } }
+    }
+
+    /// El preaviso del kit: háptico + voz, una vez por paso. Si la pantalla se abre
+    /// ya dentro del preaviso, ese preaviso ya sonó (no se repite con otra cifra).
+    private func preavisar(primera: Bool) {
+        guard !session.isPaused, !session.isFinished, !session.isRunStructureActive else { return }
+        let e = Vivo.estadoDe(session, plan: plan, externo: externo)
+        guard preavisado != e.paso.id, let falta = Vivo.preavisoDe(e.paso, e.lecturas, e.reglas) else { return }
+        preavisado = e.paso.id
+        guard !primera else { return }
+        Haptics.success()
+        AudioCoach.shared.decir(Vivo.vozPreaviso(e.paso, falta: falta))
     }
 
     // MARK: - Las páginas
@@ -152,11 +209,19 @@ struct VivoIphoneView: View {
         switch id {
         case .vivo:
             if lienzo.horizontal, Vivo.admiteHorizontal(c.familia) || c.enDescanso {
-                HStack(spacing: VivoTokens.hueco) {
-                    VStack(spacing: VivoTokens.hueco) { Spacer(minLength: 0); bloqueSujeto(c, alto: Swift.max(120, lienzo.alto - 200), ancho: lienzo.ancho * 0.5 - 2 * VivoTokens.margen); Spacer(minLength: 0) }
-                        .frame(maxWidth: .infinity)
-                    VStack(spacing: VivoTokens.hueco) { bloqueApoyo(c); franja(c) }
-                        .frame(maxWidth: .infinity)
+                // §3: el sujeto a la izquierda (1,1 de 2,1 del ancho REAL de la página,
+                // ya sin las zonas seguras), la rejilla, «Luego», la tira y la acción a la derecha.
+                GeometryReader { g in
+                    let anchoIzq = ((g.size.width - VivoTokens.hueco) * 1.1 / 2.1).rounded(.down)
+                    let conBanda = c.banda != nil || c.instruccion != nil
+                    let altoSujeto = g.size.height - (conBanda ? VivoTokens.Alto.banda + VivoTokens.hueco : 0)
+                        - (c.trabajo != nil ? VivoTokens.Alto.trabajo + VivoTokens.hueco : 0)
+                    HStack(spacing: VivoTokens.hueco) {
+                        VStack(spacing: VivoTokens.hueco) { Spacer(minLength: 0); bloqueSujeto(c, alto: Swift.max(120, altoSujeto), ancho: anchoIzq - 2 * VivoTokens.margen); Spacer(minLength: 0) }
+                            .frame(width: anchoIzq)
+                        VStack(spacing: VivoTokens.hueco) { bloqueApoyo(c, apretada: true); franja(c) }
+                            .frame(maxWidth: .infinity)
+                    }
                 }
             } else {
                 VStack(spacing: VivoTokens.hueco) {
@@ -184,9 +249,9 @@ struct VivoIphoneView: View {
     }
 
     @ViewBuilder
-    private func bloqueApoyo(_ c: VivoIphoneCuadro) -> some View {
+    private func bloqueApoyo(_ c: VivoIphoneCuadro, apretada: Bool = false) -> some View {
         let anota = c.enDescanso && !c.seriesAnotables.isEmpty
-        VivoRejilla(metricas: anota ? Array(c.metricas.prefix(2)) : c.metricas, compacta: anota) {
+        VivoRejilla(metricas: anota ? Array(c.metricas.prefix(2)) : c.metricas, compacta: anota, apretada: apretada && !anota) {
             if anota {
                 VivoAnotarSerie(series: c.seriesAnotables, foco: $foco) { paso, campo, dir in cambiar(paso, campo, dir, c) }
             }
@@ -215,6 +280,7 @@ struct VivoIphoneView: View {
     private func primaria(_ c: VivoIphoneCuadro) {
         guard let p = c.primaria, p.desactivada == nil, !session.isPaused else { return }
         Haptics.medium()
+        toqueAtleta = Date()
         switch p.clave {
         case .confirmar:
             for s in c.seriesAnotables { confirmar(s, c) }
