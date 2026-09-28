@@ -2,8 +2,11 @@
 // prescrito. El plan no se toca: assignment_id queda NULL. Las comparativas
 // (zonas, carga) leen ejecuciones, no el marcador de biometric_streams.
 //
-// DE-DUPE: source_workout_ref (índice 0191) + solape de ventana. Un live del
-// mismo rato gana: no inventamos una segunda sesión.
+// DE-DUPE: source_workout_ref + solape de ventana. Un live del mismo rato gana:
+// no inventamos una segunda sesión. El reenvío simultáneo del mismo lote (las dos
+// peticiones pasan el «¿ya existe?» antes de que ninguna escriba) lo para el
+// índice único de 0276 (atleta, fuente, ref de las importaciones sin asignación):
+// la que pierde la carrera no inserta y devuelve la fila que ya existe.
 
 import type { Sql } from '@/lib/db';
 import { computeExecutionZoneSeconds } from '@/lib/zones/segment-zone-seconds';
@@ -24,6 +27,17 @@ function numOrNull(n: number | null | undefined): number | null {
   return n;
 }
 
+/** La ejecución del atleta que ya lleva este entreno de Salud, o null. */
+async function executionWithRef(sql: Sql, athleteId: number, ref: string): Promise<string | null> {
+  const rows = await sql<{ id: string }[]>`
+    select id::text from workout_executions
+    where athlete_id = ${athleteId}
+      and source_workout_ref = ${ref}
+    limit 1
+  `;
+  return rows[0]?.id ?? null;
+}
+
 export async function materializeHealthkitWorkout(args: {
   sql: Sql;
   athlete_id: bigint;
@@ -35,13 +49,8 @@ export async function materializeHealthkitWorkout(args: {
   const { sql, athlete_id, workout } = args;
   const id = athlete_id as unknown as number;
 
-  const already = await sql<{ id: string }[]>`
-    select id::text from workout_executions
-    where athlete_id = ${id}
-      and source_workout_ref = ${workout.source_workout_id}
-    limit 1
-  `;
-  if (already[0]) return { outcome: 'exists', execution_id: already[0].id };
+  const already = await executionWithRef(sql, id, workout.source_workout_id);
+  if (already) return { outcome: 'exists', execution_id: already };
 
   if (await existsOverlappingExecution(sql, athlete_id, workout.started_at, workout.ended_at)) {
     return { outcome: 'skipped', execution_id: null };
@@ -60,6 +69,7 @@ export async function materializeHealthkitWorkout(args: {
       ? duration / (distance / 1000)
       : null;
 
+  // tenancy: athlete-session — athlete_id sale del bearer de /api/sync/healthkit (o del histórico del propio atleta).
   const inserted = await sql<{ id: string }[]>`
     insert into workout_executions (
       assignment_id, athlete_id, started_at, ended_at, total_duration_seconds,
@@ -79,10 +89,18 @@ export async function materializeHealthkitWorkout(args: {
       ${distance},
       ${calories}
     )
+    on conflict (athlete_id, source, source_workout_ref)
+      where assignment_id is null
+        and recorded_via = 'imported'
+        and source_workout_ref is not null
+      do nothing
     returning id::text
   `;
   const executionId = inserted[0]?.id;
-  if (!executionId) return { outcome: 'exists', execution_id: null };
+  if (!executionId) {
+    // Otra petición con el mismo entreno ganó la carrera: su fila es la buena.
+    return { outcome: 'exists', execution_id: await executionWithRef(sql, id, workout.source_workout_id) };
+  }
 
   await sql`
     insert into segment_executions (

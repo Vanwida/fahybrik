@@ -10,6 +10,21 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-28 · Una importación de Salud, una fila (0276)
+
+**El hueco:** el iPhone reenvía el lote de Apple Salud antes de tener la respuesta del primero. Las dos peticiones pasaban el «¿ya existe este `source_workout_ref`?» antes de que ninguna escribiera y nacían dos sesiones importadas idénticas, sin asignación, creadas a milisegundos. Atleta 64: 2478/2479, 2510/2511, 2642/2643, 2690/2691, 2693/2694. Contaban doble en carga, zonas y volumen.
+
+**Decidido (mecanismo):**
+- Una importación sin asignación (`assignment_id is null`, `recorded_via = 'imported'`) es **única por (atleta, fuente, `source_workout_ref`)**: índice único parcial `workout_executions_import_ref_uq`.
+- La importación de Salud (`materialize-healthkit-workout.ts`) y la de COROS insertan con `on conflict … do nothing`; la petición que pierde la carrera contesta con la fila que ya existe (`exists`), nunca con un error.
+- 0276 borra los duplicados existentes con la MISMA regla: se queda la más antigua (`created_at`, luego id); lo que colgara de las demás pasa a ella si no lo tiene ya. En la rama (copia de producción): 5 borradas, 0 grupos duplicados después; reejecutarla no toca nada.
+
+**Fuera, a propósito:** las filas con asignación (ya 1:1) y lo guardado por la app (`live`, `manual`, «fuera del plan», que tiene su llave de 0270). Los duplicados `live` con el mismo `source_workout_ref` en asignaciones distintas (181/183, 263…281 de julio) son otro problema y no se tocan aquí.
+
+**NO hacer:** volver a deduplicar importaciones solo con un `select` previo (no aguanta dos peticiones a la vez); meter en esta llave las filas guardadas por la app.
+
+---
+
 ## 2026-09-28 · El servidor cierra el contrato del motor por formato: segmentos, ronda, modalidad y rutas por estación
 
 **El hueco:** lo que `docs/pr/ios-motor-libre.md` pedía al servidor. `POST /free/plan` no devolvía la forma que decodifica iOS; `round_index` se descartaba en zod; la modalidad declarada de un libre no se guardaba; y una ruta de estaciones, que ya llega como una fila por estación, rompía un lector.
