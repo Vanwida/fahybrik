@@ -43,6 +43,7 @@ import {
   blockingReasons,
   checkPrescriptionCompleteness,
   isExecutable,
+  normalizeFormat,
   prescriptionGrammarLines,
   prescriptionObjectSchemaRaw,
   prescriptionToText,
@@ -290,7 +291,9 @@ export function contentToSegments(
   return serializeSessionSegments(
     blocks.map((block) => ({
       title: block.title,
-      format: blockFormat(block),
+      // El declarado, o nada: sin declarar, el escritor único lo deriva de las
+      // líneas con el vocabulario del editor (igual que para el entreno libre).
+      format: block.format,
       items: block.items.map((item) => ({
         exercise_id: item.exercise_id,
         exercise_name: exercises.get(item.exercise_id)?.name ?? '',
@@ -305,10 +308,14 @@ export function contentToSegments(
  * El formato de un bloque, con la MISMA regla que aplica el escritor único de
  * plantillas (`resolveBlockFormat`): el que declaró el coach —salvo un WOD cuyas
  * líneas dicen otro formato del selector—, y si no, el que comparten sus líneas.
- * Así lo que se confirma en la respuesta es lo que se guarda.
+ * Sin declarar se dice en el vocabulario CANÓNICO del catálogo (`steady`, no el
+ * alias `tempo` que guarda el editor para reabrirlo en su formulario): es el
+ * mismo formato, y al asistente no se le habla con alias.
  */
 function blockFormat(block: NormalizedContentBlock): string {
-  return resolveBlockFormat(block.format, block.items) ?? FALLBACK_SESSION_FORMAT;
+  const resolved = resolveBlockFormat(block.format, block.items);
+  if (block.format) return resolved ?? FALLBACK_SESSION_FORMAT;
+  return normalizeFormat(resolved) ?? FALLBACK_SESSION_FORMAT;
 }
 
 /**

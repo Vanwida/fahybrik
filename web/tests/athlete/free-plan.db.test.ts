@@ -147,7 +147,7 @@ describeWithDb('entreno libre — saveFreeWorkoutPlan (plan only, real DB)', () 
         where wa.id = ${assignmentId}
         order by ts.position
       `;
-      expect(segs.map((s) => s.position)).toEqual([1]);
+      expect(segs.map((s) => s.position)).toEqual([0]); // escritor único: desde 0
 
       const execRows = await sql`select 1 from workout_executions where assignment_id = ${assignmentId}`;
       expect(execRows.length).toBe(0);

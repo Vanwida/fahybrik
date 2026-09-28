@@ -136,9 +136,9 @@ describeWithDb('entreno libre — createFreeWorkout + exercise catalog (real DB)
 
     const segs = await readSegments(templateId);
     expect(segs).toHaveLength(2);
-    expect(segs.map((s) => s.position)).toEqual([1, 2]);
+    expect(segs.map((s) => s.position)).toEqual([0, 1]); // escritor único: desde 0
     expect(segs.map((s) => Number(s.exercise_id))).toEqual([squat, bench]); // execution order
-    expect(segs.every((s) => Number(s.block_position) === 1)).toBe(true);
+    expect(segs.every((s) => Number(s.block_position) === 0)).toBe(true);
     expect(segs.every((s) => s.block_format === 'sets')).toBe(true);
     expect(segs.every((s) => s.block_title === 'Fuerza libre')).toBe(true);
     expect(segs.map((s) => s.prescription_json.scheme)).toEqual(['sets', 'sets']);
@@ -189,7 +189,7 @@ describeWithDb('entreno libre — createFreeWorkout + exercise catalog (real DB)
 
     const segs = await readSegments(templateId);
     expect(segs).toHaveLength(3);
-    expect(segs.map((s) => s.position)).toEqual([1, 2, 3]);
+    expect(segs.map((s) => s.position)).toEqual([0, 1, 2]);
     expect(segs.map((s) => Number(s.exercise_id))).toEqual([wallball, burpee, rowCal]);
     expect(segs.every((s) => s.block_format === 'amrap')).toBe(true);
     expect(segs.every((s) => s.prescription_json.scheme === 'amrap')).toBe(true);

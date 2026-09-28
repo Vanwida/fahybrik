@@ -326,7 +326,8 @@ export interface SessionSegmentInput {
 // so block_format passes through as a plain string here (no lossy client cast).
 export interface SessionBlockSerInput {
   title: string;
-  format: string | null;
+  /** Ausente = quien escribe no lo declara y el escritor lo deriva de las líneas. */
+  format?: string | null;
   /** Circuito — rondas/pacing/descansos del bloque (`template_blocks`). */
   circuit?: CircuitConfig;
   items: Array<{
