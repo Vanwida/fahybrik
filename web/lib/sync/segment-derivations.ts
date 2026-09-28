@@ -46,6 +46,59 @@ export function normalizeModality(raw: string | null | undefined): SegmentModali
 }
 
 /**
+ * La modalidad de un EJERCICIO (las nueve de 0053) en el vocabulario de los tramos
+ * (seis). Funcional, core, movilidad y «otro» caen en `other`: el vocabulario de
+ * tramos es estrecho a propósito (`shared/domain/segment-modality.ts`), y lo que un
+ * tramo funcional ES lo sigue diciendo su `exercise_id`.
+ */
+export function segmentModalityOfExercise(raw: string | null | undefined): SegmentModality {
+  switch (raw) {
+    case 'run':
+    case 'row':
+    case 'ski':
+    case 'bike':
+    case 'strength':
+      return raw;
+    default:
+      return 'other';
+  }
+}
+
+/** El ejercicio al que quedó enlazado un tramo, y si su bloque es de una sola modalidad. */
+export interface LinkedExercise {
+  /** `exercises.modality` (0053). */
+  modality: string | null;
+  /** Todos los ejercicios del bloque del segmento caen en la misma modalidad de tramo. */
+  blockSingleModality: boolean;
+}
+
+/**
+ * CON QUÉ SE HIZO UN TRAMO (DECISIONS 2026-09-28). Lo decide, por este orden:
+ *   1. una CINTA: si sus números salen de la cinta, es correr (una cinta solo mide
+ *      carrera o marcha, diga lo que diga el cable);
+ *   2. el EJERCICIO enlazado (0053: la modalidad es del ejercicio, no del cable):
+ *      · bloque de una sola modalidad → la del ejercicio, sea el tramo un ejercicio
+ *        o el bloque entero plegado;
+ *      · bloque que MEZCLA modalidades → si el cable dice `other`, el tramo es el
+ *        bloque plegado (un WOD de varios movimientos no tiene una modalidad) y se
+ *        queda en `other`; si nombra una, es el tramo de ESE ejercicio y manda él
+ *        (un SkiErg que el aparato llamó «row» es ski);
+ *   3. sin ejercicio, lo que diga el cable.
+ */
+export function tramoModality(args: {
+  wire: string | null | undefined;
+  source: string | null | undefined;
+  exercise: LinkedExercise | null;
+}): SegmentModality {
+  if (args.source?.trim().toLowerCase() === 'treadmill') return 'run';
+  const wire = normalizeModality(args.wire);
+  if (!args.exercise) return wire;
+  const fromExercise = segmentModalityOfExercise(args.exercise.modality);
+  if (args.exercise.blockSingleModality) return fromExercise;
+  return wire === 'other' ? 'other' : fromExercise;
+}
+
+/**
  * Honest per-segment duration in whole seconds: explicit `duration_seconds`
  * wins; else derive it from explicit started/ended timestamps; else UNKNOWN
  * (null) — we never invent a duration from the execution window.
