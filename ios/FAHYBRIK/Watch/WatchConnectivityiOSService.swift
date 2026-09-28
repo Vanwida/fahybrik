@@ -433,7 +433,29 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         } else {
             send(Self.minimalDonePayload(assignmentId: envelope.assignmentId, completeness: completeness))
         }
+
+        // UN TEST HECHO EN LA MUÑECA: su número se pide aquí, con la misma hoja que
+        // abre el móvil tras su propio guardado. Antes solo llegaba la ejecución.
+        await offerTestResultCapture(assignmentId: envelope.assignmentId, payload: payload)
         return true
+    }
+
+    /// Si la sesión de esta ejecución es un test del coach, deja pedida su captura
+    /// (`WatchTestResultPrompt`), precargada con lo que midió el reloj. El detalle, de
+    /// la caché o del servidor; sin él no se sabe si es un test y no se pide nada.
+    @MainActor
+    private func offerTestResultCapture(assignmentId: String, payload: WorkoutExecutionPayload) async {
+        var detail = AssignmentDetailCache.load(assignmentId)
+        if detail == nil, let bearer = KeychainTokenStore.shared.read() {
+            detail = try? await PlanService.fetchAssignmentDetail(assignmentId, bearer: bearer)
+        }
+        let specs = WatchTestResultPrompt.specsToCapture(detail: detail)
+        guard !specs.isEmpty else { return }
+        WatchTestResultPrompt.shared.offer(
+            assignmentId: assignmentId,
+            specs: specs,
+            prefill: TestBatteryPrefill.map(payload: payload, specs: specs)
+        )
     }
 
     /// Retry every parked dead-letter envelope through the decode+submit path,
