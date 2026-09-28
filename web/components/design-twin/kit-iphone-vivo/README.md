@@ -33,6 +33,8 @@ Con estado propio de la familia (las rondas del AMRAP, lo anotado en fuerza, la 
 | `heroe(seq, kit)` | cambia el héroe; recibe el de `heroeDeFamilia` | casi nunca: solo si el modelo lo dice (el EMOM marca «respiro») |
 | `primaria(seq, kit)` | la acción primaria, del `VOCABULARIO_PRIMARIA` | cuando la familia tiene estado (`+1 ronda`, `Hecho`, `Confirmar`) |
 | `posicion(seq)` | la cabecera por partes; el kit usa `posicionDe` | casi nunca |
+| `formato(seq, kit)` | la fila del formato, por partes si le añades dónde estás («Circuito · Ronda 2/5 · Estación 2/3»); lo que no cabe junto a los chips se quita por el final | el circuito |
+| `estructura(seq)` | la página Estructura de la familia (la ruta con parciales por estación, `rutaDe` del kit-reloj) | el circuito |
 | `cronoTotal(seq)` | el crono TOTAL en la cabecera (la puntuación) | circuitos y For Time |
 | `anotar` | la tarjeta de anotación en el descanso (`AnotarSerie`) | fuerza |
 | `duracion` | cuánto pesa cada paso en la tira | el circuito |
@@ -48,7 +50,7 @@ Con estado propio de la familia (las rondas del AMRAP, lo anotado en fuerza, la 
 1. **`Cabecera`**: posición en palabras (`posicionDe`), formato en castellano de box (`formatoDe`, dato con defecto), marca «Test», crono de sesión (o total), chips de enlace (`enlacesDe`, derivados de las lecturas: nunca un segundo estado).
 2. **`PuntosPaginas`**: Vivo · Estructura · Mapa (solo con GPS).
 3. **`Sujeto`**: el héroe a 72–176 pt. **Alto fijo** (`ALTO.sujeto`): el centro óptico no baila entre familias. Su nota de honestidad debajo (`notaEnlace`: «sin señal del ski · toca para reconectar»).
-4. **`BandaObjetivo`**: solo con objetivo; ▲▼ y palabra, espectro a zona.
+4. **`BandaObjetivo`**: solo con objetivo; ▲▼ y palabra, espectro a zona. Si el objetivo no es un número vivo (RPE, RIR), la misma fila es `ObjetivoInstruccion`: «objetivo · RPE 8 · ritmo de carrera» (P3). En fuerza no: ya va en la etiqueta del héroe.
 5. **`Trabajo`**: lo que falta y la dosis, o la tarea; nunca en gris. En el descanso: «Viene: …» con «+30 s».
 6. **`Rejilla`**: 2–4 celdas en dos columnas, el pulso siempre. Es la franja ELÁSTICA: el sobrante del lienzo entra aquí (§10.3); en 844 pt caben banda + trabajo + 2 × 2. Un texto largo va a lo ancho. Con anotación (fuerza), celdas compactas.
 7. **`Luego`**: el siguiente paso y el «después». Se parte en dos líneas; nunca se trunca.
@@ -75,6 +77,6 @@ El guion (`GestoIphone`): `primaria`, `pausa`, `reanudar`, `terminar`, `terminar
 
 - **Death by** (reps crecientes por minuto): no está en `InfoWod`. Añadirlo al kit compartido (`paso.ts`, `tarea.ts`, `voz.ts`, `metricas.ts`) con test; el héroe es «reps de este minuto» y lo que queda del minuto (I4).
 - **Página Mapa**: una traza determinista; el mapa real es el del sistema (correr).
-- **La página Estructura** enseña los bloques con sus vueltas; la ruta del circuito con parciales por estación (como la Ruta de la muñeca) la pone la familia circuito.
+- **La página Estructura** enseña los bloques con sus vueltas; la ruta del circuito con parciales por estación la pone la familia circuito (`iphone-vivo-circuito/ruta.tsx`, sobre `rutaDe` de kit-reloj) por la prop `estructura`.
 - **Tinte de zona** (I8): solo cuando el paso va a zona; el «siempre que haya pulso» del CONTRATO §10.1 queda para Alex (§7 del modelo).
 - **RX / Escalado**: fuera del vivo; se declara al terminar con la puntuación (SmartWOD/Wodify). No hay componente aquí a propósito.

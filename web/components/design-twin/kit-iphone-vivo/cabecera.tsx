@@ -17,24 +17,34 @@
 
 import type { ChipEnlace } from './enlace';
 import { Chip, Etiqueta, Icono, Numeral, useLienzo } from './piezas';
-import { ALTO, CI, MARGEN, TI, anchoTexto } from './tokens';
+import { ALTO, CI, MARGEN, TI, anchoTexto, type Peso } from './tokens';
 
 /** Las partes que caben en `ancho`, quitando por el final. Siempre queda la primera. */
 /** El estimador de SF (anchoTexto) ya redondea hacia arriba con la negrita a 22 pt: medido en el doble, sin holgura extra. */
 const HOLGURA_POSICION = 1.0;
 
-export function partesQueCaben(partes: string[], ancho: number, cuerpo = TI.posicion.cuerpo, peso = TI.posicion.peso): string[] {
+export function partesQueCaben(partes: string[], ancho: number, cuerpo: number = TI.posicion.cuerpo, peso: Peso = TI.posicion.peso): string[] {
   let usadas = partes.filter(Boolean);
   const cabe = (x: string[]) => anchoTexto(x.join(' · '), cuerpo, peso) * HOLGURA_POSICION <= ancho;
   while (usadas.length > 1 && !cabe(usadas)) usadas = usadas.slice(0, -1);
   return usadas;
 }
 
+/** Lo que ocupa un chip de enlace: icono, hueco, texto y sus márgenes (`Chip`). */
+export const anchoChip = (texto: string, buscando: boolean) => 8 + 16 + 6 + (buscando ? 12 : 0) + anchoTexto(texto, TI.chip.cuerpo, TI.chip.peso) + 10;
+
+/** Lo que ocupan los chips de la cabecera con sus huecos: la fila del formato se queda con el resto. */
+export const anchoChips = (chips: ChipEnlace[]) => chips.reduce((a, c) => a + anchoChip(c.texto, c.estado === 'buscando'), 0) + 6 * Math.max(0, chips.length - 1);
+
 export interface CabeceraProps {
   /** La posición por partes y por prioridad (de `contextoDe` o de la familia). */
   posicion: string[];
-  /** «Series», «EMOM 12′»… (`formatoDe`). */
-  formato: string;
+  /**
+   * «Series», «EMOM 12′»… (`formatoDe`). Por partes si la familia añade dónde
+   * estás («Circuito · Ronda 2/5 · Estación 2/3»): lo que no cabe junto a los
+   * chips se quita por el final, nunca se trunca.
+   */
+  formato: string | string[];
   /** La marca de test: un test no se confunde con un WOD en vivo. */
   test?: boolean;
   /** El crono: el de la sesión, o el total del circuito. */
@@ -48,6 +58,8 @@ export function Cabecera({ posicion, formato, test = false, crono, chips, onEnla
   // El crono se lleva su sitio a la derecha; la posición se queda con el resto.
   const anchoCrono = anchoTexto(crono.valor, TI.crono.cuerpo, TI.crono.peso) + (crono.etiqueta === 'total' ? 44 : 8);
   const partes = partesQueCaben(posicion, ancho - 2 * MARGEN - anchoCrono - 16);
+  // La fila del formato comparte sitio con los chips: se queda con el resto.
+  const formatoTexto = Array.isArray(formato) ? partesQueCaben(formato, ancho - 2 * MARGEN - anchoChips(chips) - 10, TI.etiqueta.cuerpo, TI.etiqueta.peso).join(' · ') : formato;
   return (
     <header
       style={{
@@ -82,7 +94,7 @@ export function Cabecera({ posicion, formato, test = false, crono, chips, onEnla
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minWidth: 0 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          {test ? null : <Etiqueta estilo={{ overflow: 'visible' }}>{formato}</Etiqueta>}
+          {test ? null : <Etiqueta estilo={{ overflow: 'visible' }}>{formatoTexto}</Etiqueta>}
           {test ? (
             <span
               style={{

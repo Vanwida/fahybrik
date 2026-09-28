@@ -75,7 +75,7 @@ const metros = (m: number, mide: Medida['mide']): Medida => ({ tipo: 'distancia'
 const reps = (r: number): Medida => ({ tipo: 'reps', prescrito: r, mide: 'atleta' });
 const segundos = (s: number): Medida => ({ tipo: 'tiempo', prescrito: s, mide: 'reloj' });
 
-function carrera(m: number, posicion: Posicion, objetivos: Objetivo[], bloque: number): PasoBase {
+export function carrera(m: number, posicion: Posicion, objetivos: Objetivo[], bloque: number): PasoBase {
   return {
     id: id('run'),
     clase: 'carrera',
@@ -91,7 +91,7 @@ function carrera(m: number, posicion: Posicion, objetivos: Objetivo[], bloque: n
   };
 }
 
-interface DefEstacion {
+export interface DefEstacion {
   nombre: string;
   medida: Medida;
   carga?: PasoBase['carga'];
@@ -100,7 +100,7 @@ interface DefEstacion {
 }
 
 /** Una estación: la cierra la medida si algo la mide (el PM5), si no el atleta («lo dices tú»). */
-function estacion(d: DefEstacion, posicion: Posicion, bloque: number): PasoBase {
+export function estacion(d: DefEstacion, posicion: Posicion, bloque: number): PasoBase {
   const medida = d.medida.mide === 'ergo' || d.medida.mide === 'sensor';
   return {
     id: id('est'),
@@ -177,7 +177,7 @@ export function dibujoDe(p: PasoBase): number {
   return DIBUJO_ESTACION_S[est.slug] * (pr / Math.max(1, dosis));
 }
 
-function circuito(pasos: PasoBase[], c: Omit<Circuito, 'plan'>): Circuito {
+export function circuito(pasos: PasoBase[], c: Omit<Circuito, 'plan'>): Circuito {
   return { ...c, plan: { pasos, zonas: ZONAS, reglas: REGLAS_AVISO_DEFECTO } };
 }
 
@@ -325,6 +325,8 @@ export interface OpcionesHyrox {
   roxzone: boolean;
   /** Cap del For Time en s; la plantilla 441 no lo trae. */
   cap: number | null;
+  /** El objetivo de cada run si el coach lo fija (un ritmo, una zona); la 441 no lo trae. */
+  run?: Objetivo[];
 }
 
 export function simulacionHyrox(o: OpcionesHyrox): Circuito {
@@ -334,7 +336,7 @@ export function simulacionHyrox(o: OpcionesHyrox): Circuito {
     .sort((a, b) => a.order - b.order)
     .forEach((s, k) => {
       const ronda = { n: s.order, de };
-      pasos.push(carrera(1000, { ronda }, [], 0));
+      pasos.push(carrera(1000, { ronda }, o.run ?? [], 0));
       if (o.roxzone) pasos.push(roxzone('entrada', { ronda, estacion: { n: s.order, de } }, 0));
       const maquina = MAQUINA[s.slug];
       const mide = maquina && o.pm5 ? 'ergo' : 'atleta';

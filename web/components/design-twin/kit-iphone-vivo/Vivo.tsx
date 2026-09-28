@@ -13,10 +13,11 @@
 // deslizan bajo la cabecera y sobre la franja: la acción se alcanza siempre.
 //
 // Todo lo de por defecto se puede cambiar, y NADA más: el héroe (`heroe`), la
-// acción primaria (`primaria`), la posición de la cabecera (`posicion`), el
-// crono total de un circuito (`cronoTotal`), lo extra de la familia para la
-// rejilla (`extra`), la anotación del descanso (`anotar`), los dispositivos
-// enlazados y el guion de gestos de una demo.
+// acción primaria (`primaria`), la posición y el formato de la cabecera
+// (`posicion`, `formato`), el crono total de un circuito (`cronoTotal`), lo
+// extra de la familia para la rejilla (`extra`), la anotación del descanso
+// (`anotar`), la página Estructura de la familia (`estructura`), los
+// dispositivos enlazados y el guion de gestos de una demo.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { arcosDePlan, fraccionDelPaso, type Estimador } from '../kit-reloj/aro';
@@ -28,7 +29,7 @@ import { laminaDelPaso, type HeroeVista } from '../kit-reloj/lamina';
 import { esTest, familiaDe, formatoDe } from '../kit-reloj/familia';
 import { heroeDeFamilia, metricasDelPaso, trabajoDe, type ExtraFamilia } from '../kit-reloj/metricas';
 import { luegoDe, posicionDe, type LuegoVista } from '../kit-reloj/posicion';
-import { esCarrera, fmtReloj, tinteDelPaso } from '../kit-reloj/reglas';
+import { fmtReloj, tinteDelPaso } from '../kit-reloj/reglas';
 import type { InicioSecuencia, PlanSesion, Simulador } from '../kit-reloj/secuencia';
 import { avisoDeCierre, sesionDe, useVivo } from '../kit-reloj/vivo';
 import { AvisoDeshacer, FranjaAccion, HojaTerminar, Terminado, VeloPausa, resumenParaTerminar, type ClavePrimaria, type PrimariaVista } from './accion';
@@ -38,7 +39,7 @@ import { SIN_DISPOSITIVOS, enlacesDe, notaEnlace, usaGps, type ChipEnlace, type 
 import { PaginaEstructura, PaginaMapa, PaginasLaterales, type IdPagina, type PaginaLateral } from './paginas';
 import { KEYFRAMES_IPHONE, LienzoContexto, useMedidaLienzo } from './piezas';
 import { Luego, Rejilla, TiraEstructura } from './rejilla';
-import { AvisoVuelta, BandaObjetivo, CuentaAtras, Instruccion, Sujeto, Trabajo, type TrabajoVista } from './sujeto';
+import { AvisoVuelta, BandaObjetivo, CuentaAtras, ObjetivoInstruccion, Sujeto, Trabajo, type TrabajoVista } from './sujeto';
 import { ALTO, CI, DURACION, HUECO, MARGEN, anchoUtil, tinteAmbiente } from './tokens';
 
 /** Los gestos que un escenario puede guionizar: pasan por el MISMO camino que el dedo. */
@@ -58,6 +59,14 @@ export interface VistaIphoneProps {
   primaria?: (seq: Secuencia, porDefecto: PrimariaVista | null) => PrimariaVista | null;
   /** La posición de la cabecera por partes; sin ella, `contextoDe`. */
   posicion?: (seq: Secuencia) => string[];
+  /**
+   * La fila del formato, si la familia le añade dónde estás («Circuito ·
+   * Ronda 2/5 · Estación 2/3»); recibe el del kit (`formatoDe`). Por partes:
+   * la cabecera quita por el final lo que no cabe junto a los chips.
+   */
+  formato?: (seq: Secuencia, porDefecto: string) => string | string[];
+  /** La página Estructura de la familia (la ruta del circuito con sus parciales); sin ella, `PaginaEstructura`. */
+  estructura?: (seq: Secuencia) => ReactNode;
   /** El crono TOTAL de un circuito (la puntuación) en la cabecera en vez del de sesión. */
   cronoTotal?: (seq: Secuencia) => number | null;
   /** «Luego ·» y «Viene:», si la familia sabe más que `luegoDe` (fuerza: la carga que está en la barra); recibe el del kit. */
@@ -164,9 +173,10 @@ export function VistaIphone(p: VistaIphoneProps) {
   const heroe = p.heroe ? p.heroe(seq, heroeKit) : heroeKit;
   const lamina = laminaDelPaso(paso, lecturas, zonas, plan.reglas);
   const banda = paso.rol === 'trabajo' ? lamina.banda : null;
-  // Correr a RPE (P3): la instrucción ocupa el sitio de la banda. Fuerza ya la
-  // lleva en la etiqueta del héroe («65–70 % RM · RIR 2»): no se repite.
-  const instruccion = paso.rol === 'trabajo' && !banda && esCarrera(paso) ? lamina.instruccion : null;
+  // El objetivo que no es un número vivo (RPE, RIR, kg, %RM) ocupa la fila de
+  // la banda (P3): correr a RPE, una estación a RPE… En fuerza ya va en la
+  // etiqueta del héroe («65–70 % RM · RIR 2»): no se repite.
+  const instruccion = paso.rol === 'trabajo' && !banda && familiaDe(paso) !== 'fuerza' ? lamina.instruccion : null;
   const chips: ChipEnlace[] = enlacesDe(dispositivos, paso, lecturas);
   const nota = notaEnlace(chips) ?? (paso.cue ? `Coach · ${paso.cue}` : null);
   const metricas = metricasDelPaso(paso, lecturas, heroe.clase, zonas, extraCompleto, plan.reglas);
@@ -180,9 +190,11 @@ export function VistaIphone(p: VistaIphoneProps) {
   // El total en la cabecera (la puntuación, que no se va); si el héroe YA es el total, el de sesión.
   const crono =
     total != null && heroe.etiqueta !== 'total' ? { valor: fmtReloj(total), etiqueta: 'total' as const } : { valor: fmtReloj(estado.sesionT), etiqueta: 'sesión' as const };
-  // Un formato que solo repite el nombre de lo que haces («Rodaje» bajo «Rodaje · Z2 · 50′») no dice nada: fuera (un dato, un sitio).
+  // La familia puede añadir dónde estás («Circuito · Ronda 2/5 · Estación 2/3»).
+  // Sin ella, un formato que solo repite el nombre de lo que haces («Rodaje»
+  // bajo «Rodaje · Z2 · 50′») no dice nada: fuera (un dato, un sitio).
   const formatoKit = formatoDe(pasoDelFormato(seq));
-  const formato = posicion[0]?.startsWith(formatoKit) ? '' : formatoKit;
+  const formato = p.formato ? p.formato(seq, formatoKit) : posicion[0]?.startsWith(formatoKit) ? '' : formatoKit;
   const tinte = tinteDelPaso(paso, lecturas, zonas);
   const arcos = arcosDePlan(plan.pasos, p.duracion);
   const conMapa = plan.pasos.some(usaGps);
@@ -267,7 +279,7 @@ export function VistaIphone(p: VistaIphoneProps) {
   const bloqueSujeto = (
     <>
       {sujeto}
-      {banda ? <BandaObjetivo banda={banda} /> : instruccion ? <Instruccion texto={instruccion} /> : null}
+      {banda ? <BandaObjetivo banda={banda} /> : instruccion ? <ObjetivoInstruccion texto={instruccion} /> : null}
       {trabajo ? <Trabajo trabajo={trabajo} extra={enDescanso && paso.rol === 'descanso' ? <Mas30 onMas30={seq.sumar30} /> : undefined} /> : null}
     </>
   );
@@ -310,7 +322,7 @@ export function VistaIphone(p: VistaIphoneProps) {
 
   const paginas: PaginaLateral[] = [
     { id: 'vivo', titulo: 'Vivo', contenido: paginaVivo },
-    { id: 'estructura', titulo: 'Estructura', contenido: <PaginaEstructura plan={plan} estado={estado} /> },
+    { id: 'estructura', titulo: 'Estructura', contenido: p.estructura ? p.estructura(seq) : <PaginaEstructura plan={plan} estado={estado} /> },
   ];
   if (conMapa) {
     const s = sesionDe(estado);

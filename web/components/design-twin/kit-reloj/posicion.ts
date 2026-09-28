@@ -66,7 +66,20 @@ const MODO_RECUPERA = { trote: 'trote', andar: 'caminando', parado: 'parado' } a
  * «Colócate» dice sus segundos; la Roxzone y la campana del AMRAP, su
  * nombre; si no, el paso: «1000 m a 3:45–3:55».
  */
-export function textoViene(p: PasoBase, arrastrada: number | null = null): string {
+/**
+ * ¿Este paso ABRE una ronda? Solo un paso de trabajo: el primero del plan con
+ * esa ronda (el run de 493 la abre; la estación que le sigue, no; el descanso
+ * de la ronda tampoco). Sin el plan a mano, la heurística del paso solo: la
+ * estación 1 o un paso sin contador de estación.
+ */
+export function abreRonda(p: PasoBase, pasos?: ReadonlyArray<PasoBase>, j?: number): boolean {
+  const r = p.posicion?.ronda;
+  if (p.rol !== 'trabajo' || !r) return false;
+  if (pasos && j != null) return !pasos.slice(0, j).some((q) => q.rol === 'trabajo' && q.posicion?.ronda?.n === r.n && (q.bloque ?? 0) === (p.bloque ?? 0));
+  return (p.posicion?.estacion?.n ?? 1) === 1;
+}
+
+export function textoViene(p: PasoBase, arrastrada: number | null = null, abre: boolean = abreRonda(p)): string {
   const pos = p.posicion;
   if (p.rol === 'recuperacion') return `Recupera ${textoPasoCorto(p)} ${MODO_RECUPERA[p.modoRecupera ?? 'trote']}`;
   if (p.clase === 'roxzone') return 'Roxzone';
@@ -80,8 +93,10 @@ export function textoViene(p: PasoBase, arrastrada: number | null = null): strin
   }
   const corto = textoPasoCorto(p);
   if (pos?.tanda && pos.serie?.n === 1) return `Tanda ${pos.tanda.n}/${pos.tanda.de} · ${pos.serie.de} × ${corto}`;
-  if (pos?.ronda && (pos.estacion?.n ?? 1) === 1) return `Ronda ${pos.ronda.n}/${pos.ronda.de} · ${corto}`;
-  if (pos?.tramo) return `Tramo ${pos.tramo.n}/${pos.tramo.de} · ${corto}`;
+  if (abre && pos?.ronda) return `Ronda ${pos.ronda.n}/${pos.ronda.de} · ${corto}`;
+  // Un tramo sin nombre (el progresivo de correr) dice su número; uno con
+  // nombre (remo → ski → bici del bloque continuo) ya dice cuál es en `corto`.
+  if (pos?.tramo && !p.nombre) return `Tramo ${pos.tramo.n}/${pos.tramo.de} · ${corto}`;
   // Sin objetivo, lo prescrito solo dice poco («1′»): se dice cuál es. Un
   // ergómetro cuenta series («Serie 3/5 · SkiErg · 25 cal»), nunca «Ergo 3/5».
   if (pos?.serie && !principal(p)) return `${p.wod?.formato === 'emom' ? 'Minuto' : nombreCuenta(p).nombre} ${pos.serie.n}/${pos.serie.de} · ${corto}`;
@@ -107,6 +122,6 @@ export function luegoDe(pasos: ReadonlyArray<PasoBase>, i: number, cargaDe?: (j:
   const sig = pasos[i + 1];
   if (!sig) return null;
   const tras = pasos[i + 2];
-  const despues = sig.rol !== 'trabajo' && tras && tras.rol === 'trabajo' ? textoViene(tras, cargaDe?.(i + 2) ?? null) : null;
-  return { que: textoViene(sig, cargaDe?.(i + 1) ?? null), despues };
+  const despues = sig.rol !== 'trabajo' && tras && tras.rol === 'trabajo' ? textoViene(tras, cargaDe?.(i + 2) ?? null, abreRonda(tras, pasos, i + 2)) : null;
+  return { que: textoViene(sig, cargaDe?.(i + 1) ?? null, abreRonda(sig, pasos, i + 1)), despues };
 }
