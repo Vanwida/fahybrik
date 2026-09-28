@@ -64,6 +64,12 @@ export interface SegmentActual {
   /** uid of the prescribed item this maps to (`segment-{id}`); null when unmatched. */
   item_uid: string | null;
   modality: SegmentModality;
+  /** El nombre del ejercicio de este tramo, con el nombre propio del coach si lo
+   *  renombró (`coach_exercise_overrides`). Sale del ejercicio del tramo
+   *  (`exercise_id`) o, si no lo trae, del de su línea enlazada — la misma
+   *  identidad que usan las analíticas. Null sin ejercicio (una carrera suelta,
+   *  una importación): quien pinte cae a la modalidad. */
+  exercise_name: string | null;
   /** Cuándo empezó ESTE tramo. Es lo que permite situarlo en el eje de la curva:
    *  `execution.started_at` da el cero de la señal, pero sin este no se sabe dónde
    *  cae cada serie dentro de ella — y sin eso no hay sombra de tramo, ni banda
@@ -171,6 +177,8 @@ export interface SegmentActualRow {
   template_segment_id: string | null;
   position: number;
   modality: string | null;
+  /** Opcional para que los fixtures del mapeador puro sigan tipando. */
+  exercise_name?: string | null;
   started_at: string | null;
   ended_at: string | null;
   reps_completed: number | null;
@@ -285,6 +293,7 @@ export function buildSegmentActuals(rows: SegmentActualRow[], sets: SetActualRow
       position: r.position,
       item_uid: r.template_segment_id != null ? `segment-${r.template_segment_id}` : null,
       modality: toModality(r.modality),
+      exercise_name: r.exercise_name ?? null,
       started_at: r.started_at,
       duration_seconds: durationSeconds(r.started_at, r.ended_at),
       reps_completed,
@@ -348,37 +357,47 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
   // tenancy: verified-owner — la ejecución llega de un detalle que ya comprobó su atleta (y su coach).
   const rows = await sql<SegmentActualRow[]>`
     select
-      id::text                  as id,
-      template_segment_id::text as template_segment_id,
-      position                  as position,
-      modality                  as modality,
-      started_at::text          as started_at,
-      ended_at::text            as ended_at,
-      reps_completed            as reps_completed,
-      weight_used_kg            as weight_used_kg,
-      distance_meters           as distance_meters,
-      avg_pace_s_per_500m       as avg_pace_s_per_500m,
-      avg_pace_s_per_km         as avg_pace_s_per_km,
-      avg_power_w               as avg_power_w,
-      stroke_rate_spm           as stroke_rate_spm,
-      avg_hr                    as avg_hr,
-      max_hr                    as max_hr,
-      calories                  as calories,
-      emom_rounds_completed     as emom_rounds_completed,
-      emom_rounds_prescribed    as emom_rounds_prescribed,
-      incline_pct               as incline_pct,
-      avg_gradient_pct          as avg_gradient_pct,
-      run_cadence_spm           as run_cadence_spm,
-      source                    as source,
-      leg_index                 as leg_index,
-      round_index               as round_index,
-      leg_role                  as leg_role,
-      leg_phase                 as leg_phase,
-      is_structural             as is_structural,
-      raw_lap_data_json         as raw_lap_data_json
-    from segment_executions
-    where execution_id = ${executionId}
-    order by position asc, round_index asc, id asc
+      se.id::text                  as id,
+      se.template_segment_id::text as template_segment_id,
+      se.position                  as position,
+      se.modality                  as modality,
+      coalesce(ceo.name, ex.name)  as exercise_name,
+      se.started_at::text          as started_at,
+      se.ended_at::text            as ended_at,
+      se.reps_completed            as reps_completed,
+      se.weight_used_kg            as weight_used_kg,
+      se.distance_meters           as distance_meters,
+      se.avg_pace_s_per_500m       as avg_pace_s_per_500m,
+      se.avg_pace_s_per_km         as avg_pace_s_per_km,
+      se.avg_power_w               as avg_power_w,
+      se.stroke_rate_spm           as stroke_rate_spm,
+      se.avg_hr                    as avg_hr,
+      se.max_hr                    as max_hr,
+      se.calories                  as calories,
+      se.emom_rounds_completed     as emom_rounds_completed,
+      se.emom_rounds_prescribed    as emom_rounds_prescribed,
+      se.incline_pct               as incline_pct,
+      se.avg_gradient_pct          as avg_gradient_pct,
+      se.run_cadence_spm           as run_cadence_spm,
+      se.source                    as source,
+      se.leg_index                 as leg_index,
+      se.round_index               as round_index,
+      se.leg_role                  as leg_role,
+      se.leg_phase                 as leg_phase,
+      se.is_structural             as is_structural,
+      se.raw_lap_data_json         as raw_lap_data_json
+    from segment_executions se
+    join workout_executions we on we.id = se.execution_id
+    join athletes a on a.id = we.athlete_id
+    left join template_segments ts on ts.id = se.template_segment_id
+    -- El ejercicio del tramo; si no lo trae, el de su línea enlazada.
+    left join exercises ex on ex.id = coalesce(se.exercise_id, ts.exercise_id)
+    -- El nombre del coach del atleta gana al del catálogo (la regla de
+    -- coach-override.ts › mergedExerciseContent, aquí con el coach por columna).
+    left join coach_exercise_overrides ceo
+      on ceo.exercise_id = ex.id and ceo.coach_id = a.coach_id
+    where se.execution_id = ${executionId}
+    order by se.position asc, se.round_index asc, se.id asc
   `;
   if (rows.length === 0) return [];
   // tenancy: verified-owner — series de la misma ejecución ya comprobada.

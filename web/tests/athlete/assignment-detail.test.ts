@@ -613,6 +613,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
       position: 0,
       item_uid: 'segment-60',
       modality: 'run' as const,
+      exercise_name: null,
       started_at: '2026-05-27T18:00:00Z',
       duration_seconds: 245,
       reps_completed: null,
