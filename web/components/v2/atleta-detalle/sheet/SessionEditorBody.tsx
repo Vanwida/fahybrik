@@ -14,7 +14,7 @@ import { BlockEditor } from '@/components/v2/editor/BlockEditor';
 import { AddBlockModal } from '@/components/v2/editor/AddBlockModal';
 import { SuggestWorkoutModal } from '@/components/v2/editor/SuggestWorkoutModal';
 import { RunZonesProvider } from '@/components/v2/editor/run-zones-context';
-import { serializeSessionSegments } from '@/lib/dashboard/v2/editor-serialize';
+import { serializeSessionContent } from '@/lib/dashboard/v2/editor-serialize';
 import { saveGateFor } from '@/lib/dashboard/v2/item-validity';
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import type { FichaSessionEditor } from '@/lib/dashboard/v2/ficha-session';
@@ -64,7 +64,7 @@ export function SessionEditorBody({
     try {
       await apiJson(`/api/coach/athletes/${shell.athlete_id}/sessions/${editor.assignment_id}/editor`, {
         method: 'PATCH',
-        body: { name: name.trim(), segments: serializeSessionSegments(blocks) },
+        body: { name: name.trim(), ...serializeSessionContent(blocks) },
       });
       setDirty(false);
       toast({ title: 'Entreno guardado', description: `${shell.name.split(' ')[0]} lo verá así.`, tone: 'ok' });

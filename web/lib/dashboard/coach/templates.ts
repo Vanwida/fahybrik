@@ -1,19 +1,22 @@
 import 'server-only';
-import type { TransactionSql } from 'postgres';
 import { z } from 'zod';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
-import { invisibleExerciseIds, joinCoachOverride } from '@/lib/exercises/coach-override';
-
-type AnySql = Sql | TransactionSql<{ readonly bigint: bigint }>;
+import { joinCoachOverride } from '@/lib/exercises/coach-override';
 import { templateFormat } from '@fahybrid/shared/schema/_primitives';
 import { segmentParamsSchema } from '@fahybrid/shared/schema/templates';
+import { circuitConfigSchema, type CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 import {
   prescriptionSchema,
   safeParsePrescription,
   type Prescription,
 } from '@fahybrid/shared/domain/prescription';
+import { loadTemplateCircuits } from '@/lib/templates/template-content-db';
+import { TemplateError } from './template-error';
+import { writeTemplatePayload } from './template-write';
+
+export { TemplateError };
 
 /**
  * Templates catalog helpers — list/create/update/delete + usage count.
@@ -21,7 +24,9 @@ import {
  * `template_segments` has ON DELETE CASCADE from `templates`, so the row delete
  * also wipes its segments. Multi-block columns (`block_position`,
  * `block_format`, `block_title`) live on `template_segments` and are grouped
- * by `block_position` on load.
+ * by `block_position` on load; a Circuito's rounds/pacing live in
+ * `template_blocks`, one row per block. Every write goes through THE template
+ * writer (`@/lib/templates/template-content-db`).
  */
 
 export const templateSegmentInputSchema = z.object({
@@ -39,6 +44,12 @@ export const templateSegmentInputSchema = z.object({
 });
 export type TemplateSegmentInput = z.infer<typeof templateSegmentInputSchema>;
 
+/** Un bloque Circuito del cuerpo: su `block_position` y su config (`template_blocks`). */
+export const templateBlockInputSchema = z.object({
+  block_position: z.number().int().nonnegative(),
+  circuit: circuitConfigSchema,
+});
+
 export const templateCreateSchema = z.object({
   name: z.string().min(1).max(200),
   format: templateFormat,
@@ -49,24 +60,17 @@ export const templateCreateSchema = z.object({
   coach_notes: z.string().max(4000).nullable().optional(),
   is_draft: z.boolean().optional().default(false),
   segments: z.array(templateSegmentInputSchema).max(120).optional().default([]),
+  // Circuitos del contenido. Solo cuentan junto a `segments`: el contenido se
+  // reescribe entero, así que omitirlos al mandar segmentos los retira.
+  blocks: z.array(templateBlockInputSchema).max(40).optional().default([]),
 });
 export type TemplateCreate = z.infer<typeof templateCreateSchema>;
 
 export const templateUpdateSchema = templateCreateSchema.partial().extend({
   segments: z.array(templateSegmentInputSchema).max(120).optional(),
+  blocks: z.array(templateBlockInputSchema).max(40).optional(),
 });
 export type TemplateUpdate = z.infer<typeof templateUpdateSchema>;
-
-export class TemplateError extends Error {
-  constructor(
-    public readonly code: string,
-    message: string,
-    public readonly status: number,
-  ) {
-    super(message);
-    this.name = 'TemplateError';
-  }
-}
 
 export interface TemplateBlockSummary {
   block_position: number;
@@ -145,6 +149,8 @@ export interface TemplateDetailBlock {
   block_position: number;
   block_title: string | null;
   block_format: string | null;
+  /** Circuito: rondas/pacing/descansos (`template_blocks`). Ausente = no es circuito. */
+  circuit?: CircuitConfig;
   items: TemplateDetailItem[];
 }
 
@@ -238,15 +244,19 @@ export async function getTemplateDetail(params: {
     order by s.block_position asc, s.position asc
   `;
 
+  const circuitByPosition = await loadTemplateCircuits(client, Number(params.template_id));
+
   const blocksMap = new Map<number, TemplateDetailBlock>();
   for (const row of segmentRows) {
     const key = row.block_position;
     let block = blocksMap.get(key);
     if (!block) {
+      const circuit = circuitByPosition.get(key);
       block = {
         block_position: row.block_position,
         block_title: row.block_title,
         block_format: row.block_format,
+        ...(circuit ? { circuit } : {}),
         items: [],
       };
       blocksMap.set(key, block);
@@ -305,8 +315,7 @@ export async function createTemplate(params: {
     templateId = rows[0]!.id;
 
     if (body.segments && body.segments.length > 0) {
-      await assertSegmentExercisesVisible(tx, params.coach_id, body.segments);
-      await insertSegments(tx, Number(templateId), body.segments);
+      await writeTemplatePayload(tx, params.coach_id, Number(templateId), body.segments, body.blocks ?? []);
     }
   });
 
@@ -379,85 +388,9 @@ export async function updateTemplate(params: {
     `;
 
     if (body.segments !== undefined) {
-      if (body.segments.length > 0) {
-        // Gate BEFORE the delete: an invalid body must leave the template intact.
-        await assertSegmentExercisesVisible(tx, params.coach_id, body.segments);
-      }
-      await tx`delete from template_segments where template_id = ${Number(params.template_id)}`;
-      if (body.segments.length > 0) {
-        await insertSegments(tx, Number(params.template_id), body.segments);
-      }
+      await writeTemplatePayload(tx, params.coach_id, Number(params.template_id), body.segments, body.blocks ?? []);
     }
   });
-}
-
-/**
- * Gate for CLIENT-supplied segment exercise ids (same rule as the import
- * confirm): every one must be visible to this coach — base catalog or their own
- * PROPIO, never another coach's. Nonexistent and foreign are the SAME rejection.
- */
-async function assertSegmentExercisesVisible(
-  client: AnySql,
-  coach_id: number | bigint,
-  segments: TemplateSegmentInput[],
-): Promise<void> {
-  const missing = await invisibleExerciseIds(
-    client,
-    coach_id,
-    segments.map((s) => s.exercise_id),
-  );
-  if (missing.length > 0) {
-    throw new TemplateError(
-      'invalid_exercise',
-      missing.length === 1
-        ? '1 ejercicio no existe o no es tuyo.'
-        : `${missing.length} ejercicios no existen o no son tuyos.`,
-      404,
-    );
-  }
-}
-
-async function insertSegments(
-  client: AnySql,
-  template_id: number,
-  segments: TemplateSegmentInput[],
-): Promise<void> {
-  for (const seg of segments) {
-    const paramsJson = JSON.parse(
-      JSON.stringify(seg.params_json ?? {}, (_, v) =>
-        typeof v === 'bigint' ? Number(v) : v,
-      ),
-    );
-    // TRANSITION: persist the structured prescription when the client sends one
-    // (already validated by prescriptionSchema). NULL preserves the legacy
-    // params_json-only path. Both columns are written so readers can prefer
-    // prescription_json and fall back to params_json.
-    const prescriptionJson =
-      seg.prescription_json != null
-        ? client.json(
-            JSON.parse(JSON.stringify(seg.prescription_json)) as Parameters<
-              typeof client.json
-            >[0],
-          )
-        : null;
-    await client`
-      insert into template_segments (
-        template_id, position, block_position, block_title, block_format,
-        exercise_id, params_json, notes, prescription_json
-      )
-      values (
-        ${template_id},
-        ${seg.position},
-        ${seg.block_position},
-        ${seg.block_title ?? null},
-        ${seg.block_format ?? null},
-        ${seg.exercise_id},
-        ${client.json(paramsJson)},
-        ${seg.notes ?? null},
-        ${prescriptionJson}
-      )
-    `;
-  }
 }
 
 /**

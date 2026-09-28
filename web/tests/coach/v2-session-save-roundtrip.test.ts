@@ -21,6 +21,7 @@
 
 import { describe, expect, test } from 'vitest';
 import {
+  canonicalPrescription,
   prescriptionToParams,
   safeParsePrescription,
   type Prescription,
@@ -108,10 +109,15 @@ describe('v2 session save → reload round-trip', () => {
     const segments = serializeSessionSegments(validBlocks);
     const bikeSeg = segments.find((s) => s.exercise_id === BIKE_EX_ID)!;
 
-    expect(bikeSeg.prescription_json).toEqual(bikeErg);
+    // Guardado en su forma CANÓNICA (DECISIONS 2026-09-28): un continuo por tiempo
+    // lleva la ventana en `total_s` y la serie representativa que la repite — la
+    // misma forma que escribe el entreno libre para el mismo esfuerzo.
+    const stored = canonicalPrescription(bikeErg);
+    expect(stored.sets).toEqual([{ measure: { kind: 'duration', seconds: 1200 } }]);
+    expect(bikeSeg.prescription_json).toEqual(stored);
 
     const recovered = roundTripPrescription(bikeSeg.prescription_json as Prescription);
-    expect(recovered).toEqual(bikeErg);
+    expect(recovered).toEqual(stored);
     expect(recovered.modality).toBe('bike');
     expect(recovered.target).toEqual({ kind: 'pace', unit: 'per_500m', value_s: 120 });
   });

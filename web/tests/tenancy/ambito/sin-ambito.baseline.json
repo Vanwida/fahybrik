@@ -661,8 +661,6 @@
     {"archivo":"lib/dashboard/coach/template-instance.ts","huella":"0377702732ef","tablas":["template_segments"],"veces":1},
     {"archivo":"lib/dashboard/coach/template-instance.ts","huella":"8345a712515d","tablas":["template_blocks"],"veces":1},
     {"archivo":"lib/dashboard/coach/templates.ts","huella":"1403e1ca2e7f","tablas":["exercises","template_segments"],"veces":1},
-    {"archivo":"lib/dashboard/coach/templates.ts","huella":"2a8ad04a5f5d","tablas":["template_segments"],"veces":1},
-    {"archivo":"lib/dashboard/coach/templates.ts","huella":"bd414f9668d0","tablas":["template_segments"],"veces":1},
     {"archivo":"lib/dashboard/coach/week-adjustments.ts","huella":"9abe54a191fb","tablas":["workout_assignments"],"veces":1},
     {"archivo":"lib/dashboard/coach/week-adjustments.ts","huella":"e859ca6f4b0f","tablas":["workout_assignments"],"veces":1},
     {"archivo":"lib/dashboard/coach/weekly-evaluation.ts","huella":"15d738b0429a","tablas":["workout_assignments"],"veces":1},

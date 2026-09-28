@@ -7,6 +7,7 @@ import { sql as defaultSql } from '@/lib/db';
 import { recordAudit, type Actor, type AuditChannel } from '@/lib/audit/record-edit';
 import {
   TemplateError,
+  templateBlockInputSchema,
   templateSegmentInputSchema,
   updateTemplate,
 } from './templates';
@@ -188,6 +189,8 @@ export const athleteDayContentSchema = z.object({
   /** Workout title (templates.name) — the name the athlete reads. */
   name: z.string().min(1).max(200).optional(),
   segments: z.array(athleteInstanceSegmentSchema).max(120),
+  /** Circuitos del día (`template_blocks`). Omitido = el día no tiene ninguno. */
+  blocks: z.array(templateBlockInputSchema).max(40).optional(),
 });
 export type AthleteDayContent = z.infer<typeof athleteDayContentSchema>;
 
@@ -244,6 +247,7 @@ export async function updateAthleteInstanceDay(params: {
     payload: {
       ...(body.name !== undefined ? { name: body.name } : {}),
       segments,
+      blocks: body.blocks ?? [],
     },
     client,
   });
