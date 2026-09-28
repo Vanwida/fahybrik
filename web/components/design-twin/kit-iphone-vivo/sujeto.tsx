@@ -142,7 +142,7 @@ export function ObjetivoInstruccion({ texto }: { texto: string }) {
   return (
     <div style={{ height: ALTO.banda, flex: '0 0 auto', padding: `0 ${MARGEN}px`, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
       <Etiqueta>objetivo</Etiqueta>
-      <span style={{ fontSize: TI.banda.palabra, fontWeight: 600, color: CI.tinta, lineHeight: 1.15, textAlign: 'right', textWrap: 'balance' }}>{texto}</span>
+      <span style={{ fontSize: TI.posicion.cuerpo, fontWeight: TI.posicion.peso, color: CI.tinta, lineHeight: 1.05, textAlign: 'right', textWrap: 'balance' }}>{texto}</span>
     </div>
   );
 }

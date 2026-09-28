@@ -47,9 +47,12 @@ function Celda({ m, alta, compacta, ancho }: { m: Metrica; alta: boolean; compac
     const el = fila.current;
     if (!el || !quiereCrecer || !cabe) return;
     const comprobar = () => {
-      const hijos = Array.from(el.children);
-      const arriba = hijos[0]?.getBoundingClientRect().top ?? 0;
-      if (hijos.some((h) => h.getBoundingClientRect().top > arriba + 2)) setMedida({ ancho, piezas, ok: false });
+      // Partida = alguna pieza empieza por debajo del numeral. No vale comparar
+      // los «top»: la unidad va a la línea base y su caja empieza más abajo
+      // que la del numeral aun estando en la misma línea.
+      const [primero, ...resto] = Array.from(el.children);
+      const suelo = primero?.getBoundingClientRect().bottom ?? 0;
+      if (resto.some((h) => h.getBoundingClientRect().top >= suelo - 1)) setMedida({ ancho, piezas, ok: false });
     };
     comprobar();
   });

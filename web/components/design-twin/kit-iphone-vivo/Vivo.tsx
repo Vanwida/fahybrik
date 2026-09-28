@@ -194,8 +194,9 @@ export function VistaIphone(p: VistaIphoneProps) {
   const banda = paso.rol === 'trabajo' ? lamina.banda : null;
   // El objetivo que no es un número vivo (RPE, RIR, kg, %RM) ocupa la fila de
   // la banda (P3): correr a RPE, una estación a RPE… En fuerza ya va en la
-  // etiqueta del héroe («65–70 % RM · RIR 2»): no se repite.
-  const instruccion = paso.rol === 'trabajo' && !banda && familiaDe(paso) !== 'fuerza' ? lamina.instruccion : null;
+  // etiqueta del héroe («65–70 % RM · RIR 2») y en un WOD en su cabecera o en
+  // su tarea («Burpee · Ronda 4/8 · RPE 10»): no se repite (un dato, un sitio).
+  const instruccion = paso.rol === 'trabajo' && !banda && !paso.wod && familiaDe(paso) !== 'fuerza' ? lamina.instruccion : null;
   const chips: ChipEnlace[] = enlacesDe(dispositivos, paso, lecturas);
   const nota = notaEnlace(chips) ?? (paso.cue ? `Coach · ${paso.cue}` : null);
   const metricas = metricasDelPaso(paso, lecturas, heroe.clase, zonas, extraCompleto, plan.reglas);
@@ -204,7 +205,10 @@ export function VistaIphone(p: VistaIphoneProps) {
   const enDescanso = paso.rol === 'descanso' || paso.rol === 'recuperacion';
   const trabajoKit = trabajoDe(paso, lecturas, heroe.clase);
   // El tempo de fuerza ya tiene celda en la rejilla: la fila del trabajo no lo repite (un dato, un sitio).
-  const trabajo: TrabajoVista | null = enDescanso && luegoKit ? { etiqueta: 'viene', valor: luegoKit.que, texto: true } : trabajoKit?.etiqueta === 'tempo' ? null : trabajoKit;
+  // En el descanso, «viene» es el de la familia (fuerza: la carga que está en
+  // la barra); si la familia quitó «Luego» (el WOD), el del kit.
+  const viene = luego ?? luegoKit;
+  const trabajo: TrabajoVista | null = enDescanso && viene ? { etiqueta: 'viene', valor: viene.que, texto: true } : trabajoKit?.etiqueta === 'tempo' ? null : trabajoKit;
   const posicion = p.posicion ? p.posicion(seq) : posicionDe(paso, extraCompleto);
   // El total en la cabecera (la puntuación, que no se va); si el héroe YA es el total, el de sesión.
   const crono =
@@ -322,8 +326,7 @@ export function VistaIphone(p: VistaIphoneProps) {
       <Rejilla metricas={apoyo ? metricas.slice(0, p.celdasConApoyo ?? 2) : metricas} compacta={!!apoyo && (p.apoyoCompacto ?? true)}>
         {apoyo}
       </Rejilla>
-      {/* Si la familia quitó «Luego» a propósito (su apoyo ya dice lo que viene), tampoco queda su hueco. */}
-      {/* La familia quita «Luego» devolviendo null donde el kit sí lo tenía (el apoyo del WOD ya lo dice); en el último paso, el hueco de siempre. */}
+      {/* La familia quita «Luego» devolviendo null donde el kit sí lo tenía (el apoyo del WOD ya lo dice): tampoco queda su hueco. En el último paso, el hueco de siempre. */}
       {enDescanso || (p.luego && !luego && luegoKit) ? null : <Luego luego={luego} />}
       <TiraEstructura arcos={arcos} enCurso={estado.i} fraccion={fraccionDelPaso(paso, lecturas)} onAbrir={() => irA('estructura')} />
     </>
