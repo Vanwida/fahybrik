@@ -448,7 +448,15 @@ export function buildRunCompliance(
       // mezcla solo puede venir de un re-sync a medias entre dos versiones del
       // cliente. Con «alguno» los laps sin índice se caerían del veredicto en
       // silencio, y un tramo que desaparece es peor que un tramo mal juzgado.
-      const legActuals = itemActuals.filter((a) => a.leg_index != null);
+      //
+      // Y solo los laps SIN ronda (`round_index` 0). Un bout de un bloque por rondas
+      // —la estación de una ruta HYROX / For Time, el minuto de un EMOM— también
+      // trae `leg_index`, pero cuenta los bouts del BLOQUE (estaciones × rondas),
+      // no los tramos de la prescripción de su línea: la carrera de 1 km que es la
+      // 5.ª estación llega con `leg_index` 4 y su línea tiene un solo tramo. Indexar
+      // ahí daría «sin dato» a una carrera medida. Esos laps van por el camino de
+      // abajo: cada uno contra la banda de su línea, como el tramo único que es.
+      const legActuals = itemActuals.filter((a) => a.leg_index != null && a.round_index === 0);
       if (legActuals.length > 0 && legActuals.length === itemActuals.length) {
         const all = allSegmentsOf(item.prescription_json);
         for (const a of legActuals) {

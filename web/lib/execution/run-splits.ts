@@ -59,6 +59,8 @@ export interface RunLegRow {
   position: number;
   item_uid: string | null;
   leg_index: number | null;
+  /** 0155: 0 = tramo de la estructura de su línea; ≥ 1 = bout de un bloque por rondas. */
+  round_index?: number;
   leg_role: SegmentLegRole | null;
   leg_phase: SegmentLegPhase | null;
   duration_seconds: number | null;
@@ -76,11 +78,15 @@ const LEG_PHASE_SET = new Set<string>(SEGMENT_LEG_PHASES);
 
 /** ¿Es esta fila un bout de carrera estructurada casable con su prescripción?
  *  Hace falta la atribución de tramo COMPLETA (mig 0146: todo o nada) Y un
- *  `item_uid` — sin él no hay con qué agrupar los tramos hermanos. */
+ *  `item_uid` — sin él no hay con qué agrupar los tramos hermanos. Y que no sea
+ *  un bout de un bloque por rondas (`round_index` ≥ 1: la estación de una ruta, el
+ *  minuto de un EMOM): su `leg_index` cuenta los bouts del bloque, no los tramos de
+ *  su línea, así que no tiene portadora que valga. */
 function isGroupableLeg(
   row: RunLegRow,
 ): row is RunLegRow & { item_uid: string; leg_index: number; leg_role: SegmentLegRole; leg_phase: SegmentLegPhase } {
   return (
+    (row.round_index ?? 0) === 0 &&
     row.item_uid != null &&
     row.leg_index != null &&
     row.leg_role != null &&

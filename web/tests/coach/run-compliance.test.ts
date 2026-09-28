@@ -92,6 +92,7 @@ function lap(item_uid: string, position: number, over: Partial<SegmentActual> = 
     source: null,
     zone_seconds: null,
     leg_index: null,
+    round_index: 0,
     leg_role: null,
     leg_phase: null,
     is_structural: false,
@@ -625,5 +626,51 @@ describe('buildRunCompliance — duración del TRABAJO (el propio encargo pidió
       lap('segment-263', 2, { avg_pace_s_per_km: 250, duration_seconds: 180 }),
     ]);
     expect(res.tramos.map((t) => t.duration_verdict)).toEqual(['duracion_incompleta', 'duracion_completa']);
+  });
+});
+
+describe('buildRunCompliance — ruta de estaciones (una fila por estación, sin fila agregada)', () => {
+  // Una ruta HYROX / For Time llega como un lap por estación: `leg_index` es la
+  // estación en la ruta (estaciones × rondas) y `round_index` ≥ 1 su ronda (0155).
+  // La carrera de 1 km que es la 2.ª estación trae `leg_index` 1, pero su línea
+  // tiene UN tramo: se juzga contra la banda de su línea, no «sin dato».
+  const run1k: Prescription = {
+    scheme: 'steady',
+    modality: 'run',
+    target: { kind: 'pace', unit: 'per_km', min_s: 265, max_s: 275 },
+  };
+  const station = (item: string, position: number, legIndex: number, round: number, over: Partial<SegmentActual> = {}) =>
+    lap(item, position, { leg_index: legIndex, leg_role: 'work', leg_phase: 'main', round_index: round, ...over });
+
+  test('cada estación de carrera se juzga contra la banda de su línea, ronda a ronda', () => {
+    const run = runItem(run1k, undefined, 'segment-501');
+    const ski = makeItem({
+      uid: 'segment-502',
+      template_segment_id: 502,
+      prescription_json: { scheme: 'steady', modality: 'ski' },
+    });
+    const res = buildRunCompliance(workout([run, ski]), [
+      station('segment-502', 1, 0, 1, { modality: 'ski', duration_seconds: 240 }),
+      station('segment-501', 2, 1, 1, { avg_pace_s_per_km: 270 }),
+      station('segment-502', 3, 2, 2, { modality: 'ski', duration_seconds: 250 }),
+      station('segment-501', 4, 3, 2, { avg_pace_s_per_km: 300 }),
+    ]);
+    expect(res.tramos.map((t) => [t.item_uid, t.position, t.verdict])).toEqual([
+      ['segment-501', 2, 'dentro'],
+      ['segment-501', 4, 'fuera_lento'],
+    ]);
+  });
+
+  test('una serie de carrera estructurada (round_index 0) sigue por el camino nativo', () => {
+    const item = nativeItem(
+      [workSeg({ type: 'pace_zone', zone: 4 }, zoneBand(245, 255)), recoverySeg(null)],
+      'segment-510',
+    );
+    const res = buildRunCompliance(workout([item]), [
+      legLap('segment-510', 0, 'work', { avg_pace_s_per_km: 250 }),
+      legLap('segment-510', 1, 'recovery'),
+    ]);
+    expect(res.tramos).toHaveLength(1);
+    expect(res.tramos[0]!).toMatchObject({ verdict: 'dentro', rep_ordinal: 1 });
   });
 });
