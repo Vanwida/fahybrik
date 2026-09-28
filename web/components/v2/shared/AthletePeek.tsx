@@ -285,7 +285,8 @@ function PeekBody({
             held: data.week.held,
             status: null,
             opens_on: data.week.opens_on,
-            sessions: data.week.days.reduce((n, d) => n + d.sessions.length, 0),
+            // Lo del plan: un libre hecho no es un entreno de la semana que publicar.
+            sessions: data.week.days.reduce((n, d) => n + d.sessions.filter((x) => !x.libre).length, 0),
           }}
           onChange={changed}
         />

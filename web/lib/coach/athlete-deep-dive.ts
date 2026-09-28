@@ -66,8 +66,6 @@ import type {
   KpiReadiness,
   MacrocycleRibbon,
   ModalityDistribution,
-  ModalityKey,
-  ModalityRow,
   PerformanceBlock,
   PerformanceGroup,
   PerformanceRow,
@@ -79,7 +77,9 @@ import type {
 } from './deep-dive-types';
 import type { AlertReason } from '@fahybrid/shared/domain/coach/types';
 import { joinCoachOverride } from '@/lib/exercises/coach-override';
-import { SEG_COUNTS_AS_VOLUME, SEG_IS_WORK_EFFORT } from '@/lib/execution/segment-work';
+import { SEG_COUNTS_AS_VOLUME, SEG_IS_WORK_EFFORT, SEG_MODALITY_SQL } from '@/lib/execution/segment-work';
+import { buildModalityRows } from '@/lib/coach/deep-dive-modality';
+import type { VolumeSet } from '@fahybrid/shared/domain/strength';
 
 /** «Total» = toda la historia que importa: diez años. */
 const COMPLIANCE_TOTAL_DAYS = 3650;
@@ -606,46 +606,68 @@ async function loadModality(
   tz: string,
 ): Promise<ModalityDistribution> {
   const sinceIso = addDays(now, -RECENT_DAYS).toISOString();
-  // Sum seconds + km + kg per exercise category, plus session count + 2x/day days.
+  // Un tramo por fila, clasificado por lo que se HIZO (deep-dive-modality.ts):
+  // la modalidad canónica del tramo, y el ejercicio del tramo (o, si no lo trae,
+  // el de su línea prescrita) solo para lo que la modalidad no dice.
   //
-  // Sin las recuperaciones de una sesión de series (0146). Esos metros se
-  // corrieron de verdad, pero esto es el REPARTO del trabajo de la semana: si
-  // entran, el porcentaje de carrera sube de golpe el día que el motor empezó a
-  // grabarlas y el coach lee un cambio de plan donde solo hubo un cambio de
-  // instrumentación.
-  const rows = await client<
+  // Este panel es el REPARTO DEL VOLUMEN, no un panel de intentos, así que usa el
+  // predicado ancho: la recuperación de una sesión de series entra. Esos metros se
+  // corrieron, y el atleta ve exactamente los mismos kilómetros en su tarjeta de
+  // volumen. Si aquí se excluyeran, la misma semana daría dos cifras de km según
+  // quién preguntara -- que es la divergencia que ya costó dos modelos de zonas.
+  // Los ritmos y los PRs sí filtran por SEG_IS_WORK_EFFORT: los kilómetros no
+  // mienten cuando se suman, los ritmos mienten cuando se promedian.
+  // tenancy: verified-owner — loadHeader ya comprobó que el atleta es del coach.
+  const segRows = await client<
     Array<{
+      id: string;
+      modality: string | null;
       category: string | null;
+      exercise_modality: string | null;
       seconds: number;
-      meters: number | null;
-      kg_volume: number | null;
+      meters: number;
+      reps_completed: number | null;
+      weight_used_kg: string | null;
     }>
   >`
     with sessions as (
-      select we.id, we.athlete_id, coalesce(we.ended_at, we.started_at, we.created_at) as ts
+      select we.id
       from workout_executions we
       where we.athlete_id = ${athlete_id}
         and coalesce(we.ended_at, we.started_at, we.created_at) >= ${sinceIso}
     )
     select
-      ex.category::text as category,
-      coalesce(sum(extract(epoch from coalesce(se.ended_at - se.started_at, interval '0'))), 0)::int as seconds,
-      coalesce(sum(coalesce(se.distance_meters, 0)), 0)::float as meters,
-      coalesce(sum(coalesce(se.weight_used_kg, 0) * coalesce(se.reps_completed, 0)), 0)::float as kg_volume
+      se.id::text                                     as id,
+      ${SEG_MODALITY_SQL(client)}                     as modality,
+      ex.category::text                               as category,
+      ex.modality::text                               as exercise_modality,
+      coalesce(extract(epoch from (se.ended_at - se.started_at)), 0)::float8 as seconds,
+      coalesce(se.distance_meters, 0)::float8         as meters,
+      se.reps_completed                               as reps_completed,
+      se.weight_used_kg::text                         as weight_used_kg
     from segment_executions se
     join sessions s on s.id = se.execution_id
     left join template_segments ts on ts.id = se.template_segment_id
-    left join exercises ex on ex.id = ts.exercise_id
-    -- Este panel es el REPARTO DEL VOLUMEN, no un panel de intentos, así que usa el
-    -- predicado ancho: la recuperación de una sesión de series entra. Esos metros se
-    -- corrieron, y el atleta ve exactamente los mismos kilómetros en su tarjeta de
-    -- volumen. Si aquí se excluyeran, la misma semana daría dos cifras de km segun
-    -- quien preguntara -- que es la divergencia que ya costo dos modelos de zonas.
-    -- Los ritmos y los PRs si filtran por SEG_IS_WORK_EFFORT: los kilometros no
-    -- mienten cuando se suman, los ritmos mienten cuando se promedian.
+    left join exercises ex on ex.id = coalesce(se.exercise_id, ts.exercise_id)
     where ${SEG_COUNTS_AS_VOLUME(client)}
-    group by ex.category
   `;
+  const segIds = segRows.map((r) => r.id);
+  const setRows =
+    segIds.length > 0
+      // tenancy: verified-owner — series de los tramos que acaba de leer la consulta anterior, del atleta del coach.
+      ? await client<Array<{ segment_execution_id: string; reps: number | null; kg: string | null; status: string }>>`
+          select segment_execution_id::text as segment_execution_id, reps_actual as reps,
+                 load_actual_kg::text as kg, status
+          from set_executions
+          where segment_execution_id = any(${segIds}::bigint[])
+        `
+      : [];
+  const setsBySeg = new Map<string, VolumeSet[]>();
+  for (const st of setRows) {
+    const list = setsBySeg.get(st.segment_execution_id) ?? [];
+    list.push({ reps: st.reps, kg: st.kg != null ? Number(st.kg) : null, status: st.status });
+    setsBySeg.set(st.segment_execution_id, list);
+  }
 
   // sessions_count + 2x/day days — «dos en un día» es en el día del atleta.
   const dayRows = await client<Array<{ d: string; n: number }>>`
@@ -658,54 +680,28 @@ async function loadModality(
     order by 1 desc
   `;
 
-  const totalSeconds = rows.reduce((s, r) => s + (r.seconds ?? 0), 0);
-  const totalHours = totalSeconds / 3600;
-
-  const map: Record<ModalityKey, ModalityRow> = {
-    running:   { key: 'running',  label: 'Running',     hours: 0, pct: 0, km: 0,  kg: null },
-    strength:  { key: 'strength', label: 'Strength',    hours: 0, pct: 0, km: null, kg: 0 },
-    hyrox:     { key: 'hyrox',    label: 'HYROX-spec',  hours: 0, pct: 0, km: null, kg: null },
-    skill:     { key: 'skill',    label: 'Skill/Mob',   hours: 0, pct: 0, km: null, kg: null },
-    recovery:  { key: 'recovery', label: 'Recovery',    hours: 0, pct: 0, km: null, kg: null },
-  };
-
-  for (const r of rows) {
-    const key = mapCategoryToModality(r.category);
-    if (!key) continue;
-    const target = map[key];
-    target.hours = round2(target.hours + (r.seconds ?? 0) / 3600);
-    target.pct = totalSeconds > 0 ? Math.round(((r.seconds ?? 0) / totalSeconds) * 100) : 0;
-    if (key === 'running' && r.meters != null) {
-      target.km = round1((target.km ?? 0) + r.meters / 1000);
-    }
-    if (key === 'strength' && r.kg_volume != null) {
-      target.kg = Math.round((target.kg ?? 0) + r.kg_volume);
-    }
-  }
+  const { rows, total_seconds } = buildModalityRows(
+    segRows.map((r) => ({
+      modality: r.modality,
+      category: r.category,
+      exercise_modality: r.exercise_modality,
+      seconds: r.seconds,
+      meters: r.meters,
+      reps_completed: r.reps_completed,
+      weight_used_kg: r.weight_used_kg != null ? Number(r.weight_used_kg) : null,
+      sets: setsBySeg.get(r.id) ?? [],
+    })),
+  );
 
   const sessionsCount = dayRows.reduce((s, d) => s + d.n, 0);
   const twiceDailyDays = dayRows.filter((d) => d.n >= 2).map((d) => labelDayShort(d.d));
 
   return {
-    rows: Object.values(map),
-    total_hours: round2(totalHours),
+    rows,
+    total_hours: round2(total_seconds / 3600),
     sessions_count: sessionsCount,
     twice_daily_days_label: twiceDailyDays.length > 0 ? twiceDailyDays.join('/') : null,
   };
-}
-
-function mapCategoryToModality(category: string | null): ModalityKey | null {
-  if (!category) return null;
-  switch (category) {
-    case 'cardio': return 'running';
-    case 'strength': return 'strength';
-    case 'hyrox_station': return 'hyrox';
-    case 'skill': return 'skill';
-    case 'mobility': return 'recovery';
-    case 'plyometric': return 'skill';
-    case 'core': return 'strength';
-    default: return null;
-  }
 }
 
 // ---------------------------------------------------------------------------

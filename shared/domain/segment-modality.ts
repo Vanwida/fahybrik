@@ -21,3 +21,21 @@
  *  una categoría nueva por cada palabra que mande un cliente. */
 export const SEGMENT_MODALITIES = ['run', 'row', 'ski', 'bike', 'strength', 'other'] as const;
 export type SegmentModality = (typeof SEGMENT_MODALITIES)[number];
+
+/** Normaliza lo que venga de la columna (valores viejos como 'functional', o
+ *  null) al vocabulario cerrado: lo que no encaja es `other`, nunca un cubo nuevo. */
+export function toSegmentModality(raw: string | null | undefined): SegmentModality {
+  return raw != null && (SEGMENT_MODALITIES as readonly string[]).includes(raw) ? (raw as SegmentModality) : 'other';
+}
+
+/** El nombre de una sesión que nadie tituló (una importación de Apple Salud, un
+ *  entreno guardado fuera del plan), por lo que MÁS se hizo en ella. Record a
+ *  propósito: una modalidad nueva no compila hasta que alguien le ponga nombre. */
+export const SEGMENT_MODALITY_SESSION_TITLE: Record<SegmentModality, string> = {
+  run: 'Carrera',
+  row: 'Remo',
+  ski: 'Ski',
+  bike: 'Bici',
+  strength: 'Fuerza',
+  other: 'Entreno',
+};

@@ -13,6 +13,7 @@ import {
   type SourceSession,
   num,
 } from '../core';
+import { setVolumeKg } from '@fahybrid/shared/domain/strength';
 import { loadStrengthSets, setLabel, setMagnitude, tonnage, type WorkSet } from '../strength-work';
 
 // ── Strength lift (versioned 1RM history) ────────────────────────────────────
@@ -68,7 +69,7 @@ export async function strengthVolumeDrill(
   for (const s of sets) {
     const e = byExec.get(s.executionId) ?? { day: s.day, assignmentId: s.assignmentId, kg: 0, sets: 0, exercises: new Set<string>() };
     e.sets += 1;
-    if (s.load != null && s.load > 0 && s.reps != null) e.kg += s.load * s.reps;
+    e.kg += setVolumeKg({ reps: s.reps, kg: s.load });
     if (s.exerciseName) e.exercises.add(s.exerciseName);
     byExec.set(s.executionId, e);
   }

@@ -15,11 +15,16 @@
 // to the aggregate, no fabricated per-exercise numbers).
 //
 // `segment_executions` carries NO per-segment RPE column — perceived exertion is
-// session-level only (`workout_executions.perceived_exertion`), so it is not part
-// of this shape on purpose.
+// session-level (`workout_executions.perceived_exertion`) or PER SET: the RPE/RIR
+// the athlete logs set by set lives in `set_executions` (mig 0088) and travels
+// here as `sets[]`, with the tramo's tonnage (`volume_kg`) summed from them by the
+// one shared rule (`shared/domain/strength/volume.ts`). Until 2026-09-28 this
+// loader never read `set_executions`: a 5×100 · 5×110 · 3×115 · 3×120 reached the
+// athlete and the coach as reps=null, kg=120 and no volume.
 
 import type { Sql } from '@/lib/db';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@/lib/sync/ingest-execution-segments';
+import { segmentVolumeKg, type SetExecutionStatus } from '@fahybrid/shared/domain/strength';
 import { parseErgDetail, type ErgSplitItem } from '@/lib/execution/erg-splits';
 import { groupRunSplits, type RunLegSplitItem } from '@/lib/execution/run-splits';
 import { parseZoneSeconds, type ZoneSeconds } from '@/lib/execution/zone-seconds';
@@ -29,6 +34,28 @@ import {
   type SegmentLegPhase,
   type SegmentLegRole,
 } from '@/lib/execution/segment-work';
+
+/** One logged SET of a tramo (`set_executions`, mig 0088), in `set_index` order.
+ *  Everything the athlete logged per set; null = not logged, never a zero. */
+export interface SetActual {
+  /** 1-based, as stored. */
+  set_index: number;
+  /** 'done' | 'scaled' (done, lighter) | 'skipped' (never counts). */
+  status: SetExecutionStatus;
+  /** Reps actually done (`reps_actual`). */
+  reps: number | null;
+  /** Load actually used, kg (`load_actual_kg`). */
+  kg: number | null;
+  reps_prescribed: number | null;
+  kg_prescribed: number | null;
+  /** Per-set RPE / RIR (0–10, half points allowed). */
+  rpe: number | null;
+  rir: number | null;
+  /** Tempo as logged ("3-1-1-0"). */
+  tempo: string | null;
+  /** Rest taken after the set, seconds. */
+  rest_s: number | null;
+}
 
 /** One logged segment, mapped to its prescribed item. Numerics are real numbers. */
 export interface SegmentActual {
@@ -121,11 +148,20 @@ export interface SegmentActual {
    *  puntuar. Se expone porque es el OTRO eje de «esto no es un intento», y
    *  tenerlo solo en la BD fue lo que dejó a 19 de 20 lectores sin filtrarlo. */
   is_structural: boolean;
+  /** Serie a serie (`set_executions`), en orden. `[]` cuando el tramo no se
+   *  registró por series (carrera, ergo, o una línea con un solo número). */
+  sets: SetActual[];
+  /** Tonelaje del tramo, kg: Σ reps × carga de sus series hechas; sin series, su
+   *  línea única (reps × carga). Null sin carga que sumar — nunca un 0 fabricado. */
+  volume_kg: number | null;
 }
 
 // Raw DB row. pg returns `numeric` columns as strings, so the numeric fields are
 // typed `string | number | null` and coerced once in `buildSegmentActuals`.
 export interface SegmentActualRow {
+  /** `segment_executions.id` — keys the tramo's sets. Optional so the pure
+   *  mapper's fixtures (no sets) keep typing. */
+  id?: string;
   template_segment_id: string | null;
   position: number;
   modality: string | null;
@@ -152,6 +188,21 @@ export interface SegmentActualRow {
   leg_phase: string | null;               // 'warmup' | 'main' | 'cooldown'
   is_structural: boolean | null;
   raw_lap_data_json: unknown;             // jsonb → parsed value (or null)
+}
+
+/** Raw `set_executions` row (numeric → string from pg). */
+export interface SetActualRow {
+  segment_execution_id: string;
+  set_index: number;
+  status: string;
+  reps_actual: number | null;
+  load_actual_kg: string | number | null;
+  reps_prescribed: number | null;
+  load_prescribed_kg: string | number | null;
+  rpe: string | number | null;
+  rir: string | number | null;
+  tempo: string | null;
+  rest_s: number | null;
 }
 
 const MODALITY_SET = new Set<string>(SEGMENT_MODALITIES);
@@ -189,38 +240,73 @@ function durationSeconds(started: string | null, ended: string | null): number |
   return d > 0 ? d : null;
 }
 
-/** Pure mapper: DB rows → coach-facing actuals (testable without a DB). */
-export function buildSegmentActuals(rows: SegmentActualRow[]): SegmentActual[] {
-  const mapped: SegmentActual[] = rows.map((r) => ({
-    position: r.position,
-    item_uid: r.template_segment_id != null ? `segment-${r.template_segment_id}` : null,
-    modality: toModality(r.modality),
-    started_at: r.started_at,
-    duration_seconds: durationSeconds(r.started_at, r.ended_at),
-    reps_completed: r.reps_completed ?? null,
-    weight_used_kg: num(r.weight_used_kg),
-    distance_meters: num(r.distance_meters),
-    avg_pace_s_per_500m: num(r.avg_pace_s_per_500m),
-    avg_pace_s_per_km: num(r.avg_pace_s_per_km),
-    avg_power_w: num(r.avg_power_w),
-    stroke_rate_spm: num(r.stroke_rate_spm),
-    avg_hr: r.avg_hr ?? null,
-    max_hr: r.max_hr ?? null,
-    calories: num(r.calories),
-    emom_rounds_completed: r.emom_rounds_completed ?? null,
-    emom_rounds_prescribed: r.emom_rounds_prescribed ?? null,
-    incline_pct: num(r.incline_pct),
-    avg_gradient_pct: num(r.avg_gradient_pct),
-    run_cadence_spm: r.run_cadence_spm ?? null,
-    source: r.source ?? null,
-    zone_seconds: parseZoneSeconds(r.raw_lap_data_json),
-    leg_index: r.leg_index ?? null,
-    leg_role: toLegRole(r.leg_role),
-    leg_phase: toLegPhase(r.leg_phase),
-    is_structural: r.is_structural ?? false,
-    run_splits: null,
-    ...ergFields(r.raw_lap_data_json),
-  }));
+const SET_STATUSES: ReadonlySet<string> = new Set<SetExecutionStatus>(['done', 'scaled', 'skipped']);
+
+function toSetActual(r: SetActualRow): SetActual {
+  return {
+    set_index: r.set_index,
+    // El CHECK de 0088 ya cierra el vocabulario; un valor desconocido se lee como
+    // hecho (hay reps/carga registradas), nunca como saltado en silencio.
+    status: SET_STATUSES.has(r.status) ? (r.status as SetExecutionStatus) : 'done',
+    reps: r.reps_actual ?? null,
+    kg: num(r.load_actual_kg),
+    reps_prescribed: r.reps_prescribed ?? null,
+    kg_prescribed: num(r.load_prescribed_kg),
+    rpe: num(r.rpe),
+    rir: num(r.rir),
+    tempo: r.tempo ?? null,
+    rest_s: r.rest_s ?? null,
+  };
+}
+
+/** Pure mapper: DB rows → coach-facing actuals (testable without a DB). `sets`
+ *  are the tramos' `set_executions` rows, matched by `segment_execution_id`. */
+export function buildSegmentActuals(rows: SegmentActualRow[], sets: SetActualRow[] = []): SegmentActual[] {
+  const setsBySegment = new Map<string, SetActual[]>();
+  for (const st of sets) {
+    const list = setsBySegment.get(st.segment_execution_id) ?? [];
+    list.push(toSetActual(st));
+    setsBySegment.set(st.segment_execution_id, list);
+  }
+  for (const list of setsBySegment.values()) list.sort((a, b) => a.set_index - b.set_index);
+
+  const mapped: SegmentActual[] = rows.map((r) => {
+    const segSets = (r.id != null ? setsBySegment.get(r.id) : undefined) ?? [];
+    const reps_completed = r.reps_completed ?? null;
+    const weight_used_kg = num(r.weight_used_kg);
+    return {
+      position: r.position,
+      item_uid: r.template_segment_id != null ? `segment-${r.template_segment_id}` : null,
+      modality: toModality(r.modality),
+      started_at: r.started_at,
+      duration_seconds: durationSeconds(r.started_at, r.ended_at),
+      reps_completed,
+      weight_used_kg,
+      distance_meters: num(r.distance_meters),
+      avg_pace_s_per_500m: num(r.avg_pace_s_per_500m),
+      avg_pace_s_per_km: num(r.avg_pace_s_per_km),
+      avg_power_w: num(r.avg_power_w),
+      stroke_rate_spm: num(r.stroke_rate_spm),
+      avg_hr: r.avg_hr ?? null,
+      max_hr: r.max_hr ?? null,
+      calories: num(r.calories),
+      emom_rounds_completed: r.emom_rounds_completed ?? null,
+      emom_rounds_prescribed: r.emom_rounds_prescribed ?? null,
+      incline_pct: num(r.incline_pct),
+      avg_gradient_pct: num(r.avg_gradient_pct),
+      run_cadence_spm: r.run_cadence_spm ?? null,
+      source: r.source ?? null,
+      zone_seconds: parseZoneSeconds(r.raw_lap_data_json),
+      leg_index: r.leg_index ?? null,
+      leg_role: toLegRole(r.leg_role),
+      leg_phase: toLegPhase(r.leg_phase),
+      is_structural: r.is_structural ?? false,
+      run_splits: null,
+      ...ergFields(r.raw_lap_data_json),
+      sets: segSets,
+      volume_kg: segmentVolumeKg({ sets: segSets, reps_completed, weight_used_kg }),
+    };
+  });
 
   // Segunda pasada, en memoria (sin consulta extra: las columnas ya están
   // todas en `mapped`) — agrupa los tramos de cada carrera estructurada y los
@@ -251,8 +337,10 @@ function ergFields(raw: unknown): Pick<
 
 /** Load the per-segment actuals for ONE workout execution, ordered by position. */
 export async function loadSegmentActuals(sql: Sql, executionId: number): Promise<SegmentActual[]> {
+  // tenancy: verified-owner — la ejecución llega de un detalle que ya comprobó su atleta (y su coach).
   const rows = await sql<SegmentActualRow[]>`
     select
+      id::text                  as id,
       template_segment_id::text as template_segment_id,
       position                  as position,
       modality                  as modality,
@@ -283,5 +371,25 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
     where execution_id = ${executionId}
     order by position asc, id asc
   `;
-  return buildSegmentActuals(rows);
+  if (rows.length === 0) return [];
+  // tenancy: verified-owner — series de la misma ejecución ya comprobada.
+  const sets = await sql<SetActualRow[]>`
+    select
+      st.segment_execution_id::text as segment_execution_id,
+      st.set_index                  as set_index,
+      st.status                     as status,
+      st.reps_actual                as reps_actual,
+      st.load_actual_kg             as load_actual_kg,
+      st.reps_prescribed            as reps_prescribed,
+      st.load_prescribed_kg         as load_prescribed_kg,
+      st.rpe                        as rpe,
+      st.rir                        as rir,
+      st.tempo                      as tempo,
+      st.rest_s                     as rest_s
+    from set_executions st
+    join segment_executions se on se.id = st.segment_execution_id
+    where se.execution_id = ${executionId}
+    order by st.segment_execution_id asc, st.set_index asc
+  `;
+  return buildSegmentActuals(rows, sets);
 }

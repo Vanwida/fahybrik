@@ -366,8 +366,26 @@ function executedTramo(a: SegmentActual): Record<string, unknown> {
   if (a.distance_meters != null) out.distance_m = a.distance_meters;
   if (a.avg_pace_s_per_km != null) out.pace_s_per_km = a.avg_pace_s_per_km;
   if (a.avg_pace_s_per_500m != null) out.pace_s_per_500m = a.avg_pace_s_per_500m;
-  if (a.reps_completed != null) out.reps = a.reps_completed;
-  if (a.weight_used_kg != null) out.weight_kg = a.weight_used_kg;
+  // Serie a serie cuando se registró así: las columnas de tramo son entonces un
+  // resumen ambiguo (reps nulas, la carga de la última serie) y no viajan.
+  if (a.sets.length > 0) {
+    out.sets = a.sets.map((st) => {
+      const set: Record<string, unknown> = { set: st.set_index, status: st.status };
+      if (st.reps != null) set.reps = st.reps;
+      if (st.kg != null) set.weight_kg = st.kg;
+      if (st.reps_prescribed != null) set.reps_prescribed = st.reps_prescribed;
+      if (st.kg_prescribed != null) set.weight_kg_prescribed = st.kg_prescribed;
+      if (st.rpe != null) set.rpe = st.rpe;
+      if (st.rir != null) set.rir = st.rir;
+      if (st.tempo != null) set.tempo = st.tempo;
+      if (st.rest_s != null) set.rest_s = st.rest_s;
+      return set;
+    });
+  } else {
+    if (a.reps_completed != null) out.reps = a.reps_completed;
+    if (a.weight_used_kg != null) out.weight_kg = a.weight_used_kg;
+  }
+  if (a.volume_kg != null) out.volume_kg = a.volume_kg;
   if (a.avg_power_w != null) out.power_w = a.avg_power_w;
   if (a.calories != null) out.calories = a.calories;
   if (a.avg_hr != null) out.avg_hr = a.avg_hr;
@@ -397,8 +415,16 @@ function executedLabel(a: SegmentActual): string {
         : `${Math.round(a.distance_meters)} m`,
     );
   }
-  if (a.reps_completed != null) parts.push(`${a.reps_completed} reps`);
-  if (a.weight_used_kg != null) parts.push(formatTarget({ kind: 'kg', value: a.weight_used_kg }));
+  if (a.sets.length > 0) {
+    const done = a.sets
+      .filter((st) => st.status !== 'skipped' && st.reps != null)
+      .map((st) => (st.kg != null ? `${st.reps}×${st.kg} kg` : `${st.reps} reps`));
+    if (done.length > 0) parts.push(done.join(', '));
+    if (a.volume_kg != null) parts.push(`${Math.round(a.volume_kg)} kg de volumen`);
+  } else {
+    if (a.reps_completed != null) parts.push(`${a.reps_completed} reps`);
+    if (a.weight_used_kg != null) parts.push(formatTarget({ kind: 'kg', value: a.weight_used_kg }));
+  }
   if (a.duration_seconds != null) parts.push(formatDuration(a.duration_seconds));
   if (a.avg_pace_s_per_km != null) {
     parts.push(formatTarget({ kind: 'pace', unit: 'per_km', value_s: a.avg_pace_s_per_km }));

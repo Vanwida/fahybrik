@@ -6,6 +6,7 @@
 //   · exercises — the tracked lift catalog + exercise→1RM-benchmark mapping
 //   · resolve   — resolvePercentRmToKg(pct, 1RM) → absolute load
 //   · origen    — de dónde sale un kilo (source + assignment_id → lectura honesta)
+//   · volume    — el tonelaje: Σ carga × reps de las series hechas (una regla)
 //
 // Mirrors the dedup pattern of domain/methodology: logic lives here once; web,
 // iOS contract and infra import it. Persisted by migration 0076
@@ -17,3 +18,4 @@ export * from './resolve';
 export * from './origen';
 export * from './velocity-loss';
 export * from './velocity-bands';
+export * from './volume';

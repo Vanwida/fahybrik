@@ -39,6 +39,7 @@ import { loadReadinessHistory } from '@/lib/coach/attention/readiness-history';
 import { latestReading, baselineOf, readinessTrend } from '@/lib/coach/attention/readiness-baseline';
 import { resolveCoachThresholds } from '@/lib/coach/signal-thresholds';
 import { loadPlanFacts } from '@/lib/dashboard/athletes/plan-facts';
+import { COACH_SEES_ASSIGNMENT } from '@/lib/coach/libre-visible';
 
 /** Ventana de la adherencia del vistazo — la misma que la columna del roster. */
 export const PEEK_ADHERENCE_WINDOW_DAYS = 14;
@@ -50,8 +51,9 @@ export interface PeekDay {
   date: string;
   state: PeekDayState;
   is_today: boolean;
-  /** Entrenos del coach ese día (títulos), en orden. */
-  sessions: Array<{ title: string; done: boolean }>;
+  /** Entrenos del coach ese día (títulos), en orden; detrás, los libres que el
+   *  atleta hizo (`libre: true`), que se nombran pero no deciden `state`. */
+  sessions: Array<{ title: string; done: boolean; libre?: boolean }>;
 }
 
 export interface AthletePeekData {
@@ -97,10 +99,14 @@ export interface PeekSession {
   status: AdherenceAssignmentStatus;
   executed: boolean;
   excluded: boolean;
+  /** Entreno libre del atleta, ya hecho (`COACH_SEES_ASSIGNMENT`). Por defecto no. */
+  libre?: boolean;
 }
 
 /**
- * Los 7 puntos de la semana (lun → dom). Puro.
+ * Los 7 puntos de la semana (lun → dom). Puro. El estado del punto es del PLAN;
+ * un libre hecho se nombra en el día (`sessions[].libre`) pero no lo decide:
+ * un descanso en el que el atleta rodó por su cuenta sigue siendo descanso.
  *   rest    = ningún entreno del coach (o todos en pausa / descanso por lesión);
  *   done    = todos los entrenos del día hechos;
  *   missed  = día pasado con algo sin hacer, en una semana que el atleta veía
@@ -116,7 +122,8 @@ export function buildWeekDots(
   const days: PeekDay[] = [];
   for (let i = 0; i < 7; i += 1) {
     const date = isoDateString(addDays(parseIsoDate(week_start), i));
-    const own = sessions.filter((s) => s.scheduled_for === date && !s.excluded);
+    const own = sessions.filter((s) => s.scheduled_for === date && !s.libre && !s.excluded);
+    const libres = sessions.filter((s) => s.scheduled_for === date && s.libre);
     const done = own.map((s) => isSessionDone(s));
     let state: PeekDayState;
     if (own.length === 0) state = 'rest';
@@ -127,7 +134,10 @@ export function buildWeekDots(
       date,
       state,
       is_today: date === today,
-      sessions: own.map((s, k) => ({ title: s.title, done: done[k] ?? false })),
+      sessions: [
+        ...own.map((s, k) => ({ title: s.title, done: done[k] ?? false })),
+        ...libres.map((s) => ({ title: s.title, done: true, libre: true })),
+      ],
     });
   }
   return days;
@@ -211,6 +221,7 @@ async function loadWeek(
 }> {
   const sunday = isoDateString(addDays(parseIsoDate(week_start), 6));
   const [sessions, rows] = await Promise.all([
+    // tenancy: verified-owner — loadPlanFacts (con coach_id) ya comprobó que el atleta es del coach.
     client<
       Array<{
         scheduled_for: string;
@@ -218,12 +229,14 @@ async function loadWeek(
         status: AdherenceAssignmentStatus;
         executed: boolean;
         excluded: boolean;
+        libre: boolean;
       }>
     >`
       select to_char(wa.scheduled_for, 'YYYY-MM-DD') as scheduled_for,
              coalesce(t.name, 'Entreno') as title,
              wa.status::text as status,
              exists (select 1 from workout_executions we where we.assignment_id = wa.id) as executed,
+             (wa.origin = 'self') as libre,
              (
                wa.injury_adaptation = 'rest'
                or exists (
@@ -235,7 +248,7 @@ async function loadWeek(
       from workout_assignments wa
       left join templates t on t.id = wa.template_id
       where wa.athlete_id = ${athlete_id}
-        and wa.origin = 'coach'
+        and ${COACH_SEES_ASSIGNMENT(client)}
         and wa.scheduled_for between ${week_start}::date and ${sunday}::date
       order by wa.scheduled_for, wa.planned_sequence nulls last, wa.id
     `,

@@ -22,7 +22,7 @@ import {
   dayMonthEs,
   numOrNull,
 } from '../core';
-import { scoreValue, SCORE_FORMAT_ES } from '../hyrox';
+import { scoreValue, SCORE_FORMAT_ES, UNPLANNED_SCORED_TITLE } from '../hyrox';
 
 // ── HYROX race — the 16 segments (8 runs + 8 stations) one by one ────────────
 export async function hyroxRaceDrill(
@@ -155,15 +155,16 @@ export async function hyroxScoresDrill(
   period: ResolvedPeriod,
   tz: string,
 ): Promise<DrillDownResult> {
+  // tenancy: athlete-session — athleteId sale del bearer del atleta (ruta de analíticas).
   const rows = await client<Array<{
     execution_id: string;
-    assignment_id: string;
+    assignment_id: string | null;
     day: string | null;
     score_time_s: number | null;
     score_rounds: number | null;
     score_reps: number | null;
-    template_name: string;
-    format: string;
+    template_name: string | null;
+    format: string | null;
   }>>`
     select
       we.id::text as execution_id,
@@ -172,8 +173,8 @@ export async function hyroxScoresDrill(
       we.score_time_s, we.score_rounds, we.score_reps,
       t.name as template_name, t.format::text as format
     from workout_executions we
-    join workout_assignments wa on wa.id = we.assignment_id
-    join templates t on t.id = wa.template_id
+    left join workout_assignments wa on wa.id = we.assignment_id
+    left join templates t on t.id = wa.template_id
     where we.athlete_id = ${athleteId}
       and (we.score_time_s is not null or we.score_rounds is not null)
       and coalesce(we.ended_at, we.started_at) >= ${period.start_iso}::timestamptz
@@ -185,7 +186,7 @@ export async function hyroxScoresDrill(
     return {
       id: r.execution_id,
       date: r.day,
-      title_es: r.template_name,
+      title_es: r.template_name ?? UNPLANNED_SCORED_TITLE,
       detail_es: fmt ? SCORE_FORMAT_ES[fmt] ?? fmt : null,
       value: scoreValue(r),
       value_label: null,

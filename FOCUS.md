@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-25** (la muñeca: 6 propuestas + kit consolidado; falta la firma de Alex)
+Última actualización: **2026-09-28** (lectores libre = coach, en rama; sin fusionar ni desplegar)
 
 ## Ahora
 
@@ -11,6 +11,8 @@ la última serie, sin detalle no hay Empezar, resultado al terminar, enlace al a
 
 **UN SOLO ENTRENO (28-09, rama `fix/un-solo-entreno`, SIN fusionar ni desplegar):** libre ≡ sesión del coach al guardar. Plan guardado → sync del coach; `/free/plan` devuelve `template_segment_ids`; `/free` enlaza tramos, nunca 4xx con trabajo, reenvío idempotente (`free_started_at`); Salud sustituida en todos los guardados; modalidad del ejercicio. Migración 0274 (probada en rama; NO en prod: la aplica el orquestador ANTES del deploy).
 Contrato iOS: `docs/pr/un-solo-entreno.md` (otra sesión). DECISIONS 28-09.
+**LIBRE = COACH EN LOS LECTORES (28-09, rama `worktree-agent-acf4f0bae662f59a6`, sin fusionar).** Coach ve libres hechos (solo lectura, sin adherencia); series + volumen; historial con lo sin asignación (`include_unplanned=1`) + detalle por ejecución; deep dive por tramo; marcas sin 500. iOS: `docs/pr/lectores-libre-coach.md`. DECISIONS 28-09.
+
 **LA MUÑECA SE REHACE (Alex, 25-09: «es un lío, así no competimos con TrainingPeaks»).** Auditoría de 6 lentes
 + modelo: `docs/reloj-muneca/` (https://claude.ai/artifact/3LzhCpYCr6H7rgktymoG8r; spec `modelo.md`; DECISIONS 25-09).
 Alex eligió: el objetivo manda, SF nativo, voz al cambiar de paso y cada km, comprometida vs objetivo del coach.

@@ -135,7 +135,7 @@ describeWithDb('el «hoy» de la app del atleta es el de su calendario (real DB)
   }
 
   /** Days with sessions → their assignment ids (rest days left out). */
-  function sessionDays(month: AthleteHistoryMonth): Record<string, string[]> {
+  function sessionDays(month: AthleteHistoryMonth): Record<string, Array<string | null>> {
     return Object.fromEntries(
       month.days
         .filter((d) => d.sessions.length > 0)

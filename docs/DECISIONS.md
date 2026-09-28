@@ -95,6 +95,24 @@ Reejecutarla no cambia nada.
 
 ---
 
+## 2026-09-28 · Un libre y uno del coach se leen igual: los lectores
+
+**El hueco (Alex):** un entreno libre y uno del coach tienen que contar y verse IGUAL en historial, panel del coach y analíticas. La escritura (tramos del libre sin `template_segment_id`, 154/155) la arregla otra sesión con un backfill; esto son los LECTORES, que tenían sus propias razones para dejarlos fuera.
+
+**Decidido:**
+- **El coach ve los libres HECHOS**, en el calendario de la ficha, en los siete puntos del vistazo y en el enlace viejo a un día: marcados «Libre» (borde discontinuo), de solo lectura, sin arrastrar ni editar. Una regla SQL (`web/lib/coach/libre-visible.ts#COACH_SEES_ASSIGNMENT`): todo el plan + del atleta solo lo hecho. Un libre montado y no hecho no existe para el coach.
+- **La adherencia no se toca.** Un libre no cuenta ni como debido ni como hecho, ni en la carga planificada de la semana, ni en «Sin entrenos», ni en el roster («programadas hoy», «próxima sesión», «perdidas»). En el vistazo nombra el día sin cambiar su punto. El comentario de `adherence.ts` decía que «suma»: no suma.
+- **Detalle de sesión serie a serie.** `SegmentActual` trae `sets[]` y `volume_kg` (aditivo en el DTO de iOS). El tonelaje es UNA regla (`shared/domain/strength/volume.ts`): Σ reps × kg de las series `done`/`scaled`; sin series, la línea única; null sin carga. La usan el detalle, el reparto del deep dive y las analíticas de fuerza.
+- **Historial: lo hecho sin asignación cuenta** (importaciones de Salud, fuera del plan), pero detrás de `include_unplanned=1`, porque la app instalada decodifica `assignment_id` como obligatorio. Se abre por `GET /api/athlete/executions/[id]/detail` (misma respuesta que por asignación, `assignment: null` cuando no la hay; comparten la lectura de ejecución, tramos, series y traza). `is_rest` sale solo del plan del coach.
+- **Deep dive: el reparto se clasifica por el TRAMO**, no por la plantilla (`web/lib/coach/deep-dive-modality.ts`). `MODALITY_KEYS` gana `erg` (un remo o un SkiErg no son km de correr) y `other` (nada se queda fuera); los % se reparten por restos mayores y suman 100.
+- **Identidad de un ejercicio en analíticas:** la del tramo (`exercise_id`) y, si no la trae, la de su línea enlazada. El veredicto de carrera sigue casando por el enlace a la línea: es la misma clave para libre y coach (`tests/coach/libre-coach-parity.db.test.ts`).
+
+**Descartado:** servir las filas sin asignación a todos con un `assignment_id` inventado o vacío (abriría un detalle falso); una segunda lista paralela en cada día del historial (duplica cada fila); casar tramos sin enlace por posición o por `prescription_snapshot` en el lector (el enlace es la clave estable; sin él no hay prescripción que juzgar).
+
+**NO hacer:** no volver a filtrar `origin = 'coach'` en un lector que pinta lo HECHO (solo en lo que decide el plan); no contar un libre en la adherencia; no quitar el opt-in del historial hasta que la app instalada decodifique `assignment_id` opcional; no calcular tonelaje fuera de `volume.ts`.
+
+---
+
 ## 2026-09-25 · La muñeca se rehace: un estado, un pintor, el objetivo manda y la gramática de Apple
 
 **Por qué (Alex, 25-09):** «la UX del reloj es un lío… no podemos competir con TrainingPeaks así; tiene que sentirse una herramienta nativa, fuerte, hecha por y para corredores (70 % del uso), y la carrera comprometida con los entrenos tiene que tener sentido». Una auditoría de seis lentes lo confirma con evidencia: el modelo completo, las causas y los casos están en `docs/reloj-muneca/modelo.md`.

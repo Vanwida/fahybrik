@@ -96,6 +96,17 @@ export function sessionModality(
   return { modality: m, label: MODALITY_LABEL[m] };
 }
 
+/** ¿Es sesión del PLAN? Un libre (hecho por el atleta) se pinta, pero no es plan:
+ *  no cuenta en lo debido/hecho, en la carga planificada ni en «Sin entrenos». */
+export function isPlanSession(s: Pick<CalSession, 'libre'>): boolean {
+  return !s.libre;
+}
+
+/** ¿La semana tiene algo del plan? (decide «Sin entrenos» y las herramientas de semana). */
+export function weekHasPlanSessions(w: Pick<CalWeek, 'days'>): boolean {
+  return w.days.some((d) => d.sessions.some(isPlanSession));
+}
+
 /** Semanas → días → entrenos, con sus sumas. Las semanas sin fila de estado se ven (sin fila = visible). */
 export function buildCalendarWeeks(params: {
   sessions: ReadonlyArray<CalSession>;
@@ -124,7 +135,7 @@ export function buildCalendarWeeks(params: {
         held: false,
         status: null,
         opens_on: null,
-        sessions: all.length,
+        sessions: all.filter(isPlanSession).length,
       } satisfies AthleteWeekState);
     return summarizeWeek({ week_start: monday, days, state }, params.today);
   });
@@ -141,6 +152,7 @@ export function summarizeWeek(
   let done = 0;
   for (const d of w.days) {
     for (const s of d.sessions) {
+      if (!isPlanSession(s)) continue;
       if (s.planned_min != null) planned_min += s.planned_min;
       if (s.planned_open || s.planned_min == null) planned_open += 1;
       if (s.excluded) continue;
@@ -157,7 +169,10 @@ export function summarizeWeek(
 /** Minutos escritos por día (la barra de carga): null = nada escrito ese día. */
 export function dayLoads(week: CalWeek): (number | null)[] {
   return week.days.map((d) => {
-    const mins = d.sessions.map((s) => s.planned_min).filter((m): m is number => m != null);
+    const mins = d.sessions
+      .filter(isPlanSession)
+      .map((s) => s.planned_min)
+      .filter((m): m is number => m != null);
     return mins.length > 0 ? mins.reduce((a, b) => a + b, 0) : null;
   });
 }
@@ -198,7 +213,7 @@ function mapSessions(
   const states = new Map(cal.weeks.map((w) => [w.week_start, w.state]));
   // Una semana que gana o pierde entrenos cambia su recuento.
   for (const [ws, st] of states) {
-    const n = all.filter((s) => mondayOfIso(s.date) === ws).length;
+    const n = all.filter((s) => isPlanSession(s) && mondayOfIso(s.date) === ws).length;
     states.set(ws, { ...st, sessions: n });
   }
   return {

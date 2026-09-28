@@ -52,6 +52,22 @@ describe('GET /api/athlete/history', () => {
     const res = await GET(req('2026-05'));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(payload);
-    expect(buildAthleteHistoryMonth).toHaveBeenCalledWith(BigInt(7), '2026-05');
+    expect(buildAthleteHistoryMonth).toHaveBeenCalledWith(BigInt(7), '2026-05', undefined, {
+      include_unplanned: false,
+    });
+  });
+
+  it('include_unplanned=1 pide también lo hecho sin asignación; un valor raro es 400', async () => {
+    vi.mocked(getAthleteSessionFromBearer).mockResolvedValue(SESSION);
+    vi.mocked(buildAthleteHistoryMonth).mockResolvedValue({ month: '2026-05', days: [] });
+
+    const ok = await GET(req('2026-05&include_unplanned=1'));
+    expect(ok.status).toBe(200);
+    expect(buildAthleteHistoryMonth).toHaveBeenCalledWith(BigInt(7), '2026-05', undefined, {
+      include_unplanned: true,
+    });
+
+    const bad = await GET(req('2026-05&include_unplanned=si'));
+    expect(bad.status).toBe(400);
   });
 });

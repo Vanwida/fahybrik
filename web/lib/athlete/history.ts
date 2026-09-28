@@ -1,29 +1,39 @@
 // =============================================================================
 // Athlete HISTORY by month — the read side of the iOS monthly calendar. For a
 // natural calendar month it returns the days that have CONTENT: the days on which
-// the athlete completed sessions (plotted by the date the work was DONE, not when
-// it was scheduled) and the days that were SCHEDULED as rest. Every session row
-// carries the id of its existing workout_assignment, so the calendar taps straight
-// into the session detail that already renders any past assignment
-// (assignment-detail.ts). Empty days (no plan, no work) are omitted — the client
-// paints them blank.
+// the athlete trained (plotted by the date the work was DONE, not when it was
+// scheduled) and the days that were SCHEDULED as rest. Each session row carries
+// its `execution_id` (always) and the id of its workout_assignment when it has one,
+// so the calendar taps straight into the session detail
+// (`/api/athlete/assignments/[id]/detail`, or `/api/athlete/executions/[id]/detail`
+// for work that has no assignment). Empty days (no plan, no work) are omitted — the
+// client paints them blank.
 //
 // Ground rules (honest by design, mirrors the analytics tab):
-//   • A "completed" session is a workout_executions row whose assignment reached a
-//     DONE state — workout_executions has NO status column; done/pending lives on
-//     workout_assignments.status (see lib/sync/assignment-status.ts), so we join and
-//     gate on it. The mere existence of an execution row is NOT enough.
+//   • A session from the plan (coach's or the athlete's own libre) counts once its
+//     assignment reached a DONE state — workout_executions has NO status column;
+//     done/pending lives on workout_assignments.status (see
+//     lib/sync/assignment-status.ts). The mere existence of an execution row on an
+//     assignment is NOT enough.
+//   • Work with NO assignment — an Apple Salud / FIT import that fitted no slot
+//     (0191/0192) or a workout kept «fuera del plan» (0270) — IS done work: it only
+//     exists because it was recorded. It counts in load, zones and running; it
+//     counts here too. Until 2026-09-28 the INNER JOIN on the assignment dropped it
+//     (athlete 64 since 1-aug: 133 sessions in load, 70 in the history).
+//     COMPATIBILITY: the installed iOS app decodes `assignment_id` as a non-optional
+//     string, so these rows are served only when the client opts in
+//     (`include_unplanned`). Without it the response is exactly the old one plus
+//     additive fields. Docs: docs/pr/lectores-libre-coach.md.
 //   • Sessions plot by the ATHLETE's local calendar day the work was done on
 //     (`athletes.timezone`, resolved once per request; BOX_TIMEZONE only when it is
 //     unset or unknown), the same day convention week-plan.ts uses for the
 //     athlete's "today" (docs/DECISIONS.md 2026-09-23 «Qué día es en cada sitio»).
-//     A timestamptz bucketed in UTC would drift a late 23:30 session onto the next
-//     day; bucketed in the box zone, a 20:00 session in Los Angeles did the same.
 //   • `is_rest` reuses week-plan.ts's SOURCE + LOGIC: the athlete's rest days are
-//     the days WITHOUT a scheduled assignment inside a week that IS planned (has ≥1
-//     assignment). A month with no plan produces no rest days — never a fabricated
-//     grid of rest. A day can be rest with zero sessions; a day the athlete trained
-//     is never rest.
+//     the days WITHOUT a scheduled COACH assignment inside a week the coach planned.
+//     Only `origin = 'coach'` decides it: a libre the athlete built on a Tuesday
+//     does not turn his Wednesday into a «rest day», and a week with only libres is
+//     not a planned week. A month with no plan produces no rest days — never a
+//     fabricated grid of rest. A day the athlete trained is never rest.
 //   • Nothing invented: no missed/failed flag, no PRs — only what the execution row
 //     really stores.
 // =============================================================================
@@ -38,34 +48,60 @@ import {
 } from '@fahybrid/shared/domain/dates';
 import { isValidTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
 import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
+import {
+  SEGMENT_MODALITY_SESSION_TITLE,
+  toSegmentModality,
+  type SegmentModality,
+} from '@fahybrid/shared/domain/segment-modality';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { SEG_COUNTS_AS_VOLUME, SEG_MODALITY_SQL } from '@/lib/execution/segment-work';
 
 export interface AthleteHistorySession {
-  assignment_id: string;
-  /** Session title, resolved from the coach's workout (templates.name) — the SAME
-   *  source week-plan.ts and assignment-detail.ts use. Falls back to 'Sesión'. */
+  /** The execution — always present. Opens `/api/athlete/executions/[id]/detail`. */
+  execution_id: string;
+  /** The workout_assignment, or null for work with no assignment (only served with
+   *  `include_unplanned`). Opens `/api/athlete/assignments/[id]/detail`. */
+  assignment_id: string | null;
+  /** Session title, resolved from the workout (templates.name) — the SAME source
+   *  week-plan.ts and assignment-detail.ts use. With no template, the name of what
+   *  was done most (`SEGMENT_MODALITY_SESSION_TITLE`: «Carrera», «Remo»…). */
   title: string;
   total_duration_seconds: number | null;
   /** For Time / RFT / HYROX-sim final time in seconds; null for non-scored formats. */
   score_time_s: number | null;
+  /** AMRAP result: rounds (+ partial reps). Null when not scored that way. */
+  score_rounds: number | null;
+  score_reps: number | null;
+  /** Session distance (`workout_executions.total_distance_m`, card 126): null when
+   *  nothing measured distance OR two modalities did (adding run + row metres means
+   *  nothing). */
+  distance_m: number | null;
+  /** What was done MOST (by time, then distance): run | row | ski | bike | strength
+   *  | other. Null when the session has no tramos. */
+  modality: SegmentModality | null;
   /** perceived_exertion (1–10); null when the athlete didn't log it. */
   rpe: number | null;
   /** True when this execution was logged as a JOINT Dobles session (partner link). */
   with_partner: boolean;
   /** True when an outdoor GPS route (workout_routes) exists for this execution. */
   has_route: boolean;
-  /** Who created the assignment — only `self` may be deleted by the athlete. */
-  origin: 'coach' | 'self';
+  /** Who created the assignment — only `self` may be deleted by the athlete. Null
+   *  when there is no assignment. */
+  origin: 'coach' | 'self' | null;
+  /** How the record came to exist: live | manual | imported (null = legacy). */
+  recorded_via: string | null;
+  /** Why a workout has no assignment (0270): assignment_gone | not_own_assignment |
+   *  no_assignment. Null for plan sessions and plain imports. */
+  off_plan_reason: string | null;
 }
 
 export interface AthleteHistoryDay {
   /** ISO YYYY-MM-DD, in the athlete's own calendar. */
   date: string;
-  /** A scheduled rest day (no assignment that day, inside a planned week). */
+  /** A scheduled rest day (no coach assignment that day, inside a planned week). */
   is_rest: boolean;
-  /** Completed executions done on this day, ordered by when they started. Empty on
-   *  a rest day. */
+  /** Done work on this day, ordered by when it started. Empty on a rest day. */
   sessions: AthleteHistorySession[];
 }
 
@@ -76,16 +112,29 @@ export interface AthleteHistoryMonth {
   days: AthleteHistoryDay[];
 }
 
+export interface AthleteHistoryOptions {
+  /** Also serve done work with NO assignment (imports, «fuera del plan»), whose
+   *  `assignment_id` is null. Off by default: the installed app can't decode it. */
+  include_unplanned?: boolean;
+}
+
 interface ExecRow {
   done_date: string;
-  assignment_id: string;
-  title: string;
+  execution_id: string;
+  assignment_id: string | null;
+  title: string | null;
   total_duration_seconds: number | null;
   score_time_s: number | null;
+  score_rounds: number | null;
+  score_reps: number | null;
+  distance_m: number | null;
+  modality: string | null;
   rpe: number | null;
   with_partner: boolean;
   has_route: boolean;
-  origin: 'coach' | 'self';
+  origin: 'coach' | 'self' | null;
+  recorded_via: string | null;
+  off_plan_reason: string | null;
 }
 
 /**
@@ -98,7 +147,9 @@ export async function buildAthleteHistoryMonth(
   athlete_id: number | bigint,
   month: string,
   client: Sql = defaultSql,
+  opts: AthleteHistoryOptions = {},
 ): Promise<AthleteHistoryMonth> {
+  const includeUnplanned = opts.include_unplanned === true;
   const [year, mon] = month.split('-').map(Number);
   const monthStart = parseIsoDate(`${month}-01`);
   // First day of the next month, minus one day → last day of THIS month. Date.UTC's
@@ -122,9 +173,11 @@ export async function buildAthleteHistoryMonth(
   const tz = isValidTimezone(storedTz) ? storedTz : BOX_TIMEZONE;
 
   const [execRows, schedRows] = await Promise.all([
-    // Completed executions in the month, dated by the athlete's local day the work
-    // was done on (started_at, falling back to the row's created_at when a legacy
-    // sync left started_at null). Gated on the assignment's DONE status.
+    // Done work in the month, dated by the athlete's local day it was done on
+    // (started_at, falling back to the row's created_at when a legacy sync left
+    // started_at null). A plan session is gated on its assignment's DONE status;
+    // work with no assignment is done by definition (opt-in, see header).
+    // tenancy: athlete-session — athlete_id sale del bearer del atleta (GET /api/athlete/history).
     client<ExecRow[]>`
       with tz as (
         select coalesce(
@@ -134,34 +187,61 @@ export async function buildAthleteHistoryMonth(
       )
       select
         (coalesce(we.started_at, we.created_at) at time zone tz.name)::date::text as done_date,
+        we.id::text                                as execution_id,
         we.assignment_id::text                     as assignment_id,
-        coalesce(t.name, 'Sesión')                 as title,
+        t.name                                     as title,
         we.total_duration_seconds                  as total_duration_seconds,
         we.score_time_s                            as score_time_s,
+        we.score_rounds                            as score_rounds,
+        we.score_reps                              as score_reps,
+        we.total_distance_m::float8                as distance_m,
+        pm.modality                                as modality,
         we.perceived_exertion                      as rpe,
         (we.partner_athlete_id is not null)        as with_partner,
         exists (
           select 1 from workout_routes wr where wr.execution_id = we.id
         )                                          as has_route,
-        wa.origin::text                            as origin
+        wa.origin::text                            as origin,
+        we.recorded_via::text                      as recorded_via,
+        we.off_plan_reason                         as off_plan_reason
       from workout_executions we
       cross join tz
-      join workout_assignments wa on wa.id = we.assignment_id
+      left join workout_assignments wa on wa.id = we.assignment_id
       left join templates t on t.id = wa.template_id
+      -- Lo que MÁS se hizo: la modalidad con más tiempo (y, a igualdad, más metros)
+      -- entre los tramos que cuentan como volumen. Canónica (SEG_MODALITY_SQL).
+      left join lateral (
+        select ${SEG_MODALITY_SQL(client)} as modality
+        from segment_executions se
+        left join template_segments ts on ts.id = se.template_segment_id
+        left join exercises ex on ex.id = coalesce(se.exercise_id, ts.exercise_id)
+        where se.execution_id = we.id
+          and ${SEG_COUNTS_AS_VOLUME(client)}
+        group by 1
+        order by sum(coalesce(extract(epoch from (se.ended_at - se.started_at)), 0)) desc,
+                 sum(coalesce(se.distance_meters, 0)) desc,
+                 min(se.position) asc
+        limit 1
+      ) pm on true
       where we.athlete_id = ${athlete_id as number}
-        and wa.status::text in ('completed', 'partial')
+        and (
+          wa.status::text in ('completed', 'partial')
+          or (${includeUnplanned} and we.assignment_id is null)
+        )
         and (coalesce(we.started_at, we.created_at) at time zone tz.name)::date >= ${monthStartIso}::date
         and (coalesce(we.started_at, we.created_at) at time zone tz.name)::date <= ${monthEndIso}::date
       order by done_date asc, we.started_at asc nulls last, we.id asc
     `,
-    // Scheduled assignment days in the widened range, used only to derive which days
-    // are planned (workout) vs scheduled rest. Mirrors week-plan.ts's publish gate:
-    // a week the coach saved as DRAFT is not yet the athlete's plan, so its
-    // assignments don't count toward planned-ness.
+    // Scheduled COACH assignment days in the widened range, used only to derive
+    // which days are planned (workout) vs scheduled rest. Mirrors week-plan.ts's
+    // publish gate: a week the coach saved as DRAFT is not yet the athlete's plan,
+    // so its assignments don't count toward planned-ness. A libre is never plan.
+    // tenancy: athlete-session — athlete_id sale del bearer del atleta (GET /api/athlete/history).
     client<Array<{ sched_date: string }>>`
       select distinct to_char(wa.scheduled_for, 'YYYY-MM-DD') as sched_date
       from workout_assignments wa
       where wa.athlete_id = ${athlete_id as number}
+        and wa.origin = 'coach'
         and wa.scheduled_for >= ${rangeStartIso}::date
         and wa.scheduled_for <= ${rangeEndIso}::date
         and not exists (
@@ -173,26 +253,34 @@ export async function buildAthleteHistoryMonth(
     `,
   ]);
 
-  // Group completed sessions by the day they were done (SQL already ordered them by
+  // Group done sessions by the day they were done (SQL already ordered them by
   // started_at within a day, so pushing in order preserves it).
   const sessionsByDate = new Map<string, AthleteHistorySession[]>();
   for (const r of execRows) {
     const list = sessionsByDate.get(r.done_date) ?? [];
+    const modality = r.modality != null ? toSegmentModality(r.modality) : null;
     list.push({
+      execution_id: r.execution_id,
       assignment_id: r.assignment_id,
-      title: r.title,
+      title: r.title ?? (modality ? SEGMENT_MODALITY_SESSION_TITLE[modality] : SEGMENT_MODALITY_SESSION_TITLE.other),
       total_duration_seconds: r.total_duration_seconds,
       score_time_s: r.score_time_s,
+      score_rounds: r.score_rounds,
+      score_reps: r.score_reps,
+      distance_m: r.distance_m != null ? Math.round(r.distance_m) : null,
+      modality,
       rpe: r.rpe,
       with_partner: r.with_partner,
       has_route: r.has_route,
       origin: r.origin,
+      recorded_via: r.recorded_via,
+      off_plan_reason: r.off_plan_reason,
     });
     sessionsByDate.set(r.done_date, list);
   }
 
-  // Days with a scheduled assignment, and the set of PLANNED weeks (Monday ISO). A
-  // rest day = inside a planned week, no assignment that day.
+  // Days with a scheduled coach assignment, and the set of PLANNED weeks (Monday
+  // ISO). A rest day = inside a planned week, no coach assignment that day.
   const scheduledDays = new Set(schedRows.map((r) => r.sched_date));
   const plannedWeeks = new Set(
     schedRows.map((r) => isoDateString(mondayOfWeek(parseIsoDate(r.sched_date)))),
