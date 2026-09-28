@@ -83,7 +83,13 @@ extension WorkoutSession {
                 // El de la serie sigue mandando cuando existe: una serie puede pedir
                 // su propio descanso (la última de una bajada, por ejemplo) y eso es
                 // más específico que el del bloque.
-                restS: s.restS ?? seg.prescription?.restS,
+                //
+                // LA ÚLTIMA NO LO HEREDA. El del bloque separa SUS series, y tras la
+                // última no queda serie que esperar: «la última no abre ninguno»
+                // (HierroVivoTests). Heredado, la muñeca sola abría un descanso tras
+                // la última serie y su propio avance lo quitaba, sin salir nunca del
+                // ejercicio (28-sep).
+                restS: s.restS ?? (i < sets.count - 1 ? seg.prescription?.restS : nil),
                 // La aproximación viaja desde la prescripción hasta el registro: si
                 // no llega aquí, la analítica no puede separarla del trabajo real,
                 // que es todo el motivo de que exista (card 151).
@@ -180,6 +186,22 @@ extension WorkoutSession {
         setSetLoad(index, kg)
         guard let value = kg.map({ max(0, $0) }) else { return }
         for i in setRecords.indices where i > index
+            && !setRecords[i].confirmed && setRecords[i].status != "skipped" {
+            setRecords[i].loadActualKg = value
+        }
+    }
+
+    /// LA CORONA DEL RELOJ: el peso de la serie que tienes delante, SIN cerrarla.
+    ///
+    /// `setSetLoad` confirma la serie (es la hoja de ajustes: tocar es declarar), y
+    /// con la serie activa leída del motor (`pendingSetIndex`) eso la daría por
+    /// hecha al primer giro. Aquí solo se anota el peso: la cierra el toque
+    /// (`confirmSet`, que lo respeta) y lo heredan las pendientes de detrás, como en
+    /// la cascada. Las hechas conservan el suyo; sin serie pendiente no toca nada.
+    func setPendingSetLoad(_ kg: Double) {
+        guard let pending = pendingSetIndex else { return }
+        let value = max(0, kg)
+        for i in setRecords.indices where i >= pending
             && !setRecords[i].confirmed && setRecords[i].status != "skipped" {
             setRecords[i].loadActualKg = value
         }
