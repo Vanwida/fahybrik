@@ -44,7 +44,13 @@ import {
   sanitizeSegmentSource,
 } from '@/lib/sync/sanitize-measurement';
 import { type SegmentInput } from '@/lib/sync/segment-input-schema';
-import { legAttribution, normalizeModality, priorWorkSeconds } from '@/lib/sync/segment-derivations';
+import {
+  legAttribution,
+  priorWorkSeconds,
+  segmentModalityOfExercise,
+  tramoModality,
+  type LinkedExercise,
+} from '@/lib/sync/segment-derivations';
 
 // Re-export the honest-logging vocabulary (single source lives in shared) so the
 // sync layer's public surface stays self-contained for callers/tests.
@@ -85,6 +91,8 @@ type SegmentContext = {
   scheme: string | null;
   exercise_id: number;
   prescription_json: unknown;
+  /** The linked exercise's modality + whether its block is one modality (0053). */
+  exercise: LinkedExercise;
 };
 
 /**
@@ -124,9 +132,18 @@ export async function ingestExecutionSegments(args: {
    * crosses without the owner in the `where`.
    */
   templateOwnerAthleteId?: number;
+  /**
+   * The template of the execution's ASSIGNMENT. When given, a tramo only links to
+   * a segment of THAT template (DECISIONS 2026-09-28): a segment of another plan —
+   * even one of the same athlete — is not what this session was, and linking it
+   * put a tramo of one workout under another's prescription. Null/absent for an
+   * execution without assignment (off-plan), which keeps the owner rule above.
+   */
+  templateId?: number | null;
 }): Promise<number> {
   const { sql, executionId, executionStartedAt, sessionFormat } = args;
   const ownerAthleteId = args.templateOwnerAthleteId ?? null;
+  const templateId = args.templateId ?? null;
   const segments = args.segments.slice(0, SEGMENTS_PER_EXECUTION_MAX);
   if (segments.length === 0) return 0;
 
@@ -151,6 +168,8 @@ export async function ingestExecutionSegments(args: {
         scheme: string | null;
         exercise_id: string;
         prescription_json: unknown;
+        exercise_modality: string | null;
+        block_modalities: Array<string | null>;
       }>
     >`
       select
@@ -158,9 +177,19 @@ export async function ingestExecutionSegments(args: {
         ts.block_format,
         ts.prescription_json->>'scheme' as scheme,
         ts.exercise_id::text as exercise_id,
-        ts.prescription_json
+        ts.prescription_json,
+        e.modality as exercise_modality,
+        array(
+          select e2.modality
+          from template_segments ts2
+          join exercises e2 on e2.id = ts2.exercise_id
+          where ts2.template_id = ts.template_id
+            and ts2.block_position is not distinct from ts.block_position
+        ) as block_modalities
       from template_segments ts
+      join exercises e on e.id = ts.exercise_id
       where ts.id in ${sql(templateSegmentIds)}
+        and (${templateId}::bigint is null or ts.template_id = ${templateId}::bigint)
         and (
           ${ownerAthleteId}::bigint is null
           or exists (
@@ -181,6 +210,10 @@ export async function ingestExecutionSegments(args: {
         scheme: r.scheme,
         exercise_id: Number(r.exercise_id),
         prescription_json: r.prescription_json,
+        exercise: {
+          modality: r.exercise_modality,
+          blockSingleModality: new Set(r.block_modalities.map(segmentModalityOfExercise)).size === 1,
+        },
       });
     }
   }
@@ -200,12 +233,19 @@ export async function ingestExecutionSegments(args: {
         ? new Date(new Date(startedAt).getTime() + durationSeconds * 1000).toISOString()
         : startedAt);
 
-    const modality = normalizeModality(seg.modality);
     // Only persist a template link the lookup actually found. A stale / unknown
     // id is not identity of the save — the FK used to 500 the whole POST.
     const rawTemplateId = sanitizePositiveInt(seg.template_segment_id);
     const templateSegmentId =
       rawTemplateId != null && contextById.has(rawTemplateId) ? rawTemplateId : null;
+    const ctx = templateSegmentId != null ? contextById.get(templateSegmentId) : undefined;
+    // The tramo's modality: the treadmill, then the linked exercise (0053), then
+    // the wire — `tramoModality` (DECISIONS 2026-09-28).
+    const modality = tramoModality({
+      wire: seg.modality,
+      source: seg.source,
+      exercise: ctx ? ctx.exercise : null,
+    });
     // raw_lap_data_json holds every jsonb-only signal for the segment: the HR
     // zone-seconds AND the erg detail (#33, PM5 aggregates + interval splits).
     // Only present keys are written (honest-null: an absent metric is an absent
@@ -256,7 +296,6 @@ export async function ingestExecutionSegments(args: {
     // Effort CONTEXT (migration 0120), derived server-side. A live template link
     // → 'block' (format/exercise/prescription from that block); otherwise fall
     // back to the session format → 'session'.
-    const ctx = templateSegmentId != null ? contextById.get(templateSegmentId) : undefined;
     const contextSource: 'block' | 'session' = ctx ? 'block' : 'session';
     const contextFormat = ctx
       ? (normalizeFormat(ctx.block_format ?? ctx.scheme) ?? null)

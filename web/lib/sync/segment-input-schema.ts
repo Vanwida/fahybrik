@@ -38,6 +38,11 @@ export type SetInput = z.infer<typeof setInputSchema>;
 
 export const segmentInputSchema = z.object({
   template_segment_id: num(),
+  // Solo en POST /api/athlete/workouts/free: el ítem del cuerpo (0-based en
+  // `items[]`; un medido o un cronómetro, 0) del que es este tramo. La plantilla
+  // nace en la misma petición, así que el cliente no puede mandar su id; con esto
+  // el servidor enlaza el tramo a su segmento (`link-tramos.ts`).
+  item_index: num(),
   position: z.number().int().min(0),
   modality: z.string().min(1),
   started_at: str(),

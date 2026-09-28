@@ -34,6 +34,7 @@ import {
   recordWorkoutExecution,
   type ExecutionMetricsInput,
 } from '@/lib/sync/record-workout-execution';
+import { replaceHealthImports } from '@/lib/sync/replace-health-import';
 
 /** Por qué un entreno guardado no cuelga de una sesión de su plan (`workout_executions.off_plan_reason`, 0270). */
 export type OffPlanReason = 'assignment_gone' | 'not_own_assignment' | 'no_assignment';
@@ -159,20 +160,10 @@ async function persistOffPlanExecution(args: {
   const { athleteId, input, sql } = args;
   const v = executionRowValues(input);
 
-  // El mismo entreno del reloj ya archivado como importación plana de Apple Salud
-  // (se sincronizó antes de que llegara este guardado): el registro estructurado
-  // sustituye al plano, la misma regla que el materializador FIT.
-  if (v.source_workout_ref) {
-    await sql`
-      delete from workout_executions
-      where athlete_id = ${athleteId}
-        and source_workout_ref = ${v.source_workout_ref}
-        and assignment_id is null
-        and off_plan_reason is null
-        and source = 'healthkit'
-        and recorded_via = 'imported'
-    `;
-  }
+  // El mismo entreno ya archivado como importación plana de Apple Salud (se
+  // sincronizó antes de que llegara este guardado): el registro estructurado la
+  // sustituye. La misma regla en todos los guardados (`replace-health-import.ts`).
+  await replaceHealthImports(sql, { athleteId, input });
 
   const rows = await sql<Array<{ id: string }>>`
     insert into workout_executions (
@@ -218,6 +209,7 @@ async function persistOffPlanExecution(args: {
     startedAt: v.started_at,
     input,
     sessionFormat: null,
+    templateId: null,
   });
   const prs = await detectPrs(sql, athleteId, executionId);
 

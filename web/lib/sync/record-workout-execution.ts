@@ -18,6 +18,7 @@ import { lenient, lenientList } from '@/lib/sync/lenient';
 import { deriveExecutionProvenance } from '@fahybrid/shared/domain/execution-merge';
 import { polylinePointCount } from '@/lib/sync/polyline';
 import { setAssignmentStatus } from '@/lib/sync/assignment-status';
+import { replaceHealthImports } from '@/lib/sync/replace-health-import';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
 import { computeSessionTotals } from '@/lib/execution/session-totals';
 import { detectExecutionRunningPRs } from '@/lib/sync/running-prs';
@@ -140,8 +141,11 @@ async function persistWorkoutExecution(args: {
 
   if (!Number.isFinite(assignmentId)) return { ok: false, reason: 'invalid_assignment' };
 
-  const owned = await sql<Array<{ id: string; session_format: string | null }>>`
-    select wa.id::text, t.format::text as session_format
+  // tenancy: athlete-session
+  const owned = await sql<
+    Array<{ id: string; template_id: string; session_format: string | null }>
+  >`
+    select wa.id::text, wa.template_id::text as template_id, t.format::text as session_format
     from workout_assignments wa
     left join templates t on t.id = wa.template_id
     where wa.id = ${assignmentId} and wa.athlete_id = ${athleteId}
@@ -149,6 +153,9 @@ async function persistWorkoutExecution(args: {
   `;
   if (!owned[0]) return { ok: false, reason: 'not_found' };
   const sessionFormat = owned[0].session_format;
+
+  // The same workout already filed as a flat Apple Health import: this save replaces it.
+  await replaceHealthImports(sql, { athleteId, input });
 
   const v = executionRowValues(input);
 
@@ -192,6 +199,7 @@ async function persistWorkoutExecution(args: {
     startedAt: v.started_at,
     input,
     sessionFormat,
+    templateId: Number(owned[0].template_id),
   });
 
   const completeness = sanitizeCompleteness(input.completeness);
@@ -273,8 +281,10 @@ export function executionMergeSet(sql: Sql | TransactionClient) {
 }
 
 /**
- * What hangs from an execution row: its GPS route, its tramos (template links
- * limited to templates this athlete could have been given) and its totals.
+ * What hangs from an execution row: its GPS route, its tramos and its totals. A
+ * tramo links only to a segment of its assignment's template (`templateId`); an
+ * execution without assignment keeps the owner rule (templates this athlete
+ * could have been given).
  */
 export async function persistExecutionChildren(args: {
   sql: Sql | TransactionClient;
@@ -283,6 +293,7 @@ export async function persistExecutionChildren(args: {
   startedAt: string;
   input: ExecutionMetricsInput;
   sessionFormat: string | null;
+  templateId: number | null;
 }): Promise<{ segments_saved: number }> {
   const { sql, athleteId, executionId, input } = args;
   if (!Number.isFinite(executionId)) return { segments_saved: 0 };
@@ -307,6 +318,7 @@ export async function persistExecutionChildren(args: {
       segments: input.segments,
       sessionFormat: args.sessionFormat,
       templateOwnerAthleteId: athleteId,
+      templateId: args.templateId,
     });
   }
 
