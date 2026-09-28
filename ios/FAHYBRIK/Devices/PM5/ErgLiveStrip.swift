@@ -17,19 +17,20 @@ import SwiftUI
 struct ErgLiveStrip: View {
     let session: WorkoutSession
     let pm5: PM5ConnectionStore
+    /// Cómo se lee la máquina de ESTE monitor (BikeErg: /1000m y rpm).
+    var lectura: LecturaErgo = .remo
 
     private var live: PM5LiveSample { pm5.live }
 
     var body: some View {
         HStack(spacing: 6) {
-            cell(valor: splitString, label: "split /500m")
+            cell(valor: splitString, label: "split \(lectura.unidadRitmo)")
             cell(valor: live.powerWatts.map { "\($0)" }, label: "vatios",
                  color: Theme.Color.accentText)
-            cell(valor: live.strokeRate.map { "\($0)" }, label: "s/min")
+            cell(valor: live.strokeRate.map { "\($0)" }, label: lectura.unidadFrecuencia)
             cell(valor: distanceLabel, label: "metros")
-            if let cal = session.tramoErgCalories, cal > 0 {
-                cell(valor: "\(cal)", label: "cal")
-            }
+            // Las calorías se ven SIEMPRE que hay monitor: un contador desde cero.
+            cell(valor: "\(session.tramoErgCalories ?? 0)", label: "cal")
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Datos del monitor")
@@ -51,14 +52,14 @@ struct ErgLiveStrip: View {
     /// se pinta porque está medido (§6.2 bis).
     private var splitString: String? {
         guard let p = live.paceSecondsPer500m, p > 0 else { return nil }
-        return Formato.ritmoCifras(p)
+        return Formato.ritmoCifras(lectura.ritmo(desdePor500: p))
     }
 
     /// POR QUÉ falta la lectura. La tira sólo aparece con el monitor conectado (lo
     /// decide `ActiveWorkoutView`), así que nunca es un problema de enlace: o todavía
     /// no ha dicho nada, o lo ha dicho y ahora mismo no estás remando.
     private var motivoAusente: String {
-        sinDatos ? "esperando la primera palada" : "sin remar"
+        sinDatos ? lectura.esperando : lectura.parado
     }
 
     /// El monitor está conectado pero no ha mandado NADA todavía.

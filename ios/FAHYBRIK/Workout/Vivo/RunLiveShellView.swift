@@ -40,6 +40,13 @@ struct RunLiveShellView: View {
         return ErgMachineRole(modality: session.currentTramo.modality)
     }
 
+    /// La máquina del monitor que se está leyendo: la del tramo si es un ergo, y si
+    /// no (un AMRAP con bici) la del hueco del pool que ocupa ese monitor.
+    private var lecturaDelMonitor: LecturaErgo {
+        if session.tramoIsErg { return LecturaErgo.de(session.currentTramo.modality) }
+        return LecturaErgo.de(PM5Pool.shared.role(of: pm5)?.modality)
+    }
+
     var body: some View {
         Group {
             if sujeto == .fuerza {
@@ -54,6 +61,10 @@ struct RunLiveShellView: View {
         }
         .onAppear { syncRunModels() }
         .onChange(of: session.currentSegmentIndex) { _, _ in syncRunModels() }
+        // POR TRAMO, no solo por segmento: el minuto de correr de un EMOM (ski →
+        // correr) no cambia ni el segmento ni la superficie (`.emom`), y el modelo
+        // de calle / cinta no se montaba hasta el bloque siguiente.
+        .onChange(of: session.tramoKey) { _, _ in syncRunModels() }
         .onChange(of: session.runEnvironment) { _, _ in syncRunModels() }
         .onChange(of: sujeto) { _, _ in syncRunModels() }
         .onDisappear {
@@ -203,7 +214,7 @@ struct RunLiveShellView: View {
         VStack(spacing: Theme.Spacing.s) {
             conditioningHUD
             if pm5.isConnected, !session.isStationTramo {
-                ErgLiveStrip(session: session, pm5: pm5)
+                ErgLiveStrip(session: session, pm5: pm5, lectura: lecturaDelMonitor)
             }
         }
     }
@@ -212,8 +223,10 @@ struct RunLiveShellView: View {
     private var conditioningHUD: some View {
         switch session.currentSegment?.formatScheme {
         case .amrap:     AmrapLiveHUD(session: session)
+        // La ronda de estos la lleva el RELOJ del motor, no un toque: la cara por
+        // rondas (que cuelga del tachado) se quedaba en «Ronda 1/N».
         case .tabata, .intervals, .deathBy, .steady:
-            ForTimeLiveHUD(session: session)
+            RotatingClockHUD(session: session)
         case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
             ForTimeLiveHUD(session: session)
         case .emom, .sets, .warmup, .cooldown, .superset, .none:
@@ -286,7 +299,7 @@ struct RunLiveShellView: View {
             }
             Spacer(minLength: 0)
             if !session.isTramoResting {
-                SiguienteTramoChip(siguiente: session.nextSegment)
+                SiguienteTramoChip(linea: session.nextTramoLine, zona: session.nextTramoZone)
                     .padding(.bottom, 6)
             }
         }

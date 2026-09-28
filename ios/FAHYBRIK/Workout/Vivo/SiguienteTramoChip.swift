@@ -10,19 +10,26 @@ import SwiftUI
 /// Se calla solo cuando no hay nada que anunciar. NO se calla «porque no cabe»:
 /// si un tramo es el último, es que de verdad no hay siguiente (§7).
 struct SiguienteTramoChip: View {
+    /// Lo que viene después de ESTE TRAMO (`WorkoutSession.nextTramoLine`): la
+    /// siguiente estación de una ruta, la siguiente ronda de un rotativo, el
+    /// siguiente minuto de un EMOM — y el siguiente bloque solo cuando este tramo
+    /// es el último del suyo. Antes anunciaba siempre el siguiente SEGMENTO, y en
+    /// una simulación HYROX decía el bloque de después de la carrera entera.
     /// Nil = este era el último tramo. Entonces no se pinta nada, ni un «fin».
-    let siguiente: WorkoutSegment?
+    let linea: String?
+    /// La zona del siguiente bloque, cuando lo que viene es otro bloque.
+    var zona: HRZone? = nil
 
     var body: some View {
-        if let siguiente {
+        if let linea {
             HStack(spacing: Theme.Spacing.s) {
                 LabelText(text: "Luego", color: Theme.Color.accentText, size: 10)
-                Text(siguiente.title)
+                Text(linea)
                     .scaledFont(13, weight: .semibold, relativeTo: .footnote)
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1)
                 Spacer(minLength: Theme.Spacing.s)
-                if let z = siguiente.targetZone {
+                if let z = zona {
                     ZBadge(zone: z)
                 }
             }

@@ -21,6 +21,49 @@ struct TreadmillLeg: Equatable {
 }
 
 enum TreadmillLegResolver {
+    /// LA PIERNA QUE SE CORRE AHORA, resuelta del TRAMO — la misma para la calle y
+    /// para la cinta.
+    ///
+    /// Antes cada pantalla resolvía la suya: la cinta rellenaba el objetivo de una
+    /// estación desde el tramo y la calle leía el del SEGMENTO. En una ruta
+    /// «1.000 m corriendo · 500 m ski · 1.000 m corriendo» plegada en un segmento
+    /// sin distancia, la calle enseñaba un cronómetro sin dosis ni ritmo; y en una
+    /// ruta de solo correr (3 km Z2 · 3 km Z3 · 3 km Z4) las tres piernas decían el
+    /// ritmo de la primera. Ahora una función decide, y las dos la leen.
+    ///
+    /// Del tramo sale lo que el segmento no sabe: la DOSIS de esta estación / este
+    /// minuto (si el segmento no trae una propia) y su OBJETIVO (el del set de la
+    /// rotación manda sobre el del bloque). `ownsAutoAdvance` no se toca: el cierre
+    /// de una estación es del motor (`advanceRunStationIfGoalMet`).
+    static func leg(for session: WorkoutSession) -> TreadmillLeg {
+        guard let seg = session.currentSegment else {
+            return TreadmillLeg(phase: .single, goal: .open, target: .none, ownsAutoAdvance: false)
+        }
+        if seg.hasRunStructure {
+            return leg(for: seg, structureLegIndex: session.runLegIndex)
+        }
+        let base = leg(for: seg, isWork: session.rotPhase == .work)
+        let tramo = session.currentTramo
+        guard tramo.isRun, tramo.cursor != .segment, !base.isRecovery else { return base }
+        let goal: SegmentGoal = {
+            guard base.goal == .open else { return base.goal }
+            if let d = tramo.targetDistanceMeters { return .distance(meters: d) }
+            if let s = tramo.targetDurationSeconds { return .time(seconds: s) }
+            return .open
+        }()
+        let index: Int? = {
+            switch tramo.cursor {
+            case .emomInterval(let i), .conditioningRound(let i),
+                 .fixedStation(let i), .strengthSet(let i): return i
+            case .segment, .runLeg: return nil
+            }
+        }()
+        let propio = RunTarget.resolve(from: index.flatMap { seg.rotationSet(at: $0)?.target })
+        return TreadmillLeg(phase: base.phase, goal: goal,
+                            target: propio != .none ? propio : base.target,
+                            ownsAutoAdvance: base.ownsAutoAdvance)
+    }
+
     /// A run leg driven as an interval SERIES (folded `.intervals`, run modality)
     /// rather than a plain continuous run.
     static func isRunSeries(_ s: WorkoutSegment) -> Bool {

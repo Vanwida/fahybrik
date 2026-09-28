@@ -492,8 +492,11 @@ private struct HiloDeRondas: View {
 // MARK: - Las filas (la cara de pocas rondas)
 
 /// La misma lista de siempre, con el trabajo FUERA de las filas: una línea por
-/// ronda. La activa se marca tocándola; la última cerrada se deshace
-/// manteniéndola — nada que la lista sabía hacer se pierde.
+/// ronda. Las filas NO se tocan (28-sep): una ronda se cierra con el botón del
+/// host, que dice «RONDA HECHA»; tocar una fila por accidente cerraba la ronda
+/// —o el bloque entero— sin que el atleta lo pidiera. Solo una RUTA de
+/// estaciones deja tachar la línea activa (`StrikeList`). La última cerrada se
+/// sigue deshaciendo manteniéndola.
 private struct RoundRowsList: View {
     let session: WorkoutSession
 
@@ -503,9 +506,6 @@ private struct RoundRowsList: View {
                 HStack {
                     LabelText(text: "Recorre las rondas", size: 10)
                     Spacer()
-                    Text("MARCA CADA RONDA")
-                        .font(.system(size: 9, weight: .heavy)).tracking(0.6)
-                        .foregroundStyle(Theme.Color.muted)
                 }
                 .padding(.horizontal, 12).padding(.vertical, 10)
                 ForEach(0..<session.roundsHUDTotal, id: \.self) { i in
@@ -520,7 +520,7 @@ private struct RoundRowsList: View {
     private func fila(_ i: Int) -> some View {
         let done = i < session.roundsHUDDone
         let active = i == session.roundsHUDDone
-        Button(action: { if active { session.markRoundDone() } }) {
+        Group {
             HStack(spacing: 10) {
                 Text("Ronda \(i + 1)")
                     .font(.system(size: 14, weight: active ? .heavy : .semibold))
@@ -542,12 +542,10 @@ private struct RoundRowsList: View {
             .background(active ? Theme.Color.accent.opacity(0.08) : Color.clear)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PressScaleStyle())
-        .disabled(!active)
-        .simultaneousGesture(LongPressGesture().onEnded { _ in
+        .onLongPressGesture(minimumDuration: 0.5) {
             if done && i == session.roundsHUDDone - 1 { session.unmarkLastRound() }
-        })
-        .accessibilityLabel("Ronda \(i + 1), \(done ? "hecha" : (active ? "actual, toca para marcar" : "pendiente"))")
+        }
+        .accessibilityLabel("Ronda \(i + 1), \(done ? "hecha" : (active ? "actual" : "pendiente"))")
     }
 
     /// Lo que costó la cerrada (y lo que midió la máquina, si algo midió), lo
@@ -569,58 +567,85 @@ private struct RoundRowsList: View {
     }
 }
 
-// MARK: - El suelo de los rotativos
+// MARK: - La cara de los rotativos (y del continuo)
 
-/// El suelo honesto de los formatos ROTATIVOS y el continuo (tabata,
-/// interválico sin medida, death-by, steady sin máquina): el reloj del bloque
-/// y el pulso. Su cursor de ronda es `rotRoundIndex` — lo mueve el RELOJ del
-/// motor, no el toque — así que la cara por rondas (que cuelga de
-/// `fixedRoundsDone`) aquí mentiría congelada en «Ronda 1». No hay pantalla
-/// diseñada para estos casos y esto no inventa una: dice menos, pero nada falso.
+/// Tabata, Death By, intervalos sin máquina y el continuo que no es correr ni
+/// remar. Su ronda la mueve el RELOJ del motor (`rotRoundIndex`), no un toque, así
+/// que la cara por rondas —que cuelga del cursor de tachado— se quedaba congelada
+/// en «Ronda 1/N». Lee `WorkoutSession.relojRotativo`: la ronda del motor, la cuenta
+/// atrás de la fase, las reps contadas (Tabata) y el objetivo del minuto (Death By).
+/// Nada aquí se toca: la acción es el botón del host.
 struct RotatingClockHUD: View {
     let session: WorkoutSession
 
-    private var cap: Int? { session.currentSegment?.formatTotalSeconds }
-    private var capFlip: Bool {
-        guard let cap, !session.isCondCountIn else { return false }
-        let remaining = Double(cap) - session.condElapsed
-        return remaining <= 60 && remaining > 0
-    }
-
     var body: some View {
-        VStack(spacing: 12) {
-            clock
-            MetricRow3(cells: [
-                .init(label: "Ronda",
-                      value: session.tramoRoundTotal > 1
-                          ? "\(min(session.tramoRoundIndex + 1, session.tramoRoundTotal))/\(session.tramoRoundTotal)"
-                          : nil,
-                      ausente: "sin series"),
-                .init(label: "Tope",
-                      value: cap.map { Formato.clock(Double($0)) },
-                      ausente: "sin tope"),
-                hrCell(session)
-            ])
+        if let r = session.relojRotativo {
+            VStack(spacing: 12) {
+                hero(r)
+                MetricRow3(cells: celdas(r))
+            }
         }
     }
 
     @ViewBuilder
-    private var clock: some View {
-        if session.isCondCountIn {
+    private func hero(_ r: RelojRotativo) -> some View {
+        switch r.fase {
+        case .preparate:
             FormatClockHero(caption: "Prepárate",
-                            value: "\(Int(session.condCountInRemaining.rounded(.up)))",
+                            value: "\(Int(r.segundos))",
                             color: Theme.Color.accentText)
-        } else if capFlip, let cap {
-            FormatClockHero(caption: "Cierre del cap",
-                            value: Formato.clock(max(0, Double(cap) - session.condElapsed), anchoFijo: true),
-                            sub: "cap \(Formato.clock(Double(cap)))",
-                            color: Theme.Color.danger, urgent: true)
-        } else {
+        case .trabajo:
+            FormatClockHero(caption: r.movimiento ?? "Trabajo",
+                            value: Formato.clock(max(0, r.segundos), anchoFijo: true),
+                            sub: r.objetivo,
+                            color: Theme.Color.accentText,
+                            urgent: r.segundos <= 3)
+        case .descanso:
+            FormatClockHero(caption: "Descanso",
+                            value: Formato.clock(max(0, r.segundos), anchoFijo: true),
+                            sub: r.objetivo.map { "luego · \($0)" },
+                            color: Theme.Color.info)
+        case .serie:
+            FormatClockHero(caption: r.movimiento ?? "Serie",
+                            value: Formato.clock(max(0, r.segundos), anchoFijo: true),
+                            sub: r.objetivo,
+                            color: Theme.Color.foreground)
+        case .continuo:
+            FormatClockHero(caption: "Queda",
+                            value: Formato.clock(max(0, r.segundos), anchoFijo: true),
+                            sub: r.objetivo ?? r.movimiento,
+                            color: Theme.Color.foreground)
+        case .crono:
             FormatClockHero(caption: "Tiempo",
-                            value: Formato.clock(session.condElapsed, anchoFijo: true),
-                            sub: cap.map { "cap \(Formato.clock(Double($0)))" },
+                            value: Formato.clock(max(0, r.segundos), anchoFijo: true),
+                            sub: r.objetivo ?? r.movimiento,
                             color: Theme.Color.foreground)
         }
+    }
+
+    private func celdas(_ r: RelojRotativo) -> [MetricRow3.Cell] {
+        var out: [MetricRow3.Cell] = []
+        if let ronda = r.ronda {
+            // Death By no tiene final escrito: se cuenta el MINUTO en el que vas.
+            if let rondas = r.rondas {
+                out.append(.init(label: "Ronda", value: "\(ronda)/\(rondas)"))
+            } else {
+                out.append(.init(label: "Minuto", value: "\(ronda)"))
+            }
+        } else {
+            out.append(.init(label: "Bloque",
+                             value: Formato.clock(session.condElapsed, anchoFijo: true)))
+        }
+        if session.currentSegment?.formatScheme == .deathBy {
+            out.append(.init(label: "Este minuto", value: r.objetivo, ausente: "sin objetivo"))
+        } else if session.currentSegment?.formatScheme == .tabata {
+            out.append(.init(label: "Reps", value: r.reps.map { "\($0)" }, ausente: "sin contar"))
+        } else {
+            out.append(.init(label: "Total",
+                             value: Formato.clock(session.condElapsed, anchoFijo: true)))
+        }
+        out.append(hrCell(session))
+        return out
     }
 }
 
