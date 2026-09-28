@@ -33,6 +33,23 @@ struct RunActivityAttributes: ActivityAttributes {
         var zoneLabel: String
         /// True while (auto-)paused → the widget shows the paused treatment.
         var paused: Bool
+
+        // ── EL VIVO REHECHO (28-09, I11): la MISMA lámina que la pantalla ──
+        // Opcionales a propósito: la carrera de calle (`OutdoorRunHUDModel`)
+        // sigue mandando solo los campos de arriba, y el widget pinta el
+        // diseño nuevo cuando `positionLabel` viene relleno. Vienen de
+        // `VivoActividadEnVivo`, que los saca de `VivoIphoneCuadro`.
+        /// El héroe («3:50», «8 × 125», «0:24») y su unidad («/km», «kg»).
+        var heroLabel: String? = nil
+        var heroUnit: String? = nil
+        /// La etiqueta del héroe («quedan», «lo dices tú», «total»).
+        var heroCaption: String? = nil
+        /// La posición en palabras («Serie 3/6 · 1000 m», «A1 · Back Squat · Serie 2/4»).
+        var positionLabel: String? = nil
+        /// «▲ rápido», «dentro»: la palabra del veredicto, si hay banda.
+        var verdictLabel: String? = nil
+        /// La acción primaria del momento («Serie hecha»). Se PINTA; pulsarla exige un LiveActivityIntent.
+        var actionLabel: String? = nil
     }
 
     /// A stable title for the activity — the athlete's session name / "Carrera".

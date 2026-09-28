@@ -642,7 +642,32 @@ struct ActiveWorkoutView: View {
     // `MarcoVivo` + `BotonVivo`. El árbol que devolvía nil (y pintaba phaseRail
     // PRINCIPAL naranja + ExpertActionButton 40 pt) ya no existe.
     /// UN árbol live — `RunLiveShellView` para run, erg, EMOM, fuerza, descanso…
+    ///
+    /// EL VIVO REHECHO (28-09, docs/vivo-iphone/modelo.md): detrás de
+    /// `VivoIphoneBandera` (encendida en Debug, apagada en Release hasta que las
+    /// cinco familias estén portadas) monta `VivoIphoneView`, que pinta el MISMO
+    /// estado que la muñeca con el kit compartido `Vivo`. El motor no cambia.
+    @ViewBuilder
     private var superficieMontada: some View {
+        if VivoIphoneBandera.activa {
+            VivoIphoneView(
+                session: session,
+                hrZones: hrZones,
+                pm5: livePM5 ?? pool.any,
+                hrLink: hub.heartRate.link,
+                treadmillLink: hub.treadmill.link,
+                gpsActive: gpsActive,
+                isBenchmark: isBenchmark,
+                alAccionDelHost: { primaryAction() },
+                alConectividad: { mostrarConectividad = true },
+                alTerminarYGuardar: { session.finish(completeness: .partial) }
+            )
+        } else {
+            superficieAntigua
+        }
+    }
+
+    private var superficieAntigua: some View {
         RunLiveShellView(
             session: session,
             hrZones: hrZones,
