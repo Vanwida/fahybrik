@@ -6,7 +6,7 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**iPhone · WOD EN VIVO (28-09, rama `worktree-wf_a914321c-3d5-4`, propuesta, sin fusionar).** `iphone-vivo-wod`: EMOM con remo, AMRAP con remo + campana (rondas + reps), chipper con cap y lista ±1, Tabata, Death by (NUEVO en `kit-reloj/deathby.ts`), AMRAP libre. Capturas en el scratchpad (`wod-*.png`). DECISIONS 28-09. Falta: la firma de Alex.
+**iPhone · EL VIVO REHECHO, LAS CINCO FAMILIAS JUNTAS (28-09, rama `worktree-agent-a5972b29b43d11207`, propuesta, sin fusionar a main).** Correr, circuito/HYROX y WOD fusionados sobre ergo y fuerza: un solo grupo «El vivo del iPhone, rehecho» con gramática, correr, ergo, fuerza, WOD y circuito. Death by nuevo en `kit-reloj/deathby.ts`. Capturas en el scratchpad (`capturas-final/`). DECISIONS 28-09. Falta: la firma de Alex.
 
 **RELOJ PARA LA DEMO (28-09, lógica, sin diseño; DECISIONS 28-09):** 6 fallos de la muñeca sola arreglados (fuerza tras
 la última serie, sin detalle no hay Empezar, resultado al terminar, enlace al arrancar, test pide su número, AMRAP). Falta aparato.
