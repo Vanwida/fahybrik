@@ -85,6 +85,7 @@ Everything runs under **vanwida**. Vercel, GitHub (Vanwida org/user), Neon, Rese
 - Lint + typecheck must pass before merge
 - No console.log in committed code
 - Never commit secrets; `.env.local` is the local secrets sink
+- Tests de iOS: simulador sin ventana (`xcodebuild`/`simctl`, nunca abrir Simulator.app) y la app muda en tests (ver `TestEnvironment.isRunningUnitTests`, `MuteCoachSpeaker`, `WorkoutAudio` — cero AVSpeechSynthesizer/AVAudioEngine real bajo XCTest)
 
 ## UX standard — TOP PRIORITY
 
