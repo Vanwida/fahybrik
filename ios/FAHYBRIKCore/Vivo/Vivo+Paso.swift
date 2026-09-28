@@ -297,6 +297,9 @@ extension Vivo {
         var segmento: Int
         var ventana: Ventana
         var descanso: Bool = false
+        /// La puntuación que sigue a la ventana (la campana del AMRAP): el motor
+        /// ha acabado el trabajo y espera; el vivo la pide antes de cerrar.
+        var puntuacion: Bool = false
     }
 
     // MARK: - Lecturas — lo que miden los sensores AHORA

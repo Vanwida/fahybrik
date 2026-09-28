@@ -159,7 +159,7 @@ final class VivoAdaptadorTests: XCTestCase {
         let s = P.arranca(try P.amrap())
         s.tickConditioning(dt: 3.5)
         let e = estado(s)
-        XCTAssertEqual(e.pasos.count, 1)
+        XCTAssertEqual(e.pasos.count, 2, "la ventana y, al cerrar el plan, su campana (la puntuación)")
         guard case let .amrap(tareas, d)? = e.paso.wod else { return XCTFail("es un AMRAP") }
         XCTAssertEqual(tareas.map(\.nombre), ["Pull-ups", "Push-ups", "Air Squats"])
         XCTAssertEqual(d, 1200)

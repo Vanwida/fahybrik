@@ -51,6 +51,8 @@ extension Vivo {
     /// segmento y, si no lo hay, al último del plan.
     static func indiceActual(_ pasos: [Paso], _ sesion: WorkoutSession) -> Int {
         let s = sesion.currentSegmentIndex
+        // El trabajo prescrito acabó y el motor espera: si lo último fue un AMRAP, es su campana (la puntuación).
+        if sesion.isAwaitingFinishDecision, let i = pasos.firstIndex(where: { $0.origen?.segmento == s && $0.origen?.puntuacion == true }) { return i }
         var ventana = ventanaDe(sesion)
         var descanso = sesion.isTramoResting
         // El descanso de fuerza corre entre la serie cerrada y la siguiente: su paso cuelga de la serie que viene.
@@ -201,7 +203,9 @@ extension Vivo {
             pausado: sesion.isPaused,
             vueltas: vueltasDe(pasos, parciales: parciales, zonas: plan.zonas, reglas: plan.reglas),
             parciales: parciales,
-            metrosPaso: lecturas.hecho != nil && paso.medida.tipo == .distancia ? lecturas.hecho : (paso.medida.mide == .ergo ? sesion.tramoErgDistanceMeters : sesion.tramoRunCoveredMeters),
+            // Los metros de un paso de máquina son los del monitor aunque lo mida el reloj (el remo del EMOM, todo el minuto).
+            metrosPaso: lecturas.hecho != nil && paso.medida.tipo == .distancia ? lecturas.hecho
+                : ((paso.medida.mide == .ergo || (paso.maquina != nil && paso.maquina?.tipo != .cinta)) ? sesion.tramoErgDistanceMeters : sesion.tramoRunCoveredMeters),
             sesionErgoM: ergo,
             cuenta: cuenta,
             go: false,

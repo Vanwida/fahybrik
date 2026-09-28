@@ -18,11 +18,17 @@ export const meta: TwinMeta = {
   id: 'iphone-vivo-wod',
   titulo: 'iPhone · WOD en vivo',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'espejo',
   actualizado: '2026-09-28',
   descripcion:
     'EMOM alterno con el remo, AMRAP con remo y su puntuación (rondas + reps), For Time chipper con cap y lista ±1, Tabata, Death by y un AMRAP libre: la misma anatomía de la gramática, un héroe por formato, sin RX/Escalado en el vivo.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIK/Workout/VivoIphone/VivoWod.swift',
+    'ios/FAHYBRIK/Workout/VivoIphone/VivoIphoneCuadro.swift',
+    'ios/FAHYBRIK/Workout/VivoIphone/VivoIphoneView.swift',
+    'ios/FAHYBRIKCore/Vivo/Vivo+Wod.swift',
+    'ios/FAHYBRIKCore/Vivo/Vivo+PlanDeSesion.swift',
+  ],
   enApp:
     'Hoy cada formato es un vivo distinto (EmomLiveView, AmrapLiveView, ForTimeLiveView, el chipper con la lista entera): RX/Escalado, contadores y la ronda se pisan en la pantalla; el chipper desborda; el title va en inglés; Tabata y Death by salen como «Ronda 1/N». Esto sustituye esos vivos por UN pintor sobre `kit-iphone-vivo`; el Death by entra en el kit compartido (`kit-reloj/deathby.ts`) y la muñeca lo hereda. RX/Escalado se declara al terminar, con la puntuación, fuera del vivo.',
   dispositivo: 'iphone',

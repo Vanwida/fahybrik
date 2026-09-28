@@ -28,12 +28,17 @@ struct VivoIphoneView: View {
     let alTerminarYGuardar: () -> Void
     /// La página con la que arranca (las capturas piden Estructura).
     var paginaInicial: VivoIdPagina = .vivo
+    /// Lo marcado en el WOD al montar (una sesión reabierta; las capturas del contrato).
+    var wodInicial = Vivo.EstadoWod()
+    /// Gestos guionizados (capturas): pasan por el MISMO camino que el dedo.
+    var guion: [VivoGestoGuion] = []
 
     @State private var pagina: VivoIdPagina = .vivo
     @State private var toast: (n: Int, aviso: String, hacer: () -> Void)? = nil
     @State private var hoja = false
     @State private var terminado = false
     @State private var declaradas: [String: Set<Vivo.CampoAnotar>] = [:]
+    @State private var wod = Vivo.EstadoWod()
     @State private var foco: VivoFoco? = nil
     @State private var outdoorModel: OutdoorRunHUDModel?
     @State private var treadmillModel: TreadmillHUDModel?
@@ -94,7 +99,7 @@ struct VivoIphoneView: View {
 
     private var cuadro: VivoIphoneCuadro {
         let e = Vivo.estadoDe(session, plan: plan, externo: externo)
-        return VivoIphoneCuadro(estado: e, sesion: session, dispositivos: dispositivos, test: isBenchmark, declaradas: declaradas)
+        return VivoIphoneCuadro(estado: e, sesion: session, dispositivos: dispositivos, test: isBenchmark, declaradas: declaradas, wod: wod)
     }
 
     // MARK: - El cuerpo
@@ -135,13 +140,16 @@ struct VivoIphoneView: View {
                                      alSeguir: { hoja = false })
                 }
                 if terminado { VivoTerminado(titulo: "Sesión terminada", detalle: "guardando lo hecho…") }
-                else if c.estado.terminado { VivoTerminado(titulo: "Sesión completada", detalle: "guardando…") }
+                else if c.estado.terminado { VivoTerminado(titulo: "Sesión completada", detalle: c.detalleFin ?? "guardando…") }
             }
             .environment(\.vivoLienzo, lienzo)
             .animation(.easeOut(duration: 0.2), value: hoja)
             .animation(.easeOut(duration: 0.2), value: toast?.n)
         }
-        .onAppear { pagina = paginaInicial; refrescarPlan(); syncRunModels(); actividad.empezar(titulo: session.plan.name) }
+        .onAppear { pagina = paginaInicial; wod = wodInicial; refrescarPlan(); syncRunModels(); actividad.empezar(titulo: session.plan.name) }
+        // Death by: un minuto que el reloj cierra sin «Hecho» es el último.
+        .onChange(of: session.rotRoundIndex) { antes, ahora in if ahora == antes + 1 { cazadoSiToca(minutoCerrado: antes) } }
+        .task { await correrGuion() }
         .onChange(of: session.currentSegmentIndex) { _, _ in syncRunModels(); foco = nil }
         .onChange(of: indiceVivo) { antes, ahora in entrar(desde: antes, en: ahora) }
         .onChange(of: session.tramoKey) { _, _ in syncRunModels() }
@@ -243,7 +251,7 @@ struct VivoIphoneView: View {
         if let b = c.banda { VivoBandaObjetivo(banda: b) } else if let i = c.instruccion { VivoObjetivoInstruccion(texto: i) }
         if let t = c.trabajo {
             // «+30 s» solo en un descanso que se estira: el del reloj de pared (tabata) no.
-            let estira = c.enDescanso && c.paso.rol == .descanso && c.familia != .pared
+            let estira = c.enDescanso && c.paso.rol == .descanso && c.paso.wod?.formato != .pared
             VivoTrabajo(trabajo: t) { if estira { VivoMas30 { sumar30() } } }
         }
     }
@@ -251,12 +259,20 @@ struct VivoIphoneView: View {
     @ViewBuilder
     private func bloqueApoyo(_ c: VivoIphoneCuadro, apretada: Bool = false) -> some View {
         let anota = c.enDescanso && !c.seriesAnotables.isEmpty
-        VivoRejilla(metricas: anota ? Array(c.metricas.prefix(2)) : c.metricas, compacta: anota, apretada: apretada && !anota) {
+        let apoyo = c.enDescanso ? nil : c.apoyoWod
+        VivoRejilla(metricas: anota ? Array(c.metricas.prefix(2)) : apoyo.map { Array(c.metricas.prefix($0.celdas)) } ?? c.metricas,
+                    compacta: anota || apoyo?.compacta == true, apretada: apretada && !anota) {
             if anota {
                 VivoAnotarSerie(series: c.seriesAnotables, foco: $foco) { paso, campo, dir in cambiar(paso, campo, dir, c) }
             }
+            switch apoyo {
+            case let .lista(a)?: VivoListaAlrededor(alrededor: a) { pagina = .estructura }
+            case let .puntuacion(d, tareas, foco)?:
+                VivoAnotarPuntuacion(dial: d, tareas: tareas, foco: foco, alFoco: { wod.foco = $0 }) { moverPuntuacion($0, c) }
+            case nil: EmptyView()
+            }
         }
-        if !c.enDescanso { VivoLuego(luego: c.luego) }
+        if !c.enDescanso, apoyo?.quitaLuego != true { VivoLuego(luego: c.luego) }
         VivoTiraEstructura(arcos: c.arcos, enCurso: c.estado.i, fraccion: c.fraccion) { pagina = .estructura }
     }
 
@@ -289,11 +305,25 @@ struct VivoIphoneView: View {
             session.bumpAmrapRound()
             avisar(c.avisoCierre) { if session.fixedRoundsDone > 0 { session.fixedRoundsDone -= 1 } }
             return
-        case .hecho where c.familia == .deathby:
-            session.deathByLogged()
+        case .hecho where Vivo.seMarca(c.paso):
+            // EMOM y death by: «Hecho» MARCA la ventana, no la cierra; lo que queda es respiro y el reloj la cierra solo.
+            let id = c.paso.id
+            wod.hechas[id] = c.estado.lecturas.t
+            avisar(c.avisoCierre) { wod.hechas[id] = nil }
+            return
+        case .guardar:
+            // La campana: la puntuación dicha es la del bloque, y el trabajo prescrito ya acabó.
+            let d = wod.dial ?? Vivo.dialDelMotor(rondas: session.capturedScoreRounds, reps: session.capturedScoreReps)
+            session.capturedScoreRounds = d.rondas
+            session.capturedScoreReps = d.reps
+            session.finish()
             return
         case .empezarYa where session.restRemainingSeconds > 0:
             session.dismissRest()
+            return
+        case .empezarYa where session.rotPhase == .rest && session.rotPhaseRemaining > 0 && session.currentSegment?.formatScheme == .tabata:
+            // El descanso del tabata se corta en el siguiente tic del motor, con su tono de trabajo.
+            session.rotPhaseRemaining = Swift.min(session.rotPhaseRemaining, 0.01)
             return
         default:
             break
@@ -302,6 +332,41 @@ struct VivoIphoneView: View {
         let antes = (session.currentSegmentIndex, session.setRecords.firstIndex { !$0.confirmed })
         session.primaryAdvance(fromAthleteTap: true)
         avisar(c.avisoCierre) { deshacer(antes: antes) }
+    }
+
+    // MARK: - La familia WOD
+
+    /// Los ± de la puntuación: el dato enfocado se mueve (las reps llevan a la ronda).
+    private func moverPuntuacion(_ delta: Int, _ c: VivoIphoneCuadro) {
+        guard case let .puntuacion(d, tareas, foco)? = c.apoyoWod else { return }
+        wod.dial = Vivo.girarPuntuacion(d, campo: foco, delta: delta, porRonda: Vivo.repsPorRonda(tareas))
+        Haptics.light()
+    }
+
+    /// El reloj cerró el minuto `minutoCerrado` del death by: si no se marcó, te cazó
+    /// y se acabó (la puntuación son los minutos marcados, no los que el motor dejó pasar).
+    private func cazadoSiToca(minutoCerrado k: Int) {
+        guard session.currentSegment?.formatScheme == .deathBy, !session.isFinished else { return }
+        let pasos = plan.pasos
+        guard let i = pasos.firstIndex(where: { $0.origen?.segmento == session.currentSegmentIndex && $0.origen?.ventana == .ronda(k) }),
+              Vivo.cazadoEn(pasos, iCerrado: i, hechas: wod.hechas) else { return }
+        session.rotRoundIndex = Vivo.completosDeathBy(pasos, wod.hechas)
+        session.deathByFail()
+        if session.isAwaitingFinishDecision { session.finish() }
+    }
+
+    /// El guion de una captura: cada gesto a su hora, por el mismo camino que el dedo.
+    private func correrGuion() async {
+        var t: TimeInterval = 0
+        for g in guion {
+            try? await Task.sleep(for: .seconds(Swift.max(0, g.en - t)))
+            t = g.en
+            let c = cuadro
+            switch g.gesto {
+            case .primaria: primaria(c)
+            case let .puntuacion(delta): moverPuntuacion(delta, c)
+            }
+        }
     }
 
     private func avisar(_ aviso: String, hacer: @escaping () -> Void) {

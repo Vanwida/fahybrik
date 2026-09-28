@@ -33,14 +33,15 @@ extension Vivo {
     static func planDe(_ plan: WorkoutPlan, zonas: HRZoneProfile?, entorno: RunEnvironment?, test: Bool = false) -> PlanVivo {
         var pasos: [Paso] = []
         for (s, seg) in plan.segments.enumerated() {
-            pasos.append(contentsOf: pasosDe(seg, indice: s, entorno: entorno, test: test))
+            pasos.append(contentsOf: pasosDe(seg, indice: s, entorno: entorno, test: test, ultimo: s == plan.segments.count - 1))
         }
         return PlanVivo(pasos: pasos, zonas: zonasDe(zonas))
     }
 
     // MARK: - Un segmento → sus pasos
 
-    static func pasosDe(_ seg: WorkoutSegment, indice s: Int, entorno: RunEnvironment?, test: Bool = false) -> [Paso] {
+    /// `ultimo`: el segmento cierra el plan (tras él, el motor espera: ahí cabe la puntuación del AMRAP).
+    static func pasosDe(_ seg: WorkoutSegment, indice s: Int, entorno: RunEnvironment?, test: Bool = false, ultimo: Bool = false) -> [Paso] {
         let fase = faseDe(seg.blockPhase)
         let bloque = seg.blockPosition ?? s
         if let legs = seg.runStructureLegs, !legs.isEmpty {
@@ -54,7 +55,7 @@ extension Vivo {
             return [pasoSuelto(seg, s: s, fase: fase, bloque: bloque, entorno: entorno, test: true)]
         }
         if seg.isConditioningTimer, let scheme = seg.formatScheme {
-            return pasosDeReloj(scheme, seg: seg, s: s, fase: fase, bloque: bloque, entorno: entorno)
+            return pasosDeReloj(scheme, seg: seg, s: s, fase: fase, bloque: bloque, entorno: entorno, ultimo: ultimo)
         }
         if seg.usesMultiSetStrength, let sets = seg.prescription?.sets, !sets.isEmpty {
             return pasosDeSeries(sets, seg: seg, s: s, fase: fase, bloque: bloque)
@@ -250,12 +251,19 @@ extension Vivo {
 
     private static func pasosDeEmom(_ plan: EmomPlan, seg: WorkoutSegment, s: Int, fase: Fase, bloque: Int, entorno: RunEnvironment?) -> [Paso] {
         let sets = seg.prescription?.sets ?? []
-        let ciclo: [Tarea] = sets.isEmpty ? [tareaDe(nil, nombre: seg.primaryMovement, seg: seg, entorno: entorno)]
-            : sets.enumerated().map { i, set in tareaDe(set, nombre: plan.interval(i)?.movement ?? seg.primaryMovement, seg: seg, entorno: entorno) }
+        // «Row 1′» en un EMOM de 1′ es la ventana entera: «Row · todo el minuto», sin dosis que acabar antes que el reloj.
+        func tareaEmom(_ set: PrescriptionSet?, _ nombre: String) -> Tarea {
+            var t = tareaDe(set, nombre: nombre, seg: seg, entorno: entorno)
+            if t.dosis?.tipo == .tiempo, t.dosis?.prescrito == Double(plan.intervalSeconds) { t.dosis = nil }
+            if t.dosis == nil, maquinaDe(set?.modality ?? seg.resolvedModality) != nil { t.mide = .ergo }
+            return t
+        }
+        let ciclo: [Tarea] = sets.isEmpty ? [tareaEmom(nil, seg.primaryMovement)]
+            : sets.enumerated().map { i, set in tareaEmom(set, plan.interval(i)?.movement ?? seg.primaryMovement) }
         var out: [Paso] = []
         for i in 0..<plan.intervalCount {
             let set = seg.rotationSet(at: i)
-            let tarea = tareaDe(set, nombre: plan.interval(i)?.movement ?? seg.primaryMovement, seg: seg, entorno: entorno)
+            let tarea = tareaEmom(set, plan.interval(i)?.movement ?? seg.primaryMovement)
             let mod = set?.modality ?? seg.resolvedModality
             let maquina = maquinaDe(mod, ergKind: sets.isEmpty ? seg.ergKind : nil)
             out.append(Paso(id: "s\(s)-e\(i)", clase: .emom, rol: .trabajo, fase: fase,
@@ -276,20 +284,33 @@ extension Vivo {
 
     // MARK: - C · Los formatos con reloj (AMRAP, For Time, rondas, tabata, death by, continuo)
 
-    private static func pasosDeReloj(_ scheme: PrescriptionScheme, seg: WorkoutSegment, s: Int, fase: Fase, bloque: Int, entorno: RunEnvironment?) -> [Paso] {
+    private static func pasosDeReloj(_ scheme: PrescriptionScheme, seg: WorkoutSegment, s: Int, fase: Fase, bloque: Int, entorno: RunEnvironment?, ultimo: Bool = false) -> [Paso] {
         let sets = seg.prescription?.sets ?? []
         let componentes = seg.declaredComponents
         switch scheme {
         case .amrap:
             let tareas = componentes.enumerated().map { i, c in tareaDe(i < sets.count ? sets[i] : nil, nombre: c.name, seg: seg, entorno: entorno) }
             let d = Double(seg.formatTotalSeconds ?? 0)
-            return [Paso(id: "s\(s)", clase: .amrap, rol: .trabajo, fase: fase,
-                         medida: Medida(tipo: .tiempo, prescrito: d > 0 ? d : nil, mide: .reloj),
-                         nombre: tareas.count == 1 ? tareas.first?.nombre : nil,
-                         maquina: maquinaDe(seg.resolvedModality, ergKind: seg.ergKind),
-                         cierre: d > 0 ? .medida : .atleta, bloque: bloque,
-                         wod: .amrap(tareas: tareas, duracionS: d),
-                         origen: Origen(segmento: s, ventana: .segmento))]
+            let nombre = tareas.count == 1 ? tareas.first?.nombre : nil
+            // La máquina del AMRAP: la del bloque o, en uno mixto, la de la tarea que va en máquina (el 250 m Row).
+            let maquina = maquinaDe(seg.resolvedModality, ergKind: seg.ergKind) ?? sets.lazy.compactMap { maquinaDe($0.modality) }.first
+            var out = [Paso(id: "s\(s)", clase: .amrap, rol: .trabajo, fase: fase,
+                            medida: Medida(tipo: .tiempo, prescrito: d > 0 ? d : nil, mide: .reloj),
+                            nombre: nombre, maquina: maquina,
+                            cierre: d > 0 ? .medida : .atleta, bloque: bloque,
+                            wod: .amrap(tareas: tareas, duracionS: d),
+                            origen: Origen(segmento: s, ventana: .segmento))]
+            // LA CAMPANA: la puntuación (rondas + reps) se dice al acabar. Solo cuando
+            // el AMRAP cierra el plan: ahí el motor espera; en medio, pasa al bloque
+            // siguiente y la puntuación queda la que contó (M: el motor no para).
+            if ultimo, d > 0 {
+                out.append(Paso(id: "s\(s)-p", clase: .amrap, rol: .transicion, fase: fase,
+                                medida: Medida(tipo: .abierta, prescrito: nil, mide: .atleta),
+                                nombre: nombre, cierre: .atleta, bloque: bloque,
+                                wod: .puntuacion(tareas: tareas, duracionS: d),
+                                origen: Origen(segmento: s, ventana: .segmento, puntuacion: true)))
+            }
+            return out
 
         case .tabata, .intervals:
             let rondas = Swift.max(1, seg.formatRounds ?? 1)
@@ -369,7 +390,8 @@ extension Vivo {
                         objetivos: objetivosDe(set?.target, maquina: maquina).filter { $0.eje != .kg && $0.eje != .pctRM },
                         posicion: posicion, nombre: nombre, entorno: corre ? entornoDe(entorno) : nil,
                         carga: cargaDe(set?.target), maquina: maquina, cierre: cierra, bloque: bloque,
-                        wod: esForTime ? .fortime(tarea: tarea, capS: cap) : nil,
+                        // La carrera de un For Time es un paso de correr (P10): sin tarea, se dice «Run · 800 m».
+                        wod: esForTime ? .fortime(tarea: corre ? nil : tarea, capS: cap) : nil,
                         origen: Origen(segmento: s, ventana: ventana))
         }
 
