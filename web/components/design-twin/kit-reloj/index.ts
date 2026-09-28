@@ -141,6 +141,8 @@ export * from './familia';
 export * from './metricas';
 export * from './posicion';
 export * from './tarea';
+export * from './deathby';
+export * from './alrededor';
 export * from './estructura';
 export * from './despues';
 export * from './lamina';

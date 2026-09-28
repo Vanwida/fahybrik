@@ -11,6 +11,7 @@
 // kilos»). La voz sabe de cada familia porque el paso lo dice (M1, M5, M7):
 // el ejercicio y su carga, la tarea del EMOM, la máquina y su /500.
 
+import { vozDeathBy } from './deathby';
 import { esFuerza, kgDelPlan, textoEsfuerzo, type PasoFuerza } from './fuerza';
 import { NOMBRE_CLASE_DEFECTO, FEMENINO_DEFECTO, type PasoBase, type Tarea, type Veredicto, type Vuelta } from './paso';
 import { esBici, fmtReloj, fmtRitmo, fmtSplit, num, principal } from './reglas';
@@ -146,6 +147,8 @@ function vozWod(p: PasoBase): string | null {
     }
     case 'pared':
       return `Ronda ${pos?.ronda?.n ?? ''} de ${w.rondas}.`;
+    case 'deathby':
+      return vozDeathBy(p);
     default:
       return null;
   }
