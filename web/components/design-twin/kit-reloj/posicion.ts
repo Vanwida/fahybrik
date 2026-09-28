@@ -9,7 +9,7 @@
 //   luegoDe      el siguiente paso y el «después» si lo que viene es recuperar.
 
 import { cargaDelPlan } from './anotar';
-import { esFuerza, fmtKg } from './fuerza';
+import { esFuerza, fmtKg, quienSerie } from './fuerza';
 import type { ExtraFamilia } from './metricas';
 import { NOMBRE_CLASE_DEFECTO, type PasoBase } from './paso';
 import { contextoDe, fmtPrescrito, nombreMaquinaCorto, principal, textoPasoCorto } from './reglas';
@@ -29,6 +29,15 @@ export function posicionDe(p: PasoBase, x: ExtraFamilia = {}): string[] {
   if (w?.formato === 'puntuacion') return ['Puntuación'];
   if (p.clase === 'roxzone') return [...contextoDe(p), 'Roxzone'];
   if (p.rol === 'descanso' || p.rol === 'recuperacion') return [...contextoDe(p), fmtPrescrito(p.medida)].filter(Boolean);
+  // Fuerza: el ejercicio delante (con su hueco de superserie si lo tiene) y la
+  // serie k/K; las reps no, que ya son el héroe. Una serie por tiempo (una
+  // plancha) sí dice su dosis: el héroe es lo que queda.
+  if (p.rol === 'transicion' && p.clase === 'fuerza') return ['Colócate', fmtPrescrito(p.medida)].filter(Boolean);
+  if (esFuerza(p) && p.rol === 'trabajo') {
+    const quien = [p.posicion?.slot, p.nombre].filter(Boolean).join(' · ');
+    const partes = [quien, quienSerie(p)].filter(Boolean);
+    return p.medida.tipo === 'tiempo' ? [...partes, fmtPrescrito(p.medida)] : partes;
+  }
   // El nombre de lo que haces es lo segundo más importante: va delante. Una
   // estación («Sled Push · Ronda 2/8 · Estación 2/8»), la máquina de un ergo o
   // un test («SkiErg · Serie 3/8 · 250 m») o el ejercicio de fuerza (A1 · …,
@@ -51,17 +60,20 @@ const MODO_RECUPERA = { trote: 'trote', andar: 'caminando', parado: 'parado' } a
  * Lo que viene, en corto (para «Luego ·» y «Viene:»). Si abre una tanda o una
  * ronda nueva, lo dice con su tamaño: «Tanda 3/3 · 6 × 1′»; una recuperación
  * dice cómo se recupera: «Recupera 90″ trote»; una serie de fuerza, su dosis
- * con la carga que propone el plan: «A1 · Back Squat · 8 × 125 kg»; la
- * Roxzone y la campana del AMRAP, su nombre; si no, el paso: «1000 m a 3:45–3:55».
+ * con la carga que está en la barra si el atleta la declaró (`arrastrada`,
+ * P11) o la que propone el plan: «A1 · Back Squat · 8 × 125 kg»; un
+ * «Colócate» dice sus segundos; la Roxzone y la campana del AMRAP, su
+ * nombre; si no, el paso: «1000 m a 3:45–3:55».
  */
-export function textoViene(p: PasoBase): string {
+export function textoViene(p: PasoBase, arrastrada: number | null = null): string {
   const pos = p.posicion;
   if (p.rol === 'recuperacion') return `Recupera ${textoPasoCorto(p)} ${MODO_RECUPERA[p.modoRecupera ?? 'trote']}`;
   if (p.clase === 'roxzone') return 'Roxzone';
   if (p.wod?.formato === 'puntuacion') return 'Puntuación';
+  if (p.rol === 'transicion' && p.clase === 'fuerza') return `Colócate ${fmtPrescrito(p.medida)}`.trim();
   if (esFuerza(p) && p.rol === 'trabajo' && p.medida.tipo === 'reps') {
     const quien = [pos?.slot, p.nombre].filter(Boolean).join(' · ');
-    const kg = p.fuerza.carga.tipo === 'corporal' ? null : cargaDelPlan(p.fuerza);
+    const kg = p.fuerza.carga.tipo === 'corporal' ? null : (arrastrada ?? cargaDelPlan(p.fuerza));
     const reps = p.medida.prescrito ?? '—';
     return `${quien} · ${kg != null ? `${reps} × ${fmtKg(kg)}` : `${reps} reps`}`;
   }
@@ -83,12 +95,13 @@ export interface LuegoVista {
  * «Luego ·» del paso `i`: el siguiente paso con su objetivo y, si es una
  * recuperación, un descanso o una transición, también el trabajo que viene
  * detrás (I5: «Luego · Recupera 90″ trote · después 1000 m a 3:45–3:55»).
- * `null` si es el último paso.
+ * `null` si es el último paso. `cargaDe(j)`: la carga que está en la barra
+ * para el paso `j` (la cascada de fuerza); sin ella, la del plan.
  */
-export function luegoDe(pasos: ReadonlyArray<PasoBase>, i: number): LuegoVista | null {
+export function luegoDe(pasos: ReadonlyArray<PasoBase>, i: number, cargaDe?: (j: number) => number | null): LuegoVista | null {
   const sig = pasos[i + 1];
   if (!sig) return null;
   const tras = pasos[i + 2];
-  const despues = sig.rol !== 'trabajo' && tras && tras.rol === 'trabajo' ? textoViene(tras) : null;
-  return { que: textoViene(sig), despues };
+  const despues = sig.rol !== 'trabajo' && tras && tras.rol === 'trabajo' ? textoViene(tras, cargaDe?.(i + 2) ?? null) : null;
+  return { que: textoViene(sig, cargaDe?.(i + 1) ?? null), despues };
 }

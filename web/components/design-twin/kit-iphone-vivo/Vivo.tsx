@@ -27,7 +27,7 @@ import { useGuion } from '../kit-reloj/gestos';
 import { laminaDelPaso, type HeroeVista } from '../kit-reloj/lamina';
 import { esTest, familiaDe, formatoDe } from '../kit-reloj/familia';
 import { heroeDeFamilia, metricasDelPaso, trabajoDe, type ExtraFamilia } from '../kit-reloj/metricas';
-import { luegoDe, posicionDe } from '../kit-reloj/posicion';
+import { luegoDe, posicionDe, type LuegoVista } from '../kit-reloj/posicion';
 import { fmtReloj, tinteDelPaso } from '../kit-reloj/reglas';
 import type { InicioSecuencia, PlanSesion, Simulador } from '../kit-reloj/secuencia';
 import { avisoDeCierre, sesionDe, useVivo } from '../kit-reloj/vivo';
@@ -60,6 +60,8 @@ export interface VistaIphoneProps {
   posicion?: (seq: Secuencia) => string[];
   /** El crono TOTAL de un circuito (la puntuación) en la cabecera en vez del de sesión. */
   cronoTotal?: (seq: Secuencia) => number | null;
+  /** «Luego ·» y «Viene:», si la familia sabe más que `luegoDe` (fuerza: la carga que está en la barra); recibe el del kit. */
+  luego?: (seq: Secuencia, porDefecto: LuegoVista | null) => LuegoVista | null;
   /** La anotación de la serie en el descanso de fuerza (I7): va en la franja elástica, sobre la rejilla. */
   anotar?: ReactNode | null;
   /** El estimador de duración de cada paso para repartir la tira. */
@@ -165,7 +167,8 @@ export function VistaIphone(p: VistaIphoneProps) {
   const chips: ChipEnlace[] = enlacesDe(dispositivos, paso, lecturas);
   const nota = notaEnlace(chips) ?? (paso.cue ? `Coach · ${paso.cue}` : null);
   const metricas = metricasDelPaso(paso, lecturas, heroe.clase, zonas, extraCompleto, plan.reglas);
-  const luego = luegoDe(plan.pasos, estado.i);
+  const luegoKit = luegoDe(plan.pasos, estado.i);
+  const luego = p.luego ? p.luego(seq, luegoKit) : luegoKit;
   const enDescanso = paso.rol === 'descanso' || paso.rol === 'recuperacion';
   const trabajoKit = trabajoDe(paso, lecturas, heroe.clase);
   // El tempo de fuerza ya tiene celda en la rejilla: la fila del trabajo no lo repite (un dato, un sitio).
