@@ -268,9 +268,14 @@ interface ScoreRow {
   score_time_s: number | null;
   score_rounds: number | null;
   score_reps: number | null;
-  template_name: string;
-  format: string;
+  /** Null for a scored workout with no assignment (kept «fuera del plan», 0270). */
+  template_name: string | null;
+  format: string | null;
 }
+
+/** The name of a scored workout that has no session behind it (0270): it was
+ *  done and scored, but its session had been removed from the plan. */
+export const UNPLANNED_SCORED_TITLE = 'Entreno fuera del plan';
 
 // ES labels for the scored formats (English lives in the format catalog).
 export const SCORE_FORMAT_ES: Record<string, string> = {
@@ -302,7 +307,9 @@ async function buildScoresCard(
   tz: string,
 ): Promise<AnalyticsCard> {
   // A session is dated on the ATHLETE's day (DECISIONS «Qué día es en cada
-  // sitio»), not the UTC one — same as its drill (drills/hyrox.ts).
+  // sitio»), not the UTC one — same as its drill (drills/hyrox.ts). LEFT joins:
+  // a metcon scored «fuera del plan» (no assignment, 0270) is a real score and
+  // counts here too, like it counts in load.
   const scored = await client<ScoreRow[]>`
     select
       we.id::text as execution_id,
@@ -310,8 +317,8 @@ async function buildScoresCard(
       we.score_time_s, we.score_rounds, we.score_reps,
       t.name as template_name, t.format::text as format
     from workout_executions we
-    join workout_assignments wa on wa.id = we.assignment_id
-    join templates t on t.id = wa.template_id
+    left join workout_assignments wa on wa.id = we.assignment_id
+    left join templates t on t.id = wa.template_id
     where we.athlete_id = ${athleteId}
       and (we.score_time_s is not null or we.score_rounds is not null)
       and coalesce(we.ended_at, we.started_at) >= ${period.start_iso}::timestamptz
@@ -356,7 +363,7 @@ async function buildScoresCard(
     const fmt = normalizeFormat(r.format);
     rows.push({
       id: r.execution_id,
-      label: r.template_name,
+      label: r.template_name ?? UNPLANNED_SCORED_TITLE,
       value: scoreValue(r),
       sub: [fmt ? SCORE_FORMAT_ES[fmt] ?? fmt : null, dayMonthEs(r.day)].filter(Boolean).join(' · ') || null,
       accent: false,

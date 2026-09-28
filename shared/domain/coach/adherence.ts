@@ -11,7 +11,10 @@
 // un 100 %, no un 40 % «cayendo» (informe C, R1).
 //
 // No es debida, aunque su día haya pasado:
-//   - un entreno libre del atleta (`origin = 'self'`): suma, nunca diluye;
+//   - un entreno libre del atleta (`origin = 'self'`): no cuenta ni como debida
+//     ni como hecha — ni sube ni baja el número. Es trabajo real (carga, zonas,
+//     historial y el calendario del coach lo enseñan, marcado «Libre»), pero no es
+//     plan, y la adherencia mide el plan;
 //   - un día dentro de una pausa o un descanso por lesión (`excluded`): congelado
 //     (mismo criterio que web/lib/coach/adherence-pause-filter.ts, #13/#16);
 //   - una sesión NO hecha de una semana OCULTA al atleta (`visible = false`,

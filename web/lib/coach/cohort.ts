@@ -110,6 +110,9 @@ async function loadRealCohort(
       from biometric_streams bs
       group by bs.athlete_id
     ),
+    -- Lo del PLAN (origin = 'coach'). Un entreno libre del atleta no es su
+    -- «próxima sesión», no es «programada hoy» ni puede ser «perdida»: lo monta y
+    -- lo hace él (shared/domain/coach/adherence.ts).
     next_session as (
       select distinct on (wa.athlete_id)
         wa.athlete_id,
@@ -117,6 +120,7 @@ async function loadRealCohort(
       from workout_assignments wa
       where wa.scheduled_for >= ${todayIso}::date
         and wa.status = 'scheduled'
+        and wa.origin = 'coach'
       order by wa.athlete_id, wa.scheduled_for asc, wa.id asc
     ),
     today_sessions as (
@@ -125,12 +129,14 @@ async function loadRealCohort(
              count(*) filter (where wa.status = 'completed')::int as done
       from workout_assignments wa
       where wa.scheduled_for = ${todayIso}::date
+        and wa.origin = 'coach'
       group by wa.athlete_id
     ),
     missed_7d as (
       select wa.athlete_id, count(*)::int as n
       from workout_assignments wa
       where wa.status = 'missed'
+        and wa.origin = 'coach'
         and wa.scheduled_for >= ${todayIso}::date - interval '7 days'
         and wa.scheduled_for <= ${todayIso}::date
       group by wa.athlete_id

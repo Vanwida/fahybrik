@@ -41,4 +41,19 @@ describeWithDb('roster: la próxima sesión en el día del club (DB real)', () =
     const row = rows.find((r) => Number(r.athlete_id) === fx.athleteId);
     expect(row?.next_session).toEqual({ label: 'Mañana', iso_date: '2031-03-11' });
   });
+
+  // Un libre del atleta no es plan: ni «programada hoy», ni «próxima sesión».
+  it('los libres no cuentan como programados hoy ni como la próxima sesión', async () => {
+    const templateId = await makeTemplate({ fx, name: `Libre ${Date.now()}` });
+    await sql`
+      insert into workout_assignments (athlete_id, scheduled_for, template_id, template_version, status, origin)
+      values (${fx.athleteId}, '2031-03-10', ${templateId}, 1, 'completed', 'self'),
+             (${fx.athleteId}, '2031-03-10', ${templateId}, 1, 'scheduled', 'self')
+    `;
+    const rows = await buildCohort({ coach_id: fx.coachId, now: NOW, client: sql });
+    const row = rows.find((r) => Number(r.athlete_id) === fx.athleteId);
+    expect(row?.next_session).toEqual({ label: 'Mañana', iso_date: '2031-03-11' });
+    expect(row?.in_gym_today).toBe(false);
+    expect(row?.flags.twice_daily_today).toBe(false);
+  });
 });
