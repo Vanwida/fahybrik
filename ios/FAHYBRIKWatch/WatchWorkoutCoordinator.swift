@@ -56,10 +56,12 @@ final class WatchWorkoutCoordinator {
 
     // MARK: - #23 dobles share (finish summary toggle)
     //
-    // The result is STAGED to the outbox at finish with the DEFAULT decision (from
-    // the coach's partner_visibility) and only TRANSFERRED on "Listo". The summary
-    // toggle mutates the staged entry. Crash-safety is independent of the toggle: if
-    // the app dies before "Listo", the next activation drains whatever is staged.
+    // Only a SHAREABLE dobles result is STAGED to the outbox at finish with the
+    // DEFAULT decision (from the coach's partner_visibility) and TRANSFERRED on
+    // "Listo": its summary toggle can still change how it logs. Every other result
+    // leaves at finish (DECISIONS 2026-09-25/28). Crash-safety is independent of the
+    // toggle: if the app dies before "Listo", the next activation drains whatever is
+    // staged.
 
     /// This session's dobles context, captured at launch (so a later push can't
     /// change it under a finished session).
@@ -333,10 +335,15 @@ final class WatchWorkoutCoordinator {
         transferWhenStaged = false
 
         // End the HK session, get the saved HKWorkout's id, then assemble the execution
-        // TAGGED with it (backend dedupes the HealthKit-synced copy). Then STAGE it to
-        // the outbox — persisted, but NOT transferred until "Listo". Captured locally so
+        // TAGGED with it (backend dedupes the HealthKit-synced copy). Captured locally so
         // a quick summary-dismiss can't drop the build.
+        //
+        // SOLO ESPERA A «LISTO» UN DOBLES COMPARTIBLE: su conmutador aún puede cambiar
+        // cómo se registra. Todo lo demás sale al terminar, con su traza detrás. Antes
+        // se retenía siempre, y un entreno de la muñeca sola no salía hasta tocar
+        // «Listo» o volver a abrir la app (28-sep).
         let capturedAssignmentId = assignmentId
+        let holdsForListo = isDoublesShareable
         Task { [weak self, engine] in
             let workoutRef = await self?.primary.endPrimary(save: true)
             // Fase 0 — stop the inertial stream and hand the archive to the phone
@@ -373,6 +380,17 @@ final class WatchWorkoutCoordinator {
                 sourceWorkoutRef: workoutRef
             )
             self.pendingResult = (assignmentId, payload)
+            guard holdsForListo else {
+                // Al buzón y al teléfono ya: el sobre se queda en la muñeca hasta el
+                // acuse del servidor (`WatchSaveLedger`), y la traza sale detrás.
+                if let envelope = self.makeEnvelope(assignmentId: assignmentId, payload: payload) {
+                    WatchConnectivityService.shared.sendExecutionResult(envelope)
+                }
+                if let localId = self.stagedTraceLocalId {
+                    WatchTraceOutbox.shared.transfer(localId: localId)
+                }
+                return
+            }
             // Stage with the CURRENT share decision (default, or a toggle flip the
             // athlete already made while the async ran). Not transferred yet.
             if let envelope = self.makeEnvelope(assignmentId: assignmentId, payload: payload) {
@@ -421,8 +439,13 @@ final class WatchWorkoutCoordinator {
     /// "Listo" — commit the (possibly toggled) staged result and return to the day's
     /// done state. If the async build hasn't staged yet (a very fast dismiss), the
     /// staged entry still drains on the next activation with the current decision, so
-    /// the result is never lost.
+    /// the result is never lost. A result that is not a shareable dobles already left
+    /// at finish: "Listo" only closes the summary.
     func confirmAndReset() {
+        guard isDoublesShareable else {
+            reset()
+            return
+        }
         restageIfPossible()
         if let data = stagedEnvelopeData {
             WatchConnectivityService.shared.transferStagedResult(data)
