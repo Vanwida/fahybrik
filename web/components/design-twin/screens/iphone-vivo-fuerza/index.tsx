@@ -21,13 +21,22 @@ export const meta: TwinMeta = {
   id: 'iphone-vivo-fuerza',
   titulo: 'iPhone · fuerza',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'espejo',
   actualizado: '2026-09-28',
   descripcion:
     'El ejercicio delante y la dosis con sus dos ejes («8 × 125 kg» con el %RM o el RIR encima); se anota en el propio descanso con ± grandes y lo propuesto no cuenta hasta confirmarlo; la carga pasa en cascada; la última serie lleva al siguiente ejercicio. Un libre se ve igual.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIK/Workout/VivoIphone/VivoIphoneView.swift',
+    'ios/FAHYBRIK/Workout/VivoIphone/VivoIphoneCuadro.swift',
+    'ios/FAHYBRIK/Workout/VivoIphone/VivoDescanso.swift',
+    'ios/FAHYBRIK/Workout/VivoIphone/VivoFuerzaMotor.swift',
+    'ios/FAHYBRIKCore/Vivo/Vivo+PlanDeSesion.swift',
+    'ios/FAHYBRIKCore/Vivo/Vivo+EstadoDeSesion.swift',
+    'ios/FAHYBRIKCore/Vivo/Vivo+Colocate.swift',
+    'ios/FAHYBRIKCore/Vivo/Vivo+Anotar.swift',
+  ],
   enApp:
-    'Hoy el vivo de fuerza del iPhone (LiveStrengthView, tanda del 29-jul) enseña «5 × 100 kg» con el nombre debajo, una fila de chips S1–S4 que se trunca a ocho series («8 ×…»), «Saltar descanso» como acción del descanso y sin ninguna forma de anotar lo hecho; la superserie sale como «Press banca · Remo con barra · Serie 1 de 8». Esto lo sustituye entero: la anatomía del kit del iPhone sobre el mismo estado que la muñeca (`kit-reloj`), con la anotación en el descanso.',
+    'Portada el 28-09 (rama claude/vivo-swift-fuerza, detrás de VivoIphoneBandera): los siete escenarios capturados en el simulador sobre el motor real. Lo que el Swift aún no tiene: la carga «de la última vez» (la app no guarda historial de cargas: B1 sale «8 reps», no «8 × 140 kg»), el destello GO, y una plancha con categoría de core no va serie a serie en el motor (solo la de fuerza).',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };
