@@ -82,6 +82,29 @@ export function getTestSql(): Sql {
   return new Proxy(function () {} as never, handler) as unknown as Sql;
 }
 
+/**
+ * Runs a fixture teardown, retrying when Postgres picks it as a deadlock victim.
+ * The save routes fire the coach-attention recompute without awaiting it (so a
+ * slow recompute never holds the athlete's 2xx); a teardown that deletes the
+ * athlete right after a save can cross that recompute's writes. Retrying once
+ * the recompute finishes is the honest fix for the test — the product race does
+ * not exist (nobody deletes an athlete mid-save).
+ */
+export async function settleCleanup(cleanup: () => Promise<void>): Promise<void> {
+  const ATTEMPTS = 4;
+  const WAIT_MS = 500;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await cleanup();
+      return;
+    } catch (err) {
+      const deadlock = (err as { code?: string }).code === '40P01';
+      if (!deadlock || attempt >= ATTEMPTS) throw err;
+      await new Promise((resolve) => setTimeout(resolve, WAIT_MS));
+    }
+  }
+}
+
 export async function closeTestSql(): Promise<void> {
   if (cached) {
     await cached.end({ timeout: 5 });

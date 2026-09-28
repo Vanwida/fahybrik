@@ -2,8 +2,7 @@ import { getAthleteSessionFromBearer } from '@/lib/auth/athlete-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { workoutExecutionSchema } from '@/lib/sync/record-workout-execution';
 import { recordAthleteWorkout } from '@/lib/sync/record-athlete-workout';
-import { droppedCount } from '@/lib/sync/lenient';
-import { captureRouteError } from '@/lib/observability/capture';
+import { reportDroppedTramos } from '@/lib/sync/report-dropped-tramos';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,7 +10,8 @@ export const dynamic = 'force-dynamic';
 // POST /api/sync/workout-execution — the SOLO logging path: an athlete syncs a
 // finished workout (RPE, score, per-segment actuals). The phone's own finish, the
 // Watch relay (through the phone), the photo-capture confirm and «Marcar como
-// hecha» all land here.
+// hecha» all land here — for ANY session of the athlete, the coach's or their own
+// saved free plan (origin 'self'): one execution path (DECISIONS 2026-09-28).
 //
 // A finished workout is never answered with a 4xx the app would throw away (audit
 // E1 / D-04): a field that does not fit costs that field, a tramo without identity
@@ -38,18 +38,12 @@ export async function POST(request: Request) {
   }
 
   const athleteId = Number(auth.athlete_id);
-  // A tramo without its own identity is a bug of OUR client: it costs that tramo,
-  // never the session — and it is said out loud here, not swallowed.
-  const droppedSegments = droppedCount(
-    (body as { segments?: unknown }).segments,
-    parsed.data.segments,
-  );
-  if (droppedSegments > 0) {
-    captureRouteError(new Error('workout-execution: tramos sin identidad descartados'), {
-      route: 'api/sync/workout-execution.POST',
-      meta: { athlete_id: athleteId, dropped_segments: droppedSegments },
-    });
-  }
+  const segmentsDropped = reportDroppedTramos({
+    route: 'api/sync/workout-execution.POST',
+    athleteId,
+    rawBody: body,
+    kept: parsed.data.segments,
+  });
 
   const result = await recordAthleteWorkout({
     athleteId,
@@ -64,6 +58,7 @@ export async function POST(request: Request) {
     assignment_id: result.off_plan ? null : result.assignment_id,
     execution_id: result.execution_id,
     segments_saved: result.segments_saved,
+    segments_dropped: segmentsDropped,
     prs: result.prs,
     off_plan: result.off_plan,
   });
