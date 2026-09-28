@@ -136,7 +136,8 @@ function historia(c: Circuito, hasta: number, ritmoRun: number): Parcial[] {
   });
 }
 
-function caso(c: Circuito, i: number, t: number, ritmoRun: number, extra: Partial<CasoCircuito> & { metros?: number } = {}): CasoCircuito {
+/** Un escenario en el paso `i`, a `t` s de él, con el historial simulado de lo anterior. Lo usa también el iPhone. */
+export function caso(c: Circuito, i: number, t: number, ritmoRun: number, extra: Partial<CasoCircuito> & { metros?: number } = {}): CasoCircuito {
   const { metros, ...resto } = extra;
   const parciales = historia(c, i, ritmoRun);
   // Los metros corridos (GPS) y los del PM5, cada uno en su cuenta: un remo no es una carrera.
