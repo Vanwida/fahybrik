@@ -280,7 +280,6 @@
     {"archivo":"lib/citas/store.ts","huella":"dd74c53c248c","tablas":["leads"],"veces":1},
     {"archivo":"lib/citas/store.ts","huella":"df643d68d976","tablas":["appointments"],"veces":1},
     {"archivo":"lib/citas/store.ts","huella":"e211432692af","tablas":["leads"],"veces":1},
-    {"archivo":"lib/coach/ai-persist-workout.ts","huella":"2bfe404a4a1b","tablas":["template_segments"],"veces":1},
     {"archivo":"lib/coach/ai-propose-week-adjustment.ts","huella":"15d738b0429a","tablas":["workout_assignments"],"veces":1},
     {"archivo":"lib/coach/ai-propose-week-adjustment.ts","huella":"22e80675eddd","tablas":["week_adjustment_proposals"],"veces":1},
     {"archivo":"lib/coach/ai-propose-week-adjustment.ts","huella":"3a5b82501e02","tablas":["week_adjustment_proposals"],"veces":1},
