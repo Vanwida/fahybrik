@@ -109,9 +109,10 @@ struct VivoIphoneCuadro {
         instruccion = (p.rol == .trabajo && lam.banda == nil && p.wod == nil && f != .fuerza) ? lam.instruccion : nil
         let ch = Vivo.enlacesDe(dispositivos, p, e.lecturas)
         chips = ch
-        // Dobles: en la espera nadie mide a tu pareja (el relevo lo dices tú); en un reparto, el pacto.
+        // Dobles: en la espera nadie mide a tu pareja (el relevo lo dices tú); en un reparto, el
+        // pacto manda sobre la nota del enlace (el chip ya dice el enlace; el pacto no está en otro sitio).
         let pacto = p.dobles.flatMap(Vivo.pactoDe)
-        nota = Vivo.notaEnlace(ch) ?? (Vivo.esRelevo(p) ? Vivo.notaRelevo : nil) ?? pacto ?? p.cue.map { "Coach · \($0)" }
+        nota = pacto ?? Vivo.notaEnlace(ch) ?? (Vivo.esRelevo(p) ? Vivo.notaRelevo : nil) ?? p.cue.map { "Coach · \($0)" }
         metricas = Vivo.metricasDelPaso(p, e.lecturas, heroe: h.clase, zonas, x, e.reglas)
         let lu = Vivo.luegoDe(e.pasos, e.i, cargaDe: { j in Vivo.cargaArrastrada(e.pasos, j, registro) })
         luego = lu

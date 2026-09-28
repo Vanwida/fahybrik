@@ -19,9 +19,9 @@ final class VivoDoblesCapturasTests: XCTestCase {
     func testElRelevoSeDaConElDedoYNoGraba() throws {
         let s = try D.sesion(en: 1)
         s.lapElapsedSeconds = 95; s.elapsedSeconds = 420
-        let m = VivoMontaje(hrLink: .connected(name: "Banda"), guion: [VivoGestoGuion(en: 1.0, gesto: .primaria)],
+        let m = VivoMontaje(hrLink: .connected(name: "Banda"), guion: [VivoGestoGuion(en: 2.0, gesto: .primaria)],
                             minimizar: true, pareja: marta)
-        fotografiarVivo(s, m, fotos: [VivoFoto(nombre: "dobles-relevo", en: 0.6), VivoFoto(nombre: "dobles-tras-relevo", en: 2.0)])
+        fotografiarVivo(s, m, fotos: [VivoFoto(nombre: "dobles-relevo", en: 0.6), VivoFoto(nombre: "dobles-tras-relevo", en: 3.2)])
         XCTAssertFalse(s.laps.contains { $0.templateSegmentId == 2169 }, "el relevo no graba la estación de la pareja")
         XCTAssertEqual(s.currentSegmentIndex, 2, "«Relevo» pasa a lo tuyo (advanceRelay), no cierra una vuelta")
     }
@@ -52,6 +52,7 @@ final class VivoDoblesCapturasTests: XCTestCase {
     func testLaEstructuraConSaltos() throws {
         let s = WorkoutSession(plan: try VivoPlanesCircuito.sesion493())
         s.start(); s.beginBlock(); s.stop()
+        if s.isTramoCountIn { s.primaryAdvance() }   // sin el 3-2-1 del motor: la página, no la cuenta
         XCTAssertEqual(s.currentSegmentIndex, 0)
         fotografiarVivo(s, VivoMontaje(pagina: .estructura, minimizar: true, saltar: true),
                         fotos: [VivoFoto(nombre: "estructura-saltos", en: 0.6)])
