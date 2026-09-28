@@ -233,7 +233,7 @@ function lineHasExercise(line: TemplateContentLine): boolean {
 }
 
 /** La prescripción de una línea tal y como se guarda: la modalidad del ejercicio manda. */
-function storedPrescription(line: TemplateContentLine): Prescription | null {
+export function storedLinePrescription(line: Pick<TemplateContentLine, 'prescription' | 'exercise_modality'>): Prescription | null {
   if (!line.prescription) return null;
   const withModality =
     line.exercise_modality && line.prescription.modality !== line.exercise_modality
@@ -253,7 +253,7 @@ export function serializeTemplateContent(blocks: readonly TemplateContentBlock[]
 
   for (const block of blocks) {
     if (block.items.length === 0) continue;
-    const lines = block.items.map((it) => ({ line: it, prescription: storedPrescription(it) }));
+    const lines = block.items.map((it) => ({ line: it, prescription: storedLinePrescription(it) }));
     const format = resolveBlockFormat(block.format, lines);
     const circuit = format === 'circuit' && block.circuit ? block.circuit : null;
     const title = block.title?.trim() || null;
