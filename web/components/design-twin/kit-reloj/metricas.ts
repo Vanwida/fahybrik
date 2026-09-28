@@ -15,7 +15,7 @@
 
 import { cargaDelPlan } from './anotar';
 import { familiaDe } from './familia';
-import { esFuerza, fmtKg, textoEsfuerzo, textoKgPlan, textoPct, textoTempo } from './fuerza';
+import { esFuerza, fmtKg, kgDelPlan, textoEsfuerzo, textoKgPlan, textoPct, textoTempo } from './fuerza';
 import { heroeDelPaso, lineaPulso, type HeroeVista, type LineaVista } from './lamina';
 import { REGLAS_AVISO_DEFECTO, type Lecturas, type PasoBase, type ReglasAviso, type ZonasCoach } from './paso';
 import {
@@ -80,6 +80,9 @@ function kgEnBarra(p: PasoBase, x: ExtraFamilia): number | null {
   return x.cargaKg ?? cargaDelPlan(p.fuerza);
 }
 
+/** Las reps las cuenta el sensor y ya está contando: el héroe es lo que llevas, con los kilos encima. */
+const cuentaElSensor = (p: PasoBase, l: Lecturas) => p.medida.mide === 'sensor' && l.hecho != null;
+
 /**
  * EL HÉROE CON LAS REGLAS DE FAMILIA ENCIMA DE P3. Correr y ergo salen de
  * `heroeDelPaso` (el objetivo manda; sin objetivo, lo que falta); las familias
@@ -109,7 +112,7 @@ export function heroeDeFamilia(p: PasoBase, l: Lecturas, zonas: ZonasCoach | nul
     const pct = textoPct(fi.carga);
     const etiqueta = [pct, esfuerzo].filter(Boolean).join(' · ') || (fi.carga.tipo === 'tuya' ? 'carga tuya' : fi.carga.tipo === 'corporal' ? 'peso corporal' : undefined);
     // Las reps las cuenta el sensor: el héroe es lo que llevas de ellas.
-    if (p.medida.mide === 'sensor' && l.hecho != null) return { clase: 'falta', texto: String(l.hecho), unidad: `de ${reps}`, etiqueta: kg != null ? fmtKg(kg) : etiqueta };
+    if (cuentaElSensor(p, l)) return { clase: 'falta', texto: String(l.hecho), unidad: `de ${reps}`, etiqueta: kg != null ? fmtKg(kg) : etiqueta };
     if (kg != null) return { clase: 'falta', texto: `${reps} × ${num(kg)}`, unidad: 'kg', etiqueta };
     return { clase: 'falta', texto: reps, unidad: 'reps', etiqueta };
   }
@@ -364,17 +367,26 @@ export function metricasDelPaso(
     case 'fuerza': {
       // Lo que la serie pide y no cabe en el héroe: la carga que da el plan en
       // kilos, el esfuerzo, el tempo, el descanso prescrito, la última serie.
+      // Un dato, un sitio: el héroe ya lleva el esfuerzo encima (salvo cuando
+      // el sensor cuenta y encima van los kilos), y «carga del plan» solo sale
+      // si dice algo que el héroe no dice (una banda, o unos kilos distintos
+      // de los que hay en la barra).
       const s = p.posicion?.serie;
       if (s) m.push(texto('serie', esFuerza(p) && p.fuerza.aproximacion ? 'aproximación' : 'serie', `${s.n}/${s.de}`));
       if (esFuerza(p)) {
+        const rango = kgDelPlan(p.fuerza.carga);
+        const enBarra = kgEnBarra(p, x);
         const kg = textoKgPlan(p.fuerza.carga);
-        if (kg && p.fuerza.carga.tipo === 'rm') m.push(texto('carga', 'carga del plan', kg));
-        if (p.fuerza.esfuerzo && !p.fuerza.aproximacion) m.push(texto('esfuerzo', 'esfuerzo', textoEsfuerzo(p.fuerza.esfuerzo)));
+        if (kg && p.fuerza.carga.tipo === 'rm' && rango && (rango[0] !== rango[1] || rango[0] !== enBarra)) m.push(texto('carga', 'carga del plan', kg));
+        const heroeLlevaEsfuerzo = p.medida.tipo === 'reps' && !cuentaElSensor(p, l);
+        if (p.fuerza.esfuerzo && !p.fuerza.aproximacion && !heroeLlevaEsfuerzo) m.push(texto('esfuerzo', 'esfuerzo', textoEsfuerzo(p.fuerza.esfuerzo)));
       }
       if (p.tempo) m.push(texto('tempo', 'tempo', textoTempo(p.tempo)));
+      // El pulso antes que la última serie y el descanso: con cuatro celdas
+      // llenas, lo que cae nunca es el pulso.
+      if (conPulso) m.push(pulso(p, l, zonas, reglas));
       if (x.ultimaSerie) m.push(texto('ultima', 'última serie', x.ultimaSerie));
       if (x.descansoS != null) m.push(texto('descanso', 'descanso', fmtDuracion(x.descansoS)));
-      if (conPulso) m.push(pulso(p, l, zonas, reglas));
       break;
     }
     case 'emom': {

@@ -61,15 +61,65 @@ export function cargaDelPlan(f: FichaFuerza): number | null {
   return null;
 }
 
-/** La carga ARRASTRADA: la última declarada en una serie anterior del mismo ejercicio. */
+/**
+ * ¿La carga declarada en `de` es la propuesta de `a`? Mismo ejercicio, las
+ * dos de trabajo, y LA MISMA PRESCRIPCIÓN de carga: en una pirámide (5 × 70 %,
+ * 3 × 80 %, 1 × 90 %) lo que cargaste al 70 % no es la propuesta del 80 %.
+ * Lo que sí se hereda: la carga tuya, los kilos del coach y una banda de %RM
+ * igual en las dos series (el atleta sube dentro de la banda).
+ */
+export function heredaCarga(a: PasoFuerza, de: PasoFuerza): boolean {
+  if (a.fuerza.ejercicio !== de.fuerza.ejercicio || a.fuerza.aproximacion || de.fuerza.aproximacion) return false;
+  return mismaCarga(a.fuerza.carga, de.fuerza.carga);
+}
+
+function mismaCarga(a: FichaFuerza['carga'], b: FichaFuerza['carga']): boolean {
+  if (a.tipo !== b.tipo) return false;
+  if (a.tipo === 'kg' && b.tipo === 'kg') return a.min === b.min && a.max === b.max;
+  if (a.tipo === 'rm' && b.tipo === 'rm') return a.pctMin === b.pctMin && a.pctMax === b.pctMax;
+  if (a.tipo === 'tuya' && b.tipo === 'tuya') return !!a.lastre === !!b.lastre;
+  return true;
+}
+
+/** La carga ARRASTRADA: la última declarada en una serie anterior del mismo ejercicio con la misma prescripción. */
 export function cargaArrastrada(plan: PlanSesion, j: number, registro: Registro): number | null {
   const p = plan.pasos[j];
   if (!esFuerza(p)) return null;
   for (let k = j - 1; k >= 0; k--) {
     const q = plan.pasos[k];
-    if (!esFuerza(q) || q.fuerza.ejercicio !== p.fuerza.ejercicio || q.fuerza.aproximacion) continue;
+    if (!esFuerza(q) || !heredaCarga(p, q)) continue;
     const kg = registro[q.id]?.kg;
     if (kg != null) return kg;
+  }
+  return null;
+}
+
+/**
+ * Los números de serie a los que llega la carga declarada en `j` (hasta la
+ * siguiente que ya tenga carga declarada): «también en las series 2–4».
+ */
+export function seriesQueHeredan(plan: PlanSesion, j: number, registro: Registro): number[] {
+  const p = plan.pasos[j];
+  if (!esFuerza(p)) return [];
+  const out: number[] = [];
+  for (let k = j + 1; k < plan.pasos.length; k++) {
+    const q = plan.pasos[k];
+    if (!esFuerza(q) || !heredaCarga(q, p)) continue;
+    if (registro[q.id]?.kg != null) break;
+    if (q.posicion?.serie) out.push(q.posicion.serie.n);
+  }
+  return out;
+}
+
+/** La última serie DECLARADA del mismo ejercicio antes de `j`, en palabras: «8 × 125 kg · RIR 3». */
+export function ultimaSerieAnotada(plan: PlanSesion, j: number, registro: Registro): string | null {
+  const p = plan.pasos[j];
+  if (!esFuerza(p)) return null;
+  for (let k = j - 1; k >= 0; k--) {
+    const q = plan.pasos[k];
+    if (!esFuerza(q) || q.fuerza.ejercicio !== p.fuerza.ejercicio || q.fuerza.aproximacion || !registro[q.id]) continue;
+    const a = anotacionDe(plan, k, registro, null);
+    return a ? textoAnotacion(a, q.fuerza) : null;
   }
   return null;
 }

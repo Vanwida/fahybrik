@@ -63,7 +63,8 @@ function segundosDe(p: PasoBase): number {
   return 45;
 }
 
-function inicioEn(plan: PlanSesion, i: number, t: number): InicioSecuencia {
+/** El punto de partida a mitad de sesión: lo hecho deja sus vueltas y su tiempo. */
+export function inicioEn(plan: PlanSesion, i: number, t: number): InicioSecuencia {
   const vueltas: Vuelta[] = [];
   let sesionT = 0;
   plan.pasos.slice(0, i).forEach((p) => {

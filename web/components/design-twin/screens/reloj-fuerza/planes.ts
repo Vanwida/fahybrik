@@ -47,7 +47,7 @@ const RM_PESO_MUERTO = 200;
 // Constructores
 // ---------------------------------------------------------------------------
 
-interface DefEjercicio {
+export interface DefEjercicio {
   clave: string;
   nombre: string;
   slot?: string;
@@ -65,11 +65,11 @@ interface DefEjercicio {
   aproximaciones?: Array<{ reps: number; kg: number }>;
 }
 
-const rm = (pctMin: number, pctMax: number, rmKg: number): CargaFuerza => ({ tipo: 'rm', pctMin, pctMax, rmKg });
-const corporal: CargaFuerza = { tipo: 'corporal' };
-const tuya = (ultimaKg: number | null = null, lastre = false): CargaFuerza => ({ tipo: 'tuya', ultimaKg, lastre });
-const rir = (n: number): EsfuerzoFuerza => ({ eje: 'rir', min: n, max: n });
-const rpe = (n: number): EsfuerzoFuerza => ({ eje: 'rpe', min: n, max: n });
+export const rm = (pctMin: number, pctMax: number, rmKg: number): CargaFuerza => ({ tipo: 'rm', pctMin, pctMax, rmKg });
+export const corporal: CargaFuerza = { tipo: 'corporal' };
+export const tuya = (ultimaKg: number | null = null, lastre = false): CargaFuerza => ({ tipo: 'tuya', ultimaKg, lastre });
+export const rir = (n: number): EsfuerzoFuerza => ({ eje: 'rir', min: n, max: n });
+export const rpe = (n: number): EsfuerzoFuerza => ({ eje: 'rpe', min: n, max: n });
 
 function objetivosDe(carga: CargaFuerza, esfuerzo: EsfuerzoFuerza | null): Objetivo[] {
   const o: Objetivo[] = [];
@@ -81,7 +81,7 @@ function objetivosDe(carga: CargaFuerza, esfuerzo: EsfuerzoFuerza | null): Objet
 }
 
 /** Una serie de trabajo (o de aproximación) de un ejercicio. */
-function serie(d: DefEjercicio, n: number, bloque: number, aprox?: { reps: number; kg: number; de: number }): PasoFuerza {
+export function serie(d: DefEjercicio, n: number, bloque: number, aprox?: { reps: number; kg: number; de: number }): PasoFuerza {
   const carga: CargaFuerza = aprox ? { tipo: 'kg', min: aprox.kg, max: aprox.kg } : d.carga;
   const esfuerzo = aprox ? null : (d.esfuerzo ?? null);
   const iso = d.segundos != null && !aprox;
@@ -107,7 +107,7 @@ function serie(d: DefEjercicio, n: number, bloque: number, aprox?: { reps: numbe
 let n = 0;
 const uid = (p: string) => `${p}-${++n}`;
 
-function descanso(s: number, bloque: number, fase: PasoBase['fase'] = 'principal'): PasoBase {
+export function descanso(s: number, bloque: number, fase: PasoBase['fase'] = 'principal'): PasoBase {
   return { id: uid('descanso'), clase: 'descanso', rol: 'descanso', fase, medida: { tipo: 'tiempo', prescrito: s, mide: 'reloj' }, objetivos: [], cierre: 'medida', bloque };
 }
 
@@ -117,7 +117,7 @@ function colocate(bloque: number): PasoBase {
 }
 
 /** Un ejercicio suelto: aproximaciones, N series y su descanso detrás de cada una (también de la última). */
-function ejercicio(d: DefEjercicio, descansoS: number, bloque: number, descansoAproxS = 90): PasoBase[] {
+export function ejercicio(d: DefEjercicio, descansoS: number, bloque: number, descansoAproxS = 90): PasoBase[] {
   const out: PasoBase[] = [];
   const ap = d.aproximaciones ?? [];
   ap.forEach((a, k) => {
@@ -139,7 +139,7 @@ function ejercicio(d: DefEjercicio, descansoS: number, bloque: number, descansoA
  * «bloque hecho» (.success) suena al cerrar la última serie, no al empezar
  * el bloque siguiente (que se quedaría sin su GO).
  */
-function superserie(defs: DefEjercicio[], rondas: number, descansoS: number, bloque: number, bloqueFinal = bloque): PasoBase[] {
+export function superserie(defs: DefEjercicio[], rondas: number, descansoS: number, bloque: number, bloqueFinal = bloque): PasoBase[] {
   const out: PasoBase[] = [];
   for (let k = 1; k <= rondas; k++) {
     defs.forEach((d, x) => {
@@ -172,7 +172,7 @@ function estacion(nombre: string, veces: number, m: number, descansoS: number, b
   return out;
 }
 
-const plan = (pasos: PasoBase[]): PlanSesion => ({ pasos, zonas: ZONAS, reglas: REGLAS_AVISO_DEFECTO });
+export const plan = (pasos: PasoBase[]): PlanSesion => ({ pasos, zonas: ZONAS, reglas: REGLAS_AVISO_DEFECTO });
 
 // ---------------------------------------------------------------------------
 // 529 · A: Back Squat 4 × 8 @65–70 % RM + Box Jump 4 × 6, r 2′ ·

@@ -78,9 +78,27 @@ function Dato({ valor, unidad, estado, activo, onPulsa }: { valor: number | null
  * propuesto («sin confirmar»); tinta = declarado («✓ 8 × 125 kg · RIR 3»).
  * Confirmar es la acción primaria de la franja; aquí solo se cambian datos.
  */
-export function AnotarSerie({ series, onCambia, onLog }: { series: SerieAnotable[]; onCambia: (paso: PasoFuerza, campo: Campo, dir: 1 | -1) => void; onLog?: (l: string) => void }) {
+export function AnotarSerie({
+  series,
+  onCambia,
+  onLog,
+  foco: focoControlado,
+  onFoco,
+}: {
+  series: SerieAnotable[];
+  onCambia: (paso: PasoFuerza, campo: Campo, dir: 1 | -1) => void;
+  onLog?: (l: string) => void;
+  /** El dato encendido, si lo lleva la familia (un guion que toca el RIR); sin él, lo lleva la tarjeta. */
+  foco?: Foco | null;
+  onFoco?: (foco: Foco) => void;
+}) {
   const primera = series[0];
-  const [foco, setFoco] = useState<Foco | null>(primera ? { id: primera.paso.id, campo: primera.anot.kg ? 'kg' : 'reps' } : null);
+  const [focoPropio, setFocoPropio] = useState<Foco | null>(primera ? { id: primera.paso.id, campo: primera.anot.kg ? 'kg' : 'reps' } : null);
+  const foco = focoControlado === undefined ? focoPropio : focoControlado;
+  const setFoco = (f: Foco) => {
+    setFocoPropio(f);
+    onFoco?.(f);
+  };
   const enfocar = (id: string, campo: Campo) => {
     setFoco({ id, campo });
     onLog?.(`Toque → ${campo === 'kg' ? 'la carga' : campo === 'reps' ? 'las reps' : 'el esfuerzo'}: los ± mueven ese dato`);
@@ -105,7 +123,8 @@ export function AnotarSerie({ series, onCambia, onLog }: { series: SerieAnotable
                 {pendiente ? 'sin confirmar' : `✓ ${textoAnotacion(anot, f)}`}
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {/* Tres píldoras (reps · kg · RIR) y los ± no caben en una fila a 390: los ± bajan a la siguiente, a la derecha. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', rowGap: 8 }}>
               <Dato valor={anot.reps.valor} unidad="reps" estado={anot.reps.estado} activo={activo('reps')} onPulsa={() => enfocar(paso.id, 'reps')} />
               {anot.kg ? <Dato valor={anot.kg.valor} unidad="kg" estado={anot.kg.estado} activo={activo('kg')} onPulsa={() => enfocar(paso.id, 'kg')} /> : null}
               {anot.esfuerzo && f.esfuerzo ? (

@@ -21,7 +21,7 @@ import {
   type Traductor,
   type Viene,
 } from '../../kit-reloj';
-import { cargaArrastrada, type Campo, type Registro } from '../../kit-reloj';
+import { cargaArrastrada, seriesQueHeredan, type Campo, type Registro } from '../../kit-reloj';
 import { abreEjercicio, anteriorTrabajo, ejercicioDe, siguienteTrabajo } from './modelo';
 
 /** «A2 · Box Jump» — el hueco de la superserie delante del nombre. */
@@ -90,13 +90,7 @@ export function textoPistaCorona(plan: PlanSesion, j: number, campo: Campo, regi
     const nombre = campo === 'reps' ? 'reps' : p && esFuerza(p) && p.fuerza.esfuerzo?.eje === 'rpe' ? 'RPE' : 'RIR';
     return `gira la corona · ${nombre}`;
   }
-  const siguen: number[] = [];
-  for (let k = j + 1; k < plan.pasos.length; k++) {
-    const q = plan.pasos[k];
-    if (!esFuerza(q) || q.fuerza.ejercicio !== p.fuerza.ejercicio || q.fuerza.aproximacion) continue;
-    if (registro[q.id]?.kg != null) break;
-    if (q.posicion?.serie) siguen.push(q.posicion.serie.n);
-  }
+  const siguen = seriesQueHeredan(plan, j, registro);
   if (siguen.length === 0) return 'gira la corona · kg';
   if (siguen.length === 1) return `también en la serie ${siguen[0]}`;
   return `también en las series ${siguen[0]}–${siguen[siguen.length - 1]}`;
