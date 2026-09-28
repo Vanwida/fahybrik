@@ -11,6 +11,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-28 · Correr en el vivo del iPhone: la gramática nombra los pasos; «Vuelta» parte, no cierra
+
+**Contexto.** Familia `correr` del vivo del iPhone (`iphone-vivo-correr`) portada a Swift sobre el adaptador `Vivo.planDe`. El adaptador contaba TODAS las piernas de trabajo del día como «Serie N/M»: 538 salía «Serie 9/15» en vez de «Serie 1/4», el progresivo eran series, los strides de 551 «Serie 2/7» y el rodaje de delante «Serie 1/7».
+
+**Decidido (mecanismo, `Vivo+Correr.swift`):** con gramática (`structure`), la posición sale de sus «repetir»: dentro de un repetir ×N es serie k/N (y tanda si hay repetir dentro de repetir); los tramos de trabajo seguidos sin recuperar, fuera de un repetir, son «tramo k/M» de un progresivo (si cada uno aprieta más) o un fartlek; un tramo suelto es tempo (a ritmo), rodaje o tirada; una serie corta en un repetir es un stride. Sin gramática, el recuento de siempre. Dónde empieza «tirada» (75′ o 16 km) y hasta dónde es «stride» (30″) es **método**: `UmbralesCorrer`, dato con defecto.
+
+**Decidido también:** la cuenta 3-2-1 y el GO de ENTRADA a la parte principal (espejo de `cuentaDe`/`goHasta` del kit) los pinta el vivo, no el motor; de trabajo a trabajo no se corta. **«Vuelta» parte el rodaje y no lo cierra** (antes llamaba a `primaryAdvance` y terminaba el rodaje); la vuelta automática por km es del vivo (`RegistroVueltas`) y si se empieza a mirar a mitad de un km, ese km no lleva tiempo (no se inventa).
+
+**NO hacer:** volver a contar las series del día entero; inferir clases por el título del bloque; mandar «Vuelta» al motor como cierre de paso.
+
+---
+
 ## 2026-09-28 · Alex firma el vivo nuevo del iPhone
 
 **Firmado (Alex, 28-09: «perfecto, me encanta el diseño»)** sobre la galería antes/después (https://claude.ai/artifact/YN3iFbkZYGHSn1S5hsgb8t) de las propuestas `iphone-vivo-{gramatica,correr,ergo,fuerza,wod,circuito}` del doble. Modelo: `docs/vivo-iphone/modelo.md`. Las tres decisiones subjetivas quedan como se vieron: numeral SF tabular (como la muñeca), tinte de zona solo cuando el paso va a zona (sustituye §10.1 del CONTRATO-UI en el vivo) y mapa en página lateral.
