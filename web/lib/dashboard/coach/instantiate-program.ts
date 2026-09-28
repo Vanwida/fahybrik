@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { Sql, TransactionClient } from '@/lib/db';
+import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, parseIsoDate, mondayOfWeek } from '@fahybrid/shared/domain/dates';
 import { scheduleWeek1Calibration } from '@/lib/coach/schedule-calibration';
@@ -15,13 +15,16 @@ import type {
   WeekDayPart,
   WeekDayPartItem,
 } from '@fahybrid/shared/schema/program-templates';
-import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 import { templateFormat, type TemplateFormat } from '@fahybrid/shared/schema/_primitives';
 import {
   applyProgression,
   safeParsePrescription,
+  type Modality,
+  type Prescription,
   type ProgressionSpec,
 } from '@fahybrid/shared/domain/prescription';
+import type { TemplateContentBlock } from '@/lib/templates/template-content';
+import { buildTemplateContent, writeTemplateContent } from '@/lib/templates/template-content-db';
 import {
   parseAvailability,
   parsePreferredWeek,
@@ -32,25 +35,23 @@ import {
 import { joinCoachOverride, visibleToCoach } from '@/lib/exercises/coach-override';
 
 /**
- * Validate + wrap an item's structured prescription for the `prescription_json`
- * JSONB column. Returns `null` (column stays NULL → params_json fallback) when
- * absent or invalid; never persists a malformed shape.
+ * Validate an item's structured prescription for the `prescription_json` column.
+ * Returns `null` (the line keeps its legacy params_json) when absent or invalid;
+ * never persists a malformed shape.
  *
  * When `progression` is supplied (a repeated sequence loop), the parsed dose is
  * scaled by the coach's per-loop lever BEFORE persisting — scoped strictly to the
  * configured dimension (loads | volume | pace). A factor-1 spec (loops 0 / pct 0)
  * is a no-op, so the verbatim path stays byte-identical.
  */
-function toSegmentPrescriptionJson(
-  client: Sql,
+function toSegmentPrescription(
   prescription: unknown,
   progression?: ProgressionSpec,
-) {
+): Prescription | null {
   if (prescription == null) return null;
   const parsed = safeParsePrescription(prescription);
   if (!parsed.success) return null;
-  const dose = progression ? applyProgression(parsed.data, progression) : parsed.data;
-  return client.json(JSON.parse(JSON.stringify(dose)) as Parameters<typeof client.json>[0]);
+  return progression ? applyProgression(parsed.data, progression) : parsed.data;
 }
 
 /** template.format is NOT NULL; used when an inline session has no usable block format. */
@@ -768,12 +769,16 @@ async function materializeInlineSessionTemplate(params: {
   // referenced id here arrives verbatim from the session's own JSON blocks,
   // not by FK from an already-scoped row, so it must be resolved through the
   // same visibility every enumeration/resolver uses (mig 0132).
-  const existingRows = await params.client<Array<{ id: string }>>`
-    select e.id::text from exercises e
+  // La modalidad viaja en la misma consulta: el escritor la necesita (0053) y así
+  // no vuelve a pedir el catálogo por cada sesión materializada.
+  // tenancy: coach-fragment — visibleToCoach filtra por el coach de la sesión.
+  const existingRows = await params.client<Array<{ id: string; modality: string | null }>>`
+    select e.id::text, e.modality::text as modality from exercises e
     where e.id = any(${referencedIds}::bigint[])
       and ${visibleToCoach(params.client, params.coach_id)}
   `;
-  const existingExerciseIds = new Set(existingRows.map((r) => Number(r.id)));
+  const modalityById = new Map(existingRows.map((r) => [Number(r.id), (r.modality as Modality | null) ?? null]));
+  const existingExerciseIds = new Set(modalityById.keys());
   if (existingExerciseIds.size === 0) return null;
 
   // format del template = primer block format válido, o fallback.
@@ -806,88 +811,28 @@ async function materializeInlineSessionTemplate(params: {
   `;
   const templateId = Number(tplRows[0]!.id);
 
-  let position = 0;
-  for (let bi = 0; bi < blocks.length; bi++) {
-    const block = blocks[bi]!;
-    const blockFormat = (TEMPLATE_FORMATS as readonly string[]).includes(block.format)
-      ? block.format
-      : null;
-    let itemsInBlock = 0;
-    for (const item of block.items ?? []) {
-      if (!existingExerciseIds.has(Number(item.exercise_id))) continue;
-      itemsInBlock++;
-      const paramsJson = JSON.parse(
-        JSON.stringify(item.params_json ?? {}, (_, v) =>
-          typeof v === 'bigint' ? Number(v) : v,
-        ),
-      );
-      // 0043: carry the structured per-set prescription forward into the
-      // materialized segment so the dosage survives materialization. We validate
-      // defensively (a malformed shape is dropped, not persisted). params_json
-      // remains as the scalar fallback alongside it.
-      const prescriptionJson = toSegmentPrescriptionJson(
-        params.client,
-        item.prescription_json,
-        params.progression,
-      );
-      await params.client`
-        insert into template_segments (
-          template_id, position, block_position, block_title, block_format,
-          exercise_id, params_json, notes, prescription_json
-        )
-        values (
-          ${templateId},
-          ${position},
-          ${bi},
-          ${block.title ?? null},
-          ${blockFormat},
-          ${Number(item.exercise_id)},
-          ${params.client.json(paramsJson)},
-          ${item.notes ?? null},
-          ${prescriptionJson}
-        )
-      `;
-      position++;
-    }
-
-    // Circuito (docs/DECISIONS.md, 2026-08-08): copia la config del bloque a
-    // template_blocks — solo si sobrevivió al menos un item real (si el bloque
-    // se quedó sin ejercicios existentes, no hay a qué block_position apuntar).
-    if (block.circuit && itemsInBlock > 0) {
-      await insertTemplateBlockCircuit(params.client, templateId, bi, block.circuit);
-    }
-  }
+  // El contenido va por el escritor ÚNICO de plantillas (docs/DECISIONS.md
+  // 2026-09-28): posiciones desde 0, formato elegido del bloque, prescripción
+  // canónica, params_json derivado y el circuito en template_blocks. Aquí solo se
+  // decide QUÉ entra: los ejercicios que existen para este coach y la dosis del
+  // bucle de progresión. Sin control de completitud: se materializa el plan que
+  // el coach ya escribió, no se le corrige.
+  const content: TemplateContentBlock[] = blocks.map((block) => ({
+    title: block.title ?? null,
+    format: (TEMPLATE_FORMATS as readonly string[]).includes(block.format) ? block.format : null,
+    circuit: block.circuit ?? null,
+    items: (block.items ?? [])
+      .filter((item) => existingExerciseIds.has(Number(item.exercise_id)))
+      .map((item) => ({
+        exercise_id: Number(item.exercise_id),
+        exercise_modality: modalityById.get(Number(item.exercise_id)) ?? null,
+        prescription: toSegmentPrescription(item.prescription_json, params.progression),
+        params_json: item.params_json ?? null,
+        notes: item.notes ?? null,
+      })),
+  }));
+  const built = await buildTemplateContent(params.client, content);
+  await writeTemplateContent(params.client, templateId, built.content, { fresh: true });
 
   return templateId;
-}
-
-// Circuito (docs/DECISIONS.md, 2026-08-08): una fila por (template_id,
-// block_position) — nunca duplicado por item, esa duplicación era el bug que la
-// decisión original corrigió del otro lado. Usada por cada materializador que
-// copia un WeekDayPart a template_segments (hoy solo el inline; el de la
-// Biblioteca de sesiones no pasa por bloques de día).
-export async function insertTemplateBlockCircuit(
-  client: Sql | TransactionClient,
-  templateId: number,
-  blockPosition: number,
-  circuit: CircuitConfig,
-): Promise<void> {
-  const workSeconds = circuit.pacing.kind === 'por_reloj' ? circuit.pacing.work_seconds : null;
-  await client`
-    insert into template_blocks (
-      template_id, block_position, rounds, pacing, work_seconds,
-      rest_between_stations_seconds, rest_between_rounds_seconds
-    )
-    values (
-      ${templateId}, ${blockPosition}, ${circuit.rounds}, ${circuit.pacing.kind}, ${workSeconds},
-      ${circuit.rest_between_stations_seconds ?? null}, ${circuit.rest_between_rounds_seconds ?? null}
-    )
-    on conflict (template_id, block_position) do update set
-      rounds = excluded.rounds,
-      pacing = excluded.pacing,
-      work_seconds = excluded.work_seconds,
-      rest_between_stations_seconds = excluded.rest_between_stations_seconds,
-      rest_between_rounds_seconds = excluded.rest_between_rounds_seconds,
-      updated_at = now()
-  `;
 }

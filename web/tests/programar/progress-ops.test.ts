@@ -87,6 +87,30 @@ describe('descarga', () => {
   });
 });
 
+describe('una serie representativa con rondas (forma canónica, DECISIONS 2026-09-28)', () => {
+  // 6 × 3′ de remo tal y como lo guarda el escritor único: ventana en work_s y la
+  // serie que la repite. Su volumen son las RONDAS, no la duración de la serie.
+  const remo: Prescription = {
+    scheme: 'intervals',
+    modality: 'row',
+    rounds: 6,
+    work_s: 180,
+    rest_s: 120,
+    sets: [{ measure: { kind: 'duration', seconds: 180 } }],
+  };
+  test('+1 serie suma una ronda y no duplica la serie', () => {
+    const out = progressPrescription(remo, { kind: 'sets', n: 1 }, 1);
+    expect(out.rounds).toBe(7);
+    expect(out.sets).toEqual(remo.sets);
+  });
+  test('una descarga quita rondas, no segundos de la ventana', () => {
+    const out = progressPrescription(remo, { kind: 'deload', pct: 30 }, 0);
+    expect(out.rounds).toBe(4);
+    expect(out.work_s).toBe(180);
+    expect(out.sets).toEqual(remo.sets);
+  });
+});
+
 describe('escalar volumen (factor, los dos sentidos)', () => {
   test('×1,2 sube: 5 series → 6, 45′ → 54′; la intensidad no se toca', () => {
     const up = progressPrescription(parse('sentadilla 5x5 @75%'), { kind: 'volume', factor: 1.2 }, 0);

@@ -18,6 +18,7 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import {
+  canonicalPrescription,
   legacyItemToPrescription,
   prescriptionToParams,
   type Prescription,
@@ -146,7 +147,8 @@ async function scaleSessions(
       for (const s of segs) {
         const before =
           s.prescription_json ?? legacyItemToPrescription({ params_json: s.params_json, notes: s.notes });
-        const after = progressPrescription(before, { kind: 'volume', factor }, 1);
+        // La dosis progresada se guarda en la forma canónica del escritor único.
+        const after = canonicalPrescription(progressPrescription(before, { kind: 'volume', factor }, 1));
         if (JSON.stringify(after) === JSON.stringify(before)) continue;
         await tx`
           update template_segments

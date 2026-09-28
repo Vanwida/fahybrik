@@ -15,7 +15,7 @@ import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
 import { Button, Card, Field, IconButton, Input, PageHeader, SectionHeader, useToast } from '@/components/v2/ui';
 import { BlockEditor } from '@/components/v2/editor/BlockEditor';
 import { QuickLineInput } from '@/components/v2/planes/QuickLineInput';
-import { serializeBlockExercises, serializeSessionSegments } from '@/lib/dashboard/v2/editor-serialize';
+import { serializeBlockExercises, serializeSessionContent } from '@/lib/dashboard/v2/editor-serialize';
 import { partToEditorBlock } from '@/lib/dashboard/programming/editor-bridge';
 import { freshUid } from '@/lib/dashboard/programming/grid-model';
 
@@ -80,8 +80,9 @@ export function LibraryItemEditor({ model, cola, nextReviewId }: { model: Librar
       };
       url = id ? `/api/coach/blocks/${id}` : '/api/coach/blocks';
     } else {
-      const segments = serializeSessionSegments(blocks).map((s, i) => ({ ...s, position: i }));
-      payload = { name: title.trim(), format: model.format ?? 'sets', is_draft: false, segments };
+      // Segmentos + circuitos (`template_blocks`): el mismo serializador que el servidor.
+      const content = serializeSessionContent(blocks);
+      payload = { name: title.trim(), format: model.format ?? 'sets', is_draft: false, ...content };
       url = id ? `/api/coach/templates/${id}` : '/api/coach/templates';
     }
     const res = await fetch(url, {

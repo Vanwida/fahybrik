@@ -112,6 +112,8 @@ export async function saveFichaSession(params: {
   assignment_id: number;
   name: string;
   segments: unknown[];
+  /** Circuitos del entreno (`template_blocks`). */
+  blocks?: unknown[];
   actor: Actor;
   client?: Sql;
 }): Promise<{ template_id: number }> {
@@ -134,7 +136,7 @@ export async function saveFichaSession(params: {
     coach_id: coachId,
     athlete_id: params.athlete_id,
     iso_date: r.date,
-    payload: { template_id: templateId, name: params.name, segments: params.segments },
+    payload: { template_id: templateId, name: params.name, segments: params.segments, blocks: params.blocks ?? [] },
     actor: params.actor,
     client,
   });

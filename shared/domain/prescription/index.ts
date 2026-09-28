@@ -10,6 +10,7 @@ export * from './duration';
 export * from './grammar-prompt';
 export * from './to-text';
 export * from './to-params';
+export * from './canonical';
 export * from './parse';
 export * from './progression';
 export * from './run-structure';

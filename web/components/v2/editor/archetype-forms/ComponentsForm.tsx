@@ -29,7 +29,8 @@ import type {
   Prescription,
   PrescriptionScheme,
 } from '@fahybrid/shared/domain/prescription';
-import { formatMeta, formatsByFamily } from '@fahybrid/shared/domain/prescription';
+import { formatMeta } from '@fahybrid/shared/domain/prescription';
+import { COMPONENT_FORMATS } from '@/lib/templates/template-content';
 import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { CircuitConfigFields } from './circuit-config-fields';
@@ -56,10 +57,9 @@ type Format = Extract<
   | 'rounds'
 >;
 
-const OFFERED_FORMATS: Format[] = [
-  ...formatsByFamily('metcon').filter((f) => f !== 'hyrox_sim'),
-  'intervals',
-] as Format[];
+// La misma lista con la que el serializador decide el formato del bloque
+// (`COMPONENT_FORMATS`): lo que el selector ofrece es lo que se guarda.
+const OFFERED_FORMATS = COMPONENT_FORMATS as readonly Format[];
 
 // Spanish picker labels. The catalog `label` is canonical/English; every surface
 // localizes its own copy. Keyed by the offered formats only.
@@ -108,7 +108,7 @@ const STRUCTURAL_PARAMS: readonly FormatParam[] = [
 
 function blockFormat(block: EditorBlock): Format {
   const s = block.items[0]?.prescription.scheme;
-  if (s && (OFFERED_FORMATS as string[]).includes(s)) return s as Format;
+  if (s && (OFFERED_FORMATS as readonly string[]).includes(s)) return s as Format;
   return 'for_time';
 }
 
@@ -145,6 +145,10 @@ export function ComponentsForm({
   const applyHead = (p: Partial<Prescription>) => {
     onChange({
       ...block,
+      // El formato ELEGIDO es el del bloque (docs/DECISIONS.md 2026-09-28): si el
+      // coach pasa el WOD a AMRAP, el bloque se guarda `amrap`, no el `for_time`
+      // con el que nació — el móvil puntúa por el formato del bloque.
+      ...(p.scheme ? { format: p.scheme } : {}),
       items: block.items.map((it) => ({
         ...it,
         prescription: cleanScheme({ ...it.prescription, ...p }),

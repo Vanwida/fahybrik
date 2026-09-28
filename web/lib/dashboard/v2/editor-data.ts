@@ -46,6 +46,9 @@ export async function loadSessionEditorModel(params: {
       title,
       format: b.block_format ?? detail.format,
       group: inferGroup(title, b.block_format ?? detail.format),
+      // Circuito: sus rondas/pacing vuelven al editor (template_blocks). Sin esto,
+      // abrir y guardar un circuito de la biblioteca le quitaba las rondas.
+      ...(b.circuit ? { circuit: b.circuit } : {}),
       items: b.items.map<EditorItem>((it) => {
         // Prefiere la prescripción ESTRUCTURADA (0043) y degrada a la legacy solo
         // si falta o no valida — igual que loadBlockEditorModel. Antes se llamaba

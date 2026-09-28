@@ -39,7 +39,7 @@ export function ArchetypeBlockForm({
   block: EditorBlock;
   onChange: (next: EditorBlock) => void;
 }) {
-  const pattern = patternForBlock(block.archetype_id, block.format);
+  const pattern = patternForBlock(block.archetype_id, block.format, block.items.length);
   const firstItem: EditorItem | undefined = block.items[0];
 
   // The Test pattern is single-item but SELF-CONTAINED: the test TYPE names the

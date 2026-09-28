@@ -146,7 +146,11 @@ export function prescriptionToParams(p: Prescription): ScalarParams {
   }
 
   if (p.sets && p.sets.length > 0) {
-    out.sets = p.sets.length;
+    // Una serie REPRESENTATIVA (la de un bloque de acondicionamiento: 6 × 500 m,
+    // 4 rondas de 12 wall balls) se repite `rounds` veces: el resumen dice 6, no 1.
+    // Misma regla que el texto (`prescriptionToText`, `repSet`); una tabla real de
+    // series cuenta sus series.
+    out.sets = p.sets.length === 1 && p.rounds !== undefined ? p.rounds : p.sets.length;
 
     const reps = uniformReps(p.sets);
     if (reps !== undefined) out.reps = reps;
@@ -181,10 +185,13 @@ export function prescriptionToParams(p: Prescription): ScalarParams {
     }
 
     // Uniform rest across sets.
+    // Descanso uniforme de las series; sin ninguno, el del bloque (el de la
+    // vuelta de unas series de 6 × 3', que vive en cabecera).
     const rests = Array.from(
       new Set(p.sets.map((s) => s.rest_s).filter((r): r is number => r !== undefined)),
     );
     if (rests.length === 1) out.rest_seconds = rests[0]!;
+    else if (rests.length === 0 && p.rest_s !== undefined) out.rest_seconds = p.rest_s;
 
     // Per-set duration / distance / calories summary when uniform.
     const durs = collectMeasure(p.sets, 'duration');

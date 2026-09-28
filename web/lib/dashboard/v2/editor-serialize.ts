@@ -29,8 +29,9 @@
 // slips through (a stale client, a direct API call), and the routes turn it into
 // an explicit 400 — surfacing the bad line instead of fabricating a fake success.
 
-import { prescriptionToParams, withFlatFromStructure } from '@fahybrid/shared/domain/prescription';
+import { canonicalPrescription, prescriptionToParams, type Modality } from '@fahybrid/shared/domain/prescription';
 import type {
+  CircuitConfig,
   EditorBlockInput,
   EditorItemInput,
   EditorSessionInput,
@@ -42,18 +43,17 @@ import type {
   WeekSession,
 } from '@fahybrid/shared/schema/program-templates';
 import { itemHasExercise } from '@/lib/dashboard/v2/item-validity';
+import {
+  InvalidAuthoringLineError,
+  resolveBlockFormat,
+  serializeTemplateContent,
+  type TemplateBlockRow,
+  type TemplateContentBlock,
+} from '@/lib/templates/template-content';
 
-/** Thrown when a save would persist a line that has no real exercise selected. */
-export class InvalidAuthoringLineError extends Error {
-  constructor(public count: number) {
-    super(
-      count === 1
-        ? '1 línea sin ejercicio. Elígelo del catálogo o bórrala para guardar.'
-        : `${count} líneas sin ejercicio. Elígelas del catálogo o bórralas para guardar.`,
-    );
-    this.name = 'InvalidAuthoringLineError';
-  }
-}
+// Vive con el serializador único de plantillas; se reexporta aquí porque las
+// rutas del editor lo importan de este módulo desde siempre.
+export { InvalidAuthoringLineError };
 
 // ── Item ─────────────────────────────────────────────────────────────────────
 // EditorItem → WeekDayPartItem. Keeps prescription_json as the structured source
@@ -302,15 +302,17 @@ export function mergeDayIntoDays(
 
 // ── SCREEN 5 · session template (template_segments) serializer ────────────────
 // SessionEditor edits a STANDALONE session template, which persists as a FLAT
-// template_segments[] grouped by block_position (NOT slots_json). This is the
-// inverse of getTemplateDetail's load: each EditorBlock becomes one block_position
-// and each of its items becomes one segment row. Same field rules as the day
-// editor: lines with no exercise are NOT dropped — the client gate blocks save,
-// and this throws InvalidAuthoringLineError as defense-in-depth. prescription_json
-// stays the source of truth; params_json is re-derived.
+// template_segments[] grouped by block_position (NOT slots_json) + one
+// `template_blocks` row per Circuito. A thin adapter over THE template serializer
+// (`@/lib/templates/template-content`): the same rules the server, the free
+// workout and the week materializer apply — block_position/position from 0, the
+// block's chosen format, canonical prescription, params_json derived, circuit
+// config at block level. Lines with no exercise are NOT dropped — the client gate
+// blocks save, and this throws InvalidAuthoringLineError as defense-in-depth.
 export interface SessionSegmentInput {
   exercise_id: number;
   exercise_name: string;
+  position: number;
   block_position: number;
   block_format: WeekDayPart['format'] | null;
   block_title: string | null;
@@ -324,21 +326,42 @@ export interface SessionSegmentInput {
 // so block_format passes through as a plain string here (no lossy client cast).
 export interface SessionBlockSerInput {
   title: string;
-  format: string | null;
+  /** Ausente = quien escribe no lo declara y el escritor lo deriva de las líneas. */
+  format?: string | null;
+  /** Circuito — rondas/pacing/descansos del bloque (`template_blocks`). */
+  circuit?: CircuitConfig;
   items: Array<{
     exercise_id: number | bigint | null;
     exercise_name: string;
+    exercise_modality?: Modality | null;
     prescription: EditorItemInput['prescription'];
     notes?: string;
   }>;
 }
 
+function toContentBlocks(blocks: SessionBlockSerInput[]): TemplateContentBlock[] {
+  return blocks.map((block) => ({
+    title: block.title,
+    format: block.format,
+    circuit: block.circuit ?? null,
+    items: block.items.map((it) => ({
+      exercise_id: it.exercise_id,
+      exercise_name: it.exercise_name,
+      exercise_modality: it.exercise_modality ?? null,
+      prescription: it.prescription,
+      notes: it.notes ?? null,
+    })),
+  }));
+}
+
 // ── Library BLOCK serializer (block_exercises) ────────────────────────────────
 // A library block is structurally a mini-session: each EditorBlock → one
 // block_position; each of its items → one block_exercises row. Inverse of
-// loadBlockEditorModel. Reuses SessionBlockSerInput + the A3 invalid-line guard.
-// The global `position` is assigned by the DB layer (createBlock) as the array
-// index, so it is not part of this shape.
+// loadBlockEditorModel. Same block-format rule and canonical prescription as a
+// session (one rule for the whole library). The global `position` is assigned by
+// the DB layer (createBlock) as the array index, so it is not part of this shape.
+// `block_exercises` has no block-level table: a Circuito's rounds/pacing cannot be
+// stored on a library BLOCK yet (docs/DECISIONS.md 2026-09-28).
 export interface BlockExerciseWriteInput {
   exercise_id: number;
   block_position: number;
@@ -359,14 +382,18 @@ export function serializeBlockExercises(
 
   const out: BlockExerciseWriteInput[] = [];
   blocks.forEach((block, blockPosition) => {
-    for (const item of block.items) {
+    const lines = block.items.map((item) => ({
+      item,
+      prescription: canonicalPrescription(item.prescription),
+    }));
+    const format = resolveBlockFormat(block.format, lines);
+    for (const { item, prescription } of lines) {
       out.push({
         exercise_id: Number(item.exercise_id),
         block_position: blockPosition,
-        block_format: block.format ?? null,
+        block_format: format,
         block_title: block.title || null,
-        // structure is ADDITIVE on the wire: derive the flat dose when missing
-        prescription_json: withFlatFromStructure(item.prescription),
+        prescription_json: prescription,
         notes: item.notes != null && item.notes !== '' ? item.notes : null,
       });
     }
@@ -374,33 +401,23 @@ export function serializeBlockExercises(
   return out;
 }
 
-export function serializeSessionSegments(
-  blocks: SessionBlockSerInput[],
-): SessionSegmentInput[] {
-  // Surface invalid lines instead of dropping them (A3).
-  const invalid = blocks.reduce(
-    (n, b) => n + b.items.filter((it) => !itemHasExercise(it)).length,
-    0,
-  );
-  if (invalid > 0) throw new InvalidAuthoringLineError(invalid);
+/** What a session save sends: its segment rows AND its Circuito rows. */
+export function serializeSessionContent(blocks: SessionBlockSerInput[]): {
+  segments: SessionSegmentInput[];
+  blocks: TemplateBlockRow[];
+} {
+  const content = serializeTemplateContent(toContentBlocks(blocks));
+  return {
+    segments: content.segments.map((s) => ({
+      ...s,
+      block_format: s.block_format as WeekDayPart['format'] | null,
+      prescription_json: s.prescription_json as WeekDayPartItem['prescription_json'],
+    })),
+    blocks: content.blocks,
+  };
+}
 
-  const segments: SessionSegmentInput[] = [];
-  blocks.forEach((block, blockPosition) => {
-    for (const item of block.items) {
-      // structure is ADDITIVE on the wire: derive the flat dose when missing,
-      // so params_json and every summary surface keep speaking
-      const prescription = withFlatFromStructure(item.prescription);
-      segments.push({
-        exercise_id: Number(item.exercise_id),
-        exercise_name: item.exercise_name,
-        block_position: blockPosition,
-        block_format: (block.format ?? null) as WeekDayPart['format'] | null,
-        block_title: block.title || null,
-        params_json: prescriptionToParams(prescription),
-        notes: item.notes != null && item.notes !== '' ? item.notes : null,
-        prescription_json: prescription,
-      });
-    }
-  });
-  return segments;
+/** Only the segment rows (callers that have no Circuito to send). */
+export function serializeSessionSegments(blocks: SessionBlockSerInput[]): SessionSegmentInput[] {
+  return serializeSessionContent(blocks).segments;
 }

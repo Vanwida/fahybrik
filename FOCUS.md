@@ -18,6 +18,8 @@ Contrato iOS: `docs/pr/un-solo-entreno.md` (otra sesión). DECISIONS 28-09.
 
 **iOS · libre = asignación + motor por formato (28-09, rama `ios/motor-libre-un-objeto`, sin fusionar; DECISIONS 28-09).**
 FALTA servidor (`docs/pr/ios-motor-libre.md`): `round_index` en el esquema, `workout.modality`, segmentos en /free/plan.
+**UN escritor de plantillas (28-09, rama `fix/plantilla-escritor-unico`, sin fusionar):** libre = coach, mismas filas
+(test por formato). Migración 0275 + `backfill:plantillas` probadas en rama; NO en prod. DECISIONS 2026-09-28.
 
 **LA MUÑECA SE REHACE (Alex, 25-09: «es un lío, así no competimos con TrainingPeaks»).** Auditoría de 6 lentes
 + modelo: `docs/reloj-muneca/` (https://claude.ai/artifact/3LzhCpYCr6H7rgktymoG8r; spec `modelo.md`; DECISIONS 25-09).

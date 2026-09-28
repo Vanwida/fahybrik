@@ -25,10 +25,11 @@ import {
   CALIBRATION_META_KEY,
   type CalibrationContentSegment,
 } from '@fahybrid/shared/domain/coach/test-battery';
-import { prescriptionToParams, safeParsePrescription } from '@fahybrid/shared/domain/prescription';
+import { safeParsePrescription } from '@fahybrid/shared/domain/prescription';
 import type { EditorBlockInput } from '@fahybrid/shared/schema/program-templates';
 import { visibleToCoach } from '@/lib/exercises/coach-override';
-import { insertTemplateBlockCircuit } from '@/lib/dashboard/coach/instantiate-program';
+import type { TemplateContentBlock } from '@/lib/templates/template-content';
+import { buildTemplateContent, writeTemplateContent } from '@/lib/templates/template-content-db';
 import {
   BENCH_RUN_5K,
   BENCH_ROW_2K,
@@ -131,33 +132,28 @@ async function writeContentSegments(
   testName: string,
   specs: StoreResultSpec[],
 ): Promise<void> {
-  await tx`delete from template_segments where template_id = ${templateId}`;
   const exerciseIdBySlug = await resolveExerciseIds(tx, specs);
-
-  let position = 0;
-  for (const spec of specs) {
-    const exerciseId = exerciseIdBySlug.get(spec.slug);
-    if (exerciseId == null) continue; // no anchor exercise → no segment (honest)
-    // A test has no prescribed dose (it's a max effort) → prescription_json NULL;
-    // params_json documents what the segment records; the brief lives in block_title.
-    const paramsJson = {
-      test_slug: spec.slug,
-      measure: spec.measure,
-      unit: spec.unit,
-      label: spec.label,
-    };
-    await tx`
-      insert into template_segments (
-        template_id, position, exercise_id, params_json, notes,
-        block_position, block_format, block_title, prescription_json
-      )
-      values (
-        ${templateId}, ${position}, ${exerciseId}::bigint, ${tx.json(paramsJson)},
-        ${spec.label}, 0, ${null}, ${testName}, ${null}
-      )
-    `;
-    position += 1;
-  }
+  // A test has no prescribed dose (it's a max effort) → prescription NULL;
+  // params_json documents what the segment records; the brief lives in block_title.
+  // One block, one line per resolvable result (no anchor exercise → no line).
+  const block: TemplateContentBlock = {
+    title: testName,
+    format: null,
+    items: specs.flatMap((spec) => {
+      const exerciseId = exerciseIdBySlug.get(spec.slug);
+      if (exerciseId == null) return [];
+      return [
+        {
+          exercise_id: exerciseId,
+          prescription: null,
+          params_json: { test_slug: spec.slug, measure: spec.measure, unit: spec.unit, label: spec.label },
+          notes: spec.label,
+        },
+      ];
+    }),
+  };
+  const built = await buildTemplateContent(tx, [block]);
+  await writeTemplateContent(tx, templateId, built.content);
 }
 
 /** Write a test's session from a structured CONTENT blueprint (#61 guided tramos):
@@ -171,8 +167,6 @@ async function writeCalibrationContentSegments(
   templateId: number,
   content: readonly CalibrationContentSegment[],
 ): Promise<void> {
-  await tx`delete from template_segments where template_id = ${templateId}`;
-
   // Resolve every candidate exercise slug once (catalog slugs, tried in order).
   const candidates = new Set<string>();
   for (const seg of content) for (const s of seg.exercise) candidates.add(s);
@@ -187,26 +181,18 @@ async function writeCalibrationContentSegments(
       : [];
   const idByCatalogSlug = new Map<string, number>(rows.map((r) => [r.slug, Number(r.id)]));
 
-  let position = 0;
-  for (const seg of content) {
+  // One block per blueprint block_position, in blueprint order; a segment whose
+  // anchor exercise is not on this DB is skipped (honest).
+  const byPosition = new Map<number, TemplateContentBlock>();
+  for (const seg of [...content].sort((x, y) => x.block_position - y.block_position)) {
     const hit = seg.exercise.find((s) => idByCatalogSlug.has(s));
-    if (hit == null) continue; // no anchor exercise on this DB → skip (honest)
-    const exerciseId = idByCatalogSlug.get(hit)!;
-    // Scalar summary for legacy readers; assignment-detail prefers prescription_json.
-    const paramsJson = prescriptionToParams(seg.prescription) as Parameters<typeof tx.json>[0];
-    const prescriptionJson = seg.prescription as unknown as Parameters<typeof tx.json>[0];
-    await tx`
-      insert into template_segments (
-        template_id, position, exercise_id, params_json, notes,
-        block_position, block_format, block_title, prescription_json
-      )
-      values (
-        ${templateId}, ${position}, ${exerciseId}::bigint, ${tx.json(paramsJson)},
-        ${seg.title}, ${seg.block_position}, ${null}, ${seg.title}, ${tx.json(prescriptionJson)}
-      )
-    `;
-    position += 1;
+    if (hit == null) continue;
+    const block = byPosition.get(seg.block_position) ?? { title: seg.title, format: null, items: [] };
+    block.items.push({ exercise_id: idByCatalogSlug.get(hit)!, prescription: seg.prescription, notes: seg.title });
+    byPosition.set(seg.block_position, block);
   }
+  const built = await buildTemplateContent(tx, [...byPosition.values()]);
+  await writeTemplateContent(tx, templateId, built.content);
 }
 
 /** Write a test's session from COACH-AUTHORED content (docs/DECISIONS.md,
@@ -223,9 +209,6 @@ async function writeAuthoredContentSegments(
   coachId: number,
   blocks: readonly EditorBlockInput[],
 ): Promise<void> {
-  await tx`delete from template_segments where template_id = ${templateId}`;
-  await tx`delete from template_blocks where template_id = ${templateId}`;
-
   // Server-side ownership check — never trust a client-supplied exercise_id.
   // Same visibility every coach-facing write resolves through (base catalog ∪
   // this coach's own forks), mirroring instantiate-program.ts's inline path.
@@ -241,33 +224,21 @@ async function writeAuthoredContentSegments(
       : [];
   const existingExerciseIds = new Set(existingRows.map((r) => Number(r.id)));
 
-  let position = 0;
-  for (let bi = 0; bi < blocks.length; bi++) {
-    const block = blocks[bi]!;
-    let itemsInBlock = 0;
-    for (const item of block.items) {
-      if (item.exercise_id == null || !existingExerciseIds.has(Number(item.exercise_id))) continue;
-      itemsInBlock++;
+  // A line whose exercise is not visible, or whose dose is malformed, is skipped
+  // (never persisted half-valid); the rest goes through the single writer.
+  const content: TemplateContentBlock[] = blocks.map((block) => ({
+    title: block.title,
+    format: block.format ?? null,
+    circuit: block.circuit ?? null,
+    items: block.items.flatMap((item) => {
+      if (item.exercise_id == null || !existingExerciseIds.has(Number(item.exercise_id))) return [];
       const parsed = safeParsePrescription(item.prescription);
-      if (!parsed.success) continue; // never persist a malformed dose
-      const paramsJson = prescriptionToParams(parsed.data) as Parameters<typeof tx.json>[0];
-      const prescriptionJson = parsed.data as unknown as Parameters<typeof tx.json>[0];
-      await tx`
-        insert into template_segments (
-          template_id, position, exercise_id, params_json, notes,
-          block_position, block_format, block_title, prescription_json
-        )
-        values (
-          ${templateId}, ${position}, ${Number(item.exercise_id)}::bigint, ${tx.json(paramsJson)},
-          ${item.notes ?? null}, ${bi}, ${block.format ?? null}, ${block.title}, ${tx.json(prescriptionJson)}
-        )
-      `;
-      position += 1;
-    }
-    if (block.circuit && itemsInBlock > 0) {
-      await insertTemplateBlockCircuit(tx, templateId, bi, block.circuit);
-    }
-  }
+      if (!parsed.success) return [];
+      return [{ exercise_id: Number(item.exercise_id), prescription: parsed.data, notes: item.notes ?? null }];
+    }),
+  }));
+  const built = await buildTemplateContent(tx, content);
+  await writeTemplateContent(tx, templateId, built.content);
 }
 
 /**

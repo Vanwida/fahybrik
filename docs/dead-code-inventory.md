@@ -127,7 +127,7 @@ casi todos son REVISAR.
 | 4 | `web/components/v2/atleta-detalle/PerfilTab.tsx` | existe | **REVISAR** | 0 importers. La ficha tiene 5 tabs (`resumen/plan/rendimiento/del-coach/atleta`); pinta `AtletaTab`, no esto. UI grande: sucesor o resto. |
 | 5 | `web/components/v2/planes/parts.tsx` | existe | **REVISAR** | 0 importers. El comentario dice que las pantallas 6–7 lo usan; no lo hacen. No confundir con `atleta-detalle/parts.tsx` (ese sí vive). |
 | 6 | `web/components/v2/UnderConstruction.tsx` | existe | **REVISAR** | 0 importers. `FOCUS.md` aún aparca «29 rutas coach sin pantalla»: el placeholder puede ser el hueco. |
-| 7 | `web/lib/coach/ai-persist-workout.ts` | existe | **REVISAR** | `persistWorkoutFromAiSuggestion` solo existe aquí. Parece el persist de suggest-week/workout, nunca cableado. |
+| 7 | `web/lib/coach/ai-persist-workout.ts` | **borrado 28-sep** | — | 0 llamadas y escribía la forma vieja de plantilla. Toda plantilla la escribe `web/lib/templates/` (DECISIONS 2026-09-28). |
 | 8 | `web/lib/coach/athlete-benchmark-tests.ts` | existe | **REVISAR** | Reexport de `@fahybrid/shared/domain/coach/test-battery`. El shared lo llama stub muerto. 0 imports de esta ruta. Compat shim. |
 | 9 | `web/lib/coach/columns.ts` | existe | **REVISAR** | 0 imports de esta ruta. El stem `columns` aparece por todas partes: no es evidencia. |
 | 10 | `web/lib/coach/methodology-live-editor.ts` | existe | **REVISAR** | Solo un `PHASE = '2+'` y una checklist. 0 readers. `DECISIONS` no lo nombra. |

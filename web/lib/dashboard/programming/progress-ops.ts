@@ -97,11 +97,21 @@ function workingIndexes(sets: PrescriptionSet[]): number[] {
   return sets.flatMap((s, i) => (s.is_approach ? [] : [i]));
 }
 
+/**
+ * Una serie REPRESENTATIVA con rondas (6 × 3′ de remo, 4 rondas de 12 wall balls)
+ * no es una tabla de una serie: se repite `rounds` veces, y su volumen son las
+ * rondas. Misma regla que el texto y el resumen escalar (DECISIONS 2026-09-28,
+ * la forma canónica guarda esa serie junto a la ventana).
+ */
+function isRepresentativeSet(p: Prescription, working: number[]): boolean {
+  return working.length === 1 && (p.sets?.length ?? 0) === 1 && p.rounds !== undefined;
+}
+
 function changeSetCount(p: Prescription, target: (n: number) => number): Prescription {
   const sets = p.sets ?? [];
   const working = workingIndexes(sets);
   const next: Prescription = { ...p };
-  if (working.length > 0) {
+  if (working.length > 0 && !isRepresentativeSet(p, working)) {
     const want = clamp(target(working.length), 1, MAX_SETS);
     if (want > working.length) {
       const last = sets[working[working.length - 1]!]!;
@@ -150,7 +160,8 @@ function scaleVolume(p: Prescription, factor: number): Prescription {
   if (f === 1) return p;
   const working = workingIndexes(p.sets ?? []);
   // Varias series de trabajo (o rondas) → menos series/rondas.
-  if (working.length > 1 || (working.length === 0 && (p.rounds ?? 0) > 1)) {
+  const byRounds = working.length === 0 || isRepresentativeSet(p, working);
+  if (working.length > 1 || (byRounds && (p.rounds ?? 0) > 1)) {
     return changeSetCount(p, (n) => clamp(Math.round(n * f), 1, MAX_SETS));
   }
   // Un trabajo continuo (45′ Z2, 10 km, AMRAP 20′) → menos tiempo o distancia.

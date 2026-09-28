@@ -1,6 +1,6 @@
 // GET /api/coach/athletes/[id]/sessions/[session_id]/editor
 //   El entreno para el panel-editor de la ficha (modelo del editor + estado).
-// PATCH /api/coach/athletes/[id]/sessions/[session_id]/editor { name, segments }
+// PATCH /api/coach/athletes/[id]/sessions/[session_id]/editor { name, segments, blocks? }
 //   Guarda el contenido en la instancia del atleta (la bifurca si aún compartía
 //   la plantilla de biblioteca). Solo entrenos pendientes.
 
@@ -26,6 +26,8 @@ const putSchema = z
     name: z.string().trim().min(1, 'Ponle un nombre al entreno.').max(200),
     // El contenido lo valida el escritor de la instancia (athleteDayContentSchema).
     segments: z.array(z.record(z.string(), z.unknown())).max(120),
+    // Los circuitos del entreno (template_blocks); omitidos = no hay ninguno.
+    blocks: z.array(z.record(z.string(), z.unknown())).max(40).optional(),
   })
   .strict();
 
@@ -64,6 +66,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; s
       assignment_id: session.data,
       name: body.data.name,
       segments: body.data.segments,
+      blocks: body.data.blocks ?? [],
       actor: coachActor(auth.session),
     });
     return jsonOk({ template_id: String(out.template_id) });
