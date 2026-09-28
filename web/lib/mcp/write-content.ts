@@ -43,7 +43,6 @@ import {
   blockingReasons,
   checkPrescriptionCompleteness,
   isExecutable,
-  normalizeFormat,
   prescriptionGrammarLines,
   prescriptionObjectSchemaRaw,
   prescriptionToText,
@@ -64,6 +63,7 @@ import {
   serializeSessionSegments,
   type SessionSegmentInput,
 } from '@/lib/dashboard/v2/editor-serialize';
+import { resolveBlockFormat } from '@/lib/templates/template-content';
 
 /** Tope de bloques por sesión. Un entreno real no pasa de una docena. */
 const MAX_BLOCKS = 20;
@@ -302,14 +302,13 @@ export function contentToSegments(
 }
 
 /**
- * El formato de un bloque: el que declaró el coach, y si no, el `scheme` de su
- * primera prescripción — que ES el mismo eje (un bloque tiene un formato, y sus
- * líneas lo comparten; ver `PrescriptionScheme`). Nunca se inventa un tercero.
+ * El formato de un bloque, con la MISMA regla que aplica el escritor único de
+ * plantillas (`resolveBlockFormat`): el que declaró el coach —salvo un WOD cuyas
+ * líneas dicen otro formato del selector—, y si no, el que comparten sus líneas.
+ * Así lo que se confirma en la respuesta es lo que se guarda.
  */
 function blockFormat(block: NormalizedContentBlock): string {
-  if (block.format) return block.format;
-  const scheme = block.items[0]?.prescription.scheme;
-  return (scheme ? normalizeFormat(scheme) : undefined) ?? FALLBACK_SESSION_FORMAT;
+  return resolveBlockFormat(block.format ?? null, block.items) ?? FALLBACK_SESSION_FORMAT;
 }
 
 /**
