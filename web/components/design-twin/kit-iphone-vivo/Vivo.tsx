@@ -13,10 +13,11 @@
 // deslizan bajo la cabecera y sobre la franja: la acción se alcanza siempre.
 //
 // Todo lo de por defecto se puede cambiar, y NADA más: el héroe (`heroe`), la
-// acción primaria (`primaria`), la posición de la cabecera (`posicion`), el
-// crono total de un circuito (`cronoTotal`), lo extra de la familia para la
-// rejilla (`extra`), la anotación del descanso (`anotar`), los dispositivos
-// enlazados y el guion de gestos de una demo.
+// acción primaria (`primaria`), la posición y el formato de la cabecera
+// (`posicion`, `formato`), el crono total de un circuito (`cronoTotal`), lo
+// extra de la familia para la rejilla (`extra`), la anotación del descanso
+// (`anotar`), la página Estructura de la familia (`estructura`), los
+// dispositivos enlazados y el guion de gestos de una demo.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { arcosDePlan, fraccionDelPaso, type Estimador } from '../kit-reloj/aro';
@@ -38,7 +39,7 @@ import { SIN_DISPOSITIVOS, enlacesDe, notaEnlace, usaGps, type ChipEnlace, type 
 import { PaginaEstructura, PaginaMapa, PaginasLaterales, type IdPagina, type PaginaLateral } from './paginas';
 import { KEYFRAMES_IPHONE, LienzoContexto, useMedidaLienzo } from './piezas';
 import { Luego, Rejilla, TiraEstructura } from './rejilla';
-import { AvisoVuelta, BandaObjetivo, CuentaAtras, Sujeto, Trabajo, type TrabajoVista } from './sujeto';
+import { AvisoVuelta, BandaObjetivo, CuentaAtras, ObjetivoInstruccion, Sujeto, Trabajo, type TrabajoVista } from './sujeto';
 import { ALTO, CI, DURACION, HUECO, MARGEN, anchoUtil, tinteAmbiente } from './tokens';
 
 /** Los gestos que un escenario puede guionizar: pasan por el MISMO camino que el dedo. */
@@ -58,6 +59,14 @@ export interface VistaIphoneProps {
   primaria?: (seq: Secuencia, porDefecto: PrimariaVista | null) => PrimariaVista | null;
   /** La posición de la cabecera por partes; sin ella, `contextoDe`. */
   posicion?: (seq: Secuencia) => string[];
+  /**
+   * La fila del formato, si la familia le añade dónde estás («Circuito ·
+   * Ronda 2/5 · Estación 2/3»); recibe el del kit (`formatoDe`). Por partes:
+   * la cabecera quita por el final lo que no cabe junto a los chips.
+   */
+  formato?: (seq: Secuencia, porDefecto: string) => string | string[];
+  /** La página Estructura de la familia (la ruta del circuito con sus parciales); sin ella, `PaginaEstructura`. */
+  estructura?: (seq: Secuencia) => ReactNode;
   /** El crono TOTAL de un circuito (la puntuación) en la cabecera en vez del de sesión. */
   cronoTotal?: (seq: Secuencia) => number | null;
   /** La anotación de la serie en el descanso de fuerza (I7): va en la franja elástica, sobre la rejilla. */
@@ -162,6 +171,9 @@ export function VistaIphone(p: VistaIphoneProps) {
   const heroe = p.heroe ? p.heroe(seq, heroeKit) : heroeKit;
   const lamina = laminaDelPaso(paso, lecturas, zonas, plan.reglas);
   const banda = paso.rol === 'trabajo' ? lamina.banda : null;
+  // El objetivo que no es un número vivo (RPE, RIR, kg, %RM) ocupa la fila de
+  // la banda (P3). En fuerza ya va en la etiqueta del héroe: no se repite.
+  const instruccion = paso.rol === 'trabajo' && !banda && familiaDe(paso) !== 'fuerza' ? lamina.instruccion : null;
   const chips: ChipEnlace[] = enlacesDe(dispositivos, paso, lecturas);
   const nota = notaEnlace(chips) ?? (paso.cue ? `Coach · ${paso.cue}` : null);
   const metricas = metricasDelPaso(paso, lecturas, heroe.clase, zonas, extraCompleto, plan.reglas);
@@ -174,7 +186,8 @@ export function VistaIphone(p: VistaIphoneProps) {
   // El total en la cabecera (la puntuación, que no se va); si el héroe YA es el total, el de sesión.
   const crono =
     total != null && heroe.etiqueta !== 'total' ? { valor: fmtReloj(total), etiqueta: 'total' as const } : { valor: fmtReloj(estado.sesionT), etiqueta: 'sesión' as const };
-  const formato = formatoDe(pasoDelFormato(seq));
+  const formatoKit = formatoDe(pasoDelFormato(seq));
+  const formato = p.formato ? p.formato(seq, formatoKit) : formatoKit;
   const tinte = tinteDelPaso(paso, lecturas, zonas);
   const arcos = arcosDePlan(plan.pasos, p.duracion);
   const conMapa = plan.pasos.some(usaGps);
@@ -250,7 +263,7 @@ export function VistaIphone(p: VistaIphoneProps) {
   const horizontal = lienzo.horizontal;
   // En horizontal el sujeto vive en la columna izquierda (§3): su ancho y su alto son los de la columna.
   const anchoColumna = Math.floor(((lienzo.ancho - 2 * 59 - HUECO) * 1.1) / 2.1);
-  const altoColumna = lienzo.alto - 21 - ALTO.cabecera - (banda ? ALTO.banda + HUECO : 0) - (trabajo ? ALTO.trabajo + HUECO : 0) - 2 * HUECO;
+  const altoColumna = lienzo.alto - 21 - ALTO.cabecera - (banda || instruccion ? ALTO.banda + HUECO : 0) - (trabajo ? ALTO.trabajo + HUECO : 0) - 2 * HUECO;
   const sujeto = horizontal ? (
     <Sujeto heroe={heroe} nota={nota} alto={Math.max(120, altoColumna)} ancho={anchoColumna - 2 * MARGEN} />
   ) : (
@@ -259,7 +272,7 @@ export function VistaIphone(p: VistaIphoneProps) {
   const bloqueSujeto = (
     <>
       {sujeto}
-      {banda ? <BandaObjetivo banda={banda} /> : null}
+      {banda ? <BandaObjetivo banda={banda} /> : instruccion ? <ObjetivoInstruccion texto={instruccion} /> : null}
       {trabajo ? <Trabajo trabajo={trabajo} extra={enDescanso && paso.rol === 'descanso' ? <Mas30 onMas30={seq.sumar30} /> : undefined} /> : null}
     </>
   );
@@ -302,7 +315,7 @@ export function VistaIphone(p: VistaIphoneProps) {
 
   const paginas: PaginaLateral[] = [
     { id: 'vivo', titulo: 'Vivo', contenido: paginaVivo },
-    { id: 'estructura', titulo: 'Estructura', contenido: <PaginaEstructura plan={plan} estado={estado} /> },
+    { id: 'estructura', titulo: 'Estructura', contenido: p.estructura ? p.estructura(seq) : <PaginaEstructura plan={plan} estado={estado} /> },
   ];
   if (conMapa) {
     const s = sesionDe(estado);

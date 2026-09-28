@@ -130,6 +130,22 @@ export function BandaObjetivo({ banda }: { banda: BandaVista }) {
   );
 }
 
+/**
+ * EL OBJETIVO QUE NO ES UN NÚMERO VIVO (P3: «si va a RPE, lo que falta con
+ * la instrucción del RPE»; también RIR, kg, %RM). Ocupa la fila de la banda
+ * —misma altura, para que el sujeto no baile— con el rótulo «objetivo» y la
+ * instrucción de `laminaDelPaso` («RPE 8 · ritmo de carrera»). No hay pista
+ * ni marca: nadie mide un RPE.
+ */
+export function ObjetivoInstruccion({ texto }: { texto: string }) {
+  return (
+    <div style={{ height: ALTO.banda, flex: '0 0 auto', padding: `0 ${MARGEN}px`, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <Etiqueta>objetivo</Etiqueta>
+      <span style={{ fontSize: TI.banda.palabra, fontWeight: 600, color: CI.tinta, lineHeight: 1.15, textAlign: 'right', textWrap: 'balance' }}>{texto}</span>
+    </div>
+  );
+}
+
 function Marca({ x, fuera }: { x: number; fuera: 'por-encima' | 'por-debajo' | null }) {
   const pos: CSSProperties = { position: 'absolute', left: `${x * 100}%`, top: 0, transform: 'translateX(-50%)', transition: 'left 700ms ease-out' };
   if (!fuera) return <span style={{ ...pos, width: 5, height: 18, borderRadius: 2.5, background: CI.tinta, boxShadow: `0 0 0 2px ${CI.fondo}` }} />;
