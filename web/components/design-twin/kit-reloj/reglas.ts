@@ -59,6 +59,20 @@ export function nombreMaquina(m: PasoBase['maquina'] | undefined): string | null
   return m ? NOMBRE_MAQUINA[m.tipo] : null;
 }
 
+/** «Remo», «Bici»: para un chip, sin artículo. */
+export function nombreMaquinaCorto(m: PasoBase['maquina'] | undefined): string | null {
+  if (!m) return null;
+  const n = NOMBRE_MAQUINA[m.tipo].replace(/^(el|la) /, '');
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
+
+/** «del remo», «de la bici»: la máquina tras una preposición. */
+export function deMaquina(m: PasoBase['maquina'] | undefined): string | null {
+  if (!m) return null;
+  const n = NOMBRE_MAQUINA[m.tipo];
+  return n.startsWith('el ') ? `del ${n.slice(3)}` : `de ${n}`;
+}
+
 /** La BikeErg se lee por 1000 m (su monitor lo enseña así); el remo y el ski, por 500. */
 export const esBici = (m: PasoBase['maquina'] | undefined): boolean => m?.tipo === 'bici';
 
@@ -261,43 +275,6 @@ export function textoPasoCorto(p: PasoBase): string {
   return `${quien}${pr}${conCarga} a ${obj}`;
 }
 
-const MODO_RECUPERA = { trote: 'trote', andar: 'caminando', parado: 'parado' } as const;
-
-/**
- * Lo que viene, en corto (para «Luego ·» y «Viene:»). Si abre una tanda o una
- * ronda nueva, lo dice con su tamaño: «Tanda 3/3 · 6 × 1′»; una recuperación
- * dice cómo se recupera: «Recupera 90″ trote»; si no, el paso: «1000 m a 3:45–3:55».
- */
-export function textoViene(p: PasoBase): string {
-  const pos = p.posicion;
-  const corto = textoPasoCorto(p);
-  if (p.rol === 'recuperacion') return `Recupera ${corto} ${MODO_RECUPERA[p.modoRecupera ?? 'trote']}`;
-  if (pos?.tanda && pos.serie?.n === 1) return `Tanda ${pos.tanda.n}/${pos.tanda.de} · ${pos.serie.de} × ${corto}`;
-  if (pos?.ronda && (pos.estacion?.n ?? 1) === 1) return `Ronda ${pos.ronda.n}/${pos.ronda.de} · ${corto}`;
-  // Sin objetivo, lo prescrito solo dice poco («1′»): se dice cuál es.
-  if (pos?.serie && !principal(p)) return `${NOMBRE_CLASE_DEFECTO[p.clase]} ${pos.serie.n}/${pos.serie.de} · ${corto}`;
-  return corto;
-}
-
-/** Lo que viene, y lo de después si lo que viene es recuperar: «Recupera 90″ trote» · «1000 m a 3:45–3:55». */
-export interface LuegoVista {
-  que: string;
-  despues: string | null;
-}
-
-/**
- * «Luego ·» del paso `i`: el siguiente paso con su objetivo y, si es una
- * recuperación o un descanso, también el trabajo que viene detrás (I5 del
- * modelo del iPhone: «Luego · Recupera 90″ trote · después 1000 m a 3:45–3:55»).
- * `null` si es el último paso.
- */
-export function luegoDe(pasos: ReadonlyArray<PasoBase>, i: number): LuegoVista | null {
-  const sig = pasos[i + 1];
-  if (!sig) return null;
-  const tras = pasos[i + 2];
-  const despues = sig.rol !== 'trabajo' && tras && tras.rol === 'trabajo' ? textoViene(tras) : null;
-  return { que: textoViene(sig), despues };
-}
 
 // ---------------------------------------------------------------------------
 // Zonas del coach

@@ -112,7 +112,7 @@ const DOBLE_TOQUE_MS = 300;
 /** …y a menos de esto uno del otro (el mismo sitio, no dos dedos distintos). */
 const DOBLE_TOQUE_PX = 30;
 /** Los cambios de paso llevan destello de luz (sin háptico propio); los avisos, no. */
-const DESTELLA: ReadonlySet<EventoVivo> = new Set(['go', 'recupera', 'bloque', 'sesion']);
+export const DESTELLA: ReadonlySet<EventoVivo> = new Set(['go', 'recupera', 'bloque', 'sesion']);
 
 
 export function Muneca(props: MunecaProps) {

@@ -18,9 +18,9 @@ import {
   type PasoBase,
   type ZonasCoach,
 } from '@/components/design-twin/kit-reloj/paso';
-import { fmtObjetivo, fmtSplit, luegoDe, nombreMaquina, textoObjetivo, textoViene, unidadSplit } from '@/components/design-twin/kit-reloj/reglas';
+import { deMaquina, fmtObjetivo, fmtSplit, nombreMaquina, nombreMaquinaCorto, textoObjetivo, unidadSplit } from '@/components/design-twin/kit-reloj/reglas';
 import { heroeDelPaso, laminaDelPaso } from '@/components/design-twin/kit-reloj/lamina';
-import { admiteHorizontal, esTest, familiaDe, formatoDe, heroeDeFamilia, metricasDelPaso, trabajoDe } from '@/components/design-twin/kit-reloj/metricas';
+import { admiteHorizontal, esTest, familiaDe, formatoDe, heroeDeFamilia, luegoDe, metricasDelPaso, posicionDe, textoViene, trabajoDe } from '@/components/design-twin/kit-reloj/metricas';
 import { anotacionDe, confirmar, girar, seriesDelDescanso, type Registro } from '@/components/design-twin/kit-reloj/anotar';
 import { vozInicio } from '@/components/design-twin/kit-reloj/voz';
 import { T, tallaHeroe } from '@/components/design-twin/kit-reloj/tokens';
@@ -28,6 +28,7 @@ import type { PlanSesion } from '@/components/design-twin/kit-reloj/secuencia';
 
 const ZONAS: ZonasCoach = { techos: [138, 150, 160, 173, 192] };
 const R = REGLAS_AVISO_DEFECTO;
+const contextoDeSerie = ['Serie 3/6', '1000\u00A0m'];
 
 let n = 0;
 function paso(p: Partial<PasoBase> & Pick<PasoBase, 'clase' | 'rol' | 'medida'>): PasoBase {
@@ -66,6 +67,9 @@ describe('la bici se lee por 1000 m; el remo y el ski, por 500', () => {
     expect(nombreMaquina(bici)).toBe('la bici');
     expect(nombreMaquina(remo)).toBe('el remo');
     expect(nombreMaquina(undefined)).toBeNull();
+    expect(nombreMaquinaCorto(remo)).toBe('Remo');
+    expect(deMaquina(remo)).toBe('del remo');
+    expect(deMaquina(bici)).toBe('de la bici');
   });
 });
 
@@ -138,7 +142,7 @@ describe('la rejilla de apoyo (§4): la máquina manda su métrica, el pulso sie
   it('el remo: s/min, vatios y calorías SIEMPRE, y el pulso', () => {
     const p = paso({ clase: 'ergo', rol: 'trabajo', nombre: 'Row', maquina: { tipo: 'remo' }, medida: { tipo: 'distancia', prescrito: 500, mide: 'ergo' }, objetivos: [split(112)] });
     const m = metricasDelPaso(p, lect({ split500: 113, cadencia: 28, vatios: 240, cal: 18, ppm: 166 }), 'split', ZONAS);
-    expect(m.map((x) => x.clave)).toEqual(['cadencia', 'vatios', 'cal', 'pulso']);
+    expect(m.map((x) => x.clave)).toEqual(['cadencia', 'pulso', 'cal', 'vatios']);
     expect(m[0]).toMatchObject({ valor: '28', unidad: 's/min' });
     expect(m[2]).toMatchObject({ valor: '18', unidad: 'cal' });
   });
@@ -156,7 +160,9 @@ describe('la rejilla de apoyo (§4): la máquina manda su métrica, el pulso sie
     const m = metricasDelPaso(p, lect({ split500: 120, cadencia: 40, vatios: 210, cal: 12, viejos: ['split500', 'cadencia', 'vatios', 'cal', 'hecho'] }), 'crono', ZONAS);
     expect(m.find((x) => x.clave === 'split')?.valor).toBe('—');
     expect(m.find((x) => x.clave === 'cal')?.valor).toBe('—');
-    expect(m.find((x) => x.clave === 'vatios')?.valor).toBe('—');
+    expect(m.find((x) => x.clave === 'cadencia')?.valor).toBe('—');
+    // Cinco candidatas y cuatro sitios: cae la potencia, nunca el pulso.
+    expect(m.map((x) => x.clave)).toEqual(['split', 'cadencia', 'pulso', 'cal']);
   });
 
   it('la cinta: inclinación del segundo objetivo y la distancia de la cinta', () => {
@@ -202,8 +208,22 @@ describe('el héroe con las reglas de familia (I4)', () => {
     const serie = paso({ clase: 'series', rol: 'trabajo', medida: { tipo: 'distancia', prescrito: 1000, mide: 'gps' }, objetivos: [{ eje: 'ritmo', min: 225, max: 235, papel: 'principal' }] });
     expect(trabajoDe(serie, lect({ ritmo: 230, hecho: 380 }), 'ritmo')).toEqual({ etiqueta: 'quedan', valor: '620', unidad: 'm' });
     expect(trabajoDe(serie, lect({ ritmo: null, hecho: 380 }), 'falta')).toBeNull();
-    const squat: PasoBase = { ...paso({ clase: 'fuerza', rol: 'trabajo', nombre: 'Back Squat', medida: { tipo: 'reps', prescrito: 5, mide: 'atleta' }, cierre: 'atleta' }), fuerza: { ejercicio: 'bs', carga: { tipo: 'kg', min: 100, max: 100 }, esfuerzo: { eje: 'rir', min: 2, max: 2 }, pasoKg: 2.5 } };
-    expect(trabajoDe(squat, lect({}), 'crono')).toEqual({ etiqueta: 'dosis', valor: '5 × 100 kg · RIR 2' });
+    const row = { nombre: 'Row', dosis: null, mide: 'ergo' as const };
+    const bench = { nombre: 'Bench Press', dosis: { tipo: 'reps' as const, prescrito: 6, mide: 'atleta' as const }, carga: { kg: 60 }, mide: 'atleta' as const };
+    const minuto = paso({ clase: 'emom', rol: 'trabajo', medida: { tipo: 'tiempo', prescrito: 60, mide: 'reloj' }, wod: { formato: 'emom', tarea: bench, ciclo: [bench, row], ventanas: 12, ventanaS: 60 } });
+    expect(trabajoDe(minuto, lect({ t: 19 }), 'falta')).toEqual({ etiqueta: 'tarea', valor: '6 Bench Press · 60 kg', texto: true });
+    const sled = paso({ clase: 'estacion', rol: 'trabajo', nombre: 'Sled Push', carga: { kg: 152 }, medida: { tipo: 'distancia', prescrito: 50, mide: 'atleta' }, cierre: 'atleta' });
+    expect(trabajoDe(sled, lect({}), 'crono')).toEqual({ etiqueta: 'dosis', valor: '50\u00A0m · 152\u00A0kg', texto: true });
+  });
+
+  it('fuerza: el héroe es la dosis («8 × 125» kg) con el esfuerzo encima, y el tempo va al trabajo', () => {
+    const squat: PasoBase = { ...paso({ clase: 'fuerza', rol: 'trabajo', nombre: 'Back Squat', medida: { tipo: 'reps', prescrito: 8, mide: 'atleta' }, cierre: 'atleta', tempo: { excentrica: 3, pausaAbajo: 1, concentrica: 1, pausaArriba: 0 } }), fuerza: { ejercicio: 'bs', carga: { tipo: 'rm', pctMin: 65, pctMax: 70, rmKg: 186.5 }, esfuerzo: { eje: 'rir', min: 2, max: 2 }, pasoKg: 2.5 } };
+    expect(heroeDeFamilia(squat, lect({}), ZONAS)).toMatchObject({ texto: '8 × 125', unidad: 'kg', etiqueta: '65–70 % RM · RIR 2' });
+    // La carga declarada en la serie anterior manda sobre la del plan (cascada).
+    expect(heroeDeFamilia(squat, lect({}), ZONAS, { cargaKg: 127.5 })).toMatchObject({ texto: '8 × 127,5', unidad: 'kg' });
+    expect(trabajoDe(squat, lect({}), 'falta')).toEqual({ etiqueta: 'tempo', valor: '3-1-1', texto: true });
+    const corporal: PasoBase = { ...squat, fuerza: { ejercicio: 'bj', carga: { tipo: 'corporal' }, esfuerzo: null, pasoKg: 2.5 } };
+    expect(heroeDeFamilia(corporal, lect({}), ZONAS)).toMatchObject({ texto: '8', unidad: 'reps', etiqueta: 'peso corporal' });
   });
 });
 
@@ -220,6 +240,28 @@ describe('«Luego ·» con el «después»', () => {
   it('desde la recuperación, solo el trabajo; en el último paso, nada', () => {
     expect(luegoDe([serie, rec, serie4], 1)).toEqual({ que: '1000\u00A0m a 3:45–3:55', despues: null });
     expect(luegoDe([serie, rec, serie4], 2)).toBeNull();
+  });
+
+  it('la Roxzone, la campana y una serie de fuerza se nombran, no salen vacías', () => {
+    const rox = paso({ clase: 'roxzone', rol: 'transicion', roxzone: 'salida', medida: { tipo: 'abierta', prescrito: null, mide: 'sensor' }, posicion: { ronda: { n: 2, de: 8 } } });
+    const run3 = paso({ clase: 'carrera', rol: 'trabajo', nombre: 'Run', medida: { tipo: 'distancia', prescrito: 1000, mide: 'gps' }, posicion: { ronda: { n: 3, de: 8 } } });
+    expect(luegoDe([serie, rox, run3], 0)).toEqual({ que: 'Roxzone', despues: 'Ronda 3/8 · Run · 1000\u00A0m' });
+    const tareas = [{ nombre: 'Wall Ball', dosis: { tipo: 'reps' as const, prescrito: 12, mide: 'atleta' as const }, mide: 'atleta' as const }, { nombre: 'Burpee', dosis: { tipo: 'reps' as const, prescrito: 8, mide: 'atleta' as const }, mide: 'atleta' as const }];
+    const campana = paso({ clase: 'amrap', rol: 'transicion', medida: { tipo: 'abierta', prescrito: null, mide: 'atleta' }, cierre: 'atleta', wod: { formato: 'puntuacion', tareas, duracionS: 900 } });
+    expect(textoViene(campana)).toBe('Puntuación');
+    const squat: PasoBase = { ...paso({ clase: 'fuerza', rol: 'trabajo', nombre: 'Back Squat', medida: { tipo: 'reps', prescrito: 8, mide: 'atleta' }, cierre: 'atleta', posicion: { serie: { n: 2, de: 4 }, slot: 'A1' } }), fuerza: { ejercicio: 'bs', carga: { tipo: 'rm', pctMin: 65, pctMax: 70, rmKg: 186.5 }, esfuerzo: null, pasoKg: 2.5 } };
+    expect(textoViene(squat)).toBe('A1 · Back Squat · 8 × 125 kg');
+  });
+
+  it('la posición de la cabecera cuenta como cada familia cuenta', () => {
+    const row = { nombre: 'Row', dosis: null, mide: 'ergo' as const };
+    const minuto = paso({ clase: 'emom', rol: 'trabajo', medida: { tipo: 'tiempo', prescrito: 60, mide: 'reloj' }, posicion: { serie: { n: 3, de: 12 } }, wod: { formato: 'emom', tarea: row, ciclo: [row], ventanas: 12, ventanaS: 60 } });
+    expect(posicionDe(minuto)).toEqual(['Minuto 3/12']);
+    const tareas = [{ nombre: 'Wall Ball', dosis: { tipo: 'reps' as const, prescrito: 12, mide: 'atleta' as const }, mide: 'atleta' as const }, { nombre: 'Burpee', dosis: { tipo: 'reps' as const, prescrito: 8, mide: 'atleta' as const }, mide: 'atleta' as const }];
+    const am = paso({ clase: 'amrap', rol: 'trabajo', medida: { tipo: 'tiempo', prescrito: 900, mide: 'reloj' }, wod: { formato: 'amrap', tareas, duracionS: 900 } });
+    expect(posicionDe(am, { rondas: 4 })).toEqual(['Ronda 5']);
+    expect(posicionDe(rec)).toEqual(['Recupera', 'trote', '90″']);
+    expect(posicionDe(serie)).toEqual(contextoDeSerie);
   });
 });
 

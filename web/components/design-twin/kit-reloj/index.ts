@@ -154,4 +154,4 @@ export * from './aro';
 export * from './vivo';
 export * from './pila';
 export * from './fin';
-export { Muneca, type AccionPrimaria, type MunecaProps, type PaginaVivo, type Area } from './Muneca';
+export { Muneca, DESTELLA, type AccionPrimaria, type MunecaProps, type PaginaVivo, type Area } from './Muneca';
