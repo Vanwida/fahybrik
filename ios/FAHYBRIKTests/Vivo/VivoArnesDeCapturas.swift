@@ -32,6 +32,13 @@ struct VivoMontaje {
     var arranque = VivoArranque()
     /// La máquina enlazada: el store del monitor en `.streaming` con esta muestra.
     var monitor: PM5LiveSample? = nil
+    /// Las salidas del host en la hoja de terminar y el chevrón de minimizar.
+    var salidas = VivoSalidas()
+    var minimizar = false
+    /// Dobles: la presencia de la pareja.
+    var pareja: DoblesLiveStripState = .hidden
+    /// La Estructura con las filas que saltan (el host confirma; aquí no hace nada).
+    var saltar = false
 }
 
 /// Una foto a los `en` segundos de `trasMontar`.
@@ -57,6 +64,8 @@ extension XCTestCase {
         let vista = VivoIphoneView(session: s, hrZones: s.hrZones, pm5: pm5,
                                    hrLink: m.hrLink, treadmillLink: m.treadmillLink, gpsActive: m.gpsActive, isBenchmark: m.test,
                                    alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {},
+                                   alMinimizar: m.minimizar ? {} : nil, salidas: m.salidas,
+                                   alSaltarTramo: m.saltar ? { _ in } : nil, pareja: m.pareja,
                                    paginaInicial: m.pagina, wodInicial: m.wod, guion: m.guion, arranque: m.arranque,
                                    lecturaDePrueba: m.lectura)
             .environment(\.colorScheme, .dark)
