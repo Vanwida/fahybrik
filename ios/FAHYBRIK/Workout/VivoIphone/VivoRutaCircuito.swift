@@ -12,6 +12,8 @@ import SwiftUI
 struct VivoRutaCircuito: View {
     let estado: Vivo.EstadoVivo
     let formato: Vivo.FormatoCircuito
+    /// El host abre la hoja de bloques (saltar a otro bloque). nil = sin botón.
+    var alVerBloques: (() -> Void)? = nil
 
     private static let punto: CGFloat = 9
     private static let idAhora = "ahora"
@@ -53,6 +55,7 @@ struct VivoRutaCircuito: View {
                             } else {
                                 VivoEtiqueta(texto: "\(hechas)/\(listadas.count) hechas")
                             }
+                            if let alVerBloques { BotonVerBloques(accion: alVerBloques) }
                         }
                         .padding(.top, 12).padding(.bottom, 8)
                         .background(VivoColor.fondo)

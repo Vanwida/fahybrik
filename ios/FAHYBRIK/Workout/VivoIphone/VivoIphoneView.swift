@@ -26,6 +26,9 @@ struct VivoIphoneView: View {
     let alConectividad: () -> Void
     /// «Terminar y guardar» confirmado en la hoja: el host cierra la sesión (parcial).
     let alTerminarYGuardar: () -> Void
+    /// «Ver el entreno entero»: el host abre la hoja de bloques (saltar a otro
+    /// bloque). Va en la Estructura, que es la sesión entera. nil = sin botón.
+    var alVerBloques: (() -> Void)? = nil
     /// La página con la que arranca (las capturas piden Estructura).
     var paginaInicial: VivoIdPagina = .vivo
     /// Lo marcado en el WOD al montar (una sesión reabierta; las capturas del contrato).
@@ -275,7 +278,7 @@ struct VivoIphoneView: View {
                 }
             }
         case .estructura:
-            if let f = c.circuito { VivoRutaCircuito(estado: c.estado, formato: f) } else { VivoPaginaEstructura(estado: conVueltas(c.estado)) }
+            if let f = c.circuito { VivoRutaCircuito(estado: c.estado, formato: f, alVerBloques: alVerBloques) } else { VivoPaginaEstructura(estado: conVueltas(c.estado), alVerBloques: alVerBloques) }
         case .mapa:
             VivoPaginaMapa(coordenadas: outdoorModel?.coordinates ?? lecturaDePrueba?.ruta ?? [],
                            calidad: outdoorModel?.gpsQuality ?? (lecturaDePrueba?.gps == .listo ? .strong : .searching),

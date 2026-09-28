@@ -660,7 +660,8 @@ struct ActiveWorkoutView: View {
                 isBenchmark: isBenchmark,
                 alAccionDelHost: { primaryAction() },
                 alConectividad: { mostrarConectividad = true },
-                alTerminarYGuardar: { session.finish(completeness: .partial) }
+                alTerminarYGuardar: { session.finish(completeness: .partial) },
+                alVerBloques: { mostrarBloques = true }
             )
         } else {
             superficieAntigua

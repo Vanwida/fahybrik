@@ -34,6 +34,8 @@ private struct VivoFilaVuelta: View {
 /// hecho con sus vueltas y su veredicto, lo de ahora en tinta.
 struct VivoPaginaEstructura: View {
     let estado: Vivo.EstadoVivo
+    /// El host abre la hoja de bloques (saltar a otro bloque). nil = sin botón.
+    var alVerBloques: (() -> Void)? = nil
 
     var body: some View {
         let filas = Vivo.estructuraDe(estado.pasos, i: estado.i)
@@ -49,7 +51,12 @@ struct VivoPaginaEstructura: View {
         }
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Estructura").font(.system(size: VivoTokens.TI.posicion, weight: .bold)).foregroundStyle(VivoColor.tinta).padding(.bottom, 8)
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Estructura").font(.system(size: VivoTokens.TI.posicion, weight: .bold)).foregroundStyle(VivoColor.tinta)
+                    Spacer(minLength: 0)
+                    if let alVerBloques { BotonVerBloques(accion: alVerBloques) }
+                }
+                .padding(.bottom, 8)
                 ForEach(Array(filas.enumerated()), id: \.offset) { k, f in
                     let t = Vivo.textoFila(f)
                     let ahora = f.estado == .ahora
