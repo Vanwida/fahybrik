@@ -15,9 +15,10 @@ import WatchConnectivity
 //     (WorkoutExecutionAPI), mark the assignment done locally, and re-push so the
 //     watch flips to the completed state.
 //
-// Activated from AppRoot / Inicio on every authenticated launch. When the watch is
-// not paired or the iPhone is offline, pushes are no-ops — the watch keeps its last
-// good context until we successfully push again.
+// Activated at app launch (`FAHYBRIKApp.init`), foreground or background, with or
+// without a coach; Inicio's push only re-activates if needed. When the watch is not
+// paired or the iPhone is offline, pushes are no-ops — the watch keeps its last good
+// context until we successfully push again.
 final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     static let shared = WatchConnectivityiOSService()
 
@@ -290,14 +291,27 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         // had a toggle, so `false` just confirms the solo path; the server stays the
         // final net (409 session_private on a joint log of a private session).
         let shareWithPartner = envelope.shareWithPartner ?? true
-        let outcome: WorkoutSaveOutcome
+        var outcome: WorkoutSaveOutcome
+        let path: String
         if resolveIsDoubles(assignmentId: envelope.assignmentId) && shareWithPartner {
             // sessionId == this athlete's own assignment id == payload.assignment_id.
+            path = DoblesExecutionAPI.path(sessionId: payload.assignment_id)
             outcome = await DoblesExecutionAPI.submitReturning(
                 sessionId: payload.assignment_id, payload, bearer: bearer
             )
         } else {
+            path = WorkoutExecutionAPI.path
             outcome = await WorkoutExecutionAPI.submitReturning(payload, bearer: bearer)
+        }
+        // Un 401 no es un rechazo del ENTRENO sino de la sesión (DECISIONS 25-09): a la
+        // cola, que se queda con los 401 y lo entrega al volver a entrar, igual que el
+        // resumen del móvil. Con el enlace abierto desde el arranque, un sobre puede
+        // llegar antes de iniciar sesión; como rechazo, la muñeca dejaba de reenviarlo.
+        if case .rejected(let status) = outcome, status == 401,
+           let body = try? JSONEncoder().encode(payload) {
+            let id = await RequestQueue.shared.enqueue(path: path, body: body, bearer: bearer,
+                                                       keepOnReject: true)
+            outcome = .queued(id)
         }
         let submission: ExecutionSubmission
         switch outcome {
