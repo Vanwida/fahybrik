@@ -11,6 +11,9 @@ import {
   type ExecutionMetricsInput,
 } from '@/lib/sync/record-workout-execution';
 import { recomputeAthlete } from '@/lib/coach/attention/recompute';
+import { linkTramosToAssignment } from '@/lib/sync/link-tramos';
+import { coerceWireInstant } from '@/lib/sync/wire-instant';
+import type { RunningPR } from '@fahybrid/shared/domain/running/best-efforts';
 import {
   FREE_WORKOUT_MODALITY_SLUGS,
   type MeasuredModality,
@@ -70,7 +73,7 @@ const SELF_ORIGIN = 'self' as const;
 /** A recoverable, request-mappable failure (→ 422 at the route boundary). */
 export class FreeWorkoutError extends Error {
   constructor(
-    public readonly code: 'exercise_not_found' | 'record_failed' | 'plan_not_editable',
+    public readonly code: 'exercise_not_found' | 'record_failed' | 'plan_not_editable' | 'start_taken',
     message: string,
   ) {
     super(message);
@@ -273,37 +276,57 @@ export async function updateFreeWorkoutPlan(
   return { assignment_id: String(input.assignmentId) };
 }
 
-export async function createFreeWorkout(
-  input: CreateFreeWorkoutInput,
-): Promise<{ assignment_id: string; execution_id: string }> {
+/** Lo que devuelve guardar un libre: lo mismo que el guardado del coach. */
+export type FreeWorkoutSaved = {
+  assignment_id: string;
+  execution_id: string;
+  segments_saved: number;
+  prs: RunningPR[];
+};
+
+/**
+ * UN ENTRENO REENVIADO ES EL MISMO ENTRENO (card 120; índice 0274).
+ *
+ * Una sesión del plan no puede duplicarse: la base solo admite una ejecución por
+ * asignación, así que un reenvío actualiza. Un entreno LIBRE crea su asignación al
+ * guardarse, y el 20-ago, al vaciarse la cola del iPhone, uno entró DOS VECES.
+ *
+ * La llave es la hora de inicio que sella el motor (viaja idéntica en todos los
+ * reenvíos del mismo trabajo): `workout_assignments.free_started_at`, único por
+ * atleta. Devuelve la asignación que ya nació de ese inicio, o null.
+ *
+ * Un reenvío trae el MISMO entreno, así que el mismo título. Otro título con el
+ * mismo inicio es otro entreno (un reloj que no reinició su hora, 04-08): fundirlo
+ * machacaría los tramos del primero, así que se rechaza con `start_taken` y quien
+ * llama lo guarda fuera del plan (0270), donde no pisa nada.
+ */
+async function findFreeStart(
+  db: Sql | TransactionClient,
+  athleteId: number,
+  startedAt: string,
+  title: string,
+): Promise<number | null> {
+  const rows = await db<Array<{ id: string; title: string }>>`
+    select wa.id::text as id, t.name as title
+    from workout_assignments wa
+    join templates t on t.id = wa.template_id
+    where wa.athlete_id = ${athleteId} and wa.free_started_at = ${startedAt}::timestamptz
+    limit 1
+  `;
+  const found = rows[0];
+  if (!found) return null;
+  if (found.title !== title) {
+    throw new FreeWorkoutError('start_taken', 'Another free workout already started at this instant');
+  }
+  return Number(found.id);
+}
+
+export async function createFreeWorkout(input: CreateFreeWorkoutInput): Promise<FreeWorkoutSaved> {
   const { athleteId, metrics } = input;
   const db = input.sql ?? defaultSql;
-
-  // UN ENTRENO REENVIADO ES EL MISMO ENTRENO (card 120).
-  //
-  // Una sesión del plan no puede duplicarse: la base sólo admite una ejecución por
-  // asignación, así que un reenvío actualiza. Un entreno LIBRE no tenía esa red —
-  // cada envío se creaba su propia sesión— y el 20-ago, al vaciarse la cola de
-  // reintentos del iPhone, uno entró DOS VECES: dos entrenos de 11:28 idénticos,
-  // con los mismos ocho tramos y los mismos metros, para un trabajo que ocurrió
-  // una sola vez.
-  //
-  // La llave es la hora de inicio: un atleta no puede empezar dos entrenos en el
-  // mismo instante, y el motor la sella al arrancar, así que viaja idéntica en
-  // todos los reenvíos del mismo trabajo. Sin ella (un cliente viejo) no hay nada
-  // con qué reconocerlo y se crea, que es el comportamiento de antes.
-  if (metrics.started_at) {
-    const yaEntro = await db<Array<{ assignment_id: string; execution_id: string }>>`
-      select wa.id::text as assignment_id, we.id::text as execution_id
-      from workout_executions we
-      join workout_assignments wa on wa.id = we.assignment_id
-      where we.athlete_id = ${athleteId}
-        and wa.origin = ${SELF_ORIGIN}::workout_origin
-        and we.started_at = ${metrics.started_at}::timestamptz
-      limit 1
-    `;
-    if (yaEntro[0]) return yaEntro[0];
-  }
+  // Sin hora de inicio (un cliente viejo) no hay con qué reconocer un reenvío.
+  const startKey = coerceWireInstant(metrics.started_at);
+  const replayOf = startKey ? await findFreeStart(db, athleteId, startKey, input.title) : null;
 
   // El día del entreno, en el calendario del atleta. Se lee FUERA de la
   // transacción: dentro, pedir otra conexión al pool puede esperar a la que la
@@ -317,23 +340,47 @@ export async function createFreeWorkout(
   // Los tramos se resuelven contra el catálogo ANTES de abrir la transacción,
   // como en persistFreeWorkoutPlan: es solo lectura y, dentro, pediría otra
   // conexión al pool mientras la transacción tiene cogida la suya (con un pool de
-  // una, se bloquea; con uno lleno, espera).
-  const segments = await resolveSegments(db, input);
+  // una, se bloquea; con uno lleno, espera). Un reenvío no los necesita: su
+  // plantilla ya existe.
+  const segments = replayOf == null ? await resolveSegments(db, input) : null;
 
-  const ids = await db.begin(async (tx) => {
-    const assignmentId = await persistFreeWorkoutPlanInTx(tx, { ...input, scheduledFor }, segments);
+  const saved = await db.begin(async (tx) => {
+    // Un reenvío graba sobre la asignación que ya nació de este inicio (se funde
+    // como en el coach: lo que trae rellena, lo que no trae no borra). El cerrojo
+    // serializa dos reenvíos simultáneos; el índice único 0274 es la garantía.
+    let assignmentId: number | null = null;
+    if (startKey) {
+      await tx`select pg_advisory_xact_lock(hashtextextended(${`free-start:${athleteId}:${startKey}`}, 0))`;
+      assignmentId = await findFreeStart(tx, athleteId, startKey, input.title);
+    }
+    if (assignmentId == null) {
+      if (segments == null) {
+        // Se borró entre la lectura de fuera y la de dentro: no hay plantilla que reusar.
+        throw new FreeWorkoutError('record_failed', 'The replayed free workout no longer exists');
+      }
+      assignmentId = await persistFreeWorkoutPlanInTx(tx, { ...input, scheduledFor }, segments);
+      if (startKey) {
+        await tx`
+          update workout_assignments set free_started_at = ${startKey}::timestamptz
+          where id = ${assignmentId}
+        `;
+      }
+    }
 
-    const rec = await recordWorkoutExecution({
-      athleteId,
-      assignmentId,
-      input: metrics,
-      sql: tx,
-    });
+    // Cada tramo, a su segmento de la plantilla recién creada (`link-tramos.ts`):
+    // el libre se guarda igual que una sesión del coach.
+    const linked = await linkTramosToAssignment(tx, assignmentId, metrics);
+    const rec = await recordWorkoutExecution({ athleteId, assignmentId, input: linked, sql: tx });
     if (!rec.ok) {
       throw new FreeWorkoutError('record_failed', `Could not record execution: ${rec.reason}`);
     }
 
-    return { assignment_id: rec.assignment_id, execution_id: rec.execution_id };
+    return {
+      assignment_id: rec.assignment_id,
+      execution_id: rec.execution_id,
+      segments_saved: rec.segments_saved,
+      prs: rec.prs,
+    };
   });
 
   // Refresh the coach attention queue AFTER the tx commits — the recorder's own
@@ -346,7 +393,7 @@ export async function createFreeWorkout(
   // Best-effort: never throws into the caller.
   void recomputeAthlete({ athlete_id: athleteId, client: db }).catch(() => {});
 
-  return ids;
+  return saved;
 }
 
 /** Steps 1–3 inside an open transaction (or standalone client). */

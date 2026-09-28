@@ -8,33 +8,33 @@ import {
   updateFreeWorkoutPlan,
   FreeWorkoutError,
 } from '@/lib/athlete/create-free-workout';
+import { validateFreeWorkout } from '@/lib/athlete/free-workout-validate';
 import {
-  validateFreeWorkout,
-  FREE_WORKOUT_MODALITIES,
-  type FreeWorkoutModality,
-} from '@/lib/athlete/free-workout-validate';
+  FREE_TITLE_MAX,
+  freePlanInput,
+  freeWorkoutItemWireSchema,
+  freeWorkoutModalitySchema,
+} from '@/lib/athlete/record-free-workout';
+import { loadAssignmentItems } from '@/lib/sync/link-tramos';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // POST /api/athlete/workouts/free/plan — persist a self-origin workout PLAN only
 // (template + segments + scheduled assignment). No workout_executions row.
-// Distinct from POST …/free which always records an execution after live work.
 // When `assignment_id` is present, replaces the body of an editable scheduled plan.
-
-const itemSchema = z.object({
-  exercise_id: z.number().int().positive(),
-  prescription: z.unknown(),
-  part: z.enum(['warmup']).optional(),
-});
+//
+// The response carries the ids the app needs to RUN the plan as any other session
+// (DECISIONS 2026-09-28): `assignment_id` and `template_segment_ids`, one per
+// template segment IN THE ORDER OF `items[]` (a measured workout: one; a clock:
+// none). The finished workout then goes to POST /api/sync/workout-execution with
+// those ids on its tramos — the coach's path — never to …/free.
 
 const freePlanBodySchema = z.object({
-  title: z.string().trim().min(1).max(80),
-  modality: z.enum(
-    FREE_WORKOUT_MODALITIES as unknown as [FreeWorkoutModality, ...FreeWorkoutModality[]],
-  ),
+  title: z.string().trim().min(1).max(FREE_TITLE_MAX),
+  modality: freeWorkoutModalitySchema,
   prescription: z.unknown().optional(),
-  items: z.array(itemSchema).optional(),
+  items: z.array(freeWorkoutItemWireSchema).optional(),
   assignment_id: z.number().int().positive().optional(),
   scheduled_for: z
     .string()
@@ -75,38 +75,26 @@ export async function POST(request: Request) {
   const coachIdStr = coachRows[0]?.coach_id ?? null;
   const coachId = coachIdStr === null ? null : Number(coachIdStr);
 
-  const plan = validation.plan;
-  const base = {
-    athleteId,
-    coachId,
-    title: body.title,
-    scheme: plan.scheme,
-    ...(body.scheduled_for ? { scheduledFor: body.scheduled_for } : {}),
-  };
-
-  const planInput =
-    plan.kind === 'measured'
-      ? { ...base, kind: 'measured' as const, modality: plan.modality, prescription: plan.prescription }
-      : plan.kind === 'clock'
-        ? { ...base, kind: 'clock' as const, prescription: plan.prescription }
-        : {
-            ...base,
-            kind: 'items' as const,
-            items: plan.items.map((it) => ({
-              exerciseId: it.exercise_id,
-              prescription: it.prescription,
-              ...(it.part ? { part: it.part } : {}),
-            })),
-          };
+  const planInput = freePlanInput(
+    {
+      athleteId,
+      coachId,
+      title: body.title,
+      ...(body.scheduled_for ? { scheduledFor: body.scheduled_for } : {}),
+    },
+    validation.plan,
+  );
 
   try {
     const result = body.assignment_id
       ? await updateFreeWorkoutPlan({ ...planInput, assignmentId: body.assignment_id })
       : await saveFreeWorkoutPlan(planInput);
+    const segments = await loadAssignmentItems(sql, Number(result.assignment_id));
 
     return jsonOk({
       saved: true,
       assignment_id: result.assignment_id,
+      template_segment_ids: segments.map((s) => String(s.id)),
       origin: 'self',
     });
   } catch (err) {
