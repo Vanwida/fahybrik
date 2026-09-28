@@ -15,6 +15,7 @@
 //   PaginaEstructura  corona ↓↓↓: la sesión del coach, y dónde estás.
 
 import type { ReactNode } from 'react';
+import { filaDeathBy } from './deathby';
 import type { FilaEstructura, Lecturas, Sesion, Vuelta, ZonasCoach } from './paso';
 import { NOMBRE_CLASE_DEFECTO } from './paso';
 import { Columna } from './pasos';
@@ -311,6 +312,9 @@ const MODO = { trote: 'trote', andar: 'caminando', parado: 'parado' } as const;
 
 /** Una fila de la estructura en dos líneas: el bloque y contra qué (con la notación de `textoObjetivo`). */
 export function textoFila(f: FilaEstructura): { linea: string; detalle: string | null } {
+  // Un death by no es «20 × Burpee · 1′»: es una escalera hasta que el reloj te caza.
+  const deathBy = filaDeathBy(f.trabajo);
+  if (deathBy) return deathBy;
   const o = principal(f.trabajo);
   const objetivo = o ? textoObjetivo(o) : null;
   const rec = f.recupera

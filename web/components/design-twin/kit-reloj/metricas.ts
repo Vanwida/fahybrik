@@ -14,10 +14,11 @@
 // Un pintor (muñeca o iPhone) llama a estas funciones y pinta lo que devuelven.
 
 import { cargaDelPlan } from './anotar';
+import { heroeDeathBy } from './deathby';
 import { familiaDe } from './familia';
 import { esFuerza, fmtKg, kgDelPlan, textoEsfuerzo, textoKgPlan, textoPct, textoTempo } from './fuerza';
 import { heroeDelPaso, lineaPulso, type HeroeVista, type LineaVista } from './lamina';
-import { REGLAS_AVISO_DEFECTO, type Lecturas, type PasoBase, type ReglasAviso, type ZonasCoach } from './paso';
+import { REGLAS_AVISO_DEFECTO, type Lecturas, type Parcial, type PasoBase, type ReglasAviso, type ZonasCoach } from './paso';
 import {
   faltaDe,
   fmtDistancia,
@@ -67,6 +68,12 @@ export interface ExtraFamilia {
   rondaS?: number | null;
   /** ¿El crono total ya está en la cabecera? Entonces la rejilla no lo repite (un dato, un sitio). */
   totalEnCabecera?: boolean;
+  /** EMOM y death by: cuánto tardó la MISMA tarea la vez anterior (el segundo en que se marcó «hecho»). */
+  ultimaVentana?: number | null;
+  /** La puntuación del AMRAP: las reps sueltas de la ronda a medias (`null` = sin declarar, nunca 0). */
+  repsSueltas?: number | null;
+  /** El paso de trabajo anterior con su parcial (la ronda anterior de un tabata, la estación anterior). */
+  anterior?: { paso: PasoBase; parcial: Parcial } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -99,6 +106,14 @@ export function heroeDeFamilia(p: PasoBase, l: Lecturas, zonas: ZonasCoach | nul
   if (f === 'amrap' && w?.formato === 'amrap' && w.tareas.length > 1 && x.rondas != null) {
     return { clase: 'crono', texto: String(x.rondas), unidad: x.rondas === 1 ? 'ronda' : 'rondas' };
   }
+  // La campana: la puntuación es rondas + reps («5 + 18»), y lo no dicho es «—», nunca 0.
+  if (f === 'amrap' && w?.formato === 'puntuacion') {
+    const reps = x.repsSueltas == null ? '—' : String(x.repsSueltas);
+    if (w.tareas.length > 1 && x.rondas != null) return { clase: 'crono', texto: `${x.rondas} + ${reps}`, etiqueta: 'rondas + reps' };
+    return { clase: 'crono', texto: reps, unidad: 'reps', etiqueta: w.tareas[0]?.nombre ?? 'puntuación' };
+  }
+  // Death by: ¿cuántas reps este minuto? (deathby.ts)
+  if (f === 'deathby') return heroeDeathBy(p) ?? heroeDelPaso(p, l, zonas);
   if (f === 'pared') {
     const falta = faltaDe(p, l);
     return { clase: 'falta', texto: fmtReloj(Math.ceil(falta ?? l.t)), etiqueta: p.rol === 'trabajo' ? 'trabajo' : 'descanso' };
@@ -189,8 +204,14 @@ export function trabajoDe(p: PasoBase, l: Lecturas, heroe: HeroeVista['clase']):
       const falta = faltaDe(p, l);
       return falta != null ? { etiqueta: 'quedan', valor: fmtReloj(Math.ceil(falta)) } : null;
     }
+    case 'deathby': {
+      // El héroe son las reps del minuto; el trabajo, lo que queda de él.
+      const falta = faltaDe(p, l);
+      return falta != null ? { etiqueta: 'quedan', valor: fmtReloj(Math.ceil(falta)) } : null;
+    }
     case 'fortime':
-      return w?.formato === 'fortime' && w.tarea ? enTexto('estación', [textoTarea(w.tarea), cargaTarea(w.tarea)].filter(Boolean).join(' · ')) : null;
+      // `textoTarea` ya lleva los kilos; lo que añade `cargaTarea` es solo «peso corporal».
+      return w?.formato === 'fortime' && w.tarea ? enTexto('estación', [textoTarea(w.tarea), w.tarea.carga ? null : cargaTarea(w.tarea)].filter(Boolean).join(' · ')) : null;
     case 'estacion':
     case 'roxzone': {
       const d = dosisEstacion(p);
@@ -317,6 +338,19 @@ function rondaDe(p: PasoBase, x: ExtraFamilia): Metrica | null {
 
 const texto = (clave: ClaveMetrica, etiqueta: string, valor: string): Metrica => ({ clave, etiqueta, valor, texto: true });
 
+/** EMOM y death by: cuánto tardó la misma tarea la vez anterior («la vez anterior · 0:22»). */
+function ultimaVentana(x: ExtraFamilia): Metrica | null {
+  return x.ultimaVentana == null ? null : { clave: 'ultima', etiqueta: 'la vez anterior', valor: fmtReloj(x.ultimaVentana) };
+}
+
+/** Reloj de pared: el pulso medio de la ronda anterior, si el motor la cerró con pulso. */
+function rondaAnterior(x: ExtraFamilia): Metrica | null {
+  const a = x.anterior;
+  const r = a?.paso.posicion?.ronda;
+  if (!a || !r || a.parcial.ppm == null) return null;
+  return { clave: 'ultima', etiqueta: `ronda ${r.n}`, valor: String(Math.round(a.parcial.ppm)), unidad: 'ppm medio' };
+}
+
 /**
  * LA REJILLA DE APOYO DEL PASO (§4): 2–4 métricas propias de la familia o de
  * la máquina, el pulso siempre (salvo que sea el héroe), sin repetir lo que
@@ -390,27 +424,45 @@ export function metricasDelPaso(
       break;
     }
     case 'emom': {
+      // La cabecera ya dice «Minuto 3/12»: la rejilla no lo repite (un dato,
+      // un sitio). Con máquina, lo suyo: el /500, los metros de ESTE minuto,
+      // el pulso y las calorías. Sin máquina, cuánto tardó la tarea la vez
+      // anterior (si se marcó) y el pulso.
+      const maquina = w?.formato === 'emom' && !!p.maquina && p.maquina.tipo !== 'cinta' && p.medida.mide !== 'atleta';
       if (w?.formato === 'emom') {
-        const s = p.posicion?.serie;
-        if (s) m.push(texto('minuto', w.ventanaS === 60 ? 'minuto' : 'ventana', `${s.n}/${s.de}`));
         if (x.repsMinuto != null) m.push({ clave: 'reps', etiqueta: 'reps', valor: String(x.repsMinuto) });
-        if (p.maquina && p.maquina.tipo !== 'cinta' && p.medida.mide !== 'atleta') m.push(split(p, l), cal(l));
+        if (maquina) m.push(split(p, l), distancia(x));
+        else m.push(ultimaVentana(x));
       }
+      if (conPulso) m.push(pulso(p, l, zonas, reglas));
+      if (maquina) m.push(cal(l));
+      break;
+    }
+    case 'deathby': {
+      m.push(ultimaVentana(x));
       if (conPulso) m.push(pulso(p, l, zonas, reglas));
       break;
     }
     case 'amrap': {
-      if (w?.formato === 'amrap' || w?.formato === 'puntuacion') {
+      if (w?.formato === 'amrap') {
         const t = w.tareas[0];
         if (t) m.push(texto('tarea', w.tareas.length > 1 ? 'la ronda empieza por' : 'tarea', textoTarea(t)));
-        if (w.tareas.length > 1) m.push({ clave: 'repsRonda', etiqueta: 'reps por ronda', valor: String(repsPorRonda(w.tareas)) });
+        // Con el remo en la ronda, su /500 actual («—» si no estás remando) vale más que las reps por ronda.
+        if (p.maquina && p.maquina.tipo !== 'cinta') m.push(split(p, l));
+        else if (w.tareas.length > 1) m.push({ clave: 'repsRonda', etiqueta: 'reps por ronda', valor: String(repsPorRonda(w.tareas)) });
       }
+      // La campana: las reps que hace una ronda entera (para contar la que quedó a medias) y el pulso.
+      if (w?.formato === 'puntuacion' && w.tareas.length > 1) m.push({ clave: 'repsRonda', etiqueta: 'reps por ronda', valor: String(repsPorRonda(w.tareas)) });
       if (conPulso) m.push(pulso(p, l, zonas, reglas));
       break;
     }
     case 'fortime': {
       if (w?.formato === 'fortime') {
-        if (w.capS != null) m.push({ clave: 'cap', etiqueta: 'cap', valor: fmtDuracion(w.capS) });
+        // El cap se lee como lo que queda hasta él, no como un dato del plan (el número no miente).
+        if (w.capS != null) {
+          const hasta = x.total != null ? Math.max(0, w.capS - x.total) : null;
+          m.push(hasta == null ? { clave: 'cap', etiqueta: 'cap', valor: fmtDuracion(w.capS) } : { clave: 'cap', etiqueta: hasta > 0 ? 'cap en' : 'cap pasado', valor: fmtReloj(hasta) });
+        }
         m.push({ clave: 'parcial', etiqueta: 'esta estación', valor: fmtReloj(l.t) });
         if (p.maquina && p.medida.mide === 'ergo') m.push(split(p, l));
       }
@@ -418,9 +470,10 @@ export function metricasDelPaso(
       break;
     }
     case 'pared': {
-      const r = p.posicion?.ronda;
-      if (r) m.push(texto('ronda', 'ronda', `${r.n}/${r.de}`));
+      // La cabecera ya dice «Ronda 4/8»: la rejilla enseña lo medido de la
+      // ronda anterior (su pulso medio) y las reps si alguien las cuenta.
       if (x.repsRonda != null) m.push({ clave: 'repsRonda', etiqueta: 'reps', valor: String(x.repsRonda) });
+      m.push(rondaAnterior(x));
       if (conPulso) m.push(pulso(p, l, zonas, reglas));
       break;
     }

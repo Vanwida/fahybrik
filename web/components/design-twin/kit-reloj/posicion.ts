@@ -9,10 +9,11 @@
 //   luegoDe      el siguiente paso y el «después» si lo que viene es recuperar.
 
 import { cargaDelPlan } from './anotar';
+import { posicionDeathBy, vieneDeathBy } from './deathby';
 import { esFuerza, fmtKg, quienSerie } from './fuerza';
 import type { ExtraFamilia } from './metricas';
 import { NOMBRE_CLASE_DEFECTO, type PasoBase } from './paso';
-import { contextoDe, fmtPrescrito, nombreMaquinaCorto, principal, textoPasoCorto } from './reglas';
+import { contextoDe, fmtObjetivo, fmtPrescrito, nombreMaquinaCorto, principal, textoPasoCorto } from './reglas';
 import { wodDe } from './tarea';
 import { nombreCuenta } from './voz';
 
@@ -28,6 +29,12 @@ export function posicionDe(p: PasoBase, x: ExtraFamilia = {}): string[] {
   if (w?.formato === 'emom' && s) return [`${w.ventanaS === 60 ? 'Minuto' : 'Ventana'} ${s.n}/${s.de}`];
   if (w?.formato === 'amrap' && w.tareas.length > 1) return [x.rondas != null ? `Ronda ${x.rondas + 1}` : 'AMRAP'];
   if (w?.formato === 'puntuacion') return ['Puntuación'];
+  if (w?.formato === 'deathby') return posicionDeathBy(p) ?? contextoDe(p);
+  // El reloj de pared: el nombre delante y la ronda; lo prescrito (20″) ya es el héroe.
+  if (w?.formato === 'pared' && p.rol === 'trabajo') {
+    const o = principal(p);
+    return [p.nombre, p.posicion?.ronda ? `Ronda ${p.posicion.ronda.n}/${p.posicion.ronda.de}` : null, o ? fmtObjetivo(o) : null].filter((x): x is string => !!x);
+  }
   if (p.clase === 'roxzone') return [...contextoDe(p), 'Roxzone'];
   if (p.rol === 'descanso' || p.rol === 'recuperacion') return [...contextoDe(p), fmtPrescrito(p.medida)].filter(Boolean);
   // Fuerza: el ejercicio delante (con su hueco de superserie si lo tiene) y la
@@ -44,12 +51,14 @@ export function posicionDe(p: PasoBase, x: ExtraFamilia = {}): string[] {
   // un test («SkiErg · Serie 3/8 · 250 m») o el ejercicio de fuerza (A1 · …,
   // que `contextoDe` ya pone). Nunca «Ergo 3/8».
   const nombre = p.nombre ?? nombreMaquinaCorto(p.maquina);
-  if (nombre && (p.clase === 'estacion' || p.clase === 'ergo' || p.clase === 'test' || p.clase === 'carrera')) {
+  // Una estación de For Time («Row · Ronda 3/3 · Estación 1/3») va como una estación de circuito.
+  const estacion = p.clase === 'estacion' || p.clase === 'fortime';
+  if (nombre && (estacion || p.clase === 'ergo' || p.clase === 'test' || p.clase === 'carrera')) {
     // La dosis de una estación ya va en la fila del trabajo: la cabecera no la repite.
     const dosis = fmtPrescrito(p.medida);
-    const partes = contextoDe(p).filter((x) => !x.startsWith('Ergo') && !x.startsWith('Test') && !x.startsWith('Carrera') && !(p.clase === 'estacion' && x === dosis));
+    const partes = contextoDe(p).filter((x) => !x.startsWith('Ergo') && !x.startsWith('Test') && !x.startsWith('Carrera') && !x.startsWith('For Time') && !(estacion && x === dosis));
     const serie = p.posicion?.serie;
-    if (p.clase !== 'estacion' && serie && !partes.some((x) => x.startsWith('Serie'))) partes.unshift(`Serie ${serie.n}/${serie.de}`);
+    if (!estacion && serie && !partes.some((x) => x.startsWith('Serie'))) partes.unshift(`Serie ${serie.n}/${serie.de}`);
     return [nombre, ...partes.filter((x) => x !== nombre)];
   }
   return contextoDe(p);
@@ -85,6 +94,7 @@ export function textoViene(p: PasoBase, arrastrada: number | null = null, abre: 
   if (p.clase === 'roxzone') return 'Roxzone';
   if (p.wod?.formato === 'puntuacion') return 'Puntuación';
   if (p.rol === 'transicion' && p.clase === 'fuerza') return `Colócate ${fmtPrescrito(p.medida)}`.trim();
+  if (p.wod?.formato === 'deathby') return vieneDeathBy(p) ?? textoPasoCorto(p);
   if (esFuerza(p) && p.rol === 'trabajo' && p.medida.tipo === 'reps') {
     const quien = [pos?.slot, p.nombre].filter(Boolean).join(' · ');
     const kg = p.fuerza.carga.tipo === 'corporal' ? null : (arrastrada ?? cargaDelPlan(p.fuerza));
