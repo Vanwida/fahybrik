@@ -267,7 +267,9 @@ export function textoPasoCorto(p: PasoBase): string {
   const o = principal(p);
   const pr = fmtPrescrito(p.medida);
   if (p.rol === 'descanso') return `${NOMBRE_CLASE_DEFECTO[p.clase]} · ${pr}`;
-  const quien = p.nombre ? `${p.nombre} · ` : '';
+  // Sin nombre de catálogo, la máquina dice quién: «Remo · 500 m a 1:52–1:56 /500».
+  const nombre = p.nombre ?? nombreMaquinaCorto(p.maquina);
+  const quien = nombre ? `${nombre} · ` : '';
   const carga = textoCargaImplemento(p.carga);
   const conCarga = carga ? ` · ${carga}` : '';
   if (!o) return `${quien}${pr}${conCarga}`;

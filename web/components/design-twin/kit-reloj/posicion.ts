@@ -11,9 +11,10 @@
 import { cargaDelPlan } from './anotar';
 import { esFuerza, fmtKg } from './fuerza';
 import type { ExtraFamilia } from './metricas';
-import { NOMBRE_CLASE_DEFECTO, type PasoBase } from './paso';
+import type { PasoBase } from './paso';
 import { contextoDe, fmtPrescrito, nombreMaquinaCorto, principal, textoPasoCorto } from './reglas';
 import { wodDe } from './tarea';
+import { nombreCuenta } from './voz';
 
 /**
  * LA POSICIÓN DE LA CABECERA, por partes y por prioridad (la cabecera quita
@@ -68,8 +69,9 @@ export function textoViene(p: PasoBase): string {
   const corto = textoPasoCorto(p);
   if (pos?.tanda && pos.serie?.n === 1) return `Tanda ${pos.tanda.n}/${pos.tanda.de} · ${pos.serie.de} × ${corto}`;
   if (pos?.ronda && (pos.estacion?.n ?? 1) === 1) return `Ronda ${pos.ronda.n}/${pos.ronda.de} · ${corto}`;
-  // Sin objetivo, lo prescrito solo dice poco («1′»): se dice cuál es.
-  if (pos?.serie && !principal(p)) return `${p.wod?.formato === 'emom' ? 'Minuto' : NOMBRE_CLASE_DEFECTO[p.clase]} ${pos.serie.n}/${pos.serie.de} · ${corto}`;
+  // Sin objetivo, lo prescrito solo dice poco («1′»): se dice cuál es. Un
+  // ergómetro cuenta series («Serie 3/5 · SkiErg · 25 cal»), nunca «Ergo 3/5».
+  if (pos?.serie && !principal(p)) return `${p.wod?.formato === 'emom' ? 'Minuto' : nombreCuenta(p).nombre} ${pos.serie.n}/${pos.serie.de} · ${corto}`;
   return corto;
 }
 
