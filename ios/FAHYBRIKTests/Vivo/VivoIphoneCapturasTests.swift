@@ -17,13 +17,18 @@ final class VivoIphoneCapturasTests: XCTestCase {
         ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"].map { URL(fileURLWithPath: $0) }
     }
 
+    /// `hrLink`, `treadmillLink`, `pagina` y `lectura` (lo que dirían el GPS y la
+    /// cinta) son para las familias que los necesitan; por defecto, lo de siempre.
     @MainActor
-    private func captura(_ s: WorkoutSession, _ nombre: String, test: Bool = false, horizontal: Bool = false,
-                         espera: TimeInterval = 0.8, antesDeEsperar: TimeInterval = 0.4,
-                         trasMontar: (WorkoutSession) -> Void = { _ in }) {
+    func captura(_ s: WorkoutSession, _ nombre: String, test: Bool = false, horizontal: Bool = false,
+                 espera: TimeInterval = 0.8, antesDeEsperar: TimeInterval = 0.4,
+                 hrLink: DeviceLink = .idle, treadmillLink: DeviceLink = .idle,
+                 pagina: VivoIdPagina = .vivo, lectura: VivoLecturaDePrueba? = nil,
+                 trasMontar: (WorkoutSession) -> Void = { _ in }) {
         let vista = VivoIphoneView(session: s, hrZones: s.hrZones, pm5: PM5ConnectionStore.shared,
-                                   hrLink: .idle, treadmillLink: .idle, gpsActive: false, isBenchmark: test,
-                                   alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {})
+                                   hrLink: hrLink, treadmillLink: treadmillLink, gpsActive: false, isBenchmark: test,
+                                   alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {},
+                                   paginaInicial: pagina, lecturaDePrueba: lectura)
             .environment(\.colorScheme, .dark)
         let host = UIHostingController(rootView: vista)
         let base = UIScreen.main.bounds
