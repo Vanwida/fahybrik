@@ -174,17 +174,21 @@ export function VivoAmrap({ caso, onLog }: Vista) {
     return w?.formato === 'amrap' || w?.formato === 'puntuacion' ? w.tareas : [];
   };
   const dialDe = (): Dial => dial ?? { rondas: rondas.length, reps: null };
-  const mover = (seq: Secuencia, delta: number) => {
-    const porRonda = repsPorRonda(tareas(seq));
-    setDial((d) => {
-      const nuevo = girarPuntuacion(d ?? { rondas: rondas.length, reps: null }, foco, delta, porRonda);
-      onLog(`${delta > 0 ? '+' : '−'}${Math.abs(delta)} ${foco} → ${nuevo.rondas} + ${nuevo.reps ?? '—'}`);
-      return nuevo;
-    });
+  // El guion (un temporizador) lee el estado MÁS RECIENTE por refs, no el de su render.
+  const vivo = useRef({ seq: null as Secuencia | null, dial: dialDe(), foco });
+  useEffect(() => {
+    vivo.current.dial = dialDe();
+    vivo.current.foco = foco;
+  });
+  const mover = (delta: number) => {
+    const seq = vivo.current.seq;
+    if (!seq) return;
+    const nuevo = girarPuntuacion(vivo.current.dial, vivo.current.foco, delta, repsPorRonda(tareas(seq)));
+    vivo.current.dial = nuevo;
+    setDial(nuevo);
+    onLog(`${delta > 0 ? '+' : '−'}${Math.abs(delta)} ${vivo.current.foco} → ${nuevo.rondas} + ${nuevo.reps ?? '—'}`);
   };
-  // El guion de la puntuación (los gestos de la carcasa van por `guion`).
-  const seqRef = useRef<Secuencia | null>(null);
-  useTimeline((caso.guionReps ?? []).map((g) => ({ at: g.en, run: () => seqRef.current && mover(seqRef.current, g.delta) })));
+  useTimeline((caso.guionReps ?? []).map((g) => ({ at: g.en, run: () => mover(g.delta) })));
 
   const primaria = (seq: Secuencia, kit: PrimariaVista | null): PrimariaVista | null => {
     const w = wodDe(seq.paso);
@@ -207,7 +211,7 @@ export function VivoAmrap({ caso, onLog }: Vista) {
       inicio={caso.inicio}
       dispositivos={caso.dispositivos}
       extra={(seq) => {
-        seqRef.current = seq;
+        vivo.current.seq = seq;
         return { rondas: dialDe().rondas, repsSueltas: dialDe().reps };
       }}
       primaria={primaria}
@@ -221,10 +225,11 @@ export function VivoAmrap({ caso, onLog }: Vista) {
               setFoco(c);
               onLog(`Toque → ${c}: los ± mueven ese dato`);
             }}
-            onMueve={(d) => mover(seq, d)}
+            onMueve={(d) => mover(d)}
           />
         ) : null
       }
+      apoyoCompacto={false}
       guion={caso.guion}
       onLog={onLog}
     />
