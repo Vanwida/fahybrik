@@ -151,45 +151,77 @@ export async function writeTemplateContent(
   content: TemplateContent,
   opts: { clock?: Prescription | null } = {},
 ): Promise<WrittenSegment[]> {
-  // tenancy: verified-owner — el llamador comprobó que la plantilla es de su coach (o del atleta).
-  await client`delete from template_segments where template_id = ${templateId}`;
-  // tenancy: verified-owner — misma plantilla.
-  await client`delete from template_blocks where template_id = ${templateId}`;
+  // Tres o cuatro viajes a la base por plantilla, sea cual sea su número de líneas:
+  // materializar una semana para veinte atletas escribe cientos de plantillas, y
+  // una ida y vuelta por línea no escala.
+  const clock = content.segments.length === 0 && opts.clock ? canonicalPrescription(opts.clock) : null;
 
-  const written: WrittenSegment[] = [];
-  for (const seg of content.segments) {
+  // 1 · Fuera lo que había, y el reloj si no es un reloj lo que se escribe.
+  // tenancy: verified-owner — el llamador comprobó que la plantilla es de su coach (o del atleta).
+  await client`
+    with del_segments as (
+      delete from template_segments where template_id = ${templateId}
+    ), del_blocks as (
+      delete from template_blocks where template_id = ${templateId}
+    )
+    update templates set meta_json = meta_json - 'prescription'
+    where id = ${templateId}
+      and ${clock === null}
+      and jsonb_typeof(meta_json) = 'object'
+      and meta_json ? 'prescription'
+  `;
+
+  // 2 · Las líneas, en una sola sentencia. `null` en el JSON llega como NULL.
+  let written: WrittenSegment[] = [];
+  if (content.segments.length > 0) {
+    const rows = content.segments.map((s) => ({
+      position: s.position,
+      block_position: s.block_position,
+      block_title: s.block_title,
+      block_format: s.block_format,
+      exercise_id: s.exercise_id,
+      params_json: s.params_json,
+      notes: s.notes,
+      prescription_json: s.prescription_json,
+    }));
     // tenancy: verified-owner — misma plantilla.
-    const rows = await client<Array<{ id: string }>>`
+    const inserted = await client<Array<{ id: string; position: number; block_position: number }>>`
       insert into template_segments (
         template_id, position, block_position, block_title, block_format,
         exercise_id, params_json, notes, prescription_json
       )
-      values (
-        ${templateId}, ${seg.position}, ${seg.block_position}, ${seg.block_title},
-        ${seg.block_format}, ${seg.exercise_id}, ${client.json(toJson(seg.params_json))},
-        ${seg.notes}, ${seg.prescription_json ? client.json(toJson(seg.prescription_json)) : null}
+      select ${templateId}, x.position, x.block_position, x.block_title, x.block_format,
+             x.exercise_id, coalesce(x.params_json, '{}'::jsonb), x.notes, x.prescription_json
+      from jsonb_to_recordset(${client.json(toJson(rows))}) as x(
+        position int, block_position int, block_title text, block_format text,
+        exercise_id bigint, params_json jsonb, notes text, prescription_json jsonb
       )
-      returning id::text as id
+      returning id::text as id, position, block_position
     `;
-    written.push({ id: Number(rows[0]!.id), position: seg.position, block_position: seg.block_position });
+    written = inserted
+      .map((r) => ({ id: Number(r.id), position: r.position, block_position: r.block_position }))
+      .sort((a, b) => a.position - b.position);
   }
 
-  for (const block of content.blocks) {
-    const c = circuitToColumns(block.circuit);
+  // 3 · Los circuitos.
+  if (content.blocks.length > 0) {
+    const rows = content.blocks.map((b) => ({ block_position: b.block_position, ...circuitToColumns(b.circuit) }));
     // tenancy: verified-owner — misma plantilla.
     await client`
       insert into template_blocks (
         template_id, block_position, rounds, pacing, work_seconds,
         rest_between_stations_seconds, rest_between_rounds_seconds
       )
-      values (
-        ${templateId}, ${block.block_position}, ${c.rounds}, ${c.pacing}, ${c.work_seconds},
-        ${c.rest_between_stations_seconds}, ${c.rest_between_rounds_seconds}
+      select ${templateId}, x.block_position, x.rounds, x.pacing, x.work_seconds,
+             x.rest_between_stations_seconds, x.rest_between_rounds_seconds
+      from jsonb_to_recordset(${client.json(toJson(rows))}) as x(
+        block_position int, rounds int, pacing text, work_seconds int,
+        rest_between_stations_seconds int, rest_between_rounds_seconds int
       )
     `;
   }
 
-  const clock = content.segments.length === 0 && opts.clock ? canonicalPrescription(opts.clock) : null;
+  // 4 · El reloj, cuando es lo que se escribe.
   if (clock) {
     // tenancy: verified-owner — misma plantilla.
     await client`
@@ -199,14 +231,6 @@ export async function writeTemplateContent(
         '{prescription}', ${client.json(toJson(clock))}
       )
       where id = ${templateId}
-    `;
-  } else {
-    // tenancy: verified-owner — misma plantilla.
-    await client`
-      update templates set meta_json = meta_json - 'prescription'
-      where id = ${templateId}
-        and jsonb_typeof(meta_json) = 'object'
-        and meta_json ? 'prescription'
     `;
   }
 

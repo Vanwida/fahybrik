@@ -31,6 +31,9 @@
 --     Esto supera, solo para lo inequívoco, el «sin backfill» de 0159: allí el
 --     pacing no estaba escrito en ningún sitio, y aquí la presencia o ausencia de
 --     ventana en TODAS las estaciones es justo lo que lo dice.
+--     De paso, una clave que el modelo no conoce (`rest_between_rounds_s`) que
+--     repite el descanso que ya guarda el bloque se retira: con ella la
+--     prescripción entera no valida (2 líneas en la copia de main).
 --
 -- C · ENTRENOS LIBRES. El escritor del libre usaba position 1..N y
 --     block_position 1/2, guardaba el calentamiento con el formato del entreno
@@ -182,6 +185,19 @@ where tb.template_id = s.template_id
   and (s.prescription_json->>'rest_s' is null
        or (s.prescription_json->>'rest_s')::numeric = tb.rest_between_rounds_seconds)
   and s.template_id not in (select template_id from _0275_executed);
+
+-- Una clave que el modelo no conoce (`rest_between_rounds_s`) dentro de la
+-- prescripción de una estación hace que su prescripción entera no se pueda leer
+-- (el editor la abre degradada). Si repite el descanso entre rondas que ya
+-- guarda su bloque, es una copia y sobra.
+update template_segments s
+set prescription_json = s.prescription_json - 'rest_between_rounds_s', updated_at = now()
+from template_blocks tb
+where tb.template_id = s.template_id
+  and tb.block_position = s.block_position
+  and jsonb_typeof(s.prescription_json) = 'object'
+  and s.prescription_json ? 'rest_between_rounds_s'
+  and (s.prescription_json->>'rest_between_rounds_s')::numeric = tb.rest_between_rounds_seconds;
 
 -- ── C · entrenos libres ────────────────────────────────────────────────────
 
