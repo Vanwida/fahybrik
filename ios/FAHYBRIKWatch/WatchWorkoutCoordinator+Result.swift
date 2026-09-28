@@ -44,7 +44,9 @@ extension WatchWorkoutCoordinator {
         default:
             isTimeScored = false; isRoundsScored = false
         }
-        let scoreTime = isTimeScored ? (session.capturedScoreTimeSeconds ?? total) : nil
+        // El tiempo del BLOQUE que puntúa, o nada: el total de la sesión (con
+        // calentamiento y vuelta a la calma) no es el tiempo de un For Time.
+        let scoreTime = isTimeScored ? session.capturedScoreTimeSeconds : nil
         let scoreRounds = isRoundsScored ? session.capturedScoreRounds : nil
         let scoreReps = isRoundsScored ? session.capturedScoreReps : nil
 

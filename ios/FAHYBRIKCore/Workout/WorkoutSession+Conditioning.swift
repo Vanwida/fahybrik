@@ -636,7 +636,9 @@ extension WorkoutSession {
             capturedScoreTimeSeconds = seg.formatTotalSeconds.map { min(elapsed, $0) } ?? elapsed
         case .amrap:
             capturedScoreRounds = fixedRoundsDone
-            capturedScoreReps = repsCurrentSegment
+            // Las reps de la ronda sin acabar solo si alguien las contó: la muñeca
+            // no las cuenta y mandaba un 0 que nadie dijo. Sin contar = no se sabe.
+            capturedScoreReps = repsCurrentSegment > 0 ? repsCurrentSegment : nil
         case .deathBy:
             capturedScoreRounds = rotRoundIndex          // minutes survived
         case .tabata:
