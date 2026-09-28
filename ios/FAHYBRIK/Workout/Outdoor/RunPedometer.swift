@@ -37,6 +37,9 @@ final class RunPedometer {
     /// Metros nuevos desde la última vez. La sesión los acumula como siempre.
     var onDistanceDelta: ((Double) -> Void)?
 
+    /// La cadencia del momento, en pasos por minuto, cuando el sistema la calcula.
+    var onCadence: ((Double) -> Void)?
+
     /// **OPCIONAL, y sólo se construye si el aparato SABE contar.** Un simulador —o un
     /// iPhone viejo sin podómetro— es el caso fácil del mismo problema: si el sensor no
     /// existe, aquí no se toca CoreMotion ni para instanciarlo. Degradar en silencio es
@@ -63,6 +66,12 @@ final class RunPedometer {
             // El sistema da el ACUMULADO desde el arranque; nosotros emitimos el salto.
             // Nunca negativo: si el sistema recalibra hacia abajo, se queda quieto en
             // vez de restarle metros a la carrera.
+            // La cadencia del momento (pasos/s → pasos/min), cuando el sistema la da.
+            // Va aparte de los metros: puede llegar una sin la otra.
+            if let pasosPorSegundo = data.currentCadence?.doubleValue, pasosPorSegundo.isFinite {
+                let spm = pasosPorSegundo * 60
+                DispatchQueue.main.async { self.onCadence?(spm) }
+            }
             let nuevos = total - self.reportedMeters
             guard nuevos > 0 else { return }
             self.reportedMeters = total

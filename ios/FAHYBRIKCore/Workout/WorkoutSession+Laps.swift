@@ -82,6 +82,20 @@ extension WorkoutSession {
             resetSegmentAccumulators()
             return
         }
+        // RUTA DE ESTACIONES: cada estación cerrada ya escribió SU lap (con su
+        // ejercicio, su máquina y su parcial — `recordFixedStationLap`). El agregado
+        // del bloque sería la misma vuelta otra vez con el ritmo mezclado. El Rx /
+        // Scaled es del bloque, así que viaja en cada estación.
+        if seg.fixedListIsStations,
+           laps.contains(where: { $0.segmentId == seg.id && $0.runLegIndex != nil }) {
+            let rx: String? = seg.isMetconFamily ? rxScaled : nil
+            for i in laps.indices where laps[i].segmentId == seg.id && laps[i].runLegIndex != nil {
+                laps[i].rxScaled = rx
+                laps[i].scaledNote = rx == "scaled" ? scaledNote : nil
+            }
+            resetSegmentAccumulators()
+            return
+        }
         // EMOM multi-station: each WORK minute already has its own LapRecord
         // (remo / ski / run / …). Stamp rounds on the last bout; skip the blend.
         if emomIntervalBoutsRecorded > 0 {
@@ -321,7 +335,8 @@ extension WorkoutSession {
             emomRoundsCompleted: capturedEmomCompleted,     // #break-1 (nil off an EMOM)
             emomRoundsPrescribed: capturedEmomPrescribed,
             inclinePct: mergedIncline,
-            runCadenceSpm: nil,   // no on-device running-cadence source yet (see LapRecord)
+            // Media del podómetro del móvil sobre el lap; nil si nadie la midió.
+            runCadenceSpm: mean(lapRunCadenceSamples).map { Int($0.rounded()) } ?? reopen?.runCadenceSpm,
             // Fall back to a reopened lap's erg detail so a back-step never drops it.
             dragFactor: avgDrag ?? reopen?.dragFactor,
             avgCaloriesPerHour: avgCalPerHour ?? reopen?.avgCaloriesPerHour,
@@ -346,6 +361,7 @@ extension WorkoutSession {
                 }
             }
         }
+        stamped.itemIndex = seg.sourceItemIndex
         laps.append(stamped)
         resetSegmentAccumulators()
     }
@@ -387,6 +403,7 @@ extension WorkoutSession {
         lapBeltOwnsDistance = false
         lapInclineSum = 0
         lapInclineCount = 0
+        lapRunCadenceSamples.removeAll(keepingCapacity: true)
         lapBeltDistanceMeters = 0
     }
 

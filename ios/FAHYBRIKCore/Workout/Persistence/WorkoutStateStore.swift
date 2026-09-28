@@ -66,6 +66,9 @@ struct PersistedWorkoutState: Codable {
     var freeTitle: String? = nil
     var freeModalityWire: String? = nil
     var freeItemsJSON: Data? = nil
+    /// Los ids del plan de un libre guardado antes de correr (ver
+    /// `WorkoutSession.freePlanSegmentIds`). Opcional: fotos viejas decodifican.
+    var freePlanSegmentIds: [Int]? = nil
     var runEnvironment: RunEnvironment? = nil
     var hasArmedInitial: Bool? = nil
     var isAwaitingBlockStart: Bool? = nil
