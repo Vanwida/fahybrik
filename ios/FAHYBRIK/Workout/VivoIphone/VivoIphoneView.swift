@@ -28,6 +28,8 @@ struct VivoIphoneView: View {
     let alTerminarYGuardar: () -> Void
     /// La página con la que arranca (las capturas piden Estructura).
     var paginaInicial: VivoIdPagina = .vivo
+    /// Lo que el vivo ya sabía al montarse a mitad de sesión (las capturas).
+    var arranque = VivoArranque()
 
     @State private var pagina: VivoIdPagina = .vivo
     @State private var toast: (n: Int, aviso: String, hacer: () -> Void)? = nil
@@ -110,7 +112,7 @@ struct VivoIphoneView: View {
                         .id(t.n)
                 }
                 if session.isPaused, !hoja { VivoVeloPausa() }
-                if let n = c.estado.cuenta { VivoCuentaAtras(n: n, paso: c.paso) }
+                if let n = c.estado.cuenta { VivoCuentaAtras(n: n, paso: c.pasoDeLaCuenta) }
                 if hoja {
                     VivoHojaTerminar(resumen: Vivo.resumenParaTerminar(c.paso, sesionM: c.estado.sesion.metros ?? 0, sesionErgoM: c.estado.sesionErgoM, sesionT: c.estado.sesion.t),
                                      alTerminar: { hoja = false; terminado = true; alTerminarYGuardar() },
@@ -123,7 +125,16 @@ struct VivoIphoneView: View {
             .animation(.easeOut(duration: 0.2), value: hoja)
             .animation(.easeOut(duration: 0.2), value: toast?.n)
         }
-        .onAppear { pagina = paginaInicial; refrescarPlan(); syncRunModels(); actividad.empezar(titulo: session.plan.name) }
+        .onAppear {
+            pagina = paginaInicial; refrescarPlan(); syncRunModels(); actividad.empezar(titulo: session.plan.name)
+            declaradas.merge(arranque.declaradas) { _, nuevo in nuevo }
+            if let f = arranque.foco { foco = f }
+            if let a = arranque.aviso { avisar(a) {} }
+        }
+        // La fuerza (VivoFuerzaMotor): la serie por tiempo se cierra sola; al acabar
+        // un descanso, al siguiente ejercicio o a la serie por tiempo desde cero.
+        .onChange(of: session.elapsedSeconds) { _, _ in session.vivoCerrarSerieCumplida() }
+        .onChange(of: session.restRemainingSeconds) { antes, ahora in if antes > 0, ahora <= 0 { session.vivoAlAcabarDescanso() } }
         .onChange(of: session.currentSegmentIndex) { _, _ in syncRunModels(); foco = nil }
         .onChange(of: session.tramoKey) { _, _ in syncRunModels() }
         .onChange(of: session.runEnvironment) { _, _ in refrescarPlan(); syncRunModels() }
@@ -227,15 +238,24 @@ struct VivoIphoneView: View {
             session.deathByLogged()
             return
         case .empezarYa where session.restRemainingSeconds > 0:
+            // Cortar el descanso se puede deshacer; lo que viene lo decide
+            // `vivoAlAcabarDescanso` (la serie siguiente o el siguiente ejercicio).
+            let resto = (seg: session.currentSegmentIndex, queda: session.restRemainingSeconds, total: session.restTotalSeconds)
             session.dismissRest()
+            avisar(c.avisoCierre) {
+                if session.currentSegmentIndex == resto.seg { session.restRemainingSeconds = resto.queda; session.restTotalSeconds = resto.total }
+                else if session.canStepBack { session.stepBack() }
+            }
             return
         default:
             break
         }
         if session.currentBlockIsStructural { alAccionDelHost(); return }
         let antes = (session.currentSegmentIndex, session.setRecords.firstIndex { !$0.confirmed })
+        let cerrado = c.paso.id
         session.primaryAdvance(fromAthleteTap: true)
-        avisar(c.avisoCierre) { deshacer(antes: antes) }
+        session.vivoTrasCerrarSerie()
+        avisar(c.avisoCierre) { deshacer(antes: antes, paso: cerrado) }
     }
 
     private func avisar(_ aviso: String, hacer: @escaping () -> Void) {
@@ -245,11 +265,11 @@ struct VivoIphoneView: View {
     }
 
     /// Deshacer un cierre a mano: la serie de fuerza reabre; el resto retrocede el motor si puede.
-    private func deshacer(antes: (segmento: Int, serie: Int?)) {
+    private func deshacer(antes: (segmento: Int, serie: Int?), paso: String) {
         if session.currentSegmentIndex == antes.segmento, let k = antes.serie, session.setRecords.indices.contains(k), session.setRecords[k].confirmed {
             session.dismissRest()
             session.setRecords[k].confirmed = false
-            declaradas[session.plan.segments[antes.segmento].id.uuidString + "-\(k)"] = nil
+            declaradas[paso] = nil
             return
         }
         if session.fixedRoundsDone > 0, session.currentSegment?.isConditioningTimer == true { session.unmarkLastRound(); return }

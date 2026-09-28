@@ -36,6 +36,9 @@ struct VivoIphoneCuadro {
     let registro: Vivo.Registro
     let seriesAnotables: [VivoSerieAnotable]
     let avisoCierre: String
+    /// De qué paso habla la cuenta atrás: del que ENTRA (el trabajo tras un
+    /// descanso o un «Colócate»), no del que se acaba.
+    let pasoDeLaCuenta: Vivo.Paso
 
     /// `declaradas`: los campos que el atleta confirmó o tocó en la anotación
     /// (por id de paso); lo demás sigue propuesto (I7).
@@ -73,10 +76,8 @@ struct VivoIphoneCuadro {
         if f == .fuerza || p.rol == .descanso {
             x.cargaKg = Vivo.cargaArrastrada(e.pasos, e.i, registro)
             x.ultimaSerie = Vivo.ultimaSerieAnotada(e.pasos, e.i, registro)
-            if let o = p.origen, case let .serie(k) = o.ventana {
-                let sets = seg?.prescription?.sets ?? []
-                if let rest = (sets.indices.contains(k) ? sets[k].restS : nil) ?? seg?.prescription?.restS, rest > 0 { x.descansoS = Double(rest) }
-            }
+            // El descanso NO va a la rejilla de la fuerza: ya lo dice «Luego ·
+            // Descanso · 2′» (contrato `iphone-vivo-fuerza`, un dato, un sitio).
         }
         extra = x
 
@@ -117,6 +118,7 @@ struct VivoIphoneCuadro {
         fraccion = Vivo.fraccionDelPaso(p, e.lecturas)
         conMapa = e.pasos.contains(where: Vivo.usaGps)
         avisoCierre = Vivo.avisoDeCierre(p)
+        pasoDeLaCuenta = (p.rol != .trabajo && e.i + 1 < e.pasos.count && e.pasos[e.i + 1].rol == .trabajo) ? e.pasos[e.i + 1] : p
 
         // ── la anotación del descanso de fuerza (I7) ─────────────────────
         var series: [VivoSerieAnotable] = []
