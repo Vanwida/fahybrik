@@ -55,7 +55,7 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     ///   • `.session` — a real assignment for today (pending OR already done). Fetches
     ///     the assignment detail (local cache first, network fallback) so the watch
     ///     can build the full WorkoutPlan; embeds it under the applicationContext
-    ///     size ceiling, else falls back to a summary-only push. A missing/empty id
+    ///     size ceiling, else the detail follows as a file. A missing/empty id
     ///     is a caller bug for a session day → CLEAR rather than push a shell.
     ///   • `.rest` — a genuine rest day: no assignment, but the readiness fields still
     ///     ride so the athlete glances readiness on the wrist. NOT an empty context
@@ -167,24 +167,28 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
 
-        // Encode (+ size-cap fallback) up front so the pending copy held across an
-        // activation race is already transport-ready.
+        // Activation is async: a push fired before it completes is silently dropped
+        // by WCSession. Hold the latest (WHOLE, detail included, so the flush splits
+        // it again) and flush it from activationDidCompleteWith.
+        guard session.activationState == .activated else {
+            pendingContext = .push(payload)
+            return
+        }
+
         var finalPayload = payload
         guard var data = try? WatchWire.encoder.encode(finalPayload) else { return }
-        // Over the applicationContext ceiling with the embedded detail → send the
-        // summary only; the watch runs a minimal session and re-fetches on open.
-        if data.count > WatchWire.maxContextBytes, payload.detailJson != nil {
+        // Over the applicationContext ceiling with the embedded detail → the summary
+        // goes in the context and the detail as a FILE (`transferFile` has no such
+        // ceiling). The watch never runs a title-only session in the meantime, and
+        // asks for the detail if the file never lands (`WatchSessionPlan`).
+        var detailAsFile: (assignmentId: String, detailJson: Data)?
+        if data.count > WatchWire.maxContextBytes, let detailJson = payload.detailJson {
             finalPayload = payload.droppingDetail()
             guard let slim = try? WatchWire.encoder.encode(finalPayload) else { return }
             data = slim
+            if let id = payload.assignmentId { detailAsFile = (id, detailJson) }
         }
 
-        // Activation is async: a push fired before it completes is silently dropped
-        // by WCSession. Hold the latest and flush it from activationDidCompleteWith.
-        guard session.activationState == .activated else {
-            pendingContext = .push(finalPayload)
-            return
-        }
         guard session.isPaired, session.isWatchAppInstalled else { return }
 
         do {
@@ -193,6 +197,67 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         } catch {
             // Silent; watch keeps its last known good context.
         }
+        if let detailAsFile {
+            transferDetailFile(assignmentId: detailAsFile.assignmentId,
+                               detailJson: detailAsFile.detailJson, force: false)
+        }
+    }
+
+    // MARK: - El detalle de la sesión por fichero
+
+    /// Lo último que salió por fichero en este proceso (asignación + bytes), para no
+    /// mandar el mismo detalle en cada empuje del día. Una petición del reloj lo manda
+    /// siempre (`force`): si la muñeca pregunta, es que no lo tiene.
+    @MainActor private var lastDetailFileSent: (assignmentId: String, detailJson: Data)?
+
+    /// Manda el detalle de una sesión como fichero. Un nombre por envío (el sistema
+    /// lee el fichero mientras transfiere); se borra al terminar la transferencia.
+    /// Una petición del reloj con uno ya de camino no manda otro; un detalle nuevo
+    /// (el coach lo cambió) cancela el viejo en vuelo y sale él.
+    @MainActor
+    private func transferDetailFile(assignmentId: String, detailJson: Data, force: Bool) {
+        let session = WCSession.default
+        guard session.activationState == .activated,
+              session.isPaired, session.isWatchAppInstalled else { return }
+        if !force, let last = lastDetailFileSent,
+           last.assignmentId == assignmentId, last.detailJson == detailJson { return }
+        let inFlight = session.outstandingFileTransfers.filter {
+            ($0.file.metadata?[WatchWireKeys.detailAssignmentId] as? String) == assignmentId
+        }
+        if force, !inFlight.isEmpty { return }
+        inFlight.forEach { $0.cancel() }
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("watch-session-detail", isDirectory: true)
+        let url = dir.appendingPathComponent("\(UUID().uuidString).json")
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try detailJson.write(to: url, options: .atomic)
+        } catch {
+            DiagnosticsLog.shared.record(.link, .sessionDetail, error: error, detail: "write")
+            return
+        }
+        session.transferFile(url, metadata: [WatchWireKeys.detailAssignmentId: assignmentId])
+        lastDetailFileSent = (assignmentId, detailJson)
+        DiagnosticsLog.shared.record(.link, .sessionDetail, outcome: .ok,
+                                     detail: "file_sent bytes=\(detailJson.count) force=\(force)")
+    }
+
+    /// La muñeca pide el detalle de una sesión: de la caché, o del servidor si no
+    /// está. Sin detalle que dar no se manda nada (la muñeca sigue esperando y dice
+    /// por qué); nunca un sustituto.
+    @MainActor
+    private func answerDetailRequest(assignmentId: String) async {
+        var detail = AssignmentDetailCache.load(assignmentId)
+        if detail == nil, let bearer = KeychainTokenStore.shared.read() {
+            detail = try? await PlanService.fetchAssignmentDetail(assignmentId, bearer: bearer)
+            if let detail { AssignmentDetailCache.save(detail) }
+        }
+        guard let detail, let json = Self.encodeDetail(detail) else {
+            DiagnosticsLog.shared.record(.link, .sessionDetail, outcome: .failed, domain: "unavailable",
+                                         detail: "request")
+            return
+        }
+        transferDetailFile(assignmentId: assignmentId, detailJson: json, force: true)
     }
 
     /// ACABAR EN UN SITIO ES ACABAR: decirle al reloj que este entreno ya terminó
@@ -531,6 +596,9 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         Task { @MainActor in
             if Self.applyLiveEnded(message) { return }
+            if let id = message[WatchWireKeys.detailRequest] as? String {
+                await self.answerDetailRequest(assignmentId: id)
+            }
         }
     }
 
@@ -545,6 +613,10 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         }
         Task { @MainActor in
             if Self.applyLiveEnded(userInfo) { return }
+            if let id = userInfo[WatchWireKeys.detailRequest] as? String {
+                await self.answerDetailRequest(assignmentId: id)
+                return
+            }
             guard let data = userInfo[WatchWireKeys.executionResult] as? Data else { return }
             await self.handleIncomingExecution(data)
         }
@@ -579,5 +651,15 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         // Sensor archive from the wrist (fase 0). Only the metadata+path land here;
         // upload runs when consent is present and an execution_id is known.
         SensorFileReceiver.shared.didReceive(file: file)
+    }
+
+    /// Fin de un fichero que salió del móvil: el detalle de una sesión. Se borra su
+    /// copia temporal (entregado o no: si no llegó, la muñeca lo vuelve a pedir).
+    func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {
+        guard fileTransfer.file.metadata?[WatchWireKeys.detailAssignmentId] != nil else { return }
+        if let error {
+            DiagnosticsLog.shared.record(.link, .sessionDetail, error: error, detail: "file_transfer")
+        }
+        try? FileManager.default.removeItem(at: fileTransfer.file.fileURL)
     }
 }

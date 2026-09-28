@@ -118,6 +118,30 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         }
     }
 
+    // MARK: - El detalle de la sesión (iPhone → reloj por fichero)
+
+    /// «Me falta el detalle de esta sesión». Con el teléfono a tiro, por mensaje
+    /// (despierta la app del iPhone en segundo plano); si no, o si el mensaje falla,
+    /// por `transferUserInfo`, que espera al teléfono. Una sola petición en cola por
+    /// asignación. Sin activar no se pide: la activación vuelve a mirarlo.
+    func requestDetail(assignmentId: String) {
+        let session = WCSession.default
+        guard session.activationState == .activated else { return }
+        let body: [String: Any] = [WatchWireKeys.detailRequest: assignmentId]
+        let queued = session.outstandingUserInfoTransfers.contains {
+            ($0.userInfo[WatchWireKeys.detailRequest] as? String) == assignmentId
+        }
+        DiagnosticsLog.shared.record(.link, .sessionDetail,
+                                     detail: "request reachable=\(session.isReachable) queued=\(queued)")
+        if session.isReachable {
+            session.sendMessage(body, replyHandler: nil) { _ in
+                if !queued { session.transferUserInfo(body) }
+            }
+        } else if !queued {
+            session.transferUserInfo(body)
+        }
+    }
+
     // MARK: - Sensor archive (fase 0)
 
     /// Hand a finished sensor capture file to the phone for archive (only when the
@@ -223,8 +247,11 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         // keeps the LATEST context, surfaced here. Read it through the same update
         // path so the plan lands now instead of waiting for the next push.
         let context = session.receivedApplicationContext
-        if !context.isEmpty {
-            Task { @MainActor in WatchPlanModel.shared.update(from: context) }
+        Task { @MainActor in
+            if !context.isEmpty { WatchPlanModel.shared.update(from: context) }
+            // El día guardado (o el recién leído) sin su detalle: se pide ahora, que
+            // ya se puede hablar con el teléfono.
+            WatchPlanModel.shared.requestDetailIfMissing()
         }
         // Una sola activación por proceso: es el arranque, y un sobre escenificado
         // que se quedó sin «Listo» es de un proceso que murió.
@@ -241,8 +268,11 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
             self?.isReachable = session.isReachable
         }
         // El teléfono vuelve a estar a tiro: lo que espera acuse desde hace más de
-        // una hora sale otra vez.
-        if session.isReachable { drainOutbox() }
+        // una hora sale otra vez, y el detalle que falte se pide.
+        if session.isReachable {
+            drainOutbox()
+            Task { @MainActor in WatchPlanModel.shared.requestDetailIfMissing() }
+        }
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
@@ -298,6 +328,19 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         // Con error se queda: WCSession lo reintenta y el drenado lo vuelve a sacar.
         if error == nil {
             mutateOutbox { $0.deliveredToPhone(data, at: Date()) }
+        }
+    }
+
+    /// Un fichero del iPhone: el detalle de una sesión que no cupo en el contexto.
+    /// SE LEE AQUÍ, SÍNCRONO: WatchConnectivity borra el fichero al volver.
+    func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        guard let assignmentId = file.metadata?[WatchWireKeys.detailAssignmentId] as? String else { return }
+        guard let data = try? Data(contentsOf: file.fileURL) else {
+            DiagnosticsLog.shared.record(.link, .sessionDetail, outcome: .failed, domain: "read")
+            return
+        }
+        Task { @MainActor in
+            WatchPlanModel.shared.receiveDetailFile(data, assignmentId: assignmentId)
         }
     }
 

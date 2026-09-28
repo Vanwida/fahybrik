@@ -160,10 +160,14 @@ final class WatchWorkoutCoordinator {
             Self.log.warning("start() declined — phone is coach")
             return
         }
-        let engine = WorkoutSession(
-            plan: runnablePlan(payload: payload, detail: detail),
-            hrZones: Self.hrZones(from: payload)
-        )
+        // SOLO EL PLAN DEL COACH. Sin su detalle no se empieza nada: un plan de solo
+        // título se guardaba contra la asignación como hecho, con un tiempo inventado.
+        guard let plan = sessionPlan(for: detail).runnable else {
+            Self.log.warning("start() declined — no coach plan on the wrist")
+            WatchPlanModel.shared.requestDetailIfMissing()
+            return
+        }
+        let engine = WorkoutSession(plan: plan, hrZones: Self.hrZones(from: payload))
         launch(engine: engine, payload: payload, reusePrimary: false)
     }
 

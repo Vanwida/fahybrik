@@ -34,6 +34,9 @@ enum DiagName: String, CaseIterable, Sendable {
     /// El aviso de fin cruzando (móvil→reloj `live_end`, reloj→móvil `live_ended`).
     case liveEndSent = "live_end_sent"
     case liveEndReceived = "live_end_received"
+    /// El detalle de la sesión del día cruzando al reloj cuando no cabe en el
+    /// contexto: la muñeca lo pide, el móvil lo manda por fichero, la muñeca lo guarda.
+    case sessionDetail = "session_detail"
 
     // MARK: session — la sesión de entreno en cada lado
     /// Móvil: empieza a entrenar (Empezar).

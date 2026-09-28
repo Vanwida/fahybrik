@@ -114,7 +114,7 @@ struct RootView: View {
             } else {
                 PreWorkoutFlow(
                     payload: today,
-                    plan: coordinator.previewPlan(for: plan.assignmentDetail)
+                    sessionPlan: coordinator.sessionPlan(for: plan.assignmentDetail)
                 ) {
                     coordinator.start(payload: today, detail: plan.assignmentDetail)
                 }
@@ -129,7 +129,7 @@ struct RootView: View {
 
 private struct PreWorkoutFlow: View {
     let payload: WatchTodayPayload
-    let plan: WorkoutPlan?
+    let sessionPlan: WatchSessionPlan
     let onStart: () -> Void
 
     var body: some View {
@@ -140,11 +140,11 @@ private struct PreWorkoutFlow: View {
                     delta7d: payload.readinessDelta7d,
                     worstDriver: payload.readinessWorstDriver
                 )
-                TodayBriefView(payload: payload, plan: plan, onStart: onStart)
+                TodayBriefView(payload: payload, sessionPlan: sessionPlan, onStart: onStart)
             }
             .tabViewStyle(.verticalPage)
         } else {
-            TodayBriefView(payload: payload, plan: plan, onStart: onStart)
+            TodayBriefView(payload: payload, sessionPlan: sessionPlan, onStart: onStart)
         }
     }
 }
