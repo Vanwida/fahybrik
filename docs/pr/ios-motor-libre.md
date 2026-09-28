@@ -24,6 +24,11 @@ Decisión: `docs/DECISIONS.md` 2026-09-28. Contrato del guardado del libre (serv
 
 ## Lo que el servidor tiene que hacer (no inventado aquí)
 
+> **Hecho en el servidor (2026-09-28):** los puntos 1, 3, 4 y 5. La ronda llega en base
+> 0 y se GUARDA + 1 (0155 reserva el 0 para «no se repite»); `execution.segments[]` la
+> devuelve ya en la escala de la base (`round_index` 0 = no se repite, N ≥ 1 = ronda N).
+> Ver DECISIONS 2026-09-28 «El servidor cierra el contrato del motor por formato».
+
 1. **`round_index` en los tramos.** La app manda `round_index` (base 0) en cada tramo
    que es un bout: la ronda exterior de una ruta de estaciones, el minuto de un EMOM,
    la serie de un interválico. `segment_executions.round_index` existe (0155), pero
