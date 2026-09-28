@@ -186,7 +186,7 @@ struct VivoIphoneView: View {
         if let b = c.banda { VivoBandaObjetivo(banda: b) } else if let i = c.instruccion { VivoObjetivoInstruccion(texto: i) }
         if let t = c.trabajo {
             // «+30 s» solo en un descanso que se estira: el del reloj de pared (tabata) no.
-            let estira = c.enDescanso && c.paso.rol == .descanso && c.familia != .pared
+            let estira = c.enDescanso && c.paso.rol == .descanso && c.paso.wod?.formato != .pared
             VivoTrabajo(trabajo: t) { if estira { VivoMas30 { sumar30() } } }
         }
     }

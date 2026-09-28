@@ -95,7 +95,9 @@ extension VivoIphoneCapturasTests {
             s.ergConnected = true
             self.enVentana(s, t: 24, sesion: 204)
             s.emomPhaseRemaining = 36
-            s.sampleErg(paceSecPer500m: 132, powerWatts: 160, strokeRate: 28, distanceMeters: 91, caloriesKcal: 7)
+            // El monitor al empezar el minuto y ahora: los metros y calorías de ESTE minuto son la diferencia.
+            s.sampleErg(paceSecPer500m: 132, powerWatts: 160, strokeRate: 28, distanceMeters: 225, caloriesKcal: 18)
+            s.sampleErg(paceSecPer500m: 132, powerWatts: 160, strokeRate: 28, distanceMeters: 316, caloriesKcal: 25)
             PM5ConnectionStore.shared.live.paceSecondsPer500m = 132
             s.injectLiveHR(151, source: .strap)
         }
@@ -138,7 +140,7 @@ extension VivoIphoneCapturasTests {
 
     @MainActor
     func testWodAmrapCampana() throws {
-        let s = amrapEn(try W.amrapRemo(), rondas: 5, t: 719.9)
+        let s = amrapEn(try W.amrapRemo(), rondas: 5, t: 720.5)
         s.tickConditioning(dt: 0.25)
         s.elapsedSeconds = 720
         XCTAssertTrue(s.isAwaitingFinishDecision, "la campana: el motor espera la puntuación")

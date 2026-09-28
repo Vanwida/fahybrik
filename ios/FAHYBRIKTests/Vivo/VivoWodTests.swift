@@ -117,7 +117,7 @@ final class VivoWodTests: XCTestCase {
         XCTAssertEqual(Vivo.posicionDe(e.paso), ["Wall Ball", "Estación 2/10"], v)
         XCTAssertEqual(Vivo.formatoDe(e.paso), "For Time · cap 25′")
         XCTAssertEqual(Vivo.trabajoDe(e.paso, e.lecturas, heroe: .crono)?.valor, "40 Wall Ball · 9 kg")
-        XCTAssertEqual(Vivo.textoEstacion(e.pasos[2]), "30 cal Row", v)
+        XCTAssertEqual(Vivo.textoEstacion(e.pasos[2]), "30\u{00A0}cal Row", v)
         XCTAssertEqual(Vivo.textoEstacion(e.pasos[8]), "100\u{00A0}m Farmers Carry · 2 × 24 kg", v)
         XCTAssertEqual(Vivo.textoEstacion(e.pasos[9]), "Run · 800\u{00A0}m", "la carrera usa la cara de correr\n\(v)")
         XCTAssertEqual(e.pasos[2].cierre, .medida, "el Row por calorías se cierra solo")
