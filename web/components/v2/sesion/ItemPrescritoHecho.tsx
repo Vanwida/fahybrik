@@ -17,6 +17,7 @@
 
 import { Fragment } from 'react';
 import { Pill, type PillTone } from '@/components/v2/Pill';
+import { cn } from '@/lib/utils';
 import { formatDuration, prescriptionToText } from '@fahybrid/shared/domain/prescription';
 import {
   RUN_COMPLIANCE_LABEL,
@@ -24,7 +25,7 @@ import {
   type RunComplianceVerdict,
 } from '@fahybrid/shared/domain/adherence';
 import type { AssignmentDetailItem, AssignmentDetailParamsJson } from '@/lib/athlete/assignment-detail';
-import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
+import type { SegmentActual, SetActual } from '@/lib/dashboard/coach/session-actuals';
 import type { ErgSplitItem } from '@/lib/execution/erg-splits';
 
 // ── pace m:ss (s → "4:15"); seconds always zero-padded. ─────────────────────
@@ -74,8 +75,19 @@ export function actualTokens(a: SegmentActual): string[] {
   if (a.emom_rounds_completed != null && a.emom_rounds_prescribed != null) {
     t.push(`${a.emom_rounds_completed}/${a.emom_rounds_prescribed} rondas`);
   }
-  if (a.reps_completed != null) t.push(`${a.reps_completed} reps`);
-  if (a.weight_used_kg != null) t.push(`${round(a.weight_used_kg, 1)} kg`);
+  // Registrado serie a serie: el resumen es cuántas series y cuántos kilos
+  // movió; el detalle va en la tabla de series (`SetsTable`). Las columnas de
+  // tramo `reps_completed`/`weight_used_kg` NO se enseñan entonces: con series
+  // son un resumen ambiguo (reps nulas y la carga de la última), justo lo que
+  // hacía leer «@120 kg» a un 5×100 · 5×110 · 3×115 · 3×120.
+  if (a.sets.length > 0) {
+    const done = a.sets.filter((st) => st.status !== 'skipped').length;
+    t.push(`${done} ${done === 1 ? 'serie' : 'series'}`);
+    if (a.volume_kg != null) t.push(`${round(a.volume_kg)} kg vol.`);
+  } else {
+    if (a.reps_completed != null) t.push(`${a.reps_completed} reps`);
+    if (a.weight_used_kg != null) t.push(`${round(a.weight_used_kg, 1)} kg`);
+  }
   if (a.distance_meters != null) t.push(`${round(a.distance_meters)} m`);
   if (a.avg_pace_s_per_km != null) t.push(`${paceClock(a.avg_pace_s_per_km)}/km`);
   if (a.avg_pace_s_per_500m != null) t.push(`${paceClock(a.avg_pace_s_per_500m)}/500m`);
@@ -83,7 +95,7 @@ export function actualTokens(a: SegmentActual): string[] {
   if (a.stroke_rate_spm != null) t.push(`${round(a.stroke_rate_spm)} spm`);
   // Duration is the primary work measure only when there's no distance/reps to
   // describe the segment — otherwise it's noise next to "1000 m".
-  if (a.duration_seconds != null && a.distance_meters == null && a.reps_completed == null) {
+  if (a.duration_seconds != null && a.distance_meters == null && a.reps_completed == null && a.sets.length === 0) {
     t.push(formatDuration(a.duration_seconds));
   }
   if (a.avg_hr != null) t.push(`${a.avg_hr} ppm`);
@@ -178,6 +190,90 @@ export function SplitsTable({
   );
 }
 
+// «5/5» cuando se pidió un número y «5» cuando no: lo pedido va apagado al lado,
+// nunca en lugar de lo hecho.
+function withAsked(done: string, asked: string | null) {
+  return asked != null && asked !== done ? (
+    <>
+      {done}
+      <span className="text-[color:var(--v2-faint)]"> /{asked}</span>
+    </>
+  ) : (
+    done
+  );
+}
+
+// Serie a serie (`set_executions`): reps y carga (con lo pedido al lado cuando
+// difiere), y RPE / RIR / tempo / descanso solo si alguna serie los trae — una
+// columna vacía es ruido, no un dato. Una serie saltada se ve, apagada: pasó.
+export function SetsTable({ sets }: { sets: SetActual[] }) {
+  const hasRpe = sets.some((st) => st.rpe != null);
+  const hasRir = sets.some((st) => st.rir != null);
+  const hasTempo = sets.some((st) => st.tempo != null);
+  const hasRest = sets.some((st) => st.rest_s != null);
+  const kgText = (n: number | null) => (n != null ? round(n, 1) : null);
+  return (
+    <div className="mt-0.5 overflow-x-auto rounded-ctl border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)]">
+      <table className="w-full border-collapse t-meta">
+        <thead>
+          <tr className="text-[color:var(--v2-faint)]">
+            <th className="px-2.5 py-1 text-left font-medium">Serie</th>
+            <th className="px-2 py-1 text-right font-medium">Reps</th>
+            <th className="px-2 py-1 text-right font-medium">Kg</th>
+            {hasRpe ? <th className="px-2 py-1 text-right font-medium">RPE</th> : null}
+            {hasRir ? <th className="px-2 py-1 text-right font-medium">RIR</th> : null}
+            {hasTempo ? <th className="px-2 py-1 text-right font-medium">Tempo</th> : null}
+            {hasRest ? <th className="px-2.5 py-1 text-right font-medium">Desc.</th> : null}
+          </tr>
+        </thead>
+        <tbody className="t-tnum text-[color:var(--v2-fg)]">
+          {sets.map((st) => {
+            const skipped = st.status === 'skipped';
+            return (
+              <tr
+                key={st.set_index}
+                className={cn('border-t border-[color:var(--v2-border)]', skipped && 'text-[color:var(--v2-faint)]')}
+              >
+                <td className="px-2.5 py-1 text-left text-[color:var(--v2-muted)]">
+                  {st.set_index}
+                  {skipped ? ' · saltada' : st.status === 'scaled' ? ' · escalada' : ''}
+                </td>
+                <td className="px-2 py-1 text-right">
+                  {st.reps != null
+                    ? withAsked(String(st.reps), st.reps_prescribed != null ? String(st.reps_prescribed) : null)
+                    : '—'}
+                </td>
+                <td className="px-2 py-1 text-right">
+                  {st.kg != null ? withAsked(kgText(st.kg)!, kgText(st.kg_prescribed)) : '—'}
+                </td>
+                {hasRpe ? <td className="px-2 py-1 text-right">{cell(st.rpe, (n) => round(n, 1))}</td> : null}
+                {hasRir ? <td className="px-2 py-1 text-right">{cell(st.rir, (n) => round(n, 1))}</td> : null}
+                {hasTempo ? <td className="px-2 py-1 text-right">{st.tempo ?? '—'}</td> : null}
+                {hasRest ? (
+                  <td className="px-2.5 py-1 text-right text-[color:var(--v2-muted)]">{cell(st.rest_s, formatDuration)}</td>
+                ) : null}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** El detalle de un tramo que no cabe en chips: los parciales del PM5 y las series.
+ *  Un solo sitio, para que la línea prescrita y el tramo sin asociar enseñen lo mismo. */
+export function ActualDetail({ a }: { a: SegmentActual }) {
+  return (
+    <>
+      {a.erg_splits && a.erg_splits.length > 0 ? (
+        <SplitsTable splits={a.erg_splits} dragFactor={a.drag_factor} calPerHour={a.avg_calories_per_hour} />
+      ) : null}
+      {a.sets.length > 0 ? <SetsTable sets={a.sets} /> : null}
+    </>
+  );
+}
+
 export function HechoChips({ tokens }: { tokens: string[] }) {
   return (
     <span className="flex flex-wrap items-center gap-1.5">
@@ -237,9 +333,9 @@ export function ItemPrescritoHecho({
                 )}
                 {verdict ? <VerdictPill verdict={verdict} /> : null}
               </span>
-              {a.erg_splits && a.erg_splits.length > 0 ? (
-                <div className="col-span-2">
-                  <SplitsTable splits={a.erg_splits} dragFactor={a.drag_factor} calPerHour={a.avg_calories_per_hour} />
+              {(a.erg_splits && a.erg_splits.length > 0) || a.sets.length > 0 ? (
+                <div className="col-span-2 flex flex-col gap-1.5">
+                  <ActualDetail a={a} />
                 </div>
               ) : null}
             </Fragment>

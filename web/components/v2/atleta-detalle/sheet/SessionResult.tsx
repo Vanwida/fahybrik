@@ -9,7 +9,7 @@ import { Link } from '@/i18n/navigation';
 import { ChevronRight } from 'lucide-react';
 import { EmptyState, ErrorState, KPI, KPIRow, SectionHeader, Skeleton } from '@/components/v2/ui';
 import { apiJson, errorMessage } from '@/components/v2/shared/api';
-import { HechoChips, ItemPrescritoHecho, SplitsTable, actualTokens } from '@/components/v2/sesion/ItemPrescritoHecho';
+import { ActualDetail, HechoChips, ItemPrescritoHecho, actualTokens } from '@/components/v2/sesion/ItemPrescritoHecho';
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
 import type { RunComplianceVerdict } from '@fahybrid/shared/domain/adherence';
@@ -125,9 +125,7 @@ export function SessionResult({ athleteId, sessionId }: { athleteId: string; ses
           {unmatched.map((a) => (
             <div key={a.position} className="flex flex-col gap-1.5 rounded-ctl border border-v2-border px-3 py-2">
               <HechoChips tokens={actualTokens(a)} />
-              {a.erg_splits && a.erg_splits.length > 0 ? (
-                <SplitsTable splits={a.erg_splits} dragFactor={a.drag_factor} calPerHour={a.avg_calories_per_hour} />
-              ) : null}
+              <ActualDetail a={a} />
             </div>
           ))}
         </section>
