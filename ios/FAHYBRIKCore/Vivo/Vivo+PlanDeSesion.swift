@@ -35,6 +35,8 @@ extension Vivo {
         for (s, seg) in plan.segments.enumerated() {
             pasos.append(contentsOf: pasosDe(seg, indice: s, entorno: entorno, test: test, ultimo: s == plan.segments.count - 1))
         }
+        // Un bloque continuo remo → ski → bici son N tramos de una pieza (familia circuito).
+        marcarTramosContinuos(&pasos) { s in plan.segments[s].formatScheme?.presentation == .continuous }
         return PlanVivo(pasos: pasos, zonas: zonasDe(zonas))
     }
 
@@ -187,9 +189,9 @@ extension Vivo {
                      mide: medida.mide, corre: mod == .run ? true : nil)
     }
 
-    private static func descanso(_ segundos: Int, id: String, fase: Fase, bloque: Int, origen: Origen, wod: InfoWod? = nil) -> Paso {
+    private static func descanso(_ segundos: Int, id: String, fase: Fase, bloque: Int, origen: Origen, wod: InfoWod? = nil, posicion: Posicion? = nil) -> Paso {
         Paso(id: id, clase: .descanso, rol: .descanso, fase: fase, medida: Medida(tipo: .tiempo, prescrito: Double(segundos), mide: .reloj),
-             cierre: .medida, bloque: bloque, wod: wod, origen: origen)
+             posicion: posicion, cierre: .medida, bloque: bloque, wod: wod, origen: origen)
     }
 
     // MARK: - A · La carrera estructurada (piernas)
@@ -379,7 +381,15 @@ extension Vivo {
         let restBloque = seg.prescription?.restS ?? 0
         var out: [Paso] = []
 
-        func estacion(k: Int, set: PrescriptionSet?, nombre: String, posicion: Posicion?, ventana: Origen.Ventana) -> Paso {
+        func estacion(k: Int, set: PrescriptionSet?, nombre: String, posicion: Posicion?, ventana: Origen.Ventana, roxzone: SentidoRoxzone? = nil) -> Paso {
+            // La Roxzone que el coach escribe en la lista: un paso propio, abierto,
+            // que se cierra con un toque («Empiezo», «Salgo a correr»). El motor no
+            // detecta que vuelves a correr: no se finge.
+            if let roxzone {
+                return Paso(id: "s\(s)-t\(k)", clase: .roxzone, rol: .transicion, fase: fase,
+                            medida: Medida(tipo: .abierta, prescrito: nil, mide: .atleta), posicion: posicion, nombre: nombre,
+                            cierre: .atleta, bloque: bloque, roxzone: roxzone, origen: Origen(segmento: s, ventana: ventana))
+            }
             let mod = set?.modality ?? seg.resolvedModality
             let maquina = maquinaDe(mod, ergKind: componentes.count <= 1 ? seg.ergKind : nil)
             let medida = medidaDe(set?.measure ?? (componentes.count <= 1 ? seg.scalarMeasure : nil), modalidad: mod, entorno: entorno)
@@ -399,12 +409,24 @@ extension Vivo {
             let n = Swift.max(1, componentes.count)
             let rondas = Swift.max(1, seg.formatRounds ?? 1)
             let hyrox = scheme == .hyroxSim && rondas == 1
+            // La familia circuito (rondas, HYROX): el Run no es estación, la Roxzone
+            // es su paso, y en una lista «Run · estación · Run…» cada Run abre ronda.
+            let circuito = formatoCircuitoDe(scheme) != nil
+            let corre = (0..<n).map { (seg.rotationSet(at: $0)?.modality ?? seg.resolvedModality) == .run }
+            let rox = (0..<n).map { circuito && componentes.indices.contains($0) && esRoxzone(componentes[$0].name) }
+            let porCarrera = circuito && rondas == 1 ? posicionesPorCarrera(corre: corre, roxzone: rox, hyrox: hyrox) : nil
+            let enRonda = circuito ? estacionesDeRonda(corre: corre, roxzone: rox) : []
             for r in 0..<rondas {
                 for j in 0..<n {
                     let k = r * n + j
                     let set = seg.rotationSet(at: j)
                     var pos = Posicion()
-                    if hyrox {
+                    if let porCarrera {
+                        pos = porCarrera[j]
+                    } else if circuito, corre.contains(true) || rox.contains(true) {
+                        if rondas > 1 { pos.ronda = Contador(n: r + 1, de: rondas) }
+                        pos.estacion = enRonda[j]
+                    } else if hyrox {
                         let mitad = Swift.max(1, n / 2)
                         pos.ronda = Contador(n: j / 2 + 1, de: mitad)
                         if j % 2 == 1 { pos.estacion = Contador(n: j / 2 + 1, de: mitad) }
@@ -412,14 +434,17 @@ extension Vivo {
                         if rondas > 1 { pos.ronda = Contador(n: r + 1, de: rondas) }
                         pos.estacion = Contador(n: j + 1, de: n)
                     }
-                    out.append(estacion(k: k, set: set, nombre: componentes[j].name, posicion: pos, ventana: .estacion(k)))
+                    out.append(estacion(k: k, set: set, nombre: componentes[j].name, posicion: pos, ventana: .estacion(k),
+                                        roxzone: rox.indices.contains(j) && rox[j] ? sentidoRoxzone(j, corre: corre) : nil))
                     let ultimaDeRonda = j == n - 1
                     let ultima = k == rondas * n - 1
                     let restSet = set?.restS ?? 0
                     let rest = (rondas > 1 && ultimaDeRonda) ? restBloque : restSet
                     if rest > 0, !ultima {
+                        // En un circuito el descanso dice de qué ronda (y estación) viene.
                         out.append(descanso(rest, id: "s\(s)-t\(k)-d", fase: fase, bloque: bloque,
-                                            origen: Origen(segmento: s, ventana: .estacion(k + 1), descanso: true)))
+                                            origen: Origen(segmento: s, ventana: .estacion(k + 1), descanso: true),
+                                            posicion: circuito ? pos : nil))
                     }
                 }
             }

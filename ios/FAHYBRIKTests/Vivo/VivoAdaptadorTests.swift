@@ -196,10 +196,14 @@ final class VivoAdaptadorTests: XCTestCase {
         let e = estado(s)
         let trabajo = e.pasos.filter { $0.rol == .trabajo }
         XCTAssertEqual(trabajo.count, 12)
-        XCTAssertEqual(e.pasos.filter { $0.rol == .descanso }.count, 3)
+        // El motor descansa tras CADA pieza: el pliegue lleva el rest_s del ítem a su
+        // serie (`beginFixedRest`, dentro de la ronda). 12 piezas, la última sin descanso.
+        XCTAssertEqual(e.pasos.filter { $0.rol == .descanso }.count, 11)
         XCTAssertEqual(e.paso.clase, .carrera)
         XCTAssertEqual(e.paso.posicion?.ronda, Vivo.Contador(n: 1, de: 4))
-        XCTAssertEqual(e.paso.posicion?.estacion, Vivo.Contador(n: 1, de: 3))
+        // El Run no es estación: las estaciones de la ronda son las otras dos.
+        XCTAssertNil(e.paso.posicion?.estacion)
+        XCTAssertEqual(trabajo[1].posicion?.estacion, Vivo.Contador(n: 1, de: 2))
         XCTAssertEqual(Vivo.formatoDe(e.paso), "Circuito")
         XCTAssertEqual(trabajo[1].nombre, "Kettlebell Swings")
         XCTAssertEqual(Vivo.textoViene(trabajo[3], abre: true), "Ronda 2/4 · Carrera · 400\u{00A0}m")

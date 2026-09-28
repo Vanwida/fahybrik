@@ -49,11 +49,23 @@ extension WorkoutSession {
     // ROTATING work/rest phase clock, or a CONTINUOUS countdown — each off the same
     // 0.25s tick, reusing WorkoutAudio for the cues.
 
+    /// UN BLOQUE CONTINUO NO SE PARA ENTRE TRAMOS. Remo 15′ → ski 15′ → bici 15′
+    /// son tramos de UNA pieza (desde el 28-sep, un segmento por máquina): al pasar
+    /// de uno a otro el atleta cambia de máquina sin parar el reloj, así que no hay
+    /// 3-2-1 — solo el primero lo lleva. Cierto cuando el segmento de antes es del
+    /// mismo bloque y también continuo.
+    private func sigueLaPiezaContinua(_ seg: WorkoutSegment) -> Bool {
+        let i = currentSegmentIndex
+        guard seg.formatScheme?.presentation == .continuous, i > 0, i - 1 < plan.segments.count else { return false }
+        let antes = plan.segments[i - 1]
+        return antes.formatScheme?.presentation == .continuous && antes.blockGroupingKey == seg.blockGroupingKey
+    }
+
     func startConditioning() {
         guard let seg = currentSegment, seg.isConditioningTimer else { clearConditioning(); return }
         condSegmentIndex = currentSegmentIndex
         condStartElapsed = lapElapsedSeconds          // provisional; reset at GO
-        condCountInRemaining = Self.countInSeconds
+        condCountInRemaining = sigueLaPiezaContinua(seg) ? 0 : Self.countInSeconds
         fixedRoundsDone = 0
         fixedRoundSplits = []
         ergIntervalBoutsRecorded = 0
@@ -253,6 +265,7 @@ extension WorkoutSession {
                 fixedRestRemaining = 0
                 fixedRestTotal = 0
                 fixedRestKind = .none
+                empiezaLaEstacionTrasElDescanso()
                 WorkoutAudio.shared.playIntervalStart()
                 Haptics.cueGo()
             } else {
@@ -546,7 +559,20 @@ extension WorkoutSession {
         fixedRestRemaining = 0
         fixedRestTotal = 0
         fixedRestKind = .none
+        empiezaLaEstacionTrasElDescanso()
         Haptics.light()
+    }
+
+    /// LA ESTACIÓN EMPIEZA CUANDO ACABA EL DESCANSO, no al cerrar la anterior.
+    /// La ventana de la estación siguiente se abre en el golpe (`markRoundDone`), con
+    /// el descanso por delante; sin re-anclar aquí, su reloj —y su parcial grabado—
+    /// contaba los 90″ de descanso (el Run 2 de la 493 salía 1:30 más lento), y el
+    /// GPS o el monitor sumaban lo que se anduvo o remó descansando. Se re-ancla
+    /// como en el GO de la cuenta de entrada.
+    private func empiezaLaEstacionTrasElDescanso() {
+        reanchorTramoDeviceWindowAtGo()
+        tramoRestLatched = false
+        lastTramoElapsedSeconds = nil
     }
 
     /// Undo the last For Time / Chipper / Ladder strike (a mis-tap), restoring the
