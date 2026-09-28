@@ -36,16 +36,23 @@
 //                 EstadoVivo; lo de cada familia como dato: SentidoRoxzone (P10),
 //                 Tarea/InfoWod (P12, M5), FichaFuerza/CargaFuerza/EsfuerzoFuerza +
 //                 FICHA_FUERZA_DEFECTO (P11, M1).
-//   reglas.ts     Formatos (fmtReloj, fmtRitmo, fmtDistancia, fmtDuracion, fmtPrescrito,
-//                 fmtObjetivo, num), textoObjetivo (LA notación del objetivo: brief,
-//                 esfera, Estructura), textoCargaImplemento (M7), principal/objetivoDe,
-//                 faltaDe, contextoDe, textoPasoCorto (con la carga), esCarrera,
+//   reglas.ts     Formatos (fmtReloj, fmtRitmo, fmtSplit (la bici por 1000 m), fmtDistancia,
+//                 fmtDuracion, fmtPrescrito, fmtObjetivo, num), nombreMaquina («el remo»),
+//                 textoObjetivo (LA notación del objetivo: brief, esfera, Estructura),
+//                 textoCargaImplemento (M7), principal/objetivoDe, faltaDe, contextoDe,
+//                 textoPasoCorto (con la carga), textoViene, luegoDe (con el «después»), esCarrera,
 //                 zonaDe/limitesZona/rangoPpm, veredictoDe/veredictoPrincipal/
 //                 veredictoDelPaso, palabraVeredicto, holguraDe, valorDeEje,
 //                 posicionZona, tinteDelPaso.
 //   fuerza.ts     La serie de fuerza en palabras: esFuerza/PasoFuerza, fmtKg, kgDelPlan,
 //                 textoKgPlan, textoPct, textoEsfuerzo, textoTempo, textoCarga,
 //                 dosisSerie, dosisEjercicio, avisoSerie, quienSerie.
+//   anotar.ts     Anotar la serie en el descanso (P11, I7): Registro (solo lo declarado),
+//                 anotacionDe (propuesto / medido / declarado), confirmar, girar,
+//                 seriesDelDescanso, medidaDe, volumen, textoAnotacion; RANGO_ANOTAR_DEFECTO.
+//   metricas.ts   La familia del paso (familiaDe) y su rejilla de apoyo (metricasDelPaso,
+//                 §4 del modelo del iPhone): la máquina manda su métrica, el pulso siempre;
+//                 heroeDeFamilia (I4): el héroe con las reglas de WOD y circuito encima de P3.
 //   tarea.ts      La tarea del WOD: wodDe, textoTarea, textoTareaCorto, dosisTarea,
 //                 cargaTarea, repsPorRonda; la puntuación: Dial, girarDial, desgloseReps.
 //   estructura.ts La estructura en líneas de dato: duracionEstimada/duracionHumana,
@@ -84,7 +91,7 @@
 //   banda.tsx     BandaObjetivo (ritmo, /500, pulso, zona sobre el espectro del coach).
 //   pasos.tsx     Columna, PasoCorrer (contexto, línea bajo él, ritmo bajo el RPE),
 //                 Recupera, Descanso (P8: «Viene» propio, hueco de anotación, pulso
-//                 opcional), TresDosUno, AvisoVuelta, LuegoLinea, textoViene.
+//                 opcional), TresDosUno, AvisoVuelta, LuegoLinea.
 //   puntuacion.tsx CaraPuntuacion: la campana del AMRAP, la puntuación con la corona.
 //   paginas.tsx   PaginaControles/Control/ConfirmarTerminar, AhoraSuena.
 //   listas.tsx    Las de la corona: PaginaFilas/FilaDato, PaginaSplits/juicioDe,
@@ -125,6 +132,8 @@ export * from './tokens';
 export * from './paso';
 export * from './reglas';
 export * from './fuerza';
+export * from './anotar';
+export * from './metricas';
 export * from './tarea';
 export * from './estructura';
 export * from './despues';

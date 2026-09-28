@@ -21,7 +21,7 @@ import {
   type Traductor,
   type Viene,
 } from '../../kit-reloj';
-import { cargaArrastrada, type Campo, type Registro } from './anotar';
+import { cargaArrastrada, type Campo, type Registro } from '../../kit-reloj';
 import { abreEjercicio, anteriorTrabajo, ejercicioDe, siguienteTrabajo } from './modelo';
 
 /** «A2 · Box Jump» — el hueco de la superserie delante del nombre. */

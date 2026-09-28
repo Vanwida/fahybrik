@@ -33,7 +33,7 @@ import {
   type Simulador,
   type ZonasCoach,
 } from '../../kit-reloj';
-import { anotacionDe, cargaArrastrada, medidaDe, pendiente, textoAnotacion, volumen, type Registro } from './anotar';
+import { anotacionDe, cargaArrastrada, medidaDe, pendiente, textoAnotacion, volumen, type Registro } from '../../kit-reloj';
 import { anteriorTrabajo, ejerciciosDe, fmtMiles, siguienteTrabajo, type Ejercicio } from './modelo';
 
 type MarcaLinea = 'hecha' | 'propuesta' | 'ahora' | 'luego';

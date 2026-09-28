@@ -47,7 +47,7 @@ import {
   VeloPausa,
   VeloPie,
 } from './carcasa';
-import { AOD, C, TINTE_ZONA_PCT, tinte as mezclar } from './tokens';
+import { AOD, C, DESHACER_MS, TINTE_ZONA_PCT, tinte as mezclar } from './tokens';
 
 export type { Area, GestoGuion };
 
@@ -147,7 +147,7 @@ export function Muneca(props: MunecaProps) {
   // El aviso de deshacer vive 5 s.
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast((x) => (x?.n === toast.n ? null : x)), 5000);
+    const t = setTimeout(() => setToast((x) => (x?.n === toast.n ? null : x)), DESHACER_MS);
     return () => clearTimeout(t);
   }, [toast]);
 

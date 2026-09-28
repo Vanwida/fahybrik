@@ -3,7 +3,7 @@
 // determinista: el mismo escenario, la misma sesión, segundo a segundo.
 
 import type { GestoGuion, InicioSecuencia, ModeloReloj, MunecaProps, PasoBase, PlanSesion, Simulador, Vuelta } from '../../kit-reloj';
-import type { Campo, Registro } from './anotar';
+import type { Campo, Registro } from '../../kit-reloj';
 import { ejemploP11, indiceDe, sesion488, sesion492, sesion529, sesion538 } from './planes';
 
 export type AccionGuion =

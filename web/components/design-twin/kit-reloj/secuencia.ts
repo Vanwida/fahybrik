@@ -66,6 +66,8 @@ export interface LecturaSim {
   vatios?: number | null;
   /** Paladas o pasos por minuto. */
   cadencia?: number | null;
+  /** Calorías acumuladas que da la máquina. */
+  cal?: number | null;
   /** Metros del PM5 en este segundo, si los da directos (si no, salen del /500). */
   metros?: number | null;
 }
@@ -189,6 +191,7 @@ export function lecturasDe(p: PasoBase, s: EstadoSecuencia): Lecturas {
     split500: s.lect.split500 ?? null,
     vatios: s.lect.vatios ?? null,
     cadencia: s.lect.cadencia ?? null,
+    cal: s.lect.cal ?? null,
     gps: s.lect.gps ?? 'no-aplica',
     viejos: s.lect.viejos,
   };
