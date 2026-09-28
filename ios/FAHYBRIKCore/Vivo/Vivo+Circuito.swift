@@ -220,7 +220,7 @@ extension Vivo {
             if n >= 2 {
                 for j in k...fin {
                     pasos[j].posicion = Posicion(tramo: Contador(n: j - k + 1, de: n))
-                    if pasos[j].maquina != nil { pasos[j].nombre = nil }
+                    if let m = pasos[j].maquina { pasos[j].nombre = nombreMaquinaCorto(m) }
                 }
             }
             k = fin + 1

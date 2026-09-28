@@ -8,6 +8,10 @@ final class VivoCircuitoTests: XCTestCase {
 
     private typealias C = VivoPlanesCircuito
 
+    /// El kit une cifra y unidad con espacio fino (NBSP): aquí se compara el texto.
+    private func t(_ x: [String]) -> [String] { x.map { $0.replacingOccurrences(of: "\u{00A0}", with: " ") } }
+    private func t(_ x: String?) -> String? { x?.replacingOccurrences(of: "\u{00A0}", with: " ") }
+
     private func pasos(_ plan: WorkoutPlan) -> [Vivo.Paso] {
         Vivo.planDe(plan, zonas: VivoPlanesDePrueba.zonas(), entorno: .outdoor).pasos
     }
@@ -28,11 +32,11 @@ final class VivoCircuitoTests: XCTestCase {
         XCTAssertEqual(desc.posicion?.ronda, Vivo.Contador(n: 1, de: 5))
         XCTAssertEqual(run2.posicion?.ronda, Vivo.Contador(n: 2, de: 5))
 
-        XCTAssertEqual(Vivo.tituloCircuito(ski, .rondas), ["SkiErg", "500 m"])
-        XCTAssertEqual(Vivo.formatoCircuito(ski, .rondas), ["Circuito", "Ronda 1/5"])
-        XCTAssertEqual(Vivo.tituloCircuito(run2, .rondas), ["Run", "1000 m"])
-        XCTAssertEqual(Vivo.formatoCircuito(desc, .rondas), ["Circuito", "Ronda 1/5"])
-        XCTAssertEqual(Vivo.tituloCircuito(p[6], .rondas), ["Burpee Broad Jump"], "sin medir: la dosis va al trabajo")
+        XCTAssertEqual(t(Vivo.tituloCircuito(ski, .rondas)), ["SkiErg", "500 m"])
+        XCTAssertEqual(t(Vivo.formatoCircuito(ski, .rondas)), ["Circuito", "Ronda 1/5"])
+        XCTAssertEqual(t(Vivo.tituloCircuito(run2, .rondas)), ["Run", "1000 m"])
+        XCTAssertEqual(t(Vivo.formatoCircuito(desc, .rondas)), ["Circuito", "Ronda 1/5"])
+        XCTAssertEqual(t(Vivo.tituloCircuito(p[5], .rondas)), ["Burpee Broad Jump"], "sin medir: la dosis va al trabajo")
 
         XCTAssertEqual(Vivo.claveCircuito(ski), .estacionHecha)
         XCTAssertEqual(Vivo.claveCircuito(run2), .cerrarElTramo)
@@ -40,7 +44,7 @@ final class VivoCircuitoTests: XCTestCase {
 
         // «Luego · Descanso · 90″ · después Ronda 2/5 · Run · 1000 m a RPE 8».
         let luego = Vivo.luegoDe(p, 2)
-        XCTAssertEqual(luego?.despues, "Ronda 2/5 · Run · 1000 m a RPE 8")
+        XCTAssertEqual(t(luego?.despues), "Ronda 2/5 · Run · 1000 m a RPE 8")
     }
 
     func test493_tiempoDeRonda() throws {
@@ -56,7 +60,7 @@ final class VivoCircuitoTests: XCTestCase {
         XCTAssertEqual(p[0].posicion?.ronda, Vivo.Contador(n: 1, de: 5))
         XCTAssertEqual(p[0].posicion?.estacion, Vivo.Contador(n: 1, de: 3))
         XCTAssertEqual(p[1].rol, .descanso)
-        XCTAssertEqual(Vivo.formatoCircuito(p[1], .rondas), ["Circuito", "Ronda 1/5", "Estación 1/3"])
+        XCTAssertEqual(t(Vivo.formatoCircuito(p[1], .rondas)), ["Circuito", "Ronda 1/5", "Estación 1/3"])
     }
 
     // MARK: - HYROX con Roxzone
@@ -65,21 +69,21 @@ final class VivoCircuitoTests: XCTestCase {
         let p = pasos(try C.hyrox())
         XCTAssertEqual(p.count, 8 + 8 + 8 + 7)
         let run1 = p[0], entrada = p[1], ski = p[2], salida = p[3]
-        XCTAssertEqual(Vivo.tituloCircuito(run1, .hyrox), ["Run 1/8", "1000 m"])
-        XCTAssertEqual(Vivo.formatoCircuito(run1, .hyrox), ["HYROX"])
+        XCTAssertEqual(t(Vivo.tituloCircuito(run1, .hyrox)), ["Run 1/8", "1000 m"])
+        XCTAssertEqual(t(Vivo.formatoCircuito(run1, .hyrox)), ["HYROX"])
         XCTAssertEqual(entrada.clase, .roxzone)
         XCTAssertEqual(entrada.roxzone, .entrada)
-        XCTAssertEqual(Vivo.formatoCircuito(entrada, .hyrox), ["HYROX", "Estación 1/8"])
+        XCTAssertEqual(t(Vivo.formatoCircuito(entrada, .hyrox)), ["HYROX", "Estación 1/8"])
         XCTAssertEqual(Vivo.claveCircuito(entrada), .empiezo)
         XCTAssertEqual(ski.posicion?.estacion, Vivo.Contador(n: 1, de: 8))
-        XCTAssertEqual(Vivo.tituloCircuito(ski, .hyrox), ["SkiErg", "1000 m"])
+        XCTAssertEqual(t(Vivo.tituloCircuito(ski, .hyrox)), ["SkiErg", "1000 m"])
         XCTAssertEqual(salida.roxzone, .salida)
-        XCTAssertEqual(Vivo.formatoCircuito(salida, .hyrox), ["HYROX", "Ronda 1/8"])
+        XCTAssertEqual(t(Vivo.formatoCircuito(salida, .hyrox)), ["HYROX", "Ronda 1/8"])
         XCTAssertEqual(Vivo.claveCircuito(salida), .salgoACorrer)
         let sled = p[6]
         XCTAssertEqual(sled.nombre, "Sled Push")
-        XCTAssertEqual(Vivo.formatoCircuito(sled, .hyrox), ["HYROX", "Estación 2/8"])
-        XCTAssertEqual(Vivo.tituloCircuito(sled, .hyrox), ["Sled Push"])
+        XCTAssertEqual(t(Vivo.formatoCircuito(sled, .hyrox)), ["HYROX", "Estación 2/8"])
+        XCTAssertEqual(t(Vivo.tituloCircuito(sled, .hyrox)), ["Sled Push"])
         XCTAssertEqual(Vivo.avisoCircuito(p[4], .hyrox), "Run 2 cerrado")
         // La última estación no lleva Roxzone de salida: detrás no se corre.
         XCTAssertEqual(p.last?.nombre, "Wall Balls")
@@ -96,7 +100,7 @@ final class VivoCircuitoTests: XCTestCase {
         let ski = pasos(try C.hyrox())[2]
         let sin = Vivo.pasoSegunEnlace(ski, Vivo.Dispositivos(pulsometro: .banda))
         XCTAssertEqual(sin.medida.mide, .atleta)
-        XCTAssertEqual(Vivo.tituloCircuito(sin, .hyrox), ["SkiErg"])
+        XCTAssertEqual(t(Vivo.tituloCircuito(sin, .hyrox)), ["SkiErg"])
         let con = Vivo.pasoSegunEnlace(ski, Vivo.Dispositivos(maquina: .ski, pulsometro: .banda))
         XCTAssertEqual(con.medida.mide, .ergo)
     }
@@ -108,9 +112,9 @@ final class VivoCircuitoTests: XCTestCase {
         XCTAssertEqual(p.count, 3)
         XCTAssertEqual(p.map { $0.posicion?.tramo?.n }, [1, 2, 3])
         XCTAssertEqual(p.map(\.maquina?.tipo), [.remo, .ski, .bici])
-        XCTAssertEqual(Vivo.posicionDe(p[0]), ["Remo", "tramo 1/3"])
+        XCTAssertEqual(t(Vivo.posicionDe(p[0])), ["Remo", "tramo 1/3"])
         XCTAssertEqual(Vivo.formatoDe(p[0]), "Continuo")
-        XCTAssertEqual(Vivo.luegoDe(p, 0)?.que, "Ski · 15′ a Z2")
+        XCTAssertEqual(t(Vivo.luegoDe(p, 0)?.que), "Ski · 15′ a Z2")
     }
 
     // MARK: - El libre, igual
@@ -120,8 +124,8 @@ final class VivoCircuitoTests: XCTestCase {
         XCTAssertEqual(p.count, 12)
         let wb = p[4]
         XCTAssertEqual(wb.nombre, "Wall Balls")
-        XCTAssertEqual(Vivo.formatoCircuito(wb, .rondas), ["Circuito", "Ronda 2/4", "Estación 1/2"])
-        XCTAssertEqual(Vivo.tituloCircuito(p[5], .rondas), ["Row", "500 m"])
-        XCTAssertEqual(Vivo.formatoCircuito(p[5], .rondas), ["Circuito", "Ronda 2/4", "Estación 2/2"])
+        XCTAssertEqual(t(Vivo.formatoCircuito(wb, .rondas)), ["Circuito", "Ronda 2/4", "Estación 1/2"])
+        XCTAssertEqual(t(Vivo.tituloCircuito(p[5], .rondas)), ["Row", "500 m"])
+        XCTAssertEqual(t(Vivo.formatoCircuito(p[5], .rondas)), ["Circuito", "Ronda 2/4", "Estación 2/2"])
     }
 }
