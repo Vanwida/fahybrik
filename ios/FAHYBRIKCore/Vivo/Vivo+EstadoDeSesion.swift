@@ -96,7 +96,13 @@ extension Vivo {
         case .abierta: break
         }
 
-        let ritmoMotor: Double? = (p.medida.mide == .gps || p.medida.mide == .cinta || esCarrera(p)) ? sesion.liveCoveredPaceSecPerKm.map(Double.init) : nil
+        var ritmoMotor: Double? = (p.medida.mide == .gps || p.medida.mide == .cinta || esCarrera(p)) ? sesion.liveCoveredPaceSecPerKm.map(Double.init) : nil
+        // El Run DENTRO de una ruta (circuito, HYROX): el acumulador del motor divide
+        // los metros de todas las carreras por el reloj de todo el bloque. El de ESTE
+        // tramo son sus metros entre su tiempo (causa raíz 4 del modelo).
+        if sesion.currentTramo.isFixedStation, sesion.tramoIsRun, let m = sesion.tramoRunCoveredMeters, m > 50 {
+            ritmoMotor = WorkoutSession.paceSecPerKm(meters: m, seconds: t).flatMap { $0 <= Double(RunLegDisplay.maxPaceSecPerKm) ? $0 : nil }
+        }
         let esErgo = p.medida.mide == .ergo || p.maquina != nil && p.maquina?.tipo != .cinta
         return Lecturas(
             t: t,

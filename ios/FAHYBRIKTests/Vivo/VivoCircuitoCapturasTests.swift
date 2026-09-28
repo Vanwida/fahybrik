@@ -133,7 +133,7 @@ final class VivoCircuitoCapturasTests: XCTestCase {
 
     @MainActor
     func test493_estacionMedida() throws {
-        let s = P.arranca(try C.sesion493(), entorno: .outdoor)
+        let s = P.arranca(try C.sesion493())
         entra(s, segmento: 1); cierra(s, 1); dentro(s, 93)
         captura(s, "circuito-rondas-medida-ski", monitor: ski) { s in
             self.erg(s, self.ski, metros: 388, cal: 29); s.injectLiveHR(171, source: .strap)
@@ -142,7 +142,7 @@ final class VivoCircuitoCapturasTests: XCTestCase {
 
     @MainActor
     func test493_descansoTrasLaEstacion() throws {
-        let s = P.arranca(try C.sesion493(), entorno: .outdoor)
+        let s = P.arranca(try C.sesion493())
         entra(s, segmento: 1); cierra(s, 1); dentro(s, 120)
         s.markRoundDone()
         captura(s, "circuito-rondas-medida-descanso") { s in s.injectLiveHR(169, source: .strap); s.fixedRestRemaining = 88 }
@@ -150,21 +150,21 @@ final class VivoCircuitoCapturasTests: XCTestCase {
 
     @MainActor
     func test493_sinMedir() throws {
-        let s = P.arranca(try C.sesion493(), entorno: .outdoor)
+        let s = P.arranca(try C.sesion493())
         entra(s, segmento: 1); cierra(s, 3); dentro(s, 73)
         captura(s, "circuito-rondas-sin-medir-bbj") { s in s.injectLiveHR(175, source: .strap) }
     }
 
     @MainActor
     func test493_carrera() throws {
-        let s = P.arranca(try C.sesion493(), entorno: .outdoor)
+        let s = P.arranca(try C.sesion493())
         entra(s, segmento: 1); cierra(s, 2); dentro(s, 246)
         captura(s, "circuito-rondas-carrera-run") { s in self.gps(s, metros: 927); s.injectLiveHR(170, source: .strap) }
     }
 
     @MainActor
     func test493_entraLaEstacion() throws {
-        let s = P.arranca(try C.sesion493(), entorno: .outdoor)
+        let s = P.arranca(try C.sesion493())
         entra(s, segmento: 1); cierra(s, 3); dentro(s, 2)
         captura(s, "circuito-rondas-carrera-entra-estacion") { s in s.injectLiveHR(165, source: .strap) }
     }
@@ -186,21 +186,21 @@ final class VivoCircuitoCapturasTests: XCTestCase {
 
     @MainActor
     func testHyrox_run() throws {
-        let s = P.arranca(try C.hyrox(), entorno: .outdoor)
+        let s = P.arranca(try C.hyrox())
         entra(s, segmento: 0); cierra(s, enHyrox(5, 0)); dentro(s, 112)
         captura(s, "circuito-hyrox-run") { s in self.gps(s, metros: 407); s.injectLiveHR(171, source: .strap) }
     }
 
     @MainActor
     func testHyrox_runAlRitmoDelCoach() throws {
-        let s = P.arranca(try C.hyrox(ritmoRun: P.ritmoKm(275, 285)), entorno: .outdoor)
+        let s = P.arranca(try C.hyrox(ritmoRun: P.ritmoKm(275, 285)))
         entra(s, segmento: 0); cierra(s, enHyrox(5, 0)); dentro(s, 108)
         captura(s, "circuito-hyrox-run-ritmo") { s in self.gps(s, metros: 405); s.injectLiveHR(170, source: .strap) }
     }
 
     @MainActor
     func testHyrox_ski() throws {
-        let s = P.arranca(try C.hyrox(), entorno: .outdoor)
+        let s = P.arranca(try C.hyrox())
         entra(s, segmento: 0); cierra(s, enHyrox(1, 2)); dentro(s, 150)
         let m = Monitor(split: 123, spm: 43, vatios: 188)
         captura(s, "circuito-hyrox-ski", monitor: m) { s in self.erg(s, m, metros: 623, cal: 45); s.injectLiveHR(172, source: .strap) }
@@ -208,49 +208,49 @@ final class VivoCircuitoCapturasTests: XCTestCase {
 
     @MainActor
     func testHyrox_sinMaquina() throws {
-        let s = P.arranca(try C.hyrox(), entorno: .outdoor)
+        let s = P.arranca(try C.hyrox())
         entra(s, segmento: 0); cierra(s, enHyrox(1, 2)); dentro(s, 152)
         captura(s, "circuito-hyrox-sin-maquina") { s in s.injectLiveHR(172, source: .strap) }
     }
 
     @MainActor
     func testHyrox_sled() throws {
-        let s = P.arranca(try C.hyrox(), entorno: .outdoor)
+        let s = P.arranca(try C.hyrox())
         entra(s, segmento: 0); cierra(s, enHyrox(2, 2)); dentro(s, 152)
         captura(s, "circuito-hyrox-sled-sled") { s in s.injectLiveHR(175, source: .strap) }
     }
 
     @MainActor
     func testHyrox_roxzoneDeSalida() throws {
-        let s = P.arranca(try C.hyrox(), entorno: .outdoor)
+        let s = P.arranca(try C.hyrox())
         entra(s, segmento: 0); cierra(s, enHyrox(2, 3)); dentro(s, 2)
         captura(s, "circuito-hyrox-sled-roxzone") { s in s.injectLiveHR(168, source: .strap) }
     }
 
     @MainActor
     func testHyrox_run3() throws {
-        let s = P.arranca(try C.hyrox(), entorno: .outdoor)
+        let s = P.arranca(try C.hyrox())
         entra(s, segmento: 0); cierra(s, enHyrox(3, 0)); dentro(s, 4)
         captura(s, "circuito-hyrox-sled-run3") { s in self.gps(s, metros: 14); s.injectLiveHR(162, source: .strap) }
     }
 
     @MainActor
     func testHyrox_roxzoneDeEntrada() throws {
-        let s = P.arranca(try C.hyrox(), entorno: .outdoor)
+        let s = P.arranca(try C.hyrox())
         entra(s, segmento: 0); cierra(s, enHyrox(8, 1)); dentro(s, 3)
         captura(s, "circuito-hyrox-entrada-roxzone") { s in s.injectLiveHR(171, source: .strap) }
     }
 
     @MainActor
     func testHyrox_wallBalls() throws {
-        let s = P.arranca(try C.hyrox(), entorno: .outdoor)
+        let s = P.arranca(try C.hyrox())
         entra(s, segmento: 0); cierra(s, enHyrox(8, 2)); dentro(s, 3)
         captura(s, "circuito-hyrox-entrada-wall-balls") { s in s.injectLiveHR(166, source: .strap) }
     }
 
     @MainActor
     func testHyrox_estructura() throws {
-        let s = P.arranca(try C.hyrox(), entorno: .outdoor)
+        let s = P.arranca(try C.hyrox())
         entra(s, segmento: 0); cierra(s, enHyrox(5, 0)); dentro(s, 112)
         captura(s, "circuito-hyrox-estructura", pagina: .estructura) { s in self.gps(s, metros: 407); s.injectLiveHR(171, source: .strap) }
     }
@@ -300,14 +300,14 @@ final class VivoCircuitoCapturasTests: XCTestCase {
 
     @MainActor
     func testLibre_wallBalls() throws {
-        let s = P.arranca(try C.libre(), entorno: .outdoor)
+        let s = P.arranca(try C.libre())
         entra(s, segmento: 0); cierra(s, 4); dentro(s, 26)
         captura(s, "circuito-libre-wall-balls") { s in s.injectLiveHR(174, source: .strap) }
     }
 
     @MainActor
     func testLibre_row() throws {
-        let s = P.arranca(try C.libre(), entorno: .outdoor)
+        let s = P.arranca(try C.libre())
         entra(s, segmento: 0); cierra(s, 5); dentro(s, 4)
         let m = Monitor(split: 115, spm: 31, vatios: 230)
         captura(s, "circuito-libre-row", monitor: m) { s in self.erg(s, m, metros: 8, cal: 1); s.injectLiveHR(165, source: .strap) }
@@ -315,8 +315,11 @@ final class VivoCircuitoCapturasTests: XCTestCase {
 
     @MainActor
     func testLibre_estructura() throws {
-        let s = P.arranca(try C.libre(), entorno: .outdoor)
+        let s = P.arranca(try C.libre())
         entra(s, segmento: 0); cierra(s, 5); dentro(s, 7)
-        captura(s, "circuito-libre-estructura", pagina: .estructura) { s in s.injectLiveHR(165, source: .strap) }
+        let m = Monitor(split: 115, spm: 31, vatios: 230)
+        captura(s, "circuito-libre-estructura", monitor: m, pagina: .estructura) { s in
+            self.erg(s, m, metros: 20, cal: 1); s.injectLiveHR(165, source: .strap)
+        }
     }
 }

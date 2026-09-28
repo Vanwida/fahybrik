@@ -128,4 +128,47 @@ final class VivoCircuitoTests: XCTestCase {
         XCTAssertEqual(t(Vivo.tituloCircuito(p[5], .rondas)), ["Row", "500 m"])
         XCTAssertEqual(t(Vivo.formatoCircuito(p[5], .rondas)), ["Circuito", "Ronda 2/4", "Estación 2/2"])
     }
+
+    // MARK: - El motor: la estación empieza al acabar el descanso
+
+    @MainActor
+    func testLaEstacionTrasElDescansoNoCuentaElDescanso() throws {
+        let s = VivoPlanesDePrueba.arranca(try C.sesion493())
+        s.jumpTo(1); if s.isAwaitingBlockStart { s.beginBlock() }
+        s.condCountInRemaining = 0
+        s.lapElapsedSeconds += 270; s.markRoundDone()          // Run 1
+        s.lapElapsedSeconds += 120; s.markRoundDone()          // SkiErg: entra el r90″
+        XCTAssertEqual(s.fixedRestRemaining, 90)
+        s.lapElapsedSeconds += 90; s.tickConditioning(dt: 90)  // el descanso se agota solo
+        XCTAssertEqual(s.fixedRestRemaining, 0)
+        s.lapElapsedSeconds += 10
+        XCTAssertEqual(s.tramoElapsedSeconds, 10, accuracy: 1, "el Run 2 no cuenta los 90″ de descanso")
+        s.stop()
+    }
+
+    @MainActor
+    func testSaltarElDescansoReanclaLaEstacion() throws {
+        let s = VivoPlanesDePrueba.arranca(try C.sesion493())
+        s.jumpTo(1); if s.isAwaitingBlockStart { s.beginBlock() }
+        s.condCountInRemaining = 0
+        s.lapElapsedSeconds += 270; s.markRoundDone()
+        s.lapElapsedSeconds += 120; s.markRoundDone()
+        s.lapElapsedSeconds += 40; s.skipFixedRest()           // «Empezar ya» a los 40″
+        s.lapElapsedSeconds += 5
+        XCTAssertEqual(s.tramoElapsedSeconds, 5, accuracy: 1)
+        s.stop()
+    }
+
+    @MainActor
+    func testElContinuoPasaDeMaquinaSinCuentaAtras() throws {
+        let s = VivoPlanesDePrueba.arranca(try C.continuo())
+        XCTAssertGreaterThan(s.condCountInRemaining, 0, "el primer tramo sí lleva su 3-2-1")
+        s.condCountInRemaining = 0
+        s.lapElapsedSeconds += 900
+        s.primaryAdvance()
+        XCTAssertEqual(s.currentSegmentIndex, 1)
+        XCTAssertFalse(s.isAwaitingBlockStart, "mismo bloque: sin puerta")
+        XCTAssertEqual(s.condCountInRemaining, 0, "ni cuenta atrás: se cambia de máquina sin parar")
+        s.stop()
+    }
 }

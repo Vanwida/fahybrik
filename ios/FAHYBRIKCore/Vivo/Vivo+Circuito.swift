@@ -202,7 +202,8 @@ extension Vivo {
 
     /// UN BLOQUE CONTINUO SON N TRAMOS (I2). Pasos seguidos que son, cada uno, el
     /// único paso de un segmento continuo del mismo bloque: «tramo k/N». El
-    /// nombre en pantalla es el de la máquina en el box («Remo», «Ski», «Bici»).
+    /// nombre en pantalla es el de la máquina en el box («Remo», «Ski», «Bici») y
+    /// la mide su monitor (su métrica manda, §4).
     /// `continuo(s)`: ¿el segmento `s` es una pieza continua?
     static func marcarTramosContinuos(_ pasos: inout [Paso], continuo: (Int) -> Bool) {
         func candidato(_ k: Int) -> Bool {
@@ -220,7 +221,11 @@ extension Vivo {
             if n >= 2 {
                 for j in k...fin {
                     pasos[j].posicion = Posicion(tramo: Contador(n: j - k + 1, de: n))
-                    if let m = pasos[j].maquina { pasos[j].nombre = nombreMaquinaCorto(m) }
+                    if let m = pasos[j].maquina {
+                        pasos[j].nombre = nombreMaquinaCorto(m)
+                        // Lo cuenta el monitor aunque la pieza vaya por tiempo: su /500 (/1000) sale en la rejilla.
+                        pasos[j].medida.mide = .ergo
+                    }
                 }
             }
             k = fin + 1
