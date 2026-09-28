@@ -53,6 +53,7 @@ export async function loadExecutionDetail(params: {
 }): Promise<ExecutionDetailResponse | null> {
   const { sql, athlete_id, execution_id } = params;
 
+  // tenancy: athlete-session — athlete_id sale del bearer; la ejecución se filtra por él.
   const heads = await sql<Array<{ assignment_id: string | null; off_plan_reason: string | null }>>`
     select assignment_id::text as assignment_id, off_plan_reason
     from workout_executions

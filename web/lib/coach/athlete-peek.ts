@@ -221,6 +221,7 @@ async function loadWeek(
 }> {
   const sunday = isoDateString(addDays(parseIsoDate(week_start), 6));
   const [sessions, rows] = await Promise.all([
+    // tenancy: verified-owner — loadPlanFacts (con coach_id) ya comprobó que el atleta es del coach.
     client<
       Array<{
         scheduled_for: string;

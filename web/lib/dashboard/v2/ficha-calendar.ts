@@ -83,6 +83,7 @@ export async function loadFichaCalendar(params: {
   );
 
   const [rows, weekStates] = await Promise.all([
+    // tenancy: verified-owner — loadSpan (con coach_id) ya comprobó que el atleta es del coach.
     client<SessionRow[]>`
       select
         wa.id::text                                    as id,

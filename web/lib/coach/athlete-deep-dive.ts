@@ -617,6 +617,7 @@ async function loadModality(
   // quién preguntara -- que es la divergencia que ya costó dos modelos de zonas.
   // Los ritmos y los PRs sí filtran por SEG_IS_WORK_EFFORT: los kilómetros no
   // mienten cuando se suman, los ritmos mienten cuando se promedian.
+  // tenancy: verified-owner — loadHeader ya comprobó que el atleta es del coach.
   const segRows = await client<
     Array<{
       id: string;
@@ -653,6 +654,7 @@ async function loadModality(
   const segIds = segRows.map((r) => r.id);
   const setRows =
     segIds.length > 0
+      // tenancy: verified-owner — series de los tramos que acaba de leer la consulta anterior, del atleta del coach.
       ? await client<Array<{ segment_execution_id: string; reps: number | null; kg: string | null; status: string }>>`
           select segment_execution_id::text as segment_execution_id, reps_actual as reps,
                  load_actual_kg::text as kg, status

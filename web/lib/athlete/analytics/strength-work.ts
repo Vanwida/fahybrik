@@ -131,6 +131,7 @@ async function loadStrengthSets(
   `;
   const coachId = coachRows[0]?.coach_id ? BigInt(coachRows[0].coach_id) : null;
 
+  // tenancy: athlete-session — athleteId sale del bearer del atleta (ruta de analíticas).
   const rows = await client<StrengthSetRow[]>`
     select
       st.reps_actual,

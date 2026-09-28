@@ -337,6 +337,7 @@ function ergFields(raw: unknown): Pick<
 
 /** Load the per-segment actuals for ONE workout execution, ordered by position. */
 export async function loadSegmentActuals(sql: Sql, executionId: number): Promise<SegmentActual[]> {
+  // tenancy: verified-owner — la ejecución llega de un detalle que ya comprobó su atleta (y su coach).
   const rows = await sql<SegmentActualRow[]>`
     select
       id::text                  as id,
@@ -371,6 +372,7 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
     order by position asc, id asc
   `;
   if (rows.length === 0) return [];
+  // tenancy: verified-owner — series de la misma ejecución ya comprobada.
   const sets = await sql<SetActualRow[]>`
     select
       st.segment_execution_id::text as segment_execution_id,

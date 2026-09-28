@@ -733,6 +733,7 @@ export async function loadExecutionRow(
     'assignment_id' in by
       ? sql`we.assignment_id = ${by.assignment_id as unknown as number}`
       : sql`we.id = ${by.execution_id as unknown as number} and we.athlete_id = ${by.athlete_id as unknown as number}`;
+  // tenancy: verified-owner — la asignación ya se comprobó del atleta (loadAssignmentDetail) o la ejecución se filtra por él; el atleta viene de su sesión o de una ficha que el coach ya comprobó suya.
   const rows = await sql<ExecutionRow[]>`
     select
       we.id::text                as execution_id,

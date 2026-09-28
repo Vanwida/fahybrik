@@ -310,6 +310,7 @@ async function buildScoresCard(
   // sitio»), not the UTC one — same as its drill (drills/hyrox.ts). LEFT joins:
   // a metcon scored «fuera del plan» (no assignment, 0270) is a real score and
   // counts here too, like it counts in load.
+  // tenancy: athlete-session — athleteId sale del bearer del atleta (ruta de analíticas).
   const scored = await client<ScoreRow[]>`
     select
       we.id::text as execution_id,

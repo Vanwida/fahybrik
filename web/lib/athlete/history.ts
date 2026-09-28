@@ -177,6 +177,7 @@ export async function buildAthleteHistoryMonth(
     // (started_at, falling back to the row's created_at when a legacy sync left
     // started_at null). A plan session is gated on its assignment's DONE status;
     // work with no assignment is done by definition (opt-in, see header).
+    // tenancy: athlete-session — athlete_id sale del bearer del atleta (GET /api/athlete/history).
     client<ExecRow[]>`
       with tz as (
         select coalesce(
@@ -235,6 +236,7 @@ export async function buildAthleteHistoryMonth(
     // which days are planned (workout) vs scheduled rest. Mirrors week-plan.ts's
     // publish gate: a week the coach saved as DRAFT is not yet the athlete's plan,
     // so its assignments don't count toward planned-ness. A libre is never plan.
+    // tenancy: athlete-session — athlete_id sale del bearer del atleta (GET /api/athlete/history).
     client<Array<{ sched_date: string }>>`
       select distinct to_char(wa.scheduled_for, 'YYYY-MM-DD') as sched_date
       from workout_assignments wa

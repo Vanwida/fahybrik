@@ -155,6 +155,7 @@ export async function hyroxScoresDrill(
   period: ResolvedPeriod,
   tz: string,
 ): Promise<DrillDownResult> {
+  // tenancy: athlete-session — athleteId sale del bearer del atleta (ruta de analíticas).
   const rows = await client<Array<{
     execution_id: string;
     assignment_id: string | null;

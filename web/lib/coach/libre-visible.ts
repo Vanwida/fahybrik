@@ -15,6 +15,7 @@ import type { Sql, TransactionClient } from '@/lib/db';
 
 type SqlLike = Sql | TransactionClient;
 
+// tenancy: verified-owner — predicado correlacionado con la `wa` de quien lo usa, que ya comprobó el atleta del coach.
 export const COACH_SEES_ASSIGNMENT = (sql: SqlLike) => sql`(
   wa.origin = 'coach'
   or wa.status in ('completed', 'partial')

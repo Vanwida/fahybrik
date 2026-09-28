@@ -388,6 +388,7 @@ export async function loadRegisterCandidates(
   const min = Math.round(spec.target_distance_m * (1 - DISTANCE_TOLERANCE));
   const max = Math.round(spec.target_distance_m * (1 + DISTANCE_TOLERANCE));
 
+  // tenancy: athlete-session — athlete_id sale del bearer del atleta (GET /api/athlete/marks/register).
   const rows = await client<
     { execution_id: string; started_at: Date; distance_m: number; duration_s: number | null; source: string | null }[]
   >`
