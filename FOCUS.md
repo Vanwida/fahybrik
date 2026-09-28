@@ -2,9 +2,14 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-25** (la muñeca: 6 propuestas + kit consolidado; falta la firma de Alex)
+Última actualización: **2026-09-28** (lectores libre = coach, en rama; sin fusionar ni desplegar)
 
 ## Ahora
+
+**LIBRE = COACH EN LOS LECTORES (28-09, rama `worktree-agent-acf4f0bae662f59a6`, sin fusionar).** El coach ve los libres
+hechos («Libre», solo lectura, fuera de la adherencia); detalle serie a serie (`sets[]`, `volume_kg`); historial con lo
+hecho sin asignación (`include_unplanned=1`) + `GET /api/athlete/executions/[id]/detail`; deep dive por tramo (`erg`,
+`other`, % = 100); marcas sin 500. Contrato para iOS: `docs/pr/lectores-libre-coach.md`. DECISIONS 28-09. Pendiente: iOS.
 
 **LA MUÑECA SE REHACE (Alex, 25-09: «es un lío, así no competimos con TrainingPeaks»).** Auditoría de 6 lentes
 + modelo: `docs/reloj-muneca/` (https://claude.ai/artifact/3LzhCpYCr6H7rgktymoG8r; spec `modelo.md`; DECISIONS 25-09).
