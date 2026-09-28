@@ -138,6 +138,25 @@ export function priorWorkSeconds(segments: SegmentInput[], current: SegmentInput
 }
 
 /**
+ * LA RONDA DE UN TRAMO, tal como la guarda la base (`segment_executions.round_index`,
+ * 0155). Dos convenciones que no son la misma:
+ *   · el cable (iOS) numera la ronda del formato en base 0: la primera ronda de una
+ *     ruta, el primer minuto de un EMOM, la primera serie de un interválico = 0;
+ *   · la columna reserva el 0 para «esta unidad no se repite» y numera las rondas
+ *     desde 1 (0155; `shared/schema/workouts.ts`), para que un lector distinga «no
+ *     aplica» de «la primera de varias» sin mirar la prescripción.
+ * Así que un tramo que trae ronda se guarda en su ronda + 1, y uno que no la trae
+ * (la app instalada, un tramo suelto) o la trae rota (negativa, decimal) en 0: lo
+ * de siempre. El unique (execution_id, position, round_index) no cambia de sentido:
+ * con bouts la app ya manda `position` único.
+ */
+export function storedRoundIndex(seg: SegmentInput): number {
+  const wire = seg.round_index;
+  if (wire == null || !Number.isInteger(wire) || wire < 0) return 0;
+  return sanitizeNonNegativeInt(wire + 1) ?? 0;
+}
+
+/**
  * La atribución de tramo de una carrera estructurada (mig 0146): índice plano +
  * rol + fase. TODO o NADA — el CHECK `segment_executions_leg_all_or_none_chk` lo
  * exige, y por una razón: media atribución no responde ninguna de las dos

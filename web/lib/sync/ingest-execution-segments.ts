@@ -6,8 +6,9 @@
 // break work down by MODALITY (run vs row vs ski/bike vs strength) and by the
 // modality-native intensity fields (run pace /km, erg pace /500m, power, SPM).
 //
-// Idempotent: re-sending the same payload UPSERTs by (execution_id, position),
-// so a retried sync never duplicates segments. Mirrors the conflict strategy
+// Idempotent: re-sending the same payload UPSERTs by (execution_id, position,
+// round_index) — the app sends a unique position per tramo, so a retried sync never
+// duplicates segments (see the round-0 adoption before the insert). Mirrors the conflict strategy
 // used for the parent workout_executions row.
 
 import type { Sql, TransactionClient } from '@/lib/db';
@@ -46,6 +47,7 @@ import {
 import { type SegmentInput } from '@/lib/sync/segment-input-schema';
 import {
   legAttribution,
+  storedRoundIndex,
   priorWorkSeconds,
   segmentModalityOfExercise,
   tramoModality,
@@ -312,10 +314,28 @@ export async function ingestExecutionSegments(args: {
     // agujeros que 0146 cierra. Un payload a medias aterriza como «no es un bout»,
     // que es la respuesta honesta, en vez de como media verdad.
     const leg = legAttribution(seg);
+    const roundIndex = storedRoundIndex(seg);
+
+    // La app manda una `position` única por tramo, así que para ella la llave es la
+    // posición. Un tramo con ronda (≥ 1) que ya tenía fila en ronda 0 —guardado antes
+    // de leerse `round_index`, o la vuelta del aparato que se grabó primero— pasa a
+    // su ronda para que el upsert de abajo lo FUNDA como siempre, en vez de dejar dos
+    // filas del mismo tramo sumando dos veces.
+    if (roundIndex > 0) {
+      await sql`
+        update segment_executions set round_index = ${roundIndex}
+        where execution_id = ${executionId}::bigint and position = ${position} and round_index = 0
+          and not exists (
+            select 1 from segment_executions x
+            where x.execution_id = ${executionId}::bigint and x.position = ${position}
+              and x.round_index = ${roundIndex}
+          )
+      `;
+    }
 
     const rows = await sql<Array<{ id: string }>>`
       insert into segment_executions (
-        execution_id, template_segment_id, position,
+        execution_id, template_segment_id, position, round_index,
         started_at, ended_at,
         modality, distance_meters,
         avg_pace_s_per_500m, avg_pace_s_per_km, avg_power_w, stroke_rate_spm,
@@ -332,6 +352,7 @@ export async function ingestExecutionSegments(args: {
         ${executionId}::bigint,
         ${templateSegmentId},
         ${position},
+        ${roundIndex},
         ${startedAt}::timestamptz,
         ${endedAt}::timestamptz,
         ${modality},
