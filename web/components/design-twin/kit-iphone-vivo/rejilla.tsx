@@ -110,8 +110,9 @@ export function Rejilla({ metricas, children, compacta = false }: { metricas: Me
   return (
     <div style={{ flex: '1 1 auto', minHeight: 0, padding: `0 ${MARGEN}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: HUECO }}>
       {children}
+      {/* También en compacta el sobrante entra en las celdas (§6.1): nunca una cola vacía entre la rejilla y la tira. */}
       {celdas.length > 0 ? (
-        <div ref={ref} style={{ flex: compacta ? '0 0 auto' : '1 1 auto', minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gridAutoRows: compacta ? 'auto' : 'minmax(0, 1fr)', gap: HUECO }}>
+        <div ref={ref} style={{ flex: '1 1 auto', minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gridAutoRows: 'minmax(0, 1fr)', gap: HUECO }}>
           {celdas.map((m, k) => (
             <div key={`${m.clave}-${k}`} style={{ display: 'flex', minHeight: 0, gridColumn: aLoAncho(m) || (ultimaSuelta && k === celdas.length - 1) ? '1 / -1' : undefined }}>
               <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>

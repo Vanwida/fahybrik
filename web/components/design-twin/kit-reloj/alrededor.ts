@@ -8,7 +8,7 @@
 
 import type { Parcial, PasoBase } from './paso';
 import { textoPasoCorto } from './reglas';
-import { cargaTarea, textoTarea, wodDe } from './tarea';
+import { textoTarea, wodDe } from './tarea';
 
 export interface AlrededorVista {
   /** El paso de trabajo anterior y cuánto tardó (su parcial), si lo hay. */
@@ -39,11 +39,15 @@ export function alrededorDe(pasos: ReadonlyArray<PasoBase>, i: number, parciales
   return { anterior, siguiente, masAtras, masAdelante };
 }
 
-/** Una estación en una línea: «40 Wall Ball · 9 kg», «30 cal Row», «Run · 800 m». La de un WOD sale de su tarea. */
-export function textoEstacion(p: PasoBase): string {
+/**
+ * Una estación en una línea: «40 Wall Ball · 9 kg», «30 cal Row», «Run · 800 m».
+ * La de un WOD sale de su tarea. `conCarga: false` la deja sin kilos (la fila
+ * de lo ya hecho, que lleva su tiempo al lado y no cabe con todo a 390 pt).
+ */
+export function textoEstacion(p: PasoBase, conCarga = true): string {
   const w = wodDe(p);
-  if (w?.formato === 'fortime' && w.tarea) return [textoTarea(w.tarea), w.tarea.carga ? null : cargaTarea(w.tarea)].filter(Boolean).join(' · ');
-  if (w?.formato === 'emom') return textoTarea(w.tarea, w.ventanaS);
+  if (w?.formato === 'fortime' && w.tarea) return textoTarea(conCarga ? w.tarea : { ...w.tarea, carga: undefined });
+  if (w?.formato === 'emom') return textoTarea(conCarga ? w.tarea : { ...w.tarea, carga: undefined }, w.ventanaS);
   // El resto (una carrera dentro del chipper, una estación de circuito): el paso en corto, con su carga.
-  return textoPasoCorto(p);
+  return textoPasoCorto(conCarga ? p : { ...p, carga: undefined });
 }

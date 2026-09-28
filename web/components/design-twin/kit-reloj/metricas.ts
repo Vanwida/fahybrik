@@ -208,7 +208,8 @@ export function trabajoDe(p: PasoBase, l: Lecturas, heroe: HeroeVista['clase']):
       return falta != null ? { etiqueta: 'quedan', valor: fmtReloj(Math.ceil(falta)) } : null;
     }
     case 'fortime':
-      return w?.formato === 'fortime' && w.tarea ? enTexto('estación', [textoTarea(w.tarea), cargaTarea(w.tarea)].filter(Boolean).join(' · ')) : null;
+      // `textoTarea` ya lleva los kilos; lo que añade `cargaTarea` es solo «peso corporal».
+      return w?.formato === 'fortime' && w.tarea ? enTexto('estación', [textoTarea(w.tarea), w.tarea.carga ? null : cargaTarea(w.tarea)].filter(Boolean).join(' · ')) : null;
     case 'estacion':
     case 'roxzone': {
       const d = dosisEstacion(p);

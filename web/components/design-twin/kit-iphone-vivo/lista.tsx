@@ -7,21 +7,22 @@
 // trabajo, justo encima. Tocar abre la Estructura, que es la lista entera.
 //
 // Va en la franja elástica (`apoyo` de `VistaIphone`), sobre las celdas
-// compactas. Tres filas fijas: nunca crece, nunca desborda.
+// compactas. Tres filas fijas: nunca crece, nunca desborda. A 390 pt la fila
+// de lo hecho lleva su tiempo y va sin kilos; la de lo que viene, con ellos.
 
 import type { AlrededorVista } from '../kit-reloj/alrededor';
 import { textoEstacion } from '../kit-reloj/alrededor';
 import { fmtReloj } from '../kit-reloj/reglas';
-import { Etiqueta, Icono, Numeral, Superficie } from './piezas';
+import { Etiqueta, Numeral, Superficie } from './piezas';
 import { CI, TI } from './tokens';
 
 const ALTO_FILA = 28;
+const ANCHO_ETIQUETA = 48;
 
 function Fila({ etiqueta, texto, hecha, tiempo }: { etiqueta: string; texto: string; hecha?: boolean; tiempo?: string | null }) {
   return (
     <div style={{ height: ALTO_FILA, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-      <Etiqueta estilo={{ minWidth: 52 }}>{etiqueta}</Etiqueta>
-      {hecha ? <Icono nombre="check" talla={16} tono={CI.tinta2} /> : null}
+      <Etiqueta estilo={{ minWidth: ANCHO_ETIQUETA }}>{etiqueta}</Etiqueta>
       <span style={{ fontSize: TI.cuerpo.cuerpo, fontWeight: 600, color: hecha ? CI.tinta2 : CI.tinta, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'clip', minWidth: 0, flex: '1 1 auto' }}>
         {texto}
       </span>
@@ -31,7 +32,7 @@ function Fila({ etiqueta, texto, hecha, tiempo }: { etiqueta: string; texto: str
 }
 
 /**
- * LA VENTANA ALREDEDOR DE LA ESTACIÓN: «hecha · ✓ 50 Double Under · 1:02»,
+ * LA VENTANA ALREDEDOR DE LA ESTACIÓN: «hecha · 50 Double Under · 1:02»,
  * «luego · 30 cal Row», «+7 más · 1 hecha antes». `onAbrir` abre la Estructura.
  */
 export function ListaAlrededor({ alrededor, onAbrir }: { alrededor: AlrededorVista; onAbrir?: () => void }) {
@@ -50,7 +51,7 @@ export function ListaAlrededor({ alrededor, onAbrir }: { alrededor: AlrededorVis
       style={{ display: 'block', width: '100%', padding: 0, border: 0, background: 'transparent', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', flex: '0 0 auto' }}
     >
       <Superficie padding={10} estilo={{ display: 'flex', flexDirection: 'column' }}>
-        {anterior ? <Fila etiqueta="hecha" texto={textoEstacion(anterior.paso)} hecha tiempo={anterior.segundos != null ? fmtReloj(anterior.segundos) : null} /> : <Fila etiqueta="primera" texto="es la primera estación" hecha />}
+        {anterior ? <Fila etiqueta="hecha" texto={textoEstacion(anterior.paso, false)} hecha tiempo={anterior.segundos != null ? fmtReloj(anterior.segundos) : null} /> : <Fila etiqueta="primera" texto="es la primera estación" hecha />}
         {siguiente ? <Fila etiqueta="luego" texto={textoEstacion(siguiente)} /> : <Fila etiqueta="luego" texto="nada: esta es la última" />}
         <div style={{ height: ALTO_FILA, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <Etiqueta>{resto}</Etiqueta>

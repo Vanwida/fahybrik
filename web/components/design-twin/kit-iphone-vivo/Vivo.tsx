@@ -70,6 +70,8 @@ export interface VistaIphoneProps {
   apoyo?: (seq: Secuencia, kit: { irA: (id: IdPagina) => void }) => ReactNode | null;
   /** Cuántas celdas quedan bajo el apoyo (por defecto 2, como en la anotación). */
   celdasConApoyo?: number;
+  /** ¿Las celdas bajo el apoyo van compactas (etiqueta y valor en fila)? Por defecto sí; un apoyo corto las deja normales. */
+  apoyoCompacto?: boolean;
   /** «Luego ·», si la familia lo cambia; `null` lo quita (cuando el apoyo ya dice lo que viene: un dato, un sitio). */
   luego?: (seq: Secuencia, porDefecto: LuegoVista | null) => LuegoVista | null;
   /** El detalle de «Sesión completada» cuando el motor cierra el último paso (la puntuación de un death by). */
@@ -290,15 +292,17 @@ export function VistaIphone(p: VistaIphoneProps) {
     <>
       {sujeto}
       {banda ? <BandaObjetivo banda={banda} /> : null}
-      {trabajo ? <Trabajo trabajo={trabajo} extra={enDescanso && paso.rol === 'descanso' ? <Mas30 onMas30={seq.sumar30} /> : undefined} /> : null}
+      {/* «+30 s» solo en un descanso que se estira: el del reloj de pared (tabata) no. */}
+      {trabajo ? <Trabajo trabajo={trabajo} extra={enDescanso && paso.rol === 'descanso' && paso.wod?.formato !== 'pared' ? <Mas30 onMas30={seq.sumar30} /> : undefined} /> : null}
     </>
   );
   const bloqueApoyo = (
     <>
-      <Rejilla metricas={apoyo ? metricas.slice(0, p.celdasConApoyo ?? 2) : metricas} compacta={!!apoyo}>
+      <Rejilla metricas={apoyo ? metricas.slice(0, p.celdasConApoyo ?? 2) : metricas} compacta={!!apoyo && (p.apoyoCompacto ?? true)}>
         {apoyo}
       </Rejilla>
-      {enDescanso ? null : <Luego luego={luego} />}
+      {/* Si la familia quitó «Luego» a propósito (su apoyo ya dice lo que viene), tampoco queda su hueco. */}
+      {enDescanso || (p.luego && !luego) ? null : <Luego luego={luego} />}
       <TiraEstructura arcos={arcos} enCurso={estado.i} fraccion={fraccionDelPaso(paso, lecturas)} onAbrir={() => irA('estructura')} />
     </>
   );

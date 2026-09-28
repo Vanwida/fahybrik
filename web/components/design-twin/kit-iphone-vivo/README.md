@@ -31,10 +31,13 @@ Con estado propio de la familia (las rondas del AMRAP, lo anotado en fuerza, la 
 |---|---|---|
 | `extra(seq) → ExtraFamilia` | lo que el paso no sabe solo: `total`, `rondas`, `cargaKg`, `ultimaSerie`, `descansoS`, `repsRonda`, `repsMinuto`, `siguienteNombre` | siempre que la familia tenga ese dato |
 | `heroe(seq, kit)` | cambia el héroe; recibe el de `heroeDeFamilia` | casi nunca: solo si el modelo lo dice (el EMOM marca «respiro») |
-| `primaria(seq, kit)` | la acción primaria, del `VOCABULARIO_PRIMARIA` | cuando la familia tiene estado (`+1 ronda`, `Hecho`, `Confirmar`) |
+| `primaria(seq, kit)` | la acción primaria, del `VOCABULARIO_PRIMARIA`; con `deshacer: { aviso, hacer }` una acción que no cierra el paso (+1 ronda, «hecho») pasa por el mismo aviso de 5 s | cuando la familia tiene estado (`+1 ronda`, `Hecho`, `Confirmar`) |
 | `posicion(seq)` | la cabecera por partes; el kit usa `posicionDe` | casi nunca |
 | `cronoTotal(seq)` | el crono TOTAL en la cabecera (la puntuación) | circuitos y For Time |
 | `anotar` | la tarjeta de anotación en el descanso (`AnotarSerie`) | fuerza |
+| `apoyo(seq, { irA })` | lo que va en la franja elástica DURANTE el trabajo o una transición, sobre las celdas (compactas, `celdasConApoyo`; `apoyoCompacto: false` las deja normales): la lista ±1 del chipper (`ListaAlrededor`), la puntuación del AMRAP (`AnotarPuntuacion`) | WOD, circuito |
+| `luego(seq, kit)` | cambia «Luego ·»; `null` lo quita (y su hueco) cuando el apoyo ya dice lo que viene | el chipper |
+| `detalleFin(seq)` | el detalle de «Sesión completada» cuando el motor cierra el último paso | la puntuación de un death by |
 | `duracion` | cuánto pesa cada paso en la tira | el circuito |
 | `avisoCierre(seq)` | el texto del deshacer | si el del kit (`avisoDeCierre`) no sirve |
 | `antes` | «Empezar» antes de arrancar (GPS) | correr en calle |
@@ -73,8 +76,8 @@ El guion (`GestoIphone`): `primaria`, `pausa`, `reanudar`, `terminar`, `terminar
 
 ## Lo que este kit NO cubre todavía (para las familias)
 
-- **Death by** (reps crecientes por minuto): no está en `InfoWod`. Añadirlo al kit compartido (`paso.ts`, `tarea.ts`, `voz.ts`, `metricas.ts`) con test; el héroe es «reps de este minuto» y lo que queda del minuto (I4).
+- ~~**Death by**~~ Ya está en el kit compartido (`kit-reloj/deathby.ts`, 28-09): la escalera como dato del paso, el héroe «reps de este minuto», y el mecanismo «el reloj te caza». Pantalla: `screens/iphone-vivo-wod/`.
 - **Página Mapa**: una traza determinista; el mapa real es el del sistema (correr).
 - **La página Estructura** enseña los bloques con sus vueltas; la ruta del circuito con parciales por estación (como la Ruta de la muñeca) la pone la familia circuito.
 - **Tinte de zona** (I8): solo cuando el paso va a zona; el «siempre que haya pulso» del CONTRATO §10.1 queda para Alex (§7 del modelo).
-- **RX / Escalado**: fuera del vivo; se declara al terminar con la puntuación (SmartWOD/Wodify). No hay componente aquí a propósito.
+- **RX / Escalado**: fuera del vivo; se declara al terminar con la puntuación (SmartWOD/Wodify). No hay componente aquí a propósito. La puntuación del AMRAP (rondas + reps) sí: `AnotarPuntuacion` en la campana.

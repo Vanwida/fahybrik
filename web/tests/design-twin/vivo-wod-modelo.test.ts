@@ -240,6 +240,7 @@ describe('la lista del chipper: lo hecho con su tiempo, lo que viene y cuántas 
 
   it('la estación en una línea, desde su tarea: dosis, nombre y carga', () => {
     expect(textoEstacion(pasos[1]!)).toBe('40 Wall Ball · 9 kg');
+    expect(textoEstacion(pasos[1]!, false)).toBe('40 Wall Ball');
     expect(textoEstacion(pasos[2]!)).toBe('30 cal Row');
     expect(textoEstacion(paso({ clase: 'carrera', rol: 'trabajo', nombre: 'Run', medida: { tipo: 'distancia', prescrito: 800, mide: 'gps' } }))).toBe('Run · 800 m');
   });
