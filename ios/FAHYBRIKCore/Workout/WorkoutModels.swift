@@ -155,6 +155,19 @@ struct SegmentSource: Codable, Equatable {
     let itemIndex: Int?
 }
 
+/// Lo que el servidor resolvió para UNA serie de fuerza y no viaja en su
+/// prescripción: la RM del atleta en ese ejercicio y la nota del coach.
+struct FichaDeSerie: Codable, Equatable {
+    var rmKg: Double?
+    var nota: String?
+
+    init(_ item: WorkoutItem) {
+        rmKg = item.resolvedLoad?.oneRmKg
+        let n = item.notes?.trimmingCharacters(in: .whitespacesAndNewlines)
+        nota = (n?.isEmpty == false) ? n : nil
+    }
+}
+
 struct WorkoutSegment: Codable, Identifiable {
     let id: UUID
     let order: Int
@@ -228,6 +241,14 @@ struct WorkoutSegment: Codable, Identifiable {
     /// no se podía atribuir a su ejercicio y salía UNA vuelta por bloque con el ritmo
     /// mezclado. Nil fuera de un pliegue de ítem-por-set.
     var stationSources: [SegmentSource]? = nil
+
+    /// LO QUE EL SERVIDOR SABE DE CADA SERIE Y LA PRESCRIPCIÓN NO: la RM que resolvió
+    /// para el ejercicio (`resolved_load.one_rm_kg`) y la nota del coach, una por
+    /// serie de `prescription.sets` y en el mismo orden. Sin esto la superserie
+    /// plegada perdía las dos —el brief enseñaba «121–131 kg» y el vivo, solo el
+    /// 65–70 %— y ninguna serie decía «concéntrica explosiva». Nil fuera de la
+    /// fuerza por series. `var` con defecto: llamadas y snapshots siguen igual.
+    var fichasPorSerie: [FichaDeSerie]? = nil
 
     /// El ejercicio del plan detrás de la estación `i` del pliegue (cicla como la
     /// rotación: la estación 7 de una ruta de 3 × 3 rondas es la primera).
@@ -1601,6 +1622,9 @@ extension WorkoutPlan {
             ergKind: item.ergSubtype            // #erg-2: row/ski/bike, not a merged "row"
         )
         seg.sourceItemIndex = source.itemIndex
+        if seg.usesMultiSetStrength, let n = prescription?.sets?.count {
+            seg.fichasPorSerie = Array(repeating: FichaDeSerie(item), count: n)
+        }
         return seg
     }
 
@@ -1747,6 +1771,7 @@ extension WorkoutPlan {
         )
         seg.sourceItemIndex = sources.first?.itemIndex
         seg.stationSources = sources
+        seg.fichasPorSerie = block.supersetTurnItems.map(FichaDeSerie.init)
         return seg
     }
 
