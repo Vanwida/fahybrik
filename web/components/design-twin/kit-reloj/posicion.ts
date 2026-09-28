@@ -54,7 +54,20 @@ const MODO_RECUPERA = { trote: 'trote', andar: 'caminando', parado: 'parado' } a
  * con la carga que propone el plan: «A1 · Back Squat · 8 × 125 kg»; la
  * Roxzone y la campana del AMRAP, su nombre; si no, el paso: «1000 m a 3:45–3:55».
  */
-export function textoViene(p: PasoBase): string {
+/**
+ * ¿Este paso ABRE una ronda? Solo un paso de trabajo: el primero del plan con
+ * esa ronda (el run de 493 la abre; la estación que le sigue, no; el descanso
+ * de la ronda tampoco). Sin el plan a mano, la heurística del paso solo: la
+ * estación 1 o un paso sin contador de estación.
+ */
+export function abreRonda(p: PasoBase, pasos?: ReadonlyArray<PasoBase>, j?: number): boolean {
+  const r = p.posicion?.ronda;
+  if (p.rol !== 'trabajo' || !r) return false;
+  if (pasos && j != null) return !pasos.slice(0, j).some((q) => q.rol === 'trabajo' && q.posicion?.ronda?.n === r.n && (q.bloque ?? 0) === (p.bloque ?? 0));
+  return (p.posicion?.estacion?.n ?? 1) === 1;
+}
+
+export function textoViene(p: PasoBase, abre: boolean = abreRonda(p)): string {
   const pos = p.posicion;
   if (p.rol === 'recuperacion') return `Recupera ${textoPasoCorto(p)} ${MODO_RECUPERA[p.modoRecupera ?? 'trote']}`;
   if (p.clase === 'roxzone') return 'Roxzone';
@@ -67,7 +80,7 @@ export function textoViene(p: PasoBase): string {
   }
   const corto = textoPasoCorto(p);
   if (pos?.tanda && pos.serie?.n === 1) return `Tanda ${pos.tanda.n}/${pos.tanda.de} · ${pos.serie.de} × ${corto}`;
-  if (pos?.ronda && (pos.estacion?.n ?? 1) === 1) return `Ronda ${pos.ronda.n}/${pos.ronda.de} · ${corto}`;
+  if (abre && pos?.ronda) return `Ronda ${pos.ronda.n}/${pos.ronda.de} · ${corto}`;
   // Sin objetivo, lo prescrito solo dice poco («1′»): se dice cuál es.
   if (pos?.serie && !principal(p)) return `${p.wod?.formato === 'emom' ? 'Minuto' : NOMBRE_CLASE_DEFECTO[p.clase]} ${pos.serie.n}/${pos.serie.de} · ${corto}`;
   return corto;
@@ -89,6 +102,6 @@ export function luegoDe(pasos: ReadonlyArray<PasoBase>, i: number): LuegoVista |
   const sig = pasos[i + 1];
   if (!sig) return null;
   const tras = pasos[i + 2];
-  const despues = sig.rol !== 'trabajo' && tras && tras.rol === 'trabajo' ? textoViene(tras) : null;
-  return { que: textoViene(sig), despues };
+  const despues = sig.rol !== 'trabajo' && tras && tras.rol === 'trabajo' ? textoViene(tras, abreRonda(tras, pasos, i + 2)) : null;
+  return { que: textoViene(sig, abreRonda(sig, pasos, i + 1)), despues };
 }

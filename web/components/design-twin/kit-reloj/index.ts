@@ -62,6 +62,8 @@
 //   estructura.ts La estructura en líneas de dato: duracionEstimada/duracionHumana,
 //                 Grupo + filasDePasos, estructuraDe, lineaBrief, grupoPrincipal,
 //                 hoyDe, paginar.
+//   ruta.ts       La ruta de un circuito (P10): rutaDe (cabeceras de ronda + pasos con
+//                 su parcial, lo suelto), nombreEnRuta, roxzoneDe, ritmoDeParcial.
 //   despues.ts    Lo que se decide al terminar: MetodoResumen + METODO_RESUMEN_DEFECTO
 //                 (pares, umbral de serie cortada, guardado solo tras 10′ quieto),
 //                 completitud (completa/parcial/libre), costeTrasEstacion.
@@ -142,6 +144,7 @@ export * from './metricas';
 export * from './posicion';
 export * from './tarea';
 export * from './estructura';
+export * from './ruta';
 export * from './despues';
 export * from './lamina';
 export * from './voz';

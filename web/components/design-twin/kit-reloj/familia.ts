@@ -101,8 +101,10 @@ export function formatoDe(p: PasoBase, nombres = NOMBRE_FORMATO_DEFECTO): string
   if (p.clase === 'estacion' || p.clase === 'roxzone' || (p.clase === 'carrera' && p.posicion?.ronda)) return nombres.circuito;
   if (p.clase === 'series') return 'Series';
   if (p.clase === 'fuerza') return 'Fuerza';
-  // «Ergo» no es palabra de box: el formato es por series o continuo.
-  if (p.clase === 'ergo') return p.posicion?.serie || p.posicion?.tramo ? 'Series' : 'Continuo';
+  // «Ergo» no es palabra de box: el formato es por series o continuo. Un
+  // tramo (remo 15′ → ski 15′ → bici 15′, la escalera de 536) es continuo:
+  // no hay descanso entre tramos, solo cambia la máquina o la zona.
+  if (p.clase === 'ergo') return p.posicion?.serie ? 'Series' : 'Continuo';
   return NOMBRE_CLASE_DEFECTO[p.clase];
 }
 
