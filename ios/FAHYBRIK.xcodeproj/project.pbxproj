@@ -18,6 +18,7 @@
 		015B73EF8D49CB17B1E480E9 /* Vivo+PlanDeSesion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F982A3A930E06A4D79B9146 /* Vivo+PlanDeSesion.swift */; };
 		01D3271B066FB3CDED234346 /* ReadinessGlanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F10ED5AE777292AA63A3454 /* ReadinessGlanceView.swift */; };
 		025BA042FF524920D4C658A5 /* InviteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0508E384288152EE74E19F1 /* InviteService.swift */; };
+		02C7E04900FB70B3DB9705F4 /* TestEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A92B79939551F20C0ED8F7 /* TestEnvironment.swift */; };
 		0356197E3802A9F29B46AD24 /* WearablesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67B3C8F723D9D7FC61B2F98 /* WearablesService.swift */; };
 		03DF7F0814ACD3B59F7B05AE /* CicloDelPlanLecturasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6AA3E67BA4750EAEAE195C /* CicloDelPlanLecturasTests.swift */; };
 		0456B17C31141FB75D686646 /* WorkoutSession+Signals.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDCBBE40B5D3183B32420C0E /* WorkoutSession+Signals.swift */; };
@@ -612,6 +613,7 @@
 		A8F597BB7C226C34529040B1 /* StructuredRunLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E64E0DF983C7270FAF2C83E /* StructuredRunLiveView.swift */; };
 		A943770486543CD372460D2D /* LiveWorkoutLaunchConflict.swift in Sources */ = {isa = PBXBuildFile; fileRef = 668F65DE3E87F37EB2CB11A9 /* LiveWorkoutLaunchConflict.swift */; };
 		A98396182007846DCBD742D7 /* WorkoutSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1891136265E19DFE9DE88A /* WorkoutSession.swift */; };
+		A9906B4895C043A0607E7E3B /* TestEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A92B79939551F20C0ED8F7 /* TestEnvironment.swift */; };
 		A9D62C41EFBA54B50952F43F /* TestBatteryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7376A4E5F5E7FB5C0C299CFF /* TestBatteryService.swift */; };
 		A9E175EF10A280EC4F4747B7 /* JumpRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900070A94E1A88DA71450CFE /* JumpRecorder.swift */; };
 		A9EED9074C8AA1615F86F7CD /* Volcado.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AEBA66FADB0218883930835 /* Volcado.swift */; };
@@ -1745,6 +1747,7 @@
 		DFE92063058308435DC37F74 /* RunLegProgressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLegProgressTests.swift; sourceTree = "<group>"; };
 		DFF7B4BD77C17B8D09ECD9F8 /* ProfileNavRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileNavRow.swift; sourceTree = "<group>"; };
 		E0A1BBCB35D6F990406AC023 /* FreePlanHydration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreePlanHydration.swift; sourceTree = "<group>"; };
+		E0A92B79939551F20C0ED8F7 /* TestEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestEnvironment.swift; sourceTree = "<group>"; };
 		E0B9E8B521D9F24F2D7802C8 /* ChatContextViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatContextViews.swift; sourceTree = "<group>"; };
 		E14209912FD6BC4229B817D7 /* LecturaDeCarreraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LecturaDeCarreraView.swift; sourceTree = "<group>"; };
 		E1AB5EED26A53BC1E11EE437 /* ChatMediaLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMediaLoader.swift; sourceTree = "<group>"; };
@@ -2330,6 +2333,7 @@
 				5B40F4812AF7896293AD5477 /* RunLiveHero.swift */,
 				314E24336691806686EB0C71 /* SegmentPayloadBuilder.swift */,
 				F4DE619E8867B17C1908E9B4 /* SessionStartPolicy.swift */,
+				E0A92B79939551F20C0ED8F7 /* TestEnvironment.swift */,
 				70030A15C3FF235411E11E62 /* WatchPrimaryLifecycle.swift */,
 				5D632BF4FA9FD9CDB7E3F3AC /* WatchWorkoutClock.swift */,
 				3A720378A9EB0DA597445F4E /* WorkoutAudio.swift */,
@@ -4218,6 +4222,7 @@
 				B29A849DA8579870629F05A6 /* TarjetaCompartirView.swift in Sources */,
 				4B02E985167FE08605FA5F61 /* TestBatteryCard.swift in Sources */,
 				A9D62C41EFBA54B50952F43F /* TestBatteryService.swift in Sources */,
+				02C7E04900FB70B3DB9705F4 /* TestEnvironment.swift in Sources */,
 				1F42D8D0FDBEA8D2795177B3 /* TestRecordCelebrationView.swift in Sources */,
 				73A16008EB56CD410128016C /* TestResultCaptureSheet.swift in Sources */,
 				D23CB0F3457C878E6A1F412D /* TestResultDoneView.swift in Sources */,
@@ -4424,6 +4429,7 @@
 				517A4398F12E892D6A022EFA /* SplitsView.swift in Sources */,
 				A8F597BB7C226C34529040B1 /* StructuredRunLiveView.swift in Sources */,
 				04BFC484BBC3EF34C69442FD /* SummaryView.swift in Sources */,
+				A9906B4895C043A0607E7E3B /* TestEnvironment.swift in Sources */,
 				F367C8C4333A0650DD8D2364 /* TodayBriefView.swift in Sources */,
 				7B4893ADC44A1A5EA4B03EEE /* VelocityBand.swift in Sources */,
 				ED9FAF8BBD6CF9E802529EFB /* Vivo+Accion.swift in Sources */,

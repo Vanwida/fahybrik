@@ -71,3 +71,28 @@ final class SystemCoachSpeaker: NSObject, CoachSpeaker, AVSpeechSynthesizerDeleg
         onFinish?()
     }
 }
+
+// MARK: - MuteCoachSpeaker — the muted stand-in for a unit-test process (#63)
+//
+// `AVSpeechSynthesizer` speaks out loud on the machine running the tests (the
+// simulator's audio plays through the Mac). `AudioCoach.shared`'s default
+// `speaker:` swaps to this when `TestEnvironment.isRunningUnitTests` — a test
+// run must produce zero sound. Records what would have been spoken instead,
+// so any test wired against the REAL `AudioCoach.shared` → `WorkoutSession`
+// path (as opposed to `RunCueEngineTests`' own hand-built `MockSpeaker`) can
+// still assert on the cue text via `MuteCoachSpeaker.spoken`.
+final class MuteCoachSpeaker: CoachSpeaker {
+    var onFinish: (() -> Void)?
+    /// Every utterance that would have been spoken, in order.
+    private(set) var spoken: [String] = []
+    private(set) var stopCount = 0
+
+    func speak(_ text: String) {
+        spoken.append(text)
+        onFinish?()   // completes immediately — nothing to await, drain the queue.
+    }
+
+    func stop() {
+        stopCount += 1
+    }
+}

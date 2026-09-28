@@ -36,7 +36,7 @@ final class AudioCoach {
     private var isSpeaking = false
 
     init(engine: RunCueEngine = RunCueEngine(),
-         speaker: CoachSpeaker = SystemCoachSpeaker(),
+         speaker: CoachSpeaker = TestEnvironment.isRunningUnitTests ? MuteCoachSpeaker() : SystemCoachSpeaker(),
          audioSession: VoiceAudioSession = WorkoutAudio.shared,
          now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         self.engine = engine
