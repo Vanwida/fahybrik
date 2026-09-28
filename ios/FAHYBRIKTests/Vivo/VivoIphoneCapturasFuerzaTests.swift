@@ -158,7 +158,8 @@ final class VivoIphoneCapturasFuerzaTests: XCTestCase {
     @MainActor func testFuerzaUltimaB1Serie1() throws {
         let (s, a0) = try ultimaRonda(); var a = a0
         a.declaradas["s1-q6"] = Self.todo; a.declaradas["s1-q7"] = Self.todo; a.aviso = "Descanso cortado"
-        captura(s, "fuerza-ultima-b1-serie-1", arranque: a) { s in
+        // A 1,3 s de entrar en B1: el GO (1 s) ya se fue y el aviso de deshacer (5 s) sigue, como el contrato.
+        captura(s, "fuerza-ultima-b1-serie-1", espera: 1.3, arranque: a) { s in
             s.injectLiveHR(120, source: .strap); s.elapsedSeconds = 1093
             s.dismissRest()
         }
