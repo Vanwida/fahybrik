@@ -86,7 +86,7 @@ export function planBici(): PlanSesion {
 /** Test de remo 2000 m: sin objetivo (es un test), lo mide la máquina. */
 export function planTestRemo(): PlanSesion {
   return plan([
-    { id: id('test'), clase: 'test', rol: 'trabajo', fase: 'principal', nombre: 'Remo 2000 m', maquina: { tipo: 'remo' }, medida: { tipo: 'distancia', prescrito: 2000, mide: 'ergo' }, objetivos: [], cierre: 'medida', bloque: 0 },
+    { id: id('test'), clase: 'test', rol: 'trabajo', fase: 'principal', maquina: { tipo: 'remo' }, medida: { tipo: 'distancia', prescrito: 2000, mide: 'ergo' }, objetivos: [], cierre: 'medida', bloque: 0 },
   ]);
 }
 

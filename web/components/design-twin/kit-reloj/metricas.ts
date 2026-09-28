@@ -15,7 +15,7 @@
 
 import { cargaDelPlan } from './anotar';
 import { familiaDe } from './familia';
-import { esFuerza, fmtKg, textoEsfuerzo, textoPct, textoTempo } from './fuerza';
+import { esFuerza, fmtKg, textoEsfuerzo, textoKgPlan, textoPct, textoTempo } from './fuerza';
 import { heroeDelPaso, lineaPulso, type HeroeVista, type LineaVista } from './lamina';
 import { REGLAS_AVISO_DEFECTO, type Lecturas, type PasoBase, type ReglasAviso, type ZonasCoach } from './paso';
 import {
@@ -64,6 +64,10 @@ export interface ExtraFamilia {
   descansoS?: number | null;
   /** El nombre de lo que viene (la estación a la que entra la Roxzone). */
   siguienteNombre?: string | null;
+  /** Segundos de la ronda en curso de un circuito (lo hecho de esta ronda + este paso). */
+  rondaS?: number | null;
+  /** ¿El crono total ya está en la cabecera? Entonces la rejilla no lo repite (un dato, un sitio). */
+  totalEnCabecera?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +233,9 @@ export type ClaveMetrica =
   | 'total'
   | 'ronda'
   | 'objetivo'
+  | 'carga'
+  | 'esfuerzo'
+  | 'rondaS'
   | 'reps';
 
 /** Una celda de la rejilla: etiqueta a 15 pt, valor grande, unidad; el pulso con su zona. */
@@ -298,7 +305,12 @@ function inclinacion(p: PasoBase): Metrica | null {
 }
 
 function totalDe(x: ExtraFamilia): Metrica | null {
-  return x.total == null ? null : { clave: 'total', etiqueta: 'total', valor: fmtReloj(x.total) };
+  return x.total == null || x.totalEnCabecera ? null : { clave: 'total', etiqueta: 'total', valor: fmtReloj(x.total) };
+}
+
+function rondaDe(p: PasoBase, x: ExtraFamilia): Metrica | null {
+  const r = p.posicion?.ronda;
+  return r && x.rondaS != null ? { clave: 'rondaS', etiqueta: `ronda ${r.n}`, valor: fmtReloj(x.rondaS) } : null;
 }
 
 const texto = (clave: ClaveMetrica, etiqueta: string, valor: string): Metrica => ({ clave, etiqueta, valor, texto: true });
@@ -330,7 +342,7 @@ export function metricasDelPaso(
     case 'correr':
       if (heroe !== 'ritmo') m.push(ritmo(l));
       if (conPulso) m.push(pulso(p, l, zonas, reglas));
-      m.push(distancia(x), cadencia(l, 'pasos'));
+      m.push(distancia(x), rondaDe(p, x), cadencia(l, 'pasos'));
       break;
     case 'cinta':
       if (heroe !== 'ritmo') m.push(ritmo(l));
@@ -348,10 +360,18 @@ export function metricasDelPaso(
       m.push(cal(l), vatios(l));
       break;
     case 'fuerza': {
+      // Lo que la serie pide y no cabe en el héroe: la carga que da el plan en
+      // kilos, el esfuerzo, el tempo, el descanso prescrito, la última serie.
       const s = p.posicion?.serie;
       if (s) m.push(texto('serie', esFuerza(p) && p.fuerza.aproximacion ? 'aproximación' : 'serie', `${s.n}/${s.de}`));
+      if (esFuerza(p)) {
+        const kg = textoKgPlan(p.fuerza.carga);
+        if (kg && p.fuerza.carga.tipo === 'rm') m.push(texto('carga', 'carga del plan', kg));
+        if (p.fuerza.esfuerzo && !p.fuerza.aproximacion) m.push(texto('esfuerzo', 'esfuerzo', textoEsfuerzo(p.fuerza.esfuerzo)));
+      }
+      if (p.tempo) m.push(texto('tempo', 'tempo', textoTempo(p.tempo)));
+      if (x.ultimaSerie) m.push(texto('ultima', 'última serie', x.ultimaSerie));
       if (x.descansoS != null) m.push(texto('descanso', 'descanso', fmtDuracion(x.descansoS)));
-      if (x.ultimaSerie) m.push(texto('ultima', 'última', x.ultimaSerie));
       if (conPulso) m.push(pulso(p, l, zonas, reglas));
       break;
     }
@@ -394,8 +414,8 @@ export function metricasDelPaso(
     case 'roxzone': {
       const o = objetivoDe(p, 'principal');
       if (o) m.push(texto('objetivo', 'objetivo', fmtObjetivo(o, p.maquina)));
-      m.push(totalDe(x));
       if (conPulso) m.push(pulso(p, l, zonas, reglas));
+      m.push(rondaDe(p, x), totalDe(x));
       break;
     }
     case 'recupera':

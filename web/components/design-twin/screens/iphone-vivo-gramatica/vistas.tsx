@@ -30,6 +30,7 @@ import {
   pendiente,
   posicionDe,
   seriesDelDescanso,
+  textoAnotacion,
   useVivo,
   wodDe,
   type Campo,
@@ -140,6 +141,18 @@ export function VivoFuerza({ caso, onLog, guionAnotar }: Vista & { guionAnotar?:
       })
     : [];
   const pendientes = series.filter((s) => pendiente(s.anot));
+  /** La última serie ANOTADA del mismo ejercicio: «8 × 125 kg · RIR 3». */
+  const ultimaSerieDe = (j: number): string | null => {
+    const q = plan.pasos[j];
+    if (!esFuerza(q)) return null;
+    for (let k = j - 1; k >= 0; k--) {
+      const r = plan.pasos[k];
+      if (!esFuerza(r) || r.fuerza.ejercicio !== q.fuerza.ejercicio || !registro[r.id]) continue;
+      const a = anotacionDe(plan, k, registro, null);
+      return a ? textoAnotacion(a, r.fuerza) : null;
+    }
+    return null;
+  };
 
   const cambiar = (p: PasoFuerza, campo: Campo, dir: 1 | -1) => {
     const anot = anotacionDe(plan, plan.pasos.indexOf(p), registro, null);
@@ -177,6 +190,7 @@ export function VivoFuerza({ caso, onLog, guionAnotar }: Vista & { guionAnotar?:
       extra={(s) => ({
         cargaKg: cargaArrastrada(plan, s.estado.i, registro),
         descansoS: s.paso.siguiente?.rol === 'descanso' ? s.paso.siguiente.medida.prescrito : null,
+        ultimaSerie: ultimaSerieDe(s.estado.i),
       })}
       primaria={(s, kit) => (s.paso.rol === 'descanso' && pendientes.length > 0 ? { clave: 'confirmar', hacer: confirmarTodo } : kit)}
       anotar={series.length > 0 ? <AnotarSerie series={series} onCambia={cambiar} onLog={onLog} /> : null}

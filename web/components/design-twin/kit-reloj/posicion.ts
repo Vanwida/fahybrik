@@ -12,7 +12,7 @@ import { cargaDelPlan } from './anotar';
 import { esFuerza, fmtKg } from './fuerza';
 import type { ExtraFamilia } from './metricas';
 import { NOMBRE_CLASE_DEFECTO, type PasoBase } from './paso';
-import { contextoDe, fmtPrescrito, principal, textoPasoCorto } from './reglas';
+import { contextoDe, fmtPrescrito, nombreMaquinaCorto, principal, textoPasoCorto } from './reglas';
 import { wodDe } from './tarea';
 
 /**
@@ -29,6 +29,19 @@ export function posicionDe(p: PasoBase, x: ExtraFamilia = {}): string[] {
   if (w?.formato === 'puntuacion') return ['Puntuación'];
   if (p.clase === 'roxzone') return [...contextoDe(p), 'Roxzone'];
   if (p.rol === 'descanso' || p.rol === 'recuperacion') return [...contextoDe(p), fmtPrescrito(p.medida)].filter(Boolean);
+  // El nombre de lo que haces es lo segundo más importante: va delante. Una
+  // estación («Sled Push · Ronda 2/8 · Estación 2/8»), la máquina de un ergo o
+  // un test («SkiErg · Serie 3/8 · 250 m») o el ejercicio de fuerza (A1 · …,
+  // que `contextoDe` ya pone). Nunca «Ergo 3/8».
+  const nombre = p.nombre ?? nombreMaquinaCorto(p.maquina);
+  if (nombre && (p.clase === 'estacion' || p.clase === 'ergo' || p.clase === 'test' || p.clase === 'carrera')) {
+    // La dosis de una estación ya va en la fila del trabajo: la cabecera no la repite.
+    const dosis = fmtPrescrito(p.medida);
+    const partes = contextoDe(p).filter((x) => !x.startsWith('Ergo') && !x.startsWith('Test') && !x.startsWith('Carrera') && !(p.clase === 'estacion' && x === dosis));
+    const serie = p.posicion?.serie;
+    if (p.clase !== 'estacion' && serie && !partes.some((x) => x.startsWith('Serie'))) partes.unshift(`Serie ${serie.n}/${serie.de}`);
+    return [nombre, ...partes.filter((x) => x !== nombre)];
+  }
   return contextoDe(p);
 }
 

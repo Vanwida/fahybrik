@@ -263,6 +263,14 @@ describe('«Luego ·» con el «después»', () => {
     const am = paso({ clase: 'amrap', rol: 'trabajo', medida: { tipo: 'tiempo', prescrito: 900, mide: 'reloj' }, wod: { formato: 'amrap', tareas, duracionS: 900 } });
     expect(posicionDe(am, { rondas: 4 })).toEqual(['Ronda 5']);
     expect(posicionDe(rec)).toEqual(['Recupera', 'trote', '90″']);
+    // El nombre de lo que haces va delante; «Ergo» nunca.
+    const sled = paso({ clase: 'estacion', rol: 'trabajo', nombre: 'Sled Push', medida: { tipo: 'distancia', prescrito: 50, mide: 'atleta' }, posicion: { ronda: { n: 2, de: 8 }, estacion: { n: 2, de: 8 } } });
+    expect(posicionDe(sled)).toEqual(['Sled Push', 'Ronda 2/8', 'Estación 2/8']);
+    const ski = paso({ clase: 'ergo', rol: 'trabajo', nombre: 'SkiErg', maquina: { tipo: 'ski' }, medida: { tipo: 'distancia', prescrito: 250, mide: 'ergo' }, posicion: { serie: { n: 3, de: 8 } } });
+    expect(posicionDe(ski)).toEqual(['SkiErg', 'Serie 3/8', '250\u00A0m']);
+    expect(formatoDe(ski)).toBe('Series');
+    const test = paso({ clase: 'test', rol: 'trabajo', maquina: { tipo: 'remo' }, medida: { tipo: 'distancia', prescrito: 2000, mide: 'ergo' } });
+    expect(posicionDe(test)).toEqual(['Remo', '2000\u00A0m']);
     expect(posicionDe(serie)).toEqual(contextoDeSerie);
   });
 });

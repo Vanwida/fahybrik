@@ -282,7 +282,7 @@ export function Chip({ texto, estado, icono, onPulsa }: { texto: string; estado:
 // Iconos — trazos propios (el lienzo del vivo no carga librerías)
 // ---------------------------------------------------------------------------
 
-export type NombreIcono = 'pausa' | 'reanudar' | 'terminar' | 'reloj' | 'gps' | 'maquina' | 'pulso' | 'mapa' | 'mas' | 'menos' | 'check' | 'estructura';
+export type NombreIcono = 'pausa' | 'reanudar' | 'terminar' | 'parar' | 'reloj' | 'gps' | 'maquina' | 'pulso' | 'mapa' | 'mas' | 'menos' | 'check' | 'estructura';
 
 export function Icono({ nombre, talla = 24, tono = 'currentColor' }: { nombre: NombreIcono; talla?: number; tono?: string }) {
   const p = { fill: 'none', stroke: tono, strokeWidth: 2.2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -303,6 +303,8 @@ export function Icono({ nombre, talla = 24, tono = 'currentColor' }: { nombre: N
       return svg(<path d="M7.5 4.5v15l12-7.5Z" fill={tono} />);
     case 'terminar':
       return svg(<path d="M6.5 6.5l11 11M17.5 6.5l-11 11" {...p} strokeWidth={2.6} />);
+    case 'parar':
+      return svg(<rect x="5.5" y="5.5" width="13" height="13" rx="3" fill={tono} />);
     case 'reloj':
       return svg(
         <>

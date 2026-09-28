@@ -101,6 +101,8 @@ export function formatoDe(p: PasoBase, nombres = NOMBRE_FORMATO_DEFECTO): string
   if (p.clase === 'estacion' || p.clase === 'roxzone' || (p.clase === 'carrera' && p.posicion?.ronda)) return nombres.circuito;
   if (p.clase === 'series') return 'Series';
   if (p.clase === 'fuerza') return 'Fuerza';
+  // «Ergo» no es palabra de box: el formato es por series o continuo.
+  if (p.clase === 'ergo') return p.posicion?.serie || p.posicion?.tramo ? 'Series' : 'Continuo';
   return NOMBRE_CLASE_DEFECTO[p.clase];
 }
 

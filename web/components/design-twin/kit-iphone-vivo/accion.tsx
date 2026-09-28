@@ -148,9 +148,15 @@ export function FranjaAccion({ primaria, pausado, onPausa, onTerminar, onLog }: 
             <Etiqueta>{pausado ? 'en pausa' : 'manda el reloj'}</Etiqueta>
           </span>
         )}
+        {/* Parar, no una ×: una × se lee como descartar. El cuadrado con «mantén»: se mantiene 1 s y sale la hoja. */}
         <BotonRedondo
           nombre="Terminar (mantener pulsado 1 s)"
-          icono={<Icono nombre="terminar" talla={24} />}
+          icono={
+            <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+              <Icono nombre="parar" talla={20} />
+              <Etiqueta tono={CI.tinta}>mantén</Etiqueta>
+            </span>
+          }
           onPointerDown={empezarHold}
           onPointerUp={() => soltar(false)}
           onPointerLeave={() => soltar(false)}

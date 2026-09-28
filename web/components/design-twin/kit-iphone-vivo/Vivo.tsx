@@ -147,7 +147,17 @@ export function VistaIphone(p: VistaIphoneProps) {
   // ── lo que se pinta (todo decidido en el kit compartido) ────────────────
   const extra = p.extra?.(seq) ?? {};
   const total = p.cronoTotal ? p.cronoTotal(seq) : null;
-  const extraCompleto: ExtraFamilia = { metrosPaso: estado.midio ? estado.metros : null, total, siguienteNombre: paso.siguiente?.nombre ?? null, ...extra };
+  // La ronda en curso de un circuito: lo hecho de esta ronda más este paso.
+  const ronda = paso.posicion?.ronda?.n;
+  const rondaS = ronda != null ? estado.parciales.filter((x) => plan.pasos[x.i]?.posicion?.ronda?.n === ronda).reduce((a, x) => a + x.segundos, 0) + lecturas.t : null;
+  const extraCompleto: ExtraFamilia = {
+    metrosPaso: estado.midio ? estado.metros : null,
+    total,
+    totalEnCabecera: total != null,
+    rondaS,
+    siguienteNombre: paso.siguiente?.nombre ?? null,
+    ...extra,
+  };
   const heroeKit = heroeDeFamilia(paso, lecturas, zonas, extraCompleto);
   const heroe = p.heroe ? p.heroe(seq, heroeKit) : heroeKit;
   const lamina = laminaDelPaso(paso, lecturas, zonas, plan.reglas);
@@ -158,7 +168,8 @@ export function VistaIphone(p: VistaIphoneProps) {
   const luego = luegoDe(plan.pasos, estado.i);
   const enDescanso = paso.rol === 'descanso' || paso.rol === 'recuperacion';
   const trabajoKit = trabajoDe(paso, lecturas, heroe.clase);
-  const trabajo: TrabajoVista | null = enDescanso && luego ? { etiqueta: 'viene', valor: luego.que, texto: true } : trabajoKit;
+  // El tempo de fuerza ya tiene celda en la rejilla: la fila del trabajo no lo repite (un dato, un sitio).
+  const trabajo: TrabajoVista | null = enDescanso && luego ? { etiqueta: 'viene', valor: luego.que, texto: true } : trabajoKit?.etiqueta === 'tempo' ? null : trabajoKit;
   const posicion = p.posicion ? p.posicion(seq) : posicionDe(paso, extraCompleto);
   // El total en la cabecera (la puntuación, que no se va); si el héroe YA es el total, el de sesión.
   const crono =
