@@ -46,18 +46,22 @@ describe('resolveBlockFormat — el formato ELEGIDO del bloque', () => {
     expect(resolveBlockFormat('warmup', [{ prescription: p({ scheme: 'warmup', sets: [] }) }])).toBe('warmup');
   });
 
-  test('sin declarar: el de sus líneas, con el vocabulario del editor', () => {
+  test('sin declarar (undefined): el de sus líneas, con el vocabulario del editor', () => {
     const steady = p({ scheme: 'steady', total_s: 1800 });
     const sets = p({ scheme: 'sets', sets: [{ measure: { kind: 'reps', value: 5 } }] });
-    expect(resolveBlockFormat(null, [{ prescription: steady }])).toBe('tempo');
-    expect(resolveBlockFormat(null, [{ prescription: sets }])).toBe('strength_block');
-    expect(resolveBlockFormat(null, [{ prescription: sets }, { prescription: sets }])).toBe('sets');
-    expect(resolveBlockFormat(null, [{ prescription: amrap }])).toBe('amrap');
-    expect(resolveBlockFormat(null, [{ prescription: null }])).toBeNull();
+    expect(resolveBlockFormat(undefined, [{ prescription: steady }])).toBe('tempo');
+    expect(resolveBlockFormat(undefined, [{ prescription: sets }])).toBe('strength_block');
+    expect(resolveBlockFormat(undefined, [{ prescription: sets }, { prescription: sets }])).toBe('sets');
+    expect(resolveBlockFormat(undefined, [{ prescription: amrap }])).toBe('amrap');
+    expect(resolveBlockFormat(undefined, [{ prescription: null }])).toBeNull();
+  });
+
+  test('declarado SIN formato (null) se respeta: no se inventa uno', () => {
+    expect(resolveBlockFormat(null, [{ prescription: p({ scheme: 'steady', total_s: 600 }) }])).toBeNull();
   });
 
   test('un valor que el enum no conoce no se guarda', () => {
-    expect(resolveBlockFormat('fartlek', [{ prescription: null }])).toBeNull();
+    expect(resolveBlockFormat('fartlek', [{ prescription: p({ scheme: 'steady', total_s: 600 }) }])).toBeNull();
   });
 });
 

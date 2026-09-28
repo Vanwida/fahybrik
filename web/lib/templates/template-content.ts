@@ -72,8 +72,13 @@ export interface TemplateContentLine {
 
 export interface TemplateContentBlock {
   title: string | null;
-  /** El formato que declara quien escribe (valor del enum `template_format`). */
-  format: string | null;
+  /**
+   * El formato que declara quien escribe (valor del enum `template_format`).
+   * `null` = declarado SIN formato (se respeta: un test de calibración no lleva);
+   * ausente (`undefined`) = quien escribe no lo sabe y se deriva de sus líneas
+   * (el entreno libre, el conector sin formato).
+   */
+  format?: string | null;
   /** Solo un bloque Circuito (`format === 'circuit'`). */
   circuit?: CircuitConfig | null;
   items: TemplateContentLine[];
@@ -148,7 +153,8 @@ export function blockFormatForScheme(scheme: WorkoutFormat, lineCount: number): 
  *      `scheme` de todas sus líneas, y el bloque sigue. Un AMRAP no se guarda
  *      como `for_time` (el móvil puntuaba por tiempo).
  *   2. Si no, el que declara quien escribe, si el enum lo conoce.
- *   3. Sin declarar: el de sus líneas, si todas comparten uno. Si no, ninguno.
+ *   3. Sin declarar (`undefined`): el de sus líneas, si todas comparten uno.
+ *   4. Declarado sin formato (`null`) o con uno que el enum no conoce: ninguno.
  */
 export function resolveBlockFormat(
   declared: string | null | undefined,
@@ -169,6 +175,7 @@ export function resolveBlockFormat(
     return shared;
   }
   if (known) return known;
+  if (declared !== undefined) return null;
   return shared ? blockFormatForScheme(shared, lines.length) : null;
 }
 

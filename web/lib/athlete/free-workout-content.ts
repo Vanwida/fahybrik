@@ -42,12 +42,11 @@ export function freeWorkoutContentBlocks(title: string, lines: readonly FreeCont
     });
   }
   if (main.length > 0) {
+    // Sin `format`: el serializador lo deriva del scheme de las líneas, con el
+    // vocabulario del editor del coach (continuo → Carrera continua, una fuerza de
+    // un ejercicio → Fuerza…), para que el coach lo abra en su formulario.
     blocks.push({
       title,
-      // Sin declarar: el serializador lo deriva del scheme de las líneas, con el
-      // vocabulario del editor del coach (continuo → Carrera continua, una fuerza
-      // de un ejercicio → Fuerza…), para que el coach lo abra en su formulario.
-      format: null,
       items: main.map((l) => ({ exercise_id: l.exerciseId, prescription: l.prescription })),
     });
   }

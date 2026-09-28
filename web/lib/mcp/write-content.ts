@@ -308,7 +308,7 @@ export function contentToSegments(
  * Así lo que se confirma en la respuesta es lo que se guarda.
  */
 function blockFormat(block: NormalizedContentBlock): string {
-  return resolveBlockFormat(block.format ?? null, block.items) ?? FALLBACK_SESSION_FORMAT;
+  return resolveBlockFormat(block.format, block.items) ?? FALLBACK_SESSION_FORMAT;
 }
 
 /**
