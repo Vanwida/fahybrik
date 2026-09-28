@@ -279,16 +279,11 @@ enum TarjetaCompartibleBuilder {
         return Formato.ritmo(tiempo / (dist / 1000), .porKm)
     }
 
+    /// El tonelaje con la regla ÚNICA de la app (`VolumenDeFuerza`, espejo de
+    /// volume.ts): el mismo número que el resumen y el detalle.
     private static func volumenLevantado(_ laps: [LapRecord]) -> String? {
-        var kg = 0.0
-        for lap in laps {
-            guard let sets = lap.sets else { continue }
-            for s in sets where s.status != "skipped" && !s.isApproach {
-                guard let reps = s.repsActual, let carga = s.loadActualKg ?? s.loadPrescribedKg else { continue }
-                kg += Double(reps) * carga
-            }
-        }
-        guard kg > 0 else { return nil }
+        let series = laps.flatMap { ($0.sets ?? []).map(SerieHecha.init) }
+        guard let kg = VolumenDeFuerza.kg(series) else { return nil }
         return "\(Formato.esDecimal(kg / 1000, decimals: 1)) t"
     }
 
