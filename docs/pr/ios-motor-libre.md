@@ -20,6 +20,7 @@ Decisión: `docs/DECISIONS.md` 2026-09-28. Contrato del guardado del libre (serv
 | BikeErg | /500m, s/min, «sin remar» | /1000m, rpm, «sin pedalear»; calorías visibles en todo ergo |
 | RPE / RIR por serie | solo en «ajustar serie» (0 de 94 series reales) | un toque en el descanso, en la escala que prescribió el coach |
 | Cadencia de carrera | nunca | media del podómetro del móvil por lap / pierna / estación |
+| «Guardar para luego» de un libre | la respuesta se decodificaba con `assignment_id` bajo `convertFromSnakeCase` → error SIEMPRE tras un guardado bueno (vibración de error, sin cerrar, y un segundo toque duplicaba el plan) | decodifica `assignmentId` (`FreePlanBinding`): guarda y cierra |
 
 ## Lo que el servidor tiene que hacer (no inventado aquí)
 

@@ -65,6 +65,10 @@ la cara por rondas congelada en «Ronda 1/N»; `simulation`/`superserie` caían 
     `round_index` por bout, ruta GPS / «cómo ha ido» / molestia en el libre, y
     `source` del libre igual que el del coach (no «manual» si se midió en vivo).
 
+**De paso:** «Guardar para luego» fallaba SIEMPRE tras guardar bien (la respuesta se
+decodificaba con `assignment_id` bajo `convertFromSnakeCase`): vibraba error, no cerraba
+y un segundo toque duplicaba el plan. `FreePlanBinding` la lee bien.
+
 **Se retira:** los constructores de segmento a mano del libre
 (`FreeStrengthItem.segment`, el segmento de `FreeWorkoutDraft.buildContext`, el título
 plegado de funcional); `FreePlanHydration.runContext` y el parámetro
