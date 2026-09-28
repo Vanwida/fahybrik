@@ -317,6 +317,7 @@
 		5003ECCF2FE0CDF73CE49810 /* WatchFormato.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2346317B6F3CA4FFA893C0F8 /* WatchFormato.swift */; };
 		5055813216E7AD42B5FA3A70 /* BuscarCarreraSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14779494CC1E809A107E26FB /* BuscarCarreraSheet.swift */; };
 		50601E45AAAA8D57DDFF27F7 /* WorkoutExecutionSpineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA8F533B42B013698D985B07 /* WorkoutExecutionSpineTests.swift */; };
+		50DC25790561326DA357DCF0 /* Vivo+Circuito.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC9D3FF9326B2033DC7456FC /* Vivo+Circuito.swift */; };
 		51131F03B9B3EA4DA3F2C797 /* SetTableLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54C429EF69DCC42F2FFC9B19 /* SetTableLiveView.swift */; };
 		51494130D8C634086E83060C /* BlockPacingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCFE42EFC724B52FA60B387 /* BlockPacingTests.swift */; };
 		51619BBDFAE251C3176BD1CF /* DescansoTodosLosFormatosTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A378D8A380433F9BFE8FC7F /* DescansoTodosLosFormatosTests.swift */; };
@@ -379,6 +380,7 @@
 		637BB738B784A2919DD8669A /* SensorConsentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E99331ADCDB2C144957654 /* SensorConsentTests.swift */; };
 		63D99760B677F420303C5617 /* DoblesRepartoMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A6B27581F238AFEAE141D1 /* DoblesRepartoMathTests.swift */; };
 		6437FB180625105F8870F449 /* PM5LiveStreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E8C5CC0905BCBC48019522 /* PM5LiveStreamView.swift */; };
+		64476B3374CBA8A565521DE2 /* VivoCircuitoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C58033E222830BE51860BC28 /* VivoCircuitoTests.swift */; };
 		64F824DF2F30A5B370A5FDCC /* EmailAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 838D5B43E7B059FE162F00E8 /* EmailAuthService.swift */; };
 		6538BCC26B4637FA0D7AF095 /* AppShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 087517CB7BA486835A805A48 /* AppShell.swift */; };
 		653EDDE735A42157B067BE6A /* InicioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87CB3A3902B72B4DD29B091F /* InicioView.swift */; };
@@ -430,6 +432,7 @@
 		71053A4F283FF97CF20DC3D4 /* 2026-08-11-2302-brazo-8reps.fhsc in Resources */ = {isa = PBXBuildFile; fileRef = 42DFBD91F0E70C29F42A8DEF /* 2026-08-11-2302-brazo-8reps.fhsc */; };
 		712A964C322E29F0D169FD8B /* TreadmillSpeedResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B77B03F1276B0BD086145D13 /* TreadmillSpeedResolver.swift */; };
 		718D233E70D26960FEEBB206 /* WorkoutModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A119EF4ACCD7D41E0EC821 /* WorkoutModels.swift */; };
+		7215FAA15778522BBC92985C /* VivoCircuitoCapturasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AACBD196DE77CE12D7048D42 /* VivoCircuitoCapturasTests.swift */; };
 		7317DEA67AB11BF1A17AFFF6 /* BenchmarkDelta.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BCDB72AAF37412C15E92BB /* BenchmarkDelta.swift */; };
 		7375ACB9A0DF7AB93A020386 /* DoblesTurn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 427998999C86379C4D56126C /* DoblesTurn.swift */; };
 		73A16008EB56CD410128016C /* TestResultCaptureSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87FB0D2E8521767F63EAC70B /* TestResultCaptureSheet.swift */; };
@@ -568,6 +571,7 @@
 		9C14B56B598D69788291422C /* WorkoutSessionLiveDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2831F769AEEBFB1AA04CD24 /* WorkoutSessionLiveDescriptor.swift */; };
 		9C904732E95B8BC0B8CBAA8F /* AnalyticsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B749A0DBEF6E0B4D8DC6AF31 /* AnalyticsModels.swift */; };
 		9CBABA65D0CAA9AE17B42BC0 /* RunLiveShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C6AE40001721CD7BCF3C129 /* RunLiveShellView.swift */; };
+		9CC8BEACD59CB8C6233C3E99 /* Vivo+Circuito.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC9D3FF9326B2033DC7456FC /* Vivo+Circuito.swift */; };
 		9CDDABF66481DF4CA5FD9A37 /* PartnerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6391B1CBBCA4894E03594A87 /* PartnerInfo.swift */; };
 		9D57E5FD704B5284F3FAA9CE /* RaceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A8A8EC873824DDB5E986596 /* RaceDetailView.swift */; };
 		9D6A40FCFF97CA908393943A /* WorkoutSession+Bloques.swift in Sources */ = {isa = PBXBuildFile; fileRef = 085DC1311ADF1FCA61D3E8A2 /* WorkoutSession+Bloques.swift */; };
@@ -631,6 +635,7 @@
 		AC5EA79BFC7C50D5507482AE /* HRRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01C00259964041F77CA4E4EE /* HRRecoveryTests.swift */; };
 		ACEA808D315B7E19A50DE4F8 /* WatchReceiptBookTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 821456069615067A1B385F8E /* WatchReceiptBookTests.swift */; };
 		AD6E1FF8ED22773683680AC4 /* VivoHUDRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ED9D3FD08706D11359E7E7C /* VivoHUDRenderTests.swift */; };
+		AD860D08CDA9C591813BA928 /* VivoRutaCircuito.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B4BA3FB5192CA294FCB8353 /* VivoRutaCircuito.swift */; };
 		ADA13DFA4BA0FC67A53400EA /* RunLiveHeroTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 813F0722F886E7CA29401EB3 /* RunLiveHeroTests.swift */; };
 		AE0BEB7DB37008CBCF50676A /* AppleAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7831A459ACF982E946D9C459 /* AppleAuthService.swift */; };
 		AE1AADC2CD6AD849259BC4BC /* DuracionPrevista.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C3B15934C478C6D936DF80D /* DuracionPrevista.swift */; };
@@ -738,6 +743,7 @@
 		CE1782BD80B3DE6C710D4FA6 /* RunPaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D84F7C8771BEBB8127C071B4 /* RunPaceModel.swift */; };
 		CEA271C9C2482C5722EF1437 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97E9DD607F2BB4B375E00CF4 /* Assets.xcassets */; };
 		CF189219BC59E831BD6806A9 /* Chip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 815C75141ACA472A805D8158 /* Chip.swift */; };
+		CF796E95225F0388A309DBB6 /* VivoPlanesCircuito.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBB8870E346C828F2AF1917E /* VivoPlanesCircuito.swift */; };
 		CF822F07E2F595C3B92EC5E6 /* GuionDelEspejo.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2D13669B8D3B3CBB07FEAF /* GuionDelEspejo.swift */; };
 		CFB4A4B849B74584279854E0 /* RunDistanceAuthority.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74E06CA535E229B097483A04 /* RunDistanceAuthority.swift */; };
 		CFF45FD14710B8832DADB7AE /* Vivo+Tarea.swift in Sources */ = {isa = PBXBuildFile; fileRef = D092D24AC5DF6787FD2CC42F /* Vivo+Tarea.swift */; };
@@ -817,6 +823,7 @@
 		E24C9C8D086D0F7010577DE7 /* GoalPresets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BFB917DF0D6BED9192E44E9 /* GoalPresets.swift */; };
 		E24E67E80C6A171FA8EC7E52 /* WorkoutStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2774133451A880F5F6BF3B /* WorkoutStateStore.swift */; };
 		E28A1BF06EEF14BEFF74F424 /* TreadmillSessionFeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2893C42F398CB7D4018CB303 /* TreadmillSessionFeeder.swift */; };
+		E31CBD7E477C067F2636AAEE /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = DCAC985E2D9ECCE44BE4C16E /* README.md */; };
 		E38303023222AB0A26947C17 /* FreeFunctionalBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBD36B08837D7117C3A0CA75 /* FreeFunctionalBuilder.swift */; };
 		E3A309BFED5DB024FA9B4217 /* TreadmillSources.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3302CBCD91530DF2423E668 /* TreadmillSources.swift */; };
 		E41A1128CD559ABDE0AA3DCD /* FAHYBRIKWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 84EDB9C60887329EB4F3CFC1 /* FAHYBRIKWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -1091,6 +1098,7 @@
 		1AB02853595DE919DBE8644A /* RestBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestBannerView.swift; sourceTree = "<group>"; };
 		1AC4B36693EA8779CEF2837F /* VivoIphoneCapturasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VivoIphoneCapturasTests.swift; sourceTree = "<group>"; };
 		1B2774133451A880F5F6BF3B /* WorkoutStateStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStateStore.swift; sourceTree = "<group>"; };
+		1B4BA3FB5192CA294FCB8353 /* VivoRutaCircuito.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VivoRutaCircuito.swift; sourceTree = "<group>"; };
 		1B70F7F8A90FC7C41E0B1791 /* RodajeLienzo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RodajeLienzo.swift; sourceTree = "<group>"; };
 		1B7A0077626A26D5A3D32D9C /* CoachSpeech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachSpeech.swift; sourceTree = "<group>"; };
 		1BC0EA5451B98FDB6D414299 /* SensorPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorPipelineTests.swift; sourceTree = "<group>"; };
@@ -1557,6 +1565,7 @@
 		AA6966C3927EE540E2FC145E /* OrientationGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationGate.swift; sourceTree = "<group>"; };
 		AA6AA8154815012257DA018F /* PhoneLiveHandoffPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneLiveHandoffPolicy.swift; sourceTree = "<group>"; };
 		AAAA186FC74A18B3CDD7CDDB /* ReadinessDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessDetailSheet.swift; sourceTree = "<group>"; };
+		AACBD196DE77CE12D7048D42 /* VivoCircuitoCapturasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VivoCircuitoCapturasTests.swift; sourceTree = "<group>"; };
 		AAE3312EA1F4ED97B1AC5A50 /* WatchConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchConnectivity.framework; path = System/Library/Frameworks/WatchConnectivity.framework; sourceTree = SDKROOT; };
 		AB41BF2CACC5E2925AC09BFD /* PRCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRCelebrationView.swift; sourceTree = "<group>"; };
 		ABA24B7069B547B47BAB7CF7 /* SensorUploader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorUploader.swift; sourceTree = "<group>"; };
@@ -1659,6 +1668,7 @@
 		C451AB6DD375CA88EE75EB30 /* RunningProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunningProgress.swift; sourceTree = "<group>"; };
 		C4C44CCD25F985F90FAD9BF5 /* ComunicadoDetalleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComunicadoDetalleView.swift; sourceTree = "<group>"; };
 		C5773D08D2A19E53DF38FCE8 /* RunPreStartFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunPreStartFlow.swift; sourceTree = "<group>"; };
+		C58033E222830BE51860BC28 /* VivoCircuitoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VivoCircuitoTests.swift; sourceTree = "<group>"; };
 		C5C12F7EFFCD26C568DD9219 /* DiagName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagName.swift; sourceTree = "<group>"; };
 		C665B8B628EBD411E02B60CE /* LecturaDeSesionDesdeDetalle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LecturaDeSesionDesdeDetalle.swift; sourceTree = "<group>"; };
 		C6A106D963AE6C92E9A96E0F /* RunLegDisplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLegDisplayTests.swift; sourceTree = "<group>"; };
@@ -1675,10 +1685,12 @@
 		CAEB8F5597FF15C9B4186D6A /* EmomVivoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmomVivoView.swift; sourceTree = "<group>"; };
 		CB2C2734A579C7C24E28E740 /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
 		CBA75CEC66436035B3D3FD69 /* FH111LiveMinimizeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FH111LiveMinimizeTests.swift; sourceTree = "<group>"; };
+		CBB8870E346C828F2AF1917E /* VivoPlanesCircuito.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VivoPlanesCircuito.swift; sourceTree = "<group>"; };
 		CBE305F6A833611F70DA989A /* RepTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepTracker.swift; sourceTree = "<group>"; };
 		CBEB050F749E432ACB4B32EC /* ResumenCarreraPiezas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResumenCarreraPiezas.swift; sourceTree = "<group>"; };
 		CBF44E434FDCCBC4C3AD2987 /* DecodingTolerance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecodingTolerance.swift; sourceTree = "<group>"; };
 		CC334A9E3CE1FDC278B121B0 /* NoAutoConnectSourceGuardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoAutoConnectSourceGuardTests.swift; sourceTree = "<group>"; };
+		CC9D3FF9326B2033DC7456FC /* Vivo+Circuito.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Vivo+Circuito.swift"; sourceTree = "<group>"; };
 		CCCA81594A588265CB467522 /* RunCueEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunCueEngineTests.swift; sourceTree = "<group>"; };
 		CD17EBA04CF3E3C9136E86BA /* TreadmillHUDModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreadmillHUDModel.swift; sourceTree = "<group>"; };
 		CD67F9F44169FDFF3D52F2B8 /* InviteGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteGateView.swift; sourceTree = "<group>"; };
@@ -1732,6 +1744,7 @@
 		DC0608678E17B47D5C1C22C5 /* RealityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityKit.framework; path = System/Library/Frameworks/RealityKit.framework; sourceTree = SDKROOT; };
 		DC5F9E5EE28C600F66A1DEBF /* Generated-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Generated-Info.plist"; sourceTree = "<group>"; };
 		DCA659EF6ACBC9EFD89E1164 /* GuionRelojDeParedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuionRelojDeParedTests.swift; sourceTree = "<group>"; };
+		DCAC985E2D9ECCE44BE4C16E /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		DCEE8F536C882F5BA9402CEA /* MockDeviceSources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDeviceSources.swift; sourceTree = "<group>"; };
 		DD06425D235284347988D17C /* PM5ConnectionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5ConnectionStore.swift; sourceTree = "<group>"; };
 		DD7048C13D5592837E7108F2 /* Vivo+Reglas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Vivo+Reglas.swift"; sourceTree = "<group>"; };
@@ -1911,6 +1924,7 @@
 			children = (
 				5DC3A463B1520AED4BB7759C /* Vivo+Accion.swift */,
 				F7A12E94172A123DC375C37D /* Vivo+Anotar.swift */,
+				CC9D3FF9326B2033DC7456FC /* Vivo+Circuito.swift */,
 				B0992ADC6DFA9FA298EFFF6A /* Vivo+DeathBy.swift */,
 				8E1847D3BA27B452BEBEA4B4 /* Vivo+EstadoDeSesion.swift */,
 				14C8373E0750713D5DA45EEB /* Vivo+Estructura.swift */,
@@ -2946,6 +2960,7 @@
 		A61C035DDABB6EE60A4C4178 /* VivoIphone */ = {
 			isa = PBXGroup;
 			children = (
+				DCAC985E2D9ECCE44BE4C16E /* README.md */,
 				15D5EE4D3B408CBFCBFED213 /* VivoAccion.swift */,
 				2A7399F5364C7ECCFCC0E264 /* VivoActividadEnVivo.swift */,
 				20107C16822747BAEB985CD2 /* VivoCabecera.swift */,
@@ -2956,6 +2971,7 @@
 				3D7706B1F62FF4AC33DEEE50 /* VivoPaginas.swift */,
 				DFC765694AB98BB76D1C5825 /* VivoPiezas.swift */,
 				9F52727D9B72B41C9FDFE397 /* VivoRejilla.swift */,
+				1B4BA3FB5192CA294FCB8353 /* VivoRutaCircuito.swift */,
 				D16B2551E29490BB34E4B20B /* VivoSujeto.swift */,
 				8C03B5DB5F32D6CBAAF61A67 /* VivoTokens.swift */,
 			);
@@ -3089,7 +3105,10 @@
 			isa = PBXGroup;
 			children = (
 				A8CD16459A259224938DAC67 /* VivoAdaptadorTests.swift */,
+				AACBD196DE77CE12D7048D42 /* VivoCircuitoCapturasTests.swift */,
+				C58033E222830BE51860BC28 /* VivoCircuitoTests.swift */,
 				1AC4B36693EA8779CEF2837F /* VivoIphoneCapturasTests.swift */,
+				CBB8870E346C828F2AF1917E /* VivoPlanesCircuito.swift */,
 				BC8D0DD80B7760B811221281 /* VivoPlanesDePrueba.swift */,
 				7AD2992C969F06E0B641C28B /* VivoReglasTests.swift */,
 			);
@@ -3745,6 +3764,7 @@
 				E23D573788732D8862FD4B33 /* Assets.xcassets in Resources */,
 				F973DC2581E6210245922558 /* Preview Assets.xcassets in Resources */,
 				D95136979989BCA5580D646B /* PrivacyInfo.xcprivacy in Resources */,
+				E31CBD7E477C067F2636AAEE /* README.md in Resources */,
 				32BAF189A5EB1C7DCD137E6A /* splash-fahybrid.mp4 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4245,6 +4265,7 @@
 				8D47A791EFC15AAB5892C044 /* VelocityBand.swift in Sources */,
 				7919AD34B060416AEE7BCC67 /* Vivo+Accion.swift in Sources */,
 				1B8D9D281ADA38D8BD5BDF50 /* Vivo+Anotar.swift in Sources */,
+				50DC25790561326DA357DCF0 /* Vivo+Circuito.swift in Sources */,
 				C7A41D697D350B4AD8B5DCEA /* Vivo+DeathBy.swift in Sources */,
 				C08BAD7A8F97964E17F3C0FB /* Vivo+EstadoDeSesion.swift in Sources */,
 				19657CC8E4FBBEC43FB112E9 /* Vivo+Estructura.swift in Sources */,
@@ -4271,6 +4292,7 @@
 				D54F7EE1941B9610975E9B18 /* VivoPaginas.swift in Sources */,
 				E425002AE50984AE00E2A0D1 /* VivoPiezas.swift in Sources */,
 				8A4AED393A894A8BED7D5BE9 /* VivoRejilla.swift in Sources */,
+				AD860D08CDA9C591813BA928 /* VivoRutaCircuito.swift in Sources */,
 				8E3D8264EE83024686DE06E4 /* VivoSujeto.swift in Sources */,
 				85CAA810799908D6136B3825 /* VivoTokens.swift in Sources */,
 				4D263994FC75EDFC2B363BAF /* Vo2MaxService.swift in Sources */,
@@ -4434,6 +4456,7 @@
 				7B4893ADC44A1A5EA4B03EEE /* VelocityBand.swift in Sources */,
 				ED9FAF8BBD6CF9E802529EFB /* Vivo+Accion.swift in Sources */,
 				4935AEC16FDBA5BDCFF84924 /* Vivo+Anotar.swift in Sources */,
+				9CC8BEACD59CB8C6233C3E99 /* Vivo+Circuito.swift in Sources */,
 				E4625C01551DCABB231A50C1 /* Vivo+DeathBy.swift in Sources */,
 				FE38328041264F6A40EFB233 /* Vivo+EstadoDeSesion.swift in Sources */,
 				0C4DA82D9EAA6FDEEFADEF3A /* Vivo+Estructura.swift in Sources */,
@@ -4690,8 +4713,11 @@
 				BA753FC017BE740279CCAD9E /* TreadmillLegTests.swift in Sources */,
 				2914F1E11CD862CB6E274B6A /* TreadmillSpeedResolverTests.swift in Sources */,
 				323CBA7FC445C814D9D4B06B /* VivoAdaptadorTests.swift in Sources */,
+				7215FAA15778522BBC92985C /* VivoCircuitoCapturasTests.swift in Sources */,
+				64476B3374CBA8A565521DE2 /* VivoCircuitoTests.swift in Sources */,
 				AD6E1FF8ED22773683680AC4 /* VivoHUDRenderTests.swift in Sources */,
 				7E396A62804F903915BD0DE5 /* VivoIphoneCapturasTests.swift in Sources */,
+				CF796E95225F0388A309DBB6 /* VivoPlanesCircuito.swift in Sources */,
 				C24168F20A9E3784EF0518BF /* VivoPlanesDePrueba.swift in Sources */,
 				5357FA032DBC27D06E2BA617 /* VivoReglasTests.swift in Sources */,
 				A9EED9074C8AA1615F86F7CD /* Volcado.swift in Sources */,

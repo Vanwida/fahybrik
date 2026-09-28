@@ -36,17 +36,23 @@ struct VivoIphoneCuadro {
     let registro: Vivo.Registro
     let seriesAnotables: [VivoSerieAnotable]
     let avisoCierre: String
+    /// La familia circuito (rondas, HYROX): su cabecera, su acción y su Estructura. `nil` = otra familia.
+    let circuito: Vivo.FormatoCircuito?
 
     /// `declaradas`: los campos que el atleta confirmó o tocó en la anotación
     /// (por id de paso); lo demás sigue propuesto (I7).
     init(estado e: Vivo.EstadoVivo, sesion s: WorkoutSession, dispositivos: Vivo.Dispositivos, test: Bool, declaradas: [String: Set<Vivo.CampoAnotar>]) {
         estado = e
-        let p = e.paso
+        let seg = s.currentSegment
+        // La familia circuito (rondas, HYROX): su cabecera, su acción, su ronda y su Estructura.
+        let fc = (seg?.isConditioningTimer == true && e.paso.origen?.segmento == s.currentSegmentIndex) ? Vivo.formatoCircuitoDe(seg?.formatScheme) : nil
+        circuito = fc
+        // Una estación de máquina sin la máquina enlazada: nadie cuenta, «lo dices tú».
+        let p = fc != nil ? Vivo.pasoSegunEnlace(e.paso, dispositivos) : e.paso
         paso = p
         let f = Vivo.familiaDe(p)
         familia = f
         let zonas = e.zonas
-        let seg = s.currentSegment
 
         // ── lo extra de la familia, del motor ────────────────────────────
         var x = Vivo.ExtraFamilia()
@@ -56,6 +62,8 @@ struct VivoIphoneCuadro {
         x.totalEnCabecera = x.total != nil
         if seg?.formatScheme == .amrap { x.rondas = s.fixedRoundsDone; x.repsSueltas = s.repsCurrentSegment > 0 ? s.repsCurrentSegment : nil }
         if fijo, p.posicion?.ronda != nil { x.rondaS = Swift.max(0, s.condElapsed - s.roundsHUDClosedElapsed) }
+        // El circuito: lo que va de SU ronda (el run, la Roxzone y la estación), de los parciales.
+        if fc != nil, p.rol != .descanso { x.rondaS = Vivo.tiempoDeRonda(e.pasos, e.i, e.parciales, e.lecturas.t) }
         x.siguienteNombre = e.siguiente?.nombre
         if let anterior = e.parciales.last(where: { $0.i < e.i && e.pasos[$0.i].rol == .trabajo }) { x.anterior = (e.pasos[anterior.i], anterior) }
         // Fuerza: lo declarado por el atleta (la cascada de la carga), del motor y de lo confirmado aquí.
@@ -99,7 +107,7 @@ struct VivoIphoneCuadro {
         if descanso, let lu { trabajo = Vivo.TrabajoVista(etiqueta: "viene", valor: lu.que, texto: true) }
         else if tKit?.etiqueta == "tempo" { trabajo = nil }
         else { trabajo = tKit }
-        posicion = Vivo.posicionDe(p, x)
+        posicion = fc.map { Vivo.tituloCircuito(p, $0) } ?? Vivo.posicionDe(p, x)
         esTest = Vivo.esTest(p)
         let total = x.total
         crono = (total != nil && h.etiqueta != "total") ? VivoCrono(valor: Vivo.fmtReloj(total!), etiqueta: "total") : VivoCrono(valor: Vivo.fmtReloj(e.sesion.t), etiqueta: "sesión")
@@ -111,12 +119,12 @@ struct VivoIphoneCuadro {
         let arriba = Vivo.posicionDe(p, x)
         if let r = p.posicion?.ronda, f != .pared, p.wod == nil, !arriba.contains("Ronda \(r.n)/\(r.de)") { partesFormato.append("Ronda \(r.n)/\(r.de)") }
         if let est = p.posicion?.estacion, !arriba.contains("Estación \(est.n)/\(est.de)") { partesFormato.append("Estación \(est.n)/\(est.de)") }
-        formato = partesFormato
+        formato = fc.map { Vivo.formatoCircuito(p, $0) } ?? partesFormato
         tinte = Vivo.tinteDelPaso(p, e.lecturas, zonas)
         arcos = Vivo.arcosDePlan(e.pasos)
         fraccion = Vivo.fraccionDelPaso(p, e.lecturas)
         conMapa = e.pasos.contains(where: Vivo.usaGps)
-        avisoCierre = Vivo.avisoDeCierre(p)
+        avisoCierre = fc.map { Vivo.avisoCircuito(p, $0) } ?? Vivo.avisoDeCierre(p)
 
         // ── la anotación del descanso de fuerza (I7) ─────────────────────
         var series: [VivoSerieAnotable] = []
@@ -131,7 +139,7 @@ struct VivoIphoneCuadro {
         if e.terminado { primaria = nil }
         else if s.currentBlockIsStructural { primaria = VivoPrimaria(clave: .hecho) }
         else if descanso, !series.isEmpty, series.contains(where: { Vivo.pendiente($0.anot) }) { primaria = VivoPrimaria(clave: .confirmar) }
-        else if let c = Vivo.clavePorDefecto(p) {
+        else if let c = (fc != nil ? Vivo.claveCircuito(p) : nil) ?? Vivo.clavePorDefecto(p) {
             var clave = c
             // La estación que cierra el circuito / el último minuto: el vocabulario no tiene «Terminar»; el motor decide qué pasa.
             if f == .amrap, seg?.formatScheme == .amrap, case .amrap = p.wod { clave = .rondaHecha }

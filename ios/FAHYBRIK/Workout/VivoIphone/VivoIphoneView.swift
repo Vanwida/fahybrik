@@ -165,7 +165,7 @@ struct VivoIphoneView: View {
                 }
             }
         case .estructura:
-            VivoPaginaEstructura(estado: c.estado)
+            if let f = c.circuito { VivoRutaCircuito(estado: c.estado, formato: f) } else { VivoPaginaEstructura(estado: c.estado) }
         case .mapa:
             VivoPaginaMapa(coordenadas: outdoorModel?.coordinates ?? [], calidad: outdoorModel?.gpsQuality ?? .searching,
                            pausado: session.isPaused, metros: c.estado.sesion.metros, ritmoMedio: c.estado.sesion.ritmoMedio)
