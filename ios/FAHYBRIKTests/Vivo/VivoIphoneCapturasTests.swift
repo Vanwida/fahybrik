@@ -17,12 +17,15 @@ final class VivoIphoneCapturasTests: XCTestCase {
         ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"].map { URL(fileURLWithPath: $0) }
     }
 
+    /// Interna (no privada): una familia añade sus escenarios en su propio fichero
+    /// (`VivoIphoneCapturasTests+Ergo.swift`) con el MISMO arnés. `hrLink`: la
+    /// banda de pulso enlazada (el chip «Banda»).
     @MainActor
-    private func captura(_ s: WorkoutSession, _ nombre: String, test: Bool = false, horizontal: Bool = false,
-                         espera: TimeInterval = 0.8, antesDeEsperar: TimeInterval = 0.4,
-                         trasMontar: (WorkoutSession) -> Void = { _ in }) {
+    func captura(_ s: WorkoutSession, _ nombre: String, test: Bool = false, horizontal: Bool = false,
+                 espera: TimeInterval = 0.8, antesDeEsperar: TimeInterval = 0.4, hrLink: DeviceLink = .idle,
+                 trasMontar: (WorkoutSession) -> Void = { _ in }) {
         let vista = VivoIphoneView(session: s, hrZones: s.hrZones, pm5: PM5ConnectionStore.shared,
-                                   hrLink: .idle, treadmillLink: .idle, gpsActive: false, isBenchmark: test,
+                                   hrLink: hrLink, treadmillLink: .idle, gpsActive: false, isBenchmark: test,
                                    alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {})
             .environment(\.colorScheme, .dark)
         let host = UIHostingController(rootView: vista)
