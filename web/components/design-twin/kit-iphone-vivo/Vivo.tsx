@@ -27,6 +27,7 @@ import type { Secuencia, Traductor } from '../kit-reloj/gancho';
 import { useGuion } from '../kit-reloj/gestos';
 import { laminaDelPaso, type HeroeVista } from '../kit-reloj/lamina';
 import { esTest, familiaDe, formatoDe } from '../kit-reloj/familia';
+import { esRelevo } from '../kit-reloj/dobles';
 import { heroeDeFamilia, metricasDelPaso, trabajoDe, type ExtraFamilia } from '../kit-reloj/metricas';
 import { luegoDe, posicionDe, type LuegoVista } from '../kit-reloj/posicion';
 import { fmtReloj, tinteDelPaso } from '../kit-reloj/reglas';
@@ -109,6 +110,7 @@ export interface VistaIphoneProps {
 
 function clavePorDefecto(seq: Secuencia): ClavePrimaria | null {
   const { paso } = seq;
+  if (esRelevo(paso)) return 'relevo';
   const f = familiaDe(paso);
   if (f === 'roxzone') return paso.roxzone === 'salida' ? 'salgo a correr' : 'empiezo';
   if (paso.wod?.formato === 'puntuacion') return 'guardar';
@@ -401,7 +403,8 @@ export function VistaIphone(p: VistaIphoneProps) {
             transition: 'opacity 200ms ease',
           }}
         >
-          <Cabecera posicion={posicion} formato={formato} test={esTest(paso)} crono={crono} chips={chips} onEnlaces={(c) => onLog(`Chip ${c} → abre Conectividad`)} />
+          <Cabecera posicion={posicion} formato={formato} test={esTest(paso)} crono={crono} chips={chips} onEnlaces={(c) => onLog(`Chip ${c} → abre Conectividad`)}
+            onMinimizar={() => onLog('Chevrón → sale sin parar; el entreno sigue (aviso de entreno en curso)')} />
           {horizontal ? null : <PuntosPaginas total={paginas.length} activa={activa} />}
           <div style={{ position: 'relative', flex: '1 1 auto', minHeight: 0 }}>
             <PaginasLaterales paginas={paginas} activa={activa} onCambiar={(n) => irA(PAGINAS[n]!)} />
@@ -420,6 +423,10 @@ export function VistaIphone(p: VistaIphoneProps) {
             onSeguir={() => {
               setHoja(false);
               onLog('¿Terminar? → Seguir');
+            }}
+            salidas={{
+              onGuardarParaLuego: () => { setHoja(false); onLog('¿Terminar? → Guardar para luego: pausa y se retoma desde el aviso'); },
+              onDescartar: () => { setHoja(false); onLog('¿Terminar? → Descartar: nada se guarda'); },
             }}
           />
         ) : null}

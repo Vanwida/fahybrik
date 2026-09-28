@@ -28,6 +28,8 @@ extension Vivo {
         case siguientePaso = "siguiente paso"
         case cerrarElTramo = "cerrar el tramo"
         case reanudar
+        /// Dobles: tu pareja ha acabado su estación y entras tú.
+        case relevo
 
         var texto: String {
             switch self {
@@ -46,6 +48,7 @@ extension Vivo {
             case .siguientePaso: return "Siguiente paso"
             case .cerrarElTramo: return "Cerrar el tramo"
             case .reanudar: return "Reanudar"
+            case .relevo: return "Relevo"
             }
         }
 
@@ -68,6 +71,7 @@ extension Vivo {
     /// LA ACCIÓN PRIMARIA POR DEFECTO de un paso (vocabulario cerrado). `nil` =
     /// no hay (manda el reloj: tabata; AMRAP sin rondas).
     static func clavePorDefecto(_ paso: Paso) -> ClavePrimaria? {
+        if esRelevo(paso) { return .relevo }
         let f = familiaDe(paso)
         if f == .roxzone { return paso.roxzone == .salida ? .salgoACorrer : .empiezo }
         if case .puntuacion = paso.wod { return .guardar }

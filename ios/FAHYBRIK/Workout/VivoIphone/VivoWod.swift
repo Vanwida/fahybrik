@@ -31,6 +31,8 @@ struct VivoGestoGuion: Equatable {
         case primaria
         /// Los ± de la puntuación: mueve el dato enfocado `delta` de golpe.
         case puntuacion(Int)
+        /// Mantener Parar: abre la hoja de terminar (con sus salidas).
+        case parar
     }
     var en: TimeInterval
     var gesto: Gesto

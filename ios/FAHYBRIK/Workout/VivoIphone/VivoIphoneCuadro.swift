@@ -109,7 +109,9 @@ struct VivoIphoneCuadro {
         instruccion = (p.rol == .trabajo && lam.banda == nil && p.wod == nil && f != .fuerza) ? lam.instruccion : nil
         let ch = Vivo.enlacesDe(dispositivos, p, e.lecturas)
         chips = ch
-        nota = Vivo.notaEnlace(ch) ?? p.cue.map { "Coach · \($0)" }
+        // Dobles: en la espera nadie mide a tu pareja (el relevo lo dices tú); en un reparto, el pacto.
+        let pacto = p.dobles.flatMap(Vivo.pactoDe)
+        nota = Vivo.notaEnlace(ch) ?? (Vivo.esRelevo(p) ? Vivo.notaRelevo : nil) ?? pacto ?? p.cue.map { "Coach · \($0)" }
         metricas = Vivo.metricasDelPaso(p, e.lecturas, heroe: h.clase, zonas, x, e.reglas)
         let lu = Vivo.luegoDe(e.pasos, e.i, cargaDe: { j in Vivo.cargaArrastrada(e.pasos, j, registro) })
         luego = lu
@@ -119,7 +121,8 @@ struct VivoIphoneCuadro {
         if descanso, let lu { trabajo = Vivo.TrabajoVista(etiqueta: "viene", valor: lu.que, texto: true) }
         else if tKit?.etiqueta == "tempo" { trabajo = nil }
         else { trabajo = tKit }
-        posicion = fc.map { Vivo.tituloCircuito(p, $0) } ?? Vivo.posicionDe(p, x)
+        // El relevo: la estación que hace tu pareja, por su nombre (el turno va en la fila del formato).
+        posicion = Vivo.esRelevo(p) ? [p.nombre ?? Vivo.nombreClase(.estacion)] : (fc.map { Vivo.tituloCircuito(p, $0) } ?? Vivo.posicionDe(p, x))
         esTest = Vivo.esTest(p)
         let total = x.total
         crono = (total != nil && h.etiqueta != "total") ? VivoCrono(valor: Vivo.fmtReloj(total!), etiqueta: "total") : VivoCrono(valor: Vivo.fmtReloj(e.sesion.t), etiqueta: "sesión")
@@ -131,7 +134,9 @@ struct VivoIphoneCuadro {
         let arriba = Vivo.posicionDe(p, x)
         if let r = p.posicion?.ronda, f != .pared, p.wod == nil, !arriba.contains("Ronda \(r.n)/\(r.de)") { partesFormato.append("Ronda \(r.n)/\(r.de)") }
         if let est = p.posicion?.estacion, !arriba.contains("Estación \(est.n)/\(est.de)") { partesFormato.append("Estación \(est.n)/\(est.de)") }
-        formato = fc.map { Vivo.formatoCircuito(p, $0) } ?? partesFormato
+        // Dobles: el turno y la pareja van DELANTE (lo que no cabe se quita por el final).
+        let turno = p.dobles.map { [Vivo.formatoDobles($0)] } ?? []
+        formato = turno + (fc.map { Vivo.formatoCircuito(p, $0) } ?? partesFormato)
         tinte = Vivo.tinteDelPaso(p, e.lecturas, zonas)
         arcos = Vivo.arcosDePlan(e.pasos)
         fraccion = Vivo.fraccionDelPaso(p, e.lecturas)
@@ -147,7 +152,7 @@ struct VivoIphoneCuadro {
 
         // ── la anotación del descanso de fuerza (I7) ─────────────────────
         var series: [VivoSerieAnotable] = []
-        if descanso {
+        if descanso, !Vivo.esRelevo(p) {
             for j in Vivo.seriesDelDescanso(e.pasos, e.i) {
                 if let a = Vivo.anotacionDe(e.pasos, j, registro, medida: nil) { series.append(VivoSerieAnotable(paso: e.pasos[j], anot: a)) }
             }
@@ -156,6 +161,8 @@ struct VivoIphoneCuadro {
 
         // ── la acción primaria (vocabulario cerrado) ─────────────────────
         if e.terminado { primaria = nil }
+        // Dobles: la estación de tu pareja se cierra con «Relevo» (el motor no graba nada tuyo).
+        else if Vivo.esRelevo(p) { primaria = VivoPrimaria(clave: .relevo) }
         else if s.currentBlockIsStructural { primaria = VivoPrimaria(clave: .hecho) }
         else if descanso, !series.isEmpty, series.contains(where: { Vivo.pendiente($0.anot) }) { primaria = VivoPrimaria(clave: .confirmar) }
         // El WOD decide sobre la del kit: «Hecho» marca (no cierra), «+1 ronda», «Guardar».

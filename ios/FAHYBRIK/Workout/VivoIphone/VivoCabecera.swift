@@ -23,6 +23,9 @@ enum VivoCabeceraMedida {
         8 + 16 + 6 + (buscando ? 12 : 0) + Vivo.anchoTexto(texto, VivoTokens.TI.chip.cuerpo, peso: 600) + 10
     }
 
+    /// El chevrón de minimizar: su ancho tocable (el alto es el de un botón menor, 44 pt).
+    static let anchoMinimizar: CGFloat = 28
+
     static func anchoChips(_ chips: [Vivo.ChipEnlace]) -> CGFloat {
         chips.reduce(0) { $0 + anchoChip($1.texto, buscando: $1.estado == .buscando) } + 6 * CGFloat(Swift.max(0, chips.count - 1))
     }
@@ -41,16 +44,37 @@ struct VivoCabecera: View {
     let crono: VivoCrono
     let chips: [Vivo.ChipEnlace]
     var alTocarEnlace: ((Vivo.ClaveEnlace) -> Void)? = nil
+    /// Salir de la pantalla SIN parar (FH-111): el motor sigue y se vuelve desde el
+    /// aviso de entreno en curso. Un chevrón hacia abajo (minimizar), nunca una ×:
+    /// una × se lee como descartar. nil = sin botón.
+    var alMinimizar: (() -> Void)? = nil
     @Environment(\.vivoLienzo) private var lienzo
 
     var body: some View {
         let ancho = lienzo.ancho
         let anchoCrono = Vivo.anchoTexto(crono.valor, VivoTokens.TI.crono, peso: 600) + (crono.etiqueta == "total" ? 44 : 8)
-        let partes = VivoCabeceraMedida.partesQueCaben(posicion, ancho: ancho - 2 * VivoTokens.margen - anchoCrono - 16)
+        let anchoMinimizar: CGFloat = alMinimizar != nil ? VivoCabeceraMedida.anchoMinimizar + 8 : 0
+        let partes = VivoCabeceraMedida.partesQueCaben(posicion, ancho: ancho - 2 * VivoTokens.margen - anchoCrono - 16 - anchoMinimizar)
         let formatoTexto = VivoCabeceraMedida.partesQueCaben(formato, ancho: ancho - 2 * VivoTokens.margen - VivoCabeceraMedida.anchoChips(chips) - 10,
                                                              cuerpo: VivoTokens.TI.etiqueta, peso: 600).joined(separator: " · ")
         VStack(spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
+                if let alMinimizar {
+                    Button(action: alMinimizar) {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: VivoTokens.TI.cuerpo, weight: .bold))
+                            .foregroundStyle(VivoColor.tinta2)
+                            .frame(width: VivoCabeceraMedida.anchoMinimizar, height: VivoTokens.TI.botonMenor.alto)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(VivoPulsarStyle())
+                    // 44 pt tocables sin crecer la fila (alto de la posición), alineado a su línea.
+                    .padding(.vertical, -(VivoTokens.TI.botonMenor.alto - VivoTokens.TI.posicion) / 2)
+                    .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + VivoTokens.TI.posicion * 0.35 }
+                    .padding(.trailing, -4)
+                    .accessibilityLabel("Salir sin parar")
+                    .accessibilityHint("El entreno sigue. Vuelves desde el aviso de entreno en curso.")
+                }
                 Text(partes.joined(separator: " · "))
                     .font(.system(size: VivoTokens.TI.posicion, weight: .bold).monospacedDigit())
                     .foregroundStyle(VivoColor.tinta)

@@ -10,7 +10,8 @@
 //
 //   AvisoDeshacer   5 s para deshacer un cierre a mano, sobre la franja,
 //                   nunca sobre el sujeto.
-//   HojaTerminar    «¿Terminar?» con lo hecho: Terminar y guardar · Seguir.
+//   HojaTerminar    «¿Terminar?» con lo hecho: Terminar y guardar · las salidas del
+//                   host (guardar para luego, cerrar el bloque) · Seguir · Descartar.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Paso } from '../kit-reloj/paso';
@@ -44,6 +45,8 @@ export const VOCABULARIO_PRIMARIA = {
   'siguiente paso': { texto: 'Siguiente paso', peso: 'secundaria' },
   'cerrar el tramo': { texto: 'Cerrar el tramo', peso: 'secundaria' },
   reanudar: { texto: 'Reanudar', peso: 'primaria' },
+  /** Dobles: tu pareja acabó su estación y entras tú (`kit-reloj/dobles.ts`). */
+  relevo: { texto: 'Relevo', peso: 'primaria' },
 } as const;
 
 export type ClavePrimaria = keyof typeof VOCABULARIO_PRIMARIA;
@@ -258,8 +261,22 @@ export function resumenParaTerminar(paso: Paso, e: EstadoSecuencia): ResumenTerm
 }
 
 /** «¿Terminar?» — lo hecho, y dos salidas: Terminar y guardar (naranja) o Seguir. Nunca un tercer botón. */
-export function HojaTerminar({ resumen, onTerminar, onSeguir }: { resumen: ResumenTerminar; onTerminar: () => void; onSeguir: () => void }) {
+/**
+ * Las salidas de la hoja además de Terminar y guardar / Seguir; las resuelve el
+ * host con la semántica de siempre. Sin ellas, la hoja de dos botones.
+ *   onGuardarParaLuego  pausa + instantánea; se retoma desde el aviso de entreno a medias.
+ *   onCerrarBloque      registra lo hecho del bloque y abre el siguiente (solo si hay otro).
+ *   onDescartar         no se guarda nada; pide confirmación en la misma hoja.
+ */
+export interface SalidasHoja {
+  onGuardarParaLuego?: () => void;
+  onCerrarBloque?: () => void;
+  onDescartar?: () => void;
+}
+
+export function HojaTerminar({ resumen, onTerminar, onSeguir, salidas = {} }: { resumen: ResumenTerminar; onTerminar: () => void; onSeguir: () => void; salidas?: SalidasHoja }) {
   const { horizontal } = useLienzo();
+  const [descartar, setDescartar] = useState(false);
   return (
     <div style={{ position: 'absolute', inset: 0, background: CI.velo, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', animation: 'iphone-aparece 160ms ease-out', zIndex: 5 }}>
       <div
@@ -279,6 +296,17 @@ export function HojaTerminar({ resumen, onTerminar, onSeguir }: { resumen: Resum
         }}
       >
         <span aria-hidden style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 3, background: CI.carril, marginBottom: 4 }} />
+        {descartar ? (
+          <>
+            <span style={{ fontSize: TI.posicion.cuerpo, fontWeight: TI.posicion.peso, color: CI.tinta, lineHeight: 1.15 }}>¿Descartar el entreno?</span>
+            <Cuerpo tono={CI.tinta2}>No se guarda nada de lo que llevas y la sesión vuelve a quedar pendiente. No se puede deshacer.</Cuerpo>
+            <div style={{ display: 'grid', gridTemplateColumns: horizontal ? '1fr 1fr' : '1fr', gap: 10, marginTop: 6 }}>
+              <Boton etiqueta="Seguir entrenando" variante="primaria" onPulsa={() => { setDescartar(false); onSeguir(); }} />
+              <Boton etiqueta="Descartar y salir" variante="superficie" onPulsa={() => salidas.onDescartar?.()} />
+            </div>
+          </>
+        ) : (
+          <>
         <span style={{ fontSize: TI.posicion.cuerpo, fontWeight: TI.posicion.peso, color: CI.tinta, lineHeight: 1.15 }}>¿Terminar aquí?</span>
         <Cuerpo tono={CI.tinta2}>
           Llevas <span style={{ color: CI.tinta }}>{resumen.titulo}</span>
@@ -292,8 +320,15 @@ export function HojaTerminar({ resumen, onTerminar, onSeguir }: { resumen: Resum
         </Cuerpo>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
           <Boton etiqueta="Terminar y guardar" variante="primaria" onPulsa={onTerminar} />
-          <Boton etiqueta="Seguir" variante="superficie" onPulsa={onSeguir} />
+          <div style={{ display: 'grid', gridTemplateColumns: horizontal ? '1fr 1fr' : '1fr', gap: 10 }}>
+            {salidas.onGuardarParaLuego ? <Boton etiqueta="Guardar para luego" variante="superficie" onPulsa={salidas.onGuardarParaLuego} /> : null}
+            {salidas.onCerrarBloque ? <Boton etiqueta="Cerrar solo este bloque" variante="superficie" onPulsa={salidas.onCerrarBloque} /> : null}
+            <Boton etiqueta="Seguir" variante="superficie" onPulsa={onSeguir} />
+            {salidas.onDescartar ? <Boton etiqueta="Descartar entreno" variante="sutil" onPulsa={() => setDescartar(true)} /> : null}
+          </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

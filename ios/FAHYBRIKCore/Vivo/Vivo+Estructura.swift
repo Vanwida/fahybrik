@@ -118,6 +118,15 @@ extension Vivo {
         }
     }
 
+    /// A qué segmento del motor lleva tocar una fila de la Estructura (el mismo
+    /// salto que la tira de bloques del vivo viejo, `jumpTo`). nil = no se salta:
+    /// la fila de ahora, o una del segmento en curso (el motor salta por segmentos;
+    /// dentro del segmento manda el propio paso).
+    static func segmentoDeSalto(_ f: FilaEstructura, segmentoActual: Int?) -> Int? {
+        guard f.estado != .ahora, let s = f.trabajo.origen?.segmento, s != segmentoActual else { return nil }
+        return s
+    }
+
     static func grupoPrincipal(_ grupos: [Grupo]) -> Grupo? {
         grupos.first { $0.paso.fase == .principal && $0.veces > 1 } ?? grupos.first { $0.paso.fase == .principal } ?? grupos.first
     }
@@ -202,6 +211,7 @@ extension Vivo {
         if let r = recuperacion(f.recupera) { detalle.append(r) }
         if let t = f.tandas, let pr = t.descanso.medida.prescrito { detalle.append("\(fmtDuracion(pr)) entre tandas") }
         if let c = cargaCorta(p), p.nombre != nil { detalle.append(c) }
+        if let d = p.dobles { detalle.append(pactoDe(d) ?? textoTurno(d)) }
         return (linea, detalle.isEmpty ? nil : detalle.joined(separator: " · "))
     }
 
@@ -216,6 +226,7 @@ extension Vivo {
 
     /// «Serie 3 cerrada», «Recuperación cortada», «A1 · serie 3 hecha», «Sled Push hecho».
     static func avisoDeCierre(_ paso: Paso, cabe: (String) -> Bool = { anchoTexto($0, 15) <= 160 }) -> String {
+        if esRelevo(paso) { return "Relevo · entras tú" }
         if paso.rol == .recuperacion { return "Recuperación cortada" }
         if paso.rol == .descanso { return "Descanso cortado" }
         if paso.fuerza != nil { return avisoSerie(paso) }

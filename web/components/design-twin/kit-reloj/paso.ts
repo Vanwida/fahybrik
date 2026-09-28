@@ -329,6 +329,8 @@ export interface PasoBase {
   wod?: InfoWod;
   /** P11 · La ficha de la serie de fuerza (los dos ejes de la dosis). */
   fuerza?: FichaFuerza;
+  /** Dobles: de quién es la estación (tuya, de tu pareja o repartida). Sin él, individual (`dobles.ts`). */
+  dobles?: import('./dobles').Dobles;
 }
 
 export interface Paso extends PasoBase {

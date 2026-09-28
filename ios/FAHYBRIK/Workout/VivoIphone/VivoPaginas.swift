@@ -36,9 +36,12 @@ struct VivoPaginaEstructura: View {
     let estado: Vivo.EstadoVivo
     /// El host abre la hoja de bloques (saltar a otro bloque). nil = sin botón.
     var alVerBloques: (() -> Void)? = nil
+    /// Tocar una fila de otro tramo salta a él (el host confirma si se omite trabajo). nil = filas quietas.
+    var alSaltar: ((Int) -> Void)? = nil
 
     var body: some View {
         let filas = Vivo.estructuraDe(estado.pasos, i: estado.i)
+        let actual = estado.paso.origen?.segmento
         let series = estado.vueltas.filter { $0.clase != .km }
         // Las vueltas de cada bloque (las series, por orden), repartidas ANTES de pintar.
         var desde = 0
@@ -61,6 +64,8 @@ struct VivoPaginaEstructura: View {
                     let t = Vivo.textoFila(f)
                     let ahora = f.estado == .ahora
                     let kms = f.trabajo.vueltaAutoM != nil ? estado.vueltas.filter { $0.clase == .km } : []
+                    let salto = alSaltar != nil ? Vivo.segmentoDeSalto(f, segmentoActual: actual) : nil
+                    Button(action: { if let salto { alSaltar?(salto) } }) {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .top, spacing: 10) {
                             Circle()
@@ -75,12 +80,25 @@ struct VivoPaginaEstructura: View {
                                     Text(d).font(.system(size: VivoTokens.TI.etiqueta, weight: .semibold)).foregroundStyle(VivoColor.tinta2)
                                 }
                             }
+                            Spacer(minLength: 0)
+                            // Se puede ir ahí: un chevrón discreto, como una fila de Ajustes.
+                            if salto != nil {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: VivoTokens.TI.etiqueta, weight: .semibold))
+                                    .foregroundStyle(VivoColor.tinta2)
+                                    .padding(.top, 5)
+                            }
                         }
                         ForEach(Array((reparto[k] + kms).enumerated()), id: \.offset) { _, v in VivoFilaVuelta(v: v) }
                     }
                     .padding(.horizontal, 14).padding(.vertical, ahora ? 12 : 8)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(ahora ? VivoColor.superficie : .clear, in: RoundedRectangle(cornerRadius: VivoTokens.Radio.superficie, style: .continuous))
+                    .contentShape(Rectangle())
+                    }
+                    .buttonStyle(VivoPulsarStyle())
+                    .disabled(salto == nil)
+                    .accessibilityLabel(salto != nil ? "Saltar a \(t.linea)" : t.linea)
                 }
             }
             .padding(.horizontal, VivoTokens.margen).padding(.top, 12).padding(.bottom, 24)
