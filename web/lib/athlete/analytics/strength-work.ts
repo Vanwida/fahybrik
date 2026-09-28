@@ -5,6 +5,12 @@
 // denormalized `segment_executions.exercise_id` (mig 0120), so a template edit
 // never orphans a lift's progression.
 //
+// Identity: the tramo's own `exercise_id` first (stable across template edits),
+// else the exercise of the prescribed line it is linked to (`template_segment_id`).
+// A libre's tramos carry both once linked (DECISIONS 2026-09-28), exactly like a
+// coach session's; a tramo with neither still counts in volume, adherence and
+// effort (its modality says it was strength), it just can't join a lift's history.
+//
 // Cards:
 //   • strength_volume  — period tonnage (kg×reps) + sessions + weekly bars (drill)
 //   • lift_progression — hero lift's best working set per week (drill)
@@ -19,7 +25,7 @@
 import 'server-only';
 
 import type { Sql } from '@/lib/db';
-import { estimateOneRm } from '@fahybrid/shared/domain/strength';
+import { estimateOneRm, setVolumeKg } from '@fahybrid/shared/domain/strength';
 import { joinCoachOverride, mergedExerciseContent } from '@/lib/exercises/coach-override';
 import {
   type AnalyticsCard,
@@ -134,7 +140,7 @@ async function loadStrengthSets(
       st.rpe::text                as rpe,
       st.rir::text                as rir,
       st.status,
-      se.exercise_id::text        as exercise_id,
+      coalesce(se.exercise_id, ts.exercise_id)::text as exercise_id,
       -- exercise_name comes from the merge below (coach override wins, else
       -- base) — do NOT also select e.name here, it would duplicate the column.
       ${mergedExerciseContent(client, 'exercise_')},
@@ -144,7 +150,8 @@ async function loadStrengthSets(
     from set_executions st
     join segment_executions se on se.id = st.segment_execution_id
     join workout_executions we on we.id = se.execution_id
-    left join exercises e on e.id = se.exercise_id
+    left join template_segments ts on ts.id = se.template_segment_id
+    left join exercises e on e.id = coalesce(se.exercise_id, ts.exercise_id)
     ${joinCoachOverride(client, coachId)}
     where we.athlete_id = ${athleteId}
       and st.status <> 'skipped'
@@ -214,19 +221,19 @@ export async function buildStrengthWorkCards(
 
 // ── CARD: volume (tonnage + sessions + weekly bars) ──────────────────────────
 function buildVolumeCard(sets: WorkSet[], period: ResolvedPeriod): AnalyticsCard {
+  // Tonelaje = la regla compartida (shared/domain/strength/volume.ts); los saltos
+  // ya no llegan (SQL).
+  const setKg = (s: WorkSet) => setVolumeKg({ reps: s.reps, kg: s.load });
   let totalKg = 0;
-  for (const s of sets) {
-    if (s.load != null && s.load > 0 && s.reps != null) totalKg += s.load * s.reps;
-  }
+  for (const s of sets) totalKg += setKg(s);
   const sessions = new Set(sets.map((s) => s.executionId));
   const weeks = Math.max(1, Math.round(period.days / 7));
 
   // Weekly tonnage bars (taller = more kg moved).
   const byWeek = new Map<string, number>();
   for (const s of sets) {
-    if (s.load != null && s.load > 0 && s.reps != null) {
-      byWeek.set(s.week, (byWeek.get(s.week) ?? 0) + s.load * s.reps);
-    }
+    const kgSet = setKg(s);
+    if (kgSet > 0) byWeek.set(s.week, (byWeek.get(s.week) ?? 0) + kgSet);
   }
   const ordered = [...byWeek.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   const maxWeek = Math.max(1, ...ordered.map(([, v]) => v));
