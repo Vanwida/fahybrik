@@ -10,6 +10,21 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-28 · El WOD en el vivo del iPhone: death by entra en el modelo, la puntuación es rondas + reps y RX/Escalado sale del vivo
+
+**Contexto.** Familia WOD de `docs/vivo-iphone/modelo.md` (pantalla `iphone-vivo-wod`). El vivo de hoy tiene un vivo por formato, RX/Escalado y contadores pisándose, el chipper desbordando la pantalla y Tabata/Death by como «Ronda 1/N».
+
+**Decisiones (dominio, en `kit-reloj`, la muñeca las hereda):**
+- **Death by es un formato de `InfoWod`** (`formato: 'deathby'`, en `deathby.ts`): la escalera (inicio, incremento, ventana, tope) es DATO del paso y cada minuto lleva su dosis ya resuelta; sin tope se generan 20 ventanas (mecanismo). El héroe son las reps de ESTE minuto; el trabajo, lo que queda de él. **Un minuto cerrado sin «Hecho» es el último** (`cazadoEn`): la puntuación son los minutos completos.
+- **La puntuación de un AMRAP es «rondas + reps»** y lo no dicho es «—», nunca 0. **Una tarea por distancia (250 m Row) cuenta 1** en la ronda a medias, no sus metros como reps (`repsDeTarea`); las calorías cuentan como reps. Queda como defecto: si un coach lo puntúa distinto, es método.
+- **RX / Escalado no está en el vivo**: se declara al terminar, con la puntuación guardada. Ninguna pantalla del vivo lo pinta.
+- **La rejilla no repite la cabecera** (un dato, un sitio): el EMOM ya no enseña «minuto 4/12»; el tabata, «ronda 4/8». En su lugar, lo medido: el /500 y los metros del minuto con máquina, cuánto tardó la tarea la vez anterior, el pulso medio de la ronda anterior.
+- **El cap se lee como lo que queda hasta él** («cap en 1:12»), no como el dato del plan («25′»).
+- **Un chipper no se lista en el vivo**: lo hecho con su tiempo, lo que viene y «+N más» (`alrededorDe`); la lista entera es la página Estructura.
+- **Un descanso de reloj de pared no lleva «+30 s»**: el reloj no se estira.
+
+**Descartado:** contar reps en un tabata a toques (no cuesta un toque; sin sensor no se pinta). Las calorías en la rejilla del AMRAP con remo (cuatro celdas: manda el /500).
+
 ## 2026-09-28 · El reloj no inventa ni retiene: sin detalle no hay Empezar, el resultado sale al terminar
 
 **Por qué:** antes de la demo, seis fallos de lógica de la muñeca sola (la pantalla espera su rediseño; esto no toca diseño). Cada uno perdía dato o lo inventaba.
