@@ -186,20 +186,6 @@ extension Vivo {
         }
     }
 
-    // MARK: - El 3-2-1 antes de una serie
-
-    /// El 3-2-1 de los últimos segundos de un paso por tiempo que no es trabajo (un
-    /// descanso, un «Colócate») cuando lo que viene es una serie de fuerza (espejo
-    /// de `secuencia.ts#cuentaDe`). El motor solo cuenta sus propias entradas (EMOM,
-    /// reloj, carrera); el descanso de la fuerza lo cuenta él en hápticos, no en pantalla.
-    static func cuentaHaciaFuerza(_ pasos: [Paso], _ i: Int, _ l: Lecturas) -> Int? {
-        guard pasos.indices.contains(i), i + 1 < pasos.count else { return nil }
-        let p = pasos[i], sig = pasos[i + 1]
-        guard p.rol != .trabajo, p.medida.tipo == .tiempo, sig.fuerza != nil, sig.rol == .trabajo, sig.fase == .principal,
-              let f = faltaDe(p, l), f > 0, f <= 3 else { return nil }
-        return Int(f.rounded(.up))
-    }
-
     // MARK: - El estado entero
 
     static func estadoDe(_ sesion: WorkoutSession, plan: PlanVivo, externo: LecturaExterna = LecturaExterna()) -> EstadoVivo {
@@ -218,8 +204,10 @@ extension Vivo {
         }
         if let m = sesion.tramoRunCoveredMeters { corridos += m }
         if let m = sesion.tramoErgDistanceMeters { ergo += m }
-        let cuenta: Int? = sesion.isTramoCountIn ? Swift.max(1, Swift.min(3, Int(sesion.tramoCountInRemaining.rounded(.up))))
-            : cuentaHaciaFuerza(pasos, i, lecturas)
+        // La del motor (el arranque) manda; si no, la de entrada a la parte principal (kit: `cuentaDe`).
+        let motor: Int? = sesion.isTramoCountIn ? Swift.max(1, Swift.min(3, Int(sesion.tramoCountInRemaining.rounded(.up)))) : nil
+        let enPausa = sesion.isPaused || sesion.isFinished
+        let cuenta: Int? = motor ?? (enPausa ? nil : cuentaDe(pasos, i, lecturas))
         return EstadoVivo(
             pasos: pasos,
             i: i,
@@ -236,7 +224,7 @@ extension Vivo {
                 : ((paso.medida.mide == .ergo || (paso.maquina != nil && paso.maquina?.tipo != .cinta)) ? sesion.tramoErgDistanceMeters : sesion.tramoRunCoveredMeters),
             sesionErgoM: ergo,
             cuenta: cuenta,
-            go: false,
+            go: cuenta == nil && !enPausa && goDe(pasos, i, lecturas),
             terminado: sesion.isFinished
         )
     }

@@ -8,7 +8,6 @@ import XCTest
 extension VivoPlanesDePrueba {
 
     static func kgImplementos(_ v: Double, _ n: Int) -> String { "{ \"kind\": \"kg\", \"value\": \(v), \"implement_count\": \(n) }" }
-    static let corporal = "{ \"kind\": \"bodyweight\" }"
     static func rpe(_ v: Double) -> String { "{ \"kind\": \"rpe\", \"value\": \(v) }" }
 
     /// 498 · EMOM 12′ alterno: 6 Bench Press 60 kg · Row todo el minuto.

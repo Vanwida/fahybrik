@@ -209,14 +209,14 @@ extension Vivo {
     private static func pasosDePiernas(_ legs: [RunLeg], seg: WorkoutSegment, s: Int, fase: Fase, bloque: Int, entorno: RunEnvironment?) -> [Paso] {
         let trabajoPrincipal = legs.filter { $0.isWork && $0.phaseRole == .main }.count
         var serieN = 0
-        return legs.enumerated().map { k, leg in
-            let faseLeg: Fase = leg.phaseRole == .warmup ? .calentamiento : leg.phaseRole == .cooldown ? .vuelta : .principal
-            let medida: Medida
+        let medidas: [Medida] = legs.map { leg in
             switch leg.measure {
-            case let .distance(m): medida = Medida(tipo: .distancia, prescrito: Double(m), mide: mideCorrer(entorno))
-            case let .duration(sec): medida = Medida(tipo: .tiempo, prescrito: Double(sec), mide: .reloj)
-            case .unknown: medida = Medida(tipo: .abierta, prescrito: nil, mide: mideCorrer(entorno))
+            case let .distance(m): return Medida(tipo: .distancia, prescrito: Double(m), mide: mideCorrer(entorno))
+            case let .duration(sec): return Medida(tipo: .tiempo, prescrito: Double(sec), mide: .reloj)
+            case .unknown: return Medida(tipo: .abierta, prescrito: nil, mide: mideCorrer(entorno))
             }
+        }
+        let objetivosDeLeg: [[Objetivo]] = legs.map { leg in
             var objetivos: [Objetivo] = []
             switch leg.runTarget {
             case let .pace(t):
@@ -228,6 +228,14 @@ extension Vivo {
                 if case let .rpe(v, mn, mx)? = leg.target, let lo = v ?? mn { objetivos.append(Objetivo(eje: .rpe, min: lo, max: v ?? mx ?? lo, papel: .principal)) }
             }
             if let incl = leg.inclinePct, incl > 0 { objetivos.append(Objetivo(eje: .inclinacion, min: incl, max: incl, papel: .secundario)) }
+            return objetivos
+        }
+        // Con gramática, la posición y la clase salen de sus «repetir» (`Vivo+Correr.swift`).
+        let nombres = nombresDePiernas(legs, estructura: seg.prescription?.structure, medidas: medidas, objetivos: objetivosDeLeg)
+        return legs.enumerated().map { k, leg in
+            let faseLeg: Fase = leg.phaseRole == .warmup ? .calentamiento : leg.phaseRole == .cooldown ? .vuelta : .principal
+            let medida = medidas[k]
+            let objetivos = objetivosDeLeg[k]
             var posicion: Posicion? = nil
             var clase: Clase
             var rol: Rol = .trabajo
@@ -244,17 +252,20 @@ extension Vivo {
                 clase = .calentamiento
             } else if faseLeg == .vuelta {
                 clase = .vueltaCalma
+            } else if let n = nombres?[k] {
+                clase = n.clase
+                posicion = n.posicion
             } else if trabajoPrincipal > 1 {
                 serieN += 1
                 clase = .series
                 posicion = Posicion(serie: Contador(n: serieN, de: trabajoPrincipal))
             } else {
-                clase = .rodaje
+                clase = claseContinua(medida, objetivos)
             }
             return Paso(id: "s\(s)-l\(k)", clase: clase, rol: rol, fase: faseLeg, medida: medida, objetivos: objetivos, posicion: posicion,
                         modoRecupera: modo, entorno: entornoDe(entorno),
                         cierre: medida.tipo == .abierta ? .atleta : .medida,
-                        vueltaAutoM: clase == .rodaje ? 1000 : nil, bloque: bloque,
+                        vueltaAutoM: (clase == .rodaje || clase == .tirada) ? 1000 : nil, bloque: bloque,
                         origen: Origen(segmento: s, ventana: .pierna(k)))
         }
     }
@@ -568,7 +579,7 @@ extension Vivo {
         let set = seg.prescription?.sets?.first
         var medida = medidaDe(seg.scalarMeasure ?? set?.measure, modalidad: mod, entorno: entorno)
         let esCorrer = mod == .run
-        let clase: Clase
+        var clase: Clase
         let estructural = fase != .principal
         if estructural, !esCorrer, maquina == nil, seg.kind != .running {
             // Una movilidad o un calentamiento sin correr ni máquina no es una
@@ -582,6 +593,8 @@ extension Vivo {
             clase = seg.formatScheme == .steady && seg.targetPaceSecondsPerKm != nil ? .tempo : .rodaje
         } else if maquina != nil {
             clase = .ergo
+        } else if mod == .mobility {
+            clase = .movilidad
         } else if seg.kind == .strength {
             clase = .fuerza
         } else if seg.kind == .sled {
@@ -598,6 +611,8 @@ extension Vivo {
         let objetivos = objetivosDe(seg.prescription?.target ?? set?.target, zona: seg.targetZone, ritmoSKm: seg.targetPaceSecondsPerKm,
                                     vatios: seg.targetPowerWatts, rpe: clase == .fuerza ? nil : seg.targetRpe, maquina: maquina)
             .filter { clase == .fuerza ? false : ($0.eje != .kg && $0.eje != .pctRM && $0.eje != .rir) }
+        // Un rodaje largo es una tirada (umbral del coach, `UmbralesCorrer`).
+        if clase == .rodaje { clase = claseContinua(medida, objetivos) }
         var ficha: FichaFuerza? = nil
         if clase == .fuerza {
             if let set { ficha = fichaDe(set, seg: seg, ejercicio: seg.title) }
@@ -611,7 +626,7 @@ extension Vivo {
                     nombre: (esCorrer && !estructural) ? nil : (maquina != nil && !estructural ? nombreDeBox(seg.title, maquina) : seg.title),
                     entorno: esCorrer ? entornoDe(entorno) : nil, carga: clase == .fuerza ? nil : cargaDe(set?.target) ?? seg.loadKg.map { Carga(kg: $0) },
                     maquina: maquina, tempo: tempoDe(set?.tempo), cierre: cierre,
-                    vueltaAutoM: clase == .rodaje ? 1000 : nil, bloque: bloque, fuerza: ficha,
+                    vueltaAutoM: (clase == .rodaje || clase == .tirada) ? 1000 : nil, bloque: bloque, fuerza: ficha,
                     origen: Origen(segmento: s, ventana: .segmento))
     }
 }

@@ -111,7 +111,7 @@ enum VivoTokens {
         static let vuelta: TimeInterval = 4
         static let deshacer: TimeInterval = Vivo.deshacerMs / 1000
         /// «GO» a pantalla completa al entrar en trabajo (espejo de `goHasta` del kit: 1 s).
-        static let go: TimeInterval = 1
+        static let go: TimeInterval = Vivo.duracionGoS
         /// Cada cuánto se mira si toca el preaviso (10 s / 100 m).
         static let miraPreaviso: TimeInterval = 0.5
     }

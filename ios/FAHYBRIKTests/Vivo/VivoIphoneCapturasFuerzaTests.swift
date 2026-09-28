@@ -10,54 +10,19 @@ import UIKit
 // declarado en la anotación, el dato encendido, el aviso de deshacer) entra por
 // `VivoArranque`; los gestos que el contrato hace después de montar (cortar el
 // descanso, la plancha que se cierra sola) pasan por el cableado de verdad.
-//
-// Clase propia (no una extensión de `VivoIphoneCapturasTests`): su arnés es
-// privado y otras familias lo tocan en paralelo. El arnés de aquí es el mismo
-// más el `VivoArranque`; cuando las cinco familias estén, se une en uno.
+// El volcado es el arnés común (`VivoArnesDeCapturas.swift`).
 final class VivoIphoneCapturasFuerzaTests: XCTestCase {
 
     private typealias P = VivoPlanesDePrueba
     private static let todo: Set<Vivo.CampoAnotar> = [.reps, .kg, .esfuerzo]
 
-    /// Monta el vivo sobre el motor, deja pasar el tiempo y guarda la pantalla
-    /// entera como adjunto (y en `FAHYBRIK_CAPTURAS` si está en el entorno).
+    /// El arnés común (`fotografiarVivo`) con el pulso de una banda (el contrato:
+    /// `MOVIL`, sin reloj ni máquina) y lo que el vivo ya sabía (`VivoArranque`).
     @MainActor
     private func captura(_ s: WorkoutSession, _ nombre: String, espera: TimeInterval = 0.8, arranque: VivoArranque = VivoArranque(),
                          trasMontar: (WorkoutSession) -> Void = { _ in }) {
-        // El pulso, de una banda (el contrato: `MOVIL`, sin reloj ni máquina).
-        let vista = VivoIphoneView(session: s, hrZones: s.hrZones, pm5: PM5ConnectionStore.shared,
-                                   hrLink: .connected(name: "Banda"), treadmillLink: .idle, gpsActive: false, isBenchmark: false,
-                                   alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {}, arranque: arranque)
-            .environment(\.colorScheme, .dark)
-        let host = UIHostingController(rootView: vista)
-        let bounds = UIScreen.main.bounds
-        let escena = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
-        let window = escena.map { UIWindow(windowScene: $0) } ?? UIWindow(frame: bounds)
-        window.frame = bounds
-        window.overrideUserInterfaceStyle = .dark
-        window.rootViewController = host
-        window.makeKeyAndVisible()
-        defer { s.stop(); window.isHidden = true; window.rootViewController = nil }
-        host.view.frame = bounds
-        host.view.layoutIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
-        trasMontar(s)
-        RunLoop.current.run(until: Date().addingTimeInterval(espera))
-        host.view.layoutIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-        let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 3
-        let img = UIGraphicsImageRenderer(bounds: bounds, format: fmt).image { _ in
-            if !host.view.drawHierarchy(in: bounds, afterScreenUpdates: true) {
-                host.view.layer.render(in: UIGraphicsGetCurrentContext()!)
-            }
-        }
-        guard let png = img.pngData() else { XCTFail("sin png \(nombre)"); return }
-        let a = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-        a.name = nombre; a.lifetime = .keepAlways; add(a)
-        if let destino = ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"].map({ URL(fileURLWithPath: $0) }) {
-            try? FileManager.default.createDirectory(at: destino, withIntermediateDirectories: true)
-            try? png.write(to: destino.appendingPathComponent("\(nombre).png"))
-        }
+        fotografiarVivo(s, VivoMontaje(hrLink: .connected(name: "Banda"), arranque: arranque),
+                        fotos: [VivoFoto(nombre: nombre, en: espera)], trasMontar: trasMontar)
     }
 
     // MARK: - Series rectas con RIR (P11, contado por ti)

@@ -7,8 +7,8 @@ import UIKit
 // los planes de `VivoPlanesCircuito`, lo lleva al punto de cada escenario del
 // contrato (`screens/iphone-vivo-circuito/casos.ts`) cerrando estaciones como lo
 // haría el atleta, y vuelca la pantalla para compararla con
-// `scratchpad/capturas-final/circuito-*-390.png`. Hermana de
-// `VivoIphoneCapturasTests` (mismo volcado); aquí además se enlaza la máquina
+// `scratchpad/capturas-final/circuito-*-390.png`. El volcado es el arnés común
+// (`VivoArnesDeCapturas.swift`); aquí además se enlaza la máquina
 // (el store del monitor en `.streaming`) y la banda, como en el contrato.
 // Corre en CI (GitHub Actions): nunca en el Mac de Alex.
 final class VivoCircuitoCapturasTests: XCTestCase {
@@ -16,59 +16,23 @@ final class VivoCircuitoCapturasTests: XCTestCase {
     private typealias P = VivoPlanesDePrueba
     private typealias C = VivoPlanesCircuito
 
-    private var destino: URL? {
-        ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"].map { URL(fileURLWithPath: $0) }
-    }
-
     /// Lo que marca el monitor en el escenario (el /500, las paladas, los vatios).
     private struct Monitor { var split: Double; var spm: Int; var vatios: Int }
 
+    /// El arnés común (`fotografiarVivo`) con la banda y el GPS enlazados y, si
+    /// hay `monitor`, la máquina (el store del monitor en `.streaming`).
     @MainActor
     private func captura(_ s: WorkoutSession, _ nombre: String, monitor: Monitor? = nil, horizontal: Bool = false,
                          pagina: VivoIdPagina = .vivo, espera: TimeInterval = 1.2,
                          trasMontar: (WorkoutSession) -> Void = { _ in }) {
-        let pm5 = PM5ConnectionStore.shared
-        if let monitor {
-            pm5.connectionState = .streaming
+        let muestra = monitor.map { m -> PM5LiveSample in
             var l = PM5LiveSample()
-            l.paceSecondsPer500m = monitor.split; l.strokeRate = monitor.spm; l.powerWatts = monitor.vatios
-            pm5.live = l
+            l.paceSecondsPer500m = m.split; l.strokeRate = m.spm; l.powerWatts = m.vatios
+            return l
         }
-        defer { pm5.connectionState = .idle; pm5.live = PM5LiveSample() }
-        let vista = VivoIphoneView(session: s, hrZones: s.hrZones, pm5: pm5,
-                                   hrLink: .connected(name: "Banda"), treadmillLink: .idle, gpsActive: true, isBenchmark: false,
-                                   alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {}, paginaInicial: pagina)
-            .environment(\.colorScheme, .dark)
-        let host = UIHostingController(rootView: vista)
-        let base = UIScreen.main.bounds
-        let bounds = horizontal ? CGRect(x: 0, y: 0, width: base.height, height: base.width) : base
-        let escena = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
-        let window = escena.map { UIWindow(windowScene: $0) } ?? UIWindow(frame: bounds)
-        window.frame = bounds
-        window.overrideUserInterfaceStyle = .dark
-        window.rootViewController = host
-        window.makeKeyAndVisible()
-        defer { s.stop(); window.isHidden = true; window.rootViewController = nil }
-        host.view.frame = bounds
-        host.view.layoutIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
-        trasMontar(s)
-        RunLoop.current.run(until: Date().addingTimeInterval(espera))
-        host.view.layoutIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-        let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 3
-        let img = UIGraphicsImageRenderer(bounds: bounds, format: fmt).image { _ in
-            if !host.view.drawHierarchy(in: bounds, afterScreenUpdates: true) {
-                host.view.layer.render(in: UIGraphicsGetCurrentContext()!)
-            }
-        }
-        guard let png = img.pngData() else { XCTFail("sin png \(nombre)"); return }
-        let a = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-        a.name = nombre; a.lifetime = .keepAlways; add(a)
-        if let destino {
-            try? FileManager.default.createDirectory(at: destino, withIntermediateDirectories: true)
-            try? png.write(to: destino.appendingPathComponent("\(nombre).png"))
-        }
+        let montaje = VivoMontaje(horizontal: horizontal, hrLink: .connected(name: "Banda"), gpsActive: true,
+                                  pagina: pagina, monitor: muestra)
+        fotografiarVivo(s, montaje, fotos: [VivoFoto(nombre: nombre, en: espera)], trasMontar: trasMontar)
     }
 
     // MARK: - Llevar el motor al punto del escenario

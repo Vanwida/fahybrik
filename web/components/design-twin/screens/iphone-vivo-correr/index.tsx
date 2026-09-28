@@ -21,11 +21,18 @@ export const meta: TwinMeta = {
   id: 'iphone-vivo-correr',
   titulo: 'iPhone · correr',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'espejo',
   actualizado: '2026-09-28',
   descripcion:
     'Correr con el objetivo mandando: el ritmo actual contra su banda en series, tempos y progresivos; el pulso contra su zona en rodajes y tiradas; el RPE como instrucción. Calle con GPS y cadencia del teléfono; cinta conectada o «lo dices tú»; la recuperación con su preaviso y su 3-2-1; la página de Mapa; y un libre que se ve igual.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIK/Workout/VivoIphone/VivoIphoneView.swift',
+    'ios/FAHYBRIK/Workout/VivoIphone/VivoPaginas.swift',
+    'ios/FAHYBRIKCore/Vivo/Vivo+Correr.swift',
+    'ios/FAHYBRIKCore/Vivo/Vivo+Cuenta.swift',
+    'ios/FAHYBRIKCore/Vivo/Vivo+Vueltas.swift',
+    'ios/FAHYBRIKCore/Vivo/Vivo+PlanDeSesion.swift',
+  ],
   enApp:
     'Hoy correr en el iPhone son `RunLiveShellView` + `OutdoorRunHUDModel` (calle) y `TreadmillHUDModel` + `RunTargetResolver` (cinta): el título va en inglés («Steady», «Intervals»), el ritmo grande es el medio de la vuelta, la zona prescrita se pinta con el color de la medida, el mapa de Apple ocupa un tercio de la pantalla con «Buscando GPS» encima, la cinta sin conectar es una guía a pantalla completa sin reloj ni pulso, y el botón dice «HECHO» o «TRAMO HECHO · se cierra solo al llegar». Esto lo sustituye entero con el pintor de `kit-iphone-vivo` sobre el mismo estado que la muñeca (`reloj-correr`).',
   dispositivo: 'iphone',

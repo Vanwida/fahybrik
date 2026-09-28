@@ -14,53 +14,16 @@ extension VivoIphoneCapturasTests {
     private typealias W = VivoPlanesDePrueba
 
     /// Una foto a los `en` segundos de montar.
-    struct Foto { let nombre: String; let en: TimeInterval }
+    typealias Foto = VivoFoto
 
-    /// El vivo sobre el motor `s`, con lo marcado del WOD y un guion; una foto por instante.
+    /// El vivo sobre el motor `s`, con lo marcado del WOD y un guion; una foto por
+    /// instante. La banda enlazada; `remo`: el monitor también.
     @MainActor
     private func fotos(_ s: WorkoutSession, _ fotos: [Foto], wod: Vivo.EstadoWod = .init(), guion: [VivoGestoGuion] = [],
                        remo: Bool = false, trasMontar: (WorkoutSession) -> Void = { _ in }) {
-        let pm5 = PM5ConnectionStore.shared
-        let antes = (pm5.connectionState, pm5.live)
-        if remo { pm5.connectionState = .streaming }
-        let vista = VivoIphoneView(session: s, hrZones: s.hrZones, pm5: pm5,
-                                   hrLink: .connected(name: "Banda"), treadmillLink: .idle, gpsActive: false, isBenchmark: false,
-                                   alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {},
-                                   wodInicial: wod, guion: guion)
-            .environment(\.colorScheme, .dark)
-        let host = UIHostingController(rootView: vista)
-        let bounds = UIScreen.main.bounds
-        let escena = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
-        let window = escena.map { UIWindow(windowScene: $0) } ?? UIWindow(frame: bounds)
-        window.frame = bounds
-        window.overrideUserInterfaceStyle = .dark
-        window.rootViewController = host
-        window.makeKeyAndVisible()
-        defer {
-            s.stop(); window.isHidden = true; window.rootViewController = nil
-            pm5.connectionState = antes.0; pm5.live = antes.1
-        }
-        host.view.frame = bounds
-        host.view.layoutIfNeeded()
-        trasMontar(s)
-        let destino = ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"].map { URL(fileURLWithPath: $0) }
-        let inicio = Date()
-        for f in fotos {
-            RunLoop.current.run(until: inicio.addingTimeInterval(f.en))
-            host.view.layoutIfNeeded()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-            let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 3
-            let img = UIGraphicsImageRenderer(bounds: bounds, format: fmt).image { _ in
-                if !host.view.drawHierarchy(in: bounds, afterScreenUpdates: true) { host.view.layer.render(in: UIGraphicsGetCurrentContext()!) }
-            }
-            guard let png = img.pngData() else { XCTFail("sin png \(f.nombre)"); continue }
-            let a = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-            a.name = f.nombre; a.lifetime = .keepAlways; add(a)
-            if let destino {
-                try? FileManager.default.createDirectory(at: destino, withIntermediateDirectories: true)
-                try? png.write(to: destino.appendingPathComponent("\(f.nombre).png"))
-            }
-        }
+        let m = VivoMontaje(hrLink: .connected(name: "Banda"), wod: wod, guion: guion,
+                            monitor: remo ? PM5ConnectionStore.shared.live : nil)
+        fotografiarVivo(s, m, fotos: fotos, antesDeEsperar: 0, asentar: 0.1, trasMontar: trasMontar)
     }
 
     /// Los ids de los pasos por índice (el plan del adaptador), para sembrar lo marcado.

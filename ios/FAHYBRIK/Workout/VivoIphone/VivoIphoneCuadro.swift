@@ -36,11 +36,6 @@ struct VivoIphoneCuadro {
     let registro: Vivo.Registro
     let seriesAnotables: [VivoSerieAnotable]
     let avisoCierre: String
-    /// El 3-2-1 del final de un paso de tiempo que entra en trabajo (la
-    /// recuperación parada, el descanso), con el paso al que se entra. El motor
-    /// solo cuenta al arrancar el bloque; esto es la cuenta del kit
-    /// (`Vivo.cuentaDeEntrada`). La carrera estructurada y el EMOM llevan la suya.
-    let entrada: (n: Int, paso: Vivo.Paso)?
     /// Lo que el WOD pone sobre las celdas (la lista ±1, la puntuación); nil fuera del WOD.
     let apoyoWod: VivoApoyoWod?
     /// El detalle de «Sesión completada» (la puntuación del death by); nil = «guardando…».
@@ -149,8 +144,6 @@ struct VivoIphoneCuadro {
         default: apoyoWod = nil
         }
         detalleFin = Vivo.deathByDe(p) != nil ? Vivo.resultadoDeathBy(e.pasos, wod.hechas) : nil
-        let cuentaPropia = s.isRunStructureActive || seg?.isEMOM == true
-        entrada = (e.cuenta == nil && !cuentaPropia && !e.pausado) ? Vivo.cuentaDeEntrada(e.pasos, e.i, e.lecturas) : nil
         pasoDeLaCuenta = (p.rol != .trabajo && e.i + 1 < e.pasos.count && e.pasos[e.i + 1].rol == .trabajo) ? e.pasos[e.i + 1] : p
 
         // ── la anotación del descanso de fuerza (I7) ─────────────────────

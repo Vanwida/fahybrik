@@ -6,61 +6,25 @@ import UIKit
 // LA GRAMÁTICA DEL VIVO NUEVO, CAPTURADA EN EL SIMULADOR — monta `VivoIphoneView`
 // sobre un motor REAL con los planes del coach (`VivoPlanesDePrueba`) y vuelca
 // la pantalla entera del iPhone 17 Pro, para compararla con las capturas del
-// contrato (`iphone-vivo-gramatica`). Hermana del arnés de la auditoría del
-// 28-09. Las imágenes van a `FAHYBRIK_CAPTURAS` (una carpeta) si está en el
-// entorno; si no, solo al adjunto del test.
+// contrato (`iphone-vivo-gramatica`). El volcado es el arnés común
+// (`VivoArnesDeCapturas.swift`).
 final class VivoIphoneCapturasTests: XCTestCase {
 
     private typealias P = VivoPlanesDePrueba
 
-    private var destino: URL? {
-        ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"].map { URL(fileURLWithPath: $0) }
-    }
-
-    /// Interna (no privada): una familia añade sus escenarios en su propio fichero
-    /// (`VivoIphoneCapturasTests+Ergo.swift`) con el MISMO arnés. `hrLink`: la
-    /// banda de pulso enlazada (el chip «Banda»).
+    /// La foto de un escenario con el arnés común (`fotografiarVivo`). Interna: las
+    /// familias añaden sus escenarios en su fichero (`+Ergo`, `+Wod`, `Correr`).
+    /// `hrLink`, `treadmillLink`, `pagina` y `lectura` (lo que dirían el GPS y la
+    /// cinta) son para las familias que los necesitan; por defecto, lo de siempre.
     @MainActor
     func captura(_ s: WorkoutSession, _ nombre: String, test: Bool = false, horizontal: Bool = false,
-                 espera: TimeInterval = 0.8, antesDeEsperar: TimeInterval = 0.4, hrLink: DeviceLink = .idle,
+                 espera: TimeInterval = 0.8, antesDeEsperar: TimeInterval = 0.4,
+                 hrLink: DeviceLink = .idle, treadmillLink: DeviceLink = .idle,
+                 pagina: VivoIdPagina = .vivo, lectura: VivoLecturaDePrueba? = nil,
                  trasMontar: (WorkoutSession) -> Void = { _ in }) {
-        let vista = VivoIphoneView(session: s, hrZones: s.hrZones, pm5: PM5ConnectionStore.shared,
-                                   hrLink: hrLink, treadmillLink: .idle, gpsActive: false, isBenchmark: test,
-                                   alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {})
-            .environment(\.colorScheme, .dark)
-        let host = UIHostingController(rootView: vista)
-        // La escena del simulador sigue en vertical: sus zonas seguras (62 arriba)
-        // no son las de un iPhone tumbado. En horizontal, sin ellas (como el contrato).
-        if horizontal { host.safeAreaRegions = [] }
-        let base = UIScreen.main.bounds
-        let bounds = horizontal ? CGRect(x: 0, y: 0, width: base.height, height: base.width) : base
-        let escena = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
-        let window = escena.map { UIWindow(windowScene: $0) } ?? UIWindow(frame: bounds)
-        window.frame = bounds
-        window.overrideUserInterfaceStyle = .dark
-        window.rootViewController = host
-        window.makeKeyAndVisible()
-        defer { s.stop(); window.isHidden = true; window.rootViewController = nil }
-        host.view.frame = bounds
-        host.view.layoutIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(antesDeEsperar))
-        trasMontar(s)
-        RunLoop.current.run(until: Date().addingTimeInterval(espera))
-        host.view.layoutIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
-        let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 3
-        let img = UIGraphicsImageRenderer(bounds: bounds, format: fmt).image { _ in
-            if !host.view.drawHierarchy(in: bounds, afterScreenUpdates: true) {
-                host.view.layer.render(in: UIGraphicsGetCurrentContext()!)
-            }
-        }
-        guard let png = img.pngData() else { XCTFail("sin png \(nombre)"); return }
-        let a = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-        a.name = nombre; a.lifetime = .keepAlways; add(a)
-        if let destino {
-            try? FileManager.default.createDirectory(at: destino, withIntermediateDirectories: true)
-            try? png.write(to: destino.appendingPathComponent("\(nombre).png"))
-        }
+        let m = VivoMontaje(test: test, horizontal: horizontal, hrLink: hrLink, treadmillLink: treadmillLink,
+                            pagina: pagina, lectura: lectura)
+        fotografiarVivo(s, m, fotos: [VivoFoto(nombre: nombre, en: espera)], antesDeEsperar: antesDeEsperar, trasMontar: trasMontar)
     }
 
     private func erg(_ s: WorkoutSession, pace: Double, w: Int, spm: Int, m: Double, cal: Int) {
