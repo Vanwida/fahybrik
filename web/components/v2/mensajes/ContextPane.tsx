@@ -52,6 +52,7 @@ function Today({ data }: { data: AthletePeekData }) {
             <Circle aria-label="Pendiente" strokeWidth={1.75} className="size-4 shrink-0 text-v2-faint" />
           )}
           <span className="truncate text-v2-fg">{s.title}</span>
+          {s.libre ? <span className="shrink-0 t-meta text-v2-faint">Libre</span> : null}
         </li>
       ))}
     </ul>
