@@ -10,6 +10,64 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-28 · Un solo entreno: un libre y una sesión del coach son el mismo objeto y se guardan igual (0274)
+
+**El hueco (auditoría del camino de guardado, verificada contra la base):**
+- Ejecutar un plan libre guardado lo **duplicaba**. La app lo mandaba a `POST /api/athlete/workouts/free` sin `assignment_id`, y el servidor creaba otra plantilla, otra asignación y otra ejecución. El plan se quedaba «pendiente». Caso real: plan 568, con 0 ejecuciones y copias 569, 570 y 571.
+- Los tramos del libre se guardaban **sin segmento**: 154 de 155, sin ejercicio ni prescripción. Se caían de la fuerza por ejercicio, del rendimiento del coach y del cumplimiento de series. Y 2678 quedó enlazada a un segmento de OTRA plantilla (la del plan 568).
+- `/free` contestaba **422 a un entreno hecho** si el título pasaba de 80, el esquema no se admitía, había más de 12 ejercicios o faltaba uno. El entreno se quedaba en «Sin subir» para siempre, contra 0270.
+- Solo el guardado «fuera del plan» sustituía la copia plana de Apple Salud del mismo entreno. Había **7 duplicados** reales: 2507/2508, 2638/2639, 2640/2641, 2695/2696 por `source_workout_ref`; 2679/2680, 2681/2682 y 2683/2684 por solape.
+- La modalidad del tramo salía del cable, **nunca del ejercicio**. Seis tramos de cinta acabaron en «other».
+
+**Decidido (mecanismo):**
+- **Un solo camino de ejecución.** Ejecutar cualquier asignación que ya existe (del coach u `origin = 'self'`) va por `POST /api/sync/workout-execution` con los `template_segment_id` reales. El endpoint no tenía rama por origen; ahora lo dice su cabecera.
+- **`POST /free/plan` devuelve `template_segment_ids`**, uno por segmento en el orden de `items[]`. Con eso la app arranca un libre recién creado como una sesión más. El contrato para iOS está en `docs/pr/un-solo-entreno.md`.
+- **`POST /free` queda para el libre hecho SIN plan previo** (por ejemplo, empezado sin conexión). Crea plantilla, asignación y ejecución en una transacción y enlaza cada tramo a su segmento (`web/lib/sync/link-tramos.ts`):
+  - si el tramo trae `item_index` (0-based en `items[]`), manda ese;
+  - la app instalada no lo manda, así que se infiere por **orden** de los segmentos, nunca por el valor de `position`: una plantilla de un segmento se lleva todos los tramos; un tramo que no es serie lleva en `position` el orden 1-based de su ítem, si la modalidad no lo contradice; una serie va al único ítem de su modalidad;
+  - si nada es inequívoco, el tramo queda sin enlazar.
+- **`/free` con `assignment_id`** graba sobre esa asignación por el camino del coach y no crea nada. Si es un plan propio, antes enlaza los tramos que no traen id.
+- **Nunca 4xx por un entreno con trabajo.** Un título largo se recorta. Un plan que no casa (esquema, más de 12 ejercicios, ejercicio inexistente) se guarda «fuera del plan» (`no_assignment`, 0270) y se avisa en el servidor. El 422 queda solo para un cuerpo sin plan válido Y sin trabajo.
+- **Idempotencia del libre con índice único:** `workout_assignments.free_started_at` (el inicio que sella el motor), único por atleta, más un cerrojo de transacción. Un reenvío graba sobre la misma asignación y funde lo nuevo, como el coach. Sustituye a la búsqueda por inicio de la card 120. Si llega otro título con el mismo inicio, es otro entreno (el reloj que no reiniciaba su hora, 04-08): no se funde, se guarda fuera del plan (`start_taken`).
+- **Salud en TODOS los guardados de la app**, con un solo helper (`replace-health-import.ts`). Se borra la importación plana de Salud del mismo atleta que lleve el mismo `source_workout_ref` o que se solape con lo guardado. El solape solo cuenta si el guardado trae su hora de inicio: un «Marcar como hecha» sin horas no borra nada.
+- **Modalidad del tramo** (`tramoModality`):
+  - cinta = correr;
+  - si está enlazado, manda el ejercicio (0053) cuando su bloque es de una sola modalidad;
+  - en un bloque mixto, un tramo `other` es el bloque plegado y se queda `other`;
+  - sin ejercicio, el cable.
+  Funcional, core y movilidad siguen siendo `other` en el vocabulario de tramos; lo que un tramo funcional ES lo dice ahora su `exercise_id`.
+- **La ingesta solo enlaza segmentos de la plantilla de la asignación de esa ejecución** (`templateId`). Una ejecución fuera del plan conserva la regla de dueño de 0270.
+- `/free` responde lo mismo que el coach: `segments_saved`, `segments_dropped`, `prs` y `off_plan`. La sincronización del coach también devuelve ahora `segments_dropped`. `pain_area`, `pain_note` y `perceived_difficulty` ya se admitían en `/free`; ahora lo prueba un test y el contrato pide que la app los mande.
+
+**Migración 0274 (aplicada solo a una rama desechable; en la rama, sobre la copia de producción):**
+- (e) Un plan propio pendiente, ejecutado como copia CON evidencia (un tramo de la copia enlazado a un segmento del plan), vuelve a ser uno: la ejecución pasa al plan y la copia se borra. Caso: 568 ← 2678; 569 y su plantilla, fuera.
+- (b) Enlaces a otra plantilla: fuera. Tras (e) quedaban 0.
+- (a) Tramos de entrenos propios: 155 de 155 enlazados, con ejercicio y prescripción. El enlace SQL es idéntico al de `linkTramos`, comparado tramo a tramo en la rama.
+- (c) Modalidad: los 6 de cinta pasan a `run` y un plegado de un solo ejercicio de fuerza (2667) pasa a `strength`. Ningún tramo del coach cambia.
+- (d) 7 importaciones de Salud duplicadas: fuera.
+- (f) 53 llaves `free_started_at`, una por (atleta, inicio).
+Reejecutarla no cambia nada.
+
+**Descartado:**
+- Fundir por parecido de título o contenido. 563 → 564 NO se funde: son otro ejercicio (Sandbag Lunges frente a Atlas stone) y sin evidencia. 561 y 563 siguen pendientes.
+- Deduplicar las copias antiguas de un libre con el mismo inicio: hay grupos con entrenos distintos y el mismo inicio (el reloj congelado del 04-08). Se quedan como están; la llave es de la primera.
+- Ampliar el vocabulario de tramos con `functional`.
+
+**Queda (no hecho):**
+- Una importación de Salud que la ingesta ya había ENGANCHADO a una asignación del día no se sustituye (sigue la regla de 0270).
+- El log de Dobles no avisa todavía de tramos descartados.
+- La app (otra sesión) tiene que dejar de mandar a `/free` un plan guardado y adoptar `template_segment_ids` e `item_index`.
+
+**NO hacer:**
+- Crear una plantilla nueva al ejecutar un plan que ya existe.
+- Enlazar tramos por el valor de `position` de una plantilla.
+- Aceptar en la ingesta un segmento de otra plantilla.
+- Contestar 4xx a un entreno con trabajo porque su plan no casa.
+- Sustituir la copia de Salud en un camino y no en otro.
+- Sacar la modalidad de un tramo del cable cuando tiene ejercicio.
+
+---
+
 ## 2026-09-25 · La muñeca se rehace: un estado, un pintor, el objetivo manda y la gramática de Apple
 
 **Por qué (Alex, 25-09):** «la UX del reloj es un lío… no podemos competir con TrainingPeaks así; tiene que sentirse una herramienta nativa, fuerte, hecha por y para corredores (70 % del uso), y la carrera comprometida con los entrenos tiene que tener sentido». Una auditoría de seis lentes lo confirma con evidencia: el modelo completo, las causas y los casos están en `docs/reloj-muneca/modelo.md`.

@@ -6,6 +6,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**UN SOLO ENTRENO (28-09, rama `fix/un-solo-entreno`, SIN fusionar ni desplegar):** libre ≡ sesión del coach al guardar. Plan guardado → sync del coach; `/free/plan` devuelve `template_segment_ids`; `/free` enlaza tramos, nunca 4xx con trabajo, reenvío idempotente (`free_started_at`); Salud sustituida en todos los guardados; modalidad del ejercicio. Migración 0274 (probada en rama; NO en prod: la aplica el orquestador ANTES del deploy).
+Contrato iOS: `docs/pr/un-solo-entreno.md` (otra sesión). DECISIONS 28-09.
 **LA MUÑECA SE REHACE (Alex, 25-09: «es un lío, así no competimos con TrainingPeaks»).** Auditoría de 6 lentes
 + modelo: `docs/reloj-muneca/` (https://claude.ai/artifact/3LzhCpYCr6H7rgktymoG8r; spec `modelo.md`; DECISIONS 25-09).
 Alex eligió: el objetivo manda, SF nativo, voz al cambiar de paso y cada km, comprometida vs objetivo del coach.
