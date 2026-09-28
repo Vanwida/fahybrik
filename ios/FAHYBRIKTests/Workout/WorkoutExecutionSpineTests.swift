@@ -470,12 +470,14 @@ final class WorkoutExecutionSpineTests: XCTestCase {
     }
 
     func testMixedErgFoldIsNotSealedWithOneMachine() throws {
-        // Un bloque steady con ski Y remo se pliega en UN segmento. Four layers had
-        // already learned that ski is not row — and the FOLD skipped all four,
-        // stamping the block with the first movement's machine. Ski and row share
-        // one `SegmentKind`, so the test has to be on the MACHINES.
+        // Un bloque puntuable (For Time) con ski Y remo se pliega en UN segmento.
+        // Four layers had already learned that ski is not row — and the FOLD skipped
+        // all four, stamping the block with the first movement's machine. Ski and row
+        // share one `SegmentKind`, so the test has to be on the MACHINES. (Era un
+        // bloque steady; desde el 28-sep un bloque continuo ya no se pliega — cada
+        // pieza es su tramo —, así que el pliegue se prueba donde sigue existiendo.)
         let detail = try decode(twoItemBlock(
-            format: "steady",
+            format: "for_time",
             first: (category: "ski_erg", slug: "ski-erg", name: "SkiErg"),
             second: (category: "rowing", slug: "row-erg", name: "Row")))
         let seg = try XCTUnwrap(WorkoutPlan.from(detail: detail)?.segments.first)
@@ -495,7 +497,7 @@ final class WorkoutExecutionSpineTests: XCTestCase {
     func testHomogeneousErgFoldKeepsItsMachine() throws {
         // The other half: a two-movement ski block IS ski, and still says so.
         let detail = try decode(twoItemBlock(
-            format: "steady",
+            format: "for_time",
             first: (category: "ski_erg", slug: "ski-erg", name: "SkiErg"),
             second: (category: "ski_erg", slug: "ski-erg", name: "SkiErg")))
         let seg = try XCTUnwrap(WorkoutPlan.from(detail: detail)?.segments.first)

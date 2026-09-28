@@ -125,7 +125,11 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
     /// that need an explicit (non-silent) decision can branch on it.
     ///
     /// Legacy map: strength_block / strength → .sets, tempo → .steady,
-    /// circuit → .rounds, test → .forTime, interval (old singular) → .intervals.
+    /// circuit → .rounds, test → .forTime, interval (old singular) → .intervals,
+    /// simulation → .hyroxSim, superserie → .superset. Espejo de
+    /// `LEGACY_FORMAT_ALIASES` (shared/domain/prescription/format.ts): un alias que
+    /// el servidor acepta y aquí no se reconocía caía a `.rounds` por defecto, y una
+    /// simulación HYROX o una superserie del coach se corrían como otro formato.
     init?(canonicalizing raw: String) {
         if let direct = PrescriptionScheme(rawValue: raw) {
             self = direct
@@ -137,6 +141,8 @@ enum PrescriptionScheme: String, Codable, CaseIterable, Equatable {
         case "circuit":                    self = .rounds
         case "test":                       self = .forTime
         case "interval":                   self = .intervals
+        case "simulation":                 self = .hyroxSim
+        case "superserie":                 self = .superset
         default:                           return nil
         }
     }
