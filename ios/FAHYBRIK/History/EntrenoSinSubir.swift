@@ -41,14 +41,16 @@ struct LocalUnsyncedWorkout: Identifiable, Equatable {
     /// llegó a hacerse. `origin` nil para que nada lo tome por un libre borrable.
     var session: AthleteHistorySession {
         AthleteHistorySession(
-            assignmentId: assignmentId ?? "",
+            assignmentId: assignmentId,
             title: title,
             totalDurationSeconds: totalDurationSeconds,
             scoreTimeS: scoreTimeS,
             rpe: rpe.map { Double($0) },
             withPartner: false,
             hasRoute: false,
-            origin: nil
+            origin: nil,
+            scoreRounds: scoreRounds,
+            scoreReps: scoreReps
         )
     }
 

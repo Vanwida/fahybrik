@@ -42,6 +42,8 @@ struct HistoryView: View {
     /// uno lleva reintento y el otro no (§5).
     @State private var failed = false
     @State private var executedTarget: WorkoutLaunch? = nil
+    /// Lo hecho SIN asignación (importación, fuera del plan): se abre por ejecución.
+    @State private var ejecucionTarget: EjecucionAbierta? = nil
     /// The day (YYYY-MM-DD) the athlete tapped when it held SEVERAL sessions —
     /// the list below narrows to it so they choose, instead of the calendar
     /// picking one for them. Nil = showing the whole month.
@@ -107,6 +109,14 @@ struct HistoryView: View {
                 onStale: { Task { await load() } }
             )
         }
+        .fullScreenCover(item: $ejecucionTarget) { abierta in
+            EntrenoHechoPorEjecucionView(
+                executionId: abierta.executionId,
+                fallbackTitle: abierta.title,
+                bearer: bearer,
+                onClose: { ejecucionTarget = nil }
+            )
+        }
         .fullScreenCover(item: $sinSubirTarget) { entreno in
             EntrenoSinSubirView(entreno: entreno, onClose: { sinSubirTarget = nil })
         }
@@ -131,9 +141,9 @@ struct HistoryView: View {
     @MainActor
     private func confirmDeleteFree(_ session: AthleteHistorySession) async {
         deleteFreeTarget = nil
-        guard let token = bearer else { return }
+        guard let token = bearer, let assignmentId = session.assignmentId else { return }
         do {
-            try await FreeSessionDelete.perform(assignmentId: session.assignmentId, bearer: token)
+            try await FreeSessionDelete.perform(assignmentId: assignmentId, bearer: token)
             Haptics.medium()
             onFreeSessionDeleted?()
             await load()
@@ -340,7 +350,20 @@ struct HistoryView: View {
         if let local = row.sinSubir {
             sinSubirTarget = local
         } else {
-            executedTarget = WorkoutLaunch(assignmentId: row.session.assignmentId, title: row.session.title)
+            abrirSesion(row.session)
+        }
+    }
+
+    /// Una sesión del servidor → su ficha: por la asignación si la tiene, si no por
+    /// su ejecución (lo hecho fuera del plan también se abre).
+    private func abrirSesion(_ s: AthleteHistorySession) {
+        switch s.destino {
+        case .asignacion(let id):
+            executedTarget = WorkoutLaunch(assignmentId: id, title: s.title)
+        case .ejecucion(let id):
+            ejecucionTarget = EjecucionAbierta(executionId: id, title: s.title)
+        case nil:
+            break
         }
     }
 
@@ -393,10 +416,7 @@ struct HistoryView: View {
             },
             onAbrir: { session in
                 Haptics.light()
-                executedTarget = WorkoutLaunch(
-                    assignmentId: session.assignmentId,
-                    title: session.title
-                )
+                abrirSesion(session)
             },
             onPreguntar: onPreguntar,
             onRequestDeleteFree: { session in
@@ -419,6 +439,13 @@ struct HistoryView: View {
         }
         return s
     }
+}
+
+/// Un entreno hecho sin asignación, abierto por su ejecución.
+struct EjecucionAbierta: Identifiable, Equatable {
+    let executionId: String
+    let title: String?
+    var id: String { executionId }
 }
 
 private extension String {

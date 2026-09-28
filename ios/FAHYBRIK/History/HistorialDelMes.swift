@@ -82,11 +82,11 @@ struct HistorialDelMes: View {
     private var focusedDayHeader: some View {
         if let selectedDay {
             HStack(spacing: 8) {
-                LabelText(text: focusedDayLabel(selectedDay), color: Theme.Color.accentText, size: 10)
+                LabelText(text: focusedDayLabel(selectedDay), color: Theme.Color.accentText, size: 15)
                 Spacer(minLength: 0)
                 Button(action: onVerElMes) {
                     Text("Ver el mes")
-                        .scaledFont(11, weight: .semibold, relativeTo: .caption2)
+                        .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
                         .foregroundStyle(Theme.Color.muted)
                 }
                 .buttonStyle(.plain)
@@ -129,14 +129,16 @@ struct HistorialDelMes: View {
             } label: {
                 Label("Ver el entreno", systemImage: "list.bullet.rectangle")
             }
-            if let onPreguntar {
+            // Preguntar y borrar hablan de una SESIÓN del plan: lo hecho fuera del
+            // plan no tiene asignación a la que señalar.
+            if let onPreguntar, s.assignmentId != nil {
                 Button {
                     onPreguntar(s, row.date)
                 } label: {
                     Label("Preguntar al coach", systemImage: "message")
                 }
             }
-            if s.isSelfOrigin, let onRequestDeleteFree {
+            if s.isSelfOrigin, s.assignmentId != nil, let onRequestDeleteFree {
                 Button(role: .destructive) {
                     onRequestDeleteFree(s)
                 } label: {
@@ -146,6 +148,9 @@ struct HistorialDelMes: View {
         }
     }
 
+    // La fila, al suelo del contrato (§4.1): nada por debajo de 15 pt. A la derecha
+    // va LO QUE PUNTÚA la sesión (`resultado`): rondas de un AMRAP, el tiempo de un
+    // for time, los metros y el ritmo de una carrera o un remo, o la duración.
     private func rowButton(_ row: HistoryListRow, action: @escaping () -> Void) -> some View {
         let s = row.session
         return Button(action: action) {
@@ -153,40 +158,44 @@ struct HistorialDelMes: View {
                 // Date stamp — DOW + day number.
                 VStack(spacing: 1) {
                     Text(HistoryCalendar.dowAbbrev(row.date))
-                        .font(.system(size: 8, weight: .heavy)).tracking(0.4).textCase(.uppercase)
-                        .foregroundStyle(Theme.Color.faint)
+                        .scaledFont(15, weight: .bold, relativeTo: .subheadline)
+                        .foregroundStyle(Theme.Color.muted)
                     if let day = dayNumber(row.date) {
                         Text(day)
-                            .font(.system(size: 16, weight: .heavy).monospacedDigit())
+                            .scaledFont(20, weight: .heavy, relativeTo: .title3, monospaced: true)
                             .foregroundStyle(Theme.Color.foreground)
                     }
                 }
-                .frame(width: 34)
+                .frame(minWidth: 40)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(s.title)
-                        .scaledFont(13, weight: .semibold, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(1)
+                    HStack(spacing: 8) {
+                        if s.modality != nil { ModalityDot(modality: s.modality, size: 10) }
+                        Text(s.title)
+                            .scaledFont(17, weight: .semibold, relativeTo: .body)
+                            .foregroundStyle(Theme.Color.foreground)
+                            .lineLimit(1)
+                    }
                     subChips(s, sinSubir: row.sinSubir != nil)
                 }
                 Spacer(minLength: 8)
 
-                if let time = s.headlineTime {
+                if let resultado = s.resultado {
                     VStack(alignment: .trailing, spacing: 1) {
-                        Text(time)
-                            .font(.system(size: 17, weight: .heavy).italic().monospacedDigit())
+                        Text(resultado.valor)
+                            .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true, monospaced: true)
                             .foregroundStyle(Theme.Color.foreground)
-                        if let label = s.headlineLabel {
-                            Text(label)
-                                .font(.system(size: 8, weight: .heavy)).tracking(0.3).textCase(.uppercase)
-                                .foregroundStyle(Theme.Color.faint)
-                        }
+                            .lineLimit(1)
+                        Text(resultado.etiqueta)
+                            .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
+                            .foregroundStyle(Theme.Color.muted)
+                            .lineLimit(1)
                     }
                 }
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.Color.muted)
+                    .accessibilityHidden(true)
             }
             .padding(.vertical, 12)
             .contentShape(Rectangle())
@@ -197,7 +206,7 @@ struct HistorialDelMes: View {
 
     @ViewBuilder
     private func subChips(_ s: AthleteHistorySession, sinSubir: Bool) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 10) {
             if let rpe = s.rpeLabel {
                 chip(text: rpe, tint: Theme.Color.muted)
             }
@@ -206,6 +215,12 @@ struct HistorialDelMes: View {
             }
             if s.hasRoute {
                 chip(icon: "map", text: "ruta", tint: Theme.Color.muted)
+            }
+            // Lo que no salió del plan se dice: el atleta lo reconoce como suyo, y
+            // el coach no lo cuenta en la adherencia (DECISIONS 2026-09-28).
+            if s.assignmentId == nil, !sinSubir {
+                chip(text: s.recordedVia == "imported" ? "importado" : "fuera del plan",
+                     tint: Theme.Color.muted)
             }
             // «Sin subir» es un chip MÁS del vocabulario de la fila, no una insignia
             // nueva: pesa lo mismo que decir que corriste con ruta. El triángulo dice
@@ -218,13 +233,15 @@ struct HistorialDelMes: View {
     }
 
     private func chip(icon: String? = nil, text: String, tint: Color) -> some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 4) {
             if let icon {
-                Image(systemName: icon).font(.system(size: 8, weight: .bold))
+                Image(systemName: icon)
+                    .scaledFont(13, weight: .bold, relativeTo: .footnote)
             }
-            Text(text).font(.system(size: 10, weight: .semibold))
+            Text(text).scaledFont(15, weight: .semibold, relativeTo: .subheadline)
         }
         .foregroundStyle(tint)
+        .lineLimit(1)
     }
 
     /// El día del mes del sello. Nil cuando la fecha no se puede leer: entonces no

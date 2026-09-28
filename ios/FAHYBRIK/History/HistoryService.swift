@@ -11,7 +11,10 @@ import Foundation
 enum HistoryService {
     static func fetch(month: YearMonth, bearer: String?) async throws -> AthleteHistoryMonth {
         try await APIClient.shared.get(
-            path: "api/athlete/history?month=\(month.iso)",
+            // `include_unplanned=1`: también lo hecho SIN asignación (importaciones de
+            // Salud, entrenos fuera del plan) — opt-in porque la app anterior
+            // decodificaba `assignment_id` como obligatorio (DECISIONS 2026-09-28).
+            path: "api/athlete/history?month=\(month.iso)&include_unplanned=1",
             bearer: bearer
         )
     }
