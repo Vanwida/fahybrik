@@ -212,8 +212,9 @@ struct VivoIphoneView: View {
     @ViewBuilder
     private func bloqueApoyo(_ c: VivoIphoneCuadro, horizontal: Bool = false) -> some View {
         let anota = c.enDescanso && !c.seriesAnotables.isEmpty
-        // En horizontal la columna de la derecha no tiene alto para celdas altas: van compactas (una fila cada una).
-        VivoRejilla(metricas: anota ? Array(c.metricas.prefix(2)) : c.metricas, compacta: anota || horizontal) {
+        // En horizontal la columna de la derecha solo tiene alto para UNA fila de celdas compactas
+        // (debajo van «Luego», la tira y la franja): las dos primeras, que son las que mandan.
+        VivoRejilla(metricas: (anota || horizontal) ? Array(c.metricas.prefix(2)) : c.metricas, compacta: anota || horizontal) {
             if anota {
                 VivoAnotarSerie(series: c.seriesAnotables, foco: $foco) { paso, campo, dir in cambiar(paso, campo, dir, c) }
             }
