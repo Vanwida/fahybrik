@@ -39,7 +39,7 @@ import {
   type PasoFuerza,
   type Viene,
 } from '../../kit-reloj';
-import { camposPendientes, fmtValor, pendiente, textoAnotacion, type Anotacion, type Campo, type Dato } from './anotar';
+import { camposPendientes, fmtValor, pendiente, textoAnotacion, type Anotacion, type Campo, type Dato } from '../../kit-reloj';
 
 export interface SerieAnotable {
   paso: PasoFuerza;

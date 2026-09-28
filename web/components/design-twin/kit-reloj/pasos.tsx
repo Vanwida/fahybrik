@@ -18,8 +18,9 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { BotonesDescanso, Centro, VieneLinea, altoLibre, altoViene, type Viene } from './apoyos';
 import { heroeDelPaso, laminaDelPaso, lineaPulso, type LineaVista } from './lamina';
-import { NOMBRE_CLASE_DEFECTO, type Lecturas, type Paso, type PasoBase, type ZonasCoach } from './paso';
-import { contextoDe, esCarrera, fmtObjetivo, fmtRitmo, principal, textoPasoCorto, valorDeEje } from './reglas';
+import type { Lecturas, Paso, PasoBase, ZonasCoach } from './paso';
+import { textoViene } from './posicion';
+import { contextoDe, esCarrera, fmtObjetivo, fmtRitmo, principal, valorDeEje } from './reglas';
 import { BandaObjetivo } from './banda';
 import {
   ContextoLinea,
@@ -127,20 +128,6 @@ export function LuegoLinea({ prefijo, siguiente }: { prefijo: string; siguiente:
       {textoViene(siguiente)}
     </Nota>
   );
-}
-
-/**
- * Lo que viene, en corto. Si abre una tanda o una ronda nueva, lo dice con su
- * tamaño: «Tanda 3/3 · 6 × 1′»; si no, el paso: «1000 m a 3:45–3:55».
- */
-export function textoViene(p: PasoBase): string {
-  const pos = p.posicion;
-  const corto = textoPasoCorto(p);
-  if (pos?.tanda && pos.serie?.n === 1) return `Tanda ${pos.tanda.n}/${pos.tanda.de} · ${pos.serie.de} × ${corto}`;
-  if (pos?.ronda && (pos.estacion?.n ?? 1) === 1) return `Ronda ${pos.ronda.n}/${pos.ronda.de} · ${corto}`;
-  // Sin objetivo, lo prescrito solo dice poco («1′»): se dice cuál es.
-  if (pos?.serie && !principal(p)) return `${NOMBRE_CLASE_DEFECTO[p.clase]} ${pos.serie.n}/${pos.serie.de} · ${corto}`;
-  return corto;
 }
 
 /**

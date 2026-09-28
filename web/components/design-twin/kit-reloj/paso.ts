@@ -332,7 +332,7 @@ export interface Paso extends PasoBase {
 // Lecturas — lo que miden los sensores AHORA
 // ---------------------------------------------------------------------------
 
-export type CampoVivo = 'hecho' | 'ritmo' | 'ppm' | 'split500' | 'vatios' | 'cadencia';
+export type CampoVivo = 'hecho' | 'ritmo' | 'ppm' | 'split500' | 'vatios' | 'cadencia' | 'cal';
 
 export type EstadoGps = 'buscando' | 'listo' | 'no-aplica';
 
@@ -351,6 +351,8 @@ export interface Lecturas {
   split500?: number | null;
   vatios?: number | null;
   cadencia?: number | null;
+  /** Calorías que da la máquina (remo, ski, bici): se ven siempre, no solo con objetivo en cal. */
+  cal?: number | null;
   gps: EstadoGps;
   /** Campos que dependen del móvil y no llegan en 5 s: se pintan «—» (§3). */
   viejos?: CampoVivo[];

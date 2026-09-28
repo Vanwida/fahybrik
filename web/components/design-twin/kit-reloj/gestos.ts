@@ -47,7 +47,7 @@ export function useDestinos(): { raiz: (el: HTMLDivElement | null) => void; dest
  * toque». Llama siempre a la versión más reciente de los gestos (ref que se
  * actualiza tras cada render), así un gesto guionizado ve el estado vivo.
  */
-export function useGuion(guion: Array<{ en: number; gesto: GestoGuion }> | undefined, ejecutar: (g: GestoGuion) => void) {
+export function useGuion<G = GestoGuion>(guion: Array<{ en: number; gesto: G }> | undefined, ejecutar: (g: G) => void) {
   const gestos = useRef(ejecutar);
   useEffect(() => {
     gestos.current = ejecutar;

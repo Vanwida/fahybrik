@@ -45,6 +45,51 @@ export function fmtRitmo(sKm: number | null | undefined): string {
   return fmtReloj(sKm);
 }
 
+// ---------------------------------------------------------------------------
+// La máquina: cómo se llama en el box y en qué distancia se lee su ritmo
+// ---------------------------------------------------------------------------
+
+export type TipoMaquina = NonNullable<PasoBase['maquina']>['tipo'];
+
+/** Copy de box (memoria del proyecto): nunca PM5, FTMS ni BLE. */
+export const NOMBRE_MAQUINA: Record<TipoMaquina, string> = { remo: 'el remo', ski: 'el ski', bici: 'la bici', cinta: 'la cinta' };
+
+/** «el remo», «la bici»… o null si el paso no lleva máquina. */
+export function nombreMaquina(m: PasoBase['maquina'] | undefined): string | null {
+  return m ? NOMBRE_MAQUINA[m.tipo] : null;
+}
+
+/** «Remo», «Bici»: para un chip, sin artículo. */
+export function nombreMaquinaCorto(m: PasoBase['maquina'] | undefined): string | null {
+  if (!m) return null;
+  const n = NOMBRE_MAQUINA[m.tipo].replace(/^(el|la) /, '');
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
+
+/** «del remo», «de la bici»: la máquina tras una preposición. */
+export function deMaquina(m: PasoBase['maquina'] | undefined): string | null {
+  if (!m) return null;
+  const n = NOMBRE_MAQUINA[m.tipo];
+  return n.startsWith('el ') ? `del ${n.slice(3)}` : `de ${n}`;
+}
+
+/** La BikeErg se lee por 1000 m (su monitor lo enseña así); el remo y el ski, por 500. */
+export const esBici = (m: PasoBase['maquina'] | undefined): boolean => m?.tipo === 'bici';
+
+export function unidadSplit(m?: PasoBase['maquina']): '/500' | '/1000' {
+  return esBici(m) ? '/1000' : '/500';
+}
+
+/**
+ * El ritmo del ergómetro tal como se lee en su monitor. El dato viaja siempre
+ * en s/500 m (`split500`, lo que da la máquina); en la bici se ENSEÑA por
+ * 1000 m, que es como lo prescribe el coach y lo pinta su monitor.
+ */
+export function fmtSplit(s500: number | null | undefined, m?: PasoBase['maquina']): string {
+  if (s500 == null || !Number.isFinite(s500) || s500 <= 0) return '—';
+  return fmtRitmo(esBici(m) ? s500 * 2 : s500);
+}
+
 /** Decimal con coma: 8.5 → «8,5». */
 export function num(n: number): string {
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 10) / 10).replace('.', ',');
@@ -87,13 +132,16 @@ function rango(min: number | null, max: number | null, f: (n: number) => string)
   return '';
 }
 
-/** Un objetivo en palabras cortas: «3:45–3:55», «Z2», «RPE 7», «máx 142 ppm». */
-export function fmtObjetivo(o: Objetivo): string {
+/**
+ * Un objetivo en palabras cortas: «3:45–3:55», «Z2», «RPE 7», «máx 142 ppm».
+ * `maquina`: un /500 se escribe por 1000 m si la máquina es la bici.
+ */
+export function fmtObjetivo(o: Objetivo, maquina?: PasoBase['maquina']): string {
   switch (o.eje) {
     case 'ritmo':
       return rango(o.min, o.max, (n) => fmtRitmo(n));
     case 'split500':
-      return `${rango(o.min, o.max, (n) => fmtRitmo(n))} /500`;
+      return `${rango(o.min, o.max, (n) => fmtSplit(n, maquina))} ${unidadSplit(maquina)}`;
     case 'zona':
       if (o.papel === 'techo' && o.max != null) return `máx Z${o.max}`;
       return rango(o.min, o.max, (n) => `Z${n}`);
@@ -122,10 +170,10 @@ export function fmtObjetivo(o: Objetivo): string {
  * «a 3:45–3:55», «a Z2», «RPE 7», «RIR 3», «máx 142 ppm», «al 1 %». Sin «@».
  * Cambiar la notación es cambiar esto (subjetivo de Alex, un solo sitio).
  */
-export function textoObjetivo(o: Objetivo): string {
+export function textoObjetivo(o: Objetivo, maquina?: PasoBase['maquina']): string {
   if (o.eje === 'inclinacion') return `al ${fmtObjetivo(o)}`;
-  if (o.papel === 'techo' || o.eje === 'rpe' || o.eje === 'rir' || o.eje === 'kg' || o.eje === 'pctRM') return fmtObjetivo(o);
-  return `a ${fmtObjetivo(o)}`;
+  if (o.papel === 'techo' || o.eje === 'rpe' || o.eje === 'rir' || o.eje === 'kg' || o.eje === 'pctRM') return fmtObjetivo(o, maquina);
+  return `a ${fmtObjetivo(o, maquina)}`;
 }
 
 /** M7 · La carga del implemento: «180 kg», «2 × 32 kg» (el peso de CADA uno, nunca multiplicado). */
@@ -223,9 +271,10 @@ export function textoPasoCorto(p: PasoBase): string {
   const carga = textoCargaImplemento(p.carga);
   const conCarga = carga ? ` · ${carga}` : '';
   if (!o) return `${quien}${pr}${conCarga}`;
-  const obj = o.eje === 'rpe' ? `RPE ${num(o.min ?? o.max ?? 0)}` : fmtObjetivo(o);
+  const obj = o.eje === 'rpe' ? `RPE ${num(o.min ?? o.max ?? 0)}` : fmtObjetivo(o, p.maquina);
   return `${quien}${pr}${conCarga} a ${obj}`;
 }
+
 
 // ---------------------------------------------------------------------------
 // Zonas del coach

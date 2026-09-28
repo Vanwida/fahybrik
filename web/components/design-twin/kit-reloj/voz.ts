@@ -13,7 +13,7 @@
 
 import { esFuerza, kgDelPlan, textoEsfuerzo, type PasoFuerza } from './fuerza';
 import { NOMBRE_CLASE_DEFECTO, FEMENINO_DEFECTO, type PasoBase, type Tarea, type Veredicto, type Vuelta } from './paso';
-import { fmtReloj, fmtRitmo, num, principal } from './reglas';
+import { esBici, fmtReloj, fmtRitmo, fmtSplit, num, principal } from './reglas';
 
 const UNIDADES = [
   'cero', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve',
@@ -80,7 +80,7 @@ function objetivoDicho(p: PasoBase): string {
     case 'ritmo':
       return `a ${fmtRitmo(centro)}`;
     case 'split500':
-      return `a ${fmtRitmo(centro)} el quinientos`;
+      return `a ${fmtSplit(centro, p.maquina)} el ${esBici(p.maquina) ? 'mil' : 'quinientos'}`;
     case 'zona':
       return o.min != null && o.max != null && o.min !== o.max
         ? `en zona ${o.min} a ${o.max}`
@@ -257,7 +257,7 @@ export function vozFinSerie(p: PasoBase, v: Vuelta): string {
   const o = principal(p);
   if (o?.eje === 'split500' && v.metros != null && v.metros > 0) {
     const juicio = palabra(v.veredicto);
-    return `${nombre} ${v.n}: ${fmtRitmo((v.segundos * 500) / v.metros)} el quinientos${juicio ? `, ${juicio}` : ''}.`;
+    return `${nombre} ${v.n}: ${fmtSplit((v.segundos * 500) / v.metros, p.maquina)} el ${esBici(p.maquina) ? 'mil' : 'quinientos'}${juicio ? `, ${juicio}` : ''}.`;
   }
   const pulso = o?.eje === 'zona' || o?.eje === 'ppm';
   const juicio = pulso

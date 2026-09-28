@@ -1,5 +1,9 @@
 // ANOTAR LA SERIE — lo que se declara en el propio descanso (P11), puro.
 //
+// Subió de `screens/reloj-fuerza` al kit el 28-09: el iPhone anota la misma
+// serie en el mismo descanso (I7 del modelo del iPhone), con la misma regla de
+// honestidad; la muñeca y el móvil no pueden tener dos anotaciones.
+//
 // La regla de honestidad: lo que la muñeca propone (reps, carga y esfuerzo
 // prescritos, o la carga arrastrada de la serie anterior) NO cuenta como
 // declarado hasta que el atleta lo confirma o lo toca. Tres estados por dato:
@@ -13,17 +17,9 @@
 // CASCADA: la última carga declarada de un ejercicio es la propuesta de sus
 // series siguientes, hasta que el atleta declare otra.
 
-import {
-  FICHA_FUERZA_DEFECTO,
-  esFuerza,
-  fmtKg,
-  kgDelPlan,
-  type EstadoSecuencia,
-  type FichaFuerza,
-  type PasoFuerza,
-  type PlanSesion,
-  type Simulador,
-} from '../../kit-reloj';
+import { esFuerza, fmtKg, kgDelPlan, type PasoFuerza } from './fuerza';
+import { FICHA_FUERZA_DEFECTO, type FichaFuerza } from './paso';
+import type { EstadoSecuencia, PlanSesion, Simulador } from './secuencia';
 
 export type EstadoDato = 'propuesto' | 'medido' | 'declarado';
 export type Campo = 'reps' | 'kg' | 'esfuerzo';
@@ -45,7 +41,7 @@ export interface Anotacion {
 export type Registro = Record<string, Partial<Record<Campo, number>>>;
 
 /** Lo que el reloj midió de una serie cerrada: reps del sensor o segundos. */
-export interface Medida {
+export interface MedidaSerie {
   segundos: number;
   reps: number | null;
 }
@@ -85,7 +81,7 @@ function centroEsfuerzo(f: FichaFuerza): number | null {
 }
 
 /** La anotación de la serie `j`: lo declarado, lo medido o lo propuesto, campo a campo. */
-export function anotacionDe(plan: PlanSesion, j: number, registro: Registro, medida: Medida | null): Anotacion | null {
+export function anotacionDe(plan: PlanSesion, j: number, registro: Registro, medida: MedidaSerie | null): Anotacion | null {
   const p = plan.pasos[j];
   if (!esFuerza(p)) return null;
   const f = p.fuerza;
@@ -197,7 +193,7 @@ function cuentaVuelta(plan: PlanSesion, j: number): boolean {
  * Lo que el reloj midió de la serie `j` ya cerrada: sus segundos (la vuelta
  * que deja el motor al cerrarla) y, si las contaba el sensor, sus reps.
  */
-export function medidaDe(plan: PlanSesion, e: EstadoSecuencia, j: number, sim: Simulador): Medida | null {
+export function medidaDe(plan: PlanSesion, e: EstadoSecuencia, j: number, sim: Simulador): MedidaSerie | null {
   if (j >= e.i || !cuentaVuelta(plan, j)) return null;
   let k = 0;
   for (let x = 0; x < j; x++) if (cuentaVuelta(plan, x)) k += 1;

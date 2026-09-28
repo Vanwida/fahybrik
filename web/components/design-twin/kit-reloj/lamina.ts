@@ -18,6 +18,7 @@ import {
   fmtObjetivo,
   fmtReloj,
   fmtRitmo,
+  fmtSplit,
   holguraDe,
   limitesZona,
   num,
@@ -29,6 +30,7 @@ import {
   objetivoDe,
   techoPasado,
   tinteDelPaso,
+  unidadSplit,
   valorDeEje,
   veredictoDe,
   veredictoPrincipal,
@@ -132,7 +134,7 @@ export function heroeDelPaso(p: PasoBase, l: Lecturas, zonas: ZonasCoach | null)
           zona: v != null && zonas ? zonaVista(v, zonas) : undefined,
         };
       case 'split500':
-        if (v != null) return { clase: 'split', texto: fmtRitmo(v), unidad: '/500' };
+        if (v != null) return { clase: 'split', texto: fmtSplit(v, p.maquina), unidad: unidadSplit(p.maquina) };
         break;
       case 'potencia':
         if (v != null) return { clase: 'potencia', texto: String(Math.round(v)), unidad: 'W' };
@@ -186,6 +188,7 @@ export function bandaDe(
   valor: number | null,
   zonas: ZonasCoach | null,
   holgura = 0,
+  maquina?: PasoBase['maquina'],
 ): BandaVista | null {
   const v = valor;
   // Un objetivo de valor único («@5:20») se juzga con la holgura del coach como
@@ -238,7 +241,7 @@ export function bandaDe(
     hasta: hi == null ? 1 : p2!,
     marca: v == null ? null : pos(v),
     veredicto,
-    rotulo: fmtObjetivo(o),
+    rotulo: fmtObjetivo(o, maquina),
     palabra,
   };
 }
@@ -326,7 +329,7 @@ export function laminaDelPaso(
     if (o.eje === 'rpe') instruccion = `${fmtObjetivo(o)} · ${palabraRpe(o)}`;
     else if (['kg', 'pctRM', 'rir', 'inclinacion'].includes(o.eje)) instruccion = fmtObjetivo(o);
     else {
-      banda = bandaDe(o, valorDeEje(o.eje, l), zonas, holguraDe(o.eje, reglas));
+      banda = bandaDe(o, valorDeEje(o.eje, l), zonas, holguraDe(o.eje, reglas), p.maquina);
       // Con un techo en la misma magnitud, el borde alto es el techo (P1: la
       // banda dice lo mismo que vibra).
       const ver = veredictoPrincipal(p, l, zonas, reglas);

@@ -273,6 +273,12 @@ export interface TallaHeroe {
   ancho: number;
 }
 
+/** El rango del héroe: el de la muñeca (44–96) o el de otro lienzo (el iPhone pasa el suyo). */
+export type EscalaHeroe = { min: number; max: number; peso: Peso; caja: number };
+
+/** Los 5 s para deshacer un cierre a mano (P4): un dato del mecanismo, el mismo en muñeca y móvil. */
+export const DESHACER_MS = 5000;
+
 /**
  * El cuerpo del héroe: el mayor de 44–96 pt que cabe en `ancho` con su unidad
  * y en `altoMax` de caja. Si ni a 44 cabe (un «10:59:59» con unidad), baja de
@@ -284,19 +290,20 @@ export function tallaHeroe(
   unidad?: string,
   ancho: number = ANCHO_HEROE,
   altoMax: number = Infinity,
+  escala: EscalaHeroe = T.heroe,
 ): TallaHeroe {
-  const techoAlto = Math.floor(altoMax / T.heroe.caja);
-  const tope = Math.max(1, Math.min(T.heroe.max, techoAlto));
+  const techoAlto = Math.floor(altoMax / escala.caja);
+  const tope = Math.max(1, Math.min(escala.max, techoAlto));
   const medir = (c: number) => {
     const cu = unidad ? Math.max(T.unidad.suelo, Math.round(c * T.unidad.factor)) : 0;
     const w =
-      anchoTexto(texto, c, T.heroe.peso) +
+      anchoTexto(texto, c, escala.peso) +
       (unidad ? HUECO_UNIDAD + anchoTexto(unidad, cu, T.unidad.peso) : 0);
     return { cuerpo: c, cuerpoUnidad: cu, ancho: w };
   };
   // Si el alto no deja ni el suelo, manda el alto: la pantalla que llega aquí
   // lleva demasiadas filas y es ella la que tiene que quitar alguna.
-  const suelo = Math.min(T.heroe.min, tope);
+  const suelo = Math.min(escala.min, tope);
   for (let c = tope; c >= suelo; c -= 1) {
     const m = medir(c);
     if (m.ancho <= ancho) return m;

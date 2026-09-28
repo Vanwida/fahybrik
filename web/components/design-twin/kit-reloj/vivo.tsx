@@ -88,10 +88,10 @@ export function useVivo(
   plan: PlanSesion,
   sim: Simulador,
   inicio: InicioSecuencia,
-  opciones: { traducir?: Traductor; onLog: (linea: string) => void },
+  opciones: { traducir?: Traductor; onLog: (linea: string) => void; corriendo?: boolean },
 ): { seq: Secuencia; eventos: Eventos } {
   const eventos = useEventos(opciones.onLog);
-  const seq = useSecuencia(plan, sim, inicio, eventos, { traducir: opciones.traducir });
+  const seq = useSecuencia(plan, sim, inicio, eventos, { traducir: opciones.traducir, corriendo: opciones.corriendo });
   return { seq, eventos };
 }
 

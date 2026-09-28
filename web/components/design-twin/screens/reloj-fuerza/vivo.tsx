@@ -25,7 +25,7 @@ import {
   type PaginaVivo,
   type Secuencia,
 } from '../../kit-reloj';
-import { anotacionDe, cargaArrastrada, confirmar, girar, medidaDe, pendiente, seriesDelDescanso, type Campo, type Registro } from './anotar';
+import { anotacionDe, cargaArrastrada, confirmar, girar, medidaDe, pendiente, seriesDelDescanso, type Campo, type Registro } from '../../kit-reloj';
 import type { AccionGuion, CasoFuerza } from './casos';
 import { CaraColocate, CaraSerie, CuentaFuerza } from './caras';
 import { DescansoFuerza, type SerieAnotable, type VistaDescanso } from './descanso';
