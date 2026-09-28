@@ -101,30 +101,9 @@ struct FreeStrengthItem: Identifiable {
         )
     }
 
-    /// The runnable live-execution segment for this exercise — the set-table
-    /// `kind: .strength` shape (mirrors `WorkoutPlan.segment(from:)` for a
-    /// prescribed strength item). The scalar `targetReps`/`loadKg` ride alongside
-    /// the prescription so a single-series exercise still primes the fallback rep
-    /// flow; a multi-series one drives the per-set table off `prescription.sets`.
-    func segment(order: Int, blockTitle: String = "Fuerza", blockPosition: Int = 1) -> WorkoutSegment {
-        WorkoutSegment(
-            order: order,
-            title: exercise.name,
-            kind: .strength,
-            templateSegmentId: nil,
-            targetReps: measure == .reps ? reps : nil,
-            targetDistanceMeters: measure == .distance ? Double(meters) : nil,
-            targetDurationSeconds: measure == .time ? seconds : nil,
-            targetPaceSecondsPerKm: nil,
-            targetPowerWatts: nil,
-            targetZone: nil,
-            loadKg: loadKind == .kg ? kg : nil,
-            targetRpe: nil,
-            blockTitle: blockTitle,
-            blockPosition: blockPosition,
-            videoUrl: nil,
-            prescription: prescription()
-        )
+    /// Este ejercicio como ejercicio del plan (el del catálogo + su prescripción).
+    func planItem(part: String? = nil) -> FreePlanItem {
+        FreePlanItem(exercise: exercise, prescription: prescription(), part: part)
     }
 
     /// Live one-line preview, reusing the shared renderer so it reads exactly like
@@ -173,64 +152,48 @@ final class FreeStrengthDraft {
         items.swapAt(i, j)
     }
 
+    /// Los ejercicios del plan en orden de ejecución: el calentamiento primero.
+    private var planItems: [FreePlanItem] {
+        let warm = includeWarmup ? warmupItems.map { $0.planItem(part: "warmup") } : []
+        return warm + items.map { $0.planItem() }
+    }
+
     /// The free-save `items[]` — exercise_id + prescription, in execution order.
     /// REQUIRED for strength (the top-level prescription is omitted).
     func buildItems() -> [FreeWorkoutItemPayload]? {
         guard !items.isEmpty else { return nil }
-        let warm = includeWarmup
-            ? warmupItems.map { FreeWorkoutItemPayload(exercise_id: $0.exercise.id, prescription: $0.prescription(), part: "warmup") }
-            : []
-        return warm + items.map { FreeWorkoutItemPayload(exercise_id: $0.exercise.id, prescription: $0.prescription()) }
+        return planItems.map(\.payload)
     }
 
-    /// The runnable context: one segment per exercise (positions 1..N line up with
-    /// items order for the execution upload) + the `items[]` payload.
+    /// The runnable context: the plan the server will hold for these exercises,
+    /// run through `WorkoutPlan.from` like a coach session (`FreePlanDetail`).
     func buildContext() -> FreeWorkoutContext? {
         guard let payloadItems = buildItems() else { return nil }
-        // Calentamiento primero (bloque 1), el trabajo después (bloque 2). Con el
-        // calentamiento incluido pero VACÍO, un único paso manual "Calentamiento"
-        // — calientas, le das a seguir, y empieza la fuerza.
-        var segments: [WorkoutSegment] = []
-        if includeWarmup {
-            if warmupItems.isEmpty {
-                segments.append(WorkoutSegment(
-                    order: 1, title: "Calentamiento", kind: .reps,
-                    templateSegmentId: nil,
-                    targetReps: nil, targetDistanceMeters: nil, targetDurationSeconds: nil,
-                    targetPaceSecondsPerKm: nil, targetPowerWatts: nil, targetZone: nil,
-                    loadKg: nil, targetRpe: nil,
-                    blockTitle: "Calentamiento", blockPosition: 1,
-                    videoUrl: nil, prescription: nil
-                ))
-            } else {
-                for (i, item) in warmupItems.enumerated() {
-                    segments.append(item.segment(order: i + 1, blockTitle: "Calentamiento", blockPosition: 1))
-                }
-            }
-        }
-        let base = segments.count
-        for (i, item) in items.enumerated() {
-            segments.append(item.segment(order: base + i + 1, blockTitle: "Fuerza", blockPosition: includeWarmup ? 2 : 1))
-        }
-        let plan = WorkoutPlan(
-            id: UUID(),
-            name: resolvedTitle,
-            format: .sets,
-            estimatedDurationSeconds: estimatedSeconds,
-            blockContext: "Libre · no prescrito",
-            zoneTargets: [],
-            equipment: [],
-            segments: segments,
-            coachNote: nil, demoVideoUrl: nil,
-            warmupChecklist: []
+        let detail = FreePlanDetail.detail(
+            title: resolvedTitle,
+            modality: PrescriptionModality.strength.rawValue,
+            scheme: .sets,
+            items: planItems,
+            focus: "Libre · no prescrito"
         )
-        return FreeWorkoutContext(
+        // Con el calentamiento incluido pero VACÍO, un único paso manual
+        // «Calentamiento» delante — calientas, le das a seguir, y empieza la fuerza.
+        // No es un ejercicio del plan: el servidor no lo guarda y no lleva índice.
+        let pasoDeCalentamiento: WorkoutSegment? = (includeWarmup && warmupItems.isEmpty)
+            ? WorkoutSegment(order: 0, title: "Calentamiento", kind: .reps,
+                             blockTitle: "Calentamiento", blockPosition: -1)
+            : nil
+        guard let plan = FreePlanDetail.plan(from: detail, estimatedSeconds: estimatedSeconds,
+                                             leading: pasoDeCalentamiento) else { return nil }
+        var ctx = FreeWorkoutContext(
             title: resolvedTitle,
             modalityWire: PrescriptionModality.strength.rawValue,
             prescription: nil,
             items: payloadItems,
             plan: plan
         )
+        ctx.planPayload = buildPlanPayload()
+        return ctx
     }
 
     func buildPlanPayload(assignmentId: Int? = nil) -> FreePlanSavePayload? {

@@ -166,7 +166,6 @@ struct FreePlanView: View {
                 assignmentId: launch.assignmentId,
                 fallbackTitle: launch.title,
                 bearer: bearer,
-                planSessionIsSelfOrigin: launch.isSelfOrigin,
                 hrZones: hrZones,
                 onClose: { workoutLaunch = nil },
                 onCompleted: { _ in
@@ -262,8 +261,7 @@ struct FreePlanView: View {
     private func openSession(_ session: AthleteWeekDaySession) {
         let launch = WorkoutLaunch(
             assignmentId: session.assignmentId,
-            title: session.title,
-            isSelfOrigin: session.isSelfOrigin
+            title: session.title
         )
         if SessionMarkState.of(status: session.status, assignmentId: session.assignmentId).isFinished {
             executedLaunch = launch

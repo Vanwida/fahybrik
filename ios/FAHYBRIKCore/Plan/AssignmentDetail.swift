@@ -402,6 +402,13 @@ struct WorkoutDetail: Codable, Equatable {
     // `AssignmentDetail.storeResults`, which coalesces both locations. Wire
     // `store_results` → `storeResults` via convertFromSnakeCase.
     let storeResults: [StoreResultSpec]?
+    /// LA MODALIDAD CON LA QUE EL ATLETA CREÓ UN ENTRENO LIBRE («row», «run»,
+    /// «strength», «functional»…), de `templates.meta_json.modality`. Es lo que decide
+    /// con qué constructor se EDITA un libre guardado: deducirlo del primer ejercicio
+    /// reabría como remo un WOD que empieza remando. Nil en todo lo que no es un
+    /// libre y en servidores que aún no la exponen (entonces se deduce del plan
+    /// entero, ver `FreePlanHydration`).
+    var modality: String? = nil
 }
 
 // One RESULT a calibration test promises to produce — what number iOS asks for

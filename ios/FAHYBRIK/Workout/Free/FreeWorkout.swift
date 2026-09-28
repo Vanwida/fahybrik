@@ -400,86 +400,36 @@ final class FreeWorkoutDraft {
         }
     }
 
-    // MARK: Build — runnable WorkoutPlan (mirrors WorkoutPlan.from)
+    // MARK: Build — runnable WorkoutPlan (THE coach path: `WorkoutPlan.from`)
     //
-    // A single "Libre" block, ONE segment carrying the built prescription (the
-    // engine reads the scheme + per-interval sets from it) plus the scalar mirrors
-    // the generic grids / preview gate read — exactly like `mergedConditioningSegment`.
+    // El vivo del libre sale del MISMO `WorkoutPlan.from(detail:)` que una sesión del
+    // coach, sobre el detalle que el servidor devolverá para este plan
+    // (`FreePlanDetail`). Hasta el 28-sep se montaba aquí un segmento a mano que
+    // copiaba `WorkoutPlan.from` — con sus propios escalares — y cualquier arreglo
+    // del motor llegaba al coach y no al libre (docs/DECISIONS.md 2026-09-28).
 
     func buildContext() -> FreeWorkoutContext? {
         guard let modality, let prescription = buildPrescription() else { return nil }
         guard usaPlanDeCorrer || format != nil else { return nil }
-
-        let primerTramo: RunLeg? = usaPlanDeCorrer ? runPlan.tramosDelEntreno().first : nil
-        let measure = buildMeasure()
-        var distance: Double? = nil
-        var duration: Int? = nil
-        if let primerTramo {
-            distance = primerTramo.distanceMeters.map(Double.init)
-            duration = primerTramo.durationSeconds
-        } else {
-            if case let .distance(m, _) = measure { distance = m }
-            if case let .duration(s, _) = measure { duration = s }
-        }
-
-        // Scalar pace stored as sec/KM (the segment convention; the erg grid halves
-        // it for /500m). Only when the target is a pace.
-        let paceSecPerKm: Int? = {
-            if let primerTramo {
-                if case let .pace(v, mn, _) = primerTramo.target { return v ?? mn }
-                return nil
-            }
-            guard targetKind == .pace, paceSeconds > 0 else { return nil }
-            return modality.resolvedPaceUnit == .per500m ? paceSeconds * 2 : paceSeconds
-        }()
-        let zone: HRZone? = {
-            if let primerTramo {
-                if case let .hrZone(z) = primerTramo.target { return HRZone(rawValue: z) }
-                return nil
-            }
-            return targetKind == .hrZone ? HRZone(rawValue: hrZone) : nil
-        }()
-
-        let segment = WorkoutSegment(
-            order: 1,
-            title: modality.labelES,
-            kind: modality.segmentKind,
-            targetReps: nil,
-            targetDistanceMeters: distance,
-            targetDurationSeconds: duration,
-            targetPaceSecondsPerKm: paceSecPerKm,
-            targetPowerWatts: nil,
-            targetZone: zone,
-            loadKg: nil,
-            targetRpe: nil,
-            blockTitle: benchmark?.blockTitle ?? "Libre",
-            blockPosition: 1,
-            videoUrl: nil,
-            prescription: prescription,
-            ergKind: modality.ergKind
+        let items = [FreePlanItem(exercise: FreePlanDetail.ejercicioMedido(modality), prescription: prescription)]
+        let detail = FreePlanDetail.detail(
+            title: resolvedTitle,
+            modality: modality.wire,
+            scheme: prescription.scheme,
+            items: items,
+            focus: benchmark?.blockContext ?? "Libre · no prescrito",
+            mainBlockTitle: benchmark?.blockTitle
         )
-
-        let plan = WorkoutPlan(
-            id: UUID(),
-            name: resolvedTitle,
-            format: prescription.scheme,
-            estimatedDurationSeconds: estimatedSeconds,
-            blockContext: benchmark?.blockContext ?? "Libre · no prescrito",
-            zoneTargets: [],
-            equipment: [],
-            segments: [segment],
-            coachNote: nil,
-            demoVideoUrl: nil,
-            warmupChecklist: []
-        )
-
-        return FreeWorkoutContext(
+        guard let plan = FreePlanDetail.plan(from: detail, estimatedSeconds: estimatedSeconds) else { return nil }
+        var ctx = FreeWorkoutContext(
             title: resolvedTitle,
             modalityWire: modality.wire,
             prescription: prescription,
             items: nil,
             plan: plan
         )
+        ctx.planPayload = buildPlanPayload()
+        return ctx
     }
 
     /// Plan-only save payload (no execution metrics).
@@ -653,6 +603,13 @@ struct FreeWorkoutContext {
     /// the scheme + block params a post-hoc declaration must reuse, so movements
     /// named afterwards carry the SAME structure as ones named up front.
     var ranPrescription: Prescription? { plan.segments.first?.prescription }
+
+    /// EL PLAN QUE SE GUARDA ANTES DE CORRER (`POST /free/plan`). Con conexión, el
+    /// libre pasa a ser una asignación normal nada más empezar y se guarda por el
+    /// camino del coach (`FreePlanFirst`). Nil = no se guarda antes: un cronómetro sin
+    /// movimientos (su plan no existe hasta que diga qué hizo) o una sesión
+    /// recuperada — esos van por `POST /free` al terminar, como sin conexión.
+    var planPayload: FreePlanSavePayload? = nil
 }
 
 // MARK: - FreePlanSavePayload — plan-only wire (no execution metrics)
@@ -688,14 +645,11 @@ struct FreePlanSavePayload: Codable {
 enum FreePlanSaveAPI {
     static let path = "/api/athlete/workouts/free/plan"
 
-    private struct Response: Decodable {
-        let saved: Bool
-        let assignment_id: String
-        let origin: String
-    }
-
-    static func save(_ payload: FreePlanSavePayload, bearer: String?) async throws {
-        let _: Response = try await APIClient.shared.post(path: path, body: payload, bearer: bearer)
+    /// Guarda el plan y devuelve la asignación creada con los ids de sus segmentos en
+    /// orden (`FreePlanBinding`). Quien solo guarda para luego ignora el resultado.
+    @discardableResult
+    static func save(_ payload: FreePlanSavePayload, bearer: String?) async throws -> FreePlanBinding {
+        try await APIClient.shared.post(path: path, body: payload, bearer: bearer)
     }
 }
 
@@ -747,6 +701,15 @@ struct FreeWorkoutPayload: Codable {
     /// already has; the free path used to drop it even when the watch had produced
     /// one. `var` with a default so the memberwise init stays back-compatible.
     var source_workout_ref: String? = nil
+
+    // Lo que el camino del coach ya mandaba y el libre tiraba (28-sep): el servidor
+    // los acepta en `POST /free` (`executionMetricsSchema`), con las mismas columnas.
+    /// La ruta GPS de una carrera en la calle (→ `workout_routes`).
+    var route_polyline: String? = nil
+    /// «Cómo ha ido» y la molestia física, como en una sesión del coach.
+    var perceived_difficulty: String? = nil
+    var pain_area: String? = nil
+    var pain_note: String? = nil
 }
 
 // Offline-first sync for a free workout. Mirrors `WorkoutExecutionAPI`: POST, and

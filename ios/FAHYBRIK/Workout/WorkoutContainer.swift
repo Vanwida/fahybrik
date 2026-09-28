@@ -15,8 +15,6 @@ struct WorkoutLaunch: Identifiable, Equatable {
     let assignmentId: String
     /// Session title from the plan-week summary, shown while the body loads.
     let title: String?
-    /// Self-origin entreno libre scheduled on the plan — save via FreeWorkoutAPI.
-    var isSelfOrigin: Bool = false
     var id: String { assignmentId }
 }
 
@@ -45,8 +43,6 @@ struct WorkoutContainer: View {
     /// (title/modality/prescription + the engine's metrics) instead of the
     /// prescribed `/api/sync/workout-execution`. Nil = the unchanged prescribed path.
     var freeContext: FreeWorkoutContext? = nil
-    /// When opening a self-origin row from Plan/FreeInicio without a builder context.
-    var planSessionIsSelfOrigin: Bool = false
     /// The athlete's HR zones as the SERVER resolved them (from the cached
     /// identity), threaded into the live engine and the treadmill/outdoor HUDs.
     /// Explicit param because the AppDataStore environment does not cross the
@@ -349,6 +345,11 @@ struct WorkoutContainer: View {
                     onReleaseLive: { live in
                         session = live
                         manualEntry = false
+                        // UN LIBRE SE GUARDA COMO PLAN AL EMPEZAR (con conexión) y
+                        // desde ahí es una asignación normal (`FreePlanFirst`).
+                        if let plan = activeFreeContext?.planPayload {
+                            FreePlanFirst.shared.begin(session: live, payload: plan, bearer: bearer)
+                        }
                         DoblesLivePresence.shared.begin(
                             session: live,
                             assignmentId: assignmentId,
@@ -405,6 +406,11 @@ struct WorkoutContainer: View {
                         onExit: {
                             // Discard: tell the wrist to drop its recording (no HKWorkout).
                             PhoneLiveSession.shared.end(save: false)
+                            // Un libre guardado como plan al empezar y descartado no
+                            // deja una sesión pendiente que nunca hizo.
+                            if activeFreeContext != nil {
+                                FreePlanFirst.shared.discard(session, bearer: bearer)
+                            }
                             // #56 — one "ha salido" beat so the partner's strip reflects it.
                             DoblesLivePresence.shared.leave()
                             // AUDIT-3 — stop the engine + latch-close persistence in order,
@@ -461,7 +467,8 @@ struct WorkoutContainer: View {
                             // this assignment, even pre-server-sync. Honest: a
                             // terminated-early session marks PARTIAL (amber ½), never
                             // a fake 'completed'; the full path marks done.
-                            if let assignmentId, !assignmentId.isEmpty {
+                            // Un libre guardado como plan al empezar ya es SU asignación.
+                            if let assignmentId = assignmentId ?? session.assignmentId, !assignmentId.isEmpty {
                                 if session.completeness == .partial {
                                     CompletedAssignmentsStore.markPartial(assignmentId)
                                 } else {
@@ -712,14 +719,12 @@ struct WorkoutContainer: View {
         }
     }
 
-    /// Self-origin plan rows hydrate a free-save context so Terminar hits FreeWorkoutAPI.
+    /// UN LIBRE GUARDADO ES UNA ASIGNACIÓN (28-sep). Una fila «libre» del plan se
+    /// abría con un contexto de libre montado encima y se guardaba por
+    /// `POST /free`, que CREA otro plan y otra ejecución: la sesión quedaba
+    /// duplicada (la pendiente y una hecha). Ahora se corre y se guarda por el
+    /// MISMO camino que una del coach, con sus `template_segment_id` reales.
     private func applyLoadedDetail(plan: WorkoutPlan, detail: AssignmentDetail) {
-        if planSessionIsSelfOrigin, let ctx = FreePlanHydration.runContext(from: detail) {
-            activeFreeContext = ctx
-            loadState = .ready(plan, detail)
-            advanceToPreLive(segments: plan.segments.sorted { $0.order < $1.order })
-            return
-        }
         loadState = .ready(plan, detail)
     }
 
