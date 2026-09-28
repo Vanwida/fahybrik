@@ -47,7 +47,9 @@ extension Vivo {
     }
 
     /// El GO del estado: el primer segundo de un trabajo principal al que se entra
-    /// desde algo que no es trabajo. El del cierre por el atleta lo añade el pintor.
+    /// desde algo que no es trabajo. Es el DISPARO: el pintor lo enseña una vez y
+    /// 1 s de reloj (el reloj del paso puede estar armado o congelado y no pasar
+    /// nunca de 0). El del cierre por el atleta lo añade el pintor.
     static func goDe(_ pasos: [Paso], _ i: Int, _ l: Lecturas) -> Bool {
         guard i > 0, pasos.indices.contains(i) else { return false }
         return veGo(desde: pasos[i - 1], hacia: pasos[i], cerroElAtleta: false) && l.t < duracionGoS

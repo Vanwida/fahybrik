@@ -54,6 +54,8 @@ struct VivoIphoneView: View {
     @State private var actividad = VivoActividadEnVivo()
     /// «GO» a pantalla completa: el paso al que se acaba de entrar (1 s).
     @State private var go: Vivo.Paso? = nil
+    /// El último paso cuyo GO ya salió: uno por entrada, nunca pegado.
+    @State private var goVisto: String? = nil
     /// El último toque de la primaria: el GO de un trabajo cerrado por el atleta.
     @State private var toqueAtleta: Date? = nil
     /// El paso cuyo preaviso ya sonó (una vez por paso).
@@ -147,13 +149,12 @@ struct VivoIphoneView: View {
                 }
                 if session.isPaused, !hoja { VivoVeloPausa() }
                 // Entre pasos la cuenta enseña lo que VIENE; la de arranque del motor, el paso vivo.
-                if let a = vueltas.avisoVigente(c.estado.sesion.t), c.estado.cuenta == nil, !c.estado.go, go == nil {
+                if let a = vueltas.avisoVigente(c.estado.sesion.t), c.estado.cuenta == nil, go == nil {
                     VStack { VivoAvisoVuelta(titulo: a.titulo, valor: a.valor, pie: a.pie); Spacer() }
                         .padding(.top, VivoTokens.Alto.cabecera + 8)
                         .id(a.titulo)
                 }
                 if let n = c.estado.cuenta { VivoCuentaAtras(n: n, paso: c.pasoDeLaCuenta) }
-                else if c.estado.go { VivoCuentaAtras(n: 0, paso: c.paso) }
                 else if let g = go { VivoCuentaAtras(n: 0, paso: g) }
                 if hoja {
                     VivoHojaTerminar(resumen: Vivo.resumenParaTerminar(c.paso, sesionM: c.estado.sesion.metros ?? 0, sesionErgoM: c.estado.sesionErgoM, sesionT: c.estado.sesion.t),
@@ -172,7 +173,12 @@ struct VivoIphoneView: View {
             declaradas.merge(arranque.declaradas) { _, nuevo in nuevo }
             if let f = arranque.foco { foco = f }
             if let a = arranque.aviso { avisar(a) {} }
+            if let id = goDelEstado { mostrarGo(id) }
         }
+        // El GO que decide el estado (entrar en trabajo desde lo que no lo es): sale
+        // UNA vez al aparecer y dura 1 s de reloj, aunque el reloj del paso esté
+        // armado o congelado (una máquina que aún no rema, una serie de reps).
+        .onChange(of: goDelEstado) { _, id in if let id { mostrarGo(id) } }
         // Death by: un minuto que el reloj cierra sin «Hecho» es el último.
         .onChange(of: session.rotRoundIndex) { antes, ahora in if ahora == antes + 1 { cazadoSiToca(minutoCerrado: antes) } }
         .task { await correrGuion() }
@@ -219,9 +225,23 @@ struct VivoIphoneView: View {
 
     private var indiceVivo: Int { Vivo.indiceActual(planBase.pasos, session) }
 
+    /// El paso cuyo GO pide el estado (`Vivo.goDe`), o nil.
+    private var goDelEstado: String? {
+        let e = Vivo.estadoDe(session, plan: plan, externo: externo)
+        return e.go ? e.paso.id : nil
+    }
+
+    /// «GO» a pantalla completa durante 1 s (espejo de `goHasta` del kit), una vez por paso.
+    private func mostrarGo(_ id: String) {
+        guard goVisto != id, let paso = plan.pasos.first(where: { $0.id == id }) else { return }
+        goVisto = id
+        go = paso
+        DispatchQueue.main.asyncAfter(deadline: .now() + VivoTokens.Duracion.go) { if go?.id == paso.id { go = nil } }
+    }
+
     /// Al pasar de un paso al siguiente: el GO de un trabajo que CERRÓ EL ATLETA y
     /// desemboca en otro trabajo (kit `veGo`). El GO de entrar desde un descanso o una
-    /// recuperación ya lo lleva el estado (`Vivo.goDe`); el EMOM, el suyo en el motor.
+    /// recuperación lo pide el estado (`goDelEstado`); el EMOM, el suyo en el motor.
     private func entrar(desde a: Int, en b: Int) {
         let pasos = plan.pasos
         guard b == a + 1, pasos.indices.contains(a), pasos.indices.contains(b),
@@ -229,9 +249,7 @@ struct VivoIphoneView: View {
         let porAtleta = toqueAtleta.map { Date().timeIntervalSince($0) < VivoTokens.Duracion.go } ?? false
         guard porAtleta, Vivo.veGo(desde: pasos[a], hacia: pasos[b], cerroElAtleta: true),
               !Vivo.veGo(desde: pasos[a], hacia: pasos[b], cerroElAtleta: false) else { return }
-        let paso = pasos[b]
-        go = paso
-        DispatchQueue.main.asyncAfter(deadline: .now() + VivoTokens.Duracion.go) { if go?.id == paso.id { go = nil } }
+        mostrarGo(pasos[b].id)
     }
 
     /// El preaviso del kit: háptico + voz, una vez por paso. Si la pantalla se abre

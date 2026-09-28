@@ -146,7 +146,7 @@ extension VivoIphoneCapturasTests {
     @MainActor
     func testWodChipper() throws {
         let s = try chipperEn(estacion: 1, t: 48, total: 110)
-        fotos(s, [Foto(nombre: "wod-chipper-wallball", en: 1.0), Foto(nombre: "wod-chipper-remo", en: 2.4)],
+        fotos(s, [Foto(nombre: "wod-chipper-wallball", en: 1.0), Foto(nombre: "wod-chipper-remo", en: 2.8)],
               guion: [VivoGestoGuion(en: 1.5, gesto: .primaria)], remo: true) { s in
             s.injectLiveHR(169, source: .strap)
         }
