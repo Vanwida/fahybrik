@@ -346,6 +346,13 @@ export function buildRunCompliance(
 ): RunComplianceResult {
   const byItem = new Map<string, SegmentActual[]>();
   for (const a of actuals) {
+    // Un tramo sin línea (`template_segment_id` nulo) no tiene prescripción contra
+    // la que juzgarse: fuera, a propósito. La clave estable es el enlace a la
+    // línea, y es la MISMA para un libre que para una sesión del coach: desde el
+    // 28-sep los tramos del libre se guardan (y los viejos se rellenaron)
+    // enlazados a la línea de su plantilla. Lo que queda sin enlace son las
+    // importaciones y lo guardado fuera del plan, que no tienen prescripción.
+    // Paridad fijada en tests/coach/libre-coach-parity.db.test.ts.
     if (!a.item_uid) continue;
     const list = byItem.get(a.item_uid) ?? [];
     list.push(a);
