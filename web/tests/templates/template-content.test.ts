@@ -133,9 +133,9 @@ describe('serializeTemplateContent', () => {
   test('ida y vuelta: filas → bloques → filas da las mismas filas', () => {
     const again = serializeTemplateContent(blocksFromRows(out.segments, out.blocks));
     expect(again.blocks).toEqual(out.blocks);
-    expect(again.segments.map(({ exercise_name: _n, ...rest }) => rest)).toEqual(
-      out.segments.map(({ exercise_name: _n, ...rest }) => rest),
-    );
+    // El nombre del ejercicio no viaja en las filas (lo pone el catálogo al leer).
+    const withoutName = (rows: typeof out.segments) => rows.map((r) => ({ ...r, exercise_name: '' }));
+    expect(withoutName(again.segments)).toEqual(withoutName(out.segments));
   });
 });
 

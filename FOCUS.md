@@ -6,6 +6,9 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**UN escritor de plantillas (28-09, rama `fix/plantilla-escritor-unico`, sin fusionar):** libre = coach, mismas filas
+(test por formato). Migración 0275 + `backfill:plantillas` probadas en rama; NO en prod. DECISIONS 2026-09-28.
+
 **LA MUÑECA SE REHACE (Alex, 25-09: «es un lío, así no competimos con TrainingPeaks»).** Auditoría de 6 lentes
 + modelo: `docs/reloj-muneca/` (https://claude.ai/artifact/3LzhCpYCr6H7rgktymoG8r; spec `modelo.md`; DECISIONS 25-09).
 Alex eligió: el objetivo manda, SF nativo, voz al cambiar de paso y cada km, comprometida vs objetivo del coach.
