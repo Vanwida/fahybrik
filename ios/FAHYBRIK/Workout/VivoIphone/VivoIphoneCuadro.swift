@@ -36,10 +36,16 @@ struct VivoIphoneCuadro {
     let registro: Vivo.Registro
     let seriesAnotables: [VivoSerieAnotable]
     let avisoCierre: String
+    /// Lo que el WOD pone sobre las celdas (la lista ±1, la puntuación); nil fuera del WOD.
+    let apoyoWod: VivoApoyoWod?
+    /// El detalle de «Sesión completada» (la puntuación del death by); nil = «guardando…».
+    let detalleFin: String?
 
     /// `declaradas`: los campos que el atleta confirmó o tocó en la anotación
     /// (por id de paso); lo demás sigue propuesto (I7).
-    init(estado e: Vivo.EstadoVivo, sesion s: WorkoutSession, dispositivos: Vivo.Dispositivos, test: Bool, declaradas: [String: Set<Vivo.CampoAnotar>]) {
+    /// `wod`: lo que el atleta marcó en el WOD (las ventanas hechas, la puntuación dicha).
+    init(estado e: Vivo.EstadoVivo, sesion s: WorkoutSession, dispositivos: Vivo.Dispositivos, test: Bool, declaradas: [String: Set<Vivo.CampoAnotar>],
+         wod: Vivo.EstadoWod = Vivo.EstadoWod()) {
         estado = e
         let p = e.paso
         paso = p
@@ -57,6 +63,10 @@ struct VivoIphoneCuadro {
         if seg?.formatScheme == .amrap { x.rondas = s.fixedRoundsDone; x.repsSueltas = s.repsCurrentSegment > 0 ? s.repsCurrentSegment : nil }
         if fijo, p.posicion?.ronda != nil { x.rondaS = Swift.max(0, s.condElapsed - s.roundsHUDClosedElapsed) }
         x.siguienteNombre = e.siguiente?.nombre
+        // WOD: la vez anterior de la misma tarea (EMOM, death by) y, en la campana, la puntuación que se dice.
+        x.ultimaVentana = Vivo.ultimaVezDe(e.pasos, e.i, wod.hechas)
+        let dial = wod.dial ?? Vivo.dialDelMotor(rondas: s.capturedScoreRounds, reps: s.capturedScoreReps)
+        if case .puntuacion = p.wod { x.rondas = dial.rondas; x.repsSueltas = dial.reps }
         if let anterior = e.parciales.last(where: { $0.i < e.i && e.pasos[$0.i].rol == .trabajo }) { x.anterior = (e.pasos[anterior.i], anterior) }
         // Fuerza: lo declarado por el atleta (la cascada de la carga), del motor y de lo confirmado aquí.
         var registro: Vivo.Registro = [:]
@@ -81,7 +91,7 @@ struct VivoIphoneCuadro {
         extra = x
 
         // ── lo que se pinta, todo del kit compartido ─────────────────────
-        let h = Vivo.heroeDeFamilia(p, e.lecturas, zonas, x)
+        let h = Vivo.heroeWod(p, Vivo.heroeDeFamilia(p, e.lecturas, zonas, x), wod)
         heroe = h
         let lam = Vivo.laminaDelPaso(p, e.lecturas, zonas, e.reglas)
         lamina = lam
@@ -116,7 +126,13 @@ struct VivoIphoneCuadro {
         arcos = Vivo.arcosDePlan(e.pasos)
         fraccion = Vivo.fraccionDelPaso(p, e.lecturas)
         conMapa = e.pasos.contains(where: Vivo.usaGps)
-        avisoCierre = Vivo.avisoDeCierre(p)
+        avisoCierre = Vivo.avisoWod(p, ronda: (x.rondas ?? 0) + 1) ?? Vivo.avisoDeCierre(p)
+        switch p.wod {
+        case .fortime? where p.rol == .trabajo: apoyoWod = .lista(Vivo.alrededorDe(e.pasos, e.i, e.parciales))
+        case .puntuacion?: apoyoWod = .puntuacion(dial, tareas: Vivo.tareasAmrap(p), foco: wod.foco)
+        default: apoyoWod = nil
+        }
+        detalleFin = Vivo.deathByDe(p) != nil ? Vivo.resultadoDeathBy(e.pasos, wod.hechas) : nil
 
         // ── la anotación del descanso de fuerza (I7) ─────────────────────
         var series: [VivoSerieAnotable] = []
@@ -131,11 +147,9 @@ struct VivoIphoneCuadro {
         if e.terminado { primaria = nil }
         else if s.currentBlockIsStructural { primaria = VivoPrimaria(clave: .hecho) }
         else if descanso, !series.isEmpty, series.contains(where: { Vivo.pendiente($0.anot) }) { primaria = VivoPrimaria(clave: .confirmar) }
-        else if let c = Vivo.clavePorDefecto(p) {
-            var clave = c
-            // La estación que cierra el circuito / el último minuto: el vocabulario no tiene «Terminar»; el motor decide qué pasa.
-            if f == .amrap, seg?.formatScheme == .amrap, case .amrap = p.wod { clave = .rondaHecha }
-            primaria = VivoPrimaria(clave: clave)
-        } else { primaria = nil }
+        // El WOD decide sobre la del kit: «Hecho» marca (no cierra), «+1 ronda», «Guardar».
+        else if p.wod != nil { primaria = Vivo.primariaWod(p, porDefecto: Vivo.clavePorDefecto(p), wod).map { VivoPrimaria(clave: $0) } }
+        else if let c = Vivo.clavePorDefecto(p) { primaria = VivoPrimaria(clave: c) }
+        else { primaria = nil }
     }
 }
