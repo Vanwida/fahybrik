@@ -61,6 +61,11 @@ extension Vivo {
             ventana = .serie(sesion.pendingSetIndex ?? sesion.setRecords.count)
         }
         if let i = pasos.firstIndex(where: { $0.origen?.segmento == s && $0.origen?.ventana == ventana && $0.origen?.descanso == descanso }) { return i }
+        // Todas las series cerradas y sin descanso: el ejercicio está hecho y el
+        // siguiente toque lo cierra. El paso vivo es el ÚLTIMO del ejercicio, nunca
+        // la serie 1 otra vez (el atasco de la última serie).
+        if sesion.currentSegment?.usesMultiSetStrength == true, !sesion.setRecords.isEmpty, sesion.pendingSetIndex == nil,
+           let i = pasos.lastIndex(where: { $0.origen?.segmento == s }) { return i }
         if let i = pasos.firstIndex(where: { $0.origen?.segmento == s && $0.origen?.ventana == ventana }) { return i }
         if let i = pasos.firstIndex(where: { $0.origen?.segmento == s }) { return i }
         return Swift.max(0, pasos.count - 1)
@@ -72,8 +77,10 @@ extension Vivo {
         let enPiernas = sesion.isRunStructureActive
         // Segundos en el paso: en un descanso, lo que va de él (lo prescrito menos lo que queda).
         let t: Double
-        if p.rol == .descanso || p.rol == .recuperacion {
-            if sesion.restRemainingSeconds > 0 { t = Swift.max(0, sesion.restTotalSeconds - sesion.restRemainingSeconds) }
+        if p.rol == .descanso || p.rol == .recuperacion || (p.rol == .transicion && sesion.restRemainingSeconds > 0) {
+            // Lo que queda es lo que queda del descanso del motor, también tras «+30 s»
+            // (que estira el total y no lo prescrito): falta = prescrito − t = lo que queda.
+            if sesion.restRemainingSeconds > 0 { t = (p.medida.prescrito ?? sesion.restTotalSeconds) - sesion.restRemainingSeconds }
             else if enPiernas { t = sesion.runLegElapsed }
             else if let pr = p.medida.prescrito { t = Swift.max(0, pr - sesion.tramoRestRemaining) }
             else { t = sesion.tramoElapsedSeconds }
@@ -179,6 +186,20 @@ extension Vivo {
         }
     }
 
+    // MARK: - El 3-2-1 antes de una serie
+
+    /// El 3-2-1 de los últimos segundos de un paso por tiempo que no es trabajo (un
+    /// descanso, un «Colócate») cuando lo que viene es una serie de fuerza (espejo
+    /// de `secuencia.ts#cuentaDe`). El motor solo cuenta sus propias entradas (EMOM,
+    /// reloj, carrera); el descanso de la fuerza lo cuenta él en hápticos, no en pantalla.
+    static func cuentaHaciaFuerza(_ pasos: [Paso], _ i: Int, _ l: Lecturas) -> Int? {
+        guard pasos.indices.contains(i), i + 1 < pasos.count else { return nil }
+        let p = pasos[i], sig = pasos[i + 1]
+        guard p.rol != .trabajo, p.medida.tipo == .tiempo, sig.fuerza != nil, sig.rol == .trabajo, sig.fase == .principal,
+              let f = faltaDe(p, l), f > 0, f <= 3 else { return nil }
+        return Int(f.rounded(.up))
+    }
+
     // MARK: - El estado entero
 
     static func estadoDe(_ sesion: WorkoutSession, plan: PlanVivo, externo: LecturaExterna = LecturaExterna()) -> EstadoVivo {
@@ -197,7 +218,8 @@ extension Vivo {
         }
         if let m = sesion.tramoRunCoveredMeters { corridos += m }
         if let m = sesion.tramoErgDistanceMeters { ergo += m }
-        let cuenta: Int? = sesion.isTramoCountIn ? Swift.max(1, Swift.min(3, Int(sesion.tramoCountInRemaining.rounded(.up)))) : nil
+        let cuenta: Int? = sesion.isTramoCountIn ? Swift.max(1, Swift.min(3, Int(sesion.tramoCountInRemaining.rounded(.up))))
+            : cuentaHaciaFuerza(pasos, i, lecturas)
         return EstadoVivo(
             pasos: pasos,
             i: i,
