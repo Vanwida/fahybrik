@@ -57,7 +57,8 @@ export function casoDe(escenario: string): CasoCorrerIphone {
   switch (escenario) {
     case 'rodaje-z2': {
       const c = casoCorrer('rodaje-z2');
-      return { plan: c.datos.plan, sim: conCadencia(c.sim), inicio: c.inicio, dispositivos: MOVIL, guion: [{ en: 3000, gesto: 'primaria' }] };
+      // El rodaje es UN paso: los metros del paso son los de la sesión (la muñeca no los pintaba por paso).
+      return { plan: c.datos.plan, sim: conCadencia(c.sim), inicio: { ...c.inicio, metros: c.inicio.sesionM }, dispositivos: MOVIL };
     }
     case 'serie-rapida': {
       const c = casoCorrer('serie-rapida');
@@ -92,7 +93,7 @@ export function casoDe(escenario: string): CasoCorrerIphone {
     }
     case 'mapa': {
       const c = casoCorrer('tirada-z2');
-      return { plan: c.datos.plan, sim: conCadencia(c.sim), inicio: c.inicio, dispositivos: MOVIL, guion: [{ en: 1200, gesto: 'mapa' }] };
+      return { plan: c.datos.plan, sim: conCadencia(c.sim), inicio: { ...c.inicio, metros: c.inicio.sesionM }, dispositivos: MOVIL, guion: [{ en: 1200, gesto: 'mapa' }] };
     }
     case 'libre': {
       const c = casoCorrer('serie-dentro');

@@ -9,7 +9,7 @@ import { familiaDe } from '@/components/design-twin/kit-reloj/familia';
 import { laminaDelPaso } from '@/components/design-twin/kit-reloj/lamina';
 import { heroeDeFamilia, metricasDelPaso } from '@/components/design-twin/kit-reloj/metricas';
 import { REGLAS_AVISO_DEFECTO, type Lecturas } from '@/components/design-twin/kit-reloj/paso';
-import { luegoDe, posicionDe } from '@/components/design-twin/kit-reloj/posicion';
+import { luegoDe, posicionDe, textoViene } from '@/components/design-twin/kit-reloj/posicion';
 import { estadoInicial, lecturasDe, pasoVivo } from '@/components/design-twin/kit-reloj/secuencia';
 import { casoDe as casoCorrer } from '@/components/design-twin/screens/reloj-correr/casos';
 import { casoDe, conCadencia, sinCinta } from '@/components/design-twin/screens/iphone-vivo-correr/casos';
@@ -120,6 +120,23 @@ describe('un libre y uno del coach son el mismo objeto (I1)', () => {
     expect(luegoDe(libre.plan.pasos, eL.i)).toEqual(luegoDe(coach.plan.pasos, eC.i));
     // Lo único que difiere es de quién es: el libre no lleva bloques del coach.
     expect(libreSeisPorMil().pasos.every((p) => p.bloque == null && p.cue == null)).toBe(true);
+  });
+});
+
+describe('«Luego» dice qué viene, no solo cuánto dura', () => {
+  it('un paso suelto sin objetivo lleva su clase; un tramo, su número; la recuperación pinta el ritmo si alguien lo mide', () => {
+    const r = casoDe('rodaje-z2');
+    expect(luegoDe(r.plan.pasos, 0)).toEqual({ que: 'Movilidad · 15′', despues: null });
+    expect(luegoDe(tempoCinta().pasos, TEMPO_CINTA_I)).toEqual({ que: 'Vuelta a la calma · 5′', despues: null });
+    const g = casoDe('progresivo');
+    expect(textoViene(g.plan.pasos[3]!)).toBe('Tramo 4/8 · 1′ a 4:21–4:38');
+    const c = casoDe('recuperacion');
+    const e = estadoInicial(c.plan, c.sim, c.inicio);
+    const p = pasoVivo(c.plan, e);
+    const m = metricasDelPaso(p, lecturasDe(p, e), 'falta', c.plan.zonas, {});
+    expect(m.map((x) => x.clave)).toEqual(['pulso', 'ritmo']);
+    // Parado no hay ritmo que pintar.
+    expect(metricasDelPaso(p, lect({ ritmo: null, t: 10, hecho: 10 }), 'falta', c.plan.zonas, {}).map((x) => x.clave)).toEqual(['pulso']);
   });
 });
 
