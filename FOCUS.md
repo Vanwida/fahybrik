@@ -6,6 +6,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**28-09 · UN SOLO ENTRENO EN PRODUCCIÓN + VIVO DEL IPHONE FIRMADO.** Libre ≡ coach al guardar, escribir y leer (0274–0276 aplicadas en prod + backfill de plantillas). Reloj sin atascos; motor del iPhone por formato; historial con series y parciales. Alex firmó el vivo nuevo del iPhone (galería https://claude.ai/artifact/YN3iFbkZYGHSn1S5hsgb8t, propuestas `iphone-vivo-*`). EN CURSO: el Swift del vivo (base primero, luego familias). PENDIENTE: build iOS en Xcode Cloud para TestFlight (lo instala Alex).
+
 **iPhone · EL VIVO REHECHO, LAS CINCO FAMILIAS JUNTAS (28-09, rama `worktree-agent-a5972b29b43d11207`, propuesta, sin fusionar a main).** Correr, circuito/HYROX y WOD fusionados sobre ergo y fuerza: un solo grupo «El vivo del iPhone, rehecho» con gramática, correr, ergo, fuerza, WOD y circuito. Death by nuevo en `kit-reloj/deathby.ts`. Capturas en el scratchpad (`capturas-final/`). DECISIONS 28-09. Falta: la firma de Alex.
 
 **RELOJ PARA LA DEMO (28-09, lógica, sin diseño; DECISIONS 28-09):** 6 fallos de la muñeca sola arreglados (fuerza tras
