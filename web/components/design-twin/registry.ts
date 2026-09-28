@@ -54,8 +54,11 @@ import * as relojAntesDespues from './screens/reloj-antes-despues';
 // primero (el kit `kit-iphone-vivo` sobre el motor y las reglas de `kit-reloj`);
 // las cinco familias (`iphone-vivo-*`) se construyen encima.
 import * as iphoneVivoGramatica from './screens/iphone-vivo-gramatica';
+import * as iphoneVivoCorrer from './screens/iphone-vivo-correr';
 import * as iphoneVivoErgo from './screens/iphone-vivo-ergo';
 import * as iphoneVivoFuerza from './screens/iphone-vivo-fuerza';
+import * as iphoneVivoWod from './screens/iphone-vivo-wod';
+import * as iphoneVivoCircuito from './screens/iphone-vivo-circuito';
 import * as resumenCarrera from './screens/resumen-carrera';
 import * as watchResumen from './screens/watch-resumen';
 import * as planCiclo from './screens/plan-ciclo';
@@ -248,8 +251,11 @@ export const SCREENS: TwinScreenModule[] = [
   relojAntesDespues,
   // El vivo del iPhone, rehecho (28-sep).
   iphoneVivoGramatica,
+  iphoneVivoCorrer,
   iphoneVivoErgo,
   iphoneVivoFuerza,
+  iphoneVivoWod,
+  iphoneVivoCircuito,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -266,7 +272,7 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
   // El vivo del iPhone, rehecho (28-sep): manda sobre «En vivo, por quién
   // gobierna», que queda como historia. La gramática primero; las familias,
   // cuando se construyan, detrás.
-  { grupo: 'El vivo del iPhone, rehecho', ids: ['iphone-vivo-gramatica', 'iphone-vivo-ergo', 'iphone-vivo-fuerza'] },
+  { grupo: 'El vivo del iPhone, rehecho', ids: ['iphone-vivo-gramatica', 'iphone-vivo-correr', 'iphone-vivo-ergo', 'iphone-vivo-fuerza', 'iphone-vivo-wod', 'iphone-vivo-circuito'] },
   // La dirección vigente de la muñeca (25-sep): va primero porque manda sobre
   // las tandas «La muñeca» de abajo, que quedan como historia de cómo se llegó.
   {

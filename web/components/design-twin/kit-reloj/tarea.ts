@@ -39,8 +39,20 @@ export function dosisTarea(t: Tarea): string | null {
   return [fmtPrescrito(t.dosis), cargaTarea(t)].filter(Boolean).join(' · ');
 }
 
+/**
+ * Lo que una tarea cuenta en la puntuación de una ronda a medias: sus reps o
+ * sus calorías; una tarea por distancia (250 m Row) cuenta UNA al completarla
+ * (no 250 «reps»); la ventana entera, nada. Decisión del 28-09 (AMRAP con
+ * remo): antes sumaba los metros como si fueran reps.
+ */
+export function repsDeTarea(t: Tarea): number {
+  if (!t.dosis || t.dosis.tipo === 'abierta' || t.dosis.tipo === 'tiempo') return 0;
+  if (t.dosis.tipo === 'distancia') return 1;
+  return t.dosis.prescrito ?? 0;
+}
+
 /** Reps de una ronda entera del AMRAP (12 + 10 + 8 = 30). */
-export const repsPorRonda = (tareas: Tarea[]) => tareas.reduce((a, t) => a + (t.dosis?.prescrito ?? 0), 0);
+export const repsPorRonda = (tareas: Tarea[]) => tareas.reduce((a, t) => a + repsDeTarea(t), 0);
 
 // ---------------------------------------------------------------------------
 // La puntuación del AMRAP, dicha con la corona en la campana
@@ -72,14 +84,29 @@ export function girarDial(d: Dial, mas: 1 | -1, porRonda: number): Dial {
   return { rondas, reps: Math.max(0, reps) };
 }
 
-/** 18 reps de una ronda 12/10/8 → «12 Wall Ball + 6 KB Swing»: dónde te quedaste. */
+/**
+ * La puntuación tocada en el móvil (28-09): el dato enfocado (`rondas` o
+ * `reps`) se mueve `delta` de golpe (varios toques seguidos se suman). Las
+ * reps llevan a la ronda como en la corona; las rondas nunca bajan de 0 y
+ * desde «—» el primer toque es 1.
+ */
+export function girarPuntuacion(d: Dial, campo: 'rondas' | 'reps', delta: number, porRonda: number): Dial {
+  if (campo === 'rondas') return { rondas: Math.max(0, d.rondas + delta), reps: d.reps };
+  let r = d;
+  const pasos = Math.abs(delta);
+  for (let k = 0; k < pasos; k++) r = girarDial(r, delta > 0 ? 1 : -1, porRonda);
+  return r;
+}
+
+/** 18 reps de una ronda 12/10/8 → «12 Wall Ball + 6 KB Swing»: dónde te quedaste. Una tarea por distancia cuenta 1 («Row»). */
 export function desgloseReps(tareas: Tarea[], reps: number): string {
   const partes: string[] = [];
   let resto = reps;
   for (const t of tareas) {
     if (resto <= 0) break;
-    const n = Math.min(resto, t.dosis?.prescrito ?? 0);
-    partes.push(`${n} ${t.nombre}`);
+    const cuenta = repsDeTarea(t);
+    const n = Math.min(resto, cuenta);
+    partes.push(t.dosis?.tipo === 'distancia' ? t.nombre : `${n} ${t.nombre}`);
     resto -= n;
   }
   return partes.join(' + ');

@@ -6,6 +6,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**iPhone · EL VIVO REHECHO, LAS CINCO FAMILIAS JUNTAS (28-09, rama `worktree-agent-a5972b29b43d11207`, propuesta, sin fusionar a main).** Correr, circuito/HYROX y WOD fusionados sobre ergo y fuerza: un solo grupo «El vivo del iPhone, rehecho» con gramática, correr, ergo, fuerza, WOD y circuito. Death by nuevo en `kit-reloj/deathby.ts`. Capturas en el scratchpad (`capturas-final/`). DECISIONS 28-09. Falta: la firma de Alex.
+
 **RELOJ PARA LA DEMO (28-09, lógica, sin diseño; DECISIONS 28-09):** 6 fallos de la muñeca sola arreglados (fuerza tras
 la última serie, sin detalle no hay Empezar, resultado al terminar, enlace al arrancar, test pide su número, AMRAP). Falta aparato.
 

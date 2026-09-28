@@ -63,6 +63,8 @@ export * from './sujeto';
 export * from './rejilla';
 export * from './accion';
 export * from './descanso';
+export * from './lista';
+export * from './puntuacion';
 export * from './paginas';
 export * from './fuera';
 export * from './Vivo';

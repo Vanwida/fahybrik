@@ -166,7 +166,7 @@ export function PaginaMapa({ metros, ritmoMedio }: { metros: number; ritmoMedio:
           {ritmoMedio != null ? <Etiqueta>{`${fmtRitmo(ritmoMedio)} /km medio`}</Etiqueta> : null}
         </span>
       </div>
-      <Etiqueta>la ruta se guarda en Salud · el mapa es el del sistema</Etiqueta>
+      <Etiqueta estilo={{ whiteSpace: 'normal' }}>la ruta se guarda en Salud · el mapa es el del sistema</Etiqueta>
     </div>
   );
 }

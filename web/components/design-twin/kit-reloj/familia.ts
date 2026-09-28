@@ -2,6 +2,7 @@
 // iPhone; el Swift las espeja). Qué pintor pinta el paso (una pregunta por
 // familia) y cómo se llama su formato en castellano de box, desde UN sitio.
 
+import { formatoDeathBy } from './deathby';
 import { esFuerza } from './fuerza';
 import { NOMBRE_CLASE_DEFECTO, type PasoBase } from './paso';
 import { esCarrera, fmtDuracion } from './reglas';
@@ -28,6 +29,7 @@ export type Familia =
   | 'amrap'
   | 'fortime'
   | 'pared'
+  | 'deathby'
   | 'estacion'
   | 'roxzone'
   | 'movilidad'
@@ -47,6 +49,7 @@ export function familiaDe(p: PasoBase): Familia {
   if (w === 'amrap') return 'amrap';
   if (w === 'fortime') return 'fortime';
   if (w === 'pared') return 'pared';
+  if (w === 'deathby') return 'deathby';
   if (esFuerza(p) || p.clase === 'fuerza') return 'fuerza';
   if (p.clase === 'movilidad') return 'movilidad';
   // Una máquina que mide (el remo, el ski, la bici con monitor) manda su
@@ -73,6 +76,7 @@ export const NOMBRE_FORMATO_DEFECTO = {
   amrap: 'AMRAP',
   fortime: 'For Time',
   pared: 'Tabata',
+  deathby: 'Death by',
   circuito: 'Circuito',
   test: 'Test',
 } as const;
@@ -94,6 +98,8 @@ export function formatoDe(p: PasoBase, nombres = NOMBRE_FORMATO_DEFECTO): string
       return w.capS != null ? `${nombres.fortime} · cap ${fmtDuracion(w.capS)}` : nombres.fortime;
     case 'pared':
       return `${nombres.pared} ${w.rondas} × ${fmtDuracion(w.trabajoS)}/${fmtDuracion(w.descansoS)}`;
+    case 'deathby':
+      return formatoDeathBy(w, nombres);
     default:
       break;
   }
@@ -101,8 +107,10 @@ export function formatoDe(p: PasoBase, nombres = NOMBRE_FORMATO_DEFECTO): string
   if (p.clase === 'estacion' || p.clase === 'roxzone' || (p.clase === 'carrera' && p.posicion?.ronda)) return nombres.circuito;
   if (p.clase === 'series') return 'Series';
   if (p.clase === 'fuerza') return 'Fuerza';
-  // «Ergo» no es palabra de box: el formato es por series o continuo.
-  if (p.clase === 'ergo') return p.posicion?.serie || p.posicion?.tramo ? 'Series' : 'Continuo';
+  // «Ergo» no es palabra de box: el formato es por series o continuo. Un
+  // tramo (remo 15′ → ski 15′ → bici 15′, la escalera de 536) es continuo:
+  // no hay descanso entre tramos, solo cambia la máquina o la zona.
+  if (p.clase === 'ergo') return p.posicion?.serie ? 'Series' : 'Continuo';
   return NOMBRE_CLASE_DEFECTO[p.clase];
 }
 

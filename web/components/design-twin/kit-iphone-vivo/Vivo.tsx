@@ -13,10 +13,11 @@
 // deslizan bajo la cabecera y sobre la franja: la acción se alcanza siempre.
 //
 // Todo lo de por defecto se puede cambiar, y NADA más: el héroe (`heroe`), la
-// acción primaria (`primaria`), la posición de la cabecera (`posicion`), el
-// crono total de un circuito (`cronoTotal`), lo extra de la familia para la
-// rejilla (`extra`), la anotación del descanso (`anotar`), los dispositivos
-// enlazados y el guion de gestos de una demo.
+// acción primaria (`primaria`), la posición y el formato de la cabecera
+// (`posicion`, `formato`), el crono total de un circuito (`cronoTotal`), lo
+// extra de la familia para la rejilla (`extra`), la anotación del descanso
+// (`anotar`), la página Estructura de la familia (`estructura`), los
+// dispositivos enlazados y el guion de gestos de una demo.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { arcosDePlan, fraccionDelPaso, type Estimador } from '../kit-reloj/aro';
@@ -38,7 +39,7 @@ import { SIN_DISPOSITIVOS, enlacesDe, notaEnlace, usaGps, type ChipEnlace, type 
 import { PaginaEstructura, PaginaMapa, PaginasLaterales, type IdPagina, type PaginaLateral } from './paginas';
 import { KEYFRAMES_IPHONE, LienzoContexto, useMedidaLienzo } from './piezas';
 import { Luego, Rejilla, TiraEstructura } from './rejilla';
-import { AvisoVuelta, BandaObjetivo, CuentaAtras, Sujeto, Trabajo, type TrabajoVista } from './sujeto';
+import { AvisoVuelta, BandaObjetivo, CuentaAtras, ObjetivoInstruccion, Sujeto, Trabajo, type TrabajoVista } from './sujeto';
 import { ALTO, CI, DURACION, HUECO, MARGEN, anchoUtil, tinteAmbiente } from './tokens';
 
 /** Los gestos que un escenario puede guionizar: pasan por el MISMO camino que el dedo. */
@@ -58,12 +59,36 @@ export interface VistaIphoneProps {
   primaria?: (seq: Secuencia, porDefecto: PrimariaVista | null) => PrimariaVista | null;
   /** La posición de la cabecera por partes; sin ella, `contextoDe`. */
   posicion?: (seq: Secuencia) => string[];
+  /**
+   * La fila del formato, si la familia le añade dónde estás («Circuito ·
+   * Ronda 2/5 · Estación 2/3»); recibe el del kit (`formatoDe`). Por partes:
+   * la cabecera quita por el final lo que no cabe junto a los chips.
+   */
+  formato?: (seq: Secuencia, porDefecto: string) => string | string[];
+  /** La página Estructura de la familia (la ruta del circuito con sus parciales); sin ella, `PaginaEstructura`. */
+  estructura?: (seq: Secuencia) => ReactNode;
   /** El crono TOTAL de un circuito (la puntuación) en la cabecera en vez del de sesión. */
   cronoTotal?: (seq: Secuencia) => number | null;
-  /** «Luego ·» y «Viene:», si la familia sabe más que `luegoDe` (fuerza: la carga que está en la barra); recibe el del kit. */
+  /**
+   * «Luego ·» y «Viene:», si la familia sabe más que `luegoDe` (fuerza: la
+   * carga que está en la barra); recibe el del kit. `null` lo quita (cuando el
+   * apoyo del WOD ya dice lo que viene: un dato, un sitio).
+   */
   luego?: (seq: Secuencia, porDefecto: LuegoVista | null) => LuegoVista | null;
   /** La anotación de la serie en el descanso de fuerza (I7): va en la franja elástica, sobre la rejilla. */
   anotar?: ReactNode | null;
+  /**
+   * Lo que la familia mete en la franja elástica DURANTE el trabajo o una
+   * transición (la lista ±1 del chipper, la puntuación del AMRAP): sobre las
+   * celdas, que pasan a compactas y se recortan a `celdasConApoyo`.
+   */
+  apoyo?: (seq: Secuencia, kit: { irA: (id: IdPagina) => void }) => ReactNode | null;
+  /** Cuántas celdas quedan bajo el apoyo (por defecto 2, como en la anotación). */
+  celdasConApoyo?: number;
+  /** ¿Las celdas bajo el apoyo van compactas (etiqueta y valor en fila)? Por defecto sí; un apoyo corto las deja normales. */
+  apoyoCompacto?: boolean;
+  /** El detalle de «Sesión completada» cuando el motor cierra el último paso (la puntuación de un death by). */
+  detalleFin?: (seq: Secuencia) => string | null;
   /** El estimador de duración de cada paso para repartir la tira. */
   duracion?: Estimador;
   /** Qué dice el aviso de deshacer al cerrar a mano. */
@@ -93,7 +118,7 @@ function clavePorDefecto(seq: Secuencia): ClavePrimaria | null {
     if (f === 'fuerza') return 'serie hecha';
     if (f === 'emom') return 'hecho';
     if (f === 'amrap') return null;
-    if (f === 'estacion') return 'estación hecha';
+    if (f === 'estacion' || f === 'fortime') return 'estación hecha';
     if (f === 'remo' || f === 'ski' || f === 'bici') return paso.posicion?.serie ? 'serie hecha' : 'estación hecha';
     return 'siguiente paso';
   }
@@ -152,18 +177,26 @@ export function VistaIphone(p: VistaIphoneProps) {
   // La ronda en curso de un circuito: lo hecho de esta ronda más este paso.
   const ronda = paso.posicion?.ronda?.n;
   const rondaS = ronda != null ? estado.parciales.filter((x) => plan.pasos[x.i]?.posicion?.ronda?.n === ronda).reduce((a, x) => a + x.segundos, 0) + lecturas.t : null;
+  // El paso de trabajo anterior con su parcial (la ronda anterior del tabata): del motor, no de la familia.
+  const parcialAnterior = [...estado.parciales].reverse().find((x) => plan.pasos[x.i]?.rol === 'trabajo') ?? null;
   const extraCompleto: ExtraFamilia = {
     metrosPaso: estado.midio ? estado.metros : null,
     total,
     totalEnCabecera: total != null,
     rondaS,
     siguienteNombre: paso.siguiente?.nombre ?? null,
+    anterior: parcialAnterior ? { paso: plan.pasos[parcialAnterior.i]!, parcial: parcialAnterior } : null,
     ...extra,
   };
   const heroeKit = heroeDeFamilia(paso, lecturas, zonas, extraCompleto);
   const heroe = p.heroe ? p.heroe(seq, heroeKit) : heroeKit;
   const lamina = laminaDelPaso(paso, lecturas, zonas, plan.reglas);
   const banda = paso.rol === 'trabajo' ? lamina.banda : null;
+  // El objetivo que no es un número vivo (RPE, RIR, kg, %RM) ocupa la fila de
+  // la banda (P3): correr a RPE, una estación a RPE… En fuerza ya va en la
+  // etiqueta del héroe («65–70 % RM · RIR 2») y en un WOD en su cabecera o en
+  // su tarea («Burpee · Ronda 4/8 · RPE 10»): no se repite (un dato, un sitio).
+  const instruccion = paso.rol === 'trabajo' && !banda && !paso.wod && familiaDe(paso) !== 'fuerza' ? lamina.instruccion : null;
   const chips: ChipEnlace[] = enlacesDe(dispositivos, paso, lecturas);
   const nota = notaEnlace(chips) ?? (paso.cue ? `Coach · ${paso.cue}` : null);
   const metricas = metricasDelPaso(paso, lecturas, heroe.clase, zonas, extraCompleto, plan.reglas);
@@ -172,12 +205,19 @@ export function VistaIphone(p: VistaIphoneProps) {
   const enDescanso = paso.rol === 'descanso' || paso.rol === 'recuperacion';
   const trabajoKit = trabajoDe(paso, lecturas, heroe.clase);
   // El tempo de fuerza ya tiene celda en la rejilla: la fila del trabajo no lo repite (un dato, un sitio).
-  const trabajo: TrabajoVista | null = enDescanso && luego ? { etiqueta: 'viene', valor: luego.que, texto: true } : trabajoKit?.etiqueta === 'tempo' ? null : trabajoKit;
+  // En el descanso, «viene» es el de la familia (fuerza: la carga que está en
+  // la barra); si la familia quitó «Luego» (el WOD), el del kit.
+  const viene = luego ?? luegoKit;
+  const trabajo: TrabajoVista | null = enDescanso && viene ? { etiqueta: 'viene', valor: viene.que, texto: true } : trabajoKit?.etiqueta === 'tempo' ? null : trabajoKit;
   const posicion = p.posicion ? p.posicion(seq) : posicionDe(paso, extraCompleto);
   // El total en la cabecera (la puntuación, que no se va); si el héroe YA es el total, el de sesión.
   const crono =
     total != null && heroe.etiqueta !== 'total' ? { valor: fmtReloj(total), etiqueta: 'total' as const } : { valor: fmtReloj(estado.sesionT), etiqueta: 'sesión' as const };
-  const formato = formatoDe(pasoDelFormato(seq));
+  // La familia puede añadir dónde estás («Circuito · Ronda 2/5 · Estación 2/3»).
+  // Sin ella, un formato que solo repite el nombre de lo que haces («Rodaje»
+  // bajo «Rodaje · Z2 · 50′») no dice nada: fuera (un dato, un sitio).
+  const formatoKit = formatoDe(pasoDelFormato(seq));
+  const formato = p.formato ? p.formato(seq, formatoKit) : posicion[0]?.startsWith(formatoKit) ? '' : formatoKit;
   const tinte = tinteDelPaso(paso, lecturas, zonas);
   const arcos = arcosDePlan(plan.pasos, p.duracion);
   const conMapa = plan.pasos.some(usaGps);
@@ -196,7 +236,19 @@ export function VistaIphone(p: VistaIphoneProps) {
     const clave = clavePorDefecto(seq);
     if (clave) primariaKit = { clave, hacer: clave === 'vuelta' ? seq.vuelta : cerrar };
   }
-  const primaria = p.primaria ? p.primaria(seq, primariaKit) : primariaKit;
+  const primariaFamilia = p.primaria ? p.primaria(seq, primariaKit) : primariaKit;
+  // Una acción de la familia con deshacer pasa por el mismo aviso de 5 s que un cierre a mano.
+  const primaria: PrimariaVista | null =
+    primariaFamilia?.deshacer
+      ? {
+          ...primariaFamilia,
+          hacer: () => {
+            const d = primariaFamilia.deshacer!;
+            primariaFamilia.hacer();
+            setToast((t) => ({ n: (t?.n ?? 0) + 1, aviso: d.aviso, hacer: d.hacer }));
+          },
+        }
+      : primariaFamilia;
 
   // ── gestos ──────────────────────────────────────────────────────────────
   const pausar = (si: boolean) => {
@@ -209,6 +261,8 @@ export function VistaIphone(p: VistaIphoneProps) {
     setPagina(n);
     onLog(`Página → ${id === 'vivo' ? 'Vivo' : id === 'estructura' ? 'Estructura' : 'Mapa'}`);
   };
+  // Lo que la familia mete en la franja elástica: la anotación en el descanso, o su apoyo en el trabajo.
+  const apoyo = enDescanso ? (p.anotar ?? null) : (p.apoyo?.(seq, { irA }) ?? null);
   const terminarYGuardar = () => {
     setHoja(false);
     setTerminado(true);
@@ -253,7 +307,7 @@ export function VistaIphone(p: VistaIphoneProps) {
   const horizontal = lienzo.horizontal;
   // En horizontal el sujeto vive en la columna izquierda (§3): su ancho y su alto son los de la columna.
   const anchoColumna = Math.floor(((lienzo.ancho - 2 * 59 - HUECO) * 1.1) / 2.1);
-  const altoColumna = lienzo.alto - 21 - ALTO.cabecera - (banda ? ALTO.banda + HUECO : 0) - (trabajo ? ALTO.trabajo + HUECO : 0) - 2 * HUECO;
+  const altoColumna = lienzo.alto - 21 - ALTO.cabecera - (banda || instruccion ? ALTO.banda + HUECO : 0) - (trabajo ? ALTO.trabajo + HUECO : 0) - 2 * HUECO;
   const sujeto = horizontal ? (
     <Sujeto heroe={heroe} nota={nota} alto={Math.max(120, altoColumna)} ancho={anchoColumna - 2 * MARGEN} />
   ) : (
@@ -262,16 +316,18 @@ export function VistaIphone(p: VistaIphoneProps) {
   const bloqueSujeto = (
     <>
       {sujeto}
-      {banda ? <BandaObjetivo banda={banda} /> : null}
-      {trabajo ? <Trabajo trabajo={trabajo} extra={enDescanso && paso.rol === 'descanso' ? <Mas30 onMas30={seq.sumar30} /> : undefined} /> : null}
+      {banda ? <BandaObjetivo banda={banda} /> : instruccion ? <ObjetivoInstruccion texto={instruccion} /> : null}
+      {/* «+30 s» solo en un descanso que se estira: el del reloj de pared (tabata) no. */}
+      {trabajo ? <Trabajo trabajo={trabajo} extra={enDescanso && paso.rol === 'descanso' && paso.wod?.formato !== 'pared' ? <Mas30 onMas30={seq.sumar30} /> : undefined} /> : null}
     </>
   );
   const bloqueApoyo = (
     <>
-      <Rejilla metricas={enDescanso && p.anotar ? metricas.slice(0, 2) : metricas} compacta={enDescanso && !!p.anotar}>
-        {enDescanso ? p.anotar : null}
+      <Rejilla metricas={apoyo ? metricas.slice(0, p.celdasConApoyo ?? 2) : metricas} compacta={!!apoyo && (p.apoyoCompacto ?? true)}>
+        {apoyo}
       </Rejilla>
-      {enDescanso ? null : <Luego luego={luego} />}
+      {/* La familia quita «Luego» devolviendo null donde el kit sí lo tenía (el apoyo del WOD ya lo dice): tampoco queda su hueco. En el último paso, el hueco de siempre. */}
+      {enDescanso || (p.luego && !luego && luegoKit) ? null : <Luego luego={luego} />}
       <TiraEstructura arcos={arcos} enCurso={estado.i} fraccion={fraccionDelPaso(paso, lecturas)} onAbrir={() => irA('estructura')} />
     </>
   );
@@ -305,7 +361,7 @@ export function VistaIphone(p: VistaIphoneProps) {
 
   const paginas: PaginaLateral[] = [
     { id: 'vivo', titulo: 'Vivo', contenido: paginaVivo },
-    { id: 'estructura', titulo: 'Estructura', contenido: <PaginaEstructura plan={plan} estado={estado} /> },
+    { id: 'estructura', titulo: 'Estructura', contenido: p.estructura ? p.estructura(seq) : <PaginaEstructura plan={plan} estado={estado} /> },
   ];
   if (conMapa) {
     const s = sesionDe(estado);
@@ -367,7 +423,7 @@ export function VistaIphone(p: VistaIphoneProps) {
             }}
           />
         ) : null}
-        {terminado ? <Terminado titulo="Sesión terminada" detalle="guardando lo hecho…" /> : completada ? <Terminado titulo="Sesión completada" detalle="guardando…" /> : null}
+        {terminado ? <Terminado titulo="Sesión terminada" detalle="guardando lo hecho…" /> : completada ? <Terminado titulo="Sesión completada" detalle={p.detalleFin?.(seq) ?? 'guardando…'} /> : null}
       </div>
     </LienzoContexto.Provider>
   );

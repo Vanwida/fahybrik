@@ -40,8 +40,16 @@ export interface ChipEnlace {
   nota: string | null;
 }
 
-/** Un dato de la máquina que dependía del enlace y no llega (5 s). */
-const maquinaVieja = (l: Lecturas): boolean => !!l.viejos && (l.viejos.includes('split500') || l.viejos.includes('hecho') || l.viejos.includes('vatios'));
+/** Un dato de la máquina que dependía del enlace y no llega (5 s). La cinta manda ritmo y metros; el ergómetro, su /500 y sus vatios. */
+const maquinaVieja = (l: Lecturas, tipo: TipoMaquina): boolean =>
+  !!l.viejos && (tipo === 'cinta' ? l.viejos.includes('ritmo') || l.viejos.includes('hecho') : l.viejos.includes('split500') || l.viejos.includes('hecho') || l.viejos.includes('vatios'));
+
+/**
+ * La máquina que este paso lleva: la declarada (`maquina`) o, si se corre en
+ * cinta (la familia lo dice), la cinta. Un tempo prescrito «en cinta» no la
+ * declara como máquina y aun así hay que conectarla o decir «lo dices tú».
+ */
+const maquinaDelPaso = (p: PasoBase): TipoMaquina | null => p.maquina?.tipo ?? (familiaDe(p) === 'cinta' ? 'cinta' : null);
 
 /** ¿Este paso corre con GPS? Solo si SE CORRE (la familia, no la clase): calle o pista, nunca cinta ni un tabata de burpees. */
 export function usaGps(p: PasoBase): boolean {
@@ -71,14 +79,14 @@ export function enlacesDe(d: Dispositivos, p: PasoBase, l: Lecturas): ChipEnlace
     chips.push({ clave: 'gps', icono: 'gps', texto: 'GPS', estado: buscando ? 'buscando' : 'ok', nota: buscando ? 'GPS · buscando señal' : null });
   }
 
-  const tipo = p.maquina?.tipo ?? null;
+  const tipo = maquinaDelPaso(p);
   if (tipo) {
     const m = { tipo };
     const nombre = nombreMaquina(m) ?? 'la máquina';
     const corto = nombreMaquinaCorto(m) ?? 'Máquina';
     if (d.maquina !== tipo) {
       chips.push({ clave: 'maquina', icono: 'maquina', texto: `Conectar ${nombre}`, estado: 'apagado', nota: `sin ${nombre} · lo dices tú` });
-    } else if (maquinaVieja(l)) {
+    } else if (maquinaVieja(l, tipo)) {
       chips.push({ clave: 'maquina', icono: 'maquina', texto: `${corto} · sin señal`, estado: 'perdido', nota: `sin señal ${deMaquina(m)} · toca para reconectar` });
     } else {
       chips.push({ clave: 'maquina', icono: 'maquina', texto: corto, estado: 'ok', nota: null });

@@ -216,7 +216,15 @@ export type InfoWod =
   | { formato: 'amrap'; tareas: Tarea[]; duracionS: number }
   | { formato: 'puntuacion'; tareas: Tarea[]; duracionS: number }
   | { formato: 'fortime'; tarea: Tarea | null; capS: number | null }
-  | { formato: 'pared'; trabajoS: number; descansoS: number; rondas: number };
+  | { formato: 'pared'; trabajoS: number; descansoS: number; rondas: number }
+  /**
+   * Death by (28-09, familia WOD del iPhone): cada ventana lleva `inicio +
+   * incremento × (n − 1)` de la tarea (la `tarea.dosis` de ESTE minuto ya
+   * viene resuelta); acaba cuando el reloj te caza. `tope` es el techo de
+   * minutos si el coach lo pone (dato); sin tope, la escalera es abierta.
+   * Las reglas viven en `deathby.ts`.
+   */
+  | { formato: 'deathby'; tarea: Tarea; inicio: number; incremento: number; ventanaS: number; tope: number | null };
 
 /** P11 · El eje de la CARGA. Uno por serie; el esfuerzo es el otro eje. */
 export type CargaFuerza =

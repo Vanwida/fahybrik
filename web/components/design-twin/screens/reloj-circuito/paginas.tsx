@@ -18,14 +18,19 @@ import {
   PaginaFilas,
   T,
   fmtDistancia,
-  fmtPrescrito,
   fmtReloj,
   fmtRitmo,
+  nombreEnRuta,
+  roxzoneDe as roxzoneDelKit,
+  rutaDe,
   type EstadoSecuencia,
   type Lecturas,
   type ZonasCoach,
 } from '../../kit-reloj';
-import { esPuntuacion, type Circuito } from './planes';
+import type { Circuito } from './planes';
+
+/** La Roxzone sumada (el kit); `null` si el coach no la activó. */
+const roxzoneDe = (c: Circuito, e: EstadoSecuencia): number | null => (c.roxzone ? roxzoneDelKit(c.plan.pasos, e) : null);
 
 // ---------------------------------------------------------------------------
 // Ruta
@@ -41,42 +46,21 @@ const LINEAS = 6;
 /** Las reps dichas en la campana del paso `i` (la del AMRAP `i - 1`), si las hay. */
 export type RepsDe = (i: number) => number | null;
 
+/** La ruta del kit (`rutaDe`, la misma que pinta el iPhone) dicha para la muñeca: un nombre y un valor por fila. */
 function filasDeRuta(c: Circuito, e: EstadoSecuencia, reps: RepsDe): FilaRuta[] {
-  const filas: FilaRuta[] = [];
-  const hechos = new Map(e.parciales.map((x) => [x.i, x]));
-  let ronda: number | null = null;
-  c.plan.pasos.forEach((p, i) => {
-    if (i < c.inicio) return;
-    const ahora = i === e.i && !e.terminado;
-    const listado = (p.clase === 'carrera' || p.clase === 'estacion' || p.clase === 'amrap') && p.rol === 'trabajo';
+  return rutaDe(c.plan.pasos, e, { desde: c.inicio, cabecerasDeRonda: c.formato !== 'hyrox', sueltas: 'ahora' }).map((f) => {
+    if (f.tipo === 'ronda') return { tipo: 'ronda', texto: `Ronda ${f.n}/${f.de}` };
+    const p = f.paso;
     // Un paso que no está en la lista del coach (Roxzone, descanso, campana) solo sale mientras estás en él.
-    if (!listado) {
-      if (ahora) {
-        const nombre = p.roxzone ? `Roxzone · ${p.roxzone}` : esPuntuacion(p) ? 'Puntuación' : 'Descanso';
-        filas.push({ tipo: 'paso', nombre, estado: 'ahora', valor: fmtReloj(e.t), suelta: true });
-      }
-      return;
+    if (f.suelta) {
+      const nombre = p.roxzone ? `Roxzone · ${p.roxzone}` : nombreEnRuta(p, false);
+      return { tipo: 'paso', nombre, estado: 'ahora', valor: fmtReloj(e.t), suelta: true };
     }
-    const r = p.posicion?.ronda;
-    if (c.formato !== 'hyrox' && r && r.n !== ronda) {
-      ronda = r.n;
-      filas.push({ tipo: 'ronda', texto: `Ronda ${r.n}/${r.de}` });
-    }
-    const nombre =
-      p.clase === 'carrera' ? (c.formato === 'hyrox' && r ? `Run ${r.n}` : `Run ${fmtPrescrito(p.medida)}`) : (p.nombre ?? '');
-    const hecho = hechos.get(i);
     // El AMRAP enseña las reps que se dijeron en su campana; mientras no se digan, su tiempo.
-    const dichas = p.clase === 'amrap' ? reps(i + 1) : null;
-    const valor = dichas != null ? `${dichas} reps` : hecho ? fmtReloj(hecho.segundos) : ahora ? fmtReloj(e.t) : null;
-    filas.push({ tipo: 'paso', nombre, estado: hecho ? 'hecho' : ahora ? 'ahora' : 'pendiente', valor });
+    const dichas = p.clase === 'amrap' ? reps(f.i + 1) : null;
+    const valor = dichas != null ? `${dichas} reps` : f.parcial ? fmtReloj(f.parcial.segundos) : f.estado === 'ahora' ? fmtReloj(e.t) : null;
+    return { tipo: 'paso', nombre: nombreEnRuta(p, c.formato === 'hyrox'), estado: f.estado, valor };
   });
-  return filas;
-}
-
-/** La Roxzone sumada: lo cerrado más lo de ahora. `null` si el coach no la activó. */
-function roxzoneDe(c: Circuito, e: EstadoSecuencia): number | null {
-  if (!c.roxzone) return null;
-  return e.parciales.filter((x) => c.plan.pasos[x.i]?.clase === 'roxzone').reduce((a, x) => a + x.segundos, 0) + (c.plan.pasos[e.i]?.clase === 'roxzone' ? e.t : 0);
 }
 
 function Punto({ estado }: { estado: 'hecho' | 'ahora' | 'pendiente' }) {
