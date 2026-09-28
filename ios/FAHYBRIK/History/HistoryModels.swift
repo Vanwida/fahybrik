@@ -25,7 +25,13 @@ struct AthleteHistoryDay: Decodable, Equatable {
 }
 
 struct AthleteHistorySession: Decodable, Equatable, Identifiable {
-    let assignmentId: String     // opens the existing ExecutedWorkoutView
+    /// Abre el entreno por su ejecución (`/api/athlete/executions/{id}/detail`).
+    /// Siempre viene del servidor; nil solo en la proyección local de un «Sin subir».
+    var executionId: String? = nil
+    /// Abre el detalle de siempre. Nil = lo hecho SIN asignación (una importación de
+    /// Salud que no casó con el plan, un entreno «fuera del plan»): solo llega con
+    /// `include_unplanned=1` (DECISIONS 2026-09-28).
+    let assignmentId: String?
     let title: String
     let totalDurationSeconds: Int?
     let scoreTimeS: Int?         // For Time / RFT / HYROX-sim final time; else null
@@ -33,27 +39,114 @@ struct AthleteHistorySession: Decodable, Equatable, Identifiable {
     let withPartner: Bool        // logged as a JOINT dobles session
     let hasRoute: Bool           // an outdoor GPS route exists
     let origin: String?          // coach | self — only self may be deleted by athlete
+    /// AMRAP: rondas completas y reps de la ronda a medias.
+    var scoreRounds: Int? = nil
+    var scoreReps: Int? = nil
+    /// Metros de la sesión. Null si nada midió distancia o si la midieron dos
+    /// modalidades (sumar correr y remar no significa nada).
+    var distanceM: Int? = nil
+    /// Lo que MÁS se hizo: run | row | ski | bike | strength | other.
+    var modality: String? = nil
+    /// live | manual | imported.
+    var recordedVia: String? = nil
+    /// assignment_gone | not_own_assignment | no_assignment.
+    var offPlanReason: String? = nil
 
-    var id: String { assignmentId }
+    /// Único y estable: la ejecución (siempre en el servidor); la asignación o el
+    /// título solo en la proyección local, que el historial identifica aparte.
+    var id: String { executionId.map { "e\($0)" } ?? assignmentId.map { "a\($0)" } ?? title }
 
     var isSelfOrigin: Bool { origin == "self" }
 
-    /// The headline time: the scored final time when present (HYROX/For Time), else the
-    /// session duration, else nil (never fabricated). Formatted M:SS / H:MM:SS.
-    var headlineTime: String? {
-        if let s = scoreTimeS, s > 0 { return Formato.clock(s) }
-        if let d = totalDurationSeconds, d > 0 { return Formato.clock(d) }
+    /// Adónde abre esta fila: por su asignación si la tiene (el detalle de siempre,
+    /// con técnica y captura), si no por su ejecución. Nil = no hay nada que abrir.
+    var destino: DestinoDeEntrenoHecho? {
+        if let a = assignmentId, !a.isEmpty { return .asignacion(a) }
+        if let e = executionId, !e.isEmpty { return .ejecucion(e) }
         return nil
     }
-    /// Label under the time: "resultado" for a scored session (the time IS the score),
-    /// "duración" for a plain timed session, nil when neither.
-    var headlineLabel: String? {
-        if let s = scoreTimeS, s > 0 { return "resultado" }
-        if let d = totalDurationSeconds, d > 0 { return "duración" }
+
+    /// LO QUE PUNTÚA ESTA SESIÓN — la cifra de la fila, que no siempre es un reloj:
+    /// un AMRAP son sus rondas, un for time su tiempo final, una carrera o un remo sus
+    /// metros y su ritmo. Sin nada de eso, la duración; sin duración, nil (§7).
+    var resultado: ResultadoDeFila? {
+        if let rondas = scoreRounds, rondas > 0 || (scoreReps ?? 0) > 0 {
+            return ResultadoDeFila(amrapRondas: rondas, reps: scoreReps)
+        }
+        if let s = scoreTimeS, s > 0 {
+            return ResultadoDeFila(valor: Formato.clock(s), etiqueta: "resultado")
+        }
+        if let d = distanceM, d > 0, let unidad = Self.unidadDeRitmo(modality) {
+            let metros = Double(d)
+            let ritmo: String? = unidad.flatMap { u in
+                guard let t = totalDurationSeconds, t > 0 else { return nil }
+                let porUnidad = u == .porKm ? Double(t) / (metros / 1000) : Double(t) / (metros / 500)
+                return Formato.ritmo(porUnidad, u)
+            }
+            return ResultadoDeFila(
+                // Una distancia MEDIDA: los ceros son el dato («10,00 km», §2).
+                valor: Formato.distanciaCubierta(metros) ?? "",
+                etiqueta: ritmo ?? Vocab.distancia.lowercased()
+            )
+        }
+        if let t = totalDurationSeconds, t > 0 {
+            return ResultadoDeFila(valor: Formato.clock(t), etiqueta: "duración")
+        }
         return nil
     }
+
+    /// Qué modalidades puntúan por distancia y con qué ritmo se leen: correr /km, el
+    /// remo y el SkiErg /500 m (la convención del monitor), la bici sin ritmo (su
+    /// monitor no lo da). `.some(nil)` = distancia sin ritmo; nil = no puntúa así.
+    private static func unidadDeRitmo(_ modality: String?) -> Formato.UnidadRitmo?? {
+        switch modality {
+        case "run": return .some(.porKm)
+        case "row", "ski": return .some(.por500m)
+        case "bike": return .some(nil)
+        default: return nil
+        }
+    }
+
+    /// Kept for the local «Sin subir» projection and its tests: the headline value.
+    var headlineTime: String? { resultado?.valor }
+    /// Label under the headline value.
+    var headlineLabel: String? { resultado?.etiqueta }
     /// "RPE 7" when the athlete logged it.
     var rpeLabel: String? { DoblesLiveFormat.rpe(rpe).map { "RPE \($0)" } }
+
+    enum CodingKeys: String, CodingKey {
+        case executionId, assignmentId, title, totalDurationSeconds, scoreTimeS, rpe
+        case withPartner, hasRoute, origin, scoreRounds, scoreReps
+        case distanceM, modality, recordedVia, offPlanReason
+    }
+}
+
+/// Adónde abre un entreno hecho.
+enum DestinoDeEntrenoHecho: Equatable {
+    case asignacion(String)
+    case ejecucion(String)
+}
+
+/// La cifra de una fila del historial y lo que es.
+struct ResultadoDeFila: Equatable {
+    let valor: String
+    let etiqueta: String
+
+    init(valor: String, etiqueta: String) {
+        self.valor = valor
+        self.etiqueta = etiqueta
+    }
+
+    /// «5 + 8» sobre «rondas + reps»; «5» sobre «rondas» sin reps sueltas.
+    init(amrapRondas rondas: Int, reps: Int?) {
+        if let reps, reps > 0 {
+            valor = "\(rondas) + \(reps)"
+            etiqueta = "rondas + reps"
+        } else {
+            valor = "\(rondas)"
+            etiqueta = rondas == 1 ? "ronda" : "rondas"
+        }
+    }
 }
 
 // MARK: - Year-month value
@@ -207,7 +300,7 @@ struct HistoryListRow: Identifiable, Equatable {
     var sinSubir: LocalUnsyncedWorkout? = nil
     var id: String {
         if let local = sinSubir { return "\(date)#local-\(local.id.uuidString)" }
-        return "\(date)#\(session.assignmentId)"
+        return "\(date)#\(session.executionId ?? session.assignmentId ?? session.title)"
     }
 
     /// Flatten a month's days into rows, most recent DAY first; within a two-a-day the
@@ -246,7 +339,7 @@ extension HistoryListRow {
         in ym: YearMonth
     ) -> [HistoryListRow] {
         let servidor = rows(from: month)
-        let yaEnElServidor = Set(servidor.map(\.session.assignmentId))
+        let yaEnElServidor = Set(servidor.compactMap(\.session.assignmentId))
         let locales = sinSubir
             .filter { HistoryCalendar.isIn($0.date, ym) }
             .filter { local in local.assignmentId.map { !yaEnElServidor.contains($0) } ?? true }

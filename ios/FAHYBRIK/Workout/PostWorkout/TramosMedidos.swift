@@ -40,6 +40,9 @@ enum TramosMedidos {
         let leg: RunLeg?
         /// «Tramo 3» / «Recuperación» — como lo cuenta quien corre.
         let titulo: String
+        /// La ronda (base 1) de una ruta de estaciones; nil fuera de una ruta. Es lo
+        /// que agrupa las estaciones bajo «Ronda 2» en la tabla.
+        var ronda: Int? = nil
 
         /// El tiempo del tramo. Es lo único que siempre se sabe.
         var tiempo: String { Formato.clock(lap.durationSeconds) }
@@ -47,24 +50,29 @@ enum TramosMedidos {
         /// El segundo dato de la fila, por orden de lo que primero se mira al acabar
         /// una serie / estación: ritmo (/km o /500 m), cal, potencia, o distancia.
         /// nil cuando no se midió ninguno — ahí la fila se queda con su tiempo (§7).
-        var medida: String? {
-            if let ritmo = lap.avgPaceSecPerKm, ritmo > 0 {
-                return Formato.ritmo(ritmo, .porKm)
-            }
-            if let ritmo500 = lap.avgPaceSecPer500m, ritmo500 > 0 {
-                return Formato.ritmo(ritmo500, .por500m)
-            }
-            if let cal = lap.calories, cal >= 1 {
-                return "\(Int(cal.rounded())) cal"
-            }
-            if let w = lap.avgPowerWatts, w >= 1 {
-                return "\(Int(w.rounded())) W"
-            }
-            if let metros = lap.distanceCoveredMeters, metros >= 1 {
-                return Formato.distanciaCubierta(metros)
-            }
-            return nil
+        var medida: String? { TramosMedidos.medida(de: lap) }
+    }
+
+    /// El segundo dato de un lap cualquiera (un tramo, o el bloque entero cuando no
+    /// tiene tramos): ritmo (/km o /500 m), cal, potencia o distancia. Nil sin
+    /// ninguno medido (§7).
+    static func medida(de lap: LapRecord) -> String? {
+        if let ritmo = lap.avgPaceSecPerKm, ritmo > 0 {
+            return Formato.ritmo(ritmo, .porKm)
         }
+        if let ritmo500 = lap.avgPaceSecPer500m, ritmo500 > 0 {
+            return Formato.ritmo(ritmo500, .por500m)
+        }
+        if let cal = lap.calories, cal >= 1 {
+            return "\(Int(cal.rounded())) cal"
+        }
+        if let w = lap.avgPowerWatts, w >= 1 {
+            return "\(Int(w.rounded())) W"
+        }
+        if let metros = lap.distanceCoveredMeters, metros >= 1 {
+            return Formato.distanciaCubierta(metros)
+        }
+        return nil
     }
 
     struct Lectura {
@@ -126,6 +134,21 @@ enum TramosMedidos {
                 filas.append(Fila(id: lap.id, lap: lap, leg: nil, titulo: titulo))
             }
             return Lectura(filas: filas, fuertesPrevistos: plan.intervalCount)
+        }
+
+        // RUTA DE ESTACIONES (simulación HYROX, for time de varias estaciones): el
+        // motor graba un lap por estación con su índice plano (`runLegIndex` =
+        // estaciones × rondas) y su ronda. La fila se llama como la ESTACIÓN del
+        // plan — «Remo», no «Tramo 5» — y lleva su ronda para agruparse.
+        let estaciones = segmento.declaredComponents
+        if segmento.fixedListIsStations, !estaciones.isEmpty, !medidos.isEmpty {
+            let filas = medidos.map { lap -> Fila in
+                let i = lap.runLegIndex ?? 0
+                return Fila(id: lap.id, lap: lap, leg: nil,
+                            titulo: estaciones[i % estaciones.count].name,
+                            ronda: lap.roundIndex.map { $0 + 1 })
+            }
+            return Lectura(filas: filas, fuertesPrevistos: 0)
         }
 
         // ¿Contra qué lista se emparejan? Si hay tantos laps como tramos, se grabó

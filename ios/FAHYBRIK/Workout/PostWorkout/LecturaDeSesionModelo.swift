@@ -9,8 +9,8 @@ import Foundation
 // PORT del doble (card 118, rehecho en la card 124):
 // `web/components/design-twin/screens/lectura-sesion/modelo.ts`. Mismas siete
 // capas, mismas reglas — ver `LecturaDeSesionDesdeDetalle` para dónde el CABLE de
-// hoy no da lo mismo que el doble simulaba (el hierro no trae series por separado,
-// solo un total de reps y una carga máxima por ejercicio).
+// hoy no da lo mismo que el doble simulaba. Desde el 28-sep el hierro SÍ trae la
+// serie a serie (`segments[].sets`) y su tonelaje (`volume_kg`).
 //
 // LA REGLA QUE NO SE SALTA (card 124): la distancia de los totales NUNCA mezcla
 // modalidades — ni siquiera dos máquinas de ergómetro distintas, que miden
@@ -50,12 +50,18 @@ struct Bloque: Equatable {
     // Correr / ergómetro:
     var distanciaM: Double? = nil
 
-    // Fuerza — DEGRADADO respecto al doble (ver LecturaDeSesionDesdeDetalle): el
-    // cable de hoy da un total de repeticiones y una carga máxima por ejercicio,
-    // NUNCA la serie a serie (`5×5 a 100 kg`). `repsTotal`/`kg` son ese total y esa
-    // carga; no se inventa un número de series.
+    // Fuerza. `series` es la serie a serie que sirve el servidor (vacía cuando el
+    // tramo se anotó como una línea única, y entonces mandan `repsTotal`/`kg`, que
+    // son esa línea — nunca se inventa un número de series).
     var repsTotal: Int? = nil
     var kg: Double? = nil
+    var series: [SerieHecha] = []
+    /// Tonelaje del tramo, TAL CUAL lo calcula el servidor (`volume_kg`, regla única
+    /// en shared/domain/strength/volume.ts). Nil sin carga. No se recalcula aquí.
+    var volumenKg: Double? = nil
+
+    // Ergómetro: los parciales que guardó el monitor, uno por serie.
+    var parciales: [ParcialDeErgo] = []
 
     // Funcional: reps O metros — nunca los dos, y ninguno si no se contó.
     var reps: Int? = nil
@@ -324,22 +330,27 @@ struct SerieMasPesada: Equatable {
 }
 
 /**
- EL VOLUMEN — solo lo que llevó una carga medida en kilos.
+ EL VOLUMEN DE LA SESIÓN — la suma de los tonelajes que calculó el SERVIDOR por
+ tramo (`volume_kg`), nunca uno propio: la regla es una (volume.ts) y el coach lee
+ el mismo número. Hasta el 28-sep esto multiplicaba el total de reps por la carga
+ MÁS ALTA, que en una pirámide era una sobrestima.
 
- DEGRADADO respecto al doble: sin la serie a serie, `repsTotal × kg` es el total
- de reps del ejercicio por su carga MÁXIMA declarada — exacto cuando la carga fue
- uniforme (un 5×5 a un solo peso), una sobrestima en una pirámide. Es lo único que
- el cable de hoy puede dar sin inventar cuántas series hubo (ver el fichero del
- decodificador para el porqué).
+ La serie más pesada sale de la serie a serie; en un tramo anotado como línea
+ única, de esa línea.
  */
 func volumenDeFuerza(_ bloques: [Bloque]) -> (volumenKg: Double, serieMasPesada: SerieMasPesada?) {
     var volumenKg = 0.0
     var masPesada: SerieMasPesada?
+    func candidata(_ c: SerieMasPesada) {
+        if masPesada == nil || c.kg > masPesada!.kg { masPesada = c }
+    }
     for b in bloques {
-        guard b.modalidad == .fuerza, let kg = b.kg, let reps = b.repsTotal else { continue }
-        volumenKg += Double(reps) * kg
-        if masPesada == nil || kg > masPesada!.kg {
-            masPesada = SerieMasPesada(etiqueta: b.etiqueta, kg: kg, reps: reps)
+        guard let volumen = b.volumenKg, volumen > 0 else { continue }
+        volumenKg += volumen
+        if let serie = VolumenDeFuerza.masPesada(b.series), let kg = serie.kg, let reps = serie.reps {
+            candidata(SerieMasPesada(etiqueta: b.etiqueta, kg: kg, reps: reps))
+        } else if b.series.isEmpty, let kg = b.kg, let reps = b.repsTotal {
+            candidata(SerieMasPesada(etiqueta: b.etiqueta, kg: kg, reps: reps))
         }
     }
     return (volumenKg, masPesada)

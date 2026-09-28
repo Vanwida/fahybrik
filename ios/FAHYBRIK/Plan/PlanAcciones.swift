@@ -168,10 +168,13 @@ extension PlanView {
     /// Un entreno del HISTORIAL: ahí no hay `AthleteWeekDaySession`, solo la fila
     /// de lo hecho con su fecha, y basta — la referencia es el assignment.
     func preguntarPorEntrenoPasado(_ sesion: AthleteHistorySession, iso: String) {
+        // Sin asignación no hay entreno al que el chat pueda señalar (el historial
+        // tampoco ofrece la acción en ese caso).
+        guard let assignmentId = sesion.assignmentId else { return }
         Haptics.light()
         let hoyIso = store.planWeek.value?.week.todayIso ?? iso
         contextoDelChat = ChatContextChoice(
-            target: .entreno(sesion.assignmentId),
+            target: .entreno(assignmentId),
             etiqueta: "\(sesion.title) · \(EntrenosSeñalables.cuando(iso: iso, hoyIso: hoyIso))"
         )
         showChat = true

@@ -344,147 +344,32 @@ struct ExecutedWorkoutView: View {
     // Erg segments (row / ski / bike) whose monitor reported a split table WITH at
     // least one measured column. Un monitor que solo devolvió el índice de las
     // series no tiene tabla que enseñar, y una rejilla de guiones no es una tabla.
+    // La tabla es la compartida (`TablaDeParciales`): la misma que pintan el resumen
+    // y la lectura de una sesión.
     private var ergIntervalSegments: [SegmentActualDTO] {
         (execution?.segments ?? []).filter { seg in
             ["row", "ski", "bike"].contains(seg.modality)
-                && !Self.ergColumnas(seg.ergSplits ?? []).isEmpty
+                && !ColumnaDeParcial.medidas((seg.ergSplits ?? []).map(ParcialDeErgo.init)).isEmpty
         }
-    }
-
-    // Las columnas que ESTOS intervalos midieron de verdad. Un monitor que no
-    // reporta cadencia no deja una columna de guiones: deja de haber columna (§7).
-    private enum ErgColumna: CaseIterable {
-        case tiempo, distancia, ritmo, cadencia, calorias
-
-        var titulo: String {
-            switch self {
-            case .tiempo:    return "Tiempo"
-            case .distancia: return "Dist"
-            case .ritmo:     return Formato.UnidadRitmo.por500m.rawValue
-            case .cadencia:  return "s/m"
-            case .calorias:  return "Cal"
-            }
-        }
-
-        /// Lo que este intervalo midió en esta columna, o nil si el monitor no lo dio.
-        func valor(_ s: ErgSplitActual) -> String? {
-            switch self {
-            case .tiempo:    return s.timeSeconds.map { Formato.clock($0) }
-            case .distancia: return s.distanceMeters.map { "\(Int($0))" }
-            case .ritmo:     return s.avgPaceSPer500m.map { Formato.ritmoCifras(Double(Int($0.rounded()))) }
-            case .cadencia:  return s.strokeRateSpm.map { "\($0)" }
-            case .calorias:  return s.calories.map { "\($0)" }
-            }
-        }
-    }
-
-    private static func ergColumnas(_ splits: [ErgSplitActual]) -> [ErgColumna] {
-        ErgColumna.allCases.filter { col in splits.contains { col.valor($0) != nil } }
     }
 
     private func ergIntervalsCard(_ seg: SegmentActualDTO) -> some View {
-        let splits = seg.ergSplits ?? []
-        let columnas = Self.ergColumnas(splits)
-        return CardSurface(padding: 0) {
-            VStack(spacing: 0) {
+        CardSurface(padding: 14) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    LabelText(text: "Intervalos · \(ergTitle(seg))", size: 9)
+                    Text("Parciales · \(ergTitle(seg))")
+                        .scaledFont(15, weight: .bold, relativeTo: .subheadline)
+                        .foregroundStyle(Theme.Color.muted)
                     Spacer(minLength: 6)
-                    if let df = seg.dragFactor {
-                        MonoText(text: "drag \(df)", size: 10, color: Theme.Color.muted)
-                    }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                Hairline()
-                ergHeaderRow(columnas)
-                ForEach(splits) { s in
-                    Hairline().opacity(0.4)
-                    ergDataRow(s, columnas)
-                }
+                TablaDeParciales(parciales: (seg.ergSplits ?? []).map(ParcialDeErgo.init))
                 if let footer = ergFooterText(seg) {
-                    Hairline()
-                    HStack {
-                        Spacer(minLength: 0)
-                        MonoText(text: footer, size: 10, color: Theme.Color.muted)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
+                    Text(footer)
+                        .scaledFont(15, relativeTo: .subheadline)
+                        .foregroundStyle(Theme.Color.muted)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
-        }
-    }
-
-    // Column header: # plus the ErgData columns this monitor actually measured.
-    private func ergHeaderRow(_ columnas: [ErgColumna]) -> some View {
-        HStack(spacing: 6) {
-            ergCol("#", fixed: true, .leading)
-            ForEach(columnas, id: \.self) { col in
-                ergCol(col.titulo, .trailing)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-    }
-
-    private func ergDataRow(_ s: ErgSplitActual, _ columnas: [ErgColumna]) -> some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 6) {
-                ergVal("\(s.index)", fixed: true, .leading, accent: true)
-                ForEach(columnas, id: \.self) { col in
-                    ergVal(col.valor(s), .trailing)
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            // Rest interval (only on interval workouts) as a quiet sub-line.
-            if let rt = s.restTimeSeconds, rt > 0 {
-                HStack(spacing: 4) {
-                    Spacer(minLength: 0)
-                    MonoText(
-                        text: "descanso \(Formato.clock(rt))" + (restDistanceLabel(s)),
-                        size: 9,
-                        color: Theme.Color.faint
-                    )
-                }
-                .padding(.horizontal, 10)
-                .padding(.bottom, 7)
-            }
-        }
-    }
-
-    private func restDistanceLabel(_ s: ErgSplitActual) -> String {
-        guard let rd = s.restDistanceMeters, rd > 0 else { return "" }
-        return " · \(Int(rd)) m"
-    }
-
-    // A narrow fixed "#" column keeps the numbers from crowding; the rest share the
-    // remaining width equally.
-    private static let ergIndexColWidth: CGFloat = 22
-
-    @ViewBuilder
-    private func ergCol(_ text: String, fixed: Bool = false, _ align: Alignment) -> some View {
-        let label = Text(text)
-            .font(.system(size: 9, weight: .heavy, design: .default))
-            .tracking(0.4)
-            .foregroundStyle(Theme.Color.faint)
-        if fixed {
-            label.frame(width: Self.ergIndexColWidth, alignment: align)
-        } else {
-            label.frame(maxWidth: .infinity, alignment: align)
-        }
-    }
-
-    // Nil = este intervalo no midió esta columna. La celda se queda VACÍA: la
-    // columna existe porque otros intervalos sí la midieron, y este no. Ni guion
-    // ni cero (§7).
-    @ViewBuilder
-    private func ergVal(_ text: String?, fixed: Bool = false, _ align: Alignment, accent: Bool = false) -> some View {
-        let val = MonoText(text: text ?? "", size: 11, color: accent ? Theme.Color.accentText : Theme.Color.foreground)
-        if fixed {
-            val.frame(width: Self.ergIndexColWidth, alignment: align)
-        } else {
-            val.frame(maxWidth: .infinity, alignment: align)
         }
     }
 
@@ -508,6 +393,7 @@ struct ExecutedWorkoutView: View {
     // Footer summary: average burn rate + handle force when the monitor reported them.
     private func ergFooterText(_ seg: SegmentActualDTO) -> String? {
         var parts: [String] = []
+        if let df = seg.dragFactor, df > 0 { parts.append("resistencia \(df)") }
         if let ch = seg.avgCaloriesPerHour, ch > 0 { parts.append("\(Int(ch)) cal/h") }
         if let f = seg.avgDriveForceLbs, f > 0 { parts.append("fuerza \(Int(f)) lbs") }
         if let p = seg.peakDriveForceLbs, p > 0 { parts.append("pico \(Int(p))") }

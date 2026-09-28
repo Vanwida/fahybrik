@@ -25,26 +25,38 @@ struct TablaDeTramos: View {
     /// capturaron ninguno (sin GPS, sin cinta, sin PM5).
     @Binding var ritmosManuales: [UUID: Int]
 
-    /// ¿Hay tabla que pintar? Se pinta cuando tiene MÁS DE UNA FILA que enseñar, o
-    /// cuando hay una serie de la que no se midió ni un tramo y eso hay que decirlo.
+    /// ¿Hay tabla que pintar? Se pinta cuando tiene MÁS DE UNA FILA que enseñar,
+    /// cuando hay una serie de la que no se midió ni un tramo y eso hay que decirlo,
+    /// o cuando algún bloque trae su detalle propio: la serie a serie de la fuerza o
+    /// los parciales del monitor del ergo.
     ///
     /// Sustituye a `plan.segments.count > 1`, que preguntaba por bloques y no por
     /// filas: por eso quien acababa una serie suelta —un segmento, seis tramos— no
-    /// veía nada.
+    /// veía nada. Y el 28-sep, lo mismo con la fuerza: un único ejercicio de cinco
+    /// series era una fila, y la tabla no salía.
     static func hayQuePintarla(segmentos: [WorkoutSegment], laps: [LapRecord]) -> Bool {
         TramosMedidos.filasTotales(segmentos: segmentos, laps: laps) > 1
             || TramosMedidos.haySeriesSinTramos(segmentos: segmentos, laps: laps)
+            || laps.contains { !($0.sets ?? []).isEmpty || !parciales(de: $0).isEmpty }
+    }
+
+    /// Los parciales del monitor de un lap, solo si alguno midió algo (§7).
+    static func parciales(de lap: LapRecord) -> [ParcialDeErgo] {
+        let p = (lap.ergSplits ?? []).map(ParcialDeErgo.init)
+        return ColumnaDeParcial.medidas(p).isEmpty ? [] : p
     }
 
     var body: some View {
         CardSurface(padding: 0) {
             VStack(spacing: 0) {
                 HStack {
-                    LabelText(text: "Por segmento", size: 9)
+                    Text("Por segmento")
+                        .scaledFont(15, weight: .bold, relativeTo: .subheadline)
+                        .foregroundStyle(Theme.Color.muted)
                     Spacer()
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
                 ForEach(grupos) { group in
                     Hairline()
                     cabeceraDeBloque(group)
@@ -62,21 +74,25 @@ struct TablaDeTramos: View {
     private func cabeceraDeBloque(_ group: WorkoutSegmentGroup) -> some View {
         HStack(spacing: 6) {
             Text(group.title.uppercased())
-                .font(.system(size: 10, weight: .heavy, design: .default).italic())
+                .scaledFont(15, weight: .heavy, relativeTo: .subheadline, italic: true)
                 .tracking(0.6)
                 .foregroundStyle(group.phase.isMainWork ? Theme.Color.accentText : Theme.Color.muted)
                 .lineLimit(1)
             Spacer()
         }
-        .padding(.horizontal, 10)
-        .padding(.top, 9)
-        .padding(.bottom, 5)
+        .padding(.horizontal, 14)
+        .padding(.top, 10)
+        .padding(.bottom, 4)
     }
 
     @ViewBuilder
     private func filaDeSegmento(_ seg: WorkoutSegment) -> some View {
         let tramos = TramosMedidos.lee(segmento: seg, laps: laps)
         let lap = laps.first(where: { $0.segmentId == seg.id && $0.runLegIndex == nil })
+        let series = (laps.first { $0.segmentId == seg.id && !($0.sets ?? []).isEmpty }?.sets ?? [])
+            .map(SerieHecha.init)
+        let parciales = lap.map(Self.parciales(de:)) ?? []
+        let rondas = Set(tramos.filas.compactMap(\.ronda)).count
         VStack(spacing: 0) {
             // El bloque. Con tramos medidos debajo NO lleva tiempo propio: no existe
             // un lap agregado, y sumar los tramos daría el total sin las
@@ -85,14 +101,38 @@ struct TablaDeTramos: View {
             if tramos.sinTiemposPorTramo {
                 // El atleta hizo seis y aquí solo hay un tiempo. Se dice.
                 Text("Sin tiempos por tramo.")
-                    .scaledFont(11, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.faint)
+                    .scaledFont(15, relativeTo: .subheadline)
+                    .foregroundStyle(Theme.Color.muted)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 14)
                     .padding(.bottom, 8)
             }
-            ForEach(tramos.filas) { fila in
+            ForEach(Array(tramos.filas.enumerated()), id: \.element.id) { i, fila in
+                // En una ruta de varias rondas, cada ronda abre con su nombre.
+                if rondas > 1, let ronda = fila.ronda,
+                   i == 0 || tramos.filas[i - 1].ronda != ronda {
+                    Text("\(Vocab.ronda) \(ronda)")
+                        .scaledFont(15, weight: .bold, relativeTo: .subheadline)
+                        .foregroundStyle(Theme.Color.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.leading, 30)
+                        .padding(.top, 6)
+                }
                 filaDeTramo(fila)
+            }
+            // La serie a serie de la fuerza: lo que se mira al acabar un 5×5.
+            if !series.isEmpty {
+                TablaDeSeries(series: series, volumenKg: VolumenDeFuerza.kg(series))
+                    .padding(.leading, 30)
+                    .padding(.trailing, 14)
+                    .padding(.bottom, 8)
+            }
+            // Los parciales del monitor, serie a serie.
+            if !parciales.isEmpty {
+                TablaDeParciales(parciales: parciales)
+                    .padding(.leading, 30)
+                    .padding(.trailing, 14)
+                    .padding(.bottom, 8)
             }
             // Ritmo a mano — solo en un tramo de correr/ergo que no capturó ninguno
             // (sin GPS, sin PM5). Así el segmento guarda una intensidad real en vez
@@ -104,63 +144,69 @@ struct TablaDeTramos: View {
         }
     }
 
+    /// Lo medido del bloque entero cuando no tiene tramos: la distancia y, al lado,
+    /// su ritmo — lo que se mira al acabar un rodaje o un 2.000 de remo. Solo lo
+    /// medido; sin nada, nil.
+    private func medidaDeBloque(_ lap: LapRecord) -> String? {
+        let distancia = lap.distanceCoveredMeters.flatMap { $0 >= 1 ? Formato.distanciaCubierta($0) : nil }
+        let medida = TramosMedidos.medida(de: lap)
+        let partes = [distancia, medida == distancia ? nil : medida].compactMap { $0 }
+        return partes.isEmpty ? nil : partes.joined(separator: " · ")
+    }
+
     private func filaCabecera(_ seg: WorkoutSegment, lap: LapRecord?, cobertura: String?) -> some View {
-        HStack(alignment: .center, spacing: 6) {
-            Text(seg.title)
-                .scaledFont(11, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.foreground)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(seg.title)
+                    .scaledFont(17, weight: .semibold, relativeTo: .body)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(2)
+                if let lap, let medida = medidaDeBloque(lap) {
+                    MonoText(text: medida, size: 15, color: Theme.Color.muted,
+                             escala: true, relativeTo: .subheadline)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             // «4 de 6»: faltan tramos por medir, y se declara sin decir por qué —
             // no sabemos si los dejaste o no se grabaron.
             if let cobertura {
-                MonoText(text: cobertura, size: 10, color: Theme.Color.faint)
+                MonoText(text: cobertura, size: 15, color: Theme.Color.muted,
+                         escala: true, relativeTo: .subheadline)
             }
-            // El título de al lado escala con el texto del sistema; este tiempo tiene
-            // que escalar con él o a tamaño accesible la etiqueta acaba pesando más
-            // que el dato (contrato §4). Sin lap NO hay guion: lo que no se sabe no
-            // se pinta (§7); la columna se reserva para que nada baile.
+            // Sin lap NO hay guion: lo que no se sabe no se pinta (§7).
             if let lap {
-                MonoText(text: Formato.clock(lap.durationSeconds), size: 11, weight: .semibold,
-                         color: Theme.Color.foreground, escala: true, relativeTo: .caption2)
-                    .frame(minWidth: 60, alignment: .trailing)
-            } else {
-                Color.clear.frame(width: 60, height: 1)
+                MonoText(text: Formato.clock(lap.durationSeconds), size: 17, weight: .bold,
+                         color: Theme.Color.foreground, escala: true, relativeTo: .body)
             }
             if let z = seg.targetZone {
-                ZBadge(zone: z).frame(width: 38, alignment: .trailing)
+                ZBadge(zone: z)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
     // Un tramo de la serie. Sangrado bajo su bloque, y con el ritmo (o la distancia
     // que cubriste) al lado del tiempo: es lo que se mira al acabar un 800.
     private func filaDeTramo(_ fila: TramosMedidos.Fila) -> some View {
         let esRecuperacion = fila.leg?.isRecovery ?? false
-        return HStack(alignment: .center, spacing: 6) {
+        let tinta = esRecuperacion ? Theme.Color.muted : Theme.Color.foreground
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(fila.titulo)
-                .scaledFont(11, relativeTo: .caption2)
-                .foregroundStyle(esRecuperacion ? Theme.Color.muted : Theme.Color.foreground)
+                .scaledFont(17, relativeTo: .body)
+                .foregroundStyle(tinta)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            MonoText(text: fila.tiempo, size: 11, weight: .semibold,
-                     color: esRecuperacion ? Theme.Color.muted : Theme.Color.foreground,
-                     escala: true, relativeTo: .caption2)
-                .frame(minWidth: 52, alignment: .trailing)
             if let medida = fila.medida {
-                MonoText(text: medida, size: 11, color: Theme.Color.muted,
-                         escala: true, relativeTo: .caption2)
-                    .frame(minWidth: 66, alignment: .trailing)
-            } else {
-                Color.clear.frame(width: 66, height: 1)
+                MonoText(text: medida, size: 15, color: Theme.Color.muted,
+                         escala: true, relativeTo: .subheadline)
             }
+            MonoText(text: fila.tiempo, size: 17, weight: .semibold, color: tinta,
+                     escala: true, relativeTo: .body)
+                .frame(minWidth: 56, alignment: .trailing)
         }
-        .padding(.leading, 22)
-        .padding(.trailing, 10)
+        .padding(.leading, 30)
+        .padding(.trailing, 14)
         .padding(.vertical, 6)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(

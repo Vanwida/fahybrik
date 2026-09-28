@@ -123,10 +123,12 @@ final class LecturaDeSesionModeloTests: XCTestCase {
 
     /// SIN LA SERIE A SERIE, el volumen es reps totales × la carga más alta
     /// declarada — exacto en una carga uniforme.
-    func testVolumenDeFuerzaSumaRepsPorCargaMaxima() {
+    /// El volumen es la suma de los `volume_kg` que calculó el SERVIDOR por tramo
+    /// (regla única, volume.ts) — nunca total de reps × carga máxima (28-sep).
+    func testVolumenDeFuerzaSumaElVolumenDelServidor() {
         let bloques = [
-            Bloque(modalidad: .fuerza, etiqueta: "Sentadilla", repsTotal: 25, kg: 100),
-            Bloque(modalidad: .fuerza, etiqueta: "Press banca", repsTotal: 32, kg: 70),
+            Bloque(modalidad: .fuerza, etiqueta: "Sentadilla", repsTotal: 25, kg: 100, volumenKg: 2500),
+            Bloque(modalidad: .fuerza, etiqueta: "Press banca", repsTotal: 32, kg: 70, volumenKg: 2240),
             // Peso corporal: no hay carga que sumar (§7 — no se inventa el peso
             // del atleta).
             Bloque(modalidad: .fuerza, etiqueta: "Dominadas", repsTotal: 32, kg: nil),

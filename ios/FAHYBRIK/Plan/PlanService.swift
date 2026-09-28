@@ -355,6 +355,15 @@ enum PlanService {
         )
     }
 
+    /// Un entreno hecho abierto por su EJECUCIÓN — para lo que no tiene asignación
+    /// (importaciones de Salud, entrenos fuera del plan). DECISIONS 2026-09-28.
+    static func fetchExecutionDetail(_ executionId: String, bearer: String) async throws -> ExecutionDetail {
+        try await APIClient.shared.get(
+            path: "api/athlete/executions/\(executionId)/detail",
+            bearer: bearer
+        )
+    }
+
     /// Move ONE session to another day WITHIN the same week. The week payload
     /// ships `assignment_id` as a stringified bigint; the move endpoint wants a
     /// numeric id, so callers pass the parsed Int. Throws `APIError.http(409)`

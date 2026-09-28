@@ -11,33 +11,18 @@ import Foundation
 // duración, no reparte un total entre bloques que no la tienen, y CUALQUIER dato
 // que el cable de hoy no da simplemente no se rellena (§7 CONTRATO-UI).
 //
-// TRES DEGRADACIONES REALES respecto al doble (`web/components/design-twin/
-// screens/lectura-sesion/`), documentadas aquí porque son la razón de que esta
-// lectura no sea pixel-a-pixel la del doble:
+// LO QUE EL CABLE DA DESDE EL 28-SEP (DECISIONS «los lectores»):
 //
-//  1. FUERZA SIN SERIES. `segment_executions` guarda UN total de repeticiones y
-//     UNA carga máxima por ejercicio (`reps_completed`, `weight_used_kg` — ver
-//     `WorkoutSession+Laps.swift`: en un 5×5 la app suma las cinco series en
-//     `reps_completed=25` y se queda con la carga MÁS ALTA declarada), nunca la
-//     serie a serie (`sets[]` sí se sube al guardar, pero el endpoint de lectura
-//     `session-actuals.ts` todavía no la sirve de vuelta). Por eso `Bloque` no
-//     tiene `grupos: [GrupoFuerza]` — tiene `repsTotal`/`kg`, un solo par, y el
-//     volumen se calcula como `repsTotal × kg`: exacto en una carga uniforme,
-//     una sobrestima en una pirámide. Es lo único que no fabrica el número de
-//     series que nadie mandó.
-//  2. SIN RONDA. El doble agrupa el desglose por ronda cuando el dato la trae
-//     (un simulacro con 4 rondas de correr+estación). Ese número no existe hoy en
-//     `segment_executions` — ni en el tramo, ni en el bloque prescrito — así que
-//     `Bloque.ronda` se queda siempre `nil` y el desglose se lee como lista
-//     plana, incluso en un simulacro real de 4 rondas. `agruparPorRonda` ya está
-//     escrito para el día en que ese campo llegue; hoy no tiene nada que agrupar.
-//  3. SIN DESCANSO MEDIDO. El doble enseña el descanso PRESCRITO tras cada
-//     bloque. Resolverlo con garantías exige seguir la prescripción estructurada
-//     del ítem (`Prescription.sets[].restS` / `WorkoutItemParams.restSeconds`) y
-//     no hay tiempo de tejer esa segunda alineación en esta tanda sin arriesgar
-//     un descanso mal atribuido — así que `Bloque.descansoS` se queda siempre
-//     `nil` por ahora: ausencia declarada, no un cero inventado.
-//
+//  1. FUERZA SERIE A SERIE. Cada tramo trae `sets[]` y su `volume_kg`, calculado
+//     por la regla única del servidor. Aquí se pinta y se suma lo servido; no se
+//     recalcula (antes se multiplicaba el total de reps por la carga más alta).
+//  2. RONDA. `round_index` en la escala GUARDADA (0155): 0 = la unidad no se
+//     repite, N = ronda N (base 1; la app sube base 0 y el servidor suma uno). Con
+//     0 o sin el campo el desglose es lista plana: el agrupado sale del dato, nunca
+//     de una rama especial de la pantalla.
+//  3. SIN DESCANSO MEDIDO entre bloques. El descanso de CADA SERIE sí viaja
+//     (`sets[].rest_s`) y se pinta en su serie; `Bloque.descansoS` sigue `nil`.
+
 // FC MEDIA / MÁXIMA / CALORÍAS DE LA SESIÓN vienen de `execution.avg_hr` /
 // `execution.max_hr` / `execution.total_calories` — el servidor los calcula UNA
 // vez (ver AssignmentDetail.swift). Aquí NUNCA se derivan de los segmentos: dos
@@ -53,7 +38,7 @@ enum LecturaDeSesionDesdeDetalle {
     /// cabecera, tiempo y — si los hay — pulso y lo que dijo el atleta. Un
     /// desglose vacío no es un fallo, es una sesión sin per-ejercicio logueado.
     static func sesion(
-        de detalle: AssignmentDetail,
+        de detalle: some DetalleDeEntrenoHecho,
         tituloAlternativo: String? = nil,
         ahora: Date = Date()
     ) -> SesionEjecutada? {
@@ -73,7 +58,7 @@ enum LecturaDeSesionDesdeDetalle {
 
         return SesionEjecutada(
             titulo: detalle.workout?.name ?? tituloAlternativo ?? "Entreno",
-            cuando: FechaES.cuando(detalle.assignment.scheduledFor, ahora: ahora) ?? "",
+            cuando: detalle.fechaISO.flatMap { FechaES.cuando($0, ahora: ahora) } ?? "",
             horaInicio: ancla.map(Self.horaLocal),
             horaFin: fin.map(Self.horaLocal),
             completitud: ejecucion.isPartial ? .parcial : .completa,
@@ -96,7 +81,7 @@ enum LecturaDeSesionDesdeDetalle {
 
     // MARK: - El desglose
 
-    private static func itemsDelPlan(_ detalle: AssignmentDetail) -> [String: WorkoutItem] {
+    private static func itemsDelPlan(_ detalle: some DetalleDeEntrenoHecho) -> [String: WorkoutItem] {
         var salida: [String: WorkoutItem] = [:]
         for bloque in detalle.workout?.blocks ?? [] {
             for item in bloque.items { salida[item.uid] = item }
@@ -117,15 +102,21 @@ enum LecturaDeSesionDesdeDetalle {
             etiqueta: item?.exerciseName ?? etiquetaGenerica(s.modality),
             duracionS: s.durationSeconds.map(Double.init),
             fcMediaPpm: s.avgHr.map(Double.init),
-            ronda: nil,          // ver cabecera del fichero: el cable no lo da hoy
-            descansoS: nil       // ídem
+            // Escala GUARDADA: 0 = la unidad no se repite; N = ronda N (base 1).
+            ronda: s.roundIndex.flatMap { $0 > 0 ? $0 : nil },
+            descansoS: nil       // ver cabecera del fichero
         )
+        // Lo que viaja para cualquier modalidad: una estación funcional también
+        // puede anotarse por series, y el tonelaje es del tramo, no del tipo.
+        b.series = (s.sets ?? []).map(SerieHecha.init)
+        b.volumenKg = s.volumeKg
+        b.parciales = (s.ergSplits ?? []).map(ParcialDeErgo.init)
 
         switch modalidad {
         case .correr, .ergometro:
             b.distanciaM = s.distanceMeters
         case .fuerza:
-            // El total de reps y la carga MÁS ALTA declarada — ver cabecera.
+            // La línea única, para cuando no hay serie a serie.
             b.repsTotal = s.repsCompleted
             b.kg = (s.weightUsedKg ?? 0) > 0 ? s.weightUsedKg : nil
         case .funcional:

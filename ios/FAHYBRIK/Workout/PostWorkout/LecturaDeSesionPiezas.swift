@@ -157,7 +157,9 @@ struct RejillaTotalesDeSesion: View {
             case .fuerza(let volumenKg, let masPesada):
                 CeldaDeTotal(
                     etiqueta: "Volumen", valor: Formato.esDecimal(volumenKg / 1000, decimals: 2), unidad: "t",
-                    sub: masPesada.map { "\($0.etiqueta) · \(Formato.kg($0.kg)) \(Formato.signoPor) \($0.reps)" }
+                    sub: masPesada.flatMap { m in
+                        Formato.serie(reps: m.reps, cargaKg: m.kg).map { "\(m.etiqueta) · \($0.linea)" }
+                    }
                 )
             case .emom(let completadas, let prescritas):
                 CeldaDeTotal(
@@ -239,10 +241,8 @@ private func puntoDeModalidad(_ modalidad: ModalidadDeBloque) -> Color {
 }
 
 /// UNA RONDA DEL DESGLOSE — cabecera solo si el grupo la trae (el agrupado sale
-/// del dato, nunca de una rama de la pantalla). El cable de hoy no manda número
-/// de ronda (ver `LecturaDeSesionDesdeDetalle`), así que `grupo.ronda` es
-/// siempre nil por ahora y esto se pinta como lista plana — queda listo para el
-/// día en que el dato exista.
+/// del dato, nunca de una rama de la pantalla): `round_index` del tramo, cuando el
+/// servidor lo manda (ver `LecturaDeSesionDesdeDetalle`). Sin él, lista plana.
 struct GrupoDeRonda: View {
     let grupo: GrupoDesglose
     let rondas: Int
@@ -282,7 +282,30 @@ struct GrupoDeRonda: View {
 struct FilaDeBloque: View {
     let bloque: Bloque
 
+    /// Los parciales del monitor, solo si alguno midió algo (§7).
+    private var hayParciales: Bool { !ColumnaDeParcial.medidas(bloque.parciales).isEmpty }
+
     var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            cabecera
+            // La serie a serie debajo de su ejercicio. El volumen ya va arriba a la
+            // derecha: aquí no se repite.
+            if !bloque.series.isEmpty {
+                Hairline().opacity(0.5)
+                TablaDeSeries(series: bloque.series, volumenKg: nil)
+            }
+            if hayParciales {
+                Hairline().opacity(0.5)
+                TablaDeParciales(parciales: bloque.parciales)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .background(Theme.Color.surfaceElevated)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+    }
+
+    private var cabecera: some View {
         HStack(alignment: .center, spacing: Theme.Spacing.s) {
             Circle().fill(puntoDeModalidad(bloque.modalidad)).frame(width: 10, height: 10)
             VStack(alignment: .leading, spacing: 2) {
@@ -310,10 +333,6 @@ struct FilaDeBloque: View {
                     .frame(width: 42, alignment: .trailing)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
-        .background(Theme.Color.surfaceElevated)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
     }
 
     /// LA MEDIDA, en el idioma de la modalidad — y ninguna si no se midió (§7:
@@ -345,6 +364,18 @@ struct FilaDeBloque: View {
                             .scaledFont(15, relativeTo: .subheadline)
                             .foregroundStyle(Theme.Color.muted)
                     }
+                }
+            }
+        case .fuerza where !bloque.series.isEmpty:
+            // Con serie a serie: cuántas series y su tonelaje (el del servidor).
+            VStack(alignment: .trailing, spacing: 0) {
+                Text("\(bloque.series.count) \(bloque.series.count == 1 ? Vocab.serie : Vocab.series)".lowercased())
+                    .font(.system(size: 17, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Theme.Color.foreground)
+                if let volumen = bloque.volumenKg {
+                    Text(Formato.kg(volumen))
+                        .scaledFont(15, relativeTo: .subheadline)
+                        .foregroundStyle(Theme.Color.muted)
                 }
             }
         case .fuerza:

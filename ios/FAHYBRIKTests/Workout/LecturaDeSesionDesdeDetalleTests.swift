@@ -170,7 +170,8 @@ final class LecturaDeSesionDesdeDetalleTests: XCTestCase {
             "execution_id": "1", "completeness": "completed", "contributing_sources": [],
             "segments": [
               {"position": 0, "item_uid": "s-pm", "modality": "strength",
-               "duration_seconds": 669, "reps_completed": 15, "weight_used_kg": 100}
+               "duration_seconds": 669, "reps_completed": 15, "weight_used_kg": 100,
+               "sets": [], "volume_kg": 1500}
             ]
           }
         }
