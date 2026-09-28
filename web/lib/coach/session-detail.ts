@@ -144,6 +144,9 @@ export async function loadCoachSessionDetail(params: {
       coach_notes: decoded.notes,
       workout: detail.workout,
       content_state: contentState,
+      // El reloj sin movimientos: su formato y estructura, del MISMO cargador que
+      // lee la app (docs/DECISIONS.md 2026-09-28).
+      clock_prescription: contentState === 'clock' ? (detail.clock_prescription ?? null) : null,
       origin: assignmentRow?.origin ?? 'coach',
       template_name: assignmentRow?.template_name ?? null,
       execution: execution

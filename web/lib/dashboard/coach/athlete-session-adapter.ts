@@ -21,6 +21,7 @@ import type {
   WeekSession,
 } from '@fahybrid/shared/schema/program-templates';
 import { templateFormat, type TemplateFormat } from '@fahybrid/shared/schema/_primitives';
+import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import type {
   AssignmentDetailBlock,
   AssignmentDetailItem,
@@ -53,6 +54,10 @@ export interface CoachSessionDetail {
    *   · 'no_content' — a template exists but carries no exercises.
    *   · 'no_template'— the assignment points at no template at all. */
   content_state: 'blocks' | 'clock' | 'no_content' | 'no_template';
+  /** The clock's own prescription (format + structure) when `content_state` is
+   *  'clock' — the SAME object the athlete app reads (`clock_prescription` of
+   *  loadAssignmentDetail), so the coach sees «AMRAP 12:00», not just «a clock». */
+  clock_prescription?: Prescription | null;
   /** Who authored this session: 'coach' = prescribed, 'self' = the athlete's own
    *  entreno libre. The coach reads a libre differently from their own plan. */
   origin: 'coach' | 'self';

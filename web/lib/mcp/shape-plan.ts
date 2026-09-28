@@ -21,7 +21,7 @@
 // (`resolved_intensity` / `resolved_load`). «Z4» no se puede juzgar sin saber que
 // para ESTE atleta eran 4:15-4:25/km, y es exactamente lo que el atleta vio.
 
-import { formatDuration, formatTarget } from '@fahybrid/shared/domain/prescription';
+import { formatDuration, formatTarget, prescriptionToText } from '@fahybrid/shared/domain/prescription';
 import { longDateEs } from '@fahybrid/shared/domain/dates';
 import type {
   AthletePlanPayload,
@@ -210,6 +210,8 @@ export function toSessionDetail(detail: CoachSessionDetail): Record<string, unkn
     origin: detail.origin,
     content_state: detail.content_state,
     content_state_es: CONTENT_STATE_ES[detail.content_state],
+    /** El reloj sin movimientos, dicho entero («AMRAP 12:00»); null si no lo es. */
+    clock: detail.clock_prescription ? prescriptionToText(detail.clock_prescription) : null,
     coach_notes: detail.coach_notes,
     prescribed: detail.workout
       ? {

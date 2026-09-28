@@ -13,6 +13,7 @@ import { HechoChips, ItemPrescritoHecho, SplitsTable, actualTokens } from '@/com
 import type { CoachSessionDetail } from '@/lib/dashboard/coach/athlete-session-adapter';
 import type { SegmentActual } from '@/lib/dashboard/coach/session-actuals';
 import type { RunComplianceVerdict } from '@fahybrid/shared/domain/adherence';
+import { prescriptionToText } from '@fahybrid/shared/domain/prescription';
 
 const NO_BLOCKS: Record<CoachSessionDetail['content_state'], string | null> = {
   blocks: null,
@@ -116,7 +117,12 @@ export function SessionResult({ athleteId, sessionId }: { athleteId: string; ses
           </section>
         ))
       ) : NO_BLOCKS[detail.content_state] ? (
-        <p className="t-body-sm text-v2-muted">{NO_BLOCKS[detail.content_state]}</p>
+        <div className="flex flex-col gap-1">
+          {detail.clock_prescription ? (
+            <p className="t-body-sm text-v2-fg">{prescriptionToText(detail.clock_prescription)}</p>
+          ) : null}
+          <p className="t-body-sm text-v2-muted">{NO_BLOCKS[detail.content_state]}</p>
+        </div>
       ) : null}
 
       {unmatched.length > 0 ? (
