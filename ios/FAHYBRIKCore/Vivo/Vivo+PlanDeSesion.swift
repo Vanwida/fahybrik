@@ -32,15 +32,25 @@ extension Vivo {
     /// correr se marca como test, y la cabecera lo dice.
     static func planDe(_ plan: WorkoutPlan, zonas: HRZoneProfile?, entorno: RunEnvironment?, test: Bool = false) -> PlanVivo {
         var pasos: [Paso] = []
+        // La letra de cada superserie, en orden de sesión: A1/A2, luego B1/B2 (529).
+        var superseries = 0
         for (s, seg) in plan.segments.enumerated() {
-            pasos.append(contentsOf: pasosDe(seg, indice: s, entorno: entorno, test: test))
+            let letra = letraDeSuperserie(superseries)
+            if seg.usesMultiSetStrength, seg.supersetSlots != nil { superseries += 1 }
+            pasos.append(contentsOf: pasosDe(seg, indice: s, entorno: entorno, test: test, letra: letra))
         }
         return PlanVivo(pasos: pasos, zonas: zonasDe(zonas))
     }
 
     // MARK: - Un segmento → sus pasos
 
-    static func pasosDe(_ seg: WorkoutSegment, indice s: Int, entorno: RunEnvironment?, test: Bool = false) -> [Paso] {
+    /// «A», «B», … «Z», y después «AA»: la letra de la superserie número `n` (base 0).
+    static func letraDeSuperserie(_ n: Int) -> String {
+        let abc = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        return n < abc.count ? String(abc[n]) : String(repeating: String(abc[n % abc.count]), count: n / abc.count + 1)
+    }
+
+    static func pasosDe(_ seg: WorkoutSegment, indice s: Int, entorno: RunEnvironment?, test: Bool = false, letra: String = "A") -> [Paso] {
         let fase = faseDe(seg.blockPhase)
         let bloque = seg.blockPosition ?? s
         if let legs = seg.runStructureLegs, !legs.isEmpty {
@@ -57,7 +67,7 @@ extension Vivo {
             return pasosDeReloj(scheme, seg: seg, s: s, fase: fase, bloque: bloque, entorno: entorno)
         }
         if seg.usesMultiSetStrength, let sets = seg.prescription?.sets, !sets.isEmpty {
-            return pasosDeSeries(sets, seg: seg, s: s, fase: fase, bloque: bloque)
+            return pasosDeSeries(sets, seg: seg, s: s, fase: fase, bloque: bloque, letra: letra)
         }
         return [pasoSuelto(seg, s: s, fase: fase, bloque: bloque, entorno: entorno, test: test)]
     }
@@ -416,7 +426,8 @@ extension Vivo {
 
     // MARK: - D · La fuerza por series (y la superserie)
 
-    private static func fichaDe(_ set: PrescriptionSet, seg: WorkoutSegment, ejercicio: String) -> FichaFuerza {
+    /// `rmKg`: la RM que el servidor resolvió para el ejercicio de esta serie (`FichaDeSerie`).
+    private static func fichaDe(_ set: PrescriptionSet, seg: WorkoutSegment, ejercicio: String, rmKg: Double? = nil) -> FichaFuerza {
         var carga: CargaFuerza
         switch set.target {
         case let .kg(v, mn, mx, _)?:
@@ -426,8 +437,8 @@ extension Vivo {
             let lo = v ?? mn ?? 0
             let hi = v ?? mx ?? lo
             // La RM resuelta por el servidor llega como kilos del segmento (`loadKg` = minKg del %): se deshace la regla de tres, no se inventa.
-            var rm: Double? = nil
-            if let kg = seg.loadKg, lo > 0, seg.usesMultiSetStrength, !seg.isSuperset { rm = kg / lo * 100 }
+            var rm: Double? = rmKg
+            if rm == nil, let kg = seg.loadKg, lo > 0, seg.usesMultiSetStrength, !seg.isSuperset { rm = kg / lo * 100 }
             carga = .rm(pctMin: lo, pctMax: hi, rmKg: rm)
         case .bodyweight?:
             carga = .corporal
@@ -447,7 +458,7 @@ extension Vivo {
         return FichaFuerza(ejercicio: ejercicio, carga: carga, esfuerzo: esfuerzo, aproximacion: set.isApproach ?? false)
     }
 
-    private static func pasosDeSeries(_ sets: [PrescriptionSet], seg: WorkoutSegment, s: Int, fase: Fase, bloque: Int) -> [Paso] {
+    private static func pasosDeSeries(_ sets: [PrescriptionSet], seg: WorkoutSegment, s: Int, fase: Fase, bloque: Int, letra: String = "A") -> [Paso] {
         let slots = seg.supersetSlots
         var movimientos: [String] = []
         if let slots { for sl in slots where !movimientos.contains(sl.movement) { movimientos.append(sl.movement) } }
@@ -457,7 +468,7 @@ extension Vivo {
             let nombre = slot?.movement ?? seg.title
             var pos = Posicion()
             if let slot {
-                pos.slot = "A\((movimientos.firstIndex(of: slot.movement) ?? 0) + 1)"
+                pos.slot = "\(letra)\((movimientos.firstIndex(of: slot.movement) ?? 0) + 1)"
                 pos.serie = Contador(n: slot.round, de: slot.rounds)
             } else {
                 pos.serie = Contador(n: k + 1, de: sets.count)
@@ -469,11 +480,21 @@ extension Vivo {
             case .repsToFailure?: medida = Medida(tipo: .abierta, prescrito: nil, mide: .atleta)
             default: medida = Medida(tipo: .reps, prescrito: seg.targetReps.map(Double.init), mide: .atleta)
             }
+            // «Colócate» delante de una serie por tiempo que no viene de un descanso:
+            // el motor lo corre como el descanso de la serie anterior (misma ventana).
+            if necesitaColocate(seg, serie: k) {
+                out.append(Paso(id: "s\(s)-q\(k)-c", clase: .fuerza, rol: .transicion, fase: fase,
+                                medida: Medida(tipo: .tiempo, prescrito: colocateSDefecto, mide: .reloj),
+                                cierre: .medida, bloque: bloque,
+                                origen: Origen(segmento: s, ventana: .serie(k), descanso: true)))
+            }
+            let ficha = seg.fichasPorSerie.flatMap { $0.indices.contains(k) ? $0[k] : nil }
             out.append(Paso(id: "s\(s)-q\(k)", clase: .fuerza, rol: .trabajo, fase: fase, medida: medida, posicion: pos, nombre: nombre,
-                            tempo: tempoDe(set.tempo), cierre: medida.tipo == .tiempo ? .medida : .atleta, bloque: bloque,
-                            fuerza: fichaDe(set, seg: seg, ejercicio: nombre),
+                            tempo: tempoDe(set.tempo), cue: ficha?.nota, cierre: medida.tipo == .tiempo ? .medida : .atleta, bloque: bloque,
+                            fuerza: fichaDe(set, seg: seg, ejercicio: nombre, rmKg: ficha?.rmKg),
                             origen: Origen(segmento: s, ventana: .serie(k))))
-            let rest = set.restS ?? seg.prescription?.restS ?? 0
+            // El descanso que el MOTOR abre (la última serie no hereda el del bloque).
+            let rest = descansoTrasSerie(seg, k)
             if rest > 0 {
                 out.append(descanso(rest, id: "s\(s)-q\(k)-d", fase: fase, bloque: bloque,
                                     origen: Origen(segmento: s, ventana: .serie(k + 1), descanso: true)))
