@@ -19,6 +19,7 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { notifyCoach } from '@/lib/notifications/dispatch';
 import { loadMarkBoxViews, type MarkBoxView } from '@/lib/athlete/marks-box';
+import { SEG_COUNTS_AS_VOLUME } from '@/lib/execution/segment-work';
 import { loadAthleteTimezone } from '@fahybrid/shared/domain/db/athlete-timezone';
 import { isValidTimezone } from '@fahybrid/shared/domain/coach/coach-timezone';
 import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
@@ -367,8 +368,15 @@ const DISTANCE_TOLERANCE = 0.04;
 const CANDIDATE_WINDOW_DAYS = 21;
 
 /**
- * Recent synced executions whose total distance matches the race distance — the
+ * Recent synced executions whose RUN distance matches the race distance — the
  * "usar esta actividad" card. Empty when nothing matches; manual entry covers it.
+ *
+ * The distance is the sum of the session's RUN tramos (`segment_executions`,
+ * `modality = 'run'`), never every tramo: the registrable marks are running races,
+ * and a 10 km row is not a 10K. Recoveries count (they were run: the race total is
+ * volume, `SEG_COUNTS_AS_VOLUME`); structural completion markers don't (no meters).
+ * Live sessions and the Apple Salud / FIT imports (one tramo per workout) are read
+ * the same way; an execution with no run tramo has no run distance to offer.
  */
 export async function loadRegisterCandidates(
   athlete_id: bigint,
@@ -386,15 +394,16 @@ export async function loadRegisterCandidates(
     select
       we.id::text                          as execution_id,
       we.started_at                        as started_at,
-      sum(es.distance_meters)::float8      as distance_m,
+      sum(se.distance_meters)::float8      as distance_m,
       we.total_duration_seconds            as duration_s,
       we.source::text                      as source
     from workout_executions we
-    join execution_segments es on es.execution_id = we.id
+    join segment_executions se on se.execution_id = we.id and se.modality = 'run'
     where we.athlete_id = ${athlete_id as unknown as number}
       and we.started_at >= now() - make_interval(days => ${CANDIDATE_WINDOW_DAYS})
+      and ${SEG_COUNTS_AS_VOLUME(client)}
     group by we.id, we.started_at, we.total_duration_seconds, we.source
-    having sum(es.distance_meters) between ${min} and ${max}
+    having sum(se.distance_meters) between ${min} and ${max}
     order by we.started_at desc
     limit 5
   `;
