@@ -18,7 +18,8 @@
 import type { CSSProperties } from 'react';
 import type { BandaVista, HeroeVista } from '../kit-reloj/lamina';
 import type { PasoBase } from '../kit-reloj/paso';
-import { contextoDe, fmtObjetivo, principal } from '../kit-reloj/reglas';
+import { posicionDe } from '../kit-reloj/posicion';
+import { fmtObjetivo, principal } from '../kit-reloj/reglas';
 import { Etiqueta, Numeral, Nota, useLienzo } from './piezas';
 import { ALTO, CI, MARGEN, TI, anchoUtil, estiloNumeral, tallaHeroe } from './tokens';
 
@@ -182,7 +183,8 @@ export function Trabajo({ trabajo, extra }: { trabajo: TrabajoVista; extra?: Rea
  * dibuja otra.
  */
 export function CuentaAtras({ n, paso }: { n: number; paso: PasoBase }) {
-  const contexto = contextoDe(paso);
+  // La misma posición que la cabecera (el nombre delante, «Serie 4/5», nunca «Ergo 4/5»).
+  const contexto = posicionDe(paso);
   const o = principal(paso);
   const obj = o ? fmtObjetivo(o, paso.maquina) : null;
   const nombre = paso.nombre && !contexto.some((c) => c.includes(paso.nombre!)) ? paso.nombre : null;

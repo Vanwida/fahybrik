@@ -357,7 +357,9 @@ export function metricasDelPaso(
       if (heroe !== 'split' && p.medida.mide === 'ergo') m.push(split(p, l));
       m.push(cadencia(l, f === 'bici' ? 'rpm' : 's/min'));
       if (conPulso) m.push(pulso(p, l, zonas, reglas));
-      m.push(cal(l), vatios(l));
+      // En un paso POR calorías el héroe ya las dice (las que faltan): la
+      // rejilla no las repite (un dato, un sitio) y la potencia sube.
+      m.push(p.medida.tipo === 'cal' ? null : cal(l), vatios(l));
       break;
     case 'fuerza': {
       // Lo que la serie pide y no cabe en el héroe: la carga que da el plan en
