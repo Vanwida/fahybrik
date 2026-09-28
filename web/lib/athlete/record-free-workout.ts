@@ -93,19 +93,22 @@ export function readFreePlan(raw: unknown): FreePlanRead {
   return { ok: true, title, plan: validation.plan };
 }
 
-type PlanBase = Omit<SaveFreeWorkoutPlanInput, 'kind' | 'modality' | 'prescription' | 'items' | 'scheme'>;
+type PlanBase = Omit<
+  SaveFreeWorkoutPlanInput,
+  'kind' | 'modality' | 'prescription' | 'items' | 'scheme' | 'freeModality'
+>;
 
 /** Un plan validado en la forma que persiste `create-free-workout.ts`. */
 export function freePlanInput(base: PlanBase, plan: FreeWorkoutPlan): SaveFreeWorkoutPlanInput {
+  const common = { ...base, scheme: plan.scheme, freeModality: plan.modality };
   if (plan.kind === 'measured') {
-    return { ...base, scheme: plan.scheme, kind: 'measured', modality: plan.modality, prescription: plan.prescription };
+    return { ...common, kind: 'measured', modality: plan.modality, prescription: plan.prescription };
   }
   if (plan.kind === 'clock') {
-    return { ...base, scheme: plan.scheme, kind: 'clock', prescription: plan.prescription };
+    return { ...common, kind: 'clock', prescription: plan.prescription };
   }
   return {
-    ...base,
-    scheme: plan.scheme,
+    ...common,
     kind: 'items',
     items: plan.items.map((it) => ({
       exerciseId: it.exercise_id,

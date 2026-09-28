@@ -65,6 +65,7 @@ function baseDetail(overrides: Partial<CoachSessionDetail> = {}): CoachSessionDe
       focus: null,
       coach_note: null,
       estimated_duration_minutes: null,
+      modality: null,
       blocks: [
         {
           uid: 'block-0',

@@ -25,9 +25,11 @@ export const dynamic = 'force-dynamic';
 // When `assignment_id` is present, replaces the body of an editable scheduled plan.
 //
 // The response carries the ids the app needs to RUN the plan as any other session
-// (DECISIONS 2026-09-28): `assignment_id` and `template_segment_ids`, one per
-// template segment IN THE ORDER OF `items[]` (a measured workout: one; a clock:
-// none). The finished workout then goes to POST /api/sync/workout-execution with
+// (DECISIONS 2026-09-28): `assignment_id` and the template segments IN THE ORDER OF
+// `items[]` (a measured workout: one; a clock: none), twice — `segments`
+// ({ id, position, block_position }, what iOS decodes and links BY INDEX, never by
+// the value of `position`) and `template_segment_ids` (the same ids, kept for the
+// installed app). The finished workout then goes to POST /api/sync/workout-execution with
 // those ids on its tramos — the coach's path — never to …/free.
 
 const freePlanBodySchema = z.object({
@@ -94,6 +96,11 @@ export async function POST(request: Request) {
     return jsonOk({
       saved: true,
       assignment_id: result.assignment_id,
+      segments: segments.map((s) => ({
+        id: String(s.id),
+        position: s.position,
+        block_position: s.blockPosition,
+      })),
       template_segment_ids: segments.map((s) => String(s.id)),
       origin: 'self',
     });

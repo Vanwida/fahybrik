@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { linkTramos, type TemplateItem } from '@/lib/sync/link-tramos';
-import { segmentModalityOfExercise, tramoModality } from '@/lib/sync/segment-derivations';
+import { segmentModalityOfExercise, storedRoundIndex, tramoModality } from '@/lib/sync/segment-derivations';
 import type { SegmentInput } from '@/lib/sync/segment-input-schema';
 
 const tramo = (fields: Partial<SegmentInput> & { position: number; modality: string }): SegmentInput =>
@@ -127,5 +127,18 @@ describe('tramoModality', () => {
   it('sin ejercicio, el cable normalizado', () => {
     expect(tramoModality({ wire: 'running', source: 'gps', exercise: null })).toBe('run');
     expect(tramoModality({ wire: null, source: null, exercise: null })).toBe('other');
+  });
+});
+
+describe('storedRoundIndex — la ronda del cable (base 0) en la columna de 0155', () => {
+  const at = (round_index: number | null | undefined) =>
+    storedRoundIndex(tramo({ position: 0, modality: 'run', round_index }));
+
+  it('una ronda que llega se guarda + 1: el 0 de la columna es «no se repite»', () => {
+    expect([at(0), at(1), at(7)]).toEqual([1, 2, 8]);
+  });
+
+  it('sin ronda (la app instalada, un tramo suelto) o rota: 0, lo de siempre', () => {
+    expect([at(undefined), at(null), at(-1), at(1.5)]).toEqual([0, 0, 0, 0]);
   });
 });

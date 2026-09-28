@@ -84,6 +84,9 @@ export const segmentInputSchema = z.object({
   avg_drive_force_lbs: num(),
   erg_splits: lenient(z.array(z.unknown()).nullish()),
   leg_index: num(),
+  // La ronda del formato del tramo, en base 0 (la ronda de una ruta, el minuto de
+  // un EMOM, la serie de un interválico). Se guarda + 1: ver `storedRoundIndex`.
+  round_index: num(),
   leg_role: str(),
   leg_phase: str(),
   source: str(),

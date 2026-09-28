@@ -138,6 +138,12 @@ export interface SegmentActual {
    *  índices que `flattenSegments()`, así que casa lo hecho con lo prescrito sin
    *  zipear por orden de llegada. Null fuera de una carrera estructurada. */
   leg_index: number | null;
+  /** La ronda del formato (`segment_executions.round_index`, 0155): 0 = «esta
+   *  unidad no se repite» (una serie de carrera estructurada, un ejercicio suelto),
+   *  N ≥ 1 = la ronda N de un bout (estación de una ruta, minuto de un EMOM, serie de
+   *  un interválico). Con N ≥ 1, `leg_index` cuenta los bouts del BLOQUE, no los
+   *  tramos de la prescripción de su línea: quien case por `leg_index` lo mira. */
+  round_index: number;
   /** 'work' | 'recovery'. El contraste que define una sesión de series. */
   leg_role: SegmentLegRole | null;
   /** 'warmup' | 'main' | 'cooldown'. Necesario además del rol: en la gramática un
@@ -184,6 +190,7 @@ export interface SegmentActualRow {
   run_cadence_spm: number | null;         // integer
   source: string | null;                  // free-text apparatus token
   leg_index: number | null;               // integer
+  round_index?: number | null;            // integer not null default 0 (0155)
   leg_role: string | null;                // 'work' | 'recovery' (CHECK en 0146)
   leg_phase: string | null;               // 'warmup' | 'main' | 'cooldown'
   is_structural: boolean | null;
@@ -298,6 +305,7 @@ export function buildSegmentActuals(rows: SegmentActualRow[], sets: SetActualRow
       source: r.source ?? null,
       zone_seconds: parseZoneSeconds(r.raw_lap_data_json),
       leg_index: r.leg_index ?? null,
+      round_index: r.round_index ?? 0,
       leg_role: toLegRole(r.leg_role),
       leg_phase: toLegPhase(r.leg_phase),
       is_structural: r.is_structural ?? false,
@@ -363,13 +371,14 @@ export async function loadSegmentActuals(sql: Sql, executionId: number): Promise
       run_cadence_spm           as run_cadence_spm,
       source                    as source,
       leg_index                 as leg_index,
+      round_index               as round_index,
       leg_role                  as leg_role,
       leg_phase                 as leg_phase,
       is_structural             as is_structural,
       raw_lap_data_json         as raw_lap_data_json
     from segment_executions
     where execution_id = ${executionId}
-    order by position asc, id asc
+    order by position asc, round_index asc, id asc
   `;
   if (rows.length === 0) return [];
   // tenancy: verified-owner — series de la misma ejecución ya comprobada.

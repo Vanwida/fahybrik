@@ -10,6 +10,21 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-28 · El servidor cierra el contrato del motor por formato: segmentos, ronda, modalidad y rutas por estación
+
+**El hueco:** lo que `docs/pr/ios-motor-libre.md` pedía al servidor. `POST /free/plan` no devolvía la forma que decodifica iOS; `round_index` se descartaba en zod; la modalidad declarada de un libre no se guardaba; y una ruta de estaciones, que ya llega como una fila por estación, rompía un lector.
+
+**Decidido (mecanismo):**
+- **`/free/plan` devuelve `segments: [{ id, position, block_position }]`** en el orden de la plantilla (`order by position, id`), además de `template_segment_ids` (aditivo, la app instalada lo sigue leyendo). iOS enlaza por el ÍNDICE, nunca por el valor de `position`.
+- **La ronda del cable es base 0; la columna no.** 0155 reserva `round_index = 0` para «esta unidad no se repite» y numera las rondas desde 1. El servidor guarda la ronda que llega + 1 (`storedRoundIndex`, en la sincronización del coach y en `/free`); sin ronda, o rota, 0. Así la base distingue una serie de carrera estructurada (0) de un bout de un bloque por rondas (≥ 1), que es justo lo que necesita el lector de abajo. Como la app manda una `position` única por tramo, un tramo con ronda que ya tenía fila en ronda 0 (guardado antes de esto, o la vuelta del aparato grabada primero) pasa a su ronda y se funde en el upsert: nunca dos filas del mismo tramo.
+- **La modalidad declarada del libre va en `templates.meta_json.modality`** (crear y editar, un solo helper `freeTemplateMeta`) y el detalle la sirve como `workout.modality` (null en una sesión del coach y en un libre anterior). Es el vocabulario de `FREE_WORKOUT_MODALITIES`.
+- **Rutas por estación: el `leg_index` de un bout cuenta los bouts del BLOQUE**, no los tramos de la prescripción de su línea (0146). El cumplimiento de carrera solo indexa la estructura con los laps de ronda 0; una estación de carrera (ronda ≥ 1) se juzga contra la banda de su línea, ronda a ronda. Antes, la carrera de 1 km que era la 2.ª estación buscaba el tramo 1 de una línea de un tramo y salía «sin dato». `groupRunSplits` tampoco toma un bout como portadora. `SegmentActual` trae `round_index`.
+- **Revisado sin cambios** (suman estaciones y no dependían de la fila agregada): historial (modalidad por tiempo sumado), deep dive y rendimiento por ejercicio (ahora cada estación a su ejercicio, en vez de todo el bloque al primero), revisión de predicción HYROX (suma por modalidad y `hyrox_station_position`), transferencia a carrera, analíticas HYROX (leen `score_time_s` y `races`).
+
+**NO hacer:** guardar la ronda del cable sin traducir (el 0 dejaría de significar «no se repite»); indexar la estructura de una línea con el `leg_index` de un bout; quitar `template_segment_ids` mientras la app instalada lo lea.
+
+---
+
 ## 2026-09-28 · El reloj no inventa ni retiene: sin detalle no hay Empezar, el resultado sale al terminar
 
 **Por qué:** antes de la demo, seis fallos de lógica de la muñeca sola (la pantalla espera su rediseño; esto no toca diseño). Cada uno perdía dato o lo inventaba.
@@ -181,7 +196,8 @@ con movimientos.
 
 **Pendiente de servidor** (exacto en `docs/pr/ios-motor-libre.md`): leer `round_index`
 en `segmentInputSchema`; guardar y servir `workout.modality`; devolver los segmentos en
-`POST /free/plan`.
+`POST /free/plan`. Hecho el mismo día: ver «El servidor cierra el contrato del motor
+por formato» (la ronda se guarda + 1, 0155).
 
 **En consecuencia, no hacer:** no volver a montar un `WorkoutSegment` a mano para un
 libre — si el libre necesita algo que el coach no tiene, falta en `WorkoutPlan.from`;

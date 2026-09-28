@@ -30,10 +30,17 @@ añade los segmentos:
 {
   "saved": true,
   "assignment_id": "812",
+  "segments": [
+    { "id": "3701", "position": 1, "block_position": 1 },
+    { "id": "3702", "position": 2, "block_position": 1 }
+  ],
   "template_segment_ids": ["3701", "3702"],
   "origin": "self"
 }
 ```
+
+- `segments`: los mismos ids con su `position` y `block_position`, en el mismo orden.
+  Se enlaza por el ÍNDICE en esta lista, nunca por el valor de `position`.
 
 - `template_segment_ids`: uno por segmento de la plantilla, **en el orden de
   `items[]`** del cuerpo (calentamiento incluido, en su sitio). Un medido

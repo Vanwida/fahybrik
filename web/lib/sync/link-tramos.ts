@@ -41,6 +41,12 @@ export interface TemplateItem {
   modality: SegmentModality;
 }
 
+/** Un segmento tal como lo lee la base: el ítem más dónde está (lo que devuelve /free/plan). */
+export interface AssignmentSegment extends TemplateItem {
+  position: number;
+  blockPosition: number;
+}
+
 /** ¿Puede un tramo con esta modalidad ser de este ítem? `other` es la del bloque plegado. */
 function compatible(seg: SegmentInput, item: TemplateItem): boolean {
   const wire = tramoModality({ wire: seg.modality, source: seg.source, exercise: null });
@@ -78,24 +84,32 @@ export function linkTramos(segments: SegmentInput[], items: TemplateItem[]): Seg
 
 /**
  * Los segmentos de la plantilla de una asignación DEL ATLETA, en orden
- * (`position`, y el id para desempatar). El orden es lo único que se lee de
- * `position`. Una asignación de otro atleta no devuelve nada.
+ * (`position`, y el id para desempatar). Para enlazar, el orden es lo único que
+ * se lee de `position`; su valor y el `block_position` solo viajan en la respuesta
+ * de /free/plan. Una asignación de otro atleta no devuelve nada.
  */
 export async function loadAssignmentItems(
   sql: Sql | TransactionClient,
   athleteId: number,
   assignmentId: number,
-): Promise<TemplateItem[]> {
+): Promise<AssignmentSegment[]> {
   // tenancy: athlete-session
-  const rows = await sql<Array<{ id: string; modality: string | null }>>`
-    select ts.id::text as id, e.modality
+  const rows = await sql<
+    Array<{ id: string; modality: string | null; position: number; block_position: number }>
+  >`
+    select ts.id::text as id, e.modality, ts.position, ts.block_position
     from workout_assignments wa
     join template_segments ts on ts.template_id = wa.template_id
     join exercises e on e.id = ts.exercise_id
     where wa.id = ${assignmentId} and wa.athlete_id = ${athleteId}
     order by ts.position, ts.id
   `;
-  return rows.map((r) => ({ id: Number(r.id), modality: segmentModalityOfExercise(r.modality) }));
+  return rows.map((r) => ({
+    id: Number(r.id),
+    modality: segmentModalityOfExercise(r.modality),
+    position: Number(r.position),
+    blockPosition: Number(r.block_position),
+  }));
 }
 
 /** El cuerpo de un guardado con sus tramos enlazados a la plantilla de `assignmentId`. */

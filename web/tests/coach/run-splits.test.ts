@@ -157,3 +157,13 @@ describe('buildSegmentActuals — run_splits no filtra ni oculta filas', () => {
     expect(actuals[1]!.erg_splits).toBeNull();
   });
 });
+
+describe('groupRunSplits — bouts de un bloque por rondas', () => {
+  it('una estación de ruta (round_index ≥ 1) no es portadora ni entra en ningún grupo', () => {
+    const rows = [
+      leg({ position: 1, item_uid: 'segment-30', leg_index: 0, round_index: 1, leg_role: 'work', leg_phase: 'main' }),
+      leg({ position: 3, item_uid: 'segment-30', leg_index: 2, round_index: 2, leg_role: 'work', leg_phase: 'main' }),
+    ];
+    expect(groupRunSplits(rows).size).toBe(0);
+  });
+});

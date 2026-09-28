@@ -639,6 +639,7 @@ describe('athlete/assignment-detail · buildAssignmentDetail', () => {
       source: null,
       zone_seconds: null,
       leg_index: null,
+      round_index: 0,
       leg_role: null,
       leg_phase: null,
       is_structural: false,
