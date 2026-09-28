@@ -28,6 +28,9 @@ struct VivoIphoneView: View {
     let alTerminarYGuardar: () -> Void
     /// La página con la que arranca (las capturas piden Estructura).
     var paginaInicial: VivoIdPagina = .vivo
+    /// Solo pruebas y capturas: lo que dirían el GPS y la cinta, sin arrancar
+    /// CoreLocation ni el Bluetooth. `nil` en la app. El motor sigue siendo real.
+    var lecturaDePrueba: VivoLecturaDePrueba? = nil
 
     @State private var pagina: VivoIdPagina = .vivo
     @State private var toast: (n: Int, aviso: String, hacer: () -> Void)? = nil
@@ -39,6 +42,7 @@ struct VivoIphoneView: View {
     @State private var treadmillModel: TreadmillHUDModel?
     @State private var planCache: (clave: String, plan: Vivo.PlanVivo)? = nil
     @State private var actividad = VivoActividadEnVivo()
+    @State private var vueltas = Vivo.RegistroVueltas()
 
     // MARK: - El estado, desde el motor
 
@@ -68,6 +72,12 @@ struct VivoIphoneView: View {
         }
         if let m = outdoorModel { x.gps = m.gpsQuality == .searching ? .buscando : .listo }
         else if gpsActive { x.gps = .listo }
+        // El ritmo de AHORA en cinta es el de la banda (su velocidad), no la media del tramo.
+        if let t = treadmillModel, treadmillLink.isLive, let r = t.livePaceSecPerKm { x.ritmo = Double(r) }
+        if let prueba = lecturaDePrueba {
+            x.gps = prueba.gps
+            if let r = prueba.ritmo { x.ritmo = r }
+        }
         var viejos: [Vivo.CampoVivo] = []
         if session.tramoIsErg, pm5.connectionLost { viejos += [.split500, .vatios, .cadencia, .cal, .hecho] }
         if session.tramoIsRun, session.runEnvironment == .treadmill, treadmillLink == .lost { viejos += [.ritmo, .hecho] }
@@ -110,7 +120,14 @@ struct VivoIphoneView: View {
                         .id(t.n)
                 }
                 if session.isPaused, !hoja { VivoVeloPausa() }
-                if let n = c.estado.cuenta { VivoCuentaAtras(n: n, paso: c.paso) }
+                // Entre pasos la cuenta enseña lo que VIENE; la de arranque del motor, el paso vivo.
+                if let a = vueltas.avisoVigente(c.estado.sesion.t), c.estado.cuenta == nil, !c.estado.go {
+                    VStack { VivoAvisoVuelta(titulo: a.titulo, valor: a.valor, pie: a.pie); Spacer() }
+                        .padding(.top, VivoTokens.Alto.cabecera + 8)
+                        .id(a.titulo)
+                }
+                if let n = c.estado.cuenta { VivoCuentaAtras(n: n, paso: c.paso.rol == .trabajo ? c.paso : (c.estado.siguiente ?? c.paso)) }
+                else if c.estado.go { VivoCuentaAtras(n: 0, paso: c.paso) }
                 if hoja {
                     VivoHojaTerminar(resumen: Vivo.resumenParaTerminar(c.paso, sesionM: c.estado.sesion.metros ?? 0, sesionErgoM: c.estado.sesionErgoM, sesionT: c.estado.sesion.t),
                                      alTerminar: { hoja = false; terminado = true; alTerminarYGuardar() },
@@ -131,6 +148,14 @@ struct VivoIphoneView: View {
             outdoorModel?.teardown(); outdoorModel = nil
             treadmillModel?.teardown(); treadmillModel = nil
             actividad.terminar()
+        }
+        .task {
+            // Las vueltas del correr continuo (km automático): se mira la sesión, no se toca el motor.
+            while !Task.isCancelled {
+                let e = cuadro.estado
+                vueltas.observar(e.paso, sesionT: e.sesion.t, sesionM: e.sesion.metros, ppm: e.lecturas.ppm)
+                try? await Task.sleep(for: .milliseconds(500))
+            }
         }
         .task {
             // La Live Activity de las familias sin calle: cada 2 s, la MISMA lámina que el vivo (I11).
@@ -165,9 +190,10 @@ struct VivoIphoneView: View {
                 }
             }
         case .estructura:
-            VivoPaginaEstructura(estado: c.estado)
+            VivoPaginaEstructura(estado: conVueltas(c.estado))
         case .mapa:
-            VivoPaginaMapa(coordenadas: outdoorModel?.coordinates ?? [], calidad: outdoorModel?.gpsQuality ?? .searching,
+            VivoPaginaMapa(coordenadas: outdoorModel?.coordinates ?? lecturaDePrueba?.ruta ?? [],
+                           calidad: outdoorModel?.gpsQuality ?? (lecturaDePrueba?.gps == .listo ? .strong : .searching),
                            pausado: session.isPaused, metros: c.estado.sesion.metros, ritmoMedio: c.estado.sesion.ritmoMedio)
         }
     }
@@ -225,6 +251,11 @@ struct VivoIphoneView: View {
             return
         case .hecho where c.familia == .deathby:
             session.deathByLogged()
+            return
+        case .vuelta:
+            // «Vuelta» parte el rodaje; NO lo cierra (un rodaje es un paso).
+            let e = c.estado
+            vueltas.aMano(sesionT: e.sesion.t, sesionM: e.sesion.metros, ppm: e.lecturas.ppm)
             return
         case .empezarYa where session.restRemainingSeconds > 0:
             session.dismissRest()
@@ -294,12 +325,20 @@ struct VivoIphoneView: View {
 
     // MARK: - Los modelos de calle y cinta (los mismos que montaba el shell)
 
+    /// El estado con las vueltas del vivo (km y a mano) junto a las del motor, para la Estructura.
+    private func conVueltas(_ e: Vivo.EstadoVivo) -> Vivo.EstadoVivo {
+        var x = e
+        x.vueltas += vueltas.vueltas
+        return x
+    }
+
     private func refrescarPlan() {
         let clave = "\(session.plan.id)|\(session.runEnvironment?.rawValue ?? "-")|\(hrZones?.lthrBpm ?? 0)|\(isBenchmark)"
         planCache = (clave, Vivo.planDe(session.plan, zonas: hrZones, entorno: session.runEnvironment, test: isBenchmark))
     }
 
     private func syncRunModels() {
+        guard lecturaDePrueba == nil else { return }
         let corre = session.tramoIsRun || session.calentamientoEnLaCarrera
         guard corre, let env = session.runEnvironment else {
             outdoorModel?.teardown(); outdoorModel = nil

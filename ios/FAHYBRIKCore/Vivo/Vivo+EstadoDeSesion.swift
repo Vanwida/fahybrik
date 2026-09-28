@@ -189,7 +189,10 @@ extension Vivo {
         }
         if let m = sesion.tramoRunCoveredMeters { corridos += m }
         if let m = sesion.tramoErgDistanceMeters { ergo += m }
-        let cuenta: Int? = sesion.isTramoCountIn ? Swift.max(1, Swift.min(3, Int(sesion.tramoCountInRemaining.rounded(.up)))) : nil
+        // La del motor (el arranque) manda; si no, la de entrada a la parte principal (kit: `cuentaDe`).
+        let motor: Int? = sesion.isTramoCountIn ? Swift.max(1, Swift.min(3, Int(sesion.tramoCountInRemaining.rounded(.up)))) : nil
+        let enPausa = sesion.isPaused || sesion.isFinished
+        let cuenta: Int? = motor ?? (enPausa ? nil : cuentaDe(pasos, i, lecturas))
         return EstadoVivo(
             pasos: pasos,
             i: i,
@@ -204,7 +207,7 @@ extension Vivo {
             metrosPaso: lecturas.hecho != nil && paso.medida.tipo == .distancia ? lecturas.hecho : (paso.medida.mide == .ergo ? sesion.tramoErgDistanceMeters : sesion.tramoRunCoveredMeters),
             sesionErgoM: ergo,
             cuenta: cuenta,
-            go: false,
+            go: cuenta == nil && !enPausa && goDe(pasos, i, lecturas),
             terminado: sesion.isFinished
         )
     }
