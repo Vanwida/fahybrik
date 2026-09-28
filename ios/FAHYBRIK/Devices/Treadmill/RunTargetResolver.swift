@@ -91,23 +91,29 @@ extension RunTarget {
     /// only place a pace band lives), normalizing any unit (/500m, /mile) to
     /// seconds-per-km; falls back to the flattened scalar pace, then scalar zone.
     static func resolve(from segment: WorkoutSegment) -> RunTarget {
-        if let target = segment.prescription?.target {
-            switch target {
-            case let .pace(unit, valueS, minS, maxS):
-                let t = PaceTarget(
-                    single: valueS.map { perKm($0, unit) },
-                    fastS: minS.map { perKm($0, unit) },
-                    slowS: maxS.map { perKm($0, unit) }
-                )
-                if t.single != nil || t.hasBand { return .pace(t) }
-            case let .hrZone(value, min, _):
-                if let z = zone(from: value ?? min) { return .zone(z) }
-            default:
-                break
-            }
-        }
+        let structured = resolve(from: segment.prescription?.target)
+        if structured != .none { return structured }
         if let scalar = segment.targetPaceSecondsPerKm { return .pace(PaceTarget(single: scalar)) }
         if let z = segment.targetZone { return .zone(z) }
+        return .none
+    }
+
+    /// Un objetivo estructurado suelto (el de un set de la rotación: ESTA estación,
+    /// ESTE minuto) como objetivo de carrera. `.none` si no es de ritmo ni de zona.
+    static func resolve(from target: Target?) -> RunTarget {
+        switch target {
+        case let .pace(unit, valueS, minS, maxS)?:
+            let t = PaceTarget(
+                single: valueS.map { perKm($0, unit) },
+                fastS: minS.map { perKm($0, unit) },
+                slowS: maxS.map { perKm($0, unit) }
+            )
+            if t.single != nil || t.hasBand { return .pace(t) }
+        case let .hrZone(value, min, _)?:
+            if let z = zone(from: value ?? min) { return .zone(z) }
+        default:
+            break
+        }
         return .none
     }
 

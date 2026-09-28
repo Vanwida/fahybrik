@@ -142,6 +142,19 @@ struct SupersetSlot: Codable, Equatable {
     let rounds: Int
 }
 
+/// DE QUÉ EJERCICIO DEL PLAN SALE UN TRAMO — su `template_segments.id` y su
+/// posición en el orden del plan (base 0, bloques por posición e ítems en orden).
+///
+/// Las dos piezas son la identidad del ejercicio desde dos lados: el id la da el
+/// servidor; el índice existe ANTES de que el servidor la dé. Un libre corrido
+/// sin conexión no tiene ids todavía, y es el índice lo que viaja (`item_index`)
+/// para que el servidor enlace cada tramo con el ejercicio que ÉL acaba de crear
+/// (docs/pr/un-solo-entreno.md). Un plan del coach lleva las dos.
+struct SegmentSource: Codable, Equatable {
+    let templateSegmentId: Int?
+    let itemIndex: Int?
+}
+
 struct WorkoutSegment: Codable, Identifiable {
     let id: UUID
     let order: Int
@@ -204,6 +217,24 @@ struct WorkoutSegment: Codable, Identifiable {
     /// ejercicio toca y por qué vuelta va. Nil en todo lo demás. `var` con defecto
     /// para que las llamadas y los snapshots cacheados sigan decodificando.
     var supersetSlots: [SupersetSlot]? = nil
+
+    /// Posición (base 0) en el plan del ejercicio del que sale este tramo — el
+    /// primero cuando el tramo pliega varios. Ver `SegmentSource`. `var` con defecto
+    /// para que las llamadas y los snapshots cacheados sigan decodificando.
+    var sourceItemIndex: Int? = nil
+
+    /// UN PLEGADO RECUERDA DE DÓNDE SALE CADA ESTACIÓN: el ejercicio del plan de cada
+    /// `prescription.sets[i]`, en el mismo orden. Sin esto el parcial de una estación
+    /// no se podía atribuir a su ejercicio y salía UNA vuelta por bloque con el ritmo
+    /// mezclado. Nil fuera de un pliegue de ítem-por-set.
+    var stationSources: [SegmentSource]? = nil
+
+    /// El ejercicio del plan detrás de la estación `i` del pliegue (cicla como la
+    /// rotación: la estación 7 de una ruta de 3 × 3 rondas es la primera).
+    func stationSource(at i: Int) -> SegmentSource? {
+        guard let stationSources, !stationSources.isEmpty, i >= 0 else { return nil }
+        return stationSources[i % stationSources.count]
+    }
 
     /// True cuando este tramo ejecuta un bloque en superserie.
     var isSuperset: Bool { prescription?.scheme == .superset }
@@ -886,12 +917,10 @@ struct LapRecord: Codable, Identifiable {
     /// (`TreadmillHUDModel` → `session.sampleTreadmillIncline`). nil when no belt fed
     /// the segment — never a fabricated 0. Defaulted so cached snapshots still decode.
     var inclinePct: Double? = nil
-    /// AVERAGE running cadence (steps/min) over the segment. Stays nil on iOS today:
-    /// the FTMS treadmill reports NO running cadence and there is no foot-pod /
-    /// HealthKit running-cadence source in the app, so we never fabricate it — the
-    /// value arrives through the web vision / HealthKit paths (#62), which already
-    /// accept `run_cadence_spm`. The field exists so the wire is ready when a real
-    /// on-device source lands.
+    /// AVERAGE running cadence (steps/min) over the lap, from the phone's pedometer
+    /// (`CMPedometerData.currentCadence`, `sampleRunCadence`) while it ran. The FTMS
+    /// treadmill reports none; with no pedometer reading the value stays nil — never
+    /// a fabricated cadence.
     var runCadenceSpm: Int? = nil
 
     // MARK: Erg detail (#33 — PM5 "erg completo")
@@ -923,6 +952,18 @@ struct LapRecord: Codable, Identifiable {
     var sensorTimingConfidence: Double? = nil
     var repsSource: String? = nil
     var repsConfidence: Double? = nil
+
+    // MARK: De qué ejercicio y de qué ronda (28-sep)
+    /// Posición (base 0) en el plan del ejercicio que midió este lap — ver
+    /// `SegmentSource`. Es con lo que un libre guardado sin conexión se enlaza en el
+    /// servidor (`item_index`), y con lo que uno guardado antes de correr se enlaza
+    /// a los ids que devolvió el plan. Nil en el hueco sin ejercicio (un
+    /// calentamiento vacío, el cronómetro pelado).
+    var itemIndex: Int? = nil
+    /// La RONDA del formato en la que cayó este lap (base 0): la vuelta exterior de
+    /// una ruta de estaciones, el minuto de un EMOM, la serie de un interválico.
+    /// Nil cuando el lap es el bloque entero.
+    var roundIndex: Int? = nil
 }
 
 // One logged STRENGTH set — the on-device source the per-set view fills and
@@ -1013,7 +1054,7 @@ struct SegmentExecutionDTO: Codable {
     // Run device averages (#62, mig 0124). `incline_pct` is the segment's average
     // treadmill grade; `run_cadence_spm` the average running cadence. Both optional
     // and range-gated server-side (ingest-execution-segments.ts). iOS sends incline
-    // when a belt fed the segment; cadence stays null (no on-device source yet).
+    // when a belt fed the segment, and cadence when the phone's pedometer measured it.
     var incline_pct: Double? = nil
     var run_cadence_spm: Int? = nil
 
@@ -1058,6 +1099,14 @@ struct SegmentExecutionDTO: Codable {
     /// "athlete_tap" | "sensor" | "sensor_corrected"
     var reps_source: String? = nil
     var reps_confidence: Double? = nil
+
+    /// Ejercicio del plan (base 0 sobre `items[]`) que midió este tramo. Es la llave
+    /// del guardado SIN conexión de un libre (`POST /free`): el servidor crea el plan
+    /// y enlaza cada tramo con el ejercicio de esa posición. El camino del coach lo
+    /// ignora (manda `template_segment_id`).
+    var item_index: Int? = nil
+    /// La ronda del formato (base 0) — `segment_executions.round_index` (0155).
+    var round_index: Int? = nil
 }
 
 // One PM5 split/interval on the wire — the ErgData interval table row. Explicit
@@ -1353,9 +1402,23 @@ extension WorkoutPlan {
         // order, so the live timer/lap engine walks the session in coach order.
         // Each segment carries its block's title + position so the post-workout
         // summary can regroup by block and the active HUD can show the phase.
+        let ordered = workout.blocks.sorted { $0.blockPosition < $1.blockPosition }
+        // La posición de cada ejercicio en el orden del plan (base 0) — la misma que
+        // el servidor usa para crear los `template_segments` de un libre. Se fija
+        // ANTES de unir tramos de ruta, para que cada estación conserve la suya.
+        var itemIndexByUid: [String: Int] = [:]
+        for item in ordered.flatMap(\.items) where itemIndexByUid[item.uid] == nil {
+            itemIndexByUid[item.uid] = itemIndexByUid.count
+        }
+        func source(_ item: WorkoutItem) -> SegmentSource {
+            SegmentSource(templateSegmentId: item.templateSegmentId, itemIndex: itemIndexByUid[item.uid])
+        }
+        // Una simulación HYROX escrita bloque a bloque es UNA ruta (ver
+        // `joiningRouteLegs`). En dobles no: el reparto va estación a estación.
+        let dobles = detail.assignment.stationAssignment?.stations.isEmpty == false
+        let blocks = WorkoutBlock.joiningRouteLegs(ordered, keepApart: dobles)
         var order = 0
-        let segments: [WorkoutSegment] = workout.blocks
-            .sorted { $0.blockPosition < $1.blockPosition }
+        let segments: [WorkoutSegment] = blocks
             .flatMap { block -> [WorkoutSegment] in
                 // Calentamiento y vuelta a la calma NUNCA se pliegan, sea cual sea su
                 // `format` — es el contrato que ya documentaban `conditioningFold` y
@@ -1373,7 +1436,7 @@ extension WorkoutPlan {
                 if phase == .warmup || phase == .cooldown {
                     return block.items.map { item in
                         order += 1
-                        return segment(from: item, order: order, block: block)
+                        return segment(from: item, order: order, block: block, source: source(item))
                     }
                 }
                 // An ALTERNATING EMOM is ONE block with several movements that the
@@ -1385,7 +1448,8 @@ extension WorkoutPlan {
                 // per-item would run them as N separate 15-min EMOMs — the 30-min bug.
                 if let merged = block.alternatingEmom {
                     order += 1
-                    return [mergedEmomSegment(block: block, merged: merged, order: order)]
+                    return [mergedEmomSegment(block: block, merged: merged, order: order,
+                                              sources: block.items.map(source))]
                 }
                 // UNA SUPERSERIE ROTA: A1 serie 1 → A2 serie 1 → A3 serie 1 →
                 // descanso → A1 serie 2 … Es UN bloque, así que es UN tramo cuya
@@ -1397,21 +1461,24 @@ extension WorkoutPlan {
                 if let (folded, slots) = block.supersetFold {
                     order += 1
                     return [mergedSupersetSegment(block: block, merged: folded,
-                                                  slots: slots, order: order)]
+                                                  slots: slots, order: order,
+                                                  sources: block.supersetTurnItems.map(source))]
                 }
                 // Every OTHER multi-movement conditioning block (For Time, AMRAP,
-                // Tabata, Intervals, Death By, Steady, Chipper, Ladder, Rounds,
-                // HYROX sim) folds into ONE block-level segment the same way: the
-                // format runs a SINGLE timer over the whole round/list (the screen
-                // is the block, not a per-movement lap). Mirrors the EMOM fold;
-                // strength / warmup / cooldown stay one-segment-per-item.
+                // Tabata, Intervals, Death By, Chipper, Ladder, Rounds, HYROX sim)
+                // folds into ONE block-level segment the same way: the format runs
+                // a SINGLE timer over the whole round/list (the screen is the
+                // block, not a per-movement lap). Mirrors the EMOM fold; strength /
+                // warmup / cooldown — y un bloque CONTINUO, que es una sucesión de
+                // piezas (ver `conditioningFold`) — stay one-segment-per-item.
                 if let folded = block.conditioningFold {
                     order += 1
-                    return [mergedConditioningSegment(block: block, merged: folded, order: order)]
+                    return [mergedConditioningSegment(block: block, merged: folded, order: order,
+                                                      sources: block.items.map(source))]
                 }
                 return block.items.map { item in
                     order += 1
-                    return segment(from: item, order: order, block: block)
+                    return segment(from: item, order: order, block: block, source: source(item))
                 }
             }
 
@@ -1488,7 +1555,8 @@ extension WorkoutPlan {
         }
     }
 
-    private static func segment(from item: WorkoutItem, order: Int, block: WorkoutBlock) -> WorkoutSegment {
+    private static func segment(from item: WorkoutItem, order: Int, block: WorkoutBlock,
+                                source: SegmentSource) -> WorkoutSegment {
         let p = item.paramsJson
         let distanceMeters: Double? = p.distanceMeters.map(Double.init)
             ?? p.distanceKm.map { $0 * 1000 }
@@ -1499,8 +1567,11 @@ extension WorkoutPlan {
         // into a real per-set prescription so the multi-set logger records ALL N sets
         // (with their tempo/rest). An AUTHORED prescription always wins — only a
         // prescription-LESS scalar strength with N>1 sets is synthesized here.
-        let prescription = item.prescription ?? item.scalarStrengthPrescription
-        return WorkoutSegment(
+        //
+        // Y el FORMATO DEL BLOQUE manda cuando el bloque es una prueba puntuable y
+        // su único ejercicio solo dice la dosis (`governedByBlockFormat`).
+        let prescription = block.governedByBlockFormat(item.prescription ?? item.scalarStrengthPrescription)
+        var seg = WorkoutSegment(
             order: order,
             title: item.exerciseName,
             kind: kind,
@@ -1529,6 +1600,8 @@ extension WorkoutPlan {
             prescription: prescription,
             ergKind: item.ergSubtype            // #erg-2: row/ski/bike, not a merged "row"
         )
+        seg.sourceItemIndex = source.itemIndex
+        return seg
     }
 
     // Package the shared alternating-EMOM fold (`block.alternatingEmom` — the ONE
@@ -1536,7 +1609,8 @@ extension WorkoutPlan {
     // single live-execution segment that runs it. Only the segment-specific
     // concerns live here (lap modality, title, attributed template id); the
     // rotation itself is built once on `WorkoutBlock`, never re-derived.
-    private static func mergedEmomSegment(block: WorkoutBlock, merged: Prescription, order: Int) -> WorkoutSegment {
+    private static func mergedEmomSegment(block: WorkoutBlock, merged: Prescription, order: Int,
+                                          sources: [SegmentSource]) -> WorkoutSegment {
         // `kind` drives the ONE recorded lap's modality + capture. A mixed-modality
         // EMOM (run + reps) has no single modality → `.reps` (a neutral timed record,
         // no false GPS/PM5/load); a homogeneous EMOM (e.g. all-erg) keeps that kind.
@@ -1547,7 +1621,7 @@ extension WorkoutPlan {
         // row label and the EMOM HUD's movement fallback.
         let title = dedupPreservingOrder(block.items.map(\.exerciseName)).joined(separator: " / ")
 
-        return WorkoutSegment(
+        var seg = WorkoutSegment(
             order: order,
             title: title.isEmpty ? block.title : title,
             kind: kind,
@@ -1569,6 +1643,9 @@ extension WorkoutPlan {
             // machine, so the test is on the MACHINES — one of them, or none.
             ergKind: block.singleErgMachine
         )
+        seg.sourceItemIndex = sources.first?.itemIndex
+        seg.stationSources = sources
+        return seg
     }
 
     // Package the shared conditioning fold (`block.conditioningFold` — the ONE
@@ -1577,7 +1654,8 @@ extension WorkoutPlan {
     // Mirrors `mergedEmomSegment`: only the segment-specific concerns (lap
     // modality, title, attributed template id) live here; the fold itself is
     // built once on `WorkoutBlock`.
-    private static func mergedConditioningSegment(block: WorkoutBlock, merged: Prescription, order: Int) -> WorkoutSegment {
+    private static func mergedConditioningSegment(block: WorkoutBlock, merged: Prescription, order: Int,
+                                                  sources: [SegmentSource]) -> WorkoutSegment {
         // A homogeneous block (all-run series, all-erg) keeps that kind so its lap
         // records the right modality + capture; a MIXED-movement WOD (pull-ups +
         // run) has no single modality → `.reps` (a neutral timed record, no false
@@ -1592,11 +1670,16 @@ extension WorkoutPlan {
         // mixed WOD carries none (the round list drives the FIXED HUD instead).
         // "Homogeneous" has to include the MACHINE: a ski+remo Z2 used to borrow the
         // first movement's 4 km and pace and show them as the whole block's target.
-        let principal = block.isSingleModality ? block.items.first : nil
+        //
+        // Y la misma MODALIDAD no basta: tiene que ser la misma DOSIS. Una ruta de
+        // solo correr (3 km Z2 · 3 km Z3 · 3 km Z4) es una modalidad y tres piernas
+        // distintas; heredar la primera ponía «3 km @ Z2» como objetivo de las tres.
+        // Cada pierna tiene el suyo en su set (el tramo lo lee de ahí).
+        let principal = block.isSingleModality && block.itemsShareOneDose ? block.items.first : nil
         let p = principal?.paramsJson
         let distanceMeters: Double? = p?.distanceMeters.map(Double.init) ?? p?.distanceKm.map { $0 * 1000 }
 
-        return WorkoutSegment(
+        var seg = WorkoutSegment(
             order: order,
             title: title.isEmpty ? block.title : title,
             kind: kind,
@@ -1621,6 +1704,9 @@ extension WorkoutPlan {
             // none — see `mergedEmomSegment` for why the kind alone can't tell.
             ergKind: block.singleErgMachine
         )
+        seg.sourceItemIndex = sources.first?.itemIndex
+        seg.stationSources = sources
+        return seg
     }
 
     // Empaqueta la superserie plegada (`block.supersetFold`) en el ÚNICO tramo que
@@ -1630,7 +1716,8 @@ extension WorkoutPlan {
     private static func mergedSupersetSegment(block: WorkoutBlock,
                                               merged: Prescription,
                                               slots: [SupersetSlot],
-                                              order: Int) -> WorkoutSegment {
+                                              order: Int,
+                                              sources: [SegmentSource]) -> WorkoutSegment {
         // Homogénea (todo hierro) conserva su kind; una superserie MIXTA (sentadilla
         // + dominadas) no tiene una sola modalidad → `.reps`, un registro neutro sin
         // GPS ni PM5 falsos. Misma regla que los otros dos plegados. Y no se pierde
@@ -1641,7 +1728,7 @@ extension WorkoutPlan {
         // Los ejercicios en orden — es lo que el atleta reconoce como el bloque.
         let title = dedupPreservingOrder(block.items.map(\.exerciseName)).joined(separator: " · ")
 
-        return WorkoutSegment(
+        var seg = WorkoutSegment(
             order: order,
             title: title.isEmpty ? block.title : title,
             kind: kind,
@@ -1658,6 +1745,9 @@ extension WorkoutPlan {
             ergKind: block.singleErgMachine,
             supersetSlots: slots
         )
+        seg.sourceItemIndex = sources.first?.itemIndex
+        seg.stationSources = sources
+        return seg
     }
 
     // Distinct strings keeping first-seen order — for the merged EMOM title so a
@@ -1848,6 +1938,20 @@ extension WorkoutBlock {
         Set(items.map(\.segmentKind)).count == 1 && ergMachines.count <= 1
     }
 
+    /// True cuando TODOS los ejercicios del bloque prescriben la misma dosis —la
+    /// misma medida y el mismo objetivo en su primer set, y los mismos escalares—.
+    /// Solo entonces el bloque puede tomar prestados los de uno como suyos.
+    var itemsShareOneDose: Bool {
+        guard let first = items.first else { return false }
+        let firstSet = first.prescription?.sets?.first
+        return items.dropFirst().allSatisfy { item in
+            let set = item.prescription?.sets?.first
+            return set?.measure == firstSet?.measure
+                && (set?.target ?? item.prescription?.target) == (firstSet?.target ?? first.prescription?.target)
+                && item.paramsJson == first.paramsJson
+        }
+    }
+
     /// True when this block is an ALTERNATING EMOM: an EMOM (the block's declared
     /// `emom` format, else every item carries an EMOM prescription) with MORE THAN
     /// ONE movement. A single-movement EMOM (one item every minute) and every
@@ -2024,10 +2128,19 @@ extension WorkoutBlock {
     /// multi-movement conditioning block (single-movement blocks keep their natural
     /// one-segment-per-item shape; strength / warmup / cooldown never fold). THE
     /// single fold the live timer and the preview both read.
+    ///
+    /// UN BLOQUE CONTINUO NO SE PLIEGA (28-sep). «Steady»/«tempo» con varios
+    /// ejercicios es una SUCESIÓN de piezas —remo 15′ + ski 15′ + bici 15′
+    /// (plantilla 86), carrera 60′ + bici 30′—, no una lista que se hace a la vez.
+    /// Plegado era UN tramo con la máquina del primero y la duración del ítem más
+    /// largo: se cerraba a los 15′ de 45′ y remaba en el monitor del ski. Sin
+    /// pliegue cada ejercicio es su tramo, con SU máquina y SU duración, y el
+    /// bloque dura la suma.
     var conditioningFold: Prescription? {
         guard items.count > 1,
               let scheme = conditioningScheme,
               scheme != .emom,           // alternating EMOM has its own fold
+              scheme.presentation != .continuous,
               scheme.runsConditioningTimer else { return nil }
 
         // Each movement becomes one round/list entry — its work (the item's set,
@@ -2098,6 +2211,124 @@ extension WorkoutBlock {
             increment: increment,
             restBetweenRoundsS: restBetweenRoundsS
         )
+    }
+
+    /// El ejercicio de cada turno de la superserie plegada, en el orden de
+    /// `supersetFold` (A1 serie 1 → A2 serie 1 → … → A1 serie 2). Paralelo a su
+    /// rotación, para que cada serie diga de qué ejercicio del plan sale.
+    var supersetTurnItems: [WorkoutItem] {
+        let porEjercicio = items.map(\.seriesEjecutables)
+        let vueltas = porEjercicio.map(\.count).max() ?? 0
+        guard vueltas > 0 else { return [] }
+        var out: [WorkoutItem] = []
+        for vuelta in 0..<vueltas {
+            for (i, item) in items.enumerated() where vuelta < porEjercicio[i].count {
+                out.append(item)
+            }
+        }
+        return out
+    }
+
+    // MARK: - El formato del bloque manda (28-sep)
+
+    /// EL FORMATO DEL BLOQUE MANDA SOBRE EL ESQUEMA DE SU ÚNICO EJERCICIO cuando el
+    /// bloque es una prueba puntuable —For Time, Chipper, Escalera, Rondas,
+    /// Simulacro— y el ejercicio solo dice su DOSIS: una pieza `steady` sin ventana
+    /// de tiempo («1 km», «2.000 m de remo», «100 wall balls»).
+    ///
+    /// El caso que lo destapó: la simulación HYROX escrita bloque a bloque (16
+    /// bloques `hyrox_sim` de un ejercicio `steady` cada uno, plantilla 342). Corría
+    /// cada estación como un rodaje: 15 puertas «Arrancar bloque» por medio y el
+    /// tiempo final sin capturar, porque la puntuación se busca en el formato del
+    /// bloque y el tramo decía `steady`.
+    ///
+    /// Por qué SOLO en ese caso, medido contra la base (28-sep, bloques de un ítem
+    /// cuyo formato no coincide con el esquema): un `circuit` con 4×4 de fuerza
+    /// (sets), un `intervals` con un «TEST 30′» (steady con 1.800 s), un `tempo` con
+    /// 2×20″ de plancha… En esos el ejercicio trae una estructura que el formato del
+    /// bloque NO tiene (series, una ventana), y sobreescribirla rompía el entreno.
+    /// Donde el ejercicio solo aporta la dosis, el bloque es quien sabe cómo se
+    /// corre y cómo se puntúa.
+    ///
+    /// Calentamiento y vuelta a la calma nunca, como en los pliegues.
+    func governedByBlockFormat(_ p: Prescription?) -> Prescription? {
+        guard let p, items.count == 1,
+              let blockScheme = PrescriptionScheme(canonicalizing: format),
+              blockScheme != p.scheme,
+              blockScheme.presentation == .fixed,
+              p.scheme == .steady, p.totalS == nil, p.structure == nil
+        else { return p }
+        let phase = BlockPhase.classify(title: title)
+        guard phase != .warmup, phase != .cooldown else { return p }
+        return p.regida(por: blockScheme,
+                        rounds: configJson?.int("rounds"),
+                        totalS: configJson?.int("time_cap_seconds"))
+    }
+
+    /// UNA SIMULACIÓN HYROX ESCRITA BLOQUE A BLOQUE ES UNA SOLA RUTA.
+    ///
+    /// La plantilla 342 escribe la carrera como 16 bloques `hyrox_sim` de un
+    /// ejercicio cada uno (Run 1 · Estación 1 · SkiErg · Run 2 · …). Es la MISMA
+    /// carrera que las plantillas 446/489 escriben como un bloque de 16 ejercicios,
+    /// y tiene que correr igual: una ruta de estaciones con el crono acumulado,
+    /// sin una puerta «Arrancar bloque» entre estación y estación, y con el tiempo
+    /// final como puntuación.
+    ///
+    /// Se unen los bloques CONSECUTIVOS de simulacro con un solo ejercicio. El
+    /// bloque unido se llama como el formato y conserva la posición del primero;
+    /// cada estación conserva su ejercicio, así que su `template_segments.id` y su
+    /// parcial siguen siendo suyos (`stationSources`). Solo `hyrox_sim`: dos For
+    /// Time seguidos que el coach escribió aparte son dos puntuaciones, y unirlos
+    /// sería decidir por él.
+    ///
+    /// `keepApart` (dobles): el reparto de la pareja va estación a estación por su
+    /// `template_segment_id`, y un único tramo no lo puede llevar.
+    static func joiningRouteLegs(_ ordered: [WorkoutBlock], keepApart: Bool) -> [WorkoutBlock] {
+        guard !keepApart else { return ordered }
+        func isLeg(_ b: WorkoutBlock) -> Bool {
+            guard b.items.count == 1,
+                  PrescriptionScheme(canonicalizing: b.format) == .hyroxSim else { return false }
+            let phase = BlockPhase.classify(title: b.title)
+            return phase != .warmup && phase != .cooldown
+        }
+        var out: [WorkoutBlock] = []
+        var run: [WorkoutBlock] = []
+        func flush() {
+            if run.count >= 2, let first = run.first {
+                out.append(WorkoutBlock(
+                    uid: first.uid,
+                    title: PrescriptionScheme.hyroxSim.nombreEs,
+                    format: first.format,
+                    blockPosition: first.blockPosition,
+                    coachNote: run.compactMap(\.coachNote).first,
+                    configJson: first.configJson,
+                    items: run.flatMap(\.items)
+                ))
+            } else {
+                out.append(contentsOf: run)
+            }
+            run = []
+        }
+        for b in ordered {
+            if isLeg(b) { run.append(b) } else { flush(); out.append(b) }
+        }
+        flush()
+        return out
+    }
+}
+
+extension Prescription {
+    /// La misma prescripción corrida con el formato de su BLOQUE: el esquema cambia
+    /// y, si faltan, se toman del bloque las rondas y el tope. Todo lo demás —las
+    /// series, el objetivo, la estructura— es del ejercicio y se queda como estaba.
+    func regida(por scheme: PrescriptionScheme, rounds: Int?, totalS: Int?) -> Prescription {
+        var p = Prescription(scheme: scheme, modality: modality, sets: sets,
+                             rounds: self.rounds ?? rounds, workS: workS, restS: restS,
+                             totalS: self.totalS ?? totalS, target: target, note: note,
+                             start: start, increment: increment)
+        p.structure = structure
+        p.restBetweenRoundsS = restBetweenRoundsS
+        return p
     }
 }
 

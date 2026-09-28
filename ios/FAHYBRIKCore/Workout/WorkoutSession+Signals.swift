@@ -253,6 +253,21 @@ extension WorkoutSession {
         lapInclineCount += 1
     }
 
+    /// Una lectura de CADENCIA de carrera (pasos/min) del podómetro. Solo cuenta
+    /// mientras el tramo es correr y la sesión no está en pausa; fuera de rango
+    /// fisiológico (no es correr: el móvil en la mano, una sacudida) se descarta en
+    /// vez de ensuciar la media. La media del lap es lo que viaja (`run_cadence_spm`).
+    func sampleRunCadence(stepsPerMinute spm: Double) {
+        guard !isPaused, !isFinished, !isAwaitingBlockStart, tramoIsRun,
+              spm.isFinite, spm >= Self.cadenciaMinimaSpm, spm <= Self.cadenciaMaximaSpm else { return }
+        lapRunCadenceSamples.append(spm)
+    }
+
+    /// El rango en que una cadencia es de CORRER (andar rápido ~120; un sprint ~220).
+    /// Fuera de él la lectura no describe la carrera y no entra en la media.
+    static let cadenciaMinimaSpm: Double = 120
+    static let cadenciaMaximaSpm: Double = 240
+
     /// Feeds the covered-meters INCREMENT the treadmill belt measured since the last
     /// sample into the current run segment's total (mirrors `sampleRunDistance`). The HUD
     /// computes the increment from the belt odometer / speed and the SESSION owns the

@@ -389,6 +389,7 @@ extension WorkoutSession {
               index >= 0, index < plan.segments.count, index != currentSegmentIndex else { return }
         Haptics.medium()
         let origin = currentSegmentIndex
+        if index > currentSegmentIndex { flushOpenStationLap() }
         clearEMOMState()
         clearConditioning()
         clearRunStructure()
@@ -450,6 +451,7 @@ extension WorkoutSession {
         // Capture the in-flight conditioning score before the engine is torn down
         // (a "Terminar y guardar" mid-AMRAP keeps the rounds so far). No-op when
         // the engine already closed itself via `closeConditioningAndAdvance`.
+        flushOpenStationLap()
         captureConditioningScore()
         captureEMOMScore()   // a "Terminar y guardar" mid-EMOM keeps X/Y rondas (#break-1)
         clearEMOMState()
@@ -628,7 +630,8 @@ extension WorkoutSession {
         guard canEndBlockEarly, let region = currentBlockRegion else { return }
         Haptics.heavy()   // a firm, intentional cue — NOT the success chord
         // An in-flight conditioning block records its partial score (rounds/time so
-        // far) before the engine is torn down.
+        // far) before the engine is torn down — y la estación que quedó abierta.
+        flushOpenStationLap()
         captureConditioningScore()
         clearEMOMState()
         clearConditioning()

@@ -83,7 +83,16 @@ struct ActiveWorkoutView: View {
     /// Store whose numbers own the current tramo. Nil on Run / rest — never the
     /// other role's monitor (that is the «2 PM5 as 1» bug).
     private var livePM5: PM5ConnectionStore? {
-        pool.activeStore(for: session.currentTramo)
+        if let tramoStore = pool.activeStore(for: session.currentTramo) { return tramoStore }
+        // FORMATO LIBRE CON MÁQUINA (AMRAP, rondas sin cursor): el segmento ES el
+        // tramo y su modalidad no es un ergo, así que la búsqueda por tramo daba nil
+        // y caía al monitor GENÉRICO — que nadie había conectado: el atleta conectó
+        // «Remo» en la puerta. Ni la tira salía ni el motor recibía una palada. Se
+        // lee POR MÁQUINA, igual que la puerta (`PreWorkoutDeviceEligibility`): la
+        // que esté conectada de las que el bloque nombra.
+        guard let seg = session.currentSegment,
+              MachineTramoLaw.recordsPM5(tramo: session.currentTramo, segment: seg) else { return nil }
+        return pool.connectedStore(forAnyOf: PreWorkoutDeviceEligibility.namedErgRoles(in: [seg]))
     }
 
     /// Picker for the current tramo's role — opens that slot even if empty so
@@ -556,6 +565,10 @@ struct ActiveWorkoutView: View {
         runPedometer.onDistanceDelta = { delta in
             session.sampleRunDistance(deltaMeters: delta, source: .healthkit)
         }
+        // La cadencia del mismo podómetro: la mide el sistema, la media va al lap.
+        runPedometer.onCadence = { spm in
+            session.sampleRunCadence(stepsPerMinute: spm)
+        }
         runGPS.onSpeed = { speed, acc in
             session.sampleRunSpeed(metersPerSecond: speed, accuracyMps: acc)
         }
@@ -752,6 +765,15 @@ struct ActiveWorkoutView: View {
                 let last = session.fixedRoundsDone >= session.fixedListTotal - 1
                 if last { return session.isLastSegment ? "TERMINAR" : "ÚLTIMA HECHA" }
                 return "ESTACIÓN HECHA"
+            }
+            // Una lista de RONDAS: el botón cierra UNA ronda (`conditioningPrimary`
+            // → `markRoundDone`), así que no puede decir «TERMINAR» hasta la última.
+            // Decía TERMINAR en la ronda 1 de 10 del último bloque, y el atleta
+            // no lo tocaba por miedo a acabar el entreno.
+            if session.currentSegment?.formatScheme != .steady, session.fixedListTotal > 1 {
+                let last = session.fixedRoundsDone >= session.fixedListTotal - 1
+                if last { return session.isLastSegment ? "TERMINAR" : "ÚLTIMA HECHA" }
+                return "RONDA HECHA"
             }
             return session.isLastSegment ? "TERMINAR" : "HECHO"
         default:         return "SIGUIENTE"

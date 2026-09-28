@@ -18,6 +18,25 @@ extension WorkoutSession {
         tramoPaceSampleStart = lapErgPaceSamples.count
         tramoPowerSampleStart = lapErgPowerSamples.count
         tramoSpmSampleStart = lapErgSpmSamples.count
+        tramoInclineSumStart = lapInclineSum
+        tramoInclineCountStart = lapInclineCount
+        tramoCadenceSampleStart = lapRunCadenceSamples.count
+    }
+
+    /// La pendiente media de la cinta DENTRO de la ventana del tramo. Nil si ninguna
+    /// lectura de cinta cayó en ella (una cinta plana, 0 %, sí cuenta).
+    var tramoInclinePct: Double? {
+        let n = lapInclineCount - tramoInclineCountStart
+        guard n > 0 else { return nil }
+        return (lapInclineSum - tramoInclineSumStart) / Double(n)
+    }
+
+    /// La cadencia media (pasos/min) DENTRO de la ventana del tramo; nil sin muestras.
+    var tramoRunCadenceSpm: Int? {
+        let i = Swift.min(tramoCadenceSampleStart, lapRunCadenceSamples.count)
+        let slice = lapRunCadenceSamples[i...]
+        guard !slice.isEmpty else { return nil }
+        return Int((slice.reduce(0, +) / Double(slice.count)).rounded())
     }
 
     /// One WORK bout of an erg interval series → its own LapRecord (distance / cal /
@@ -86,7 +105,9 @@ extension WorkoutSession {
             // prioridad, y solo si este bout tuvo alguna muestra propia (nunca una
             // procedencia heredada de una serie que no midió nada). Mismo criterio
             // que `recordRunLegLap` y que el merge de `closeCurrentSegmentLap`.
-            hrSource: hrSlice.isEmpty ? nil : hrSource?.rawValue
+            hrSource: hrSlice.isEmpty ? nil : hrSource?.rawValue,
+            itemIndex: seg.sourceItemIndex,
+            roundIndex: boutIndex
         )
         laps.append(lap)
         ergIntervalBoutsRecorded += 1
@@ -124,6 +145,11 @@ extension WorkoutSession {
         let inclinePct: Double? = inclineCountDelta > 0
             ? (lapInclineSum - runLegInclineSumStart) / Double(inclineCountDelta)
             : nil
+        // Per-leg cadence from the phone pedometer samples that fed THIS leg.
+        let cadStart = Swift.min(runLegCadenceSampleStart, lapRunCadenceSamples.count)
+        let cadSlice = lapRunCadenceSamples[cadStart...]
+        let cadence: Int? = cadSlice.isEmpty
+            ? nil : Int((cadSlice.reduce(0, +) / Double(cadSlice.count)).rounded())
         // Source precedence mirrors the aggregate close: real movement data > HR-only.
         let source = beltDelta > 0 ? "treadmill" : (gpsDelta > 0 ? "healthkit" : (avgHR != nil ? "healthkit" : "manual"))
         let lap = LapRecord(
@@ -158,8 +184,9 @@ extension WorkoutSession {
             runLegRole: leg.kind.rawValue,
             runLegPhase: leg.phaseRole.rawValue,
             inclinePct: inclinePct,
-            runCadenceSpm: nil,
-            hrSource: legHRSource
+            runCadenceSpm: cadence,
+            hrSource: legHRSource,
+            itemIndex: seg.sourceItemIndex
         )
         laps.append(lap)
     }
@@ -221,10 +248,13 @@ extension WorkoutSession {
         }()
         // Wire modality of THIS minute (row/ski/run/functional), never the folded block.
         let modality = tramo.modality.rawValue
+        // El ejercicio de ESTE minuto: en un EMOM alterno cada minuto es de su
+        // movimiento, y el lap se atribuye a él, no al primero del bloque.
+        let fuente = seg.stationSource(at: index)
         let lap = LapRecord(
             id: UUID(),
             segmentId: seg.id,
-            templateSegmentId: seg.templateSegmentId,
+            templateSegmentId: fuente?.templateSegmentId ?? (fuente == nil ? seg.templateSegmentId : nil),
             position: seg.order,
             modality: modality,
             startedAt: now.addingTimeInterval(-dur),
@@ -254,9 +284,118 @@ extension WorkoutSession {
             runLegPhase: "main",
             // Igual que en las series de erg y en la carrera estructurada: de qué
             // aparato salió el pulso de ESTE minuto, y solo si el minuto midió algo.
-            hrSource: hrSlice.isEmpty ? nil : hrSource?.rawValue
+            inclinePct: isRun ? tramoInclinePct : nil,
+            runCadenceSpm: isRun ? tramoRunCadenceSpm : nil,
+            hrSource: hrSlice.isEmpty ? nil : hrSource?.rawValue,
+            itemIndex: fuente?.itemIndex ?? seg.sourceItemIndex,
+            roundIndex: index
         )
         laps.append(lap)
         emomIntervalBoutsRecorded += 1
+    }
+
+    /// UNA ESTACIÓN CERRADA DE UNA RUTA = SU PROPIO LAP.
+    ///
+    /// El motor ya sabía el parcial de cada estación (`fixedRoundSplits`) y lo
+    /// enseñaba en vivo, pero al guardar salía UNA vuelta por bloque: 16 estaciones
+    /// de una simulación HYROX con el ritmo del remo mezclado con el de correr. Aquí
+    /// cada estación se graba como lo que es: su ejercicio del plan (su
+    /// `template_segments.id`, o su posición si el plan aún no tiene ids), su
+    /// máquina, su tiempo, lo que midió el aparato, su pulso. `runLegIndex` es el
+    /// índice plano de la estación (estaciones × rondas) y `roundIndex` la ronda
+    /// exterior, como en el resto de bouts.
+    ///
+    /// Se llama con la ventana de la estación AÚN abierta (antes de mover el cursor).
+    func recordFixedStationLap(at stationIndex: Int) {
+        guard let seg = currentSegment, seg.fixedListIsStations else { return }
+        let tramo = currentTramo
+        let now = Date()
+        let dur = tramoRecordedSeconds
+        let isErg = tramo.isErg
+        let isRun = tramo.isRun
+        let meters: Double? = {
+            if isErg, let m = tramoErgDistanceMeters, m >= 1 { return m }
+            if isRun, let m = tramoRunCoveredMeters, m >= 1 { return m }
+            return nil
+        }()
+        let cals: Double? = {
+            guard isErg, let c = tramoErgCalories, c >= 1 else { return nil }
+            return Double(c)
+        }()
+        let hrStart = Swift.min(tramoHRStartCount, lapHRSamples.count)
+        let hrSlice = Array(lapHRSamples[hrStart...])
+        let avgHR = hrSlice.isEmpty ? nil : hrSlice.reduce(0, +) / hrSlice.count
+        func meanSlice(_ xs: [Double], from: Int) -> Double? {
+            let i = Swift.min(from, xs.count)
+            let s = Array(xs[i...])
+            guard !s.isEmpty else { return nil }
+            return s.reduce(0, +) / Double(s.count)
+        }
+        let avgPace500: Double? = {
+            guard isErg else { return nil }
+            if let p = meanSlice(lapErgPaceSamples, from: tramoPaceSampleStart), p > 0 { return p }
+            guard let m = meters, m > 0, dur > 0 else { return nil }
+            return (dur / m) * 500.0
+        }()
+        let avgPaceKm: Double? = isRun ? Self.paceSecPerKm(meters: meters, seconds: dur) : nil
+        let source: String = {
+            if isErg && lapHadPM5 && meters != nil { return "pm5" }
+            if isRun && tramoBeltDistanceMeters != nil { return "treadmill" }
+            if isRun && meters != nil { return "healthkit" }
+            if avgHR != nil { return "healthkit" }
+            return "manual"
+        }()
+        let fuente = seg.stationSource(at: stationIndex)
+        let stations = Swift.max(1, seg.declaredComponents.count)
+        let lap = LapRecord(
+            id: UUID(),
+            segmentId: seg.id,
+            templateSegmentId: fuente?.templateSegmentId ?? (fuente == nil ? seg.templateSegmentId : nil),
+            position: seg.order,
+            modality: tramo.modality.rawValue,
+            startedAt: now.addingTimeInterval(-dur),
+            endedAt: now,
+            durationSeconds: dur,
+            avgHRBpm: avgHR,
+            maxHRBpm: hrSlice.max(),
+            zoneSecondsByZone: [:],
+            repsCompleted: nil,
+            distanceCoveredMeters: meters,
+            avgPaceSecPer500m: avgPace500,
+            avgPaceSecPerKm: avgPaceKm,
+            avgPowerWatts: isErg ? meanSlice(lapErgPowerSamples, from: tramoPowerSampleStart) : nil,
+            strokeRateSpm: isErg ? meanSlice(lapErgSpmSamples, from: tramoSpmSampleStart) : nil,
+            calories: cals,
+            weightUsedKg: nil,
+            source: source,
+            repsPrescribed: nil,
+            repsStatus: nil,
+            repsConfirmed: false,
+            isStructural: false,
+            rxScaled: nil,
+            scaledNote: nil,
+            sets: nil,
+            runLegIndex: stationIndex,
+            runLegRole: "work",
+            runLegPhase: "main",
+            inclinePct: isRun ? tramoInclinePct : nil,
+            runCadenceSpm: isRun ? tramoRunCadenceSpm : nil,
+            hrSource: hrSlice.isEmpty ? nil : hrSource?.rawValue,
+            itemIndex: fuente?.itemIndex ?? seg.sourceItemIndex,
+            roundIndex: stationIndex / stations
+        )
+        laps.append(lap)
+    }
+
+    /// La estación que queda ABIERTA cuando el bloque se cierra sin tacharla (el
+    /// tope, «Terminar bloque», «Terminar y guardar»). Lo hecho en ella se midió y no
+    /// se tira: se graba como las demás. Sin ningún segundo dentro, no hay nada.
+    func flushOpenStationLap() {
+        guard condSegmentIndex == currentSegmentIndex,
+              let seg = currentSegment, seg.fixedListIsStations,
+              condCountInRemaining <= 0, fixedRestRemaining <= 0,
+              fixedRoundsDone < fixedListTotal,
+              tramoRecordedSeconds >= 1 else { return }
+        recordFixedStationLap(at: currentStationIndex)
     }
 }

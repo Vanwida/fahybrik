@@ -264,7 +264,18 @@ extension WorkoutSession {
         if isRunStructureActive, let legs = currentRunLegs, idx + 1 < legs.count {
             return legs[idx + 1].isWork ? "tramo \(idx + 2)" : "recuperación"
         }
-        if isConditioningActive, idx + 1 < tramoRoundTotal, let seg {
+        // RUTA DE ESTACIONES: lo que viene es la SIGUIENTE ESTACIÓN, no el bloque de
+        // después. «Luego · Sled Pull» cuando se está en el SkiErg de la simulación.
+        if let seg, seg.isConditioningTimer, seg.fixedListIsStations,
+           fixedRoundsDone + 1 < fixedListTotal {
+            let n = fixedRoundsDone + 1
+            let next = seg.rotationTramo(segmentIndex: currentSegmentIndex,
+                                         cursor: .fixedStation(n), index: n, boxedSeconds: nil)
+            if let work = next.workLine { return "\(work) · \(next.label)" }
+            return next.label
+        }
+        if isConditioningActive, seg?.formatScheme?.presentation == .rotating,
+           idx + 1 < tramoRoundTotal, let seg {
             let next = seg.rotationTramo(segmentIndex: currentSegmentIndex,
                                          cursor: .conditioningRound(idx + 1),
                                          index: idx + 1, boxedSeconds: nil)
@@ -272,6 +283,14 @@ extension WorkoutSession {
             return next.label
         }
         return nextSegment?.title
+    }
+
+    /// La zona objetivo de lo que viene, cuando lo que viene es OTRO segmento (el
+    /// siguiente bloque trae su propia zona). Dentro de un formato la siguiente
+    /// ronda no tiene zona propia que enseñar y esto es nil.
+    var nextTramoZone: HRZone? {
+        guard let line = nextTramoLine, line == nextSegment?.title else { return nil }
+        return nextSegment?.targetZone
     }
 
     // MARK: - The tramo's own clock

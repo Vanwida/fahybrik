@@ -494,38 +494,10 @@ final class TreadmillHUDModel {
         Int((isStructured ? session.runCountInRemaining : session.condCountInRemaining).rounded(.up))
     }
 
-    var currentLeg: TreadmillLeg {
-        guard let seg = currentSegment else {
-            return TreadmillLeg(phase: .single, goal: .open, target: .none, ownsAutoAdvance: false)
-        }
-        let resolved = isStructured
-            ? TreadmillLegResolver.leg(for: seg, structureLegIndex: session.runLegIndex)
-            : TreadmillLegResolver.leg(for: seg, isWork: isWorkPhase)
-        return withStationGoal(resolved)
-    }
-
-    /// EL OBJETIVO DE LA ESTACIÓN, CUANDO EL SEGMENTO NO LO SABE.
-    ///
-    /// «1.000 m corriendo · 500 m ski · 1.000 m corriendo · …» se pliega en UN
-    /// segmento sin distancia, porque mezcla modalidades. La pantalla de la cinta
-    /// sacaba su objetivo de ahí, así que durante el kilómetro no enseñaba ni la
-    /// dosis ni los metros que faltaban: sólo un cronómetro. El objetivo SÍ existía,
-    /// un piso más abajo — en el tramo, que es el que sabe que esta estación son
-    /// 1.000 m, y es el mismo número contra el que el motor cierra la estación.
-    ///
-    /// Sólo se RELLENA un objetivo ausente; nunca se pisa uno que el segmento ya
-    /// traía. Y no se toca `ownsAutoAdvance`: el cierre de una estación lo hace el
-    /// motor (`advanceRunStationIfGoalMet`), y dos dueños la cerrarían dos veces.
-    private func withStationGoal(_ leg: TreadmillLeg) -> TreadmillLeg {
-        guard leg.goal == .open,
-              session.currentTramo.isFixedStation,
-              let target = session.currentTramo.targetDistanceMeters, target > 0
-        else { return leg }
-        return TreadmillLeg(phase: leg.phase,
-                            goal: .distance(meters: target),
-                            target: leg.target,
-                            ownsAutoAdvance: false)
-    }
+    /// La pierna del TRAMO — la misma función que la calle
+    /// (`TreadmillLegResolver.leg(for: session)`): la dosis y el objetivo de ESTA
+    /// estación o ESTE minuto cuando el segmento plegado no los sabe.
+    var currentLeg: TreadmillLeg { TreadmillLegResolver.leg(for: session) }
 
     var isRecovery: Bool { currentLeg.isRecovery }
     var runTarget: RunTarget { currentLeg.target }

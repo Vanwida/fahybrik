@@ -58,10 +58,16 @@ enum SegmentPayloadBuilder {
     /// lo hecho contra lo prescrito por `template_segment_id` + `leg_index`, nunca por
     /// el `position` absoluto, así que re-secuenciar no pierde nada. Una sesión SIN
     /// tramos de carrera conserva su `position` heredado exacto (cero cambio).
+    ///
+    /// `planSegmentIds`: los `template_segments.id` de un libre guardado ANTES de
+    /// correrlo, en el orden en que el servidor los devolvió (`order by position,
+    /// id`). Un lap sin id propio se enlaza con el de su `itemIndex` — por el ORDEN,
+    /// nunca por el valor de `position` (docs/pr/un-solo-entreno.md).
     static func build(
         laps: [LapRecord],
         overlay: ManualSegmentOverlay = .none,
-        iso: ISO8601DateFormatter
+        iso: ISO8601DateFormatter,
+        planSegmentIds: [Int]? = nil
     ) -> [SegmentExecutionDTO] {
         let manualHRAvg = ManualSegmentOverlay.validHR(overlay.avgHR)
         let manualHRMax = ManualSegmentOverlay.validHR(overlay.maxHR)
@@ -136,8 +142,13 @@ enum SegmentPayloadBuilder {
                 )
             }
 
-            return SegmentExecutionDTO(
-                template_segment_id: lap.templateSegmentId,
+            let enlazado: Int? = lap.templateSegmentId ?? {
+                guard let ids = planSegmentIds, let i = lap.itemIndex, ids.indices.contains(i) else { return nil }
+                return ids[i]
+            }()
+
+            var dto = SegmentExecutionDTO(
+                template_segment_id: enlazado,
                 position: wirePosition,
                 modality: lap.modality,
                 started_at: iso.string(from: lap.startedAt),
@@ -190,6 +201,9 @@ enum SegmentPayloadBuilder {
                 reps_source: lap.repsSource,
                 reps_confidence: lap.repsConfidence
             )
+            dto.item_index = lap.itemIndex
+            dto.round_index = lap.roundIndex
+            return dto
         }
     }
 }

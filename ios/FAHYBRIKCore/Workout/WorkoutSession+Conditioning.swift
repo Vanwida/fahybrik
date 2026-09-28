@@ -431,6 +431,9 @@ extension WorkoutSession {
         // de máquina, que tampoco re-anclan, ahí no afirman nada (nil, no un
         // acumulado disfrazado de ronda).
         let esEstacion = currentTramo.isFixedStation
+        // La estación se graba ENTERA antes de mover el cursor: su ejercicio, su
+        // máquina, su parcial (ver `recordFixedStationLap`).
+        if esEstacion { recordFixedStationLap(at: fixedRoundsDone) }
         fixedRoundSplits.append(FixedStationSplit(
             elapsed: condElapsed,
             seconds: esEstacion ? tramoRecordedSeconds
@@ -553,6 +556,11 @@ extension WorkoutSession {
         guard fixedRoundsDone > 0 else { return }
         fixedRoundsDone -= 1
         if !fixedRoundSplits.isEmpty { fixedRoundSplits.removeLast() }
+        // La estación deshecha tampoco queda grabada: su lap se fue con el toque.
+        if let seg = currentSegment, seg.fixedListIsStations,
+           let i = laps.lastIndex(where: { $0.segmentId == seg.id && $0.runLegIndex == fixedRoundsDone }) {
+            laps.remove(at: i)
+        }
         Haptics.light()
     }
 
@@ -662,6 +670,7 @@ extension WorkoutSession {
     private func closeConditioningAndAdvance() {
         let wasLast = isLastSegment
         let origin = currentSegmentIndex
+        flushOpenStationLap()
         captureConditioningScore()
         clearConditioning()
         closeCurrentSegmentLap()

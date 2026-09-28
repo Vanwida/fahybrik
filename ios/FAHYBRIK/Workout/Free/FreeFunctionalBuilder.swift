@@ -387,9 +387,13 @@ final class FreeFunctionalDraft {
                 note: m.exercise.name
             )
         }
+        // La modalidad del bloque NO se fuerza a «funcional» cuando hay movimientos:
+        // la llevan los sets, y una etiqueta de bloque encima tapaba la máquina (un
+        // For Time de 2.000 m de remo salía sin PM5). Solo el cronómetro pelado —sin
+        // sets— dice «funcional», que es lo que es.
         return Prescription(
             scheme: f.scheme,
-            modality: .functional,
+            modality: sets.isEmpty ? .functional : nil,
             sets: sets.isEmpty ? nil : sets,
             rounds: s.rounds, workS: s.workS, restS: s.restS, totalS: s.totalS,
             target: nil, note: nil, start: nil, increment: nil
@@ -404,50 +408,49 @@ final class FreeFunctionalDraft {
         return FreeFunctionalItems.payloads(movements, scheme: f.scheme, structure: structural(f))
     }
 
-    /// The runnable context: ONE folded conditioning segment (drives the scheme's
-    /// live HUD + score capture) + the per-movement `items[]` (nil for a cronómetro).
-    ///
-    /// A CRONÓMETRO has no items, so its top-level `prescription` carries the
-    /// session instead — the same folded block the engine runs (scheme + rounds /
-    /// cadence / window, no sets). That is what the server persists as the
-    /// session's shape and what colours the day in the plan; without it a bare
-    /// clock would reach the coach as a title and nothing else.
+    /// Los movimientos como ejercicios del plan, cada uno con la prescripción que
+    /// viaja en su `items[]` (el esquema del bloque + su dosis).
+    private func planItems(_ f: FreeFunctionalFormat) -> [FreePlanItem] {
+        let s = structural(f)
+        return movements.map {
+            FreePlanItem(exercise: $0.exercise,
+                         prescription: FreeFunctionalItems.prescription(for: $0, scheme: f.scheme, structure: s))
+        }
+    }
+
+    /// The runnable context: the plan the server will hold (one item per movement in
+    /// the block's format), run through `WorkoutPlan.from` — which folds it into ONE
+    /// conditioning segment exactly like a coach WOD (`conditioningFold`). A
+    /// CRONÓMETRO has no items: its top-level `prescription` carries the session
+    /// (scheme + rounds / cadence / window, no sets) and the plan is the clock.
     func buildContext() -> FreeWorkoutContext? {
         guard let f = format else { return nil }
         FreeFunctionalPrefs.remember(self, format: f)
         let payloadItems = buildItems()
         let s = structural(f)
-        let segment = WorkoutSegment(
-            order: 1,
-            title: foldedTitle,
-            kind: .reps,                                    // neutral: HUD routes by scheme
-            templateSegmentId: nil,
-            blockTitle: "Funcional",
-            blockPosition: 1,
-            videoUrl: nil,
-            prescription: foldedPrescription(f, s)
+        let clock = payloadItems == nil ? foldedPrescription(f, s) : nil
+        let detail = FreePlanDetail.detail(
+            title: resolvedTitle,
+            modality: PrescriptionModality.functional.rawValue,
+            scheme: f.scheme,
+            items: planItems(f),
+            clock: clock,
+            focus: "Libre · no prescrito"
         )
-        let plan = WorkoutPlan(
-            id: UUID(),
-            name: resolvedTitle,
-            format: f.scheme,
-            estimatedDurationSeconds: estimatedSeconds,
-            blockContext: "Libre · no prescrito",
-            zoneTargets: [],
-            equipment: [],
-            segments: [segment],
-            coachNote: nil, demoVideoUrl: nil,
-            warmupChecklist: []
-        )
-        return FreeWorkoutContext(
+        guard let plan = FreePlanDetail.plan(from: detail, estimatedSeconds: estimatedSeconds) else { return nil }
+        var ctx = FreeWorkoutContext(
             title: resolvedTitle,
             modalityWire: PrescriptionModality.functional.rawValue,
             // Exactly one of the two travels: the movements when they were named,
             // the bare shape when they weren't.
-            prescription: payloadItems == nil ? foldedPrescription(f, s) : nil,
+            prescription: clock,
             items: payloadItems,
             plan: plan
         )
+        // Un cronómetro sin movimientos no se guarda antes: su plan no existe hasta
+        // que el atleta diga qué hizo (en el resumen).
+        ctx.planPayload = payloadItems == nil ? nil : buildPlanPayload()
+        return ctx
     }
 
     func buildPlanPayload(assignmentId: Int? = nil) -> FreePlanSavePayload? {
@@ -462,15 +465,6 @@ final class FreeFunctionalDraft {
             assignment_id: assignmentId,
             scheduled_for: scheduledDayISO
         )
-    }
-
-    // The folded segment's title = the movements in order (the HUD movement label).
-    // With nothing declared the FORMAT is the honest label — the athlete is running
-    // a clock, and "EMOM" is what the top strip should say, not a generic "Funcional".
-    private var foldedTitle: String {
-        let names = movements.map(\.exercise.name)
-        if names.isEmpty { return format?.labelES ?? "Funcional" }
-        return names.joined(separator: " · ")
     }
 
     var resolvedTitle: String {

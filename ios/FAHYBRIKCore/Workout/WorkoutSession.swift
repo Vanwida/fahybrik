@@ -46,6 +46,15 @@ final class WorkoutSession {
     var freeTitle: String? = nil
     var freeModalityWire: String? = nil
     var freeItemsJSON: Data? = nil
+    /// UN LIBRE GUARDADO ANTES DE CORRER: los `template_segments.id` de su plan en el
+    /// orden en que los devolvió el servidor (`POST /free/plan`). Junto con
+    /// `assignmentId`, convierten el libre en una asignación normal: se guarda por el
+    /// camino del coach y cada tramo se enlaza por su `itemIndex` en este orden.
+    /// Nil = no se guardó antes (sin conexión): el guardado va por `POST /free`.
+    var freePlanSegmentIds: [Int]? = nil
+    /// El resumen ya decidió guardar este libre por `POST /free` (el plan no llegó a
+    /// tiempo). Si el plan llega después, sobra: se borra en vez de atarlo.
+    var freeSavedAtEnd: Bool = false
     /// Where the athlete said they run TODAY (calle / cinta enchufada / cinta
     /// tonta), chosen pre-start. Drives the HUD and the fuente de los metros.
     /// Ephemeral — never persisted.
@@ -414,9 +423,21 @@ final class WorkoutSession {
     // Per-segment treadmill INCLINE aggregation (#62). Summed from the belt's live
     // grade over the current run segment (across all its structured legs); averaged
     // on close into the ONE segment lap. Stays nil when no belt fed the segment —
-    // never a fabricated grade. Cadence has no on-device source (see LapRecord).
+    // never a fabricated grade.
     var lapInclineSum: Double = 0
     var lapInclineCount: Int = 0
+
+    /// CADENCIA DE CARRERA (pasos/min) medida por el podómetro del móvil mientras se
+    /// corre. Una muestra por lectura del sistema; la media va al lap. Vacío = nadie
+    /// la midió, y entonces el lap la deja en nil — nunca una cadencia inventada.
+    var lapRunCadenceSamples: [Double] = []
+    /// Cursores de la VENTANA DEL TRAMO para la pendiente y la cadencia: un bout, un
+    /// minuto de EMOM o una estación se quedan con SU media, no con la del bloque.
+    var tramoInclineSumStart: Double = 0
+    var tramoInclineCountStart: Int = 0
+    var tramoCadenceSampleStart: Int = 0
+    /// El gemelo por pierna de carrera estructurada.
+    var runLegCadenceSampleStart: Int = 0
 
     // Per-segment treadmill BELT distance — the covered meters the belt measured
     // over the current run segment (summed across all its structured legs, exactly

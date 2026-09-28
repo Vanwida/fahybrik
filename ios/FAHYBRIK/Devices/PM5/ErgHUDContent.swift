@@ -42,6 +42,8 @@ struct ErgHUDContent: View {
 
     private var live: PM5LiveSample { pm5.live }
     private var tramo: LiveTramo { session.currentTramo }
+    /// Cómo se lee ESTA máquina: la BikeErg va por 1.000 m y rpm, no como un remo.
+    private var lectura: LecturaErgo { LecturaErgo.de(tramo.modality) }
 
     var body: some View {
         VStack(spacing: isLandscape ? 8 : Theme.Spacing.m) {
@@ -377,7 +379,7 @@ struct ErgHUDContent: View {
                         .foregroundStyle(Theme.Color.foreground)
                         .lineLimit(1)
                         .minimumScaleFactor(0.4)
-                    Text(Formato.UnidadRitmo.por500m.rawValue)
+                    Text(lectura.unidadRitmo)
                         .font(Theme.Typography.readoutLabel)
                         .foregroundStyle(Theme.Color.muted)
                 } else {
@@ -390,7 +392,7 @@ struct ErgHUDContent: View {
                 }
                 Hairline()
                 HStack(spacing: 8) {
-                    subReadout(valor: avgSplitString, label: "media /500m",
+                    subReadout(valor: avgSplitString, label: "media \(lectura.unidadRitmo)",
                                ausente: sinSplitMotivo)
                     subReadout(valor: Formato.clock(session.tramoElapsedSeconds),
                                label: tramoTimeLabel)
@@ -404,7 +406,7 @@ struct ErgHUDContent: View {
     /// después, un split ausente significa que ahora mismo no estás remando — que es
     /// un hecho sobre ti, no un fallo de la app.
     private var sinSplitMotivo: String {
-        noLiveData ? sinLecturaMotivo : "sin remar"
+        noLiveData ? sinLecturaMotivo : lectura.parado
     }
 
     /// The bout clock is labelled for what it is. While it is HELD waiting for the
@@ -412,7 +414,7 @@ struct ErgHUDContent: View {
     /// athlete taps Empezar, walks to the erg and sits down, and none of that is
     /// part of the piece.
     private var tramoTimeLabel: String {
-        session.tramoClockArmed ? "empieza al remar" : "esta serie"
+        session.tramoClockArmed ? lectura.empiezaAl : "esta serie"
     }
 
     private func subReadout(valor: String?, label: String,
@@ -453,11 +455,15 @@ struct ErgHUDContent: View {
         // Paladas y vatios llegan EN CERO cuando dejas de tirar, y ese cero se pinta:
         // está medido (§6.2 bis). Sólo son nil antes de la primera palada, y entonces
         // se dice eso mismo. El pulso no es del monitor: falta cuando no hay de dónde.
-        railTile(valor: spm.map { "\($0)" }, label: "s/min", valueSize: 32,
+        railTile(valor: spm.map { "\($0)" }, label: lectura.unidadFrecuencia, valueSize: 32,
                  ausente: sinLecturaMotivo)
         railTile(valor: watts.map { "\($0)" }, label: "vatios",
                  color: Theme.Color.accentText, valueSize: 32,
                  ausente: sinLecturaMotivo)
+        // Las calorías de ESTA ventana, en toda máquina: es un contador y se pinta
+        // desde cero en cuanto hay monitor (§6.2 bis).
+        railTile(valor: pm5.isConnected ? "\(session.tramoErgCalories ?? 0)" : nil, label: "cal",
+                 valueSize: 32, ausente: sinLecturaMotivo)
         railTile(valor: session.liveHRBpm.map { "\($0)" }, label: "pulso",
                  color: session.liveZone?.color ?? Theme.Color.foreground, valueSize: 32,
                  ausente: "sin banda ni reloj")
@@ -466,7 +472,7 @@ struct ErgHUDContent: View {
     /// POR QUÉ el monitor no da una lectura. Aquí SIEMPRE está conectado (un monitor
     /// caído se lleva `unmeasuredBody`), así que la única razón posible es que todavía
     /// no ha llegado nada suyo: la primera palada es lo que lo arranca.
-    private var sinLecturaMotivo: String { "esperando la primera palada" }
+    private var sinLecturaMotivo: String { lectura.esperando }
 
     /// `valor` nil = no hay medida, y entonces se pinta el porqué — mismo contrato que
     /// `ApoyoVivo` (Theme/LenguajeVivoUI.swift), en la voz de esta superficie.
@@ -507,7 +513,7 @@ struct ErgHUDContent: View {
             Image(systemName: "wifi.exclamationmark")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.Color.warning)
-            Text("Conectado, pero el PM5 aún no envía datos. Dale unas paladas.")
+            Text("Conectado, pero el PM5 aún no envía datos. \(lectura.arranca)")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.Color.foreground)
         }
@@ -532,11 +538,11 @@ struct ErgHUDContent: View {
     /// nil, que es lo correcto: a palada parada el ritmo no existe.
     private var splitString: String? {
         guard pm5.isConnected, let p = live.paceSecondsPer500m, p > 0 else { return nil }
-        return Formato.ritmoCifras(p)
+        return Formato.ritmoCifras(lectura.ritmo(desdePor500: p))
     }
     private var avgSplitString: String? {
         guard pm5.isConnected, let p = live.avgPaceSecondsPer500m, p > 0 else { return nil }
-        return Formato.ritmoCifras(p)
+        return Formato.ritmoCifras(lectura.ritmo(desdePor500: p))
     }
 
     private var watts: Int? { pm5.isConnected ? live.powerWatts : nil }

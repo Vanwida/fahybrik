@@ -88,6 +88,7 @@ extension WorkoutSession {
         runLegZoneStart = lapZoneAccumSec
         runLegInclineSumStart = lapInclineSum
         runLegInclineCountStart = lapInclineCount
+        runLegCadenceSampleStart = lapRunCadenceSamples.count
     }
 
     /// Set the current leg's GO baseline + its countdown (a TIME leg counts down; a

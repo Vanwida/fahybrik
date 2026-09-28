@@ -92,6 +92,22 @@ final class PM5Pool {
         return nil
     }
 
+    /// El monitor CONECTADO de entre estas máquinas (en su orden estable), o el
+    /// genérico si es el que está conectado. Nil cuando ninguno lo está: no se
+    /// inventa un monitor al que leer. Para los formatos libres (AMRAP) donde el
+    /// tramo no dice qué máquina, pero el bloque sí dice cuáles hay.
+    func connectedStore(forAnyOf roles: [ErgMachineRole]) -> PM5ConnectionStore? {
+        for role in roles {
+            if let s = roleStores[role], s.isConnected { return s }
+        }
+        return any.isConnected ? any : nil
+    }
+
+    /// La máquina a la que está atado este monitor, o nil si es el genérico.
+    func role(of store: PM5ConnectionStore) -> ErgMachineRole? {
+        roleStores.first { $0.value === store }?.key
+    }
+
     /// Convenience: modality of a LiveTramo.
     func activeStore(for tramo: LiveTramo) -> PM5ConnectionStore? {
         guard tramo.isErg else { return nil }

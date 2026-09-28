@@ -101,12 +101,12 @@ struct PostWorkoutSummaryView: View {
     /// Path whose body RequestQueue holds after a queued save — drain retry
     /// watches this path, it does not invent a second POST.
     private var queuedSavePath: String {
-        if freeContext != nil { return FreeWorkoutAPI.path }
+        if guardaComoLibre { return FreeWorkoutAPI.path }
         switch logTarget {
         case .solo:
             return WorkoutExecutionAPI.path
         case .doublesJoint:
-            if let assignmentId { return DoblesExecutionAPI.path(sessionId: assignmentId) }
+            if let id = efectivaAssignmentId { return DoblesExecutionAPI.path(sessionId: id) }
             return WorkoutExecutionAPI.path
         }
     }
@@ -180,6 +180,9 @@ struct PostWorkoutSummaryView: View {
             }
         }
         .onAppear { seedCapturedScore(); renderSummaryCard(); stageFinishedDraft() }
+        // El plan del libre llegó mientras el atleta rellenaba el resumen: el borrador
+        // de rescate pasa a ser el de la asignación, no el de `/free`.
+        .onChange(of: session.assignmentId) { _, _ in stageFinishedDraft() }
         .onChange(of: rpe) { _, _ in renderSummaryCard() }
         .fullScreenCover(isPresented: $showDeclareSheet) {
             FreeDeclareMovementsSheet(
@@ -267,18 +270,17 @@ struct PostWorkoutSummaryView: View {
                             declareMovementsCard
                         }
                         rpeCard
-                        // #58 — "Cómo ha ido" feedback to the coach. Only for a
-                        // prescribed session: a free workout has no coach prescription
-                        // to judge "fácil/duro" against, and the free endpoint doesn't
-                        // carry these fields.
-                        if freeContext == nil {
-                            SessionFeedbackCard(
-                                difficulty: $difficulty,
-                                painExpanded: $painExpanded,
-                                painArea: $painArea,
-                                painNote: $painNote
-                            )
-                        }
+                        // #58 — "Cómo ha ido" + la molestia física, para TODO entreno.
+                        // Un libre también lo lleva: el servidor lo acepta por los dos
+                        // caminos (`executionMetricsSchema`) y una molestia es igual de
+                        // real hecha en un libre (28-sep: aquí se decía que el libre no
+                        // la llevaba, y no era verdad).
+                        SessionFeedbackCard(
+                            difficulty: $difficulty,
+                            painExpanded: $painExpanded,
+                            painArea: $painArea,
+                            painNote: $painNote
+                        )
                         notesCard
                     }
                 }
@@ -361,90 +363,78 @@ struct PostWorkoutSummaryView: View {
             return
         }
 
-        // FREE MODE: route to the free-save contract. No coach-prescription feedback
-        // and no PR celebration — the free endpoint carries neither.
-        if let free = freeContext {
-            let payload = buildFreePayload(free)
-            // Every free session is sent, declared or not: a cronómetro carries its
-            // format, its duration and the effort, which is a real training session
-            // and exactly what a timer app throws away. The contract accepts a
-            // funcional with no items as long as it states the shape it ran, and
-            // `buildFreePayload` always puts one of the two on the wire.
-            // Apple Salud, UNA sola copia. Con reloj, la muñeca ya escribió el
-            // HKWorkout y nos pasa su uuid; sin reloj no lo escribía NADIE y la
-            // sesión no contaba para los anillos — ahora la escribe el teléfono.
-            //
-            // El entreno libre TAMBIÉN se espeja a la muñeca, así que este es
-            // justo el camino donde los dos pueden escribir a la vez. Por eso va
-            // `wristRecorded`: si la muñeca grabó, el teléfono no escribe, haya
-            // llegado su uuid o no. Que el relevo llegue tarde ya no duplica —
-            // antes sí, porque el reloj que aún no ha contestado es el mismo que
-            // el reloj cuyo HKWorkout todavía no se puede consultar.
-            let wristRef = PhoneLiveSession.shared.consumeWorkoutRef()
-            let wristRecorded = PhoneLiveSession.shared.wristRecordedWorkout
-            let treadmill = session.runEnvironment == .treadmill
-            Task { @MainActor in
-                var ref = wristRef
-                if ref == nil, let draft = HealthKitWorkoutDraft(freeWorkout: payload, treadmill: treadmill) {
-                    ref = await HealthKitWorkoutWriter.ensureSaved(draft, wristRecorded: wristRecorded)
-                }
-                var sent = payload
-                sent.source_workout_ref = ref
-                let enviado = await FreeWorkoutAPI.submit(sent, bearer: bearer)
-                let body = FreeWorkoutAPI.cuerpoDeCola(sent)   // el codificador del cable
-                let outcome = await Self.sesionCaducadaALaCola(enviado, path: FreeWorkoutAPI.path,
-                                                               body: body, bearer: bearer)
-                guard !didFinish else { return }
-                switch outcome {
-                case .saved(let response):
-                    Task {
-                        let parkId = await WorkoutTraceUploader.park(
-                            await Self.closedTraces(recorder: session.trace, startedAt: session.startedAt)
-                        )
-                        await WorkoutTraceUploader.resolve(
-                            parkId: parkId,
-                            executionId: response?.executionId.flatMap(Int.init),
-                            queuedRequestId: nil,
-                            bearer: bearer
-                        )
-                    }
-                    // #Marcas — only after the session POST is 2xx. A FULL finish
-                    // writes the mark; an abandoned attempt never writes a half number.
-                    if let tag = free.benchmark, payload.completeness == "full",
-                       let value = benchmarkValue(tag: tag, segments: payload.segments) {
-                        let runContext: String? = free.modalityWire == "run"
-                            ? (session.runEnvironment == .treadmill ? "treadmill" : "outdoor")
-                            : nil
-                        Task { await MarkAttemptAPI.submit(slug: tag.slug, value: value, runContext: runContext, bearer: bearer) }
-                    }
-                    FinishedWorkoutDraft.clear()
-                    finishAfterSave(records: [])
-                case .queued(let requestId):
-                    FinishedWorkoutDraft.clear()   // la cola lo tiene
-                    // La traza espera a su ejecución: se aparca colgada de la entrada
-                    // de la cola y sube cuando la cola entregue (antes solo se aparcaba
-                    // al guardar con cobertura, y sin ella la curva se perdía).
-                    Task {
-                        let parkId = await WorkoutTraceUploader.park(
-                            await Self.closedTraces(recorder: session.trace, startedAt: session.startedAt)
-                        )
-                        await WorkoutTraceUploader.resolve(
-                            parkId: parkId, executionId: nil, queuedRequestId: requestId, bearer: bearer
-                        )
-                    }
-                    queuedRequestId = requestId
-                    retryFromQueue = true
-                    saveFailed = true
-                    isSaving = false
-                case .rejected(let status):
-                    // Lo que se envió (con RPE y notas): el mismo contenido que el
-                    // servidor rechazó.
-                    await keepOnPhone(path: FreeWorkoutAPI.path, body: body, bearer: bearer, status: status)
-                }
+        // UN GUARDADO, DOS CAMINOS, UNA DECISIÓN (28-sep). Un libre que se guardó como
+        // plan al empezar (`FreePlanFirst`) YA ES una asignación: se espera a que esa
+        // petición acabe y, si ató la sesión, se guarda por el camino del coach. Solo
+        // un libre sin plan (sin conexión, o un cronómetro sin movimientos) va por
+        // `POST /free`, que crea el plan y la ejecución a la vez.
+        Task { @MainActor in
+            if freeContext != nil { await FreePlanFirst.shared.settle(session) }
+            guard !didFinish else { return }
+            if guardaComoLibre, let free = freeContext {
+                session.freeSavedAtEnd = true
+                await saveFree(free, bearer: bearer)
+            } else {
+                await saveAssigned(bearer: bearer)
             }
-            return
         }
+    }
 
+    /// True cuando este entreno se guarda por `POST /free`: un libre que no llegó a
+    /// tener su plan en el servidor antes de terminar.
+    private var guardaComoLibre: Bool { freeContext != nil && session.assignmentId == nil }
+
+    /// La asignación a la que se atribuye: la del plan que se abrió, o la que el
+    /// libre recibió al guardarse como plan al empezar.
+    private var efectivaAssignmentId: String? {
+        if let assignmentId, !assignmentId.isEmpty { return assignmentId }
+        return session.assignmentId
+    }
+
+    /// FREE MODE: the free-save contract. Mismas métricas, más el plan (título,
+    /// modalidad, prescripción o ejercicios) para que el servidor lo cree.
+    @MainActor
+    private func saveFree(_ free: FreeWorkoutContext, bearer: String?) async {
+        let payload = buildFreePayload(free)
+        // Every free session is sent, declared or not: a cronómetro carries its
+        // format, its duration and the effort, which is a real training session
+        // and exactly what a timer app throws away. The contract accepts a
+        // funcional with no items as long as it states the shape it ran, and
+        // `buildFreePayload` always puts one of the two on the wire.
+        let ref = await healthRef(modality: free.modalityWire, freePayload: payload)
+        var sent = payload
+        sent.source_workout_ref = ref
+        let enviado = await FreeWorkoutAPI.submit(sent, bearer: bearer)
+        let body = FreeWorkoutAPI.cuerpoDeCola(sent)   // el codificador del cable
+        let outcome = await Self.sesionCaducadaALaCola(enviado, path: FreeWorkoutAPI.path,
+                                                       body: body, bearer: bearer)
+        guard !didFinish else { return }
+        switch outcome {
+        case .saved(let response):
+            parkTrace(executionId: response?.executionId.flatMap(Int.init), queued: nil, bearer: bearer)
+            postBenchmarkMark(completeness: payload.completeness, segments: payload.segments, bearer: bearer)
+            FinishedWorkoutDraft.clear()
+            finishAfterSave(records: [])
+        case .queued(let requestId):
+            FinishedWorkoutDraft.clear()   // la cola lo tiene
+            // La traza espera a su ejecución: se aparca colgada de la entrada de la
+            // cola y sube cuando la cola entregue.
+            parkTrace(executionId: nil, queued: requestId, bearer: bearer)
+            queuedRequestId = requestId
+            retryFromQueue = true
+            saveFailed = true
+            isSaving = false
+        case .rejected(let status):
+            // Lo que se envió (con RPE y notas): el mismo contenido que el
+            // servidor rechazó.
+            await keepOnPhone(path: FreeWorkoutAPI.path, body: body, bearer: bearer, status: status)
+        }
+    }
+
+    /// El camino del coach (`/api/sync/workout-execution`, o el conjunto de dobles):
+    /// una asignación que existe. Vale igual para un libre ya atado a su plan.
+    @MainActor
+    private func saveAssigned(bearer: String?) async {
         // Ad-hoc session with no assignment: nothing to sync — close as before.
         guard var payload = buildPayload() else {
             finishAfterSave(records: [])
@@ -455,83 +445,120 @@ struct PostWorkoutSummaryView: View {
         // copy of the SAME workout and never double-counts. Only when the payload
         // doesn't already carry a ref (manual flows simply get nil).
         if payload.source_workout_ref == nil {
-            payload.source_workout_ref = PhoneLiveSession.shared.consumeWorkoutRef()
+            if let free = freeContext {
+                // Un libre atado a su plan escribe su copia en Salud como la escribía
+                // por `/free` — que ahora no haya reloj no la deja sin anillos.
+                payload.source_workout_ref = await healthRef(modality: free.modalityWire,
+                                                             executionPayload: payload)
+            } else {
+                payload.source_workout_ref = PhoneLiveSession.shared.consumeWorkoutRef()
+            }
         }
         let submitted = payload
         let target = logTarget
-        Task { @MainActor in
-            let enviado: WorkoutSaveOutcome
-            switch target {
-            case .solo:
-                enviado = await WorkoutExecutionAPI.submitReturning(submitted, bearer: bearer)
-            case .doublesJoint:
-                // sessionId == this athlete's own assignment id == payload.assignment_id.
-                enviado = await DoblesExecutionAPI.submitReturning(
-                    sessionId: submitted.assignment_id, submitted, bearer: bearer
-                )
-            }
-            // La misma ruta y el mismo codificador con los que la cola lo guarda
-            // (`WorkoutExecutionAPI` / `DoblesExecutionAPI`): lo enviado, con RPE,
-            // notas y «cómo ha ido».
-            let path = target == .doublesJoint
-                ? DoblesExecutionAPI.path(sessionId: submitted.assignment_id)
-                : WorkoutExecutionAPI.path
-            let body = try? JSONEncoder().encode(submitted)
-            let outcome = await Self.sesionCaducadaALaCola(enviado, path: path, body: body, bearer: bearer)
-            guard !didFinish else { return }
-            switch outcome {
-            case .saved(let response):
-                FinishedWorkoutDraft.clear()
-                Task {
-                    let parkId = await WorkoutTraceUploader.park(
-                        await Self.closedTraces(recorder: session.trace, startedAt: session.startedAt)
-                    )
-                    await WorkoutTraceUploader.resolve(
-                        parkId: parkId,
-                        executionId: response?.executionId.flatMap(Int.init),
-                        queuedRequestId: nil,
-                        bearer: bearer
-                    )
-                }
-                let records = response?.personalRecords ?? []
-                // #28 — a joint close: THIS side is now logged, so fetch the side-by-side.
-                if target == .doublesJoint {
-                    let jointTask = Task { await JointSummaryService.fetch(assignmentId: submitted.assignment_id, bearer: bearer) }
-                    if let summary = await Self.firstValue(of: jointTask, timeout: Self.prCelebrationLookupTimeout),
-                       let jd = JointShareData.from(dto: summary, title: session.plan.name,
-                                                    date: Date(), partnerFallback: nil) {
-                        guard !didFinish else { return }
-                        pendingJointRecords = records
-                        isSaving = false
-                        withAnimation(.easeInOut(duration: 0.2)) { jointData = jd }
-                        return
-                    }
-                }
-                if records.isEmpty {
-                    finishAfterSave(records: [])
-                } else {
-                    withAnimation(.easeInOut(duration: 0.2)) { celebrationRecords = records }
-                    isSaving = false
-                }
-            case .queued(let requestId):
-                FinishedWorkoutDraft.clear()   // la cola lo tiene
-                // Igual que el entreno libre: la traza cuelga de la entrada de la cola.
-                Task {
-                    let parkId = await WorkoutTraceUploader.park(
-                        await Self.closedTraces(recorder: session.trace, startedAt: session.startedAt)
-                    )
-                    await WorkoutTraceUploader.resolve(
-                        parkId: parkId, executionId: nil, queuedRequestId: requestId, bearer: bearer
-                    )
-                }
-                queuedRequestId = requestId
-                retryFromQueue = true
-                saveFailed = true
-                isSaving = false
-            case .rejected(let status):
-                await keepOnPhone(path: path, body: body, bearer: bearer, status: status)
-            }
+        let enviado: WorkoutSaveOutcome
+        switch target {
+        case .solo:
+            enviado = await WorkoutExecutionAPI.submitReturning(submitted, bearer: bearer)
+        case .doublesJoint:
+            // sessionId == this athlete's own assignment id == payload.assignment_id.
+            enviado = await DoblesExecutionAPI.submitReturning(
+                sessionId: submitted.assignment_id, submitted, bearer: bearer
+            )
         }
+        // La misma ruta y el mismo codificador con los que la cola lo guarda
+        // (`WorkoutExecutionAPI` / `DoblesExecutionAPI`): lo enviado, con RPE,
+        // notas y «cómo ha ido».
+        let path = target == .doublesJoint
+            ? DoblesExecutionAPI.path(sessionId: submitted.assignment_id)
+            : WorkoutExecutionAPI.path
+        let body = try? JSONEncoder().encode(submitted)
+        let outcome = await Self.sesionCaducadaALaCola(enviado, path: path, body: body, bearer: bearer)
+        guard !didFinish else { return }
+        switch outcome {
+        case .saved(let response):
+            FinishedWorkoutDraft.clear()
+            parkTrace(executionId: response?.executionId.flatMap(Int.init), queued: nil, bearer: bearer)
+            postBenchmarkMark(completeness: submitted.completeness, segments: submitted.segments, bearer: bearer)
+            let records = response?.personalRecords ?? []
+            // #28 — a joint close: THIS side is now logged, so fetch the side-by-side.
+            if target == .doublesJoint {
+                let jointTask = Task { await JointSummaryService.fetch(assignmentId: submitted.assignment_id, bearer: bearer) }
+                if let summary = await Self.firstValue(of: jointTask, timeout: Self.prCelebrationLookupTimeout),
+                   let jd = JointShareData.from(dto: summary, title: session.plan.name,
+                                                date: Date(), partnerFallback: nil) {
+                    guard !didFinish else { return }
+                    pendingJointRecords = records
+                    isSaving = false
+                    withAnimation(.easeInOut(duration: 0.2)) { jointData = jd }
+                    return
+                }
+            }
+            if records.isEmpty {
+                finishAfterSave(records: [])
+            } else {
+                withAnimation(.easeInOut(duration: 0.2)) { celebrationRecords = records }
+                isSaving = false
+            }
+        case .queued(let requestId):
+            FinishedWorkoutDraft.clear()   // la cola lo tiene
+            // Igual que el entreno libre: la traza cuelga de la entrada de la cola.
+            parkTrace(executionId: nil, queued: requestId, bearer: bearer)
+            queuedRequestId = requestId
+            retryFromQueue = true
+            saveFailed = true
+            isSaving = false
+        case .rejected(let status):
+            await keepOnPhone(path: path, body: body, bearer: bearer, status: status)
+        }
+    }
+
+    /// Apple Salud, UNA sola copia. Con reloj, la muñeca ya escribió el HKWorkout y
+    /// nos pasa su uuid; sin reloj no lo escribía NADIE y la sesión no contaba para
+    /// los anillos — la escribe el teléfono. `wristRecorded`: si la muñeca grabó, el
+    /// teléfono no escribe, haya llegado su uuid o no (el relevo tarde no duplica).
+    @MainActor
+    private func healthRef(modality: String, freePayload: FreeWorkoutPayload? = nil,
+                           executionPayload: WorkoutExecutionPayload? = nil) async -> String? {
+        let wristRef = PhoneLiveSession.shared.consumeWorkoutRef()
+        if let wristRef { return wristRef }
+        let wristRecorded = PhoneLiveSession.shared.wristRecordedWorkout
+        let treadmill = session.runEnvironment == .treadmill
+        let draft: HealthKitWorkoutDraft? = {
+            if let freePayload { return HealthKitWorkoutDraft(freeWorkout: freePayload, treadmill: treadmill) }
+            if let executionPayload {
+                return HealthKitWorkoutDraft(modality: modality, startedAt: executionPayload.started_at,
+                                             endedAt: executionPayload.ended_at,
+                                             segments: executionPayload.segments, treadmill: treadmill)
+            }
+            return nil
+        }()
+        guard let draft else { return nil }
+        return await HealthKitWorkoutWriter.ensureSaved(draft, wristRecorded: wristRecorded)
+    }
+
+    /// La traza de la sesión, aparcada hasta que su ejecución exista (o colgada de la
+    /// entrada de la cola si se guardó sin cobertura).
+    private func parkTrace(executionId: Int?, queued: UUID?, bearer: String?) {
+        Task {
+            let parkId = await WorkoutTraceUploader.park(
+                await Self.closedTraces(recorder: session.trace, startedAt: session.startedAt)
+            )
+            await WorkoutTraceUploader.resolve(
+                parkId: parkId, executionId: executionId, queuedRequestId: queued, bearer: bearer
+            )
+        }
+    }
+
+    /// #Marcas — only after the session POST is 2xx, por el camino que sea. A FULL
+    /// finish writes the mark; an abandoned attempt never writes a half number.
+    private func postBenchmarkMark(completeness: String?, segments: [SegmentExecutionDTO]?, bearer: String?) {
+        guard let free = freeContext, let tag = free.benchmark, completeness == "full",
+              let value = benchmarkValue(tag: tag, segments: segments) else { return }
+        let runContext: String? = free.modalityWire == "run"
+            ? (session.runEnvironment == .treadmill ? "treadmill" : "outdoor")
+            : nil
+        Task { await MarkAttemptAPI.submit(slug: tag.slug, value: value, runContext: runContext, bearer: bearer) }
     }
 
     /// Un 401 no es un rechazo del ENTRENO: es la sesión la que ha caducado. Va como
@@ -581,7 +608,7 @@ struct PostWorkoutSummaryView: View {
         // Ya guardado en el móvil como rechazado (y el resumen vuelve a aparecer):
         // otro borrador iría a la cola y al mismo rechazo — dos copias del entreno.
         guard !keptOnPhone else { return }
-        if let free = freeContext {
+        if guardaComoLibre, let free = freeContext {
             if let body = FreeWorkoutAPI.cuerpoDeCola(buildFreePayload(free)) {
                 FinishedWorkoutDraft.stage(path: FreeWorkoutAPI.path, body: body)
             }
@@ -757,7 +784,7 @@ struct PostWorkoutSummaryView: View {
     }
 
     private func buildPayload() -> WorkoutExecutionPayload? {
-        guard let assignmentId, !assignmentId.isEmpty else { return nil }
+        guard let assignmentId = efectivaAssignmentId, !assignmentId.isEmpty else { return nil }
         let c = executionCore()
         return WorkoutExecutionPayload(
             assignment_id: assignmentId,
@@ -798,8 +825,8 @@ struct PostWorkoutSummaryView: View {
     // Free workout: the SAME execution metrics + the free-only carriers. The
     // measured path carries a top-level `prescription`; fuerza·funcional carry
     // `items` (built exercises/movements) with `prescription` omitted — exactly one
-    // is present, mirroring `FreeWorkoutContext`. PM5 is not live, so the provenance
-    // is 'manual' per the free-save contract (the generic/manual live HUD ran it).
+    // is present, mirroring `FreeWorkoutContext`. Each tramo carries its `item_index`
+    // so the server links it to the exercise it creates (docs/pr/un-solo-entreno.md).
     // The per-segment execution DTOs (strength per-set `sets[]`; the folded WOD lap +
     // its score) come from `executionCore()` unchanged — the same laps the prescribed
     // path records, so nothing forks.
@@ -820,14 +847,21 @@ struct PostWorkoutSummaryView: View {
             perceived_exertion: rpe,
             total_duration_seconds: c.totalDuration,
             notes: c.notes,
-            source: "manual",
+            // La MISMA procedencia que el camino del coach: nil en vivo (el servidor
+            // la deduce de los tramos), «manual» solo para lo apuntado a mano. Un
+            // libre medido en vivo iba siempre como «manual».
+            source: c.liveSource,
             score_time_s: c.scoreTime,
             score_rounds: c.scoreRounds,
             score_reps: c.scoreReps,
             completeness: c.completeness,
             started_at: c.startedAtISO,
             ended_at: c.endedAtISO,
-            segments: c.segments
+            segments: c.segments,
+            route_polyline: session.capturedRoutePolyline,
+            perceived_difficulty: difficulty?.rawValue,
+            pain_area: feedbackPainAreaWire,
+            pain_note: feedbackPainNoteWire
         )
     }
 
@@ -861,7 +895,10 @@ struct PostWorkoutSummaryView: View {
                 maxHR: manualMaxHR,
                 paceSecondsBySegment: manualSegmentPaceSeconds
             ),
-            iso: iso
+            iso: iso,
+            // Un libre guardado como plan al empezar: cada tramo se enlaza con el
+            // segmento de su ejercicio, por el orden que devolvió el servidor.
+            planSegmentIds: session.freePlanSegmentIds
         )
     }
 

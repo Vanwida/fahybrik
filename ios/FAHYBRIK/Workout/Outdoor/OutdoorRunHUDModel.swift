@@ -96,15 +96,11 @@ final class OutdoorRunHUDModel {
     var countInRemaining: Int {
         Int((isStructured ? session.runCountInRemaining : session.condCountInRemaining).rounded(.up))
     }
-    private var isWorkPhase: Bool { isStructured ? session.isRunLegWork : (session.rotPhase == .work) }
 
-    var currentLeg: TreadmillLeg {
-        guard let seg = session.currentSegment else {
-            return TreadmillLeg(phase: .single, goal: .open, target: .none, ownsAutoAdvance: false)
-        }
-        if isStructured { return TreadmillLegResolver.leg(for: seg, structureLegIndex: session.runLegIndex) }
-        return TreadmillLegResolver.leg(for: seg, isWork: isWorkPhase)
-    }
+    /// La pierna del TRAMO, la misma que resuelve la cinta: en una ruta plegada la
+    /// calle ya no se queda con el objetivo del segmento (un cronómetro sin dosis),
+    /// sino con el de esta estación.
+    var currentLeg: TreadmillLeg { TreadmillLegResolver.leg(for: session) }
 
     var isRecovery: Bool { currentLeg.isRecovery }
     var runTarget: RunTarget { currentLeg.target }

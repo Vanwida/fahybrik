@@ -301,14 +301,22 @@ extension HealthKitWorkoutDraft {
     /// `treadmill` is the athlete's own calle/cinta answer from the run pre-start;
     /// it is ignored for every other modality.
     init?(freeWorkout payload: FreeWorkoutPayload, treadmill: Bool) {
+        self.init(modality: payload.modality, startedAt: payload.started_at, endedAt: payload.ended_at,
+                  segments: payload.segments, treadmill: treadmill)
+    }
+
+    /// El mismo entreno, dicho por sus piezas: un libre guardado por el camino del
+    /// coach (atado a su plan) escribe su copia en Salud igual que por `/free`.
+    init?(modality: String, startedAt startedISO: String?, endedAt endedISO: String?,
+          segments dtos: [SegmentExecutionDTO]?, treadmill: Bool) {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime]
-        guard let startedAt = payload.started_at.flatMap({ iso.date(from: $0) }),
-              let endedAt = payload.ended_at.flatMap({ iso.date(from: $0) }),
+        guard let startedAt = startedISO.flatMap({ iso.date(from: $0) }),
+              let endedAt = endedISO.flatMap({ iso.date(from: $0) }),
               endedAt > startedAt
         else { return nil }
 
-        let segments = (payload.segments ?? []).compactMap { dto -> Segment? in
+        let segments = (dtos ?? []).compactMap { dto -> Segment? in
             guard let start = iso.date(from: dto.started_at),
                   let end = iso.date(from: dto.ended_at),
                   end > start
@@ -323,10 +331,10 @@ extension HealthKitWorkoutDraft {
         }
 
         self.init(
-            activityType: HealthKitWorkoutWriter.activityType(forModality: payload.modality),
+            activityType: HealthKitWorkoutWriter.activityType(forModality: modality),
             startedAt: startedAt,
             endedAt: endedAt,
-            isIndoor: HealthKitWorkoutWriter.isIndoor(modality: payload.modality, treadmill: treadmill),
+            isIndoor: HealthKitWorkoutWriter.isIndoor(modality: modality, treadmill: treadmill),
             segments: segments
         )
     }

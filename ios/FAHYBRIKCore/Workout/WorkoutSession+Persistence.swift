@@ -36,6 +36,7 @@ extension WorkoutSession {
             freeTitle: freeTitle,
             freeModalityWire: freeModalityWire,
             freeItemsJSON: freeItemsJSON,
+            freePlanSegmentIds: freePlanSegmentIds,
             runEnvironment: runEnvironment,
             hasArmedInitial: hasArmedInitial,
             isAwaitingBlockStart: isAwaitingBlockStart,
@@ -86,6 +87,7 @@ extension WorkoutSession {
         freeTitle = snapshot.freeTitle
         freeModalityWire = snapshot.freeModalityWire
         freeItemsJSON = snapshot.freeItemsJSON
+        freePlanSegmentIds = snapshot.freePlanSegmentIds
         runEnvironment = snapshot.runEnvironment
         currentSegmentIndex = snapshot.currentSegmentIndex
         elapsedSeconds = snapshot.elapsedSeconds

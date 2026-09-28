@@ -332,6 +332,11 @@ struct FuerzaVivoApoyosBand: View {
                 ApoyoVivo(etiqueta: Vocab.total,
                           valor: Formato.clock(session.elapsedSeconds, anchoFijo: true))
             }
+            // En el descanso que sigue a una serie se pregunta su esfuerzo: es el
+            // momento en que se sabe y hay manos para contestarlo.
+            if let serie = session.serieParaEsfuerzo {
+                EsfuerzoDeLaSerie(session: session, indice: serie)
+            }
             if state.porSeries {
                 RielDeSeries(series: session.setRecords,
                              actual: state.indiceSerieActual,
