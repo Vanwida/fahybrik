@@ -4,6 +4,8 @@
 // marca — ✓ hecho, ✕ debido sin hacer. Clic = abrirlo en el panel-editor;
 // arrastrar = moverlo (solo lo pendiente, a hoy o después). Es un dato del
 // calendario, no un botón de acción: por eso no es el primitivo Button.
+// Un entreno LIBRE del atleta (hecho, no plan) va con borde discontinuo y
+// «Libre» bajo el título: se abre para leer lo que hizo, nunca se arrastra.
 
 import { Check, X } from 'lucide-react';
 import { Button as ButtonPrimitive } from '@base-ui/react/button';
@@ -22,6 +24,7 @@ const MOD_VAR: Record<NonNullable<CalSession['modality']>, string> = {
 };
 
 function stateText(s: CalSession): string {
+  if (s.libre) return 'libre, hecho por el atleta (no cuenta en la adherencia)';
   if (s.done) return s.status === 'partial' ? 'hecho a medias' : 'hecho';
   if (s.missed) return 'sin hacer';
   if (s.excluded) return 'no cuenta (pausa o lesión)';
@@ -62,6 +65,7 @@ export function SessionChip({
         'outline-none transition-[border-color,opacity] duration-[var(--v2-dur-fast)] hover:border-v2-border-strong',
         'focus-visible:shadow-[0_0_0_2px_var(--v2-accent)]',
         s.editable && 'cursor-grab active:cursor-grabbing',
+        s.libre && 'border-dashed',
         dragging && 'opacity-40',
         s.excluded && 'opacity-60',
       )}
@@ -71,8 +75,11 @@ export function SessionChip({
         className="w-[3px] shrink-0 self-stretch rounded-full"
         style={{ background: s.modality ? MOD_VAR[s.modality] : 'var(--v2-border-strong)' }}
       />
-      <span lang="es" className="line-clamp-2 min-w-0 flex-1 t-meta leading-4 font-medium text-v2-fg hyphens-auto">
-        {s.title}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span lang="es" className="line-clamp-2 t-meta leading-4 font-medium text-v2-fg hyphens-auto">
+          {s.title}
+        </span>
+        {s.libre ? <span className="t-meta leading-4 text-v2-faint">Libre</span> : null}
       </span>
       {/* La marca va en la esquina, fuera del renglón: dentro se comía el ancho
           del título en columnas estrechas («Umbra…» a 1440). */}

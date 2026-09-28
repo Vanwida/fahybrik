@@ -23,8 +23,10 @@ export interface FichaSessionEditor {
   date: string;
   status: 'scheduled' | 'completed' | 'partial' | 'missed' | 'skipped';
   done: boolean;
-  /** Se puede editar (programado y sin hacer). */
+  /** Se puede editar (programado y sin hacer, y del coach). */
   editable: boolean;
+  /** 'self' = entreno libre del atleta: se lee, no se edita ni se mueve. */
+  origin: 'coach' | 'self';
   title: string;
   /** Aún comparte la plantilla de biblioteca: guardar la bifurca. */
   shared_template: boolean;
@@ -80,6 +82,7 @@ export async function loadFichaSessionEditor(params: {
     status: r.status,
     done,
     editable: r.status === 'scheduled' && !done && r.origin !== 'self',
+    origin: r.origin === 'self' ? 'self' : 'coach',
     title: decodeCoachAssignmentNotes(r.notes).display_title ?? r.name ?? 'Entreno',
     shared_template: !r.is_instance,
     model,

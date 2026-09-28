@@ -1,12 +1,15 @@
 // v2 · ATLETA · DÍA — enlace viejo al editor de un día. El editor vive ahora en el
 // panel del calendario de la ficha: se redirige a la ficha con el primer entreno
 // de ese día abierto (`?sesion=`), o a la semana de ese día si no tiene ninguno.
+// Lo del plan primero; si ese día solo hay un libre hecho del atleta, se abre ese
+// (el mismo criterio que el calendario, `COACH_SEES_ASSIGNMENT`).
 
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { redirect } from '@/i18n/navigation';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { sql } from '@/lib/db';
+import { COACH_SEES_ASSIGNMENT } from '@/lib/coach/libre-visible';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,8 +31,8 @@ export default async function AthleteDayRedirect({
     select wa.id::text
     from workout_assignments wa
     join athletes a on a.id = wa.athlete_id and a.coach_id = ${Number(session.coach_id)}
-    where wa.athlete_id = ${athleteId} and wa.scheduled_for = ${date}::date and wa.origin = 'coach'
-    order by wa.planned_sequence nulls last, wa.id
+    where wa.athlete_id = ${athleteId} and wa.scheduled_for = ${date}::date and ${COACH_SEES_ASSIGNMENT(sql)}
+    order by (wa.origin = 'coach') desc, wa.planned_sequence nulls last, wa.id
     limit 1
   `;
   redirect({ href: rows[0] ? `/atletas/${athleteId}?sesion=${rows[0].id}` : `/atletas/${athleteId}`, locale });

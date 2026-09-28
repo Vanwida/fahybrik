@@ -5,7 +5,9 @@ import {
   calendarRange,
   canDropOn,
   dayLoads,
+  isPlanSession,
   lastMissed,
+  weekHasPlanSessions,
   moveSession,
   removeSession,
   sessionModality,
@@ -30,6 +32,7 @@ function ses(over: Partial<CalSession>): CalSession {
     has_content: true,
     editable: true,
     rpe: null,
+    libre: false,
     ...over,
   };
 }
@@ -89,6 +92,37 @@ describe('semanas y adherencia due-only', () => {
     expect(dayLoads(c.weeks[0]!)).toEqual([75, null, null, null, null, null, null]);
     expect(c.weeks[0]!.planned_min).toBe(75);
     expect(c.weeks[0]!.planned_open).toBe(1);
+  });
+  it('un libre hecho se pinta pero no es plan: ni debido/hecho, ni carga, ni «Sin entrenos»', () => {
+    const libre = ses({
+      id: 'l',
+      date: '2026-09-22',
+      libre: true,
+      done: true,
+      status: 'completed',
+      editable: false,
+      planned_min: null,
+    });
+    const c = cal([ses({ id: 'a', date: '2026-09-21', done: true, status: 'completed', planned_min: 40 }), libre]);
+    const w = c.weeks[0]!;
+    expect(w.days[1]!.sessions.map((s) => s.id)).toEqual(['l']);
+    expect(w).toMatchObject({ due: 1, done: 1, planned_min: 40, planned_open: 0 });
+    expect(dayLoads(w)).toEqual([40, null, null, null, null, null, null]);
+    // Sin fila de estado, la semana cuenta sus entrenos del plan, no el libre.
+    const { from, to } = calendarRange('semana', TODAY, null);
+    const sinFila = buildCalendarWeeks({
+      sessions: [ses({ id: 'a', date: '2026-09-21' }), libre],
+      weekStates: new Map(),
+      from,
+      to,
+      today: TODAY,
+    });
+    expect(sinFila[0]!.state.sessions).toBe(1);
+
+    const soloLibre = cal([libre]).weeks[0]!;
+    expect(weekHasPlanSessions(soloLibre)).toBe(false);
+    expect(soloLibre).toMatchObject({ due: 0, done: 0 });
+    expect(isPlanSession(libre)).toBe(false);
   });
 });
 

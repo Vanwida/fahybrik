@@ -3,7 +3,9 @@ import 'server-only';
 // El calendario de la ficha (pestaña Plan): los entrenos del coach en un rango de
 // semanas, cada uno con su modalidad, su estado (hecho / debido sin hacer), los
 // minutos que escribe su prescripción, y el estado Visible / Oculta de cada
-// semana (la ÚNICA puerta, `weekly_plans`, vía week-publishing).
+// semana (la ÚNICA puerta, `weekly_plans`, vía week-publishing). Y los entrenos
+// LIBRES que el atleta ya hizo (`COACH_SEES_ASSIGNMENT`): marcados «Libre», de
+// solo lectura y fuera de toda cuenta del plan (`isPlanSession`).
 //
 // Consultas: el hueco del plan (para el zoom «Plan completo»), los entrenos del
 // rango, sus segmentos (una consulta para todos) y los estados de semana.
@@ -19,6 +21,7 @@ import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import { sessionModalityFromExercises } from '@/lib/dashboard/v2/editor-axes';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
 import { listAthleteWeeks } from '@/lib/coach/week-publishing';
+import { COACH_SEES_ASSIGNMENT } from '@/lib/coach/libre-visible';
 import type { CalSession, CalZoom, FichaCalendar } from './atleta-detalle-types';
 import { buildCalendarWeeks, calendarRange, mondayOfIso, sessionModality } from './ficha-calendar-model';
 
@@ -34,6 +37,7 @@ interface SessionRow {
   excluded: boolean;
   rpe: number | null;
   modalities: string[] | null;
+  origin: 'coach' | 'self';
 }
 
 interface SegmentRow {
@@ -43,7 +47,7 @@ interface SegmentRow {
   notes: string | null;
 }
 
-/** El «hoy» del atleta en su huso y el primer/último entreno del coach (desde 8 semanas atrás). */
+/** El «hoy» del atleta en su huso y el primer/último entreno que ve el coach (desde 8 semanas atrás). */
 async function loadSpan(client: Sql, coach_id: number, athlete_id: number) {
   const rows = await client<Array<{ today: string; first: string | null; last: string | null }>>`
     with a as (
@@ -55,7 +59,7 @@ async function loadSpan(client: Sql, coach_id: number, athlete_id: number) {
            to_char(max(wa.scheduled_for), 'YYYY-MM-DD') as last
     from a
     left join workout_assignments wa
-      on wa.athlete_id = a.id and wa.origin = 'coach' and wa.scheduled_for >= a.today - 56
+      on wa.athlete_id = a.id and wa.scheduled_for >= a.today - 56 and ${COACH_SEES_ASSIGNMENT(client)}
     group by a.today
   `;
   return rows[0] ?? null;
@@ -98,7 +102,8 @@ export async function loadFichaCalendar(params: {
           )
         )                                              as excluded,
         ex.rpe                                         as rpe,
-        segmods.modalities                             as modalities
+        segmods.modalities                             as modalities,
+        wa.origin::text                                as origin
       from workout_assignments wa
       join templates t on t.id = wa.template_id
       left join lateral (
@@ -113,7 +118,7 @@ export async function loadFichaCalendar(params: {
         where ts.template_id = wa.template_id
       ) segmods on true
       where wa.athlete_id = ${params.athlete_id}
-        and wa.origin = 'coach'
+        and ${COACH_SEES_ASSIGNMENT(client)}
         and wa.scheduled_for between ${from}::date and ${to}::date
       order by wa.scheduled_for, wa.planned_sequence nulls last, wa.id
     `,
@@ -155,6 +160,9 @@ export async function loadFichaCalendar(params: {
     const done = r.status === 'completed' || r.status === 'partial' || r.executed;
     const visible = visibleByWeek.get(mondayOfIso(r.date)) ?? true;
     const { modality, label } = sessionModality(sessionModalityFromExercises(r.modalities ?? []), r.format);
+    // Un libre es trabajo hecho, no plan: sin minutos planificados, nunca «sin
+    // hacer» ni excluido, nunca editable (lo escribió el atleta).
+    const libre = r.origin === 'self';
     return {
       id: r.id,
       date: r.date,
@@ -163,13 +171,14 @@ export async function loadFichaCalendar(params: {
       modality_label: label,
       status: r.status,
       done,
-      missed: !done && !r.excluded && r.date < today && visible,
-      excluded: r.excluded,
-      planned_min: duration ? (duration.known ? duration.minutes : duration.timed_minutes || null) : null,
-      planned_open: duration ? !duration.known || duration.basis === 'floor' : false,
+      missed: !libre && !done && !r.excluded && r.date < today && visible,
+      excluded: !libre && r.excluded,
+      planned_min: libre ? null : duration ? (duration.known ? duration.minutes : duration.timed_minutes || null) : null,
+      planned_open: libre ? false : duration ? !duration.known || duration.basis === 'floor' : false,
       has_content: segs.length > 0,
-      editable: r.status === 'scheduled' && !done,
+      editable: !libre && r.status === 'scheduled' && !done,
       rpe: r.rpe,
+      libre,
     };
   });
 

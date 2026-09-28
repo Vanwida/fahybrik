@@ -17,6 +17,7 @@ import { EstadoColumn } from '../estado/EstadoColumn';
 import { useFicha } from '../FichaContext';
 import { Calendar } from './Calendar';
 import { useCalendar } from './use-calendar';
+import { isPlanSession } from '@/lib/dashboard/v2/ficha-calendar-model';
 
 const ZOOMS: { value: CalZoom; label: string }[] = [
   { value: 'semana', label: 'Semana' },
@@ -57,10 +58,12 @@ export function PlanTab({
   }
 
   const cal = c.cal;
-  const inRange = cal ? cal.weeks.reduce((n, w) => n + w.days.reduce((m, d) => m + d.sessions.length, 0), 0) : 0;
-  const upcoming = cal
-    ? cal.weeks.flatMap((w) => w.days.flatMap((d) => d.sessions)).filter((s) => s.editable && s.date >= cal.today)
-    : [];
+  // «Sin plan» se decide con lo del PLAN; los libres hechos del atleta no son
+  // plan, pero si los hay en el rango se enseña el calendario para verlos.
+  const all = cal ? cal.weeks.flatMap((w) => w.days.flatMap((d) => d.sessions)) : [];
+  const inRange = all.filter(isPlanSession).length;
+  const hasLibre = all.some((s) => !isPlanSession(s));
+  const upcoming = cal ? all.filter((s) => s.editable && s.date >= cal.today) : [];
   const noPlan = !shell.has_upcoming_plan && inRange === 0;
   const adh = shell.adherence;
 
@@ -90,7 +93,7 @@ export function PlanTab({
     body = <ErrorState title={c.error} onRetry={c.retry} />;
   } else if (!cal) {
     body = <CalendarSkeleton />;
-  } else if (noPlan && c.zoom !== 'plan') {
+  } else if (noPlan && !hasLibre && c.zoom !== 'plan') {
     body = (
       <div className="rounded-panel border border-v2-border bg-v2-surface">
         <EmptyState

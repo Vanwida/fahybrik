@@ -2,7 +2,9 @@
 
 // La semana de un atleta en 7 puntos (lun → dom): hecho ✓, sin hacer ✕,
 // pendiente (vacío), descanso (–) y hoy con contorno. Cada punto dice su estado
-// en texto (tooltip y lector): el color nunca va solo.
+// en texto (tooltip y lector): el color nunca va solo. Un entreno libre hecho
+// (no plan) no cambia el punto: se nombra en el texto y lleva una marca pequeña
+// bajo la letra del día.
 
 import { Check, Minus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -28,7 +30,10 @@ const DOT: Record<WeekDot['state'], string> = {
 };
 
 function dotTitle(d: WeekDot): string {
-  const what = d.sessions.length > 0 ? d.sessions.map((s) => s.title).join(' + ') : 'sin entreno';
+  const what =
+    d.sessions.length > 0
+      ? d.sessions.map((s) => (s.libre ? `${s.title} (libre, hecho)` : s.title)).join(' + ')
+      : 'sin entreno';
   return `${weekdayDate(d.date)}${d.is_today ? ' (hoy)' : ''} · ${what} · ${STATE_TEXT[d.state]}`;
 }
 
@@ -51,6 +56,10 @@ export function WeekDots({ days, className }: { days: WeekDot[]; className?: str
             <span className={cn('t-meta', d.is_today ? 'font-semibold text-v2-fg' : 'text-v2-faint')}>
               {weekdayLetter(d.date)}
             </span>
+            <span
+              aria-hidden
+              className={cn('size-1 rounded-full', d.sessions.some((s) => s.libre) ? 'bg-v2-ok' : 'bg-transparent')}
+            />
           </li>
         );
       })}

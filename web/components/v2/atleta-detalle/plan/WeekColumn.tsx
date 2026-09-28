@@ -25,7 +25,7 @@ import { apiJson, errorMessage } from '@/components/v2/shared/api';
 import { weekStateLine } from '@/components/v2/shared';
 import type { WeekPublishResult } from '@fahybrid/shared/schema/week-publishing';
 import type { CalWeek } from '@/lib/dashboard/v2/atleta-detalle-types';
-import { dayLoads } from '@/lib/dashboard/v2/ficha-calendar-model';
+import { dayLoads, weekHasPlanSessions } from '@/lib/dashboard/v2/ficha-calendar-model';
 import { formatMinutes, weekRangeLabel } from '@/lib/dashboard/v2/ficha-format';
 import { useFicha } from '../FichaContext';
 
@@ -75,7 +75,9 @@ export function WeekColumn({ week, max, today }: { week: CalWeek; max: number; t
   const past = sunday < today;
   const range = weekRangeLabel(week.week_start);
   const base = `/api/coach/athletes/${shell.athlete_id}/weeks/${week.week_start}`;
-  const hasSessions = week.days.some((d) => d.sessions.length > 0);
+  // Lo del PLAN: un libre del atleta no es una semana con entrenos que publicar,
+  // copiar o escalar.
+  const hasSessions = weekHasPlanSessions(week);
 
   const act = async (kind: 'publish' | 'hold' | 'release') => {
     setBusy(true);

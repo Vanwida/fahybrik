@@ -199,6 +199,7 @@ export function SessionSheet({
           editor ? (
             <span className="inline-flex items-center gap-2">
               {st ? <StatusBadge tone={st.tone} label={st.label} size="sm" /> : null}
+              {editor.origin === 'self' ? <StatusBadge tone="neutral" label="Libre" variant="soft" size="sm" /> : null}
               <span className="truncate">{editor.title}</span>
             </span>
           ) : undefined
@@ -231,6 +232,10 @@ export function SessionSheet({
                   Quitar
                 </Button>
               </div>
+            ) : editor.origin === 'self' ? (
+              <p className="t-body-sm text-v2-muted">
+                Entreno libre: lo montó y lo hizo el atleta. No cuenta en su adherencia.
+              </p>
             ) : editor.status === 'scheduled' && editor.date < shell.today ? (
               <DatePick label="Pasarlo a otro día" icon={CalendarArrowUp} min={shell.today} initial={shell.today} confirmLabel="Mover" onPick={move} />
             ) : null}

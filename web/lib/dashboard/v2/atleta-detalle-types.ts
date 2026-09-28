@@ -300,6 +300,10 @@ export interface CalSession {
   /** Se puede mover/editar/quitar (solo lo programado sin hacer). */
   editable: boolean;
   rpe: number | null;
+  /** Entreno libre del atleta (`origin = 'self'`), ya hecho. Se pinta marcado
+   *  «Libre» y de solo lectura: no es plan, así que no cuenta en lo debido/hecho
+   *  de la semana, ni en su carga, ni en «Sin entrenos». */
+  libre: boolean;
 }
 
 export interface CalDay {
