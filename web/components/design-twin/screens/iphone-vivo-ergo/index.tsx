@@ -21,13 +21,19 @@ export const meta: TwinMeta = {
   id: 'iphone-vivo-ergo',
   titulo: 'iPhone · el ergo',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'construida',
   actualizado: '2026-09-28',
   descripcion:
     'Remo, ski y bici sobre la anatomía del vivo rehecho: el /500 actual contra su banda (/1000 en la bici), la rejilla de la máquina (cadencia, pulso, calorías, potencia), las calorías como lo que falta, el continuo a zona con el pulso tiñendo, el test marcado, la recuperación parada, la máquina perdida o sin conectar, el horizontal y un libre idéntico.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIK/Workout/VivoIphone/VivoIphoneView.swift',
+    'ios/FAHYBRIK/Workout/VivoIphone/VivoIphoneCuadro.swift',
+    'ios/FAHYBRIKCore/Vivo/Vivo+Entrada.swift',
+    'ios/FAHYBRIKCore/Vivo/Vivo+PlanDeSesion.swift',
+    'ios/FAHYBRIKTests/Vivo/VivoIphoneCapturasTests+Ergo.swift',
+  ],
   enApp:
-    'Hoy el ergo del iPhone es ErgHUDContent + ErgLiveStrip + ErgPreStartFlow: el remo, el ski y la bici salen iguales (/500, s/min y «sin remar» en la bici), las calorías solo con objetivo en cal, la cadencia no se ve, sin máquina hay una guía a pantalla completa sin reloj ni pulso, y el título es «Row Erg · Intervals». Esto lo sustituye entero, y también a la propuesta `vivo-erg` del 29-jul, que sigue en el índice como historia.',
+    'Construida en Swift el 28-09 (rama claude/vivo-swift-ergo, detrás de VivoIphoneBandera: encendida en Debug, apagada en Release hasta las cinco familias). Los diez escenarios se capturan con el motor real en VivoIphoneCapturasTests+Ergo. Antes, el ergo del iPhone era ErgHUDContent + ErgLiveStrip + ErgPreStartFlow: el remo, el ski y la bici salen iguales (/500, s/min y «sin remar» en la bici), las calorías solo con objetivo en cal, la cadencia no se ve, sin máquina hay una guía a pantalla completa sin reloj ni pulso, y el título es «Row Erg · Intervals». Esto lo sustituye entero, y también a la propuesta `vivo-erg` del 29-jul, que sigue en el índice como historia.',
   dispositivo: 'iphone',
   soportaHorizontal: true,
 };
