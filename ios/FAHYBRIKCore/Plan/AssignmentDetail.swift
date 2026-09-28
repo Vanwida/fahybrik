@@ -279,6 +279,28 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
     let avgDriveForceLbs: Double?
     let ergSplits: [ErgSplitActual]?
 
+    // ── Lo que un libre y uno del coach leen igual (DECISIONS 2026-09-28) ──────
+    // Los tres son `var` con defecto por lo mismo que el resto de campos tardíos:
+    // un detalle cacheado antes de esta tanda (sin estas claves) tiene que seguir
+    // decodificando, y los tests que construyen el tramo a mano no los nombran.
+
+    /// La serie a serie del tramo (`set_executions`), en orden de `set_index`.
+    /// Nil = el servidor no la mandó (respuesta anterior); `[]` = el tramo no se
+    /// registró por series (carrera, ergo, una línea con un solo número).
+    var sets: [SetActualDTO]? = nil
+    /// Tonelaje del tramo tal y como lo calcula la regla ÚNICA del servidor
+    /// (`shared/domain/strength/volume.ts`): Σ reps × kg de las series hechas o
+    /// adaptadas. Null sin carga (peso corporal, carrera). NUNCA se recalcula
+    /// aquí: dos motores para el mismo volumen es cómo atleta y coach leen dos
+    /// números distintos de la misma sesión.
+    var volumeKg: Double? = nil
+    /// La ronda del formato en la que cayó el tramo (la vuelta de una ruta de
+    /// estaciones, la ronda de un circuito), en la escala GUARDADA: 0 = la unidad
+    /// no se repite, N = ronda N (base 1). Ojo: el lap del móvil (`LapRecord`) la
+    /// lleva en base 0 y el servidor le suma uno al guardarla. Nil en respuestas
+    /// anteriores.
+    var roundIndex: Int? = nil
+
     // `.convertFromSnakeCase` capitalizes the digit→letter boundary, so the wire
     // key `avg_pace_s_per_500m` converts to `avgPaceSPer500M` (capital M) — which
     // did NOT match the `avgPaceSPer500m` property, silently dropping the erg's
@@ -294,7 +316,30 @@ struct SegmentActualDTO: Codable, Equatable, Identifiable {
         case startedAt, legIndex, legRole, legPhase
         case source, emomRoundsCompleted, emomRoundsPrescribed, zoneSeconds
         case dragFactor, avgCaloriesPerHour, peakDriveForceLbs, avgDriveForceLbs, ergSplits
+        case sets, volumeKg, roundIndex
     }
+}
+
+// UNA SERIE HECHA, tal y como la sirve el servidor (`SetActual`,
+// web/lib/dashboard/coach/session-actuals.ts). Todo opcional salvo el índice y el
+// estado: lo que no se anotó no viaja, y no se rellena aquí (§7).
+struct SetActualDTO: Codable, Equatable, Identifiable {
+    var id: Int { setIndex }
+    /// Base 1.
+    let setIndex: Int
+    /// "done" | "scaled" | "skipped" — una saltada se enseña apagada y no suma.
+    let status: String
+    let reps: Int?
+    let kg: Double?
+    let repsPrescribed: Int?
+    let kgPrescribed: Double?
+    /// 0–10, admite medio punto.
+    let rpe: Double?
+    let rir: Double?
+    /// «3-1-1-0».
+    let tempo: String?
+    /// Descanso tras la serie, en segundos.
+    let restS: Int?
 }
 
 // One PM5 split/interval as served back (the ErgData interval table row). Mirrors

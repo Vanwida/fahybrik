@@ -76,7 +76,7 @@ enum LecturaDeCarreraDesdeDetalle {
     }
 
     static func carrera(
-        de detalle: AssignmentDetail,
+        de detalle: some DetalleDeEntrenoHecho,
         zonas: HRZoneProfile? = nil,
         tituloAlternativo: String? = nil,
         ahora: Date = Date()
@@ -116,7 +116,7 @@ enum LecturaDeCarreraDesdeDetalle {
 
         return Carrera(
             titulo: detalle.workout?.name ?? tituloAlternativo ?? "Carrera",
-            cuando: FechaES.cuando(detalle.assignment.scheduledFor, ahora: ahora) ?? "",
+            cuando: detalle.fechaISO.flatMap { FechaES.cuando($0, ahora: ahora) } ?? "",
             // Este camino lee del SERVIDOR, así que el entreno ya está guardado: no
             // hay nada que registrar y la pantalla se lee, no se rellena.
             momento: .revision,
@@ -282,7 +282,7 @@ enum LecturaDeCarreraDesdeDetalle {
 
     /// Los tramos PRESCRITOS de cada ítem, en la lista plana a la que apunta
     /// `leg_index`. Vacío cuando el bloque no trae estructura (camino heredado).
-    static func piernasPrescritas(_ detalle: AssignmentDetail) -> [String: [RunLeg]] {
+    static func piernasPrescritas(_ detalle: some DetalleDeEntrenoHecho) -> [String: [RunLeg]] {
         var salida: [String: [RunLeg]] = [:]
         for bloque in detalle.workout?.blocks ?? [] {
             for item in bloque.items {
@@ -337,7 +337,7 @@ enum LecturaDeCarreraDesdeDetalle {
     /// prescripciones que tiene la app. Sin prescripción escrita se queda el título
     /// del bloque; sin ninguna de las dos no se pinta nada, que una nota inventada
     /// bajo el botón es peor que ninguna.
-    static func lineaDelCoach(_ detalle: AssignmentDetail) -> String? {
+    static func lineaDelCoach(_ detalle: some DetalleDeEntrenoHecho) -> String? {
         guard let bloques = detalle.workout?.blocks else { return nil }
         let uidsCorridos = Set(
             (detalle.execution?.segments ?? [])
