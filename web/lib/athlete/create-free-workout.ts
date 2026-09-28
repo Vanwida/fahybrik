@@ -306,6 +306,7 @@ async function findFreeStart(
   startedAt: string,
   title: string,
 ): Promise<number | null> {
+  // tenancy: athlete-session
   const rows = await db<Array<{ id: string; title: string }>>`
     select wa.id::text as id, t.name as title
     from workout_assignments wa
@@ -360,16 +361,17 @@ export async function createFreeWorkout(input: CreateFreeWorkoutInput): Promise<
       }
       assignmentId = await persistFreeWorkoutPlanInTx(tx, { ...input, scheduledFor }, segments);
       if (startKey) {
+        // tenancy: athlete-session
         await tx`
           update workout_assignments set free_started_at = ${startKey}::timestamptz
-          where id = ${assignmentId}
+          where id = ${assignmentId} and athlete_id = ${athleteId}
         `;
       }
     }
 
     // Cada tramo, a su segmento de la plantilla recién creada (`link-tramos.ts`):
     // el libre se guarda igual que una sesión del coach.
-    const linked = await linkTramosToAssignment(tx, assignmentId, metrics);
+    const linked = await linkTramosToAssignment(tx, athleteId, assignmentId, metrics);
     const rec = await recordWorkoutExecution({ athleteId, assignmentId, input: linked, sql: tx });
     if (!rec.ok) {
       throw new FreeWorkoutError('record_failed', `Could not record execution: ${rec.reason}`);

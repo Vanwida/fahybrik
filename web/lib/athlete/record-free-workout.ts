@@ -141,12 +141,13 @@ async function linkToOwnSelfPlan(
   assignmentId: number,
   input: ExecutionMetricsInput,
 ): Promise<ExecutionMetricsInput> {
+  // tenancy: athlete-session
   const own = await db<Array<{ id: string }>>`
     select id::text as id from workout_assignments
     where id = ${assignmentId} and athlete_id = ${athleteId} and origin = 'self'
     limit 1
   `;
-  return own[0] ? linkTramosToAssignment(db, assignmentId, input) : input;
+  return own[0] ? linkTramosToAssignment(db, athleteId, assignmentId, input) : input;
 }
 
 /** Guarda un entreno libre hecho. Ver la cabecera del fichero. */

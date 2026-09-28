@@ -141,6 +141,7 @@ async function persistWorkoutExecution(args: {
 
   if (!Number.isFinite(assignmentId)) return { ok: false, reason: 'invalid_assignment' };
 
+  // tenancy: athlete-session
   const owned = await sql<
     Array<{ id: string; template_id: string; session_format: string | null }>
   >`

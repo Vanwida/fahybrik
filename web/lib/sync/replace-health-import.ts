@@ -52,6 +52,7 @@ export async function replaceHealthImports(
   const ref = sanitizeSourceWorkoutRef(args.input.source_workout_ref);
   const window = workWindow(args.input);
   if (ref == null && window == null) return 0;
+  // tenancy: athlete-session
   const rows = await sql<Array<{ id: string }>>`
     delete from workout_executions
     where athlete_id = ${args.athleteId}

@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     const result = body.assignment_id
       ? await updateFreeWorkoutPlan({ ...planInput, assignmentId: body.assignment_id })
       : await saveFreeWorkoutPlan(planInput);
-    const segments = await loadAssignmentItems(sql, Number(result.assignment_id));
+    const segments = await loadAssignmentItems(sql, athleteId, Number(result.assignment_id));
 
     return jsonOk({
       saved: true,
