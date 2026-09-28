@@ -66,6 +66,7 @@ function lap(item_uid: string, position: number, over: Partial<SegmentActual> = 
     position,
     item_uid,
     modality: 'run',
+    exercise_name: null,
     started_at: null,
     duration_seconds: null,
     reps_completed: null,

@@ -147,6 +147,7 @@ async function materializeCorosSummary(args: {
       ? duration / (distance / 1000)
       : null;
 
+  // tenancy: platform — el sync de COROS recorre a cada atleta enlazado; el atleta sale de su conexión, no de la petición.
   const inserted = await sql<{ id: string }[]>`
     insert into workout_executions (
       assignment_id, athlete_id, started_at, ended_at, total_duration_seconds,
@@ -166,6 +167,12 @@ async function materializeCorosSummary(args: {
       ${distance},
       ${calories}
     )
+    -- Un reenvío simultáneo de la misma actividad: la llave de 0276 la para.
+    on conflict (athlete_id, source, source_workout_ref)
+      where assignment_id is null
+        and recorded_via = 'imported'
+        and source_workout_ref is not null
+      do nothing
     returning id::text
   `;
   const executionId = inserted[0]?.id;

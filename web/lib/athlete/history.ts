@@ -53,6 +53,7 @@ import {
   toSegmentModality,
   type SegmentModality,
 } from '@fahybrid/shared/domain/segment-modality';
+import { segmentVolumeKg, type VolumeSet } from '@fahybrid/shared/domain/strength';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { SEG_COUNTS_AS_VOLUME, SEG_MODALITY_SQL } from '@/lib/execution/segment-work';
@@ -80,6 +81,11 @@ export interface AthleteHistorySession {
   /** What was done MOST (by time, then distance): run | row | ski | bike | strength
    *  | other. Null when the session has no tramos. */
   modality: SegmentModality | null;
+  /** Tonnage of the session, kg: Σ of its tramos' `volume_kg` (the ONE rule,
+   *  `shared/domain/strength/volume.ts`: reps × kg of the sets done/scaled; a tramo
+   *  without sets counts its single line). Equals the sum the detail serves per
+   *  tramo. Null when nothing carried load (running, bodyweight) — never a 0. */
+  volume_kg: number | null;
   /** perceived_exertion (1–10); null when the athlete didn't log it. */
   rpe: number | null;
   /** True when this execution was logged as a JOINT Dobles session (partner link). */
@@ -253,6 +259,11 @@ export async function buildAthleteHistoryMonth(
     `,
   ]);
 
+  const volumeByExecution = await loadVolumeKgByExecution(
+    client,
+    execRows.map((r) => r.execution_id),
+  );
+
   // Group done sessions by the day they were done (SQL already ordered them by
   // started_at within a day, so pushing in order preserves it).
   const sessionsByDate = new Map<string, AthleteHistorySession[]>();
@@ -269,6 +280,7 @@ export async function buildAthleteHistoryMonth(
       score_reps: r.score_reps,
       distance_m: r.distance_m != null ? Math.round(r.distance_m) : null,
       modality,
+      volume_kg: volumeByExecution.get(r.execution_id) ?? null,
       rpe: r.rpe,
       with_partner: r.with_partner,
       has_route: r.has_route,
@@ -307,4 +319,48 @@ export async function buildAthleteHistoryMonth(
   }));
 
   return { month, days };
+}
+
+/**
+ * Tonnage per execution (kg), with the SAME rule and the same tramos the detail
+ * uses (`session-actuals.ts` › `segmentVolumeKg`), so the history row and the sum
+ * of its detail never disagree. Executions with no load are absent from the map.
+ */
+async function loadVolumeKgByExecution(client: Sql, executionIds: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (executionIds.length === 0) return out;
+  const ids = executionIds.map(Number);
+  const [segs, sets] = await Promise.all([
+    // tenancy: verified-owner — ids de ejecuciones del atleta del bearer (consulta de arriba).
+    client<Array<{ id: string; execution_id: string; reps_completed: number | null; weight_used_kg: string | null }>>`
+      select se.id::text as id, se.execution_id::text as execution_id,
+             se.reps_completed, se.weight_used_kg::text as weight_used_kg
+      from segment_executions se
+      where se.execution_id = any(${ids}::bigint[])
+    `,
+    // tenancy: verified-owner — series de esas mismas ejecuciones.
+    client<Array<{ segment_execution_id: string; reps: number | null; kg: string | null; status: string }>>`
+      select st.segment_execution_id::text as segment_execution_id,
+             st.reps_actual as reps, st.load_actual_kg::text as kg, st.status
+      from set_executions st
+      join segment_executions se on se.id = st.segment_execution_id
+      where se.execution_id = any(${ids}::bigint[])
+    `,
+  ]);
+  const setsBySegment = new Map<string, VolumeSet[]>();
+  for (const st of sets) {
+    const list = setsBySegment.get(st.segment_execution_id) ?? [];
+    list.push({ reps: st.reps, kg: st.kg != null ? Number(st.kg) : null, status: st.status });
+    setsBySegment.set(st.segment_execution_id, list);
+  }
+  for (const seg of segs) {
+    const v = segmentVolumeKg({
+      sets: setsBySegment.get(seg.id) ?? [],
+      reps_completed: seg.reps_completed,
+      weight_used_kg: seg.weight_used_kg != null ? Number(seg.weight_used_kg) : null,
+    });
+    if (v == null) continue;
+    out.set(seg.execution_id, Math.round(((out.get(seg.execution_id) ?? 0) + v) * 100) / 100);
+  }
+  return out;
 }

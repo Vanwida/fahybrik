@@ -326,4 +326,43 @@ describeWithDb('athlete history by month (real DB)', () => {
     },
     DB_TEST_TIMEOUT_MS,
   );
+
+  // El tonelaje de la fila: la MISMA regla que el detalle (volume.ts), sumada por
+  // tramo. Serie saltada no suma; un tramo sin series cuenta su línea; carrera → null.
+  test(
+    'volume_kg: Σ reps × kg de las series hechas; null sin carga',
+    async () => {
+      const fx = await makeCoachAndAthlete(sql);
+      cleanups.push(async () => {
+        await sql`delete from workout_executions where athlete_id = ${fx.athleteId}`;
+      });
+      cleanups.push(fx.cleanup);
+      const templateId = await makeTemplate({ fx, name: 'Fuerza' });
+      const gym = await makeAssignment({ fx, templateId, scheduledForIso: '2026-05-11', status: 'completed' });
+      const run = await makeAssignment({ fx, templateId, scheduledForIso: '2026-05-12', status: 'completed' });
+      const gymEx = await insertExecution({ assignmentId: gym, athleteId: fx.athleteId, startedAt: '2026-05-11T08:00:00Z' });
+      const runEx = await insertExecution({ assignmentId: run, athleteId: fx.athleteId, startedAt: '2026-05-12T08:00:00Z' });
+      const segs = await sql<{ id: string; position: number }[]>`
+        insert into segment_executions (execution_id, position, modality, reps_completed, weight_used_kg)
+        values (${gymEx}, 0, 'strength', null, 115), (${gymEx}, 1, 'strength', 10, 20)
+        returning id::text, position
+      `;
+      const squat = segs.find((s) => s.position === 0)!.id;
+      await sql`
+        insert into set_executions (segment_execution_id, set_index, reps_actual, load_actual_kg, status)
+        values (${squat}, 1, 5, 100, 'done'), (${squat}, 2, 5, 110, 'scaled'), (${squat}, 3, 3, 115, 'skipped')
+      `;
+      await sql`
+        insert into segment_executions (execution_id, position, modality, distance_meters)
+        values (${runEx}, 0, 'run', 5000)
+      `;
+
+      const res = await buildAthleteHistoryMonth(fx.athleteId, '2026-05', sql);
+      const byDate = new Map(res.days.map((d) => [d.date, d]));
+      // 5×100 + 5×110 (la saltada no) + la línea 10×20.
+      expect(byDate.get('2026-05-11')!.sessions[0]!.volume_kg).toBe(1250);
+      expect(byDate.get('2026-05-12')!.sessions[0]!.volume_kg).toBeNull();
+    },
+    DB_TEST_TIMEOUT_MS,
+  );
 });

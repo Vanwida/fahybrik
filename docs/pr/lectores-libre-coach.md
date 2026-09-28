@@ -95,3 +95,21 @@ ejecución ajena o inexistente es 404.
    `modality`, `distance_m` y el resultado AMRAP (`score_rounds` + `score_reps`).
 3. `AthleteHistorySession.id` hoy es `assignmentId`: pasa a `executionId` (único
    y siempre presente).
+
+## 4. Tres huecos cerrados después (2026-09-28, aditivo)
+
+| dónde | campo | tipo | qué es |
+|---|---|---|---|
+| `GET /api/athlete/history` · `sessions[]` | `volume_kg` | number \| null | tonelaje de la sesión: Σ de los `volume_kg` de sus tramos, con la MISMA regla del detalle (`volume.ts`). Null sin carga (carrera, peso corporal) |
+| detalle (por asignación y por ejecución) · `execution.segments[]` | `exercise_name` | string \| null | nombre del ejercicio del tramo (su `exercise_id`, o el de su línea enlazada), con el nombre propio del coach si lo renombró. Null sin ejercicio |
+
+- **Qué pinta iOS:** la fila de fuerza del historial enseña `volume_kg`; un tramo
+  sin enlace al plan se titula con `exercise_name` y solo cae a la modalidad
+  («Fuerza», «Correr») cuando viene null.
+- **Importación de Apple Salud idempotente (0276).** El doble envío del mismo lote
+  creaba dos sesiones idénticas a milisegundos (atleta 64: 2478/2479, 2510/2511,
+  2642/2643, 2690/2691, 2693/2694). Una importación sin asignación es ahora única
+  por (atleta, fuente, `source_workout_ref`): índice único parcial y
+  `on conflict do nothing`; la petición que pierde la carrera contesta con la fila
+  que ya existe. 0276 borra los 5 duplicados con la misma regla (se queda la más
+  antigua). La app no cambia nada.
