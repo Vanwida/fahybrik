@@ -444,6 +444,14 @@ const FORMAT_TO_ARCHETYPE: Record<string, ArchetypeId> = {
   emom: 'power_emom',
   for_time: 'wod_metcon',
   amrap: 'wod_metcon',
+  // El resto de formatos del selector «Formato» de un WOD: el bloque guarda el
+  // formato elegido (DECISIONS 2026-09-28), así que al recargarlo tiene que
+  // volver al mismo formulario de componentes y no al editor genérico.
+  rounds: 'wod_metcon',
+  tabata: 'wod_metcon',
+  death_by: 'wod_metcon',
+  chipper: 'wod_metcon',
+  ladder: 'wod_metcon',
   circuit: 'circuit_core',
   hyrox_sim: 'hyrox_sim',
   test: 'test',
@@ -458,13 +466,20 @@ export function archetypeForFormat(format: string | null | undefined): Archetype
   return id ? getArchetype(id) : null;
 }
 
-/** The form pattern for a block: explicit archetype_id wins, else derive from format. */
+/**
+ * The form pattern for a block: explicit archetype_id wins, else derive from
+ * format. A reloaded `intervals` block with several lines is a WOD whose Formato
+ * is «Series»: the single-line series form would hide every line but the first,
+ * so it opens in the components form.
+ */
 export function patternForBlock(
   archetypeId: ArchetypeId | undefined,
   format: string | null | undefined,
+  itemCount = 1,
 ): FormPattern | null {
   if (archetypeId) return getArchetype(archetypeId).pattern;
-  return archetypeForFormat(format)?.pattern ?? null;
+  const pattern = archetypeForFormat(format)?.pattern ?? null;
+  return pattern === 'intervals' && itemCount > 1 ? 'components' : pattern;
 }
 
 // ── Block factory — picking an archetype builds a ready, pre-seeded block ─────

@@ -38,7 +38,13 @@ import {
 import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import { Button, IconButton } from '@/components/v2/ui';
 
-type DoseMode = 'reps' | 'distance' | 'duration';
+// Calorías también: un 15 cal de remo o de bici es una estación de WOD tan real
+// como 15 wall balls, y el entreno libre ya la escribe. Sin el modo, una estación
+// en calorías se abría como «Reps» vacía y al guardar se perdía la medida.
+type DoseMode = 'reps' | 'distance' | 'duration' | 'calories';
+
+/** Calorías de una estación nueva: el valor por defecto de un sprint de ergo corto. */
+const DEFAULT_STATION_CALORIES = 15;
 
 // El objetivo de una estación: nada («—», lo honesto cuando no lo hay), ritmo,
 // RPE o carga. Un objetivo heredado de otro tipo (una zona importada) no se
@@ -210,7 +216,13 @@ export function ComponentStationRow({
   const measure = set ? setMeasure(set) : undefined;
   const target = set ? setTarget(set) : undefined;
   const doseMode: DoseMode =
-    measure?.kind === 'distance' ? 'distance' : measure?.kind === 'duration' ? 'duration' : 'reps';
+    measure?.kind === 'distance'
+      ? 'distance'
+      : measure?.kind === 'duration'
+        ? 'duration'
+        : measure?.kind === 'calories'
+          ? 'calories'
+          : 'reps';
 
   // La medida y el objetivo viven JUNTOS en sets[0]: escribir una no puede
   // borrar el otro (antes, cambiar la medida tiraba el objetivo en silencio).
@@ -228,7 +240,9 @@ export function ComponentStationRow({
         ? { kind: 'distance', meters: 200 }
         : next === 'duration'
           ? { kind: 'duration', seconds: 30 }
-          : { kind: 'reps', value: 10 };
+          : next === 'calories'
+            ? { kind: 'calories', value: DEFAULT_STATION_CALORIES }
+            : { kind: 'reps', value: 10 };
     writeSet({ measure: m });
   };
 
@@ -297,11 +311,21 @@ export function ComponentStationRow({
               { value: 'reps', label: 'Reps' },
               { value: 'distance', label: 'Dist' },
               { value: 'duration', label: 'Tiempo' },
+              { value: 'calories', label: 'Cal' },
             ]}
             onChange={setDoseMode}
           />
           <div className="min-w-0 flex-1">
-            {doseMode === 'reps' ? (
+            {doseMode === 'calories' ? (
+              <NumberCell
+                value={measure?.kind === 'calories' ? measure.value : null}
+                ariaLabel={`Calorías de la estación ${index + 1}`}
+                min={0}
+                max={1000}
+                suffix="cal"
+                onChange={(v) => writeSet({ measure: { kind: 'calories', value: v ?? 0 } })}
+              />
+            ) : doseMode === 'reps' ? (
               <NumberCell
                 value={measure?.kind === 'reps' ? measure.value : null}
                 ariaLabel={`Reps de la estación ${index + 1}`}
