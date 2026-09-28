@@ -14,7 +14,7 @@ extension VivoIphoneCapturasTests {
     /// Monta el escenario con su reloj devuelto a su sitio al montar (el motor corre mientras tanto).
     @MainActor
     private func correr(_ e: EscenarioCorrer, _ nombre: String, horizontal: Bool = false, pagina: VivoIdPagina = .vivo,
-                        espera: TimeInterval = 0.8, masT: Double = 0, trasMontar: @escaping (WorkoutSession) -> Void = { _ in }) {
+                        espera: TimeInterval = 0.35, masT: Double = 0, trasMontar: @escaping (WorkoutSession) -> Void = { _ in }) {
         let f = e.fuera
         let lectura = VivoLecturaDePrueba(gps: f.gps, ruta: f.ruta.map { CLLocationCoordinate2D(latitude: $0.0, longitude: $0.1) }, ritmo: f.ritmoCinta)
         captura(e.sesion, nombre, horizontal: horizontal, espera: espera,

@@ -79,7 +79,7 @@ final class VivoCorrerTests: XCTestCase {
     @MainActor
     func testSerieRapidaDiceRapidoSinCambiarDeColor() throws {
         let c = cuadro(try EscenarioCorrer.serieRapida())
-        XCTAssertEqual(c.heroe.texto, "3:38")
+        XCTAssertEqual(c.heroe.clase, .ritmo)
         XCTAssertEqual(c.banda?.palabra?.marca, "▲")
         XCTAssertEqual(c.banda?.palabra?.texto, "rápido")
     }

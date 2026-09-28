@@ -95,11 +95,14 @@ struct VivoPaginaMapa: View {
             ZStack(alignment: .bottomLeading) {
                 RunRouteMapView(coordinates: coordenadas, quality: calidad, paused: pausado)
                     .clipShape(RoundedRectangle(cornerRadius: VivoTokens.Radio.superficie, style: .continuous))
+                // Sobre el mapa del sistema: con fondo propio y por encima de su marca (abajo a la izquierda).
                 HStack(spacing: 8) {
-                    if let m = metros { let d = Vivo.fmtDistancia(m); VivoEtiqueta(texto: "\(d.valor) \(d.unidad)") }
-                    if let r = ritmoMedio { VivoEtiqueta(texto: "\(Vivo.fmtRitmo(r)) /km medio") }
+                    if let m = metros { let d = Vivo.fmtDistancia(m); VivoEtiqueta(texto: "\(d.valor) \(d.unidad)", tono: VivoColor.tinta) }
+                    if let r = ritmoMedio { VivoEtiqueta(texto: "\(Vivo.fmtRitmo(r)) /km medio", tono: VivoColor.tinta) }
                 }
-                .padding(.leading, 14).padding(.bottom, 12)
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(VivoColor.fondo.opacity(0.75), in: Capsule())
+                .padding(.leading, 12).padding(.bottom, 36)
             }
             .frame(maxHeight: .infinity)
             VivoEtiqueta(texto: "la ruta se guarda en Salud · el mapa es el del sistema")

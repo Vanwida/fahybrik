@@ -193,13 +193,13 @@ struct EscenarioCorrer {
 
     @MainActor static func serieDentro(libre: Bool = false) throws -> EscenarioCorrer {
         let s = enElPaso(libre ? try P.libreSeisPorMil() : try P.seisPorMilCompleto(), entorno: .outdoor, pasos: 5)
-        dentro(s, t: 88, metros: 380, ppm: [171], cadencia: 181, sesionT: 1627)
+        dentro(s, t: 87, metros: 380, ppm: [171], cadencia: 181, sesionT: 1627)
         return EscenarioCorrer(sesion: s)
     }
 
     @MainActor static func serieRapida() throws -> EscenarioCorrer {
         let s = enElPaso(try P.seisPorMilCompleto(), entorno: .outdoor, pasos: 5)
-        dentro(s, t: 48.6, metros: 223, ppm: [172], cadencia: 181, sesionT: 1590)
+        dentro(s, t: 46.5, metros: 223, ppm: [172], cadencia: 181, sesionT: 1590)
         return EscenarioCorrer(sesion: s)
     }
 

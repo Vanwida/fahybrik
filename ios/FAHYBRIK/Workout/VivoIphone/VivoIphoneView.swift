@@ -180,7 +180,7 @@ struct VivoIphoneView: View {
                 HStack(spacing: VivoTokens.hueco) {
                     VStack(spacing: VivoTokens.hueco) { Spacer(minLength: 0); bloqueSujeto(c, alto: Swift.max(120, lienzo.alto - 200), ancho: lienzo.ancho * 0.5 - 2 * VivoTokens.margen); Spacer(minLength: 0) }
                         .frame(maxWidth: .infinity)
-                    VStack(spacing: VivoTokens.hueco) { bloqueApoyo(c); franja(c) }
+                    VStack(spacing: VivoTokens.hueco) { bloqueApoyo(c, horizontal: true); franja(c) }
                         .frame(maxWidth: .infinity)
                 }
             } else {
@@ -210,9 +210,10 @@ struct VivoIphoneView: View {
     }
 
     @ViewBuilder
-    private func bloqueApoyo(_ c: VivoIphoneCuadro) -> some View {
+    private func bloqueApoyo(_ c: VivoIphoneCuadro, horizontal: Bool = false) -> some View {
         let anota = c.enDescanso && !c.seriesAnotables.isEmpty
-        VivoRejilla(metricas: anota ? Array(c.metricas.prefix(2)) : c.metricas, compacta: anota) {
+        // En horizontal la columna de la derecha no tiene alto para celdas altas: van compactas (una fila cada una).
+        VivoRejilla(metricas: anota ? Array(c.metricas.prefix(2)) : c.metricas, compacta: anota || horizontal) {
             if anota {
                 VivoAnotarSerie(series: c.seriesAnotables, foco: $foco) { paso, campo, dir in cambiar(paso, campo, dir, c) }
             }
