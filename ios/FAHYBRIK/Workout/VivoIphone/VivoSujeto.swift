@@ -170,7 +170,9 @@ struct VivoTrabajo<Extra: View>: View {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 VivoEtiqueta(texto: trabajo.etiqueta)
                 if trabajo.texto {
-                    Text(trabajo.valor)
+                    // «1:52–1:56» no se parte por el guion: el rango viaja entero a la
+                    // línea siguiente. Es cosa del pintor; el dato sigue limpio.
+                    Text(trabajo.valor.replacingOccurrences(of: "–", with: "\u{2060}–\u{2060}"))
                         .font(.system(size: VivoTokens.TI.datoTexto + 4, weight: .bold))
                         .foregroundStyle(VivoColor.tinta)
                         .lineLimit(2)
