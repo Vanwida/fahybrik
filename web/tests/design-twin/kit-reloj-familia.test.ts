@@ -20,7 +20,9 @@ import {
 } from '@/components/design-twin/kit-reloj/paso';
 import { deMaquina, fmtObjetivo, fmtSplit, nombreMaquina, nombreMaquinaCorto, textoObjetivo, unidadSplit } from '@/components/design-twin/kit-reloj/reglas';
 import { heroeDelPaso, laminaDelPaso } from '@/components/design-twin/kit-reloj/lamina';
-import { admiteHorizontal, esTest, familiaDe, formatoDe, heroeDeFamilia, luegoDe, metricasDelPaso, posicionDe, textoViene, trabajoDe } from '@/components/design-twin/kit-reloj/metricas';
+import { admiteHorizontal, esTest, familiaDe, formatoDe } from '@/components/design-twin/kit-reloj/familia';
+import { heroeDeFamilia, metricasDelPaso, trabajoDe } from '@/components/design-twin/kit-reloj/metricas';
+import { luegoDe, posicionDe, textoViene } from '@/components/design-twin/kit-reloj/posicion';
 import { anotacionDe, confirmar, girar, seriesDelDescanso, type Registro } from '@/components/design-twin/kit-reloj/anotar';
 import { vozInicio } from '@/components/design-twin/kit-reloj/voz';
 import { T, tallaHeroe } from '@/components/design-twin/kit-reloj/tokens';

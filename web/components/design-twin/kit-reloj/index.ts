@@ -50,9 +50,13 @@
 //   anotar.ts     Anotar la serie en el descanso (P11, I7): Registro (solo lo declarado),
 //                 anotacionDe (propuesto / medido / declarado), confirmar, girar,
 //                 seriesDelDescanso, medidaDe, volumen, textoAnotacion; RANGO_ANOTAR_DEFECTO.
-//   metricas.ts   La familia del paso (familiaDe) y su rejilla de apoyo (metricasDelPaso,
-//                 §4 del modelo del iPhone): la máquina manda su métrica, el pulso siempre;
-//                 heroeDeFamilia (I4): el héroe con las reglas de WOD y circuito encima de P3.
+//   familia.ts    familiaDe (una pregunta por familia: la máquina que mide manda), esTest,
+//                 formatoDe + NOMBRE_FORMATO_DEFECTO (el formato en castellano de box, dato
+//                 con defecto), admiteHorizontal.
+//   metricas.ts   heroeDeFamilia (I4: el héroe con las reglas de WOD, fuerza y circuito encima
+//                 de P3), trabajoDe (§10.6), metricasDelPaso (la rejilla §4: la máquina manda
+//                 su métrica, el pulso siempre, lo que nadie mide no se pinta), ExtraFamilia.
+//   posicion.ts   posicionDe (la cabecera por partes), textoViene, luegoDe (con el «después»).
 //   tarea.ts      La tarea del WOD: wodDe, textoTarea, textoTareaCorto, dosisTarea,
 //                 cargaTarea, repsPorRonda; la puntuación: Dial, girarDial, desgloseReps.
 //   estructura.ts La estructura en líneas de dato: duracionEstimada/duracionHumana,
@@ -133,7 +137,9 @@ export * from './paso';
 export * from './reglas';
 export * from './fuerza';
 export * from './anotar';
+export * from './familia';
 export * from './metricas';
+export * from './posicion';
 export * from './tarea';
 export * from './estructura';
 export * from './despues';

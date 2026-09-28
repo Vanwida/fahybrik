@@ -19,7 +19,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { BotonesDescanso, Centro, VieneLinea, altoLibre, altoViene, type Viene } from './apoyos';
 import { heroeDelPaso, laminaDelPaso, lineaPulso, type LineaVista } from './lamina';
 import type { Lecturas, Paso, PasoBase, ZonasCoach } from './paso';
-import { textoViene } from './metricas';
+import { textoViene } from './posicion';
 import { contextoDe, esCarrera, fmtObjetivo, fmtRitmo, principal, valorDeEje } from './reglas';
 import { BandaObjetivo } from './banda';
 import {

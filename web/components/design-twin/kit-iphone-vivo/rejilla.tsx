@@ -16,7 +16,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { ArcoDeTramo } from '../kit-watch/bisel';
 import type { Metrica } from '../kit-reloj/metricas';
-import type { LuegoVista } from '../kit-reloj/metricas';
+import type { LuegoVista } from '../kit-reloj/posicion';
 import { ChipZona, Corazon, Cuerpo, Etiqueta, Numeral } from './piezas';
 import { ALTO, CELDA, CI, HUECO, MARGEN, TI } from './tokens';
 

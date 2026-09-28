@@ -13,7 +13,7 @@
 //   · GPS «buscando» ANTES de empezar, no a mitad;
 //   · copy de box: «el remo», «la bici», nunca PM5 ni BLE.
 
-import { familiaDe } from '../kit-reloj/metricas';
+import { familiaDe } from '../kit-reloj/familia';
 import type { Lecturas, PasoBase } from '../kit-reloj/paso';
 import { deMaquina, nombreMaquina, nombreMaquinaCorto, type TipoMaquina } from '../kit-reloj/reglas';
 import type { EstadoChip, NombreIcono } from './piezas';
