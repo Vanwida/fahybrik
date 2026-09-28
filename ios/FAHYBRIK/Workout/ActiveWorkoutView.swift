@@ -660,7 +660,8 @@ struct ActiveWorkoutView: View {
                 isBenchmark: isBenchmark,
                 alAccionDelHost: { primaryAction() },
                 alConectividad: { mostrarConectividad = true },
-                alTerminarYGuardar: { session.finish(completeness: .partial) }
+                alTerminarYGuardar: { session.finish(completeness: .partial) },
+                alVerBloques: { mostrarBloques = true }
             )
         } else {
             superficieAntigua
@@ -926,7 +927,8 @@ struct ActiveWorkoutView: View {
     // to dismiss by accident.
     @ViewBuilder
     private var finishDecisionOverlay: some View {
-        if session.isAwaitingFinishDecision {
+        // El vivo nuevo pide antes la puntuación del AMRAP (la campana) y guarda él: no se tapa.
+        if session.isAwaitingFinishDecision, !(VivoIphoneBandera.activa && Vivo.esperaPuntuacion(session)) {
             ZStack {
                 Theme.Color.scrim.ignoresSafeArea()
                 CardSurface(padding: Theme.Spacing.l, radius: Theme.Radius.xl) {

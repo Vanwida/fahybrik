@@ -85,6 +85,14 @@ final class AudioCoach {
         if let utterance = engine.onTimeRemaining(remaining, legKey: key) { enqueue(utterance) }
     }
 
+    // MARK: - El vivo nuevo del iPhone (frases del kit `Vivo`)
+
+    /// Una frase ya compuesta por el kit (`Vivo.vozPreaviso`…): el mismo canal,
+    /// la misma cola y el mismo interruptor «Avisos de voz» que la carrera.
+    func decir(_ texto: String, prioridad: CuePriority = .transition) {
+        enqueue(CoachUtterance(text: texto, priority: prioridad))
+    }
+
     // MARK: - Treadmill events (from TreadmillHUDModel)
 
     /// A new continuous-run leg opened — restart the km-split cursor for it.

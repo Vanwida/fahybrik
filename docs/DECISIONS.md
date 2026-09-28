@@ -11,6 +11,50 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-28 · El vivo nuevo del iPhone, construido: las cinco familias en una rama, una cuenta atrás y un arnés
+
+**Qué hay.** Las cinco familias del vivo del iPhone (`correr`, `ergo`, `fuerza`, `wod`, `circuito`) portadas a Swift sobre el mismo kit (`FAHYBRIKCore/Vivo/` + `FAHYBRIK/Workout/VivoIphone/`) y fusionadas en `claude/vivo-swift-integracion`. `VivoIphoneView` pinta el mismo estado que la muñeca; el motor (`WorkoutSession`) no cambia.
+
+**Decidido al fusionar (mecanismo):**
+- **UNA cuenta 3-2-1 y UN GO** (`Vivo+Cuenta.swift`, espejo de `secuencia.ts#cuentaDe`/`goHasta`). Había tres copias: la `entrada` del cuadro (ergo), `cuentaHaciaFuerza` (fuerza) y `cuentaDe`/`goDe` (correr). El estado lleva la cuenta (la del motor manda) y el GO de entrar en trabajo principal desde algo que no es trabajo; el pintor solo añade el GO de un trabajo que cerró el atleta (`veGo(cerroElAtleta:)`). La cuenta enseña lo que VIENE.
+- **Horizontal como el kit:** la columna del sujeto medida sobre la página real (1,1 : 1) y las celdas apretadas con todas sus métricas; no dos celdas compactas.
+- **UN arnés de capturas** (`FAHYBRIKTests/Vivo/VivoArnesDeCapturas.swift`: `VivoMontaje` + `fotografiarVivo`). Había cuatro copias del volcado; cada familia es ahora un envoltorio con sus defectos.
+- **«Ver el entreno entero» también en el vivo nuevo**, en la cabecera de su Estructura (y de la ruta del circuito): abre la MISMA hoja de bloques del host. Sin él, con la bandera encendida no se podía saltar de bloque.
+
+**Fuera, por límites del motor (el paso lo deja en `nil` y el pintor calla; no se inventa):**
+- **Roxzone por toque/sensor:** la Roxzone existe solo si el coach la escribe como pieza de la lista y se cierra con un toque; la detección «sigue sola al correr» del contrato está simulada en el doble y no hay sensor que la dé.
+- **Pulso por estación y por ronda:** el motor no guarda el pulso por parcial; la Estructura del circuito no lleva el pulso medio de cada Run/estación.
+- **La carga «de la última vez»:** la app no guarda historial de cargas; B1 sale «8 reps», no «8 × 140 kg».
+- **GO en la cuenta de arranque del EMOM y de la carrera estructurada:** la cuenta de arranque es del motor (`isTramoCountIn`) y no dice GO; el vivo no la sustituye.
+- **GO por pantalla del reloj del paso:** el reloj de un paso puede estar armado (la máquina aún no rema) o congelado (nadie mide); el GO se enseña una vez y 1 s de reloj de pared, no «mientras t < 1».
+- **Botón de la Live Activity / Isla Dinámica:** se pinta la acción, pero pulsarla exige un `LiveActivityIntent` (capacidad nueva, sin construir).
+- **Plancha con categoría de core:** el motor no la lleva serie a serie (solo la de fuerza).
+
+**Vista vieja:** `RunLiveShellView` (y sus vivos por formato: `EmomVivoView`, `FuerzaVivoView`, `OutdoorRunHUDView`, `TreadmillHUDView`…) **NO se retira**: sigue montada en Release (`VivoIphoneBandera` apagada) porque el vivo nuevo aún no cubre lo que el recorrido real necesita de ella (ver abajo).
+
+**Bandera en Release: sigue APAGADA.** Falta en `VivoIphoneView`, y lo usa el recorrido real vía `ActiveWorkoutView.superficieAntigua`:
+1. **Dobles / relevo:** el sujeto de relevo («{compañero} hace SkiErg», `partnerFirstName`), la acción «Relevo ▸» (`advanceRelay`; el vivo nuevo llamaría a `primaryAdvance`), la tira de presencia del compañero (`DoblesLiveStrip`) y el turno (`DoblesTurnHero`).
+2. **Salir sin terminar** (`alSalir` → `onLeaveAndResume`): el vivo nuevo solo ofrece «Terminar y guardar».
+3. **Saltar a otro tramo del bloque** (`alSaltarTramo`, `BlockIntervalStrip`).
+4. **`accionDelHost` del death by con acción dual** del host: el vivo nuevo lo resuelve con su propio «Hecho» y el reloj que caza; equivalente, pero no es el mismo camino.
+Las puertas (`BlockPreviewGate`) no dependen de la vista: van antes del vivo.
+
+**NO hacer:** una cuenta atrás o un GO por familia o por vista; otro volcado de capturas fuera del arnés; encender la bandera en Release sin cubrir antes los cuatro huecos de arriba; retirar `RunLiveShellView` mientras la bandera esté apagada en Release.
+
+---
+
+## 2026-09-28 · Correr en el vivo del iPhone: la gramática nombra los pasos; «Vuelta» parte, no cierra
+
+**Contexto.** Familia `correr` del vivo del iPhone (`iphone-vivo-correr`) portada a Swift sobre el adaptador `Vivo.planDe`. El adaptador contaba TODAS las piernas de trabajo del día como «Serie N/M»: 538 salía «Serie 9/15» en vez de «Serie 1/4», el progresivo eran series, los strides de 551 «Serie 2/7» y el rodaje de delante «Serie 1/7».
+
+**Decidido (mecanismo, `Vivo+Correr.swift`):** con gramática (`structure`), la posición sale de sus «repetir»: dentro de un repetir ×N es serie k/N (y tanda si hay repetir dentro de repetir); los tramos de trabajo seguidos sin recuperar, fuera de un repetir, son «tramo k/M» de un progresivo (si cada uno aprieta más) o un fartlek; un tramo suelto es tempo (a ritmo), rodaje o tirada; una serie corta en un repetir es un stride. Sin gramática, el recuento de siempre. Dónde empieza «tirada» (75′ o 16 km) y hasta dónde es «stride» (30″) es **método**: `UmbralesCorrer`, dato con defecto.
+
+**Decidido también:** la cuenta 3-2-1 y el GO de ENTRADA a la parte principal (espejo de `cuentaDe`/`goHasta` del kit) los pinta el vivo, no el motor; de trabajo a trabajo no se corta. **«Vuelta» parte el rodaje y no lo cierra** (antes llamaba a `primaryAdvance` y terminaba el rodaje); la vuelta automática por km es del vivo (`RegistroVueltas`) y si se empieza a mirar a mitad de un km, ese km no lleva tiempo (no se inventa).
+
+**NO hacer:** volver a contar las series del día entero; inferir clases por el título del bloque; mandar «Vuelta» al motor como cierre de paso.
+
+---
+
 ## 2026-09-28 · Alex firma el vivo nuevo del iPhone
 
 **Firmado (Alex, 28-09: «perfecto, me encanta el diseño»)** sobre la galería antes/después (https://claude.ai/artifact/YN3iFbkZYGHSn1S5hsgb8t) de las propuestas `iphone-vivo-{gramatica,correr,ergo,fuerza,wod,circuito}` del doble. Modelo: `docs/vivo-iphone/modelo.md`. Las tres decisiones subjetivas quedan como se vieron: numeral SF tabular (como la muñeca), tinte de zona solo cuando el paso va a zona (sustituye §10.1 del CONTRATO-UI en el vivo) y mapa en página lateral.

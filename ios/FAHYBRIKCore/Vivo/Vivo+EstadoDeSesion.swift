@@ -51,6 +51,8 @@ extension Vivo {
     /// segmento y, si no lo hay, al último del plan.
     static func indiceActual(_ pasos: [Paso], _ sesion: WorkoutSession) -> Int {
         let s = sesion.currentSegmentIndex
+        // El trabajo prescrito acabó y el motor espera: si lo último fue un AMRAP, es su campana (la puntuación).
+        if sesion.isAwaitingFinishDecision, let i = pasos.firstIndex(where: { $0.origen?.segmento == s && $0.origen?.puntuacion == true }) { return i }
         var ventana = ventanaDe(sesion)
         var descanso = sesion.isTramoResting
         // El descanso de fuerza corre entre la serie cerrada y la siguiente: su paso cuelga de la serie que viene.
@@ -59,6 +61,11 @@ extension Vivo {
             ventana = .serie(sesion.pendingSetIndex ?? sesion.setRecords.count)
         }
         if let i = pasos.firstIndex(where: { $0.origen?.segmento == s && $0.origen?.ventana == ventana && $0.origen?.descanso == descanso }) { return i }
+        // Todas las series cerradas y sin descanso: el ejercicio está hecho y el
+        // siguiente toque lo cierra. El paso vivo es el ÚLTIMO del ejercicio, nunca
+        // la serie 1 otra vez (el atasco de la última serie).
+        if sesion.currentSegment?.usesMultiSetStrength == true, !sesion.setRecords.isEmpty, sesion.pendingSetIndex == nil,
+           let i = pasos.lastIndex(where: { $0.origen?.segmento == s }) { return i }
         if let i = pasos.firstIndex(where: { $0.origen?.segmento == s && $0.origen?.ventana == ventana }) { return i }
         if let i = pasos.firstIndex(where: { $0.origen?.segmento == s }) { return i }
         return Swift.max(0, pasos.count - 1)
@@ -70,8 +77,10 @@ extension Vivo {
         let enPiernas = sesion.isRunStructureActive
         // Segundos en el paso: en un descanso, lo que va de él (lo prescrito menos lo que queda).
         let t: Double
-        if p.rol == .descanso || p.rol == .recuperacion {
-            if sesion.restRemainingSeconds > 0 { t = Swift.max(0, sesion.restTotalSeconds - sesion.restRemainingSeconds) }
+        if p.rol == .descanso || p.rol == .recuperacion || (p.rol == .transicion && sesion.restRemainingSeconds > 0) {
+            // Lo que queda es lo que queda del descanso del motor, también tras «+30 s»
+            // (que estira el total y no lo prescrito): falta = prescrito − t = lo que queda.
+            if sesion.restRemainingSeconds > 0 { t = (p.medida.prescrito ?? sesion.restTotalSeconds) - sesion.restRemainingSeconds }
             else if enPiernas { t = sesion.runLegElapsed }
             else if let pr = p.medida.prescrito { t = Swift.max(0, pr - sesion.tramoRestRemaining) }
             else { t = sesion.tramoElapsedSeconds }
@@ -96,7 +105,13 @@ extension Vivo {
         case .abierta: break
         }
 
-        let ritmoMotor: Double? = (p.medida.mide == .gps || p.medida.mide == .cinta || esCarrera(p)) ? sesion.liveCoveredPaceSecPerKm.map(Double.init) : nil
+        var ritmoMotor: Double? = (p.medida.mide == .gps || p.medida.mide == .cinta || esCarrera(p)) ? sesion.liveCoveredPaceSecPerKm.map(Double.init) : nil
+        // El Run DENTRO de una ruta (circuito, HYROX): el acumulador del motor divide
+        // los metros de todas las carreras por el reloj de todo el bloque. El de ESTE
+        // tramo son sus metros entre su tiempo (causa raíz 4 del modelo).
+        if sesion.currentTramo.isFixedStation, sesion.tramoIsRun, let m = sesion.tramoRunCoveredMeters, m > 50 {
+            ritmoMotor = WorkoutSession.paceSecPerKm(meters: m, seconds: t).flatMap { $0 <= Double(RunLegDisplay.maxPaceSecPerKm) ? $0 : nil }
+        }
         let esErgo = p.medida.mide == .ergo || p.maquina != nil && p.maquina?.tipo != .cinta
         return Lecturas(
             t: t,
@@ -189,7 +204,10 @@ extension Vivo {
         }
         if let m = sesion.tramoRunCoveredMeters { corridos += m }
         if let m = sesion.tramoErgDistanceMeters { ergo += m }
-        let cuenta: Int? = sesion.isTramoCountIn ? Swift.max(1, Swift.min(3, Int(sesion.tramoCountInRemaining.rounded(.up)))) : nil
+        // La del motor (el arranque) manda; si no, la de entrada a la parte principal (kit: `cuentaDe`).
+        let motor: Int? = sesion.isTramoCountIn ? Swift.max(1, Swift.min(3, Int(sesion.tramoCountInRemaining.rounded(.up)))) : nil
+        let enPausa = sesion.isPaused || sesion.isFinished
+        let cuenta: Int? = motor ?? (enPausa ? nil : cuentaDe(pasos, i, lecturas))
         return EstadoVivo(
             pasos: pasos,
             i: i,
@@ -201,10 +219,12 @@ extension Vivo {
             pausado: sesion.isPaused,
             vueltas: vueltasDe(pasos, parciales: parciales, zonas: plan.zonas, reglas: plan.reglas),
             parciales: parciales,
-            metrosPaso: lecturas.hecho != nil && paso.medida.tipo == .distancia ? lecturas.hecho : (paso.medida.mide == .ergo ? sesion.tramoErgDistanceMeters : sesion.tramoRunCoveredMeters),
+            // Los metros de un paso de máquina son los del monitor aunque lo mida el reloj (el remo del EMOM, todo el minuto).
+            metrosPaso: lecturas.hecho != nil && paso.medida.tipo == .distancia ? lecturas.hecho
+                : ((paso.medida.mide == .ergo || (paso.maquina != nil && paso.maquina?.tipo != .cinta)) ? sesion.tramoErgDistanceMeters : sesion.tramoRunCoveredMeters),
             sesionErgoM: ergo,
             cuenta: cuenta,
-            go: false,
+            go: cuenta == nil && !enPausa && goDe(pasos, i, lecturas),
             terminado: sesion.isFinished
         )
     }

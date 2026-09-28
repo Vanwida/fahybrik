@@ -22,11 +22,16 @@ export const meta: TwinMeta = {
   id: 'iphone-vivo-circuito',
   titulo: 'iPhone · circuito y HYROX',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
+  estado: 'construida',
   actualizado: '2026-09-28',
   descripcion:
     'Rondas de circuito con estaciones medidas y sin medir, la HYROX completa (8 × 1 km + 8 estaciones con nombre, dosis y carga, Roxzone como paso), la carrera dentro del circuito con el héroe de correr y el total en la cabecera, el bloque continuo remo → ski → bici (cada tramo con su máquina y su métrica), la Estructura con parciales por estación y un circuito libre que se ve igual.',
-  fuentes: [],
+  fuentes: [
+    'ios/FAHYBRIKCore/Vivo/Vivo+Circuito.swift',
+    'ios/FAHYBRIKCore/Vivo/Vivo+PlanDeSesion.swift',
+    'ios/FAHYBRIK/Workout/VivoIphone/VivoIphoneCuadro.swift',
+    'ios/FAHYBRIK/Workout/VivoIphone/VivoRutaCircuito.swift',
+  ],
   enApp:
     'Hoy el circuito por rondas y la HYROX Sim (ActiveWorkoutView + RoundsLiveHUD + WorkoutFormatHUDs) son la lista del coach con «ARRANCAR BLOQUE» por estación (BlockPreviewGate), RX/Escalado en mitad del vivo, un mapa «Buscando GPS» bajo un trineo (RunRouteMapView), el crono del tramo como sujeto sin dosis ni carga, la máquina sin su métrica, y el continuo remo + ski + bici es UN tramo con la métrica del remo. El libre «Por rondas» tiene su propio vivo con «tu media desde la 2ª». Esto lo sustituye entero con el kit del iPhone sobre el mismo estado que la muñeca (`reloj-circuito`); el chipper 506 (el AMRAP dentro del circuito y su campana) queda para `iphone-vivo-wod`.',
   dispositivo: 'iphone',

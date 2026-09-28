@@ -108,6 +108,8 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
                       "cinta monta RunLiveShellView — el botón va en CromoVivoEntreno, no en TreadmillHUDView")
     }
 
+    /// El vivo VIEJO (lo que monta el host con `VivoIphoneBandera` apagada):
+    /// fuerza / EMOM usan el mismo `CromoVivoEntreno` que calle y cinta.
     @MainActor
     func testElTopStripDelLiveLlevaElBoton() {
         let s = sesionDosBloques()
@@ -116,9 +118,36 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
         s.beginBlock()
         s.stop()
         XCTAssertEqual(PresentadorVivo.de(s), .live(.fuerza))
-        let vista = ActiveWorkoutView(session: s, onFinish: {}, onExit: {})
+        let vista = ShellDePrueba(session: s)
         XCTAssertTrue(etiquetas(de: vista).contains(etiqueta),
                       "fuerza / EMOM usan CromoVivoEntreno compartido")
+        UIApplication.shared.isIdleTimerDisabled = false
+    }
+
+    /// El vivo NUEVO (`VivoIphoneView`, lo que monta el host con la bandera
+    /// encendida): el botón vive en la Estructura, que es la sesión entera, y abre
+    /// la MISMA hoja de bloques del host. Sin él, con la bandera encendida no se
+    /// podría saltar de bloque desde el live.
+    @MainActor
+    func testElVivoNuevoLlevaElBotonEnSuEstructura() {
+        let s = sesionDosBloques()
+        s.start()
+        s.irAlBloque(s.bloques[1])
+        s.beginBlock()
+        s.stop()
+        XCTAssertEqual(PresentadorVivo.de(s), .live(.fuerza))
+        let vista = VivoIphoneView(session: s, hrZones: nil, pm5: PM5ConnectionStore.shared,
+                                   hrLink: .idle, treadmillLink: .idle,
+                                   alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {},
+                                   alVerBloques: {}, paginaInicial: .estructura)
+        XCTAssertTrue(etiquetas(de: vista, espera: 0.4).contains(etiqueta),
+                      "la Estructura del vivo nuevo lleva «Ver el entreno entero»")
+        let sinHost = VivoIphoneView(session: s, hrZones: nil, pm5: PM5ConnectionStore.shared,
+                                     hrLink: .idle, treadmillLink: .idle,
+                                     alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {},
+                                     paginaInicial: .estructura)
+        XCTAssertFalse(etiquetas(de: sinHost, espera: 0.4).contains(etiqueta),
+                       "sin quien abra la hoja no hay botón (las capturas del contrato)")
         UIApplication.shared.isIdleTimerDisabled = false
     }
 
@@ -180,7 +209,7 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
     }
 
     @MainActor
-    private func etiquetas(de vista: some View) -> [String] {
+    private func etiquetas(de vista: some View, espera: TimeInterval = 0) -> [String] {
         XCTAssertNotNil(Automatizacion.simbolos,
                         "sin libAccessibility no se enciende la automatización y SwiftUI no publica ninguna etiqueta")
         let host = UIHostingController(rootView: vista.environment(\.colorScheme, .dark))
@@ -197,7 +226,7 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
         host.view.layoutIfNeeded()
         // Una vuelta de bucle, como `Volcado`: hay bandas que se colocan en dos
         // pasadas (se miden con una preferencia).
-        RunLoop.current.run(until: Date())
+        RunLoop.current.run(until: Date().addingTimeInterval(espera))
         host.view.layoutIfNeeded()
         return recolectar(host.view)
     }
