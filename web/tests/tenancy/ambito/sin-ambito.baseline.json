@@ -864,7 +864,6 @@
     {"archivo":"lib/sync/ingest-coros.ts","huella":"34d44b8169ca","tablas":["segment_executions"],"veces":1},
     {"archivo":"lib/sync/ingest-coros.ts","huella":"be111e7ae137","tablas":["workout_executions"],"veces":1},
     {"archivo":"lib/sync/ingest-coros.ts","huella":"f697f67deede","tablas":["workout_executions"],"veces":1},
-    {"archivo":"lib/sync/ingest-execution-segments.ts","huella":"7e5b01563989","tablas":["segment_executions"],"veces":1},
     {"archivo":"lib/sync/ingest-garmin.ts","huella":"12c53c1e457f","tablas":["biometric_streams"],"veces":1},
     {"archivo":"lib/sync/ingest-garmin.ts","huella":"394bb5a542ef","tablas":["workout_executions"],"veces":1},
     {"archivo":"lib/sync/ingest-garmin.ts","huella":"5dcb98d747a1","tablas":["biometric_streams"],"veces":1},

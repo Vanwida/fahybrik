@@ -322,6 +322,7 @@ export async function ingestExecutionSegments(args: {
     // su ronda para que el upsert de abajo lo FUNDA como siempre, en vez de dejar dos
     // filas del mismo tramo sumando dos veces.
     if (roundIndex > 0) {
+      // tenancy: verified-owner — la ejecución la creó o validó para este atleta quien llama a la ingesta.
       await sql`
         update segment_executions set round_index = ${roundIndex}
         where execution_id = ${executionId}::bigint and position = ${position} and round_index = 0
@@ -333,6 +334,7 @@ export async function ingestExecutionSegments(args: {
       `;
     }
 
+    // tenancy: verified-owner — misma ejecución que arriba.
     const rows = await sql<Array<{ id: string }>>`
       insert into segment_executions (
         execution_id, template_segment_id, position, round_index,
