@@ -68,8 +68,11 @@ export function textoViene(p: PasoBase): string {
   const corto = textoPasoCorto(p);
   if (pos?.tanda && pos.serie?.n === 1) return `Tanda ${pos.tanda.n}/${pos.tanda.de} · ${pos.serie.de} × ${corto}`;
   if (pos?.ronda && (pos.estacion?.n ?? 1) === 1) return `Ronda ${pos.ronda.n}/${pos.ronda.de} · ${corto}`;
+  if (pos?.tramo) return `Tramo ${pos.tramo.n}/${pos.tramo.de} · ${corto}`;
   // Sin objetivo, lo prescrito solo dice poco («1′»): se dice cuál es.
   if (pos?.serie && !principal(p)) return `${p.wod?.formato === 'emom' ? 'Minuto' : NOMBRE_CLASE_DEFECTO[p.clase]} ${pos.serie.n}/${pos.serie.de} · ${corto}`;
+  // Un paso suelto sin objetivo ni nombre («15′» de movilidad, «10′» de vuelta a la calma): su clase delante.
+  if (!principal(p) && !p.nombre && !pos?.serie && !pos?.ronda && !pos?.tanda && p.rol === 'trabajo') return `${NOMBRE_CLASE_DEFECTO[p.clase]} · ${corto}`;
   return corto;
 }
 

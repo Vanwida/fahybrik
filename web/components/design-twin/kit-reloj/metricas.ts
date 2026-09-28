@@ -19,7 +19,6 @@ import { esFuerza, fmtKg, textoEsfuerzo, textoKgPlan, textoPct, textoTempo } fro
 import { heroeDelPaso, lineaPulso, type HeroeVista, type LineaVista } from './lamina';
 import { REGLAS_AVISO_DEFECTO, type Lecturas, type PasoBase, type ReglasAviso, type ZonasCoach } from './paso';
 import {
-  esCarrera,
   faltaDe,
   fmtDistancia,
   fmtDuracion,
@@ -425,7 +424,8 @@ export function metricasDelPaso(
     case 'movilidad':
     default:
       if (conPulso) m.push(pulso(p, l, zonas, reglas));
-      if (f === 'recupera' && esCarrera(p)) m.push(ritmo(l));
+      // Trotando o caminando el GPS sigue midiendo: el ritmo si alguien lo mide, nunca por la clase.
+      if (f === 'recupera' && medido(l, l.ritmo, 'ritmo')) m.push(ritmo(l));
       m.push(totalDe(x));
       break;
   }

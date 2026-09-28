@@ -177,7 +177,9 @@ export function VistaIphone(p: VistaIphoneProps) {
   // El total en la cabecera (la puntuación, que no se va); si el héroe YA es el total, el de sesión.
   const crono =
     total != null && heroe.etiqueta !== 'total' ? { valor: fmtReloj(total), etiqueta: 'total' as const } : { valor: fmtReloj(estado.sesionT), etiqueta: 'sesión' as const };
-  const formato = formatoDe(pasoDelFormato(seq));
+  // Un formato que solo repite el nombre de lo que haces («Rodaje» bajo «Rodaje · Z2 · 50′») no dice nada: fuera (un dato, un sitio).
+  const formatoKit = formatoDe(pasoDelFormato(seq));
+  const formato = posicion[0]?.startsWith(formatoKit) ? '' : formatoKit;
   const tinte = tinteDelPaso(paso, lecturas, zonas);
   const arcos = arcosDePlan(plan.pasos, p.duracion);
   const conMapa = plan.pasos.some(usaGps);
