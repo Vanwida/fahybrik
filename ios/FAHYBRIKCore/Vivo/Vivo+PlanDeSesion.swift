@@ -513,7 +513,11 @@ extension Vivo {
         let esCorrer = mod == .run
         let clase: Clase
         let estructural = fase != .principal
-        if estructural {
+        if estructural, !esCorrer, maquina == nil, seg.kind != .running {
+            // Una movilidad o un calentamiento sin correr ni máquina no es una
+            // carrera: con `.calentamiento` salía familia correr y página de Mapa (529).
+            clase = .movilidad
+        } else if estructural {
             clase = fase == .calentamiento ? .calentamiento : .vueltaCalma
         } else if test, esCorrer || maquina != nil {
             clase = .test
