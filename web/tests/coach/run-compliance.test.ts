@@ -54,6 +54,7 @@ function workout(items: AssignmentDetailItem[]): AssignmentDetailWorkout {
     focus: null,
     coach_note: null,
     estimated_duration_minutes: null,
+    modality: null,
     blocks: [
       { uid: 'b1', title: 'Principal', format: 'intervals', block_position: 0, coach_note: null, config_json: {}, items },
     ],

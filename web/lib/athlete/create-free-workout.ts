@@ -16,6 +16,7 @@ import { coerceWireInstant } from '@/lib/sync/wire-instant';
 import type { RunningPR } from '@fahybrid/shared/domain/running/best-efforts';
 import {
   FREE_WORKOUT_MODALITY_SLUGS,
+  type FreeWorkoutModality,
   type MeasuredModality,
 } from '@/lib/athlete/free-workout-validate';
 
@@ -69,6 +70,20 @@ import {
  *  table has no origin column — see header). The functional origin lives on the
  *  assignment (workout_assignments.origin). */
 const SELF_ORIGIN = 'self' as const;
+
+/**
+ * El `meta_json` de la plantilla de un libre: su origen, la modalidad que declaró el
+ * atleta (el constructor con que se edita: un WOD que empieza remando no es un
+ * «remo»; el detalle la sirve como `workout.modality`) y, en un cronómetro, la
+ * prescripción que no cuelga de ningún segmento.
+ */
+function freeTemplateMeta(input: SaveFreeWorkoutPlanInput): JsonParam {
+  return {
+    origin: SELF_ORIGIN,
+    ...(input.freeModality ? { modality: input.freeModality } : {}),
+    ...(input.kind === 'clock' ? { prescription: toJson(input.prescription) } : {}),
+  };
+}
 
 /** A recoverable, request-mappable failure (→ 422 at the route boundary). */
 export class FreeWorkoutError extends Error {
@@ -128,6 +143,9 @@ export type SaveFreeWorkoutPlanInput = {
   coachId: number | null;
   title: string;
   scheme: string;
+  /** La modalidad que declaró el atleta en el cuerpo (`FreeWorkoutPlan.modality`);
+   *  se guarda en `templates.meta_json.modality`. */
+  freeModality?: FreeWorkoutModality;
   /** Calendar day for the self-origin assignment (YYYY-MM-DD, the athlete's
    *  calendar). Defaults to the athlete's today. */
   scheduledFor?: string;
@@ -234,10 +252,7 @@ export async function updateFreeWorkoutPlan(
   }
 
   const segments = await resolveSegments(db, input);
-  const metaJson =
-    input.kind === 'clock'
-      ? { origin: SELF_ORIGIN, prescription: toJson(input.prescription) }
-      : { origin: SELF_ORIGIN };
+  const metaJson = freeTemplateMeta(input);
   const templateId = Number(row.template_id);
   const hasWarmup = segments.some((s) => s.part === 'warmup');
 
@@ -414,10 +429,7 @@ async function persistFreeWorkoutPlanInTx(
 ): Promise<number> {
   const { athleteId, coachId, title, scheme, scheduledFor } = input;
 
-  const metaJson =
-    input.kind === 'clock'
-      ? { origin: SELF_ORIGIN, prescription: toJson(input.prescription) }
-      : { origin: SELF_ORIGIN };
+  const metaJson = freeTemplateMeta(input);
 
   const tplRows = await tx<Array<{ id: string }>>`
     insert into templates (

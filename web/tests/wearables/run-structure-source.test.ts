@@ -44,6 +44,7 @@ function workoutOf(...items: AssignmentDetailItem[][]): AssignmentDetailWorkout 
     focus: null,
     coach_note: null,
     estimated_duration_minutes: null,
+    modality: null,
     blocks: items.map((blockItems, i) => ({
       uid: `b${i}`,
       title: `Bloque ${i}`,

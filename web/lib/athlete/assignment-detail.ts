@@ -52,6 +52,7 @@ import {
 } from '@fahybrid/shared/domain/strength';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
 import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
+import { FREE_WORKOUT_MODALITIES, type FreeWorkoutModality } from '@/lib/athlete/free-workout-validate';
 
 // A benchmark-slug → current-1RM lookup, built once per request from the
 // athlete's strength maxes (+ onboarding-benchmark backfill). Empty when the
@@ -265,6 +266,10 @@ export interface AssignmentDetailWorkout {
   focus: string | null;
   coach_note: string | null;
   estimated_duration_minutes: number | null;
+  /** La modalidad que declaró el atleta al montar un libre (`templates.meta_json.modality`):
+   *  decide con qué constructor se edita. Null en una sesión del coach y en un libre
+   *  guardado antes de que se escribiera. */
+  modality: FreeWorkoutModality | null;
   blocks: AssignmentDetailBlock[];
 }
 
@@ -996,6 +1001,7 @@ export function buildAssignmentDetail(input: {
     focus: null,
     coach_note: template.coach_notes,
     estimated_duration_minutes: null,
+    modality: freeWorkoutModalityOf(template.meta_json),
     blocks,
   };
   // Recalculado contra el `workout` real (arriba se juzgó contra null): un
@@ -1004,6 +1010,14 @@ export function buildAssignmentDetail(input: {
   base.run_compliance = buildRunCompliance(base.workout, executionBlock?.segments ?? [], gradientOpts);
 
   return base;
+}
+
+/** La modalidad declarada de un libre, si la plantilla la guarda y es del vocabulario. */
+function freeWorkoutModalityOf(meta: Record<string, unknown> | null): FreeWorkoutModality | null {
+  const value = meta?.modality;
+  return (FREE_WORKOUT_MODALITIES as readonly unknown[]).includes(value)
+    ? (value as FreeWorkoutModality)
+    : null;
 }
 
 // Circuito → config_json plano. Claves nuevas para iOS (Task #10, docs/DECISIONS.md

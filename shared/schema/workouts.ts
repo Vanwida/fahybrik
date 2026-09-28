@@ -496,6 +496,9 @@ export const assignmentDetailWorkoutSchema = z.object({
   focus: z.string().nullable(),
   coach_note: z.string().nullable(),
   estimated_duration_minutes: z.number().int().nonnegative().nullable(),
+  // La modalidad declarada de un entreno libre (templates.meta_json.modality):
+  // row | ski | bike | run | strength | functional. Null en una sesión del coach.
+  modality: z.string().nullable(),
   blocks: z.array(assignmentDetailBlockSchema),
 });
 export type AssignmentDetailWorkout = z.infer<typeof assignmentDetailWorkoutSchema>;
