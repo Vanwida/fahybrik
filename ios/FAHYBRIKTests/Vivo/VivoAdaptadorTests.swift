@@ -130,7 +130,8 @@ final class VivoAdaptadorTests: XCTestCase {
         XCTAssertTrue(Vivo.esTest(e.paso))
         XCTAssertEqual(Vivo.familiaDe(e.paso), .remo)
         XCTAssertEqual(Vivo.formatoDe(e.paso), "Test")
-        XCTAssertEqual(Vivo.posicionDe(e.paso).first, "Row Erg")
+        // «Row Erg» es el nombre de catálogo: en la cabecera, el de box (`Vivo.nombreDeBox`).
+        XCTAssertEqual(Vivo.posicionDe(e.paso).first, "Remo")
     }
 
     // MARK: - WOD

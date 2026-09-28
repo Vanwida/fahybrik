@@ -60,7 +60,7 @@ extension Vivo {
     static func segunEnlace(_ plan: PlanVivo, maquina enlazada: Maquina.Tipo?) -> PlanVivo {
         var out = plan
         out.pasos = plan.pasos.map { p in
-            guard let m = p.maquina?.tipo, m != .cinta, m != enlazada, p.medida.mide == .ergo else { return p }
+            guard let m = p.maquina?.tipo, m != .cinta, m != enlazada, p.medida.mide == .ergo, p.medida.tipo != .tiempo else { return p }
             var q = p
             q.medida.mide = .atleta
             q.cierre = .atleta

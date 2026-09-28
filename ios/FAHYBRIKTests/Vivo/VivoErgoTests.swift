@@ -8,6 +8,9 @@ final class VivoErgoTests: XCTestCase {
 
     private typealias P = VivoPlanesDePrueba
 
+    /// La posición con espacios normales (el kit usa el duro «500\u{00A0}m»).
+    private func pos(_ p: Vivo.Paso) -> [String] { Vivo.posicionDe(p).map { $0.replacingOccurrences(of: "\u{00A0}", with: " ") } }
+
     private func pasos(_ plan: WorkoutPlan, test: Bool = false) -> [Vivo.Paso] {
         Vivo.planDe(plan, zonas: P.zonas(), entorno: nil, test: test).pasos
     }
@@ -19,14 +22,14 @@ final class VivoErgoTests: XCTestCase {
         XCTAssertEqual(s3.clase, .ergo)
         XCTAssertEqual(s3.maquina?.tipo, .remo)
         XCTAssertNil(s3.nombre, "«Row Erg» no es palabra de box: la cabecera dice «Remo»")
-        XCTAssertEqual(Vivo.posicionDe(s3), ["Remo", "Serie 3/5", "500 m"])
+        XCTAssertEqual(pos(s3), ["Remo", "Serie 3/5", "500 m"])
         XCTAssertEqual(Vivo.formatoDe(s3), "Series")
         XCTAssertEqual(Vivo.principal(s3)?.eje, .split500)
         XCTAssertEqual(Vivo.principal(s3)?.min, 112)
         XCTAssertEqual(Vivo.principal(s3)?.max, 116)
         XCTAssertEqual(ps[5].rol, .recuperacion)
         XCTAssertEqual(ps[5].modoRecupera, .parado)
-        XCTAssertEqual(Vivo.posicionDe(ps[5]), ["Recupera", "parado", "2′"])
+        XCTAssertEqual(pos(ps[5]), ["Recupera", "parado", "2′"])
         XCTAssertEqual(Vivo.clavePorDefecto(s3), .siguientePaso, "el remo cierra la serie solo")
     }
 
@@ -35,7 +38,7 @@ final class VivoErgoTests: XCTestCase {
         XCTAssertEqual(s2.nombre, "SkiErg")
         XCTAssertEqual(s2.medida.tipo, .cal)
         XCTAssertEqual(s2.medida.mide, .ergo)
-        XCTAssertEqual(Vivo.posicionDe(s2), ["SkiErg", "Serie 2/5", "25 cal"])
+        XCTAssertEqual(pos(s2), ["SkiErg", "Serie 2/5", "25 cal"])
         let l = Vivo.Lecturas(t: 44, hecho: 15, ppm: 166, split500: 118, vatios: 215, cadencia: 39, cal: 15)
         let h = Vivo.heroeDeFamilia(s2, l, nil)
         XCTAssertEqual(h.texto, "10")
@@ -53,7 +56,7 @@ final class VivoErgoTests: XCTestCase {
         XCTAssertEqual(o.min, 62.5)
         XCTAssertEqual(o.max, 65)
         XCTAssertEqual(Vivo.fmtObjetivo(o, p.maquina), "2:05–2:10 /1000")
-        XCTAssertEqual(Vivo.posicionDe(p), ["BikeErg", "20′"])
+        XCTAssertEqual(pos(p), ["BikeErg", "20′"])
         let l = Vivo.Lecturas(t: 440, split500: 64, vatios: 249, cadencia: 87, cal: 161)
         let unidades = Vivo.metricasDelPaso(p, l, heroe: .split, nil).compactMap(\.unidad)
         XCTAssertTrue(unidades.contains("rpm"))
@@ -62,13 +65,16 @@ final class VivoErgoTests: XCTestCase {
     func testRemoAZona() throws {
         let p = pasos(try P.remoZona())[0]
         XCTAssertEqual(Vivo.principal(p)?.eje, .zona)
-        XCTAssertEqual(Vivo.posicionDe(p), ["Remo", "Z2", "30′"])
+        XCTAssertEqual(pos(p), ["Remo", "Z2", "30′"])
+        XCTAssertEqual(p.medida.mide, .ergo, "el continuo en el remo: el monitor manda sus lecturas")
+        let l = Vivo.Lecturas(t: 612, ppm: 146, split500: 129, vatios: 165, cadencia: 23, cal: 165)
+        XCTAssertEqual(Vivo.metricasDelPaso(p, l, heroe: .pulso, nil).map(\.clave), [.split, .cadencia, .cal, .vatios])
     }
 
     func testTestSinTotalYConNombreDeBox() throws {
         let p = pasos(try P.testRemo(), test: true)[0]
         XCTAssertEqual(p.clase, .test)
-        XCTAssertEqual(Vivo.posicionDe(p), ["Remo", "2000 m"])
+        XCTAssertEqual(pos(p), ["Remo", "2000 m"])
         XCTAssertEqual(Vivo.formatoDe(p), "Test")
     }
 

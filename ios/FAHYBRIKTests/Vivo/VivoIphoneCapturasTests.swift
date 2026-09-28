@@ -29,6 +29,9 @@ final class VivoIphoneCapturasTests: XCTestCase {
                                    alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {})
             .environment(\.colorScheme, .dark)
         let host = UIHostingController(rootView: vista)
+        // La escena del simulador sigue en vertical: sus zonas seguras (62 arriba)
+        // no son las de un iPhone tumbado. En horizontal, sin ellas (como el contrato).
+        if horizontal { host.safeAreaRegions = [] }
         let base = UIScreen.main.bounds
         let bounds = horizontal ? CGRect(x: 0, y: 0, width: base.height, height: base.width) : base
         let escena = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first

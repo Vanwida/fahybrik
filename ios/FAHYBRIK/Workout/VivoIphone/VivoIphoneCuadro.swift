@@ -102,7 +102,8 @@ struct VivoIphoneCuadro {
         let descanso = p.rol == .descanso || p.rol == .recuperacion
         enDescanso = descanso
         let tKit = Vivo.trabajoDe(p, e.lecturas, heroe: h.clase)
-        if descanso, let lu { trabajo = Vivo.TrabajoVista(etiqueta: "viene", valor: lu.que, texto: true) }
+        // «1:52–1:56» no se parte por el guion: el rango viaja entero a la línea siguiente.
+        if descanso, let lu { trabajo = Vivo.TrabajoVista(etiqueta: "viene", valor: lu.que.replacingOccurrences(of: "–", with: "\u{2060}–\u{2060}"), texto: true) }
         else if tKit?.etiqueta == "tempo" { trabajo = nil }
         else { trabajo = tKit }
         posicion = Vivo.posicionDe(p, x)

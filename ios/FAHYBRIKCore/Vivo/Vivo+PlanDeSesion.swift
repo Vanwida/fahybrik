@@ -110,7 +110,9 @@ extension Vivo {
         switch m {
         case let .reps(v, _)?: return Medida(tipo: .reps, prescrito: Double(v), mide: .atleta)
         case let .distance(mt, _)?: return Medida(tipo: .distancia, prescrito: mt, mide: quien == .atleta ? .atleta : quien)
-        case let .duration(sec, _)?: return Medida(tipo: .tiempo, prescrito: Double(sec), mide: .reloj)
+        // En una máquina el tiempo también lo lleva su monitor: sus lecturas (el /500,
+        // las paladas) son del paso aunque lo cierre el reloj (espejo de planes.ts).
+        case let .duration(sec, _)?: return Medida(tipo: .tiempo, prescrito: Double(sec), mide: quien == .ergo ? .ergo : .reloj)
         case let .calories(c, _)?: return Medida(tipo: .cal, prescrito: Double(c), mide: quien == .ergo ? .ergo : .atleta)
         case .repsToFailure?: return Medida(tipo: .abierta, prescrito: nil, mide: .atleta)
         default: return Medida(tipo: .abierta, prescrito: nil, mide: .atleta)
