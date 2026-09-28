@@ -77,8 +77,11 @@ extension Vivo {
         var grupos: [Grupo] = []
         var porClave: [String: Int] = [:]
         var ultimo: Int? = nil
+        // Dobles: la estación de la pareja es SU fila (se ve y se salta a ella), nunca
+        // la «recuperación» del trabajo de antes.
+        func propio(_ q: Paso) -> Bool { q.rol == .trabajo || esRelevo(q) }
         for (j, p) in pasos.enumerated() {
-            if p.rol != .trabajo {
+            if !propio(p) {
                 if p.clase == .descansoTandas, let u = ultimo, grupos[u].tandas != nil {
                     if grupos[u].tandas?.descanso == nil { grupos[u].tandas?.descanso = p }
                     grupos[u].hasta = Swift.max(grupos[u].hasta, j)
@@ -87,8 +90,8 @@ extension Vivo {
             }
             let k = claveGrupo(p)
             let sig = j + 1 < pasos.count ? pasos[j + 1] : nil
-            let entre: Paso? = (sig != nil && sig!.rol != .trabajo && sig!.clase != .descansoTandas) ? sig : nil
-            let hasta = (sig != nil && sig!.rol != .trabajo) ? j + 1 : j
+            let entre: Paso? = (sig != nil && !propio(sig!) && sig!.clase != .descansoTandas) ? sig : nil
+            let hasta = (sig != nil && !propio(sig!)) ? j + 1 : j
             if let gi = porClave[k] {
                 grupos[gi].veces += 1
                 grupos[gi].hasta = Swift.max(grupos[gi].hasta, hasta)

@@ -108,6 +108,11 @@ final class VivoDoblesTests: XCTestCase {
         let saltos = filas.map { Vivo.segmentoDeSalto($0, segmentoActual: 0) }
         XCTAssertNil(saltos.first ?? nil, "la fila de ahora no salta")
         XCTAssertEqual(saltos.compactMap { $0 }, [1, 2, 3], "cada fila de otro tramo lleva a su segmento")
+        // La estación de la pareja es SU fila, no la «recuperación» del Run de antes.
+        let relevo = try XCTUnwrap(filas.first { $0.trabajo.origen?.segmento == 1 })
+        XCTAssertEqual(Vivo.textoFila(relevo).linea, "SkiErg 1km")
+        XCTAssertEqual(Vivo.textoFila(relevo).detalle, "le toca a Marta")
+        XCTAssertNil(filas.first?.recupera)
         // Una fila del segmento en curso que no es la de ahora no salta (el motor salta por segmentos).
         var f = try XCTUnwrap(filas.first)
         f.estado = .pendiente
