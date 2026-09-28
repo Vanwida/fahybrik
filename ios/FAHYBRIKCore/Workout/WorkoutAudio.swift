@@ -58,6 +58,14 @@ final class WorkoutAudio {
     /// begins; the engine then stays up (rendering silence) until `deactivate()`.
     func activate() {
         guard !isActive else { return }
+        // Muted under XCTest (see `TestEnvironment`): flip the bookkeeping so
+        // callers that branch on `isActive`/`deactivate()` still see the same
+        // lifecycle, but never touch the real engine or audio session — a test
+        // run must make zero sound and never need the audio session.
+        guard !TestEnvironment.isRunningUnitTests else {
+            isActive = true
+            return
+        }
         buildBuffersIfNeeded()
         do {
             let session = AVAudioSession.sharedInstance()
@@ -86,6 +94,7 @@ final class WorkoutAudio {
     func deactivate() {
         guard isActive else { return }
         isActive = false
+        guard !TestEnvironment.isRunningUnitTests else { return }
         if player.isPlaying { player.stop() }
         engine.stop()
         if !voiceActive {
@@ -101,6 +110,7 @@ final class WorkoutAudio {
     func setVoiceActive(_ active: Bool) {
         guard voiceActive != active else { return }
         voiceActive = active
+        guard !TestEnvironment.isRunningUnitTests else { return }
         applySessionCategory()
         let session = AVAudioSession.sharedInstance()
         if active {
@@ -139,6 +149,7 @@ final class WorkoutAudio {
 
     private func play(_ buffer: AVAudioPCMBuffer?) {
         guard isActive, let buffer else { return }
+        guard !TestEnvironment.isRunningUnitTests else { return }
         if !engine.isRunning { try? engine.start() }
         if !player.isPlaying { player.play() }
         player.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
