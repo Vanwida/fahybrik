@@ -6,6 +6,9 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**RELOJ PARA LA DEMO (28-09, lógica, sin diseño; DECISIONS 28-09):** 6 fallos de la muñeca sola arreglados (fuerza tras
+la última serie, sin detalle no hay Empezar, resultado al terminar, enlace al arrancar, test pide su número, AMRAP). Falta aparato.
+
 **LA MUÑECA SE REHACE (Alex, 25-09: «es un lío, así no competimos con TrainingPeaks»).** Auditoría de 6 lentes
 + modelo: `docs/reloj-muneca/` (https://claude.ai/artifact/3LzhCpYCr6H7rgktymoG8r; spec `modelo.md`; DECISIONS 25-09).
 Alex eligió: el objetivo manda, SF nativo, voz al cambiar de paso y cada km, comprometida vs objetivo del coach.
