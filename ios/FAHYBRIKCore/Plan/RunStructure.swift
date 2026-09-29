@@ -53,6 +53,20 @@ enum RunRecoveryMode: String, Codable, Equatable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+// M3 — dónde se corre un tramo (calle, cinta o pista) es `Vivo.Entorno`: el vocabulario del
+// kit del reloj, UNA sola definición. Sale de la PRESCRIPCIÓN, nunca se pregunta a mitad de
+// carrera. No confundir con `RunEnvironment`, la decisión del ATLETA antes de empezar
+// (calle / cinta conectada / cinta sin conexión). Un valor desconocido de un servidor
+// futuro se lee como «sin decir» (nil) y no rompe el decode.
+
+/// Hacia dónde avisa un tramo fuera de objetivo, razonado en INTENSIDAD (arriba = más rápido,
+/// más pulso). `ninguno` = este tramo no vibra. Ausente = manda el defecto del coach
+/// (`WristMethod.alerts.continuousZone` en un rodaje a zona). Un valor desconocido se lee como
+/// ausente. El mismo vocabulario viaja como método del coach (`WristMethod`).
+enum RunAlertDirection: String, Codable, Equatable, CaseIterable {
+    case arriba, abajo, ambos, ninguno
+}
+
 /// WHAT the work targets. `pace` is per km; `paceZone`/`hrZone` are coach zones the
 /// server resolves to an absolute band (see `RunSegment.resolved`); `rpe` is a
 /// point or a band. `null` on the segment = no explicit objetivo (done by feel).
@@ -80,6 +94,12 @@ struct RunSegment: Equatable {
     let inclinePct: Double?   // 0..15 — cinta / cuesta
     let cadenceSpm: Int?      // 120..220 — optional cadence guide
     let recoveryMode: RunRecoveryMode?
+    /// M3 — dónde se corre este tramo. Nil = como hoy (la muñeca asume calle).
+    var environment: Vivo.Entorno? = nil
+    /// M8 — coaching corto del coach («mirar el pulso»). NO es prescripción. Nil = sin cue.
+    var cue: String? = nil
+    /// Hacia dónde avisa este tramo. Nil = el defecto del coach.
+    var alert: RunAlertDirection? = nil
 }
 
 /// An element of a phase: a segment, or a "Repetir ×N" wrapping a sub-sequence.
@@ -168,7 +188,7 @@ extension RunSegmentTarget: Codable {
 
 extension RunSegment: Codable {
     private enum CodingKeys: String, CodingKey {
-        case kind, measure, target, resolved, inclinePct, cadenceSpm, recoveryMode
+        case kind, measure, target, resolved, inclinePct, cadenceSpm, recoveryMode, environment, cue, alert
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -179,6 +199,13 @@ extension RunSegment: Codable {
         inclinePct = c.flexDouble(.inclinePct)
         cadenceSpm = c.flexInt(.cadenceSpm)
         recoveryMode = try? c.decodeIfPresent(RunRecoveryMode.self, forKey: .recoveryMode)
+        // M3 / M8: ADITIVOS. Un servidor anterior no los manda (nil) y uno posterior puede mandar
+        // un valor que esta versión no conoce: se lee como «sin decir», nunca rompe el decode.
+        environment = try? c.decodeIfPresent(Vivo.Entorno.self, forKey: .environment)
+        // Un cue en blanco no es un cue.
+        let rawCue = (try? c.decodeIfPresent(String.self, forKey: .cue))?.trimmingCharacters(in: .whitespacesAndNewlines)
+        cue = (rawCue?.isEmpty ?? true) ? nil : rawCue
+        alert = try? c.decodeIfPresent(RunAlertDirection.self, forKey: .alert)
     }
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
@@ -189,6 +216,9 @@ extension RunSegment: Codable {
         try c.encodeIfPresent(inclinePct, forKey: .inclinePct)
         try c.encodeIfPresent(cadenceSpm, forKey: .cadenceSpm)
         try c.encodeIfPresent(recoveryMode, forKey: .recoveryMode)
+        try c.encodeIfPresent(environment, forKey: .environment)
+        try c.encodeIfPresent(cue, forKey: .cue)
+        try c.encodeIfPresent(alert, forKey: .alert)
     }
 }
 
@@ -250,6 +280,10 @@ struct RunLeg: Equatable {
     let cadenceSpm: Int?
     let recoveryMode: RunRecoveryMode?
     let phaseRole: RunPhaseRole
+    /// M3 / M8 — lo que el coach escribió del tramo, tal cual (nil = no lo dijo).
+    var environment: Vivo.Entorno? = nil
+    var cue: String? = nil
+    var alert: RunAlertDirection? = nil
 
     var isWork: Bool { kind == .work }
     var isRecovery: Bool { kind == .recovery }
@@ -290,7 +324,10 @@ extension RunLeg {
             inclinePct: segment.inclinePct,
             cadenceSpm: segment.cadenceSpm,
             recoveryMode: segment.recoveryMode,
-            phaseRole: phaseRole
+            phaseRole: phaseRole,
+            environment: segment.environment,
+            cue: segment.cue,
+            alert: segment.alert
         )
     }
 }

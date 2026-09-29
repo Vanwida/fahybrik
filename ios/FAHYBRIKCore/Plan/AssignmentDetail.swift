@@ -47,6 +47,15 @@ struct AssignmentDetail: Codable, Equatable {
     /// Segment-less entreno libre (box CLOCK): folded prescription from meta_json.
     let clockPrescription: Prescription?
     let clockFormat: String?
+
+    /// EL MÉTODO DEL COACH PARA LA MUÑECA AL CORRER (avisos, vuelta automática, tiradas, la
+    /// puerta del calentamiento, el cierre, las palabras del RPE), efectivo y completo. Viaja
+    /// en el mismo cuerpo que la sesión y por eso llega al reloj dentro de `detailJson`, sin
+    /// un segundo canal. Nil en las respuestas que no lo llevan (una sesión cacheada antes de
+    /// esta tanda, un servidor anterior, la lectura del coach): el reloj usa entonces su
+    /// reserva, que son los mismos números. `var` con valor por defecto: no rompe ningún
+    /// constructor existente y el decode lo trata como opcional.
+    var wristMethod: WristMethod? = nil
 }
 
 // What the athlete ACTUALLY did, for the read-only executed view. Mirrors the

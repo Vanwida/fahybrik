@@ -150,6 +150,36 @@ describe('paridad con el Swift del reloj', () => {
   });
 });
 
+/**
+ * Vector de oro TS → Swift: el JSON que el test de Swift (WristMethodTests) decodifica
+ * es EXACTAMENTE lo que el servidor manda a un coach que no ha tocado nada.
+ */
+describe('el cable: lo que decodifica Swift es lo que manda el servidor', () => {
+  const swiftTest = readFileSync(resolve(__dirname, '../../../ios/FAHYBRIKTests/Plan/WristMethodTests.swift'), 'utf8');
+
+  it('el literal de oro del test de Swift es buildWristMethod con los defectos', () => {
+    const golden = swiftTest.match(/GOLDEN-BEGIN[^\n]*\n[\s\S]*?"""\n([\s\S]*?)\n\s*"""\s*\n\s*\/\/ GOLDEN-END/)?.[1];
+    expect(golden, 'no se encuentra el literal de oro entre GOLDEN-BEGIN y GOLDEN-END').toBeTruthy();
+    expect(JSON.parse(golden!)).toEqual(JSON.parse(JSON.stringify(DEFAULT_METHOD)));
+  });
+
+  it('toda clave del cable es snake_case (Swift la decodifica con convertFromSnakeCase)', () => {
+    const keys: string[] = [];
+    const walk = (v: unknown) => {
+      if (Array.isArray(v)) v.forEach(walk);
+      else if (v && typeof v === 'object') {
+        for (const [k, child] of Object.entries(v)) {
+          keys.push(k);
+          walk(child);
+        }
+      }
+    };
+    walk(DEFAULT_METHOD);
+    expect(keys.length).toBeGreaterThan(20);
+    for (const k of keys) expect(k, k).toMatch(/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/);
+  });
+});
+
 describe('buildWristMethod: lo del coach manda, lo demás es el defecto', () => {
   it('convierte a las unidades del reloj y respeta los interruptores', () => {
     const t = mergeCoachThresholds({
