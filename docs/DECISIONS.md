@@ -33,6 +33,19 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-29 · El espejo hereda las tres páginas de correr (FH-30: solo ≡ espejo)
+
+**El fallo (registro técnico de una carrera real, build 115):** el entreno se inició desde el iPhone y corrió en espejo (`start_watch_app ok` → `primary_begin role=mirror` → `mirror_adopted engine=true`). En espejo la muñeca solo tenía dos páginas (Vivo | Controles); sin móvil, el mismo correr tiene tres (Datos | Vivo | Controles). A la página Datos («la sesión») se le olvidó portarse: el atleta la echa de menos justo el 90 % de los días, que es cuando lleva el móvil.
+
+**Decidido:**
+- **Espejo corriendo = tres páginas** con los tres puntos de la lámina (sin el índice del sistema), arrancando en Vivo. El resto de modalidades en espejo no cambia (dos páginas, índice del sistema). La selección es una etiqueta (`RodajePagina`), no un entero: si la modalidad cambia con Datos abierto (HYROX: carrera → estación) se vuelve a Vivo, y con la muñeca bajada corriendo también (la regla de `WatchReloj`; se aplica igual al solitario).
+- **Una sola lectura de Datos para las dos vías:** `RodajeDatos` (FAHYBRIKCore) recibe un dato plano (segundos, metros?, bpm?, zona?) y decide las cuatro filas y la nota «sin umbral». El motor lo alimenta sin móvil; la trama (reloj re-basado en local) más los metros y el pulso de la muñeca lo alimentan en espejo. Test de «misma cara»: el mismo entreno por las dos vías da la misma lectura, viaje de JSON incluido.
+- **Honestidad:** cero metros no es una medida (el cable no distingue «cero contados» de «sin contar»), y el ritmo medio pasa por las dos puertas de la lámina (mínimo de metros y tope de ritmo). «—», jamás un cero con cara de medida. Efecto en solitario: ya no sale «0 m» ni un ritmo con menos de 10 m.
+- **Un solo cromo y un solo cuerpo por página:** `RodajeCromo` (fondo, tinte al 45 %, recuperación, viñeta, bisel, atenuado, destello) lo usan `RodajeMarco` (solitario) y las tres páginas del espejo; `RodajeVivoCuerpo`, `RodajeDatosCuerpo` y `RodajeControles` son los mismos para las dos vías. Controles del espejo ya no son los botones viejos de 52 pt sino los de la lámina (Pausar naranja, Terminar rojo, confirmación como página), con el pie «El entreno se controla desde el iPhone»; con el enlace roto salen el aviso y Descartar (ahora con confirmación, antes tiraba el entreno de un toque). Las medidas de los botones se reparten según el hueco (`RodajeControlesMedidas`): en un SE de 40 mm Terminar ya no se corta y el pie es lo primero que cede.
+- Arreglo de paso: el vivo del solitario leía la medida del lienzo desde fuera del cromo y se quedaba con el 188 × 212 por defecto; ahora la lee dentro y se adapta a cada reloj.
+
+**No se tocó el cable.** El reloj de la sesión ya viajaba (`sessionElapsed`); metros y pulso son de la muñeca.
+
 ## 2026-09-29 · Analíticas rehechas: el panel del coach (pestaña Rendimiento) y el editor del método
 
 **El encargo:** pintar el panel rehecho en la ficha del atleta con los componentes reales de `web/components/v2/analiticas/` (los ocho bloques y el detalle de sesión; el MISMO cálculo que el iPhone, `GET …/analytics/panel`), el editor del método de analíticas en Ajustes › Método y los umbrales declarados de un toque.

@@ -1,7 +1,8 @@
 import SwiftUI
 
 // DATOS — «la sesión». Única página sin sujeto: cuatro filas de 24 pt.
-// Espejo de `pagina_datos` en docs/mocks/tools/reloj-correr.py.
+// Espejo de `pagina_datos` en docs/mocks/tools/reloj-correr.py. Los datos los
+// decide `RodajeDatos` (FAHYBRIKCore), común a las dos vías.
 
 /// Los tres puntos de la lámina (6 pt, hueco 3, activo blanco / 28 %).
 /// TabView pagina; el índice del sistema se apaga en rodaje para no duplicarlos.
@@ -29,64 +30,33 @@ struct RodajePuntos: View {
     }
 }
 
-struct RodajeDatosPage: View {
-    let session: WorkoutSession
-    var driver: WatchRunLegDriver? = nil
+/// EL CUERPO DE DATOS, UNA SOLA VEZ: las cuatro filas y, si no hay zona, la
+/// razón. QUÉ dice cada fila lo decide `RodajeDatos.lectura` (el mismo dato para
+/// el reloj sin móvil y para el espejo); esto sólo lo dibuja.
+struct RodajeDatosCuerpo: View {
+    let lectura: RodajeDatos.Lectura
 
     var body: some View {
-        RodajeMarco(session: session, driver: driver) {
-            VStack(spacing: 0) {
-                RodajeVersales(texto: "la sesión", tono: RodajeTipo.contexto)
-                VStack(alignment: .leading, spacing: 0) {
-                    fila(etiqueta: "tiempo", valor: tiempo, unidad: "")
-                    fila(etiqueta: "distancia", valor: distancia.cifra, unidad: distancia.unidad)
-                    fila(etiqueta: "ritmo medio", valor: ritmo.cifra, unidad: ritmo.unidad)
-                    fila(etiqueta: "pulso", valor: pulso.cifra, unidad: pulso.unidad, chip: pulso.chip)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                if session.liveZone == nil {
-                    RodajeVersales(texto: WatchNota.sinAncla, arriba: 2)
-                }
-                RodajePuntos(activa: 0)
+        VStack(spacing: 0) {
+            RodajeVersales(texto: "la sesión", tono: RodajeTipo.contexto)
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(lectura.filas, id: \.etiqueta) { fila($0) }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if let nota = lectura.nota {
+                RodajeVersales(texto: nota, arriba: 2, compacta: true)
+            }
+            RodajePuntos(activa: RodajePagina.datos.punto)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    private var tiempo: String {
-        WatchFormat.clock(session.elapsedSeconds)
-    }
-
-    private var distancia: (cifra: String, unidad: String) {
-        guard let m = session.liveRunDistanceMeters else { return ("—", "") }
-        return (WatchDistancia.cifra(m), WatchDistancia.unidad(m))
-    }
-
-    /// Ritmo medio de la sesión (distancia cubierta ÷ tiempo total), no el instantáneo.
-    private var ritmo: (cifra: String, unidad: String) {
-        guard let pace = WorkoutSession.paceSecPerKm(
-            meters: session.liveRunDistanceMeters,
-            seconds: session.elapsedSeconds
-        ) else { return ("—", "") }
-        let s = Int(pace.rounded())
-        guard s <= RunLegDisplay.maxPaceSecPerKm else { return ("—", "") }
-        return (WatchFormat.pace(s), Formato.UnidadRitmo.porKm.rawValue)
-    }
-
-    private var pulso: (cifra: String, unidad: String, chip: String?) {
-        guard let bpm = session.liveHRBpm else { return ("—", "", nil) }
-        if let z = session.liveZone {
-            return ("\(bpm)", "ppm", "\(z.label) \(WatchZonaNombre.de(z))")
-        }
-        return ("\(bpm)", "ppm", nil)
-    }
-
-    private func fila(etiqueta: String, valor: String, unidad: String, chip: String? = nil) -> some View {
+    private func fila(_ f: RodajeDatos.Fila) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            RodajeVersales(texto: etiqueta)
+            RodajeVersales(texto: f.etiqueta)
             HStack(alignment: .lastTextBaseline, spacing: 0) {
-                RodajeNumeral(texto: valor, unidad: unidad, alto: RodajeTipo.filaDatos)
-                if let chip {
+                RodajeNumeral(texto: f.cifra, unidad: f.unidad, alto: RodajeTipo.filaDatos)
+                if let chip = f.chip {
                     Text(chip)
                         .font(.system(size: 11.5, weight: .heavy))
                         .foregroundStyle(WatchTheme.ink)
@@ -96,5 +66,18 @@ struct RodajeDatosPage: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+}
+
+/// Sin móvil: el motor alimenta a `RodajeDatos`. En espejo lo alimenta la trama
+/// (`MirrorRodajeDatosPage`), con el mismo cuerpo y la misma lectura.
+struct RodajeDatosPage: View {
+    let session: WorkoutSession
+    var driver: WatchRunLegDriver? = nil
+
+    var body: some View {
+        RodajeMarco(session: session, driver: driver) {
+            RodajeDatosCuerpo(lectura: RodajeDatos.lectura(.init(sesion: session)))
+        }
     }
 }

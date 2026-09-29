@@ -8,8 +8,9 @@ import SwiftUI
 struct MirrorHUDView: View {
     let owner: WatchPrimaryOwner
 
-    // 0 = live (default) · 1 = controls (one swipe away).
-    @State private var page = 0
+    // La página elegida, por ETIQUETA y no por índice: corriendo son tres
+    // (Datos | Vivo | Controles), el resto dos (Vivo | Controles). Arranca en Vivo.
+    @State private var pagina: RodajePagina = .vivo
     @State private var lastZoneHapticAt: Date = .distantPast
     /// Local 3-2-1 ceil last felt — the count-in re-bases between frames, so
     /// ticks must fire here when the displayed second changes, not only when a
@@ -22,11 +23,39 @@ struct MirrorHUDView: View {
     @Environment(\.isLuminanceReduced) private var atenuado
 
     var body: some View {
-        TabView(selection: $page) {
-            livePage.tag(0)
-            controlsPage.tag(1)
+        TabView(selection: seleccion) {
+            if esLamina, let f = frame {
+                datosPage(f).tag(RodajePagina.datos)
+            }
+            livePage.tag(RodajePagina.vivo)
+            controlsPage.tag(RodajePagina.controles)
         }
-        .tabViewStyle(.page)
+        // Corriendo, los tres puntos son los de la lámina (`RodajePuntos`) y el
+        // índice del sistema se apaga para no duplicarlos — igual que
+        // `LiveFlowView`. El resto del espejo se queda con el del sistema.
+        .tabViewStyle(.page(indexDisplayMode: esLamina ? .never : .automatic))
+        // Cambia la modalidad con Datos abierto (HYROX: tramo de carrera →
+        // estación) o bajas la muñeca: se vuelve a Vivo, no se queda una página
+        // que ya no existe o que no se puede abandonar deslizando.
+        .onChange(of: esLamina) { _, _ in reconciliaPagina() }
+        .onChange(of: atenuado) { _, _ in reconciliaPagina() }
+    }
+
+    /// Correr con trama: la lámina de tres páginas.
+    private var esLamina: Bool {
+        frame.map(GuionDelEspejo.esRodajeLamina) ?? false
+    }
+
+    /// La selección, ya validada: nunca una página que no existe ahora mismo.
+    private var seleccion: Binding<RodajePagina> {
+        Binding(
+            get: { RodajePagina.valida(pagina, esLamina: esLamina, atenuado: atenuado) },
+            set: { pagina = $0 }
+        )
+    }
+
+    private func reconciliaPagina() {
+        pagina = RodajePagina.valida(pagina, esLamina: esLamina, atenuado: atenuado)
     }
 
     // MARK: - Live page
@@ -401,8 +430,17 @@ struct MirrorHUDView: View {
 
     // MARK: - Controls page
 
+    private func datosPage(_ f: MirrorStateFrame) -> some View {
+        MirrorRodajeDatosPage(owner: owner, frame: f, bisel: bisel, desdeTrama: sinceFrame)
+    }
+
+    @ViewBuilder
     private var controlsPage: some View {
-        MirrorHUDControlsPage(owner: owner, phase: phase)
+        if esLamina, let f = frame {
+            MirrorRodajeControlesPage(owner: owner, frame: f, bisel: bisel, desdeTrama: sinceFrame)
+        } else {
+            MirrorHUDControlsPage(owner: owner, phase: phase)
+        }
     }
 
     // MARK: - Derived
@@ -439,117 +477,5 @@ struct MirrorHUDView: View {
             return CountdownFormat.mirrored(max(0, countdown - sinceFrame(now)))
         }
         return WatchFormat.clock(f.lapElapsed + sinceFrame(now))
-    }
-}
-
-// MARK: - Mirror rodaje face (FH-30: solo ≡ mirror)
-
-/// LA LÁMINA, PINTADA DESDE LA TRAMA. Mismo cromo (tinte, viñeta, bisel, fondo
-/// de recuperación) y —esto es lo que importa— LA MISMA DECISIÓN: el contenido
-/// sale de `RodajeLamina.lectura`, el mismo que lee `RodajeVivoPage` sin móvil.
-/// Rodaje de corrido, serie de trabajo y recuperación: los tres estados, no uno.
-/// Que esta vista no decida nada es la única forma de que no vuelva a divergir.
-private struct MirrorRodajeFace: View {
-    let frame: MirrorStateFrame
-    let zone: HRZone?
-    let elapsed: Double
-    /// Segundos desde que aterrizó la trama, para envejecer la cuenta atrás de
-    /// la recuperación igual que la envejece `MirrorTimedRest` al decidir cuándo
-    /// mandar el avance (los timers del iPhone mueren en el bolsillo).
-    let desdeTrama: TimeInterval
-    let bisel: AnyView?
-    let onAvanzar: () -> Void
-
-    @Environment(\.isLuminanceReduced) private var atenuado
-    @State private var medidaLienzo = RodajeLienzoSize()
-
-    var body: some View {
-        ZStack {
-            WatchTheme.bg.ignoresSafeArea()
-            if let fondo = fondoSolido, !atenuado {
-                fondo.ignoresSafeArea()
-            } else if let tinte = tinteZona, !atenuado {
-                tinte.opacity(RodajeTipo.tinteMax)
-                    .ignoresSafeArea()
-                    .animation(.easeInOut(duration: 0.7), value: zone)
-            }
-            WatchViñeta().ignoresSafeArea()
-            if let bisel { bisel.ignoresSafeArea() }
-            vivoContent
-                .environment(\.rodajeLienzo, medidaLienzo)
-                .opacity(isPaused ? 0.42 : 1)
-                .padding(.horizontal, 10)
-                .padding(.bottom, 6)
-                .mideElLienzo($medidaLienzo)
-        }
-    }
-
-    private var lectura: RodajeLamina.Lectura {
-        RodajeLamina.lectura(ventana)
-    }
-
-    private var ventana: RodajeLamina.Ventana {
-        RodajeLamina.Ventana(trama: frame, elapsed: elapsed, desdeTrama: desdeTrama)
-    }
-
-    private var isPaused: Bool { frame.phase == MirrorWire.Phase.paused }
-
-    /// Recuperación de serie: `restBg`, no un tinte de zona — la MISMA regla que
-    /// `RodajeMarco` en solitario.
-    private var fondoSolido: Color? {
-        ventana.enRecupera ? WatchTheme.restBg : nil
-    }
-
-    private var tinteZona: Color? {
-        WatchTinte.color(for: zone)
-    }
-
-    @ViewBuilder
-    private var vivoContent: some View {
-        let l = lectura
-        VStack(spacing: 0) {
-            RodajeVersales(texto: l.contexto, tono: RodajeTipo.contexto)
-            Spacer(minLength: 4)
-            RodajeNumeral(
-                texto: l.sujeto,
-                unidad: l.unidad,
-                alto: RodajeNumeral.altoSujeto(
-                    l.sujeto,
-                    unidad: l.unidad,
-                    segundo: l.ritmo != nil,
-                    nota: l.nota != nil,
-                    accion: l.accion,
-                    anchoUtil: medidaLienzo.ancho,
-                    altoUtil: medidaLienzo.alto
-                ),
-                color: l.tonoSujeto
-            )
-            Spacer(minLength: 4)
-            if let ritmo = l.ritmo {
-                RodajeSegundo(
-                    valor: ritmo,
-                    etiqueta: l.etiquetaSegundo,
-                    etiquetaTinta: l.veredicto != nil ? WatchTheme.ink : RodajeTipo.dim
-                )
-            }
-            if let nota = l.nota {
-                RodajeVersales(
-                    texto: nota,
-                    tono: l.notaEnTinta ? WatchTheme.ink : RodajeTipo.dim,
-                    arriba: 4
-                )
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .multilineTextAlignment(.center)
-        .contentShape(Rectangle())
-        .highPriorityGesture(
-            TapGesture().onEnded {
-                guard l.toca else { return }
-                WatchHaptics.tap()
-                onAvanzar()
-            }
-        )
-        .accessibilityAddTraits(l.toca ? .isButton : [])
     }
 }
