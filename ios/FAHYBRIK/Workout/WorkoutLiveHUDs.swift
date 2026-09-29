@@ -332,52 +332,15 @@ struct StructuralBlockChecklist: View {
 
 struct RxScaledToggle: View {
     let session: WorkoutSession
-    @State private var note: String = ""
-
-    private var isScaled: Bool { session.rxScaled == "scaled" }
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                segment(title: "RX", on: !isScaled) { session.rxScaled = "rx"; Haptics.light() }
-                segment(title: "ESCALADO", on: isScaled) { session.rxScaled = "scaled"; Haptics.light() }
-            }
-            if isScaled {
-                TextField("¿Cómo lo escalaste? (opcional)", text: $note)
-                    .scaledFont(12, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
-                    .background(Theme.Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                    .onChange(of: note) { _, new in
-                        session.scaledNote = new.isEmpty ? nil : new
-                    }
-            }
-        }
+        SelectorRx(
+            nivel: Binding(get: { session.rxScaled == NivelRx.scaled.rawValue ? .scaled : .rx },
+                           set: { session.rxScaled = $0.rawValue }),
+            nota: Binding(get: { session.scaledNote ?? "" },
+                          set: { session.scaledNote = $0.isEmpty ? nil : $0 })
+        )
         .padding(.horizontal, 4)
-        .onAppear { note = session.scaledNote ?? "" }
-        .onChange(of: session.currentSegmentIndex) { _, _ in note = session.scaledNote ?? "" }
-    }
-
-    private func segment(title: String, on: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 12, weight: .heavy, design: .default).italic())
-                .tracking(1)
-                .foregroundStyle(on ? Theme.Color.accentOn : Theme.Color.muted)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 9)
-                .background(on ? Theme.Color.accent : Theme.Color.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-                        .stroke(on ? Color.clear : Theme.Color.hairlineStrong, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel(title == "RX" ? "Marcar como prescrito" : "Marcar como escalado")
-        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
 

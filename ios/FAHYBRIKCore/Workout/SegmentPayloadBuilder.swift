@@ -35,6 +35,9 @@ struct ManualSegmentOverlay {
     /// Ritmo declarado por tramo (clave = `LapRecord.segmentId`), en la unidad de
     /// visualización del tramo: s/km para correr, s/500 m para el erg.
     var paceSecondsBySegment: [UUID: Int]
+    /// RX / Escalado declarado AL TERMINAR, por segmento (`DeclaracionesRx.porSegmento`).
+    /// Manda sobre lo que sellaron las vueltas (el defecto `rx` del motor).
+    var rxPorSegmento: [UUID: DeclaracionRx] = [:]
 
     static let none = ManualSegmentOverlay(avgHR: nil, maxHR: nil, paceSecondsBySegment: [:])
 
@@ -100,6 +103,11 @@ enum SegmentPayloadBuilder {
                 }
                 source = "manual"
             }
+
+            // RX / Escalado: lo declarado en el resumen manda; si no, lo que selló el motor.
+            let rx = overlay.rxPorSegmento[lap.segmentId]
+            let rxScaled = rx.map { $0.nivel.rawValue } ?? lap.rxScaled
+            let scaledNote = rx.map { $0.notaParaEnviar } ?? lap.scaledNote
 
             let setDTOs: [SetExecutionDTO]? = lap.sets?.map { s in
                 var dto = SetExecutionDTO(
@@ -175,8 +183,8 @@ enum SegmentPayloadBuilder {
                 reps_status: lap.repsStatus,
                 reps_confirmed: lap.repsConfirmed,
                 is_structural: lap.isStructural,
-                rx_scaled: lap.rxScaled,
-                scaled_note: lap.scaledNote,
+                rx_scaled: rxScaled,
+                scaled_note: scaledNote,
                 sets: setDTOs,
                 emom_rounds_completed: lap.emomRoundsCompleted,
                 emom_rounds_prescribed: lap.emomRoundsPrescribed,
