@@ -562,7 +562,7 @@ describe('la carcasa de cada escenario, renderizada de verdad, dice lo que dice 
     'resumen-529': { tipo: 'pagina', n: 0, de: 0, rechazo: false },
     'final-natural': 'paso',
     'final-parcial': 'controles',
-    'hueco-tirada': 'paso',
+    'tirada-cortada': 'paso',
     'seguir-quieto': 'paso',
   };
   for (const [id, entrada] of Object.entries(ENTRADA)) {
@@ -645,8 +645,8 @@ describe('los avisos de después salen, y suenan como dice §6', () => {
   });
 
   it('BACK/LAP al cerrar el último paso: el acuse de la tecla va delante y luego «sesión hecha»', () => {
-    const e = casoDespues('hueco-tirada').escena!;
-    if (e.arranque.en !== 'vivo') throw new Error('el hueco arranca en el vivo');
+    const e = casoDespues('tirada-cortada').escena!;
+    if (e.arranque.en !== 'vivo') throw new Error('la tirada cortada arranca en el vivo');
     const { plan } = e.sesion;
     const antes = estadoInicial(plan, e.arranque.sim, e.arranque.inicio);
     const r = cerrar(antes, plan, 'atleta');
@@ -660,25 +660,26 @@ describe('los avisos de después salen, y suenan como dice §6', () => {
 });
 
 // ---------------------------------------------------------------------------
-// El hueco del modelo que ya sabemos
+// Un paso continuo cortado a mano (antes, «hueco del modelo»; arreglado en kit-reloj/despues.ts)
 // ---------------------------------------------------------------------------
 
-describe('HUECO DEL MODELO · un paso continuo cortado a mano sale «Completa»', () => {
-  // ESTE TEST DOCUMENTA UN FALLO (no lo celebra): `completitud` (kit-reloj/despues.ts) juzga solo por SERIES.
-  // La tirada 494 es un único paso de 80′; cerrarlo con BACK/LAP a los 24′ es el final natural y sin series
-  // no hay nada «cortado»: sale «completa». Cuando el modelo juzgue también un paso continuo, este test
-  // fallará: es la señal para pasar el escenario `hueco-tirada` a «Parcial · 24′ de 80′» y borrar este bloque.
-  it('la tirada cerrada a los 24′ de 80′ sale completa (el modelo no ve un paso cortado)', () => {
-    const e = casoDespues('hueco-tirada').escena!;
-    if (e.arranque.en !== 'vivo') throw new Error('el hueco arranca en el vivo');
+describe('un paso continuo cortado a mano sale «Parcial», como una serie cortada', () => {
+  // La tirada 494 es un único paso de 80′; cerrarlo con BACK/LAP a los 24′ es el final natural, pero lo
+  // hecho (su parcial) está por debajo del umbral del coach: la completitud lo ve cortado.
+  it('la tirada cerrada a los 24′ de 80′ sale parcial, con su cuenta y su motivo', () => {
+    const e = casoDespues('tirada-cortada').escena!;
+    if (e.arranque.en !== 'vivo') throw new Error('la tirada cortada arranca en el vivo');
     const { plan } = e.sesion;
     const antes = estadoInicial(plan, e.arranque.sim, e.arranque.inicio);
     const cerrado = cerrar(antes, plan, 'atleta').estado;
     expect(cerrado.terminado, 'cerrar el único paso es el final natural').toBe(true);
     const r = resultadoDeVivo(plan, { estado: cerrado, final: 'natural' }, null);
     expect(r.t, 'lleva 24′ de los 80′ prescritos').toBeLessThan(plan.pasos[0]!.medida.prescrito! / 2);
-    expect(completitud(r).estado, 'HUECO: debería ser parcial').toBe('completa');
-    // Por la otra puerta (Terminar desde Controles) sí sale parcial: juzga por dónde llegó.
+    const c = completitud(r);
+    expect(c.estado).toBe('parcial');
+    expect(c.cuenta?.replace(/\u00A0/g, ' ')).toBe('24′ de 80′');
+    expect(c.motivo).toBe('La tirada se cortó a los 24′');
+    // Por la otra puerta (Terminar desde Controles) también sale parcial: juzga por dónde llegó.
     const porControles = resultadoDeVivo(plan, { estado: antes, final: 'atleta' }, null);
     expect(completitud(porControles).estado).toBe('parcial');
   });

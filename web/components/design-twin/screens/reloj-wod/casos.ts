@@ -127,12 +127,12 @@ export function casoDe(escenario: string): CasoWod {
           metros: 3940,
           sesionT: 989,
           sesionM: 3940,
-          kmDesdeT: 753,
+          vueltaDesdeT: 753,
           ppmMedio: 173,
           vueltas: [
-            { n: 1, clase: 'km', segundos: 248, metros: 1000, ritmo: 248, ppm: 169, veredicto: null },
-            { n: 2, clase: 'km', segundos: 252, metros: 1000, ritmo: 252, ppm: 174, veredicto: null },
-            { n: 3, clase: 'km', segundos: 253, metros: 1000, ritmo: 253, ppm: 176, veredicto: null },
+            { n: 1, clase: 'auto', vueltaM: 1000, segundos: 248, metros: 1000, ritmo: 248, ppm: 169, veredicto: null },
+            { n: 2, clase: 'auto', vueltaM: 1000, segundos: 252, metros: 1000, ritmo: 252, ppm: 174, veredicto: null },
+            { n: 3, clase: 'auto', vueltaM: 1000, segundos: 253, metros: 1000, ritmo: 253, ppm: 176, veredicto: null },
           ],
         },
       };

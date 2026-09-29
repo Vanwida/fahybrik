@@ -16,6 +16,7 @@ import {
   C,
   Completada,
   METODO_RESUMEN_DEFECTO,
+  metodoDe,
   Pila,
   TresDosUno,
   VivoDePlan,
@@ -164,7 +165,7 @@ function enfriamiento(r: Resultado, entorno: Entorno | null, sim: Simulador): Fa
   return {
     f: 'vivo',
     plan: enfriamientoLibre(entorno),
-    inicio: { i: 0, t: 0, sesionT: r.t, sesionM: r.metros ?? 0, ppmMedio: r.ppmMedio ?? undefined, kmDesdeT: r.t },
+    inicio: { i: 0, t: 0, sesionT: r.t, sesionM: r.metros ?? 0, ppmMedio: r.ppmMedio ?? undefined, vueltaDesdeT: r.t },
     sim,
     enfriamiento: true,
   };
@@ -304,7 +305,7 @@ export function Flujo({ escena, onLog }: { escena: Escena; onLog: (l: string) =>
   };
 
   const familia: Familia = sesion?.familia ?? 'libre';
-  const metodo = escena.metodo ?? METODO_RESUMEN_DEFECTO;
+  const metodo = escena.metodo ?? (sesion ? metodoDe(sesion.plan).resumen : METODO_RESUMEN_DEFECTO);
   const g = escena.guiones ?? {};
 
   let vista: ReactNode = null;

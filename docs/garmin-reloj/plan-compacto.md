@@ -1,6 +1,6 @@
-# El plan compacto — lo que el reloj Garmin recibe (29-09-2026)
+# El plan compacto — lo que el reloj Garmin recibe (29-09-2026, esquema v2 del 30-09)
 
-Formato de cable de UNA sesión para la app Connect IQ (`modelo.md` §8, arreglo A1). Prototipo en el doble: `web/components/design-twin/kit-garmin/plan-compacto/`; el destino es `shared/domain/watch-plan/`. Serializa el contrato de `kit-reloj/paso.ts` (`PlanSesion`: pasos + zonas + reglas) más una cabecera. Vectores de oro: `web/tests/design-twin/fixtures/garmin-plan/` (46 ficheros). Examen: `pnpm exec vitest run tests/design-twin/kit-garmin-plan-compacto` (218 pruebas, 0 mocks).
+Formato de cable de UNA sesión para la app Connect IQ (`modelo.md` §8, arreglo A1). Prototipo en el doble: `web/components/design-twin/kit-garmin/plan-compacto/`; el destino es `shared/domain/watch-plan/`. Serializa el contrato de `kit-reloj/paso.ts` (`PlanSesion`: pasos + zonas + reglas) más una cabecera. Vectores de oro: `web/tests/design-twin/fixtures/garmin-plan/` (46 ficheros). Examen: `pnpm exec vitest run tests/design-twin/kit-garmin-plan-compacto` (0 mocks). **Esquema v2** (30-09): el método del coach, la procedencia de las zonas, las bandas de ritmo y la pareja viajan EN `PlanSesion` (ya no en la cabecera), el cable no lleva ninguna cadena derivada en español y `MetaSesion` queda con la cabecera de la sesión.
 
 ## 1. El formato, campo a campo
 
@@ -8,21 +8,22 @@ API: `codificarSesion(plan, meta) → Uint8Array`, `decodificarSesion(bytes) →
 
 | Sección (orden del cable) | Campos |
 |---|---|
-| Contenedor | versión de esquema (1) · nº de cadenas · cada cadena (bytes + UTF-8) · valores hasta el final |
-| Cabecera | `asignacionId`, `huella` (31 bits), `fitSport`, `fitSubSport` (dato del servidor, opacos), `entorno` (0 = mixto o sin decir), `duracionEstS`, `estructura` (línea del brief, cadena) |
-| Zonas de pulso | n · techos en bpm · procedencia (estimada/medida) · nombres opcionales |
-| Bandas de ritmo | n juegos × (unidad km/500 m · procedencia · n · [`rapidoS`, `lentoS`+1]) en s enteros |
+| Contenedor | versión de esquema (2) · nº de cadenas · cada cadena (bytes + UTF-8) · valores hasta el final |
+| Cabecera (`MetaSesion`) | `asignacionId`, `huella` (31 bits), `fitSport`, `fitSubSport` (dato del servidor, opacos), `entorno` (0 = mixto o sin decir), `duracionEstS`. La línea del brief ya NO viaja: el reloj la compone de los grupos |
+| Zonas de pulso (`plan.zonas`) | n · techos en bpm · `procedencia` (estimada/medida, obligatoria si hay zonas) · nombres opcionales |
+| Bandas de ritmo (`plan.bandasRitmo`) | n juegos × (unidad km/500 m · procedencia · n · [`rapidoS`, `lentoS`+1]) en s enteros |
 | Reglas de aviso | 5 holguras · cadencia · confirmación · gracia de zona · preaviso s y m · preaviso mínimo · 2 flags (calentamiento, recuperación) |
-| Vocabulario | clases usadas (clase, nombre, género) · los 7 formatos con nombre · las 11 palabras del RPE 0–10 |
-| Método | resumen (pares mínimos, umbral %, guardado quieto) · anotar (reps de más, RPE y RIR mín/máx/paso, kg máx) |
+| Vocabulario (`plan.vocabulario`) | clases usadas (clase, nombre, género) · los 10 formatos con nombre (+ Series, Fuerza, Continuo) · las 11 palabras del RPE 0–10 |
+| Método (`plan.metodo`) | resumen (pares mínimos, umbral % de pieza hecha, guardado quieto) · anotar (reps de más, RPE y RIR mín/máx/paso, kg máx) |
+| Pareja (`plan.pareja`) | nombre de pila de la pareja de dobles, una vez por sesión |
 | Tablas | tareas del WOD (nombre, flags, dosis, carga) y listas de tareas: una vez, las citan los pasos |
 | Paso (plano) | `clase` · rol 2b + fase 2b + cierre 1b · medida (tipo 3b + quién mide 3b, prescrito+1) · banderas (nº objetivos 2b + 12 de presencia) · extras (recupera, entorno, máquina, Roxzone) si hay |
-| … objetivos | por objetivo: eje 4b + papel 2b + lleva palabra + aviso 2b · mín+1 · máx+1 · palabra |
-| … resto | posición (máscara de 5 contadores + slot; n y de) · bloque · nombre · carga (kg×100, implementos) · tempo (4) · cue · vuelta auto (m) · damper · WOD por formato · ficha de fuerza · dobles |
+| … objetivos | por objetivo: eje 4b + papel 2b + lleva palabra + aviso 2b + escala 2b (pulso/ritmo, solo en `zona`) · mín+1 · máx+1 · palabra |
+| … resto | posición (máscara de 5 contadores + slot; n y de) · bloque · nombre · carga (kg×100, implementos) · tempo (4) · cue · vuelta auto (m) · damper · WOD por formato · ficha de fuerza · dobles (turno, reps, % tuyo, `alternaCada`) · grupo del coach (id, veces) |
 
 Decodificar en Monkey C = un cursor y `leer()`: varint de 7 bits por byte (`bytes[p]`, sin reservar memoria); tablas de cadenas con `StringUtil.convertEncodedString`; el sobre `{"v":1,"b":"<base64>"}` se convierte a `ByteArray` con el conversor base64 del sistema **[?]**: las APIs de `ByteArray`/`StringUtil` no se han ejecutado, se verifican al escribir el `.mc` contra los vectores. No hay floats ni BigInt: el reloj compara en décimas/centésimas enteras.
 
-**Sin texto libre.** Las únicas cadenas: nombre de catálogo (≤ 40), cue (≤ 120, se **trunca con «…»** y el informe lo anota; ninguna sesión real lo necesita), palabra de RPE (≤ 40), la línea de estructura (≤ 120) y el vocabulario. Un nombre de catálogo con cifras (una dosis escondida) falla el examen. `id` del paso y la clave de ejercicio no viajan: un paso es su posición y un ejercicio su ordinal (`canonico.ts`).
+**Sin texto libre.** Las únicas cadenas: nombre de catálogo (≤ 40), cue (≤ 120, se **trunca con «…»** y el informe lo anota; ninguna sesión real lo necesita), palabra de RPE (≤ 40), la pareja, el nombre de una zona y el vocabulario. Nada derivado viaja (ni la línea del brief, ni la estación de dobles, ni el pacto). Un nombre de catálogo con cifras (una dosis escondida) falla el examen. `id` del paso y la clave de ejercicio no viajan: un paso es su posición y un ejercicio su ordinal (`canonico.ts`).
 
 ## 2. Decisión A/B, con medidas (26 planes de sesiones reales)
 
@@ -55,20 +56,22 @@ Decodificar en Monkey C = un cursor y `leer()`: varint de 7 bits por byte (`byte
 | 529 antes/después | 35 | 746 | 996 | 530 | 10 | 432 | 576 |
 | 514 | 1 | 293 | 392 | 536 | 4 | 320 | 428 |
 
-**Mayor 1 160 B (19 % del presupuesto), media 558 B, 0 sesiones fuera.** Peor día con dos sesiones (488 + 529): 2 194 B; dos medias: 1 117 B. La cabecera (zonas, reglas, vocabulario, método) pesa 275 B por sesión, el 49 % del total: si molesta se sube a un `perfil` por descarga (ahorra ≈ 200 B por sesión) sin tocar el modelo. **Sin datos en el doble: 511, 513 y 542** (los tres son del encargo; no se rellenan). 21 de las 24 sesiones del encargo tienen plan.
+**Mayor 1 147 B (19 % del presupuesto, la 488), media 556 B, 0 sesiones fuera** (tabla de arriba: medidas del esquema v1; con v2 cada sesión pesa entre 3 y 13 B menos por quitar la línea del brief y entre 1 y 8 más por el `grupo`/`escala` cuando existen). Peor día con dos sesiones (488 + 529): 2 171 B; dos medias: 1 113 B. La cabecera (zonas, reglas, vocabulario, método) pesa unos 275 B por sesión, casi la mitad del total: si molesta se sube a un `perfil` por descarga (ahorra ≈ 200 B por sesión) sin tocar el modelo. **511, 513 y 542 entraron el 30-09**, leídas de la base en solo lectura (`screens/reloj-correr/sesiones-nuevas.ts`): 511 = 649 B (17 pasos), 513 = 451 B (7 pasos), 542 = 374 B (8 pasos). Las 24 sesiones del encargo tienen ya plan; las 29 reales suman 15 940 B de binario, media 550 B, mayor 1 147 B (la 488). Lo que la base NO dice y no se inventó: las 4 estaciones de la 542 no vienen nombradas (pasos abiertos sin nombre), y la lista de 7 drills del calentamiento de la 511 es texto libre que no cabe en un `cue`.
 
 Al límite (sintéticas, en el examen): HYROX completo 33 pasos → 832 B · AMRAP de 6 tareas → 338 B · EMOM 60 × 4 → 1 213 B (la tabla de tareas evita repetir el ciclo) · 100 series con su descanso (200 pasos) → 4 416 B, caben · **200 series con descanso = 400 pasos → 8 578 B: +200 pasos sobre el tope y +2 434 B (+40 %)** · 200 series sin descanso (200 pasos) → 7 354 B, +1 210 B (+20 %). Una serie de fuerza completa pesa ≈ 36 B. Si algún día hiciera falta, la salida es deduplicar cuerpos de paso (estimado, sin medir: del orden de dos tercios menos en series repetidas); no se implementa: la mayor real usa el 19 %.
 
 ## 4. Huecos del modelo (no se parchean en el codificador)
 
-1. **`PlanSesion` no tiene dónde llevar el método del coach.** Nombres de clase (15 lecturas directas de `NOMBRE_CLASE_DEFECTO` en 8 ficheros del kit), de formato, palabras del RPE, `METODO_RESUMEN` y `RANGO_ANOTAR`: el kit lee los `*_DEFECTO` tal cual. Afecta a las 26 sesiones (HARD RULE Nº0). Hoy viaja en `MetaSesion`. Propuesta: `PlanSesion.vocabulario` y `.metodo`, y el kit lee de ahí.
-2. **`formatoDe` escribe tres nombres de formato fuera de `NOMBRE_FORMATO_DEFECTO`**: «Series» (479, 509, 535, 551), «Fuerza» (488, 529, 492) y «Continuo» (536). Propuesta: añadir esas claves al vocabulario (el cable lleva 3 cadenas más).
-3. **Los dobles llevan texto libre**: `pareja` (un nombre), `estacion` (repite `nombre` + dosis: «SkiErg 1km») y `nota` («alterna 25»). Ninguna sesión real los usa; el examen los marca no admitidos. Propuesta: `pareja` al plan, `estacion` derivada, `nota` → `alternaCada: { tipo, n }`.
-4. **`zona` no dice de qué familia es**: el kit solo resuelve pulso (`ZonasCoach` en bpm), pero el servidor tiene zonas de ritmo por modalidad (`ResolvedZone`, por km y por 500 m). En 530 y 536 («Row @Z3», «SkiErg @Z2») es ambiguo. Propuesta: `Objetivo.escala: 'ppm' | 'ritmo'`. El cable ya lleva ambos juegos de bandas.
-5. **`ZonasCoach` no sabe si son estimadas o medidas** (G6 lo exige) ni tiene bandas de ritmo: viajan en `MetaSesion`. Propuesta: `procedencia` en `ZonasCoach`. Las bandas del servidor llevan 2 decimales: se redondean a segundo entero (±0,5 s/km).
-6. **El grupo del coach no existe como dato.** «6 × (1000 m / r 90″)» y las tandas salen de `filasDePasos`, que agrupa por nombre + dosis + objetivos serializados. La página Estructura del reloj tendría que portar esa heurística; la línea del brief va como texto derivado en español (`meta.estructura`, de 7 a 44 B en las sesiones reales) y pide i18n en servidor. Afecta a las sesiones con series (479, 509, 535, 538, 551, 488, 529, 492). Propuesta: `PasoBase.grupo?: { id, veces }` (≈ 4 B por grupo) y que el reloj componga el texto.
-7. **538 solo existe partida** en dos planes (correr y fuerza): no hay un plan de la sesión entera. **511, 513 y 542 no existen** (542 exige M6, HYROX half-sim como estructura).
-8. Menores: `PasoBase.id` y `fuerza.ejercicio` son claves de UI (contador global): en el contrato compartido, índice y ordinal · `hoyDe` revienta en un plan sin paso de trabajo (`grupoPrincipal` devuelve `undefined`; lo cazó el generador al azar) · `wod.ciclo` se repite en cada ventana del modelo (el cable lo deduplica).
+Estado tras el arreglo del 30-09 (commits `21d76d56` y `60bc2e00` en la rama `worktree-agent-ab0b0d1b919beec05`):
+
+1. **CERRADO (contrato y cable) · el método del coach en el plan.** `PlanSesion.vocabulario` y `.metodo` (`kit-reloj/metodo.ts`: `vocabularioDe`, `metodoDe`, `nombreDeClase`), con los `*_DEFECTO` como fallback de un solo sitio. Lo leen del plan los sitios que ya tienen el plan a mano (garmin-fuerza, las escenas de «después»). **PENDIENTE**: unos 20 sitios del kit leen `NOMBRE_CLASE_DEFECTO` desde funciones puras de un paso (`contextoDe`, `nombreCuenta`, `textoViene`, `vozInicio`…) que no reciben el plan; pasarlo exige un contexto común (cross-cutting, pide mini-mapa y OK).
+2. **CERRADO · `formatoDe`** ya no escribe texto fuera del vocabulario: «Series», «Fuerza» y «Continuo» están en `NOMBRE_FORMATO_DEFECTO` (el cable lleva 3 cadenas más).
+3. **CERRADO · dobles sin texto libre.** `PlanSesion.pareja` (una por sesión), `estacion` derivada del paso (`estacionDe`), `nota` → `Dobles.alternaCada: { tipo: 'metros' | 'reps' | 'segundos', n }` (`textoAlterna` escribe el pacto). El codificador rechaza un `nota` sin `alternaCada` y una pareja por estación.
+4. **CERRADO · `Objetivo.escala: 'ppm' | 'ritmo'`** para el eje `zona` (530 «Row @Z3», 536 «SkiErg @Z2»). Ausente = pulso. El kit todavía RESUELVE solo pulso: quien lea una zona de ritmo (Garmin) usa `plan.bandasRitmo`.
+5. **CERRADO (contrato y cable) · `ZonasCoach.procedencia`** (obligatoria en el cable si hay zonas) y `PlanSesion.bandasRitmo` (km / 500 m, con su procedencia) en el mismo plan. Decisión: las bandas de ritmo van a nivel de plan y no dentro de `ZonasCoach`, para que un atleta sin zonas de pulso pueda llevarlas. **PENDIENTE**: que el kit diga «estimada» donde pinta una zona (G6); hoy ninguna pantalla del kit lee `procedencia`.
+6. **CERRADO · el grupo del coach como dato.** `PasoBase.grupo?: { id, veces }`; `filasDePasos` (estructura, brief, `hoyDe`) agrupa por él cuando existe y usa sus `veces`; sin él, la heurística de siempre. El cable lleva 2 valores por paso agrupado y **ya no lleva la línea del brief** (`meta.estructura` eliminada). Que el reloj Garmin componga el texto del brief desde los grupos queda para su `.mc`.
+7. **PARCIAL · 538 solo existe partida** (correr y fuerza). **511, 513 y 542 CERRADO**: modeladas desde la base con el modelo actual (542 entra con M6: 4 × (Run 500 m + estación) como estructura). Hueco nuevo: no hay dónde llevar una lista de ejercicios del calentamiento (los drills de la 511) ni los nombres de estación que el coach no escribió en la 542.
+8. **PARCIAL · menores.** `hoyDe`/`grupoPrincipal` seguros sin paso de trabajo: CERRADO (`439d5f9b`). `wod.ciclo` repetido en cada ventana: el cable lo deduplica. **NO HECHO**: `PasoBase.id` y `fuerza.ejercicio` como índice y ordinal en el contrato: el cable ya no los lleva (`canonico.ts`), pero en el kit `id` es la clave del registro de la corona y de React en unas 40 pantallas; cambiarlo es un cruce que pide mini-mapa.
 
 ## 5. Qué haría falta en el servidor
 

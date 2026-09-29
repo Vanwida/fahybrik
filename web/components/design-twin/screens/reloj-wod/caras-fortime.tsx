@@ -39,6 +39,7 @@ import {
   sesionDe,
   textoTarea,
   useFilaAccion,
+  vueltasDe,
   wodDe,
   type FILA,
   type PaginaVivo,
@@ -193,7 +194,7 @@ export function paginasCarrera(datos: PlanWod) {
       {
         id: 'vueltas',
         titulo: 'Vueltas',
-        contenido: <PaginaVueltas vueltas={e.vueltas} enCurso={{ n: `km ${e.kmN + 1}`, valor: fmtReloj(e.sesionT - e.kmDesdeT) }} />,
+        contenido: <PaginaVueltas vueltas={e.vueltas} enCurso={vueltasDe(seq).enCurso} />,
       },
       {
         id: 'estructura',

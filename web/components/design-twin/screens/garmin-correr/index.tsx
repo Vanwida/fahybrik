@@ -17,8 +17,6 @@ import { AroGarmin, CaraDelVivo, CaraKm, ComparaTamanos, VivoGarminDePlan, useVi
 import { avanzar, estadoInicial, lecturasDe, pasoVivo, tinteDelPaso } from '../../kit-reloj';
 import type { TwinEscenario, TwinMeta, TwinScreenProps } from '../../types';
 import { casoGarminCorrer, type CasoGarminCorrer } from './casos';
-import { bannerDeVuelta, esVueltaDePista } from './pista';
-import { capaDePista, paginasDePista } from './vistaPista';
 import { CapaSistema } from './vistaSistema';
 
 export const meta: TwinMeta = {
@@ -71,7 +69,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'tirada-z2',
     titulo: 'Tirada 80′ @Z2 · vuelta por km (494)',
     descripcion:
-      'Sesión 494 con el cue del coach «mirar el pulso» bajo el contexto. A los 10 s cruza el km 5: vuelta automática (2 cortas + tono LAP) y la tarjeta del km unos segundos. Es el único paso de la sesión: BACK/LAP la cerraría entera (con 5 s para deshacer) y hoy el resumen diría «Completa» aunque vayas a un tercio (el modelo juzga por series y no ve un paso continuo a medias): hueco anotado, no de la pantalla.',
+      'Sesión 494 con el cue del coach «mirar el pulso» bajo el contexto. A los 10 s cruza el km 5: vuelta automática (2 cortas + tono LAP) y la tarjeta del km unos segundos. Es el único paso de la sesión: BACK/LAP la cerraría entera (con 5 s para deshacer), y cerrada a un tercio el resumen dice «Parcial · 24′ de 80′»: un paso continuo cortado a mano se juzga igual que una serie cortada.',
   },
   {
     id: 'tempo-z4',
@@ -164,7 +162,8 @@ function ComparacionDeVuelta({ c }: { c: CasoGarminCorrer }) {
   const { plan } = c.caso.datos;
   const estado = avanzar(estadoInicial(plan, c.caso.sim, c.caso.inicio), plan, c.caso.sim).estado;
   const paso = pasoVivo(plan, estado);
-  const banner = bannerDeVuelta(estado, paso, plan);
+  // La tarjeta es la del motor (kit-reloj/vuelta.ts): «Vuelta 7», no «Kilómetro 7», en una vuelta de 400 m.
+  const banner = estado.banner;
   return (
     <ComparaTamanos>
       {() => (
@@ -190,7 +189,6 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
   const [c] = useState(() => casoGarminCorrer(escenario));
   if (c.comparar) return <Comparacion c={c} onLog={onLog} />;
   const { plan, estructura } = c.caso.datos;
-  const deLaPista = plan.pasos.some(esVueltaDePista);
   return (
     <VivoGarminDePlan
       plan={plan}
@@ -198,11 +196,10 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
       inicio={c.caso.inicio}
       estructura={estructura}
       inicial={c.inicial}
-      paginas={deLaPista ? paginasDePista(estructura) : undefined}
       capa={(seq, kit) => (
         <>
           <CapaSistema seq={seq} />
-          {deLaPista ? capaDePista(seq, kit) : kit}
+          {kit}
         </>
       )}
       onLog={onLog}

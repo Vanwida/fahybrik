@@ -7,12 +7,16 @@
 //                      suficientes; si no, se dice por qué no (P10: va al
 //                      resumen, no al vivo: el cálculo está sin validar).
 //
-// Lo que es MÉTODO (cuántos pares pide el coach, desde qué fracción una serie
+// Lo que es MÉTODO (cuántos pares pide el coach, desde qué fracción una pieza
 // cortada cuenta como hecha, cuánto tiempo quieto antes de guardar solo un
 // enfriamiento libre) va en `MetodoResumen`, dato con defecto (HARD RULE Nº0).
+//
+// Una PIEZA es lo que se juzga: una serie (su vuelta) o un paso continuo (su
+// parcial: una tirada, un tempo, una pista). Las dos se cortan igual: cerradas
+// a mano por debajo del umbral del coach.
 
-import { NOMBRE_CLASE_DEFECTO, type Objetivo, type PasoBase, type Vuelta } from './paso';
-import { fmtDuracion, principal } from './reglas';
+import { FEMENINO_DEFECTO, NOMBRE_CLASE_DEFECTO, type Objetivo, type Parcial, type PasoBase, type Vuelta } from './paso';
+import { fmtDuracion, fmtPrescrito, principal } from './reglas';
 
 // ---------------------------------------------------------------------------
 // Método del coach — dato con defecto
@@ -21,7 +25,12 @@ import { fmtDuracion, principal } from './reglas';
 export interface MetodoResumen {
   /** Pares (km tras estación ↔ km fresco a la misma banda) que hacen falta para dar el coste. */
   paresMinimos: number;
-  /** Fracción de lo prescrito a partir de la cual una serie cortada a mano cuenta como hecha. */
+  /**
+   * Fracción de lo prescrito a partir de la cual una pieza cortada a mano
+   * cuenta como hecha: una serie (900 de 1000 m) o un paso continuo (72′ de
+   * una tirada de 80′). Es el mismo juicio —¿se hizo lo que pedía el coach?—
+   * sobre la medida del paso, sea cual sea su forma.
+   */
   umbralHecho: number;
   /**
    * Tras «Seguir» (enfriamiento libre), segundos sin moverse y sin tocar nada
@@ -50,6 +59,12 @@ export interface HechoSesion {
   /** Final natural (el motor cerró el último paso) o el atleta terminó antes. */
   final: 'natural' | 'atleta';
   series: SerieHecha[];
+  /**
+   * Un parcial por paso cerrado (el que deja el motor al cerrarlo). Decide si
+   * un paso CONTINUO —sin serie ni tramo— cerrado a mano llegó a lo
+   * prescrito. Sin él (un resultado armado a mano), solo se juzgan las series.
+   */
+  parciales?: Parcial[];
 }
 
 export interface Completitud {
@@ -76,17 +91,54 @@ const mayus = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 type EstadoPieza = 'hecho' | 'cortado' | 'sin-llegar';
 
-function estadoPaso(r: HechoSesion, j: number, metodo: MetodoResumen): { estado: EstadoPieza; serie?: SerieHecha } {
+/** Lo hecho de una pieza en la unidad de su medida: metros o segundos (reps y calorías no se cortan aquí). */
+interface Pieza {
+  segundos: number;
+  metros: number | null;
+}
+
+const hechoDePieza = (p: PasoBase, x: Pieza) => (p.medida.tipo === 'distancia' ? x.metros : p.medida.tipo === 'tiempo' ? x.segundos : null);
+
+/** ¿Es un paso continuo? Sin serie ni tramo que lo cuente: una tirada, un tempo, un rodaje. */
+const esContinuo = (p: PasoBase) => !p.posicion?.serie && !p.posicion?.tramo && !p.posicion?.ronda;
+
+function estadoPaso(r: HechoSesion, j: number, metodo: MetodoResumen): { estado: EstadoPieza; serie?: SerieHecha; pieza?: Pieza } {
   const p = r.pasos[j]!;
   if (j > r.i) return { estado: 'sin-llegar' };
   if (j === r.i && r.final === 'atleta') return { estado: 'sin-llegar' };
   const serie = r.series.find((s) => s.pasoId === p.id);
+  // Un paso continuo no deja serie: lo que hizo es su parcial.
+  const parcial = !serie && esContinuo(p) ? r.parciales?.find((x) => x.i === j) : undefined;
+  const pieza: Pieza | undefined = serie ?? parcial;
   const pr = p.medida.prescrito;
-  if (serie && pr != null && pr > 0) {
-    const hecho = p.medida.tipo === 'distancia' ? serie.metros : p.medida.tipo === 'tiempo' ? serie.segundos : null;
-    if (hecho != null && hecho < pr * metodo.umbralHecho) return { estado: 'cortado', serie };
+  if (pieza && pr != null && pr > 0) {
+    const hecho = hechoDePieza(p, pieza);
+    if (hecho != null && hecho < pr * metodo.umbralHecho) return { estado: 'cortado', serie, pieza };
   }
-  return { estado: 'hecho', serie };
+  return { estado: 'hecho', serie, pieza };
+}
+
+/** «24′», «23″»: lo hecho de un paso por tiempo, al minuto por encima de dos (así se habla de una tirada). */
+function fmtTiempoHecho(s: number): string {
+  return s >= 120 ? fmtDuracion(Math.round(s / 60) * 60) : fmtDuracion(Math.round(s));
+}
+
+/**
+ * Lo hecho de una pieza, dicho en la unidad de lo prescrito: «24′», «1200 m»
+ * (de 3950 m), «8,23 km» (de 12 km). Con el mismo espacio duro que `fmtPrescrito`.
+ */
+function fmtHecho(p: PasoBase, x: Pieza): string {
+  if (p.medida.tipo === 'distancia' && x.metros != null) {
+    const enKm = fmtPrescrito(p.medida).endsWith('km');
+    return enKm ? `${(x.metros / 1000).toFixed(2).replace('.', ',')} km` : `${Math.round(x.metros)} m`;
+  }
+  return fmtTiempoHecho(x.segundos);
+}
+
+/** «La tirada», «El tempo»: el paso continuo con su artículo (el género va con el nombre de la clase). */
+function pasoConArticulo(p: PasoBase): string {
+  const nombre = NOMBRE_CLASE_DEFECTO[p.clase].toLowerCase();
+  return `${FEMENINO_DEFECTO.has(p.clase) ? 'La' : 'El'} ${nombre}`;
 }
 
 /**
@@ -126,7 +178,13 @@ export function completitud(r: HechoSesion, metodo: MetodoResumen = METODO_RESUM
   const pos = nombrePosicion(primero.p);
   const quien = pos ? `${conArticulo(pos.nombre)} ${pos.n} de ${pos.de}` : null;
   let motivo: string;
-  if (primero.estado === 'cortado' && primero.serie) {
+  if (primero.estado === 'cortado' && primero.pieza && !primero.serie) {
+    // Un paso continuo cortado: la cuenta es lo hecho de lo prescrito («24′ de 80′»).
+    const x = primero.pieza;
+    const hasta = primero.p.medida.tipo === 'distancia' ? `en ${fmtHecho(primero.p, x)}` : `a los ${fmtTiempoHecho(x.segundos)}`;
+    cuenta = `${fmtHecho(primero.p, x)} de ${fmtPrescrito(primero.p.medida)}`;
+    motivo = `${pasoConArticulo(primero.p)} se cortó ${hasta}`;
+  } else if (primero.estado === 'cortado' && primero.serie) {
     const s = primero.serie;
     const hasta = primero.p.medida.tipo === 'distancia' && s.metros != null ? `en ${s.metros} m` : `a los ${fmtDuracion(s.segundos)}`;
     motivo = `${quien ? mayus(quien) : 'Un paso'} se cortó ${hasta}`;

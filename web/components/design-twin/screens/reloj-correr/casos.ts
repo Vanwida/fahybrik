@@ -110,7 +110,7 @@ export const serie = (n: number, segundos: number, metros: number, ppm: number, 
   eje,
 });
 
-const km = (n: number, segundos: number, ppm: number): Vuelta => ({ n, clase: 'km', segundos, metros: 1000, ritmo: segundos, ppm, veredicto: null });
+const km = (n: number, segundos: number, ppm: number): Vuelta => ({ n, clase: 'auto', vueltaM: 1000, segundos, metros: 1000, ritmo: segundos, ppm, veredicto: null });
 
 const seriesSinObjetivo = (tanda: number, hasta: number): Vuelta[] =>
   Array.from({ length: hasta }, (_, k) => ({ n: k + 1, tanda, clase: 'serie' as const, segundos: 60, metros: 250, ritmo: 240, ppm: 170 + k, veredicto: null }));
@@ -167,7 +167,7 @@ export function casoDe(escenario: string): CasoCorrer {
           t: 1450,
           sesionT: 1450,
           sesionM: 4966,
-          kmDesdeT: 1168,
+          vueltaDesdeT: 1168,
           vueltas: [km(1, 295, 139), km(2, 293, 143), km(3, 291, 145), km(4, 289, 146)],
           ppmMedio: 143,
         },

@@ -24,7 +24,7 @@ import {
   useEventos,
   vozFinSerie,
   vozInicio,
-  vozKm,
+  vozVuelta,
   vozPreaviso,
   vozRecupera,
   type EventoVivo,
@@ -95,7 +95,7 @@ const MOMENTOS: Momento[] = [
   {
     evento: 'vuelta',
     i: 5,
-    voz: vozKm(5, 292),
+    voz: vozVuelta(5, 292, 1000),
     cara: () => (
       <>
         <PasoCorrer paso={rodaje} lecturas={lect({ t: 1460, hecho: 1460, ritmo: 292, ppm: 145 })} zonas={ZONAS} />

@@ -79,7 +79,7 @@ export function useVivoGarmin(
   return { seq, avisos };
 }
 
-/** Lo hecho, para decidir la completitud (`completitud` de kit-reloj): las series de los parciales. */
+/** Lo hecho, para decidir la completitud (`completitud` de kit-reloj): las series de los parciales, y los parciales (un paso continuo se juzga por el suyo). */
 export function hechoDe(plan: PlanSesion, e: EstadoSecuencia, final: 'natural' | 'atleta'): HechoSesion {
   const series: SerieHecha[] = e.parciales.flatMap((x) => {
     const p = plan.pasos[x.i];
@@ -88,7 +88,7 @@ export function hechoDe(plan: PlanSesion, e: EstadoSecuencia, final: 'natural' |
     const ritmo = x.metros != null && x.metros > 50 ? x.segundos / (x.metros / 1000) : null;
     return [{ n: c.n, tanda: p.posicion?.tanda?.n, clase: p.posicion?.tramo ? 'tramo' : 'serie', segundos: x.segundos, metros: x.metros, ritmo, ppm: x.ppm, veredicto: null, pasoId: p.id }];
   });
-  return { pasos: plan.pasos, i: e.i, final, series };
+  return { pasos: plan.pasos, i: e.i, final, series, parciales: e.parciales };
 }
 
 // ---------------------------------------------------------------------------

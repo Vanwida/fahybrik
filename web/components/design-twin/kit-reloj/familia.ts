@@ -4,6 +4,7 @@
 
 import { formatoDeathBy } from './deathby';
 import { esFuerza } from './fuerza';
+import type { NombresFormato } from './metodo';
 import { NOMBRE_CLASE_DEFECTO, type PasoBase } from './paso';
 import { esCarrera, fmtDuracion } from './reglas';
 import { wodDe } from './tarea';
@@ -79,6 +80,9 @@ export const NOMBRE_FORMATO_DEFECTO = {
   deathby: 'Death by',
   circuito: 'Circuito',
   test: 'Test',
+  series: 'Series',
+  fuerza: 'Fuerza',
+  continuo: 'Continuo',
 } as const;
 
 /**
@@ -86,7 +90,7 @@ export const NOMBRE_FORMATO_DEFECTO = {
  * «AMRAP 15′», «For Time · cap 20′», «Tabata 8 × 20″/10″», «Circuito»; si no
  * es un WOD, el nombre de su clase («Series», «Rodaje», «Serie» de fuerza…).
  */
-export function formatoDe(p: PasoBase, nombres = NOMBRE_FORMATO_DEFECTO): string {
+export function formatoDe(p: PasoBase, nombres: NombresFormato = NOMBRE_FORMATO_DEFECTO): string {
   const w = wodDe(p);
   switch (w?.formato) {
     case 'emom':
@@ -105,12 +109,12 @@ export function formatoDe(p: PasoBase, nombres = NOMBRE_FORMATO_DEFECTO): string
   }
   if (esTest(p)) return nombres.test;
   if (p.clase === 'estacion' || p.clase === 'roxzone' || (p.clase === 'carrera' && p.posicion?.ronda)) return nombres.circuito;
-  if (p.clase === 'series') return 'Series';
-  if (p.clase === 'fuerza') return 'Fuerza';
+  if (p.clase === 'series') return nombres.series;
+  if (p.clase === 'fuerza') return nombres.fuerza;
   // «Ergo» no es palabra de box: el formato es por series o continuo. Un
   // tramo (remo 15′ → ski 15′ → bici 15′, la escalera de 536) es continuo:
   // no hay descanso entre tramos, solo cambia la máquina o la zona.
-  if (p.clase === 'ergo') return p.posicion?.serie ? 'Series' : 'Continuo';
+  if (p.clase === 'ergo') return p.posicion?.serie ? nombres.series : nombres.continuo;
   return NOMBRE_CLASE_DEFECTO[p.clase];
 }
 

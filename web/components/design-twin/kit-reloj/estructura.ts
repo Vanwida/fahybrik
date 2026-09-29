@@ -73,13 +73,22 @@ export interface Grupo {
   entre: PasoBase | null;
   /** Series anidadas (M4): N tandas de `porTanda`, con su descanso entre tandas. Sin aplanar. */
   tandas: { veces: number; porTanda: number; descanso: PasoBase | null } | null;
-  /** Índices del primer y del último paso del grupo (con su recuperación), para saber dónde estás. */
+  /** Índices del primer y del último paso del grupo (con su recuperación): dónde empieza y acaba. */
   desde: number;
   hasta: number;
+  /**
+   * Los tramos de pasos que SON del grupo (cada repetición con su recuperación).
+   * En un circuito los grupos se intercalan («5 × Run» y sus estaciones): estar
+   * dentro de [desde, hasta] no es estar en el grupo, estar en un tramo sí.
+   */
+  tramos: Array<[number, number]>;
 }
 
+/** La clave de agrupación: el grupo del coach si el paso lo trae; si no, la heurística (bloque, nombre, dosis, objetivos). */
 const clave = (p: PasoBase) =>
-  [p.posicion?.tanda ? 'tandas' : p.bloque, p.posicion?.slot, p.nombre ?? p.clase, p.medida.tipo, p.medida.prescrito, JSON.stringify(p.objetivos), p.carga?.kg].join('|');
+  p.grupo
+    ? `grupo:${p.grupo.id}`
+    : [p.posicion?.tanda ? 'tandas' : p.bloque, p.posicion?.slot, p.nombre ?? p.clase, p.medida.tipo, p.medida.prescrito, JSON.stringify(p.objetivos), p.carga?.kg].join('|');
 
 /**
  * Los pasos planos, agrupados como los escribió el coach: «6 × 800 m / r 2′30″»,
@@ -98,6 +107,8 @@ export function filasDePasos(pasos: PasoBase[]): Grupo[] {
       if (p.clase === 'descanso-tandas' && ultimo?.tandas) {
         ultimo.tandas.descanso ??= p;
         ultimo.hasta = Math.max(ultimo.hasta, j);
+        const cola = ultimo.tramos[ultimo.tramos.length - 1]!;
+        cola[1] = Math.max(cola[1], j);
       }
       return;
     }
@@ -107,8 +118,10 @@ export function filasDePasos(pasos: PasoBase[]): Grupo[] {
     const hasta = sig && !propio(sig) ? j + 1 : j;
     const g = porClave.get(k);
     if (g) {
-      g.veces += 1;
+      // Con grupo del coach, las veces son las que él dice; sin él, las que se cuentan.
+      if (!p.grupo) g.veces += 1;
       g.hasta = Math.max(g.hasta, hasta);
+      g.tramos.push([j, hasta]);
       if (!g.entre && entre && p.fase === 'principal') g.entre = entre;
       ultimo = g;
       return;
@@ -116,11 +129,12 @@ export function filasDePasos(pasos: PasoBase[]): Grupo[] {
     const t = p.posicion?.tanda;
     const nuevo: Grupo = {
       paso: p,
-      veces: 1,
+      veces: p.grupo?.veces ?? 1,
       entre: p.fase === 'principal' ? entre : null,
       tandas: t ? { veces: t.de, porTanda: p.posicion?.serie?.de ?? 1, descanso: null } : null,
       desde: j,
       hasta,
+      tramos: [[j, hasta]],
     };
     porClave.set(k, nuevo);
     grupos.push(nuevo);
@@ -139,14 +153,31 @@ export function estructuraDe(pasos: PasoBase[]): (i: number) => FilaEstructura[]
       trabajo: g.paso,
       recupera: g.veces > 1 && g.entre ? g.entre : undefined,
       tandas: g.tandas?.descanso ? { veces: g.tandas.veces, descanso: g.tandas.descanso } : undefined,
-      estado: i > g.hasta ? 'hecho' : i >= g.desde ? 'ahora' : 'pendiente',
+      estado: estadoDe(g, i),
     }));
 }
 
-/** El grupo que da nombre a la sesión: el primero de la parte principal con repeticiones; si no, el primero principal. */
-export function grupoPrincipal(grupos: Grupo[]): Grupo {
-  return grupos.find((g) => g.paso.fase === 'principal' && g.veces > 1) ?? grupos.find((g) => g.paso.fase === 'principal') ?? grupos[0]!;
+/**
+ * «Ahora» solo si el paso en curso es del grupo (o su recuperación). Un grupo
+ * intercalado con otros (un circuito) entre dos repeticiones no está ahora ni
+ * hecho: le quedan repeticiones, es «pendiente».
+ */
+function estadoDe(g: Grupo, i: number): FilaEstructura['estado'] {
+  if (g.tramos.some(([a, b]) => i >= a && i <= b)) return 'ahora';
+  return i > g.hasta ? 'hecho' : 'pendiente';
 }
+
+/**
+ * El grupo que da nombre a la sesión: el primero de la parte principal con
+ * repeticiones; si no, el primero principal. `null` si el plan no tiene ni un
+ * paso de trabajo (un plan de solo descansos o transiciones).
+ */
+export function grupoPrincipal(grupos: Grupo[]): Grupo | null {
+  return grupos.find((g) => g.paso.fase === 'principal' && g.veces > 1) ?? grupos.find((g) => g.paso.fase === 'principal') ?? grupos[0] ?? null;
+}
+
+/** El título de una sesión sin ningún paso de trabajo: no hay bloque que le dé nombre. */
+export const TITULO_SESION_SIN_TRABAJO = 'Sesión';
 
 // ---------------------------------------------------------------------------
 // El brief y lo de hoy
@@ -224,6 +255,7 @@ export function lineaBrief(g: Grupo): LineaBrief {
  */
 export function hoyDe(pasos: PasoBase[]): { titulo: string; sub: string | null; dur: string } {
   const g = grupoPrincipal(filasDePasos(pasos));
+  if (!g) return { titulo: TITULO_SESION_SIN_TRABAJO, sub: null, dur: duracionHumana(pasos) };
   const p = g.paso;
   const o = principal(p);
   const r = g.entre?.medida.prescrito != null ? `r ${fmtDuracion(g.entre.medida.prescrito)}` : null;

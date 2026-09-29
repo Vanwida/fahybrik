@@ -24,7 +24,9 @@ import type {
   Tarea,
   ZonasCoach,
 } from '../../kit-reloj/paso';
-import type { Dobles } from '../../kit-reloj/dobles';
+import { estacionDe, type Dobles } from '../../kit-reloj/dobles';
+import type { BandasRitmo } from '../../kit-reloj/paso';
+import type { MetodoReloj, NombreClase, Vocabulario } from '../../kit-reloj/metodo';
 import type { PlanSesion } from '../../kit-reloj/secuencia';
 import {
   ANCHOS_BANDERAS_PASO,
@@ -42,6 +44,8 @@ import {
   CONTADORES,
   EJES,
   EJES_ESFUERZO,
+  ESCALAS_OBJETIVO,
+  TIPOS_ALTERNA,
   ENTORNOS,
   ESCALA_PCT,
   FASES,
@@ -67,7 +71,7 @@ import {
 } from './formato';
 import { ErrorPlanCompacto, Lector, valorDe, type Flujo } from './flujo';
 import { deBinario, desenvolver } from './transporte';
-import type { BandasRitmo, MetaSesion, MetodoReloj, NombreClase, SesionCompacta, Vocabulario } from './tipos';
+import type { MetaSesion, SesionCompacta } from './tipos';
 
 /** Inversa de `codigoOpc`: 0 = sin dato. */
 function valorOpc<T extends string>(tabla: readonly T[], codigo: number, donde: string): T | undefined {
@@ -94,12 +98,14 @@ function leerValorDeEje(r: Lector, eje: Objetivo['eje'], ctx: string): number | 
 }
 
 function leerObjetivo(r: Lector, ctx: string): Objetivo {
-  const [eje, papel, lleva, avisa] = desempaquetar(ANCHOS_OBJETIVO, r.n(ctx));
+  const [eje, papel, lleva, avisa, escala] = desempaquetar(ANCHOS_OBJETIVO, r.n(ctx));
   const e = valorDe(EJES, eje!, `${ctx}.eje`);
   const o: Objetivo = { eje: e, min: leerValorDeEje(r, e, `${ctx}.min`), max: leerValorDeEje(r, e, `${ctx}.max`), papel: valorDe(PAPELES, papel!, `${ctx}.papel`) };
   const sentido = valorOpc(SENTIDOS_AVISO, avisa!, `${ctx}.avisa`);
   if (sentido !== undefined) o.avisa = sentido;
   if (lleva) o.palabra = r.cadena(`${ctx}.palabra`);
+  const esc = valorOpc(ESCALAS_OBJETIVO, escala!, `${ctx}.escala`);
+  if (esc !== undefined) o.escala = esc;
   return o;
 }
 
@@ -201,18 +207,16 @@ function leerFicha(r: Lector, ctx: string): FichaFuerza {
   return f;
 }
 
+/** Un relevo de dobles. La pareja y la estación NO viajan aquí: las pone `leerPaso` (plan y paso). */
 function leerDobles(r: Lector, ctx: string): Dobles {
   const turno = valorDe(TURNOS_DOBLES, r.n(`${ctx}.turno`), `${ctx}.turno`);
-  const estacion = r.cadena(`${ctx}.estacion`);
-  const pareja = r.cadenaOpc(`${ctx}.pareja`);
   const tuyas = r.nOpc(`${ctx}.tuyas`);
   const suyas = r.nOpc(`${ctx}.suyas`);
-  const d: Dobles = { turno, estacion, pctTuyo: r.n(`${ctx}.pctTuyo`) };
-  if (pareja !== undefined) d.pareja = pareja;
+  const d: Dobles = { turno, pctTuyo: r.n(`${ctx}.pctTuyo`) };
   if (tuyas !== null) d.tuyas = tuyas;
   if (suyas !== null) d.suyas = suyas;
-  const nota = r.cadenaOpc(`${ctx}.nota`);
-  if (nota !== undefined) d.nota = nota;
+  const alterna = r.n(`${ctx}.alterna`);
+  if (alterna !== 0) d.alternaCada = { tipo: valorDe(TIPOS_ALTERNA, alterna - 1, `${ctx}.alterna.tipo`), n: r.n(`${ctx}.alterna.n`) };
   return d;
 }
 
@@ -220,7 +224,7 @@ function leerDobles(r: Lector, ctx: string): Dobles {
 // El paso
 // ---------------------------------------------------------------------------
 
-function leerPaso(r: Lector, i: number, t: TablasLeidas): PasoBase {
+function leerPaso(r: Lector, i: number, t: TablasLeidas, pareja: string | undefined): PasoBase {
   const ctx = `paso ${i}`;
   const clase = valorDe(CLASES, r.n(`${ctx}.clase`), `${ctx}.clase`);
   const [rol, fase, cierre] = desempaquetar(ANCHOS_ROL_FASE, r.n(`${ctx}.rol`));
@@ -262,7 +266,12 @@ function leerPaso(r: Lector, i: number, t: TablasLeidas): PasoBase {
   }
   if (hay.wod) p.wod = leerWod(r, t, ctx);
   if (hay.fuerza) p.fuerza = leerFicha(r, ctx);
-  if (hay.dobles) p.dobles = leerDobles(r, ctx);
+  if (hay.dobles) {
+    // La pareja es de la sesión y la estación se deriva del paso: el pintor las lee del paso, como siempre.
+    p.dobles = { ...leerDobles(r, ctx), ...(pareja !== undefined ? { pareja } : {}) };
+    p.dobles.estacion = estacionDe(p);
+  }
+  if (hay.grupo) p.grupo = { id: r.n(`${ctx}.grupo.id`), veces: r.n(`${ctx}.grupo.veces`) };
   return p;
 }
 
@@ -270,18 +279,18 @@ function leerPaso(r: Lector, i: number, t: TablasLeidas): PasoBase {
 // Cabecera, zonas, reglas, vocabulario, método
 // ---------------------------------------------------------------------------
 
-function leerZonas(r: Lector): { zonas: ZonasCoach | null; procedencia: MetaSesion['procedenciaPpm'] } {
+function leerZonas(r: Lector): ZonasCoach | null {
   const n = r.n('plan.zonas');
-  if (n === 0) return { zonas: null, procedencia: null };
+  if (n === 0) return null;
   const techos = Array.from({ length: n }, () => r.n('plan.zonas.techos'));
-  const procedencia = valorDe(PROCEDENCIAS, r.n('meta.procedenciaPpm'), 'meta.procedenciaPpm');
-  const zonas: ZonasCoach = { techos };
+  const procedencia = valorDe(PROCEDENCIAS, r.n('plan.zonas.procedencia'), 'plan.zonas.procedencia');
+  const zonas: ZonasCoach = { techos, procedencia };
   if (r.n('plan.zonas.nombres')) zonas.nombres = techos.map(() => r.cadena('plan.zonas.nombres'));
-  return { zonas, procedencia };
+  return zonas;
 }
 
 function leerBandasRitmo(r: Lector): BandasRitmo[] {
-  const n = r.n('meta.bandasRitmo');
+  const n = r.n('plan.bandasRitmo');
   return Array.from({ length: n }, (_, i) => {
     const unidad = valorDe(UNIDADES_RITMO, r.n(`bandas[${i}].unidad`), `bandas[${i}].unidad`);
     const procedencia = valorDe(PROCEDENCIAS, r.n(`bandas[${i}].procedencia`), `bandas[${i}].procedencia`);
@@ -359,20 +368,22 @@ export function decodificarFlujo(f: Flujo): SesionCompacta {
   const fitSubSport = r.n('meta.fitSubSport');
   const entorno = valorOpc(ENTORNOS, r.n('meta.entorno'), 'meta.entorno') ?? null;
   const duracionEstS = r.n('meta.duracionEstS');
-  const estructura = r.cadena('meta.estructura');
-  const { zonas, procedencia } = leerZonas(r);
+  const zonas = leerZonas(r);
   const bandasRitmo = leerBandasRitmo(r);
   const reglas = leerReglas(r);
   const vocabulario = leerVocabulario(r);
   const metodo = leerMetodo(r);
+  const pareja = r.cadenaOpc('plan.pareja');
 
   const tareas = Array.from({ length: r.n('tareas') }, (_, k) => leerTarea(r, `tarea ${k}`));
   const listas = Array.from({ length: r.n('listas') }, () => Array.from({ length: r.n('listas.largo') }, () => tareaEn({ tareas, listas: [] }, r.n('listas.tarea'), 'listas')));
-  const pasos = Array.from({ length: r.n('pasos') }, (_, i) => leerPaso(r, i, { tareas, listas }));
+  const pasos = Array.from({ length: r.n('pasos') }, (_, i) => leerPaso(r, i, { tareas, listas }, pareja));
   r.fin();
 
-  const plan: PlanSesion = { pasos, zonas, reglas };
-  const meta: MetaSesion = { asignacionId, huella, fitSport, fitSubSport, entorno, duracionEstS, estructura, procedenciaPpm: procedencia, bandasRitmo, vocabulario, metodo };
+  const plan: PlanSesion = { pasos, zonas, reglas, vocabulario, metodo };
+  if (bandasRitmo.length > 0) plan.bandasRitmo = bandasRitmo;
+  if (pareja !== undefined) plan.pareja = pareja;
+  const meta: MetaSesion = { asignacionId, huella, fitSport, fitSubSport, entorno, duracionEstS };
   return { meta, plan };
 }
 

@@ -60,7 +60,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'aproximacion',
     titulo: 'Aproximación y el % resuelto en kg (488)',
     descripcion:
-      'Sesión 488, Back Squat 4 × 6 @RPE 6,5 con «72 % 1RM» hecho dato. «Aproximación 2/2 · 3 × 100 kg» (las de aproximación son ilustrativas: 488 no las escribe) se marca aparte y no se anota. Su descanso anuncia «Viene: Serie 1/4 · 6 × 134 kg» y, con BACK/LAP = Empezar ya (pasados los 5 s del deshacer), la serie 1 lleva «6 × 134 kg» y debajo «RPE 6,5 · 72 % RM».',
+      'Sesión 488, Back Squat 4 × 6 @RPE 6,5 con «72 % 1RM» hecho dato. «Aproximación 2/2 · 3 × 100 kg» (las de aproximación son ilustrativas: 488 no las escribe) se marca aparte y no se anota. Su descanso anuncia «Viene: Serie 1/4 · 6 × 135 kg» y, con BACK/LAP = Empezar ya (pasados los 5 s del deshacer), la serie 1 lleva «6 × 135 kg» y debajo «RPE 6,5 · 72 % RM».',
   },
   {
     id: 'anotar',

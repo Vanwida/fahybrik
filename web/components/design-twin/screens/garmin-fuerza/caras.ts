@@ -63,7 +63,7 @@ import {
   type PlanSesion,
   quienSerie,
   nombreCuenta,
-  NOMBRE_CLASE_DEFECTO,
+  nombreDeClase,
   esFuerza,
 } from '../../kit-reloj';
 import { conSlot } from '../reloj-fuerza/textos';
@@ -205,9 +205,9 @@ export function vistaCuenta(n: number, sig: PasoBase, plan: PlanSesion, arrastra
     ? quienSerie(sig)
     : sig.posicion?.serie
       ? `${nombreCuenta(sig).nombre} ${sig.posicion.serie.n}/${sig.posicion.serie.de}`
-      : NOMBRE_CLASE_DEFECTO[sig.clase];
+      : nombreDeClase(plan, sig.clase).nombre;
   return {
-    nombre: conSlot(sig) || NOMBRE_CLASE_DEFECTO[sig.clase],
+    nombre: conSlot(sig) || nombreDeClase(plan, sig.clase).nombre,
     etiqueta: [serie],
     nota: [],
     dosis: fuerza ? partesDosis(sig, arrastrada) : partesOtro(sig, lamina),

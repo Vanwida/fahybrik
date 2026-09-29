@@ -12,6 +12,7 @@
 // del FIT, bandas del atleta) son de PRUEBA: el deporte del FIT es ilustrativo,
 // el mapa real es el arreglo A4 y lo decide la prueba T1 en un reloj.
 
+import { sesion511, sesion513, sesion542 } from '@/components/design-twin/screens/reloj-correr/sesiones-nuevas';
 import { sesion509, sesion479, sesion491, sesion494, sesion535, sesion538 as correr538, sesion551, sesion573, seisPorMil } from '@/components/design-twin/screens/reloj-correr/planes';
 import { ejemploP11, sesion488, sesion492 as fuerza492, sesion529 as fuerza529, sesion538 as fuerza538 } from '@/components/design-twin/screens/reloj-fuerza/planes';
 import { sesion493 as circuito493, sesion492 as circuito492, sesion506 as circuito506, simulacionHyrox } from '@/components/design-twin/screens/reloj-circuito/planes';
@@ -39,7 +40,7 @@ import {
 import { planCintaEspejo, planEstacion, planFuerza, planSeries } from '@/components/design-twin/screens/reloj-gramatica/planes';
 import type { PlanSesion } from '@/components/design-twin/kit-reloj/secuencia';
 import { hyroxDobles, pasosDeWod, pasosPorCadaValor, planDe } from './garmin-plan-sinteticos';
-import { metaPorDefecto } from '@/components/design-twin/kit-garmin/plan-compacto/meta';
+import { completarPlan, metaPorDefecto } from '@/components/design-twin/kit-garmin/plan-compacto/meta';
 import type { BandasRitmo, MetaSesion } from '@/components/design-twin/kit-garmin/plan-compacto/tipos';
 
 export type FamiliaCaso = 'correr' | 'fuerza' | 'circuito' | 'wod' | 'ergo' | 'libre';
@@ -62,8 +63,12 @@ export const NUMEROS_DEL_ENCARGO = [
   '498', '572', '506', '552', '542', '493', '482', '505', '530', '536', '513', '514',
 ] as const;
 
-/** Las que NO existen como datos en el doble (búsqueda por número en `web/` y `docs/`, 29-09-2026), en el orden del encargo. */
-export const NO_ENCONTRADAS = ['511', '542', '513'] as const;
+/**
+ * Las que NO existen como datos en el doble, en el orden del encargo. Ninguna:
+ * 511, 513 y 542 se modelaron el 30-09 desde la base de datos (lectura, ver
+ * `screens/reloj-correr/sesiones-nuevas.ts`).
+ */
+export const NO_ENCONTRADAS: readonly string[] = [];
 
 const R = 'screens/reloj-correr/planes.ts';
 const F = 'screens/reloj-fuerza/planes.ts';
@@ -71,6 +76,7 @@ const C = 'screens/reloj-circuito/planes.ts';
 const W = 'screens/reloj-wod/planes.ts';
 const A = 'screens/reloj-antes-despues/sesiones.ts';
 const G = 'screens/reloj-gramatica/planes.ts';
+const N = 'screens/reloj-correr/sesiones-nuevas.ts';
 
 const caso = (clave: string, numero: string | null, etiqueta: string, fuente: string, familia: FamiliaCaso, plan: PlanSesion): CasoPlan => ({
   clave,
@@ -110,6 +116,9 @@ export function casosReales(): CasoPlan[] {
     caso('530', '530', '3 × (SkiErg · Row · Bike) @Z2 + Run 7′', `${W} · ergo530`, 'ergo', ergo530().plan),
     caso('536', '536', 'Row en escalera 90″ → 1′ → 30″', `${W} · escalera536`, 'ergo', escalera536().plan),
     caso('514', '514', 'Assault Bike 45′ @Z1 · máx 142 ppm', `${W} · bike514`, 'ergo', bike514().plan),
+    caso('511', '511', 'Fartlek 3′/3′ en cinta: 2 × (3 × (3′ @Z4 / 3′) / 3′)', `${N} · sesion511`, 'correr', sesion511()),
+    caso('513', '513', 'Zona 2 sin impacto: SkiErg 2 × 2′ · Bike 3 × 15′ · Row 2 × 2′', `${N} · sesion513`, 'ergo', sesion513()),
+    caso('542', '542', 'HYROX half-sim: 4 × (Run 500 m + estación)', `${N} · sesion542`, 'circuito', sesion542().plan),
   ];
 }
 
@@ -196,24 +205,24 @@ const ID_ILUSTRATIVO_BASE = 900_000;
 /** Id de asignación de un plan sintético: aparte de los ilustrativos. */
 const ID_SINTETICO_BASE = 950_000;
 
-/** `idIlustrativo`: el id de asignación de un plan que no es una asignación real (`numero: null`). */
+/** El caso tal como se SERVIRÍA al reloj: con el método del coach en el plan (procedencia de las zonas y bandas de ritmo de prueba). */
+function servido(c: CasoPlan): CasoPlan {
+  const bandasRitmo = c.familia === 'ergo' || c.familia === 'circuito' ? [RITMO_KM_DE_PRUEBA, RITMO_500_DE_PRUEBA] : [RITMO_KM_DE_PRUEBA];
+  return { ...c, plan: completarPlan(c.plan, { procedenciaPpm: 'estimada', bandasRitmo }) };
+}
+
+/** `idIlustrativo`: el id de asignación de un plan que no es una asignación real (`numero: null`). `c.plan` es el plan servido (`servido`). */
 export function metaDeCaso(c: CasoPlan, idIlustrativo: number): MetaSesion {
   const [fitSport, fitSubSport] = FIT_DE_PRUEBA[c.familia];
-  return metaPorDefecto(c.plan, {
-    asignacionId: c.numero !== null ? Number(c.numero) : idIlustrativo,
-    fitSport,
-    fitSubSport,
-    procedenciaPpm: 'estimada',
-    bandasRitmo: c.familia === 'ergo' || c.familia === 'circuito' ? [RITMO_KM_DE_PRUEBA, RITMO_500_DE_PRUEBA] : [RITMO_KM_DE_PRUEBA],
-  });
+  return metaPorDefecto(c.plan, { asignacionId: c.numero !== null ? Number(c.numero) : idIlustrativo, fitSport, fitSubSport });
 }
 
 /** Los casos derivados del doble (reales y del kit) con su cabecera, en orden estable: la lista del examen. */
 export function todosLosCasos(): Array<{ caso: CasoPlan; meta: MetaSesion }> {
-  return [...casosReales(), ...casosOtros()].map((c, i) => ({ caso: c, meta: metaDeCaso(c, ID_ILUSTRATIVO_BASE + i) }));
+  return [...casosReales(), ...casosOtros()].map(servido).map((c, i) => ({ caso: c, meta: metaDeCaso(c, ID_ILUSTRATIVO_BASE + i) }));
 }
 
 /** Todo lo que lleva vector de oro: los casos del doble y los sintéticos. */
 export function casosConVector(): Array<{ caso: CasoPlan; meta: MetaSesion }> {
-  return [...todosLosCasos(), ...casosSinteticos().map((c, i) => ({ caso: c, meta: metaDeCaso(c, ID_SINTETICO_BASE + i) }))];
+  return [...todosLosCasos(), ...casosSinteticos().map(servido).map((c, i) => ({ caso: c, meta: metaDeCaso(c, ID_SINTETICO_BASE + i) }))];
 }

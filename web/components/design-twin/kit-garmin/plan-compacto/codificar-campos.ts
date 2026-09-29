@@ -20,12 +20,14 @@ import type {
   Tarea,
 } from '../../kit-reloj/paso';
 import type { Dobles } from '../../kit-reloj/dobles';
+import type { PlanSesion } from '../../kit-reloj/secuencia';
 import {
   ANCHOS_FICHA,
   ANCHOS_MEDIDA,
   ANCHOS_OBJETIVO,
   ANCHOS_POSICION,
   ANCHOS_TAREA,
+  CLAVES_ALTERNA,
   CLAVES_CARGA,
   CLAVES_DOBLES,
   CLAVES_FICHA,
@@ -45,6 +47,8 @@ import {
   SENTIDOS_AVISO,
   TIPOS_CARGA,
   TIPOS_MEDIDA,
+  ESCALAS_OBJETIVO,
+  TIPOS_ALTERNA,
   TURNOS_DOBLES,
   empaquetar,
 } from './formato';
@@ -142,6 +146,7 @@ export function escribirObjetivo(w: Escritor, o: Objetivo, ctx: string): void {
       codigoDe(PAPELES, o.papel, `${ctx}.papel`),
       o.palabra === undefined ? 0 : 1,
       o.avisa === undefined ? 0 : 1 + codigoDe(SENTIDOS_AVISO, o.avisa, `${ctx}.avisa`),
+      o.escala === undefined ? 0 : 1 + codigoDe(ESCALAS_OBJETIVO, o.escala, `${ctx}.escala`),
     ]),
   );
   valorDeEje(w, o.eje, o.min, `${ctx}.min`);
@@ -254,15 +259,28 @@ export function escribirFicha(w: Escritor, f: FichaFuerza, ejercicios: Map<strin
   if (f.vaciaKg !== undefined) w.centi(f.vaciaKg, `${ctx}.fuerza.vaciaKg`);
 }
 
-/** El texto de los dobles es un hueco del modelo: viaja, pero el informe lo marca como texto no admitido. */
-export function escribirDobles(w: Escritor, d: Dobles, ctx: string): void {
+/**
+ * Un relevo de dobles. NO lleva texto: la pareja es `PlanSesion.pareja` (una por
+ * sesión), la estación se deriva del paso y el pacto es `alternaCada` (dato).
+ * Un `nota` en texto libre se rechaza: es un pacto que el modelo no sabe leer.
+ */
+export function escribirDobles(w: Escritor, d: Dobles, plan: Pick<PlanSesion, 'pareja'>, ctx: string): void {
   soloClaves(d, CLAVES_DOBLES, `${ctx}.dobles`);
+  if (d.nota !== undefined && d.alternaCada === undefined) {
+    throw new ErrorPlanCompacto('fuera-de-limites', `${ctx}.dobles.nota: «${d.nota}» es un pacto en texto libre; el contrato lleva \`alternaCada: { tipo, n }\``);
+  }
+  if (d.pareja !== undefined && d.pareja !== plan.pareja) {
+    throw new ErrorPlanCompacto('fuera-de-limites', `${ctx}.dobles.pareja: la pareja es una por sesión (\`plan.pareja\`), no una por estación`);
+  }
   w.n(codigoDe(TURNOS_DOBLES, d.turno, `${ctx}.dobles.turno`));
-  w.cadena(d.estacion, 'estacion', `${ctx}.dobles.estacion`);
-  w.cadenaOpc(d.pareja, 'pareja', `${ctx}.dobles.pareja`);
   w.nOpc(d.tuyas, `${ctx}.dobles.tuyas`);
   w.nOpc(d.suyas, `${ctx}.dobles.suyas`);
   w.n(d.pctTuyo, `${ctx}.dobles.pctTuyo`);
-  w.cadenaOpc(d.nota, 'nota', `${ctx}.dobles.nota`);
+  if (d.alternaCada === undefined) {
+    w.n(0);
+    return;
+  }
+  soloClaves(d.alternaCada, CLAVES_ALTERNA, `${ctx}.dobles.alternaCada`);
+  w.n(1 + codigoDe(TIPOS_ALTERNA, d.alternaCada.tipo, `${ctx}.dobles.alternaCada.tipo`));
+  w.n(d.alternaCada.n, `${ctx}.dobles.alternaCada.n`);
 }
-

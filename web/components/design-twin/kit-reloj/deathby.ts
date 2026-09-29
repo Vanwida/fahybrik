@@ -13,6 +13,7 @@
 
 import { NOMBRE_FORMATO_DEFECTO } from './familia';
 import type { HeroeVista } from './lamina';
+import type { NombresFormato } from './metodo';
 import type { InfoWod, Medida, PasoBase, Tarea } from './paso';
 import { fmtDuracion, fmtReloj } from './reglas';
 
@@ -95,7 +96,7 @@ export function posicionDeathBy(p: PasoBase): string[] | null {
 }
 
 /** El formato en castellano de box: «Death by · +1 cada 1′», «Death by · 10 y +2 cada 1′ · hasta 15». */
-export function formatoDeathBy(w: InfoDeathBy, nombres = NOMBRE_FORMATO_DEFECTO): string {
+export function formatoDeathBy(w: InfoDeathBy, nombres: NombresFormato = NOMBRE_FORMATO_DEFECTO): string {
   const escalera = w.inicio === w.incremento ? `+${w.incremento} cada ${fmtDuracion(w.ventanaS)}` : `${w.inicio} y +${w.incremento} cada ${fmtDuracion(w.ventanaS)}`;
   return [nombres.deathby, escalera, w.tope != null ? `hasta ${w.tope}` : null].filter(Boolean).join(' · ');
 }

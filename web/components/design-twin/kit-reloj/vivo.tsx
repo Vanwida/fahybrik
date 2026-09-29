@@ -38,6 +38,7 @@ import { fmtObjetivo, fmtReloj, principal, tinteDelPaso } from './reglas';
 import type { EstadoSecuencia, InicioSecuencia, PlanSesion, Simulador } from './secuencia';
 import { ANCHO_PIE, T, anchoTexto } from './tokens';
 import { nombreCuenta } from './voz';
+import { rotuloVueltaAuto } from './vuelta';
 
 /** La sesión entera, para la página Datos. Sin metros medidos, «—» (nunca 0,00 km). */
 export function sesionDe(e: EstadoSecuencia): Sesion {
@@ -83,7 +84,7 @@ export function avisoDeCierre(paso: Paso): string {
 /**
  * Lo que la página Vueltas necesita además de las vueltas, PURO (lo usan la
  * muñeca y cualquier otro pintor): el objetivo de las series para la cabecera
- * y la vuelta que se está corriendo (la serie en curso, o el km).
+ * y la vuelta que se está corriendo (la serie en curso, o la vuelta automática).
  */
 export function vueltasDe(seq: Pick<Secuencia, 'paso' | 'lecturas' | 'estado'>): {
   objetivo: string | null;
@@ -98,7 +99,7 @@ export function vueltasDe(seq: Pick<Secuencia, 'paso' | 'lecturas' | 'estado'>):
     paso.rol === 'trabajo' && cuenta
       ? { n: paso.posicion?.tanda ? `${paso.posicion.tanda.n}·${cuenta.n}` : String(cuenta.n), valor: fmtReloj(lecturas.t) }
       : paso.vueltaAutoM
-        ? { n: `km ${estado.kmN + 1}`, valor: fmtReloj(estado.sesionT - estado.kmDesdeT) }
+        ? { n: rotuloVueltaAuto(estado.vueltaN + 1, paso.vueltaAutoM), valor: fmtReloj(estado.sesionT - estado.vueltaDesdeT) }
         : null;
   return { objetivo, enCurso };
 }

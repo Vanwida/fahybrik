@@ -408,9 +408,9 @@ export function metricasDelPaso(
       const s = p.posicion?.serie;
       if (s) m.push(texto('serie', esFuerza(p) && p.fuerza.aproximacion ? 'aproximación' : 'serie', `${s.n}/${s.de}`));
       if (esFuerza(p)) {
-        const rango = kgDelPlan(p.fuerza.carga);
+        const rango = kgDelPlan(p.fuerza.carga, p.fuerza.pasoKg);
         const enBarra = kgEnBarra(p, x);
-        const kg = textoKgPlan(p.fuerza.carga);
+        const kg = textoKgPlan(p.fuerza.carga, p.fuerza.pasoKg);
         if (kg && p.fuerza.carga.tipo === 'rm' && rango && (rango[0] !== rango[1] || rango[0] !== enBarra)) m.push(texto('carga', 'carga del plan', kg));
         const heroeLlevaEsfuerzo = p.medida.tipo === 'reps' && !cuentaElSensor(p, l);
         if (p.fuerza.esfuerzo && !p.fuerza.aproximacion && !heroeLlevaEsfuerzo) m.push(texto('esfuerzo', 'esfuerzo', textoEsfuerzo(p.fuerza.esfuerzo)));

@@ -18,7 +18,7 @@
 // de una serie sin metros (sale «—»); pintar la distancia de un reloj sin GPS
 // como cero.
 
-import { fmtDistancia, fmtObjetivo, fmtReloj, fmtRitmo, palabraVeredicto, principal, hoyDe, type Completitud, type MetodoResumen, type PasoBase } from '../../kit-reloj';
+import { fmtDistancia, fmtObjetivo, fmtReloj, fmtRitmo, palabraVeredicto, principal, hoyDe, numeroDeVueltaAuto, tituloVueltasAuto, type Completitud, type MetodoResumen, type PasoBase } from '../../kit-reloj';
 import { REJILLA, TG, caja, heroeEn, lineasContexto, type LineaG } from '../../kit-garmin';
 import { bloquesDeSeries, enZona } from '../reloj-antes-despues/resumen-correr';
 import type { Resultado } from '../reloj-antes-despues/calculo';
@@ -103,17 +103,18 @@ export function filasDeSeries(r: Resultado, pasos: PasoBase[], metodo: MetodoRes
 
 const conSigno = (m: number) => (m > 0 ? `+${m} m` : m < 0 ? `−${-m} m` : '0 m');
 
-/** Los km de la vuelta automática: su ritmo, su desnivel (sin barómetro, «—») y su pulso. El último, si no llegó al km, con lo que corrió. */
+/** Las vueltas automáticas (el km, la vuelta de pista): su ritmo, su desnivel (sin barómetro, «—») y su pulso. La última, si no llegó a su longitud, con lo que corrió. */
 export function filasDeKm(r: Resultado): FilaLista[] {
   return r.km.map((k) => ({
-    n: k.metros != null && k.metros < 1000 ? (k.metros / 1000).toFixed(2).replace('.', ',') : String(k.n),
+    n: numeroDeVueltaAuto(k),
     valor: fmtRitmo(k.ritmo),
     apoyo: k.desnivel == null ? '—' : conSigno(k.desnivel),
     cola: { texto: k.ppm == null ? '—' : String(k.ppm), fuerte: false },
   }));
 }
 
-/** El título de una página de km: la primera lleva el desnivel de la sesión; las demás, qué km. */
+/** El título de una página de vueltas («Kilómetros» o «Vueltas»): la primera lleva el desnivel de la sesión; las demás, cuáles. */
 export function tituloDeKm(r: Resultado, desde: number, hasta: number): string[] {
-  return desde === 0 && r.desnivel != null ? ['Kilómetros', `+${r.desnivel} m`] : ['Kilómetros', `${desde + 1}–${hasta}`];
+  const nombre = tituloVueltasAuto(r.km);
+  return desde === 0 && r.desnivel != null ? [nombre, `+${r.desnivel} m`] : [nombre, `${desde + 1}–${hasta}`];
 }

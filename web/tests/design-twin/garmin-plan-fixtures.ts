@@ -94,7 +94,10 @@ function vectorDeCaso({ caso, meta }: ReturnType<typeof casosConVector>[number])
     l('cadenas', flujo.cadenas),
     l('valores', flujo.tokens),
     l('meta', meta),
-    `  "plan": {\n    "zonas": ${JSON.stringify(plan.zonas)},\n    "reglas": ${JSON.stringify(plan.reglas)},\n    "pasos": [\n${plan.pasos.map((p) => `      ${JSON.stringify(p)}`).join(',\n')}\n    ]\n  }`,
+    `  "plan": {\n${Object.entries(plan)
+      .filter(([k]) => k !== 'pasos')
+      .map(([k, v]) => `    ${JSON.stringify(k)}: ${JSON.stringify(v)},\n`)
+      .join('')}    "pasos": [\n${plan.pasos.map((p) => `      ${JSON.stringify(p)}`).join(',\n')}\n    ]\n  }`,
   ];
   return { nombre: `${caso.clave}.json`, texto: `{\n${lineas.join(',\n')}\n}\n`, bytes: bytes.length };
 }

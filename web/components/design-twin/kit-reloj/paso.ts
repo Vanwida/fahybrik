@@ -82,6 +82,12 @@ export interface Objetivo {
   avisa?: SentidoAviso;
   /** La palabra del coach para un RPE («fuerte»). Si falta, la del defecto. */
   palabra?: string;
+  /**
+   * De qué familia es un objetivo de `zona`: pulso (`ppm`, las `ZonasCoach`) o
+   * ritmo (`ritmo`, las bandas por km o por 500 m). Sin él, «Row @Z3» es
+   * ambiguo (530, 536). Ausente = pulso, que es lo que el kit resuelve.
+   */
+  escala?: 'ppm' | 'ritmo';
 }
 
 // ---------------------------------------------------------------------------
@@ -293,8 +299,21 @@ export type ModoRecupera = 'trote' | 'andar' | 'parado';
 /** M3 · Dónde se corre. Sale de la prescripción; nunca se pregunta a mitad. */
 export type Entorno = 'calle' | 'cinta' | 'pista';
 
+/**
+ * El grupo del coach como DATO: «6 × (1000 m / r 90″)» son seis pasos de
+ * trabajo con su recuperación que comparten `id`; `veces` es cuántas. Las
+ * tandas y las rondas se escriben igual. Sin él, `filasDePasos` agrupa por
+ * nombre + dosis + objetivos (la heurística de siempre).
+ */
+export interface GrupoPaso {
+  id: number;
+  veces: number;
+}
+
 export interface PasoBase {
   id: string;
+  /** El grupo del coach al que pertenece el paso (ver `GrupoPaso`). */
+  grupo?: GrupoPaso;
   clase: Clase;
   rol: Rol;
   fase: Fase;
@@ -319,7 +338,10 @@ export interface PasoBase {
    * `atleta` = hasta pulsar (dato del coach, P9) o porque nada lo mide.
    */
   cierre: 'medida' | 'atleta';
-  /** Vuelta automática cada N metros en rodajes y tiradas (dato del coach, P9). */
+  /**
+   * Vuelta automática cada N metros (dato del coach, P9): 1000 en calle, 400
+   * en pista, 1609 si trabaja en millas. Solo la de 1000 se llama «Kilómetro».
+   */
   vueltaAutoM?: number;
   /** Índice del bloque del coach: cambiar de bloque es el evento «bloque hecho». */
   bloque?: number;
@@ -379,6 +401,31 @@ export interface Lecturas {
 export interface ZonasCoach {
   techos: number[];
   nombres?: string[];
+  /**
+   * De dónde salen: las calculó el sistema (`estimada`) o el atleta las midió
+   * con un test (`medida`). Una zona estimada se dice estimada (G6). Ausente =
+   * no se sabe: el kit no afirma ninguna de las dos.
+   */
+  procedencia?: Procedencia;
+}
+
+/** De dónde sale una banda de zona: la calculó el sistema (estimada) o el atleta la midió con un test. */
+export type Procedencia = 'estimada' | 'medida';
+
+/** Unidad de una banda de ritmo: por km (correr) o por 500 m (ergómetro). */
+export type UnidadRitmo = 'km' | '500m';
+
+/** Una zona de ritmo en segundos por unidad: la cota rápida y la lenta (`null` = abierta, la Z1). */
+export interface BandaRitmo {
+  rapidoS: number;
+  lentoS: number | null;
+}
+
+/** El juego de bandas de ritmo de una modalidad, del más fácil al más duro, con de dónde sale. */
+export interface BandasRitmo {
+  unidad: UnidadRitmo;
+  procedencia: Procedencia;
+  zonas: BandaRitmo[];
 }
 
 export interface ReglasAviso {
@@ -421,9 +468,12 @@ export interface Vuelta {
   n: number;
   /** En series anidadas, la tanda (la vuelta «2·4» es la serie 4 de la tanda 2). */
   tanda?: number;
-  clase: 'serie' | 'km' | 'tramo' | 'estacion';
+  /** `auto` = la vuelta automática del paso (`vueltaAutoM`): el km en calle, los 400 m en pista (vuelta.ts). */
+  clase: 'serie' | 'auto' | 'tramo' | 'estacion';
   segundos: number;
   metros: number | null;
+  /** Solo en una vuelta `auto`: su longitud, la del paso. Decide si se llama «Kilómetro» o «Vuelta». */
+  vueltaM?: number;
   /** Ritmo medio de la vuelta, s/km. */
   ritmo: number | null;
   ppm: number | null;

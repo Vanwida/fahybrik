@@ -3,13 +3,15 @@
 // Esto es el PROTOTIPO del constructor de servidor (`shared/domain/watch-plan/`,
 // arreglo A1 del modelo): dado un plan del kit y los datos que solo el
 // servidor conoce (id de asignación, deporte del FIT, bandas del atleta),
-// completa la cabecera con lo que el coach no tocó: sus valores por defecto de
-// método (vocabulario, palabras del RPE, rangos de anotación, método del
-// resumen). El reloj nunca ve un defecto: recibe el valor efectivo.
+// hace dos cosas. `completarPlan` pone EN EL PLAN lo que el coach no tocó:
+// sus valores por defecto de método (vocabulario, palabras del RPE, rangos de
+// anotación, método del resumen), la procedencia de las zonas y las bandas de
+// ritmo. `metaPorDefecto` rellena la cabecera. El reloj nunca ve un defecto:
+// recibe el valor efectivo.
 //
-// Lo que se deriva de los pasos usa las funciones del kit (`hoyDe`,
-// `duracionEstimada`), no una copia: la línea del brief que sale aquí es la
-// misma que pinta el doble.
+// Lo que se deriva de los pasos usa las funciones del kit (`duracionEstimada`),
+// no una copia. Nada derivado en español viaja: la línea del brief la compone
+// el reloj de los grupos (`PasoBase.grupo`).
 //
 // La huella (`huellaDePlan`) es FNV-1a de 32 bits sobre el plan canónico con
 // las claves ordenadas, recortada a 31 bits. Es una implementación de
@@ -19,23 +21,17 @@
 // QUÉ NO HACER: no meter aquí el mapa modalidad → deporte del FIT (es un dato
 // del servidor, arreglo A4, y lo decide la prueba T1 en un reloj real).
 
-import { NOMBRE_CLASE_DEFECTO, FEMENINO_DEFECTO, type Entorno } from '../../kit-reloj/paso';
-import { NOMBRE_FORMATO_DEFECTO } from '../../kit-reloj/familia';
-import { METODO_RESUMEN_DEFECTO } from '../../kit-reloj/despues';
-import { RANGO_ANOTAR_DEFECTO } from '../../kit-reloj/anotar';
-import { duracionEstimada, hoyDe } from '../../kit-reloj/estructura';
-import { RPE_PALABRA_DEFECTO } from '../../kit-reloj/tokens';
+import type { Entorno } from '../../kit-reloj/paso';
+import { vocabularioDe, metodoDe, nombreDeClase, type Vocabulario } from '../../kit-reloj/metodo';
+import { duracionEstimada } from '../../kit-reloj/estructura';
 import type { PlanSesion } from '../../kit-reloj/secuencia';
 import { canonico } from './canonico';
-import { MAX_NUM, NUM_PALABRAS_RPE, type Procedencia } from './formato';
-import type { BandasRitmo, MetaSesion, Vocabulario } from './tipos';
+import { MAX_NUM, type Procedencia } from './formato';
+import type { BandasRitmo, MetaSesion } from './tipos';
 
 /** FNV-1a de 32 bits: desplazamiento y primo de la especificación. */
 const FNV_DESPLAZAMIENTO = 0x811c9dc5;
 const FNV_PRIMO = 0x01000193;
-
-/** Separador entre la parte principal de la línea del brief y su detalle. */
-const SEPARADOR_BRIEF = ' · ';
 
 function estable(valor: unknown): string {
   if (Array.isArray(valor)) return `[${valor.map(estable).join(',')}]`;
@@ -65,17 +61,12 @@ export interface DatosServidor {
   entorno?: Entorno | null;
 }
 
-/** El vocabulario efectivo del coach: sus valores por defecto donde no cambió nada. */
+/** El vocabulario efectivo del coach: el suyo donde lo cambió y sus defectos en el resto, recortado a las clases que usa la sesión. */
 export function vocabularioPorDefecto(plan: PlanSesion): Vocabulario {
+  const v = vocabularioDe(plan);
   const clases: Vocabulario['clases'] = {};
-  for (const p of plan.pasos) {
-    clases[p.clase] = { nombre: NOMBRE_CLASE_DEFECTO[p.clase], femenino: FEMENINO_DEFECTO.has(p.clase) };
-  }
-  return {
-    clases,
-    formatos: { ...NOMBRE_FORMATO_DEFECTO },
-    rpe: Array.from({ length: NUM_PALABRAS_RPE }, (_, n) => RPE_PALABRA_DEFECTO[n] ?? ''),
-  };
+  for (const p of plan.pasos) clases[p.clase] = nombreDeClase(plan, p.clase);
+  return { ...v, clases };
 }
 
 /** El entorno de la sesión si todos los pasos que lo dicen dicen el mismo; si no, `null`. */
@@ -84,8 +75,25 @@ function entornoComun(plan: PlanSesion): Entorno | null {
   return distintos.size === 1 ? [...distintos][0]! : null;
 }
 
+/**
+ * El plan tal como se SIRVE al reloj: con el vocabulario, el método, la
+ * procedencia de las zonas y las bandas de ritmo EFECTIVOS. Lo que el coach ya
+ * puso en el plan se respeta; lo que no, se rellena con su valor por defecto.
+ */
+export function completarPlan(plan: PlanSesion, d: Pick<DatosServidor, 'procedenciaPpm' | 'bandasRitmo'> = {}): PlanSesion {
+  const completo: PlanSesion = {
+    ...plan,
+    zonas: plan.zonas ? { ...plan.zonas, procedencia: plan.zonas.procedencia ?? d.procedenciaPpm ?? 'estimada' } : null,
+    vocabulario: vocabularioPorDefecto(plan),
+    metodo: metodoDe(plan),
+  };
+  const bandas = plan.bandasRitmo ?? d.bandasRitmo;
+  if (bandas && bandas.length > 0) completo.bandasRitmo = bandas;
+  return completo;
+}
+
+/** La cabecera de la sesión: lo que es de la sesión y no del plan. */
 export function metaPorDefecto(plan: PlanSesion, d: DatosServidor): MetaSesion {
-  const hoy = hoyDe(plan.pasos);
   return {
     asignacionId: d.asignacionId,
     huella: huellaDePlan(plan),
@@ -93,19 +101,5 @@ export function metaPorDefecto(plan: PlanSesion, d: DatosServidor): MetaSesion {
     fitSubSport: d.fitSubSport,
     entorno: d.entorno !== undefined ? d.entorno : entornoComun(plan),
     duracionEstS: Math.round(plan.pasos.reduce((suma, p) => suma + duracionEstimada(p), 0)),
-    // `hoyDe` deja un espacio al final cuando la medida es abierta («Rodaje »): se recorta aquí.
-    estructura: [hoy.titulo, hoy.sub].filter(Boolean).join(SEPARADOR_BRIEF).trim(),
-    procedenciaPpm: plan.zonas ? (d.procedenciaPpm ?? 'estimada') : null,
-    bandasRitmo: d.bandasRitmo ?? [],
-    vocabulario: vocabularioPorDefecto(plan),
-    metodo: {
-      resumen: { ...METODO_RESUMEN_DEFECTO },
-      anotar: {
-        repsDeMas: RANGO_ANOTAR_DEFECTO.repsDeMas,
-        rpe: { ...RANGO_ANOTAR_DEFECTO.rpe },
-        rir: { ...RANGO_ANOTAR_DEFECTO.rir },
-        kgMax: RANGO_ANOTAR_DEFECTO.kgMax,
-      },
-    },
   };
 }

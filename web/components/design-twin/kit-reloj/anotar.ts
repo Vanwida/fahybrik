@@ -52,13 +52,26 @@ export interface MedidaSerie {
 
 const alPaso = (n: number, paso: number) => Math.round(n / paso) * paso;
 
-/** La carga que propone el PLAN: el centro de lo prescrito, cargable en la barra; o la de la última vez. */
+/**
+ * La carga que propone el PLAN: el centro de lo prescrito, cargable en la barra
+ * y SIN salirse del rango que dice la dosis (`kgDelPlan` ya resuelve el rango a
+ * lo cargable); o la de la última vez.
+ */
 export function cargaDelPlan(f: FichaFuerza): number | null {
-  const r = kgDelPlan(f.carga);
-  if (r) return alPaso((r[0] + r[1]) / 2, f.pasoKg);
-  if (f.carga.tipo === 'rm' && f.carga.rmKg) return alPaso((f.carga.rmKg * (f.carga.pctMin + f.carga.pctMax)) / 200, f.pasoKg);
+  const r = kgDelPlan(f.carga, f.pasoKg);
+  if (r) return alPasoEnRango(r[0], r[1], f.pasoKg);
   if (f.carga.tipo === 'tuya') return f.carga.ultimaKg;
   return null;
+}
+
+/** El múltiplo de `paso` más cercano al centro del rango que cabe dentro de él; si ninguno cabe (kilos literales del coach), el más cercano al centro. */
+function alPasoEnRango(min: number, max: number, paso: number): number {
+  const centro = alPaso((min + max) / 2, paso);
+  if (centro >= min && centro <= max) return centro;
+  const menor = Math.ceil(min / paso) * paso;
+  const mayor = Math.floor(max / paso) * paso;
+  if (menor > mayor) return centro;
+  return centro < min ? menor : mayor;
 }
 
 /**

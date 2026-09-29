@@ -19,7 +19,10 @@
 // No hay mocks: todo corre sobre los datos del doble y el codificador real.
 
 import { describe, expect, it } from 'vitest';
+import { pactoDe } from '@/components/design-twin/kit-reloj/dobles';
+import { filasDePasos, hoyDe } from '@/components/design-twin/kit-reloj/estructura';
 import { formatoDe, NOMBRE_FORMATO_DEFECTO } from '@/components/design-twin/kit-reloj/familia';
+import type { NombresFormato } from '@/components/design-twin/kit-reloj/metodo';
 import type { PasoBase } from '@/components/design-twin/kit-reloj/paso';
 import {
   CADENAS_ADMITIDAS,
@@ -34,6 +37,7 @@ import {
   canonico,
   codificarSesion,
   decodificarFlujo,
+  decodificarPlan,
   decodificarSesion,
   decodificarSobre,
   desenvolver,
@@ -87,7 +91,7 @@ describe('plan compacto · sesiones reales y planes del kit', () => {
     const numeros = new Set(casosReales().map((c) => c.numero));
     const faltan = NUMEROS_DEL_ENCARGO.filter((n) => !numeros.has(n));
     expect(faltan).toEqual([...NO_ENCONTRADAS]);
-    expect(NUMEROS_DEL_ENCARGO.length - faltan.length).toBe(21);
+    expect(NUMEROS_DEL_ENCARGO.length - faltan.length).toBe(24);
   });
 
   it.each(TODOS.map(({ caso, meta }) => [caso.clave, caso, meta] as const))('%s · ida y vuelta exacta (plan y cabecera)', (_c, caso, meta) => {
@@ -114,7 +118,7 @@ describe('plan compacto · sesiones reales y planes del kit', () => {
       for (const c of flujoDeSesion(caso.plan, meta).cadenas) {
         expect(CADENAS_ADMITIDAS.has(c.tipo), `${caso.clave}: «${c.texto}» es ${c.tipo}`).toBe(true);
         expect(c.truncada, `${caso.clave}: «${c.texto}» se truncó`).toBe(false);
-        const limite = c.tipo === 'cue' || c.tipo === 'estructura' ? LIMITE_CUE : LIMITE_CADENA;
+        const limite = c.tipo === 'cue' ? LIMITE_CUE : LIMITE_CADENA;
         expect(c.largo, `${caso.clave}: «${c.texto}»`).toBeLessThanOrEqual(limite);
       }
     }
@@ -133,11 +137,12 @@ describe('plan compacto · sesiones reales y planes del kit', () => {
     expect(Math.max(0, ...largos)).toBeLessThan(LIMITE_CUE);
   });
 
-  it('la línea de estructura y la duración se derivan de los pasos (no se escriben)', () => {
+  it('la duración se deriva de los pasos y la línea del brief NO viaja: la compone el reloj del dato', () => {
     const c = TODOS.find((x) => x.caso.clave === 'modelo-6x1000')!;
-    // Los números llevan un espacio duro antes de la unidad (`fmtPrescrito`): se compara en texto llano.
-    expect(c.meta.estructura.replace(/\u00A0/g, ' ')).toBe('6 × 1000 m · a 3:45–3:55 · r 90″');
     expect(c.meta.duracionEstS).toBeGreaterThan(0);
+    expect(Object.keys(c.meta).sort()).toEqual(['asignacionId', 'duracionEstS', 'entorno', 'fitSport', 'fitSubSport', 'huella']);
+    // Los números llevan un espacio duro antes de la unidad (`fmtPrescrito`): se compara en texto llano.
+    expect(hoyDe(c.caso.plan.pasos).titulo.replace(/\u00A0/g, ' ')).toBe('6 × 1000 m');
   });
 
   it('los tamaños: la mayor cabe con holgura y ninguna se sale', () => {
@@ -367,16 +372,30 @@ describe('plan compacto · lo que el formato no acepta', () => {
 
   it('un vocabulario al que le falta una clase que la sesión usa: vocabulario-incompleto', () => {
     const plan = planDe([paso0()]);
-    const meta = metaDe(plan);
-    delete meta.vocabulario.clases.rodaje;
-    expect(() => codificarSesion(plan, meta)).toThrowError(/vocabulario/);
-    const corta = { ...metaDe(plan), vocabulario: { ...metaDe(plan).vocabulario, rpe: ['nada'] } };
-    expect(() => codificarSesion(plan, corta)).toThrowError(new RegExp(`${NUM_PALABRAS_RPE}`));
+    const sinClase = { ...plan, vocabulario: { ...plan.vocabulario!, clases: {} } };
+    expect(() => codificarSesion(sinClase, metaDe(plan))).toThrowError(/vocabulario/);
+    const corta = { ...plan, vocabulario: { ...plan.vocabulario!, rpe: ['nada'] } };
+    expect(() => codificarSesion(corta, metaDe(plan))).toThrowError(new RegExp(`${NUM_PALABRAS_RPE}`));
+  });
+
+  it('un plan sin vocabulario o sin método (no servido, sin defectos del servidor): el reloj no inventa', () => {
+    const plan = planDe([paso0()]);
+    const sinVocabulario = { ...plan, vocabulario: undefined };
+    const sinMetodo = { ...plan, metodo: undefined };
+    expect(() => codificarSesion(sinVocabulario, metaDe(plan))).toThrowError(/vocabulario/);
+    expect(() => codificarSesion(sinMetodo, metaDe(plan))).toThrowError(/metodo-ausente/);
   });
 
   it('zonas de pulso sin decir si son estimadas o medidas: fuera-de-limites', () => {
     const plan = planDe([paso0()]);
-    expect(() => codificarSesion(plan, { ...metaDe(plan), procedenciaPpm: null })).toThrowError(/procedenciaPpm/);
+    const sin = { ...plan, zonas: { techos: plan.zonas!.techos } };
+    expect(() => codificarSesion(sin, metaDe(plan))).toThrowError(/procedencia/);
+  });
+
+  it('dobles: un pacto en texto libre o una pareja por estación se rechazan (fuera-de-limites)', () => {
+    const est = (dobles: NonNullable<PasoBase['dobles']>): PasoBase => ({ ...paso0(), clase: 'estacion', nombre: 'Sled Push', dobles });
+    falla(est({ turno: 'reparto', pctTuyo: 50, nota: 'alterna 25' }), 'fuera-de-limites');
+    falla(est({ turno: 'tuyo', pctTuyo: 100, pareja: 'Marta' }), 'fuera-de-limites');
   });
 });
 
@@ -385,25 +404,30 @@ describe('plan compacto · lo que el formato no acepta', () => {
 // ---------------------------------------------------------------------------
 
 describe('plan compacto · huecos del modelo que el examen encontró', () => {
-  it('H-dobles: el turno lleva texto libre (estación, pareja, pacto), fuera de lo admitido', () => {
+  it('B3 · dobles sin texto libre: la pareja es del plan, la estación se deriva y el pacto es un dato', () => {
     const plan = hyroxDobles();
     const cadenas = flujoDeSesion(plan, metaDe(plan)).cadenas;
-    const noAdmitidas = [...new Set(cadenas.map((c) => c.tipo).filter((t) => !CADENAS_ADMITIDAS.has(t)))].sort();
-    expect(noAdmitidas).toEqual(['estacion', 'nota', 'pareja']);
-    // `estacion` repite `nombre` + dosis: «SkiErg 1km» lleva una cifra escondida.
-    expect(cadenas.find((c) => c.tipo === 'estacion' && /\d/.test(c.texto))).toBeDefined();
+    expect(cadenas.filter((c) => c.tipo === 'pareja').map((c) => c.texto)).toEqual(['Marta']);
+    expect(cadenas.every((c) => CADENAS_ADMITIDAS.has(c.tipo))).toBe(true);
+    const d = decodificarPlan(codificarSesion(plan, metaDe(plan)));
+    const reparto = d.pasos[2]!.dobles!;
+    expect(reparto.alternaCada).toEqual({ tipo: 'reps', n: 25 });
+    expect(reparto.pareja).toBe('Marta');
+    expect(reparto.estacion?.replace(/\u00A0/g, ' ')).toBe('Wall Balls 100 reps');
+    expect(pactoDe(reparto)).toBe('Tú 60 · Marta 40 · alterna 25');
   });
 
-  it('H-vocabulario: formatoDe escribe tres nombres de formato que no están en NOMBRE_FORMATO_DEFECTO', () => {
-    // Con nombres centinela, lo que sale sin centinela es texto que el coach no puede cambiar.
-    const centinela = Object.fromEntries(Object.keys(NOMBRE_FORMATO_DEFECTO).map((k) => [k, `«${k}»`])) as unknown as typeof NOMBRE_FORMATO_DEFECTO;
+  it('B2 · formatoDe ya no escribe texto fuera del vocabulario: «Series», «Fuerza» y «Continuo» son del coach', () => {
+    // Con nombres centinela, todo lo que sale debe salir con centinela.
+    const centinela = Object.fromEntries(Object.keys(NOMBRE_FORMATO_DEFECTO).map((k) => [k, `«${k}»`])) as NombresFormato;
     const paso = (p: Partial<PasoBase>): PasoBase => ({ id: 'x', clase: 'series', rol: 'trabajo', fase: 'principal', medida: { tipo: 'tiempo', prescrito: 60, mide: 'reloj' }, objetivos: [], cierre: 'medida', ...p });
     const literales = [
       formatoDe(paso({ clase: 'series' }), centinela),
       formatoDe(paso({ clase: 'fuerza' }), centinela),
       formatoDe(paso({ clase: 'ergo', maquina: { tipo: 'remo' } }), centinela),
+      formatoDe(paso({ clase: 'ergo', maquina: { tipo: 'remo' }, posicion: { serie: { n: 1, de: 4 } } }), centinela),
     ];
-    expect(literales).toEqual(['Series', 'Fuerza', 'Continuo']);
+    expect(literales).toEqual(['«series»', '«fuerza»', '«continuo»', '«series»']);
   });
 
   it('H-538: la sesión 538 solo existe partida en dos planes (correr y fuerza), nunca entera', () => {
@@ -413,21 +437,33 @@ describe('plan compacto · huecos del modelo que el examen encontró', () => {
     expect(de538.every((c) => c.plan.pasos.some((p) => p.clase === 'series' || p.fase === 'calentamiento'))).toBe(true);
   });
 
-  it('H-zonas: el kit no sabe de qué zonas se trata (procedencia) ni tiene bandas de ritmo; viajan en la cabecera', () => {
+  it('B4/B5 · la procedencia de las zonas y las bandas de ritmo viajan EN EL PLAN, y la escala de una zona es dato', () => {
     const c = TODOS.find((x) => x.caso.clave === '491')!;
-    expect(Object.keys(c.caso.plan.zonas!).sort()).toEqual(['techos']);
-    expect(c.meta.procedenciaPpm).toBe('estimada');
-    expect(c.meta.bandasRitmo[0]!.zonas).toHaveLength(6);
+    expect(c.caso.plan.zonas!.procedencia).toBe('estimada');
+    expect(c.caso.plan.bandasRitmo![0]!.zonas).toHaveLength(6);
+    const plan = planDe([{ id: 'a', clase: 'ergo', rol: 'trabajo', fase: 'principal', medida: { tipo: 'tiempo', prescrito: 600, mide: 'ergo' }, objetivos: [{ eje: 'zona', min: 3, max: 3, papel: 'principal', escala: 'ritmo' }], cierre: 'medida' }]);
+    const d = decodificarPlan(codificarSesion({ ...plan, zonas: { ...plan.zonas!, procedencia: 'medida' } }, metaDe(plan)));
+    expect(d.zonas!.procedencia).toBe('medida');
+    expect(d.pasos[0]!.objetivos[0]!.escala).toBe('ritmo');
   });
 
-  it('H-estructura: agrupar «6 × …» en el reloj exige portar una heurística por clave de texto', () => {
-    // Hoy la página Estructura y el brief salen de `filasDePasos`, que agrupa por nombre + dosis
-    // + objetivos serializados. Ningún campo del paso dice «este es el grupo N»: el plan compacto
-    // no puede llevar el grupo como dato y el reloj tendría que reimplementarla.
+  it('B6 · el grupo del coach viaja como dato y la estructura lo usa; sin él, la heurística de siempre', () => {
     const c = TODOS.find((x) => x.caso.clave === 'modelo-6x1000')!;
-    const claves = new Set(c.caso.plan.pasos.map((p) => Object.keys(p).sort().join()));
-    expect(claves.has('bloque,cierre,clase,fase,id,medida,objetivos,posicion,rol')).toBe(true);
-    expect(c.caso.plan.pasos.some((p) => 'grupo' in p)).toBe(false);
+    expect(filasDePasos(c.caso.plan.pasos).map((g) => g.veces)).toContain(6);
+    // Con el grupo puesto en cada serie, el cable lo lleva y las veces son las que él dice.
+    const grupo = { id: 1, veces: 6 };
+    const conGrupo = { ...c.caso.plan, pasos: c.caso.plan.pasos.map((p) => (p.posicion?.serie ? { ...p, grupo } : p)) };
+    const d = decodificarPlan(codificarSesion(conGrupo, c.meta));
+    expect(d.pasos.filter((p) => p.grupo).every((p) => p.grupo!.id === 1 && p.grupo!.veces === 6)).toBe(true);
+    expect(filasDePasos(d.pasos).map((g) => g.veces)).toContain(6);
+    const cambiado = d.pasos.map((p) => (p.grupo ? { ...p, grupo: { id: 1, veces: 9 } } : p));
+    expect(filasDePasos(cambiado).some((g) => g.veces === 9)).toBe(true);
+  });
+
+  it('B8 · el cable no lleva `PasoBase.id` ni la clave de ejercicio (índice y ordinal) y sube de versión', () => {
+    expect(VERSION_ESQUEMA).toBe(2);
+    const c = TODOS.find((x) => x.caso.clave === '488')!;
+    expect(decodificarPlan(codificarSesion(c.caso.plan, c.meta)).pasos.map((p) => p.id)).toEqual(c.caso.plan.pasos.map((_, i) => String(i)));
   });
 });
 

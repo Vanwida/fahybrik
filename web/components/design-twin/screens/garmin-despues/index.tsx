@@ -78,10 +78,10 @@ export const escenarios: TwinEscenario[] = [
       'Tras morir la app en la serie 4 de 6, el atleta elige «Guardar lo hecho» (G07) y el reloj cierra desde el último punto guardado: «Sesión recuperada · Parcial · 3 de 6 series», y el motivo dicho como pasó, «Se cortó en la serie 4 de 6» (nadie la terminó). No hay «Seguir»: Garmin no reabre una actividad cerrada [S] y el modelo no lo promete. Sigue el RPE y el resumen con lo que hay. De Garmin Connect no se dice nada: si la actividad aparece allí es la prueba T7, sin hacer.',
   },
   {
-    id: 'hueco-tirada',
-    titulo: 'HUECO DEL MODELO · tirada cerrada a los 24′ de 80′',
+    id: 'tirada-cortada',
+    titulo: 'Tirada cerrada a los 24′ de 80′ · parcial',
     descripcion:
-      'PROPUESTA PENDIENTE DEL ARREGLO DE MODELO. La tirada 494 es un solo paso continuo. A los 24′ de 80′, BACK/LAP lo cierra (1 muy corta + KEY y suena «sesión hecha») y `completitud` (kit-reloj/despues.ts) juzga solo por series: sin series no ve un paso cortado, y la pantalla dice «Completa» con 24:00 de 80′. Lo correcto sería «Parcial · 24′ de 80′» con su motivo. No se ha parcheado aquí (la completitud no la decide la pantalla, P0-2): se enseña tal cual sale, para que se vea el hueco. Con Terminar (Controles) sí sale parcial, porque esa vía juzga por dónde llegó.',
+      'La tirada 494 es un solo paso continuo. A los 24′ de 80′, BACK/LAP lo cierra (1 muy corta + KEY y suena «sesión hecha»: era el último paso). La completitud la decide el motor con lo hecho (`completitud`, kit-reloj/despues.ts): un paso continuo cerrado a mano por debajo del umbral del coach (`umbralHecho`, 0,9 por defecto, el mismo que el de una serie cortada) está cortado. La pantalla dice «Parcial · 24′ de 80′» y el motivo «La tirada se cortó a los 24′». Por Terminar (Controles) también sale parcial: juzga por dónde llegó.',
   },
   // ── EL RPE ────────────────────────────────────────────────────────────────
   {

@@ -13,7 +13,7 @@ export function resultadoDeVivo(plan: PlanSesion, fin: FinDeVivo, base: Resultad
   const e = fin.estado;
   const conPosicion = plan.pasos.filter((p) => p.rol === 'trabajo' && p.fase === 'principal' && (p.posicion?.serie || p.posicion?.tramo));
   const series: SerieHecha[] = e.vueltas
-    .filter((v) => v.clase !== 'km')
+    .filter((v) => v.clase !== 'auto')
     .map((v, k) => ({ ...v, pasoId: conPosicion[k]?.id ?? `sin-paso-${k}` }));
   // Terminada a mitad de una serie: lo corrido de esa serie también es dato (cortada, sin juicio).
   const actual = plan.pasos[e.i];
@@ -32,7 +32,7 @@ export function resultadoDeVivo(plan: PlanSesion, fin: FinDeVivo, base: Resultad
       eje: principal(actual)?.eje,
     });
   }
-  const km: KmHecho[] = e.vueltas.filter((v) => v.clase === 'km').map((v) => ({ ...v, desnivel: null }));
+  const km: KmHecho[] = e.vueltas.filter((v) => v.clase === 'auto').map((v) => ({ ...v, desnivel: null }));
   return {
     pasos: plan.pasos,
     zonas: plan.zonas ?? { techos: [] },
@@ -46,6 +46,8 @@ export function resultadoDeVivo(plan: PlanSesion, fin: FinDeVivo, base: Resultad
     // Si el escenario empezó con la sesión ya avanzada, las zonas salen del resultado de base (la sesión entera).
     zonasS: base ? base.zonasS : e.zonasS,
     series,
+    // Un paso continuo (una tirada, un tempo) no deja serie: se juzga por su parcial.
+    parciales: e.parciales,
     km,
     fuerza: base?.fuerza ?? [],
     circuito: base?.circuito ?? [],

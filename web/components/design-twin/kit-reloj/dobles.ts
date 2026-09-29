@@ -9,23 +9,51 @@
 // dosis del paso es TU parte, no la estación entera.
 
 import type { PasoBase } from './paso';
-import { fmtReloj } from './reglas';
+import { fmtPrescrito, fmtReloj } from './reglas';
 
 export type TurnoDobles = 'tuyo' | 'pareja' | 'reparto';
 
+/** Cada cuánto se alternan en una estación repartida: «alterna 250 m», «alterna 20», «alterna 30″». */
+export interface AlternaCada {
+  tipo: 'metros' | 'reps' | 'segundos';
+  n: number;
+}
+
 export interface Dobles {
   turno: TurnoDobles;
-  /** El nombre de pila de la pareja. Sin él → «tu pareja» (nunca se inventa). */
+  /**
+   * El nombre de pila de la pareja. Sin él → «tu pareja» (nunca se inventa).
+   * En el contrato es UNO por sesión (`PlanSesion.pareja`); aquí es lo que el
+   * pintor lee, copiado del plan a cada estación al cargarlo.
+   */
   pareja?: string;
-  /** La estación tal como la nombra el coach («SkiErg 1km»). */
-  estacion: string;
+  /**
+   * La estación tal como la nombra el coach («SkiErg 1km»). DERIVADA del paso
+   * (`estacionDe`): el cable no la lleva y el contrato no la exige.
+   */
+  estacion?: string;
   /** Tus reps y las suyas, solo si la estación tiene un total de reps. */
   tuyas?: number;
   suyas?: number;
   /** Tu parte, 0…100. */
   pctTuyo: number;
-  /** El pacto del coach («alterna 250m»). */
+  /** El pacto del coach como dato: cada cuánto alternan. */
+  alternaCada?: AlternaCada;
+  /**
+   * El pacto en texto libre (legado). El contrato lleva `alternaCada`; el
+   * texto se DERIVA (`textoAlterna`) y solo lo usa quien aún no migró.
+   */
   nota?: string;
+}
+
+/** «SkiErg 1000 m»: la estación, derivada del nombre y la dosis del paso (nunca un texto aparte). */
+export function estacionDe(p: Pick<PasoBase, 'nombre' | 'clase' | 'medida'>): string {
+  return [p.nombre ?? p.clase, fmtPrescrito(p.medida)].filter(Boolean).join(' ');
+}
+
+/** «alterna 250 m», «alterna 20», «alterna 30″»: el pacto, escrito desde el dato. */
+export function textoAlterna(a: AlternaCada): string {
+  return `alterna ${a.n}${a.tipo === 'metros' ? ' m' : a.tipo === 'segundos' ? '″' : ''}`;
 }
 
 export const nombrePareja = (d: Dobles) => d.pareja ?? 'tu pareja';
@@ -49,7 +77,8 @@ export function pactoDe(d: Dobles): string | null {
   const quien = q.charAt(0).toUpperCase() + q.slice(1);
   const partes =
     d.tuyas != null && d.suyas != null ? [`Tú ${d.tuyas}`, `${quien} ${d.suyas}`] : [`Tú ${d.pctTuyo} %`, `${quien} ${100 - d.pctTuyo} %`];
-  if (d.nota) partes.push(d.nota);
+  const pacto = d.alternaCada ? textoAlterna(d.alternaCada) : d.nota;
+  if (pacto) partes.push(pacto);
   return partes.join(' · ');
 }
 
