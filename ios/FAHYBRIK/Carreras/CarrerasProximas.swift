@@ -188,7 +188,7 @@ private struct TarjetaProxima: View {
     var body: some View {
         let categoria = DecideCarreras.lineaCategoria(carrera)
         let equipo = DecideCarreras.etiquetaEquipo(carrera.formato)
-        HStack(alignment: .top, spacing: 0) {
+        ZStack(alignment: .topTrailing) {
             Button {
                 Haptics.light()
                 alAbrir()
@@ -223,7 +223,8 @@ private struct TarjetaProxima: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 4))
+                // A la derecha queda el hueco del «⋯», que flota sobre la tarjeta (no la estira).
+                .padding(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: Theme.Size.toque + 4))
                 .contentShape(Rectangle())
             }
             .buttonStyle(PressScaleStyle(escala: 0.985))
@@ -238,12 +239,11 @@ private struct TarjetaProxima: View {
             } label: {
                 IconoDia(.puntos, tam: 22, peso: .regular)
                     .foregroundStyle(Theme.Color.muted)
-                    .frame(width: Theme.Size.toque)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .padding(.top, 14)
+                    .frame(width: Theme.Size.toque, height: Theme.Size.toque)
                     .contentShape(Rectangle())
             }
             .buttonStyle(PressScaleStyle(escala: 0.92))
+            .padding(.top, 3)
             .accessibilityLabel("Acciones de \(carrera.nombre)")
         }
         .tarjetaCarreras(realce: carrera.prioridad == .principal)

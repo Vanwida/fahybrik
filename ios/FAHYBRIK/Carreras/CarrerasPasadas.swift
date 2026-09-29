@@ -284,7 +284,7 @@ private struct HistorialCarreras: View {
             }
             // Importar el perfil equivocado trae el historial de un desconocido: la salida es clara y sobria.
             if hayImportadas {
-                BotonTextoCarreras("¿No eres tú? Eliminar carreras importadas", tono: .suave, centrado: true, accion: alQuitarImportacion) {
+                BotonTextoCarreras("¿No eres tú? Eliminar carreras importadas", tono: .suave, accion: alQuitarImportacion) {
                     IconoCarreras(.sinPersona, tam: 20)
                 }
             }

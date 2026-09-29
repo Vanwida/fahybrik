@@ -169,4 +169,13 @@ final class FormatoCarrerasTests: XCTestCase {
         XCTAssertNil(ninguna.eleccion)
         XCTAssertEqual(ninguna.tiempo, TiempoExacto(h: 1, m: 0, s: 0))
     }
+
+    // MARK: La serie de un evento
+
+    func testUnaSerieSeLeeSinElGuionBajoDelCodigo() {
+        // «cf_open» es un código del servidor: el atleta lee «CF OPEN», y la etiqueta de la fila y la del
+        // filtro salen de la misma función.
+        XCTAssertEqual(RaceCalendarEvent.seriesLabel("cf_open"), "CF OPEN")
+        XCTAssertEqual(RaceCalendarEvent.seriesLabel("hyrox"), "HYROX")
+    }
 }

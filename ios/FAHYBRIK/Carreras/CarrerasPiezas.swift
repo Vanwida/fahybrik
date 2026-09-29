@@ -366,7 +366,8 @@ struct PastillaSeccion<Icono: View>: View {
         } label: {
             HStack(spacing: Theme.Spacing.xs + 2) {
                 icono.foregroundStyle(Theme.Color.foreground)
-                Text(titulo).papel(.rotulo)
+                // Una pastilla no parte su texto: si no cabe junto al título, `TituloSeccionDia` la baja.
+                Text(titulo).papel(.rotulo).lineLimit(1).fixedSize(horizontal: true, vertical: false)
             }
             .foregroundStyle(Theme.Color.foreground)
             .padding(.horizontal, Theme.Spacing.l)

@@ -160,7 +160,7 @@ struct BuscarCarreraSheet: View {
                 FilaChipsCarreras("Serie") {
                     ChipFiltroCarreras(texto: "Todas", elegido: selectedSeries == nil) { selectedSeries = nil }
                     ForEach(availableSeries, id: \.self) { s in
-                        ChipFiltroCarreras(texto: s.uppercased(), elegido: selectedSeries == s) {
+                        ChipFiltroCarreras(texto: RaceCalendarEvent.seriesLabel(s), elegido: selectedSeries == s) {
                             selectedSeries = (selectedSeries == s) ? nil : s
                         }
                     }

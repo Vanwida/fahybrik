@@ -81,7 +81,13 @@ struct RaceCalendarEvent: Decodable, Identifiable, Hashable {
     /// Uppercased series label for the row badge, e.g. "HYROX". Nil when absent.
     var seriesLabel: String? {
         guard let s = series, !s.isEmpty else { return nil }
-        return s.uppercased()
+        return Self.seriesLabel(s)
+    }
+
+    /// The label of a series token: «cf_open» is a code, the athlete reads «CF OPEN». One place, so the
+    /// badge on a row and the SERIE filter chip never disagree.
+    static func seriesLabel(_ token: String) -> String {
+        token.replacingOccurrences(of: "_", with: " ").uppercased()
     }
 
     /// "Pro · Open · Doubles · …" informational line; nil when no options.
