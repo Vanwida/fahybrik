@@ -10,6 +10,8 @@ struct PauseFinishPage: View {
 
     @Environment(WatchWorkoutCoordinator.self) private var coordinator
 
+    // Sólo la confirmación del cromo de gimnasio; la lámina lleva la suya dentro
+    // de `RodajeControles`.
     @State private var confirmingFinish = false
 
     private var esRodaje: Bool {
@@ -26,122 +28,39 @@ struct PauseFinishPage: View {
 
     // MARK: - Lámina (rodaje)
 
+    /// Las piezas (botón, confirmación, disposición) son de `RodajeControles`,
+    /// compartidas con el espejo; aquí sólo van las ACCIONES del motor local.
     private var lamina: some View {
         RodajeMarco(session: session, driver: driver) {
-            if confirmingFinish {
-                confirmar
-            } else {
-                controles
-            }
+            RodajeControles(
+                encabezado: RodajeLamina.encabezadoControles(
+                    RodajeLamina.Ventana(sesion: session),
+                    sesionS: session.elapsedSeconds
+                ),
+                pausado: session.isPaused,
+                onPausa: { coordinator.togglePause() },
+                extras: extras,
+                onTerminar: { coordinator.finishWorkout(completeness: .partial) }
+            )
         }
     }
 
-    private var controles: some View {
-        VStack(spacing: 0) {
-            RodajeVersales(texto: encabezado, tono: RodajeTipo.contexto)
-            GeometryReader { geo in
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 8) {
-                        botonLamina(
-                            session.isPaused ? "Reanudar" : "Pausar",
-                            alto: 60,
-                            fondo: WatchTheme.orange,
-                            tinta: Color(red: 22/255, green: 8/255, blue: 0)
-                        ) {
-                            coordinator.togglePause()
-                        }
-                        if muestraNuevoTramo {
-                            botonLamina("Nuevo tramo", alto: 52, fondo: WatchTheme.surfaceRaised, tinta: WatchTheme.ink) {
-                                session.applyCommand(MirrorWire.CommandKind.newLap)
-                            }
-                        }
-                        if session.canEndBlockEarly && session.hasBlockAfterCurrent {
-                            botonLamina("Siguiente bloque", alto: 52, fondo: WatchTheme.surfaceRaised, tinta: WatchTheme.ink) {
-                                session.endBlockEarly()
-                            }
-                        }
-                        botonLamina(
-                            "Terminar",
-                            alto: 46,
-                            fondo: Color(red: 36/255, green: 11/255, blue: 11/255),
-                            tinta: WatchTheme.zoneRed,
-                            borde: Color(red: 115/255, green: 35/255, blue: 35/255)
-                        ) {
-                            confirmingFinish = true
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: geo.size.height, alignment: .center)
-                }
-            }
-            RodajePuntos(activa: 2)
+    private var extras: [RodajeControles.Extra] {
+        var lista: [RodajeControles.Extra] = []
+        if muestraNuevoTramo {
+            lista.append(.init(titulo: "Nuevo tramo") {
+                session.applyCommand(MirrorWire.CommandKind.newLap)
+            })
         }
-    }
-
-    private var confirmar: some View {
-        VStack(spacing: 0) {
-            RodajeVersales(texto: encabezado, tono: RodajeTipo.contexto)
-            Spacer(minLength: 4)
-            Text("¿Terminar\ny guardar?")
-                .font(.system(size: 17, weight: .heavy))
-                .multilineTextAlignment(.center)
-                .foregroundStyle(WatchTheme.ink)
-                .padding(.horizontal, 4)
-            Spacer(minLength: 4)
-            VStack(spacing: 8) {
-                botonLamina("Terminar", alto: 48, fondo: WatchTheme.zoneRed, tinta: Color(red: 42/255, green: 0, blue: 0)) {
-                    coordinator.finishWorkout(completeness: .partial)
-                }
-                botonLamina("Seguir", alto: 44, fondo: WatchTheme.surfaceRaised, tinta: WatchTheme.ink) {
-                    confirmingFinish = false
-                }
-            }
-            .padding(.bottom, 6)
+        if session.canEndBlockEarly && session.hasBlockAfterCurrent {
+            lista.append(.init(titulo: "Siguiente bloque") { session.endBlockEarly() })
         }
-    }
-
-    private var encabezado: String {
-        let reloj = WatchFormat.clock(session.elapsedSeconds)
-        if session.isPaused { return "en pausa · \(reloj)" }
-        if session.isRunStructureActive {
-            let s = RunLegDisplay.serie(legs: session.currentRunLegs ?? [], indice: session.runLegIndex)
-            return "serie \(s.n) de \(s.total) · \(reloj)"
-        }
-        return "rodaje · \(reloj)"
+        return lista
     }
 
     /// Sólo cuando los cortes son del atleta (libre). Prescrito: el corte ya está.
     private var muestraNuevoTramo: Bool {
         RodajeVivoToca.muestraNuevoTramo(session)
-    }
-
-    private func botonLamina(
-        _ titulo: String,
-        alto: CGFloat,
-        fondo: Color,
-        tinta: Color,
-        borde: Color? = nil,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            WatchHaptics.tap()
-            action()
-        } label: {
-            Text(titulo)
-                .font(.system(size: 15, weight: .heavy))
-                .foregroundStyle(tinta)
-                .frame(maxWidth: .infinity)
-                .frame(height: alto)
-                .background(fondo)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay {
-                    if let borde {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(borde, lineWidth: 1.5)
-                    }
-                }
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Gym / otras modalidades (cromo previo)

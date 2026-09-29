@@ -40,12 +40,19 @@ struct WatchViñeta: View {
     }
 }
 
-// MARK: - Marco
+// MARK: - Cromo (UNO para las tres vías)
 
-/// Fondo + tinte 45 % + viñeta + aro. El contenido lo pone cada página.
-struct RodajeMarco<Content: View>: View {
-    let session: WorkoutSession
-    var driver: WatchRunLegDriver? = nil
+/// EL CROMO DE LA LÁMINA, UNA SOLA VEZ: fondo, tinte de zona al 45 %, fondo de
+/// recuperación, viñeta, bisel, atenuado y destello. No sabe de dónde vienen los
+/// datos: se lo dan ya resueltos (zona, si recupera, bisel). Lo usan el marco
+/// del reloj en solitario (`RodajeMarco`, que lee `WorkoutSession`) y, en espejo,
+/// las tres páginas de correr (que leen la trama). Con el cromo duplicado en dos
+/// vistas las dos caras divergían en cuanto se tocaba una.
+struct RodajeCromo<Content: View>: View {
+    let zona: HRZone?
+    /// Recuperación de serie: `restBg` en vez de un tinte de zona.
+    var enRecupera: Bool = false
+    var bisel: AnyView? = nil
     var destello: WatchDestello = WatchDestello()
     /// 0.42 en pausa en el vivo: el dato no desaparece, se apaga.
     var apagado: Double = 1
@@ -63,7 +70,7 @@ struct RodajeMarco<Content: View>: View {
             } else if let tinte = tinteZona, !atenuado {
                 tinte.opacity(RodajeTipo.tinteMax)
                     .ignoresSafeArea()
-                    .animation(.easeInOut(duration: 0.7), value: session.liveZone)
+                    .animation(.easeInOut(duration: 0.7), value: zona)
             }
             WatchViñeta().ignoresSafeArea()
             if let bisel { bisel.ignoresSafeArea() }
@@ -86,18 +93,42 @@ struct RodajeMarco<Content: View>: View {
         }
     }
 
-    /// Recuperación de serie: restBg, no un tinte de zona.
-    private var enRecupera: Bool {
-        session.isRunStructureActive && !(session.currentRunLeg?.isWork ?? true)
-    }
-
     private var fondoSolido: Color? {
         enRecupera ? WatchTheme.restBg : nil
     }
 
     private var tinteZona: Color? {
         guard !enRecupera else { return nil }
-        return WatchTinte.color(for: session.liveZone)
+        return WatchTinte.color(for: zona)
+    }
+}
+
+// MARK: - Marco (solitario: el motor es la fuente)
+
+/// El cromo con la zona, la recuperación y el aro leídos del motor. El contenido
+/// lo pone cada página.
+struct RodajeMarco<Content: View>: View {
+    let session: WorkoutSession
+    var driver: WatchRunLegDriver? = nil
+    var destello: WatchDestello = WatchDestello()
+    /// 0.42 en pausa en el vivo: el dato no desaparece, se apaga.
+    var apagado: Double = 1
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        RodajeCromo(
+            zona: session.liveZone,
+            enRecupera: enRecupera,
+            bisel: bisel,
+            destello: destello,
+            apagado: apagado,
+            content: content
+        )
+    }
+
+    /// Recuperación de serie: restBg, no un tinte de zona.
+    private var enRecupera: Bool {
+        session.isRunStructureActive && !(session.currentRunLeg?.isWork ?? true)
     }
 
     private var bisel: AnyView? {
@@ -208,6 +239,8 @@ enum RodajeTipo {
     static let tinteMax: Double = 0.45
     static let versales: CGFloat = 10
     static let tracking: CGFloat = 1.1
+    static let versalesCompactas: CGFloat = 9
+    static let trackingCompacto: CGFloat = 0.6
     static let segundo: CGFloat = 22
     static let capEm: CGFloat = 0.70
     static let avanceMono: CGFloat = 0.60
@@ -228,14 +261,18 @@ struct RodajeVersales: View {
     let texto: String
     var tono: Color = RodajeTipo.dim
     var arriba: CGFloat = 0
+    /// Una razón larga en un reloj estrecho (la nota «sin umbral · no hay zona» en
+    /// un SE de 40 mm): letra y espaciado más cerrados para que entre en UNA línea
+    /// en vez de cortarse con «…» o robarle una fila a los datos.
+    var compacta: Bool = false
 
     var body: some View {
         Text(texto.uppercased())
-            .font(.system(size: RodajeTipo.versales, weight: .heavy))
-            .tracking(RodajeTipo.tracking)
+            .font(.system(size: compacta ? RodajeTipo.versalesCompactas : RodajeTipo.versales, weight: .heavy))
+            .tracking(compacta ? RodajeTipo.trackingCompacto : RodajeTipo.tracking)
             .foregroundStyle(tono)
             .lineLimit(1)
-            .minimumScaleFactor(0.82)
+            .minimumScaleFactor(compacta ? 0.7 : 0.82)
             .padding(.top, arriba)
     }
 }
@@ -325,6 +362,72 @@ struct RodajeSegundo: View {
 
 // MARK: - Vivo (centro: cero botones)
 
+/// EL CUERPO DEL VIVO, UNA SOLA VEZ: contexto, sujeto, segundo nivel y nota, más
+/// el toque que avanza el tramo si la lectura lo permite. Lo pintan
+/// `RodajeVivoPage` (sin móvil) y `MirrorRodajeFace` (en espejo): la decisión de
+/// QUÉ se pinta es de `RodajeLamina`; esto sólo la dibuja.
+///
+/// Lee la medida del lienzo del ENTORNO, así que tiene que colgar DENTRO del
+/// cromo (que es quien la mide y la inyecta): leída desde la página que crea el
+/// cromo se quedaba con el 188 × 212 por defecto en cualquier tamaño de reloj.
+struct RodajeVivoCuerpo: View {
+    let lectura: RodajeLamina.Lectura
+    /// El punto activo de los tres de la lámina; nil = no hay puntos (el resto
+    /// del espejo, que se pagina con el índice del sistema).
+    var punto: Int? = nil
+    var onToca: () -> Void = {}
+
+    @Environment(\.rodajeLienzo) private var lienzo
+
+    var body: some View {
+        VStack(spacing: 0) {
+            RodajeVersales(texto: lectura.contexto, tono: RodajeTipo.contexto)
+            Spacer(minLength: 4)
+            RodajeNumeral(
+                texto: lectura.sujeto,
+                unidad: lectura.unidad,
+                alto: RodajeNumeral.altoSujeto(
+                    lectura.sujeto,
+                    unidad: lectura.unidad,
+                    segundo: lectura.ritmo != nil,
+                    nota: lectura.nota != nil,
+                    accion: lectura.accion,
+                    anchoUtil: lienzo.ancho,
+                    altoUtil: lienzo.alto
+                ),
+                color: lectura.tonoSujeto
+            )
+            Spacer(minLength: 4)
+            if let ritmo = lectura.ritmo {
+                RodajeSegundo(
+                    valor: ritmo,
+                    etiqueta: lectura.etiquetaSegundo,
+                    etiquetaTinta: lectura.veredicto != nil ? WatchTheme.ink : RodajeTipo.dim
+                )
+            }
+            if let nota = lectura.nota {
+                RodajeVersales(
+                    texto: nota,
+                    tono: lectura.notaEnTinta ? WatchTheme.ink : RodajeTipo.dim,
+                    arriba: 4
+                )
+            }
+            if let punto { RodajePuntos(activa: punto) }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .multilineTextAlignment(.center)
+        .contentShape(Rectangle())
+        .highPriorityGesture(
+            TapGesture().onEnded {
+                guard lectura.toca else { return }
+                WatchHaptics.tap()
+                onToca()
+            }
+        )
+        .accessibilityAddTraits(lectura.toca ? .isButton : [])
+    }
+}
+
 /// Lo que FALTA de la pieza. No reutiliza GuionRodaje: aquel ponía la zona
 /// como sujeto. Aquí el sujeto es el restante (o el reloj de la pieza).
 ///
@@ -337,57 +440,14 @@ struct RodajeVivoPage: View {
     var driver: WatchRunLegDriver? = nil
     var destello: WatchDestello = WatchDestello()
 
-    @Environment(\.rodajeLienzo) private var lienzo
-
     var body: some View {
-        let lectura = RodajeLamina.lectura(RodajeLamina.Ventana(sesion: session))
         RodajeMarco(session: session, driver: driver, destello: destello,
                     apagado: session.isPaused ? 0.42 : 1) {
-            VStack(spacing: 0) {
-                RodajeVersales(texto: lectura.contexto, tono: RodajeTipo.contexto)
-                Spacer(minLength: 4)
-                RodajeNumeral(
-                    texto: lectura.sujeto,
-                    unidad: lectura.unidad,
-                    alto: RodajeNumeral.altoSujeto(
-                        lectura.sujeto,
-                        unidad: lectura.unidad,
-                        segundo: lectura.ritmo != nil,
-                        nota: lectura.nota != nil,
-                        accion: lectura.accion,
-                        anchoUtil: lienzo.ancho,
-                        altoUtil: lienzo.alto
-                    ),
-                    color: lectura.tonoSujeto
-                )
-                Spacer(minLength: 4)
-                if let ritmo = lectura.ritmo {
-                    RodajeSegundo(
-                        valor: ritmo,
-                        etiqueta: lectura.etiquetaSegundo,
-                        etiquetaTinta: lectura.veredicto != nil ? WatchTheme.ink : RodajeTipo.dim
-                    )
-                }
-                if let nota = lectura.nota {
-                    RodajeVersales(
-                        texto: nota,
-                        tono: lectura.notaEnTinta ? WatchTheme.ink : RodajeTipo.dim,
-                        arriba: 4
-                    )
-                }
-                RodajePuntos(activa: 1)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .multilineTextAlignment(.center)
-            .contentShape(Rectangle())
-            .highPriorityGesture(
-                TapGesture().onEnded {
-                    guard lectura.toca else { return }
-                    WatchHaptics.tap()
-                    session.applyCommand(MirrorWire.CommandKind.advance)
-                }
+            RodajeVivoCuerpo(
+                lectura: RodajeLamina.lectura(RodajeLamina.Ventana(sesion: session)),
+                punto: RodajePagina.vivo.punto,
+                onToca: { session.applyCommand(MirrorWire.CommandKind.advance) }
             )
-            .accessibilityAddTraits(lectura.toca ? .isButton : [])
         }
     }
 }
