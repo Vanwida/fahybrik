@@ -195,6 +195,7 @@ export type Unidad =
   | 'kcal'
   | 'kg'
   | 'puntos'       // escala 0-100 propia del proveedor (batería corporal, estrés) o el readiness
+  | 'pp'           // puntos porcentuales: la diferencia entre dos porcentajes (70 % → 77 % = +7 pp, no +10 %)
   | 'ml_kg_min'
   | 'sesiones'
   | 'watts'
@@ -221,6 +222,14 @@ export interface Dato {
   valor: number;
   unidad: Unidad;
   referencia: Referencia | null;
+  /**
+   * El intervalo en el que cae el número cuando es una ESTIMACIÓN con banda (la
+   * previsión de carrera, 29-09-2026): `bajo ≤ valor ≤ alto`, en la misma
+   * unidad. Ausente o null cuando el número es una medida: un rango solo existe
+   * si el mecanismo que lo produce lo calcula, nunca se inventa alrededor de un
+   * dato medido.
+   */
+  rango?: { bajo: number; alto: number } | null;
 }
 
 /**
