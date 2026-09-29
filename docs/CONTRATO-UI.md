@@ -387,6 +387,7 @@ Hoy, Plan, Carreras y Perfil se portan a Swift en paralelo con el diseño de «E
 |---|---|
 | El sujeto de la pantalla (UNO): bloque con el tinte de su momento | `SujetoDia(tono:)` con `KickerDia`, `TituloDia`, `ApoyoDia` dentro |
 | Su acción | `AccionDia` (dentro de un `SujetoDia` que es botón, o en un `Button` con `PressScaleStyle(escala: 0.96)`) |
+| «A medias» (ni aplauso ni alarma): el sujeto de una sesión terminada antes de tiempo | `SujetoDia(tono: .aviso)`: ámbar suave, como los demás tonos de estado; no lo toca el club |
 | La foto de una carrera con cuenta atrás | `PosterDia` + `CuentaAtrasDia` (+ `.panelSobreFoto()`) |
 | «N de M» | `RegletaDia` |
 | Una cifra con su rótulo | `TeselaDia`, SIEMPRE dentro de `TeselasDia` (las iguala en alto y pasa a una columna con texto accesible) |

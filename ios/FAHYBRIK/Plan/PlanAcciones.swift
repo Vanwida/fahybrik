@@ -2,138 +2,74 @@ import SwiftUI
 
 // LO QUE EL ATLETA PUEDE HACERLE A UNA SESIÓN — y lo que se le dice si falla.
 //
-// Vive aparte de `PlanView` para que la composición de la pantalla se lea sin
-// atravesar cuatro mutaciones de red, no porque sea otra cosa: es la misma vista.
+// Vive aparte de `PlanView` para que la composición de la pantalla se lea sin atravesar cuatro mutaciones de
+// red, no porque sea otra cosa: es la misma vista. QUÉ ofrece el menú lo decide `AthleteWeekDaySession.acciones`
+// (PlanMenu.swift, probado); aquí solo se PINTA y se hace lo que cada fila pide.
 //
-// NINGUNA de estas acciones es nueva. Son exactamente las que tenía cada fila de
-// la vieja lista de días —mover, ver la técnica, corregir el estado, borrar un
-// libre— con el mismo contrato de servidor, la misma actualización optimista y
-// los mismos mensajes. Lo que cambió es DÓNDE se tocan: el «···» del héroe, el
-// «···» de la segunda sesión y la pulsación larga sobre un día del carril.
+// NINGUNA de estas acciones es nueva. Son exactamente las que tenía cada fila de la vieja lista de días —mover,
+// ver la técnica, corregir el estado, borrar un libre— con el mismo contrato de servidor, la misma actualización
+// optimista y los mismos mensajes. Lo que cambió es DÓNDE se tocan: el «···» de la acción anclada, el «···» de
+// la fila de cada otra sesión y la pulsación larga sobre un día del carril.
 //
-// QUÉ SE RETIRÓ Y POR QUÉ: arrastrar una sesión de un día a otro. Su lienzo era
-// la lista vertical de siete filas de alto completo, que ya no existe; una ficha
-// de 46 pt del carril es un glifo, no una fila sobre la que soltar una tarjeta. El
-// camino accesible —«Mover a otro día», con cada día y lo que ya lleva— es el que
-// siempre fue fiable (arrastrar solo nunca cumplió WCAG) y sigue estando en las
-// tres superficies. Ningún movimiento que el atleta pudiera hacer antes ha
+// QUÉ SE RETIRÓ Y POR QUÉ: arrastrar una sesión de un día a otro. Su lienzo era la lista vertical de siete filas
+// de alto completo, que ya no existe; una ficha del carril es un glifo, no una fila sobre la que soltar una
+// tarjeta. El camino accesible —«Mover a otro día», con cada día y lo que ya lleva— es el que siempre fue fiable
+// (arrastrar solo nunca cumplió WCAG) y sigue estando. Ningún movimiento que el atleta pudiera hacer antes ha
 // dejado de poder hacerse.
 
 extension PlanView {
 
     // MARK: - Los menús
 
-    /// El menú «···» de UNA sesión, contextual a su estado.
-    ///   pendiente / no hecha → Marcar como hecha · Completar ahora
-    ///   parcial              → Completar ahora · Deshacer hecho
-    ///   hecha                → Deshacer hecho
+    /// El menú «···» de UNA sesión, contextual a su estado. `semana` es la que se mira: de ella salen los días a
+    /// los que se puede mover.
     @ViewBuilder
-    func accionesDeSesion(_ session: AthleteWeekDaySession) -> some View {
-        Button {
-            techniqueTarget = session
-        } label: {
-            Label("Ver ejercicios y técnica", systemImage: "list.bullet.rectangle")
-        }
-        // Preguntar SOBRE este entreno. Una fila más en un menú que ya existía:
-        // cero alto nuevo en la pantalla, que era la condición del encargo (ver
-        // docs/DECISIONS.md, 12-ago «El chat aprende SOBRE QUÉ va el mensaje»).
-        // Sin coach no hay a quién preguntar, así que la fila tampoco existe.
-        if hasCoach {
-            Button {
-                preguntarPor(session)
-            } label: {
-                Label("Preguntar al coach", systemImage: "message")
-            }
-        }
-        if puedeMoverse(session) {
-            Menu("Mover a otro día") {
-                ForEach(diasDestino(de: session)) { dia in
-                    Button(etiquetaDeDiaDestino(dia)) { mover(session, a: dia.isoDate) }
+    func menuDeSesion(_ sesion: AthleteWeekDaySession, _ semana: SemanaDelPlan?) -> some View {
+        ForEach(sesion.acciones(conCoach: true)) { accion in
+            if accion.clave == .mover {
+                if let semana {
+                    Menu {
+                        ForEach(semana.diasDestino(de: sesion)) { dia in
+                            Button(semana.etiquetaDeDiaDestino(dia)) { mover(sesion, a: dia.isoDate) }
+                        }
+                    } label: {
+                        Label(accion.etiqueta, systemImage: accion.simbolo)
+                    }
                 }
-            }
-        }
-        switch marca(session) {
-        case .pending, .missed:
-            Button { marcarHecha(session) } label: {
-                Label("Marcar como hecha", systemImage: "checkmark")
-            }
-            Button { Task { await attemptWorkoutLaunch(launch(session)) } } label: {
-                Label("Completar ahora", systemImage: "square.and.pencil")
-            }
-        case .partial:
-            Button { Task { await attemptWorkoutLaunch(launch(session)) } } label: {
-                Label("Completar ahora", systemImage: "square.and.pencil")
-            }
-            Button(role: .destructive) { pedirDeshacer(session) } label: {
-                Label("Deshacer hecho", systemImage: "arrow.uturn.backward")
-            }
-        case .done:
-            Button(role: .destructive) { pedirDeshacer(session) } label: {
-                Label("Deshacer hecho", systemImage: "arrow.uturn.backward")
-            }
-        }
-        // Un LIBRE es del atleta: se borra del todo, en cualquier estado. Las del
-        // coach no ofrecen esto — se deshacen, no se borran.
-        if session.isSelfOrigin {
-            if marca(session) == .pending || marca(session) == .missed {
-                Button { freeEditAssignmentId = session.assignmentId } label: {
-                    Label("Editar entreno libre", systemImage: "pencil")
-                }
-            }
-            Button(role: .destructive) { deleteFreeTarget = session } label: {
-                Label("Borrar entreno libre", systemImage: "trash")
-            }
-        }
-    }
-
-    /// Las acciones de TODAS las sesiones de un día, para la pulsación larga del
-    /// carril. Un día de descanso no produce ningún botón y entonces no hay menú.
-    @ViewBuilder
-    func accionesDelDia(_ dia: DiaDelPlan) -> some View {
-        ForEach(dia.sesiones) { session in
-            if dia.sesiones.count > 1 {
-                Menu(session.title) { accionesDeSesion(session) }
             } else {
-                accionesDeSesion(session)
+                Button(role: accion.destructiva ? .destructive : nil) {
+                    elegir(accion.clave, de: sesion)
+                } label: {
+                    Label(accion.etiqueta, systemImage: accion.simbolo)
+                }
             }
         }
     }
 
-    /// El «···» de la fila de la segunda sesión del día.
-    func menuDeSesion(_ session: AthleteWeekDaySession) -> some View {
-        Menu {
-            accionesDeSesion(session)
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Theme.Color.muted)
-                .frame(width: 32, height: 44)
-                .contentShape(Rectangle())
+    /// Las acciones de TODAS las sesiones de un día, para la pulsación larga del carril. Un día de descanso no
+    /// produce ningún botón y entonces no hay menú.
+    @ViewBuilder
+    func menuDelDia(_ dia: DiaDelPlan, _ semana: SemanaDelPlan?) -> some View {
+        ForEach(dia.sesiones) { sesion in
+            if dia.sesiones.count > 1 {
+                Menu(sesion.title) { menuDeSesion(sesion, semana) }
+            } else {
+                menuDeSesion(sesion, semana)
+            }
         }
-        .accessibilityLabel("Acciones de \(session.title)")
     }
 
-    /// Una sesión se mueve mientras no esté completada — el servidor congela las
-    /// hechas y devolvería 409.
-    func puedeMoverse(_ session: AthleteWeekDaySession) -> Bool {
-        !session.assignmentId.isEmpty && marca(session) != .done
-    }
-
-    func diasDestino(de session: AthleteWeekDaySession) -> [DiaDelPlan] {
-        let visible = semanaVisible
-        let origen = visible?.dias.first { dia in
-            dia.sesiones.contains { $0.assignmentId == session.assignmentId }
+    private func elegir(_ clave: ClaveAccion, de sesion: AthleteWeekDaySession) {
+        switch clave {
+        case .tecnica:     techniqueTarget = sesion
+        case .preguntar:   preguntarPor(sesion)
+        case .mover:       break   // el destino se elige en el submenú
+        case .marcarHecha: marcarHecha(sesion)
+        case .completar:   Task { await attemptWorkoutLaunch(WorkoutLaunch(assignmentId: sesion.assignmentId, title: sesion.title)) }
+        case .deshacer:    pedirDeshacer(sesion)
+        case .editarLibre: freeEditAssignmentId = sesion.assignmentId
+        case .borrarLibre: deleteFreeTarget = sesion
         }
-        return (visible?.dias ?? []).filter { $0.isoDate != origen?.isoDate }
-    }
-
-    /// «Lunes 21 · libre» / «Hoy · 1 sesión» — el día, su fecha y su carga, para
-    /// que el atleta elija con contexto y no a ciegas.
-    func etiquetaDeDiaDestino(_ dia: DiaDelPlan) -> String {
-        let nombre = dia.esHoy ? "Hoy" : "\(dia.nombre) \(dia.numero)"
-        let n = dia.sesiones.count
-        let carga = n == 0 ? "libre" : (n == 1 ? "1 sesión" : "\(n) sesiones")
-        return "\(nombre) · \(carga)"
     }
 
     // MARK: - Preguntar al coach sobre algo
@@ -148,13 +84,12 @@ extension PlanView {
         showChat = true
     }
 
-    /// Lo mismo, pero señalando UN ejercicio dentro del entreno: el coach recibe
-    /// «Back squat · Fuerza A, hoy» y no el entreno entero.
+    /// Lo mismo, pero señalando UN ejercicio dentro del entreno: el coach recibe «Back squat · Fuerza A, hoy» y
+    /// no el entreno entero.
     func preguntarPorEjercicio(_ ejercicio: EjercicioSeñalado, de session: AthleteWeekDaySession) {
         Haptics.light()
-        // Sin segmento prescrito la referencia fina no existe, así que se señala
-        // el entreno y la etiqueta lo dice tal cual: nunca una etiqueta que
-        // prometa un ejercicio y una referencia que apunte a la sesión entera.
+        // Sin segmento prescrito la referencia fina no existe, así que se señala el entreno y la etiqueta lo dice
+        // tal cual: nunca una etiqueta que prometa un ejercicio y una referencia que apunte a la sesión entera.
         let etiqueta = ejercicio.segmentoId == nil
             ? "\(session.title) · \(cuandoFue(session))"
             : "\(ejercicio.nombre) · \(session.title), \(cuandoFue(session))"
@@ -165,11 +100,10 @@ extension PlanView {
         showChat = true
     }
 
-    /// Un entreno del HISTORIAL: ahí no hay `AthleteWeekDaySession`, solo la fila
-    /// de lo hecho con su fecha, y basta — la referencia es el assignment.
+    /// Un entreno del HISTORIAL: ahí no hay `AthleteWeekDaySession`, solo la fila de lo hecho con su fecha, y
+    /// basta — la referencia es el assignment.
     func preguntarPorEntrenoPasado(_ sesion: AthleteHistorySession, iso: String) {
-        // Sin asignación no hay entreno al que el chat pueda señalar (el historial
-        // tampoco ofrece la acción en ese caso).
+        // Sin asignación no hay entreno al que el chat pueda señalar (el historial tampoco ofrece la acción en ese caso).
         guard let assignmentId = sesion.assignmentId else { return }
         Haptics.light()
         let hoyIso = store.planWeek.value?.week.todayIso ?? iso
@@ -180,50 +114,50 @@ extension PlanView {
         showChat = true
     }
 
-    /// «hoy» · «ayer» · «mar 12» para la etiqueta del chip. Es de pantalla: la
-    /// etiqueta que se guarda con el mensaje la escribe el servidor.
+    /// «hoy» · «ayer» · «mar 12» para la etiqueta del chip. Es de pantalla: la etiqueta que se guarda con el
+    /// mensaje la escribe el servidor.
     private func cuandoFue(_ session: AthleteWeekDaySession) -> String {
-        let dia = semana?.dias.first { dia in
-            dia.sesiones.contains { $0.assignmentId == session.assignmentId }
+        let dia = store.planWeek.value?.week.days.first { dia in
+            dia.sessions.contains { $0.assignmentId == session.assignmentId }
         }
         guard let dia else { return EntrenosSeñalables.etiquetaHoy }
-        if dia.esHoy { return EntrenosSeñalables.etiquetaHoy }
         let hoyIso = store.planWeek.value?.week.todayIso ?? dia.isoDate
+        if dia.isoDate == hoyIso { return EntrenosSeñalables.etiquetaHoy }
         return EntrenosSeñalables.cuando(iso: dia.isoDate, hoyIso: hoyIso)
     }
 
     // MARK: - Las mutaciones (mismo contrato de servidor de siempre)
 
     func mover(_ session: AthleteWeekDaySession, a targetIso: String) {
-        guard let token = effectiveBearer, let numericId = Int(session.assignmentId) else {
-            mostrarError("No se pudo mover la sesión. Inténtalo de nuevo.")
+        guard let token = bearer, let numericId = Int(session.assignmentId) else {
+            mostrarError(PlanTextos.Fallo.mover)
             return
         }
         Haptics.light()
         Task {
             do {
-                _ = try await PlanService.moveSession(
-                    assignmentId: numericId, toDate: targetIso, bearer: token
-                )
+                _ = try await PlanService.moveSession(assignmentId: numericId, toDate: targetIso, bearer: token)
                 Haptics.success()
                 await store.planMutated()
                 await cargar(force: true)
             } catch {
                 Haptics.error()
-                mostrarError(mensajeDeMover(error))
+                mostrarError(PlanTextos.Fallo.deMover(error))
             }
         }
     }
 
-    /// «Marcar como hecha» — afirma el HECHO sin inventar ninguna métrica: el
-    /// mismo grabador que el final en vivo, pero sin un solo número.
+    /// «Marcar como hecha» — afirma el HECHO sin inventar ninguna métrica: el mismo grabador que el final en vivo,
+    /// pero sin un solo número. La marca es OPTIMISTA (la card pasa a verde al momento) y se revierte si el
+    /// servidor rechaza.
     func marcarHecha(_ session: AthleteWeekDaySession) {
-        guard let token = effectiveBearer, !session.assignmentId.isEmpty else {
-            mostrarError("No se pudo marcar la sesión. Inténtalo de nuevo.")
+        guard let token = bearer, !session.assignmentId.isEmpty else {
+            mostrarError(PlanTextos.Fallo.marcar)
             return
         }
         let id = session.assignmentId
-        CompletedAssignmentsStore.markCompleted(id)                 // optimista
+        CompletedAssignmentsStore.markCompleted(id)
+        marcasVersion += 1
         Haptics.success()
         Task {
             do {
@@ -231,33 +165,31 @@ extension PlanView {
                 await store.planMutated()
                 await cargar(force: true)
             } catch {
-                CompletedAssignmentsStore.unmark(id)                // revierte
+                CompletedAssignmentsStore.unmark(id)
+                marcasVersion += 1
                 Haptics.error()
-                mostrarError("No se pudo marcar como hecha. Inténtalo de nuevo.")
+                mostrarError(PlanTextos.Fallo.marcar)
                 await cargar(force: true)
             }
         }
     }
 
-    /// «Deshacer hecho», primera pasada. Decide el SERVIDOR: si la sesión guarda
-    /// trabajo real pide confirmación; si no, ya está deshecha.
+    /// «Deshacer hecho», primera pasada. Decide el SERVIDOR: si la sesión guarda trabajo real pide confirmación;
+    /// si no, ya está deshecha.
     func pedirDeshacer(_ session: AthleteWeekDaySession) {
-        guard let token = effectiveBearer, let numericId = Int(session.assignmentId) else {
-            mostrarError("No se pudo deshacer la sesión. Inténtalo de nuevo.")
+        guard let token = bearer, let numericId = Int(session.assignmentId) else {
+            mostrarError(PlanTextos.Fallo.deshacer)
             return
         }
         Task {
             do {
-                let outcome = try await PlanService.resetSession(
-                    assignmentId: numericId, confirm: false, bearer: token
-                )
-                switch outcome {
+                switch try await PlanService.resetSession(assignmentId: numericId, confirm: false, bearer: token) {
                 case .reset:             await aplicarDeshacer(session)
                 case .needsConfirmation: undoConfirmTarget = session
                 }
             } catch {
                 Haptics.error()
-                mostrarError("No se pudo deshacer la sesión. Inténtalo de nuevo.")
+                mostrarError(PlanTextos.Fallo.deshacer)
             }
         }
     }
@@ -265,25 +197,26 @@ extension PlanView {
     /// Deshacer CONFIRMADO — el atleta aceptó perder lo registrado.
     func confirmUndo(_ session: AthleteWeekDaySession) {
         undoConfirmTarget = nil
-        guard let token = effectiveBearer, let numericId = Int(session.assignmentId) else {
-            mostrarError("No se pudo deshacer la sesión. Inténtalo de nuevo.")
+        guard let token = bearer, let numericId = Int(session.assignmentId) else {
+            mostrarError(PlanTextos.Fallo.deshacer)
             return
         }
         Task {
             do {
-                _ = try await PlanService.resetSession(
-                    assignmentId: numericId, confirm: true, bearer: token
-                )
+                _ = try await PlanService.resetSession(assignmentId: numericId, confirm: true, bearer: token)
                 await aplicarDeshacer(session)
             } catch {
                 Haptics.error()
-                mostrarError("No se pudo deshacer la sesión. Inténtalo de nuevo.")
+                mostrarError(PlanTextos.Fallo.deshacer)
             }
         }
     }
 
     private func aplicarDeshacer(_ session: AthleteWeekDaySession) async {
         CompletedAssignmentsStore.unmark(session.assignmentId)
+        marcasVersion += 1
+        desgloses[session.assignmentId] = nil   // lo registrado ya no existe: sus minutos medidos tampoco
+        AssignmentDetailCache.remove(session.assignmentId)
         Haptics.success()
         await store.planMutated()
         await cargar(force: true)
@@ -291,7 +224,7 @@ extension PlanView {
 
     func confirmDeleteFree(_ session: AthleteWeekDaySession) {
         deleteFreeTarget = nil
-        guard let token = effectiveBearer else { return }
+        guard let token = bearer else { return }
         Task {
             do {
                 try await FreeSessionDelete.perform(assignmentId: session.assignmentId, bearer: token)
@@ -299,128 +232,52 @@ extension PlanView {
                 await store.planMutated()
                 await cargar(force: true)
             } catch {
-                mostrarError("No se pudo borrar el entreno. Inténtalo de nuevo.")
+                mostrarError(PlanTextos.Fallo.borrar)
             }
         }
     }
 
     // MARK: - Cuando algo falla
 
-    /// Traduce un fallo de mover a lo que el atleta necesita saber. 409 = la
-    /// sesión está congelada; 422 = fuera de esta semana; 404 = ya no existe.
-    func mensajeDeMover(_ error: Error) -> String {
-        guard case let APIError.http(status, data) = error else {
-            return "No se pudo mover la sesión. Revisa tu conexión."
-        }
-        let code = (try? JSONDecoder().decode(APIErrorBody.self, from: data))?.error.code
-        switch status {
-        case 409: return "Esta sesión ya está completada y no se puede mover."
-        case 422:
-            return code == "out_of_range"
-                ? "Solo puedes mover la sesión dentro de esta semana."
-                : "No se pudo mover la sesión. Revisa el día e inténtalo de nuevo."
-        case 404: return "No encontramos esta sesión. Desliza para recargar tu plan."
-        case 401: return "Tu sesión ha caducado. Vuelve a entrar para mover la sesión."
-        default:  return "No se pudo mover la sesión. Inténtalo de nuevo."
-        }
-    }
-
-    func mostrarError(_ message: String) {
-        actionError = message
-        Task {
-            try? await Task.sleep(nanoseconds: 4_500_000_000)
-            if actionError == message { actionError = nil }
-        }
-    }
-
-    /// El aviso transitorio. Cuando aparece, lo que falló ya se revirtió: no
-    /// promete nada, solo cuenta qué pasó.
-    @ViewBuilder
-    var actionErrorBanner: some View {
-        if let actionError {
-            HStack(spacing: Theme.Spacing.s) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Theme.Color.danger)
-                Text(actionError)
-                    .scaledFont(13, weight: .medium, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: Theme.Spacing.s)
-                Button { self.actionError = nil } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Theme.Color.muted)
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Cerrar aviso")
-            }
-            .padding(.horizontal, Theme.Spacing.m)
-            .padding(.vertical, 10)
-            .background {
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .fill(Theme.Color.surfaceElevated)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                            .fill(Theme.Color.dangerTint)
-                    )
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(Theme.Color.danger.opacity(0.35), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            .brandShadow(Theme.Shadow.cardTight)
-            .padding(.horizontal, Theme.Spacing.l)
-            .padding(.top, Theme.Spacing.s)
-            .transition(.move(edge: .top).combined(with: .opacity))
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Aviso: \(actionError)")
-        }
+    /// El aviso de que algo no salió. Cuando aparece, lo que falló ya se revirtió: no promete nada, solo cuenta qué
+    /// pasó. Es el aviso del día (`AvisoDia`), el único de la app: se queda hasta que el atleta lo descarte.
+    func mostrarError(_ mensaje: String) {
+        aviso = AvisoDia.Contenido(tono: .fallo, texto: mensaje)
     }
 }
 
 // MARK: - Los dos diálogos destructivos
 
-/// Extraídos a un `ViewModifier` porque son UNA sola cosa —las dos formas de
-/// retirar un entreno— y porque dos `confirmationDialog` en línea disparan el
-/// tiempo de comprobación de tipos del `body`.
-struct PlanDialogos: ViewModifier {
-    @Binding var undoTarget: AthleteWeekDaySession?
-    @Binding var deleteFreeTarget: AthleteWeekDaySession?
-    let onUndo: (AthleteWeekDaySession) -> Void
-    let onDeleteFree: (AthleteWeekDaySession) -> Void
+extension View {
+    /// «¿Deshacer este entreno?»: el atleta acepta perder lo registrado. Los diálogos son dos modificadores y no
+    /// uno porque el Plan libre solo usa el de borrar, y dos `confirmationDialog` en el mismo `body` disparan el
+    /// tiempo de comprobación de tipos.
+    func confirmarDeshacer(_ objetivo: Binding<AthleteWeekDaySession?>, alConfirmar: @escaping (AthleteWeekDaySession) -> Void) -> some View {
+        confirmationDialog(
+            PlanTextos.Deshacer.titulo,
+            isPresented: Binding(get: { objetivo.wrappedValue != nil }, set: { if !$0 { objetivo.wrappedValue = nil } }),
+            titleVisibility: .visible,
+            presenting: objetivo.wrappedValue
+        ) { session in
+            Button(PlanTextos.Deshacer.confirmar, role: .destructive) { alConfirmar(session) }
+            Button("Cancelar", role: .cancel) { objetivo.wrappedValue = nil }
+        } message: { _ in
+            Text(PlanTextos.Deshacer.mensaje)
+        }
+    }
 
-    func body(content: Content) -> some View {
-        content
-            .confirmationDialog(
-                "¿Deshacer este entreno?",
-                isPresented: Binding(
-                    get: { undoTarget != nil },
-                    set: { if !$0 { undoTarget = nil } }
-                ),
-                titleVisibility: .visible,
-                presenting: undoTarget
-            ) { session in
-                Button("Deshacer y borrar lo registrado", role: .destructive) { onUndo(session) }
-                Button("Cancelar", role: .cancel) { undoTarget = nil }
-            } message: { _ in
-                Text("Se borrará lo que registraste y el entreno volverá a pendiente. Esto no se puede deshacer.")
-            }
-            .confirmationDialog(
-                "¿Borrar este entreno libre?",
-                isPresented: Binding(
-                    get: { deleteFreeTarget != nil },
-                    set: { if !$0 { deleteFreeTarget = nil } }
-                ),
-                titleVisibility: .visible,
-                presenting: deleteFreeTarget
-            ) { session in
-                Button("Borrar del todo", role: .destructive) { onDeleteFree(session) }
-                Button("Cancelar", role: .cancel) { deleteFreeTarget = nil }
-            } message: { _ in
-                Text("Lo creaste tú: se borra el entreno y lo registrado. No volverá a aparecer.")
-            }
+    /// «¿Borrar este entreno libre?»: un libre es del atleta y se borra del todo, entreno y lo registrado.
+    func confirmarBorrarLibre(_ objetivo: Binding<AthleteWeekDaySession?>, alConfirmar: @escaping (AthleteWeekDaySession) -> Void) -> some View {
+        confirmationDialog(
+            PlanTextos.Borrar.titulo,
+            isPresented: Binding(get: { objetivo.wrappedValue != nil }, set: { if !$0 { objetivo.wrappedValue = nil } }),
+            titleVisibility: .visible,
+            presenting: objetivo.wrappedValue
+        ) { session in
+            Button(PlanTextos.Borrar.confirmar, role: .destructive) { alConfirmar(session) }
+            Button("Cancelar", role: .cancel) { objetivo.wrappedValue = nil }
+        } message: { _ in
+            Text(PlanTextos.Borrar.mensaje)
+        }
     }
 }

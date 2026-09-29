@@ -30,10 +30,13 @@ enum SessionSlot: String, CaseIterable, Hashable {
 struct ModalityDot: View {
     let modality: String?
     var size: CGFloat = 8
+    /// Un solo color para todas las modalidades: sobre el bloque del acento el punto de correr SERÍA el
+    /// fondo (el de correr es el acento), así que ahí va en la tinta y la modalidad la dice la palabra.
+    var tinta: SwiftUI.Color? = nil
 
     var body: some View {
         Circle()
-            .fill(Theme.Modality.color(modality))
+            .fill(tinta ?? Theme.Modality.color(modality))
             .frame(width: size, height: size)
             .accessibilityHidden(true)
     }
@@ -75,16 +78,18 @@ struct SlotBadge: View {
 
 // MARK: - Libre chip
 
-/// Small accent chip marking an athlete-built "entreno libre" (no prescrito).
-/// Mirrors `TestBadge`'s shape with the brand-accent text role (AA on both the
-/// light + dark surfaces). Shown wherever a self-origin session is listed.
+/// Small accent chip marking an athlete-built "entreno libre" (no prescrito),
+/// with the brand-accent text role (AA on both the light + dark surfaces).
+/// Shown wherever a self-origin session is listed.
 struct LibreBadge: View {
     var compact: Bool = false
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: "sparkle")
-                .font(.system(size: compact ? 9 : 10, weight: .semibold))
+            // El glifo del kit para «esto es tuyo» (`GlifoDia.silueta`). Antes era un destello, que
+            // está prohibido en el proyecto: es el cliché de las apps de IA, y un entreno libre no es magia,
+            // es el que montó el propio atleta.
+            IconoDia(.silueta, tam: compact ? 9 : 10, peso: .semibold)
             Text("Libre")
                 .font(.system(size: compact ? 10 : 11, weight: .semibold))
                 .lineLimit(1)
@@ -95,37 +100,6 @@ struct LibreBadge: View {
         .background(Theme.Color.accentTint)
         .clipShape(Capsule())
         .accessibilityLabel("Entreno libre")
-    }
-}
-
-// MARK: - Test badge
-
-/// Amber pill marking a session whose purpose is to MEASURE (a test/benchmark
-/// that stores results into the athlete's profile), not to train. Mirrors
-/// `LibreBadge`'s compact shape but uses the amber `warning` role so a test reads
-/// as "do this fresh, it sets your numbers".
-///
-/// Lives here beside its siblings (`LibreBadge`, `SlotBadge`, `PartnerBadge`)
-/// since the 6-ago Plan rebuild: it used to be declared at the bottom of
-/// `PlanView.swift`, which is how a shared badge ends up looking like one
-/// screen's private business (contrato §0/§1).
-struct TestBadge: View {
-    var compact: Bool = false
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "stopwatch")
-                .font(.system(size: compact ? 9 : 10, weight: .semibold))
-            Text("Test")
-                .font(.system(size: compact ? 10 : 11, weight: .semibold))
-                .lineLimit(1)
-        }
-        .foregroundStyle(Theme.Color.warning)
-        .padding(.horizontal, compact ? 6 : 8)
-        .padding(.vertical, compact ? 2 : 3)
-        .background(Theme.Color.warningTint)
-        .clipShape(Capsule())
-        .accessibilityLabel("Sesión de test")
     }
 }
 
@@ -173,61 +147,6 @@ struct SessionHeroCard: View {
             }
         }
         .accessibilityElement(children: .contain)
-    }
-}
-
-// MARK: - Compact session row
-
-/// The PM-style compact row from the handoff: a sunken row with a modality
-/// slot badge, a title + meta, and a chevron. Tapping fires `onTap`.
-struct SessionCompactRow: View {
-    let slot: SessionSlot
-    let title: String
-    let meta: String
-    var modality: String? = nil
-    /// Marks an athlete-built "entreno libre" — adds the accent "Libre" chip.
-    var isFree: Bool = false
-    var onTap: (() -> Void)? = nil
-
-    private var modalityColor: Color { Theme.Modality.color(modality) }
-
-    var body: some View {
-        Button {
-            Haptics.light()
-            onTap?()
-        } label: {
-            HStack(spacing: 12) {
-                SlotBadge(slot: slot, color: modalityColor)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(title)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Theme.Color.foreground)
-                        if isFree { LibreBadge(compact: true) }
-                    }
-                    Text(meta)
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
-            }
-            .padding(.horizontal, 15)
-            .padding(.vertical, 13)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        }
-        .buttonStyle(PressScaleStyle())
-        .disabled(onTap == nil)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(slot == .am ? "Mañana" : "Tarde"), \(title), \(meta)")
-        .accessibilityAddTraits(onTap == nil ? [] : .isButton)
     }
 }
 

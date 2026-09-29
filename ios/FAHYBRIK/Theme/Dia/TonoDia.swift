@@ -22,6 +22,9 @@ enum TonoDia: CaseIterable {
     case ok
     /// Soporte: descanso, movilidad. El día que no toca apretar.
     case soporte
+    /// A medias: ni aplauso ni alarma. Una sesión terminada antes de tiempo no es un ✓ (afirmaría un
+    /// trabajo completo que no ocurrió) ni un fallo. Ámbar suave.
+    case aviso
     /// La marca en suave: un momento que invita sin apremiar (primer día, tu perfil).
     case acento
     /// Sin momento: cargando, en pausa.
@@ -61,6 +64,7 @@ enum TonoDia: CaseIterable {
         case .info:    return Receta(fondo: 0.16, borde: 0.30, deco: 0.12)
         case .ok:      return Receta(fondo: 0.15, borde: 0.30, deco: 0.12)
         case .soporte: return Receta(fondo: 0.15, borde: 0.30, deco: 0.12)
+        case .aviso:   return Receta(fondo: 0.13, borde: 0.36, deco: 0.10)
         case .peligro: return Receta(fondo: 0.11, borde: 0.34, deco: 0.10)
         case .accion, .acento, .neutro: return Receta(fondo: 0, borde: 0, deco: 0)
         }
@@ -72,6 +76,7 @@ enum TonoDia: CaseIterable {
         case .info:    return Theme.Color.info
         case .ok:      return Theme.Color.ok
         case .soporte: return Theme.Color.modalitySupport
+        case .aviso:   return Theme.Color.warning
         case .peligro: return Theme.Color.danger
         case .accion, .acento, .neutro: return nil
         }
@@ -101,7 +106,7 @@ enum TonoDia: CaseIterable {
                 tinta: Theme.Color.foreground,
                 deco: Deco(color: Theme.Color.faint.opacity(0.12), mezcla: .normal)
             )
-        case .info, .ok, .soporte, .peligro:
+        case .info, .ok, .soporte, .aviso, .peligro:
             let color = matiz ?? Theme.Color.neutral
             return Papeles(
                 fondo: Theme.Color.tinte(color, receta.fondo, sobre: elevada),

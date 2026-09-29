@@ -1,121 +1,315 @@
 import SwiftUI
 
-// PESTAÑA PLAN — dónde estás hoy dentro del bloque, y qué toca.
+// PESTAÑA PLAN — dónde estás hoy dentro del bloque, y qué toca. Es la pestaña del atleta CON coach; la del
+// atleta libre es `FreePlanView`.
 //
-// QUÉ PASÓ AQUÍ (docs/DECISIONS.md, 6-ago-2026)
-// ---------------------------------------------
-// Esta pantalla era una LISTA de los siete días del microciclo, y a la vez
-// `InicioView` pintaba su propia versión de «qué toca hoy» — mismo
-// `store.planWeek`, mismo `SessionMarkState`, mismo destino
-// (`WorkoutContainer`/`ExecutedWorkoutView`): dos renderizados y dos copys para
-// la misma pregunta. Ahora la responde el Plan, UNA vez, y el atleta ve el
-// entreno CON el porqué al lado.
+// QUÉ PASÓ AQUÍ (docs/DECISIONS.md, 6-ago-2026; rehecha con el diseño de «El día» el 29-sep)
+// -------------------------------------------------------------------------------------------
+// Esta pantalla era una LISTA de los siete días del microciclo, y a la vez `InicioView` pintaba su propia
+// versión de «qué toca hoy». Ahora la responde el Plan, UNA vez, y el atleta ve el entreno CON el porqué al
+// lado. Con «El día» la composición es la de Hoy: UN sujeto grande con el tinte de su momento, y todo lo
+// demás lo sirve.
 //
 // LA COMPOSICIÓN, de arriba abajo
 // -------------------------------
-//   · Cromo superior    — el ciclo, el historial y el chat. La PUERTA AL CICLO
-//                         vive aquí desde el 11-ago (Alex): estaba al pie como
-//                         una tarjeta de dos líneas que se comía alto del héroe
-//                         para decir lo que la cabecera ya dice.
-//   · CabeceraDelBloque — el bloque, «Semana N de M» y la línea del coach.
-//   · CarrilSemana      — los siete días con su sello. Tocar un día lo abre;
-//                         pulsación larga saca sus acciones (mover · técnica ·
-//                         corregir · borrar libre).
-//   · Héroe             — la sesión de hoy en grande, o el día de descanso. Una
-//                         SEGUNDA sesión del día va como fila compacta debajo,
-//                         no como un segundo héroe.
-//   · Acción anclada    — empezar hoy · ver lo hecho · ver lo de mañana.
+//   · Cromo            — compartir la semana, el ciclo, el historial y el chat (`PlanCromo`). Fijo.
+//   · Cabecera         — el bloque, «Semana N de M», el rango y la línea del coach (`CabeceraPlan`).
+//   · Carril           — los siete días con su sello. Tocar un día CAMBIA la card, no abre otra pantalla.
+//   · Sujeto           — el día mostrado en grande (`SujetoSesionPlan`), o el día que no toca nada. Las demás
+//                        sesiones del día van como filas compactas debajo, jamás como un segundo héroe.
+//   · Acción anclada   — empezar · ver lo hecho · ver lo de mañana. UNA, siempre la misma puerta.
 //
-// ALTURA (contrato §6.1): la pantalla es `llena` — el cromo de arriba es fijo y
-// TODO el sobrante se lo lleva el héroe, que es el sujeto. El día de descanso
-// degrada a `centra`.
+// QUIÉN DECIDE QUÉ. La vista no decide: `LecturaPlan.vista` (PlanLectura.swift) dice qué pantalla toca, con
+// qué tono y con qué acción, y `PlanLecturaTests` fija cada caso. Aquí viven el estado de la navegación (qué
+// semana y qué día se miran), la carga (cache-first + SWR, como el resto de la app) y las presentaciones.
 //
-// Las mutaciones (mover · marcar · deshacer · borrar) y sus menús viven en
-// `PlanAcciones.swift`; las piezas, en `PlanHoyAtoms.swift` y `PlanHeroeHoy.swift`.
+// ALTURA (contrato §6.1): la pantalla es `llena` — el cromo es fijo y TODO el sobrante se lo lleva el sujeto.
+// Los estados sin día que mostrar (error, pausa, vacíos) degradan a `centra`.
 
 struct PlanView: View {
     var bearer: String? = nil
-    /// FREE tier switch (athlete without coach). False hides the chat action and
-    /// swaps the coach-flavored empty copy for the athlete-direct free one.
-    var hasCoach: Bool = true
 
-    // The shared cache-first data layer: a tab switch into Plan renders instantly
-    // from the store's warm slice, then revalidates in the background.
+    // La capa de datos compartida (cache-first): entrar a Plan pinta al instante desde lo que el store ya
+    // tiene y revalida por detrás. La semana 0 SIEMPRE se lee de aquí: es la misma que ven Inicio y Perfil.
     @Environment(AppDataStore.self) var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    // ── La semana, ya resuelta ────────────────────────────────────────────────
-    @State var semana: SemanaDelPlan? = nil
-    @State private var posicion: PosicionEnBloque? = nil
-    @State private var coachName: String? = nil
-    @State private var pausado: Bool = false
-    @State private var pausadoDesde: String? = nil
-    @State private var cargando: Bool = true
-    @State private var falloDeCarga: Bool = false
+    // ── Carga ─────────────────────────────────────────────────────────────────
+    @State private var cargando = true
+    @State private var falloDeCarga = false
+    /// «Reintentar» tras un error de carga está en marcha.
+    @State private var reintentando = false
+    /// Las semanas HOJEADAS (offset ≥ 1), tal como llegaron del cable. Se guardan crudas y no resueltas: el
+    /// estado de un día une al servidor la marca optimista local, y hay que recalcularlo al marcar.
+    @State private var hojeadasResp: [Int: AthletePlanWeekResponse] = [:]
+    @State private var falloOffset: Set<Int> = []
+    @State private var cargandoOffset: Int? = nil
+    @State private var visibilidadHojeada: AthletePlanWeekVisibility? = nil
+    /// El desglose de cada sesión que se ha mirado, por id. Una sola petición por día mostrado.
+    @State var desgloses: [String: Desglose] = [:]
+    /// Sube cuando cambia una marca optimista local (`CompletedAssignmentsStore`, que no es observable) para
+    /// que la semana se resuelva otra vez y el sello y el tono cambien AL MOMENTO.
+    @State var marcasVersion = 0
 
-    // ── El desglose del día MOSTRADO — sea hoy o uno que se hojeó ─────────────
-    // No hay «el desglose de hoy» y por separado «el de otro día»: hay UN solo
-    // día mostrado en cada momento, y esto es su desglose real (Alex, 7-ago:
-    // «si cada día es una card, cuando pasa el día se ve la card del día»).
-    @State private var desgloseMostrado: DesgloseSesion = .vacio
-    /// De QUÉ sesión es el desglose que hay en memoria. Sin esto, cambiar de
-    /// día y fallar la siguiente petición dejaría en pantalla los bloques de
-    /// OTRA sesión — un desglose real, de la sesión equivocada (§7).
-    @State private var desgloseDeMostrado: String? = nil
-    /// Los minutos MEDIDOS de la sesión de ayer — solo se piden cuando HOY (el
-    /// real, sin nada seleccionado) es descanso, que es cuando esa tarjeta
-    /// concreta los enseña.
-    @State private var medidoAyer: Int? = nil
+    // ── Navegación: qué día muestra la card, ahora mismo (Alex, 7-ago) ────────
+    // Tocar un chip del carril, o deslizarlo entre semanas, hacen LO MISMO: cambian cuál es el día mostrado.
+    @State private var offset = 0
+    /// El día elegido A MANO dentro de la semana visible. Nil = el que toca por defecto.
+    @State private var seleccion: String? = nil
 
-    /// Compartir la semana (card 132): la tira de días + las sesiones hechas.
-    @State private var tarjetaParaCompartir: TarjetaCompartible? = nil
-
-    // ── Navegación (los mismos destinos de siempre) ───────────────────────────
+    // ── Destinos ──────────────────────────────────────────────────────────────
     @State var workoutLaunch: WorkoutLaunch? = nil
     @State private var executedLaunch: WorkoutLaunch? = nil
-    /// Card 142 — sube cada vez que el cover del entreno se cierra (por
-    /// cualquier vía) para que `WorkoutResumeBanner` vuelva a comprobar si hay
-    /// una instantánea que ofrecer, justo en el momento en que puede haber
-    /// aparecido una tras un "Salir y seguir luego".
     @State private var resumeBannerRefresh = 0
     @State private var showLaunchConflict = false
     @State private var conflictSnapshotTitle: String?
     @State private var pendingWorkoutLaunch: WorkoutLaunch? = nil
     @State var techniqueTarget: AthleteWeekDaySession? = nil
     @State var showChat = false
-    /// Sobre qué se abre el chat cuando se abre desde el menú de una sesión o de
-    /// un ejercicio. Nil desde el cromo: entonces es la conversación a secas.
+    /// Sobre qué se abre el chat cuando se abre desde el menú de una sesión o de un ejercicio. Nil desde el
+    /// cromo: entonces es la conversación a secas.
     @State var contextoDelChat: ChatContextChoice? = nil
     @State private var showPartnerPlan = false
     @State private var showHistory = false
     @State private var showCiclo = false
-    @State private var partner: PartnerInfo? = nil
     @State var freeEditAssignmentId: String? = nil
-
-    // ── Un solo mecanismo: qué día muestra la card, ahora mismo (Alex, 7-ago) ─
-    // Tocar un chip del carril, o deslizarlo entre semanas, hacen LO MISMO:
-    // cambian cuál es el día mostrado. La card que lo pinta es siempre la
-    // misma (`heroe(_:)`); solo cambia el dato. Nunca dos pantallas para lo
-    // mismo, nunca un salto a otro sitio por tocar un chip.
-    /// FH-27 — semana visible en el carril (0 = esta, 1+ = peek adelante).
-    @State private var offsetVisible: Int = 0
-    @State private var semanasPorOffset: [Int: SemanaDelPlan] = [:]
-    @State private var posicionesPorOffset: [Int: PosicionEnBloque] = [:]
-    @State private var cargandoOffset: Int? = nil
-    @State private var falloOffset: Int? = nil
-    @State private var planVisibility: AthletePlanWeekVisibility? = nil
-    @State private var showHorizonWall = false
-    @State private var horizonWallMessage: String? = nil
-    /// El día elegido A MANO dentro de la semana visible. `nil` = el que toca
-    /// por defecto (hoy en esta semana; el primero con algo al hojear otra).
-    @State private var diaSeleccionadoId: String? = nil
+    @State private var tarjetaParaCompartir: TarjetaCompartible? = nil
+    @State private var showMuro = false
 
     // ── Acciones que pueden fallar ────────────────────────────────────────────
-    @State var actionError: String? = nil
+    @State var aviso: AvisoDia.Contenido? = nil
     @State var undoConfirmTarget: AthleteWeekDaySession? = nil
     @State var deleteFreeTarget: AthleteWeekDaySession? = nil
 
-    var effectiveBearer: String? { bearer }
-    private var isDobles: Bool { partner != nil }
+    // MARK: - La lectura
+
+    private var respuestaActual: AthletePlanWeekResponse? { store.planWeek.value }
+
+    private func semanaDe(_ resp: AthletePlanWeekResponse) -> SemanaDelPlan {
+        // El total de «Semana N de M» sale de la etiqueta del servidor; si la de esta respuesta no lo trae, la del
+        // progreso del macro (ver `PosicionEnBloque` para por qué NO se calcula aquí).
+        SemanaDelPlan.desde(resp, etiquetaDeRespaldo: store.macroProgress.value?.macro.weekLabel)
+    }
+
+    /// Lo que la pestaña recibe, sin desgloses todavía: `vista` no depende de ellos.
+    private var lecturaBase: LecturaPlan {
+        _ = marcasVersion   // depende de la marca optimista local: al cambiar, se resuelve otra vez
+        let resp = respuestaActual
+        let coach = resp?.coachName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        var hojeadas: [Int: SemanaHojeada] = [:]
+        for (o, r) in hojeadasResp { hojeadas[o] = .llego(semanaDe(r)) }
+        for o in falloOffset where hojeadas[o] == nil { hojeadas[o] = .falla }
+        return LecturaPlan(
+            coach: (coach?.isEmpty == false) ? coach : nil,
+            companero: store.partner.value?.partner?.firstName,
+            hoyIso: resp?.week.todayIso ?? FechaES.iso(Date()),
+            cargando: cargando,
+            errorCarga: falloDeCarga,
+            pausa: (resp?.week.paused == true) ? PausaDelPlan(desde: resp?.week.pausedSince) : nil,
+            actual: resp.map(semanaDe),
+            hojeadas: hojeadas,
+            muro: visibilidad?.wallMessage,
+            horizonteBloquea: visibilidad?.peekBlockedByHorizon ?? false
+        )
+    }
+
+    /// Lo que el servidor dice del horizonte del club: lo de la última semana pedida, o lo de esta.
+    private var visibilidad: AthletePlanWeekVisibility? { visibilidadHojeada ?? respuestaActual?.planVisibility }
+
+    private var navegacion: NavegacionPlan {
+        NavegacionPlan(offset: offset, seleccion: seleccion, cargando: cargandoOffset == offset && hojeadasResp[offset] == nil)
+    }
+
+    /// Las sesiones cuyo desglose hace falta para pintar lo que se ve: la del sujeto, y la de ayer cuando el
+    /// descanso de hoy la cuenta (sus minutos medidos).
+    private func idsADesglosar(_ v: VistaPlan) -> [String] {
+        guard case let .semana(_, semana, cuerpo) = v else { return [] }
+        switch cuerpo {
+        case let .sesion(_, principal, _, _):
+            return [principal.assignmentId]
+        case let .descanso(_, conContexto):
+            return conContexto ? (semana?.sesionDeAyer.map { [$0.sesion.assignmentId] } ?? []) : []
+        default:
+            return []
+        }
+    }
+
+    // MARK: - Cuerpo
+
+    /// La lectura con los desgloses que ya llegaron. Lo que aún no ha llegado se pinta como esqueleto, no como
+    /// «sin detalle»: aún no sabemos cuál de los dos es.
+    private func conDesgloses(_ base: LecturaPlan, _ v: VistaPlan) -> LecturaPlan {
+        var l = base
+        l.desgloses = desgloses
+        if bearer != nil {
+            for id in idsADesglosar(v) where l.desgloses[id] == nil { l.desgloses[id] = .cargando }
+        }
+        return l
+    }
+
+    var body: some View {
+        let base = lecturaBase
+        let v = base.vista(navegacion)
+        ZStack {
+            Theme.Color.background.ignoresSafeArea()
+            contenido(conDesgloses(base, v), v)
+        }
+        .avisoDia($aviso)
+        .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.9), value: aviso)
+        .task { store.activate(bearer: bearer); await cargar() }
+        // El desglose real del día MOSTRADO — se pide cada vez que ese día cambia (por tocar un chip o por
+        // deslizar de semana), nunca antes.
+        .task(id: claveDeMostrado(v)) { await cargarDesgloses(idsADesglosar(v)) }
+        .confirmarDeshacer($undoConfirmTarget, alConfirmar: confirmUndo)
+        .confirmarBorrarLibre($deleteFreeTarget, alConfirmar: confirmDeleteFree)
+        .modifier(destinos)
+        .alert(PlanTextos.Muro.titulo, isPresented: $showMuro) {
+            Button(PlanTextos.Muro.cerrar, role: .cancel) {}
+        } message: {
+            Text(base.muro ?? PlanTextos.Muro.porDefecto)
+        }
+    }
+
+    private var destinos: PlanDestinos {
+        PlanDestinos(
+            bearer: bearer,
+            workoutLaunch: $workoutLaunch, executedLaunch: $executedLaunch, freeEditAssignmentId: $freeEditAssignmentId,
+            showPartnerPlan: $showPartnerPlan, showHistory: $showHistory, showCiclo: $showCiclo,
+            showChat: $showChat, contextoDelChat: $contextoDelChat, techniqueTarget: $techniqueTarget,
+            tarjetaParaCompartir: $tarjetaParaCompartir, showLaunchConflict: $showLaunchConflict,
+            conflictSnapshotTitle: conflictSnapshotTitle,
+            alCerrarEntreno: { resumeBannerRefresh += 1 },
+            alCambiarElPlan: { Task { await store.planMutated(); await cargar(force: true) } },
+            alRetomar: { Task { await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: store.identity.value?.hrZones) } },
+            alTerminarYEmpezar: {
+                Task {
+                    await LiveWorkoutLaunchConflict.terminateCurrentForNewStart()
+                    if let pending = pendingWorkoutLaunch {
+                        pendingWorkoutLaunch = nil
+                        workoutLaunch = pending
+                    }
+                }
+            },
+            alPreguntarPorEntrenoPasado: { sesion, iso in preguntarPorEntrenoPasado(sesion, iso: iso) },
+            alPreguntarPorEjercicio: { ejercicio, sesion in preguntarPorEjercicio(ejercicio, de: sesion) }
+        )
+    }
+
+    /// La clave que dispara la carga del desglose: cambia cada vez que cambia CUÁL es el día mostrado. `.task(id:)`
+    /// cancela y repite la petición sola.
+    private func claveDeMostrado(_ v: VistaPlan) -> String {
+        "\(offset)|\(seleccion ?? "")|\(idsADesglosar(v).joined(separator: ","))|\(marcasVersion)"
+    }
+
+    // MARK: - La pantalla
+
+    /// Todo lo que la pantalla hace al tocarla, conectado a esta vista.
+    private func acciones() -> AccionesDePlan {
+        AccionesDePlan(
+            alDobles: { showPartnerPlan = true },
+            alCompartir: { tarjetaParaCompartir = .semana(TarjetaCompartibleBuilder.semana($0)) },
+            alCiclo: { showCiclo = true },
+            alHistorial: { showHistory = true },
+            alChat: { showChat = true },
+            alPulsarDia: { seleccion = $0.isoDate },
+            alDeslizar: { $0 > 0 ? irAdelante() : irAtras() },
+            alAtras: irAtras, alAdelante: irAdelante, alVolver: volver,
+            alAccion: { alAccion($0) },
+            alAbrir: abrir,
+            menuDeSesion: { sesion, semana in AnyView(menuDeSesion(sesion, semana)) },
+            menuDelDia: { dia, semana in AnyView(menuDelDia(dia, semana)) }
+        )
+    }
+
+    @ViewBuilder
+    private func contenido(_ l: LecturaPlan, _ v: VistaPlan) -> some View {
+        PlanPantalla(l: l, v: v, acciones: acciones(), reintentando: reintentando) {
+            WorkoutResumeBanner(refreshToken: resumeBannerRefresh) { _ in
+                Task { await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: store.identity.value?.hrZones) }
+            }
+        }
+        // Cambiar de semana o de día: el contenido nuevo entra, no se reescribe.
+        .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.86), value: offset)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: seleccion)
+        .refreshable {
+            if offset == 0 { await cargar(force: true) } else { await cargarSemana(offset: offset, force: true) }
+        }
+    }
+
+    // MARK: - Semanas: hojear
+
+    /// Adelante desde la semana que se mira: la siguiente, si hay (contenido + horizonte del club); si el club la
+    /// bloquea, dice por qué. Cada salto limpia la selección de día.
+    private func irAdelante() {
+        let l = lecturaBase
+        if l.puedeAvanzar(offset: offset) {
+            Haptics.light()
+            seleccion = nil
+            offset += 1
+            let siguiente = offset
+            // Se marca ANTES de que la petición arranque: un fotograma sin marca diría «esa semana aún no tiene sesiones».
+            if hojeadasResp[siguiente] == nil { cargandoOffset = siguiente }
+            Task { await cargarSemana(offset: siguiente) }
+        } else if l.bloqueadaPorElClub(offset: offset) {
+            Haptics.light()
+            showMuro = true
+        }
+    }
+
+    private func irAtras() {
+        guard offset > 0 else { return }
+        Haptics.light()
+        seleccion = nil
+        offset -= 1
+    }
+
+    private func volver() {
+        Haptics.light()
+        seleccion = nil
+        offset = 0
+    }
+
+    // MARK: - La acción anclada
+
+    private func alAccion(_ a: AccionAnclada) {
+        switch a {
+        case let .empezar(sesion, _), let .verHecho(sesion, _), let .verSiguiente(sesion, _, _):
+            abrir(sesion)
+        case .escribirAlCoach:
+            Haptics.light()
+            showChat = true
+        case .reintentar:
+            Haptics.light()
+            if offset > 0 {
+                Task { await cargarSemana(offset: offset, force: true) }
+            } else if !reintentando {
+                reintentando = true
+                Task {
+                    await cargar(force: true)
+                    reintentando = false
+                }
+            }
+        case .verSemanaQueViene:
+            irAdelante()
+        case .volverAEstaSemana:
+            volver()
+        }
+    }
+
+    // MARK: - Abrir y empezar
+
+    /// UNA puerta, con el aviso de lo que se pisaría. Tocar ROUTEA POR ESTADO: una sesión terminada (hecha o a
+    /// medias) abre el detalle de lo que registraste; una pendiente abre la previa del entreno. Un solo punto de
+    /// decisión, para que hecho y pendiente no se confundan.
+    private func abrir(_ session: AthleteWeekDaySession) {
+        guard !session.assignmentId.isEmpty else { return }
+        let launch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
+        if session.estado.trabajada {
+            executedLaunch = launch
+        } else {
+            Task { await attemptWorkoutLaunch(launch) }
+        }
+    }
 
     @MainActor
     func attemptWorkoutLaunch(_ launch: WorkoutLaunch) async {
@@ -131,732 +325,72 @@ struct PlanView: View {
         }
     }
 
-    // MARK: - Cuerpo
-
-    var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            contenido
-        }
-        .overlay(alignment: .top) { actionErrorBanner }
-        .animation(.spring(response: 0.42, dampingFraction: 0.9), value: actionError)
-        .task { store.activate(bearer: effectiveBearer); await cargar() }
-        // El desglose real del día MOSTRADO — se pide cada vez que ese día
-        // cambia (por tocar un chip o por deslizar de semana), nunca antes.
-        .task(id: claveDeMostrado) { await cargarDetalleDeMostrado() }
-        .modifier(PlanDialogos(
-            undoTarget: $undoConfirmTarget,
-            deleteFreeTarget: $deleteFreeTarget,
-            onUndo: confirmUndo,
-            onDeleteFree: confirmDeleteFree
-        ))
-        .liveWorkoutLaunchConflict(
-            isPresented: $showLaunchConflict,
-            snapshotTitle: conflictSnapshotTitle,
-            onResume: {
-                Task { await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: store.identity.value?.hrZones) }
-            },
-            onEndAndStart: {
-                Task {
-                    await LiveWorkoutLaunchConflict.terminateCurrentForNewStart()
-                    if let pending = pendingWorkoutLaunch {
-                        pendingWorkoutLaunch = nil
-                        workoutLaunch = pending
-                    }
-                }
-            }
-        )
-        .fullScreenCover(item: $workoutLaunch) { launch in
-            WorkoutContainer(
-                assignmentId: launch.assignmentId,
-                fallbackTitle: launch.title,
-                bearer: effectiveBearer,
-                hrZones: store.identity.value?.hrZones,
-                onClose: {
-                    workoutLaunch = nil
-                    // "Salir y seguir luego" cierra por AQUÍ (igual que un
-                    // descarte o un back de brief): la tira de retomar tiene que
-                    // volver a mirar el store justo ahora.
-                    resumeBannerRefresh += 1
-                },
-                onCompleted: { _ in
-                    workoutLaunch = nil
-                    resumeBannerRefresh += 1
-                    Task { await store.planMutated(); await cargar(force: true) }
-                }
-            )
-        }
-        .fullScreenCover(item: $executedLaunch) { launch in
-            ExecutedWorkoutView(
-                assignmentId: launch.assignmentId,
-                fallbackTitle: launch.title,
-                bearer: effectiveBearer,
-                hrZones: store.identity.value?.hrZones,
-                onClose: { executedLaunch = nil },
-                onStale: { Task { await store.planMutated(); await cargar(force: true) } }
-            )
-        }
-        .fullScreenCover(isPresented: Binding(
-            get: { freeEditAssignmentId != nil },
-            set: { if !$0 { freeEditAssignmentId = nil } }
-        )) {
-            if let editId = freeEditAssignmentId, let id = Int(editId) {
-                FreeWorkoutBuilderView(
-                    bearer: effectiveBearer,
-                    editingAssignmentId: id,
-                    hrZones: store.identity.value?.hrZones,
-                    onClose: { freeEditAssignmentId = nil },
-                    onCompleted: {
-                        freeEditAssignmentId = nil
-                        Task { await store.planMutated(); await cargar(force: true) }
-                    }
-                )
-            }
-        }
-        .fullScreenCover(isPresented: $showPartnerPlan) {
-            DoblesPlanView(bearer: effectiveBearer)
-        }
-        .fullScreenCover(isPresented: $showHistory) {
-            HistoryView(
-                bearer: effectiveBearer,
-                onClose: { showHistory = false },
-                // Preguntar por un entreno YA hecho: se cierra el historial y el
-                // chat se abre con ese entreno señalado. El relevo se resuelve
-                // aquí porque las dos presentaciones son de esta pantalla.
-                onPreguntar: hasCoach ? { sesion, iso in
-                    showHistory = false
-                    preguntarPorEntrenoPasado(sesion, iso: iso)
-                } : nil,
-                onFreeSessionDeleted: {
-                    Task { await store.planMutated(); await cargar(force: true) }
-                }
-            )
-        }
-        .fullScreenCover(isPresented: $showCiclo) {
-            // El sujeto del ciclo sale de su propio camino, no de esta pantalla:
-            // pasarle el nombre del bloque sería una segunda fuente del mismo dato.
-            PlanCicloView(bearer: effectiveBearer, onClose: { showCiclo = false })
-                .environment(store)
-        }
-        .sheet(isPresented: $showChat, onDismiss: { contextoDelChat = nil }) {
-            // A custom @Observable environment value does NOT cross a presentation
-            // boundary — ChatView reads its cache-first history from the store.
-            ChatView(bearer: effectiveBearer, contextoInicial: contextoDelChat)
-                .environment(store)
-        }
-        .sheet(item: $techniqueTarget) { session in
-            SessionExercisesSheet(
-                assignmentId: session.assignmentId,
-                sessionTitle: session.title,
-                bearer: effectiveBearer,
-                // Preguntar por UN ejercicio: se cierra el índice y el chat se
-                // abre con ese ejercicio ya señalado. Las dos hojas son de esta
-                // pantalla, así que el relevo se resuelve aquí y no hace falta
-                // una segunda puerta al chat.
-                onPreguntar: hasCoach ? { ejercicio in
-                    techniqueTarget = nil
-                    preguntarPorEjercicio(ejercicio, de: session)
-                } : nil
-            )
-        }
-    }
-
-    /// Los CINCO estados que la pantalla resuelve (§5, más el plan en pausa, que
-    /// es un vacío CON motivo y por eso también va centrado y con salida).
-    @ViewBuilder
-    private var contenido: some View {
-        if cargando, semana == nil {
-            esqueleto
-        } else if pausado {
-            estadoConCabecera { estadoEnPausa }
-        } else if falloDeCarga, semana == nil {
-            estadoConCabecera { estadoDeError }
-        } else if let semana, semana.tieneAlgunaSesion {
-            pantalla(semana)
-        } else {
-            estadoConCabecera { estadoSinPlan }
-        }
-    }
-
-    // MARK: - La pantalla con datos
-
-    private func pantalla(_ semana: SemanaDelPlan) -> some View {
-        FillingScreen {
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                cabeceraDeNavegacion
-                // Card 142 — "Salir y seguir luego" deja un entreno a medias
-                // adrede; esta es la forma de VOLVER que no depende de que el
-                // atleta se acuerde. Autocargada: no pinta nada la mayoría del
-                // tiempo (no hay ninguna instantánea que ofrecer).
-                WorkoutResumeBanner(refreshToken: resumeBannerRefresh) { _ in
-                    Task {
-                        await LiveWorkoutResume.shared.recoverOnLaunch(
-                            hrZones: store.identity.value?.hrZones
-                        )
-                    }
-                }
-                CabeceraDelBloque(
-                    nombre: semanaVisible?.nombreBloque,
-                    posicion: posicionVisible,
-                    intencion: semanaVisible?.intencion
-                )
-                carrilConGesto
-                heroe
-                if let segunda = sesionSecundariaMostrada {
-                    filaSegundaSesion(segunda)
-                }
-            }
-            .padding(.horizontal, Theme.Spacing.l)
-            .padding(.top, Theme.Spacing.s)
-            .padding(.bottom, Theme.Spacing.s)
-            .animation(.spring(response: 0.38, dampingFraction: 0.86), value: offsetVisible)
-            .animation(.spring(response: 0.3, dampingFraction: 0.88), value: diaSeleccionadoId)
-        }
-        .refreshable {
-            if offsetVisible == 0 {
-                await cargar(force: true)
-            } else {
-                await cargarSemana(offset: offsetVisible, force: true)
-            }
-        }
-        .alert("Límite de visibilidad", isPresented: $showHorizonWall) {
-            Button("Entendido", role: .cancel) {}
-        } message: {
-            Text(horizonWallMessage ?? "Tu entrenador ha limitado hasta dónde puedes ver el plan.")
-        }
-        .anchoredAction { accionAnclada }
-        .sheet(item: $tarjetaParaCompartir) { tarjeta in
-            CompartirSheet(tarjeta: tarjeta)
-        }
-    }
-
-    // MARK: - Un solo mecanismo: seleccionar un día cambia qué muestra la card
-
-    /// La semana que la pantalla enseña AHORA: la actual, o la que viene si se
-    /// deslizó el carril. TODO lo de abajo lee de aquí — es la MISMA
-    /// composición siempre, solo cambia el dato (Alex, 7-ago).
-    /// Internal (not `private`): `PlanAcciones.diasDestino` reads this across files.
-    var semanaVisible: SemanaDelPlan? {
-        semanasPorOffset[offsetVisible] ?? (offsetVisible == 0 ? semana : nil)
-    }
-    private var posicionVisible: PosicionEnBloque? {
-        posicionesPorOffset[offsetVisible] ?? (offsetVisible == 0 ? posicion : nil)
-    }
-    /// Puede deslizar +1 semana desde el offset actual (contenido + horizonte).
-    private var puedeAvanzarSemana: Bool {
-        guard let vis = semanaVisible else { return false }
-        return vis.hasNextWeek
-    }
-    /// Hay semana publicada más adelante pero el club lo bloquea (FH-27).
-    private var peekBloqueadoPorHorizonte: Bool {
-        semanaVisible?.peekBlockedByHorizon ?? planVisibility?.peekBlockedByHorizon ?? false
-    }
-
-    /// El día que la card muestra: el que el atleta seleccionó a mano dentro de
-    /// la semana visible; si no seleccionó ninguno, hoy (en esta semana) o el
-    /// primero con algo (hojeando otra) — nunca se inventa un día (§7).
-    private func diaMostrado(_ semana: SemanaDelPlan) -> DiaDelPlan? {
-        if let id = diaSeleccionadoId, let dia = semana.dias.first(where: { $0.id == id }) {
-            return dia
-        }
-        return semana.hoy ?? semana.dias.first { !$0.sesiones.isEmpty }
-    }
-
-    private var diaMostradoActual: DiaDelPlan? { semanaVisible.flatMap(diaMostrado) }
-    private var sesionMostrada: AthleteWeekDaySession? { diaMostradoActual?.sesiones.first }
-
-    /// La OTRA sesión del día mostrado, cuando lleva dos (AM+PM) — de cualquier
-    /// día que se esté viendo, no solo hoy.
-    private var sesionSecundariaMostrada: AthleteWeekDaySession? {
-        guard let dia = diaMostradoActual, dia.sesiones.count > 1, let principal = sesionMostrada else { return nil }
-        return dia.sesiones.first { $0.assignmentId != principal.assignmentId }
-    }
-
-    /// Tocar un chip SELECCIONA ese día — no abre nada. Es el mismo mecanismo
-    /// que deslizar de semana: cambia qué día alimenta la MISMA card. Entrar al
-    /// detalle completo se hace tocando DENTRO de la card (Alex, 7-ago).
-    private func seleccionarDia(_ dia: DiaDelPlan) {
-        Haptics.light()
-        diaSeleccionadoId = dia.id
-    }
-
-    /// El carril, con el gesto que cambia de semana. Deslizar a la izquierda
-    /// pide la que viene (hasta el tope del club, FH-27); a la derecha, vuelve.
-    /// Cada salto limpia la selección de día.
-    @ViewBuilder
-    private var carrilConGesto: some View {
-        if let semanaVis = semanaVisible {
-            CarrilSemana(semana: semanaVis, idDestacado: diaMostrado(semanaVis)?.id, onDia: seleccionarDia) { dia in
-                accionesDelDia(dia)
-            }
-            // `simultaneous`: un DragGesture normal en el contenedor se come el
-            // tap de los ChipDia hijos aunque tenga `minimumDistance` — así conviven.
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 24)
-                    .onEnded { valor in
-                        guard abs(valor.translation.width) > abs(valor.translation.height) else { return }
-                        if valor.translation.width < -40 {
-                            if puedeAvanzarSemana {
-                                Haptics.light()
-                                diaSeleccionadoId = nil
-                                let next = offsetVisible + 1
-                                offsetVisible = next
-                                Task { await cargarSemana(offset: next) }
-                            } else if peekBloqueadoPorHorizonte {
-                                Haptics.light()
-                                horizonWallMessage = planVisibility?.wallMessage
-                                    ?? "Tu entrenador ha limitado hasta dónde puedes ver el plan."
-                                showHorizonWall = true
-                            }
-                        } else if valor.translation.width > 40, offsetVisible > 0 {
-                            Haptics.light()
-                            diaSeleccionadoId = nil
-                            offsetVisible -= 1
-                        }
-                    }
-            )
-        }
-    }
-
-    private func cargarSemana(offset: Int, force: Bool = false) async {
-        guard let token = effectiveBearer else {
-            falloOffset = offset
-            return
-        }
-        if semanasPorOffset[offset] != nil, !force { return }
-        cargandoOffset = offset
-        do {
-            let resp = try await PlanService.fetchWeek(bearer: token, weekOffset: offset)
-            let parsed = SemanaDelPlan.desde(resp)
-            semanasPorOffset[offset] = parsed
-            posicionesPorOffset[offset] = PosicionEnBloque.desde(etiqueta: resp.macroSummary.weekLabel)
-            if offset == 0 {
-                semana = parsed
-                posicion = posicionesPorOffset[0]
-            }
-            if let vis = resp.planVisibility { planVisibility = vis }
-            falloOffset = nil
-        } catch {
-            if semanasPorOffset[offset] == nil { falloOffset = offset }
-        }
-        cargandoOffset = nil
-    }
-
-    /// El héroe: la sesión del día mostrado en grande —con su desglose REAL,
-    /// sea hoy o un día que se hojeó—, o el día que no toca nada. Una sola
-    /// composición para cualquier día; lo único que cambia es el dato.
-    @ViewBuilder
-    private var heroe: some View {
-        if let dia = diaMostradoActual, let sesion = dia.sesiones.first {
-            HeroeSesion(
-                dia: dia,
-                sesion: sesion,
-                desglose: desgloseMostrado,
-                marca: marca(sesion),
-                onAbrir: { abrir(sesion) }
-            )
-            .frame(maxHeight: .infinity)
-            .contextMenu { accionesDeSesion(sesion) }
-        } else if let dia = diaMostradoActual {
-            // El día sin nada — MISMA card, otro contenido. El marco de
-            // ayer/mañana solo cuando el día mostrado es HOY de verdad.
-            HeroeDescanso(
-                dia: dia,
-                semana: semana ?? SemanaDelPlan(dias: [], indiceHoy: nil, intencion: nil, nombreBloque: nil, planStartsOn: nil, hasNextWeek: false, peekBlockedByHorizon: false),
-                medidoAyer: medidoAyer,
-                mostrarContexto: dia.esHoy && offsetVisible == 0,
-                onAbrir: { abrir($0) }
-            )
-            .frame(maxHeight: .infinity)
-        } else if offsetVisible > 0 {
-            // La semana que viene existe (`hasNextWeek`) pero llegó vacía: el
-            // coach todavía no le puso sesiones. Un hecho, no un error.
-            RedesignEmptyState(
-                symbol: "calendar.badge.clock",
-                title: "Tu coach aún no ha llenado la semana que viene",
-                message: "En cuanto le ponga sesiones las verás aquí.",
-                exit: .explained(note: "Desliza a la derecha para volver a esta semana.")
-            )
-            .frame(maxHeight: .infinity)
-        } else {
-            // Hoy cae fuera de la semana servida — raro, pero no se inventa un día.
-            RedesignEmptyState(
-                symbol: "calendar",
-                title: "Esta semana no incluye hoy",
-                message: "Tu plan se publica por semanas y hoy queda fuera de la que tenemos.",
-                exit: .action(title: "Recargar") { Task { await cargar(force: true) } }
-            )
-            .frame(maxHeight: .infinity)
-        }
-    }
-
-    /// La SEGUNDA sesión del día (el caso AM+PM): fila compacta, no un segundo
-    /// héroe. Es el patrón que la vieja portada de Inicio ya validaba.
-    private func filaSegundaSesion(_ session: AthleteWeekDaySession) -> some View {
-        HStack(spacing: Theme.Spacing.xs) {
-            SessionCompactRow(
-                slot: slot(for: session),
-                title: session.title,
-                meta: DuracionDeSesion.texto(session) ?? "También hoy",
-                modality: session.modality,
-                isFree: session.isSelfOrigin,
-                onTap: { abrir(session) }
-            )
-            menuDeSesion(session)
-        }
-    }
-
-    // MARK: - Cromo superior
-
-    /// El cromo de la pestaña: chip de Dobles, ciclo, historial y chat. Sin logo
-    /// — el logo vive en Inicio.
-    ///
-    /// El ciclo va PRIMERO de los tres iconos porque es el único que habla del
-    /// plan que se está mirando: el historial y el chat son sitios a los que se va
-    /// desde cualquier parte.
-    var cabeceraDeNavegacion: some View {
-        HStack(alignment: .center, spacing: Theme.Spacing.s) {
-            Spacer(minLength: Theme.Spacing.s)
-            if isDobles, let partner {
-                Button {
-                    Haptics.light()
-                    showPartnerPlan = true
-                } label: {
-                    HStack(spacing: 5) {
-                        Circle().fill(Theme.Color.partner).frame(width: 6, height: 6)
-                        Text("Dobles · \(partner.firstName)")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Theme.Color.foreground)
-                            .lineLimit(1)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Theme.Color.surfaceElevated)
-                    .overlay(Capsule().stroke(Theme.Color.hairlineStrong, lineWidth: 1))
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(PressScaleStyle())
-                .accessibilityLabel("Modalidad Dobles con \(partner.firstName). Ver su plan")
-            }
-            // Compartir la semana (card 132). Solo con una semana real delante:
-            // sin días servidos no hay nada honesto que enseñar.
-            if let visible = semanaVisible, visible.tieneAlgunaSesion {
-                botonDeCromo(symbol: "square.and.arrow.up", etiqueta: "Compartir la semana") {
-                    tarjetaParaCompartir = .semana(TarjetaCompartibleBuilder.semana(visible))
-                }
-            }
-            botonDeCromo(symbol: "square.stack.3d.up", etiqueta: "Ver el ciclo entero") {
-                showCiclo = true
-            }
-            botonDeCromo(symbol: "calendar", etiqueta: "Historial de entrenos") {
-                showHistory = true
-            }
-            if hasCoach {
-                botonDeCromo(symbol: "message", etiqueta: "Chat con tu coach") {
-                    showChat = true
-                }
-            }
-        }
-        .frame(minHeight: 36)
-    }
-
-    private func botonDeCromo(symbol: String, etiqueta: String, action: @escaping () -> Void) -> some View {
-        Button {
-            Haptics.light()
-            action()
-        } label: {
-            Image(systemName: symbol)
-                .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(Theme.Color.accentText)
-                .frame(width: 40, height: 36)
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel(etiqueta)
-    }
-
-    // MARK: - La acción anclada (§6.2: vive abajo, siempre visible)
-
-    @ViewBuilder
-    private var accionAnclada: some View {
-        if let accion = accionDelDia {
-            ExpertPrimaryButton(title: accion.titulo, height: 50, action: accion.hacer)
-        }
-    }
-
-    /// Qué puede hacer el atleta AHORA con lo que la card enseña, en una sola
-    /// acción. Sigue al día MOSTRADO, sea hoy o uno que se hojeó — actuar sobre
-    /// una sesión que no es la que se ve en pantalla sería la propia mentira
-    /// que este botón existe para evitar.
-    ///
-    /// «Ver lo de mañana» solo aplica al descanso de HOY sin seleccionar nada:
-    /// hojeando otro día ya se está mirando ESE día, no hace falta ofrecer
-    /// otro salto. Y sin sesión ni mañana, no hay una TERCERA acción que
-    /// inventar: el cromo de arriba ya lleva al ciclo entero, y una segunda
-    /// entrada al mismo sitio es ruido, no una salida (Alex, 7-ago).
-    private var accionDelDia: (titulo: String, hacer: () -> Void)? {
-        if let sesion = sesionMostrada {
-            let titulo = marca(sesion).isFinished ? "VER LO QUE HICISTE" : "▶ EMPEZAR"
-            return (titulo, { abrir(sesion) })
-        }
-        if offsetVisible == 0, diaSeleccionadoId == nil, let manana = semana?.sesionDeManana {
-            return ("VER LO DE MAÑANA", { abrir(manana.sesion) })
-        }
-        return nil
-    }
-
-    // MARK: - Los estados sin datos (§5)
-
-    /// El esqueleto de la carga en frío: la MISMA silueta que la pantalla real,
-    /// para que al llegar el dato nada salte de sitio. Nunca un estado vacío
-    /// mientras todavía no se sabe si está vacío.
-    private var esqueleto: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            cabeceraDeNavegacion
-            VStack(alignment: .leading, spacing: 9) {
-                SkeletonBar(width: 160, height: 14)
-                SkeletonBar(height: 12)
-            }
-            HStack(spacing: 2) {
-                ForEach(0..<7, id: \.self) { _ in
-                    SkeletonBar(height: 62, radius: Theme.Radius.m)
-                }
-            }
-            SkeletonBar(height: 260, radius: Theme.Radius.l)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, Theme.Spacing.l)
-        .padding(.top, Theme.Spacing.s)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Cargando tu plan")
-    }
-
-    /// Envuelve un estado sin datos con el cromo persistente: el historial y el
-    /// chat no pueden desaparecer solo porque no haya plan que enseñar.
-    private func estadoConCabecera<Content: View>(@ViewBuilder _ content: @escaping () -> Content) -> some View {
-        CenteredScreen {
-            cabeceraDeNavegacion
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.top, Theme.Spacing.s)
-        } content: {
-            content()
-        }
-        .refreshable { await cargar(force: true) }
-    }
-
-    /// La semana no tiene sesiones. Son TRES vacíos distintos y decirlos mal tiene
-    /// coste real: durante meses esto afirmaba «tu coach aún no ha publicado tu
-    /// plan» incluso cuando el plan estaba publicado y solo empezaba más tarde —
-    /// el atleta lo leía como negligencia de su coach, y el propio coach perdía
-    /// tiempo buscando un fallo que no existía.
-    ///
-    /// 1. Hay plan y empieza más adelante → se dice la fecha exacta.
-    /// 2. Hay coach y no hay nada programado → se está preparando.
-    /// 3. No hay coach → la semana es suya para llenarla.
-    ///
-    /// Ninguno de los tres afirma qué hará el coach ni cuándo (docs/DECISIONS.md,
-    /// 7-ago): el caso 1 solo refleja lo que YA está programado.
-    private var estadoSinPlan: some View {
-        if let inicio = semana?.planStartsOn, let cuando = FechaES.conDia(inicio) {
-            return RedesignEmptyState(
-                symbol: "calendar.badge.clock",
-                title: "Tu plan empieza el \(cuando)",
-                message: "Esta semana no tienes sesiones. Ya está todo montado y te espera.",
-                exit: puedeAvanzarSemana
-                    ? .action(title: "Ver la semana que viene") {
-                        Haptics.light()
-                        offsetVisible = 1
-                        Task { await cargarSemana(offset: 1) }
-                    }
-                    : .explained(note: "Aparecerá aquí el mismo día."),
-                symbolColor: Theme.Color.accentText
-            )
-        }
-        return RedesignEmptyState(
-            symbol: "calendar.badge.clock",
-            title: hasCoach ? "Tu plan se está preparando" : "Tu semana está en blanco",
-            message: hasCoach
-                ? "En cuanto tu coach lo asigne lo verás aquí, día a día."
-                : "Construye un entreno desde Inicio y aparecerá aquí, día a día.",
-            exit: hasCoach
-                ? .action(title: "Escribir a tu coach") { Haptics.light(); showChat = true }
-                : .explained(note: "Los entrenos que montes tú aparecen en esta semana.")
-        )
-    }
-
-    /// Error de carga SIN caché: honesto y con reintento.
-    private var estadoDeError: some View {
-        RedesignEmptyState(
-            symbol: "wifi.exclamationmark",
-            title: "No pudimos cargar tu plan",
-            message: "Revisa tu conexión e inténtalo de nuevo.",
-            exit: .action(title: "Reintentar") {
-                Haptics.light()
-                cargando = true
-                Task { await cargar(force: true) }
-            }
-        )
-    }
-
-    /// El coach paró el plan. Ni error ni vacío: el progreso está guardado y el
-    /// atleta no ve sesiones caducadas.
-    private var estadoEnPausa: some View {
-        RedesignEmptyState(
-            symbol: "pause.circle",
-            title: "Tu plan está en pausa",
-            message: "\(quienPausa) lo ha pausado mientras te recuperas. Tu progreso está guardado.",
-            exit: .explained(note: pausadoDesdeTexto ?? "Retomamos en cuanto estés listo."),
-            symbolColor: Theme.Color.accentText
-        )
-    }
-
-    private var quienPausa: String {
-        let coach = coachName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (coach?.isEmpty == false) ? coach! : "Tu coach"
-    }
-
-    private var pausadoDesdeTexto: String? {
-        guard let iso = pausadoDesde, let fecha = FechaES.larga(iso) else { return nil }
-        return "En pausa desde el \(fecha)."
-    }
-
-    // MARK: - Sesión, marca, lanzamiento
-
-    func marca(_ session: AthleteWeekDaySession) -> SessionMarkState {
-        SessionMarkState.of(status: session.status, assignmentId: session.assignmentId)
-    }
-
-    private func slot(for session: AthleteWeekDaySession) -> SessionSlot {
-        session.slot.lowercased().hasPrefix("pm") ? .pm : .am
-    }
-
-    func launch(_ session: AthleteWeekDaySession) -> WorkoutLaunch {
-        WorkoutLaunch(
-            assignmentId: session.assignmentId,
-            title: session.title
-        )
-    }
-
-    // MARK: - Abrir
-
-    /// Tocar DENTRO de la card ROUTEA POR ESTADO: una sesión terminada (hecha o
-    /// a medias) abre el detalle de lo que registraste; una pendiente abre la
-    /// previa del entreno. Un solo punto de decisión, para que hecho y
-    /// pendiente no se confundan. Esto es lo único que sale de esta pantalla —
-    /// tocar un chip del carril YA NO llega aquí, solo selecciona (Alex, 7-ago).
-    private func abrir(_ session: AthleteWeekDaySession) {
-        guard !session.assignmentId.isEmpty else { return }
-        if marca(session).isFinished {
-            executedLaunch = launch(session)
-        } else {
-            Task { await attemptWorkoutLaunch(launch(session)) }
-        }
-    }
-
     // MARK: - Carga (cache-first + SWR, como el resto de la app)
 
     func cargar(force: Bool = false) async {
-        guard effectiveBearer != nil else {
+        guard bearer != nil else {
             cargando = false
             falloDeCarga = true
             return
         }
         // 1. Lo que ya está en memoria se pinta YA: cambiar de pestaña no gira.
-        if let cached = store.planWeek.value {
-            aplicar(cached)
-            cargando = false
-        }
+        if store.planWeek.value != nil { cargando = false }
         // 2. Se revalida en segundo plano (semana + macro + pareja).
         await store.loadPlanScreen(force: force)
-        if let fresh = store.planWeek.value {
-            aplicar(fresh)
-            falloDeCarga = false
-        } else if store.planWeek.hasLoaded {
-            semana = SemanaDelPlan(dias: [], indiceHoy: nil, intencion: nil, nombreBloque: nil, planStartsOn: nil, hasNextWeek: false, peekBlockedByHorizon: false)
-            falloDeCarga = false
-        } else {
-            falloDeCarga = true
-        }
-        partner = store.partner.value?.partner
+        // Sin semana pero con la carga hecha: el atleta no tiene plan (vacío), no un error.
+        falloDeCarga = store.planWeek.value == nil && !store.planWeek.hasLoaded
         cargando = false
-        // El desglose del día mostrado lo dispara `.task(id: claveDeMostrado)`
-        // en el body — no hace falta pedirlo aquí también.
+        // Las semanas hojeadas se piden otra vez si el plan cambió: lo mutado puede haberlas movido.
+        if force, offset > 0 { await cargarSemana(offset: offset, force: true) }
     }
 
-    private func aplicar(_ resp: AthletePlanWeekResponse) {
-        semana = SemanaDelPlan.desde(resp)
-        // «Semana N de M» sale de la etiqueta que compone el servidor. Ver
-        // `PosicionEnBloque` para por qué NO se calcula aquí ni sale de
-        // `macro_progress.total_assigned_weeks`.
-        posicion = PosicionEnBloque.desde(etiqueta: resp.macroSummary.weekLabel)
-            ?? PosicionEnBloque.desde(etiqueta: store.macroProgress.value?.macro.weekLabel)
-        coachName = resp.coachName
-        pausado = resp.week.paused
-        pausadoDesde = resp.week.pausedSince
-        planVisibility = resp.planVisibility
-        if offsetVisible == 0 {
-            semanasPorOffset[0] = semana
-            if let pos = posicion { posicionesPorOffset[0] = pos }
+    private func cargarSemana(offset o: Int, force: Bool = false) async {
+        guard let token = bearer else {
+            falloOffset.insert(o)
+            return
         }
+        if hojeadasResp[o] != nil, !force { return }
+        cargandoOffset = o
+        do {
+            let resp = try await PlanService.fetchWeek(bearer: token, weekOffset: o)
+            hojeadasResp[o] = resp
+            if let v = resp.planVisibility { visibilidadHojeada = v }
+            falloOffset.remove(o)
+        } catch {
+            if hojeadasResp[o] == nil { falloOffset.insert(o) }
+        }
+        cargandoOffset = nil
     }
 
     // MARK: - El desglose del día MOSTRADO
 
-    /// La clave que dispara `cargarDetalleDeMostrado()`: cambia cada vez que
-    /// cambia CUÁL es el día mostrado — por semana, por selección o por la
-    /// sesión concreta. `.task(id:)` cancela y repite la petición sola.
-    private var claveDeMostrado: String {
-        "\(offsetVisible)|\(diaSeleccionadoId ?? "")|\(sesionMostrada?.assignmentId ?? "")"
-    }
-
-    /// El desglose REAL del día que la card enseña AHORA — sus bloques, su
-    /// cabecera de formato y sus cifras. El resumen de fila (`shortPrescription`)
-    /// es una frase y no basta para la card, sea el día que sea (Alex, 7-ago:
-    /// «no me la enseñes vacía»).
-    private func cargarDetalleDeMostrado() async {
-        guard let token = effectiveBearer else { return }
-        guard let sesion = sesionMostrada else {
-            desgloseMostrado = .vacio
-            desgloseDeMostrado = nil
-            // Solo el descanso de HOY sin seleccionar nada enseña ayer medido —
-            // es el marco de `HeroeDescanso`, no el de un día hojeado aparte.
-            if offsetVisible == 0, diaSeleccionadoId == nil {
-                await cargarMedidoDeAyer(token: token)
-            } else {
-                medidoAyer = nil
+    /// El desglose REAL de lo que la card enseña AHORA — sus bloques, su cabecera de formato y, si está hecha, sus
+    /// minutos medidos. El resumen de fila (`shortPrescription`) es una frase y no basta para la card, sea el día
+    /// que sea (Alex, 7-ago: «no me la enseñes vacía»).
+    private func cargarDesgloses(_ ids: [String]) async {
+        guard let token = bearer else { return }
+        for id in ids {
+            // La caché local repinta al instante; la red confirma después.
+            if let cache = AssignmentDetailCache.load(id) {
+                desgloses[id] = .listo(DesgloseSesion.desde(cache))
+            } else if desgloses[id] == nil {
+                desgloses[id] = .cargando
             }
-            return
+            do {
+                let detalle = try await PlanService.fetchAssignmentDetail(id, bearer: token)
+                AssignmentDetailCache.save(detalle)
+                desgloses[id] = .listo(DesgloseSesion.desde(detalle))
+            } catch {
+                // Si el día cambió a mitad de la petición no es un fallo: es que ya no se necesita.
+                if !Task.isCancelled, desgloses[id] == .cargando { desgloses[id] = .sinDetalle }
+            }
         }
-        medidoAyer = nil
-        // Cambió el día mostrado → lo que hay en pantalla ya no es suyo.
-        if desgloseDeMostrado != sesion.assignmentId {
-            desgloseMostrado = .vacio
-            desgloseDeMostrado = sesion.assignmentId
-        }
-        // La caché local repinta al instante; la red confirma después.
-        if let cache = AssignmentDetailCache.load(sesion.assignmentId) {
-            desgloseMostrado = DesgloseSesion.desde(cache)
-        }
-        if let detalle = try? await PlanService.fetchAssignmentDetail(sesion.assignmentId, bearer: token) {
-            AssignmentDetailCache.save(detalle)
-            desgloseMostrado = DesgloseSesion.desde(detalle)
-        }
-    }
-
-    private func cargarMedidoDeAyer(token: String) async {
-        guard let ayer = semana?.sesionDeAyer else { medidoAyer = nil; return }
-        var detalle = AssignmentDetailCache.load(ayer.sesion.assignmentId)
-        if detalle?.execution?.totalDurationSeconds == nil {
-            detalle = try? await PlanService.fetchAssignmentDetail(ayer.sesion.assignmentId, bearer: token)
-        }
-        guard let segundos = detalle?.execution?.totalDurationSeconds, segundos > 0 else {
-            medidoAyer = nil
-            return
-        }
-        medidoAyer = max(1, Int((Double(segundos) / 60).rounded()))
     }
 }
 
+#if DEBUG
 #Preview {
     PlanView()
         .environment(AppDataStore())
 }
+#endif
