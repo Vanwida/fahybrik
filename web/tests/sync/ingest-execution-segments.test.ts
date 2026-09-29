@@ -227,7 +227,8 @@ describeWithDb('ingestExecutionSegments (real DB)', () => {
       sql,
       executionId,
       executionStartedAt: START,
-      segments: [{ position: 0, modality: 'run', zone_seconds_json: { z2: 120, z3: 60 } }],
+      // With its window: zones only land if they fit the tramo (0278).
+      segments: [{ position: 0, modality: 'run', duration_seconds: 180, zone_seconds_json: { z2: 120, z3: 60 } }],
     });
     // The lib passes the wrapper through `sql.json(...)`, so the column stores a
     // real jsonb OBJECT (jsonb_typeof='object'), NOT a double-encoded string
@@ -240,6 +241,46 @@ describeWithDb('ingestExecutionSegments (real DB)', () => {
     expect(row!.shape).toBe('object');
     const decoded = JSON.parse(String(row!.payload)) as { zone_seconds?: Record<string, number> };
     expect(decoded.zone_seconds).toEqual({ z2: 120, z3: 60 });
+  });
+
+  test('zones that do not fit the tramo are not stored (0278): more seconds in zone than the tramo lived', async () => {
+    const { executionId } = await seedExecution();
+    await ingestExecutionSegments({
+      sql,
+      executionId,
+      executionStartedAt: START,
+      segments: [
+        // 2678 · the tramo that inherited the zones of the one left behind on a
+        // block jump: 1.029 s of zones in 690 s.
+        {
+          position: 0,
+          modality: 'run',
+          started_at: '2026-04-06T08:00:00Z',
+          ended_at: '2026-04-06T08:11:30Z',
+          duration_seconds: 690,
+          distance_meters: 1423,
+          zone_seconds_json: { z1: 939, z2: 61, z5: 29 },
+        },
+        // The phone's honest rounding (+2 s) still lands.
+        {
+          position: 1,
+          modality: 'run',
+          started_at: '2026-04-06T08:11:30Z',
+          ended_at: '2026-04-06T08:14:30Z',
+          duration_seconds: 180,
+          zone_seconds_json: { z1: 90, z2: 92 },
+        },
+      ],
+    });
+    const rows = await sql<Array<{ position: number; zones: unknown; distance: string | null }>>`
+      select position, raw_lap_data_json -> 'zone_seconds' as zones, distance_meters::text as distance
+      from segment_executions where execution_id = ${executionId} order by position
+    `;
+    expect(rows).toHaveLength(2);
+    // The tramo is kept (its distance, its window): only the impossible split goes.
+    expect(rows[0]!.zones).toBeNull();
+    expect(Number(rows[0]!.distance)).toBe(1423);
+    expect(rows[1]!.zones).toEqual({ z1: 90, z2: 92 });
   });
 
   test('erg detail (#33) round-trips POST → raw_lap_data_json → loadSegmentActuals', async () => {
@@ -258,6 +299,7 @@ describeWithDb('ingestExecutionSegments (real DB)', () => {
           avg_pace_s_per_500m: 108,
           avg_power_w: 240,
           stroke_rate_spm: 29,
+          duration_seconds: 216,
           zone_seconds_json: { z3: 200 },
           drag_factor: 118,
           avg_calories_per_hour: 900,

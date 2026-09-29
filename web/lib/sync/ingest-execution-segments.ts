@@ -16,6 +16,8 @@ import { REPS_STATUSES, RX_SCALED_VALUES, HR_SOURCES, type RepsStatus } from '@f
 import { normalizeFormat } from '@fahybrid/shared/domain/prescription/format';
 import { SEGMENT_MODALITIES, type SegmentModality } from '@fahybrid/shared/domain/segment-modality';
 import { ergSplitItemSchema } from '@/lib/execution/erg-splits';
+import { frozenZonesFitTramo } from '@/lib/execution/zone-seconds';
+import { captureRouteError } from '@/lib/observability/capture';
 import { coerceWireInstant } from '@/lib/sync/wire-instant';
 import { deriveRepsStatus, persistSegmentSets } from '@/lib/sync/ingest-segment-sets';
 import {
@@ -265,7 +267,19 @@ export async function ingestExecutionSegments(args: {
     const peakForce = sanitizeNonNegative(seg.peak_drive_force_lbs);
     const avgForce = sanitizeNonNegative(seg.avg_drive_force_lbs);
     const lap: Record<string, unknown> = {};
-    if (seg.zone_seconds_json !== undefined) lap.zone_seconds = seg.zone_seconds_json;
+    if (seg.zone_seconds_json !== undefined) {
+      // Más segundos en zona que segundos de tramo no es una medida de ESTE tramo
+      // (0278): no se guarda, y se dice en el servidor porque es un fallo del móvil.
+      const zonas = frozenZonesFitTramo(seg.zone_seconds_json, startedAt, endedAt);
+      if (zonas.fits) {
+        lap.zone_seconds = seg.zone_seconds_json;
+      } else {
+        captureRouteError(new Error('sync: zone_seconds fuera de la ventana del tramo'), {
+          route: 'sync/ingest-execution-segments',
+          meta: { execution_id: executionId, position, measured_s: zonas.measured_s, window_s: zonas.window_s },
+        });
+      }
+    }
     if (dragFactor != null) lap.drag_factor = dragFactor;
     if (avgCalH != null) lap.avg_calories_per_hour = avgCalH;
     if (peakForce != null) lap.peak_drive_force_lbs = peakForce;
