@@ -127,6 +127,10 @@ describe('contra qué base se compara', () => {
     const r = juzgar(sesion('12', '2026-09-27', { estado_plan: 'completed', ejecucion: ejec }), p, hecho('e', '2026-09-27', 1800, 1), m)!;
     expect(r.base).toBe('duracion');
     expect(r.pct).toBe(100);
+    // la base que el coach no usa se ve al final, pero no gana
+    const soloDistancia = juzgar(sesion('12', '2026-09-27', { estado_plan: 'completed', ejecucion: ejec }), p, hecho('e', '2026-09-27', 1800, 1), { ...m, cumplimiento_sesion_bases: ['distancia'] })!;
+    expect(soloDistancia.bases.map((b) => b.base)).toEqual(['distancia', 'carga', 'duracion']);
+    expect(soloDistancia).toMatchObject({ estado: 'hecha_sin_medida', base: null });
   });
 
   test('lo accesorio sin reloj deja el plan como suelo, y se dice', () => {

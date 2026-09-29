@@ -44,7 +44,7 @@ import type { Ancla, Unidad } from './lectura';
 import { anclaMasDebil } from './anclas';
 import type { PrecioPlanSesion, SesionPlan } from './carga-plan';
 import type { PrecioSesion } from './carga-tramo';
-import type { BaseSesion, CoachAnalyticsMethod } from './metodo';
+import { BASES_SESION, type BaseSesion, type CoachAnalyticsMethod } from './metodo';
 import type { ContextoBandas } from './cumplimiento-bandas';
 import type { FilaLinea, LineaPlan, TramoEjecutado } from './cumplimiento-esfuerzos';
 import { cumplimientoDeLineas } from './cumplimiento-lineas';
@@ -152,7 +152,11 @@ export interface FilaSesion {
    * umbral del atleta). Null en duración y distancia.
    */
   ancla: Ancla | null;
-  /** Las tres bases en el orden del coach, para que se vea por qué ganó una. */
+  /**
+   * Las tres bases, primero las del coach en su orden y al final las que él no
+   * usa: se ve por qué ganó una, y la carga de la sesión está siempre (la suma
+   * de la semana la necesita aunque el coach compare por duración).
+   */
   bases: MedidaBase[];
   tramos: ResumenTramos;
   lineas: FilaLinea[];
@@ -324,7 +328,9 @@ export function cumplimientoDeSesion(s: SesionCumplimiento, e: EntradaSesion): F
   if (!s.visible && !hecha) return null;
 
   const lineas = s.ejecucion ? cumplimientoDeLineas(s.lineas, s.tramos, e.ctx) : { lineas: [], ajenos: 0 };
-  const bases: MedidaBase[] = e.metodo.cumplimiento_sesion_bases.map((b) =>
+  const delCoach = e.metodo.cumplimiento_sesion_bases;
+  const orden = [...delCoach, ...BASES_SESION.filter((b) => !delCoach.includes(b))];
+  const bases: MedidaBase[] = orden.map((b) =>
     b === 'carga' ? medidaCarga(e.precio_plan, e.precio_hecho, s, e.metodo) : b === 'duracion' ? medidaDuracion(e.plan, s) : medidaDistancia(e.plan, s),
   );
   const saltada = s.estado_plan === 'skipped' || s.estado_plan === 'missed';
@@ -356,7 +362,7 @@ export function cumplimientoDeSesion(s: SesionCumplimiento, e: EntradaSesion): F
   if (s.excluida && !hecha) return { ...fila, estado: 'excluida' };
   if (!hecha) return debida ? { ...fila, estado: 'no_hecha', color: 'rojo' } : fila;
 
-  const gana = bases.find((b) => b.comparable && b.plan != null && b.plan > 0 && b.hecho != null);
+  const gana = bases.find((b) => delCoach.includes(b.base) && b.comparable && b.plan != null && b.plan > 0 && b.hecho != null);
   if (!gana) return { ...fila, estado: 'hecha_sin_medida' };
   const pct = ((gana.hecho as number) / (gana.plan as number)) * 100;
   const { color, estado } = colorDePct(pct, e.metodo);
