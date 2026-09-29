@@ -148,10 +148,12 @@ extension Vivo {
     private static func segundoObjetivo(_ p: Paso) -> String? { p.objetivos.first { $0.papel != .principal && $0.eje != .kg }.map { textoObjetivo($0) } }
     private static func modoCorto(_ m: ModoRecupera?) -> String { m == .andar ? "caminando" : m == .parado ? "parado" : "trote" }
 
-    private static func recuperacion(_ e: Paso?) -> String? {
+    /// «r 90″ trote», y con `conObjetivo`, «r 90″ trote a 6:40–7:16». La página Estructura
+    /// no lo lleva (en la muñeca no cabe); el brief sí.
+    private static func recuperacion(_ e: Paso?, conObjetivo: Bool = true) -> String? {
         guard let e, let pr = e.medida.prescrito else { return nil }
         let modo = e.rol == .recuperacion ? " \(modoCorto(e.modoRecupera))" : ""
-        return "r \(fmtDuracion(pr))\(modo)\(conObjetivo(principal(e)))"
+        return "r \(fmtDuracion(pr))\(modo)\(conObjetivo ? self.conObjetivo(principal(e)) : "")"
     }
 
     private static func cargaCorta(_ p: Paso) -> String? {
@@ -206,12 +208,20 @@ extension Vivo {
         let nombre = p.nombre ?? nombreClase(p.clase)
         let pr = fmtPrescrito(p.medida)
         var linea: String
-        if let t = f.tandas, let v = f.veces { linea = "\(t.veces) × (\(v) × \(pr))" }
+        // 3 × (6 × 1′ / 1′): dentro de la tanda, la serie y su recuperación (M4, sin aplanar).
+        if let t = f.tandas, let v = f.veces {
+            let entre = f.recupera.map { " / \(fmtPrescrito($0.medida))" } ?? ""
+            linea = "\(t.veces) × (\(v) × \(pr)\(entre))"
+        }
         else if let v = f.veces { linea = p.nombre != nil ? "\(v) × \(dosis(p)) \(nombre)" : "\(v) × \(pr)" }
-        else { linea = "\(nombre)\(pr.isEmpty ? "" : " · \(pr)")" }
+        else {
+            // Un tramo del progresivo o del fartlek dice su número: «Tramo 3/8 · 1′», no ocho veces «Progresivo».
+            let quien = p.posicion?.tramo.map { "Tramo \($0.n)/\($0.de)" } ?? nombre
+            linea = "\(quien)\(pr.isEmpty ? "" : " · \(pr)")"
+        }
         var detalle: [String] = []
         if let o { detalle.append(textoObjetivo(o, p.maquina)) }
-        if let r = recuperacion(f.recupera) { detalle.append(r) }
+        if let r = recuperacion(f.recupera, conObjetivo: false) { detalle.append(r) }
         if let t = f.tandas, let pr = t.descanso.medida.prescrito { detalle.append("\(fmtDuracion(pr)) entre tandas") }
         if let c = cargaCorta(p), p.nombre != nil { detalle.append(c) }
         if let d = p.dobles { detalle.append(pactoDe(d) ?? textoTurno(d)) }

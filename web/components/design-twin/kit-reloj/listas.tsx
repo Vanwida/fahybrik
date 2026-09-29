@@ -350,7 +350,9 @@ export function textoFila(f: FilaEstructura): { linea: string; detalle: string |
   }
   const tramo = f.trabajo.posicion?.tramo;
   const nombre = tramo ? `Tramo ${tramo.n}/${tramo.de}` : (f.trabajo.nombre ?? NOMBRE_CLASE_DEFECTO[f.trabajo.clase]);
-  return { linea: `${nombre} · ${fmtPrescrito(f.trabajo.medida)}`, detalle: objetivo };
+  // Un paso abierto (el rodaje libre) no dice «Rodaje · »: sin dosis, solo el nombre.
+  const dosis = fmtPrescrito(f.trabajo.medida);
+  return { linea: dosis ? `${nombre} · ${dosis}` : nombre, detalle: objetivo };
 }
 
 /** LA ESTRUCTURA — la sesión del coach entera: la lista con cada bloque en dos líneas. */
