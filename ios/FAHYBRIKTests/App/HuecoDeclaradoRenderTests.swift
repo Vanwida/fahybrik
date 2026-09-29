@@ -2,7 +2,7 @@ import XCTest
 import SwiftUI
 @testable import FAHYBRIK
 
-// LAS DOS PANTALLAS DONDE EL HUECO SE DECLARA, RENDERIZADAS DE VERDAD.
+// DONDE EL HUECO SE DECLARA: LA SEMANA Y LOS TRAMOS DE UNA SERIE.
 //
 // Hermana de `VivoHUDRenderTests`, y por lo mismo: no es una prueba de píxeles, es la
 // prueba de que la pantalla se SOSTIENE en el estado que importa — y de paso el sitio
@@ -11,12 +11,14 @@ import SwiftUI
 //   la semana      — la mayoría de las sesiones no escriben reloj. Antes se sumaban
 //                    como cero y el volumen salía como si fuera el de la semana
 //                    entera. Ahora se da el SUELO y se declara lo que queda fuera.
+//                    La lectura (`VolumenPrevisto`) se afirma aquí; se PINTA en el
+//                    resumen de «Tu semana» del Plan (`PlanGaleriaRenderTests`).
 //   los tramos     — un 6×800 acabado, con lo que la app guarda HOY: un lap por
 //                    tramo fuerte y ninguna recuperación. Antes no se veía ninguno
 //                    de los seis; ahora se ven los seis, y lo que falta se dice.
 //
-// Las dos vistas viven fuera de su pantalla precisamente para poder renderizarse:
-// dentro cuelgan de un ScrollView e `ImageRenderer` no dibuja ScrollView.
+// La tabla de tramos vive fuera de su pantalla precisamente para poder renderizarse:
+// dentro cuelga de un ScrollView e `ImageRenderer` no dibuja ScrollView.
 
 final class HuecoDeclaradoRenderTests: XCTestCase {
 
@@ -28,7 +30,6 @@ final class HuecoDeclaradoRenderTests: XCTestCase {
 
     // MARK: - La semana
 
-    @MainActor
     func testLaSemanaConSesionesSinEstimarDeclaraSuHueco() throws {
         // La semana real de producción: seis sesiones, UNA escribe su reloj.
         let sesiones = try [
@@ -40,18 +41,11 @@ final class HuecoDeclaradoRenderTests: XCTestCase {
             sesion(titulo: "Metcon", modalidad: "functional", minutos: nil, motivo: "scored_by_time"),
         ]
 
-        // La verdad que la tarjeta tiene que contar, comprobada antes de pintarla.
+        // La verdad que la semana tiene que contar: el suelo Y lo que queda fuera.
         let lectura = VolumenPrevisto.lee(sesiones.map(\.estDurationMinutes))
         XCTAssertEqual(lectura.linea, "desde 50 min · 5 sin tiempo previsto")
-
-        let imagen = render(
-            ResumenSemanaCard(sesiones: sesiones),
-            nombre: "semana-resumen-sin-estimar", alto: 220
-        )
-        XCTAssertNotNil(imagen, "el resumen de la semana tiene que renderizar")
     }
 
-    @MainActor
     func testLaSemanaEnteraEscritaNoDeclaraNada() throws {
         let sesiones = try [
             sesion(titulo: "Rodaje Z2", modalidad: "run", minutos: 50, motivo: nil),
@@ -59,11 +53,6 @@ final class HuecoDeclaradoRenderTests: XCTestCase {
             sesion(titulo: "Remo 5×1000", modalidad: "row", minutos: 45, motivo: nil),
         ]
         XCTAssertEqual(VolumenPrevisto.lee(sesiones.map(\.estDurationMinutes)).linea, "desde 2 h 40")
-        let imagen = render(
-            ResumenSemanaCard(sesiones: sesiones),
-            nombre: "semana-resumen-completa", alto: 200
-        )
-        XCTAssertNotNil(imagen)
     }
 
     // MARK: - Los tramos de una serie

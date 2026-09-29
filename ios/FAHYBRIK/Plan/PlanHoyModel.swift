@@ -103,13 +103,6 @@ struct DiaDelPlan: Identifiable, Equatable {
         let titulos = sesiones.map(\.title).joined(separator: ", ")
         return "\(titulos), \(estado.etiqueta)"
     }
-
-    /// «Hoy · Lunes 10» cuando de verdad es hoy; «Lunes 10» para cualquier otro
-    /// día que se hojee. El prefijo «Hoy» es un HECHO, no una plantilla — un
-    /// día que no es hoy no puede llevarlo (§7).
-    var etiquetaDeFecha: String {
-        esHoy ? "Hoy · \(nombre) \(numero)" : "\(nombre) \(numero)"
-    }
 }
 
 // MARK: - La semana, resuelta
@@ -135,6 +128,9 @@ struct SemanaDelPlan: Equatable {
     let hasNextWeek: Bool
     /// FH-27 — hay semana publicada más adelante pero el club lo bloquea.
     let peekBlockedByHorizon: Bool
+    /// «Semana 3 de 6» — dónde va el atleta dentro del bloque, leído de la etiqueta que
+    /// compone el servidor. Nil cuando no llega o no la sabemos leer: no se inventa una.
+    var posicion: PosicionEnBloque? = nil
 
     var hoy: DiaDelPlan? { indiceHoy.flatMap { dias.indices.contains($0) ? dias[$0] : nil } }
 
@@ -163,7 +159,10 @@ struct SemanaDelPlan: Equatable {
     /// Lee la semana del cable. `hoy` entra por parámetro para poder fijarlo en
     /// un test: el estado «saltada» depende de qué día es, y un derivado que
     /// llama a `Date()` por dentro no se puede comprobar.
-    static func desde(_ resp: AthletePlanWeekResponse) -> SemanaDelPlan {
+    ///
+    /// `etiquetaDeRespaldo` es la etiqueta de posición de OTRA fuente (el progreso del macro), por si la
+    /// de esta respuesta no trae ninguna de las dos formas.
+    static func desde(_ resp: AthletePlanWeekResponse, etiquetaDeRespaldo: String? = nil) -> SemanaDelPlan {
         let todayIso = resp.week.todayIso
         let dias: [DiaDelPlan] = resp.week.days.map { day in
             let reales = day.sessions.filter { !$0.assignmentId.isEmpty }
@@ -190,7 +189,9 @@ struct SemanaDelPlan: Equatable {
             nombreBloque: Self.limpio(resp.week.microcicloName),
             planStartsOn: resp.week.planStartsOn,
             hasNextWeek: resp.week.hasNextWeek ?? false,
-            peekBlockedByHorizon: resp.week.peekBlockedByHorizon ?? false
+            peekBlockedByHorizon: resp.week.peekBlockedByHorizon ?? false,
+            posicion: PosicionEnBloque.desde(etiqueta: resp.macroSummary.weekLabel)
+                ?? PosicionEnBloque.desde(etiqueta: etiquetaDeRespaldo)
         )
     }
 
@@ -386,14 +387,23 @@ struct DesgloseSesion: Equatable {
     /// bloque de un único trabajo confundida con la de la sesión entera). Sin
     /// nota, ese sitio se calla — nunca cae a números.
     let notaDelDia: String?
+    /// Los minutos MEDIDOS de una sesión ya hecha (`execution.totalDurationSeconds`), redondeados al
+    /// minuto y nunca por debajo de 1. Viaja en el MISMO `AssignmentDetail` que las partes, así que
+    /// no cuesta otra llamada. Solo se lee en sesiones terminadas: una pendiente no tiene medida, y
+    /// contar una sesión hecha con lo PREVISTO sería la mentira del §7.
+    let medidoMin: Int?
 
-    static let vacio = DesgloseSesion(partes: [], formato: nil, notaDelDia: nil)
+    static let vacio = DesgloseSesion(partes: [], formato: nil, notaDelDia: nil, medidoMin: nil)
 
     /// Cuántas partes caben en el héroe sin desbordar la tarjeta.
     static let maxPartes = 4
 
     static func desde(_ detalle: AssignmentDetail) -> DesgloseSesion {
-        guard let workout = detalle.workout, !workout.blocks.isEmpty else { return .vacio }
+        let medido = minutosMedidos(segundos: detalle.execution?.totalDurationSeconds)
+        guard let workout = detalle.workout, !workout.blocks.isEmpty else {
+            // Sin bloques no hay partes que enseñar, pero lo medido de una sesión hecha sigue siendo verdad.
+            return DesgloseSesion(partes: [], formato: nil, notaDelDia: nil, medidoMin: medido)
+        }
 
         let bloques = workout.blocks.sorted { $0.blockPosition < $1.blockPosition }
         let partes = bloques.map { bloque in
@@ -417,8 +427,16 @@ struct DesgloseSesion: Equatable {
         return DesgloseSesion(
             partes: partes,
             formato: prescripcion.flatMap(PrescriptionRenderer.wodHeader),
-            notaDelDia: (notaLimpia?.isEmpty == false) ? notaLimpia : nil
+            notaDelDia: (notaLimpia?.isEmpty == false) ? notaLimpia : nil,
+            medidoMin: medido
         )
+    }
+
+    /// De segundos medidos a minutos escritos. Nil si no hay medida o es cero: «0 min» es el
+    /// defecto plausible que esta app lleva retirando de todas partes (CONTRATO-UI §7).
+    static func minutosMedidos(segundos: Int?) -> Int? {
+        guard let segundos, segundos > 0 else { return nil }
+        return max(1, Int((Double(segundos) / 60).rounded()))
     }
 
     /// `estructural` derivado del formato del bloque — ver `ParteDeSesion`.

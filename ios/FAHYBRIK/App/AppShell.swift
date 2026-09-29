@@ -97,7 +97,7 @@ struct AppShell: View {
             // FreePlanView / docs/design/free-plan-conversion-mockup.html.
             Group {
                 if hasCoach {
-                    PlanView(bearer: bearer, hasCoach: hasCoach)
+                    PlanView(bearer: bearer)
                 } else {
                     FreePlanView(bearer: bearer)
                 }

@@ -99,8 +99,7 @@ struct MarksLibraryView: View {
 /// Correr · Remo y SkiErg · Carreras, cada uno una tarjeta de filas.
 ///
 /// Vive fuera de `MarksLibraryView` para poder renderizarse en una captura —
-/// dentro cuelga de un `ScrollView` e `ImageRenderer` no dibuja ScrollView, el
-/// mismo motivo por el que `ResumenSemanaCard` vive fuera de la suya.
+/// dentro cuelga de un `ScrollView` e `ImageRenderer` no dibuja ScrollView.
 struct MarcasGrupos: View {
     let marks: [MarkView]
     let bearer: String?

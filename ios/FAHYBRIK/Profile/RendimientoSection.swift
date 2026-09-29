@@ -291,8 +291,7 @@ enum RendimientoEstados {
 /// El encabezado con el estado de la sección y las cinco filas en UN grupo.
 ///
 /// Vive fuera de `RendimientoSection` para poder renderizarse en una captura —
-/// dentro de Perfil cuelga de un `ScrollView` e `ImageRenderer` no dibuja
-/// ScrollView, el mismo motivo por el que `ResumenSemanaCard` vive fuera de la suya.
+/// dentro de Perfil cuelga de un `ScrollView` e `ImageRenderer` no dibuja ScrollView.
 struct RendimientoFilas: View {
     let resumen: RendimientoResumen
     /// La batería está programada y aún abierta → el contador va en acento: es la
