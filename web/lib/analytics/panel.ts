@@ -9,9 +9,9 @@ import 'server-only';
 // resuelven el método del coach y las anclas, y se llama a los motores puros
 // de `shared/domain/analytics`.
 //
-// LO QUE HOY SE SIRVE: estado, forma (con proyección) y semanas. Los otros
-// cinco bloques viajan como `pendientes` hasta que sus sesiones los construyan
-// sobre este mismo contrato.
+// LO QUE HOY SE SIRVE: estado, forma (con proyección), semanas, progreso y
+// récords (`./progreso`). Los demás bloques viajan como `pendientes` hasta que
+// sus sesiones los construyan sobre este mismo contrato.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -45,9 +45,10 @@ import {
 import { loadAnclasAtleta } from './anclas';
 import type { AtletaVerificado } from './atleta-verificado';
 import { loadContexto, loadSesionesHechas, loadSesionesPlan } from './panel-datos';
+import { cargarBloquesProgreso } from './progreso';
 
 /** Los bloques que este cargador aún no construye. Se quitan de aquí al servirlos. */
-export const BLOQUES_PENDIENTES: readonly BloquePanel[] = ['intensidad', 'progreso', 'records', 'carrera', 'recuperacion'];
+export const BLOQUES_PENDIENTES: readonly BloquePanel[] = ['intensidad', 'carrera', 'recuperacion'];
 
 export async function cargarPanel(args: {
   atleta: AtletaVerificado;
@@ -120,6 +121,7 @@ export async function cargarPanel(args: {
     hoy: contexto.hoy,
     forma: bloques.forma,
   });
+  Object.assign(bloques, await cargarBloquesProgreso({ atleta, ventana, contexto, metodo, anclas, fracciones_hr, client }));
 
   return {
     athlete_id: String(atleta.athlete_id),

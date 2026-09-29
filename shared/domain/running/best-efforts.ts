@@ -45,6 +45,7 @@
 // imported rather than restated so a 4 600 m run cannot become two different
 // 5 km estimates in two modules.
 import { riegelTime } from '../athlete/mark-projection';
+import { MAX_INTERPOLATION_GAP_S } from './timed-series';
 
 export const RUN_PR_KINDS = ['run_1k', 'run_3k', 'run_5k'] as const;
 export type RunPrKind = (typeof RUN_PR_KINDS)[number];
@@ -183,17 +184,9 @@ export function buildEffortCurve(candidates: readonly EffortCandidate[]): CurveE
   const best = new Map<number, number>();
 
   for (const c of candidates) {
-    if (!Number.isFinite(c.distance_m) || c.distance_m <= 0) continue;
-    if (!Number.isFinite(c.duration_s) || c.duration_s <= 0) continue;
-
     for (const metros of EFFORT_CURVE_METERS) {
-      const band = EFFORT_CURVE_BANDS[metros];
-      if (band.aggregation !== c.scope) continue;
-      if (c.distance_m < band.min_meters || c.distance_m > band.max_meters) continue;
-
-      const proyectado = riegelTime(c.duration_s, c.distance_m, metros);
-      if (!Number.isFinite(proyectado) || proyectado <= 0) continue;
-
+      const proyectado = esfuerzoEnPeldano(c, metros, EFFORT_CURVE_BANDS[metros]);
+      if (proyectado == null) continue;
       const previo = best.get(metros);
       if (previo == null || proyectado < previo) best.set(metros, proyectado);
     }
@@ -203,4 +196,113 @@ export function buildEffortCurve(candidates: readonly EffortCandidate[]): CurveE
     metros,
     segundos: Math.round(best.get(metros)!),
   }));
+}
+
+/**
+ * El tiempo de UN candidato proyectado a un peldaño (Riegel), o null si el
+ * candidato no es de ese peldaño (otro alcance, fuera de la ventana de
+ * distancia, números rotos). Es la regla de la curva, sacada para que las
+ * marcas y los mejores de la ventana la usen candidato a candidato — con su
+ * fecha — sin volver a escribir las bandas.
+ */
+export function esfuerzoEnPeldano(c: EffortCandidate, metros: number, band: RunPrBand): number | null {
+  if (!Number.isFinite(c.distance_m) || c.distance_m <= 0) return null;
+  if (!Number.isFinite(c.duration_s) || c.duration_s <= 0) return null;
+  if (band.aggregation !== c.scope) return null;
+  if (c.distance_m < band.min_meters || c.distance_m > band.max_meters) return null;
+  const proyectado = riegelTime(c.duration_s, c.distance_m, metros);
+  return Number.isFinite(proyectado) && proyectado > 0 ? proyectado : null;
+}
+
+// ---------------------------------------------------------------------------
+// LA ESCALERA DE LAS MARCAS — de 400 m a la media (y el maratón en récords)
+// ---------------------------------------------------------------------------
+//
+// Las analíticas rehechas (docs/analiticas/modelo.md §3) piden los mejores
+// esfuerzos «de 400 m a la media». La curva de la pantalla de carrera se queda
+// como está (hasta 10 km); la escalera de las marcas la AMPLÍA con la media, y
+// los récords además con el maratón. Mismas bandas para lo que ya existía (la
+// curva y los récords no pueden discrepar sobre qué es «tu mejor 5 km») y la
+// regla del ±10 % por ejecución para las dos distancias nuevas.
+
+export const MEDIA_MARATON_M = 21097.5;
+export const MARATON_M = 42195;
+
+/** La escalera de los mejores de la ventana: la curva más la media. */
+export const MEJORES_METERS: readonly number[] = [...EFFORT_CURVE_METERS, MEDIA_MARATON_M];
+
+/** La escalera de los récords: la de los mejores más el maratón. */
+export const RECORDS_METERS: readonly number[] = [...MEJORES_METERS, MARATON_M];
+
+export const MARCAS_BANDS: Readonly<Record<number, RunPrBand>> = {
+  ...EFFORT_CURVE_BANDS,
+  [MEDIA_MARATON_M]: { min_meters: MEDIA_MARATON_M * 0.9, max_meters: MEDIA_MARATON_M * 1.1, aggregation: 'execution' },
+  [MARATON_M]: { min_meters: MARATON_M * 0.9, max_meters: MARATON_M * 1.1, aggregation: 'execution' },
+};
+
+// ---------------------------------------------------------------------------
+// EL MEJOR TRAMO DENTRO DE UNA ACTIVIDAD — sobre la serie continua de distancia
+// ---------------------------------------------------------------------------
+//
+// «Mi mejor kilómetro» casi nunca es un tramo que el reloj cortara: es un
+// kilómetro cualquiera dentro de un rodaje de diez. Con la serie de distancia
+// acumulada (`workout_traces`, señal `distance`) se busca, para cada distancia,
+// la ventana de tiempo más corta que la cubre: dos punteros sobre la serie, con
+// el instante de salida interpolado para que la ventana mida EXACTAMENTE esa
+// distancia (el mismo criterio de interpolación que `timed-series.ts`).
+//
+// Un hueco de señal más ancho que `MAX_INTERPOLATION_GAP_S` parte la serie: una
+// ventana que lo cruzara estaría midiendo una pausa (un semáforo, el móvil
+// guardado), no un esfuerzo. Una distancia que baja (un reinicio del GPS) también
+// la parte. Sin serie que alcance la distancia, null — nunca una extrapolación.
+
+/**
+ * El tiempo más corto (s) en que la serie de distancia acumulada cubre
+ * `metros`, o null si ningún tramo continuo de la serie los alcanza.
+ */
+/** Ruido de coma flotante al acumular distancia: una micra no es un metro que falte. */
+const EPS_METROS = 1e-6;
+
+export function mejorTiempoDentro(offsets_s: readonly number[], values_m: readonly number[], metros: number): number | null {
+  if (!Number.isFinite(metros) || metros <= 0) return null;
+  const n = Math.min(offsets_s.length, values_m.length);
+  const pts: Array<{ t: number; d: number }> = [];
+  for (let i = 0; i < n; i++) {
+    const t = offsets_s[i];
+    const d = values_m[i];
+    if (t == null || d == null || !Number.isFinite(t) || !Number.isFinite(d)) continue;
+    pts.push({ t, d });
+  }
+  pts.sort((a, b) => a.t - b.t);
+
+  // Partir en tramos continuos: hueco de tiempo o distancia que retrocede.
+  const tramos: Array<Array<{ t: number; d: number }>> = [];
+  let actual: Array<{ t: number; d: number }> = [];
+  for (const p of pts) {
+    const prev = actual[actual.length - 1];
+    if (prev && (p.t - prev.t > MAX_INTERPOLATION_GAP_S || p.d < prev.d)) {
+      tramos.push(actual);
+      actual = [];
+    }
+    actual.push(p);
+  }
+  if (actual.length) tramos.push(actual);
+
+  let mejor: number | null = null;
+  for (const s of tramos) {
+    if (s.length < 2 || s[s.length - 1]!.d - s[0]!.d < metros - EPS_METROS) continue;
+    let i = 0;
+    for (let j = 1; j < s.length; j++) {
+      if (s[j]!.d - s[0]!.d < metros - EPS_METROS) continue;
+      const objetivo = Math.max(s[0]!.d, s[j]!.d - metros);
+      // Avanza la salida mientras el siguiente punto siga dejando `metros` por delante.
+      while (i + 1 < j && s[i + 1]!.d <= objetivo) i++;
+      const a = s[i]!;
+      const b = s[i + 1]!;
+      const salida = b.d === a.d ? a.t : a.t + ((objetivo - a.d) / (b.d - a.d)) * (b.t - a.t);
+      const dur = s[j]!.t - salida;
+      if (dur > 0 && (mejor == null || dur < mejor)) mejor = dur;
+    }
+  }
+  return mejor;
 }

@@ -1,7 +1,7 @@
 import 'server-only';
 
 // El MÉTODO del coach para las analíticas del atleta — la capa de lectura y
-// escritura sobre `coach_analytics_method` (migs 0189, 0190, 0277).
+// escritura sobre `coach_analytics_method` (migs 0189, 0190, 0277, 0280).
 //
 // Lo leen las familias de lecturas: la carga única (escalera por modalidad,
 // coeficiente de fuerza, cobertura del veredicto), la forma (ventanas, bandas de
@@ -106,6 +106,7 @@ export async function upsertCoachAnalyticsMethod(
       cumplimiento_base, cumplimiento_bien_pct, cumplimiento_regular_pct,
       cambio_carga_pct, cambio_horas_pct, cambio_forma_tss, cambio_frescura_tss,
       cambio_variabilidad_pct, cambio_pulso_reposo_bpm, cambio_sueno_horas,
+      cambio_ergo_pct, cambio_fuerza_pct, cambio_estaciones_pct, cambio_wod_pct, cambio_test_pct, fuerza_1rm_reps_max,
       basal_dias, basal_excluir_dias,
       cs_min_efforts, cs_min_duration_s, cs_max_duration_s, cs_min_spread_ratio, cs_min_fit_r2_pct, cs_max_drift_from_threshold_pct,
       sleep_target_hours, hrv_min_nights_baseline, hrv_min_nights_recent,
@@ -120,6 +121,7 @@ export async function upsertCoachAnalyticsMethod(
       ${m.cumplimiento_base}, ${m.cumplimiento_bien_pct}, ${m.cumplimiento_regular_pct},
       ${m.cambio_carga_pct}, ${m.cambio_horas_pct}, ${m.cambio_forma_tss}, ${m.cambio_frescura_tss},
       ${m.cambio_variabilidad_pct}, ${m.cambio_pulso_reposo_bpm}, ${m.cambio_sueno_horas},
+      ${m.cambio_ergo_pct}, ${m.cambio_fuerza_pct}, ${m.cambio_estaciones_pct}, ${m.cambio_wod_pct}, ${m.cambio_test_pct}, ${m.fuerza_1rm_reps_max},
       ${m.basal_dias}, ${m.basal_excluir_dias},
       ${m.cs_min_efforts}, ${m.cs_min_duration_s}, ${m.cs_max_duration_s}, ${m.cs_min_spread_ratio}, ${m.cs_min_fit_r2_pct}, ${m.cs_max_drift_from_threshold_pct},
       ${m.sleep_target_hours}, ${m.hrv_min_nights_baseline}, ${m.hrv_min_nights_recent},
@@ -154,6 +156,12 @@ export async function upsertCoachAnalyticsMethod(
       cambio_variabilidad_pct = excluded.cambio_variabilidad_pct,
       cambio_pulso_reposo_bpm = excluded.cambio_pulso_reposo_bpm,
       cambio_sueno_horas = excluded.cambio_sueno_horas,
+      cambio_ergo_pct = excluded.cambio_ergo_pct,
+      cambio_fuerza_pct = excluded.cambio_fuerza_pct,
+      cambio_estaciones_pct = excluded.cambio_estaciones_pct,
+      cambio_wod_pct = excluded.cambio_wod_pct,
+      cambio_test_pct = excluded.cambio_test_pct,
+      fuerza_1rm_reps_max = excluded.fuerza_1rm_reps_max,
       basal_dias = excluded.basal_dias,
       basal_excluir_dias = excluded.basal_excluir_dias,
       cs_min_efforts = excluded.cs_min_efforts,

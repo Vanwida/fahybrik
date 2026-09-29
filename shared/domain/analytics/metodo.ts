@@ -146,6 +146,32 @@ export interface CoachAnalyticsMethod {
   /** Cambio de sueño que cuenta, en horas. */
   cambio_sueno_horas: number;
 
+  // ── ¿MEJORO? — el cambio que cuenta, por familia (0280) ────────────────────
+  // Correr NO está aquí: su «¿mejoro?» se juzga con `meaningful_gain_s_per_km`
+  // de `coach_running_thresholds`, que ya era el método del coach para esa
+  // pregunta. Dos umbrales para la misma pregunta darían dos veredictos.
+
+  /** Cambio de ritmo de un ergo (remo, ski, bici) que cuenta, en % del ritmo o de los vatios. */
+  cambio_ergo_pct: number;
+  /** Cambio del 1RM estimado (o de las reps a peso corporal) que cuenta, en %. */
+  cambio_fuerza_pct: number;
+  /** Cambio del tiempo de una estación a la misma dosis y carga que cuenta, en %. */
+  cambio_estaciones_pct: number;
+  /** Cambio de la puntuación de un WOD repetido (tiempo o reps) que cuenta, en %. */
+  cambio_wod_pct: number;
+  /** Cambio del resultado de un test del coach que cuenta, en %. */
+  cambio_test_pct: number;
+
+  // ── EL 1RM ESTIMADO (la fórmula es `coach_methodology.one_rm_estimation`) ──
+
+  /**
+   * Reps máximas de una serie para estimar su 1RM. Las fórmulas están validadas
+   * hasta unas diez reps; por encima se separan entre sí (a 15 reps Epley da
+   * ×1,50 y Brzycki ×1,64) y lo que miden ya es resistencia, no fuerza máxima.
+   * Hay coaches que solo se fían de series de 5 o menos.
+   */
+  fuerza_1rm_reps_max: number;
+
   // ── LA VENTANA BASAL (recuperación) ───────────────────────────────────────
 
   /** Días hacia atrás desde los que se promedia el basal. */
@@ -238,6 +264,15 @@ export interface CoachAnalyticsMethod {
  *   - Cobertura mínima del veredicto: el 90 % que ya decidía `LOAD_COVERAGE_MIN`.
  *   - Cambio significativo: 10 % de carga u horas, 5 puntos de forma o
  *     frescura, 5 % de variabilidad, 3 latidos, media hora de sueño.
+ *   - ¿Mejoro? por familia (nuevo, 29-09-2026; hasta hoy no había veredicto):
+ *     ergo 1 % (el mismo orden que los 3 s/km de correr a 5:00/km; ~1,2 s/500 m
+ *     a 2:00); fuerza 2,5 % (el salto de disco más pequeño sobre 100 kg: por
+ *     debajo, el 1RM estimado se mueve con una rep de más o de menos); una
+ *     estación o un WOD repetidos 3 % (tiempo con transiciones y técnica:
+ *     varía más que un ritmo sostenido); un test 2 % (mismo protocolo, más
+ *     reproducible que el entreno).
+ *   - 1RM estimado solo de series de hasta 10 reps: el rango validado de los
+ *     estimadores (a 10 reps Epley y Brzycki coinciden).
  *   - Basal 60 → 14 días: la misma ventana de `hrv-baseline.ts`.
  *   - Velocidad crítica: 3 esfuerzos, de 2 a 15 minutos, con el largo al menos
  *     el triple que el corto. Es el protocolo estándar del modelo de dos
@@ -280,6 +315,13 @@ export const DEFAULT_COACH_ANALYTICS_METHOD: CoachAnalyticsMethod = {
   cambio_variabilidad_pct: 5,
   cambio_pulso_reposo_bpm: 3,
   cambio_sueno_horas: 0.5,
+
+  cambio_ergo_pct: 1,
+  cambio_fuerza_pct: 2.5,
+  cambio_estaciones_pct: 3,
+  cambio_wod_pct: 3,
+  cambio_test_pct: 2,
+  fuerza_1rm_reps_max: 10,
 
   basal_dias: HRV_BASELINE_FROM_DAYS,
   basal_excluir_dias: HRV_BASELINE_TO_DAYS,
@@ -385,6 +427,17 @@ export const ANALYTICS_METHOD_BOUNDS: Readonly<Record<ClaveNumericaMetodo, { min
   cambio_variabilidad_pct: { min: 1, max: 50 },
   cambio_pulso_reposo_bpm: { min: 1, max: 20 },
   cambio_sueno_horas: { min: 0.1, max: 5 },
+
+  // Por debajo de medio punto el cambio es el redondeo del monitor o de la
+  // báscula; por encima de 20-30 % ya no es un cambio, es otra persona.
+  cambio_ergo_pct: { min: 0.5, max: 20 },
+  cambio_fuerza_pct: { min: 0.5, max: 20 },
+  cambio_estaciones_pct: { min: 0.5, max: 30 },
+  cambio_wod_pct: { min: 0.5, max: 30 },
+  cambio_test_pct: { min: 0.5, max: 30 },
+  // Una serie de 1 es un 1RM real (sin estimación); más allá de 20 reps ninguna
+  // fórmula estima fuerza máxima.
+  fuerza_1rm_reps_max: { min: 1, max: 20 },
 
   basal_dias: { min: 14, max: 180 },
   basal_excluir_dias: { min: 0, max: 60 },
