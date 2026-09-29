@@ -974,6 +974,7 @@
 		FBD508B823F356C803B58599 /* MirrorPrimaryLaunchPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04EC48B97AA2CD53541FD723 /* MirrorPrimaryLaunchPolicy.swift */; };
 		FBEE4CF4BF016AC1FBF60789 /* WorkoutSession+Trace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1157114BCBCCB751020EA483 /* WorkoutSession+Trace.swift */; };
 		FC16E4E18EF95182B61CED5F /* ProgresoDeCarrera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23BA7D679666BE3C285C30B4 /* ProgresoDeCarrera.swift */; };
+		FC3055CFFBA8C7EDE43059DA /* LiveWorkoutMiniBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524E7FBB143708F5152DDBAD /* LiveWorkoutMiniBar.swift */; };
 		FC8166AE3F5C31DB96C8C992 /* CorrerHistorialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9CF02FB0FB210DE41327BAB /* CorrerHistorialView.swift */; };
 		FCAAE68F480CE240B9BF700E /* ErgSeriesAutoCloseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B34B273450C0CDF7C1668D5 /* ErgSeriesAutoCloseTests.swift */; };
 		FCAE2D68EC16BAA865A6EBC1 /* AppBundleMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86D949BBD4E9FA27282A929F /* AppBundleMetadata.swift */; };
@@ -1332,6 +1333,7 @@
 		521FD651EEC72701016C131A /* WatchPrimaryLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchPrimaryLifecycleTests.swift; sourceTree = "<group>"; };
 		5229EC32E4D7792FA579F29A /* ProgramarDiaPickerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgramarDiaPickerTests.swift; sourceTree = "<group>"; };
 		522D4ED781A994B46ECD5B95 /* PhoneWatchRuntimeReconcileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneWatchRuntimeReconcileTests.swift; sourceTree = "<group>"; };
+		524E7FBB143708F5152DDBAD /* LiveWorkoutMiniBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveWorkoutMiniBar.swift; sourceTree = "<group>"; };
 		524FC97C42145BEC71B664B3 /* DoblesSharedAnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesSharedAnalyticsView.swift; sourceTree = "<group>"; };
 		527B6B20D42AB64D4F086227 /* VelocityBand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VelocityBand.swift; sourceTree = "<group>"; };
 		528C6B46C80E2C1E82CCAFB6 /* CarreraSoloRunningUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarreraSoloRunningUITests.swift; sourceTree = "<group>"; };
@@ -2148,6 +2150,7 @@
 				BE40AD660A8373237DC80152 /* ExecutedWorkoutView.swift */,
 				6116B751F7EFAEB47BE51F81 /* LiveConectividadSheet.swift */,
 				668F65DE3E87F37EB2CB11A9 /* LiveWorkoutLaunchConflict.swift */,
+				524E7FBB143708F5152DDBAD /* LiveWorkoutMiniBar.swift */,
 				9CF68730D8E80FDDCD198170 /* LiveWorkoutResume.swift */,
 				3DD376C30CA30426DD0BCF6A /* PhoneLiveSession.swift */,
 				204E4C31803A7F6A4C08364A /* PhoneMirrorFrameBuilder.swift */,
@@ -4187,6 +4190,7 @@
 				95CD18CA0C1089AE03A02C6D /* LiveLaunchPolicy.swift in Sources */,
 				FAA922BE9971BD41CE70D0CA /* LiveTramo.swift in Sources */,
 				A943770486543CD372460D2D /* LiveWorkoutLaunchConflict.swift in Sources */,
+				FC3055CFFBA8C7EDE43059DA /* LiveWorkoutMiniBar.swift in Sources */,
 				A194F6A4F2F9CBAE489977ED /* LiveWorkoutResume.swift in Sources */,
 				06CD37DABA93D8076B2137B5 /* MachineTramoLaw.swift in Sources */,
 				8D4F2F670EE3C60304B31C52 /* Marca.swift in Sources */,

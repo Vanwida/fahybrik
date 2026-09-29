@@ -33,6 +33,10 @@ final class LiveWorkoutResume {
     /// True when the athlete minimized live chrome (✕) — UI gone, session ACTIVE.
     var isUIMinimized: Bool { parkedCover != nil && cover == nil }
 
+    /// La sesión que sigue corriendo con la pantalla escondida — lo que pinta la
+    /// barra del entreno minimizado. Nil en cuanto el vivo vuelve a estar delante.
+    var minimized: RecoveredLiveCover? { isUIMinimized ? parkedCover : nil }
+
     var hasLiveSession: Bool { cover != nil || parkedCover != nil || tracked != nil }
 
     func persistTracked() {

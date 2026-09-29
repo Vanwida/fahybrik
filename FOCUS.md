@@ -6,6 +6,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**iPhone · EL ENTRENO MINIMIZADO SE VE (29-09, main).** Barra de sistema sobre las pestañas con crono y paso; tocarla vuelve al mismo motor. La tarjeta del scroll queda para «guardado para luego». Falta: probarlo en aparato (build siguiente). DECISIONS 29-09.
+
 **28-09 · UN SOLO ENTRENO EN PRODUCCIÓN + VIVO DEL IPHONE FIRMADO.** Libre ≡ coach al guardar, escribir y leer (0274–0276 aplicadas en prod + backfill de plantillas). Reloj sin atascos; motor del iPhone por formato; historial con series y parciales. Alex firmó el vivo nuevo del iPhone (galería https://claude.ai/artifact/YN3iFbkZYGHSn1S5hsgb8t, propuestas `iphone-vivo-*`). EN CURSO: el Swift del vivo (base primero, luego familias). PENDIENTE: build iOS en Xcode Cloud para TestFlight (lo instala Alex).
 
 **iPhone · TRES HUECOS DEL VIVO NUEVO CERRADOS (29-09, rama `claude/vivo-swift-release-2`, sin fusionar).** RX/Escalado se declara en el resumen por bloque metcon (mismo campo `rx_scaled`); la pausa sigue sola a los 10 s y lleva el botón de la voz; la Estructura del circuito es la sesión entera con salto por fila. DECISIONS 29-09.

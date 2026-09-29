@@ -118,6 +118,8 @@ struct AppShell: View {
                 .tabItem { Label(AppTab.perfil.title, systemImage: AppTab.perfil.symbol) }
         }
         .tint(Theme.Color.accentText)
+        // FH-111 — el entreno minimizado se sigue viendo sobre las pestañas.
+        .liveWorkoutAccessory(liveResume.minimized)
         .environment(store)
         // Persistent chat: any main-screen header opens it through this value;
         // it's raised as a full-screen cover that re-injects the store (a custom

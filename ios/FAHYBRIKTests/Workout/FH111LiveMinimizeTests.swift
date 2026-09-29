@@ -170,4 +170,44 @@ final class FH111LiveMinimizeTests: XCTestCase {
         XCTAssertIdentical(resume.cover?.session, session)
         XCTAssertEqual(mirror.phase, .coaching)
     }
+
+    /// La barra de sobre las pestañas existe mientras el vivo está escondido, y solo entonces.
+    func testMinimizedDrivesTheTabBarAccessory() {
+        let session = WorkoutSession(plan: .minimal(title: "FH-111-barra"))
+        session.start()
+        mirror.begin(session: session, activityKind: "mixed")
+        XCTAssertNil(resume.minimized)
+
+        resume.minimizeUI(parked: RecoveredLiveCover(
+            session: session,
+            assignmentId: "13",
+            title: "FH-111-barra",
+            isFree: false,
+            freeModalityWire: nil,
+            freeItemsJSON: nil,
+            mirrorActivityKind: "mixed"
+        ))
+        resume.dismiss()
+        XCTAssertIdentical(resume.minimized?.session, session)
+
+        resume.presentParkedCoverIfNeeded()
+        XCTAssertNil(resume.minimized)
+    }
+
+    /// La segunda línea de la barra dice en qué punto está el entreno.
+    func testMiniBarDetailFollowsTheEngine() {
+        let session = WorkoutSession(plan: .minimal(title: "FH-111-detalle"))
+        session.start()
+        session.isAwaitingBlockStart = false
+        XCTAssertEqual(LiveWorkoutMiniBar.detail(for: session), session.currentSegment?.title ?? "En curso")
+
+        session.isAwaitingBlockStart = true
+        XCTAssertEqual(LiveWorkoutMiniBar.detail(for: session), "Bloque listo para empezar")
+
+        session.isAwaitingFinishDecision = true
+        XCTAssertEqual(LiveWorkoutMiniBar.detail(for: session), "Trabajo hecho · toca para cerrar")
+
+        session.isPaused = true
+        XCTAssertEqual(LiveWorkoutMiniBar.detail(for: session), "En pausa")
+    }
 }

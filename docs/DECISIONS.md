@@ -11,6 +11,17 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-29 · El entreno minimizado se ve siempre: barra de sistema sobre las pestañas
+
+**Contexto.** El chevrón del vivo minimiza (FH-111: el motor y el espejo de la muñeca siguen), pero lo único que quedaba era una tarjeta en el scroll de Inicio/Plan que leía el disco y se recargaba solo al cerrar su propio cover: si el entreno se abrió desde otra pestaña, no aparecía. El atleta volvía por «crear entreno» → «seguir o terminar» (Alex, 29-09: «como UX está horrible»).
+
+**Decidido:** el entreno minimizado es la barra de «reproduciendo» del sistema (`tabViewBottomAccessory`, iOS 26.1+), encima de las pestañas y en todas: punto que late, nombre, paso de ahora (o «En pausa» / «Bloque listo para empezar» / «Trabajo hecho · toca para cerrar») y el crono corriendo. Tocarla reabre EL MISMO motor (`presentParkedCoverIfNeeded`). Lee `LiveWorkoutResume.minimized` en memoria, nunca el disco. `LiveWorkoutMiniBar.swift`.
+`WorkoutResumeBanner` queda solo para el entreno **guardado para luego** (pausado, instantánea en disco). En iOS 26.0, que no puede esconder el accesorio, esa tarjeta pinta la misma barra dentro del scroll.
+
+**Fuera:** con la app en segundo plano no hay Live Activity / Isla dinámica para el vivo general (solo existe la de correr en calle).
+
+**NO hacer:** volver a una tarjeta en el scroll para el entreno en curso; que la barra lea la instantánea del disco.
+
 ## 2026-09-29 · Tres huecos del vivo nuevo, cerrados: RX/Escalado al terminar, la pausa que sigue sola y la Estructura del circuito entera
 
 **Contexto.** La entrada de abajo (29-09) dejaba fuera tres cosas de la vista vieja. Se cierran en `claude/vivo-swift-release-2`.

@@ -1,11 +1,12 @@
 import SwiftUI
 
-// Card 142 / FH-111 — la ✕ del vivo MINIMIZA (sesión ACTIVE, espejo intacto).
-// Esta tira es la vuelta cuando el chrome está cerrado: aparece en Plan mientras
-// la instantánea siga siendo válida y, al tocarla, reabre el MISMO motor vivo
-// (`LiveWorkoutResume.presentParkedCoverIfNeeded`), no un entreno nuevo.
+// Card 142 — la vuelta a un entreno GUARDADO PARA LUEGO (pausado, instantánea en
+// disco): aparece en Inicio y Plan mientras la instantánea siga siendo válida.
 //
-// Copy distingue minimize ACTIVE (reloj sigue) de soft-leave pausado (Card 142).
+// El entreno MINIMIZADO (FH-111, el motor sigue) no se pinta aquí: lo lleva la
+// barra de sistema sobre las pestañas (`LiveWorkoutMiniBar`), leída del motor en
+// memoria. Solo en iOS 26.0, que no puede esconder esa barra, esta tarjeta pinta
+// la misma barra dentro del scroll.
 //
 // Autocargada como el resto de tarjetas de esta familia (ver `DoblesLiveBanner`
 // en Inicio): no pinta nada cuando no hay nada que retomar.
@@ -17,13 +18,21 @@ struct WorkoutResumeBanner: View {
     let onResume: (WorkoutLaunch) -> Void
 
     @State private var saved: PersistedWorkoutState? = nil
+    /// El alto de la barra del minimizado cuando va dentro del scroll (iOS 26.0):
+    /// el de una fila de dos líneas a 15 pt con su aire, como la de sistema.
+    private static let inlineBarHeight: CGFloat = 56
 
     var body: some View {
+        let live = LiveWorkoutResume.shared
         Group {
-            if let saved {
+            if let minimized = live.minimized {
+                if !LiveWorkoutAccessory.isSystemBarAvailable {
+                    LiveWorkoutMiniBar(parked: minimized)
+                        .frame(height: Self.inlineBarHeight)
+                        .resumeCardChrome()
+                }
+            } else if let saved, !live.hasLiveSession {
                 card(saved)
-            } else {
-                EmptyView()
             }
         }
         .task(id: refreshToken) { await load() }
@@ -51,9 +60,7 @@ struct WorkoutResumeBanner: View {
     }
 
     private func card(_ saved: PersistedWorkoutState) -> some View {
-        let isLiveActive = LiveWorkoutResume.shared.isUIMinimized
-            || (!saved.isPaused && LiveWorkoutResume.shared.hasLiveSession)
-        return Button {
+        Button {
             Haptics.medium()
             onResume(WorkoutLaunch(assignmentId: saved.assignmentId ?? "", title: saved.plan.name))
         } label: {
@@ -63,17 +70,15 @@ struct WorkoutResumeBanner: View {
             // chevron ya dice que la fila es tocable, como el resto de filas de
             // esta pantalla.
             HStack(spacing: 12) {
-                Image(systemName: isLiveActive ? "figure.run.circle.fill" : "pause.circle.fill")
+                Image(systemName: "pause.circle.fill")
                     .font(.system(size: 24, weight: .semibold))
                     .foregroundStyle(Theme.Color.accentText)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(isLiveActive ? "Entreno en curso" : "Tienes un entreno a medias")
+                    Text("Tienes un entreno a medias")
                         .font(.system(size: 15, weight: .heavy))
                         .foregroundStyle(Theme.Color.foreground)
                         .lineLimit(1)
-                    Text(isLiveActive
-                         ? "\(saved.plan.name) · sigue activo"
-                         : "\(saved.plan.name) · desde las \(horaDesde(saved.savedAt))")
+                    Text("\(saved.plan.name) · desde las \(horaDesde(saved.savedAt))")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Theme.Color.muted)
                         .lineLimit(1)
@@ -85,30 +90,27 @@ struct WorkoutResumeBanner: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.Color.accent.opacity(0.10))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.accent.opacity(0.35), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            .resumeCardChrome()
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(bannerAccessibilityLabel(saved: saved, isLiveActive: isLiveActive))
-    }
-
-    private func bannerAccessibilityLabel(
-        saved: PersistedWorkoutState,
-        isLiveActive: Bool
-    ) -> String {
-        if isLiveActive {
-            return "Entreno en curso: \(saved.plan.name), sigue activo. Toca para volver"
-        }
-        return "Tienes un entreno a medias: \(saved.plan.name), desde las \(horaDesde(saved.savedAt)). Toca para continuar"
+        .accessibilityLabel("Tienes un entreno a medias: \(saved.plan.name), desde las \(horaDesde(saved.savedAt)). Toca para continuar")
     }
 
     private func horaDesde(_ d: Date) -> String {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
         return f.string(from: d)
+    }
+}
+
+private extension View {
+    /// El marco naranja suave de las tarjetas de vuelta al entreno.
+    func resumeCardChrome() -> some View {
+        background(Theme.Color.accent.opacity(0.10))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                    .stroke(Theme.Color.accent.opacity(0.35), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
     }
 }
