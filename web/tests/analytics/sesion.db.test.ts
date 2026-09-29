@@ -16,12 +16,10 @@ import { makeAssignment, makeCoachAndAthlete, makeExercise, makeTemplate, type F
 
 const NOW = new Date('2026-06-15T10:00:00.000Z');
 
-const CORRER: Prescription = { scheme: 'steady', modality: 'run', total_s: 1800, target: { kind: 'hr_zone', value: 2 } } as Prescription;
-const SENTADILLA: Prescription = {
-  scheme: 'sets',
-  modality: 'strength',
-  sets: [{ measure: { kind: 'reps', value: 5 }, target: { kind: 'rpe', value: 8 } }],
-} as Prescription;
+// Las prescripciones como JSON (lo que guarda la base) y como tipo (lo que lee el texto).
+const CORRER_JSON = { scheme: 'steady', modality: 'run', total_s: 1800, target: { kind: 'hr_zone', value: 2 } };
+const SENTADILLA_JSON = { scheme: 'sets', modality: 'strength', sets: [{ measure: { kind: 'reps', value: 5 }, target: { kind: 'rpe', value: 8 } }] };
+const CORRER = CORRER_JSON as unknown as Prescription;
 
 describeWithDb('detalle de sesión (base real)', () => {
   const sql = getTestSql();
@@ -39,7 +37,7 @@ describeWithDb('detalle de sesión (base real)', () => {
     const plantilla = await makeTemplate({ fx, name: 'Rodaje + fuerza', format: 'intervals' });
     await sql`
       insert into template_segments (template_id, position, exercise_id, block_position, block_format, prescription_json)
-      values (${plantilla}, 0, ${correr}, 0, 'steady', ${sql.json(CORRER)}), (${plantilla}, 1, ${sentadilla}, 1, 'sets', ${sql.json(SENTADILLA)})
+      values (${plantilla}, 0, ${correr}, 0, 'steady', ${sql.json(CORRER_JSON)}), (${plantilla}, 1, ${sentadilla}, 1, 'sets', ${sql.json(SENTADILLA_JSON)})
     `;
     const asig = await makeAssignment({ fx, templateId: plantilla, scheduledForIso: '2026-06-10', status: 'completed' });
     const inicio = '2026-06-10T18:00:00+02:00';
@@ -51,12 +49,12 @@ describeWithDb('detalle de sesión (base real)', () => {
     ejecucion = Number(we!.id);
     const [run] = await sql<Array<{ id: string }>>`
       insert into segment_executions (execution_id, position, started_at, ended_at, modality, exercise_id, avg_hr, avg_pace_s_per_km, distance_meters, prescription_snapshot)
-      values (${ejecucion}, 0, ${inicio}::timestamptz, ${inicio}::timestamptz + interval '30 minutes', 'run', ${correr}, 150, 300, 6000, ${sql.json(CORRER)})
+      values (${ejecucion}, 0, ${inicio}::timestamptz, ${inicio}::timestamptz + interval '30 minutes', 'run', ${correr}, 150, 300, 6000, ${sql.json(CORRER_JSON)})
       returning id::text as id
     `;
     const [sq] = await sql<Array<{ id: string }>>`
       insert into segment_executions (execution_id, position, started_at, ended_at, modality, exercise_id, reps_completed, weight_used_kg, prescription_snapshot)
-      values (${ejecucion}, 1, ${inicio}::timestamptz + interval '32 minutes', ${inicio}::timestamptz + interval '42 minutes', 'strength', ${sentadilla}, 15, 100, ${sql.json(SENTADILLA)})
+      values (${ejecucion}, 1, ${inicio}::timestamptz + interval '32 minutes', ${inicio}::timestamptz + interval '42 minutes', 'strength', ${sentadilla}, 15, 100, ${sql.json(SENTADILLA_JSON)})
       returning id::text as id
     `;
     await sql`
