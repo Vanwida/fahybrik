@@ -47,7 +47,7 @@ final class VivoCodableTests: XCTestCase {
         let plan = Vivo.planDe(try P.sesion509(), zonas: P.zonas(), entorno: .treadmill)
         let bytes = try codificador.encode(plan).count
         XCTAssertGreaterThan(plan.pasos.count, 30)
-        XCTAssertLessThan(bytes, 30_000, "509 (\(plan.pasos.count) pasos) pesa \(bytes) B")
+        XCTAssertLessThan(bytes, 20_000, "509 (\(plan.pasos.count) pasos) pesa \(bytes) B (12 KB al medirlo el 30-09)")
     }
 
     // MARK: - Las uniones, con la forma del kit
