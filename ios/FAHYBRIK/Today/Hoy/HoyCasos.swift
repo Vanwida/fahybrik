@@ -68,7 +68,7 @@ enum HoyCasos {
         nombre: "Nora", fecha: fecha, hora: "7:40", conCoach: true, coach: "Mar", iniciales: "NR", fotoURL: nil,
         noLeidosChat: 0, comunicados: 0, checkinPendiente: false, cargando: false,
         disposicion: .medida(score: 84, delta7d: 6, senales: senales(checkin: true, hrv: "68 ms", sueno: "7,4 h", fc: "48 ppm")),
-        camino: carrera("HYROX Barcelona", dias: 39, meta: "sub 65 min", fase: "Construcción · semana 4 de 12", semana: (4, 12), foto: 0),
+        camino: carrera("HYROX Barcelona", dias: 39, meta: "Sub-65", fase: "Construcción · semana 4 de 12", semana: (4, 12), foto: 0),
         simulacion: .programada(dia: "el sábado", hoy: false),
         hoy: .sesiones([sesion("Series 6×800", .run)]),
         reclamos: [],
@@ -101,7 +101,7 @@ enum HoyCasos {
             $0.nombre = "Carla"; $0.iniciales = "CA"; $0.noLeidosChat = 2
             $0.disposicion = .medida(score: 38, delta7d: -14, senales: senales(checkin: true, hrv: "41 ms", sueno: "5,1 h", fc: "57 ppm"))
             $0.hoy = .sesiones([sesion("Fuerza tren inferior", .strength)])
-            $0.camino = carrera("HYROX Madrid", dias: 12, meta: "sub 75 min", fase: "Puesta a punto · semana 11 de 12", semana: (11, 12), foto: 2)
+            $0.camino = carrera("HYROX Madrid", dias: 12, meta: "Sub-75", fase: "Puesta a punto · semana 11 de 12", semana: (11, 12), foto: 2)
             $0.simulacion = .abierta
         },
 

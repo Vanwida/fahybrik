@@ -318,7 +318,7 @@ enum GaleriaDia {
                         Spacer(minLength: 12)
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Objetivo").papel(.rotulo)
-                            Text("sub 65 min").papel(.accion)
+                            Text("Sub-65").papel(.accion)
                         }
                         .foregroundStyle(Theme.Color.foreground)
                         .padding(.horizontal, 14).padding(.vertical, 8)

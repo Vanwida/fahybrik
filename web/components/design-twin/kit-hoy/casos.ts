@@ -59,7 +59,7 @@ const BASE: LecturaHoy = {
     carrera: {
       nombre: 'HYROX Barcelona',
       dias: 39,
-      meta: 'sub 65 min',
+      meta: 'Sub-65',
       fase: 'Construcción · semana 4 de 12',
       semana: { n: 4, m: 12 },
       fondo: 'sled-push',
@@ -129,7 +129,7 @@ export const CASOS_HOY: CasoHoy[] = [
         carrera: {
           nombre: 'HYROX Madrid',
           dias: 12,
-          meta: 'sub 75 min',
+          meta: 'Sub-75',
           fase: 'Puesta a punto · semana 11 de 12',
           semana: { n: 11, m: 12 },
           fondo: 'wall-balls',

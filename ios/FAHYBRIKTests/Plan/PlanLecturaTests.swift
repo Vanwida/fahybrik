@@ -513,7 +513,7 @@ final class PlanLecturaTests: XCTestCase {
     }
 
     func testElRangoDeLaSemanaEsUnHechoDelCable() {
-        XCTAssertEqual(FechasDelPlan.rango(desde: "2026-09-28", hasta: "2026-10-04"), "Del 28 sept al 4 oct", "iOS escribe septiembre como «sept» (es_ES); el doble, «sep»")
+        XCTAssertEqual(FechasDelPlan.rango(desde: "2026-09-28", hasta: "2026-10-04"), "Del 28 sep al 4 oct")
     }
 
     func testElPlanDirectoNoLlevaNombreDeBloqueNiLineaDelCoachYNoSeInventan() throws {

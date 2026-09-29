@@ -95,7 +95,7 @@ export interface Carrera {
   nombre: string;
   /** Días que faltan (ya en el «hoy» del atleta). */
   dias: number;
-  /** «sub 65 min» / «1:04:30». Null si el atleta no fijó objetivo de tiempo. */
+  /** «Sub-65» / «64:30». Null si el atleta no fijó objetivo de tiempo. */
   meta: string | null;
   /**
    * «Construcción · semana 4 de 12»: el nombre de la fase lo pone el COACH

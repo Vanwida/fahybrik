@@ -231,7 +231,7 @@ final class PlanLibreLecturaTests: XCTestCase {
         guard case let .fijada(carrera) = l.carrera else { return XCTFail("debería haber carrera fijada") }
         XCTAssertEqual(carrera.nombre, "HYROX Valencia")
         XCTAssertEqual(carrera.dias, 34)
-        XCTAssertEqual(carrera.objetivo, "1:08:00")
+        XCTAssertEqual(carrera.objetivo, "68:00", "los totales de carrera van en minutos corridos, como en Carreras")
         XCTAssertEqual(carrera.comparacion, .mejor(try XCTUnwrap(e.mejorTiempo), deltaS: 218))
         XCTAssertEqual(carrera.faltan, [], "con carreras la tarjeta ya no pide deberes")
 
