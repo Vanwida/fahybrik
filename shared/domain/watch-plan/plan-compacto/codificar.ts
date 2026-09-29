@@ -25,9 +25,9 @@
 //     y el vocabulario que el coach ya escribió. Nada derivado (brief, estación,
 //     pacto) viaja: el reloj lo compone del dato.
 
-import type { BandasRitmo, PasoBase, ReglasAviso, ZonasCoach } from '../../kit-reloj/paso';
-import type { MetodoReloj, Vocabulario } from '../../kit-reloj/metodo';
-import type { PlanSesion } from '../../kit-reloj/secuencia';
+import type { BandasRitmo, PasoBase, ReglasAviso, ZonasCoach } from '../paso';
+import type { MetodoReloj, Vocabulario } from '../metodo';
+import type { PlanSesion } from '../plan';
 import {
   ANCHOS_BANDERAS_PASO,
   ANCHOS_EXTRAS,

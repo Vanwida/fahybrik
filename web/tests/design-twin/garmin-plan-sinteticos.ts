@@ -33,8 +33,8 @@ import {
   TIPOS_ALTERNA,
   TIPOS_MEDIDA,
   UNIDADES_RITMO,
-} from '@/components/design-twin/kit-garmin/plan-compacto/formato';
-import { completarPlan } from '@/components/design-twin/kit-garmin/plan-compacto/meta';
+} from '@fahybrid/shared/domain/watch-plan/plan-compacto/formato';
+import { completarPlan } from '@fahybrid/shared/domain/watch-plan/plan-compacto/meta';
 import { amrap } from '@/components/design-twin/screens/reloj-wod/planes';
 import { corporal, ejercicio, rir, rm } from '@/components/design-twin/screens/reloj-fuerza/planes';
 import { simulacionHyrox } from '@/components/design-twin/screens/reloj-circuito/planes';

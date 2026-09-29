@@ -12,13 +12,13 @@
 // de dejar que el reloj invente. Los defectos los pone el constructor del
 // servidor (`completarPlan`, meta.ts), no el reloj.
 
-import type { Entorno } from '../../kit-reloj/paso';
-import type { PlanSesion } from '../../kit-reloj/secuencia';
+import type { Entorno } from '../paso';
+import type { PlanSesion } from '../plan';
 
 // El contrato del método vive en el kit (`kit-reloj/metodo.ts`, `paso.ts`); se
 // re-exporta para que quien importe el códec no busque en dos sitios.
-export type { MetodoReloj, NombreClase, RangoAnotar, Vocabulario } from '../../kit-reloj/metodo';
-export type { BandaRitmo, BandasRitmo } from '../../kit-reloj/paso';
+export type { MetodoReloj, NombreClase, RangoAnotar, Vocabulario } from '../metodo';
+export type { BandaRitmo, BandasRitmo } from '../paso';
 
 export interface MetaSesion {
   /** Id de la asignación: lo que el resultado devuelve al servidor. */

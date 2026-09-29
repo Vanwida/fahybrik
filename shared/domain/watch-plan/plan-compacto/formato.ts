@@ -41,9 +41,9 @@ import type {
   SentidoRoxzone,
   TipoMedida,
   UnidadRitmo,
-} from '../../kit-reloj/paso';
-import type { Dobles } from '../../kit-reloj/dobles';
-import type { FormatoNombrado } from '../../kit-reloj/metodo';
+} from '../paso';
+import type { Dobles } from '../dobles';
+import type { FormatoNombrado } from '../metodo';
 
 // ---------------------------------------------------------------------------
 // Versión y límites

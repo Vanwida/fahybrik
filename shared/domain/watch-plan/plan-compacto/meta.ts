@@ -21,10 +21,10 @@
 // QUÉ NO HACER: no meter aquí el mapa modalidad → deporte del FIT (es un dato
 // del servidor, arreglo A4, y lo decide la prueba T1 en un reloj real).
 
-import type { Entorno } from '../../kit-reloj/paso';
-import { vocabularioDe, metodoDe, nombreDeClase, type Vocabulario } from '../../kit-reloj/metodo';
-import { duracionEstimada } from '../../kit-reloj/estructura';
-import type { PlanSesion } from '../../kit-reloj/secuencia';
+import type { Entorno } from '../paso';
+import { vocabularioDe, metodoDe, nombreDeClase, type Vocabulario } from '../metodo';
+import { duracionEstimada } from '../duracion';
+import type { PlanSesion } from '../plan';
 import { canonico } from './canonico';
 import { MAX_NUM, type Procedencia } from './formato';
 import type { BandasRitmo, MetaSesion } from './tipos';
