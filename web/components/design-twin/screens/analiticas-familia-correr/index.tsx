@@ -15,10 +15,10 @@ import { nombreDe, type EscenarioPortada } from '../../kit-analiticas/casos/atle
 import { fechaLegible, formatear, reloj } from '../../kit-analiticas/fmt';
 import { Columnas, CurvaMejores, Lineas, PuntosCumplimiento } from '../../kit-analiticas/graficos';
 import { METODO_DEFECTO } from '../../kit-analiticas/metodo';
-import { Celda, Etiqueta, HuecoBloque, Nota, PantallaAnaliticas, Rejilla, Seccion, Superficie } from '../../kit-analiticas/piezas';
-import { CabeceraFamilia, FilaSinDato, Tabla } from '../../kit-analiticas/piezas-detalle';
-import { PIEL_IPHONE as P } from '../../kit-analiticas/tokens';
-import { colorFamilia } from '../../kit-analiticas/tokens';
+import { PantallaAnaliticas, Seccion } from '../../kit-analiticas/pantalla';
+import { Celda, Etiqueta, Nota, Rejilla, Superficie } from '../../kit-analiticas/piezas';
+import { CabeceraFamilia, FilaSinDato, SujetoVacio, Tabla } from '../../kit-analiticas/piezas-detalle';
+import { PIEL_IPHONE as P, colorFamilia } from '../../kit-analiticas/tokens';
 
 export const meta: TwinMeta = {
   id: 'analiticas-familia-correr',
@@ -59,8 +59,14 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
 
   if (!d) {
     return (
-      <PantallaAnaliticas titulo="Correr" ventana={ventana} onVentana={setVentana} atras={atras}>
-        <HuecoBloque estado="vacio" titulo="Sin correr todavía" cuerpo="Con tu primera carrera aparecen aquí tu ritmo, tus mejores esfuerzos y tu motor. Correr es la mitad del HYROX: es la familia que más cuenta." salida={{ tipo: 'accion', texto: 'Empezar a correr', onTap: () => onLog('Salida → Empezar a correr') }} />
+      <PantallaAnaliticas
+        titulo="Correr"
+        ventana={ventana}
+        onVentana={setVentana}
+        atras={atras}
+        sujeto={<SujetoVacio familia="correr" etiqueta="Correr" titulo="Sin correr todavía" cuerpo="Con tu primera carrera aparecen aquí tu ritmo, tus mejores esfuerzos y tu motor. Correr es la mitad del HYROX: es la familia que más cuenta." salida={{ texto: 'Empezar a correr', onTap: () => onLog('Salida → Empezar a correr') }} />}
+      >
+        {null}
       </PantallaAnaliticas>
     );
   }
@@ -78,7 +84,7 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
   );
 
   return (
-    <PantallaAnaliticas titulo="Correr" ventana={ventana} onVentana={(v) => { setVentana(v); onLog(`Ventana → ${v}`); }} atras={atras} cabeceraFija={cabecera}>
+    <PantallaAnaliticas titulo="Correr" ventana={ventana} onVentana={(v) => { setVentana(v); onLog(`Ventana → ${v}`); }} atras={atras} sujeto={cabecera}>
       <Seccion titulo="Ritmo umbral" pregunta="Semana a semana · abajo es mejor">
         {d.umbral.serie && d.umbral.serie.hecho.filter((q) => q.v != null).length > 1 ? (
           <Superficie>

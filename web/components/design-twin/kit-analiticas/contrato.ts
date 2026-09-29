@@ -47,6 +47,16 @@ export const VENTANA_ETIQUETA: Record<Ventana, string> = {
   todo: 'Todo',
 };
 
+/** La ventana dicha en una frase, para el sobretítulo de la pestaña: siempre se ve cuál rige (A4). */
+export const VENTANA_FRASE: Record<Ventana, string> = {
+  '7d': 'Últimos 7 días',
+  '4s': 'Últimas 4 semanas',
+  '12s': 'Últimas 12 semanas',
+  '6m': 'Últimos 6 meses',
+  '1a': 'Último año',
+  todo: 'Desde que empezaste',
+};
+
 /** Días que abarca cada ventana; `todo` los decide la historia del atleta. */
 export const VENTANA_DIAS: Record<Exclude<Ventana, 'todo'>, number> = {
   '7d': 7,

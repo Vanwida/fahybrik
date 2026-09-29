@@ -6,17 +6,20 @@
 // carrera entero en el detalle de estaciones, el de semanas filtrado en cada
 // familia). Ningún bloque escribe prosa: la del hueco viene de `huecos.ts`.
 
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { FAMILIA_GRANDE, FAMILIA_GRANDE_NOMBRE, type Bloque, type EstadoBloque, type LecturaPanel, type PanelAnaliticas } from './contrato';
-import { cubosCarga, cubosZonas, estadosDe, huecosTop, lectura, leyendaFamilias, leyendaZonas, partesPolarizacion, resumenSesiones, tramosEnOrden, tramosSinDato, valorDe } from './derivados';
+import { cubosCarga, cubosZonas, estadosDe, huecosTop, lectura, leyendaFamilias, leyendaZonas, partesPolarizacion, resumenSesiones, tramosEnOrden, tramosSinDato } from './derivados';
 import { enDias, fechaLegible, formatear, formatearDelta, horas, reloj } from './fmt';
 import { BarraReparto, BarrasHueco, Chispa, Columnas, Divergente, Lineas } from './graficos';
 import { textoHueco } from './huecos';
 import { seriesForma } from './derivados';
 import { agrupacionDe } from './derivados';
 import type { MetodoAnaliticas } from './metodo';
-import { BotonAccion, Celda, Cuerpo, Delta, Etiqueta, FilaProgreso, FilaRecord, FilaSesion, HuecoBloque, Lista, Nota, Numeral, Rejilla, Seccion, Segmento, Superficie } from './piezas';
-import { PIEL_IPHONE as P, TA } from './tokens';
+import { Seccion, Segmento } from './pantalla';
+import { BotonAccion, Celda, Cuerpo, Delta, Etiqueta, FilaProgreso, FilaRecord, FilaSesion, HuecoBloque, Lista, Nota, Numeral, Rejilla, Superficie } from './piezas';
+import { PIEL_IPHONE as P, PIEL_IPHONE_DIVERGENTE } from './tokens';
+import { Rotulo } from '../kit-dia/piezas';
+import { TAM } from '../kit-dia/tokens';
 
 export interface BloqueProps {
   p: PanelAnaliticas;
@@ -48,7 +51,6 @@ export function BloqueForma({ p, metodo, estados, onLog }: BloqueProps) {
   const subida = lectura(p.forma.lecturas, 'forma.subida');
   const cobertura = lectura(p.forma.lecturas, 'forma.cobertura');
   const fatiga = lectura(p.forma.lecturas, 'forma.fatiga');
-  const v = p.forma.veredicto;
   return (
     <Seccion titulo="Forma y fatiga" pregunta="¿Gano forma o me paso? ¿Llego fresco?" onAbrir={() => onLog('→ Forma y fatiga (detalle)')}>
       {estado !== 'lleno' ? <Hueco bloque="forma" estado={estado} lecturas={p.forma.lecturas} p={p} metodo={metodo} onLog={onLog} /> : null}
@@ -63,16 +65,10 @@ export function BloqueForma({ p, metodo, estados, onLog }: BloqueProps) {
           {frescura?.serie ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <Etiqueta>Frescura · forma menos fatiga</Etiqueta>
-              <Divergente piel={P} alto={92} puntos={frescura.serie.hecho} proyeccion={frescura.serie.proyeccion} marcas={marcas} formato={(x) => (x > 0 ? `+${Math.round(x)}` : String(Math.round(x)))} />
+              <Divergente piel={PIEL_IPHONE_DIVERGENTE} alto={92} puntos={frescura.serie.hecho} proyeccion={frescura.serie.proyeccion} marcas={marcas} formato={(x) => (x > 0 ? `+${Math.round(x)}` : String(Math.round(x)))} />
             </div>
           ) : null}
         </Superficie>
-      ) : null}
-      {v ? (
-        <Cuerpo fuerte={v.clase !== 'sin-veredicto'} tono={v.clase === 'sin-veredicto' ? P.tinta2 : P.tinta}>
-          {v.frase_es}
-          {v.retirado_es ? ` ${v.retirado_es}` : ''}
-        </Cuerpo>
       ) : null}
       {estado === 'lleno' && (subida?.dato || cobertura?.dato) ? (
         <Rejilla>
@@ -328,20 +324,12 @@ export function CeldaClave({ l, hoy }: { l: LecturaPanel; hoy: string }) {
   if (!l.dato) return null;
   return (
     <Superficie estilo={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <Etiqueta>{l.titulo_es}</Etiqueta>
+      <Rotulo>{l.titulo_es}</Rotulo>
       <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-        <Numeral texto={formatear(l.dato.valor, l.dato.unidad)} cuerpo={TA.dato.cuerpo} />
+        <Numeral texto={formatear(l.dato.valor, l.dato.unidad)} cuerpo={TAM.dato} />
         {l.dato.comparacion ? <Delta comparacion={l.dato.comparacion} unidad={l.dato.unidad} /> : null}
       </span>
       {l.cobertura.ultimo_dato ? <Etiqueta>última marca {fechaLegible(l.cobertura.ultimo_dato, hoy)}</Etiqueta> : null}
     </Superficie>
   );
-}
-
-export function valorEstado(p: PanelAnaliticas, id: string): number | null {
-  return valorDe(p.estado.lecturas, id);
-}
-
-export function Bloques({ children }: { children: ReactNode }) {
-  return <>{children}</>;
 }

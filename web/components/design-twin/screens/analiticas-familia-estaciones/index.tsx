@@ -17,11 +17,13 @@ import { fechaLegible, formatearDelta, reloj } from '../../kit-analiticas/fmt';
 import { Lineas } from '../../kit-analiticas/graficos';
 import { BarrasSimples } from '../../kit-analiticas/graficos-sesion';
 import { METODO_DEFECTO } from '../../kit-analiticas/metodo';
-import { Celda, Etiqueta, HuecoBloque, Nota, PantallaAnaliticas, Rejilla, Seccion, Sello, Superficie } from '../../kit-analiticas/piezas';
-import { CabeceraFamilia, Tabla } from '../../kit-analiticas/piezas-detalle';
+import { PantallaAnaliticas, Seccion } from '../../kit-analiticas/pantalla';
+import { Celda, Cuerpo, Etiqueta, HuecoBloque, Nota, Numeral, Rejilla, Sello, Superficie } from '../../kit-analiticas/piezas';
+import { CabeceraFamilia, SujetoVacio, Tabla } from '../../kit-analiticas/piezas-detalle';
+import { MARGEN } from '../../kit-dia/tokens';
 import { LIENZO } from '../../kit-iphone-vivo/tokens';
 import { useMedidaLienzo } from '../../kit-iphone-vivo/piezas';
-import { MARGEN_A, PIEL_IPHONE as P, colorFamilia } from '../../kit-analiticas/tokens';
+import { DATO_FILA, PIEL_IPHONE as P, colorFamilia } from '../../kit-analiticas/tokens';
 
 export const meta: TwinMeta = {
   id: 'analiticas-familia-estaciones',
@@ -52,7 +54,7 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
   const p = useMemo(() => panelDe(base, ventana, metodo), [base, ventana, metodo]);
   const estados = useEstados(p, metodo);
   const { ref, lienzo } = useMedidaLienzo();
-  const ancho = (lienzo.ancho || LIENZO.ancho) - 2 * MARGEN_A;
+  const ancho = (lienzo.ancho || LIENZO.ancho) - 2 * MARGEN;
   const hoy = '2026-09-29';
 
   useEffect(() => {
@@ -64,8 +66,14 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
   if (!d) {
     return (
       <div ref={ref} style={{ position: 'absolute', inset: 0 }}>
-        <PantallaAnaliticas titulo="Estaciones y WOD" ventana={ventana} onVentana={setVentana} atras={atras}>
-          <HuecoBloque estado="vacio" titulo="Sin estaciones todavía" cuerpo="Con el primer circuito aparecen aquí tu mejor por estación (con la carga que llevabas), tus simulaciones y, con una carrera objetivo, cuánto te falta en cada tramo." salida={{ tipo: 'accion', texto: 'Hacer un circuito de estaciones', onTap: () => onLog('Salida → circuito') }} />
+        <PantallaAnaliticas
+          titulo="Estaciones y WOD"
+          ventana={ventana}
+          onVentana={setVentana}
+          atras={atras}
+          sujeto={<SujetoVacio familia="estaciones" etiqueta="Estaciones y WOD" titulo="Sin estaciones todavía" cuerpo="Con el primer circuito aparecen aquí tu mejor por estación (con la carga que llevabas), tus simulaciones y, con una carrera objetivo, cuánto te falta en cada tramo." salida={{ texto: 'Hacer un circuito de estaciones', onTap: () => onLog('Salida → circuito') }} />}
+        >
+          {null}
         </PantallaAnaliticas>
       </div>
     );
@@ -87,7 +95,7 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
 
   return (
     <div ref={ref} style={{ position: 'absolute', inset: 0 }}>
-      <PantallaAnaliticas titulo="Estaciones y WOD" ventana={ventana} onVentana={(v) => { setVentana(v); onLog(`Ventana → ${v}`); }} atras={atras} cabeceraFija={cabecera}>
+      <PantallaAnaliticas titulo="Estaciones y WOD" ventana={ventana} onVentana={(v) => { setVentana(v); onLog(`Ventana → ${v}`); }} atras={atras} sujeto={cabecera}>
         <Seccion titulo="Mejor por estación" pregunta={`Las ocho del HYROX · ${d.estaciones.filter((e) => e.mejor_s != null).length} con marca`}>
           <Tabla
             etiqueta="Mejor por estación"
@@ -108,9 +116,16 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
           ) : (
             d.wods.map((w) => (
               <Superficie key={w.id} estilo={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-                  <Etiqueta estilo={{ color: P.tinta, textWrap: 'pretty' }}>{w.nombre_es}</Etiqueta>
-                  {w.ultimo ? <Etiqueta>{w.unidad === 'segundos' ? reloj(w.ultimo.valor) : `${w.ultimo.valor} reps`} · {fechaLegible(w.ultimo.fecha, hoy)}</Etiqueta> : null}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                  <Cuerpo fuerte estilo={{ flex: '1 1 auto', minWidth: 0 }}>
+                    {w.nombre_es}
+                  </Cuerpo>
+                  {w.ultimo ? (
+                    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flex: '0 0 auto' }}>
+                      <Numeral texto={w.unidad === 'segundos' ? reloj(w.ultimo.valor) : `${w.ultimo.valor} reps`} cuerpo={DATO_FILA} />
+                      <Etiqueta>{fechaLegible(w.ultimo.fecha, hoy)}</Etiqueta>
+                    </span>
+                  ) : null}
                 </div>
                 {w.serie.filter((q) => q.v != null).length > 1 ? (
                   <Lineas piel={P} alto={140} series={[{ id: w.id, etiqueta: w.nombre_es, puntos: w.serie, color: colorFamilia(P, 'wod'), formato: (v) => (w.unidad === 'segundos' ? reloj(v) : `${Math.round(v)} reps`), rotuloFinal: true }]} formatoY={(v) => (w.unidad === 'segundos' ? reloj(v) : String(Math.round(v)))} invertido={w.unidad === 'segundos'} leyenda={false} escalaTiempo={w.unidad === 'segundos'} />
@@ -128,7 +143,9 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
               <Rejilla>
                 <Celda etiqueta="Tiempo oficial" valor={d.oficial.total_s} unidad="segundos" nota={`${d.oficial.tramos.filter((t) => t.tramo.startsWith('run')).reduce((s, t) => s + t.s, 0) > 0 ? `correr ${reloj(d.oficial.tramos.filter((t) => t.tramo.startsWith('run')).reduce((s, t) => s + t.s, 0))} · estaciones ${reloj(d.oficial.tramos.filter((t) => !t.tramo.startsWith('run') && t.tramo !== 'roxzone').reduce((s, t) => s + t.s, 0))} · Roxzone ${reloj(d.oficial.tramos.find((t) => t.tramo === 'roxzone')?.s ?? 0)}` : ''}`} aLoAncho />
               </Rejilla>
-              <BarrasSimples piel={P} filas={d.oficial.tramos.map((t) => ({ id: t.tramo, etiqueta: TRAMO_CARRERA_NOMBRE[t.tramo], valor: t.s, color: t.tramo.startsWith('run') ? colorFamilia(P, 'correr') : t.tramo === 'roxzone' ? P.tinta2 : colorFamilia(P, 'estaciones') }))} formato={(v) => reloj(v)} anchoInicial={ancho} altoFila={28} />
+              <Superficie>
+                <BarrasSimples piel={P} filas={d.oficial.tramos.map((t) => ({ id: t.tramo, etiqueta: TRAMO_CARRERA_NOMBRE[t.tramo], valor: t.s, color: t.tramo.startsWith('run') ? colorFamilia(P, 'correr') : t.tramo === 'roxzone' ? P.tinta2 : colorFamilia(P, 'estaciones') }))} formato={(v) => reloj(v)} anchoInicial={ancho - 32} altoFila={28} />
+              </Superficie>
             </>
           ) : (
             <HuecoBloque estado="vacio" titulo="Sin carrera oficial todavía" cuerpo="Cuando hagas un HYROX, sus parciales oficiales se importan y se quedan aquí: son la mejor previsión que existe." salida={{ tipo: 'accion', texto: 'Importar una carrera', onTap: () => onLog('Salida → importar carrera') }} />

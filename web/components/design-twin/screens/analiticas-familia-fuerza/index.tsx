@@ -15,8 +15,9 @@ import { nombreDe, type EscenarioPortada } from '../../kit-analiticas/casos/atle
 import { conMillar, fechaLegible, formatear } from '../../kit-analiticas/fmt';
 import { Columnas, PuntosCumplimiento } from '../../kit-analiticas/graficos';
 import { METODO_DEFECTO } from '../../kit-analiticas/metodo';
-import { Celda, Etiqueta, FilaProgreso, HuecoBloque, Lista, Nota, PantallaAnaliticas, Rejilla, Seccion, Segmento, Sello, Superficie } from '../../kit-analiticas/piezas';
-import { CabeceraFamilia, Tabla } from '../../kit-analiticas/piezas-detalle';
+import { PantallaAnaliticas, Seccion, Segmento } from '../../kit-analiticas/pantalla';
+import { Celda, Etiqueta, FilaProgreso, Lista, Nota, Rejilla, Sello, Superficie } from '../../kit-analiticas/piezas';
+import { CabeceraFamilia, SujetoVacio, Tabla } from '../../kit-analiticas/piezas-detalle';
 import { PIEL_IPHONE as P, colorFamilia } from '../../kit-analiticas/tokens';
 
 export const meta: TwinMeta = {
@@ -57,8 +58,14 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
   const atras = { texto: 'Analíticas', onTap: () => onLog('← Analíticas') };
   if (!d) {
     return (
-      <PantallaAnaliticas titulo="Fuerza" ventana={ventana} onVentana={setVentana} atras={atras}>
-        <HuecoBloque estado="vacio" titulo="Sin fuerza todavía" cuerpo="Con la primera sesión de fuerza aparecen aquí tu 1RM estimado por ejercicio, tu tonelaje por semana y si clavas el RIR que te piden. Anota kg y RIR en cada descanso: es lo que lo alimenta." salida={{ tipo: 'accion', texto: 'Empezar una sesión de fuerza', onTap: () => onLog('Salida → fuerza') }} />
+      <PantallaAnaliticas
+        titulo="Fuerza"
+        ventana={ventana}
+        onVentana={setVentana}
+        atras={atras}
+        sujeto={<SujetoVacio familia="fuerza" etiqueta="Fuerza" titulo="Sin fuerza todavía" cuerpo="Con la primera sesión de fuerza aparecen aquí tu 1RM estimado por ejercicio, tu tonelaje por semana y si clavas el RIR que te piden. Anota kg y RIR en cada descanso: es lo que lo alimenta." salida={{ texto: 'Empezar una sesión de fuerza', onTap: () => onLog('Salida → fuerza') }} />}
+      >
+        {null}
       </PantallaAnaliticas>
     );
   }
@@ -79,7 +86,7 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
   );
 
   return (
-    <PantallaAnaliticas titulo="Fuerza" ventana={ventana} onVentana={(v) => { setVentana(v); onLog(`Ventana → ${v}`); }} atras={atras} cabeceraFija={cabecera}>
+    <PantallaAnaliticas titulo="Fuerza" ventana={ventana} onVentana={(v) => { setVentana(v); onLog(`Ventana → ${v}`); }} atras={atras} sujeto={cabecera}>
       <Seccion titulo="1RM estimado" pregunta={`Por ejercicio · fórmula de ${metodo.formula_1rm === 'epley' ? 'Epley' : 'Brzycki'}, la de tu coach`}>
         <Lista>
           {d.ejercicios.map((e) => (
@@ -89,7 +96,7 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
         <Nota>Estimado desde tu mejor serie hecha (kg × reps anotados en la sesión). Un 1RM real pesa más que una estimación: si haces un test, manda.</Nota>
       </Seccion>
 
-      <Seccion titulo="Mejores por repeticiones" pregunta={elegido.nombre} accesorio={<Segmento items={d.ejercicios.map((e, i) => ({ id: String(i), texto: e.nombre.split(' ')[0]! }))} valor={String(d.ejercicios.indexOf(elegido))} onCambio={(v) => setEjercicio(Number(v))} etiqueta="Ejercicio" />}>
+      <Seccion titulo="Mejores por repeticiones" pregunta={elegido.nombre} accesorio={<Segmento items={d.ejercicios.map((e, i) => ({ id: String(i), texto: e.nombre }))} valor={String(d.ejercicios.indexOf(elegido))} onCambio={(v) => setEjercicio(Number(v))} etiqueta="Ejercicio" />}>
         <Tabla
           etiqueta={`Mejores por repeticiones · ${elegido.nombre}`}
           columnas={[

@@ -6,7 +6,9 @@
 
 export {
   conMillar,
+  conSigno,
   cifra,
+  entero,
   enDias,
   esCero,
   esDecimal,
@@ -19,3 +21,8 @@ export {
   reloj,
   unidadCorta,
 } from '@/components/v2/analiticas/formato';
+
+/** Pega la unidad a su cifra con un espacio duro: un título que se parte en «1000 / m en cinta» no se lee. */
+export function unirUnidades(texto: string): string {
+  return texto.replace(/(\d) (m|km|kg|min|s|h|W|ppm|rpm|spm)(?![\p{L}\d])/gu, '$1\u00a0$2');
+}

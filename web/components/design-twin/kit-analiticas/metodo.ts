@@ -170,8 +170,25 @@ export const BANDAS_DISPOSICION_DEFECTO: readonly BandaDisposicion[] = [
 ];
 
 export function palabraDisposicion(valor: number, bandas: readonly BandaDisposicion[]): string {
-  for (const b of bandas) if (b.hasta == null || valor <= b.hasta) return b.nombre_es;
-  return bandas[bandas.length - 1]!.nombre_es;
+  return bandas[indiceBanda(valor, bandas)]!.nombre_es;
+}
+
+function indiceBanda(valor: number, bandas: readonly BandaDisposicion[]): number {
+  const i = bandas.findIndex((b) => b.hasta == null || valor <= b.hasta);
+  return i < 0 ? bandas.length - 1 : i;
+}
+
+/**
+ * En qué tercio del espectro cae la disposición: la banda más baja es `bajo`, la más alta `alto` y
+ * las del medio `medio`. Lo decide la POSICIÓN de la banda, no su nombre ni su corte: un coach que
+ * renombra o mueve las bandas sigue teniendo su arco en el color que toca (HARD RULE Nº0).
+ */
+export type NivelDisposicion = 'bajo' | 'medio' | 'alto';
+
+export function nivelDisposicion(valor: number, bandas: readonly BandaDisposicion[]): NivelDisposicion {
+  if (bandas.length < 2) return 'medio';
+  const i = indiceBanda(valor, bandas);
+  return i === 0 ? 'bajo' : i === bandas.length - 1 ? 'alto' : 'medio';
 }
 
 export const METODO_DEFECTO: MetodoAnaliticas = {

@@ -19,7 +19,7 @@ export interface TramoSesion {
   prescrito: {
     /** «1000 m», «500 m», «5 reps», «60 s». */
     medida_es: string;
-    /** «3:45–3:55/km», «Z2», «1:52/500m», «100 kg · RIR 2». Null sin objetivo. */
+    /** «3:45 a 3:55/km», «Z2», «1:52/500m», «100 kg · RIR 2». Null sin objetivo. */
     objetivo_es: string | null;
     eje: EjeCumplimiento | null;
     objetivo: number | [number, number] | null;
@@ -96,9 +96,9 @@ export function sesionDe(id: EscenarioSesion, metodo: MetodoAnaliticas = METODO_
       const hechos = [229, 231, 238, 226];
       const ppm = [163, 168, 172, 174];
       const tramos: TramoSesion[] = [
-        { n: 1, nombre_es: 'Calentamiento', rol: 'calentamiento', prescrito: { medida_es: '10 min', objetivo_es: 'Z1–Z2', eje: 'zona', objetivo: [1, 2] }, hecho: { medida_es: '10:04', valor: 2, valor_es: 'Z2', extra_es: '5:40/km · 131 ppm' }, cumplimiento: 'dentro', carga: { tss: cargaPulso(604, 131, UMBRAL_PPM), peldano: 'pulso', ancla: 'medida' } },
+        { n: 1, nombre_es: 'Calentamiento', rol: 'calentamiento', prescrito: { medida_es: '10 min', objetivo_es: 'Z1 a Z2', eje: 'zona', objetivo: [1, 2] }, hecho: { medida_es: '10:04', valor: 2, valor_es: 'Z2', extra_es: '5:40/km · 131 ppm' }, cumplimiento: 'dentro', carga: { tss: cargaPulso(604, 131, UMBRAL_PPM), peldano: 'pulso', ancla: 'medida' } },
         ...hechos.flatMap((h, i): TramoSesion[] => [
-          { n: 2 + i * 2, nombre_es: `Serie ${i + 1} de 4`, rol: 'trabajo', prescrito: { medida_es: '1000 m', objetivo_es: '3:45–3:55/km', eje: 'ritmo', objetivo }, hecho: { medida_es: '1000 m', valor: h, valor_es: `${clock(h)}/km`, extra_es: `${ppm[i]} ppm · 178 pasos/min` }, cumplimiento: cumplimientoDe('ritmo', objetivo, h, tol), carga: { tss: Math.round(((h / 3600) * 100 * Math.pow(252 / h, 2)) * 10) / 10, peldano: 'ritmo', ancla: 'medida' } },
+          { n: 2 + i * 2, nombre_es: `Serie ${i + 1} de 4`, rol: 'trabajo', prescrito: { medida_es: '1000 m', objetivo_es: '3:45 a 3:55/km', eje: 'ritmo', objetivo }, hecho: { medida_es: '1000 m', valor: h, valor_es: `${clock(h)}/km`, extra_es: `${ppm[i]} ppm · 178 pasos/min` }, cumplimiento: cumplimientoDe('ritmo', objetivo, h, tol), carga: { tss: Math.round(((h / 3600) * 100 * Math.pow(252 / h, 2)) * 10) / 10, peldano: 'ritmo', ancla: 'medida' } },
           ...(i < 3 ? [{ n: 3 + i * 2, nombre_es: 'Recuperación', rol: 'recuperacion' as const, prescrito: { medida_es: '90 s trote', objetivo_es: null, eje: null, objetivo: null }, hecho: { medida_es: '1:30', valor: null, valor_es: '6:10/km', extra_es: `${ppm[i]! - 18} ppm` }, cumplimiento: 'sin-plan' as const, carga: { tss: cargaPulso(90, ppm[i]! - 18, UMBRAL_PPM), peldano: 'pulso' as const, ancla: 'medida' as const } }] : []),
         ]),
         { n: 9, nombre_es: 'Vuelta a la calma', rol: 'vuelta', prescrito: { medida_es: '5 min', objetivo_es: 'Z1', eje: 'zona', objetivo: [1, 1] }, hecho: { medida_es: '5:02', valor: 1, valor_es: 'Z1', extra_es: '6:20/km · 128 ppm' }, cumplimiento: 'dentro', carga: { tss: cargaPulso(302, 128, UMBRAL_PPM), peldano: 'pulso', ancla: 'medida' } },
@@ -114,7 +114,7 @@ export function sesionDe(id: EscenarioSesion, metodo: MetodoAnaliticas = METODO_
         duracion_s: 1880,
         origen_es: 'Del plan · reclamada al plan desde la cinta (el reloj no la enlazó)',
         carga: { tss, plan_tss: 68, peldano: 'ritmo', ancla: 'medida', cobertura_pct: 100 },
-        cumplimiento: { resumen_es: `${dentro} de 4 series dentro de 3:45–3:55 · la 3.ª se fue a 3:58`, dentro, de: 4 },
+        cumplimiento: { resumen_es: `${dentro} de 4 series dentro de 3:45 a 3:55 · la 3.ª se fue a 3:58`, dentro, de: 4 },
         tramos,
         curvas: {
           pulso: { puntos: curva(901, 1880, (t) => (t < 600 ? 118 + t * 0.022 : t > 1580 ? 150 - (t - 1580) * 0.07 : 145 + 22 * Math.sin(((t - 600) / 245) * Math.PI) ** 2 + (t - 600) * 0.008)), unidad: 'bpm', banda: null },
@@ -131,7 +131,7 @@ export function sesionDe(id: EscenarioSesion, metodo: MetodoAnaliticas = METODO_
       const hechos = [112.4, 111.8, 113.1, 114.9, 113.6];
       const vat = hechos.map((s) => Math.round(2.8 / Math.pow(s / 500, 3)));
       const tramos: TramoSesion[] = hechos.flatMap((h, i): TramoSesion[] => [
-        { n: 1 + i * 2, nombre_es: `Pieza ${i + 1} de 5`, rol: 'trabajo', prescrito: { medida_es: '500 m', objetivo_es: '1:50–1:54/500m', eje: 'split', objetivo }, hecho: { medida_es: '500 m', valor: h, valor_es: `${clock(h)}/500m`, extra_es: `${vat[i]} W · 30 s/min · ${158 + i * 3} ppm` }, cumplimiento: cumplimientoDe('split', objetivo, h, tol), carga: { tss: Math.round((h / 3600) * 100 * Math.pow(vat[i]! / 235, 2) * 10) / 10, peldano: 'potencia', ancla: 'medida' } },
+        { n: 1 + i * 2, nombre_es: `Pieza ${i + 1} de 5`, rol: 'trabajo', prescrito: { medida_es: '500 m', objetivo_es: '1:50 a 1:54/500m', eje: 'split', objetivo }, hecho: { medida_es: '500 m', valor: h, valor_es: `${clock(h)}/500m`, extra_es: `${vat[i]} W · 30 s/min · ${158 + i * 3} ppm` }, cumplimiento: cumplimientoDe('split', objetivo, h, tol), carga: { tss: Math.round((h / 3600) * 100 * Math.pow(vat[i]! / 235, 2) * 10) / 10, peldano: 'potencia', ancla: 'medida' } },
         ...(i < 4 ? [{ n: 2 + i * 2, nombre_es: 'Descanso', rol: 'recuperacion' as const, prescrito: { medida_es: '2 min', objetivo_es: null, eje: null, objetivo: null }, hecho: { medida_es: '2:00', valor: null, valor_es: 'parado', extra_es: `${140 + i * 2} ppm` }, cumplimiento: 'sin-plan' as const, carga: { tss: cargaPulso(120, 140 + i * 2, UMBRAL_PPM), peldano: 'pulso' as const, ancla: 'medida' as const } }] : []),
       ]);
       const tss = Math.round(tramos.reduce((s, t) => s + (t.carga.tss ?? 0), 0));
@@ -145,7 +145,7 @@ export function sesionDe(id: EscenarioSesion, metodo: MetodoAnaliticas = METODO_
         duracion_s: 1050,
         origen_es: 'Del plan · el remo mandó cada pieza con su split y sus vatios',
         carga: { tss, plan_tss: 38, peldano: 'potencia', ancla: 'medida', cobertura_pct: 100 },
-        cumplimiento: { resumen_es: `${dentro} de 5 piezas dentro de 1:50–1:54 · la 4.ª se fue a 1:54,9`, dentro, de: 5 },
+        cumplimiento: { resumen_es: `${dentro} de 5 piezas dentro de 1:50 a 1:54 · la 4.ª se fue a 1:54,9`, dentro, de: 5 },
         tramos,
         curvas: {
           pulso: { puntos: curva(911, 1050, (t) => (t % 210 < 112 ? 150 + (t % 210) * 0.2 + Math.floor(t / 210) * 3 : 165 - ((t % 210) - 112) * 0.2)), unidad: 'bpm', banda: null },

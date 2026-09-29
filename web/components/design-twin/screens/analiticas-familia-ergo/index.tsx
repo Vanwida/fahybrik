@@ -15,8 +15,9 @@ import { nombreDe, type EscenarioPortada } from '../../kit-analiticas/casos/atle
 import { fechaLegible, formatear, reloj } from '../../kit-analiticas/fmt';
 import { Columnas, Lineas } from '../../kit-analiticas/graficos';
 import { METODO_DEFECTO } from '../../kit-analiticas/metodo';
-import { Celda, Etiqueta, HuecoBloque, Nota, PantallaAnaliticas, Rejilla, Seccion, Segmento, Sello, Superficie } from '../../kit-analiticas/piezas';
-import { CabeceraFamilia, FilaSinDato, Tabla } from '../../kit-analiticas/piezas-detalle';
+import { PantallaAnaliticas, Seccion, Segmento } from '../../kit-analiticas/pantalla';
+import { Celda, Etiqueta, Nota, Rejilla, Sello, Superficie } from '../../kit-analiticas/piezas';
+import { CabeceraFamilia, FilaSinDato, SujetoVacio, Tabla } from '../../kit-analiticas/piezas-detalle';
 import { PIEL_IPHONE as P, colorFamilia } from '../../kit-analiticas/tokens';
 
 export const meta: TwinMeta = {
@@ -72,8 +73,23 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
 
   if (!d) {
     return (
-      <PantallaAnaliticas titulo="Ergo" ventana={ventana} onVentana={setVentana} atras={atras} cabeceraFija={selector}>
-        <HuecoBloque estado="vacio" titulo={`Sin ${MAQUINA_NOMBRE[maquina].toLowerCase()} todavía`} cuerpo={`Con la primera pieza aparecen aquí tu umbral, tus mejores por distancia y tus vatios. ${maquina === 'remo' ? 'El remo de 1000 m es una de las ocho estaciones.' : maquina === 'ski' ? 'El SkiErg abre el HYROX.' : 'La bici no está en el HYROX, pero suma base sin impacto.'}`} salida={{ tipo: 'accion', texto: `Hacer una pieza de ${MAQUINA_NOMBRE[maquina].toLowerCase()}`, onTap: () => onLog('Salida → pieza de ergo') }} />
+      <PantallaAnaliticas
+        titulo="Ergo"
+        ventana={ventana}
+        onVentana={setVentana}
+        atras={atras}
+        sujeto={
+          <SujetoVacio
+            familia={maquina}
+            etiqueta={MAQUINA_NOMBRE[maquina]}
+            titulo={`Sin ${MAQUINA_NOMBRE[maquina].toLowerCase()} todavía`}
+            cuerpo={`Con la primera pieza aparecen aquí tu umbral, tus mejores por distancia y tus vatios. ${maquina === 'remo' ? 'El remo de 1000 m es una de las ocho estaciones.' : maquina === 'ski' ? 'El SkiErg abre el HYROX.' : 'La bici no está en el HYROX, pero suma base sin impacto.'}`}
+            salida={{ texto: `Hacer una pieza de ${MAQUINA_NOMBRE[maquina].toLowerCase()}`, onTap: () => onLog('Salida → pieza de ergo') }}
+            accesorio={selector}
+          />
+        }
+      >
+        {null}
       </PantallaAnaliticas>
     );
   }
@@ -93,7 +109,7 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
   );
 
   return (
-    <PantallaAnaliticas titulo="Ergo" ventana={ventana} onVentana={(v) => { setVentana(v); onLog(`Ventana → ${v}`); }} atras={atras} cabeceraFija={cabecera}>
+    <PantallaAnaliticas titulo="Ergo" ventana={ventana} onVentana={(v) => { setVentana(v); onLog(`Ventana → ${v}`); }} atras={atras} sujeto={cabecera}>
       <Seccion titulo="Umbral de potencia" pregunta="Semana a semana · arriba es mejor">
         {d.umbral.serie ? (
           <Superficie>

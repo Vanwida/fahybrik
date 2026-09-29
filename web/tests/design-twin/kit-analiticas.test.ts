@@ -2,11 +2,11 @@
 // (ventana, bandas, comparación, cumplimiento, proyección con el Banister
 // real, escala de ejes, estado de cada bloque), el contrato de los casos
 // (toda lectura con dato lleva ancla; toda lectura sin dato lleva falta), que
-// los cinco atletas recorren los cuatro estados de los ocho bloques (A10), y
-// los tokens medidos (contraste AA, suelo 15 pt).
+// los cinco atletas recorren los cuatro estados de los ocho bloques (A10). Los
+// tokens medidos (contraste AA en claro y oscuro, suelo 15 pt, paleta validada)
+// viven en `kit-analiticas-piel.test.ts`.
 
 import { describe, expect, it } from 'vitest';
-import { contrastRatio, hexToRgb } from '@fahybrid/shared/domain/coach/club-accent';
 import { BLOQUES, VENTANAS, type Bloque, type EstadoBloque, type LecturaPanel } from '@/components/design-twin/kit-analiticas/contrato';
 import { ESCENARIOS_PORTADA, panelDe } from '@/components/design-twin/kit-analiticas/casos/atletas';
 import { detalleCorrerDe, detalleErgoDe, detalleEstacionesDe, detalleFuerzaDe } from '@/components/design-twin/kit-analiticas/casos/detalles';
@@ -15,16 +15,8 @@ import { estadosDe } from '@/components/design-twin/kit-analiticas/derivados';
 import { formatear, formatearDelta } from '@/components/design-twin/kit-analiticas/fmt';
 import { agruparPuntos, comparar, cumplimientoDe, escalaBonita, estadoDeBloque, estadoFrescuraDe, proyectar, rangoDe, veredictoForma } from '@/components/design-twin/kit-analiticas/mecanismo';
 import { BANDAS_FRESCURA_DEFECTO, METODO_DEFECTO, REPARTO_CARRERA_DEFECTO } from '@/components/design-twin/kit-analiticas/metodo';
-import { FAMILIA_HEX, PIEL_IPHONE, TA } from '@/components/design-twin/kit-analiticas/tokens';
 
 const HOY = '2026-09-29';
-
-function ratio(a: string, b: string): number {
-  const x = hexToRgb(a);
-  const y = hexToRgb(b);
-  if (!x || !y) throw new Error(`hex inválido: ${a} / ${b}`);
-  return contrastRatio(x, y);
-}
 
 describe('la ventana (A4)', () => {
   it('12 semanas: 84 días cortados en hoy, con el periodo anterior de igual longitud justo antes', () => {
@@ -234,34 +226,5 @@ describe('formato: un formateador por unidad', () => {
     expect(formatearDelta(-4, 's_km')).toBe('−4 s/km');
     expect(formatearDelta(2.5, 'kg')).toBe('+2,5 kg');
     expect(formatearDelta(112, 'segundos')).toBe('+1:52');
-  });
-});
-
-describe('tokens medidos (CONTRATO-UI §4.1 y §4.2)', () => {
-  it('nada por debajo de 15 pt en el iPhone: la escala y los ejes', () => {
-    for (const [k, v] of Object.entries(TA)) {
-      if (typeof v === 'object' && 'cuerpo' in v) expect(v.cuerpo, k).toBeGreaterThanOrEqual(15);
-    }
-    expect(PIEL_IPHONE.cuerpoEje).toBeGreaterThanOrEqual(15);
-    expect(PIEL_IPHONE.cuerpoEtiqueta).toBeGreaterThanOrEqual(15);
-  });
-
-  it('texto: tinta y tinta2 a 4,5:1 sobre el fondo y la superficie; el negro sobre el naranja de acción también', () => {
-    for (const fondo of [PIEL_IPHONE.fondo, PIEL_IPHONE.superficie, PIEL_IPHONE.superficie2]) {
-      expect(ratio(PIEL_IPHONE.tinta, fondo)).toBeGreaterThanOrEqual(4.5);
-      expect(ratio(PIEL_IPHONE.tinta2, fondo)).toBeGreaterThanOrEqual(4.5);
-    }
-    expect(ratio(PIEL_IPHONE.sobreAccion, PIEL_IPHONE.accion)).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it('marcas: las cuatro familias y las cinco zonas a 3:1 sobre el fondo y la superficie', () => {
-    for (const fondo of [PIEL_IPHONE.fondo, PIEL_IPHONE.superficie]) {
-      for (const hex of Object.values(FAMILIA_HEX)) expect(ratio(hex, fondo), hex).toBeGreaterThanOrEqual(3);
-      for (const hex of PIEL_IPHONE.zonas) expect(ratio(hex, fondo), hex).toBeGreaterThanOrEqual(3);
-    }
-    expect(new Set(Object.values(FAMILIA_HEX)).size).toBe(4);
-    // El naranja de marca no es un color de dato: ni de familia ni de zona.
-    expect(Object.values(FAMILIA_HEX)).not.toContain(PIEL_IPHONE.accion);
-    expect(PIEL_IPHONE.zonas).not.toContain(PIEL_IPHONE.accion);
   });
 });

@@ -1,29 +1,45 @@
 'use client';
 
-// ANALÍTICAS · LA PORTADA — propuesta del rediseño de la pestaña del atleta
-// (29-09). Modelo: docs/analiticas/modelo.md (§3 las preguntas, §4 la carga
-// única, §5 el contrato, A1–A10). Kit: `kit-analiticas/` sobre el lenguaje del
-// vivo firmado el 28-09 (negro, SF tabular, naranja solo acción, suelo 15 pt).
+// ANALÍTICAS · LA PORTADA — la pestaña del atleta, firmada el 29-09, con el
+// diseño de «Hoy · El día» (30-09). Modelo: docs/analiticas/modelo.md (§3 las
+// preguntas, §4 la carga única, §5 el contrato, A1–A10). Kit: `kit-analiticas/`
+// sobre `kit-dia/` (tokens del tema, claro y oscuro).
 //
-// Un panel único con ocho bloques en el orden de las preguntas: el Estado fijo
-// arriba (¿cómo estoy hoy?), la ventana única (A4), y debajo Forma y fatiga
-// con la proyección a la carrera, Semana a semana plan frente a hecho por
-// familia, Intensidad, Progreso con una fila por familia, Récords, Carrera y
-// Recuperación. Cada bloque resuelve sus cuatro estados; cinco atletas de
-// ejemplo los recorren todos.
+// Un panel único con ocho bloques en el orden de las preguntas. El SUJETO es el
+// Estado (¿cómo estoy hoy?): un bloque editorial con su tinte, la palabra de hoy
+// en display de marca, su veredicto, las tres cifras de carga y la disposición
+// con su arco. Encima, el título y la ventana única (A4), que se pega arriba al
+// bajar. Debajo, Forma y fatiga con la proyección a la carrera, Semana a semana
+// plan frente a hecho por familia, Intensidad, Progreso con una fila por
+// familia, Récords, Carrera y Recuperación. Cada bloque resuelve sus cuatro
+// estados; cinco atletas de ejemplo los recorren todos.
+//
+// LAS DECISIONES DE JERARQUÍA, una línea cada una:
+//  1. El Estado es el único bloque que pasa de 40 px y el único con tinte: lo
+//     demás se subordina, y los ocho bloques ya no compiten con una cabecera fija
+//     que se comía la mitad de la pantalla.
+//  2. Nada aquí es «haz esto ahora»: ni naranja sólido ni cifra en color. El
+//     tinte suave y la marca dicen cómo estás; la cifra va siempre en la tinta.
+//  3. El veredicto (¿voy a más o me paso?) sube al sujeto: explica la palabra de
+//     hoy, y su hueco (poco dato, dato viejo) lo dice el mismo `huecos.ts`.
+//  4. La ventana es un selector pegado arriba: una sola rige la pestaña y se ve
+//     cuál en todo momento (A4).
+//  5. Un gráfico es una tarjeta; una lista de filas, una tarjeta con rayas; un
+//     dato, una tesela. Tres formas, no diez.
 
 import { useEffect, useMemo, useState } from 'react';
 import type { TwinEscenario, TwinMeta, TwinScreenProps } from '../../types';
 import { BLOQUE_TITULO, FAMILIA_GRANDE, FAMILIA_GRANDE_NOMBRE, FAMILIAS_GRANDES, type FamiliaGrande, type Ventana } from '../../kit-analiticas/contrato';
 import { ESCENARIOS_PORTADA, panelDe, type EscenarioPortada } from '../../kit-analiticas/casos/atletas';
-import { BloqueCarrera, BloqueForma, BloqueIntensidad, BloqueProgreso, BloqueRecords, BloqueRecuperacion, BloqueSemanas, CeldaClave, useEstados, valorEstado } from '../../kit-analiticas/bloques';
-import { lectura } from '../../kit-analiticas/derivados';
-import { fechaLegible } from '../../kit-analiticas/fmt';
+import { BloqueCarrera, BloqueForma, BloqueIntensidad, BloqueProgreso, BloqueRecords, BloqueRecuperacion, BloqueSemanas, CeldaClave, useEstados } from '../../kit-analiticas/bloques';
+import { EstadoSujeto } from '../../kit-analiticas/estado';
 import { METODO_DEFECTO } from '../../kit-analiticas/metodo';
-import { EstadoFijo, Etiqueta, Glosa, Lista, FilaRecord, PantallaAnaliticas, Seccion, Segmento, useGlosa } from '../../kit-analiticas/piezas';
+import { Glosa, PantallaAnaliticas, Seccion, Segmento, useGlosa } from '../../kit-analiticas/pantalla';
+import { Etiqueta, FilaRecord, Lista } from '../../kit-analiticas/piezas';
+import { sujetoEstado } from '../../kit-analiticas/sujeto';
 import { LIENZO } from '../../kit-iphone-vivo/tokens';
 import { useMedidaLienzo } from '../../kit-iphone-vivo/piezas';
-import { MARGEN_A } from '../../kit-analiticas/tokens';
+import { MARGEN } from '../../kit-dia/tokens';
 
 export const meta: TwinMeta = {
   id: 'analiticas-portada',
@@ -32,7 +48,7 @@ export const meta: TwinMeta = {
   estado: 'propuesta',
   actualizado: '2026-09-29',
   descripcion:
-    'Un panel único en el orden de las ocho preguntas: el Estado fijo (Forma · Fatiga · Frescura · disposición), una sola ventana, Forma y fatiga con la proyección hasta la carrera, Semana a semana plan frente a hecho por familia, Intensidad por zonas y reparto, Progreso con una marca por familia, Récords, Carrera con el hueco por tramo y Recuperación contra una basal. Cada cifra con su ancla y su comparación.',
+    'Un panel único en el orden de las ocho preguntas, con el diseño de «Hoy · El día». El sujeto es el Estado: la palabra de hoy con su tinte, su veredicto, Forma · Fatiga · Frescura y la disposición con su arco. Una sola ventana, pegada arriba al bajar. Debajo, Forma y fatiga con la proyección hasta la carrera, Semana a semana plan frente a hecho por familia, Intensidad por zonas y reparto, Progreso con una marca por familia, Récords, Carrera con el hueco por tramo y Recuperación contra una basal. En claro y en oscuro; cada cifra con su ancla y su comparación.',
   fuentes: [],
   enApp:
     'Hoy la pestaña son siete contratos y seis ventanas (AnalyticsView + running.ts + lecturas + drilldown): solo correr tiene analítica de verdad, la carga casi no existe (8 % del tiempo) y hay series normalizadas sin eje. Esto la sustituye entera: un panel (`/api/athlete/analytics/panel?ventana=`) que iOS pinta sin calcular.',
@@ -102,14 +118,14 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
   const estados = useEstados(p, metodo);
   const glosa = useGlosa(onLog);
   const { ref, lienzo } = useMedidaLienzo();
-  const ancho = (lienzo.ancho || LIENZO.ancho) - 2 * MARGEN_A;
+  const ancho = (lienzo.ancho || LIENZO.ancho) - 2 * MARGEN;
   const pestana = escenario === 'variante-progreso' ? 'Progreso' : 'Analíticas';
   const [familia, setFamilia] = useState<FamiliaGrande>('correr');
 
   useEffect(() => {
     onLog(`${p.atleta.nombre} · ventana ${p.ventana.ventana} (${p.ventana.desde} → ${p.ventana.hasta}) · anterior ${p.ventana.anterior.desde} → ${p.ventana.anterior.hasta}`);
     onLog(`Estado: ${p.estado.palabra_es ?? 'sin palabra'} · bloques: ${Object.entries(estados).map(([b, e]) => `${BLOQUE_TITULO[b as keyof typeof BLOQUE_TITULO]}=${e}`).join(' · ')}`);
-    if (p.forma.veredicto) onLog(`Veredicto: ${p.forma.veredicto.clase} — ${p.forma.veredicto.frase_es}`);
+    if (p.forma.veredicto) onLog(`Veredicto: ${p.forma.veredicto.clase} · ${p.forma.veredicto.frase_es}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p]);
 
@@ -120,28 +136,8 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [escenario]);
 
-  const disposicion = lectura(p.estado.lecturas, 'estado.disposicion');
-  const formaEstado = lectura(p.estado.lecturas, 'estado.forma');
-  const ultimaSesion = p.semanas.sesiones.find((s) => s.cumplimiento !== 'no-hecha')?.fecha ?? null;
-  const notaEstado =
-    estados.estado === 'vacio'
-      ? 'Con tu primer entreno aparecen aquí tu forma, tu fatiga y tu frescura.'
-      : estados.estado === 'viejo' && ultimaSesion
-        ? `Sin entrenar desde el ${fechaLegible(ultimaSesion, p.atleta.hoy)} · la fatiga ya cayó y la forma baja un poco cada día`
-        : formaEstado?.estado === 'sin_dato' && formaEstado.cobertura.falta?.por === 'historia'
-          ? `Forma y frescura a partir de la semana ${formaEstado.cobertura.falta.hacen} · llevas ${formaEstado.cobertura.falta.llevas}`
-          : null;
-  const estadoFijo = (
-    <EstadoFijo
-      palabra={p.estado.palabra_es}
-      forma={valorEstado(p, 'estado.forma')}
-      fatiga={valorEstado(p, 'estado.fatiga')}
-      frescura={valorEstado(p, 'estado.frescura')}
-      disposicion={disposicion?.dato ? { valor: disposicion.dato.valor, palabra: disposicion.procedencia.explica_es } : null}
-      nota={notaEstado}
-      onGlosa={glosa.abrir}
-    />
-  );
+  // El sujeto lo dice `sujetoEstado` (puro, con su test): la pantalla solo lo pinta.
+  const sujeto = sujetoEstado(p, metodo, estados.estado);
 
   const comunes = { p, metodo, estados, onLog, ancho };
 
@@ -155,12 +151,13 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
           setVentana(v);
           onLog(`Ventana → ${v}`);
         }}
-        cabeceraFija={estadoFijo}
+        sujeto={<EstadoSujeto s={sujeto} onGlosa={glosa.abrir} onSalida={(texto) => onLog(`Salida → ${texto}`)} />}
+        hoja={glosa.abierta ? <Glosa onCerrar={glosa.cerrar} /> : null}
       >
         {escenario === 'variante-pastillas' ? (
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Etiqueta>Variante §11.2 · una pastilla por familia</Etiqueta>
+              <Etiqueta>Variante: una pastilla por familia</Etiqueta>
               <Segmento
                 items={FAMILIAS_GRANDES.map((f) => ({ id: f, texto: f === 'estaciones-wod' ? 'Estaciones' : FAMILIA_GRANDE_NOMBRE[f] }))}
                 valor={familia}
@@ -202,7 +199,6 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
           </>
         )}
       </PantallaAnaliticas>
-      <Glosa abierta={glosa.abierta} onCerrar={glosa.cerrar} />
     </div>
   );
 }
