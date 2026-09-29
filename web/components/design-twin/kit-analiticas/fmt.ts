@@ -28,7 +28,7 @@ export function formatear(valor: number, unidad: UnidadPanel): string {
     case 'kg':
       return kg(valor);
     case 'metros':
-      return valor >= 1000 ? `${esDecimal(valor / 1000, valor >= 10000 ? 0 : 1)} km` : `${Math.round(valor)} m`;
+      return valor >= 1000 ? `${valor % 1000 === 0 ? valor / 1000 : esDecimal(valor / 1000, valor >= 10000 ? 0 : 1)} km` : `${Math.round(valor)} m`;
     case 'm_s':
       return `${esDecimal(valor, 2)} m/s`;
     case 'pct':
@@ -134,6 +134,12 @@ export function unidadCorta(unidad: UnidadPanel): string {
     default:
       return '';
   }
+}
+
+/** ¿El delta es cero una vez escrito con la precisión de su unidad? Entonces se dice «igual», no «−0,0 h». */
+export function esCero(delta: number, unidad: UnidadPanel): boolean {
+  const decimales = unidad === 'horas' || unidad === 's_500m' || unidad === 's_1000m' || unidad === 'ml_kg_min' ? 1 : unidad === 'ratio' || unidad === 'm_s' ? 2 : unidad === 'kg' ? 1 : 0;
+  return Math.round(Math.abs(delta) * 10 ** decimales) === 0;
 }
 
 /**

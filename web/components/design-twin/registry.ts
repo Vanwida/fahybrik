@@ -157,6 +157,12 @@ import * as consentimientoSensores from './screens/consentimiento-sensores';
 // modelo.md). La portada del atleta y sus detalles sobre `kit-analiticas`, y la
 // pestaña Rendimiento del coach como dispositivo «escritorio» con tokens v2.
 import * as analiticasPortada from './screens/analiticas-portada';
+import * as analiticasFamiliaCorrer from './screens/analiticas-familia-correr';
+import * as analiticasFamiliaErgo from './screens/analiticas-familia-ergo';
+import * as analiticasFamiliaFuerza from './screens/analiticas-familia-fuerza';
+import * as analiticasFamiliaEstaciones from './screens/analiticas-familia-estaciones';
+import * as analiticasSesion from './screens/analiticas-sesion';
+import * as analiticasPanelCoach from './screens/analiticas-panel-coach';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -260,8 +266,15 @@ export const SCREENS: TwinScreenModule[] = [
   iphoneVivoFuerza,
   iphoneVivoWod,
   iphoneVivoCircuito,
-  // Las analíticas, rehechas (29-sep).
+  // Las analíticas, rehechas (29-sep): la portada, los detalles por familia y la sesión.
   analiticasPortada,
+  analiticasFamiliaCorrer,
+  analiticasFamiliaErgo,
+  analiticasFamiliaFuerza,
+  analiticasFamiliaEstaciones,
+  analiticasSesion,
+  // El panel del coach, como dispositivo «escritorio».
+  analiticasPanelCoach,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -358,8 +371,8 @@ export const TANDA_ENTRENO: ReadonlyArray<GrupoColeccion> = [
 export const TANDA_ANALITICAS: ReadonlyArray<GrupoColeccion> = [
   { grupo: 'La portada del atleta', ids: ['analiticas-portada'] },
   {
-    grupo: 'Los detalles, por familia',
-    ids: ['analiticas-correr', 'analiticas-ergo', 'analiticas-fuerza', 'analiticas-estaciones', 'analiticas-sesion'],
+    grupo: 'Los detalles, por familia y por sesión',
+    ids: ['analiticas-familia-correr', 'analiticas-familia-ergo', 'analiticas-familia-fuerza', 'analiticas-familia-estaciones', 'analiticas-sesion'],
   },
   { grupo: 'El panel del coach', ids: ['analiticas-panel-coach'] },
 ];

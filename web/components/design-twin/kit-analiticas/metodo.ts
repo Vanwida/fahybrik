@@ -210,8 +210,8 @@ export const METODO_DEFECTO: MetodoAnaliticas = {
  * HYROX (ocho carreras ≈ 46 %, estaciones ≈ 47 %, Roxzone ≈ 7 %).
  */
 export const REPARTO_CARRERA_DEFECTO: Readonly<Record<string, number>> = {
-  run1: 0.054, ski: 0.052, run2: 0.056, sled_push: 0.044, run3: 0.058, sled_pull: 0.053, run4: 0.059, burpee_broad_jump: 0.057,
-  run5: 0.06, row: 0.053, run6: 0.061, farmers: 0.027, run7: 0.062, lunges: 0.056, run8: 0.06, wall_balls: 0.068, roxzone: 0.07,
+  run1: 0.059, ski: 0.052, run2: 0.061, sled_push: 0.044, run3: 0.063, sled_pull: 0.058, run4: 0.064, burpee_broad_jump: 0.057,
+  run5: 0.065, row: 0.053, run6: 0.066, farmers: 0.027, run7: 0.067, lunges: 0.056, run8: 0.065, wall_balls: 0.073, roxzone: 0.07,
 };
 
 /** El glosario a un toque (A5): nombres nuestros, siglas de TrainingPeaks al lado, una línea. */

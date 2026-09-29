@@ -170,6 +170,12 @@ export interface Comparacion {
   significativo: boolean;
   /** «vs 12 sem antes», «vs tu basal», «vs objetivo». */
   etiqueta_es: string;
+  /**
+   * En qué dirección es mejor, cuando la unidad no lo dice sola: un desacople
+   * en % baja para mejorar; un tonelaje en kg sube. Ausente = lo decide la
+   * unidad (menos segundos es mejor; más de lo demás, mejor).
+   */
+  menos_es_mejor?: boolean;
 }
 
 export interface DatoPanel {

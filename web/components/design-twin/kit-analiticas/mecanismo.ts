@@ -121,6 +121,7 @@ export function comparar(args: {
   /** Umbral de cambio del método, en la misma unidad que el dato. */
   umbral: number;
   etiqueta_es: string;
+  menos_es_mejor?: boolean;
 }): Comparacion {
   const delta = args.actual - args.referencia;
   return {
@@ -130,12 +131,19 @@ export function comparar(args: {
     delta_pct: args.referencia !== 0 ? (delta / Math.abs(args.referencia)) * 100 : null,
     significativo: Math.abs(delta) >= args.umbral,
     etiqueta_es: args.etiqueta_es,
+    ...(args.menos_es_mejor != null ? { menos_es_mejor: args.menos_es_mejor } : {}),
   };
 }
 
 /** ¿Es mejor el delta? Depende de la unidad: menos segundos por km es mejor; más vatios, mejor. */
 export function menosEsMejor(unidad: UnidadPanel): boolean {
   return unidad === 's_km' || unidad === 's_500m' || unidad === 's_1000m' || unidad === 'segundos' || unidad === 'bpm';
+}
+
+/** ¿Mejora esta comparación? La comparación lo dice si lo sabe; si no, la unidad. */
+export function esMejora(c: Comparacion, unidad: UnidadPanel): boolean {
+  const menos = c.menos_es_mejor ?? menosEsMejor(unidad);
+  return menos ? c.delta < 0 : c.delta > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -266,9 +274,10 @@ export function estadoDeBloque(lecturas: readonly LecturaPanel[], hoy: string, m
   return 'lleno';
 }
 
-/** Los récords no son lecturas: vacío sin ninguno, viejo si el último es más viejo que el tope del coach, lleno si no. */
+/** Los récords no son lecturas: vacío sin ninguno, poco con menos que las muestras mínimas, viejo si el último es más viejo que el tope del coach, lleno si no. */
 export function estadoDeRecords(records: readonly RecordPanel[], hoy: string, metodo: MetodoAnaliticas): EstadoBloque {
   if (records.length === 0) return 'vacio';
+  if (records.length < metodo.muestras_minimas) return 'poco';
   const ultimo = records.map((r) => r.fecha).reduce((a, b) => (a > b ? a : b));
   return diasEntre(ultimo, hoy) > metodo.dato_viejo_dias ? 'viejo' : 'lleno';
 }
@@ -311,13 +320,17 @@ export function tamanoGrupo(puntos: number, anchoDisponible: number, minAncho: n
 // Escala de ejes: números redondos, siempre
 // ---------------------------------------------------------------------------
 
-function pasoBonito(bruto: number): number {
+function pasoBonito(bruto: number, permitidos?: readonly number[]): number {
   if (bruto <= 0 || !Number.isFinite(bruto)) return 1;
+  if (permitidos && permitidos.length) return permitidos.find((p) => p >= bruto) ?? permitidos[permitidos.length - 1]!;
   const exp = Math.floor(Math.log10(bruto));
   const f = bruto / 10 ** exp;
   const nice = f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10;
   return nice * 10 ** exp;
 }
+
+/** Los pasos que un eje de TIEMPO admite: 5 s, 10 s, 15 s, 30 s, 1, 2, 5, 10, 15, 30 min, 1 h. Un eje de ritmo a «2:30 · 3:20 · 4:10» no lo lee nadie. */
+export const PASOS_TIEMPO: readonly number[] = [5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
 
 export interface Escala {
   min: number;
@@ -325,8 +338,11 @@ export interface Escala {
   ticks: number[];
 }
 
-/** Escala «bonita» que cubre [min, max] con ~`n` marcas redondas. */
-export function escalaBonita(min: number, max: number, n = 4, opciones?: { desdeCero?: boolean }): Escala {
+/**
+ * Escala «bonita» que cubre [min, max] con ~`n` marcas redondas. Nunca más
+ * de n + 2 marcas: si el paso bonito deja demasiadas, se dobla.
+ */
+export function escalaBonita(min: number, max: number, n = 4, opciones?: { desdeCero?: boolean; pasos?: readonly number[] }): Escala {
   let lo = opciones?.desdeCero ? Math.min(0, min) : min;
   let hi = opciones?.desdeCero ? Math.max(0, max) : max;
   if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
@@ -336,12 +352,22 @@ export function escalaBonita(min: number, max: number, n = 4, opciones?: { desde
   if (hi === lo) {
     hi = lo + 1;
   }
-  const paso = pasoBonito((hi - lo) / Math.max(1, n - 1));
-  const niceMin = Math.floor(lo / paso) * paso;
-  const niceMax = Math.ceil(hi / paso) * paso;
-  const ticks: number[] = [];
-  for (let v = niceMin; v <= niceMax + paso / 2; v += paso) ticks.push(Math.round(v * 1e6) / 1e6);
-  return { min: niceMin, max: niceMax, ticks };
+  const construir = (paso: number): Escala => {
+    const niceMin = Math.floor(lo / paso) * paso;
+    const niceMax = Math.ceil(hi / paso) * paso;
+    const ticks: number[] = [];
+    for (let v = niceMin; v <= niceMax + paso / 2; v += paso) ticks.push(Math.round(v * 1e6) / 1e6);
+    return { min: niceMin, max: niceMax, ticks };
+  };
+  let paso = pasoBonito((hi - lo) / Math.max(1, n - 1), opciones?.pasos);
+  let escala = construir(paso);
+  let vueltas = 0;
+  while (escala.ticks.length > n + 2 && vueltas < 6) {
+    paso = opciones?.pasos ? (opciones.pasos.find((p) => p > paso) ?? paso * 2) : paso * 2;
+    escala = construir(paso);
+    vueltas += 1;
+  }
+  return escala;
 }
 
 // ---------------------------------------------------------------------------

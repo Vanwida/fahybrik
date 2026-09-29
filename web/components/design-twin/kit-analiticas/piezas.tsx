@@ -42,9 +42,9 @@ import {
   type UnidadPanel,
   type Ventana,
 } from './contrato';
-import { menosEsMejor } from './mecanismo';
+import { esMejora } from './mecanismo';
 import { GLOSARIO } from './metodo';
-import { cifra, fechaLegible, formatear, formatearDelta, unidadCorta } from './fmt';
+import { cifra, esCero, fechaLegible, formatear, formatearDelta, unidadCorta } from './fmt';
 import { Chispa } from './graficos';
 import { ENTRE_BLOQUES, HUECO_A, MARGEN_A, PIEL_IPHONE as P, RADIO_A, TA, colorFamilia } from './tokens';
 import type { PuntoSerie } from './contrato';
@@ -78,6 +78,7 @@ export function PantallaAnaliticas({
   children,
   accionDerecha,
   pestana = 'Analíticas',
+  sinVentana = false,
 }: {
   titulo: string;
   ventana: Ventana;
@@ -90,6 +91,8 @@ export function PantallaAnaliticas({
   accionDerecha?: ReactNode;
   /** Cómo se llama la pestaña en la barra (§11.1: «Analíticas» o «Progreso»). */
   pestana?: string;
+  /** Una sesión es un día: no obedece a la ventana y no la enseña. */
+  sinVentana?: boolean;
 }) {
   return (
     <div className="twin-screen-safe">
@@ -107,7 +110,7 @@ export function PantallaAnaliticas({
             <h1 style={{ margin: 0, font: `${TA.pantalla.peso} ${TA.pantalla.cuerpo}px/1.05 ${P.fuente}`, letterSpacing: '-0.02em' }}>{titulo}</h1>
             {accionDerecha}
           </div>
-          <SelectorVentana valor={ventana} onCambio={onVentana} />
+          {!sinVentana ? <SelectorVentana valor={ventana} onCambio={onVentana} /> : null}
         </header>
         <div className="twin-scroll" style={{ flex: '1 1 auto', minHeight: 0, position: 'relative' }}>
           {cabeceraFija ? (
@@ -290,10 +293,10 @@ export function Celda({
  * si no cabe; nunca se corta.
  */
 export function Delta({ comparacion, unidad, corto = false }: { comparacion: Comparacion; unidad: UnidadPanel; corto?: boolean }) {
-  const mejor = menosEsMejor(unidad) ? comparacion.delta < 0 : comparacion.delta > 0;
+  const mejor = esMejora(comparacion, unidad);
   const igual = !comparacion.significativo;
   const marca = igual ? '≈' : mejor ? '▲' : '▼';
-  const texto = igual && Math.abs(comparacion.delta) < 0.05 ? 'igual' : formatearDelta(comparacion.delta, unidad);
+  const texto = esCero(comparacion.delta, unidad) ? 'igual' : formatearDelta(comparacion.delta, unidad);
   return (
     <span style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '2px 6px', minWidth: 0, font: `600 ${TA.etiqueta.cuerpo}px/1.25 ${P.fuente}`, color: igual ? P.tinta2 : P.tinta }}>
       <span aria-label={igual ? 'sin cambio' : mejor ? 'mejor' : 'peor'} style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
@@ -331,7 +334,7 @@ export function PuntoFamilia({ familia, talla = 10 }: { familia: Familia | Famil
 // Filas
 // ---------------------------------------------------------------------------
 
-/** Una familia en Progreso: nombre + métrica clave · cifra · delta · chispa · «›». */
+/** Una familia en Progreso: nombre + métrica clave · cifra · delta · chispa · «›». `nombre` sustituye al de la familia (un ejercicio de fuerza). */
 export function FilaProgreso({
   familia,
   metrica,
@@ -341,6 +344,7 @@ export function FilaProgreso({
   tendencia,
   nota,
   onAbrir,
+  nombre,
 }: {
   familia: Familia;
   metrica: string;
@@ -351,13 +355,14 @@ export function FilaProgreso({
   /** Lo que se dice cuando falta dato: «Sin remo todavía», «2 sesiones · faltan 3». */
   nota?: string | null;
   onAbrir?: () => void;
+  nombre?: string;
 }) {
   const inner = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 64, padding: '10px 0', borderBottom: `1px solid ${P.rejilla}` }}>
       <PuntoFamilia familia={familia} />
       <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
         <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0, flexWrap: 'wrap' }}>
-          <Cuerpo fuerte>{FAMILIA_NOMBRE[familia]}</Cuerpo>
+          <Cuerpo fuerte>{nombre ?? FAMILIA_NOMBRE[familia]}</Cuerpo>
           <Etiqueta estilo={{ textWrap: 'pretty' }}>{metrica}</Etiqueta>
         </span>
         {valor != null ? (

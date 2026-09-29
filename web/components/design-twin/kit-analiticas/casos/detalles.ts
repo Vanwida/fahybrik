@@ -17,6 +17,7 @@
 
 import { medida, serie, sinDato, type Ancla, type Familia, type LecturaPanel, type ProcedenciaPanel, type PuntoSerie, type TramoCarrera, type Ventana } from '../contrato';
 import { comparar, rangoDe } from '../mecanismo';
+import { fechaLegible } from '../fmt';
 import { METODO_DEFECTO, type MetodoAnaliticas } from '../metodo';
 import { HOY, azar, cubosDe, tendencia } from './generador';
 import { panelDe, unaRmDe, type EscenarioPortada } from './atletas';
@@ -102,7 +103,7 @@ export function detalleCorrerDe(escenario: Escenario, ventana: Ventana, metodo: 
       : medida({ id: 'correr.motor', bloque: 'progreso', familia: 'correr', titulo_es: 'Motor · ritmo al mismo pulso', dato: { valor: motorAhora, unidad: 's_km', comparacion: comparar({ actual: motorAhora, referencia: motorAntes, contra: 'periodo_anterior', umbral: metodo.umbrales_cambio.motor_s_km, etiqueta_es: 'vs periodo anterior · a 150 ppm' }) }, serie: serie('s_km', 'semana', tendencia({ semanas, desde: motorAntes, hasta: motorAhora, semilla: 421, ruido: 4 }).map((q) => ({ t: q.t, hecho: q.v }))), cobertura: cob(), procedencia: proc('motor_ef', 'El ritmo que llevas a 150 ppm en rodajes de más de 40 min.', 'medida') }),
     desacople: poco
       ? sinDato({ id: 'correr.desacople', bloque: 'progreso', familia: 'correr', titulo_es: 'Desacople en tiradas largas', falta: FALTA_HISTORIA(muestras, metodo.muestras_minimas), cobertura: cob(), procedencia: proc('desacople', 'Cuánto sube el pulso al mismo ritmo en la segunda mitad de una tirada.', 'medida') })
-      : medida({ id: 'correr.desacople', bloque: 'progreso', familia: 'correr', titulo_es: 'Desacople en tiradas largas', dato: { valor: desac, unidad: 'pct', comparacion: comparar({ actual: desac, referencia: 5, contra: 'objetivo', umbral: 1, etiqueta_es: 'por debajo del 5 % = base aeróbica sólida' }) }, serie: null, cobertura: cob(), procedencia: proc('desacople', 'Cuánto sube el pulso al mismo ritmo en la segunda mitad de una tirada.', 'medida') }),
+      : medida({ id: 'correr.desacople', bloque: 'progreso', familia: 'correr', titulo_es: 'Desacople en tiradas largas', dato: { valor: desac, unidad: 'pct', comparacion: comparar({ actual: desac, referencia: 5, contra: 'objetivo', umbral: 1, etiqueta_es: 'por debajo del 5 % = base aeróbica sólida', menos_es_mejor: true }) }, serie: null, cobertura: cob(), procedencia: proc('desacople', 'Cuánto sube el pulso al mismo ritmo en la segunda mitad de una tirada.', 'medida') }),
     velocidadCritica: poco
       ? sinDato({ id: 'correr.vc', bloque: 'progreso', familia: 'correr', titulo_es: 'Velocidad crítica', falta: FALTA_HISTORIA(1, metodo.cs_min_efforts), cobertura: cob(1), procedencia: proc('velocidad_critica', `Ajuste sobre ${metodo.cs_min_efforts} esfuerzos máximos de 2 a 15 min.`, 'medida') })
       : medida({ id: 'correr.vc', bloque: 'progreso', familia: 'correr', titulo_es: 'Velocidad crítica', dato: { valor: vc, unidad: 'm_s', comparacion: comparar({ actual: vc, referencia: vc - 0.06, contra: 'periodo_anterior', umbral: 0.05, etiqueta_es: 'vs periodo anterior' }) }, serie: null, cobertura: cob(4), procedencia: proc('velocidad_critica', `Ajuste sobre 4 esfuerzos máximos de 2 a 15 min (R² 0,97).`, 'medida') }),
@@ -183,7 +184,7 @@ export function detalleErgoDe(escenario: Escenario, ventana: Ventana, maquina: M
     maquina,
     umbral: poco
       ? sinDato({ id: `ergo.umbral.${maquina}`, bloque: 'progreso', familia: maquina, titulo_es: 'Umbral de potencia', falta: fila.cobertura.falta ?? FALTA_HISTORIA(muestras, metodo.muestras_minimas), cobertura: cob(), procedencia: proc('umbral_potencia', 'Vatios de tu test de 2000 m (o 20 min), o los que declaras.', ancla) })
-      : medida({ id: `ergo.umbral.${maquina}`, bloque: 'progreso', familia: maquina, titulo_es: 'Umbral de potencia', dato: { valor: umbralW, unidad: 'w', comparacion: comparar({ actual: umbralW, referencia: anteriorW, contra: 'periodo_anterior', umbral: metodo.umbrales_cambio.vatios_umbral_w, etiqueta_es: 'vs periodo anterior' }) }, serie: serie('w', 'semana', tendencia({ semanas, desde: anteriorW, hasta: umbralW, semilla: 531, ruido: 5, huecos: 0.15 }).map((q) => ({ t: q.t, hecho: q.v == null ? null : Math.round(q.v) }))), cobertura: cob(), procedencia: proc('umbral_potencia', ancla === 'medida' ? `Tu test de ${maquina === 'ski' ? '1000' : '2000'} m (${ultimo ?? ''}).` : 'Lo declaraste tú; con un test pasa a medido.', ancla) }),
+      : medida({ id: `ergo.umbral.${maquina}`, bloque: 'progreso', familia: maquina, titulo_es: 'Umbral de potencia', dato: { valor: umbralW, unidad: 'w', comparacion: comparar({ actual: umbralW, referencia: anteriorW, contra: 'periodo_anterior', umbral: metodo.umbrales_cambio.vatios_umbral_w, etiqueta_es: 'vs periodo anterior' }) }, serie: serie('w', 'semana', tendencia({ semanas, desde: anteriorW, hasta: umbralW, semilla: 531, ruido: 5, huecos: 0.15 }).map((q) => ({ t: q.t, hecho: q.v == null ? null : Math.round(q.v) }))), cobertura: cob(), procedencia: proc('umbral_potencia', ancla === 'medida' ? `Tu test de ${maquina === 'ski' ? '1000' : '2000'} m · ${fechaLegible(fila.procedencia.explica_es.split(' · ')[1] ?? HOY, HOY)}` : 'Lo declaraste tú; con un test pasa a medido.', ancla) }),
     vatiosAlPulso: poco
       ? sinDato({ id: `ergo.vatios_pulso.${maquina}`, bloque: 'progreso', familia: maquina, titulo_es: 'Vatios al mismo pulso', falta: FALTA_HISTORIA(muestras, metodo.muestras_minimas), cobertura: cob(), procedencia: proc('vatios_pulso', 'Los vatios que sostienes a 150 ppm en piezas continuas.', 'medida') })
       : medida({ id: `ergo.vatios_pulso.${maquina}`, bloque: 'progreso', familia: maquina, titulo_es: 'Vatios al mismo pulso', dato: { valor: vatiosPulso, unidad: 'w', comparacion: comparar({ actual: vatiosPulso, referencia: Math.round(vatiosPulso * 0.96), contra: 'periodo_anterior', umbral: metodo.umbrales_cambio.vatios_umbral_w, etiqueta_es: 'vs periodo anterior · a 150 ppm' }) }, serie: serie('w', 'semana', tendencia({ semanas, desde: vatiosPulso * 0.96, hasta: vatiosPulso, semilla: 541, ruido: 6, huecos: 0.2 }).map((q) => ({ t: q.t, hecho: q.v == null ? null : Math.round(q.v) }))), cobertura: cob(), procedencia: proc('vatios_pulso', 'Los vatios que sostienes a 150 ppm en piezas continuas de más de 10 min.', 'medida') }),
@@ -250,7 +251,7 @@ export function detalleFuerzaDe(escenario: Escenario, ventana: Ventana, metodo: 
         dato: { valor: unaRmDe(kgSerie, e.reps, metodo), unidad: 'kg', comparacion: poco ? null : comparar({ actual: rmAhora, referencia: rmAntes, contra: 'periodo_anterior', umbral: metodo.umbrales_cambio.rm_kg, etiqueta_es: 'vs periodo anterior' }) },
         serie: serie('kg', 'semana', tendencia({ semanas, desde: rmAntes, hasta: rmAhora, semilla: 621 + i, ruido: 3, huecos: 0.3 }).map((q) => ({ t: q.t, hecho: q.v == null ? null : Math.round(q.v * 2) / 2 }))),
         cobertura: cob(),
-        procedencia: proc('rm_estimado', `${e.reps} × ${kgSerie} kg el ${fecha}, con la fórmula de ${metodo.formula_1rm === 'epley' ? 'Epley' : 'Brzycki'} (la de tu coach).`, 'declarada'),
+        procedencia: proc('rm_estimado', `${e.reps} × ${kgSerie} kg el ${fechaLegible(fecha, HOY)}, con la fórmula de ${metodo.formula_1rm === 'epley' ? 'Epley' : 'Brzycki'} (la de tu coach).`, 'declarada'),
       }),
       mejoresPorReps: [1, 3, 5, 8, 10].map((reps) => {
         const hecha = reps === e.reps || rnd() > 0.45;
@@ -322,7 +323,8 @@ export function detalleEstacionesDe(escenario: Escenario, ventana: Ventana): Det
   if (!fila || fila.estado === 'sin_dato') return null;
   const rnd = azar(escenario === 'viejo' ? 713 : escenario === 'mixto' ? 715 : 711);
   const muestras = fila.cobertura.muestras;
-  const factor = fila.dato!.valor / 72;
+  // La marca clave es el sled push (184 s en el caso lleno): las demás estaciones escalan con ella.
+  const factor = fila.dato!.valor / 184;
   const estaciones: MejorEstacion[] = ESTACIONES.map((e, i) => {
     const hecha = escenario === 'mixto' ? i === 1 || i === 5 || i === 0 : true;
     if (!hecha) return { estacion: e.estacion, dosis_es: e.dosis, carga_es: e.carga, mejor_s: null, fecha: null, anterior_s: null, nuevo: false, ancla: 'poblacional' };

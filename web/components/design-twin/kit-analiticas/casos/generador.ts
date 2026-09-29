@@ -275,14 +275,19 @@ export function mediaDe(vals: Array<number | null>): number | null {
   return v.length === 0 ? null : v.reduce((a, b) => a + b, 0) / v.length;
 }
 
-/** Una serie semanal de una métrica que mejora (o empeora) despacio con ruido: la tendencia de un umbral, un 1RM, una previsión. */
+/**
+ * Una serie semanal de una métrica que mejora (o empeora) despacio con ruido:
+ * la tendencia de un umbral, un 1RM, una previsión. El ÚLTIMO punto es exacto
+ * (`hasta`) y siempre existe: la gráfica termina en la cifra que se enseña.
+ */
 export function tendencia(args: { semanas: string[]; desde: number; hasta: number; semilla: number; ruido?: number; huecos?: number }): Array<{ t: string; v: number | null }> {
   const rnd = azar(args.semilla);
   const n = args.semanas.length;
   return args.semanas.map((t, i) => {
-    if (rnd() < (args.huecos ?? 0)) return { t, v: null };
+    const ultimo = i === n - 1;
+    if (!ultimo && rnd() < (args.huecos ?? 0)) return { t, v: null };
     const f = n > 1 ? i / (n - 1) : 1;
-    const v = args.desde + (args.hasta - args.desde) * f + (rnd() - 0.5) * (args.ruido ?? 0);
+    const v = ultimo ? args.hasta : args.desde + (args.hasta - args.desde) * f + (rnd() - 0.5) * (args.ruido ?? 0);
     return { t, v: Math.round(v * 10) / 10 };
   });
 }

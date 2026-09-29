@@ -23,7 +23,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import type { PuntoSerie } from './contrato';
-import { diasEntre, escalaBonita, type Escala } from './mecanismo';
+import { PASOS_TIEMPO, diasEntre, escalaBonita, type Escala } from './mecanismo';
 import { fechaCorta, mesCorto } from '../kit-composicion/formato';
 import type { Piel } from './tokens';
 
@@ -162,14 +162,16 @@ function EjeY({ piel, escala, x0, x1, y, formato }: { piel: Piel; escala: Escala
 function rotulosX(fechas: string[], ancho: number, cuerpo: number): Array<{ i: number; texto: string }> {
   if (fechas.length === 0) return [];
   const minSep = cuerpo * 4.2;
+  // El último rótulo («28 sep») se ancla a la derecha y crece hacia la izquierda: pide más sitio.
+  const minSepUltimo = cuerpo * 6.5;
   const out: Array<{ i: number; texto: string }> = [{ i: 0, texto: fechaCorta(fechas[0]!) }];
   const paso = ancho / Math.max(1, fechas.length - 1);
   for (let i = 1; i < fechas.length - 1; i++) {
     const esMes = fechas[i]!.slice(8, 10) <= '07' && fechas[i]!.slice(5, 7) !== fechas[i - 1]!.slice(5, 7);
     if (!esMes) continue;
     const ultimo = out[out.length - 1]!;
-    if ((i - ultimo.i) * paso < minSep) continue;
-    if ((fechas.length - 1 - i) * paso < minSep) continue;
+    if ((i - ultimo.i) * paso < (ultimo.i === 0 ? minSepUltimo : minSep)) continue;
+    if ((fechas.length - 1 - i) * paso < minSepUltimo) continue;
     out.push({ i, texto: mesCorto(fechas[i]!) });
   }
   if (fechas.length > 1) out.push({ i: fechas.length - 1, texto: fechaCorta(fechas[fechas.length - 1]!) });
@@ -214,6 +216,7 @@ export function Lineas({
   anchoInicial = 362,
   leyenda = true,
   padY = 8,
+  escalaTiempo = false,
 }: {
   piel: Piel;
   alto: number;
@@ -227,6 +230,8 @@ export function Lineas({
   anchoInicial?: number;
   leyenda?: boolean;
   padY?: number;
+  /** El eje Y es un tiempo (ritmo, split, un tiempo de carrera): marcas a 15 s, 30 s, 1 min… */
+  escalaTiempo?: boolean;
 }) {
   const { ref, ancho } = useAncho<HTMLDivElement>(anchoInicial);
   const [hover, setHover] = useState<string | null>(null);
@@ -246,9 +251,9 @@ export function Lineas({
     }
     if (banda) vals.push(banda.lo, banda.hi);
     const orden = [...fechas].sort();
-    const escala = escalaBonita(Math.min(...vals), Math.max(...vals), piel.id === 'iphone' ? 4 : 5, { desdeCero });
+    const escala = escalaBonita(Math.min(...vals), Math.max(...vals), piel.id === 'iphone' ? 4 : 5, { desdeCero, pasos: escalaTiempo ? PASOS_TIEMPO : undefined });
     return { orden, escala };
-  }, [series, banda, desdeCero, piel.id]);
+  }, [series, banda, desdeCero, piel.id, escalaTiempo]);
 
   const { orden, escala } = modelo;
   if (orden.length < 2) return null;
@@ -891,7 +896,7 @@ export function CurvaMejores({
   if (hoy.length < 2) return null;
   const skm = (e: { metros: number; segundos: number }) => (e.segundos / e.metros) * 1000;
   const ritmos = todos.map(skm);
-  const escala = escalaBonita(Math.min(...ritmos) - 5, Math.max(...ritmos) + 5, 4);
+  const escala = escalaBonita(Math.min(...ritmos) - 5, Math.max(...ritmos) + 5, 4, { pasos: PASOS_TIEMPO });
   const metros = todos.map((e) => e.metros);
   const lx0 = Math.log(Math.min(...metros));
   const lx1 = Math.log(Math.max(...metros));
