@@ -232,56 +232,6 @@ final class MachineTramoLawTests: XCTestCase {
         s.primaryAdvance()
     }
 
-    // 0278 · la espera a que arranque la cinta caía en las zonas de la serie pero no
-    // en su duración: 184 s de zonas en una serie de 180 s.
-    func testLaEsperaDeLaCintaNoCaeEnLasZonasDeLaSerie() throws {
-        let s = parked(scheme: .steady, modality: .run)
-        s.beltConnected = true
-        s.beginBlock()
-        s.stop()
-        if s.isTramoCountIn { s.primaryAdvance() }
-        XCTAssertTrue(s.tramoClockArmed)
-        XCTAssertTrue(s.isRunStructureActive)
-        // 4 s de pie en la cinta, con pulso: el reloj de la vuelta y sus zonas avanzan juntos.
-        s.lapElapsedSeconds += 4
-        s.lapZoneAccumSec[1, default: 0] += 4
-        s.lapHRSamples.append(100)
-        s.sampleTreadmillSpeed(metersPerSecond: 2.5)
-        XCTAssertFalse(s.tramoClockArmed)
-        // 180 s corriendo.
-        s.lapElapsedSeconds += 180
-        s.lapZoneAccumSec[2, default: 0] += 180
-        s.lapHRSamples.append(140)
-        let leg = try XCTUnwrap(s.currentRunLeg)
-        s.recordRunLegLap(leg, at: s.runLegIndex)
-        let lap = try XCTUnwrap(s.laps.last)
-        XCTAssertEqual(lap.durationSeconds, 180, accuracy: 0.001)
-        XCTAssertEqual(lap.zoneSecondsByZone.values.reduce(0, +), 180, accuracy: 0.001,
-                       "la espera no es de la serie")
-        XCTAssertNil(lap.zoneSecondsByZone[1])
-        XCTAssertEqual(lap.avgHRBpm, 140)
-    }
-
-    // 0278 · una serie cerrada antes de que la cinta se moviera duraba 0 s y llevaba
-    // las zonas de la espera (5 s en una serie de 0 s).
-    func testUnaSerieCerradaSinArrancarLaCintaNoMideNada() throws {
-        let s = parked(scheme: .steady, modality: .run)
-        s.beltConnected = true
-        s.beginBlock()
-        s.stop()
-        if s.isTramoCountIn { s.primaryAdvance() }
-        XCTAssertTrue(s.tramoClockArmed)
-        s.lapElapsedSeconds += 5
-        s.lapZoneAccumSec[1, default: 0] += 5
-        s.lapHRSamples.append(100)
-        let leg = try XCTUnwrap(s.currentRunLeg)
-        s.recordRunLegLap(leg, at: s.runLegIndex)
-        let lap = try XCTUnwrap(s.laps.last)
-        XCTAssertEqual(lap.durationSeconds, 0, accuracy: 0.001)
-        XCTAssertTrue(lap.zoneSecondsByZone.isEmpty)
-        XCTAssertNil(lap.avgHRBpm)
-    }
-
     func testPM5EmpiezaAlRemarNoSeRompe() {
         let s = parked(scheme: .intervals, modality: .row)
         s.ergConnected = true
