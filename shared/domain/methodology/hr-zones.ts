@@ -42,6 +42,8 @@
 // safe: a generalization can never displace a real measurement, only fill its
 // absence.
 
+import type { Ancla } from '../analytics/lectura';
+
 // ── The anchor's inputs ──────────────────────────────────────────────────────
 // Deliberately narrower than `AthleteBenchmarks`: the HR model needs three
 // numbers and nothing else. Keeping it narrow is what lets `zones.ts` depend on
@@ -155,6 +157,20 @@ export const HR_ANCHOR_CONFIDENCE: Record<HrAnchorSource, HrAnchorConfidence> = 
   lthr_declared: 'declared',
   from_max_hr: 'estimated',
   from_age: 'estimated',
+};
+
+/**
+ * El PELDAÑO de cada fuente en el vocabulario de las analíticas (modelo §4,
+ * 29-09-2026): las dos «estimated» de arriba NO valen lo mismo. 0,88 × una FC
+ * máxima MEDIDA es una inferencia sobre un dato SUYO (estimada); Tanaka sobre la
+ * edad es una generalización de la población (poblacional). La carga cuenta las
+ * tres primeras y NO la cuarta; las zonas se pintan con las cuatro.
+ */
+export const HR_ANCHOR_ANCLA: Record<HrAnchorSource, Ancla> = {
+  lthr_measured: 'medida',
+  lthr_declared: 'declarada',
+  from_max_hr: 'estimada',
+  from_age: 'poblacional',
 };
 
 /** Human-readable, athlete-facing, Spanish. Used by every surface that labels a

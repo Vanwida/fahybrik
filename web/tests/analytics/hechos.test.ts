@@ -48,6 +48,7 @@ const PROCEDENCIA_DEFECTO: Procedencia = {
   de: 'test',
   explica_es: 'Lectura construida para el test.',
   medida: true,
+  ancla: null,
   proveedor: null,
 };
 
@@ -108,7 +109,7 @@ function lecturaFondoDeExtremos(antes: number | null, ahora: number | null, long
     grupo: 'carga',
     titulo_es: 'Fondo',
     dato: { valor: ahora ?? antes ?? 0, unidad: 'tss', referencia: null },
-    serie: { unidad: 'tss', paso: 'dia', puntos },
+    serie: { unidad: 'tss', paso: 'dia', puntos, plan: null, referencias: null },
     cobertura: COBERTURA_DEFECTO,
     procedencia: PROCEDENCIA_DEFECTO,
   });

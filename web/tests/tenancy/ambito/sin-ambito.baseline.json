@@ -150,7 +150,6 @@
     {"archivo":"lib/athlete/goal-gap.ts","huella":"0224d35f1eb6","tablas":["race_predictions"],"veces":1},
     {"archivo":"lib/athlete/goal-gap.ts","huella":"69305a2e9fae","tablas":["races"],"veces":1},
     {"archivo":"lib/athlete/goal-gap.ts","huella":"83c55daf269d","tablas":["races"],"veces":1},
-    {"archivo":"lib/athlete/hr-zones.ts","huella":"e8d56afbc4a1","tablas":["athlete_benchmarks","athletes"],"veces":1},
     {"archivo":"lib/athlete/invitations.ts","huella":"10c4cfbe9f86","tablas":["subscriptions"],"veces":1},
     {"archivo":"lib/athlete/invitations.ts","huella":"183633a14824","tablas":["athlete_invitations"],"veces":1},
     {"archivo":"lib/athlete/invitations.ts","huella":"2e87ea458d15","tablas":["subscriptions"],"veces":1},

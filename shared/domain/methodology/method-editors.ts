@@ -43,6 +43,16 @@ import {
   type CoachRunningThresholds,
 } from '../coach/running-thresholds';
 import { ZONE_ROLES, type ZonePaceUnit } from './zone-model';
+import {
+  ANALYTICS_METHOD_BOUNDS,
+  BASES_CUMPLIMIENTO,
+  COACH_ANALYTICS_METHOD_NUMERIC_KEYS,
+  FUENTES_CARGA,
+  FUENTES_MAX,
+  validarMetodoAnalitico,
+  type ClaveNumericaMetodo,
+  type CoachAnalyticsMethod,
+} from '../analytics/metodo';
 
 // ── Bandas de FC ─────────────────────────────────────────────────────────────
 
@@ -211,3 +221,45 @@ export const paceZonesPutSchema = z
     const problem = paceZonesProblem(b.zones);
     if (problem) ctx.addIssue({ code: 'custom', message: problem, path: ['zones'] });
   });
+
+// ── El método de las analíticas (coach_analytics_method, 0189/0190/0277) ─────
+
+/**
+ * PUT del método de analíticas: el conjunto entero, o `null` para volver a los
+ * defectos. Cada número dentro de su rango (los mismos CHECK que la tabla), las
+ * escaleras del vocabulario cerrado, y la coherencia entre campos por
+ * `validarMetodoAnalitico` — dicha en castellano para que el coach sepa qué
+ * corregir.
+ */
+const fuentesSchema = z.array(z.enum(FUENTES_CARGA)).min(1).max(FUENTES_MAX);
+
+function numeroAcotado(clave: ClaveNumericaMetodo) {
+  const b = ANALYTICS_METHOD_BOUNDS[clave];
+  return z.number().min(b.min, `Entre ${b.min} y ${b.max}.`).max(b.max, `Entre ${b.min} y ${b.max}.`);
+}
+
+const numericos = Object.fromEntries(COACH_ANALYTICS_METHOD_NUMERIC_KEYS.map((k) => [k, numeroAcotado(k)])) as Record<
+  ClaveNumericaMetodo,
+  ReturnType<typeof numeroAcotado>
+>;
+
+export const analyticsMethodSchema = z
+  .object({
+    ...numericos,
+    fuentes_run: fuentesSchema,
+    fuentes_row: fuentesSchema,
+    fuentes_ski: fuentesSchema,
+    fuentes_bike: fuentesSchema,
+    fuentes_strength: fuentesSchema,
+    fuentes_other: fuentesSchema,
+    cumplimiento_base: z.enum(BASES_CUMPLIMIENTO),
+  })
+  .strict()
+  .superRefine((m, ctx) => {
+    for (const problem of validarMetodoAnalitico(m as CoachAnalyticsMethod)) {
+      ctx.addIssue({ code: 'custom', message: problem });
+    }
+  }) as unknown as z.ZodType<CoachAnalyticsMethod>;
+
+/** PUT del método de analíticas: el conjunto entero, o `null` para volver a los defectos. */
+export const analyticsMethodPutSchema = z.object({ method: analyticsMethodSchema.nullable() }).strict();

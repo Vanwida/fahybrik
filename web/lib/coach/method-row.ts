@@ -23,6 +23,12 @@ import 'server-only';
 // dos resolutores anteriores siguen con su copia y migrarlos aquí es un cambio
 // aparte: este fichero abre el camino sin tocar código que otras sesiones
 // puedan tener abierto.
+//
+// COLUMNAS QUE NO SON UN NÚMERO (0277): una escalera de peldaños es un `text[]`
+// y la base del cumplimiento un texto de vocabulario cerrado. El llamador
+// declara cómo se leen en `parse`; lo que no está ahí se lee como número. Un
+// valor que no pasa su lector se descarta y el defecto toma el relevo, igual
+// que una columna vacía.
 
 import type { Sql } from '@/lib/db';
 import { isPgMissingRelation } from '@/lib/dashboard/db/pg-errors';
@@ -36,6 +42,9 @@ function comoNumero(v: unknown): number | null {
   const n = typeof v === 'string' ? Number(v) : v;
   return typeof n === 'number' && Number.isFinite(n) ? n : null;
 }
+
+/** Un lector de columna: el valor tipado, o null para «el defecto». */
+export type LectorColumna<V> = (v: unknown) => V | null;
 
 /**
  * El método VIGENTE de un coach: su fila si la ha escrito, si no, los defectos.
@@ -53,6 +62,8 @@ export async function resolveMethodRow<T extends object>(args: {
   defaults: T;
   coach_id: bigint | number;
   client: Sql;
+  /** Lectores de las columnas que no son un número. Lo que no está aquí se lee como número. */
+  parse?: Partial<{ [K in keyof T]: LectorColumna<T[K]> }>;
 }): Promise<T> {
   let row: Record<string, unknown> | null = null;
   try {
@@ -73,7 +84,14 @@ export async function resolveMethodRow<T extends object>(args: {
 
   const values: Partial<T> = {};
   for (const k of args.keys) {
-    const n = comoNumero(row[k as string]);
+    const lector = args.parse?.[k];
+    const crudo = row[k as string];
+    if (lector) {
+      const v = lector(crudo);
+      if (v != null) values[k] = v;
+      continue;
+    }
+    const n = comoNumero(crudo);
     if (n != null) values[k] = n as T[keyof T];
   }
   return { ...args.defaults, ...values };

@@ -22,6 +22,43 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **NO hacer:** volver a una tarjeta en el scroll para el entreno en curso; que la barra lea la instantánea del disco.
 
+---
+
+## 2026-09-29 · Analíticas rehechas: los cimientos del motor (contrato, ventana, carga única, forma, método 0277, umbrales declarados)
+
+**El encargo (docs/analiticas/modelo.md §10.1):** el motor objetivo, sin UI, sobre el que otras sesiones construyen cumplimiento, progreso/récords e intensidad/recuperación. Todo en rama; nada desplegado; la migración 0277 probada solo en una rama Neon desechable.
+
+**Decidido (mecanismo):**
+- **Un sobre, ampliado en su sitio** (`shared/domain/analytics/lectura.ts`, con la lista de control «cómo se añade una lectura»): `procedencia.ancla` (medida | declarada | estimada | poblacional; null = no depende de un umbral), `comparacion` con el periodo anterior de igual longitud y el delta EN LA UNIDAD DEL UMBRAL del coach, `serie.plan` sobre el mismo eje que `puntos`, `serie.referencias` en unidades reales (fuera las series 0..1), `familia`, y `veredicto` retirable (número sí, palabra no). Sobre del panel en `panel.ts`: ocho bloques + `pendientes` (un bloque vacío por construcción no se confunde con «nada que decir»); `idsRepetidos` lo vigila.
+- **Una ventana** (`ventana.ts`): `7d · 4s · 12s · 6m · 1a · todo` en días LOCALES del atleta, la anterior pegada y del mismo tamaño, bordes UTC con cambio de hora dentro (`limitesUtc`). 6 m = 182 d y 1 a = 364 d: semanas enteras.
+- **Anclas resueltas UNA vez** (`anclas.ts` + `web/lib/analytics/anclas.ts`): pulso vía `resolveThresholdHr` con su peldaño (`HR_ANCHOR_ANCLA`: 0,88 × máxima medida = estimada; Tanaka = poblacional); ritmo por modalidad (perfil de test sin revisión > marca de test > toque > alta > perfil derivado del alta > VDOT de la marca más reciente / split del 2K-1K); potencia por máquina (FTP > toque > el ritmo convertido). **Split y vatios en un Concept2 son la misma medida** (W = 2,8/(s/m)³): convertir no estima, y el peldaño se hereda. `loadHrAnchors` lee de la MISMA SQL (`loadFilasPulso`), así que zonas y carga no pueden discrepar. El perfil de zonas se lee por versión vigente (antes se leían todas y mandaba el orden de filas).
+- **Carga única por tramo** (`carga-tramo.ts`): escalera potencia > ritmo > pulso > esfuerzo, en el ORDEN DEL COACH por modalidad; gana el primero con dato y ancla que cuente (`anclaCuenta`: la poblacional NO). Ergo por potencia cúbica (un 1:45 contra 2:00 vale 1,49, no 1,14). Ritmo corregido por pendiente (Minetti 2002; tope mecánico 15 %). Pulso por segundos por zona congelados (cada zona a la intensidad media de su banda del coach; solo si se congelaron con un ancla que cuente) o por pulso medio. Esfuerzo por sRPE con RPE interpolado (`intensityFromRpe`) o 10 − RIR de las series; fuerza × coeficiente del coach. El resto de la sesión que ningún tramo cubre va por pulso medio de sesión o RPE de sesión. Lo que no entra NO SE SABE, y se apunta cuánto de ese hueco tenía pulso sin umbral (lo que cierra un toque). `tss.ts` e `intensity.ts` quedan alineados: solo la poblacional deja de preciar (antes también la 0,88 × máxima).
+- **Carga planificada** (`carga-plan.ts`): duración escrita (`prescriptionDuration`) × intensidad objetivo por línea, con la misma escalera de anclas; zona = intensidad media de la banda (no depende del atleta); **el descanso no se precia** (suelo, como la duración); una recuperación sin objetivo cuenta reloj y cero; %RM/kg/peso corporal/calorías/tope no dicen cómo de duro → no se sabe.
+- **Forma, fatiga y frescura** (`forma.ts`): Banister con las ventanas del coach, cinco estados con sus cuatro cortes, palabra retirada bajo `cobertura_veredicto_min_pct` o en arranque en frío, y la frase dice cuánto de la carga es estimada; comparación en TSS contra el fin del periodo anterior; **proyección** con el plan hasta la carrera objetivo (viaja como `serie.plan` de las tres curvas y como lectura `carga.proyeccion`; con líneas del plan sin saber es un suelo y se retira la palabra; sin carrera → falta `objetivo`; sin plan → falta `plan`). La serie diaria entra ENTERA desde la primera sesión: sin calentamiento artificial.
+- **Semanas** (`semanas.ts`): carga, horas y entrenos por semana del atleta, plan frente a hecho en la misma serie, una lectura por familia con dato; comparación en % contra el periodo anterior con `cambio_carga_pct`/`cambio_horas_pct`.
+- **Estado** (`estado.ts`): readiness de hoy (o el último, fechado como lo que es) + copias de forma/fatiga/frescura sin serie con ids propios.
+- **Método del coach ampliado (0277)**: escaleras por modalidad (`fuentes_*`, text[] de vocabulario cerrado; potencia solo en máquinas, ritmo solo al correr), coeficiente de fuerza, cobertura del veredicto, cuatro cortes de frescura, base y cortes de cumplimiento, cambio significativo por métrica (carga %, horas %, forma, frescura, variabilidad %, pulso reposo, sueño), ventana basal. NULL = defecto = lo de hoy. `PUT /api/coach/analytics-method` (conjunto entero o null) con zod (`analyticsMethodSchema`) + `validarMetodoAnalitico`; `method-row.ts` lee columnas no numéricas con `parse`. Editor de UI: con el diseño.
+- **Umbrales declarados de un toque** (`athlete_declared_thresholds`, 0277): una fila por declaración, la más reciente por (atleta, clave) manda, un test la supera siempre por orden de evidencia. `GET/PUT /api/athlete/thresholds` y `/api/coach/athletes/[id]/thresholds` (ámbito de club). NO en `athlete_benchmarks`: no es una marca.
+- **`AtletaVerificado`** (`web/lib/analytics/atleta-verificado.ts`): los cargadores solo aceptan un id que salió de la sesión del atleta o del guard del coach; sostiene el `// tenancy: verified-owner` de sus consultas. Escotilla única `atletaYaVerificado` para `loadHrAnchors` y sus veinte llamadores.
+- **Rutas** `GET /api/athlete/analytics/panel?ventana=` y `GET /api/coach/athletes/[id]/analytics/panel?ventana=`: el mismo `cargarPanel`; test de paridad en base real.
+- **Faltas nuevas** en `running/progress.ts`: `objetivo` (sin carrera; salida «Elegir tu carrera objetivo»), `esfuerzo` (sesiones sin puntuar; salida «Puntuar el esfuerzo al terminar»), `plan` (sin entrenos planificados; sin salida para el atleta). Ninguna se calla.
+
+**Medido en la rama (atleta 64, 365 días, 424 sesiones, 177,6 h):** con la regla de ayer, 4,7 h con carga = **2,6 %** del tiempo (422 TSS); con el motor nuevo, 101,2 h = **56,7 %** (3.150 TSS), todo por pulso contra un umbral ESTIMADO (0,88 × su FC máxima) — marcado así en la procedencia y en la palabra. El hueco que queda (77 h) es tiempo SIN pulso, no sin umbral: 73,5 h de segundos «sin pulso» dentro de los repartos por zona congelados, 7 h de resto de sesión que ningún tramo cubre y 4,3 h de sesiones sin ninguna evidencia (sin RPE). Un umbral declarado o medido convertiría lo estimado en firme; lo que abre más tiempo es el RPE al cerrar (§6.5 del modelo).
+
+**Retirado / descartado:**
+- El cociente agudo/crónico (ACWR) sale del panel: la frescura y el ritmo de subida ya responden. Sigue en `/analytics/lecturas` hasta la retirada de §9.
+- La regla «un umbral estimado no precia» de `tss.ts`/`intensity.ts` (28-07): la escalera decidida el 29-07 la desbordaba. Ahora solo la poblacional no precia.
+- `LOAD_COVERAGE_MIN` como ley: es el DEFECTO del método (`cobertura_veredicto_min_pct`).
+- Preciar el descanso planificado (a la intensidad del trabajo o a otra): inventaría.
+- Mapear %RM + reps a esfuerzo para la carga planificada de fuerza: es método (una tabla RPE/%RM por reps); queda para el editor del coach, no se cablea.
+- Leer todas las versiones de `athlete_zone_profiles` sin orden.
+
+**NO hacer:** no añadir un segundo sobre ni un segundo cargador; no preciar contra un umbral poblacional; no llamar a un cargador de `web/lib/analytics` con un id de la URL sin `verificarAtletaDelCoach`; no cambiar ids de lecturas (`carga.fondo`… son estables: los hechos y el cliente los reconocen); no volver a leer un umbral fuera de `loadEntradaAnclas`; no escribir bandas, cortes ni escaleras como `const`.
+
+**Queda:** el editor de Ajustes › Método (diseño); los bloques `intensidad`, `progreso`, `records`, `carrera`, `recuperacion` (otras sesiones, sobre este contrato); las capturas de §6 del modelo; la retirada de los siete contratos viejos cuando las dos superficies estén en producción (§9); aplicar 0277 en producción (la aplica el orquestador antes del deploy).
+
+---
+
 ## 2026-09-29 · Tres huecos del vivo nuevo, cerrados: RX/Escalado al terminar, la pausa que sigue sola y la Estructura del circuito entera
 
 **Contexto.** La entrada de abajo (29-09) dejaba fuera tres cosas de la vista vieja. Se cierran en `claude/vivo-swift-release-2`.

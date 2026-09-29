@@ -49,6 +49,14 @@ import type { CoachRunningThresholds } from '../coach/running-thresholds';
  *               que no le sirve.
  *   ocasion     la ocasión no se ha dado todavía (nunca corrió cansado).
  *   intencion   nadie le ha pedido nunca un ritmo: no hay contra qué cumplir.
+ *   objetivo    no hay carrera objetivo: no hay hasta cuándo proyectar la forma
+ *               (analíticas rehechas, 29-09-2026). Distinta de `intencion`: aquí
+ *               SÍ hay salida, elegir la carrera, y la lectura no se calla.
+ *   esfuerzo    hay sesiones sin puntuar ni medir: la carga de ese rato no se
+ *               sabe. La salida es puntuar el esfuerzo al terminar.
+ *   plan        no hay entrenos planificados en el tramo que se mira (la
+ *               proyección hasta la carrera). Lo resuelve el coach, no el atleta:
+ *               sin salida para él, y no se calla (el número sigue siendo cierto).
  */
 export type Falta =
   | { por: 'historia'; llevas: number; hacen: number }
@@ -56,7 +64,10 @@ export type Falta =
   | { por: 'sensor' }
   | { por: 'dispositivo' }
   | { por: 'ocasion' }
-  | { por: 'intencion' };
+  | { por: 'intencion' }
+  | { por: 'objetivo' }
+  | { por: 'esfuerzo'; sesiones: number }
+  | { por: 'plan' };
 
 /**
  * «Aún no» y «no aplica» parecen lo mismo y no lo son. Al recién llegado le
@@ -84,6 +95,10 @@ export function salidaDe(f: Falta): string | null {
       return 'Conectar banda de pulso';
     case 'dispositivo':
       return 'Conectar tu reloj';
+    case 'objetivo':
+      return 'Elegir tu carrera objetivo';
+    case 'esfuerzo':
+      return 'Puntuar el esfuerzo al terminar';
     default:
       return null;
   }

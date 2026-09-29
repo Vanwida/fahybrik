@@ -3,7 +3,8 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { resolveAthleteHrMethod } from '@/lib/coach/hr-method';
-import { BENCH_LTHR } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import { loadFilasPulso } from '@/lib/analytics/anclas';
+import { atletaYaVerificado } from '@/lib/analytics/atleta-verificado';
 import { hrZoneFractionsFrom } from '@fahybrid/shared/domain/coach/hr-method';
 import {
   HR_ANCHOR_LABEL,
@@ -25,77 +26,30 @@ import {
 // no tiene zonas" and point at the threshold test — never as a zero, never as a
 // band derived from a number nobody measured.
 
-/** Athlete-level HR anchor columns. `dob` drives the last-resort age estimate. */
-type AthleteHrRow = {
-  max_hr_bpm: number | null;
-  dob: string | null;
-  lthr_bpm: number | null;
-  lthr_declared_bpm: number | null;
-};
-
-/** `athlete_benchmarks.source` values that mean "a test produced this". Everything
- *  else on an `lthr_bpm` row is the athlete's own declaration. */
-const MEASURED_TEST_SOURCES = ['athlete_test', 'coach_test'] as const;
-
-/** Milliseconds in an average year, leap years amortised. */
-const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
-
-/** Whole years from an ISO `YYYY-MM-DD` birth date. Null when absent/unparseable. */
-export function ageYearsFrom(dob: string | null): number | null {
-  if (!dob) return null;
-  const then = Date.parse(dob);
-  if (Number.isNaN(then)) return null;
-  const years = Math.floor((Date.now() - then) / MS_PER_YEAR);
-  return years > 0 && years < 120 ? years : null;
-}
+export { ageYearsFrom } from '@/lib/analytics/anclas';
 
 /**
  * The athlete's HR anchors, straight from storage. Kept separate from the resolve
  * so a caller that already holds the athlete row (the watch source does) can
  * resolve without a second query.
+ *
+ * ONE SQL SOURCE (29-09-2026): the rows come from `loadFilasPulso`, the same read
+ * the load engine and the thresholds screen use, so the declared rung is the
+ * newest of the onboarding number and a one-tap declaration
+ * (`athlete_declared_thresholds`, 0277) everywhere at once. The two threshold
+ * rungs are read SEPARATELY and ranked by the resolver, not by recency: a test
+ * always beats a declaration, even an older test than the declaration.
  */
 export async function loadHrAnchors(
   athlete_id: number | bigint,
   client: Sql = defaultSql,
 ): Promise<HrAnchors> {
-  // The two threshold rungs are read SEPARATELY and ranked by the resolver, not by
-  // recency: a test always beats a declaration, even an older test than the
-  // declaration. Taking the latest row of either kind (the previous behaviour)
-  // would let a self-reported number silently overwrite a measured one.
-  const rows = await client<AthleteHrRow[]>`
-    select
-      a.max_hr_bpm,
-      to_char(a.dob, 'YYYY-MM-DD') as dob,
-      -- Threshold MEASURED by a test (lthr_30min), newest first.
-      (
-        select b.value::int
-        from athlete_benchmarks b
-        where b.athlete_id = a.id
-          and b.exercise_slug = ${BENCH_LTHR}
-          and b.source = any(${MEASURED_TEST_SOURCES as unknown as string[]})
-        order by b.recorded_at desc
-        limit 1
-      ) as lthr_bpm,
-      -- Threshold the ATHLETE declared (onboarding / profile), newest first.
-      (
-        select b.value::int
-        from athlete_benchmarks b
-        where b.athlete_id = a.id
-          and b.exercise_slug = ${BENCH_LTHR}
-          and (b.source is null or b.source <> all(${MEASURED_TEST_SOURCES as unknown as string[]}))
-        order by b.recorded_at desc
-        limit 1
-      ) as lthr_declared_bpm
-    from athletes a
-    where a.id = ${Number(athlete_id)}
-    limit 1
-  `;
-  const row = rows[0];
+  const filas = await loadFilasPulso(atletaYaVerificado(Number(athlete_id)), client);
   return {
-    lthr_bpm: row?.lthr_bpm ?? null,
-    lthr_declared_bpm: row?.lthr_declared_bpm ?? null,
-    max_hr_bpm: row?.max_hr_bpm ?? null,
-    age_years: ageYearsFrom(row?.dob ?? null),
+    lthr_bpm: filas.lthr_bpm ?? null,
+    lthr_declared_bpm: filas.lthr_declared_bpm ?? null,
+    max_hr_bpm: filas.max_hr_bpm ?? null,
+    age_years: filas.age_years ?? null,
   };
 }
 

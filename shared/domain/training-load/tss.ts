@@ -35,9 +35,25 @@
  */
 export type TssThresholdHr = {
   bpm: number;
-  /** True when inferred (from a max HR, or from age). Estimated ⇒ NOT usable here. */
+  /** True when inferred (from a max HR, or from age). Kept for the callers that predate `ancla`. */
   estimated: boolean;
+  /**
+   * The rung the anchor came from (29-09-2026, docs/analiticas/modelo.md §4). It
+   * decides what prices: `medida`, `declarada` and `estimada` (0,88 × a MEASURED
+   * max HR — an inference over the athlete's own number) all count; only
+   * `poblacional` (Tanaka over a birthday) does not. Absent ⇒ the old rule
+   * (`estimated` refuses) applies, so a caller that never learnt about rungs
+   * cannot accidentally price against a birthday.
+   */
+  ancla?: Ancla;
 };
+
+/** Whether this anchor may price a session: every rung but the population one. */
+export function thresholdHrPrices(lthr: TssThresholdHr | null | undefined): lthr is TssThresholdHr {
+  if (lthr == null || !(lthr.bpm > 0)) return false;
+  if (lthr.ancla != null) return anclaCuenta(lthr.ancla);
+  return !lthr.estimated;
+}
 
 export type TssInput = {
   duration_seconds: number;
@@ -52,6 +68,8 @@ export type TssInput = {
 };
 
 const SECONDS_PER_HOUR = 3600;
+
+import { anclaCuenta, type Ancla } from '../analytics/lectura';
 
 // Map RPE 1..10 to a relative intensity factor.
 // 10 = ~1.10 (race effort), 7 = ~0.85 (threshold), 5 = ~0.70 (tempo), 3 = ~0.55 (easy aerobic).
@@ -70,24 +88,42 @@ const RPE_TO_IF: ReadonlyMap<number, number> = new Map([
 ]);
 
 /**
- * RPE → intensity factor. Null when the value is not a usable RPE (NaN, ±∞):
- * a broken number is "unknown", never a mid-scale guess.
+ * RPE → intensity factor, the ONE curve every rung prices with. Null when the
+ * value is not a usable RPE (NaN, ±∞): a broken number is "unknown", never a
+ * mid-scale guess.
+ *
+ * A fractional RPE (a set logged at 7,5; a session at 10 − RIR 2,5) interpolates
+ * linearly between the two integer points instead of rounding, so 7,5 costs
+ * halfway between 7 and 8 and not the same as 8. Integer values are exactly the
+ * table, so every session priced before this existed prices the same today.
  */
-function ifFromRpe(rpe: number): number | null {
+export function intensityFromRpe(rpe: number): number | null {
   if (!Number.isFinite(rpe)) return null;
-  const clamped = Math.min(10, Math.max(1, Math.round(rpe)));
-  return RPE_TO_IF.get(clamped) ?? null;
+  const clamped = Math.min(10, Math.max(1, rpe));
+  const lo = Math.floor(clamped);
+  const hi = Math.ceil(clamped);
+  const ifLo = RPE_TO_IF.get(lo);
+  const ifHi = RPE_TO_IF.get(hi);
+  if (ifLo == null || ifHi == null) return null;
+  if (hi === lo) return ifLo;
+  return ifLo + (ifHi - ifLo) * (clamped - lo);
+}
+
+function ifFromRpe(rpe: number): number | null {
+  return intensityFromRpe(rpe);
 }
 
 // Karvonen-based HR reserve fraction → IF approximation.
 // HRR fraction at LTHR is ~0.85 for trained athletes; we anchor IF=1.0 there.
 function ifFromHr(input: TssInput): number | null {
   const { avg_hr, lthr } = input;
-  if (avg_hr == null || lthr == null || lthr.bpm <= 0) return null;
-  // An ESTIMATED threshold does not price a session. Falling through to RPE (or to
-  // null) is the honest answer: better an unpriced hour the coach can see than a
-  // TSS whose intensity came from the athlete's date of birth.
-  if (lthr.estimated) return null;
+  if (avg_hr == null) return null;
+  // A POPULATION threshold does not price a session. Falling through to RPE (or
+  // to null) is the honest answer: better an unpriced hour the coach can see
+  // than a TSS whose intensity came from the athlete's date of birth. A
+  // threshold inferred from the athlete's OWN measured max (`estimada`) does
+  // price, marked — the rung the zone ladder already decided (29-09-2026).
+  if (!thresholdHrPrices(lthr)) return null;
   return avg_hr / lthr.bpm;
 }
 
