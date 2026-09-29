@@ -230,6 +230,27 @@ interface ObsTipo extends Fechada {
   metros: number;
 }
 
+/** Cómo se llama cada tipo de sesión de carrera delante del atleta (el catálogo de formatos, en castellano de box). */
+const TIPO_CARRERA_ES: Readonly<Record<string, string>> = {
+  steady: 'rodajes',
+  intervals: 'series',
+  emom: 'EMOM',
+  rounds: 'rondas',
+  for_time: 'por tiempo',
+  amrap: 'AMRAP',
+  tabata: 'tabata',
+  death_by: 'death by',
+  chipper: 'chipper',
+  ladder: 'escaleras',
+  hyrox_sim: 'simulaciones HYROX',
+  sets: 'series',
+  superset: 'superseries',
+};
+
+export function nombreTipoCarrera(tipo: string): string {
+  return TIPO_CARRERA_ES[tipo] ?? tipo;
+}
+
 /** Un calentamiento o una vuelta a la calma son una fase, no un tipo de sesión: su ritmo no dice nada de la forma. */
 const FASES_NO_TIPO: ReadonlySet<string> = new Set(['warmup', 'cooldown']);
 
@@ -254,7 +275,7 @@ function filaTipo(e: EntradaCorrer, obs: readonly ObsTipo[], tipo: string, id: s
     id,
     grupo: GRUPO,
     familia: 'correr',
-    titulo_es: `Ritmo en ${tipo}`,
+    titulo_es: `Ritmo en ${nombreTipoCarrera(tipo)}`,
     unidad: 's_km',
     sentido: 'menor',
     umbral: umbralCorrer(e),
@@ -264,7 +285,7 @@ function filaTipo(e: EntradaCorrer, obs: readonly ObsTipo[], tipo: string, id: s
     serie: serieSemanalDe(lista, e.ventana, 's_km', ritmoMedio),
     procedencia: {
       de: `mismo_tipo_${tipo}`,
-      explica_es: `Tu ritmo medio (ponderado por distancia) en las sesiones de tipo «${tipo}»: el mismo tipo contra sí mismo, nunca contra otro.`,
+      explica_es: `Tu ritmo medio (ponderado por distancia) en tus ${nombreTipoCarrera(tipo)}: el mismo tipo de sesión contra sí mismo, nunca contra otro.`,
       medida: true,
       ancla: null,
       proveedor: null,
@@ -293,7 +314,7 @@ function filaCorrer(e: EntradaCorrer, esf: readonly EsfuerzoCorrer[], tiposObs: 
   const tipos = [...new Set(tiposObs.map((o) => o.tipo))].sort(
     (a, b) => tiposObs.filter((o) => o.tipo === b).length - tiposObs.filter((o) => o.tipo === a).length || a.localeCompare(b),
   );
-  for (const t of tipos) candidatas.push({ ...filaTipo(e, tiposObs, t, id), titulo_es: `Correr · Ritmo en ${t}` });
+  for (const t of tipos) candidatas.push({ ...filaTipo(e, tiposObs, t, id), titulo_es: `Correr · Ritmo en ${nombreTipoCarrera(t)}` });
 
   const elegida =
     candidatas.find(comparable) ?? candidatas.find((f) => f.medidas.actual != null) ?? candidatas.find((f) => f.medidas.ultima != null);
