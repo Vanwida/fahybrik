@@ -81,7 +81,7 @@ export interface TramoLeido {
   carga: { tss: number | null; peldano: string | null } | null;
 }
 
-const PELDANO_NOMBRE: Record<string, string> = { potencia: 'vatios', ritmo: 'ritmo', pulso: 'pulso', esfuerzo: 'esfuerzo' };
+const PELDANO_NOMBRE: Record<string, string> = { potencia: 'según vatios', ritmo: 'según ritmo', pulso: 'según pulso', esfuerzo: 'según esfuerzo', zona: 'según zona' };
 
 /** Una comprobación, en palabras: «3:45–3:55/km», «Z1–Z2», «RIR 2». */
 function objetivoEscrito(c: ComprobacionConsumo): string | null {

@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/v2/ui';
 import { cn } from '@/lib/utils';
 import { horasYMin } from '@/lib/formato';
-import { fechaLegible } from '../formato';
+import { fechaLegible, formatear } from '../formato';
 import { LineaTiempo } from '../graficos';
 import type { DetalleCumplimientoConsumo, DetalleSesionConsumo, FilaSesionConsumo, FuenteDetalle, Resultado } from '../detalle';
 import type { Hueco } from '../huecos';
@@ -191,13 +191,19 @@ export function Tramos({
                           id: 'k',
                           cabecera: 'Carga',
                           celda: (t: TramoLeido) => (
-                            <span className={cn(t.carga?.tss == null && 'text-v2-faint')}>
-                              {t.carga?.tss != null ? Math.round(t.carga.tss) : '?'}
-                              <span className="text-v2-faint"> {t.carga?.peldano ?? 'no se sabe'}</span>
+                            <span className="flex flex-col items-end leading-tight">
+                              {t.carga?.tss != null ? (
+                                <>
+                                  <span>{formatear(t.carga.tss, 'tss')}</span>
+                                  {t.carga.peldano ? <span className="t-meta text-v2-faint">{t.carga.peldano}</span> : null}
+                                </>
+                              ) : (
+                                <span className="text-v2-faint">no se sabe</span>
+                              )}
                             </span>
                           ),
                           alinear: 'derecha' as const,
-                          ancho: '104px',
+                          ancho: '112px',
                           movil: 'detalle' as const,
                         },
                       ]
@@ -210,7 +216,7 @@ export function Tramos({
               <p className="t-body-sm text-v2-muted">Esta sesión no se grabó tramo a tramo: cuenta como hecha, sin veredicto por tramo.</p>
             )}
             {detA?.estado === 'pendiente' ? (
-              <HuecoLinea hueco={{ tipo: 'pendiente', titulo: 'Sin carga ni curva por tramo', cuerpo: 'La carga de cada tramo y la curva de pulso llegan con el detalle de la sesión, en la siguiente entrega.' }} />
+              <HuecoLinea hueco={{ tipo: 'pendiente', titulo: 'Sin carga ni curva por tramo', cuerpo: 'De esta sesión no hay detalle guardado, así que no se puede mostrar la carga de cada tramo ni la curva de pulso.' }} />
             ) : null}
             {pulsoA.length > 1 || pulsoB.length > 1 ? (
               <div className="flex flex-col gap-1">
