@@ -403,7 +403,7 @@ Hoy, Plan, Carreras y Perfil se portan a Swift en paralelo con el diseño de «E
 | Repartir el sobrante ENTRE los hijos | `EntreLayout` |
 | Avatar del atleta con la marca de fondo | `CoachAvatar(relleno: true)` |
 | El color de una SERIE de una gráfica (familia de entreno, zona del coach), la banda basal, la chispa | `Theme.Color.familiaCorrer/Ergo/Fuerza/Estaciones` · `Theme.Color.zona(_:de:)` · `superficieDeGrafico` · `apoyoFuerte` · `chispa(_:)` (`Theme/Theme+Datos.swift`, claro y oscuro, medidos por `AnaliticasPielTests`) y los trazos en `Theme.Chart`. El acento del club NUNCA es color de dato |
-| Un dato con su delta, un gráfico de líneas/columnas/reparto, una fila de progreso o de récord, la glosa | Las piezas de `Analytics/Panel/Kit` (`AnaliticasCelda`, `AnaliticasGraficoLineas`…, ver su README) |
+| Un dato con su delta, un gráfico de líneas/columnas/reparto, una fila de progreso o de récord, la glosa | Las piezas de `Analytics/Panel/Kit` (`AnaliticasCelda`, `AnaliticasGraficoLineas`…, ver su README) y, para una tabla densa, la tendencia de una lectura, las celdas en rejilla, el sujeto de una familia o las curvas de una sesión y de los mejores esfuerzos, las de `Analytics/Detalle/Kit` (`AnaliticasTabla`, `AnaliticasTendencia`, `AnaliticasRejilla`, `AnaliticasSujetoFamilia`, `AnaliticasGraficosDeDetalle`) |
 
 ### 11.2 · El acento es el del club
 
