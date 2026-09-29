@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { cifra, esCero, formatearDelta, unidadCorta, type UnidadPintable } from './formato';
 import { ACCION_ETIQUETA, type AccionHueco, type Hueco } from './huecos';
 import { ANCLA_CHIP, ANCLA_GLOSA, tonoCambio, unidadComparacion, type TonoCambio } from './lecturas';
+import { useAncho } from './graficos';
 import { PIEL_PANEL, colorFamilia, type FamiliaGrande } from './piel';
 
 // ---------------------------------------------------------------------------
@@ -114,40 +115,61 @@ export interface ColumnaPanel<T> {
   movil?: 'principal' | 'valor' | 'detalle' | 'oculta';
 }
 
+/** Hueco entre columnas de la rejilla (`gap-3`). */
+const GAP_TABLA_PX = 12;
+/** Lo mínimo que necesita una columna de texto sin ancho fijo para leerse en una línea. */
+const MIN_COLUMNA_TEXTO_PX = 140;
+
+/** Ancho mínimo de una rejilla: los anchos fijos, un mínimo por cada columna flexible y los huecos. */
+function anchoMinimoTabla(columnas: { ancho?: string }[]): number {
+  const suma = columnas.reduce((acc, c) => {
+    const px = /^(\d+(?:\.\d+)?)px$/.exec(c.ancho ?? '');
+    return acc + (px ? Number(px[1]) : MIN_COLUMNA_TEXTO_PX);
+  }, 0);
+  return suma + GAP_TABLA_PX * Math.max(0, columnas.length - 1);
+}
+
 /**
  * Tabla densa del panel: cabecera 11 px en mayúsculas, filas de 40 px, cifras
- * tabulares. Desde `sm` es una rejilla; en el móvil cada fila se recompone en
- * dos líneas (lo principal y su valor arriba, el detalle debajo): el dato que
- * importa a 1440 importa a 390 (CONTRATO-UI §9.3), cambia de sitio.
+ * tabulares. Elige su forma por el ancho que TIENE, no por el de la pantalla
+ * (una tarjeta a media pantalla en un monitor grande es estrecha): con sitio
+ * para todas las columnas es una rejilla; si solo cabe sin las `oculta` (las
+ * secundarias, como la tendencia) se queda sin ellas; si no cabe, cada fila se
+ * recompone en dos líneas (lo principal y su valor arriba, el detalle debajo).
+ * El dato que importa a 1440 importa a 390 (CONTRATO-UI §9.3), cambia de sitio.
  */
 export function TablaPanel<T>({ columnas, filas, clave, etiqueta, seleccionada, onFila }: { columnas: ColumnaPanel<T>[]; filas: T[]; clave: (f: T) => string; etiqueta: string; seleccionada?: string | null; onFila?: (f: T) => void }) {
-  const grid = columnas.map((c) => c.ancho ?? 'minmax(0, 1fr)').join(' ');
+  const { ref, ancho } = useAncho<HTMLDivElement>(0);
+  const principales = columnas.filter((c) => c.movil !== 'oculta');
+  const enRejilla = ancho >= anchoMinimoTabla(columnas) ? columnas : ancho >= anchoMinimoTabla(principales) ? principales : null;
+  const grid = enRejilla?.map((c) => c.ancho ?? 'minmax(0, 1fr)').join(' ');
   const celda = (c: ColumnaPanel<T>): CSSProperties => ({ textAlign: c.alinear === 'derecha' ? 'right' : 'left', minWidth: 0 });
   const principal = columnas.find((c) => c.movil === 'principal') ?? columnas[0]!;
   const valor = columnas.find((c) => c.movil === 'valor');
   const detalle = columnas.filter((c) => c !== principal && c !== valor && c.movil !== 'oculta');
   return (
-    <div role="table" aria-label={etiqueta} className="flex flex-col">
-      <div role="row" className="hidden gap-3 border-b border-v2-border pb-2 sm:grid" style={{ gridTemplateColumns: grid }}>
-        {columnas.map((c) => (
-          <span key={c.id} role="columnheader" className="t-label text-v2-faint" style={celda(c)}>
-            {c.cabecera}
-          </span>
-        ))}
-      </div>
+    <div ref={ref} role="table" aria-label={etiqueta} className="flex flex-col">
+      {enRejilla ? (
+        <div role="row" className="grid gap-3 border-b border-v2-border pb-2" style={{ gridTemplateColumns: grid }}>
+          {enRejilla.map((c) => (
+            <span key={c.id} role="columnheader" className="t-label text-v2-faint" style={celda(c)}>
+              {c.cabecera}
+            </span>
+          ))}
+        </div>
+      ) : null}
       {filas.map((f) => {
         const activa = seleccionada != null && clave(f) === seleccionada;
-        const escritorio = (
-          <div className="hidden items-center gap-3 sm:grid" style={{ gridTemplateColumns: grid }}>
-            {columnas.map((c) => (
+        const contenido = enRejilla ? (
+          <div className="grid items-center gap-3" style={{ gridTemplateColumns: grid }}>
+            {enRejilla.map((c) => (
               <span key={c.id} role="cell" className="t-body-sm t-tnum text-v2-fg" style={celda(c)}>
                 {c.celda(f)}
               </span>
             ))}
           </div>
-        );
-        const movil = (
-          <div className="flex flex-col gap-1 sm:hidden">
+        ) : (
+          <div className="flex flex-col gap-1">
             <div className="flex items-baseline justify-between gap-3">
               <span className="min-w-0 t-body-sm text-v2-fg">{principal.celda(f)}</span>
               {valor ? <span className="shrink-0 t-body-sm t-tnum text-v2-fg">{valor.celda(f)}</span> : null}
@@ -163,7 +185,7 @@ export function TablaPanel<T>({ columnas, filas, clave, etiqueta, seleccionada, 
             ) : null}
           </div>
         );
-        const cls = cn('border-b border-v2-border py-2 last:border-b-0 sm:min-h-10 sm:py-1.5', onFila && 'cursor-pointer hover:bg-v2-hover', activa && 'bg-v2-select');
+        const cls = cn('border-b border-v2-border py-2 last:border-b-0', enRejilla && 'min-h-10 py-1.5', onFila && 'cursor-pointer hover:bg-v2-hover', activa && 'bg-v2-select');
         // Una fila pulsable es un div con teclado, no un <button>: sus celdas pueden llevar botones (Comparar) y un botón no puede contener otro.
         return onFila ? (
           <div
@@ -181,13 +203,11 @@ export function TablaPanel<T>({ columnas, filas, clave, etiqueta, seleccionada, 
             }}
             className={cn(cls, 'w-full text-left outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--v2-accent)]')}
           >
-            {escritorio}
-            {movil}
+            {contenido}
           </div>
         ) : (
           <div key={clave(f)} role="row" className={cls}>
-            {escritorio}
-            {movil}
+            {contenido}
           </div>
         );
       })}
