@@ -231,6 +231,12 @@ final class LecturaPerfilCableTests: XCTestCase {
         XCTAssertEqual(FuenteDelDato<Int>.sinRespuesta.trasPedir(.contesto(3)), .contesto(3))
     }
 
+    func testAlReintentarLaFuenteQueFalloVuelveAEsqueletoYLaBuenaSeQueda() {
+        XCTAssertEqual(FuenteDelDato<Int>.sinRespuesta.alReintentar, .cargando)
+        XCTAssertEqual(FuenteDelDato<Int>.contesto(9).alReintentar, .contesto(9))
+        XCTAssertEqual(FuenteDelDato<Int>.cargando.alReintentar, .cargando)
+    }
+
     // MARK: - Suscripción
 
     private func suscripcion(_ status: String?, cancela: Bool = false, fin: String? = nil, tier: String? = "coached") -> SubscriptionInfo {

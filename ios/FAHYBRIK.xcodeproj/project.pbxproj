@@ -603,6 +603,7 @@
 		8A712D008FCDD11DC78C2F13 /* RendimientoPerfil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8820E34A01859BD61BBBB39A /* RendimientoPerfil.swift */; };
 		8AA02A559502CF9CEB464936 /* HealthKitHistoryImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74295374B3E8349E2CE3A279 /* HealthKitHistoryImport.swift */; };
 		8B1972F1AFDFB2E06D5BA8D9 /* WatchWorkoutClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D632BF4FA9FD9CDB7E3F3AC /* WatchWorkoutClock.swift */; };
+		8C057FA27D8092C711ABC568 /* ProfileViewRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F146636531D1CFB43FB1723 /* ProfileViewRenderTests.swift */; };
 		8C54AF5A15B1E5A7B628CB23 /* WatchHKActivityPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1067573AB177F92538E19DA /* WatchHKActivityPlanTests.swift */; };
 		8C7A16DA6778BB2B0D9BA5E5 /* LecturaDeCarreraDesdeDetalle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9D9A511F800CC9F0A54FFF0 /* LecturaDeCarreraDesdeDetalle.swift */; };
 		8CD24C1364BD014EAA59991A /* Vivo+Metricas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E62A72CF3CC3DCA9CC8C99D /* Vivo+Metricas.swift */; };
@@ -1575,6 +1576,7 @@
 		6E7C23D30FD4E5D3A428A77D /* Day1Flow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Day1Flow.swift; sourceTree = "<group>"; };
 		6E996007C0E035EF597F9CD7 /* ProgressDots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressDots.swift; sourceTree = "<group>"; };
 		6EAFCCDADC8DDC255E7DC5A1 /* WorkoutSessionTraceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSessionTraceTests.swift; sourceTree = "<group>"; };
+		6F146636531D1CFB43FB1723 /* ProfileViewRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewRenderTests.swift; sourceTree = "<group>"; };
 		6F6340EA1FB69D4CA6920238 /* EjeDelRitmoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EjeDelRitmoTests.swift; sourceTree = "<group>"; };
 		6F7DBBA7990F6BEC99522A14 /* TrainingDaysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingDaysView.swift; sourceTree = "<group>"; };
 		6FA42B8372A5C349CBFBB0B7 /* BotonConectividad.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotonConectividad.swift; sourceTree = "<group>"; };
@@ -3678,6 +3680,7 @@
 				02590A9AB02F845E8B8C2930 /* LecturaPerfilCableTests.swift */,
 				AC3759759850F8540B6D0AE3 /* PartnerInfoTests.swift */,
 				01EBC5FA7EC6F4F142B42A72 /* PerfilDisenoTests.swift */,
+				6F146636531D1CFB43FB1723 /* ProfileViewRenderTests.swift */,
 				9635AEC65B34BA4929088E03 /* RendimientoPerfilTests.swift */,
 				6CD13F5971611B2585250661 /* SubscriptionInfoDecodeTests.swift */,
 				6C1BF756E1FA25D0C4ACAB22 /* WearablesServiceTests.swift */,
@@ -5261,6 +5264,7 @@
 				BD60F1956D8B724284E1A277 /* PreWorkoutDeviceEligibilityTests.swift in Sources */,
 				E46EA4FEB8ECD1E280B1D69D /* PreWorkoutFlowSourceTests.swift in Sources */,
 				E42861E6084DA9D818CC21E0 /* PredictionReviewDecodeTests.swift in Sources */,
+				8C057FA27D8092C711ABC568 /* ProfileViewRenderTests.swift in Sources */,
 				1123125D365F16BC9DFD0F0C /* ProgramarDiaPickerTests.swift in Sources */,
 				E1C00AE00F004EBAB5F82231 /* ProgresoDeCarreraTests.swift in Sources */,
 				31EFA46E471C1D0A3FDCA6C8 /* ReadinessDetailDecodeTests.swift in Sources */,

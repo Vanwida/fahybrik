@@ -283,6 +283,9 @@ struct ProfileView: View {
 
     /// «Reintentar» del sujeto o de la frase de sin red: todo lo del perfil, a la fuerza.
     private func recargarTodo() async {
+        bateria = bateria.alReintentar
+        marcas = marcas.alReintentar
+        vo2 = vo2.alReintentar
         async let perfil: Void = store.loadProfile(force: true)
         async let cifras: Void = cargarCifras()
         async let carreras: Void = cargarCarreras()

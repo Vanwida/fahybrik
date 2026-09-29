@@ -113,6 +113,13 @@ extension FuenteDelDato {
         return nueva
     }
 
+    /// Lo que se ve mientras se vuelve a pedir tras un «Reintentar»: la fuente que falló vuelve a esqueleto
+    /// (el toque tiene que notarse) y la que tiene una cifra buena la conserva.
+    var alReintentar: FuenteDelDato<Valor> {
+        if case .sinRespuesta = self { return .cargando }
+        return self
+    }
+
     /// De una porción del store: con valor (aunque revalide) contestó; sin valor pero ya cargada
     /// contestó «no hay nada» (`vacio`); sin valor y fallida es un fallo, no un vacío; y si no ha
     /// pasado nada aún, sigue en frío.
