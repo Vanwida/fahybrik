@@ -1,4 +1,6 @@
 import XCTest
+import SwiftUI
+@testable import FAHYBRIK
 
 // FH-95 — the pre-live athlete path must expose exactly ONE ▶ EMPEZAR (Brief readyToStart).
 final class PreWorkoutFlowSourceTests: XCTestCase {
@@ -92,5 +94,67 @@ final class PreWorkoutFlowSourceTests: XCTestCase {
         XCTAssertFalse(policy.contains("mirrorChannelAlive"))
         XCTAssertFalse(owner.contains("mirrorChannelAlive"))
         XCTAssertFalse(owner.contains("reconcileIdleBeforeLaunch"))
+    }
+}
+
+// La tarjeta del reloj del brief y los chips del reloj en el vivo, RENDERIZADOS de
+// verdad: informativos, sin botones, en el castellano del box. Sitio de donde salen
+// las capturas (`FAHYBRIK_CAPTURAS=<carpeta>`); sin la variable no escribe nada.
+final class RelojInformativoRenderTests: XCTestCase {
+
+    private var destino: URL? {
+        ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"].map { URL(fileURLWithPath: $0) }
+    }
+
+    @MainActor
+    private func render(_ vista: some View, ancho: CGFloat = 402, alto: CGFloat, nombre: String) throws {
+        let renderer = ImageRenderer(
+            content: vista
+                .padding(20)
+                .frame(width: ancho, height: alto, alignment: .topLeading)
+                .background(Theme.Color.background)
+                .environment(\.colorScheme, .dark)
+        )
+        renderer.scale = 3
+        let imagen = try XCTUnwrap(renderer.uiImage, nombre)
+        guard let png = imagen.pngData() else { return }
+        let adjunto = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+        adjunto.name = nombre
+        adjunto.lifetime = .keepAlways
+        add(adjunto)
+        if let destino {
+            try? FileManager.default.createDirectory(at: destino, withIntermediateDirectories: true)
+            try? png.write(to: destino.appendingPathComponent("\(nombre).png"))
+        }
+    }
+
+    @MainActor
+    func testLaTarjetaDelRelojDelBriefEnSusDosEstados() throws {
+        WatchPresence.shared.refresh(paired: true, installed: true)
+        try render(PreWorkoutWatchCard(mirror: PhoneLiveSession.shared), alto: 120,
+                   nombre: "brief-reloj-listo")
+        WatchPresence.shared.refresh(paired: false, installed: false)
+        try render(PreWorkoutWatchCard(mirror: PhoneLiveSession.shared), alto: 120,
+                   nombre: "brief-sin-apple-watch")
+    }
+
+    @MainActor
+    func testLosChipsDelRelojEnElVivo() throws {
+        let estados: [(String, Vivo.Dispositivos.Reloj)] = [
+            ("vivo-reloj-conectando", .conectando),
+            ("vivo-reloj-grabando", .segundaPantalla),
+            ("vivo-reloj-sin-conexion", .sinConexion),
+        ]
+        for (nombre, reloj) in estados {
+            let paso = Vivo.Paso(id: "chip", clase: .series, rol: .trabajo, fase: .principal,
+                                 medida: .init(tipo: .distancia, prescrito: 1000, mide: .gps))
+            let chips = Vivo.enlacesDe(.init(reloj: reloj, maquina: nil, pulsometro: .banda),
+                                       paso, Vivo.Lecturas(t: 60, hecho: nil, ritmo: nil, ppm: 160))
+            let chip = try XCTUnwrap(chips.first { $0.clave == .reloj })
+            try render(VStack(alignment: .leading, spacing: 8) {
+                VivoChip(chip: chip)
+                if let nota = chip.nota { Text(nota).font(.footnote).foregroundStyle(.secondary) }
+            }, alto: 90, nombre: nombre)
+        }
     }
 }
