@@ -26,6 +26,7 @@ export const TABLAS: Record<string, Ambito> = {
   athlete_benchmarks: { clase: 'club', via: 'athlete_id → athletes' },
   athlete_coach_notes: { clase: 'club', via: 'coach_id' },
   athlete_daily_readiness_snapshots: { clase: 'club', via: 'athlete_id → athletes' },
+  athlete_declared_thresholds: { clase: 'club', via: 'athlete_id → athletes' },
   athlete_emphasis: { clase: 'club', via: 'athlete_id → athletes' },
   athlete_invitations: { clase: 'club', via: 'athlete_id → athletes' },
   athlete_invoices: { clase: 'club', via: 'subscription_id → subscriptions' },
