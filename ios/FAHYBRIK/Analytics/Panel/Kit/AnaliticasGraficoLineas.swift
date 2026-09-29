@@ -11,7 +11,7 @@ import Charts
 //     en el color de la serie. Cuerpo: `.papel(.notaFuerte)` (15 pt, el suelo, y
 //     escala con el texto del sistema).
 //   · Los trazos que portan significado, a ≥ 3:1 sobre la tarjeta en claro y en
-//     oscuro (`DatosColorTests` lo mide); el tema decide, ninguna serie lleva un hex.
+//     oscuro (`AnaliticasPielTests` lo mide); el tema decide, ninguna serie lleva un hex.
 //   · Rejilla y ejes: una línea fina, SÓLIDA. El trazo discontinuo se reserva a
 //     la proyección; el punteado corto, a la marca de «hoy».
 //   · Un dato a nulo es un HUECO: la línea se corta (cada tramo es una serie de

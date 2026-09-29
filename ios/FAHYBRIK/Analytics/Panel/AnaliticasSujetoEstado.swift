@@ -115,11 +115,6 @@ struct SujetoEstado: Equatable {
     /// Cuánto falta para que forma y frescura sean fiables.
     let plazo: PlazoHueco?
     let salida: SalidaHueco?
-
-    /// Lo que lee VoiceOver de una pasada, para la etiqueta del bloque.
-    var lecturaAccesible: String {
-        [titulo, apoyo].compactMap { $0 }.joined(separator: ". ")
-    }
 }
 
 extension SujetoEstado {

@@ -58,7 +58,7 @@ enum BloqueDelPanel: String, Codable, Equatable, CaseIterable {
         self = BloqueDelPanel(rawValue: raw) ?? .desconocido
     }
 
-    /// Los que se pintan, en el orden de la portada (el Estado va en la cabecera fija).
+    /// Los que se pintan, en el orden de la portada (el Estado es el sujeto de la pantalla y se pinta aparte).
     static let delCuerpo: [BloqueDelPanel] = [.forma, .semanas, .intensidad, .progreso, .records, .carrera, .recuperacion]
 
     var titulo: String {

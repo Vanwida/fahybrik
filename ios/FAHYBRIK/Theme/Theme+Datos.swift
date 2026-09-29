@@ -16,7 +16,7 @@ import UIKit
 // (separación para daltónicos ΔE 2,3): sirven para un punto decorativo con su nombre al lado,
 // no para distinguir series en una barra apilada. Las cuatro familias de abajo pasan el
 // validador (OKLab ×100, Machado a severidad 1: visión normal ≥ 15 y daltónica ≥ 8 en todos los
-// pares) en cada apariencia y sobre SU superficie; `DatosColorTests` lo vuelve a medir.
+// pares) en cada apariencia y sobre SU superficie; `AnaliticasPielTests` lo vuelve a medir.
 //
 // ── EL ACENTO NO ES UN COLOR DE DATO ─────────────────────────────────────────
 // El acento es el del club: marca y acción. Una familia o una zona nunca lo usan (un club
