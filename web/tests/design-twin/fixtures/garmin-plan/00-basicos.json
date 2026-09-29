@@ -1,0 +1,163 @@
+{
+  "descripcion": "Vectores de las piezas del formato. Un varint: 7 bits por byte, menos significativo primero, bit 0x80 = sigue. Un opcional: 0 = ausente, valor + 1 = presente. Una escala: décimas para los ejes, centésimas para los kilos, porcentaje ×100.",
+  "esquema": 1,
+  "varint": [
+    {
+      "valor": 0,
+      "hex": "00"
+    },
+    {
+      "valor": 1,
+      "hex": "01"
+    },
+    {
+      "valor": 127,
+      "hex": "7f"
+    },
+    {
+      "valor": 128,
+      "hex": "8001"
+    },
+    {
+      "valor": 255,
+      "hex": "ff01"
+    },
+    {
+      "valor": 300,
+      "hex": "ac02"
+    },
+    {
+      "valor": 16383,
+      "hex": "ff7f"
+    },
+    {
+      "valor": 16384,
+      "hex": "808001"
+    },
+    {
+      "valor": 2097152,
+      "hex": "80808001"
+    },
+    {
+      "valor": 2147483647,
+      "hex": "ffffffff07"
+    }
+  ],
+  "opcional": [
+    {
+      "valor": null,
+      "token": 0
+    },
+    {
+      "valor": 0,
+      "token": 1
+    },
+    {
+      "valor": 5,
+      "token": 6
+    }
+  ],
+  "escalas": [
+    {
+      "campo": "rpe",
+      "valor": 6.5,
+      "escala": 10,
+      "token": 65
+    },
+    {
+      "campo": "ritmo (s/km)",
+      "valor": 225,
+      "escala": 10,
+      "token": 2250
+    },
+    {
+      "campo": "kg",
+      "valor": 1.25,
+      "escala": 100,
+      "token": 125
+    },
+    {
+      "campo": "kg",
+      "valor": 186.5,
+      "escala": 100,
+      "token": 18650
+    },
+    {
+      "campo": "umbralHecho",
+      "valor": 0.9,
+      "escala": 100,
+      "token": 90
+    }
+  ],
+  "slots": [
+    {
+      "slot": "A1",
+      "tokens": [
+        1,
+        1
+      ]
+    },
+    {
+      "slot": "B2",
+      "tokens": [
+        2,
+        2
+      ]
+    },
+    {
+      "slot": "A4",
+      "tokens": [
+        1,
+        4
+      ]
+    }
+  ],
+  "empaquetado": [
+    {
+      "campo": "rol · fase · cierre (2+2+1 bits)",
+      "valores": [
+        0,
+        1,
+        1
+      ],
+      "token": 20
+    },
+    {
+      "campo": "medida: tipo · quién mide (3+3 bits)",
+      "valores": [
+        1,
+        5
+      ],
+      "token": 41
+    }
+  ],
+  "base64": [
+    {
+      "bytes": "010203",
+      "base64": "AQID"
+    },
+    {
+      "bytes": "fffe",
+      "base64": "//4="
+    }
+  ],
+  "cadenas": [
+    {
+      "texto": "Wall Ball",
+      "hex": "57616c6c2042616c6c"
+    },
+    {
+      "texto": "Extensión de cadera en cuadrupedia",
+      "hex": "457874656e7369c3b36e2064652063616465726120656e206375616472757065646961"
+    },
+    {
+      "texto": "Vuelta a la calma",
+      "hex": "5675656c74612061206c612063616c6d61"
+    }
+  ],
+  "sinDatosEnElDoble": [
+    "511",
+    "542",
+    "513"
+  ]
+}
