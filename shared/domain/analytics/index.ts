@@ -29,6 +29,7 @@ export * from './estado';
 export * from './cumplimiento-bandas';
 export * from './cumplimiento-esfuerzos';
 export * from './cumplimiento-tramo';
+export * from './cumplimiento-series';
 export * from './cumplimiento-lineas';
 export * from './cumplimiento-sesion';
 export * from './cumplimiento';

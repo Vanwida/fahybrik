@@ -65,6 +65,7 @@ type FilaTramo = {
   inclinacion: number | null;
   pendiente: number | null;
   reps: number | null;
+  reps_prescritas: number | null;
   kg: number | null;
   calorias: number | null;
   rondas: number | null;
@@ -122,6 +123,7 @@ function tramoDe(t: FilaTramo): TramoEjecutado {
     inclinacion_pct: num(t.inclinacion),
     pendiente_pct: num(t.pendiente),
     reps: num(t.reps),
+    reps_prescritas: num(t.reps_prescritas),
     kg: num(t.kg),
     calorias: num(t.calorias),
     rondas: num(t.rondas),
@@ -202,6 +204,7 @@ async function leerTramos(atleta: AtletaVerificado, ejecuciones: number[], clien
       se.incline_pct::float as inclinacion,
       se.avg_gradient_pct::float as pendiente,
       se.reps_completed as reps,
+    se.reps_prescribed as reps_prescritas,
       se.weight_used_kg::float as kg,
       se.calories::float as calorias,
       se.emom_rounds_completed as rondas,

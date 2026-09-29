@@ -77,6 +77,12 @@ export interface TramoEjecutado {
   /** La medida (cinta o altitud, 0185). */
   pendiente_pct: number | null;
   reps: number | null;
+  /**
+   * Las reps que el REGISTRO dice que tocaban en este tramo (`reps_prescribed`):
+   * el trozo que la app puso delante (las 12 de un 3×12 grabado de una vez, o la
+   * parte de un doble). Cuando está, manda sobre la cuenta hecha desde la línea.
+   */
+  reps_prescritas: number | null;
   kg: number | null;
   calorias: number | null;
   /** Minutos cumplidos y prescritos de un EMOM (`emom_rounds_*`). */
@@ -120,6 +126,8 @@ export interface Comprobacion {
 
 export interface FilaSerie {
   indice: number;
+  /** Una serie de aproximación: se enseña, no se juzga ni cuenta como serie de trabajo. */
+  aproximacion: boolean;
   veredicto: VeredictoCumplimiento;
   comprobaciones: Comprobacion[];
 }
@@ -199,6 +207,40 @@ function dosisDeMedida(m: ReturnType<typeof setMeasure>): Dosis | null {
     case 'reps_to_failure':
       return null;
   }
+}
+
+/** Una serie tal como la guarda el registro: la de la prescripción, aproximaciones incluidas. */
+export interface SerieDelPlan extends Esfuerzo {
+  aproximacion: boolean;
+}
+
+/**
+ * LA TABLA DE SERIES como la guarda el registro: la app escribe una fila de
+ * `set_executions` por serie de la prescripción, EN SU ORDEN y con las de
+ * aproximación dentro (`set_index` = posición + 1), y no multiplica por rondas.
+ * Por eso aquí van las series de UNA ronda, marcadas, y cuántas rondas pide la
+ * línea: quien empareja decide si el registro vino expandido.
+ */
+export function seriesDeLinea(linea: LineaPlan): { porRonda: SerieDelPlan[]; rondas: number } {
+  const p = linea.prescripcion;
+  if (!p) return { porRonda: [], rondas: 1 };
+  const fase = FASE_DE_LINEA[linea.rol];
+  const objetivoBloque = prescriptionTarget(p);
+  let ordinal = 0;
+  const porRonda = (p.sets ?? []).map((s) => {
+    const aproximacion = s.is_approach === true;
+    if (!aproximacion) ordinal += 1;
+    return {
+      papel: 'trabajo' as const,
+      fase,
+      dosis: dosisDeMedida(setMeasure(s)),
+      objetivo: objetivoDeTarget(setTarget(s) ?? objetivoBloque, linea.modalidad),
+      inclinacion_pct: null,
+      ordinal: aproximacion ? null : ordinal,
+      aproximacion,
+    };
+  });
+  return { porRonda, rondas: p.rounds != null && p.rounds > 0 ? p.rounds : 1 };
 }
 
 /** ¿El formato puntúa por TIEMPO? Entonces su `total_s` es un TOPE, no una ventana. */

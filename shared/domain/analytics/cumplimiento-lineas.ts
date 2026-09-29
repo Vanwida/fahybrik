@@ -30,6 +30,7 @@ import type { ContextoBandas } from './cumplimiento-bandas';
 import {
   esfuerzosDeLinea,
   estructuraDe,
+  seriesDeLinea,
   topeDe,
   type Esfuerzo,
   type EstadoLinea,
@@ -38,7 +39,8 @@ import {
   type LineaPlan,
   type TramoEjecutado,
 } from './cumplimiento-esfuerzos';
-import { juzgarBloque, juzgarPlegado, juzgarSeries, juzgarUno } from './cumplimiento-tramo';
+import { juzgarPlegado, juzgarUno } from './cumplimiento-tramo';
+import { juzgarBloque, juzgarSeries } from './cumplimiento-series';
 
 export interface ResultadoLineas {
   lineas: FilaLinea[];
@@ -96,7 +98,7 @@ export function juzgarLinea(l: LineaPlan, tramos: readonly TramoEjecutado[], esf
   const ts = [...tramos].sort((a, b) => a.posicion - b.posicion);
 
   // 3 · serie a serie.
-  if (ts.some((t) => t.series.length > 0)) return ts.map((t) => juzgarSeries(t, esfuerzos, l, ctx));
+  if (ts.some((t) => t.series.length > 0)) return ts.map((t) => juzgarSeries(t, l, ctx));
 
   // 2 · piernas de carrera, cuando su papel casa con la estructura en ese índice.
   if (estructuraDe(l) && ts.every((t) => t.pierna != null && (t.ronda ?? 0) === 0)) {
@@ -123,11 +125,14 @@ export function juzgarLinea(l: LineaPlan, tramos: readonly TramoEjecutado[], esf
   if (trabajo.length > 1 && tsTrabajo.length === trabajo.length) {
     tsTrabajo.forEach((t, i) => filas.push(juzgarUno(t, trabajo[i]!, l, ctx)));
   } else {
-    // 6 · contra el representativo. Un solo tramo para una línea de un solo
-    // esfuerzo ES la línea: si su formato puntúa tiempo, se juzga contra su tope.
-    const rep = trabajo[0] ?? null;
-    const tope = tsTrabajo.length === 1 && trabajo.length === 1 ? topeDe(l.prescripcion) : null;
-    for (const t of tsTrabajo) filas.push(juzgarUno(t, rep, l, ctx, { tope }));
+    // 6 · contra el representativo: el primer trabajo PRINCIPAL (no el
+    // calentamiento de la estructura). Si la línea tiene varios esfuerzos, el
+    // tramo no es ninguno en concreto y su dosis no se compara; si tiene uno, el
+    // tramo ES la línea — y si su formato puntúa tiempo, se juzga contra su tope.
+    const rep = trabajo.find((e) => e.fase === 'principal') ?? trabajo[0] ?? null;
+    const unico = trabajo.length <= 1;
+    const tope = tsTrabajo.length === 1 && unico ? topeDe(l.prescripcion) : null;
+    for (const t of tsTrabajo) filas.push(juzgarUno(t, rep, l, ctx, { tope, sinDosis: !unico }));
   }
   for (const t of tsRecuperacion) filas.push(recuperacion ? juzgarUno(t, recuperacion, l, ctx) : null);
   return noNulas(filas).sort((a, b) => a.posicion - b.posicion);
@@ -167,13 +172,18 @@ export function cumplimientoDeLineas(lineas: readonly LineaPlan[], tramos: reado
   const out: FilaLinea[] = [];
   for (const lineasBloque of bloques.values()) {
     const conTramos = lineasBloque.filter((l) => (porLinea.get(l.template_segment_id)?.length ?? 0) > 0);
-    // 7 · el bloque grabado entero en los tramos (no piernas) de alguna de sus líneas.
+    // 7 · el bloque grabado entero: UNA sola de sus líneas lleva tramos, y no son
+    // piernas. Si dos o más líneas traen los suyos, se grabó línea a línea y la que
+    // falta está sin ejecutar. En una tabla de series la prueba es el recuento: el
+    // bloque entero trae más series que las de su línea.
+    const unica = conTramos.length === 1 ? conTramos[0]! : null;
+    const tsUnica = unica ? porLinea.get(unica.template_segment_id)! : [];
+    const seriesDeMas = (x: TramoEjecutado) => x.series.length === 0 || x.series.length > seriesDeLinea(unica!).porRonda.length;
     const plegado =
+      unica != null &&
       lineasBloque.length > 1 &&
       bloquePlegable(lineasBloque[0]!.formato) &&
-      conTramos.length > 0 &&
-      conTramos.length < lineasBloque.length &&
-      conTramos.every((l) => porLinea.get(l.template_segment_id)!.every((t) => t.pierna == null));
+      tsUnica.every((t) => t.pierna == null && seriesDeMas(t));
     for (const l of lineasBloque) {
       const ts = porLinea.get(l.template_segment_id) ?? [];
       if (ts.length === 0) {
@@ -181,7 +191,7 @@ export function cumplimientoDeLineas(lineas: readonly LineaPlan[], tramos: reado
         continue;
       }
       const filas = plegado
-        ? ts.map((t) => juzgarBloque(t, lineasBloque, esfuerzos, ctx))
+        ? ts.map((t) => juzgarBloque(t, lineasBloque, ctx))
         : juzgarLinea(l, ts, esfuerzos.get(l.template_segment_id) ?? [], ctx);
       out.push(filaLinea(l, 'ejecutada', filas));
     }

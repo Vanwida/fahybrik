@@ -43,7 +43,7 @@ import { anclaMasDebil } from './anclas';
 import type { BaseCumplimiento, CoachAnalyticsMethod } from './metodo';
 import type { Periodo, VentanaResuelta } from './ventana';
 import type { MotivoSinDato } from './cumplimiento-bandas';
-import { lunesDelPeriodo, type EstadoSesion, type FilaSesion } from './cumplimiento-sesion';
+import { colorDePct, lunesDelPeriodo, type EstadoSesion, type FilaSesion } from './cumplimiento-sesion';
 
 const GRUPO = 'semanas' as const;
 
@@ -225,7 +225,19 @@ function faltaDe(m: Metrica, c: Cifras, sesiones: readonly FilaSesion[]): Falta 
 // LA LECTURA
 // ---------------------------------------------------------------------------
 
-function veredictoDe(pct: number, m: CoachAnalyticsMethod, frase: string | null): VeredictoLectura {
+/**
+ * La palabra. Adherencia y tramos no pasan del 100 %: se cortan con «bien» y
+ * «regular» del coach. La CARGA sí puede pasarse, y pasarse no es «bien»: se
+ * juzga con las bandas de sesión (verde, ámbar, rojo) y dice hacia qué lado.
+ */
+function veredictoDe(pct: number, m: CoachAnalyticsMethod, frase: string | null, metrica: Metrica): VeredictoLectura {
+  if (metrica === 'carga') {
+    const { color } = colorDePct(pct, m);
+    if (color === 'verde') return { code: 'bien', etiqueta_es: 'Bien', frase_es: frase, tono: 'bien' };
+    const encima = pct > 100;
+    if (color === 'ambar') return { code: encima ? 'por_encima' : 'regular', etiqueta_es: encima ? 'Por encima' : 'Regular', frase_es: frase, tono: 'atencion' };
+    return { code: encima ? 'excedida' : 'bajo', etiqueta_es: encima ? 'Excedida' : 'Bajo', frase_es: frase, tono: 'aviso' };
+  }
   if (pct >= m.cumplimiento_bien_pct) return { code: 'bien', etiqueta_es: 'Bien', frase_es: frase, tono: 'bien' };
   if (pct >= m.cumplimiento_regular_pct) return { code: 'regular', etiqueta_es: 'Regular', frase_es: frase, tono: 'atencion' };
   return { code: 'bajo', etiqueta_es: 'Bajo', frase_es: frase, tono: 'aviso' };
@@ -360,7 +372,7 @@ function lecturaDe(id: string, m: Metrica, e: EntradaCumplimiento, reparto: 'pro
       ],
     }),
     reparto: { unidad: reparto === 'propio' && m === 'tramos' ? 'tramos' : 'sesiones', total: partes.reduce((a, p) => a + p.valor, 0), partes },
-    veredicto: sostiene ? veredictoDe(pct, e.metodo, frase) : null,
+    veredicto: sostiene ? veredictoDe(pct, e.metodo, frase, m) : null,
     cobertura: { ...cobertura, falta: sostiene ? null : faltaDe(m, c, enVentana) },
     procedencia: sostiene || !frase ? procedencia : { ...procedencia, explica_es: `${procedencia.explica_es} ${frase}` },
   });

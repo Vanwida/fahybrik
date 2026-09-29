@@ -107,10 +107,14 @@ export async function cargarCumplimiento(args: {
   // atleta con plan y sin nada hecho) o mucho después (años de importaciones de
   // Salud antes de tener coach). Sin plan, la ventana tal cual: sin dato por «plan».
   let ventana = args.ventana;
+  let planificadas = args.planificadas;
   if (ventana.clave === 'todo') {
     const primer = await loadPrimerDiaDelPlan(atleta, contexto.hoy, client);
     if (primer != null) {
       const dias = diffDays(parseIsoDate(contexto.hoy), parseIsoDate(primer)) + 1;
+      // Lo planificado ANTES de la ventana de quien llama (el plan de un atleta que
+      // aún no ha entrenado) también se lee: mismas filas, mismo cargador.
+      if (primer < ventana.desde) planificadas = await loadSesionesPlan(atleta, primer, contexto.hoy, client);
       ventana = { ...ventana, desde: primer, dias, anterior: null, cubre_todo: true };
     }
   }
@@ -123,7 +127,7 @@ export async function cargarCumplimiento(args: {
   ]);
 
   const precioDe = new Map(args.preciadas.map((p) => [p.id, p] as const));
-  const planDe = new Map(args.planificadas.map((p) => [p.id, p] as const));
+  const planDe = new Map(planificadas.map((p) => [p.id, p] as const));
   const filas: FilaSesion[] = [];
   for (const s of sesiones) {
     const plan = planDe.get(s.assignment_id) ?? null;

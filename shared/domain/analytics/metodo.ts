@@ -508,6 +508,49 @@ export const ANALYTICS_METHOD_BOUNDS: Readonly<Record<ClaveNumericaMetodo, { min
   cobertura_ciega_alerta_pct: { min: 5, max: 90 },
 };
 
+/**
+ * Las claves numéricas que la tabla guarda como ENTERO (`smallint`). El editor las
+ * exige enteras: un 2,5 en una columna entera no es un 400 de validación, es un
+ * 500 de Postgres. Las demás numéricas admiten decimales (`numeric`).
+ */
+export const COACH_ANALYTICS_METHOD_INTEGER_KEYS: ReadonlySet<ClaveNumericaMetodo> = new Set<ClaveNumericaMetodo>([
+  'ctl_days',
+  'atl_days',
+  'ramp_alert_tss_per_week',
+  'cs_min_efforts',
+  'cs_min_duration_s',
+  'cs_max_duration_s',
+  'cs_min_fit_r2_pct',
+  'cs_max_drift_from_threshold_pct',
+  'hrv_min_nights_baseline',
+  'hrv_min_nights_recent',
+  'subida_dias',
+  'subida_minima_pct',
+  'cobertura_ciega_alerta_pct',
+  'cobertura_veredicto_min_pct',
+  'frescura_sobrecarga_hasta',
+  'frescura_optimo_hasta',
+  'frescura_mantener_hasta',
+  'frescura_fresco_hasta',
+  'cumplimiento_bien_pct',
+  'cumplimiento_regular_pct',
+  'cambio_carga_pct',
+  'cambio_horas_pct',
+  'cambio_forma_tss',
+  'cambio_frescura_tss',
+  'cambio_variabilidad_pct',
+  'cambio_pulso_reposo_bpm',
+  'basal_dias',
+  'basal_excluir_dias',
+  'cumplimiento_verde_min_pct',
+  'cumplimiento_verde_max_pct',
+  'cumplimiento_ambar_min_pct',
+  'cumplimiento_ambar_max_pct',
+  'holgura_vatios_w',
+  'holgura_pulso_ppm',
+  'cambio_cumplimiento_pts',
+]);
+
 /** Cuántos peldaños puede listar una modalidad como mucho (los cuatro, sin repetir). */
 export const FUENTES_MAX = FUENTES_CARGA.length;
 

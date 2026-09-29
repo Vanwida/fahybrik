@@ -34,11 +34,11 @@
 //
 // Puro y sin base de datos.
 
-import { computeAdherence, type AdherenceAssignmentStatus, type AdherenceSession } from '../coach/adherence';
+import { computeAdherence, isSessionDone, type AdherenceAssignmentStatus, type AdherenceSession } from '../coach/adherence';
 import { addDays, diffDays, isoDateString, mondayOfWeek, parseIsoDate } from '../dates';
 import { flattenSegments } from '../prescription/run-structure';
 import { legacyToStructure } from '../prescription/run-structure-convert';
-import { sessionDuration } from '../prescription/duration';
+import { prescriptionDuration, sessionDuration } from '../prescription/duration';
 import { setMeasure, type Prescription } from '../prescription/types';
 import type { Ancla, Unidad } from './lectura';
 import { anclaMasDebil } from './anclas';
@@ -218,7 +218,13 @@ function medidaDuracion(plan: SesionPlan | null, sesion: SesionCumplimiento): Me
   const d = sessionDuration(plan.items.map((i) => ({ prescription: i.prescripcion, role: i.rol })));
   const hecho = sesion.ejecucion?.segundos != null && sesion.ejecucion.segundos > 0 ? sesion.ejecucion.segundos : null;
   if (!d.known) return { ...base, hecho, motivo: 'plan_sin_saber' };
-  const out: MedidaBase = { ...base, plan: d.minutes * 60, plan_minimo: d.basis === 'floor', hecho };
+  // En segundos exactos: `sessionDuration` decide si se sabe (el principal escrito),
+  // pero redondea a minutos, y en una sesión corta eso es un 10 % de error.
+  const segundos = plan.items.reduce((a, i) => {
+    const di = i.prescripcion ? prescriptionDuration(i.prescripcion) : null;
+    return a + (di && di.known ? di.seconds : 0);
+  }, 0);
+  const out: MedidaBase = { ...base, plan: segundos, plan_minimo: d.basis === 'floor', hecho };
   if (!sesion.ejecucion) return { ...out, motivo: 'sin_ejecucion' };
   if (hecho == null) return { ...out, motivo: 'hecho_sin_saber' };
   return { ...out, comparable: true };
@@ -268,11 +274,15 @@ export function comoAdherencia(s: Pick<SesionCumplimiento, 'dia' | 'estado_plan'
   return { scheduled_for: s.dia, status: s.estado_plan, executed: s.ejecucion != null, origin: 'coach', excluded: s.excluida, visible: s.visible };
 }
 
-/** ¿Debida y hecha, según la regla de la adherencia, a fecha de `hoy`? */
+/**
+ * ¿Debida, según la regla de la adherencia a fecha de `hoy`? ¿Y hecha? Hecha es
+ * hecha aunque no fuera debida (un día de pausa en que entrenó igualmente): la
+ * adherencia solo cuenta las debidas, pero la fila no dice «no hecha» de algo hecho.
+ */
 export function debidaYHecha(s: SesionCumplimiento, hoy: string): { debida: boolean; hecha: boolean } {
   const dias = Math.max(1, diffDays(parseIsoDate(hoy), parseIsoDate(s.dia)) + 1);
   const r = computeAdherence([comoAdherencia(s)], hoy, dias);
-  return { debida: r.due === 1, hecha: r.done === 1 };
+  return { debida: r.due === 1, hecha: isSessionDone({ status: s.estado_plan, executed: s.ejecucion != null }) };
 }
 
 function resumenTramos(lineas: readonly FilaLinea[], conEjecucion: boolean): ResumenTramos {
@@ -365,7 +375,9 @@ export function cumplimientoDeSesion(s: SesionCumplimiento, e: EntradaSesion): F
   const gana = bases.find((b) => delCoach.includes(b.base) && b.comparable && b.plan != null && b.plan > 0 && b.hecho != null);
   if (!gana) return { ...fila, estado: 'hecha_sin_medida' };
   const pct = ((gana.hecho as number) / (gana.plan as number)) * 100;
-  const { color, estado } = colorDePct(pct, e.metodo);
+  // Sobre un plan que es un SUELO (algo accesorio sin escribir), pasarse no se
+  // puede afirmar: por encima del mínimo de la verde, está cumplida.
+  const { color, estado } = gana.plan_minimo && pct >= e.metodo.cumplimiento_verde_min_pct ? { color: 'verde' as const, estado: 'cumplida' as const } : colorDePct(pct, e.metodo);
   const ancla =
     gana.base === 'carga'
       ? anclaMasDebil([...(e.precio_hecho?.partes ?? []).map((p) => p.ancla), ...(e.precio_plan?.items ?? []).map((i) => i.ancla)])
