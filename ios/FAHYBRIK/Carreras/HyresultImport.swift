@@ -65,7 +65,7 @@ struct ImportedPartner: Codable, Hashable, Identifiable {
 
 /// One station split (canonical 16-station index). `seconds`/`rank` are nullable
 /// in the source. For doubles/relay these are TEAM-level — never the athlete's
-/// individual time (see `ImportedRace.is_team_result`).
+/// individual time (`format != singles`; the tab says so wherever they appear).
 struct ImportedStationSplit: Codable, Hashable, Identifiable {
     /// Canonical station index (2,4,…,16 for work stations).
     let index: Int
@@ -79,8 +79,8 @@ struct ImportedStationSplit: Codable, Hashable, Identifiable {
 /// `import-all` response (shared/schema `hyresultImportedRaceSchema`). `race_id`
 /// arrives as a JSON NUMBER (the numeric `races.id`). `race_date` is the REAL
 /// race date "YYYY-MM-DD" OR null when the source couldn't determine one — never
-/// a fabricated placeholder. `is_team_result` is DERIVED from `format` — the wire
-/// never carries it.
+/// a fabricated placeholder. Whether it is a TEAM result is DERIVED from `format`
+/// (`FormatoCarrera.esDeEquipo`) — the wire never carries it.
 struct ImportedRace: Codable, Hashable, Identifiable {
     let race_id: Int
     /// Event name, e.g. "HYROX Barcelona".
@@ -109,6 +109,9 @@ struct ImportedRace: Codable, Hashable, Identifiable {
     let best_run_lap_seconds: Int?
     let overall_rank: Int?
     let age_group_rank: Int?
+    /// Cuántos corrieron (el campo). Junto con `overall_rank` es lo que hace un puesto legible:
+    /// «412 de 1180». Antes no se decodificaba, y el puesto se quedaba sin su «de cuántos».
+    let field_size: Int?
     /// Up to 8 run laps (seconds), ordered run 1..8. AUDIT-B3 — null/absent → [].
     @LossyArray var run_splits: [Int]
     /// Up to 8 station splits (canonical index).
@@ -133,6 +136,7 @@ struct ImportedRace: Codable, Hashable, Identifiable {
         case best_run_lap_seconds = "bestRunLapSeconds"
         case overall_rank = "overallRank"
         case age_group_rank = "ageGroupRank"
+        case field_size = "fieldSize"
         case run_splits = "runSplits"
         case station_splits = "stationSplits"
         case partners
@@ -163,6 +167,13 @@ struct UpcomingRace: Codable, Identifiable, Hashable {
     let daysUntil: Int?
     /// 'target' | 'secondary' | 'tune_up'.
     let priority: String?
+    // Lo que el atleta eligió al fijarla y el servidor ya devolvía: la variante de una carrera de
+    // monte, la división a texto libre (CrossFit, categoría de un running), la distancia y si es
+    // homologada. Hay que decodificarlo para no tirar a la basura lo que se preguntó al fijar.
+    let objectiveVariant: String?
+    let divisionLabel: String?
+    let distanceMeters: Int?
+    let homologada: Bool?
 
     var id: Int { raceId }
 }
@@ -213,93 +224,7 @@ struct HyresultUndoResult: Codable, Hashable {
     }
 }
 
-// MARK: - Display helpers
-//
-// One source of truth for how an imported race reads in the UI: format/division
-// labels, the team-vs-individual flag, the partner line, and pre-formatted
-// times. Times reuse StatsFormat so the whole app formats durations identically.
-
-extension ImportedRace {
-    /// True for doubles/relay — splits + age_group are TEAM-level, not the
-    /// athlete's individual performance. THE flag the history UI keys off so a
-    /// shared time is never shown as the athlete's own.
-    var is_team_result: Bool { format.lowercased() != "singles" }
-
-    /// "Dobles" / "Relay" tag for team races; nil for singles (which render plain).
-    var formatTag: String? {
-        switch format.lowercased() {
-        case "doubles": return "Dobles"
-        case "relay":   return "Relay"
-        default:        return nil
-        }
-    }
-
-    /// Division label, e.g. "Pro" / "Open" / "Elite".
-    var divisionLabel: String {
-        switch division.lowercased() {
-        case "open":  return "Open"
-        case "pro":   return "Pro"
-        case "elite": return "Elite"
-        default:      return division.capitalized
-        }
-    }
-
-    /// Non-HYROX event tag ("DEKA") for the rare imported non-HYROX result; nil
-    /// for HYROX so the common case stays clean.
-    var eventTypeTag: String? {
-        switch event_type.lowercased() {
-        case "hyrox": return nil
-        case "deka":  return "DEKA"
-        default:      return event_type.uppercased()
-        }
-    }
-
-    /// "con Eric Vaqué" / "con Eric Vaqué y Ana Pérez" — the teammate line for
-    /// doubles/relay. Nil for singles or when no teammate is known.
-    var partnersLabel: String? {
-        let names = partners
-            .sorted { $0.position < $1.position }
-            .map { $0.name.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-        guard !names.isEmpty else { return nil }
-        if names.count == 1 { return "con \(names[0])" }
-        let head = names.dropLast().joined(separator: ", ")
-        return "con \(head) y \(names.last!)"
-    }
-
-    /// Total finish time, pre-formatted "H:MM:SS" / "MM:SS". Nil when the result
-    /// isn't recorded yet (e.g. an expired objective whose time hasn't been
-    /// imported) — never a fabricated time, y tampoco una raya: decide quien
-    /// pinta, que es el único que sabe si ahí cabe la frase entera (§7).
-    var totalTimeText: String? {
-        result_time_seconds.map { Formato.clock(Double($0)) }
-    }
-
-    var runTotalText: String? { run_total_seconds.map { Formato.clock(Double($0)) } }
-    var roxzoneText: String? { roxzone_seconds.map { Formato.clock(Double($0)) } }
-
-    /// Whole-second integer → "MM:SS" lap/station caption. Nil cuando la
-    /// importación no trajo ese parcial: la celda entonces no se pinta.
-    static func splitText(_ seconds: Int?) -> String? {
-        seconds.map { Formato.clock($0) }
-    }
-
-    /// "2 nov 2024" — day + month + year, Spanish. When the source carries no
-    /// date (null) reads "Fecha por confirmar"; falls back to the raw string if a
-    /// present value doesn't parse (never invents a date).
-    var dateText: String {
-        guard let raw = race_date else { return "Fecha por confirmar" }
-        guard let d = StatsDateParser.parse(raw) else { return raw }
-        return ImportedRaceDateFormat.medium.string(from: d)
-    }
-
-    /// Sort key for "most recent first" — the parsed date, or distantPast so a
-    /// null/unparseable date sinks to the bottom rather than jumping the list.
-    var sortDate: Date {
-        guard let raw = race_date else { return .distantPast }
-        return StatsDateParser.parse(raw) ?? .distantPast
-    }
-}
+// MARK: - Date format
 
 /// Shared medium date formatter ("2 nov 2024"), Spanish. Instantiating a
 /// DateFormatter is comparatively expensive, so reuse one.

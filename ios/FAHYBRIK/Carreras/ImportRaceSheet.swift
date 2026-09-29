@@ -1,271 +1,363 @@
 import SwiftUI
 
-// Import an athlete's HYROX history into the Carreras hub.
+// Import an athlete's HYROX history into the Carreras hub. Espejo de `importar.tsx`.
 //
-// PRIMARY flow (name search): the athlete searches their NAME → picks their
-// profile from candidates (nation + race count + PRO/ELITE chip disambiguate
-// namesakes) → confirms ("¿Eres tú?") → we import their ENTIRE history
-// (individual AND doubles/relay) via POST /race-results/import-all. The confirm
-// step is the guard that stops importing a stranger's history.
+// PRIMARY flow (name search): the athlete searches their NAME → picks their profile from candidates
+// (nation + race count + PRO/ELITE chip disambiguate namesakes) → confirms ("¿Eres tú?") → we import
+// their ENTIRE history (individual AND doubles/relay) via POST /race-results/import-all. The confirm
+// step is the guard that stops importing a stranger's history, and "No soy yo" is its way out.
 //
-// SECONDARY flow (paste a link): kept for the one-off case — paste an official
-// results.hyrox.com athlete link → POST /race-results/import (single race). The
-// old endpoint + client pre-flight live unchanged in CarrerasService.
+// SECONDARY flow (paste a link): kept for the one-off case — paste an official results.hyrox.com
+// athlete link → POST /race-results/import (single race). The old endpoint + client pre-flight live
+// unchanged in CarrerasService. Both flows are the SAME sheet, one step apart.
 //
-// States: idle → debounced search (spinner) → candidate list | empty (check
-// spelling) | error (readable Spanish). Confirm → importing (spinner) → success
-// (haptic + dismiss + onImported(result) so the parent seeds the rich history).
-//
-// Light+dark adaptive off Theme tokens; brand accent is orange-as-text.
+// Estados de cada paso: buscar (reposo, buscando, candidatos, sin resultados, error) · confirmar
+// (listo, importando, error) · enlace (vacío, enlace que no es de HYROX, importando, error). Los textos
+// de error son los de la app; en éxito se hace la háptica, se cierra y `onImported(result)` deja que
+// quien abrió la hoja siembre el historial.
 struct ImportRaceSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var bearer: String?
-    /// Called after a successful import so the parent can refresh the hub. The
-    /// full-history import passes its result (the rich, doubles-aware races) so
-    /// the hub can render them immediately; the legacy single-link path passes
-    /// nil (the hub just re-fetches the race-context overview).
+    /// Called after a successful import so the parent can refresh the hub. The full-history import
+    /// passes its result (the rich, doubles-aware races) so the hub can render them immediately; the
+    /// single-link path passes nil (the hub just re-fetches the race-context overview).
     let onImported: (HyresultImportAllResult?) -> Void
 
-    // Search state.
-    @State private var query: String = ""
+    private enum Paso { case buscar, confirmar, enlace }
+    private enum Campo { case nombre, enlace }
+
+    @State private var paso: Paso = .buscar
+
+    // Búsqueda.
+    @State private var query = ""
     @State private var candidates: [HyresultCandidate] = []
     @State private var searching = false
     @State private var searched = false
     @State private var searchError: String? = nil
     @State private var searchTask: Task<Void, Never>? = nil
-    @State private var selected: HyresultCandidate? = nil
 
-    @FocusState private var fieldFocused: Bool
+    // Confirmar.
+    @State private var candidato: HyresultCandidate? = nil
+    @State private var importando = false
+    @State private var errorAlImportar: String? = nil
+
+    // Enlace.
+    @State private var enlace = ""
+    @State private var errorDelEnlace: String? = nil
+
+    @FocusState private var foco: Campo?
 
     /// Debounce window before a keystroke fires a search.
     private let debounceNanos: UInt64 = 350_000_000
     private let minQueryLength = 2
 
-    private var trimmedQuery: String {
-        query.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
+    private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var enlaceValido: Bool { HyroxImport.looksLikeResultURL(enlace) }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.Color.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-                        intro
-                        searchField
-                        results
-                        if candidates.isEmpty && searchError == nil && !searching {
-                            howTo
-                            linkFallbackLink
-                        }
-                    }
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.top, Theme.Spacing.l)
-                    .padding(.bottom, Theme.Spacing.xxl)
-                }
-            }
-            .navigationTitle("Importar carrera")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }
-                        .tint(Theme.Color.accentText)
-                }
-            }
-            .navigationDestination(item: $selected) { candidate in
-                ConfirmImportView(candidate: candidate, bearer: bearer) { result in
-                    onImported(result)
-                    dismiss()
-                }
-            }
-            .navigationDestination(isPresented: $showLinkEntry) {
-                LinkImportView(bearer: bearer) {
-                    onImported(nil)
-                    dismiss()
-                }
+        Group {
+            switch paso {
+            case .buscar: buscar
+            case .confirmar: confirmar
+            case .enlace: pegarEnlace
             }
         }
-        .onAppear { fieldFocused = true }
+        .presentationDetents([.large])
+        .onAppear { foco = .nombre }
         .onDisappear { searchTask?.cancel() }
     }
 
-    // MARK: - Sections
+    // MARK: - Paso 1: buscar tu nombre
 
-    private var intro: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Busca tu nombre")
-                .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-            Text("Importaremos todo tu historial de HYROX —individuales y dobles— desde tus resultados oficiales. Elige tu perfil de la lista.")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .fixedSize(horizontal: false, vertical: true)
+    private var buscar: some View {
+        MarcoDeHojaCarreras("Importar carrera", cerrar: { dismiss() }) {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Busca tu nombre").subtituloCarreras()
+                    Text("Importaremos todo tu historial de HYROX, individuales y dobles, desde tus resultados oficiales. Elige tu perfil de la lista.")
+                        .papel(.cuerpo)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                campoNombre
+                resultados
+                if candidates.isEmpty && searchError == nil && !searching && !(searched && trimmedQuery.count >= minQueryLength) {
+                    comoFunciona
+                    BotonTextoCarreras("¿Prefieres pegar el enlace de una carrera?", centrado: true, accion: irAlEnlace) {
+                        IconoCarreras(.enlace, tam: 20)
+                    }
+                }
+            }
         }
     }
 
-    private var searchField: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            LabelText(text: "TU NOMBRE")
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
-                TextField("Nombre y apellidos", text: $query)
-                    .font(.system(size: 15))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .textInputAutocapitalization(.words)
-                    .autocorrectionDisabled(true)
-                    .submitLabel(.search)
-                    .focused($fieldFocused)
-                    .onChange(of: query) { _, _ in scheduleSearch() }
-                    .onSubmit { runSearchNow() }
+    private var campoNombre: some View {
+        CampoCarreras(
+            "Tu nombre",
+            enFoco: foco == .nombre,
+            izquierda: { IconoDia(.lupa, tam: 20) },
+            derecha: {
                 if searching {
                     ProgressView()
-                        .controlSize(.small)
                         .tint(Theme.Color.accentText)
+                        .frame(width: Theme.Size.toque, height: Theme.Size.toque)
+                        .accessibilityLabel("Buscando")
                 } else if !query.isEmpty {
                     Button {
+                        Haptics.light()
                         clearSearch()
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Theme.Color.faint)
+                        IconoDia(.cerrar, tam: 18, peso: .bold)
+                            .foregroundStyle(Theme.Color.muted)
+                            .frame(width: Theme.Size.toque, height: Theme.Size.toque)
+                            .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Borrar búsqueda")
                 }
             }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 12)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        ) {
+            TextField("Nombre y apellidos", text: $query)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled(true)
+                .submitLabel(.search)
+                .focused($foco, equals: .nombre)
+                .onChange(of: query) { _, _ in scheduleSearch() }
+                .onSubmit { runSearchNow() }
+                .accessibilityLabel("Tu nombre")
         }
     }
 
     @ViewBuilder
-    private var results: some View {
+    private var resultados: some View {
         if let searchError {
-            errorBanner(searchError)
+            AvisoEnLinea(searchError)
         } else if !candidates.isEmpty {
-            candidateList
+            VStack(alignment: .leading, spacing: 10) {
+                Text("¿Cuál eres tú?").papel(.etiqueta).foregroundStyle(Theme.Color.muted)
+                    .accessibilityAddTraits(.isHeader)
+                ForEach(candidates) { c in FilaCandidato(candidato: c) { elige(c) } }
+            }
         } else if searched && !searching && trimmedQuery.count >= minQueryLength {
-            RedesignEmptyState(
-                symbol: "person.crop.circle.badge.questionmark",
-                title: "Sin resultados",
-                message: "No encontramos ese nombre. Revisa que esté bien escrito y prueba con tu nombre completo, tal y como aparece en tus resultados de HYROX.",
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Sin resultados").subtituloCarreras()
+                Text("No encontramos ese nombre. Revisa que esté bien escrito y prueba con tu nombre completo, tal y como aparece en tus resultados de HYROX.")
+                    .papel(.cuerpo)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
                 // The other way in: paste the link of one official result page.
-                exit: .action(title: "Pegar el enlace de una carrera") {
-                    fieldFocused = false
-                    showLinkEntry = true
-                }
-            )
-            .padding(.top, Theme.Spacing.s)
+                SalidaAccionCarreras("Pegar el enlace de una carrera", accion: irAlEnlace) { IconoCarreras(.enlace, tam: 20) }
+            }
+            .padding(EdgeInsets(top: 18, leading: 18, bottom: 14, trailing: 18))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .tarjetaCarreras()
         }
     }
 
-    private var candidateList: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            LabelText(text: "¿CUÁL ERES TÚ?")
-            VStack(spacing: 8) {
-                ForEach(candidates) { candidate in
-                    Button {
-                        Haptics.light()
-                        fieldFocused = false
-                        selected = candidate
-                    } label: {
-                        CandidateRow(candidate: candidate)
-                    }
-                    .buttonStyle(PressScaleStyle())
+    private var comoFunciona: some View {
+        let pasos = [
+            "Escribe tu nombre completo tal y como compites.",
+            "Elige tu perfil de la lista (te ayudamos con tu país y tu número de carreras).",
+            "Confirma e importamos todo tu historial: individuales y dobles.",
+        ]
+        return VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            Text("Cómo funciona").papel(.etiqueta).foregroundStyle(Theme.Color.muted)
+            ForEach(Array(pasos.enumerated()), id: \.offset) { i, texto in
+                HStack(alignment: .top, spacing: Theme.Spacing.m) {
+                    Text("\(i + 1)")
+                        .papel(.notaPesada)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .frame(width: 28, height: 28)
+                        .background(Theme.Color.accentTint, in: Circle())
+                        .accessibilityHidden(true)
+                    Text(texto)
+                        .papel(.cuerpo)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
                 }
+            }
+        }
+        .padding(Theme.Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .tarjetaCarreras()
+    }
+
+    private func elige(_ c: HyresultCandidate) {
+        foco = nil
+        candidato = c
+        errorAlImportar = nil
+        withAnimation(.easeOut(duration: 0.2)) { paso = .confirmar }
+    }
+
+    private func irAlEnlace() {
+        foco = nil
+        errorDelEnlace = nil
+        withAnimation(.easeOut(duration: 0.2)) { paso = .enlace }
+    }
+
+    // MARK: - Paso 2: «¿Eres tú?»
+
+    private var confirmar: some View {
+        MarcoDeHojaCarreras(
+            "Importar carrera",
+            atras: importando ? nil : { volverABuscar(limpiando: false) },
+            cerrar: { dismiss() }
+        ) {
+            if let c = candidato {
+                let carreras = c.races_count == 1 ? "tu carrera" : "tus \(c.races_count) carreras"
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Confirma tu perfil").papel(.etiqueta).foregroundStyle(Theme.Color.accentText)
+                        HStack(spacing: 10) {
+                            Text(c.name).papel(.seccion).foregroundStyle(Theme.Color.foreground)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let nivel = c.level, !nivel.isEmpty { ChipCarreras(nivel.uppercased(), estilo: .acento) }
+                        }
+                        Text(metaCandidato(c)).papel(.nota).foregroundStyle(Theme.Color.muted)
+                    }
+                    .padding(18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .tarjetaCarreras(realce: true)
+                    .accessibilityElement(children: .combine)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("¿Eres tú?").subtituloCarreras()
+                        Text("Importaremos \(carreras), individuales y dobles, a tu historial. Si vuelves a importar, se actualizan sin duplicarse.")
+                            .papel(.cuerpo)
+                            .foregroundStyle(Theme.Color.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let errorAlImportar { AvisoEnLinea(errorAlImportar) }
+                }
+            }
+        } accion: {
+            BotonPrimarioCarreras(
+                titulo: "Sí, importar mi historial",
+                ocupado: importando,
+                textoOcupado: "Importando…",
+                voz: "Importando historial",
+                accion: importaPerfil
+            )
+            BotonTextoCarreras("No soy yo", tono: .suave, centrado: true, desactivado: importando, accion: { volverABuscar(limpiando: true) }) {
+                IconoCarreras(.sinPersona, tam: 20)
             }
         }
     }
 
-    private func errorBanner(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.Color.danger)
-            Text(text)
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.Color.foreground)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(13)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.dangerTint)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.danger.opacity(0.30), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .accessibilityElement(children: .combine)
+    private func volverABuscar(limpiando: Bool) {
+        errorAlImportar = nil
+        if limpiando { candidato = nil }
+        withAnimation(.easeOut(duration: 0.2)) { paso = .buscar }
+        foco = .nombre
     }
 
-    private var howTo: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            LabelText(text: "CÓMO FUNCIONA")
-            ForEach(Array(steps.enumerated()), id: \.offset) { idx, step in
-                HStack(alignment: .top, spacing: 9) {
-                    Text("\(idx + 1)")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Theme.Color.accentText)
-                        .frame(width: 18, height: 18)
-                        .background(Theme.Color.accent.opacity(0.10))
-                        .clipShape(Circle())
-                    Text(step)
-                        .font(.system(size: 12))
+    private func importaPerfil() {
+        guard let candidato, !importando else { return }
+        errorAlImportar = nil
+        importando = true
+        Task { @MainActor in
+            do {
+                let result = try await CarrerasService.importAllRaces(slug: candidato.slug, bearer: bearer)
+                importando = false
+                Haptics.success()
+                onImported(result)
+                dismiss()
+            } catch let err as HyresultImportError {
+                importando = false
+                Haptics.error()
+                errorAlImportar = err.message
+            } catch {
+                importando = false
+                Haptics.error()
+                errorAlImportar = HyresultImportError.generic.message
+            }
+        }
+    }
+
+    // MARK: - Paso alternativo: pegar el enlace de una carrera
+
+    private var pegarEnlace: some View {
+        let desajuste = !enlace.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !enlaceValido
+        return MarcoDeHojaCarreras(
+            "Pegar enlace",
+            atras: importando ? nil : {
+                errorDelEnlace = nil
+                withAnimation(.easeOut(duration: 0.2)) { paso = .buscar }
+            },
+            cerrar: { dismiss() }
+        ) {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Pega el enlace de tu resultado").subtituloCarreras()
+                    Text("Copia el enlace de tu página de atleta en \(HyroxImport.resultsHost) e importamos esa carrera.")
+                        .papel(.cuerpo)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                CampoCarreras("Enlace HYROX", enFoco: foco == .enlace, aviso: desajuste, izquierda: { IconoCarreras(.enlace, tam: 20) }, derecha: { EmptyView() }) {
+                    TextField("https://\(HyroxImport.resultsHost)/…", text: $enlace)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+                        .keyboardType(.URL)
+                        .submitLabel(.go)
+                        .focused($foco, equals: .enlace)
+                        .disabled(importando)
+                        .monospaced()
+                        .onChange(of: enlace) { _, _ in if errorDelEnlace != nil { errorDelEnlace = nil } }
+                        .onSubmit { if enlaceValido { importaEnlace() } }
+                        .accessibilityLabel("Enlace de tu resultado en HYROX")
+                }
+                if desajuste {
+                    Text("El enlace debe empezar por https:// y ser de \(HyroxImport.resultsHost).")
+                        .papel(.notaFuerte)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let errorDelEnlace { AvisoEnLinea(errorDelEnlace) }
             }
+        } accion: {
+            BotonPrimarioCarreras(
+                titulo: "Importar",
+                activo: enlaceValido,
+                ocupado: importando,
+                textoOcupado: "Importando…",
+                voz: "Importando carrera",
+                accion: importaEnlace
+            )
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        .onAppear { foco = .enlace }
     }
 
-    private let steps: [String] = [
-        "Escribe tu nombre completo tal y como compites.",
-        "Elige tu perfil de la lista (te ayudamos con tu país y número de carreras).",
-        "Confirma e importamos todo tu historial: individuales y dobles.",
-    ]
-
-    // Secondary path entry — paste a single official results.hyrox.com link.
-    private var linkFallbackLink: some View {
-        Button {
-            Haptics.light()
-            showLinkEntry = true
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "link")
-                    .font(.system(size: 12, weight: .semibold))
-                Text("¿Prefieres pegar el enlace de una carrera?")
-                    .font(.system(size: 12, weight: .semibold))
+    private func importaEnlace() {
+        guard enlaceValido, !importando else { return }
+        foco = nil
+        errorDelEnlace = nil
+        importando = true
+        let url = enlace.trimmingCharacters(in: .whitespacesAndNewlines)
+        Task { @MainActor in
+            do {
+                try await CarrerasService.importRace(resultURL: url, bearer: bearer)
+                importando = false
+                Haptics.success()
+                onImported(nil)
+                dismiss()
+            } catch let err as CarrerasImportError {
+                importando = false
+                Haptics.error()
+                errorDelEnlace = err.message
+            } catch {
+                importando = false
+                Haptics.error()
+                errorDelEnlace = CarrerasImportError.generic.message
             }
-            .foregroundStyle(Theme.Color.accentText)
-            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .buttonStyle(PressScaleStyle())
-        .padding(.top, Theme.Spacing.xs)
     }
-
-    @State private var showLinkEntry = false
 
     // MARK: - Search driving
 
-    /// Debounced search: cancel the in-flight task and start a fresh one that
-    /// waits `debounceNanos` before hitting the network, so typing doesn't fire a
-    /// request per keystroke. A query under the min length clears the list.
+    /// Debounced search: cancel the in-flight task and start a fresh one that waits `debounceNanos`
+    /// before hitting the network, so typing doesn't fire a request per keystroke. A query under the
+    /// min length clears the list.
     private func scheduleSearch() {
         searchTask?.cancel()
         searchError = nil
@@ -322,220 +414,93 @@ struct ImportRaceSheet: View {
         searched = false
         searchError = nil
         searching = false
-        fieldFocused = true
+        foco = .nombre
     }
 }
 
-// MARK: - Candidate row
-
-private struct CandidateRow: View {
-    let candidate: HyresultCandidate
-
-    private var meta: String {
-        var parts: [String] = []
-        if let nation = candidate.nation, !nation.isEmpty { parts.append(nation.uppercased()) }
-        parts.append(candidate.races_count == 1 ? "1 carrera" : "\(candidate.races_count) carreras")
-        return parts.joined(separator: " · ")
+#if DEBUG
+// LOS ESTADOS DE LA HOJA, para la galería de `#Preview` y las capturas: cada uno arranca la hoja ya en
+// ese punto, sin red ni toques (el doble los alcanza con el teclado; aquí no hay teclado que escribir).
+extension ImportRaceSheet {
+    enum VistaDePrueba {
+        case reposo, buscando, candidatos, sinResultados, errorDeBusqueda
+        case confirmar, importando, errorAlImportar
+        case enlaceVacio, enlaceMalo, enlaceImportando, enlaceConError
     }
 
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 7) {
-                    Text(candidate.name)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(1)
-                    if let level = candidate.level, !level.isEmpty {
-                        LevelChip(text: level)
-                    }
-                }
-                Text(meta)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.Color.faint)
-            }
-            Spacer(minLength: 8)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.Color.faint)
+    init(vista: VistaDePrueba) {
+        self.init(bearer: nil, onImported: { _ in })
+        let perfil = CasosCarreras.candidatos[0]
+        switch vista {
+        case .reposo: break
+        case .buscando:
+            _query = State(initialValue: "marc")
+            _searching = State(initialValue: true)
+        case .candidatos:
+            _query = State(initialValue: "marc")
+            _candidates = State(initialValue: CasosCarreras.candidatos)
+            _searched = State(initialValue: true)
+        case .sinResultados:
+            _query = State(initialValue: "zzz")
+            _searched = State(initialValue: true)
+        case .errorDeBusqueda:
+            _query = State(initialValue: "error")
+            _searchError = State(initialValue: HyresultSearchError.unavailable.message)
+            _searched = State(initialValue: true)
+        case .confirmar, .importando, .errorAlImportar:
+            _paso = State(initialValue: .confirmar)
+            _candidato = State(initialValue: perfil)
+            _importando = State(initialValue: vista == .importando)
+            _errorAlImportar = State(initialValue: vista == .errorAlImportar ? HyresultImportError.unreadable.message : nil)
+        case .enlaceVacio, .enlaceMalo, .enlaceImportando, .enlaceConError:
+            _paso = State(initialValue: .enlace)
+            _enlace = State(initialValue: vista == .enlaceMalo ? "https://ejemplo.com/resultado" : vista == .enlaceVacio ? "" : "https://\(HyroxImport.resultsHost)/season-8/athlete?idp=1")
+            _importando = State(initialValue: vista == .enlaceImportando)
+            _errorDelEnlace = State(initialValue: vista == .enlaceConError ? CarrerasImportError.unreadable.message : nil)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+    }
+}
+#endif
+
+/// «ESP · 5 carreras»: país y número de carreras, lo que ayuda a distinguir a los homónimos.
+private func metaCandidato(_ c: HyresultCandidate) -> String {
+    [c.nation.flatMap { $0.isEmpty ? nil : $0.uppercased() }, c.races_count == 1 ? "1 carrera" : "\(c.races_count) carreras"]
+        .compactMap { $0 }
+        .joined(separator: " · ")
+}
+
+// MARK: - Un perfil de la búsqueda
+
+private struct FilaCandidato: View {
+    let candidato: HyresultCandidate
+    let alElegir: () -> Void
+
+    var body: some View {
+        Button {
+            Haptics.light()
+            alElegir()
+        } label: {
+            HStack(spacing: Theme.Spacing.m) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: Theme.Spacing.s) {
+                        Text(candidato.name).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+                            .multilineTextAlignment(.leading)
+                        if let nivel = candidato.level, !nivel.isEmpty { ChipCarreras(nivel.uppercased(), estilo: .acento) }
+                    }
+                    Text(metaCandidato(candidato)).papel(.nota).foregroundStyle(Theme.Color.muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                IconoDia(.chevron, tam: 18).foregroundStyle(Theme.Color.muted)
+            }
+            .padding(.horizontal, Theme.Spacing.l)
+            .padding(.vertical, Theme.Spacing.m)
+            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+            .tarjetaCarreras()
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle(escala: 0.985))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(candidate.name), \(meta)\(candidate.level.map { ", \($0)" } ?? "")")
+        .accessibilityLabel("\(candidato.name)\(candidato.level.map { ", \($0)" } ?? ""), \(metaCandidato(candidato))")
         .accessibilityAddTraits(.isButton)
     }
 }
-
-/// PRO/ELITE level chip — brand orange-as-text on a faint accent fill.
-private struct LevelChip: View {
-    let text: String
-    var body: some View {
-        Text(text)
-            .font(.system(size: 9, weight: .bold))
-            .tracking(0.4)
-            .textCase(.uppercase)
-            .foregroundStyle(Theme.Color.accentText)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(Theme.Color.accent.opacity(0.12))
-            .clipShape(Capsule())
-    }
-}
-
-// MARK: - Confirm step
-
-/// "¿Eres tú?" — the disambiguation guard before importing a full history. Shows
-/// the picked candidate, imports on confirm, and on success hands the result up
-/// (which dismisses the sheet + seeds the hub).
-private struct ConfirmImportView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    let candidate: HyresultCandidate
-    var bearer: String?
-    let onConfirmed: (HyresultImportAllResult) -> Void
-
-    @State private var importing = false
-    @State private var errorText: String? = nil
-
-    private var racesText: String {
-        candidate.races_count == 1 ? "tu carrera" : "tus \(candidate.races_count) carreras"
-    }
-
-    var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-                    CardSurface(padding: 18, topAccent: true, elevated: true) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            LabelText(text: "CONFIRMA TU PERFIL", color: Theme.Color.accentText)
-                            HStack(spacing: 8) {
-                                Text(candidate.name)
-                                    .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true)
-                                    .foregroundStyle(Theme.Color.foreground)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                if let level = candidate.level, !level.isEmpty {
-                                    LevelChip(text: level)
-                                }
-                            }
-                            Text(profileMeta)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(Theme.Color.muted)
-                        }
-                    }
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("¿Eres tú?")
-                            .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
-                            .foregroundStyle(Theme.Color.foreground)
-                        Text("Importaremos \(racesText) —individuales y dobles— a tu historial. Si re-importas, se actualizan sin duplicarse.")
-                            .scaledFont(13, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    if let errorText {
-                        errorBanner(errorText)
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.l)
-            }
-            .anchoredAction {
-                VStack(spacing: Theme.Spacing.s) {
-                    confirmButton
-                    Button("No soy yo") { dismiss() }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.muted)
-                        .frame(maxWidth: .infinity)
-                        .disabled(importing)
-                }
-            }
-        }
-        .navigationTitle("¿Eres tú?")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var profileMeta: String {
-        var parts: [String] = []
-        if let nation = candidate.nation, !nation.isEmpty { parts.append(nation.uppercased()) }
-        parts.append(candidate.races_count == 1 ? "1 carrera" : "\(candidate.races_count) carreras")
-        return parts.joined(separator: " · ")
-    }
-
-    @ViewBuilder
-    private var confirmButton: some View {
-        if importing {
-            HStack(spacing: 10) {
-                ProgressView().tint(Theme.Color.accentOn)
-                Text("Importando…")
-                    .font(.system(size: 16, weight: .heavy, design: .default).italic())
-                    .tracking(1)
-                    .foregroundStyle(Theme.Color.accentOn)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(Theme.Color.accent.opacity(0.7))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            .accessibilityLabel("Importando historial")
-        } else {
-            ExpertPrimaryButton(title: "SÍ, IMPORTAR MI HISTORIAL") {
-                runImport()
-            }
-        }
-    }
-
-    private func errorBanner(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.Color.danger)
-            Text(text)
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.Color.foreground)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(13)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.dangerTint)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.danger.opacity(0.30), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .accessibilityElement(children: .combine)
-    }
-
-    private func runImport() {
-        guard !importing else { return }
-        errorText = nil
-        importing = true
-        Task { @MainActor in
-            do {
-                let result = try await CarrerasService.importAllRaces(slug: candidate.slug, bearer: bearer)
-                importing = false
-                Haptics.success()
-                onConfirmed(result)
-            } catch let err as HyresultImportError {
-                importing = false
-                Haptics.error()
-                errorText = err.message
-            } catch {
-                importing = false
-                Haptics.error()
-                errorText = HyresultImportError.generic.message
-            }
-        }
-    }
-}
-
-// The secondary "paste a link" path lives in ImportRaceLinkSheet.swift
-// (LinkImportView), pushed from the "¿Prefieres pegar el enlace?" affordance.

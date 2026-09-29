@@ -1,1083 +1,400 @@
 import SwiftUI
 
-// Carreras tab root — the athlete's race hub and HYROX differentiator. Races
-// only: future objectives and past results. All training analytics (volume,
-// pace, tendencies) live in the Analíticas tab, not here.
+// LA PESTAÑA «CARRERAS» — la del atleta y el diferencial de HYROX. Solo carreras: objetivos futuros
+// y resultados. Todo el análisis del ENTRENO (volumen, ritmo, tendencias) vive en Analíticas.
 //
-// Two race sections, honestly:
-//   • PRÓXIMAS — future objectives (countdowns), from GET /api/athlete/races.
-//   • PASADAS — the imported history plus its race-derived analysis (last race,
-//     station benchmarks, per-km pace, evolution) — LIVE from
-//     GET /api/athlete/race-context, built from the athlete's IMPORTED HYROX
-//     results. No race yet → honest empty state with an "Importar carrera" CTA
-//     (ImportRaceSheet → POST /race-results/import).
+// Esta vista NO decide qué se ve: LEE el store (`racesHub`, `raceOverview`), pide lo suyo (el
+// predicho del principal y la revisión del análisis), traduce todo a una `LecturaCarreras` y se la da
+// a `CarrerasContenido`, que solo pinta. La decisión del sujeto (el objetivo, la carrera de ayer, la
+// última, la invitación) es de `DecideCarreras`, con sus tests. Aquí viven la NAVEGACIÓN, las HOJAS y
+// las ACCIONES (que llaman al servidor y luego piden al store que se reconcilie).
 //
-// Composes RedesignComponents (BenchmarkBarRow, PaceBarChart) + Atoms
-// (CardSurface, MonoText, LabelText) on Theme tokens. Brand accent is orange;
-// only signed deltas use the semantic ok/warning/danger axis.
+// El store es cache-first (SWR): la pestaña se pinta al instante desde memoria o disco y revalida en
+// silencio; solo una primera carga sin nada muestra esqueleto, y un fallo sin nada guardado se dice
+// (con «Reintentar»), no se disfraza de vacío.
+
+/// Adónde se puede ir desde la pestaña (dentro de su propia `NavigationStack`: `AppShell` aloja cada
+/// pestaña en plano y no hay una pila compartida).
+enum DestinoCarreras: Hashable {
+    /// El detalle de una próxima: predicho hoy + camino al objetivo, o «hacerla principal».
+    case detalle(raceId: Int)
+    /// El detalle de una estación (por su nombre canónico).
+    case estacion(String)
+    /// La comparación completa entre lo que se predijo y lo que se hizo.
+    case predichoVsReal
+}
+
+/// Las hojas que se pueden abrir sobre la pestaña.
+enum HojaCarreras: Identifiable, Equatable {
+    case importar
+    case buscar
+    case meta(raceId: Int)
+
+    var id: String {
+        switch self {
+        case .importar: return "importar"
+        case .buscar: return "buscar"
+        case .meta(let raceId): return "meta-\(raceId)"
+        }
+    }
+}
+
 struct CarrerasView: View {
     var bearer: String? = nil
-    /// FREE tier switch (athlete without coach) — hides the chat affordance and,
-    /// through BuscarCarreraSheet, the "pídesela a tu coach" request flow.
+    /// Sin coach (tier libre): no hay chat ni «Preguntar al coach» ni informe de la IA del método.
+    /// Las carreras y su predicho son del atleta.
     var hasCoach: Bool = true
 
-    // The shared, cache-first data layer (cache-first / SWR). Carreras reads its
-    // three slices straight from here — exactly like Inicio / Plan / Perfil — so
-    // opening the tab renders INSTANTLY from memory (or the disk snapshot) and the
-    // store revalidates silently in the background; a spinner shows only on a true
-    // cold first load with no data. Mutations force-refresh through the store so
-    // every tab stays correct after an action.
     @Environment(AppDataStore.self) private var store
+    @Environment(\.openChat) private var openChat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    // HYROX import sheet (search by name → import-all → refresh).
-    @State private var showImport = false
+    // Navegación y hojas.
+    @State private var camino: [DestinoCarreras] = []
+    @State private var hoja: HojaCarreras?
+    /// La carrera cuyo «⋯» se ha tocado (diálogo de acciones) y la que se va a quitar (su confirmación).
+    @State private var accionesDe: ProximaCarrera?
+    @State private var porQuitar: ProximaCarrera?
+    @State private var confirmarQuitarImportadas = false
+    @State private var aviso: AvisoDia.Contenido?
+    /// Una acción al servidor en marcha: no admite otra encima (un doble toque no la repite).
+    @State private var enMarcha = false
+    @State private var aparece = false
 
-    // Undo import ("No soy yo"): confirm gate → purge server-side + locally →
-    // re-open the search so the athlete can pick the correct profile.
-    @State private var showRemoveConfirm = false
-    @State private var removing = false
-    @State private var actionError: String? = nil
+    // Lo que esta pestaña pide por su cuenta.
+    @State private var predicho: LecturaDePredicho?
+    @State private var predichoDe: ObjetivoDelPredicho?
+    @State private var reintentosPredicho = 0
+    @State private var revision: (raceId: String, valor: PredictionReview)?
 
-    @State private var showBuscar = false
-    /// The objective the athlete tapped to remove — drives the confirm dialog.
-    @State private var objectiveToRemove: UpcomingRace? = nil
-
-    @State private var appear = false
-
-    // ── Shared data, read live from the store's slices (cache-first/SWR) ──
-    /// PASADAS race-derived analytics (last race, benchmarks, pace, evolution).
-    private var overview: CarrerasOverview? { store.raceOverview.value }
-    /// Rich, doubles-aware imported history — the hub's `past`, which is the
-    /// SINGLE cache for it (persisted in the store; no separate history store).
-    private var importedRaces: [ImportedRace] { store.racesHub.value?.past ?? [] }
-    /// PRÓXIMAS — all future objectives (target + secondary/tune-up), the hub's
-    /// `upcoming`. The athlete can have several; the server sorts soonest-first.
-    private var upcoming: [UpcomingRace] { store.racesHub.value?.upcoming ?? [] }
-
-    /// The soonest target — the race the goal-gap endpoint is scoped to, and the
-    /// only card that opens the full "predicho hoy + camino" detail. First race
-    /// whose priority is 'target' (absent priority defaults to 'target', matching
-    /// the create path), since the server returns them soonest-first.
-    private var targetRaceId: Int? {
-        upcoming.first { ($0.priority?.lowercased() ?? "target") == "target" }?.raceId
+    /// Del qué (carrera y meta) es el predicho que hay guardado: si cambia, el que hay ya no vale y se
+    /// vuelve a calcular (esqueleto); si solo se refresca, el bueno se queda hasta que llegue el nuevo.
+    struct ObjetivoDelPredicho: Hashable {
+        let raceId: Int
+        let metaS: Int?
+        let formato: FormatoCarrera
     }
 
-    // "Cold" = never loaded yet (no memory AND no disk snapshot) AND a first load
-    // is in flight — the ONLY case that shows a spinner. With any cached value the
-    // section renders instantly and revalidates silently underneath.
-    private var upcomingCold: Bool {
-        !store.racesHub.hasLoaded && store.racesHub.isRevalidating
-    }
-    private var pastCold: Bool {
-        !store.raceOverview.hasLoaded && !store.racesHub.hasLoaded
-            && (store.raceOverview.isRevalidating || store.racesHub.isRevalidating)
+    // MARK: La lectura
+
+    private var lectura: LecturaCarreras {
+        LecturaCarreras.desde(
+            hub: store.racesHub.value,
+            cargaHub: CargaCarreras(store.racesHub),
+            overview: store.raceOverview.value,
+            cargaAnalisis: CargaCarreras(store.raceOverview),
+            predicho: predicho,
+            revision: revision.flatMap { $0.raceId == store.raceOverview.value?.last_race?.id ? $0.valor : nil },
+            conCoach: hasCoach,
+            noLeidosChat: store.unreadCount,
+            hoy: FechaES.iso(Date())
+        )
     }
 
-    private var effectiveBearer: String? {
-        bearer
+    private var principal: ProximaCarrera? { DecideCarreras.principalDe(lectura.proximas) }
+
+    private func carreraDelHub(_ raceId: Int) -> UpcomingRace? {
+        store.racesHub.value?.upcoming.first { $0.raceId == raceId }
     }
+
+    // MARK: Cuerpo
 
     var body: some View {
-        // Own NavigationStack so the station + running deep-dives push within the
-        // Carreras tab (AppShell hosts each tab root flat, no shared stack). Bar
-        // hidden — the screen draws its own header, matching the other roots.
-        NavigationStack {
-            ZStack {
-                Theme.Color.background
-                    .ignoresSafeArea()
-                    .instrumentCanvas()
-                scroll
+        // Su propia NavigationStack: el detalle de una carrera y el de una estación se empujan DENTRO de
+        // la pestaña. La barra va oculta: la pantalla dibuja su propia cabecera, como las demás.
+        NavigationStack(path: $camino) {
+            VStack(spacing: 0) {
+                CromoCarreras(conCoach: hasCoach, noLeidos: lectura.noLeidosChat) {
+                    Haptics.light()
+                    openChat(nil)
+                }
+                FillingScreen {
+                    CarrerasContenido(lectura: lectura, callbacks: callbacks)
+                        .staggerReveal(aparece, index: 1)
+                }
             }
+            .background(Theme.Color.background.ignoresSafeArea())
             .navigationBarHidden(true)
+            .navigationDestination(for: DestinoCarreras.self, destination: destino)
+            .onAppear {
+                // Con Reducir movimiento la pestaña entra ya puesta.
+                if reduceMotion {
+                    var t = Transaction()
+                    t.disablesAnimations = true
+                    withTransaction(t) { aparece = true }
+                } else {
+                    aparece = true
+                }
+            }
         }
-        .task(id: effectiveBearer) {
-            // Cache-first: the body already renders from the store's slices; this
-            // scopes the session and revalidates Carreras' slices in the background
-            // (throttled + de-duped, so a tab switch won't refetch fresh data).
-            store.activate(bearer: effectiveBearer)
+        .avisoDia($aviso)
+        .task(id: bearer) {
+            // Cache-first: el cuerpo ya se pinta desde las rebanadas del store; esto fija la sesión y
+            // revalida las de Carreras en segundo plano (con freno y sin duplicar).
+            store.activate(bearer: bearer)
             await store.loadCarreras()
         }
-        .sheet(isPresented: $showImport) {
-            ImportRaceSheet(bearer: effectiveBearer) { result in
-                // Full-history import returns the rich, doubles-aware races — fold
-                // them into the store's hub immediately (optimistic, instant), then
-                // reconcile every race-derived slice from the server. The legacy
-                // single-link path passes nil, so we just reconcile.
-                if let result {
-                    store.applyImportedRaces(result.races)
-                }
-                Task { await store.racesMutated() }
-            }
-        }
-        .sheet(isPresented: $showBuscar) {
-            // Reuse the target-race picker (→ FijarObjetivoView); on a successful
-            // set we force-refresh the hub + plan so the new objective appears in
-            // PRÓXIMAS and Inicio's countdown follows.
-            BuscarCarreraSheet(bearer: effectiveBearer) {
-                Task { await store.racesMutated() }
-            }
+        .task(id: clavePredicho) { await cargarPredicho() }
+        .task(id: store.raceOverview.value?.last_race?.id) { await cargarRevision() }
+        .sheet(item: $hoja, content: contenidoDeHoja)
+        .confirmationDialog(
+            accionesDe?.nombre ?? "",
+            isPresented: Binding(get: { accionesDe != nil }, set: { if !$0 { accionesDe = nil } }),
+            titleVisibility: .visible,
+            presenting: accionesDe
+        ) { carrera in
+            BotonesAccionesCarrera(esPrincipal: carrera.raceId == principal?.raceId, conCoach: hasCoach) { elegir($0, carrera) }
+            Button("Cancelar", role: .cancel) {}
         }
         .confirmationDialog(
             "¿Quitar este objetivo?",
-            isPresented: Binding(
-                get: { objectiveToRemove != nil },
-                set: { if !$0 { objectiveToRemove = nil } }
-            ),
+            isPresented: Binding(get: { porQuitar != nil }, set: { if !$0 { porQuitar = nil } }),
             titleVisibility: .visible,
-            presenting: objectiveToRemove
-        ) { race in
-            Button("Quitar objetivo", role: .destructive) {
-                Task { await removeObjective(race) }
-            }
-            Button("Cancelar", role: .cancel) { objectiveToRemove = nil }
-        } message: { race in
-            Text("\(race.name) dejará de contar para tu cuenta atrás. Podrás volver a fijarla cuando quieras.")
+            presenting: porQuitar
+        ) { carrera in
+            Button("Quitar objetivo", role: .destructive) { Task { await quitar(carrera) } }
+            Button("Cancelar", role: .cancel) {}
+        } message: { carrera in
+            Text("\(carrera.nombre) dejará de contar para tu cuenta atrás. Podrás volver a fijarla cuando quieras.")
         }
         .confirmationDialog(
             "¿Eliminar las carreras importadas?",
-            isPresented: $showRemoveConfirm,
+            isPresented: $confirmarQuitarImportadas,
             titleVisibility: .visible
         ) {
-            Button("Eliminar carreras importadas", role: .destructive) {
-                Task { await removeImport() }
-            }
+            Button("Eliminar carreras importadas", role: .destructive) { Task { await quitarImportadas() } }
             Button("Cancelar", role: .cancel) {}
         } message: {
             Text("Esto borrará las carreras importadas y podrás volver a buscar tu perfil.")
         }
-        .alert(
-            "No se pudo completar",
-            isPresented: Binding(
-                get: { actionError != nil },
-                set: { if !$0 { actionError = nil } }
-            )
-        ) {
-            Button("Aceptar", role: .cancel) { actionError = nil }
-        } message: {
-            Text(actionError ?? "")
-        }
     }
 
-    // Purge the imported history ("No soy yo"): clear it server-side + locally,
-    // refresh the (now empty) hub, then re-open the search so the athlete can
-    // pick the correct profile. The slug is null after the purge, so a fresh
-    // import adopts the new profile cleanly.
-    @MainActor
-    private func removeImport() async {
-        guard !removing else { return }
-        removing = true
-        defer { removing = false }
-        do {
-            _ = try await CarrerasService.undoImport(bearer: effectiveBearer)
-            Haptics.success()
-            store.applyImportedRaces([])   // optimistic: clear the history now
-            await store.racesMutated()     // reconcile hub + overview + plan
-            // Back to the search step with a clean slate (slug now null).
-            showImport = true
-        } catch let err as HyresultImportError {
-            Haptics.error()
-            actionError = err.message
-        } catch {
-            Haptics.error()
-            actionError = "No pudimos eliminar las carreras importadas. Inténtalo de nuevo."
-        }
-    }
+    // MARK: Las manos del cuerpo
 
-    // Remove one future objective ("Quitar objetivo"): confirm-gated delete via
-    // the races endpoint, then refresh both lists. The thrown HyresultImportError
-    // messages are import-flavored, so we map to removal-appropriate copy here and
-    // reuse the existing actionError alert.
-    @MainActor
-    private func removeObjective(_ race: UpcomingRace) async {
-        objectiveToRemove = nil
-        do {
-            try await CarrerasService.deleteObjective(raceId: race.raceId, bearer: effectiveBearer)
-            Haptics.success()
-            await store.racesMutated()
-        } catch let err as HyresultImportError {
-            Haptics.error()
-            switch err {
-            case .unauthorized:
-                actionError = "Tu sesión ha caducado. Vuelve a iniciar sesión e inténtalo de nuevo."
-            default:
-                actionError = "No pudimos quitar este objetivo. Inténtalo de nuevo."
-            }
-        } catch {
-            Haptics.error()
-            actionError = "No pudimos quitar este objetivo. Inténtalo de nuevo."
-        }
-    }
-
-    // Promote one upcoming race to the PRIMARY objective ("Hacer objetivo
-    // principal"): POST to the races endpoint (server demotes the prior target to
-    // secondary — single primary at a time), then refresh so the badges update and
-    // Inicio's main countdown follows the new primary. Reuses the actionError alert.
-    @MainActor
-    private func makePrimary(_ race: UpcomingRace) async {
-        do {
-            try await CarrerasService.makePrimaryObjective(raceId: race.raceId, bearer: effectiveBearer)
-            Haptics.success()
-            await store.racesMutated()
-        } catch let err as HyresultImportError {
-            Haptics.error()
-            switch err {
-            case .unauthorized:
-                actionError = "Tu sesión ha caducado. Vuelve a iniciar sesión e inténtalo de nuevo."
-            default:
-                actionError = "No pudimos cambiar tu objetivo principal. Inténtalo de nuevo."
-            }
-        } catch {
-            Haptics.error()
-            actionError = "No pudimos cambiar tu objetivo principal. Inténtalo de nuevo."
-        }
-    }
-
-    private var scroll: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-                header
-                    .staggerReveal(appear, index: 0)
-
-                upcomingSection
-                    .staggerReveal(appear, index: 1)
-
-                pastSection
-                    .staggerReveal(appear, index: 2)
-            }
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.top, Theme.Spacing.m)
-            .padding(.bottom, Theme.Spacing.xxl)
-        }
-        .onAppear { appear = true }
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        HStack(alignment: .center, spacing: Theme.Spacing.s) {
-            VStack(alignment: .leading, spacing: 4) {
-                LabelText(text: "RENDIMIENTO Y CARRERAS", color: Theme.Color.accentText)
-                Text("Mis carreras")
-                    .scaledFont(30, weight: .heavy, relativeTo: .title, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isHeader)
-            // Persistent chat affordance (icon + unread badge) → coach thread.
-            if hasCoach {
-                ChatHeaderButton()
-            }
-        }
-        .padding(.top, Theme.Spacing.s)
-    }
-
-    // MARK: - Section header action pills (accent capsule)
-    //
-    // One pill style, two intents — DRY across "Buscar carrera" (PRÓXIMAS, adds a
-    // future objective) and "Importar" (PASADAS, adds a past result).
-
-    private func actionPill(icon: String, title: String, action: @escaping () -> Void) -> some View {
-        Button {
-            Haptics.light()
-            action()
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .bold))
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-            }
-            .foregroundStyle(Theme.Color.accentText)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(Theme.Color.accent.opacity(0.10))
-            .overlay(Capsule().stroke(Theme.Color.accent.opacity(0.30), lineWidth: 1))
-            .clipShape(Capsule())
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel(title)
-    }
-
-    private var buscarPill: some View {
-        actionPill(icon: "plus", title: "Buscar carrera") { showBuscar = true }
-    }
-
-    private var importPill: some View {
-        actionPill(icon: "plus", title: "Importar") { showImport = true }
-    }
-
-    /// A section label with a trailing action pill, baseline-aligned on one row.
-    private func sectionHeaderRow<Trailing: View>(
-        _ title: String,
-        @ViewBuilder trailing: () -> Trailing
-    ) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            SectionLabel(text: title)
-            Spacer(minLength: 8)
-            trailing()
-        }
-    }
-
-    // MARK: - PRÓXIMAS · the athlete's future objectives (countdowns)
-    //
-    // All upcoming races (target + secondary/tune-up), source of truth from
-    // GET /api/athlete/races, sorted soonest-first by the server. Each card shows
-    // its role; its rare actions ("Hacer objetivo principal" non-primary + a
-    // confirm-gated remove) live behind a discreet ⋯ menu / long-press, keeping the
-    // face clean. "Buscar carrera" (→ BuscarCarreraSheet → FijarObjetivoView) lives
-    // in the section header.
-
-    @ViewBuilder
-    private var upcomingSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            sectionHeaderRow("PRÓXIMAS · TUS OBJETIVOS") { buscarPill }
-
-            if upcomingCold {
-                ProgressView()
-                    .tint(Theme.Color.accentText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.l)
-            } else if !upcoming.isEmpty {
-                VStack(spacing: Theme.Spacing.m) {
-                    ForEach(upcoming) { race in
-                        UpcomingRaceCard(
-                            race: race,
-                            hasCoach: hasCoach,
-                            isTargetRace: race.raceId == targetRaceId,
-                            bearer: effectiveBearer,
-                            onMakePrimary: { Task { await makePrimary(race) } },
-                            onRemove: { objectiveToRemove = race }
-                        )
-                    }
-                }
-            } else {
-                RedesignEmptyState(
-                    symbol: "target",
-                    title: "Sin objetivos todavía",
-                    message: "Fija tu próxima carrera y verás aquí la cuenta atrás. Tu plan se enfoca en la fecha que elijas.",
-                    exit: .action(title: "Buscar carrera") { showBuscar = true }
-                )
-                .padding(.top, Theme.Spacing.s)
-            }
-        }
-    }
-
-    // MARK: - PASADAS · history + race-derived analytics (honest empty state)
-    //
-    // The race-context analytics (last race, IA report, benchmarks, pace,
-    // evolution) + the rich doubles-aware history, fed by the new endpoint's
-    // `past` (write-through cached). "Importar" (past results) + the undo ("No soy
-    // yo") live here.
-
-    @ViewBuilder
-    private var pastSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            sectionHeaderRow("PASADAS · TU HISTORIAL") { importPill }
-
-            if pastCold {
-                ProgressView()
-                    .tint(Theme.Color.accentText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.l)
-            } else if (overview?.last_race != nil) || !importedRaces.isEmpty {
-                // Race-context analytics (last race, IA report, benchmarks, pace,
-                // evolution) — present whenever the athlete has a singles result.
-                if let overview, overview.last_race != nil {
-                    CarrerasRaceContent(overview: overview, bearer: effectiveBearer)
-                }
-                // History list: the rich, doubles-aware import when we have it;
-                // otherwise the leaner race-context history (legacy single-link).
-                if !importedRaces.isEmpty {
-                    ImportedRaceHistorySection(races: importedRaces) {
-                        showRemoveConfirm = true
-                    }
-                } else if let overview, !overview.history.isEmpty {
-                    LegacyHistorySection(history: overview.history)
-                }
-            } else {
-                RedesignEmptyState(
-                    symbol: "flag.checkered",
-                    title: "Aún no hay carreras pasadas",
-                    message: "Busca tu nombre e importa tu historial de HYROX —individuales y dobles— y verás aquí tus splits, el informe de puntos débiles y tu evolución.",
-                    exit: .action(title: "Importar carreras") { showImport = true }
-                )
-                .padding(.top, Theme.Spacing.s)
-            }
-        }
-    }
-
-}
-
-// MARK: - Upcoming race card (countdown · role badge · actions menu)
-//
-// A premium countdown for one future objective: a role badge ("Objetivo
-// principal" for the target, "Secundaria"/"Tune-up" otherwise), the big mono days
-// number (the InicioView countdown language), the race name, its category line,
-// city + date, and an optional goal time. The card face stays clean — its two
-// rare actions ("Hacer objetivo principal", non-primary only, + a confirm-gated
-// "Eliminar carrera") live behind a discreet ⋯ Menu in the corner AND the native
-// long-press .contextMenu, for double discoverability without cluttering the card.
-// The primary card carries the orange top accent. Light+dark off Theme tokens;
-// brand accent is orange-as-text. Label copy reuses AthleteNextRace's static
-// helpers so the home countdown and this card never drift.
-
-private struct UpcomingRaceCard: View {
-    let race: UpcomingRace
-    /// Sin coach no hay a quién preguntar: la fila del menú no existe.
-    var hasCoach: Bool = true
-    /// La puerta única al chat, con el sujeto que se quiera señalar.
-    @Environment(\.openChat) private var openChat
-    /// True when this is the soonest target — the card that opens the full detail
-    /// (predicho hoy + camino). Computed once by CarrerasView (single source).
-    let isTargetRace: Bool
-    /// Session token, forwarded to the detail's goal-gap fetch.
-    var bearer: String?
-    /// Promote this race to the PRIMARY objective (the hub owns the POST + refresh).
-    /// Shown only on non-primary cards.
-    let onMakePrimary: () -> Void
-    /// Signals intent to remove this objective (the hub owns the confirm + delete).
-    let onRemove: () -> Void
-
-    /// The target race is the single primary objective. Absent priority defaults to
-    /// 'target' (the create path's default), so a legacy row with no priority reads
-    /// as primary rather than orphaned.
-    private var isPrimary: Bool { (race.priority?.lowercased() ?? "target") == "target" }
-
-    /// A doubles race — surfaced as a small accent chip so the list is scannable
-    /// (only when the DTO carries `format`). The category line drops its format
-    /// token when this is set, so "Dobles" isn't shown twice.
-    private var isDoubles: Bool { race.format?.lowercased() == "doubles" }
-
-    var body: some View {
-        // The whole card is one way in: tap → RaceDetailView (predicho + camino for
-        // the target, an honest promote card otherwise). Its rare actions still live
-        // behind the eyebrow ⋯ Menu and the long-press .contextMenu, keeping the
-        // face clean. `.buttonStyle(.plain)` keeps the card visuals (no link tint)
-        // and lets the nested ⋯ Menu open without triggering navigation. The primary
-        // card carries the orange top accent so the goal race reads as the anchor.
-        NavigationLink {
-            RaceDetailView(
-                race: race,
-                isTargetRace: isTargetRace,
-                bearer: bearer,
-                onMakePrimary: onMakePrimary
-            )
-        } label: {
-            CardSurface(
-                padding: 16,
-                topAccent: isPrimary,
-                elevated: true,
-                backgroundImage: BrandImagery.raceCardBackground(for: String(race.raceId))
-            ) {
-                VStack(alignment: .leading, spacing: 11) {
-                    eyebrowRow
-                    infoBlock
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .contextMenu { actionsMenu }
-        .accessibilityElement(children: .contain)
-        .accessibilityHint("Toca para ver el detalle y tu predicho de hoy")
-    }
-
-    // MARK: Rows
-
-    private var eyebrowRow: some View {
-        HStack(spacing: 8) {
-            priorityBadge
-            if isDoubles { doublesBadge }
-            Spacer(minLength: 8)
-            // Discreet ⋯ for the card's rare actions. Same item set as the
-            // long-press .contextMenu (see actionsMenu) — double discoverability.
-            Menu {
-                actionsMenu
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
-                    // Comfortable hit target without distorting the eyebrow.
-                    .frame(width: 32, height: 28)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel("Acciones de la carrera")
-            .accessibilityHint(menuAccessibilityHint)
-        }
-    }
-
-    /// The shared action set for one upcoming objective, surfaced two ways for
-    /// double discoverability: the discreet ⋯ Menu in the corner and the native
-    /// long-press .contextMenu on the card. "Hacer objetivo principal" appears
-    /// only when this card is NOT already the primary (nothing to promote on the
-    /// target); "Eliminar carrera" is destructive and routes through the hub's
-    /// existing confirm. Both reuse onMakePrimary / onRemove — no new behavior.
-    @ViewBuilder
-    private var actionsMenu: some View {
-        // Preguntar SOBRE esta carrera. Una fila más en un menú que ya existía,
-        // en los dos sitios donde ese menú se ofrece (⋯ y pulsación larga): cero
-        // alto nuevo. Ver docs/DECISIONS.md, 12-ago.
-        if hasCoach {
-            Button {
-                Haptics.light()
-                openChat(ChatContextChoice(
-                    target: .carrera(String(race.raceId)),
-                    etiqueta: etiquetaDeContexto
-                ))
-            } label: {
-                Label("Preguntar al coach", systemImage: "message")
-            }
-        }
-        if !isPrimary {
-            Button {
-                Haptics.light()
-                onMakePrimary()
-            } label: {
-                Label("Hacer objetivo principal", systemImage: "star")
-            }
-        }
-        Button(role: .destructive) {
-            Haptics.light()
-            onRemove()
-        } label: {
-            Label("Eliminar carrera", systemImage: "trash")
-        }
-    }
-
-    /// «HYROX Barcelona · 4 oct» para el chip del compositor. De pantalla: la que
-    /// se guarda con el mensaje la escribe el servidor.
-    private var etiquetaDeContexto: String {
-        guard let iso = race.raceDate, let fecha = StatsDateParser.parse(iso) else { return race.name }
-        return "\(race.name) · \(StatsDateParser.dayMonth(fecha))"
-    }
-
-    /// Accurate per state: the primary card has nothing to promote.
-    private var menuAccessibilityHint: String {
-        isPrimary
-            ? "Eliminar carrera"
-            : "Hacer objetivo principal o eliminar carrera"
-    }
-
-    /// Small accent "DOBLES" chip for a doubles race (person-pair glyph), so the
-    /// modality reads at a glance in the list.
-    private var doublesBadge: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "person.2.fill")
-                .font(.system(size: 9, weight: .bold))
-            Text("Dobles")
-                .font(.system(size: 10, weight: .bold))
-                .tracking(0.4)
-                .textCase(.uppercase)
-        }
-        .foregroundStyle(Theme.Color.accentText)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(Theme.Color.accent.opacity(0.12))
-        .clipShape(Capsule())
-        .accessibilityLabel("Dobles")
-    }
-
-    /// The role badge: accent "Objetivo principal" for the target, a neutral
-    /// "Secundaria" / "Tune-up" for the rest.
-    @ViewBuilder
-    private var priorityBadge: some View {
-        if isPrimary {
-            HStack(spacing: 5) {
-                Image(systemName: "target")
-                    .font(.system(size: 10, weight: .bold))
-                Text("Objetivo principal")
-                    .font(.system(size: 10, weight: .bold))
-                    .tracking(0.4)
-                    .textCase(.uppercase)
-            }
-            .foregroundStyle(Theme.Color.accentText)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Theme.Color.accent.opacity(0.12))
-            .clipShape(Capsule())
-        } else {
-            Text(secondaryBadgeLabel)
-                .font(.system(size: 10, weight: .bold))
-                .tracking(0.4)
-                .textCase(.uppercase)
-                .foregroundStyle(Theme.Color.neutral)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(Theme.Color.neutralTint)
-                .clipShape(Capsule())
-        }
-    }
-
-    /// The textual body of the card (countdown + name + category + city/date +
-    /// goal), combined into one a11y element so VoiceOver reads it as a unit and
-    /// the two action buttons stay separately focusable.
-    private var infoBlock: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            countdownRow
-            Text(race.name)
-                .scaledFont(18, weight: .heavy, relativeTo: .headline, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .fixedSize(horizontal: false, vertical: true)
-            if let category = categoryLine {
-                Text(category)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Theme.Color.faint)
-            }
-            if let meta = locationDateLine {
-                Text(meta)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Theme.Color.muted)
-            }
-            if let goal = goalText {
-                HStack(spacing: 5) {
-                    Image(systemName: "stopwatch")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Theme.Color.accentText)
-                    Text("Objetivo \(goal)")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(infoAccessibilityLabel)
-    }
-
-    @ViewBuilder
-    private var countdownRow: some View {
-        if let days = race.countdownDays {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("\(days)")
-                    .font(.system(size: 30, weight: .heavy, design: .monospaced).monospacedDigit())
-                    .foregroundStyle(Theme.Color.accentText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                Text(UpcomingRace.dayUnit(days))
-                    .scaledFont(13, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-            }
-        }
-    }
-
-    // MARK: Derived copy (reuses AthleteNextRace helpers + the shared date fmt)
-
-    private var categoryLine: String? {
-        // Drop the format token for a doubles race — the DOBLES eyebrow chip
-        // already carries it, so the line reads "Open · Mixto", not "Dobles · …".
-        let parts = [
-            isDoubles ? nil : AthleteNextRace.formatLabel(race.format),
-            AthleteNextRace.divisionLabel(race.division),
-            AthleteNextRace.genderLabel(race.genderCategory),
-        ].compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    private var locationDateLine: String? {
-        let date = race.raceDate
-            .flatMap { StatsDateParser.parse($0) }
-            .map { ImportedRaceDateFormat.medium.string(from: $0) }
-        let parts = [race.location, date].compactMap { $0 }.filter { !$0.isEmpty }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    private var goalText: String? { AthleteNextRace.goalTimeFormatted(race.goalTimeSeconds) }
-
-    /// Neutral badge for a non-primary race. tune_up reads "Tune-up"; everything
-    /// else (secondary, or an unexpected token) reads "Secundaria".
-    private var secondaryBadgeLabel: String {
-        switch race.priority?.lowercased() {
-        case "tune_up": return "Tune-up"
-        default:        return "Secundaria"
-        }
-    }
-
-    private var infoAccessibilityLabel: String {
-        var parts: [String] = [isPrimary ? "Objetivo principal" : secondaryBadgeLabel, race.name]
-        if let days = race.countdownDays {
-            parts.append("faltan \(days) \(UpcomingRace.dayUnit(days))")
-        }
-        if let category = categoryLine { parts.append(category) }
-        if let meta = locationDateLine { parts.append(meta) }
-        if let goal = goalText { parts.append("objetivo \(goal)") }
-        return parts.joined(separator: ", ")
-    }
-}
-
-// MARK: - Race content
-//
-// The full race hub once a result exists: last-race card → IA report (orange
-// tint) → station benchmarks → per-km pace → evolution → history. Split into
-// its own view so the gap-vs-live branching in CarrerasView stays readable.
-
-private struct CarrerasRaceContent: View {
-    let overview: CarrerasOverview
-    var bearer: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            if let race = overview.last_race {
-                LastRaceCard(race: race)
-                // Predicho vs real (Pantalla C) — self-hiding: renders only when a
-                // prior prediction snapshot exists for this race.
-                PredichoVsRealView(raceId: race.id, bearer: bearer)
-            }
-            if let report = overview.ia_report {
-                IAReportCard(report: report)
-            }
-            if !overview.station_benchmarks.isEmpty {
-                stationBenchmarks
-            }
-            if !overview.running_splits.isEmpty {
-                paceChart
-            }
-            if let evolution = evolutionPoints, evolution.count >= 2 {
-                evolutionChart(evolution)
-            }
-        }
-    }
-
-    // Estaciones — a labeled list. A station only gets a comparison bar when the
-    // race actually placed it within the field; otherwise we show its time and
-    // say why there is nothing to compare it to (ley de honestidad del dato).
-    private var stationBenchmarks: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            SectionLabel(text: "ESTACIONES VS. BENCHMARK")
-            CardSurface(padding: 14) {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(overview.station_benchmarks) { b in
-                        NavigationLink {
-                            StationDetailView(station: b.station, bearer: bearer)
-                        } label: {
-                            HStack(spacing: 10) {
-                                // La barra con veredicto necesita las TRES cosas:
-                                // fracción, severidad y delta. Sin el delta no se
-                                // rellena con un guion — se cae a la fila sin
-                                // barra, que dice el tiempo y calla el juicio.
-                                if let fraction = b.fraction, let severity = b.severity, let delta = b.delta {
-                                    BenchmarkBarRow(
-                                        label: b.station,
-                                        fraction: fraction,
-                                        delta: delta,
-                                        severity: BenchmarkBarRow.Severity(wire: severity)
-                                    )
-                                } else {
-                                    StationTimeRow(label: b.station, time: b.time, delta: b.delta)
-                                }
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(Theme.Color.faint)
-                                    .accessibilityHidden(true)
-                            }
-                        }
-                        .buttonStyle(PressScaleStyle())
-                    }
-                    if let note = overview.station_comparison_note {
-                        Text(note)
-                            .font(.system(size: 11))
-                            .foregroundStyle(Theme.Color.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-        }
-    }
-
-    // Ritmo por km — PaceBarChart + the final-pace-drop callout.
-    private var paceChart: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            SectionLabel(text: "RITMO POR KM · ¿AGUANTAS EL FINAL?")
-            CardSurface(padding: 14) {
-                VStack(alignment: .leading, spacing: 10) {
-                    PaceBarChart(bars: overview.running_splits.map {
-                        PaceBarChart.Bar(
-                            height: $0.height,
-                            severity: BenchmarkBarRow.Severity(wire: $0.severity),
-                            label: $0.label
-                        )
-                    })
-                    if let note = overview.pace_drop_note {
-                        Label(note, systemImage: "exclamationmark.triangle.fill")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(Theme.Color.warning)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-        }
-    }
-
-    // Evolución — descending total-time bars, derived from history + last race.
-    private func evolutionChart(_ points: [EvolutionPoint]) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            SectionLabel(text: "EVOLUCIÓN · TIEMPO TOTAL")
-            CardSurface(padding: 14) {
-                HStack(alignment: .bottom, spacing: 14) {
-                    ForEach(points) { p in
-                        VStack(spacing: 6) {
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(p.isLatest ? Theme.Color.accent : Theme.Color.surfaceElevated)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: max(8, 56 * CGFloat(p.fraction)))
-                            MonoText(
-                                text: p.label,
-                                size: 10,
-                                weight: .medium,
-                                color: p.isLatest ? Theme.Color.accentText : Theme.Color.faint
-                            )
-                        }
-                    }
-                }
-                .frame(height: 80, alignment: .bottom)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Evolución del tiempo total: " + points.map { "\($0.label)" }.joined(separator: ", "))
-            }
-        }
-    }
-
-    // MARK: - Evolution derivation
-    //
-    // The chart wants the last few races oldest→newest with bar heights relative
-    // to the SLOWEST time in the set (taller = slower), matching the handoff's
-    // descending bars. We use `total_seconds` when present; if any race in the
-    // window lacks it we suppress the chart rather than guess heights.
-
-    private struct EvolutionPoint: Identifiable {
-        let id = UUID()
-        let label: String
-        let fraction: Double
-        let isLatest: Bool
-    }
-
-    private var evolutionPoints: [EvolutionPoint]? {
-        guard let latest = overview.last_race else { return nil }
-        // Oldest → newest: history is most-recent-first, so reverse it then
-        // append the latest race as the final (current) bar.
-        var ordered = Array(overview.history.reversed())
-        ordered.append(latest)
-        let window = Array(ordered.suffix(4))
-        let seconds = window.map { $0.total_seconds }
-        guard !seconds.contains(nil) else { return nil }
-        let values = seconds.compactMap { $0 }.map(Double.init)
-        guard let maxV = values.max(), maxV > 0 else { return nil }
-        // El rótulo sale de los MISMOS segundos que dan la altura de la barra —
-        // que el guard de arriba ya garantiza presentes—, no del texto
-        // preformateado del servidor, que podía faltar y dejaba un guion bajo una
-        // barra con altura real. Y así la duración la escribe el canónico
-        // (contrato §2), como en el resto de la app.
-        return window.enumerated().map { idx, race in
-            let secs = Double(race.total_seconds ?? 0)
-            return EvolutionPoint(
-                label: Formato.clock(secs),
-                fraction: secs / maxV,
-                isLatest: idx == window.count - 1
-            )
-        }
-    }
-}
-
-// MARK: - Legacy history (race-context projection)
-//
-// The leaner history list from `GET /race-context` — used only when the athlete
-// has NO full-history import yet (e.g. they imported a single race via the link
-// path). Once they import their full history, ImportedRaceHistorySection (rich,
-// doubles-aware) supersedes this.
-
-private struct LegacyHistorySection: View {
-    let history: [RaceResultSummary]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            SectionLabel(text: "HISTORIAL")
-            VStack(spacing: 8) {
-                ForEach(history) { r in
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(r.event_name)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Theme.Color.foreground)
-                            Text(meta(r))
-                                .font(.system(size: 11))
-                                .foregroundStyle(Theme.Color.faint)
-                        }
-                        Spacer(minLength: 8)
-                        // Una carrera del historial sin tiempo registrado dice
-                        // que no lo hay, en la voz de texto: una nota de ausencia
-                        // no es una cifra y no se monoespacia (§4, §7).
-                        if let total = r.total_time {
-                            MonoText(text: total, size: 13, weight: .bold)
-                        } else {
-                            Text("sin tiempo")
-                                .font(.system(size: 11, weight: .medium).italic())
-                                .foregroundStyle(Theme.Color.faint)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(Theme.Color.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                            .stroke(Theme.Color.hairline, lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(r.event_name), \(meta(r)), \(r.total_time ?? "sin tiempo")")
-                }
-            }
-        }
-    }
-
-    private func meta(_ r: RaceResultSummary) -> String {
-        [r.date, r.division].compactMap { $0 }.joined(separator: " · ")
-    }
-}
-
-// MARK: - Last race card
-//
-// "Última · 02 nov · Pro" eyebrow, event + mono total time, Run/Estaciones/
-// RoxZone split tiles, and the standing band. Brand-neutral surface; the
-// standing band reads ok-green when present (a positive result).
-
-private struct LastRaceCard: View {
-    let race: RaceResultSummary
-
-    private var eyebrow: String {
-        ["Última", race.date, race.division].compactMap { $0 }.joined(separator: " · ")
-    }
-
-    var body: some View {
-        CardSurface(padding: 16, topAccent: true, elevated: true) {
-            VStack(alignment: .leading, spacing: 10) {
-                LabelText(text: eyebrow)
-                HStack(alignment: .firstTextBaseline) {
-                    Text(race.event_name)
-                        .scaledFont(19, weight: .heavy, relativeTo: .headline, italic: true)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 12)
-                    // Sin tiempo total no se pinta cifra: el nombre de la carrera
-                    // se queda con todo el ancho (§7).
-                    if let total = race.total_time {
-                        Text(total)
-                            .font(Theme.Typography.readoutM)
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
-                }
-                // Las tres casillas de parciales son datos MEDIDOS: la que no
-                // tiene tiempo se omite del reparto, y si no queda ninguna la
-                // fila entera desaparece en vez de dejar tres huecos.
-                if hasAnySplit {
-                    HStack(spacing: Theme.Spacing.l) {
-                        splitTile(label: "Run", value: race.run_time)
-                        splitTile(label: "Estac.", value: race.stations_time)
-                        splitTile(label: "RoxZone", value: race.roxzone_time, accent: true)
-                    }
-                }
-                if let standing = race.standing_label {
-                    standingBand(standing)
-                }
-            }
-            .accessibilityElement(children: .contain)
-        }
-    }
-
-    /// ¿Hay al menos un parcial que sea un tiempo de verdad?
-    private var hasAnySplit: Bool {
-        race.run_time != nil || race.stations_time != nil || race.roxzone_time != nil
-    }
-
-    @ViewBuilder
-    private func splitTile(label: String, value: String?, accent: Bool = false) -> some View {
-        if let value {
-            VStack(alignment: .leading, spacing: 3) {
-                LabelText(text: label, size: 10)
-                MonoText(
-                    text: value,
-                    size: 14,
-                    weight: .bold,
-                    color: accent ? Theme.Color.warning : Theme.Color.foreground
-                )
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(label): \(value)")
-        }
-    }
-
-    private func standingBand(_ text: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "arrowtriangle.up.fill")
-                .font(.system(size: 9, weight: .bold))
-            Text(text)
-                .font(.system(size: 11, weight: .medium))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .foregroundStyle(Theme.Color.ok)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-// MARK: - IA report card
-//
-// Orange-TINT card (our brand, NOT the handoff red): a tracked accent eyebrow,
-// the "a priorizar" prose, and the recommended training-group chips.
-
-private struct IAReportCard: View {
-    let report: RaceIAReport
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            LabelText(text: "INFORME IA · A PRIORIZAR", color: Theme.Color.accentText)
-            Text(report.summary)
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .fixedSize(horizontal: false, vertical: true)
-            if !report.recommended_groups.isEmpty {
-                FlowChips(items: report.recommended_groups)
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.accent.opacity(0.08))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous)
-                .stroke(Theme.Color.accent.opacity(0.30), lineWidth: 1)
+    private var callbacks: CallbacksCarreras {
+        CallbacksCarreras(
+            alAbrirObjetivo: { accion, carrera in abrirObjetivo(accion, carrera) },
+            alAbrirProxima: { camino.append(.detalle(raceId: $0.raceId)) },
+            alElegirAccion: { elegir($0, $1) },
+            alMostrarAcciones: { accionesDe = $0 },
+            alBuscar: { hoja = .buscar },
+            alImportar: { hoja = .importar },
+            alQuitarImportacion: { confirmarQuitarImportadas = true },
+            alAbrirEstacion: { camino.append(.estacion($0)) },
+            alAbrirPredichoVsReal: { camino.append(.predichoVsReal) },
+            alReintentarTodo: { await store.loadCarreras(force: true) },
+            alReintentarPredicho: { reintentosPredicho += 1 },
+            alReintentarAnalisis: { Task { await store.refreshRaceOverview(force: true) } }
         )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous))
-        .accessibilityElement(children: .contain)
     }
-}
 
-// MARK: - Flow chips
-//
-// A wrapping row of pill chips for the IA report's recommended training groups.
-// Uses iOS-16 native layout wrapping via a simple HStack-per-line fold.
-
-private struct FlowChips: View {
-    let items: [String]
-
-    var body: some View {
-        // Lightweight wrap: chunk into rows of up to two chips (chip copy like
-        // "G09 · Circuitos f-r" is wide; two per line reads cleanly at 390pt).
-        let rows = stride(from: 0, to: items.count, by: 2).map {
-            Array(items[$0..<min($0 + 2, items.count)])
+    /// La acción del póster es la salida del hueco más importante que tenga: ver el camino, fijar el
+    /// tiempo, hacerla principal o conectar a la pareja (que vive en el detalle de la carrera).
+    private func abrirObjetivo(_ accion: AccionObjetivoCarrera, _ carrera: ProximaCarrera) {
+        switch accion {
+        case .verCamino, .conectarPareja: camino.append(.detalle(raceId: carrera.raceId))
+        case .fijarMeta: hoja = .meta(raceId: carrera.raceId)
+        case .hacerPrincipal: Task { await hacerPrincipal(carrera) }
         }
-        return VStack(alignment: .leading, spacing: 7) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                HStack(spacing: 7) {
-                    ForEach(row, id: \.self) { chip in
-                        Text(chip)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(Theme.Color.foreground)
-                            .padding(.horizontal, 11)
-                            .padding(.vertical, 5)
-                            .background(Theme.Color.surfaceElevated)
-                            .overlay(Capsule().stroke(Theme.Color.hairlineStrong, lineWidth: 1))
-                            .clipShape(Capsule())
-                    }
-                    Spacer(minLength: 0)
+    }
+
+    private func elegir(_ accion: AccionCarrera, _ carrera: ProximaCarrera) {
+        switch accion {
+        case .preguntar:
+            openChat(ChatContextChoice(target: .carrera(String(carrera.raceId)), etiqueta: etiquetaDeContexto(carrera)))
+        case .hacerPrincipal:
+            Task { await hacerPrincipal(carrera) }
+        case .quitar:
+            porQuitar = carrera
+        }
+    }
+
+    /// «HYROX Barcelona · 4 oct» para el chip del compositor. De pantalla: la que se guarda con el
+    /// mensaje la escribe el servidor.
+    private func etiquetaDeContexto(_ carrera: ProximaCarrera) -> String {
+        guard let fecha = carrera.fecha, let corta = FechaES.corta(fecha) else { return carrera.nombre }
+        return "\(carrera.nombre) · \(corta)"
+    }
+
+    // MARK: Destinos y hojas
+
+    @ViewBuilder
+    private func destino(_ d: DestinoCarreras) -> some View {
+        switch d {
+        case .detalle(let raceId):
+            if let race = carreraDelHub(raceId) {
+                RaceDetailView(
+                    race: race,
+                    isTargetRace: raceId == principal?.raceId,
+                    bearer: bearer,
+                    onMakePrimary: { if let c = lectura.proximas.first(where: { $0.raceId == raceId }) { Task { await hacerPrincipal(c) } } }
+                )
+            }
+        case .estacion(let nombre):
+            StationDetailView(station: nombre, bearer: bearer)
+        case .predichoVsReal:
+            if let valor = revision?.valor { PredichoVsRealView(review: valor) }
+        }
+    }
+
+    @ViewBuilder
+    private func contenidoDeHoja(_ h: HojaCarreras) -> some View {
+        switch h {
+        case .importar:
+            ImportRaceSheet(bearer: bearer) { resultado in
+                // La importación entera trae las carreras ricas (con equipo): se pliegan en el hub al
+                // momento, y luego se reconcilia todo lo derivado con el servidor. La del enlace (una
+                // sola carrera) pasa nil y solo se reconcilia.
+                if let resultado { store.applyImportedRaces(resultado.races) }
+                Task { await store.racesMutated() }
+                let n = resultado?.races.count ?? 1
+                aviso = .init(tono: .ok, texto: n > 1 ? "Historial importado: \(n) carreras." : "Carrera importada.")
+            }
+        case .buscar:
+            // Fijar la hace la principal y pasa la actual a secundaria: se refresca el hub y el plan para
+            // que el objetivo nuevo aparezca aquí y la cuenta atrás de Inicio lo siga.
+            BuscarCarreraSheet(bearer: bearer) {
+                Task {
+                    await store.racesMutated()
+                    if let nueva = principal { aviso = .init(tono: .ok, texto: "«\(nueva.nombre)» es ahora tu carrera objetivo.") }
                 }
             }
+        case .meta(let raceId):
+            if let race = carreraDelHub(raceId) {
+                FijarTiempoObjetivoSheet(race: race, bearer: bearer) {
+                    Task {
+                        await store.racesMutated()
+                        aviso = .init(tono: .ok, texto: "Tiempo objetivo guardado.")
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: Lo que se pide por su cuenta: el predicho y su revisión
+
+    private var clavePredicho: ClavePredicho {
+        ClavePredicho(
+            objetivo: principal.map { ObjetivoDelPredicho(raceId: $0.raceId, metaS: $0.metaS, formato: $0.formato) },
+            tipoEvento: principal?.tipoEvento,
+            // Cada vez que el hub se reconcilia, el predicho se refresca (importar o fijar lo cambia).
+            hubCargadoEn: store.racesHub.loadedAt,
+            reintentos: reintentosPredicho,
+            bearer: bearer
+        )
+    }
+
+    struct ClavePredicho: Hashable {
+        let objetivo: ObjetivoDelPredicho?
+        let tipoEvento: TipoEventoCarrera?
+        let hubCargadoEn: Date?
+        let reintentos: Int
+        let bearer: String?
+    }
+
+    @MainActor
+    private func cargarPredicho() async {
+        // Solo el principal HYROX con tiempo objetivo tiene predicho que pedir: el resto se resuelve
+        // en la lectura sin red (no aplica / sin meta).
+        guard let principal, principal.tipoEvento == .hyrox, principal.metaS != nil, let bearer else {
+            predicho = nil
+            predichoDe = nil
+            return
+        }
+        let de = ObjetivoDelPredicho(raceId: principal.raceId, metaS: principal.metaS, formato: principal.formato)
+        if predichoDe != de {
+            // Otra carrera u otra meta: el que hay ya no vale, se vuelve a calcular (esqueleto).
+            predicho = .pidiendo
+            predichoDe = de
+        } else if case .fallo? = predicho {
+            predicho = .pidiendo
+        }
+        let nuevo: LecturaDePredicho
+        if principal.formato == .dobles {
+            nuevo = await DoblesService.fetchRaceGap(raceId: String(principal.raceId), bearer: bearer).map(LecturaDePredicho.pareja) ?? .fallo
+        } else {
+            nuevo = await GoalGapService.fetchGoalGap(bearer: bearer).map(LecturaDePredicho.individual) ?? .fallo
+        }
+        if Task.isCancelled { return }
+        // Un fallo al REFRESCAR no pisa un predicho bueno que ya estaba: solo se declara si no había nada.
+        if case .fallo = nuevo {
+            switch predicho {
+            case .individual?, .pareja?: return
+            default: break
+            }
+        }
+        predicho = nuevo
+    }
+
+    @MainActor
+    private func cargarRevision() async {
+        guard let id = store.raceOverview.value?.last_race?.id, let bearer else {
+            revision = nil
+            return
+        }
+        let valor = await GoalGapService.fetchPredictionReview(raceId: id, bearer: bearer)
+        if Task.isCancelled { return }
+        revision = valor.map { (raceId: id, valor: $0) }
+    }
+
+    // MARK: Acciones (al servidor, y luego el store se reconcilia)
+
+    /// «Tu sesión ha caducado…» o, si no, el mensaje propio de la acción (los de `HyresultImportError`
+    /// hablan de importar y aquí no vienen a cuento).
+    private func mensaje(_ error: Error, generico: String) -> String {
+        if let e = error as? HyresultImportError, case .unauthorized = e { return e.message }
+        return generico
+    }
+
+    @MainActor
+    private func hacerPrincipal(_ carrera: ProximaCarrera) async {
+        guard !enMarcha else { return }
+        enMarcha = true
+        defer { enMarcha = false }
+        do {
+            try await CarrerasService.makePrimaryObjective(raceId: carrera.raceId, bearer: bearer)
+            Haptics.success()
+            await store.racesMutated()
+            aviso = .init(tono: .ok, texto: "«\(carrera.nombre)» es ahora tu objetivo principal.")
+        } catch {
+            Haptics.error()
+            aviso = .init(tono: .fallo, texto: mensaje(error, generico: "No pudimos cambiar tu objetivo principal. Inténtalo de nuevo."))
+        }
+    }
+
+    @MainActor
+    private func quitar(_ carrera: ProximaCarrera) async {
+        guard !enMarcha else { return }
+        enMarcha = true
+        defer { enMarcha = false }
+        do {
+            try await CarrerasService.deleteObjective(raceId: carrera.raceId, bearer: bearer)
+            Haptics.success()
+            await store.racesMutated()
+            aviso = .init(tono: .ok, texto: "Objetivo quitado.")
+        } catch {
+            Haptics.error()
+            aviso = .init(tono: .fallo, texto: mensaje(error, generico: "No pudimos quitar este objetivo. Inténtalo de nuevo."))
+        }
+    }
+
+    /// «No soy yo»: borra lo importado en el servidor y en local, reconcilia y reabre la búsqueda con
+    /// el campo limpio para que el atleta elija su perfil de verdad. Si falla, se queda y se dice.
+    @MainActor
+    private func quitarImportadas() async {
+        guard !enMarcha else { return }
+        enMarcha = true
+        defer { enMarcha = false }
+        do {
+            _ = try await CarrerasService.undoImport(bearer: bearer)
+            Haptics.success()
+            store.removeImportedRaces()
+            await store.racesMutated()
+            aviso = .init(tono: .ok, texto: "Carreras importadas eliminadas.")
+            hoja = .importar
+        } catch {
+            Haptics.error()
+            aviso = .init(tono: .fallo, texto: mensaje(error, generico: "No pudimos eliminar las carreras importadas. Inténtalo de nuevo."))
         }
     }
 }

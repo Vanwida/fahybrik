@@ -357,11 +357,24 @@ final class AppDataStore {
     /// PASADAS list updates INSTANTLY — the import-all response is the freshest,
     /// most complete history (with partners / team-vs-individual), richer than a
     /// follow-up `/races` round-trip. Keeps the current upcoming list untouched
-    /// and persists. Pass `[]` to optimistically clear the history on an undo.
+    /// and persists. It is an UPSERT by race (`AccionesCarreras.unirPorId`): re-importing
+    /// refreshes a race instead of duplicating it, and the expired objectives that have no
+    /// import behind them are not wiped by an import that doesn't mention them.
     /// A follow-up `racesMutated()` then reconciles with the server.
     func applyImportedRaces(_ races: [ImportedRace]) {
+        applyPast(AccionesCarreras.unirPorId(racesHub.value?.past ?? [], races))
+    }
+
+    /// The undo ("No soy yo"): everything that was imported goes, at once; what has no result
+    /// (an objective whose date passed) never came from an import and stays until the server
+    /// says otherwise. `racesMutated()` reconciles afterwards.
+    func removeImportedRaces() {
+        applyPast(AccionesCarreras.sinImportadas(racesHub.value?.past ?? []))
+    }
+
+    private func applyPast(_ past: [ImportedRace]) {
         let upcoming = racesHub.value?.upcoming ?? []
-        racesHub.setLoaded(RacesHubResponse(upcoming: upcoming, past: races))
+        racesHub.setLoaded(RacesHubResponse(upcoming: upcoming, past: past))
         persist()
     }
 

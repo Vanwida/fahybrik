@@ -1,7 +1,7 @@
 import Foundation
 
-// Service + Codable models for the Carreras (performance/race) hub: race
-// results, the IA weakness report, station benchmarks, and running splits.
+// Service + Codable models for the Carreras (performance/race) hub: the IA
+// weakness report, station benchmarks, and running splits of the last singles race.
 //
 // LIVE: the race-derived endpoints now ship. fetchOverview hits
 // `GET /api/athlete/race-context`, fetchStationDetail hits
@@ -21,47 +21,23 @@ import Foundation
 
 // MARK: - Models
 
-/// A completed race result with split breakdown.
-struct RaceResultSummary: Codable, Identifiable, Hashable {
+/// La carrera de la que salen los bloques del análisis: la última carrera INDIVIDUAL con
+/// resultado. Solo lo que hace falta para nombrarla y ubicarla; su tiempo, sus parciales y su
+/// puesto los lleva el hub (`ImportedRace`), que es la fuente única de las carreras pasadas.
+struct CarreraDelAnalisis: Codable, Identifiable, Hashable {
+    /// `races.id` como texto (el cable lo manda así).
     let id: String
     let event_name: String
-    /// ISO date (YYYY-MM-DD) of the race.
+    /// ISO `YYYY-MM-DD`, o «Fecha por confirmar» cuando el servidor no sabe la fecha.
     let date: String
-    /// Division / category label, e.g. "Pro", "Open".
-    let division: String?
-    /// Total time, pre-formatted "H:MM:SS".
-    let total_time: String?
-    /// Split times (pre-formatted) for the headline tiles.
-    let run_time: String?
-    let stations_time: String?
-    let roxzone_time: String?
-    /// Percentile / ranking banner, e.g. "Top 18% de tu división".
-    let standing_label: String?
-    /// Delta vs the athlete's previous race, pre-formatted "−2:34".
-    let delta_vs_previous: String?
-    /// Total time in whole seconds — drives the evolution chart's relative bar
-    /// heights without re-parsing the formatted `total_time`. Nil when unknown.
-    let total_seconds: Int?
 
-    // APIClient decodes with `.convertFromSnakeCase`, which rewrites each wire key
-    // to camelCase BEFORE matching the CodingKey. The default CodingKey for a
-    // snake_case property keeps the snake_case string, so a multi-word property
-    // (event_name, total_time, …) would never match and a NON-optional one
-    // (event_name) would throw and take the whole overview decode down. Map each
-    // to the post-conversion form so the payload decodes while the property names
-    // the views reference stay snake_case. Single-word keys match as-is.
+    // `.convertFromSnakeCase` reescribe cada clave del cable a camelCase ANTES de casar con
+    // la CodingKey: una propiedad snake_case de varias palabras no casaría nunca y, siendo no
+    // opcional, tiraría abajo el decode entero. Se mapea a la forma ya convertida.
     enum CodingKeys: String, CodingKey {
         case id
         case event_name = "eventName"
         case date
-        case division
-        case total_time = "totalTime"
-        case run_time = "runTime"
-        case stations_time = "stationsTime"
-        case roxzone_time = "roxzoneTime"
-        case standing_label = "standingLabel"
-        case delta_vs_previous = "deltaVsPrevious"
-        case total_seconds = "totalSeconds"
     }
 }
 
@@ -82,6 +58,7 @@ struct RaceIAReport: Codable, Hashable {
 
 /// A station benchmark comparison row (athlete vs the field).
 struct StationBenchmark: Codable, Identifiable, Hashable {
+    /// `station_<índice canónico>`: el índice de la estación va en el id.
     let id: String
     /// Station name, e.g. "Sled Push".
     let station: String
@@ -112,20 +89,21 @@ struct RunningSplit: Codable, Identifiable, Hashable {
 }
 
 /// The bundle the Carreras hub loads in one shot.
+///
+/// La lista de carreras anteriores (`history`) YA NO se decodifica: llegaba con la forma de
+/// `RaceHistoryItem` y se leía como el resumen de la última, así que cada fila fallaba, la lista
+/// quedaba vacía y la Evolución no se pintaba nunca. Las carreras pasadas salen del hub
+/// (`GET /athlete/races`, `ImportedRace`): una sola fuente. Tampoco `station_comparison_note`:
+/// «no hay ni un puesto por estación» se deduce de la propia lista.
 struct CarrerasOverview: Codable, Hashable {
-    let last_race: RaceResultSummary?
+    let last_race: CarreraDelAnalisis?
     let ia_report: RaceIAReport?
     // AUDIT-B3 — a malformed row is dropped, not the whole Carreras hub.
     @LossyArray var station_benchmarks: [StationBenchmark]
-    /// Why the station rows carry no comparison bar, when they carry none. Shown
-    /// so the section declares its own gap instead of looking merely thin.
-    let station_comparison_note: String?
     @LossyArray var running_splits: [RunningSplit]
-    /// Optional final-pace-drop callout for the per-km chart, e.g.
-    /// "Caída de ritmo en los últimos 2 km (+18s/km)".
+    /// La caída de ritmo de la segunda mitad, dicha en prosa por el servidor («… (+18s/km)»).
+    /// El número se lee de aquí una vez (`CaidaDeRitmoCable`); el texto lo escribe la vista.
     let pace_drop_note: String?
-    /// History of prior races (most recent first), for the list at the bottom.
-    @LossyArray var history: [RaceResultSummary]   // AUDIT-B3 — drop a bad row, not the list
 
     // `.convertFromSnakeCase` rewrites each multi-word wire key (last_race →
     // lastRace, …) before matching; the snake_case property's default CodingKey
@@ -135,43 +113,9 @@ struct CarrerasOverview: Codable, Hashable {
         case last_race = "lastRace"
         case ia_report = "iaReport"
         case station_benchmarks = "stationBenchmarks"
-        case station_comparison_note = "stationComparisonNote"
         case running_splits = "runningSplits"
         case pace_drop_note = "paceDropNote"
-        case history
     }
-}
-
-// MARK: - Severity mapping
-//
-// The wire layer speaks `"better" | "slightly_worse" | "worse"`; the views need
-// `BenchmarkBarRow.Severity`. One conversion, single-sourced here so every
-// surface (benchmark rows, pace bars) agrees and an unknown string degrades to
-// the neutral-worst reading rather than crashing.
-
-extension BenchmarkBarRow.Severity {
-    init(wire raw: String) {
-        switch raw.lowercased() {
-        case "better":         self = .better
-        case "slightly_worse": self = .slightlyWorse
-        default:               self = .worse
-        }
-    }
-}
-
-// MARK: - Station catalogue
-//
-// The 8 non-run HYROX stations the deep-dive is replicable across, derived from
-// the canonical RaceModels station labels (the even indices — odd indices are
-// the eight 1 km runs). Single source so the hub grid, the detail screen and
-// any future per-station routing share one ordered list and never drift.
-
-enum CarrerasStations {
-    /// The eight HYROX work stations, in race order.
-    static let all: [String] = HyroxStation.labels
-        .filter { !HyroxStation.runIndices.contains($0.key) }
-        .sorted { $0.key < $1.key }
-        .map { $0.value }
 }
 
 // MARK: - Service
@@ -180,23 +124,12 @@ enum CarrerasService {
     /// Load the Carreras hub overview for the authenticated athlete.
     ///
     /// LIVE: `GET /api/athlete/race-context` builds the bundle from the athlete's
-    /// IMPORTED HYROX results — last race summary, per-station benchmarks, the
-    /// 8×1 km running splits, an optional pace-drop note, and the race history.
-    /// The endpoint is honest-empty (every field null/empty) when the athlete has
-    /// no imported race yet, so the hub still renders its "aún no hay carreras"
-    /// empty state. Returns nil only when there's no bearer or the request fails
-    /// (so the view degrades to its empty state rather than erroring).
-    static func fetchOverview(bearer: String?) async -> CarrerasOverview? {
-        guard let bearer else { return nil }
-        return try? await fetchOverviewThrowing(bearer: bearer)
-    }
-
-    /// Throwing variant of `fetchOverview` — same endpoint, but it propagates the
-    /// error instead of swallowing it to nil. AppDataStore's SWR engine needs the
-    /// throw so a failed revalidation KEEPS the last good cached overview (and the
-    /// offline disk snapshot) rather than overwriting it with an empty result. The
-    /// non-throwing wrapper above preserves the "degrade to nil" contract its other
-    /// callers rely on. One endpoint path — no parallel fetch.
+    /// IMPORTED HYROX results — the last singles race, per-station benchmarks, the
+    /// 8×1 km running splits and an optional pace-drop note. The endpoint is
+    /// honest-empty (every field null/empty) when the athlete has no imported race
+    /// yet. THROWS on failure: AppDataStore's SWR engine needs the error so a failed
+    /// revalidation KEEPS the last good cached overview (and the offline disk
+    /// snapshot) rather than overwriting it with an empty result.
     static func fetchOverviewThrowing(bearer: String) async throws -> CarrerasOverview {
         try await APIClient.shared.get(
             path: "api/athlete/race-context",
@@ -208,8 +141,8 @@ enum CarrerasService {
     ///
     /// `POST /api/athlete/race-results/import` with `{ result_url }`. The server
     /// fetches + parses the HYROX detail page and upserts the athlete's `races`
-    /// row (idempotent per HYROX idp — re-pasting refreshes). On success the hub
-    /// should re-fetch `fetchOverview` to surface the new race.
+    /// row (idempotent per HYROX idp — re-pasting refreshes). On success the tab
+    /// asks the store to reconcile (`racesMutated`) to surface the new race.
     ///
     /// Throws `CarrerasImportError` with an athlete-readable message keyed off the
     /// server's error code, or a network/decoding wrapper, so the sheet can show
@@ -269,18 +202,10 @@ enum CarrerasService {
     /// LIVE: `GET /api/athlete/running-analysis` computes the bundle from the
     /// athlete's stored run segments + a Jack-Daniels VDOT off their 5K
     /// benchmark. Fields the system can't measure yet (threshold/VO₂/zones with
-    /// no 5K, training links) come back null / empty and the view renders honest
-    /// empty states. Returns nil only when there's no bearer or the request
-    /// fails, so the screen degrades to its empty state rather than erroring.
-    static func fetchRunningAnalysis(bearer: String?) async -> RunningAnalysis? {
-        guard let bearer else { return nil }
-        return try? await fetchRunningAnalysisThrowing(bearer: bearer)
-    }
-
-    /// THROWING variant for the AppDataStore's SWR engine: a failed revalidation
-    /// must keep the last-good cached analysis (offline-first), so the store needs
-    /// the error to surface rather than be swallowed into a nil that wipes the
-    /// slice. The deep-dive screen keeps the non-throwing wrapper above.
+    /// no 5K, training links) come back null / empty and the views render honest
+    /// empty states.
+    /// It THROWS so the AppDataStore's SWR engine keeps the last-good cached
+    /// analysis (offline-first) when a revalidation fails.
     static func fetchRunningAnalysisThrowing(bearer: String) async throws -> RunningAnalysis? {
         try await APIClient.shared.get(
             path: "api/athlete/running-analysis",

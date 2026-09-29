@@ -137,8 +137,9 @@ final class CicloDelPlanLecturasTests: XCTestCase {
     func test_carreraConObjetivo_loEscribeUnaVez() {
         let carrera = EscenariosCiclo.completo.nodos.first { $0.clase == .carrera }
         XCTAssertEqual(carrera?.titulo, "HYROX Barcelona")
-        XCTAssertEqual(carrera?.detalle, "Tu carrera · objetivo 1:30:00")
-        XCTAssertEqual(carrera?.etiqueta, "Tu carrera: HYROX Barcelona, en 73 días, objetivo 1:30:00")
+        // Un objetivo de carrera se lee en minutos («90:00», nunca «1:30:00»): una sola escala en toda la app.
+        XCTAssertEqual(carrera?.detalle, "Tu carrera · objetivo 90:00")
+        XCTAssertEqual(carrera?.etiqueta, "Tu carrera: HYROX Barcelona, en 73 días, objetivo 90:00")
     }
 
     func test_carreraSinObjetivo_noInventaNinguno() {

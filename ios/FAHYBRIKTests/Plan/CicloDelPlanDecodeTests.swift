@@ -65,7 +65,7 @@ final class CicloDelPlanDecodeTests: XCTestCase {
         XCTAssertTrue(camino.segments[0].events.isEmpty)
         XCTAssertEqual(r.politica, .repite)
         XCTAssertEqual(r.carrera?.goalTimeS, 5_400)
-        XCTAssertEqual(r.carrera?.objetivo, "1:30:00")
+        XCTAssertEqual(r.carrera?.objetivo, "90:00")
     }
 
     /// EL PAYLOAD VIEJO: el camino tal como viaja dentro de una nota del coach, sin

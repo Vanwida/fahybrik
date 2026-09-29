@@ -58,7 +58,7 @@ struct CarreraDelCiclo: Codable, Equatable {
     /// entonces NO se escribe ninguno: un tiempo por defecto parecería suyo.
     let goalTimeS: Int?
 
-    /// «1:30:00». Nil sin objetivo puesto. Sale de la MISMA implementación que
+    /// «90:00» (minutos de carrera, nunca «1:30:00»). Nil sin objetivo puesto. Sale de la MISMA implementación que
     /// escribe el objetivo en Inicio y en Carreras, para que no puedan divergir.
     var objetivo: String? { AthleteNextRace.goalTimeFormatted(goalTimeS) }
 

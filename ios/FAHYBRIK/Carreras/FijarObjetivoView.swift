@@ -1,253 +1,202 @@
 import SwiftUI
 
-// "Fijar objetivo" — the detail step pushed from BuscarCarreraSheet when the
-// athlete taps an event. Shows the event header, then the three ORTHOGONAL race
-// attributes the athlete chooses (format · division · gender) plus an optional
-// goal time. `division_options` from the event is shown only as an informational
-// hint — it is NOT the source of the selectors.
+// "Fijar objetivo" — the detail step pushed from BuscarCarreraSheet when the athlete taps an event:
+// cuándo es, cómo la corres y a qué tiempo vas. Lo que hay que preguntar depende de la FAMILIA de la
+// carrera (y hoy la app ya lo hace así):
+//   · híbrida (HYROX, DEKA…) → formato, división y categoría (o la variante, en una Hunter Race);
+//   · running               → la distancia (y si es homologada);
+//   · CrossFit, OCR, otra   → la división, en texto libre.
+// El selector de tiempo lleva los peldaños de HYROX solo si es HYROX: para el resto solo «sin tiempo»
+// y el exacto. Todo lo que se elige se manda como en la app (`SetTargetRaceBody`). Espejo de `fijar.tsx`.
 //
-// On "Fijar como mi carrera objetivo" → POST the target → on success call
-// `onTargetSet` (the sheet dismisses itself and the caller reloads so the home
-// countdown refreshes). Inline Spanish error on failure. Light+dark off Theme.
+// Fijar la hace la PRINCIPAL y la que había pasa a secundaria: se dice ANTES de fijar (antes ocurría
+// sin avisar). Al terminar, `onTargetSet` cierra la hoja y quien la abrió recarga.
 struct FijarObjetivoView: View {
     let event: RaceCalendarEvent
     var bearer: String?
+    /// La frase que avisa de que el principal de ahora pasa a secundaria. nil = no hay otro principal
+    /// (o es este mismo) y no hay nada que avisar.
+    var pasaASecundaria: String? = nil
     /// Called after a successful set — the sheet dismisses + caller reloads.
     let onTargetSet: () -> Void
+    /// Cierra la hoja entera (la «✕»). «Atrás» solo vuelve al calendario.
+    var cerrar: () -> Void = {}
 
-    // The three orthogonal attributes (wire tokens). Defaults to the most common
-    // singles/open — the athlete sees every option and changes any of them.
-    @State private var format: String = "singles"
-    @State private var division: String = "open"
-    @State private var gender: String = "men"
+    @Environment(\.dismiss) private var volver
+
+    // Los atributos ORTOGONALES (tokens de cable). Por defecto lo más común (individual/open/hombres):
+    // se ven todas las opciones y se cambia cualquiera.
+    @State private var format = "singles"
+    @State private var division = "open"
+    @State private var gender = "men"
     @State private var hunterVariant: HunterRaceVariant = .legend
     @State private var distancePreset: RunningDistancePreset = .km10
-    @State private var customMeters: String = ""
-    @State private var homologada: Bool = false
-    @State private var divisionLabel: String = ""
+    @State private var customMeters = ""
+    @State private var homologada = false
+    @State private var divisionLabel = ""
 
-    // Objetivo por rangos → goalTimeSeconds. Nothing chosen by default → nil (the
-    // race can be fixed with no goal, exactly as before). A preset maps to its
-    // seconds; "Acabarla bien" → nil; the exact wheels are the fallback.
+    // Objetivo por rangos → goalTimeSeconds. Nada elegido → nil (se puede fijar sin meta).
     @State private var goalChoice: GoalChoice? = nil
-    @State private var goalHours = 1
-    @State private var goalMinutes = 0
-    @State private var goalSeconds = 0
+    @State private var tiempo = TiempoExacto()
 
     @State private var submitting = false
     @State private var errorText: String? = nil
     @State private var eventDate: Date
+    @FocusState private var metrosEnFoco: Bool
+    @FocusState private var divisionEnFoco: Bool
 
-    init(event: RaceCalendarEvent, bearer: String?, onTargetSet: @escaping () -> Void) {
+    init(
+        event: RaceCalendarEvent,
+        bearer: String?,
+        pasaASecundaria: String? = nil,
+        onTargetSet: @escaping () -> Void,
+        cerrar: @escaping () -> Void = {}
+    ) {
         self.event = event
         self.bearer = bearer
+        self.pasaASecundaria = pasaASecundaria
         self.onTargetSet = onTargetSet
+        self.cerrar = cerrar
         _eventDate = State(initialValue: ObjectiveWhenDate.fromEventStart(event.startDate))
     }
 
     /// Catalog rows without a confirmed date show an extra hint under the label.
-    private var catalogUndated: Bool {
-        event.startDate == nil || event.tentative
-    }
+    private var catalogUndated: Bool { event.startDate == nil || event.tentative }
 
-    private var goalTotalSeconds: Int? {
-        switch goalChoice {
-        case .preset(let preset):
-            return preset.seconds
-        case .exact:
-            let total = goalHours * 3600 + goalMinutes * 60 + goalSeconds
-            return total > 0 ? total : nil
-        case .finish, .none:
-            return nil
-        }
-    }
+    private var esHunter: Bool { event.isHunterRace || event.series?.lowercased() == "hunter_race" }
+
+    private var goalTotalSeconds: Int? { GoalChoice.metaS(goalChoice, tiempo: tiempo) }
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-                    eventHeader
-                    ObjectiveWhenSection(date: $eventDate, showUndatedCatalogHint: catalogUndated)
-                    participationSection
-                    goalTimeSection
-
-                    if let errorText {
-                        errorBanner(errorText)
-                    }
+        MarcoDeHojaCarreras("Fijar objetivo", atras: { volver() }, cerrar: cerrar) {
+            VStack(alignment: .leading, spacing: 22) {
+                cabeceraDelEvento
+                ObjectiveWhenSection(date: $eventDate, showUndatedCatalogHint: catalogUndated)
+                participacion
+                pregunta
+                if let errorText { AvisoEnLinea(errorText) }
+                if let pasaASecundaria {
+                    Text(pasaASecundaria)
+                        .papel(.notaFuerte)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(EdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 14))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.Color.foreground.opacity(0.06), in: RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous).strokeBorder(Theme.Color.hairlineStrong, lineWidth: 1))
                 }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.l)
             }
-            .anchoredAction { submitButton }
+        } accion: {
+            BotonPrimarioCarreras(
+                titulo: "Fijar como mi carrera objetivo",
+                ocupado: submitting,
+                textoOcupado: "Guardando…",
+                voz: "Guardando tu carrera objetivo",
+                accion: submit
+            )
         }
-        .navigationTitle("Fijar objetivo")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarHidden(true)
     }
 
     // MARK: - Event header
 
-    private var eventHeader: some View {
-        CardSurface(padding: 18, topAccent: true, elevated: true) {
-            VStack(alignment: .leading, spacing: 10) {
-                if let series = event.seriesLabel {
-                    LabelText(text: series, color: Theme.Color.accentText)
-                }
-                Text(event.name)
-                    .scaledFont(22, weight: .heavy, relativeTo: .title3, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(event.cityDateLine)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Theme.Color.muted)
-                if let offers = event.divisionOptionsLine {
-                    HStack(alignment: .top, spacing: 6) {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Theme.Color.faint)
-                        Text("Este evento ofrece: \(offers)")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Theme.Color.faint)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(.top, 2)
-                }
+    private var cabeceraDelEvento: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            if let series = event.seriesLabel {
+                Text(series).papel(.etiqueta).foregroundStyle(Theme.Color.accentText)
             }
+            Text(event.name)
+                .papel(.seccion)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(cuandoYDonde).papel(.nota).foregroundStyle(Theme.Color.muted)
         }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .tarjetaCarreras(realce: true)
+        .accessibilityElement(children: .combine)
     }
+
+    private var cuandoYDonde: String {
+        let cuando = catalogUndated
+            ? "Fecha por confirmar"
+            : event.startDate.flatMap { FechaES.corta($0, hoy: RaceDate.todayISO(), conDia: true) } ?? event.dateText
+        return [event.location.flatMap { $0.isEmpty ? nil : $0 }, cuando].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    // MARK: - Lo que se pregunta según la familia
 
     @ViewBuilder
-    private var participationSection: some View {
+    private var participacion: some View {
         switch event.objectiveFamily {
-        case .hybrid where event.isHunterRace || event.series?.lowercased() == "hunter_race":
-            VStack(alignment: .leading, spacing: 8) {
-                LabelText(text: "FORMATO")
-                ForEach(HunterRaceVariant.allCases) { v in
-                    PillChip(title: v.label, selected: hunterVariant == v) {
-                        hunterVariant = v
-                    }
-                }
-            }
+        case .hybrid where esHunter:
+            SegmentadoCarreras(
+                etiqueta: "Formato",
+                opciones: HunterRaceVariant.allCases.map { (valor: $0, texto: $0.label) },
+                seleccion: $hunterVariant
+            )
         case .hybrid:
-            picker(
-                label: "FORMATO",
-                options: [("singles", "Individual"), ("doubles", "Dobles"), ("relay", "Relevos")],
-                selection: $format
+            SegmentadoCarreras(
+                etiqueta: "Formato",
+                opciones: [FormatoCarrera.individual, .dobles, .relevos].map { (valor: $0.rawValue, texto: $0.etiqueta) },
+                seleccion: $format
             )
-            picker(
-                label: "DIVISIÓN",
-                options: [("open", "Open"), ("pro", "Pro"), ("elite", "Elite")],
-                selection: $division
+            SegmentadoCarreras(
+                etiqueta: "División",
+                opciones: [DivisionCarrera.open, .pro, .elite].map { (valor: $0.rawValue, texto: $0.etiqueta) },
+                seleccion: $division
             )
-            picker(
-                label: "CATEGORÍA",
-                options: [("men", "Hombres"), ("women", "Mujeres"), ("mixed", "Mixto")],
-                selection: $gender
+            SegmentadoCarreras(
+                etiqueta: "Categoría",
+                opciones: [CategoriaCarrera.hombres, .mujeres, .mixto].map { (valor: $0.rawValue, texto: $0.etiqueta) },
+                seleccion: $gender
             )
         case .running:
-            VStack(alignment: .leading, spacing: 10) {
-                LabelText(text: "DISTANCIA")
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(RunningDistancePreset.allCases) { p in
-                            PillChip(title: p.label, selected: distancePreset == p) {
-                                distancePreset = p
-                            }
-                        }
-                    }
-                }
+            VStack(alignment: .leading, spacing: Theme.Spacing.m - 2) {
+                SegmentadoCarreras(
+                    etiqueta: "Distancia",
+                    opciones: RunningDistancePreset.allCases.map { (valor: $0, texto: $0.label) },
+                    seleccion: $distancePreset
+                )
                 if distancePreset == .custom {
-                    TextField("Metros", text: $customMeters)
-                        .keyboardType(.numberPad)
-                        .font(.system(size: 15))
-                        .padding(12)
-                        .background(Theme.Color.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                    CampoCarreras("Metros", enFoco: metrosEnFoco) {
+                        TextField("Metros", text: $customMeters)
+                            .keyboardType(.numberPad)
+                            .focused($metrosEnFoco)
+                            .onChange(of: customMeters) { _, nuevo in customMeters = nuevo.filter(\.isNumber) }
+                            .accessibilityLabel("Distancia en metros")
+                    }
                 }
                 Toggle(isOn: $homologada) {
-                    Text("Carrera homologada")
-                        .font(.system(size: 14, weight: .semibold))
+                    Text("Carrera homologada").papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
                 }
                 .tint(Theme.Color.accent)
+                .frame(minHeight: 52)
             }
         case .crossfit, .other, .ocr:
-            VStack(alignment: .leading, spacing: 8) {
-                LabelText(text: "DIVISIÓN")
+            CampoCarreras("División", enFoco: divisionEnFoco) {
                 TextField("Ej. RX · Scaled · Masters", text: $divisionLabel)
-                    .font(.system(size: 15))
-                    .padding(12)
-                    .background(Theme.Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                    .autocorrectionDisabled(true)
+                    .focused($divisionEnFoco)
+                    .accessibilityLabel("División")
             }
         }
     }
 
-    // MARK: - Attribute picker
+    // MARK: - «¿A qué vas?»
 
-    private func picker(
-        label: String,
-        options: [(value: String, label: String)],
-        selection: Binding<String>
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            LabelText(text: label)
-            SegmentedChoice(options: options, selection: selection)
-        }
-    }
-
-    // MARK: - Objetivo por rangos (Pantalla A)
-    //
-    // How athletes actually talk (sub-60/70/80/90 or "acabarla bien"), with the
-    // exact h:mm:ss wheels demoted to a secondary "tiempo exacto" fallback. Every
-    // choice resolves to the SAME goalTimeSeconds field — zero server change.
-
-    private var goalTimeSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+    private var pregunta: some View {
+        VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("¿A qué vas?")
-                    .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Tu plan y tu analítica se enfocan en esto.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.Color.muted)
+                Text("¿A qué vas?").subtituloCarreras()
+                Text("Tu plan y tu analítica se enfocan en esto.").papel(.nota).foregroundStyle(Theme.Color.muted)
             }
-
+            MetaSelectorCarreras(esHyrox: event.isHyroxGoalGapEligible, eleccion: $goalChoice, tiempo: $tiempo)
             if event.isHyroxGoalGapEligible {
-                GoalPresetGrid(choice: $goalChoice)
-                GoalPresetChip(
-                    title: "Acabarla bien",
-                    descriptor: "primera carrera · sin reloj",
-                    selected: goalChoice == .finish
-                ) {
-                    goalChoice = .finish
-                }
-                if case .exact = goalChoice {
-                    exactWheels
-                } else {
-                    GoalExactLink {
-                        withAnimation(.easeInOut(duration: 0.18)) { goalChoice = .exact }
-                    }
-                }
                 Text("El objetivo se traduce en tiempos por estación según datos reales de tu división.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.Color.faint)
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
-            } else {
-                GoalPresetChip(
-                    title: "Sin tiempo objetivo",
-                    descriptor: "solo fecha y tipo",
-                    selected: goalChoice == .finish
-                ) {
-                    goalChoice = .finish
-                }
-                if case .exact = goalChoice {
-                    exactWheels
-                } else {
-                    GoalExactLink {
-                        withAnimation(.easeInOut(duration: 0.18)) { goalChoice = .exact }
-                    }
-                }
             }
         }
     }
@@ -260,96 +209,7 @@ struct FijarObjetivoView: View {
         return distancePreset.meters
     }
 
-    /// The exact h:mm:ss wheels — the fallback revealed by "Prefiero un tiempo
-    /// exacto…". Preserved from the original goal input, now demoted below the
-    /// range presets.
-    private var exactWheels: some View {
-        HStack(spacing: 8) {
-            wheel(value: $goalHours, range: 0...5, unit: "h")
-            wheel(value: $goalMinutes, range: 0...59, unit: "min")
-            wheel(value: $goalSeconds, range: 0...59, unit: "s")
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity)
-        .background(Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-    }
-
-    private func wheel(value: Binding<Int>, range: ClosedRange<Int>, unit: String) -> some View {
-        VStack(spacing: 2) {
-            Picker("", selection: value) {
-                ForEach(Array(range), id: \.self) { n in
-                    Text(String(format: "%02d", n))
-                        .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                        .tag(n)
-                }
-            }
-            .pickerStyle(.wheel)
-            .frame(height: 96)
-            .clipped()
-            LabelText(text: unit, color: Theme.Color.faint, size: 10)
-        }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(value.wrappedValue) \(unit)")
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment: if value.wrappedValue < range.upperBound { value.wrappedValue += 1 }
-            case .decrement: if value.wrappedValue > range.lowerBound { value.wrappedValue -= 1 }
-            default: break
-            }
-        }
-    }
-
     // MARK: - Submit
-
-    @ViewBuilder
-    private var submitButton: some View {
-        if submitting {
-            HStack(spacing: 10) {
-                ProgressView().tint(Theme.Color.accentOn)
-                Text("Guardando…")
-                    .font(.system(size: 16, weight: .heavy, design: .default).italic())
-                    .tracking(1)
-                    .foregroundStyle(Theme.Color.accentOn)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(Theme.Color.accent.opacity(0.7))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            .accessibilityLabel("Guardando carrera objetivo")
-        } else {
-            ExpertPrimaryButton(title: "FIJAR COMO MI CARRERA OBJETIVO") {
-                submit()
-            }
-        }
-    }
-
-    private func errorBanner(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.Color.danger)
-            Text(text)
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.Color.foreground)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(13)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.dangerTint)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.danger.opacity(0.30), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .accessibilityElement(children: .combine)
-    }
 
     private func submit() {
         guard !submitting else { return }
@@ -359,14 +219,14 @@ struct FijarObjetivoView: View {
         }
         submitting = true
         errorText = nil
-        let isHunter = event.isHunterRace || event.series?.lowercased() == "hunter_race"
+        let equipoHybrid = event.objectiveFamily == .hybrid && !esHunter
         let body = SetTargetRaceBody(
             eventId: eventIdInt,
-            format: event.objectiveFamily == .hybrid && !isHunter ? format : nil,
-            division: event.objectiveFamily == .hybrid && !isHunter ? division : nil,
-            genderCategory: event.objectiveFamily == .hybrid && !isHunter ? gender : nil,
+            format: equipoHybrid ? format : nil,
+            division: equipoHybrid ? division : nil,
+            genderCategory: equipoHybrid ? gender : nil,
             goalTimeSeconds: goalTotalSeconds,
-            objectiveVariant: isHunter ? hunterVariant.rawValue : nil,
+            objectiveVariant: esHunter ? hunterVariant.rawValue : nil,
             divisionLabel: divisionLabel.isEmpty ? nil : divisionLabel,
             distanceMeters: resolvedDistanceMeters,
             homologada: event.objectiveFamily == .running ? homologada : nil,
@@ -395,17 +255,15 @@ struct FijarObjetivoView: View {
 
 /// "¿A qué vas?" for a race the athlete has ALREADY set as an objective.
 ///
-/// `FijarObjetivoView` (above) is the first-time flow: it picks the event AND
-/// its three orthogonal attributes AND the goal time. But an athlete who fixed a
-/// race without a time had no way back in — the race detail told them to set one
-/// and gave them no button. This is that button's destination: the same goal
-/// selector (`GoalPresetGrid` / "Acabarla bien" / exact wheels — one source of
-/// truth, `GoalPresets.swift`) over the race's EXISTING format · division ·
-/// category, which the athlete already chose and is not re-asked for.
+/// `FijarObjetivoView` (above) is the first-time flow: it picks the event AND its attributes AND the
+/// goal time. But an athlete who fixed a race without a time had no way back in. This is that
+/// button's destination: the same goal selector (`MetaSelectorCarreras`, one source of truth) over the
+/// race's EXISTING format · division · category, which the athlete already chose and is not re-asked for.
 ///
-/// It posts to the same `POST /api/athlete/races/target` — the endpoint is
-/// idempotent per event, so re-sending the identical attributes with a goal time
-/// updates the objective in place.
+/// It posts to the same `POST /api/athlete/races/target` — the endpoint is idempotent per event, so
+/// re-sending the identical attributes with a goal time updates the objective in place. Y por eso se
+/// reenvía TODO lo que se eligió al fijarla (variante, división en texto libre, distancia,
+/// homologada): un reenvío que se dejara alguno lo borraría.
 struct FijarTiempoObjetivoSheet: View {
     let race: UpcomingRace
     var bearer: String?
@@ -415,9 +273,7 @@ struct FijarTiempoObjetivoSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var goalChoice: GoalChoice?
-    @State private var goalHours: Int
-    @State private var goalMinutes: Int
-    @State private var goalSeconds: Int
+    @State private var tiempo: TiempoExacto
     @State private var submitting = false
     @State private var errorText: String?
 
@@ -425,169 +281,66 @@ struct FijarTiempoObjetivoSheet: View {
         self.race = race
         self.bearer = bearer
         self.onSaved = onSaved
-        // Pre-select whatever is stored: an exact rung selects its chip, any other
-        // time drops straight into the wheels already dialled to it.
-        let stored = race.goalTimeSeconds
-        if let preset = GoalPreset.matching(stored) {
-            _goalChoice = State(initialValue: .preset(preset))
-        } else if let stored, stored > 0 {
-            _goalChoice = State(initialValue: .exact)
-        } else {
-            _goalChoice = State(initialValue: nil)
-        }
-        let seconds = stored ?? 0
-        _goalHours = State(initialValue: seconds / 3600)
-        _goalMinutes = State(initialValue: (seconds % 3600) / 60)
-        _goalSeconds = State(initialValue: seconds % 60)
+        // Pre-select whatever is stored: an exact rung selects its chip, any other time drops straight
+        // into the wheels already dialled to it.
+        let inicial = GoalChoice.desde(metaS: race.goalTimeSeconds)
+        _goalChoice = State(initialValue: inicial.eleccion)
+        _tiempo = State(initialValue: inicial.tiempo)
     }
 
-    private var goalTotalSeconds: Int? {
-        switch goalChoice {
-        case .preset(let preset):
-            return preset.seconds
-        case .exact:
-            let total = goalHours * 3600 + goalMinutes * 60 + goalSeconds
-            return total > 0 ? total : nil
-        case .finish, .none:
-            return nil
-        }
+    private var esHyrox: Bool { race.supportsHyroxGoalGap }
+
+    private var goalTotalSeconds: Int? { GoalChoice.metaS(goalChoice, tiempo: tiempo) }
+
+    /// Nothing chosen yet → nothing to save. "Acabarla bien" IS a choice (it clears the clock on
+    /// purpose), so it stays enabled; an exact time of zero is not a time.
+    private var puedeGuardar: Bool {
+        guard let goalChoice, !submitting else { return false }
+        if case .exact = goalChoice { return goalTotalSeconds != nil }
+        return true
     }
 
-    /// Nothing chosen yet → nothing to save. "Acabarla bien" IS a choice (it
-    /// clears the clock on purpose), so it stays enabled.
-    private var canSave: Bool { goalChoice != nil && !submitting }
+    private var lineaDeLaCarrera: String {
+        let cuando = race.raceDate.flatMap { FechaES.corta($0, hoy: RaceDate.todayISO(), conDia: true) } ?? "Fecha por confirmar"
+        let ahora = race.goalTimeSeconds.flatMap(Formato.metaDeCarrera).map { "Ahora: \($0)" } ?? "Sin tiempo fijado"
+        return [cuando, ahora].joined(separator: " · ")
+    }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.Color.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-                        raceLine
-                        GoalPresetGrid(choice: $goalChoice)
-                        GoalPresetChip(
-                            title: "Acabarla bien",
-                            descriptor: "primera carrera · sin reloj",
-                            selected: goalChoice == .finish
-                        ) {
-                            goalChoice = .finish
-                        }
-                        if case .exact = goalChoice {
-                            exactWheels
-                        } else {
-                            GoalExactLink {
-                                withAnimation(.easeInOut(duration: 0.18)) { goalChoice = .exact }
-                            }
-                        }
-                        if let errorText {
-                            errorBanner(errorText)
-                        }
-                    }
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.top, Theme.Spacing.l)
-                    .padding(.bottom, Theme.Spacing.l)
+        MarcoDeHojaCarreras("Tu tiempo objetivo", cerrar: { dismiss() }) {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(race.name).subtituloCarreras().fixedSize(horizontal: false, vertical: true)
+                    Text(lineaDeLaCarrera).papel(.nota).foregroundStyle(Theme.Color.muted)
                 }
-                .anchoredAction {
-                    ExpertPrimaryButton(
-                        title: submitting ? "GUARDANDO…" : "GUARDAR OBJETIVO",
-                        enabled: canSave,
-                        action: submit
-                    )
+                .padding(EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .tarjetaCarreras()
+                .accessibilityElement(children: .combine)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("¿A qué vas?").subtituloCarreras()
+                    Text("Tu plan y tu analítica se enfocan en esto.").papel(.nota).foregroundStyle(Theme.Color.muted)
                 }
+                MetaSelectorCarreras(esHyrox: esHyrox, eleccion: $goalChoice, tiempo: $tiempo)
+                if let errorText { AvisoEnLinea(errorText) }
             }
-            .navigationTitle("¿A qué vas?")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }
-                        .tint(Theme.Color.accentText)
-                }
-            }
+        } accion: {
+            BotonPrimarioCarreras(
+                titulo: "Guardar",
+                activo: puedeGuardar,
+                ocupado: submitting,
+                textoOcupado: "Guardando…",
+                voz: "Guardando tu tiempo objetivo",
+                accion: submit
+            )
         }
-    }
-
-    private var raceLine: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            LabelText(text: "TU OBJETIVO EN", color: Theme.Color.accentText)
-            Text(race.name)
-                .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("Tu plan y tu analítica se enfocan en esto.")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private var exactWheels: some View {
-        HStack(spacing: 8) {
-            wheel(value: $goalHours, range: 0...5, unit: "h")
-            wheel(value: $goalMinutes, range: 0...59, unit: "min")
-            wheel(value: $goalSeconds, range: 0...59, unit: "s")
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity)
-        .background(Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-    }
-
-    private func wheel(value: Binding<Int>, range: ClosedRange<Int>, unit: String) -> some View {
-        VStack(spacing: 2) {
-            Picker("", selection: value) {
-                ForEach(Array(range), id: \.self) { n in
-                    Text(String(format: "%02d", n))
-                        .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                        .tag(n)
-                }
-            }
-            .pickerStyle(.wheel)
-            .frame(height: 96)
-            .clipped()
-            LabelText(text: unit, color: Theme.Color.faint, size: 10)
-        }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(value.wrappedValue) \(unit)")
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment: if value.wrappedValue < range.upperBound { value.wrappedValue += 1 }
-            case .decrement: if value.wrappedValue > range.lowerBound { value.wrappedValue -= 1 }
-            default: break
-            }
-        }
-    }
-
-    private func errorBanner(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.Color.danger)
-            Text(text)
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.Color.foreground)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(13)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.dangerTint)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.danger.opacity(0.30), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .accessibilityElement(children: .combine)
+        .presentationDetents([.large])
     }
 
     private func submit() {
-        guard !submitting else { return }
-        // The race must carry the calendar event it came from; without it there is
-        // nothing to re-target and we say so instead of failing silently.
+        guard puedeGuardar else { return }
+        // The race must carry the calendar event it came from; without it there is nothing to
+        // re-target and we say so instead of failing silently.
         guard let eventId = race.eventId else {
             errorText = "Esta carrera no está enlazada al calendario oficial, así que no podemos guardarle un objetivo."
             return
@@ -600,6 +353,10 @@ struct FijarTiempoObjetivoSheet: View {
             division: race.division ?? "open",
             genderCategory: race.genderCategory ?? "men",
             goalTimeSeconds: goalTotalSeconds,
+            objectiveVariant: race.objectiveVariant,
+            divisionLabel: race.divisionLabel,
+            distanceMeters: race.distanceMeters,
+            homologada: race.homologada,
             startDate: race.raceDate ?? ObjectiveWhenDate.isoString(from: Date())
         )
         Task { @MainActor in
@@ -617,46 +374,6 @@ struct FijarTiempoObjetivoSheet: View {
                 submitting = false
                 Haptics.error()
                 errorText = RaceTargetError.generic.message
-            }
-        }
-    }
-}
-
-// MARK: - Segmented choice
-
-/// Equal-width segmented selector over string-token options. The selected
-/// segment fills brand orange with `accentOn` text; the rest read as elevated
-/// surface chips. Mirrors the RPESelector / PillChip visual language.
-private struct SegmentedChoice: View {
-    let options: [(value: String, label: String)]
-    @Binding var selection: String
-
-    var body: some View {
-        HStack(spacing: 8) {
-            ForEach(options, id: \.value) { option in
-                let selected = option.value == selection
-                Button {
-                    guard !selected else { return }
-                    Haptics.light()
-                    withAnimation(.easeInOut(duration: 0.16)) { selection = option.value }
-                } label: {
-                    Text(option.label)
-                        .font(.system(size: 14, weight: selected ? .heavy : .semibold))
-                        .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.foreground)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 46)
-                        .background(selected ? Theme.Color.accent : Theme.Color.surfaceElevated)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                                .stroke(selected ? Color.clear : Theme.Color.hairlineStrong, lineWidth: 1)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                }
-                .buttonStyle(PressScaleStyle())
-                .accessibilityLabel(option.label)
-                .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
             }
         }
     }

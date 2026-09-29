@@ -181,7 +181,7 @@ struct CardSurface<Content: View>: View {
 enum BrandImagery {
     /// The pool of race-card backdrops (each a `RaceCardBackground*.imageset`).
     /// A race is mapped to ONE of these deterministically — see
-    /// `raceCardBackground(for:)` — so the same race always shows the same photo
+    /// `raceCardBackground(raceId:nombre:fecha:)` — so the same race always shows the same photo
     /// and adjacent cards vary. Add a new imageset → append its name here.
     ///   1 sled push · 2 indoor mass run · 3 wall-balls station · 4 competition
     ///   rig · 5 grayscale strength. All Unsplash License (free, no attribution).
@@ -197,15 +197,28 @@ enum BrandImagery {
     /// Inicio "elige tu carrera" empty state, before a target race exists).
     static let raceCardBackgroundDefault = raceCardBackgrounds[0]
 
-    /// Deterministically pick ONE backdrop from the pool for a race, keyed by a
-    /// STABLE identity string (the Carreras `raceId`, or the Inicio target race's
-    /// `name|date` identity). Uses a 64-bit FNV-1a hash of the key — NOT Swift's
-    /// `hashValue`, which is per-process randomized and would reshuffle photos on
-    /// every launch — so a given race renders the same photo across launches, and
-    /// the avalanche spreads neighbouring ids across the pool so visible cards differ.
-    static func raceCardBackground(for key: String) -> String {
+    /// LA IDENTIDAD ESTABLE de una carrera a efectos de su foto. Es la única llave: la que
+    /// eligen todas las superficies (Carreras, Inicio) para que la MISMA carrera salga con la
+    /// MISMA foto en todas.
+    ///
+    /// El `raceId` cuando se conoce: es del servidor y no cambia aunque el atleta mueva la fecha
+    /// de su carrera (con `nombre|fecha` la foto saltaría al editarla). Cuando una superficie solo
+    /// sabe el nombre y la fecha —Inicio lee la carrera del plan, que no lleva id—, esa identidad
+    /// natural; y para que ésta y la de Carreras coincidan, ver `raceCardBackground(nombre:fecha:entre:)`.
+    static func identidadDeCarrera(raceId: Int?, nombre: String, fecha: String?) -> String {
+        if let raceId { return String(raceId) }
+        return "\(nombre)|\(fecha ?? "")"
+    }
+
+    /// Deterministically pick ONE backdrop from the pool for a race, keyed by its stable
+    /// identity (`identidadDeCarrera`). Uses a 64-bit FNV-1a hash of the key — NOT Swift's
+    /// `hashValue`, which is per-process randomized and would reshuffle photos on every launch —
+    /// so a given race renders the same photo across launches, and the avalanche spreads
+    /// neighbouring ids across the pool so visible cards differ.
+    static func raceCardBackground(raceId: Int?, nombre: String, fecha: String?) -> String {
         let pool = raceCardBackgrounds
         guard !pool.isEmpty else { return raceCardBackgroundDefault }
+        let key = identidadDeCarrera(raceId: raceId, nombre: nombre, fecha: fecha)
         // FNV-1a (64-bit): offset basis + prime, &-ops to wrap without trapping.
         var hash: UInt64 = 0xcbf29ce484222325
         for byte in key.utf8 {
@@ -213,6 +226,15 @@ enum BrandImagery {
             hash = hash &* 0x100000001b3
         }
         return pool[Int(hash % UInt64(pool.count))]
+    }
+
+    /// La foto para una superficie que solo conoce el nombre y la fecha de SU carrera (Inicio: la
+    /// carrera del plan no lleva id). Esa carrera es la del hub con el mismo nombre y fecha: si está,
+    /// se elige con SU `raceId` y sale la misma foto que en Carreras; si no (aún no cargó el hub), con
+    /// `nombre|fecha`. Una sola llave, dos entradas — nunca dos caminos.
+    static func raceCardBackground(nombre: String, fecha: String?, entre carreras: [UpcomingRace]) -> String {
+        let id = carreras.first { $0.name == nombre && $0.raceDate == fecha }?.raceId
+        return raceCardBackground(raceId: id, nombre: nombre, fecha: fecha)
     }
 }
 

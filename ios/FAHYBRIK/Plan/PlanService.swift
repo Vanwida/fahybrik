@@ -190,47 +190,27 @@ struct AthleteNextRace: Codable, Equatable {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    /// Goal time as H:MM:SS (e.g. 1:12:30). Nil when no goal is set.
+    /// Goal time in RACE minutes (e.g. 72:30). Nil when no goal is set.
     var goalTimeFormatted: String? { AthleteNextRace.goalTimeFormatted(goalTimeSeconds) }
 
-    /// H:MM:SS for a goal time in seconds (4350 → "1:12:30"); nil when absent or
+    /// A goal time in seconds as race minutes (4350 → "72:30"); nil when absent or
     /// non-positive. Static so EVERY race surface — the home countdown, the
     /// Carreras objective card, the Perfil "Carrera objetivo" row — formats goal
     /// times through ONE implementation and they can never drift.
     static func goalTimeFormatted(_ seconds: Int?) -> String? {
         guard let total = seconds, total > 0 else { return nil }
-        // Un objetivo por debajo de la hora se lee «59:30», no «0:59:30»: el marco
-        // entero habla en minutos («sub-60», «sub-90») y esa hora en cero no dice nada.
-        return Formato.clock(total)
+        // El marco entero de una carrera habla en minutos («sub-60», «sub-90»): un objetivo se lee
+        // «65:00», nunca «1:05:00». Antes esto escribía horas y el detalle de la carrera, minutos:
+        // el mismo objetivo salía con dos escalas según la pantalla.
+        return Formato.clock(total, enHoras: false)
     }
 
     // MARK: enum → ES label maps (unknown tokens map to nil, never crash)
-    static func formatLabel(_ raw: String?) -> String? {
-        switch raw?.lowercased() {
-        case "singles": return "Individual"
-        case "doubles": return "Dobles"
-        case "relay":   return "Relevos"
-        default:        return nil
-        }
-    }
-
-    static func divisionLabel(_ raw: String?) -> String? {
-        switch raw?.lowercased() {
-        case "open":  return "Open"
-        case "pro":   return "Pro"
-        case "elite": return "Elite"
-        default:      return nil
-        }
-    }
-
-    static func genderLabel(_ raw: String?) -> String? {
-        switch raw?.lowercased() {
-        case "men":   return "Hombres"
-        case "women": return "Mujeres"
-        case "mixed": return "Mixto"
-        default:      return nil
-        }
-    }
+    //
+    // Las palabras viven en los enums de «Carreras» (`FormatoCarrera` & co.): una sola tabla.
+    static func formatLabel(_ raw: String?) -> String? { FormatoCarrera(wire: raw)?.etiqueta }
+    static func divisionLabel(_ raw: String?) -> String? { DivisionCarrera(wire: raw)?.etiqueta }
+    static func genderLabel(_ raw: String?) -> String? { CategoriaCarrera(wire: raw)?.etiqueta }
 }
 
 struct AthleteMacroProgressWeek: Codable, Identifiable {

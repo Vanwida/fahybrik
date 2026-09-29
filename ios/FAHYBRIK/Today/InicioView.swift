@@ -457,7 +457,11 @@ struct InicioView: View {
                     padding: 18,
                     topAccent: true,
                     elevated: true,
-                    backgroundImage: BrandImagery.raceCardBackground(for: race.identity)
+                    backgroundImage: BrandImagery.raceCardBackground(
+                        nombre: race.name,
+                        fecha: race.raceDate,
+                        entre: store.racesHub.value?.upcoming ?? []
+                    )
                 ) {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {

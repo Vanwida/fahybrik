@@ -2,16 +2,16 @@ import SwiftUI
 
 // "Buscar carrera" — the target-race picker. The athlete browses the official
 // race calendar (GET /api/races/calendar), narrows it with a debounced search +
-// SERIE / PAÍS / FECHA chips, picks an event, and fixes it as their TARGET race
-// (→ FijarObjetivoView). The chosen target drives the home countdown.
+// FAMILIA / SERIE / PAÍS / FECHA chips, picks an event, and fixes it as their TARGET
+// race (→ FijarObjetivoView). The chosen target drives the home countdown.
 //
-// Search + date window hit the server (the heavy dimensions); SERIE + PAÍS are
-// client-side facets DERIVED from the loaded events (never a hardcoded list), so
-// the chips always reflect what's really there. Events are grouped by month.
+// Search, family and the date window hit the server (the heavy dimensions); SERIE + PAÍS are
+// client-side facets DERIVED from the loaded events (never a hardcoded list), so the chips
+// always reflect what's really there. Events are grouped by month. Espejo de `buscar.tsx`.
 //
-// Presented as a .sheet with its own NavigationStack (mirrors how CarrerasView
-// presents ImportRaceSheet). On a successful set, `onTargetSet` fires and the
-// whole sheet dismisses so the caller can reload. Light+dark off Theme tokens.
+// Presented as a .sheet with its own NavigationStack: «Fijar objetivo» (and the custom-objective
+// form) push inside it. On a successful set, `onTargetSet` fires and the whole sheet dismisses so
+// the caller can reload.
 struct BuscarCarreraSheet: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -22,6 +22,9 @@ struct BuscarCarreraSheet: View {
     // Data
     @State private var events: [RaceCalendarEvent] = []
     @State private var currentTargetEventId: String? = nil
+    /// El nombre del objetivo principal de ahora, cuando sale entre los eventos cargados: es lo que dice
+    /// «pasará a ser secundaria» al fijar otro.
+    @State private var principalNombre: String? = nil
 
     // Query / filters
     @State private var query: String = ""
@@ -41,7 +44,7 @@ struct BuscarCarreraSheet: View {
     @State private var selected: RaceCalendarEvent? = nil
     @State private var showCustom = false
 
-    @FocusState private var fieldFocused: Bool
+    @FocusState private var campoEnFoco: Bool
 
     private let debounceNanos: UInt64 = 350_000_000
     private let minQueryLength = 2
@@ -49,34 +52,29 @@ struct BuscarCarreraSheet: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Theme.Color.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                        intro
-                        searchField
-                        filters
-                        content
-                        manualFallback
+            MarcoDeHojaCarreras("Buscar carrera", cerrar: { dismiss() }) {
+                VStack(alignment: .leading, spacing: 18) {
+                    intro
+                    campoBusqueda
+                    filtros
+                    contenido
+                    BotonTextoCarreras("Crear objetivo personalizado", centrado: true, accion: { showCustom = true }) {
+                        IconoDia(.mas, tam: 20, peso: .bold)
                     }
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.top, Theme.Spacing.l)
-                    .padding(.bottom, Theme.Spacing.xxl)
                 }
             }
-            .navigationTitle("Buscar carrera")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }
-                        .tint(Theme.Color.accentText)
-                }
-            }
+            .navigationBarHidden(true)
             .navigationDestination(item: $selected) { event in
-                FijarObjetivoView(event: event, bearer: bearer) {
-                    onTargetSet()
-                    dismiss()
-                }
+                FijarObjetivoView(
+                    event: event,
+                    bearer: bearer,
+                    pasaASecundaria: avisoDeSecundaria(al: event),
+                    onTargetSet: {
+                        onTargetSet()
+                        dismiss()
+                    },
+                    cerrar: { dismiss() }
+                )
             }
             .navigationDestination(isPresented: $showCustom) {
                 CrearObjetivoCustomView(bearer: bearer) { event in
@@ -85,6 +83,7 @@ struct BuscarCarreraSheet: View {
                 }
             }
         }
+        .presentationDetents([.large])
         .onAppear {
             guard !startedLoad else { return }
             startedLoad = true
@@ -93,103 +92,93 @@ struct BuscarCarreraSheet: View {
         .onDisappear { loadTask?.cancel() }
     }
 
-    // MARK: - Sections
+    // MARK: - Secciones
 
     private var intro: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Elige tu objetivo")
-                .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-            Text("Running, híbrida, CrossFit u OCR — elige del calendario o créalo si no está.")
-                .scaledFont(13, relativeTo: .footnote)
+            Text("Elige tu objetivo").subtituloCarreras()
+            Text("Running, híbrida, CrossFit u OCR: elige del calendario o créalo si no está.")
+                .papel(.cuerpo)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    private var searchField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.Color.faint)
+    private var campoBusqueda: some View {
+        CampoCarreras(
+            "Buscar",
+            enFoco: campoEnFoco,
+            izquierda: { IconoDia(.lupa, tam: 20) },
+            derecha: {
+                if loading {
+                    ProgressView()
+                        .tint(Theme.Color.accentText)
+                        .frame(width: Theme.Size.toque, height: Theme.Size.toque)
+                        .accessibilityLabel("Buscando")
+                } else if !query.isEmpty {
+                    Button {
+                        Haptics.light()
+                        query = ""
+                        scheduleReload(immediate: true)
+                    } label: {
+                        IconoDia(.cerrar, tam: 18, peso: .bold)
+                            .foregroundStyle(Theme.Color.muted)
+                            .frame(width: Theme.Size.toque, height: Theme.Size.toque)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel("Borrar búsqueda")
+                }
+            }
+        ) {
             TextField("Ciudad o nombre de la carrera", text: $query)
-                .font(.system(size: 15))
-                .foregroundStyle(Theme.Color.foreground)
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled(true)
                 .submitLabel(.search)
-                .focused($fieldFocused)
+                .focused($campoEnFoco)
                 .onChange(of: query) { _, _ in scheduleReload(immediate: false) }
-            if loading {
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(Theme.Color.accentText)
-            } else if !query.isEmpty {
-                Button {
-                    query = ""
-                    scheduleReload(immediate: true)
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Theme.Color.faint)
-                }
-                .accessibilityLabel("Borrar búsqueda")
-            }
+                .accessibilityLabel("Ciudad o nombre de la carrera")
         }
-        .padding(.horizontal, 13)
-        .padding(.vertical, 12)
-        .background(Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
     }
 
-    // MARK: Filters (data-derived chips)
+    // MARK: Filtros (chips derivados de los datos)
 
-    @ViewBuilder
-    private var filters: some View {
+    private var filtros: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            chipRow(label: "FAMILIA") {
-                PillChip(title: "Todas", selected: selectedFamily == nil) {
+            FilaChipsCarreras("Familia") {
+                ChipFiltroCarreras(texto: "Todas", elegido: selectedFamily == nil) {
                     selectedFamily = nil
                     scheduleReload(immediate: true)
                 }
                 ForEach(ObjectiveFamily.allCases) { fam in
-                    PillChip(title: fam.label, selected: selectedFamily == fam) {
+                    ChipFiltroCarreras(texto: fam.label, elegido: selectedFamily == fam) {
                         selectedFamily = (selectedFamily == fam) ? nil : fam
                         scheduleReload(immediate: true)
                     }
                 }
             }
             if availableSeries.count > 1 {
-                chipRow(label: "SERIE") {
-                    PillChip(title: "Todas", selected: selectedSeries == nil) {
-                        selectedSeries = nil
-                    }
+                FilaChipsCarreras("Serie") {
+                    ChipFiltroCarreras(texto: "Todas", elegido: selectedSeries == nil) { selectedSeries = nil }
                     ForEach(availableSeries, id: \.self) { s in
-                        PillChip(title: s.uppercased(), selected: selectedSeries == s) {
+                        ChipFiltroCarreras(texto: RaceCalendarEvent.seriesLabel(s), elegido: selectedSeries == s) {
                             selectedSeries = (selectedSeries == s) ? nil : s
                         }
                     }
                 }
             }
             if availableCountries.count > 1 {
-                chipRow(label: "PAÍS") {
-                    PillChip(title: "Todos", selected: selectedCountry == nil) {
-                        selectedCountry = nil
-                    }
+                FilaChipsCarreras("País") {
+                    ChipFiltroCarreras(texto: "Todos", elegido: selectedCountry == nil) { selectedCountry = nil }
                     ForEach(availableCountries, id: \.self) { c in
-                        PillChip(title: countryChipLabel(c), selected: selectedCountry == c) {
+                        ChipFiltroCarreras(texto: countryChipLabel(c), elegido: selectedCountry == c) {
                             selectedCountry = (selectedCountry == c) ? nil : c
                         }
                     }
                 }
             }
-            chipRow(label: "FECHA") {
+            FilaChipsCarreras("Fecha") {
                 ForEach(RaceDateFilter.allCases) { f in
-                    PillChip(title: f.label, selected: dateFilter == f) {
+                    ChipFiltroCarreras(texto: f.label, elegido: dateFilter == f) {
                         guard dateFilter != f else { return }
                         dateFilter = f
                         scheduleReload(immediate: true)
@@ -199,36 +188,28 @@ struct BuscarCarreraSheet: View {
         }
     }
 
-    private func chipRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: label, size: 10)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) { content() }
-                    .padding(.horizontal, 1)
-            }
-        }
-    }
-
-    // MARK: Content (loading / error / empty / list)
+    // MARK: Contenido (cargando / error / vacío / lista)
 
     @ViewBuilder
-    private var content: some View {
+    private var contenido: some View {
         if loading && !hasLoadedOnce {
-            ProgressView()
-                .controlSize(.large)
-                .tint(Theme.Color.accentText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Spacing.xxl)
+            EsqueletoLista()
         } else if loadFailed {
-            errorState
+            AvisoEnLinea("No pudimos cargar el calendario. Revisa tu conexión e inténtalo de nuevo.") {
+                BotonTextoCarreras("Reintentar", tono: .tinta) { scheduleReload(immediate: true) }
+            }
         } else if sections.isEmpty {
-            RedesignEmptyState(
-                symbol: "flag.checkered",
-                title: "Sin carreras",
-                message: "No encontramos carreras con estos filtros. Prueba con otra búsqueda o amplía el rango de fechas.",
-                exit: .action(title: "Quitar los filtros") { clearFilters() }
-            )
-            .padding(.top, Theme.Spacing.l)
+            VStack(alignment: .leading, spacing: Theme.Spacing.m - 2) {
+                Text("Sin carreras").subtituloCarreras()
+                Text("No encontramos carreras con estos filtros. Prueba con otra búsqueda o amplía el rango de fechas.")
+                    .papel(.cuerpo)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                SalidaAccionCarreras("Quitar los filtros", accion: clearFilters) { EmptyView() }
+            }
+            .padding(EdgeInsets(top: 18, leading: 18, bottom: 16, trailing: 18))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .tarjetaCarreras()
         } else {
             calendarList
         }
@@ -237,7 +218,6 @@ struct BuscarCarreraSheet: View {
     /// Back to the widest possible view of the calendar — the way out of a
     /// no-results state that the athlete narrowed themselves into.
     private func clearFilters() {
-        Haptics.light()
         query = ""
         selectedSeries = nil
         selectedCountry = nil
@@ -245,55 +225,27 @@ struct BuscarCarreraSheet: View {
         scheduleReload(immediate: true)
     }
 
-    private var errorState: some View {
-        RedesignEmptyState(
-            symbol: "wifi.exclamationmark",
-            title: "No pudimos cargar el calendario",
-            message: "Revisa tu conexión e inténtalo de nuevo.",
-            exit: .action(title: "Reintentar") { scheduleReload(immediate: true) }
-        )
-        .padding(.top, Theme.Spacing.l)
-    }
-
     private var calendarList: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+        VStack(alignment: .leading, spacing: 18) {
             ForEach(sections, id: \.key) { section in
-                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                    SectionLabel(text: sectionHeader(section.key))
-                    VStack(spacing: 8) {
-                        ForEach(section.events) { event in
-                            RaceCalendarRow(
-                                event: event,
-                                isTarget: event.eventId == currentTargetEventId,
-                                onTap: {
-                                    fieldFocused = false
-                                    selected = event
-                                }
-                            )
-                        }
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(sectionHeader(section.key))
+                        .papel(.etiqueta)
+                        .foregroundStyle(Theme.Color.muted)
+                        .accessibilityAddTraits(.isHeader)
+                    ForEach(section.events) { event in
+                        FilaEvento(
+                            evento: event,
+                            esObjetivo: event.eventId == currentTargetEventId,
+                            alElegir: {
+                                campoEnFoco = false
+                                selected = event
+                            }
+                        )
                     }
                 }
             }
         }
-    }
-
-    private var manualFallback: some View {
-        Button {
-            Haptics.light()
-            showCustom = true
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "plus.circle")
-                    .font(.system(size: 13, weight: .semibold))
-                Text("Crear objetivo personalizado")
-                    .font(.system(size: 13, weight: .semibold))
-            }
-            .foregroundStyle(Theme.Color.accentText)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.vertical, Theme.Spacing.s)
-        }
-        .buttonStyle(PressScaleStyle())
-        .padding(.top, Theme.Spacing.s)
     }
 
     // MARK: - Derived
@@ -327,12 +279,20 @@ struct BuscarCarreraSheet: View {
     }
 
     private func sectionHeader(_ key: String) -> String {
-        key == undatedKey ? "FECHA POR CONFIRMAR" : RaceDate.monthHeader(forKey: key)
+        key == undatedKey ? "Fecha por confirmar" : RaceDate.monthHeader(forKey: key)
     }
 
     private func countryChipLabel(_ code: String) -> String {
         if let flag = raceCountryFlag(code) { return "\(flag) \(code)" }
         return code
+    }
+
+    /// Fijar otra carrera pasa la principal de ahora a secundaria (un solo principal, invariante del
+    /// servidor). Se dice ANTES de fijar. Si el evento elegido ya es el objetivo, no pasa nada: no se avisa.
+    private func avisoDeSecundaria(al event: RaceCalendarEvent) -> String? {
+        guard let actual = currentTargetEventId, actual != event.eventId else { return nil }
+        return principalNombre.map { "«\($0)» pasará a ser secundaria. Un solo objetivo principal a la vez." }
+            ?? "Tu objetivo principal actual pasará a ser secundaria. Un solo objetivo principal a la vez."
     }
 
     // MARK: - Load driving
@@ -380,6 +340,9 @@ struct BuscarCarreraSheet: View {
         loadFailed = false
         events = resp.events
         currentTargetEventId = resp.currentTargetEventId
+        if let id = resp.currentTargetEventId, let actual = resp.events.first(where: { $0.eventId == id }) {
+            principalNombre = actual.name
+        }
         // Drop facet selections that no longer exist in the new result set so a
         // chip can never get stuck with nothing to deselect it.
         if let s = selectedSeries, !availableSeries.contains(s) { selectedSeries = nil }
@@ -387,104 +350,114 @@ struct BuscarCarreraSheet: View {
     }
 }
 
-// MARK: - Calendar row
+#if DEBUG
+// LOS ESTADOS DE LA HOJA, para la galería de `#Preview` y las capturas: arranca ya cargada (o cargando,
+// o rota) sin pedir nada a la red.
+extension BuscarCarreraSheet {
+    enum VistaDePrueba { case lista, cargando, error, sinCarreras }
 
-/// One event row: series badge + name + city · date, with a "Tu objetivo" badge
-/// when it's the athlete's current target (else a chevron). Tapping pushes the
-/// "Fijar objetivo" detail.
-private struct RaceCalendarRow: View {
-    let event: RaceCalendarEvent
-    let isTarget: Bool
-    let onTap: () -> Void
+    init(vista: VistaDePrueba) {
+        self.init(bearer: nil, onTargetSet: {})
+        _startedLoad = State(initialValue: true)
+        switch vista {
+        case .lista:
+            _events = State(initialValue: CasosCarreras.eventos)
+            _hasLoadedOnce = State(initialValue: true)
+            // El objetivo de ahora sale marcado y su nombre es lo que dice «pasará a ser secundaria».
+            _currentTargetEventId = State(initialValue: "5")
+            _principalNombre = State(initialValue: "HYROX Barcelona")
+        case .cargando:
+            _loading = State(initialValue: true)
+        case .error:
+            _hasLoadedOnce = State(initialValue: true)
+            _loadFailed = State(initialValue: true)
+        case .sinCarreras:
+            _hasLoadedOnce = State(initialValue: true)
+        }
+    }
+}
+#endif
+
+// MARK: - Una fila del calendario
+
+/// One event row: series badge + name + city · date, with a "Tu objetivo" badge when it's the
+/// athlete's current target (else a chevron). Tapping pushes the "Fijar objetivo" detail.
+private struct FilaEvento: View {
+    let evento: RaceCalendarEvent
+    let esObjetivo: Bool
+    let alElegir: () -> Void
+
+    private var donde: String {
+        let cuando: String
+        if evento.tentative || evento.startDate == nil {
+            cuando = "Fecha por confirmar"
+        } else {
+            cuando = evento.startDate.flatMap { FechaES.corta($0, hoy: RaceDate.todayISO(), conDia: true) } ?? evento.dateText
+        }
+        return [evento.location.flatMap { $0.isEmpty ? nil : $0 }, cuando].compactMap { $0 }.joined(separator: " · ")
+    }
 
     var body: some View {
         Button {
             Haptics.light()
-            onTap()
+            alElegir()
         } label: {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 5) {
-                    if let series = event.seriesLabel {
-                        SeriesPill(text: series)
-                    }
-                    Text(event.name)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.foreground)
-                        .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: Theme.Spacing.m) {
+                VStack(alignment: .leading, spacing: 4) {
+                    if let serie = evento.seriesLabel { ChipCarreras(serie, estilo: .acento) }
+                    Text(evento.name).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
                         .multilineTextAlignment(.leading)
-                    Text(event.cityDateLine)
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.Color.faint)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(donde).papel(.nota).foregroundStyle(Theme.Color.muted)
+                        .multilineTextAlignment(.leading)
                 }
-                Spacer(minLength: 8)
-                if isTarget {
-                    TargetBadge()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if esObjetivo {
+                    HStack(spacing: 6) {
+                        IconoDia(.check, tam: 16, peso: .bold).foregroundStyle(Theme.Color.ok)
+                        Text("Tu objetivo").papel(.rotulo).foregroundStyle(Theme.Color.foreground)
+                    }
+                    .padding(.horizontal, Theme.Spacing.m)
+                    .frame(minHeight: 32)
+                    .background(Theme.Color.okTint, in: Capsule())
+                    .overlay(Capsule().strokeBorder(Theme.Color.ok.opacity(0.34), lineWidth: 1))
+                    .accessibilityHidden(true)
                 } else {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.Color.faint)
-                        .padding(.top, 2)
+                    IconoDia(.chevron, tam: 18).foregroundStyle(Theme.Color.muted)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(isTarget ? Theme.Color.accent.opacity(0.35) : Theme.Color.hairline, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            .padding(.horizontal, Theme.Spacing.l)
+            .padding(.vertical, Theme.Spacing.m)
+            .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+            .tarjetaCarreras(realce: esObjetivo)
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
         }
-        .buttonStyle(PressScaleStyle())
+        .buttonStyle(PressScaleStyle(escala: 0.985))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityLabel)
+        .accessibilityLabel([evento.seriesLabel, evento.name, donde, esObjetivo ? "tu carrera objetivo" : nil].compactMap { $0 }.joined(separator: ". "))
         .accessibilityAddTraits(.isButton)
     }
-
-    private var accessibilityLabel: String {
-        var parts: [String] = []
-        if let series = event.seriesLabel { parts.append(series) }
-        parts.append(event.name)
-        parts.append(event.cityDateLine)
-        if isTarget { parts.append("tu carrera objetivo") }
-        return parts.joined(separator: ", ")
-    }
 }
 
-// MARK: - Pills
-
-/// Small series badge — brand orange-as-text on a faint accent fill.
-private struct SeriesPill: View {
-    let text: String
+/// El esqueleto de la lista mientras carga por primera vez: la forma de las filas reales.
+private struct EsqueletoLista: View {
     var body: some View {
-        Text(text)
-            .font(.system(size: 10, weight: .bold))
-            .tracking(0.4)
-            .textCase(.uppercase)
-            .foregroundStyle(Theme.Color.accentText)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(Theme.Color.accent.opacity(0.10))
-            .clipShape(Capsule())
-    }
-}
-
-/// "Tu objetivo" confirmation badge — green check, reads as "already set".
-private struct TargetBadge: View {
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 10, weight: .bold))
-            Text("Tu objetivo")
-                .font(.system(size: 10, weight: .bold))
-                .tracking(0.3)
+        VStack(alignment: .leading, spacing: 10) {
+            SkeletonBar(width: 150, height: 15, radius: 5)
+            ForEach(0..<4, id: \.self) { _ in
+                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                    SkeletonBar(width: 64, height: 20, radius: 10)
+                    SkeletonBar(height: 17, radius: 6).frame(maxWidth: 220)
+                    SkeletonBar(height: 15, radius: 5).frame(maxWidth: 150)
+                }
+                .padding(.horizontal, Theme.Spacing.l)
+                .padding(.vertical, Theme.Spacing.m)
+                .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+                .tarjetaCarreras()
+            }
         }
-        .foregroundStyle(Theme.Color.ok)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Theme.Color.okTint)
-        .clipShape(Capsule())
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cargando el calendario")
+        .accessibilityAddTraits(.updatesFrequently)
     }
 }
