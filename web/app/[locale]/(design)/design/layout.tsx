@@ -4,6 +4,11 @@ import { redirect } from 'next/navigation';
 import { getAdminSession } from '@/lib/auth/admin-session';
 import './twin.css';
 import './studio.css';
+// Los tokens del panel del coach, para las propuestas de dispositivo
+// «escritorio»: viven acotados a `.v2-root`, así que no tocan ni el estudio ni
+// el lienzo del iPhone. La fuente del panel (Figtree) viaja por la misma vía.
+import '../../(v2)/v2-theme.css';
+import { flexrFontVars } from '../../(v2)/fonts';
 import { BrandFonts } from '@/components/brand/BrandFonts';
 
 // El doble — réplica viva de la app iOS para dirigir UX (docs/DECISIONS.md).
@@ -35,7 +40,7 @@ export default async function DesignLayout({
 
   return (
     <BrandFonts>
-      <div className="studio-root">{children}</div>
+      <div className={`studio-root ${flexrFontVars}`}>{children}</div>
     </BrandFonts>
   );
 }

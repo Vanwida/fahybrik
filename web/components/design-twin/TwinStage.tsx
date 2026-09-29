@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DeviceFrame } from './DeviceFrame';
 import { SimPanel } from './SimPanel';
 import { getScreen } from './registry';
-import type { TwinAppearance, TwinOrientation, TwinVista } from './types';
+import type { TwinAnchoEscritorio, TwinAppearance, TwinOrientation, TwinVista } from './types';
 
 export interface LogLine {
   t: number; // ms desde el arranque del escenario
@@ -28,6 +28,8 @@ export function TwinStage({ screenId, localePrefix }: { screenId: string; locale
   const [runId, setRunId] = useState(0);
   const [orientation, setOrientation] = useState<TwinOrientation>('portrait');
   const [appearance, setAppearance] = useState<TwinAppearance>('dark');
+  // El ancho del panel del coach: 1440 (la mesa) y 1280 (el portátil).
+  const [anchoEscritorio, setAnchoEscritorio] = useState<TwinAnchoEscritorio>(1440);
   // Antes / después. Arranca en la propuesta: el doble enseña a dónde vamos, y
   // «hoy» es la prueba de por qué. Las pantallas sin `composicion` no lo usan.
   const [vista, setVista] = useState<TwinVista>('propuesta');
@@ -102,7 +104,7 @@ export function TwinStage({ screenId, localePrefix }: { screenId: string; locale
   if (fullscreen) {
     return (
       <>
-        <DeviceFrame device={meta.dispositivo} orientation={orientation} appearance={appearance} bare>
+        <DeviceFrame device={meta.dispositivo} orientation={orientation} appearance={appearance} anchoEscritorio={anchoEscritorio} bare>
           {screenEl}
         </DeviceFrame>
         <button
@@ -120,7 +122,7 @@ export function TwinStage({ screenId, localePrefix }: { screenId: string; locale
   return (
     <div className="studio-stage-wrap">
       <div className="studio-stage">
-        <DeviceFrame device={meta.dispositivo} orientation={orientation} appearance={appearance}>
+        <DeviceFrame device={meta.dispositivo} orientation={orientation} appearance={appearance} anchoEscritorio={anchoEscritorio}>
           {screenEl}
         </DeviceFrame>
       </div>
@@ -134,6 +136,8 @@ export function TwinStage({ screenId, localePrefix }: { screenId: string; locale
         onOrientation={setOrientation}
         appearance={appearance}
         onAppearance={setAppearance}
+        anchoEscritorio={anchoEscritorio}
+        onAnchoEscritorio={setAnchoEscritorio}
         vista={vistaActiva}
         onVista={setVista}
         onFullscreen={() => setFullscreen(true)}

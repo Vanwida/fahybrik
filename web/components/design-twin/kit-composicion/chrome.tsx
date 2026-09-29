@@ -111,8 +111,12 @@ export function NavBar({
 
 const TABS = ['Inicio', 'Plan', 'Analíticas', 'Carreras', 'Perfil'] as const;
 
-/** La barra del TabView. Se pinta para que el alto muerto se mida DE VERDAD. */
-export function TabBar({ activa }: { activa: (typeof TABS)[number] }) {
+/**
+ * La barra del TabView. Se pinta para que el alto muerto se mida DE VERDAD.
+ * `renombrar` cambia la etiqueta de una pestaña sin cambiar cuál está activa:
+ * lo usa la variante «Progreso» de las analíticas (§11.1 del modelo).
+ */
+export function TabBar({ activa, renombrar }: { activa: (typeof TABS)[number]; renombrar?: Partial<Record<(typeof TABS)[number], string>> }) {
   return (
     <div
       style={{
@@ -146,7 +150,7 @@ export function TabBar({ activa }: { activa: (typeof TABS)[number] }) {
               opacity: t === activa ? 1 : 0.55,
             }}
           />
-          {t}
+          {renombrar?.[t] ?? t}
         </span>
       ))}
     </div>

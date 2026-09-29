@@ -1,22 +1,32 @@
 'use client';
 
-// Marco de dispositivo del doble: un iPhone (o Apple Watch) dibujado en CSS
-// alrededor del lienzo lógico de la app. Dos modos:
+// Marco de dispositivo del doble: un iPhone, un Apple Watch o una ventana de
+// navegador (el panel del coach) dibujados en CSS alrededor del lienzo lógico.
+// Dos modos:
 //
 //  - enmarcado (por defecto): bisel + isla + barra de estado falsas, lienzo a
-//    tamaño LÓGICO fijo (402×874 pt, clase iPhone 17 Pro) escalado para caber.
+//    tamaño LÓGICO fijo (402×874 pt, clase iPhone 17 Pro; 1440×900 o 1280×800
+//    en escritorio) escalado para caber.
 //  - bare (pantalla completa): sin chrome — el lienzo llena el viewport real y
 //    los safe areas salen de env(safe-area-inset-*), así en el iPhone de
-//    verdad la pantalla cae EXACTAMENTE donde caería en la app.
+//    verdad la pantalla cae EXACTAMENTE donde caería en la app. En escritorio,
+//    el panel llena la ventana como en app.fahybrid.com.
 //
 // El marco fija las vars --twin-safe-* que twin.css aplica en .twin-screen-safe;
 // las pantallas jamás dibujan isla ni reloj de sistema.
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import type { TwinAppearance, TwinOrientation } from './types';
+import type { TwinAnchoEscritorio, TwinAppearance, TwinOrientation } from './types';
 
 const IPHONE = { w: 402, h: 874, radius: 55 };
 const WATCH = { w: 208, h: 248, radius: 56 };
+/** El panel se juzga a 1440×900 y 1280×800 (el encargo y el §9.3 del contrato). */
+const ESCRITORIO: Record<TwinAnchoEscritorio, { w: number; h: number; radius: number }> = {
+  1440: { w: 1440, h: 900, radius: 12 },
+  1280: { w: 1280, h: 800, radius: 12 },
+};
+/** La barra del navegador (pestaña + dirección) va FUERA del lienzo, como el bisel. */
+const BARRA_NAVEGADOR = 44;
 
 /** Safe areas lógicos (pt) del lienzo iPhone. */
 const SAFE = {
@@ -25,22 +35,26 @@ const SAFE = {
 };
 
 export interface DeviceFrameProps {
-  device: 'iphone' | 'watch';
+  device: 'iphone' | 'watch' | 'escritorio';
   orientation: TwinOrientation;
   appearance: TwinAppearance;
+  /** Solo escritorio: el ancho lógico de la ventana. */
+  anchoEscritorio?: TwinAnchoEscritorio;
   /** Pantalla completa: sin bisel, lienzo = viewport, safe areas reales. */
   bare?: boolean;
   children: ReactNode;
 }
 
-export function DeviceFrame({ device, orientation, appearance, bare = false, children }: DeviceFrameProps) {
+export function DeviceFrame({ device, orientation, appearance, anchoEscritorio = 1440, bare = false, children }: DeviceFrameProps) {
   const holderRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
-  const spec = device === 'watch' ? WATCH : IPHONE;
+  const spec = device === 'watch' ? WATCH : device === 'escritorio' ? ESCRITORIO[anchoEscritorio] : IPHONE;
   const landscape = device === 'iphone' && orientation === 'landscape';
   const canvasW = landscape ? spec.h : spec.w;
   const canvasH = landscape ? spec.w : spec.h;
+  const escritorio = device === 'escritorio';
+  const extraAlto = escritorio ? BARRA_NAVEGADOR : 0;
 
   // Escala para caber en el hueco disponible (nunca ampliamos >1: el lienzo es
   // tamaño lógico real y agrandarlo mentiría sobre densidades).
@@ -50,17 +64,19 @@ export function DeviceFrame({ device, orientation, appearance, bare = false, chi
     if (!el) return;
     const ro = new ResizeObserver(() => {
       const PAD = 24;
-      setScale(Math.min(1, (el.clientWidth - PAD) / canvasW, (el.clientHeight - PAD) / canvasH));
+      setScale(Math.min(1, (el.clientWidth - PAD) / (canvasW + 28), (el.clientHeight - PAD) / (canvasH + 28 + extraAlto)));
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [bare, canvasW, canvasH]);
+  }, [bare, canvasW, canvasH, extraAlto]);
 
   const safe = device === 'watch'
     ? { top: 24, bottom: 12, left: 8, right: 8 }
-    : SAFE[landscape ? 'landscape' : 'portrait'];
+    : escritorio
+      ? { top: 0, bottom: 0, left: 0, right: 0 }
+      : SAFE[landscape ? 'landscape' : 'portrait'];
 
-  const safeVars = bare
+  const safeVars = bare && !escritorio
     ? {
         '--twin-safe-top': `max(env(safe-area-inset-top), ${safe.top}px)`,
         '--twin-safe-bottom': `max(env(safe-area-inset-bottom), ${safe.bottom}px)`,
@@ -82,6 +98,35 @@ export function DeviceFrame({ device, orientation, appearance, bare = false, chi
         style={{ position: 'fixed', inset: 0, zIndex: 40, ...(safeVars as CSSProperties) }}
       >
         <div className="twin-screen">{children}</div>
+      </div>
+    );
+  }
+
+  if (escritorio) {
+    return (
+      <div ref={holderRef} style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+        <div style={{ transform: `scale(${scale})`, transition: 'transform 200ms ease-out' }}>
+          {/* La ventana del navegador: barra de pestaña y dirección, y el lienzo debajo. */}
+          <div
+            style={{
+              width: canvasW + 2,
+              borderRadius: spec.radius,
+              overflow: 'hidden',
+              background: '#1c1c20',
+              boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.12), 0 30px 70px rgba(0,0,0,0.55)',
+              transition: 'width 350ms ease',
+            }}
+          >
+            <BarraNavegador ancho={anchoEscritorio} />
+            <div
+              className="twin-root"
+              data-appearance={appearance}
+              style={{ position: 'relative', width: canvasW, height: canvasH, margin: '0 1px 1px', overflow: 'hidden', ...(safeVars as CSSProperties) }}
+            >
+              <div className="twin-screen">{children}</div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -126,6 +171,50 @@ export function DeviceFrame({ device, orientation, appearance, bare = false, chi
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** La barra de un navegador de escritorio: tres puntos, la pestaña y la dirección real del panel. */
+function BarraNavegador({ ancho }: { ancho: number }) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        height: BARRA_NAVEGADOR,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '0 14px',
+        background: '#1c1c20',
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        font: '500 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        color: 'rgba(255,255,255,0.55)',
+      }}
+    >
+      <span style={{ display: 'inline-flex', gap: 6 }}>
+        {['#ff5f57', '#febc2e', '#28c840'].map((c) => (
+          <span key={c} style={{ width: 11, height: 11, borderRadius: 6, background: c }} />
+        ))}
+      </span>
+      <span
+        style={{
+          flex: '0 1 560px',
+          height: 26,
+          margin: '0 auto',
+          borderRadius: 8,
+          background: 'rgba(255,255,255,0.07)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          color: 'rgba(255,255,255,0.75)',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        app.fahybrid.com/es/atletas/marta?tab=rendimiento
+      </span>
+      <span style={{ fontVariantNumeric: 'tabular-nums' }}>{ancho} px</span>
     </div>
   );
 }
