@@ -48,7 +48,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'glance',
     titulo: 'Glance «Hoy» · la tarjeta del bucle de glances',
     descripcion:
-      'La tarjeta de una línea que sale en el bucle de glances de Garmin: «Hoy» y, debajo, «6 × 1000 m · 55′» (título y duración; un glance corre con 32–64 KB, así que lee una línea ya precalculada, no el plan). Va enfocada con el marco naranja: a los 2,4 s START la abre (el brief). UP y DOWN pasan al glance vecino y los lleva el sistema, no la app. Es lo que en la muñeca de Apple era la complicación de la esfera y el Smart Stack.',
+      'La tarjeta de una línea que sale en el bucle de glances de Garmin: «Hoy · 55′» y, debajo, «6 × 1000 m» (duración y título; un glance corre con 32–64 KB, así que lee una línea ya precalculada, no el plan). Va enfocada con el marco naranja: a los 2,4 s START la abre (el brief). UP y DOWN pasan al glance vecino y los lleva el sistema, no la app. Es lo que en la muñeca de Apple era la complicación de la esfera y el Smart Stack.',
   },
   {
     id: 'glance-estados',
@@ -179,7 +179,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'libre',
     titulo: 'Entreno libre · elegir el tipo y empezar',
     descripcion:
-      'Sin plan: Correr, Fuerza, Circuito o Ergo, con UP/DOWN y START (se guarda fuera de plan; el título lo dice). A 1,8 s START en «Correr»: sale con el entorno de Ajustes (calle), espera al GPS (fija a los 6 s: 1 larga + SUCCESS), cuenta atrás y el vivo sin objetivo, con vuelta por km. Los otros tres abren su propio reloj sin plan (otras familias de pantallas).',
+      'Sin plan: Correr, Fuerza, Circuito o Ergo, con UP/DOWN y START (se guarda fuera de plan). A 1,8 s START en «Correr»: sale con el entorno de Ajustes (calle), espera al GPS (fija a los 6 s: 1 larga + SUCCESS), cuenta atrás y el vivo sin objetivo, con vuelta por km. Los otros tres abren su propio reloj sin plan (otras familias de pantallas).',
   },
   {
     id: 'ajustes',
@@ -203,7 +203,7 @@ export const escenarios: TwinEscenario[] = [
   {
     id: 'aviso-sin-movil',
     titulo: 'Aviso · sin móvil, se graba igual',
-    descripcion: 'Sin móvil a tiro no se pierde nada: el brief lo dice en una línea («Sin móvil · se graba igual») y no bloquea. La sesión se guarda en el reloj y sube al tener el móvil (G8, G31). No hay tarjeta ni confirmación: una carrera sin móvil es lo normal.',
+    descripcion: 'Sin móvil a tiro no se pierde nada: el brief lo dice en una línea («Se graba sin móvil») y no bloquea. La sesión se guarda en el reloj y sube al tener el móvil (G8, G31). No hay tarjeta ni confirmación: una carrera sin móvil es lo normal.',
   },
   // ── Los cuatro tamaños ──────────────────────────────────────────────────────
   {

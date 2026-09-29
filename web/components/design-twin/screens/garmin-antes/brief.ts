@@ -7,7 +7,7 @@
 //               3:45–3:55 · r 90″ trote», no «N bloques».
 //   abajo       lo que decide si se puede salir, de arriba abajo: dónde se corre y el
 //               GPS («↑↓ Calle · GPS listo»), lo que hay que saber del reloj («Plan de
-//               hace 3 días · acerca el móvil», «Sin móvil · se graba igual»), la acción
+//               hace 3 días · acerca el móvil», «Se graba sin móvil»), la acción
 //               («START · Empezar», en naranja, con su tecla) y el pulso al pie.
 //
 // Se apila DE ABAJO ARRIBA: el pie y la acción no se mueven; la estructura se
@@ -53,7 +53,8 @@ import { ALTO_NOTA, HASTA_PIE, finDe, lineaAccion, lineaPulso, textoEn, textoHas
 export const TEXTO_GPS = { buscando: 'Buscando GPS', listo: 'GPS listo' } as const;
 export const TEXTO_PULSO: Record<Pulso['tipo'], string> = { fijando: 'Fijando pulso', ok: 'Listo', ausente: 'Sin pulso' };
 export const TEXTO_SIN_GPS = 'sin GPS';
-export const TEXTO_SIN_MOVIL = 'Sin móvil · se graba igual';
+/** Corto a propósito: una línea de nota que en un 218 tiene que caber entera, y se graba igual sin móvil. */
+export const TEXTO_SIN_MOVIL = 'Se graba sin móvil';
 export const TEXTO_ACERCA_MOVIL = 'acerca el móvil';
 /** La tecla y lo que hace, como se lee en la muñeca: el naranja de la acción. */
 export const TEXTO_EMPEZAR = 'START · Empezar';

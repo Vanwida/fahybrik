@@ -111,4 +111,4 @@ export function lineaPulso(ppm: number | null, D: number): LineaG {
 /** Dónde empieza el pie (el pulso): abajo del todo. */
 export const Y_PIE = REJILLA.pie[0];
 /** Donde acaba lo de encima del pie: un respiro antes. */
-export const HASTA_PIE = Y_PIE - AIRE.lineas * 3;
+export const HASTA_PIE = Y_PIE - AIRE.lineas * 2;

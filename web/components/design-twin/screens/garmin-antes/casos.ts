@@ -191,7 +191,7 @@ export function escenaDe(id: string): Escena {
 
     // ── Entreno libre · Ajustes ────────────────────────────────────────────────
     case 'libre':
-      return escena({ hoy: hoy([], AL_DIA, null), arranque: { p: 'libre', foco: 0, vuelve: { p: 'no-toca' } }, sistema: SISTEMA_BUSCANDO, gpsEn: 6000, guion: toques([1800, 'start']) });
+      return escena({ hoy: hoy([], AL_DIA, null), arranque: { p: 'libre', foco: 0, vuelve: { p: 'no-toca' } }, sistema: SISTEMA_BUSCANDO, gpsEn: 6000, pulsoEn: PULSO_FIJA_EN, guion: toques([1800, 'start']) });
     case 'ajustes':
       return escena({
         hoy: hoy([del(sesion479Brief())]),

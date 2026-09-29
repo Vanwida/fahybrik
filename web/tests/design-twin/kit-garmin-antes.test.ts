@@ -349,7 +349,7 @@ describe('el brief dice solo lo que se sabe (G1, G7) y solo lo que hace falta', 
 
   it('el móvil ausente no bloquea («se graba igual»); el plan viejo dice su edad y pide acercar el móvil, y sigue habiendo Empezar', () => {
     expect(avisoDelBrief({ tipo: 'al-dia' }, true)).toBeNull();
-    expect(avisoDelBrief({ tipo: 'al-dia' }, false)?.texto).toBe('Sin móvil · se graba igual');
+    expect(avisoDelBrief({ tipo: 'al-dia' }, false)?.texto).toBe('Se graba sin móvil');
     expect(avisoDelBrief({ tipo: 'viejo', dias: 3 }, false)?.texto).toBe('Plan de hace 3 días · acerca el móvil');
     expect(avisoDelBrief({ tipo: 'viejo', dias: 1 }, false)?.texto).toBe('Plan de ayer · acerca el móvil');
     for (const { D } of TAMANOS) {
@@ -366,7 +366,7 @@ describe('sin detalle no hay Empezar (DECISIONS 2026-09-28); sin plan y día lib
     expect(vistaDeHoy(e.hoy)).toBe('sin-detalle');
     expect(puedeEmpezar(e.hoy.sesiones[0]!)).toBe(false);
     for (const { D } of TAMANOS) {
-      const d = disponerSinDetalle(['Tirada 80′', '80′'], D);
+      const d = disponerSinDetalle('Tirada 80′', '80′', D);
       expect(todo(d), `a ${D}`).toContain('Falta la sesión en el reloj');
       expect(todo(d), `a ${D}`).toContain('acerca el móvil');
       expect(todo(d), `a ${D}`).not.toMatch(/START|Empezar/);
@@ -397,8 +397,8 @@ describe('el glance es una tarjeta mínima: «Hoy · duración» y el título', 
     expect(glanceDe(escenaDe('plan-viejo').hoy).nota).toBe('Plan de hace 3 días');
     expect(glanceDe(escenaDe('sin-detalle').hoy).nota).toBe('Falta la sesión');
     const varias = glanceDe(escenaDe('varias-tarde').hoy);
-    expect(varias.etiqueta).toEqual(['Hoy', '2 sesiones']);
-    expect(varias.linea, 'la que toca ahora: la de la tarde').toEqual(['Tarde', '4 × 8 Back Squat']);
+    expect(sinDuros(varias.etiqueta), 'la franja de la que toca ahora').toEqual(['Hoy', 'Tarde']);
+    expect(sinDuros(varias.linea), 'la que toca ahora: la de la tarde').toEqual(['4 × 8 Back Squat']);
   });
 
   it('cabe en los cuatro relojes con el marco naranja (START la abre), en tres líneas como mucho y sin héroe', () => {

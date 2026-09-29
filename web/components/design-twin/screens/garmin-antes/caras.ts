@@ -53,7 +53,7 @@ export function carasDeEscena(e: Escena, D: number): CaraDeEscena[] {
 
   hoy.sesiones.forEach((sd, k) => {
     const s = sd.sesion;
-    if (!sd.detalle) return void out.push({ que: 'sin detalle', d: disponerSinDetalle([tituloDe(s), hoyDe(s.plan.pasos).dur], D) });
+    if (!sd.detalle) return void out.push({ que: 'sin detalle', d: disponerSinDetalle(tituloDe(s), hoyDe(s.plan.pasos).dur, D) });
     const entornos = entornoElegible(s) ? ENTORNOS : [entornoEfectivo(s, null, ajustes.entornoPorDefecto)];
     const dia = sd.franja && hoy.sesiones.length > 1 ? TEXTO_FRANJA[sd.franja] : 'Hoy';
     for (const entorno of entornos) {

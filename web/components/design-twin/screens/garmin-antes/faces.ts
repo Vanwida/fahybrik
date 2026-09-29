@@ -69,10 +69,10 @@ export function glanceDe(hoy: Hoy): DatosGlance {
     case 'no-toca':
       return { etiqueta: [TEXTO_HOY], linea: ['Descanso'], nota: hoy.manana ? `${TEXTO_MANANA_DIA} · ${hoyDe(hoy.manana).titulo}` : null };
     case 'varias': {
-      // Lo que importa es la que toca ahora: su franja y su título; cuántas hay, en la etiqueta.
+      // Lo que importa es la que toca ahora: su franja en la etiqueta («Hoy · Tarde») y su título en grande.
       const siguiente = hoy.sesiones.find((s) => !s.hecha);
-      const linea = siguiente ? [siguiente.franja ? TEXTO_FRANJA[siguiente.franja] : null, tituloDe(siguiente.sesion)].filter((x): x is string => x != null) : ['Hechas'];
-      return { etiqueta: [TEXTO_HOY, `${hoy.sesiones.length} sesiones`], linea, nota: null };
+      if (!siguiente) return { etiqueta: [TEXTO_HOY, `${hoy.sesiones.length} sesiones`], linea: ['Hechas'], nota: null };
+      return { etiqueta: [TEXTO_HOY, siguiente.franja ? TEXTO_FRANJA[siguiente.franja] : `${hoy.sesiones.length} sesiones`], linea: [tituloDe(siguiente.sesion)], nota: null };
     }
     case 'sin-detalle':
       return { etiqueta: [TEXTO_HOY, de(hoy.sesiones[0]!).dur], linea: [de(hoy.sesiones[0]!).titulo], nota: 'Falta la sesión' };
@@ -188,7 +188,7 @@ export function disponerLista(filas: FilaDeLista[], foco: number, D: number): Di
 // ---------------------------------------------------------------------------
 
 /** Dónde empieza el contenido bajo el contexto (fracción de D). */
-const Y_CUERPO = REJILLA.heroe[0] + AIRE.piezas;
+const Y_CUERPO = REJILLA.heroe[0] + AIRE.piezas * 3;
 
 /** G04 · HOY NO TOCA: «Descanso», lo de mañana y la salida al entreno libre. */
 export function disponerNoToca(manana: PasoBase[] | null, D: number): Disposicion {
@@ -217,13 +217,13 @@ export function disponerSinPlan(D: number): Disposicion {
 }
 
 /**
- * G05 · SIN DETALLE: se sabe que hay sesión (el glance trae su título) pero el
- * reloj no tiene los pasos. No hay Empezar: ni contra la asignación ni con un
+ * G05 · SIN DETALLE: se sabe que hay sesión (el glance trae su título y su duración)
+ * pero el reloj no tiene los pasos. No hay Empezar: ni contra la asignación ni con un
  * sustituto (DECISIONS 2026-09-28). El reloj la pide al móvil solo.
  */
-export function disponerSinDetalle(titulo: string[], D: number): Disposicion {
-  const lineas: LineaG[] = [...lineasContexto([TEXTO_HOY], D, 'tinta2')];
-  const ppal = unaLinea('titulo', titulo, TG.tercero, 'tinta', Y_CUERPO, D);
+export function disponerSinDetalle(titulo: string, dur: string, D: number): Disposicion {
+  const lineas: LineaG[] = [...lineasContexto([TEXTO_HOY, dur], D, 'tinta2')];
+  const ppal = unaLinea('titulo', [titulo], TG.tercero, 'tinta', Y_CUERPO, D);
   lineas.push(ppal.linea);
   const falta = textoEn('falta', 'Falta la sesión en el reloj', finDe([ppal.linea], D, Y_CUERPO) + AIRE.piezas, D, { tono: 'tinta' });
   const como = textoEn('como', 'acerca el móvil', falta.fin, D, { tono: 'tinta2' });

@@ -84,8 +84,8 @@ const FRAC_COMPLETO: Record<Peso, number> = { titulo: TG.tercero, normal: TG.con
 /** El cuerpo de cada peso en su forma mínima: el título baja un escalón para no comerse el círculo. */
 const FRAC_MINIMO: Record<Peso, number> = { titulo: TG.contexto, normal: TG.nota, suave: TG.nota };
 const TONO: Record<Peso, Tono> = { titulo: 'tinta', normal: 'tinta', suave: 'tinta2' };
-/** El aire entre un bloque y el siguiente: uno y medio entre líneas, para que se lean como bloques. */
-const ENTRE_BLOQUES = AIRE.lineas * 1.5;
+/** El aire entre un bloque y el siguiente: un cuarto más que entre líneas, para que se lean como bloques. */
+const ENTRE_BLOQUES = AIRE.lineas * 1.25;
 
 /** El texto del «+ n más». */
 export const textoMas = (n: number) => `+ ${n} más`;

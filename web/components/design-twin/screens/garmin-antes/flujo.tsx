@@ -60,7 +60,7 @@ const PPM_EN_CARRERA = 150;
 /** Lo que se retrasa el GPS del vivo tras salir «sin GPS» si el escenario no dice cuándo fija, s. */
 const GPS_TARDA_SIN_DATO_S = 60;
 
-const INICIO: InicioSecuencia = { i: 0, t: 0, sesionT: 0, sesionM: 0 };
+const INICIO: InicioSecuencia = { i: 0, t: 0, metros: 0, sesionT: 0, sesionM: 0 };
 
 export function Flujo({ escena, onLog }: { escena: Escena; onLog: (linea: string) => void }) {
   const avisos = useAvisos(onLog);
@@ -341,7 +341,7 @@ export function Flujo({ escena, onLog }: { escena: Escena; onLog: (linea: string
         if (b === 'upLargo') return nada(b, 'primero hay que decidir qué hacer con la sesión');
         const r = escena.rescate!;
         if (foco === 1) return ir({ p: 'guardada' }, `START → Guardar lo hecho: ${completitudDelRescate(r).estado} (lo decide lo hecho, no la pantalla)`);
-        const inicio: InicioSecuencia = { i: r.control.i, t: 0, sesionT: r.control.sesionT, sesionM: r.control.sesionM, vueltas: r.vueltas, ppmMedio: r.ppmMedio };
+        const inicio: InicioSecuencia = { i: r.control.i, t: 0, metros: 0, sesionT: r.control.sesionT, sesionM: r.control.sesionM, vueltas: r.vueltas, ppmMedio: r.ppmMedio };
         onLog('START → Seguir: OTRA grabación de la misma sesión (Garmin no reanuda la anterior); el paso en curso vuelve a empezar');
         return empezarCuenta(r.sesion.plan, inicio, false, p);
       }

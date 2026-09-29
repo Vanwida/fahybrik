@@ -45,7 +45,7 @@ export interface Contexto {
   alTocar?: (rol: string, k: number) => void;
 }
 
-export const TITULO_LIBRE = 'Entreno libre · fuera de plan';
+export const TITULO_LIBRE = 'Entreno libre';
 export const TITULO_AJUSTES = 'Ajustes';
 export const TITULO_ENTORNO = 'Entorno por defecto';
 export const TITULO_DESVINCULAR = '¿Desvincular?';
@@ -148,7 +148,7 @@ export function Contenido({ p, ctx }: { p: Pantalla; ctx: Contexto }): ReactNode
       return <CaraDe hacer={(D) => disponerSinPlan(D)} alTocar={alTocar} />;
     case 'sin-detalle': {
       const s = hoy.sesiones[0]!.sesion;
-      return <CaraDe hacer={(D) => disponerSinDetalle([tituloDe(s), hoyDe(s.plan.pasos).dur], D)} alTocar={alTocar} />;
+      return <CaraDe hacer={(D) => disponerSinDetalle(tituloDe(s), hoyDe(s.plan.pasos).dur, D)} alTocar={alTocar} />;
     }
     case 'libre':
       return <CaraMenu titulo={[TITULO_LIBRE]} opciones={OPCIONES_LIBRES} foco={p.foco} onTocar={tocaOpcion(alTocar, OPCIONES_LIBRES)} />;
