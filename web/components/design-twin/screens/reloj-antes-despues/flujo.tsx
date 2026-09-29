@@ -16,6 +16,7 @@ import {
   C,
   Completada,
   METODO_RESUMEN_DEFECTO,
+  metodoDe,
   Pila,
   TresDosUno,
   VivoDePlan,
@@ -304,7 +305,7 @@ export function Flujo({ escena, onLog }: { escena: Escena; onLog: (l: string) =>
   };
 
   const familia: Familia = sesion?.familia ?? 'libre';
-  const metodo = escena.metodo ?? METODO_RESUMEN_DEFECTO;
+  const metodo = escena.metodo ?? (sesion ? metodoDe(sesion.plan).resumen : METODO_RESUMEN_DEFECTO);
   const g = escena.guiones ?? {};
 
   let vista: ReactNode = null;

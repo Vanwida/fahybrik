@@ -20,7 +20,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { VistaGarmin, useVivoGarmin, type EmisionGarmin } from '../../kit-garmin';
-import { METODO_RESUMEN_DEFECTO, useQuieto, fmtReloj, type FinDeVivo, type InicioSecuencia, type PlanSesion, type Simulador } from '../../kit-reloj';
+import { METODO_RESUMEN_DEFECTO, metodoDe, useQuieto, fmtReloj, type FinDeVivo, type InicioSecuencia, type PlanSesion, type Simulador } from '../../kit-reloj';
 import { cuerpo } from '../reloj-correr/casos';
 import type { Resultado } from '../reloj-antes-despues/calculo';
 import { resultadoDeVivo } from '../reloj-antes-despues/sellar';
@@ -67,7 +67,7 @@ function faseInicial(e: Escena): Fase {
 /** El vivo de una fase: el de la gramática, con su motor, más el relevo al acabar y el guardado solo tras un rato quieto. */
 function FaseVivo(p: { fase: Extract<Fase, { f: 'vivo' }>; escena: Escena; onFin: (fin: FinDeVivo, ultimo: EmisionGarmin | null) => void; onLog: (l: string) => void }) {
   const { fase, escena } = p;
-  const metodo = escena.metodo ?? METODO_RESUMEN_DEFECTO;
+  const metodo = escena.metodo ?? metodoDe(fase.plan).resumen;
   const { seq, avisos } = useVivoGarmin(fase.plan, fase.sim, fase.inicio, { onLog: p.onLog });
   const ultimoAviso = useRef(avisos.ultimo);
   useEffect(() => {

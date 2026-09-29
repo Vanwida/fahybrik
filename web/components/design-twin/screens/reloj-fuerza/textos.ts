@@ -37,7 +37,7 @@ const corto = (p: PasoBase) => [p.posicion?.slot, p.nombre].filter(Boolean).join
  * ejercicio («8 × 250 m» al abrirlo, «2 × 250 m» cuando ya solo quedan dos),
  * nunca el total de la hoja repetido en cada descanso.
  */
-function dosisRestante(plan: PlanSesion, j: number): string {
+export function dosisRestante(plan: PlanSesion, j: number): string {
   const pr = fmtPrescrito(plan.pasos[j]!.medida);
   const restan = ejercicioDe(plan, j)?.pasos.filter((k) => k >= j).length ?? 1;
   return restan > 1 ? `${restan} × ${pr}` : pr;

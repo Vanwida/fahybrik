@@ -20,7 +20,7 @@
 // serie que dice el atleta es el crono, y la dosis va como INSTRUCCIÓN.
 
 import {
-  NOMBRE_CLASE_DEFECTO,
+  nombreDeClase,
   cantidadSerie,
   dosisSerie,
   esFuerza,
@@ -46,8 +46,8 @@ import {
   type Viene,
   type ZonasCoach,
 } from '../../kit-reloj';
-import { abreEjercicio, ejercicioDe, siguienteTrabajo } from '../reloj-fuerza/modelo';
-import { conSlot, textoLuego, textoViene } from '../reloj-fuerza/textos';
+import { abreEjercicio, siguienteTrabajo } from '../reloj-fuerza/modelo';
+import { conSlot, dosisRestante, textoLuego, textoViene } from '../reloj-fuerza/textos';
 
 /**
  * La dosis de UNA serie, por partes y por prioridad. El orden es el de lectura
@@ -119,9 +119,9 @@ export function vistaTrabajo(paso: Paso, l: Lecturas, c: CtxTrabajo): VistaTraba
     ? quienSerie(paso)
     : paso.posicion?.serie
       ? `${nombreCuenta(paso).nombre} ${paso.posicion.serie.n}/${paso.posicion.serie.de}`
-      : NOMBRE_CLASE_DEFECTO[paso.clase];
+      : nombreDeClase(c.plan, paso.clase).nombre;
   return {
-    nombre: conSlot(paso) || NOMBRE_CLASE_DEFECTO[paso.clase],
+    nombre: conSlot(paso) || nombreDeClase(c.plan, paso.clase).nombre,
     etiqueta: [posicion, lamina.heroe.etiqueta].filter((x): x is string => !!x),
     nota: paso.cue ? [`Coach · ${paso.cue}`, paso.cue] : [luegoQueDiceAlgo(c.plan, c.i)].filter((x): x is string => !!x),
     dosis: fuerza ? partesDosis(paso, c.arrastrada) : partesOtro(paso, lamina),
@@ -167,7 +167,6 @@ export function vieneDe(plan: PlanSesion, i: number, registro: Registro): Viene 
   const una = [fmtPrescrito(q.medida), carga].filter(Boolean).join(' · ');
   const serie = q.posicion?.serie;
   if (serie && !abreEjercicio(plan, j)) return { que: `${nombreCuenta(q).nombre} ${serie.n}/${serie.de}`, dosis: una || null };
-  const e = ejercicioDe(plan, j);
-  const dosis = [e && e.series > 1 ? `${e.series} × ${fmtPrescrito(q.medida)}` : fmtPrescrito(q.medida), carga].filter(Boolean).join(' · ');
-  return q.nombre ? { que: q.nombre, dosis: dosis || null } : { que: dosis || NOMBRE_CLASE_DEFECTO[q.clase], dosis: null };
+  const dosis = [dosisRestante(plan, j), carga].filter(Boolean).join(' · ');
+  return q.nombre ? { que: q.nombre, dosis: dosis || null } : { que: dosis || nombreDeClase(plan, q.clase).nombre, dosis: null };
 }

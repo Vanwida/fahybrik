@@ -27,6 +27,8 @@ import { sesion492 } from '@/components/design-twin/screens/reloj-fuerza/planes'
 import { textoViene } from '@/components/design-twin/screens/reloj-fuerza/textos';
 import { cargaDelPlan } from '@/components/design-twin/kit-reloj/anotar';
 import { textoKgPlan } from '@/components/design-twin/kit-reloj/fuerza';
+import { metodoDe, nombreDeClase, vocabularioDe } from '@/components/design-twin/kit-reloj/metodo';
+import { vieneDe } from '@/components/design-twin/screens/garmin-fuerza/textos';
 import { sesionDe } from '@/components/design-twin/kit-reloj/vivo';
 import { hechoDe } from '@/components/design-twin/kit-garmin/vivo';
 
@@ -299,5 +301,30 @@ describe('A7 · estructuraDe con grupos intercalados (circuito 5 rondas de Run +
     expect(run.estado).toBe('pendiente');
     const fin = filas(c.plan.pasos.length - 1).find((f) => f.trabajo.clase === 'carrera' && f.veces === 5)!;
     expect(fin.estado).toBe('hecho');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B1 · el vocabulario y el método del coach se leen del plan, con los defectos de fallback
+// ---------------------------------------------------------------------------
+
+describe('B1 · vocabulario y método en el plan', () => {
+  const base = plan([paso({ clase: 'tempo', rol: 'trabajo', medida: { tipo: 'tiempo', prescrito: 600, mide: 'reloj' } })]);
+
+  it('sin nada en el plan, los defectos; con vocabulario y método propios, los del coach', () => {
+    expect(nombreDeClase(base, 'tempo')).toEqual({ nombre: 'Tempo', femenino: false });
+    expect(nombreDeClase(base, 'series').nombre).toBe('Serie');
+    expect(metodoDe(base).resumen.umbralHecho).toBe(0.9);
+    const del = { ...base, vocabulario: { ...vocabularioDe(base), clases: { tempo: { nombre: 'Umbral', femenino: false } } }, metodo: { ...metodoDe(base), resumen: { ...metodoDe(base).resumen, umbralHecho: 0.8 } } };
+    expect(nombreDeClase(del, 'tempo').nombre).toBe('Umbral');
+    expect(nombreDeClase(del, 'series').nombre).toBe('Serie');
+    expect(metodoDe(del).resumen.umbralHecho).toBe(0.8);
+  });
+
+  it('el «Viene:» de Garmin abre con el total y después dice solo la serie', () => {
+    const q = sesion492();
+    const idx = q.pasos.flatMap((p, i) => (p.nombre === 'Sled Push' && p.rol === 'trabajo' ? [i] : []));
+    expect(llano(vieneDe(q, idx[0]! - 1, {})!.dosis)).toBe('5 × 25 m · 180 kg');
+    expect(llano(vieneDe(q, idx[2]! - 1, {})!.dosis)).toBe('25 m · 180 kg');
   });
 });
