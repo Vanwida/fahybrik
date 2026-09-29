@@ -14,6 +14,14 @@ struct LiveConectividadSheet: View {
     let onTapHR: () -> Void
     let onDismiss: () -> Void
 
+    /// El reloj tal como lo dice Apple; informativo, sin botones. Sin Apple Watch
+    /// emparejado no se le habla de un reloj que no tiene.
+    private var relojFrase: String? {
+        let estado = PhoneLiveSession.shared.watchStatus
+        guard WatchPresence.shared.appAvailable || estado == .recording else { return nil }
+        return estado.frase
+    }
+
     private var involvesRun: Bool {
         session.plan.segments.contains { $0.involvesRun }
     }
@@ -24,6 +32,14 @@ struct LiveConectividadSheet: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     if involvesRun {
                         runEnvironmentSection
+                    }
+                    if let frase = relojFrase {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                            LabelText(text: "Reloj", size: 10)
+                            Text(frase)
+                                .font(Theme.Typography.bodyEmph)
+                                .foregroundStyle(Theme.Color.foreground)
+                        }
                     }
                     if !devices.isEmpty {
                         VStack(alignment: .leading, spacing: Theme.Spacing.s) {

@@ -1,7 +1,7 @@
 import XCTest
 @testable import FAHYBRIK
 
-// FH-96 — one workout intent → one PRIMARY. Prep + ▶ EMPEZAR must not double-launch
+// FH-96 — one workout intent → one PRIMARY. A repeated `begin` must not double-launch
 // the watch; redundant `startPrimary` on a compatible live PRIMARY must not finish.
 @MainActor
 final class PhoneMirrorDoubleBeginTests: XCTestCase {
@@ -45,34 +45,22 @@ final class PhoneMirrorDoubleBeginTests: XCTestCase {
         XCTAssertTrue(mirror.primaryRequestedForTests)
     }
 
-    func testPrepThenReleaseOnlyOneLaunch() {
-        let s = WorkoutSession(plan: .minimal(title: "FH-96-prep"))
-        // calle/cinta is the gate's answer: prep and release stamp
-        // `answers.runEnvironment` on the staging session (a run without it
-        // asks the wrist for nothing — PhoneLiveHandoffPolicy).
-        var answers = SessionStartAnswers.empty
-        answers.runEnvironment = .outdoor
+    /// El botón «Preparar grabación en el reloj» no conectaba nada (solo dibujaba un
+    /// spinner) y se borró: Empezar es la única vía y siempre lanza UNA vez.
+    func testReleaseLaunchesOnceEvenWithoutAnAnswer() {
+        let s = WorkoutSession(plan: .minimal(title: "FH-96-release"))
         mirror.startWatchAppOverride = { _ in true }
-
-        PreWorkoutReleaseLive.prepWatchRecording(
-            staging: s,
-            answers: answers,
-            activityKind: "running",
-            stampSession: nil
-        )
-        XCTAssertEqual(mirror.startWatchAppCallCount, 0,
-                       "prep is UI-only — no startWatchApp")
-        XCTAssertNotNil(mirror.watchJoinStartedAt)
 
         _ = PreWorkoutReleaseLive.release(
             staging: s,
-            answers: answers,
+            answers: .empty,
             activityKind: "running",
             stampSession: nil
         )
 
+        XCTAssertNil(s.runEnvironment)
         XCTAssertEqual(mirror.startWatchAppCallCount, 1,
-                       "release is the sole HK owner — exactly one launch")
+                       "release is the sole HK owner — exactly one launch, with or without calle/cinta")
     }
 
     func testEmpezarAloneStillLaunchesWatch() {

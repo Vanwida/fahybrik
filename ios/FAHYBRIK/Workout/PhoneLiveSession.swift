@@ -5,13 +5,16 @@ import os
 
 // FH-97 / FH-56 — ONE phone-side live session owner.
 // Coach engine = WorkoutSession. Wrist PRIMARY = WatchPrimaryOwner (watchOS).
-// This object owns: ONE `startWatchApp` per intent, the mirrored HK channel
-// Apple hands over, the frame loop, and ONE end delivery.
+// This object owns: the `startWatchApp` of the intent (ALWAYS on start, unasked:
+// the watch launches by itself, like Apple Entreno / Strava / Nike Run Club),
+// the mirrored HK channel Apple hands over, the frame loop, and ONE end delivery.
 //
 // The link is Apple's. `link` is written ONLY by the mirroring start handler /
 // recover (bound), `didDisconnectFromRemoteDeviceWithError` (disconnected) and
-// `didChangeTo .ended` (none). No retry loop, no launch generation, no
-// «recent signal» window: the phone is coach, not connector.
+// `didChangeTo .ended` (none). No retry TIMER, no launch generation, no
+// «recent signal» window: the phone is coach, not connector. The only relaunch
+// is event-driven and capped (`handleWatchReachability`), and only after Apple
+// answered the previous launch with an error and no mirror channel is bound.
 
 @MainActor
 @Observable
@@ -29,7 +32,7 @@ final class PhoneLiveSession {
         case disconnected(String?)
     }
 
-    /// Result of the ONE `startWatchApp` of this intent — surfaced, never looped.
+    /// Result of the `startWatchApp` of this intent — Apple's answer, surfaced, never looped.
     enum WatchLaunch: Equatable {
         case notRequested
         case requesting
@@ -46,9 +49,45 @@ final class PhoneLiveSession {
     var hasMirroredHKSession: Bool { hk.session != nil }
     private(set) var wristRecordedWorkout: Bool = false
     private(set) var wristFinishedByAthlete: Bool = false
-    private(set) var watchJoinStartedAt: Date?
 
-    static let watchJoinHintSeconds: TimeInterval = 9
+    /// What the athlete is told about the watch DURING the workout. Derived only
+    /// from Apple's answers (`startWatchApp`, the mirrored session, the disconnect
+    /// and `.ended` callbacks): no timer, no guess. It never blocks anything.
+    enum WatchStatus: Equatable {
+        /// Nothing asked of the watch yet (or the workout is over).
+        case none
+        /// Apple has not handed the mirrored session over yet.
+        case connecting
+        /// The mirrored session is bound: the watch is recording.
+        case recording
+        /// Apple reported an error, a disconnect or the end of the mirror. The
+        /// workout goes on; the watch may still be recording on the wrist.
+        case offline
+
+        /// Lo que se le dice al atleta. Sin jerga y sin bloquear: siempre puede seguir.
+        var frase: String? {
+            switch self {
+            case .none: return nil
+            case .connecting: return "Conectando con el reloj…"
+            case .recording: return "Grabando en la muñeca"
+            case .offline: return "Sin conexión con el reloj. Puedes seguir entrenando."
+            }
+        }
+    }
+
+    var watchStatus: WatchStatus {
+        switch link {
+        case .bound: return .recording
+        case .disconnected: return .offline
+        case .none:
+            if wristWasLinked { return .offline }
+            switch watchLaunch {
+            case .notRequested: return .none
+            case .requesting, .launched: return .connecting
+            case .failed: return .offline
+            }
+        }
+    }
 
     @ObservationIgnored var sendOverride: ((_ type: String) -> Void)?
     @ObservationIgnored var isTreadmillLive: () -> Bool = { DeviceHub.shared.treadmillLink.isLive }
@@ -59,6 +98,16 @@ final class PhoneLiveSession {
     /// FH-96 — one workout intent → one PRIMARY. A second `begin` on the same
     /// staging session (prep UI + ▶ EMPEZAR) must not re-request the wrist.
     @ObservationIgnored private var primaryRequested = false
+    /// Apple bound a mirror at some point in this intent (so `link == .none` later
+    /// means the mirror ended, not «still connecting»).
+    private var wristWasLinked = false
+    /// Config of the FIRST launch, reused as is by a relaunch: a different config
+    /// would make the wrist finish its live session (FH-96, build 78).
+    @ObservationIgnored private var launchConfiguration: HKWorkoutConfiguration?
+    @ObservationIgnored private var watchRelaunchCount = 0
+    /// Skip reasons already written this intent (`already_requested` repeats on
+    /// every `begin`/`start`): the log says each once, not every call.
+    @ObservationIgnored private var loggedSkipReasons: Set<String> = []
     @ObservationIgnored private var boundSessionId: ObjectIdentifier?
     @ObservationIgnored private(set) var startWatchAppCallCount = 0
     @ObservationIgnored var startWatchAppOverride: ((HKWorkoutConfiguration) async -> Bool)?
@@ -103,7 +152,10 @@ final class PhoneLiveSession {
         watchLaunch = .notRequested
         startWatchAppCallCount = 0
         startWatchAppOverride = nil
-        watchJoinStartedAt = nil
+        wristWasLinked = false
+        launchConfiguration = nil
+        watchRelaunchCount = 0
+        loggedSkipReasons = []
         link = .none
         engine = nil
         phase = .idle
@@ -115,11 +167,6 @@ final class PhoneLiveSession {
     /// Test seam — Apple's `didDisconnectFromRemoteDeviceWithError` path.
     func simulateRemoteDisconnectForTests(error: String?) {
         handleRemoteDisconnect(error.map { PhoneMirrorLinkError(description: $0) })
-    }
-
-    /// FH-96 — prep UI only; drives watch card spinner without `startWatchApp`.
-    func noteWatchPrepIntent() {
-        watchJoinStartedAt = watchJoinStartedAt ?? Date()
     }
 
     // MARK: - Lifecycle
@@ -154,12 +201,18 @@ final class PhoneLiveSession {
             pendingEndSave = nil
             endingSave = nil
             watchLaunch = .notRequested
-            watchJoinStartedAt = Date()
+            wristWasLinked = false
+            launchConfiguration = nil
+            watchRelaunchCount = 0
+            loggedSkipReasons = []
         }
         DiagnosticsLog.shared.record(.session, .liveBegin, workoutId: session.hkSessionUUID,
                                      detail: "kind=\(activityKind) continuing=\(continuingSamePrimary)")
         DiagnosticsLog.shared.markRunning(workoutId: session.hkSessionUUID, role: "phone")
-        guard HKHealthStore.isHealthDataAvailable() else { return }
+        guard HKHealthStore.isHealthDataAvailable() else {
+            recordLaunchSkipped(.healthUnavailable)
+            return
+        }
         prepare()
         requestWatchPrimaryIfNeeded()
         startFrameLoop()
@@ -237,30 +290,83 @@ final class PhoneLiveSession {
         adopt(recovered)
     }
 
-    /// ONE `startWatchApp` per intent. Result lands in `watchLaunch`; a failure
-    /// is said on the watch card, never retried by timer.
+    /// The watch launches ALWAYS and by itself when the workout starts: no question
+    /// to the athlete, no wait for calle/cinta. ONE `startWatchApp` per intent; its
+    /// result lands in `watchLaunch`. When it decides NOT to launch it says why in
+    /// the technical log (`start_watch_app_skipped`), never silently.
     func requestWatchPrimaryIfNeeded() {
-        guard HKHealthStore.isHealthDataAvailable() else { return }
-        let isRunning = activityKind == "running"
-        guard PhoneLiveHandoffPolicy.shouldRequestWatchPrimary(
+        guard HKHealthStore.isHealthDataAvailable() else {
+            recordLaunchSkipped(.healthUnavailable)
+            return
+        }
+        let decision = PhoneLiveHandoffPolicy.watchLaunchDecision(
             alreadyRequested: watchLaunch != .notRequested,
             channelBound: hk.session != nil,
-            hasEngine: engine != nil && phase == .coaching,
-            runEnvironmentResolved: !(isRunning && engine?.runEnvironment == nil),
-            activityKindIsRunning: isRunning
-        ) else { return }
-        watchLaunch = .requesting
-        startWatchAppCallCount += 1
+            hasEngine: engine != nil && phase == .coaching
+        )
+        switch decision {
+        case .skip(let reason):
+            recordLaunchSkipped(reason)
+        case .launch:
+            launchWatch(config: makeLaunchConfiguration(), detail: "trigger=start")
+        }
+    }
+
+    /// The wrist became reachable again (`WCSession.reachabilityDidChange`) while the
+    /// workout runs. If Apple answered the launch with an error and no mirror is
+    /// bound, launch ONCE more (capped per intent). Event-driven, never a timer:
+    /// reachability is Apple's own signal, FH-56 stays intact.
+    func handleWatchReachability(reachable: Bool) {
+        guard reachable, phase == .coaching, HKHealthStore.isHealthDataAvailable() else { return }
+        var failed = false
+        if case .failed = watchLaunch { failed = true }
+        let decision = PhoneLiveHandoffPolicy.watchRelaunchDecision(
+            coaching: engine != nil,
+            channelBound: hk.session != nil,
+            lastLaunchFailed: failed,
+            relaunchesDone: watchRelaunchCount
+        )
+        switch decision {
+        case .skip(let reason):
+            recordLaunchSkipped(reason, trigger: "reachable")
+        case .launch:
+            watchRelaunchCount += 1
+            // The SAME configuration as the first launch (FH-96).
+            launchWatch(config: launchConfiguration ?? makeLaunchConfiguration(),
+                        detail: "trigger=reachable attempt=\(watchRelaunchCount)")
+        }
+    }
+
+    /// Start config. Running with no calle/cinta answer starts as `.outdoor` (see
+    /// `WorkoutLocationType.resolve`: never forbid the GPS); the real environment
+    /// travels in the frame and the wrist switches activity when it arrives.
+    private func makeLaunchConfiguration() -> HKWorkoutConfiguration {
         let config = HKWorkoutConfiguration()
         config.activityType = PhoneMirrorFrameBuilder.activityType(for: activityKind)
         config.locationType = WorkoutLocationType.resolve(
             activityKind: activityKind,
             environment: engine?.runEnvironment
         )
+        return config
+    }
+
+    private func launchWatch(config: HKWorkoutConfiguration, detail: String) {
+        watchLaunch = .requesting
+        startWatchAppCallCount += 1
+        launchConfiguration = config
         Task { [weak self] in
             guard let self else { return }
-            await self.startWatchApp(config)
+            await self.startWatchApp(config, detail: detail)
         }
+    }
+
+    private func recordLaunchSkipped(_ reason: PhoneLiveHandoffPolicy.WatchLaunchSkip, trigger: String = "start") {
+        guard loggedSkipReasons.insert("\(trigger)/\(reason.rawValue)").inserted else { return }
+        DiagnosticsLog.shared.record(
+            .link, .startWatchAppSkipped, workoutId: engine?.hkSessionUUID,
+            detail: "reason=\(reason.rawValue) trigger=\(trigger) kind=\(activityKind) env=\(engine?.runEnvironment?.rawValue ?? "nil")"
+        )
+        Self.log.info("startWatchApp skipped: \(reason.rawValue, privacy: .public)")
     }
 
     func kickFrame() {
@@ -337,7 +443,7 @@ final class PhoneLiveSession {
                                      detail: "state=\(incoming.state.rawValue) phase=\(phase) engine=\(engine != nil)")
         hk.bind(incoming)
         link = .bound
-        watchJoinStartedAt = nil
+        wristWasLinked = true
         cancelRelease()
         Self.log.info("adopted mirrored session state=\(incoming.state.rawValue, privacy: .public) type=\(incoming.type.rawValue, privacy: .public) phase=\(String(describing: self.phase), privacy: .public) engine=\(self.engine != nil, privacy: .public)")
         if let pending = pendingEndSave {
@@ -444,6 +550,10 @@ final class PhoneLiveSession {
         primaryRequested = false
         boundSessionId = nil
         watchLaunch = .notRequested
+        wristWasLinked = false
+        launchConfiguration = nil
+        watchRelaunchCount = 0
+        loggedSkipReasons = []
     }
 
     /// FH-100 — post-workout idle: channel released + latches cleared so the
@@ -456,14 +566,15 @@ final class PhoneLiveSession {
         phase = .idle
     }
 
-    private func startWatchApp(_ config: HKWorkoutConfiguration) async {
-        try? await healthStore.requestAuthorization(
-            toShare: [HKObjectType.workoutType()], read: []
-        )
+    private func startWatchApp(_ config: HKWorkoutConfiguration, detail trigger: String) async {
         let outcome: (ok: Bool, error: Error?)
         if let override = startWatchAppOverride {
+            // Test seam: replaces Apple's call, authorization sheet included.
             outcome = (await override(config), nil)
         } else {
+            try? await healthStore.requestAuthorization(
+                toShare: [HKObjectType.workoutType()], read: []
+            )
             outcome = await withCheckedContinuation { cont in
                 healthStore.startWatchApp(with: config) { ok, error in
                     cont.resume(returning: (ok, error))
@@ -473,7 +584,8 @@ final class PhoneLiveSession {
         DiagnosticsLog.shared.record(
             .link, .startWatchApp, workoutId: engine?.hkSessionUUID,
             error: outcome.ok ? nil : (outcome.error ?? NSError(domain: "startWatchApp", code: 0)),
-            detail: outcome.ok ? "activity=\(config.activityType.rawValue) late=\(watchLaunch != .requesting)" : nil
+            detail: "activity=\(config.activityType.rawValue) location=\(config.locationType.rawValue) \(trigger)"
+                + (outcome.ok ? " late=\(watchLaunch != .requesting)" : " error=\(outcome.error?.localizedDescription ?? "sin detalle")")
         )
         guard watchLaunch == .requesting else { return }
         if outcome.ok {

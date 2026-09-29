@@ -11,6 +11,32 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-29 · El reloj se lanza siempre y solo al empezar (adiós a la pregunta y al botón que no conectaba)
+
+**El fallo (Alex, por voz):** al empezar un entreno el móvil preguntaba «¿preparo el reloj?, ¿continúo sin reloj?», el botón «Preparar grabación en el reloj» nunca conectaba y al final «conecta o no conecta»: engañoso.
+
+**Causa raíz (probada con test rojo y con el registro técnico de la atleta 64, builds 110/115):** de tres carreras, las dos que fallaron tienen `live_begin` y NINGÚN `start_watch_app` (ni ok ni failed): el móvil no intentó lanzar el reloj y no dijo nada. `PhoneLiveHandoffPolicy.shouldRequestWatchPrimary` no lanzaba una carrera mientras `runEnvironment == nil`, y Continuar en Dispositivos no exige elegir calle/cinta, así que un test o una carrera libre sin esa respuesta llegaba a `begin` con el entorno vacío. La que funcionó tenía `start_watch_app ok` 1 s después del `live_begin`. Con el reloj lanzado por el móvil el enlace entero funciona. El botón «Preparar grabación en el reloj» solo llamaba a `noteWatchPrepIntent()` (un spinner y a los 9 s «El reloj no se unió todavía»): no conectaba nada y mantenía al atleta esperando algo que no ocurría.
+
+**Decidido (estándar de mercado: Apple Entreno, Strava, Nike Run Club):**
+1. **El reloj se lanza SIEMPRE y solo** al pulsar ▶ EMPEZAR (`startWatchApp`), sin puertas ni preguntas. Se quita la puerta por `runEnvironment`. Sin respuesta calle/cinta arranca como calle (`WorkoutLocationType.resolve`: `.outdoor` enciende el GPS y, sin cobertura bajo techo, watchOS cae a la estimación del acelerómetro; `.indoor` PROHÍBE el GPS y equivocarse hacia ahí sí destruye la medida). El entorno real viaja en la trama (`MirrorStateFrame.runEnvironment`) y el reloj cambia de actividad al recibirlo (`applyActivityPlan` → `beginNewActivity`; verificado leyendo `WatchPrimaryOwner`; una trama sin entorno NO fuerza calle). Con respuesta (o cinta conectada) se respeta desde el primer momento. Riesgo aceptado y declarado: en cinta sin respuesta el reloj gasta algo de batería con el GPS puesto hasta que el atleta toca «Cinta» en Conectividad; antes NO había reloj en absoluto.
+2. **Nada silencioso jamás:** cuando el móvil decide no lanzar (`no_engine`, `already_requested`, `channel_bound`, `health_unavailable`, `launch_not_failed`, `retry_cap_reached`) escribe `start_watch_app_skipped` con `detail=reason=…` (una vez por motivo e intent). Y `start_watch_app` lleva `location=` y `trigger=`.
+3. **Cómo se reconcilia con FH-56 (sin timers, solo eventos de Apple):** no vuelve el bucle ×3 cada 3 s. Solo hay un relanzamiento dirigido por el evento de Apple `WCSession.reachabilityDidChange` (el reloj pasa a alcanzable) si Apple contestó ERROR al lanzamiento anterior, mientras el entreno sigue en marcha y no hay canal espejo atado; con tope `maxWatchRelaunchesPerIntent = 2` por entreno. Un `ok` de Apple no se relanza (el reloj se está abriendo) y perder alcance no hace nada.
+4. **Cómo se reconcilia con FH-96 (un intent → un PRIMARY):** el relanzamiento solo ocurre sin canal atado (`hk.session == nil`) y lleva EXACTAMENTE la configuración del primero: una distinta habría terminado la sesión viva del reloj (bug de la build 78). El primer lanzamiento sigue siendo único por intent.
+5. **El estado lo dice solo Apple:** `PhoneLiveSession.watchStatus` (conectando · grabando · sin conexión) sale del resultado de `startWatchApp`, de la sesión espejo, del `didDisconnect…` y del `.ended`. En el vivo es un chip del reloj (`Vivo.Dispositivos.Reloj`: `conectando`, `sinConexion`; sin Apple Watch emparejado no hay chip) con la nota «sin conexión con el reloj · puedes seguir»; informativo (`apagado`, no `perdido`: no tapa la nota de una máquina que sí se perdió) y en Conectividad una línea. Espejo en el doble: `kit-iphone-vivo/enlace.ts`.
+
+**Se borra (y no se reconstruye):** el botón «Preparar grabación en el reloj» y `PreWorkoutReleaseLive.prepWatchRecording`; «Continuar sin reloj»; `PhoneLiveSession.noteWatchPrepIntent`, `watchJoinStartedAt`, `watchJoinHintSeconds` y el spinner «Esperando al reloj…»; `SessionStartPolicy.watchResolved` / `empezarFooterHint`; `SessionStartAnswers.watchProceedWithoutWrist` / `watchUnavailable`; `SessionStartRecipe.asksWatch`; la re-petición de lanzamiento al cambiar de entorno (`switchRunEnvironment`, `onChange(runEnvironment)`); el parámetro `runEnvironmentResolved` de la política. La tarjeta del reloj del brief es solo informativa y sin botones («Apple Watch listo» / «Sin Apple Watch, entrenas igual» / «Reloj grabando»).
+
+**La regla «nunca auto-conectar dispositivos» es de cintas, ergómetros y bandas de gimnasio** (riesgo de manipular la máquina de otro), no del Apple Watch: es del propio atleta y va por el sistema de Apple. Esta entrada no toca la lógica de cintas/ergs/bandas.
+
+**NO hacer:** volver a preguntar por el reloj antes de empezar; bloquear ▶ EMPEZAR o el lanzamiento por calle/cinta o por el estado del reloj; reintentar por temporizador; relanzar con canal atado o con otra configuración; decir «conectando» más allá de lo que Apple ha contestado.
+
+**No verificado (sin reloj emparejado real):** que el lanzamiento llegue de verdad al reloj en el aparato y que el relanzamiento por alcance lo abra tras un error real; queda para la prueba en aparato. Ver `docs/DECISIONS.md` FH-56 y FH-96 (2026-09-21 / 2026-09-09) y las pruebas de `FH56AppleLinkTests`, `WatchPrimaryLifecycleTests`.
+
+---
+
+---
+
+
 ## 2026-09-29 · El reloj Garmin: motor propio en Connect IQ (modelo `docs/garmin-reloj/modelo.md`) y una corrección de la entrada del 06-08
 
 **El encargo (Alex, 29-09):** una app en la Connect IQ Store, «top en el mercado, que gane a TrainingPeaks», para el corredor híbrido. Garmin compró TrainingPeaks el 22-jul-2026 y tiene pausadas las altas de su Connect Developer Program (desde la primavera, antes de la compra); Connect IQ es otro programa, abierto, con revisión ≤ 72 h.

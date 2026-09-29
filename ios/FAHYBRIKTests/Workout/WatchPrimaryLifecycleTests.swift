@@ -52,30 +52,52 @@ final class WatchPrimaryLifecycleTests: XCTestCase {
 
 final class PhoneLiveHandoffPolicyTests: XCTestCase {
 
-    func testRequestOncePerIntent() {
-        XCTAssertTrue(PhoneLiveHandoffPolicy.shouldRequestWatchPrimary(
-            alreadyRequested: false, channelBound: false, hasEngine: true,
-            runEnvironmentResolved: true, activityKindIsRunning: false
-        ))
-        XCTAssertFalse(PhoneLiveHandoffPolicy.shouldRequestWatchPrimary(
-            alreadyRequested: true, channelBound: false, hasEngine: true,
-            runEnvironmentResolved: true, activityKindIsRunning: false
-        ), "one startWatchApp per intent — never a second by timer")
-        XCTAssertFalse(PhoneLiveHandoffPolicy.shouldRequestWatchPrimary(
-            alreadyRequested: false, channelBound: true, hasEngine: true,
-            runEnvironmentResolved: true, activityKindIsRunning: false
-        ), "a bound channel means the wrist is already there")
-        XCTAssertFalse(PhoneLiveHandoffPolicy.shouldRequestWatchPrimary(
-            alreadyRequested: false, channelBound: false, hasEngine: false,
-            runEnvironmentResolved: true, activityKindIsRunning: false
-        ))
+    /// El reloj se lanza siempre al empezar: solo lo frenan un motor ausente, un canal
+    /// ya atado o un lanzamiento ya hecho en este intent. El entorno (calle/cinta) NO
+    /// entra: esperar por él fue la causa raíz del «no conecta» (29-sep).
+    func testLaunchTruthTable() {
+        XCTAssertEqual(PhoneLiveHandoffPolicy.watchLaunchDecision(
+            alreadyRequested: false, channelBound: false, hasEngine: true), .launch)
+        XCTAssertEqual(PhoneLiveHandoffPolicy.watchLaunchDecision(
+            alreadyRequested: true, channelBound: false, hasEngine: true),
+            .skip(.alreadyRequested), "one startWatchApp per intent (FH-96)")
+        XCTAssertEqual(PhoneLiveHandoffPolicy.watchLaunchDecision(
+            alreadyRequested: false, channelBound: true, hasEngine: true),
+            .skip(.channelBound), "a bound channel means the wrist is already there")
+        XCTAssertEqual(PhoneLiveHandoffPolicy.watchLaunchDecision(
+            alreadyRequested: false, channelBound: false, hasEngine: false), .skip(.noEngine))
     }
 
-    func testRunningWaitsForEnvironment() {
-        XCTAssertFalse(PhoneLiveHandoffPolicy.shouldRequestWatchPrimary(
-            alreadyRequested: false, channelBound: false, hasEngine: true,
-            runEnvironmentResolved: false, activityKindIsRunning: true
-        ))
+    /// Relanzar: solo tras un error de Apple, sin canal atado y con cupo.
+    func testRelaunchTruthTable() {
+        typealias P = PhoneLiveHandoffPolicy
+        XCTAssertEqual(P.watchRelaunchDecision(
+            coaching: true, channelBound: false, lastLaunchFailed: true, relaunchesDone: 0), .launch)
+        XCTAssertEqual(P.watchRelaunchDecision(
+            coaching: true, channelBound: false, lastLaunchFailed: true,
+            relaunchesDone: P.maxWatchRelaunchesPerIntent - 1), .launch)
+        XCTAssertEqual(P.watchRelaunchDecision(
+            coaching: true, channelBound: true, lastLaunchFailed: true, relaunchesDone: 0),
+            .skip(.channelBound), "con canal atado un segundo lanzamiento fue el bug de la build 78")
+        XCTAssertEqual(P.watchRelaunchDecision(
+            coaching: true, channelBound: false, lastLaunchFailed: false, relaunchesDone: 0),
+            .skip(.launchNotFailed), "si Apple dijo ok no se relanza")
+        XCTAssertEqual(P.watchRelaunchDecision(
+            coaching: true, channelBound: false, lastLaunchFailed: true,
+            relaunchesDone: P.maxWatchRelaunchesPerIntent), .skip(.retryCapReached))
+        XCTAssertEqual(P.watchRelaunchDecision(
+            coaching: false, channelBound: false, lastLaunchFailed: true, relaunchesDone: 0), .skip(.noEngine))
+    }
+
+    /// El motivo viaja al registro técnico: snake_case estable.
+    func testSkipReasonsAreStableLogNames() {
+        typealias S = PhoneLiveHandoffPolicy.WatchLaunchSkip
+        XCTAssertEqual(S.noEngine.rawValue, "no_engine")
+        XCTAssertEqual(S.alreadyRequested.rawValue, "already_requested")
+        XCTAssertEqual(S.channelBound.rawValue, "channel_bound")
+        XCTAssertEqual(S.healthUnavailable.rawValue, "health_unavailable")
+        XCTAssertEqual(S.launchNotFailed.rawValue, "launch_not_failed")
+        XCTAssertEqual(S.retryCapReached.rawValue, "retry_cap_reached")
     }
 
     func testAdoptLinksAndNeverDiscards() {

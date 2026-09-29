@@ -48,8 +48,9 @@ extension WorkoutSession {
 
     #if os(iOS)
     /// FH-56 — stamp the coach-plan hang-off id and ask the wrist for the PRIMARY
-    /// (`startWatchApp`) once calle/cinta is known. ONE request per intent —
-    /// `PhoneLiveSession` holds the latch; this is idempotent.
+    /// (`startWatchApp`). Safety net for any path that reaches `start()` without
+    /// `PhoneLiveSession.begin`: ONE request per intent, `PhoneLiveSession` holds
+    /// the latch and this is idempotent.
     func requestWatchPrimaryIfNeeded() {
         MainActor.assumeIsolated {
             if hkSessionUUID == nil { hkSessionUUID = UUID() }

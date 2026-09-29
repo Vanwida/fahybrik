@@ -19,8 +19,13 @@ import { deMaquina, nombreMaquina, nombreMaquinaCorto, type TipoMaquina } from '
 import type { EstadoChip, NombreIcono } from './piezas';
 
 export interface Dispositivos {
-  /** El reloj: lleva el motor, es segunda pantalla, o no hay. */
-  reloj: 'motor' | 'segunda-pantalla' | 'sin';
+  /**
+   * El reloj: lleva el motor, es segunda pantalla, o no hay. Se lanza solo al
+   * empezar; lo que se dice de él es lo que Apple contesta y nunca bloquea:
+   * `conectando` (Apple aún no ha entregado el enlace), `sin-conexion` (no
+   * respondió o se perdió; el entreno sigue igual).
+   */
+  reloj: 'motor' | 'segunda-pantalla' | 'conectando' | 'sin-conexion' | 'sin';
   /** La máquina emparejada, si hay (si el paso lleva máquina y no está, hay que conectarla). */
   maquina: TipoMaquina | null;
   /** De dónde viene el pulso. */
@@ -64,7 +69,13 @@ export function usaGps(p: PasoBase): boolean {
 export function enlacesDe(d: Dispositivos, p: PasoBase, l: Lecturas): ChipEnlace[] {
   const chips: ChipEnlace[] = [];
 
-  if (d.reloj !== 'sin') {
+  if (d.reloj === 'conectando') {
+    chips.push({ clave: 'reloj', icono: 'reloj', texto: 'Reloj', estado: 'buscando', nota: 'conectando con el reloj' });
+  } else if (d.reloj === 'sin-conexion') {
+    // `apagado`, no `perdido`: es informativo, no impide entrenar, y no debe tapar
+    // la nota de una máquina o un pulso que SÍ se han perdido.
+    chips.push({ clave: 'reloj', icono: 'reloj', texto: 'Reloj · sin conexión', estado: 'apagado', nota: 'sin conexión con el reloj · puedes seguir' });
+  } else if (d.reloj !== 'sin') {
     chips.push({
       clave: 'reloj',
       icono: 'reloj',

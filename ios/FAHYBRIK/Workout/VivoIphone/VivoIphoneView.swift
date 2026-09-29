@@ -100,8 +100,9 @@ struct VivoIphoneView: View {
         if let m = paso.maquina?.tipo {
             if m == .cinta { maquina = treadmillLink.isLive ? .cinta : nil } else if ergoEnlazado { maquina = m }
         } else if Vivo.familiaDe(paso) == .cinta, treadmillLink.isLive { maquina = .cinta }
-        let reloj: Vivo.Dispositivos.Reloj = PhoneLiveSession.shared.hasMirroredHKSession ? .segundaPantalla : .sin
-        let pulso: Vivo.Dispositivos.Pulsometro = hrLink.isLive ? .banda : (session.liveHRBpm != nil || reloj != .sin ? .reloj : .sin)
+        let reloj = Vivo.Dispositivos.Reloj.delEnlace(PhoneLiveSession.shared.watchStatus,
+                                                     hayAppleWatch: WatchPresence.shared.appAvailable)
+        let pulso: Vivo.Dispositivos.Pulsometro = hrLink.isLive ? .banda : (session.liveHRBpm != nil || reloj == .segundaPantalla ? .reloj : .sin)
         return Vivo.Dispositivos(reloj: reloj, maquina: maquina, pulsometro: pulso)
     }
 
@@ -610,6 +611,20 @@ struct VivoIphoneView: View {
                 treadmillModel = m
                 m.start()
             }
+        }
+    }
+}
+
+extension Vivo.Dispositivos.Reloj {
+    /// El reloj tal como lo dice Apple (`PhoneLiveSession.watchStatus`). Sin Apple
+    /// Watch emparejado no hay chip: no se le habla de un reloj que no tiene. Si la
+    /// muñeca graba aunque el emparejado no conste, se dice que graba.
+    static func delEnlace(_ estado: PhoneLiveSession.WatchStatus, hayAppleWatch: Bool) -> Vivo.Dispositivos.Reloj {
+        switch estado {
+        case .recording: return .segundaPantalla
+        case .connecting: return hayAppleWatch ? .conectando : .sin
+        case .offline: return hayAppleWatch ? .sinConexion : .sin
+        case .none: return .sin
         }
     }
 }

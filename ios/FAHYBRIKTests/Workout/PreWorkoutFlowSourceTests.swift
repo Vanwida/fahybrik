@@ -1,4 +1,6 @@
 import XCTest
+import SwiftUI
+@testable import FAHYBRIK
 
 // FH-95 — the pre-live athlete path must expose exactly ONE ▶ EMPEZAR (Brief readyToStart).
 final class PreWorkoutFlowSourceTests: XCTestCase {
@@ -49,14 +51,28 @@ final class PreWorkoutFlowSourceTests: XCTestCase {
         XCTAssertTrue(brief.contains("PreWorkoutReleaseLive.release"))
     }
 
-    func testPrepIsUIONlyNoBegin() throws {
+    /// El reloj no se pregunta: ni «Preparar grabación en el reloj», ni «Continuar sin
+    /// reloj», ni puerta por el estado del reloj. Se lanza solo al empezar.
+    func testWatchIsNeverAskedInThePreLiveFlow() throws {
         let release = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PreWorkoutReleaseLive.swift"))
-        XCTAssertTrue(release.contains("noteWatchPrepIntent"))
-        let prepBody = release
-            .components(separatedBy: "static func prepWatchRecording").last?
-            .components(separatedBy: "static func release").first ?? ""
-        XCTAssertFalse(prepBody.contains("PhoneLiveSession.shared.begin"),
-                       "prep must not call begin — sole HK owner is release")
+        XCTAssertFalse(release.contains("prepWatchRecording"))
+        XCTAssertFalse(release.contains("noteWatchPrepIntent"))
+        let card = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PreWorkoutWatchCard.swift"))
+        XCTAssertFalse(card.contains("Button"), "la tarjeta del reloj es solo informativa")
+        XCTAssertFalse(card.contains("SecondaryButton"))
+        XCTAssertFalse(card.contains("Continuar sin reloj"))
+        XCTAssertFalse(card.contains("Preparar grabación"))
+        XCTAssertFalse(card.contains("Esperando al reloj"))
+        let brief = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PreWorkoutBriefView.swift"))
+        XCTAssertFalse(brief.contains("prepWatchRecording"))
+        XCTAssertFalse(brief.contains("watchUnavailable"))
+        let policy = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIKCore/Workout/SessionStartPolicy.swift"))
+        XCTAssertFalse(policy.contains("watchProceedWithoutWrist"))
+        XCTAssertFalse(policy.contains("watchResolved"))
+        let phone = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PhoneLiveSession.swift"))
+        XCTAssertFalse(phone.contains("noteWatchPrepIntent"))
+        XCTAssertFalse(phone.contains("watchJoinStartedAt"))
+        XCTAssertFalse(phone.contains("watchJoinHintSeconds"))
     }
 
     // FH-56 — a redundant/compatible `handle(_:)` is decided by ONE pure policy
@@ -78,5 +94,67 @@ final class PreWorkoutFlowSourceTests: XCTestCase {
         XCTAssertFalse(policy.contains("mirrorChannelAlive"))
         XCTAssertFalse(owner.contains("mirrorChannelAlive"))
         XCTAssertFalse(owner.contains("reconcileIdleBeforeLaunch"))
+    }
+}
+
+// La tarjeta del reloj del brief y los chips del reloj en el vivo, RENDERIZADOS de
+// verdad: informativos, sin botones, en el castellano del box. Sitio de donde salen
+// las capturas (`FAHYBRIK_CAPTURAS=<carpeta>`); sin la variable no escribe nada.
+final class RelojInformativoRenderTests: XCTestCase {
+
+    private var destino: URL? {
+        ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"].map { URL(fileURLWithPath: $0) }
+    }
+
+    @MainActor
+    private func render(_ vista: some View, ancho: CGFloat = 402, alto: CGFloat, nombre: String) throws {
+        let renderer = ImageRenderer(
+            content: vista
+                .padding(20)
+                .frame(width: ancho, height: alto, alignment: .topLeading)
+                .background(Theme.Color.background)
+                .environment(\.colorScheme, .dark)
+        )
+        renderer.scale = 3
+        let imagen = try XCTUnwrap(renderer.uiImage, nombre)
+        guard let png = imagen.pngData() else { return }
+        let adjunto = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+        adjunto.name = nombre
+        adjunto.lifetime = .keepAlways
+        add(adjunto)
+        if let destino {
+            try? FileManager.default.createDirectory(at: destino, withIntermediateDirectories: true)
+            try? png.write(to: destino.appendingPathComponent("\(nombre).png"))
+        }
+    }
+
+    @MainActor
+    func testLaTarjetaDelRelojDelBriefEnSusDosEstados() throws {
+        WatchPresence.shared.refresh(paired: true, installed: true)
+        try render(PreWorkoutWatchCard(mirror: PhoneLiveSession.shared), alto: 120,
+                   nombre: "brief-reloj-listo")
+        WatchPresence.shared.refresh(paired: false, installed: false)
+        try render(PreWorkoutWatchCard(mirror: PhoneLiveSession.shared), alto: 120,
+                   nombre: "brief-sin-apple-watch")
+    }
+
+    @MainActor
+    func testLosChipsDelRelojEnElVivo() throws {
+        let estados: [(String, Vivo.Dispositivos.Reloj)] = [
+            ("vivo-reloj-conectando", .conectando),
+            ("vivo-reloj-grabando", .segundaPantalla),
+            ("vivo-reloj-sin-conexion", .sinConexion),
+        ]
+        for (nombre, reloj) in estados {
+            let paso = Vivo.Paso(id: "chip", clase: .series, rol: .trabajo, fase: .principal,
+                                 medida: .init(tipo: .distancia, prescrito: 1000, mide: .gps))
+            let chips = Vivo.enlacesDe(.init(reloj: reloj, maquina: nil, pulsometro: .banda),
+                                       paso, Vivo.Lecturas(t: 60, hecho: nil, ritmo: nil, ppm: 160))
+            let chip = try XCTUnwrap(chips.first { $0.clave == .reloj })
+            try render(VStack(alignment: .leading, spacing: 8) {
+                VivoChip(chip: chip)
+                if let nota = chip.nota { Text(nota).font(.footnote).foregroundStyle(.secondary) }
+            }, alto: 90, nombre: nombre)
+        }
     }
 }

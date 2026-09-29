@@ -55,6 +55,22 @@ describe('los enlaces se derivan de las lecturas (I10)', () => {
   });
 });
 
+describe('el reloj se lanza solo: solo dice lo que Apple contesta y nunca bloquea', () => {
+  const serie = paso({ clase: 'series', rol: 'trabajo', medida: { tipo: 'distancia', prescrito: 1000, mide: 'gps' } });
+
+  it('conectando busca; sin conexión es informativo y no tapa una máquina perdida', () => {
+    const conectando = enlacesDe({ ...MOVIL, reloj: 'conectando' }, serie, lect({ gps: 'listo' })).find((c) => c.clave === 'reloj')!;
+    expect(conectando).toMatchObject({ texto: 'Reloj', estado: 'buscando', nota: 'conectando con el reloj' });
+    const sin = enlacesDe({ ...MOVIL, reloj: 'sin-conexion' }, serie, lect({ gps: 'listo' })).find((c) => c.clave === 'reloj')!;
+    expect(sin).toMatchObject({ texto: 'Reloj · sin conexión', estado: 'apagado', nota: 'sin conexión con el reloj · puedes seguir' });
+  });
+
+  it('sin reloj (sin Apple Watch) no pinta chip; grabando en la muñeca es el chip normal', () => {
+    expect(enlacesDe(MOVIL, serie, lect({})).some((c) => c.clave === 'reloj')).toBe(false);
+    expect(enlacesDe({ ...MOVIL, reloj: 'segunda-pantalla' }, serie, lect({})).find((c) => c.clave === 'reloj')).toMatchObject({ texto: 'Reloj', estado: 'ok', nota: null });
+  });
+});
+
 describe('el vocabulario cerrado de la acción primaria', () => {
   it('cada clave lleva su texto y su peso; el naranja solo para lo primario', () => {
     expect(primariaDe('serie hecha')).toEqual({ texto: 'Serie hecha', peso: 'primaria' });
