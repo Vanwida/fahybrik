@@ -3838,6 +3838,7 @@
 				};
 			};
 			buildConfigurationList = 25DC17CD4B44077A0391B5F1 /* Build configuration list for PBXProject "FAHYBRIK" */;
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = es;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -3847,13 +3848,12 @@
 			mainGroup = D3CD77D05E537DF863A18657;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = F85AB024627313E84F60F41B /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				BF96FA3CBD1E39E579E26595 /* FAHYBRIK */,
-				D3A6C918B3FECD30E5432594 /* FAHYBRIKUITests */,
 				966A3685D7CBCD58C63D69D5 /* FAHYBRIKTests */,
+				D3A6C918B3FECD30E5432594 /* FAHYBRIKUITests */,
 				F598A89B889C6BDDD7380AC8 /* FAHYBRIKWatch */,
 				948314EE51092546302FF306 /* FAHYBRIKWidgets */,
 			);
@@ -5085,7 +5085,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 102;
+				CURRENT_PROJECT_VERSION = 103;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
@@ -5188,7 +5188,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 102;
+				CURRENT_PROJECT_VERSION = 103;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = S6W4459DDG;
 				ENABLE_MODULE_VERIFIER = YES;
