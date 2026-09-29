@@ -93,7 +93,9 @@ export async function detectExecutionRunningPRs(args: {
       select
         is_current,
         dist,
-        coalesce(explicit_pace, case when dur > 0 then dur / (dist / 1000.0) else null end) as pace
+        -- Sin distancia no hay ritmo: un tramo de 0 m (Salud lo trae así) partía por
+        -- cero y tumbaba el guardado de TODO entreno posterior del atleta.
+        coalesce(explicit_pace, case when dur > 0 and dist > 0 then dur / (dist / 1000.0) else null end) as pace
       from run_segs
     ),
     by_exec as (

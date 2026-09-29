@@ -366,12 +366,24 @@ async function recomputeTotalsSource(sql: Sql | TransactionClient, executionId: 
   `;
 }
 
-/** Running records this execution set. Best-effort: a failure costs the celebration. */
+/**
+ * Running records this execution set. Best-effort: a failure costs the celebration.
+ *
+ * Dentro de una transacción un `.catch` no basta: el error de Postgres deja la
+ * transacción abortada y el guardado entero acaba en 500 (así cayó «division by
+ * zero», 29-sep-2026). Por eso, en una transacción, la consulta va en un SAVEPOINT:
+ * si falla, se deshace solo ella y el entreno guardado sigue adelante.
+ */
 export async function detectPrs(
   sql: Sql | TransactionClient,
   athleteId: number,
   executionId: number,
 ): Promise<RunningPR[]> {
   if (!Number.isFinite(executionId)) return [];
-  return detectExecutionRunningPRs({ sql, athleteId, executionId }).catch(() => []);
+  const detect = (client: Sql | TransactionClient) =>
+    detectExecutionRunningPRs({ sql: client, athleteId, executionId });
+  if (!isPoolWriteClient(sql)) {
+    return (sql as TransactionClient).savepoint((sp) => detect(sp)).catch(() => []);
+  }
+  return detect(sql).catch(() => []);
 }
