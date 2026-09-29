@@ -16,15 +16,27 @@ struct TituloSeccionDia<Aparte: View>: View {
         self.aparte = aparte()
     }
 
+    private var encabezado: some View {
+        Text(titulo)
+            .papel(.seccion)
+            .foregroundStyle(Theme.Color.foreground)
+            .accessibilityAddTraits(.isHeader)
+    }
+
     var body: some View {
-        HStack(spacing: Theme.Spacing.m) {
-            Text(titulo)
-                .papel(.seccion)
-                .foregroundStyle(Theme.Color.foreground)
-                .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: Theme.Spacing.m)
-            aparte
+        // Con texto grande, lo de la derecha pasa debajo del título en vez de apretarlo.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Theme.Spacing.m) {
+                encabezado
+                Spacer(minLength: Theme.Spacing.m)
+                aparte
+            }
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                encabezado
+                aparte
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

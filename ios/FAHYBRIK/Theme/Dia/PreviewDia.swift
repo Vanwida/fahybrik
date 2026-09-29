@@ -62,7 +62,7 @@ struct EnAmbasDia<Contenido: View>: View {
                 contenido
                     .padding(Theme.Spacing.pantalla)
                     .frame(maxWidth: .infinity)
-                    .background(Theme.Color.background)
+                    .background { Theme.Color.background }
                     .environment(\.colorScheme, esquema)
             }
         }

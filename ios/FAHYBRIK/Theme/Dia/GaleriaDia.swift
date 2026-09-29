@@ -237,7 +237,7 @@ enum GaleriaDia {
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.vertical, Theme.Spacing.m)
             .frame(minHeight: 72)
-            .background(realce ? Theme.Color.accentTint : .clear)
+            .background { Rectangle().fill(realce ? Theme.Color.accentTint : SwiftUI.Color.clear) }
         }
     }
 

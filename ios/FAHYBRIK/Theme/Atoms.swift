@@ -415,7 +415,8 @@ struct InfoPill: View {
             if let glifo { IconoDia(glifo, tam: 14, peso: .bold) }
             Text(text)
                 .papel(.rotulo)
-                .lineLimit(1)
+                // Una pastilla ENSEÑA un dato: cortada con «…» ya no lo enseña. Si no cabe, baja de línea.
+                .fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(tinta)
         .padding(.horizontal, Theme.Spacing.m)

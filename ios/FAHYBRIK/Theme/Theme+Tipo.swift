@@ -66,6 +66,23 @@ extension Theme.Typography {
             var tabular = false
             /// El estilo de texto contra el que escala con Dynamic Type.
             let estilo: Font.TextStyle
+            /// Cuánto puede crecer como máximo, como múltiplo de su tamaño. Sólo los papeles GRANDES lo llevan:
+            /// a «Accesibilidad 3» un 44 pt llegaría a ~80 y «descansas» dejaría de caber en una línea y se
+            /// partiría por la mitad de la palabra. El texto de lectura (15-17 pt) crece sin tope: es el que
+            /// el atleta ha pedido más grande.
+            var tope: CGFloat?
+        }
+
+        /// Hasta dónde crece un papel grande con el texto del sistema (×1,3: el 44 llega a 57).
+        static let topeDeLosGrandes: CGFloat = 1.3
+
+        /// El tamaño con que se pinta ya escalado por Dynamic Type: hacia arriba con el texto del sistema,
+        /// NUNCA por debajo de la medida base del papel (el suelo, §4.1) y, si es un papel grande, sin
+        /// pasar de su tope.
+        func tamanoEfectivo(escalado: CGFloat) -> CGFloat {
+            let m = medidas
+            let subido = max(escalado, m.tamano)
+            return m.tope.map { min(subido, m.tamano * $0) } ?? subido
         }
 
         var medidas: Medidas {
@@ -89,17 +106,17 @@ extension Theme.Typography {
             case .accion:
                 return Medidas(tamano: 17, peso: .heavy, cursiva: true, interlineado: 1, tracking: 0.01, estilo: .body)
             case .seccion:
-                return Medidas(tamano: 24, peso: .heavy, cursiva: true, interlineado: 1.15, tracking: -0.01, estilo: .title2)
+                return Medidas(tamano: 24, peso: .heavy, cursiva: true, interlineado: 1.15, tracking: -0.01, estilo: .title2, tope: Self.topeDeLosGrandes)
             case .saludo:
-                return Medidas(tamano: 30, peso: .heavy, cursiva: true, interlineado: 1.1, tracking: -0.015, estilo: .title)
+                return Medidas(tamano: 30, peso: .heavy, cursiva: true, interlineado: 1.1, tracking: -0.015, estilo: .title, tope: Self.topeDeLosGrandes)
             case .dato:
-                return Medidas(tamano: 32, peso: .heavy, cursiva: true, interlineado: 1, tracking: -0.02, tabular: true, estilo: .title)
+                return Medidas(tamano: 32, peso: .heavy, cursiva: true, interlineado: 1, tracking: -0.02, tabular: true, estilo: .title, tope: Self.topeDeLosGrandes)
             case .sujeto:
-                return Medidas(tamano: 44, peso: .heavy, cursiva: true, interlineado: 1.02, tracking: -0.025, estilo: .largeTitle)
+                return Medidas(tamano: 44, peso: .heavy, cursiva: true, interlineado: 1.02, tracking: -0.025, estilo: .largeTitle, tope: Self.topeDeLosGrandes)
             case .cuentaHoy:
-                return Medidas(tamano: 64, peso: .heavy, cursiva: true, interlineado: 0.95, tracking: -0.04, tabular: true, estilo: .largeTitle)
+                return Medidas(tamano: 64, peso: .heavy, cursiva: true, interlineado: 0.95, tracking: -0.04, tabular: true, estilo: .largeTitle, tope: Self.topeDeLosGrandes)
             case .cuenta:
-                return Medidas(tamano: 80, peso: .heavy, cursiva: true, interlineado: 0.95, tracking: -0.04, tabular: true, estilo: .largeTitle)
+                return Medidas(tamano: 80, peso: .heavy, cursiva: true, interlineado: 0.95, tracking: -0.04, tabular: true, estilo: .largeTitle, tope: Self.topeDeLosGrandes)
             }
         }
     }
@@ -126,7 +143,7 @@ private struct PapelModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         let m = papel.medidas
-        let tamano = max(escalado, m.tamano)
+        let tamano = papel.tamanoEfectivo(escalado: escalado)
         // `lineSpacing` es EXTRA sobre el alto natural de la línea (≈1,2 del cuerpo en SF); el
         // interlineado del diseño es un múltiplo del tamaño, así que el extra puede ser negativo
         // (un título de 44 pt a 1,02 va más apretado que el natural).

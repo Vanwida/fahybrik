@@ -172,15 +172,27 @@ struct KickerDia<Aparte: View>: View {
         self.aparte = aparte()
     }
 
+    private var etiqueta: some View {
+        Text(texto)
+            .papel(.kicker)
+            .foregroundStyle(tono.papeles.tinta)
+    }
+
     var body: some View {
-        HStack(spacing: Theme.Spacing.m) {
-            Text(texto)
-                .papel(.kicker)
-                .foregroundStyle(tono.papeles.tinta)
-            Spacer(minLength: Theme.Spacing.m)
-            aparte
+        // Si la etiqueta y lo suyo no caben en una línea (texto grande), lo suyo pasa debajo: una etiqueta
+        // partida por la mitad de la palabra («CARRER/A») no se lee.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Theme.Spacing.m) {
+                etiqueta
+                Spacer(minLength: Theme.Spacing.m)
+                aparte
+            }
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                etiqueta
+                aparte
+            }
         }
-        .frame(minHeight: 32)
+        .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
     }
 }
 

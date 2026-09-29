@@ -104,17 +104,25 @@ extension EnvironmentValues {
 /// Una fila de teselas, todas de la misma altura: la de la más alta (`grid` del doble, que estira las
 /// celdas). La fila mide lo que mide su tesela más alta y NO se lleva el sobrante de la pantalla: las
 /// teselas son pruebas, no protagonistas. Una tesela sola (la impar de Perfil) va también aquí, y ocupa el ancho.
+///
+/// Con el texto del sistema en tamaños de accesibilidad las teselas pasan a UNA columna: en dos, un dato
+/// de 32 pt escalado no cabe en media pantalla y se parte por la mitad.
 struct TeselasDia<Contenido: View>: View {
     let contenido: Contenido
+    @Environment(\.dynamicTypeSize) private var tamanoDeTexto
 
     init(@ViewBuilder _ contenido: () -> Contenido) {
         self.contenido = contenido()
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.m) { contenido }
-            .fixedSize(horizontal: false, vertical: true)
-            .environment(\.teselasEstiradas, true)
+        if tamanoDeTexto.isAccessibilitySize {
+            VStack(spacing: Theme.Spacing.m) { contenido }
+        } else {
+            HStack(alignment: .top, spacing: Theme.Spacing.m) { contenido }
+                .fixedSize(horizontal: false, vertical: true)
+                .environment(\.teselasEstiradas, true)
+        }
     }
 }
 
