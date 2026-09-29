@@ -29,6 +29,10 @@ enum AnaliticasColor {
     static let sobreAccion = VivoColor.sobreAccion
     static let ok = VivoColor.hex(0x34C759)
     static let aviso = VivoColor.hex(0xFFB340)
+    /// El rojo del cumplimiento por sesión (5,9:1 sobre el fondo). Nunca colorea un veredicto.
+    static let fuera = VivoColor.hex(0xFF5A52)
+    /// El gris de lo que no se juzga (hecho sin plan): 3,5:1 sobre el fondo.
+    static let neutro = VivoColor.hex(0x6B6B72)
     /// Lo hecho (relleno), el plan (contorno) y la proyección (discontinua).
     static let hecho = VivoColor.tinta
     static let plan = VivoColor.tinta2

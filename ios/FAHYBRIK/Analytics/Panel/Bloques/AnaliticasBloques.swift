@@ -75,7 +75,7 @@ struct AnaliticasNotaDeFalta: View {
         if let falta = lectura.cobertura.falta,
            let nota = AnaliticasEstados.notaDeFalta(falta, bloque: bloque, hoy: ctx.hoy) {
             VStack(alignment: .leading, spacing: 8) {
-                AnaliticasNota(texto: "\(lectura.tituloEs) · \(nota)")
+                AnaliticasNota(texto: "\(AnaliticasDerivados.etiqueta(de: lectura)) · \(nota)")
                 if case .accion(let texto, let destino)? = AnaliticasEstados.salida(de: falta) {
                     AnaliticasBoton(texto: texto, secundario: true) { ctx.onSalida(destino) }
                 }

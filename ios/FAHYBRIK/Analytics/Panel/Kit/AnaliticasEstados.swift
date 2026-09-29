@@ -111,10 +111,12 @@ enum AnaliticasEstados {
         }
     }
 
-    /// La primera falta de historia del bloque, en semanas (o noches en la recuperación).
+    /// La primera falta de historia CON ALGO ANDADO (`llevas > 0`, igual que `esperaHistoria`),
+    /// en semanas (o noches en la recuperación). Una historia en cero no es un plazo: es
+    /// que aún no empieza, y no debe tapar otra falta (marcas) que sí explica el hueco.
     static func plazoDeHistoria(_ bloque: BloqueDelPanel, _ lecturas: [LecturaAnalitica]) -> PlazoDeHistoria? {
         for l in lecturas {
-            if case .historia(let llevas, let hacen)? = l.cobertura.falta { return plazo(bloque, llevas: llevas, hacen: hacen) }
+            if case .historia(let llevas, let hacen)? = l.cobertura.falta, llevas > 0 { return plazo(bloque, llevas: llevas, hacen: hacen) }
         }
         return nil
     }

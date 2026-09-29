@@ -279,7 +279,7 @@ struct AnaliticasBloqueRecuperacion: View {
             let nota = atrasado
                 ? AnaliticasDerivados.ultimoDeLaSerie(l).map { "Último dato del \(AnaliticasFormato.fechaLegible($0, hoy: ctx.hoy))" }
                 : nil
-            AnaliticasCelda(etiqueta: l.tituloEs, valor: d.valor, unidad: d.unidad,
+            AnaliticasCelda(etiqueta: AnaliticasDerivados.etiqueta(de: l), valor: d.valor, unidad: d.unidad,
                             delta: atrasado ? nil : AnaliticasDerivados.delta(de: l), nota: nota) {
                 if let s = l.serie, s.tieneLinea {
                     AnaliticasChispa(puntos: s.puntos, ancho: enColumna ? Lienzo.chispaEnColumna : ctx.ancho - Lienzo.margenDeCelda,

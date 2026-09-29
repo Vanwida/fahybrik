@@ -20,6 +20,7 @@ enum AnaliticasFormato {
         case .metros: return metros(valor)
         case .mS: return "\(Formato.esDecimal(valor, decimals: 2)) m/s"
         case .pct: return "\(Int(valor.rounded())) %"
+        case .pp: return "\(Int(valor.rounded())) pt"
         case .ratio: return Formato.esDecimal(valor, decimals: 2)
         case .mlKgMin: return Formato.esDecimal(valor)
         case .watts: return Formato.entero(valor, "W")
@@ -32,7 +33,9 @@ enum AnaliticasFormato {
         case .series: return Formato.entero(valor, "series")
         case .cm: return Formato.entero(valor, "cm")
         case .rondas: return "\(Formato.esDecimal(valor)) rondas"
-        case .pp: return "\(Int(valor.rounded())) pt"
+        case .rpe: return "RPE \(Formato.esDecimal(valor))"
+        case .rir: return "RIR \(Formato.esDecimal(valor))"
+        case .tramos: return Formato.entero(valor, "tramos")
         case .tss, .tssSemana, .puntos, .desconocida: return conMillar(valor)
         }
     }
@@ -63,6 +66,7 @@ enum AnaliticasFormato {
         case .metros: return (valor ?? 0) < 1000 ? "m" : "km"
         case .mS: return "m/s"
         case .pct: return "%"
+        case .pp: return "pt"
         case .watts: return "W"
         case .reps: return Vocab.reps
         case .kcal: return "kcal"
@@ -73,7 +77,9 @@ enum AnaliticasFormato {
         case .series: return "series"
         case .cm: return "cm"
         case .rondas: return "rondas"
-        case .pp: return "pt"
+        case .rpe: return "RPE"
+        case .rir: return "RIR"
+        case .tramos: return "tramos"
         case .mlKgMin: return "VO₂máx"
         case .segundos, .ratio, .tss, .tssSemana, .puntos, .desconocida: return ""
         }
@@ -111,7 +117,8 @@ enum AnaliticasFormato {
         case .mlKgMin: return "\(signo)\(Formato.esDecimal(a))"
         case .watts: return "\(signo)\(Int(a.rounded())) W"
         case .mS: return "\(signo)\(Formato.esDecimal(a, decimals: 2)) m/s"
-        case .pp: return "\(signo)\(Int(a.rounded())) pt"
+        case .puntos, .pp: return "\(signo)\(Int(a.rounded())) pt"
+        case .tramos: return "\(signo)\(Int(a.rounded())) tramos"
         case .spm: return "\(signo)\(Int(a.rounded())) pal/min"
         case .rpm: return "\(signo)\(Int(a.rounded())) rpm"
         case .series: return "\(signo)\(Int(a.rounded())) series"

@@ -2,8 +2,9 @@ import SwiftUI
 
 // 3 · SEMANA A SEMANA — ¿hago lo que toca? Carga (apilada por familia) u horas
 // por semana, el plan en contorno sobre lo hecho, y las dos cifras de la
-// ventana contra el periodo anterior. La lista de cumplimiento por sesión
-// (A8) llega con el bloque de cumplimiento, que el servidor aún no sirve.
+// ventana contra el periodo anterior, y el cumplimiento del coach: su número,
+// la palabra y cuántas sesiones de cada color. La lista sesión a sesión (A8) es
+// del detalle: el panel no la sirve, la sirve `…/analytics/cumplimiento`.
 
 private typealias C = AnaliticasColor
 
@@ -52,6 +53,36 @@ struct AnaliticasBloqueSemanas: View {
                     AnaliticasCelda(etiqueta: "Horas", valor: dh.valor, unidad: dh.unidad, delta: AnaliticasDerivados.delta(de: horas))
                 }
             }
+
+            if estado != .vacio, let cumplimiento = AnaliticasDerivados.lectura(lecturas, IdsDelPanel.semanasCumplimiento) {
+                cumplimientoVista(cumplimiento)
+            }
         }
+    }
+
+    @ViewBuilder
+    private func cumplimientoVista(_ l: LecturaAnalitica) -> some View {
+        if l.estado == .medida, let d = l.dato {
+            AnaliticasCelda(etiqueta: l.tituloEs, valor: d.valor, unidad: d.unidad, delta: AnaliticasDerivados.delta(de: l), ancla: l.procedencia.ancla) {
+                if let v = l.veredicto {
+                    AnaliticasCuerpo(texto: v.etiquetaEs, fuerte: true)
+                    if let frase = v.fraseEs { AnaliticasNota(texto: frase) }
+                }
+            }
+            if let r = AnaliticasDerivados.resumenDeSesiones(l) {
+                AnaliticasCuerpo(texto: textoDelResumen(r), fuerte: true)
+            }
+            let partes = AnaliticasDerivados.partesDeCumplimiento(l)
+            if !partes.isEmpty { AnaliticasBarraReparto(partes: partes) }
+            AnaliticasNotaDeFalta(ctx: ctx, bloque: .semanas, lectura: l)
+        } else {
+            AnaliticasNotaDeFalta(ctx: ctx, bloque: .semanas, lectura: l)
+        }
+    }
+
+    private func textoDelResumen(_ r: AnaliticasDerivados.ResumenDeSesiones) -> String {
+        var t = "\(r.hechas) de \(r.total) \(r.total == 1 ? "sesión hecha" : "sesiones hechas") · \(r.dentro) dentro de lo pedido"
+        if r.sinPlan > 0 { t += " · \(r.sinPlan) sin plan" }
+        return t
     }
 }

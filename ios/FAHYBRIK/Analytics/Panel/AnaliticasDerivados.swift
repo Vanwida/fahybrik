@@ -162,6 +162,52 @@ enum AnaliticasDerivados {
         }
     }
 
+    /// El cumplimiento por sesión (`semanas.cumplimiento`): cuántas de cada color,
+    /// en la barra, sin las partes vacías. Verde cumplida, ámbar desviada, rojo
+    /// fuera de banda o sin hacer, y en gris lo hecho sin medida y lo hecho sin plan.
+    static func partesDeCumplimiento(_ l: LecturaAnalitica) -> [TramoDeBarra] {
+        guard let r = l.reparto, r.esProporcional else { return [] }
+        typealias S = IdsDelPanel.SesionCumplida
+        return r.partes.compactMap { p in
+            guard let pct = p.pct, pct > 0 else { return nil }
+            let color: Color
+            switch p.code {
+            case S.cumplida: color = AnaliticasColor.ok
+            case S.desviada: color = AnaliticasColor.aviso
+            case S.fuera, S.noHecha: color = AnaliticasColor.fuera
+            case S.hechaSinMedida: color = AnaliticasColor.tinta2
+            default: color = AnaliticasColor.neutro
+            }
+            return TramoDeBarra(code: p.code, etiqueta: p.etiquetaEs, pct: pct, color: color)
+        }
+    }
+
+    struct ResumenDeSesiones: Equatable {
+        /// Sesiones del plan que ya tocaban.
+        let total: Int
+        let hechas: Int
+        /// Las que quedaron dentro de lo pedido.
+        let dentro: Int
+        let sinPlan: Int
+    }
+
+    /// «3 de 4 hechas · 2 dentro de lo pedido · 1 sin plan», del reparto servido.
+    static func resumenDeSesiones(_ l: LecturaAnalitica) -> ResumenDeSesiones? {
+        guard let r = l.reparto, !r.partes.isEmpty else { return nil }
+        typealias S = IdsDelPanel.SesionCumplida
+        func n(_ code: String) -> Int { Int((r.partes.first { $0.code == code }?.valor ?? 0).rounded()) }
+        let sinPlan = n(S.sinPlan)
+        let hechas = n(S.cumplida) + n(S.desviada) + n(S.fuera) + n(S.hechaSinMedida)
+        let total = hechas + n(S.noHecha)
+        guard total > 0 || sinPlan > 0 else { return nil }
+        return ResumenDeSesiones(total: total, hechas: hechas, dentro: n(S.cumplida), sinPlan: sinPlan)
+    }
+
+    /// El nombre con que se pinta una lectura: el título servido, salvo la disposición.
+    static func etiqueta(de l: LecturaAnalitica) -> String {
+        l.id == IdsDelPanel.readiness ? IdsDelPanel.etiquetaDeReadiness : l.tituloEs
+    }
+
     /// La métrica de una fila de Progreso: el título servido sin el nombre de la
     /// familia que ya encabeza la fila («Fuerza · Sentadilla» → «Sentadilla»).
     static func metricaDeProgreso(_ l: LecturaAnalitica) -> String {
