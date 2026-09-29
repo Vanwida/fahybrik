@@ -55,7 +55,7 @@ describeWithDb('método ampliado y umbrales declarados (base real)', () => {
     expect(await resolveEffectiveAnalyticsMethod(fx.coachId, sql)).toEqual(defaultCoachAnalyticsMethod());
   });
 
-  test('el método del cumplimiento (0279) hace el viaje entero: escalera de bases, bandas, holguras', async () => {
+  test('el método del cumplimiento (0281) hace el viaje entero: escalera de bases, bandas, holguras', async () => {
     const propio = {
       ...defaultCoachAnalyticsMethod(),
       cumplimiento_sesion_bases: ['duracion', 'carga'] as Array<'carga' | 'duracion' | 'distancia'>,

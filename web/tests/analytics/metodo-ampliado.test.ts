@@ -87,7 +87,7 @@ describe('el esquema del editor', () => {
   });
 });
 
-describe('el método del cumplimiento (0279)', () => {
+describe('el método del cumplimiento (0281)', () => {
   test('los defectos: la escalera y las bandas de mercado, la holgura del vivo, 10 puntos de cambio', () => {
     const m = DEFAULT_COACH_ANALYTICS_METHOD;
     expect(m.cumplimiento_sesion_bases).toEqual(['carga', 'duracion', 'distancia']);

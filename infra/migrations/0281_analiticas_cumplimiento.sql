@@ -1,10 +1,11 @@
--- 0279 — El cumplimiento de las analíticas rehechas (docs/analiticas/modelo.md A7/A8,
+-- 0281 — El cumplimiento de las analíticas rehechas (docs/analiticas/modelo.md A7/A8,
 -- §3 fila 3 y §5): el método del coach para juzgar cada sesión frente a su plan y
 -- cada tramo frente a su banda.
 --
--- (Numeración: 0278 la ocupa otra rama en vuelo, la limpieza de datos de las
--- analíticas. El migrador registra por nombre de fichero, así que el orden de
--- llegada no importa.)
+-- (Numeración: 0278, 0279 y 0280 las ocupan las otras ramas de las analíticas
+-- en vuelo — limpieza de datos, intensidad y progreso —, que también añaden
+-- columnas a `coach_analytics_method`. Todas son `add column if not exists` y el
+-- migrador registra por nombre de fichero: el orden de llegada no importa.)
 --
 -- HARD RULE Nº0. Lo que un entrenador competente pondría distinto nace como dato:
 --   · contra qué se compara una sesión hecha con su plan, y en qué orden
