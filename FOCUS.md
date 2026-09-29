@@ -2,11 +2,15 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-29** (reloj: el espejo hereda las tres páginas de correr; modelo del reloj Garmin; analíticas rehechas en main)
+Última actualización: **2026-09-29** (reloj se lanza solo al empezar; espejo con tres páginas de correr; modelo del reloj Garmin; analíticas rehechas en main)
 
 ## Ahora
 
 **FIX GUARDADO 500 (29-09, sin desplegar):** un tramo `run` de 0 m en el historial (atleta 64) partía por cero en `running-prs.ts` y tumbaba TODO guardado suyo; arreglado + savepoint en `detectPrs`. Tras deploy la cola de la app lo reintenta sola.
+
+**RELOJ · SE LANZA SOLO AL EMPEZAR (29-09, worktree `agent-a6bcbe816a50de313`, sin fusionar; DECISIONS 29-09).** «No conecta» = una carrera sin calle/cinta no lanzaba
+el reloj ni lo decía. Ahora siempre lanza sin preguntar (fuera «Preparar grabación» y «Continuar sin reloj»), deja rastro (`start_watch_app_skipped`), relanza 1 vez
+por alcance si Apple dio error y muestra el estado real (chip). Falta aparato con reloj.
 
 **LAS PESTAÑAS, CON EL DISEÑO DE «HOY · EL DÍA» (29-09, doble, main).** Alex firmó «El día» para Hoy (DECISIONS 29-09; «El pulso» descartado). En curso: Plan, Carreras y Perfil en el mismo diseño (`/design/pestanas`, kit `kit-dia`); luego las cuatro a Swift (lo instala Alex). Analíticas sigue con su diseño firmado (¿unificar la piel? pendiente de Alex).
   **Swift: cimientos del kit hechos** (`worktree-agent-abcdb3996c0f86677`, `Theme/Dia/` + CONTRATO-UI §11; DECISIONS 29-09): sujeto, acción, póster, tesela, regleta, línea del día, aviso, con el acento del club en todo. Falta portar cada pestaña encima.
