@@ -313,6 +313,7 @@ const PROCEDENCIA_CS: Procedencia = {
   explica_es:
     'Recta ajustada sobre tus mejores esfuerzos: la pendiente es la velocidad que puedes sostener y la ordenada, el depósito que gastas por encima de ella.',
   medida: true,
+  ancla: null,
   proveedor: null,
 };
 

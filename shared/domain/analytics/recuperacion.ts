@@ -230,7 +230,7 @@ function construirSerieYCobertura(
   }
 
   return {
-    serie: { unidad, paso: 'dia', puntos },
+    serie: { unidad, paso: 'dia', puntos, plan: null, referencias: null },
     cobertura: {
       muestras,
       dias_ventana: v.dias,
@@ -280,6 +280,7 @@ function lecturaVariabilidad(e: EntradaRecuperacion): Lectura {
     de: 'basal_hrv_60_14d',
     explica_es,
     medida: false,
+    ancla: null,
     proveedor: null,
   };
 
@@ -374,7 +375,7 @@ function lecturaVariabilidad(e: EntradaRecuperacion): Lectura {
     },
     serie,
     cobertura,
-    procedencia: { de: 'basal_hrv_60_14d', explica_es, medida: true, proveedor: fuente?.source || null },
+    procedencia: { de: 'basal_hrv_60_14d', explica_es, medida: true, ancla: null, proveedor: fuente?.source || null },
   });
 }
 
@@ -409,7 +410,7 @@ function lecturaPulsoReposo(e: EntradaRecuperacion): Lectura {
       titulo_es,
       falta: { por: 'dispositivo' },
       cobertura,
-      procedencia: { de: 'resting_hr_dia_local', explica_es, medida: false, proveedor: null },
+      procedencia: { de: 'resting_hr_dia_local', explica_es, medida: false, ancla: null, proveedor: null },
     });
   }
 
@@ -430,7 +431,7 @@ function lecturaPulsoReposo(e: EntradaRecuperacion): Lectura {
     // `medida` es floja cuando lo que se enseña no es la lectura DE HOY (el
     // resolvedor está enseñando la más reciente dentro de la ventana
     // mostrable): la fuente es floja, no el número en sí.
-    procedencia: { de: 'resting_hr_dia_local', explica_es, medida: resuelto.is_for_day, proveedor: null },
+    procedencia: { de: 'resting_hr_dia_local', explica_es, medida: resuelto.is_for_day, ancla: null, proveedor: null },
   });
 }
 
@@ -467,6 +468,7 @@ function lecturaSimple(e: EntradaRecuperacion, cfg: ConfigLecturaSimple): Lectur
     de: cfg.de,
     explica_es: cfg.explica_es,
     medida: ultimoValor != null,
+    ancla: null,
     proveedor: ultimoValor?.fuente ?? null,
   };
 

@@ -119,7 +119,7 @@ function serieDe(
 ): Serie {
   const recortada = ventana_dias > 0 ? puntos.slice(-ventana_dias) : puntos.slice();
   const salida: PuntoSerie[] = recortada.map((p) => ({ t: p.date, v: p.v }));
-  return { unidad: 'tss', paso: 'dia', puntos: salida };
+  return { unidad: 'tss', paso: 'dia', puntos: salida, plan: null, referencias: null };
 }
 
 /**
@@ -185,8 +185,11 @@ function coberturaDeLaCarga(
   };
 }
 
+// Este contrato de agosto no distingue todavía el peldaño del umbral (lo hace el
+// motor nuevo, `forma.ts`): `medida` sigue diciendo si lo sostuvo un aparato, y
+// el ancla queda sin declarar. Se retira con el resto de `/analytics/lecturas`.
 function procedencia(de: string, explica_es: string, medida: boolean): Procedencia {
-  return { de, explica_es, medida, proveedor: null };
+  return { de, explica_es, medida, ancla: null, proveedor: null };
 }
 
 /**
@@ -295,6 +298,8 @@ export function lecturasCarga(e: EntradaCarga): Lectura[] {
               t: p.date,
               v: p.ramp,
             })),
+            plan: null,
+            referencias: null,
           },
           cobertura: cob,
           procedencia: proc(SUBIDA),

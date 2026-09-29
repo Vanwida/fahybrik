@@ -1,7 +1,23 @@
 // LA VENTANA — cuánto se mira hacia atrás, y cuánta historia hay de verdad.
 //
-// POR QUÉ EL TOPE DEJA DE SER 26 SEMANAS
-// --------------------------------------
+// UNA SOLA VENTANA (docs/analiticas/modelo.md, A4)
+// -----------------------------------------------
+// Había seis maneras de cortar el tiempo en las analíticas (7/30/365 d en UTC,
+// 12 semanas fijas, 84 d, 90 d…) y ninguna cortaba en el día del atleta. Desde el
+// 29-09-2026 el panel tiene UNA ventana, `7d · 4s · 12s · 6m · 1a · todo`,
+// cortada en el DÍA LOCAL del atleta y comparada con la anterior de igual
+// longitud. `resolverVentana` es la única función que la calcula; toda sección
+// del panel la obedece o dice que no la obedece.
+//
+// POR QUÉ EN DÍAS Y NO EN MESES DEL CALENDARIO
+// --------------------------------------------
+// «6 meses» son 26 semanas (182 días) y «1 año» 52 (364): así las series por
+// semana llevan semanas enteras y la ventana anterior mide exactamente lo mismo
+// que ésta. Un mes del calendario tiene 28, 30 o 31 días y la comparación con
+// «el anterior» ya no compara lo mismo.
+//
+// POR QUÉ EL TOPE DEJA DE SER 26 SEMANAS (el contrato de agosto)
+// --------------------------------------------------------------
 // «¿Cuánto he mejorado desde que empecé?» es una de las preguntas que el atleta
 // hace de verdad. Con el tope en 26 semanas, a alguien con siete meses de
 // historia se le contestaba con los últimos seis meses y se le llamaba «desde
@@ -12,15 +28,16 @@
 // por rango acotados por las sesiones que el atleta tiene, no por lo ancha que
 // sea la ventana. Pedir diez años no lee diez años de filas: lee las suyas.
 //
-// Diez años es el tope porque cubre una carrera deportiva entera. Más allá, una
-// «ventana» deja de ser una ventana.
-//
 // LA OTRA MITAD, Y ES LA QUE EVITA MENTIR
 // ---------------------------------------
 // Abrir la ventana no basta. Si el atleta lleva diez semanas, pedir 520 no le da
 // dos años de nada: le da sus diez semanas. La respuesta tiene que DECIRLO, para
 // que el cliente pueda escribir «desde que empezaste, hace diez semanas» y no
-// fingir un año que no existe. Eso es `Historia`.
+// fingir un año que no existe. Eso es `Historia` (y `cubre_todo` en la ventana).
+//
+// Puro y sin base de datos.
+
+import { addDays, diffDays, isoDateString, parseIsoDate, zonedWallClockToUtc } from '../dates';
 
 /** Diez años: una carrera deportiva entera. Más allá no es una ventana. */
 export const MAX_VENTANA_SEMANAS = 520;
@@ -74,4 +91,116 @@ export function historiaDe(args: {
 export function ventanaAdmisible(semanas: number | null | undefined): number {
   if (semanas == null || !Number.isFinite(semanas)) return VENTANA_POR_DEFECTO_SEMANAS;
   return Math.min(Math.max(1, Math.floor(semanas)), MAX_VENTANA_SEMANAS);
+}
+
+// ---------------------------------------------------------------------------
+// LA VENTANA DEL PANEL — una clave, un día local, la anterior de igual longitud
+// ---------------------------------------------------------------------------
+
+export const VENTANAS_PANEL = ['7d', '4s', '12s', '6m', '1a', 'todo'] as const;
+export type VentanaClave = (typeof VENTANAS_PANEL)[number];
+
+export const VENTANA_PANEL_POR_DEFECTO: VentanaClave = '12s';
+
+/** Días de cada ventana. Semanas enteras, para que las series por semana no partan una. */
+export const DIAS_POR_VENTANA: Record<Exclude<VentanaClave, 'todo'>, number> = {
+  '7d': 7,
+  '4s': 28,
+  '12s': 84,
+  '6m': 182,
+  '1a': 364,
+};
+
+/** Un tramo de días LOCALES del atleta, ambos extremos inclusive. */
+export interface Periodo {
+  desde: string;
+  hasta: string;
+  dias: number;
+}
+
+export interface VentanaResuelta extends Periodo {
+  clave: VentanaClave;
+  /**
+   * El periodo anterior de igual longitud, pegado al de esta ventana. Null en
+   * `todo`: no hay un «antes de toda la historia» contra el que comparar.
+   */
+  anterior: Periodo | null;
+  /** True cuando la ventana alcanza la primera sesión: es toda su historia. */
+  cubre_todo: boolean;
+}
+
+/** La clave tal como llega por la URL; null si no es una de las seis. */
+export function ventanaClaveAdmisible(raw: string | null | undefined): VentanaClave | null {
+  if (raw == null) return null;
+  const v = raw.trim();
+  return (VENTANAS_PANEL as readonly string[]).includes(v) ? (v as VentanaClave) : null;
+}
+
+/**
+ * LA función. `hoy_local` es el día del atleta (su huso), no el de UTC ni el del
+ * club: la carga es algo que él vivió, y un entreno a las 00:30 en Madrid es de
+ * hoy (DECISIONS 2026-09-23, «Qué día es en cada sitio»).
+ *
+ * `todo` va desde la primera sesión hasta hoy; sin sesión alguna se reduce a hoy
+ * (un día), que es lo único que hay.
+ */
+export function resolverVentana(args: {
+  clave: VentanaClave;
+  hoy_local: string;
+  primera_sesion_iso: string | null;
+}): VentanaResuelta {
+  const hoy = parseIsoDate(args.hoy_local);
+  const primera = args.primera_sesion_iso != null ? parseIsoDate(args.primera_sesion_iso) : null;
+
+  if (args.clave === 'todo') {
+    const desde = primera != null && primera.getTime() <= hoy.getTime() ? primera : hoy;
+    const dias = diffDays(hoy, desde) + 1;
+    return {
+      clave: 'todo',
+      desde: isoDateString(desde),
+      hasta: args.hoy_local,
+      dias,
+      anterior: null,
+      cubre_todo: true,
+    };
+  }
+
+  const dias = DIAS_POR_VENTANA[args.clave];
+  const desde = addDays(hoy, -(dias - 1));
+  const anteriorHasta = addDays(desde, -1);
+  const anteriorDesde = addDays(anteriorHasta, -(dias - 1));
+  return {
+    clave: args.clave,
+    desde: isoDateString(desde),
+    hasta: args.hoy_local,
+    dias,
+    anterior: { desde: isoDateString(anteriorDesde), hasta: isoDateString(anteriorHasta), dias },
+    cubre_todo: primera != null && desde.getTime() <= primera.getTime(),
+  };
+}
+
+/**
+ * Los instantes UTC que delimitan un periodo de días locales: la medianoche
+ * local de `desde` (incluida) y la medianoche local del día siguiente a `hasta`
+ * (excluida). Con cambio de hora dentro, cada borde lleva el desfase que rige
+ * ESE día (`zonedWallClockToUtc` es de dos pasadas), así que un periodo de 28
+ * días sigue teniendo 28 días locales aunque uno de ellos dure 23 h.
+ */
+export function limitesUtc(periodo: Pick<Periodo, 'desde' | 'hasta'>, tz: string): { desde: Date; hasta_excl: Date } {
+  return {
+    desde: zonedWallClockToUtc(parseIsoDate(periodo.desde), tz),
+    hasta_excl: zonedWallClockToUtc(addDays(parseIsoDate(periodo.hasta), 1), tz),
+  };
+}
+
+/** Los días locales de un periodo, en orden. */
+export function diasDelPeriodo(periodo: Pick<Periodo, 'desde' | 'hasta'>): string[] {
+  const out: string[] = [];
+  let d = parseIsoDate(periodo.desde);
+  const fin = parseIsoDate(periodo.hasta);
+  while (d.getTime() <= fin.getTime()) {
+    out.push(isoDateString(d));
+    d = addDays(d, 1);
+  }
+  return out;
 }
