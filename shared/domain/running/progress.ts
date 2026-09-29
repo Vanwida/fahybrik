@@ -57,6 +57,11 @@ import type { CoachRunningThresholds } from '../coach/running-thresholds';
  *   plan        no hay entrenos planificados en el tramo que se mira (la
  *               proyección hasta la carrera). Lo resuelve el coach, no el atleta:
  *               sin salida para él, y no se calla (el número sigue siendo cierto).
+ *   viejo       hay dato, pero ninguno dentro de la ventana: el número es el
+ *               último que hubo, del día `ultimo` (el cuarto estado de A10,
+ *               «dato viejo»). No se calla — decir de cuándo es el número es
+ *               justo lo que impide que parezca de hoy — y no tiene salida: lo
+ *               arregla volver a entrenarlo, no un botón.
  */
 export type Falta =
   | { por: 'historia'; llevas: number; hacen: number }
@@ -67,7 +72,8 @@ export type Falta =
   | { por: 'intencion' }
   | { por: 'objetivo' }
   | { por: 'esfuerzo'; sesiones: number }
-  | { por: 'plan' };
+  | { por: 'plan' }
+  | { por: 'viejo'; ultimo: string };
 
 /**
  * «Aún no» y «no aplica» parecen lo mismo y no lo son. Al recién llegado le
