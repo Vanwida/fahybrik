@@ -29,7 +29,7 @@ struct AnaliticasPortadaView: View {
 
     @State private var ventana: VentanaClave = .porDefecto
     @State private var glosa = false
-    @State private var testsDeZonas = false
+    @State private var verTests = false
     @State private var camino = NavigationPath()
 
     private var slice: Slice<PanelAnaliticas> { store.panelAnaliticas(ventana) }
@@ -76,11 +76,11 @@ struct AnaliticasPortadaView: View {
         .sheet(isPresented: $glosa) {
             AnaliticasGlosa(metodo: slice.value?.metodo ?? MetodoDelPanel.porDefecto, onCerrar: { glosa = false })
         }
-        .fullScreenCover(isPresented: $testsDeZonas) {
+        .fullScreenCover(isPresented: $verTests) {
             TestsHubView(
                 bearer: bearer,
                 hrZones: store.identity.value?.hrZones,
-                onClose: { testsDeZonas = false },
+                onClose: { verTests = false },
                 onSessionCompleted: { Task { await store.refreshPanelAnaliticas(ventana, force: true) } }
             )
         }
@@ -153,7 +153,7 @@ struct AnaliticasPortadaView: View {
         case .carreras: onOpenTab?(.carreras)
         case .dispositivos: camino.append(AnaliticasDestino.dispositivos)
         case .chat: if hasCoach { openChat(nil) }
-        case .testsDeZonas: testsDeZonas = true
+        case .tests: verTests = true
         }
     }
 }
@@ -162,7 +162,6 @@ extension MetodoDelPanel {
     /// Para la glosa antes de que llegue el panel: los días de mercado (42/7),
     /// los mismos defectos que `DEFAULT_COACH_ANALYTICS_METHOD`.
     static let porDefecto = MetodoDelPanel(
-        ctlDays: 42, atlDays: 7, rampAlertTssPerWeek: nil, coberturaVeredictoMinPct: nil, hrvMinNightsBaseline: nil, basalDias: nil,
-        datoViejoDias: nil, muestrasMinimas: nil, coberturaPocoPct: nil, semanasMinimasForma: nil, ventanaBasalDias: nil, recienteDias: nil
+        ctlDays: 42, atlDays: 7, rampAlertTssPerWeek: nil, coberturaVeredictoMinPct: nil, hrvMinNightsBaseline: nil, basalDias: nil
     )
 }

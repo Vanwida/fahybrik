@@ -5,10 +5,10 @@ import SwiftUI
 // portada los apila; los detalles (segunda tanda) reutilizan varios. Ningún
 // bloque escribe prosa de hueco: viene de `AnaliticasEstados`.
 //
-// Un bloque PENDIENTE (el servidor aún no lo sirve) pinta su «muy pronto», sin
-// inventar nada. Los bloques ya servidos (estado, forma, semanas) tienen su
-// composición del contrato; los demás se pintan POR FORMA (`AnaliticasBloquesPorForma`)
-// en cuanto lleguen lecturas, y la segunda tanda los afina.
+// Un bloque PENDIENTE (el servidor lo declara aún sin construir) pinta su «muy
+// pronto», sin inventar nada. Hoy el servidor sirve los ocho: forma y semanas
+// tienen su archivo; intensidad, progreso, récords, carrera y recuperación viven
+// en `AnaliticasBloquesPorForma` y se pintan lectura a lectura por id.
 
 /// Lo que todo bloque necesita del panel, calculado UNA vez por la portada.
 struct ContextoDeBloque {
@@ -29,7 +29,7 @@ struct ContextoDeBloque {
     static func estados(de p: PanelAnaliticas) -> [BloqueDelPanel: EstadoBloque] {
         var out: [BloqueDelPanel: EstadoBloque] = [:]
         for b in BloqueDelPanel.allCases where b != .desconocido {
-            out[b] = p.estaPendiente(b) ? .vacio : AnaliticasEstados.estado(de: p.bloques[b], hoy: p.hoy, metodo: p.metodo)
+            out[b] = p.estaPendiente(b) ? .vacio : AnaliticasEstados.estado(de: p.bloques[b])
         }
         return out
     }
@@ -59,6 +59,26 @@ struct AnaliticasHuecoDeBloque: View {
                     viejo: estado == .viejo,
                     onSalida: ctx.onSalida
                 )
+            }
+        }
+    }
+}
+
+/// La nota de una lectura a la que le falta algo, con su salida si la tiene.
+/// Nada cuando la falta es un silencio o una razón que este binario no conoce.
+struct AnaliticasNotaDeFalta: View {
+    let ctx: ContextoDeBloque
+    let bloque: BloqueDelPanel
+    let lectura: LecturaAnalitica
+
+    var body: some View {
+        if let falta = lectura.cobertura.falta,
+           let nota = AnaliticasEstados.notaDeFalta(falta, bloque: bloque, hoy: ctx.hoy) {
+            VStack(alignment: .leading, spacing: 8) {
+                AnaliticasNota(texto: "\(lectura.tituloEs) · \(nota)")
+                if case .accion(let texto, let destino)? = AnaliticasEstados.salida(de: falta) {
+                    AnaliticasBoton(texto: texto, secundario: true) { ctx.onSalida(destino) }
+                }
             }
         }
     }
