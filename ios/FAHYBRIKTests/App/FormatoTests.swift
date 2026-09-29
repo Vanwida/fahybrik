@@ -24,6 +24,17 @@ final class FormatoTests: XCTestCase {
         XCTAssertEqual(Formato.esDecimal(82.5), "82,5")
     }
 
+    func testUnEmpateExactoSubeComoEnLaWeb() {
+        // `printf` redondea el empate al par; la web (`toFixed`) lo sube. La misma cifra en las dos superficies.
+        XCTAssertEqual(Formato.esDecimal(12.5, decimals: 0), "13")
+        XCTAssertEqual(Formato.esDecimal(7.25), "7,3")
+        XCTAssertEqual(Formato.esDecimal(0.125, decimals: 2), "0,13")
+        XCTAssertEqual(Formato.esDecimal(-2.5, decimals: 0), "-3")
+        // 0,15 NO es un empate en binario (está por debajo): baja, en Swift y en la web.
+        XCTAssertEqual(Formato.esDecimal(0.15), "0,1")
+        XCTAssertEqual(Formato.esDecimal(1.005, decimals: 2), "1,00")
+    }
+
     func testDecimalSiempreDecimalesMantieneLaCifra() {
         // La velocidad de la cinta cambia en pasos de 0,1: perder el decimal al pasar
         // por 12 haría saltar el ancho del número en vivo.

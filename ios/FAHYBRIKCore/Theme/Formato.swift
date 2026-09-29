@@ -26,12 +26,31 @@ enum Formato {
     /// - `siempreDecimales`: mantiene el decimal aunque el número sea redondo
     ///   («12,0»). Solo para lecturas que CAMBIAN en vivo y en pasos de 0,1 — la
     ///   velocidad de la cinta —, donde perder la cifra hace saltar el ancho.
+    ///
+    /// UN EMPATE EXACTO SUBE, como en el `toFixed` de la web (`lib/formato.ts`, la
+    /// misma cifra en el panel del coach y en el móvil): `printf` redondea el empate
+    /// al par y escribía «12 km» donde la web escribe «13 km» y «7,2 h» donde la web
+    /// «7,3 h». Solo son empates los que el binario representa exacto (12,5 · 7,25):
+    /// 0,15 no lo es y baja en las dos.
     static func esDecimal(_ value: Double,
                           decimals: Int = 1,
                           siempreDecimales: Bool = false) -> String {
         if !siempreDecimales, value.rounded() == value { return String(Int(value.rounded())) }
-        return String(format: "%.\(decimals)f", value)
+        return String(format: "%.\(decimals)f", conElEmpateArriba(value, decimals))
             .replacingOccurrences(of: ".", with: ",")
+    }
+
+    /// `value` con el empate exacto ya resuelto hacia arriba (en valor absoluto). Un empate
+    /// exacto es `|v| × 10ᵈ = k + ½` sin resto: la multiplicación fusionada da 0 solo entonces
+    /// (con la ordinaria, 0,15 × 10 ya sería «1,5» aunque el 0,15 del binario esté por debajo).
+    private static func conElEmpateArriba(_ value: Double, _ decimals: Int) -> Double {
+        guard value.isFinite, decimals >= 0 else { return value }
+        let escala = pow(10.0, Double(decimals))
+        let magnitud = abs(value)
+        let k = (magnitud * escala).rounded(.down)
+        guard (-(k + 0.5)).addingProduct(magnitud, escala) == 0 else { return value }
+        let arriba = (k + 1) / escala
+        return value < 0 ? -arriba : arriba
     }
 
     /// La misma coma sobre un número que el servidor ya formateó («42.4» → «42,4»).
