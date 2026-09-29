@@ -230,7 +230,8 @@ type PlanFila = {
   items: ItemFila[] | null;
 };
 
-function rolDe(block_format: string | null): PrescriptionRole {
+/** El papel de una línea en su sesión, por el formato de su bloque. Una regla: la usan el plan y el cumplimiento. */
+export function rolDe(block_format: string | null): PrescriptionRole {
   if (block_format === 'warmup') return 'calentamiento';
   if (block_format === 'cooldown') return 'vuelta';
   return 'principal';
@@ -258,6 +259,11 @@ function itemDe(f: ItemFila): ItemPlan {
  * Solo las que el atleta VE (la semana no es un borrador del coach; lo ya hecho
  * se ve siempre): el plan que se proyecta es el que él tiene delante, y la ruta
  * del coach enseña lo mismo que la del atleta (A1).
+ *
+ * Solo el plan del COACH (`origin = 'coach'`). Un libre no es plan: no cuenta en
+ * la carga planificada de la semana ni en la proyección (DECISIONS 2026-09-28,
+ * «Un libre y uno del coach se leen igual»: filtrar por origen solo en lo que
+ * decide el plan). Lo hecho de un libre sí cuenta, en la carga hecha.
  */
 export async function loadSesionesPlan(
   atleta: AtletaVerificado,
@@ -289,6 +295,7 @@ export async function loadSesionesPlan(
     left join template_segments ts on ts.template_id = wa.template_id
     left join exercises ex on ex.id = ts.exercise_id
     where wa.athlete_id = ${atleta.athlete_id}
+      and wa.origin = 'coach'
       and wa.scheduled_for >= ${desde}::date
       and wa.scheduled_for <= ${hasta}::date
       and ${athleteSeesAssignment(client, { keepDone: true })}

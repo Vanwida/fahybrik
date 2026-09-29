@@ -201,14 +201,16 @@ export type Unidad =
   | 'watts'
   | 'reps'
   | 'dias'
+  | 'rpe'          // esfuerzo percibido, escala 1-10 (una serie, un tramo)
+  | 'rir'          // repeticiones en reserva de una serie
+  | 'tramos'       // tramos de sesión (el cumplimiento serie a serie)
   // Progreso y récords (29-09-2026): lo que las familias que no son correr necesitan.
   | 's_1000m'      // la bici se lee por 1000 m (BikeErg)
   | 'spm'          // paladas por minuto (remo, ski)
   | 'rpm'          // pedaladas por minuto (bici)
-  | 'pp'           // puntos porcentuales: el delta de un dato que ya es un % (el desacople)
-  | 'series'       // series de fuerza hechas
+  | 'series'       // series de fuerza (hechas frente a prescritas, o hechas)
   | 'cm'           // un salto
-  | 'rondas';      // la puntuación de un AMRAP, en rondas (las reps sueltas, como fracción de ronda)
+  | 'rondas';      // rondas de un WOD o minutos de un EMOM cumplidos; la puntuación de un AMRAP (las reps sueltas, como fracción de ronda)
 
 // ---------------------------------------------------------------------------
 // EL DATO
