@@ -31,6 +31,8 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Medido en la rama (ventana 12 s):** atleta 64 — adherencia 57 % (21 de 37 debidas; las 16 «programadas para siempre» son no hechas); colores 1 cumplida, 2 desviadas, 4 fuera, 14 hechas sin medida (fuerza por reps sin reloj ni carga escrita, importaciones sin tramos), 148 hechas sin plan. Tramos de trabajo 42 % en banda (8 de 19 juzgables) con 14 sin dato: el RPE/RIR de la fuerza no se anota y no tiene umbral de ritmo → palabra retirada, falta `esfuerzo`. Atleta 63: 33 % (1 de 3; su único tramo no está enlazado → sin detalle). 65: 0 % (4 sin hacer). 72 (sin coach): sin dato por `plan`.
 
+**Integrado con main (29-09):** unión de las claves de método y de las lecturas con progreso, récords, intensidad, recuperación y carrera (`BLOQUES_PENDIENTES` queda vacío). `EntradaSesion` del cumplimiento pasa a `EntradaCumplimientoSesion` porque `sesion.ts` de main ya exporta ese nombre. Corregido al revisar el trabajo a medias: en el emparejamiento de respaldo (varios esfuerzos que no casan tramo a tramo) la dosis prescrita solo se descarta si los esfuerzos piden dosis DISTINTAS, no siempre (un 5×1000 conserva su objetivo de distancia). Probado con tsc limpio, 536 tests sin base y 596 de analíticas contra una rama Neon desechable con 0281 aplicada. 0281 no se ha aplicado a producción.
+
 **Descartado:**
 - Escribir `missed` con un cron: se deriva al leer.
 - Hecha sin valores planificados = verde (lo hace TrainingPeaks): es «hecha sin medida».
@@ -38,11 +40,11 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 - Juzgar la zona de una máquina por pulso cuando falta su test: el plan la pinta como split; sin umbral, sin banda.
 - Casar tramos sin enlace por posición o por el snapshot.
 - Guardar la banda de cada día (juzgar con el umbral de entonces): la carga tampoco lo hace; cuando se haga, en los dos a la vez.
+- Dar la dosis del respaldo por buena cuando los esfuerzos piden cosas distintas: sin base honesta, «sin objetivo», no un número inventado.
 
 **NO hacer:** calcular adherencia fuera de `coach/adherence.ts`; escribir bandas, holguras o bases como `const`; juzgar contra un umbral poblacional; contar un libre como plan; decir «dentro» sin haber juzgado la intensidad pedida; mezclar recuperaciones con el trabajo en un porcentaje.
 
-**Queda:** el editor de Ajustes › Método; que el vivo lea su holgura de aquí (hoy `reglasAvisoDefecto` en Swift y en `kit-reloj`), y que en las máquinas juzgue la zona como el plan (split), no por pulso; capturas: RPE/RIR y kilos por serie, RPE por tramo; `metodo.ts` pasa de 500 líneas (partirlo cuando entren los campos de las tres sesiones); 0281 en producción (la aplica el orquestador antes del deploy); la UI.
-
+**Queda:** el editor de Ajustes › Método (tampoco existe para las demás claves del método analítico); que el vivo lea su holgura de aquí (hoy `reglasAvisoDefecto` en Swift y en `kit-reloj`), y que en las máquinas juzgue la zona como el plan (split), no por pulso; capturas: RPE/RIR y kilos por serie, RPE por tramo; `metodo.ts` (749 líneas, ya 587 en main) sin partir para no chocar entre ramas: partirlo al integrar; 0281 en producción (la aplica el orquestador antes del deploy); la UI del panel y su comprobación a 390/768/1440; nada de iOS tocado.
 ---
 
 ## 2026-09-29 · Alex firma las analíticas rehechas
