@@ -52,9 +52,6 @@ extension Vivo {
         var juicio: JuicioVuelta? = nil
     }
 
-    /// Un número sin decimales que no hace falta: 152 → «152», 152,5 → «152,5».
-    private static func numeroCorto(_ x: Double) -> String { num(x) }
-
     /// Las filas de la página Vueltas: el título («Series · 3:45–3:55» o «Kilómetros»)
     /// y una fila por vuelta con su número, su valor, su detalle y su veredicto, la
     /// última primero. `visibles`: cuántas de las últimas se enseñan (decide si una
@@ -68,11 +65,11 @@ extension Vivo {
             let porTiempo = v.clase != .km && ultimas.count > 1 && ultimas.allSatisfy { $0.segundos == v.segundos }
             let detalle: String?
             if v.clase != .km, let m = v.metros, m != 1000 { detalle = fmtRitmo(v.ritmo) }
-            else if v.clase == .km, let ppm = v.ppm { detalle = "\(numeroCorto(ppm)) ppm" }
+            else if v.clase == .km, let ppm = v.ppm { detalle = "\(num(ppm)) ppm" }
             else { detalle = nil }
             let n: String
             if v.clase == .km { n = "km \(v.n)" } else if let t = v.tanda { n = "\(t)·\(v.n)" } else { n = String(v.n) }
-            let valor = (porTiempo && v.metros != nil) ? "\(numeroCorto(v.metros!))\u{00A0}m" : fmtReloj(v.segundos)
+            let valor = (porTiempo && v.metros != nil) ? "\(num(v.metros!))\u{00A0}m" : fmtReloj(v.segundos)
             return FilaSplit(n: n, valor: valor, detalle: detalle, juicio: juicioDe(v).map { JuicioVuelta(texto: $0.texto, fuera: $0.fuera) })
         }
         return (objetivo.map { [nombre, $0] } ?? [nombre], filas)
