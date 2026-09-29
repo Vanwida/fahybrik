@@ -37,7 +37,9 @@ extension Vivo {
         for (s, seg) in plan.segments.enumerated() {
             let letra = letraDeSuperserie(superseries)
             if seg.usesMultiSetStrength, seg.supersetSlots != nil { superseries += 1 }
-            pasos.append(contentsOf: pasosDe(seg, indice: s, entorno: entorno, test: test, ultimo: s == plan.segments.count - 1, letra: letra))
+            let propios = pasosDe(seg, indice: s, entorno: entorno, test: test, ultimo: s == plan.segments.count - 1, letra: letra)
+            // Dobles: la estación de la pareja es un relevo; la tuya o la repartida llevan su turno.
+            pasos.append(contentsOf: doblesDe(seg).map { conDobles(propios, $0, segmento: s) } ?? propios)
         }
         // Un bloque continuo remo → ski → bici son N tramos de una pieza (familia circuito).
         marcarTramosContinuos(&pasos) { s in plan.segments[s].formatScheme?.presentation == .continuous }

@@ -8,11 +8,15 @@
 // su dosis. La Roxzone y el descanso, ya pasados, como filas sueltas. Arriba,
 // la Roxzone sumada (si el coach la activó) o cuántas piezas van.
 //
-// Es la única lista larga del vivo y por eso scrollea (I6); al abrirse, lo de
-// ahora queda a la vista.
+// Es la sesión ENTERA, como la Estructura de las demás familias: los bloques
+// de antes (el calentamiento) van como sus filas y la ruta en su sitio (en el
+// iPhone, cada fila de otro bloque salta a él). Es la lista larga del vivo y por
+// eso scrollea (I6); al abrirse, lo de ahora queda a la vista.
 
 import { useEffect, useRef } from 'react';
+import { FilaDeEstructura } from '../../kit-iphone-vivo/paginas';
 import { Cuerpo, Etiqueta, Numeral } from '../../kit-iphone-vivo/piezas';
+import { estructuraDe } from '../../kit-reloj/estructura';
 import { CI, MARGEN, RADIO, TI } from '../../kit-iphone-vivo/tokens';
 import { fmtReloj, type Secuencia } from '../../kit-reloj';
 import { nombreEnRuta, ritmoDeParcial, roxzoneDe, rutaDe, type FilaPasoRuta } from '../../kit-reloj/ruta';
@@ -105,6 +109,9 @@ export function RutaCircuito({ c, seq }: { c: Circuito; seq: Secuencia }) {
   const listadas = filas.filter((f): f is FilaPasoRuta => f.tipo === 'paso' && !f.suelta);
   const hechas = listadas.filter((f) => f.estado === 'hecho').length;
   const rox = c.roxzone ? roxzoneDe(c.plan.pasos, estado) : null;
+  // La sesión ENTERA, como la Estructura de las demás familias: lo de antes del
+  // circuito (el calentamiento) va como sus filas; la ruta, en su sitio.
+  const antes = c.inicio > 0 ? estructuraDe(c.plan.pasos.slice(0, c.inicio))(estado.i) : [];
   return (
     <div className="twin-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: `12px ${MARGEN}px calc(var(--twin-safe-bottom) + 24px)`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ position: 'sticky', top: -12, zIndex: 1, background: CI.fondo, padding: '12px 0 8px', marginTop: -12, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
@@ -118,6 +125,9 @@ export function RutaCircuito({ c, seq }: { c: Circuito; seq: Secuencia }) {
           <Etiqueta>{`${hechas}/${listadas.length} hechas`}</Etiqueta>
         )}
       </div>
+      {antes.map((f, k) => (
+        <FilaDeEstructura key={`b${k}`} f={f} />
+      ))}
       {filas.map((f) =>
         f.tipo === 'ronda' ? (
           <div key={`r${f.n}`} style={{ padding: '10px 14px 2px' }}>

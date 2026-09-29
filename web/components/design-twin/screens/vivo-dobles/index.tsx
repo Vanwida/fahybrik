@@ -45,12 +45,12 @@ export const meta: TwinMeta = {
   titulo: 'El relevo — dobles en vivo',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
-  actualizado: '2026-07-29',
+  actualizado: '2026-09-29',
   descripcion:
     'Un remo de 1.000 m a dos, en relevos de 250. La mitad del entreno estás fuera de la máquina: esa mitad tiene su propio sujeto (tu salida), y el cambio es un suceso con cuenta atrás.',
   fuentes: [],
   enApp:
-    'En la app el relevo es un botón «Relevo ▸» manual (DoblesTurn); el suceso con cuenta atrás sigue siendo propuesta.',
+    'En la app (vivo nuevo, 29-09) la estación de tu pareja es un paso de espera: cabecera «Dobles · le toca a {pareja}», sujeto = lo que llevas esperando («recuperas», el relevo lo dices tú) y la primaria «Relevo» (advanceRelay, no graba nada tuyo). El reparto lleva TU parte como dosis y el pacto como nota; la presencia de la pareja va en una tira sobre «Luego». El suceso con cuenta atrás y la estimación de tu salida siguen siendo propuesta (nadie mide a tu pareja).',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

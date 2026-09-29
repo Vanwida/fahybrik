@@ -32,6 +32,13 @@ struct VivoMontaje {
     var arranque = VivoArranque()
     /// La máquina enlazada: el store del monitor en `.streaming` con esta muestra.
     var monitor: PM5LiveSample? = nil
+    /// Las salidas del host en la hoja de terminar y el chevrón de minimizar.
+    var salidas = VivoSalidas()
+    var minimizar = false
+    /// Dobles: la presencia de la pareja.
+    var pareja: DoblesLiveStripState = .hidden
+    /// La Estructura con las filas que saltan (el host confirma; aquí no hace nada).
+    var saltar = false
 }
 
 /// Una foto a los `en` segundos de `trasMontar`.
@@ -47,7 +54,8 @@ extension XCTestCase {
     /// pintar tras el último layout antes de volcar.
     @MainActor
     func fotografiarVivo(_ s: WorkoutSession, _ m: VivoMontaje, fotos: [VivoFoto], antesDeEsperar: TimeInterval = 0.4,
-                         asentar: TimeInterval = 0.2, trasMontar: (WorkoutSession) -> Void = { _ in }) {
+                         asentar: TimeInterval = 0.2, trasMontar: (WorkoutSession) -> Void = { _ in },
+                         trasFoto: (String, WorkoutSession) -> Void = { _, _ in }) {
         let pm5 = PM5ConnectionStore.shared
         let antes = (pm5.connectionState, pm5.live)
         if let monitor = m.monitor {
@@ -57,6 +65,8 @@ extension XCTestCase {
         let vista = VivoIphoneView(session: s, hrZones: s.hrZones, pm5: pm5,
                                    hrLink: m.hrLink, treadmillLink: m.treadmillLink, gpsActive: m.gpsActive, isBenchmark: m.test,
                                    alAccionDelHost: {}, alConectividad: {}, alTerminarYGuardar: {},
+                                   alMinimizar: m.minimizar ? {} : nil, salidas: m.salidas,
+                                   alSaltarTramo: m.saltar ? { _ in } : nil, pareja: m.pareja,
                                    paginaInicial: m.pagina, wodInicial: m.wod, guion: m.guion, arranque: m.arranque,
                                    lecturaDePrueba: m.lectura)
             .environment(\.colorScheme, .dark)
@@ -99,6 +109,7 @@ extension XCTestCase {
                 try? FileManager.default.createDirectory(at: destino, withIntermediateDirectories: true)
                 try? png.write(to: destino.appendingPathComponent("\(f.nombre).png"))
             }
+            trasFoto(f.nombre, s)
         }
     }
 }

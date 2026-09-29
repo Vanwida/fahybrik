@@ -144,6 +144,7 @@ export * from './metricas';
 export * from './posicion';
 export * from './tarea';
 export * from './deathby';
+export * from './dobles';
 export * from './alrededor';
 export * from './estructura';
 export * from './ruta';

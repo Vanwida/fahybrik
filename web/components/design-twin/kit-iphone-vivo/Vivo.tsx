@@ -27,6 +27,7 @@ import type { Secuencia, Traductor } from '../kit-reloj/gancho';
 import { useGuion } from '../kit-reloj/gestos';
 import { laminaDelPaso, type HeroeVista } from '../kit-reloj/lamina';
 import { esTest, familiaDe, formatoDe } from '../kit-reloj/familia';
+import { esRelevo } from '../kit-reloj/dobles';
 import { heroeDeFamilia, metricasDelPaso, trabajoDe, type ExtraFamilia } from '../kit-reloj/metricas';
 import { luegoDe, posicionDe, type LuegoVista } from '../kit-reloj/posicion';
 import { fmtReloj, tinteDelPaso } from '../kit-reloj/reglas';
@@ -109,6 +110,7 @@ export interface VistaIphoneProps {
 
 function clavePorDefecto(seq: Secuencia): ClavePrimaria | null {
   const { paso } = seq;
+  if (esRelevo(paso)) return 'relevo';
   const f = familiaDe(paso);
   if (f === 'roxzone') return paso.roxzone === 'salida' ? 'salgo a correr' : 'empiezo';
   if (paso.wod?.formato === 'puntuacion') return 'guardar';
@@ -148,6 +150,9 @@ export function VistaIphone(p: VistaIphoneProps) {
   const [toast, setToast] = useState<{ n: number; aviso: string; hacer: () => void } | null>(null);
   const [hoja, setHoja] = useState(false);
   const [terminado, setTerminado] = useState(false);
+  /** Cuándo pidió el atleta la pausa: se reanuda sola a los `DURACION.reanudaSolaMs`. */
+  const [pausaDesde, setPausaDesde] = useState<number | null>(null);
+  const [voz, setVoz] = useState(true);
   const [completada, setCompletada] = useState(false);
 
   // El aviso de deshacer vive 5 s.
@@ -253,8 +258,19 @@ export function VistaIphone(p: VistaIphoneProps) {
   // ── gestos ──────────────────────────────────────────────────────────────
   const pausar = (si: boolean) => {
     seq.pausar(si);
-    onLog(si ? 'Pausa → los relojes no corren' : 'Reanudar');
+    setPausaDesde(si ? Date.now() : null);
+    onLog(si ? 'Pausa → los relojes no corren; sigue sola a los 10 s' : 'Reanudar');
   };
+  // La pausa del atleta se reanuda sola (la vista vieja: 10 s). Abrir la hoja de terminar la desarma (ahí decide él).
+  useEffect(() => {
+    if (pausaDesde == null || hoja || !seq.pausado) return;
+    const id = setTimeout(() => {
+      seq.pausar(false);
+      setPausaDesde(null);
+      onLog('Pausa sin confirmar 10 s → sigue sola');
+    }, Math.max(0, pausaDesde + DURACION.reanudaSolaMs - Date.now()));
+    return () => clearTimeout(id);
+  }, [pausaDesde, hoja, seq, onLog]);
   const irA = (id: IdPagina) => {
     const n = PAGINAS.indexOf(id);
     if (n < 0 || (id === 'mapa' && !conMapa)) return;
@@ -278,6 +294,7 @@ export function VistaIphone(p: VistaIphoneProps) {
     else if (g === 'reanudar') pausar(false);
     else if (g === 'terminar') {
       setHoja(true);
+      setPausaDesde(null);
       onLog('Terminar mantenido 1 s → «¿Terminar aquí?»');
     } else if (g === 'terminar-guardar') terminarYGuardar();
     else if (g === 'seguir') {
@@ -338,6 +355,7 @@ export function VistaIphone(p: VistaIphoneProps) {
       onPausa={pausar}
       onTerminar={() => {
         setHoja(true);
+        setPausaDesde(null);
         onLog('Terminar mantenido 1 s → «¿Terminar aquí?»');
       }}
       onLog={onLog}
@@ -401,7 +419,8 @@ export function VistaIphone(p: VistaIphoneProps) {
             transition: 'opacity 200ms ease',
           }}
         >
-          <Cabecera posicion={posicion} formato={formato} test={esTest(paso)} crono={crono} chips={chips} onEnlaces={(c) => onLog(`Chip ${c} → abre Conectividad`)} />
+          <Cabecera posicion={posicion} formato={formato} test={esTest(paso)} crono={crono} chips={chips} onEnlaces={(c) => onLog(`Chip ${c} → abre Conectividad`)}
+            onMinimizar={() => onLog('Chevrón → sale sin parar; el entreno sigue (aviso de entreno en curso)')} />
           {horizontal ? null : <PuntosPaginas total={paginas.length} activa={activa} />}
           <div style={{ position: 'relative', flex: '1 1 auto', minHeight: 0 }}>
             <PaginasLaterales paginas={paginas} activa={activa} onCambiar={(n) => irA(PAGINAS[n]!)} />
@@ -410,7 +429,9 @@ export function VistaIphone(p: VistaIphoneProps) {
         </div>
 
         {toast && !hoja ? <AvisoDeshacer key={`deshacer-${toast.n}`} aviso={toast.aviso} onDeshacer={() => { toast.hacer(); setToast(null); onLog(`Deshacer → ${toast.aviso}: vuelve atrás`); }} /> : null}
-        {seq.pausado && !hoja ? <VeloPausa /> : null}
+        {seq.pausado && !hoja ? (
+          <VeloPausa desde={pausaDesde} voz={voz} onVoz={() => { setVoz(!voz); onLog(voz ? 'Voz → silenciada' : 'Voz → activada'); }} />
+        ) : null}
         {capa}
         {destello != null ? <div key={`destello-${destello}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: CI.tinta, opacity: 0, animation: `iphone-destello ${DURACION.destelloMs}ms ease-out` }} /> : null}
         {hoja ? (
@@ -420,6 +441,10 @@ export function VistaIphone(p: VistaIphoneProps) {
             onSeguir={() => {
               setHoja(false);
               onLog('¿Terminar? → Seguir');
+            }}
+            salidas={{
+              onGuardarParaLuego: () => { setHoja(false); onLog('¿Terminar? → Guardar para luego: pausa y se retoma desde el aviso'); },
+              onDescartar: () => { setHoja(false); onLog('¿Terminar? → Descartar: nada se guarda'); },
             }}
           />
         ) : null}

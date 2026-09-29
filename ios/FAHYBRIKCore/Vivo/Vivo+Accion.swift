@@ -28,6 +28,8 @@ extension Vivo {
         case siguientePaso = "siguiente paso"
         case cerrarElTramo = "cerrar el tramo"
         case reanudar
+        /// Dobles: tu pareja ha acabado su estación y entras tú.
+        case relevo
 
         var texto: String {
             switch self {
@@ -46,6 +48,7 @@ extension Vivo {
             case .siguientePaso: return "Siguiente paso"
             case .cerrarElTramo: return "Cerrar el tramo"
             case .reanudar: return "Reanudar"
+            case .relevo: return "Relevo"
             }
         }
 
@@ -68,6 +71,7 @@ extension Vivo {
     /// LA ACCIÓN PRIMARIA POR DEFECTO de un paso (vocabulario cerrado). `nil` =
     /// no hay (manda el reloj: tabata; AMRAP sin rondas).
     static func clavePorDefecto(_ paso: Paso) -> ClavePrimaria? {
+        if esRelevo(paso) { return .relevo }
         let f = familiaDe(paso)
         if f == .roxzone { return paso.roxzone == .salida ? .salgoACorrer : .empiezo }
         if case .puntuacion = paso.wod { return .guardar }
@@ -184,4 +188,22 @@ extension Vivo {
         }
         return nil
     }
+
+    // MARK: - La pausa que se reanuda sola
+
+    /// La pausa que pide el atleta se reanuda sola a los 10 s si no la confirma (el
+    /// valor de la vista vieja, `ActiveWorkoutView.pauseAutoResume`). Es mecanismo del
+    /// aparato, no método: cuánto aguanta el móvil una pausa sin respuesta no lo
+    /// decide un entrenador, así que es constante y no dato del coach.
+    static let reanudaSolaS: Double = 10
+
+    /// Los segundos enteros que se enseñan hasta que la pausa se reanude sola
+    /// (10, 9 … 1); 0 = ya toca reanudar. nil = la pausa no está armada (no la pidió
+    /// el atleta en este vivo, o eligió otra salida: la hoja de terminar la desarma).
+    static func quedaParaReanudar(desde: Date?, ahora: Date, tras: Double = reanudaSolaS) -> Int? {
+        guard let desde else { return nil }
+        let pasado = Swift.max(0, ahora.timeIntervalSince(desde))
+        return Swift.max(0, Int((tras - pasado).rounded(.up)))
+    }
 }
+

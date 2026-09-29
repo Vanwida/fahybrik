@@ -49,6 +49,7 @@ extension Vivo {
 
     /// EL HÉROE CON LAS REGLAS DE FAMILIA ENCIMA DE P3.
     static func heroeDeFamilia(_ p: Paso, _ l: Lecturas, _ zonas: ZonasCoach?, _ x: ExtraFamilia = ExtraFamilia()) -> HeroeVista {
+        if esRelevo(p) { return heroeRelevo(l) }
         let f = familiaDe(p)
         if f == .fortime, let total = x.total { return HeroeVista(clase: .crono, texto: fmtReloj(total), etiqueta: "total") }
         if f == .amrap, case let .amrap(tareas, _)? = p.wod, tareas.count > 1, let r = x.rondas {

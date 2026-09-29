@@ -13,6 +13,7 @@
 //   duracionEstimada / duracionHumana  cuánto dura, para el aro y para «Hoy · 55′».
 //   paginar       reparte filas de alto conocido en páginas de la corona.
 
+import { esRelevo } from './dobles';
 import {
   NOMBRE_CLASE_DEFECTO,
   type FilaEstructura,
@@ -89,8 +90,10 @@ export function filasDePasos(pasos: PasoBase[]): Grupo[] {
   const grupos: Grupo[] = [];
   const porClave = new Map<string, Grupo>();
   let ultimo: Grupo | null = null;
+  // Dobles: la estación de la pareja es SU fila, nunca la «recuperación» del trabajo de antes.
+  const propio = (q: PasoBase) => q.rol === 'trabajo' || esRelevo(q);
   pasos.forEach((p, j) => {
-    if (p.rol !== 'trabajo') {
+    if (!propio(p)) {
       // El descanso entre tandas es del grupo que acaba de terminar la tanda.
       if (p.clase === 'descanso-tandas' && ultimo?.tandas) {
         ultimo.tandas.descanso ??= p;
@@ -100,8 +103,8 @@ export function filasDePasos(pasos: PasoBase[]): Grupo[] {
     }
     const k = clave(p);
     const sig = pasos[j + 1];
-    const entre = sig && sig.rol !== 'trabajo' && sig.clase !== 'descanso-tandas' ? sig : null;
-    const hasta = sig && sig.rol !== 'trabajo' ? j + 1 : j;
+    const entre = sig && !propio(sig) && sig.clase !== 'descanso-tandas' ? sig : null;
+    const hasta = sig && !propio(sig) ? j + 1 : j;
     const g = porClave.get(k);
     if (g) {
       g.veces += 1;

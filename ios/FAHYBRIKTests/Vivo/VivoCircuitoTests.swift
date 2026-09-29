@@ -171,4 +171,43 @@ final class VivoCircuitoTests: XCTestCase {
         XCTAssertEqual(s.condCountInRemaining, 0, "ni cuenta atrás: se cambia de máquina sin parar")
         s.stop()
     }
+
+    // MARK: - La Estructura del circuito es la sesión entera
+
+    func testEstructuraDelCircuito_laSesionEnteraConElCircuitoEnSuSitio() throws {
+        let p = pasos(try C.sesion493ConVueltaALaCalma())
+        let circuito = try XCTUnwrap(p.firstIndex { $0.clase == .estacion }, "la primera estación")
+        let seg = p[circuito].origen?.segmento
+        let piezas = Vivo.estructuraConCircuito(p, i: circuito)
+        XCTAssertEqual(piezas.count, 3, "calentamiento · el circuito · vuelta a la calma: \(piezas)")
+        guard case let .fila(antes) = piezas[0], case .circuito = piezas[1], case let .fila(despues) = piezas[2] else {
+            return XCTFail("el circuito va entre sus bloques: \(piezas)")
+        }
+        XCTAssertEqual(antes.estado, .hecho)
+        XCTAssertEqual(antes.fase, .calentamiento)
+        XCTAssertEqual(despues.estado, .pendiente)
+        // Cada fila de otro bloque lleva su salto (el mismo que en las demás familias).
+        XCTAssertEqual(Vivo.segmentoDeSalto(antes, segmentoActual: seg), antes.trabajo.origen?.segmento)
+        XCTAssertEqual(Vivo.segmentoDeSalto(despues, segmentoActual: seg), despues.trabajo.origen?.segmento)
+        XCTAssertNotEqual(antes.trabajo.origen?.segmento, seg)
+        XCTAssertNotEqual(despues.trabajo.origen?.segmento, seg)
+    }
+
+    func testEstructuraDelCircuito_laRutaSoloLlevaSuSegmento() throws {
+        let p = pasos(try C.sesion493ConVueltaALaCalma())
+        let circuito = try XCTUnwrap(p.firstIndex { $0.clase == .estacion })
+        let seg = p[circuito].origen?.segmento
+        let ruta = Vivo.rutaDelCircuito(p, i: circuito, parciales: [], terminado: false, hyrox: false)
+        let indices = ruta.compactMap { f -> Int? in if case let .paso(j, _, _, _, _) = f { return j }; return nil }
+        XCTAssertFalse(indices.isEmpty)
+        XCTAssertTrue(indices.allSatisfy { p[$0].origen?.segmento == seg },
+                      "ni el calentamiento ni la vuelta a la calma entran en la ruta: son sus filas")
+        XCTAssertTrue(ruta.contains(.ronda(n: 1, de: 2)), "las rondas del coach siguen agrupando")
+    }
+
+    func testEstructuraDelCircuito_sinOtrosBloquesEsSoloLaRuta() throws {
+        let p = pasos(try C.sesion492())
+        XCTAssertEqual(Vivo.estructuraConCircuito(p, i: 0), [.circuito])
+    }
 }
+

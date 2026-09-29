@@ -22,7 +22,7 @@ export const meta: TwinMeta = {
   titulo: 'iPhone · el ergo',
   zona: 'Entreno en vivo',
   estado: 'construida',
-  actualizado: '2026-09-28',
+  actualizado: '2026-09-29',
   descripcion:
     'Remo, ski y bici sobre la anatomía del vivo rehecho: el /500 actual contra su banda (/1000 en la bici), la rejilla de la máquina (cadencia, pulso, calorías, potencia), las calorías como lo que falta, el continuo a zona con el pulso tiñendo, el test marcado, la recuperación parada, la máquina perdida o sin conectar, el horizontal y un libre idéntico.',
   fuentes: [

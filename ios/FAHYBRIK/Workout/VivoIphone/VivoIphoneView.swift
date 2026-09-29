@@ -29,6 +29,15 @@ struct VivoIphoneView: View {
     /// «Ver el entreno entero»: el host abre la hoja de bloques (saltar a otro
     /// bloque). Va en la Estructura, que es la sesión entera. nil = sin botón.
     var alVerBloques: (() -> Void)? = nil
+    /// Salir sin parar (FH-111, el chevrón de la cabecera): el host aparca el motor. nil = sin botón.
+    var alMinimizar: (() -> Void)? = nil
+    /// Las otras salidas de la hoja de terminar (guardar para luego, descartar). El
+    /// «cerrar solo este bloque» lo resuelve el vivo con el motor.
+    var salidas = VivoSalidas()
+    /// Saltar a otro tramo desde la Estructura: el host confirma si se omite trabajo. nil = filas quietas.
+    var alSaltarTramo: ((Int) -> Void)? = nil
+    /// Dobles: cómo va tu pareja ahora (la presencia que sondea el host).
+    var pareja: DoblesLiveStripState = .hidden
     /// La página con la que arranca (las capturas piden Estructura).
     var paginaInicial: VivoIdPagina = .vivo
     /// Lo marcado en el WOD al montar (una sesión reabierta; las capturas del contrato).
@@ -61,6 +70,11 @@ struct VivoIphoneView: View {
     /// El paso cuyo preaviso ya sonó (una vez por paso).
     @State private var preavisado: String? = nil
     @State private var vueltas = Vivo.RegistroVueltas()
+    /// Se pidió un salto desde la Estructura: al cambiar de tramo se vuelve al Vivo.
+    @State private var saltoPedido = false
+    /// Cuándo pidió el atleta la pausa: se reanuda sola a los `Vivo.reanudaSolaS`.
+    /// nil = no armada (otra pausa, o la hoja de terminar abierta: ahí decide él).
+    @State private var pausaPedida: Date? = nil
 
     // MARK: - El estado, desde el motor
 
@@ -128,7 +142,8 @@ struct VivoIphoneView: View {
             ZStack {
                 fondo(c)
                 VStack(spacing: lienzo.horizontal ? 0 : VivoTokens.hueco) {
-                    VivoCabecera(posicion: c.posicion, formato: c.formato, test: c.esTest, crono: c.crono, chips: c.chips) { _ in alConectividad() }
+                    VivoCabecera(posicion: c.posicion, formato: c.formato, test: c.esTest, crono: c.crono, chips: c.chips,
+                                 alTocarEnlace: { _ in alConectividad() }, alMinimizar: alMinimizar)
                     if !lienzo.horizontal { VivoPuntosPaginas(total: paginas(c).count, activa: paginas(c).firstIndex(of: pagina) ?? 0) }
                     TabView(selection: $pagina) {
                         ForEach(paginas(c), id: \.self) { id in
@@ -147,7 +162,7 @@ struct VivoIphoneView: View {
                         .padding(.bottom, VivoTokens.Alto.accion + VivoTokens.Alto.pieAccion + 10)
                         .id(t.n)
                 }
-                if session.isPaused, !hoja { VivoVeloPausa() }
+                if session.isPaused, !hoja { VivoVeloPausa(desde: pausaPedida) }
                 // Entre pasos la cuenta enseña lo que VIENE; la de arranque del motor, el paso vivo.
                 if let a = vueltas.avisoVigente(c.estado.sesion.t), c.estado.cuenta == nil, go == nil {
                     VStack { VivoAvisoVuelta(titulo: a.titulo, valor: a.valor, pie: a.pie); Spacer() }
@@ -159,7 +174,8 @@ struct VivoIphoneView: View {
                 if hoja {
                     VivoHojaTerminar(resumen: Vivo.resumenParaTerminar(c.paso, sesionM: c.estado.sesion.metros ?? 0, sesionErgoM: c.estado.sesionErgoM, sesionT: c.estado.sesion.t),
                                      alTerminar: { hoja = false; terminado = true; alTerminarYGuardar() },
-                                     alSeguir: { hoja = false })
+                                     alSeguir: { hoja = false },
+                                     salidas: salidasDeLaHoja)
                 }
                 if terminado { VivoTerminado(titulo: "Sesión terminada", detalle: "guardando lo hecho…") }
                 else if c.estado.terminado { VivoTerminado(titulo: "Sesión completada", detalle: c.detalleFin ?? "guardando…") }
@@ -182,11 +198,18 @@ struct VivoIphoneView: View {
         // Death by: un minuto que el reloj cierra sin «Hecho» es el último.
         .onChange(of: session.rotRoundIndex) { antes, ahora in if ahora == antes + 1 { cazadoSiToca(minutoCerrado: antes) } }
         .task { await correrGuion() }
+        // La pausa que pidió el atleta se reanuda sola (como la vista vieja).
+        .task(id: pausaPedida) { await reanudarSolaSiToca() }
+        .onChange(of: session.isPaused) { _, pausado in if !pausado { pausaPedida = nil } }
+        .onChange(of: hoja) { _, abierta in if abierta { pausaPedida = nil } }
         // La fuerza (VivoFuerzaMotor): la serie por tiempo se cierra sola; al acabar
         // un descanso, al siguiente ejercicio o a la serie por tiempo desde cero.
         .onChange(of: session.elapsedSeconds) { _, _ in session.vivoCerrarSerieCumplida() }
         .onChange(of: session.restRemainingSeconds) { antes, ahora in if antes > 0, ahora <= 0 { session.vivoAlAcabarDescanso() } }
-        .onChange(of: session.currentSegmentIndex) { _, _ in syncRunModels(); foco = nil }
+        .onChange(of: session.currentSegmentIndex) { _, _ in
+            syncRunModels(); foco = nil
+            if saltoPedido { saltoPedido = false; pagina = .vivo }
+        }
         .onChange(of: indiceVivo) { antes, ahora in entrar(desde: antes, en: ahora) }
         .onChange(of: session.tramoKey) { _, _ in syncRunModels() }
         .onChange(of: session.runEnvironment) { _, _ in refrescarPlan(); syncRunModels() }
@@ -296,12 +319,20 @@ struct VivoIphoneView: View {
                 }
             }
         case .estructura:
-            if let f = c.circuito { VivoRutaCircuito(estado: c.estado, formato: f, alVerBloques: alVerBloques) } else { VivoPaginaEstructura(estado: conVueltas(c.estado), alVerBloques: alVerBloques) }
+            if let f = c.circuito { VivoRutaCircuito(estado: c.estado, formato: f, alVerBloques: alVerBloques, alSaltar: saltarDesdeEstructura) }
+            else {
+                VivoPaginaEstructura(estado: conVueltas(c.estado), alVerBloques: alVerBloques, alSaltar: saltarDesdeEstructura)
+            }
         case .mapa:
             VivoPaginaMapa(coordenadas: outdoorModel?.coordinates ?? lecturaDePrueba?.ruta ?? [],
                            calidad: outdoorModel?.gpsQuality ?? (lecturaDePrueba?.gps == .listo ? .strong : .searching),
                            pausado: session.isPaused, metros: c.estado.sesion.metros, ritmoMedio: c.estado.sesion.ritmoMedio)
         }
+    }
+
+    /// Saltar a otro tramo desde la Estructura (de cualquier familia): al cambiar de tramo se vuelve al Vivo.
+    private var saltarDesdeEstructura: ((Int) -> Void)? {
+        alSaltarTramo.map { saltar in { saltoPedido = true; saltar($0) } }
     }
 
     @ViewBuilder
@@ -331,13 +362,14 @@ struct VivoIphoneView: View {
             case nil: EmptyView()
             }
         }
+        VivoTiraPareja(estado: pareja)
         if !c.enDescanso, apoyo?.quitaLuego != true { VivoLuego(luego: c.luego) }
         VivoTiraEstructura(arcos: c.arcos, enCurso: c.estado.i, fraccion: c.fraccion) { pagina = .estructura }
     }
 
     private func franja(_ c: VivoIphoneCuadro) -> some View {
         VivoFranjaAccion(primaria: c.primaria, pausado: session.isPaused,
-                         alPausar: { _ in session.togglePause() },
+                         alPausar: { _ in pausar() },
                          alPrimaria: { primaria(c) },
                          alTerminar: { hoja = true })
     }
@@ -352,6 +384,38 @@ struct VivoIphoneView: View {
 
     // MARK: - Las acciones
 
+    /// Las salidas de la hoja: las del host y, si queda otro bloque detrás, cerrar
+    /// solo este (registra lo hecho y abre la puerta del siguiente, `endBlockEarly`).
+    private var salidasDeLaHoja: VivoSalidas {
+        var x = salidas
+        if session.hasBlockAfterCurrent, session.canEndBlockEarly {
+            // Como el shell viejo: se sale de la pausa antes de cerrar (el bloque siguiente arranca en su puerta).
+            x.cerrarBloque = { hoja = false; if session.isPaused { session.togglePause() }; session.endBlockEarly() }
+        }
+        x.guardarParaLuego = salidas.guardarParaLuego.map { g in { hoja = false; g() } }
+        x.descartar = salidas.descartar.map { d in { hoja = false; d() } }
+        return x
+    }
+
+    /// Pausa / Reanudar de la franja. La pausa del atleta se arma para reanudarse sola.
+    private func pausar() {
+        session.togglePause()
+        pausaPedida = session.isPaused ? Date() : nil
+    }
+
+    /// Espera `Vivo.reanudaSolaS` y, si la misma pausa sigue armada, reanuda.
+    private func reanudarSolaSiToca() async {
+        guard let desde = pausaPedida else { return }
+        while !Task.isCancelled {
+            guard let queda = Vivo.quedaParaReanudar(desde: desde, ahora: Date()) else { return }
+            if queda == 0 { break }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        guard !Task.isCancelled, pausaPedida == desde, session.isPaused, !hoja else { return }
+        pausaPedida = nil
+        session.togglePause()
+    }
+
     private func primaria(_ c: VivoIphoneCuadro) {
         guard let p = c.primaria, p.desactivada == nil, !session.isPaused else { return }
         Haptics.medium()
@@ -359,6 +423,16 @@ struct VivoIphoneView: View {
         switch p.clave {
         case .confirmar:
             for s in c.seriesAnotables { confirmar(s, c) }
+            return
+        case .relevo:
+            // Dobles: tu pareja acabó su estación. El motor la salta sin grabar nada
+            // tuyo (`advanceRelay`, igual que la muñeca y la vista vieja). Se deshace
+            // solo dentro del mismo bloque: tras una puerta de bloque no hay vuelta atrás.
+            let desde = session.currentSegmentIndex
+            session.advanceRelay()
+            if !session.isAwaitingBlockStart, !session.isAwaitingFinishDecision, session.currentSegmentIndex == desde + 1 {
+                avisar(c.avisoCierre) { if session.currentSegmentIndex == desde + 1, session.canStepBack { session.stepBack() } }
+            }
             return
         case .rondaHecha:
             session.bumpAmrapRound()
@@ -438,6 +512,8 @@ struct VivoIphoneView: View {
             switch g.gesto {
             case .primaria: primaria(c)
             case let .puntuacion(delta): moverPuntuacion(delta, c)
+            case .parar: hoja = true
+            case .pausa: pausar()
             }
         }
     }

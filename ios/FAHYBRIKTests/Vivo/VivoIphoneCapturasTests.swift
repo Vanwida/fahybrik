@@ -192,6 +192,26 @@ final class VivoIphoneCapturasTests: XCTestCase {
         captura(s, "gramatica-pausa") { s in s.injectLiveHR(160, source: .strap); s.togglePause() }
     }
 
+    /// La pausa que pide el atleta (por la franja, como el dedo): el velo cuenta
+    /// «sigue sola en N s», lleva la voz, y a los `Vivo.reanudaSolaS` se reanuda sola.
+    @MainActor
+    func testPausaSeReanudaSola() throws {
+        let s = P.arranca(try P.seisPorMil(), entorno: .outdoor)
+        s.runCountInRemaining = 0
+        let m = VivoMontaje(hrLink: .connected(name: "Banda"), guion: [VivoGestoGuion(en: 0.2, gesto: .pausa)])
+        var pausada: Bool? = nil
+        var reanudada: Bool? = nil
+        let tras = Vivo.reanudaSolaS
+        fotografiarVivo(s, m, fotos: [VivoFoto(nombre: "gramatica-pausa-sigue-sola", en: 1.6),
+                                      VivoFoto(nombre: "gramatica-pausa-reanudada", en: tras + 1.2)],
+                        trasMontar: { s in s.injectLiveHR(160, source: .strap) },
+                        trasFoto: { nombre, s in
+                            if nombre == "gramatica-pausa-sigue-sola" { pausada = s.isPaused } else { reanudada = !s.isPaused }
+                        })
+        XCTAssertEqual(pausada, true, "el Pausa de la franja para el motor")
+        XCTAssertEqual(reanudada, true, "a los \(Int(tras)) s sin confirmar, sigue sola (como la vista vieja)")
+    }
+
     @MainActor
     func testCuentaAtras() throws {
         let s = P.arranca(try P.emom())

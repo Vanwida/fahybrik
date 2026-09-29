@@ -11,6 +11,45 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-29 · Tres huecos del vivo nuevo, cerrados: RX/Escalado al terminar, la pausa que sigue sola y la Estructura del circuito entera
+
+**Contexto.** La entrada de abajo (29-09) dejaba fuera tres cosas de la vista vieja. Se cierran en `claude/vivo-swift-release-2`.
+
+**Decidido:**
+1. **RX / Escalado se declara en el resumen post-entreno**, junto a la puntuación, una fila por bloque de la familia metcon (`PrescriptionScheme.isMetconFamily`: For Time, AMRAP, EMOM, Tabata, Death by, chipper, escalera, rondas, HYROX), fuera de calentamiento y vuelta a la calma y solo si el bloque dejó tramos (sin tramos no hay dónde guardarlo: el «Ya lo hice» manual no lo lleva). Mismo campo que el conmutador viejo: `rx_scaled` + `scaled_note` de cada tramo del bloque (`DeclaracionesRx`, `ManualSegmentOverlay.rxPorSegmento`). Se siembra con lo que sellaron las vueltas (el `rx` del motor). Un selector (`SelectorRx`) para el resumen y el conmutador viejo.
+2. **La pausa que pide el atleta se reanuda sola a los 10 s** (el valor de `ActiveWorkoutView.pauseAutoResume`), con «sigue sola en N s» en el velo. Es **mecanismo, no método** (cuánto aguanta el móvil una pausa sin respuesta no lo decide un entrenador): constante `Vivo.reanudaSolaS`, no dato del coach. Solo se arma con el Pausa de la franja: una sesión que vuelve pausada, u otra pausa, no se reanuda sola; abrir la hoja de terminar la desarma. **La voz** se silencia o se devuelve en el velo de la pausa (el mismo ajuste `AudioCoachSettings` que el cromo viejo, que solo lo ofrecía al correr; aquí, en todas las familias, porque el preaviso habla en todas).
+3. **La Estructura del circuito es la sesión entera**: los otros bloques como filas de la Estructura (con su salto), la ruta del circuito en su sitio (`Vivo.estructuraConCircuito`). Dentro de la ruta no se salta: sus estaciones son un solo segmento del motor.
+
+**Fuera:** el doble no lleva los chevrones de salto (tampoco en las demás familias); sus circuitos no tienen bloques detrás, así que solo pinta el calentamiento sobre la ruta.
+
+**NO hacer:** volver a pintar RX/Escalado dentro del vivo; convertir los 10 s en dato del coach; listar en la Estructura del circuito solo su tramo.
+
+---
+
+## 2026-09-29 · El vivo nuevo del iPhone, encendido en Release: dobles, salidas y salto de tramo con el negocio del shell viejo
+
+**Contexto.** La bandera `VivoIphoneBandera` seguía apagada en Release porque al vivo nuevo le faltaban tres cosas que el recorrido real usaba de `RunLiveShellView` (entrada del 28-09). Se cubren con el MISMO negocio que la vista vieja (el motor no cambia) y el lenguaje del kit nuevo; la bandera pasa a ENCENDIDA en Debug y Release (rama `claude/vivo-swift-release`).
+
+**Decidido (mecanismo):**
+1. **Dobles = el turno como DATO del paso** (`Vivo+Dobles.swift`, espejo `kit-reloj/dobles.ts`). Lo lee del motor (`SegmentDoblesSplit`), no decide nada. La estación de la pareja es **UN paso de espera** (`rol: recuperacion`, medida abierta, la cierra el atleta): cabecera «Dobles · le toca a {pareja}» en la fila del formato y la estación como posición; sujeto = lo que llevas esperando («recuperas») con la nota «el relevo lo dices tú» (nadie mide a tu pareja: no se promete una cuenta atrás de tu salida); primaria **«Relevo»** (vocabulario cerrado) → `advanceRelay`, que no graba nada tuyo, igual que la muñeca y el shell viejo. Deshacer 5 s solo si el relevo no abre una puerta de bloque. En una estación **repartida** la dosis del paso es TU parte (la que graba el motor, `prescribedRepsForLog`) y el pacto («Tú 60 · Marta 40 · alterna 25») va como nota; la tuya entera lleva «Dobles · te toca». Sin nombre de pila: «tu pareja», nunca inventado. La presencia de la pareja (`DoblesLiveStrip`) pasa a `VivoTiraPareja`: una línea sobre «Luego».
+2. **Salir sin terminar, con la semántica de siempre:** el chevrón ↓ de la cabecera = minimizar (FH-111, `onLeaveAndResume`: el motor sigue y se vuelve desde el aviso); la hoja «¿Terminar aquí?» (Parar mantenido 1 s) lleva además **Guardar para luego** (Card 142, `onSoftLeave`: pausa + instantánea, `WorkoutResumeBanner` / «Seguir | Terminar y empezar | Cancelar» intactos en el host), **Cerrar solo este bloque** (`endBlockEarly`, solo si queda otro bloque; era el «Terminar bloque» del modal de pausa viejo) y **Descartar entreno** en sutil con confirmación en la misma hoja (`onExit`). Una × no: se lee como descartar.
+3. **Saltar de tramo desde la Estructura:** cada fila de OTRO segmento lleva chevrón y salta con el `requestJump` del host (confirma si se omite trabajo o se pierde lo de ahora, como la tira de bloques vieja). `Vivo.segmentoDeSalto`: la fila de ahora y las del segmento en curso no saltan (el motor salta por segmentos). Al saltar, vuelve a la página Vivo.
+
+**Descartado del contrato firmado (declarado):** «la hoja de terminar nunca lleva un tercer botón» — el negocio del shell viejo exige guardar para luego, cerrar el bloque y descartar, y la única salida del vivo nuevo es esta hoja. La × del cromo viejo se sustituye por el chevrón (minimizar, no descartar).
+
+**Sigue fuera (no depende de la vista; se dice para que nadie lo dé por hecho):**
+- **RX / Escalado:** el vivo nuevo no lo pinta (DECISIONS 28-09: «se declara al terminar») pero el resumen del final TAMPOCO lo pide todavía → con la bandera encendida un metcon se guarda con el defecto del motor (`primeRxScaledIfNeeded`). Falta el selector en `PostWorkoutSummaryView`.
+- **Auto-reanudar la pausa a los 10 s** y el botón de silenciar la voz del cromo viejo: el vivo nuevo no los tiene (pausa = velo hasta tocar Reanudar).
+- **Saltar dentro de la ruta de un circuito:** la Estructura del circuito (`VivoRutaCircuito`) lista solo su segmento; entre segmentos se salta con «Ver el entreno entero». En un simulacro de dobles por bloques cada estación es su bloque, así que la ruta enseña una pieza.
+- **El doble:** el kit (`kit-iphone-vivo`) lleva el chevrón, la hoja con salidas y el vocabulario «Relevo»; NO lleva aún la tira de la pareja, los chevrones de la Estructura ni una pantalla `iphone-vivo-dobles` (el diseño de dobles del doble sigue siendo `vivo-dobles`/`watch-dobles`).
+- **El death by** sigue resuelto por el vivo (su «Hecho» + el reloj que caza), no por la acción dual del host: equivalente en negocio.
+
+**Qué se podrá BORRAR tras la prueba en aparato** (no antes: es la vuelta atrás forzando `fahybrid.vivoIphone.nuevo = NO`): `RunLiveShellView` y sus sujetos/apoyos (`FuerzaVivoView`, `EmomVivoView`, `RunOutdoorSubjectBand`/`RunOutdoorApoyosBand`, `TreadmillHUDView` como banda, `AmrapLiveHUD`, `RotatingClockHUD`, `ForTimeLiveHUD`, `RestSubjectBand`, `StructuralBlockChecklist` si nadie más lo usa, `RxScaledToggle` una vez viva en el resumen), `CromoVivoEntreno`, `ContextoVivoEntreno`, `MarcoVivo`/`BandaSujeto`, `AccionDelHost`, `SuperficieViva`/`RunLiveChrome` si solo los usa el shell, `DoblesTurnHero` y `DoblesLiveStrip` (sustituidos por `Vivo+Dobles` y `VivoTiraPareja`), y en `ActiveWorkoutView`: `superficieAntigua`, `accionDelHost(SiAplica)`, `primaryTitle`/`conditioningPrimaryTitle`, `pauseModal` + auto-reanudar, `exitOverlay` (la hoja nueva lo sustituye) y `VivoIphoneBandera` misma. Antes de borrar: grep de cada tipo (la muñeca usa `DoblesTurn`, no `DoblesTurnHero`).
+
+**NO hacer:** que el vivo decida quién hace una estación (lo decide el motor); mandar «Relevo» a `primaryAdvance` (grabaría la estación de la pareja como tuya); prometer «sales en ~40 s» sin la máquina de la pareja emparejada; volver a una × para salir; borrar el shell viejo antes de la prueba en aparato.
+
+---
+
 ## 2026-09-28 · El vivo nuevo del iPhone, construido: las cinco familias en una rama, una cuenta atrás y un arnés
 
 **Qué hay.** Las cinco familias del vivo del iPhone (`correr`, `ergo`, `fuerza`, `wod`, `circuito`) portadas a Swift sobre el mismo kit (`FAHYBRIKCore/Vivo/` + `FAHYBRIK/Workout/VivoIphone/`) y fusionadas en `claude/vivo-swift-integracion`. `VivoIphoneView` pinta el mismo estado que la muñeca; el motor (`WorkoutSession`) no cambia.

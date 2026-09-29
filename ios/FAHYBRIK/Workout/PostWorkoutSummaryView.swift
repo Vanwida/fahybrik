@@ -41,6 +41,9 @@ struct PostWorkoutSummaryView: View {
     @State private var scoreTimeSeconds: Int? = nil
     @State private var scoreRounds: Int? = nil
     @State private var scoreReps: Int? = nil
+    /// RX / Escalado de cada bloque puntuado, por `BloqueRx.id`. Se declara aquí,
+    /// al terminar (el vivo nuevo no lo pinta). Sembrado con lo que sellaron las vueltas.
+    @State private var rxDeclarado: [Int: DeclaracionRx] = [:]
     @State private var isSaving: Bool = false
     /// Last POST was queued (5xx/offline) — stay on the summary. The button becomes
     /// REINTENTAR. Un 4xx no pasa por aquí: va a `keptOnPhone`.
@@ -179,7 +182,7 @@ struct PostWorkoutSummaryView: View {
                 DoblesJointSummaryView(data: jointData, onDone: dismissJoint)
             }
         }
-        .onAppear { seedCapturedScore(); renderSummaryCard(); stageFinishedDraft() }
+        .onAppear { seedCapturedScore(); seedRx(); renderSummaryCard(); stageFinishedDraft() }
         // El plan del libre llegó mientras el atleta rellenaba el resumen: el borrador
         // de rescate pasa a ser el de la asignación, no el de `/free`.
         .onChange(of: session.assignmentId) { _, _ in stageFinishedDraft() }
@@ -258,6 +261,11 @@ struct PostWorkoutSummaryView: View {
                     if showScore {
                         scoreCard.disabled(keptOnPhone)
                     }
+                    // RX / Escalado va con la puntuación: un bloque puntuado con tramos medidos.
+                    if !manualEntry, !bloquesRx.isEmpty {
+                        DeclaracionRxCard(bloques: bloquesRx, declaradas: $rxDeclarado)
+                            .disabled(keptOnPhone)
+                    }
                     // Rechazado y guardado en el móvil: el registro se queda como
                     // estaba, pero lo que se ANOTABA (qué hiciste, esfuerzo, cómo ha
                     // ido, notas) ya viajó en el envío que el móvil guarda. Ofrecer
@@ -325,6 +333,19 @@ struct PostWorkoutSummaryView: View {
         if isRoundsScored {
             if scoreRounds == nil { scoreRounds = session.capturedScoreRounds }
             if scoreReps == nil { scoreReps = session.capturedScoreReps }
+        }
+    }
+
+    /// Los bloques que admiten RX / Escalado (metcon, fuera de calentamiento y vuelta a la calma, con tramos).
+    private var bloquesRx: [BloqueRx] {
+        DeclaracionesRx.bloques(plan: session.plan, laps: session.laps)
+    }
+
+    /// Lo que ya dicen las vueltas de cada bloque (el `rx` del motor, o lo marcado en la
+    /// vista vieja). Solo siembra lo no tocado: una edición no se pisa.
+    private func seedRx() {
+        for b in bloquesRx where rxDeclarado[b.id] == nil {
+            rxDeclarado[b.id] = DeclaracionesRx.semilla(b, laps: session.laps)
         }
     }
 
@@ -893,7 +914,8 @@ struct PostWorkoutSummaryView: View {
             overlay: ManualSegmentOverlay(
                 avgHR: manualAvgHR,
                 maxHR: manualMaxHR,
-                paceSecondsBySegment: manualSegmentPaceSeconds
+                paceSecondsBySegment: manualSegmentPaceSeconds,
+                rxPorSegmento: DeclaracionesRx.porSegmento(bloquesRx, rxDeclarado)
             ),
             iso: iso,
             // Un libre guardado como plan al empezar: cada tramo se enlaza con el

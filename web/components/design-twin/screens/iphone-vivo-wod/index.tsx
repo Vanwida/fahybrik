@@ -19,7 +19,7 @@ export const meta: TwinMeta = {
   titulo: 'iPhone · WOD en vivo',
   zona: 'Entreno en vivo',
   estado: 'espejo',
-  actualizado: '2026-09-28',
+  actualizado: '2026-09-29',
   descripcion:
     'EMOM alterno con el remo, AMRAP con remo y su puntuación (rondas + reps), For Time chipper con cap y lista ±1, Tabata, Death by y un AMRAP libre: la misma anatomía de la gramática, un héroe por formato, sin RX/Escalado en el vivo.',
   fuentes: [

@@ -277,6 +277,8 @@ extension Vivo {
         var roxzone: SentidoRoxzone? = nil
         var wod: InfoWod? = nil
         var fuerza: FichaFuerza? = nil
+        /// Dobles: de quién es la estación (tuya, de tu pareja o repartida). `nil` = individual.
+        var dobles: Dobles? = nil
         /// De dónde sale este paso en el motor de hoy (el adaptador lo rellena; el
         /// pintor no lo mira). `nil` en un paso construido a mano o en el doble.
         var origen: Origen? = nil

@@ -51,13 +51,19 @@ export interface CabeceraProps {
   crono: { valor: string; etiqueta: 'sesión' | 'total' };
   chips: ChipEnlace[];
   onEnlaces?: (clave: ChipEnlace['clave']) => void;
+  /** Salir sin parar (el motor sigue; se vuelve desde el aviso de entreno en curso). Sin él, no hay chevrón. */
+  onMinimizar?: () => void;
 }
 
-export function Cabecera({ posicion, formato, test = false, crono, chips, onEnlaces }: CabeceraProps) {
+/** El chevrón de minimizar: su ancho tocable (el alto, 44). */
+const ANCHO_MINIMIZAR = 28;
+
+export function Cabecera({ posicion, formato, test = false, crono, chips, onEnlaces, onMinimizar }: CabeceraProps) {
   const { ancho } = useLienzo();
   // El crono se lleva su sitio a la derecha; la posición se queda con el resto.
   const anchoCrono = anchoTexto(crono.valor, TI.crono.cuerpo, TI.crono.peso) + (crono.etiqueta === 'total' ? 44 : 8);
-  const partes = partesQueCaben(posicion, ancho - 2 * MARGEN - anchoCrono - 16);
+  const anchoMin = onMinimizar ? ANCHO_MINIMIZAR + 8 : 0;
+  const partes = partesQueCaben(posicion, ancho - 2 * MARGEN - anchoCrono - 16 - anchoMin);
   // La fila del formato comparte sitio con los chips: se queda con el resto.
   const formatoTexto = Array.isArray(formato) ? partesQueCaben(formato, ancho - 2 * MARGEN - anchoChips(chips) - 10, TI.etiqueta.cuerpo, TI.etiqueta.peso).join(' · ') : formato;
   return (
@@ -74,6 +80,19 @@ export function Cabecera({ posicion, formato, test = false, crono, chips, onEnla
       }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, minWidth: 0 }}>
+        {onMinimizar ? (
+          // Salir SIN parar (el motor sigue): un chevrón hacia abajo, nunca una × (se lee como descartar).
+          <button
+            type="button"
+            aria-label="Salir sin parar"
+            onClick={onMinimizar}
+            style={{ all: 'unset', cursor: 'pointer', width: ANCHO_MINIMIZAR, height: 44, margin: '-11px -4px -11px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', color: CI.tinta2 }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M5 9l7 7 7-7" />
+            </svg>
+          </button>
+        ) : null}
         <span
           style={{
             fontSize: TI.posicion.cuerpo,

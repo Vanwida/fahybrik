@@ -77,8 +77,11 @@ extension Vivo {
         var grupos: [Grupo] = []
         var porClave: [String: Int] = [:]
         var ultimo: Int? = nil
+        // Dobles: la estación de la pareja es SU fila (se ve y se salta a ella), nunca
+        // la «recuperación» del trabajo de antes.
+        func propio(_ q: Paso) -> Bool { q.rol == .trabajo || esRelevo(q) }
         for (j, p) in pasos.enumerated() {
-            if p.rol != .trabajo {
+            if !propio(p) {
                 if p.clase == .descansoTandas, let u = ultimo, grupos[u].tandas != nil {
                     if grupos[u].tandas?.descanso == nil { grupos[u].tandas?.descanso = p }
                     grupos[u].hasta = Swift.max(grupos[u].hasta, j)
@@ -87,8 +90,8 @@ extension Vivo {
             }
             let k = claveGrupo(p)
             let sig = j + 1 < pasos.count ? pasos[j + 1] : nil
-            let entre: Paso? = (sig != nil && sig!.rol != .trabajo && sig!.clase != .descansoTandas) ? sig : nil
-            let hasta = (sig != nil && sig!.rol != .trabajo) ? j + 1 : j
+            let entre: Paso? = (sig != nil && !propio(sig!) && sig!.clase != .descansoTandas) ? sig : nil
+            let hasta = (sig != nil && !propio(sig!)) ? j + 1 : j
             if let gi = porClave[k] {
                 grupos[gi].veces += 1
                 grupos[gi].hasta = Swift.max(grupos[gi].hasta, hasta)
@@ -116,6 +119,15 @@ extension Vivo {
                            tandas: (g.tandas?.descanso != nil) ? (g.tandas!.veces, g.tandas!.descanso!) : nil,
                            estado: i > g.hasta ? .hecho : i >= g.desde ? .ahora : .pendiente)
         }
+    }
+
+    /// A qué segmento del motor lleva tocar una fila de la Estructura (el mismo
+    /// salto que la tira de bloques del vivo viejo, `jumpTo`). nil = no se salta:
+    /// la fila de ahora, o una del segmento en curso (el motor salta por segmentos;
+    /// dentro del segmento manda el propio paso).
+    static func segmentoDeSalto(_ f: FilaEstructura, segmentoActual: Int?) -> Int? {
+        guard f.estado != .ahora, let s = f.trabajo.origen?.segmento, s != segmentoActual else { return nil }
+        return s
     }
 
     static func grupoPrincipal(_ grupos: [Grupo]) -> Grupo? {
@@ -202,6 +214,7 @@ extension Vivo {
         if let r = recuperacion(f.recupera) { detalle.append(r) }
         if let t = f.tandas, let pr = t.descanso.medida.prescrito { detalle.append("\(fmtDuracion(pr)) entre tandas") }
         if let c = cargaCorta(p), p.nombre != nil { detalle.append(c) }
+        if let d = p.dobles { detalle.append(pactoDe(d) ?? textoTurno(d)) }
         return (linea, detalle.isEmpty ? nil : detalle.joined(separator: " · "))
     }
 
@@ -216,6 +229,7 @@ extension Vivo {
 
     /// «Serie 3 cerrada», «Recuperación cortada», «A1 · serie 3 hecha», «Sled Push hecho».
     static func avisoDeCierre(_ paso: Paso, cabe: (String) -> Bool = { anchoTexto($0, 15) <= 160 }) -> String {
+        if esRelevo(paso) { return "Relevo · entras tú" }
         if paso.rol == .recuperacion { return "Recuperación cortada" }
         if paso.rol == .descanso { return "Descanso cortado" }
         if paso.fuerza != nil { return avisoSerie(paso) }

@@ -23,7 +23,7 @@ export const meta: TwinMeta = {
   titulo: 'iPhone · circuito y HYROX',
   zona: 'Entreno en vivo',
   estado: 'construida',
-  actualizado: '2026-09-28',
+  actualizado: '2026-09-29',
   descripcion:
     'Rondas de circuito con estaciones medidas y sin medir, la HYROX completa (8 × 1 km + 8 estaciones con nombre, dosis y carga, Roxzone como paso), la carrera dentro del circuito con el héroe de correr y el total en la cabecera, el bloque continuo remo → ski → bici (cada tramo con su máquina y su métrica), la Estructura con parciales por estación y un circuito libre que se ve igual.',
   fuentes: [

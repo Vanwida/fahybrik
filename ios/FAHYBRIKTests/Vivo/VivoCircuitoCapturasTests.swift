@@ -23,15 +23,16 @@ final class VivoCircuitoCapturasTests: XCTestCase {
     /// hay `monitor`, la máquina (el store del monitor en `.streaming`).
     @MainActor
     private func captura(_ s: WorkoutSession, _ nombre: String, monitor: Monitor? = nil, horizontal: Bool = false,
-                         pagina: VivoIdPagina = .vivo, espera: TimeInterval = 1.2,
+                         pagina: VivoIdPagina = .vivo, espera: TimeInterval = 1.2, saltar: Bool = false,
                          trasMontar: (WorkoutSession) -> Void = { _ in }) {
         let muestra = monitor.map { m -> PM5LiveSample in
             var l = PM5LiveSample()
             l.paceSecondsPer500m = m.split; l.strokeRate = m.spm; l.powerWatts = m.vatios
             return l
         }
-        let montaje = VivoMontaje(horizontal: horizontal, hrLink: .connected(name: "Banda"), gpsActive: true,
+        var montaje = VivoMontaje(horizontal: horizontal, hrLink: .connected(name: "Banda"), gpsActive: true,
                                   pagina: pagina, monitor: muestra)
+        montaje.saltar = saltar
         fotografiarVivo(s, montaje, fotos: [VivoFoto(nombre: nombre, en: espera)], trasMontar: trasMontar)
     }
 
@@ -141,6 +142,15 @@ final class VivoCircuitoCapturasTests: XCTestCase {
         entra(s, segmento: 0); cierra(s, 11); dentro(s, 52)
         s.markRoundDone()
         captura(s, "circuito-rondas-estructura", pagina: .estructura) { s in s.injectLiveHR(160, source: .strap); s.fixedRestRemaining = 80 }
+    }
+
+    /// La Estructura del circuito es la sesión ENTERA: el calentamiento hecho arriba,
+    /// la ruta del circuito en su sitio y la vuelta a la calma debajo, con su salto.
+    @MainActor
+    func test493_estructuraConLaSesionEntera() throws {
+        let s = P.arranca(try C.sesion493ConVueltaALaCalma())
+        entra(s, segmento: 1); cierra(s, 2); dentro(s, 40)
+        captura(s, "circuito-rondas-estructura-sesion", pagina: .estructura, saltar: true) { s in s.injectLiveHR(166, source: .strap) }
     }
 
     // MARK: - HYROX

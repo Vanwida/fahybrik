@@ -22,7 +22,7 @@ export const meta: TwinMeta = {
   titulo: 'iPhone · correr',
   zona: 'Entreno en vivo',
   estado: 'espejo',
-  actualizado: '2026-09-28',
+  actualizado: '2026-09-29',
   descripcion:
     'Correr con el objetivo mandando: el ritmo actual contra su banda en series, tempos y progresivos; el pulso contra su zona en rodajes y tiradas; el RPE como instrucción. Calle con GPS y cadencia del teléfono; cinta conectada o «lo dices tú»; la recuperación con su preaviso y su 3-2-1; la página de Mapa; y un libre que se ve igual.',
   fuentes: [

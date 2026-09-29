@@ -644,9 +644,9 @@ struct ActiveWorkoutView: View {
     /// UN árbol live — `RunLiveShellView` para run, erg, EMOM, fuerza, descanso…
     ///
     /// EL VIVO REHECHO (28-09, docs/vivo-iphone/modelo.md): detrás de
-    /// `VivoIphoneBandera` (encendida en Debug, apagada en Release hasta que las
-    /// cinco familias estén portadas) monta `VivoIphoneView`, que pinta el MISMO
-    /// estado que la muñeca con el kit compartido `Vivo`. El motor no cambia.
+    /// `VivoIphoneBandera` (encendida en Debug y Release desde el 29-09; el shell
+    /// viejo queda de vuelta atrás hasta la prueba en aparato) monta `VivoIphoneView`,
+    /// que pinta el MISMO estado que la muñeca con el kit compartido `Vivo`. El motor no cambia.
     @ViewBuilder
     private var superficieMontada: some View {
         if VivoIphoneBandera.activa {
@@ -661,7 +661,14 @@ struct ActiveWorkoutView: View {
                 alAccionDelHost: { primaryAction() },
                 alConectividad: { mostrarConectividad = true },
                 alTerminarYGuardar: { session.finish(completeness: .partial) },
-                alVerBloques: { mostrarBloques = true }
+                alVerBloques: { mostrarBloques = true },
+                // Las mismas salidas que el shell viejo, con la misma semántica:
+                // chevrón = minimizar (FH-111, el motor sigue); «Guardar para luego»
+                // = pausa + instantánea (Card 142); «Descartar» = nada se guarda.
+                alMinimizar: onLeaveAndResume.map { _ in { requestExitOrLeave() } },
+                salidas: VivoSalidas(guardarParaLuego: onSoftLeave, descartar: { onExit() }),
+                alSaltarTramo: { requestJump(to: $0) },
+                pareja: DoblesLiveStripState.from(partnerLive)
             )
         } else {
             superficieAntigua

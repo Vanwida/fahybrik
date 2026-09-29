@@ -23,7 +23,7 @@ export const meta: TwinMeta = {
   titulo: 'iPhone · la gramática del vivo',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
-  actualizado: '2026-09-28',
+  actualizado: '2026-09-29',
   descripcion:
     'Una anatomía para todas las familias: posición y crono arriba, el sujeto siempre a la misma altura, la banda del objetivo con ▲▼, el trabajo, la rejilla de la máquina, «Luego», la tira de la sesión y UNA acción primaria. Un paso de cada familia y los estados comunes: pausa, descanso, anotar, deshacer, GPS, máquina, terminar, Live Activity.',
   fuentes: [],
@@ -146,7 +146,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'pausa',
     titulo: 'Pausa',
     descripcion:
-      'El vivo se atenúa (se sigue viendo dónde estabas), «EN PAUSA», los relojes no corren y la pausa pasa a «Reanudar» en naranja; la primaria queda apagada. A los 4 s se reanuda.',
+      'El vivo se atenúa (se sigue viendo dónde estabas), «EN PAUSA», los relojes no corren y la pausa pasa a «Reanudar» en naranja; la primaria queda apagada. Debajo, «sigue sola en N s» (la pausa que pide el atleta se reanuda sola a los 10 s, como la vista vieja) y el botón de la voz, para silenciar o devolver los avisos.',
   },
   {
     id: 'terminar',

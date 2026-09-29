@@ -1,33 +1,31 @@
 import SwiftUI
 
 // LA ESTRUCTURA DE UN CIRCUITO EN EL IPHONE — espejo de
-// `screens/iphone-vivo-circuito/ruta.tsx`. La ruta del kit (`Vivo.rutaDe`, la
-// misma que la Ruta de la muñeca) con sitio: cada tramo de carrera, estación y
-// Roxzone en el orden en que se hace, agrupados por ronda cuando el coach
-// escribió rondas; lo hecho con su parcial, lo de ahora con su crono en tinta,
-// lo que viene con su dosis. Arriba, la Roxzone sumada (si la hay) o cuántas
-// piezas van. Es la única lista larga del vivo y scrollea (I6): al abrirse, lo
-// de ahora queda a la vista. Sustituye a la página Estructura del kit en esta familia.
+// `screens/iphone-vivo-circuito/ruta.tsx`. La sesión ENTERA, como la Estructura
+// de las demás familias: los otros bloques (calentamiento, fuerza, vuelta a la
+// calma) una fila cada uno, con su salto; y en su sitio, la ruta del kit
+// (`Vivo.rutaDe`, la misma que la Ruta de la muñeca) con sitio: cada tramo de
+// carrera, estación y Roxzone en el orden en que se hace, agrupados por ronda
+// cuando el coach escribió rondas; lo hecho con su parcial, lo de ahora con su
+// crono en tinta, lo que viene con su dosis. Arriba, la Roxzone sumada (si la
+// hay) o cuántas piezas del circuito van. Es la lista larga del vivo y scrollea
+// (I6): al abrirse, lo de ahora queda a la vista.
 
 struct VivoRutaCircuito: View {
     let estado: Vivo.EstadoVivo
     let formato: Vivo.FormatoCircuito
     /// El host abre la hoja de bloques (saltar a otro bloque). nil = sin botón.
     var alVerBloques: (() -> Void)? = nil
+    /// Tocar la fila de otro bloque salta a él (el host confirma si se omite trabajo). nil = filas quietas.
+    var alSaltar: ((Int) -> Void)? = nil
 
     private static let punto: CGFloat = 9
     private static let idAhora = "ahora"
 
-    /// Las filas del segmento del circuito (el calentamiento y los otros bloques no puntúan aquí).
+    /// Las filas del circuito en curso (solo su segmento).
     private var filas: [Vivo.FilaRuta] {
-        let seg = estado.paso.origen?.segmento
-        let desde = estado.pasos.firstIndex { $0.origen?.segmento == seg } ?? 0
-        let todas = Vivo.rutaDe(estado.pasos, i: estado.i, parciales: estado.parciales, terminado: estado.terminado,
-                                Vivo.OpcionesRuta(desde: desde, cabecerasDeRonda: formato != .hyrox, sueltas: .pasadas))
-        return todas.filter { f in
-            if case let .paso(i, _, _, _, _) = f { return estado.pasos[i].origen?.segmento == seg }
-            return true
-        }
+        Vivo.rutaDelCircuito(estado.pasos, i: estado.i, parciales: estado.parciales,
+                             terminado: estado.terminado, hyrox: formato == .hyrox)
     }
 
     var body: some View {
@@ -42,7 +40,15 @@ struct VivoRutaCircuito: View {
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 4, pinnedViews: [.sectionHeaders]) {
                     Section {
-                        ForEach(Array(filas.enumerated()), id: \.offset) { _, f in fila(f) }
+                        ForEach(Array(Vivo.estructuraConCircuito(estado.pasos, i: estado.i).enumerated()), id: \.offset) { k, pieza in
+                            switch pieza {
+                            case let .fila(f):
+                                VivoFilaDeEstructura(fila: f, segmentoActual: estado.paso.origen?.segmento, alSaltar: alSaltar)
+                                    .id("b\(k)")
+                            case .circuito:
+                                ForEach(Array(filas.enumerated()), id: \.offset) { _, f in fila(f) }
+                            }
+                        }
                     } header: {
                         HStack(alignment: .firstTextBaseline) {
                             Text("Estructura").font(.system(size: VivoTokens.TI.posicion, weight: .bold)).foregroundStyle(VivoColor.tinta)

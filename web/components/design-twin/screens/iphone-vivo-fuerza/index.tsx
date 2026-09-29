@@ -22,7 +22,7 @@ export const meta: TwinMeta = {
   titulo: 'iPhone · fuerza',
   zona: 'Entreno en vivo',
   estado: 'espejo',
-  actualizado: '2026-09-28',
+  actualizado: '2026-09-29',
   descripcion:
     'El ejercicio delante y la dosis con sus dos ejes («8 × 125 kg» con el %RM o el RIR encima); se anota en el propio descanso con ± grandes y lo propuesto no cuenta hasta confirmarlo; la carga pasa en cascada; la última serie lleva al siguiente ejercicio. Un libre se ve igual.',
   fuentes: [
