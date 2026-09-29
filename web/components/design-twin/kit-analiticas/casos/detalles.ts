@@ -17,7 +17,7 @@
 
 import { medida, serie, sinDato, type Ancla, type Familia, type LecturaPanel, type ProcedenciaPanel, type PuntoSerie, type TramoCarrera, type Ventana } from '../contrato';
 import { comparar, rangoDe } from '../mecanismo';
-import { fechaLegible } from '../fmt';
+import { fechaLegible, formatear } from '../fmt';
 import { METODO_DEFECTO, type MetodoAnaliticas } from '../metodo';
 import { HOY, azar, cubosDe, tendencia } from './generador';
 import { panelDe, unaRmDe, type EscenarioPortada } from './atletas';
@@ -201,8 +201,15 @@ export function detalleErgoDe(escenario: Escenario, ventana: Ventana, maquina: M
 
 export interface EjercicioFuerza {
   nombre: string;
+  /** El patrón de movimiento: rodilla · bisagra · empuje · tracción · acarreo. */
   patron: string;
   rm: LecturaPanel;
+  /**
+   * True cuando el 1RM lo ESCRIBIÓ el atleta en su perfil (ancla declarada):
+   * entonces no es estimado y el título no lleva «est.». False cuando sale de
+   * las series hechas (ancla medida; el cálculo es la fórmula del coach).
+   */
+  declarado: boolean;
   /** Mejor carga por número de reps (1 · 3 · 5 · 8 · 10), con su fecha; null si nunca hizo esa serie. */
   mejoresPorReps: Array<{ reps: number; kg: number | null; fecha: string | null; nuevo: boolean }>;
 }
@@ -217,7 +224,7 @@ export interface DetalleFuerza {
 }
 
 const EJERCICIOS: Array<{ nombre: string; patron: string; factor: number; reps: number }> = [
-  { nombre: 'Sentadilla', patron: 'Sentadilla', factor: 1, reps: 5 },
+  { nombre: 'Sentadilla', patron: 'Rodilla', factor: 1, reps: 5 },
   { nombre: 'Peso muerto', patron: 'Bisagra', factor: 1.25, reps: 3 },
   { nombre: 'Press banca', patron: 'Empuje', factor: 0.68, reps: 5 },
   { nombre: 'Press militar', patron: 'Empuje', factor: 0.45, reps: 8 },
@@ -240,18 +247,23 @@ export function detalleFuerzaDe(escenario: Escenario, ventana: Ventana, metodo: 
     const rmAntes = Math.round(rmAhora * 0.95 * 2) / 2;
     const fecha = escenario === 'viejo' ? '2026-08-28' : ['2026-09-20', '2026-06-30', '2026-09-08', '2026-09-15', '2026-09-22'][i]!;
     const kgSerie = Math.round((rmAhora / (1 + e.reps / 30)) * 2) / 2;
+    // Pau escribió su press banca en el perfil (86 kg): ancla declarada, sin «est.», y una serie hecha lo actualizará.
+    const declarado = escenario === 'mixto' && e.nombre === 'Press banca';
     return {
       nombre: e.nombre,
       patron: e.patron,
+      declarado,
       rm: medida({
         id: `fuerza.rm.${e.nombre}`,
         bloque: 'progreso',
         familia: 'fuerza',
-        titulo_es: `${e.nombre} · 1RM est.`,
-        dato: { valor: unaRmDe(kgSerie, e.reps, metodo), unidad: 'kg', comparacion: poco ? null : comparar({ actual: rmAhora, referencia: rmAntes, contra: 'periodo_anterior', umbral: metodo.umbrales_cambio.rm_kg, etiqueta_es: 'vs periodo anterior' }) },
-        serie: serie('kg', 'semana', tendencia({ semanas, desde: rmAntes, hasta: rmAhora, semilla: 621 + i, ruido: 3, huecos: 0.3 }).map((q) => ({ t: q.t, hecho: q.v == null ? null : Math.round(q.v * 2) / 2 }))),
-        cobertura: cob(),
-        procedencia: proc('rm_estimado', `${e.reps} × ${kgSerie} kg el ${fechaLegible(fecha, HOY)}, con la fórmula de ${metodo.formula_1rm === 'epley' ? 'Epley' : 'Brzycki'} (la de tu coach).`, 'declarada'),
+        titulo_es: declarado ? `${e.nombre} · 1RM` : `${e.nombre} · 1RM est.`,
+        dato: { valor: declarado ? 86 : unaRmDe(kgSerie, e.reps, metodo), unidad: 'kg', comparacion: poco || declarado ? null : comparar({ actual: rmAhora, referencia: rmAntes, contra: 'periodo_anterior', umbral: metodo.umbrales_cambio.rm_kg, etiqueta_es: 'vs periodo anterior' }) },
+        serie: declarado ? null : serie('kg', 'semana', tendencia({ semanas, desde: rmAntes, hasta: rmAhora, semilla: 621 + i, ruido: 3, huecos: 0.3 }).map((q) => ({ t: q.t, hecho: q.v == null ? null : Math.round(q.v * 2) / 2 }))),
+        cobertura: declarado ? { ...cob(0), ultimo_dato: '2026-06-11' } : cob(),
+        procedencia: declarado
+          ? proc('rm_declarado', 'Lo escribiste tú en tu perfil el 11 jun. En cuanto hagas una serie de press banca, sale de ella.', 'declarada')
+          : proc('rm_estimado', `${e.reps} × ${formatear(kgSerie, 'kg')} el ${fechaLegible(fecha, HOY)} (serie hecha), con la fórmula de ${metodo.formula_1rm === 'epley' ? 'Epley' : 'Brzycki'} (la de tu coach).`, 'medida'),
       }),
       mejoresPorReps: [1, 3, 5, 8, 10].map((reps) => {
         const hecha = reps === e.reps || rnd() > 0.45;
@@ -267,15 +279,15 @@ export function detalleFuerzaDe(escenario: Escenario, ventana: Ventana, metodo: 
   const ser = tendencia({ semanas, desde: 40, hasta: 46, semilla: 641, ruido: 8 }).map((q) => ({ t: q.t, hecho: escenario === 'viejo' && q.t > '2026-09-06' ? null : q.v == null ? null : Math.round(q.v), plan: 48 }));
   return {
     ejercicios,
-    tonelaje: medida({ id: 'fuerza.tonelaje', bloque: 'semanas', familia: 'fuerza', titulo_es: 'Tonelaje por semana', dato: { valor: tonBase, unidad: 'kg', comparacion: comparar({ actual: tonBase, referencia: tonBase * 0.92, contra: 'periodo_anterior', umbral: 500, etiqueta_es: 'vs periodo anterior' }) }, serie: serie('kg', 'semana', ton), cobertura: cob(), procedencia: proc('tonelaje', 'Σ reps × kg de las series hechas; el plan, desde la prescripción.', 'declarada') }),
+    tonelaje: medida({ id: 'fuerza.tonelaje', bloque: 'semanas', familia: 'fuerza', titulo_es: 'Tonelaje por semana', dato: { valor: tonBase, unidad: 'kg', comparacion: comparar({ actual: tonBase, referencia: tonBase * 0.92, contra: 'periodo_anterior', umbral: 500, etiqueta_es: 'vs periodo anterior' }) }, serie: serie('kg', 'semana', ton), cobertura: cob(), procedencia: proc('tonelaje', 'Σ reps × kg de las series hechas; el plan, desde la prescripción.', 'medida') }),
     seriesSemana: medida({ id: 'fuerza.series', bloque: 'semanas', familia: 'fuerza', titulo_es: 'Series por semana', dato: { valor: 46, unidad: 'reps', comparacion: null }, serie: serie('reps', 'semana', ser), cobertura: cob(), procedencia: proc('series', 'Series de trabajo hechas; el plan, desde la prescripción.', 'medida') }),
     patrones: [
-      { patron: 'Sentadilla', series: 14, tonelaje_kg: 4200, seriesAnterior: 12 },
+      { patron: 'Rodilla', series: 14, tonelaje_kg: 4200, seriesAnterior: 12 },
       { patron: 'Bisagra', series: 10, tonelaje_kg: 3600, seriesAnterior: 10 },
       { patron: 'Empuje', series: 12, tonelaje_kg: 2100, seriesAnterior: 14 },
       { patron: 'Tracción', series: 8, tonelaje_kg: 1400, seriesAnterior: 8 },
       { patron: 'Acarreo', series: 4, tonelaje_kg: 0, seriesAnterior: 2 },
-    ].filter((x) => !poco || x.patron === 'Sentadilla' || x.patron === 'Empuje'),
+    ].filter((x) => !poco || x.patron === 'Rodilla' || x.patron === 'Empuje'),
     rir: poco ? null : { dentro: 61, mas: 9, menos: 12, series: 82 },
     sesiones: muestras,
   };

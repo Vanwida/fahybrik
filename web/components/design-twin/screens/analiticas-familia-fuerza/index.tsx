@@ -35,7 +35,7 @@ export const meta: TwinMeta = {
 
 export const escenarios: TwinEscenario[] = [
   { id: 'lleno', titulo: '① Marta · cinco ejercicios, todo lleno', descripcion: 'Sentadilla 132 kg estimados (5 × 112,5 el 20 sep, Epley) y 7,5 kg más que hace 12 semanas; mejores por reps de la sentadilla con las series que faltan como invitación; 11,5 t por semana frente al plan; el reparto por patrón; 82 series con RIR pedido, 61 dentro.' },
-  { id: 'mixto', titulo: '② Pau · la carga por esfuerzo', descripcion: 'Fuerza sin pulso: cada serie carga por 10 − RIR, y el detalle lo dice. Sentadilla 121 kg; press banca; tonelaje por semana con una semana saltada.' },
+  { id: 'mixto', titulo: '② Pau · la carga por esfuerzo y un 1RM declarado', descripcion: 'Fuerza sin pulso: cada serie carga por 10 − RIR, y el detalle lo dice. Sentadilla 121 kg estimados desde series hechas (ancla medida); el press banca lo escribió él en el perfil (ancla declarada, sin «est.», sin tendencia): las dos anclas, una debajo de otra.' },
   { id: 'poco', titulo: '③ Jordi · dos ejercicios, tres semanas', descripcion: 'POCO DATO: dos ejercicios con una marca cada uno, sin tendencia ni comparación (no hay periodo anterior); el RIR todavía no se juzga; el reparto por patrón con dos patrones.' },
   { id: 'viejo', titulo: '④ Lucía · 1RM de agosto', descripcion: 'DATO VIEJO: las marcas se quedan donde estaban y las últimas semanas de tonelaje están vacías frente al plan.' },
   { id: 'vacio', titulo: '⑤ Sin fuerza todavía', descripcion: 'VACÍO: la familia entera con su salida.' },
@@ -83,10 +83,10 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
       <Seccion titulo="1RM estimado" pregunta={`Por ejercicio · fórmula de ${metodo.formula_1rm === 'epley' ? 'Epley' : 'Brzycki'}, la de tu coach`}>
         <Lista>
           {d.ejercicios.map((e) => (
-            <FilaProgreso key={e.nombre} familia="fuerza" nombre={e.nombre} metrica={e.patron === e.nombre ? '1RM est.' : `${e.patron} · 1RM est.`} valor={e.rm.dato!.valor} unidad="kg" comparacion={e.rm.dato!.comparacion} tendencia={e.rm.serie?.hecho ?? null} nota={e.rm.dato!.comparacion ? null : 'sin periodo anterior con el que comparar'} onAbrir={() => { setEjercicio(d.ejercicios.indexOf(e)); onLog(`Ejercicio → ${e.nombre}`); }} />
+            <FilaProgreso key={e.nombre} familia="fuerza" nombre={e.nombre} metrica={`${e.patron} · ${e.declarado ? '1RM declarado' : '1RM est.'}`} valor={e.rm.dato!.valor} unidad="kg" comparacion={e.rm.dato!.comparacion} tendencia={e.rm.serie?.hecho ?? null} nota={e.declarado ? 'lo escribiste tú · una serie hecha lo actualiza' : e.rm.dato!.comparacion ? null : 'sin periodo anterior con el que comparar'} onAbrir={() => { setEjercicio(d.ejercicios.indexOf(e)); onLog(`Ejercicio → ${e.nombre}`); }} />
           ))}
         </Lista>
-        <Nota>Estimado desde tu mejor serie declarada (kg × reps). Un 1RM real pesa más que una estimación: si haces un test, manda.</Nota>
+        <Nota>Estimado desde tu mejor serie hecha (kg × reps anotados en la sesión). Un 1RM real pesa más que una estimación: si haces un test, manda.</Nota>
       </Seccion>
 
       <Seccion titulo="Mejores por repeticiones" pregunta={elegido.nombre} accesorio={<Segmento items={d.ejercicios.map((e, i) => ({ id: String(i), texto: e.nombre.split(' ')[0]! }))} valor={String(d.ejercicios.indexOf(elegido))} onCambio={(v) => setEjercicio(Number(v))} etiqueta="Ejercicio" />}>

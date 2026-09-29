@@ -230,6 +230,19 @@ export interface RepartoPanel {
 /**
  * La escalera de anclas (DECISIONS 07-28, §4 del modelo): cuentan para la
  * carga las tres primeras; la poblacional se enseña marcada y no cuenta.
+ *
+ * LA REGLA QUE DECIDE EL ANCLA DE UNA MARCA: es la del DATO del que sale.
+ *   medida      sale de un entreno o test REGISTRADO — un split del remo, un
+ *               test de umbral, y también un 1RM ESTIMADO desde las series
+ *               hechas (kg × reps anotados en la sesión): la estimación es
+ *               mecanismo (la fórmula del coach), el dato es medido.
+ *   declarada   el atleta o el coach lo ESCRIBIERON directamente: un 1RM en
+ *               el perfil, un umbral tecleado, un RPE.
+ *   estimada    derivado de otra cosa por una fórmula poblacional (0,88 × FC
+ *               máx; el ritmo umbral desde el VDOT de una marca).
+ *   poblacional por edad o por tabla, sin nada del atleta detrás.
+ * «Estimado» en el TÍTULO de una marca (1RM est.) habla del cálculo; el chip
+ * de ancla habla del dato. No se confunden.
  */
 export type Ancla = 'medida' | 'declarada' | 'estimada' | 'poblacional';
 

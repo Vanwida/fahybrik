@@ -169,6 +169,7 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
                   onLog(`Pastilla → ${FAMILIA_GRANDE_NOMBRE[f]}`);
                 }}
                 etiqueta="Familia"
+                completo
               />
             </div>
             <Seccion titulo={FAMILIA_GRANDE_NOMBRE[familia]} pregunta="¿Mejoro en esta familia?">

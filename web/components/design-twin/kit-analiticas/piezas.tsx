@@ -116,7 +116,8 @@ export function PantallaAnaliticas({
           {cabeceraFija ? (
             <div style={{ position: 'sticky', top: 0, zIndex: 3, background: P.fondo, padding: `10px ${MARGEN_A}px 12px`, borderBottom: `1px solid ${P.rejilla}` }}>{cabeceraFija}</div>
           ) : null}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: ENTRE_BLOQUES, padding: `${cabeceraFija ? 20 : 8}px ${MARGEN_A}px 28px` }}>{children}</div>
+          {/* El scroll acaba ENCIMA de la barra de pestañas (la barra va fuera del scroll): nada queda debajo de ella. El aire final es un bloque más. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: ENTRE_BLOQUES, padding: `${cabeceraFija ? 20 : 8}px ${MARGEN_A}px ${ENTRE_BLOQUES + 8}px` }}>{children}</div>
         </div>
         {!atras ? <TabBar activa="Analíticas" renombrar={pestana !== 'Analíticas' ? { Analíticas: pestana } : undefined} /> : null}
       </div>
@@ -124,10 +125,18 @@ export function PantallaAnaliticas({
   );
 }
 
-/** Los seis periodos, uno activo en tinta sobre superficie2 (como los chips del vivo). Nunca naranja: no es una acción. */
+/** Aire a cada lado del texto de una píldora: la píldora activa nunca corta su texto. */
+const PILDORA_PADDING = 8;
+
+/**
+ * Los seis periodos, uno activo en tinta sobre superficie2 (como los chips del
+ * vivo). Nunca naranja: no es una acción. Cada píldora nace del ancho de su
+ * texto más su margen y crece a partes iguales con lo que sobra: a 390 cabe
+ * «12 sem» entero, que en seis columnas iguales se cortaba por los dos lados.
+ */
 export function SelectorVentana({ valor, onCambio }: { valor: Ventana; onCambio: (v: Ventana) => void }) {
   return (
-    <div role="radiogroup" aria-label="Periodo" style={{ display: 'grid', gridTemplateColumns: `repeat(${VENTANAS.length}, minmax(0, 1fr))`, gap: 4, padding: 3, borderRadius: RADIO_A.chip + 3, background: P.superficie }}>
+    <div role="radiogroup" aria-label="Periodo" style={{ display: 'flex', gap: 4, padding: 3, borderRadius: RADIO_A.chip + 3, background: P.superficie }}>
       {VENTANAS.map((v) => {
         const activo = v === valor;
         return (
@@ -140,7 +149,11 @@ export function SelectorVentana({ valor, onCambio }: { valor: Ventana; onCambio:
             style={{
               all: 'unset',
               cursor: 'pointer',
+              flex: '1 1 auto',
+              minWidth: 0,
+              boxSizing: 'border-box',
               height: TA.chip.alto - 6,
+              padding: `0 ${PILDORA_PADDING}px`,
               borderRadius: RADIO_A.chip,
               textAlign: 'center',
               font: `${TA.chip.peso} ${TA.chip.cuerpo}px/1 ${P.fuente}`,
@@ -158,10 +171,14 @@ export function SelectorVentana({ valor, onCambio }: { valor: Ventana; onCambio:
   );
 }
 
-/** Conmutador de vista (Remo · Ski · Bici; Carga · Horas). Mismo cromo que el selector de ventana. */
-export function Segmento<V extends string>({ items, valor, onCambio, etiqueta }: { items: Array<{ id: V; texto: string }>; valor: V; onCambio: (v: V) => void; etiqueta: string }) {
+/**
+ * Conmutador de vista (Remo · Ski · Bici; Carga · Horas). Mismo cromo que el
+ * selector de ventana. `completo` lo estira a lo ancho (las píldoras crecen a
+ * partes iguales desde su contenido); sin él, ocupa lo que ocupan sus textos.
+ */
+export function Segmento<V extends string>({ items, valor, onCambio, etiqueta, completo = false }: { items: Array<{ id: V; texto: string }>; valor: V; onCambio: (v: V) => void; etiqueta: string; completo?: boolean }) {
   return (
-    <div role="radiogroup" aria-label={etiqueta} style={{ display: 'inline-grid', gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`, gap: 4, padding: 3, borderRadius: RADIO_A.chip + 3, background: P.superficie }}>
+    <div role="radiogroup" aria-label={etiqueta} style={{ display: completo ? 'flex' : 'inline-flex', gap: 4, padding: 3, borderRadius: RADIO_A.chip + 3, background: P.superficie }}>
       {items.map((it) => {
         const activo = it.id === valor;
         return (
@@ -174,8 +191,11 @@ export function Segmento<V extends string>({ items, valor, onCambio, etiqueta }:
             style={{
               all: 'unset',
               cursor: 'pointer',
+              flex: completo ? '1 1 auto' : '0 0 auto',
+              minWidth: 0,
+              boxSizing: 'border-box',
               height: TA.chip.alto - 6,
-              padding: '0 14px',
+              padding: `0 ${PILDORA_PADDING + 4}px`,
               borderRadius: RADIO_A.chip,
               textAlign: 'center',
               font: `${TA.chip.peso} ${TA.chip.cuerpo}px/1 ${P.fuente}`,

@@ -65,6 +65,7 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
         onLog(`Máquina → ${MAQUINA_NOMBRE[m]}`);
       }}
       etiqueta="Máquina"
+      completo
     />
   );
   const unidadSplit = maquina === 'bici' ? 's_1000m' : 's_500m';

@@ -62,7 +62,7 @@ const LLENO: Atleta = {
     remo: { valor: 108.1, ancla: 'medida', fecha: '2026-08-21', desdeValor: 110.4 },
     ski: { valor: 116.4, ancla: 'medida', fecha: '2026-09-12', desdeValor: 119 },
     bici: { valor: 118.2, ancla: 'declarada', fecha: '2026-07-30', desdeValor: 121 },
-    fuerza: { valor: 132, ancla: 'declarada', fecha: '2026-09-20', desdeValor: 124 },
+    fuerza: { valor: 132, ancla: 'medida', fecha: '2026-09-20', desdeValor: 124 },
     estaciones: { valor: 184, ancla: 'medida', fecha: '2026-09-18', desdeValor: 199 },
     wod: { valor: 4470, ancla: 'medida', fecha: '2026-09-19', desdeValor: 4870 },
   },
@@ -72,8 +72,8 @@ const LLENO: Atleta = {
     { familia: 'correr', prueba_es: '10 km', valor: 2761, unidad: 'segundos', fecha: '2026-05-16', ancla: 'medida', anterior: null },
     { familia: 'remo', prueba_es: '2000 m remo', valor: 432.4, unidad: 'segundos', fecha: '2026-06-21', ancla: 'medida', anterior: { valor: 441.6, fecha: '2026-02-11' } },
     { familia: 'ski', prueba_es: '1000 m SkiErg', valor: 232.8, unidad: 'segundos', fecha: '2026-09-12', ancla: 'medida', anterior: { valor: 238, fecha: '2026-06-02' } },
-    { familia: 'fuerza', prueba_es: 'Sentadilla · 1RM est.', valor: 132, unidad: 'kg', fecha: '2026-09-20', ancla: 'declarada', anterior: { valor: 127.5, fecha: '2026-06-08' } },
-    { familia: 'fuerza', prueba_es: 'Peso muerto · 1RM est.', valor: 165, unidad: 'kg', fecha: '2026-06-30', ancla: 'declarada', anterior: { valor: 160, fecha: '2026-03-19' } },
+    { familia: 'fuerza', prueba_es: 'Sentadilla · 1RM est.', valor: 132, unidad: 'kg', fecha: '2026-09-20', ancla: 'medida', anterior: { valor: 127.5, fecha: '2026-06-08' } },
+    { familia: 'fuerza', prueba_es: 'Peso muerto · 1RM est.', valor: 165, unidad: 'kg', fecha: '2026-06-30', ancla: 'medida', anterior: { valor: 160, fecha: '2026-03-19' } },
     { familia: 'estaciones', prueba_es: 'Sled push 50 m · 152 kg', valor: 184, unidad: 'segundos', fecha: '2026-09-18', ancla: 'medida', anterior: { valor: 199, fecha: '2026-06-24' } },
     { familia: 'estaciones', prueba_es: 'Wall balls 100', valor: 318, unidad: 'segundos', fecha: '2026-06-14', ancla: 'medida', anterior: null },
     { familia: 'wod', prueba_es: 'Simulación HYROX', valor: 4470, unidad: 'segundos', fecha: '2026-09-19', ancla: 'medida', anterior: { valor: 4870, fecha: '2026-06-27' } },
@@ -105,11 +105,11 @@ const POCO: Atleta = {
   reloj: { desde: '2026-09-17', hasta: HOY, vfc: 64, fc: 56, sueno: 6.9, deriva: 0 },
   clave: {
     correr: { valor: 300, ancla: 'estimada', fecha: '2026-09-10', desdeValor: 300 },
-    fuerza: { valor: 88, ancla: 'declarada', fecha: '2026-09-21', desdeValor: 85 },
+    fuerza: { valor: 88, ancla: 'medida', fecha: '2026-09-21', desdeValor: 85 },
   },
   records: [
     { familia: 'correr', prueba_es: '5 km', valor: 1590, unidad: 'segundos', fecha: '2026-09-26', ancla: 'medida', anterior: null },
-    { familia: 'fuerza', prueba_es: 'Sentadilla · 1RM est.', valor: 88, unidad: 'kg', fecha: '2026-09-21', ancla: 'declarada', anterior: null },
+    { familia: 'fuerza', prueba_es: 'Sentadilla · 1RM est.', valor: 88, unidad: 'kg', fecha: '2026-09-21', ancla: 'medida', anterior: null },
   ],
   tramos: {},
   // A las tres semanas nada es «nunca»: lo que no ha hecho aún le falta tiempo, no ocasión.
@@ -126,14 +126,14 @@ const VIEJO: Atleta = {
     remo: { valor: 112.5, ancla: 'medida', fecha: '2026-06-30', desdeValor: 113.8 },
     ski: { valor: 121, ancla: 'medida', fecha: '2026-08-20', desdeValor: 123 },
     bici: { valor: 123, ancla: 'declarada', fecha: '2026-05-14', desdeValor: 124 },
-    fuerza: { valor: 118, ancla: 'declarada', fecha: '2026-08-28', desdeValor: 112 },
+    fuerza: { valor: 118, ancla: 'medida', fecha: '2026-08-28', desdeValor: 112 },
     estaciones: { valor: 210, ancla: 'medida', fecha: '2026-08-14', desdeValor: 221 },
     wod: { valor: 5010, ancla: 'medida', fecha: '2026-08-29', desdeValor: 5220 },
   },
   records: [
     { familia: 'correr', prueba_es: '5 km', valor: 1372, unidad: 'segundos', fecha: '2026-07-22', ancla: 'medida', anterior: { valor: 1401, fecha: '2026-03-02' } },
     { familia: 'remo', prueba_es: '2000 m remo', valor: 450, unidad: 'segundos', fecha: '2026-06-30', ancla: 'medida', anterior: null },
-    { familia: 'fuerza', prueba_es: 'Sentadilla · 1RM est.', valor: 118, unidad: 'kg', fecha: '2026-08-28', ancla: 'declarada', anterior: { valor: 112, fecha: '2026-04-10' } },
+    { familia: 'fuerza', prueba_es: 'Sentadilla · 1RM est.', valor: 118, unidad: 'kg', fecha: '2026-08-28', ancla: 'medida', anterior: { valor: 112, fecha: '2026-04-10' } },
     { familia: 'estaciones', prueba_es: 'Sled push 50 m · 102 kg', valor: 210, unidad: 'segundos', fecha: '2026-08-14', ancla: 'medida', anterior: null },
     { familia: 'wod', prueba_es: 'Simulación HYROX', valor: 5010, unidad: 'segundos', fecha: '2026-08-29', ancla: 'medida', anterior: { valor: 5220, fecha: '2026-05-23' } },
   ],
@@ -165,15 +165,15 @@ const MIXTO: Atleta = {
     correr: { valor: 266, ancla: 'medida', fecha: '2026-09-05', desdeValor: 274 },
     remo: { valor: 114.2, ancla: 'declarada', fecha: '2026-08-02', desdeValor: 115.5 },
     ski: { valor: 124, ancla: 'declarada', fecha: '2026-08-02', desdeValor: 126 },
-    fuerza: { valor: 121, ancla: 'declarada', fecha: '2026-09-22', desdeValor: 115 },
+    fuerza: { valor: 121, ancla: 'medida', fecha: '2026-09-22', desdeValor: 115 },
     estaciones: { valor: 230, ancla: 'estimada', fecha: '2026-09-25', desdeValor: 238 },
   },
   records: [
     { familia: 'correr', prueba_es: '5 km', valor: 1364, unidad: 'segundos', fecha: '2026-09-05', ancla: 'medida', anterior: { valor: 1395, fecha: '2026-05-30' } },
     { familia: 'correr', prueba_es: '1000 m', valor: 229, unidad: 'segundos', fecha: '2026-09-15', ancla: 'medida', anterior: null },
     { familia: 'remo', prueba_es: '2000 m remo', valor: 456.8, unidad: 'segundos', fecha: '2026-06-02', ancla: 'declarada', anterior: null },
-    { familia: 'fuerza', prueba_es: 'Sentadilla · 1RM est.', valor: 121, unidad: 'kg', fecha: '2026-09-22', ancla: 'declarada', anterior: { valor: 115, fecha: '2026-06-16' } },
-    { familia: 'fuerza', prueba_es: 'Press banca · 1RM est.', valor: 86, unidad: 'kg', fecha: '2026-06-11', ancla: 'declarada', anterior: null },
+    { familia: 'fuerza', prueba_es: 'Sentadilla · 1RM est.', valor: 121, unidad: 'kg', fecha: '2026-09-22', ancla: 'medida', anterior: { valor: 115, fecha: '2026-06-16' } },
+    { familia: 'fuerza', prueba_es: 'Press banca · 1RM', valor: 86, unidad: 'kg', fecha: '2026-06-11', ancla: 'declarada', anterior: null },
     { familia: 'estaciones', prueba_es: 'Sled push 50 m · 102 kg', valor: 230, unidad: 'segundos', fecha: '2026-09-25', ancla: 'estimada', anterior: null },
   ],
   tramos: {
@@ -463,7 +463,7 @@ export function panelDe(escenario: EscenarioPortada, ventana: Ventana, metodo: M
       const grande = FAMILIA_GRANDE[f];
       const muestras = enVentana.filter((d) => d.hecha && d.familia === grande).length;
       // De dónde sale la marca clave y de cuándo: la fecha del test o de la mejor serie, no la de la última sesión.
-      const DE: Record<Familia, string> = { correr: 'Test de umbral', remo: 'Test de 2000 m', ski: 'Test de 1000 m', bici: 'Pieza de 4 min', fuerza: 'Tu mejor serie declarada', estaciones: 'Tu mejor sled push', wod: 'Tu última simulación' };
+      const DE: Record<Familia, string> = { correr: 'Test de umbral', remo: 'Test de 2000 m', ski: 'Test de 1000 m', bici: 'Pieza de 4 min', fuerza: 'Tu mejor serie hecha', estaciones: 'Tu mejor sled push', wod: 'Tu última simulación' };
       const procedencia = proc(`clave_${f}`, clave ? `${DE[f]} · ${clave.fecha}` : `${METRICA[f]}: la marca que resume ${FAMILIA_NOMBRE[f].toLowerCase()}.`, clave?.ancla ?? 'poblacional');
       if (!clave || a.nunca.includes(f)) {
         return sinDato({ id: `progreso.${f}`, bloque: 'progreso', familia: f, titulo_es: METRICA[f], falta: a.nunca.includes(f) ? { por: 'ocasion' } : FALTA_HISTORIA(semanasHistoria ?? 0, 1), cobertura: { dias_ventana: rango.dias, muestras }, procedencia });
