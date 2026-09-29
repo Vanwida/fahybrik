@@ -96,7 +96,10 @@ interface Atleta {
   semanasHistoria: number | null;
 }
 
-function anclasDe(p: Partial<AnclasAtleta> & { ritmoRun?: AnclaResuelta | null }): AnclasAtleta {
+/** Las anclas de las tres máquinas de ergo (la carrera lleva la suya aparte en `ritmoRun`). */
+type AnclasDeErgo = { row: AnclaResuelta | null; ski: AnclaResuelta | null; bike: AnclaResuelta | null };
+
+function anclasDe(p: { pulso?: AnclaResuelta | null; ritmoRun?: AnclaResuelta | null; ritmo?: AnclasDeErgo; potencia?: AnclasDeErgo }): AnclasAtleta {
   const a = anclasVacias();
   a.pulso = p.pulso ?? null;
   a.ritmo.run = p.ritmoRun ?? null;
