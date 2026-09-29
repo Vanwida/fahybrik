@@ -52,7 +52,7 @@ enum GaleriaDia {
         }
     }
 
-    // MARK: - El sujeto, en sus siete tonos y en frío
+    // MARK: - El sujeto, en sus ocho tonos y en frío
 
     /// Una línea «sello + título + estado», como las del sujeto `hecho`.
     private static func lineaDeSesion(_ estado: SelloEstadoDia.Estado, _ titulo: String, _ detalle: String) -> some View {

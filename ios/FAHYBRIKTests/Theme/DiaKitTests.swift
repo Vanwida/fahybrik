@@ -212,7 +212,7 @@ final class DiaKitTests: XCTestCase {
     }
 
     func testLosTonosDeEstadoNoLosTocaElTenant() {
-        let semanticos: [TonoDia] = [.info, .ok, .soporte, .peligro]
+        let semanticos: [TonoDia] = [.info, .ok, .soporte, .aviso, .peligro]
         for e in Self.apariencias {
             ClubThemeStore.clear()
             let base = semanticos.map { t -> [[Double]] in
