@@ -259,6 +259,37 @@ describeWithDb('motor de zonas — segment_zone_seconds (0168)', () => {
     expect(row!.total_s).toBe(600);
   });
 
+  test('un reparto congelado MÁS LARGO que su tramo no es la medida del tramo: manda el pulso de la ventana (0278)', async () => {
+    // 2678 · el tramo heredó las zonas del que el atleta dejó al saltar de bloque:
+    // 1.029 s de zonas en 690 s de tramo.
+    const { fx, executionId, start } = await makeSession({
+      segments: [{ modality: 'run', duration_s: 690, frozen: { z1: 939, z2: 61, z5: 29 } }],
+    });
+    await seedSamples({ athleteId: fx.athleteId, from: start, seconds: 690, bpm: BPM_Z2 });
+
+    await computeExecutionZoneSeconds({ execution_id: executionId, client: sql });
+    const [row] = await zoneRows(sql, executionId);
+
+    expect(row!.hr_origin).toBe('samples');
+    expect(row!.z2_s).toBe(690);
+    expect(row!.z1_s + row!.z5_s).toBe(0);
+    expect(row!.total_s).toBe(690);
+  });
+
+  test('el redondeo del móvil se recorta: el tramo suma exactamente su ventana', async () => {
+    const { executionId } = await makeSession({
+      segments: [{ modality: 'row', duration_s: 500, frozen: { z1: 100, z2: 402 } }],
+    });
+
+    await computeExecutionZoneSeconds({ execution_id: executionId, client: sql });
+    const [row] = await zoneRows(sql, executionId);
+
+    expect(row!.hr_origin).toBe('frozen_segment');
+    expect(row!.z1_s + row!.z2_s).toBe(500);
+    expect(row!.no_hr_s).toBe(0);
+    expect(row!.total_s).toBe(500);
+  });
+
   test('dos series del mismo entreno: gana la de más fidelidad y el minuto no se cuenta dos veces', async () => {
     const { executionId, start } = await makeSession({
       segments: [{ modality: 'row', duration_s: 300 }],

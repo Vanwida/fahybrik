@@ -5,6 +5,24 @@
 
 export const JUMP_G = 9.81;
 
+/**
+ * El techo FÍSICO del vuelo de un salto vertical a pie parado: 1 s en el aire son
+ * 122,6 cm de altura (h = g·t²/8) y 4,9 m/s de despegue. Los mejores verticales
+ * humanos sin carrera rondan el metro, así que por encima no hay un salto: hay un
+ * aterrizaje mal marcado (13-08-2026: un CMJ de 720 cm, 2,42 s de vuelo, guardado
+ * como marca). Mecanismo, no método: ningún coach salta más alto. Espejo en
+ * `JumpPhysics.maxFlightS` (iOS) y en los CHECK de la migración 0278.
+ */
+export const JUMP_FLIGHT_MAX_S = 1;
+
+/** La altura de ese techo (122,625 cm): lo máximo que puede valer una marca en cm. */
+export const JUMP_HEIGHT_MAX_CM = ((JUMP_G * JUMP_FLIGHT_MAX_S * JUMP_FLIGHT_MAX_S) / 8) * 100;
+
+/** True cuando un vuelo es físicamente un salto: más de cero y hasta el techo. */
+export function isPlausibleJumpFlight(flightTimeS: number | null): boolean {
+  return flightTimeS != null && flightTimeS > 0 && flightTimeS <= JUMP_FLIGHT_MAX_S;
+}
+
 export function flightTimeSeconds(
   takeoffFrame: number,
   landingFrame: number,

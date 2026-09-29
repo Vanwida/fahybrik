@@ -95,6 +95,22 @@ describeWithDb('readiness detail contract (real DB)', () => {
     expect(snap!.score).toBeLessThanOrEqual(100);
   });
 
+  test('the stored breakdown is a jsonb OBJECT: SQL reads it by key (the coach sleep line)', async () => {
+    // `${JSON.stringify(x)}::jsonb` stored a jsonb STRING: the JS reader tolerated
+    // it, but every `breakdown_json->>'…'` in SQL read NULL and the coach saw no
+    // sleep at all (1.367 rows; migration 0278).
+    await computeAthleteDailyReadiness({ athlete_id: fx.athleteId, recorded_for: TODAY, client: fx.sql });
+    const rows = await fx.sql<Array<{ shape: string; sleep: number | null }>>`
+      select jsonb_typeof(breakdown_json) as shape,
+             (breakdown_json->>'sleep_hours')::float8 as sleep
+      from athlete_daily_readiness_snapshots
+      where athlete_id = ${fx.athleteId} and recorded_for = ${TODAY}::date
+    `;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.shape).toBe('object');
+    expect(rows[0]!.sleep).toBeCloseTo(SLEEP_HOURS, 3);
+  });
+
   test('getAthleteReadinessToday: computes TODAY when the stored latest snapshot is days old', async () => {
     const sql = fx.sql;
     const a = fx.athleteId;
@@ -162,7 +178,7 @@ describeWithDb('readiness detail contract (real DB)', () => {
     };
     await sql`
       insert into athlete_daily_readiness_snapshots (athlete_id, recorded_for, score, breakdown_json)
-      values (${a}, ${TODAY}::date, 55, ${JSON.stringify(legacyBreakdown)}::jsonb)
+      values (${a}, ${TODAY}::date, 55, ${sql.json(legacyBreakdown)})
     `;
 
     const snap = await getAthleteReadinessToday({ athlete_id: a, on_date: ON_DATE, client: sql });

@@ -63,6 +63,37 @@ final class WorkoutSessionBloquesTests: XCTestCase {
         s.stop()
     }
 
+    // 0278 · el tramo siguiente heredaba las zonas del que el atleta dejaba al
+    // saltar desde la hoja: 1.029 s de zonas en un tramo de 690 s.
+    func testIrAOtroBloqueNoArrastraLoQueMediaElTramoQueSeDeja() {
+        let s = sesionDosBloques()
+        s.start()
+        s.beginBlock()
+        s.lapElapsedSeconds = 339
+        s.lapZoneAccumSec = [1: 300, 2: 39]
+        s.lapHRSamples = [110, 118, 125]
+        s.irAlBloque(s.bloques[1])
+        XCTAssertEqual(s.lapElapsedSeconds, 0)
+        XCTAssertTrue(s.lapZoneAccumSec.isEmpty, "el tramo al que se llega no hereda las zonas del que se deja")
+        XCTAssertTrue(s.lapHRSamples.isEmpty, "ni su pulso")
+        s.stop()
+    }
+
+    func testSaltarTampocoArrastraLasZonas() {
+        let s = sesionDosBloques()
+        s.start()
+        s.beginBlock()
+        s.lapElapsedSeconds = 120
+        s.lapZoneAccumSec = [2: 120]
+        s.lapHRSamples = [140]
+        s.saltarBloque()
+        XCTAssertEqual(s.currentSegmentIndex, 1)
+        XCTAssertEqual(s.lapElapsedSeconds, 0)
+        XCTAssertTrue(s.lapZoneAccumSec.isEmpty)
+        XCTAssertTrue(s.lapHRSamples.isEmpty)
+        s.stop()
+    }
+
     func testSaltarElUltimoCierraElTrabajoPrescrito() {
         let s = sesionDosBloques()
         s.start()

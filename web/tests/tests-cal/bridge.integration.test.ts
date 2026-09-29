@@ -22,7 +22,9 @@ import {
   BENCH_BACK_SQUAT_1RM,
   BENCH_DEADLIFT_1RM,
   BENCH_BENCH_PRESS_1RM,
+  BENCH_CMJ,
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import { CMJ_PROFILE_SLUG } from '@fahybrid/shared/domain/jump/protocol';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
 import { makeCoachAndAthlete, makeMicrocycle, makeTemplate, makeAssignment, type Fixture } from '../utils/db-fixtures';
 
@@ -181,6 +183,34 @@ describeWithDb('#34 calibration bridge — the full loop (real DB)', () => {
       where athlete_id = ${fx.athleteId} and exercise_slug = ${BENCH_HYROX_HALF_SIM} limit 1
     `;
     expect(bench?.value).toBe(3600);
+  });
+
+  test('guard: a jump height no human can reach is refused, nothing written (0278)', async () => {
+    const aid = await makeCalibrationAssignment(fx, CMJ_PROFILE_SLUG, microcycleId);
+    const res = await recordBatteryResults({
+      athlete_id: fx.athleteId,
+      assignment_id: aid,
+      entries: [{ slug: BENCH_CMJ, value: 720.452 }],
+      source: 'coach_test',
+      client: sql,
+    });
+    expect(res.ok).toBe(false);
+    expect(res.error).toBe('implausible_value');
+    const rows = await sql<{ n: string }[]>`
+      select count(*)::text as n from athlete_benchmarks
+      where athlete_id = ${fx.athleteId} and exercise_slug = ${BENCH_CMJ}
+    `;
+    expect(rows[0]!.n).toBe('0');
+
+    // A real CMJ on the same test still lands.
+    const ok = await recordBatteryResults({
+      athlete_id: fx.athleteId,
+      assignment_id: aid,
+      entries: [{ slug: BENCH_CMJ, value: 51.94 }],
+      source: 'coach_test',
+      client: sql,
+    });
+    expect(ok.ok).toBe(true);
   });
 
   test('guards: unknown_slug and not_a_test', async () => {

@@ -9,7 +9,10 @@ import 'server-only';
 //   1. EL REPARTO CONGELADO DEL MÓVIL (`raw_lap_data_json -> zone_seconds`). Lo
 //      midió el motor en vivo latido a latido, con las bandas que el servidor le
 //      dio, y luego tiró la serie. Es medida y se respeta tal cual: recalcularla
-//      desde muestras más pobres sería cambiar un dato bueno por uno peor.
+//      desde muestras más pobres sería cambiar un dato bueno por uno peor. Con UNA
+//      condición: que quepa en la ventana del tramo (`fitZoneSecondsToWindow`). Un
+//      reparto con más segundos que el tramo arrastró tiempo de otro y no es la
+//      medida de este: se baja al peldaño siguiente.
 //   2. LA TRAZA (`workout_traces`, señal `hr`). La serie entera con su eje. La
 //      clasificamos NOSOTROS. Si hay dos —la correa y el reloj— gana la de más
 //      fidelidad, para no contar el mismo minuto dos veces.
@@ -27,7 +30,12 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { loadAthleteHrZones } from '@/lib/athlete/hr-zones';
-import { parseZoneSeconds, ZONE_KEYS, type ZoneSeconds } from '@/lib/execution/zone-seconds';
+import {
+  fitZoneSecondsToWindow,
+  parseZoneSeconds,
+  ZONE_KEYS,
+  type ZoneSeconds,
+} from '@/lib/execution/zone-seconds';
 import { hrTraceFidelity } from '@fahybrid/shared/domain/execution-merge';
 import {
   HR_ZONES,
@@ -206,7 +214,11 @@ export async function computeExecutionZoneSeconds(args: {
     const start = epochSeconds(seg.started_at);
     const end = epochSeconds(seg.ended_at);
     const window_s = Math.max(0, Math.round(end - start));
-    const frozen = parseZoneSeconds(seg.raw_lap_data_json);
+    const parsed = parseZoneSeconds(seg.raw_lap_data_json);
+    // Solo cuenta como congelado si cabe en la ventana (recortado si se pasa por
+    // redondeo). Uno que se pasa de verdad —la ventana rota con cientos de segundos
+    // dentro, o el tramo que heredó las zonas del anterior— no es de este tramo.
+    const frozen = parsed ? fitZoneSecondsToWindow(parsed, window_s) : null;
 
     if (frozen) {
       const by_zone = frozenToByZone(frozen, zones != null);
@@ -214,15 +226,14 @@ export async function computeExecutionZoneSeconds(args: {
       rows.push({
         segment_execution_id: segmentId,
         by_zone,
-        // El hueco es lo que le falta a la ventana para cubrir lo medido, y
-        // nunca negativo: hay tramos con la ventana rota (`ended_at` igual a
-        // `started_at`) y cientos de segundos de zonas medidos dentro.
+        // El hueco es lo que le falta a la ventana para cubrir lo medido; lo medido
+        // ya cabe en ella, así que el tramo suma exactamente su ventana.
         //
         // Sin ancla, esos segundos medidos no se pueden apilar —las bandas de la
         // gráfica SON el ancla— así que se conservan como tiempo sin zona, que es
         // lo único que se sigue sabiendo de ellos. No debería ocurrir: el móvil
         // pinta las zonas que le da el servidor, y sin ancla no le da ninguna.
-        no_hr_s: zones ? Math.max(0, window_s - measured) : Math.max(window_s, measured),
+        no_hr_s: zones ? window_s - measured : window_s,
         origin: 'frozen_segment',
         // El aparato que midió ese pulso ya está en el propio tramo
         // (`segment_executions.hr_source`). Copiarlo aquí sería abrir la puerta a

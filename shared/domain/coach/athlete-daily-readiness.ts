@@ -371,13 +371,17 @@ export async function computeAthleteDailyReadiness(params: {
   `;
   const delta7d = prevRows[0] ? score - prevRows[0].score : null;
 
+  // `client.json`, never `${JSON.stringify(x)}::jsonb`: with the cast postgres.js
+  // re-serializes the string and the column stores a jsonb STRING, so every
+  // `breakdown_json->>'…'` in SQL reads NULL (the coach's sleep came out empty on
+  // 1.367 rows; migration 0278 unwrapped them and now refuses a string).
   await client`
     insert into athlete_daily_readiness_snapshots (athlete_id, recorded_for, score, breakdown_json)
     values (
       ${params.athlete_id as number},
       ${params.recorded_for}::date,
       ${score},
-      ${JSON.stringify(breakdown)}::jsonb
+      ${client.json(breakdown)}
     )
     on conflict (athlete_id, recorded_for) do update set
       score = excluded.score,

@@ -10,6 +10,33 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-29 · Cinco fallos de datos de las analíticas, arreglados en la raíz (0278)
+
+**El hueco** (`docs/analiticas/modelo.md` §6, medido en producción el 29-09):
+1. **Readiness como texto JSON:** 1.367 `breakdown_json` guardados como jsonb de tipo cadena; el sueño de la ficha del coach (`->>'sleep_hours'`) salía vacío. El mismo cepo había dejado 1.657 marcadores `training_load` de Salud y 293 avisos viejos como cadena.
+2. **Más segundos en zona que duración:** 8 tramos (2678: 1.029 s en 690 s; 2641: 184 s en 180 s; seis con la ventana rota y hasta 565 s dentro).
+3. **Saltos imposibles:** un CMJ de 720 cm (2,42 s de vuelo) guardado como intento bueno y como marca; media de CMJ, 262 cm.
+4. **1.277 importaciones de Salud sin tipo legible**, y además sin distancia, pulso ni calorías y con el fin inventado; 522 eran fuerza, carrera, remo o bici guardadas como «other».
+5. **13 copias de entrenos libres en vivo** (9 de un press de banca del atleta 64).
+
+**Causas raíz y arreglo (mecanismo):**
+1. El escritor del readiness hacía `${JSON.stringify(x)}::jsonb` → `client.json(x)`. Barrido del repo: era el último escritor con el cepo. La base lo prohíbe desde 0278: CHECK objeto en readiness y avisos; en `biometric_streams.raw_payload_json` se prohíbe exactamente la cadena (el crudo de un proveedor puede tener otra forma).
+2. En el motor del iPhone, dos caminos ponían a cero el reloj del tramo sin vaciar lo que se acumulaba contra él: ir, saltar o reiniciar un bloque desde la hoja (`irAlSegmento`: el tramo siguiente heredaba zonas, pulso y máquina) y la cinta que arranca después del Empezar (`releaseArmedTramoClock` reanclaba el cero de la serie, no sus zonas). Y el servidor lo guardaba sin mirar. Ahora el motor descarta el estado vivo al saltar y mueve juntos el reloj de la serie y lo que se mide por segundo (`reanchorRunLegClock`); la ingesta no guarda un reparto que no cabe en su tramo (y lo avisa), y el motor de zonas solo lo trata como congelado si cabe (`fitZoneSecondsToWindow`). Holgura 3 s: el redondeo de cinco zonas y de los dos extremos al segundo; dentro de ella se recorta a la ventana. Un tramo suma exactamente su ventana.
+3. Nada ponía un techo. Techo FÍSICO, mecanismo y no método (ningún coach salta más alto): 1 s de vuelo = 122,625 cm (`JUMP_FLIGHT_MAX_S`, `JUMP_HEIGHT_MAX_CM`). Zod del intento, puente de tests (`implausible_value`, 422, atleta y coach), CHECK en `jump_attempts` y en las marcas en cm; en iOS un vuelo imposible no tiene altura y CONSERVAR queda apagado.
+4. El histórico de Salud (13-08) leyó los marcadores-cadena como vacíos y rellenó con el tipo 3000 («other»). `materializeHealthkitHistory` desenvuelve el marcador (`coerceJson`) y salta el ilegible en vez de inventar una sesión vacía. iOS ya mandaba el tipo y la ingesta en vivo ya lo guardaba. El tipo se guarda como MODALIDAD (el crudo sigue en su marcador): no se abre un cubo por deporte.
+5. POST /free no tenía llave hasta 0274 y la cola del iPhone reenviaba. 0274 cerró el camino (inicio + título, índice único y cerrojo; su test de reenvíos simultáneos pasa) y dejó las copias viejas. No queda otro camino abierto: sesión del plan 1:1 por asignación, «fuera del plan» por (atleta, inicio), importación por ref (0276).
+
+**Migración 0278 (en una rama, copia de producción del 29-09):** (1) 1.367 + 1.657 + 293 filas desenvueltas y 3 CHECK. (4) 1.277 ejecuciones y sus 1.277 tramos rehechos desde el marcador (522 con su modalidad, distancia/calorías/pulso donde el marcador los tenía, 1.031 con su fin real) y 417 filas de zonas de ventanas cambiadas borradas. (5) 13 copias fuera con su asignación y su plantilla; se queda la más antigua, como en 0276, y 3 trazas pasan a ella. (2) 6 repartos contaminados quitados del blob (los otros 2 eran de copias) y 12 filas de zonas borradas. (3) 1 intento marcado `discarded` (conserva fotogramas y altura como rastro) y la marca rehecha con la regla con la que se firmó: 720,452 → 51,94 cm; 2 CHECK. Reejecutarla: 0 filas.
+Después de aplicarla, `pnpm --dir infra backfill:zonas` (sin `--force`) rehace las filas de zonas borradas: son un cálculo, no un dato.
+
+**Orden de despliegue:** la build para sin 0278, así que se aplica ANTES que el código. Entre las dos, el escritor viejo del readiness choca con el CHECK; todos sus llamadores son best-effort y vuelven al último guardado, así que el readiness de hoy se queda en el último guardado hasta que sirve el código nuevo.
+
+**Descartado:** reescalar un reparto contaminado a su ventana (no se sabe qué parte era de fuera); un trigger que desenvuelva cadenas (escondería al próximo escritor roto); una columna de validez nueva en `athlete_benchmarks` (la marca es un agregado de intentos que ya la tienen); guardar el tipo crudo de Apple en una columna.
+
+**NO hacer:** escribir jsonb con `JSON.stringify(...)::jsonb`; dar por bueno un reparto de zonas sin mirar la ventana de su tramo; poner a cero el reloj de un tramo sin vaciar lo que se mide contra él; convertir el techo del salto en dato del coach; deduplicar libres por parecido (la regla es la del código: inicio + título).
+
+---
+
 
 ## 2026-09-29 · El entreno minimizado se ve siempre: barra de sistema sobre las pestañas
 
