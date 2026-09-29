@@ -32,3 +32,4 @@ export * from './basal';
 export * from './recuperacion-panel';
 export * from './intensidad';
 export * from './intensidad-ritmo';
+export * from './carrera';

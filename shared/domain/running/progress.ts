@@ -57,6 +57,14 @@ import type { CoachRunningThresholds } from '../coach/running-thresholds';
  *   plan        no hay entrenos planificados en el tramo que se mira (la
  *               proyección hasta la carrera). Lo resuelve el coach, no el atleta:
  *               sin salida para él, y no se calla (el número sigue siendo cierto).
+ *   marcas      la previsión de carrera no tiene con qué predecir `faltan` de sus
+ *               tramos (ni carrera propia, ni marca, ni umbral, ni entreno de esa
+ *               estación). La salida es medirlas; la acción concreta de cada tramo
+ *               («Mide tu SkiErg 1000») viaja en la lectura de ese tramo
+ *               (analíticas rehechas, bloque carrera, 29-09-2026).
+ *   pareja      la carrera objetivo es de dobles y no hay pareja activa: sin ella
+ *               no hay reparto ni previsión de la pareja. Lo configura el coach:
+ *               sin salida para el atleta, y no se calla.
  */
 export type Falta =
   | { por: 'historia'; llevas: number; hacen: number }
@@ -67,7 +75,9 @@ export type Falta =
   | { por: 'intencion' }
   | { por: 'objetivo' }
   | { por: 'esfuerzo'; sesiones: number }
-  | { por: 'plan' };
+  | { por: 'plan' }
+  | { por: 'marcas'; faltan: number }
+  | { por: 'pareja' };
 
 /**
  * «Aún no» y «no aplica» parecen lo mismo y no lo son. Al recién llegado le
@@ -99,6 +109,8 @@ export function salidaDe(f: Falta): string | null {
       return 'Elegir tu carrera objetivo';
     case 'esfuerzo':
       return 'Puntuar el esfuerzo al terminar';
+    case 'marcas':
+      return 'Medir tus marcas';
     default:
       return null;
   }
