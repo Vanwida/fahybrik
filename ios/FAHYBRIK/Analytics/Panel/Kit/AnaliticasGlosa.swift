@@ -5,9 +5,6 @@ import SwiftUI
 // forma y fatiga salen del MÉTODO del coach que viaja en el panel, nunca de un
 // número escrito aquí.
 
-private typealias TA = AnaliticasTokens.TA
-private typealias C = AnaliticasColor
-
 struct TerminoDeGlosa: Identifiable {
     let termino: String
     let sigla: String?
@@ -28,50 +25,57 @@ enum AnaliticasGlosario {
     }
 }
 
+/// La hoja del glosario. Modal de verdad: la presenta `.sheet` (foco, Escape y arrastre son del
+/// sistema) con el lienzo del tema, en claro y en oscuro.
 struct AnaliticasGlosa: View {
     let metodo: MetodoDelPanel
     let onCerrar: () -> Void
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.m + 2) {
+                HStack(alignment: .center, spacing: Theme.Spacing.s) {
                     Text("Qué significa cada número")
-                        .font(.system(size: TA.titulo.cuerpo, weight: TA.titulo.peso))
-                        .foregroundStyle(C.tinta)
+                        .papel(.seccion)
+                        .foregroundStyle(Theme.Color.foreground)
                         .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 8)
-                    Button(action: onCerrar) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(C.tinta)
-                            .frame(width: 36, height: 36)
-                            .background(C.superficie2, in: Circle())
-                    }
-                    .buttonStyle(VivoPulsarStyle())
-                    .accessibilityLabel("Cerrar")
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer(minLength: Theme.Spacing.s)
+                    BotonCromoDia(.cerrar, etiqueta: "Cerrar", accion: onCerrar)
                 }
-                VStack(alignment: .leading, spacing: 12) {
+                AnaliticasLista {
                     ForEach(AnaliticasGlosario.terminos(metodo: metodo)) { g in
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                            HStack(spacing: Theme.Spacing.s) {
                                 AnaliticasCuerpo(texto: g.termino, fuerte: true)
-                                if let sigla = g.sigla { AnaliticasEtiqueta(texto: sigla) }
+                                if let sigla = g.sigla { InfoPill(text: sigla, estilo: .neutro) }
                             }
-                            AnaliticasCuerpo(texto: g.queEs, tono: C.tinta2)
+                            AnaliticasCuerpo(texto: g.queEs, tono: Theme.Color.muted)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, Theme.Spacing.l)
+                        .padding(.vertical, 14)
+                        .accessibilityElement(children: .combine)
                     }
                 }
                 AnaliticasEtiqueta(texto: "Los días de forma y fatiga, las bandas y los umbrales los fija tu coach.")
             }
-            .padding(.horizontal, AnaliticasTokens.margen)
-            .padding(.top, 18)
-            .padding(.bottom, 24)
+            .padding(.horizontal, Theme.Spacing.pantalla)
+            .padding(.top, Theme.Spacing.s)
+            .padding(.bottom, Theme.Spacing.xl)
         }
-        .background(C.superficie.ignoresSafeArea())
+        .background(Theme.Color.background.ignoresSafeArea())
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.hidden)
-        .presentationBackground(C.superficie)
-        .presentationCornerRadius(AnaliticasTokens.Radio.hoja)
+        .presentationDragIndicator(.visible)
+        .presentationBackground(Theme.Color.background)
+        .presentationCornerRadius(Theme.Radius.sujeto)
     }
 }
+
+#if DEBUG
+#Preview("Glosa · fábrica") { AnaliticasGlosa(metodo: .porDefecto, onCerrar: {}) }
+#Preview("Glosa · club azul") {
+    let _ = ClubThemeStore.update(.pruebaAzul)
+    AnaliticasGlosa(metodo: .porDefecto, onCerrar: {})
+}
+#endif

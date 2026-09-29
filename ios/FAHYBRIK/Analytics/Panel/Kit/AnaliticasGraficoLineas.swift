@@ -7,17 +7,25 @@ import Charts
 // escala REAL y ejes de verdad (fuera las series 0..1, P21).
 //
 // LO QUE CUMPLEN (skill dataviz + CONTRATO-UI §4):
-//   · El texto del gráfico (ejes, leyenda, rótulos) va en tinta2, NUNCA en el
-//     color de la serie. Cuerpo: 15 pt (el suelo).
+//   · El texto del gráfico (ejes, leyenda, rótulos) va en el gris de apoyo, NUNCA
+//     en el color de la serie. Cuerpo: `.papel(.notaFuerte)` (15 pt, el suelo, y
+//     escala con el texto del sistema).
+//   · Los trazos que portan significado, a ≥ 3:1 sobre la tarjeta en claro y en
+//     oscuro (`AnaliticasPielTests` lo mide); el tema decide, ninguna serie lleva un hex.
 //   · Rejilla y ejes: una línea fina, SÓLIDA. El trazo discontinuo se reserva a
 //     la proyección; el punteado corto, a la marca de «hoy».
 //   · Un dato a nulo es un HUECO: la línea se corta (cada tramo es una serie de
 //     Charts distinta), la barra no se pinta. Nunca se interpola.
-//   · Rótulo directo SOLO en el último punto de la serie que manda.
+//   · Rótulo directo SOLO en el último punto de la serie que manda, con halo.
 //   · Leyenda siempre que haya ≥ 2 series.
+//
+// LOS RÓTULOS NO CHOCAN CON LOS DATOS. Las marcas verticales («hoy», la carrera)
+// se rotulan en una franja PROPIA fuera del rango de los datos (la carrera arriba,
+// «hoy» abajo): la escala reserva ese aire con `plotDimension`, así que ninguna
+// serie puede pasar por debajo de un rótulo, y cada rótulo se acota al gráfico.
+// El valor del último punto se pone del lado contrario a la otra serie.
 
-private typealias C = AnaliticasColor
-private typealias Trazo = AnaliticasTokens.Trazo
+private typealias Trazo = Theme.Chart
 
 struct SerieDeLinea: Identifiable {
     let id: String
@@ -63,6 +71,15 @@ private func tramos(_ puntos: [PuntoDeSerie], serie: String) -> [PuntoDibujable]
     return out
 }
 
+/// El texto de un eje o de una leyenda: el suelo de 15 pt, en el gris de apoyo, con cifras tabulares.
+struct TextoDeEje: View {
+    let texto: String
+    var tono: Color = Theme.Color.muted
+    var body: some View {
+        Text(texto).monospacedDigit().papel(.notaFuerte).foregroundStyle(tono).fixedSize()
+    }
+}
+
 /// Qué fechas rotular en X y con qué anclaje (la primera al inicio, la última al final).
 struct RotuloDeEje: Identifiable {
     let fecha: Date
@@ -72,11 +89,21 @@ struct RotuloDeEje: Identifiable {
 }
 
 func rotulosDeEje(_ fechas: [String], ancho: CGFloat) -> [RotuloDeEje] {
-    let rotulos = AnaliticasEscala.rotulosX(fechas, ancho: ancho, cuerpo: AnaliticasTokens.TA.etiqueta)
+    let rotulos = AnaliticasEscala.rotulosX(fechas, ancho: ancho, cuerpo: Theme.Typography.suelo)
     return rotulos.compactMap { r in
         guard let fecha = AnaliticasFechas.fecha(fechas[r.i]) else { return nil }
         let anclaje: UnitPoint = r.i == 0 ? .topLeading : r.i == fechas.count - 1 ? .topTrailing : .top
         return RotuloDeEje(fecha: fecha, texto: r.texto, anclaje: anclaje)
+    }
+}
+
+/// El eje Y de una gráfica: rejilla fina y sólida y el rótulo de cada marca en el gris de apoyo.
+func ejeYDeAnaliticas(ticks: [Double], formato: @escaping (Double) -> String, tono: Color = Theme.Color.muted) -> some AxisContent {
+    AxisMarks(position: .leading, values: ticks) { value in
+        AxisGridLine(stroke: StrokeStyle(lineWidth: Theme.Chart.rejilla)).foregroundStyle(Theme.Color.hairlineStrong)
+        AxisValueLabel(horizontalSpacing: 6) {
+            if let v = value.as(Double.self) { TextoDeEje(texto: formato(v), tono: tono) }
+        }
     }
 }
 
@@ -89,6 +116,10 @@ struct AnaliticasGraficoLineas: View {
     var alto: CGFloat = 190
     var desdeCero = false
     var leyenda = true
+
+    /// El aire que se reserva sobre el rango de los datos para rotular la carrera (arriba) y «hoy» (abajo).
+    private static let franjaSuperior: CGFloat = 26
+    private static let franjaInferior: CGFloat = 26
 
     private var fechas: [String] {
         var todas = Set<String>()
@@ -105,26 +136,53 @@ struct AnaliticasGraficoLineas: View {
     }
 
     private var hayProyeccion: Bool { series.contains { !($0.proyeccion ?? []).isEmpty } }
+    private var hayEvento: Bool { marcas.contains { $0.tipo == .evento } }
+    private var hayHoy: Bool { marcas.contains { $0.tipo == .hoy } }
 
     var body: some View {
         let fechas = fechas
         if fechas.count >= 2, let t0 = AnaliticasFechas.fecha(fechas[0]), let t1 = AnaliticasFechas.fecha(fechas[fechas.count - 1]) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 if leyenda, series.count + (hayProyeccion ? 1 : 0) >= 2 {
                     AnaliticasLeyenda(items: series.map { ItemDeLeyenda(etiqueta: $0.etiqueta, muestra: .linea, color: $0.color) }
-                        + (hayProyeccion ? [ItemDeLeyenda(etiqueta: "Proyección", muestra: .lineaDiscontinua, color: C.proyeccion)] : []))
+                        + (hayProyeccion ? [ItemDeLeyenda(etiqueta: "Proyección", muestra: .lineaDiscontinua, color: Theme.Color.muted)] : []))
                 }
                 GeometryReader { geo in
                     grafico(t0: t0, t1: t1, rotulos: rotulosDeEje(fechas, ancho: max(1, geo.size.width - 52)))
                 }
-                .frame(height: alto)
+                .frame(height: alto + (hayEvento ? Self.franjaSuperior : 0) + (hayHoy ? Self.franjaInferior : 0))
             }
         }
     }
 
+    /// El valor del último punto de una serie del lado contrario a la otra (encima si ella va por encima).
+    private func lado(de s: SerieDeLinea, ultimo: PuntoDibujable) -> AnnotationPosition {
+        let otras = series.filter { $0.id != s.id }.compactMap { o -> Double? in
+            o.puntos.first { $0.t == AnaliticasFechas.iso(ultimo.fecha) }?.v
+        }
+        guard let otra = otras.first else { return .top }
+        return ultimo.v >= otra ? .top : .bottom
+    }
+
     private func grafico(t0: Date, t1: Date, rotulos: [RotuloDeEje]) -> some View {
         let escala = escala
+        let arriba = hayEvento ? Self.franjaSuperior : 0
+        let abajo = hayHoy ? Self.franjaInferior : 0
         return Chart {
+            // Las marcas van PRIMERO: la línea y el valor del último punto se dibujan por encima, y ninguna
+            // marca cruza un número. Cada una llega hasta donde llegan los datos: su rótulo vive en la
+            // franja de fuera (la carrera arriba, «hoy» abajo), donde no hay serie ni línea que lo cruce.
+            ForEach(marcas) { m in
+                if let fecha = AnaliticasFechas.fecha(m.t) {
+                    RuleMark(x: .value("marca", fecha), yStart: .value("mínimo", escala.min), yEnd: .value("máximo", escala.max))
+                        .foregroundStyle(m.tipo == .evento ? Theme.Color.foreground : Theme.Color.muted)
+                        .lineStyle(StrokeStyle(lineWidth: m.tipo == .evento ? Trazo.contorno : Trazo.rejilla, dash: m.tipo == .hoy ? Trazo.hoyDiscontinuo : []))
+                        .annotation(position: m.tipo == .hoy ? .bottom : .top, alignment: .center, spacing: 4,
+                                    overflowResolution: .init(x: .fit(to: .plot), y: .disabled)) {
+                            TextoDeEje(texto: m.etiqueta, tono: m.tipo == .evento ? Theme.Color.foreground : Theme.Color.muted)
+                        }
+                }
+            }
             ForEach(series) { s in
                 let hecho = tramos(s.puntos, serie: s.id)
                 ForEach(hecho) { p in
@@ -144,55 +202,29 @@ struct AnaliticasGraficoLineas: View {
                 if let ultimo = hecho.last {
                     PointMark(x: .value("día", ultimo.fecha), y: .value(s.etiqueta, ultimo.v))
                         .symbolSize(140)
-                        .foregroundStyle(C.superficie)
+                        .foregroundStyle(Theme.Color.surface)
                     PointMark(x: .value("día", ultimo.fecha), y: .value(s.etiqueta, ultimo.v))
                         .symbolSize(64)
                         .foregroundStyle(s.color)
-                        .annotation(position: .leading, spacing: 6) {
+                        .annotation(position: lado(de: s, ultimo: ultimo), spacing: 6, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
                             if s.rotuloFinal {
-                                Text(formatoY(ultimo.v))
-                                    .font(.system(size: AnaliticasTokens.TA.etiqueta, weight: .bold).monospacedDigit())
-                                    .foregroundStyle(C.tinta)
+                                // El halo es la tarjeta misma: la línea que pase por debajo no cruza el número.
+                                TextoDeEje(texto: formatoY(ultimo.v), tono: Theme.Color.foreground)
                                     .padding(.horizontal, 4)
-                                    .padding(.vertical, 1)
-                                    .background(C.superficie, in: RoundedRectangle(cornerRadius: 4))
+                                    .background(Theme.Color.surface.opacity(0.9), in: RoundedRectangle(cornerRadius: 4))
                             }
-                        }
-                }
-            }
-            ForEach(marcas) { m in
-                if let fecha = AnaliticasFechas.fecha(m.t) {
-                    RuleMark(x: .value("marca", fecha))
-                        .foregroundStyle(m.tipo == .evento ? C.tinta : C.tinta2)
-                        .lineStyle(StrokeStyle(lineWidth: m.tipo == .evento ? Trazo.contorno : Trazo.rejilla, dash: m.tipo == .hoy ? Trazo.hoyDiscontinuo : []))
-                        .annotation(position: .overlay, alignment: m.tipo == .hoy ? .bottomTrailing : .topTrailing, spacing: 5) {
-                            Text(m.etiqueta)
-                                .font(AnaliticasTokens.fuenteEje)
-                                .foregroundStyle(m.tipo == .evento ? C.tinta : C.tinta2)
-                                .fixedSize()
                         }
                 }
             }
         }
         .chartXScale(domain: t0...t1)
-        .chartYScale(domain: escala.min...escala.max)
+        .chartYScale(domain: escala.min...escala.max, range: .plotDimension(startPadding: abajo, endPadding: arriba))
         .chartLegend(.hidden)
-        .chartYAxis {
-            AxisMarks(position: .leading, values: escala.ticks) { value in
-                AxisGridLine(stroke: StrokeStyle(lineWidth: Trazo.rejilla)).foregroundStyle(C.rejilla)
-                AxisValueLabel(horizontalSpacing: 6) {
-                    if let v = value.as(Double.self) {
-                        Text(formatoY(v)).font(AnaliticasTokens.fuenteEje).foregroundStyle(C.tinta2)
-                    }
-                }
-            }
-        }
+        .chartYAxis { ejeYDeAnaliticas(ticks: escala.ticks, formato: formatoY) }
         .chartXAxis {
             AxisMarks(values: rotulos.map(\.fecha)) { value in
                 if let d = value.as(Date.self), let r = rotulos.first(where: { abs($0.fecha.timeIntervalSince(d)) < 3600 }) {
-                    AxisValueLabel(anchor: r.anclaje, verticalSpacing: 6) {
-                        Text(r.texto).font(AnaliticasTokens.fuenteEje).foregroundStyle(C.tinta2).fixedSize()
-                    }
+                    AxisValueLabel(anchor: r.anclaje, verticalSpacing: 6) { TextoDeEje(texto: r.texto) }
                 }
             }
         }
@@ -224,21 +256,24 @@ struct AnaliticasGraficoDivergente: View {
         if fechas.count >= 2, let t0 = AnaliticasFechas.fecha(fechas[0]), let t1 = AnaliticasFechas.fecha(fechas[fechas.count - 1]) {
             let lim = max(10, (hecho.map { abs($0.1) } + previsto.map { abs($0.1) }).max() ?? 10)
             let escala = AnaliticasEscala.bonita(-lim, lim, n: 3)
+            // El gris de apoyo un paso más fuerte: las barras pasadas van atenuadas y con el gris del tema
+            // quedaban en 2,65:1; con este pasan de 3:1 en claro y en oscuro.
+            let apoyo = Theme.Color.apoyoFuerte
             Chart {
                 ForEach(Array(hecho.enumerated()), id: \.offset) { _, p in
                     BarMark(x: .value("día", p.0, unit: .day), y: .value("frescura", p.1))
-                        .foregroundStyle(p.2 ? C.tinta : C.tinta2.opacity(0.55))
+                        .foregroundStyle(p.2 ? Theme.Color.foreground : apoyo.opacity(0.55))
                 }
                 ForEach(Array(previsto.enumerated()), id: \.offset) { _, p in
                     RuleMark(x: .value("día", p.0), yStart: .value("cero", 0), yEnd: .value("frescura prevista", p.1))
-                        .foregroundStyle(C.proyeccion.opacity(0.8))
+                        .foregroundStyle(apoyo.opacity(0.8))
                         .lineStyle(StrokeStyle(lineWidth: 1))
                 }
-                RuleMark(y: .value("cero", 0)).foregroundStyle(C.tinta2).lineStyle(StrokeStyle(lineWidth: Trazo.rejilla))
+                RuleMark(y: .value("cero", 0)).foregroundStyle(apoyo).lineStyle(StrokeStyle(lineWidth: Trazo.rejilla))
                 ForEach(marcas) { m in
                     if let fecha = AnaliticasFechas.fecha(m.t) {
                         RuleMark(x: .value("marca", fecha))
-                            .foregroundStyle(m.tipo == .evento ? C.tinta : C.tinta2)
+                            .foregroundStyle(m.tipo == .evento ? Theme.Color.foreground : Theme.Color.muted)
                             .lineStyle(StrokeStyle(lineWidth: m.tipo == .evento ? Trazo.contorno : Trazo.rejilla, dash: m.tipo == .hoy ? Trazo.hoyDiscontinuo : []))
                     }
                 }
@@ -247,16 +282,7 @@ struct AnaliticasGraficoDivergente: View {
             .chartYScale(domain: escala.min...escala.max)
             .chartXAxis(.hidden)
             .chartLegend(.hidden)
-            .chartYAxis {
-                AxisMarks(position: .leading, values: escala.ticks) { value in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: Trazo.rejilla)).foregroundStyle(C.rejilla)
-                    AxisValueLabel(horizontalSpacing: 6) {
-                        if let v = value.as(Double.self) {
-                            Text(formato(v)).font(AnaliticasTokens.fuenteEje).foregroundStyle(C.tinta2)
-                        }
-                    }
-                }
-            }
+            .chartYAxis { ejeYDeAnaliticas(ticks: escala.ticks, formato: formato, tono: apoyo) }
             .frame(height: alto)
             .accessibilityLabel("Frescura día a día")
         }

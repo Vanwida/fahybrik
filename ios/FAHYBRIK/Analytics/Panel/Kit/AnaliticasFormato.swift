@@ -188,6 +188,15 @@ enum AnaliticasFormato {
         return h > 0 ? "\(h)h \(m)min" : "\(m) min"
     }
 
+    /// Un entero con el MENOS tipográfico (U+2212), como se lee una cifra que cruza el cero: «51», «−4». Con
+    /// `conSigno`, los positivos llevan su «+» («+22») — la frescura se lee alrededor de cero — y el cero es «0».
+    static func entero(_ valor: Double, conSigno: Bool = false) -> String {
+        let r = Int(valor.rounded())
+        if r > 0 { return (conSigno ? "+" : "") + conMillar(Double(r)) }
+        if r < 0 { return "\u{2212}" + conMillar(Double(-r)) }
+        return "0"
+    }
+
     /// Millar con punto español: `1234` → `1.234`.
     static func conMillar(_ n: Double) -> String {
         let v = max(0, Int(n.rounded()))

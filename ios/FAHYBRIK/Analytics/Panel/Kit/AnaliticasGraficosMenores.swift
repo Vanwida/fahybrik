@@ -7,8 +7,6 @@ import Charts
 // `#BarraReparto` y `#BarrasHueco`). La chispa va en Swift Charts (escala real);
 // el reparto y los huecos son formas de SwiftUI: no tienen ejes.
 
-private typealias C = AnaliticasColor
-
 // MARK: - Chispa
 
 /// La tendencia de una fila, sin texto (el dato va al lado). Dos puntos con
@@ -19,7 +17,7 @@ struct AnaliticasChispa: View {
     var alto: CGFloat = 30
     /// La franja normal (la basal de la recuperación), en unidades reales.
     var banda: (lo: Double, hi: Double)? = nil
-    var color: Color = C.tinta
+    var color: Color = Theme.Color.foreground
 
     private struct Punto: Identifiable {
         let i: Int
@@ -49,7 +47,7 @@ struct AnaliticasChispa: View {
             Chart {
                 if let banda {
                     RectangleMark(xStart: .value("desde", -0.5), xEnd: .value("hasta", Double(puntos.count - 1) + 0.5), yStart: .value("lo", banda.lo), yEnd: .value("hi", banda.hi))
-                        .foregroundStyle(C.superficie2)
+                        .foregroundStyle(Theme.Color.superficieDeGrafico)
                 }
                 ForEach(d) { p in
                     LineMark(x: .value("i", Double(p.i)), y: .value("v", p.v), series: .value("tramo", p.tramo))
@@ -58,7 +56,7 @@ struct AnaliticasChispa: View {
                         .interpolationMethod(.linear)
                 }
                 if let ultimo = d.last {
-                    PointMark(x: .value("i", Double(ultimo.i)), y: .value("v", ultimo.v)).symbolSize(110).foregroundStyle(C.superficie)
+                    PointMark(x: .value("i", Double(ultimo.i)), y: .value("v", ultimo.v)).symbolSize(110).foregroundStyle(Theme.Color.surface)
                     PointMark(x: .value("i", Double(ultimo.i)), y: .value("v", ultimo.v)).symbolSize(50).foregroundStyle(color)
                 }
             }
@@ -100,11 +98,11 @@ struct AnaliticasBarraReparto: View {
                         }
                     }
                     .frame(width: ancho, height: alto, alignment: .leading)
-                    .background(C.carril)
+                    .background(Theme.Color.hairlineStrong)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .padding(.top, objetivo == nil ? 0 : 8)
                     if let objetivo {
-                        Rectangle().fill(C.tinta).frame(width: 2, height: alto + 12)
+                        Rectangle().fill(Theme.Color.foreground).frame(width: 2, height: alto + 12)
                             .offset(x: ancho * CGFloat(objetivo.pct) / 100 - 1)
                     }
                 }
@@ -113,7 +111,7 @@ struct AnaliticasBarraReparto: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(partes.map { "\($0.etiqueta) \(Int($0.pct.rounded())) %" }.joined(separator: ", "))
             AnaliticasLeyenda(items: partes.map { ItemDeLeyenda(etiqueta: "\($0.etiqueta) \(Int($0.pct.rounded())) %", muestra: .relleno, color: $0.color) }
-                + (objetivo.map { [ItemDeLeyenda(etiqueta: $0.etiqueta, muestra: .linea, color: C.tinta)] } ?? []))
+                + (objetivo.map { [ItemDeLeyenda(etiqueta: $0.etiqueta, muestra: .linea, color: Theme.Color.foreground)] } ?? []))
         }
     }
 }
@@ -133,38 +131,46 @@ struct AnaliticasBarrasHueco: View {
     let formato: (Double) -> String
     var altoFila: CGFloat = 30
 
+    /// El aire que se reserva junto a cada barra para su valor («+3:20»): la barra más larga nunca lo pisa
+    /// ni se sale del gráfico. Escala con el texto del sistema, como el propio valor.
+    @ScaledMetric(relativeTo: .footnote) private var reservaDelValor: CGFloat = 68
+
     var body: some View {
         let vals = filas.compactMap(\.valor)
         if !vals.isEmpty {
             let lim = max(1, vals.map(abs).max() ?? 1)
+            // Lo normal es que solo haya huecos POSITIVOS (te falta): el cero va a la izquierda y la barra
+            // disfruta de todo el ancho. Con algún valor negativo, el cero pasa al medio.
+            let hayNegativos = vals.contains { $0 < 0 }
             VStack(spacing: 0) {
                 ForEach(filas) { f in
-                    HStack(spacing: 8) {
+                    HStack(spacing: Theme.Spacing.s) {
                         Text(f.etiqueta)
-                            .font(AnaliticasTokens.fuenteEje)
-                            .foregroundStyle(C.tinta)
+                            .monospacedDigit().papel(.notaFuerte)
+                            .foregroundStyle(Theme.Color.foreground)
                             .lineLimit(1)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         GeometryReader { geo in
                             let ancho = geo.size.width
-                            let cero = ancho / 2
+                            let cero = hayNegativos ? ancho / 2 : 2
                             ZStack(alignment: .leading) {
-                                Rectangle().fill(C.tinta2).frame(width: 1).offset(x: cero)
+                                Rectangle().fill(Theme.Color.muted).frame(width: 1).offset(x: cero)
                                 if let v = f.valor {
-                                    let largo = max(2, abs(CGFloat(v / lim)) * (cero - 4))
+                                    let sitio = max(2, (v >= 0 ? ancho - cero : cero) - reservaDelValor)
+                                    let largo = max(2, abs(CGFloat(v / lim)) * sitio)
                                     RoundedRectangle(cornerRadius: 3)
-                                        .fill(v > 0 ? C.tinta2 : C.tinta)
+                                        .fill(v > 0 ? Theme.Color.muted : Theme.Color.foreground)
                                         .frame(width: largo, height: 14)
                                         .offset(x: v >= 0 ? cero : cero - largo)
                                     Text(formato(v))
-                                        .font(AnaliticasTokens.fuenteEje)
-                                        .foregroundStyle(C.tinta)
+                                        .monospacedDigit().papel(.notaFuerte)
+                                        .foregroundStyle(Theme.Color.foreground)
                                         .fixedSize()
-                                        .offset(x: v >= 0 ? cero + largo + 6 : max(0, cero - largo - 6 - 52))
+                                        .offset(x: v >= 0 ? cero + largo + 6 : max(0, cero - largo - 6 - reservaDelValor))
                                 } else {
                                     Text(f.nota ?? "sin dato")
-                                        .font(AnaliticasTokens.fuenteEje)
-                                        .foregroundStyle(C.tinta2)
+                                        .monospacedDigit().papel(.notaFuerte)
+                                        .foregroundStyle(Theme.Color.muted)
                                         .fixedSize()
                                         .offset(x: cero + 6)
                                 }

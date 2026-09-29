@@ -2,10 +2,9 @@ import SwiftUI
 
 // 2 · FORMA Y FATIGA — ¿gano forma o me paso? ¿llego fresco? La curva de las
 // tres con la proyección discontinua hasta la carrera (A7), la frescura en
-// barras debajo, la frase del veredicto (palabras del servidor) y, lleno, la
-// subida de forma y cuánto de la carga se ha calculado.
-
-private typealias C = AnaliticasColor
+// barras debajo y, lleno, la subida de forma y cuánto de la carga se ha
+// calculado. El veredicto («¿voy a más o me paso?») ya no se escribe aquí: sube al
+// sujeto de la portada, donde explica la palabra de hoy (`SujetoEstado`).
 
 struct AnaliticasBloqueForma: View {
     let ctx: ContextoDeBloque
@@ -30,22 +29,15 @@ struct AnaliticasBloqueForma: View {
             } else if series.contains(where: { $0.puntos.compactMap(\.v).count >= 2 }) {
                 AnaliticasSuperficie {
                     VStack(alignment: .leading, spacing: 12) {
-                        AnaliticasGraficoLineas(series: series, marcas: marcas, formatoY: { "\(Int($0.rounded()))" }, desdeCero: true)
+                        AnaliticasGraficoLineas(series: series, marcas: marcas, formatoY: { AnaliticasFormato.entero($0) }, desdeCero: true)
                         if let frescura, frescura.puntos.compactMap(\.v).count >= 2 {
-                            VStack(alignment: .leading, spacing: 6) {
+                            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                                 AnaliticasEtiqueta(texto: "Frescura · forma menos fatiga")
-                                AnaliticasGraficoDivergente(puntos: frescura.puntos, proyeccion: frescura.proyeccion, marcas: marcas, formato: { v in
-                                    let n = Int(v.rounded())
-                                    return n > 0 ? "+\(n)" : "\(n)"
-                                })
+                                AnaliticasGraficoDivergente(puntos: frescura.puntos, proyeccion: frescura.proyeccion, marcas: marcas, formato: { AnaliticasFormato.entero($0, conSigno: true) })
                             }
                         }
                     }
                 }
-            }
-
-            if let frase = AnaliticasDerivados.fraseDeForma(ctx.panel) {
-                AnaliticasCuerpo(texto: frase.texto, tono: frase.fuerte ? C.tinta : C.tinta2, fuerte: frase.fuerte)
             }
 
             if estado == .lleno, (subida?.dato != nil || cobertura?.dato != nil) {

@@ -6,8 +6,6 @@ import SwiftUI
 // la palabra y cuántas sesiones de cada color. La lista sesión a sesión (A8) es
 // del detalle: el panel no la sirve, la sirve `…/analytics/cumplimiento`.
 
-private typealias C = AnaliticasColor
-
 struct AnaliticasBloqueSemanas: View {
     let ctx: ContextoDeBloque
 
@@ -37,7 +35,7 @@ struct AnaliticasBloqueSemanas: View {
                         AnaliticasGraficoColumnas(
                             cubos: cubos,
                             leyenda: AnaliticasDerivados.leyenda(de: cubos),
-                            formatoY: modo == .carga ? { "\(Int($0.rounded()))" } : { "\(Int($0.rounded())) h" },
+                            formatoY: modo == .carga ? { AnaliticasFormato.entero($0) } : { "\(AnaliticasFormato.entero($0)) h" },
                             diasPorCubo: 7 * agrupar
                         )
                         if agrupar > 1 {

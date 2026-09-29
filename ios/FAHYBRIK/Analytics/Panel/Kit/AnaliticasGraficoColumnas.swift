@@ -8,8 +8,7 @@ import Charts
 // lleva el contorno discontinuo. Un cubo sin plan no lleva contorno; sin hecho,
 // no lleva barra: los huecos son huecos.
 
-private typealias C = AnaliticasColor
-private typealias Trazo = AnaliticasTokens.Trazo
+private typealias Trazo = Theme.Chart
 
 struct ParteDeCubo: Identifiable {
     let code: String
@@ -72,7 +71,7 @@ struct AnaliticasGraficoColumnas: View {
     var body: some View {
         if !cubos.isEmpty, let t0 = AnaliticasFechas.fecha(cubos[0].t), let t1 = AnaliticasFechas.fecha(cubos[cubos.count - 1].t) {
             VStack(alignment: .leading, spacing: 8) {
-                AnaliticasLeyenda(items: (hayPlan ? [ItemDeLeyenda(etiqueta: etiquetaPlan, muestra: .contorno, color: C.plan)] : []) + leyenda)
+                AnaliticasLeyenda(items: (hayPlan ? [ItemDeLeyenda(etiqueta: etiquetaPlan, muestra: .contorno, color: Theme.Color.muted)] : []) + leyenda)
                 GeometryReader { geo in
                     let ancho = max(1, geo.size.width - 52)
                     let ranura = ancho / CGFloat(cubos.count)
@@ -116,38 +115,34 @@ struct AnaliticasGraficoColumnas: View {
         .chartXScale(domain: t0...t1)
         .chartYScale(domain: escala.min...escala.max)
         .chartLegend(.hidden)
-        .chartYAxis {
-            AxisMarks(position: .leading, values: escala.ticks) { value in
-                AxisGridLine(stroke: StrokeStyle(lineWidth: Trazo.rejilla)).foregroundStyle(C.rejilla)
-                AxisValueLabel(horizontalSpacing: 6) {
-                    if let v = value.as(Double.self) {
-                        Text(formatoY(v)).font(AnaliticasTokens.fuenteEje).foregroundStyle(C.tinta2)
-                    }
-                }
-            }
-        }
+        .chartYAxis { ejeYDeAnaliticas(ticks: escala.ticks, formato: formatoY) }
         .chartXAxis {
             AxisMarks(values: rotulos.map(\.fecha)) { value in
                 if let d = value.as(Date.self), let r = rotulos.first(where: { abs($0.fecha.timeIntervalSince(d)) < 3600 }) {
-                    AxisValueLabel(anchor: r.anclaje, verticalSpacing: 6) {
-                        Text(r.texto).font(AnaliticasTokens.fuenteEje).foregroundStyle(C.tinta2).fixedSize()
-                    }
+                    AxisValueLabel(anchor: r.anclaje, verticalSpacing: 6) { TextoDeEje(texto: r.texto) }
                 }
             }
         }
-        // EL CONTORNO DEL PLAN, con las posiciones reales del gráfico: dos puntos
-        // más ancho que la barra y redondeado; discontinuo en el cubo en curso.
+        // EL CONTORNO DEL PLAN, con las posiciones reales del gráfico: dos puntos más ancho que la barra y
+        // redondeado; discontinuo en el cubo en curso. `ChartProxy` da posiciones RELATIVAS AL ÁREA DE TRAZADO,
+        // no al gráfico entero (que incluye el eje Y): sin sumar el origen del área el contorno se corría
+        // un eje a la izquierda de su barra.
         .chartOverlay { proxy in
-            Canvas { ctx, _ in
-                guard let y0 = proxy.position(forY: 0.0) else { return }
-                for c in cubos {
-                    guard let plan = c.plan, plan > 0, let x = centro(c.t), let px = proxy.position(forX: x), let py = proxy.position(forY: plan) else { continue }
-                    let rect = CGRect(x: px - anchoBarra / 2 - 2, y: py, width: anchoBarra + 4, height: max(0, y0 - py))
-                    let path = Path(roundedRect: rect, cornerRadius: 4)
-                    ctx.stroke(path, with: .color(C.plan), style: StrokeStyle(lineWidth: Trazo.contorno, dash: c.enCurso ? [3, 3] : []))
+            GeometryReader { geo in
+                if let marco = proxy.plotFrame {
+                    let origen = geo[marco].origin
+                    Canvas { ctx, _ in
+                        guard let y0 = proxy.position(forY: 0.0) else { return }
+                        for c in cubos {
+                            guard let plan = c.plan, plan > 0, let x = centro(c.t), let px = proxy.position(forX: x), let py = proxy.position(forY: plan) else { continue }
+                            let rect = CGRect(x: origen.x + px - anchoBarra / 2 - 2, y: origen.y + py, width: anchoBarra + 4, height: max(0, y0 - py))
+                            let path = Path(roundedRect: rect, cornerRadius: 4)
+                            ctx.stroke(path, with: .color(Theme.Color.muted), style: StrokeStyle(lineWidth: Trazo.contorno, dash: c.enCurso ? [3, 3] : []))
+                        }
+                    }
+                    .allowsHitTesting(false)
                 }
             }
-            .allowsHitTesting(false)
         }
         .accessibilityLabel("\(cubos.count) periodos, \(hayPlan ? "plan frente a hecho" : "hecho")")
     }

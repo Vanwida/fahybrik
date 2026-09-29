@@ -259,62 +259,6 @@ final class AnaliticasEstadosTests: XCTestCase {
         }
     }
 
-    // MARK: - El Estado fijo
-
-    func testElEstadoFijoPintaSoloLasCeldasQueExisten() throws {
-        let (lleno, eL) = try estados(.lleno)
-        let e = AnaliticasDerivados.estado(lleno, estadoBloque: try XCTUnwrap(eL[.estado]))
-        XCTAssertEqual(e.palabra, "Manteniendo")
-        XCTAssertEqual(e.celdas.map(\.etiqueta), ["Forma", "Fatiga", "Frescura", "Disposición"])
-        XCTAssertNil(e.nota)
-        XCTAssertEqual(e.celdas.last?.palabra, "Bien", "la palabra de la disposición la pone el servidor")
-
-        let (mixto, eM) = try estados(.mixto)
-        let m = AnaliticasDerivados.estado(mixto, estadoBloque: try XCTUnwrap(eM[.estado]))
-        XCTAssertEqual(m.celdas.map(\.etiqueta), ["Forma", "Fatiga", "Frescura"], "sin reloj no hay celda de disposición")
-
-        let (poco, eP) = try estados(.poco)
-        let p = AnaliticasDerivados.estado(poco, estadoBloque: try XCTUnwrap(eP[.estado]))
-        XCTAssertNil(p.palabra)
-        XCTAssertEqual(p.sinPalabra, "Todavía es pronto")
-        XCTAssertEqual(p.celdas.map(\.etiqueta), ["Fatiga"], "en frío, forma y frescura no se enseñan")
-        XCTAssertEqual(p.nota, "Forma y frescura a partir de la semana 6 · llevas 3")
-
-        let (vacio, eV) = try estados(.vacio)
-        let v = AnaliticasDerivados.estado(vacio, estadoBloque: try XCTUnwrap(eV[.estado]))
-        XCTAssertNil(v.palabra)
-        XCTAssertEqual(v.sinPalabra, "Sin carga todavía")
-        XCTAssertTrue(v.celdas.isEmpty)
-        XCTAssertEqual(v.nota, "Con tu primer entreno aparecen aquí tu forma, tu fatiga y tu frescura.")
-    }
-
-    func testLaDisposicionQueNoEsDeHoyDiceDeCuandoEs() throws {
-        let (viejo, e) = try estados(.viejo)
-        let x = AnaliticasDerivados.estado(viejo, estadoBloque: try XCTUnwrap(e[.estado]))
-        XCTAssertEqual(x.palabra, "Fresco")
-        XCTAssertEqual(x.celdas.map(\.etiqueta), ["Forma", "Fatiga", "Frescura", "Disposición"])
-        XCTAssertEqual(x.celdas.last?.palabra, "del 10 sep", "el reloj no la renovó hoy: no lleva palabra, lleva fecha")
-        XCTAssertNil(x.nota, "el bloque sigue lleno: solo un bloque viejo dice «Sin entrenar desde»")
-    }
-
-    func testUnEstadoViejoDiceDesdeCuandoNoSeEntrena() throws {
-        let p = try AnaliticasFixtures.panel(.viejo)
-        let x = AnaliticasDerivados.estado(p, estadoBloque: .viejo)
-        XCTAssertNil(x.nota, "sin la falta `viejo` en forma/fatiga/frescura no hay fecha que decir")
-    }
-
-    func testLaFraseDeFormaSoloEnlazaPalabrasDelServidor() throws {
-        let mixto = try AnaliticasFixtures.panel(.mixto)
-        let f = try XCTUnwrap(AnaliticasDerivados.fraseDeForma(mixto))
-        XCTAssertTrue(f.fuerte)
-        XCTAssertEqual(f.texto, "Manteniendo: la forma sube 0,3 por semana · subida sostenible.")
-
-        let lleno = try AnaliticasFixtures.panel(.lleno)
-        XCTAssertNotNil(AnaliticasDerivados.fraseDeForma(lleno))
-
-        XCTAssertNil(AnaliticasDerivados.fraseDeForma(try AnaliticasFixtures.panel(.poco)), "en frío la palabra no se sustituye por otra")
-    }
-
     // MARK: - Los cubos de la carga
 
     func testLosCubosDeCargaApilanPorFamiliaGrandeConElPlan() throws {

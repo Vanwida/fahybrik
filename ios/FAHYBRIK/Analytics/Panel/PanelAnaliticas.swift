@@ -58,7 +58,7 @@ enum BloqueDelPanel: String, Codable, Equatable, CaseIterable {
         self = BloqueDelPanel(rawValue: raw) ?? .desconocido
     }
 
-    /// Los que se pintan, en el orden de la portada (el Estado va en la cabecera fija).
+    /// Los que se pintan, en el orden de la portada (el Estado es el sujeto de la pantalla y se pinta aparte).
     static let delCuerpo: [BloqueDelPanel] = [.forma, .semanas, .intensidad, .progreso, .records, .carrera, .recuperacion]
 
     var titulo: String {
@@ -164,6 +164,19 @@ enum VentanaClave: String, Codable, Equatable, CaseIterable {
         case .desconocida: return ""
         }
     }
+
+    /// La ventana dicha en una frase, para el sobretítulo de la pestaña: siempre se ve cuál rige (A4).
+    var frase: String {
+        switch self {
+        case .sieteDias: return "Últimos 7 días"
+        case .cuatroSemanas: return "Últimas 4 semanas"
+        case .doceSemanas: return "Últimas 12 semanas"
+        case .seisMeses: return "Últimos 6 meses"
+        case .unAno: return "Último año"
+        case .todo: return "Desde que empezaste"
+        case .desconocida: return ""
+        }
+    }
 }
 
 /// Un tramo de días LOCALES del atleta, ambos extremos inclusive.
@@ -255,6 +268,11 @@ struct AnclasDelPanel: Codable, Equatable {
 enum IdsDelPanel {
     static let polarizacion = "intensidad.polarizacion"
     static let readiness = "recuperacion.readiness"
+    /// Las lecturas del Estado (`estado.ts`): las tres cifras de carga y la disposición de hoy.
+    static let estadoForma = "estado.forma"
+    static let estadoFatiga = "estado.fatiga"
+    static let estadoFrescura = "estado.frescura"
+    static let estadoDisposicion = "estado.readiness"
     /// El servidor titula esta lectura con el nombre técnico; al atleta se le dice «Disposición».
     static let etiquetaDeReadiness = "Disposición"
     static let carreraObjetivo = "carrera.objetivo"

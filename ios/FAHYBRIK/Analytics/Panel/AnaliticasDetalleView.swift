@@ -4,11 +4,32 @@ import SwiftUI
 // un bloque (Forma y fatiga, Semana a semana, Intensidad, Récords, Carrera) y el
 // de una familia (correr, remo, ski, bici, fuerza, estaciones, WOD), con el
 // contrato en `screens/analiticas-familia-*` y `analiticas-sesion` del doble.
-// Aquí solo el cromo (título, pregunta y la vuelta a «Analíticas»), para que el
-// toque en la portada ya lleve a su sitio.
+// Aquí solo el cromo (la vuelta a «Analíticas», el título y su pregunta), hecho con
+// el kit del día y el tema del atleta, para que el toque en la portada ya lleve a su
+// sitio y la segunda tanda solo tenga que sustituir el cuerpo.
 
-private typealias C = AnaliticasColor
-private typealias TA = AnaliticasTokens.TA
+/// «‹ Analíticas»: la vuelta de un detalle, a la izquierda y fija. Un detalle no lleva la barra de pestañas
+/// propia; el gesto de borde del sistema también vuelve.
+struct AnaliticasAtras: View {
+    let texto: String
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 2) {
+                Image(systemName: "chevron.left").font(.system(size: 20, weight: .bold)).accessibilityHidden(true)
+                Text(texto).papel(.cuerpoFuerte)
+            }
+            .foregroundStyle(Theme.Color.accentText)
+            .padding(.leading, Theme.Spacing.xs)
+            .padding(.trailing, Theme.Spacing.m + 2)
+            .frame(minHeight: Theme.Size.toque)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle(escala: 0.96))
+        .accessibilityLabel("Volver a \(texto)")
+    }
+}
 
 struct AnaliticasDetalleView: View {
     let destino: AnaliticasDestino
@@ -31,37 +52,41 @@ struct AnaliticasDetalleView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AnaliticasTokens.hueco) {
-            Button(action: { dismiss() }) {
-                HStack(spacing: 2) {
-                    Image(systemName: "chevron.left").font(.system(size: 15, weight: .semibold))
-                    Text(AppTab.analiticas.title).font(.system(size: TA.cuerpo, weight: .semibold))
+        ScrollView {
+            VStack(alignment: .leading, spacing: Theme.Spacing.m + 2) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    Text(titulo).papel(.saludo).foregroundStyle(Theme.Color.foreground)
+                        .accessibilityAddTraits(.isHeader)
+                    if !pregunta.isEmpty { AnaliticasEtiqueta(texto: pregunta) }
                 }
-                .foregroundStyle(C.tinta2)
-                .frame(height: 32)
+                AnaliticasHueco(
+                    texto: TextoHueco(
+                        titulo: "Muy pronto",
+                        cuerpo: "Aquí irá el detalle: lo que te piden y lo que haces, tus mejores marcas y de dónde sale cada cifra.",
+                        salida: .espera("Se llena solo"),
+                        plazo: nil
+                    ),
+                    onSalida: { _ in }
+                )
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Volver a \(AppTab.analiticas.title)")
-            Text(titulo)
-                .font(.system(size: TA.pantalla.cuerpo, weight: TA.pantalla.peso))
-                .tracking(-0.5)
-                .foregroundStyle(C.tinta)
-            if !pregunta.isEmpty { AnaliticasEtiqueta(texto: pregunta) }
-            AnaliticasHueco(
-                texto: TextoHueco(
-                    titulo: "Muy pronto",
-                    cuerpo: "Aquí irá el detalle: lo que te piden y lo que haces, tus mejores marcas y de dónde sale cada cifra.",
-                    salida: .espera("Se llena solo"),
-                    plazo: nil
-                ),
-                onSalida: { _ in }
-            )
-            Spacer(minLength: 0)
+            .padding(.horizontal, Theme.Spacing.pantalla)
+            .padding(.bottom, Theme.Spacing.xxl)
         }
-        .padding(.horizontal, AnaliticasTokens.margen)
-        .padding(.top, 4)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(C.fondo.ignoresSafeArea())
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack { AnaliticasAtras(texto: AppTab.analiticas.title) { dismiss() }; Spacer() }
+                .padding(.horizontal, Theme.Spacing.s)
+                .frame(maxWidth: .infinity)
+                .background(Theme.Color.background)
+        }
+        .background(Theme.Color.background.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
     }
 }
+
+#if DEBUG
+#Preview("Detalle · fábrica") { AnaliticasDetalleView(destino: .bloque(.forma)) }
+#Preview("Detalle · club azul") {
+    let _ = ClubThemeStore.update(.pruebaAzul)
+    AnaliticasDetalleView(destino: .bloque(.forma))
+}
+#endif
