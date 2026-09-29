@@ -80,6 +80,26 @@ describeWithDb('método ampliado y umbrales declarados (base real)', () => {
     expect(await resolveEffectiveAnalyticsMethod(fx.coachId, sql)).toEqual(defaultCoachAnalyticsMethod());
   });
 
+  test('el «¿mejoro?» por familia (0280) se guarda y se lee; fuera de rango la tabla lo rechaza', async () => {
+    const propio = {
+      ...defaultCoachAnalyticsMethod(),
+      cambio_ergo_pct: 1.5,
+      cambio_fuerza_pct: 5,
+      cambio_estaciones_pct: 4.5,
+      cambio_wod_pct: 2,
+      cambio_test_pct: 3,
+      fuerza_1rm_reps_max: 6,
+    };
+    await upsertCoachAnalyticsMethod(fx.coachId, propio, sql);
+    const vigente = await resolveEffectiveAnalyticsMethod(fx.coachId, sql);
+    expect([vigente.cambio_ergo_pct, vigente.cambio_fuerza_pct, vigente.cambio_estaciones_pct, vigente.cambio_wod_pct, vigente.cambio_test_pct]).toEqual([
+      1.5, 5, 4.5, 2, 3,
+    ]);
+    expect(vigente.fuerza_1rm_reps_max).toBe(6);
+    await expect(upsertCoachAnalyticsMethod(fx.coachId, { ...propio, fuerza_1rm_reps_max: 25 }, sql)).rejects.toMatchObject({ code: '23514' });
+    await resetCoachAnalyticsMethod(fx.coachId, sql);
+  });
+
   test('la tabla rechaza un peldaño fuera del vocabulario y una banda fuera de rango', async () => {
     await expect(
       upsertCoachAnalyticsMethod(fx.coachId, { ...defaultCoachAnalyticsMethod(), fuentes_run: ['vatios' as never] }, sql),

@@ -163,35 +163,12 @@ export function buildSameHrPaceSeries(
   }
 
   for (const o of observations) {
-    if (!esUsable(o)) {
-      rejected.sin_pulso_util += 1;
+    const motivo = rechazoSameHr(o, opts);
+    if (motivo) {
+      rejected[motivo] += 1;
       continue;
     }
-    // El orden importa para que el diagnóstico sea legible: se cuenta el PRIMER
-    // motivo por el que cae, no todos.
-    if (o.distance_m < opts.min_distance_m) {
-      rejected.demasiado_corto += 1;
-      continue;
-    }
-    if (Math.abs(o.avg_hr - referencia) > opts.tolerance_bpm) {
-      rejected.fuera_de_banda += 1;
-      continue;
-    }
-    if (gradientKnownSteep(o.gradient_pct, opts.gradient_retires_pace_pct)) {
-      rejected.en_cuesta += 1;
-      continue;
-    }
-    // Solo el que SE SABE fatigado. `null` (sin contexto grabado) sigue: ver la
-    // cabecera — exigir prueba de frescura vacía la lectura en datos reales.
-    if (o.effort === 'fatigado') {
-      rejected.fatigado += 1;
-      continue;
-    }
-
-    // La corrección, dentro de la banda estrecha donde es segura. Iba más
-    // rápido de lo que le tocaba a ese pulso → su ritmo a la referencia es
-    // mejor (número menor) que el crudo, y al revés.
-    const corregido = o.pace_s_per_km * (o.avg_hr / referencia);
+    const corregido = ritmoAlPulso(o, referencia);
 
     const acc = porSemana.get(o.week_start) ?? { suma: 0, metros: 0, tramos: 0 };
     acc.suma += corregido * o.distance_m;
@@ -211,6 +188,37 @@ export function buildSameHrPaceSeries(
     .sort((a, b) => a.semana.localeCompare(b.semana));
 
   return { points, reference_bpm: referencia, accepted, rejected };
+}
+
+/** Por qué un tramo no entra en el ritmo al mismo pulso. */
+export type RechazoSameHr = keyof SameHrPaceSeries['rejected'];
+
+/**
+ * La puerta de UN tramo, sola: la usan la serie semanal de arriba y el «Motor»
+ * de las analíticas rehechas (una ventana contra la anterior), para que las dos
+ * acepten exactamente los mismos tramos. Null = entra.
+ *
+ * El orden importa para que el diagnóstico sea legible: se cuenta el PRIMER
+ * motivo por el que cae, no todos. Solo cae el que SE SABE fatigado: `null`
+ * (sin contexto grabado) sigue — ver la cabecera, exigir prueba de frescura
+ * vacía la lectura en datos reales.
+ */
+export function rechazoSameHr(o: SameHrObservation, opts: SameHrOptions): RechazoSameHr | null {
+  if (!esUsable(o)) return 'sin_pulso_util';
+  if (o.distance_m < opts.min_distance_m) return 'demasiado_corto';
+  if (Math.abs(o.avg_hr - opts.reference_bpm) > opts.tolerance_bpm) return 'fuera_de_banda';
+  if (gradientKnownSteep(o.gradient_pct, opts.gradient_retires_pace_pct)) return 'en_cuesta';
+  if (o.effort === 'fatigado') return 'fatigado';
+  return null;
+}
+
+/**
+ * La corrección, dentro de la banda estrecha donde es segura: iba más rápido de
+ * lo que le tocaba a ese pulso → su ritmo a la referencia es mejor (número
+ * menor) que el crudo, y al revés.
+ */
+export function ritmoAlPulso(o: Pick<SameHrObservation, 'pace_s_per_km' | 'avg_hr'>, reference_bpm: number): number {
+  return o.pace_s_per_km * (o.avg_hr / reference_bpm);
 }
 
 /**

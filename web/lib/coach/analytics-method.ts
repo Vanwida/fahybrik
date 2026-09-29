@@ -1,7 +1,7 @@
 import 'server-only';
 
 // El MÉTODO del coach para las analíticas del atleta — la capa de lectura y
-// escritura sobre `coach_analytics_method` (migs 0189, 0190, 0277, 0281).
+// escritura sobre `coach_analytics_method` (migs 0189, 0190, 0277, 0279, 0280, 0281).
 //
 // Lo leen las familias de lecturas: la carga única (escalera por modalidad,
 // coeficiente de fuerza, cobertura del veredicto), la forma (ventanas, bandas de
@@ -33,6 +33,7 @@ import {
   type CoachAnalyticsMethod,
   type FuenteCarga,
 } from '@fahybrid/shared/domain/analytics/metodo';
+import { FAMILIAS, type Familia } from '@fahybrid/shared/domain/analytics/lectura';
 import { resolveMethodRow, type LectorColumna } from './method-row';
 
 const TABLE = 'coach_analytics_method';
@@ -54,6 +55,13 @@ const comoBasesSesion: LectorColumna<BaseSesion[]> = (v) => {
 const comoBase: LectorColumna<BaseCumplimiento> = (v) =>
   typeof v === 'string' && (BASES_CUMPLIMIENTO as readonly string[]).includes(v) ? (v as BaseCumplimiento) : null;
 
+/** Un `text[]` de familias: solo si TODAS son del vocabulario y ninguna se repite; si no, el defecto. */
+const comoFamilias: LectorColumna<Familia[]> = (v) => {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  const ok = v.every((x) => typeof x === 'string' && (FAMILIAS as readonly string[]).includes(x));
+  return ok && new Set(v).size === v.length ? (v as Familia[]) : null;
+};
+
 const LECTORES: Parameters<typeof resolveMethodRow<CoachAnalyticsMethod>>[0]['parse'] = {
   fuentes_run: comoFuentes,
   fuentes_row: comoFuentes,
@@ -63,6 +71,7 @@ const LECTORES: Parameters<typeof resolveMethodRow<CoachAnalyticsMethod>>[0]['pa
   fuentes_other: comoFuentes,
   cumplimiento_base: comoBase,
   cumplimiento_sesion_bases: comoBasesSesion,
+  polarizacion_familias: comoFamilias,
 };
 
 /**
@@ -119,7 +128,9 @@ export async function upsertCoachAnalyticsMethod(
       holgura_ritmo_s_km, holgura_split_s_500m, holgura_vatios_w, holgura_pulso_ppm,
       holgura_rpe, holgura_rir, holgura_carga_pct, holgura_dosis_pct,
       cambio_carga_pct, cambio_horas_pct, cambio_forma_tss, cambio_frescura_tss,
-      cambio_variabilidad_pct, cambio_pulso_reposo_bpm, cambio_sueno_horas, cambio_cumplimiento_pts,
+      cambio_variabilidad_pct, cambio_pulso_reposo_bpm, cambio_sueno_horas, cambio_cumplimiento_pts, cambio_polarizacion_pts,
+      cambio_ergo_pct, cambio_fuerza_pct, cambio_estaciones_pct, cambio_wod_pct, cambio_test_pct, fuerza_1rm_reps_max,
+      polarizacion_familias, polarizacion_tolerancia_pts,
       basal_dias, basal_excluir_dias,
       cs_min_efforts, cs_min_duration_s, cs_max_duration_s, cs_min_spread_ratio, cs_min_fit_r2_pct, cs_max_drift_from_threshold_pct,
       sleep_target_hours, hrv_min_nights_baseline, hrv_min_nights_recent,
@@ -137,7 +148,9 @@ export async function upsertCoachAnalyticsMethod(
       ${m.holgura_ritmo_s_km}, ${m.holgura_split_s_500m}, ${m.holgura_vatios_w}, ${m.holgura_pulso_ppm},
       ${m.holgura_rpe}, ${m.holgura_rir}, ${m.holgura_carga_pct}, ${m.holgura_dosis_pct},
       ${m.cambio_carga_pct}, ${m.cambio_horas_pct}, ${m.cambio_forma_tss}, ${m.cambio_frescura_tss},
-      ${m.cambio_variabilidad_pct}, ${m.cambio_pulso_reposo_bpm}, ${m.cambio_sueno_horas}, ${m.cambio_cumplimiento_pts},
+      ${m.cambio_variabilidad_pct}, ${m.cambio_pulso_reposo_bpm}, ${m.cambio_sueno_horas}, ${m.cambio_cumplimiento_pts}, ${m.cambio_polarizacion_pts},
+      ${m.cambio_ergo_pct}, ${m.cambio_fuerza_pct}, ${m.cambio_estaciones_pct}, ${m.cambio_wod_pct}, ${m.cambio_test_pct}, ${m.fuerza_1rm_reps_max},
+      ${m.polarizacion_familias}, ${m.polarizacion_tolerancia_pts},
       ${m.basal_dias}, ${m.basal_excluir_dias},
       ${m.cs_min_efforts}, ${m.cs_min_duration_s}, ${m.cs_max_duration_s}, ${m.cs_min_spread_ratio}, ${m.cs_min_fit_r2_pct}, ${m.cs_max_drift_from_threshold_pct},
       ${m.sleep_target_hours}, ${m.hrv_min_nights_baseline}, ${m.hrv_min_nights_recent},
@@ -186,6 +199,15 @@ export async function upsertCoachAnalyticsMethod(
       cambio_pulso_reposo_bpm = excluded.cambio_pulso_reposo_bpm,
       cambio_sueno_horas = excluded.cambio_sueno_horas,
       cambio_cumplimiento_pts = excluded.cambio_cumplimiento_pts,
+      cambio_ergo_pct = excluded.cambio_ergo_pct,
+      cambio_fuerza_pct = excluded.cambio_fuerza_pct,
+      cambio_estaciones_pct = excluded.cambio_estaciones_pct,
+      cambio_wod_pct = excluded.cambio_wod_pct,
+      cambio_test_pct = excluded.cambio_test_pct,
+      fuerza_1rm_reps_max = excluded.fuerza_1rm_reps_max,
+      cambio_polarizacion_pts = excluded.cambio_polarizacion_pts,
+      polarizacion_familias = excluded.polarizacion_familias,
+      polarizacion_tolerancia_pts = excluded.polarizacion_tolerancia_pts,
       basal_dias = excluded.basal_dias,
       basal_excluir_dias = excluded.basal_excluir_dias,
       cs_min_efforts = excluded.cs_min_efforts,

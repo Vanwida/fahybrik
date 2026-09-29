@@ -7,6 +7,7 @@
 import Link from 'next/link';
 import type { LogLine } from './TwinStage';
 import type {
+  TwinAnchoEscritorio,
   TwinAppearance,
   TwinArquetipo,
   TwinEscenario,
@@ -42,6 +43,8 @@ interface SimPanelProps {
   onOrientation: (o: TwinOrientation) => void;
   appearance: TwinAppearance;
   onAppearance: (a: TwinAppearance) => void;
+  anchoEscritorio: TwinAnchoEscritorio;
+  onAnchoEscritorio: (a: TwinAnchoEscritorio) => void;
   vista: TwinVista;
   onVista: (v: TwinVista) => void;
   onFullscreen: () => void;
@@ -143,7 +146,16 @@ export function SimPanel(p: SimPanelProps) {
               </button>
             </div>
           )}
-          {p.meta.dispositivo === 'iphone' && (
+          {p.meta.dispositivo === 'escritorio' && (
+            <div className="studio-seg" role="group" aria-label="Ancho de la ventana">
+              {([1440, 1280] as const).map((a) => (
+                <button key={a} type="button" data-active={p.anchoEscritorio === a || undefined} onClick={() => p.onAnchoEscritorio(a)}>
+                  {a}
+                </button>
+              ))}
+            </div>
+          )}
+          {(p.meta.dispositivo === 'iphone' || p.meta.dispositivo === 'escritorio') && (
             <div className="studio-seg" role="group" aria-label="Apariencia">
               <button
                 type="button"
@@ -166,7 +178,9 @@ export function SimPanel(p: SimPanelProps) {
           </button>
         </div>
         <p className="studio-hint">
-          En el móvil, entra en pantalla completa y gira el teléfono: el doble gira contigo.
+          {p.meta.dispositivo === 'escritorio'
+            ? 'En pantalla completa el panel llena la ventana del navegador, como en app.fahybrid.com: es como se capturan 1440 y 1280.'
+            : 'En el móvil, entra en pantalla completa y gira el teléfono: el doble gira contigo.'}
         </p>
       </section>
 
@@ -195,8 +209,9 @@ export function SimPanel(p: SimPanelProps) {
           </ul>
         ) : (
           <p className="studio-propuesta-aviso">
-            Propuesta — esta pantalla aún no existe en la app. Cuando se construya en Swift, su
-            doble pasa a «espejo».
+            {p.meta.dispositivo === 'escritorio'
+              ? 'Propuesta — esta pantalla aún no existe en el panel del coach. Cuando se construya en (v2), su doble pasa a «espejo».'
+              : 'Propuesta — esta pantalla aún no existe en la app. Cuando se construya en Swift, su doble pasa a «espejo».'}
           </p>
         )}
       </section>

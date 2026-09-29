@@ -25,8 +25,9 @@
 import 'server-only';
 
 import type { Sql } from '@/lib/db';
-import { estimateOneRm, setVolumeKg } from '@fahybrid/shared/domain/strength';
+import { estimateOneRm, setVolumeKg, type OneRmMethod } from '@fahybrid/shared/domain/strength';
 import { joinCoachOverride, mergedExerciseContent } from '@/lib/exercises/coach-override';
+import { loadCoachOneRmMethod } from '@/lib/strength/strength-max';
 import {
   type AnalyticsCard,
   type CardSeriesPoint,
@@ -99,13 +100,25 @@ function setLabel(s: { load: number | null; reps: number | null }): string | nul
 
 /**
  * The strength-normalized magnitude of a working set. A loaded set → its
- * estimated 1RM (Epley), so 100×5 ranks above 100×3; an unloaded (bodyweight)
- * set → its reps. Returns null when the set has no completed reps.
+ * estimated 1RM with the COACH's formula (`coach_methodology.one_rm_estimation`,
+ * the same one his strength tests store with), so 100×5 ranks above 100×3; an
+ * unloaded (bodyweight) set → its reps. Returns null when the set has no
+ * completed reps.
+ *
+ * The formula is a required argument on purpose (P18 of docs/analiticas/modelo.md):
+ * it used to be Epley, fixed, whatever the coach had chosen — so a Brzycki coach
+ * saw his tests in one formula and the progression cards in another.
  */
-function setMagnitude(s: { load: number | null; reps: number | null }): number | null {
+function setMagnitude(s: { load: number | null; reps: number | null }, formula: OneRmMethod): number | null {
   if (s.reps == null || s.reps < 1) return null;
-  if (s.load != null && s.load > 0) return estimateOneRm(s.load, s.reps);
+  if (s.load != null && s.load > 0) return estimateOneRm(s.load, s.reps, formula);
   return s.reps;
+}
+
+/** The logged sets of the window, and the coach formula their 1RM is estimated with. */
+interface StrengthSetsLoad {
+  sets: WorkSet[];
+  formula: OneRmMethod;
 }
 
 function drill(kind: string, params: Record<string, string>, count: number, label: string): DrillRef {
@@ -122,7 +135,7 @@ async function loadStrengthSets(
   athleteId: number,
   period: ResolvedPeriod,
   tz: string,
-): Promise<WorkSet[]> {
+): Promise<StrengthSetsLoad> {
   // The athlete's owning coach — drives the exercise-name merge below so a lift
   // the coach renamed shows THEIR name here too (0132). One lookup per call
   // (this function runs once per request), never per row.
@@ -130,6 +143,9 @@ async function loadStrengthSets(
     select coach_id::text as coach_id from athletes where id = ${athleteId} limit 1
   `;
   const coachId = coachRows[0]?.coach_id ? BigInt(coachRows[0].coach_id) : null;
+  // Sin coach (atleta huérfano) manda el defecto del producto, el mismo que
+  // `loadCoachOneRmMethod` sirve a un coach sin fila.
+  const formula: OneRmMethod = coachId != null ? await loadCoachOneRmMethod(client, Number(coachId)) : 'Epley';
 
   // tenancy: athlete-session — athleteId sale del bearer del atleta (ruta de analíticas).
   const rows = await client<StrengthSetRow[]>`
@@ -163,7 +179,7 @@ async function loadStrengthSets(
     order by we.started_at asc, se.position asc, st.set_index asc
   `;
 
-  return rows.map((r) => ({
+  const sets = rows.map((r) => ({
     reps: r.reps_actual,
     repsPrescribed: r.reps_prescribed,
     load: numOrNull(r.load_actual_kg),
@@ -177,6 +193,7 @@ async function loadStrengthSets(
     day: r.day,
     week: isoWeekStart(r.day),
   }));
+  return { sets, formula };
 }
 
 // ── Public entry ─────────────────────────────────────────────────────────────
@@ -191,7 +208,7 @@ export async function buildStrengthWorkCards(
   period: ResolvedPeriod,
   tz: string,
 ): Promise<{ cards: AnalyticsCard[]; hasData: boolean }> {
-  const sets = await loadStrengthSets(client, athleteId, period, tz);
+  const { sets, formula } = await loadStrengthSets(client, athleteId, period, tz);
 
   if (sets.length === 0) {
     return {
@@ -212,8 +229,8 @@ export async function buildStrengthWorkCards(
     hasData: true,
     cards: [
       buildVolumeCard(sets, period),
-      buildProgressionCard(sets),
-      buildLiftsWorkedCard(sets),
+      buildProgressionCard(sets, formula),
+      buildLiftsWorkedCard(sets, formula),
       buildAdherenceCard(sets),
       buildEffortCard(sets),
     ],
@@ -286,11 +303,11 @@ interface ExerciseAgg {
   bestByWeek: Map<string, { set: WorkSet; mag: number }>;
 }
 
-function aggregateByExercise(sets: WorkSet[]): ExerciseAgg[] {
+function aggregateByExercise(sets: WorkSet[], formula: OneRmMethod): ExerciseAgg[] {
   const byEx = new Map<string, ExerciseAgg>();
   for (const s of sets) {
     if (s.exerciseId == null) continue; // can't attribute → no per-lift history
-    const mag = setMagnitude(s);
+    const mag = setMagnitude(s, formula);
     if (mag == null) continue;
     const e =
       byEx.get(s.exerciseId) ??
@@ -322,8 +339,8 @@ function aggregateByExercise(sets: WorkSet[]): ExerciseAgg[] {
 }
 
 // ── CARD: lift progression (hero lift's best set per week) ────────────────────
-function buildProgressionCard(sets: WorkSet[]): AnalyticsCard {
-  const aggs = aggregateByExercise(sets);
+function buildProgressionCard(sets: WorkSet[], formula: OneRmMethod): AnalyticsCard {
+  const aggs = aggregateByExercise(sets, formula);
   const hero = aggs[0] ?? null;
 
   if (!hero || !hero.best) {
@@ -359,14 +376,14 @@ function buildProgressionCard(sets: WorkSet[]): AnalyticsCard {
     series_axis: seriesAxis(series),
     drill: drill('strength.exercise', { exercise_id: hero.exerciseId }, hero.sessions.size, `${hero.sessions.size} sesiones · mejor serie`),
     meaning_es: hero.loaded
-      ? 'Mejor serie de cada semana (por 1RM estimado, Epley). Subiendo = más fuerte.'
+      ? `Mejor serie de cada semana (por 1RM estimado con la fórmula de ${formula}, la de tu coach). Subiendo = más fuerte.`
       : 'Mejor serie de cada semana (reps, ejercicio sin carga externa).',
   });
 }
 
 // ── CARD: lifts worked (every lift this period + its best set) ───────────────
-function buildLiftsWorkedCard(sets: WorkSet[]): AnalyticsCard {
-  const aggs = aggregateByExercise(sets);
+function buildLiftsWorkedCard(sets: WorkSet[], formula: OneRmMethod): AnalyticsCard {
+  const aggs = aggregateByExercise(sets, formula);
   const heroId = aggs[0]?.exerciseId ?? '';
   const rows = aggs.map((e) => ({
     id: e.exerciseId,
@@ -490,4 +507,4 @@ function buildEffortCard(sets: WorkSet[]): AnalyticsCard {
 
 // Kept for the drill-down (same window, same source rows).
 export { loadStrengthSets, setLabel, tonnage, setMagnitude };
-export type { WorkSet };
+export type { WorkSet, StrengthSetsLoad };

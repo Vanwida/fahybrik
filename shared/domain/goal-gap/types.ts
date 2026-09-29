@@ -128,7 +128,12 @@ export interface TrainedLevel {
 
 /** Everything the pure engine needs; assembled by the web loader. */
 export interface GoalGapInput {
-  goal_total_s: number;
+  /**
+   * The athlete's goal time. NULL = no goal set: the PREDICTION does not depend
+   * on one (it never did, see `predictSegment`), so the segments, the coverage
+   * and the range still come out — only the budget and the gap cannot.
+   */
+  goal_total_s: number | null;
   /** The 10 segments in render order (run, 8 stations, roxzone). */
   segments: SegmentDef[];
   /** Division/gender (else relaxed to singles) cohort; may be empty. */

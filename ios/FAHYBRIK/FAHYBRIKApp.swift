@@ -35,7 +35,14 @@ struct FAHYBRIKApp: App {
 
     var body: some Scene {
         WindowGroup {
-            AppRoot()
+            // Las pruebas corren DENTRO de esta app: con la app real pintada, una
+            // prueba que reabre un vivo (`LiveWorkoutResume.shared`) levantaba su
+            // entreno falso en pantalla y el arranque recuperaba sus instantáneas.
+            if TestEnvironment.isRunningUnitTests {
+                Color.clear
+            } else {
+                AppRoot()
+            }
         }
     }
 }

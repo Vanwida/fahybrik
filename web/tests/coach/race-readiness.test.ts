@@ -203,19 +203,21 @@ describe('buildRaceReadinessHistory', () => {
   }
 
   function samplesFrom(s: DailyTss[], count: number) {
-    return s.slice(-count).map((p) => ({ iso_date: p.date, at: new Date(`${p.date}T12:00:00Z`) }));
+    return s.slice(-count).map((p) => ({ iso_date: p.date }));
   }
 
-  /** HRV con línea base: reciente (7 d) y referencia (60→14 d) pobladas. */
+  /**
+   * VFC con basal que pasa las puertas del sistema (la basal única): 20 noches
+   * en la ventana basal (hoy−60 … hoy−15) y 3 en la última semana.
+   */
   function hrvAround(dates: string[], recent: number, baseline: number) {
-    const last = new Date(`${dates[dates.length - 1]}T12:00:00Z`).getTime();
-    const D = 86_400_000;
+    const last = dates[dates.length - 1]!;
+    const dia = (n: number) => new Date(Date.parse(`${last}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
     return [
-      { at: new Date(last - 50 * D), value: baseline },
-      { at: new Date(last - 30 * D), value: baseline },
-      { at: new Date(last - 20 * D), value: baseline },
-      { at: new Date(last - 2 * D), value: recent },
-      { at: new Date(last), value: recent },
+      ...Array.from({ length: 20 }, (_, i) => ({ dia: dia(20 + i), valor: baseline })),
+      { dia: dia(4), valor: recent },
+      { dia: dia(2), valor: recent },
+      { dia: dia(0), valor: recent },
     ];
   }
 
@@ -224,7 +226,7 @@ describe('buildRaceReadinessHistory', () => {
     const points = buildRaceReadinessHistory({
       series: s,
       assignments: [],
-      hrv: [],
+      vfc: [],
       samples: samplesFrom(s, 5),
     });
     expect(points).toHaveLength(5);
@@ -246,7 +248,7 @@ describe('buildRaceReadinessHistory', () => {
       return buildRaceReadinessHistory({
         series: s,
         assignments: [{ date: last, scheduled: 4, completed: 3 }],
-        hrv: hrvAround(s.map((p) => p.date), 45, 45),
+        vfc: hrvAround(s.map((p) => p.date), 45, 45),
         samples: samplesFrom(s, 1),
       })[0]!;
     };
@@ -260,7 +262,7 @@ describe('buildRaceReadinessHistory', () => {
     const points = buildRaceReadinessHistory({
       series: s,
       assignments: [],
-      hrv: [],
+      vfc: [],
       samples: samplesFrom(s, 3),
     });
     expect(points.every((p) => p.reading === null)).toBe(true);
@@ -270,13 +272,13 @@ describe('buildRaceReadinessHistory', () => {
   test('la adherencia sale de sus 7 días, y sin nada programado NO hay índice', () => {
     const s = series(120, 50);
     const last = s[s.length - 1]!.date;
-    const hrv = hrvAround(s.map((p) => p.date), 45, 45);
+    const vfc = hrvAround(s.map((p) => p.date), 45, 45);
     const one = (assignments: Parameters<typeof buildRaceReadinessHistory>[0]['assignments']) =>
       buildRaceReadinessHistory({
         series: s,
         assignments,
-        hrv,
-        samples: [{ iso_date: last, at: new Date(`${last}T12:00:00Z`) }],
+        vfc,
+        samples: [{ iso_date: last }],
       })[0]!;
 
     const withWork = one([{ date: last, scheduled: 4, completed: 4 }]);
@@ -294,11 +296,34 @@ describe('buildRaceReadinessHistory', () => {
     const p = buildRaceReadinessHistory({
       series: s,
       assignments: [{ date: last, scheduled: 5, completed: 5 }],
-      hrv: [],
-      samples: [{ iso_date: last, at: new Date(`${last}T12:00:00Z`) }],
+      vfc: [],
+      samples: [{ iso_date: last }],
     })[0]!;
     expect(p.reading).toBeNull();
     expect(p.gap!.missing).toEqual(['hrv']);
+  });
+
+  test('una basal de tres noches no sostiene la VFC: la misma puerta que el panel (la basal única)', () => {
+    const s = series(120, 50);
+    const last = s[s.length - 1]!.date;
+    const corta = hrvAround(s.map((p) => p.date), 45, 45).slice(17); // 3 noches de basal + 3 recientes
+    const p = buildRaceReadinessHistory({
+      series: s,
+      assignments: [{ date: last, scheduled: 5, completed: 5 }],
+      vfc: corta,
+      samples: [{ iso_date: last }],
+    })[0]!;
+    expect(p.reading).toBeNull();
+    expect(p.gap!.missing).toEqual(['hrv']);
+    // Con la puerta del coach en 3 noches, esas mismas tres ya valen.
+    const flexible = buildRaceReadinessHistory({
+      series: s,
+      assignments: [{ date: last, scheduled: 5, completed: 5 }],
+      vfc: corta,
+      basal: { basal_dias: 60, basal_excluir_dias: 14, hrv_min_nights_recent: 3, hrv_min_nights_baseline: 3 },
+      samples: [{ iso_date: last }],
+    })[0]!;
+    expect(flexible.reading).not.toBeNull();
   });
 
   test('un día fuera de la serie se salta: no se inventa un punto', () => {
@@ -306,8 +331,8 @@ describe('buildRaceReadinessHistory', () => {
     const points = buildRaceReadinessHistory({
       series: s,
       assignments: [],
-      hrv: [],
-      samples: [{ iso_date: '2019-01-01', at: new Date('2019-01-01T12:00:00Z') }],
+      vfc: [],
+      samples: [{ iso_date: '2019-01-01' }],
     });
     expect(points).toEqual([]);
   });

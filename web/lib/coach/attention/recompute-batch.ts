@@ -4,7 +4,9 @@
 // facts and the awaiting-reply threads come from their own batched loaders
 // (one query each), not from here. Modelled on cohort.ts::loadRealCohort's big
 // CTE, EXTENDED with:
-//   - hrv_baseline_days  (distinct HRV days in the 60d window — guards false crashes)
+//   - hrv_delta_fiable + hrv_baseline_days — NOT from this CTE any more: the ONE
+//     basal (lib/coach/basal.ts, the coach's window and minimum nights, the
+//     athlete's local day) fills them after the query (P3/P16, 29-09-2026)
 //   - current_microciclo_name + current_microcycle_end_iso (the athlete's active
 //     microciclo = the athlete_month_assignments receipt, its name + window end —
 //     agnostic, no block/macrocycle entity)
@@ -14,12 +16,15 @@ import 'server-only';
 import type { Sql } from '@/lib/db';
 import { BOX_TIMEZONE, zonedDayString } from '@fahybrid/shared/domain/dates';
 import { loadCoachTimezone } from '@/lib/coach/coach-timezone';
+import { resolveEffectiveAnalyticsMethod } from '@/lib/coach/analytics-method';
+import { loadBasalesDelClub } from '@/lib/coach/basal';
 
 export interface BatchRow {
   athlete_id: string;
   full_name: string;
-  hrv_recent: number | null;
-  hrv_baseline: number | null;
+  /** VFC de 7 días − su basal, SOLO si pasa las noches mínimas del coach (la basal única). */
+  hrv_delta_fiable: number | null;
+  /** Noches (días locales distintos) con VFC dentro de la ventana basal del coach. */
   hrv_baseline_days: number | null;
   last_sync_at: Date | null;
   /** Executed sessions of the last 7 days: athlete-local day + RPE (parallel arrays). */
@@ -99,7 +104,8 @@ export async function loadBatch(
   const nowIso = now.toISOString();
   const athleteFilter = athlete_id != null ? Number(athlete_id) : null;
 
-  return client<BatchRow[]>`
+  const [filas, basales] = await Promise.all([
+    client<Array<Omit<BatchRow, 'hrv_delta_fiable' | 'hrv_baseline_days'>>>`
     with athlete_day as (
       -- «Hoy» de cada atleta en SU huso (sin él, el defecto), como rpe_7d.
       select a.id as athlete_id,
@@ -107,23 +113,6 @@ export async function loadBatch(
              (${nowIso}::timestamptz at time zone coalesce(a.timezone, ${BOX_TIMEZONE}))::date as today
       from athletes a
       where a.coach_id = ${coach_id as number}
-    ),
-    hrv_recent as (
-      select bs.athlete_id, avg(bs.value_numeric)::float as v
-      from biometric_streams bs
-      where bs.metric_type = 'hrv'
-        and bs.recorded_at >= ${nowIso}::timestamptz - interval '7 days'
-      group by bs.athlete_id
-    ),
-    hrv_baseline as (
-      select bs.athlete_id,
-             avg(bs.value_numeric)::float as v,
-             count(distinct bs.recorded_at::date)::int as days
-      from biometric_streams bs
-      where bs.metric_type = 'hrv'
-        and bs.recorded_at >= ${nowIso}::timestamptz - interval '60 days'
-        and bs.recorded_at <  ${nowIso}::timestamptz - interval '14 days'
-      group by bs.athlete_id
     ),
     last_sync as (
       select bs.athlete_id, max(bs.recorded_at) as ts
@@ -402,9 +391,6 @@ export async function loadBatch(
     select
       a.id::text                          as athlete_id,
       a.full_name                         as full_name,
-      hr.v                                as hrv_recent,
-      hb.v                                as hrv_baseline,
-      hb.days                             as hrv_baseline_days,
       ls.ts                               as last_sync_at,
       r7.days                             as rpe_days,
       r7.rpes                             as rpe_values,
@@ -464,8 +450,6 @@ export async function loadBatch(
       cp.n                                as comm_protocol_n
     from athletes a
     join athlete_day       ad on ad.athlete_id = a.id
-    left join hrv_recent   hr on hr.athlete_id = a.id
-    left join hrv_baseline hb on hb.athlete_id = a.id
     left join last_sync    ls on ls.athlete_id = a.id
     left join rpe_7d       r7 on r7.athlete_id = a.id
     left join recent_pain  rp on rp.athlete_id = a.id
@@ -490,5 +474,12 @@ export async function loadBatch(
       -- inactive, not at-risk, so they raise no inactivity/missed attention signals.
       and a.lifecycle_status = 'activo'
     order by a.full_name asc
-  `;
+  `,
+    // La basal única del club, con la ventana y las noches mínimas del coach.
+    loadBasalesDelClub({ coach_id, athlete_id: athleteFilter, now, metodo: await resolveEffectiveAnalyticsMethod(coach_id, client), client }),
+  ]);
+  return filas.map((f) => {
+    const b = basales.get(f.athlete_id);
+    return { ...f, hrv_delta_fiable: b?.vfc.delta_fiable ?? null, hrv_baseline_days: b ? b.vfc.basal.noches : null };
+  });
 }

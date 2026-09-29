@@ -89,20 +89,32 @@ function subidaDelFondo(
   return { pct: ((ahora - antes) / antes) * 100, absoluta: ahora - antes, dias };
 }
 
+/**
+ * ¿Está por debajo de lo suyo? Cuando la lectura trae su PALABRA (el panel: la
+ * basal única con el cambio mínimo del coach), manda la palabra — una décima por
+ * debajo de la basal es ruido, no una señal que cruzar con la carga. Sin palabra
+ * (el contrato de agosto), la regla de siempre: cualquier valor por debajo.
+ */
+function porDebajo(l: Lectura): boolean {
+  if (l.dato?.referencia == null) return false;
+  if (l.veredicto != null) return l.veredicto.code === 'por_debajo';
+  return l.dato.valor < l.dato.referencia.valor;
+}
+
 /** ¿Duerme por debajo de lo suyo? Sale de la lectura, con su referencia. */
 function duermeMenos(lecturas: readonly Lectura[]): { horas: number; objetivo: number } | null {
   const sueno = medida(lecturas, 'recuperacion.sueno');
   const ref = sueno?.dato?.referencia;
   if (sueno?.dato == null || ref == null) return null;
-  return sueno.dato.valor < ref.valor ? { horas: sueno.dato.valor, objetivo: ref.valor } : null;
+  return porDebajo(sueno) ? { horas: sueno.dato.valor, objetivo: ref.valor } : null;
 }
 
 /** ¿La variabilidad está por debajo de su basal? Misma disciplina. */
 function variabilidadBaja(lecturas: readonly Lectura[]): { delta: number } | null {
   const v = medida(lecturas, 'recuperacion.variabilidad');
   const ref = v?.dato?.referencia;
-  if (ref == null) return null;
-  return ref.delta < 0 ? { delta: ref.delta } : null;
+  if (v == null || ref == null) return null;
+  return porDebajo(v) ? { delta: ref.delta } : null;
 }
 
 /**

@@ -195,6 +195,7 @@ export type Unidad =
   | 'kcal'
   | 'kg'
   | 'puntos'       // escala 0-100 propia del proveedor (batería corporal, estrés) o el readiness
+  | 'pp'           // puntos porcentuales: la diferencia entre dos porcentajes (70 % → 77 % = +7 pp, no +10 %)
   | 'ml_kg_min'
   | 'sesiones'
   | 'watts'
@@ -202,9 +203,14 @@ export type Unidad =
   | 'dias'
   | 'rpe'          // esfuerzo percibido, escala 1-10 (una serie, un tramo)
   | 'rir'          // repeticiones en reserva de una serie
-  | 'series'       // series de fuerza (hechas frente a prescritas)
-  | 'rondas'       // rondas de un WOD o minutos cumplidos de un EMOM
-  | 'tramos';      // tramos de sesión (el cumplimiento serie a serie)
+  | 'tramos'       // tramos de sesión (el cumplimiento serie a serie)
+  // Progreso y récords (29-09-2026): lo que las familias que no son correr necesitan.
+  | 's_1000m'      // la bici se lee por 1000 m (BikeErg)
+  | 'spm'          // paladas por minuto (remo, ski)
+  | 'rpm'          // pedaladas por minuto (bici)
+  | 'series'       // series de fuerza (hechas frente a prescritas, o hechas)
+  | 'cm'           // un salto
+  | 'rondas';      // rondas de un WOD o minutos de un EMOM cumplidos; la puntuación de un AMRAP (las reps sueltas, como fracción de ronda)
 
 // ---------------------------------------------------------------------------
 // EL DATO
@@ -226,6 +232,14 @@ export interface Dato {
   valor: number;
   unidad: Unidad;
   referencia: Referencia | null;
+  /**
+   * El intervalo en el que cae el número cuando es una ESTIMACIÓN con banda (la
+   * previsión de carrera, 29-09-2026): `bajo ≤ valor ≤ alto`, en la misma
+   * unidad. Ausente o null cuando el número es una medida: un rango solo existe
+   * si el mecanismo que lo produce lo calcula, nunca se inventa alrededor de un
+   * dato medido.
+   */
+  rango?: { bajo: number; alto: number } | null;
 }
 
 /**
@@ -533,4 +547,15 @@ export function comparacionDe(args: {
 export function pctCobertura(dias_con_dato: number, dias_ventana: number): number | null {
   if (!Number.isFinite(dias_ventana) || dias_ventana <= 0) return null;
   return (dias_con_dato / dias_ventana) * 100;
+}
+
+/**
+ * Una etiqueta a mitad de frase (la prosa de `explica_es`): la inicial en
+ * minúscula, salvo que sea una sigla — «WOD», «FC», «VDOT» se quedan como
+ * están. `toLowerCase` a secas escribía «wod» y «fc máxima».
+ */
+export function aMitadDeFrase(texto: string): string {
+  const [a, b] = texto;
+  if (a == null || b == null || b !== b.toLowerCase()) return texto;
+  return a.toLowerCase() + texto.slice(1);
 }

@@ -44,14 +44,20 @@ extension WorkoutSession {
     }
 
     /// Aterriza en la puerta del bloque, con el reloj parado.
+    ///
+    /// Lo que se llevaba del tramo que se deja NO se registra (saltar e ir no
+    /// cierran vuelta) y tampoco se arrastra: el reloj del tramo vuelve a cero y
+    /// con él TODO lo que se acumulaba contra ese reloj —pulso, zonas, máquina,
+    /// series—. Antes solo se ponían a cero el reloj y las reps, y el tramo
+    /// siguiente heredaba las zonas del abandonado: 1.029 s de zonas en un tramo
+    /// de 690 s (0278).
     private func irAlSegmento(_ index: Int) {
         guard index >= 0, index < plan.segments.count else { return }
         clearEMOMState()
         clearConditioning()
         clearRunStructure()
+        discardCurrentLiveState()
         currentSegmentIndex = index
-        lapElapsedSeconds = 0
-        repsCurrentSegment = 0
         armBlock()
         Haptics.medium()
         persistNow()

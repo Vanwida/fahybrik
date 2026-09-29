@@ -57,6 +57,19 @@ import type { CoachRunningThresholds } from '../coach/running-thresholds';
  *   plan        no hay entrenos planificados en el tramo que se mira (la
  *               proyección hasta la carrera). Lo resuelve el coach, no el atleta:
  *               sin salida para él, y no se calla (el número sigue siendo cierto).
+ *   viejo       hay dato, pero ninguno dentro de la ventana: el número es el
+ *               último que hubo, del día `ultimo` (el cuarto estado de A10,
+ *               «dato viejo»). No se calla — decir de cuándo es el número es
+ *               justo lo que impide que parezca de hoy — y no tiene salida: lo
+ *               arregla volver a entrenarlo, no un botón.
+ *   marcas      la previsión de carrera no tiene con qué predecir `faltan` de sus
+ *               tramos (ni carrera propia, ni marca, ni umbral, ni entreno de esa
+ *               estación). La salida es medirlas; la acción concreta de cada tramo
+ *               («Mide tu SkiErg 1000») viaja en la lectura de ese tramo
+ *               (analíticas rehechas, bloque carrera, 29-09-2026).
+ *   pareja      la carrera objetivo es de dobles y no hay pareja activa: sin ella
+ *               no hay reparto ni previsión de la pareja. Lo configura el coach:
+ *               sin salida para el atleta, y no se calla.
  */
 export type Falta =
   | { por: 'historia'; llevas: number; hacen: number }
@@ -67,7 +80,10 @@ export type Falta =
   | { por: 'intencion' }
   | { por: 'objetivo' }
   | { por: 'esfuerzo'; sesiones: number }
-  | { por: 'plan' };
+  | { por: 'plan' }
+  | { por: 'viejo'; ultimo: string }
+  | { por: 'marcas'; faltan: number }
+  | { por: 'pareja' };
 
 /**
  * «Aún no» y «no aplica» parecen lo mismo y no lo son. Al recién llegado le
@@ -99,6 +115,8 @@ export function salidaDe(f: Falta): string | null {
       return 'Elegir tu carrera objetivo';
     case 'esfuerzo':
       return 'Puntuar el esfuerzo al terminar';
+    case 'marcas':
+      return 'Medir tus marcas';
     default:
       return null;
   }
@@ -319,6 +337,16 @@ export interface Veredicto {
   plazo: { llevas: number; hacen: number } | null;
 }
 
+/**
+ * Segundos ganados en una distancia, llevados a segundos por kilómetro: la
+ * unidad de `meaningful_gain_s_per_km`, que es el umbral que los juzga. Sin
+ * distancia útil no hay ritmo que comparar (0, no un infinito).
+ */
+export function gananciaPorKm(gana_s: number, metros: number): number {
+  if (!Number.isFinite(gana_s) || !Number.isFinite(metros) || metros <= 0) return 0;
+  return gana_s / (metros / 1000);
+}
+
 /** Cuánto ha ganado una serie de ritmos: el primero menos el último, porque en
  *  ritmo bajar es mejorar. Positivo = ha mejorado. */
 function ganancia(serie: readonly PuntoSemana[]): number {
@@ -515,7 +543,13 @@ export function veredictoDe(h: RunningHistory, m: CoachRunningThresholds): Vered
     };
   }
 
-  const gana = peldano.en === 'esfuerzos' ? peldano.gana_s : peldano.gana_s_km;
+  // EL UMBRAL ESTÁ EN s/km Y SE JUZGA EN s/km (P1 del modelo de analíticas,
+  // 29-09-2026). El peldaño de esfuerzos gana SEGUNDOS sobre una distancia
+  // entera; comparar esos segundos contra un umbral por kilómetro llamaba
+  // «mejor» a 10 s ganados en un 5 km (2 s/km) con el umbral en 3 s/km. El
+  // delta se lleva a la unidad del umbral antes de juzgarlo; `gana_s` se queda
+  // en el peldaño para que la pantalla siga escribiendo «10 s en 5 km».
+  const gana = peldano.en === 'esfuerzos' ? gananciaPorKm(peldano.gana_s, peldano.metros) : peldano.gana_s_km;
   const subida = subidaDeVolumen(h.semanas_km);
 
   if (gana >= m.meaningful_gain_s_per_km) {

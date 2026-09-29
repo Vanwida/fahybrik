@@ -1,8 +1,17 @@
 // El histórico que YA está en biometric_streams (training_load) no vuelve a
 // pasar por el ingest: ese camino lo marca duplicado y se iba. Esto recorre
 // esos marcadores y nace la sesión importada que las comparativas saben leer.
+//
+// EL MARCADOR SE LEE ENTERO O NO SE LEE. El 13-08-2026 esto corrió sobre 1.657
+// marcadores guardados como jsonb de tipo CADENA (el escritor de entonces hacía
+// JSON.stringify): `asRecord` los veía vacíos y nacieron 1.277 sesiones sin tipo
+// (todo «other», también fuerza y carrera), sin distancia, sin pulso y sin
+// calorías, con el fin inventado como inicio + duración. Ahora la cadena se
+// desenvuelve, y un marcador que ni así es un objeto se salta: una sesión sin
+// nada de lo que dijo Salud no es esa sesión. La 0278 rehízo las 1.277.
 
 import type { Sql } from '@/lib/db';
+import { coerceJson } from '@/lib/json-column';
 import { materializeHealthkitWorkout } from './materialize-healthkit-workout';
 import type { HKWorkoutDTO } from './schema';
 
@@ -13,7 +22,7 @@ export interface HistoryMaterializeResult {
   skipped: number;
 }
 
-type StreamRow = {
+export type StreamRow = {
   athlete_id: string;
   source_workout_id: string | null;
   recorded_at: string;
@@ -39,10 +48,21 @@ function asIso(v: unknown, fallback: string): string {
   return fallback;
 }
 
-function workoutFromStream(row: StreamRow): HKWorkoutDTO | null {
+/** El payload del marcador como objeto, aunque se guardara como cadena; o null. */
+function payloadRecord(raw: unknown): Record<string, unknown> | null {
+  try {
+    return asRecord(coerceJson(raw));
+  } catch {
+    return null;
+  }
+}
+
+/** El entreno de Salud que describe un marcador `training_load`, o null si no se deja leer. */
+export function workoutFromStream(row: StreamRow): HKWorkoutDTO | null {
   const id = row.source_workout_id?.trim();
   if (!id) return null;
-  const p = asRecord(row.payload) ?? {};
+  const p = payloadRecord(row.payload);
+  if (!p) return null;
   const started = asIso(p.started_at, row.recorded_at);
   const duration = asNumber(p.duration_seconds) ?? asNumber(row.value_numeric) ?? 0;
   const endedFromPayload = typeof p.ended_at === 'string' ? p.ended_at : null;
