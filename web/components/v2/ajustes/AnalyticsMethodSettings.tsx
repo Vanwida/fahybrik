@@ -1,10 +1,12 @@
 'use client';
 
 // El método del coach para las ANALÍTICAS: con esto se calcula y se juzga la
-// forma, la frescura, el cumplimiento y lo que cuenta como cambio de todos sus
-// atletas (`coach_analytics_method`). Guardar reemplaza el conjunto entero de
-// un grupo a la vez (§ modelo.ts, «por qué por grupo»); «Restaurar todo» vuelve
-// a los defectos del producto. El panel del atleta enlaza aquí con
+// forma, la frescura, el cumplimiento, el reparto de intensidad y lo que cuenta
+// como cambio o como mejora de todos sus atletas (`coach_analytics_method`).
+// Cada campo sale del catálogo (`metodo-analiticas/catalogo.ts`) y sus límites
+// de `ANALYTICS_METHOD_BOUNDS`: aquí no se copia ni un valor. Guardar valida el
+// grupo con el mismo esquema Zod que la API (§ modelo.ts, «por qué por grupo»);
+// «Restaurar todo» vuelve a los defectos del producto. El panel del atleta enlaza aquí con
 // `/ajustes/metodo#analiticas`.
 
 import { useState } from 'react';
@@ -17,20 +19,23 @@ import {
   type FuenteCarga,
   type ModalidadCarga,
 } from '@fahybrid/shared/domain/analytics/metodo';
-import { Button, IconButton, Input, Select, useToast } from '@/components/v2/ui';
+import { FAMILIA_ETIQUETA_ES, FAMILIAS, type Familia } from '@fahybrid/shared/domain/analytics/lectura';
+import { Button, Checkbox, IconButton, Input, Select, useToast } from '@/components/v2/ui';
 import { SettingRow, SettingsSection } from './SettingsKit';
 import { SaveStatus, sendJson, useSaveState } from './autosave';
+import { DESCRIPTORES_METODO_ANALITICO } from './metodo-analiticas/catalogo';
 import {
   CAMPOS_POR_GRUPO,
-  DESCRIPTORES_METODO_ANALITICO,
   GRUPOS,
   PELDANO_ETIQUETA,
   type CampoEscalera,
+  type CampoFamilias,
   type CampoNumero,
   type CampoSeleccion,
   type GrupoId,
 } from './metodo-analiticas/descriptores';
 import {
+  alternarFamilia,
   anadirPeldano,
   bajarPeldano,
   candidatoDe,
@@ -86,9 +91,8 @@ export function AnalyticsMethodSettings({ initial }: { initial: Setting }) {
   };
   const cambiarBorrador = (clave: ClaveNumericaMetodo, texto: string) => setBorrador((b) => ({ ...b, [clave]: texto }));
   const usarDefecto = (clave: ClaveNumericaMetodo, grupo: GrupoId) => manejar(validarCandidato({ ...m, [clave]: d[clave] }), grupo);
-  const cambiarLista = (clave: keyof CoachAnalyticsMethod, lista: FuenteCarga[]) =>
-    manejar(validarCandidato({ ...m, [clave]: lista }), 'carga');
-  const cambiarSeleccion = (valor: BaseCumplimiento) => manejar(validarCandidato({ ...m, cumplimiento_base: valor }), 'cumplimiento');
+  const cambiarValor = (clave: keyof CoachAnalyticsMethod, valor: FuenteCarga[] | Familia[] | BaseCumplimiento) =>
+    manejar(validarCandidato({ ...m, [clave]: valor }), DESCRIPTORES_METODO_ANALITICO[clave].grupo);
 
   const restaurarTodo = async () => {
     const previo = m;
@@ -127,8 +131,8 @@ export function AnalyticsMethodSettings({ initial }: { initial: Setting }) {
       >
         <div className="px-4 pt-3.5 pb-1">
           <p className="t-body-sm text-v2-muted">
-            Con esto se calculan y se juzgan las analíticas de todos tus atletas: la forma, la frescura, el cumplimiento y
-            lo que cuenta como cambio. Lo que no toques sigue el estándar del mercado.
+            Con esto se calculan y se juzgan las analíticas de todos tus atletas: la forma, la frescura, el cumplimiento, el
+            reparto de intensidad y lo que cuenta como cambio o como mejora. Lo que no toques sigue el estándar del mercado.
           </p>
         </div>
       </SettingsSection>
@@ -166,6 +170,11 @@ export function AnalyticsMethodSettings({ initial }: { initial: Setting }) {
               </span>
             }
           >
+            {!plegado && grupo.nota ? (
+              <div className="px-4 pt-3.5 pb-1">
+                <p className="t-body-sm text-v2-muted">{grupo.nota}</p>
+              </div>
+            ) : null}
             {plegado
               ? null
               : CAMPOS_POR_GRUPO[grupo.id].map((clave) => {
@@ -197,15 +206,37 @@ export function AnalyticsMethodSettings({ initial }: { initial: Setting }) {
                         modalidad={modalidad}
                         lista={lista}
                         error={problemaDe(clave)}
-                        onSubir={(i) => cambiarLista(clave, subirPeldano(lista, i))}
-                        onBajar={(i) => cambiarLista(clave, bajarPeldano(lista, i))}
-                        onQuitar={(i) => cambiarLista(clave, quitarPeldano(lista, i))}
-                        onAnadir={(f) => cambiarLista(clave, anadirPeldano(lista, modalidad, f))}
+                        onSubir={(i) => cambiarValor(clave, subirPeldano(lista, i))}
+                        onBajar={(i) => cambiarValor(clave, bajarPeldano(lista, i))}
+                        onQuitar={(i) => cambiarValor(clave, quitarPeldano(lista, i))}
+                        onAnadir={(f) => cambiarValor(clave, anadirPeldano(lista, modalidad, f))}
+                      />
+                    );
+                  }
+                  if (descriptor.tipo === 'familias') {
+                    const lista = m[clave] as Familia[];
+                    const porDefecto = d[clave] as Familia[];
+                    return (
+                      <FilaFamilias
+                        key={clave}
+                        clave={clave}
+                        descriptor={descriptor}
+                        lista={lista}
+                        porDefecto={porDefecto}
+                        error={problemaDe(clave)}
+                        onAlternar={(f) => cambiarValor(clave, alternarFamilia(lista, f))}
+                        onUsarDefecto={() => cambiarValor(clave, porDefecto)}
                       />
                     );
                   }
                   return (
-                    <FilaSeleccion key={clave} descriptor={descriptor} valor={m.cumplimiento_base} onCambiar={cambiarSeleccion} />
+                    <FilaSeleccion
+                      key={clave}
+                      clave={clave}
+                      descriptor={descriptor}
+                      valor={m[clave] as BaseCumplimiento}
+                      onCambiar={(valor) => cambiarValor(clave, valor)}
+                    />
                   );
                 })}
             {!plegado && grupo.id === 'frescura' ? (
@@ -357,21 +388,80 @@ function FilaEscalera({
   );
 }
 
-// ── El desplegable de cumplimiento ───────────────────────────────────────────
+// ── Un desplegable de vocabulario cerrado (sobre qué se mide el cumplimiento) ─
 
 function FilaSeleccion({
+  clave,
   descriptor,
   valor,
   onCambiar,
 }: {
+  clave: keyof CoachAnalyticsMethod;
   descriptor: CampoSeleccion;
   valor: BaseCumplimiento;
   onCambiar: (v: BaseCumplimiento) => void;
 }) {
-  const id = 'am-cumplimiento_base';
+  const id = `am-${clave}`;
   return (
     <SettingRow layout="inline" label={descriptor.etiqueta} htmlFor={id} hint={descriptor.ayuda}>
       <Select id={id} aria-label={descriptor.etiqueta} value={valor} onValueChange={onCambiar} options={descriptor.opciones} className="w-56" />
+    </SettingRow>
+  );
+}
+
+// ── Un conjunto de familias de entreno ───────────────────────────────────────
+
+function FilaFamilias({
+  clave,
+  descriptor,
+  lista,
+  porDefecto,
+  error,
+  onAlternar,
+  onUsarDefecto,
+}: {
+  clave: keyof CoachAnalyticsMethod;
+  descriptor: CampoFamilias;
+  lista: Familia[];
+  porDefecto: Familia[];
+  error?: string;
+  onAlternar: (f: Familia) => void;
+  onUsarDefecto: () => void;
+}) {
+  const id = `am-${clave}`;
+  const defectoTexto = porDefecto.map((f) => FAMILIA_ETIQUETA_ES[f]).join(', ');
+  const cambiado = JSON.stringify(lista) !== JSON.stringify(porDefecto);
+  return (
+    <SettingRow
+      label={descriptor.etiqueta}
+      hintId={`${id}-hint`}
+      status={error ? 'error' : undefined}
+      error={error}
+      hint={
+        <>
+          {descriptor.ayuda} <span className="text-v2-faint">Por defecto: {defectoTexto}.</span>
+        </>
+      }
+    >
+      <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2" role="group" aria-label={descriptor.etiqueta} aria-describedby={`${id}-hint`}>
+        {FAMILIAS.map((f) => {
+          const activa = lista.includes(f);
+          return (
+            <Checkbox
+              key={f}
+              checked={activa}
+              disabled={activa && lista.length === 1}
+              onCheckedChange={() => onAlternar(f)}
+              label={FAMILIA_ETIQUETA_ES[f]}
+            />
+          );
+        })}
+        {cambiado ? (
+          <Button size="sm" variant="ghost" onClick={onUsarDefecto}>
+            Usar el de siempre
+          </Button>
+        ) : null}
+      </div>
     </SettingRow>
   );
 }

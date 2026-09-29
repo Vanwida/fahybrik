@@ -1,16 +1,17 @@
 // Borrador (strings con coma decimal) ↔ método, y los helpers de la escalera de
-// carga. Puro: sin React, sin red — lo comparten el componente y sus tests.
+// carga y del conjunto de familias. Puro: sin React, sin red. Lo comparten el
+// componente y sus tests.
 //
-// POR QUÉ EL CANDIDATO SE CONSTRUYE POR GRUPO, NO DE GOLPE: las 34 claves
-// numéricas viven en 7 grupos visuales independientes. Si «candidatoDe»
-// exigiera el borrador de las 34 a la vez, un campo roto y abandonado en un
+// POR QUÉ EL CANDIDATO SE CONSTRUYE POR GRUPO, NO DE GOLPE: las claves
+// numéricas viven en varios grupos visuales independientes. Si «candidatoDe»
+// exigiera el borrador de todas a la vez, un campo roto y abandonado en un
 // grupo bloquearía el guardado de CUALQUIER OTRO grupo para siempre. Por eso
 // solo se leen del borrador las claves que de verdad se están confirmando
 // (un grupo, o un único campo con «Usar X»); el resto sale de `vigente` — el
 // último método ya guardado, siempre válido. Las reglas que cruzan campos
 // (`validarMetodoAnalitico`) nunca cruzan dos grupos distintos (comprobado
-// campo a campo contra `descriptores.ts`), así que este recorte nunca esconde
-// un error real.
+// campo a campo contra `catalogo.ts`; lo fija el test de `metodo-analiticas`),
+// así que este recorte nunca esconde un error real.
 
 import { analyticsMethodSchema } from '@fahybrid/shared/domain/methodology/method-editors';
 import {
@@ -21,13 +22,15 @@ import {
   type FuenteCarga,
   type ModalidadCarga,
 } from '@fahybrid/shared/domain/analytics/metodo';
+import { FAMILIAS, type Familia } from '@fahybrid/shared/domain/analytics/lectura';
 import { ESTADOS_FRESCURA, ESTADO_FRESCURA_ES } from '@fahybrid/shared/domain/analytics/forma';
-import { CAMPOS_POR_GRUPO, DESCRIPTORES_METODO_ANALITICO, type GrupoId } from './descriptores';
+import { DESCRIPTORES_METODO_ANALITICO } from './catalogo';
+import { CAMPOS_POR_GRUPO, type GrupoId } from './descriptores';
 
 /** El borrador de los campos NUMÉRICOS: cada uno como texto, en su escala de PRESENTACIÓN. */
 export type BorradorMetodoAnalitico = Record<ClaveNumericaMetodo, string>;
 
-/** Las claves numéricas de cada grupo (sin las escaleras ni el desplegable), para el commit por grupo. */
+/** Las claves numéricas de cada grupo (sin escaleras, familias ni desplegable), para el commit por grupo. */
 export const CLAVES_NUMERICAS_POR_GRUPO: Record<GrupoId, ClaveNumericaMetodo[]> = Object.fromEntries(
   (Object.keys(CAMPOS_POR_GRUPO) as GrupoId[]).map((id) => [
     id,
@@ -35,7 +38,7 @@ export const CLAVES_NUMERICAS_POR_GRUPO: Record<GrupoId, ClaveNumericaMetodo[]> 
   ]),
 ) as Record<GrupoId, ClaveNumericaMetodo[]>;
 
-/** ¿Algún campo de este grupo (número o escalera) se sale de su defecto? Para abrir un grupo plegado que ya trae ajuste propio. */
+/** ¿Algún campo de este grupo se sale de su defecto? Para abrir un grupo plegado que ya trae ajuste propio. */
 export function grupoDifiereDeDefecto(grupo: GrupoId, m: CoachAnalyticsMethod, defectos: CoachAnalyticsMethod): boolean {
   return CAMPOS_POR_GRUPO[grupo].some((clave) => JSON.stringify(m[clave]) !== JSON.stringify(defectos[clave]));
 }
@@ -64,7 +67,7 @@ function decimalesDe(clave: ClaveNumericaMetodo): number {
   return d.tipo === 'numero' ? d.decimales : 0;
 }
 
-/** El borrador completo (las 34 claves numéricas) a partir de un método guardado. */
+/** El borrador completo (todas las claves numéricas) a partir de un método guardado. */
 export function draftOf(m: CoachAnalyticsMethod): BorradorMetodoAnalitico {
   const out = {} as BorradorMetodoAnalitico;
   for (const clave of Object.keys(DESCRIPTORES_METODO_ANALITICO) as Array<keyof CoachAnalyticsMethod>) {
@@ -150,6 +153,19 @@ export function anadirPeldano(lista: readonly FuenteCarga[], modalidad: Modalida
 /** Los peldaños admisibles de una modalidad que la escalera aún no lista, en el orden del vocabulario. */
 export function peldanosDisponibles(lista: readonly FuenteCarga[], modalidad: ModalidadCarga): FuenteCarga[] {
   return FUENTES_ADMISIBLES[modalidad].filter((f) => !lista.includes(f));
+}
+
+// ── El conjunto de familias ─────────────────────────────────────────────────
+
+/**
+ * Añade o quita una familia. Nunca deja el conjunto vacío (el reparto necesita
+ * al menos una) y lo devuelve siempre en el orden del vocabulario, para que un
+ * mismo conjunto se guarde y se compare igual sin importar el orden de clics.
+ */
+export function alternarFamilia(lista: readonly Familia[], familia: Familia): Familia[] {
+  const siguiente = lista.includes(familia) ? lista.filter((f) => f !== familia) : [...lista, familia];
+  if (siguiente.length === 0) return [...lista];
+  return FAMILIAS.filter((f) => siguiente.includes(f));
 }
 
 // ── La lectura en vivo de las cinco bandas de frescura ──────────────────────
