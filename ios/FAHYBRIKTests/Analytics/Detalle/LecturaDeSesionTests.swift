@@ -70,9 +70,9 @@ final class LecturaDeSesionTests: XCTestCase {
     }
 
     func testElResumenEsLoQueSePidioODeDondeSaleLaSesion() throws {
-        XCTAssertEqual(try lectura(.cinta).sujeto.resumen, "1 de 5 tramos de trabajo dentro de lo pedido")
-        XCTAssertEqual(try lectura(.remo).sujeto.resumen, "4 de 5 tramos de trabajo dentro de lo pedido")
-        XCTAssertEqual(try lectura(.sentadilla).sujeto.resumen, "1 de 1 tramo de trabajo dentro de lo pedido")
+        XCTAssertEqual(try lectura(.cinta).sujeto.resumen, "1 de 5 tramos dentro de lo pedido")
+        XCTAssertEqual(try lectura(.remo).sujeto.resumen, "4 de 5 tramos dentro de lo pedido")
+        XCTAssertEqual(try lectura(.sentadilla).sujeto.resumen, "1 de 1 tramo dentro de lo pedido")
         XCTAssertEqual(try lectura(.carreraDeSalud).sujeto.resumen, "Sin plan: lo que fue")
         XCTAssertNil(try lectura(.cinta, conCumplimiento: false).sujeto.resumen, "sin el cumplimiento no se afirma nada de lo pedido")
         XCTAssertEqual(try lectura(.carreraDeSalud).preguntaDeTramos, "Sin plan: lo que fue")

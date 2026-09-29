@@ -18,6 +18,12 @@ struct ColumnaDeTabla {
     var ancho: CGFloat? = nil
 }
 
+extension ColumnaDeTabla {
+    /// La columna «Cuándo» («sem. 24 ago», o «19 sep · estimado» en dos líneas, con su sello «Nuevo» encima): el mismo ancho en todas
+    /// las tablas, para que una fecha no baile de una pantalla a otra ni parta «sem.» de su día.
+    static let cuando = ColumnaDeTabla(cabecera: "Cuándo", alinear: .trailing, ancho: 96)
+}
+
 struct AnaliticasTabla<Fila: Identifiable, Celda: View>: View {
     /// Para VoiceOver: «Mejores esfuerzos por distancia».
     let etiqueta: String

@@ -46,9 +46,10 @@ final class AnaliticasDetalleGaleriaRenderTests: XCTestCase {
     @MainActor func testRemoLleno() throws { try familia(.remo, .lleno) }
     @MainActor func testRemoMixto() throws { try familia(.remo, .mixto) }
     @MainActor func testRemoVacio() throws { try familia(.remo, .vacio) }
+    @MainActor func testRemoPoco() throws { try familia(.remo, .poco) }
+    @MainActor func testRemoViejo() throws { try familia(.remo, .viejo) }
     @MainActor func testSkiLleno() throws { try familia(.ski, .lleno) }
     @MainActor func testBiciLleno() throws { try familia(.bici, .lleno) }
-    @MainActor func testBiciViejo() throws { try familia(.bici, .viejo) }
 
     // MARK: - Fuerza y estaciones: los cinco atletas
 
@@ -116,11 +117,11 @@ final class AnaliticasDetalleGaleriaRenderTests: XCTestCase {
     }
 
     @MainActor func testTextoDelSistemaAlMinimoYAlMaximoEnFuerzaYEnLaSesion() throws {
-        let detalle = try DetalleFixtures.detalle(.fuerza, .lleno)
-        let cumplimiento = try DetalleFixtures.cumplimiento()
+        // A `accessibility3` la pantalla más larga no cabe en una textura (16384 px): se usa la más corta que aún trae dato.
+        let detalle = try DetalleFixtures.detalle(.fuerza, .viejo)
         for (sufijo, tamano) in [("xs", DynamicTypeSize.xSmall), ("ax3", .accessibility3)] {
-            renderizaGaleria("detalle-fuerza-lleno-\(sufijo)", variantes: Array(VarianteDeGaleria.dos.prefix(1)), tamanoDeTexto: tamano) {
-                AnaliticasFamiliaGaleria(detalle: detalle, familia: .fuerza, cumplimiento: cumplimiento)
+            renderizaGaleria("detalle-fuerza-viejo-\(sufijo)", variantes: Array(VarianteDeGaleria.dos.prefix(1)), tamanoDeTexto: tamano) {
+                AnaliticasFamiliaGaleria(detalle: detalle, familia: .fuerza)
             }
             try sesion(.sentadilla, variantes: Array(VarianteDeGaleria.dos.prefix(1)), tamanoDeTexto: tamano, sufijo: "-\(sufijo)")
         }

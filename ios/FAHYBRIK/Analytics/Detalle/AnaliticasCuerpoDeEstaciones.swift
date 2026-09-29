@@ -36,7 +36,7 @@ struct AnaliticasCuerpoDeEstaciones: View {
                     columnas: [
                         ColumnaDeTabla(cabecera: "Estación"),
                         ColumnaDeTabla(cabecera: "Mejor", alinear: .trailing, ancho: 96),
-                        ColumnaDeTabla(cabecera: "Cuándo", alinear: .trailing, ancho: 92),
+                        ColumnaDeTabla.cuando,
                     ],
                     filas: lectura.estaciones
                 ) { e, columna in

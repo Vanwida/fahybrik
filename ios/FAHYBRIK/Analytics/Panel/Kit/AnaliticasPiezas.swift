@@ -278,13 +278,25 @@ struct AnaliticasCelda<Pie: View>: View {
     var body: some View {
         TeselaDia(
             cabecera: {
-                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
-                    Text(etiqueta)
-                        .papel(.rotulo)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                    if let ancla { AnaliticasChipAncla(ancla: ancla) }
+                let rotulo = Text(etiqueta)
+                    .papel(.rotulo)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let ancla {
+                    // En una celda de media pantalla, «Vatios al mismo pulso» y su ancla no caben en la misma línea: el ancla baja.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+                            rotulo.lineLimit(1)
+                            Spacer(minLength: 0)
+                            AnaliticasChipAncla(ancla: ancla)
+                        }
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                            rotulo
+                            AnaliticasChipAncla(ancla: ancla)
+                        }
+                    }
+                } else {
+                    rotulo
                 }
             },
             contenido: {

@@ -60,7 +60,7 @@ struct SujetoDeSesion: Equatable {
     let ancla: AnclaDeLectura?
     /// Qué parte del tiempo no se pudo preciar («No se sabe el 45 % del tiempo…»). Nula cuando todo se preció.
     let avisoSinSaber: String?
-    /// «3 de 4 tramos de trabajo dentro de lo pedido», o de dónde sale la sesión si no tiene plan.
+    /// «3 de 4 tramos dentro de lo pedido», o de dónde sale la sesión si no tiene plan.
     let resumen: String?
 }
 
@@ -162,10 +162,11 @@ struct LecturaDeSesion: Equatable {
         )
     }
 
-    /// «3 de 4 tramos de trabajo dentro de lo pedido»; sin plan, de dónde sale la sesión.
+    /// «3 de 4 tramos dentro de lo pedido» (los que el motor juzgó: un calentamiento con su ritmo pedido también cuenta, y las
+    /// recuperaciones van aparte); sin plan, de dónde sale la sesión.
     private static func resumen(_ s: DetalleDeSesion, fila: FilaDeSesion?) -> String? {
         if let t = fila?.tramos, t.detalle == "tramos", t.evaluables > 0 {
-            return "\(t.dentro) de \(t.evaluables) \(t.evaluables == 1 ? "tramo" : "tramos") de trabajo dentro de lo pedido"
+            return "\(t.dentro) de \(t.evaluables) \(t.evaluables == 1 ? "tramo" : "tramos") dentro de lo pedido"
         }
         return s.fueraDelPlan != nil ? "Sin plan: lo que fue" : nil
     }

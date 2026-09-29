@@ -18,28 +18,13 @@ struct AnaliticasCuerpoDeCorrer: View {
 
     var body: some View {
         if lectura.estado != .vacio {
-            tendencia
+            AnaliticasTendenciaDelSujeto(sujeto: lectura.sujeto, fila: lectura.fila, familia: .correr)
             umbral
             mejores
             motor
             capacidad
             porTipo
             loQueTePiden
-        }
-    }
-
-    // MARK: Tendencia
-
-    @ViewBuilder
-    private var tendencia: some View {
-        if case .marca(let m) = lectura.sujeto.cuerpo, let fila = lectura.fila, let dato = fila.dato {
-            AnaliticasSeccion(titulo: m.etiqueta, pregunta: AnaliticasFormato.preguntaDeTendencia()) {
-                if let serie = fila.serie, serie.seDibuja {
-                    AnaliticasTendencia(serie: serie, unidad: dato.unidad, familia: .correr, etiqueta: "Tendencia de \(m.etiqueta)")
-                } else {
-                    AnaliticasNota(texto: "Con dos semanas con dato ya se dibuja la tendencia.")
-                }
-            }
         }
     }
 
@@ -88,7 +73,7 @@ struct AnaliticasCuerpoDeCorrer: View {
                         ColumnaDeTabla(cabecera: "Distancia"),
                         ColumnaDeTabla(cabecera: "Tiempo", alinear: .trailing),
                         ColumnaDeTabla(cabecera: "Ritmo", alinear: .trailing),
-                        ColumnaDeTabla(cabecera: "Cuándo", alinear: .trailing),
+                        ColumnaDeTabla.cuando,
                     ],
                     filas: lectura.mejores
                 ) { e, columna in
@@ -111,7 +96,8 @@ struct AnaliticasCuerpoDeCorrer: View {
         let visibles = [motor, desacople].compactMap { $0 }.filter { $0.estado == .medida || AnaliticasFilaSinDato.dice($0) }
         if !visibles.isEmpty {
             AnaliticasSeccion(titulo: "Motor y economía", pregunta: "Lo que corres por el mismo esfuerzo") {
-                let conDato = visibles.filter { $0.estado == .medida && $0.dato != nil }
+                // Si el Motor ya es el sujeto (y su tendencia va justo debajo), no se repite como cifra.
+                let conDato = visibles.filter { $0.estado == .medida && $0.dato != nil && !($0.id == LecturaDeCorrer.idMotor && lectura.filaEsMotor) }
                 if !conDato.isEmpty {
                     AnaliticasRejilla {
                         ForEach(conDato) { l in

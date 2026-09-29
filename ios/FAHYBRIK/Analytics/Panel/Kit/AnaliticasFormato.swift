@@ -46,7 +46,7 @@ enum AnaliticasFormato {
         case .sKm, .s500m, .s1000m, .segundos: return Formato.clock(valor)
         case .horas, .mlKgMin, .rondas, .rpe, .rir: return Formato.esDecimal(valor)
         case .ratio, .mS: return Formato.esDecimal(valor, decimals: 2)
-        case .kg: return Formato.esDecimal(valor)
+        case .kg: return valor >= 10000 ? conMillar(valor) : Formato.esDecimal(valor)
         case .metros: return valor >= 1000 ? Formato.esDecimal(valor / 1000, decimals: valor >= 10000 ? 0 : 1) : "\(Int(valor.rounded()))"
         default: return conMillar(valor)
         }
@@ -112,7 +112,7 @@ enum AnaliticasFormato {
         case .bpm: return "\(signo)\(Int(a.rounded())) \(Vocab.ppm)"
         case .kg: return "\(signo)\(Formato.esDecimal(a)) kg"
         case .metros: return a >= 1000 ? "\(signo)\(Formato.esDecimal(a / 1000)) km" : "\(signo)\(Int(a.rounded())) m"
-        case .pct: return "\(signo)\(Int(a.rounded())) pt"
+        case .pct: return "\(signo)\(Int(a.rounded())) %"
         case .ratio: return "\(signo)\(Formato.esDecimal(a, decimals: 2))"
         case .mlKgMin: return "\(signo)\(Formato.esDecimal(a))"
         case .watts: return "\(signo)\(Int(a.rounded())) W"

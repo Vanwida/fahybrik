@@ -17,6 +17,7 @@ struct AnaliticasCuerpoDeErgo: View {
 
     var body: some View {
         if lectura.estado != .vacio {
+            AnaliticasTendenciaDelSujeto(sujeto: lectura.sujeto, fila: lectura.fila, familia: lectura.maquina.lectura)
             umbral
             piezas
             vatios
@@ -35,7 +36,9 @@ struct AnaliticasCuerpoDeErgo: View {
                 }
                 AnaliticasNota(texto: u.explicaEs)
                 if u.ancla == .declarada || u.ancla.esEstimada {
-                    AnaliticasNota(texto: "\(u.ancla == .declarada ? "Lo declaraste tú" : "Es una estimación"): \(Self.textoDelTest(lectura.maquina)) lo convierte en medido y afina la carga de cada pieza.")
+                    // «Lo declaraste tú» ya lo dice la explicación del servidor, encima: aquí solo qué lo arregla.
+                    let test = Self.textoDelTest(lectura.maquina)
+                    AnaliticasNota(texto: "\(u.ancla == .declarada ? test.capitalizadoEs : "Es una estimación: \(test)") lo convierte en medido y afina la carga de cada pieza.")
                     AnaliticasBoton(texto: "Hacer el test", secundario: true) { onSalida(.tests) }
                 }
             } else {
@@ -75,7 +78,7 @@ struct AnaliticasCuerpoDeErgo: View {
                         ColumnaDeTabla(cabecera: "Pieza", ancho: 74),
                         ColumnaDeTabla(cabecera: "Marca", alinear: .trailing),
                         ColumnaDeTabla(cabecera: lectura.maquina == .bici ? "/1000 m" : "/500 m", alinear: .trailing),
-                        ColumnaDeTabla(cabecera: "Cuándo", alinear: .trailing),
+                        ColumnaDeTabla.cuando,
                     ],
                     filas: lectura.piezas
                 ) { pieza, columna in
@@ -109,19 +112,24 @@ struct AnaliticasCuerpoDeErgo: View {
 
     @ViewBuilder
     private var vatios: some View {
-        if let motor = lectura.motor, motor.estado == .medida || AnaliticasFilaSinDato.dice(motor) {
-            AnaliticasSeccion(titulo: "Vatios al mismo pulso", pregunta: "Lo que rindes por el mismo esfuerzo") {
+        let cadencia = lectura.cadencia.flatMap { $0.estado == .medida && $0.dato != nil ? $0 : nil }
+        // Si los vatios al mismo pulso ya son el sujeto, su cifra y su tendencia están arriba: aquí quedaría solo la cadencia.
+        let repite = lectura.filaEsMotor
+        if let motor = lectura.motor, motor.estado == .medida || AnaliticasFilaSinDato.dice(motor), !repite || cadencia != nil {
+            AnaliticasSeccion(titulo: repite ? "Cadencia" : "Vatios al mismo pulso", pregunta: repite ? "Cómo sacas esos vatios" : "Lo que rindes por el mismo esfuerzo") {
                 if motor.estado == .medida, let d = motor.dato {
                     AnaliticasRejilla {
-                        AnaliticasCelda(etiqueta: "Vatios al mismo pulso", valor: d.valor, unidad: d.unidad, delta: AnaliticasDerivados.delta(de: motor), ancla: motor.procedencia.ancla)
-                        if let c = lectura.cadencia, c.estado == .medida, let dc = c.dato {
+                        if !repite {
+                            AnaliticasCelda(etiqueta: "Vatios al mismo pulso", valor: d.valor, unidad: d.unidad, delta: AnaliticasDerivados.delta(de: motor), ancla: motor.procedencia.ancla)
+                        }
+                        if let dc = cadencia?.dato {
                             AnaliticasCelda(etiqueta: lectura.maquina == .bici ? "Cadencia" : "Paladas", valor: dc.valor, unidad: dc.unidad, nota: "media en piezas de trabajo")
                         }
                     }
                     if !lectura.filaEsMotor, let s = motor.serie, s.seDibuja {
                         AnaliticasTendencia(serie: s, unidad: d.unidad, familia: lectura.maquina.lectura, etiqueta: "Vatios al mismo pulso", alto: 150)
                     }
-                    AnaliticasNota(texto: motor.procedencia.explicaEs)
+                    if !repite { AnaliticasNota(texto: motor.procedencia.explicaEs) }
                 } else {
                     AnaliticasFilaSinDato(lectura: motor, onSalida: onSalida)
                 }

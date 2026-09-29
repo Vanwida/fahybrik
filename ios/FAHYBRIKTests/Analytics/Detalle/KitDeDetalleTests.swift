@@ -24,6 +24,29 @@ final class KitDeDetalleTests: XCTestCase {
         }
     }
 
+    // MARK: - Rótulos de la curva de mejores esfuerzos
+
+    func testElRotuloDeLaPenultimaMarcaCreceHaciaLaIzquierdaSiEstaPegadoAlUltimo() {
+        let marcas: [Double] = [400, 1000, 5000, 10000]
+        let rango = 400.0...10000.0
+        XCTAssertEqual(AnaliticasCurvaMejores.ancla(de: 400, entre: marcas, en: rango), .topLeading)
+        XCTAssertEqual(AnaliticasCurvaMejores.ancla(de: 10000, entre: marcas, en: rango), .topTrailing)
+        XCTAssertEqual(AnaliticasCurvaMejores.ancla(de: 5000, entre: marcas, en: rango), .topTrailing, "«5 km» y «10 km» centrados se pisan")
+        XCTAssertEqual(AnaliticasCurvaMejores.ancla(de: 1000, entre: marcas, en: rango), .top)
+        // Con el final lejos, el penúltimo se queda centrado.
+        XCTAssertEqual(AnaliticasCurvaMejores.ancla(de: 1000, entre: [400, 1000, 10000], en: rango), .top)
+        // Un eje de una sola marca no tiene vecino que pisar.
+        XCTAssertEqual(AnaliticasCurvaMejores.ancla(de: 400, entre: [400], en: 400.0...401.0), .topLeading)
+    }
+
+    // MARK: - Las cifras que el detalle escribe de otra manera que la portada
+
+    func testUnaCargaDeMasDeDiezMilKilosLlevaSuPuntoDeMillar() {
+        XCTAssertEqual(AnaliticasFormato.cifra(98171, .kg), "98.171")
+        XCTAssertEqual(AnaliticasFormato.cifra(9800, .kg), "9800", "hasta cuatro cifras no se parte, como en castellano")
+        XCTAssertEqual(AnaliticasFormato.cifra(144.7, .kg), "144,7")
+    }
+
     // MARK: - Cubos de una serie semanal
 
     private func semanal(_ valores: [Double?], plan: [Double?]? = nil) -> SerieDeLectura {

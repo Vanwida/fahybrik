@@ -75,7 +75,7 @@ struct AnaliticasCurvaMejores: View {
                     AxisMarks(values: visibles) { value in
                         AxisGridLine(stroke: StrokeStyle(lineWidth: Trazo.rejilla)).foregroundStyle(Theme.Color.hairlineStrong)
                         if let m = value.as(Double.self) {
-                            AxisValueLabel(anchor: m == visibles.first ? .topLeading : m == visibles.last ? .topTrailing : .top, verticalSpacing: 6) {
+                            AxisValueLabel(anchor: Self.ancla(de: m, entre: visibles, en: lo...hi), verticalSpacing: 6) {
                                 TextoDeEje(texto: Self.nombre(m))
                             }
                         }
@@ -87,6 +87,20 @@ struct AnaliticasCurvaMejores: View {
             }
         }
     }
+
+    /// Dónde se ancla el rótulo de una marca: el primero crece hacia la derecha, el último hacia la izquierda y, si la penúltima está
+    /// a menos de un tercio del eje de la última (en escala logarítmica), también hacia la izquierda: centrados no caben.
+    static func ancla(de marca: Double, entre marcas: [Double], en rango: ClosedRange<Double>) -> UnitPoint {
+        guard let primera = marcas.first, let ultima = marcas.last else { return .top }
+        if marca == primera { return .topLeading }
+        if marca == ultima { return .topTrailing }
+        let ancho = log(rango.upperBound / rango.lowerBound)
+        guard marcas.count > 2, marca == marcas[marcas.count - 2], ancho > 0 else { return .top }
+        return log(ultima / marca) / ancho < separacionMinimaEntreRotulos ? .topTrailing : .top
+    }
+
+    /// Cuánto del eje (0…1) necesitan dos rótulos de distancia centrados para no pisarse a 15 pt en una tarjeta de teléfono.
+    private static let separacionMinimaEntreRotulos = 0.33
 
     /// «400 m» · «1 km».
     static func nombre(_ metros: Double) -> String { metros >= 1000 ? "\(Formato.esDecimal(metros / 1000)) km" : "\(Int(metros)) m" }

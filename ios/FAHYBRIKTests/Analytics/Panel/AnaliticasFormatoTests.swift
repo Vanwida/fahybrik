@@ -51,7 +51,8 @@ final class AnaliticasFormatoTests: XCTestCase {
         XCTAssertEqual(AnaliticasFormato.formatearDelta(-17, .segundos), "\u{2212}17 s")
         XCTAssertEqual(AnaliticasFormato.formatearDelta(-353, .segundos), "\u{2212}5:53")
         XCTAssertEqual(AnaliticasFormato.formatearDelta(7.4, .kg), "+7,4 kg")
-        XCTAssertEqual(AnaliticasFormato.formatearDelta(12, .pct), "+12 pt")
+        // `pct` es un cambio RELATIVO (140,3 → 144,7 kg = +3 %); los puntos porcentuales viajan como `pp`.
+        XCTAssertEqual(AnaliticasFormato.formatearDelta(12, .pct), "+12 %")
         XCTAssertEqual(AnaliticasFormato.formatearDelta(-7, .puntos), "\u{2212}7 pt")
         XCTAssertEqual(AnaliticasFormato.formatearDelta(7, .pp), "+7 pt")
         XCTAssertEqual(AnaliticasFormato.formatearDelta(2, .tramos), "+2 tramos")

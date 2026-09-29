@@ -10,6 +10,26 @@ extension SerieDeLectura {
     var seDibuja: Bool { puntos.compactMap(\.v).count >= 2 }
 }
 
+/// La sección que sigue al sujeto de una familia: la serie de LA MISMA fila que el sujeto (la de la portada), titulada con su marca.
+/// Con menos de dos semanas con dato dice cuándo se dibujará, en vez de callarse: el atleta abrió la pantalla esperando verla.
+struct AnaliticasTendenciaDelSujeto: View {
+    let sujeto: SujetoDeFamilia
+    let fila: LecturaAnalitica?
+    let familia: FamiliaLectura
+
+    var body: some View {
+        if case .marca(let m) = sujeto.cuerpo, let fila, let dato = fila.dato {
+            AnaliticasSeccion(titulo: m.etiqueta, pregunta: AnaliticasFormato.preguntaDeTendencia()) {
+                if let serie = fila.serie, serie.seDibuja {
+                    AnaliticasTendencia(serie: serie, unidad: dato.unidad, familia: familia, etiqueta: "Tendencia de \(m.etiqueta)")
+                } else {
+                    AnaliticasNota(texto: "Con dos semanas con dato ya se dibuja la tendencia.")
+                }
+            }
+        }
+    }
+}
+
 struct AnaliticasTendencia: View {
     let serie: SerieDeLectura
     /// La unidad del dato: manda la escala y el sentido de «mejor».
