@@ -27,6 +27,8 @@ enum AnaliticasFechas {
     /// el «sept» de ICU, para que el eje diga lo mismo que el contrato.
     private static let meses = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 
+    static let diasPorSemana = 7
+
     static func fecha(_ iso: String) -> Date? { Self.iso.date(from: iso) }
     static func iso(_ fecha: Date) -> String { Self.iso.string(from: fecha) }
 

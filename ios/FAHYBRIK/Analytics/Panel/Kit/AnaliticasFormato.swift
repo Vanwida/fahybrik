@@ -11,6 +11,7 @@ enum AnaliticasFormato {
         switch unidad {
         case .sKm: return Formato.ritmo(valor, .porKm)
         case .s500m: return Formato.ritmo(valor, .por500m)
+        case .s1000m: return "\(Formato.clock(valor))/1000m"
         case .segundos: return Formato.clock(valor)
         case .horas: return "\(Formato.esDecimal(valor)) h"
         case .ms: return Formato.entero(valor, "ms")
@@ -26,6 +27,12 @@ enum AnaliticasFormato {
         case .kcal: return "\(conMillar(valor)) kcal"
         case .sesiones: return Formato.entero(valor, "sesiones")
         case .dias: return Formato.entero(valor, "días")
+        case .spm: return Formato.entero(valor, "pal/min")
+        case .rpm: return Formato.entero(valor, "rpm")
+        case .series: return Formato.entero(valor, "series")
+        case .cm: return Formato.entero(valor, "cm")
+        case .rondas: return "\(Formato.esDecimal(valor)) rondas"
+        case .pp: return "\(Int(valor.rounded())) pt"
         case .tss, .tssSemana, .puntos, .desconocida: return conMillar(valor)
         }
     }
@@ -33,8 +40,8 @@ enum AnaliticasFormato {
     /// Solo la cifra, para cuando la unidad la pinta el layout aparte.
     static func cifra(_ valor: Double, _ unidad: UnidadLectura) -> String {
         switch unidad {
-        case .sKm, .s500m, .segundos: return Formato.clock(valor)
-        case .horas, .mlKgMin: return Formato.esDecimal(valor)
+        case .sKm, .s500m, .s1000m, .segundos: return Formato.clock(valor)
+        case .horas, .mlKgMin, .rondas: return Formato.esDecimal(valor)
         case .ratio, .mS: return Formato.esDecimal(valor, decimals: 2)
         case .kg: return Formato.esDecimal(valor)
         case .metros: return valor >= 1000 ? Formato.esDecimal(valor / 1000, decimals: valor >= 10000 ? 0 : 1) : "\(Int(valor.rounded()))"
@@ -48,6 +55,7 @@ enum AnaliticasFormato {
         switch unidad {
         case .sKm: return "/km"
         case .s500m: return "/500m"
+        case .s1000m: return "/1000m"
         case .horas: return "h"
         case .ms: return "ms"
         case .bpm: return Vocab.ppm
@@ -60,6 +68,12 @@ enum AnaliticasFormato {
         case .kcal: return "kcal"
         case .sesiones: return "sesiones"
         case .dias: return "días"
+        case .spm: return "pal/min"
+        case .rpm: return "rpm"
+        case .series: return "series"
+        case .cm: return "cm"
+        case .rondas: return "rondas"
+        case .pp: return "pt"
         case .mlKgMin: return "VO₂máx"
         case .segundos, .ratio, .tss, .tssSemana, .puntos, .desconocida: return ""
         }
@@ -69,7 +83,7 @@ enum AnaliticasFormato {
     static func esCero(_ delta: Double, _ unidad: UnidadLectura) -> Bool {
         let decimales: Double
         switch unidad {
-        case .horas, .s500m, .mlKgMin, .kg: decimales = 1
+        case .horas, .s500m, .s1000m, .mlKgMin, .kg, .rondas: decimales = 1
         case .ratio, .mS: decimales = 2
         default: decimales = 0
         }
@@ -85,6 +99,7 @@ enum AnaliticasFormato {
         switch unidad {
         case .sKm: return "\(signo)\(Int(a.rounded())) s/km"
         case .s500m: return "\(signo)\(Formato.esDecimal(a)) s/500m"
+        case .s1000m: return "\(signo)\(Formato.esDecimal(a)) s/1000m"
         case .segundos: return a >= 60 ? "\(signo)\(Formato.clock(a))" : "\(signo)\(Int(a.rounded())) s"
         case .horas: return "\(signo)\(Formato.esDecimal(a)) h"
         case .ms: return "\(signo)\(Int(a.rounded())) ms"
@@ -96,6 +111,12 @@ enum AnaliticasFormato {
         case .mlKgMin: return "\(signo)\(Formato.esDecimal(a))"
         case .watts: return "\(signo)\(Int(a.rounded())) W"
         case .mS: return "\(signo)\(Formato.esDecimal(a, decimals: 2)) m/s"
+        case .pp: return "\(signo)\(Int(a.rounded())) pt"
+        case .spm: return "\(signo)\(Int(a.rounded())) pal/min"
+        case .rpm: return "\(signo)\(Int(a.rounded())) rpm"
+        case .series: return "\(signo)\(Int(a.rounded())) series"
+        case .cm: return "\(signo)\(Int(a.rounded())) cm"
+        case .rondas: return "\(signo)\(Formato.esDecimal(a)) rondas"
         default: return "\(signo)\(conMillar(a))"
         }
     }
@@ -103,7 +124,7 @@ enum AnaliticasFormato {
     /// ¿Menos es mejor? Depende de la unidad: menos segundos por km es mejor; más vatios, mejor.
     static func menosEsMejor(_ unidad: UnidadLectura) -> Bool {
         switch unidad {
-        case .sKm, .s500m, .segundos, .bpm: return true
+        case .sKm, .s500m, .s1000m, .segundos, .bpm: return true
         default: return false
         }
     }

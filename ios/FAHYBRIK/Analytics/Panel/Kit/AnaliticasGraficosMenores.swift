@@ -75,7 +75,7 @@ struct AnaliticasChispa: View {
 
 // MARK: - Reparto: una barra apilada al 100 % con la marca del objetivo del coach
 
-struct ParteDeReparto: Identifiable {
+struct TramoDeBarra: Identifiable {
     let code: String
     let etiqueta: String
     let pct: Double
@@ -84,7 +84,7 @@ struct ParteDeReparto: Identifiable {
 }
 
 struct AnaliticasBarraReparto: View {
-    let partes: [ParteDeReparto]
+    let partes: [TramoDeBarra]
     /// El corte del objetivo del coach, en % desde la izquierda, con su texto.
     var objetivo: (pct: Double, etiqueta: String)? = nil
     var alto: CGFloat = 22

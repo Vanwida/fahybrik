@@ -153,13 +153,34 @@ enum AnaliticasDerivados {
 
     /// Un reparto proporcional → las partes de la barra al 100 %. Tres partes se
     /// leen como suave · media · dura (Z1, Z3, Z5 del espectro, plegado).
-    static func partesDeReparto(_ l: LecturaAnalitica) -> [ParteDeReparto] {
+    static func partesDeReparto(_ l: LecturaAnalitica) -> [TramoDeBarra] {
         guard let r = l.reparto, r.esProporcional else { return [] }
         let n = r.partes.count
         return r.partes.enumerated().map { i, p in
             let zona = n == 3 ? [1, 3, 5][i] : i + 1
-            return ParteDeReparto(code: p.code, etiqueta: p.etiquetaEs, pct: p.pct ?? 0, color: AnaliticasColor.zona(zona, de: n == 3 ? 5 : n))
+            return TramoDeBarra(code: p.code, etiqueta: p.etiquetaEs, pct: p.pct ?? 0, color: AnaliticasColor.zona(zona, de: n == 3 ? 5 : n))
         }
+    }
+
+    /// La métrica de una fila de Progreso: el título servido sin el nombre de la
+    /// familia que ya encabeza la fila («Fuerza · Sentadilla» → «Sentadilla»).
+    static func metricaDeProgreso(_ l: LecturaAnalitica) -> String {
+        guard let nombre = l.familia?.nombre, !nombre.isEmpty else { return l.tituloEs }
+        let prefijo = "\(nombre) · "
+        if l.tituloEs.hasPrefix(prefijo) { return String(l.tituloEs.dropFirst(prefijo.count)) }
+        return l.tituloEs == nombre ? "marca clave" : l.tituloEs
+    }
+
+    /// La marca anterior de un récord: la referencia que el servidor llama `record_anterior`.
+    static func recordAnterior(_ l: LecturaAnalitica) -> Double? {
+        guard let r = l.dato?.referencia, r.de == IdsDelPanel.referenciaRecordAnterior else { return nil }
+        return r.valor
+    }
+
+    /// El día del último punto con valor de la serie de una lectura: de cuándo es
+    /// un número que ya no es de hoy.
+    static func ultimoDeLaSerie(_ l: LecturaAnalitica?) -> String? {
+        l?.serie?.puntos.last(where: { $0.v != nil })?.t
     }
 
     /// La banda del basal de una serie: dos referencias (mínimo y máximo) en unidades reales.
@@ -189,19 +210,15 @@ enum AnaliticasDerivados {
         var celdas: [CeldaDeEstado] = []
         var nota: String? = nil
         var sinPalabra = "Sin carga todavía"
-        let historia = forma.flatMap { l -> (llevas: Int, hacen: Int)? in
-            if case .historia(let llevas, let hacen)? = l.cobertura.falta { return (llevas, hacen) }
-            return nil
-        }
+        let plazo = AnaliticasEstados.plazoDeHistoria(.estado, [forma].compactMap { $0 })
 
         if estadoBloque == .vacio {
             nota = "Con tu primer entreno aparecen aquí tu forma, tu fatiga y tu frescura."
-        } else if let historia, historia.llevas > 0 {
+        } else if let plazo, plazo.llevas > 0 {
             // Arranque en frío: la forma y la frescura suben por pura aritmética;
             // solo la fatiga (la ventana corta) dice algo. Se dibuja el plazo.
             sinPalabra = "Todavía es pronto"
-            let hacen = p.metodo.semanasMinimasForma ?? Int(ceil(Double(historia.hacen) / 7))
-            nota = "Forma y frescura a partir de la semana \(hacen) · llevas \(historia.llevas / 7)"
+            nota = "Forma y frescura a partir de la semana \(plazo.hacen) · llevas \(plazo.llevas)"
             if let v = fatiga?.dato?.valor { celdas.append(CeldaDeEstado(etiqueta: fatiga!.tituloEs, valor: v)) }
         } else {
             if palabra == nil { sinPalabra = "Sin veredicto" }
@@ -216,8 +233,8 @@ enum AnaliticasDerivados {
             // La palabra de la disposición la pone el servidor (su veredicto); si el
             // dato no es de hoy, se dice de cuándo es.
             var palabraR = r.veredicto?.etiquetaEs
-            if palabraR == nil, r.cobertura.diasConDato == 0, let de = r.cobertura.ultimoDato {
-                palabraR = "del \(AnaliticasFechas.corta(de))"
+            if palabraR == nil, r.cobertura.diasConDato == 0 {
+                palabraR = ultimoDeLaSerie(lectura(p.bloques.recuperacion, IdsDelPanel.readiness)).map { "del \(AnaliticasFechas.corta($0))" } ?? "no es de hoy"
             }
             celdas.append(CeldaDeEstado(etiqueta: r.tituloEs, valor: v, palabra: palabraR))
         }
