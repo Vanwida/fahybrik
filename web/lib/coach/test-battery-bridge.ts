@@ -40,6 +40,7 @@ import {
   benchmarkLowerIsBetter,
   benchmarkIsDirectional,
 } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import { JUMP_HEIGHT_MAX_CM } from '@fahybrid/shared/domain/jump/physics';
 import { storeResultsSchema, type StoreResultSpec } from '@fahybrid/shared/schema/test-battery';
 import type { TestSource } from '@fahybrid/shared/domain/athlete/record-test-result';
 
@@ -54,7 +55,8 @@ export type BridgeError =
   | 'assignment_not_found'
   | 'not_a_test'
   | 'no_coach'
-  | 'unknown_slug';
+  | 'unknown_slug'
+  | 'implausible_value';
 
 /** One recorded value with its progression delta vs the athlete's previous value
  *  for the same slug. `prev_value` is the last dated `athlete_benchmarks` value
@@ -127,9 +129,15 @@ export async function recordBatteryResults(params: {
 
   const specBySlug = new Map(specs.map((s) => [s.slug, s]));
 
-  // Validate every entered slug belongs to THIS test's contract.
+  // Validate every entered slug belongs to THIS test's contract, and that a jump
+  // height is a jump a human can do (the physical ceiling, never the coach's): a
+  // 720 cm CMJ was stored as a mark on 13-08-2026 (migration 0278).
   for (const e of entries) {
-    if (!specBySlug.has(e.slug)) return { ...out, error: 'unknown_slug' };
+    const spec = specBySlug.get(e.slug);
+    if (!spec) return { ...out, error: 'unknown_slug' };
+    if (spec.measure === 'height' && e.value > JUMP_HEIGHT_MAX_CM) {
+      return { ...out, error: 'implausible_value' };
+    }
   }
 
   const coach_id = rows[0].coach_id ? Number(rows[0].coach_id) : null;

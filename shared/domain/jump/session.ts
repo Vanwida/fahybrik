@@ -3,7 +3,7 @@
 // kinds reserva SJ/DJ/brazos libres para no reabrir el modelo. v1 solo ejecuta
 // cmj y loaded_cmj.
 
-import { flightTimeSeconds, heightCm, takeoffVelocityMs } from './physics';
+import { flightTimeSeconds, heightCm, isPlausibleJumpFlight, takeoffVelocityMs } from './physics';
 
 export type JumpKind = 'cmj' | 'cmj_free_arms' | 'sj' | 'dj' | 'loaded_cmj';
 export type JumpLoad = { kind: 'none' } | { kind: 'kg'; kg: number } | { kind: 'pct_bw'; pct: number };
@@ -32,10 +32,11 @@ export function resolveLoadKg(load: JumpLoad, bodyMassKg: number | null): number
   return (load.pct / 100) * bodyMassKg;
 }
 
+/** Un intento es un salto si no se descartó y su vuelo es físicamente posible. */
 export function resolveAttempt(a: JumpAttempt): ResolvedJumpAttempt | null {
   if (a.quality === 'discarded') return null;
   const t = flightTimeSeconds(a.takeoff_frame, a.landing_frame, a.fps);
-  if (t == null) return null;
+  if (t == null || !isPlausibleJumpFlight(t)) return null;
   const h = heightCm(t);
   const v = takeoffVelocityMs(t);
   if (h == null || v == null) return null;

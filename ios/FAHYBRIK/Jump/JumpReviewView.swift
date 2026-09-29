@@ -14,6 +14,11 @@ struct JumpReviewView: View {
     @State private var mark: Mark = .takeoff
 
     private var current: Int { mark == .takeoff ? takeoff : landing }
+    /// Solo se conserva un salto posible: más de 1 s en el aire es un aterrizaje mal
+    /// marcado, y el servidor no lo guarda (0278).
+    private var isPlausible: Bool {
+        JumpPhysics.isPlausible(takeoffFrame: takeoff, landingFrame: landing, fps: fps)
+    }
     private var heightLabel: String {
         guard let h = JumpPhysics.heightCm(takeoffFrame: takeoff, landingFrame: landing, fps: fps) else {
             return "—"
@@ -55,6 +60,12 @@ struct JumpReviewView: View {
                     .font(Theme.Typography.caption)
                     .foregroundStyle(Theme.Color.muted)
 
+                if !isPlausible {
+                    Text("Más de 1 s en el aire no es un salto. Revisa el aterrizaje.")
+                        .font(Theme.Typography.caption)
+                        .foregroundStyle(Theme.Color.danger)
+                }
+
                 HStack(spacing: Theme.Spacing.m) {
                     Button { nudge(-1) } label: {
                         Image(systemName: "chevron.left")
@@ -77,7 +88,7 @@ struct JumpReviewView: View {
                         .foregroundStyle(Theme.Color.muted)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                    ExpertPrimaryButton(title: "CONSERVAR", height: 48, action: onKeep)
+                    ExpertPrimaryButton(title: "CONSERVAR", height: 48, enabled: isPlausible, action: onKeep)
                 }
             }
             .padding(Theme.Spacing.l)

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { JUMP_FLIGHT_MAX_S, flightTimeSeconds, isPlausibleJumpFlight } from '../domain/jump/physics';
 
 // #34 — the `store_results` CONTRACT: what a test session promises to measure.
 //
@@ -93,14 +94,27 @@ export const testResultEntrySchema = z.object({
 });
 export type TestResultEntry = z.infer<typeof testResultEntrySchema>;
 
-export const jumpAttemptInputSchema = z.object({
-  kind: z.enum(['cmj', 'cmj_free_arms', 'sj', 'dj', 'loaded_cmj']),
-  takeoff_frame: z.number().int().nonnegative(),
-  landing_frame: z.number().int().nonnegative(),
-  fps: z.number().positive().max(480),
-  quality: z.enum(['ok', 'staggered', 'low_fps', 'discarded']),
-  kept: z.boolean(),
-});
+export const jumpAttemptInputSchema = z
+  .object({
+    kind: z.enum(['cmj', 'cmj_free_arms', 'sj', 'dj', 'loaded_cmj']),
+    takeoff_frame: z.number().int().nonnegative(),
+    landing_frame: z.number().int().nonnegative(),
+    fps: z.number().positive().max(480),
+    quality: z.enum(['ok', 'staggered', 'low_fps', 'discarded']),
+    kept: z.boolean(),
+  })
+  // Límite FÍSICO: un intento que cuenta tiene que ser un salto posible (vuelo > 0
+  // y hasta JUMP_FLIGHT_MAX_S). Uno descartado se guarda tal cual, como rastro.
+  .superRefine((a, ctx) => {
+    if (a.quality === 'discarded') return;
+    if (!isPlausibleJumpFlight(flightTimeSeconds(a.takeoff_frame, a.landing_frame, a.fps))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['landing_frame'],
+        message: `Un salto no vuela más de ${JUMP_FLIGHT_MAX_S} s: revisa el despegue y el aterrizaje.`,
+      });
+    }
+  });
 export type JumpAttemptInput = z.infer<typeof jumpAttemptInputSchema>;
 
 export const recordTestResultsBodySchema = z.object({
