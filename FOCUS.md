@@ -10,6 +10,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 **RELOJ · CORRER, FASE 1 (29-09, worktree `agent-ac72d9f51db3a2dcc`, sin fusionar; DECISIONS 29-09).** Hecha la parte pura: `Vivo.cuadroMuneca` (lo que pinta la muñeca, Always-On incluido), ritmo actual de 10 s con suelos de honestidad, `Vivo.Paso` Codable y vectores de oro kit→Swift. Siguen: vistas del reloj (`Muneca/`), cable (F2), hápticos (F3), voz (F4), método/M3/M8 en servidor (F5).
 
+**RELOJ · CORRER, FASE 2: EL ESPEJO PINTA EL MISMO CUADRO (30-09, worktree `agent-a468e6689df45dff7`, sin fusionar; DECISIONS 30-09).** El móvil manda el plan (`MessageType.plan`) y un cursor por trama; la muñeca produce el `CuadroMuneca` con relojes locales (`Vivo.EspejoMuneca`, `WatchPrimaryOwner+Espejo.swift`: `cuadroMuneca(ahora:)`, nil = cara vieja). Probado igual al solitario y compatible viejo/nuevo. Faltan: vistas (`Muneca/`) y cablear `MirrorHUDView`, `undo`/`plus30` en el motor, aparato.
+
 **RELOJ · SE LANZA SOLO AL EMPEZAR (29-09, worktree `agent-a6bcbe816a50de313`, sin fusionar; DECISIONS 29-09).** «No conecta» = una carrera sin calle/cinta no lanzaba
 el reloj ni lo decía. Ahora siempre lanza sin preguntar (fuera «Preparar grabación» y «Continuar sin reloj»), deja rastro (`start_watch_app_skipped`), relanza 1 vez
 por alcance si Apple dio error y muestra el estado real (chip). Falta aparato con reloj.
@@ -95,4 +97,4 @@ Stripe Connect, alta por solicitud, RLS antes del coach 20. PR #191 fusionado: r
   crons a hora UTC fija y `resolvePeriod` sin el día local de la app (DECISIONS «Qué día es…»).
 - MCP del asistente: la búsqueda en la biblioteca falla con `column b.archived_at does not exist` (0236): su base no la tiene.
 - Seeds: `seed_demo.ts` desfasado (`chat_messages.sender_role`). Cadena personal: un mes de biblioteca en medio bloquea acortar/borrar (409).
-- FH-30: `PhoneLiveSession.applyCommand` no relaya `.newLap` al motor (latente); `GuionSeries` sin vía viva en el espejo.
+- FH-30: `GuionSeries` sin vía viva en el espejo (`newLap` ya se relaya al motor desde 30-09).
