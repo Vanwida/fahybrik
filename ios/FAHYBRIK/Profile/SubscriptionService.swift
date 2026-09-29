@@ -164,13 +164,17 @@ extension SubscriptionInfo {
         }
     }
 
-    /// Formatted next-renewal / access-cutoff date (dd/MM/yyyy, es_ES), or nil.
-    var formattedPeriodEnd: String? {
+    /// The next-renewal / access-cutoff instant, or nil when absent or unparseable.
+    var periodEndDate: Date? {
         guard let iso = currentPeriodEnd else { return nil }
         let withFractional = ISO8601DateFormatter()
         withFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = withFractional.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
-        guard let d = date else { return nil }
+        return withFractional.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+    }
+
+    /// Formatted next-renewal / access-cutoff date (dd/MM/yyyy, es_ES), or nil.
+    var formattedPeriodEnd: String? {
+        guard let d = periodEndDate else { return nil }
         let out = DateFormatter()
         out.locale = Locale(identifier: "es_ES")
         out.dateFormat = "dd/MM/yyyy"

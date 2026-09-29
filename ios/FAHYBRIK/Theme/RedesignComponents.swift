@@ -105,7 +105,7 @@ struct LibreBadge: View {
 /// `LibreBadge`'s compact shape but uses the amber `warning` role so a test reads
 /// as "do this fresh, it sets your numbers".
 ///
-/// Lives here beside its siblings (`LibreBadge`, `SlotBadge`, `PartnerBadge`)
+/// Lives here beside its siblings (`LibreBadge`, `SlotBadge`)
 /// since the 6-ago Plan rebuild: it used to be declared at the bottom of
 /// `PlanView.swift`, which is how a shared badge ends up looking like one
 /// screen's private business (contrato §0/§1).
