@@ -44,7 +44,7 @@ enum AnaliticasFormato {
     static func cifra(_ valor: Double, _ unidad: UnidadLectura) -> String {
         switch unidad {
         case .sKm, .s500m, .s1000m, .segundos: return Formato.clock(valor)
-        case .horas, .mlKgMin, .rondas: return Formato.esDecimal(valor)
+        case .horas, .mlKgMin, .rondas, .rpe, .rir: return Formato.esDecimal(valor)
         case .ratio, .mS: return Formato.esDecimal(valor, decimals: 2)
         case .kg: return Formato.esDecimal(valor)
         case .metros: return valor >= 1000 ? Formato.esDecimal(valor / 1000, decimals: valor >= 10000 ? 0 : 1) : "\(Int(valor.rounded()))"

@@ -12,7 +12,8 @@ import XCTest
 //   vacio   recién dado de alta: nada de nada
 //   viejo   26 semanas de historia, parado, reloj sin sincronizar y marcas por medir
 enum AnaliticasFixtures {
-    enum Atleta: String, CaseIterable { case lleno, mixto, poco, vacio, viejo }
+    /// Los mismos cinco atletas que las previews (`AnaliticasEjemplos`): un solo catálogo.
+    typealias Atleta = AnaliticasEjemplos.Atleta
 
     static func url(_ atleta: Atleta, _ ventana: VentanaClave = .doceSemanas) throws -> URL {
         let nombre = "panel-\(atleta.rawValue)-\(ventana.rawValue)"

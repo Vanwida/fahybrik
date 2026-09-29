@@ -214,6 +214,10 @@ struct MetodoDelPanel: Codable, Equatable {
     /// Noches mínimas de basal para la recuperación.
     let hrvMinNightsBaseline: Int?
     let basalDias: Int?
+    /// La holgura con la que el coach juzga un tramo: el ritmo (s/km) y el RIR (repeticiones). Los lee la nota
+    /// de «lo que te piden» de los detalles; nulos hasta que el servidor los sirva.
+    var holguraRitmoSKm: Double? = nil
+    var holguraRir: Double? = nil
 }
 
 // MARK: - Las anclas: el umbral por modalidad, con su peldaño

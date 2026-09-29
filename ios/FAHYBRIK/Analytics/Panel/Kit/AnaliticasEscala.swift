@@ -130,6 +130,20 @@ enum AnaliticasEscala {
         return escala
     }
 
+    /// Las marcas de TIEMPO de un eje que cuenta segundos desde el inicio de una sesión: cada 3, 5, 10 o 15 min según cuánto
+    /// dura; el final siempre, y la marca anterior se quita si le pisa (`graficos/tiempo.tsx#marcasTiempo`).
+    static func marcasDeTiempo(_ duracion: Double) -> [Double] {
+        let paso: Double = duracion <= 900 ? 180 : duracion <= 1800 ? 300 : duracion <= 3600 ? 600 : 900
+        var marcas: [Double] = []
+        var t = 0.0
+        while t <= duracion { marcas.append(t); t += paso }
+        if marcas.last != duracion {
+            if let ultima = marcas.last, duracion - ultima < paso * 0.45 { marcas.removeLast() }
+            marcas.append(duracion)
+        }
+        return marcas
+    }
+
     /// Qué fechas rotular en X: la primera, la última y los cambios de mes que
     /// quepan. `ancho` en pt; `cuerpo` el del texto del eje.
     struct RotuloX: Equatable {
