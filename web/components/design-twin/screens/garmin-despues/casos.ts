@@ -141,7 +141,7 @@ const CASOS: Record<string, () => CasoDespues> = {
     },
   }),
   recuperada: () => ({ escena: { sesion: sesionSeisPorMil(), arranque: { en: 'fin', r: resultadoRecuperado(), natural: false, recuperada: true }, envio: { acuses: ENVIO_BUENO } } }),
-  'hueco-tirada': () => ({ escena: tiradaCerradaA24() }),
+  'tirada-cortada': () => ({ escena: tiradaCerradaA24() }),
   rpe: () => ({ escena: { sesion: sesionSeisPorMil(), arranque: { en: 'rpe', r: resultado6x1000() }, guiones: { rpe: pulsar('up', 1200, 7, 330) }, envio: { acuses: ENVIO_BUENO } } }),
   'rpe-omitido': () => ({
     escena: {

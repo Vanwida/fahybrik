@@ -46,6 +46,8 @@ export function resultadoDeVivo(plan: PlanSesion, fin: FinDeVivo, base: Resultad
     // Si el escenario empezó con la sesión ya avanzada, las zonas salen del resultado de base (la sesión entera).
     zonasS: base ? base.zonasS : e.zonasS,
     series,
+    // Un paso continuo (una tirada, un tempo) no deja serie: se juzga por su parcial.
+    parciales: e.parciales,
     km,
     fuerza: base?.fuerza ?? [],
     circuito: base?.circuito ?? [],

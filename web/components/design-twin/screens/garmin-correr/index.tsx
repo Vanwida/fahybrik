@@ -71,7 +71,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'tirada-z2',
     titulo: 'Tirada 80′ @Z2 · vuelta por km (494)',
     descripcion:
-      'Sesión 494 con el cue del coach «mirar el pulso» bajo el contexto. A los 10 s cruza el km 5: vuelta automática (2 cortas + tono LAP) y la tarjeta del km unos segundos. Es el único paso de la sesión: BACK/LAP la cerraría entera (con 5 s para deshacer) y hoy el resumen diría «Completa» aunque vayas a un tercio (el modelo juzga por series y no ve un paso continuo a medias): hueco anotado, no de la pantalla.',
+      'Sesión 494 con el cue del coach «mirar el pulso» bajo el contexto. A los 10 s cruza el km 5: vuelta automática (2 cortas + tono LAP) y la tarjeta del km unos segundos. Es el único paso de la sesión: BACK/LAP la cerraría entera (con 5 s para deshacer), y cerrada a un tercio el resumen dice «Parcial · 24′ de 80′»: un paso continuo cortado a mano se juzga igual que una serie cortada.',
   },
   {
     id: 'tempo-z4',
