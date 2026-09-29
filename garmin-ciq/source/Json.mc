@@ -25,6 +25,17 @@ module Json {
         return value.toString();
     }
 
+    function num(source as Lang.Dictionary, key as Lang.String, fallback as Lang.Number) as Lang.Number {
+        var value = source.get(key);
+        if (value instanceof Lang.Number) {
+            return value;
+        }
+        if (value instanceof Lang.Long || value instanceof Lang.Float || value instanceof Lang.Double) {
+            return value.toNumber();
+        }
+        return fallback;
+    }
+
     // Acepta true/false reales y también "true"/1, por si el serializador del
     // servidor cambia. Ante la duda devuelve `fallback`.
     function bool(source as Lang.Dictionary, key as Lang.String, fallback as Lang.Boolean) as Lang.Boolean {

@@ -1,7 +1,6 @@
 //
-// Las tres peticiones que hace la app. Aquí se arma la URL, las cabeceras y las
+// Las peticiones que hace la app. Aquí se arma la URL, las cabeceras y las
 // opciones; la orquestación (qué hacer con la respuesta) vive en Controller.
-//
 //
 using Toybox.Communications;
 using Toybox.Lang;
@@ -40,6 +39,25 @@ module Api {
                 :method => Communications.HTTP_REQUEST_METHOD_POST,
                 :headers => {
                     Config.HEADER_CONTENT_TYPE => Config.CONTENT_TYPE_JSON
+                },
+                :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+            },
+            callback
+        );
+    }
+
+    // ── Plan ─────────────────────────────────────────────────────────────────
+
+    // GET /api/athlete/wearables/garmin/plan?from=YYYY-MM-DD&days=7  (fecha LOCAL del reloj)
+    function fetchPlan(token as Lang.String, fromIso as Lang.String, days as Lang.Number, callback as Lang.Method) as Void {
+        Communications.makeWebRequest(
+            Config.API_BASE + Config.PATH_PLAN,
+            { "from" => fromIso, "days" => days },
+            {
+                :method => Communications.HTTP_REQUEST_METHOD_GET,
+                :headers => {
+                    Config.HEADER_AUTH => Config.BEARER_PREFIX + token,
+                    Config.HEADER_ACCEPT => Config.CONTENT_TYPE_JSON
                 },
                 :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
             },

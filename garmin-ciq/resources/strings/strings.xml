@@ -26,13 +26,23 @@
     <!-- En curso -->
     <string id="BusySendingCode">Enviando el código…</string>
     <string id="BusyVerifying">Comprobando el código…</string>
-    <string id="BusyLoading">Buscando tu entreno…</string>
+    <string id="BusySyncing">Buscando tu plan…</string>
 
     <!-- Estado -->
     <string id="TitleNoSession">Hoy no toca</string>
     <string id="BodyNoSession">No tienes sesión para hoy.</string>
-    <string id="TitleLinked">Reloj vinculado</string>
-    <string id="BodyLinked">Tu cuenta está conectada.</string>
+    <string id="ActionStart">Empezar</string>
+    <string id="TitlePlanViejo">Plan viejo</string>
+    <string id="BodyPlanViejoA">Plan de hace </string>
+    <string id="BodyPlanViejoB"> días. Acerca el móvil para actualizarlo.</string>
+    <string id="TitleSinSoporte">Esta sesión va en la app</string>
+    <string id="BodySinSoporte">Ábrela en la app del móvil. El reloj solo guía sesiones de correr por ahora.</string>
+    <string id="TitleSinDetalle">Sin detalle</string>
+    <string id="BodySinDetalle">Esta sesión no está en el reloj. Acerca el móvil y vuelve a probar.</string>
+    <string id="TitlePlanIlegible">Plan ilegible</string>
+    <string id="BodyPlanBad">El servidor ha contestado algo que el reloj no entiende. Vuelve a probar.</string>
+    <string id="TitleStorageFull">Reloj lleno</string>
+    <string id="BodyStorageFull">No queda sitio para el plan. Libera espacio en el reloj y vuelve a probar.</string>
 
 
     <!-- Fallos -->

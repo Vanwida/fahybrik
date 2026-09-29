@@ -80,6 +80,33 @@ module Store {
         }
     }
 
+    // Cualquier valor de Storage tal cual (número, texto, lista, diccionario), o null.
+    function leer(key as Lang.String) as Lang.Object or Null {
+        try {
+            return Application.Storage.getValue(key);
+        } catch (ex) {
+            return null;
+        }
+    }
+
+    // Guarda un valor. false = sin sitio (StorageFullException) u otro fallo: se dice, no se traga.
+    function escribir(key as Lang.String, value) as Lang.Boolean {
+        try {
+            Application.Storage.setValue(key, value);
+            return true;
+        } catch (ex) {
+            return false;
+        }
+    }
+
+    function borrar(key as Lang.String) as Void {
+        try {
+            Application.Storage.deleteValue(key);
+        } catch (ex) {
+            // Ya no estaba: da igual.
+        }
+    }
+
     function token() as Lang.String {
         return readStorage(Config.STORE_TOKEN);
     }

@@ -13,7 +13,12 @@ module AppState {
         // Trabajo en curso (lleva su propio texto)
         STATE_BUSY,
 
-        STATE_NO_SESSION,       // hoy no toca
+        // El plan
+        STATE_NO_PLAN,          // hoy no toca
+        STATE_PLAN_VIEJO,       // el plan guardado es de hace demasiado: no se empieza
+        STATE_SIN_DETALLE,      // hay sesión pero el reloj no tiene su detalle
+        STATE_SIN_SOPORTE,      // la sesión va en la app (no es de correr)
+        STATE_BRIEF,            // el brief del día: se puede empezar
 
         // Fin de trayecto
         STATE_ERROR

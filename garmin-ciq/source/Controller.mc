@@ -17,6 +17,13 @@ class Controller {
     var note as Lang.String;          // segunda línea, gris (puede ir vacía)
     var action as Lang.String;        // etiqueta del botón (vacía = no hay acción)
 
+    // El plan de hoy: las filas del índice, la elegida y la sesión decodificada.
+    var filas as Lang.Array;
+    var sel as Lang.Number;
+    var sesion as Sesion or Null;
+    var sinConexion as Lang.Boolean;
+    var edadPlanDias as Lang.Number;
+
     // Ya hemos pedido un código en esta sesión de app. Sirve para no volver a
     // mandar otro cada vez que el atleta pulsa mientras espera al email.
     var codeRequested as Lang.Boolean;
@@ -28,6 +35,11 @@ class Controller {
         note = "";
         action = "";
         codeRequested = false;
+        filas = [];
+        sel = 0;
+        sesion = null;
+        sinConexion = false;
+        edadPlanDias = 0;
     }
 
     // ── Entrada única ────────────────────────────────────────────────────────
@@ -44,7 +56,7 @@ class Controller {
             resumeLogin();
             return;
         }
-        loadToday();
+        syncPlan();
     }
 
     // ── Vinculación de la cuenta ─────────────────────────────────────────────
@@ -136,13 +148,112 @@ class Controller {
         }
         Store.saveToken(token, Store.email());
         codeRequested = false;
-        loadToday();
+        syncPlan();
     }
 
-    // ── Sesión iniciada ──────────────────────────────────────────────────────
+    // ── El plan ──────────────────────────────────────────────────────────────
 
-    function loadToday() as Void {
-        show(AppState.STATE_NO_SESSION, Rez.Strings.TitleLinked, Rez.Strings.BodyLinked, "");
+    // Al abrir con móvil: los próximos días, con la fecha LOCAL del reloj.
+    function syncPlan() as Void {
+        busy(Rez.Strings.BusySyncing);
+        Api.fetchPlan(Store.token(), DateUtil.todayIso(), Config.PLAN_DIAS, method(:onPlan));
+    }
+
+    function onPlan(responseCode as Lang.Number, data as Lang.Object or Null) as Void {
+        if (responseCode == 401) {
+            expireSession();
+            return;
+        }
+        if (responseCode != 200) {
+            // Sin móvil se sigue con lo guardado si es de hace poco; un 500 no se disfraza de «sin cobertura».
+            if (isNetworkError(responseCode)) {
+                showToday(true, responseCode);
+                return;
+            }
+            failure(responseCode);
+            return;
+        }
+        var hoy = DateUtil.todayIso();
+        var res = PlanStore.guardar(Json.dict(data), hoy);
+        if (res == PlanStore.GUARDADO_LLENO) {
+            // Sin sitio: se tira lo más viejo de ESTA app y se reintenta una vez.
+            PlanStore.liberar();
+            res = PlanStore.guardar(Json.dict(data), hoy);
+        }
+        if (res == PlanStore.GUARDADO_LLENO) {
+            show(AppState.STATE_ERROR, Rez.Strings.TitleStorageFull, Rez.Strings.BodyStorageFull, Rez.Strings.ActionRetry);
+            return;
+        }
+        if (res != PlanStore.GUARDADO_OK) {
+            show(AppState.STATE_ERROR, Rez.Strings.TitleError, Rez.Strings.BodyPlanBad, Rez.Strings.ActionRetry);
+            return;
+        }
+        showToday(false, 0);
+    }
+
+    // Qué se ofrece hoy con el plan que hay en el reloj.
+    function showToday(offline as Lang.Boolean, responseCode as Lang.Number) as Void {
+        sinConexion = offline;
+        var hoy = DateUtil.todayIso();
+        var edad = DateUtil.daysBetween(PlanStore.fechaSync(), hoy);
+        if (offline && edad == null) {
+            failure(responseCode);      // nunca hubo plan: el error de red, tal cual
+            return;
+        }
+        edadPlanDias = edad == null ? 0 : edad;
+        if (offline && edadPlanDias > Config.PLAN_EDAD_MAX_DIAS) {
+            state = AppState.STATE_PLAN_VIEJO;
+            title = resolve(Rez.Strings.TitlePlanViejo);
+            body = resolve(Rez.Strings.BodyPlanViejoA) + edadPlanDias + resolve(Rez.Strings.BodyPlanViejoB);
+            note = "";
+            action = resolve(Rez.Strings.ActionRetry);
+            WatchUi.requestUpdate();
+            return;
+        }
+        filas = PlanStore.deFecha(hoy);
+        sel = 0;
+        if (filas.size() == 0) {
+            show(AppState.STATE_NO_PLAN, Rez.Strings.TitleNoSession, Rez.Strings.BodyNoSession, "");
+            return;
+        }
+        openSession();
+    }
+
+    // Decodifica SOLO la sesión elegida y muestra su brief, o dice por qué no se puede empezar.
+    function openSession() as Void {
+        sesion = null;
+        var fila = filas[sel];
+        if (!fila[PlanStore.IX_SOPORTADA]) {
+            show(AppState.STATE_SIN_SOPORTE, Rez.Strings.TitleSinSoporte, Rez.Strings.BodySinSoporte, "");
+            return;
+        }
+        var b64 = PlanStore.base64De(fila[PlanStore.IX_ID]);
+        if (b64 == null) {
+            show(AppState.STATE_SIN_DETALLE, Rez.Strings.TitleSinDetalle, Rez.Strings.BodySinDetalle, Rez.Strings.ActionRetry);
+            return;
+        }
+        var s = Decodificador.decodificar(b64);
+        if (s == null) {
+            // Casi siempre es un plan de otra versión: el texto del decodificador lo dice.
+            show(AppState.STATE_ERROR, Rez.Strings.TitlePlanIlegible, Decodificador.error, Rez.Strings.ActionRetry);
+            return;
+        }
+        if (!s.soportada()) {
+            show(AppState.STATE_SIN_SOPORTE, Rez.Strings.TitleSinSoporte, Rez.Strings.BodySinSoporte, "");
+            return;
+        }
+        sesion = s;
+        showBrief();
+    }
+
+    function showBrief() as Void {
+        var s = sesion as Sesion;
+        state = AppState.STATE_BRIEF;
+        title = Formato.duracionLarga(s.duracionEstS);
+        body = Estructura.lineaBrief(s);
+        note = sinConexion && edadPlanDias > 0 ? resolve(Rez.Strings.BodyPlanViejoA) + edadPlanDias + resolve(Rez.Strings.BodyPlanViejoB) : "";
+        action = resolve(Rez.Strings.ActionStart);
+        WatchUi.requestUpdate();
     }
 
     // ── Acción del botón, según estado ───────────────────────────────────────
@@ -154,6 +265,10 @@ class Controller {
             } else {
                 sendLoginCode();
             }
+            return;
+        }
+        // El brief: empezar la sesión (llega con el motor).
+        if (state == AppState.STATE_BRIEF) {
             return;
         }
         // Error, "hoy no toca", "esto va en la app", falta el email: en todos, lo

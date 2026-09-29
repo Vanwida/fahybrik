@@ -14,6 +14,11 @@ module Config {
     const PATH_AUTH_REQUEST = "/api/auth/email/request";
     const PATH_AUTH_VERIFY = "/api/auth/email/verify";
 
+    // Plan de los próximos días (docs/garmin-reloj/servidor.md).
+    const PATH_PLAN = "/api/athlete/wearables/garmin/plan";
+    // Cuántos días de plan se piden al abrir con móvil.
+    const PLAN_DIAS = 7;
+
     const HEADER_AUTH = "Authorization";
     const HEADER_CONTENT_TYPE = "Content-Type";
     const HEADER_ACCEPT = "Accept";
@@ -35,10 +40,21 @@ module Config {
     // siendo válido 30 días y nadie se enteraría.
     const STORE_TOKEN_EMAIL = "session_email";
 
+    // Plan en Storage: una clave por sesión + el índice + la fecha de la última sincronía.
+    const STORE_PLAN_PREFIJO = "plan_";
+    const STORE_PLAN_INDICE = "plan_ix";
+    const STORE_PLAN_SYNC = "plan_sync";
+    // Una clave de Storage admite 8 KB: un plan de más no se guarda (y se dice).
+    const STORE_CLAVE_MAX_CARACTERES = 8192;
+
     // ── Reglas de negocio ────────────────────────────────────────────────────
     // El código de acceso caduca en 10 min en el servidor
     // (AUTH_CONFIG.emailLoginCodeTtlSeconds). El copy lo dice tal cual: prometer
     // otra cosa sería mentir al atleta.
     const LOGIN_CODE_TTL_MINUTES = 10;
     const LOGIN_CODE_LENGTH = 6;
+
+    // Un plan sincronizado hace más de estos días se dice viejo y no deja empezar:
+    // el coach pudo cambiar la sesión y el reloj no se enteró. Defecto de sistema.
+    const PLAN_EDAD_MAX_DIAS = 2;
 }
