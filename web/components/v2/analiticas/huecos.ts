@@ -32,8 +32,6 @@ export interface Hueco {
   titulo: string;
   cuerpo: string;
   accion?: AccionHueco;
-  /** Un enlace dentro de la misma pestaña (el cálculo anterior, mientras el bloque nuevo no se sirve). */
-  enlace?: { etiqueta: string; href: string };
   /** Lo que falta de tiempo, cuando falta tiempo. */
   plazo?: { llevas: number; hacen: number; unidad: 'dias' | 'semanas' | 'noches' };
 }
@@ -42,34 +40,18 @@ export interface Hueco {
 export type BloqueTarjeta = Exclude<BloquePanel, 'estado'>;
 
 const PENDIENTE: Record<BloqueTarjeta, string> = {
-  forma: 'La forma, la fatiga y la frescura con su proyección llegan en la siguiente entrega del panel.',
-  semanas: 'Lo planificado frente a lo hecho por semana llega en la siguiente entrega del panel.',
-  intensidad: 'El tiempo en zonas por semana y el reparto fácil · medio · duro llegan en la siguiente entrega del panel.',
-  progreso: 'El «¿mejora?» de cada familia llega en la siguiente entrega del panel.',
-  records: 'La lista única de marcas de todas las familias llega en la siguiente entrega del panel.',
-  carrera: 'El tiempo previsto y el hueco tramo a tramo llegan en la siguiente entrega del panel.',
-  recuperacion: 'Variabilidad, pulso en reposo y sueño contra su normal llegan en la siguiente entrega del panel.',
+  forma: 'La forma, la fatiga y la frescura con su proyección todavía no se calculan.',
+  semanas: 'Lo planificado frente a lo hecho por semana todavía no se calcula.',
+  intensidad: 'El tiempo en zonas por semana y el reparto fácil · medio · duro todavía no se calculan.',
+  progreso: 'El «¿mejora?» de cada familia todavía no se calcula.',
+  records: 'La lista única de marcas de todas las familias todavía no se calcula.',
+  carrera: 'El tiempo previsto y el hueco tramo a tramo todavía no se calculan.',
+  recuperacion: 'Variabilidad, pulso en reposo y sueño contra su normal todavía no se calculan.',
 };
 
-/** Dónde sigue el cálculo anterior de un bloque mientras el nuevo no se sirve. */
-export interface Legado {
-  /** Cómo se llama la sección vieja («Fisiología»). */
-  seccion: string;
-  href: string;
-}
-
-/**
- * El hueco de un bloque que el servidor aún no sirve (va en `pendientes`). Si
- * la pestaña aún enseña su cálculo anterior, se dice dónde: nada se pierde
- * mientras se sustituye.
- */
-export function huecoPendiente(bloque: BloqueTarjeta, legado?: Legado | null): Hueco {
-  return {
-    tipo: 'pendiente',
-    titulo: 'Todavía no se calcula aquí',
-    cuerpo: legado ? `${PENDIENTE[bloque]} Mientras, lo tienes con el cálculo anterior en «${legado.seccion}», más abajo.` : PENDIENTE[bloque],
-    enlace: legado ? { etiqueta: `Ir a ${legado.seccion}`, href: legado.href } : undefined,
-  };
+/** El hueco de un bloque que el servidor no sirve (va en `pendientes` del panel). */
+export function huecoPendiente(bloque: BloqueTarjeta): Hueco {
+  return { tipo: 'pendiente', titulo: 'Todavía no se calcula aquí', cuerpo: PENDIENTE[bloque] };
 }
 
 function plazoDe(f: FaltaPintable | null, unidad: 'dias' | 'semanas' | 'noches'): Hueco['plazo'] {

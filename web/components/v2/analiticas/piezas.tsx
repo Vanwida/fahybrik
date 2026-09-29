@@ -258,12 +258,6 @@ export function HuecoLinea({ hueco, manejar }: { hueco: Hueco; manejar?: Manejar
       <span className="t-body-sm font-medium text-v2-fg">{hueco.titulo}</span>
       <span className="min-w-0 basis-full t-body-sm text-v2-muted sm:basis-auto sm:flex-1">{hueco.cuerpo}</span>
       {hueco.plazo ? <Plazo plazo={hueco.plazo} /> : null}
-      {hueco.enlace ? (
-        <a href={hueco.enlace.href} className="ml-auto inline-flex h-7 items-center gap-1 rounded-ctl px-2.5 t-body-sm font-medium text-v2-fg outline-none hover:bg-v2-hover focus-visible:shadow-[0_0_0_2px_var(--v2-accent)]">
-          {hueco.enlace.etiqueta}
-          <MoveRight aria-hidden className="size-3.5" />
-        </a>
-      ) : null}
       {salida && hueco.accion ? (
         'href' in salida ? (
           <Link href={salida.href} className="ml-auto inline-flex h-7 items-center gap-1 rounded-ctl px-2.5 t-body-sm font-medium text-v2-fg outline-none hover:bg-v2-hover focus-visible:shadow-[0_0_0_2px_var(--v2-accent)]">

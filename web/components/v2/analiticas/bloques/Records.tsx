@@ -9,15 +9,15 @@ import type { Lectura } from '@fahybrid/shared/domain/analytics/lectura';
 import { Button, Tag } from '@/components/v2/ui';
 import { fechaLegible, formatear } from '../formato';
 import { filasRecords, type FilaRecord } from '../derivados';
-import { huecoPendiente, huecoRecords, type Legado } from '../huecos';
+import { huecoPendiente, huecoRecords } from '../huecos';
 import { unidadDe } from '../lecturas';
 import { PuntoFamilia, TablaPanel, Tarjeta, type ManejarAccion } from '../piezas';
 
 const VISIBLES = 8;
 
-export function Records({ records, hoy, pendiente, legado, manejar, className }: { records: readonly Lectura[]; hoy: string; pendiente: boolean; legado?: Legado | null; manejar: ManejarAccion; className?: string }) {
+export function Records({ records, hoy, pendiente, manejar, className }: { records: readonly Lectura[]; hoy: string; pendiente: boolean; manejar: ManejarAccion; className?: string }) {
   const [todas, setTodas] = useState(false);
-  if (pendiente) return <Tarjeta id="records" titulo="Récords" pregunta="¿Qué marcas tiene?" hueco={huecoPendiente('records', legado)} className={className} />;
+  if (pendiente) return <Tarjeta id="records" titulo="Récords" pregunta="¿Qué marcas tiene?" hueco={huecoPendiente('records')} className={className} />;
   const filas = filasRecords(records);
   const nuevas = filas.filter((f) => f.nuevo).length;
   const hueco = huecoRecords(records);

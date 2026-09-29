@@ -14,7 +14,7 @@ import { esDecimal } from '@/lib/formato';
 import { conSigno } from '../formato';
 import { Divergente, Lineas } from '../graficos';
 import { fraseForma, pieCobertura, resumenSesiones, vistaForma } from '../derivados';
-import { huecoForma, huecoPendiente, type Hueco, type Legado } from '../huecos';
+import { huecoForma, huecoPendiente, type Hueco } from '../huecos';
 import { falta, medida } from '../lecturas';
 import { PIEL_PANEL as P } from '../piel';
 import { Tarjeta, type ManejarAccion } from '../piezas';
@@ -28,7 +28,6 @@ export function Forma({
   hoy,
   carrera,
   pendiente,
-  legado,
   manejar,
   className,
   anchoInicial,
@@ -40,7 +39,6 @@ export function Forma({
   carrera: { nombre: string; fecha: string } | null;
   pendiente: boolean;
   /** Dónde sigue el cálculo anterior mientras este bloque no se sirve. */
-  legado?: Legado | null;
   manejar: ManejarAccion;
   className?: string;
   anchoInicial: number;
@@ -48,7 +46,7 @@ export function Forma({
   const pregunta = carrera
     ? `¿Gana forma o se pasa? ¿Cómo llega a ${carrera.nombre}? Proyección con la carga planificada hasta el día de la carrera.`
     : '¿Gana forma o se pasa? Forma, fatiga y frescura día a día.';
-  if (pendiente) return <Tarjeta id="forma" titulo="Forma y fatiga" pregunta={pregunta} hueco={huecoPendiente('forma', legado)} className={className} />;
+  if (pendiente) return <Tarjeta id="forma" titulo="Forma y fatiga" pregunta={pregunta} hueco={huecoPendiente('forma')} className={className} />;
 
   const hueco: Hueco | null = huecoForma(forma);
   const vista = vistaForma(forma, P, hoy, carrera);

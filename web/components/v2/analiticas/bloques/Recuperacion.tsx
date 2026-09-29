@@ -9,7 +9,7 @@ import type { Lectura } from '@fahybrid/shared/domain/analytics/lectura';
 import { cn } from '@/lib/utils';
 import { formatear, formatearDelta, esCero } from '../formato';
 import { Chispa } from '../graficos';
-import { huecoPendiente, huecoRecuperacion, type Legado } from '../huecos';
+import { huecoPendiente, huecoRecuperacion } from '../huecos';
 import { claseTono, falta, lectura, unidadDe } from '../lecturas';
 import { PIEL_PANEL as P } from '../piel';
 import { Cifra, DeltaPanel, Tarjeta, type ManejarAccion } from '../piezas';
@@ -55,7 +55,6 @@ export function Recuperacion({
   metodo,
   comparar,
   pendiente,
-  legado,
   manejar,
   className,
 }: {
@@ -64,12 +63,11 @@ export function Recuperacion({
   comparar: boolean;
   pendiente: boolean;
   /** Dónde sigue el cálculo anterior mientras este bloque no se sirve. */
-  legado?: Legado | null;
   manejar: ManejarAccion;
   className?: string;
 }) {
   const pregunta = '¿Asimila? Contra su normal';
-  if (pendiente) return <Tarjeta id="recuperacion" titulo="Recuperación" pregunta={pregunta} hueco={huecoPendiente('recuperacion', legado)} className={className} />;
+  if (pendiente) return <Tarjeta id="recuperacion" titulo="Recuperación" pregunta={pregunta} hueco={huecoPendiente('recuperacion')} className={className} />;
   const hueco = huecoRecuperacion(recuperacion);
   const senales = SENALES.map((id) => lectura(recuperacion, id)).filter((l): l is Lectura => l != null);
   const hayAlguna = senales.some((l) => l.estado === 'medida');

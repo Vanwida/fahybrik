@@ -12,7 +12,7 @@ import { agrupacionDe, sumarDias } from '../escala';
 import { fechaLegible } from '../formato';
 import { BarraReparto, Columnas } from '../graficos';
 import { cubosZonas, leyendaZonas, vistaReparto } from '../derivados';
-import { huecoIntensidad, huecoPendiente, type Legado } from '../huecos';
+import { huecoIntensidad, huecoPendiente } from '../huecos';
 import { lectura, medida } from '../lecturas';
 import { PIEL_PANEL as P } from '../piel';
 import { HuecoLinea, Tarjeta, type ManejarAccion } from '../piezas';
@@ -22,7 +22,6 @@ export function Intensidad({
   intensidad,
   hoy,
   pendiente,
-  legado,
   manejar,
   className,
   anchoInicial,
@@ -31,13 +30,12 @@ export function Intensidad({
   hoy: string;
   pendiente: boolean;
   /** Dónde sigue el cálculo anterior mientras este bloque no se sirve. */
-  legado?: Legado | null;
   manejar: ManejarAccion;
   className?: string;
   anchoInicial: number;
 }) {
   const pregunta = '¿Entrena a la intensidad que toca? Tiempo en zonas y reparto';
-  if (pendiente) return <Tarjeta id="intensidad" titulo="Intensidad" pregunta={pregunta} hueco={huecoPendiente('intensidad', legado)} className={className} />;
+  if (pendiente) return <Tarjeta id="intensidad" titulo="Intensidad" pregunta={pregunta} hueco={huecoPendiente('intensidad')} className={className} />;
 
   const hueco = huecoIntensidad(intensidad);
   const z1 = lectura(intensidad, 'intensidad.z1');

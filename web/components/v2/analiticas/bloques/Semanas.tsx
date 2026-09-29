@@ -16,7 +16,7 @@ import { entero, fechaLegible } from '../formato';
 import { Columnas } from '../graficos';
 import { cubosSemanas, leyendaSemanas, mediaAnteriorPorSemana } from '../derivados';
 import type { DetalleCumplimientoConsumo, FilaSesionConsumo, Resultado } from '../detalle';
-import { huecoPendiente, huecoSemanas, type Legado } from '../huecos';
+import { huecoPendiente, huecoSemanas } from '../huecos';
 import { medida } from '../lecturas';
 import { PIEL_PANEL as P } from '../piel';
 import { AnclaChip, DeltaPanel, PuntoFamilia, TablaPanel, Tarjeta, type ManejarAccion } from '../piezas';
@@ -106,7 +106,6 @@ export function Semanas({
   ventana,
   comparar,
   pendiente,
-  legado,
   cumplimiento,
   onSesion,
   manejar,
@@ -118,7 +117,6 @@ export function Semanas({
   comparar: boolean;
   pendiente: boolean;
   /** Dónde sigue el cálculo anterior mientras este bloque no se sirve. */
-  legado?: Legado | null;
   cumplimiento: Resultado<DetalleCumplimientoConsumo> | null;
   onSesion: (s: FilaSesionConsumo) => void;
   manejar: ManejarAccion;
@@ -127,7 +125,7 @@ export function Semanas({
 }) {
   const [modo, setModo] = useState<Modo>('carga');
   const pregunta = '¿Hace lo que toca? Plan (contorno) frente a hecho, por familia';
-  if (pendiente) return <Tarjeta id="semanas" titulo="Semana a semana" pregunta={pregunta} hueco={huecoPendiente('semanas', legado)} className={className} />;
+  if (pendiente) return <Tarjeta id="semanas" titulo="Semana a semana" pregunta={pregunta} hueco={huecoPendiente('semanas')} className={className} />;
 
   const hueco = huecoSemanas(semanas);
   const total = medida(semanas, modo === 'carga' ? 'semanas.carga' : 'semanas.horas');

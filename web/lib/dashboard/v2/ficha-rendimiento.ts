@@ -3,12 +3,13 @@ import 'server-only';
 // Pestaña Rendimiento de la ficha — las analíticas del atleta con el MISMO
 // cálculo que ve él en su iPhone (`cargarPanel`, docs/analiticas/modelo.md A1),
 // en la ventana que pide la URL; sus umbrales con su peldaño (el toque para
-// declararlos); y, mientras los bloques nuevos que las sustituyen no se sirvan,
-// lo que la pestaña enseñaba antes (zonas y tests, 1RM y marcas, cuerpo).
-// Cada parte lleva su error: un fallo nunca se pinta como «sin datos» (S5).
+// declararlos); y lo que ningún bloque del panel cubre: zonas y tests, 1RM
+// medidos y cuerpo (check-ins y VO₂). Cada parte lleva su error: un fallo nunca
+// se pinta como «sin datos» (S5).
 //
-// La carga 42/7 fija de la ficha (`LoadView`, el PMC viejo) se retiró el 29-09:
-// la forma y la fatiga salen del panel, con las ventanas del método del coach.
+// La carga 42/7 fija de la ficha (`LoadView`, el PMC viejo) y las marcas por
+// test (`benchmarks`) se retiraron el 29-09: las cubren «Forma y fatiga»,
+// «Progreso» y «Récords».
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -22,7 +23,6 @@ import { cargarPanel } from '@/lib/analytics/panel';
 import { getUmbralesAtleta, type UmbralesAtleta } from '@/lib/analytics/declaraciones';
 import { captureRouteError } from '@/lib/observability/capture';
 import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
-import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
 import type { PanelAnaliticas } from '@fahybrid/shared/domain/analytics/panel';
 import type { VentanaClave } from '@fahybrid/shared/domain/analytics/ventana';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
@@ -34,13 +34,6 @@ export interface StrengthMaxView {
   recorded_at: string;
   source: string;
   history: { one_rm_kg: number; recorded_at: string }[];
-}
-
-export interface BenchmarkSeries {
-  exercise_slug: string;
-  label: string;
-  unit: string;
-  results: { value: number; recorded_at: string }[];
 }
 
 type Part<T> = { ok: true; data: T } | { ok: false };
@@ -55,7 +48,6 @@ export interface FichaRendimiento {
   zones: Part<AthleteZoneProfile[]>;
   tests: Part<{ tests: CalibrationTestStatus[]; library: { id: string; name: string; last_done: string | null }[] }>;
   strength: Part<StrengthMaxView[]>;
-  benchmarks: Part<BenchmarkSeries[]>;
   body: Part<BodyPayload>;
   max_hr_bpm: number | null;
 }
@@ -66,23 +58,6 @@ async function part<T>(p: Promise<T>): Promise<Part<T>> {
   } catch {
     return { ok: false };
   }
-}
-
-async function loadBenchmarks(client: Sql, coach_id: number, athlete_id: number): Promise<BenchmarkSeries[]> {
-  const rows = await client<Array<{ slug: string; value: number; unit: string; at: Date }>>`
-    select ab.exercise_slug as slug, ab.value::float8 as value, ab.unit, ab.recorded_at as at
-    from athlete_benchmarks ab
-    join athletes a on a.id = ab.athlete_id and a.coach_id = ${coach_id}
-    where ab.athlete_id = ${athlete_id}
-    order by ab.exercise_slug, ab.recorded_at
-  `;
-  const by = new Map<string, BenchmarkSeries>();
-  for (const r of rows) {
-    const s = by.get(r.slug) ?? { exercise_slug: r.slug, label: benchmarkLabel(r.slug), unit: r.unit, results: [] };
-    s.results.push({ value: r.value, recorded_at: r.at.toISOString() });
-    by.set(r.slug, s);
-  }
-  return [...by.values()];
 }
 
 export async function loadFichaRendimiento(params: {
@@ -100,7 +75,7 @@ export async function loadFichaRendimiento(params: {
   `;
   // El ámbito de club, comprobado en la base antes de leer nada del panel (un atleta ajeno no tiene panel).
   const atleta = await verificarAtletaDelCoach(ath, coachId, client);
-  const [panel, umbrales, zones, tests, strength, benchmarks, body] = await Promise.all([
+  const [panel, umbrales, zones, tests, strength, body] = await Promise.all([
     atleta
       ? part(
           cargarPanel({ atleta, ventana: params.ventana, client }).catch((err: unknown) => {
@@ -145,7 +120,6 @@ export async function loadFichaRendimiento(params: {
         })),
       ),
     ),
-    part(loadBenchmarks(client, coachId, ath)),
     part(buildAthleteBody({ coach_id: coachId, athlete_id: ath, client })),
   ]);
   return {
@@ -156,7 +130,6 @@ export async function loadFichaRendimiento(params: {
     zones,
     tests,
     strength,
-    benchmarks,
     body,
     max_hr_bpm: head[0]?.max_hr_bpm ?? null,
   };

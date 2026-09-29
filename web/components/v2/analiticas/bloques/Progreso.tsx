@@ -10,7 +10,7 @@ import type { Familia, Lectura } from '@fahybrid/shared/domain/analytics/lectura
 import { cn } from '@/lib/utils';
 import { fechaLegible, formatear } from '../formato';
 import { Chispa } from '../graficos';
-import { huecoPendiente, huecoProgreso, type Legado } from '../huecos';
+import { huecoPendiente, huecoProgreso } from '../huecos';
 import { FAMILIA_NOMBRE, falta, seCalla, unidadDe } from '../lecturas';
 import { PIEL_PANEL as P, colorFamilia } from '../piel';
 import { AnclaChip, DeltaPanel, PuntoFamilia, TablaPanel, Tarjeta, type ColumnaPanel, type ManejarAccion } from '../piezas';
@@ -56,7 +56,6 @@ export function Progreso({
   hoy,
   comparar,
   pendiente,
-  legado,
   manejar,
   className,
 }: {
@@ -65,12 +64,11 @@ export function Progreso({
   comparar: boolean;
   pendiente: boolean;
   /** Dónde sigue el cálculo anterior mientras este bloque no se sirve. */
-  legado?: Legado | null;
   manejar: ManejarAccion;
   className?: string;
 }) {
   const pregunta = comparar ? 'Una marca por familia · esta ventana frente a la anterior' : 'Una marca por familia · ¿mejora?';
-  if (pendiente) return <Tarjeta id="progreso" titulo="Progreso" pregunta={pregunta} hueco={huecoPendiente('progreso', legado)} className={className} />;
+  if (pendiente) return <Tarjeta id="progreso" titulo="Progreso" pregunta={pregunta} hueco={huecoPendiente('progreso')} className={className} />;
   const hueco = huecoProgreso(progreso);
   const filas = progreso.filter((l) => !seCalla(falta(l)));
   const columnas: ColumnaPanel<Lectura>[] = [

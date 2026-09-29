@@ -22,7 +22,6 @@ import type { VentanaClave } from '@fahybrid/shared/domain/analytics/ventana';
 import { Link } from '@/i18n/navigation';
 import { useAncho } from './graficos';
 import type { DetalleCumplimientoConsumo, FilaSesionConsumo, FuenteDetalle, Resultado } from './detalle';
-import type { BloqueTarjeta, Legado } from './huecos';
 import { pendiente } from './lecturas';
 import type { ManejarAccion } from './piezas';
 import { EstadoHoy } from './bloques/Estado';
@@ -57,12 +56,11 @@ export interface PanelRendimientoProps {
   manejar: ManejarAccion;
   fuente: FuenteDetalle;
   /** Dónde sigue el cálculo anterior de cada bloque que aún no se sirve. */
-  legado?: Partial<Record<BloqueTarjeta, Legado>>;
   /** Solo en el doble: sustituye al pie que enlaza al método. */
   pie?: React.ReactNode;
 }
 
-export function PanelRendimiento({ panel, atleta, onVentana, cargandoVentana = false, compararInicial = false, onComparar, metodoHref, manejar, fuente, legado = {}, pie }: PanelRendimientoProps) {
+export function PanelRendimiento({ panel, atleta, onVentana, cargandoVentana = false, compararInicial = false, onComparar, metodoHref, manejar, fuente, pie }: PanelRendimientoProps) {
   const [comparar, setComparar] = useState(compararInicial);
   const [cumplimiento, setCumplimiento] = useState<{ ventana: VentanaClave; res: Resultado<DetalleCumplimientoConsumo> } | null>(null);
   const [seleccion, setSeleccion] = useState<string | null>(null);
@@ -113,28 +111,26 @@ export function PanelRendimiento({ panel, atleta, onVentana, cargandoVentana = f
           hoy={hoy}
           carrera={atleta.carrera}
           pendiente={pendiente(panel, 'forma')}
-          legado={legado.forma}
           manejar={manejar}
           className="@4xl:col-span-8"
           anchoInicial={anchoCol(8)}
         />
-        <Recuperacion recuperacion={b.recuperacion} metodo={panel.metodo} comparar={compararEfectivo} pendiente={pendiente(panel, 'recuperacion')} legado={legado.recuperacion} manejar={manejar} className="@4xl:col-span-4" />
+        <Recuperacion recuperacion={b.recuperacion} metodo={panel.metodo} comparar={compararEfectivo} pendiente={pendiente(panel, 'recuperacion')} manejar={manejar} className="@4xl:col-span-4" />
         <Semanas
           semanas={b.semanas}
           ventana={ventana}
           comparar={compararEfectivo}
           pendiente={pendiente(panel, 'semanas')}
-          legado={legado.semanas}
           cumplimiento={detalle}
           onSesion={abrirSesion}
           manejar={manejar}
           className="@4xl:col-span-7"
           anchoInicial={anchoCol(7)}
         />
-        <Intensidad intensidad={b.intensidad} hoy={hoy} pendiente={pendiente(panel, 'intensidad')} legado={legado.intensidad} manejar={manejar} className="@4xl:col-span-5" anchoInicial={anchoCol(5)} />
-        <Progreso progreso={b.progreso} hoy={hoy} comparar={compararEfectivo} pendiente={pendiente(panel, 'progreso')} legado={legado.progreso} manejar={manejar} className="@4xl:col-span-7" />
-        <Records records={b.records} hoy={hoy} pendiente={pendiente(panel, 'records')} legado={legado.records} manejar={manejar} className="@4xl:col-span-5" />
-        <Carrera carrera={b.carrera} hoy={hoy} fechaCarrera={atleta.carrera?.fecha ?? null} pendiente={pendiente(panel, 'carrera')} legado={legado.carrera} manejar={manejar} className="@4xl:col-span-12" anchoInicial={dos ? anchoCol(7) : anchoCol(12)} />
+        <Intensidad intensidad={b.intensidad} hoy={hoy} pendiente={pendiente(panel, 'intensidad')} manejar={manejar} className="@4xl:col-span-5" anchoInicial={anchoCol(5)} />
+        <Progreso progreso={b.progreso} hoy={hoy} comparar={compararEfectivo} pendiente={pendiente(panel, 'progreso')} manejar={manejar} className="@4xl:col-span-7" />
+        <Records records={b.records} hoy={hoy} pendiente={pendiente(panel, 'records')} manejar={manejar} className="@4xl:col-span-5" />
+        <Carrera carrera={b.carrera} hoy={hoy} fechaCarrera={atleta.carrera?.fecha ?? null} pendiente={pendiente(panel, 'carrera')} manejar={manejar} className="@4xl:col-span-12" anchoInicial={dos ? anchoCol(7) : anchoCol(12)} />
         <Tramos
           cumplimiento={detalle}
           fuente={fuente}

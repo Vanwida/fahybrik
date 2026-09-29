@@ -5,13 +5,10 @@
 // 29-09) y, debajo, lo que el coach usa para que esas analíticas se sostengan:
 // sus umbrales con su peldaño (declarables de un toque), sus zonas y sus tests.
 //
-// LO VIEJO SE RETIRA CUANDO LO NUEVO LO CUBRE (y no antes). La carga 42/7 fija
-// (LoadBlock/PmcChart) ya no está: la cubren «Forma y fatiga». Mientras un
-// bloque nuevo vaya en `pendientes`, su cálculo anterior sigue abajo y el
-// bloque dice dónde: tiempo en zonas (→ Intensidad), 1RM y marcas (→ Progreso
-// y Récords), variabilidad, reposo y sueño (→ Recuperación). Lo que ningún
-// bloque cubre sigue siempre: el detalle de correr, los check-ins y el VO₂ del
-// reloj, y la lista de sus carreras.
+// Lo que sigue aparte del panel es lo que ningún bloque cubre: el detalle de
+// correr, el tiempo en zonas con su «Dar feedback» (anotación del coach), los
+// 1RM medidos (el motor de Progreso lee tests y series, no esta tabla), los
+// check-ins y el VO₂ del reloj, y la lista de sus carreras.
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { usePathname, useRouter } from '@/i18n/navigation';
@@ -21,7 +18,6 @@ import { Button, EmptyState, ErrorState, SectionHeader } from '@/components/v2/u
 import { PanelRendimiento } from '@/components/v2/analiticas/PanelRendimiento';
 import { Umbrales } from '@/components/v2/analiticas/Umbrales';
 import { fuenteHttp } from '@/components/v2/analiticas/detalle';
-import type { BloqueTarjeta, Legado } from '@/components/v2/analiticas/huecos';
 import type { ManejarAccion } from '@/components/v2/analiticas/piezas';
 import { RegistrarResultadoForm } from '../RegistrarResultadoForm';
 import type { FichaRendimiento } from '@/lib/dashboard/v2/ficha-rendimiento';
@@ -103,17 +99,6 @@ export function RendimientoView({ data, seccion, comparar }: { data: FichaRendim
   );
 
   const panel = data.panel.ok ? data.panel.data : null;
-  const pendientes = new Set(panel?.pendientes ?? []);
-  // Mientras un bloque nuevo no se sirva, su cálculo anterior sigue aquí y el bloque dice dónde.
-  const legado: Partial<Record<BloqueTarjeta, Legado>> = {};
-  if (pendientes.has('intensidad')) legado.intensidad = { seccion: 'Tiempo en zonas', href: '#tiempo-en-zonas' };
-  if (pendientes.has('progreso')) legado.progreso = { seccion: 'Fuerza', href: '#fuerza' };
-  if (pendientes.has('records')) legado.records = { seccion: 'Fuerza', href: '#fuerza' };
-  if (pendientes.has('recuperacion')) legado.recuperacion = { seccion: 'Fisiología', href: '#fisiologia' };
-  const recuperacionServida = panel != null && !pendientes.has('recuperacion');
-  const fuerzaCubierta = panel != null && !pendientes.has('progreso') && !pendientes.has('records');
-  const zonasCubiertas = panel != null && !pendientes.has('intensidad');
-
   const profiles = data.zones.ok ? data.zones.data : [];
   const carrera = shell.race ? { nombre: shell.race.name, fecha: shell.race.date } : null;
 
@@ -130,7 +115,6 @@ export function RendimientoView({ data, seccion, comparar }: { data: FichaRendim
           metodoHref="/ajustes/metodo#analiticas"
           manejar={manejar}
           fuente={fuente}
-          legado={legado}
         />
       ) : (
         <ErrorState title="No se han podido calcular sus analíticas" onRetry={retry} />
@@ -179,28 +163,16 @@ export function RendimientoView({ data, seccion, comparar }: { data: FichaRendim
         <CorrerTab athleteId={shell.athlete_id} />
       </Section>
 
-      {!zonasCubiertas ? (
-        <Section id="tiempo-en-zonas" title="Tiempo en zonas">
-          <ZonasPanel athleteId={shell.athlete_id} athleteName={shell.name} coachName={shell.club_name} athleteToday={shell.today} />
-        </Section>
-      ) : null}
+      <Section id="tiempo-en-zonas" title="Tiempo en zonas">
+        <ZonasPanel athleteId={shell.athlete_id} athleteName={shell.name} coachName={shell.club_name} athleteToday={shell.today} />
+      </Section>
 
-      {!fuerzaCubierta ? (
-        <Section id="fuerza" title="Fuerza">
-          {data.strength.ok && data.benchmarks.ok ? (
-            <FuerzaBlock maxes={data.strength.data} benchmarks={data.benchmarks.data} />
-          ) : (
-            <ErrorState title="No se han podido cargar sus marcas" onRetry={retry} />
-          )}
-        </Section>
-      ) : null}
+      <Section id="un-rm-medido" title="1RM medidos">
+        {data.strength.ok ? <FuerzaBlock maxes={data.strength.data} /> : <ErrorState title="No se han podido cargar sus 1RM" onRetry={retry} />}
+      </Section>
 
-      <Section id="fisiologia" title={recuperacionServida ? 'Check-ins y VO₂' : 'Fisiología'}>
-        {data.body.ok ? (
-          <FisiologiaBlock body={data.body.data} soloLoQueNoEstaEnElPanel={recuperacionServida} />
-        ) : (
-          <ErrorState title="No se han podido cargar sus datos de salud" onRetry={retry} />
-        )}
+      <Section id="fisiologia" title="Check-ins y VO₂">
+        {data.body.ok ? <FisiologiaBlock body={data.body.data} /> : <ErrorState title="No se han podido cargar sus datos de salud" onRetry={retry} />}
       </Section>
 
       <Section id="carreras" title="Carreras">

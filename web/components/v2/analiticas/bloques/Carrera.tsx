@@ -11,7 +11,7 @@ import { reloj } from '@/lib/formato';
 import { entero, enDias, fechaLegible, formatearDelta } from '../formato';
 import { BarrasHueco, Lineas } from '../graficos';
 import { tramosCarrera } from '../derivados';
-import { huecoCarrera, huecoPendiente, type Legado } from '../huecos';
+import { huecoCarrera, huecoPendiente } from '../huecos';
 import { lectura, medida, rangoDe } from '../lecturas';
 import { PIEL_PANEL as P } from '../piel';
 import { Tarjeta, type ManejarAccion } from '../piezas';
@@ -21,7 +21,6 @@ export function Carrera({
   hoy,
   fechaCarrera,
   pendiente,
-  legado,
   manejar,
   className,
   anchoInicial,
@@ -32,12 +31,11 @@ export function Carrera({
   fechaCarrera: string | null;
   pendiente: boolean;
   /** Dónde sigue el cálculo anterior mientras este bloque no se sirve. */
-  legado?: Legado | null;
   manejar: ManejarAccion;
   className?: string;
   anchoInicial: number;
 }) {
-  if (pendiente) return <Tarjeta id="carrera" titulo="Carrera" pregunta="¿Llega a su carrera?" hueco={huecoPendiente('carrera', legado)} className={className} />;
+  if (pendiente) return <Tarjeta id="carrera" titulo="Carrera" pregunta="¿Llega a su carrera?" hueco={huecoPendiente('carrera')} className={className} />;
   const objetivo = medida(carrera, 'carrera.objetivo');
   const prevision = medida(carrera, 'carrera.prevision');
   const disposicion = lectura(carrera, 'carrera.disposicion');
