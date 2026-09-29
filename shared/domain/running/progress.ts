@@ -319,6 +319,16 @@ export interface Veredicto {
   plazo: { llevas: number; hacen: number } | null;
 }
 
+/**
+ * Segundos ganados en una distancia, llevados a segundos por kilómetro: la
+ * unidad de `meaningful_gain_s_per_km`, que es el umbral que los juzga. Sin
+ * distancia útil no hay ritmo que comparar (0, no un infinito).
+ */
+export function gananciaPorKm(gana_s: number, metros: number): number {
+  if (!Number.isFinite(gana_s) || !Number.isFinite(metros) || metros <= 0) return 0;
+  return gana_s / (metros / 1000);
+}
+
 /** Cuánto ha ganado una serie de ritmos: el primero menos el último, porque en
  *  ritmo bajar es mejorar. Positivo = ha mejorado. */
 function ganancia(serie: readonly PuntoSemana[]): number {
@@ -515,7 +525,13 @@ export function veredictoDe(h: RunningHistory, m: CoachRunningThresholds): Vered
     };
   }
 
-  const gana = peldano.en === 'esfuerzos' ? peldano.gana_s : peldano.gana_s_km;
+  // EL UMBRAL ESTÁ EN s/km Y SE JUZGA EN s/km (P1 del modelo de analíticas,
+  // 29-09-2026). El peldaño de esfuerzos gana SEGUNDOS sobre una distancia
+  // entera; comparar esos segundos contra un umbral por kilómetro llamaba
+  // «mejor» a 10 s ganados en un 5 km (2 s/km) con el umbral en 3 s/km. El
+  // delta se lleva a la unidad del umbral antes de juzgarlo; `gana_s` se queda
+  // en el peldaño para que la pantalla siga escribiendo «10 s en 5 km».
+  const gana = peldano.en === 'esfuerzos' ? gananciaPorKm(peldano.gana_s, peldano.metros) : peldano.gana_s_km;
   const subida = subidaDeVolumen(h.semanas_km);
 
   if (gana >= m.meaningful_gain_s_per_km) {

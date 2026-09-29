@@ -103,6 +103,33 @@ describe('veredictoDe — la historia es precondición, no desempate', () => {
   });
 });
 
+describe('veredictoDe — el peldaño de esfuerzos se juzga en la unidad del umbral (P1)', () => {
+  // El umbral del coach está en s/km. Antes se le comparaban los SEGUNDOS
+  // ganados en toda la distancia: 10 s en un 5 km (2 s/km) pasaban por encima
+  // de 3 s/km y el atleta leía «Vas mejor» con una mejora por debajo del umbral.
+  const sinPulso = (hoy: number, antes: number) =>
+    historia({
+      semanas: 10,
+      con_pulso: false,
+      esfuerzos: [{ metros: 5000, segundos: hoy }],
+      esfuerzos_antes: [{ metros: 5000, segundos: antes }],
+    });
+
+  test('10 s ganados en 5 km son 2 s/km: por debajo de 3 s/km, «te mantienes»', () => {
+    const v = veredictoDe(sinPulso(1190, 1200), M);
+    expect(v.peldano).toEqual({ en: 'esfuerzos', gana_s: 10, metros: 5000 });
+    expect(v.clase).toBe('igual');
+  });
+
+  test('20 s ganados en 5 km son 4 s/km: por encima del umbral, «vas mejor»', () => {
+    expect(veredictoDe(sinPulso(1180, 1200), M).clase).toBe('mejor');
+  });
+
+  test('20 s perdidos en 5 km son −4 s/km: «vas más lento»', () => {
+    expect(veredictoDe(sinPulso(1220, 1200), M).clase).toBe('peor');
+  });
+});
+
 describe('peldanoDisponible — el orden de la escalera', () => {
   const base = historia({
     al_pulso: [
