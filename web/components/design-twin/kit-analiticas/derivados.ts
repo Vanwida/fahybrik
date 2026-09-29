@@ -8,7 +8,7 @@
 
 import { FAMILIA_GRANDE, FAMILIA_GRANDE_NOMBRE, FAMILIAS_GRANDES, TRAMO_CARRERA_NOMBRE, type Bloque, type EstadoBloque, type FamiliaGrande, type LecturaPanel, type PanelAnaliticas, type PrevisionCarrera, type PuntoSerie, type SesionResumen } from './contrato';
 import type { Cubo, MarcaVertical, SerieLinea } from './graficos';
-import { agruparPuntos, estadoDeBloque, estadoDeCarrera, estadoDeRecords, tamanoGrupo } from './mecanismo';
+import { agruparPuntos, estadoDeBloque, estadoDeCarrera, estadoDeRecords } from './mecanismo';
 import type { MetodoAnaliticas } from './metodo';
 import { ORDEN_FAMILIAS, colorZonaDe, type Piel } from './tokens';
 
@@ -54,11 +54,8 @@ export function seriesForma(p: PanelAnaliticas, piel: Piel, formato: (v: number)
 // Semana a semana: cubos con plan (contorno) y hecho (apilado por familia)
 // ---------------------------------------------------------------------------
 
-/** Cuántos cubos caben legibles en `ancho` px: 20 por columna (12 semanas caben en el iPhone); si no, de 2 en 2 o de 4 en 4 (un mes). */
-export function agrupacionDe(n: number, ancho: number, minAncho = 20): number {
-  const g = tamanoGrupo(n, ancho, minAncho);
-  return g <= 1 ? 1 : g <= 2 ? 2 : 4;
-}
+/** Cuántos cubos caben legibles: el mecanismo es del producto (`components/v2/analiticas/escala.ts`). */
+export { agrupacionDe } from '@/components/v2/analiticas/escala';
 
 export function cubosCarga(p: PanelAnaliticas, modo: 'carga' | 'horas', piel: Piel, agrupar = 1): Cubo[] {
   const porFamilia = new Map<FamiliaGrande, LecturaPanel>();
