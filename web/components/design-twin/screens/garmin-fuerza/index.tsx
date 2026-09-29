@@ -32,7 +32,7 @@ export const meta: TwinMeta = {
     'La serie de fuerza en un Garmin de cinco botones: el ejercicio primero, la dosis con sus dos ejes, BACK/LAP = «Serie hecha» con 5 s para deshacer, y la serie que se anota en el descanso con UP, DOWN y START (reps, carga en cascada, esfuerzo; lo propuesto no cuenta hasta confirmarlo).',
   fuentes: [],
   enApp:
-    'Hoy `garmin-ciq/` es la app «mensajera» (baja el entreno como FIT y lanza el reproductor nativo de Garmin, que cuenta las reps de un solo movimiento y no anota nada). Esto es el motor propio del modelo del 29-09; todavía no hay Monkey C. No se portan dos escenarios de la muñeca: «Las reps las cuenta el reloj» (el conteo por movimiento es fase 2, prueba T10: hoy nadie cuenta) y «Sin doble toque» (Garmin no tiene doble toque ni botón Acción: cerrar una serie es siempre BACK/LAP, que ya es el caso base).',
+    'Hoy `garmin-ciq/` es la app «mensajera» (baja el entreno como FIT y lanza el reproductor nativo de Garmin, que cuenta las reps de un solo movimiento y no anota nada). Esto es el motor propio del modelo del 29-09; todavía no hay Monkey C. Un cambio respecto a la muñeca: en una serie que dice el atleta el héroe es el CRONO de la serie («llevas 0:23», el de `laminaDelPaso`), no «8 reps»: las reps son una instrucción y van en la dosis (G2, G7). No se portan dos escenarios de la muñeca: «Las reps las cuenta el reloj» (el conteo por movimiento es fase 2, prueba T10: hoy nadie cuenta) y «Sin doble toque» (Garmin no tiene doble toque ni botón Acción: cerrar una serie es siempre BACK/LAP, que ya es el caso base).',
   dispositivo: 'garmin',
   soportaHorizontal: false,
 };

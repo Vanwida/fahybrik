@@ -26,6 +26,7 @@ import {
   TG,
   ajustarPartes,
   altoLinea,
+  altoNota,
   anchoPiezas,
   caja,
   chica,
@@ -61,8 +62,14 @@ const ALTO_CONTEXTO = altoLinea(TG.contexto, 'texto');
 export function disponerSeries(nombre: string | null, filas: FilaSerie[], D: number): Disposicion {
   const titulo = nombre ? lineasNombre(nombre, D) : { lineas: lineasContexto(['Series'], D, 'tinta2'), hasta: REJILLA.contexto[1] };
   const lineas: LineaG[] = [...titulo.lineas];
+  let desde = Math.max(REJILLA.heroe[0], titulo.hasta + AIRE.lineas);
+  // Con el ejercicio de título, «Series» va debajo, como rótulo: sin él, «1  6 × 135 kg» no dice qué es el 1.
+  if (nombre) {
+    lineas.push(colocar('rotulo', [chica('Series', D)], caja(desde, ALTO_NOTA), D));
+    desde += altoNota;
+  }
   // Las filas viven bajo el título y por encima del pie.
-  const cuerpo = [Math.max(REJILLA.heroe[0], titulo.hasta + AIRE.piezas), REJILLA.secundaria[1]] as const;
+  const cuerpo = [desde + AIRE.lineas, REJILLA.secundaria[1]] as const;
   if (filas.length === 0) {
     lineas.push(colocar('vacia', [chica('Aún ninguna', D)], caja(0.5 - ALTO_NOTA / 2, ALTO_NOTA), D));
     return { D, lineas, heroe: null, pista: null };
@@ -97,6 +104,8 @@ export function disponerSeries(nombre: string | null, filas: FilaSerie[], D: num
 /** Donde empieza la primera fila de la lista (fracción de D) y hasta dónde llega la última. */
 const LISTA_DESDE = 0.25;
 const LISTA_HASTA = REJILLA.secundaria[1];
+/** Cuánto del aire que sobra se baja la lista (la mitad, y si no cabe así, la cuarta parte). */
+const REPARTO_DEL_AIRE = [0.5, 0.25] as const;
 /** El aire entre dos bloques. */
 const AIRE_BLOQUES = AIRE.piezas;
 
@@ -191,7 +200,7 @@ function centrarBloques(filas: FilaEjercicio[], desde: number, D: number): Bloqu
   if (!ultimo) return base;
   const yFin = ultimo.lineas.reduce((m, l) => Math.max(m, l.y + l.alto), 0) / D;
   const libre = LISTA_HASTA - yFin;
-  for (const fraccion of [0.5, 0.25]) {
+  for (const fraccion of REPARTO_DEL_AIRE) {
     const probado = colocarEjercicios(filas, desde, D, LISTA_DESDE + libre * fraccion);
     const igual = probado.length === base.length && probado.every((b, i) => b.k === base[i]!.k && b.lineas.length === base[i]!.lineas.length);
     if (igual && probado.every((b) => b.lineas.every((l) => l.cabe))) return probado;
