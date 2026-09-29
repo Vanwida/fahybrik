@@ -82,6 +82,44 @@ export interface ComplianceSample {
 
 // ── Core comparison ───────────────────────────────────────────────────────────
 /**
+ * LA COMPARACIÓN CONTRA UNA BANDA, una vez para todos los ejes (29-09-2026).
+ *
+ * Bordes INCLUSIVOS. `inverso` cuando MENOS es MÁS intenso: el ritmo y el split
+ * (menos segundos = más rápido) y el RIR (menos repeticiones en reserva = más
+ * cerca del fallo). `holgura` ensancha los DOS bordes, en la unidad del eje: es
+ * la regla con la que el vivo juzga una serie cerrada (`veredictoDe` con
+ * `holguraDe`, kit-reloj/reglas.ts ↔ Vivo+Reglas.swift), y la que usan las
+ * analíticas para que el reloj y la pantalla no digan dos cosas del mismo tramo.
+ * Un borde `null` es abierto (la Z1 no tiene suelo). Sin valor, o sin ningún
+ * borde, no hay veredicto: 'sin_dato', nunca uno inventado.
+ *
+ * `fuera_rapido` = MÁS intenso que la banda; `fuera_lento` = MENOS. En carrera se
+ * lee «rápido/lento»; en pulso, vatios, kilos o RIR, «más/menos intenso».
+ */
+export function juzgarContraBanda(args: {
+  valor: number | null | undefined;
+  min: number | null;
+  max: number | null;
+  inverso: boolean;
+  holgura?: number;
+}): RunComplianceVerdict {
+  const { valor, min, max, inverso } = args;
+  if (valor == null || !Number.isFinite(valor)) return 'sin_dato';
+  if (min == null && max == null) return 'sin_dato';
+  const h = args.holgura != null && Number.isFinite(args.holgura) ? Math.max(0, args.holgura) : 0;
+  const bajo = min != null && valor < min - h;
+  const alto = max != null && valor > max + h;
+  if (inverso) {
+    if (bajo) return 'fuera_rapido';
+    if (alto) return 'fuera_lento';
+  } else {
+    if (alto) return 'fuera_rapido';
+    if (bajo) return 'fuera_lento';
+  }
+  return 'dentro';
+}
+
+/**
  * Judge one executed sample against one prescribed band. A `null` band (tramo with
  * no objetivo) or a missing/degenerate signal yields 'sin_dato' — never a fabricated
  * verdict. Band edges are INCLUSIVE (a value exactly on an edge is 'dentro').
@@ -89,32 +127,14 @@ export interface ComplianceSample {
 export function evaluateRunSegment(band: ComplianceBand | null, sample: ComplianceSample): RunComplianceVerdict {
   if (!band) return 'sin_dato';
   switch (band.axis) {
-    case 'pace': {
-      const v = sample.pace_s;
-      if (v == null || !Number.isFinite(v)) return 'sin_dato';
-      if (band.fast_s == null && band.slow_s == null) return 'sin_dato';
+    case 'pace':
       // s/km: smaller = faster = MORE intense.
-      if (band.fast_s != null && v < band.fast_s) return 'fuera_rapido';
-      if (band.slow_s != null && v > band.slow_s) return 'fuera_lento';
-      return 'dentro';
-    }
-    case 'hr': {
-      const v = sample.hr_bpm;
-      if (v == null || !Number.isFinite(v)) return 'sin_dato';
-      if (band.min_bpm == null && band.max_bpm == null) return 'sin_dato';
+      return juzgarContraBanda({ valor: sample.pace_s, min: band.fast_s, max: band.slow_s, inverso: true });
+    case 'hr':
       // higher HR = MORE intense → above the max is "too hard".
-      if (band.max_bpm != null && v > band.max_bpm) return 'fuera_rapido';
-      if (band.min_bpm != null && v < band.min_bpm) return 'fuera_lento';
-      return 'dentro';
-    }
-    case 'rpe': {
-      const v = sample.rpe;
-      if (v == null || !Number.isFinite(v)) return 'sin_dato';
-      if (band.min == null && band.max == null) return 'sin_dato';
-      if (band.max != null && v > band.max) return 'fuera_rapido';
-      if (band.min != null && v < band.min) return 'fuera_lento';
-      return 'dentro';
-    }
+      return juzgarContraBanda({ valor: sample.hr_bpm, min: band.min_bpm, max: band.max_bpm, inverso: false });
+    case 'rpe':
+      return juzgarContraBanda({ valor: sample.rpe, min: band.min, max: band.max, inverso: false });
   }
 }
 
@@ -308,8 +328,8 @@ export function summarizeRecoveryCompliance(
 //     imagen especular exacta del caso de recuperación.
 // Por eso hay DOS vocabularios de veredicto, no uno con un parámetro de rol:
 // que cada uno sea autoexplicativo evita leer 'corta'/'larga' sueltos sin
-// saber si tocaba trabajo o recuperación — la comparación en sí (`compareDuration`)
-// es simétrica y privada; cada rol decide DESPUÉS qué dirección es el fallo.
+// saber si tocaba trabajo o recuperación — la comparación en sí (`compararCantidad`)
+// es simétrica (y sirve para toda cantidad); cada rol decide DESPUÉS qué dirección es el fallo.
 //
 // LA TOLERANCIA REUTILIZA `bands.ts`, no inventa una segunda. Su
 // `MEASURE_BAND_OVERRIDES` ya declaraba `duration` en la superficie de
@@ -320,22 +340,26 @@ export function summarizeRecoveryCompliance(
 // `bands.ts`, no hardcodeada aquí, y hoy no hay UI que la edite — deuda
 // declarada, igual que el default de recuperación de los arquetipos.
 
-function relativeDurationToleranceS(prescribed_s: number): number {
-  return prescribed_s * bandRuleFor({ measure_kind: 'duration' }).on_target_max;
-}
+/** La tolerancia relativa por defecto de una dosis (0,10 = 10 %): la de `bands.ts`. */
+export const DOSE_TOLERANCE_DEFAULT = bandRuleFor({ measure_kind: 'duration' }).on_target_max;
 
-/** Comparación objetiva y simétrica: ¿la duración real cayó corta, larga, o
- *  dentro de la ventana de tolerancia alrededor de la prescrita? Privada:
- *  cada rol decide DESPUÉS qué dirección es el fallo (ver las dos funciones
- *  exportadas de abajo). */
-function compareDuration(
-  prescribed_s: number,
-  actual_s: number | null,
+/**
+ * Comparación objetiva y simétrica de una CANTIDAD (segundos, metros,
+ * repeticiones, calorías): ¿lo hecho cayó corto, largo, o dentro de la ventana
+ * de tolerancia alrededor de lo prescrito? Cada rol decide DESPUÉS qué dirección
+ * es el fallo (ver las funciones de abajo). `tolerancia` es relativa (0,10 =
+ * 10 %) y es MÉTODO del coach (`holgura_dosis_pct`); sin ella, la de `bands.ts`.
+ */
+export function compararCantidad(
+  prescrito: number,
+  hecho: number | null | undefined,
+  tolerancia: number = DOSE_TOLERANCE_DEFAULT,
 ): 'corta' | 'larga' | 'en_ventana' | 'sin_dato' {
-  if (actual_s == null || !Number.isFinite(actual_s) || actual_s < 0) return 'sin_dato';
-  const tolerance_s = relativeDurationToleranceS(prescribed_s);
-  if (actual_s < prescribed_s - tolerance_s) return 'corta';
-  if (actual_s > prescribed_s + tolerance_s) return 'larga';
+  if (hecho == null || !Number.isFinite(hecho) || hecho < 0) return 'sin_dato';
+  if (!Number.isFinite(prescrito) || prescrito <= 0) return 'sin_dato';
+  const margen = prescrito * Math.max(0, tolerancia);
+  if (hecho < prescrito - margen) return 'corta';
+  if (hecho > prescrito + margen) return 'larga';
   return 'en_ventana';
 }
 
@@ -359,8 +383,12 @@ export const RECOVERY_DURATION_LABEL: Record<RecoveryDurationVerdict, string> = 
  * PASARSE de tiempo — quedarse corto (o pararse cuando tocaba trotar) es
  * `duracion_controlada`: nadie falla por descansar de menos.
  */
-export function evaluateRecoveryDuration(prescribed_s: number, actual_s: number | null): RecoveryDurationVerdict {
-  const raw = compareDuration(prescribed_s, actual_s);
+export function evaluateRecoveryDuration(
+  prescribed_s: number,
+  actual_s: number | null,
+  tolerancia: number = DOSE_TOLERANCE_DEFAULT,
+): RecoveryDurationVerdict {
+  const raw = compararCantidad(prescribed_s, actual_s, tolerancia);
   if (raw === 'larga') return 'duracion_excedida';
   if (raw === 'sin_dato') return 'sin_dato';
   return 'duracion_controlada'; // 'corta' o 'en_ventana'
@@ -386,8 +414,12 @@ export const WORK_DURATION_LABEL: Record<WorkDurationVerdict, string> = {
  * QUEDARSE CORTO — menos dosis de la pedida. Pasarse de tiempo no reduce el
  * estímulo, así que es `duracion_completa` igual que acertar el tiempo exacto.
  */
-export function evaluateWorkDuration(prescribed_s: number, actual_s: number | null): WorkDurationVerdict {
-  const raw = compareDuration(prescribed_s, actual_s);
+export function evaluateWorkDuration(
+  prescribed_s: number,
+  actual_s: number | null,
+  tolerancia: number = DOSE_TOLERANCE_DEFAULT,
+): WorkDurationVerdict {
+  const raw = compararCantidad(prescribed_s, actual_s, tolerancia);
   if (raw === 'corta') return 'duracion_incompleta';
   if (raw === 'sin_dato') return 'sin_dato';
   return 'duracion_completa'; // 'larga' o 'en_ventana'

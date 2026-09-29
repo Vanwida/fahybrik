@@ -14,6 +14,9 @@ import {
   RUN_COMPLIANCE_TIER,
   WORK_DURATION_LABEL,
   WORK_DURATION_TIER,
+  DOSE_TOLERANCE_DEFAULT,
+  compararCantidad,
+  juzgarContraBanda,
   evaluateRecoveryDuration,
   evaluateRecoverySegment,
   evaluateRunSegment,
@@ -409,5 +412,63 @@ describe('verdict presentation maps — duración', () => {
     for (const v of ['duracion_completa', 'duracion_incompleta', 'sin_dato'] as const) {
       expect(WORK_DURATION_LABEL[v]).toBeTruthy();
     }
+  });
+});
+
+// ── La comparación única (29-09-2026): una banda, un eje, la holgura del vivo ──
+describe('juzgarContraBanda — la comparación de TODOS los ejes', () => {
+  test('directo (pulso, vatios, kilos): por encima del techo es más intenso', () => {
+    expect(juzgarContraBanda({ valor: 150, min: 140, max: 160, inverso: false })).toBe('dentro');
+    expect(juzgarContraBanda({ valor: 161, min: 140, max: 160, inverso: false })).toBe('fuera_rapido');
+    expect(juzgarContraBanda({ valor: 139, min: 140, max: 160, inverso: false })).toBe('fuera_lento');
+  });
+
+  test('inverso (ritmo, split, RIR): por debajo del borde rápido es más intenso', () => {
+    expect(juzgarContraBanda({ valor: 264, min: 265, max: 275, inverso: true })).toBe('fuera_rapido');
+    expect(juzgarContraBanda({ valor: 276, min: 265, max: 275, inverso: true })).toBe('fuera_lento');
+    expect(juzgarContraBanda({ valor: 265, min: 265, max: 275, inverso: true })).toBe('dentro');
+  });
+
+  test('la holgura ensancha los dos bordes (la regla del vivo para una serie cerrada)', () => {
+    expect(juzgarContraBanda({ valor: 262, min: 265, max: 275, inverso: true, holgura: 3 })).toBe('dentro');
+    expect(juzgarContraBanda({ valor: 261, min: 265, max: 275, inverso: true, holgura: 3 })).toBe('fuera_rapido');
+    expect(juzgarContraBanda({ valor: 278, min: 265, max: 275, inverso: true, holgura: 3 })).toBe('dentro');
+    // un objetivo de valor único se vuelve banda con la holgura
+    expect(juzgarContraBanda({ valor: 272, min: 270, max: 270, inverso: true, holgura: 3 })).toBe('dentro');
+  });
+
+  test('un borde abierto no juzga ese lado; sin valor o sin bordes no hay veredicto', () => {
+    expect(juzgarContraBanda({ valor: 100, min: null, max: 132, inverso: false })).toBe('dentro'); // Z1 sin suelo
+    expect(juzgarContraBanda({ valor: null, min: 1, max: 2, inverso: false })).toBe('sin_dato');
+    expect(juzgarContraBanda({ valor: 5, min: null, max: null, inverso: false })).toBe('sin_dato');
+    expect(juzgarContraBanda({ valor: Number.NaN, min: 1, max: 2, inverso: false })).toBe('sin_dato');
+  });
+
+  test('evaluateRunSegment sigue diciendo lo mismo (ahora por la comparación única)', () => {
+    expect(evaluateRunSegment(paceBandFromResolvedZone(265, 275), { pace_s: 264 })).toBe('fuera_rapido');
+    expect(evaluateRunSegment(hrBandFromTarget({ min: 140, max: 160 }), { hr_bpm: 161 })).toBe('fuera_rapido');
+    expect(evaluateRunSegment(rpeBandFromTarget({ value: 7 }), { rpe: 5 })).toBe('fuera_lento');
+  });
+});
+
+describe('compararCantidad — la tolerancia de la dosis es del coach', () => {
+  test('por defecto, el 10 % de bands.ts', () => {
+    expect(DOSE_TOLERANCE_DEFAULT).toBe(0.1);
+    expect(compararCantidad(1000, 905)).toBe('en_ventana');
+    expect(compararCantidad(1000, 899)).toBe('corta');
+    expect(compararCantidad(1000, 1101)).toBe('larga');
+  });
+
+  test('con la del coach', () => {
+    expect(compararCantidad(1000, 960, 0.02)).toBe('corta');
+    expect(compararCantidad(1000, 960, 0.05)).toBe('en_ventana');
+    expect(evaluateWorkDuration(180, 150, 0.2)).toBe('duracion_completa');
+    expect(evaluateWorkDuration(180, 150)).toBe('duracion_incompleta');
+  });
+
+  test('sin valor, negativo o sin prescrito: sin dato', () => {
+    expect(compararCantidad(1000, null)).toBe('sin_dato');
+    expect(compararCantidad(1000, -1)).toBe('sin_dato');
+    expect(compararCantidad(0, 10)).toBe('sin_dato');
   });
 });
