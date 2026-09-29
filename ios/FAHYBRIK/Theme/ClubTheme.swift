@@ -8,8 +8,10 @@ import SwiftUI
 //
 // Todo campo puede llegar `null`: sin coach, o un coach que no ha tocado su
 // piel, manda null y la app pinta la marca de este binario (FAHYBRID +
-// naranja #F06A2A) exactamente como hasta hoy — ver los cuatro `static var`
-// en Theme.Color que consumen `ClubThemeStore.current`.
+// naranja #F06A2A) exactamente como hasta hoy — ver los `static var` de
+// Theme.Color que consumen `ClubThemeStore.current`: `accent`, `accentPress`,
+// `accentOn`, `accentText` y, desde el sistema «El día», el tinte suave
+// `accentTint` (Theme+Dia.swift).
 //
 // Los hexes del acento ya vienen resueltos por el servidor para el lienzo
 // OSCURO (la app y el reloj — ver docstring de `club-accent.ts`). iOS NO
@@ -27,14 +29,25 @@ struct ClubAccentPayload: Codable, Equatable {
     let press: String
     /// El acento como TEXTO o icono sobre el fondo. → Theme.Color.accentText
     let text: String
-    /// Alfa del tinte suave (mismo hex que `fill`). No consumido todavía —
-    /// ningún token `*Tint` del atleta deriva hoy del acento del club.
+    /// Alfa del tinte suave (mismo hex que `fill`). → Theme.Color.accentTint
     let softAlpha: Double
 
     var swiftUIFill: SwiftUI.Color? { fill.asWireColor.map(SwiftUI.Color.init) }
     var swiftUIOnFill: SwiftUI.Color? { onFill.asWireColor.map(SwiftUI.Color.init) }
     var swiftUIPress: SwiftUI.Color? { press.asWireColor.map(SwiftUI.Color.init) }
     var swiftUIText: SwiftUI.Color? { text.asWireColor.map(SwiftUI.Color.init) }
+
+    /// Lo que el tinte puede valer para seguir siendo SUAVE. El servidor manda 0,10-0,14; fuera de
+    /// estos topes el tinte deja de serlo: por debajo no se ve, por encima el texto de la tinta del
+    /// tema deja de leerse sobre él. No recalcula ningún color (eso sigue siendo del servidor):
+    /// solo impide que una respuesta rota (0, 1, NaN) estropee toda la interfaz.
+    static let rangoSuave: ClosedRange<Double> = 0.04...0.30
+
+    /// `softAlpha` acotado a `rangoSuave`; un valor que no es un número cae al de fábrica.
+    var softAlphaSeguro: Double {
+        guard softAlpha.isFinite else { return Theme.Color.alfaSuaveDeFabrica }
+        return min(max(softAlpha, Self.rangoSuave.lowerBound), Self.rangoSuave.upperBound)
+    }
 }
 
 /// La piel del club — nombre, logo y acento. Nombre/logo se decodifican para

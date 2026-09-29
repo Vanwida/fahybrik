@@ -51,7 +51,7 @@ struct ProfilePrivacidadView: View {
                 .clampedToContainerWidth()
             }
             if let exportToast {
-                ToastBanner(text: exportToast)
+                AvisoDia(tono: .ok, texto: exportToast)
                     .padding(.top, Theme.Spacing.l)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }

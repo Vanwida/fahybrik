@@ -494,38 +494,6 @@ struct ShareSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
-// Slim "datos exportados" toast pinned to the top of the screen. Fabrik
-// accent border + elevated surface, dismisses itself after ~2.4s via the caller's
-// asyncAfter (so the parent owns the timing and can cancel if needed).
-struct ToastBanner: View {
-    let text: String
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.Color.ok)
-            Text(text)
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.foreground)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(Theme.Color.surfaceElevated)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.accentText.opacity(0.35), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .shadow(
-            color: Theme.Shadow.cardTight.color,
-            radius: Theme.Shadow.cardTight.radius,
-            x: Theme.Shadow.cardTight.x,
-            y: Theme.Shadow.cardTight.y
-        )
-    }
-}
-
 // MARK: - Edit Profile sheet
 //
 // Full-screen edit form for the athlete's writable profile fields.

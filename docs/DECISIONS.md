@@ -46,6 +46,28 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **No se tocó el cable.** El reloj de la sesión ya viajaba (`sessionElapsed`); metros y pulso son de la muñeca.
 
+## 2026-09-29 · El kit de «El día» en Swift: cimientos compartidos antes de portar las cuatro pestañas
+
+**El encargo:** Hoy, Plan, Carreras y Perfil se portan a Swift en paralelo; el kit común va primero (rama `worktree-agent-abcdb3996c0f86677`).
+
+**Decidido:**
+- **Un solo sistema.** Los tokens del diseño nuevo cuelgan de `Theme.Radius/Size/Spacing/Color/Typography`; la escala tipográfica es una tabla de papeles (`.papel(_:)`, suelo 15 pt garantizado y tope ×1,3 en los grandes). `VivoTokens` toma de ahí el suelo, el cuerpo y el margen en vez de repetirlos.
+- **El acento del club llega a todo.** Nuevo `accentTint` (relleno con el `softAlpha` del club; 0,14 sin club) y su borde. Los tonos de estado no los toca el tenant y lo fija un test. Las tiras del sujeto de acción aclaran u oscurecen según la tinta del club: con un azul de tinta clara, aclararlas bajaba el contraste del texto.
+- **Se ajusta lo que existía en vez de duplicarlo:** `InfoPill` (es la pastilla del día), `RecoveryRing`, `SkeletonBar`, `PressScaleStyle`, `CoachAvatar`, `LibreBadge`.
+- **Texto sobre un tinte = tinta del tema.** `muted` y `accentText` sobre un tinte del acento bajan de 4,5:1 con acentos claros; el doble usa `muted` en la fila realzada y en la tesela «¿Te pruebas?» y en el kit va la tinta.
+
+**Retirado, con porqué:**
+- **`ToastBanner`** (Perfil): 13 pt, sin caso de fallo; lo sustituye `AvisoDia`, el único aviso de la app. Sus dos usos (Dispositivos, Privacidad) lo pintan ya.
+- **El pulso de opacidad de `SkeletonBar`:** se leía mal sobre superficies tintadas; ahora es la línea fuerte con un brillo que barre.
+- **El texto naranja de `InfoPill(.acento)`:** ahora tinta del tema sobre el tinte del acento.
+
+**Hallazgos que NO se arreglan aquí (con el porqué):**
+- El payload del club trae un solo `text` (el del lienzo oscuro) y `accentText` lo usa también en claro: un club amarillo mide ~1,6:1 sobre blanco. Se arregla en el servidor mandando el rol claro; un test lo fija y saltará cuando llegue.
+- El servidor deriva `text` contra `#161618` como la superficie más clara y la app llega a `#1C1C1F` (`surfaceElevated`): un azul medio mide 4,3:1 sobre ella.
+- Hay 75 `accent.opacity(…)` sueltos en la app; se migran a `accentTint` pantalla a pantalla.
+- El doble usa un 15 % y un 10 % de tinte donde iOS tiene el `softAlpha` (14 %): diferencia de un punto, el doble no se toca.
+
+
 ## 2026-09-29 · Analíticas rehechas: el panel del coach (pestaña Rendimiento) y el editor del método
 
 **El encargo:** pintar el panel rehecho en la ficha del atleta con los componentes reales de `web/components/v2/analiticas/` (los ocho bloques y el detalle de sesión; el MISMO cálculo que el iPhone, `GET …/analytics/panel`), el editor del método de analíticas en Ajustes › Método y los umbrales declarados de un toque.

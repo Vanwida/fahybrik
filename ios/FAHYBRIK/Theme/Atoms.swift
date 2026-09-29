@@ -352,39 +352,88 @@ struct PillChip: View {
 // affordance, and hand-rolling `Text + padding + background` on each screen is
 // how the app grew fourteen duration formatters (contrato §0/§1).
 //
-// `acento` marks the pill that carries the row's KEY fact — a real figure, or
+// `.acento` marks the pill that carries the row's KEY fact — a real figure, or
 // "you are here". It is NOT for a pill that explains an ABSENCE: painting "Dura
 // lo que tardes" in the brand role dresses a missing measurement as a measured
 // one, which is exactly the §7 lie.
+//
+// Ahora es también LA pastilla de «El día» (`kit-dia/piezas.tsx` → `Pastilla`): el
+// texto va al suelo de 15 pt (CONTRATO-UI §4.1) y el color sale del papel que juega,
+// no de un tono. Todos los estilos del acento leen los tokens del club.
 struct InfoPill: View {
+    /// El papel que juega la pastilla.
+    enum Estilo {
+        /// Un hecho cualquiera: fondo hundido y texto de apoyo.
+        case neutro
+        /// El hecho CLAVE de la fila: tinte suave del acento. Ver la nota de arriba.
+        case acento
+        /// Relleno del acento con su tinta encima: un dato que además invita («Únete», «Retomar»).
+        case solido
+        /// Sobre un sujeto del acento (`TonoDia.accion`): la tinta de la marca de fondo y el acento de texto.
+        case sobreAccion
+        /// Un velo de la tinta del tema: un contador («3 cosas»).
+        case velo
+    }
+
     let text: String
-    /// Tint the pill in the brand role. See the note above on when it applies.
-    var acento: Bool = false
+    var estilo: Estilo = .neutro
+    /// Un glifo delante del texto.
+    var glifo: GlifoDia? = nil
+
+    private var tinta: SwiftUI.Color {
+        switch estilo {
+        case .neutro:      return Theme.Color.muted
+        // El texto de un tinte es la tinta del tema: el `text` que el servidor deriva para el acento se
+        // mide contra el lienzo, no contra un tinte, y ahí baja de 4,5:1 (un azul medio mide ~3,9).
+        case .acento:      return Theme.Color.foreground
+        case .solido:      return Theme.Color.accentOn
+        case .sobreAccion: return Theme.Color.accent
+        case .velo:        return Theme.Color.foreground
+        }
+    }
+
+    private var fondo: SwiftUI.Color {
+        switch estilo {
+        case .neutro:      return Theme.Color.surfaceSunken
+        case .acento:      return Theme.Color.accentTint
+        case .solido:      return Theme.Color.accent
+        case .sobreAccion: return Theme.Color.accentOn
+        case .velo:        return Theme.Color.foreground.opacity(0.08)
+        }
+    }
+
+    private var borde: SwiftUI.Color {
+        switch estilo {
+        case .neutro:                     return Theme.Color.hairlineStrong
+        case .acento:                     return Theme.Color.accentTintBorde
+        case .solido, .sobreAccion, .velo: return .clear
+        }
+    }
 
     var body: some View {
-        Text(text)
-            .scaledFont(12, weight: .semibold, relativeTo: .caption)
-            .foregroundStyle(acento ? Theme.Color.accentText : Theme.Color.muted)
-            .lineLimit(1)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(acento ? Theme.Color.accent.opacity(0.12) : Theme.Color.surfaceSunken)
-            .overlay(
-                Capsule().stroke(
-                    acento ? Theme.Color.accent.opacity(0.35) : Theme.Color.hairlineStrong,
-                    lineWidth: 1
-                )
-            )
-            .clipShape(Capsule())
+        HStack(spacing: Theme.Spacing.xs + 2) {
+            if let glifo { IconoDia(glifo, tam: 14, peso: .bold) }
+            Text(text)
+                .papel(.rotulo)
+                // Una pastilla ENSEÑA un dato: cortada con «…» ya no lo enseña. Si no cabe, baja de línea.
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(tinta)
+        .padding(.horizontal, Theme.Spacing.m)
+        .frame(minHeight: 32)
+        .background(fondo, in: Capsule())
+        .overlay(Capsule().stroke(borde, lineWidth: 1))
     }
 }
 
 // MARK: - Skeleton bar
 //
-// A neutral, gently-pulsing placeholder for a COLD load — the §5 "cargando"
-// state made a piece, so a screen never has to choose between a spinner and a
-// lie. Purely decorative (the host carries the "Cargando" a11y label); the slow
-// opacity pulse says "loading" without inventing content.
+// A neutral placeholder for a COLD load — the §5 "cargando" state made a piece, so
+// a screen never has to choose between a spinner and a lie. Purely decorative (the
+// host carries the "Cargando" a11y label). A soft highlight sweeps across the bar:
+// it says "loading" without inventing content, and — unlike a bare opacity pulse —
+// it reads on any surface, tinted or not, because the bar is the hairline itself.
+// With Reduce Motion on, the bar just sits there.
 //
 // Lived `private` inside InicioView until the Plan screen needed the same thing
 // — which is the §0 rule ("nunca `private struct` si otro fichero podría
@@ -393,45 +442,80 @@ struct SkeletonBar: View {
     var width: CGFloat? = nil
     var height: CGFloat = 14
     var radius: CGFloat = Theme.Radius.s
-    @State private var pulse = false
+    @State private var brillo = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .fill(Theme.Color.surfaceElevated)
+            .fill(Theme.Color.hairlineStrong)
+            .overlay {
+                GeometryReader { proxy in
+                    LinearGradient(
+                        colors: [.clear, Theme.Color.hairlineStrong, .clear],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .frame(width: proxy.size.width * 0.6)
+                    .offset(x: brillo ? proxy.size.width : -proxy.size.width * 0.6)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .frame(width: width, height: height)
             .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
-            .opacity(pulse ? 0.5 : 1)
             .onAppear {
-                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
-                    pulse = true
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: false)) {
+                    brillo = true
                 }
             }
             .accessibilityHidden(true)
     }
 }
 
-// MARK: - Recovery ring (SVG-equivalent)
+// MARK: - Recovery ring
+//
+// El anillo de una cifra 0-100 — la de «Cómo llegas hoy». El COLOR va en el arco y
+// nunca en el número: el número es la tinta del tema, porque una cifra de 38 en rojo
+// grande se lee como alarma y una de 91 en verde como aplauso, y la pieza dice el
+// estado del cuerpo, no un veredicto (`disposicion.tsx` del doble). El arco se dibuja
+// al entrar; con Reducir movimiento aparece ya lleno.
 struct RecoveryRing: View {
     let value: Int
     var size: CGFloat = 96
     var stroke: CGFloat = 8
     var color: Color = Theme.Color.foreground
+    /// El arco se dibuja al entrar. Una captura estática (ImageRenderer) no ejecuta `onAppear`:
+    /// ahí se pide `false` para verlo ya lleno.
+    var animado: Bool = true
+    /// Lo que lee VoiceOver. Sin él: «84 de 100».
+    var etiqueta: String? = nil
+
+    @State private var dibujado = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var fraccion: CGFloat { max(0, min(1, CGFloat(value) / 100)) }
+    private var enReposo: Bool { !animado || reduceMotion || dibujado }
 
     var body: some View {
         ZStack {
             Circle()
                 // Adaptive track seam — a baked white alpha vanished on the
                 // light canvas; hairline flips black-on-white / white-on-black.
-                .stroke(Theme.Color.hairline, lineWidth: stroke)
+                .stroke(Theme.Color.hairlineStrong, lineWidth: stroke)
             Circle()
-                .trim(from: 0, to: max(0, min(1, CGFloat(value) / 100)))
+                .trim(from: 0, to: enReposo ? fraccion : 0)
                 .stroke(color, style: StrokeStyle(lineWidth: stroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
+                .animation(.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.9).delay(0.2), value: dibujado)
             Text("\(value)")
-                .font(.system(size: size * 0.34, weight: .heavy, design: .monospaced).monospacedDigit())
+                .font(ScaledFontModifier.fuente(size: size * 0.41, weight: .heavy, italic: true, tabular: true))
+                .tracking(-0.03 * size * 0.41)
                 .foregroundStyle(Theme.Color.foreground)
         }
         .frame(width: size, height: size)
+        .onAppear { dibujado = true }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(etiqueta ?? "\(value) de 100")
     }
 }
 
@@ -538,10 +622,13 @@ struct ExpertPrimaryButton: View {
 }
 
 /// Scale-only press feedback (no color change). For neutral / chip buttons.
+/// `escala` is how far the label dips: the default (0.98) suits a chip; a big
+/// block (the sujeto of «El día») wants less (0.982) and a small pill more (0.96).
 struct PressScaleStyle: ButtonStyle {
+    var escala: CGFloat = 0.98
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .scaleEffect(configuration.isPressed ? escala : 1.0)
             .animation(.easeInOut(duration: 0.18), value: configuration.isPressed)
     }
 }
