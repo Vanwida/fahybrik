@@ -32,7 +32,7 @@ import {
   type Vuelta,
 } from '../../kit-reloj';
 import type { PlanWod } from '../reloj-wod/planes';
-import type { VistaWod } from './estado';
+import { esTareaMarcable, type VistaWod } from './estado';
 
 export interface PaginaWod {
   id: string;
@@ -60,25 +60,27 @@ const datos = (v: VistaWod, D: number, delante: FilaDatoVista[]): Disposicion =>
 
 /** Las tareas con dosis (las que se marcan «hechas») de las ventanas ya pasadas, y cuántas se marcaron. */
 function tareasMarcables(v: VistaWod): { pasadas: PasoBase[]; aTiempo: number } {
-  const pasadas = v.plan.pasos.slice(0, v.estado.i).filter((x) => {
-    const w = wodDe(x);
-    return w?.formato === 'emom' && !!w.tarea.dosis && w.tarea.dosis.tipo !== 'abierta' && !w.tarea.corre;
-  });
+  const pasadas = v.plan.pasos.slice(0, v.estado.i).filter(esTareaMarcable);
   return { pasadas, aTiempo: pasadas.filter((x) => v.wod.hechas[x.id] != null).length };
 }
 
-/** MINUTOS: cada ventana ya pasada con el segundo en que se marcó su tarea («—» si no se marcó: no se sabe, no «fallada»). */
+/**
+ * MINUTOS: las ventanas con una tarea que se marca, con el segundo en que se marcó
+ * («—» si no se marcó: no se sabe, no «fallada»). Un minuto entero de remo no deja
+ * nada que enseñar (nadie lo lee), así que no sale; sin ninguna tarea marcable en el
+ * plan, la página no existe.
+ */
 export function disponerMinutos(v: VistaWod, D: number): Disposicion {
   const w = wodDe(v.paso);
   const ventanaS = w?.formato === 'emom' ? w.ventanaS : 60;
-  const filas: FilaSplit[] = v.plan.pasos.slice(0, v.estado.i).map((x) => {
+  const { pasadas, aTiempo } = tareasMarcables(v);
+  // El nombre va de detalle: si no cabe se va él, no el tiempo.
+  const filas: FilaSplit[] = pasadas.map((x) => {
     const h = v.wod.hechas[x.id];
-    // El nombre va de detalle: si no cabe se va él, no el tiempo.
     return { n: String(x.posicion?.serie?.n ?? ''), valor: h != null ? fmtReloj(h) : '—', detalle: x.nombre ?? null };
   });
-  const { pasadas, aTiempo } = tareasMarcables(v);
   const titulo = [ventanaS === 60 ? 'Minutos' : 'Ventanas', pasadas.length > 0 ? `${aTiempo}/${pasadas.length} a tiempo` : ''].filter(Boolean);
-  const enCurso = v.paso.rol === 'trabajo' && v.paso.posicion?.serie ? { n: String(v.paso.posicion.serie.n), valor: fmtReloj(v.lecturas.t) } : null;
+  const enCurso = esTareaMarcable(v.paso) && v.paso.posicion?.serie ? { n: String(v.paso.posicion.serie.n), valor: fmtReloj(v.lecturas.t) } : null;
   return disponerVueltas(titulo, filas, enCurso, D);
 }
 
@@ -155,7 +157,7 @@ export function paginasDe(plan: PlanWod): PaginaWod[] {
       const ventanaS = w?.formato === 'emom' ? w.ventanaS : 60;
       return [
         estructura(plan),
-        { id: 'minutos', titulo: ventanaS === 60 ? 'Minutos' : 'Ventanas', disponer: disponerMinutos },
+        ...(pasos.some(esTareaMarcable) ? [{ id: 'minutos', titulo: ventanaS === 60 ? 'Minutos' : 'Ventanas', disponer: disponerMinutos }] : []),
         {
           id: 'datos',
           titulo: 'Datos',

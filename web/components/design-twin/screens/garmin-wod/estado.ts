@@ -136,13 +136,19 @@ export type TipoMando = 'emom-tarea' | 'emom-ventana' | 'amrap-rondas' | 'amrap-
 
 export type AccionBack = 'tarea-hecha' | 'ronda-hecha' | 'guardar' | 'nada' | 'kit';
 
+/** ¿Es esta ventana una tarea con dosis (la que se marca «hecha»)? Un minuto entero de remo o una ventana de correr, no. */
+export function esTareaMarcable(paso: PasoBase): boolean {
+  const w = wodDe(paso);
+  return w?.formato === 'emom' && !!w.tarea.dosis && w.tarea.dosis.tipo !== 'abierta' && !w.tarea.corre;
+}
+
 export function tipoDeMando(paso: PasoBase, wod: EstadoWod): TipoMando {
   const w = wodDe(paso);
   if (!w) return 'kit';
   switch (w.formato) {
     case 'emom':
-      // Solo una tarea con dosis se marca «hecha»; un minuto entero de remo o una ventana de correr lo cierra el reloj.
-      return w.tarea.dosis && w.tarea.dosis.tipo !== 'abierta' && !w.tarea.corre && wod.hechas[paso.id] == null ? 'emom-tarea' : 'emom-ventana';
+      // Solo una tarea con dosis se marca «hecha», y una vez; lo demás lo cierra el reloj.
+      return esTareaMarcable(paso) && wod.hechas[paso.id] == null ? 'emom-tarea' : 'emom-ventana';
     case 'amrap':
       return w.tareas.length > 1 ? 'amrap-rondas' : 'amrap-reps';
     case 'puntuacion':
@@ -219,12 +225,18 @@ export function seCorreDeVerdad(p: PasoBase): boolean {
 }
 
 /**
- * Los Controles de un paso de WOD: los del kit, con dos cambios que son del WOD:
+ * Los Controles de un paso de WOD: los del kit, con tres cambios que son del WOD:
  *   · un descanso de reloj de pared (Tabata) no lleva «+30 s»: el reloj no se estira (DECISIONS 28-09);
  *   · «Cambiar entorno» (calle, cinta, pista) solo si la sesión corre de verdad: el kit lo ofrece
- *     si algún paso «es de correr» y una ronda de Tabata cuenta como «serie».
+ *     si algún paso «es de correr» y una ronda de Tabata cuenta como «serie»;
+ *   · un AMRAP siempre lleva Datos, Vueltas y Estructura (§5).
  */
 export function controlesDeWod(paso: PasoBase, porDefecto: IdControl[], pasos: PasoBase[]): IdControl[] {
-  const sinEstirar = wodDe(paso)?.formato === 'pared' ? porDefecto.filter((id) => id !== 'mas30') : porDefecto;
-  return pasos.some(seCorreDeVerdad) ? sinEstirar : sinEstirar.filter((id) => id !== 'entorno');
+  const w = wodDe(paso);
+  let c = w?.formato === 'pared' ? porDefecto.filter((id) => id !== 'mas30') : porDefecto;
+  if (!pasos.some(seCorreDeVerdad)) c = c.filter((id) => id !== 'entorno');
+  // En un AMRAP las tres páginas viven en Controles (UP/DOWN cuentan reps): también en los 5 s de un deshacer,
+  // cuando el kit, que decide la lista por la fila de §5 y esa es la del deshacer, no las ofrecería.
+  if ((w?.formato === 'amrap' || w?.formato === 'puntuacion') && !c.includes('datos')) c = [...c.slice(0, 1), 'datos', 'vueltas', 'estructura', ...c.slice(1)];
+  return c;
 }

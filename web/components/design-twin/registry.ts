@@ -176,6 +176,7 @@ import * as perfilRehecho from './screens/perfil-rehecho';
 // La gramática primero (el kit `kit-garmin`); las familias, encima.
 import * as garminGramatica from './screens/garmin-gramatica';
 import * as garminCorrer from './screens/garmin-correr';
+import * as garminWod from './screens/garmin-wod';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -297,6 +298,7 @@ export const SCREENS: TwinScreenModule[] = [
   // El reloj Garmin (29-sep): la gramática.
   garminGramatica,
   garminCorrer,
+  garminWod,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
