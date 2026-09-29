@@ -1,8 +1,9 @@
 // Ajustes › Método — cómo entrenas (la entrevista y su párrafo), cómo agrupas
 // a tus atletas (el eje y sus valores, con qué marca abre cada uno), los pasos
 // de «Progresar», tus zonas de FC y de ritmo, las lecturas de carrera, cada
-// cuánto repites un test, los marcadores clave de la ficha y los umbrales de
-// los avisos. Todo es método del coach con defectos a la vista (HARD RULE Nº0).
+// cuánto repites un test, los marcadores clave de la ficha, el método de las
+// analíticas (forma, frescura, cumplimiento, cambio) y los umbrales de los
+// avisos. Todo es método del coach con defectos a la vista (HARD RULE Nº0).
 
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
@@ -12,6 +13,7 @@ import { getCoachSignalThresholds } from '@/lib/coach/signal-thresholds';
 import { getLevelAxisSetting } from '@/lib/coach/level-axis';
 import { listCoachLevels } from '@/lib/coach/levels';
 import { getCoachHrMethodSetting } from '@/lib/coach/hr-method';
+import { getCoachAnalyticsMethodSetting } from '@/lib/coach/analytics-method';
 import { getCoachRunningThresholdsSetting } from '@/lib/coach/running-thresholds';
 import { getCoachPaceZones } from '@/lib/coach/methodology-zones';
 import { getTestCadenceSetting } from '@/lib/coach/test-cadence';
@@ -24,6 +26,7 @@ import { AjustesPanel } from '@/components/v2/ajustes/AjustesPanel';
 import { AjustesLoadError } from '@/components/v2/ajustes/AjustesLoadError';
 import { LevelsSettings } from '@/components/v2/ajustes/LevelsSettings';
 import { HrMethodSettings } from '@/components/v2/ajustes/HrMethodSettings';
+import { AnalyticsMethodSettings } from '@/components/v2/ajustes/AnalyticsMethodSettings';
 import { PaceZonesSettings } from '@/components/v2/ajustes/PaceZonesSettings';
 import { RunningThresholdsSettings } from '@/components/v2/ajustes/RunningThresholdsSettings';
 import { TestCadenceSetting } from '@/components/v2/ajustes/TestCadenceSetting';
@@ -40,7 +43,7 @@ export default async function MetodoPage({ params }: { params: Promise<{ locale:
   if (!session) return null;
 
   const cid = session.coach_id;
-  const [interview, thresholds, axis, levels, steps, hr, paceKm, pace500, running, cadence, markers] = await Promise.all([
+  const [interview, thresholds, axis, levels, steps, hr, paceKm, pace500, running, analytics, cadence, markers] = await Promise.all([
     getCoachMethodInterview(cid).catch(() => null),
     getCoachSignalThresholds(cid).catch(() => null),
     getLevelAxisSetting(cid).catch(() => null),
@@ -50,6 +53,7 @@ export default async function MetodoPage({ params }: { params: Promise<{ locale:
     getCoachPaceZones(cid, 'per_km').catch(() => null),
     getCoachPaceZones(cid, 'per_500m').catch(() => null),
     getCoachRunningThresholdsSetting(cid).catch(() => null),
+    getCoachAnalyticsMethodSetting(cid).catch(() => null),
     getTestCadenceSetting(cid).catch(() => null),
     loadCoachKeyMarkers(cid).catch(() => null),
   ]);
@@ -76,6 +80,7 @@ export default async function MetodoPage({ params }: { params: Promise<{ locale:
         <AjustesLoadError what="tus zonas de ritmo" />
       )}
       {running ? <RunningThresholdsSettings initial={running} /> : <AjustesLoadError what="tus lecturas de carrera" />}
+      {analytics ? <AnalyticsMethodSettings initial={analytics} /> : <AjustesLoadError what="tu método de analíticas" />}
       {cadence ? <TestCadenceSetting initial={cadence} /> : null}
       {markers ? (
         <KeyMarkersSettings
