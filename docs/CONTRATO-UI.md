@@ -67,6 +67,13 @@ no puedan escribir el mismo dato de dos maneras.
 | Unidad de ritmo | `Formato.UnidadRitmo` | `/km` · `/500m` · `/mi` |
 | Porcentaje | `Formato.porcentaje(fraccion:)` | `67 %` — entra una **fracción 0…1**, que es como lo sirve el servidor pese a llamarlo `pct` |
 | Fecha | `FechaES.larga(_:)` · `.corta(_:)` | `3 de julio` · `3 jul` — entra un ISO `YYYY-MM-DD` |
+| Fecha con año y día de la semana | `FechaES.corta(_:hoy:conDia:)` | `7 nov` · `6 mar 2027` (otro año que `hoy`) · `Sáb 7 nov` — los meses son una tabla escrita, no el «sept» de ICU |
+| Cuánto hace | `FechaES.hace(_:ahora:cuentaHasta:)` | `ayer` · `hace 9 días` (hasta donde pida `cuentaHasta`; pasado, la fecha) |
+| Mes y año en el eje de una gráfica | `FechaES.mesAnio(_:)` | `nov 25` |
+| Total de una carrera (meta, predicho, resultado) | `Formato.clock(_, enHoras: false)` | `66:52` — minutos corridos, jamás `1:06:52`; los PARCIALES (vueltas, estaciones) van en `Formato.clock(_)` (`4:12`) |
+| Meta de carrera | `Formato.metaDeCarrera(_:)` | `Sub-65` (minutos redondos) · `64:30` |
+| Puesto en el campo | `Formato.puesto(_:campo:)` | `Puesto 412 de 1180 · top 35 %` |
+| Diferencia de una duración con signo | `GoalGapFormat.signedDuration(_:)` | `+0:42` · `−2:34` · `±0:00` |
 
 **Las variantes se piden POR PARÁMETRO, nunca escribiendo una segunda función** — la
 segunda función es exactamente como nació este problema:
