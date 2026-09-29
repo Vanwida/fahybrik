@@ -284,10 +284,11 @@ export const SCREENS: TwinScreenModule[] = [
   // El panel del coach, como dispositivo «escritorio».
   analiticasPanelCoach,
   // Las pestañas del atleta, rehechas (29-sep): Hoy, Plan, Carreras y Perfil.
-  hoyDia,
-  planRehecho,
-  carrerasRehecho,
+  // (Registradas en orden inverso: el índice pone primero lo último añadido, y Hoy va antes que Plan, Carreras y Perfil.)
   perfilRehecho,
+  carrerasRehecho,
+  planRehecho,
+  hoyDia,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
