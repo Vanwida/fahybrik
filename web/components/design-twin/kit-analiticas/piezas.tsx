@@ -269,7 +269,7 @@ export function Celda({
   cuerpo?: number;
   aLoAncho?: boolean;
 }) {
-  const u = unidadCorta(unidad);
+  const u = unidadCorta(unidad, valor ?? undefined);
   return (
     <Superficie estilo={{ display: 'flex', flexDirection: 'column', gap: 6, gridColumn: aLoAncho ? '1 / -1' : undefined, minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
@@ -369,7 +369,7 @@ export function FilaProgreso({
           <>
             <span style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
               <Numeral texto={cifra(valor, unidad)} cuerpo={TA.datoMenor.cuerpo} />
-              {unidadCorta(unidad) ? <Etiqueta>{unidadCorta(unidad)}</Etiqueta> : null}
+              {unidadCorta(unidad, valor ?? undefined) ? <Etiqueta>{unidadCorta(unidad, valor ?? undefined)}</Etiqueta> : null}
             </span>
             {comparacion ? <Delta comparacion={comparacion} unidad={unidad} corto /> : nota ? <Etiqueta>{nota}</Etiqueta> : null}
           </>

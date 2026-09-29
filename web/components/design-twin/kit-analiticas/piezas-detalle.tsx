@@ -27,7 +27,7 @@ export function CabeceraFamilia({ familia, etiqueta, valor, unidad, comparacion,
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5 }}>
             <Numeral texto={cifra(valor, unidad)} cuerpo={TA.dato.cuerpo} />
-            {unidadCorta(unidad) ? <Etiqueta>{unidadCorta(unidad)}</Etiqueta> : null}
+            {unidadCorta(unidad, valor ?? undefined) ? <Etiqueta>{unidadCorta(unidad, valor ?? undefined)}</Etiqueta> : null}
           </span>
           {comparacion ? <Delta comparacion={comparacion} unidad={unidad} /> : null}
         </div>

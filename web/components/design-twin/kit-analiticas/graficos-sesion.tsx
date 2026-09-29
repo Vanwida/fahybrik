@@ -116,6 +116,8 @@ export function LineaTiempo({
         {(curva.referencias ?? []).map((r) => (
           <g key={r.etiqueta}>
             <line x1={x0} x2={x1} y1={y(r.valor)} y2={y(r.valor)} stroke={piel.tinta2} strokeWidth={1} />
+            {/* Halo de superficie: el rótulo no puede camuflarse contra la curva justo cuando pasa por su media. */}
+            <rect x={r2(x1 - anchoRotulo(r.etiqueta, piel.cuerpoEje) - 2)} y={r2(y(r.valor) - piel.cuerpoEje - 6)} width={r2(anchoRotulo(r.etiqueta, piel.cuerpoEje) + 4)} height={r2(piel.cuerpoEje + 4)} rx={4} fill={piel.superficie} />
             <text x={x1} y={y(r.valor) - 4} textAnchor="end" fill={piel.tinta2} style={{ font: `600 ${piel.cuerpoEje}px/1 ${piel.fuente}`, fontVariantNumeric: 'tabular-nums' }}>
               {r.etiqueta}
             </text>

@@ -43,7 +43,7 @@ export function PuntoFamiliaPanel({ familia }: { familia: Familia | FamiliaGrand
 
 /** Una cifra del panel: etiqueta 11 px arriba, valor 28 px tabular, unidad, delta y ancla. */
 export function CifraPanel({ etiqueta, valor, unidad, comparacion, ancla, nota, tamano = 'l' }: { etiqueta: ReactNode; valor: number | null; unidad: UnidadPanel; comparacion?: Comparacion | null; ancla?: Ancla; nota?: ReactNode; tamano?: 'l' | 'xl' | 'm' }) {
-  const u = unidadCorta(unidad);
+  const u = unidadCorta(unidad, valor ?? undefined);
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex items-center justify-between gap-2">

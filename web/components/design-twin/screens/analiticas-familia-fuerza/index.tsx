@@ -83,7 +83,7 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
       <Seccion titulo="1RM estimado" pregunta={`Por ejercicio · fórmula de ${metodo.formula_1rm === 'epley' ? 'Epley' : 'Brzycki'}, la de tu coach`}>
         <Lista>
           {d.ejercicios.map((e) => (
-            <FilaProgreso key={e.nombre} familia="fuerza" nombre={e.nombre} metrica={e.patron} valor={e.rm.dato!.valor} unidad="kg" comparacion={e.rm.dato!.comparacion} tendencia={e.rm.serie?.hecho ?? null} nota={e.rm.dato!.comparacion ? null : 'sin periodo anterior con el que comparar'} onAbrir={() => { setEjercicio(d.ejercicios.indexOf(e)); onLog(`Ejercicio → ${e.nombre}`); }} />
+            <FilaProgreso key={e.nombre} familia="fuerza" nombre={e.nombre} metrica={e.patron === e.nombre ? '1RM est.' : `${e.patron} · 1RM est.`} valor={e.rm.dato!.valor} unidad="kg" comparacion={e.rm.dato!.comparacion} tendencia={e.rm.serie?.hecho ?? null} nota={e.rm.dato!.comparacion ? null : 'sin periodo anterior con el que comparar'} onAbrir={() => { setEjercicio(d.ejercicios.indexOf(e)); onLog(`Ejercicio → ${e.nombre}`); }} />
           ))}
         </Lista>
         <Nota>Estimado desde tu mejor serie declarada (kg × reps). Un 1RM real pesa más que una estimación: si haces un test, manda.</Nota>

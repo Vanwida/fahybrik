@@ -90,8 +90,8 @@ export function cifra(valor: number, unidad: UnidadPanel): string {
   }
 }
 
-/** La unidad como sufijo corto, para pegarla a la cifra a 15 pt. Vacía cuando la cifra ya la lleva o no la necesita. */
-export function unidadCorta(unidad: UnidadPanel): string {
+/** La unidad como sufijo corto, para pegarla a la cifra a 15 pt. Vacía cuando la cifra ya la lleva o no la necesita. Los metros son «m» por debajo del kilómetro. */
+export function unidadCorta(unidad: UnidadPanel, valor?: number): string {
   switch (unidad) {
     case 's_km':
       return '/km';
@@ -108,7 +108,7 @@ export function unidadCorta(unidad: UnidadPanel): string {
     case 'kg':
       return 'kg';
     case 'metros':
-      return 'km';
+      return valor != null && valor < 1000 ? 'm' : 'km';
     case 'm_s':
       return 'm/s';
     case 'pct':
