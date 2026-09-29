@@ -208,6 +208,9 @@ enum UnidadLectura: String, Codable, Equatable, CaseIterable {
     case reps
     case dias
     case pp
+    case rpe
+    case rir
+    case tramos
     case s1000m = "s_1000m"
     case spm
     case rpm
@@ -360,9 +363,9 @@ struct SerieDeLectura: Codable, Equatable {
     /// cuando la lectura no tiene plan. Puede extenderse más allá del último punto
     /// hecho (la proyección de forma hasta la carrera) y tener huecos.
     /// Opcional también en el cable: el contrato de agosto no lo mandaba.
-    let plan: [PuntoDeSerie]?
+    var plan: [PuntoDeSerie]? = nil
     /// Líneas de referencia en unidades reales (bandas de frescura, aviso de subida).
-    let referencias: [ReferenciaDeSerie]?
+    var referencias: [ReferenciaDeSerie]? = nil
 
     /// Decide la FORMA del gráfico: un paso diario es una línea (denso y
     /// continuo), uno semanal son barras. Derivado del dato, no de un `id`.
@@ -427,7 +430,7 @@ struct ProcedenciaDeLectura: Codable, Equatable {
     let proveedor: String?
     /// El peldaño del umbral que sostiene la cifra, cuando depende de uno: la ancla
     /// MÁS DÉBIL de las que entran en el número. Nulo cuando no depende de ninguna.
-    let ancla: AnclaDeLectura?
+    var ancla: AnclaDeLectura? = nil
 }
 
 struct LecturaAnalitica: Codable, Equatable, Identifiable {
@@ -436,19 +439,19 @@ struct LecturaAnalitica: Codable, Equatable, Identifiable {
     let id: String
     let grupo: GrupoLectura
     /// En qué familia de entreno vive; nula cuando cruza todas.
-    let familia: FamiliaLectura?
+    var familia: FamiliaLectura? = nil
     let tituloEs: String
     let estado: EstadoLectura
     /// El número de portada. Nulo si `estado` es `sin_dato`.
     let dato: DatoDeLectura?
     /// Contra el periodo anterior de igual longitud. Nulo cuando no se compara.
-    let comparacion: ComparacionDeLectura?
+    var comparacion: ComparacionDeLectura? = nil
     /// Para dibujar. Nulo cuando la lectura no tiene forma de serie.
     let serie: SerieDeLectura?
     /// Bandas o partes. Nulo cuando la lectura no reparte nada.
     let reparto: RepartoDeLectura?
     /// La palabra, cuando la cobertura la sostiene. Nula = retirada o no aplica.
-    let veredicto: VeredictoDeLectura?
+    var veredicto: VeredictoDeLectura? = nil
     let cobertura: CoberturaDeLectura
     let procedencia: ProcedenciaDeLectura
 }

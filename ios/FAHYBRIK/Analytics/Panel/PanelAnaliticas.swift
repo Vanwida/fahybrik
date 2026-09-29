@@ -255,6 +255,8 @@ struct AnclasDelPanel: Codable, Equatable {
 enum IdsDelPanel {
     static let polarizacion = "intensidad.polarizacion"
     static let readiness = "recuperacion.readiness"
+    /// El servidor titula esta lectura con el nombre técnico; al atleta se le dice «Disposición».
+    static let etiquetaDeReadiness = "Disposición"
     static let carreraObjetivo = "carrera.objetivo"
     static let carreraDisposicion = "carrera.disposicion"
     static let carreraPrevision = "carrera.prevision"
@@ -265,6 +267,18 @@ enum IdsDelPanel {
     static let referenciaPresupuestoTramo = "presupuesto_objetivo"
     /// `veredicto.code` de un récord que se ha batido en la ventana.
     static let veredictoRecordNuevo = "nuevo"
+    /// El cumplimiento de la ventana: el número que el coach eligió más el reparto de sus sesiones.
+    static let semanasCumplimiento = "semanas.cumplimiento"
+
+    /// Los `parte.code` del reparto por sesión de `semanas.cumplimiento` (`cumplimiento.ts`).
+    enum SesionCumplida {
+        static let cumplida = "cumplida"
+        static let desviada = "desviada"
+        static let fuera = "fuera"
+        static let noHecha = "no_hecha"
+        static let hechaSinMedida = "hecha_sin_medida"
+        static let sinPlan = "sin_plan"
+    }
 
     /// Una zona semanal: `intensidad.z1` … `intensidad.zN`. NO lo es `intensidad.zonas`,
     /// que es el total del periodo.

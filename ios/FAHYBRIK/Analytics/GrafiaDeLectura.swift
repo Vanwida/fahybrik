@@ -160,6 +160,15 @@ enum GrafiaDeLectura {
         case .pp:
             return Escrito(cifra: Formato.conSigno(valor), unidad: "pt")
 
+        case .rpe:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 1), unidad: "RPE")
+
+        case .rir:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 0), unidad: "RIR")
+
+        case .tramos:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 0), unidad: "tramos")
+
         // Una unidad que este binario no sabe escribir: la lectura se calla.
         case .desconocida:
             return nil
