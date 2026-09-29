@@ -5,6 +5,7 @@
 //   disponerPaso       G09  el paso de correr: contexto · nota · héroe · banda
 //                           ▲▼ (o la instrucción) · lo que falta · el pulso.
 //                           TODO sale de `laminaDelPaso`: la vista no decide.
+//                           El contexto nunca pierde la posición (`contextoSinPerderPosicion`).
 //   disponerRecupera   G11  monocromo: la cuenta atrás, «Luego · …», el pulso.
 //   disponerDescanso   G12  la fase común: cuenta atrás, «Viene: …», el pulso.
 //   disponerCuenta     G08  3-2-1 y GO antes de un paso de trabajo.
@@ -153,10 +154,36 @@ export function disponerPaso(l: Lamina, D: number): Disposicion {
   return { D, lineas, heroe, pista };
 }
 
-/** Atajo: la lámina de `kit-reloj` y su disposición. */
+/** ¿Es esta parte del contexto una posición («Serie 3/6», «Tanda 2/3», «tramo 3/8», «Estación 3/4»)? */
+const esPosicion = (parte: string) => /\d+\/\d+/.test(parte);
+
+/**
+ * El contexto de un paso SIN PERDER SU POSICIÓN. En una línea, el contexto
+ * quita partes por el final; eso está bien con lo prescrito («Serie 3/6 ·
+ * 1000 m» → «Serie 3/6»: «quedan 616 m» ya lo dice), pero en una posición
+ * anidada se llevaría la serie en la que estás («Tanda 2/3 · Serie 4/6 · 1′» →
+ * «Tanda 2/3»), y en un progresivo el tramo («Progresivo · tramo 3/8» →
+ * «Progresivo»). Como todo es fracción de D, no cabe entero en NINGÚN reloj:
+ * va en dos líneas, la corta arriba (la cuerda es estrecha) y la larga debajo.
+ * Si ni así cabe, o no se pierde ninguna posición, queda como estaba.
+ */
+export function contextoSinPerderPosicion(partes: string[], D: number): string[] {
+  const una = cajaEnFila('contexto', altoLinea(TG.contexto, 'texto'));
+  const cabidas = ajustarPartes(partes, 'texto', TG.contexto, D, Math.floor(una.ancho * D)).partes;
+  if (partes.filter(esPosicion).every((x) => cabidas.includes(x))) return partes;
+  const ultima = partes.map(esPosicion).lastIndexOf(true);
+  // Con todo lo prescrito detrás; y si así no cabe, hasta la última posición.
+  for (const hasta of [partes.length, ultima + 1]) {
+    const unido = [partes.slice(0, hasta).join(' · ')];
+    if (lineasContexto(unido, D).every((x) => x.cabe)) return unido;
+  }
+  return partes;
+}
+
+/** Atajo: la lámina de `kit-reloj` y su disposición (con la posición del contexto a salvo). */
 export function disponerPasoDe(p: PasoBase, l: Lecturas, zonas: ZonasCoach | null, D: number, reglas: ReglasAviso = REGLAS_AVISO_DEFECTO) {
   const lamina = laminaDelPaso(p, l, zonas, reglas);
-  return { lamina, disposicion: disponerPaso(lamina, D) };
+  return { lamina, disposicion: disponerPaso({ ...lamina, contexto: contextoSinPerderPosicion(lamina.contexto, D) }, D) };
 }
 
 // ---------------------------------------------------------------------------
