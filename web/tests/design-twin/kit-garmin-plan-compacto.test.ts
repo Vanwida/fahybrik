@@ -91,7 +91,7 @@ describe('plan compacto · sesiones reales y planes del kit', () => {
     const numeros = new Set(casosReales().map((c) => c.numero));
     const faltan = NUMEROS_DEL_ENCARGO.filter((n) => !numeros.has(n));
     expect(faltan).toEqual([...NO_ENCONTRADAS]);
-    expect(NUMEROS_DEL_ENCARGO.length - faltan.length).toBe(21);
+    expect(NUMEROS_DEL_ENCARGO.length - faltan.length).toBe(24);
   });
 
   it.each(TODOS.map(({ caso, meta }) => [caso.clave, caso, meta] as const))('%s · ida y vuelta exacta (plan y cabecera)', (_c, caso, meta) => {

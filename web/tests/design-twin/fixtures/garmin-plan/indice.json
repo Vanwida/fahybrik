@@ -158,6 +158,24 @@
       "bytes": 292
     },
     {
+      "caso": "511",
+      "sesion": "511",
+      "pasos": 17,
+      "bytes": 649
+    },
+    {
+      "caso": "513",
+      "sesion": "513",
+      "pasos": 7,
+      "bytes": 451
+    },
+    {
+      "caso": "542",
+      "sesion": "542",
+      "pasos": 8,
+      "bytes": 374
+    },
+    {
       "caso": "modelo-6x1000",
       "sesion": null,
       "pasos": 13,

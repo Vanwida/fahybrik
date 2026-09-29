@@ -12,6 +12,7 @@
 // del FIT, bandas del atleta) son de PRUEBA: el deporte del FIT es ilustrativo,
 // el mapa real es el arreglo A4 y lo decide la prueba T1 en un reloj.
 
+import { sesion511, sesion513, sesion542 } from '@/components/design-twin/screens/reloj-correr/sesiones-nuevas';
 import { sesion509, sesion479, sesion491, sesion494, sesion535, sesion538 as correr538, sesion551, sesion573, seisPorMil } from '@/components/design-twin/screens/reloj-correr/planes';
 import { ejemploP11, sesion488, sesion492 as fuerza492, sesion529 as fuerza529, sesion538 as fuerza538 } from '@/components/design-twin/screens/reloj-fuerza/planes';
 import { sesion493 as circuito493, sesion492 as circuito492, sesion506 as circuito506, simulacionHyrox } from '@/components/design-twin/screens/reloj-circuito/planes';
@@ -62,8 +63,12 @@ export const NUMEROS_DEL_ENCARGO = [
   '498', '572', '506', '552', '542', '493', '482', '505', '530', '536', '513', '514',
 ] as const;
 
-/** Las que NO existen como datos en el doble (búsqueda por número en `web/` y `docs/`, 29-09-2026), en el orden del encargo. */
-export const NO_ENCONTRADAS = ['511', '542', '513'] as const;
+/**
+ * Las que NO existen como datos en el doble, en el orden del encargo. Ninguna:
+ * 511, 513 y 542 se modelaron el 30-09 desde la base de datos (lectura, ver
+ * `screens/reloj-correr/sesiones-nuevas.ts`).
+ */
+export const NO_ENCONTRADAS: readonly string[] = [];
 
 const R = 'screens/reloj-correr/planes.ts';
 const F = 'screens/reloj-fuerza/planes.ts';
@@ -71,6 +76,7 @@ const C = 'screens/reloj-circuito/planes.ts';
 const W = 'screens/reloj-wod/planes.ts';
 const A = 'screens/reloj-antes-despues/sesiones.ts';
 const G = 'screens/reloj-gramatica/planes.ts';
+const N = 'screens/reloj-correr/sesiones-nuevas.ts';
 
 const caso = (clave: string, numero: string | null, etiqueta: string, fuente: string, familia: FamiliaCaso, plan: PlanSesion): CasoPlan => ({
   clave,
@@ -110,6 +116,9 @@ export function casosReales(): CasoPlan[] {
     caso('530', '530', '3 × (SkiErg · Row · Bike) @Z2 + Run 7′', `${W} · ergo530`, 'ergo', ergo530().plan),
     caso('536', '536', 'Row en escalera 90″ → 1′ → 30″', `${W} · escalera536`, 'ergo', escalera536().plan),
     caso('514', '514', 'Assault Bike 45′ @Z1 · máx 142 ppm', `${W} · bike514`, 'ergo', bike514().plan),
+    caso('511', '511', 'Fartlek 3′/3′ en cinta: 2 × (3 × (3′ @Z4 / 3′) / 3′)', `${N} · sesion511`, 'correr', sesion511()),
+    caso('513', '513', 'Zona 2 sin impacto: SkiErg 2 × 2′ · Bike 3 × 15′ · Row 2 × 2′', `${N} · sesion513`, 'ergo', sesion513()),
+    caso('542', '542', 'HYROX half-sim: 4 × (Run 500 m + estación)', `${N} · sesion542`, 'circuito', sesion542().plan),
   ];
 }
 
