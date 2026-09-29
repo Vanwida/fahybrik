@@ -75,7 +75,7 @@ function TestRow({
               Falta el resultado
             </Pill>
             <Link
-              href={`/atletas/${athleteId}?tab=rendimiento&vista=zonas`}
+              href={`/atletas/${athleteId}?tab=rendimiento&seccion=zonas`}
               className="v2-focus inline-flex h-7 items-center gap-1 rounded-ctl bg-v2-fg px-2.5 t-meta font-semibold text-v2-bg hover:bg-[color:var(--v2-accent-press)]"
             >
               Registrar
