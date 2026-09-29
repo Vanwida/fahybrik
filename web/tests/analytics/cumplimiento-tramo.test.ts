@@ -291,12 +291,19 @@ describe('fuerza, serie a serie', () => {
       ],
     });
     const f = cumplimientoDeLineas([l], [t], ctx()).lineas[0]!.tramos[0]!;
-    expect(f.series.map((s) => s.veredicto)).toEqual(['dentro', 'dentro', 'por_debajo', 'por_debajo']);
+    // la tercera, al fallo (RIR 0 frente a 2 ± 1): más intensa de lo pedido, y corta de reps
+    expect(f.series.map((s) => s.veredicto)).toEqual(['dentro', 'dentro', 'por_encima', 'por_debajo']);
+    expect(f.series[2]!.comprobaciones.map((c) => [c.eje, c.veredicto])).toEqual([
+      ['carga', 'dentro'],
+      ['rir', 'por_encima'],
+      ['reps', 'por_debajo'],
+    ]);
     expect(eje(f, 'series')).toMatchObject({ objetivo: { min: 4 }, hecho: 3, veredicto: 'por_debajo' });
     expect(eje(f, 'reps')).toMatchObject({ objetivo: { min: 20 }, hecho: 14, veredicto: 'por_debajo' });
-    // los kilos de la serie mandan sobre el RIR como objetivo de intensidad
+    // kilos Y esfuerzo: los dos se juzgan (los kilos resueltos al entrenar, el RIR del coach)
     expect(eje(f, 'carga')).toMatchObject({ veredicto: 'dentro', hecho: 100 });
-    expect(f.veredicto).toBe('por_debajo');
+    expect(eje(f, 'rir')).toMatchObject({ veredicto: 'por_encima', objetivo: { min: 2, max: 2 }, holgura: 1 });
+    expect(f.veredicto).toBe('por_encima');
   });
 
   test('sin el RIR anotado: las reps cumplidas no confirman la serie → sin dato (anotar el esfuerzo)', () => {

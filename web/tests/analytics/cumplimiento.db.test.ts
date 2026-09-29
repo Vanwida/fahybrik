@@ -108,16 +108,16 @@ describeWithDb('cumplimiento (base real)', () => {
     ids.borrador = await makeAssignment({ fx, templateId: rodaje, scheduledForIso: '2026-06-03' });
     await sql`insert into athlete_pauses (athlete_id, start_date, end_date, reason, requested_by) values (${fx.athleteId}, '2026-05-27', '2026-05-28', 'vacaciones', 'athlete')`;
     ids.pausa = await makeAssignment({ fx, templateId: rodaje, scheduledForIso: '2026-05-27' });
-  });
+  }, 120_000); // una veintena de viajes a una rama que puede estar despertándose
 
   afterAll(async () => {
     await settleCleanup(async () => {
-      await sql`delete from athlete_declared_thresholds where athlete_id in (${fx.athleteId}, ${otro.athleteId})`;
-      await fx.cleanup();
-      await otro.cleanup();
+      if (fx) await sql`delete from athlete_declared_thresholds where athlete_id = ${fx.athleteId}`;
+      await fx?.cleanup();
+      await otro?.cleanup();
     });
     await closeTestSql();
-  });
+  }, 120_000);
 
   const detalle = () => cargarDetalleCumplimiento({ atleta: desdeSesionDeAtleta({ athlete_id: fx.athleteId }), ventana: '4s', now: NOW, client: sql });
   const sesion = (ss: readonly FilaSesion[], id: number) => ss.find((s) => s.assignment_id === String(id));

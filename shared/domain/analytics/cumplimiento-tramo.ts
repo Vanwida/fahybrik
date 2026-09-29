@@ -329,21 +329,33 @@ export function juzgarPlegado(t: TramoEjecutado, esfuerzos: readonly Esfuerzo[],
 // LA TABLA DE SERIES (fuerza, y todo lo que se grabó serie a serie)
 // ---------------------------------------------------------------------------
 
-function objetivoDeSerie(s: SerieHecha, e: Esfuerzo | null): ObjetivoTramo | null {
-  // Los kilos que la app resolvió al entrenar mandan: un %RM ya convertido es el
-  // prescrito de ESA serie, con la marca que el atleta tenía ese día.
+/**
+ * La carga de una serie: los kilos que la app resolvió al entrenar mandan (un %RM
+ * ya convertido, con la marca que el atleta tenía ese día); si no, el objetivo de
+ * carga escrito (kilos, %RM, relativo). Null si la serie no pide carga.
+ */
+function objetivoDeCarga(s: SerieHecha, e: Esfuerzo | null): ObjetivoTramo | null {
   if (s.kg_prescritos != null && s.kg_prescritos > 0) return { tipo: 'kg', min: s.kg_prescritos, max: s.kg_prescritos };
-  return e?.objetivo ?? null;
+  const o = e?.objetivo;
+  return o && (o.tipo === 'kg' || o.tipo === 'pct_rm' || o.tipo === 'relativo') ? o : null;
+}
+
+/** El esfuerzo que pide una serie (RIR o RPE), aparte de su carga: se juzgan los dos. */
+function objetivoDeEsfuerzo(e: Esfuerzo | null): ObjetivoTramo | null {
+  const o = e?.objetivo;
+  return o && (o.tipo === 'rir' || o.tipo === 'rpe') ? o : null;
 }
 
 function juzgarSerie(s: SerieHecha, e: Esfuerzo | null, modalidad: string | null, ctx: ContextoBandas, intensidadObligatoria: boolean): FilaSerie {
   const cs: Comprobacion[] = [];
   const saltada = s.estado === 'skipped';
-  const objetivo = objetivoDeSerie(s, e);
-  if (objetivo && !saltada) {
+  if (!saltada) {
     const valor = (eje: EjeIntensidad): number | null => (eje === 'carga' ? util(s.kg) : eje === 'rir' ? (s.rir != null && s.rir >= 0 ? s.rir : null) : eje === 'rpe' ? util(s.rpe) : null);
-    const i = comprobarBanda(objetivo, modalidad, valor, ctx);
-    if (i) cs.push(i);
+    for (const objetivo of [objetivoDeCarga(s, e), objetivoDeEsfuerzo(e)]) {
+      if (!objetivo) continue;
+      const i = comprobarBanda(objetivo, modalidad, valor, ctx);
+      if (i) cs.push(i);
+    }
   }
   const reps: Dosis | null =
     s.reps_prescritas != null && s.reps_prescritas > 0 ? { eje: 'reps', valor: s.reps_prescritas, max: null } : e?.dosis?.eje === 'reps' ? e.dosis : null;
