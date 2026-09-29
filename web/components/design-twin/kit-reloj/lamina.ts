@@ -288,8 +288,14 @@ function lineaFalta(p: PasoBase, l: Lecturas): LineaVista {
   return { etiqueta: 'quedan', valor: v.texto, unidad: v.unidad };
 }
 
-function notaDe(p: PasoBase, l: Lecturas): string | null {
-  if (l.viejos && l.viejos.length > 0) return 'sin enlace · la muñeca sigue grabando';
+/**
+ * La nota de «dato viejo» del Apple Watch (el móvil que lee la cinta o el PM5
+ * dejó de llegar). Es de Apple: cada pintor pasa la suya a `laminaDelPaso`.
+ */
+export const NOTA_DATO_VIEJO_APPLE = 'sin enlace · la muñeca sigue grabando';
+
+function notaDe(p: PasoBase, l: Lecturas, datoViejo: string): string | null {
+  if (l.viejos && l.viejos.length > 0) return datoViejo;
   if (l.gps === 'buscando' && esCarrera(p)) return 'GPS · buscando';
   if (p.cue) return `Coach · ${p.cue}`;
   if (p.entorno === 'cinta') {
@@ -318,6 +324,7 @@ export function laminaDelPaso(
   l: Lecturas,
   zonas: ZonasCoach | null,
   reglas: ReglasAviso = REGLAS_AVISO_DEFECTO,
+  notaDatoViejo: string = NOTA_DATO_VIEJO_APPLE,
 ): Lamina {
   const heroe = heroeDelPaso(p, l, zonas);
   const o = principal(p);
@@ -358,7 +365,7 @@ export function laminaDelPaso(
     instruccion,
     segundo,
     tercero,
-    nota: notaDe(p, l),
+    nota: notaDe(p, l, notaDatoViejo),
     tinte: tinteDelPaso(p, l, zonas),
   };
 }

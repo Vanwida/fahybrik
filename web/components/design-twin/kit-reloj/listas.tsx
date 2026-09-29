@@ -111,8 +111,8 @@ export function PaginaFilas({
  * del mismo estado (el reloj Garmin), sin repetir la regla.
  */
 export function filasDeDatos(sesion: Sesion, lecturas: Lecturas, fuente?: string): FilaDatoVista[] {
-  // Los metros que vienen del móvil (cinta) y no llegan: «—», no el último valor congelado.
-  const sinMetros = lecturas.viejos?.includes('hecho') ?? false;
+  // Los metros que vienen del móvil (cinta) y no llegan, o el GPS perdido: «—», no el último valor congelado.
+  const sinMetros = (lecturas.viejos?.includes('hecho') ?? false) || lecturas.gps === 'buscando';
   const d = sesion.metros != null && !sinMetros ? fmtDistancia(sesion.metros) : null;
   const ppm = lecturas.viejos?.includes('ppm') ? null : lecturas.ppm;
   return [

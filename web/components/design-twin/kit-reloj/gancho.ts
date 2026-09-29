@@ -19,6 +19,7 @@ import {
   avanzar,
   cerrar,
   cuentaDe,
+  deshacerCierre,
   estadoInicial,
   lecturasDe,
   pasoVivo,
@@ -145,11 +146,7 @@ export function useSecuencia(
       const a = antes.current;
       const actual = ultimo.current;
       if (!a) return;
-      // El tiempo no se deshace: el paso reabierto sigue contando desde donde
-      // iba, y lo que midió la sesión mientras tanto (metros, pulso) se queda.
-      const pasado = actual.sesionT - a.sesionT;
-      const { sesionT, sesionM, sesionErgoM, ppmSuma, ppmN, zonasS, ppmMax, lect } = actual;
-      aplicar({ ...a, t: a.t + pasado, sesionT, sesionM, sesionErgoM, ppmSuma, ppmN, zonasS, ppmMax, lect, goHasta: 0 });
+      aplicar(deshacerCierre(a, actual, plan, sim));
       antes.current = null;
       eventos.emitir('accion');
     },

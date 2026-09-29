@@ -143,10 +143,17 @@ export function estructuraDe(pasos: PasoBase[]): (i: number) => FilaEstructura[]
     }));
 }
 
-/** El grupo que da nombre a la sesión: el primero de la parte principal con repeticiones; si no, el primero principal. */
-export function grupoPrincipal(grupos: Grupo[]): Grupo {
-  return grupos.find((g) => g.paso.fase === 'principal' && g.veces > 1) ?? grupos.find((g) => g.paso.fase === 'principal') ?? grupos[0]!;
+/**
+ * El grupo que da nombre a la sesión: el primero de la parte principal con
+ * repeticiones; si no, el primero principal. `null` si el plan no tiene ni un
+ * paso de trabajo (un plan de solo descansos o transiciones).
+ */
+export function grupoPrincipal(grupos: Grupo[]): Grupo | null {
+  return grupos.find((g) => g.paso.fase === 'principal' && g.veces > 1) ?? grupos.find((g) => g.paso.fase === 'principal') ?? grupos[0] ?? null;
 }
+
+/** El título de una sesión sin ningún paso de trabajo: no hay bloque que le dé nombre. */
+export const TITULO_SESION_SIN_TRABAJO = 'Sesión';
 
 // ---------------------------------------------------------------------------
 // El brief y lo de hoy
@@ -224,6 +231,7 @@ export function lineaBrief(g: Grupo): LineaBrief {
  */
 export function hoyDe(pasos: PasoBase[]): { titulo: string; sub: string | null; dur: string } {
   const g = grupoPrincipal(filasDePasos(pasos));
+  if (!g) return { titulo: TITULO_SESION_SIN_TRABAJO, sub: null, dur: duracionHumana(pasos) };
   const p = g.paso;
   const o = principal(p);
   const r = g.entre?.medida.prescrito != null ? `r ${fmtDuracion(g.entre.medida.prescrito)}` : null;

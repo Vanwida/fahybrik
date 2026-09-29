@@ -182,8 +182,11 @@ export function pasoVivo(plan: PlanSesion, s: EstadoSecuencia): Paso {
 
 export function lecturasDe(p: PasoBase, s: EstadoSecuencia): Lecturas {
   const tipo = p.medida.tipo;
+  // Sin GPS a mitad de un paso que se mide por GPS, los metros NO se miden (G7):
+  // «quedan» y la página Datos dicen «—», nunca el último valor congelado.
+  const sinGps = p.medida.mide === 'gps' && s.lect.gps === 'buscando';
   const hecho =
-    tipo === 'distancia' ? (s.midio ? s.metros : null) : tipo === 'tiempo' ? s.t : (s.lect.hecho ?? null);
+    tipo === 'distancia' ? (s.midio && !sinGps ? s.metros : null) : tipo === 'tiempo' ? s.t : (s.lect.hecho ?? null);
   return {
     t: s.t,
     hecho,
@@ -283,6 +286,21 @@ export function estadoInicial(plan: PlanSesion, sim: Simulador, ini: InicioSecue
   const r = plan.reglas;
   const ya = f != null && ((p.medida.tipo === 'distancia' && f <= r.preavisoM) || (p.medida.tipo === 'tiempo' && f <= r.preavisoS));
   return { ...s, preavisado: ya };
+}
+
+/**
+ * Deshacer un cierre a mano: `antes` es el estado justo antes de cerrar y
+ * `ahora` el de este instante. El tiempo no se deshace (el paso reabierto
+ * sigue contando desde donde iba) y lo que midió la sesión mientras tanto
+ * (metros, pulso) se queda. La LECTURA se recalcula en el instante de ahora
+ * con el paso reabierto: la que traía `ahora` era la del paso siguiente (el
+ * ritmo lento de la recuperación pintado sobre la serie recuperada).
+ */
+export function deshacerCierre(antes: EstadoSecuencia, ahora: EstadoSecuencia, plan: PlanSesion, sim: Simulador): EstadoSecuencia {
+  const t = antes.t + (ahora.sesionT - antes.sesionT);
+  const { sesionT, sesionM, sesionErgoM, ppmSuma, ppmN, zonasS, ppmMax } = ahora;
+  const reabierto: EstadoSecuencia = { ...antes, t, sesionT, sesionM, sesionErgoM, ppmSuma, ppmN, zonasS, ppmMax, goHasta: 0 };
+  return { ...reabierto, lect: sim(pasoVivo(plan, reabierto), reabierto.i, t, sesionT) };
 }
 
 /** Un segundo de motor. */

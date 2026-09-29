@@ -81,7 +81,8 @@ export function bloquesDeSeries(pasos: PasoBase[]): PasoBase[][] {
 
 /** % del tiempo dentro de lo que pide el objetivo a zona del paso principal: «98 % hasta Z2», «74 % en Z4». */
 export function enZona(r: Resultado): { pct: string; donde: string } | null {
-  const o = principal(grupoPrincipal(filasDePasos(r.pasos)).paso);
+  const g = grupoPrincipal(filasDePasos(r.pasos));
+  const o = g ? principal(g.paso) : null;
   if (!o || o.eje !== 'zona' || o.max == null) return null;
   const techo = o.papel === 'techo' || o.avisa === 'solo-arriba';
   const desde = techo ? 1 : (o.min ?? 1);

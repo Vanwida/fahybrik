@@ -5,15 +5,22 @@
 //
 //   A1 · un paso CONTINUO cerrado a mano antes de tiempo es un paso cortado.
 //   A2 · la vuelta automática no asume el km (`vueltaAutoM`: 400 en pista, 1609 en millas).
+//   A3 · GPS perdido a mitad de un paso por distancia: lo hecho NO se mide (—), nada congelado.
+//   A4 · deshacer un cierre recalcula la lectura de ahora.
+//   A5 · hoyDe / grupoPrincipal seguros sin paso de trabajo.
 
 import { describe, expect, it } from 'vitest';
 import { completitud, type HechoSesion } from '@/components/design-twin/kit-reloj/despues';
 import { REGLAS_AVISO_DEFECTO, type PasoBase, type ZonasCoach } from '@/components/design-twin/kit-reloj/paso';
-import { avanzar, cerrar, estadoInicial, type EstadoSecuencia, type PlanSesion, type Simulador } from '@/components/design-twin/kit-reloj/secuencia';
+import { avanzar, cerrar, deshacerCierre, estadoInicial, type EstadoSecuencia, type PlanSesion, type Simulador } from '@/components/design-twin/kit-reloj/secuencia';
 import { filasDeVueltas } from '@/components/design-twin/kit-reloj/listas';
 import { vueltasDe } from '@/components/design-twin/kit-reloj/vivo';
 import { pasoVivo, lecturasDe } from '@/components/design-twin/kit-reloj/secuencia';
 import { vozVuelta } from '@/components/design-twin/kit-reloj/voz';
+import { NOTA_DATO_VIEJO_APPLE, laminaDelPaso } from '@/components/design-twin/kit-reloj/lamina';
+import { filasDeDatos } from '@/components/design-twin/kit-reloj/listas';
+import { TITULO_SESION_SIN_TRABAJO, filasDePasos, grupoPrincipal, hoyDe } from '@/components/design-twin/kit-reloj/estructura';
+import { sesionDe } from '@/components/design-twin/kit-reloj/vivo';
 import { hechoDe } from '@/components/design-twin/kit-garmin/vivo';
 
 const ZONAS: ZonasCoach = { techos: [138, 150, 160, 173, 192] };
@@ -148,5 +155,87 @@ describe('A2 · la vuelta automática se llama por lo que es y cuenta con su lon
     const { vueltas, s } = correrVueltas(r, a250, s0, 30);
     expect(s.i).toBe(1);
     expect(vueltas, 'la milla 2 cae en los 3218 m, lejos de estos 30 s').toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A3 · GPS perdido a mitad de un paso por distancia
+// ---------------------------------------------------------------------------
+
+describe('A3 · sin GPS, lo hecho no se mide: «—» en el héroe y en Datos, nunca un valor viejo', () => {
+  const serie = paso({ clase: 'series', rol: 'trabajo', medida: { tipo: 'distancia', prescrito: 1000, mide: 'gps' }, objetivos: [{ eje: 'ritmo', min: 245, max: 255, papel: 'principal' }] });
+  const q = plan([serie]);
+  const con: Simulador = () => ({ ritmo: 250, ppm: 165, gps: 'listo' });
+  const sin: Simulador = () => ({ ritmo: null, ppm: 165, gps: 'buscando' });
+
+  function conGpsPerdido() {
+    let s = estadoInicial(q, con, { i: 0 });
+    for (let k = 0; k < 100; k++) s = avanzar(s, q, con).estado; // ~400 m corridos
+    for (let k = 0; k < 20; k++) s = avanzar(s, q, sin).estado;
+    return s;
+  }
+
+  it('lo hecho no se mide mientras no hay GPS (no hay «quedan» congelado), y vuelven al recuperarlo', () => {
+    const s = conGpsPerdido();
+    const p = pasoVivo(q, s);
+    const l = lecturasDe(p, s);
+    expect(l.hecho).toBeNull();
+    const lam = laminaDelPaso(p, l, ZONAS);
+    // Nadie sabe lo que falta: el héroe cae a lo que se lleva (el reloj), jamás a un «quedan» congelado.
+    expect(lam.heroe).toMatchObject({ clase: 'crono', etiqueta: 'llevas' });
+    expect(lam.segundo).toBeNull();
+    const conVuelta = avanzar(s, q, con).estado;
+    expect(lecturasDe(pasoVivo(q, conVuelta), conVuelta).hecho).toBeGreaterThan(400);
+  });
+
+  it('la página Datos no enseña la distancia ni el ritmo medio viejos', () => {
+    const s = conGpsPerdido();
+    const filas = filasDeDatos(sesionDe(s), lecturasDe(pasoVivo(q, s), s));
+    expect(filas[1]!.valor).toBe('—');
+    expect(filas[2]!.valor).toBe('—');
+  });
+
+  it('la nota de dato viejo es de cada pintor: la de Apple por defecto, otra si el pintor la pasa', () => {
+    const l = { ...lecturasDe(serie, estadoInicial(q, con, { i: 0 })), viejos: ['ritmo' as const] };
+    expect(laminaDelPaso(serie, l, ZONAS).nota).toBe(NOTA_DATO_VIEJO_APPLE);
+    expect(laminaDelPaso(serie, l, ZONAS, REGLAS_AVISO_DEFECTO, 'sin dato').nota).toBe('sin dato');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A4 · deshacer un cierre recalcula la lectura de ahora
+// ---------------------------------------------------------------------------
+
+describe('A4 · deshacer no pinta la lectura del paso siguiente sobre el reabierto', () => {
+  it('cerrada la serie con la recuperación a 6:11, al deshacer la lectura es la de la serie (3:50), no la lenta', () => {
+    const serie = paso({ clase: 'series', rol: 'trabajo', medida: { tipo: 'distancia', prescrito: 1000, mide: 'gps' }, objetivos: [{ eje: 'ritmo', min: 225, max: 235, papel: 'principal' }] });
+    const rec = paso({ clase: 'recuperacion', rol: 'recuperacion', medida: { tipo: 'tiempo', prescrito: 90, mide: 'reloj' } });
+    const q = plan([serie, rec]);
+    const sim: Simulador = (p) => ({ ritmo: p.rol === 'trabajo' ? 230 : 371, ppm: 150, gps: 'listo' });
+    const a = estadoInicial(q, sim, { i: 0, t: 100, metros: 400, sesionT: 100, sesionM: 400 });
+    const cerrado = avanzar(cerrar(a, q, 'atleta').estado, q, sim).estado; // un segundo ya en la recuperación
+    expect(cerrado.lect.ritmo).toBe(371);
+    const d = deshacerCierre(a, cerrado, q, sim);
+    expect(d.i).toBe(0);
+    expect(d.lect.ritmo).toBe(230);
+    expect(d.t).toBe(101);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A5 · un plan sin paso de trabajo no rompe lo de hoy
+// ---------------------------------------------------------------------------
+
+describe('A5 · hoyDe y grupoPrincipal son seguros sin ningún paso de trabajo', () => {
+  it('un plan de solo descanso: grupoPrincipal es null y hoyDe da un título, no explota', () => {
+    const solo = [paso({ clase: 'descanso', rol: 'descanso', medida: { tipo: 'tiempo', prescrito: 60, mide: 'reloj' } })];
+    expect(grupoPrincipal(filasDePasos(solo))).toBeNull();
+    expect(hoyDe(solo)).toMatchObject({ titulo: TITULO_SESION_SIN_TRABAJO, sub: null });
+    expect(hoyDe([])).toMatchObject({ titulo: TITULO_SESION_SIN_TRABAJO });
+  });
+
+  it('con trabajo, todo igual que antes', () => {
+    const t = [paso({ clase: 'tempo', rol: 'trabajo', medida: { tipo: 'tiempo', prescrito: 1200, mide: 'reloj' } })];
+    expect(grupoPrincipal(filasDePasos(t))?.paso).toBe(t[0]);
   });
 });
