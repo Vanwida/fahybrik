@@ -115,6 +115,10 @@ extension WorkoutSession {
 
     func recordRunLegLap(_ leg: RunLeg, at legIndex: Int) {
         guard let seg = currentSegment else { return }
+        // Closed while the clock still waits for the machine: the leg never started,
+        // so its window is zero (`runLegElapsed`) and so is everything measured per
+        // second inside it — not the wait's zones and pulse.
+        if tramoClockArmed { reanchorRunLegClock() }
         let now = Date()
         let dur = runLegElapsed   // lapElapsedSeconds − runLegStartElapsed (this leg only)
         // Covered distance for THIS leg: belt delta wins (a belt IS the tramo's truth),

@@ -81,9 +81,21 @@ extension WorkoutSession {
     /// leg's measured distance / HR / incline / zone is the DIFF between the values at
     /// close and these. Called wherever a leg's clock starts (prime + both GO paths).
     private func markRunLegStart() {
-        runLegStartElapsed = lapElapsedSeconds
         runLegBeltStart = lapBeltDistanceMeters
         runLegGpsStart = lapGpsDistanceMeters ?? 0
+        reanchorRunLegClock()
+    }
+
+    /// EL RELOJ DE LA SERIE Y LO QUE SE MIDE POR SEGUNDO VAN JUNTOS. La serie
+    /// vuelve a poner su cero sin un GO nuevo cuando la cinta arranca después del
+    /// Empezar (`releaseArmedTramoClock`) o cuando se cierra sin haber arrancado
+    /// (`recordRunLegLap` con el reloj aún armado). Zonas, pulso, cadencia y
+    /// pendiente se cuentan desde ESE cero; si no, la espera caía en las zonas de
+    /// la serie pero no en su duración: 184 s de zonas en 180 s de serie, 5 s en
+    /// una serie de 0 s (0278). La distancia no se toca: mientras la máquina no se
+    /// mueve no hay metros que quitar.
+    func reanchorRunLegClock() {
+        runLegStartElapsed = lapElapsedSeconds
         runLegHRStartCount = lapHRSamples.count
         runLegZoneStart = lapZoneAccumSec
         runLegInclineSumStart = lapInclineSum

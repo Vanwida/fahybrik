@@ -533,9 +533,11 @@ extension WorkoutSession {
         tramoClockArmed = false
         tramoStartElapsed = lapElapsedSeconds
         // Structured-run TIME/DISTANCE legs have their own zero (`runLegElapsed`).
-        // Re-anchor it too so the HUD does not jump by the wait.
+        // Re-anchor it too so the HUD does not jump by the wait — and with it the
+        // leg's per-second baselines (zones, HR, cadence, incline), or the wait lands
+        // in the leg's zones but not in its duration.
         if isRunStructureActive {
-            runLegStartElapsed = lapElapsedSeconds
+            reanchorRunLegClock()
         }
     }
 
