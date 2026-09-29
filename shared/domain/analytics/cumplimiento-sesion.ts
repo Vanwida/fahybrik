@@ -321,7 +321,7 @@ function resumenTramos(lineas: readonly FilaLinea[], conEjecucion: boolean): Res
   return r;
 }
 
-export interface EntradaSesion {
+export interface EntradaCumplimientoSesion {
   hoy: string;
   metodo: CoachAnalyticsMethod;
   ctx: ContextoBandas;
@@ -333,7 +333,7 @@ export interface EntradaSesion {
 }
 
 /** El cumplimiento de UNA sesión del plan. Null si no se enseña (semana en borrador sin hacer). */
-export function cumplimientoDeSesion(s: SesionCumplimiento, e: EntradaSesion): FilaSesion | null {
+export function cumplimientoDeSesion(s: SesionCumplimiento, e: EntradaCumplimientoSesion): FilaSesion | null {
   const { debida, hecha } = debidaYHecha(s, e.hoy);
   if (!s.visible && !hecha) return null;
 

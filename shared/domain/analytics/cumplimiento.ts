@@ -250,7 +250,7 @@ const PROCEDENCIA: Record<Metrica, { de: string; explica_es: string }> = {
   },
   tramos: {
     de: 'cumplimiento_tramos',
-    explica_es: 'De los tramos de las sesiones hechas, cuántos dentro de su banda — ritmo, zona, split, vatios, kilos, RIR, reps, rondas o tiempo — con la holgura de tu coach. Una línea que no se hizo cuenta fuera.',
+    explica_es: 'De los tramos de las sesiones hechas, cuántos dentro de su banda (ritmo, zona, split, vatios, kilos, RIR, reps, rondas o tiempo), con la holgura de tu coach. Una línea que no se hizo cuenta fuera.',
   },
   carga: {
     de: 'cumplimiento_carga',

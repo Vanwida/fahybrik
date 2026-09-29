@@ -58,6 +58,8 @@ function hecho(id: string, dia: string, segundos: number, tss: number, sin_saber
     sin_saber_s,
     sin_saber_con_pulso_s: 0,
     sin_saber_tramos: sin_saber_s > 0 ? 1 : 0,
+    tramos: [],
+    resto: null,
   };
 }
 
@@ -265,7 +267,7 @@ describe('los tramos en su banda, y la palabra que se retira', () => {
       tramos: [
         {
           id: `t${id}`, template_segment_id: `L${id}`, posicion: 0, segundos: 1800, metros: null, ritmo_s_km: null, split_s_500m: null, vatios: null,
-          pulso_medio: pulso, inclinacion_pct: null, pendiente_pct: null, reps: null, kg: null, calorias: null, rondas: null, rondas_prescritas: null,
+          pulso_medio: pulso, inclinacion_pct: null, pendiente_pct: null, reps: null, reps_prescritas: null, kg: null, calorias: null, rondas: null, rondas_prescritas: null,
           pierna: null, papel_pierna: null, ronda: null, modalidad: 'other', series: [],
         },
       ],

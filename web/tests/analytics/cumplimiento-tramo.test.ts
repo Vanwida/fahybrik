@@ -80,6 +80,7 @@ function tramo(l: LineaPlan | null, over: Partial<TramoEjecutado> = {}): TramoEj
     inclinacion_pct: null,
     pendiente_pct: null,
     reps: null,
+    reps_prescritas: null,
     kg: null,
     calorias: null,
     rondas: null,
