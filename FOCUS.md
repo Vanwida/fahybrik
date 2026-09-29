@@ -20,7 +20,8 @@ para el iPhone y el panel del coach. Piezas, cada una con su entrada en DECISION
 - **PANEL DEL COACH (`worktree-agent-a5c5b8d2f8763529f`, con main y 0281 al día, sin fusionar ni desplegar, HECHO):** pestaña Rendimiento
   con los ocho bloques y el detalle de sesión; editor del método en Ajustes › Método (todos los campos que el motor lee, defectos
   editables); umbrales declarados de un toque. Retirado lo viejo que el panel cubre (DECISIONS). Verificado en navegador 390/768/1440
-  contra rama Neon desechable; tsc limpio y 718 tests de ajustes/analíticas/ficha en verde.
+  contra rama Neon desechable; tsc limpio y 736 tests de ajustes/analíticas/ficha en verde. El editor heredado (`d4a303d7`) auditado:
+  ninguna regla cruzada cruza grupos (test), esquema y CHECK de la tabla alineados (test con base real). DECISIONS 29-09.
 - FALTA en analíticas: migraciones 0277–0281 en prod (orquestador, antes del deploy y en orden); UI del atleta en Swift; capa de voz de
   coach para `explica_es`; los campos del método que el motor aún no lee (DECISIONS); decisiones abiertas de Alex en esa entrada.
 
