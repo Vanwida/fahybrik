@@ -23,7 +23,8 @@
 //   · 3-2-1 a pantalla completa SOLO al entrar en un paso de trabajo de la
 //     parte principal desde algo que no es trabajo;
 //   · la serie cerrada deja su vuelta y su frase («Serie 3: 3:48, dentro.»);
-//   · vuelta automática por km donde el coach la pide;
+//   · vuelta automática cada `vueltaAutoM` metros donde el coach la pide (el
+//     km en calle, los 400 m en pista: `vuelta.ts`);
 //   · aviso fuera de objetivo con histéresis y cadencia (`decidirAviso`), en
 //     cualquier eje que se lea en vivo (ritmo, pulso, /500, vatios);
 //   · el tiempo en cada zona del coach y el pulso máximo (el resumen los pide).
@@ -33,7 +34,6 @@ import type { CampoVivo, EstadoGps, Lecturas, Parcial, Paso, PasoBase, ReglasAvi
 import {
   RITMO_TECHO_S,
   faltaDe,
-  fmtReloj,
   holguraDe,
   objetivoDe,
   principal,
@@ -42,7 +42,8 @@ import {
   veredictoPrincipal,
   zonaDe,
 } from './reglas';
-import { VOZ_SESION, vozDescanso, vozFinSerie, vozInicio, vozKm, vozPreaviso, vozRecupera, vozTransicion } from './voz';
+import { VOZ_SESION, vozDescanso, vozFinSerie, vozInicio, vozPreaviso, vozRecupera, vozTransicion, vozVuelta } from './voz';
+import { METROS_KM, TARJETA_VUELTA_S, inicioVueltaEstimado, tarjetaDeVuelta, vueltaAutomatica, vueltasDeSesion } from './vuelta';
 
 export interface PlanSesion {
   /** Los pasos en orden, planos. El anidado vive en la `posicion` de cada uno (M4). */
@@ -102,8 +103,9 @@ export interface EstadoSecuencia {
   pasoZonaS: [number, number, number];
   /** Segundos seguidos corriendo en un paso que se cierra por detección. */
   corriendoS: number;
-  kmN: number;
-  kmDesdeT: number;
+  /** Vueltas automáticas de la sesión con la longitud del paso en curso, y desde qué segundo corre la de ahora. */
+  vueltaN: number;
+  vueltaDesdeT: number;
   /** La vuelta manual (el control «Vuelta»): desde cuándo y desde qué metro. */
   tramosN: number;
   tramoDesdeT: number;
@@ -136,8 +138,8 @@ export interface InicioSecuencia {
   parciales?: Parcial[];
   /** Media de pulso de lo que ya se corrió (para la página Datos). */
   ppmMedio?: number;
-  /** Segundo de sesión en que empezó el km en curso (si no, se estima a ritmo uniforme). */
-  kmDesdeT?: number;
+  /** Segundo de sesión en que empezó la vuelta automática en curso (si no, se estima a ritmo uniforme). */
+  vueltaDesdeT?: number;
   /** Arranca en pausa (escenarios de la pausa). */
   pausado?: boolean;
   /**
@@ -240,7 +242,9 @@ export function estadoInicial(plan: PlanSesion, sim: Simulador, ini: InicioSecue
   // (PM5): no son km corridos ni cuentan para la vuelta automática.
   const deMaquina = lect.split500 != null || lect.metros != null;
   const sesionM = ini.sesionM ?? (deMaquina ? 0 : (ini.metros ?? 0));
-  const kmN = Math.floor(sesionM / 1000);
+  // La cuenta de vueltas con la longitud del paso en que se arranca: una tirada
+  // en pista arrancada a mitad no «cruza» al primer segundo las que ya corrió.
+  const vueltaM = p.vueltaAutoM ?? METROS_KM;
   const n = plan.zonas?.techos.length ?? 0;
   const s: EstadoSecuencia = {
     i: ini.i,
@@ -259,8 +263,8 @@ export function estadoInicial(plan: PlanSesion, sim: Simulador, ini: InicioSecue
     pasoPpmN: 0,
     pasoZonaS: [0, 0, 0],
     corriendoS: 0,
-    kmN,
-    kmDesdeT: ini.kmDesdeT ?? sesionT - Math.round(((sesionM - kmN * 1000) / Math.max(1, sesionM)) * sesionT),
+    vueltaN: vueltasDeSesion(sesionM, vueltaM),
+    vueltaDesdeT: ini.vueltaDesdeT ?? inicioVueltaEstimado(sesionM, sesionT, vueltaM),
     tramosN: 0,
     tramoDesdeT: sesionT,
     tramoDesdeM: sesionM,
@@ -311,13 +315,12 @@ export function avanzar(s: EstadoSecuencia, plan: PlanSesion, sim: Simulador): S
   // Enlace perdido: un dato que dependía del móvil deja de llegar (P1, §3).
   if (!(s.lect.viejos?.length ?? 0) && (lect.viejos?.length ?? 0) > 0) eventos.push({ evento: 'enlace' });
 
-  // Vuelta automática por km (dato del coach).
-  if (p.vueltaAutoM && Math.floor(n.sesionM / p.vueltaAutoM) > s.kmN) {
-    const km = Math.floor(n.sesionM / p.vueltaAutoM);
-    const seg = sesionT - s.kmDesdeT;
-    const v: Vuelta = { n: km, clase: 'km', segundos: seg, metros: p.vueltaAutoM, ritmo: seg, ppm: lect.ppm, veredicto: null };
-    n = { ...n, kmN: km, kmDesdeT: sesionT, vueltas: [...n.vueltas, v], banner: { titulo: `Kilómetro ${km}`, valor: fmtReloj(seg), pie: 'ritmo del km', hasta: sesionT + 4 } };
-    eventos.push({ evento: 'vuelta', voz: vozKm(km, seg) });
+  // Vuelta automática cada `vueltaAutoM` metros (dato del coach): el km, la vuelta de pista.
+  if (p.vueltaAutoM && vueltasDeSesion(n.sesionM, p.vueltaAutoM) > s.vueltaN) {
+    const k = vueltasDeSesion(n.sesionM, p.vueltaAutoM);
+    const v = vueltaAutomatica({ ...p, vueltaAutoM: p.vueltaAutoM }, k, sesionT - s.vueltaDesdeT, lect.ppm, plan.reglas, plan.zonas);
+    n = { ...n, vueltaN: k, vueltaDesdeT: sesionT, vueltas: [...n.vueltas, v], banner: { ...tarjetaDeVuelta(v), hasta: sesionT + TARJETA_VUELTA_S } };
+    eventos.push({ evento: 'vuelta', voz: vozVuelta(k, v.segundos, p.vueltaAutoM) });
   }
 
   const l = lecturasDe(p, n);
@@ -461,9 +464,12 @@ export function cerrar(s: EstadoSecuencia, plan: PlanSesion, quien: 'medida' | '
   eventos.push(entradaEn(plan, s.i + 1));
 
   const verGo = sig.rol === 'trabajo' && sig.fase === 'principal' && (p.rol !== 'trabajo' || quien === 'atleta');
+  // Otra longitud de vuelta (o la primera): la cuenta se re-ancla, sin vueltas falsas al entrar.
+  const reancla = sig.vueltaAutoM != null && sig.vueltaAutoM !== p.vueltaAutoM;
   return {
     estado: {
       ...s,
+      ...(reancla ? { vueltaN: vueltasDeSesion(s.sesionM, sig.vueltaAutoM!), vueltaDesdeT: inicioVueltaEstimado(s.sesionM, s.sesionT, sig.vueltaAutoM!) } : {}),
       i: s.i + 1,
       t: 0,
       metros: 0,

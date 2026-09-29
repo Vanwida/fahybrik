@@ -64,6 +64,9 @@
 //                 hoyDe, paginar.
 //   ruta.ts       La ruta de un circuito (P10): rutaDe (cabeceras de ronda + pasos con
 //                 su parcial, lo suelto), nombreEnRuta, roxzoneDe, ritmoDeParcial.
+//   vuelta.ts     La vuelta automática (`vueltaAutoM`): km en calle, 400 m en pista:
+//                 nombreVueltaAuto/rotuloVueltaAuto/tituloVueltasAuto, vueltaAutomatica
+//                 (ritmo por km y veredicto), tarjetaDeVuelta, el ancla de la cuenta.
 //   despues.ts    Lo que se decide al terminar: MetodoResumen + METODO_RESUMEN_DEFECTO
 //                 (pares, umbral de serie cortada, guardado solo tras 10′ quieto),
 //                 completitud (completa/parcial/libre), costeTrasEstacion.
@@ -72,14 +75,14 @@
 //                 tercero, nota, tinte }; bandaDe, lineaPulso. El Swift las espeja.
 //   voz.ts        vozInicio (sabe de tareas, fuerza con su carga y ergo), vozRecupera,
 //                 vozDescanso, vozTransicion (Colócate, campana, Roxzone), vozFinSerie
-//                 (en /500 a split), vozKm, vozPreaviso, VOZ_SESION, nombreCuenta, enLetras.
+//                 (en /500 a split), vozVuelta, vozPreaviso, VOZ_SESION, nombreCuenta, enLetras.
 //   eventos.ts    EventoVivo (incl. «GPS listo») + VOCABULARIO (tabla §4), useEventos(onLog)
 //                 → { emitir, ultimo }: un instante = un háptico + voces encadenadas;
 //                 useLote (el «instante» genérico, lo usa también kit-garmin);
 //                 decidirAviso (histéresis/cadencia/gracia como dato del coach).
 //   secuencia.ts  El motor PURO: PlanSesion, Simulador/LecturaSim (ritmo, split500,
 //                 vatios, cadencia, metros del PM5), EstadoSecuencia (parciales,
-//                 zonasS, ppmMax, sesionM corridos + sesionErgoM), InicioSecuencia
+//                 zonasS, ppmMax, sesionM corridos + sesionErgoM, vueltaN), InicioSecuencia
 //                 (parciales, preavisado), estadoInicial/avanzar/cerrar, lecturasDe,
 //                 pasoVivo, cuentaDe, DETECCION (cierre al volver a correr), Emitido.
 //   gancho.ts     useSecuencia(plan, sim, inicio, eventos, { traducir }) → Secuencia
@@ -151,6 +154,7 @@ export * from './dobles';
 export * from './alrededor';
 export * from './estructura';
 export * from './ruta';
+export * from './vuelta';
 export * from './despues';
 export * from './lamina';
 export * from './voz';

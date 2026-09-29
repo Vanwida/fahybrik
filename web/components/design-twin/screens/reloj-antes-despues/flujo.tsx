@@ -164,7 +164,7 @@ function enfriamiento(r: Resultado, entorno: Entorno | null, sim: Simulador): Fa
   return {
     f: 'vivo',
     plan: enfriamientoLibre(entorno),
-    inicio: { i: 0, t: 0, sesionT: r.t, sesionM: r.metros ?? 0, ppmMedio: r.ppmMedio ?? undefined, kmDesdeT: r.t },
+    inicio: { i: 0, t: 0, sesionT: r.t, sesionM: r.metros ?? 0, ppmMedio: r.ppmMedio ?? undefined, vueltaDesdeT: r.t },
     sim,
     enfriamiento: true,
   };

@@ -53,7 +53,6 @@ import { avanzar, cuentaDe, estadoInicial, lecturasDe, pasoVivo, type EstadoSecu
 import { avisoDeCierre, sesionDe, vueltasDe } from '@/components/design-twin/kit-reloj/vivo';
 import { casoGarminCorrer, type CasoGarminCorrer } from '@/components/design-twin/screens/garmin-correr/casos';
 import { Screen, escenarios } from '@/components/design-twin/screens/garmin-correr';
-import { bannerDeVuelta, esVueltaDePista, rotuloDeVuelta, tituloDeVueltas, vueltasDePista } from '@/components/design-twin/screens/garmin-correr/pista';
 import { SISTEMA_MS, TEXTO_SISTEMA, avisoDeSistema, disponerSistema, type AvisoDeSistema } from '@/components/design-twin/screens/garmin-correr/sistema';
 import { cuerpo } from '@/components/design-twin/screens/reloj-correr/casos';
 import { normal, tablaDe } from './garmin-modelo';
@@ -134,22 +133,14 @@ function carasDe(c: CasoGarminCorrer, s: EstadoSecuencia, D: number, que: string
   comprobar(disponerPausa(s.sesionT, p, D), `${que} · pausa`);
   comprobar(disponerDeshacer(avisoDeCierre(p), D), `${que} · deshacer`);
 
-  // La vuelta automática: la del km del kit, o la de la pista con su tarjeta.
-  if (s.banner) {
-    const pista = esVueltaDePista(p) ? bannerDeVuelta(s, p, plan) : null;
-    comprobar(disponerKm(pista ?? s.banner, D), `${que} · vuelta`);
-  }
+  // La vuelta automática: la tarjeta del motor («Kilómetro 5» o «Vuelta 7», kit-reloj/vuelta.ts).
+  if (s.banner) comprobar(disponerKm(s.banner, D), `${que} · vuelta`);
 
-  // Las páginas: Datos, Vueltas (con el nombre de una pista) y Estructura del caso.
+  // Las páginas: Datos, Vueltas (con el nombre de su vuelta, del kit) y Estructura del caso.
   comprobar(disponerDatos(filasDeDatos(sesionDe(s), l, p.entorno === 'cinta' ? 'cinta' : undefined), plan.zonas, D), `${que} · Datos`);
   const { objetivo, enCurso } = vueltasDe({ paso: p, lecturas: l, estado: s });
-  const deLaPista = esVueltaDePista(p);
-  const vueltas = deLaPista ? vueltasDePista(s.vueltas, p, plan) : s.vueltas;
-  const { titulo, filas } = filasDeVueltas(vueltas, objetivo, enCurso ? VUELTAS_VISIBLES - 1 : VUELTAS_VISIBLES);
-  comprobar(
-    disponerVueltas(deLaPista ? tituloDeVueltas(titulo) : titulo, deLaPista ? filas.map(rotuloDeVuelta) : filas, enCurso && deLaPista ? rotuloDeVuelta(enCurso) : enCurso, D),
-    `${que} · Vueltas`,
-  );
+  const { titulo, filas } = filasDeVueltas(s.vueltas, objetivo, enCurso ? VUELTAS_VISIBLES - 1 : VUELTAS_VISIBLES);
+  comprobar(disponerVueltas(titulo, filas, enCurso, D), `${que} · Vueltas`);
   const filasE = (estructura ?? estructuraDe(plan.pasos))(s.i).map((f) => ({ ...textoFila(f), estado: f.estado }));
   comprobar(disponerEstructura(filasE, D), `${que} · Estructura`);
 }
@@ -336,25 +327,23 @@ describe('la vuelta de pista', () => {
   const { plan } = c.caso.datos;
   const paso = plan.pasos[0]!;
 
-  it('la vuelta de 400 m es un dato del paso, y solo un paso con otra longitud que el km es «de pista»', () => {
+  it('la vuelta de 400 m es un dato del paso (`vueltaAutoM`), no del reloj', () => {
     expect(paso.vueltaAutoM).toBe(400);
-    expect(esVueltaDePista(paso)).toBe(true);
-    expect(esVueltaDePista({ vueltaAutoM: 1000 })).toBe(false);
-    expect(esVueltaDePista({})).toBe(false);
+    expect(plan.pasos.every((p) => p.vueltaAutoM == null || p.vueltaAutoM === 400)).toBe(true);
   });
 
-  it('la tarjeta dice «Vuelta 7», su tiempo y su ritmo por km con el veredicto (nunca «Kilómetro»)', () => {
+  it('la tarjeta del MOTOR dice «Vuelta 7», su tiempo y su ritmo por km con el veredicto (nunca «Kilómetro»)', () => {
     const s = correr(c, 1)[1]!.estado;
-    expect(s.banner?.titulo, 'lo que deja el motor').toBe('Kilómetro 7');
-    expect(bannerDeVuelta(s, paso, plan)).toEqual({ titulo: 'Vuelta 7', valor: '1:40', pie: '4:10 /km · dentro' });
+    expect(s.banner).toMatchObject({ titulo: 'Vuelta 7', valor: '1:40', pie: '4:10 /km · dentro' });
+    expect(s.vueltas.at(-1)).toMatchObject({ n: 7, clase: 'auto', vueltaM: 400, metros: 400, ritmo: 250 });
   });
 
-  it('la lista rotula «v N» y juzga cada vuelta contra el ritmo del paso (la 5.ª, rápida)', () => {
+  it('la lista del kit rotula «v N» bajo «Vueltas» y cada vuelta llega juzgada contra el ritmo del paso (la 5.ª, rápida)', () => {
     const s = correr(c, 1)[1]!.estado;
-    const juzgadas = vueltasDePista(s.vueltas, paso, plan);
-    expect(juzgadas.map((v) => v.veredicto)).toEqual(['dentro', 'dentro', 'dentro', 'dentro', 'por-encima', 'dentro', 'dentro']);
-    expect(rotuloDeVuelta({ n: 'km 7' }).n).toBe('v 7');
-    expect(tituloDeVueltas(['Kilómetros'])).toEqual(['Vueltas']);
+    expect(s.vueltas.map((v) => v.veredicto)).toEqual(['dentro', 'dentro', 'dentro', 'dentro', 'por-encima', 'dentro', 'dentro']);
+    const { titulo, filas } = filasDeVueltas(s.vueltas, null, 5);
+    expect(titulo).toEqual(['Vueltas']);
+    expect(filas.at(-1)!.n).toBe('v 7');
   });
 });
 

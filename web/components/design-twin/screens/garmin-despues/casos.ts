@@ -50,7 +50,7 @@ export function resultadoLibre(): Resultado {
   ].map(([segundos, desnivel, ppm], k, todos) => {
     const ultimo = k === todos.length - 1;
     const metros = ultimo ? 210 : 1000;
-    return { n: k + 1, clase: 'km', segundos: segundos!, metros, ritmo: segundos! / (metros / 1000), ppm: ppm!, veredicto: null, desnivel: desnivel! };
+    return { n: k + 1, clase: 'auto', vueltaM: 1000, segundos: segundos!, metros, ritmo: segundos! / (metros / 1000), ppm: ppm!, veredicto: null, desnivel: desnivel! };
   });
   return {
     pasos: s.plan.pasos,
@@ -91,7 +91,7 @@ export function resultadoTerminado(): Resultado {
 
 /** La tirada 494 (80′ a Z2, un solo paso) con sus cuatro primeros km, cerrada con BACK/LAP a los 24′. */
 function tiradaCerradaA24(): Escena {
-  const km = (n: number, segundos: number, ppm: number): Vuelta => ({ n, clase: 'km', segundos, metros: 1000, ritmo: segundos, ppm, veredicto: null });
+  const km = (n: number, segundos: number, ppm: number): Vuelta => ({ n, clase: 'auto', vueltaM: 1000, segundos, metros: 1000, ritmo: segundos, ppm, veredicto: null });
   const inicio: InicioSecuencia = { i: 0, t: 1432, metros: 4890, sesionT: 1432, sesionM: 4890, vueltas: [km(1, 296, 139), km(2, 293, 141), km(3, 291, 141), km(4, 295, 143)], ppmMedio: 141 };
   return {
     sesion: sesion494Brief(),

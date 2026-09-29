@@ -319,7 +319,10 @@ export interface PasoBase {
    * `atleta` = hasta pulsar (dato del coach, P9) o porque nada lo mide.
    */
   cierre: 'medida' | 'atleta';
-  /** Vuelta automática cada N metros en rodajes y tiradas (dato del coach, P9). */
+  /**
+   * Vuelta automática cada N metros (dato del coach, P9): 1000 en calle, 400
+   * en pista, 1609 si trabaja en millas. Solo la de 1000 se llama «Kilómetro».
+   */
   vueltaAutoM?: number;
   /** Índice del bloque del coach: cambiar de bloque es el evento «bloque hecho». */
   bloque?: number;
@@ -421,9 +424,12 @@ export interface Vuelta {
   n: number;
   /** En series anidadas, la tanda (la vuelta «2·4» es la serie 4 de la tanda 2). */
   tanda?: number;
-  clase: 'serie' | 'km' | 'tramo' | 'estacion';
+  /** `auto` = la vuelta automática del paso (`vueltaAutoM`): el km en calle, los 400 m en pista (vuelta.ts). */
+  clase: 'serie' | 'auto' | 'tramo' | 'estacion';
   segundos: number;
   metros: number | null;
+  /** Solo en una vuelta `auto`: su longitud, la del paso. Decide si se llama «Kilómetro» o «Vuelta». */
+  vueltaM?: number;
   /** Ritmo medio de la vuelta, s/km. */
   ritmo: number | null;
   ppm: number | null;

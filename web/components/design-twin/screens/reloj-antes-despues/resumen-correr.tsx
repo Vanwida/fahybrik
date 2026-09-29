@@ -27,7 +27,9 @@ import {
   filasDePasos,
   grupoPrincipal,
   hoyDe,
+  numeroDeVueltaAuto,
   paginar,
+  tituloVueltasAuto,
   type Completitud,
   type MetodoResumen,
   type PaginaVivo,
@@ -176,17 +178,17 @@ function PaginaSeries({ r, pasos, titulo, metodo }: { r: Resultado; pasos: PasoB
 const conSigno = (m: number) => (m > 0 ? `+${m} m` : m < 0 ? `−${-m} m` : '0 m');
 
 function PaginaKm({ r, desde, hasta, primera }: { r: Resultado; desde: number; hasta: number; primera: boolean }) {
-  const partes = primera && r.desnivel != null ? ['Kilómetros', `+${r.desnivel} m`] : ['Kilómetros', `${desde + 1}–${hasta}`];
+  const nombre = tituloVueltasAuto(r.km);
+  const partes = primera && r.desnivel != null ? [nombre, `+${r.desnivel} m`] : [nombre, `${desde + 1}–${hasta}`];
   return (
     <Columna estilo={{ gap: HUECO_LISTA }}>
       <ContextoLinea partes={partes} tono={C.tinta2} />
       {r.km.slice(desde, hasta).map((k) => {
-        const parcial = k.metros != null && k.metros < 1000;
         return (
           <FilaLista
             key={k.n}
             anchoN={32}
-            n={parcial ? (k.metros! / 1000).toFixed(2).replace('.', ',') : String(k.n)}
+            n={numeroDeVueltaAuto(k)}
             valor={fmtRitmo(k.ritmo)}
             apoyo={k.desnivel == null ? '—' : conSigno(k.desnivel)}
             derecha={<span style={{ color: C.tinta2 }}>{k.ppm ?? '—'}</span>}
@@ -219,7 +221,7 @@ export function paginasCorrer(r: Resultado, c: Completitud, guardado: EstadoGuar
     paginar(r.km.map(() => ALTO_FILA), ALTO_LISTA, HUECO_LISTA).forEach((idx, k) => {
       paginas.push({
         id: `km-${k}`,
-        titulo: 'Kilómetros',
+        titulo: tituloVueltasAuto(r.km),
         contenido: <PaginaKm r={r} desde={idx[0]!} hasta={idx[idx.length - 1]! + 1} primera={k === 0} />,
       });
     });

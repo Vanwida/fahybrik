@@ -17,8 +17,6 @@ import { AroGarmin, CaraDelVivo, CaraKm, ComparaTamanos, VivoGarminDePlan, useVi
 import { avanzar, estadoInicial, lecturasDe, pasoVivo, tinteDelPaso } from '../../kit-reloj';
 import type { TwinEscenario, TwinMeta, TwinScreenProps } from '../../types';
 import { casoGarminCorrer, type CasoGarminCorrer } from './casos';
-import { bannerDeVuelta, esVueltaDePista } from './pista';
-import { capaDePista, paginasDePista } from './vistaPista';
 import { CapaSistema } from './vistaSistema';
 
 export const meta: TwinMeta = {
@@ -164,7 +162,8 @@ function ComparacionDeVuelta({ c }: { c: CasoGarminCorrer }) {
   const { plan } = c.caso.datos;
   const estado = avanzar(estadoInicial(plan, c.caso.sim, c.caso.inicio), plan, c.caso.sim).estado;
   const paso = pasoVivo(plan, estado);
-  const banner = bannerDeVuelta(estado, paso, plan);
+  // La tarjeta es la del motor (kit-reloj/vuelta.ts): «Vuelta 7», no «Kilómetro 7», en una vuelta de 400 m.
+  const banner = estado.banner;
   return (
     <ComparaTamanos>
       {() => (
@@ -190,7 +189,6 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
   const [c] = useState(() => casoGarminCorrer(escenario));
   if (c.comparar) return <Comparacion c={c} onLog={onLog} />;
   const { plan, estructura } = c.caso.datos;
-  const deLaPista = plan.pasos.some(esVueltaDePista);
   return (
     <VivoGarminDePlan
       plan={plan}
@@ -198,11 +196,10 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
       inicio={c.caso.inicio}
       estructura={estructura}
       inicial={c.inicial}
-      paginas={deLaPista ? paginasDePista(estructura) : undefined}
       capa={(seq, kit) => (
         <>
           <CapaSistema seq={seq} />
-          {deLaPista ? capaDePista(seq, kit) : kit}
+          {kit}
         </>
       )}
       onLog={onLog}

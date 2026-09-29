@@ -119,9 +119,9 @@ const KM_494: Array<[number, number, number]> = [
 
 export function resultado494(): Resultado {
   const s = sesion494Brief();
-  const km: KmHecho[] = KM_494.map(([seg, d, ppm], k) => ({ n: k + 1, clase: 'km', segundos: seg, metros: 1000, ritmo: seg, ppm, veredicto: null, desnivel: d }));
+  const km: KmHecho[] = KM_494.map(([seg, d, ppm], k) => ({ n: k + 1, clase: 'auto', vueltaM: 1000, segundos: seg, metros: 1000, ritmo: seg, ppm, veredicto: null, desnivel: d }));
   // Lo que queda hasta los 80′: 141 s a 4:50 → 486 m.
-  km.push({ n: 17, clase: 'km', segundos: 141, metros: 486, ritmo: 141 / 0.486, ppm: 149, veredicto: null, desnivel: 4 });
+  km.push({ n: 17, clase: 'auto', vueltaM: 1000, segundos: 141, metros: 486, ritmo: 141 / 0.486, ppm: 149, veredicto: null, desnivel: 4 });
   const sube = km.reduce((a, k) => a + Math.max(0, k.desnivel ?? 0), 0);
   return { ...base(s), t: 4800, metros: 16486, ppmMedio: 144, ppmMax: 152, desnivel: sube, zonasS: [900, 3800, 100, 0, 0], km };
 }

@@ -154,7 +154,7 @@ const VUELTAS: Vuelta[] = [
   { n: 2, clase: 'serie', segundos: 218, metros: 1000, ritmo: 218, ppm: 175, veredicto: 'por-encima', eje: 'ritmo' },
   { n: 3, clase: 'serie', segundos: 244, metros: 1000, ritmo: 244, ppm: 166, veredicto: 'por-debajo', eje: 'ritmo' },
   { n: 4, tanda: 2, clase: 'serie', segundos: 60, metros: 250, ritmo: 240, ppm: 170, veredicto: null },
-  { n: 12, clase: 'km', segundos: 292, metros: 1000, ritmo: 292, ppm: 145, veredicto: null },
+  { n: 12, clase: 'auto', vueltaM: 1000, segundos: 292, metros: 1000, ritmo: 292, ppm: 145, veredicto: null },
 ];
 
 describe('las páginas, los menús y los finales caben en los cuatro', () => {

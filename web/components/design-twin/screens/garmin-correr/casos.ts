@@ -8,7 +8,8 @@
 //                    enseñaba el primero).
 //   · gps-perdido    el GPS se cae a mitad de un tramo y vuelve (G26).
 //   · pulso-perdido  el pulso óptico del reloj se cae en una serie a zona (G7).
-//   · pista          un tempo en la pista de atletismo, vuelta de 400 m (sesionPista).
+//   · pista          un tempo en la pista de atletismo, vuelta de 400 m (sesionPista):
+//                    la tarjeta «Vuelta 7» y la lista «v 7» son las del kit.
 //   · tamanos-*      los casos que más aprietan el círculo, en los cuatro relojes.
 //
 // El cuerpo es determinista: el mismo escenario, la misma carrera, segundo a
@@ -16,7 +17,7 @@
 // método: los umbrales y la cadencia de los avisos vienen del plan.
 
 import type { Diametro } from '../../kit-garmin';
-import type { Simulador, Vuelta } from '../../kit-reloj';
+import { vueltaAutomatica, type Simulador, type Vuelta } from '../../kit-reloj';
 import { casoDe, cuerpo, type CasoCorrer } from '../reloj-correr/casos';
 import { sesion538 } from '../reloj-correr/planes';
 import { VUELTA_PISTA_M, sesionPista } from './planes';
@@ -112,12 +113,16 @@ const VUELTAS_HECHAS: Array<[segundos: number, ppm: number]> = [
 ];
 
 function pista(): CasoCorrer {
-  const vueltas: Vuelta[] = VUELTAS_HECHAS.map(([segundos, ppm], k) => ({ n: k + 1, clase: 'km', segundos, metros: VUELTA_PISTA_M, ritmo: segundos, ppm, veredicto: null }));
+  const datos = sesionPista();
+  const { pasos, reglas, zonas } = datos.plan;
+  const tempo = { ...pasos[0]!, vueltaAutoM: VUELTA_PISTA_M };
+  // Las vueltas ya hechas, como las deja el motor (con su ritmo por km y su veredicto).
+  const vueltas: Vuelta[] = VUELTAS_HECHAS.map(([segundos, ppm], k) => vueltaAutomatica(tempo, k + 1, segundos, ppm, reglas, zonas));
   const hechoS = VUELTAS_HECHAS.reduce((a, [s]) => a + s, 0);
   return {
-    datos: sesionPista(),
+    datos,
     sim: cuerpo({ partida: { i: 0, t: 699 }, ritmo: () => 250 }),
-    inicio: { i: 0, t: 699, metros: 2797, sesionT: 699, sesionM: 2797, kmDesdeT: hechoS, vueltas, ppmMedio: 165 },
+    inicio: { i: 0, t: 699, metros: 2797, sesionT: 699, sesionM: 2797, vueltaDesdeT: hechoS, vueltas, ppmMedio: 165 },
   };
 }
 

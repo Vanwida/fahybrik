@@ -45,7 +45,7 @@ function deLaMuneca(id: string, corridas?: (v: Vuelta) => boolean): CasoGarminWo
     ...c.inicio,
     sesionErgoM: undefined,
     metros: seCorre(datos.plan.pasos[c.inicio.i]!) ? c.inicio.metros : undefined,
-    vueltas: sinMetrosDeMaquina(c.inicio.vueltas, corridas ?? ((v) => v.clase === 'km')),
+    vueltas: sinMetrosDeMaquina(c.inicio.vueltas, corridas ?? ((v) => v.clase === 'auto')),
   };
   const marcadores: Record<number, Marcador> = {};
   for (const [k, cierres] of Object.entries(c.wod?.rondas ?? {})) marcadores[Number(k)] = { cierres, reps: null };

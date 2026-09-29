@@ -12,6 +12,7 @@
 
 import { useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { estructuraDe } from '../kit-reloj/estructura';
+import { METROS_KM, longitudDe, rotuloVueltaAuto } from '../kit-reloj/vuelta';
 import { juicioDe, textoFila } from '../kit-reloj/listas';
 import type { FilaEstructura, Vuelta } from '../kit-reloj/paso';
 import { fmtReloj, fmtRitmo } from '../kit-reloj/reglas';
@@ -67,12 +68,13 @@ const [PUNTO_HECHO, PUNTO_AHORA] = [CI.tinta2, CI.tinta];
 
 function FilaVuelta({ v }: { v: Vuelta }) {
   const j = juicioDe(v);
-  const n = v.clase === 'km' ? `km ${v.n}` : v.tanda ? `${v.tanda}·${v.n}` : String(v.n);
+  const auto = v.clase === 'auto';
+  const n = auto ? rotuloVueltaAuto(v.n, longitudDe(v)) : v.tanda ? `${v.tanda}·${v.n}` : String(v.n);
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '4px 0 4px 20px' }}>
       <Etiqueta estilo={{ minWidth: 34 }}>{n}</Etiqueta>
       <Numeral texto={fmtReloj(v.segundos)} cuerpo={TI.datoTexto.cuerpo} />
-      {v.clase !== 'km' && v.metros != null && v.metros !== 1000 ? <Etiqueta>{`${fmtRitmo(v.ritmo)} /km`}</Etiqueta> : null}
+      {!auto && v.metros != null && v.metros !== METROS_KM ? <Etiqueta>{`${fmtRitmo(v.ritmo)} /km`}</Etiqueta> : null}
       {v.ppm != null ? <Etiqueta>{`${v.ppm} ppm`}</Etiqueta> : null}
       {j ? <span style={{ marginLeft: 'auto', fontSize: TI.etiqueta.cuerpo, fontWeight: j.fuera ? 700 : 600, color: j.fuera ? CI.tinta : CI.tinta2 }}>{j.texto}</span> : null}
     </div>
@@ -114,7 +116,7 @@ export function PaginaEstructura({ plan, estado }: { plan: PlanSesion; estado: E
   const filas = estructuraDe(plan.pasos)(estado.i);
   // Las vueltas de cada bloque (las series, por orden): se reparten ANTES de
   // pintar, no mutando un cursor durante el render.
-  const series = estado.vueltas.filter((v) => v.clase !== 'km');
+  const series = estado.vueltas.filter((v) => v.clase !== 'auto');
   const reparto = filas.reduce<{ desde: number; propias: Vuelta[][] }>(
     (acc, f) => {
       const cuenta = !!(f.trabajo.posicion?.serie ?? f.trabajo.posicion?.tramo) && f.trabajo.fase === 'principal';
@@ -127,8 +129,8 @@ export function PaginaEstructura({ plan, estado }: { plan: PlanSesion; estado: E
     <div className="twin-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: `12px ${MARGEN}px calc(var(--twin-safe-bottom) + 24px)`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 6 }}>
       <span style={{ fontSize: TI.posicion.cuerpo, fontWeight: TI.posicion.peso, color: CI.tinta, marginBottom: 8 }}>Estructura</span>
       {filas.map((f, k) => {
-        const kms = f.trabajo.vueltaAutoM ? estado.vueltas.filter((v) => v.clase === 'km') : [];
-        return <FilaDeEstructura key={k} f={f} vueltas={[...(reparto[k] ?? []), ...kms]} />;
+        const auto = f.trabajo.vueltaAutoM ? estado.vueltas.filter((v) => v.clase === 'auto') : [];
+        return <FilaDeEstructura key={k} f={f} vueltas={[...(reparto[k] ?? []), ...auto]} />;
       })}
     </div>
   );

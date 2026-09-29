@@ -15,6 +15,7 @@ import { vozDeathBy } from './deathby';
 import { esFuerza, kgDelPlan, textoEsfuerzo, type PasoFuerza } from './fuerza';
 import { NOMBRE_CLASE_DEFECTO, FEMENINO_DEFECTO, type PasoBase, type Tarea, type Veredicto, type Vuelta } from './paso';
 import { esBici, fmtReloj, fmtRitmo, fmtSplit, num, principal } from './reglas';
+import { nombreVueltaAuto } from './vuelta';
 
 const UNIDADES = [
   'cero', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve',
@@ -270,9 +271,9 @@ export function vozFinSerie(p: PasoBase, v: Vuelta): string {
   return `${nombre} ${v.n}: ${fmtReloj(v.segundos)}${juicio ? `, ${juicio}` : ''}.`;
 }
 
-/** La vuelta automática: «Kilómetro 5: 4:52.» */
-export function vozKm(n: number, segundos: number): string {
-  return `Kilómetro ${n}: ${fmtReloj(segundos)}.`;
+/** La vuelta automática: «Kilómetro 5: 4:52.» (la de 1000 m) o «Vuelta 7: 1:40.» (la de pista). */
+export function vozVuelta(n: number, segundos: number, vueltaM: number): string {
+  return `${nombreVueltaAuto(n, vueltaM)}: ${fmtReloj(segundos)}.`;
 }
 
 /** El preaviso: «Quedan cien.» (distancia) o «Quedan diez segundos.» (tiempo). */

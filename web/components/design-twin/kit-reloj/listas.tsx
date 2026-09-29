@@ -32,6 +32,7 @@ import {
   zonaDe,
 } from './reglas';
 import { ANCHO_CABEZA, ANCHO_PIE, C, T, anchoTexto, colorZona } from './tokens';
+import { METROS_KM, longitudDe, rotuloVueltaAuto, tituloVueltasAuto } from './vuelta';
 
 // ---------------------------------------------------------------------------
 // Filas de dato
@@ -233,7 +234,8 @@ export function PaginaVueltas({
 
 /**
  * Las filas de la página Vueltas, PURAS (las pinta la muñeca y cualquier otro
- * pintor del mismo estado): el título («Series · 3:45–3:55» o «Kilómetros») y
+ * pintor del mismo estado): el título («Series · 3:45–3:55», «Kilómetros» o
+ * «Vueltas» si la vuelta automática no es el km) y
  * una fila por vuelta con su número, su valor, su detalle y su veredicto.
  * `visibles` es cuántas de las últimas se enseñan: decide si una serie por
  * tiempo se lee por sus metros.
@@ -244,15 +246,15 @@ export function filasDeVueltas(
   visibles: number,
 ): { titulo: string[]; filas: FilaSplit[] } {
   const ultimas = [...vueltas].reverse().slice(0, visibles);
-  const series = vueltas.some((v) => v.clase !== 'km') || (vueltas.length === 0 && !!objetivo);
-  const nombre = series ? 'Series' : 'Kilómetros';
+  const series = vueltas.some((v) => v.clase !== 'auto') || (vueltas.length === 0 && !!objetivo);
+  const nombre = series ? 'Series' : tituloVueltasAuto(vueltas.map((v) => ({ vueltaM: longitudDe(v) })));
   const filas: FilaSplit[] = vueltas.map((v) => {
+    const auto = v.clase === 'auto';
     // Una serie por TIEMPO siempre dura lo mismo: su resultado son los metros.
-    const porTiempo = v.clase !== 'km' && ultimas.every((x) => x.segundos === v.segundos) && ultimas.length > 1;
-    const detalle =
-      v.clase !== 'km' && v.metros != null && v.metros !== 1000 ? fmtRitmo(v.ritmo) : v.clase === 'km' && v.ppm != null ? `${v.ppm} ppm` : null;
+    const porTiempo = !auto && ultimas.every((x) => x.segundos === v.segundos) && ultimas.length > 1;
+    const detalle = !auto && v.metros != null && v.metros !== METROS_KM ? fmtRitmo(v.ritmo) : auto && v.ppm != null ? `${v.ppm} ppm` : null;
     return {
-      n: v.clase === 'km' ? `km ${v.n}` : v.tanda ? `${v.tanda}·${v.n}` : String(v.n),
+      n: auto ? rotuloVueltaAuto(v.n, longitudDe(v)) : v.tanda ? `${v.tanda}·${v.n}` : String(v.n),
       valor: porTiempo && v.metros != null ? `${v.metros} m` : fmtReloj(v.segundos),
       detalle,
       juicio: juicioDe(v),
