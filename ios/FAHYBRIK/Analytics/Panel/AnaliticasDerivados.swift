@@ -39,10 +39,10 @@ enum AnaliticasDerivados {
     static func seriesForma(_ p: PanelAnaliticas) -> (series: [SerieDeLinea], marcas: [MarcaVertical]) {
         var series: [SerieDeLinea] = []
         if let forma = lectura(p.bloques.forma, "carga.fondo"), let s = forma.serie, s.paso == .dia {
-            series.append(SerieDeLinea(id: "forma", etiqueta: forma.tituloEs, puntos: s.puntos, color: AnaliticasColor.tinta, proyeccion: s.plan, rotuloFinal: true))
+            series.append(SerieDeLinea(id: "forma", etiqueta: forma.tituloEs, puntos: s.puntos, color: Theme.Color.foreground, proyeccion: s.plan, rotuloFinal: true))
         }
         if let fatiga = lectura(p.bloques.forma, "carga.reciente"), let s = fatiga.serie, s.paso == .dia {
-            series.append(SerieDeLinea(id: "fatiga", etiqueta: fatiga.tituloEs, puntos: s.puntos, color: AnaliticasColor.tinta2, proyeccion: s.plan))
+            series.append(SerieDeLinea(id: "fatiga", etiqueta: fatiga.tituloEs, puntos: s.puntos, color: Theme.Color.muted, proyeccion: s.plan))
         }
         return (series, marcasDeProyeccion(p, series: series))
     }
@@ -102,7 +102,7 @@ enum AnaliticasDerivados {
                 partes: familias.map { f in
                     ParteDeCubo(code: f.rawValue, etiqueta: porGrande.count == 1 && f == .otro ? "Hecho" : f.nombre,
                                 valor: (porGrande[f].flatMap { i < $0.count ? $0[i] : nil }) ?? 0,
-                                color: porGrande.count == 1 && f == .otro ? AnaliticasColor.hecho : AnaliticasColor.familia(f))
+                                color: porGrande.count == 1 && f == .otro ? Theme.Color.foreground : f.color)
                 },
                 enCurso: i == semanas.count - 1 && t <= p.hoy
             )
@@ -117,7 +117,7 @@ enum AnaliticasDerivados {
         let plan = s.plan.map { AnaliticasEscala.agrupar($0, agrupar) }
         return puntos.enumerated().map { i, q in
             CuboDeColumna(t: q.t, plan: plan.flatMap { i < $0.count ? $0[i].v : nil },
-                          partes: [ParteDeCubo(code: "hecho", etiqueta: "Hecho", valor: q.v ?? 0, color: AnaliticasColor.hecho)],
+                          partes: [ParteDeCubo(code: "hecho", etiqueta: "Hecho", valor: q.v ?? 0, color: Theme.Color.foreground)],
                           enCurso: i == puntos.count - 1 && q.t <= p.hoy)
         }
     }
@@ -144,7 +144,7 @@ enum AnaliticasDerivados {
                 plan: nil,
                 partes: series.enumerated().map { k, l in
                     ParteDeCubo(code: l.id, etiqueta: l.tituloEs, valor: i < agrupadas[k].count ? (agrupadas[k][i].v ?? 0) : 0,
-                                color: sonZonas ? AnaliticasColor.zona(k + 1, de: series.count) : AnaliticasColor.familia(l.familia))
+                                color: sonZonas ? Theme.Color.zona(k + 1, de: series.count) : FamiliaGrande(l.familia).color)
                 },
                 enCurso: i == semanas.count - 1 && t <= hoy
             )
@@ -158,7 +158,7 @@ enum AnaliticasDerivados {
         let n = r.partes.count
         return r.partes.enumerated().map { i, p in
             let zona = n == 3 ? [1, 3, 5][i] : i + 1
-            return TramoDeBarra(code: p.code, etiqueta: p.etiquetaEs, pct: p.pct ?? 0, color: AnaliticasColor.zona(zona, de: n == 3 ? 5 : n))
+            return TramoDeBarra(code: p.code, etiqueta: p.etiquetaEs, pct: p.pct ?? 0, color: Theme.Color.zona(zona, de: n == 3 ? 5 : n))
         }
     }
 
@@ -172,11 +172,11 @@ enum AnaliticasDerivados {
             guard let pct = p.pct, pct > 0 else { return nil }
             let color: Color
             switch p.code {
-            case S.cumplida: color = AnaliticasColor.ok
-            case S.desviada: color = AnaliticasColor.aviso
-            case S.fuera, S.noHecha: color = AnaliticasColor.fuera
-            case S.hechaSinMedida: color = AnaliticasColor.tinta2
-            default: color = AnaliticasColor.neutro
+            case S.cumplida: color = Theme.Color.ok
+            case S.desviada: color = Theme.Color.warning
+            case S.fuera, S.noHecha: color = Theme.Color.danger
+            case S.hechaSinMedida: color = Theme.Color.muted
+            default: color = Theme.Color.neutral
             }
             return TramoDeBarra(code: p.code, etiqueta: p.etiquetaEs, pct: pct, color: color)
         }
@@ -236,86 +236,51 @@ enum AnaliticasDerivados {
         return (vals.min()!, vals.max()!)
     }
 
-    // MARK: - El Estado fijo
-
-    struct Estado: Equatable {
-        let palabra: String?
-        let sinPalabra: String
-        let celdas: [CeldaDeEstado]
-        let nota: String?
-    }
-
-    /// La palabra la pone el servidor con las bandas del coach (el veredicto de
-    /// la frescura); iOS pinta, no calcula. Las celdas que EXISTEN, y solo esas.
-    static func estado(_ p: PanelAnaliticas, estadoBloque: EstadoBloque) -> Estado {
-        let ls = p.bloques.estado
-        let forma = lectura(ls, "estado.forma"), fatiga = lectura(ls, "estado.fatiga")
-        let frescura = lectura(ls, "estado.frescura"), readiness = lectura(ls, "estado.readiness")
-        let palabra = frescura?.veredicto?.etiquetaEs
-
-        var celdas: [CeldaDeEstado] = []
-        var nota: String? = nil
-        var sinPalabra = "Sin carga todavía"
-        let plazo = AnaliticasEstados.plazoDeHistoria(.estado, [forma].compactMap { $0 })
-
-        if estadoBloque == .vacio {
-            nota = "Con tu primer entreno aparecen aquí tu forma, tu fatiga y tu frescura."
-        } else if let plazo, plazo.llevas > 0 {
-            // Arranque en frío: la forma y la frescura suben por pura aritmética;
-            // solo la fatiga (la ventana corta) dice algo. Se dibuja el plazo.
-            sinPalabra = "Todavía es pronto"
-            nota = "Forma y frescura a partir de la semana \(plazo.hacen) · llevas \(plazo.llevas)"
-            if let v = fatiga?.dato?.valor { celdas.append(CeldaDeEstado(etiqueta: fatiga!.tituloEs, valor: v)) }
-        } else {
-            if palabra == nil { sinPalabra = "Sin veredicto" }
-            if let v = forma?.dato?.valor { celdas.append(CeldaDeEstado(etiqueta: forma!.tituloEs, valor: v)) }
-            if let v = fatiga?.dato?.valor { celdas.append(CeldaDeEstado(etiqueta: fatiga!.tituloEs, valor: v)) }
-            if let v = frescura?.dato?.valor { celdas.append(CeldaDeEstado(etiqueta: frescura!.tituloEs, valor: v, signo: true)) }
-            if estadoBloque == .viejo, let ultimo = AnaliticasEstados.ultimoDato([forma, fatiga, frescura].compactMap { $0 }) {
-                nota = "Sin entrenar desde el \(AnaliticasFormato.fechaLegible(ultimo, hoy: p.hoy)) · la fatiga ya cayó y la forma baja un poco cada día"
-            }
-        }
-        if let r = readiness, let v = r.dato?.valor {
-            // La palabra de la disposición la pone el servidor (su veredicto); si el
-            // dato no es de hoy, se dice de cuándo es.
-            var palabraR = r.veredicto?.etiquetaEs
-            if palabraR == nil, r.cobertura.diasConDato == 0 {
-                palabraR = ultimoDeLaSerie(lectura(p.bloques.recuperacion, IdsDelPanel.readiness)).map { "del \(AnaliticasFechas.corta($0))" } ?? "no es de hoy"
-            }
-            celdas.append(CeldaDeEstado(etiqueta: r.tituloEs, valor: v, palabra: palabraR))
-        }
-        return Estado(palabra: palabra, sinPalabra: sinPalabra, celdas: celdas, nota: nota)
-    }
-
     // MARK: - El veredicto de forma, en una frase (solo palabras del servidor)
 
-    /// La palabra de la frescura, la subida con su veredicto y la frase de la
-    /// procedencia estimada: todo lo dice el servidor; aquí se enlaza.
-    static func fraseDeForma(_ p: PanelAnaliticas) -> (texto: String, fuerte: Bool)? {
+    /// Lo que el servidor dice de la forma, listo para escribirse. La palabra de la frescura y la subida
+    /// con su veredicto las dice el servidor con las bandas del coach; aquí se enlazan, no se juzgan.
+    enum VeredictoDeForma: Equatable {
+        /// Hay palabra: la subida de forma en una frase («La forma sube 2,1 por semana · subida sostenible»)
+        /// y, si el servidor la trae, la razón añadida («un 12 % de esta carga sale de un umbral estimado»).
+        case dicho(detalle: String?, extra: String?)
+        /// La palabra se ha retirado: por qué no se dice (poca carga calculada, o falta el dato).
+        case retirado(motivo: String)
+
+        /// Una sola frase, con el punto final: el apoyo bajo la palabra de hoy.
+        var frase: String? {
+            switch self {
+            case .dicho(let detalle, let extra):
+                let partes = [detalle.map { $0.hasSuffix(".") ? $0 : $0 + "." }, extra].compactMap { $0 }
+                return partes.isEmpty ? nil : partes.joined(separator: " ")
+            case .retirado(let motivo):
+                return motivo
+            }
+        }
+    }
+
+    /// El veredicto de forma del panel. Nulo mientras la forma arranca en frío (`historia`): entonces manda
+    /// el plazo del hueco, no una frase sobre una curva que aún no dice nada.
+    static func veredictoDeForma(_ p: PanelAnaliticas) -> VeredictoDeForma? {
         let frescura = lectura(p.bloques.forma, "carga.frescura")
         let subida = lectura(p.bloques.forma, "carga.subida")
         let cobertura = lectura(p.bloques.forma, "carga.cobertura")
         guard let frescura, frescura.estado == .medida else { return nil }
         guard let v = frescura.veredicto else {
             if case .historia? = frescura.cobertura.falta { return nil }
-            var texto = "Sin veredicto"
             if let pct = cobertura?.dato?.valor, let minimo = p.metodo.coberturaVeredictoMinPct {
-                texto += ": solo el \(Int(pct.rounded())) % de tu carga se ha podido calcular; el veredicto necesita el \(Int(minimo.rounded())) %."
-            } else {
-                texto += ": falta carga calculada para decir si vas a más."
+                return .retirado(motivo: "Solo el \(Int(pct.rounded())) % de tu carga se ha podido calcular; la palabra de hoy necesita el \(Int(minimo.rounded())) %.")
             }
-            return (texto, false)
+            return .retirado(motivo: "Falta carga calculada para decir cómo estás.")
         }
-        var partes = [v.etiquetaEs]
+        var detalle: String? = nil
         if let s = subida?.dato?.valor {
             let n = Formato.esDecimal(abs(s))
             let verbo = s >= 0.05 ? "sube \(n)" : s <= -0.05 ? "baja \(n)" : "no se mueve"
-            var frase = "la forma \(verbo) por semana"
+            var frase = "La forma \(verbo) por semana"
             if let sv = subida?.veredicto?.etiquetaEs { frase += " · \(sv.lowercased())" }
-            partes.append(frase)
+            detalle = frase
         }
-        var texto = partes.joined(separator: ": ") + "."
-        if let extra = v.fraseEs { texto += " " + extra }
-        return (texto, true)
+        return .dicho(detalle: detalle, extra: v.fraseEs)
     }
 }

@@ -1,14 +1,12 @@
 import SwiftUI
 
 // LAS FILAS — una familia en Progreso, una marca en Récords (espejo de
-// `kit-analiticas/piezas.tsx#FilaProgreso` y `#FilaRecord`). Las usan la
-// portada y, en la segunda tanda, los detalles por familia.
+// `kit-analiticas/piezas.tsx#FilaProgreso` y `#FilaRecord`). Viven dentro de una
+// `AnaliticasLista`, que pone las rayas; las usan la portada y, en la segunda
+// tanda, los detalles por familia.
 
-private typealias TA = AnaliticasTokens.TA
-private typealias C = AnaliticasColor
-
-/// Una familia en Progreso: punto, nombre + métrica clave · cifra · delta ·
-/// chispa · «›». `nombre` sustituye al de la familia (un ejercicio de fuerza).
+/// Una familia en Progreso: punto, nombre + métrica clave · cifra · delta · chispa · «›».
+/// `nombre` sustituye al de la familia (un ejercicio de fuerza).
 struct AnaliticasFilaProgreso: View {
     let familia: FamiliaLectura?
     let metrica: String
@@ -22,17 +20,39 @@ struct AnaliticasFilaProgreso: View {
     var nombre: String? = nil
     var onAbrir: (() -> Void)? = nil
 
+    private var nombreVisible: String { nombre ?? familia?.nombre ?? "" }
+
     var body: some View {
-        let fila = HStack(alignment: .center, spacing: 12) {
+        if let onAbrir {
+            Button(action: onAbrir) { fila }
+                .buttonStyle(PressScaleStyle(escala: 0.982))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(etiquetaAccesible)
+                .accessibilityAddTraits(.isButton)
+        } else {
+            fila.accessibilityElement(children: .combine)
+        }
+    }
+
+    /// Lo que lee VoiceOver de la fila entera: quién, qué mide, cuánto y cómo va.
+    private var etiquetaAccesible: String {
+        var partes = [nombreVisible, metrica]
+        if let valor { partes.append(AnaliticasFormato.formatear(valor, unidad)) }
+        if let delta { partes.append("\(delta.igual ? "sin cambio" : delta.mejor ? "mejor" : "peor") \(delta.texto)") } else if let nota { partes.append(nota) }
+        return partes.filter { !$0.isEmpty }.joined(separator: ", ")
+    }
+
+    private var fila: some View {
+        HStack(alignment: .center, spacing: 14) {
             AnaliticasPuntoFamilia(familia: familia)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 AnaliticasFlujo(espacioH: 8, espacioV: 0) {
-                    AnaliticasCuerpo(texto: nombre ?? familia?.nombre ?? "", fuerte: true)
+                    AnaliticasCuerpo(texto: nombreVisible, fuerte: true)
                     AnaliticasEtiqueta(texto: metrica)
                 }
                 if let valor {
                     HStack(alignment: .lastTextBaseline, spacing: 5) {
-                        AnaliticasNumeral(texto: AnaliticasFormato.cifra(valor, unidad), cuerpo: TA.datoMenor)
+                        AnaliticasNumeral(texto: AnaliticasFormato.cifra(valor, unidad), talla: .fila)
                         let u = AnaliticasFormato.unidadCorta(unidad, valor: valor)
                         if !u.isEmpty { AnaliticasEtiqueta(texto: u) }
                     }
@@ -43,24 +63,16 @@ struct AnaliticasFilaProgreso: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if let tendencia, tendencia.compactMap(\.v).count >= 2 {
-                AnaliticasChispa(puntos: tendencia, color: C.familia(familia))
+                AnaliticasChispa(puntos: tendencia, color: Theme.Color.chispa(FamiliaGrande(familia).color))
             }
             if onAbrir != nil {
-                Image(systemName: "chevron.right").font(.system(size: 15, weight: .semibold)).foregroundStyle(C.tinta2).accessibilityHidden(true)
+                IconoDia(.chevron, tam: 18).foregroundStyle(Theme.Color.muted)
             }
         }
-        .padding(.vertical, 10)
-        .frame(minHeight: 64)
-        .overlay(alignment: .bottom) { Rectangle().fill(C.rejilla).frame(height: 1) }
+        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.vertical, 14)
+        .frame(minHeight: 76)
         .contentShape(Rectangle())
-
-        if let onAbrir {
-            Button(action: onAbrir) { fila }
-                .buttonStyle(VivoPulsarStyle())
-                .accessibilityLabel("Abrir \(nombre ?? familia?.nombre ?? metrica)")
-        } else {
-            fila
-        }
     }
 }
 
@@ -85,19 +97,23 @@ struct AnaliticasFilaRecord: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 14) {
             AnaliticasPuntoFamilia(familia: familia)
             VStack(alignment: .leading, spacing: 3) {
                 AnaliticasCuerpo(texto: prueba, fuerte: true)
                 if !pie.isEmpty { AnaliticasEtiqueta(texto: pie) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if nuevo { AnaliticasSello(texto: "Nuevo") }
-            AnaliticasNumeral(texto: AnaliticasFormato.formatear(valor, unidad), cuerpo: TA.datoMenor)
+            // El valor y, debajo, el sello: a 15 pt un nombre largo («Sentadilla · 1RM estimado») no cabe
+            // entre el punto y un valor con su sello al lado, y se partía en tres líneas.
+            VStack(alignment: .trailing, spacing: Theme.Spacing.xs) {
+                AnaliticasNumeral(texto: AnaliticasFormato.formatear(valor, unidad), talla: .fila)
+                if nuevo { AnaliticasSello(texto: "Nuevo") }
+            }
         }
-        .padding(.vertical, 8)
-        .frame(minHeight: 56)
-        .overlay(alignment: .bottom) { Rectangle().fill(C.rejilla).frame(height: 1) }
+        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.vertical, 14)
+        .frame(minHeight: 68)
         .accessibilityElement(children: .combine)
     }
 }

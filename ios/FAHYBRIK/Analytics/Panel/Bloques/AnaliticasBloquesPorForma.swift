@@ -4,14 +4,12 @@ import SwiftUI
 // hoy, pintado lectura a lectura por id (`IdsDelPanel`) y forma del dato. Una
 // lectura o una falta que este binario no conoce no se pinta; nada se calcula aquí.
 
-private typealias C = AnaliticasColor
-
 /// Medidas de lienzo de los bloques de esta hoja.
 private enum Lienzo {
     /// Lo que la superficie de una gráfica le quita al ancho útil (margen y aire).
     static let margenDeGrafico: CGFloat = 60
-    /// Lo que una celda le quita al ancho útil para dibujar su chispa a lo ancho.
-    static let margenDeCelda: CGFloat = 68
+    /// Lo que una tesela le quita al ancho útil para dibujar su chispa a lo ancho (su aire y su raya).
+    static let margenDeCelda: CGFloat = 34
     /// Una chispa cuando la celda comparte fila con otra.
     static let chispaEnColumna: CGFloat = 120
     static let altoDeChispa: CGFloat = 40
@@ -94,9 +92,7 @@ struct AnaliticasBloqueProgreso: View {
         AnaliticasSeccion(titulo: BloqueDelPanel.progreso.titulo, pregunta: BloqueDelPanel.progreso.pregunta) {
             if hayHueco { AnaliticasHuecoDeBloque(ctx: ctx, bloque: .progreso) }
             if !sinFilas && !lecturas.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(lecturas) { fila($0) }
-                }
+                AnaliticasLista { ForEach(lecturas) { fila($0) } }
             }
         }
     }
@@ -136,9 +132,7 @@ struct AnaliticasBloqueRecords: View {
                           onAbrir: lecturas.count > Lienzo.recordsVisibles ? { ctx.onAbrir(.bloque(.records)) } : nil) {
             AnaliticasHuecoDeBloque(ctx: ctx, bloque: .records)
             if !lecturas.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(lecturas.prefix(Lienzo.recordsVisibles)) { fila($0) }
-                }
+                AnaliticasLista { ForEach(lecturas.prefix(Lienzo.recordsVisibles)) { fila($0) } }
             }
         }
     }
@@ -253,7 +247,7 @@ struct AnaliticasBloqueRecuperacion: View {
         AnaliticasSeccion(titulo: BloqueDelPanel.recuperacion.titulo, pregunta: BloqueDelPanel.recuperacion.pregunta) {
             AnaliticasHuecoDeBloque(ctx: ctx, bloque: .recuperacion)
             if !conDato.isEmpty {
-                VStack(spacing: AnaliticasTokens.hueco - 2) {
+                VStack(spacing: Theme.Spacing.m) {
                     ForEach(Array(stride(from: 0, to: conDato.count, by: porFila)), id: \.self) { i in
                         let fila = Array(conDato[i..<min(i + porFila, conDato.count)])
                         AnaliticasFilaDeCeldas {

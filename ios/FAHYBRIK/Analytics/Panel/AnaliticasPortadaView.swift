@@ -1,19 +1,23 @@
 import SwiftUI
 
 // LA PORTADA DE ANALÍTICAS — el panel único con los ocho bloques en el orden de
-// las preguntas (docs/analiticas/modelo.md §3), firmado por Alex el 29-09 sobre
-// la propuesta `analiticas-portada` del doble: el título y la ventana fijos
-// arriba, el Estado que no se va al hacer scroll, y debajo Forma y fatiga,
-// Semana a semana, Intensidad, Progreso, Récords, Carrera y Recuperación.
+// las preguntas (docs/analiticas/modelo.md §3), firmado por Alex el 29-09 y vestido con
+// el diseño de «El día» (la app entera lleva UNO): la ventana dicha en una frase y el
+// título de la pestaña arriba, el selector de ventana que se PEGA arriba al bajar (una
+// sola rige toda la pestaña y siempre se ve cuál), el Estado como sujeto y debajo Forma y
+// fatiga, Semana a semana, Intensidad, Progreso, Récords, Carrera y Recuperación.
 //
-// iOS PINTA, NO CALCULA. Todo sale de `PanelAnaliticas` (una llamada, una
-// ventana); la caché por ventana y el refresco son del `AppDataStore` (SWR +
-// disco). Un toque en un bloque empuja su detalle (placeholder hasta la segunda
-// tanda); las salidas de los huecos llevan a la pestaña o pantalla que resuelve
-// la falta. Detrás de `AnaliticasBandera` (encendida por defecto).
-
-private typealias C = AnaliticasColor
-private typealias TA = AnaliticasTokens.TA
+// iOS PINTA, NO CALCULA. Todo sale de `PanelAnaliticas` (una llamada, una ventana); la
+// caché por ventana y el refresco son del `AppDataStore` (SWR + disco). Un toque en un
+// bloque empuja su detalle (placeholder hasta la segunda tanda); las salidas de los huecos
+// llevan a la pestaña o pantalla que resuelve la falta.
+//
+// EL TEMA ES UNO Y LO ELIGE EL ATLETA (CONTRATO-UI §6.4): esta pantalla no fuerza su esquema;
+// claro u oscuro, sale de `Theme`. El acento es el del club.
+//
+// Cuatro estados: con datos (`AnaliticasPortadaCuerpo`), cargando (el esqueleto con la misma
+// forma), error con su reintento y, dentro de cada bloque, vacío / poco / viejo con su salida.
+// Detrás de `AnaliticasBandera` (encendida por defecto).
 
 struct AnaliticasPortadaView: View {
     var bearer: String? = nil
@@ -21,16 +25,27 @@ struct AnaliticasPortadaView: View {
     var hasCoach: Bool = true
     /// Las salidas que cambian de pestaña (Inicio, Plan, Carreras).
     var onOpenTab: ((AppTab) -> Void)? = nil
-    /// La ventana con la que abre (el arnés de capturas la fija).
-    var ventanaInicial: VentanaClave = .porDefecto
 
     @Environment(AppDataStore.self) private var store
     @Environment(\.openChat) private var openChat
 
-    @State private var ventana: VentanaClave = .porDefecto
+    @State private var ventana: VentanaClave
     @State private var glosa = false
     @State private var verTests = false
     @State private var camino = NavigationPath()
+    /// El selector está pegado arriba (el contenido pasa por debajo): entonces lleva su raya.
+    @State private var pegado = false
+    /// Cuánto mide lo que se va con el scroll (sobretítulo y título): pasado ese punto el selector se pega.
+    @State private var alturaDeCabecera: CGFloat = 0
+
+    /// `ventanaInicial` fija la ventana con la que abre (el arnés de capturas la pide); después manda el
+    /// atleta: volver a la pestaña no la reinicia.
+    init(bearer: String? = nil, hasCoach: Bool = true, onOpenTab: ((AppTab) -> Void)? = nil, ventanaInicial: VentanaClave = .porDefecto) {
+        self.bearer = bearer
+        self.hasCoach = hasCoach
+        self.onOpenTab = onOpenTab
+        _ventana = State(initialValue: ventanaInicial)
+    }
 
     private var slice: Slice<PanelAnaliticas> { store.panelAnaliticas(ventana) }
 
@@ -45,30 +60,36 @@ struct AnaliticasPortadaView: View {
                     }
                 }
         }
-        .environment(\.colorScheme, .dark)
-        .onAppear { ventana = ventanaInicial }
     }
 
     private var raiz: some View {
         GeometryReader { geo in
-            VStack(spacing: 0) {
-                cabecera
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                        Section {
-                            cuerpo(ancho: geo.size.width - 2 * AnaliticasTokens.margen)
-                                .padding(.horizontal, AnaliticasTokens.margen)
-                                .padding(.top, 20)
-                                .padding(.bottom, AnaliticasTokens.entreBloques + 8)
-                        } header: {
-                            estadoFijo
-                        }
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    AnaliticasCabecera(sobretitulo: ventana.frase, titulo: AppTab.analiticas.title)
+                        .padding(.horizontal, Theme.Spacing.pantalla)
+                        .padding(.top, Theme.Spacing.xs + 2)
+                        .padding(.bottom, Theme.Spacing.m)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { alturaDeCabecera = $0 }
+                    Section {
+                        cuerpo(ancho: geo.size.width - 2 * Theme.Spacing.pantalla)
+                            .padding(.horizontal, Theme.Spacing.pantalla)
+                            .padding(.top, Theme.Spacing.m)
+                            .padding(.bottom, Theme.Spacing.xxl)
+                    } header: {
+                        selector
                     }
                 }
-                .refreshable { await store.refreshPanelAnaliticas(ventana, force: true) }
             }
+            .scrollBounceBehavior(.always)
+            .onScrollGeometryChange(for: Bool.self) { g in
+                alturaDeCabecera > 0 && g.contentOffset.y + g.contentInsets.top >= alturaDeCabecera - 0.5
+            } action: { _, ahora in
+                pegado = ahora
+            }
+            .refreshable { await store.refreshPanelAnaliticas(ventana, force: true) }
         }
-        .background(C.fondo.ignoresSafeArea())
+        .background(Theme.Color.background.ignoresSafeArea())
         .task(id: "\(bearer ?? "")|\(ventana.rawValue)") {
             store.activate(bearer: bearer)
             await store.refreshPanelAnaliticas(ventana)
@@ -86,61 +107,31 @@ struct AnaliticasPortadaView: View {
         }
     }
 
-    // MARK: - Cabecera: el título y la ventana, fijos
+    // MARK: - El selector, pegado arriba
 
-    private var cabecera: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(AppTab.analiticas.title)
-                .font(.system(size: TA.pantalla.cuerpo, weight: TA.pantalla.peso))
-                .tracking(-0.5)
-                .foregroundStyle(C.tinta)
-                .accessibilityAddTraits(.isHeader)
-            AnaliticasSelectorVentana(ventana: $ventana)
-        }
-        .padding(.horizontal, AnaliticasTokens.margen)
-        .padding(.top, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
+    private var selector: some View {
+        AnaliticasSelectorVentana(ventana: $ventana)
+            .padding(.horizontal, Theme.Spacing.pantalla)
+            .padding(.vertical, Theme.Spacing.m - 2)
+            .frame(maxWidth: .infinity)
+            .background(Theme.Color.background)
+            .overlay(alignment: .bottom) {
+                if pegado { Rectangle().fill(Theme.Color.hairlineStrong).frame(height: 1) }
+            }
     }
 
-    // MARK: - El Estado fijo (pregunta 1)
-
-    @ViewBuilder
-    private var estadoFijo: some View {
-        if let panel = slice.value {
-            let estados = ContextoDeBloque.estados(de: panel)
-            let e = AnaliticasDerivados.estado(panel, estadoBloque: estados[.estado] ?? .vacio)
-            AnaliticasEstadoFijo(palabra: e.palabra, sinPalabra: e.sinPalabra, celdas: e.celdas, nota: e.nota, onGlosa: { glosa = true })
-                .padding(.horizontal, AnaliticasTokens.margen)
-                .padding(.top, 10)
-                .padding(.bottom, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(C.fondo)
-                .overlay(alignment: .bottom) { Rectangle().fill(C.rejilla).frame(height: 1) }
-        }
-    }
-
-    // MARK: - Los bloques
+    // MARK: - El cuerpo, en sus estados
 
     @ViewBuilder
     private func cuerpo(ancho: CGFloat) -> some View {
         if let panel = slice.value {
-            let ctx = ContextoDeBloque(panel: panel, estados: ContextoDeBloque.estados(de: panel), ancho: ancho,
-                                       onSalida: salida(_:), onAbrir: { camino.append($0) })
-            VStack(alignment: .leading, spacing: AnaliticasTokens.entreBloques) {
-                ForEach(BloqueDelPanel.delCuerpo, id: \.rawValue) { b in
-                    AnaliticasBloque(ctx: ctx, bloque: b)
-                }
-            }
+            AnaliticasPortadaCuerpo(panel: panel, ancho: ancho, onGlosa: { glosa = true }, onSalida: salida(_:), onAbrir: { camino.append($0) })
         } else if slice.loadFailed {
-            AnaliticasHueco(
-                texto: TextoHueco(titulo: "No se han podido cargar tus analíticas", cuerpo: "Comprueba la conexión y vuelve a intentarlo.", salida: .espera("Desliza hacia abajo para reintentar"), plazo: nil),
-                onSalida: { _ in }
-            )
+            AnaliticasPortadaError(reintentando: slice.isRevalidating) {
+                Task { await store.refreshPanelAnaliticas(ventana, force: true) }
+            }
         } else {
-            ProgressView()
-                .tint(C.tinta2)
-                .frame(maxWidth: .infinity, minHeight: 200)
-                .accessibilityLabel("Cargando")
+            AnaliticasPortadaEsqueleto()
         }
     }
 

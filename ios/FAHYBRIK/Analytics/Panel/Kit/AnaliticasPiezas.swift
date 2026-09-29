@@ -1,35 +1,36 @@
 import SwiftUI
 
 // LAS PIEZAS DEL IPHONE — el cromo y los átomos de la pestaña de analíticas
-// (espejo de `kit-analiticas/piezas.tsx`), sobre el lenguaje del vivo: negro, SF
-// tabular, tinta y tinta2, naranja SOLO en la acción, suelo 15 pt en todo.
-// Ninguna pieza escribe un hex ni un cuerpo que no salga de `AnaliticasTokens`.
+// (espejo de `kit-analiticas/piezas.tsx`), hechos con el kit de «El día»: el
+// tema del atleta (claro u oscuro, ninguna pantalla fuerza el suyo), los
+// papeles tipográficos (`.papel`, suelo 15 pt), el acento del CLUB en lo que
+// es marca o acción, y ninguna pieza escribe un hex ni un cuerpo.
 //
 //   AnaliticasEtiqueta / Cuerpo / Numeral   texto
-//   AnaliticasSeccion       título 24 pt + pregunta + «›» al detalle
-//   AnaliticasSuperficie    una superficie sobre el negro
-//   AnaliticasCelda         un dato: etiqueta, cifra, unidad, delta y ancla
+//   AnaliticasSeccion       título de sección + pregunta + «›» al detalle
+//   AnaliticasSuperficie    una tarjeta; AnaliticasLista una tarjeta con filas
+//   AnaliticasCelda         una tesela de dato: etiqueta, cifra, unidad, delta y ancla
 //   AnaliticasDelta         ▲ / ▼ / ≈ con el texto en la unidad que lo juzga
 //   AnaliticasChipAncla     «medido», «declarado», «estimado», «por edad»
-//   AnaliticasPuntoFamilia · AnaliticasSello · AnaliticasNota
-//   AnaliticasBoton         la ÚNICA pieza naranja de la pestaña
+//   AnaliticasPuntoFamilia · AnaliticasSello
+//   AnaliticasBoton         la salida de un hueco (acento del club) o la acción de tinta
 //   AnaliticasPlazo         «llevas 3 de 6 semanas», dibujado
 //   AnaliticasHueco         vacío / poco / viejo, con salida obligatoria
 //   AnaliticasLeyenda       la leyenda de un gráfico (siempre con ≥ 2 series)
-
-private typealias TA = AnaliticasTokens.TA
-private typealias C = AnaliticasColor
+//
+// EL COLOR. El acento del club es marca y acción (el conmutador elegido, la
+// salida de un hueco): NUNCA el color de una familia ni de un dato. El veredicto
+// no cambia el color de la cifra: cambia la marca ▲▼≈ y la palabra.
 
 // MARK: - Texto
 
-/// Etiqueta o unidad: 15 pt semibold en tinta2. El suelo.
+/// Etiqueta o unidad: 15 pt, en el gris de apoyo. El suelo.
 struct AnaliticasEtiqueta: View {
     let texto: String
-    var tono: Color = C.tinta2
-    var peso: Font.Weight = .semibold
+    var tono: Color = Theme.Color.muted
     var body: some View {
         Text(texto)
-            .font(.system(size: TA.etiqueta, weight: peso))
+            .papel(.notaFuerte)
             .foregroundStyle(tono)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -38,28 +39,52 @@ struct AnaliticasEtiqueta: View {
 /// Una línea de cuerpo (17 pt). Se parte en dos líneas; nunca se trunca.
 struct AnaliticasCuerpo: View {
     let texto: String
-    var tono: Color = C.tinta
+    var tono: Color = Theme.Color.foreground
     var fuerte = false
     var body: some View {
         Text(texto)
-            .font(.system(size: TA.cuerpo, weight: fuerte ? .semibold : .medium))
+            .papel(fuerte ? .cuerpoFuerte : .cuerpo)
             .foregroundStyle(tono)
-            .lineSpacing(2)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
 
-/// Toda cifra del panel: SF tabular, recto. Nunca naranja.
+/// Toda cifra del panel. El dato de una tesela va en cursiva pesada como toda cifra de «El día»;
+/// la de una fila (una familia, un récord) va recta y más pequeña, para leerse en columna.
 struct AnaliticasNumeral: View {
+    enum Talla {
+        /// 32 pt, cursiva de marca: el dato de una tesela.
+        case dato
+        /// 22 pt, recta: la cifra de una fila.
+        case fila
+    }
+
     let texto: String
-    var cuerpo: CGFloat = TA.dato
-    var tono: Color = C.tinta
+    var talla: Talla = .dato
+    var tono: Color = Theme.Color.foreground
+
     var body: some View {
-        Text(texto)
-            .font(AnaliticasTokens.numeral(cuerpo))
-            .foregroundStyle(tono)
-            .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
+        Group {
+            switch talla {
+            case .dato: Text(texto).papel(.dato)
+            case .fila: Text(texto).modifier(CifraDeFila())
+            }
+        }
+        .foregroundStyle(tono)
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+}
+
+/// La cifra de una fila: 22 pt, negrita, tabular y recta. Escala con el texto del sistema hacia
+/// arriba y nunca por debajo de su base (el mismo contrato que los papeles del kit), con tope.
+private struct CifraDeFila: ViewModifier {
+    private static let base: CGFloat = 22
+    @ScaledMetric(relativeTo: .title3) private var escalado: CGFloat = CifraDeFila.base
+
+    func body(content: Content) -> some View {
+        let tamano = min(max(escalado, Self.base), Self.base * Theme.Typography.Papel.topeDeLosGrandes)
+        content.font(ScaledFontModifier.fuente(size: tamano, weight: .bold, italic: false, tabular: true))
     }
 }
 
@@ -71,8 +96,9 @@ struct AnaliticasNota: View {
 
 // MARK: - Sección
 
-/// Título 24 pt + la pregunta + «›» al detalle. El accesorio (un conmutador) va
-/// en su propia fila: nunca dentro del botón del título ni robándole sitio.
+/// Título de sección de «El día» (24 pt, cursiva de marca) + la pregunta que responde + «›» al
+/// detalle cuando lo hay. El accesorio (un conmutador) va en su propia fila: nunca dentro del
+/// título ni robándole sitio.
 struct AnaliticasSeccion<Contenido: View, Accesorio: View>: View {
     let titulo: String
     var pregunta: String? = nil
@@ -87,13 +113,10 @@ struct AnaliticasSeccion<Contenido: View, Accesorio: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AnaliticasTokens.hueco + 2) {
-            if let onAbrir {
-                Button(action: onAbrir) { cabeza }
-                    .buttonStyle(VivoPulsarStyle())
-                    .accessibilityLabel("Abrir \(titulo)")
-            } else {
-                cabeza
+        VStack(alignment: .leading, spacing: Theme.Spacing.m + 2) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                TituloSeccionDia(titulo) { chevron }
+                if let pregunta { AnaliticasEtiqueta(texto: pregunta) }
             }
             accesorio()
             contenido()
@@ -101,26 +124,21 @@ struct AnaliticasSeccion<Contenido: View, Accesorio: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var cabeza: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(titulo)
-                    .font(.system(size: TA.titulo.cuerpo, weight: TA.titulo.peso))
-                    .tracking(-0.3)
-                    .foregroundStyle(C.tinta)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let pregunta { AnaliticasEtiqueta(texto: pregunta) }
+    /// El «›» es el botón: 48 pt de área táctil (más que los 44 de la HIG) sobre un glifo de 20.
+    @ViewBuilder
+    private var chevron: some View {
+        if let onAbrir {
+            Button(action: onAbrir) {
+                IconoDia(.chevron, tam: 20)
+                    .foregroundStyle(Theme.Color.muted)
+                    .frame(width: Theme.Size.toque, height: Theme.Size.toque)
+                    .contentShape(Rectangle())
             }
-            Spacer(minLength: 0)
-            if onAbrir != nil {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(C.tinta2)
-                    .accessibilityHidden(true)
-            }
+            .buttonStyle(PressScaleStyle(escala: 0.9))
+            .padding(.vertical, -Theme.Spacing.m)
+            .padding(.trailing, -Theme.Spacing.m)
+            .accessibilityLabel("Abrir \(titulo)")
         }
-        .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
-        .contentShape(Rectangle())
     }
 }
 
@@ -130,30 +148,51 @@ extension AnaliticasSeccion where Accesorio == EmptyView {
     }
 }
 
-// MARK: - Superficie y celdas
+// MARK: - Superficies
 
-/// Una superficie sobre el negro (la celda del vivo).
+/// La tarjeta de «El día»: superficie, raya fina y radio 22. Los gráficos van dentro de una.
+/// El estado «viejo» lleva un filete a la izquierda.
 struct AnaliticasSuperficie<Contenido: View>: View {
-    var padding: CGFloat = 14
-    /// El estado «viejo» lleva un filete a la izquierda.
+    var padding: CGFloat = Theme.Spacing.l
     var filete = false
     @ViewBuilder let contenido: () -> Contenido
 
     var body: some View {
+        let forma = RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous)
         contenido()
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(C.superficie, in: RoundedRectangle(cornerRadius: AnaliticasTokens.Radio.celda, style: .continuous))
+            .background(Theme.Color.surface, in: forma)
             .overlay(alignment: .leading) {
-                if filete {
-                    RoundedRectangle(cornerRadius: AnaliticasTokens.Radio.celda, style: .continuous)
-                        .fill(C.tinta2)
-                        .frame(width: 3 + AnaliticasTokens.Radio.celda)
-                        .mask(alignment: .leading) { Rectangle().frame(width: 3) }
-                }
+                if filete { Rectangle().fill(Theme.Color.muted).frame(width: 4) }
             }
+            .clipShape(forma)
+            .overlay(forma.strokeBorder(Theme.Color.hairline, lineWidth: 1))
     }
 }
+
+/// Una tarjeta con filas separadas por una raya fina. El toque de cada fila es suyo.
+struct AnaliticasLista<Contenido: View>: View {
+    @ViewBuilder let contenido: () -> Contenido
+
+    var body: some View {
+        let forma = RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous)
+        VStack(spacing: 0) {
+            Group(subviews: contenido()) { filas in
+                ForEach(Array(filas.enumerated()), id: \.offset) { i, fila in
+                    if i > 0 { Rectangle().fill(Theme.Color.hairline).frame(height: 1) }
+                    fila
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Color.surface, in: forma)
+        .clipShape(forma)
+        .overlay(forma.strokeBorder(Theme.Color.hairline, lineWidth: 1))
+    }
+}
+
+// MARK: - Delta, ancla y celdas
 
 /// Un delta ya interpretado: la marca, el texto en la unidad que lo juzga y contra qué.
 struct DeltaVista: Equatable {
@@ -168,22 +207,29 @@ struct DeltaVista: Equatable {
     var igual: Bool { significativo == false || AnaliticasFormato.esCero(delta, unidad) }
     var marca: String { igual ? "≈" : mejor ? "▲" : "▼" }
     var texto: String { AnaliticasFormato.esCero(delta, unidad) ? "igual" : AnaliticasFormato.formatearDelta(delta, unidad) }
+
+    /// El color va en la MARCA y nunca en la cifra: verde mejor, ámbar peor, gris dentro del ruido. La
+    /// forma (▲▼≈) y la palabra dicen lo mismo sin color.
+    var colorDeLaMarca: Color { igual ? Theme.Color.muted : mejor ? Theme.Color.ok : Theme.Color.warning }
 }
 
-/// ▲ mejor · ▼ peor · ≈ dentro del ruido, con el texto del delta y contra qué.
-/// El color no cambia: la marca y la palabra lo dicen. Se parte en dos líneas si no cabe.
+/// ▲ mejor · ▼ peor · ≈ dentro del ruido, con el texto del delta y contra qué. Se parte en dos
+/// líneas si no cabe.
 struct AnaliticasDelta: View {
     let delta: DeltaVista
     var corto = false
 
     var body: some View {
         AnaliticasFlujo(espacioH: 6, espacioV: 2) {
-            Text("\(delta.marca) \(delta.texto)")
-                .font(.system(size: TA.etiqueta, weight: .semibold).monospacedDigit())
-                .foregroundStyle(delta.igual ? C.tinta2 : C.tinta)
-                .lineLimit(1)
-                .fixedSize()
-                .accessibilityLabel("\(delta.igual ? "sin cambio" : delta.mejor ? "mejor" : "peor") \(delta.texto)")
+            HStack(spacing: Theme.Spacing.xs) {
+                Text(delta.marca).foregroundStyle(delta.colorDeLaMarca)
+                Text(delta.texto).foregroundStyle(delta.igual ? Theme.Color.muted : Theme.Color.foreground)
+            }
+            .papel(.notaPesada)
+            .lineLimit(1)
+            .fixedSize()
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(delta.igual ? "sin cambio" : delta.mejor ? "mejor" : "peor") \(delta.texto)")
             if !corto, let etiqueta = delta.etiqueta {
                 AnaliticasEtiqueta(texto: etiqueta)
             }
@@ -191,106 +237,108 @@ struct AnaliticasDelta: View {
     }
 }
 
+/// De dónde sale la cifra. El estimado va con la raya a trazos: se distingue de un dato medido sin
+/// depender del color.
 struct AnaliticasChipAncla: View {
     let ancla: AnclaDeLectura
     var body: some View {
         if let etiqueta = ancla.etiqueta {
             Text(etiqueta)
-                .font(.system(size: TA.etiqueta, weight: .semibold))
-                .foregroundStyle(C.tinta2)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .papel(.rotulo)
+                .foregroundStyle(Theme.Color.muted)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
                 .overlay(
-                    Capsule().strokeBorder(C.carril, style: StrokeStyle(lineWidth: 1.5, dash: ancla.esEstimada ? [4, 3] : []))
+                    Capsule().strokeBorder(Theme.Color.faint, style: StrokeStyle(lineWidth: 1.5, dash: ancla.esEstimada ? [4, 3] : []))
                 )
                 .fixedSize()
         }
     }
 }
 
-/// Un dato: etiqueta arriba, cifra a 30 pt con la unidad a 15 pt, y debajo el
-/// delta en la unidad que lo juzga y el ancla. Sin dato no hay celda: la
-/// ausencia se dice en el hueco del bloque, no con guiones.
+/// Un dato: etiqueta arriba, cifra a 32 pt con la unidad a 15 pt, y debajo el delta en la unidad que
+/// lo juzga y el ancla. Es una `TeselaDia`: dentro de `AnaliticasFilaDeCeldas` se iguala en alto con
+/// su vecina. Sin dato no hay celda: la ausencia se dice en el hueco del bloque, no con guiones.
 struct AnaliticasCelda<Pie: View>: View {
     let etiqueta: String
     let valor: Double
     let unidad: UnidadLectura
     var delta: DeltaVista? = nil
     var ancla: AnclaDeLectura? = nil
-    /// Una línea en tinta2 debajo (la fecha del récord, el basal).
+    /// Una línea de apoyo debajo (la fecha del récord, el basal).
     var nota: String? = nil
-    var cuerpo: CGFloat = TA.dato
     @ViewBuilder var pie: () -> Pie
 
     init(etiqueta: String, valor: Double, unidad: UnidadLectura, delta: DeltaVista? = nil, ancla: AnclaDeLectura? = nil,
-         nota: String? = nil, cuerpo: CGFloat = TA.dato, @ViewBuilder pie: @escaping () -> Pie) {
+         nota: String? = nil, @ViewBuilder pie: @escaping () -> Pie) {
         self.etiqueta = etiqueta; self.valor = valor; self.unidad = unidad; self.delta = delta
-        self.ancla = ancla; self.nota = nota; self.cuerpo = cuerpo; self.pie = pie
+        self.ancla = ancla; self.nota = nota; self.pie = pie
     }
 
     var body: some View {
-        AnaliticasSuperficie {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    AnaliticasEtiqueta(texto: etiqueta)
+        TeselaDia(
+            cabecera: {
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+                    Text(etiqueta)
+                        .papel(.rotulo)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                     if let ancla { AnaliticasChipAncla(ancla: ancla) }
                 }
-                HStack(alignment: .lastTextBaseline, spacing: 5) {
-                    AnaliticasNumeral(texto: AnaliticasFormato.cifra(valor, unidad), cuerpo: cuerpo)
-                    let u = AnaliticasFormato.unidadCorta(unidad, valor: valor)
-                    if !u.isEmpty { AnaliticasEtiqueta(texto: u) }
+            },
+            contenido: {
+                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                    HStack(alignment: .lastTextBaseline, spacing: Theme.Spacing.xs + 1) {
+                        AnaliticasNumeral(texto: AnaliticasFormato.cifra(valor, unidad))
+                        let u = AnaliticasFormato.unidadCorta(unidad, valor: valor)
+                        if !u.isEmpty { AnaliticasEtiqueta(texto: u) }
+                    }
+                    if let delta { AnaliticasDelta(delta: delta) }
+                    if let nota { AnaliticasEtiqueta(texto: nota) }
+                    pie()
                 }
-                if let delta { AnaliticasDelta(delta: delta) }
-                if let nota { AnaliticasEtiqueta(texto: nota) }
-                pie()
             }
-        }
+        )
     }
 }
 
 extension AnaliticasCelda where Pie == EmptyView {
-    init(etiqueta: String, valor: Double, unidad: UnidadLectura, delta: DeltaVista? = nil, ancla: AnclaDeLectura? = nil,
-         nota: String? = nil, cuerpo: CGFloat = TA.dato) {
-        self.init(etiqueta: etiqueta, valor: valor, unidad: unidad, delta: delta, ancla: ancla, nota: nota, cuerpo: cuerpo) { EmptyView() }
+    init(etiqueta: String, valor: Double, unidad: UnidadLectura, delta: DeltaVista? = nil, ancla: AnclaDeLectura? = nil, nota: String? = nil) {
+        self.init(etiqueta: etiqueta, valor: valor, unidad: unidad, delta: delta, ancla: ancla, nota: nota) { EmptyView() }
     }
 }
 
-/// Dos celdas a lo ancho, a partes iguales (la rejilla del vivo).
+/// Dos celdas a lo ancho, a partes iguales y del mismo alto (una sola, a todo el ancho). Con el texto
+/// del sistema en tamaños de accesibilidad pasan a una columna: lo hace `TeselasDia`.
 struct AnaliticasFilaDeCeldas<Contenido: View>: View {
     @ViewBuilder let contenido: () -> Contenido
-    var body: some View {
-        HStack(alignment: .top, spacing: AnaliticasTokens.hueco - 2) { contenido() }
-    }
+    var body: some View { TeselasDia { contenido() } }
 }
 
 // MARK: - Marcas pequeñas
 
 struct AnaliticasPuntoFamilia: View {
     let familia: FamiliaLectura?
-    var talla: CGFloat = 10
+    var talla: CGFloat = 12
     var body: some View {
-        Circle().fill(C.familia(familia)).frame(width: talla, height: talla).accessibilityHidden(true)
+        Circle().fill(FamiliaGrande(familia).color).frame(width: talla, height: talla).accessibilityHidden(true)
     }
 }
 
-/// Un sello sin naranja: fondo sobre tinta. El naranja es acción.
+/// «Nuevo»: una pastilla tenue de la tinta del tema. Ni el acento del club (es marca y acción) ni la
+/// tinta invertida (eso es una acción): en una tabla con seis marcas nuevas no puede gritar.
 struct AnaliticasSello: View {
     let texto: String
-    var body: some View {
-        Text(texto)
-            .font(.system(size: TA.etiqueta, weight: .bold))
-            .foregroundStyle(C.fondo)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(C.tinta, in: Capsule())
-            .fixedSize()
-    }
+    var body: some View { InfoPill(text: texto, estilo: .velo) }
 }
 
 // MARK: - Botón y hueco
 
-/// La ÚNICA pieza naranja de la pestaña: una acción que el atleta puede hacer ahora.
+/// La acción de una salida. La principal es la pastilla de tinta invertida de «El día» (`AccionDia`: 52 pt,
+/// cursiva de marca, flecha): una sola por sujeto. La secundaria, la de un hueco, es una pastilla de
+/// contorno con el tinte del acento del CLUB (ocho tarjetas con la misma pastilla de tinta no serían
+/// «una sola acción clara»). Sobre un tinte del acento el texto es la tinta del tema (CONTRATO-UI §11.2).
 struct AnaliticasBoton: View {
     let texto: String
     var secundario = false
@@ -298,39 +346,43 @@ struct AnaliticasBoton: View {
 
     var body: some View {
         Button(action: accion) {
-            Text(texto)
-                .font(.system(size: secundario ? TA.cuerpo : TA.boton.cuerpo, weight: .bold))
-                .foregroundStyle(secundario ? C.tinta : C.sobreAccion)
-                .lineLimit(1)
-                .fixedSize()
-                .padding(.horizontal, 18)
-                .frame(height: secundario ? TA.botonMenor : TA.boton.alto)
-                .background(secundario ? C.superficie2 : C.accion, in: Capsule())
+            if secundario {
+                Text(texto)
+                    .papel(.cuerpoFuerte)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .multilineTextAlignment(.leading)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, Theme.Spacing.s)
+                    .frame(minHeight: Theme.Size.toque - 4)
+                    .background(Theme.Color.accentTint(sobre: Theme.Color.surface), in: Capsule())
+                    .overlay(Capsule().strokeBorder(Theme.Color.accentTintBorde, lineWidth: 1))
+                    .contentShape(Capsule())
+            } else {
+                AccionDia(texto)
+            }
         }
-        .buttonStyle(VivoPulsarStyle())
+        .buttonStyle(PressScaleStyle(escala: 0.96))
         .accessibilityLabel(texto)
     }
 }
 
-/// «llevas 3 de 6 semanas»: el plazo, dibujado.
+/// «llevas 3 de 6 semanas»: el plazo, dibujado con la regleta del kit.
 struct AnaliticasPlazo: View {
     let plazo: PlazoHueco
+    var tono: Color = Theme.Color.muted
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 4) {
-                ForEach(0..<max(1, plazo.hacen), id: \.self) { i in
-                    RoundedRectangle(cornerRadius: 2).fill(i < plazo.llevas ? C.tinta : C.carril).frame(height: 8)
-                }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(plazo.llevas) de \(plazo.hacen) \(plazo.unidad)")
-            AnaliticasEtiqueta(texto: "\(plazo.llevas) de \(plazo.hacen) \(plazo.unidad)")
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            RegletaDia(n: plazo.llevas, de: max(1, plazo.hacen), alto: 8)
+            AnaliticasEtiqueta(texto: "\(plazo.llevas) de \(plazo.hacen) \(plazo.unidad)", tono: tono)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(plazo.llevas) de \(plazo.hacen) \(plazo.unidad)")
     }
 }
 
-/// vacío: qué hacer para tenerlo · poco: cuánto falta (el plazo dibujado) ·
-/// viejo: desde cuándo, y qué lo reanuda. Nunca una silueta muda.
+/// vacío: qué hacer para tenerlo · poco: cuánto falta (el plazo dibujado) · viejo: desde cuándo, y qué
+/// lo reanuda. Nunca una silueta muda.
 struct AnaliticasHueco: View {
     let texto: TextoHueco
     var viejo = false
@@ -340,11 +392,11 @@ struct AnaliticasHueco: View {
         AnaliticasSuperficie(filete: viejo) {
             VStack(alignment: .leading, spacing: 10) {
                 AnaliticasCuerpo(texto: texto.titulo, fuerte: true)
-                AnaliticasCuerpo(texto: texto.cuerpo, tono: C.tinta2)
+                AnaliticasCuerpo(texto: texto.cuerpo, tono: Theme.Color.muted)
                 if let plazo = texto.plazo { AnaliticasPlazo(plazo: plazo) }
                 switch texto.salida {
                 case .accion(let etiqueta, let destino):
-                    AnaliticasBoton(texto: etiqueta) { onSalida(destino) }
+                    AnaliticasBoton(texto: etiqueta, secundario: true) { onSalida(destino) }
                 case .espera(let etiqueta):
                     AnaliticasEtiqueta(texto: etiqueta)
                 }
@@ -373,8 +425,8 @@ struct AnaliticasLeyenda: View {
                 HStack(spacing: 6) {
                     clave(it)
                     Text(it.etiqueta)
-                        .font(.system(size: TA.etiqueta, weight: .semibold))
-                        .foregroundStyle(C.tinta2)
+                        .papel(.notaFuerte)
+                        .foregroundStyle(Theme.Color.muted)
                         .lineLimit(1)
                         .fixedSize()
                 }
@@ -388,15 +440,15 @@ struct AnaliticasLeyenda: View {
         let w: CGFloat = 18, h: CGFloat = 12
         switch it.muestra {
         case .linea:
-            Rectangle().fill(it.color).frame(width: w, height: 2).clipShape(Capsule())
+            Rectangle().fill(it.color).frame(width: w, height: Theme.Chart.linea).clipShape(Capsule())
         case .lineaDiscontinua:
             Path { p in p.move(to: CGPoint(x: 0, y: 1)); p.addLine(to: CGPoint(x: w, y: 1)) }
-                .stroke(it.color, style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [4, 3]))
-                .frame(width: w, height: 2)
+                .stroke(it.color, style: StrokeStyle(lineWidth: Theme.Chart.linea, lineCap: .round, dash: Theme.Chart.discontinuo))
+                .frame(width: w, height: Theme.Chart.linea)
         case .relleno:
             RoundedRectangle(cornerRadius: 3).fill(it.color).frame(width: w, height: h)
         case .contorno:
-            RoundedRectangle(cornerRadius: 3).strokeBorder(it.color, lineWidth: 1.5).frame(width: w, height: h)
+            RoundedRectangle(cornerRadius: 3).strokeBorder(it.color, lineWidth: Theme.Chart.contorno).frame(width: w, height: h)
         case .punto:
             Circle().fill(it.color).frame(width: 8, height: 8)
         }
