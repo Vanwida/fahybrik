@@ -32,13 +32,21 @@ export function conSlot(p: PasoBase): string {
 /** «A2 Box Jump»: para «Luego ·», en la fila de abajo. */
 const corto = (p: PasoBase) => [p.posicion?.slot, p.nombre].filter(Boolean).join(' ');
 
+/**
+ * La dosis de un paso que no es de fuerza desde el paso `j`: LO QUE FALTA del
+ * ejercicio («8 × 250 m» al abrirlo, «2 × 250 m» cuando ya solo quedan dos),
+ * nunca el total de la hoja repetido en cada descanso.
+ */
+function dosisRestante(plan: PlanSesion, j: number): string {
+  const pr = fmtPrescrito(plan.pasos[j]!.medida);
+  const restan = ejercicioDe(plan, j)?.pasos.filter((k) => k >= j).length ?? 1;
+  return restan > 1 ? `${restan} × ${pr}` : pr;
+}
+
 /** Un paso que no es de fuerza, en corto: «Sled Push · 6 × 15 m». */
 function cortoOtro(plan: PlanSesion, j: number): string {
   const q = plan.pasos[j]!;
-  const e = ejercicioDe(plan, j);
-  const pr = fmtPrescrito(q.medida);
-  const dosis = e && e.series > 1 ? `${e.series} × ${pr}` : pr;
-  return [q.nombre, dosis].filter(Boolean).join(' · ');
+  return [q.nombre, dosisRestante(plan, j)].filter(Boolean).join(' · ');
 }
 
 /**
@@ -67,9 +75,7 @@ export function textoViene(plan: PlanSesion, i: number, registro: Registro): Vie
   if (j == null) return null;
   const q = plan.pasos[j]!;
   if (!esFuerza(q)) {
-    const e = ejercicioDe(plan, j);
-    const pr = fmtPrescrito(q.medida);
-    return { que: q.nombre ?? pr, dosis: q.nombre ? (e && e.series > 1 ? `${e.series} × ${pr}` : pr) : null };
+    return { que: q.nombre ?? fmtPrescrito(q.medida), dosis: q.nombre ? dosisRestante(plan, j) : null };
   }
   const e = ejercicioDe(plan, j)!;
   if (abreEjercicio(plan, j)) return { que: conSlot(q), dosis: dosisEjercicio(q, e.series) };

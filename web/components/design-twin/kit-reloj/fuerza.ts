@@ -23,16 +23,29 @@ function rango(min: number, max: number, f: (n: number) => string): string {
   return min === max ? f(min) : `${f(min)}–${f(max)}`;
 }
 
-/** La RM resuelta en kg, redondeada al kilo como la enseña el plan: 65–70 % de 186,5 → 121–131. */
-export function kgDelPlan(c: CargaFuerza): [number, number] | null {
+/**
+ * La carga del plan en kg. Con kilos del coach, los suyos. Con un %RM, la RM
+ * resuelta al kilo como la enseña la hoja (65–70 % de 186,5 → 121–131) y, si se
+ * da `pasoKg` (lo que carga la barra de su gimnasio), garantizando que LO QUE SE
+ * LEE SE PUEDE CARGAR: cuando ningún múltiplo del paso cabe en ese rango (una
+ * dosis puntual: 72 % de 186,5 = 134 kg no es cargable con discos de 2,5 kg) la
+ * dosis pasa a ser el múltiplo más cercano (135), y la propuesta y el texto
+ * dicen lo mismo.
+ */
+export function kgDelPlan(c: CargaFuerza, pasoKg?: number): [number, number] | null {
   if (c.tipo === 'kg') return [c.min, c.max];
-  if (c.tipo === 'rm' && c.rmKg) return [Math.round((c.rmKg * c.pctMin) / 100), Math.round((c.rmKg * c.pctMax) / 100)];
-  return null;
+  if (c.tipo !== 'rm' || !c.rmKg) return null;
+  const min = Math.round((c.rmKg * c.pctMin) / 100);
+  const max = Math.round((c.rmKg * c.pctMax) / 100);
+  if (!pasoKg) return [min, max];
+  const cargable = Math.round(((min + max) / 2 / pasoKg)) * pasoKg;
+  const dentro = Math.ceil(min / pasoKg) * pasoKg <= Math.floor(max / pasoKg) * pasoKg;
+  return dentro ? [min, max] : [cargable, cargable];
 }
 
 /** «121–131 kg», «156 kg»; null si el plan no da kilos. */
-export function textoKgPlan(c: CargaFuerza): string | null {
-  const r = kgDelPlan(c);
+export function textoKgPlan(c: CargaFuerza, pasoKg?: number): string | null {
+  const r = kgDelPlan(c, pasoKg);
   return r ? `${rango(r[0], r[1], num)} kg` : null;
 }
 
@@ -70,21 +83,21 @@ export function textoCarga(f: FichaFuerza, arrastrada: number | null): string | 
     const que = f.carga.lastre ? 'lastre tuyo' : 'carga tuya';
     return f.carga.ultimaKg != null ? `${que} · última ${fmtKg(f.carga.ultimaKg)}` : que;
   }
-  return textoKgPlan(f.carga) ?? textoPct(f.carga);
+  return textoKgPlan(f.carga, f.pasoKg) ?? textoPct(f.carga);
 }
 
 /** Una serie en corto, para «Viene:» y «Luego ·»: «8 × 125 kg», «6 reps», «20″». */
 export function dosisSerie(p: PasoFuerza, arrastrada: number | null): string {
   if (p.medida.tipo === 'tiempo') return cantidadSerie(p);
   const c = p.fuerza.carga;
-  const kg = arrastrada != null ? fmtKg(arrastrada) : c.tipo === 'tuya' || c.tipo === 'corporal' ? null : textoKgPlan(c);
+  const kg = arrastrada != null ? fmtKg(arrastrada) : c.tipo === 'tuya' || c.tipo === 'corporal' ? null : textoKgPlan(c, p.fuerza.pasoKg);
   return kg ? `${cantidadSerie(p)} × ${kg}` : `${cantidadSerie(p)} reps`;
 }
 
 /** El ejercicio entero en corto: «4 × 8 · RIR 3», «4 × 8 · 65–70 % RM», «3 × 20″». */
 export function dosisEjercicio(p: PasoFuerza, series: number): string {
   const f = p.fuerza;
-  const eje = f.esfuerzo ? textoEsfuerzo(f.esfuerzo) : (textoPct(f.carga) ?? textoKgPlan(f.carga));
+  const eje = f.esfuerzo ? textoEsfuerzo(f.esfuerzo) : (textoPct(f.carga) ?? textoKgPlan(f.carga, f.pasoKg));
   return [`${series} × ${cantidadSerie(p)}`, eje].filter(Boolean).join(' · ');
 }
 

@@ -5,6 +5,8 @@
 //
 //   A1 · un paso CONTINUO cerrado a mano antes de tiempo es un paso cortado.
 //   A2 · la vuelta automática no asume el km (`vueltaAutoM`: 400 en pista, 1609 en millas).
+//   A6 · «Viene:» dice lo que falta; la propuesta de kg no se sale de la dosis.
+//   A7 · estructuraDe sin dos filas «ahora» en un circuito.
 //   A3 · GPS perdido a mitad de un paso por distancia: lo hecho NO se mide (—), nada congelado.
 //   A4 · deshacer un cierre recalcula la lectura de ahora.
 //   A5 · hoyDe / grupoPrincipal seguros sin paso de trabajo.
@@ -19,7 +21,12 @@ import { pasoVivo, lecturasDe } from '@/components/design-twin/kit-reloj/secuenc
 import { vozVuelta } from '@/components/design-twin/kit-reloj/voz';
 import { NOTA_DATO_VIEJO_APPLE, laminaDelPaso } from '@/components/design-twin/kit-reloj/lamina';
 import { filasDeDatos } from '@/components/design-twin/kit-reloj/listas';
-import { TITULO_SESION_SIN_TRABAJO, filasDePasos, grupoPrincipal, hoyDe } from '@/components/design-twin/kit-reloj/estructura';
+import { sesion493 as sesion493C } from '@/components/design-twin/screens/reloj-circuito/planes';
+import { TITULO_SESION_SIN_TRABAJO, estructuraDe, filasDePasos, grupoPrincipal, hoyDe } from '@/components/design-twin/kit-reloj/estructura';
+import { sesion492 } from '@/components/design-twin/screens/reloj-fuerza/planes';
+import { textoViene } from '@/components/design-twin/screens/reloj-fuerza/textos';
+import { cargaDelPlan } from '@/components/design-twin/kit-reloj/anotar';
+import { textoKgPlan } from '@/components/design-twin/kit-reloj/fuerza';
 import { sesionDe } from '@/components/design-twin/kit-reloj/vivo';
 import { hechoDe } from '@/components/design-twin/kit-garmin/vivo';
 
@@ -237,5 +244,60 @@ describe('A5 · hoyDe y grupoPrincipal son seguros sin ningún paso de trabajo',
   it('con trabajo, todo igual que antes', () => {
     const t = [paso({ clase: 'tempo', rol: 'trabajo', medida: { tipo: 'tiempo', prescrito: 1200, mide: 'reloj' } })];
     expect(grupoPrincipal(filasDePasos(t))?.paso).toBe(t[0]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A6 · «Viene:» dice lo que falta; lo que se lee es lo que se carga
+// ---------------------------------------------------------------------------
+
+describe('A6 · «Viene:» no repite el total en cada descanso y la propuesta cabe en la dosis', () => {
+  it('en el descanso antes de la serie 3 de Sled Push 5 × 25 m, «Viene:» dice «3 × 25 m», no «5 × 25 m»', () => {
+    const q = sesion492();
+    const idx = q.pasos.flatMap((p, i) => (p.nombre === 'Sled Push' && p.rol === 'trabajo' ? [i] : []));
+    expect(idx).toHaveLength(5);
+    expect(llano(textoViene(q, idx[0]! - 1, {})!.dosis)).toBe('5 × 25 m');
+    expect(llano(textoViene(q, idx[2]! - 1, {})!.dosis)).toBe('3 × 25 m');
+    expect(llano(textoViene(q, idx[4]! - 1, {})!.dosis)).toBe('25 m');
+  });
+
+  it('72 % de 186,5 kg = 134,3: la dosis y la propuesta dicen 135 (cargable con discos de 2,5), no 134 vs 135', () => {
+    const f = { ejercicio: 'x', carga: { tipo: 'rm', pctMin: 72, pctMax: 72, rmKg: 186.5 }, esfuerzo: null, aproximacion: false, pasoKg: 2.5 } as const;
+    expect(cargaDelPlan(f)).toBe(135);
+    expect(textoKgPlan(f.carga, f.pasoKg)).toBe('135 kg');
+  });
+
+  it('una banda que admite múltiplos de la barra sigue siendo la del coach (65–70 % → 121–131) y la propuesta cae dentro', () => {
+    const f = { ejercicio: 'x', carga: { tipo: 'rm', pctMin: 65, pctMax: 70, rmKg: 186.5 }, esfuerzo: null, aproximacion: false, pasoKg: 2.5 } as const;
+    expect(textoKgPlan(f.carga, f.pasoKg)).toBe('121–131 kg');
+    const p = cargaDelPlan(f)!;
+    expect(p).toBeGreaterThanOrEqual(121);
+    expect(p).toBeLessThanOrEqual(131);
+    expect(p % 2.5).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A7 · la estructura de un circuito no marca «ahora» dos filas a la vez
+// ---------------------------------------------------------------------------
+
+describe('A7 · estructuraDe con grupos intercalados (circuito 5 rondas de Run + estación)', () => {
+  const c = sesion493C();
+  const filas = estructuraDe(c.plan.pasos);
+  const ahora = (i: number) => filas(i).filter((f) => f.estado === 'ahora').map((f) => f.trabajo.nombre ?? f.trabajo.clase);
+
+  it('en cada paso hay UNA fila «ahora», la de ese paso: Run en el run, la estación en su estación', () => {
+    c.plan.pasos.forEach((p, i) => {
+      if (p.rol !== 'trabajo' || i === 0) return;
+      expect(ahora(i), `paso ${i}`).toEqual([p.nombre ?? p.clase]);
+    });
+  });
+
+  it('mientras haces la estación de la ronda 3, «5 × Run» no está hecho ni ahora: le quedan repeticiones', () => {
+    const j = c.plan.pasos.findIndex((p) => p.nombre === 'Rowing');
+    const run = filas(j).find((f) => f.trabajo.clase === 'carrera' && f.veces === 5)!;
+    expect(run.estado).toBe('pendiente');
+    const fin = filas(c.plan.pasos.length - 1).find((f) => f.trabajo.clase === 'carrera' && f.veces === 5)!;
+    expect(fin.estado).toBe('hecho');
   });
 });

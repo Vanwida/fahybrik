@@ -73,9 +73,15 @@ export interface Grupo {
   entre: PasoBase | null;
   /** Series anidadas (M4): N tandas de `porTanda`, con su descanso entre tandas. Sin aplanar. */
   tandas: { veces: number; porTanda: number; descanso: PasoBase | null } | null;
-  /** Índices del primer y del último paso del grupo (con su recuperación), para saber dónde estás. */
+  /** Índices del primer y del último paso del grupo (con su recuperación): dónde empieza y acaba. */
   desde: number;
   hasta: number;
+  /**
+   * Los tramos de pasos que SON del grupo (cada repetición con su recuperación).
+   * En un circuito los grupos se intercalan («5 × Run» y sus estaciones): estar
+   * dentro de [desde, hasta] no es estar en el grupo, estar en un tramo sí.
+   */
+  tramos: Array<[number, number]>;
 }
 
 const clave = (p: PasoBase) =>
@@ -98,6 +104,8 @@ export function filasDePasos(pasos: PasoBase[]): Grupo[] {
       if (p.clase === 'descanso-tandas' && ultimo?.tandas) {
         ultimo.tandas.descanso ??= p;
         ultimo.hasta = Math.max(ultimo.hasta, j);
+        const cola = ultimo.tramos[ultimo.tramos.length - 1]!;
+        cola[1] = Math.max(cola[1], j);
       }
       return;
     }
@@ -109,6 +117,7 @@ export function filasDePasos(pasos: PasoBase[]): Grupo[] {
     if (g) {
       g.veces += 1;
       g.hasta = Math.max(g.hasta, hasta);
+      g.tramos.push([j, hasta]);
       if (!g.entre && entre && p.fase === 'principal') g.entre = entre;
       ultimo = g;
       return;
@@ -121,6 +130,7 @@ export function filasDePasos(pasos: PasoBase[]): Grupo[] {
       tandas: t ? { veces: t.de, porTanda: p.posicion?.serie?.de ?? 1, descanso: null } : null,
       desde: j,
       hasta,
+      tramos: [[j, hasta]],
     };
     porClave.set(k, nuevo);
     grupos.push(nuevo);
@@ -139,8 +149,18 @@ export function estructuraDe(pasos: PasoBase[]): (i: number) => FilaEstructura[]
       trabajo: g.paso,
       recupera: g.veces > 1 && g.entre ? g.entre : undefined,
       tandas: g.tandas?.descanso ? { veces: g.tandas.veces, descanso: g.tandas.descanso } : undefined,
-      estado: i > g.hasta ? 'hecho' : i >= g.desde ? 'ahora' : 'pendiente',
+      estado: estadoDe(g, i),
     }));
+}
+
+/**
+ * «Ahora» solo si el paso en curso es del grupo (o su recuperación). Un grupo
+ * intercalado con otros (un circuito) entre dos repeticiones no está ahora ni
+ * hecho: le quedan repeticiones, es «pendiente».
+ */
+function estadoDe(g: Grupo, i: number): FilaEstructura['estado'] {
+  if (g.tramos.some(([a, b]) => i >= a && i <= b)) return 'ahora';
+  return i > g.hasta ? 'hecho' : 'pendiente';
 }
 
 /**

@@ -158,7 +158,7 @@ function vozWod(p: PasoBase): string | null {
 /** La carga dicha: la que está en la barra (declarada), la del plan (valor o rango) o nada. */
 function cargaDicha(p: PasoFuerza, kg: number | null): string | null {
   if (kg != null) return `${num(kg)} kilos`;
-  const r = kgDelPlan(p.fuerza.carga);
+  const r = kgDelPlan(p.fuerza.carga, p.fuerza.pasoKg);
   if (!r) return null;
   return r[0] === r[1] ? `${num(r[0])} kilos` : `${num(r[0])} a ${num(r[1])} kilos`;
 }
