@@ -46,6 +46,7 @@ import { ZONE_ROLES, type ZonePaceUnit } from './zone-model';
 import {
   ANALYTICS_METHOD_BOUNDS,
   BASES_CUMPLIMIENTO,
+  BASES_SESION,
   COACH_ANALYTICS_METHOD_NUMERIC_KEYS,
   FUENTES_CARGA,
   FUENTES_MAX,
@@ -253,6 +254,7 @@ export const analyticsMethodSchema = z
     fuentes_strength: fuentesSchema,
     fuentes_other: fuentesSchema,
     cumplimiento_base: z.enum(BASES_CUMPLIMIENTO),
+    cumplimiento_sesion_bases: z.array(z.enum(BASES_SESION)).min(1).max(BASES_SESION.length),
   })
   .strict()
   .superRefine((m, ctx) => {

@@ -1,7 +1,7 @@
 import 'server-only';
 
 // El MÉTODO del coach para las analíticas del atleta — la capa de lectura y
-// escritura sobre `coach_analytics_method` (migs 0189, 0190, 0277).
+// escritura sobre `coach_analytics_method` (migs 0189, 0190, 0277, 0279).
 //
 // Lo leen las familias de lecturas: la carga única (escalera por modalidad,
 // coeficiente de fuerza, cobertura del veredicto), la forma (ventanas, bandas de
@@ -23,11 +23,13 @@ import { sql as defaultSql } from '@/lib/db';
 import { isPgMissingRelation } from '@/lib/dashboard/db/pg-errors';
 import {
   BASES_CUMPLIMIENTO,
+  BASES_SESION,
   COACH_ANALYTICS_METHOD_KEYS,
   COACH_ANALYTICS_METHOD_LIST_KEYS,
   defaultCoachAnalyticsMethod,
   FUENTES_CARGA,
   type BaseCumplimiento,
+  type BaseSesion,
   type CoachAnalyticsMethod,
   type FuenteCarga,
 } from '@fahybrid/shared/domain/analytics/metodo';
@@ -42,6 +44,13 @@ const comoFuentes: LectorColumna<FuenteCarga[]> = (v) => {
   return ok ? (v as FuenteCarga[]) : null;
 };
 
+/** Un `text[]` de bases de una sesión: solo si TODAS son del vocabulario; si no, el defecto. */
+const comoBasesSesion: LectorColumna<BaseSesion[]> = (v) => {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  const ok = v.every((x) => typeof x === 'string' && (BASES_SESION as readonly string[]).includes(x));
+  return ok ? (v as BaseSesion[]) : null;
+};
+
 const comoBase: LectorColumna<BaseCumplimiento> = (v) =>
   typeof v === 'string' && (BASES_CUMPLIMIENTO as readonly string[]).includes(v) ? (v as BaseCumplimiento) : null;
 
@@ -53,6 +62,7 @@ const LECTORES: Parameters<typeof resolveMethodRow<CoachAnalyticsMethod>>[0]['pa
   fuentes_strength: comoFuentes,
   fuentes_other: comoFuentes,
   cumplimiento_base: comoBase,
+  cumplimiento_sesion_bases: comoBasesSesion,
 };
 
 /**
@@ -104,8 +114,12 @@ export async function upsertCoachAnalyticsMethod(
       fuerza_coeficiente, cobertura_veredicto_min_pct,
       frescura_sobrecarga_hasta, frescura_optimo_hasta, frescura_mantener_hasta, frescura_fresco_hasta,
       cumplimiento_base, cumplimiento_bien_pct, cumplimiento_regular_pct,
+      cumplimiento_sesion_bases, cumplimiento_verde_min_pct, cumplimiento_verde_max_pct,
+      cumplimiento_ambar_min_pct, cumplimiento_ambar_max_pct,
+      holgura_ritmo_s_km, holgura_split_s_500m, holgura_vatios_w, holgura_pulso_ppm,
+      holgura_rpe, holgura_rir, holgura_carga_pct, holgura_dosis_pct,
       cambio_carga_pct, cambio_horas_pct, cambio_forma_tss, cambio_frescura_tss,
-      cambio_variabilidad_pct, cambio_pulso_reposo_bpm, cambio_sueno_horas,
+      cambio_variabilidad_pct, cambio_pulso_reposo_bpm, cambio_sueno_horas, cambio_cumplimiento_pts,
       basal_dias, basal_excluir_dias,
       cs_min_efforts, cs_min_duration_s, cs_max_duration_s, cs_min_spread_ratio, cs_min_fit_r2_pct, cs_max_drift_from_threshold_pct,
       sleep_target_hours, hrv_min_nights_baseline, hrv_min_nights_recent,
@@ -118,8 +132,12 @@ export async function upsertCoachAnalyticsMethod(
       ${m.fuerza_coeficiente}, ${m.cobertura_veredicto_min_pct},
       ${m.frescura_sobrecarga_hasta}, ${m.frescura_optimo_hasta}, ${m.frescura_mantener_hasta}, ${m.frescura_fresco_hasta},
       ${m.cumplimiento_base}, ${m.cumplimiento_bien_pct}, ${m.cumplimiento_regular_pct},
+      ${m.cumplimiento_sesion_bases}, ${m.cumplimiento_verde_min_pct}, ${m.cumplimiento_verde_max_pct},
+      ${m.cumplimiento_ambar_min_pct}, ${m.cumplimiento_ambar_max_pct},
+      ${m.holgura_ritmo_s_km}, ${m.holgura_split_s_500m}, ${m.holgura_vatios_w}, ${m.holgura_pulso_ppm},
+      ${m.holgura_rpe}, ${m.holgura_rir}, ${m.holgura_carga_pct}, ${m.holgura_dosis_pct},
       ${m.cambio_carga_pct}, ${m.cambio_horas_pct}, ${m.cambio_forma_tss}, ${m.cambio_frescura_tss},
-      ${m.cambio_variabilidad_pct}, ${m.cambio_pulso_reposo_bpm}, ${m.cambio_sueno_horas},
+      ${m.cambio_variabilidad_pct}, ${m.cambio_pulso_reposo_bpm}, ${m.cambio_sueno_horas}, ${m.cambio_cumplimiento_pts},
       ${m.basal_dias}, ${m.basal_excluir_dias},
       ${m.cs_min_efforts}, ${m.cs_min_duration_s}, ${m.cs_max_duration_s}, ${m.cs_min_spread_ratio}, ${m.cs_min_fit_r2_pct}, ${m.cs_max_drift_from_threshold_pct},
       ${m.sleep_target_hours}, ${m.hrv_min_nights_baseline}, ${m.hrv_min_nights_recent},
@@ -147,6 +165,19 @@ export async function upsertCoachAnalyticsMethod(
       cumplimiento_base = excluded.cumplimiento_base,
       cumplimiento_bien_pct = excluded.cumplimiento_bien_pct,
       cumplimiento_regular_pct = excluded.cumplimiento_regular_pct,
+      cumplimiento_sesion_bases = excluded.cumplimiento_sesion_bases,
+      cumplimiento_verde_min_pct = excluded.cumplimiento_verde_min_pct,
+      cumplimiento_verde_max_pct = excluded.cumplimiento_verde_max_pct,
+      cumplimiento_ambar_min_pct = excluded.cumplimiento_ambar_min_pct,
+      cumplimiento_ambar_max_pct = excluded.cumplimiento_ambar_max_pct,
+      holgura_ritmo_s_km = excluded.holgura_ritmo_s_km,
+      holgura_split_s_500m = excluded.holgura_split_s_500m,
+      holgura_vatios_w = excluded.holgura_vatios_w,
+      holgura_pulso_ppm = excluded.holgura_pulso_ppm,
+      holgura_rpe = excluded.holgura_rpe,
+      holgura_rir = excluded.holgura_rir,
+      holgura_carga_pct = excluded.holgura_carga_pct,
+      holgura_dosis_pct = excluded.holgura_dosis_pct,
       cambio_carga_pct = excluded.cambio_carga_pct,
       cambio_horas_pct = excluded.cambio_horas_pct,
       cambio_forma_tss = excluded.cambio_forma_tss,
@@ -154,6 +185,7 @@ export async function upsertCoachAnalyticsMethod(
       cambio_variabilidad_pct = excluded.cambio_variabilidad_pct,
       cambio_pulso_reposo_bpm = excluded.cambio_pulso_reposo_bpm,
       cambio_sueno_horas = excluded.cambio_sueno_horas,
+      cambio_cumplimiento_pts = excluded.cambio_cumplimiento_pts,
       basal_dias = excluded.basal_dias,
       basal_excluir_dias = excluded.basal_excluir_dias,
       cs_min_efforts = excluded.cs_min_efforts,

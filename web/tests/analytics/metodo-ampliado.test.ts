@@ -86,3 +86,44 @@ describe('el esquema del editor', () => {
     if (!r.success) expect(r.error.issues[0]!.message).toMatch(/reciente/);
   });
 });
+
+describe('el método del cumplimiento (0279)', () => {
+  test('los defectos: la escalera y las bandas de mercado, la holgura del vivo, 10 puntos de cambio', () => {
+    const m = DEFAULT_COACH_ANALYTICS_METHOD;
+    expect(m.cumplimiento_sesion_bases).toEqual(['carga', 'duracion', 'distancia']);
+    expect([m.cumplimiento_verde_min_pct, m.cumplimiento_verde_max_pct, m.cumplimiento_ambar_min_pct, m.cumplimiento_ambar_max_pct]).toEqual([80, 120, 50, 150]);
+    expect([m.holgura_ritmo_s_km, m.holgura_split_s_500m, m.holgura_vatios_w, m.holgura_pulso_ppm]).toEqual([3, 2, 10, 2]);
+    expect([m.holgura_rpe, m.holgura_rir, m.holgura_carga_pct, m.holgura_dosis_pct]).toEqual([1, 1, 0, 10]);
+    expect(m.cambio_cumplimiento_pts).toBe(10);
+    expect(COACH_ANALYTICS_METHOD_LIST_KEYS).toContain('cumplimiento_sesion_bases');
+  });
+
+  test('las bandas de una sesión van en orden y la verde contiene el 100 %', () => {
+    const base = defaultCoachAnalyticsMethod();
+    expect(validarMetodoAnalitico({ ...base, cumplimiento_ambar_min_pct: 80 })).toEqual([expect.stringMatching(/bandas de una sesión/)]);
+    expect(validarMetodoAnalitico({ ...base, cumplimiento_verde_max_pct: 150 })).toEqual([expect.stringMatching(/bandas de una sesión/)]);
+    expect(validarMetodoAnalitico({ ...base, cumplimiento_verde_min_pct: 90, cumplimiento_verde_max_pct: 110, cumplimiento_ambar_min_pct: 60, cumplimiento_ambar_max_pct: 140 })).toEqual([]);
+  });
+
+  test('las bases de una sesión: al menos una, sin repetir, del vocabulario', () => {
+    const base = defaultCoachAnalyticsMethod();
+    expect(validarMetodoAnalitico({ ...base, cumplimiento_sesion_bases: [] })).toEqual([expect.stringMatching(/al menos una base/)]);
+    expect(validarMetodoAnalitico({ ...base, cumplimiento_sesion_bases: ['carga', 'carga'] })).toEqual([expect.stringMatching(/repiten/)]);
+    expect(validarMetodoAnalitico({ ...base, cumplimiento_sesion_bases: ['distancia'] })).toEqual([]);
+    expect(analyticsMethodSchema.safeParse({ ...base, cumplimiento_sesion_bases: ['tss'] }).success).toBe(false);
+    expect(analyticsMethodSchema.safeParse({ ...base, cumplimiento_sesion_bases: ['duracion', 'carga'] }).success).toBe(true);
+  });
+
+  test('las holguras dentro de sus límites', () => {
+    const base = defaultCoachAnalyticsMethod();
+    expect(analyticsMethodSchema.safeParse({ ...base, holgura_ritmo_s_km: 31 }).success).toBe(false);
+    expect(analyticsMethodSchema.safeParse({ ...base, holgura_rir: 0.5 }).success).toBe(true);
+    expect(analyticsMethodSchema.safeParse({ ...base, holgura_dosis_pct: -1 }).success).toBe(false);
+  });
+
+  test('la copia fresca no comparte la escalera de bases con el defecto', () => {
+    const m = defaultCoachAnalyticsMethod();
+    m.cumplimiento_sesion_bases.pop();
+    expect(DEFAULT_COACH_ANALYTICS_METHOD.cumplimiento_sesion_bases).toHaveLength(3);
+  });
+});

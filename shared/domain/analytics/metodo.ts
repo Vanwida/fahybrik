@@ -30,6 +30,7 @@
 import { HRV_BASELINE_FROM_DAYS, HRV_BASELINE_TO_DAYS } from '../biometrics/hrv-baseline';
 import { ATL_DECAY_DAYS, CTL_DECAY_DAYS } from '../training-load/banister';
 import { LOAD_COVERAGE_MIN } from '../training-load/coverage';
+import { DEFAULT_ABSOLUTE_RULE, DEFAULT_BAND_RULE } from '../adherence/bands';
 
 // ── Vocabulario de la carga única ────────────────────────────────────────────
 
@@ -59,6 +60,16 @@ export const FUENTES_ADMISIBLES: Record<ModalidadCarga, readonly FuenteCarga[]> 
 /** Sobre qué se mide el cumplimiento. */
 export const BASES_CUMPLIMIENTO = ['sesiones', 'tramos', 'carga'] as const;
 export type BaseCumplimiento = (typeof BASES_CUMPLIMIENTO)[number];
+
+/**
+ * Contra qué se compara UNA sesión hecha con su plan (el «verde/ámbar/rojo» de
+ * cada sesión, 29-09-2026). El coach ordena las tres; manda la primera que las
+ * DOS partes saben: la carga planificada y la hecha, la duración escrita y la
+ * hecha, la distancia escrita y la hecha. Es la escalera de TrainingPeaks
+ * (carga › duración › distancia), aquí editable.
+ */
+export const BASES_SESION = ['carga', 'duracion', 'distancia'] as const;
+export type BaseSesion = (typeof BASES_SESION)[number];
 
 /**
  * Una fila por coach (`coach_analytics_method`, único por `coach_id`).
@@ -129,6 +140,48 @@ export interface CoachAnalyticsMethod {
   /** A partir de este porcentaje es regular; por debajo, malo. */
   cumplimiento_regular_pct: number;
 
+  // ── EL CUMPLIMIENTO DE CADA SESIÓN (hecho frente a plan, 29-09-2026) ─────
+
+  /** Orden de bases para comparar una sesión con su plan; manda la primera que se sabe. */
+  cumplimiento_sesion_bases: BaseSesion[];
+  /** Hecha entre estos dos porcentajes de su plan (inclusive): cumplida (verde). */
+  cumplimiento_verde_min_pct: number;
+  cumplimiento_verde_max_pct: number;
+  /**
+   * Fuera de la verde pero entre estos dos (inclusive): desviada (ámbar). Fuera
+   * de estos, o no hecha: roja. Sin plan: gris.
+   */
+  cumplimiento_ambar_min_pct: number;
+  cumplimiento_ambar_max_pct: number;
+
+  // ── LA HOLGURA DE CADA TRAMO (la del vivo, 29-09-2026) ────────────────────
+  //
+  // Cuánto puede salirse un tramo de su banda sin dejar de estar DENTRO. Es la
+  // misma histéresis con la que el vivo juzga una serie cerrada (banda ± holgura,
+  // con dirección), para que la pantalla del reloj y las analíticas no digan
+  // dos cosas distintas del mismo tramo. Un objetivo de valor único («@4:30»)
+  // se convierte así en una banda.
+
+  /** Ritmo de carrera, en segundos por km. */
+  holgura_ritmo_s_km: number;
+  /** Split de ergómetro, en segundos por 500 m. */
+  holgura_split_s_500m: number;
+  /** Potencia, en vatios. */
+  holgura_vatios_w: number;
+  /** Pulso, en latidos (zona o banda en ppm). */
+  holgura_pulso_ppm: number;
+  /** RPE, en puntos de la escala 1-10. */
+  holgura_rpe: number;
+  /** RIR, en repeticiones en reserva. */
+  holgura_rir: number;
+  /** Carga de la barra o del implemento, en % del peso prescrito. */
+  holgura_carga_pct: number;
+  /**
+   * Dosis (distancia, tiempo, repeticiones, calorías), en % de lo prescrito.
+   * En el trabajo el fallo es quedarse corto; en la recuperación, pasarse.
+   */
+  holgura_dosis_pct: number;
+
   // ── EL CAMBIO SIGNIFICATIVO, POR MÉTRICA (contra el periodo anterior) ─────
 
   /** Cambio de carga (TSS) entre periodos que cuenta como cambio, en %. */
@@ -145,6 +198,8 @@ export interface CoachAnalyticsMethod {
   cambio_pulso_reposo_bpm: number;
   /** Cambio de sueño que cuenta, en horas. */
   cambio_sueno_horas: number;
+  /** Cambio de un porcentaje de cumplimiento o adherencia que cuenta, en PUNTOS (90 % → 80 % son 10). */
+  cambio_cumplimiento_pts: number;
 
   // ── LA VENTANA BASAL (recuperación) ───────────────────────────────────────
 
@@ -239,6 +294,14 @@ export interface CoachAnalyticsMethod {
  *   - Cambio significativo: 10 % de carga u horas, 5 puntos de forma o
  *     frescura, 5 % de variabilidad, 3 latidos, media hora de sueño.
  *   - Basal 60 → 14 días: la misma ventana de `hrv-baseline.ts`.
+ *   - Cumplimiento de una sesión: carga › duración › distancia, verde 80-120 %,
+ *     ámbar 50-79 % o 121-150 %, rojo fuera o no hecha — las bandas de mercado
+ *     (TrainingPeaks). Un cambio de 10 puntos entre periodos es cambio.
+ *   - Holgura por tramo: la del vivo (3 s/km, 2 s/500 m, 10 W, 2 ppm; defectos
+ *     de `reglasAvisoDefecto` en el reloj), ±1 de RPE y de RIR (la regla
+ *     absoluta de `adherence/bands.ts`), la carga exacta dentro de su rango y un
+ *     10 % de dosis (la regla relativa de `adherence/bands.ts`, la misma que ya
+ *     juzgaba la duración de una serie de carrera).
  *   - Velocidad crítica: 3 esfuerzos, de 2 a 15 minutos, con el largo al menos
  *     el triple que el corto. Es el protocolo estándar del modelo de dos
  *     parámetros; por debajo de 2 minutos y por encima de 15 el modelo miente.
@@ -273,6 +336,21 @@ export const DEFAULT_COACH_ANALYTICS_METHOD: CoachAnalyticsMethod = {
   cumplimiento_bien_pct: 90,
   cumplimiento_regular_pct: 70,
 
+  cumplimiento_sesion_bases: ['carga', 'duracion', 'distancia'],
+  cumplimiento_verde_min_pct: 80,
+  cumplimiento_verde_max_pct: 120,
+  cumplimiento_ambar_min_pct: 50,
+  cumplimiento_ambar_max_pct: 150,
+
+  holgura_ritmo_s_km: 3,
+  holgura_split_s_500m: 2,
+  holgura_vatios_w: 10,
+  holgura_pulso_ppm: 2,
+  holgura_rpe: DEFAULT_ABSOLUTE_RULE.on_target_max,
+  holgura_rir: DEFAULT_ABSOLUTE_RULE.on_target_max,
+  holgura_carga_pct: 0,
+  holgura_dosis_pct: DEFAULT_BAND_RULE.on_target_max * 100,
+
   cambio_carga_pct: 10,
   cambio_horas_pct: 10,
   cambio_forma_tss: 5,
@@ -280,6 +358,7 @@ export const DEFAULT_COACH_ANALYTICS_METHOD: CoachAnalyticsMethod = {
   cambio_variabilidad_pct: 5,
   cambio_pulso_reposo_bpm: 3,
   cambio_sueno_horas: 0.5,
+  cambio_cumplimiento_pts: 10,
 
   basal_dias: HRV_BASELINE_FROM_DAYS,
   basal_excluir_dias: HRV_BASELINE_TO_DAYS,
@@ -311,6 +390,7 @@ export function defaultCoachAnalyticsMethod(): CoachAnalyticsMethod {
     fuentes_bike: [...d.fuentes_bike],
     fuentes_strength: [...d.fuentes_strength],
     fuentes_other: [...d.fuentes_other],
+    cumplimiento_sesion_bases: [...d.cumplimiento_sesion_bases],
   };
 }
 
@@ -327,9 +407,13 @@ export const COACH_ANALYTICS_METHOD_LIST_KEYS = [
   'fuentes_bike',
   'fuentes_strength',
   'fuentes_other',
+  'cumplimiento_sesion_bases',
 ] as const satisfies ReadonlyArray<keyof CoachAnalyticsMethod>;
 
 export type ClaveListaMetodo = (typeof COACH_ANALYTICS_METHOD_LIST_KEYS)[number];
+
+/** Las listas que son una ESCALERA DE CARGA (una por modalidad). */
+export type ClaveFuentesMetodo = Exclude<ClaveListaMetodo, 'cumplimiento_sesion_bases'>;
 
 /** Las claves que son un TEXTO de un vocabulario cerrado. */
 export const COACH_ANALYTICS_METHOD_TEXT_KEYS = ['cumplimiento_base'] as const satisfies ReadonlyArray<
@@ -348,8 +432,8 @@ export const COACH_ANALYTICS_METHOD_NUMERIC_KEYS = COACH_ANALYTICS_METHOD_KEYS.f
 ) as ClaveNumericaMetodo[];
 
 /** La clave de la escalera de una modalidad. */
-export function claveFuentesDe(modalidad: ModalidadCarga): ClaveListaMetodo {
-  return `fuentes_${modalidad}` as ClaveListaMetodo;
+export function claveFuentesDe(modalidad: ModalidadCarga): ClaveFuentesMetodo {
+  return `fuentes_${modalidad}` as ClaveFuentesMetodo;
 }
 
 // ── Límites, compartidos por el validador de la API y por el CHECK de la tabla ──
@@ -377,6 +461,22 @@ export const ANALYTICS_METHOD_BOUNDS: Readonly<Record<ClaveNumericaMetodo, { min
 
   cumplimiento_bien_pct: { min: 50, max: 100 },
   cumplimiento_regular_pct: { min: 0, max: 99 },
+  // La verde contiene el 100 % por definición: «hizo lo planificado» es cumplir.
+  cumplimiento_verde_min_pct: { min: 50, max: 100 },
+  cumplimiento_verde_max_pct: { min: 100, max: 200 },
+  cumplimiento_ambar_min_pct: { min: 0, max: 99 },
+  cumplimiento_ambar_max_pct: { min: 101, max: 300 },
+
+  // Más allá de estos topes la «holgura» ya es otra banda: 30 s/km es otra
+  // zona, 15 ppm media zona de pulso, 3 puntos de RPE otro esfuerzo.
+  holgura_ritmo_s_km: { min: 0, max: 30 },
+  holgura_split_s_500m: { min: 0, max: 15 },
+  holgura_vatios_w: { min: 0, max: 100 },
+  holgura_pulso_ppm: { min: 0, max: 15 },
+  holgura_rpe: { min: 0, max: 3 },
+  holgura_rir: { min: 0, max: 3 },
+  holgura_carga_pct: { min: 0, max: 20 },
+  holgura_dosis_pct: { min: 0, max: 50 },
 
   cambio_carga_pct: { min: 1, max: 100 },
   cambio_horas_pct: { min: 1, max: 100 },
@@ -385,6 +485,7 @@ export const ANALYTICS_METHOD_BOUNDS: Readonly<Record<ClaveNumericaMetodo, { min
   cambio_variabilidad_pct: { min: 1, max: 50 },
   cambio_pulso_reposo_bpm: { min: 1, max: 20 },
   cambio_sueno_horas: { min: 0.1, max: 5 },
+  cambio_cumplimiento_pts: { min: 1, max: 50 },
 
   basal_dias: { min: 14, max: 180 },
   basal_excluir_dias: { min: 0, max: 60 },
@@ -453,6 +554,24 @@ export function validarMetodoAnalitico(m: CoachAnalyticsMethod): string[] {
   }
   if (m.cumplimiento_regular_pct >= m.cumplimiento_bien_pct) {
     errores.push('El corte de «regular» tiene que quedar por debajo del de «bien».');
+  }
+  if (
+    !(
+      m.cumplimiento_ambar_min_pct < m.cumplimiento_verde_min_pct &&
+      m.cumplimiento_verde_min_pct <= 100 &&
+      100 <= m.cumplimiento_verde_max_pct &&
+      m.cumplimiento_verde_max_pct < m.cumplimiento_ambar_max_pct
+    )
+  ) {
+    errores.push('Las bandas de una sesión van en orden: ámbar por debajo, verde con el 100 % dentro, ámbar por encima.');
+  }
+  const bases = m.cumplimiento_sesion_bases;
+  if (bases.length === 0) {
+    errores.push('El cumplimiento de una sesión necesita al menos una base.');
+  } else if (new Set(bases).size !== bases.length) {
+    errores.push('Las bases del cumplimiento de una sesión repiten una.');
+  } else if (bases.some((b) => !(BASES_SESION as readonly string[]).includes(b))) {
+    errores.push('Las bases del cumplimiento de una sesión son carga, duración o distancia.');
   }
   if (m.basal_excluir_dias >= m.basal_dias) {
     errores.push('Los días que se excluyen del basal tienen que ser menos que los del basal.');
