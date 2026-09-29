@@ -46,6 +46,8 @@ import { ZONE_ROLES, type ZonePaceUnit } from './zone-model';
 import {
   ANALYTICS_METHOD_BOUNDS,
   BASES_CUMPLIMIENTO,
+  BASES_SESION,
+  COACH_ANALYTICS_METHOD_INTEGER_KEYS,
   COACH_ANALYTICS_METHOD_NUMERIC_KEYS,
   FUENTES_CARGA,
   FUENTES_MAX,
@@ -239,7 +241,8 @@ const familiasSchema = z.array(z.enum(FAMILIAS as unknown as [string, ...string[
 
 function numeroAcotado(clave: ClaveNumericaMetodo) {
   const b = ANALYTICS_METHOD_BOUNDS[clave];
-  return z.number().min(b.min, `Entre ${b.min} y ${b.max}.`).max(b.max, `Entre ${b.min} y ${b.max}.`);
+  const n = z.number().min(b.min, `Entre ${b.min} y ${b.max}.`).max(b.max, `Entre ${b.min} y ${b.max}.`);
+  return COACH_ANALYTICS_METHOD_INTEGER_KEYS.has(clave) ? n.int('Un número entero.') : n;
 }
 
 const numericos = Object.fromEntries(COACH_ANALYTICS_METHOD_NUMERIC_KEYS.map((k) => [k, numeroAcotado(k)])) as Record<
@@ -258,6 +261,7 @@ export const analyticsMethodSchema = z
     fuentes_other: fuentesSchema,
     polarizacion_familias: familiasSchema,
     cumplimiento_base: z.enum(BASES_CUMPLIMIENTO),
+    cumplimiento_sesion_bases: z.array(z.enum(BASES_SESION)).min(1).max(BASES_SESION.length),
   })
   .strict()
   .superRefine((m, ctx) => {

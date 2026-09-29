@@ -55,6 +55,31 @@ describeWithDb('método ampliado y umbrales declarados (base real)', () => {
     expect(await resolveEffectiveAnalyticsMethod(fx.coachId, sql)).toEqual(defaultCoachAnalyticsMethod());
   });
 
+  test('el método del cumplimiento (0281) hace el viaje entero: escalera de bases, bandas, holguras', async () => {
+    const propio = {
+      ...defaultCoachAnalyticsMethod(),
+      cumplimiento_sesion_bases: ['duracion', 'carga'] as Array<'carga' | 'duracion' | 'distancia'>,
+      cumplimiento_verde_min_pct: 85,
+      cumplimiento_verde_max_pct: 115,
+      holgura_ritmo_s_km: 4.5,
+      holgura_rir: 0.5,
+      holgura_carga_pct: 2.5,
+      cambio_cumplimiento_pts: 15,
+    };
+    await upsertCoachAnalyticsMethod(fx.coachId, propio, sql);
+    const vigente = await resolveEffectiveAnalyticsMethod(fx.coachId, sql);
+    expect(vigente.cumplimiento_sesion_bases).toEqual(['duracion', 'carga']);
+    expect([vigente.cumplimiento_verde_min_pct, vigente.cumplimiento_verde_max_pct]).toEqual([85, 115]);
+    expect([vigente.holgura_ritmo_s_km, vigente.holgura_rir, vigente.holgura_carga_pct]).toEqual([4.5, 0.5, 2.5]);
+    expect(vigente.cambio_cumplimiento_pts).toBe(15);
+    await expect(
+      upsertCoachAnalyticsMethod(fx.coachId, { ...propio, cumplimiento_sesion_bases: ['tss' as never] }, sql),
+    ).rejects.toMatchObject({ code: '23514' });
+    await expect(upsertCoachAnalyticsMethod(fx.coachId, { ...propio, holgura_pulso_ppm: 40 }, sql)).rejects.toMatchObject({ code: '23514' });
+    await resetCoachAnalyticsMethod(fx.coachId, sql);
+    expect(await resolveEffectiveAnalyticsMethod(fx.coachId, sql)).toEqual(defaultCoachAnalyticsMethod());
+  });
+
   test('el «¿mejoro?» por familia (0280) se guarda y se lee; fuera de rango la tabla lo rechaza', async () => {
     const propio = {
       ...defaultCoachAnalyticsMethod(),
