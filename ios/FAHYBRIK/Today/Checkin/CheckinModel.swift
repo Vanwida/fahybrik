@@ -49,6 +49,69 @@ final class CheckinAnswers {
     }
 }
 
+// MARK: - Las cinco preguntas (una sola fuente)
+//
+// Las dos superficies del check-in —la hoja larga (`CheckinView`) y el paso a paso de la portada
+// (`HoySujetoCheckin`)— preguntan lo MISMO con las mismas anclas. Vivían escritas dentro de la hoja;
+// con una segunda superficie hay que decirlas una sola vez o divergirían en la primera edición.
+//
+// En pantalla TODAS puntúan igual — 1 = peor, 5 = mejor —, así que las dos preguntas que el modelo
+// guarda con la clave negativa (dolor, fatiga: 5 = peor) se muestran reformuladas en positivo
+// (recuperación, energía) y se invierten aquí, en un sitio: el modelo y el `subScore` que viaja al
+// servidor no cambian.
+
+struct CheckinPregunta: Identifiable {
+    let titulo: String
+    /// El extremo del 1 y el del 5, dichos en palabras («1 dolorido» · «5 recuperado»).
+    let izquierda: String
+    let derecha: String
+    let campo: ReferenceWritableKeyPath<CheckinAnswers, Int?>
+    /// El modelo guarda la respuesta al revés de como se pregunta (5 = peor).
+    let invertida: Bool
+
+    var id: String { titulo }
+
+    /// Lo que se ve (5 = mejor) ↔ lo que guarda el modelo. 1↔5, 2↔4, 3↔3 cuando está invertida.
+    func delModelo(_ pantalla: Int) -> Int { invertida ? 6 - pantalla : pantalla }
+    func dePantalla(_ modelo: Int) -> Int { invertida ? 6 - modelo : modelo }
+
+    static let todas: [CheckinPregunta] = [
+        CheckinPregunta(titulo: "Recuperación muscular", izquierda: "1 dolorido", derecha: "5 recuperado",
+                        campo: \.soreness, invertida: true),
+        CheckinPregunta(titulo: "Ánimo", izquierda: "1 mal", derecha: "5 genial",
+                        campo: \.mood, invertida: false),
+        CheckinPregunta(titulo: "Motivación", izquierda: "1 cero", derecha: "5 a tope",
+                        campo: \.motivation, invertida: false),
+        CheckinPregunta(titulo: "Energía", izquierda: "1 agotado", derecha: "5 a tope",
+                        campo: \.fatigue, invertida: true),
+        CheckinPregunta(titulo: "Calidad del sueño", izquierda: "1 mal", derecha: "5 perfecto",
+                        campo: \.sleepQuality, invertida: false),
+    ]
+}
+
+extension CheckinAnswers {
+
+    /// Cierra el check-in de hoy: lo da por hecho en este dispositivo AL MOMENTO (cerrar nunca espera a la
+    /// red), y lo envía con la cola sin conexión detrás. `onServerSynced` se dispara cuando el servidor ya
+    /// lo tiene —el momento en que releer la disposición devuelve la cifra recalculada—; refrescarla antes
+    /// competía con el POST y traía la vieja («el check-in no hace nada»).
+    ///
+    /// UN sitio para las dos superficies: guardar, avisar al háptico y enviar no se copian.
+    @MainActor
+    @discardableResult
+    func registrar(bearer: String?, onServerSynced: @escaping () async -> Void = {}) -> (puntos: Int, foto: CheckinSnapshot) {
+        let puntos = subScore
+        let foto = snapshot(score: puntos)
+        CheckinStore.markCompleted(score: puntos)
+        Haptics.success()
+        Task {
+            await CheckinAPI.submit(foto, bearer: bearer)
+            await onServerSynced()
+        }
+        return (puntos, foto)
+    }
+}
+
 struct CheckinSnapshot: Codable {
     let recorded_at: String
     let soreness: Int?
@@ -65,7 +128,6 @@ struct CheckinSnapshot: Codable {
 enum CheckinStore {
     private static let lastCompletedKey     = "checkin.lastCompletedDate.v1"
     private static let lastSkippedKey       = "checkin.lastSkippedDate.v1"
-    private static let lastAutoPresentedKey = "checkin.lastAutoPresentedDate.v1"
     private static let draftNotesKey        = "checkin.draftNotes.v1"
     private static let lastScoreKey         = "checkin.lastScore.v1"
 
@@ -89,20 +151,6 @@ enum CheckinStore {
         let lastDone = UserDefaults.standard.string(forKey: lastCompletedKey)
         let lastSkip = UserDefaults.standard.string(forKey: lastSkippedKey)
         return lastDone != key && lastSkip != key
-    }
-
-    /// Whether the gate already AUTO-presented the sheet today. SUAVE behavior:
-    /// the sheet auto-opens only the first time per local day. If the athlete
-    /// dismisses it without completing/skipping, the "pending" banner stays but
-    /// we never auto-reopen — they tap it to reopen on their own terms.
-    static func hasAutoPresentedToday(now: Date = Date()) -> Bool {
-        UserDefaults.standard.string(forKey: lastAutoPresentedKey) == todayKey(now)
-    }
-
-    /// Records that the sheet auto-opened today, so later appearances this same
-    /// day don't re-present it automatically.
-    static func markAutoPresented(now: Date = Date()) {
-        UserDefaults.standard.set(todayKey(now), forKey: lastAutoPresentedKey)
     }
 
     static func markCompleted(score: Int, now: Date = Date()) {

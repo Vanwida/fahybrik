@@ -1,1636 +1,369 @@
 import SwiftUI
 
-// Inicio tab root — "CAMINO A LA CARRERA" (variante B: name as protagonist). The
-// home is a VERDICT toward the race, not a calendar: it shows trajectory + STATE
-// + proof + one action, never the future / week / session-selection (that's the
-// Plan tab) and never duplicates the Plan's "Foco de la semana".
+// LA PESTAÑA INICIO — «Hoy · El día».
 //
-// Layout (top → bottom):
-//   header  → greeting ("Lunes 29 · Hola, {name}", the name big)
-//   1. CAMINO A LA CARRERA — target race + "N días" + goal time ("sub 59 min") +
-//      "{fase} · semana N de M" + a position bar. The phase lives HERE (inside the
-//      trajectory), never dangling off the greeting. The peak/objective race.
-//   2. ¿CÓMO LLEGAS HOY? — readiness clearance: 0–100 score + plain read + a mini
-//      breakdown of the signals feeding it (check-in / HRV / sueño / FC reposo).
-//   3. TU PROGRESO · CARRERA — running is half of the hybrid, so progress leads
-//      with the run: the trained threshold pace (Z4 from the zone profile, what
-//      the plan prescribes), the 5 km trend + VDOT (distinct test progress), best
-//      1 km + 7-day volume, plus the strength 1RM as the other half.
-//   4. ENTRENO DE HOY — start TODAY's session (a single action card, not a menu).
-//   5. PASOS — today's HealthKit step count (all-day movement).
-//   6. PROYECCIÓN (puerta honesta) — where a finish projection would go. The model
-//      doesn't exist yet, so we invite a HYROX simulation instead of faking a number.
+// Una portada que cambia de sujeto a lo largo del día: el atleta no la abre para ver el mismo panel
+// siempre, la abre para saber qué le toca AHORA (el check-in, la sesión, «retoma tu entreno», «hecho hoy»,
+// el descanso, el primer día). Cuál es lo decide `LecturaHoy.momento` con una precedencia fija y probada;
+// las piezas (`Today/Hoy/`) solo pintan. Esta vista es lo único que conoce el `AppDataStore`: traduce lo
+// que la app YA lee a una `LecturaHoy` (`LecturaHoy.desde`) y dice adónde lleva cada toque (`HoyAcciones`).
 //
-// Every value is REAL data or an honest empty state — nothing fabricated. No
-// projected finish time (no model exists yet), no week strip / session picker, no
-// standalone focus line.
+// UNA SOLA PESTAÑA para los dos tiers. Con coach es la portada del día; sin coach (`AuthState.hasCoach`
+// falso) es la MISMA con la lectura `conCoach: false`: el sujeto natural es «Monta tu entreno de hoy» y
+// ninguna pieza de coach se pinta, ni vacía. La semana navegable del atleta libre no se pierde: vive en
+// su pestaña Plan (`SemanaAtletaOperativa`).
 //
-// This view owns its own data load (via AppDataStore, cache-first / SWR) and the
-// Empezar / Check-in / target-race sheets.
+// Reglas que conserva (docs/DECISIONS.md):
+//  · 6-ago: el PLAN es la única puerta que EMPIEZA un entreno. Hoy dice el estado y lleva al Plan; nunca
+//    lanza el motor de la sesión del coach. (Retomar lo guardado y montar uno libre son lo que ya vivía
+//    aquí y no es «empezar la sesión del coach».)
+//  · 29-sep: el PROGRESO vive en Analíticas. Hoy deja UNA marca reciente.
+//  · El entreno minimizado en marcha lo lleva la barra del sistema sobre las pestañas.
+//
+// Además de pintar, esta pestaña empuja el entreno de hoy al reloj (`HoyRelojPush`).
 struct InicioView: View {
-    /// Live session bearer, provided by AppShell (single source of truth).
+    /// Sesión viva, la de AppShell (única fuente de verdad).
     var bearer: String? = nil
-    /// Lets the header / anchor / cards route the shell to another tab.
+    /// Cambia de pestaña.
     var onOpenTab: ((AppTab) -> Void)? = nil
 
-    @State private var showFreeBuilder: Bool = false
-    @State private var resumeBannerRefresh = 0
-    @State private var showLaunchConflict = false
-    @State private var conflictSnapshotTitle: String?
-    @State private var pendingOpenFreeBuilder = false
-    @State private var showCheckin: Bool = false
-    // Presents the readiness detail sheet from the "¿Cómo llegas hoy?" card.
-    @State private var showReadinessDetail: Bool = false
-    // Presents the target-race picker from the empty race anchor.
-    @State private var showBuscarCarrera: Bool = false
-
-    // #56 — the training partner's live presence (one fetch on appear, only for a
-    // doubles pair) → the "únete en vivo" banner.
-    @State private var partnerLive: PartnerLiveStatus? = nil
-
-    // Drives the one orchestrated staggered reveal of the cards on appear.
-    @State private var revealed: Bool = false
-
-    // #34 — bumped to force the calibration battery card to reload (pull-to-refresh
-    // and after a completed session, which may flip a test's state / result).
-    @State private var testBatteryNonce: Int = 0
-    /// Bumped when a session is just marked done locally so "Hecho hoy" re-paints
-    /// from CompletedAssignmentsStore without waiting for /plan/week.
-    @State private var marksRevision: Int = 0
-    // Tests guiados — the Tests hub (benchmarks + zonas + «Probarme»), raised by
-    // the battery card. Full-screen cover, like every launch from Inicio.
-    @State private var showTestsHub: Bool = false
-
-    @State private var checkinPending: Bool = CheckinStore.isPending()
-
-    // Today's all-day step count, read display-local from HealthKit (not the API
-    // store — it's device-local). Nil until the first read resolves.
-    @State private var stepsReading: HealthKitStepsReader.Reading? = nil
-
-    // ── Shared data: read live from the injected AppDataStore (cache-first/SWR) ──
     @Environment(AppDataStore.self) private var store
+    @Environment(AuthState.self) private var auth
+    @Environment(\.openChat) private var openChat
+    @Environment(\.openCoachInbox) private var openCoachInbox
+    @Environment(\.openURL) private var openURL
 
-    // Athlete identity (greeting + avatar). Nil until /api/auth/me resolves.
-    private var identity: AthleteIdentity? { store.identity.value }
+    @State private var modelo = HoyModelo()
+    @State private var revelado = false
+    /// Sube cuando una sesión se acaba de marcar hecha en local: el reloj y «Hecho hoy» se repintan desde
+    /// `CompletedAssignmentsStore` sin esperar a `/plan/week`.
+    @State private var revisionDeMarcas = 0
 
-    /// The current week payload — source for today's sessions + the target race.
-    private var planWeek: AthletePlanWeekResponse? { store.planWeek.value }
+    // El check-in
+    @State private var checkinPendiente = CheckinStore.isPending()
+    @State private var cierreDelCheckin: CierreDelCheckin?
+    @State private var aviso: AvisoDia.Contenido?
 
-    private var readinessScore: Int? { store.readiness.value?.score }
-    private var readinessDelta: Int? { store.readiness.value?.delta7d }
-    private var readinessBreakdown: ReadinessBreakdown? { store.readiness.value?.breakdown }
+    // Lo que se levanta desde Hoy
+    @State private var mostrarConstructor = false
+    @State private var mostrarTests = false
+    @State private var mostrarDisposicion = false
+    @State private var mostrarBuscarCarrera = false
+    @State private var mostrarCheckin = false
+    @State private var mostrarNota = false
+    @State private var mostrarHuecoDeRevision = false
+    @State private var mostrarMarcas = false
+    @State private var mostrarConflicto = false
+    @State private var tituloEnConflicto: String?
 
-    // Today's still-active sessions, in slot order (AM hero, then PM compact).
-    private var todaySessions: [AthleteWeekDaySession] {
-        planWeek.map(sessionsForToday) ?? []
-    }
-    // Today's FINISHED sessions (done / partial), in slot order — surfaced as the
-    // "Hecho hoy" confirmation so the loop closes on the home screen and the athlete
-    // can reopen what they logged. Reads the same state machine as the plan marks.
-    private var completedTodaySessions: [AthleteWeekDaySession] {
-        // Touch marksRevision so a just-completed mark re-filters without a network round-trip.
-        _ = marksRevision
-        guard let resp = planWeek else { return [] }
-        let todayIso = resp.week.todayIso
-        guard let today = resp.week.days.first(where: { $0.isoDate == todayIso }) else { return [] }
-        return today.sessions
-            .filter { SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId).isFinished }
-            .sorted { slotRank($0.slot) < slotRank($1.slot) }
-    }
-    /// True when the coach has PAUSED the athlete's plan — the Today hero shows a
-    /// calm "en pausa" state instead of an empty/failed today, and the PM row is
-    /// suppressed so no stale to-do session leaks through.
-    private var isPaused: Bool { planWeek?.week.paused ?? false }
-    // The GOAL race the plan peaks for → the Camino anchor. NOT the nearest tune-up
-    // (that lives in the Carreras tab); the journey is toward the objective.
-    private var targetRace: AthleteNextRace? { planWeek?.targetRace }
+    private var hrZones: HRZoneProfile? { store.identity.value?.hrZones }
 
-    /// The coach's current periodization label — "{fase} · semana N de M" — already
-    /// composed server-side (AGNOSTIC: whatever the coach named the phase). This is
-    /// the ONLY place the phase name surfaces on Inicio (inside the race anchor).
-    private var macroWeekLabel: String? {
-        let t = store.macroProgress.value?.macro.weekLabel?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return (t?.isEmpty == false) ? t : nil
+    private var pareja: PartnerInfo? {
+        let sobre = store.partner.value
+        return sobre?.isDoublesPair == true ? sobre?.partner : nil
     }
 
-    // ── "Tu progreso · carrera" inputs ──────────────────────────────────────────
-    // The running deep-dive bundle (live /running-analysis) + the strength 1RM.
-    private var running: RunningAnalysis? { store.runningAnalysis.value }
-    private var thresholdPace: String? { nonEmpty(running?.threshold_pace) }   // "4:16"
-    private var vdot: String? { nonEmpty(running?.vo2_estimate) }              // "49.9"
-    private var best1k: String? { nonEmpty(running?.best_1k) }                 // "3:50"
-    private var volume7d: String? { nonEmpty(running?.volume_7d_km) }          // "21.3 km"
-    private var fiveKTrend: [FiveKTrendPoint] { running?.five_k_trend ?? [] }
+    // MARK: - De la app a la lectura
 
-    /// The lift to glance on the home: the first in canonical order the athlete has
-    /// (back squat → deadlift → …). The full list lives in Perfil → Mi fuerza.
-    private var topLift: StrengthMaxProfile? {
-        let maxes = store.strengthMaxes.value ?? []
-        for slug in StrengthService.STRENGTH_LIFTS.map({ $0.slug }) {
-            if let m = maxes.first(where: { $0.exerciseSlug == slug }) { return m }
+    private var fuentes: FuentesHoy {
+        FuentesHoy(
+            conCoach: auth.hasCoach,
+            identidad: store.identity.value,
+            plan: store.planWeek.value,
+            planCargado: store.planWeek.hasLoaded,
+            planFallo: store.planWeek.loadFailed,
+            macro: store.macroProgress.value,
+            disposicion: store.readiness.value,
+            disposicionCargada: store.readiness.hasLoaded,
+            analisisDeCarrera: store.runningAnalysis.value,
+            analisisCargado: store.runningAnalysis.hasLoaded,
+            noLeidosChat: store.unreadCount,
+            comunicadosPendientes: store.comunicadosPendientes,
+            carrerasProximas: store.racesHub.value?.upcoming ?? [],
+            checkinPendiente: checkinPendiente,
+            saludConectada: HealthKitConnection.isConnected,
+            pasos: modelo.pasos,
+            guardado: modelo.guardadoOfrecido(hayEntrenoVivo: LiveWorkoutResume.shared.hasLiveSession),
+            bateria: modelo.bateria,
+            revision: modelo.revision,
+            revisionReservada: modelo.revisionReservada,
+            parejaEnVivo: modelo.parejaEnVivo
+        )
+    }
+
+    // MARK: - Cuerpo
+
+    var body: some View {
+        let lectura = LecturaHoy.desde(fuentes)
+        let reloj = HoyRelojPush(store: store, bearer: bearer, revisionDeMarcas: revisionDeMarcas)
+        let acciones = self.acciones
+
+        // Su propia pila de navegación para que «¿Te pruebas?» empuje la biblioteca de marcas dentro de la
+        // pestaña (AppShell aloja cada raíz sin pila compartida).
+        let pantalla = NavigationStack {
+            VStack(spacing: 0) {
+                HoyCromo(lectura: lectura, acciones: acciones)
+                FillingScreen {
+                    HoyCuerpo(
+                        lectura: lectura,
+                        acciones: acciones,
+                        cierreDelCheckin: cierreDelCheckin,
+                        hayNotaEnElCheckin: !CheckinStore.loadDraftNotes().isEmpty,
+                        pareja: pareja,
+                        entrenoMinimizado: LiveWorkoutResume.shared.minimized,
+                        revelado: revelado
+                    )
+                    .padding(.horizontal, Theme.Spacing.pantalla)
+                    .padding(.top, Theme.Spacing.xs + 2)
+                    .padding(.bottom, Theme.Spacing.xxl)
+                }
+                .refreshable { await refrescar() }
+            }
+            .background(Theme.Color.background.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(isPresented: $mostrarMarcas) {
+                MarksLibraryView(bearer: bearer, hrZones: hrZones)
+            }
         }
-        return maxes.first
+
+        presentaciones(pantalla, lectura: lectura)
+        .avisoDia($aviso)
+        .onAppear {
+            checkinPendiente = CheckinStore.isPending()
+            revelado = false
+            DispatchQueue.main.async { revelado = true }
+            Task { await modelo.cargarGuardado() }
+        }
+        .task(id: bearer) {
+            store.activate(bearer: bearer)
+            // Lo de Hoy y lo del store en paralelo: la batería o los pasos no esperan al plan.
+            async let casa: Void = store.loadHome()
+            async let propio: Void = modelo.cargarTodo(
+                bearer: bearer, conCoach: auth.hasCoach, esPareja: pareja != nil
+            )
+            _ = await (casa, propio)
+            // Primer empuje al reloj cuando lo de casa se ha asentado. Los siguientes van por el
+            // `onChange` de la firma, sin llamadas por mutación.
+            if auth.hasCoach {
+                HoyRelojPush(store: store, bearer: bearer, revisionDeMarcas: revisionDeMarcas).empujar()
+            }
+            // En un arranque en frío la pareja solo se conoce tras cargar: un fetch más, solo para un par.
+            if pareja != nil, modelo.parejaEnVivo == nil {
+                await modelo.cargarParejaEnVivo(bearer: bearer, esPareja: true)
+            }
+        }
+        .onChange(of: reloj.firma) { _, _ in
+            // El cuello de botella único del reloj: cualquier cambio de plan o disposición que altere lo que
+            // mandaríamos cambia la firma y se vuelve a empujar hoy. Solo con coach: el atleta libre no
+            // tiene un «hoy» del plan que llevar a la muñeca (como hasta ahora).
+            if auth.hasCoach { reloj.empujar() }
+        }
     }
 
-    // Unread coach messages → bell dot. 0 when none.
-    private var unreadCount: Int { store.unreadCount }
-    // Dobles partner training snapshot — only for a coach-created doubles_pair.
-    private var partner: PartnerInfo? {
-        let env = store.partner.value
-        return (env?.isDoublesPair == true) ? env?.partner : nil
+    // MARK: - Refrescar
+
+    /// Tirar para refrescar: todo lo que Hoy pinta, saltándose la ventana de frescura del store.
+    private func refrescar() async {
+        await store.loadHome(force: true)
+        await modelo.cargarTodo(bearer: bearer, conCoach: auth.hasCoach, esPareja: pareja != nil)
+        checkinPendiente = CheckinStore.isPending()
+        revisionDeMarcas += 1
     }
 
-    /// The live session bearer from AppShell (single source of truth). No
-    /// persisted-token fallback — a dead token is cleared by the 401 recovery, so
-    /// falling back to it would only re-inject a dead session.
-    private var effectiveBearer: String? { bearer }
+    // MARK: - Adónde lleva cada toque
 
-    /// #56 — the athlete can start a session of their own today (the "únete en vivo"
-    /// CTA target = the hero's session). False on a rest / paused day.
-    private var canStartToday: Bool { heroSession != nil && !isPaused }
+    private var acciones: HoyAcciones {
+        HoyAcciones(
+            abrirPestana: { pestana in
+                Haptics.light()
+                onOpenTab?(pestana)
+            },
+            abrirPlan: {
+                Haptics.light()
+                onOpenTab?(.plan)
+            },
+            abrirChat: {
+                Haptics.light()
+                openChat(nil)
+            },
+            abrirComunicados: {
+                Haptics.light()
+                openCoachInbox(nil)
+            },
+            retomarEntreno: {
+                Haptics.medium()
+                Task { await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: hrZones) }
+            },
+            crearEntrenoLibre: {
+                Haptics.medium()
+                Task { await intentarAbrirElConstructor() }
+            },
+            abrirTests: {
+                Haptics.light()
+                mostrarTests = true
+            },
+            abrirMarcas: {
+                Haptics.light()
+                mostrarMarcas = true
+            },
+            abrirDisposicion: {
+                Haptics.light()
+                mostrarDisposicion = store.readiness.value != nil
+            },
+            buscarCarrera: {
+                Haptics.light()
+                mostrarBuscarCarrera = true
+            },
+            elegirHuecoDeLaRevision: {
+                Haptics.medium()
+                mostrarHuecoDeRevision = true
+            },
+            unirseALaRevision: { enlace in
+                Haptics.medium()
+                openURL(enlace)
+            },
+            hacerCheckin: {
+                Haptics.light()
+                mostrarCheckin = true
+            },
+            checkinCerrado: { cerrarCheckin($0) },
+            anadirNotaAlCheckin: { mostrarNota = true },
+            checkinSincronizado: {
+                // Un check-in cambia la disposición, pero solo DESPUÉS de que el servidor lo ingiera:
+                // releer al enviar competía con el POST y traía la cifra vieja.
+                await store.refreshReadiness(force: true)
+            },
+            bearer: bearer,
+            reintentarCarga: { await store.loadHome(force: true) }
+        )
+    }
 
+    /// El check-in se cerró (dentro del sujeto o en la hoja larga): se da por resuelto en el dispositivo y
+    /// se avisa. La cifra tarda unos segundos en llegar, y la portada lo dice.
+    private func cerrarCheckin(_ como: CierreDelCheckin) {
+        checkinPendiente = false
+        cierreDelCheckin = como
+        aviso = AvisoDia.Contenido(
+            tono: .ok,
+            texto: como == .hecho
+                ? "Check-in guardado. Tu cifra se actualiza en unos segundos."
+                : "Sin check-in hoy. Puedes hacerlo mañana."
+        )
+    }
+
+    // MARK: - El constructor de entreno libre
+
+    /// Un entreno vivo (o minimizado) y el atleta pide montar otro: se le pregunta si sigue o termina.
     @MainActor
-    private func attemptOpenFreeBuilder() async {
-        let saved = await WorkoutStateStore.shared.load()
+    private func intentarAbrirElConstructor() async {
+        let guardado = await WorkoutStateStore.shared.load()
         if LiveWorkoutLaunchConflict.shouldPromptStartingLive(
             hasLiveCoverOrTracked: LiveWorkoutResume.shared.hasLiveSession
         ) {
-            conflictSnapshotTitle = saved?.freeTitle ?? saved?.plan.name
-            pendingOpenFreeBuilder = true
-            showLaunchConflict = true
+            tituloEnConflicto = guardado?.freeTitle ?? guardado?.plan.name
+            mostrarConflicto = true
         } else {
-            showFreeBuilder = true
+            mostrarConstructor = true
         }
     }
 
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                header
-                    .staggerReveal(revealed, index: 0)
-                greeting
-                    .staggerReveal(revealed, index: 1)
-                WorkoutResumeBanner(refreshToken: resumeBannerRefresh) { _ in
-                    Task { await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: identity?.hrZones) }
-                }
-                .staggerReveal(revealed, index: 1)
-                raceAnchorCard
-                    .staggerReveal(revealed, index: 2)
-                readinessCard
-                    .staggerReveal(revealed, index: 3)
-                // AUDIT-B5 — a fresh install whose first plan load failed with NO
-                // cache. It used to hang off the hero; the hero moved to the Plan
-                // tab (6-ago) but the guarantee has to stay, or the race anchor
-                // above spins on its skeleton forever with no way to retry.
-                planLoadErrorCard
-                    .staggerReveal(revealed, index: 4)
-                // #56 — "únete en vivo": the training partner is working out right now.
-                // It STAYS here: it is the partner's PRESENCE, next to PartnerTodayPanel,
-                // not a second rendering of "qué toca hoy". Its CTA routes to the Plan
-                // tab, which since 6-ago is the ONE place a session starts — two doors
-                // into the same launch is the duplication this removed.
-                DoblesLiveBanner(
-                    state: DoblesLiveBannerState.from(partnerLive, hasOwnSessionToday: canStartToday),
-                    onJoin: canStartToday ? { onOpenTab?(.plan) } : nil
+    private var tieneSesionHoy: Bool {
+        guard let plan = store.planWeek.value else { return false }
+        return !LeerHoy.sesionesReales(plan).isEmpty
+    }
+
+    // MARK: - Presentaciones
+
+    /// Las hojas y los covers que levanta Hoy, aparte del cuerpo para que ni el cuerpo ni el compilador
+    /// carguen con once modificadores encadenados.
+    private func presentaciones(_ contenido: some View, lectura: LecturaHoy) -> some View {
+        contenido
+            // El constructor: P1 → constructor → motor de siempre → guardado libre. Al terminar se refresca
+            // el plan para que la sesión nueva aparezca como «Libre».
+            .fullScreenCover(isPresented: $mostrarConstructor, onDismiss: {
+                Task { await modelo.cargarGuardado() }
+            }) {
+                FreeWorkoutBuilderView(
+                    bearer: bearer,
+                    hrZones: hrZones,
+                    onClose: { mostrarConstructor = false },
+                    onCompleted: {
+                        revisionDeMarcas += 1
+                        Task { await store.loadHome(force: true) }
+                    }
                 )
-                .staggerReveal(revealed, index: 4)
-                // #34 — the coach's calibration battery (X/N). Self-loading; renders
-                // nothing unless a battery is actually scheduled. The card summarizes
-                // and opens the Tests hub (benchmarks + zonas + «Probarme»).
-                if !isPaused {
-                    TestBatteryInicioSection(
-                        bearer: effectiveBearer,
-                        reloadNonce: testBatteryNonce,
-                        onOpenHub: { showTestsHub = true }
-                    )
-                    .staggerReveal(revealed, index: 6)
-                }
-                // Recurring 1:1 review (#21): the coach's proposal / the reserved
-                // session with the coach. Self-loading; renders nothing when neither.
-                ReviewTodayCard(bearer: effectiveBearer, coachName: planWeek?.coachName)
-                    .staggerReveal(revealed, index: 7)
-                progressCard
-                    .staggerReveal(revealed, index: 7)
-                freeBanner
-                    .staggerReveal(revealed, index: 8)
-                if let partner {
-                    PartnerTodayPanel(partner: partner)
-                        .staggerReveal(revealed, index: 8)
-                }
-                stepsRow
-                    .staggerReveal(revealed, index: 9)
-                projectionGate
-                    .staggerReveal(revealed, index: 10)
             }
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.top, Theme.Spacing.s)
-            .padding(.bottom, Theme.Spacing.xl)
-        }
-        .refreshable {
-            // Pull-to-refresh: pull every slice Inicio paints fresh (bypass the SWR
-            // staleness window with force) + re-read today's device-local steps.
-            await store.loadHome(force: true)
-            stepsReading = await HealthKitStepsReader.todaySteps()
-            testBatteryNonce += 1
-            marksRevision += 1
-        }
-        // RETIRADOS el 6-ago con la portada de «hoy»: los covers de
-        // `WorkoutContainer` y `ExecutedWorkoutView`. Empezar un entreno y abrir lo
-        // que registraste son la MISMA acción que ya vive en la pestaña Plan, con
-        // los mismos destinos; tenerlos aquí era la segunda puerta a la misma
-        // habitación. El constructor de entreno libre se queda: es de Inicio.
-        .fullScreenCover(isPresented: $showFreeBuilder, onDismiss: {
-            resumeBannerRefresh += 1
-        }) {
-            // P1 → builder → existing engine → free save. On finish the plan is
-            // refreshed so the new self-origin session appears as a "Libre" row.
-            FreeWorkoutBuilderView(
-                bearer: effectiveBearer,
-                hrZones: store.identity.value?.hrZones,
-                onClose: { showFreeBuilder = false },
-                onCompleted: {
-                    marksRevision += 1
-                    Task { await store.loadHome(force: true) }
+            // El hub de tests: lo que pase dentro (un test, un resultado capturado) lo relee la fila.
+            .fullScreenCover(isPresented: $mostrarTests, onDismiss: {
+                Task { await modelo.cargarBateria(bearer: bearer) }
+            }) {
+                TestsHubView(
+                    bearer: bearer,
+                    hrZones: hrZones,
+                    onClose: { mostrarTests = false },
+                    onSessionCompleted: {
+                        Task {
+                            await modelo.cargarBateria(bearer: bearer)
+                            await store.planMutated()
+                        }
+                    }
+                )
+            }
+            .liveWorkoutLaunchConflict(
+                isPresented: $mostrarConflicto,
+                snapshotTitle: tituloEnConflicto,
+                onResume: {
+                    Task { await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: hrZones) }
+                },
+                onEndAndStart: {
+                    Task {
+                        await LiveWorkoutLaunchConflict.terminateCurrentForNewStart()
+                        mostrarConstructor = true
+                    }
                 }
             )
-        }
-        .fullScreenCover(isPresented: $showTestsHub, onDismiss: {
-            // Whatever happened in the hub (a test run, a captured result), the
-            // battery card re-reads its truth.
-            testBatteryNonce += 1
-        }) {
-            TestsHubView(
-                bearer: effectiveBearer,
-                hrZones: store.identity.value?.hrZones,
-                onClose: { showTestsHub = false },
-                onSessionCompleted: {
-                    testBatteryNonce += 1
+            // La hoja larga del check-in: la salida cuando el check-in NO es el sujeto (plan en pausa, sin
+            // coach, error de carga…). Guarda y envía por el mismo camino que el paso a paso.
+            .sheet(isPresented: $mostrarCheckin) {
+                CheckinView(
+                    bearer: bearer,
+                    onSubmitted: { _, _ in
+                        mostrarCheckin = false
+                        cerrarCheckin(.hecho)
+                    },
+                    onSkipped: {
+                        mostrarCheckin = false
+                        cerrarCheckin(.saltado)
+                    },
+                    onServerSynced: { await store.refreshReadiness(force: true) }
+                )
+            }
+            .sheet(isPresented: $mostrarNota) { HoyNotaCheckin() }
+            .sheet(isPresented: $mostrarBuscarCarrera) {
+                BuscarCarreraSheet(bearer: bearer) {
+                    // Se fijó un objetivo: se refresca el plan y aparece el ancla.
                     Task { await store.planMutated() }
                 }
-            )
-        }
-        .liveWorkoutLaunchConflict(
-            isPresented: $showLaunchConflict,
-            snapshotTitle: conflictSnapshotTitle,
-            onResume: {
-                Task { await LiveWorkoutResume.shared.recoverOnLaunch(hrZones: identity?.hrZones) }
-            },
-            onEndAndStart: {
-                Task {
-                    await LiveWorkoutLaunchConflict.terminateCurrentForNewStart()
-                    if pendingOpenFreeBuilder {
-                        pendingOpenFreeBuilder = false
-                        showFreeBuilder = true
-                    }
+            }
+            .sheet(isPresented: $mostrarHuecoDeRevision) {
+                ReviewSlotPickerSheet(bearer: bearer, coachFirstName: lectura.coach) { resultado in
+                    // Reservada: la fila pasa a «Próxima sesión» sin esperar otra carga.
+                    withAnimation(Theme.Motion.reveal) { modelo.revisionReservada(resultado.appointment) }
                 }
             }
-        )
-        .sheet(isPresented: $showCheckin) {
-            CheckinView(
-                bearer: effectiveBearer,
-                onSubmitted: { _, _ in
-                    checkinPending = false
-                    showCheckin = false
-                },
-                onSkipped: {
-                    checkinPending = false
-                    showCheckin = false
-                },
-                // A check-in changes today's readiness — but only AFTER the
-                // server ingests it. Refetching on submit raced the POST and
-                // showed the old score ("el check-in no hace nada").
-                onServerSynced: { await store.refreshReadiness(force: true) }
-            )
-        }
-        .sheet(isPresented: $showBuscarCarrera) {
-            BuscarCarreraSheet(bearer: effectiveBearer) {
-                // A target was fixed → refresh the plan so the anchor appears.
-                Task { await store.planMutated() }
-            }
-        }
-        .sheet(isPresented: $showReadinessDetail) {
-            // Read the payload LIVE from the store so a check-in made inside the
-            // sheet (which refreshes readiness) updates the rows without reopening.
-            if let readiness = store.readiness.value {
-                ReadinessDetailSheet(
-                    payload: readiness,
-                    hasSessionToday: hasSessionToday,
-                    checkinDone: !checkinPending,
-                    bearer: effectiveBearer,
-                    onCheckinSubmitted: {
-                        checkinPending = false
-                    },
-                    onCheckinServerSynced: { await store.refreshReadiness(force: true) }
-                )
-            }
-        }
-        .onAppear {
-            checkinPending = CheckinStore.isPending()
-            // SUAVE: auto-open the check-in only the FIRST time per local day.
-            if checkinPending && !CheckinStore.hasAutoPresentedToday() {
-                CheckinStore.markAutoPresented()
-                showCheckin = true
-            }
-            // Fire the entrance cascade once per appearance.
-            revealed = false
-            DispatchQueue.main.async { revealed = true }
-        }
-        .task(id: effectiveBearer) {
-            store.activate(bearer: effectiveBearer)
-            await store.loadHome()
-            // Initial push once the home data has settled. Subsequent re-pushes
-            // (workout completed/partial, day moved/reset, fresh readiness) ride the
-            // single `.onChange(of: watchPushSignature)` below — no per-mutation calls.
-            pushNextWorkoutToWatch()
-            // #56 — one fetch of the partner's live presence, only for a doubles pair
-            // (avoids the call for solo athletes). Errors → the banner just stays hidden.
-            if store.partner.value?.isDoublesPair == true,
-               case .ok(let p) = await DoblesLiveClient.fetch(bearer: effectiveBearer) {
-                partnerLive = p
-            }
-        }
-        .onChange(of: watchPushSignature) { _, _ in
-            // The one choke point for re-pushing the wrist: any plan/readiness change
-            // that alters what we'd send flips the signature and re-pushes today.
-            pushNextWorkoutToWatch()
-        }
-        .task {
-            // All-day step count is device-local (HealthKit), not bearer-scoped.
-            stepsReading = await HealthKitStepsReader.todaySteps()
-        }
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        ZStack {
-            Wordmark(size: 26)
-            HStack(spacing: 12) {
-                // «Del coach»: la bandeja de comunicados, con el globito de lo
-                // que te reclama. Va a la IZQUIERDA y no junto al chat porque un
-                // tercer control a la derecha se come el logotipo centrado en
-                // cuanto la pantalla es la de un iPhone pequeño.
-                CoachInboxHeaderButton()
-                Spacer(minLength: 8)
-                // Persistent chat affordance (icon + unread badge) → coach thread.
-                ChatHeaderButton()
-                // Athlete avatar → Perfil tab.
-                Button {
-                    Haptics.light()
-                    onOpenTab?(.perfil)
-                } label: {
-                    CoachAvatar(
-                        initials: identity?.initials ?? "",
-                        size: 34,
-                        tint: Theme.Color.muted,
-                        photoURL: identity?.avatarURLResuelta
+            .sheet(isPresented: $mostrarDisposicion) {
+                // El payload se lee EN VIVO del store: un check-in hecho dentro de la hoja (que refresca la
+                // disposición) actualiza las filas sin reabrirla.
+                if let disposicion = store.readiness.value {
+                    ReadinessDetailSheet(
+                        payload: disposicion,
+                        hasSessionToday: tieneSesionHoy,
+                        checkinDone: !checkinPendiente,
+                        bearer: bearer,
+                        onCheckinSubmitted: { checkinPendiente = false },
+                        onCheckinServerSynced: { await store.refreshReadiness(force: true) }
                     )
-                    .contentShape(Circle())
-                }
-                .accessibilityLabel("Tu perfil")
-            }
-        }
-        .padding(.top, 2)
-    }
-
-    // MARK: - Greeting
-    //
-    // Variante B: the NAME is the protagonist. Orange date kicker ("Lunes 29") +
-    // "Hola, {name}" big. Name comes from /api/auth/me; first word only. When the
-    // name is missing we fall back to a complete, time-aware greeting.
-
-    private var greeting: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            LabelText(text: todayDateLabel, color: Theme.Color.accentText, size: 12)
-            Text(greetingName)
-                .scaledFont(28, weight: .heavy, relativeTo: .largeTitle, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private var greetingName: String {
-        guard let name = identity?.fullName.split(separator: " ").first.map(String.init),
-              !name.isEmpty else {
-            return timeOfDayGreeting
-        }
-        return "Hola, \(name)"
-    }
-
-    private var timeOfDayGreeting: String {
-        switch Calendar.current.component(.hour, from: Date()) {
-        case 6..<13:  return "Buenos días"
-        case 13..<21: return "Buenas tardes"
-        default:      return "Buenas noches"
-        }
-    }
-
-    /// Capitalized ES date, e.g. "Miércoles 14 ene".
-    private var todayDateLabel: String {
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "es_ES")
-        fmt.dateFormat = "EEEE d MMM"
-        let raw = fmt.string(from: Date())
-        return raw.prefix(1).uppercased() + raw.dropFirst()
-    }
-
-    // MARK: - 1 · Camino a la carrera (trajectory anchor)
-    //
-    // The emotional lead: where the athlete is going (the OBJECTIVE race), how far
-    // out, the goal time, where they are in the plan ("{fase} · semana N de M") and
-    // a subtle position bar through the current microciclo's weeks — POSITION in the
-    // block, not a calendar of upcoming sessions. The phase lives HERE, with
-    // structure — never dangling off the greeting.
-
-    @ViewBuilder
-    private var raceAnchorCard: some View {
-        if let race = targetRace, let days = race.daysUntil {
-            let d = max(0, days)
-            Button {
-                Haptics.light()
-                onOpenTab?(.carreras)
-            } label: {
-                CardSurface(
-                    padding: 18,
-                    topAccent: true,
-                    elevated: true,
-                    backgroundImage: BrandImagery.raceCardBackground(
-                        nombre: race.name,
-                        fecha: race.raceDate,
-                        entre: store.racesHub.value?.upcoming ?? []
-                    )
-                ) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            LabelText(text: "Camino a la carrera")
-                            Spacer(minLength: 8)
-                            Image(systemName: "flag.checkered")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Theme.Color.accentText)
-                        }
-                        Text(race.name)
-                            .scaledFont(22, weight: .heavy, relativeTo: .title2, italic: true)
-                            .foregroundStyle(Theme.Color.foreground)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                        // Countdown — the journey distance — with the goal time pinned right.
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text("\(d)")
-                                .font(.system(size: 44, weight: .heavy, design: .monospaced).monospacedDigit())
-                                .foregroundStyle(Theme.Color.accentText)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.6)
-                            Text(d == 1 ? "día" : "días")
-                                .scaledFont(14, relativeTo: .subheadline)
-                                .foregroundStyle(Theme.Color.muted)
-                            Spacer(minLength: 8)
-                            if let goal = goalLabel(race) {
-                                goalPill(goal)
-                            }
-                        }
-                        // Phase + position within the plan (agnostic coach data).
-                        if let label = macroWeekLabel {
-                            Text(label)
-                                .scaledFont(12, weight: .semibold, relativeTo: .caption)
-                                .foregroundStyle(Theme.Color.muted)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                            if let pos = weekPosition {
-                                weekPositionBar(n: pos.n, m: pos.m)
-                            }
-                        }
-                        // Proximity tone (objective, agnostic — keyed off days-to-race).
-                        Text(raceProximityCopy(daysUntil: d))
-                            .scaledFont(11, relativeTo: .caption)
-                            .foregroundStyle(Theme.Color.faint)
-                            .lineLimit(1)
-                    }
                 }
             }
-            .buttonStyle(PressScaleStyle())
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(raceAnchorAxLabel(race: race, days: d))
-            .accessibilityAddTraits(.isButton)
-        } else if store.planWeek.hasLoaded {
-            // No objective fixed (and the week HAS loaded — genuinely empty, not
-            // mid-load) → invite the athlete to pick one. Tapping opens the race
-            // picker; on success the plan refreshes and the anchor appears.
-            Button {
-                Haptics.light()
-                showBuscarCarrera = true
-            } label: {
-                CardSurface(
-                    padding: 18,
-                    topAccent: true,
-                    backgroundImage: BrandImagery.raceCardBackgroundDefault
-                ) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        LabelText(text: "Camino a la carrera")
-                        Text("Elige tu carrera objetivo")
-                            .scaledFont(18, weight: .heavy, relativeTo: .title3, italic: true)
-                            .foregroundStyle(Theme.Color.foreground)
-                        Text("Fíjala y tu plan tendrá un destino: cuenta atrás, fase y objetivo de tiempo.")
-                            .scaledFont(12, relativeTo: .caption)
-                            .foregroundStyle(Theme.Color.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                        HStack(spacing: 4) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 11, weight: .semibold))
-                            Text("Busca tu carrera")
-                                .scaledFont(12, weight: .semibold, relativeTo: .caption)
-                        }
-                        .foregroundStyle(Theme.Color.accentText)
-                        .padding(.top, 2)
-                    }
-                }
-            }
-            .buttonStyle(PressScaleStyle())
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Elige tu carrera objetivo, busca tu carrera")
-            .accessibilityAddTraits(.isButton)
-        } else {
-            // Cold start, no cache yet — show a quiet skeleton, NOT the "elige
-            // carrera" CTA, until the week load resolves and we know the truth.
-            loadingCard(label: "Camino a la carrera", titleWidth: 200)
-        }
-    }
-
-    /// "Objetivo · sub 59 min" capsule.
-    private func goalPill(_ goal: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: "target")
-                .font(.system(size: 9, weight: .bold))
-            Text("Objetivo · \(goal)")
-                .scaledFont(11, weight: .semibold, relativeTo: .caption2)
-        }
-        .foregroundStyle(Theme.Color.accentText)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
-        .background(Theme.Color.surfaceSunken)
-        .clipShape(Capsule())
-        .accessibilityHidden(true)
-    }
-
-    /// A row of M segments with the first N lit — position within the microciclo.
-    private func weekPositionBar(n: Int, m: Int) -> some View {
-        HStack(spacing: 4) {
-            ForEach(0..<m, id: \.self) { i in
-                Capsule()
-                    .fill(i < n ? Theme.Color.accent : Theme.Color.hairlineStrong)
-                    .frame(height: 4)
-            }
-        }
-        .accessibilityHidden(true)
-    }
-
-    /// Goal time as a goal ceiling: "sub 59 min" for whole minutes, else exact
-    /// MM:SS / H:MM:SS. Nil when no goal is set. Never fabricated.
-    private func goalLabel(_ race: AthleteNextRace) -> String? {
-        guard let plain = goalPlain(race) else { return nil }
-        // Whole-minute goals read as a ceiling ("sub 59 min"); exact times stay exact.
-        return plain.hasSuffix(" min") ? "sub \(plain)" : plain
-    }
-
-    /// The bare goal time — "59 min" for whole minutes, else "MM:SS" / "H:MM:SS".
-    /// Used in the projection-gate sentence ("…baja de 59 min"). Nil when unset.
-    private func goalPlain(_ race: AthleteNextRace) -> String? {
-        guard let s = race.goalTimeSeconds, s > 0 else { return nil }
-        if s % 60 == 0 { return "\(s / 60) min" }
-        return Formato.clock(s)
-    }
-
-    /// Extract (N, M) from the server "… semana N de M" label — the first two
-    /// integer runs after "semana". Robust to the phase name; nil when unparseable
-    /// (then the text line still communicates the position, just no bar).
-    private var weekPosition: (n: Int, m: Int)? {
-        guard let wl = macroWeekLabel?.lowercased(),
-              let r = wl.range(of: "semana") else { return nil }
-        let nums = wl[r.upperBound...]
-            .split(whereSeparator: { !$0.isNumber })
-            .compactMap { Int($0) }
-        guard nums.count >= 2, nums[1] > 0 else { return nil }
-        let m = nums[1]
-        return (min(max(nums[0], 1), m), m)
-    }
-
-    private func raceAnchorAxLabel(race: AthleteNextRace, days: Int) -> String {
-        var label = "Camino a \(race.name), faltan \(days) \(days == 1 ? "día" : "días")"
-        if let phase = macroWeekLabel { label += ". \(phase)" }
-        if let goal = goalLabel(race) { label += ". Objetivo \(goal)" }
-        return label
-    }
-
-    // Supporting line under the countdown, shifting tone as the race nears. Driven
-    // by days-to-race — the objective, agnostic signal — over standard windows.
-    private static let raceWeekDays = 7
-    private static let taperDays = 21
-
-    private func raceProximityCopy(daysUntil: Int) -> String {
-        if daysUntil <= Self.raceWeekDays { return "Confía en el trabajo hecho" }
-        if daysUntil <= Self.taperDays { return "Afina y descansa" }
-        return "Construyendo motor"
-    }
-
-    // MARK: - 2 · ¿Cómo llegas hoy? (readiness clearance)
-    //
-    // The athlete's single most actionable daily signal: the 0–100 readiness score
-    // (colored by recovery bucket), a one-line plain read of the body STATE (never a
-    // training prescription — that's coach methodology), the 7-day delta, and a mini
-    // breakdown of the signals feeding it. Honest empty / compute states.
-
-    @ViewBuilder
-    private var readinessCard: some View {
-        if let score = readinessScore {
-            // A real score → the whole card opens the readiness detail sheet.
-            Button {
-                Haptics.light()
-                showReadinessDetail = true
-            } label: {
-                readinessScoreFace(score: score)
-            }
-            .buttonStyle(PressScaleStyle())
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(readinessAxLabel)
-            .accessibilityHint("Ver el detalle de tu readiness")
-            .accessibilityAddTraits(.isButton)
-        } else if store.readiness.hasLoaded {
-            readinessEmptyFace
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(readinessAxLabel)
-        } else {
-            // Not yet loaded (rare with cache-first). Ni cifra ni invitación:
-            // todavía no sabemos cuál de las dos toca, así que el hueco se pinta
-            // como lo que es con el mismo `redacted` de FilaDato. Un guion aquí
-            // diría que no hay dato, y eso aún no lo sabemos.
-            CardSurface(padding: Theme.Spacing.l) {
-                VStack(alignment: .leading, spacing: 14) {
-                    LabelText(text: "¿Cómo llegas hoy?")
-                    Text("00")
-                        .font(.system(size: 26, weight: .heavy, design: .monospaced).monospacedDigit())
-                        .foregroundStyle(Theme.Color.faint)
-                        .redacted(reason: .placeholder)
-                }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(readinessAxLabel)
-        }
-    }
-
-    /// The score face — ring + plain read + 7-day delta + the signal mini-chips.
-    /// Identical visuals to before; now the tap target for the detail sheet.
-    private func readinessScoreFace(score: Int) -> some View {
-        CardSurface(padding: Theme.Spacing.l) {
-            VStack(alignment: .leading, spacing: 14) {
-                LabelText(text: "¿Cómo llegas hoy?")
-                HStack(alignment: .center, spacing: 16) {
-                    RecoveryRing(value: score, size: 66, stroke: 7,
-                                 color: ReadinessZone.of(score: score).color)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(ReadinessZone.of(score: score).interpretation)
-                            .scaledFont(16, weight: .semibold, relativeTo: .headline)
-                            .foregroundStyle(Theme.Color.foreground)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if let delta = readinessDelta {
-                            HStack(spacing: 4) {
-                                Image(systemName: delta >= 0 ? "arrow.up.right" : "arrow.down.right")
-                                    .font(.system(size: 10, weight: .bold))
-                                Text("\(abs(delta)) en 7 días")
-                                    .scaledFont(11, weight: .medium, relativeTo: .caption)
-                            }
-                            .foregroundStyle(delta >= 0 ? Theme.Color.ok : Theme.Color.warning)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.Color.faint)
-                }
-                if readinessBreakdown != nil {
-                    breakdownChips
-                }
-            }
-        }
-    }
-
-    /// Loaded but no real signal yet (no check-in, no wearable) — the honest
-    /// empty state, which taps into the check-in when one is pending.
-    private var readinessEmptyFace: some View {
-        CardSurface(padding: Theme.Spacing.l) {
-            VStack(alignment: .leading, spacing: 14) {
-                LabelText(text: "¿Cómo llegas hoy?")
-                Button {
-                    guard checkinPending else { return }
-                    Haptics.light()
-                    showCheckin = true
-                } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Sin datos aún")
-                            .scaledFont(16, weight: .semibold, relativeTo: .headline)
-                            .foregroundStyle(Theme.Color.foreground)
-                        Text(readinessEmptySubtitle)
-                            .scaledFont(12, relativeTo: .caption)
-                            .foregroundStyle(checkinPending ? Theme.Color.accentText : Theme.Color.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(PressScaleStyle())
-                .disabled(!checkinPending)
-            }
-        }
-    }
-
-    /// The signals that fed the score, each lit when present and dim when not — an
-    /// honest "what's behind your number" without inventing raw values we don't have.
-    private var breakdownChips: some View {
-        let b = readinessBreakdown
-        return HStack(spacing: 8) {
-            SignalChip(icon: "checkmark.circle.fill", text: "Check-in", active: b?.hasCheckin == true)
-            SignalChip(icon: "waveform.path.ecg", text: "HRV", active: b?.hasHRV == true)
-            SignalChip(
-                icon: "moon.zzz.fill",
-                text: sleepChipText(b),
-                active: b?.hasSleep == true
-            )
-            SignalChip(icon: "heart.fill", text: Vocab.fcReposo, active: b?.hasRestingHR == true)
-        }
-    }
-
-    /// "7.5 h" when we have the real sleep hours, else just the label.
-    private func sleepChipText(_ b: ReadinessBreakdown?) -> String {
-        if let h = b?.sleepHours, h > 0 {
-            let v = Formato.esDecimal(h)
-            return "\(v) h"
-        }
-        return "Sueño"
-    }
-
-    /// Empty-state subtitle for the readiness card, honest across the real states:
-    /// a pending check-in nudges it first (fastest path to a score); otherwise the
-    /// copy depends on whether the athlete ran the Apple Health connect flow —
-    /// "conectado, esperando datos del reloj" vs "aún sin conectar". We never claim
-    /// data is READABLE (HealthKit hides read-authorization), only that the connect
-    /// ran and samples haven't arrived yet.
-    private var readinessEmptySubtitle: String {
-        if checkinPending { return "Haz tu check-in matinal para verlo" }
-        if HealthKitConnection.isConnected {
-            return "Conectado a Apple Salud · esperando datos de sueño y HRV de tu reloj. O haz tu check-in."
-        }
-        return "Conecta Apple Salud o haz tu check-in"
-    }
-
-    private var readinessAxLabel: String {
-        guard let score = readinessScore else {
-            return store.readiness.hasLoaded
-                ? "Cómo llegas hoy, sin datos aún. \(readinessEmptySubtitle)"
-                : "Readiness cargando"
-        }
-        var label = "Cómo llegas hoy: readiness \(score) de 100, \(ReadinessZone.of(score: score).interpretation)"
-        if let delta = readinessDelta {
-            label += ", \(delta >= 0 ? "sube" : "baja") \(abs(delta)) en 7 días"
-        }
-        return label
-    }
-
-    /// Whether the plan has at least one session scheduled today (done or not) —
-    /// drives the readiness-sheet guidance ("…llega fuerte a la sesión de hoy").
-    private var hasSessionToday: Bool {
-        guard let resp = planWeek,
-              let today = resp.week.days.first(where: { $0.isoDate == resp.week.todayIso })
-        else { return false }
-        return today.sessions.contains { !$0.assignmentId.isEmpty }
-    }
-
-    // MARK: - 3 · Tu progreso · carrera (running leads the proof)
-    //
-    // Running is half of the hybrid, so the proof leads with the run: threshold
-    // pace (the Z4 your plan trains, from the zone profile), the 5 km test trend
-    // + VDOT (a distinct test-progress concept), best 1 km + 7-day
-    // volume, plus the strength 1RM as the other half. Every row is REAL data from
-    // /running-analysis + /benchmarks; each renders only when its signal exists, so
-    // a partial athlete reads honestly and nothing is fabricated.
-
-    /// Which rows have data — drives both presence and the hairlines between them.
-    private var showUmbral: Bool { thresholdPace != nil }
-    private var showFiveK: Bool { !fiveKTrend.isEmpty }
-    private var showBestVol: Bool { best1k != nil || volume7d != nil }
-    private var showStrength: Bool { topLift != nil }
-    private var hasProgress: Bool { showUmbral || showFiveK || showBestVol || showStrength }
-
-    @ViewBuilder
-    private var progressCard: some View {
-        if hasProgress {
-            CardSurface(padding: Theme.Spacing.l) {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        LabelText(text: "Tu progreso · carrera")
-                        Spacer(minLength: 8)
-                        Image(systemName: "figure.run")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Theme.Color.accentText)
-                    }
-                    if showUmbral { umbralRow }
-                    if showFiveK {
-                        if showUmbral { Hairline() }
-                        fiveKRow
-                    }
-                    if showBestVol {
-                        if showUmbral || showFiveK { Hairline() }
-                        bestVolRow
-                    }
-                    if showStrength, let lift = topLift {
-                        if showUmbral || showFiveK || showBestVol { Hairline() }
-                        strengthRow(lift)
-                    }
-                }
-            }
-            .accessibilityElement(children: .contain)
-        } else if store.runningAnalysis.hasLoaded && store.strengthMaxes.hasLoaded {
-            // Truly nothing yet — honest, quiet empty state.
-            CardSurface(padding: Theme.Spacing.l) {
-                VStack(alignment: .leading, spacing: 4) {
-                    LabelText(text: "Tu progreso · carrera")
-                    Text("Corre y registra tus tests para ver tu progreso")
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-        // else: not loaded → render nothing (no empty flash); appears once loaded.
-    }
-
-    /// Threshold pace — the hero running metric. This is the Z4 the athlete TRAINS,
-    /// read from the active zone profile (the exact store the plan prescribes from),
-    /// NOT a re-derivation from VDOT — so it never contradicts the plan. VDOT + the
-    /// 5 km trend live below as a distinct test-progress concept.
-    @ViewBuilder
-    private var umbralRow: some View {
-        if let pace = thresholdPace {
-            HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    LabelText(text: "Ritmo umbral · Z4", size: 10)
-                    // A gloss, not a subject: it used to render at 13 semibold —
-                    // bigger and heavier than the label naming the row, and the
-                    // same slot the strength row uses for the actual lift name.
-                    Text("el que entrena tu plan")
-                        .scaledFont(11, relativeTo: .caption2)
-                        .foregroundStyle(Theme.Color.faint)
-                }
-                Spacer(minLength: 8)
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    progressValue(pace, accent: true)
-                    Text(Formato.UnidadRitmo.porKm.rawValue)
-                        .scaledFont(10, weight: .semibold, relativeTo: .caption2)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Ritmo umbral \(pace) por kilómetro, el que entrena tu plan")
-        }
-    }
-
-    /// The 5 km test trend — "21:00 → 20:25 → 19:58", a sparkline, the latest time
-    /// and the total improvement delta. With a single test, just the latest time.
-    @ViewBuilder
-    private var fiveKRow: some View {
-        if let latest = fiveKTrend.last {
-            HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    LabelText(text: "5 km · prueba", size: 10)
-                    if fiveKTrend.count >= 2 {
-                        Text(fiveKTrendString)
-                            .font(.system(size: 13, weight: .semibold, design: .monospaced).monospacedDigit())
-                            .foregroundStyle(Theme.Color.foreground)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    } else if let vdot {
-                        // VDOT is a property of the 5 km test (not the trained umbral) —
-                        // shown here as test-progress context, distinct from the Z4 above.
-                        Text("VDOT \(Formato.esDecimal(vdot))")
-                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                }
-                Spacer(minLength: 6)
-                if fiveKTrend.count >= 2 {
-                    // Lower seconds = faster: the sparkline descends as the time drops.
-                    TrendSparkline(
-                        values: fiveKTrend.map { Double($0.seconds) },
-                        color: Theme.Color.accentText
-                    )
-                    .frame(width: 52, height: 22)
-                    .accessibilityHidden(true)
-                }
-                VStack(alignment: .trailing, spacing: 2) {
-                    progressValue(latest.time, accent: false)
-                    if let delta = fiveKDeltaSeconds {
-                        fiveKDeltaBadge(delta)
-                    }
-                }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(fiveKAxLabel)
-        }
-    }
-
-    /// The shown trend string, capped to the last 3 tests ("21:00 → 20:25 → 19:58").
-    private var fiveKTrendString: String {
-        fiveKTrend.suffix(3).map { $0.time }.joined(separator: " → ")
-    }
-
-    /// Latest minus first (whole journey): negative = faster = improvement. Nil with
-    /// fewer than two tests (no trend to claim).
-    private var fiveKDeltaSeconds: Int? {
-        guard let first = fiveKTrend.first, let last = fiveKTrend.last, fiveKTrend.count >= 2
-        else { return nil }
-        return last.seconds - first.seconds
-    }
-
-    private func fiveKDeltaBadge(_ delta: Int) -> some View {
-        let improved = delta < 0
-        return HStack(spacing: 3) {
-            Image(systemName: improved ? "arrow.down.right" : "arrow.up.right")
-                .font(.system(size: 9, weight: .bold))
-            Text("\(improved ? "−" : "+")\(Formato.clock(abs(delta)))")
-                .font(.system(size: 10, weight: .bold, design: .monospaced).monospacedDigit())
-        }
-        .foregroundStyle(improved ? Theme.Color.ok : Theme.Color.danger)
-    }
-
-    private var fiveKAxLabel: String {
-        guard let latest = fiveKTrend.last else { return "5 kilómetros" }
-        var label = "5 kilómetros, \(latest.time)"
-        if let delta = fiveKDeltaSeconds {
-            label += delta < 0
-                ? ", mejoras \(Formato.clock(abs(delta)))"
-                : ", subes \(Formato.clock(abs(delta)))"
-        }
-        return label
-    }
-
-    /// Best 1 km + rolling 7-day volume, side by side.
-    @ViewBuilder
-    private var bestVolRow: some View {
-        HStack(alignment: .top, spacing: 12) {
-            if let best1k {
-                VStack(alignment: .leading, spacing: 2) {
-                    LabelText(text: "Mejor 1 km", size: 10)
-                    HStack(alignment: .firstTextBaseline, spacing: 2) {
-                        Text(best1k)
-                            .font(.system(size: 15, weight: .heavy).italic().monospacedDigit())
-                            .foregroundStyle(Theme.Color.accentText)
-                        Text(Formato.UnidadRitmo.porKm.rawValue)
-                            .scaledFont(10, weight: .semibold, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Mejor 1 kilómetro, \(best1k) por kilómetro")
-            }
-            if let volume7d {
-                VStack(alignment: .leading, spacing: 2) {
-                    LabelText(text: "Volumen · 7 días", size: 10)
-                    Text(Formato.esDecimal(volume7d))
-                        .font(.system(size: 15, weight: .heavy).italic().monospacedDigit())
-                        .foregroundStyle(Theme.Color.foreground)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Volumen de 7 días, \(Formato.esDecimal(volume7d))")
-            }
-        }
-    }
-
-    /// Strength 1RM — the other half of the hybrid.
-    private func strengthRow(_ lift: StrengthMaxProfile) -> some View {
-        HStack(alignment: .center, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                LabelText(text: "Fuerza · 1RM", size: 10)
-                Text(lift.exerciseLabel)
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.foreground)
-            }
-            Spacer(minLength: 8)
-            progressValue(lift.oneRmLabel, accent: true)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Fuerza, \(lift.exerciseLabel), \(lift.oneRmLabel)")
-    }
-
-    /// The shared big italic-mono value style for the progress rows. `accent`
-    /// paints the brand-orange text role (the key metric); else foreground.
-    private func progressValue(_ text: String, accent: Bool) -> some View {
-        Text(text)
-            .font(.system(size: 19, weight: .heavy).italic().monospacedDigit())
-            .foregroundStyle(accent ? Theme.Color.accentText : Theme.Color.foreground)
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-    }
-
-    // MARK: - Fallo de carga del plan
-    //
-    // RETIRADO el 6-ago: `heroSection` — la portada de «qué toca hoy» (héroe de la
-    // sesión, tarjeta de descanso, «¿te pruebas?», tarjeta de pausa) — y con ella
-    // `restCard`, `nextGlance`, `marksSuggestionCard`, `pausedTodayCard`,
-    // `hechoHoySection` y `hechoHoyRow`.
-    //
-    // No se perdió nada: esa pregunta la responde ahora la pestaña Plan, UNA vez y
-    // con el porqué al lado (docs/DECISIONS.md, 6-ago-2026). Inicio se queda con lo
-    // que NO es plan: cómo llegas, hacia qué carrera, qué has mejorado, el entreno
-    // libre, la pareja y los pasos. La biblioteca de marcas («¿te pruebas?») sigue
-    // viva desde el hub de tests, Perfil → Rendimiento y las superficies free — la
-    // que se retiró era su cuarta puerta, y la única que dependía de leer el plan.
-    //
-    // Lo que SÍ se queda es esto: el fallo de carga con la caché en frío. Colgaba
-    // del héroe, y sin él el ancla de carrera de arriba se quedaría girando en su
-    // esqueleto sin salida.
-
-    @ViewBuilder
-    private var planLoadErrorCard: some View {
-        if store.planWeek.loadFailed, !store.planWeek.hasLoaded {
-            homeLoadErrorCard
-        }
-    }
-
-    // AUDIT-B5 — shown only on a fresh install whose first load failed with no cache.
-    private var homeLoadErrorCard: some View {
-        CardSurface(padding: 18) {
-            VStack(alignment: .leading, spacing: 10) {
-                LabelText(text: "Tu plan")
-                Text("No pudimos cargar tu plan")
-                    .scaledFont(18, weight: .heavy, relativeTo: .title3, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Revisa tu conexión e inténtalo de nuevo.")
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-                Button {
-                    Haptics.light()
-                    Task { await store.loadHome(force: true) }
-                } label: {
-                    Text("Reintentar")
-                        .scaledFont(13, weight: .heavy, relativeTo: .footnote, italic: true)
-                        .foregroundStyle(Theme.Color.accentOn)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 40)
-                        .background(Theme.Color.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 2)
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("No pudimos cargar tu plan. Reintentar.")
-    }
-
-    // P1 — "¿Hoy lo tuyo?" Banner inviting the athlete to build their own session.
-    // It SUMS to the plan (it never replaces the prescribed work), and is honest
-    // that the coach still sees it.
-    private var freeBanner: some View {
-        CardSurface(padding: 16) {
-            VStack(alignment: .leading, spacing: 10) {
-                VStack(alignment: .leading, spacing: 3) {
-                    LabelText(text: "¿Hoy lo tuyo?", color: Theme.Color.accentText, size: 12)
-                    Text("Monta tu propio entreno. Suma al plan, no lo rompe.")
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Button {
-                    Haptics.medium()
-                    Task { await attemptOpenFreeBuilder() }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 13, weight: .heavy))
-                        Text("Crear entreno libre")
-                            .font(.system(size: 14, weight: .heavy, design: .default).italic())
-                            .tracking(0.5)
-                    }
-                    .foregroundStyle(Theme.Color.accentOn)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(Theme.Color.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(PressScaleStyle())
-                .accessibilityLabel("Crear entreno libre")
-                Text("No prescrito · igual le llega al coach")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Theme.Color.faint)
-            }
-        }
-    }
-
-    // MARK: - 5 · Pasos (all-day movement)
-    //
-    // Display-local from HealthKit, with honest connect / no-data states — never a
-    // fabricated number.
-    private enum StepsDisplay {
-        case count(String)
-        case connect
-        /// Salud todavía no ha contestado. No es lo mismo que no tener pasos.
-        case leyendo
-        /// Salud contestó y no hay muestras de hoy.
-        case empty
-        var isConnect: Bool { if case .connect = self { return true } else { return false } }
-    }
-
-    private var stepsDisplay: StepsDisplay {
-        switch stepsReading {
-        case .steps(let n):
-            return .count(Self.stepsFormatter.string(from: NSNumber(value: n)) ?? "\(n)")
-        case .noData:
-            return HealthKitConnection.isConnected ? .empty : .connect
-        case .unavailable:
-            return .connect
-        case nil:
-            // Aún no hemos preguntado. Antes caía en `empty` y salía un guion: eso
-            // afirma que no hay pasos, que es justo lo que todavía no sabemos.
-            return .leyendo
-        }
-    }
-
-    private var stepsRow: some View {
-        let display = stepsDisplay
-        let tappable = display.isConnect
-        return Button {
-            guard tappable else { return }
-            Haptics.light()
-            onOpenTab?(.perfil)
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "shoeprints.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
-                LabelText(text: "Pasos hoy", size: 10)
-                Spacer(minLength: 8)
-                stepsValue(display)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle())
-        .disabled(!tappable)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(stepsAxLabel(display))
-        .accessibilityAddTraits(tappable ? .isButton : [])
-    }
-
-    @ViewBuilder
-    private func stepsValue(_ display: StepsDisplay) -> some View {
-        switch display {
-        case .count(let text):
-            Text(text)
-                .font(.system(size: 20, weight: .heavy, design: .monospaced).monospacedDigit())
-                .foregroundStyle(Theme.Color.foreground)
-        case .connect:
-            HStack(spacing: 4) {
-                Text("Conecta Salud")
-                    .scaledFont(12, weight: .semibold, relativeTo: .footnote)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-            }
-            .foregroundStyle(Theme.Color.accentText)
-        case .leyendo:
-            // Mientras Salud contesta, el hueco se pinta como lo que es.
-            Text("0.000")
-                .font(.system(size: 20, weight: .heavy, design: .monospaced).monospacedDigit())
-                .foregroundStyle(Theme.Color.faint)
-                .redacted(reason: .placeholder)
-        case .empty:
-            // Salud no tiene muestras de hoy. No es un cero medido: puede que el
-            // reloj no haya sincronizado, así que se dice, no se cifra.
-            Text("sin datos todavía")
-                .scaledFont(12, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.faint)
-        }
-    }
-
-    private func stepsAxLabel(_ display: StepsDisplay) -> String {
-        switch display {
-        case .count(let text): return "Pasos hoy, \(text)"
-        case .connect:         return "Pasos hoy. Conecta Apple Salud para ver tus pasos"
-        case .leyendo:         return "Pasos hoy, cargando"
-        case .empty:           return "Pasos hoy, sin datos todavía"
-        }
-    }
-
-    private static let stepsFormatter: NumberFormatter = {
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        f.locale = Locale(identifier: "es_ES")
-        return f
-    }()
-
-    // MARK: - 6 · Proyección (state-aware: sim programada ↔ invitación)
-    //
-    // A finish-time PREDICTION already exists (goal-gap Fase 3 shipped), so this
-    // card no longer "locks" a missing model — it points at the one thing that
-    // SHARPENS the prediction: a HYROX simulation. Two states, both derived from
-    // data already on device (planWeek days + todayIso):
-    //   • SCHEDULED — the coach put a hyrox_sim on the plan (a week session carries
-    //     format='hyrox_sim', still pending): name the day, solid hairline, calendar
-    //     icon. No CTA — the Plan tab already holds the session.
-    //   • OPEN — no sim on the horizon: the honest invitation to run one, in the
-    //     dashed "locked" placeholder.
-    // Non-tappable in both states: there's still no in-app flow to route to.
-
-    /// One of the two projection states, derived from the week payload.
-    private enum ProjectionState {
-        case scheduled(isoDate: String, isToday: Bool)
-        case open
-    }
-
-    /// The FIRST still-to-do HYROX simulation on today or a later day of the week,
-    /// else `.open`. `.pending` only — a done/partial/missed (incl. 'skipped') sim
-    /// has already happened (or won't), so it must never read as "programada".
-    private var projectionState: ProjectionState {
-        guard let resp = planWeek else { return .open }
-        let todayIso = resp.week.todayIso
-        let upcoming = resp.week.days
-            .filter { $0.isoDate >= todayIso }
-            .sorted { $0.isoDate < $1.isoDate }
-        for day in upcoming {
-            let hasSim = day.sessions.contains {
-                $0.isHyroxSim
-                    && SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId) == .pending
-            }
-            if hasSim {
-                return .scheduled(isoDate: day.isoDate, isToday: day.isoDate == todayIso)
-            }
-        }
-        return .open
-    }
-
-    private var projectionGate: some View {
-        let state = projectionState
-        return VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 8) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-                        .fill(Theme.Color.accent.opacity(0.14))
-                    Image(systemName: projectionIcon(state))
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Theme.Color.accentText)
-                }
-                .frame(width: 24, height: 24)
-                Text(projectionTitle(state))
-                    .scaledFont(13, weight: .heavy, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.foreground)
-                Spacer(minLength: 0)
-            }
-            Text(projectionCopy(state))
-                .scaledFont(12, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.muted)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        .overlay(projectionBorder(state))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(projectionAxLabel(state))
-    }
-
-    private func projectionIcon(_ state: ProjectionState) -> String {
-        switch state {
-        case .scheduled: return "calendar"
-        case .open:      return "lock.fill"
-        }
-    }
-
-    private func projectionTitle(_ state: ProjectionState) -> String {
-        switch state {
-        case let .scheduled(_, isToday): return isToday ? "Simulación hoy" : "Simulación programada"
-        case .open:                      return "¿Llegas a tu objetivo?"
-        }
-    }
-
-    /// Scheduled → solid hairline (an on-the-calendar fact); open → dashed "locked"
-    /// placeholder (the honest invitation still to unlock a sharper predicho).
-    @ViewBuilder
-    private func projectionBorder(_ state: ProjectionState) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-        switch state {
-        case .scheduled:
-            shape.strokeBorder(Theme.Color.hairlineStrong, lineWidth: 1)
-        case .open:
-            shape.strokeBorder(Theme.Color.hairlineStrong, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
-        }
-    }
-
-    /// State copy. Scheduled names the day in natural Spanish; open keeps the honest
-    /// invitation — a predicho EXISTS now, a sim only SHARPENS it (names the goal
-    /// time when one is set).
-    private func projectionCopy(_ state: ProjectionState) -> String {
-        switch state {
-        case let .scheduled(iso, isToday):
-            return isToday
-                ? "Hoy toca simulación de HYROX — de ahí sale tu predicho más fiable."
-                : "El \(simDayLabel(forIso: iso)) tienes simulación de HYROX — ahí afinamos tu predicho."
-        case .open:
-            if let race = targetRace, let goal = goalPlain(race) {
-                return "Haz una simulación de HYROX para afinar tu predicho y ver si bajas de \(goal)."
-            }
-            return "Haz una simulación de HYROX para afinar tu predicho de carrera."
-        }
-    }
-
-    /// VoiceOver: title + copy. Skips the extra period when the title already ends
-    /// in punctuation ("¿…objetivo?"), so it never reads "objetivo?. Haz…".
-    private func projectionAxLabel(_ state: ProjectionState) -> String {
-        let title = projectionTitle(state)
-        let sep = (title.hasSuffix("?") || title.hasSuffix(".")) ? " " : ". "
-        return title + sep + projectionCopy(state)
-    }
-
-    /// "jueves 16" — lowercase weekday + day-of-month for the mid-sentence sim date
-    /// ("El jueves 16 tienes…"). Fixed format + Gregorian calendar + one fixed zone
-    /// on both parse and format, so the weekday never shifts across a boundary.
-    private func simDayLabel(forIso iso: String) -> String {
-        let zone = TimeZone(identifier: "UTC")
-        let parse = DateFormatter()
-        parse.locale = Locale(identifier: "en_US_POSIX")
-        parse.calendar = Calendar(identifier: .gregorian)
-        parse.timeZone = zone
-        parse.dateFormat = "yyyy-MM-dd"
-        guard let date = parse.date(from: iso) else { return "próximo día" }
-        let out = DateFormatter()
-        out.locale = Locale(identifier: "es_ES")
-        out.calendar = Calendar(identifier: .gregorian)
-        out.timeZone = zone
-        out.dateFormat = "EEEE d"
-        return out.string(from: date)
-    }
-
-    // MARK: - Loading placeholder
-    //
-    // A quiet skeleton card shown while a slice is still loading on a COLD cache,
-    // so the honest empty CTAs ("elige carrera" / "plan no publicado") only ever
-    // appear once we KNOW the slice is genuinely empty — never as a not-loaded-yet
-    // flash on first paint. On a warm (disk-cached) launch the real value is
-    // present immediately, so this never shows.
-    private func loadingCard(label: String, titleWidth: CGFloat) -> some View {
-        CardSurface(padding: 18) {
-            VStack(alignment: .leading, spacing: 12) {
-                LabelText(text: label)
-                SkeletonBar(width: titleWidth, height: 24)
-                SkeletonBar(height: 12)
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Cargando")
-    }
-
-    // MARK: - Small formatters
-    //
-    // La coma decimal y el reloj vivían aquí como copias `private` — y otra copia
-    // distinta de `esDecimal` vivía en Vo2MaxView. Por eso el mismo VO₂máx salía
-    // «42,4» en una pantalla y «42.4» en la de al lado. Ahora los dos leen `Formato`.
-
-    /// Trim a wire string, returning nil for empty/whitespace (honest-empty guard).
-    private func nonEmpty(_ s: String?) -> String? {
-        let t = s?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (t?.isEmpty == false) ? t : nil
-    }
-
-    // MARK: - Derivations (pure projections over the store's slices)
-
-    private func sessionsForToday(_ resp: AthletePlanWeekResponse) -> [AthleteWeekDaySession] {
-        let todayIso = resp.week.todayIso
-        guard let today = resp.week.days.first(where: { $0.isoDate == todayIso }) else { return [] }
-        let active = today.sessions.filter {
-            !SessionMarkState.of(status: $0.status, assignmentId: $0.assignmentId).isFinished
-        }
-        return active.sorted { slotRank($0.slot) < slotRank($1.slot) }
-    }
-
-    private func slotRank(_ slot: String) -> Int {
-        switch slot.lowercased() {
-        case "am": return 0
-        case "pm": return 1
-        default:   return 2
-        }
-    }
-
-    // Push TODAY to the watch — never a future day. Snapshots the home's already-
-    // loaded state (session card + readiness); no duplicate network fetch (readiness
-    // from the store, detail from its cache, network only on a cache miss).
-    // `athleteHrZones` carries the athlete's HR bands EXACTLY as the server resolved
-    // them, so the wrist classifies a beat into the same zone the phone does and the
-    // coach reads one number; nil when the athlete has no zones yet (the watch then
-    // shows the pulse without a zone rather than inventing a ceiling).
-    //
-    // Three cases, from TODAY's sessions only:
-    //   1. a pending session today → push it, not done.
-    //   2. today's sessions are ALL finished → push the primary one, done + how.
-    //   3. a genuine rest day (no sessions) → push a rest payload (readiness only).
-    // Logout / no plan loaded → CLEAR the wrist (empty context is reserved for this).
-    private func pushNextWorkoutToWatch() {
-        let bearer = effectiveBearer
-        let readiness = store.readiness.value
-
-        // Logout / no data loaded → clear (never leave a stale card on the wrist).
-        guard bearer != nil, planWeek != nil else {
-            Task { await WatchConnectivityiOSService.shared.clearToday() }
-            return
-        }
-
-        if let hero = heroSession {
-            // Case 1 — a pending session today.
-            pushSessionToWatch(hero, isDone: false, doneCompleteness: nil,
-                               readiness: readiness, bearer: bearer)
-        } else if let done = completedTodaySessions.first {
-            // Case 2 — today's sessions are all finished; show the completed primary.
-            let state = SessionMarkState.of(status: done.status, assignmentId: done.assignmentId)
-            pushSessionToWatch(done, isDone: true,
-                               doneCompleteness: state == .partial ? "partial" : "full",
-                               readiness: readiness, bearer: bearer)
-        } else {
-            // Case 3 — a genuine rest day: keep readiness, no session.
-            Task {
-                await WatchConnectivityiOSService.shared.pushToday(
-                    dayKind: WatchDayKind.rest,
-                    assignmentId: nil, title: nil, focus: nil,
-                    estDurationMinutes: nil, intensityLabel: nil, modality: nil,
-                    athleteHrZones: store.identity.value?.hrZones, readiness: readiness,
-                    isDone: false, doneCompleteness: nil, isDoubles: false,
-                    partnerFirstName: nil, partnerVisibility: nil, bearer: bearer
-                )
-            }
-        }
-    }
-
-    /// Push one of today's sessions (pending or done) to the watch.
-    private func pushSessionToWatch(
-        _ session: AthleteWeekDaySession,
-        isDone: Bool,
-        doneCompleteness: String?,
-        readiness: DailyReadinessPayload?,
-        bearer: String?
-    ) {
-        let focus = session.slot.isEmpty ? nil : session.slot.uppercased()
-        let isDoubles = watchSessionIsDoubles(session)
-        // #23 — the partner's first name (for the wrist "DOBLES · con {nombre}" badge)
-        // and the session's visibility ride only for a shared/joint dobles session;
-        // a self_only session is individual (isDoubles already false) → no partner.
-        let partnerFirstName = isDoubles ? store.partner.value?.partner?.firstName : nil
-        let partnerVisibility = isDoubles ? session.partnerVisibility : nil
-        Task {
-            await WatchConnectivityiOSService.shared.pushToday(
-                dayKind: WatchDayKind.session,
-                assignmentId: session.assignmentId,
-                title: session.title,
-                focus: focus,
-                estDurationMinutes: session.estDurationMinutes,
-                intensityLabel: nil,
-                modality: session.modality,
-                athleteHrZones: store.identity.value?.hrZones,
-                readiness: readiness,
-                isDone: isDone,
-                doneCompleteness: doneCompleteness,
-                isDoubles: isDoubles,
-                partnerFirstName: partnerFirstName,
-                partnerVisibility: partnerVisibility,
-                bearer: bearer
-            )
-        }
-    }
-
-    /// Whether a watch-originated finish of this session should log JOINTLY. The
-    /// wrist has no "por mi cuenta / juntos" choice, so a dobles-pair session always
-    /// logs jointly there. True only when the athlete is in a doubles pair AND this
-    /// session isn't kept private (partner_visibility 'self_only'); the joint endpoint
-    /// requires a linked partner, so a lone athlete never routes to it.
-    private func watchSessionIsDoubles(_ session: AthleteWeekDaySession) -> Bool {
-        guard store.partner.value?.isDoublesPair == true else { return false }
-        return session.partnerVisibility?.lowercased() != "self_only"
-    }
-
-    /// A compact fingerprint of everything the watch push depends on. Drives the
-    /// single `.onChange` re-push (FIX): whenever the pushed content would differ —
-    /// a completed / partial / moved / reset session, a fresh readiness, a flipped
-    /// dobles flag — this string changes and the wrist is re-pushed. One choke point
-    /// so no plan mutation slips through and no redundant push fires.
-    private var watchPushSignature: String {
-        guard effectiveBearer != nil, planWeek != nil else { return "clear" }
-        let r = store.readiness.value
-        let readinessSig = "\(r?.score ?? -1)/\(r?.delta7d ?? -999)/\(WatchConnectivityiOSService.worstDriver(r?.breakdown) ?? "-")"
-        if let h = heroSession {
-            return "s|\(h.assignmentId)|\(h.title)|\(h.modality ?? "-")|\(h.estDurationMinutes ?? -1)|\(watchSessionIsDoubles(h) ? "d" : "-")|pending|\(readinessSig)"
-        }
-        if let d = completedTodaySessions.first {
-            let mark = SessionMarkState.of(status: d.status, assignmentId: d.assignmentId) == .partial ? "p" : "f"
-            return "s|\(d.assignmentId)|\(d.title)|\(d.modality ?? "-")|\(d.estDurationMinutes ?? -1)|\(watchSessionIsDoubles(d) ? "d" : "-")|done-\(mark)|\(readinessSig)"
-        }
-        return "rest|\(readinessSig)"
-    }
-
-    // MARK: - Hoy, para el reloj
-    //
-    // Lo que queda de la portada retirada: la app SIGUE empujando el entreno de hoy
-    // a la muñeca, y para eso necesita saber cuál es. Se queda la derivación, se fue
-    // la pantalla — el reloj no navega a una pestaña.
-    //
-    // Con ella se fueron `pmSession`, `slotFor`, `heroKicker`, `heroMeta`,
-    // `compactMeta`, `sessionDetailMeta`, `modalityLabel` y `dayLabel`: eran la
-    // RETÓRICA de la portada («Mañana · desde 45 min · 3 bloques», «Carrera · sesión
-    // principal»), y esa frase la escribe ahora el héroe del Plan con el desglose
-    // REAL de la sesión, no con un resumen de fila.
-
-    private var heroSession: AthleteWeekDaySession? { todaySessions.first }
-}
-
-// MARK: - Signal chip
-//
-// A compact readiness-input indicator: a small icon + label, lit in the accent
-// text role when the signal contributed to the score, dim (faint) when absent.
-// Honest — it shows what's behind the number without inventing raw values.
-private struct SignalChip: View {
-    let icon: String
-    let text: String
-    let active: Bool
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 10, weight: .semibold))
-            Text(text)
-                .scaledFont(10, weight: .semibold, relativeTo: .caption2)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-        .foregroundStyle(active ? Theme.Color.accentText : Theme.Color.faint)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .frame(maxWidth: .infinity)
-        .background(active ? Theme.Color.surfaceSunken : Color.clear)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-                .stroke(active ? Color.clear : Theme.Color.hairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(active ? "\(text), activo" : "\(text), sin datos")
-    }
-}
-
-// MARK: - Trend sparkline
-//
-// A minimal line over a value series (oldest→newest) with a trailing dot on the
-// latest point. Decorative — the host row carries the accessible label. A vertical
-// inset keeps the stroke + dot from clipping at the frame edges.
-private struct TrendSparkline: View {
-    let values: [Double]
-    var color: Color = Theme.Color.accentText
-
-    var body: some View {
-        GeometryReader { geo in
-            let pts = points(in: geo.size)
-            ZStack {
-                Path { path in
-                    guard let first = pts.first else { return }
-                    path.move(to: first)
-                    for pt in pts.dropFirst() { path.addLine(to: pt) }
-                }
-                .stroke(color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
-                if let last = pts.last {
-                    Circle()
-                        .fill(color)
-                        .frame(width: 4, height: 4)
-                        .position(last)
-                }
-            }
-        }
-    }
-
-    private func points(in size: CGSize) -> [CGPoint] {
-        guard values.count > 1 else { return [] }
-        let inset: CGFloat = 3
-        let minV = values.min() ?? 0
-        let maxV = values.max() ?? 1
-        let range = max(maxV - minV, 0.0001)
-        let usableH = max(size.height - inset * 2, 1)
-        let stepX = size.width / CGFloat(values.count - 1)
-        return values.enumerated().map { index, value in
-            let x = CGFloat(index) * stepX
-            let y = inset + (usableH - CGFloat((value - minV) / range) * usableH)
-            return CGPoint(x: x, y: y)
-        }
     }
 }

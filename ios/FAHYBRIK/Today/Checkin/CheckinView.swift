@@ -23,41 +23,14 @@ struct CheckinView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                     headline
-                    // Every row reads the same way: 1 = peor, 5 = mejor. Soreness
-                    // and fatigue are negatively keyed in the model (5 = worst),
-                    // so they bind inverted and are reframed positive (recuperación
-                    // / energía) — the athlete never has to flip the scale's
-                    // meaning between questions.
-                    questionRow(
-                        title: "Recuperación muscular",
-                        binding: invertedBind(\.soreness),
-                        leftHint: "1 dolorido",
-                        rightHint: "5 recuperado"
-                    )
-                    questionRow(
-                        title: "Ánimo",
-                        binding: bind(\.mood),
-                        leftHint: "1 mal",
-                        rightHint: "5 genial"
-                    )
-                    questionRow(
-                        title: "Motivación",
-                        binding: bind(\.motivation),
-                        leftHint: "1 cero",
-                        rightHint: "5 a tope"
-                    )
-                    questionRow(
-                        title: "Energía",
-                        binding: invertedBind(\.fatigue),
-                        leftHint: "1 agotado",
-                        rightHint: "5 a tope"
-                    )
-                    questionRow(
-                        title: "Calidad del sueño",
-                        binding: bind(\.sleepQuality),
-                        leftHint: "1 mal",
-                        rightHint: "5 perfecto"
-                    )
+                    // Every row reads the same way: 1 = peor, 5 = mejor. Soreness and fatigue are
+                    // negatively keyed in the model (5 = worst), so they bind inverted and are
+                    // reframed positive (recuperación / energía) — the athlete never has to flip the
+                    // scale's meaning between questions. The questions themselves live in
+                    // `CheckinPregunta.todas`, shared with the paso a paso of the Hoy portada.
+                    ForEach(CheckinPregunta.todas) { pregunta in
+                        questionRow(pregunta)
+                    }
                     notesField
                     submitArea
                 }
@@ -95,20 +68,15 @@ struct CheckinView: View {
         }
     }
 
-    private func questionRow(
-        title: String,
-        binding: Binding<Int?>,
-        leftHint: String,
-        rightHint: String
-    ) -> some View {
+    private func questionRow(_ pregunta: CheckinPregunta) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title)
+            Text(pregunta.titulo)
                 .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
                 .foregroundStyle(Theme.Color.foreground)
             Scale1to5Picker(
-                value: binding,
-                leftHint: leftHint,
-                rightHint: rightHint
+                value: binding(pregunta),
+                leftHint: pregunta.izquierda,
+                rightHint: pregunta.derecha
             )
         }
     }
@@ -154,17 +122,8 @@ struct CheckinView: View {
                 title: "CONTINUAR",
                 enabled: answers.allAnswered
             ) {
-                let score = answers.subScore
-                let snap = answers.snapshot(score: score)
-                CheckinStore.markCompleted(score: score)
-                let bearerCopy = bearer
-                Haptics.success()
+                let (score, snap) = answers.registrar(bearer: bearer, onServerSynced: onServerSynced)
                 onSubmitted(score, snap)
-                let synced = onServerSynced
-                Task {
-                    await CheckinAPI.submit(snap, bearer: bearerCopy)
-                    await synced()
-                }
             }
 
             Button(action: {
@@ -182,18 +141,13 @@ struct CheckinView: View {
         .padding(.top, Theme.Spacing.l)
     }
 
-    private func bind(_ kp: ReferenceWritableKeyPath<CheckinAnswers, Int?>) -> Binding<Int?> {
-        Binding(get: { answers[keyPath: kp] }, set: { answers[keyPath: kp] = $0 })
-    }
-
-    /// Inverted 1–5 binding for the negatively-keyed wellness fields (soreness,
-    /// fatigue). The model + submitted snapshot keep the RAW semantic (5 = worst)
-    /// so the backend contract and `subScore` are untouched; the UI shows them
-    /// reframed positive (5 = best) so EVERY row's "good" end is 5. 1↔5, 2↔4, 3↔3.
-    private func invertedBind(_ kp: ReferenceWritableKeyPath<CheckinAnswers, Int?>) -> Binding<Int?> {
+    /// The 1–5 binding for one question, in SCREEN terms (5 = best). For the negatively-keyed fields
+    /// (soreness, fatigue) it inverts on the way in and out, so the model + the submitted snapshot keep the
+    /// RAW semantic (5 = worst) and the backend contract and `subScore` are untouched.
+    private func binding(_ pregunta: CheckinPregunta) -> Binding<Int?> {
         Binding(
-            get: { answers[keyPath: kp].map { 6 - $0 } },
-            set: { answers[keyPath: kp] = $0.map { 6 - $0 } }
+            get: { answers[keyPath: pregunta.campo].map(pregunta.dePantalla) },
+            set: { answers[keyPath: pregunta.campo] = $0.map(pregunta.delModelo) }
         )
     }
 }
