@@ -2,118 +2,77 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-29** (analíticas rehechas: cimientos del motor, progreso/récords, intensidad/recuperación/carrera y cumplimiento, en ramas)
+Última actualización: **2026-09-29** (analíticas rehechas: cumplimiento y panel del coach fusionados en main, migraciones 0279–0281 en prod)
 
 ## Ahora
 
 **LAS PESTAÑAS, CON EL DISEÑO DE «HOY · EL DÍA» (29-09, doble, main).** Alex firmó «El día» para Hoy (DECISIONS 29-09; «El pulso» descartado). En curso: Plan, Carreras y Perfil en el mismo diseño (`/design/pestanas`, kit `kit-dia`); luego las cuatro a Swift (lo instala Alex). Analíticas sigue con su diseño firmado (¿unificar la piel? pendiente de Alex).
 
-**iPhone · EL ENTRENO MINIMIZADO SE VE (29-09, main).** Barra de sistema sobre las pestañas con crono y paso; tocarla vuelve al mismo motor. La tarjeta del scroll queda para «guardado para luego». Falta: probarlo en aparato (build siguiente). DECISIONS 29-09.
-**ANALÍTICAS · INTENSIDAD, RECUPERACIÓN, CARRERA Y DETALLE DE SESIÓN (29-09, rama `worktree-agent-a700671c0309eea89`, sin fusionar; 0279; DECISIONS 29-09).** Tres bloques más del panel y `…/analytics/sesion/[executionId]` (atleta y coach, mismo cálculo). La basal única (P3/P16) ya la leen roster, barrido, ficha, disposición y readiness; una noche de sueño = el lote más completo; las bandas del readiness las sirve la API (P14). FALTA: diseño, Swift leyendo `bands`, 0279 en prod (orquestador).
-**ANALÍTICAS · EL CUMPLIMIENTO (29-09, rama `worktree-agent-aea0d21b345de9122`, con main al día, sin integrar; 0281; DECISIONS 29-09).** Por tramo en todas las modalidades (intensidad, dosis, resultado; holgura del vivo como dato del coach), por sesión (base carga › duración › distancia, verde/ámbar/rojo/gris) y adherencia de solo lo debido (no hecha = acabó su día local). Tres lecturas en `semanas` + `GET …/analytics/cumplimiento?ventana=` atleta y coach. Probado: tsc limpio, 536 tests sin base y 596 de analíticas contra rama Neon con 0281 (paridad atleta/coach y panel/detalle). Libres fuera de la carga planificada. Atleta 64: adherencia 57 %, tramos 42 % (sin palabra: falta RPE/RIR). FALTA: 0281 en prod (orquestador, antes del deploy), editor del método, UI del panel, holgura en el vivo.
-**ANALÍTICAS REHECHAS · CIMIENTOS DEL MOTOR (29-09, rama `worktree-agent-a342e82f006cd9120`, sin fusionar; DECISIONS 29-09).** Modelo: `docs/analiticas/modelo.md`. Hecho, sin UI: contrato `Lectura` ampliado (ancla, comparación, plan/hecho, familia, veredicto) + sobre del panel; ventana única en el día local; anclas resueltas una vez (medida > declarada > estimada > poblacional); carga única por tramo con la escalera del coach; carga planificada desde la prescripción; forma/fatiga/frescura con proyección hasta la carrera; semanas y estado; método del coach ampliado (0277, `PUT /api/coach/analytics-method`, sin editor aún); umbrales declarados de un toque (tabla + `/api/athlete/thresholds` + `/api/coach/athletes/[id]/thresholds`); `GET …/analytics/panel` atleta y coach con el mismo cálculo. Atleta 64 en la rama: 2,6 % → 56,7 % del tiempo con carga (estimada). FALTA: bloques intensidad/progreso/récords/carrera/recuperación (otras sesiones), editor del método (diseño), 0277 en prod (orquestador), retirada de lo viejo (§9).
-Última actualización: **2026-09-29** (analíticas: cinco fallos de datos, 0278 en rama)
+**ANALÍTICAS REHECHAS (29-09; modelo `docs/analiticas/modelo.md`; ya en main; DECISIONS 29-09).** Un solo cálculo (`cargarPanel`)
+para el iPhone y el panel del coach. Piezas, cada una con su entrada en DECISIONS:
+- Cimientos del motor (`worktree-agent-a342e82f006cd9120`, 0277): contrato `Lectura`, ventana única en el día local, anclas
+  resueltas una vez, carga única por tramo, forma/fatiga con proyección a la carrera, umbrales declarados de un toque, método del coach.
+- Cinco fallos de datos (`claude/analiticas-datos`, 0278): readiness como texto, zonas más largas que su tramo, saltos imposibles,
+  1.277 importaciones de Salud sin tipo, 13 copias de libres. Aplicar 0278 ANTES del deploy y luego `pnpm --dir infra backfill:zonas`.
+- Progreso y récords (`worktree-agent-a07fb545a296d59ca`, 0280): «¿mejoro?» de las siete familias + lista única de récords.
+- Intensidad, recuperación, carrera y detalle de sesión (`worktree-agent-a700671c0309eea89`, 0279): basal única (P3/P16) que ya leen
+  roster, barrido, ficha, disposición y readiness; las bandas del readiness las sirve la API (P14). Falta Swift leyendo `bands`.
+- Cumplimiento (`worktree-agent-aea0d21b345de9122`, 0281): por tramo, por sesión y adherencia de solo lo debido. Falta holgura en el vivo.
+- Propuestas en el doble (`worktree-agent-af9303cea786f40b4`): `/design/analiticas`, kit `kit-analiticas/`; FIRMADAS por Alex el 29-09.
+- **PANEL DEL COACH (fusionado en main, 29-09):** pestaña Rendimiento
+  con los ocho bloques y el detalle de sesión; editor del método en Ajustes › Método (todos los campos que el motor lee, defectos
+  editables); umbrales declarados de un toque. Retirado lo viejo que el panel cubre (DECISIONS). Verificado en navegador 390/768/1440
+  contra rama Neon desechable; tsc limpio y 736 tests de ajustes/analíticas/ficha en verde. El editor heredado (`d4a303d7`) auditado:
+  ninguna regla cruzada cruza grupos (test), esquema y CHECK de la tabla alineados (test con base real). DECISIONS 29-09.
+- Migraciones 0277–0281 aplicadas en prod (0279–0281 el 29-09, 248 registradas, 0 pendientes). FALTA en analíticas: UI del atleta en Swift (rama del iPhone en curso); capa de voz de
+  coach para `explica_es`; los campos del método que el motor aún no lee (DECISIONS); decisiones abiertas de Alex en esa entrada.
 
-## Ahora
+**iPhone · EL ENTRENO MINIMIZADO SE VE (29-09, main).** Barra de sistema sobre las pestañas con crono y paso; tocarla vuelve al mismo
+motor; la tarjeta del scroll queda para «guardado para luego». Falta probarlo en aparato (build siguiente).
 
-**ANALÍTICAS · CINCO FALLOS DE DATOS (29-09, rama `claude/analiticas-datos`, sin fusionar; DECISIONS 29-09).** Readiness como texto JSON, zonas más largas que su tramo (motor del iPhone), saltos imposibles (techo físico 1 s de vuelo), 1.277 importaciones de Salud sin tipo y 13 copias de libres. Código + migración 0278 probada en rama (reejecutarla: 0 filas). NO en prod: aplicar 0278 ANTES del deploy y después `pnpm --dir infra backfill:zonas`.
-Última actualización: **2026-09-29** (analíticas rehechas: propuestas en el doble, pendientes de firma)
+**iPhone · EL VIVO NUEVO (28-09, firmado por Alex; galería https://claude.ai/artifact/YN3iFbkZYGHSn1S5hsgb8t, propuestas `iphone-vivo-*`).**
+Swift en `claude/vivo-swift-release` y `-2` (sin fusionar): bandera encendida en release, dobles/relevo, salir sin terminar, saltar de
+tramo, RX/Escalado por bloque metcon, pausa sola a los 10 s, Estructura del circuito. CI verde. Falta prueba en aparato; el shell
+viejo se borra tras ella. Build iOS en Xcode Cloud para TestFlight: lo instala Alex. Reloj para la demo (28-09): 6 fallos de la muñeca
+arreglados; falta aparato.
 
-## Ahora
+**UN SOLO ENTRENO (28-09).** Libre ≡ sesión del coach al guardar, escribir y leer: 0274–0276 aplicadas en prod + backfill de
+plantillas; ramas `fix/un-solo-entreno`, `fix/plantilla-escritor-unico`, `ios/motor-libre-un-objeto` (motor por formato) y
+`worktree-agent-acf4f0bae662f59a6` (coach ve libres solo lectura), sin fusionar. Contratos iOS: `docs/pr/un-solo-entreno.md`,
+`docs/pr/lectores-libre-coach.md`, `docs/pr/ios-motor-libre.md` (falta servidor: `round_index`, `workout.modality`, segmentos en /free/plan).
 
-**ANALÍTICAS REHECHAS · PROPUESTAS EN EL DOBLE (29-09, rama `worktree-agent-af9303cea786f40b4`, sin fusionar; DECISIONS 29-09).** Sobre `docs/analiticas/modelo.md`: la portada del atleta (`analiticas-portada`: Estado fijo, una ventana, Forma y fatiga con proyección a la carrera, Semana a semana plan/hecho por familia, Intensidad, Progreso, Récords, Carrera, Recuperación), los detalles (`analiticas-familia-{correr,ergo,fuerza,estaciones}`, `analiticas-sesion` tramo a tramo) y la pestaña Rendimiento del coach (`analiticas-panel-coach`, dispositivo «escritorio» nuevo del doble, tokens v2 reales, 1440/1280, claro/oscuro). Colección: `/design/analiticas`. Kit: `web/components/design-twin/kit-analiticas/` (contrato §5 ampliado, método del coach con defectos, mecanismos con el Banister real, gráficos con ejes reales y dos pieles, cinco atletas por los cuatro estados). Test: `tests/design-twin/kit-analiticas.test.ts`. FALTA: la firma de Alex (§11: nombre de pestaña, portada única o pastillas, panel fijo o configurable) → luego fase 1 del modelo (motor + editor de método) y fase 3 (Swift + panel).
+**LA MUÑECA SE REHACE Y EL RELOJ ES EL PRODUCTO (24-25-09; listón TrainingPeaks).** Auditoría `docs/reloj-muneca/` y diseño firmado
+`docs/el-reloj-primero/` (SF nativo, el objetivo manda, voz al cambiar de paso y cada km). Hechas las fases 0+1 (CI macOS, registro
+técnico 0273, sesión 180 d, cola sin caducidad, acuses) y las 6 propuestas `reloj-*` sobre `kit-reloj`. Falta la firma de Alex sobre
+las pantallas → Swift (correr primero); exige arreglos de modelo M1–M8. PR #192 (fases 0+1) abierto: no fusionar sin 0270–0273 en
+prod (a 24-09 faltaban; comprobar con el runner antes de asumir). Auditoría de la app del atleta: `docs/auditoria-app-atleta/`.
+FH-56 (enlace muñeca↔móvil lo dice Apple, build 100, nota `docs/pr/fh56-apple-link.md`).
 
-**ANALÍTICAS · PROGRESO Y RÉCORDS (29-09, rama `worktree-agent-a07fb545a296d59ca`, sin fusionar; DECISIONS 29-09).** Una regla para el «¿mejoro?» de las siete familias (ventana contra la anterior, delta en la unidad del umbral del coach, cuatro estados con «dato viejo») + lista única de récords con lo nuevo marcado. Bloques `progreso` y `records` en `cargarPanel`; `GET …/analytics/familia/{correr|remo|ski|bici|fuerza|estaciones}` y `…/analytics/records` (atleta y coach). P1 y P18 arreglados en la raíz. Migración 0280 (cambio por familia, reps máximas del 1RM), solo en rama. FALTA: editor del método y diseño; capturas de estaciones (vivo nuevo).
-
-**28-09 · UN SOLO ENTRENO EN PRODUCCIÓN + VIVO DEL IPHONE FIRMADO.** Libre ≡ coach al guardar, escribir y leer (0274–0276 aplicadas en prod + backfill de plantillas). Reloj sin atascos; motor del iPhone por formato; historial con series y parciales. Alex firmó el vivo nuevo del iPhone (galería https://claude.ai/artifact/YN3iFbkZYGHSn1S5hsgb8t, propuestas `iphone-vivo-*`). EN CURSO: el Swift del vivo (base primero, luego familias). PENDIENTE: build iOS en Xcode Cloud para TestFlight (lo instala Alex).
-
-**iPhone · TRES HUECOS DEL VIVO NUEVO CERRADOS (29-09, rama `claude/vivo-swift-release-2`, sin fusionar).** RX/Escalado se declara en el resumen por bloque metcon (mismo campo `rx_scaled`); la pausa sigue sola a los 10 s y lleva el botón de la voz; la Estructura del circuito es la sesión entera con salto por fila. DECISIONS 29-09.
-
-**iPhone · VIVO NUEVO EN SWIFT, BANDERA ENCENDIDA EN RELEASE (29-09, rama `claude/vivo-swift-release`, sin fusionar a main).** Cubiertos dobles/relevo («Relevo» → advanceRelay, reparto = tu parte, tira de la pareja), salir sin terminar (chevrón = minimizar; hoja: guardar para luego, cerrar bloque, descartar) y saltar de tramo desde la Estructura. CI verde (https://github.com/Vanwida/fahybrik/actions/runs/36496850585). Falta: prueba en aparato; RX/Escalado no se declara en ningún sitio (DECISIONS 29-09); el shell viejo se borra tras la prueba.
-
-**iPhone · EL VIVO REHECHO, LAS CINCO FAMILIAS JUNTAS (28-09, rama `worktree-agent-a5972b29b43d11207`, propuesta, sin fusionar a main).** Correr, circuito/HYROX y WOD fusionados sobre ergo y fuerza: un solo grupo «El vivo del iPhone, rehecho» con gramática, correr, ergo, fuerza, WOD y circuito. Death by nuevo en `kit-reloj/deathby.ts`. Capturas en el scratchpad (`capturas-final/`). DECISIONS 28-09. Falta: la firma de Alex.
-
-**RELOJ PARA LA DEMO (28-09, lógica, sin diseño; DECISIONS 28-09):** 6 fallos de la muñeca sola arreglados (fuerza tras
-la última serie, sin detalle no hay Empezar, resultado al terminar, enlace al arrancar, test pide su número, AMRAP). Falta aparato.
-
-**UN SOLO ENTRENO (28-09, rama `fix/un-solo-entreno`, SIN fusionar ni desplegar):** libre ≡ sesión del coach al guardar. Plan guardado → sync del coach; `/free/plan` devuelve `template_segment_ids`; `/free` enlaza tramos, nunca 4xx con trabajo, reenvío idempotente (`free_started_at`); Salud sustituida en todos los guardados; modalidad del ejercicio. Migración 0274 (probada en rama; NO en prod: la aplica el orquestador ANTES del deploy).
-Contrato iOS: `docs/pr/un-solo-entreno.md` (otra sesión). DECISIONS 28-09.
-**LIBRE = COACH EN LOS LECTORES (28-09, rama `worktree-agent-acf4f0bae662f59a6`, sin fusionar).** Coach ve libres hechos (solo lectura, sin adherencia); series + volumen; historial con lo sin asignación (`include_unplanned=1`) + detalle por ejecución; deep dive por tramo; marcas sin 500. iOS: `docs/pr/lectores-libre-coach.md`. DECISIONS 28-09.
-Última actualización: **2026-09-28** (iOS: un libre = una asignación; motor formato a formato)
-
-## Ahora
-
-**iOS · libre = asignación + motor por formato (28-09, rama `ios/motor-libre-un-objeto`, sin fusionar; DECISIONS 28-09).**
-FALTA servidor (`docs/pr/ios-motor-libre.md`): `round_index` en el esquema, `workout.modality`, segmentos en /free/plan.
-**UN escritor de plantillas (28-09, rama `fix/plantilla-escritor-unico`, sin fusionar):** libre = coach, mismas filas
-(test por formato). Migración 0275 + `backfill:plantillas` probadas en rama; NO en prod. DECISIONS 2026-09-28.
-
-**LA MUÑECA SE REHACE (Alex, 25-09: «es un lío, así no competimos con TrainingPeaks»).** Auditoría de 6 lentes
-+ modelo: `docs/reloj-muneca/` (https://claude.ai/artifact/3LzhCpYCr6H7rgktymoG8r; spec `modelo.md`; DECISIONS 25-09).
-Alex eligió: el objetivo manda, SF nativo, voz al cambiar de paso y cada km, comprometida vs objetivo del coach.
-HECHAS (25-09) las 6 propuestas `reloj-*` sobre UN kit consolidado (`kit-reloj`, 611c2c6) + un veredicto por
-paso (tests `kit-reloj-veredicto`, `kit-reloj-motor`). Alex decidió el 2.º lote (doble toque estándar, AMRAP en la
-campana, «Seguir» autoguarda 10′). FALTA: la firma de Alex sobre las pantallas → Swift (correr primero).
-Exige arreglos de modelo M1–M8 (dos objetivos por paso, recuperación/entorno como dato, anidadas sin aplanar…).
-
-**EL RELOJ ES EL PRODUCTO y el listón es TrainingPeaks (Alex, 24-09).** La muñeca lleva la sesión
-desde el primer día; nunca por debajo de TrainingPeaks. Diseño FIRMADO (arquitectura, iOS/watchOS 26,
-iPhone de respaldo, CI GitHub macOS, otros relojes 14 días, app Entreno de Apple opcional): `docs/el-reloj-primero/`.
-HECHO fases 0+1 (CI macOS, registro técnico 0273, sesión 180 d, cola sin caducidad, B-02/B-12, acuses del reloj
-+ rechazados guardados + mínimos 26, 25-09). Firmadas y en Swift (25-09): «Guardado en tu móvil» + «Sin subir»
-en el historial, el permiso del movimiento (hoja, Perfil › Privacidad, retirar borra) y su subidor. Luego fase 4.
-**PROD (24-09 21:45→):** a la base le faltan 0270–0272 (+0273 de esta rama) → cron de atención roto. Migrar es
-trabajo del AGENTE (Alex, 24-09) — bloqueado por permiso + secreto `PROD_DATABASE_URL` (DECISIONS). CI iOS VERDE (run 12)
-→ PR #192 fases 0+1 abierto (25-09): https://github.com/Vanwida/fahybrik/pull/192 — no fusionar sin 0270–0273 en prod.
-**Auditoría de la app del atleta (iOS + watchOS) — ENTREGADA.** `docs/auditoria-app-atleta/`.
-6 raíces: enlace del reloj diseñado para fallar · entreno terminado no durable · lo del coach
-no llega · la app dice lo que ningún coach decidió · empezar/terminar peor que el mercado ·
-nada compila ni prueba el iOS (fase 0 = CI macOS). Arreglos de servidor HECHOS en el PR #191.
-
-**Panel del coach (web `(v2)`) — RECONSTRUIDO y REVISADO para FLEXR.** Rama
-`claude/focused-bardeen-u9zz33`. Auditoría: `docs/auditoria-panel-coach/`. Revisión
-pre-FLEXR (4 lentes: aislamiento, método, producto, plataforma) y decisiones de Alex:
-`docs/revision-flexr/index.html` (https://claude.ai/artifact/EhJpMWGaSBkytzi5LVaUb2).
-- Hoy = bandeja única (100 atletas: 55 te necesitan = Atletas = barra; Acción 7,
-  Vigilar 32, sin «Acción» sin base); asignar un programa a 20 = 4 clics.
-- Aislamiento: 3 agujeros P0 cerrados (clonar plantillas ajenas, partes de sesión,
-  Google Calendar global → por coach 0254) + P1; tests de dos coaches en `web/tests/tenancy/`.
-- Método = dato del coach con defecto (0211–0260): motores secundarios, niveles,
-  zonas, lecturas de carrera, cadencia de tests, huso del coach; editores en Ajustes.
-- DECIDIDO 24-09: app FLEXR (repo nuevo al final), Stripe Connect, alta por solicitud +
-  aprobación, check de coach en CI ya (hecho: `web/tests/tenancy/ambito-de-club.test.ts`, 962 sin
-  ámbito en baseline que solo encoge) + RLS antes del coach 20. PENDIENTE DE ALEX: precio,
-  despliegue, dominios, deportes, idioma, arranque de un club, legal, borrar código muerto.
-- PR #191 FUSIONADO (24-09, `da08a40`). Tras el deploy: reconectar Google Calendar (por coach); alta de pago
-  apagada para todo club que no sea FAHYBRID hasta Stripe Connect.
-
-**FH-56 — El enlace muñeca↔móvil lo dice Apple** (build 100; DECISIONS 2026-09-21; nota `docs/pr/fh56-apple-link.md`).
-Enlace tri-estado de Apple sin watchdog; un `startWatchApp` por Empezar; adoptar sin motor GUARDA; borrados
-`PhoneWorkoutRun`/`WorkoutRunClock`/`WristMirrorTruth`/`.orphan`. CI macOS: los 23 fallos del run 7 arreglados (25-09).
+**Panel del coach (web `(v2)`) RECONSTRUIDO y revisado para FLEXR** (rama `claude/focused-bardeen-u9zz33`; auditoría
+`docs/auditoria-panel-coach/`, revisión `docs/revision-flexr/index.html`). Hoy = bandeja única; aislamiento entre coaches con tests
+en `web/tests/tenancy/`; método = dato del coach con defecto (0211–0260). DECIDIDO 24-09: app FLEXR (repo nuevo al final), Stripe
+Connect, alta por solicitud + aprobación, RLS antes del coach 20. PR #191 fusionado (24-09): tras el deploy, reconectar Google
+Calendar por coach; alta de pago apagada para todo club que no sea FAHYBRID hasta Stripe Connect.
 
 ## Pendiente decisión Alex
 
-- Panel coach: borrar código muerto sin importadores (el clasificador no deja a los
-  agentes): `web/components/v2/orientacion/**`, `web/lib/dashboard/v2/{orientacion,
-  orientacion-types,periodizacion}.ts`, `web/components/v2/{SegmentedControl,InlineSave,
-  OrderAlteredSignal,Rail,SessionLine}.tsx`, `v2/periodizacion/SidePanel.tsx`,
-  `v2/tests/chrome.tsx`, `v2/intake/IntakeBlockStructure.tsx`, `v2/ajustes/LevelAxisSetting.tsx`,
-  `web/lib/coach/{deep-dive-body,deep-dive-body-demo,demo-events,program-weeks}.ts`,
-  `infra/scripts/seed_exercises.ts`, `buildAthletePlan` de `coach/deep-dive-plan.ts`, `athlete-profile-shell.ts` (solo lo usa un test); tabla `google_oauth_tokens`. Luego quitar los
-  `ignores` de eslint.config.mjs.
-- FH-56 paso 0 con aparato: ¿acepta Apple `startMirroringToCompanionDevice` sobre
-  una sesión recuperada? Si no, el HUD dice «Sin conexión con el iPhone» y hace
-  falta Terminar+Empezar (no se inventa un segundo motor).
-- FH-56 riesgo §7: `.endSaving` deja en Salud una grabación sin ejecución atada (se guarda, no se tira). Smoke TF build **100** con la matriz §6 del plan (7 casos + soak 2 h).
+- Analíticas: las cinco decisiones abiertas de DECISIONS 29-09 (voz de coach, «Dar feedback», 1RM medido en el motor, copy de
+  Umbrales, Progreso a 1440) y la firma de las pantallas del reloj.
+- Panel coach: borrar código muerto sin importadores (el clasificador no deja a los agentes): `web/components/v2/orientacion/**`,
+  `web/lib/dashboard/v2/{orientacion,orientacion-types,periodizacion}.ts`, `v2/{SegmentedControl,InlineSave,OrderAlteredSignal,Rail,
+  SessionLine}.tsx`, `v2/periodizacion/SidePanel.tsx`, `v2/tests/chrome.tsx`, `v2/intake/IntakeBlockStructure.tsx`,
+  `v2/ajustes/LevelAxisSetting.tsx`, `web/lib/coach/{deep-dive-body,deep-dive-body-demo,demo-events,program-weeks}.ts`,
+  `infra/scripts/seed_exercises.ts`, `buildAthletePlan` de `coach/deep-dive-plan.ts`, `athlete-profile-shell.ts`; tabla
+  `google_oauth_tokens`. Luego quitar los `ignores` de eslint.config.mjs.
+- FH-56 con aparato: ¿acepta Apple `startMirroringToCompanionDevice` sobre una sesión recuperada? Si no, hace falta Terminar+Empezar.
+  Riesgo: `.endSaving` deja en Salud una grabación sin ejecución atada. Smoke TF build 100 (matriz §6: 7 casos + soak 2 h).
 
 ## Sabido y no hecho
 
-- Carga: CTL/ATL del coach (`coach_analytics_method`, sin editor aún) solo los lee `lecturas.ts`; ficha, deep dive, cohorte, app del atleta y race-readiness usan 42/7 fijos → fase 4.
-- Panel coach: sin Stripe Connect (Cobros lee, no cobra — decidido: Connect); crons en serie por coach
-  (no aguantan ~20 clubs); sin RLS; panel solo en castellano; crons a hora UTC fija (falta hora
-  de entrega por coach) y `resolvePeriod` sin el día local de la app (DECISIONS «Qué día es…»).
-- MCP del asistente: la búsqueda en la biblioteca falla con `column b.archived_at does not exist` (0236): la base a la que apunta no la tiene.
-- Seeds: `seed_demo.ts` desfasado (`chat_messages.sender_role`). Cadena personal: un mes de
-  biblioteca en medio bloquea acortar/borrar (409; decisión de producto en DECISIONS).
+- Carga: ficha, deep dive, cohorte, app del atleta y race-readiness usan aún 42/7 fijos en algún sitio; el CTL/ATL del coach solo lo lee
+  `lecturas.ts` (la ficha ya sale del panel).
+- Panel coach: sin Stripe Connect (Cobros lee, no cobra); crons en serie por coach (no aguantan ~20 clubs); sin RLS; solo castellano;
+  crons a hora UTC fija y `resolvePeriod` sin el día local de la app (DECISIONS «Qué día es…»).
+- MCP del asistente: la búsqueda en la biblioteca falla con `column b.archived_at does not exist` (0236): su base no la tiene.
+- Seeds: `seed_demo.ts` desfasado (`chat_messages.sender_role`). Cadena personal: un mes de biblioteca en medio bloquea acortar/borrar (409).
 - FH-30: `PhoneLiveSession.applyCommand` no relaya `.newLap` al motor (latente); `GuionSeries` sin vía viva en el espejo.
-- FH-56: la fila «Reconectar reloj» en `LiveConectividadSheet` es subjetiva — no añadida.

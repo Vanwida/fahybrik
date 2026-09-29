@@ -24,7 +24,7 @@ export function SettingsSection({
   action?: ReactNode;
   children: ReactNode;
   className?: string;
-  /** Sin tarjeta (para contenidos que ya son una superficie: una lista, una tabla). */
+  /** Sin tarjeta: para contenidos que ya son una superficie (una lista, una tabla) o para una sección plegada, sin nada que enmarcar. */
   bare?: boolean;
 }) {
   return (

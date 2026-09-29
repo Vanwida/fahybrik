@@ -2,7 +2,8 @@
 //
 // La ficha es un COCKPIT con tres pestañas (DECISIONS 2026-09-23, informe C §4):
 //   Plan (por defecto)  — por qué está marcado, su estado y el calendario editable
-//   Rendimiento         — un solo scroll ordenado por la pregunta del coach
+//   Rendimiento         — las analíticas del atleta (el mismo panel que su iPhone),
+//                         sus umbrales, zonas y tests
 //   Perfil              — datos, clasificación, días, lesiones, 1:1, pagos y UNA
 //                         línea de tiempo
 // Los cargadores con BD viven en ./atleta-detalle.ts y ./ficha-*.ts; este módulo lo
@@ -22,6 +23,7 @@ import type { SessionReportView } from '@/lib/coach/session-reports';
 import type { IntakePlanMode } from '@fahybrid/shared/schema/coach-intake';
 import type { AthleteKeyMarker } from '@/lib/coach/key-markers';
 import type { PeekDay } from '@/lib/coach/athlete-peek';
+import { VENTANA_PANEL_POR_DEFECTO, ventanaClaveAdmisible, type VentanaClave } from '@fahybrid/shared/domain/analytics/ventana';
 
 export type { AthleteReviewState, MessageDTO, AthleteKeyMarker, AthleteWeekState };
 
@@ -38,9 +40,32 @@ export const CAL_ZOOMS = ['semana', '3sem', 'plan'] as const;
 export type CalZoom = (typeof CAL_ZOOMS)[number];
 export const DEFAULT_CAL_ZOOM: CalZoom = '3sem';
 
-/** Secciones de Rendimiento, en el orden de la pregunta del coach. */
-export const RENDIMIENTO_SECCIONES = ['zonas', 'running', 'fuerza', 'fisiologia', 'carreras'] as const;
+/**
+ * Secciones de Rendimiento (anclas de la pestaña): los bloques del panel de
+ * analíticas, en el orden de la pregunta del coach (modelo §3), y después sus
+ * umbrales, zonas y tests, el detalle de correr, su cuerpo y sus carreras.
+ */
+export const RENDIMIENTO_SECCIONES = [
+  'forma',
+  'recuperacion',
+  'semanas',
+  'intensidad',
+  'progreso',
+  'records',
+  'carrera',
+  'tramos',
+  'zonas',
+  'correr',
+  'fisiologia',
+  'carreras',
+] as const;
 export type RendimientoSeccion = (typeof RENDIMIENTO_SECCIONES)[number];
+
+/** Anclas de la pestaña anterior (hasta el 29-09): a qué bloque del panel llevan hoy. */
+const OLD_SECCION: Record<string, RendimientoSeccion> = {
+  running: 'correr',
+  fuerza: 'progreso',
+};
 
 export const PERFIL_SECCIONES = ['datos', 'lesiones', 'revisiones', 'pagos', 'historial'] as const;
 export type PerfilSeccion = (typeof PERFIL_SECCIONES)[number];
@@ -71,6 +96,10 @@ export interface FichaUrl {
   zoom: CalZoom;
   /** Filtro inicial de la línea de tiempo (enlaces viejos a «Del coach»). */
   historial: TimelineKind | null;
+  /** La ventana de las analíticas de Rendimiento (A4); null = la de por defecto. */
+  ventana: VentanaClave | null;
+  /** Rendimiento abierta comparando con el periodo anterior. */
+  comparar: boolean;
   /** La URL venía en el formato viejo: el servidor redirige a la canónica. */
   legacy: boolean;
 }
@@ -87,25 +116,25 @@ const OLD_TAB: Record<string, { tab: FichaTab; seccion?: FichaSeccion; chat?: tr
   pagos: { tab: 'perfil', seccion: 'pagos' },
   ritmos: { tab: 'rendimiento', seccion: 'zonas' },
   carreras: { tab: 'rendimiento', seccion: 'carreras' },
-  historico: { tab: 'rendimiento', seccion: 'fuerza' },
-  biometria: { tab: 'rendimiento', seccion: 'fisiologia' },
-  correr: { tab: 'rendimiento', seccion: 'running' },
+  historico: { tab: 'rendimiento', seccion: 'progreso' },
+  biometria: { tab: 'rendimiento', seccion: 'recuperacion' },
+  correr: { tab: 'rendimiento', seccion: 'correr' },
 };
 
 // `?vista=` de Rendimiento (anclas y capas) y de Atleta (subsecciones).
 const OLD_VISTA: Record<string, FichaSeccion> = {
-  carrera: 'running',
-  aterrizaje: 'running',
-  correr: 'running',
-  'en-zonas': 'running',
-  zonas: 'running',
-  diagnostico: 'running',
+  carrera: 'correr',
+  aterrizaje: 'correr',
+  correr: 'correr',
+  'en-zonas': 'intensidad',
+  zonas: 'intensidad',
+  diagnostico: 'correr',
   ritmos: 'zonas',
   carreras: 'carreras',
-  fuerza: 'fuerza',
-  historico: 'fuerza',
-  cuerpo: 'fisiologia',
-  biometria: 'fisiologia',
+  fuerza: 'progreso',
+  historico: 'progreso',
+  cuerpo: 'recuperacion',
+  biometria: 'recuperacion',
   perfil: 'datos',
   sesiones: 'revisiones',
   pagos: 'pagos',
@@ -129,6 +158,8 @@ export function resolveAtletaUrl(q: {
   comunicado?: string | null;
   historial?: string | null;
   chat?: string | null;
+  ventana?: string | null;
+  comparar?: string | null;
 }): FichaUrl {
   let tab: FichaTab = 'plan';
   let seccion: FichaSeccion | null = null;
@@ -160,8 +191,17 @@ export function resolveAtletaUrl(q: {
 
   if (q.seccion) {
     if (tab === 'rendimiento' && isOneOf(RENDIMIENTO_SECCIONES, q.seccion)) seccion = q.seccion;
+    else if (tab === 'rendimiento' && OLD_SECCION[q.seccion]) {
+      seccion = OLD_SECCION[q.seccion]!;
+      legacy = true;
+    }
     if (tab === 'perfil' && isOneOf(PERFIL_SECCIONES, q.seccion)) seccion = q.seccion;
   }
+
+  // La ventana y «comparar» solo existen en Rendimiento; una ventana que no es de las seis se ignora.
+  const ventanaPedida = tab === 'rendimiento' ? ventanaClaveAdmisible(q.ventana) : null;
+  const ventana = ventanaPedida != null && ventanaPedida !== VENTANA_PANEL_POR_DEFECTO ? ventanaPedida : null;
+  const comparar = tab === 'rendimiento' && q.comparar === '1';
 
   const sesion = q.sesion && /^\d{1,18}$/.test(q.sesion.trim()) ? q.sesion.trim() : null;
   // Un entreno enlazado se abre en el calendario.
@@ -178,6 +218,8 @@ export function resolveAtletaUrl(q: {
     sesion,
     zoom: isOneOf(CAL_ZOOMS, q.zoom) ? q.zoom : DEFAULT_CAL_ZOOM,
     historial,
+    ventana,
+    comparar,
     legacy,
   };
 }
@@ -190,6 +232,8 @@ export function canonicalFichaQuery(u: FichaUrl, desde?: string | null): string 
   if (u.sesion) p.set('sesion', u.sesion);
   if (u.zoom !== DEFAULT_CAL_ZOOM) p.set('zoom', u.zoom);
   if (u.historial) p.set('historial', u.historial);
+  if (u.ventana) p.set('ventana', u.ventana);
+  if (u.comparar) p.set('comparar', '1');
   if (u.chat) p.set('chat', '1');
   if (u.comunicado) p.set('comunicado', 'nuevo');
   if (desde) p.set('desde', desde);

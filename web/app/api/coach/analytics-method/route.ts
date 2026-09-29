@@ -2,10 +2,12 @@
 // PUT /api/coach/analytics-method   body: { method: {...} | null }
 //
 // El método del coach para las analíticas del atleta (`coach_analytics_method`,
-// migs 0189/0190/0277): ventanas de la carga, escalera por modalidad, bandas de
-// frescura, cumplimiento, cambio significativo, ventana basal, capacidad y
-// recuperación. Guardar reemplaza el conjunto; `null` vuelve a los defectos del
-// producto. El editor de Ajustes › Método llega con el diseño; esta es su API.
+// migs 0189/0190/0277/0279/0280): ventanas de la carga, escalera por modalidad,
+// bandas de frescura, cumplimiento, cambio significativo, reparto de intensidad,
+// «¿mejoro?» por familia, ventana basal, capacidad y recuperación. Guardar
+// reemplaza el conjunto; `null` vuelve a los defectos del producto. Lo pinta el
+// editor de Ajustes › Método (`AnalyticsMethodSettings`) y ambos validan con el
+// mismo esquema Zod.
 
 import { requireCoach } from '@/lib/auth/require-coach';
 import { jsonOk } from '@/lib/api/responses';

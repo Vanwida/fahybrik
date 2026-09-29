@@ -11,11 +11,13 @@ import 'server-only';
 // método de UN coach sobre UN atleta, y partirlas en tablas obligaría a resolver
 // varias filas para pintar una pantalla.
 //
-// GUARDAR ES REEMPLAZAR EL CONJUNTO ENTERO — sin parche por campo — y valida
-// con `validarMetodoAnalitico` antes de escribir, porque hay reglas que ningún
-// CHECK por columna puede cubrir (que lo reciente sea menos que el fondo, que las
+// GUARDAR ES REEMPLAZAR EL CONJUNTO ENTERO — sin parche por campo. Esta capa NO
+// valida las reglas cruzadas (que lo reciente sea menos que el fondo, que las
 // bandas de frescura vayan en orden, que una modalidad no liste un peldaño que
-// no puede preciar). «Restaurar» borra la fila: sin fila, mandan los defectos.
+// no puede preciar): ningún CHECK por columna las cubre, y las hace cumplir el
+// esquema de la ruta (`analyticsMethodSchema` → `validarMetodoAnalitico`), que es
+// hoy el único que guarda. Quien escriba desde otro sitio tiene que pasar por
+// ese esquema. «Restaurar» borra la fila: sin fila, mandan los defectos.
 // Mismo patrón que `hr-method.ts`.
 
 import type { Sql } from '@/lib/db';

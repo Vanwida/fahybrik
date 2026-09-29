@@ -16,9 +16,12 @@ describe('resolveAtletaUrl — la ficha en tres pestañas y los enlaces viejos',
   it.each([
     [{ tab: 'resumen' }, 'plan', null],
     [{ tab: 'rendimiento', vista: 'ritmos' }, 'rendimiento', 'zonas'],
-    [{ tab: 'rendimiento', vista: 'en-zonas' }, 'rendimiento', 'running'],
-    [{ tab: 'rendimiento', vista: 'fuerza' }, 'rendimiento', 'fuerza'],
-    [{ tab: 'rendimiento', vista: 'cuerpo' }, 'rendimiento', 'fisiologia'],
+    [{ tab: 'rendimiento', vista: 'en-zonas' }, 'rendimiento', 'intensidad'],
+    [{ tab: 'rendimiento', vista: 'fuerza' }, 'rendimiento', 'progreso'],
+    [{ tab: 'rendimiento', vista: 'cuerpo' }, 'rendimiento', 'recuperacion'],
+    [{ tab: 'rendimiento', seccion: 'running' }, 'rendimiento', 'correr'],
+    [{ tab: 'rendimiento', seccion: 'fuerza' }, 'rendimiento', 'progreso'],
+    [{ tab: 'correr' }, 'rendimiento', 'correr'],
     [{ tab: 'rendimiento', vista: 'carreras' }, 'rendimiento', 'carreras'],
     [{ tab: 'atleta', vista: 'pagos' }, 'perfil', 'pagos'],
     [{ tab: 'atleta', vista: 'sesiones' }, 'perfil', 'revisiones'],
@@ -68,5 +71,26 @@ describe('resolveAtletaUrl — la ficha en tres pestañas y los enlaces viejos',
 
   it('una sección que no es de la pestaña se ignora', () => {
     expect(resolveAtletaUrl({ tab: 'perfil', seccion: 'zonas' }).seccion).toBeNull();
+  });
+
+  it('las secciones de Rendimiento son los bloques del panel y lo de debajo, y no redirigen', () => {
+    for (const seccion of ['forma', 'recuperacion', 'semanas', 'intensidad', 'progreso', 'records', 'carrera', 'tramos', 'zonas', 'correr', 'fisiologia', 'carreras']) {
+      const u = resolveAtletaUrl({ tab: 'rendimiento', seccion });
+      expect(u.seccion).toBe(seccion);
+      expect(u.legacy).toBe(false);
+    }
+  });
+
+  it('la ventana y «comparar» solo valen en Rendimiento; la de por defecto no se escribe', () => {
+    expect(resolveAtletaUrl({ tab: 'rendimiento', ventana: '4s', comparar: '1' })).toMatchObject({ ventana: '4s', comparar: true });
+    expect(resolveAtletaUrl({ tab: 'rendimiento', ventana: '12s' }).ventana).toBeNull();
+    expect(resolveAtletaUrl({ tab: 'rendimiento', ventana: '3 meses' }).ventana).toBeNull();
+    expect(resolveAtletaUrl({ tab: 'plan', ventana: '4s', comparar: '1' })).toMatchObject({ ventana: null, comparar: false });
+  });
+
+  it('una URL vieja de Rendimiento conserva la ventana al redirigir', () => {
+    const u = resolveAtletaUrl({ tab: 'rendimiento', vista: 'fuerza', ventana: '1a', comparar: '1' });
+    expect(u.legacy).toBe(true);
+    expect(canonicalFichaQuery(u)).toBe('?tab=rendimiento&seccion=progreso&ventana=1a&comparar=1');
   });
 });
