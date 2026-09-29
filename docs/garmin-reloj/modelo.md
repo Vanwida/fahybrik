@@ -75,17 +75,12 @@ Hereda de `docs/reloj-muneca/modelo.md` el paso como unidad (P2), el objetivo qu
 | Durante los 5 s de deshacer | Pausa | siguiente paso otra vez | **Deshacer** | página siguiente | Controles |
 | Recuperación / descanso | Pausa | **Empezar ya** | página anterior | página siguiente | Controles (+30 s aquí) |
 | Serie de fuerza | Pausa | **Serie hecha** | página anterior | página siguiente | Controles |
-| Anotar la serie (en el descanso) | confirmar campo (reps → carga → RIR); en el último, cerrar | campo anterior; en el primero, salir de anotar | valor + | valor − | Controles (Pausa, saltar el descanso) |
-| AMRAP con ≥ 2 movimientos | Pausa | **Ronda hecha** | **reps +1** | **reps −1** | Controles (aquí están Datos/Vueltas/Estructura) |
-| Ventana que no se salta (minuto entero de máquina en un EMOM, Tabata, AMRAP de UN movimiento) | Pausa | **sin efecto** (un BACK con sudor no salta una ventana; «Saltar paso» está en Controles) | página anterior (en el AMRAP de un movimiento: **reps +1**) | página siguiente (**reps −1**) | Controles |
-| Campana de un AMRAP (puntuación) | **Guardar** (con 5 s de deshacer con UP) | **Ronda hecha** solo si hay una en curso; si no, sin efecto | **reps +1** (mantener acelera) | **reps −1** (mantener acelera) | Controles |
+| Anotar la serie (en el descanso) | confirmar campo (reps → carga → RIR) | campo anterior | valor + | valor − | — |
+| AMRAP / puntuación | Pausa | **Ronda hecha** | **reps +1** | **reps −1** | Controles (aquí están Datos/Vueltas/Estructura) |
 | Pausa | **Reanudar** | Controles | — | — | — |
 | Controles | elegir | cerrar | anterior | siguiente | — |
-| RPE | **confirmar** | omitir (RPE nulo) | valor + | valor − | — |
-| Resumen | siguiente página / Hecho | atrás / Seguir | página anterior | página siguiente | — |
+| RPE / Resumen | confirmar / siguiente | atrás | valor + | valor − | — |
 
-- **Anotar la serie** se abre en cada descanso con series por anotar y se reabre con UP mientras haya algo propuesto (con DOWN no: cambiaría un dato sin querer). Lo propuesto no cuenta como declarado hasta confirmarlo con START. Cada campo confirmado suena como una tecla (§6).
-- **Un cierre que no cierra paso** (guardar la campana, anotar una serie) también tiene su deshacer de 5 s con UP: es el deshacer de FAMILIA, una sola pieza del kit.
 - El táctil solo actúa fuera del vivo (brief, controles en pausa, RPE, resumen) y siempre tiene su tecla equivalente.
 - **Páginas del vivo** (UP/DOWN, circular): Paso → Datos → Vueltas → Estructura. Mismas cuatro que la corona de la muñeca de Apple.
 - **Controles** (UP largo): Pausa, Saltar paso, +30 s (descanso), Cambiar entorno (calle/cinta/pista), Terminar (pide confirmar con START; ofrece «Guardar lo hecho»), Descartar (confirma dos veces).
@@ -93,7 +88,7 @@ Hereda de `docs/reloj-muneca/modelo.md` el paso como unidad (P2), el objetivo qu
 
 ## 6. Vocabulario de aviso (vibración + tono; sin voz)
 
-Codificación redundante: la vibración distingue por **número de pulsos** y el tono por **melodía**. Si el atleta silencia los tonos queda la vibración; si el Forerunner ignora los patrones de intensidad queda el conteo. Un evento sin aviso propio no vibra (pausa, reanudar, +30 s, deshacer y el estado del envío no avisan). En un mismo instante suena UN aviso, el de más prioridad; el acuse de una tecla va delante.
+Codificación redundante: la vibración distingue por **número de pulsos** y el tono por **melodía**. Si el atleta silencia los tonos queda la vibración; si el Forerunner ignora los patrones de intensidad queda el conteo. Un evento sin aviso propio no vibra.
 
 | Evento | Vibración | Tono (de sistema o propio) |
 |---|---|---|
@@ -108,8 +103,6 @@ Codificación redundante: la vibración distingue por **número de pulsos** y el
 | Bloque hecho | 1 larga + 1 corta | `SUCCESS` |
 | Sesión hecha | 3 largas | `SUCCESS` ×2 |
 | GPS listo | 1 larga | `SUCCESS` |
-| Campana de un AMRAP | 4 largas | melodía propia (5 notas) |
-| Campo de anotación confirmado | 1 muy corta | `KEY` |
 | Sensor o GPS perdido | 3 largas | `FAILURE` |
 | Sensor o GPS recuperado | 1 corta | `KEY` |
 | Batería baja (< 10 %) | 2 largas | `LOW_BATTERY` |
@@ -124,7 +117,7 @@ Cada una en los tres casos de diseño (454, 390, 260) y a 218. Las que llevan da
 
 **En vivo:** G08 3-2-1 + GO · G09 Paso de correr (calle, cinta y pista; a ritmo, a zona, a RPE, abierto), con banda del objetivo y marca ▲▼ · G10 Aviso fuera de objetivo · G11 Recupera (trote, andar, parado) con «Luego» · G12 Descanso común · G13 Estación (medida o «lo dices tú») · G14 Roxzone · G15 Serie de fuerza + anotar (reps, carga, RIR) · G16 EMOM (ventana y tarea) · G17 AMRAP (rondas y reps) · G18 For Time (crono total y cap) · G19 Ergo (remo, ski, bici) · G20 Pausa · G21 Deshacer · G22 Controles · G23 Datos (rejilla) · G24 Vueltas · G25 Estructura · G26 Aviso de sistema (GPS/sensor perdido, batería).
 
-**Al terminar:** G27 Sesión completada + guardado · G28 RPE (0–10 con su palabra; omitible: un RPE omitido es nulo, nunca inventado) · G29 Resumen de corredor («5 de 6 dentro», series frente a objetivo) · G30 Resumen de circuito (parciales por carrera y estación, Roxzone, coste de la carrera comprometida) · G31 Estado de envío honesto: «Guardado en el reloj · sube al tener el móvil» · «Enviando» · «Enviado ✓» · «Sesión caducada · vuelve a vincular el reloj, tu entreno espera» (401: nunca se tira) · «El servidor no contesta · lo reintento solo» (5xx). **No existe «rechazado con Reintentar»:** el servidor no rechaza un entreno con trabajo (DECISIONS 28-09, «Nunca 4xx por un entreno con trabajo») y repetir un 4xx da el mismo 4xx.
+**Al terminar:** G27 Sesión completada + guardado · G28 RPE (0–10 con su palabra; omitible: un RPE omitido es nulo, nunca inventado) · G29 Resumen de corredor («5 de 6 dentro», series frente a objetivo) · G30 Resumen de circuito (parciales por carrera y estación, Roxzone, coste de la carrera comprometida) · G31 Estado de envío honesto («Guardado en el reloj · sube al tener el móvil»).
 
 ## 8. Datos
 
