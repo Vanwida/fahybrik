@@ -413,7 +413,7 @@ Tres reglas medidas (las afirma `DiaKitTests`):
 
 ### 11.3 · Tipografía: se pide el papel, no el número
 
-`Text(…).papel(.seccion)`. Papeles: `etiqueta`, `kicker`, `rotulo`, `nota`, `notaFuerte`, `notaPesada` (15 pt) · `cuerpo`, `cuerpoFuerte`, `accion` (17) · `seccion` (24) · `saludo` (30) · `dato` (32) · `sujeto` (44) · `cuentaHoy` (64) · `cuenta` (80). Escalan con Dynamic Type hacia arriba y **nunca por debajo de su base**; los de 24 pt en adelante llevan tope (×1,3) para que una palabra no se parta a mitad. Sigue en pie, y choca con el suelo de 15 pt, la escala antigua: `Theme.Typography.body/small/caption/dataLabel` (16/13/12/11), `LabelText`/`SectionLabel` (11), `SectionHeader` de Perfil (10). No se borran (hay pantallas que aún las leen); una pantalla rehecha no las usa.
+`Text(…).papel(.seccion)`. Papeles: `etiqueta`, `kicker`, `rotulo`, `nota`, `notaFuerte`, `notaPesada` (15 pt) · `cuerpo`, `cuerpoFuerte`, `accion` (17) · `seccion` (24) · `saludo` (30) · `dato` (32) · `sujeto` (44) · `cuentaHoy` (64) · `cuenta` (80). Escalan con Dynamic Type hacia arriba y **nunca por debajo de su base**; los de 24 pt en adelante llevan tope (×1,3) para que una palabra no se parta a mitad. Sigue en pie, y choca con el suelo de 15 pt, la escala antigua: `Theme.Typography.body/small/caption/dataLabel` (16/13/12/11), `LabelText`/`SectionLabel` (11). (El `SectionHeader` de Perfil, de 10 pt, se borró al rehacer la pestaña.) No se borran (hay pantallas que aún las leen); una pantalla rehecha no las usa.
 
 ### 11.4 · Altura
 
