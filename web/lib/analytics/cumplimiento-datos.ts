@@ -161,6 +161,73 @@ function lineaDe(l: FilaLinea, formatoPlantilla: string | null, snapshot: unknow
   };
 }
 
+/** Las líneas de las plantillas de esas sesiones (ids sacados del atleta verificado). */
+async function leerLineas(plantillas: number[], client: Sql): Promise<FilaLinea[]> {
+  if (plantillas.length === 0) return [];
+  // tenancy: verified-owner
+  return await client<FilaLinea[]>`
+    select
+      ts.id::text as id,
+      ts.template_id::text as template_id,
+      ts.position as posicion,
+      ts.block_position as bloque,
+      ts.block_format,
+      ts.prescription_json as prescription,
+      ex.name as ejercicio,
+      ex.modality as exercise_modality,
+      ex.category::text as exercise_category
+    from template_segments ts
+    left join exercises ex on ex.id = ts.exercise_id
+    where ts.template_id = any(${plantillas}::bigint[])
+    order by ts.template_id, ts.block_position, ts.position
+  `;
+}
+
+/** Los tramos de esas ejecuciones, con sus series; la ejecución tiene que ser del atleta. */
+async function leerTramos(atleta: AtletaVerificado, ejecuciones: number[], client: Sql): Promise<FilaTramo[]> {
+  if (ejecuciones.length === 0) return [];
+  // tenancy: verified-owner
+  return await client<FilaTramo[]>`
+    select
+      se.id::text as id,
+      se.execution_id::text as execution_id,
+      se.template_segment_id::text as template_segment_id,
+      se.position as posicion,
+      extract(epoch from (se.ended_at - se.started_at))::float as segundos,
+      se.distance_meters::float as metros,
+      se.avg_pace_s_per_km::float as ritmo_s_km,
+      se.avg_pace_s_per_500m::float as split_s_500m,
+      se.avg_power_w::float as vatios,
+      se.avg_hr::float as pulso,
+      se.incline_pct::float as inclinacion,
+      se.avg_gradient_pct::float as pendiente,
+      se.reps_completed as reps,
+      se.weight_used_kg::float as kg,
+      se.calories::float as calorias,
+      se.emom_rounds_completed as rondas,
+      se.emom_rounds_prescribed as rondas_prescritas,
+      se.leg_index as pierna,
+      se.leg_role as papel_pierna,
+      se.round_index as ronda,
+      se.modality as modalidad,
+      se.prescription_snapshot as snapshot,
+      (
+        select json_agg(json_build_object(
+          'i', s.set_index, 'reps', s.reps_actual, 'reps_p', s.reps_prescribed,
+          'kg', s.load_actual_kg, 'kg_p', s.load_prescribed_kg,
+          'rpe', s.rpe, 'rir', s.rir, 'estado', s.status
+        ) order by s.set_index)
+        from set_executions s
+        where s.segment_execution_id = se.id
+      ) as series
+    from segment_executions se
+    join workout_executions we on we.id = se.execution_id
+    where se.execution_id = any(${ejecuciones}::bigint[])
+      and we.athlete_id = ${atleta.athlete_id}
+    order by se.execution_id, se.position
+  `;
+}
+
 /**
  * Las sesiones del plan del COACH programadas entre `desde` y hoy (días locales
  * del atleta), con lo que decide si son debidas y todo lo que se juzga. El «hoy»
@@ -200,70 +267,7 @@ export async function loadSesionesCumplimiento(
   const plantillas = [...new Set(sesiones.map((s) => s.template_id).filter((x): x is string => x != null))].map(Number);
   const ejecuciones = sesiones.map((s) => s.execution_id).filter((x): x is string => x != null).map(Number);
 
-  // tenancy: verified-owner
-  const lineas =
-    plantillas.length === 0
-      ? []
-      : await client<FilaLinea[]>`
-          select
-            ts.id::text as id,
-            ts.template_id::text as template_id,
-            ts.position as posicion,
-            ts.block_position as bloque,
-            ts.block_format,
-            ts.prescription_json as prescription,
-            ex.name as ejercicio,
-            ex.modality as exercise_modality,
-            ex.category::text as exercise_category
-          from template_segments ts
-          left join exercises ex on ex.id = ts.exercise_id
-          where ts.template_id = any(${plantillas}::bigint[])
-          order by ts.template_id, ts.block_position, ts.position
-        `;
-
-  // tenancy: verified-owner
-  const tramos =
-    ejecuciones.length === 0
-      ? []
-      : await client<FilaTramo[]>`
-          select
-            se.id::text as id,
-            se.execution_id::text as execution_id,
-            se.template_segment_id::text as template_segment_id,
-            se.position as posicion,
-            extract(epoch from (se.ended_at - se.started_at))::float as segundos,
-            se.distance_meters::float as metros,
-            se.avg_pace_s_per_km::float as ritmo_s_km,
-            se.avg_pace_s_per_500m::float as split_s_500m,
-            se.avg_power_w::float as vatios,
-            se.avg_hr::float as pulso,
-            se.incline_pct::float as inclinacion,
-            se.avg_gradient_pct::float as pendiente,
-            se.reps_completed as reps,
-            se.weight_used_kg::float as kg,
-            se.calories::float as calorias,
-            se.emom_rounds_completed as rondas,
-            se.emom_rounds_prescribed as rondas_prescritas,
-            se.leg_index as pierna,
-            se.leg_role as papel_pierna,
-            se.round_index as ronda,
-            se.modality as modalidad,
-            se.prescription_snapshot as snapshot,
-            (
-              select json_agg(json_build_object(
-                'i', s.set_index, 'reps', s.reps_actual, 'reps_p', s.reps_prescribed,
-                'kg', s.load_actual_kg, 'kg_p', s.load_prescribed_kg,
-                'rpe', s.rpe, 'rir', s.rir, 'estado', s.status
-              ) order by s.set_index)
-              from set_executions s
-              where s.segment_execution_id = se.id
-            ) as series
-          from segment_executions se
-          join workout_executions we on we.id = se.execution_id
-          where se.execution_id = any(${ejecuciones}::bigint[])
-            and we.athlete_id = ${atleta.athlete_id}
-          order by se.execution_id, se.position
-        `;
+  const [lineas, tramos] = await Promise.all([leerLineas(plantillas, client), leerTramos(atleta, ejecuciones, client)]);
 
   const lineasDe = new Map<string, FilaLinea[]>();
   for (const l of lineas) lineasDe.set(l.template_id, [...(lineasDe.get(l.template_id) ?? []), l]);
