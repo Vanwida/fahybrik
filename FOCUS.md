@@ -2,9 +2,11 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-29** (vivo nuevo del iPhone encendido en Release, en rama)
+Última actualización: **2026-09-29** (analíticas: cinco fallos de datos, 0278 en rama)
 
 ## Ahora
+
+**ANALÍTICAS · CINCO FALLOS DE DATOS (29-09, rama `claude/analiticas-datos`, sin fusionar; DECISIONS 29-09).** Readiness como texto JSON, zonas más largas que su tramo (motor del iPhone), saltos imposibles (techo físico 1 s de vuelo), 1.277 importaciones de Salud sin tipo y 13 copias de libres. Código + migración 0278 probada en rama (reejecutarla: 0 filas). NO en prod: aplicar 0278 ANTES del deploy y después `pnpm --dir infra backfill:zonas`.
 
 **28-09 · UN SOLO ENTRENO EN PRODUCCIÓN + VIVO DEL IPHONE FIRMADO.** Libre ≡ coach al guardar, escribir y leer (0274–0276 aplicadas en prod + backfill de plantillas). Reloj sin atascos; motor del iPhone por formato; historial con series y parciales. Alex firmó el vivo nuevo del iPhone (galería https://claude.ai/artifact/YN3iFbkZYGHSn1S5hsgb8t, propuestas `iphone-vivo-*`). EN CURSO: el Swift del vivo (base primero, luego familias). PENDIENTE: build iOS en Xcode Cloud para TestFlight (lo instala Alex).
 
