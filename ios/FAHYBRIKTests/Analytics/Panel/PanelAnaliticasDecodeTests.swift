@@ -382,7 +382,7 @@ final class PanelAnaliticasDecodeTests: XCTestCase {
         XCTAssertNil(l.serie?.plan)
         XCTAssertNil(l.procedencia.ancla)
         XCTAssertNil(l.dato?.rango)
-        XCTAssertEqual(l.forma, .cifraYSerie)
+        XCTAssertTrue(l.sePinta)
     }
 
     func testTodasLasUnidadesDelContratoDecodificanYUnaNuevaNoLanza() throws {

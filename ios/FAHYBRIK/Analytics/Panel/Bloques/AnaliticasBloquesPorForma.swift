@@ -86,7 +86,7 @@ struct AnaliticasBloqueProgreso: View {
     let ctx: ContextoDeBloque
 
     var body: some View {
-        let lecturas = ctx.lecturas(.progreso).filter { $0.forma != .muda }
+        let lecturas = ctx.lecturas(.progreso).filter(\.sePinta)
         let hayHueco = ctx.pendiente(.progreso) || ctx.estado(.progreso) != .lleno
         let sinFilas = ctx.pendiente(.progreso) || ctx.estado(.progreso) == .vacio
         AnaliticasSeccion(titulo: BloqueDelPanel.progreso.titulo, pregunta: BloqueDelPanel.progreso.pregunta) {

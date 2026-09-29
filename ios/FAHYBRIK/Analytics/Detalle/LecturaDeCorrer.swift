@@ -89,7 +89,7 @@ struct LecturaDeCorrer: Equatable {
             velocidadCritica: d.lectura(idVelocidadCritica),
             deposito: d.lectura(idDeposito),
             vdot: d.lectura(idVdot),
-            porTipo: d.lecturas(prefijo: prefijoTipo).filter { $0.forma != .muda },
+            porTipo: d.lecturas(prefijo: prefijoTipo).filter(\.sePinta),
             hoy: d.hoy
         )
     }
