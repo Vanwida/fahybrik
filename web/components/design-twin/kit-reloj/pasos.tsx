@@ -238,15 +238,23 @@ export function Descanso({
  * LA CUENTA ATRÁS a pantalla completa antes de un paso de trabajo. Arriba, a
  * qué entras; en el centro, el número; debajo, contra qué. `n = 0` es el GO.
  */
-export function TresDosUno({ n, paso }: { n: number; paso: PasoBase }) {
-  // Debajo del contexto, solo lo que el contexto no dice: el movimiento («Wall
-  // Balls») y contra qué entras («a 3:45–3:55»). Un rodaje «Rodaje · Z2 · 40′»
-  // ya lo lleva todo arriba: el 3-2-1 gana la fila.
+/**
+ * Lo que dice la cuenta atrás bajo el contexto, PURO (lo pintan la muñeca y
+ * cualquier otro pintor): solo lo que el contexto no dice — el movimiento
+ * («Wall Balls») y contra qué entras («a 3:45–3:55»). Un rodaje «Rodaje · Z2
+ * · 40′» ya lo lleva todo arriba: `null`, y el 3-2-1 gana la fila.
+ */
+export function textoCuenta(paso: PasoBase): string | null {
   const contexto = contextoDe(paso);
   const o = principal(paso);
   const obj = o ? fmtObjetivo(o) : null;
   const nombre = paso.nombre && !contexto.some((c) => c.includes(paso.nombre!)) ? paso.nombre : null;
-  const texto = [nombre, obj && !contexto.includes(obj) ? `a ${obj}` : null].filter(Boolean).join(' · ') || null;
+  return [nombre, obj && !contexto.includes(obj) ? `a ${obj}` : null].filter(Boolean).join(' · ') || null;
+}
+
+export function TresDosUno({ n, paso }: { n: number; paso: PasoBase }) {
+  const contexto = contextoDe(paso);
+  const texto = textoCuenta(paso);
   const filas: NombreFila[] = texto ? ['contexto', 'instruccion'] : ['contexto'];
   return (
     <Columna estilo={{ background: C.fondo }}>

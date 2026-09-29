@@ -80,6 +80,29 @@ export function avisoDeCierre(paso: Paso): string {
   return 'Paso cerrado';
 }
 
+/**
+ * Lo que la página Vueltas necesita además de las vueltas, PURO (lo usan la
+ * muñeca y cualquier otro pintor): el objetivo de las series para la cabecera
+ * y la vuelta que se está corriendo (la serie en curso, o el km).
+ */
+export function vueltasDe(seq: Pick<Secuencia, 'paso' | 'lecturas' | 'estado'>): {
+  objetivo: string | null;
+  enCurso: { n: string; valor: string } | null;
+} {
+  const { paso, lecturas, estado } = seq;
+  const deSerie = paso.rol === 'trabajo' ? paso : paso.siguiente;
+  const o = deSerie ? principal(deSerie) : null;
+  const objetivo = o && (deSerie?.posicion?.serie || deSerie?.posicion?.tramo) ? fmtObjetivo(o) : null;
+  const cuenta = paso.posicion?.serie ?? paso.posicion?.tramo;
+  const enCurso =
+    paso.rol === 'trabajo' && cuenta
+      ? { n: paso.posicion?.tanda ? `${paso.posicion.tanda.n}·${cuenta.n}` : String(cuenta.n), valor: fmtReloj(lecturas.t) }
+      : paso.vueltaAutoM
+        ? { n: `km ${estado.kmN + 1}`, valor: fmtReloj(estado.sesionT - estado.kmDesdeT) }
+        : null;
+  return { objetivo, enCurso };
+}
+
 // ---------------------------------------------------------------------------
 // El motor y sus eventos
 // ---------------------------------------------------------------------------
@@ -235,17 +258,7 @@ export function VistaVivo(p: VistaVivoProps) {
         : { etiqueta: paso.cierre === 'atleta' ? aviso : 'siguiente paso', hacer: seq.cerrar, deshacer };
   const accion = p.accion ? p.accion(seq, accionKit) : accionKit;
 
-  // Vueltas: el objetivo de las series en la cabecera y la que se corre arriba.
-  const deSerie = paso.rol === 'trabajo' ? paso : paso.siguiente;
-  const o = deSerie ? principal(deSerie) : null;
-  const objetivoSeries = o && (deSerie?.posicion?.serie || deSerie?.posicion?.tramo) ? fmtObjetivo(o) : null;
-  const cuenta = paso.posicion?.serie ?? paso.posicion?.tramo;
-  const enCurso =
-    paso.rol === 'trabajo' && cuenta
-      ? { n: paso.posicion?.tanda ? `${paso.posicion.tanda.n}·${cuenta.n}` : String(cuenta.n), valor: fmtReloj(lecturas.t) }
-      : paso.vueltaAutoM
-        ? { n: `km ${estado.kmN + 1}`, valor: fmtReloj(estado.sesionT - estado.kmDesdeT) }
-        : null;
+  const { objetivo: objetivoSeries, enCurso } = vueltasDe(seq);
   const estructura = p.estructura ?? estructuraDe(plan.pasos);
   const paginas = p.paginas
     ? p.paginas(seq, cara)

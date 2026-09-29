@@ -10,6 +10,8 @@
 import type { ComponentType } from 'react';
 
 export type TwinOrientation = 'portrait' | 'landscape';
+/** En qué se pinta una pantalla del doble (ver `TwinMeta.dispositivo`). */
+export type TwinDispositivo = 'iphone' | 'watch' | 'escritorio' | 'garmin';
 export type TwinAppearance = 'light' | 'dark';
 /** Los dos anchos a los que se juzga el panel del coach (CONTRATO-UI §9.3 y el encargo: 1280 y 1440). */
 export type TwinAnchoEscritorio = 1440 | 1280;
@@ -109,8 +111,10 @@ export interface TwinMeta {
    * `escritorio` = el panel del coach (web) dibujado a 1440 o 1280 de ancho
    * dentro de una ventana de navegador; sus pantallas pintan con los tokens
    * `--v2-*` del panel, no con los del iPhone.
+   * `garmin` = un reloj Garmin redondo: el marco no pone bisel; la carcasa
+   * (botones, selector de 454/390/260/218) la dibuja la pantalla con `kit-garmin`.
    */
-  dispositivo: 'iphone' | 'watch' | 'escritorio';
+  dispositivo: TwinDispositivo;
   soportaHorizontal: boolean;
   /**
    * Declaración de composición (§6). Presente = el panel ofrece el

@@ -75,6 +75,7 @@
 //                 (en /500 a split), vozKm, vozPreaviso, VOZ_SESION, nombreCuenta, enLetras.
 //   eventos.ts    EventoVivo (incl. «GPS listo») + VOCABULARIO (tabla §4), useEventos(onLog)
 //                 → { emitir, ultimo }: un instante = un háptico + voces encadenadas;
+//                 useLote (el «instante» genérico, lo usa también kit-garmin);
 //                 decidirAviso (histéresis/cadencia/gracia como dato del coach).
 //   secuencia.ts  El motor PURO: PlanSesion, Simulador/LecturaSim (ritmo, split500,
 //                 vatios, cadencia, metros del PM5), EstadoSecuencia (parciales,
@@ -97,12 +98,13 @@
 //   banda.tsx     BandaObjetivo (ritmo, /500, pulso, zona sobre el espectro del coach).
 //   pasos.tsx     Columna, PasoCorrer (contexto, línea bajo él, ritmo bajo el RPE),
 //                 Recupera, Descanso (P8: «Viene» propio, hueco de anotación, pulso
-//                 opcional), TresDosUno, AvisoVuelta, LuegoLinea.
+//                 opcional), TresDosUno + textoCuenta (puro), AvisoVuelta, LuegoLinea.
 //   puntuacion.tsx CaraPuntuacion: la campana del AMRAP, la puntuación con la corona.
 //   paginas.tsx   PaginaControles/Control/ConfirmarTerminar, AhoraSuena.
 //   listas.tsx    Las de la corona: PaginaFilas/FilaDato, PaginaSplits/juicioDe,
 //                 PaginaLista/FilaLista, y sus usos: PaginaDatos, PaginaVueltas,
-//                 PaginaEstructura/textoFila.
+//                 PaginaEstructura/textoFila; las filas puras filasDeDatos y
+//                 filasDeVueltas (las pinta también kit-garmin).
 //   aro.tsx       AroSesion (con su estimador `duracion`), arcosDePlan, fraccionDelPaso.
 //   Muneca.tsx    La carcasa del vivo (P4): áreas, corona (y la corona enfocada en un
 //                 valor), doble toque en la pantalla, puntos, muñeca/AOD, pausa, Water
@@ -111,7 +113,8 @@
 //   pila.tsx      Pila: la carcasa de antes y después (sin Controles ni Ahora suena).
 //   fin.tsx       Completada (completa/parcial/libre, Guardar/Seguir, guardada sola),
 //                 lineaCompletitud.
-//   vivo.tsx      useVivo, VistaVivo, VivoDePlan, FinDeVivo, sesionDe, avisoDeCierre.
+//   vivo.tsx      useVivo, VistaVivo, VivoDePlan, FinDeVivo, sesionDe, avisoDeCierre,
+//                 vueltasDe (el objetivo de las series y la vuelta en curso, puro).
 //
 // ── LO QUE NO SE NEGOCIA ────────────────────────────────────────────────────
 //

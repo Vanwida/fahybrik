@@ -97,7 +97,8 @@ export function cuerpo(o: Opciones = {}): Simulador {
 // Vueltas ya hechas cuando arranca el escenario
 // ---------------------------------------------------------------------------
 
-const serie = (n: number, segundos: number, metros: number, ppm: number, eje: 'ritmo' | 'zona' = 'ritmo', tanda?: number): Vuelta => ({
+/** Una serie ya hecha «dentro» (la usa también el reloj Garmin, `garmin-gramatica`). */
+export const serie = (n: number, segundos: number, metros: number, ppm: number, eje: 'ritmo' | 'zona' = 'ritmo', tanda?: number): Vuelta => ({
   n,
   tanda,
   clase: 'serie',

@@ -9,7 +9,7 @@
 import Link from 'next/link';
 import { ESTADO_LABEL, getScreen, type Coleccion } from './registry';
 
-export const DISPOSITIVO_LABEL = { watch: 'Watch', iphone: 'iPhone', escritorio: 'Escritorio' } as const;
+export const DISPOSITIVO_LABEL = { watch: 'Watch', iphone: 'iPhone', escritorio: 'Escritorio', garmin: 'Garmin' } as const;
 
 export function TandaIndex({ coleccion, localePrefix }: { coleccion: Coleccion; localePrefix: string }) {
   return (

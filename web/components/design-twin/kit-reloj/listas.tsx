@@ -104,6 +104,24 @@ export function PaginaFilas({
   );
 }
 
+/**
+ * Las cuatro filas de la sesión entera (tiempo, distancia, ritmo medio,
+ * pulso), PURAS: las pinta la muñeca (`PaginaDatos`) y cualquier otro pintor
+ * del mismo estado (el reloj Garmin), sin repetir la regla.
+ */
+export function filasDeDatos(sesion: Sesion, lecturas: Lecturas, fuente?: string): FilaDatoVista[] {
+  // Los metros que vienen del móvil (cinta) y no llegan: «—», no el último valor congelado.
+  const sinMetros = lecturas.viejos?.includes('hecho') ?? false;
+  const d = sesion.metros != null && !sinMetros ? fmtDistancia(sesion.metros) : null;
+  const ppm = lecturas.viejos?.includes('ppm') ? null : lecturas.ppm;
+  return [
+    { valor: fmtReloj(sesion.t), unidad: 'total' },
+    { valor: d ? d.valor : '—', unidad: `${d ? d.unidad : 'km'}${fuente ? ` · ${fuente}` : ''}` },
+    { valor: sinMetros ? '—' : fmtRitmo(sesion.ritmoMedio), unidad: '/km medio' },
+    { valor: ppm == null ? '—' : String(Math.round(ppm)), unidad: 'ppm', ppm },
+  ];
+}
+
 /** LA SESIÓN ENTERA — lo que Apple pone en su vista de varias métricas. */
 export function PaginaDatos({
   sesion,
@@ -117,22 +135,7 @@ export function PaginaDatos({
   /** Quién da los metros si no es el GPS: «cinta». Se dice, no se supone. */
   fuente?: string;
 }) {
-  // Los metros que vienen del móvil (cinta) y no llegan: «—», no el último valor congelado.
-  const sinMetros = lecturas.viejos?.includes('hecho') ?? false;
-  const d = sesion.metros != null && !sinMetros ? fmtDistancia(sesion.metros) : null;
-  const ppm = lecturas.viejos?.includes('ppm') ? null : lecturas.ppm;
-  return (
-    <PaginaFilas
-      titulo={['Sesión']}
-      zonas={zonas}
-      filas={[
-        { valor: fmtReloj(sesion.t), unidad: 'total' },
-        { valor: d ? d.valor : '—', unidad: `${d ? d.unidad : 'km'}${fuente ? ` · ${fuente}` : ''}` },
-        { valor: sinMetros ? '—' : fmtRitmo(sesion.ritmoMedio), unidad: '/km medio' },
-        { valor: ppm == null ? '—' : String(Math.round(ppm)), unidad: 'ppm', ppm },
-      ]}
-    />
-  );
+  return <PaginaFilas titulo={['Sesión']} zonas={zonas} filas={filasDeDatos(sesion, lecturas, fuente)} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -224,9 +227,25 @@ export function PaginaVueltas({
   /** La vuelta que se está corriendo: «3 · ahora · 616 m». */
   enCurso?: { n: string; valor: string } | null;
 }) {
-  const ultimas = [...vueltas].reverse().slice(0, enCurso ? 4 : 5);
+  const { titulo, filas } = filasDeVueltas(vueltas, objetivo, enCurso ? 4 : 5);
+  return <PaginaSplits titulo={titulo} filas={filas} enCurso={enCurso} anchoN={34} />;
+}
+
+/**
+ * Las filas de la página Vueltas, PURAS (las pinta la muñeca y cualquier otro
+ * pintor del mismo estado): el título («Series · 3:45–3:55» o «Kilómetros») y
+ * una fila por vuelta con su número, su valor, su detalle y su veredicto.
+ * `visibles` es cuántas de las últimas se enseñan: decide si una serie por
+ * tiempo se lee por sus metros.
+ */
+export function filasDeVueltas(
+  vueltas: Vuelta[],
+  objetivo: string | null | undefined,
+  visibles: number,
+): { titulo: string[]; filas: FilaSplit[] } {
+  const ultimas = [...vueltas].reverse().slice(0, visibles);
   const series = vueltas.some((v) => v.clase !== 'km') || (vueltas.length === 0 && !!objetivo);
-  const titulo = series ? 'Series' : 'Kilómetros';
+  const nombre = series ? 'Series' : 'Kilómetros';
   const filas: FilaSplit[] = vueltas.map((v) => {
     // Una serie por TIEMPO siempre dura lo mismo: su resultado son los metros.
     const porTiempo = v.clase !== 'km' && ultimas.every((x) => x.segundos === v.segundos) && ultimas.length > 1;
@@ -239,7 +258,7 @@ export function PaginaVueltas({
       juicio: juicioDe(v),
     };
   });
-  return <PaginaSplits titulo={objetivo ? [titulo, objetivo] : [titulo]} filas={filas} enCurso={enCurso} anchoN={34} />;
+  return { titulo: objetivo ? [nombre, objetivo] : [nombre], filas };
 }
 
 // ---------------------------------------------------------------------------

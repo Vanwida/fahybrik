@@ -2,6 +2,10 @@
 
 // Marco de dispositivo del doble: un iPhone, un Apple Watch o una ventana de
 // navegador (el panel del coach) dibujados en CSS alrededor del lienzo lógico.
+// Un Garmin NO lleva marco aquí: el lienzo es una mesa sin bisel y la carcasa
+// (redonda, con sus cinco botones y el selector de tamaño) la pinta la
+// pantalla con `kit-garmin`, porque el tamaño del reloj es parte de lo que se
+// juzga y cambia sin remontar.
 // Dos modos:
 //
 //  - enmarcado (por defecto): bisel + isla + barra de estado falsas, lienzo a
@@ -16,10 +20,12 @@
 // las pantallas jamás dibujan isla ni reloj de sistema.
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import type { TwinAnchoEscritorio, TwinAppearance, TwinOrientation } from './types';
+import type { TwinAnchoEscritorio, TwinAppearance, TwinDispositivo, TwinOrientation } from './types';
 
 const IPHONE = { w: 402, h: 874, radius: 55 };
 const WATCH = { w: 208, h: 248, radius: 56 };
+/** La mesa de un Garmin: cabe el de 454 con sus botones y rótulos, o los cuatro tamaños juntos, a 1:1. */
+const GARMIN = { w: 900, h: 820, radius: 0 };
 /** El panel se juzga a 1440×900 y 1280×800 (el encargo y el §9.3 del contrato). */
 const ESCRITORIO: Record<TwinAnchoEscritorio, { w: number; h: number; radius: number }> = {
   1440: { w: 1440, h: 900, radius: 12 },
@@ -35,7 +41,7 @@ const SAFE = {
 };
 
 export interface DeviceFrameProps {
-  device: 'iphone' | 'watch' | 'escritorio';
+  device: TwinDispositivo;
   orientation: TwinOrientation;
   appearance: TwinAppearance;
   /** Solo escritorio: el ancho lógico de la ventana. */
@@ -49,7 +55,7 @@ export function DeviceFrame({ device, orientation, appearance, anchoEscritorio =
   const holderRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
-  const spec = device === 'watch' ? WATCH : device === 'escritorio' ? ESCRITORIO[anchoEscritorio] : IPHONE;
+  const spec = device === 'watch' ? WATCH : device === 'escritorio' ? ESCRITORIO[anchoEscritorio] : device === 'garmin' ? GARMIN : IPHONE;
   const landscape = device === 'iphone' && orientation === 'landscape';
   const canvasW = landscape ? spec.h : spec.w;
   const canvasH = landscape ? spec.w : spec.h;
@@ -72,7 +78,7 @@ export function DeviceFrame({ device, orientation, appearance, anchoEscritorio =
 
   const safe = device === 'watch'
     ? { top: 24, bottom: 12, left: 8, right: 8 }
-    : escritorio
+    : escritorio || device === 'garmin'
       ? { top: 0, bottom: 0, left: 0, right: 0 }
       : SAFE[landscape ? 'landscape' : 'portrait'];
 
@@ -98,6 +104,21 @@ export function DeviceFrame({ device, orientation, appearance, anchoEscritorio =
         style={{ position: 'fixed', inset: 0, zIndex: 40, ...(safeVars as CSSProperties) }}
       >
         <div className="twin-screen">{children}</div>
+      </div>
+    );
+  }
+
+  if (device === 'garmin') {
+    // Sin bisel ni fondo: la mesa; el reloj lo dibuja la pantalla (kit-garmin).
+    return (
+      <div ref={holderRef} style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+        <div style={{ transform: `scale(${scale})`, transition: 'transform 200ms ease-out' }}>
+          <div className="twin-root" data-appearance="dark" style={{ position: 'relative', width: canvasW, height: canvasH, background: 'transparent', ...(safeVars as CSSProperties) }}>
+            <div className="twin-screen" style={{ background: 'transparent' }}>
+              {children}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
