@@ -13,12 +13,7 @@ module AppState {
         // Trabajo en curso (lleva su propio texto)
         STATE_BUSY,
 
-        // Entreno del día
-        STATE_NEEDS_DOWNLOAD,   // hay entreno y aún no está en el reloj
-        STATE_READY,            // el entreno ya está en el reloj: se puede empezar
-        STATE_CONFIRM,          // avisamos de los dos toques del sistema
         STATE_NO_SESSION,       // hoy no toca
-        STATE_NOT_EXPORTABLE,   // hay sesión pero no es de correr
 
         // Fin de trayecto
         STATE_ERROR

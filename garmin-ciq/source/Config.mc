@@ -14,10 +14,6 @@ module Config {
     const PATH_AUTH_REQUEST = "/api/auth/email/request";
     const PATH_AUTH_VERIFY = "/api/auth/email/verify";
 
-    // Entreno del día para reloj Garmin. CONTRATO ASUMIDO — lo construye otro
-    // Vive en web/app/api/athlete/wearables/garmin/today/. Ver CONTRATO en Api.mc.
-    const PATH_TODAY = "/api/athlete/wearables/garmin/today";
-
     const HEADER_AUTH = "Authorization";
     const HEADER_CONTENT_TYPE = "Content-Type";
     const HEADER_ACCEPT = "Accept";
@@ -38,8 +34,6 @@ module Config {
     // los ajustes seguiría viendo el entreno del anterior: el token viejo sigue
     // siendo válido 30 días y nadie se enteraría.
     const STORE_TOKEN_EMAIL = "session_email";
-    const STORE_WORKOUT_NAME = "last_workout_name";
-    const STORE_WORKOUT_DATE = "last_workout_date";
 
     // ── Reglas de negocio ────────────────────────────────────────────────────
     // El código de acceso caduca en 10 min en el servidor
@@ -47,8 +41,4 @@ module Config {
     // otra cosa sería mentir al atleta.
     const LOGIN_CODE_TTL_MINUTES = 10;
     const LOGIN_CODE_LENGTH = 6;
-
-    // Techo defensivo al limpiar entrenos viejos nuestros: si por lo que sea el
-    // iterador no terminase, no nos quedamos colgados dentro del bucle.
-    const MAX_APP_WORKOUTS_SCAN = 64;
 }

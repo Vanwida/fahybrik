@@ -56,11 +56,7 @@ class MainView extends WatchUi.View {
             y = gap;
         }
 
-        // El nombre del entreno va en naranja; los títulos de estado, en blanco.
-        // Un solo acento en pantalla — el mismo criterio que la app y la web.
-        var titleColor = (controller.state == AppState.STATE_READY ||
-                          controller.state == AppState.STATE_NEEDS_DOWNLOAD)
-            ? Theme.ACCENT : Theme.FG;
+        var titleColor = Theme.FG;
 
         y = drawLines(dc, titleLines, titleFont, titleColor, width, y, gap);
         if (titleLines.size() > 0 && bodyLines.size() > 0) {

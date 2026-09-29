@@ -22,16 +22,6 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
         return true;
     }
 
-    // BACK: si estamos en la pantalla de aviso de los dos toques, vuelve atrás en
-    // vez de cerrar la app — es una confirmación, y una confirmación se cancela.
-    function onBack() as Lang.Boolean {
-        if (controller.state == AppState.STATE_CONFIRM) {
-            controller.ready("");
-            return true;
-        }
-        return false;
-    }
-
     // Gesto de refrescar: gira/desliza y vuelve a preguntar al servidor. Útil
     // cuando el atleta acaba de escribir el código en el móvil.
     function onNextPage() as Lang.Boolean {

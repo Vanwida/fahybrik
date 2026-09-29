@@ -1,11 +1,11 @@
 //
-// Punto de entrada. Entra en el manifest como entry="FahybridApp".
+// Punto de entrada. Entra en el manifest como entry="ActividadApp".
 //
 using Toybox.Application;
 using Toybox.Lang;
 using Toybox.WatchUi;
 
-class FahybridApp extends Application.AppBase {
+class ActividadApp extends Application.AppBase {
 
     var controller as Controller;
 
