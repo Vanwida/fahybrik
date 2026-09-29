@@ -111,6 +111,21 @@ Después de aplicarla, `pnpm --dir infra backfill:zonas` (sin `--force`) rehace 
 
 ---
 
+## 2026-09-29 · Hoy, rehecho: Alex firma «El día» y «El pulso» se descarta
+
+**Contexto.** Alex (29-09): la portada de Inicio «es aburrida, muy básica»; pidió dos direcciones. Se construyeron en el doble sobre un solo modelo (`kit-hoy/contrato` + 14 casos inventados): «El pulso» (sujeto: cómo llegas hoy, un dial instrumental) y «El día» (sujeto: el momento del día).
+
+**Firmado (Alex, 29-09: «me encanta, quiero llevarla a producción»): «El día».** `hoy-dia`: el sujeto lo decide `momento()` con una precedencia fija y probada (cargando, error, sin coach, pausa, retomar, check-in, sesión pendiente, hecho hoy, descanso/primer día); bloque editorial de marca con naranja sólido solo para «haz esto ahora»; «Cómo llegas» pasa a tira con anillo (el color de zona va en el arco, nunca en la cifra); póster de carrera como única foto; «Contigo» plegado; el check-in se hace dentro del sujeto (hoy es una hoja: cambio de flujo a decidir al portarlo).
+
+**Límites que conserva:** el Plan sigue siendo la única puerta de empezar (Hoy dice el estado y lleva al Plan); el progreso vive en Analíticas (Hoy deja una marca reciente); el entreno minimizado lo lleva la barra del sistema.
+
+**Descartado y por qué:** «El pulso». Dial enorme y bien resuelto, pero convierte la portada en un instrumento del cuerpo y deja la sesión y la carrera en filas; Alex prefirió que mande el momento. Vive en git (`f7b353da`, `screens/hoy-pulso/`) por si el dial se quiere para otra cosa (p. ej. el detalle de disposición).
+**Retirado del diseño de Hoy:** la tarjeta de progreso (ya en Analíticas), el texto de proximidad a la carrera («Afina y descansa», que cableaba 7 y 21 días: método del coach) y `PartnerTodayPanel` (el contrato no lo trae; decidir si sigue).
+
+**Después (mismo día):** Alex pide Plan, Carreras y Perfil con el mismo diseño antes de llevar las cuatro a iOS. El sistema visual sube a `kit-dia/`; colección `/design/pestanas`.
+
+**NO hacer:** volver a pintar en Hoy una tarjeta de progreso o un «Empezar» que lance el motor; escribir una constante de días de carrera en la vista.
+
 ## 2026-09-29 · El entreno minimizado se ve siempre: barra de sistema sobre las pestañas
 
 **Contexto.** El chevrón del vivo minimiza (FH-111: el motor y el espejo de la muñeca siguen), pero lo único que quedaba era una tarjeta en el scroll de Inicio/Plan que leía el disco y se recargaba solo al cerrar su propio cover: si el entreno se abrió desde otra pestaña, no aparecía. El atleta volvía por «crear entreno» → «seguir o terminar» (Alex, 29-09: «como UX está horrible»).

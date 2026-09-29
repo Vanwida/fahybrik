@@ -12,7 +12,7 @@ import { IcoBandeja, IcoChat } from '../../kit-dia/iconos';
 import { Esqueleto, Insignia } from '../../kit-dia/piezas';
 import { fuente, TAM, TOQUE } from '../../kit-dia/tokens';
 
-function BotonCromo({
+export function BotonCromo({
   etiqueta,
   onClick,
   children,
