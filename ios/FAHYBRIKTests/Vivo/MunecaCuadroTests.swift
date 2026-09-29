@@ -103,6 +103,34 @@ final class MunecaCuadroTests: XCTestCase {
         XCTAssertNil(Vivo.cuadroMuneca(estado(zona, 0, t: 300, ppm: nil)).tinte, "sin pulso no hay zona que teñir")
     }
 
+    /// La pista «doble toque · empezar ya» y «Luego · …» no caben siempre en una línea: la recuperación
+    /// reserva las filas que de verdad ocupan y le quita el alto al héroe, en vez de empujar el pulso fuera.
+    func testLaRecuperacionReservaLasLineasQueOcupanLaPistaYElLuego() throws {
+        let p = plan(try P.seisPorMilCompleto())
+        func recupera(_ m: Vivo.MedidasMuneca) throws -> Vivo.CaraRecupera {
+            let c = Vivo.cuadroMuneca(estado(p, 2, t: 30, ritmo: 400, ppm: 168), entorno: Vivo.EntornoMuneca(medidas: m))
+            guard case let .recupera(r) = c.cara else { throw XCTSkip("\(c.cara)") }
+            return r
+        }
+        let ancho = try recupera(.mm46)
+        XCTAssertEqual(ancho.pista.texto, "doble toque · empezar ya")
+        XCTAssertEqual(ancho.pista.lineas, 1)
+        XCTAssertEqual(ancho.luego?.lineas, 1)
+        let estrecho = try recupera(Vivo.MedidasMuneca(ancho: 162, alto: 197))
+        XCTAssertEqual(estrecho.pista.lineas, 2)
+        XCTAssertEqual(estrecho.luego?.lineas, 2)
+        // Cada nota de dos líneas roba 14 pt al héroe respecto de una de una línea.
+        XCTAssertLessThan(estrecho.heroe.altoMax, ancho.heroe.altoMax - 28)
+    }
+
+    func testElGpsDeLaMunecaSaleDeLaPrecisionDelUltimoFijado() {
+        XCTAssertEqual(Vivo.estadoGps(precisionM: nil), .buscando, "sin fijado, buscando")
+        XCTAssertEqual(Vivo.estadoGps(precisionM: 8), .listo)
+        XCTAssertEqual(Vivo.estadoGps(precisionM: 22), .listo, "débil pero usable")
+        XCTAssertEqual(Vivo.estadoGps(precisionM: 60), .buscando, "una precisión que no sirve no es un fijado")
+        XCTAssertEqual(Vivo.estadoGps(precisionM: -1), .buscando, "negativa = inválida")
+    }
+
     func testLaRecuperacionYElDescansoSonMonocromos() throws {
         let p = plan(try P.seisPorMilCompleto())
         let c = Vivo.cuadroMuneca(estado(p, 2, t: 30, ritmo: 400, ppm: 168))
