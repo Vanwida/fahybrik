@@ -21,7 +21,8 @@
 // 12" is how the bar came to be drawn out of 92 points while labelled "/ 100".
 
 import { adherencePct } from '../adherence/completion';
-import { hrvDeltaMs, type HrvSample } from '../biometrics/hrv-baseline';
+import { comparaConBasal, type MuestraDia, type PuertasBasal } from '../analytics/basal';
+import { DEFAULT_COACH_ANALYTICS_METHOD } from '../analytics/metodo';
 import { summarizeLoad, type DailyTss } from '../training-load/banister';
 import { readLoadCoverage, type LoadCoverage } from '../training-load/coverage';
 import {
@@ -312,12 +313,10 @@ export type RaceReadinessPoint = {
   iso_date: string;
 } & RaceReadinessResult;
 
-/** A day of the trend to compute: its date, and the instant it is read at. */
+/** A day of the trend to compute. The HRV is read against THAT local day (the one basal). */
 export type RaceReadinessSample = {
   /** YYYY-MM-DD — must exist in `series`. */
   iso_date: string;
-  /** The instant the HRV windows are measured back from. */
-  at: Date;
 };
 
 /**
@@ -335,7 +334,14 @@ export type RaceReadinessSample = {
 export function buildRaceReadinessHistory(params: {
   series: ReadonlyArray<DailyTss>;
   assignments: ReadonlyArray<DailyAssignmentCount>;
-  hrv: ReadonlyArray<HrvSample>;
+  /**
+   * Every raw HRV reading, attributed to the athlete's LOCAL day. Each point is
+   * read through THE basal (`analytics/basal.ts`, P3/P16): the coach's window and
+   * minimum nights, the same as the roster, the sweep and the athlete's panel.
+   */
+  vfc: ReadonlyArray<MuestraDia>;
+  /** The coach's basal window and minimum nights. Defaults to the system's. */
+  basal?: PuertasBasal;
   /** Ascending. Samples whose day is outside `series` are skipped, not invented. */
   samples: ReadonlyArray<RaceReadinessSample>;
   /** The coach's method (defaults: 40/30/20/10, TSB ±10). */
@@ -344,7 +350,8 @@ export function buildRaceReadinessHistory(params: {
   const indexByDate = new Map(params.series.map((p, i) => [p.date, i]));
   const out: RaceReadinessPoint[] = [];
 
-  for (const { iso_date, at } of params.samples) {
+  const basal = params.basal ?? DEFAULT_COACH_ANALYTICS_METHOD;
+  for (const { iso_date } of params.samples) {
     const idx = indexByDate.get(iso_date);
     if (idx == null) continue;
 
@@ -369,7 +376,7 @@ export function buildRaceReadinessHistory(params: {
     const result = readRaceReadiness({
       tsb: summary.tsb,
       compliance_pct: adherencePct(scheduled, completed),
-      hrv_delta_ms: hrvDeltaMs(params.hrv, at),
+      hrv_delta_ms: comparaConBasal(params.vfc, iso_date, basal).delta_fiable,
       active_days_7d,
       load_coverage: coverage,
     }, params.method);

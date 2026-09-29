@@ -13,6 +13,7 @@
 // Puro y sin base de datos.
 
 import { lecturaMedida, lecturaSinDato, type Lectura } from './lectura';
+import { readinessVigente, veredictoReadiness, type BandasReadiness } from './recuperacion-panel';
 
 export interface EntradaEstado {
   /** El readiness de hoy (o el último guardado, fechado como lo que es). */
@@ -21,6 +22,12 @@ export interface EntradaEstado {
   hoy: string;
   /** Las lecturas del bloque de forma (para copiar forma, fatiga y frescura). */
   forma: readonly Lectura[];
+  /**
+   * Las bandas del readiness de SU coach (P14: estaban escritas en Swift). Con
+   * ellas la cabecera lleva la palabra — bien / con cautela / bajo — mientras la
+   * lectura siga describiendo hoy. Sin ellas, solo el número.
+   */
+  bandas_readiness?: BandasReadiness | null;
 }
 
 const GRUPO = 'estado' as const;
@@ -48,6 +55,8 @@ export function lecturasEstado(e: EntradaEstado): Lectura[] {
     );
   } else {
     const esDeHoy = r.recorded_for === e.hoy;
+    const bandas = e.bandas_readiness ?? null;
+    const vigente = bandas != null && readinessVigente(r.recorded_for, e.hoy, bandas);
     lecturas.push(
       lecturaMedida({
         id: 'estado.readiness',
@@ -58,7 +67,15 @@ export function lecturasEstado(e: EntradaEstado): Lectura[] {
           unidad: 'puntos',
           referencia: r.delta_7d == null ? null : { valor: r.score - r.delta_7d, delta: r.delta_7d, de: 'hace_7d' },
         },
-        cobertura: { muestras: 1, dias_ventana: 1, dias_con_dato: esDeHoy ? 1 : 0, pct: esDeHoy ? 100 : 0 },
+        // Una lectura que ya no describe hoy se enseña fechada, sin palabra.
+        veredicto: bandas != null && vigente ? veredictoReadiness(r.score, bandas) : null,
+        cobertura: {
+          muestras: 1,
+          dias_ventana: 1,
+          dias_con_dato: esDeHoy ? 1 : 0,
+          pct: esDeHoy ? 100 : 0,
+          falta: bandas != null && !vigente ? { por: 'dispositivo' } : null,
+        },
         procedencia: {
           de: 'readiness_compuesto',
           explica_es: esDeHoy

@@ -295,6 +295,16 @@ describe('predictSegment · ageing', () => {
 describe('computeGoalGap', () => {
   const cohort5 = () => Array.from({ length: MIN_COHORT_RACES }, () => makeCohortRace());
 
+  it('without a goal the prediction still stands: no budget, no gap, the same segments and total', () => {
+    const conMeta = computeGoalGap({ goal_total_s: 3600, segments: SEGMENTS, cohort: cohort5(), own_race: ownRace({ age_days: 20 }), trained: [] });
+    const sinMeta = computeGoalGap({ goal_total_s: null, segments: SEGMENTS, cohort: cohort5(), own_race: ownRace({ age_days: 20 }), trained: [] });
+    expect(sinMeta.budget_source).toBeNull();
+    expect(sinMeta.gap_s).toBeNull();
+    expect(sinMeta.segments.every((s) => s.budget_s == null && s.delta_s == null)).toBe(true);
+    expect(sinMeta.predicted_total_s).toBe(conMeta.predicted_total_s);
+    expect(sinMeta.segments.map((s) => s.predicted_s)).toEqual(conMeta.segments.map((s) => s.predicted_s));
+  });
+
   it('builds budget + prediction over full coverage, and reads the gap', () => {
     // A recent own race covers all ten segments; trained only feeds the factor.
     const res = computeGoalGap({

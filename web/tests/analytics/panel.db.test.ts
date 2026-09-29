@@ -102,7 +102,7 @@ describeWithDb('panel de analíticas (base real)', () => {
 
     expect(panel.ventana).toMatchObject({ clave: '4s', hasta: HOY, desde: '2026-05-19', dias: 28 });
     expect(panel.historia).toMatchObject({ desde: '2026-06-10', cubre_todo: true });
-    expect(panel.pendientes).toEqual(['intensidad', 'progreso', 'records', 'carrera', 'recuperacion']);
+    expect(panel.pendientes).toEqual([]);
     expect(idsRepetidos(panel.bloques)).toEqual([]);
     expect(panel.anclas.pulso).toMatchObject({ valor: 170, ancla: 'declarada' });
 

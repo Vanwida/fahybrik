@@ -30,6 +30,7 @@ import {
   type BudgetSource,
   type CohortRace,
   type CoverageRead,
+  type GoalGapResult,
   type OwnRace,
   type PredictionTier,
   type ProjectionRead,
@@ -290,6 +291,46 @@ export async function fetchOwnRace(athleteId: number, todayIso: string, client: 
   };
 }
 
+// ── The computation, without writing anything ─────────────────────────────────
+
+/**
+ * La previsión individual de una carrera ya elegida, SIN escribir nada: las filas
+ * de este atleta y el motor puro. Con meta sale además el presupuesto por tramo y
+ * el hueco; sin meta, la previsión igual (no depende de ella). La leen la pizarra
+ * de carrera (`buildGoalGap`, que además congela la foto del día) y el bloque de
+ * carrera del panel de analíticas — un solo cálculo para las dos pantallas.
+ */
+export async function calcularGoalGap(
+  args: {
+    athlete_id: number;
+    race: { division: string; gender_category: string; goal_time_seconds: number | null };
+    /** El hoy del ATLETA, con el que se envejece su última carrera. */
+    todayIso: string;
+  },
+  client: Sql = defaultSql,
+): Promise<GoalGapResult> {
+  const goal = args.race.goal_time_seconds != null && args.race.goal_time_seconds > 0 ? args.race.goal_time_seconds : null;
+  const segments = buildSegments();
+
+  const [cohort, ownRace, transfer] = await Promise.all([
+    goal != null ? fetchCohort(goal, args.race.division, args.race.gender_category, client) : Promise.resolve([] as CohortRace[]),
+    fetchOwnRace(args.athlete_id, args.todayIso, client),
+    buildRaceTransfer({ athlete_id: args.athlete_id }, client),
+  ]);
+
+  const trained: TrainedLevel[] = transfer.stations.map((st) => ({
+    slug: st.slug,
+    kind: st.kind,
+    trained_value_s: st.trained.value_s,
+    race_value_s: st.race_seconds,
+    source: st.trained.source,
+    weakened: st.trained.weakened,
+    from_slug: st.trained.from_slug,
+  }));
+
+  return computeGoalGap({ goal_total_s: goal, segments, cohort, own_race: ownRace, trained });
+}
+
 // ── Snapshot (best-effort) ────────────────────────────────────────────────────
 
 /** Persist the day's prediction so predicted-vs-real stays honest (frozen before
@@ -371,25 +412,7 @@ export async function buildGoalGap(
   }
 
   const goal = target.goal_time_seconds;
-  const segments = buildSegments();
-
-  const [cohort, ownRace, transfer] = await Promise.all([
-    fetchCohort(goal, target.division, target.gender_category, client),
-    fetchOwnRace(athleteId, todayIso, client),
-    buildRaceTransfer({ athlete_id: athleteId }, client),
-  ]);
-
-  const trained: TrainedLevel[] = transfer.stations.map((st) => ({
-    slug: st.slug,
-    kind: st.kind,
-    trained_value_s: st.trained.value_s,
-    race_value_s: st.race_seconds,
-    source: st.trained.source,
-    weakened: st.trained.weakened,
-    from_slug: st.trained.from_slug,
-  }));
-
-  const result = computeGoalGap({ goal_total_s: goal, segments, cohort, own_race: ownRace, trained });
+  const result = await calcularGoalGap({ athlete_id: athleteId, race: target, todayIso }, client);
 
   const goalDto = { label: goalLabel(goal), total_s: goal, race_name: target.name, race_date: target.race_date };
 
