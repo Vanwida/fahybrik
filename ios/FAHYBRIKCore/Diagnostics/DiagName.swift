@@ -17,8 +17,12 @@ enum DiagName: String, CaseIterable, Sendable {
     case wcReachability = "wc_reachability"
     /// Cambió emparejado / app instalada en el reloj (`sessionWatchStateDidChange`).
     case wcWatchState = "wc_watch_state"
-    /// Móvil: el resultado del ÚNICO `startWatchApp` de una intención (T1, T5).
+    /// Móvil: el resultado de `startWatchApp` (uno por intención, más un relanzamiento
+    /// acotado si Apple dio error y el reloj vuelve a estar alcanzable) (T1, T5).
     case startWatchApp = "start_watch_app"
+    /// Móvil: NO se lanzó (o relanzó) el reloj, y por qué (`detail=reason=…`). Sin este
+    /// evento un «no conecta» sin `start_watch_app` es indistinguible de un fallo de Apple.
+    case startWatchAppSkipped = "start_watch_app_skipped"
     /// Reloj: arrancado por el móvil vía `handle(_ workoutConfiguration:)`.
     case launchedByPhone = "launched_by_phone"
     /// Reloj: `startMirroringToCompanionDevice` (T1, T7).

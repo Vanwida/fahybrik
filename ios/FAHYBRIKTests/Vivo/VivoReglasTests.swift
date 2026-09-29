@@ -391,6 +391,26 @@ final class VivoReglasTests: XCTestCase {
         XCTAssertEqual(Vivo.notaEnlace(chips), "sin señal del ski · toca para reconectar")
     }
 
+    /// El reloj se lanza solo: el chip dice lo que Apple contesta, es informativo y
+    /// no tapa la nota de una máquina que SÍ se ha perdido.
+    func testElRelojDiceLoQueAppleContestaYNoBloquea() {
+        let serie = paso(.series, .trabajo, .init(tipo: .distancia, prescrito: 1000, mide: .gps))
+        let ski = paso(.ergo, .trabajo, .init(tipo: .distancia, prescrito: 250, mide: .ergo)) { $0.nombre = "SkiErg"; $0.maquina = .init(tipo: .ski) }
+        func chip(_ r: Vivo.Dispositivos.Reloj) -> Vivo.ChipEnlace? {
+            Vivo.enlacesDe(.init(reloj: r, maquina: nil, pulsometro: .banda), serie, lect()).first { $0.clave == .reloj }
+        }
+        XCTAssertNil(chip(.sin), "sin Apple Watch no se habla de reloj")
+        XCTAssertEqual(chip(.conectando)?.estado, .buscando)
+        XCTAssertEqual(chip(.conectando)?.nota, "conectando con el reloj")
+        XCTAssertEqual(chip(.sinConexion)?.texto, "Reloj · sin conexión")
+        XCTAssertEqual(chip(.sinConexion)?.estado, .apagado)
+        XCTAssertEqual(chip(.sinConexion)?.nota, "sin conexión con el reloj · puedes seguir")
+        XCTAssertEqual(chip(.segundaPantalla)?.estado, .ok)
+        // Una máquina perdida manda sobre un reloj sin conexión.
+        let chips = Vivo.enlacesDe(.init(reloj: .sinConexion, maquina: .ski, pulsometro: .banda), ski, lect { $0.viejos = [.split500] })
+        XCTAssertEqual(Vivo.notaEnlace(chips), "sin señal del ski · toca para reconectar")
+    }
+
     func testElVocabularioCerrado() {
         XCTAssertEqual(Vivo.ClavePrimaria.serieHecha.texto, "Serie hecha")
         XCTAssertEqual(Vivo.ClavePrimaria.rondaHecha.texto, "+1 ronda")

@@ -112,7 +112,10 @@ extension Vivo {
     // MARK: - Los enlaces (I10): derivados de las lecturas, nunca un segundo estado
 
     struct Dispositivos: Equatable {
-        enum Reloj: String, Equatable { case motor, segundaPantalla = "segunda-pantalla", sin }
+        /// El reloj se lanza solo al empezar y NUNCA bloquea nada: lo que se dice de él es
+        /// lo que Apple contesta. `conectando` = Apple aún no ha entregado el enlace;
+        /// `sinConexion` = no respondió o se perdió (el entreno sigue igual).
+        enum Reloj: String, Equatable { case motor, segundaPantalla = "segunda-pantalla", conectando, sinConexion = "sin-conexion", sin }
         enum Pulsometro: String, Equatable { case reloj, banda, sin }
         var reloj: Reloj = .sin
         var maquina: Maquina.Tipo? = nil
@@ -149,9 +152,19 @@ extension Vivo {
     /// LOS CHIPS DE LA CABECERA, derivados.
     static func enlacesDe(_ d: Dispositivos, _ p: Paso, _ l: Lecturas) -> [ChipEnlace] {
         var chips: [ChipEnlace] = []
-        if d.reloj != .sin {
+        switch d.reloj {
+        case .conectando:
+            chips.append(ChipEnlace(clave: .reloj, texto: "Reloj", estado: .buscando, nota: "conectando con el reloj"))
+        case .sinConexion:
+            // `.apagado`, no `.perdido`: es informativo, no impide entrenar y no debe tapar
+            // la nota de una máquina o un pulso que SÍ se han perdido.
+            chips.append(ChipEnlace(clave: .reloj, texto: "Reloj · sin conexión", estado: .apagado,
+                                    nota: "sin conexión con el reloj · puedes seguir"))
+        case .motor, .segundaPantalla:
             chips.append(ChipEnlace(clave: .reloj, texto: "Reloj", estado: .ok,
                                     nota: d.reloj == .motor ? "el reloj lleva el entreno · el móvil es su segunda pantalla" : nil))
+        case .sin:
+            break
         }
         if usaGps(p) {
             let buscando = l.gps == .buscando

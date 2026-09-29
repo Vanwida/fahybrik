@@ -299,8 +299,9 @@ struct ActiveWorkoutView: View {
             updateRunGPS()
         }
         .onChange(of: session.runEnvironment) { _, _ in
+            // El reloj ya se lanzó al empezar (no depende de calle/cinta): el entorno
+            // viaja en la trama y la muñeca cambia de actividad sola.
             updateRunGPS()
-            session.requestWatchPrimaryIfNeeded()
         }
         .onChange(of: PhoneLiveSession.shared.hasMirroredHKSession) { _, bound in
             // Hand HR off to the wrist while the HK mirror channel is bound.

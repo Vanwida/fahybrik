@@ -262,7 +262,6 @@ enum PreWorkoutDeviceEligibility {
             needsRunLocation: needsRun,
             ergRoles: ergRoles,
             needsUnscopedErg: devices.contains(.ergAny),
-            asksWatch: !devices.isEmpty,
             isBenchmark: isBenchmark
         )
     }

@@ -602,10 +602,16 @@ final class WatchConnectivityiOSService: NSObject, WCSessionDelegate {
         }
     }
 
-    /// Solo para el registro técnico: el alcance no decide nada del enlace (FH-56:
-    /// el estado lo dicen los eventos de HealthKit), pero sin él no se lee una prueba.
+    /// El alcance NO dice el estado del enlace (FH-56: eso lo dicen los eventos de
+    /// HealthKit). Es el evento de Apple que dispara, como mucho, UN relanzamiento
+    /// acotado del reloj si el lanzamiento anterior dio error y no hay canal atado
+    /// (`PhoneLiveSession.handleWatchReachability`). Sin temporizador.
     func sessionReachabilityDidChange(_ session: WCSession) {
-        DiagnosticsLog.shared.record(.link, .wcReachability, detail: "reachable=\(session.isReachable)")
+        let reachable = session.isReachable
+        DiagnosticsLog.shared.record(.link, .wcReachability, detail: "reachable=\(reachable)")
+        Task { @MainActor in
+            PhoneLiveSession.shared.handleWatchReachability(reachable: reachable)
+        }
     }
 
     func sessionDidBecomeInactive(_ session: WCSession) {}

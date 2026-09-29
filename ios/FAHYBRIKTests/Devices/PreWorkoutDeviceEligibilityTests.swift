@@ -235,7 +235,6 @@ final class PreWorkoutDeviceEligibilityTests: XCTestCase {
         let r = PreWorkoutDeviceEligibility.startRecipe(segments: segs, calentamientoRun: false)
         XCTAssertTrue(r.needsRunLocation)
         XCTAssertEqual(r.ergRoles, ["ski"])
-        XCTAssertTrue(r.asksWatch)
     }
 
     func testNeedsDevicesHubWhenCardioMachinesPresent() {

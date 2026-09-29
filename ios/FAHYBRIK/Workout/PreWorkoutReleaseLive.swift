@@ -3,8 +3,10 @@ import SwiftUI
 // FH-95 / FH-96 — the ONE pre-live ▶ EMPEZAR action. Called only from
 // PreWorkoutBriefView in readyToStart mode (after Devices hub).
 // Apple: one workout intent → one PRIMARY → one mirror channel. Only `release`
-// calls `PhoneLiveSession.begin` / `startWatchApp`. `prepWatchRecording` is
-// UI-only (watch card spinner) — a second `begin` on ▶ EMPEZAR must never re-mint.
+// calls `PhoneLiveSession.begin` / `startWatchApp`, and it does so ALWAYS: the
+// watch opens by itself when the athlete taps ▶ EMPEZAR, with nothing to ask.
+// (The old «Preparar grabación en el reloj» button connected nothing: it only
+// drew a spinner, and is gone. See docs/DECISIONS.md 2026-09-29.)
 
 enum PreWorkoutReleaseLive {
 
@@ -23,19 +25,5 @@ enum PreWorkoutReleaseLive {
         if staging.hkSessionUUID == nil { staging.hkSessionUUID = UUID() }
         PhoneLiveSession.shared.begin(session: staging, activityKind: activityKind)
         return staging
-    }
-
-    /// Optional early watch prep — stamps run env for release, drives the watch
-    /// card UI, does NOT call `begin` / `startWatchApp` (FH-96).
-    @MainActor
-    static func prepWatchRecording(
-        staging: WorkoutSession,
-        answers: SessionStartAnswers,
-        activityKind: String,
-        stampSession: ((WorkoutSession) -> Void)?
-    ) {
-        staging.runEnvironment = answers.runEnvironment
-        stampSession?(staging)
-        PhoneLiveSession.shared.noteWatchPrepIntent()
     }
 }

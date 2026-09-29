@@ -69,10 +69,6 @@ struct PreWorkoutBriefView: View {
     /// Compartir el plan del día (card 132): la story de «esto es lo que toca».
     @State private var tarjetaParaCompartir: TarjetaCompartible? = nil
 
-    private var asksWatch: Bool {
-        !PreWorkoutDeviceEligibility.devices(for: segments).isEmpty
-    }
-
     // MARK: - Derived shape
 
     private var modality: String? {
@@ -158,12 +154,8 @@ struct PreWorkoutBriefView: View {
                     } else {
                         detailUnavailableCard
                     }
-                    if readyToStart, asksWatch, let binding = startAnswers {
-                        PreWorkoutWatchCard(
-                            answers: binding,
-                            mirror: mirror,
-                            onPrepWatch: prepWatchRecording
-                        )
+                    if readyToStart {
+                        PreWorkoutWatchCard(mirror: mirror)
                     }
                 }
                 .padding(.horizontal, Theme.Spacing.xl)
@@ -185,28 +177,7 @@ struct PreWorkoutBriefView: View {
             if stagingSession == nil {
                 stagingSession = WorkoutSession(plan: plan, hrZones: hrZones)
             }
-            if let answers = startAnswers {
-                answers.wrappedValue.watchUnavailable = !WatchPresence.shared.appAvailable
-            }
         }
-        // «Sin Apple Watch» dice lo que Apple dice AHORA: el enlace termina de abrirse
-        // después de pintar el brief, y el reloj puede instalarse o emparejarse con el
-        // brief abierto. Antes se decidía una vez al aparecer y no volvía a mirarse.
-        .onChange(of: WatchPresence.shared.appAvailable) { _, available in
-            guard readyToStart, let answers = startAnswers else { return }
-            answers.wrappedValue.watchUnavailable = !available
-        }
-    }
-
-    private func prepWatchRecording() {
-        guard let staging = stagingSession, let answers = startAnswers?.wrappedValue else { return }
-        PreWorkoutReleaseLive.prepWatchRecording(
-            staging: staging,
-            answers: answers,
-            activityKind: activityKind,
-            stampSession: stampSession
-        )
-        Haptics.light()
     }
 
     private func releaseLive() {
@@ -1022,7 +993,9 @@ struct PreWorkoutBriefView: View {
     private var footer: some View {
         VStack(spacing: Theme.Spacing.s) {
             if readyToStart {
-                Text("Empieza cuando estés listo — el reloj puede unirse en directo")
+                Text(WatchPresence.shared.appAvailable
+                     ? "Empieza cuando estés listo. El reloj se abre solo."
+                     : "Empieza cuando estés listo.")
                     .scaledFont(12, relativeTo: .caption)
                     .foregroundStyle(Theme.Color.faint)
                     .multilineTextAlignment(.center)

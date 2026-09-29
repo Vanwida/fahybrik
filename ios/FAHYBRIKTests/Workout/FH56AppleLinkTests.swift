@@ -1,4 +1,5 @@
 import XCTest
+import HealthKit
 @testable import FAHYBRIK
 
 // FH-56 — el enlace muñeca↔móvil lo dice Apple. Lo que se prueba aquí:
@@ -106,17 +107,137 @@ final class PhoneAppleLinkTests: XCTestCase {
         XCTAssertEqual(mirror.startWatchAppCallCount, 1)
     }
 
-    /// Correr sin calle/cinta resuelta espera; al resolverse pide UNA vez.
-    func testRunningRequestsOnceWhenEnvironmentResolves() {
+    /// El reloj se lanza SIEMPRE al empezar, sin esperar a calle/cinta. Antes una
+    /// carrera sin entorno (el atleta pulsó Continuar sin elegir) no pedía nada al
+    /// reloj y no dejaba rastro: la causa raíz del «no conecta» (29-sep).
+    func testRunningLaunchesWatchEvenWithoutEnvironment() async {
         let s = WorkoutSession(plan: .minimal(title: "FH-56-run"))
-        mirror.startWatchAppOverride = { _ in true }
+        XCTAssertNil(s.runEnvironment)
+        var configs: [HKWorkoutConfiguration] = []
+        mirror.startWatchAppOverride = { configs.append($0); return true }
         mirror.begin(session: s, activityKind: "running")
-        XCTAssertEqual(mirror.startWatchAppCallCount, 0, "sin entorno no hay configuración honesta")
+        XCTAssertEqual(mirror.startWatchAppCallCount, 1, "sin entorno se lanza igual")
+        await waitUntil { !configs.isEmpty }
+        XCTAssertEqual(configs.first?.locationType, .outdoor, "arranque sin respuesta: calle, nunca prohibir el GPS")
+        XCTAssertEqual(configs.first?.activityType, .running)
 
         s.switchRunEnvironment(to: .outdoor)
-        XCTAssertEqual(mirror.startWatchAppCallCount, 1)
         s.switchRunEnvironment(to: .treadmill)
         XCTAssertEqual(mirror.startWatchAppCallCount, 1, "cambiar de entorno no relanza el reloj")
+    }
+
+    /// Con respuesta del atleta la configuración la respeta: una cinta nunca espera GPS.
+    func testLaunchConfigurationRespectsTheAnswerWhenThereIsOne() async {
+        let s = WorkoutSession(plan: .minimal(title: "FH-56-cinta"))
+        s.runEnvironment = .treadmill
+        var configs: [HKWorkoutConfiguration] = []
+        mirror.startWatchAppOverride = { configs.append($0); return true }
+        mirror.begin(session: s, activityKind: "running")
+        await waitUntil { !configs.isEmpty }
+        XCTAssertEqual(configs.first?.locationType, .indoor)
+    }
+
+    /// Sin motor no hay nada que lanzar, pero deja rastro: nunca un silencio.
+    func testSkipLeavesATraceInTheTechnicalLog() {
+        let id = UUID()
+        let s = WorkoutSession(plan: .minimal(title: "FH-56-skip"))
+        s.hkSessionUUID = id
+        mirror.startWatchAppOverride = { _ in true }
+        mirror.begin(session: s, activityKind: "mixed")
+        mirror.requestWatchPrimaryIfNeeded()   // ya pedido: se salta y se dice
+        mirror.requestWatchPrimaryIfNeeded()   // repetido: el motivo se escribe UNA vez
+
+        let skipped = DiagnosticsLog.shared.recent(limit: 200)
+            .filter { $0.name == "start_watch_app_skipped" && $0.workoutId == id }
+        XCTAssertEqual(skipped.count, 1)
+        XCTAssertTrue(skipped.first?.detail?.contains("reason=already_requested") == true)
+    }
+
+    private func waitUntil(_ timeout: TimeInterval = 2, _ cond: () -> Bool) async {
+        let end = Date().addingTimeInterval(timeout)
+        while !cond(), Date() < end { try? await Task.sleep(nanoseconds: 10_000_000) }
+    }
+
+    /// Apple contestó con error y el reloj vuelve a estar alcanzable: UN relanzamiento
+    /// por evento, con la MISMA configuración, y nunca más de `maxWatchRelaunchesPerIntent`.
+    func testReachabilityRelaunchesOnlyAfterAnAppleErrorAndRespectsTheCap() async {
+        let s = WorkoutSession(plan: .minimal(title: "FH-56-reach"))
+        var configs: [HKWorkoutConfiguration] = []
+        mirror.startWatchAppOverride = { configs.append($0); return false }   // Apple dice error
+        mirror.begin(session: s, activityKind: "running")
+        await waitUntil { self.mirror.watchLaunch == .failed(nil) }
+        XCTAssertEqual(mirror.watchLaunch, .failed(nil))
+        XCTAssertEqual(mirror.watchStatus, .offline)
+        XCTAssertEqual(mirror.startWatchAppCallCount, 1)
+
+        mirror.handleWatchReachability(reachable: false)   // perder alcance no relanza
+        XCTAssertEqual(mirror.startWatchAppCallCount, 1)
+
+        for expected in 2...(1 + PhoneLiveHandoffPolicy.maxWatchRelaunchesPerIntent) {
+            mirror.handleWatchReachability(reachable: true)
+            XCTAssertEqual(mirror.startWatchAppCallCount, expected)
+            XCTAssertEqual(mirror.watchStatus, .connecting, "Apple aún no ha contestado al relanzamiento")
+            await waitUntil { self.mirror.watchLaunch == .failed(nil) }
+        }
+        mirror.handleWatchReachability(reachable: true)    // tope agotado
+        XCTAssertEqual(mirror.startWatchAppCallCount, 1 + PhoneLiveHandoffPolicy.maxWatchRelaunchesPerIntent)
+
+        XCTAssertEqual(configs.count, mirror.startWatchAppCallCount)
+        XCTAssertTrue(configs.allSatisfy { $0.locationType == configs[0].locationType && $0.activityType == configs[0].activityType },
+                      "el relanzamiento lleva la misma configuración (FH-96)")
+    }
+
+    /// Si Apple dijo ok, un evento de alcance no relanza nada (el reloj se está abriendo).
+    func testReachabilityAfterALaunchedOkDoesNotRelaunch() async {
+        let s = WorkoutSession(plan: .minimal(title: "FH-56-reach-ok"))
+        mirror.startWatchAppOverride = { _ in true }
+        mirror.begin(session: s, activityKind: "running")
+        await waitUntil { self.mirror.watchLaunch == .launched }
+        XCTAssertEqual(mirror.watchStatus, .connecting)
+
+        mirror.handleWatchReachability(reachable: true)
+        XCTAssertEqual(mirror.startWatchAppCallCount, 1)
+    }
+
+    /// Fuera de un entreno en marcha el alcance no toca al reloj.
+    func testReachabilityWhileIdleDoesNothing() {
+        mirror.startWatchAppOverride = { _ in false }
+        mirror.handleWatchReachability(reachable: true)
+        XCTAssertEqual(mirror.startWatchAppCallCount, 0)
+        XCTAssertEqual(mirror.watchStatus, .none)
+    }
+
+    /// El estado del reloj sale solo de lo que dice Apple, y su frase no lleva jerga.
+    func testWatchStatusFollowsAppleAndSpeaksPlainSpanish() {
+        XCTAssertEqual(mirror.watchStatus, .none)
+        XCTAssertNil(PhoneLiveSession.WatchStatus.none.frase)
+        for status in [PhoneLiveSession.WatchStatus.connecting, .recording, .offline] {
+            let frase = status.frase ?? ""
+            XCTAssertFalse(frase.isEmpty)
+            for jerga in ["HealthKit", "espejo", "primario", "PM5", "—"] {
+                XCTAssertFalse(frase.contains(jerga), "\(status): \(frase)")
+            }
+        }
+        XCTAssertTrue(PhoneLiveSession.WatchStatus.offline.frase?.contains("Puedes seguir") == true)
+
+        let s = WorkoutSession(plan: .minimal(title: "FH-56-status"))
+        mirror.startWatchAppOverride = { _ in true }
+        mirror.begin(session: s, activityKind: "mixed")
+        XCTAssertEqual(mirror.watchStatus, .connecting)
+        mirror.simulateRemoteDisconnectForTests(error: "remote device disconnected")
+        XCTAssertEqual(mirror.watchStatus, .offline, "Apple dijo desconectado")
+    }
+
+    /// El chip del vivo: sin Apple Watch no se habla de reloj; con él, lo que dice Apple.
+    func testLiveChipMappingHidesTheWatchWhenThereIsNone() {
+        typealias R = Vivo.Dispositivos.Reloj
+        XCTAssertEqual(R.delEnlace(.recording, hayAppleWatch: false), .segundaPantalla)
+        XCTAssertEqual(R.delEnlace(.connecting, hayAppleWatch: true), .conectando)
+        XCTAssertEqual(R.delEnlace(.connecting, hayAppleWatch: false), .sin)
+        XCTAssertEqual(R.delEnlace(.offline, hayAppleWatch: true), .sinConexion)
+        XCTAssertEqual(R.delEnlace(.offline, hayAppleWatch: false), .sin)
+        XCTAssertEqual(R.delEnlace(.none, hayAppleWatch: true), .sin)
+
     }
 
     /// `didDisconnectFromRemoteDeviceWithError` no relanza nada ni termina nada:

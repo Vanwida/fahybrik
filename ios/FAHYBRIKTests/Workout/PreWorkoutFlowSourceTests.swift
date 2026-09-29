@@ -49,14 +49,28 @@ final class PreWorkoutFlowSourceTests: XCTestCase {
         XCTAssertTrue(brief.contains("PreWorkoutReleaseLive.release"))
     }
 
-    func testPrepIsUIONlyNoBegin() throws {
+    /// El reloj no se pregunta: ni «Preparar grabación en el reloj», ni «Continuar sin
+    /// reloj», ni puerta por el estado del reloj. Se lanza solo al empezar.
+    func testWatchIsNeverAskedInThePreLiveFlow() throws {
         let release = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PreWorkoutReleaseLive.swift"))
-        XCTAssertTrue(release.contains("noteWatchPrepIntent"))
-        let prepBody = release
-            .components(separatedBy: "static func prepWatchRecording").last?
-            .components(separatedBy: "static func release").first ?? ""
-        XCTAssertFalse(prepBody.contains("PhoneLiveSession.shared.begin"),
-                       "prep must not call begin — sole HK owner is release")
+        XCTAssertFalse(release.contains("prepWatchRecording"))
+        XCTAssertFalse(release.contains("noteWatchPrepIntent"))
+        let card = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PreWorkoutWatchCard.swift"))
+        XCTAssertFalse(card.contains("Button"), "la tarjeta del reloj es solo informativa")
+        XCTAssertFalse(card.contains("SecondaryButton"))
+        XCTAssertFalse(card.contains("Continuar sin reloj"))
+        XCTAssertFalse(card.contains("Preparar grabación"))
+        XCTAssertFalse(card.contains("Esperando al reloj"))
+        let brief = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PreWorkoutBriefView.swift"))
+        XCTAssertFalse(brief.contains("prepWatchRecording"))
+        XCTAssertFalse(brief.contains("watchUnavailable"))
+        let policy = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIKCore/Workout/SessionStartPolicy.swift"))
+        XCTAssertFalse(policy.contains("watchProceedWithoutWrist"))
+        XCTAssertFalse(policy.contains("watchResolved"))
+        let phone = try String(contentsOf: iosRoot.appendingPathComponent("FAHYBRIK/Workout/PhoneLiveSession.swift"))
+        XCTAssertFalse(phone.contains("noteWatchPrepIntent"))
+        XCTAssertFalse(phone.contains("watchJoinStartedAt"))
+        XCTAssertFalse(phone.contains("watchJoinHintSeconds"))
     }
 
     // FH-56 — a redundant/compatible `handle(_:)` is decided by ONE pure policy
