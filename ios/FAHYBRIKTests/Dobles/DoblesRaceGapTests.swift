@@ -132,11 +132,11 @@ final class DoblesRaceGapTests: XCTestCase {
     func test_carrierChipText() throws {
         let g = try decode(validPayload)
         let ski = try XCTUnwrap(g.segments.first { $0.key == "ski" })
-        XCTAssertEqual(ski.carrierChipText(partnerName: "Guillem"), "TÚ 60%")
+        XCTAssertEqual(ski.carrierChipText(partnerName: "Guillem"), "Tú 60%")
         let sled = try XCTUnwrap(g.segments.first { $0.key == "sled_push" })
-        XCTAssertEqual(sled.carrierChipText(partnerName: "Guillem"), "TÚ")
+        XCTAssertEqual(sled.carrierChipText(partnerName: "Guillem"), "Tú")
         let run = try XCTUnwrap(g.segments.first { $0.key == "run-1" })
-        XCTAssertEqual(run.carrierChipText(partnerName: "Guillem"), "JUNTOS")
+        XCTAssertEqual(run.carrierChipText(partnerName: "Guillem"), "Juntos")
     }
 
     // MARK: - Reparto math
