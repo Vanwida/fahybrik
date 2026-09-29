@@ -138,7 +138,6 @@ export function PanelRendimiento({ panel, atleta, onVentana, cargandoVentana = f
         <Tramos
           cumplimiento={detalle}
           fuente={fuente}
-          ventana={ventana.clave}
           seleccion={seleccion}
           onSeleccion={setSeleccion}
           hoy={hoy}

@@ -7,25 +7,23 @@
 //
 // Lee dos detalles del servidor (`../detalle`): el cumplimiento de la ventana
 // (las sesiones del plan y el veredicto de cada tramo) y el de cada sesión (lo
-// pedido, lo hecho, la carga por tramo y la traza). Mientras sus rutas no
-// existen, el bloque lo dice; si solo falta el de sesión, pinta el veredicto de
-// cada tramo sin carga ni curva.
+// pedido, lo hecho, la carga por tramo y la traza). Si solo falta el de sesión,
+// pinta el veredicto de cada tramo sin carga ni curva.
 
 import { useEffect, useMemo, useState } from 'react';
-import type { VentanaClave } from '@fahybrid/shared/domain/analytics/ventana';
 import { Button } from '@/components/v2/ui';
 import { cn } from '@/lib/utils';
 import { horasYMin } from '@/lib/formato';
 import { fechaLegible } from '../formato';
 import { LineaTiempo } from '../graficos';
 import type { DetalleCumplimientoConsumo, DetalleSesionConsumo, FilaSesionConsumo, FuenteDetalle, Resultado } from '../detalle';
-import { huecoPendiente, type Hueco } from '../huecos';
+import type { Hueco } from '../huecos';
 import { PIEL_PANEL as P } from '../piel';
 import { AnclaChip, HuecoLinea, PuntoFamilia, TablaPanel, Tarjeta, type ManejarAccion } from '../piezas';
 import { ESTADO_SESION, VEREDICTO_TRAMO, cifraBase, detalleSesion, familiaDeSesion, resumenTramos, tramosLeidos, type TramoLeido } from '../sesiones';
 
 const PREGUNTA = 'Prescrito frente a hecho, serie a serie, con la carga de cada tramo y su peldaño. Elige una sesión; otra más para compararlas.';
-const LISTA_MAX = 8;
+const LISTA_PASO = 8;
 
 function useSesion(fuente: FuenteDetalle, executionId: string | null): Resultado<DetalleSesionConsumo> | null {
   const [r, setR] = useState<{ id: string; res: Resultado<DetalleSesionConsumo> } | null>(null);
@@ -57,7 +55,6 @@ function claseVeredicto(t: TramoLeido): string {
 export function Tramos({
   cumplimiento,
   fuente,
-  ventana,
   seleccion,
   onSeleccion,
   hoy,
@@ -68,7 +65,6 @@ export function Tramos({
   className?: string;
   cumplimiento: Resultado<DetalleCumplimientoConsumo> | null;
   fuente: FuenteDetalle;
-  ventana: VentanaClave;
   /** La sesión abierta (assignment_id): la elige también una fila de «Semana a semana». */
   seleccion: string | null;
   onSeleccion: (assignmentId: string) => void;
@@ -77,6 +73,7 @@ export function Tramos({
   anchoInicial: number;
 }) {
   const [comparada, setComparada] = useState<string | null>(null);
+  const [visibles, setVisibles] = useState(LISTA_PASO);
   const sesiones = useMemo(() => (cumplimiento?.estado === 'ok' ? cumplimiento.datos.sesiones.filter((s) => s.hecha && s.execution_id) : []), [cumplimiento]);
   const a = sesiones.find((s) => s.assignment_id === seleccion) ?? sesiones[0] ?? null;
   const b = comparada && comparada !== a?.assignment_id ? (sesiones.find((s) => s.assignment_id === comparada) ?? null) : null;
@@ -85,8 +82,7 @@ export function Tramos({
 
   let hueco: Hueco | null = null;
   if (cumplimiento == null) hueco = { tipo: 'poco', titulo: 'Cargando', cuerpo: 'Leyendo las sesiones del plan de esta ventana…' };
-  else if (cumplimiento.estado === 'pendiente') hueco = { ...huecoPendiente('semanas'), cuerpo: 'El cumplimiento tramo a tramo llega en la siguiente entrega del panel.' };
-  else if (cumplimiento.estado === 'error') hueco = { tipo: 'vacio', titulo: 'No se ha podido leer', cuerpo: 'El cumplimiento de esta ventana no ha cargado. Prueba a recargar la página.' };
+  else if (cumplimiento.estado !== 'ok') hueco = { tipo: 'vacio', titulo: 'No se ha podido leer', cuerpo: 'El cumplimiento de esta ventana no ha cargado. Prueba a recargar la página.' };
   else if (sesiones.length === 0) hueco = { tipo: 'vacio', titulo: 'Sin sesiones del plan hechas en esta ventana', cuerpo: 'Cuando haga sesiones de su plan, aquí verás cada tramo frente a lo que pedías.', accion: 'plan' };
 
   const sesA = detA?.estado === 'ok' ? detA.datos : null;
@@ -143,12 +139,23 @@ export function Tramos({
                   movil: 'detalle',
                 },
               ]}
-              filas={sesiones.slice(0, LISTA_MAX)}
+              filas={sesiones.slice(0, visibles)}
               clave={(s) => s.assignment_id}
               seleccionada={a.assignment_id}
               onFila={(s) => onSeleccion(s.assignment_id)}
             />
-            {sesiones.length > LISTA_MAX ? <p className="mt-2 t-meta text-v2-faint">Las {LISTA_MAX} últimas de {sesiones.length} hechas en la ventana ({ventana === 'todo' ? 'toda la historia' : 'cambia la ventana para ver otras'}).</p> : null}
+            {sesiones.length > LISTA_PASO ? (
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <p className="t-meta text-v2-faint">
+                  {Math.min(visibles, sesiones.length)} de {sesiones.length} sesiones hechas en la ventana, de la más reciente a la más antigua.
+                </p>
+                {visibles < sesiones.length ? (
+                  <Button size="sm" variant="ghost" onClick={() => setVisibles((n) => n + LISTA_PASO)}>
+                    Ver más antiguas
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div className="flex min-w-0 flex-col gap-4 @4xl:col-span-8">

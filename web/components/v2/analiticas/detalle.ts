@@ -1,16 +1,15 @@
 // LOS DETALLES QUE EL PANEL PIDE APARTE — el cumplimiento tramo a tramo
 // (`GET …/analytics/cumplimiento?ventana=`) y el detalle de una sesión
 // (`GET …/analytics/sesion/[executionId]`), el mismo cálculo que ve el atleta
-// (A1). Los construyen otras sesiones sobre el mismo contrato (modelo §5): hasta
-// que su ruta existe, la petición contesta 404 y el panel pinta su hueco como
-// «todavía no se calcula aquí», sin inventar.
+// (A1). Una ruta que contesta 404 (el atleta o la sesión no son de este coach,
+// o la sesión no tiene detalle) se pinta como hueco, sin inventar.
 //
-// POR QUÉ UN TIPO DE CONSUMO Y NO EL TIPO DEL MOTOR. Las dos formas viven en
-// ramas que aún no están fusionadas; importar sus tipos haría que esta pestaña
-// no compilara hasta entonces. Aquí se declara SOLO lo que el panel lee (un
-// subconjunto estructural del sobre del motor): cuando las ramas se fusionen, se
-// sustituyen por `DetalleCumplimiento` y `DetalleSesion` de sus módulos y el
-// compilador dirá si algo no casa. Lo que no está aquí, el panel no lo usa.
+// POR QUÉ UN TIPO DE CONSUMO Y NO EL TIPO DEL MOTOR. El doble (`kit-analiticas`)
+// entrega estos mismos detalles sin servidor, y el cliente no debe arrastrar
+// módulos de base de datos. Aquí se declara SOLO lo que el panel lee (un
+// subconjunto estructural del sobre del motor); `tests/analytics/
+// detalle-consumo-tipos.test.ts` hace fallar `tsc` si el motor cambia una forma
+// que el panel consume. Lo que no está aquí, el panel no lo usa.
 //
 // LA FUENTE ES INYECTABLE: el producto pide por HTTP (`fuenteHttp`); el doble
 // entrega casos (`kit-analiticas/casos`). La vista no sabe de dónde vienen.
@@ -125,7 +124,7 @@ export interface DetalleSesionConsumo {
 // La fuente
 // ---------------------------------------------------------------------------
 
-/** `pendiente`: la ruta aún no existe (o la sesión no tiene detalle) · `error`: falló la red o el servidor. */
+/** `pendiente`: 404, no hay detalle que enseñar · `error`: falló la red o el servidor. */
 export type Resultado<T> = { estado: 'ok'; datos: T } | { estado: 'pendiente' } | { estado: 'error' };
 
 export interface FuenteDetalle {
