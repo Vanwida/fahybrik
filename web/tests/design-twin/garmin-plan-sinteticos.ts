@@ -12,30 +12,36 @@
 // Nada de esto es una sesión real ni se presenta como tal: son pruebas de
 // robustez del FORMATO, no ejemplos de entrenamiento.
 
-import { REGLAS_AVISO_DEFECTO, type InfoWod, type Medida, type Objetivo, type PasoBase, type Posicion, type Tarea, type ZonasCoach } from '@/components/design-twin/kit-reloj/paso';
+import { REGLAS_AVISO_DEFECTO, type BandasRitmo, type InfoWod, type Medida, type Objetivo, type PasoBase, type Posicion, type Tarea, type ZonasCoach } from '@/components/design-twin/kit-reloj/paso';
 import type { Dobles } from '@/components/design-twin/kit-reloj/dobles';
 import type { PlanSesion } from '@/components/design-twin/kit-reloj/secuencia';
 import {
   CLASES,
   EJES,
   ENTORNOS,
+  ESCALAS_OBJETIVO,
   FASES,
   FORMATOS_WOD,
   MAQUINAS,
   MODOS_RECUPERA,
   PAPELES,
+  PROCEDENCIAS,
   QUIEN_MIDE,
   ROLES,
   ROXZONAS,
   SENTIDOS_AVISO,
+  TIPOS_ALTERNA,
   TIPOS_MEDIDA,
+  UNIDADES_RITMO,
 } from '@/components/design-twin/kit-garmin/plan-compacto/formato';
+import { completarPlan } from '@/components/design-twin/kit-garmin/plan-compacto/meta';
 import { amrap } from '@/components/design-twin/screens/reloj-wod/planes';
 import { corporal, ejercicio, rir, rm } from '@/components/design-twin/screens/reloj-fuerza/planes';
 import { simulacionHyrox } from '@/components/design-twin/screens/reloj-circuito/planes';
 
 const ZONAS: ZonasCoach = { techos: [138, 150, 160, 173, 192] };
-export const planDe = (pasos: PasoBase[]): PlanSesion => ({ pasos, zonas: ZONAS, reglas: REGLAS_AVISO_DEFECTO });
+/** Un plan tal como se SIRVE al reloj: con el vocabulario, el método y la procedencia de las zonas efectivos. */
+export const planDe = (pasos: PasoBase[]): PlanSesion => completarPlan({ pasos, zonas: ZONAS, reglas: REGLAS_AVISO_DEFECTO });
 
 const tiempo = (s: number): Medida => ({ tipo: 'tiempo', prescrito: s, mide: 'reloj' });
 let contador = 0;
@@ -118,17 +124,17 @@ export function emomLargo(ventanas: number, tareas: number): PlanSesion {
   return planDe(pasos);
 }
 
-/** HYROX de dobles: cada estación lleva su turno, su pareja y su pacto (texto libre: un hueco del modelo). */
+/** HYROX de dobles: cada estación lleva su turno y su pacto como DATO; la pareja es de la sesión. */
 export function hyroxDobles(): PlanSesion {
-  const turnos: Dobles[] = [
-    { turno: 'tuyo', estacion: 'SkiErg 1km', pctTuyo: 100 },
-    { turno: 'pareja', estacion: 'Sled Push 50m', pareja: 'Marta', pctTuyo: 0 },
-    { turno: 'reparto', estacion: 'Wall Balls', pareja: 'Marta', tuyas: 60, suyas: 40, pctTuyo: 60, nota: 'alterna 25' },
+  const estaciones: Array<{ nombre: string; d: Dobles }> = [
+    { nombre: 'SkiErg', d: { turno: 'tuyo', pctTuyo: 100 } },
+    { nombre: 'Sled Push', d: { turno: 'pareja', pctTuyo: 0 } },
+    { nombre: 'Wall Balls', d: { turno: 'reparto', tuyas: 60, suyas: 40, pctTuyo: 60, alternaCada: { tipo: 'reps', n: 25 } } },
   ];
-  const pasos = turnos.map((d, k) =>
-    paso({ clase: 'estacion', rol: 'trabajo', nombre: d.estacion, medida: { tipo: 'reps', prescrito: 100, mide: 'atleta' }, cierre: 'atleta', posicion: { estacion: { n: k + 1, de: turnos.length } }, dobles: d, bloque: 0 }),
+  const pasos = estaciones.map(({ nombre, d }, k) =>
+    paso({ clase: 'estacion', rol: 'trabajo', nombre, medida: { tipo: 'reps', prescrito: 100, mide: 'atleta' }, cierre: 'atleta', posicion: { estacion: { n: k + 1, de: estaciones.length } }, dobles: d, bloque: 0 }),
   );
-  return planDe(pasos);
+  return { ...planDe(pasos), pareja: 'Marta' };
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +160,9 @@ export function pasosPorCadaValor(): PasoBase[] {
     PAPELES.forEach((papel) => pasos.push(base({ objetivos: [{ eje, min: eje === 'kg' ? 62.5 : 6.5, max: eje === 'kg' ? 65 : 8.5, papel }] })));
     SENTIDOS_AVISO.forEach((avisa) => pasos.push(base({ objetivos: [{ eje, min: null, max: 142, papel: 'techo', avisa }, { eje: 'rpe', min: 7, max: 7, papel: 'secundario', palabra: 'a tope' }] })));
   });
+  ESCALAS_OBJETIVO.forEach((escala) => pasos.push(base({ objetivos: [{ eje: 'zona', min: 3, max: 3, papel: 'principal', escala }] })));
+  TIPOS_ALTERNA.forEach((tipo, k) => pasos.push(base({ clase: 'estacion', dobles: { turno: 'reparto', pctTuyo: 50, tuyas: 10, suyas: 10, alternaCada: { tipo, n: 5 + k } } })));
+  pasos.push(base({ grupo: { id: 3, veces: 6 } }));
   pasos.push(base({ posicion: { tanda: { n: 2, de: 3 }, serie: { n: 4, de: 6 }, tramo: { n: 1, de: 8 }, ronda: { n: 2, de: 5 }, estacion: { n: 3, de: 4 }, slot: 'B12' } }));
   pasos.push(base({ posicion: {}, carga: { kg: 32, implementos: 2 }, tempo: { excentrica: 3, pausaAbajo: 1, concentrica: 1, pausaArriba: 0 }, cue: 'mirar el pulso', vueltaAutoM: 1000, cierre: 'atleta', bloque: 7, nombre: 'Sled Push' }));
   return pasos;
@@ -224,6 +233,7 @@ function objetivoAzar(a: Azar): Objetivo {
   const o: Objetivo = { eje, min: valor(), max: valor(), papel: a.elige(PAPELES) };
   if (a.quizas(0.4)) o.avisa = a.elige(SENTIDOS_AVISO);
   if (eje === 'rpe' && a.quizas(0.5)) o.palabra = a.elige(PALABRAS);
+  if (eje === 'zona' && a.quizas(0.6)) o.escala = a.elige(ESCALAS_OBJETIVO);
   return o;
 }
 
@@ -303,8 +313,21 @@ function pasoAzar(a: Azar): PasoBase {
   if (a.quizas(0.1)) p.roxzone = a.elige(ROXZONAS);
   if (a.quizas(0.25)) p.wod = wodAzar(a);
   if (a.quizas(0.25)) p.fuerza = fichaAzar(a, `x${a.entero(0, 9)}`);
-  if (a.quizas(0.1)) p.dobles = { turno: a.elige(['tuyo', 'pareja', 'reparto'] as const), estacion: a.elige(NOMBRES), pctTuyo: a.entero(0, 100), ...(a.quizas() ? { pareja: 'Marta' } : {}), ...(a.quizas() ? { tuyas: a.entero(0, 50), suyas: a.entero(0, 50) } : {}), ...(a.quizas() ? { nota: 'alterna 25' } : {}) };
+  if (a.quizas(0.1)) p.dobles = { turno: a.elige(['tuyo', 'pareja', 'reparto'] as const), pctTuyo: a.entero(0, 100), ...(a.quizas() ? { tuyas: a.entero(0, 50), suyas: a.entero(0, 50) } : {}), ...(a.quizas() ? { alternaCada: { tipo: a.elige(TIPOS_ALTERNA), n: a.entero(1, 500) } } : {}) };
+  if (a.quizas(0.2)) p.grupo = { id: a.entero(0, 12), veces: a.entero(1, 40) };
   return p;
+}
+
+/** Un juego de bandas de ritmo al azar: de 3 a 6 zonas, del más rápido al más lento, la última abierta. */
+function bandasAzar(a: Azar): BandasRitmo {
+  const n = a.entero(3, 6);
+  let lento = a.entero(60, 200);
+  const zonas = Array.from({ length: n }, (_, k) => {
+    const rapidoS = lento;
+    lento = rapidoS + a.entero(5, 30);
+    return { rapidoS, lentoS: k === n - 1 ? null : lento };
+  });
+  return { unidad: a.elige(UNIDADES_RITMO), procedencia: a.elige(PROCEDENCIAS), zonas };
 }
 
 /** Un plan válido al azar: 1–60 pasos, zonas de 3 a 9 (o ninguna) y las reglas por defecto tocadas. */
@@ -315,10 +338,13 @@ export function planAleatorio(semilla: number): PlanSesion {
   const nz = a.entero(0, 9);
   const techos: number[] = [];
   for (let k = 0; k < nz; k++) techos.push((techos[k - 1] ?? 100) + a.entero(5, 20));
-  const zonas: ZonasCoach | null = nz < 3 ? null : { techos, ...(a.quizas() ? { nombres: techos.map((_, k) => `Zona ${k + 1}`) } : {}) };
-  return {
+  const zonas: ZonasCoach | null = nz < 3 ? null : { techos, ...(a.quizas() ? { nombres: techos.map((_, k) => `Zona ${k + 1}`) } : {}), ...(a.quizas() ? { procedencia: a.elige(PROCEDENCIAS) } : {}) };
+  const bandasRitmo = Array.from({ length: a.entero(0, 2) }, () => bandasAzar(a));
+  return completarPlan({
     pasos,
     zonas,
     reglas: { ...REGLAS_AVISO_DEFECTO, cadenciaS: a.entero(5, 60), avisarEnCalentamiento: a.quizas(), holgura: { ...REGLAS_AVISO_DEFECTO.holgura, ppm: a.entero(0, 9) } },
-  };
+    ...(bandasRitmo.length > 0 ? { bandasRitmo } : {}),
+    ...(a.quizas(0.4) ? { pareja: a.elige(['Marta', 'Jordi', 'Aïda']) } : {}),
+  });
 }

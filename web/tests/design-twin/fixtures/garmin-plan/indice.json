@@ -1,119 +1,119 @@
 {
-  "esquema": 1,
+  "esquema": 2,
   "casos": [
     {
       "caso": "491",
       "sesion": "491",
       "pasos": 2,
-      "bytes": 274
+      "bytes": 279
     },
     {
       "caso": "494",
       "sesion": "494",
       "pasos": 1,
-      "bytes": 270
+      "bytes": 275
     },
     {
       "caso": "573",
       "sesion": "573",
       "pasos": 1,
-      "bytes": 250
+      "bytes": 254
     },
     {
       "caso": "479",
       "sesion": "479",
       "pasos": 22,
-      "bytes": 567
+      "bytes": 558
     },
     {
       "caso": "551",
       "sesion": "551",
       "pasos": 12,
-      "bytes": 389
+      "bytes": 385
     },
     {
       "caso": "509",
       "sesion": "509",
       "pasos": 36,
-      "bytes": 644
+      "bytes": 643
     },
     {
       "caso": "535",
       "sesion": "535",
       "pasos": 18,
-      "bytes": 546
+      "bytes": 537
     },
     {
       "caso": "538-correr",
       "sesion": "538",
       "pasos": 21,
-      "bytes": 565
+      "bytes": 552
     },
     {
       "caso": "538-fuerza",
       "sesion": "538",
       "pasos": 33,
-      "bytes": 919
+      "bytes": 913
     },
     {
       "caso": "488",
       "sesion": "488",
       "pasos": 54,
-      "bytes": 1160
+      "bytes": 1147
     },
     {
       "caso": "529-fuerza",
       "sesion": "529",
       "pasos": 44,
-      "bytes": 1034
+      "bytes": 1024
     },
     {
       "caso": "529-antes",
       "sesion": "529",
       "pasos": 35,
-      "bytes": 746
+      "bytes": 736
     },
     {
       "caso": "492-fuerza",
       "sesion": "492",
       "pasos": 50,
-      "bytes": 1021
+      "bytes": 1010
     },
     {
       "caso": "492-circuito",
       "sesion": "492",
       "pasos": 27,
-      "bytes": 677
+      "bytes": 671
     },
     {
       "caso": "498",
       "sesion": "498",
       "pasos": 12,
-      "bytes": 478
+      "bytes": 482
     },
     {
       "caso": "572",
       "sesion": "572",
       "pasos": 15,
-      "bytes": 507
+      "bytes": 518
     },
     {
       "caso": "506-circuito",
       "sesion": "506",
       "pasos": 12,
-      "bytes": 535
+      "bytes": 536
     },
     {
       "caso": "506-wod",
       "sesion": "506",
       "pasos": 12,
-      "bytes": 496
+      "bytes": 497
     },
     {
       "caso": "552",
       "sesion": "552",
       "pasos": 1,
-      "bytes": 270
+      "bytes": 282
     },
     {
       "caso": "493-circuito",
@@ -125,85 +125,85 @@
       "caso": "493-antes",
       "sesion": "493",
       "pasos": 20,
-      "bytes": 576
+      "bytes": 580
     },
     {
       "caso": "482",
       "sesion": "482",
       "pasos": 12,
-      "bytes": 473
+      "bytes": 477
     },
     {
       "caso": "505",
       "sesion": "505",
       "pasos": 15,
-      "bytes": 484
+      "bytes": 466
     },
     {
       "caso": "530",
       "sesion": "530",
       "pasos": 10,
-      "bytes": 432
+      "bytes": 433
     },
     {
       "caso": "536",
       "sesion": "536",
       "pasos": 4,
-      "bytes": 320
+      "bytes": 328
     },
     {
       "caso": "514",
       "sesion": "514",
       "pasos": 1,
-      "bytes": 293
+      "bytes": 292
     },
     {
       "caso": "modelo-6x1000",
       "sesion": null,
       "pasos": 13,
-      "bytes": 449
+      "bytes": 434
     },
     {
       "caso": "modelo-6x1000-calle",
       "sesion": null,
       "pasos": 13,
-      "bytes": 457
+      "bytes": 442
     },
     {
       "caso": "modelo-p11",
       "sesion": null,
       "pasos": 9,
-      "bytes": 478
+      "bytes": 467
     },
     {
       "caso": "modelo-amrap15",
       "sesion": null,
       "pasos": 2,
-      "bytes": 296
+      "bytes": 310
     },
     {
       "caso": "modelo-fortime",
       "sesion": null,
       "pasos": 9,
-      "bytes": 434
+      "bytes": 444
     },
     {
       "caso": "modelo-tabata",
       "sesion": null,
       "pasos": 15,
-      "bytes": 498
+      "bytes": 485
     },
     {
       "caso": "modelo-ergo-sin-pm5",
       "sesion": null,
       "pasos": 15,
-      "bytes": 486
+      "bytes": 467
     },
     {
       "caso": "modelo-hyrox-completo",
       "sesion": null,
       "pasos": 31,
-      "bytes": 767
+      "bytes": 775
     },
     {
       "caso": "modelo-hyrox-sin-pm5",
@@ -215,55 +215,55 @@
       "caso": "libre-correr",
       "sesion": null,
       "pasos": 1,
-      "bytes": 229
+      "bytes": 255
     },
     {
       "caso": "libre-enfriamiento",
       "sesion": null,
       "pasos": 1,
-      "bytes": 240
+      "bytes": 266
     },
     {
       "caso": "gramatica-series",
       "sesion": null,
       "pasos": 13,
-      "bytes": 449
+      "bytes": 434
     },
     {
       "caso": "gramatica-fuerza",
       "sesion": null,
       "pasos": 11,
-      "bytes": 441
+      "bytes": 431
     },
     {
       "caso": "gramatica-estacion",
       "sesion": null,
       "pasos": 2,
-      "bytes": 306
+      "bytes": 316
     },
     {
       "caso": "gramatica-cinta",
       "sesion": null,
       "pasos": 2,
-      "bytes": 291
+      "bytes": 282
     },
     {
       "caso": "sintetico-cada-valor",
       "sesion": null,
-      "pasos": 121,
-      "bytes": 1562
+      "pasos": 127,
+      "bytes": 1630
     },
     {
       "caso": "sintetico-wod-formatos",
       "sesion": null,
       "pasos": 8,
-      "bytes": 333
+      "bytes": 348
     },
     {
       "caso": "sintetico-dobles",
       "sesion": null,
       "pasos": 3,
-      "bytes": 370
+      "bytes": 351
     }
   ]
 }

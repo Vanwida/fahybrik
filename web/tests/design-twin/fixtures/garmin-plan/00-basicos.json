@@ -1,6 +1,6 @@
 {
   "descripcion": "Vectores de las piezas del formato. Un varint: 7 bits por byte, menos significativo primero, bit 0x80 = sigue. Un opcional: 0 = ausente, valor + 1 = presente. Una escala: décimas para los ejes, centésimas para los kilos, porcentaje ×100.",
-  "esquema": 1,
+  "esquema": 2,
   "varint": [
     {
       "valor": 0,

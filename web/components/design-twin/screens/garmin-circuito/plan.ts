@@ -49,15 +49,15 @@ const PAREJA_EJEMPLO = 'Marta';
  * (1–8). Es un EJEMPLO para ver las tres formas del turno: tuyo, de tu pareja
  * y repartido. `tuyas`/`suyas` solo si la estación tiene un total de reps.
  */
-const TURNOS: Array<Omit<Dobles, 'estacion' | 'pareja'>> = [
-  { turno: 'reparto', pctTuyo: 50, nota: 'alterna 250 m' },
+const TURNOS: Array<Omit<Dobles, 'estacion' | 'pareja' | 'nota'>> = [
+  { turno: 'reparto', pctTuyo: 50, alternaCada: { tipo: 'metros', n: 250 } },
   { turno: 'tuyo', pctTuyo: 100 },
   { turno: 'pareja', pctTuyo: 0 },
   { turno: 'tuyo', pctTuyo: 100 },
   { turno: 'pareja', pctTuyo: 0 },
   { turno: 'tuyo', pctTuyo: 100 },
   { turno: 'pareja', pctTuyo: 0 },
-  { turno: 'reparto', pctTuyo: 60, tuyas: 60, suyas: 40, nota: 'alterna 20' },
+  { turno: 'reparto', pctTuyo: 60, tuyas: 60, suyas: 40, alternaCada: { tipo: 'reps', n: 20 } },
 ];
 
 /** La estación de la pareja: UN paso de espera, que cierra el atleta (nadie mide a tu pareja). */
@@ -90,12 +90,12 @@ export function simulacroDobles(): Circuito {
     const n = p.posicion?.estacion?.n ?? 1;
     const t = TURNOS[n - 1];
     if (!t) return p;
-    const dobles: Dobles = { ...t, pareja: PAREJA_EJEMPLO, estacion: p.nombre ?? '' };
+    const dobles: Dobles = { ...t, pareja: PAREJA_EJEMPLO };
     if (t.turno === 'pareja') return esperaDe(p, dobles);
     if (t.turno === 'reparto') return tuParte(p, dobles);
     return { ...p, dobles };
   });
-  return { ...base, plan: { ...base.plan, pasos } };
+  return { ...base, plan: { ...base.plan, pasos, pareja: PAREJA_EJEMPLO } };
 }
 
 // ---------------------------------------------------------------------------

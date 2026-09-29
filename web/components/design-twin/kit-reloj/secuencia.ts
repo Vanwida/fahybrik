@@ -30,7 +30,8 @@
 //   · el tiempo en cada zona del coach y el pulso máximo (el resumen los pide).
 
 import { AVISO_INICIAL, decidirAviso, type EstadoAviso, type EventoVivo } from './eventos';
-import type { CampoVivo, EstadoGps, Lecturas, Parcial, Paso, PasoBase, ReglasAviso, Vuelta, ZonasCoach } from './paso';
+import type { MetodoReloj, Vocabulario } from './metodo';
+import type { BandasRitmo, CampoVivo, EstadoGps, Lecturas, Parcial, Paso, PasoBase, ReglasAviso, Vuelta, ZonasCoach } from './paso';
 import {
   RITMO_TECHO_S,
   faltaDe,
@@ -50,6 +51,14 @@ export interface PlanSesion {
   pasos: PasoBase[];
   zonas: ZonasCoach | null;
   reglas: ReglasAviso;
+  /** Nombres de clase y de formato, palabras del RPE del coach. Sin él, los defectos (`vocabularioDe`). */
+  vocabulario?: Vocabulario;
+  /** El método del resumen y el rango de la corona del coach. Sin él, los defectos (`metodoDe`). */
+  metodo?: MetodoReloj;
+  /** Zonas de ritmo del atleta por modalidad (km, 500 m), con su procedencia. Sin ellas, solo las de pulso. */
+  bandasRitmo?: BandasRitmo[];
+  /** El nombre de pila de la pareja en dobles: uno por sesión, no por paso. Sin él, «tu pareja». */
+  pareja?: string;
 }
 
 /** Lo que dan el cuerpo y los sensores en un segundo. */

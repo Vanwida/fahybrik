@@ -11,6 +11,10 @@
 //   · `fuerza.ejercicio`: la clave que agrupa las series de un ejercicio. Lo
 //     único que importa es qué pasos comparten ejercicio. Canónico: el
 //     ordinal (como texto) de su primera aparición.
+//   · Dobles: la pareja es de la sesión (`plan.pareja`) y se copia a cada
+//     estación; `estacion` es DERIVADA del paso (`estacionDe`); `nota` es el
+//     pacto en texto y el cable lleva `alternaCada`: la nota no vuelve.
+//   · `bandasRitmo` vacío es lo mismo que ausente.
 //   · Un booleano opcional a `false` (`aproximacion`, `lastre`, `corporal`,
 //     `corre`) es lo mismo que ausente: el modelo los lee con «si está». El
 //     cable solo distingue «es» de «no es».
@@ -22,6 +26,7 @@
 // QUÉ NO HACER: no ampliar esta lista para «hacer pasar» un test. Si un campo
 // no vuelve igual y no está aquí, es un hueco del formato o del modelo.
 
+import { estacionDe } from '../../kit-reloj/dobles';
 import type { PasoBase } from '../../kit-reloj/paso';
 import type { PlanSesion } from '../../kit-reloj/secuencia';
 
@@ -48,11 +53,19 @@ export function canonico(plan: PlanSesion): PlanSesion {
   const pasos = plan.pasos.map((p, i): PasoBase => {
     const limpio = limpiar(p) as PasoBase;
     limpio.id = String(i);
+    if (limpio.dobles) {
+      const resto = { ...limpio.dobles };
+      delete resto.nota;
+      limpio.dobles = { ...resto, ...(plan.pareja !== undefined ? { pareja: plan.pareja } : {}), estacion: estacionDe(limpio) };
+    }
     if (limpio.fuerza) {
       if (!ordinales.has(limpio.fuerza.ejercicio)) ordinales.set(limpio.fuerza.ejercicio, ordinales.size);
       limpio.fuerza.ejercicio = String(ordinales.get(limpio.fuerza.ejercicio));
     }
     return limpio;
   });
-  return { ...(limpiar({ zonas: plan.zonas, reglas: plan.reglas }) as Pick<PlanSesion, 'zonas' | 'reglas'>), pasos };
+  const cabecera: Partial<PlanSesion> = { ...plan };
+  delete cabecera.pasos;
+  const bandasRitmo = plan.bandasRitmo && plan.bandasRitmo.length > 0 ? plan.bandasRitmo : undefined;
+  return { ...(limpiar({ ...cabecera, bandasRitmo }) as Omit<PlanSesion, 'pasos'>), pasos };
 }

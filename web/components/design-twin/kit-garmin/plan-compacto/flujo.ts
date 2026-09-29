@@ -41,6 +41,7 @@ export type CodigoError =
   | 'clave-desconocida'
   | 'valor-desconocido'
   | 'vocabulario-incompleto'
+  | 'metodo-ausente'
   | 'fuera-de-limites'
   | 'truncado'
   | 'sobran-valores'

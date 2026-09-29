@@ -82,6 +82,12 @@ export interface Objetivo {
   avisa?: SentidoAviso;
   /** La palabra del coach para un RPE («fuerte»). Si falta, la del defecto. */
   palabra?: string;
+  /**
+   * De qué familia es un objetivo de `zona`: pulso (`ppm`, las `ZonasCoach`) o
+   * ritmo (`ritmo`, las bandas por km o por 500 m). Sin él, «Row @Z3» es
+   * ambiguo (530, 536). Ausente = pulso, que es lo que el kit resuelve.
+   */
+  escala?: 'ppm' | 'ritmo';
 }
 
 // ---------------------------------------------------------------------------
@@ -293,8 +299,21 @@ export type ModoRecupera = 'trote' | 'andar' | 'parado';
 /** M3 · Dónde se corre. Sale de la prescripción; nunca se pregunta a mitad. */
 export type Entorno = 'calle' | 'cinta' | 'pista';
 
+/**
+ * El grupo del coach como DATO: «6 × (1000 m / r 90″)» son seis pasos de
+ * trabajo con su recuperación que comparten `id`; `veces` es cuántas. Las
+ * tandas y las rondas se escriben igual. Sin él, `filasDePasos` agrupa por
+ * nombre + dosis + objetivos (la heurística de siempre).
+ */
+export interface GrupoPaso {
+  id: number;
+  veces: number;
+}
+
 export interface PasoBase {
   id: string;
+  /** El grupo del coach al que pertenece el paso (ver `GrupoPaso`). */
+  grupo?: GrupoPaso;
   clase: Clase;
   rol: Rol;
   fase: Fase;
@@ -382,6 +401,31 @@ export interface Lecturas {
 export interface ZonasCoach {
   techos: number[];
   nombres?: string[];
+  /**
+   * De dónde salen: las calculó el sistema (`estimada`) o el atleta las midió
+   * con un test (`medida`). Una zona estimada se dice estimada (G6). Ausente =
+   * no se sabe: el kit no afirma ninguna de las dos.
+   */
+  procedencia?: Procedencia;
+}
+
+/** De dónde sale una banda de zona: la calculó el sistema (estimada) o el atleta la midió con un test. */
+export type Procedencia = 'estimada' | 'medida';
+
+/** Unidad de una banda de ritmo: por km (correr) o por 500 m (ergómetro). */
+export type UnidadRitmo = 'km' | '500m';
+
+/** Una zona de ritmo en segundos por unidad: la cota rápida y la lenta (`null` = abierta, la Z1). */
+export interface BandaRitmo {
+  rapidoS: number;
+  lentoS: number | null;
+}
+
+/** El juego de bandas de ritmo de una modalidad, del más fácil al más duro, con de dónde sale. */
+export interface BandasRitmo {
+  unidad: UnidadRitmo;
+  procedencia: Procedencia;
+  zonas: BandaRitmo[];
 }
 
 export interface ReglasAviso {

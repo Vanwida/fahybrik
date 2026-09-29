@@ -39,7 +39,7 @@ import {
 import { planCintaEspejo, planEstacion, planFuerza, planSeries } from '@/components/design-twin/screens/reloj-gramatica/planes';
 import type { PlanSesion } from '@/components/design-twin/kit-reloj/secuencia';
 import { hyroxDobles, pasosDeWod, pasosPorCadaValor, planDe } from './garmin-plan-sinteticos';
-import { metaPorDefecto } from '@/components/design-twin/kit-garmin/plan-compacto/meta';
+import { completarPlan, metaPorDefecto } from '@/components/design-twin/kit-garmin/plan-compacto/meta';
 import type { BandasRitmo, MetaSesion } from '@/components/design-twin/kit-garmin/plan-compacto/tipos';
 
 export type FamiliaCaso = 'correr' | 'fuerza' | 'circuito' | 'wod' | 'ergo' | 'libre';
@@ -196,24 +196,24 @@ const ID_ILUSTRATIVO_BASE = 900_000;
 /** Id de asignación de un plan sintético: aparte de los ilustrativos. */
 const ID_SINTETICO_BASE = 950_000;
 
-/** `idIlustrativo`: el id de asignación de un plan que no es una asignación real (`numero: null`). */
+/** El caso tal como se SERVIRÍA al reloj: con el método del coach en el plan (procedencia de las zonas y bandas de ritmo de prueba). */
+function servido(c: CasoPlan): CasoPlan {
+  const bandasRitmo = c.familia === 'ergo' || c.familia === 'circuito' ? [RITMO_KM_DE_PRUEBA, RITMO_500_DE_PRUEBA] : [RITMO_KM_DE_PRUEBA];
+  return { ...c, plan: completarPlan(c.plan, { procedenciaPpm: 'estimada', bandasRitmo }) };
+}
+
+/** `idIlustrativo`: el id de asignación de un plan que no es una asignación real (`numero: null`). `c.plan` es el plan servido (`servido`). */
 export function metaDeCaso(c: CasoPlan, idIlustrativo: number): MetaSesion {
   const [fitSport, fitSubSport] = FIT_DE_PRUEBA[c.familia];
-  return metaPorDefecto(c.plan, {
-    asignacionId: c.numero !== null ? Number(c.numero) : idIlustrativo,
-    fitSport,
-    fitSubSport,
-    procedenciaPpm: 'estimada',
-    bandasRitmo: c.familia === 'ergo' || c.familia === 'circuito' ? [RITMO_KM_DE_PRUEBA, RITMO_500_DE_PRUEBA] : [RITMO_KM_DE_PRUEBA],
-  });
+  return metaPorDefecto(c.plan, { asignacionId: c.numero !== null ? Number(c.numero) : idIlustrativo, fitSport, fitSubSport });
 }
 
 /** Los casos derivados del doble (reales y del kit) con su cabecera, en orden estable: la lista del examen. */
 export function todosLosCasos(): Array<{ caso: CasoPlan; meta: MetaSesion }> {
-  return [...casosReales(), ...casosOtros()].map((c, i) => ({ caso: c, meta: metaDeCaso(c, ID_ILUSTRATIVO_BASE + i) }));
+  return [...casosReales(), ...casosOtros()].map(servido).map((c, i) => ({ caso: c, meta: metaDeCaso(c, ID_ILUSTRATIVO_BASE + i) }));
 }
 
 /** Todo lo que lleva vector de oro: los casos del doble y los sintéticos. */
 export function casosConVector(): Array<{ caso: CasoPlan; meta: MetaSesion }> {
-  return [...todosLosCasos(), ...casosSinteticos().map((c, i) => ({ caso: c, meta: metaDeCaso(c, ID_SINTETICO_BASE + i) }))];
+  return [...todosLosCasos(), ...casosSinteticos().map(servido).map((c, i) => ({ caso: c, meta: metaDeCaso(c, ID_SINTETICO_BASE + i) }))];
 }

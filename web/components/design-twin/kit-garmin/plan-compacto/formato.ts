@@ -32,22 +32,25 @@ import type {
   FichaFuerza,
   InfoWod,
   ModoRecupera,
+  Objetivo,
   PapelObjetivo,
+  Procedencia,
   QuienMide,
   Rol,
   SentidoAviso,
   SentidoRoxzone,
   TipoMedida,
+  UnidadRitmo,
 } from '../../kit-reloj/paso';
 import type { Dobles } from '../../kit-reloj/dobles';
-import type { NOMBRE_FORMATO_DEFECTO } from '../../kit-reloj/familia';
+import type { FormatoNombrado } from '../../kit-reloj/metodo';
 
 // ---------------------------------------------------------------------------
 // Versión y límites
 // ---------------------------------------------------------------------------
 
 /** Versión del esquema, primer valor del cable. Un reloj rechaza una que no conoce y dice «plan de otra versión». */
-export const VERSION_ESQUEMA = 1;
+export const VERSION_ESQUEMA = 2;
 
 /** Techo de todo número del cable: el `Number` de Monkey C es un entero de 32 bits con signo. */
 export const MAX_NUM = 2 ** 31 - 1;
@@ -64,7 +67,7 @@ export const CLAVE_STORAGE_MAX_BYTES = 8 * 1024;
 /** Caracteres máximos de una cadena de catálogo, de vocabulario o de zona: más largo no cabe en la pantalla más pequeña (218). */
 export const LIMITE_CADENA = 40;
 
-/** Caracteres máximos del cue del coach y de la línea de estructura: se TRUNCA con «…», nunca en silencio (informe). */
+/** Caracteres máximos del cue del coach: se TRUNCA con «…», nunca en silencio (informe). */
 export const LIMITE_CUE = 120;
 
 /** El remate de una cadena truncada. */
@@ -216,16 +219,26 @@ export const TURNOS_DOBLES = ['tuyo', 'pareja', 'reparto'] as const satisfies re
 cubierto<Cubierto<Dobles['turno'], typeof TURNOS_DOBLES>>();
 
 /** De dónde sale una banda de zona: la calculó el sistema (estimada) o el atleta la midió con un test. */
-export const PROCEDENCIAS = ['estimada', 'medida'] as const;
-export type Procedencia = (typeof PROCEDENCIAS)[number];
+export const PROCEDENCIAS = ['estimada', 'medida'] as const satisfies readonly Procedencia[];
+cubierto<Cubierto<Procedencia, typeof PROCEDENCIAS>>();
+export type { Procedencia };
 
 /** Unidad de una banda de ritmo: por km (correr) o por 500 m (ergómetro). */
-export const UNIDADES_RITMO = ['km', '500m'] as const;
-export type UnidadRitmo = (typeof UNIDADES_RITMO)[number];
+export const UNIDADES_RITMO = ['km', '500m'] as const satisfies readonly UnidadRitmo[];
+cubierto<Cubierto<UnidadRitmo, typeof UNIDADES_RITMO>>();
+export type { UnidadRitmo };
+
+/** De qué familia es una zona de un objetivo: pulso o ritmo (`Objetivo.escala`; 0 = sin dato en el cable). */
+export const ESCALAS_OBJETIVO = ['ppm', 'ritmo'] as const satisfies readonly NonNullable<Objetivo['escala']>[];
+cubierto<Cubierto<NonNullable<Objetivo['escala']>, typeof ESCALAS_OBJETIVO>>();
+
+/** Cada cuánto se alternan en una estación repartida (`Dobles.alternaCada.tipo`; 0 = no alternan). */
+export const TIPOS_ALTERNA = ['metros', 'reps', 'segundos'] as const satisfies readonly NonNullable<Dobles['alternaCada']>['tipo'][];
+cubierto<Cubierto<NonNullable<Dobles['alternaCada']>['tipo'], typeof TIPOS_ALTERNA>>();
 
 /** Los formatos con nombre propio del vocabulario del coach (`NOMBRE_FORMATO_DEFECTO`). */
-export type FormatoNombrado = keyof typeof NOMBRE_FORMATO_DEFECTO;
-export const FORMATOS_NOMBRADOS = ['emom', 'amrap', 'fortime', 'pared', 'deathby', 'circuito', 'test'] as const satisfies readonly FormatoNombrado[];
+export type { FormatoNombrado };
+export const FORMATOS_NOMBRADOS = ['emom', 'amrap', 'fortime', 'pared', 'deathby', 'circuito', 'test', 'series', 'fuerza', 'continuo'] as const satisfies readonly FormatoNombrado[];
 cubierto<Cubierto<FormatoNombrado, typeof FORMATOS_NOMBRADOS>>();
 
 // ---------------------------------------------------------------------------
@@ -238,8 +251,8 @@ export const ANCHOS_ROL_FASE = [2, 2, 1] as const;
 /** tipo de medida (3) · quién mide (3). */
 export const ANCHOS_MEDIDA = [3, 3] as const;
 
-/** eje (4) · papel (2) · lleva palabra (1) · sentido de aviso (2, 0 = sin dato). */
-export const ANCHOS_OBJETIVO = [4, 2, 1, 2] as const;
+/** eje (4) · papel (2) · lleva palabra (1) · sentido de aviso (2, 0 = sin dato) · escala de la zona (2, 0 = sin dato). */
+export const ANCHOS_OBJETIVO = [4, 2, 1, 2, 2] as const;
 
 /** modo de recuperación (2, 0 = sin dato) · entorno (2) · máquina (3) · Roxzone (2). */
 export const ANCHOS_EXTRAS = [2, 2, 3, 2] as const;
@@ -264,6 +277,7 @@ export const BANDERAS_PASO = [
   'fuerza',
   'dobles',
   'damper',
+  'grupo',
 ] as const;
 export type BanderaPaso = (typeof BANDERAS_PASO)[number];
 export const ANCHOS_BANDERAS_PASO = [2, ...BANDERAS_PASO.map(() => 1)] as const;
@@ -304,18 +318,21 @@ export const CLAVES_PASO: readonly string[] = [
   'wod',
   'fuerza',
   'dobles',
+  'grupo',
 ];
 export const CLAVES_MEDIDA: readonly string[] = ['tipo', 'prescrito', 'mide'];
-export const CLAVES_OBJETIVO: readonly string[] = ['eje', 'min', 'max', 'papel', 'avisa', 'palabra'];
+export const CLAVES_OBJETIVO: readonly string[] = ['eje', 'min', 'max', 'papel', 'avisa', 'palabra', 'escala'];
 export const CLAVES_POSICION: readonly string[] = [...CONTADORES, 'slot'];
 export const CLAVES_CARGA: readonly string[] = ['kg', 'implementos'];
 export const CLAVES_MAQUINA: readonly string[] = ['tipo', 'damper'];
 export const CLAVES_TEMPO: readonly string[] = ['excentrica', 'pausaAbajo', 'concentrica', 'pausaArriba'];
 export const CLAVES_TAREA: readonly string[] = ['nombre', 'dosis', 'carga', 'corporal', 'mide', 'corre'];
 export const CLAVES_FICHA: readonly string[] = ['ejercicio', 'carga', 'esfuerzo', 'porLado', 'aproximacion', 'pasoKg', 'vaciaKg'];
-export const CLAVES_DOBLES: readonly string[] = ['turno', 'pareja', 'estacion', 'tuyas', 'suyas', 'pctTuyo', 'nota'];
-export const CLAVES_PLAN: readonly string[] = ['pasos', 'zonas', 'reglas'];
-export const CLAVES_ZONAS: readonly string[] = ['techos', 'nombres'];
+export const CLAVES_DOBLES: readonly string[] = ['turno', 'pareja', 'estacion', 'tuyas', 'suyas', 'pctTuyo', 'nota', 'alternaCada'];
+export const CLAVES_PLAN: readonly string[] = ['pasos', 'zonas', 'reglas', 'vocabulario', 'metodo', 'bandasRitmo', 'pareja'];
+export const CLAVES_ZONAS: readonly string[] = ['techos', 'nombres', 'procedencia'];
+export const CLAVES_GRUPO: readonly string[] = ['id', 'veces'];
+export const CLAVES_ALTERNA: readonly string[] = ['tipo', 'n'];
 
 /** El slot de una superserie: una letra y un número («A1», «B2»). */
 export const PATRON_SLOT = /^([A-Z])(\d{1,3})$/;
@@ -323,28 +340,28 @@ export const PATRON_SLOT = /^([A-Z])(\d{1,3})$/;
 export const CODIGO_LETRA_A = 'A'.charCodeAt(0) - 1;
 
 // ---------------------------------------------------------------------------
-// Qué es cada cadena del cable: solo estas cinco cosas son texto
+// Qué es cada cadena del cable: solo estas seis cosas son texto
 // ---------------------------------------------------------------------------
 
 /**
  * `catalogo` = nombre de la biblioteca (ejercicio, estación, tarea, máquina);
  * `cue` = coaching corto del coach; `palabra` = la palabra del coach para un
- * RPE; `estructura` = la línea del brief (texto derivado, ver el doc);
- * `vocabulario` = nombre de clase, de formato o palabra de RPE por defecto;
- * `zona` = nombre de una zona. Los tres últimos (`pareja`, `estacion`, `nota`)
- * son el texto de los dobles: son un HUECO del modelo, no un tipo admitido.
+ * RPE; `vocabulario` = nombre de clase, de formato o palabra de RPE del coach;
+ * `zona` = nombre de una zona; `pareja` = el nombre de pila de la pareja de
+ * dobles (uno por sesión). Ninguna cadena DERIVADA viaja (la línea del brief,
+ * la estación de dobles, el pacto): el reloj las compone del dato.
  */
-export type TipoCadena = 'catalogo' | 'cue' | 'palabra' | 'estructura' | 'vocabulario' | 'zona' | 'pareja' | 'estacion' | 'nota';
+export type TipoCadena = 'catalogo' | 'cue' | 'palabra' | 'vocabulario' | 'zona' | 'pareja';
 
 /** Cadenas que se truncan (con aviso) en vez de rechazarse. */
-export const CADENAS_TRUNCABLES: ReadonlySet<TipoCadena> = new Set<TipoCadena>(['cue', 'estructura']);
+export const CADENAS_TRUNCABLES: ReadonlySet<TipoCadena> = new Set<TipoCadena>(['cue']);
 
 /** El texto que un plan sano lleva: todo lo demás es texto libre que se coló. */
 export const CADENAS_ADMITIDAS: ReadonlySet<TipoCadena> = new Set<TipoCadena>([
   'catalogo',
   'cue',
   'palabra',
-  'estructura',
   'vocabulario',
   'zona',
+  'pareja',
 ]);

@@ -84,8 +84,11 @@ export interface Grupo {
   tramos: Array<[number, number]>;
 }
 
+/** La clave de agrupación: el grupo del coach si el paso lo trae; si no, la heurística (bloque, nombre, dosis, objetivos). */
 const clave = (p: PasoBase) =>
-  [p.posicion?.tanda ? 'tandas' : p.bloque, p.posicion?.slot, p.nombre ?? p.clase, p.medida.tipo, p.medida.prescrito, JSON.stringify(p.objetivos), p.carga?.kg].join('|');
+  p.grupo
+    ? `grupo:${p.grupo.id}`
+    : [p.posicion?.tanda ? 'tandas' : p.bloque, p.posicion?.slot, p.nombre ?? p.clase, p.medida.tipo, p.medida.prescrito, JSON.stringify(p.objetivos), p.carga?.kg].join('|');
 
 /**
  * Los pasos planos, agrupados como los escribió el coach: «6 × 800 m / r 2′30″»,
@@ -115,7 +118,8 @@ export function filasDePasos(pasos: PasoBase[]): Grupo[] {
     const hasta = sig && !propio(sig) ? j + 1 : j;
     const g = porClave.get(k);
     if (g) {
-      g.veces += 1;
+      // Con grupo del coach, las veces son las que él dice; sin él, las que se cuentan.
+      if (!p.grupo) g.veces += 1;
       g.hasta = Math.max(g.hasta, hasta);
       g.tramos.push([j, hasta]);
       if (!g.entre && entre && p.fase === 'principal') g.entre = entre;
@@ -125,7 +129,7 @@ export function filasDePasos(pasos: PasoBase[]): Grupo[] {
     const t = p.posicion?.tanda;
     const nuevo: Grupo = {
       paso: p,
-      veces: 1,
+      veces: p.grupo?.veces ?? 1,
       entre: p.fase === 'principal' ? entre : null,
       tandas: t ? { veces: t.de, porTanda: p.posicion?.serie?.de ?? 1, descanso: null } : null,
       desde: j,

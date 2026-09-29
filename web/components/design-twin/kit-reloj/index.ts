@@ -67,6 +67,9 @@
 //   vuelta.ts     La vuelta automática (`vueltaAutoM`): km en calle, 400 m en pista:
 //                 nombreVueltaAuto/rotuloVueltaAuto/tituloVueltasAuto, vueltaAutomatica
 //                 (ritmo por km y veredicto), tarjetaDeVuelta, el ancla de la cuenta.
+//   metodo.ts     El método del coach en el plan: Vocabulario (clases, formatos, RPE),
+//                 MetodoReloj (resumen + rango de la corona), vocabularioDe/metodoDe/
+//                 nombreDeClase (el plan o, si no dice nada, los `*_DEFECTO`).
 //   despues.ts    Lo que se decide al terminar: MetodoResumen + METODO_RESUMEN_DEFECTO
 //                 (pares, umbral de serie cortada, guardado solo tras 10′ quieto),
 //                 completitud (completa/parcial/libre), costeTrasEstacion.
@@ -156,6 +159,7 @@ export * from './estructura';
 export * from './ruta';
 export * from './vuelta';
 export * from './despues';
+export * from './metodo';
 export * from './lamina';
 export * from './voz';
 export * from './eventos';
