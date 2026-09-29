@@ -20,6 +20,8 @@ import {
   type CoachThresholds,
 } from './signal-thresholds';
 import { loadCoachThresholdsForAthlete } from './signal-thresholds-db';
+import { loadPuertasBasalForAthlete } from './basal-db';
+import { basalDe, diaLocal, mediaEn, ventanaBasalDe, type PuertasBasal } from '../analytics/basal';
 
 // SLEEP belongs to the readiness of the day the athlete WAKES, so its window opens
 // the previous local evening. Wall-clock hour in the athlete's own tz.
@@ -57,10 +59,10 @@ const CHECKIN_CARRY_FORWARD_DAYS = 7;
 // request cheap without losing anything anyone actually looks at.
 const MAX_REFRESH_DAYS = 10;
 
-// HRV baseline: a trailing 14–60 local-day average. Excluding the most recent 14
-// days keeps an acute HRV dip from dragging down the very baseline it's compared to.
-const HRV_BASE_FROM_DAYS = 60;
-const HRV_BASE_TO_DAYS = 14;
+// HRV baseline: THE basal (`analytics/basal.ts`, P3/P16) — the coach's window
+// (`basal_dias` → `basal_excluir_dias`, default 60 → 14, which is exactly what
+// this compute always used) and his minimum nights, in the athlete's local days.
+// The same basal the panel, the roster, the sweep and the ficha read.
 
 // The sleep duration (hours) that scores a FULL sleep component is the coach's
 // (`readiness_sleep_target_hours`, default 8) and travels in the breakdown as the
@@ -234,6 +236,8 @@ export async function computeAthleteDailyReadiness(params: {
   timezone?: string;
   /** The coach's method; when omitted it's loaded from the athlete's coach (defaults if none). */
   method?: ReadinessMethod;
+  /** The coach's basal window and minimum nights; when omitted, loaded from the athlete's coach. */
+  basal?: PuertasBasal;
   client: Sql;
 }): Promise<DailyReadinessSnapshot | null> {
   const client = params.client;
@@ -250,8 +254,8 @@ export async function computeAthleteDailyReadiness(params: {
   const sleepEnd = zonedWallClockToUtc(day, tz, { days: 0, hours: SLEEP_WINDOW_END_HOUR });
   const dayStart = zonedWallClockToUtc(day, tz, { days: 0, hours: 0 });
   const dayEnd = zonedWallClockToUtc(day, tz, { days: 1, hours: 0 });
-  const hrvBaseFrom = zonedWallClockToUtc(day, tz, { days: -HRV_BASE_FROM_DAYS, hours: 0 });
-  const hrvBaseTo = zonedWallClockToUtc(day, tz, { days: -HRV_BASE_TO_DAYS, hours: 0 });
+  const puertas = params.basal ?? (await loadPuertasBasalForAthlete(client, params.athlete_id));
+  const hrvFrom = zonedWallClockToUtc(day, tz, { days: -puertas.basal_dias, hours: 0 });
   const checkinFloorIso = isoDateString(addDays(day, -CHECKIN_CARRY_FORWARD_DAYS));
 
   // The day's check-in, or the most recent one still inside the carry-forward
@@ -267,17 +271,12 @@ export async function computeAthleteDailyReadiness(params: {
   `;
   const subScore = checkin[0]?.sub_score ?? null;
 
-  const bio = await client<
-    Array<{ hrv_recent: number | null; hrv_base: number | null; sleep_h: number | null; recovery: number | null }>
-  >`
+  const bio = await client<Array<{ sleep_h: number | null; recovery: number | null }>>`
     select
-      (select avg(value_numeric)::float from biometric_streams
-        where athlete_id = ${params.athlete_id as number} and metric_type = 'hrv'
-          and recorded_at >= ${dayStart} and recorded_at < ${dayEnd}) as hrv_recent,
-      (select avg(value_numeric)::float from biometric_streams
-        where athlete_id = ${params.athlete_id as number} and metric_type = 'hrv'
-          and recorded_at >= ${hrvBaseFrom} and recorded_at < ${hrvBaseTo}) as hrv_base,
-      (select avg(value_numeric)::float / 3600.0 from biometric_streams
+      -- UNA NOCHE, UN NÚMERO: el teléfono sube la misma noche en varios lotes y
+      -- cada uno trae la duración de SUS muestras; la noche es el más completo
+      -- (nochesDeSueno de analytics/basal), no su media (que la hundía a la mitad).
+      (select max(value_numeric)::float / 3600.0 from biometric_streams
         where athlete_id = ${params.athlete_id as number} and metric_type = 'sleep_duration'
           and recorded_at >= ${overnightStart} and recorded_at < ${sleepEnd}) as sleep_h,
       (select avg(value_numeric)::float from biometric_streams
@@ -285,6 +284,20 @@ export async function computeAthleteDailyReadiness(params: {
           and recorded_at >= ${dayStart} and recorded_at < ${dayEnd}) as recovery
   `;
   const b = bio[0];
+
+  // The day's HRV and its basal, through THE basal function on raw readings.
+  const hrvRows = await client<Array<{ at: Date; v: number }>>`
+    select recorded_at as at, value_numeric::float as v from biometric_streams
+    where athlete_id = ${params.athlete_id as number} and metric_type = 'hrv'
+      and value_numeric is not null
+      and recorded_at >= ${hrvFrom} and recorded_at < ${dayEnd}
+  `;
+  const vfc = hrvRows.map((r) => ({ dia: diaLocal(new Date(r.at), tz), valor: r.v }));
+  const hrvToday = mediaEn(vfc, { desde: params.recorded_for, hasta: params.recorded_for }).valor;
+  const hrvBasal = basalDe(vfc, params.recorded_for, ventanaBasalDe(puertas));
+  // A basal with fewer nights than the coach asks for moves with every new night:
+  // the delta would measure the basal, not the athlete. No basal, no component.
+  const hrvBase = hrvBasal.noches >= puertas.hrv_min_nights_baseline ? hrvBasal.valor : null;
 
   // Resting HR — THE shared resolver (local calendar day, last revision wins, age
   // carried). It answers both questions at once: `is_for_day` marks the reading
@@ -311,8 +324,8 @@ export async function computeAthleteDailyReadiness(params: {
   const compliance = adherence?.pct != null ? adherence.pct / 100 : null;
 
   const hrvComponent =
-    b?.hrv_recent != null && b?.hrv_base != null && b.hrv_base > 0
-      ? clampScore(50 + ((b.hrv_recent - b.hrv_base) / b.hrv_base) * 100)
+    hrvToday != null && hrvBase != null && hrvBase > 0
+      ? clampScore(50 + ((hrvToday - hrvBase) / hrvBase) * 100)
       : null;
 
   const sleepComponent = b?.sleep_h != null ? sleepComponentOf(b.sleep_h, method) : null;
@@ -332,8 +345,8 @@ export async function computeAthleteDailyReadiness(params: {
     recovery_component: recoveryComponent,
     // Raw values the detail sheet renders vs their references — the very inputs
     // scored just above, surfaced (not recomputed).
-    hrv_ms: b?.hrv_recent ?? null,
-    hrv_baseline_ms: b?.hrv_base ?? null,
+    hrv_ms: hrvToday,
+    hrv_baseline_ms: hrvBase,
     rhr_bpm: rhr,
     sleep_target_h: method.sleep_target_hours,
     // Display-only escape hatch for the day the reading hasn't landed yet.

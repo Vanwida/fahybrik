@@ -143,10 +143,8 @@ async function assembleFacts(
   const rpeDays = row.rpe_days ?? [];
   const rpeValues = row.rpe_values ?? [];
 
-  const hrv_delta_ms =
-    row.hrv_recent != null && row.hrv_baseline != null
-      ? round1(row.hrv_recent - row.hrv_baseline)
-      : null;
+  // La basal única con las noches del coach (lib/coach/basal.ts): sin ellas no hay delta.
+  const hrv_delta_ms = row.hrv_delta_fiable != null ? round1(row.hrv_delta_fiable) : null;
 
   const sync_minutes_ago =
     row.last_sync_at == null
