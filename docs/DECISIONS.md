@@ -11,6 +11,29 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-29 · La entrada del reloj adopta el lenguaje del lienzo (brief con la estructura real)
+
+**Contexto.** Alex: «el diseño que se ve de entrada es feísmo y no pega con lo que tenemos». Lo que sale al abrir la app del reloj (brief de hoy, descanso, hecho, retomar, cómo llegas, la espera cuando arranca el iPhone) seguía en el lenguaje viejo: títulos pesados de 24 pt, pastillas, etiquetas de 10 pt en versales, negro liso y `BigTapButton`. El vivo ya hablaba SF nativo con el naranja solo para la acción.
+
+**Decidido (se porta `reloj-antes-despues`, no se reinventa):**
+- Todas las pantallas de reposo en `ios/FAHYBRIKWatch/Views/Entrada/`: contexto de 16 pt en gris («Hoy · desde 55 min»), una escala por papel (`EntradaTipo`, espejo de `kit-reloj/tokens.ts`), nada por debajo de 15 pt, naranja solo en «Empezar» y en la marca del trabajo, muñeca bajada sin rellenos (el botón queda en contorno, la tinta al 60 %). `RootView` deja de contener las vistas de reposo.
+- **El brief cuenta la sesión real**, no «N bloques» ni «1º · …»: `EntradaBrief` (puro, `FAHYBRIKCore/Watch/Entrada/`, con tests) lee el `WorkoutPlan` que la muñeca ya construye y escribe cada parte con su dosis y su objetivo en UNA notación (`EntradaNotacion`: «6 × 1000 m a 3:45–3:55 · r 90″ suave», «Back Squat · 4 × 8 · 65–70% 1RM · r 2′», «AMRAP · 20:00»). Respeta las repeticiones anidadas (tandas), las escaleras (1200/1000/800) y las superseries por ejercicio. Marca naranja a la izquierda del trabajo; calentar y enfriar, en gris. El cue del coach solo donde el plan lo guarda por serie.
+- «Empezar» sale también con el doble toque (`handGestureShortcut(.primaryAction)`). Se conservan `cannotStartReason` (ahora `EntradaBrief.motivo`), dobles, descanso, retomar y la versión (ahora al final de cada pantalla, a 15 pt, no en un pie de 9 pt).
+- Espera del iPhone (`MirrorRecordingOnWristOverlay`) en el mismo lenguaje.
+- Casos DEBUG en `GuionEscaparateEntrada` (`-guion brief-series`, `descanso`, `hecho`, `reanudar`, `llegas`, `espejo-esperando`, con sufijo `-atenuado`).
+
+**Lo que la propuesta pinta y el reloj NO puede dar hoy (no se finge):**
+- **«GPS listo» y el pulso antes de empezar:** la muñeca no busca GPS ni pulso hasta que empieza (`WatchRunLocationGate` arranca con el motor). Se omite la fila; cuando el motor pueda calentar el sensor antes de «Empezar», entra sin tocar el diseño.
+- **«calle / cinta» en el contexto:** el plan del reloj no trae el entorno.
+- **Cue del coach (M8) por paso** y **objetivo por paso en fuerza/erg** fuera de la carrera: el plan solo los guarda por serie en fuerza y superseries; no se rellenan.
+- **Duración «55′»:** se mantiene el suelo honesto «desde 55 min» (no una estimación con «~»).
+- **«Correr libre / Entreno libre» del día de descanso:** son pantallas nuevas y la muñeca no puede empezar nada libre hoy (P1-18): no se inventan.
+- Palabra de la recuperación: la del vivo («suave», `RunLegDisplay`), no «trote» de la propuesta, para que la muñeca hable igual en todas sus pantallas. «Parado» no se escribe (una `r 90″` a secas ya se lee así).
+
+**Pendiente:** el espejo `watch-live` del doble sigue pintando el brief viejo (ya estaba desfasado desde el 03-08); la propuesta `reloj-antes-despues` pasa a ser su espejo cuando Alex firme el resto de pantallas. Complicación de esfera y Smart Stack: necesitan un target WidgetKit que no existe. Fuera de alcance aquí: el resumen, el RPE y todo el vivo.
+
+**NO hacer:** volver a un título grande + pastillas en la entrada; contar el brief con «N bloques»; escribir el objetivo con «@» o con otra grafía en la muñeca; poner por debajo de 15 pt un texto de la entrada.
+
 ## 2026-09-29 · Analíticas rehechas: el panel del coach (pestaña Rendimiento) y el editor del método
 
 **El encargo:** pintar el panel rehecho en la ficha del atleta con los componentes reales de `web/components/v2/analiticas/` (los ocho bloques y el detalle de sesión; el MISMO cálculo que el iPhone, `GET …/analytics/panel`), el editor del método de analíticas en Ajustes › Método y los umbrales declarados de un toque.
