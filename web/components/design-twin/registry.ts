@@ -180,6 +180,7 @@ import * as garminCircuito from './screens/garmin-circuito';
 import * as garminFuerza from './screens/garmin-fuerza';
 import * as garminWod from './screens/garmin-wod';
 import * as garminDespues from './screens/garmin-despues';
+import * as garminAntes from './screens/garmin-antes';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -298,14 +299,17 @@ export const SCREENS: TwinScreenModule[] = [
   carrerasRehecho,
   planRehecho,
   hoyDia,
-  // El reloj Garmin (29-sep): la gramática y sus familias.
-  garminGramatica,
-  garminCorrer,
-  garminCircuito,
-  // El reloj Garmin (29-sep): la gramática y sus familias (registradas en orden inverso: el índice pone primero lo último añadido).
-  garminFuerza,
-  garminWod,
+  // El reloj Garmin (29-sep): la gramática y sus familias. Registradas en orden
+  // inverso (el índice pone primero lo último añadido): se leen de arriba abajo
+  // como el día del atleta — gramática, antes de salir, correr, circuito,
+  // fuerza, WOD y ergo, al terminar.
   garminDespues,
+  garminWod,
+  garminFuerza,
+  garminCircuito,
+  garminCorrer,
+  garminAntes,
+  garminGramatica,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {

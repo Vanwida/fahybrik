@@ -34,7 +34,16 @@ import { fmtReloj } from '../../kit-reloj/reglas';
 /** Cuánto se ve la tarjeta de sistema, ms. Mecanismo (como el km): lo bastante para leerla de reojo, poco para no tapar la carrera. */
 export const SISTEMA_MS = 4000;
 
-export type AvisoDeSistema = 'gps-perdido' | 'gps-listo' | 'gps-recuperado' | 'pulso-perdido' | 'pulso-recuperado';
+export type AvisoDeSistema =
+  | 'gps-perdido'
+  | 'gps-listo'
+  | 'gps-recuperado'
+  | 'pulso-perdido'
+  | 'pulso-recuperado'
+  // Los tres de «Garmin · antes y después» (G26): lo que se dice ANTES de empezar y AL TERMINAR.
+  | 'pulso-ausente'
+  | 'bateria-baja'
+  | 'sin-movil';
 
 /** Lo que el reloj lee y decide un aviso: el estado del GPS y si el pulso llega. */
 export interface LecturaDeSistema {
@@ -64,6 +73,10 @@ export const TEXTO_SISTEMA: Record<AvisoDeSistema, { titulo: string; sigue: stri
   'gps-listo': { titulo: 'GPS listo', sigue: 'Ya mide el ritmo', sinDato: null },
   'pulso-perdido': { titulo: 'Pulso perdido', sigue: 'El crono sigue', sinDato: 'Pulso: —' },
   'pulso-recuperado': { titulo: 'Pulso recuperado', sigue: 'Vuelve el pulso', sinDato: null },
+  // Antes de empezar (pulso, batería) o al terminar (móvil): no hay «llevas» que enseñar.
+  'pulso-ausente': { titulo: 'Sin pulso', sigue: 'Puedes empezar igual', sinDato: 'Lo que va a zona: —' },
+  'bateria-baja': { titulo: 'Batería baja', sigue: 'Puede no llegar al final', sinDato: null },
+  'sin-movil': { titulo: 'Sin móvil', sigue: 'Se graba igual', sinDato: 'Sube con el móvil' },
 };
 
 const ALTO_NOTA = altoLinea(TG.nota, 'nota');
