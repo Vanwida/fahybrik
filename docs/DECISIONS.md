@@ -11,6 +11,28 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-29 · El reloj Garmin: motor propio en Connect IQ (modelo `docs/garmin-reloj/modelo.md`) y una corrección de la entrada del 06-08
+
+**El encargo (Alex, 29-09):** una app en la Connect IQ Store, «top en el mercado, que gane a TrainingPeaks», para el corredor híbrido. Garmin compró TrainingPeaks el 22-jul-2026 y tiene pausadas las altas de su Connect Developer Program (desde la primavera, antes de la compra); Connect IQ es otro programa, abierto, con revisión ≤ 72 h.
+
+**Decidido (propuesto por el CTO; las pantallas esperan la firma de Alex):**
+- **Motor propio, no reproductor nativo.** La app es un `watch-app` de actividad que guía cada paso contra su objetivo, graba el FIT, deja RPE y series anotadas y envía el resultado a `POST /api/sync/workout-execution`. Motivo: el reproductor nativo solo entiende cardio por intervalos (TrainingPeaks en Garmin es exactamente eso: calendario de Garmin Connect, 15 días, sin fuerza, RPE = temporizador, ±10 %). La sesión híbrida solo cabe en un motor propio.
+- **La app «mensajera» `garmin-ciq/` se sustituye** en el mismo proyecto y el mismo id de app. Se borran `Delivery.mc` y todo lo de descargar un FIT y lanzarlo; se conserva el login como patrón. Nunca se probó en un reloj. Si T1 (abajo) dice que la carga de Garmin solo cuenta con el reproductor nativo, el código está en git.
+- **El deporte del FIT (`fit_sport`/`fit_sub_sport`) lo manda el servidor por sesión, como dato.** Garmin no tiene HYROX; el mapa lo deciden las pruebas T1 y T9.
+- **App gratuita que exige cuenta FAHYBRID**, declarado en la ficha. Cobrar por Garmin exige entidad legal en país admitido y no la hay. «HYROX» no va en el título ni en la ficha (Amazfit es el socio oficial; Garmin pide permiso para marcas ajenas).
+- **Niveles de reloj:** A (v1) = 5 botones y ≥ 512 KB de memoria de app y API ≥ 5.2; B (después) = Venu/vivoactive (solo enter/esc); fuera = ≤ 128 KB. Suelo de diseño: 218 px. Manifest generado desde `devices.xml` del SDK.
+- **Login por código de dispositivo** (el reloj muestra el código, el atleta lo escribe en la app del móvil) en vez de teclear email y código en los ajustes de Garmin Connect.
+- **Voz: ninguna en la v1.** Una app de reloj no puede reproducir audio; solo tonos y vibración (≤ 8 pulsos por llamada; los Forerunner no cambian de intensidad), con codificación redundante.
+
+**CORRECCIÓN DE 2026-08-06 («Reconocer el movimiento es cosa de Apple Watch. Garmin queda descartado»):** su premisa era falsa. `Sensor.registerSensorDataListener` (SDK 9.2.0, leído en `doc/Toybox/Sensor.html`) entrega acelerómetro, giroscopio, magnetómetro e intervalos RR en lotes de ≤ 4 s, y el JSON de los relojes fija `maxAccelRate` 100 Hz en FR265/965/970/570/955, fenix 7/8, Venu 3 y vivoactive 6. Con eso la literatura (20–100 Hz) sí trabaja. Sigue siendo cierto que Garmin no publica su contador nativo y que hay un solo listener a la vez. **Ya no vale «no volver a plantear conteo de repeticiones dentro de Connect IQ»**: pasa a fase 2, sujeta a la prueba T10 (CPU, batería, watchdog). El resto de esa entrada (Apple) sigue en pie.
+
+**No verificado, y por tanto NO se promete al atleta:** que una sesión de una app Connect IQ cuente para Training Effect, carga, Training Status, VO2max o recuperación de Garmin (ningún texto oficial; un foro de Xert dice que no; fichas de apps dicen que sí con deporte nativo). **Prueba T1 en reloj real antes de escribir copy.** Tampoco: pantalla y teclas durante la grabación, tamaño máximo de una petición desde el reloj, y `addLap` en Garmin Connect (T2–T9, T11–T14 en el modelo).
+
+**NO hacer:** prometer nada de Training Status/carga de Garmin; usar «HYROX» en la ficha; usar las zonas de Garmin (van absolutas por atleta desde el servidor); dejar que BACK cierre la app grabando; enviar voz por el reloj; mantener un segundo camino («mensajera») en paralelo al motor; declarar los ids de reloj a mano.
+
+---
+
+
 ## 2026-09-29 · Analíticas rehechas: el panel del coach (pestaña Rendimiento) y el editor del método
 
 **El encargo:** pintar el panel rehecho en la ficha del atleta con los componentes reales de `web/components/v2/analiticas/` (los ocho bloques y el detalle de sesión; el MISMO cálculo que el iPhone, `GET …/analytics/panel`), el editor del método de analíticas en Ajustes › Método y los umbrales declarados de un toque.

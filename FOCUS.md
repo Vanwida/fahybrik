@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-29** (analíticas rehechas: cumplimiento y panel del coach fusionados en main, migraciones 0279–0281 en prod)
+Última actualización: **2026-09-29** (reloj Garmin: modelo y decisión de motor propio; analíticas rehechas ya en main)
 
 ## Ahora
 
@@ -43,23 +43,23 @@ plantillas; ramas `fix/un-solo-entreno`, `fix/plantilla-escritor-unico`, `ios/mo
 `worktree-agent-acf4f0bae662f59a6` (coach ve libres solo lectura), sin fusionar. Contratos iOS: `docs/pr/un-solo-entreno.md`,
 `docs/pr/lectores-libre-coach.md`, `docs/pr/ios-motor-libre.md` (falta servidor: `round_index`, `workout.modality`, segmentos en /free/plan).
 
-**LA MUÑECA SE REHACE Y EL RELOJ ES EL PRODUCTO (24-25-09; listón TrainingPeaks).** Auditoría `docs/reloj-muneca/` y diseño firmado
-`docs/el-reloj-primero/` (SF nativo, el objetivo manda, voz al cambiar de paso y cada km). Hechas las fases 0+1 (CI macOS, registro
-técnico 0273, sesión 180 d, cola sin caducidad, acuses) y las 6 propuestas `reloj-*` sobre `kit-reloj`. Falta la firma de Alex sobre
-las pantallas → Swift (correr primero); exige arreglos de modelo M1–M8. PR #192 (fases 0+1) abierto: no fusionar sin 0270–0273 en
-prod (a 24-09 faltaban; comprobar con el runner antes de asumir). Auditoría de la app del atleta: `docs/auditoria-app-atleta/`.
-FH-56 (enlace muñeca↔móvil lo dice Apple, build 100, nota `docs/pr/fh56-apple-link.md`).
+**RELOJ GARMIN, MOTOR PROPIO EN CONNECT IQ (29-09; modelo `docs/garmin-reloj/modelo.md`, DECISIONS 29-09).** Ya no reproductor nativo: watch-app de
+actividad que guía pasos, graba FIT y envía el resultado a `workout-execution` (TrainingPeaks en Garmin = calendario nativo, sin fuerza ni
+RPE). Corrige DECISIONS 06-08: Connect IQ SÍ da acelerómetro a 100 Hz en lotes. NO prometer Training Status hasta la prueba T1 en reloj real.
+Diseño en el doble (`garmin-*`, kit `kit-garmin`) pendiente de firma; luego Monkey C. Alex debe decir qué Garmin físico hay para T1–T14.
 
-**Panel del coach (web `(v2)`) RECONSTRUIDO y revisado para FLEXR** (rama `claude/focused-bardeen-u9zz33`; auditoría
-`docs/auditoria-panel-coach/`, revisión `docs/revision-flexr/index.html`). Hoy = bandeja única; aislamiento entre coaches con tests
-en `web/tests/tenancy/`; método = dato del coach con defecto (0211–0260). DECIDIDO 24-09: app FLEXR (repo nuevo al final), Stripe
-Connect, alta por solicitud + aprobación, RLS antes del coach 20. PR #191 fusionado (24-09): tras el deploy, reconectar Google
-Calendar por coach; alta de pago apagada para todo club que no sea FAHYBRID hasta Stripe Connect.
+**LA MUÑECA (APPLE) SE REHACE Y EL RELOJ ES EL PRODUCTO (24-25-09; listón TrainingPeaks).** Auditoría `docs/reloj-muneca/`, diseño firmado
+`docs/el-reloj-primero/`. Hechas fases 0+1 (CI macOS, registro técnico 0273, sesión 180 d, cola sin caducidad, acuses) y las 6 propuestas
+`reloj-*` sobre `kit-reloj`. Falta firma de Alex → Swift (correr primero); exige M1–M8. PR #192 abierto: no fusionar sin 0270–0273 en prod. App del atleta: `docs/auditoria-app-atleta/`.
+
+**Panel del coach (web `(v2)`) RECONSTRUIDO para FLEXR** (auditoría `docs/auditoria-panel-coach/`, revisión `docs/revision-flexr/index.html`):
+bandeja única, aislamiento entre coaches con tests en `web/tests/tenancy/`, método = dato del coach (0211–0260). DECIDIDO 24-09: app FLEXR,
+Stripe Connect, alta por solicitud, RLS antes del coach 20. PR #191 fusionado: reconectar Google Calendar por coach; pago apagado salvo FAHYBRIK.
 
 ## Pendiente decisión Alex
 
 - Analíticas: las cinco decisiones abiertas de DECISIONS 29-09 (voz de coach, «Dar feedback», 1RM medido en el motor, copy de
-  Umbrales, Progreso a 1440) y la firma de las pantallas del reloj.
+  Umbrales, Progreso a 1440) la firma de las pantallas del reloj (Apple y Garmin) y qué Garmin físico hay.
 - Panel coach: borrar código muerto sin importadores (el clasificador no deja a los agentes): `web/components/v2/orientacion/**`,
   `web/lib/dashboard/v2/{orientacion,orientacion-types,periodizacion}.ts`, `v2/{SegmentedControl,InlineSave,OrderAlteredSignal,Rail,
   SessionLine}.tsx`, `v2/periodizacion/SidePanel.tsx`, `v2/tests/chrome.tsx`, `v2/intake/IntakeBlockStructure.tsx`,
