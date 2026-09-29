@@ -1,0 +1,1371 @@
+{
+ "athlete_id": "101",
+ "generado_iso": "2026-09-29T08:00:00.000Z",
+ "ventana": {
+  "clave": "12s",
+  "desde": "2026-07-08",
+  "hasta": "2026-09-29",
+  "dias": 84,
+  "anterior": {
+   "desde": "2026-04-15",
+   "hasta": "2026-07-07",
+   "dias": 84
+  },
+  "cubre_todo": false
+ },
+ "historia": {
+  "semanas": 38,
+  "desde": "2026-01-05",
+  "cubre_todo": false
+ },
+ "metodo": {
+  "ctl_days": 42,
+  "atl_days": 7,
+  "ramp_alert_tss_per_week": 5,
+  "acr_low": 0.8,
+  "acr_high": 1.3,
+  "fuentes_run": [
+   "ritmo",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_row": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_ski": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_bike": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_strength": [
+   "esfuerzo",
+   "pulso"
+  ],
+  "fuentes_other": [
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuerza_coeficiente": 1,
+  "cobertura_veredicto_min_pct": 90,
+  "frescura_sobrecarga_hasta": -30,
+  "frescura_optimo_hasta": -11,
+  "frescura_mantener_hasta": 4,
+  "frescura_fresco_hasta": 29,
+  "cumplimiento_base": "sesiones",
+  "cumplimiento_bien_pct": 90,
+  "cumplimiento_regular_pct": 70,
+  "cumplimiento_sesion_bases": [
+   "carga",
+   "duracion",
+   "distancia"
+  ],
+  "cumplimiento_verde_min_pct": 80,
+  "cumplimiento_verde_max_pct": 120,
+  "cumplimiento_ambar_min_pct": 50,
+  "cumplimiento_ambar_max_pct": 150,
+  "holgura_ritmo_s_km": 3,
+  "holgura_split_s_500m": 2,
+  "holgura_vatios_w": 10,
+  "holgura_pulso_ppm": 2,
+  "holgura_rpe": 1,
+  "holgura_rir": 1,
+  "holgura_carga_pct": 0,
+  "holgura_dosis_pct": 10,
+  "cambio_carga_pct": 10,
+  "cambio_horas_pct": 10,
+  "cambio_forma_tss": 5,
+  "cambio_frescura_tss": 5,
+  "cambio_variabilidad_pct": 5,
+  "cambio_pulso_reposo_bpm": 3,
+  "cambio_sueno_horas": 0.5,
+  "cambio_cumplimiento_pts": 10,
+  "cambio_polarizacion_pts": 5,
+  "polarizacion_familias": [
+   "correr",
+   "remo",
+   "ski",
+   "bici",
+   "estaciones",
+   "wod"
+  ],
+  "polarizacion_tolerancia_pts": 10,
+  "cambio_ergo_pct": 1,
+  "cambio_fuerza_pct": 2.5,
+  "cambio_estaciones_pct": 3,
+  "cambio_wod_pct": 3,
+  "cambio_test_pct": 2,
+  "fuerza_1rm_reps_max": 10,
+  "basal_dias": 60,
+  "basal_excluir_dias": 14,
+  "cs_min_efforts": 3,
+  "cs_min_duration_s": 120,
+  "cs_max_duration_s": 900,
+  "cs_min_spread_ratio": 3,
+  "cs_min_fit_r2_pct": 95,
+  "cs_max_drift_from_threshold_pct": 15,
+  "sleep_target_hours": 8,
+  "hrv_min_nights_baseline": 14,
+  "hrv_min_nights_recent": 3,
+  "subida_dias": 14,
+  "subida_minima_pct": 5,
+  "cobertura_ciega_alerta_pct": 25
+ },
+ "anclas": {
+  "pulso": {
+   "valor": 170,
+   "ancla": "medida",
+   "fuente": "perfil_test",
+   "explica_es": "Test de 30 min · 3 sep",
+   "desde_iso": "2026-09-03"
+  },
+  "ritmo": {
+   "run": {
+    "valor": 252,
+    "ancla": "medida",
+    "fuente": "perfil_test",
+    "explica_es": "Test de umbral · 3 sep",
+    "desde_iso": "2026-09-03"
+   },
+   "row": {
+    "valor": 112,
+    "ancla": "medida",
+    "fuente": "marca_row_2k",
+    "explica_es": "2000 m de remo · 20 sep",
+    "desde_iso": "2026-09-20"
+   },
+   "ski": {
+    "valor": 118,
+    "ancla": "medida",
+    "fuente": "marca_ski_1k",
+    "explica_es": "1000 m de ski · 12 sep",
+    "desde_iso": "2026-09-12"
+   },
+   "bike": null
+  },
+  "potencia": {
+   "row": {
+    "valor": 268,
+    "ancla": "medida",
+    "fuente": "marca_row_2k",
+    "explica_es": "2000 m de remo · 20 sep",
+    "desde_iso": "2026-09-20"
+   },
+   "ski": {
+    "valor": 238,
+    "ancla": "medida",
+    "fuente": "marca_ski_1k",
+    "explica_es": "1000 m de ski · 12 sep",
+    "desde_iso": "2026-09-12"
+   },
+   "bike": {
+    "valor": 190,
+    "ancla": "declarada",
+    "fuente": "declarada_atleta",
+    "explica_es": "Lo declaraste tú · 2 jul",
+    "desde_iso": "2026-07-02"
+   }
+  }
+ },
+ "familia": "estaciones",
+ "lecturas": [
+  {
+   "id": "progreso.estaciones",
+   "grupo": "progreso",
+   "familia": "estaciones",
+   "titulo_es": "Estaciones · Burpee broad jump · 80 m",
+   "estado": "medida",
+   "dato": {
+    "valor": 260,
+    "unidad": "segundos",
+    "referencia": {
+     "valor": 260,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 268,
+    "delta": -2.9850746268656714,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 3,
+    "significativo": false
+   },
+   "serie": {
+    "unidad": "segundos",
+    "paso": "dia",
+    "puntos": [
+     {
+      "t": "2026-01-10",
+      "v": 277
+     },
+     {
+      "t": "2026-01-31",
+      "v": 273
+     },
+     {
+      "t": "2026-02-21",
+      "v": 271
+     },
+     {
+      "t": "2026-02-28",
+      "v": 276
+     },
+     {
+      "t": "2026-03-14",
+      "v": 269
+     },
+     {
+      "t": "2026-03-21",
+      "v": 273
+     },
+     {
+      "t": "2026-04-04",
+      "v": 273
+     },
+     {
+      "t": "2026-04-11",
+      "v": 274
+     },
+     {
+      "t": "2026-05-02",
+      "v": 269
+     },
+     {
+      "t": "2026-05-23",
+      "v": 271
+     },
+     {
+      "t": "2026-06-13",
+      "v": 271
+     },
+     {
+      "t": "2026-07-04",
+      "v": 268
+     },
+     {
+      "t": "2026-07-11",
+      "v": 265
+     },
+     {
+      "t": "2026-07-25",
+      "v": 266
+     },
+     {
+      "t": "2026-08-01",
+      "v": 269
+     },
+     {
+      "t": "2026-08-15",
+      "v": 261
+     },
+     {
+      "t": "2026-08-22",
+      "v": 261
+     },
+     {
+      "t": "2026-09-12",
+      "v": 260
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "igual",
+    "etiqueta_es": "Te mantienes",
+    "frase_es": null,
+    "tono": "neutro"
+   },
+   "cobertura": {
+    "muestras": 6,
+    "dias_ventana": 84,
+    "dias_con_dato": 6,
+    "pct": 7.142857142857142,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "estacion_dosis_carga",
+    "explica_es": "Tu mejor tiempo en la misma estación, a la misma dosis y con la misma carga. Toda la historia en la serie; la ventana decide qué se compara.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "estaciones.burpee_broad_jump.80m.sin-carga",
+   "grupo": "progreso",
+   "familia": "estaciones",
+   "titulo_es": "Burpee broad jump · 80 m",
+   "estado": "medida",
+   "dato": {
+    "valor": 260,
+    "unidad": "segundos",
+    "referencia": {
+     "valor": 260,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 268,
+    "delta": -2.9850746268656714,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 3,
+    "significativo": false
+   },
+   "serie": {
+    "unidad": "segundos",
+    "paso": "dia",
+    "puntos": [
+     {
+      "t": "2026-01-10",
+      "v": 277
+     },
+     {
+      "t": "2026-01-31",
+      "v": 273
+     },
+     {
+      "t": "2026-02-21",
+      "v": 271
+     },
+     {
+      "t": "2026-02-28",
+      "v": 276
+     },
+     {
+      "t": "2026-03-14",
+      "v": 269
+     },
+     {
+      "t": "2026-03-21",
+      "v": 273
+     },
+     {
+      "t": "2026-04-04",
+      "v": 273
+     },
+     {
+      "t": "2026-04-11",
+      "v": 274
+     },
+     {
+      "t": "2026-05-02",
+      "v": 269
+     },
+     {
+      "t": "2026-05-23",
+      "v": 271
+     },
+     {
+      "t": "2026-06-13",
+      "v": 271
+     },
+     {
+      "t": "2026-07-04",
+      "v": 268
+     },
+     {
+      "t": "2026-07-11",
+      "v": 265
+     },
+     {
+      "t": "2026-07-25",
+      "v": 266
+     },
+     {
+      "t": "2026-08-01",
+      "v": 269
+     },
+     {
+      "t": "2026-08-15",
+      "v": 261
+     },
+     {
+      "t": "2026-08-22",
+      "v": 261
+     },
+     {
+      "t": "2026-09-12",
+      "v": 260
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "igual",
+    "etiqueta_es": "Te mantienes",
+    "frase_es": null,
+    "tono": "neutro"
+   },
+   "cobertura": {
+    "muestras": 6,
+    "dias_ventana": 84,
+    "dias_con_dato": 6,
+    "pct": 7.142857142857142,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "estacion_dosis_carga",
+    "explica_es": "Tu mejor tiempo en la misma estación, a la misma dosis y con la misma carga. Toda la historia en la serie; la ventana decide qué se compara.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "estaciones.farmers_carry.200m.48kg",
+   "grupo": "progreso",
+   "familia": "estaciones",
+   "titulo_es": "Farmers carry · 200 m · 48 kg",
+   "estado": "medida",
+   "dato": {
+    "valor": 118,
+    "unidad": "segundos",
+    "referencia": {
+     "valor": 118,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 119,
+    "delta": -0.8403361344537815,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 3,
+    "significativo": false
+   },
+   "serie": {
+    "unidad": "segundos",
+    "paso": "dia",
+    "puntos": [
+     {
+      "t": "2026-01-10",
+      "v": 124
+     },
+     {
+      "t": "2026-01-31",
+      "v": 122
+     },
+     {
+      "t": "2026-02-21",
+      "v": 123
+     },
+     {
+      "t": "2026-02-28",
+      "v": 123
+     },
+     {
+      "t": "2026-03-14",
+      "v": 124
+     },
+     {
+      "t": "2026-03-21",
+      "v": 123
+     },
+     {
+      "t": "2026-04-04",
+      "v": 122
+     },
+     {
+      "t": "2026-04-11",
+      "v": 122
+     },
+     {
+      "t": "2026-05-02",
+      "v": 121
+     },
+     {
+      "t": "2026-05-23",
+      "v": 120
+     },
+     {
+      "t": "2026-06-13",
+      "v": 120
+     },
+     {
+      "t": "2026-07-04",
+      "v": 119
+     },
+     {
+      "t": "2026-07-11",
+      "v": 119
+     },
+     {
+      "t": "2026-07-25",
+      "v": 121
+     },
+     {
+      "t": "2026-08-01",
+      "v": 119
+     },
+     {
+      "t": "2026-08-15",
+      "v": 118
+     },
+     {
+      "t": "2026-08-22",
+      "v": 118
+     },
+     {
+      "t": "2026-09-12",
+      "v": 118
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "igual",
+    "etiqueta_es": "Te mantienes",
+    "frase_es": null,
+    "tono": "neutro"
+   },
+   "cobertura": {
+    "muestras": 6,
+    "dias_ventana": 84,
+    "dias_con_dato": 6,
+    "pct": 7.142857142857142,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "estacion_dosis_carga",
+    "explica_es": "Tu mejor tiempo en la misma estación, a la misma dosis y con la misma carga. Toda la historia en la serie; la ventana decide qué se compara.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "estaciones.sandbag_lunges.100m.20kg",
+   "grupo": "progreso",
+   "familia": "estaciones",
+   "titulo_es": "Sandbag lunges · 100 m · 20 kg",
+   "estado": "medida",
+   "dato": {
+    "valor": 257,
+    "unidad": "segundos",
+    "referencia": {
+     "valor": 257,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 263,
+    "delta": -2.2813688212927756,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 3,
+    "significativo": false
+   },
+   "serie": {
+    "unidad": "segundos",
+    "paso": "dia",
+    "puntos": [
+     {
+      "t": "2026-01-10",
+      "v": 272
+     },
+     {
+      "t": "2026-01-31",
+      "v": 266
+     },
+     {
+      "t": "2026-02-21",
+      "v": 268
+     },
+     {
+      "t": "2026-02-28",
+      "v": 272
+     },
+     {
+      "t": "2026-03-14",
+      "v": 267
+     },
+     {
+      "t": "2026-03-21",
+      "v": 265
+     },
+     {
+      "t": "2026-04-04",
+      "v": 267
+     },
+     {
+      "t": "2026-04-11",
+      "v": 269
+     },
+     {
+      "t": "2026-05-02",
+      "v": 266
+     },
+     {
+      "t": "2026-05-23",
+      "v": 266
+     },
+     {
+      "t": "2026-06-13",
+      "v": 263
+     },
+     {
+      "t": "2026-07-04",
+      "v": 264
+     },
+     {
+      "t": "2026-07-11",
+      "v": 265
+     },
+     {
+      "t": "2026-07-25",
+      "v": 262
+     },
+     {
+      "t": "2026-08-01",
+      "v": 264
+     },
+     {
+      "t": "2026-08-15",
+      "v": 257
+     },
+     {
+      "t": "2026-08-22",
+      "v": 257
+     },
+     {
+      "t": "2026-09-12",
+      "v": 258
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "igual",
+    "etiqueta_es": "Te mantienes",
+    "frase_es": null,
+    "tono": "neutro"
+   },
+   "cobertura": {
+    "muestras": 6,
+    "dias_ventana": 84,
+    "dias_con_dato": 6,
+    "pct": 7.142857142857142,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "estacion_dosis_carga",
+    "explica_es": "Tu mejor tiempo en la misma estación, a la misma dosis y con la misma carga. Toda la historia en la serie; la ventana decide qué se compara.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "estaciones.sled_pull.50m.103kg",
+   "grupo": "progreso",
+   "familia": "estaciones",
+   "titulo_es": "Sled pull · 50 m · 103 kg",
+   "estado": "medida",
+   "dato": {
+    "valor": 227,
+    "unidad": "segundos",
+    "referencia": {
+     "valor": 227,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 229,
+    "delta": -0.8733624454148471,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 3,
+    "significativo": false
+   },
+   "serie": {
+    "unidad": "segundos",
+    "paso": "dia",
+    "puntos": [
+     {
+      "t": "2026-01-10",
+      "v": 239
+     },
+     {
+      "t": "2026-01-31",
+      "v": 233
+     },
+     {
+      "t": "2026-02-21",
+      "v": 237
+     },
+     {
+      "t": "2026-02-28",
+      "v": 237
+     },
+     {
+      "t": "2026-03-14",
+      "v": 234
+     },
+     {
+      "t": "2026-03-21",
+      "v": 237
+     },
+     {
+      "t": "2026-04-04",
+      "v": 233
+     },
+     {
+      "t": "2026-04-11",
+      "v": 234
+     },
+     {
+      "t": "2026-05-02",
+      "v": 230
+     },
+     {
+      "t": "2026-05-23",
+      "v": 230
+     },
+     {
+      "t": "2026-06-13",
+      "v": 229
+     },
+     {
+      "t": "2026-07-04",
+      "v": 229
+     },
+     {
+      "t": "2026-07-11",
+      "v": 227
+     },
+     {
+      "t": "2026-07-25",
+      "v": 227
+     },
+     {
+      "t": "2026-08-01",
+      "v": 228
+     },
+     {
+      "t": "2026-08-15",
+      "v": 230
+     },
+     {
+      "t": "2026-08-22",
+      "v": 228
+     },
+     {
+      "t": "2026-09-12",
+      "v": 228
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "igual",
+    "etiqueta_es": "Te mantienes",
+    "frase_es": null,
+    "tono": "neutro"
+   },
+   "cobertura": {
+    "muestras": 6,
+    "dias_ventana": 84,
+    "dias_con_dato": 6,
+    "pct": 7.142857142857142,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "estacion_dosis_carga",
+    "explica_es": "Tu mejor tiempo en la misma estación, a la misma dosis y con la misma carga. Toda la historia en la serie; la ventana decide qué se compara.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "estaciones.sled_push.50m.152kg",
+   "grupo": "progreso",
+   "familia": "estaciones",
+   "titulo_es": "Sled push · 50 m · 152 kg",
+   "estado": "medida",
+   "dato": {
+    "valor": 184,
+    "unidad": "segundos",
+    "referencia": {
+     "valor": 184,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 185,
+    "delta": -0.5405405405405406,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 3,
+    "significativo": false
+   },
+   "serie": {
+    "unidad": "segundos",
+    "paso": "dia",
+    "puntos": [
+     {
+      "t": "2026-01-10",
+      "v": 194
+     },
+     {
+      "t": "2026-01-31",
+      "v": 193
+     },
+     {
+      "t": "2026-02-21",
+      "v": 192
+     },
+     {
+      "t": "2026-02-28",
+      "v": 190
+     },
+     {
+      "t": "2026-03-14",
+      "v": 192
+     },
+     {
+      "t": "2026-03-21",
+      "v": 190
+     },
+     {
+      "t": "2026-04-04",
+      "v": 187
+     },
+     {
+      "t": "2026-04-11",
+      "v": 192
+     },
+     {
+      "t": "2026-05-02",
+      "v": 187
+     },
+     {
+      "t": "2026-05-23",
+      "v": 186
+     },
+     {
+      "t": "2026-06-13",
+      "v": 189
+     },
+     {
+      "t": "2026-07-04",
+      "v": 185
+     },
+     {
+      "t": "2026-07-11",
+      "v": 188
+     },
+     {
+      "t": "2026-07-25",
+      "v": 184
+     },
+     {
+      "t": "2026-08-01",
+      "v": 188
+     },
+     {
+      "t": "2026-08-15",
+      "v": 187
+     },
+     {
+      "t": "2026-08-22",
+      "v": 185
+     },
+     {
+      "t": "2026-09-12",
+      "v": 185
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "igual",
+    "etiqueta_es": "Te mantienes",
+    "frase_es": null,
+    "tono": "neutro"
+   },
+   "cobertura": {
+    "muestras": 6,
+    "dias_ventana": 84,
+    "dias_con_dato": 6,
+    "pct": 7.142857142857142,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "estacion_dosis_carga",
+    "explica_es": "Tu mejor tiempo en la misma estación, a la misma dosis y con la misma carga. Toda la historia en la serie; la ventana decide qué se compara.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "estaciones.wall_balls.100r.6kg",
+   "grupo": "progreso",
+   "familia": "estaciones",
+   "titulo_es": "Wall balls · 100 reps · 6 kg",
+   "estado": "medida",
+   "dato": {
+    "valor": 317,
+    "unidad": "segundos",
+    "referencia": {
+     "valor": 317,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 322,
+    "delta": -1.5527950310559007,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 3,
+    "significativo": false
+   },
+   "serie": {
+    "unidad": "segundos",
+    "paso": "dia",
+    "puntos": [
+     {
+      "t": "2026-01-10",
+      "v": 339
+     },
+     {
+      "t": "2026-01-31",
+      "v": 329
+     },
+     {
+      "t": "2026-02-21",
+      "v": 331
+     },
+     {
+      "t": "2026-02-28",
+      "v": 335
+     },
+     {
+      "t": "2026-03-14",
+      "v": 327
+     },
+     {
+      "t": "2026-03-21",
+      "v": 334
+     },
+     {
+      "t": "2026-04-04",
+      "v": 324
+     },
+     {
+      "t": "2026-04-11",
+      "v": 328
+     },
+     {
+      "t": "2026-05-02",
+      "v": 323
+     },
+     {
+      "t": "2026-05-23",
+      "v": 328
+     },
+     {
+      "t": "2026-06-13",
+      "v": 322
+     },
+     {
+      "t": "2026-07-04",
+      "v": 325
+     },
+     {
+      "t": "2026-07-11",
+      "v": 321
+     },
+     {
+      "t": "2026-07-25",
+      "v": 319
+     },
+     {
+      "t": "2026-08-01",
+      "v": 318
+     },
+     {
+      "t": "2026-08-15",
+      "v": 322
+     },
+     {
+      "t": "2026-08-22",
+      "v": 318
+     },
+     {
+      "t": "2026-09-12",
+      "v": 317
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "igual",
+    "etiqueta_es": "Te mantienes",
+    "frase_es": null,
+    "tono": "neutro"
+   },
+   "cobertura": {
+    "muestras": 6,
+    "dias_ventana": 84,
+    "dias_con_dato": 6,
+    "pct": 7.142857142857142,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "estacion_dosis_carga",
+    "explica_es": "Tu mejor tiempo en la misma estación, a la misma dosis y con la misma carga. Toda la historia en la serie; la ventana decide qué se compara.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "progreso.wod",
+   "grupo": "progreso",
+   "familia": "wod",
+   "titulo_es": "WOD · AMRAP 12′ del coach",
+   "estado": "medida",
+   "dato": {
+    "valor": 12.13,
+    "unidad": "rondas",
+    "referencia": {
+     "valor": 12.13,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 11.29,
+    "delta": 7.44021257750223,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 3,
+    "significativo": true
+   },
+   "serie": {
+    "unidad": "rondas",
+    "paso": "dia",
+    "puntos": [
+     {
+      "t": "2026-01-11",
+      "v": 9.04
+     },
+     {
+      "t": "2026-01-18",
+      "v": 9.33
+     },
+     {
+      "t": "2026-03-01",
+      "v": 10.29
+     },
+     {
+      "t": "2026-03-08",
+      "v": 10.29
+     },
+     {
+      "t": "2026-03-15",
+      "v": 10.33
+     },
+     {
+      "t": "2026-04-26",
+      "v": 10.04
+     },
+     {
+      "t": "2026-05-03",
+      "v": 10.29
+     },
+     {
+      "t": "2026-05-10",
+      "v": 10.25
+     },
+     {
+      "t": "2026-06-28",
+      "v": 11.13
+     },
+     {
+      "t": "2026-07-05",
+      "v": 11.29
+     },
+     {
+      "t": "2026-08-23",
+      "v": 12.08
+     },
+     {
+      "t": "2026-08-30",
+      "v": 12.13
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "mejor",
+    "etiqueta_es": "Vas a más",
+    "frase_es": null,
+    "tono": "bien"
+   },
+   "cobertura": {
+    "muestras": 2,
+    "dias_ventana": 84,
+    "dias_con_dato": 2,
+    "pct": 2.380952380952381,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "wod_referencia",
+    "explica_es": "Un WOD que repites: la misma plantilla, puntuada cada vez. Toda la historia en la serie.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "wod.sim",
+   "grupo": "progreso",
+   "familia": "wod",
+   "titulo_es": "Simulación HYROX completa",
+   "estado": "medida",
+   "dato": {
+    "valor": 4459,
+    "unidad": "segundos",
+    "referencia": {
+     "valor": 4459,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": null,
+   "serie": {
+    "unidad": "segundos",
+    "paso": "dia",
+    "puntos": [
+     {
+      "t": "2026-01-10",
+      "v": 4857
+     },
+     {
+      "t": "2026-01-31",
+      "v": 4839
+     },
+     {
+      "t": "2026-02-21",
+      "v": 4786
+     },
+     {
+      "t": "2026-03-14",
+      "v": 4760
+     },
+     {
+      "t": "2026-04-04",
+      "v": 4727
+     },
+     {
+      "t": "2026-07-11",
+      "v": 4574
+     },
+     {
+      "t": "2026-08-01",
+      "v": 4549
+     },
+     {
+      "t": "2026-08-22",
+      "v": 4513
+     },
+     {
+      "t": "2026-09-12",
+      "v": 4459
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 4,
+    "dias_ventana": 84,
+    "dias_con_dato": 4,
+    "pct": 4.761904761904762,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "simulacion_hyrox",
+    "explica_es": "Tus simulaciones de esta plantilla: el tiempo completo. Toda la historia en la serie.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "wod.amrap",
+   "grupo": "progreso",
+   "familia": "wod",
+   "titulo_es": "AMRAP 12′ del coach",
+   "estado": "medida",
+   "dato": {
+    "valor": 12.13,
+    "unidad": "rondas",
+    "referencia": {
+     "valor": 12.13,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 11.29,
+    "delta": 7.44021257750223,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 3,
+    "significativo": true
+   },
+   "serie": {
+    "unidad": "rondas",
+    "paso": "dia",
+    "puntos": [
+     {
+      "t": "2026-01-11",
+      "v": 9.04
+     },
+     {
+      "t": "2026-01-18",
+      "v": 9.33
+     },
+     {
+      "t": "2026-03-01",
+      "v": 10.29
+     },
+     {
+      "t": "2026-03-08",
+      "v": 10.29
+     },
+     {
+      "t": "2026-03-15",
+      "v": 10.33
+     },
+     {
+      "t": "2026-04-26",
+      "v": 10.04
+     },
+     {
+      "t": "2026-05-03",
+      "v": 10.29
+     },
+     {
+      "t": "2026-05-10",
+      "v": 10.25
+     },
+     {
+      "t": "2026-06-28",
+      "v": 11.13
+     },
+     {
+      "t": "2026-07-05",
+      "v": 11.29
+     },
+     {
+      "t": "2026-08-23",
+      "v": 12.08
+     },
+     {
+      "t": "2026-08-30",
+      "v": 12.13
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "mejor",
+    "etiqueta_es": "Vas a más",
+    "frase_es": null,
+    "tono": "bien"
+   },
+   "cobertura": {
+    "muestras": 2,
+    "dias_ventana": 84,
+    "dias_con_dato": 2,
+    "pct": 2.380952380952381,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "wod_referencia",
+    "explica_es": "Un WOD que repites: la misma plantilla, puntuada cada vez. Toda la historia en la serie.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  }
+ ]
+}

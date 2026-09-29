@@ -1,0 +1,368 @@
+{
+ "athlete_id": "101",
+ "execution_id": "9004",
+ "assignment_id": "7004",
+ "fuera_del_plan": null,
+ "dia": "2026-09-15",
+ "inicio_iso": "2026-09-15T17:30:00.000Z",
+ "fin_iso": "2026-09-15T18:01:00.000Z",
+ "titulo_es": "Fuerza y trineos",
+ "formato": "sets",
+ "rpe": null,
+ "fuente": null,
+ "registrado": null,
+ "lecturas": [
+  {
+   "id": "sesion.carga",
+   "grupo": "ejecucion",
+   "familia": null,
+   "titulo_es": "Carga",
+   "estado": "medida",
+   "dato": {
+    "valor": 22.72111111111111,
+    "unidad": "tss",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": null,
+   "reparto": {
+    "unidad": "segundos",
+    "total": 2400,
+    "partes": [
+     {
+      "code": "esfuerzo",
+      "etiqueta_es": "Esfuerzo",
+      "valor": 900,
+      "pct": 37.5
+     },
+     {
+      "code": "sin_saber",
+      "etiqueta_es": "Sin saber",
+      "valor": 1500,
+      "pct": 62.5
+     }
+    ]
+   },
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 1,
+    "dias_ventana": 1,
+    "dias_con_dato": 1,
+    "pct": 100,
+    "falta": {
+     "por": "esfuerzo",
+     "sesiones": 1
+    }
+   },
+   "procedencia": {
+    "de": "carga_por_tramo",
+    "explica_es": "La suma de la carga de cada tramo por su mejor evidencia (potencia, ritmo, pulso o esfuerzo), más el resto de la sesión.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "sesion.duracion",
+   "grupo": "ejecucion",
+   "familia": null,
+   "titulo_es": "Duración",
+   "estado": "medida",
+   "dato": {
+    "valor": 2400,
+    "unidad": "segundos",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 1,
+    "dias_ventana": 1,
+    "dias_con_dato": 1,
+    "pct": 100,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "duracion_sesion",
+    "explica_es": "El tiempo de la sesión entera, frente al que escribe su plan.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "sesion.zonas",
+   "grupo": "ejecucion",
+   "familia": null,
+   "titulo_es": "Zonas",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 1,
+    "dias_ventana": 1,
+    "dias_con_dato": 1,
+    "pct": 100,
+    "falta": {
+     "por": "sensor"
+    }
+   },
+   "procedencia": {
+    "de": "segundos_por_zona",
+    "explica_es": "Los segundos por zona de cada tramo, con las bandas de tu coach.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  }
+ ],
+ "tramos": [
+  {
+   "id": "T21",
+   "posicion": 21,
+   "ronda": 0,
+   "familia": "fuerza",
+   "modalidad": "strength",
+   "ejercicio_es": "Peso muerto",
+   "papel": null,
+   "fase": null,
+   "inicio_iso": null,
+   "segundos": 900,
+   "prescrito": {
+    "prescripcion": {
+     "scheme": "sets",
+     "modality": "strength",
+     "sets": [
+      {
+       "measure": {
+        "kind": "reps",
+        "value": 5
+       },
+       "target": {
+        "kind": "rir",
+        "value": 2
+       }
+      },
+      {
+       "measure": {
+        "kind": "reps",
+        "value": 5
+       },
+       "target": {
+        "kind": "rir",
+        "value": 2
+       }
+      },
+      {
+       "measure": {
+        "kind": "reps",
+        "value": 5
+       },
+       "target": {
+        "kind": "rir",
+        "value": 2
+       }
+      }
+     ]
+    },
+    "texto_es": "3×5 @ RIR 2"
+   },
+   "hecho": {
+    "position": 21,
+    "item_uid": "segment-L19",
+    "modality": "strength",
+    "exercise_name": "Peso muerto",
+    "started_at": null,
+    "duration_seconds": 900,
+    "reps_completed": null,
+    "weight_used_kg": null,
+    "distance_meters": null,
+    "avg_pace_s_per_500m": null,
+    "avg_pace_s_per_km": null,
+    "avg_power_w": null,
+    "stroke_rate_spm": null,
+    "avg_hr": null,
+    "max_hr": null,
+    "calories": null,
+    "emom_rounds_completed": null,
+    "emom_rounds_prescribed": null,
+    "incline_pct": null,
+    "avg_gradient_pct": null,
+    "run_cadence_spm": null,
+    "drag_factor": null,
+    "avg_calories_per_hour": null,
+    "peak_drive_force_lbs": null,
+    "avg_drive_force_lbs": null,
+    "erg_splits": null,
+    "run_splits": null,
+    "source": null,
+    "zone_seconds": null,
+    "leg_index": null,
+    "round_index": 0,
+    "leg_role": null,
+    "leg_phase": null,
+    "is_structural": false,
+    "sets": [
+     {
+      "set_index": 1,
+      "status": "done",
+      "reps": 5,
+      "kg": 140,
+      "reps_prescribed": 5,
+      "kg_prescribed": 140,
+      "rpe": null,
+      "rir": 2,
+      "tempo": null,
+      "rest_s": null
+     },
+     {
+      "set_index": 2,
+      "status": "done",
+      "reps": 5,
+      "kg": 140,
+      "reps_prescribed": 5,
+      "kg_prescribed": 140,
+      "rpe": null,
+      "rir": 2,
+      "tempo": null,
+      "rest_s": null
+     },
+     {
+      "set_index": 3,
+      "status": "done",
+      "reps": 5,
+      "kg": 140,
+      "reps_prescribed": 5,
+      "kg_prescribed": 140,
+      "rpe": null,
+      "rir": 1,
+      "tempo": null,
+      "rest_s": null
+     }
+    ],
+    "volume_kg": 2100
+   },
+   "zonas": null,
+   "carga": {
+    "tss": 22.72111111111111,
+    "segundos": 900,
+    "partes": [
+     {
+      "segundos": 900,
+      "tss": 22.72111111111111,
+      "peldano": "esfuerzo",
+      "ancla": null
+     }
+    ],
+    "sin_saber_s": 0,
+    "peldano": "esfuerzo",
+    "ancla": null
+   }
+  },
+  {
+   "id": "T22",
+   "posicion": 22,
+   "ronda": 0,
+   "familia": "estaciones",
+   "modalidad": "other",
+   "ejercicio_es": "Sled push",
+   "papel": null,
+   "fase": null,
+   "inicio_iso": null,
+   "segundos": 720,
+   "prescrito": {
+    "prescripcion": {
+     "scheme": "rounds",
+     "modality": "functional",
+     "rounds": 4,
+     "rest_s": 90,
+     "sets": [
+      {
+       "measure": {
+        "kind": "distance",
+        "meters": 25
+       }
+      }
+     ]
+    },
+    "texto_es": "4×25m · r90''"
+   },
+   "hecho": {
+    "position": 22,
+    "item_uid": "segment-L20",
+    "modality": "other",
+    "exercise_name": "Sled push",
+    "started_at": null,
+    "duration_seconds": 720,
+    "reps_completed": null,
+    "weight_used_kg": null,
+    "distance_meters": 100,
+    "avg_pace_s_per_500m": null,
+    "avg_pace_s_per_km": null,
+    "avg_power_w": null,
+    "stroke_rate_spm": null,
+    "avg_hr": null,
+    "max_hr": null,
+    "calories": null,
+    "emom_rounds_completed": null,
+    "emom_rounds_prescribed": null,
+    "incline_pct": null,
+    "avg_gradient_pct": null,
+    "run_cadence_spm": null,
+    "drag_factor": null,
+    "avg_calories_per_hour": null,
+    "peak_drive_force_lbs": null,
+    "avg_drive_force_lbs": null,
+    "erg_splits": null,
+    "run_splits": null,
+    "source": null,
+    "zone_seconds": null,
+    "leg_index": null,
+    "round_index": 0,
+    "leg_role": null,
+    "leg_phase": null,
+    "is_structural": false,
+    "sets": [],
+    "volume_kg": null
+   },
+   "zonas": null,
+   "carga": {
+    "tss": null,
+    "segundos": 720,
+    "partes": [],
+    "sin_saber_s": 720,
+    "peldano": null,
+    "ancla": null
+   }
+  }
+ ],
+ "resto": {
+  "tss": null,
+  "segundos": 780,
+  "partes": [],
+  "sin_saber_s": 780,
+  "peldano": null,
+  "ancla": null
+ },
+ "traza": {
+  "disponible": false,
+  "parciales_km": [],
+  "pulso": null,
+  "ritmo": null,
+  "ruta": {
+   "available": false,
+   "points": [],
+   "pace_zones": null
+  },
+  "referencias_pulso": null,
+  "zonas_ritmo": null
+ },
+ "pendientes": [
+  "cumplimiento"
+ ]
+}

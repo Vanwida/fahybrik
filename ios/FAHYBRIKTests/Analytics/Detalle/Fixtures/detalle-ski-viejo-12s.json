@@ -1,0 +1,497 @@
+{
+ "athlete_id": "104",
+ "generado_iso": "2026-09-29T08:00:00.000Z",
+ "ventana": {
+  "clave": "12s",
+  "desde": "2026-07-08",
+  "hasta": "2026-09-29",
+  "dias": 84,
+  "anterior": {
+   "desde": "2026-04-15",
+   "hasta": "2026-07-07",
+   "dias": 84
+  },
+  "cubre_todo": false
+ },
+ "historia": {
+  "semanas": 38,
+  "desde": "2026-01-05",
+  "cubre_todo": false
+ },
+ "metodo": {
+  "ctl_days": 42,
+  "atl_days": 7,
+  "ramp_alert_tss_per_week": 5,
+  "acr_low": 0.8,
+  "acr_high": 1.3,
+  "fuentes_run": [
+   "ritmo",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_row": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_ski": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_bike": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_strength": [
+   "esfuerzo",
+   "pulso"
+  ],
+  "fuentes_other": [
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuerza_coeficiente": 1,
+  "cobertura_veredicto_min_pct": 90,
+  "frescura_sobrecarga_hasta": -30,
+  "frescura_optimo_hasta": -11,
+  "frescura_mantener_hasta": 4,
+  "frescura_fresco_hasta": 29,
+  "cumplimiento_base": "sesiones",
+  "cumplimiento_bien_pct": 90,
+  "cumplimiento_regular_pct": 70,
+  "cumplimiento_sesion_bases": [
+   "carga",
+   "duracion",
+   "distancia"
+  ],
+  "cumplimiento_verde_min_pct": 80,
+  "cumplimiento_verde_max_pct": 120,
+  "cumplimiento_ambar_min_pct": 50,
+  "cumplimiento_ambar_max_pct": 150,
+  "holgura_ritmo_s_km": 3,
+  "holgura_split_s_500m": 2,
+  "holgura_vatios_w": 10,
+  "holgura_pulso_ppm": 2,
+  "holgura_rpe": 1,
+  "holgura_rir": 1,
+  "holgura_carga_pct": 0,
+  "holgura_dosis_pct": 10,
+  "cambio_carga_pct": 10,
+  "cambio_horas_pct": 10,
+  "cambio_forma_tss": 5,
+  "cambio_frescura_tss": 5,
+  "cambio_variabilidad_pct": 5,
+  "cambio_pulso_reposo_bpm": 3,
+  "cambio_sueno_horas": 0.5,
+  "cambio_cumplimiento_pts": 10,
+  "cambio_polarizacion_pts": 5,
+  "polarizacion_familias": [
+   "correr",
+   "remo",
+   "ski",
+   "bici",
+   "estaciones",
+   "wod"
+  ],
+  "polarizacion_tolerancia_pts": 10,
+  "cambio_ergo_pct": 1,
+  "cambio_fuerza_pct": 2.5,
+  "cambio_estaciones_pct": 3,
+  "cambio_wod_pct": 3,
+  "cambio_test_pct": 2,
+  "fuerza_1rm_reps_max": 10,
+  "basal_dias": 60,
+  "basal_excluir_dias": 14,
+  "cs_min_efforts": 3,
+  "cs_min_duration_s": 120,
+  "cs_max_duration_s": 900,
+  "cs_min_spread_ratio": 3,
+  "cs_min_fit_r2_pct": 95,
+  "cs_max_drift_from_threshold_pct": 15,
+  "sleep_target_hours": 8,
+  "hrv_min_nights_baseline": 14,
+  "hrv_min_nights_recent": 3,
+  "subida_dias": 14,
+  "subida_minima_pct": 5,
+  "cobertura_ciega_alerta_pct": 25
+ },
+ "anclas": {
+  "pulso": {
+   "valor": 172,
+   "ancla": "medida",
+   "fuente": "perfil_test",
+   "explica_es": "Test de 30 min · 14 may",
+   "desde_iso": "2026-05-14"
+  },
+  "ritmo": {
+   "run": {
+    "valor": 258,
+    "ancla": "medida",
+    "fuente": "perfil_test",
+    "explica_es": "Test de umbral · 14 may",
+    "desde_iso": "2026-05-14"
+   },
+   "row": {
+    "valor": 118,
+    "ancla": "medida",
+    "fuente": "marca_row_2k",
+    "explica_es": "2000 m de remo · 30 jun",
+    "desde_iso": "2026-06-30"
+   },
+   "ski": null,
+   "bike": null
+  },
+  "potencia": {
+   "row": {
+    "valor": 242,
+    "ancla": "medida",
+    "fuente": "marca_row_2k",
+    "explica_es": "2000 m de remo · 30 jun",
+    "desde_iso": "2026-06-30"
+   },
+   "ski": null,
+   "bike": null
+  }
+ },
+ "familia": "ski",
+ "lecturas": [
+  {
+   "id": "progreso.ski",
+   "grupo": "progreso",
+   "familia": "ski",
+   "titulo_es": "SkiErg",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": null,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "progreso_ski",
+    "explica_es": "Tus vatios a un mismo pulso o tus mejores piezas de SkiErg.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "ski.motor",
+   "grupo": "progreso",
+   "familia": "ski",
+   "titulo_es": "Motor",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "vatios_al_pulso",
+    "explica_es": "Tus vatios corregidos a 146 ppm (el centro de tu zona 2), en tramos de al menos 1000 m.",
+    "medida": true,
+    "ancla": "medida",
+    "proveedor": null
+   }
+  },
+  {
+   "id": "ski.mejor.100",
+   "grupo": "progreso",
+   "familia": "ski",
+   "titulo_es": "Mejor 100 m",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "pieza_ergo_100",
+    "explica_es": "Tu mejor 100 m de SkiErg de cada periodo: un tramo o un parcial del monitor de ese largo, o un test.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "ski.mejor.500",
+   "grupo": "progreso",
+   "familia": "ski",
+   "titulo_es": "Mejor 500 m",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "pieza_ergo_500",
+    "explica_es": "Tu mejor 500 m de SkiErg de cada periodo: un tramo o un parcial del monitor de ese largo, o un test.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "ski.mejor.1000",
+   "grupo": "progreso",
+   "familia": "ski",
+   "titulo_es": "Mejor 1000 m",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "pieza_ergo_1000",
+    "explica_es": "Tu mejor 1000 m de SkiErg de cada periodo: un tramo o un parcial del monitor de ese largo, o un test.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "ski.mejor.2000",
+   "grupo": "progreso",
+   "familia": "ski",
+   "titulo_es": "Mejor 2000 m",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "pieza_ergo_2000",
+    "explica_es": "Tu mejor 2000 m de SkiErg de cada periodo: un tramo o un parcial del monitor de ese largo, o un test.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "ski.mejor.5000",
+   "grupo": "progreso",
+   "familia": "ski",
+   "titulo_es": "Mejor 5000 m",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "pieza_ergo_5000",
+    "explica_es": "Tu mejor 5000 m de SkiErg de cada periodo: un tramo o un parcial del monitor de ese largo, o un test.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "ski.mejor.60s",
+   "grupo": "progreso",
+   "familia": "ski",
+   "titulo_es": "Mejor 1′",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "pieza_ergo_60s",
+    "explica_es": "Tu mejor 1′ de SkiErg de cada periodo: un tramo o un parcial del monitor de ese largo, o un test.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "ski.mejor.240s",
+   "grupo": "progreso",
+   "familia": "ski",
+   "titulo_es": "Mejor 4′",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "pieza_ergo_240s",
+    "explica_es": "Tu mejor 4′ de SkiErg de cada periodo: un tramo o un parcial del monitor de ese largo, o un test.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "ski.mejor.1800s",
+   "grupo": "progreso",
+   "familia": "ski",
+   "titulo_es": "Mejor 30′",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "pieza_ergo_1800s",
+    "explica_es": "Tu mejor 30′ de SkiErg de cada periodo: un tramo o un parcial del monitor de ese largo, o un test.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "ski.volumen",
+   "grupo": "progreso",
+   "familia": "ski",
+   "titulo_es": "Metros",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "volumen_ergo",
+    "explica_es": "Los metros de SkiErg de cada periodo, recuperaciones incluidas: lo que hizo la máquina.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "ski.cadencia",
+   "grupo": "progreso",
+   "familia": "ski",
+   "titulo_es": "Paladas por minuto",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "cadencia_ergo",
+    "explica_es": "La media del periodo en tus tramos de trabajo, ponderada por tiempo. Técnica: no es mejor ni peor por sí sola.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  }
+ ]
+}
