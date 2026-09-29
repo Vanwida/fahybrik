@@ -2,7 +2,7 @@ import type { Sql } from 'postgres';
 import { addDays, isoDateString, parseIsoDate, zonedDayString, zonedWallClockToUtc } from '../dates';
 import { loadAthleteTimezone } from '../db/athlete-timezone';
 import { GRADIENT_RETIRES_PACE_PCT } from '../running/gradient';
-import { resolveThresholdHr } from '../methodology/hr-zones';
+import { HR_ANCHOR_ANCLA, resolveThresholdHr } from '../methodology/hr-zones';
 import { computeTss, type TssThresholdHr } from './tss';
 import { priceSession, type SegmentEvidence, type ThresholdPace } from './intensity';
 
@@ -76,10 +76,13 @@ async function loadThresholdPaces(
   athlete_id: number | bigint,
   client: Sql,
 ): Promise<Map<string, ThresholdPace>> {
+  // The CURRENT profile per modality (highest version). Reading every version
+  // let an older test overwrite the newest depending on row order.
   const rows = await client<Array<{ modality: string; threshold_s: number; source: string | null; needs_review: boolean | null }>>`
-    select modality, threshold_s::float as threshold_s, source, needs_review
+    select distinct on (modality) modality, threshold_s::float as threshold_s, source, needs_review
     from athlete_zone_profiles
     where athlete_id = ${athlete_id as number}
+    order by modality, version desc
   `;
   const out = new Map<string, ThresholdPace>();
   for (const r of rows) {
@@ -120,7 +123,7 @@ async function loadThresholdHr(
     age_years: null,
   });
   if (resolved == null) return null;
-  return { bpm: resolved.lthr_bpm, estimated: resolved.estimated };
+  return { bpm: resolved.lthr_bpm, estimated: resolved.estimated, ancla: HR_ANCHOR_ANCLA[resolved.source] };
 }
 
 // Each session lands on the ATHLETE's calendar day (`athletes.timezone`), not the

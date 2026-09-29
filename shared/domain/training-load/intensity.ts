@@ -49,7 +49,7 @@
 //
 // Pure: no I/O, no DB. Everything here is arithmetic over rows someone else read.
 
-import { intensityFactor, type TssThresholdHr } from './tss';
+import { intensityFactor, thresholdHrPrices, type TssThresholdHr } from './tss';
 
 /** Which evidence priced a stretch of work. */
 export type IntensityMode = 'power' | 'pace' | 'hr' | 'rpe';
@@ -178,7 +178,9 @@ export function paceIntensity(segment: SegmentEvidence, options: PricingOptions)
  * lukewarm average.
  */
 export function hrIntensity(segment: SegmentEvidence, lthr: TssThresholdHr | null): number | null {
-  if (lthr == null || lthr.estimated || !usableNumber(lthr.bpm)) return null;
+  // Only the POPULATION rung is refused (29-09-2026): an anchor inferred from the
+  // athlete's own measured max prices, marked. Same gate as `tss.ts`.
+  if (!thresholdHrPrices(lthr)) return null;
   if (!usableNumber(segment.avg_hr)) return null;
   return segment.avg_hr / lthr.bpm;
 }

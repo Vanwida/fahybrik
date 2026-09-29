@@ -110,8 +110,10 @@ function paceSeconds(t: Target | undefined): { unit: PaceUnit; seconds: number }
 
 /** One set's work in seconds, when the prescription writes it. A set is written
  *  when it is measured in TIME, or in DISTANCE against a prescribed PACE. Reps
- *  and calories carry no rate, so they are the athlete's result, not the plan's. */
-function setSeconds(s: PrescriptionSet, p: Prescription): number | null {
+ *  and calories carry no rate, so they are the athlete's result, not the plan's.
+ *  Exported for the planned-load engine (analytics/carga-plan), which needs the
+ *  same clock set by set to price each set at ITS intensity. */
+export function setSeconds(s: PrescriptionSet, p: Prescription): number | null {
   const m = setMeasure(s);
   if (!m) return null;
   if (m.kind === 'duration') return m.seconds;
