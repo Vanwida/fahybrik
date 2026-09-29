@@ -10,7 +10,7 @@
 // `/ajustes/metodo#analiticas`.
 
 import { useState } from 'react';
-import { ArrowDown, ArrowUp, Plus, RotateCcw, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, CircleAlert, Plus, RotateCcw, X } from 'lucide-react';
 import {
   ANALYTICS_METHOD_BOUNDS,
   type BaseCumplimiento,
@@ -121,7 +121,7 @@ export function AnalyticsMethodSettings({ initial }: { initial: Setting }) {
         title="Analíticas"
         action={
           <span className="flex items-center gap-2">
-            <SaveStatus state={problemas.length > 0 ? 'error' : state} error={problemas[0]?.mensaje ?? error} />
+            <SaveStatus state={state} error={error} />
             {setting.is_custom ? (
               <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => void restaurarTodo()}>
                 Restaurar todo
@@ -149,7 +149,6 @@ export function AnalyticsMethodSettings({ initial }: { initial: Setting }) {
             bare={plegado}
             action={
               <span className="flex items-center gap-2">
-                {problemaConjunto ? <SaveStatus state="error" error={problemaConjunto} /> : null}
                 {grupo.plegadoPorDefecto ? (
                   <Button
                     size="sm"
@@ -171,6 +170,12 @@ export function AnalyticsMethodSettings({ initial }: { initial: Setting }) {
               </span>
             }
           >
+            {!plegado && problemaConjunto ? (
+              <div role="alert" className="flex items-start gap-2 px-4 py-3 t-body-sm text-v2-danger">
+                <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
+                {problemaConjunto}
+              </div>
+            ) : null}
             {!plegado && grupo.nota ? (
               <div className="px-4 pt-3.5 pb-1">
                 <p className="t-body-sm text-v2-muted">{grupo.nota}</p>
