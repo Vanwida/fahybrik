@@ -7,9 +7,12 @@ import UIKit
 // `VivoArnesDeCapturas`). Monta `AnaliticasPortadaView` dentro de la barra de
 // pestañas real sobre un panel del contrato decodificado de JSON (sin red) y
 // vuelca la pantalla a 390 × 844 página a página, como las capturas del doble
-// (`analiticas-portada/*-390-pN.png`). Cada imagen va como adjunto del test (se
-// queda en el .xcresult que sube el CI) y, si `FAHYBRIK_CAPTURAS` está en el
-// entorno, a esa carpeta. Corre en CI (GitHub Actions), nunca en el Mac de Alex.
+// (`analiticas-portada/*-390-pN.png`), en CLARO y en OSCURO: el tema lo elige el
+// atleta y la pantalla no fuerza el suyo. Es lo que enseña lo que la galería
+// plana no puede: el selector que se pega arriba y la barra de pestañas. Cada
+// imagen va como adjunto del test (se queda en el .xcresult que sube el CI) y, si
+// `FAHYBRIK_CAPTURAS` está en el entorno, a esa carpeta. Corre en CI (GitHub
+// Actions) y en simulador sin ventana, nunca en el Mac de Alex.
 final class AnaliticasCapturasTests: XCTestCase {
 
     private static let lienzo = CGRect(x: 0, y: 0, width: 390, height: 844)
@@ -18,20 +21,20 @@ final class AnaliticasCapturasTests: XCTestCase {
     /// `paginas` siguientes (una por alto visible del scroll).
     @MainActor
     private func fotografiar(_ atleta: AnaliticasFixtures.Atleta, ventana: VentanaClave = .doceSemanas, nombre: String,
-                             paginas: Int = 6, glosa: Bool = false, trasMontar: (AnaliticasPortadaView) -> Void = { _ in }) throws {
+                             paginas: Int = 6, esquema: UIUserInterfaceStyle = .light) throws {
+        let nombre = "\(nombre)-\(esquema == .dark ? "oscuro" : "claro")"
         let panel = try AnaliticasFixtures.panel(atleta, ventana)
         let store = AppDataStore()
         store.activate(bearer: "capturas")
         store.setPanelAnaliticas(panel, ventana: ventana)
 
         let portada = AnaliticasPortadaView(bearer: "capturas", hasCoach: true, onOpenTab: { _ in }, ventanaInicial: ventana)
-        trasMontar(portada)
         // La barra de pestañas de la app, para comparar con el contrato: la
         // pestaña activa es Analíticas; las demás, vacías.
         let vista = TabView(selection: .constant(AppTab.analiticas)) {
             ForEach(AppTab.allCases, id: \.rawValue) { tab in
                 Group {
-                    if tab == .analiticas { portada } else { Color.black }
+                    if tab == .analiticas { portada } else { Theme.Color.background }
                 }
                 .tag(tab)
                 .tabItem { Label(tab.title, systemImage: tab.symbol) }
@@ -39,14 +42,13 @@ final class AnaliticasCapturasTests: XCTestCase {
         }
         .tint(Theme.Color.accentText)
         .environment(store)
-        .environment(\.colorScheme, .dark)
 
         let host = UIHostingController(rootView: AnyView(vista))
         let bounds = Self.lienzo
         let escena = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
         let window = escena.map { UIWindow(windowScene: $0) } ?? UIWindow(frame: bounds)
         window.frame = bounds
-        window.overrideUserInterfaceStyle = .dark
+        window.overrideUserInterfaceStyle = esquema
         window.rootViewController = host
         window.makeKeyAndVisible()
         defer { window.isHidden = true; window.rootViewController = nil }
@@ -83,15 +85,6 @@ final class AnaliticasCapturasTests: XCTestCase {
             foto("-p\(i)")
             if y >= maximo { break }
         }
-        if glosa {
-            scroll.setContentOffset(.zero, animated: false)
-            // La glosa se abre tocando una celda del Estado: el mismo camino que el dedo.
-            if let boton = Self.botonDeEstado(en: host.view) {
-                boton.sendActions(for: .touchUpInside)
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.9))
-            foto("-glosa")
-        }
     }
 
     private static func scroll(en vista: UIView) -> UIScrollView? {
@@ -100,53 +93,22 @@ final class AnaliticasCapturasTests: XCTestCase {
         return nil
     }
 
-    private static func botonDeEstado(en vista: UIView) -> UIControl? {
-        if let c = vista as? UIControl, c.accessibilityLabel?.hasPrefix("Forma:") == true || c.accessibilityLabel?.hasPrefix("Fatiga:") == true { return c }
-        for sub in vista.subviews { if let c = botonDeEstado(en: sub) { return c } }
-        return nil
-    }
+    // MARK: - Los cinco atletas del contrato, a 12 semanas, en claro y en oscuro
 
-    // MARK: - Los cinco atletas del contrato, a 12 semanas
-
-    @MainActor
-    func testLlenoDoceSemanasConCarreraEn39Dias() throws {
-        try fotografiar(.lleno, nombre: "analiticas-portada-lleno", paginas: 7, glosa: true)
-    }
-
-    @MainActor
-    func testMixtoCorrerMedidoErgoDeclaradoSinReloj() throws {
-        try fotografiar(.mixto, nombre: "analiticas-portada-mixto")
-    }
-
-    @MainActor
-    func testPocoTresSemanas() throws {
-        try fotografiar(.poco, nombre: "analiticas-portada-poco")
-    }
-
-    @MainActor
-    func testVacioRecienDadoDeAlta() throws {
-        try fotografiar(.vacio, nombre: "analiticas-portada-vacio", paginas: 4)
-    }
-
-    @MainActor
-    func testViejoConLaDisposicionAtrasada() throws {
-        try fotografiar(.viejo, nombre: "analiticas-portada-viejo")
-    }
+    @MainActor func testLlenoClaro() throws { try fotografiar(.lleno, nombre: "analiticas-portada-lleno", paginas: 7) }
+    @MainActor func testLlenoOscuro() throws { try fotografiar(.lleno, nombre: "analiticas-portada-lleno", paginas: 7, esquema: .dark) }
+    @MainActor func testMixtoClaro() throws { try fotografiar(.mixto, nombre: "analiticas-portada-mixto") }
+    @MainActor func testMixtoOscuro() throws { try fotografiar(.mixto, nombre: "analiticas-portada-mixto", esquema: .dark) }
+    @MainActor func testPocoClaro() throws { try fotografiar(.poco, nombre: "analiticas-portada-poco") }
+    @MainActor func testPocoOscuro() throws { try fotografiar(.poco, nombre: "analiticas-portada-poco", esquema: .dark) }
+    @MainActor func testVacioClaro() throws { try fotografiar(.vacio, nombre: "analiticas-portada-vacio", paginas: 4) }
+    @MainActor func testVacioOscuro() throws { try fotografiar(.vacio, nombre: "analiticas-portada-vacio", paginas: 4, esquema: .dark) }
+    @MainActor func testViejoClaro() throws { try fotografiar(.viejo, nombre: "analiticas-portada-viejo") }
+    @MainActor func testViejoOscuro() throws { try fotografiar(.viejo, nombre: "analiticas-portada-viejo", esquema: .dark) }
 
     // MARK: - Las otras ventanas: todo obedece al selector
 
-    @MainActor
-    func testLlenoSieteDias() throws {
-        try fotografiar(.lleno, ventana: .sieteDias, nombre: "analiticas-portada-lleno-7d", paginas: 2)
-    }
-
-    @MainActor
-    func testLlenoUnAno() throws {
-        try fotografiar(.lleno, ventana: .unAno, nombre: "analiticas-portada-lleno-1a", paginas: 2)
-    }
-
-    @MainActor
-    func testLlenoTodo() throws {
-        try fotografiar(.lleno, ventana: .todo, nombre: "analiticas-portada-lleno-todo", paginas: 2)
-    }
+    @MainActor func testLlenoSieteDias() throws { try fotografiar(.lleno, ventana: .sieteDias, nombre: "analiticas-portada-lleno-7d", paginas: 2) }
+    @MainActor func testLlenoUnAno() throws { try fotografiar(.lleno, ventana: .unAno, nombre: "analiticas-portada-lleno-1a", paginas: 2) }
+    @MainActor func testLlenoTodo() throws { try fotografiar(.lleno, ventana: .todo, nombre: "analiticas-portada-lleno-todo", paginas: 2) }
 }
