@@ -330,8 +330,6 @@
     {"archivo":"lib/coach/athlete-deep-dive.ts","huella":"43197af350c4","tablas":["biometric_streams"],"veces":1},
     {"archivo":"lib/coach/athlete-deep-dive.ts","huella":"4aa187a0aca9","tablas":["templates","workout_assignments","workout_executions"],"veces":1},
     {"archivo":"lib/coach/athlete-deep-dive.ts","huella":"503350eb07a1","tablas":["workout_executions"],"veces":1},
-    {"archivo":"lib/coach/athlete-deep-dive.ts","huella":"5d27caf91c97","tablas":["biometric_streams"],"veces":1},
-    {"archivo":"lib/coach/athlete-deep-dive.ts","huella":"8713c79bf23a","tablas":["biometric_streams"],"veces":1},
     {"archivo":"lib/coach/athlete-deep-dive.ts","huella":"b3c1081733f6","tablas":["athletes","daily_checkins"],"veces":1},
     {"archivo":"lib/coach/athlete-deep-dive.ts","huella":"bef4431b103d","tablas":["biometric_streams"],"veces":1},
     {"archivo":"lib/coach/athlete-deep-dive.ts","huella":"d000ed8cca05","tablas":["workout_assignments"],"veces":1},

@@ -479,6 +479,7 @@ async function loadReadiness(
   athleteDay: Date,
   una: { basal: BasalDelAtleta | null; metodo: CoachAnalyticsMethod },
 ): Promise<KpiReadiness> {
+  // tenancy: verified-owner — buildAthleteDeepDive ya comprobó (loadHeader con su coach_id) que el atleta es de este club.
   const rows = await client<Array<{ recovery: number | null }>>`
     select avg(value_numeric)::float as recovery from biometric_streams
     where athlete_id = ${athlete_id} and metric_type = 'recovery'
