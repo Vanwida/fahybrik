@@ -31,10 +31,8 @@ import {
   hrBandFor,
   type AthleteHrZones,
 } from '@fahybrid/shared/domain/methodology';
-import {
-  HRV_BASELINE_FROM_DAYS,
-  type HrvSample,
-} from '@fahybrid/shared/domain/biometrics/hrv-baseline';
+import { diaLocal, type MuestraDia } from '@fahybrid/shared/domain/analytics/basal';
+import { resolveEffectiveAnalyticsMethod } from '@/lib/coach/analytics-method';
 import {
   buildRaceReadinessHistory,
   READINESS_COMPLIANCE_DAYS,
@@ -255,7 +253,7 @@ export async function buildAthletePerformance(params: {
   );
   const hyrox_prediction = await loadHyroxPrediction();
   const race_readiness_history = await safeCall(
-    () => loadRaceReadiness(client, params.athlete_id, now, tz),
+    () => loadRaceReadiness(client, params.athlete_id, params.coach_id, now, tz),
     [] as RaceReadinessPoint[],
   );
   const latestReadiness = race_readiness_history[race_readiness_history.length - 1];
@@ -628,6 +626,7 @@ async function loadHyroxPrediction(): Promise<HyroxPrediction | null> {
 async function loadRaceReadiness(
   client: Sql,
   athlete_id: number,
+  coach_id: number | bigint,
   now: Date,
   tz: string,
 ): Promise<RaceReadinessPoint[]> {
@@ -638,8 +637,7 @@ async function loadRaceReadiness(
   const samples: RaceReadinessSample[] = [];
   const oldestStep = (READINESS_TREND_DAYS - 1) - ((READINESS_TREND_DAYS - 1) % READINESS_TREND_STEP_DAYS);
   for (let i = oldestStep; i >= 0; i -= READINESS_TREND_STEP_DAYS) {
-    const at = addDays(now, -i);
-    samples.push({ iso_date: zonedDayString(at, tz), at });
+    samples.push({ iso_date: zonedDayString(addDays(now, -i), tz) });
   }
   const oldest = samples[0];
   if (!oldest) return [];
@@ -648,7 +646,10 @@ async function loadRaceReadiness(
   // must reach a further 90 days back than the oldest point — otherwise the old
   // end of the trend is computed off a colder EWMA than the new end and the
   // curve slopes for a reason that has nothing to do with the athlete.
-  const [series, assignments, hrv] = await Promise.all([
+  // La basal de la VFC es LA de todas las pantallas (P3/P16): la ventana y las
+  // noches del coach, cada lectura en el día del atleta.
+  const basal = await resolveEffectiveAnalyticsMethod(coach_id, client);
+  const [series, assignments, vfc] = await Promise.all([
     getDailyTssSeries({
       athlete_id,
       end_date: now,
@@ -662,21 +663,22 @@ async function loadRaceReadiness(
       days: READINESS_TREND_DAYS + READINESS_COMPLIANCE_DAYS,
       client,
     }),
-    loadHrvSamples(client, athlete_id, now, READINESS_TREND_DAYS + HRV_BASELINE_FROM_DAYS),
+    loadHrvSamples(client, athlete_id, now, tz, READINESS_TREND_DAYS + basal.basal_dias + 1),
   ]);
 
   // Los mismos pesos del coach que el número de la ficha: la tendencia acaba en ese número.
   const method = raceReadinessMethodOf(await loadCoachThresholdsForAthlete(client, athlete_id));
-  return buildRaceReadinessHistory({ series, assignments, hrv, samples, method });
+  return buildRaceReadinessHistory({ series, assignments, vfc, basal, samples, method });
 }
 
-/** Raw HRV readings over the span. Raw, because the baseline windows are instants. */
+/** Raw HRV readings over the span, each in the athlete's LOCAL day (the one basal reads days). */
 async function loadHrvSamples(
   client: Sql,
   athlete_id: number,
   now: Date,
+  tz: string,
   days: number,
-): Promise<HrvSample[]> {
+): Promise<MuestraDia[]> {
   const rows = await client<Array<{ at: Date; v: number }>>`
     select recorded_at as at, value_numeric::float as v
     from biometric_streams
@@ -686,7 +688,7 @@ async function loadHrvSamples(
       and value_numeric is not null
     order by recorded_at
   `;
-  return rows.map((r) => ({ at: r.at, value: r.v }));
+  return rows.map((r) => ({ dia: diaLocal(new Date(r.at), tz), valor: r.v }));
 }
 
 // ---------------------------------------------------------------------------

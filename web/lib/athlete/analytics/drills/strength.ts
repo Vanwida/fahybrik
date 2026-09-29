@@ -64,7 +64,7 @@ export async function strengthVolumeDrill(
   period: ResolvedPeriod,
   tz: string,
 ): Promise<DrillDownResult> {
-  const sets = await loadStrengthSets(client, athleteId, period, tz);
+  const { sets } = await loadStrengthSets(client, athleteId, period, tz);
   const byExec = new Map<string, { day: string; assignmentId: string; kg: number; sets: number; exercises: Set<string> }>();
   for (const s of sets) {
     const e = byExec.get(s.executionId) ?? { day: s.day, assignmentId: s.assignmentId, kg: 0, sets: 0, exercises: new Set<string>() };
@@ -112,12 +112,13 @@ export async function strengthExerciseDrill(
   tz: string,
 ): Promise<DrillDownResult> {
   const exerciseId = params.exercise_id ?? '';
-  const sets = (await loadStrengthSets(client, athleteId, period, tz)).filter((s) => s.exerciseId === exerciseId);
+  const cargadas = await loadStrengthSets(client, athleteId, period, tz);
+  const sets = cargadas.sets.filter((s) => s.exerciseId === exerciseId);
 
-  // Best set (max magnitude) per session.
+  // Best set (max magnitude, 1RM estimated with the coach's formula) per session.
   const byExec = new Map<string, { set: WorkSet; mag: number }>();
   for (const s of sets) {
-    const mag = setMagnitude(s);
+    const mag = setMagnitude(s, cargadas.formula);
     if (mag == null) continue;
     const cur = byExec.get(s.executionId);
     if (!cur || mag > cur.mag) byExec.set(s.executionId, { set: s, mag });

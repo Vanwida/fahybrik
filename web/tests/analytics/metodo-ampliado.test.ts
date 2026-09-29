@@ -5,6 +5,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   ANALYTICS_METHOD_BOUNDS,
+  COACH_ANALYTICS_METHOD_FAMILY_KEYS,
   COACH_ANALYTICS_METHOD_KEYS,
   COACH_ANALYTICS_METHOD_LIST_KEYS,
   COACH_ANALYTICS_METHOD_NUMERIC_KEYS,
@@ -36,18 +37,24 @@ describe('los defectos', () => {
     expect(m.fuentes_row).toEqual(['potencia', 'pulso', 'esfuerzo']);
     expect(m.fuentes_strength).toEqual(['esfuerzo', 'pulso']);
     expect(m.fuerza_coeficiente).toBe(1);
+    // 0279: el reparto de intensidad, sin la fuerza ni «otro», con 10 puntos de holgura.
+    expect(m.polarizacion_familias).toEqual(['correr', 'remo', 'ski', 'bici', 'estaciones', 'wod']);
+    expect([m.polarizacion_tolerancia_pts, m.cambio_polarizacion_pts]).toEqual([10, 5]);
   });
 
   test('la copia fresca no comparte las listas con el defecto', () => {
     const m = defaultCoachAnalyticsMethod();
     m.fuentes_run.push('esfuerzo');
+    m.polarizacion_familias.push('fuerza');
     expect(DEFAULT_COACH_ANALYTICS_METHOD.fuentes_run).toHaveLength(3);
+    expect(DEFAULT_COACH_ANALYTICS_METHOD.polarizacion_familias).toHaveLength(6);
   });
 
-  test('las claves se reparten sin solapes entre numéricas, listas y textos', () => {
+  test('las claves se reparten sin solapes entre numéricas, listas, conjuntos de familias y textos', () => {
     const listas = COACH_ANALYTICS_METHOD_LIST_KEYS as readonly string[];
-    expect(COACH_ANALYTICS_METHOD_NUMERIC_KEYS.some((k) => listas.includes(k))).toBe(false);
-    expect(COACH_ANALYTICS_METHOD_NUMERIC_KEYS.length + listas.length + 1).toBe(COACH_ANALYTICS_METHOD_KEYS.length);
+    const familias = COACH_ANALYTICS_METHOD_FAMILY_KEYS as readonly string[];
+    expect(COACH_ANALYTICS_METHOD_NUMERIC_KEYS.some((k) => listas.includes(k) || familias.includes(k))).toBe(false);
+    expect(COACH_ANALYTICS_METHOD_NUMERIC_KEYS.length + listas.length + familias.length + 1).toBe(COACH_ANALYTICS_METHOD_KEYS.length);
   });
 });
 
@@ -68,6 +75,14 @@ describe('validarMetodoAnalitico', () => {
     expect(validarMetodoAnalitico({ ...defaultCoachAnalyticsMethod(), fuentes_run: ['potencia'] })).toEqual([expect.stringMatching(/no se puede preciar por potencia/)]);
     expect(validarMetodoAnalitico({ ...defaultCoachAnalyticsMethod(), fuentes_row: ['ritmo'] })).toEqual([expect.stringMatching(/no se puede preciar por ritmo/)]);
   });
+
+  test('un reparto de intensidad vacío, con una familia repetida o inventada', () => {
+    expect(validarMetodoAnalitico({ ...defaultCoachAnalyticsMethod(), polarizacion_familias: [] })).toEqual([expect.stringMatching(/al menos una familia/)]);
+    expect(validarMetodoAnalitico({ ...defaultCoachAnalyticsMethod(), polarizacion_familias: ['correr', 'correr'] })).toEqual([expect.stringMatching(/repite una familia/)]);
+    expect(
+      validarMetodoAnalitico({ ...defaultCoachAnalyticsMethod(), polarizacion_familias: ['nadar' as never] }),
+    ).toEqual([expect.stringMatching(/no es una familia/)]);
+  });
 });
 
 describe('el esquema del editor', () => {
@@ -81,6 +96,8 @@ describe('el esquema del editor', () => {
     expect(analyticsMethodSchema.safeParse({ ...defaultCoachAnalyticsMethod(), ctl_days: 5 }).success).toBe(false);
     expect(analyticsMethodSchema.safeParse({ ...defaultCoachAnalyticsMethod(), fuentes_run: ['vatios'] }).success).toBe(false);
     expect(analyticsMethodSchema.safeParse({ ...defaultCoachAnalyticsMethod(), cumplimiento_base: 'otra' }).success).toBe(false);
+    expect(analyticsMethodSchema.safeParse({ ...defaultCoachAnalyticsMethod(), polarizacion_familias: ['nadar'] }).success).toBe(false);
+    expect(analyticsMethodSchema.safeParse({ ...defaultCoachAnalyticsMethod(), polarizacion_tolerancia_pts: 0 }).success).toBe(false);
     const r = analyticsMethodSchema.safeParse({ ...defaultCoachAnalyticsMethod(), atl_days: 20, ctl_days: 14 });
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error.issues[0]!.message).toMatch(/reciente/);

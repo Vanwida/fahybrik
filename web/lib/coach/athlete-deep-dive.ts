@@ -49,6 +49,10 @@ import {
   isDemoAthleteId,
 } from './deep-dive-demo';
 import { getLatestReadiness } from './athlete-daily-readiness';
+import { resolveEffectiveAnalyticsMethod } from './analytics-method';
+import { loadBasalesDelClub, type BasalDelAtleta } from './basal';
+import { basalDe, ventanaBasalDe } from '@fahybrid/shared/domain/analytics/basal';
+import type { CoachAnalyticsMethod } from '@fahybrid/shared/domain/analytics/metodo';
 import {
   loadRestingHrDays,
   resolveRestingHrOn,
@@ -86,11 +90,6 @@ const COMPLIANCE_TOTAL_DAYS = 3650;
 
 const TRENDS_DAYS = 30;
 const RECENT_DAYS = 7;
-// Resting-HR baseline span: a trailing 60→14-day mean. Excluding the most recent
-// 14 days keeps an acute rise from dragging down the very baseline it is compared
-// against — the same shape as the HRV baseline above it.
-const RHR_BASELINE_FROM_DAYS = 60;
-const RHR_BASELINE_TO_DAYS = 14;
 
 export interface BuildAthleteDeepDiveParams {
   coach_id: bigint | number;
@@ -190,6 +189,12 @@ export async function buildAthleteDeepDive(
   // El método del coach (0256): pesos del índice de disposición y umbrales de
   // «Listo para progresar» — los mismos que el roster y el barrido.
   const thresholds = await loadCoachThresholds(client, params.coach_id);
+  // LA basal única (lib/coach/basal.ts, P3/P16): la ventana y las noches del
+  // coach en el día del atleta — la misma que el roster, el barrido y su panel.
+  const analyticsMethod = await resolveEffectiveAnalyticsMethod(params.coach_id, client);
+  const basal =
+    (await loadBasalesDelClub({ coach_id: params.coach_id, athlete_id: numericId, now, metodo: analyticsMethod, client })).get(String(numericId)) ??
+    null;
   const readiness = await loadReadiness(
     client,
     numericId,
@@ -197,6 +202,7 @@ export async function buildAthleteDeepDive(
     { tsb: load.tsb, coverage: loadCoverage, active_days_7d },
     raceReadinessMethodOf(thresholds),
     athleteDay,
+    { basal, metodo: analyticsMethod },
   );
   const progressReadiness = await assessAthleteProgressReadiness({
     athlete_id: numericId,
@@ -207,7 +213,7 @@ export async function buildAthleteDeepDive(
   const modality = await loadModality(client, numericId, now, athleteTz);
   // The FULL 90-day series: the chart warms its EWMA over all of it and slices
   // the plotted tail itself, so it cannot ramp from a cold zero.
-  const trends = await loadTrends(client, numericId, now, tssSeries, athleteTz, athleteDay);
+  const trends = await loadTrends(client, numericId, now, tssSeries, athleteTz, athleteDay, basal);
   const performance = await loadPerformance(client, numericId, params.coach_id, now, athleteTz, athleteDay);
   const recent_days = await loadRecentDays(client, numericId, now, athleteTz, athleteDay);
   const notes = await loadNotes(client, numericId, params.coach_id);
@@ -471,71 +477,40 @@ async function loadReadiness(
   load: { tsb: number; coverage: LoadCoverage; active_days_7d: number },
   method: RaceReadinessMethod,
   athleteDay: Date,
+  una: { basal: BasalDelAtleta | null; metodo: CoachAnalyticsMethod },
 ): Promise<KpiReadiness> {
-  const rows = await client<
-    Array<{
-      hrv_recent: number | null;
-      hrv_baseline: number | null;
-      sleep_h: number | null;
-      recovery: number | null;
-    }>
-  >`
-    with hrv_recent as (
-      select avg(value_numeric)::float as v from biometric_streams
-      where athlete_id = ${athlete_id} and metric_type = 'hrv'
-        and recorded_at >= ${addDays(now, -7).toISOString()}::timestamptz
-    ),
-    hrv_baseline as (
-      select avg(value_numeric)::float as v from biometric_streams
-      where athlete_id = ${athlete_id} and metric_type = 'hrv'
-        and recorded_at >= ${addDays(now, -60).toISOString()}::timestamptz
-        and recorded_at <  ${addDays(now, -14).toISOString()}::timestamptz
-    ),
-    sleep_avg as (
-      select avg(value_numeric)::float / 3600.0 as v from biometric_streams
-      where athlete_id = ${athlete_id} and metric_type = 'sleep_duration'
-        and recorded_at >= ${addDays(now, -7).toISOString()}::timestamptz
-    ),
-    recovery_recent as (
-      select avg(value_numeric)::float as v from biometric_streams
-      where athlete_id = ${athlete_id} and metric_type = 'recovery'
-        and recorded_at >= ${addDays(now, -3).toISOString()}::timestamptz
-    )
-    select
-      (select v from hrv_recent)    as hrv_recent,
-      (select v from hrv_baseline)  as hrv_baseline,
-      (select v from sleep_avg)     as sleep_h,
-      (select v from recovery_recent) as recovery
+  // tenancy: verified-owner — buildAthleteDeepDive ya comprobó (loadHeader con su coach_id) que el atleta es de este club.
+  const rows = await client<Array<{ recovery: number | null }>>`
+    select avg(value_numeric)::float as recovery from biometric_streams
+    where athlete_id = ${athlete_id} and metric_type = 'recovery'
+      and recorded_at >= ${addDays(now, -3).toISOString()}::timestamptz
   `;
   const r = rows[0];
-  const hrv_ms = r?.hrv_recent != null ? Math.round(r.hrv_recent) : null;
-  const hrv_delta_ms =
-    r?.hrv_recent != null && r?.hrv_baseline != null
-      ? Math.round(r.hrv_recent - r.hrv_baseline)
-      : null;
+  // La VFC de 7 días frente a SU basal, con las noches del coach, y el sueño de
+  // la semana (una noche, un número): de la basal única, no de una SQL propia.
+  const vfc = una.basal?.vfc ?? null;
+  const hrv_ms = vfc?.reciente.valor != null ? Math.round(vfc.reciente.valor) : null;
+  const hrv_delta_ms = vfc?.delta_fiable != null ? Math.round(vfc.delta_fiable) : null;
   // Resting HR through THE resolver over the whole baseline span: the KPI is the
   // athlete's CURRENT resting HR (the same number the roster and the athlete's own
   // app show), not a 7-day average that smeared it — and its delta is against the
-  // 60→14-day mean of the daily winners, so a revised day counts once, not twice.
+  // SAME basal as everything else (the coach's window, `basalDe`), over the daily
+  // winners, so a revised day counts once, not twice.
+  const ventana = ventanaBasalDe(una.metodo);
   const rhrDays = await loadRestingHrDays({
     athlete_id,
     // Los días de FC en reposo son días del atleta: el tramo acaba en SU hoy.
-    from_iso: isoDate(addDays(athleteDay, -RHR_BASELINE_FROM_DAYS)),
+    from_iso: isoDate(addDays(athleteDay, -ventana.dias)),
     to_iso: isoDate(athleteDay),
     client,
   });
   const rhrNow = resolveRestingHrOn(rhrDays, isoDate(athleteDay));
-  const rhrBaselineDays = rhrDays.filter(
-    (d) => d.on < isoDate(addDays(athleteDay, -RHR_BASELINE_TO_DAYS)),
-  );
-  const rhrBaseline =
-    rhrBaselineDays.length > 0
-      ? rhrBaselineDays.reduce((s, d) => s + d.bpm, 0) / rhrBaselineDays.length
-      : null;
+  const rhrBasal = basalDe(rhrDays.map((d) => ({ dia: d.on, valor: d.bpm })), isoDate(athleteDay), ventana);
+  const rhrBaseline = rhrBasal.noches >= una.metodo.hrv_min_nights_baseline ? rhrBasal.valor : null;
   const rhr = rhrNow != null ? Math.round(rhrNow.bpm) : null;
   const rhr_delta =
     rhrNow != null && rhrBaseline != null ? Math.round(rhrNow.bpm - rhrBaseline) : null;
-  const sleep_avg_h = r?.sleep_h != null ? round1(r.sleep_h) : null;
+  const sleep_avg_h = una.basal?.sueno_7d.valor != null ? round1(una.basal.sueno_7d.valor) : null;
   const recovery_pct = r?.recovery != null ? Math.round(r.recovery) : null;
 
   // Ánimo y fatiga del último check-in (1–5, `daily_checkins`).
@@ -715,6 +690,7 @@ async function loadTrends(
   tssSeries: ReadonlyArray<DailyTss>,
   tz: string,
   athleteDay: Date,
+  basal: BasalDelAtleta | null,
 ): Promise<TrendsBlock> {
   // CTL/ATL/TSB series — ONE engine (computeLoadSeries), warmed over the FULL
   // 90-day window and only then sliced to the plotted 30, exactly like the KPI
@@ -744,13 +720,8 @@ async function loadTrends(
   });
 
   const hrv = await loadDailyMetric(client, athlete_id, 'hrv', athleteDay, tz, TRENDS_DAYS);
-  const hrvBaselineRows = await client<Array<{ v: number | null }>>`
-    select avg(value_numeric)::float as v from biometric_streams
-    where athlete_id = ${athlete_id} and metric_type = 'hrv'
-      and recorded_at >= ${addDays(now, -60).toISOString()}::timestamptz
-      and recorded_at <  ${addDays(now, -14).toISOString()}::timestamptz
-  `;
-  const hrvBaseline = hrvBaselineRows[0]?.v != null ? Math.round(hrvBaselineRows[0].v) : null;
+  // La línea de «tu normal» bajo la curva: la basal única (la del coach, en su día).
+  const hrvBaseline = basal?.vfc.basal.valor != null ? Math.round(basal.vfc.basal.valor) : null;
 
   const sleepRaw = await loadDailyMetric(client, athlete_id, 'sleep_duration', athleteDay, tz, TRENDS_DAYS);
   const sleep = sleepRaw.map((p) => ({

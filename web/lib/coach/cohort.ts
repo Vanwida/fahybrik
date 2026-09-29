@@ -20,6 +20,8 @@ import { startOfDayInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
 import { getDailyTssSeries, readLoadCoverage, summarizeLoad } from '@/lib/training-load';
 import { getAthleteProgrammingStatus } from './programming-status';
 import { getLatestReadiness } from './athlete-daily-readiness';
+import { resolveEffectiveAnalyticsMethod } from './analytics-method';
+import { loadBasalesDelClub, type BasalDelAtleta } from './basal';
 import {
   loadRestingHrOnBatch,
   type ResolvedRestingHr,
@@ -47,9 +49,6 @@ interface AthleteRow {
   full_name: string;
   next_session_iso: string | null;
   last_sync_at: Date | null;
-  hrv_recent: number | null;
-  hrv_baseline: number | null;
-  sleep_avg_7d_h: number | null;
   vo2max: number | null;
   last_checkin_at: Date | null;
   rpe_yesterday: number | null;
@@ -77,29 +76,9 @@ async function loadRealCohort(
   const todayIso = zonedDayString(now, coachTz);
 
   const athletes = await client<AthleteRow[]>`
-    with hrv_recent as (
-      select bs.athlete_id, avg(bs.value_numeric)::float as v
-      from biometric_streams bs
-      where bs.metric_type = 'hrv'
-        and bs.recorded_at >= ${now.toISOString()}::timestamptz - interval '7 days'
-      group by bs.athlete_id
-    ),
-    hrv_baseline as (
-      select bs.athlete_id, avg(bs.value_numeric)::float as v
-      from biometric_streams bs
-      where bs.metric_type = 'hrv'
-        and bs.recorded_at >= ${now.toISOString()}::timestamptz - interval '60 days'
-        and bs.recorded_at <  ${now.toISOString()}::timestamptz - interval '14 days'
-      group by bs.athlete_id
-    ),
-    sleep_7d as (
-      select bs.athlete_id, avg(bs.value_numeric)::float / 3600.0 as v
-      from biometric_streams bs
-      where bs.metric_type = 'sleep_duration'
-        and bs.recorded_at >= ${now.toISOString()}::timestamptz - interval '7 days'
-      group by bs.athlete_id
-    ),
-    vo2_latest as (
+    -- La VFC frente a su basal y el sueño de la semana NO se calculan aquí: salen
+    -- de la basal única (lib/coach/basal.ts), con la ventana y las noches del coach.
+    with vo2_latest as (
       select distinct on (bs.athlete_id) bs.athlete_id, bs.value_numeric::float as v
       from biometric_streams bs
       where bs.metric_type = 'vo2max'
@@ -186,9 +165,6 @@ async function loadRealCohort(
       a.full_name                   as full_name,
       ns.iso                        as next_session_iso,
       ls.ts                         as last_sync_at,
-      hr.v                          as hrv_recent,
-      hb.v                          as hrv_baseline,
-      sl.v                          as sleep_avg_7d_h,
       vo.v                          as vo2max,
       lc.ts                         as last_checkin_at,
       ry.v                          as rpe_yesterday,
@@ -199,9 +175,6 @@ async function loadRealCohort(
       ae.iso                        as a_event_iso,
       ae.name                       as a_event_name
     from athletes a
-    left join hrv_recent  hr on hr.athlete_id = a.id
-    left join hrv_baseline hb on hb.athlete_id = a.id
-    left join sleep_7d    sl on sl.athlete_id = a.id
     left join vo2_latest  vo on vo.athlete_id = a.id
     left join last_sync   ls on ls.athlete_id = a.id
     left join next_session ns on ns.athlete_id = a.id
@@ -227,9 +200,18 @@ async function loadRealCohort(
 
   // Los pesos del índice de disposición son del coach: una lectura para todo el roster.
   const raceMethod = raceReadinessMethodOf(await loadCoachThresholds(client, coach_id));
+  // La basal única del club entero en una consulta, con la ventana y las noches del coach.
+  const basales = await loadBasalesDelClub({
+    coach_id,
+    now,
+    metodo: await resolveEffectiveAnalyticsMethod(coach_id, client),
+    client,
+  });
   const rows: CohortRow[] = [];
   for (const a of athletes) {
-    rows.push(await rollupAthlete(a, client, now, restingHr.get(a.athlete_id) ?? null, raceMethod, coachTz, todayIso));
+    rows.push(
+      await rollupAthlete(a, client, now, restingHr.get(a.athlete_id) ?? null, basales.get(a.athlete_id) ?? null, raceMethod, coachTz, todayIso),
+    );
   }
   return rows;
 }
@@ -239,6 +221,7 @@ async function rollupAthlete(
   client: Sql,
   now: Date,
   restingHr: ResolvedRestingHr | null,
+  basal: BasalDelAtleta | null,
   raceMethod: RaceReadinessMethod,
   coachTz: string,
   todayIso: string,
@@ -288,10 +271,9 @@ async function rollupAthlete(
   const sync_minutes_ago =
     a.last_sync_at == null ? null : Math.floor((now.getTime() - a.last_sync_at.getTime()) / 60_000);
 
-  const hrv_delta_ms =
-    a.hrv_recent != null && a.hrv_baseline != null
-      ? round1(a.hrv_recent - a.hrv_baseline)
-      : null;
+  // Solo con las noches que exige el coach: con una basal de tres noches el delta mide la basal.
+  const hrv_delta_ms = basal?.vfc.delta_fiable != null ? round1(basal.vfc.delta_fiable) : null;
+  const sleep_avg_7d_h = basal?.sueno_7d.valor ?? null;
   const hrv_trend = hrvTrend(hrv_delta_ms);
 
   const a_event_iso = a.a_event_iso ?? null;
@@ -378,7 +360,7 @@ async function rollupAthlete(
     z45_pct_7d: null,
     vo2max: a.vo2max ?? null,
     vo2max_trend: null,
-    sleep_avg_7d_h: a.sleep_avg_7d_h != null ? round1(a.sleep_avg_7d_h) : null,
+    sleep_avg_7d_h: sleep_avg_7d_h != null ? round1(sleep_avg_7d_h) : null,
     rhr: restingHr != null ? Math.round(restingHr.bpm) : null,
     days_to_a_event,
     a_event_name: a.a_event_name ?? null,

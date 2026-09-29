@@ -53,6 +53,7 @@ import {
   type ClaveNumericaMetodo,
   type CoachAnalyticsMethod,
 } from '../analytics/metodo';
+import { FAMILIAS } from '../analytics/lectura';
 
 // ── Bandas de FC ─────────────────────────────────────────────────────────────
 
@@ -233,6 +234,9 @@ export const paceZonesPutSchema = z
  */
 const fuentesSchema = z.array(z.enum(FUENTES_CARGA)).min(1).max(FUENTES_MAX);
 
+/** Un conjunto de familias (el reparto de intensidad): del vocabulario cerrado, sin repetir (lo mira el validador). */
+const familiasSchema = z.array(z.enum(FAMILIAS as unknown as [string, ...string[]])).min(1).max(FAMILIAS.length);
+
 function numeroAcotado(clave: ClaveNumericaMetodo) {
   const b = ANALYTICS_METHOD_BOUNDS[clave];
   return z.number().min(b.min, `Entre ${b.min} y ${b.max}.`).max(b.max, `Entre ${b.min} y ${b.max}.`);
@@ -252,6 +256,7 @@ export const analyticsMethodSchema = z
     fuentes_bike: fuentesSchema,
     fuentes_strength: fuentesSchema,
     fuentes_other: fuentesSchema,
+    polarizacion_familias: familiasSchema,
     cumplimiento_base: z.enum(BASES_CUMPLIMIENTO),
   })
   .strict()
