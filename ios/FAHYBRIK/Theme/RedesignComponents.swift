@@ -28,12 +28,23 @@ enum SessionSlot: String, CaseIterable, Hashable {
 /// Small filled dot colored by modality — used in Plan day rows and compact
 /// session rows. Decorative; callers provide an accessible label on the row.
 struct ModalityDot: View {
-    let modality: String?
+    let kind: Theme.Modality.Kind
     var size: CGFloat = 8
+
+    /// Desde la modalidad tal como llega del cable (o el formato de reserva).
+    init(modality: String?, size: CGFloat = 8) {
+        self.init(kind: Theme.Modality.kind(modality), size: size)
+    }
+
+    /// Desde un cubo ya resuelto: lo que hace quien ya leyó la modalidad (Hoy, el Plan rehecho).
+    init(kind: Theme.Modality.Kind, size: CGFloat = 8) {
+        self.kind = kind
+        self.size = size
+    }
 
     var body: some View {
         Circle()
-            .fill(Theme.Modality.color(modality))
+            .fill(kind.color)
             .frame(width: size, height: size)
             .accessibilityHidden(true)
     }
