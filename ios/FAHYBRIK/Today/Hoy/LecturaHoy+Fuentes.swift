@@ -169,18 +169,9 @@ enum LeerHoy {
                 franja: reales.count > 1 ? SesionHoy.Franja(rawValue: s.slot.uppercased()) : nil,
                 titulo: s.title,
                 modalidad: Theme.Modality.kind(s.modality),
-                estado: estado(SessionMarkState.of(status: s.status, assignmentId: s.assignmentId)),
+                estado: s.estado,
                 libre: s.isSelfOrigin
             )
-        }
-    }
-
-    static func estado(_ marca: SessionMarkState) -> EstadoSesion {
-        switch marca {
-        case .pending: return .pendiente
-        case .partial: return .parcial
-        case .done: return .hecha
-        case .missed: return .saltada
         }
     }
 

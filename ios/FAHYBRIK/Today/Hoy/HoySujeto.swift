@@ -47,18 +47,6 @@ struct HoySujeto: View {
     }
 }
 
-extension EstadoSesion {
-    /// El sello del kit que pinta este estado.
-    var sello: SelloEstadoDia.Estado {
-        switch self {
-        case .hecha: return .hecha
-        case .parcial: return .parcial
-        case .saltada: return .saltada
-        case .pendiente: return .pendiente
-        }
-    }
-}
-
 // MARK: - Sesión de hoy
 
 private struct SujetoSesion: View {

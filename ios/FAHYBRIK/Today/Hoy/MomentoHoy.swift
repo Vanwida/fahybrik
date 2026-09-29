@@ -253,19 +253,6 @@ extension LecturaHoy {
 
 // MARK: - Vocabulario — el de la app, no uno nuevo
 
-extension EstadoSesion {
-    /// Las marcas de estado de la app: `.done` «Completada», `.partial` «A medias», `.missed` «Sin hacer».
-    /// La pendiente no lleva marca en el Plan; aquí se dice «Por hacer» solo donde hace falta nombrarla.
-    var etiqueta: String {
-        switch self {
-        case .hecha: return "Completada"
-        case .parcial: return "A medias"
-        case .saltada: return "Sin hacer"
-        case .pendiente: return "Por hacer"
-        }
-    }
-}
-
 extension ModalidadHoy {
     /// `Theme.Modality.Kind.label` con mayúscula inicial: «Carrera», «Ergómetro»…
     var nombre: String {

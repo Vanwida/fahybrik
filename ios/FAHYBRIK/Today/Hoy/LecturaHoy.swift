@@ -99,10 +99,6 @@ enum Simulacion: Equatable {
 /// Los cubos canónicos de modalidad de la app (`Theme.Modality.Kind`).
 typealias ModalidadHoy = Theme.Modality.Kind
 
-enum EstadoSesion: Equatable {
-    case pendiente, hecha, parcial, saltada
-}
-
 struct SesionHoy: Equatable {
     /// Solo hay franja cuando el día trae dos sesiones.
     enum Franja: String, Equatable { case am = "AM", pm = "PM" }
