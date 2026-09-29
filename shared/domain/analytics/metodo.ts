@@ -13,6 +13,10 @@
 //   • QUE un ajuste de velocidad crítica con dos esfuerzos casi iguales no
 //     signifique nada es MECANISMO (dos puntos pegados no separan dos
 //     parámetros). CUÁNTA separación exigir es MÉTODO.
+//   • QUÉ peldaño de la escalera de carga se mira primero en cada modalidad
+//     (potencia, ritmo, pulso, esfuerzo), DÓNDE cortan las cinco bandas de
+//     frescura, QUÉ subida es cambio y no ruido, CUÁNTA cobertura exige un
+//     veredicto: método, con el defecto de mercado (29-09-2026, modelo A6).
 //
 // Los defectos son EXACTAMENTE el comportamiento de hoy, así que un coach que no
 // toca nada ve los mismos números que veía. Ese es el contrato de la regla: la
@@ -23,7 +27,38 @@
 //
 // Puro y sin base de datos, como el resto de `shared/domain`.
 
+import { HRV_BASELINE_FROM_DAYS, HRV_BASELINE_TO_DAYS } from '../biometrics/hrv-baseline';
 import { ATL_DECAY_DAYS, CTL_DECAY_DAYS } from '../training-load/banister';
+import { LOAD_COVERAGE_MIN } from '../training-load/coverage';
+
+// ── Vocabulario de la carga única ────────────────────────────────────────────
+
+/** Los cuatro peldaños de la escalera de carga (modelo §4). */
+export const FUENTES_CARGA = ['potencia', 'ritmo', 'pulso', 'esfuerzo'] as const;
+export type FuenteCarga = (typeof FUENTES_CARGA)[number];
+
+/** Las modalidades para las que el coach ordena la escalera (el vocabulario de tramos). */
+export const MODALIDADES_CARGA = ['run', 'row', 'ski', 'bike', 'strength', 'other'] as const;
+export type ModalidadCarga = (typeof MODALIDADES_CARGA)[number];
+
+/**
+ * Qué peldaños PUEDE listar cada modalidad. Potencia solo en máquinas con
+ * vatios; ritmo solo en correr (en un ergo ritmo y potencia son la misma
+ * medida, y el peldaño se llama potencia). Es mecanismo: no hay vatios de una
+ * sentadilla que preciar.
+ */
+export const FUENTES_ADMISIBLES: Record<ModalidadCarga, readonly FuenteCarga[]> = {
+  run: ['ritmo', 'pulso', 'esfuerzo'],
+  row: ['potencia', 'pulso', 'esfuerzo'],
+  ski: ['potencia', 'pulso', 'esfuerzo'],
+  bike: ['potencia', 'pulso', 'esfuerzo'],
+  strength: ['pulso', 'esfuerzo'],
+  other: ['pulso', 'esfuerzo'],
+};
+
+/** Sobre qué se mide el cumplimiento. */
+export const BASES_CUMPLIMIENTO = ['sesiones', 'tramos', 'carga'] as const;
+export type BaseCumplimiento = (typeof BASES_CUMPLIMIENTO)[number];
 
 /**
  * Una fila por coach (`coach_analytics_method`, único por `coach_id`).
@@ -50,6 +85,73 @@ export interface CoachAnalyticsMethod {
    */
   acr_low: number;
   acr_high: number;
+
+  // ── LA CARGA ÚNICA (29-09-2026) ───────────────────────────────────────────
+
+  /** Orden de peldaños por modalidad. Gana el primero con dato y ancla. */
+  fuentes_run: FuenteCarga[];
+  fuentes_row: FuenteCarga[];
+  fuentes_ski: FuenteCarga[];
+  fuentes_bike: FuenteCarga[];
+  fuentes_strength: FuenteCarga[];
+  fuentes_other: FuenteCarga[];
+  /**
+   * Cuánto vale una hora de fuerza a esfuerzo X frente a una hora de cardio al
+   * mismo esfuerzo. Elección de modelo (TrainingPeaks no la hace; WHOOP sí, a su
+   * manera): 1,0 = la misma unidad para todo, que es lo que permite una sola
+   * curva de forma.
+   */
+  fuerza_coeficiente: number;
+  /**
+   * Porcentaje del tiempo entrenado que tiene que estar preciado para que la
+   * frescura diga su palabra. Por debajo, el número se queda y la palabra se
+   * retira (DECISIONS 2026-07-28, «número sí, sentencia no»).
+   */
+  cobertura_veredicto_min_pct: number;
+
+  // ── LA FRESCURA (cinco estados, cuatro cortes) ────────────────────────────
+
+  /** Frescura ≤ esto: sobrecarga. */
+  frescura_sobrecarga_hasta: number;
+  /** Hasta aquí: óptimo para construir. */
+  frescura_optimo_hasta: number;
+  /** Hasta aquí: mantener. */
+  frescura_mantener_hasta: number;
+  /** Hasta aquí: fresco (para competir). Por encima: recargando (perdiendo forma). */
+  frescura_fresco_hasta: number;
+
+  // ── EL CUMPLIMIENTO ───────────────────────────────────────────────────────
+
+  /** Sobre qué se mide: sesiones hechas, tramos dentro de banda, o carga hecha frente a planificada. */
+  cumplimiento_base: BaseCumplimiento;
+  /** A partir de este porcentaje el cumplimiento es bueno. */
+  cumplimiento_bien_pct: number;
+  /** A partir de este porcentaje es regular; por debajo, malo. */
+  cumplimiento_regular_pct: number;
+
+  // ── EL CAMBIO SIGNIFICATIVO, POR MÉTRICA (contra el periodo anterior) ─────
+
+  /** Cambio de carga (TSS) entre periodos que cuenta como cambio, en %. */
+  cambio_carga_pct: number;
+  /** Cambio de horas entre periodos que cuenta, en %. */
+  cambio_horas_pct: number;
+  /** Cambio de forma (fondo) que cuenta, en unidades de carga. */
+  cambio_forma_tss: number;
+  /** Cambio de frescura que cuenta, en unidades de carga. */
+  cambio_frescura_tss: number;
+  /** Cambio de variabilidad que cuenta, en %. */
+  cambio_variabilidad_pct: number;
+  /** Cambio de pulso en reposo que cuenta, en latidos. */
+  cambio_pulso_reposo_bpm: number;
+  /** Cambio de sueño que cuenta, en horas. */
+  cambio_sueno_horas: number;
+
+  // ── LA VENTANA BASAL (recuperación) ───────────────────────────────────────
+
+  /** Días hacia atrás desde los que se promedia el basal. */
+  basal_dias: number;
+  /** Días más recientes que se EXCLUYEN del basal (para que una caída aguda no arrastre su propia referencia). */
+  basal_excluir_dias: number;
 
   // ── LA CAPACIDAD (velocidad crítica y depósito) ────────────────────────────
 
@@ -127,6 +229,16 @@ export interface CoachAnalyticsMethod {
  *   - 0,80/1,30 de cociente: los mismos cortes que la ficha del coach ya
  *     dibujaba (`acrLabel`), ahora en un solo sitio.
  *   - +5 de subida por semana: nuevo, porque hasta hoy no se medía la subida.
+ *   - Escalera por modalidad: correr por ritmo antes que por pulso (el ritmo no
+ *     deriva con el calor ni con una mala noche); los ergos por potencia; la
+ *     fuerza por esfuerzo (el sRPE de Foster es el estándar; el pulso en una
+ *     sentadilla no mide el trabajo); el resto por pulso y luego esfuerzo.
+ *   - Frescura: sobrecarga ≤ −30, óptimo −29…−11, mantener −10…4, fresco 5…29,
+ *     recargando ≥ 30 — las bandas de mercado (TrainingPeaks / Coggan).
+ *   - Cobertura mínima del veredicto: el 90 % que ya decidía `LOAD_COVERAGE_MIN`.
+ *   - Cambio significativo: 10 % de carga u horas, 5 puntos de forma o
+ *     frescura, 5 % de variabilidad, 3 latidos, media hora de sueño.
+ *   - Basal 60 → 14 días: la misma ventana de `hrv-baseline.ts`.
  *   - Velocidad crítica: 3 esfuerzos, de 2 a 15 minutos, con el largo al menos
  *     el triple que el corto. Es el protocolo estándar del modelo de dos
  *     parámetros; por debajo de 2 minutos y por encima de 15 el modelo miente.
@@ -142,6 +254,35 @@ export const DEFAULT_COACH_ANALYTICS_METHOD: CoachAnalyticsMethod = {
   ramp_alert_tss_per_week: 5,
   acr_low: 0.8,
   acr_high: 1.3,
+
+  fuentes_run: ['ritmo', 'pulso', 'esfuerzo'],
+  fuentes_row: ['potencia', 'pulso', 'esfuerzo'],
+  fuentes_ski: ['potencia', 'pulso', 'esfuerzo'],
+  fuentes_bike: ['potencia', 'pulso', 'esfuerzo'],
+  fuentes_strength: ['esfuerzo', 'pulso'],
+  fuentes_other: ['pulso', 'esfuerzo'],
+  fuerza_coeficiente: 1,
+  cobertura_veredicto_min_pct: LOAD_COVERAGE_MIN * 100,
+
+  frescura_sobrecarga_hasta: -30,
+  frescura_optimo_hasta: -11,
+  frescura_mantener_hasta: 4,
+  frescura_fresco_hasta: 29,
+
+  cumplimiento_base: 'sesiones',
+  cumplimiento_bien_pct: 90,
+  cumplimiento_regular_pct: 70,
+
+  cambio_carga_pct: 10,
+  cambio_horas_pct: 10,
+  cambio_forma_tss: 5,
+  cambio_frescura_tss: 5,
+  cambio_variabilidad_pct: 5,
+  cambio_pulso_reposo_bpm: 3,
+  cambio_sueno_horas: 0.5,
+
+  basal_dias: HRV_BASELINE_FROM_DAYS,
+  basal_excluir_dias: HRV_BASELINE_TO_DAYS,
 
   cs_min_efforts: 3,
   cs_min_duration_s: 120,
@@ -161,7 +302,16 @@ export const DEFAULT_COACH_ANALYTICS_METHOD: CoachAnalyticsMethod = {
 
 /** Los defectos, en copia fresca (quien llama puede esparcir y mutar). */
 export function defaultCoachAnalyticsMethod(): CoachAnalyticsMethod {
-  return { ...DEFAULT_COACH_ANALYTICS_METHOD };
+  const d = DEFAULT_COACH_ANALYTICS_METHOD;
+  return {
+    ...d,
+    fuentes_run: [...d.fuentes_run],
+    fuentes_row: [...d.fuentes_row],
+    fuentes_ski: [...d.fuentes_ski],
+    fuentes_bike: [...d.fuentes_bike],
+    fuentes_strength: [...d.fuentes_strength],
+    fuentes_other: [...d.fuentes_other],
+  };
 }
 
 /** Las claves editables, para recorrerlas sin repetir la lista a mano. */
@@ -169,13 +319,44 @@ export const COACH_ANALYTICS_METHOD_KEYS = Object.keys(
   DEFAULT_COACH_ANALYTICS_METHOD,
 ) as Array<keyof CoachAnalyticsMethod>;
 
+/** Las claves que son una LISTA de peldaños (text[] en la tabla). */
+export const COACH_ANALYTICS_METHOD_LIST_KEYS = [
+  'fuentes_run',
+  'fuentes_row',
+  'fuentes_ski',
+  'fuentes_bike',
+  'fuentes_strength',
+  'fuentes_other',
+] as const satisfies ReadonlyArray<keyof CoachAnalyticsMethod>;
+
+export type ClaveListaMetodo = (typeof COACH_ANALYTICS_METHOD_LIST_KEYS)[number];
+
+/** Las claves que son un TEXTO de un vocabulario cerrado. */
+export const COACH_ANALYTICS_METHOD_TEXT_KEYS = ['cumplimiento_base'] as const satisfies ReadonlyArray<
+  keyof CoachAnalyticsMethod
+>;
+
+export type ClaveTextoMetodo = (typeof COACH_ANALYTICS_METHOD_TEXT_KEYS)[number];
+
+/** Las claves NUMÉRICAS: todas menos las listas y los textos. */
+export type ClaveNumericaMetodo = Exclude<keyof CoachAnalyticsMethod, ClaveListaMetodo | ClaveTextoMetodo>;
+
+export const COACH_ANALYTICS_METHOD_NUMERIC_KEYS = COACH_ANALYTICS_METHOD_KEYS.filter(
+  (k) =>
+    !(COACH_ANALYTICS_METHOD_LIST_KEYS as readonly string[]).includes(k) &&
+    !(COACH_ANALYTICS_METHOD_TEXT_KEYS as readonly string[]).includes(k),
+) as ClaveNumericaMetodo[];
+
+/** La clave de la escalera de una modalidad. */
+export function claveFuentesDe(modalidad: ModalidadCarga): ClaveListaMetodo {
+  return `fuentes_${modalidad}` as ClaveListaMetodo;
+}
+
 // ── Límites, compartidos por el validador de la API y por el CHECK de la tabla ──
 // Viven aquí para que el formulario del coach y la base de datos no puedan
 // discrepar sobre qué es un valor admisible.
 
-export const ANALYTICS_METHOD_BOUNDS: Readonly<
-  Record<keyof CoachAnalyticsMethod, { min: number; max: number }>
-> = {
+export const ANALYTICS_METHOD_BOUNDS: Readonly<Record<ClaveNumericaMetodo, { min: number; max: number }>> = {
   // Por debajo de 14 días el «fondo» ya no es fondo (es otra media de lo
   // reciente); por encima de 90 no reacciona a un bloque entero.
   ctl_days: { min: 14, max: 90 },
@@ -185,6 +366,28 @@ export const ANALYTICS_METHOD_BOUNDS: Readonly<
   ramp_alert_tss_per_week: { min: 1, max: 50 },
   acr_low: { min: 0.3, max: 1 },
   acr_high: { min: 1, max: 3 },
+
+  fuerza_coeficiente: { min: 0.25, max: 2 },
+  cobertura_veredicto_min_pct: { min: 50, max: 100 },
+
+  frescura_sobrecarga_hasta: { min: -80, max: 0 },
+  frescura_optimo_hasta: { min: -60, max: 20 },
+  frescura_mantener_hasta: { min: -40, max: 40 },
+  frescura_fresco_hasta: { min: -20, max: 80 },
+
+  cumplimiento_bien_pct: { min: 50, max: 100 },
+  cumplimiento_regular_pct: { min: 0, max: 99 },
+
+  cambio_carga_pct: { min: 1, max: 100 },
+  cambio_horas_pct: { min: 1, max: 100 },
+  cambio_forma_tss: { min: 1, max: 50 },
+  cambio_frescura_tss: { min: 1, max: 50 },
+  cambio_variabilidad_pct: { min: 1, max: 50 },
+  cambio_pulso_reposo_bpm: { min: 1, max: 20 },
+  cambio_sueno_horas: { min: 0.1, max: 5 },
+
+  basal_dias: { min: 14, max: 180 },
+  basal_excluir_dias: { min: 0, max: 60 },
 
   cs_min_efforts: { min: 3, max: 10 },
   cs_min_duration_s: { min: 60, max: 600 },
@@ -202,6 +405,18 @@ export const ANALYTICS_METHOD_BOUNDS: Readonly<
   subida_dias: { min: 7, max: 42 },
   subida_minima_pct: { min: 1, max: 50 },
   cobertura_ciega_alerta_pct: { min: 5, max: 90 },
+};
+
+/** Cuántos peldaños puede listar una modalidad como mucho (los cuatro, sin repetir). */
+export const FUENTES_MAX = FUENTES_CARGA.length;
+
+const NOMBRE_MODALIDAD_ES: Record<ModalidadCarga, string> = {
+  run: 'correr',
+  row: 'remo',
+  ski: 'ski',
+  bike: 'bici',
+  strength: 'fuerza',
+  other: 'el resto',
 };
 
 /**
@@ -226,6 +441,38 @@ export function validarMetodoAnalitico(m: CoachAnalyticsMethod): string[] {
   }
   if (m.hrv_min_nights_recent >= m.hrv_min_nights_baseline) {
     errores.push('Las noches recientes tienen que ser menos que las del basal.');
+  }
+  if (
+    !(
+      m.frescura_sobrecarga_hasta < m.frescura_optimo_hasta &&
+      m.frescura_optimo_hasta < m.frescura_mantener_hasta &&
+      m.frescura_mantener_hasta < m.frescura_fresco_hasta
+    )
+  ) {
+    errores.push('Las bandas de frescura tienen que ir de menor a mayor: sobrecarga, óptimo, mantener, fresco.');
+  }
+  if (m.cumplimiento_regular_pct >= m.cumplimiento_bien_pct) {
+    errores.push('El corte de «regular» tiene que quedar por debajo del de «bien».');
+  }
+  if (m.basal_excluir_dias >= m.basal_dias) {
+    errores.push('Los días que se excluyen del basal tienen que ser menos que los del basal.');
+  }
+  for (const modalidad of MODALIDADES_CARGA) {
+    const lista = m[claveFuentesDe(modalidad)];
+    const nombre = NOMBRE_MODALIDAD_ES[modalidad];
+    if (lista.length === 0) {
+      errores.push(`La escalera de ${nombre} necesita al menos un peldaño.`);
+      continue;
+    }
+    if (new Set(lista).size !== lista.length) {
+      errores.push(`La escalera de ${nombre} repite un peldaño.`);
+    }
+    const admisibles = FUENTES_ADMISIBLES[modalidad];
+    for (const f of lista) {
+      if (!admisibles.includes(f)) {
+        errores.push(`En ${nombre} no se puede preciar por ${f}.`);
+      }
+    }
   }
   return errores;
 }
