@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Fila estándar de Perfil: icono, título, subtítulo y chevron. Reutilizada en
-/// las pantallas anidadas (Entreno, Cuenta, Ayuda) y en la puerta raíz.
+/// Fila estándar de las pantallas anidadas de Perfil (Entreno, Cuenta, Ayuda): icono, título,
+/// subtítulo y chevron.
 struct ProfileNavRow: View {
     let icon: String
     let title: String
@@ -36,17 +36,6 @@ struct ProfileNavRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title), \(subtitle)")
         .accessibilityAddTraits(showsChevron ? .isButton : [])
-    }
-}
-
-/// Puerta raíz del Perfil: una fila dentro de tarjeta que abre una pantalla anidada.
-struct ProfileDoorRow: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-
-    var body: some View {
-        ProfileNavRow(icon: icon, title: title, subtitle: subtitle)
     }
 }
 

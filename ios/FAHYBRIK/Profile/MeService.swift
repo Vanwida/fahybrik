@@ -61,25 +61,21 @@ struct AthleteIdentity: Codable {
     /// Las iniciales del avatar. VACÍA cuando todavía no hay nombre: no hay
     /// iniciales que enseñar, y un guion dentro de un círculo no es un dato del
     /// atleta (§7). Es el estado que `CoachAvatar` ya resuelve con la silueta.
-    var initials: String {
-        let parts = fullName
-            .split(separator: " ")
-            .prefix(2)
-            .compactMap { $0.first }
-            .map(String.init)
-        return parts.joined().uppercased()
-    }
+    var initials: String { DecidePerfil.iniciales(fullName) }
 
     /// Whole-years age derived from `dob` (YYYY-MM-DD). Nil when dob is absent
     /// or unparseable — we never guess.
-    var age: Int? {
+    var age: Int? { Self.edad(dob: dob) }
+
+    /// La cuenta de `age`, con el «ahora» a la vista para poder probarla: los años cumplidos entre
+    /// `dob` y `ahora`.
+    static func edad(dob: String?, ahora: Date = Date()) -> Int? {
         guard let dob else { return nil }
         let fmt = DateFormatter()
         fmt.locale = Locale(identifier: "en_US_POSIX")
         fmt.dateFormat = "yyyy-MM-dd"
         guard let date = fmt.date(from: dob) else { return nil }
-        let comps = Calendar.current.dateComponents([.year], from: date, to: Date())
-        return comps.year
+        return Calendar.current.dateComponents([.year], from: date, to: ahora).year
     }
 
 }
