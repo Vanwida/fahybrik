@@ -111,19 +111,23 @@ struct SentInvitation: Codable, Equatable {
     enum State: String { case pending, expired, cancelled, declined }
     var state: State { State(rawValue: status) ?? .expired }
 
-    /// Human expiry ("caduca en 12 días" / "caduca hoy") from `expiresAt`, or nil
-    /// when unparseable. Only meaningful while `pending`.
-    var expiryText: String? {
+    /// Cuánto falta para que caduque, dicho para ir tras «caduca»: «en 12 días», «mañana», «hoy». Nil
+    /// cuando `expiresAt` no se lee. Solo tiene sentido mientras la invitación está `pending`.
+    func caducaEn(ahora: Date = Date()) -> String? {
         let withFrac = ISO8601DateFormatter()
         withFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         guard let date = withFrac.date(from: expiresAt) ?? ISO8601DateFormatter().date(from: expiresAt) else {
             return nil
         }
-        let days = Calendar.current.dateComponents([.day], from: Date(), to: date).day ?? 0
-        if days <= 0 { return "caduca hoy" }
-        if days == 1 { return "caduca mañana" }
-        return "caduca en \(days) días"
+        let days = Calendar.current.dateComponents([.day], from: ahora, to: date).day ?? 0
+        if days <= 0 { return "hoy" }
+        if days == 1 { return "mañana" }
+        return "en \(days) días"
     }
+
+    /// Human expiry ("caduca en 12 días" / "caduca hoy") from `expiresAt`, or nil
+    /// when unparseable. Only meaningful while `pending`.
+    var expiryText: String? { caducaEn().map { "caduca \($0)" } }
 }
 
 struct PartnerEnvelope: Codable, Equatable {
@@ -173,30 +177,5 @@ extension PartnerInfo {
             return String(only.prefix(2)).uppercased()
         }
         return "·"
-    }
-}
-
-// MARK: - PartnerBadge
-//
-// Compact orange pill used wherever we surface "Con [partner]" — PlanView
-// hero (full size) + session rows (compact). Kept brand-consistent: accent
-// background at low opacity + accent foreground.
-struct PartnerBadge: View {
-    let text: String
-    var compact: Bool = false
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "person.2.fill")
-                .font(.system(size: compact ? 9 : 10, weight: .semibold))
-            Text(text)
-                .font(.system(size: compact ? 10 : 11, weight: .semibold))
-                .lineLimit(1)
-        }
-        .foregroundStyle(Theme.Color.accentText)
-        .padding(.horizontal, compact ? 6 : 8)
-        .padding(.vertical, compact ? 2 : 3)
-        .background(Theme.Color.accent.opacity(0.15))
-        .clipShape(Capsule())
     }
 }

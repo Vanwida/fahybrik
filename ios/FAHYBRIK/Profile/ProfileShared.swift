@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Horizontal container clamp
 //
@@ -231,4 +232,25 @@ func languageLabel(_ code: String?) -> String? {
     case "en": return "English"
     default:   return nil
     }
+}
+
+// MARK: - Export Share Sheet plumbing
+//
+// Identifiable wrapper so `.sheet(item:)` re-creates the Share Sheet for every
+// new export instead of caching the previous fileURL.
+struct ExportShareItem: Identifiable {
+    let id = UUID()
+    let fileURL: URL
+}
+
+// UIActivityViewController bridge for SwiftUI. Used by both the data-export
+// flow (Files / AirDrop / Mail) and any future RGPD attachments.
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }

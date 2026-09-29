@@ -57,6 +57,27 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **No verificado:** la portada en un aparato (solo simulador y renders) ni con datos de producción (la base es de prueba); VoiceOver y Reducir movimiento se han montado según el kit pero no recorrido a mano; el reloj no se toca.
 
+## 2026-09-29 · Perfil en Swift con el diseño de «El día»: la pestaña lee, no decide
+
+**El encargo:** portar la pestaña Perfil al diseño «Perfil · el atleta» del doble (rama `worktree-agent-a31c4f10c41d33a02`). Misma arquitectura que Carreras: `LecturaPerfil` (espejo del contrato TS, con `LecturaPerfil+Cable` que traduce lo que la app YA lee), `DecidePerfil` y `RendimientoEstados` (puros, con la traducción de los tests del doble), `PerfilContenido` (pinta) y `ProfileView` (lee el store, pide lo suyo y ejecuta las acciones).
+
+**Decidido:**
+- **El atleta manda.** Un sujeto con el tinte del club (avatar `CoachAvatar(relleno:)` con chapita de cámara, nombre en el display, métricas, UNA acción); debajo «Pendiente» (solo actos, en el orden en que caducan), Rendimiento (cinco teselas de 32 pt; tres sin coach) y Ajustes (seis puertas con lo que cada una sabe del atleta; se pliegan las mudas). Cerrar sesión pasa a texto.
+- **La pregunta de COROS se contesta en su fila** (Sí, No, Ahora no) en vez de un diálogo del sistema al abrir. Se conserva TODA la lógica de `refreshCorosBackground`/`answerCorosLink`. «Ahora no» no toca el servidor (la pregunta se conserva y se repite al abrir Perfil) y «Sí» pide al store que reconcilie el plan. La alerta de la sincronización pasa a `AvisoDia` (ok se va sola; un fallo se queda) y es excluyente con la pregunta **por tipo** (`ResultadoCoros`), no por convención: por eso el aviso NO es un campo de la lectura.
+- **Una fuente que falla dice que falló.** `EstadoDelDato` gana `.sinRespuesta`; cada tesela ofrece «Reintentar» solo esa fuente y sin red la sección es una frase. Un fallo al refrescar NO pisa la cifra buena que ya estaba (`FuenteDelDato.trasPedir`).
+- **Cero datos falsos:** una puerta cuenta lo que sabe (Apple Salud y el permiso del reloj se leen en local; los wearables son la misma lectura que ya pedía COROS). «Ningún dispositivo conectado» cuenta solo Apple Salud, Apple Watch (carreras activadas), Polar y COROS.
+- **Copy que el diseño pedía:** «¿Cómo te llamas?» sin nombre (silueta, no iniciales vacías), «6 años entrenando», «172 cm · 64,5 kg», sin «suscripción» para el atleta sin coach, «Versión X» visible. Los campos que el modelo no lleva (`confianza`, `diasPorSemana`, `renueva`) no se inventan.
+
+**Fallos del Swift anterior cerrados:** (1) el VO₂ «nadie lo ha medido» (`fetch` devuelve nil) se confundía con «no contestó» porque `try?` aplana el opcional: el atleta sin VO₂ veía un esqueleto para siempre y nunca la invitación; (2) toda fuente caída dejaba el esqueleto para siempre; (3) 0,5 años de experiencia salía «0y entrenando» y la altura se truncaba en vez de redondearse; (4) `SectionHeader` a 10 pt, contra el suelo de 15; (5) el título en blanco sin nombre.
+
+**Retirado, con porqué (grep en `ios/`, tests y reloj: sin referencias):** `SectionHeader`, `ProfileDoorRow`, `RendimientoSection`/`RendimientoFilas`/`RendimientoResumen` (sustituidos por `RendimientoEstados.filas`), `PartnerBadge` (sin ni una llamada). `EditProfileView`, `FotoPerfilSheet` y `ShareSheet` salen de `ProfileView.swift` (1395 líneas) sin cambios. Las pruebas de Perfil de `PerfilMarcasHistorialRenderTests` se sustituyen por la galería de los veinte casos; Marcas e Historial quedan en `MarcasHistorialRenderTests`.
+
+**Lo que NO se hizo (queda dicho):**
+- Las pantallas que cuelgan (Identidad, Entreno, Dispositivos y apps, Cuenta, Privacidad, Ayuda y legal, las de cada cifra y las hojas de foto y edición) siguen con el lenguaje antiguo: solo cambia su puerta. Heredan el diseño después.
+- Garmin, la banda de pulso, el PM5 y Amazfit no cuentan como «dispositivo conectado» (la app no puede saberlo): un atleta que solo usa Garmin verá «Ningún dispositivo conectado». Decidir si se muestra Garmin exige un dato de conexión que hoy no existe.
+- El `accentText` de un club claro (amarillo) no llega a 4,5:1 sobre lienzo claro (hallazgo ya registrado del kit): las salidas «Cómo medirlo», «Reintentar» y «Más ajustes» lo heredan hasta que el servidor mande el rol claro.
+- Sobre un tinte del acento (la fila de COROS, la tesela que pide un acto) el apoyo va en la tinta del tema y no en el gris del doble (regla medida del kit, §11.2); el doble usa `muted` ahí.
+
 ## 2026-09-29 · El reloj Garmin: motor propio en Connect IQ (modelo `docs/garmin-reloj/modelo.md`) y una corrección de la entrada del 06-08
 
 **El encargo (Alex, 29-09):** una app en la Connect IQ Store, «top en el mercado, que gane a TrainingPeaks», para el corredor híbrido. Garmin compró TrainingPeaks el 22-jul-2026 y tiene pausadas las altas de su Connect Developer Program (desde la primavera, antes de la compra); Connect IQ es otro programa, abierto, con revisión ≤ 72 h.
