@@ -34,6 +34,12 @@ final class WatchWorkoutCoordinator {
     /// across the view being recreated by watchOS paging. Nil until a session starts.
     private(set) var runLegDriver: WatchRunLegDriver?
 
+    /// El ritmo ACTUAL de la muñeca: la cola de (t, metros) que llena `onDistanceDelta`,
+    /// lo que entrega el builder de Salud. Vive aquí, con vida de entreno, para que la
+    /// cara nueva de correr la lea sin que la llene cada vista (y sobreviva al paginado).
+    /// No es estado que se pinte: los tics del motor ya repintan.
+    @ObservationIgnored private(set) var ventanaDeRitmo = Vivo.VentanaDeRitmo()
+
     private var primary: WatchPrimaryOwner { WatchPrimaryOwner.shared }
     /// Day kind from the payload (`running` / `mixed` / `hyrox`…). The HK
     /// activity of a RUN PIECE is resolved against this, not instead of it.
@@ -216,9 +222,11 @@ final class WatchWorkoutCoordinator {
         runLegDriver = driver
 
         primary.onHeartRate = { [weak engine] bpm in engine?.injectLiveHR(bpm, source: .healthkit) }
+        ventanaDeRitmo.reiniciar()
         primary.onDistanceDelta = { [weak engine, weak self] meters in
             engine?.sampleRunDistance(deltaMeters: meters, source: .healthkit)
             self?.runLegDriver?.noteHealthKitDistanceSample()
+            if let engine { self?.ventanaDeRitmo.anotar(t: engine.elapsedSeconds, deltaMetros: meters) }
         }
         WatchWorkoutClock.appleElapsed = { [weak self] in
             guard let self, self.primary.role == .solo, self.primary.phase == .recording else { return nil }

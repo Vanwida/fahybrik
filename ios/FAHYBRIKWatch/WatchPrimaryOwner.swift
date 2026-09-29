@@ -50,6 +50,10 @@ final class WatchPrimaryOwner: NSObject {
     var onHeartRate: ((Int) -> Void)?
     var onDistanceDelta: ((Double) -> Void)?
 
+    /// La precisión del último fijado (m) cuando el GPS está pedido; `nil` = aún sin fijado. Solo
+    /// para decir «GPS buscando» / listo: los metros los da Apple, no esto.
+    var gpsAccuracyM: Double? { locationGate.horizontalAccuracyM }
+
     var liveZone: HRZone? {
         guard let zones = WatchPlanModel.shared.today?.athleteHrZones else { return nil }
         return liveHR.flatMap { zones.zone(forBpm: $0) }
