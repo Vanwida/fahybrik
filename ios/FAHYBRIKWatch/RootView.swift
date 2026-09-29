@@ -5,6 +5,7 @@ import SwiftUI
 //   • no payload            → empty state (open the phone)
 //   • payload, done         → done state (check + title)
 //   • payload, pending      → pre-workout flow (readiness glance ▸ today brief)
+//   (las pantallas de reposo viven en Views/Entrada/)
 //   • coordinator active    → live flow (the workout)
 //   • coordinator finished  → summary (▸ splits), then back to the done state
 struct RootView: View {
@@ -81,14 +82,9 @@ struct RootView: View {
                 }
             }
         case .idle:
+            // Cada pantalla de reposo cierra con la versión de ESTE binario
+            // (`EntradaVersion`): el HUD live no cede ni un píxel.
             idleContent
-                // QUÉ BINARIO LLEVA LA MUÑECA, visible sin cables.
-                //
-                // La app del reloj viaja dentro de la del iPhone y watchOS decide
-                // cuándo la empuja: con el mismo número de build a menudo NO la
-                // actualiza y deja la muñeca en la versión anterior, sin avisar.
-                // Solo en reposo: el HUD live no cede ni un píxel.
-                .overlay(alignment: .bottom) { VersionFooter() }
         }
     }
 
@@ -96,11 +92,11 @@ struct RootView: View {
     private var idleContent: some View {
         if let today = plan.today {
             if today.isDone {
-                DoneDayFlow(payload: today)
+                EntradaHechoFlow(payload: today)
             } else if let snapshot = recoverable {
                 // A fresh, matching crash snapshot exists → offer to resume the
                 // interrupted workout (its laps + elapsed) rather than start over.
-                ResumeOfferView(
+                EntradaReanudarView(
                     title: today.title ?? "Sesión",
                     onResume: {
                         coordinator.resume(from: snapshot, payload: today)
@@ -112,7 +108,7 @@ struct RootView: View {
                     }
                 )
             } else {
-                PreWorkoutFlow(
+                EntradaAntesFlow(
                     payload: today,
                     sessionPlan: coordinator.sessionPlan(for: plan.assignmentDetail)
                 ) {
@@ -120,67 +116,8 @@ struct RootView: View {
                 }
             }
         } else {
-            EmptyStateView()
+            EntradaSinPlanView()
         }
-    }
-}
-
-// MARK: - Pre-workout flow (readiness glance ▸ today brief)
-
-private struct PreWorkoutFlow: View {
-    let payload: WatchTodayPayload
-    let sessionPlan: WatchSessionPlan
-    let onStart: () -> Void
-
-    var body: some View {
-        if let score = payload.readinessScore {
-            TabView {
-                ReadinessGlanceView(
-                    score: score,
-                    delta7d: payload.readinessDelta7d,
-                    worstDriver: payload.readinessWorstDriver
-                )
-                TodayBriefView(payload: payload, sessionPlan: sessionPlan, onStart: onStart)
-            }
-            .tabViewStyle(.verticalPage)
-        } else {
-            TodayBriefView(payload: payload, sessionPlan: sessionPlan, onStart: onStart)
-        }
-    }
-}
-
-// MARK: - Done-day flow (readiness glance ▸ done card)
-
-/// The completed-day idle state. It must NOT be a dead end: the athlete keeps the
-/// day's readiness glanceable all day. Same vertical pager as PreWorkoutFlow —
-/// readiness on page 1, the done card on page 2 — so crown/swipe always moves. No
-/// fake "exit" button (leaving the app is the system crown press). When no readiness
-/// was pushed, the done card stands alone.
-private struct DoneDayFlow: View {
-    let payload: WatchTodayPayload
-
-    var body: some View {
-        if let score = payload.readinessScore {
-            TabView {
-                ReadinessGlanceView(
-                    score: score,
-                    delta7d: payload.readinessDelta7d,
-                    worstDriver: payload.readinessWorstDriver
-                )
-                doneCard
-            }
-            .tabViewStyle(.verticalPage)
-        } else {
-            doneCard
-        }
-    }
-
-    private var doneCard: some View {
-        DoneStateView(
-            title: payload.title ?? "Sesión",
-            completeness: payload.doneCompleteness,
-            doublesBadge: payload.doublesBadgeText
-        )
     }
 }
 
@@ -200,140 +137,6 @@ private struct PostFinishFlow: View {
             .tabViewStyle(.verticalPage)
         } else {
             SummaryView(session: session, coordinator: coordinator, onDone: onDone)
-        }
-    }
-}
-
-// MARK: - Idle states
-
-private struct DoneStateView: View {
-    let title: String
-    /// "full" | "partial" — carried from the finish so the badge tells the truth: a
-    /// green check + "completada" for a full run, an amber half-ring + "parcial" for a
-    /// Terminar-early save (matching the phone's amber ½ language). Nil (older re-push)
-    /// reads as full.
-    let completeness: String?
-    /// #23 — "DOBLES · con {nombre}", or nil for a solo/individual session.
-    var doublesBadge: String? = nil
-
-    private var isPartial: Bool { completeness == WorkoutCompleteness.partial.rawValue }
-
-    var body: some View {
-        ZStack {
-            WatchTheme.bg.ignoresSafeArea()
-            VStack(spacing: 8) {
-                badge
-                WatchLabel(text: "Hecho hoy", accent: true)
-                Text(title)
-                    .font(.system(size: 16, weight: .heavy))
-                    .foregroundStyle(WatchTheme.ink)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
-                if let doublesBadge {
-                    DoublesBadge(text: doublesBadge)
-                }
-                Text(isPartial ? "Sesión parcial registrada" : "Sesión completada")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(WatchTheme.dim)
-            }
-            .padding(.horizontal, 14)
-        }
-    }
-
-    @ViewBuilder
-    private var badge: some View {
-        if isPartial {
-            // Amber half-ring: honest "part of it" glyph, matching the phone's ½.
-            Circle()
-                .trim(from: 0, to: 0.5)
-                .stroke(WatchTheme.zoneAmber, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                .frame(width: 40, height: 40)
-                .rotationEffect(.degrees(90))
-        } else {
-            ZStack {
-                Circle().fill(WatchTheme.zoneGreen).frame(width: 40, height: 40)
-                Image(systemName: "checkmark")
-                    .font(.system(size: 19, weight: .heavy))
-                    .foregroundStyle(WatchTheme.greenOn)
-            }
-        }
-    }
-}
-
-// MARK: - Resume offer (crash recovery)
-
-/// Offered in the idle state when a fresh, matching crash snapshot is on disk:
-/// resume the interrupted workout (its laps + elapsed survive process death) or
-/// discard it. Dark bg + orange primary, per the wrist design language.
-private struct ResumeOfferView: View {
-    let title: String
-    let onResume: () -> Void
-    let onDiscard: () -> Void
-
-    var body: some View {
-        ZStack {
-            WatchTheme.bg.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 8) {
-                WatchLabel(text: "Entreno sin guardar", accent: true)
-                Text(title)
-                    .font(.system(size: 20, weight: .heavy))
-                    .foregroundStyle(WatchTheme.ink)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.6)
-                Text("Se cortó a mitad. ¿Retomarlo?")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(WatchTheme.dim)
-                Spacer(minLength: 0)
-                BigTapButton(title: "Reanudar entreno", systemImage: "play.fill") { onResume() }
-                Button(action: onDiscard) {
-                    Text("Descartar")
-                        .font(.system(size: 13, weight: .heavy))
-                        .foregroundStyle(WatchTheme.dim)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 40)
-                }
-                .buttonStyle(.plain)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-        }
-    }
-}
-
-/// La versión y la build de ESTE binario, discreta y en reposo.
-/// Same Bundle reader as iPhone Perfil — no second engine, no fabricated "?".
-private struct VersionFooter: View {
-    var body: some View {
-        if let version = AppBundleMetadata.displayVersion {
-            Text(version)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(WatchTheme.dim)
-                .padding(.bottom, 2)
-                .accessibilityLabel("Versión \(version)")
-        }
-    }
-}
-
-private struct EmptyStateView: View {
-    var body: some View {
-        ZStack {
-            WatchTheme.bg.ignoresSafeArea()
-            VStack(spacing: 8) {
-                Image(systemName: "iphone.gen3")
-                    .font(.system(size: 28))
-                    .foregroundStyle(WatchTheme.dim)
-                Text("Abre \(Marca.nombre) en el iPhone")
-                    .font(.system(size: 13, weight: .heavy))
-                    .foregroundStyle(WatchTheme.ink)
-                    .multilineTextAlignment(.center)
-                Text("Tu entreno aparecerá aquí.")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(WatchTheme.dim)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.horizontal, 12)
         }
     }
 }

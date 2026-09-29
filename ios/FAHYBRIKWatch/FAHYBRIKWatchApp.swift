@@ -19,7 +19,9 @@ struct FAHYBRIKWatchApp: App {
             // El escaparate de guiones (`-guion <id>`): abre una pantalla de diseño
             // concreta sin tener que crear un entreno y hacer la primera serie. Sólo
             // en DEBUG y sólo con el argumento — la app de verdad no lo ve.
-            if let id = GuionEscaparate.casoPedido, let caso = GuionEscaparate.caso(id) {
+            if let id = GuionEscaparate.casoPedido, let entrada = GuionEntrada.vista(id) {
+                entrada
+            } else if let id = GuionEscaparate.casoPedido, let caso = GuionEscaparate.caso(id) {
                 GuionEscaparateView(caso: caso)
             } else {
                 raiz

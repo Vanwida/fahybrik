@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-29** (reloj se lanza solo al empezar; espejo con tres páginas de correr; modelo del reloj Garmin; analíticas rehechas en main)
+Última actualización: **2026-09-29** (reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin; analíticas rehechas en main)
 
 ## Ahora
 
@@ -54,6 +54,15 @@ plantillas; ramas `fix/un-solo-entreno`, `fix/plantilla-escritor-unico`, `ios/mo
 actividad que guía pasos, graba FIT y envía el resultado a `workout-execution` (TrainingPeaks en Garmin = calendario nativo, sin fuerza ni
 RPE). Corrige DECISIONS 06-08: Connect IQ SÍ da acelerómetro a 100 Hz en lotes. NO prometer Training Status hasta la prueba T1 en reloj real.
 Diseño en el doble (`garmin-*`, kit `kit-garmin`) pendiente de firma; luego Monkey C. Alex debe decir qué Garmin físico hay para T1–T14.
+
+**LA MUÑECA SE REHACE Y EL RELOJ ES EL PRODUCTO (24-25-09; listón TrainingPeaks).** Auditoría `docs/reloj-muneca/` y diseño firmado
+`docs/el-reloj-primero/` (SF nativo, el objetivo manda, voz al cambiar de paso y cada km). Hechas las fases 0+1 (CI macOS, registro
+técnico 0273, sesión 180 d, cola sin caducidad, acuses) y las 6 propuestas `reloj-*` sobre `kit-reloj`. Falta la firma de Alex sobre
+las pantallas → Swift (correr primero); exige arreglos de modelo M1–M8. PR #192 (fases 0+1) abierto: no fusionar sin 0270–0273 en
+prod (a 24-09 faltaban; comprobar con el runner antes de asumir). Auditoría de la app del atleta: `docs/auditoria-app-atleta/`.
+**Reloj · LA ENTRADA YA HABLA EL LENGUAJE DEL LIENZO (29-09, rama `worktree-agent-a8049b68b5dbef775`, sin fusionar).** Brief con la estructura real del plan, descanso, hecho, retomar,
+cómo llegas y espera del iPhone en `Views/Entrada/` (DECISIONS 29-09). Sin dato en el reloj y omitido: «GPS listo»/pulso, calle/cinta.
+FH-56 (enlace muñeca↔móvil lo dice Apple, build 100, nota `docs/pr/fh56-apple-link.md`).
 
 **LA MUÑECA (APPLE) SE REHACE Y EL RELOJ ES EL PRODUCTO (24-25-09; listón TrainingPeaks).** Auditoría `docs/reloj-muneca/`, diseño firmado
 `docs/el-reloj-primero/`. Hechas fases 0+1 (CI macOS, registro técnico 0273, sesión 180 d, cola sin caducidad, acuses) y las 6 propuestas
