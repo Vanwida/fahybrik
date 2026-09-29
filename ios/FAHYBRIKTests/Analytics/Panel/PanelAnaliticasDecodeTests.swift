@@ -242,7 +242,10 @@ final class PanelAnaliticasDecodeTests: XCTestCase {
         XCTAssertEqual(try lectura(p, .forma, "carga.fondo").procedencia.ancla, .estimada)
         XCTAssertNil(try lectura(p, .forma, "carga.fondo").serie?.plan, "sin carrera no hay proyección")
         XCTAssertEqual(try lectura(p, .estado, "estado.fatiga").tituloEs, "Fatiga")
-        XCTAssertEqual(try lectura(p, .semanas, "semanas.carga").dato?.valor, 395)
+        // El servidor sirve la carga sin redondear (395,26): se escribe «395», el dato no se toca.
+        let cargaSemanas = try lectura(p, .semanas, "semanas.carga")
+        XCTAssertEqual(try XCTUnwrap(cargaSemanas.dato?.valor), 395.26, accuracy: 0.01)
+        XCTAssertEqual(AnaliticasFormato.formatear(try XCTUnwrap(cargaSemanas.dato?.valor), .tss), "395")
         XCTAssertEqual(try lectura(p, .semanas, "semanas.cumplimiento").dato?.valor, 75)
         XCTAssertEqual(try lectura(p, .semanas, "semanas.tramos").cobertura.falta, .ancla)
         XCTAssertEqual(try lectura(p, .intensidad, "intensidad.ritmo.correr").cobertura.falta, .ancla)

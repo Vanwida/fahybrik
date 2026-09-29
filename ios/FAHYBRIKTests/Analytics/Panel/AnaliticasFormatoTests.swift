@@ -93,9 +93,13 @@ final class AnaliticasFormatoTests: XCTestCase {
         let e = AnaliticasEscala.bonita(31.2, 74.9, n: 4, desdeCero: true)
         XCTAssertEqual(e.min, 0)
         XCTAssertEqual(e.ticks, [0, 20, 40, 60, 80])
+        // Un eje de tiempo solo admite pasos de reloj. Con 47 s entre 3 intervalos, el paso ideal es 15,7 s:
+        // el primero permitido que lo alcanza es 30 s (el mismo `escalaBonita` que pinta el panel del coach).
         let t = AnaliticasEscala.bonita(228, 275, n: 4, pasos: AnaliticasEscala.pasosTiempo)
-        XCTAssertEqual(t.ticks, [225, 240, 255, 270, 285])
+        XCTAssertEqual(t.ticks, [210, 240, 270, 300])
         XCTAssertLessThanOrEqual(t.ticks.count, 6)
+        XCTAssertLessThanOrEqual(t.min, 228)
+        XCTAssertGreaterThanOrEqual(t.max, 275)
         let d = AnaliticasEscala.bonita(-22, 22, n: 3)
         XCTAssertEqual(d.ticks, [-40, -20, 0, 20, 40])
         let plano = AnaliticasEscala.bonita(5, 5)
@@ -104,13 +108,26 @@ final class AnaliticasFormatoTests: XCTestCase {
 
     func testLosRotulosDelEjeSonLaPrimeraLaUltimaYLosMesesQueCaben() {
         let dias = AnaliticasFechas.dias(desde: "2026-07-08", hasta: "2026-09-29")
+        // A 300 pt el «ago» queda a 87 pt del «8 jul», y el primero pide 97 (el último rótulo crece hacia la
+        // izquierda): no cabe. El de septiembre sí, a 198 pt del primero y a 101 del final.
         let r = AnaliticasEscala.rotulosX(dias, ancho: 300, cuerpo: 15)
-        XCTAssertEqual(r.first?.texto, "8 jul")
-        XCTAssertEqual(r.last?.texto, "29 sep")
-        XCTAssertTrue(r.map(\.texto).contains("ago"))
-        XCTAssertLessThanOrEqual(r.count, 4)
+        XCTAssertEqual(r.map(\.texto), ["8 jul", "sep", "29 sep"])
+        let holgado = AnaliticasEscala.rotulosX(dias, ancho: 600, cuerpo: 15)
+        XCTAssertEqual(holgado.map(\.texto), ["8 jul", "ago", "sep", "29 sep"], "con sitio, cada cambio de mes")
         let estrecho = AnaliticasEscala.rotulosX(dias, ancho: 90, cuerpo: 15)
         XCTAssertEqual(estrecho.map(\.texto), ["8 jul", "29 sep"], "sin sitio, solo los extremos")
+    }
+
+    /// Un eje de casi un año o más escribe el año (dos cifras) en sus extremos, como el del panel del coach:
+    /// con «1 a» o «Todo», el mismo «8 jul» podría ser de dos años.
+    func testUnEjeDeUnAnoEscribeElAnoEnSusExtremos() {
+        let ano = AnaliticasFechas.dias(desde: "2025-09-30", hasta: "2026-09-29")
+        let r = AnaliticasEscala.rotulosX(ano, ancho: 300, cuerpo: 15)
+        XCTAssertEqual(r.first?.texto, "30 sep 25")
+        XCTAssertEqual(r.last?.texto, "29 sep 26")
+        XCTAssertTrue(r.dropFirst().dropLast().allSatisfy { $0.texto.count == 3 }, "los meses del medio, solo el mes")
+        let corto = AnaliticasEscala.rotulosX(AnaliticasFechas.dias(desde: "2026-07-08", hasta: "2026-09-29"), ancho: 300, cuerpo: 15)
+        XCTAssertEqual(corto.first?.texto, "8 jul", "por debajo de 330 días, sin año")
     }
 
     func testAgruparSumaYRespetaLosHuecos() {
