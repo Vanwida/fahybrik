@@ -5,6 +5,7 @@
 //   disponerPaso       G09  el paso de correr: contexto · nota · héroe · banda
 //                           ▲▼ (o la instrucción) · lo que falta · el pulso.
 //                           TODO sale de `laminaDelPaso`: la vista no decide.
+//                           El contexto nunca pierde la posición (`contextoSinPerder`).
 //   disponerRecupera   G11  monocromo: la cuenta atrás, «Luego · …», el pulso.
 //   disponerDescanso   G12  la fase común: cuenta atrás, «Viene: …», el pulso.
 //   disponerCuenta     G08  3-2-1 y GO antes de un paso de trabajo.
@@ -153,10 +154,39 @@ export function disponerPaso(l: Lamina, D: number): Disposicion {
   return { D, lineas, heroe, pista };
 }
 
-/** Atajo: la lámina de `kit-reloj` y su disposición. */
+/** ¿Es esta parte del contexto una posición («Serie 3/6», «Tanda 2/3», «tramo 3/8», «Estación 3/4»)? */
+const esPosicion = (parte: string) => /\d+\/\d+/.test(parte);
+
+/**
+ * El contexto SIN PERDER LO ESENCIAL. En una línea, el contexto quita partes
+ * por el final; eso está bien con lo prescrito («Serie 3/6 · 1000 m» → «Serie
+ * 3/6»: «quedan 616 m» ya lo dice), pero se lleva lo que el atleta necesita
+ * saber para saber qué hacer: en una posición anidada, la serie en la que estás
+ * («Tanda 2/3 · Serie 4/6 · 1′» → «Tanda 2/3»); en un progresivo, el tramo; en
+ * una recuperación, si es a trote o caminando («Recupera · caminando» →
+ * «Recupera»). Como todo es fracción de D, no cabe entero en NINGÚN reloj: va en
+ * dos líneas, la corta arriba (la cuerda es estrecha) y la larga debajo.
+ *
+ * `esencial` dice qué partes no se pueden perder (por defecto, las posiciones).
+ * Si no se pierde ninguna, o ni en dos líneas cabe, queda como estaba.
+ */
+export function contextoSinPerder(partes: string[], D: number, esencial: (parte: string) => boolean = esPosicion): string[] {
+  const una = cajaEnFila('contexto', altoLinea(TG.contexto, 'texto'));
+  const cabidas = ajustarPartes(partes, 'texto', TG.contexto, D, Math.floor(una.ancho * D)).partes;
+  if (partes.filter(esencial).every((x) => cabidas.includes(x))) return partes;
+  const ultima = partes.map(esencial).lastIndexOf(true);
+  // Con todo lo prescrito detrás; y si así no cabe, hasta la última parte esencial.
+  for (const hasta of [partes.length, ultima + 1]) {
+    const unido = [partes.slice(0, hasta).join(' · ')];
+    if (lineasContexto(unido, D).every((x) => x.cabe)) return unido;
+  }
+  return partes;
+}
+
+/** Atajo: la lámina de `kit-reloj` y su disposición (con la posición del contexto a salvo). */
 export function disponerPasoDe(p: PasoBase, l: Lecturas, zonas: ZonasCoach | null, D: number, reglas: ReglasAviso = REGLAS_AVISO_DEFECTO) {
   const lamina = laminaDelPaso(p, l, zonas, reglas);
-  return { lamina, disposicion: disponerPaso(lamina, D) };
+  return { lamina, disposicion: disponerPaso({ ...lamina, contexto: contextoSinPerder(lamina.contexto, D) }, D) };
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +197,8 @@ export function disponerPasoDe(p: PasoBase, l: Lecturas, zonas: ZonasCoach | nul
 export function disponerRecupera(p: Paso, l: Lecturas, zonas: ZonasCoach | null, D: number): Disposicion {
   const lamina = laminaDelPaso(p, l, zonas);
   const h = heroeDelPaso(p, l, zonas);
-  const lineas: LineaG[] = [...lineasContexto(lamina.contexto, D)];
+  // «Recupera · caminando»: el modo es lo que hay que hacer, no se quita.
+  const lineas: LineaG[] = [...lineasContexto(contextoSinPerder(lamina.contexto, D, () => true), D)];
   const heroe = heroeEn(h.texto, h.unidad, bajo(lineas, D, REJILLA.heroe[0]), REJILLA.heroe[1], D);
   if (p.siguiente) lineas.push(...lineasApoyo('luego', 'Luego ·', textoViene(p.siguiente), D));
   if (lamina.tercero) lineas.push(lineaDeDato('pie', lamina.tercero, TG.tercero, 'pie', D, true));
@@ -196,7 +227,7 @@ export function disponerDescanso(p: Paso, l: Lecturas, D: number, viene?: string
 
 /** LA CUENTA ATRÁS a pantalla entera: a qué entras, contra qué, y el número (0 = GO). */
 export function disponerCuenta(n: number, paso: PasoBase, D: number): Disposicion {
-  const lineas: LineaG[] = [...lineasContexto(contextoDe(paso), D)];
+  const lineas: LineaG[] = [...lineasContexto(contextoSinPerder(contextoDe(paso), D), D)];
   const texto = textoCuenta(paso);
   let y = bajo(lineas, D, REJILLA.heroe[0]);
   if (texto) {

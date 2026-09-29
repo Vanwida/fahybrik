@@ -55,7 +55,7 @@ struct HoyCuerpo: View {
                 .entradaDeHoy(revelado, 0)
 
             if let entrenoMinimizado, !LiveWorkoutAccessory.isSystemBarAvailable {
-                BarraDelEntrenoMinimizado(entreno: entrenoMinimizado)
+                LiveWorkoutBarraEnFila(entreno: entrenoMinimizado)
             }
 
             HoySujeto(lectura: lectura, momento: momento, hayNotaEnElCheckin: hayNotaEnElCheckin, acciones: acciones)
@@ -96,25 +96,6 @@ struct HoyCuerpo: View {
             PartnerTodayPanel(partner: pareja)
                 .entradaDeHoy(revelado, 3)
         }
-    }
-}
-
-// MARK: - El entreno minimizado en iOS 26.0
-
-/// La barra del entreno en curso dentro del scroll, SOLO donde el sistema no puede pintarla sobre las
-/// pestañas (iOS 26.0). Es la misma `LiveWorkoutMiniBar`; aquí solo se le da la cara de una fila de Hoy.
-private struct BarraDelEntrenoMinimizado: View {
-    let entreno: RecoveredLiveCover
-
-    /// El alto de una fila de dos líneas a 15 pt con su aire, como la barra de sistema.
-    private static let alto: CGFloat = 56
-
-    var body: some View {
-        LiveWorkoutMiniBar(parked: entreno)
-            .frame(height: Self.alto)
-            .background(Theme.Color.accentTint, in: RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous)
-                .strokeBorder(Theme.Color.accentTintBorde, lineWidth: 1))
     }
 }
 

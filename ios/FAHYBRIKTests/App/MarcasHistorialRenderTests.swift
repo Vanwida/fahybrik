@@ -2,112 +2,26 @@ import XCTest
 import SwiftUI
 @testable import FAHYBRIK
 
-// PERFIL · MARCAS · HISTORIAL, RENDERIZADAS DE VERDAD — en sus dos extremos.
+// MARCAS · HISTORIAL, RENDERIZADAS DE VERDAD — en sus dos extremos.
 //
 // Hermana de `HuecoDeclaradoRenderTests` y por lo mismo: no es una prueba de
-// píxeles, es la prueba de que las tres pantallas se SOSTIENEN en los dos estados
+// píxeles, es la prueba de que las dos pantallas se SOSTIENEN en los dos estados
 // que el §6.3 llama «el caso de diseño» —el atleta recién dado de alta y el que
 // lleva tiempo dentro—, y de paso el sitio de donde salen las capturas.
 //
-// Las tres vistas que se renderizan viven FUERA de su pantalla a propósito: dentro
-// cuelgan de un ScrollView (Perfil y Marcas) o de un `CenteredScreen`, que es un
+// Las vistas que se renderizan viven FUERA de su pantalla a propósito: dentro
+// cuelgan de un ScrollView (Marcas) o de un `CenteredScreen`, que es un
 // ScrollView (Historial), e `ImageRenderer` no dibuja ScrollView.
 //
-// Los datos del extremo «con datos» son los de producción del 28-jul que ya
-// transcribió el doble (`web/components/design-twin/screens/perfil-rendimiento/
-// data.ts`, lectura por HTTP a Neon): 186,7 kg de sentadilla y 245 de peso muerto,
-// VO₂ 42,35 del reloj, 2 marcas de 12 con récord. Las zonas y la batería cerrada
-// son las del atleta veterano, porque el 64 no tiene ninguna de las dos y la
-// captura tiene que enseñar también la fila con cifra.
+// (Perfil salió de aquí: su galería, con los veinte casos del doble, es
+// `Profile/GaleriaPerfilRenderTests`.)
 
-final class PerfilMarcasHistorialRenderTests: XCTestCase {
+final class MarcasHistorialRenderTests: XCTestCase {
 
     private static let ancho: CGFloat = 402   // iPhone 17 Pro dentro del área segura
 
     private var destino: URL? {
         ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"].map { URL(fileURLWithPath: $0) }
-    }
-
-    // MARK: - Perfil · Rendimiento
-
-    @MainActor
-    func testPerfilReciénDadoDeAltaPintaLosContadoresEnCeroYNoInventaMedidas() {
-        // La regla del §6.2 bis, comprobada ANTES de pintarla: el contador de tests
-        // existe en cero («0 de 4 calibrados» es información) y el VO₂ que nadie ha
-        // medido no existe todavía — ahí va la invitación, no un guion.
-        let resumen = RendimientoResumen(
-            tests: RendimientoEstados.tests(bateria(total: 4, completados: 0), lista: true),
-            marcas: RendimientoEstados.marcas(catalogo(conRecord: 0), listas: true),
-            vo2: RendimientoEstados.vo2(nil, listo: true),
-            zonas: RendimientoEstados.zonas(nil, identidadCargada: true),
-            fuerza: RendimientoEstados.fuerza([]),
-            hasCoach: true
-        )
-        XCTAssertEqual(resumen.tests.estado, .valor("0", sufijo: "de 4", pie: "calibrados"),
-                       "el contador se pinta en cero: es cuando más dice")
-        XCTAssertEqual(resumen.vo2.estado, .vacio(invitacion: "Lo trae tu reloj, o el Cooper de 12 min"),
-                       "un valor medido no existe hasta que se mide")
-        // Pinta cifra, pero un cero no es un logro: el encabezado no le dice a un
-        // atleta que no ha medido nada que ya lleva dos de cinco.
-        XCTAssertFalse(resumen.tests.logrado)
-        XCTAssertEqual(resumen.linea, "0 de 5 con dato")
-
-        let imagen = render(filas(resumen, bateriaAbierta: true),
-                            nombre: "perfil-rendimiento-alta", alto: 430)
-        XCTAssertNotNil(imagen, "Rendimiento tiene que renderizar sin un solo dato")
-    }
-
-    @MainActor
-    func testPerfilConDatosEnseñaSusCifrasYNoSuDescripcion() {
-        let resumen = RendimientoResumen(
-            tests: RendimientoEstados.tests(bateria(total: 4, completados: 4), lista: true),
-            marcas: RendimientoEstados.marcas(catalogo(conRecord: 2), listas: true),
-            vo2: RendimientoEstados.vo2(vo2(42.35), listo: true),
-            zonas: RendimientoEstados.zonas(zonasDePulso(163), identidadCargada: true),
-            fuerza: RendimientoEstados.fuerza(mil(sentadilla: 186.7, pesoMuerto: 245)),
-            hasCoach: true
-        )
-        // El hallazgo del censo, hecho aserción: la fila de fuerza lleva SU número.
-        XCTAssertEqual(
-            resumen.fuerza.estado,
-            .valor("245", sufijo: "kg", pie: "peso muerto · 2 levantamientos"),
-            "el más pesado abre la fila, y el pie dice de qué levantamiento habla"
-        )
-        XCTAssertEqual(resumen.zonas.estado, .valor("163", sufijo: "ppm", pie: "Zonas de tu test de umbral"))
-        XCTAssertEqual(resumen.linea, "5 de 5 con dato")
-
-        let imagen = render(filas(resumen), nombre: "perfil-rendimiento-con-datos", alto: 430)
-        XCTAssertNotNil(imagen, "Rendimiento tiene que renderizar con las cinco cifras")
-    }
-
-    @MainActor
-    func testUnaFuenteQueNoContestaNoSeLeeComoUnHuecoDelAtleta() {
-        // La mentira que este diseño evita: un servidor caído NO puede pintarle
-        // «Aún no hay marcas que probar» a un atleta con récords. Sin respuesta la
-        // fila dice que todavía no lo sabe, y el recuento de la sección se calla.
-        let resumen = RendimientoResumen(
-            tests: RendimientoEstados.tests(nil, lista: false),
-            marcas: RendimientoEstados.marcas([], listas: false),
-            vo2: RendimientoEstados.vo2(nil, listo: false),
-            zonas: RendimientoEstados.zonas(nil, identidadCargada: false),
-            fuerza: RendimientoEstados.fuerza(nil),
-            hasCoach: true
-        )
-        XCTAssertEqual(resumen.marcas.estado, .cargando)
-        XCTAssertNil(resumen.linea, "el recuento no puede bailar debajo del pulgar")
-    }
-
-    @MainActor
-    func testElAtletaSinCoachNoCuentaLosDosHuecosQueEnSuAppNoExisten() {
-        let resumen = RendimientoResumen(
-            tests: .cargando(), marcas: RendimientoEstados.marcas(catalogo(conRecord: 2), listas: true),
-            vo2: RendimientoEstados.vo2(vo2(42.35), listo: true),
-            zonas: .cargando(),
-            fuerza: RendimientoEstados.fuerza(mil(sentadilla: 186.7, pesoMuerto: 245)),
-            hasCoach: false
-        )
-        XCTAssertEqual(resumen.visibles.count, 3)
-        XCTAssertEqual(resumen.linea, "3 de 3 con dato")
     }
 
     // MARK: - Marcas
@@ -201,17 +115,6 @@ final class PerfilMarcasHistorialRenderTests: XCTestCase {
 
     // MARK: - Montaje
 
-    private func filas(_ resumen: RendimientoResumen, bateriaAbierta: Bool = false) -> some View {
-        RendimientoFilas(
-            resumen: resumen,
-            bateriaAbierta: bateriaAbierta,
-            bearer: nil,
-            hasCoach: resumen.hasCoach,
-            zonas: nil
-        )
-        .padding(.horizontal, Theme.Spacing.xl)
-    }
-
     /// Por el CABLE y no a mano, como el resto de las pruebas de render: así la
     /// captura prueba también que lo que manda el servidor llega hasta el píxel.
     private func decodifica<T: Decodable>(_ json: String) -> T {
@@ -219,16 +122,6 @@ final class PerfilMarcasHistorialRenderTests: XCTestCase {
         d.keyDecodingStrategy = .convertFromSnakeCase
         // swiftlint:disable:next force_try
         return try! d.decode(T.self, from: Data(json.utf8))
-    }
-
-    private func bateria(total: Int, completados: Int) -> BatteryStatus {
-        let tests = (0..<total).map { i in
-            let hecho = i < completados
-            return #"{"calibration_slug":"t\#(i)","label":"Test \#(i + 1)","assignment_id":"\#(i)","scheduled_for":"2026-07-0\#(i + 1)","session_status":"\#(hecho ? "completed" : "scheduled")","result_captured":\#(hecho),"result_pending":false}"#
-        }
-        return decodifica(
-            #"{"total":\#(total),"completed":\#(completados),"tests":[\#(tests.joined(separator: ","))]}"#
-        )
     }
 
     /// El catálogo de 12 pruebas del coach; las `conRecord` primeras traen su mejor
@@ -264,26 +157,6 @@ final class PerfilMarcasHistorialRenderTests: XCTestCase {
             }
             return decodifica(#"{\#(campos.joined(separator: ","))}"#)
         }
-    }
-
-    private func vo2(_ valor: Double) -> AthleteVo2Max {
-        decodifica(
-            #"{"headline":{"value":\#(valor),"source":"watch","measured_on":"2026-07-28"},"series":[],"baseline":null,"vdot":null}"#
-        )
-    }
-
-    private func zonasDePulso(_ umbral: Int) -> HRZoneProfile {
-        decodifica(
-            #"{"lthr_bpm":\#(umbral),"estimated":false,"source":"lthr_measured","source_label":"Zonas de tu test de umbral","confidence":"measured","zones":[{"zone":1,"code":"Z1","label":"Recuperación","max_bpm":132,"range_label":"< 132 ppm"}]}"#
-        )
-    }
-
-    /// Los 1RM de producción del atleta 64: sentadilla y peso muerto, sin press.
-    private func mil(sentadilla: Double, pesoMuerto: Double) -> [StrengthMaxProfile] {
-        [
-            #"{"exercise_slug":"back_squat_1rm","exercise_label":"Sentadilla","one_rm_kg":\#(sentadilla),"unit":"kg","source":"athlete_test","recorded_at":"2026-07-27T18:00:00Z","history":[]}"#,
-            #"{"exercise_slug":"deadlift_1rm","exercise_label":"Peso muerto","one_rm_kg":\#(pesoMuerto),"unit":"kg","source":"athlete_test","recorded_at":"2026-07-26T18:00:00Z","history":[]}"#,
-        ].map { decodifica($0) }
     }
 
     private func mesConEntrenos() throws -> AthleteHistoryMonth {

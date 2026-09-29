@@ -231,11 +231,10 @@ enum LeerHoy {
         return f.planCargado ? .sinObjetivo : nil
     }
 
-    /// El objetivo de tiempo como techo: «sub 59 min» para minutos enteros, el tiempo exacto si no.
-    /// Nil sin objetivo. Nunca inventado.
+    /// El objetivo de tiempo como techo, con la MISMA grafía que Carreras (`Formato.metaDeCarrera`):
+    /// «Sub-59» para minutos enteros, «64:30» si no. Nil sin objetivo. Nunca inventado.
     static func meta(_ carrera: AthleteNextRace) -> String? {
-        guard let s = carrera.goalTimeSeconds, s > 0 else { return nil }
-        return s % 60 == 0 ? "sub \(s / 60) min" : Formato.clock(s)
+        carrera.goalTimeSeconds.flatMap(Formato.metaDeCarrera)
     }
 
     /// «{fase} · semana N de M», ya compuesta por el servidor con el nombre que le puso el coach.

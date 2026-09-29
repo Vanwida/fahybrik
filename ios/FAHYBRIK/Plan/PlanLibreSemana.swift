@@ -1,6 +1,6 @@
 import SwiftUI
 
-// «TU SEMANA» DEL ATLETA LIBRE (`SemanaAtletaOperativa` en la vieja pestaña) — la semana REAL que programa el
+// «TU SEMANA» DEL ATLETA LIBRE (antes `SemanaAtletaOperativa`, en la vieja pestaña) — la semana REAL que programa el
 // propio atleta: el mismo carril de siete días que el Plan con coach, el panel del día que toques y lo que
 // llevas hecho. FH-102: mover, editar y borrar sus propias sesiones.
 //

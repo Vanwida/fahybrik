@@ -176,7 +176,7 @@ export interface VistaVivoProps {
  * al llegar a `regla.s`, llama a `alLlegar` una vez con el segundo de sesión
  * en que se paró. Devuelve lo que reinicia la cuenta (cualquier entrada).
  */
-function useQuieto(seq: Secuencia, regla: VistaVivoProps['guardarQuieto'], alLlegar: (desde: number) => void) {
+export function useQuieto(seq: Secuencia, regla: VistaVivoProps['guardarQuieto'], alLlegar: (desde: number) => void) {
   const q = useRef({ s: 0, t: seq.estado.sesionT, desde: seq.estado.sesionT, hecho: false, metros: seq.estado.sesionM + seq.estado.sesionErgoM });
   const t = seq.estado.sesionT;
   const m = seq.estado.sesionM + seq.estado.sesionErgoM;

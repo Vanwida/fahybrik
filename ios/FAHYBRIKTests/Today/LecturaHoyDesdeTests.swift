@@ -257,7 +257,7 @@ final class LecturaHoyDesdeTests: XCTestCase {
         guard case .fijada(let c)? = l.camino else { return XCTFail() }
         XCTAssertEqual(c.nombre, "HYROX Barcelona")
         XCTAssertEqual(c.dias, 39)
-        XCTAssertEqual(c.meta, "sub 65 min")
+        XCTAssertEqual(c.meta, "Sub-65")
         XCTAssertEqual(c.fase, "Construcción · semana 4 de 12")
         XCTAssertEqual(c.semana, PosicionEnPlan(n: 4, m: 12))
         XCTAssertEqual(c.foto, BrandImagery.raceCardBackground(nombre: "HYROX Barcelona", fecha: "2026-11-07", entre: []),
@@ -267,7 +267,7 @@ final class LecturaHoyDesdeTests: XCTestCase {
     func testUnObjetivoDeTiempoQueNoEsDeMinutosEnterosSeDiceExacto() {
         let p = plan(objetivo: #"{"name":"X","days_until":5,"goal_time_seconds":3870}"#, dias: [])
         guard case .fijada(let c)? = LecturaHoy.desde(fuentes(plan: p)).camino else { return XCTFail() }
-        XCTAssertEqual(c.meta, "1:04:30")
+        XCTAssertEqual(c.meta, "64:30")
     }
 
     func testSinObjetivoDeTiempoNoHayMetaNiSemanaSinFase() {

@@ -411,14 +411,19 @@ extension RedesignEmptyState where Figure == EmptyView {
 
 /// Lo que una fila sabe de su número.
 ///
-/// Son TRES estados y no dos a propósito. Mientras la fuente carga no hay ni
+/// Son CUATRO estados y no dos a propósito. Mientras la fuente carga no hay ni
 /// cifra ni invitación: enseñar la invitación antes de saber si hay dato es
 /// prometer un hueco que a lo mejor no existe, y enseñar un guion es inventarse
 /// una medida (§7). El estado intermedio se pinta como lo que es — todavía no lo
 /// sabemos — con el mismo `redacted` que ya usa la fila de modalidad de Perfil.
+/// Y una fuente que FALLÓ no es una que aún carga: se queda en `.sinRespuesta`,
+/// que se dice (y se puede reintentar), en vez de un esqueleto que no se va nunca.
 enum EstadoDelDato: Equatable {
     /// La fuente aún no ha contestado.
     case cargando
+    /// La fuente FALLÓ: ni hay cifra ni se sabe si la hay. Distinto de `.cargando` (que todavía
+    /// espera) y de `.vacio` (que contestó «no hay nada»).
+    case sinRespuesta
     /// Hay cifra. `sufijo` es su unidad o el resto del contador («kg», «de 4»);
     /// `pie` dice de dónde sale, que es lo que convierte un número en un dato.
     case valor(cifra: String, sufijo: String?, pie: String?)
@@ -530,6 +535,10 @@ struct FilaDato<Accesorio: View>: View {
                             .multilineTextAlignment(.trailing)
                     }
                 }
+            case .sinRespuesta:
+                Text("No pudimos cargarlo")
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
             case .vacio:
                 EmptyView()
             }
@@ -555,6 +564,8 @@ struct FilaDato<Accesorio: View>: View {
         switch estado {
         case .cargando:
             partes.append("cargando")
+        case .sinRespuesta:
+            partes.append("no pudimos cargarlo")
         case let .valor(cifra, sufijo, pie):
             partes.append([cifra, sufijo].compactMap { $0 }.joined(separator: " "))
             if let pie { partes.append(pie) }

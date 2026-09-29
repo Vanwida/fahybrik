@@ -60,7 +60,7 @@ struct CarreraDelCamino: Equatable {
     let nombre: String
     /// Días que faltan (ya en el «hoy» del atleta; nunca negativo).
     let dias: Int
-    /// «sub 65 min» / «1:04:30». Nil si el atleta no fijó objetivo de tiempo.
+    /// «Sub-65» / «64:30». Nil si el atleta no fijó objetivo de tiempo.
     let meta: String?
     /// «Construcción · semana 4 de 12»: el nombre de la fase lo pone el COACH. Nil si el plan no
     /// tiene periodización.

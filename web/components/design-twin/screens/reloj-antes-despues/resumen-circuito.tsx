@@ -49,9 +49,9 @@ const HUECO_ESTACIONES = 2;
 const COL_TIEMPO = 54;
 const ANCHO_NOMBRE = ANCHO_UTIL - 12 - COL_TIEMPO - 8;
 
-const carreras = (r: Resultado) => r.circuito.filter((t) => t.paso.clase === 'carrera');
-const estaciones = (r: Resultado) => r.circuito.filter((t) => t.paso.clase === 'estacion');
-const suma = (ts: TramoHecho[]) => ts.reduce((a, t) => a + t.segundos, 0);
+export const carreras = (r: Resultado) => r.circuito.filter((t) => t.paso.clase === 'carrera');
+export const estaciones = (r: Resultado) => r.circuito.filter((t) => t.paso.clase === 'estacion');
+export const suma = (ts: TramoHecho[]) => ts.reduce((a, t) => a + t.segundos, 0);
 
 // ---------------------------------------------------------------------------
 // Página 1
@@ -78,7 +78,7 @@ function PaginaCircuito({ r, c, guardado }: { r: Resultado; c: Completitud; guar
 // La carrera, tramo a tramo
 // ---------------------------------------------------------------------------
 
-function objetivoTexto(p: PasoBase): string | null {
+export function objetivoTexto(p: PasoBase): string | null {
   const o = principal(p);
   if (!o) return null;
   return o.eje === 'rpe' ? `RPE ${num(o.min ?? o.max ?? 0)}` : null;
@@ -119,7 +119,7 @@ function PaginaCarrera({ r, coste }: { r: Resultado; coste: Coste }) {
 // Las estaciones
 // ---------------------------------------------------------------------------
 
-function dosisEstacion(p: PasoBase): string {
+export function dosisEstacion(p: PasoBase): string {
   const carga = p.carga ? `${p.carga.implementos ? `${p.carga.implementos} × ` : ''}${num(p.carga.kg)} kg` : null;
   return [fmtPrescrito(p.medida), carga].filter(Boolean).join(' · ');
 }

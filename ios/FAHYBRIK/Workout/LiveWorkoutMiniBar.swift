@@ -97,3 +97,29 @@ enum LiveWorkoutAccessory {
         return false
     }
 }
+
+// MARK: - La barra con cara de fila (iOS 26.0)
+
+/// La misma barra dentro del scroll, SOLO donde el sistema no puede pintarla sobre las pestañas
+/// (iOS 26.0, ver `LiveWorkoutAccessory.isSystemBarAvailable`). La usan Hoy y el aviso de retomar del Plan.
+struct LiveWorkoutBarraEnFila: View {
+    let entreno: RecoveredLiveCover
+
+    /// El alto de una fila de dos líneas a 15 pt con su aire, como la barra de sistema.
+    private static let alto: CGFloat = 56
+
+    var body: some View {
+        LiveWorkoutMiniBar(parked: entreno)
+            .frame(height: Self.alto)
+            .marcoDeRetomar()
+    }
+}
+
+extension View {
+    /// El marco de acento suave de lo que devuelve al atleta a un entreno empezado.
+    func marcoDeRetomar() -> some View {
+        background(Theme.Color.accentTint, in: RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous)
+                .strokeBorder(Theme.Color.accentTintBorde, lineWidth: 1))
+    }
+}

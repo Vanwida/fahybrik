@@ -175,6 +175,12 @@ import * as perfilRehecho from './screens/perfil-rehecho';
 // pantalla redonda, cinco botones, vibración y tono (docs/garmin-reloj/modelo.md).
 // La gramática primero (el kit `kit-garmin`); las familias, encima.
 import * as garminGramatica from './screens/garmin-gramatica';
+import * as garminCorrer from './screens/garmin-correr';
+import * as garminCircuito from './screens/garmin-circuito';
+import * as garminFuerza from './screens/garmin-fuerza';
+import * as garminWod from './screens/garmin-wod';
+import * as garminDespues from './screens/garmin-despues';
+import * as garminAntes from './screens/garmin-antes';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -293,7 +299,16 @@ export const SCREENS: TwinScreenModule[] = [
   carrerasRehecho,
   planRehecho,
   hoyDia,
-  // El reloj Garmin (29-sep): la gramática.
+  // El reloj Garmin (29-sep): la gramática y sus familias. Registradas en orden
+  // inverso (el índice pone primero lo último añadido): se leen de arriba abajo
+  // como el día del atleta — gramática, antes de salir, correr, circuito,
+  // fuerza, WOD y ergo, al terminar.
+  garminDespues,
+  garminWod,
+  garminFuerza,
+  garminCircuito,
+  garminCorrer,
+  garminAntes,
   garminGramatica,
 ];
 

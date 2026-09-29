@@ -40,15 +40,15 @@ const ANCHO_TEXTO = ANCHO_UTIL - 18;
 const HUECO_EJ = 8;
 const ALTO_PAGINA = ALTO_UTIL - FILA.contexto - HUECO_EJ;
 
-const nombreDe = (e: EjercicioHecho) => `${e.paso.posicion?.slot ? `${e.paso.posicion.slot} ` : ''}${e.paso.nombre ?? ''}`;
-const kgTexto = (e: EjercicioHecho, s: SerieFuerza) => {
+export const nombreDe = (e: EjercicioHecho) => `${e.paso.posicion?.slot ? `${e.paso.posicion.slot} ` : ''}${e.paso.nombre ?? ''}`;
+export const kgTexto = (e: EjercicioHecho, s: SerieFuerza) => {
   const imp = s.implementos ?? e.paso.carga?.implementos;
   return s.kg == null ? '—' : imp && imp > 1 ? `${imp} × ${num(s.kg)}` : num(s.kg);
 };
 
-const tieneRir = (e: EjercicioHecho) => e.series.some((s) => s.rir != null);
-const porDefecto = (e: EjercicioHecho) => e.series.filter((s) => !s.confirmada).length;
-const cargaVaria = (e: EjercicioHecho) => new Set(e.series.map((s) => s.kg)).size > 1;
+export const tieneRir = (e: EjercicioHecho) => e.series.some((s) => s.rir != null);
+export const porDefecto = (e: EjercicioHecho) => e.series.filter((s) => !s.confirmada).length;
+export const cargaVaria = (e: EjercicioHecho) => new Set(e.series.map((s) => s.kg)).size > 1;
 
 export function altoEjercicio(e: EjercicioHecho): number {
   const n = nombreDe(e);
@@ -109,7 +109,7 @@ export function EjercicioVista({ e }: { e: EjercicioHecho }) {
 }
 
 /** El título de un bloque: «Superserie A» si dos ejercicios comparten letra; si no, el nombre. */
-function tituloBloque(es: EjercicioHecho[]): string {
+export function tituloBloque(es: EjercicioHecho[]): string {
   const letras = new Set(es.map((e) => e.paso.posicion?.slot?.charAt(0)).filter(Boolean));
   if (es.length > 1 && letras.size === 1) return `Superserie ${[...letras][0]}`;
   return es.map((e) => e.paso.nombre ?? '').join(' + ');
