@@ -140,7 +140,7 @@ describeWithDb('intensidad, recuperación y carrera del panel (base real)', () =
 
   test('intensidad: zonas de todas las familias, reparto sin la fuerza, y el ritmo por zonas con el umbral declarado', async () => {
     const panel = await cargarPanel({ atleta: desdeSesionDeAtleta({ athlete_id: fx.athleteId }), ventana: '4s', now: NOW, client: sql });
-    expect(panel.pendientes).toEqual(['progreso', 'records']);
+    expect(panel.pendientes).toEqual([]);
     expect(idsRepetidos(panel.bloques)).toEqual([]);
     const b = panel.bloques.intensidad;
 
