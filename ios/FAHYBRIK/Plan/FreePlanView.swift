@@ -1,178 +1,148 @@
 import SwiftUI
 
-// Plan (FREE) — the tab for an athlete WITHOUT a coach, built as the conversion
-// surface of the free tier (docs/design/free-plan-conversion-mockup.html).
+// PLAN (LIBRE) — la pestaña del atleta SIN coach, hecha la superficie de conversión del tier libre
+// (docs/design/free-plan-conversion-mockup.html) y, desde el 29-sep, con el lenguaje de «El día».
 //
-// THE RULE THAT KEEPS THIS FROM BEING AN AD: the free tier MEASURES and COMPARES;
-// the paid tier DECIDES. This screen has to be worth opening even if the athlete
-// never pays a cent — so everything on it is HIS OWN REAL DATA. Nothing is
-// invented: a number that doesn't exist is not painted, and what's missing is
-// named out loud.
+// LA REGLA QUE LA MANTIENE ALEJADA DE UN ANUNCIO: el tier libre MIDE y COMPARA; el de pago DECIDE. Esta pantalla
+// tiene que valer la pena aunque el atleta no pague nunca, así que todo lo que enseña son datos SUYOS. Un número
+// que no existe no se pinta, y lo que falta se dice en voz alta.
 //
-// Two states, one set of cards:
+// Dos estados, un mismo juego de tarjetas (lo decide `LecturaLibre.tieneEvidencia`):
+//   · SIN EVIDENCIA (ninguna marca medida, ninguna carrera importada) — aquí no se vende nada. Primero lo que le
+//     DAMOS (su VO₂ máx del reloj, si existe), luego lo que le PEDIMOS: traer su historial de HYROX en un toque o
+//     medirse las tres de arranque. Vender antes de tener un diagnóstico es cuando se le ve el plumero al vendedor.
+//   · CON EVIDENCIA — primero lo que sus carreras YA demuestran, luego su objetivo contra esa realidad, la semana
+//     que esos números compran, y solo después lo que aún falta y la persona que lo convierte en plan.
 //
-//   · SIN EVIDENCIA (no measured mark, no imported race) — nothing is sold here.
-//     First what we GIVE him (his watch VO₂max, when it exists), then what we
-//     ASK: bring your HYROX history in one tap, or measure the three starter
-//     marks. Selling before there is a diagnosis is exactly when the salesman
-//     shows through.
-//   · CON EVIDENCIA — first what his own races already PROVE about him, then his
-//     goal against that reality, then the week those numbers buy, and only then
-//     what is still missing and the person who turns it into a plan.
+// LO QUE SUS CARRERAS DEMUESTRAN Y LO QUE NO: en dobles los dos corren los 8 km y pasan por todas las
+// transiciones, así que correr y roxzone SÍ son suyos. Las estaciones se reparten entre los dos, así que NO se le
+// atribuyen nunca. Eso lo decide el servidor (`shared/domain/free-plan`); aquí solo se pinta lo que llega.
 //
-// WHAT HIS RACES PROVE, AND WHAT THEY DO NOT: in doubles both athletes run all
-// eight kilometres and travel every transition, so running and roxzone are his.
-// The stations are shared out between the pair, so they are NEVER attributed to
-// him. That rule lives server-side in shared/domain/free-plan, where it is
-// tested; this screen only paints what arrives.
-//
-// The one thing this screen used to get badly wrong: it asked an athlete who had
-// just imported six races with full splits for "tus marcas", ignoring everything
-// he had handed over. Anything we can already compute is given back FIRST; a
-// request comes after it, and only for what is genuinely missing.
+// Quién decide qué: la vista no decide. `LecturaLibre.desde` traduce lo que la app YA lee, `PlanLibreCopy` escribe
+// cada frase, y `PlanLibreColumna`/`PlanLibreAnclaje` pintan. Aquí viven la carga y las presentaciones.
+
 struct FreePlanView: View {
-    /// Live session bearer, provided by AppShell (single source of truth).
+    /// Sesión viva, que pasa `AppShell` (única fuente de verdad).
     var bearer: String? = nil
 
     @Environment(AppDataStore.self) private var store
     @Environment(\.openURL) private var openURL
 
-    /// The «Probarme» catalog + his results (`GET /api/athlete/marks`). Loaded
-    /// here — it is not an AppDataStore slice — and it decides the whole state
-    /// fork, so the screen waits for it before rendering.
+    /// El catálogo de «Probarme» + sus resultados (`GET /api/athlete/marks`). Se carga aquí (no es una rebanada del
+    /// `AppDataStore`) y decide la bifurcación entera del estado, así que la pantalla lo espera para pintarse.
     @State private var marks: [MarkView] = []
     @State private var marksLoaded = false
     @State private var marksFailed = false
-    /// His watch VO₂max (`GET /api/athlete/biometrics/trend`). Nil whenever the
-    /// backend has no recent real series — then nothing is painted.
+    /// Su VO₂ máx del reloj (`GET /api/athlete/biometrics/trend`). Nil siempre que el backend no tenga una serie real
+    /// reciente: entonces no se pinta nada.
     @State private var vo2: BiometricMetricSeries? = nil
-    /// The computed portrait (`GET /api/athlete/free-plan`): what his races
-    /// prove, his goal against them, and the week those numbers buy. Nil while
-    /// loading or when the server had nothing to compute.
+    /// El retrato calculado (`GET /api/athlete/free-plan`): lo que sus carreras prueban, su objetivo contra ellas y
+    /// la semana que esos números compran. Nil mientras carga o cuando el servidor no tenía nada que calcular.
     @State private var freePlan: FreePlanPayload? = nil
 
+    @State private var ruta: [RutaLibre] = []
     @State private var showImport = false
     @State private var showBuscarCarrera = false
-    @State private var revealed = false
     @State private var showFreeBuilder = false
     @State private var freeEditAssignmentId: String? = nil
-    @State private var selectedIso: String? = nil
+    @State private var seleccion: String? = nil
     @State private var workoutLaunch: WorkoutLaunch? = nil
     @State private var executedLaunch: WorkoutLaunch? = nil
+    @State private var reintentando = false
+    @State private var aviso: AvisoDia.Contenido? = nil
+    @State private var borrarTarget: AthleteWeekDaySession? = nil
+    /// Sube cuando cambia una marca optimista local, para que la semana se resuelva otra vez.
+    @State private var marcasVersion = 0
 
-    private var planWeek: AthletePlanWeekResponse? { store.planWeek.value }
-    /// The athlete's resolved max-HR source — every «Probarme» door threads it in
-    /// so a live attempt gets his HR zones and not a generic guess.
-    private var hrZones: HRZoneProfile? { store.identity.value?.hrZones }
-    private var targetRace: AthleteNextRace? { planWeek?.targetRace }
-    private var pastRaces: [ImportedRace] { store.racesHub.value?.past ?? [] }
-
-    /// The marks the APP can measure end to end (the registered race distances
-    /// live in the library, not here).
-    private var measurableMarks: [MarkView] { marks.filter { $0.measuredBy != "registered" } }
-    private var measuredMarks: [MarkView] { measurableMarks.filter { $0.best != nil } }
-    private var missingMarks: [MarkView] { measurableMarks.filter { $0.best == nil } }
-
-    /// Does he have anything real about himself yet? A measured mark or an
-    /// imported race. Drives which of the two states renders.
-    private var hasEvidence: Bool { !measuredMarks.isEmpty || !pastRaces.isEmpty }
-
-    /// Both inputs of that fork have answered (from cache or network). Without
-    /// this the screen could paint "sin datos" for an instant to an athlete whose
-    /// race history simply hadn't arrived yet — and then flip. One honest wait.
-    private var stateSettled: Bool {
-        marksLoaded && (store.racesHub.hasLoaded || store.racesHub.loadFailed)
+    /// A dónde lleva una marca o «Todas»: dentro del `NavigationStack` de esta pestaña.
+    private enum RutaLibre: Hashable {
+        case marca(String)
+        case todas
     }
 
+    private var planWeek: AthletePlanWeekResponse? { store.planWeek.value }
+    /// El máximo de pulso resuelto del atleta: cada puerta de «Probarme» lo lleva para que un intento en vivo tenga
+    /// SUS zonas y no unas genéricas.
+    private var hrZones: HRZoneProfile? { store.identity.value?.hrZones }
+
+    private var lectura: LecturaLibre {
+        _ = marcasVersion
+        return LecturaLibre.desde(
+            marcas: marks, marcasCargadas: marksLoaded, marcasFallaron: marksFailed,
+            carrerasCargadas: store.racesHub.hasLoaded || store.racesHub.loadFailed,
+            carrerasImportadas: store.racesHub.value?.past.count ?? 0,
+            vo2: vo2, retrato: freePlan, carreraObjetivo: planWeek?.targetRace,
+            semana: planWeek.map { SemanaDelPlan.desde($0) },
+            hoyIso: planWeek?.week.todayIso ?? FechaES.iso(Date())
+        )
+    }
+
+    // MARK: - Cuerpo
+
     var body: some View {
-        NavigationStack {
+        let l = lectura
+        let acciones = acciones(l)
+        NavigationStack(path: $ruta) {
             ZStack {
                 Theme.Color.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                        if !stateSettled {
-                            ProgressView()
-                                .tint(Theme.Color.accentText)
-                                .frame(maxWidth: .infinity)
-                                .padding(.top, Theme.Spacing.xxl)
-                        } else if hasEvidence {
-                            withEvidenceContent
-                        } else {
-                            noEvidenceContent
-                        }
-                    }
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.top, Theme.Spacing.m)
-                    .padding(.bottom, Theme.Spacing.xl)
-                }
-                .refreshable { await load(force: true) }
+                PlanLibrePantalla(l: l, acciones: acciones, seleccion: $seleccion, reintentando: reintentando)
+                    .refreshable { await load(force: true) }
             }
             .navigationBarHidden(true)
+            .navigationDestination(for: RutaLibre.self) { destino in
+                switch destino {
+                case let .marca(slug): MarkDetailView(slug: slug, bearer: bearer, hrZones: hrZones)
+                case .todas: MarksLibraryView(bearer: bearer, hrZones: hrZones)
+                }
+            }
         }
+        .avisoDia($aviso)
+        .confirmarBorrarLibre($borrarTarget, alConfirmar: confirmarBorrado)
         .sheet(isPresented: $showImport) {
-            // The SAME search-by-name importer the Carreras hub uses: one tap
-            // brings his whole HYROX history with per-station splits.
+            // El MISMO importador por nombre que el hub de Carreras: un toque trae todo su historial de HYROX con
+            // sus parciales por estación.
             ImportRaceSheet(bearer: bearer) { result in
                 if let result { store.applyImportedRaces(result.races) }
                 Task { await store.racesMutated() }
             }
         }
         .sheet(isPresented: $showBuscarCarrera) {
-            // Free: the picker hides its "pídesela a tu coach" fallback on its own.
+            // Libre: el buscador esconde solo su «pídesela a tu coach».
             BuscarCarreraSheet(bearer: bearer) {
                 Task { await store.racesMutated() }
             }
         }
-        .onAppear {
-            revealed = false
-            DispatchQueue.main.async { revealed = true }
-        }
         .fullScreenCover(isPresented: $showFreeBuilder) {
             FreeWorkoutBuilderView(
-                bearer: bearer,
-                hrZones: hrZones,
+                bearer: bearer, hrZones: hrZones,
                 onClose: { showFreeBuilder = false },
-                onCompleted: { Task { await store.planMutated() } }
-            )
+                onCompleted: { Task { await store.planMutated() } })
         }
-        .fullScreenCover(isPresented: Binding(
-            get: { freeEditAssignmentId != nil },
-            set: { if !$0 { freeEditAssignmentId = nil } }
-        )) {
+        .fullScreenCover(isPresented: Binding(get: { freeEditAssignmentId != nil }, set: { if !$0 { freeEditAssignmentId = nil } })) {
             if let editId = freeEditAssignmentId, let id = Int(editId) {
                 FreeWorkoutBuilderView(
-                    bearer: bearer,
-                    editingAssignmentId: id,
-                    hrZones: hrZones,
+                    bearer: bearer, editingAssignmentId: id, hrZones: hrZones,
                     onClose: { freeEditAssignmentId = nil },
                     onCompleted: {
                         freeEditAssignmentId = nil
                         Task { await store.planMutated() }
-                    }
-                )
+                    })
             }
         }
         .fullScreenCover(item: $executedLaunch) { launch in
             ExecutedWorkoutView(
-                assignmentId: launch.assignmentId,
-                fallbackTitle: launch.title,
-                bearer: bearer,
+                assignmentId: launch.assignmentId, fallbackTitle: launch.title, bearer: bearer,
                 onClose: { executedLaunch = nil },
-                onStale: { Task { await store.planMutated() } }
-            )
+                onStale: { Task { await store.planMutated() } })
         }
         .fullScreenCover(item: $workoutLaunch) { launch in
             WorkoutContainer(
-                assignmentId: launch.assignmentId,
-                fallbackTitle: launch.title,
-                bearer: bearer,
-                hrZones: hrZones,
+                assignmentId: launch.assignmentId, fallbackTitle: launch.title, bearer: bearer, hrZones: hrZones,
                 onClose: { workoutLaunch = nil },
                 onCompleted: { _ in
                     workoutLaunch = nil
                     Task { await store.planMutated() }
-                }
-            )
+                })
         }
         .task(id: bearer) {
             store.activate(bearer: bearer)
@@ -180,476 +150,105 @@ struct FreePlanView: View {
         }
     }
 
-    // MARK: - Composition
-    //
-    // Same cards, two orders. Without evidence the ask leads; with evidence the
-    // athlete's own picture leads and the coach closes.
+    // MARK: - Lo que se hace al tocar
 
-    @ViewBuilder
-    private var noEvidenceContent: some View {
-        emptyHeader
-            .staggerReveal(revealed, index: 0)
-        raceOrObjectiveCard
-            .staggerReveal(revealed, index: 1)
-        whatWeKnowCard
-            .staggerReveal(revealed, index: 2)
-        importCard
-            .staggerReveal(revealed, index: 3)
-        startersCard
-            .staggerReveal(revealed, index: 4)
-        starterCTA
-            .staggerReveal(revealed, index: 5)
-        freeNote
-            .staggerReveal(revealed, index: 6)
-        operationalWeekSection
-            .staggerReveal(revealed, index: 7)
-    }
-
-    // With evidence the order is the mockup's and it is not casual: his goal
-    // (desire), what his own numbers say (the free, true diagnosis), the week
-    // those numbers buy (competence, half of it locked), what is still missing,
-    // and the person.
-    @ViewBuilder
-    private var withEvidenceContent: some View {
-        raceOrObjectiveCard
-            .staggerReveal(revealed, index: 0)
-        raceEvidenceCard
-            .staggerReveal(revealed, index: 1)
-        whatWeKnowCard
-            .staggerReveal(revealed, index: 2)
-        weekCard
-            .staggerReveal(revealed, index: 3)
-        marksCard
-            .staggerReveal(revealed, index: 4)
-        importCard
-            .staggerReveal(revealed, index: 5)
-        coachCard
-            .staggerReveal(revealed, index: 6)
-        operationalWeekSection
-            .staggerReveal(revealed, index: 7)
-    }
-
-    /// FH-102 — real week the athlete programs (not the marketing demo above).
-    private var operationalWeekSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            Button {
-                Haptics.medium()
-                showFreeBuilder = true
-            } label: {
-                CardSurface(padding: 14, topAccent: true) {
-                    HStack {
-                        Text("Programar entreno")
-                            .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
-                            .foregroundStyle(Theme.Color.foreground)
-                        Spacer(minLength: 8)
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(Theme.Color.accentText)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-            SemanaAtletaOperativa(
-                bearer: bearer,
-                selectedIso: $selectedIso,
-                onOpenSession: openSession,
-                onEditFree: { freeEditAssignmentId = $0 },
-                onMutated: { Task { await store.planMutated() } }
-            )
-        }
-    }
-
-    private func openSession(_ session: AthleteWeekDaySession) {
-        let launch = WorkoutLaunch(
-            assignmentId: session.assignmentId,
-            title: session.title
-        )
-        if SessionMarkState.of(status: session.status, assignmentId: session.assignmentId).isFinished {
-            executedLaunch = launch
-        } else {
-            workoutLaunch = launch
-        }
-    }
-
-    /// Lo que sus carreras ya demuestran. Sin carreras no hay tarjeta.
-    @ViewBuilder
-    private var raceEvidenceCard: some View {
-        if let evidence = freePlan?.raceEvidence {
-            FreeRaceEvidenceCard(evidence: evidence)
-        }
-    }
-
-    /// La semana bloqueada. El servidor solo la manda cuando puede personalizar
-    /// al menos dos sesiones con datos suyos; si no, aquí no hay nada.
-    @ViewBuilder
-    private var weekCard: some View {
-        if let week = freePlan?.week, !week.sessions.isEmpty {
-            FreePlanWeekCard(week: week)
-        }
-    }
-
-    // MARK: - Header (only when there is nothing measured yet)
-
-    private var emptyHeader: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "Plan", color: Theme.Color.accentText, size: 12)
-            Text("Primero, saber\ndónde estás.")
-                .scaledFont(27, weight: .heavy, relativeTo: .largeTitle, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("Sin números no hay plan que valga. Traemos lo que ya has corrido y medimos el resto.")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    // MARK: - Tu carrera / pon tu carrera
-
-    @ViewBuilder
-    private var raceOrObjectiveCard: some View {
-        if let race = targetRace {
-            raceCard(race)
-        } else {
-            objectiveCard
-        }
-    }
-
-    private func raceCard(_ race: AthleteNextRace) -> some View {
-        CardSurface(padding: 16, topAccent: true, elevated: true) {
-            VStack(alignment: .leading, spacing: 10) {
-                LabelText(text: "Tu carrera")
-                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
-                    Text(race.name)
-                        .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(2)
-                    Spacer(minLength: 4)
-                    if let countdown = countdownLabel(race) {
-                        Text(countdown)
-                            .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                            .foregroundStyle(Theme.Color.muted)
-                            .fixedSize()
-                    }
-                }
-                if let category = race.categoryLine {
-                    Text(category)
-                        .scaledFont(11, relativeTo: .caption2)
-                        .foregroundStyle(Theme.Color.faint)
-                }
-                if let goal = race.goalTimeFormatted {
-                    HStack(alignment: .lastTextBaseline, spacing: 6) {
-                        Text("Tu objetivo")
-                            .scaledFont(11, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.muted)
-                        Text(goal)
-                            .font(.system(size: 22, weight: .heavy).italic().monospacedDigit())
-                            .foregroundStyle(Theme.Color.accentText)
-                    }
-                }
-                // Su objetivo contra su realidad: la conversación interesante, y
-                // la que faltaba. Solo compara con carreras de la MISMA categoría
-                // (el servidor lo decide); si no hay ninguna comparable, lo dice.
-                if let check = freePlan?.goalCheck {
-                    Hairline().opacity(0.6)
-                    FreeGoalComparison(check: check)
-                } else if let missing = missingMarksLine {
-                    // Sin objetivo y sin nada que comparar, lo honesto es nombrar
-                    // lo que falta. Con carreras importadas esto ya no aparece:
-                    // la tarjeta de arriba le devuelve lo que sí sabemos.
-                    Hairline().opacity(0.6)
-                    Text(missing)
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private var objectiveCard: some View {
-        Button {
-            Haptics.light()
-            showBuscarCarrera = true
-        } label: {
-            CardSurface(padding: 16) {
-                VStack(alignment: .leading, spacing: 6) {
-                    LabelText(text: "¿Ya tienes una carrera?")
-                    HStack(spacing: Theme.Spacing.s) {
-                        Text("Ponla y te llevamos la cuenta atrás.")
-                            .scaledFont(13, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: 4)
-                        Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .heavy))
-                            .foregroundStyle(Theme.Color.accentText)
-                    }
-                }
-            }
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("¿Ya tienes una carrera? Ponla y te llevamos la cuenta atrás.")
-        .accessibilityAddTraits(.isButton)
-    }
-
-    /// "Para decirte cuánto tardarías aún nos faltan…" — the marks he has NOT
-    /// measured, straight from the server catalog. Nil when nothing is missing:
-    /// we never promise a number we can't compute yet.
-    ///
-    /// ALSO NIL AS SOON AS HIS RACES SAY SOMETHING. Asking for homework from an
-    /// athlete who just handed over six races with splits is how this screen lost
-    /// its credibility the first time. When there is evidence, the evidence card
-    /// leads and the ask moves down to «Tus marcas», where it is justified by
-    /// what it unlocks.
-    private var missingMarksLine: String? {
-        guard freePlan?.raceEvidence == nil else { return nil }
-        // The three starter marks lead the list: they're the same three doors the
-        // screen offers, so the athlete reads ONE story and not two.
-        // Deterministic: starter rank first, catalog position as the tie-break
-        // (Swift's sort is not stable, so the index is compared explicitly).
-        let pending = missingMarks.enumerated().sorted { a, b in
-            let ra = FreePlanCopy.starterRank(a.element.slug)
-            let rb = FreePlanCopy.starterRank(b.element.slug)
-            return ra == rb ? a.offset < b.offset : ra < rb
-        }.map(\.element)
-        guard !pending.isEmpty else { return nil }
-        let shown = pending.prefix(FreePlanCopy.maxMissingListed).map(\.label)
-        let rest = pending.count - shown.count
-        let list = rest > 0
-            ? shown.joined(separator: ", ") + " y \(rest) más"
-            : naturalList(shown)
-        return "Para decirte cuánto tardarías aún nos faltan tus marcas: \(list)."
-    }
-
-    // MARK: - Lo que ya sabemos de ti (his watch VO₂max — real, and nowhere else in the app)
-
-    @ViewBuilder
-    private var whatWeKnowCard: some View {
-        if let vo2 {
-            CardSurface(padding: 16) {
-                VStack(alignment: .leading, spacing: 8) {
-                    LabelText(text: "Lo que ya sabemos de ti")
-                    HStack(alignment: .lastTextBaseline, spacing: 6) {
-                        Text(vo2.label)
-                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.foreground)
-                        Spacer(minLength: 8)
-                        Text(FreePlanCopy.number(vo2.latest))
-                            .font(.system(size: 26, weight: .heavy).italic().monospacedDigit())
-                            .foregroundStyle(Theme.Color.foreground)
-                        if !vo2.unit.isEmpty {
-                            Text(vo2.unit)
-                                .scaledFont(12, relativeTo: .caption)
-                                .foregroundStyle(Theme.Color.muted)
-                        }
-                    }
-                    Text("Lo mide tu reloj. Es el tamaño de tu motor: manda en los 8 km de carrera.")
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .accessibilityElement(children: .combine)
-        }
-    }
-
-    // MARK: - Traer su historial de HYROX (lo más valioso del día uno)
-
-    @ViewBuilder
-    private var importCard: some View {
-        if pastRaces.isEmpty {
-            Button {
-                Haptics.medium()
-                showImport = true
-            } label: {
-                CardSurface(padding: 16, leftAccent: true) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(alignment: .center, spacing: Theme.Spacing.s) {
-                            Text("¿Ya has corrido un HYROX?")
-                                .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
-                                .foregroundStyle(Theme.Color.foreground)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Spacer(minLength: 4)
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 14, weight: .heavy))
-                                .foregroundStyle(Theme.Color.accentText)
-                        }
-                        Text("Búscate por tu nombre y te traemos tus tiempos, estación por estación, en un toque.")
-                            .scaledFont(12, relativeTo: .caption)
-                            .foregroundStyle(Theme.Color.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-            .buttonStyle(PressScaleStyle())
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("¿Ya has corrido un HYROX? Búscate por tu nombre y traemos tus tiempos.")
-            .accessibilityAddTraits(.isButton)
-        }
-    }
-
-    // MARK: - Las tres de arranque (para quien no ha corrido nunca)
-
-    private var starterMarks: [MarkView] {
-        FreePlanCopy.starterSlugs.compactMap { slug in
-            measurableMarks.first { $0.slug == slug }
-        }
-    }
-
-    @ViewBuilder
-    private var startersCard: some View {
-        let steps = starterMarks
-        if !steps.isEmpty {
-            FreePlanStartersCard(steps: steps, bearer: bearer, hrZones: hrZones)
-        } else if marksFailed {
-            marksFailedCard
-        }
-    }
-
-    /// The catalog lives server-side, so when it can't be read there is nothing
-    /// honest to list — we say so and offer the retry instead of an empty card.
-    private var marksFailedCard: some View {
-        CardSurface(padding: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("No pudimos cargar tus marcas.")
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Revisa tu conexión e inténtalo de nuevo.")
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-                Button("Reintentar") {
-                    Haptics.light()
-                    Task { await loadMarks() }
-                }
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(Theme.Color.accentText)
-                .padding(.top, 2)
-            }
-        }
-    }
-
-    /// "Empezar por el 1 km" — the first door, only when the server catalog
-    /// actually offers that mark.
-    @ViewBuilder
-    private var starterCTA: some View {
-        if let first = starterMarks.first {
-            NavigationLink {
-                MarkDetailView(slug: first.slug, bearer: bearer, hrZones: hrZones)
-            } label: {
-                Text("Empezar por \(FreePlanCopy.ctaName(first))")
-                    .font(.system(size: 16, weight: .heavy).italic())
-                    .tracking(1)
-                    .foregroundStyle(Theme.Color.accentOn)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 54)
-                    .background(Theme.Color.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            }
-            .buttonStyle(PressScaleStyle())
-        }
-    }
-
-    private var freeNote: some View {
-        Text("Tus marcas son tuyas. Sin cuenta de pago, sin tarjeta.")
-            .scaledFont(11, relativeTo: .caption2)
-            .foregroundStyle(Theme.Color.faint)
-            .frame(maxWidth: .infinity)
-            .multilineTextAlignment(.center)
-            .padding(.top, Theme.Spacing.xs)
-    }
-
-    // MARK: - Tus marcas (lo medido + lo que falta)
-
-    @ViewBuilder
-    private var marksCard: some View {
-        if measurableMarks.isEmpty {
-            // Evidence exists (an imported race) but the catalog didn't load.
-            if marksFailed { marksFailedCard }
-        } else {
-            FreePlanMarksCard(
-                measured: measuredMarks,
-                missing: missingMarks,
-                bearer: bearer,
-                hrZones: hrZones
-            )
-        }
-    }
-
-    // MARK: - El cierre (la persona, no el paywall)
-
-    /// The coach display name from the payload — NEVER hardcoded. Free athletes
-    /// have no coach, so this is nil and the card stays generic.
-    private var coachName: String? {
-        let raw = planWeek?.coachName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (raw?.isEmpty == false) ? raw : nil
-    }
-
-    private var coachCard: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            CardSurface(padding: 16) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 12) {
-                        CoachAvatar(initials: FreePlanCopy.initials(coachName), size: 44)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(coachName ?? "Entrena con un coach")
-                                .scaledFont(15, weight: .heavy, relativeTo: .headline, italic: true)
-                                .foregroundStyle(Theme.Color.foreground)
-                                .lineLimit(1)
-                            Text("Una llamada de 15 minutos")
-                                .scaledFont(11, relativeTo: .caption2)
-                                .foregroundStyle(Theme.Color.faint)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    Text("Estos números son tuyos y son gratis. Lo que cuesta es decidir qué hacer con ellos cada semana: eso lo hace un coach.")
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            ExpertPrimaryButton(title: coachName.map { "Hablar con \(FreePlanCopy.firstName($0))" } ?? "Hablar con un coach") {
-                // The membership funnel (lead → cita) already exists on the web;
-                // iOS opens it in Safari, price-free, as the pre-auth welcome does.
+    private func acciones(_ l: LecturaLibre) -> AccionesDeLibre {
+        AccionesDeLibre(
+            alAbrirMarca: { ruta.append(.marca($0.slug)) },
+            alVerTodasLasMarcas: { ruta.append(.todas) },
+            alReintentarMarcas: reintentarMarcas,
+            alPonerCarrera: { showBuscarCarrera = true },
+            alImportar: { showImport = true },
+            alHablarConUnCoach: {
+                // El embudo de socios (lead → cita) ya existe en la web; iOS lo abre en Safari, sin precio, como la
+                // bienvenida previa al login.
                 openURL(AppLinks.funnel)
+            },
+            alAbrirSesion: abrir,
+            alProgramar: { showFreeBuilder = true },
+            menuDeSesion: { sesion, semana in AnyView(menuDeSesion(sesion, semana)) },
+            menuDelDia: { dia in
+                AnyView(ForEach(dia.sesiones) { sesion in
+                    if dia.sesiones.count > 1 { Menu(sesion.title) { menuDeSesion(sesion, nil) } } else { menuDeSesion(sesion, nil) }
+                })
             }
-            Text("Sin compromiso · eliges tú el hueco")
-                .scaledFont(11, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.faint)
-                .frame(maxWidth: .infinity)
-                .multilineTextAlignment(.center)
+        )
+    }
+
+    /// Tocar una sesión ROUTEA POR ESTADO: una terminada abre lo que registraste; una pendiente, la previa.
+    private func abrir(_ session: AthleteWeekDaySession) {
+        let launch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
+        if session.estado.trabajada { executedLaunch = launch } else { workoutLaunch = launch }
+    }
+
+    /// El «···» de una sesión propia: editar, mover y borrar (`AthleteWeekDaySession.accionesLibres`). La semana de
+    /// la que sale «Mover» es la de hoy; el menú de un día no la trae y la lee de aquí.
+    @ViewBuilder
+    private func menuDeSesion(_ sesion: AthleteWeekDaySession, _ semana: SemanaDelPlan?) -> some View {
+        let semana = semana ?? planWeek.map { SemanaDelPlan.desde($0) }
+        ForEach(sesion.accionesLibres()) { accion in
+            if accion.clave == .mover {
+                if let semana {
+                    Menu {
+                        ForEach(semana.diasDestino(de: sesion)) { dia in
+                            Button(semana.etiquetaDeDiaDestino(dia)) { mover(sesion, a: dia.isoDate) }
+                        }
+                    } label: {
+                        Label(accion.etiqueta, systemImage: accion.simbolo)
+                    }
+                }
+            } else {
+                Button(role: accion.destructiva ? .destructive : nil) {
+                    if accion.clave == .editarLibre { freeEditAssignmentId = sesion.assignmentId } else { borrarTarget = sesion }
+                } label: {
+                    Label(accion.etiqueta, systemImage: accion.simbolo)
+                }
+            }
         }
     }
 
-    // MARK: - Countdown
-
-    /// "en 9 semanas" / "en 5 días" / "mañana" / "es hoy" — derived from the
-    /// server's `days_until`. Nil when the wire carries no countdown.
-    private func countdownLabel(_ race: AthleteNextRace) -> String? {
-        // Never negative: on or after race day the countdown reads "es hoy".
-        guard let raw = race.daysUntil else { return nil }
-        let days = max(0, raw)
-        switch days {
-        case 0: return "es hoy"
-        case 1: return "mañana"
-        case 2 ..< FreePlanCopy.weeksFromDays:
-            return "en \(days) días"
-        default:
-            let weeks = Int((Double(days) / 7).rounded())
-            return "en \(weeks) \(weeks == 1 ? "semana" : "semanas")"
+    private func mover(_ session: AthleteWeekDaySession, a iso: String) {
+        guard let token = bearer, let id = Int(session.assignmentId) else {
+            aviso = AvisoDia.Contenido(tono: .fallo, texto: PlanTextos.Fallo.mover)
+            return
+        }
+        Haptics.light()
+        Task {
+            do {
+                _ = try await PlanService.moveSession(assignmentId: id, toDate: iso, bearer: token)
+                Haptics.success()
+                await store.planMutated()
+            } catch {
+                Haptics.error()
+                aviso = AvisoDia.Contenido(tono: .fallo, texto: PlanTextos.Fallo.deMover(error))
+            }
         }
     }
 
-    /// "a, b y c" — ES enumeration for the missing-marks line.
-    private func naturalList(_ items: [String]) -> String {
-        guard let last = items.last else { return "" }
-        if items.count == 1 { return last }
-        return items.dropLast().joined(separator: ", ") + " y " + last
+    private func confirmarBorrado(_ session: AthleteWeekDaySession) {
+        borrarTarget = nil
+        guard let token = bearer else { return }
+        Task {
+            do {
+                try await FreeSessionDelete.perform(assignmentId: session.assignmentId, bearer: token)
+                Haptics.medium()
+                await store.planMutated()
+            } catch {
+                aviso = AvisoDia.Contenido(tono: .fallo, texto: PlanTextos.Fallo.borrar)
+            }
+        }
     }
 
-    // MARK: - Loading
+    private func reintentarMarcas() {
+        guard !reintentando else { return }
+        reintentando = true
+        Task {
+            await loadMarks()
+            reintentando = false
+        }
+    }
+
+    // MARK: - Carga
 
     private func load(force: Bool = false) async {
         async let slices: Void = store.loadFreePlan(force: force)
@@ -659,9 +258,8 @@ struct FreePlanView: View {
         _ = await (slices, marks, bio, portrait)
     }
 
-    /// The computed portrait. Silent on failure: every card it feeds is
-    /// conditional, so a failed fetch degrades to the screen without them rather
-    /// than to an error state over data the athlete never asked for.
+    /// El retrato calculado. Silencioso si falla: cada tarjeta que alimenta es condicional, así que una petición
+    /// caída degrada a la pantalla sin ellas y no a un error sobre datos que el atleta nunca pidió.
     private func loadPortrait() async {
         freePlan = try? await FreePlanService.fetch(bearer: bearer)
     }
@@ -676,11 +274,12 @@ struct FreePlanView: View {
         marksLoaded = true
     }
 
-    /// His watch VO₂max, when the backend actually has a recent series for it.
-    /// Silent on failure — the card simply doesn't render.
+    /// Su VO₂ máx del reloj, cuando el backend tiene de verdad una serie reciente. Silencioso si falla: la tarjeta
+    /// simplemente no sale.
     private func loadVO2() async {
         guard let bearer else { return }
         let trend = try? await BiometricTrendService.fetch(bearer: bearer)
-        vo2 = trend?.metrics.first { $0.key == FreePlanCopy.vo2Key }
+        vo2 = trend?.metrics.first { $0.key == PlanLibreCopy.claveVo2 }
     }
 }
+
