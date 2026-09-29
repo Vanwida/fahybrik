@@ -56,7 +56,7 @@ enum ProgresoDeCarrera {
     static func seCalla(_ f: Falta) -> Bool {
         switch f {
         case .ocasion, .intencion, .desconocida: return true
-        case .historia, .ancla, .sensor, .dispositivo: return false
+        case .historia, .ancla, .sensor, .dispositivo, .objetivo, .esfuerzo, .plan, .viejo, .marcas, .pareja: return false
         }
     }
 
@@ -72,7 +72,12 @@ enum ProgresoDeCarrera {
         switch f {
         case .ancla: return "Hacer el test de zonas"
         case .sensor: return "Conectar banda de pulso"
-        case .historia, .dispositivo, .ocasion, .intencion, .desconocida: return nil
+        // Las tres del 29-09 (shared `salidaDe`): elegir la carrera y puntuar el
+        // esfuerzo son actos del atleta; un plan que no existe no lo escribe él.
+        case .objetivo: return "Elegir tu carrera objetivo"
+        case .esfuerzo: return "Puntuar el esfuerzo al terminar"
+        case .marcas: return "Medir tus marcas"
+        case .historia, .dispositivo, .ocasion, .intencion, .plan, .viejo, .pareja, .desconocida: return nil
         }
     }
 
@@ -85,7 +90,9 @@ enum ProgresoDeCarrera {
         // El plazo NO se escribe: se dibuja como una barra que se llena, que es
         // la mitad del punto de distinguir «aún no» de «no aplica».
         case .historia: return nil
-        case .ancla, .sensor: return nil
+        case .ancla, .sensor, .objetivo, .esfuerzo, .marcas, .viejo: return nil
+        case .plan: return "Sin entrenos planificados todavía."
+        case .pareja: return "Tu coach todavía no te ha asignado pareja."
         case .ocasion, .intencion, .desconocida: return nil
         }
     }
@@ -104,7 +111,8 @@ enum ProgresoDeCarrera {
         switch (a, b) {
         case (.historia, .historia), (.ancla, .ancla), (.sensor, .sensor),
              (.dispositivo, .dispositivo), (.ocasion, .ocasion), (.intencion, .intencion),
-             (.desconocida, .desconocida):
+             (.objetivo, .objetivo), (.esfuerzo, .esfuerzo), (.plan, .plan),
+             (.viejo, .viejo), (.marcas, .marcas), (.pareja, .pareja), (.desconocida, .desconocida):
             return true
         default:
             return false

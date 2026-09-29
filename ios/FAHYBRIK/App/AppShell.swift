@@ -105,9 +105,17 @@ struct AppShell: View {
             .tag(AppTab.plan)
             .tabItem { Label(AppTab.plan.title, systemImage: AppTab.plan.symbol) }
 
-            AnalyticsView(bearer: bearer, hasCoach: hasCoach, onOpenTab: { selection = $0 })
-                .tag(AppTab.analiticas)
-                .tabItem { Label(AppTab.analiticas.title, systemImage: AppTab.analiticas.symbol) }
+            // ANALÍTICAS REHECHAS (29-09): la portada del panel único detrás de su
+            // bandera (encendida por defecto); la vista vieja sigue compilada.
+            Group {
+                if AnaliticasBandera.activa {
+                    AnaliticasPortadaView(bearer: bearer, hasCoach: hasCoach, onOpenTab: { selection = $0 })
+                } else {
+                    AnalyticsView(bearer: bearer, hasCoach: hasCoach, onOpenTab: { selection = $0 })
+                }
+            }
+            .tag(AppTab.analiticas)
+            .tabItem { Label(AppTab.analiticas.title, systemImage: AppTab.analiticas.symbol) }
 
             CarrerasView(bearer: bearer, hasCoach: hasCoach)
                 .tag(AppTab.carreras)

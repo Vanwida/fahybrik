@@ -27,7 +27,7 @@ para el iPhone y el panel del coach. Piezas, cada una con su entrada en DECISION
   editables); umbrales declarados de un toque. Retirado lo viejo que el panel cubre (DECISIONS). Verificado en navegador 390/768/1440
   contra rama Neon desechable; tsc limpio y 736 tests de ajustes/analíticas/ficha en verde. El editor heredado (`d4a303d7`) auditado:
   ninguna regla cruzada cruza grupos (test), esquema y CHECK de la tabla alineados (test con base real). DECISIONS 29-09.
-- Migraciones 0277–0281 aplicadas en prod (0279–0281 el 29-09, 248 registradas, 0 pendientes). FALTA en analíticas: UI del atleta en Swift (rama del iPhone en curso); capa de voz de
+- Migraciones 0277–0281 aplicadas en prod (0279–0281 el 29-09, 248 registradas, 0 pendientes). iPhone (`claude/analiticas-ios-base`, sin fusionar; bandera encendida por defecto, la pestaña vieja sigue): modelos, kit y portada de los ocho bloques hechos; falta ver en aparato y las pantallas de detalle. FALTA: capa de voz de
   coach para `explica_es`; los campos del método que el motor aún no lee (DECISIONS); decisiones abiertas de Alex en esa entrada.
 
 **RELOJ · ESPEJO CON TRES PÁGINAS (29-09, worktree `agent-afdc843ecfbddfffc`, sin fusionar; DECISIONS 29-09).** Datos | Vivo | Controles al correr también en espejo; falta aparato.

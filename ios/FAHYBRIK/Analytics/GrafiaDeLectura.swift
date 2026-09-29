@@ -1,6 +1,6 @@
 import Foundation
 
-// CÓMO SE ESCRIBE UNA LECTURA — la grafía de las diecisiete unidades del contrato.
+// CÓMO SE ESCRIBE UNA LECTURA — la grafía de las unidades del contrato.
 //
 // POR QUÉ EXISTE, Y POR QUÉ AQUÍ
 // ------------------------------
@@ -15,8 +15,8 @@ import Foundation
 // carga con `Formato.esDecimal`, un rato con `Formato.duracion`. Aquí solo se
 // decide QUÉ formateador le toca a cada unidad, y con qué palabra se rotula.
 //
-// EL BARRIDO ES DEL ENUM ENTERO, NO DE LO QUE HOY SE SIRVE. Hoy el motor emite
-// ocho unidades de diecisiete; las diecisiete están escritas porque el inventario
+// EL BARRIDO ES DEL ENUM ENTERO, NO DE LO QUE HOY SE SIRVE. Todas las unidades
+// del contrato están escritas porque el inventario
 // lo da el MODELO y no el ejemplo que se tenía delante. Así una lectura nueva en
 // kilocalorías o en vatios-por-500 aparece dibujada sin tocar Swift, que es toda
 // la promesa del contrato.
@@ -113,6 +113,9 @@ enum GrafiaDeLectura {
         case .s500m:
             return Escrito(cifra: Formato.ritmo(valor, .por500m), unidad: nil)
 
+        case .s1000m:
+            return Escrito(cifra: "\(Formato.clock(valor))/1000m", unidad: nil)
+
         // ── Tiempo y trabajo ─────────────────────────────────────────────────
         // Un rato de entrenamiento son horas y minutos («12 h 30»), no un
         // cronómetro: «12:30:00» hace pensar. Por debajo de la hora sí manda el
@@ -128,6 +131,43 @@ enum GrafiaDeLectura {
 
         case .sesiones:
             return Escrito(cifra: Formato.esDecimal(valor, decimals: 0), unidad: "sesiones")
+
+        case .watts:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 0), unidad: "W")
+
+        case .reps:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 0), unidad: Vocab.reps)
+
+        case .dias:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 0), unidad: "días")
+
+        case .series:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 0), unidad: "series")
+
+        case .rondas:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 1), unidad: "rondas")
+
+        case .cm:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 0), unidad: "cm")
+
+        case .spm:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 0), unidad: "pal/min")
+
+        case .rpm:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 0), unidad: "rpm")
+
+        // Puntos porcentuales: la diferencia entre dos porcentajes, nunca un porcentaje.
+        case .pp:
+            return Escrito(cifra: Formato.conSigno(valor), unidad: "pt")
+
+        case .rpe:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 1), unidad: "RPE")
+
+        case .rir:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 0), unidad: "RIR")
+
+        case .tramos:
+            return Escrito(cifra: Formato.esDecimal(valor, decimals: 0), unidad: "tramos")
 
         // Una unidad que este binario no sabe escribir: la lectura se calla.
         case .desconocida:

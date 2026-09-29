@@ -1,0 +1,104 @@
+import SwiftUI
+
+// LOS OCHO BLOQUES DE LA PORTADA — cada uno responde su pregunta (§3) desde el
+// contrato, con sus cuatro estados resueltos (A10) y las piezas del kit. La
+// portada los apila; los detalles (segunda tanda) reutilizan varios. Ningún
+// bloque escribe prosa de hueco: viene de `AnaliticasEstados`.
+//
+// Un bloque PENDIENTE (el servidor lo declara aún sin construir) pinta su «muy
+// pronto», sin inventar nada. Hoy el servidor sirve los ocho: forma y semanas
+// tienen su archivo; intensidad, progreso, récords, carrera y recuperación viven
+// en `AnaliticasBloquesPorForma` y se pintan lectura a lectura por id.
+
+/// Lo que todo bloque necesita del panel, calculado UNA vez por la portada.
+struct ContextoDeBloque {
+    let panel: PanelAnaliticas
+    let estados: [BloqueDelPanel: EstadoBloque]
+    /// Ancho útil del lienzo, para decidir cuántas columnas caben.
+    let ancho: CGFloat
+    let onSalida: (DestinoDeSalida) -> Void
+    let onAbrir: (AnaliticasDestino) -> Void
+
+    var hoy: String { panel.hoy }
+    var metodo: MetodoDelPanel { panel.metodo }
+    func estado(_ b: BloqueDelPanel) -> EstadoBloque { estados[b] ?? .vacio }
+    func lecturas(_ b: BloqueDelPanel) -> [LecturaAnalitica] { panel.bloques[b] }
+    func pendiente(_ b: BloqueDelPanel) -> Bool { panel.estaPendiente(b) }
+
+    /// Los estados de los ocho bloques, de una vez. Un bloque pendiente no se juzga.
+    static func estados(de p: PanelAnaliticas) -> [BloqueDelPanel: EstadoBloque] {
+        var out: [BloqueDelPanel: EstadoBloque] = [:]
+        for b in BloqueDelPanel.allCases where b != .desconocido {
+            out[b] = p.estaPendiente(b) ? .vacio : AnaliticasEstados.estado(de: p.bloques[b])
+        }
+        return out
+    }
+}
+
+/// A dónde lleva un toque en la portada: al detalle de un bloque o de una
+/// familia (placeholders hasta la segunda tanda) o a Dispositivos y apps.
+enum AnaliticasDestino: Hashable {
+    case bloque(BloqueDelPanel)
+    case familia(FamiliaLectura)
+    case dispositivos
+}
+
+/// El hueco de un bloque: pendiente, vacío, poco o viejo. Nada si está lleno.
+struct AnaliticasHuecoDeBloque: View {
+    let ctx: ContextoDeBloque
+    let bloque: BloqueDelPanel
+
+    var body: some View {
+        if ctx.pendiente(bloque) {
+            AnaliticasHueco(texto: AnaliticasEstados.pendiente, onSalida: ctx.onSalida)
+        } else {
+            let estado = ctx.estado(bloque)
+            if estado != .lleno {
+                AnaliticasHueco(
+                    texto: AnaliticasEstados.textoHueco(bloque: bloque, estado: estado, lecturas: ctx.lecturas(bloque), hoy: ctx.hoy, metodo: ctx.metodo),
+                    viejo: estado == .viejo,
+                    onSalida: ctx.onSalida
+                )
+            }
+        }
+    }
+}
+
+/// La nota de una lectura a la que le falta algo, con su salida si la tiene.
+/// Nada cuando la falta es un silencio o una razón que este binario no conoce.
+struct AnaliticasNotaDeFalta: View {
+    let ctx: ContextoDeBloque
+    let bloque: BloqueDelPanel
+    let lectura: LecturaAnalitica
+
+    var body: some View {
+        if let falta = lectura.cobertura.falta,
+           let nota = AnaliticasEstados.notaDeFalta(falta, bloque: bloque, hoy: ctx.hoy) {
+            VStack(alignment: .leading, spacing: 8) {
+                AnaliticasNota(texto: "\(AnaliticasDerivados.etiqueta(de: lectura)) · \(nota)")
+                if case .accion(let texto, let destino)? = AnaliticasEstados.salida(de: falta) {
+                    AnaliticasBoton(texto: texto, secundario: true) { ctx.onSalida(destino) }
+                }
+            }
+        }
+    }
+}
+
+/// Un bloque de la portada, por su clave.
+struct AnaliticasBloque: View {
+    let ctx: ContextoDeBloque
+    let bloque: BloqueDelPanel
+
+    var body: some View {
+        switch bloque {
+        case .forma: AnaliticasBloqueForma(ctx: ctx)
+        case .semanas: AnaliticasBloqueSemanas(ctx: ctx)
+        case .intensidad: AnaliticasBloqueIntensidad(ctx: ctx)
+        case .progreso: AnaliticasBloqueProgreso(ctx: ctx)
+        case .records: AnaliticasBloqueRecords(ctx: ctx)
+        case .carrera: AnaliticasBloqueCarrera(ctx: ctx)
+        case .recuperacion: AnaliticasBloqueRecuperacion(ctx: ctx)
+        case .estado, .desconocido: EmptyView()
+        }
+    }
+}
