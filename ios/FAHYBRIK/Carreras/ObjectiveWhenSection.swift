@@ -8,18 +8,23 @@ struct ObjectiveWhenSection: View {
     var showUndatedCatalogHint: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            LabelText(text: "PARA CUÁNDO ES")
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            CampoCarreras("Para cuándo es", izquierda: { IconoDia(.calendario, tam: 20) }, derecha: { EmptyView() }) {
+                HStack(spacing: 0) {
+                    DatePicker("Fecha de la carrera", selection: $date, in: Date()..., displayedComponents: .date)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                        .tint(Theme.Color.accent)
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: Theme.Size.toque)
+            }
             if showUndatedCatalogHint {
                 Text("Este evento aún no tiene fecha confirmada en el calendario. Elige cuándo lo tienes previsto.")
-                    .font(.system(size: 13))
+                    .papel(.nota)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            DatePicker("", selection: $date, in: Date()..., displayedComponents: .date)
-                .datePickerStyle(.compact)
-                .labelsHidden()
-                .tint(Theme.Color.accent)
         }
     }
 }
