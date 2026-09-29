@@ -8,6 +8,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 **FIX GUARDADO 500 (29-09, sin desplegar):** un tramo `run` de 0 m en el historial (atleta 64) partía por cero en `running-prs.ts` y tumbaba TODO guardado suyo; arreglado + savepoint en `detectPrs`. Tras deploy la cola de la app lo reintenta sola.
 
+**RELOJ · CORRER, VISTAS (30-09, worktree `agent-a59049d6f7b06350e`, sin fusionar; DECISIONS 30-09).** Pila nueva del reloj en solitario (`FAHYBRIKWatch/Muneca/`) tras `MunecaBandera` (encendida). Falta aparato (doble toque, corona anidada, Water Lock, Always-On); siguen espejo (F2), deshacer/hápticos (F3), voz (F4).
+
 **RELOJ · CORRER, FASE 1 (29-09, worktree `agent-ac72d9f51db3a2dcc`, sin fusionar; DECISIONS 29-09).** Hecha la parte pura: `Vivo.cuadroMuneca` (lo que pinta la muñeca, Always-On incluido), ritmo actual de 10 s con suelos de honestidad, `Vivo.Paso` Codable y vectores de oro kit→Swift. Siguen: vistas del reloj (`Muneca/`), cable (F2), hápticos (F3), voz (F4), método/M3/M8 en servidor (F5).
 
 **RELOJ · SE LANZA SOLO AL EMPEZAR (29-09, worktree `agent-a6bcbe816a50de313`, sin fusionar; DECISIONS 29-09).** «No conecta» = una carrera sin calle/cinta no lanzaba
