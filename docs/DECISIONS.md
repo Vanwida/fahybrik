@@ -16,12 +16,13 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 **El encargo:** portar la pestaña Carreras al diseño «Carreras · rehecho» (rama `worktree-agent-a2eaec399ffb276f1`). La lógica es pura y con tests (`LecturaCarreras`, `DecideCarreras`, `TextosCarreras`, mismos 20 casos que el doble); `CarrerasView` solo lee el store, pide el predicho y ejecuta acciones.
 
 **Decidido:**
-- **Una escala de tiempo, un sitio (`Theme/Formato.swift`).** Totales en minutos corridos («66:52», sin pasar a horas), parciales m:ss, la meta «Sub-65» solo cuando los minutos son redondos. `Formato.metaDeCarrera`, `Formato.puesto`, `FechaES.corta/hace/mesAnio` (con «sep», no «sept»). `AthleteNextRace.goalTimeFormatted` pasa a esa escala y lo heredan Plan y Perfil.
+- **Una escala de tiempo, un sitio (`Theme/Formato.swift`).** Totales en minutos corridos («66:52», sin pasar a horas), parciales m:ss, la meta «Sub-65» solo cuando los minutos son redondos. `Formato.metaDeCarrera`, `Formato.puesto`, `FechaES.corta/hace/mesAnio` (con «sep», no «sept»). `AthleteNextRace.goalTimeFormatted` pasa a esa escala y lo heredan Inicio, Plan y Perfil: un objetivo de 90 min se lee «90:00», nunca «1:30:00» (dos tests de Plan que esperaban horas se actualizaron).
 - **El predicho del póster tiene lectura propia y nunca inventa un tiempo:** cifra, parcial (nombra los tramos que faltan), sin datos, sin meta, sin pareja, no aplica, cargando y error.
 - **La evolución sale de las carreras pasadas** (`past`), no de `overview.history`, que la app decodificaba mal (la evolución no se dibujó nunca). Un fallo de carga sin nada guardado se dice con «Reintentar»; ya no se pinta como «Sin objetivos todavía».
 - **Las notas del servidor en prosa pasan a estructura** (`caidaRitmoS`, `estacionesSinPuesto`): la app compone la frase. Hasta que el servidor mande `pace_drop_s` estructurado se lee del texto (`CaidaDeRitmoCable`), con un test.
 - **Una sola foto por carrera** (`BrandImagery.raceCardBackground`, identidad = raceId o `nombre|fecha`), para que Hoy y Carreras enseñen la misma. Hoy debe adoptar `raceCardBackground(nombre:fecha:entre:)`.
 - **Vocabulario:** «Tune-up» y «Relay» salen como «Puesta a punto» y «Relevos».
+- **Un código de serie no se enseña tal cual:** «cf_open» sale «CF OPEN» (`RaceCalendarEvent.seriesLabel`, una sola función para la etiqueta de la fila y la del filtro). (Los datos del doble ya traen «CrossFit»; el servidor manda el código.)
 
 **Retirado, con porqué:** `LegacyHistorySection`, `ImportedRaceHistory` (342 líneas), `ImportRaceLinkSheet` (la hoja de importar hace las dos vías), `CarrerasStations`, `fetchOverview`/`fetchRunningAnalysis` sin `throws`, los helpers de visualización de `ImportedRace`, tres vistas muertas de `RedesignComponents` y el comentario «pídesela a tu coach» de `FreePlanView`. Se comprobó con grep en `ios/` (app, tests y reloj) que no queda ninguna referencia.
 
