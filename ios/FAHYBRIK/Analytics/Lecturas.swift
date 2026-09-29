@@ -207,6 +207,13 @@ enum UnidadLectura: String, Codable, Equatable, CaseIterable {
     case watts
     case reps
     case dias
+    case pp
+    case s1000m = "s_1000m"
+    case spm
+    case rpm
+    case series
+    case cm
+    case rondas
     /// Una unidad que este binario no sabe escribir. La lectura no se pinta: un
     /// número sin unidad es un número que miente por omisión.
     case desconocida
@@ -322,10 +329,18 @@ struct ReferenciaDeLectura: Codable, Equatable {
     let de: String
 }
 
+/// El intervalo de una ESTIMACIÓN con banda (la previsión de carrera): `bajo ≤ valor ≤ alto`,
+/// en la unidad del dato. Una medida no lo lleva: nunca se inventa alrededor de un dato medido.
+struct RangoDeLectura: Codable, Equatable {
+    let bajo: Double
+    let alto: Double
+}
+
 struct DatoDeLectura: Codable, Equatable {
     let valor: Double
     let unidad: UnidadLectura
     let referencia: ReferenciaDeLectura?
+    var rango: RangoDeLectura? = nil
 }
 
 /// Un punto de una serie. `v` a nulo es un HUECO REAL — nunca se interpola ni se
@@ -396,10 +411,6 @@ struct CoberturaDeLectura: Codable, Equatable {
     /// Mismo vocabulario que `running/progress` a propósito: ya está probado y ya
     /// sabe decidir con `seCalla` cuándo la app debe callarse.
     let falta: Falta?
-    /// ISO del último dato que sostiene la lectura. Con él se decide «dato viejo»
-    /// (contrato firmado del 29-09, `kit-analiticas/contrato.ts`). El servidor aún
-    /// no lo sirve: nulo = no se puede decir que el dato sea viejo.
-    let ultimoDato: String?
 }
 
 /// De qué número sale el número. Sin esto, cualquier lectura es un índice

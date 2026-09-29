@@ -201,20 +201,6 @@ struct MetodoDelPanel: Codable, Equatable {
     /// Noches mínimas de basal para la recuperación.
     let hrvMinNightsBaseline: Int?
     let basalDias: Int?
-
-    // Contrato firmado del 29-09 (`kit-analiticas/metodo.ts`), aún sin columna en
-    // el servidor: llegan nulos y las piezas que dependen de ellos se callan.
-    /// A partir de cuántos días sin dato un bloque es «dato viejo».
-    let datoViejoDias: Int?
-    /// Muestras mínimas para que un bloque deje de ser «poco dato».
-    let muestrasMinimas: Int?
-    /// Por debajo de este % de la ventana con dato, un bloque es «poco dato».
-    let coberturaPocoPct: Double?
-    /// Semanas mínimas de historia para que forma y frescura sean fiables.
-    let semanasMinimasForma: Int?
-    /// La basal de recuperación y lo reciente, en días (la nota del bloque).
-    let ventanaBasalDias: Int?
-    let recienteDias: Int?
 }
 
 // MARK: - Las anclas: el umbral por modalidad, con su peldaño
@@ -258,6 +244,32 @@ struct AnclasDelPanel: Codable, Equatable {
         try c.encode(pulso, forKey: .pulso)
         try c.encode(ritmo, forKey: .ritmo)
         try c.encode(potencia, forKey: .potencia)
+    }
+}
+
+// MARK: - El vocabulario del servidor que la portada reconoce
+
+/// Los id y códigos que el panel nombra, escritos UNA vez (`intensidad.ts`,
+/// `records.ts`, `carrera.ts`, `recuperacion-panel.ts`). Cambiar uno allí es
+/// cambiarlo aquí; una lectura con un id que no está en esta lista se ignora.
+enum IdsDelPanel {
+    static let polarizacion = "intensidad.polarizacion"
+    static let readiness = "recuperacion.readiness"
+    static let carreraObjetivo = "carrera.objetivo"
+    static let carreraDisposicion = "carrera.disposicion"
+    static let carreraPrevision = "carrera.prevision"
+    static let prefijoTramo = "carrera.tramo."
+    /// `referencia.de` de un récord: el que había antes.
+    static let referenciaRecordAnterior = "record_anterior"
+    static let referenciaObjetivoCoach = "objetivo_coach"
+    static let referenciaPresupuestoTramo = "presupuesto_objetivo"
+    /// `veredicto.code` de un récord que se ha batido en la ventana.
+    static let veredictoRecordNuevo = "nuevo"
+
+    /// Una zona semanal: `intensidad.z1` … `intensidad.zN`. NO lo es `intensidad.zonas`,
+    /// que es el total del periodo.
+    static func esZonaSemanal(_ id: String) -> Bool {
+        id.range(of: #"^intensidad\.z[0-9]+$"#, options: .regularExpression) != nil
     }
 }
 

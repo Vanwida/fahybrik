@@ -174,7 +174,7 @@ struct Veredicto: Codable, Equatable {
 
 // MARK: - La cobertura: por qué una lectura no se puede dar
 
-/// Seis razones, y se agrupan en DOS tratamientos. Esa agrupación es toda la
+/// Las razones, y se agrupan en DOS tratamientos. Esa agrupación es toda la
 /// diferencia entre una pantalla honesta y una que da pena.
 ///
 /// ES EL VOCABULARIO DE TODA LA APP, no el de esta pantalla: el contrato de
@@ -202,6 +202,13 @@ enum Falta: Equatable {
     case esfuerzo(sesiones: Int)
     /// No hay entrenos planificados: no hay plan que seguir ni proyectar (29-09).
     case plan
+    /// Hay dato, pero ninguno dentro de la ventana: el número es el último que hubo,
+    /// del día `ultimo` (ISO). Cuarto estado de un bloque: «dato viejo» (29-09).
+    case viejo(ultimo: String)
+    /// La previsión de carrera no tiene con qué predecir `faltan` de sus tramos (29-09).
+    case marcas(faltan: Int)
+    /// La carrera objetivo es de dobles y no hay pareja activa: lo fija el coach (29-09).
+    case pareja
     /// UNA RAZÓN QUE ESTE BINARIO NO CONOCE. No se puede decir por qué falta ni
     /// ofrecer salida, así que se trata como silencio: enseñar un candado sin
     /// motivo es exactamente el hueco mudo que este vocabulario existe para
@@ -211,7 +218,7 @@ enum Falta: Equatable {
 }
 
 extension Falta: Codable {
-    private enum K: String, CodingKey { case por, llevas, hacen, sesiones }
+    private enum K: String, CodingKey { case por, llevas, hacen, sesiones, ultimo, faltan }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: K.self)
@@ -228,6 +235,11 @@ extension Falta: Codable {
         case "objetivo": self = .objetivo
         case "esfuerzo": self = .esfuerzo(sesiones: (try? c.decode(Int.self, forKey: .sesiones)) ?? 0)
         case "plan": self = .plan
+        case "viejo":
+            // Sin el día no se puede decir de cuándo es el número: razón desconocida, no un fallo.
+            if let ultimo = try? c.decode(String.self, forKey: .ultimo) { self = .viejo(ultimo: ultimo) } else { self = .desconocida }
+        case "marcas": self = .marcas(faltan: (try? c.decode(Int.self, forKey: .faltan)) ?? 0)
+        case "pareja": self = .pareja
         default: self = .desconocida
         }
     }
@@ -249,6 +261,13 @@ extension Falta: Codable {
             try c.encode("esfuerzo", forKey: .por)
             try c.encode(sesiones, forKey: .sesiones)
         case .plan: try c.encode("plan", forKey: .por)
+        case .viejo(let ultimo):
+            try c.encode("viejo", forKey: .por)
+            try c.encode(ultimo, forKey: .ultimo)
+        case .marcas(let faltan):
+            try c.encode("marcas", forKey: .por)
+            try c.encode(faltan, forKey: .faltan)
+        case .pareja: try c.encode("pareja", forKey: .por)
         case .desconocida: try c.encode("desconocida", forKey: .por)
         }
     }
