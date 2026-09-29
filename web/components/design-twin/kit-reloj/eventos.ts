@@ -114,18 +114,21 @@ export function componer(n: number, cola: ReadonlyArray<{ evento: EventoVivo; vo
 }
 
 /**
- * El emisor de una pantalla. Los eventos emitidos en el mismo tic se juntan
- * (microtarea) y salen como una sola línea en la cronología.
+ * EL INSTANTE — junta lo que se mete en el mismo tic (una tarea del bucle) y
+ * lo entrega de una vez, numerado. Es la regla «sin apilar» de cualquier
+ * pintor del estado vivo: la muñeca la usa para su háptico (`useEventos`) y el
+ * reloj Garmin para su vibración y su tono (`kit-garmin/avisos.ts`). La
+ * función que devuelve es estable; `alLote` se lee siempre en su versión más
+ * reciente, y tras desmontar no se entrega nada.
  */
-export function useEventos(onLog: (linea: string) => void): Eventos {
-  const cola = useRef<Array<{ evento: EventoVivo; voz?: string }>>([]);
+export function useLote<T>(alLote: (lote: T[], n: number) => void): (x: T) => void {
+  const cola = useRef<T[]>([]);
   const cuenta = useRef(0);
   const programado = useRef(false);
   const vivo = useRef(true);
-  const [ultimo, setUltimo] = useState<Emision | null>(null);
-  const logRef = useRef(onLog);
+  const alLoteRef = useRef(alLote);
   useEffect(() => {
-    logRef.current = onLog;
+    alLoteRef.current = alLote;
   });
   useEffect(() => {
     vivo.current = true;
@@ -134,8 +137,8 @@ export function useEventos(onLog: (linea: string) => void): Eventos {
     };
   }, []);
 
-  const emitir = useCallback((evento: EventoVivo, voz?: string) => {
-    cola.current.push({ evento, voz });
+  return useCallback((x: T) => {
+    cola.current.push(x);
     if (programado.current) return;
     programado.current = true;
     setTimeout(() => {
@@ -144,12 +147,23 @@ export function useEventos(onLog: (linea: string) => void): Eventos {
       cola.current = [];
       if (!vivo.current || lote.length === 0) return;
       cuenta.current += 1;
-      const e = componer(cuenta.current, lote);
-      setUltimo(e);
-      logRef.current(e.linea);
+      alLoteRef.current(lote, cuenta.current);
     }, 0);
   }, []);
+}
 
+/**
+ * El emisor de una pantalla. Los eventos emitidos en el mismo tic se juntan
+ * (microtarea) y salen como una sola línea en la cronología.
+ */
+export function useEventos(onLog: (linea: string) => void): Eventos {
+  const [ultimo, setUltimo] = useState<Emision | null>(null);
+  const meter = useLote<{ evento: EventoVivo; voz?: string }>((lote, n) => {
+    const e = componer(n, lote);
+    setUltimo(e);
+    onLog(e.linea);
+  });
+  const emitir = useCallback((evento: EventoVivo, voz?: string) => meter({ evento, voz }), [meter]);
   return { emitir, ultimo };
 }
 
