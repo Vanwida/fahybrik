@@ -260,8 +260,8 @@ final class LecturaHoyDesdeTests: XCTestCase {
         XCTAssertEqual(c.meta, "sub 65 min")
         XCTAssertEqual(c.fase, "Construcción · semana 4 de 12")
         XCTAssertEqual(c.semana, PosicionEnPlan(n: 4, m: 12))
-        XCTAssertEqual(c.foto, BrandImagery.raceCardBackground(for: "HYROX Barcelona|2026-11-07"),
-                       "la foto es la de siempre para esa carrera")
+        XCTAssertEqual(c.foto, BrandImagery.raceCardBackground(nombre: "HYROX Barcelona", fecha: "2026-11-07", entre: []),
+                       "la foto sale del selector único de carrera, el mismo que usa Carreras")
     }
 
     func testUnObjetivoDeTiempoQueNoEsDeMinutosEnterosSeDiceExacto() {
