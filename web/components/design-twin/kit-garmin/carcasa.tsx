@@ -44,6 +44,13 @@ export interface CarcasaGarminProps {
   tinte?: string | null;
   /** El último aviso, para el lector de debajo. */
   ultimo?: EmisionGarmin | null;
+  /**
+   * Lo que hace y dice cada botón en ESTA pantalla cuando no es literalmente la
+   * fila de §5 de `estado` (las de antes y después: una pantalla sin valor que
+   * mover no rotula el + y el −). Recibe la celda de la tabla y devuelve la
+   * suya, o `null` si ahí el botón no hace nada. Sin él, manda la tabla.
+   */
+  mandos?: (boton: BotonGarmin, porTabla: Mando | null) => Mando | null;
   inicial?: Diametro;
   children: ReactNode;
   onLog: (linea: string) => void;
@@ -86,16 +93,22 @@ export function CarcasaGarmin(p: CarcasaGarminProps) {
   const { ref, escala } = useEncaje(figura.ancho, altoTotal);
 
   // La tabla manda: la carcasa solo traduce la pulsación.
-  const ultimoEstado = useRef({ estado, onBoton });
+  const ultimoEstado = useRef({ estado, onBoton, mandos: p.mandos });
   useEffect(() => {
-    ultimoEstado.current = { estado, onBoton };
+    ultimoEstado.current = { estado, onBoton, mandos: p.mandos };
   });
   const pulsar = useCallback((b: BotonGarmin) => {
-    const { estado: e, onBoton: f } = ultimoEstado.current;
+    const { estado: e, onBoton: f, mandos: cambia } = ultimoEstado.current;
     setPulsado(b === 'upLargo' ? 'up' : b);
     setTimeout(() => setPulsado((x) => (x === (b === 'upLargo' ? 'up' : b) ? null : x)), CARCASA.pulsadoMs);
-    f(b, accionDe(e, b));
+    const tabla = accionDe(e, b);
+    f(b, cambia ? cambia(b, tabla) : tabla);
   }, []);
+  /** Lo que hace un botón aquí: la tabla de §5, o lo que la pantalla dice en su lugar. */
+  const mando = (b: BotonGarmin): Mando | null => {
+    const tabla = accionDe(estado, b);
+    return p.mandos ? p.mandos(b, tabla) : tabla;
+  };
 
   // El teclado del doble.
   useEffect(() => {
@@ -177,12 +190,12 @@ export function CarcasaGarmin(p: CarcasaGarminProps) {
             const y = redondo(cy - r * Math.cos(ang));
             const largoB = redondo(CARCASA.boton.largo * D);
             const grueso = redondo(CARCASA.boton.grueso * D);
-            const m = accionDe(estado, b === 'up' ? 'up' : b);
+            const m = mando(b);
             const derecha = Math.sin(ang) > 0;
             const rr = rCaja + asoma + ESTUDIO.rotulo.aire;
             const rx = redondo(cx + rr * Math.sin(ang));
             const ry = redondo(cy - rr * Math.cos(ang));
-            const rotulo = rotuloDe(estado, b);
+            const rotulo = rotuloDe(mando, b);
             return (
               <div key={b}>
                 <button
@@ -246,9 +259,9 @@ export function CarcasaGarmin(p: CarcasaGarminProps) {
 }
 
 /** El rótulo de un botón: qué hace aquí y su tecla. UP lleva también lo que hace mantenido. */
-function rotuloDe(estado: EstadoMandos, b: (typeof FISICOS)[number]): ReactNode | null {
-  const m = accionDe(estado, b);
-  const largo = b === 'up' ? accionDe(estado, 'upLargo') : null;
+function rotuloDe(mando: (b: BotonGarmin) => Mando | null, b: (typeof FISICOS)[number]): ReactNode | null {
+  const m = mando(b);
+  const largo = b === 'up' ? mando('upLargo') : null;
   if (!m && !largo) return null;
   const linea = (x: Mando, tecla: string) => (
     <span style={{ display: 'block' }}>
