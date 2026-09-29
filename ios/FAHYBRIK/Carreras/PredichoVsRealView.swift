@@ -7,29 +7,36 @@ import SwiftUI
 // slower), and the typed coach insight. That difference recalibrates the
 // prediction AND tells the coach where to press — the loop closing on itself.
 //
-// `PredichoVsRealView` is the LIVE fetch wrapper (GET /api/athlete/
-// prediction-review?race_id=…, or a simulation's execution_id). It renders
-// NOTHING until it confirms a snapshot exists (availability == ok) — no empty
-// state here, by design: without a prior prediction there is nothing to review.
+// `PredichoVsRealView` is the PAGE the door on the Carreras tab opens (a back button
+// and the card). It does NOT fetch: the tab already read the review
+// (`GET /api/athlete/prediction-review?race_id=…`) to draw the door, and that door only
+// exists when a snapshot is there (availability == ok) — so the page is handed the
+// very review the door showed and cannot disagree with it.
 // `PredictionReviewCard` is the pure presentation (previewable in isolation).
 struct PredichoVsRealView: View {
-    /// The race (or execution) to review — passed straight to the query.
-    let raceId: String
-    var bearer: String? = nil
+    let review: PredictionReview
 
-    @State private var review: PredictionReview? = nil
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        Group {
-            if let review, review.isOK {
-                PredictionReviewCard(review: review)
-            } else {
-                EmptyView()
+        ZStack {
+            Theme.Color.background
+                .ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                    HStack {
+                        BackCircleButton { dismiss() }
+                        Spacer(minLength: 8)
+                    }
+                    .padding(.top, Theme.Spacing.s)
+                    PredictionReviewCard(review: review)
+                }
+                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.top, Theme.Spacing.s)
+                .padding(.bottom, Theme.Spacing.xxl)
             }
         }
-        .task(id: raceId) {
-            review = await GoalGapService.fetchPredictionReview(raceId: raceId, bearer: bearer)
-        }
+        .navigationBarHidden(true)
     }
 }
 

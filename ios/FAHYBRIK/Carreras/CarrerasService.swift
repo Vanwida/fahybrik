@@ -118,21 +118,6 @@ struct CarrerasOverview: Codable, Hashable {
     }
 }
 
-// MARK: - Station catalogue
-//
-// The 8 non-run HYROX stations the deep-dive is replicable across, derived from
-// the canonical RaceModels station labels (the even indices — odd indices are
-// the eight 1 km runs). Single source so the hub grid, the detail screen and
-// any future per-station routing share one ordered list and never drift.
-
-enum CarrerasStations {
-    /// The eight HYROX work stations, in race order.
-    static let all: [String] = HyroxStation.labels
-        .filter { !HyroxStation.runIndices.contains($0.key) }
-        .sorted { $0.key < $1.key }
-        .map { $0.value }
-}
-
 // MARK: - Service
 
 enum CarrerasService {
@@ -140,22 +125,11 @@ enum CarrerasService {
     ///
     /// LIVE: `GET /api/athlete/race-context` builds the bundle from the athlete's
     /// IMPORTED HYROX results — the last singles race, per-station benchmarks, the
-    /// 8×1 km running splits and an optional pace-drop note.
-    /// The endpoint is honest-empty (every field null/empty) when the athlete has
-    /// no imported race yet, so the hub still renders its "aún no hay carreras"
-    /// empty state. Returns nil only when there's no bearer or the request fails
-    /// (so the view degrades to its empty state rather than erroring).
-    static func fetchOverview(bearer: String?) async -> CarrerasOverview? {
-        guard let bearer else { return nil }
-        return try? await fetchOverviewThrowing(bearer: bearer)
-    }
-
-    /// Throwing variant of `fetchOverview` — same endpoint, but it propagates the
-    /// error instead of swallowing it to nil. AppDataStore's SWR engine needs the
-    /// throw so a failed revalidation KEEPS the last good cached overview (and the
-    /// offline disk snapshot) rather than overwriting it with an empty result. The
-    /// non-throwing wrapper above preserves the "degrade to nil" contract its other
-    /// callers rely on. One endpoint path — no parallel fetch.
+    /// 8×1 km running splits and an optional pace-drop note. The endpoint is
+    /// honest-empty (every field null/empty) when the athlete has no imported race
+    /// yet. THROWS on failure: AppDataStore's SWR engine needs the error so a failed
+    /// revalidation KEEPS the last good cached overview (and the offline disk
+    /// snapshot) rather than overwriting it with an empty result.
     static func fetchOverviewThrowing(bearer: String) async throws -> CarrerasOverview {
         try await APIClient.shared.get(
             path: "api/athlete/race-context",
@@ -167,8 +141,8 @@ enum CarrerasService {
     ///
     /// `POST /api/athlete/race-results/import` with `{ result_url }`. The server
     /// fetches + parses the HYROX detail page and upserts the athlete's `races`
-    /// row (idempotent per HYROX idp — re-pasting refreshes). On success the hub
-    /// should re-fetch `fetchOverview` to surface the new race.
+    /// row (idempotent per HYROX idp — re-pasting refreshes). On success the tab
+    /// asks the store to reconcile (`racesMutated`) to surface the new race.
     ///
     /// Throws `CarrerasImportError` with an athlete-readable message keyed off the
     /// server's error code, or a network/decoding wrapper, so the sheet can show
@@ -228,18 +202,10 @@ enum CarrerasService {
     /// LIVE: `GET /api/athlete/running-analysis` computes the bundle from the
     /// athlete's stored run segments + a Jack-Daniels VDOT off their 5K
     /// benchmark. Fields the system can't measure yet (threshold/VO₂/zones with
-    /// no 5K, training links) come back null / empty and the view renders honest
-    /// empty states. Returns nil only when there's no bearer or the request
-    /// fails, so the screen degrades to its empty state rather than erroring.
-    static func fetchRunningAnalysis(bearer: String?) async -> RunningAnalysis? {
-        guard let bearer else { return nil }
-        return try? await fetchRunningAnalysisThrowing(bearer: bearer)
-    }
-
-    /// THROWING variant for the AppDataStore's SWR engine: a failed revalidation
-    /// must keep the last-good cached analysis (offline-first), so the store needs
-    /// the error to surface rather than be swallowed into a nil that wipes the
-    /// slice. The deep-dive screen keeps the non-throwing wrapper above.
+    /// no 5K, training links) come back null / empty and the views render honest
+    /// empty states.
+    /// It THROWS so the AppDataStore's SWR engine keeps the last-good cached
+    /// analysis (offline-first) when a revalidation fails.
     static func fetchRunningAnalysisThrowing(bearer: String) async throws -> RunningAnalysis? {
         try await APIClient.shared.get(
             path: "api/athlete/running-analysis",
