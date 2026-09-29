@@ -12,7 +12,6 @@ import {
   NOMBRE_CLASE_DEFECTO,
   type EjeObjetivo,
   type Lecturas,
-  type Medida,
   type Objetivo,
   type PasoBase,
   type ReglasAviso,
@@ -20,12 +19,13 @@ import {
   type ZonasCoach,
 } from './paso';
 import { RPE_PALABRA_DEFECTO, colorZona } from './tokens';
+import { dos, fmtDuracion, fmtPrescrito, principal } from '@fahybrid/shared/domain/watch-plan/texto';
+
+export { fmtDuracion, fmtPrescrito, principal };
 
 // ---------------------------------------------------------------------------
 // Formatos — un formateador por concepto, coma española
 // ---------------------------------------------------------------------------
-
-const dos = (n: number) => String(n).padStart(2, '0');
 
 /** 14 → «0:14»; 2246 → «37:26»; 3725 → «1:02:05». */
 export function fmtReloj(totalS: number): string {
@@ -101,30 +101,6 @@ export function fmtDistancia(m: number): { valor: string; unidad: 'm' | 'km' } {
   return { valor: (m / 1000).toFixed(2).replace('.', ','), unidad: 'km' };
 }
 
-/** Duración prescrita en notación de pista: «20″», «90″», «1′», «2′30″», «50′». */
-export function fmtDuracion(s: number): string {
-  if (s < 60 || (s <= 90 && s % 60 !== 0)) return `${s}″`;
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return r === 0 ? `${m}′` : `${m}′${dos(r)}″`;
-}
-
-/** Lo prescrito de una medida, para el contexto y el «Luego»: «1000 m», «1′», «12 reps». */
-export function fmtPrescrito(m: Medida): string {
-  const p = m.prescrito;
-  if (p == null || m.tipo === 'abierta') return '';
-  switch (m.tipo) {
-    case 'distancia':
-      return p >= 5000 && p % 1000 === 0 ? `${p / 1000}\u00A0km` : `${p}\u00A0m`;
-    case 'tiempo':
-      return fmtDuracion(p);
-    case 'reps':
-      return `${p}\u00A0reps`;
-    case 'cal':
-      return `${p}\u00A0cal`;
-  }
-}
-
 function rango(min: number | null, max: number | null, f: (n: number) => string): string {
   if (min != null && max != null) return min === max ? f(min) : `${f(min)}–${f(max)}`;
   if (max != null) return `máx ${f(max)}`;
@@ -192,10 +168,6 @@ export function palabraRpe(o: Objetivo): string {
 // ---------------------------------------------------------------------------
 // El paso: objetivo principal, lo que falta, el contexto
 // ---------------------------------------------------------------------------
-
-export function principal(p: PasoBase): Objetivo | null {
-  return p.objetivos.find((o) => o.papel === 'principal') ?? null;
-}
 
 export function objetivoDe(p: PasoBase, papel: Objetivo['papel']): Objetivo | null {
   return p.objetivos.find((o) => o.papel === papel) ?? null;

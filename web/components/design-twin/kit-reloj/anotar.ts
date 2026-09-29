@@ -19,7 +19,10 @@
 
 import { esFuerza, fmtKg, kgDelPlan, type PasoFuerza } from './fuerza';
 import { FICHA_FUERZA_DEFECTO, type FichaFuerza } from './paso';
+import { RANGO_ANOTAR_DEFECTO } from './metodo';
 import type { EstadoSecuencia, PlanSesion, Simulador } from './secuencia';
+
+export { RANGO_ANOTAR_DEFECTO };
 
 export type EstadoDato = 'propuesto' | 'medido' | 'declarado';
 export type Campo = 'reps' | 'kg' | 'esfuerzo';
@@ -194,18 +197,6 @@ export function confirmar(registro: Registro, id: string, a: Anotacion): Registr
 // ---------------------------------------------------------------------------
 // La corona
 // ---------------------------------------------------------------------------
-
-/**
- * Hasta dónde llega la corona al anotar. MÉTODO, dato con defecto (HARD RULE
- * Nº0): otro coach anota el RPE desde 1, o el RIR hasta 10.
- */
-export const RANGO_ANOTAR_DEFECTO = {
-  /** Reps por encima de lo prescrito que la corona deja subir. */
-  repsDeMas: 10,
-  rpe: { min: 5, max: 10, paso: 0.5 },
-  rir: { min: 0, max: 6, paso: 1 },
-  kgMax: 500,
-} as const;
 
 /**
  * Paso, suelo y techo de la corona en cada campo. De «—» se arranca en la

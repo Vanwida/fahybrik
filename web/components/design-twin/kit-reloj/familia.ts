@@ -4,10 +4,12 @@
 
 import { formatoDeathBy } from './deathby';
 import { esFuerza } from './fuerza';
-import type { NombresFormato } from './metodo';
+import { NOMBRE_FORMATO_DEFECTO, type NombresFormato } from './metodo';
 import { NOMBRE_CLASE_DEFECTO, type PasoBase } from './paso';
 import { esCarrera, fmtDuracion } from './reglas';
 import { wodDe } from './tarea';
+
+export { NOMBRE_FORMATO_DEFECTO };
 
 // ---------------------------------------------------------------------------
 // La familia
@@ -64,26 +66,6 @@ export function familiaDe(p: PasoBase): Familia {
 
 /** ¿Es un test? La cabecera lo marca: un test no puede confundirse con un WOD en vivo. */
 export const esTest = (p: PasoBase): boolean => p.clase === 'test';
-
-/**
- * CÓMO SE LLAMA EL FORMATO EN LA PANTALLA — castellano de box, desde UN sitio.
- * Método del coach con defecto (HARD RULE Nº0): otro coach dice «Por tiempo»
- * en vez de «For Time» o «Tabata» en vez de «A reloj»; lo cambia aquí, no en
- * cada pantalla. La auditoría del 28-09 encontró «Intervals», «Steady»,
- * «Strength», «Warm-up» en el vivo: cada vista traducía por su cuenta.
- */
-export const NOMBRE_FORMATO_DEFECTO = {
-  emom: 'EMOM',
-  amrap: 'AMRAP',
-  fortime: 'For Time',
-  pared: 'Tabata',
-  deathby: 'Death by',
-  circuito: 'Circuito',
-  test: 'Test',
-  series: 'Series',
-  fuerza: 'Fuerza',
-  continuo: 'Continuo',
-} as const;
 
 /**
  * El formato del paso con su tamaño, para la cabecera y el brief: «EMOM 12′»,

@@ -14,11 +14,11 @@
 
 import { gzipSync } from 'node:zlib';
 import type { PlanSesion } from '@/components/design-twin/kit-reloj/secuencia';
-import { flujoDeSesion } from '@/components/design-twin/kit-garmin/plan-compacto/codificar';
-import { CLAVE_STORAGE_MAX_BYTES, MAX_PASOS, PRESUPUESTO_BYTES } from '@/components/design-twin/kit-garmin/plan-compacto/formato';
-import type { Flujo } from '@/components/design-twin/kit-garmin/plan-compacto/flujo';
-import type { MetaSesion } from '@/components/design-twin/kit-garmin/plan-compacto/tipos';
-import { aBase64, aBinario, envolver } from '@/components/design-twin/kit-garmin/plan-compacto/transporte';
+import { flujoDeSesion } from '@fahybrid/shared/domain/watch-plan/plan-compacto/codificar';
+import { CLAVE_STORAGE_MAX_BYTES, MAX_PASOS, PRESUPUESTO_BYTES } from '@fahybrid/shared/domain/watch-plan/plan-compacto/formato';
+import type { Flujo } from '@fahybrid/shared/domain/watch-plan/plan-compacto/flujo';
+import type { MetaSesion } from '@fahybrid/shared/domain/watch-plan/plan-compacto/tipos';
+import { aBase64, aBinario, envolver } from '@fahybrid/shared/domain/watch-plan/plan-compacto/transporte';
 
 const utf8 = new TextEncoder();
 const bytesDe = (s: string) => utf8.encode(s).length;

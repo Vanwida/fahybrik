@@ -58,6 +58,14 @@
       "types": "./domain/analytics/index.ts",
       "default": "./domain/analytics/index.ts"
     },
+    "./domain/watch-plan": {
+      "types": "./domain/watch-plan/index.ts",
+      "default": "./domain/watch-plan/index.ts"
+    },
+    "./domain/watch-plan/plan-compacto": {
+      "types": "./domain/watch-plan/plan-compacto/index.ts",
+      "default": "./domain/watch-plan/plan-compacto/index.ts"
+    },
     "./domain/execution-merge": {
       "types": "./domain/execution-merge/index.ts",
       "default": "./domain/execution-merge/index.ts"

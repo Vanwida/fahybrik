@@ -14,8 +14,8 @@
 //
 // Regenerar: cd web && ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json scripts/garmin-plan-fixtures.ts
 
-import { canonico } from '@/components/design-twin/kit-garmin/plan-compacto/canonico';
-import { flujoDeSesion } from '@/components/design-twin/kit-garmin/plan-compacto/codificar';
+import { canonico } from '@fahybrid/shared/domain/watch-plan/plan-compacto/canonico';
+import { flujoDeSesion } from '@fahybrid/shared/domain/watch-plan/plan-compacto/codificar';
 import {
   ANCHOS_MEDIDA,
   ANCHOS_ROL_FASE,
@@ -25,9 +25,9 @@ import {
   MAX_NUM,
   VERSION_ESQUEMA,
   empaquetar,
-} from '@/components/design-twin/kit-garmin/plan-compacto/formato';
-import { escalar } from '@/components/design-twin/kit-garmin/plan-compacto/flujo';
-import { aBase64, aBinario, envolver } from '@/components/design-twin/kit-garmin/plan-compacto/transporte';
+} from '@fahybrid/shared/domain/watch-plan/plan-compacto/formato';
+import { escalar } from '@fahybrid/shared/domain/watch-plan/plan-compacto/flujo';
+import { aBase64, aBinario, envolver } from '@fahybrid/shared/domain/watch-plan/plan-compacto/transporte';
 import { NO_ENCONTRADAS, casosConVector } from './garmin-plan-casos';
 
 /** Carpeta de los vectores, relativa a `web/`. */

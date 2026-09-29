@@ -23,11 +23,11 @@ import type {
   ReglasAviso,
   Tarea,
   ZonasCoach,
-} from '../../kit-reloj/paso';
-import { estacionDe, type Dobles } from '../../kit-reloj/dobles';
-import type { BandasRitmo } from '../../kit-reloj/paso';
-import type { MetodoReloj, NombreClase, Vocabulario } from '../../kit-reloj/metodo';
-import type { PlanSesion } from '../../kit-reloj/secuencia';
+} from '../paso';
+import { estacionDe, type Dobles } from '../dobles';
+import type { BandasRitmo } from '../paso';
+import type { MetodoReloj, NombreClase, Vocabulario } from '../metodo';
+import type { PlanSesion } from '../plan';
 import {
   ANCHOS_BANDERAS_PASO,
   ANCHOS_EXTRAS,

@@ -26,9 +26,9 @@
 // QUÉ NO HACER: no ampliar esta lista para «hacer pasar» un test. Si un campo
 // no vuelve igual y no está aquí, es un hueco del formato o del modelo.
 
-import { estacionDe } from '../../kit-reloj/dobles';
-import type { PasoBase } from '../../kit-reloj/paso';
-import type { PlanSesion } from '../../kit-reloj/secuencia';
+import { estacionDe } from '../dobles';
+import type { PasoBase } from '../paso';
+import type { PlanSesion } from '../plan';
 
 /** Booleanos opcionales del modelo: `false` y ausente significan lo mismo. */
 const BOOLEANOS_OPCIONALES: ReadonlySet<string> = new Set(['aproximacion', 'lastre', 'corporal', 'corre']);

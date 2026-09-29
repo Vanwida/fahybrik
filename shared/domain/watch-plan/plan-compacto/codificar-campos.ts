@@ -18,9 +18,9 @@ import type {
   PasoBase,
   Posicion,
   Tarea,
-} from '../../kit-reloj/paso';
-import type { Dobles } from '../../kit-reloj/dobles';
-import type { PlanSesion } from '../../kit-reloj/secuencia';
+} from '../paso';
+import type { Dobles } from '../dobles';
+import type { PlanSesion } from '../plan';
 import {
   ANCHOS_FICHA,
   ANCHOS_MEDIDA,
