@@ -11,6 +11,26 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-29 · Carreras en Swift con el diseño de «El día»: la pestaña lee, no decide
+
+**El encargo:** portar la pestaña Carreras al diseño «Carreras · rehecho» (rama `worktree-agent-a2eaec399ffb276f1`). La lógica es pura y con tests (`LecturaCarreras`, `DecideCarreras`, `TextosCarreras`, mismos 20 casos que el doble); `CarrerasView` solo lee el store, pide el predicho y ejecuta acciones.
+
+**Decidido:**
+- **Una escala de tiempo, un sitio (`Theme/Formato.swift`).** Totales en minutos corridos («66:52», sin pasar a horas), parciales m:ss, la meta «Sub-65» solo cuando los minutos son redondos. `Formato.metaDeCarrera`, `Formato.puesto`, `FechaES.corta/hace/mesAnio` (con «sep», no «sept»). `AthleteNextRace.goalTimeFormatted` pasa a esa escala y lo heredan Plan y Perfil.
+- **El predicho del póster tiene lectura propia y nunca inventa un tiempo:** cifra, parcial (nombra los tramos que faltan), sin datos, sin meta, sin pareja, no aplica, cargando y error.
+- **La evolución sale de las carreras pasadas** (`past`), no de `overview.history`, que la app decodificaba mal (la evolución no se dibujó nunca). Un fallo de carga sin nada guardado se dice con «Reintentar»; ya no se pinta como «Sin objetivos todavía».
+- **Las notas del servidor en prosa pasan a estructura** (`caidaRitmoS`, `estacionesSinPuesto`): la app compone la frase. Hasta que el servidor mande `pace_drop_s` estructurado se lee del texto (`CaidaDeRitmoCable`), con un test.
+- **Una sola foto por carrera** (`BrandImagery.raceCardBackground`, identidad = raceId o `nombre|fecha`), para que Hoy y Carreras enseñen la misma. Hoy debe adoptar `raceCardBackground(nombre:fecha:entre:)`.
+- **Vocabulario:** «Tune-up» y «Relay» salen como «Puesta a punto» y «Relevos».
+
+**Retirado, con porqué:** `LegacyHistorySection`, `ImportedRaceHistory` (342 líneas), `ImportRaceLinkSheet` (la hoja de importar hace las dos vías), `CarrerasStations`, `fetchOverview`/`fetchRunningAnalysis` sin `throws`, los helpers de visualización de `ImportedRace`, tres vistas muertas de `RedesignComponents` y el comentario «pídesela a tu coach» de `FreePlanView`. Se comprobó con grep en `ios/` (app, tests y reloj) que no queda ninguna referencia.
+
+**No se toca (y queda dicho):**
+- Los descriptores de `GoalPresets` («élite», «top 25 %») no citan fuente. No se avalan ni se cambian aquí: hay que darles fuente o quitarlos.
+- `RaceDetailView`, `StationDetailView`, `PredichoVsRealView`, `CrearObjetivoCustomView` y la variante Hunter de Fijar solo cambian su puerta. `RaceDetailView` sigue pintando la meta como «65:00» y Carreras como «Sub-65».
+- `hoy` y `diasHasta` se calculan con la fecha del dispositivo, no con la del servidor.
+
+
 ## 2026-09-29 · El kit de «El día» en Swift: cimientos compartidos antes de portar las cuatro pestañas
 
 **El encargo:** Hoy, Plan, Carreras y Perfil se portan a Swift en paralelo; el kit común va primero (rama `worktree-agent-abcdb3996c0f86677`).
