@@ -132,6 +132,49 @@ enum Formato {
         return "\(Int((fraccion * 100).rounded())) %"
     }
 
+    // MARK: - La marca de una carrera (meta y puesto)
+
+    /// «Sub-65» si son minutos redondos, «64:30» si no — la META como la dice el atleta.
+    ///
+    /// Canónico NUEVO (§2.1). El marco de una carrera habla en minutos corridos («sub-60»,
+    /// «sub-90»): un objetivo de 3.900 s es «Sub-65», y uno que no cae en minuto redondo
+    /// se escribe con el reloj exacto y en la MISMA escala que la marca y el predicho
+    /// (`clock(_, enHoras: false)`: «64:30», nunca «1:04:30»). Antes la tarjeta escribía
+    /// «1:05:00» y el detalle «65:00» para el mismo objetivo. Espejo de `metaTexto`
+    /// del doble y de `goalLabel` del dominio compartido.
+    ///
+    /// nil por debajo de un segundo: una meta a cero no es una meta (§7).
+    static func metaDeCarrera(_ segundos: Int) -> String? {
+        guard segundos > 0 else { return nil }
+        return segundos % 60 == 0 ? "Sub-\(segundos / 60)" : clock(segundos, enHoras: false)
+    }
+
+    /// «Puesto 412 de 1180 · top 35 %» — dónde quedaste. Sin campo, solo el puesto; sin
+    /// puesto, nada (§7: un puesto que nadie midió no se inventa con una raya).
+    ///
+    /// Canónico NUEVO (§2.1). El «top» es el puesto entre el campo redondeado y acotado
+    /// a 1…100: quedar 1º de 12.345 es «top 1 %», no «top 0 %». El millar sigue la norma
+    /// del castellano (a partir de cinco cifras: «1180», «12.345»), que es la del
+    /// `NumberFormatter` de `es_ES`.
+    static func puesto(_ puesto: Int?, campo: Int?) -> String? {
+        guard let puesto, puesto > 0 else { return nil }
+        guard let campo, campo > 0 else { return "Puesto \(enteroConMillar(puesto))" }
+        let top = min(100, max(1, Int((Double(puesto) / Double(campo) * 100).rounded())))
+        return "Puesto \(enteroConMillar(puesto)) de \(enteroConMillar(campo)) · top \(top) %"
+    }
+
+    private static let millar: NumberFormatter = {
+        let f = NumberFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.numberStyle = .decimal
+        f.usesGroupingSeparator = true
+        return f
+    }()
+
+    private static func enteroConMillar(_ n: Int) -> String {
+        millar.string(from: NSNumber(value: n)) ?? "\(n)"
+    }
+
     // MARK: - Ritmo
 
     /// La unidad del ritmo por modalidad. El literal lleva la `m` de «500m»: sin
@@ -589,12 +632,20 @@ enum FechaES {
         return f
     }()
 
-    private static let salidaCorta: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "es_ES")
-        f.dateFormat = "d MMM"
-        return f
-    }()
+    private static let calendario = Calendar(identifier: .gregorian)
+
+    /// Los meses abreviados, ESCRITOS y no pedidos al `DateFormatter`: `es_ES` abrevia septiembre
+    /// «sept» y el resto de la app (y el diseño) lo dicen «sep». Una tabla de doce cadenas es lo que
+    /// hace que «29 sep» y «29 nov» midan lo mismo y que nadie dependa de la versión de ICU.
+    private static let mesesAbreviados = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+
+    /// «ene» … «dic» para el mes 1…12. Nil fuera de rango.
+    static func mesAbreviado(_ mes: Int) -> String? {
+        (1...12).contains(mes) ? mesesAbreviados[mes - 1] : nil
+    }
+
+    /// Índice 1 = domingo (el de `Calendar`).
+    private static let diasAbreviados = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
 
     /// La fecha suelta, para hacer aritmética con ella. Nil si el ISO no se lee.
     static func fecha(_ iso: String) -> Date? { entrada.date(from: iso) }
@@ -623,9 +674,34 @@ enum FechaES {
         fecha(iso).map { salidaLarga.string(from: $0) }
     }
 
-    /// «3 jul».
-    static func corta(_ iso: String) -> String? {
-        fecha(iso).map { salidaCorta.string(from: $0) }
+    /// «3 jul» — la fecha corta.
+    ///
+    /// Se piden por PARÁMETRO las dos variantes que la app necesita (§2), no se escribe una segunda
+    /// función:
+    /// - `hoy`: el ISO del día de referencia. Si la fecha es de OTRO año, lo lleva («6 mar 2027»):
+    ///   una fecha del año que viene sin año se lee como de este. Sin `hoy`, nunca lleva año.
+    /// - `conDia`: antepone el día de la semana abreviado («Sáb 7 nov»), para lo que viene, donde
+    ///   se organiza el fin de semana.
+    static func corta(_ iso: String, hoy: String? = nil, conDia: Bool = false) -> String? {
+        guard let f = fecha(iso) else { return nil }
+        let c = calendario.dateComponents([.year, .month, .day, .weekday], from: f)
+        guard let dia = c.day, let mes = c.month, let mesTexto = mesAbreviado(mes) else { return nil }
+        var texto = "\(dia) \(mesTexto)"
+        if let hoy, let referencia = fecha(hoy), calendario.component(.year, from: referencia) != c.year {
+            texto += " \(c.year ?? 0)"
+        }
+        if conDia, let d = c.weekday, (1...7).contains(d) {
+            texto = "\(diasAbreviados[d - 1]) \(texto)"
+        }
+        return texto
+    }
+
+    /// «nov 25» — el mes y el año corto, para el eje de una gráfica donde una fecha entera no cabe.
+    static func mesAnio(_ iso: String) -> String? {
+        guard let f = fecha(iso) else { return nil }
+        let c = calendario.dateComponents([.year, .month], from: f)
+        guard let m = c.month, let mes = mesAbreviado(m), let a = c.year else { return nil }
+        return "\(mes) \(String(format: "%02d", a % 100))"
     }
 
     private static let salidaConDia: DateFormatter = {
@@ -680,7 +756,11 @@ enum FechaES {
     /// Vive aquí, con el resto de la grafía: la app tiene ya varias copias
     /// locales de esta misma cuenta y esta es la canónica — las que queden se
     /// migran, no se replican.
-    static func hace(_ date: Date, ahora: Date = Date()) -> String {
+    ///
+    /// `cuentaHasta`: hasta cuántos días atrás se dice «hace N días» (por defecto seis: pasada una
+    /// semana gana la fecha). Quien sabe que su ventana es más larga —una carrera de hace nueve días
+    /// dentro de las dos semanas en que aún se pide su resultado— lo sube en vez de escribir otra cuenta.
+    static func hace(_ date: Date, ahora: Date = Date(), cuentaHasta: Int = 6) -> String {
         let cal = Calendar.current
         let dias = cal.dateComponents(
             [.day],
@@ -691,7 +771,7 @@ enum FechaES {
         case ..<0:  return larga(iso(date)).map { "el \($0)" } ?? "hoy"
         case 0:     return "hoy"
         case 1:     return "ayer"
-        case 2...6: return "hace \(dias) días"
+        case 2...max(2, cuentaHasta): return "hace \(dias) días"
         default:    return larga(iso(date)).map { "el \($0)" } ?? "hace \(dias) días"
         }
     }

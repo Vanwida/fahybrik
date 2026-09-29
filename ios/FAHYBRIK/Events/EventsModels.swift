@@ -176,6 +176,7 @@ enum RaceDateFilter: String, CaseIterable, Identifiable {
     case any
     case threeMonths
     case sixMonths
+    case twelveMonths
 
     var id: String { rawValue }
 
@@ -184,6 +185,7 @@ enum RaceDateFilter: String, CaseIterable, Identifiable {
         case .any:         return "Cualquiera"
         case .threeMonths: return "3 meses"
         case .sixMonths:   return "6 meses"
+        case .twelveMonths: return "12 meses"
         }
     }
 
@@ -193,6 +195,7 @@ enum RaceDateFilter: String, CaseIterable, Identifiable {
         case .any:         return nil
         case .threeMonths: return 3
         case .sixMonths:   return 6
+        case .twelveMonths: return 12
         }
     }
 }
@@ -217,10 +220,10 @@ enum RaceDate {
         return Parts(year: y, month: m, day: d)
     }
 
-    private static let abbr = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]
     private static let full = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
 
-    static func monthAbbr(_ m: Int) -> String { (m >= 1 && m <= 12) ? abbr[m - 1] : "" }
+    /// «ene» … «dic»: la tabla es la de `FechaES` (una sola), vacía fuera de 1…12.
+    static func monthAbbr(_ m: Int) -> String { FechaES.mesAbreviado(m) ?? "" }
     static func monthFull(_ m: Int) -> String { (m >= 1 && m <= 12) ? full[m - 1] : "" }
 
     /// "NOVIEMBRE 2026" header from a "YYYY-MM" key.
