@@ -180,7 +180,9 @@ export function SimPanel(p: SimPanelProps) {
         <p className="studio-hint">
           {p.meta.dispositivo === 'escritorio'
             ? 'En pantalla completa el panel llena la ventana del navegador, como en app.fahybrid.com: es como se capturan 1440 y 1280.'
-            : 'En el móvil, entra en pantalla completa y gira el teléfono: el doble gira contigo.'}
+            : p.meta.dispositivo === 'garmin'
+              ? 'Los cinco botones se pulsan con el ratón o con el teclado: Enter = START, ⌫ o Esc = BACK/LAP, ↑ y ↓ = UP y DOWN, ⇧↑ (o mantener UP) = Controles, L = LIGHT. El tamaño del reloj se elige encima de él.'
+              : 'En el móvil, entra en pantalla completa y gira el teléfono: el doble gira contigo.'}
         </p>
       </section>
 
@@ -211,7 +213,9 @@ export function SimPanel(p: SimPanelProps) {
           <p className="studio-propuesta-aviso">
             {p.meta.dispositivo === 'escritorio'
               ? 'Propuesta — esta pantalla aún no existe en el panel del coach. Cuando se construya en (v2), su doble pasa a «espejo».'
-              : 'Propuesta — esta pantalla aún no existe en la app. Cuando se construya en Swift, su doble pasa a «espejo».'}
+              : p.meta.dispositivo === 'garmin'
+                ? 'Propuesta — esta pantalla aún no existe en el reloj Garmin. Cuando se construya en Monkey C (Connect IQ), su doble pasa a «espejo».'
+                : 'Propuesta — esta pantalla aún no existe en la app. Cuando se construya en Swift, su doble pasa a «espejo».'}
           </p>
         )}
       </section>
