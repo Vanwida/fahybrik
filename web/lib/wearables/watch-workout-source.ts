@@ -39,7 +39,7 @@ const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
  * La carrera es la ÚNICA modalidad que un reloj de fabricante sabe reproducir como
  * entreno estructurado. Fuerza, EMOM y AMRAP se ejecutan en nuestras apps.
  */
-const WATCHABLE_MODALITY = 'run';
+export const WATCHABLE_MODALITY = 'run';
 
 // ── Benchmarks ───────────────────────────────────────────────────────────────
 
@@ -56,7 +56,7 @@ function ageYearsFrom(dob: string | null): number | null {
   return Math.floor((Date.now() - born) / MS_PER_YEAR);
 }
 
-interface AthleteZoneInputs {
+export interface AthleteZoneInputs {
   benchmarks: AthleteBenchmarks;
   coachZones: CoachZone[];
   /** Where the coach cuts his HR bands (coach_hr_method; defaults without a coach). */
@@ -69,7 +69,7 @@ interface AthleteZoneInputs {
  * zonas se quedan sin resolver y el tramo va abierto con la etiqueta en el nombre
  * — nunca se fabrica una banda.
  */
-async function loadAthleteZoneInputs(athlete_id: bigint): Promise<AthleteZoneInputs> {
+export async function loadAthleteZoneInputs(athlete_id: bigint): Promise<AthleteZoneInputs> {
   const [benchRows, athleteRows] = await Promise.all([
     sql<Array<{ exercise_slug: string; value: number | null }>>`
       select exercise_slug, value::float8 as value
