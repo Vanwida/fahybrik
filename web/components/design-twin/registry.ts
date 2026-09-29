@@ -171,6 +171,10 @@ import * as hoyDia from './screens/hoy-dia';
 import * as planRehecho from './screens/plan-rehecho';
 import * as carrerasRehecho from './screens/carreras-rehecho';
 import * as perfilRehecho from './screens/perfil-rehecho';
+// El reloj Garmin (29-sep): el mismo motor que la muñeca con otro pintor —
+// pantalla redonda, cinco botones, vibración y tono (docs/garmin-reloj/modelo.md).
+// La gramática primero (el kit `kit-garmin`); las familias, encima.
+import * as garminGramatica from './screens/garmin-gramatica';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -289,6 +293,8 @@ export const SCREENS: TwinScreenModule[] = [
   carrerasRehecho,
   planRehecho,
   hoyDia,
+  // El reloj Garmin (29-sep): la gramática.
+  garminGramatica,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
