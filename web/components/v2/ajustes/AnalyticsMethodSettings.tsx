@@ -14,10 +14,10 @@ import { ArrowDown, ArrowUp, Plus, RotateCcw, X } from 'lucide-react';
 import {
   ANALYTICS_METHOD_BOUNDS,
   type BaseCumplimiento,
+  type BaseSesion,
   type ClaveNumericaMetodo,
   type CoachAnalyticsMethod,
   type FuenteCarga,
-  type ModalidadCarga,
 } from '@fahybrid/shared/domain/analytics/metodo';
 import { FAMILIA_ETIQUETA_ES, FAMILIAS, type Familia } from '@fahybrid/shared/domain/analytics/lectura';
 import { Button, Checkbox, IconButton, Input, Select, useToast } from '@/components/v2/ui';
@@ -28,7 +28,6 @@ import {
   CAMPOS_POR_GRUPO,
   GRUPOS,
   PELDANO_ETIQUETA,
-  type CampoEscalera,
   type CampoFamilias,
   type CampoNumero,
   type CampoSeleccion,
@@ -36,8 +35,10 @@ import {
 } from './metodo-analiticas/descriptores';
 import {
   alternarFamilia,
+  anadirBase,
   anadirPeldano,
   bajarPeldano,
+  basesDisponibles,
   candidatoDe,
   CLAVES_NUMERICAS_POR_GRUPO,
   draftOf,
@@ -91,7 +92,7 @@ export function AnalyticsMethodSettings({ initial }: { initial: Setting }) {
   };
   const cambiarBorrador = (clave: ClaveNumericaMetodo, texto: string) => setBorrador((b) => ({ ...b, [clave]: texto }));
   const usarDefecto = (clave: ClaveNumericaMetodo, grupo: GrupoId) => manejar(validarCandidato({ ...m, [clave]: d[clave] }), grupo);
-  const cambiarValor = (clave: keyof CoachAnalyticsMethod, valor: FuenteCarga[] | Familia[] | BaseCumplimiento) =>
+  const cambiarValor = (clave: keyof CoachAnalyticsMethod, valor: FuenteCarga[] | BaseSesion[] | Familia[] | BaseCumplimiento) =>
     manejar(validarCandidato({ ...m, [clave]: valor }), DESCRIPTORES_METODO_ANALITICO[clave].grupo);
 
   const restaurarTodo = async () => {
@@ -200,16 +201,36 @@ export function AnalyticsMethodSettings({ initial }: { initial: Setting }) {
                     const modalidad = descriptor.modalidad;
                     const lista = m[clave] as FuenteCarga[];
                     return (
-                      <FilaEscalera
+                      <FilaOrden
                         key={clave}
-                        descriptor={descriptor}
-                        modalidad={modalidad}
+                        etiqueta={descriptor.etiqueta}
+                        ayuda={descriptor.ayuda}
                         lista={lista}
+                        nombres={PELDANO_ETIQUETA}
+                        disponibles={peldanosDisponibles(lista, modalidad)}
                         error={problemaDe(clave)}
                         onSubir={(i) => cambiarValor(clave, subirPeldano(lista, i))}
                         onBajar={(i) => cambiarValor(clave, bajarPeldano(lista, i))}
                         onQuitar={(i) => cambiarValor(clave, quitarPeldano(lista, i))}
                         onAnadir={(f) => cambiarValor(clave, anadirPeldano(lista, modalidad, f))}
+                      />
+                    );
+                  }
+                  if (descriptor.tipo === 'orden') {
+                    const lista = m[clave] as BaseSesion[];
+                    return (
+                      <FilaOrden
+                        key={clave}
+                        etiqueta={descriptor.etiqueta}
+                        ayuda={descriptor.ayuda}
+                        lista={lista}
+                        nombres={descriptor.etiquetas}
+                        disponibles={basesDisponibles(lista)}
+                        error={problemaDe(clave)}
+                        onSubir={(i) => cambiarValor(clave, subirPeldano(lista, i))}
+                        onBajar={(i) => cambiarValor(clave, bajarPeldano(lista, i))}
+                        onQuitar={(i) => cambiarValor(clave, quitarPeldano(lista, i))}
+                        onAnadir={(b) => cambiarValor(clave, anadirBase(lista, b))}
                       />
                     );
                   }
@@ -317,34 +338,37 @@ function FilaNumerica({
   );
 }
 
-// ── Una escalera de carga (una modalidad) ────────────────────────────────────
+// ── Una lista ordenada (peldaños de una escalera, bases de una sesión) ────────
 
-function FilaEscalera({
-  descriptor,
-  modalidad,
+function FilaOrden<T extends string>({
+  etiqueta,
+  ayuda,
   lista,
+  nombres,
+  disponibles,
   error,
   onSubir,
   onBajar,
   onQuitar,
   onAnadir,
 }: {
-  descriptor: CampoEscalera;
-  modalidad: ModalidadCarga;
-  lista: FuenteCarga[];
+  etiqueta: string;
+  ayuda: string;
+  lista: T[];
+  nombres: Record<T, string>;
+  disponibles: T[];
   error?: string;
   onSubir: (i: number) => void;
   onBajar: (i: number) => void;
   onQuitar: (i: number) => void;
-  onAnadir: (f: FuenteCarga) => void;
+  onAnadir: (f: T) => void;
 }) {
-  const disponibles = peldanosDisponibles(lista, modalidad);
   return (
-    <SettingRow label={descriptor.etiqueta} hint={descriptor.ayuda} status={error ? 'error' : undefined} error={error}>
+    <SettingRow label={etiqueta} hint={ayuda} status={error ? 'error' : undefined} error={error}>
       <div className="flex w-full flex-col gap-2">
-        <ol className="flex flex-wrap items-center gap-1.5" aria-label={descriptor.etiqueta}>
+        <ol className="flex flex-wrap items-center gap-1.5" aria-label={etiqueta}>
           {lista.map((f, i) => {
-            const nombre = PELDANO_ETIQUETA[f];
+            const nombre = nombres[f];
             const iconBtn = 'h-5 w-5 rounded-[4px] [&_svg]:size-3.5';
             return (
               <li
@@ -378,7 +402,7 @@ function FilaEscalera({
                 onClick={() => onAnadir(f)}
                 className="border-dashed border-v2-border-strong"
               >
-                {PELDANO_ETIQUETA[f]}
+                {nombres[f]}
               </Button>
             ))}
           </div>

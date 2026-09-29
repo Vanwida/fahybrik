@@ -16,7 +16,9 @@
 import { analyticsMethodSchema } from '@fahybrid/shared/domain/methodology/method-editors';
 import {
   ANALYTICS_METHOD_BOUNDS,
+  BASES_SESION,
   FUENTES_ADMISIBLES,
+  type BaseSesion,
   type ClaveNumericaMetodo,
   type CoachAnalyticsMethod,
   type FuenteCarga,
@@ -153,6 +155,16 @@ export function anadirPeldano(lista: readonly FuenteCarga[], modalidad: Modalida
 /** Los peldaños admisibles de una modalidad que la escalera aún no lista, en el orden del vocabulario. */
 export function peldanosDisponibles(lista: readonly FuenteCarga[], modalidad: ModalidadCarga): FuenteCarga[] {
   return FUENTES_ADMISIBLES[modalidad].filter((f) => !lista.includes(f));
+}
+
+/** Las bases de una sesión que la lista aún no trae, en el orden del vocabulario. */
+export function basesDisponibles(lista: readonly BaseSesion[]): BaseSesion[] {
+  return BASES_SESION.filter((b) => !lista.includes(b));
+}
+
+/** Añade al final; no-op si ya está. */
+export function anadirBase(lista: readonly BaseSesion[], base: BaseSesion): BaseSesion[] {
+  return lista.includes(base) ? [...lista] : [...lista, base];
 }
 
 // ── El conjunto de familias ─────────────────────────────────────────────────

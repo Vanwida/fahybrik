@@ -8,7 +8,9 @@
 import { describe, expect, test } from 'vitest';
 import {
   ANALYTICS_METHOD_BOUNDS,
+  BASES_SESION,
   COACH_ANALYTICS_METHOD_FAMILY_KEYS,
+  COACH_ANALYTICS_METHOD_INTEGER_KEYS,
   COACH_ANALYTICS_METHOD_KEYS,
   COACH_ANALYTICS_METHOD_LIST_KEYS,
   COACH_ANALYTICS_METHOD_NUMERIC_KEYS,
@@ -23,8 +25,10 @@ import { DESCRIPTORES_METODO_ANALITICO } from '@/components/v2/ajustes/metodo-an
 import { CAMPOS_POR_GRUPO, GRUPOS, PELDANO_ETIQUETA } from '@/components/v2/ajustes/metodo-analiticas/descriptores';
 import {
   alternarFamilia,
+  anadirBase,
   anadirPeldano,
   bajarPeldano,
+  basesDisponibles,
   candidatoDe,
   draftOf,
   CLAVES_NUMERICAS_POR_GRUPO,
@@ -46,14 +50,26 @@ describe('descriptores · cobertura del catálogo', () => {
   });
 
   test('el tipo del descriptor coincide con la naturaleza de la clave', () => {
-    for (const clave of COACH_ANALYTICS_METHOD_LIST_KEYS) expect(DESCRIPTORES_METODO_ANALITICO[clave].tipo).toBe('escalera');
+    for (const clave of COACH_ANALYTICS_METHOD_LIST_KEYS) {
+      expect(DESCRIPTORES_METODO_ANALITICO[clave].tipo).toBe(clave === 'cumplimiento_sesion_bases' ? 'orden' : 'escalera');
+    }
     for (const clave of COACH_ANALYTICS_METHOD_TEXT_KEYS) expect(DESCRIPTORES_METODO_ANALITICO[clave].tipo).toBe('seleccion');
     for (const clave of COACH_ANALYTICS_METHOD_FAMILY_KEYS) expect(DESCRIPTORES_METODO_ANALITICO[clave].tipo).toBe('familias');
     for (const clave of COACH_ANALYTICS_METHOD_NUMERIC_KEYS) expect(DESCRIPTORES_METODO_ANALITICO[clave].tipo).toBe('numero');
   });
 
-  test('solo ¿Mejoro?, Recuperación y Velocidad crítica empiezan plegados', () => {
-    expect(GRUPOS.filter((g) => g.plegadoPorDefecto).map((g) => g.id).sort()).toEqual(['capacidad', 'progreso', 'recuperacion'].sort());
+  test('solo ¿Mejoro?, la holgura de cada tramo, Recuperación y Velocidad crítica empiezan plegados', () => {
+    expect(GRUPOS.filter((g) => g.plegadoPorDefecto).map((g) => g.id).sort()).toEqual(
+      ['capacidad', 'holgura', 'progreso', 'recuperacion'].sort(),
+    );
+  });
+
+  test('las claves enteras del método se editan sin decimales', () => {
+    for (const clave of COACH_ANALYTICS_METHOD_INTEGER_KEYS) {
+      const d = DESCRIPTORES_METODO_ANALITICO[clave];
+      expect(d.tipo, clave).toBe('numero');
+      if (d.tipo === 'numero' && !d.escalaDivisor) expect(d.decimales, clave).toBe(0);
+    }
   });
 
   test('cada campo numérico dice en qué grupo está y ese grupo lo lista', () => {
@@ -74,7 +90,7 @@ describe('descriptores · cobertura del catálogo', () => {
   });
 
   test('los descriptores nuevos (reparto y ¿mejoro?) existen y no llevan guiones largos en lo visible', () => {
-    for (const clave of ['polarizacion_familias', 'polarizacion_tolerancia_pts', 'cambio_polarizacion_pts', 'cambio_ergo_pct', 'cambio_fuerza_pct', 'cambio_estaciones_pct', 'cambio_wod_pct', 'cambio_test_pct', 'fuerza_1rm_reps_max'] as const) {
+    for (const clave of ['cumplimiento_sesion_bases', 'cumplimiento_verde_min_pct', 'cumplimiento_ambar_max_pct', 'holgura_ritmo_s_km', 'holgura_dosis_pct', 'cambio_cumplimiento_pts', 'polarizacion_familias', 'polarizacion_tolerancia_pts', 'cambio_polarizacion_pts', 'cambio_ergo_pct', 'cambio_fuerza_pct', 'cambio_estaciones_pct', 'cambio_wod_pct', 'cambio_test_pct', 'fuerza_1rm_reps_max'] as const) {
       const d = DESCRIPTORES_METODO_ANALITICO[clave];
       expect(d.etiqueta.length).toBeGreaterThan(0);
       expect(d.ayuda.length).toBeGreaterThan(0);
@@ -189,6 +205,53 @@ describe('los helpers de la escalera de carga', () => {
     for (const modalidad of MODALIDADES_CARGA) {
       expect(DESCRIPTORES_METODO_ANALITICO[`fuentes_${modalidad}`].tipo).toBe('escalera');
     }
+  });
+});
+
+describe('las bases con que se compara una sesión', () => {
+  test('todas las bases del vocabulario tienen su nombre en castellano', () => {
+    const d = DESCRIPTORES_METODO_ANALITICO.cumplimiento_sesion_bases;
+    expect(d.tipo).toBe('orden');
+    if (d.tipo === 'orden') for (const b of BASES_SESION) expect(d.etiquetas[b].length).toBeGreaterThan(0);
+  });
+
+  test('las disponibles son las que la lista aún no trae, en el orden del vocabulario', () => {
+    expect(basesDisponibles(['carga', 'duracion', 'distancia'])).toEqual([]);
+    expect(basesDisponibles(['distancia'])).toEqual(['carga', 'duracion']);
+  });
+
+  test('añadir pone la base al final y no duplica una que ya está', () => {
+    expect(anadirBase(['duracion'], 'carga')).toEqual(['duracion', 'carga']);
+    expect(anadirBase(['duracion', 'carga'], 'carga')).toEqual(['duracion', 'carga']);
+  });
+
+  test('reordenar con los mismos helpers de la escalera no rompe el validador', () => {
+    const defectos = defaultCoachAnalyticsMethod();
+    const cambiada = subirPeldano(defectos.cumplimiento_sesion_bases, 2);
+    expect(validarCandidato({ ...defectos, cumplimiento_sesion_bases: cambiada }).ok).toBe(true);
+    expect(validarCandidato({ ...defectos, cumplimiento_sesion_bases: [] }).ok).toBe(false);
+  });
+});
+
+describe('las bandas de una sesión (verde y ámbar)', () => {
+  test('con los defectos son válidas y un grupo entero de cumplimiento confirma solo con sus claves', () => {
+    expect(candidatoDe({}, defaultCoachAnalyticsMethod()).ok).toBe(true);
+  });
+
+  test('un verde que no contiene el 100 % lo rechaza el validador del dominio', () => {
+    const r = candidatoDe({ cumplimiento_verde_max_pct: '100', cumplimiento_ambar_max_pct: '100' }, defaultCoachAnalyticsMethod());
+    expect(r.ok).toBe(false);
+  });
+
+  test('un ámbar mínimo por encima del verde mínimo también', () => {
+    const r = candidatoDe({ cumplimiento_ambar_min_pct: '85' }, defaultCoachAnalyticsMethod());
+    expect(r.ok).toBe(false);
+  });
+
+  test('un porcentaje entero con decimales se rechaza en su clave', () => {
+    const r = candidatoDe({ cumplimiento_verde_min_pct: '80,5' }, defaultCoachAnalyticsMethod());
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.problemas.some((p) => p.clave === 'cumplimiento_verde_min_pct')).toBe(true);
   });
 });
 

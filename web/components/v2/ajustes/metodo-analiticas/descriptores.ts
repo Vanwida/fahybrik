@@ -9,9 +9,9 @@
 // pero se enseñan en minutos: `escalaDivisor` es el factor de esa conversión
 // (mostrado = guardado ÷ factor; guardado = mostrado × factor).
 
-import type { BaseCumplimiento, CoachAnalyticsMethod, FuenteCarga, ModalidadCarga } from '@fahybrid/shared/domain/analytics/metodo';
+import type { BaseCumplimiento, BaseSesion, CoachAnalyticsMethod, FuenteCarga, ModalidadCarga } from '@fahybrid/shared/domain/analytics/metodo';
 
-export type GrupoId = 'forma' | 'frescura' | 'carga' | 'cumplimiento' | 'cambio' | 'intensidad' | 'progreso' | 'recuperacion' | 'capacidad';
+export type GrupoId = 'forma' | 'frescura' | 'carga' | 'cumplimiento' | 'holgura' | 'cambio' | 'intensidad' | 'progreso' | 'recuperacion' | 'capacidad';
 
 export interface GrupoInfo {
   id: GrupoId;
@@ -28,6 +28,12 @@ export const GRUPOS: readonly GrupoInfo[] = [
   { id: 'frescura', titulo: 'Frescura: los cinco estados', plegadoPorDefecto: false },
   { id: 'carga', titulo: 'Cómo se calcula la carga', plegadoPorDefecto: false },
   { id: 'cumplimiento', titulo: 'Cumplimiento', plegadoPorDefecto: false },
+  {
+    id: 'holgura',
+    titulo: 'Cumplimiento: la holgura de cada tramo',
+    nota: 'Cuánto puede salirse un tramo de su banda y seguir contando como dentro. Es la holgura del reloj en vivo, para que reloj y analíticas no digan cosas distintas.',
+    plegadoPorDefecto: true,
+  },
   { id: 'cambio', titulo: 'Qué cuenta como cambio', plegadoPorDefecto: false },
   {
     id: 'intensidad',
@@ -73,12 +79,18 @@ export interface CampoSeleccion extends CampoBase {
   opciones: Array<{ value: BaseCumplimiento; label: string }>;
 }
 
+/** Una lista ORDENADA de bases con que comparar una sesión hecha con su plan (manda la primera que se sabe). */
+export interface CampoOrden extends CampoBase {
+  tipo: 'orden';
+  etiquetas: Record<BaseSesion, string>;
+}
+
 /** Un conjunto de familias de entreno, sin orden (se guarda en el orden del vocabulario). */
 export interface CampoFamilias extends CampoBase {
   tipo: 'familias';
 }
 
-export type CampoDescriptor = CampoNumero | CampoEscalera | CampoSeleccion | CampoFamilias;
+export type CampoDescriptor = CampoNumero | CampoEscalera | CampoOrden | CampoSeleccion | CampoFamilias;
 
 /** Los cuatro peldaños de la escalera de carga, en castellano. */
 export const PELDANO_ETIQUETA: Record<FuenteCarga, string> = {
@@ -103,7 +115,26 @@ export const CAMPOS_POR_GRUPO: Record<GrupoId, ReadonlyArray<keyof CoachAnalytic
     'cobertura_veredicto_min_pct',
     'cobertura_ciega_alerta_pct',
   ],
-  cumplimiento: ['cumplimiento_base', 'cumplimiento_bien_pct', 'cumplimiento_regular_pct'],
+  cumplimiento: [
+    'cumplimiento_base',
+    'cumplimiento_bien_pct',
+    'cumplimiento_regular_pct',
+    'cumplimiento_sesion_bases',
+    'cumplimiento_verde_min_pct',
+    'cumplimiento_verde_max_pct',
+    'cumplimiento_ambar_min_pct',
+    'cumplimiento_ambar_max_pct',
+  ],
+  holgura: [
+    'holgura_ritmo_s_km',
+    'holgura_split_s_500m',
+    'holgura_vatios_w',
+    'holgura_pulso_ppm',
+    'holgura_rpe',
+    'holgura_rir',
+    'holgura_carga_pct',
+    'holgura_dosis_pct',
+  ],
   cambio: [
     'cambio_carga_pct',
     'cambio_horas_pct',
@@ -112,6 +143,7 @@ export const CAMPOS_POR_GRUPO: Record<GrupoId, ReadonlyArray<keyof CoachAnalytic
     'cambio_variabilidad_pct',
     'cambio_pulso_reposo_bpm',
     'cambio_sueno_horas',
+    'cambio_cumplimiento_pts',
   ],
   intensidad: ['polarizacion_familias', 'polarizacion_tolerancia_pts', 'cambio_polarizacion_pts'],
   progreso: ['cambio_ergo_pct', 'cambio_fuerza_pct', 'cambio_estaciones_pct', 'cambio_wod_pct', 'cambio_test_pct', 'fuerza_1rm_reps_max'],
