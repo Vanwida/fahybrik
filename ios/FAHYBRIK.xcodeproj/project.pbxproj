@@ -909,6 +909,7 @@
 		E4775E3159512BDFB5596413 /* ComunicadoModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6FC58FF2B5263580D6CDB85 /* ComunicadoModels.swift */; };
 		E5443C5E9FAA4E1A177B6578 /* FreeSessionDelete.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A6413131026A4EC11DF2F2 /* FreeSessionDelete.swift */; };
 		E594BC22828B77A0147EE6C2 /* EspinaDelPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AF5F9ED1777F3F18A0A4056 /* EspinaDelPlan.swift */; };
+		E5D9E6F64A4C0D90192E5EB5 /* CapturaVentana.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71BE7A8AC5940FC7710C74F /* CapturaVentana.swift */; };
 		E601CA8F67205463A0FC9E2B /* FTMSControlTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8915E616B82CB5366D36A6F3 /* FTMSControlTests.swift */; };
 		E6057F6923DA56213DA98515 /* RunLegDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A106D963AE6C92E9A96E0F /* RunLegDisplayTests.swift */; };
 		E6164EAF1CE91D9932788D5A /* ImportRaceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFC5B95739ED845F9D70C431 /* ImportRaceSheet.swift */; };
@@ -1985,6 +1986,7 @@
 		F5D4ECE1AF7437FFE445A76A /* InputRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRows.swift; sourceTree = "<group>"; };
 		F620B06763EDA7D5B9BEF3C6 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		F6FC58FF2B5263580D6CDB85 /* ComunicadoModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComunicadoModels.swift; sourceTree = "<group>"; };
+		F71BE7A8AC5940FC7710C74F /* CapturaVentana.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapturaVentana.swift; sourceTree = "<group>"; };
 		F73A38561623C867F1D46A7A /* GuionEmom.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuionEmom.swift; sourceTree = "<group>"; };
 		F7A12E94172A123DC375C37D /* Vivo+Anotar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Vivo+Anotar.swift"; sourceTree = "<group>"; };
 		F7AC85A6196643A05AC41D33 /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatters.swift; sourceTree = "<group>"; };
@@ -3105,6 +3107,7 @@
 			isa = PBXGroup;
 			children = (
 				68AB3DD709EA95E2F6D272F7 /* BrandImageryTests.swift */,
+				F71BE7A8AC5940FC7710C74F /* CapturaVentana.swift */,
 				E735E83EAD80B40BA53AE55F /* DecideCarrerasTests.swift */,
 				7EC1A23D9C6DF218BFF0C8C6 /* FormatoCarrerasTests.swift */,
 				2BA14FAD54C7DCC48EEE515B /* GaleriaCarrerasRenderTests.swift */,
@@ -4853,6 +4856,7 @@
 				600E103FCFDF040AC4021986 /* BloqueMixtoConCarreraTests.swift in Sources */,
 				0DF26AC1DA165A366E5C1242 /* BloquesDelEntrenoWireTests.swift in Sources */,
 				899C8C642B7F4F4E0A95C72F /* BrandImageryTests.swift in Sources */,
+				E5D9E6F64A4C0D90192E5EB5 /* CapturaVentana.swift in Sources */,
 				E9E4D0CD51A32061D5FD04CF /* CarreraDeLaSesionTests.swift in Sources */,
 				31D9AE6558B17029AE63751E /* CarreraEstructuradaFartlekTests.swift in Sources */,
 				22286E0D3E4A418AB5E2525C /* ChatAttachmentTests.swift in Sources */,

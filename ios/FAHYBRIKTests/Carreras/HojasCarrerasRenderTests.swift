@@ -8,13 +8,9 @@ import SwiftUI
 // regla de altura de la pestaña («el sobrante entra en el propio sujeto») solo se ve dentro de un
 // `FillingScreen`. Así que aquí se monta la vista en una ventana de verdad (un `UIHostingController`
 // dentro de un `UIWindow` del simulador, sin abrir ningún simulador con ventana) y se le hace una
-// captura con `drawHierarchy`. Como la galería, es una herramienta de REVISIÓN: falla si la vista
-// revienta, deja los PNG en `FAHYBRIK_CAPTURAS` y no compara píxeles.
+// captura con `drawHierarchy` (ver `CapturaVentana`). Como la galería, es una herramienta de REVISIÓN:
+// falla si la vista revienta, deja los PNG en `FAHYBRIK_CAPTURAS` y no compara píxeles.
 final class HojasCarrerasRenderTests: XCTestCase {
-
-    private var destino: URL? {
-        ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"].map { URL(fileURLWithPath: $0) }
-    }
 
     override func tearDown() {
         ClubThemeStore.clear()
@@ -22,36 +18,9 @@ final class HojasCarrerasRenderTests: XCTestCase {
     }
 
     @MainActor
-    private func captura(_ vista: some View, nombre: String, oscuro: Bool = false, club: ClubTheme? = nil, alto: CGFloat = 780, tamano: DynamicTypeSize = .large) {
-        ClubThemeStore.update(club)
-        let marco = CGRect(x: 0, y: 0, width: 402, height: alto)
-        let host = UIHostingController(rootView: vista.environment(\.dynamicTypeSize, tamano))
-        host.view.frame = marco
-        let escena = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
-        let ventana = escena.map { UIWindow(windowScene: $0) } ?? UIWindow(frame: marco)
-        ventana.frame = marco
-        ventana.overrideUserInterfaceStyle = oscuro ? .dark : .light
-        ventana.rootViewController = host
-        ventana.isHidden = false
-        host.view.setNeedsLayout()
-        host.view.layoutIfNeeded()
-        // Un ciclo para que SwiftUI resuelva el layout, los `.task` y las imágenes antes de fotografiar.
-        RunLoop.main.run(until: Date().addingTimeInterval(0.5))
-        let formato = UIGraphicsImageRendererFormat()
-        formato.scale = 2
-        let imagen = UIGraphicsImageRenderer(bounds: marco, format: formato).image { _ in
-            ventana.drawHierarchy(in: marco, afterScreenUpdates: true)
-        }
-        ventana.isHidden = true
-        guard let png = imagen.pngData() else { return XCTFail("\(nombre) no se pudo fotografiar") }
-        let adjunto = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-        adjunto.name = nombre
-        adjunto.lifetime = .keepAlways
-        add(adjunto)
-        if let destino {
-            try? FileManager.default.createDirectory(at: destino, withIntermediateDirectories: true)
-            try? png.write(to: destino.appendingPathComponent("\(nombre).png"))
-        }
+    private func captura(_ vista: some View, nombre: String, oscuro: Bool = false, club: ClubTheme? = nil, alto: CGFloat = 780, tamano: DynamicTypeSize = .large, entera: Bool = false) {
+        let png = CapturaVentana.png(vista, alto: alto, oscuro: oscuro, tamano: tamano, club: club, entera: entera)
+        CapturaVentana.guarda(png, nombre: nombre, en: self)
     }
 
     // MARK: Importar
@@ -114,6 +83,8 @@ final class HojasCarrerasRenderTests: XCTestCase {
             captura(pestana(id), nombre: "altura-\(id)-claro", alto: 700)
             captura(pestana(id), nombre: "altura-\(id)-oscuro", oscuro: true, alto: 700)
         }
+        // El póster solo, con alto de sobra: se ve el alto que pide de verdad, botón incluido.
+        captura(pestana("solo-objetivo"), nombre: "altura-solo-objetivo-entero-claro", alto: 700, entera: true)
         // Un teléfono más bajo (iPhone SE): el póster no se comprime, la pestaña scrollea.
         captura(pestana("vacio"), nombre: "altura-vacio-bajo-claro", alto: 520)
     }
