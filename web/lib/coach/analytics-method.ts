@@ -31,6 +31,7 @@ import {
   type CoachAnalyticsMethod,
   type FuenteCarga,
 } from '@fahybrid/shared/domain/analytics/metodo';
+import { FAMILIAS, type Familia } from '@fahybrid/shared/domain/analytics/lectura';
 import { resolveMethodRow, type LectorColumna } from './method-row';
 
 const TABLE = 'coach_analytics_method';
@@ -45,6 +46,13 @@ const comoFuentes: LectorColumna<FuenteCarga[]> = (v) => {
 const comoBase: LectorColumna<BaseCumplimiento> = (v) =>
   typeof v === 'string' && (BASES_CUMPLIMIENTO as readonly string[]).includes(v) ? (v as BaseCumplimiento) : null;
 
+/** Un `text[]` de familias: solo si TODAS son del vocabulario y ninguna se repite; si no, el defecto. */
+const comoFamilias: LectorColumna<Familia[]> = (v) => {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  const ok = v.every((x) => typeof x === 'string' && (FAMILIAS as readonly string[]).includes(x));
+  return ok && new Set(v).size === v.length ? (v as Familia[]) : null;
+};
+
 const LECTORES: Parameters<typeof resolveMethodRow<CoachAnalyticsMethod>>[0]['parse'] = {
   fuentes_run: comoFuentes,
   fuentes_row: comoFuentes,
@@ -53,6 +61,7 @@ const LECTORES: Parameters<typeof resolveMethodRow<CoachAnalyticsMethod>>[0]['pa
   fuentes_strength: comoFuentes,
   fuentes_other: comoFuentes,
   cumplimiento_base: comoBase,
+  polarizacion_familias: comoFamilias,
 };
 
 /**
@@ -105,8 +114,9 @@ export async function upsertCoachAnalyticsMethod(
       frescura_sobrecarga_hasta, frescura_optimo_hasta, frescura_mantener_hasta, frescura_fresco_hasta,
       cumplimiento_base, cumplimiento_bien_pct, cumplimiento_regular_pct,
       cambio_carga_pct, cambio_horas_pct, cambio_forma_tss, cambio_frescura_tss,
-      cambio_variabilidad_pct, cambio_pulso_reposo_bpm, cambio_sueno_horas,
+      cambio_variabilidad_pct, cambio_pulso_reposo_bpm, cambio_sueno_horas, cambio_polarizacion_pts,
       cambio_ergo_pct, cambio_fuerza_pct, cambio_estaciones_pct, cambio_wod_pct, cambio_test_pct, fuerza_1rm_reps_max,
+      polarizacion_familias, polarizacion_tolerancia_pts,
       basal_dias, basal_excluir_dias,
       cs_min_efforts, cs_min_duration_s, cs_max_duration_s, cs_min_spread_ratio, cs_min_fit_r2_pct, cs_max_drift_from_threshold_pct,
       sleep_target_hours, hrv_min_nights_baseline, hrv_min_nights_recent,
@@ -120,8 +130,9 @@ export async function upsertCoachAnalyticsMethod(
       ${m.frescura_sobrecarga_hasta}, ${m.frescura_optimo_hasta}, ${m.frescura_mantener_hasta}, ${m.frescura_fresco_hasta},
       ${m.cumplimiento_base}, ${m.cumplimiento_bien_pct}, ${m.cumplimiento_regular_pct},
       ${m.cambio_carga_pct}, ${m.cambio_horas_pct}, ${m.cambio_forma_tss}, ${m.cambio_frescura_tss},
-      ${m.cambio_variabilidad_pct}, ${m.cambio_pulso_reposo_bpm}, ${m.cambio_sueno_horas},
+      ${m.cambio_variabilidad_pct}, ${m.cambio_pulso_reposo_bpm}, ${m.cambio_sueno_horas}, ${m.cambio_polarizacion_pts},
       ${m.cambio_ergo_pct}, ${m.cambio_fuerza_pct}, ${m.cambio_estaciones_pct}, ${m.cambio_wod_pct}, ${m.cambio_test_pct}, ${m.fuerza_1rm_reps_max},
+      ${m.polarizacion_familias}, ${m.polarizacion_tolerancia_pts},
       ${m.basal_dias}, ${m.basal_excluir_dias},
       ${m.cs_min_efforts}, ${m.cs_min_duration_s}, ${m.cs_max_duration_s}, ${m.cs_min_spread_ratio}, ${m.cs_min_fit_r2_pct}, ${m.cs_max_drift_from_threshold_pct},
       ${m.sleep_target_hours}, ${m.hrv_min_nights_baseline}, ${m.hrv_min_nights_recent},
@@ -162,6 +173,9 @@ export async function upsertCoachAnalyticsMethod(
       cambio_wod_pct = excluded.cambio_wod_pct,
       cambio_test_pct = excluded.cambio_test_pct,
       fuerza_1rm_reps_max = excluded.fuerza_1rm_reps_max,
+      cambio_polarizacion_pts = excluded.cambio_polarizacion_pts,
+      polarizacion_familias = excluded.polarizacion_familias,
+      polarizacion_tolerancia_pts = excluded.polarizacion_tolerancia_pts,
       basal_dias = excluded.basal_dias,
       basal_excluir_dias = excluded.basal_excluir_dias,
       cs_min_efforts = excluded.cs_min_efforts,

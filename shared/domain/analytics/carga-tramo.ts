@@ -61,6 +61,8 @@ export interface ZonasCongeladas {
 }
 
 export interface TramoHecho {
+  /** `segment_executions.id`, para que el detalle de sesión enseñe el precio de CADA tramo. El motor no lo lee. */
+  id?: string | null;
   /** Duración del tramo. 0 cuando no se registró: su tiempo cae en el resto de la sesión. */
   segundos: number;
   /** Vocabulario de tramos: run | row | ski | bike | strength | other. */
@@ -132,6 +134,10 @@ export interface PrecioSesion {
   sin_saber_con_pulso_s: number;
   /** Tramos (o el resto de la sesión) que quedaron sin preciar. Lo que el coach puede pedir. */
   sin_saber_tramos: number;
+  /** El precio de cada tramo (orden de `tramos`), EL MISMO que entra en la suma; null sin tiempo que preciar. */
+  tramos: Array<PrecioTramo | null>;
+  /** El precio del resto que ningún tramo cubre. Null sin resto. */
+  resto: PrecioTramo | null;
 }
 
 const SEGUNDOS_POR_HORA = 3600;
@@ -362,11 +368,17 @@ export function preciarSesion(s: SesionHecha, e: EntradaCargaTramo): PrecioSesio
     por_familia[familia] = f;
   };
 
+  const tramos: Array<PrecioTramo | null> = [];
+  let restoPrecio: PrecioTramo | null = null;
   for (const t of s.tramos) {
     // Un tramo no puede reclamar más tiempo del que le queda a la sesión.
     const usable = Math.min(Math.max(0, t.segundos), Math.max(0, total - cubiertos));
-    if (usable <= 0) continue;
+    if (usable <= 0) {
+      tramos.push(null);
+      continue;
+    }
     const precio = preciarTramo({ ...t, segundos: usable }, s.rpe, e);
+    tramos.push(precio);
     cubiertos += usable;
     partes.push(...precio.partes);
     sin_saber_s += precio.sin_saber_s;
@@ -391,6 +403,7 @@ export function preciarSesion(s: SesionHecha, e: EntradaCargaTramo): PrecioSesio
       esfuerzo: null,
     };
     const precio = preciarTramo(restoTramo, s.rpe, e);
+    restoPrecio = precio;
     partes.push(...precio.partes);
     sin_saber_s += precio.sin_saber_s;
     sin_saber_con_pulso_s += precio.sin_saber_con_pulso_s;
@@ -401,7 +414,7 @@ export function preciarSesion(s: SesionHecha, e: EntradaCargaTramo): PrecioSesio
   const preciados = partes.reduce((a, p) => a + p.segundos, 0);
   const tss = total <= 0 ? 0 : preciados > 0 ? partes.reduce((a, p) => a + p.tss, 0) : null;
 
-  return { id: s.id, dia: s.dia, segundos: total, tss, partes, por_familia, sin_saber_s, sin_saber_con_pulso_s, sin_saber_tramos };
+  return { id: s.id, dia: s.dia, segundos: total, tss, partes, por_familia, sin_saber_s, sin_saber_con_pulso_s, sin_saber_tramos, tramos, resto: restoPrecio };
 }
 
 // ---------------------------------------------------------------------------

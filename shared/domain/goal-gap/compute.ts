@@ -35,7 +35,8 @@ const OBSERVED_SOURCES = new Set(['carrera', 'simulacion']);
 export function computeGoalGap(input: GoalGapInput): GoalGapResult {
   const { goal_total_s, segments, cohort, own_race, trained } = input;
 
-  const budget = computeBudget(goal_total_s, segments, cohort, own_race);
+  // Sin meta no hay nada que repartir: la previsión sale igual, sin presupuesto.
+  const budget = goal_total_s != null && goal_total_s > 0 ? computeBudget(goal_total_s, segments, cohort, own_race) : null;
 
   const trainedBySlug = new Map<string, TrainedLevel>();
   for (const t of trained) trainedBySlug.set(t.slug, t);
@@ -80,7 +81,7 @@ export function computeGoalGap(input: GoalGapInput): GoalGapResult {
   // A race total exists only when every segment does. Anything else would be an
   // under-count wearing the clothes of a prediction.
   const predicted_total_s = coverage.complete ? known_total_s : null;
-  const gap_s = predicted_total_s != null ? predicted_total_s - goal_total_s : null;
+  const gap_s = predicted_total_s != null && goal_total_s != null && goal_total_s > 0 ? predicted_total_s - goal_total_s : null;
 
   return {
     budget_source: budget?.source ?? null,

@@ -30,6 +30,7 @@
 import { HRV_BASELINE_FROM_DAYS, HRV_BASELINE_TO_DAYS } from '../biometrics/hrv-baseline';
 import { ATL_DECAY_DAYS, CTL_DECAY_DAYS } from '../training-load/banister';
 import { LOAD_COVERAGE_MIN } from '../training-load/coverage';
+import { FAMILIAS, type Familia } from './lectura';
 
 // ── Vocabulario de la carga única ────────────────────────────────────────────
 
@@ -145,6 +146,25 @@ export interface CoachAnalyticsMethod {
   cambio_pulso_reposo_bpm: number;
   /** Cambio de sueño que cuenta, en horas. */
   cambio_sueno_horas: number;
+  /** Cambio del reparto fácil entre periodos que cuenta, en puntos porcentuales. */
+  cambio_polarizacion_pts: number;
+
+  // ── LA INTENSIDAD (el reparto frente al objetivo del coach, 29-09-2026) ────
+
+  /**
+   * Qué familias entran en el reparto fácil/medio/duro. El objetivo (el 80/0/20
+   * de `coach_hr_method`) describe cómo se reparte el trabajo de RESISTENCIA, y
+   * el pulso de una serie de sentadillas no mide su intensidad (por eso la
+   * escalera de carga de la fuerza va por esfuerzo): contarla como «fácil»
+   * inflaría el reparto con cada sesión de barra. Hay escuelas que solo miran la
+   * carrera y otras que meten todo: es método.
+   */
+  polarizacion_familias: Familia[];
+  /**
+   * Cuántos puntos puede separarse cada banda del reparto de su objetivo antes
+   * de que la palabra diga que se sale («zona media», «demasiado duro»…).
+   */
+  polarizacion_tolerancia_pts: number;
 
   // ── ¿MEJORO? — el cambio que cuenta, por familia (0280) ────────────────────
   // Correr NO está aquí: su «¿mejoro?» se juzga con `meaningful_gain_s_per_km`
@@ -263,7 +283,8 @@ export interface CoachAnalyticsMethod {
  *     recargando ≥ 30 — las bandas de mercado (TrainingPeaks / Coggan).
  *   - Cobertura mínima del veredicto: el 90 % que ya decidía `LOAD_COVERAGE_MIN`.
  *   - Cambio significativo: 10 % de carga u horas, 5 puntos de forma o
- *     frescura, 5 % de variabilidad, 3 latidos, media hora de sueño.
+ *     frescura, 5 % de variabilidad, 3 latidos, media hora de sueño, 5 puntos
+ *     del reparto fácil.
  *   - ¿Mejoro? por familia (nuevo, 29-09-2026; hasta hoy no había veredicto):
  *     ergo 1 % (el mismo orden que los 3 s/km de correr a 5:00/km; ~1,2 s/500 m
  *     a 2:00); fuerza 2,5 % (el salto de disco más pequeño sobre 100 kg: por
@@ -273,6 +294,10 @@ export interface CoachAnalyticsMethod {
  *     reproducible que el entreno).
  *   - 1RM estimado solo de series de hasta 10 reps: el rango validado de los
  *     estimadores (a 10 reps Epley y Brzycki coinciden).
+ *   - Reparto de intensidad: las familias de resistencia y acondicionamiento
+ *     (correr, remo, ski, bici, estaciones, WOD) — fuera la fuerza (su pulso no
+ *     mide su intensidad) y «otro» (movilidad, core, importaciones sin tipo) —
+ *     con 10 puntos de holgura por banda, la holgura habitual del 80/20.
  *   - Basal 60 → 14 días: la misma ventana de `hrv-baseline.ts`.
  *   - Velocidad crítica: 3 esfuerzos, de 2 a 15 minutos, con el largo al menos
  *     el triple que el corto. Es el protocolo estándar del modelo de dos
@@ -315,6 +340,10 @@ export const DEFAULT_COACH_ANALYTICS_METHOD: CoachAnalyticsMethod = {
   cambio_variabilidad_pct: 5,
   cambio_pulso_reposo_bpm: 3,
   cambio_sueno_horas: 0.5,
+  cambio_polarizacion_pts: 5,
+
+  polarizacion_familias: ['correr', 'remo', 'ski', 'bici', 'estaciones', 'wod'],
+  polarizacion_tolerancia_pts: 10,
 
   cambio_ergo_pct: 1,
   cambio_fuerza_pct: 2.5,
@@ -353,6 +382,7 @@ export function defaultCoachAnalyticsMethod(): CoachAnalyticsMethod {
     fuentes_bike: [...d.fuentes_bike],
     fuentes_strength: [...d.fuentes_strength],
     fuentes_other: [...d.fuentes_other],
+    polarizacion_familias: [...d.polarizacion_familias],
   };
 }
 
@@ -380,13 +410,25 @@ export const COACH_ANALYTICS_METHOD_TEXT_KEYS = ['cumplimiento_base'] as const s
 
 export type ClaveTextoMetodo = (typeof COACH_ANALYTICS_METHOD_TEXT_KEYS)[number];
 
-/** Las claves NUMÉRICAS: todas menos las listas y los textos. */
-export type ClaveNumericaMetodo = Exclude<keyof CoachAnalyticsMethod, ClaveListaMetodo | ClaveTextoMetodo>;
+/**
+ * Las claves que son un CONJUNTO de familias (text[] en la tabla). Distintas de
+ * las escaleras: una escalera es una lista ORDENADA de peldaños; esto es un
+ * conjunto sin orden de un vocabulario distinto (`FAMILIAS`).
+ */
+export const COACH_ANALYTICS_METHOD_FAMILY_KEYS = ['polarizacion_familias'] as const satisfies ReadonlyArray<
+  keyof CoachAnalyticsMethod
+>;
+
+export type ClaveFamiliasMetodo = (typeof COACH_ANALYTICS_METHOD_FAMILY_KEYS)[number];
+
+/** Las claves NUMÉRICAS: todas menos las listas, los conjuntos y los textos. */
+export type ClaveNumericaMetodo = Exclude<keyof CoachAnalyticsMethod, ClaveListaMetodo | ClaveTextoMetodo | ClaveFamiliasMetodo>;
 
 export const COACH_ANALYTICS_METHOD_NUMERIC_KEYS = COACH_ANALYTICS_METHOD_KEYS.filter(
   (k) =>
     !(COACH_ANALYTICS_METHOD_LIST_KEYS as readonly string[]).includes(k) &&
-    !(COACH_ANALYTICS_METHOD_TEXT_KEYS as readonly string[]).includes(k),
+    !(COACH_ANALYTICS_METHOD_TEXT_KEYS as readonly string[]).includes(k) &&
+    !(COACH_ANALYTICS_METHOD_FAMILY_KEYS as readonly string[]).includes(k),
 ) as ClaveNumericaMetodo[];
 
 /** La clave de la escalera de una modalidad. */
@@ -427,6 +469,11 @@ export const ANALYTICS_METHOD_BOUNDS: Readonly<Record<ClaveNumericaMetodo, { min
   cambio_variabilidad_pct: { min: 1, max: 50 },
   cambio_pulso_reposo_bpm: { min: 1, max: 20 },
   cambio_sueno_horas: { min: 0.1, max: 5 },
+  cambio_polarizacion_pts: { min: 1, max: 50 },
+
+  // Por debajo de 1 punto cualquier reparto real se sale; por encima de 50 la
+  // palabra no diría nunca nada.
+  polarizacion_tolerancia_pts: { min: 1, max: 50 },
 
   // Por debajo de medio punto el cambio es el redondeo del monitor o de la
   // báscula; por encima de 20-30 % ya no es un cambio, es otra persona.
@@ -526,6 +573,15 @@ export function validarMetodoAnalitico(m: CoachAnalyticsMethod): string[] {
         errores.push(`En ${nombre} no se puede preciar por ${f}.`);
       }
     }
+  }
+  const familias = m.polarizacion_familias;
+  if (familias.length === 0) {
+    errores.push('El reparto de intensidad necesita al menos una familia.');
+  } else if (new Set(familias).size !== familias.length) {
+    errores.push('El reparto de intensidad repite una familia.');
+  }
+  for (const f of familias) {
+    if (!(FAMILIAS as readonly string[]).includes(f)) errores.push(`«${f}» no es una familia de entreno.`);
   }
   return errores;
 }

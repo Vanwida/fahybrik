@@ -54,6 +54,7 @@ export async function loadContexto(atleta: AtletaVerificado, now: Date, client: 
 // ---------------------------------------------------------------------------
 
 type TramoFila = {
+  id: string;
   seconds: number | null;
   modality: string | null;
   exercise_modality: string | null;
@@ -96,6 +97,7 @@ function tramoDe(t: TramoFila): TramoHecho {
   // veredicto de carrera (`resolveSegmentGradientPct`).
   const pendiente = t.incline_pct ?? t.gradient_pct ?? null;
   return {
+    id: t.id,
     segundos: Math.max(0, Math.round(t.seconds ?? 0)),
     modalidad,
     familia: familiaDe({
@@ -125,6 +127,29 @@ export async function loadSesionesHechas(
   hasta_excl: Date,
   client: Sql = defaultSql,
 ): Promise<SesionHecha[]> {
+  return consultaSesionesHechas(atleta, tz, client`coalesce(we.ended_at, we.started_at, we.created_at) < ${hasta_excl.toISOString()}`, client);
+}
+
+/**
+ * UNA sesión hecha, con la MISMA lectura que el panel: el detalle de la sesión
+ * precia sus tramos exactamente como los preció la suma. Null si no es suya.
+ */
+export async function loadSesionHecha(
+  atleta: AtletaVerificado,
+  tz: string,
+  execution_id: number,
+  client: Sql = defaultSql,
+): Promise<SesionHecha | null> {
+  const filas = await consultaSesionesHechas(atleta, tz, client`we.id = ${execution_id}`, client);
+  return filas[0] ?? null;
+}
+
+async function consultaSesionesHechas(
+  atleta: AtletaVerificado,
+  tz: string,
+  filtro: ReturnType<Sql>,
+  client: Sql,
+): Promise<SesionHecha[]> {
   // tenancy: verified-owner
   const rows = await client<SesionFila[]>`
     select
@@ -136,6 +161,7 @@ export async function loadSesionesHechas(
       coalesce(
         json_agg(
           json_build_object(
+            'id', se.id::text,
             'seconds', extract(epoch from (se.ended_at - se.started_at)),
             'modality', se.modality,
             'exercise_modality', ex.modality,
@@ -171,7 +197,7 @@ export async function loadSesionesHechas(
     left join segment_executions se on se.execution_id = we.id
     left join exercises ex on ex.id = se.exercise_id
     where we.athlete_id = ${atleta.athlete_id}
-      and coalesce(we.ended_at, we.started_at, we.created_at) < ${hasta_excl.toISOString()}
+      and ${filtro}
     group by we.id
     order by 2, we.id
   `;
