@@ -507,13 +507,28 @@ struct ScaledFontModifier: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        var font = Font.system(
+        content.font(Self.fuente(
             size: scaledSize,
             weight: weight,
-            design: monospaced ? .monospaced : .default
-        )
-        if monospaced { font = font.monospacedDigit() }
+            italic: italic,
+            monospaced: monospaced,
+            tabular: monospaced
+        ))
+    }
+
+    /// La fuente del sistema con sus variantes, a un tamaño ya resuelto. Una sola manera de
+    /// construirla: `.scaledFont(...)` y los papeles del día (`.papel(_:)`, Theme+Tipo.swift)
+    /// pasan por aquí y no pueden divergir en cómo se aplican cursiva y cifras tabulares.
+    static func fuente(
+        size: CGFloat,
+        weight: Font.Weight,
+        italic: Bool,
+        monospaced: Bool = false,
+        tabular: Bool = false
+    ) -> Font {
+        var font = Font.system(size: size, weight: weight, design: monospaced ? .monospaced : .default)
+        if tabular { font = font.monospacedDigit() }
         if italic { font = font.italic() }
-        return content.font(font)
+        return font
     }
 }

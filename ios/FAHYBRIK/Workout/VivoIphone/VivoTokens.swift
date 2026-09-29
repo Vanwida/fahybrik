@@ -21,8 +21,8 @@ enum VivoTokens {
 
     // MARK: - Lienzo
 
-    /// Margen lateral del contenido. El de la app (Theme.Spacing) es 16; aquí 20: el vivo respira más.
-    static let margen: CGFloat = 20
+    /// Margen lateral del contenido. El de la app antigua (Theme.Spacing.l) es 16; aquí 20, el de las pantallas del día.
+    static let margen: CGFloat = Theme.Spacing.pantalla
     /// Aire entre filas de la anatomía.
     static let hueco: CGFloat = 10
     static let anchoMin: CGFloat = 390
@@ -56,15 +56,16 @@ enum VivoTokens {
         static let datoTexto: CGFloat = 20
         static let posicion: CGFloat = 22
         static let crono: CGFloat = 22
-        static let cuerpo: CGFloat = 17
-        static let etiqueta: CGFloat = 15
-        static let nota: CGFloat = 15
+        /// Cuerpo y suelo salen de la escala del día (`Theme.Typography.Papel`): un solo número.
+        static let cuerpo: CGFloat = Theme.Typography.Papel.cuerpo.medidas.tamano
+        static let etiqueta: CGFloat = Theme.Typography.suelo
+        static let nota: CGFloat = Theme.Typography.suelo
         static let boton: (alto: CGFloat, cuerpo: CGFloat) = (64, 20)
         static let botonMenor: (alto: CGFloat, cuerpo: CGFloat) = (44, 17)
         static let chip: (alto: CGFloat, cuerpo: CGFloat) = (30, 15)
         static let banda: (pista: CGFloat, rotulo: CGFloat, palabra: CGFloat) = (10, 15, 17)
         /// El suelo absoluto (CONTRATO-UI §4.1). Nada se pinta por debajo.
-        static let suelo: CGFloat = 15
+        static let suelo: CGFloat = Theme.Typography.suelo
     }
 
     /// El alto de cada franja de la anatomía (I5), en pt. La banda del sujeto es
