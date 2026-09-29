@@ -141,11 +141,12 @@ export function FaseResumen(p: {
   onLog: (l: string) => void;
 }) {
   const [estado, setEstado] = useState<EstadoEnvio>(p.envio.inicial);
-  const [intentos, setIntentos] = useState(estado === 'rechazado' ? 1 : 0);
+  // Cuántas veces ha contestado que no el servidor (la segunda vez la pantalla lo dice: repetirlo da lo mismo).
+  const [rechazos, setRechazos] = useState(estado === 'rechazado' ? 1 : 0);
   const [n, setN] = useState(p.inicial?.pagina ?? 0);
   const [salio, setSalio] = useState(false);
   const c = completitud(p.r, p.metodo);
-  const paginas = paginasDeResumen(p.r, p.familia, c, { metodo: p.metodo, envio: { estado, intentos } });
+  const paginas = paginasDeResumen(p.r, p.familia, c, { metodo: p.metodo, envio: { estado, intentos: rechazos } });
   const de = paginas.length;
   const actual = Math.min(n, de - 1);
   const rechazo = paginas[actual]!.envio === true && pideDecidir(estado);
@@ -153,6 +154,7 @@ export function FaseResumen(p: {
   // El envío cambia con lo que el reloj sabe. Un rechazo pide al atleta: el resumen salta a esa página.
   const alEstado = (nuevo: EstadoEnvio, como: string) => {
     setEstado(nuevo);
+    if (nuevo === 'rechazado') setRechazos((x) => x + 1);
     p.onLog(`Envío → «${TEXTO_ENVIO[nuevo].titulo}» (${como})`);
     if (pideDecidir(nuevo)) setN(de - 1);
   };
@@ -184,7 +186,6 @@ export function FaseResumen(p: {
       if (accion === 'pagina-siguiente') return irPagina(1);
       if (accion === 'confirmar') {
         if (rechazo) {
-          setIntentos((x) => x + 1);
           alEstado('enviando', 'Reintentar: se vuelve a mandar');
           reintento.current = setTimeout(() => ref.current.alEstado('rechazado', 'el servidor contesta lo mismo: repetir un 4xx da el mismo 4xx'), REINTENTO_DOBLE_MS);
           return;

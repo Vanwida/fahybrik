@@ -95,6 +95,8 @@ function tiradaCerradaA24(): Escena {
   const inicio: InicioSecuencia = { i: 0, t: 1432, metros: 4890, sesionT: 1432, sesionM: 4890, vueltas: [km(1, 296, 139), km(2, 293, 141), km(3, 291, 141), km(4, 295, 143)], ppmMedio: 141 };
   return {
     sesion: sesion494Brief(),
+    // Lo corrido antes de que arranque el escenario (las zonas de esos 24′), como en el resto de escenarios con la sesión avanzada.
+    base: { ...recortada(resultado494(), 1435), desnivel: null },
     arranque: { en: 'vivo', inicio, sim: cuerpo({ partida: { i: 0, t: inicio.t! }, ppmDesde: 141 }) },
     // A los 3 s, BACK/LAP: cierra el único paso de la sesión, que a los 24′ de 80′ es el final natural.
     guiones: { vivo: pulsar('back', 3000) },

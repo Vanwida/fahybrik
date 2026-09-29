@@ -119,13 +119,13 @@ export const escenarios: TwinEscenario[] = [
     id: 'resumen-493',
     titulo: 'Circuito 493 · parciales y coste tras estación',
     descripcion:
-      'El tiempo del circuito es la puntuación, con la carrera, las estaciones y la Roxzone (el coach la activó). Los tramos de carrera con lo que pierden tras estación, las estaciones con su dosis y «+14 s/km sobre tu fresco»: hay 4 pares, lo que pide el coach.',
+      'El tiempo del circuito es la puntuación, con la carrera, las estaciones y la Roxzone (el coach la activó). Los tramos de carrera con lo que pierden tras estación, las estaciones con su dosis y «+14 s/km sobre tu fresco» con su «En prueba» (el cálculo sigue sin validar): hay 4 pares, lo que pide el coach.',
   },
   {
     id: 'resumen-482',
     titulo: 'Circuito 482 · sin pares suficientes',
     descripcion:
-      'Cuatro rondas: tres km tras estación. El coste no se da («3/4 pares · Aún sin coste · Tu coach pide 4 pares»), y los segundos de más por tramo tampoco. Sin Roxzone: el coach no la activó.',
+      'Cuatro rondas: tres km tras estación. El coste no se da («3/4 pares · Aún sin coste · Sería adivinar»), y los segundos de más por tramo tampoco. Sin Roxzone: el coach no la activó.',
   },
   // ── EL ENVÍO ──────────────────────────────────────────────────────────────
   {
@@ -170,7 +170,7 @@ export const escenarios: TwinEscenario[] = [
   {
     id: 'tamanos-rechazo',
     titulo: 'Los cuatro tamaños · el rechazo',
-    descripcion: 'La página de envío con el rechazo: glifo, título en dos líneas, el detalle en tres y el RPE, sin cortarse en ninguna esquina de los cuatro relojes.',
+    descripcion: 'La página de envío con el rechazo: glifo, título en dos líneas, el detalle y el RPE, todo centrado y sin cortarse en ninguna esquina de los cuatro relojes.',
   },
 ];
 

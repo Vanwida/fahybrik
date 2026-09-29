@@ -35,7 +35,7 @@ import {
   type EstadoMandos,
   type EventoGarmin,
 } from '@/components/design-twin/kit-garmin';
-import { METODO_RESUMEN_DEFECTO, RPE_PALABRA_DEFECTO, completitud, type Completitud } from '@/components/design-twin/kit-reloj';
+import { METODO_RESUMEN_DEFECTO, RPE_PALABRA_DEFECTO, completitud } from '@/components/design-twin/kit-reloj';
 import type { Transicion } from '@/components/design-twin/kit-reloj/gancho';
 import { laminaDelPaso } from '@/components/design-twin/kit-reloj/lamina';
 import { avanzar, cerrar, estadoInicial, lecturasDe, pasoVivo } from '@/components/design-twin/kit-reloj/secuencia';
@@ -369,6 +369,12 @@ describe('las cuentas del resumen son las de la muñeca', () => {
     };
     const hay = coste(resultado493(), 'circuito');
     expect([hay.heroe?.texto, hay.heroe?.unidad]).toEqual(['+14', 's/km']);
+    // El cálculo sigue en prueba (Alex, 25-09): «En prueba» no se pierde en ningún reloj.
+    for (const { D } of TAMANOS) {
+      const p = paginasDeResumen(resultado493(), 'circuito', completitud(resultado493()), { metodo: METODO_RESUMEN_DEFECTO, envio: { estado: 'en-reloj', intentos: 0 } });
+      const txt = p.find((x) => x.id === 'coste')!.disponer(D).lineas.map((l) => l.piezas.map((q) => q.texto).join('')).join(' | ');
+      expect(txt, `a ${D}`).toContain('En prueba');
+    }
     const faltan = coste(resultado482(), 'circuito');
     expect([faltan.heroe?.texto, faltan.heroe?.unidad]).toEqual(['3/4', 'pares']);
     const texto = faltan.lineas.map((l) => l.piezas.map((q) => q.texto).join('')).join(' | ');
@@ -450,7 +456,6 @@ describe('un texto apilado parte por partes y cada línea con SU cuerda', () => 
 // ---------------------------------------------------------------------------
 
 const TABLA_MANDOS = tablaDe('## 5. Interacción');
-const BOTONES: BotonGarmin[] = ['start', 'back', 'up', 'down', 'upLargo', 'light'];
 const TABLA = (b: BotonGarmin) => accionDe('resumen', b);
 
 /** Todas las pantallas de después, con lo que cada una tiene que decir en §5. */
