@@ -132,6 +132,11 @@ enum GrupoLectura: String, Codable, Equatable, CaseIterable {
     case volumen
     /// Dónde lo hizo — subida, llano, bajada.
     case terreno
+    // Los ocho bloques del panel único (docs/analiticas/modelo.md §3, 29-09):
+    // una lectura del panel lleva como grupo el bloque en el que vive. La
+    // portada los pinta con su propio título-pregunta (`BloqueDelPanel`), así
+    // que aquí no llevan etiqueta.
+    case estado, forma, semanas, intensidad, progreso, records, carrera
     /// Un grupo que este binario no conoce. Se ignora, no se rompe.
     case desconocido
 
@@ -157,6 +162,8 @@ enum GrupoLectura: String, Codable, Equatable, CaseIterable {
         case .ejecucion:     return "Dentro del entreno"
         case .volumen:       return "Cuánto haces"
         case .terreno:       return "Dónde corres"
+        case .estado, .forma, .semanas, .intensidad, .progreso, .records, .carrera:
+            return nil
         case .desconocido:   return nil
         }
     }
@@ -197,6 +204,9 @@ enum UnidadLectura: String, Codable, Equatable, CaseIterable {
     case puntos
     case mlKgMin = "ml_kg_min"
     case sesiones
+    case watts
+    case reps
+    case dias
     /// Una unidad que este binario no sabe escribir. La lectura no se pinta: un
     /// número sin unidad es un número que miente por omisión.
     case desconocida
@@ -205,6 +215,100 @@ enum UnidadLectura: String, Codable, Equatable, CaseIterable {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = UnidadLectura(rawValue: raw) ?? .desconocida
     }
+}
+
+/// EN QUÉ FAMILIA DE ENTRENO VIVE la lectura (modelo §3, A9): cada una tiene su
+/// métrica clave y su «¿mejoro?». Nula en la lectura = cruza todas (la forma, el
+/// readiness). Remo, ski y bici son cada una la suya (el umbral es por máquina).
+enum FamiliaLectura: String, Codable, Equatable, CaseIterable {
+    case correr, remo, ski, bici, fuerza, estaciones, wod, otro
+    /// Una familia que este binario no conoce: se pinta sin color de familia.
+    case desconocida
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = FamiliaLectura(rawValue: raw) ?? .desconocida
+    }
+}
+
+/// DE QUÉ PELDAÑO SALIÓ EL UMBRAL contra el que se calculó una cifra (modelo §4,
+/// la escalera de zonas del 28/29-07): medida (un test) > declarada (un toque) >
+/// estimada (de un dato suyo: 0,88 × FC máx) > poblacional (la edad). Nula en la
+/// procedencia = el número no depende de ningún umbral del atleta.
+enum AnclaDeLectura: String, Codable, Equatable, CaseIterable {
+    case medida, declarada, estimada, poblacional
+    case desconocida
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = AnclaDeLectura(rawValue: raw) ?? .desconocida
+    }
+
+    /// El chip: «medido», «declarado», «estimado», «por edad». Nulo si no se conoce.
+    var etiqueta: String? {
+        switch self {
+        case .medida: return "medido"
+        case .declarada: return "declarado"
+        case .estimada: return "estimado"
+        case .poblacional: return "por edad"
+        case .desconocida: return nil
+        }
+    }
+
+    /// Las dos anclas que NO son un dato del atleta: el chip va en trazo discontinuo.
+    var esEstimada: Bool { self == .estimada || self == .poblacional }
+}
+
+/// EL MISMO NÚMERO EN EL PERIODO ANTERIOR de igual longitud (modelo A3/A4). El
+/// delta va en `unidad`, que es la del UMBRAL del coach que lo juzga — no
+/// necesariamente la del dato (una carga en TSS se compara en %). Es lo que
+/// impide que un delta en puntos se juzgue contra un umbral en porcentaje.
+struct ComparacionDeLectura: Codable, Equatable {
+    /// El número en el periodo anterior. Nulo cuando no lo hubo.
+    let anterior: Double?
+    /// valor − anterior, en `unidad`. Nulo sin anterior (o anterior cero en pct).
+    let delta: Double?
+    let unidad: UnidadLectura
+    let periodo: Periodo
+    /// Cambio mínimo del coach para llamarlo cambio (misma `unidad`). Nulo sin umbral.
+    let cambioMinimo: Double?
+    /// |delta| ≥ cambio_minimo. Nulo cuando falta el delta o el umbral.
+    let significativo: Bool?
+
+    struct Periodo: Codable, Equatable {
+        let desde: String
+        let hasta: String
+    }
+}
+
+/// LA PALABRA que la lectura se atreve a decir. Se retira (nula) cuando la
+/// cobertura no la sostiene; el número se queda (DECISIONS 2026-07-28).
+struct VeredictoDeLectura: Codable, Equatable {
+    /// Clave estable (`optimo`, `sobrecarga`, `fresco`…). El cliente NO colorea por ella:
+    /// el veredicto cambia la marca y la palabra, no el color.
+    let code: String
+    let etiquetaEs: String
+    /// Una frase, cuando hay algo que añadir («un 30 % de esta carga sale de un umbral estimado»).
+    let fraseEs: String?
+    let tono: Tono
+
+    enum Tono: String, Codable, Equatable {
+        case bien, neutro, atencion, aviso
+        case desconocido
+
+        init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            self = Tono(rawValue: raw) ?? .desconocido
+        }
+    }
+}
+
+/// Una línea de referencia EN UNIDADES REALES de la serie (una banda del coach,
+/// un aviso). Fuera las series normalizadas 0..1 (P21).
+struct ReferenciaDeSerie: Codable, Equatable {
+    let code: String
+    let etiquetaEs: String
+    let valor: Double
 }
 
 /// Contra qué se lee el número. Un 48 de variabilidad no dice nada; un 48 contra
@@ -235,7 +339,15 @@ struct PuntoDeSerie: Codable, Equatable {
 struct SerieDeLectura: Codable, Equatable {
     let unidad: UnidadLectura
     let paso: PasoDeSerie
+    /// Lo HECHO (o lo medido).
     let puntos: [PuntoDeSerie]
+    /// Lo PLANIFICADO, sobre el MISMO eje y con el mismo `paso` (modelo A7). Nulo
+    /// cuando la lectura no tiene plan. Puede extenderse más allá del último punto
+    /// hecho (la proyección de forma hasta la carrera) y tener huecos.
+    /// Opcional también en el cable: el contrato de agosto no lo mandaba.
+    let plan: [PuntoDeSerie]?
+    /// Líneas de referencia en unidades reales (bandas de frescura, aviso de subida).
+    let referencias: [ReferenciaDeSerie]?
 
     /// Decide la FORMA del gráfico: un paso diario es una línea (denso y
     /// continuo), uno semanal son barras. Derivado del dato, no de un `id`.
@@ -284,6 +396,10 @@ struct CoberturaDeLectura: Codable, Equatable {
     /// Mismo vocabulario que `running/progress` a propósito: ya está probado y ya
     /// sabe decidir con `seCalla` cuándo la app debe callarse.
     let falta: Falta?
+    /// ISO del último dato que sostiene la lectura. Con él se decide «dato viejo»
+    /// (contrato firmado del 29-09, `kit-analiticas/contrato.ts`). El servidor aún
+    /// no lo sirve: nulo = no se puede decir que el dato sea viejo.
+    let ultimoDato: String?
 }
 
 /// De qué número sale el número. Sin esto, cualquier lectura es un índice
@@ -298,6 +414,9 @@ struct ProcedenciaDeLectura: Codable, Equatable {
     let medida: Bool
     /// Quién lo midió, cuando hay un aparato detrás. `garmin`, `polar`, `healthkit`.
     let proveedor: String?
+    /// El peldaño del umbral que sostiene la cifra, cuando depende de uno: la ancla
+    /// MÁS DÉBIL de las que entran en el número. Nulo cuando no depende de ninguna.
+    let ancla: AnclaDeLectura?
 }
 
 struct LecturaAnalitica: Codable, Equatable, Identifiable {
@@ -305,14 +424,20 @@ struct LecturaAnalitica: Codable, Equatable, Identifiable {
     /// ids), nunca para decidir cómo se dibuja.
     let id: String
     let grupo: GrupoLectura
+    /// En qué familia de entreno vive; nula cuando cruza todas.
+    let familia: FamiliaLectura?
     let tituloEs: String
     let estado: EstadoLectura
     /// El número de portada. Nulo si `estado` es `sin_dato`.
     let dato: DatoDeLectura?
+    /// Contra el periodo anterior de igual longitud. Nulo cuando no se compara.
+    let comparacion: ComparacionDeLectura?
     /// Para dibujar. Nulo cuando la lectura no tiene forma de serie.
     let serie: SerieDeLectura?
     /// Bandas o partes. Nulo cuando la lectura no reparte nada.
     let reparto: RepartoDeLectura?
+    /// La palabra, cuando la cobertura la sostiene. Nula = retirada o no aplica.
+    let veredicto: VeredictoDeLectura?
     let cobertura: CoberturaDeLectura
     let procedencia: ProcedenciaDeLectura
 }

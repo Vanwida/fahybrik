@@ -1,0 +1,2811 @@
+{
+ "athlete_id": "102",
+ "generado_iso": "2026-09-29T18:30:00.000Z",
+ "ventana": {
+  "clave": "12s",
+  "desde": "2026-07-08",
+  "hasta": "2026-09-29",
+  "dias": 84,
+  "anterior": {
+   "desde": "2026-04-15",
+   "hasta": "2026-07-07",
+   "dias": 84
+  },
+  "cubre_todo": true
+ },
+ "historia": {
+  "semanas": 3,
+  "desde": "2026-09-08",
+  "cubre_todo": true
+ },
+ "metodo": {
+  "ctl_days": 42,
+  "atl_days": 7,
+  "ramp_alert_tss_per_week": 5,
+  "acr_low": 0.8,
+  "acr_high": 1.3,
+  "fuentes_run": [
+   "ritmo",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_row": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_ski": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_bike": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_strength": [
+   "esfuerzo",
+   "pulso"
+  ],
+  "fuentes_other": [
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuerza_coeficiente": 1,
+  "cobertura_veredicto_min_pct": 90,
+  "frescura_sobrecarga_hasta": -30,
+  "frescura_optimo_hasta": -11,
+  "frescura_mantener_hasta": 4,
+  "frescura_fresco_hasta": 29,
+  "cumplimiento_base": "sesiones",
+  "cumplimiento_bien_pct": 90,
+  "cumplimiento_regular_pct": 70,
+  "cambio_carga_pct": 10,
+  "cambio_horas_pct": 10,
+  "cambio_forma_tss": 5,
+  "cambio_frescura_tss": 5,
+  "cambio_variabilidad_pct": 5,
+  "cambio_pulso_reposo_bpm": 3,
+  "cambio_sueno_horas": 0.5,
+  "basal_dias": 60,
+  "basal_excluir_dias": 14,
+  "cs_min_efforts": 3,
+  "cs_min_duration_s": 120,
+  "cs_max_duration_s": 900,
+  "cs_min_spread_ratio": 3,
+  "cs_min_fit_r2_pct": 95,
+  "cs_max_drift_from_threshold_pct": 15,
+  "sleep_target_hours": 8,
+  "hrv_min_nights_baseline": 14,
+  "hrv_min_nights_recent": 3,
+  "subida_dias": 14,
+  "subida_minima_pct": 5,
+  "cobertura_ciega_alerta_pct": 25,
+  "dato_viejo_dias": 14,
+  "muestras_minimas": 3,
+  "cobertura_poco_pct": 34,
+  "semanas_minimas_forma": 6,
+  "ventana_basal_dias": 60,
+  "reciente_dias": 7
+ },
+ "anclas": {
+  "pulso": {
+   "valor": 167.2,
+   "ancla": "estimada",
+   "fuente": "from_max_hr",
+   "explica_es": "Estimado desde tu pulso máximo declarado (0,88 × 190).",
+   "desde_iso": "2026-09-08"
+  },
+  "ritmo": {
+   "run": {
+    "valor": 300,
+    "ancla": "estimada",
+    "fuente": "vdot_run_5k",
+    "explica_es": "Estimado desde tu 5 km del 26 de septiembre.",
+    "desde_iso": "2026-09-26"
+   },
+   "row": null,
+   "ski": null,
+   "bike": null
+  },
+  "potencia": {
+   "row": null,
+   "ski": null,
+   "bike": null
+  }
+ },
+ "bloques": {
+  "estado": [
+   {
+    "id": "estado.readiness",
+    "grupo": "estado",
+    "familia": null,
+    "titulo_es": "Disposición",
+    "estado": "medida",
+    "dato": {
+     "valor": 71,
+     "unidad": "puntos",
+     "referencia": null
+    },
+    "comparacion": null,
+    "serie": null,
+    "reparto": null,
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 1,
+     "dias_ventana": 1,
+     "dias_con_dato": 1,
+     "pct": 100,
+     "falta": null,
+     "ultimo_dato": "2026-09-29"
+    },
+    "procedencia": {
+     "de": "readiness_compuesto",
+     "explica_es": "Tu readiness de hoy: check-in, variabilidad, sueño y pulso en reposo con los pesos de tu coach.",
+     "medida": true,
+     "ancla": null,
+     "proveedor": null
+    }
+   },
+   {
+    "id": "estado.forma",
+    "grupo": "estado",
+    "familia": null,
+    "titulo_es": "Forma",
+    "estado": "medida",
+    "dato": {
+     "valor": 8.821397021064909,
+     "unidad": "tss",
+     "referencia": null
+    },
+    "comparacion": {
+     "anterior": 0,
+     "delta": 8.821397021064909,
+     "unidad": "tss",
+     "periodo": {
+      "desde": "2026-04-15",
+      "hasta": "2026-07-07"
+     },
+     "cambio_minimo": 5,
+     "significativo": true
+    },
+    "serie": null,
+    "reparto": null,
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 12,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": {
+      "por": "historia",
+      "llevas": 21,
+      "hacen": 42
+     },
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "banister_ctl",
+     "explica_es": "Media móvil de 42 días de la carga diaria: el trabajo que ya tienes encima. Un 100 % de la carga se apoya en un umbral estimado.",
+     "medida": true,
+     "ancla": "estimada",
+     "proveedor": null
+    }
+   },
+   {
+    "id": "estado.fatiga",
+    "grupo": "estado",
+    "familia": null,
+    "titulo_es": "Fatiga",
+    "estado": "medida",
+    "dato": {
+     "valor": 19.894421105857163,
+     "unidad": "tss",
+     "referencia": null
+    },
+    "comparacion": {
+     "anterior": 0,
+     "delta": 19.894421105857163,
+     "unidad": "tss",
+     "periodo": {
+      "desde": "2026-04-15",
+      "hasta": "2026-07-07"
+     },
+     "cambio_minimo": 5,
+     "significativo": true
+    },
+    "serie": null,
+    "reparto": null,
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 12,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": {
+      "por": "historia",
+      "llevas": 21,
+      "hacen": 42
+     },
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "banister_atl",
+     "explica_es": "Media móvil de 7 días: el cansancio que aún arrastras. Un 100 % de la carga se apoya en un umbral estimado.",
+     "medida": true,
+     "ancla": "estimada",
+     "proveedor": null
+    }
+   },
+   {
+    "id": "estado.frescura",
+    "grupo": "estado",
+    "familia": null,
+    "titulo_es": "Frescura",
+    "estado": "medida",
+    "dato": {
+     "valor": -14.173604910864425,
+     "unidad": "tss",
+     "referencia": {
+      "valor": 0,
+      "delta": -14.173604910864425,
+      "de": "equilibrio"
+     }
+    },
+    "comparacion": {
+     "anterior": 0,
+     "delta": -14.173604910864425,
+     "unidad": "tss",
+     "periodo": {
+      "desde": "2026-04-15",
+      "hasta": "2026-07-07"
+     },
+     "cambio_minimo": 5,
+     "significativo": true
+    },
+    "serie": null,
+    "reparto": null,
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 12,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": {
+      "por": "historia",
+      "llevas": 21,
+      "hacen": 42
+     },
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "banister_tsb",
+     "explica_es": "La forma menos la fatiga. En positivo llegas descansado; en negativo, cargado. Un 100 % de la carga se apoya en un umbral estimado.",
+     "medida": true,
+     "ancla": "estimada",
+     "proveedor": null
+    }
+   }
+  ],
+  "forma": [
+   {
+    "id": "carga.fondo",
+    "grupo": "forma",
+    "familia": null,
+    "titulo_es": "Forma",
+    "estado": "medida",
+    "dato": {
+     "valor": 8.821397021064909,
+     "unidad": "tss",
+     "referencia": null
+    },
+    "comparacion": {
+     "anterior": 0,
+     "delta": 8.821397021064909,
+     "unidad": "tss",
+     "periodo": {
+      "desde": "2026-04-15",
+      "hasta": "2026-07-07"
+     },
+     "cambio_minimo": 5,
+     "significativo": true
+    },
+    "serie": {
+     "unidad": "tss",
+     "paso": "dia",
+     "puntos": [
+      {
+       "t": "2026-07-08",
+       "v": 0
+      },
+      {
+       "t": "2026-07-09",
+       "v": 0
+      },
+      {
+       "t": "2026-07-10",
+       "v": 0
+      },
+      {
+       "t": "2026-07-11",
+       "v": 0
+      },
+      {
+       "t": "2026-07-12",
+       "v": 0
+      },
+      {
+       "t": "2026-07-13",
+       "v": 0
+      },
+      {
+       "t": "2026-07-14",
+       "v": 0
+      },
+      {
+       "t": "2026-07-15",
+       "v": 0
+      },
+      {
+       "t": "2026-07-16",
+       "v": 0
+      },
+      {
+       "t": "2026-07-17",
+       "v": 0
+      },
+      {
+       "t": "2026-07-18",
+       "v": 0
+      },
+      {
+       "t": "2026-07-19",
+       "v": 0
+      },
+      {
+       "t": "2026-07-20",
+       "v": 0
+      },
+      {
+       "t": "2026-07-21",
+       "v": 0
+      },
+      {
+       "t": "2026-07-22",
+       "v": 0
+      },
+      {
+       "t": "2026-07-23",
+       "v": 0
+      },
+      {
+       "t": "2026-07-24",
+       "v": 0
+      },
+      {
+       "t": "2026-07-25",
+       "v": 0
+      },
+      {
+       "t": "2026-07-26",
+       "v": 0
+      },
+      {
+       "t": "2026-07-27",
+       "v": 0
+      },
+      {
+       "t": "2026-07-28",
+       "v": 0
+      },
+      {
+       "t": "2026-07-29",
+       "v": 0
+      },
+      {
+       "t": "2026-07-30",
+       "v": 0
+      },
+      {
+       "t": "2026-07-31",
+       "v": 0
+      },
+      {
+       "t": "2026-08-01",
+       "v": 0
+      },
+      {
+       "t": "2026-08-02",
+       "v": 0
+      },
+      {
+       "t": "2026-08-03",
+       "v": 0
+      },
+      {
+       "t": "2026-08-04",
+       "v": 0
+      },
+      {
+       "t": "2026-08-05",
+       "v": 0
+      },
+      {
+       "t": "2026-08-06",
+       "v": 0
+      },
+      {
+       "t": "2026-08-07",
+       "v": 0
+      },
+      {
+       "t": "2026-08-08",
+       "v": 0
+      },
+      {
+       "t": "2026-08-09",
+       "v": 0
+      },
+      {
+       "t": "2026-08-10",
+       "v": 0
+      },
+      {
+       "t": "2026-08-11",
+       "v": 0
+      },
+      {
+       "t": "2026-08-12",
+       "v": 0
+      },
+      {
+       "t": "2026-08-13",
+       "v": 0
+      },
+      {
+       "t": "2026-08-14",
+       "v": 0
+      },
+      {
+       "t": "2026-08-15",
+       "v": 0
+      },
+      {
+       "t": "2026-08-16",
+       "v": 0
+      },
+      {
+       "t": "2026-08-17",
+       "v": 0
+      },
+      {
+       "t": "2026-08-18",
+       "v": 0
+      },
+      {
+       "t": "2026-08-19",
+       "v": 0
+      },
+      {
+       "t": "2026-08-20",
+       "v": 0
+      },
+      {
+       "t": "2026-08-21",
+       "v": 0
+      },
+      {
+       "t": "2026-08-22",
+       "v": 0
+      },
+      {
+       "t": "2026-08-23",
+       "v": 0
+      },
+      {
+       "t": "2026-08-24",
+       "v": 0
+      },
+      {
+       "t": "2026-08-25",
+       "v": 0
+      },
+      {
+       "t": "2026-08-26",
+       "v": 0
+      },
+      {
+       "t": "2026-08-27",
+       "v": 0
+      },
+      {
+       "t": "2026-08-28",
+       "v": 0
+      },
+      {
+       "t": "2026-08-29",
+       "v": 0
+      },
+      {
+       "t": "2026-08-30",
+       "v": 0
+      },
+      {
+       "t": "2026-08-31",
+       "v": 0
+      },
+      {
+       "t": "2026-09-01",
+       "v": 0
+      },
+      {
+       "t": "2026-09-02",
+       "v": 0
+      },
+      {
+       "t": "2026-09-03",
+       "v": 0
+      },
+      {
+       "t": "2026-09-04",
+       "v": 0
+      },
+      {
+       "t": "2026-09-05",
+       "v": 0
+      },
+      {
+       "t": "2026-09-06",
+       "v": 0
+      },
+      {
+       "t": "2026-09-07",
+       "v": 0
+      },
+      {
+       "t": "2026-09-08",
+       "v": 0
+      },
+      {
+       "t": "2026-09-09",
+       "v": 1.0357142857142858
+      },
+      {
+       "t": "2026-09-10",
+       "v": 1.0110544217687076
+      },
+      {
+       "t": "2026-09-11",
+       "v": 1.691743602202786
+      },
+      {
+       "t": "2026-09-12",
+       "v": 2.756225897388434
+      },
+      {
+       "t": "2026-09-13",
+       "v": 2.690601471260138
+      },
+      {
+       "t": "2026-09-14",
+       "v": 3.364634769563468
+      },
+      {
+       "t": "2026-09-15",
+       "v": 3.2845244179071953
+      },
+      {
+       "t": "2026-09-16",
+       "v": 4.2801309793855955
+      },
+      {
+       "t": "2026-09-17",
+       "v": 4.178223098924033
+      },
+      {
+       "t": "2026-09-18",
+       "v": 4.914455882282985
+      },
+      {
+       "t": "2026-09-19",
+       "v": 5.914111694609581
+      },
+      {
+       "t": "2026-09-20",
+       "v": 5.77329951140459
+      },
+      {
+       "t": "2026-09-21",
+       "v": 6.476316189704481
+      },
+      {
+       "t": "2026-09-22",
+       "v": 6.3221181851877075
+      },
+      {
+       "t": "2026-09-23",
+       "v": 7.126353466492763
+      },
+      {
+       "t": "2026-09-24",
+       "v": 6.956678383957221
+      },
+      {
+       "t": "2026-09-25",
+       "v": 7.536281279577287
+      },
+      {
+       "t": "2026-09-26",
+       "v": 8.578274582444495
+      },
+      {
+       "t": "2026-09-27",
+       "v": 8.374029949529149
+      },
+      {
+       "t": "2026-09-28",
+       "v": 9.036553045968931
+      },
+      {
+       "t": "2026-09-29",
+       "v": 8.821397021064909
+      }
+     ],
+     "plan": null,
+     "referencias": null
+    },
+    "reparto": null,
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 12,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": {
+      "por": "historia",
+      "llevas": 21,
+      "hacen": 42
+     },
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "banister_ctl",
+     "explica_es": "Media móvil de 42 días de la carga diaria: el trabajo que ya tienes encima. Un 100 % de la carga se apoya en un umbral estimado.",
+     "medida": true,
+     "ancla": "estimada",
+     "proveedor": null
+    }
+   },
+   {
+    "id": "carga.reciente",
+    "grupo": "forma",
+    "familia": null,
+    "titulo_es": "Fatiga",
+    "estado": "medida",
+    "dato": {
+     "valor": 19.894421105857163,
+     "unidad": "tss",
+     "referencia": null
+    },
+    "comparacion": {
+     "anterior": 0,
+     "delta": 19.894421105857163,
+     "unidad": "tss",
+     "periodo": {
+      "desde": "2026-04-15",
+      "hasta": "2026-07-07"
+     },
+     "cambio_minimo": 5,
+     "significativo": true
+    },
+    "serie": {
+     "unidad": "tss",
+     "paso": "dia",
+     "puntos": [
+      {
+       "t": "2026-07-08",
+       "v": 0
+      },
+      {
+       "t": "2026-07-09",
+       "v": 0
+      },
+      {
+       "t": "2026-07-10",
+       "v": 0
+      },
+      {
+       "t": "2026-07-11",
+       "v": 0
+      },
+      {
+       "t": "2026-07-12",
+       "v": 0
+      },
+      {
+       "t": "2026-07-13",
+       "v": 0
+      },
+      {
+       "t": "2026-07-14",
+       "v": 0
+      },
+      {
+       "t": "2026-07-15",
+       "v": 0
+      },
+      {
+       "t": "2026-07-16",
+       "v": 0
+      },
+      {
+       "t": "2026-07-17",
+       "v": 0
+      },
+      {
+       "t": "2026-07-18",
+       "v": 0
+      },
+      {
+       "t": "2026-07-19",
+       "v": 0
+      },
+      {
+       "t": "2026-07-20",
+       "v": 0
+      },
+      {
+       "t": "2026-07-21",
+       "v": 0
+      },
+      {
+       "t": "2026-07-22",
+       "v": 0
+      },
+      {
+       "t": "2026-07-23",
+       "v": 0
+      },
+      {
+       "t": "2026-07-24",
+       "v": 0
+      },
+      {
+       "t": "2026-07-25",
+       "v": 0
+      },
+      {
+       "t": "2026-07-26",
+       "v": 0
+      },
+      {
+       "t": "2026-07-27",
+       "v": 0
+      },
+      {
+       "t": "2026-07-28",
+       "v": 0
+      },
+      {
+       "t": "2026-07-29",
+       "v": 0
+      },
+      {
+       "t": "2026-07-30",
+       "v": 0
+      },
+      {
+       "t": "2026-07-31",
+       "v": 0
+      },
+      {
+       "t": "2026-08-01",
+       "v": 0
+      },
+      {
+       "t": "2026-08-02",
+       "v": 0
+      },
+      {
+       "t": "2026-08-03",
+       "v": 0
+      },
+      {
+       "t": "2026-08-04",
+       "v": 0
+      },
+      {
+       "t": "2026-08-05",
+       "v": 0
+      },
+      {
+       "t": "2026-08-06",
+       "v": 0
+      },
+      {
+       "t": "2026-08-07",
+       "v": 0
+      },
+      {
+       "t": "2026-08-08",
+       "v": 0
+      },
+      {
+       "t": "2026-08-09",
+       "v": 0
+      },
+      {
+       "t": "2026-08-10",
+       "v": 0
+      },
+      {
+       "t": "2026-08-11",
+       "v": 0
+      },
+      {
+       "t": "2026-08-12",
+       "v": 0
+      },
+      {
+       "t": "2026-08-13",
+       "v": 0
+      },
+      {
+       "t": "2026-08-14",
+       "v": 0
+      },
+      {
+       "t": "2026-08-15",
+       "v": 0
+      },
+      {
+       "t": "2026-08-16",
+       "v": 0
+      },
+      {
+       "t": "2026-08-17",
+       "v": 0
+      },
+      {
+       "t": "2026-08-18",
+       "v": 0
+      },
+      {
+       "t": "2026-08-19",
+       "v": 0
+      },
+      {
+       "t": "2026-08-20",
+       "v": 0
+      },
+      {
+       "t": "2026-08-21",
+       "v": 0
+      },
+      {
+       "t": "2026-08-22",
+       "v": 0
+      },
+      {
+       "t": "2026-08-23",
+       "v": 0
+      },
+      {
+       "t": "2026-08-24",
+       "v": 0
+      },
+      {
+       "t": "2026-08-25",
+       "v": 0
+      },
+      {
+       "t": "2026-08-26",
+       "v": 0
+      },
+      {
+       "t": "2026-08-27",
+       "v": 0
+      },
+      {
+       "t": "2026-08-28",
+       "v": 0
+      },
+      {
+       "t": "2026-08-29",
+       "v": 0
+      },
+      {
+       "t": "2026-08-30",
+       "v": 0
+      },
+      {
+       "t": "2026-08-31",
+       "v": 0
+      },
+      {
+       "t": "2026-09-01",
+       "v": 0
+      },
+      {
+       "t": "2026-09-02",
+       "v": 0
+      },
+      {
+       "t": "2026-09-03",
+       "v": 0
+      },
+      {
+       "t": "2026-09-04",
+       "v": 0
+      },
+      {
+       "t": "2026-09-05",
+       "v": 0
+      },
+      {
+       "t": "2026-09-06",
+       "v": 0
+      },
+      {
+       "t": "2026-09-07",
+       "v": 0
+      },
+      {
+       "t": "2026-09-08",
+       "v": 0
+      },
+      {
+       "t": "2026-09-09",
+       "v": 6.214285714285714
+      },
+      {
+       "t": "2026-09-10",
+       "v": 5.326530612244898
+      },
+      {
+       "t": "2026-09-11",
+       "v": 8.794169096209913
+      },
+      {
+       "t": "2026-09-12",
+       "v": 14.16643065389421
+      },
+      {
+       "t": "2026-09-13",
+       "v": 12.142654846195036
+      },
+      {
+       "t": "2026-09-14",
+       "v": 14.836561296738601
+      },
+      {
+       "t": "2026-09-15",
+       "v": 12.717052540061658
+      },
+      {
+       "t": "2026-09-16",
+       "v": 17.34318789148142
+      },
+      {
+       "t": "2026-09-17",
+       "v": 14.86558962126979
+      },
+      {
+       "t": "2026-09-18",
+       "v": 17.756219675374105
+      },
+      {
+       "t": "2026-09-19",
+       "v": 21.919616864606375
+      },
+      {
+       "t": "2026-09-20",
+       "v": 18.788243026805464
+      },
+      {
+       "t": "2026-09-21",
+       "v": 21.14706545154754
+      },
+      {
+       "t": "2026-09-22",
+       "v": 18.126056101326462
+      },
+      {
+       "t": "2026-09-23",
+       "v": 21.26519094399411
+      },
+      {
+       "t": "2026-09-24",
+       "v": 18.227306523423522
+      },
+      {
+       "t": "2026-09-25",
+       "v": 20.094834162934447
+      },
+      {
+       "t": "2026-09-26",
+       "v": 24.552714996800955
+      },
+      {
+       "t": "2026-09-27",
+       "v": 21.045184282972247
+      },
+      {
+       "t": "2026-09-28",
+       "v": 23.210157956833356
+      },
+      {
+       "t": "2026-09-29",
+       "v": 19.894421105857163
+      }
+     ],
+     "plan": null,
+     "referencias": null
+    },
+    "reparto": null,
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 12,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": {
+      "por": "historia",
+      "llevas": 21,
+      "hacen": 42
+     },
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "banister_atl",
+     "explica_es": "Media móvil de 7 días: el cansancio que aún arrastras. Un 100 % de la carga se apoya en un umbral estimado.",
+     "medida": true,
+     "ancla": "estimada",
+     "proveedor": null
+    }
+   },
+   {
+    "id": "carga.frescura",
+    "grupo": "forma",
+    "familia": null,
+    "titulo_es": "Frescura",
+    "estado": "medida",
+    "dato": {
+     "valor": -14.173604910864425,
+     "unidad": "tss",
+     "referencia": {
+      "valor": 0,
+      "delta": -14.173604910864425,
+      "de": "equilibrio"
+     }
+    },
+    "comparacion": {
+     "anterior": 0,
+     "delta": -14.173604910864425,
+     "unidad": "tss",
+     "periodo": {
+      "desde": "2026-04-15",
+      "hasta": "2026-07-07"
+     },
+     "cambio_minimo": 5,
+     "significativo": true
+    },
+    "serie": {
+     "unidad": "tss",
+     "paso": "dia",
+     "puntos": [
+      {
+       "t": "2026-07-08",
+       "v": 0
+      },
+      {
+       "t": "2026-07-09",
+       "v": 0
+      },
+      {
+       "t": "2026-07-10",
+       "v": 0
+      },
+      {
+       "t": "2026-07-11",
+       "v": 0
+      },
+      {
+       "t": "2026-07-12",
+       "v": 0
+      },
+      {
+       "t": "2026-07-13",
+       "v": 0
+      },
+      {
+       "t": "2026-07-14",
+       "v": 0
+      },
+      {
+       "t": "2026-07-15",
+       "v": 0
+      },
+      {
+       "t": "2026-07-16",
+       "v": 0
+      },
+      {
+       "t": "2026-07-17",
+       "v": 0
+      },
+      {
+       "t": "2026-07-18",
+       "v": 0
+      },
+      {
+       "t": "2026-07-19",
+       "v": 0
+      },
+      {
+       "t": "2026-07-20",
+       "v": 0
+      },
+      {
+       "t": "2026-07-21",
+       "v": 0
+      },
+      {
+       "t": "2026-07-22",
+       "v": 0
+      },
+      {
+       "t": "2026-07-23",
+       "v": 0
+      },
+      {
+       "t": "2026-07-24",
+       "v": 0
+      },
+      {
+       "t": "2026-07-25",
+       "v": 0
+      },
+      {
+       "t": "2026-07-26",
+       "v": 0
+      },
+      {
+       "t": "2026-07-27",
+       "v": 0
+      },
+      {
+       "t": "2026-07-28",
+       "v": 0
+      },
+      {
+       "t": "2026-07-29",
+       "v": 0
+      },
+      {
+       "t": "2026-07-30",
+       "v": 0
+      },
+      {
+       "t": "2026-07-31",
+       "v": 0
+      },
+      {
+       "t": "2026-08-01",
+       "v": 0
+      },
+      {
+       "t": "2026-08-02",
+       "v": 0
+      },
+      {
+       "t": "2026-08-03",
+       "v": 0
+      },
+      {
+       "t": "2026-08-04",
+       "v": 0
+      },
+      {
+       "t": "2026-08-05",
+       "v": 0
+      },
+      {
+       "t": "2026-08-06",
+       "v": 0
+      },
+      {
+       "t": "2026-08-07",
+       "v": 0
+      },
+      {
+       "t": "2026-08-08",
+       "v": 0
+      },
+      {
+       "t": "2026-08-09",
+       "v": 0
+      },
+      {
+       "t": "2026-08-10",
+       "v": 0
+      },
+      {
+       "t": "2026-08-11",
+       "v": 0
+      },
+      {
+       "t": "2026-08-12",
+       "v": 0
+      },
+      {
+       "t": "2026-08-13",
+       "v": 0
+      },
+      {
+       "t": "2026-08-14",
+       "v": 0
+      },
+      {
+       "t": "2026-08-15",
+       "v": 0
+      },
+      {
+       "t": "2026-08-16",
+       "v": 0
+      },
+      {
+       "t": "2026-08-17",
+       "v": 0
+      },
+      {
+       "t": "2026-08-18",
+       "v": 0
+      },
+      {
+       "t": "2026-08-19",
+       "v": 0
+      },
+      {
+       "t": "2026-08-20",
+       "v": 0
+      },
+      {
+       "t": "2026-08-21",
+       "v": 0
+      },
+      {
+       "t": "2026-08-22",
+       "v": 0
+      },
+      {
+       "t": "2026-08-23",
+       "v": 0
+      },
+      {
+       "t": "2026-08-24",
+       "v": 0
+      },
+      {
+       "t": "2026-08-25",
+       "v": 0
+      },
+      {
+       "t": "2026-08-26",
+       "v": 0
+      },
+      {
+       "t": "2026-08-27",
+       "v": 0
+      },
+      {
+       "t": "2026-08-28",
+       "v": 0
+      },
+      {
+       "t": "2026-08-29",
+       "v": 0
+      },
+      {
+       "t": "2026-08-30",
+       "v": 0
+      },
+      {
+       "t": "2026-08-31",
+       "v": 0
+      },
+      {
+       "t": "2026-09-01",
+       "v": 0
+      },
+      {
+       "t": "2026-09-02",
+       "v": 0
+      },
+      {
+       "t": "2026-09-03",
+       "v": 0
+      },
+      {
+       "t": "2026-09-04",
+       "v": 0
+      },
+      {
+       "t": "2026-09-05",
+       "v": 0
+      },
+      {
+       "t": "2026-09-06",
+       "v": 0
+      },
+      {
+       "t": "2026-09-07",
+       "v": 0
+      },
+      {
+       "t": "2026-09-08",
+       "v": 0
+      },
+      {
+       "t": "2026-09-09",
+       "v": 0
+      },
+      {
+       "t": "2026-09-10",
+       "v": -5.178571428571429
+      },
+      {
+       "t": "2026-09-11",
+       "v": -4.315476190476191
+      },
+      {
+       "t": "2026-09-12",
+       "v": -7.102425494007127
+      },
+      {
+       "t": "2026-09-13",
+       "v": -11.410204756505776
+      },
+      {
+       "t": "2026-09-14",
+       "v": -9.452053374934898
+      },
+      {
+       "t": "2026-09-15",
+       "v": -11.471926527175134
+      },
+      {
+       "t": "2026-09-16",
+       "v": -9.432528122154462
+      },
+      {
+       "t": "2026-09-17",
+       "v": -13.063056912095824
+      },
+      {
+       "t": "2026-09-18",
+       "v": -10.687366522345755
+      },
+      {
+       "t": "2026-09-19",
+       "v": -12.84176379309112
+      },
+      {
+       "t": "2026-09-20",
+       "v": -16.005505169996795
+      },
+      {
+       "t": "2026-09-21",
+       "v": -13.014943515400873
+      },
+      {
+       "t": "2026-09-22",
+       "v": -14.67074926184306
+      },
+      {
+       "t": "2026-09-23",
+       "v": -11.803937916138754
+      },
+      {
+       "t": "2026-09-24",
+       "v": -14.138837477501347
+      },
+      {
+       "t": "2026-09-25",
+       "v": -11.2706281394663
+      },
+      {
+       "t": "2026-09-26",
+       "v": -12.558552883357159
+      },
+      {
+       "t": "2026-09-27",
+       "v": -15.97444041435646
+      },
+      {
+       "t": "2026-09-28",
+       "v": -12.671154333443098
+      },
+      {
+       "t": "2026-09-29",
+       "v": -14.173604910864425
+      }
+     ],
+     "plan": null,
+     "referencias": [
+      {
+       "code": "sobrecarga_hasta",
+       "etiqueta_es": "Sobrecarga",
+       "valor": -30
+      },
+      {
+       "code": "optimo_hasta",
+       "etiqueta_es": "Óptimo",
+       "valor": -11
+      },
+      {
+       "code": "mantener_hasta",
+       "etiqueta_es": "Mantener",
+       "valor": 4
+      },
+      {
+       "code": "fresco_hasta",
+       "etiqueta_es": "Fresco",
+       "valor": 29
+      }
+     ]
+    },
+    "reparto": null,
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 12,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": {
+      "por": "historia",
+      "llevas": 21,
+      "hacen": 42
+     },
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "banister_tsb",
+     "explica_es": "La forma menos la fatiga. En positivo llegas descansado; en negativo, cargado. Un 100 % de la carga se apoya en un umbral estimado.",
+     "medida": true,
+     "ancla": "estimada",
+     "proveedor": null
+    }
+   },
+   {
+    "id": "carga.subida",
+    "grupo": "forma",
+    "familia": null,
+    "titulo_es": "Ritmo de subida",
+    "estado": "medida",
+    "dato": {
+     "valor": 2.4992788358772016,
+     "unidad": "tss_semana",
+     "referencia": {
+      "valor": 5,
+      "delta": -2.5007211641227984,
+      "de": "aviso_del_coach"
+     }
+    },
+    "comparacion": null,
+    "serie": {
+     "unidad": "tss_semana",
+     "paso": "dia",
+     "puntos": [
+      {
+       "t": "2026-07-08",
+       "v": 0
+      },
+      {
+       "t": "2026-07-09",
+       "v": 0
+      },
+      {
+       "t": "2026-07-10",
+       "v": 0
+      },
+      {
+       "t": "2026-07-11",
+       "v": 0
+      },
+      {
+       "t": "2026-07-12",
+       "v": 0
+      },
+      {
+       "t": "2026-07-13",
+       "v": 0
+      },
+      {
+       "t": "2026-07-14",
+       "v": 0
+      },
+      {
+       "t": "2026-07-15",
+       "v": 0
+      },
+      {
+       "t": "2026-07-16",
+       "v": 0
+      },
+      {
+       "t": "2026-07-17",
+       "v": 0
+      },
+      {
+       "t": "2026-07-18",
+       "v": 0
+      },
+      {
+       "t": "2026-07-19",
+       "v": 0
+      },
+      {
+       "t": "2026-07-20",
+       "v": 0
+      },
+      {
+       "t": "2026-07-21",
+       "v": 0
+      },
+      {
+       "t": "2026-07-22",
+       "v": 0
+      },
+      {
+       "t": "2026-07-23",
+       "v": 0
+      },
+      {
+       "t": "2026-07-24",
+       "v": 0
+      },
+      {
+       "t": "2026-07-25",
+       "v": 0
+      },
+      {
+       "t": "2026-07-26",
+       "v": 0
+      },
+      {
+       "t": "2026-07-27",
+       "v": 0
+      },
+      {
+       "t": "2026-07-28",
+       "v": 0
+      },
+      {
+       "t": "2026-07-29",
+       "v": 0
+      },
+      {
+       "t": "2026-07-30",
+       "v": 0
+      },
+      {
+       "t": "2026-07-31",
+       "v": 0
+      },
+      {
+       "t": "2026-08-01",
+       "v": 0
+      },
+      {
+       "t": "2026-08-02",
+       "v": 0
+      },
+      {
+       "t": "2026-08-03",
+       "v": 0
+      },
+      {
+       "t": "2026-08-04",
+       "v": 0
+      },
+      {
+       "t": "2026-08-05",
+       "v": 0
+      },
+      {
+       "t": "2026-08-06",
+       "v": 0
+      },
+      {
+       "t": "2026-08-07",
+       "v": 0
+      },
+      {
+       "t": "2026-08-08",
+       "v": 0
+      },
+      {
+       "t": "2026-08-09",
+       "v": 0
+      },
+      {
+       "t": "2026-08-10",
+       "v": 0
+      },
+      {
+       "t": "2026-08-11",
+       "v": 0
+      },
+      {
+       "t": "2026-08-12",
+       "v": 0
+      },
+      {
+       "t": "2026-08-13",
+       "v": 0
+      },
+      {
+       "t": "2026-08-14",
+       "v": 0
+      },
+      {
+       "t": "2026-08-15",
+       "v": 0
+      },
+      {
+       "t": "2026-08-16",
+       "v": 0
+      },
+      {
+       "t": "2026-08-17",
+       "v": 0
+      },
+      {
+       "t": "2026-08-18",
+       "v": 0
+      },
+      {
+       "t": "2026-08-19",
+       "v": 0
+      },
+      {
+       "t": "2026-08-20",
+       "v": 0
+      },
+      {
+       "t": "2026-08-21",
+       "v": 0
+      },
+      {
+       "t": "2026-08-22",
+       "v": 0
+      },
+      {
+       "t": "2026-08-23",
+       "v": 0
+      },
+      {
+       "t": "2026-08-24",
+       "v": 0
+      },
+      {
+       "t": "2026-08-25",
+       "v": 0
+      },
+      {
+       "t": "2026-08-26",
+       "v": 0
+      },
+      {
+       "t": "2026-08-27",
+       "v": 0
+      },
+      {
+       "t": "2026-08-28",
+       "v": 0
+      },
+      {
+       "t": "2026-08-29",
+       "v": 0
+      },
+      {
+       "t": "2026-08-30",
+       "v": 0
+      },
+      {
+       "t": "2026-08-31",
+       "v": 0
+      },
+      {
+       "t": "2026-09-01",
+       "v": 0
+      },
+      {
+       "t": "2026-09-02",
+       "v": 0
+      },
+      {
+       "t": "2026-09-03",
+       "v": 0
+      },
+      {
+       "t": "2026-09-04",
+       "v": 0
+      },
+      {
+       "t": "2026-09-05",
+       "v": 0
+      },
+      {
+       "t": "2026-09-06",
+       "v": 0
+      },
+      {
+       "t": "2026-09-07",
+       "v": 0
+      },
+      {
+       "t": "2026-09-08",
+       "v": 0
+      },
+      {
+       "t": "2026-09-09",
+       "v": 1.0357142857142858
+      },
+      {
+       "t": "2026-09-10",
+       "v": 1.0110544217687076
+      },
+      {
+       "t": "2026-09-11",
+       "v": 1.691743602202786
+      },
+      {
+       "t": "2026-09-12",
+       "v": 2.756225897388434
+      },
+      {
+       "t": "2026-09-13",
+       "v": 2.690601471260138
+      },
+      {
+       "t": "2026-09-14",
+       "v": 3.364634769563468
+      },
+      {
+       "t": "2026-09-15",
+       "v": 3.2845244179071953
+      },
+      {
+       "t": "2026-09-16",
+       "v": 3.24441669367131
+      },
+      {
+       "t": "2026-09-17",
+       "v": 3.167168677155326
+      },
+      {
+       "t": "2026-09-18",
+       "v": 3.2227122800801986
+      },
+      {
+       "t": "2026-09-19",
+       "v": 3.1578857972211467
+      },
+      {
+       "t": "2026-09-20",
+       "v": 3.0826980401444524
+      },
+      {
+       "t": "2026-09-21",
+       "v": 3.111681420141013
+      },
+      {
+       "t": "2026-09-22",
+       "v": 3.0375937672805122
+      },
+      {
+       "t": "2026-09-23",
+       "v": 2.846222487107167
+      },
+      {
+       "t": "2026-09-24",
+       "v": 2.7784552850331874
+      },
+      {
+       "t": "2026-09-25",
+       "v": 2.6218253972943026
+      },
+      {
+       "t": "2026-09-26",
+       "v": 2.664162887834914
+      },
+      {
+       "t": "2026-09-27",
+       "v": 2.6007304381245584
+      },
+      {
+       "t": "2026-09-28",
+       "v": 2.56023685626445
+      },
+      {
+       "t": "2026-09-29",
+       "v": 2.4992788358772016
+      }
+     ],
+     "plan": null,
+     "referencias": [
+      {
+       "code": "aviso",
+       "etiqueta_es": "Aviso",
+       "valor": 5
+      }
+     ]
+    },
+    "reparto": null,
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 12,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": {
+      "por": "historia",
+      "llevas": 21,
+      "hacen": 42
+     },
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "banister_ramp",
+     "explica_es": "Cuánto ha crecido tu forma en la última semana. Sube el listón, no lo que ya hiciste. Un 100 % de la carga se apoya en un umbral estimado.",
+     "medida": true,
+     "ancla": "estimada",
+     "proveedor": null
+    }
+   },
+   {
+    "id": "carga.cobertura",
+    "grupo": "forma",
+    "familia": null,
+    "titulo_es": "Cuánto de esto se ha medido",
+    "estado": "medida",
+    "dato": {
+     "valor": 100,
+     "unidad": "pct",
+     "referencia": {
+      "valor": 90,
+      "delta": 10,
+      "de": "minimo_del_coach"
+     }
+    },
+    "comparacion": null,
+    "serie": null,
+    "reparto": {
+     "unidad": "segundos",
+     "total": 34200,
+     "partes": [
+      {
+       "code": "medida",
+       "etiqueta_es": "Contra un umbral medido",
+       "valor": 0,
+       "pct": 0
+      },
+      {
+       "code": "declarada",
+       "etiqueta_es": "Contra un umbral que nos diste",
+       "valor": 0,
+       "pct": 0
+      },
+      {
+       "code": "estimada",
+       "etiqueta_es": "Contra un umbral estimado",
+       "valor": 18000,
+       "pct": 52.63157894736842
+      },
+      {
+       "code": "esfuerzo",
+       "etiqueta_es": "Por tu esfuerzo",
+       "valor": 16200,
+       "pct": 47.368421052631575
+      },
+      {
+       "code": "sin_saber",
+       "etiqueta_es": "Sin medir ni puntuar",
+       "valor": 0,
+       "pct": 0
+      }
+     ]
+    },
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 0,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": {
+      "por": "historia",
+      "llevas": 21,
+      "hacen": 42
+     },
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "cobertura_carga",
+     "explica_es": "Del tiempo que entrenaste en la ventana, cuánto entra en los números y con qué umbral. Un 100 % de la carga se apoya en un umbral estimado.",
+     "medida": true,
+     "ancla": "estimada",
+     "proveedor": null
+    }
+   },
+   {
+    "id": "carga.proyeccion",
+    "grupo": "forma",
+    "familia": null,
+    "titulo_es": "Frescura el día de la carrera",
+    "estado": "sin_dato",
+    "dato": null,
+    "comparacion": null,
+    "serie": null,
+    "reparto": null,
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 12,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": {
+      "por": "objetivo"
+     },
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "banister_proyeccion_plan",
+     "explica_es": "La curva de forma seguida con lo que tienes planificado hasta el día de la carrera. Un 100 % de la carga se apoya en un umbral estimado.",
+     "medida": true,
+     "ancla": "estimada",
+     "proveedor": null
+    }
+   }
+  ],
+  "semanas": [
+   {
+    "id": "semanas.carga",
+    "grupo": "semanas",
+    "familia": null,
+    "titulo_es": "Carga por semana",
+    "estado": "medida",
+    "dato": {
+     "valor": 471.8,
+     "unidad": "tss",
+     "referencia": null
+    },
+    "comparacion": {
+     "anterior": 0,
+     "delta": null,
+     "unidad": "pct",
+     "periodo": {
+      "desde": "2026-04-15",
+      "hasta": "2026-07-07"
+     },
+     "cambio_minimo": 10,
+     "significativo": null
+    },
+    "serie": {
+     "unidad": "tss",
+     "paso": "semana",
+     "puntos": [
+      {
+       "t": "2026-07-06",
+       "v": 0
+      },
+      {
+       "t": "2026-07-13",
+       "v": 0
+      },
+      {
+       "t": "2026-07-20",
+       "v": 0
+      },
+      {
+       "t": "2026-07-27",
+       "v": 0
+      },
+      {
+       "t": "2026-08-03",
+       "v": 0
+      },
+      {
+       "t": "2026-08-10",
+       "v": 0
+      },
+      {
+       "t": "2026-08-17",
+       "v": 0
+      },
+      {
+       "t": "2026-08-24",
+       "v": 0
+      },
+      {
+       "t": "2026-08-31",
+       "v": 0
+      },
+      {
+       "t": "2026-09-07",
+       "v": 119.5
+      },
+      {
+       "t": "2026-09-14",
+       "v": 158.1
+      },
+      {
+       "t": "2026-09-21",
+       "v": 158
+      },
+      {
+       "t": "2026-09-28",
+       "v": 36.2
+      }
+     ],
+     "plan": [
+      {
+       "t": "2026-07-06",
+       "v": 120
+      },
+      {
+       "t": "2026-07-13",
+       "v": 158
+      },
+      {
+       "t": "2026-07-20",
+       "v": 155
+      },
+      {
+       "t": "2026-07-27",
+       "v": 160
+      },
+      {
+       "t": "2026-08-03",
+       "v": 154
+      },
+      {
+       "t": "2026-08-10",
+       "v": 162
+      },
+      {
+       "t": "2026-08-17",
+       "v": 168
+      },
+      {
+       "t": "2026-08-24",
+       "v": 167
+      },
+      {
+       "t": "2026-08-31",
+       "v": 158
+      },
+      {
+       "t": "2026-09-07",
+       "v": 165
+      },
+      {
+       "t": "2026-09-14",
+       "v": 164
+      },
+      {
+       "t": "2026-09-21",
+       "v": 168
+      },
+      {
+       "t": "2026-09-28",
+       "v": 36
+      }
+     ],
+     "referencias": null
+    },
+    "reparto": {
+     "unidad": "tss",
+     "total": 471.8,
+     "partes": [
+      {
+       "code": "correr",
+       "etiqueta_es": "Correr",
+       "valor": 273.3,
+       "pct": 57.9270877490462
+      },
+      {
+       "code": "fuerza",
+       "etiqueta_es": "Fuerza",
+       "valor": 198.5,
+       "pct": 42.07291225095379
+      }
+     ]
+    },
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 12,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": null,
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "suma_tss_semana",
+     "explica_es": "La carga de cada semana, lunes a domingo, frente a la planificada.",
+     "medida": true,
+     "ancla": null,
+     "proveedor": null
+    }
+   },
+   {
+    "id": "semanas.horas",
+    "grupo": "semanas",
+    "familia": null,
+    "titulo_es": "Horas por semana",
+    "estado": "medida",
+    "dato": {
+     "valor": 9.5,
+     "unidad": "horas",
+     "referencia": null
+    },
+    "comparacion": {
+     "anterior": 0,
+     "delta": null,
+     "unidad": "pct",
+     "periodo": {
+      "desde": "2026-04-15",
+      "hasta": "2026-07-07"
+     },
+     "cambio_minimo": 10,
+     "significativo": null
+    },
+    "serie": {
+     "unidad": "horas",
+     "paso": "semana",
+     "puntos": [
+      {
+       "t": "2026-07-06",
+       "v": 0
+      },
+      {
+       "t": "2026-07-13",
+       "v": 0
+      },
+      {
+       "t": "2026-07-20",
+       "v": 0
+      },
+      {
+       "t": "2026-07-27",
+       "v": 0
+      },
+      {
+       "t": "2026-08-03",
+       "v": 0
+      },
+      {
+       "t": "2026-08-10",
+       "v": 0
+      },
+      {
+       "t": "2026-08-17",
+       "v": 0
+      },
+      {
+       "t": "2026-08-24",
+       "v": 0
+      },
+      {
+       "t": "2026-08-31",
+       "v": 0
+      },
+      {
+       "t": "2026-09-07",
+       "v": 2.4166666666666665
+      },
+      {
+       "t": "2026-09-14",
+       "v": 3.1666666666666665
+      },
+      {
+       "t": "2026-09-21",
+       "v": 3.1666666666666665
+      },
+      {
+       "t": "2026-09-28",
+       "v": 0.75
+      }
+     ],
+     "plan": [
+      {
+       "t": "2026-07-06",
+       "v": 2.4166666666666665
+      },
+      {
+       "t": "2026-07-13",
+       "v": 3.1666666666666665
+      },
+      {
+       "t": "2026-07-20",
+       "v": 3.1666666666666665
+      },
+      {
+       "t": "2026-07-27",
+       "v": 3.1666666666666665
+      },
+      {
+       "t": "2026-08-03",
+       "v": 3.1666666666666665
+      },
+      {
+       "t": "2026-08-10",
+       "v": 3.1666666666666665
+      },
+      {
+       "t": "2026-08-17",
+       "v": 3.1666666666666665
+      },
+      {
+       "t": "2026-08-24",
+       "v": 3.1666666666666665
+      },
+      {
+       "t": "2026-08-31",
+       "v": 3.1666666666666665
+      },
+      {
+       "t": "2026-09-07",
+       "v": 3.1666666666666665
+      },
+      {
+       "t": "2026-09-14",
+       "v": 3.1666666666666665
+      },
+      {
+       "t": "2026-09-21",
+       "v": 3.1666666666666665
+      },
+      {
+       "t": "2026-09-28",
+       "v": 0.75
+      }
+     ],
+     "referencias": null
+    },
+    "reparto": {
+     "unidad": "horas",
+     "total": 9.5,
+     "partes": [
+      {
+       "code": "correr",
+       "etiqueta_es": "Correr",
+       "valor": 5,
+       "pct": 52.63157894736842
+      },
+      {
+       "code": "fuerza",
+       "etiqueta_es": "Fuerza",
+       "valor": 4.5,
+       "pct": 47.368421052631575
+      }
+     ]
+    },
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 12,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": null,
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "suma_horas_semana",
+     "explica_es": "Las horas entrenadas cada semana, frente a las que el plan escribe.",
+     "medida": true,
+     "ancla": null,
+     "proveedor": null
+    }
+   },
+   {
+    "id": "semanas.sesiones",
+    "grupo": "semanas",
+    "familia": null,
+    "titulo_es": "Entrenos por semana",
+    "estado": "medida",
+    "dato": {
+     "valor": 12,
+     "unidad": "sesiones",
+     "referencia": null
+    },
+    "comparacion": {
+     "anterior": 0,
+     "delta": 12,
+     "unidad": "sesiones",
+     "periodo": {
+      "desde": "2026-04-15",
+      "hasta": "2026-07-07"
+     },
+     "cambio_minimo": null,
+     "significativo": null
+    },
+    "serie": {
+     "unidad": "sesiones",
+     "paso": "semana",
+     "puntos": [
+      {
+       "t": "2026-07-06",
+       "v": 0
+      },
+      {
+       "t": "2026-07-13",
+       "v": 0
+      },
+      {
+       "t": "2026-07-20",
+       "v": 0
+      },
+      {
+       "t": "2026-07-27",
+       "v": 0
+      },
+      {
+       "t": "2026-08-03",
+       "v": 0
+      },
+      {
+       "t": "2026-08-10",
+       "v": 0
+      },
+      {
+       "t": "2026-08-17",
+       "v": 0
+      },
+      {
+       "t": "2026-08-24",
+       "v": 0
+      },
+      {
+       "t": "2026-08-31",
+       "v": 0
+      },
+      {
+       "t": "2026-09-07",
+       "v": 3
+      },
+      {
+       "t": "2026-09-14",
+       "v": 4
+      },
+      {
+       "t": "2026-09-21",
+       "v": 4
+      },
+      {
+       "t": "2026-09-28",
+       "v": 1
+      }
+     ],
+     "plan": [
+      {
+       "t": "2026-07-06",
+       "v": 3
+      },
+      {
+       "t": "2026-07-13",
+       "v": 4
+      },
+      {
+       "t": "2026-07-20",
+       "v": 4
+      },
+      {
+       "t": "2026-07-27",
+       "v": 4
+      },
+      {
+       "t": "2026-08-03",
+       "v": 4
+      },
+      {
+       "t": "2026-08-10",
+       "v": 4
+      },
+      {
+       "t": "2026-08-17",
+       "v": 4
+      },
+      {
+       "t": "2026-08-24",
+       "v": 4
+      },
+      {
+       "t": "2026-08-31",
+       "v": 4
+      },
+      {
+       "t": "2026-09-07",
+       "v": 4
+      },
+      {
+       "t": "2026-09-14",
+       "v": 4
+      },
+      {
+       "t": "2026-09-21",
+       "v": 4
+      },
+      {
+       "t": "2026-09-28",
+       "v": 1
+      }
+     ],
+     "referencias": null
+    },
+    "reparto": null,
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 12,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": null,
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "sesiones_semana",
+     "explica_es": "Los entrenos hechos cada semana, frente a los planificados.",
+     "medida": true,
+     "ancla": null,
+     "proveedor": null
+    }
+   },
+   {
+    "id": "semanas.carga.correr",
+    "grupo": "semanas",
+    "familia": "correr",
+    "titulo_es": "Correr",
+    "estado": "medida",
+    "dato": {
+     "valor": 273.3,
+     "unidad": "tss",
+     "referencia": null
+    },
+    "comparacion": {
+     "anterior": 0,
+     "delta": null,
+     "unidad": "pct",
+     "periodo": {
+      "desde": "2026-04-15",
+      "hasta": "2026-07-07"
+     },
+     "cambio_minimo": 10,
+     "significativo": null
+    },
+    "serie": {
+     "unidad": "tss",
+     "paso": "semana",
+     "puntos": [
+      {
+       "t": "2026-07-06",
+       "v": 0
+      },
+      {
+       "t": "2026-07-13",
+       "v": 0
+      },
+      {
+       "t": "2026-07-20",
+       "v": 0
+      },
+      {
+       "t": "2026-07-27",
+       "v": 0
+      },
+      {
+       "t": "2026-08-03",
+       "v": 0
+      },
+      {
+       "t": "2026-08-10",
+       "v": 0
+      },
+      {
+       "t": "2026-08-17",
+       "v": 0
+      },
+      {
+       "t": "2026-08-24",
+       "v": 0
+      },
+      {
+       "t": "2026-08-31",
+       "v": 0
+      },
+      {
+       "t": "2026-09-07",
+       "v": 89.9
+      },
+      {
+       "t": "2026-09-14",
+       "v": 92
+      },
+      {
+       "t": "2026-09-21",
+       "v": 91.4
+      },
+      {
+       "t": "2026-09-28",
+       "v": 0
+      }
+     ],
+     "plan": [
+      {
+       "t": "2026-07-06",
+       "v": 90
+      },
+      {
+       "t": "2026-07-13",
+       "v": 90
+      },
+      {
+       "t": "2026-07-20",
+       "v": 92
+      },
+      {
+       "t": "2026-07-27",
+       "v": 94
+      },
+      {
+       "t": "2026-08-03",
+       "v": 86
+      },
+      {
+       "t": "2026-08-10",
+       "v": 99
+      },
+      {
+       "t": "2026-08-17",
+       "v": 99
+      },
+      {
+       "t": "2026-08-24",
+       "v": 99
+      },
+      {
+       "t": "2026-08-31",
+       "v": 89
+      },
+      {
+       "t": "2026-09-07",
+       "v": 100
+      },
+      {
+       "t": "2026-09-14",
+       "v": 95
+      },
+      {
+       "t": "2026-09-21",
+       "v": 99
+      },
+      {
+       "t": "2026-09-28",
+       "v": null
+      }
+     ],
+     "referencias": null
+    },
+    "reparto": {
+     "unidad": "horas",
+     "total": 5,
+     "partes": [
+      {
+       "code": "correr",
+       "etiqueta_es": "Correr",
+       "valor": 5,
+       "pct": 52.63157894736842
+      }
+     ]
+    },
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 12,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": null,
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "suma_tss_semana_familia",
+     "explica_es": "La carga de correr cada semana, frente a la planificada.",
+     "medida": true,
+     "ancla": null,
+     "proveedor": null
+    }
+   },
+   {
+    "id": "semanas.carga.fuerza",
+    "grupo": "semanas",
+    "familia": "fuerza",
+    "titulo_es": "Fuerza",
+    "estado": "medida",
+    "dato": {
+     "valor": 198.5,
+     "unidad": "tss",
+     "referencia": null
+    },
+    "comparacion": {
+     "anterior": 0,
+     "delta": null,
+     "unidad": "pct",
+     "periodo": {
+      "desde": "2026-04-15",
+      "hasta": "2026-07-07"
+     },
+     "cambio_minimo": 10,
+     "significativo": null
+    },
+    "serie": {
+     "unidad": "tss",
+     "paso": "semana",
+     "puntos": [
+      {
+       "t": "2026-07-06",
+       "v": 0
+      },
+      {
+       "t": "2026-07-13",
+       "v": 0
+      },
+      {
+       "t": "2026-07-20",
+       "v": 0
+      },
+      {
+       "t": "2026-07-27",
+       "v": 0
+      },
+      {
+       "t": "2026-08-03",
+       "v": 0
+      },
+      {
+       "t": "2026-08-10",
+       "v": 0
+      },
+      {
+       "t": "2026-08-17",
+       "v": 0
+      },
+      {
+       "t": "2026-08-24",
+       "v": 0
+      },
+      {
+       "t": "2026-08-31",
+       "v": 0
+      },
+      {
+       "t": "2026-09-07",
+       "v": 29.6
+      },
+      {
+       "t": "2026-09-14",
+       "v": 66.1
+      },
+      {
+       "t": "2026-09-21",
+       "v": 66.6
+      },
+      {
+       "t": "2026-09-28",
+       "v": 36.2
+      }
+     ],
+     "plan": [
+      {
+       "t": "2026-07-06",
+       "v": 30
+      },
+      {
+       "t": "2026-07-13",
+       "v": 68
+      },
+      {
+       "t": "2026-07-20",
+       "v": 63
+      },
+      {
+       "t": "2026-07-27",
+       "v": 66
+      },
+      {
+       "t": "2026-08-03",
+       "v": 68
+      },
+      {
+       "t": "2026-08-10",
+       "v": 63
+      },
+      {
+       "t": "2026-08-17",
+       "v": 69
+      },
+      {
+       "t": "2026-08-24",
+       "v": 68
+      },
+      {
+       "t": "2026-08-31",
+       "v": 69
+      },
+      {
+       "t": "2026-09-07",
+       "v": 65
+      },
+      {
+       "t": "2026-09-14",
+       "v": 69
+      },
+      {
+       "t": "2026-09-21",
+       "v": 69
+      },
+      {
+       "t": "2026-09-28",
+       "v": 36
+      }
+     ],
+     "referencias": null
+    },
+    "reparto": {
+     "unidad": "horas",
+     "total": 4.5,
+     "partes": [
+      {
+       "code": "fuerza",
+       "etiqueta_es": "Fuerza",
+       "valor": 4.5,
+       "pct": 47.368421052631575
+      }
+     ]
+    },
+    "veredicto": null,
+    "cobertura": {
+     "muestras": 12,
+     "dias_ventana": 84,
+     "dias_con_dato": 12,
+     "pct": 14.285714285714285,
+     "falta": null,
+     "ultimo_dato": "2026-09-28"
+    },
+    "procedencia": {
+     "de": "suma_tss_semana_familia",
+     "explica_es": "La carga de fuerza cada semana, frente a la planificada.",
+     "medida": true,
+     "ancla": null,
+     "proveedor": null
+    }
+   }
+  ],
+  "intensidad": [],
+  "progreso": [],
+  "records": [],
+  "carrera": [],
+  "recuperacion": []
+ },
+ "pendientes": [
+  "intensidad",
+  "progreso",
+  "records",
+  "carrera",
+  "recuperacion"
+ ],
+ "hechos": [],
+ "_propuesta": "cobertura.ultimo_dato y metodo.{dato_viejo_dias,muestras_minimas,cobertura_poco_pct,semanas_minimas_forma,ventana_basal_dias,reciente_dias} son del contrato firmado (kit-analiticas/contrato.ts + metodo.ts) y el servidor aún no los sirve; el cliente los lee como opcionales."
+}

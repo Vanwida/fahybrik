@@ -41,7 +41,7 @@ export function lecturasEstado(e: EntradaEstado): Lectura[] {
       lecturaSinDato({
         id: 'estado.readiness',
         grupo: GRUPO,
-        titulo_es: 'Readiness',
+        titulo_es: 'Disposición',
         falta: { por: 'dispositivo' },
         procedencia: { de: 'readiness_compuesto', explica_es: 'Tu readiness de hoy: check-in, variabilidad, sueño y pulso en reposo con los pesos de tu coach.', medida: false, ancla: null, proveedor: null },
       }),
@@ -52,7 +52,7 @@ export function lecturasEstado(e: EntradaEstado): Lectura[] {
       lecturaMedida({
         id: 'estado.readiness',
         grupo: GRUPO,
-        titulo_es: 'Readiness',
+        titulo_es: 'Disposición',
         dato: {
           valor: r.score,
           unidad: 'puntos',

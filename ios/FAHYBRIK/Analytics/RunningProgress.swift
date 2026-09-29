@@ -196,6 +196,12 @@ enum Falta: Equatable {
     case ocasion
     /// Nadie le ha pedido nunca un ritmo: no hay contra qué cumplir.
     case intencion
+    /// No hay carrera objetivo: sin ella no hay a qué proyectar la forma (29-09).
+    case objetivo
+    /// Sesiones sin puntuar el esfuerzo: sin RPE ni umbral, su carga no se sabe (29-09).
+    case esfuerzo(sesiones: Int)
+    /// No hay entrenos planificados: no hay plan que seguir ni proyectar (29-09).
+    case plan
     /// UNA RAZÓN QUE ESTE BINARIO NO CONOCE. No se puede decir por qué falta ni
     /// ofrecer salida, así que se trata como silencio: enseñar un candado sin
     /// motivo es exactamente el hueco mudo que este vocabulario existe para
@@ -205,7 +211,7 @@ enum Falta: Equatable {
 }
 
 extension Falta: Codable {
-    private enum K: String, CodingKey { case por, llevas, hacen }
+    private enum K: String, CodingKey { case por, llevas, hacen, sesiones }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: K.self)
@@ -219,6 +225,9 @@ extension Falta: Codable {
         case "dispositivo": self = .dispositivo
         case "ocasion": self = .ocasion
         case "intencion": self = .intencion
+        case "objetivo": self = .objetivo
+        case "esfuerzo": self = .esfuerzo(sesiones: (try? c.decode(Int.self, forKey: .sesiones)) ?? 0)
+        case "plan": self = .plan
         default: self = .desconocida
         }
     }
@@ -235,6 +244,11 @@ extension Falta: Codable {
         case .dispositivo: try c.encode("dispositivo", forKey: .por)
         case .ocasion: try c.encode("ocasion", forKey: .por)
         case .intencion: try c.encode("intencion", forKey: .por)
+        case .objetivo: try c.encode("objetivo", forKey: .por)
+        case .esfuerzo(let sesiones):
+            try c.encode("esfuerzo", forKey: .por)
+            try c.encode(sesiones, forKey: .sesiones)
+        case .plan: try c.encode("plan", forKey: .por)
         case .desconocida: try c.encode("desconocida", forKey: .por)
         }
     }

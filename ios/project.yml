@@ -99,6 +99,9 @@ targets:
       - path: FAHYBRIK
         excludes:
           - PrivacyInfo.xcprivacy
+          # Los README de las carpetas son para las sesiones, no para el bundle:
+          # dos de ellos (VivoIphone y Analytics/Panel) chocaban al copiarse.
+          - "**/README.md"
       # Explicit Copy Bundle Resources — XcodeGen has no target `resources:` key.
       # PrivacyInfo.xcprivacy is Apple's App Privacy Configuration plist.
       - path: FAHYBRIK/PrivacyInfo.xcprivacy
