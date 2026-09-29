@@ -89,6 +89,13 @@ function tramoVacio(t: TramoEjecutado): boolean {
   );
 }
 
+/** ¿Todos los esfuerzos piden la misma dosis, en el mismo eje y con el mismo tope? */
+function dosisUniforme(esfuerzos: readonly Esfuerzo[]): boolean {
+  const primera = esfuerzos[0]?.dosis;
+  if (!primera) return false;
+  return esfuerzos.every((e) => e.dosis?.eje === primera.eje && e.dosis.valor === primera.valor && e.dosis.max === primera.max);
+}
+
 function noNulas<T>(xs: ReadonlyArray<T | null>): T[] {
   return xs.filter((x): x is T => x != null);
 }
@@ -127,12 +134,14 @@ export function juzgarLinea(l: LineaPlan, tramos: readonly TramoEjecutado[], esf
   } else {
     // 6 · contra el representativo: el primer trabajo PRINCIPAL (no el
     // calentamiento de la estructura). Si la línea tiene varios esfuerzos, el
-    // tramo no es ninguno en concreto y su dosis no se compara; si tiene uno, el
+    // tramo no es ninguno en concreto: su dosis solo se compara cuando TODOS piden
+    // la misma (5×1000 m: cualquiera de las cinco es de 1000 m). Si tiene uno, el
     // tramo ES la línea — y si su formato puntúa tiempo, se juzga contra su tope.
     const rep = trabajo.find((e) => e.fase === 'principal') ?? trabajo[0] ?? null;
     const unico = trabajo.length <= 1;
     const tope = tsTrabajo.length === 1 && unico ? topeDe(l.prescripcion) : null;
-    for (const t of tsTrabajo) filas.push(juzgarUno(t, rep, l, ctx, { tope, sinDosis: !unico }));
+    const sinDosis = !unico && !dosisUniforme(trabajo);
+    for (const t of tsTrabajo) filas.push(juzgarUno(t, rep, l, ctx, { tope, sinDosis }));
   }
   for (const t of tsRecuperacion) filas.push(recuperacion ? juzgarUno(t, recuperacion, l, ctx) : null);
   return noNulas(filas).sort((a, b) => a.posicion - b.posicion);
