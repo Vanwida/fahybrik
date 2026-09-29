@@ -321,3 +321,21 @@ export function enDias(dias: number): string {
 export function horas(segundos: number): string {
   return horasYMin(segundos);
 }
+
+/**
+ * Lee un tiempo tecleado: «4:12» → 252 s, «1:04:30» → 3870 s, «252» → 252 s,
+ * «4,2» → 4,2 s. Null si no es un tiempo (letras, un minuto de 60, vacío).
+ */
+export function leerReloj(texto: string): number | null {
+  const t = texto.trim();
+  if (t === '') return null;
+  if (!t.includes(':')) {
+    const n = Number(t.replace(',', '.'));
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  }
+  const partes = t.split(':');
+  if (partes.length > 3 || partes.some((p) => !/^\d+$/.test(p))) return null;
+  const nums = partes.map(Number);
+  if (nums.slice(1).some((n) => n >= 60)) return null;
+  return nums.reduce((acc, n) => acc * 60 + n, 0);
+}

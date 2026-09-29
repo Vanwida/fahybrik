@@ -1,10 +1,14 @@
 import 'server-only';
 
-// Pestaña Rendimiento de la ficha — UN scroll ordenado por la pregunta del coach
-// (informe C §4.3): zonas y tests · running · fuerza · fisiología · carreras. Aquí
-// se carga lo que no tiene su propia API (zonas, tests, 1RM, marcas, carga y
-// cuerpo); running en detalle, tiempo en zonas y carreras se piden a la vista.
+// Pestaña Rendimiento de la ficha — las analíticas del atleta con el MISMO
+// cálculo que ve él en su iPhone (`cargarPanel`, docs/analiticas/modelo.md A1),
+// en la ventana que pide la URL; sus umbrales con su peldaño (el toque para
+// declararlos); y, mientras los bloques nuevos que las sustituyen no se sirvan,
+// lo que la pestaña enseñaba antes (zonas y tests, 1RM y marcas, cuerpo).
 // Cada parte lleva su error: un fallo nunca se pinta como «sin datos» (S5).
+//
+// La carga 42/7 fija de la ficha (`LoadView`, el PMC viejo) se retiró el 29-09:
+// la forma y la fatiga salen del panel, con las ventanas del método del coach.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -13,11 +17,15 @@ import { loadStrengthMaxes, loadStrengthMaxHistory } from '@/lib/strength/streng
 import { loadBatteryStatus, type CalibrationTestStatus } from '@/lib/coach/battery-status';
 import { listCoachTests } from '@/lib/coach/coach-tests';
 import { buildAthleteBody, type BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
-import { computeAcr, computeLoadSeries, getDailyTssSeries, readLoadCoverage, summarizeLoad } from '@/lib/training-load';
+import { verificarAtletaDelCoach } from '@/lib/analytics/atleta-verificado';
+import { cargarPanel } from '@/lib/analytics/panel';
+import { getUmbralesAtleta, type UmbralesAtleta } from '@/lib/analytics/declaraciones';
+import { captureRouteError } from '@/lib/observability/capture';
 import { strengthLiftLabel } from '@fahybrid/shared/domain/strength';
 import { benchmarkLabel } from '@fahybrid/shared/domain/coach/benchmark-slugs';
+import type { PanelAnaliticas } from '@fahybrid/shared/domain/analytics/panel';
+import type { VentanaClave } from '@fahybrid/shared/domain/analytics/ventana';
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
-import { loadHistory, type LoadHistory } from './ficha-load-history';
 
 export interface StrengthMaxView {
   exercise_slug: string;
@@ -35,39 +43,22 @@ export interface BenchmarkSeries {
   results: { value: number; recorded_at: string }[];
 }
 
-export interface LoadView {
-  /** Últimos días, el más viejo primero: fitness (CTL), fatiga (ATL), forma (TSB). */
-  series: { date: string; ctl: number; atl: number; tsb: number }[];
-  ctl: number;
-  atl: number;
-  tsb: number;
-  acr: number | null;
-  /** Días con carga medida en la ventana (0 = no hay de dónde leer). */
-  days_with_load: number;
-  /** Frase honesta de cobertura si falta parte de la carga. */
-  coverage_note: string | null;
-  /** Cuánta historia hay: sin 42 días, CTL/TSB/ACWR no se pintan. */
-  history: LoadHistory;
-}
-
 type Part<T> = { ok: true; data: T } | { ok: false };
 
 export interface FichaRendimiento {
   athlete_id: string;
   athlete_name: string;
+  /** El panel de analíticas (el mismo sobre que el iPhone) en la ventana pedida. */
+  panel: Part<PanelAnaliticas>;
+  /** Sus umbrales resueltos con su peldaño, y lo declarado de un toque. */
+  umbrales: Part<UmbralesAtleta>;
   zones: Part<AthleteZoneProfile[]>;
   tests: Part<{ tests: CalibrationTestStatus[]; library: { id: string; name: string; last_done: string | null }[] }>;
   strength: Part<StrengthMaxView[]>;
   benchmarks: Part<BenchmarkSeries[]>;
-  load: Part<LoadView>;
   body: Part<BodyPayload>;
   max_hr_bpm: number | null;
 }
-
-/** Días de la curva de carga que se pintan (PMC). */
-export const PMC_DAYS = 90;
-/** Días de historia con los que se calienta el fitness antes de pintar. */
-const PMC_WARMUP_DAYS = 84;
 
 async function part<T>(p: Promise<T>): Promise<Part<T>> {
   try {
@@ -94,31 +85,11 @@ async function loadBenchmarks(client: Sql, coach_id: number, athlete_id: number)
   return [...by.values()];
 }
 
-async function loadLoad(athlete_id: number, client: Sql): Promise<LoadView> {
-  const daily = await getDailyTssSeries({
-    athlete_id,
-    end_date: new Date(),
-    days: PMC_DAYS + PMC_WARMUP_DAYS,
-    client,
-  });
-  const series = computeLoadSeries(daily).slice(-PMC_DAYS);
-  const summary = summarizeLoad(daily);
-  const coverage = readLoadCoverage(summary);
-  return {
-    series: series.map((p) => ({ date: p.date, ctl: p.ctl, atl: p.atl, tsb: p.tsb })),
-    ctl: summary.ctl,
-    atl: summary.atl,
-    tsb: summary.tsb,
-    acr: computeAcr(daily).acr,
-    days_with_load: daily.slice(-PMC_DAYS).filter((d) => d.tss > 0).length,
-    coverage_note: coverage.state === 'partial' ? coverage.note_es : null,
-    history: loadHistory(daily),
-  };
-}
-
 export async function loadFichaRendimiento(params: {
   coach_id: number | bigint;
   athlete_id: number;
+  /** La ventana del panel (A4); la resuelve la URL. */
+  ventana: VentanaClave;
   client?: Sql;
 }): Promise<FichaRendimiento> {
   const client = params.client ?? defaultSql;
@@ -127,7 +98,19 @@ export async function loadFichaRendimiento(params: {
   const head = await client<Array<{ full_name: string; max_hr_bpm: number | null }>>`
     select full_name, max_hr_bpm from athletes where id = ${ath} and coach_id = ${coachId}
   `;
-  const [zones, tests, strength, benchmarks, load, body] = await Promise.all([
+  // El ámbito de club, comprobado en la base antes de leer nada del panel (un atleta ajeno no tiene panel).
+  const atleta = await verificarAtletaDelCoach(ath, coachId, client);
+  const [panel, umbrales, zones, tests, strength, benchmarks, body] = await Promise.all([
+    atleta
+      ? part(
+          cargarPanel({ atleta, ventana: params.ventana, client }).catch((err: unknown) => {
+            // La pestaña enseña «no se ha podido calcular» con Reintentar; el porqué tiene que llegar a los registros.
+            captureRouteError(err, { route: 'ficha/rendimiento/panel', meta: { athlete_id: ath, ventana: params.ventana } });
+            throw err;
+          }),
+        )
+      : Promise.resolve({ ok: false } as const),
+    atleta ? part(getUmbralesAtleta(atleta, client)) : Promise.resolve({ ok: false } as const),
     part(loadAthleteZoneProfiles({ coach_id: coachId, athlete_id: ath, client })),
     part(
       Promise.all([loadBatteryStatus(ath, client), listCoachTests(coachId, { onlyEnabled: true }, client)]).then(
@@ -163,17 +146,17 @@ export async function loadFichaRendimiento(params: {
       ),
     ),
     part(loadBenchmarks(client, coachId, ath)),
-    part(loadLoad(ath, client)),
     part(buildAthleteBody({ coach_id: coachId, athlete_id: ath, client })),
   ]);
   return {
     athlete_id: String(ath),
     athlete_name: head[0]?.full_name ?? '',
+    panel,
+    umbrales,
     zones,
     tests,
     strength,
     benchmarks,
-    load,
     body,
     max_hr_bpm: head[0]?.max_hr_bpm ?? null,
   };

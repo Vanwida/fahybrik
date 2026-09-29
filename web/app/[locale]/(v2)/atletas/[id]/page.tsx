@@ -1,7 +1,9 @@
 // v2 · FICHA DEL ATLETA — el cockpit (DECISIONS 2026-09-23, informe C §4).
 //
 // Carga por partes: la cabecera y el estado (todas las pestañas), y SOLO la
-// pestaña pedida (`?tab=plan|rendimiento|perfil`, Plan por defecto). El K/J entre
+// pestaña pedida (`?tab=plan|rendimiento|perfil`, Plan por defecto). En
+// Rendimiento, `?ventana=7d|4s|12s|6m|1a|todo` elige la ventana de sus
+// analíticas (12 semanas por defecto) y `?comparar=1` la abre comparando. El K/J entre
 // atletas llega en streaming (Suspense): el roster no retrasa la ficha.
 // Las URLs viejas (`?tab=resumen`, `?tab=rendimiento&vista=ritmos`,
 // `?tab=atleta&vista=pagos`, `?tab=mensajes`…) redirigen a la canónica.
@@ -24,6 +26,7 @@ import {
 import { loadFichaCalendar } from '@/lib/dashboard/v2/ficha-calendar';
 import { loadIntakeReview } from '@/lib/dashboard/v2/intake-review';
 import { loadFichaRendimiento } from '@/lib/dashboard/v2/ficha-rendimiento';
+import { VENTANA_PANEL_POR_DEFECTO } from '@fahybrid/shared/domain/analytics/ventana';
 import { Ficha } from '@/components/v2/atleta-detalle/Ficha';
 import { FichaNav } from '@/components/v2/atleta-detalle/ficha/FichaNav';
 import { AthleteNavSkeleton } from '@/components/v2/atleta-detalle/ficha/AthleteNav';
@@ -65,6 +68,8 @@ export default async function FichaAtletaPage({
     comunicado: one(q.comunicado),
     historial: one(q.historial),
     chat: one(q.chat),
+    ventana: one(q.ventana),
+    comparar: one(q.comparar),
   });
   if (url.legacy) {
     redirect({ href: `/atletas/${athleteId}${canonicalFichaQuery(url, desde)}`, locale });
@@ -90,8 +95,12 @@ export default async function FichaAtletaPage({
     ]);
     content = <PlanTab calendar={calendar} estado={estado} intake={intake} />;
   } else if (url.tab === 'rendimiento') {
-    const data = await loadFichaRendimiento({ coach_id: session.coach_id, athlete_id: athleteId });
-    content = <RendimientoView data={data} seccion={url.seccion} />;
+    const data = await loadFichaRendimiento({
+      coach_id: session.coach_id,
+      athlete_id: athleteId,
+      ventana: url.ventana ?? VENTANA_PANEL_POR_DEFECTO,
+    });
+    content = <RendimientoView data={data} seccion={url.seccion} comparar={url.comparar} />;
   } else {
     const perfil = await loadFichaPerfil({ coach_id: session.coach_id, athlete_id: athleteId });
     content = <PerfilView perfil={perfil} seccion={url.seccion} historial={url.historial} />;

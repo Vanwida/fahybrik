@@ -3,14 +3,17 @@
 // Fisiología: VFC y pulso en reposo frente a SU base, sueño, VO₂ y los check-ins
 // (agujetas, ánimo, motivación, fatiga, calidad de sueño). Sin datos: una línea
 // que dice de dónde llegan (reloj conectado o check-ins), sin marcas de terceros.
-// El readiness es EL MISMO que la columna Estado del Plan (el del estado del
-// atleta, `shell.readiness`): una sola fuente, así que nunca «sin datos» aquí
-// mientras el Plan enseña un número.
+//
+// Desde el 29-09 convive con el panel de analíticas: el readiness de hoy está en
+// su cabecera (la «Disposición», la misma fuente), así que aquí ya no se pinta;
+// y cuando el panel sirve «Recuperación» (variabilidad, reposo y sueño contra
+// UNA basal), esas tres filas se van de aquí: dos basales para lo mismo era el
+// problema P3 del modelo. Se queda lo que ningún bloque cubre: el VO₂ del reloj
+// y los check-ins.
 
 import { EmptyState, List, ListRow, Sparkline } from '@/components/v2/ui';
 import type { BodyPayload } from '@/lib/dashboard/coach/deep-dive-body';
 import { formatHours } from '@/lib/dashboard/v2/ficha-format';
-import { ReadinessMini, type ReadinessMiniValue } from '@/components/v2/shared/ReadinessMini';
 
 const TREND_ES = { up: 'subiendo', down: 'bajando', flat: 'estable' } as const;
 
@@ -23,14 +26,13 @@ function vs(value: number | null, base: number | null, unit: string): string | n
 
 export function FisiologiaBlock({
   body,
-  readiness,
-  today,
+  soloLoQueNoEstaEnElPanel = false,
 }: {
   body: BodyPayload;
-  readiness: ReadinessMiniValue | null;
-  today: string;
+  /** El panel ya sirve Recuperación: aquí solo el VO₂ y los check-ins. */
+  soloLoQueNoEstaEnElPanel?: boolean;
 }) {
-  if (!body.has_any_data && !readiness) {
+  if (!body.has_any_data) {
     return (
       <EmptyState
         title="Sin datos de salud todavía"
@@ -41,20 +43,9 @@ export function FisiologiaBlock({
   const hrv = body.hrv;
   const rhr = body.rhr;
   const rows: React.ReactNode[] = [];
+  const conSenales = !soloLoQueNoEstaEnElPanel;
 
-  if (readiness) {
-    rows.push(
-      <ListRow
-        key="readiness"
-        density="compact"
-        title="Readiness"
-        detail="frente a su base de 28 días"
-        trailing={<ReadinessMini readiness={readiness} today={today} />}
-      />,
-    );
-  }
-
-  if (hrv.last_value_ms != null) {
+  if (conSenales && hrv.last_value_ms != null) {
     rows.push(
       <ListRow
         key="hrv"
@@ -70,7 +61,7 @@ export function FisiologiaBlock({
       />,
     );
   }
-  if (rhr.last_bpm != null) {
+  if (conSenales && rhr.last_bpm != null) {
     rows.push(
       <ListRow
         key="rhr"
@@ -86,7 +77,7 @@ export function FisiologiaBlock({
       />,
     );
   }
-  if (body.sleep.avg_total_hours != null) {
+  if (conSenales && body.sleep.avg_total_hours != null) {
     rows.push(
       <ListRow
         key="sleep"
@@ -128,11 +119,17 @@ export function FisiologiaBlock({
     );
   }
 
-  const missing = [
-    hrv.last_value_ms == null ? 'VFC' : null,
-    rhr.last_bpm == null ? 'pulso en reposo' : null,
-    body.sleep.avg_total_hours == null ? 'sueño' : null,
-  ].filter(Boolean);
+  const missing = conSenales
+    ? [
+        hrv.last_value_ms == null ? 'VFC' : null,
+        rhr.last_bpm == null ? 'pulso en reposo' : null,
+        body.sleep.avg_total_hours == null ? 'sueño' : null,
+      ].filter(Boolean)
+    : [];
+
+  if (rows.length === 0 && missing.length === 0) {
+    return <EmptyState title="Sin check-ins ni VO₂ todavía" description="llegan con sus check-ins diarios y su reloj" />;
+  }
 
   return (
     <div className="flex flex-col gap-2">
