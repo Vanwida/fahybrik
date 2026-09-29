@@ -107,7 +107,6 @@ struct FreePlanView: View {
             }
         }
         .sheet(isPresented: $showBuscarCarrera) {
-            // Libre: el buscador esconde solo su «pídesela a tu coach».
             BuscarCarreraSheet(bearer: bearer) {
                 Task { await store.racesMutated() }
             }
