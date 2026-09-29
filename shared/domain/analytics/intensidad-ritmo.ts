@@ -12,7 +12,7 @@
 import type { ResolvedZone } from '../methodology/zone-model';
 import type { AnclaResuelta } from './anclas';
 import { ritmoEquivalenteLlano, type SesionHecha, type TramoHecho } from './carga-tramo';
-import { lecturaMedida, lecturaSinDato, pctCobertura, type Lectura, type Procedencia } from './lectura';
+import { aMitadDeFrase, lecturaMedida, lecturaSinDato, pctCobertura, type Lectura, type Procedencia } from './lectura';
 import type { VentanaResuelta } from './ventana';
 
 const GRUPO = 'intensidad' as const;
@@ -94,7 +94,7 @@ export function lecturaRitmoCorrer(e: EntradaRitmoCorrer): Lectura {
     cobertura,
     procedencia: {
       ...base,
-      explica_es: `${base.explica_es} Tu umbral de ritmo: ${formatoRitmo(ancla.valor)}/km (${ancla.explica_es.toLowerCase()}).${fueraTxt}`,
+      explica_es: `${base.explica_es} Tu umbral de ritmo: ${formatoRitmo(ancla.valor)}/km (${aMitadDeFrase(ancla.explica_es)}).${fueraTxt}`,
     },
   });
 }

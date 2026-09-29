@@ -538,3 +538,14 @@ export function pctCobertura(dias_con_dato: number, dias_ventana: number): numbe
   if (!Number.isFinite(dias_ventana) || dias_ventana <= 0) return null;
   return (dias_con_dato / dias_ventana) * 100;
 }
+
+/**
+ * Una etiqueta a mitad de frase (la prosa de `explica_es`): la inicial en
+ * minúscula, salvo que sea una sigla — «WOD», «FC», «VDOT» se quedan como
+ * están. `toLowerCase` a secas escribía «wod» y «fc máxima».
+ */
+export function aMitadDeFrase(texto: string): string {
+  const [a, b] = texto;
+  if (a == null || b == null || b !== b.toLowerCase()) return texto;
+  return a.toLowerCase() + texto.slice(1);
+}

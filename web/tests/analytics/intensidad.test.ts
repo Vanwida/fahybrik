@@ -10,7 +10,7 @@ import { resolverVentana } from '@fahybrid/shared/domain/analytics/ventana';
 import { defaultCoachHrMethod } from '@fahybrid/shared/domain/coach/hr-method';
 import { resolveZonesForAthlete, standardZonesFor } from '@fahybrid/shared/domain/methodology';
 import type { SesionHecha, TramoHecho, ZonasCongeladas } from '@fahybrid/shared/domain/analytics/carga-tramo';
-import type { Ancla, Lectura } from '@fahybrid/shared/domain/analytics/lectura';
+import { aMitadDeFrase, type Ancla, type Lectura } from '@fahybrid/shared/domain/analytics/lectura';
 import type { AnclaResuelta } from '@fahybrid/shared/domain/analytics/anclas';
 
 const HOY = '2026-09-27'; // domingo: la ventana de 4 semanas son cuatro semanas enteras
@@ -191,5 +191,20 @@ describe('el ritmo por zonas al correr', () => {
     expect(porId(lecturasIntensidad(entrada(corre)), 'intensidad.ritmo.correr')?.cobertura.falta).toEqual({ por: 'ancla' });
     const rema = [sesion('a', '2026-09-24', [tramo({ modalidad: 'row', familia: 'remo', ritmo_s: 120 })])];
     expect(porId(lecturasIntensidad(entrada(rema)), 'intensidad.ritmo.correr')?.cobertura.falta).toEqual({ por: 'ocasion' });
+  });
+});
+
+describe('la prosa', () => {
+  test('una etiqueta a mitad de frase baja la inicial, pero no una sigla', () => {
+    expect(aMitadDeFrase('Correr')).toBe('correr');
+    expect(aMitadDeFrase('WOD')).toBe('WOD');
+    expect(aMitadDeFrase('Estimado desde tu FC máxima')).toBe('estimado desde tu FC máxima');
+    expect(aMitadDeFrase('')).toBe('');
+  });
+
+  test('el reparto nombra las familias sin romper las siglas', () => {
+    const l = porId(lecturasIntensidad(entrada(SESIONES)), 'intensidad.polarizacion')!;
+    expect(l.procedencia.explica_es).toMatch(/correr, remo, ski, bici, estaciones, WOD/);
+    expect(l.procedencia.explica_es).toMatch(/\(estimado desde tu FC máxima\)/);
   });
 });

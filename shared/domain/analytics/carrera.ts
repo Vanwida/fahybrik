@@ -38,6 +38,7 @@ import { addDays, diffDays, isoDateString, parseIsoDate } from '../dates';
 import { comparaConBasal, type MuestraDia } from './basal';
 import type { DiaCarga } from './carga-tramo';
 import {
+  aMitadDeFrase,
   comparacionDe,
   lecturaMedida,
   lecturaSinDato,
@@ -431,7 +432,7 @@ function lecturaTramo(t: TramoPrevision): Lectura {
     explica_es:
       t.previsto_s == null
         ? `Sin carrera, marca, umbral ni entreno de este tramo.${t.accion_es ? ` ${t.accion_es}.` : ''}${quien}`
-        : `Sale de ${fuente ?? 'tu evidencia'}${t.nivel === 'observado' ? ', aún reciente' : ''}.${t.accion_es ? ` Para afinarlo: ${t.accion_es.toLowerCase()}.` : ''}${quien}`,
+        : `Sale de ${fuente ?? 'tu evidencia'}${t.nivel === 'observado' ? ', aún reciente' : ''}.${t.accion_es ? ` Para afinarlo: ${aMitadDeFrase(t.accion_es)}.` : ''}${quien}`,
     medida: t.nivel === 'observado',
     ancla: null,
     proveedor: null,

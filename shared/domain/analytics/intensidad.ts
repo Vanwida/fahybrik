@@ -49,6 +49,7 @@ import { anclaMasDebil, type AnclaResuelta } from './anclas';
 import type { SesionHecha, TramoHecho } from './carga-tramo';
 import { lecturaRitmoCorrer } from './intensidad-ritmo';
 import {
+  aMitadDeFrase,
   comparacionDe,
   FAMILIA_ETIQUETA_ES,
   FAMILIAS,
@@ -224,7 +225,7 @@ function procedenciaZonas(a: Acumulado, e: EntradaIntensidad, explica: string): 
   const cobertura = pct != null && pct < 100 ? ` Un ${Math.round(100 - pct)} % del tiempo de tus tramos no tiene pulso.` : '';
   const ancla = anclaMasDebil([...a.anclas]);
   const vigente = e.pulso.ancla;
-  const umbral = vigente ? ` Tu umbral de pulso hoy: ${Math.round(vigente.valor)} ppm (${vigente.explica_es.toLowerCase()}).` : '';
+  const umbral = vigente ? ` Tu umbral de pulso hoy: ${Math.round(vigente.valor)} ppm (${aMitadDeFrase(vigente.explica_es)}).` : '';
   return { de: 'segundos_por_zona', explica_es: `${explica}${umbral}${cobertura}`, medida: true, ancla, proveedor: null };
 }
 
@@ -374,7 +375,7 @@ function lecturaReparto(e: EntradaIntensidad, ag: Agregado, antes: Agregado | nu
   const { ventana: v, metodo: m, hr } = e;
   const id = 'intensidad.polarizacion';
   const titulo_es = 'Reparto de intensidad';
-  const familiasTxt = m.polarizacion_familias.map((f) => FAMILIA_ETIQUETA_ES[f].toLowerCase()).join(', ');
+  const familiasTxt = m.polarizacion_familias.map((f) => aMitadDeFrase(FAMILIA_ETIQUETA_ES[f])).join(', ');
   const objetivo = polarizationTargetFrom(hr);
   const explica = `De tu tiempo con pulso en ${familiasTxt}, cuánto fue fácil, medio y duro según tu coach, frente a su objetivo (${objetivo.low}/${objetivo.mid}/${objetivo.high}).`;
   const cobertura = coberturaDe(ag.reparto, v);
@@ -438,7 +439,7 @@ function lecturasPorFamilia(e: EntradaIntensidad, ag: Agregado, antes: Agregado 
         antes: antes ? (antes.familia.get(f) ?? vacio()) : null,
         ag,
         e,
-        explica: `Tu tiempo con pulso en ${FAMILIA_ETIQUETA_ES[f].toLowerCase()}, repartido en las cinco zonas de tu coach.`,
+        explica: `Tu tiempo con pulso en ${aMitadDeFrase(FAMILIA_ETIQUETA_ES[f])}, repartido en las cinco zonas de tu coach.`,
       }),
     );
   }
