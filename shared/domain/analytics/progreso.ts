@@ -337,6 +337,12 @@ export interface SalidaFamilia {
  * La tendencia semana a semana dentro de la ventana: un punto por semana del
  * atleta (lunes), con `null` en las semanas sin observación — un hueco real,
  * nunca un cero ni una interpolación.
+ *
+ * Empieza en la primera semana CON dato de la ventana: antes, esa métrica aún no
+ * existía para el atleta y no es un hueco (con `todo`, un atleta con historia
+ * desde 2019 arrastraba 370 semanas vacías en cada métrica). Las semanas en
+ * blanco del final sí se quedan: dicen que no hay dato reciente. Sin ninguna
+ * observación en la ventana, sin puntos.
  */
 export function serieSemanalDe<T extends Fechada>(
   obs: readonly T[],
@@ -352,7 +358,8 @@ export function serieSemanalDe<T extends Fechada>(
     porLunes.set(l, lista);
   }
   const puntos: PuntoSerie[] = [];
-  let lunes = parseIsoDate(lunesDe(ventana.desde));
+  if (porLunes.size === 0) return serieDe({ unidad, paso: 'semana', puntos });
+  let lunes = parseIsoDate([...porLunes.keys()].sort()[0]!);
   const fin = parseIsoDate(lunesDe(ventana.hasta));
   while (lunes.getTime() <= fin.getTime()) {
     const t = isoDateString(lunes);
