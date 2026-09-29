@@ -79,7 +79,7 @@ struct DeviceConnectionsView: View {
                 .clampedToContainerWidth()
             }
             if let toast {
-                ToastBanner(text: toast)
+                AvisoDia(tono: .ok, texto: toast)
                     .padding(.top, Theme.Spacing.l)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
