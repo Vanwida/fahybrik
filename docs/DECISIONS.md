@@ -11,6 +11,40 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-29 · Analíticas rehechas: el iPhone lee el panel (base de Swift y portada, detrás de bandera)
+
+**Hecho (rama `claude/analiticas-ios-base`, sin fusionar a main):** modelos Codable del sobre del panel (`PanelAnaliticas`, `LecturaAnalitica`, `Hecho`, `Falta`), servicio de `GET /api/athlete/analytics/panel`, kit de SwiftUI (fichas, formato, gráficos) y `AnaliticasPortadaView` con los ocho bloques pintados por id. Detrás de `AnaliticasBandera` (Debug encendida, Release apagada, como el vivo nuevo): la pestaña vieja (`AnalyticsView`) sigue en pie y se retira (§9) cuando Alex la pruebe en aparato. Principio: un cálculo, dos pintores. El servidor calcula, Swift solo pinta.
+
+**Decidido:**
+- **El estado de un bloque sale de lo que dice el servidor, sin un umbral en el cliente.** Vacío = ninguna lectura con dato y ninguna «a medias»; poco = alguna lectura espera algo (`historia` con `llevas > 0`, `esfuerzo`, `marcas`, `pareja`); viejo = TODAS las lecturas con dato llevan la falta `viejo`; lleno = el resto. Un umbral escrito en el cliente sería método del coach hecho `const` (HARD RULE Nº0).
+- **El plazo de historia se cuenta en la unidad del bloque** (días, semanas en Progreso, noches en Recuperación) y solo mira faltas con algo andado (`llevas > 0`, igual que `esperaHistoria`). Un fallo real que encontró el test: una `historia(0, N)` (carrera.disposicion en el atleta viejo) tapaba el hueco de marcas.
+- **Dato viejo:** solo se pinta como estado de bloque cuando TODO el bloque lo es. La disposición sin dato de hoy se pinta por lectura («Último dato del 10 sep») y sin veredicto.
+- **Salidas de los huecos:** marcas → el centro de tests (no hay pantalla más precisa todavía); pareja → sin botón («Lo configura tu coach»); los silencios `ocasion` hacen desaparecer la fila de Progreso.
+- **La disposición se pinta «Disposición»:** el servidor titula `recuperacion.readiness` «Readiness» (`recuperacion-panel.ts`); el cliente lo traduce al pintar (`IdsDelPanel.etiquetaDeReadiness`, una sola función). El arreglo de raíz es del servidor.
+- **Unidades:** `pp` se conserva (se escribe «pt»), `spm` se escribe «pal/min», y una unidad que este binario no conoce cae en `desconocida` sin romper el panel. Las faltas desconocidas caen en `desconocida`; una lectura, un hecho o un bloque roto se pierde SOLO, nunca el panel.
+- **Los campos del `metodo` que el cliente lee** son seis (CTL, ATL, alerta de rampa, cobertura mínima del veredicto, noches de HRV, días de basal); el resto del método viaja en el JSON y se ignora. Método = dato del coach.
+- **Los fixtures de los tests son la salida REAL de `cargarPanel`** (rama Neon desechable, nunca prod): lleno en seis ventanas, mixto, poco, vacío y viejo. Los tests leen los valores esperados del JSON. Solo compilan en local (`build-for-testing`); se ejecutan en CI (macOS).
+- La portada fuerza el esquema oscuro (petición explícita de Alex para esta pantalla); no es la piel del resto de la app.
+
+**Descartado del doble firmado (declarado, con porqué):**
+- **La salida «Hacer una simulación»** del hueco de carrera: no hay simulación en la app; el hueco manda a elegir carrera o a las marcas.
+- **La nota «N de M sesiones para la tendencia»:** el servidor no manda ese recuento; se dice con el plazo de historia que sí manda.
+- **«Los estimados salen de tu última simulación»:** falso con lo que el motor calcula (sale de marcas, carrera y umbral).
+- **La nota «Sin X en tu plan»:** el plan vacío llega como falta `plan`; se pinta esa razón, no una frase inventada.
+- **La lista de sesiones por semana** (twin `analiticas-semanas`): necesita `GET …/analytics/cumplimiento` (segunda tanda). Se pinta el agregado `semanas.cumplimiento` con su reparto por sesión.
+- **Los umbrales de estado que proponía el doble** (cuántos días son «poco», qué edad es «viejo»): son método, no se copian.
+
+**Añadido respecto al doble (declarado):** «entre A y B» cuando el servidor manda `rango`; la palabra del veredicto de polarización; una nota por lectura con falta; el agregado de cumplimiento con barra de reparto coloreada.
+
+**Sin pintar todavía (segunda tanda):** `intensidad.zonas.<familia>`, `intensidad.ritmo.correr`, `semanas.adherencia`, `semanas.tramos`; `carrera.disposicion` va mínima. El detalle de sesión y de familia siguen en el legado.
+
+**Huecos del contrato que ve el cliente (del servidor, no se corrigen aquí):** (1) `historia` cambia de unidad según el bloque (días, semanas, noches); (2) la falta `viejo` solo la sirve Progreso; (3) la disposición atrasada no trae su fecha en el bloque estado; (4) la acción de un hueco de marcas solo viaja en prosa (`explica_es`); (5) Progreso a un año enseña «Todavía es pronto» con 51 de 53 semanas (el cliente no corrige al servidor); (6) `semanas.carga.otro` es una familia que el doble no tiene; (7) el estado de bloque podría derivarse en el servidor; (8) hay dos formateadores de número (deuda); (9) el título «Readiness».
+
+**Modelo:** los structs que se construyen a mano (`EscenariosDelCuerpo` y afines) reciben `= nil` por defecto en los campos opcionales para que un campo nuevo del contrato no rompa a los que ya existen.
+
+**No verificado:** ningún test se ha ejecutado en local (regla: sin simulador ni ventana; corren en CI); la portada no se ha visto en aparato ni en simulador; el flujo con datos de producción real (la base es de prueba); el cálculo de fondo en `AnaliticasCapturasTests` no se ha comparado con capturas.
+
+
 ## 2026-09-29 · Analíticas rehechas: el panel del coach (pestaña Rendimiento) y el editor del método
 
 **El encargo:** pintar el panel rehecho en la ficha del atleta con los componentes reales de `web/components/v2/analiticas/` (los ocho bloques y el detalle de sesión; el MISMO cálculo que el iPhone, `GET …/analytics/panel`), el editor del método de analíticas en Ajustes › Método y los umbrales declarados de un toque.
