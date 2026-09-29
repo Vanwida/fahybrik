@@ -1,0 +1,34 @@
+import Foundation
+
+// LO QUE LA MUÑECA PUEDE HACER — las acciones que la pila recibe de fuera.
+//
+// La pila y sus páginas no conocen la sesión: reciben un `CuadroMuneca` para
+// pintar y estos mandos para actuar. Quien alimenta la muñeca (`MunecaSolo`, con
+// el motor local; luego el espejo, con las órdenes al iPhone) decide QUÉ hace cada
+// uno; la vista solo los dispara. Un mando que es `nil` no existe en ese modo y no
+// se enseña: jamás un botón que no hace nada.
+
+/// El control contextual de la página Controles: «Vuelta» en un rodaje, «Siguiente
+/// paso» en una sesión con pasos. El título es del vocabulario de `Vivo.ClavePrimaria`.
+struct MunecaControl {
+    enum Icono { case vuelta, siguiente }
+
+    var titulo: String
+    var icono: Icono
+    var accion: () -> Void
+}
+
+struct MunecaMandos {
+    /// Pausa / Reanudar.
+    var pausa: () -> Void
+    /// «¿Terminar y guardar?» ya confirmado.
+    var terminar: () -> Void
+    var control: MunecaControl? = nil
+    /// La acción del momento: doble toque (S9 / Ultra 2 y dos toques en la pantalla en
+    /// cualquier reloj) y, en un Ultra, botón Acción. `nil` = ahora no hay nada que cerrar.
+    var primaria: (() -> Void)? = nil
+    /// «+30 s» del descanso; `nil` = este motor no puede estirar ese descanso.
+    var mas30: (() -> Void)? = nil
+    /// El botón «Empezar ya» del descanso.
+    var empezarYa: () -> Void = {}
+}

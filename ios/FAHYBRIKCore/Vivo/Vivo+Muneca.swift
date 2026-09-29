@@ -89,6 +89,8 @@ extension Vivo {
         var luego: NotaVista?
         /// La acción del momento, dicha corta y en minúscula.
         var accion: String
+        /// «doble toque · empezar ya», medida: en un reloj estrecho va en dos líneas.
+        var pista: NotaVista
         var pulso: LineaDeDato?
     }
 
@@ -277,14 +279,18 @@ extension Vivo {
         // Monocromo (P6): el pulso sin la marca de color de su zona.
         let pulso = lam.tercero.map { t -> LineaVista in var s = t; s.zona = nil; return s }
         let luego = e.siguiente.map { notaVista(textoViene($0), prefijo: "Luego ·", ancho: m.anchoUtil) }
-        // La pista va encima del pulso: la última fila es la más estrecha (esquinas).
-        var filas: [Fila] = [.contexto, .tercero, x.accion == .boton ? .boton : .pista]
-        if luego != nil { filas.append(.nota) }
+        // La pista va encima del pulso: la última fila es la más estrecha (esquinas). Ni la pista
+        // ni «Luego» caben siempre en una línea: cada una reserva las que de verdad ocupa.
+        let accion = "empezar ya"
+        let pista = notaVista("doble toque · \(accion)", ancho: m.anchoUtil)
+        var filas: [Fila] = [.contexto, .tercero, x.accion == .boton ? .boton : filaDeNota(pista)]
+        if let luego { filas.append(filaDeNota(luego)) }
         return CaraRecupera(
             contexto: contextoQueCabe(contextoDe(p), m),
             heroe: heroeMuneca(heroe, filas: filas, m),
             luego: luego,
-            accion: "empezar ya",
+            accion: accion,
+            pista: pista,
             pulso: pulso.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoPie) }
         )
     }

@@ -28,6 +28,14 @@ extension Vivo {
         var cadencia: Double? = nil
     }
 
+    /// El GPS de la muñeca desde la precisión del último fijado (m): con fijado suficiente,
+    /// listo; sin fijado o con mala precisión, buscando. La misma vara que el iPhone
+    /// (`GPSSignalQuality`). El cuadro ignora este estado en cinta y en pasos sin GPS.
+    static func estadoGps(precisionM: Double?) -> EstadoGps {
+        guard let precisionM else { return .buscando }
+        return GPSSignalQuality.from(horizontalAccuracyM: precisionM) == .searching ? .buscando : .listo
+    }
+
     /// El plan de la sesión en pasos, con las zonas y el entorno que ya lleva el motor.
     static func planDe(_ sesion: WorkoutSession, test: Bool = false) -> PlanVivo {
         planDe(sesion.plan, zonas: sesion.hrZones, entorno: sesion.runEnvironment, test: test)

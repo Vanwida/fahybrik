@@ -49,7 +49,7 @@ enum GuionEscaparate {
 
     // MARK: - El catálogo
 
-    static let casos: [Caso] = rodaje + series + fuerza + emom + ruta + ergo + espejoRodaje
+    static let casos: [Caso] = rodaje + series + fuerza + emom + ruta + ergo + espejoRodaje + munecaCorrer
 
     // ── Rodaje ──────────────────────────────────────────────────────────────
     private static var rodaje: [Caso] {

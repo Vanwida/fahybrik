@@ -49,6 +49,21 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **No verificado:** en aparato (solo simulador y renders) ni con datos de producción (los fixtures son del motor real con entradas sintéticas); VoiceOver y Reducir movimiento no recorridos a mano; el selector horizontal de ejercicios de fuerza (una tira que se desliza) NO se ve en las capturas, porque `ImageRenderer` no dibuja un `ScrollView`; el gesto de volver con la barra de navegación oculta; las capturas están comparadas con las del doble a 402 pt (`hoy/analiticas/final/`), no a 390.
 
+## 2026-09-30 · Correr en la muñeca, fase 1 (vistas): la pila nueva pinta el cuadro, tras una bandera
+
+**Qué es.** Las vistas del reloj sobre el núcleo de la entrada anterior. Carpeta `ios/FAHYBRIKWatch/Muneca/`. En solitario, al correr, la cara sustituye a Datos | Vivo | Controles (la lámina `RodajeLamina`) mientras `MunecaBandera` esté encendida (defecto: encendida; clave `fahybrik.watch.munecaCorrer.v1`, y en DEBUG `--muneca-correr-off`). Apagada, todo vuelve exactamente a lo de hoy; lo viejo se queda hasta probar en aparato (F8).
+
+**Decidido:**
+- **Pila (P4):** Controles a la izquierda, `TabView(.verticalPage)` con la corona (Paso → Datos → Vueltas → Estructura) en el centro, Ahora suena (`NowPlayingView`) a la derecha. Un paso nuevo, o la muñeca bajada, devuelve a Paso.
+- **La vista no decide nada.** `MunecaVivo` recibe un `CuadroMuneca` y unos `MunecaMandos` (pausa, terminar, control contextual, acción del momento, +30 s, empezar ya); las páginas son funciones puras del cuadro. Solo `MunecaAlimentador` + `MunecaSolo` conocen `WorkoutSession`; el espejo (otro lote) podrá alimentar la misma pila desde el iPhone.
+- **Tocar la pantalla no cierra nada.** Cerrar a mano = doble toque: `handGestureShortcut(.primaryAction)` (S9 / Ultra 2) y `onTapGesture(count: 2)` (todo reloj). Mismo camino que ya usaba el reloj (`applyCommand(advance)`). «Vuelta» parte el rodaje sin cerrarlo (`RegistroVueltas.aMano`, como el iPhone): NO genera el «Nuevo tramo» persistido del motor que sí generaba la lámina en un libre.
+- **El ritmo actual** lo llena `onDistanceDelta` en el coordinador (`ventanaDeRitmo`, vida de entreno); el GPS sale de la precisión del último fijado (`Vivo.estadoGps`, misma vara que el iPhone).
+- **Dos arreglos en la raíz del núcleo que salieron de mirar la pantalla:** la recuperación reservaba una línea para «Luego · …» y para la pista aunque en un reloj estrecho ocupan dos (el pulso salía del lienzo); ahora el cuadro trae `pista` medida y reserva lo que ocupan. Y las notas de una línea se dibujan enteras (SF Compact mide casi lo que estima el núcleo, no un 4 % menos): la holgura del estimador es del marco, no de un «…».
+
+**No entra (otras fases):** deshacer de 5 s (F3: engancha en `MunecaVivo.gestoPrimario`, necesita que el motor pueda volver atrás un cierre de tramo), espejo con la misma cara (F2), voz (F4), un háptico por evento (F3), complicación (F7), «+30 s» en un descanso de tramos de correr (el motor no estira una pierna: el botón no se enseña), puertas entre bloques (F6: sigue la puerta de siempre).
+
+**Abierto:** en 40 mm (SE) las caras de cinco filas (cinta con banda, sin enlace) dejan al héroe casi sin alto: el núcleo solo cubre 42/46/49 mm. Hay que decidir qué fila cede (propuesta: «lo que falta»). El descanso entre tandas de una carrera sale como recuperación parada (rol del adaptador), no como la cara común de descanso del doble.
+
 ## 2026-09-29 · Correr en la muñeca, fase 1: el cuadro puro, el ritmo actual y el paso que viaja (sin vistas)
 
 **Qué es.** Primera fase del rediseño de correr en el Apple Watch (plan de la sesión del 29-09; modelo `docs/reloj-muneca/modelo.md`). Solo la parte pura, en `ios/FAHYBRIKCore/Vivo/` (Foundation, compila en el reloj y el móvil). Las vistas del reloj las hace otro lote sobre esto.
