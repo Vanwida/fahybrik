@@ -2,10 +2,11 @@ import Foundation
 
 // LA BANDERA DE LAS ANALÍTICAS REHECHAS (mismo patrón que `VivoIphoneBandera`).
 //
-// ENCENDIDA en Debug, APAGADA en Release mientras el motor no sirva los ocho
-// bloques y la segunda tanda (familias y sesión) no esté encima. La pestaña se
-// llama «Analíticas» en los dos casos (firmado por Alex el 29-09). La vista
-// vieja (`AnalyticsView`, siete contratos) sigue compilada y es lo que ve Release.
+// ENCENDIDA por defecto también en Release (decisión de Alex el 29-09: solo la
+// prueban él y el equipo). La pestaña se llama «Analíticas» en los dos casos
+// (firmado el 29-09). La vista vieja (`AnalyticsView`, siete contratos) sigue
+// compilada hasta que la portada se pruebe en aparato y la segunda tanda
+// (familias y sesión) esté encima; apagar la bandera la devuelve.
 //
 // Se puede forzar por UserDefaults (la hoja de diagnóstico la puede tocar):
 //   defaults write <bundle> fahybrid.analiticas.panel -bool YES   → la portada nueva
@@ -14,11 +15,6 @@ enum AnaliticasBandera {
     static let clave = "fahybrid.analiticas.panel"
 
     static var activa: Bool {
-        if let v = UserDefaults.standard.object(forKey: clave) as? Bool { return v }
-        #if DEBUG
-        return true
-        #else
-        return false
-        #endif
+        UserDefaults.standard.object(forKey: clave) as? Bool ?? true
     }
 }

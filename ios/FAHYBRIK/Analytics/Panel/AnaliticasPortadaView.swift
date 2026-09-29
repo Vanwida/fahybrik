@@ -10,7 +10,7 @@ import SwiftUI
 // ventana); la caché por ventana y el refresco son del `AppDataStore` (SWR +
 // disco). Un toque en un bloque empuja su detalle (placeholder hasta la segunda
 // tanda); las salidas de los huecos llevan a la pestaña o pantalla que resuelve
-// la falta. Detrás de `AnaliticasBandera` (Debug ON, Release OFF).
+// la falta. Detrás de `AnaliticasBandera` (encendida por defecto).
 
 private typealias C = AnaliticasColor
 private typealias TA = AnaliticasTokens.TA

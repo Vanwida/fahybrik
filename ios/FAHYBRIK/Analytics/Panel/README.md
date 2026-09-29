@@ -29,7 +29,7 @@ Para las sesiones que ponen encima los **detalles por familia** (`correr`, `remo
 | `Bloques/` | `AnaliticasBloques` (contexto, hueco, despacho), `AnaliticasBloqueForma`, `AnaliticasBloqueSemanas`, `AnaliticasBloquesPorForma` (intensidad, progreso, récords, carrera, recuperación: pintados POR FORMA de la lectura, no por id). |
 | `AnaliticasPortadaView.swift` | La pantalla: título + selector fijos, Estado fijo (`LazyVStack(pinnedViews:)`), los siete bloques, pull-to-refresh, glosa, salidas (pestañas, Dispositivos y apps, chat, tests). |
 | `AnaliticasDetalleView.swift` | Placeholders navegables del detalle de un bloque o de una familia (la segunda tanda los rellena). |
-| `AnaliticasBandera.swift` | Debug ON, Release OFF; forzable por `UserDefaults` (`fahybrid.analiticas.panel`). `AppShell` monta la portada o `AnalyticsView` (la vieja, intacta). |
+| `AnaliticasBandera.swift` | encendida por defecto (Debug y Release); forzable por `UserDefaults` (`fahybrid.analiticas.panel`). `AppShell` monta la portada o `AnalyticsView` (la vieja, intacta). |
 
 Tests: `FAHYBRIKTests/Analytics/Panel/` — decodificación (los cinco atletas, las seis ventanas, valores nuevos, ida y vuelta a disco), estados y huecos, formato y escala, y las **capturas** (`AnaliticasCapturasTests`: la portada a 390 × 844 página a página; adjuntos del `.xcresult` de `ios.yml`). Los fixtures (`Fixtures/panel-*.json`) son la respuesta REAL de `cargarPanel` (`web/lib/analytics/panel.ts`) sobre una rama Neon desechable con cinco atletas sembrados (lleno: un año; mixto: sin reloj; poco: tres semanas sin carrera; vacío; viejo: parado desde hace semanas). Ningún JSON se escribe a mano ni sale de un cálculo aparte: si el contrato cambia, se vuelven a volcar.
 

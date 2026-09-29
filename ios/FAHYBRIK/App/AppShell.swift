@@ -106,7 +106,7 @@ struct AppShell: View {
             .tabItem { Label(AppTab.plan.title, systemImage: AppTab.plan.symbol) }
 
             // ANALÍTICAS REHECHAS (29-09): la portada del panel único detrás de su
-            // bandera (Debug ON, Release OFF); la vista vieja sigue compilada.
+            // bandera (encendida por defecto); la vista vieja sigue compilada.
             Group {
                 if AnaliticasBandera.activa {
                     AnaliticasPortadaView(bearer: bearer, hasCoach: hasCoach, onOpenTab: { selection = $0 })
