@@ -159,7 +159,10 @@ describe('retrocompatibilidad: lo que no trae el campo se comporta como hoy', ()
         elements: ph.elements.map((el) => {
           const walk = (e: (typeof ph.elements)[number]): (typeof ph.elements)[number] => {
             if ('times' in e) return { ...e, elements: e.elements.map(walk) };
-            const { environment: _e, cue: _c, alert: _a, ...rest } = e;
+            const rest = { ...e };
+            delete rest.environment;
+            delete rest.cue;
+            delete rest.alert;
             return rest;
           };
           return walk(el);
