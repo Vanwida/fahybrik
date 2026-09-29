@@ -1,0 +1,2556 @@
+{
+ "athlete_id": "102",
+ "generado_iso": "2026-09-29T08:00:00.000Z",
+ "ventana": {
+  "clave": "12s",
+  "desde": "2026-07-08",
+  "hasta": "2026-09-29",
+  "dias": 84,
+  "anterior": {
+   "desde": "2026-04-15",
+   "hasta": "2026-07-07",
+   "dias": 84
+  },
+  "cubre_todo": false
+ },
+ "historia": {
+  "semanas": 38,
+  "desde": "2026-01-05",
+  "cubre_todo": false
+ },
+ "metodo": {
+  "ctl_days": 42,
+  "atl_days": 7,
+  "ramp_alert_tss_per_week": 5,
+  "acr_low": 0.8,
+  "acr_high": 1.3,
+  "fuentes_run": [
+   "ritmo",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_row": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_ski": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_bike": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_strength": [
+   "esfuerzo",
+   "pulso"
+  ],
+  "fuentes_other": [
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuerza_coeficiente": 1,
+  "cobertura_veredicto_min_pct": 90,
+  "frescura_sobrecarga_hasta": -30,
+  "frescura_optimo_hasta": -11,
+  "frescura_mantener_hasta": 4,
+  "frescura_fresco_hasta": 29,
+  "cumplimiento_base": "sesiones",
+  "cumplimiento_bien_pct": 90,
+  "cumplimiento_regular_pct": 70,
+  "cumplimiento_sesion_bases": [
+   "carga",
+   "duracion",
+   "distancia"
+  ],
+  "cumplimiento_verde_min_pct": 80,
+  "cumplimiento_verde_max_pct": 120,
+  "cumplimiento_ambar_min_pct": 50,
+  "cumplimiento_ambar_max_pct": 150,
+  "holgura_ritmo_s_km": 3,
+  "holgura_split_s_500m": 2,
+  "holgura_vatios_w": 10,
+  "holgura_pulso_ppm": 2,
+  "holgura_rpe": 1,
+  "holgura_rir": 1,
+  "holgura_carga_pct": 0,
+  "holgura_dosis_pct": 10,
+  "cambio_carga_pct": 10,
+  "cambio_horas_pct": 10,
+  "cambio_forma_tss": 5,
+  "cambio_frescura_tss": 5,
+  "cambio_variabilidad_pct": 5,
+  "cambio_pulso_reposo_bpm": 3,
+  "cambio_sueno_horas": 0.5,
+  "cambio_cumplimiento_pts": 10,
+  "cambio_polarizacion_pts": 5,
+  "polarizacion_familias": [
+   "correr",
+   "remo",
+   "ski",
+   "bici",
+   "estaciones",
+   "wod"
+  ],
+  "polarizacion_tolerancia_pts": 10,
+  "cambio_ergo_pct": 1,
+  "cambio_fuerza_pct": 2.5,
+  "cambio_estaciones_pct": 3,
+  "cambio_wod_pct": 3,
+  "cambio_test_pct": 2,
+  "fuerza_1rm_reps_max": 10,
+  "basal_dias": 60,
+  "basal_excluir_dias": 14,
+  "cs_min_efforts": 3,
+  "cs_min_duration_s": 120,
+  "cs_max_duration_s": 900,
+  "cs_min_spread_ratio": 3,
+  "cs_min_fit_r2_pct": 95,
+  "cs_max_drift_from_threshold_pct": 15,
+  "sleep_target_hours": 8,
+  "hrv_min_nights_baseline": 14,
+  "hrv_min_nights_recent": 3,
+  "subida_dias": 14,
+  "subida_minima_pct": 5,
+  "cobertura_ciega_alerta_pct": 25
+ },
+ "anclas": {
+  "pulso": {
+   "valor": 168,
+   "ancla": "declarada",
+   "fuente": "declarada_atleta",
+   "explica_es": "Lo declaraste tú · 4 may",
+   "desde_iso": "2026-05-04"
+  },
+  "ritmo": {
+   "run": {
+    "valor": 266,
+    "ancla": "medida",
+    "fuente": "perfil_test",
+    "explica_es": "Test de umbral · 21 ago",
+    "desde_iso": "2026-08-21"
+   },
+   "row": {
+    "valor": 122,
+    "ancla": "declarada",
+    "fuente": "declarada_atleta",
+    "explica_es": "Lo declaraste tú · 4 may",
+    "desde_iso": "2026-05-04"
+   },
+   "ski": null,
+   "bike": null
+  },
+  "potencia": {
+   "row": {
+    "valor": 216,
+    "ancla": "declarada",
+    "fuente": "declarada_atleta",
+    "explica_es": "Lo declaraste tú · 4 may",
+    "desde_iso": "2026-05-04"
+   },
+   "ski": null,
+   "bike": null
+  }
+ },
+ "familia": "fuerza",
+ "lecturas": [
+  {
+   "id": "progreso.fuerza",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Fuerza · Peso muerto · 1RM estimado",
+   "estado": "medida",
+   "dato": {
+    "valor": 143.6,
+    "unidad": "kg",
+    "referencia": {
+     "valor": 143.6,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 141.4,
+    "delta": 1.5558698727015479,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 2.5,
+    "significativo": false
+   },
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-06",
+      "v": 139.2
+     },
+     {
+      "t": "2026-07-13",
+      "v": 139.2
+     },
+     {
+      "t": "2026-07-20",
+      "v": 139.7
+     },
+     {
+      "t": "2026-07-27",
+      "v": 142.5
+     },
+     {
+      "t": "2026-08-03",
+      "v": 140.3
+     },
+     {
+      "t": "2026-08-10",
+      "v": 140.3
+     },
+     {
+      "t": "2026-08-17",
+      "v": 143.6
+     },
+     {
+      "t": "2026-08-24",
+      "v": 143.6
+     },
+     {
+      "t": "2026-08-31",
+      "v": 141.4
+     },
+     {
+      "t": "2026-09-07",
+      "v": 141.4
+     },
+     {
+      "t": "2026-09-14",
+      "v": 141.9
+     },
+     {
+      "t": "2026-09-21",
+      "v": 141.9
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "igual",
+    "etiqueta_es": "Te mantienes",
+    "frase_es": null,
+    "tono": "neutro"
+   },
+   "cobertura": {
+    "muestras": 48,
+    "dias_ventana": 84,
+    "dias_con_dato": 12,
+    "pct": 14.285714285714285,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "e1rm_epley",
+    "explica_es": "Estimado con la fórmula de Epley (la de tu coach) de tu mejor serie de hasta 10 reps.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.e1rm.dl",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Peso muerto · 1RM estimado",
+   "estado": "medida",
+   "dato": {
+    "valor": 143.6,
+    "unidad": "kg",
+    "referencia": {
+     "valor": 143.6,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 141.4,
+    "delta": 1.5558698727015479,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 2.5,
+    "significativo": false
+   },
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-06",
+      "v": 139.2
+     },
+     {
+      "t": "2026-07-13",
+      "v": 139.2
+     },
+     {
+      "t": "2026-07-20",
+      "v": 139.7
+     },
+     {
+      "t": "2026-07-27",
+      "v": 142.5
+     },
+     {
+      "t": "2026-08-03",
+      "v": 140.3
+     },
+     {
+      "t": "2026-08-10",
+      "v": 140.3
+     },
+     {
+      "t": "2026-08-17",
+      "v": 143.6
+     },
+     {
+      "t": "2026-08-24",
+      "v": 143.6
+     },
+     {
+      "t": "2026-08-31",
+      "v": 141.4
+     },
+     {
+      "t": "2026-09-07",
+      "v": 141.4
+     },
+     {
+      "t": "2026-09-14",
+      "v": 141.9
+     },
+     {
+      "t": "2026-09-21",
+      "v": 141.9
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "igual",
+    "etiqueta_es": "Te mantienes",
+    "frase_es": null,
+    "tono": "neutro"
+   },
+   "cobertura": {
+    "muestras": 48,
+    "dias_ventana": 84,
+    "dias_con_dato": 12,
+    "pct": 14.285714285714285,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "e1rm_epley",
+    "explica_es": "Estimado con la fórmula de Epley (la de tu coach) de tu mejor serie de hasta 10 reps.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.e1rm.op",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Press militar · 1RM estimado",
+   "estado": "medida",
+   "dato": {
+    "valor": 57,
+    "unidad": "kg",
+    "referencia": {
+     "valor": 57,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 55.7,
+    "delta": 2.33393177737881,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 2.5,
+    "significativo": false
+   },
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-06",
+      "v": 52.6
+     },
+     {
+      "t": "2026-07-13",
+      "v": 56.4
+     },
+     {
+      "t": "2026-07-20",
+      "v": 53.2
+     },
+     {
+      "t": "2026-07-27",
+      "v": 56.4
+     },
+     {
+      "t": "2026-08-03",
+      "v": 56.4
+     },
+     {
+      "t": "2026-08-10",
+      "v": 56.4
+     },
+     {
+      "t": "2026-08-17",
+      "v": 53.2
+     },
+     {
+      "t": "2026-08-24",
+      "v": 56.4
+     },
+     {
+      "t": "2026-08-31",
+      "v": 53.8
+     },
+     {
+      "t": "2026-09-07",
+      "v": 57
+     },
+     {
+      "t": "2026-09-14",
+      "v": 53.8
+     },
+     {
+      "t": "2026-09-21",
+      "v": 57
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "igual",
+    "etiqueta_es": "Te mantienes",
+    "frase_es": null,
+    "tono": "neutro"
+   },
+   "cobertura": {
+    "muestras": 48,
+    "dias_ventana": 84,
+    "dias_con_dato": 12,
+    "pct": 14.285714285714285,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "e1rm_epley",
+    "explica_es": "Estimado con la fórmula de Epley (la de tu coach) de tu mejor serie de hasta 10 reps.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.e1rm.bp",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Press banca · 1RM estimado",
+   "estado": "medida",
+   "dato": {
+    "valor": 85.8,
+    "unidad": "kg",
+    "referencia": {
+     "valor": 85.8,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 84,
+    "delta": 2.1428571428571392,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 2.5,
+    "significativo": false
+   },
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-13",
+      "v": 81.1
+     },
+     {
+      "t": "2026-07-20",
+      "v": 81.1
+     },
+     {
+      "t": "2026-07-27",
+      "v": 81.7
+     },
+     {
+      "t": "2026-08-03",
+      "v": 81.7
+     },
+     {
+      "t": "2026-08-10",
+      "v": 84.6
+     },
+     {
+      "t": "2026-08-17",
+      "v": 81.7
+     },
+     {
+      "t": "2026-08-24",
+      "v": 85.2
+     },
+     {
+      "t": "2026-08-31",
+      "v": 82.3
+     },
+     {
+      "t": "2026-09-07",
+      "v": 85.2
+     },
+     {
+      "t": "2026-09-14",
+      "v": 82.3
+     },
+     {
+      "t": "2026-09-21",
+      "v": 85.8
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "igual",
+    "etiqueta_es": "Te mantienes",
+    "frase_es": null,
+    "tono": "neutro"
+   },
+   "cobertura": {
+    "muestras": 44,
+    "dias_ventana": 84,
+    "dias_con_dato": 11,
+    "pct": 13.095238095238097,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "e1rm_epley",
+    "explica_es": "Estimado con la fórmula de Epley (la de tu coach) de tu mejor serie de hasta 10 reps.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.e1rm.rb",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Remo con barra · 1RM estimado",
+   "estado": "medida",
+   "dato": {
+    "valor": 76.6,
+    "unidad": "kg",
+    "referencia": {
+     "valor": 76.6,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 75.4,
+    "delta": 1.5915119363395074,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 2.5,
+    "significativo": false
+   },
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-13",
+      "v": 75.4
+     },
+     {
+      "t": "2026-07-20",
+      "v": 72.2
+     },
+     {
+      "t": "2026-07-27",
+      "v": 72.8
+     },
+     {
+      "t": "2026-08-03",
+      "v": 72.8
+     },
+     {
+      "t": "2026-08-10",
+      "v": 72.8
+     },
+     {
+      "t": "2026-08-17",
+      "v": 72.8
+     },
+     {
+      "t": "2026-08-24",
+      "v": 76
+     },
+     {
+      "t": "2026-08-31",
+      "v": 73.5
+     },
+     {
+      "t": "2026-09-07",
+      "v": 73.5
+     },
+     {
+      "t": "2026-09-14",
+      "v": 76.6
+     },
+     {
+      "t": "2026-09-21",
+      "v": 76.6
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "igual",
+    "etiqueta_es": "Te mantienes",
+    "frase_es": null,
+    "tono": "neutro"
+   },
+   "cobertura": {
+    "muestras": 44,
+    "dias_ventana": 84,
+    "dias_con_dato": 11,
+    "pct": 13.095238095238097,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "e1rm_epley",
+    "explica_es": "Estimado con la fórmula de Epley (la de tu coach) de tu mejor serie de hasta 10 reps.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.e1rm.sq",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Sentadilla · 1RM estimado",
+   "estado": "medida",
+   "dato": {
+    "valor": 121.3,
+    "unidad": "kg",
+    "referencia": {
+     "valor": 121.3,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": {
+    "anterior": 118.4,
+    "delta": 2.449324324324317,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": 2.5,
+    "significativo": false
+   },
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-13",
+      "v": 119.6
+     },
+     {
+      "t": "2026-07-20",
+      "v": 116.7
+     },
+     {
+      "t": "2026-07-27",
+      "v": 119.6
+     },
+     {
+      "t": "2026-08-03",
+      "v": 117.3
+     },
+     {
+      "t": "2026-08-10",
+      "v": 117.3
+     },
+     {
+      "t": "2026-08-17",
+      "v": 120.2
+     },
+     {
+      "t": "2026-08-24",
+      "v": 117.8
+     },
+     {
+      "t": "2026-08-31",
+      "v": 117.8
+     },
+     {
+      "t": "2026-09-07",
+      "v": 118.4
+     },
+     {
+      "t": "2026-09-14",
+      "v": 118.4
+     },
+     {
+      "t": "2026-09-21",
+      "v": 121.3
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": {
+    "code": "igual",
+    "etiqueta_es": "Te mantienes",
+    "frase_es": null,
+    "tono": "neutro"
+   },
+   "cobertura": {
+    "muestras": 44,
+    "dias_ventana": 84,
+    "dias_con_dato": 11,
+    "pct": 13.095238095238097,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "e1rm_epley",
+    "explica_es": "Estimado con la fórmula de Epley (la de tu coach) de tu mejor serie de hasta 10 reps.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.rm.dl",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Peso muerto · mejores por reps",
+   "estado": "medida",
+   "dato": {
+    "valor": 130.5,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": null,
+   "reparto": {
+    "unidad": "kg",
+    "total": 130.5,
+    "partes": [
+     {
+      "code": "1",
+      "etiqueta_es": "1 rep",
+      "valor": 130.5,
+      "pct": null
+     },
+     {
+      "code": "2",
+      "etiqueta_es": "2 reps",
+      "valor": 130.5,
+      "pct": null
+     },
+     {
+      "code": "3",
+      "etiqueta_es": "3 reps",
+      "valor": 130.5,
+      "pct": null
+     }
+    ]
+   },
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 152,
+    "dias_ventana": 84,
+    "dias_con_dato": 12,
+    "pct": 14.285714285714285,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "mejores_por_reps",
+    "explica_es": "Lo más pesado que has movido para cada número de repeticiones, de siempre (una serie de 5 cuenta también para 3). Levantado, no estimado.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.rm.op",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Press militar · mejores por reps",
+   "estado": "medida",
+   "dato": {
+    "valor": 45,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": null,
+   "reparto": {
+    "unidad": "kg",
+    "total": 45,
+    "partes": [
+     {
+      "code": "1",
+      "etiqueta_es": "1 rep",
+      "valor": 45,
+      "pct": null
+     },
+     {
+      "code": "2",
+      "etiqueta_es": "2 reps",
+      "valor": 45,
+      "pct": null
+     },
+     {
+      "code": "3",
+      "etiqueta_es": "3 reps",
+      "valor": 45,
+      "pct": null
+     },
+     {
+      "code": "5",
+      "etiqueta_es": "5 reps",
+      "valor": 45,
+      "pct": null
+     },
+     {
+      "code": "8",
+      "etiqueta_es": "8 reps",
+      "valor": 45,
+      "pct": null
+     }
+    ]
+   },
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 152,
+    "dias_ventana": 84,
+    "dias_con_dato": 12,
+    "pct": 14.285714285714285,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "mejores_por_reps",
+    "explica_es": "Lo más pesado que has movido para cada número de repeticiones, de siempre (una serie de 5 cuenta también para 3). Levantado, no estimado.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.rm.bp",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Press banca · mejores por reps",
+   "estado": "medida",
+   "dato": {
+    "valor": 73.5,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": null,
+   "reparto": {
+    "unidad": "kg",
+    "total": 73.5,
+    "partes": [
+     {
+      "code": "1",
+      "etiqueta_es": "1 rep",
+      "valor": 73.5,
+      "pct": null
+     },
+     {
+      "code": "2",
+      "etiqueta_es": "2 reps",
+      "valor": 73.5,
+      "pct": null
+     },
+     {
+      "code": "3",
+      "etiqueta_es": "3 reps",
+      "valor": 73.5,
+      "pct": null
+     },
+     {
+      "code": "5",
+      "etiqueta_es": "5 reps",
+      "valor": 73.5,
+      "pct": null
+     }
+    ]
+   },
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 152,
+    "dias_ventana": 84,
+    "dias_con_dato": 11,
+    "pct": 13.095238095238097,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "mejores_por_reps",
+    "explica_es": "Lo más pesado que has movido para cada número de repeticiones, de siempre (una serie de 5 cuenta también para 3). Levantado, no estimado.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.rm.rb",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Remo con barra · mejores por reps",
+   "estado": "medida",
+   "dato": {
+    "valor": 60.5,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": null,
+   "reparto": {
+    "unidad": "kg",
+    "total": 60.5,
+    "partes": [
+     {
+      "code": "1",
+      "etiqueta_es": "1 rep",
+      "valor": 60.5,
+      "pct": null
+     },
+     {
+      "code": "2",
+      "etiqueta_es": "2 reps",
+      "valor": 60.5,
+      "pct": null
+     },
+     {
+      "code": "3",
+      "etiqueta_es": "3 reps",
+      "valor": 60.5,
+      "pct": null
+     },
+     {
+      "code": "5",
+      "etiqueta_es": "5 reps",
+      "valor": 60.5,
+      "pct": null
+     },
+     {
+      "code": "8",
+      "etiqueta_es": "8 reps",
+      "valor": 60.5,
+      "pct": null
+     }
+    ]
+   },
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 152,
+    "dias_ventana": 84,
+    "dias_con_dato": 11,
+    "pct": 13.095238095238097,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "mejores_por_reps",
+    "explica_es": "Lo más pesado que has movido para cada número de repeticiones, de siempre (una serie de 5 cuenta también para 3). Levantado, no estimado.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.rm.sq",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Sentadilla · mejores por reps",
+   "estado": "medida",
+   "dato": {
+    "valor": 104,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": null,
+   "reparto": {
+    "unidad": "kg",
+    "total": 104,
+    "partes": [
+     {
+      "code": "1",
+      "etiqueta_es": "1 rep",
+      "valor": 104,
+      "pct": null
+     },
+     {
+      "code": "2",
+      "etiqueta_es": "2 reps",
+      "valor": 104,
+      "pct": null
+     },
+     {
+      "code": "3",
+      "etiqueta_es": "3 reps",
+      "valor": 104,
+      "pct": null
+     },
+     {
+      "code": "5",
+      "etiqueta_es": "5 reps",
+      "valor": 104,
+      "pct": null
+     }
+    ]
+   },
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 152,
+    "dias_ventana": 84,
+    "dias_con_dato": 11,
+    "pct": 13.095238095238097,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "mejores_por_reps",
+    "explica_es": "Lo más pesado que has movido para cada número de repeticiones, de siempre (una serie de 5 cuenta también para 3). Levantado, no estimado.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.series",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Series",
+   "estado": "medida",
+   "dato": {
+    "valor": 240,
+    "unidad": "series",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 252,
+    "delta": -4.761904761904762,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "series",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-06",
+      "v": 9
+     },
+     {
+      "t": "2026-07-13",
+      "v": 21
+     },
+     {
+      "t": "2026-07-20",
+      "v": 21
+     },
+     {
+      "t": "2026-07-27",
+      "v": 21
+     },
+     {
+      "t": "2026-08-03",
+      "v": 21
+     },
+     {
+      "t": "2026-08-10",
+      "v": 21
+     },
+     {
+      "t": "2026-08-17",
+      "v": 21
+     },
+     {
+      "t": "2026-08-24",
+      "v": 21
+     },
+     {
+      "t": "2026-08-31",
+      "v": 21
+     },
+     {
+      "t": "2026-09-07",
+      "v": 21
+     },
+     {
+      "t": "2026-09-14",
+      "v": 21
+     },
+     {
+      "t": "2026-09-21",
+      "v": 21
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": {
+    "unidad": "series",
+    "total": 240,
+    "partes": [
+     {
+      "code": "carry",
+      "etiqueta_es": "Acarreo",
+      "valor": 12,
+      "pct": 5
+     },
+     {
+      "code": "hinge",
+      "etiqueta_es": "Bisagra de cadera",
+      "valor": 48,
+      "pct": 20
+     },
+     {
+      "code": "horizontal_pull",
+      "etiqueta_es": "Tirón horizontal",
+      "valor": 44,
+      "pct": 18.333333333333332
+     },
+     {
+      "code": "horizontal_push",
+      "etiqueta_es": "Empuje horizontal",
+      "valor": 44,
+      "pct": 18.333333333333332
+     },
+     {
+      "code": "squat",
+      "etiqueta_es": "Sentadilla",
+      "valor": 44,
+      "pct": 18.333333333333332
+     },
+     {
+      "code": "vertical_push",
+      "etiqueta_es": "Empuje vertical",
+      "valor": 48,
+      "pct": 20
+     }
+    ]
+   },
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 240,
+    "dias_ventana": 84,
+    "dias_con_dato": 35,
+    "pct": 41.66666666666667,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "Las series hechas de cada periodo, repartidas por patrón de movimiento.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.tonelaje",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Tonelaje",
+   "estado": "medida",
+   "dato": {
+    "valor": 92787,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 96130,
+    "delta": -3.47758244044523,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-06",
+      "v": 2846
+     },
+     {
+      "t": "2026-07-13",
+      "v": 8129
+     },
+     {
+      "t": "2026-07-20",
+      "v": 8082
+     },
+     {
+      "t": "2026-07-27",
+      "v": 8148
+     },
+     {
+      "t": "2026-08-03",
+      "v": 8144
+     },
+     {
+      "t": "2026-08-10",
+      "v": 8157
+     },
+     {
+      "t": "2026-08-17",
+      "v": 8150
+     },
+     {
+      "t": "2026-08-24",
+      "v": 8210
+     },
+     {
+      "t": "2026-08-31",
+      "v": 8188
+     },
+     {
+      "t": "2026-09-07",
+      "v": 8231
+     },
+     {
+      "t": "2026-09-14",
+      "v": 8224
+     },
+     {
+      "t": "2026-09-21",
+      "v": 8279
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": {
+    "unidad": "kg",
+    "total": 92787,
+    "partes": [
+     {
+      "code": "hinge",
+      "etiqueta_es": "Bisagra de cadera",
+      "valor": 18419,
+      "pct": 19.850841173871338
+     },
+     {
+      "code": "horizontal_pull",
+      "etiqueta_es": "Tirón horizontal",
+      "valor": 20352,
+      "pct": 21.934107148630737
+     },
+     {
+      "code": "horizontal_push",
+      "etiqueta_es": "Empuje horizontal",
+      "valor": 15490,
+      "pct": 16.694148964833435
+     },
+     {
+      "code": "squat",
+      "etiqueta_es": "Sentadilla",
+      "valor": 22210,
+      "pct": 23.93654283466434
+     },
+     {
+      "code": "vertical_push",
+      "etiqueta_es": "Empuje vertical",
+      "valor": 16316,
+      "pct": 17.58435987800015
+     }
+    ]
+   },
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 240,
+    "dias_ventana": 84,
+    "dias_con_dato": 35,
+    "pct": 41.66666666666667,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "Carga × reps de cada serie hecha; a peso corporal suma reps, no kilos.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.carry.series",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Acarreo · series",
+   "estado": "medida",
+   "dato": {
+    "valor": 12,
+    "unidad": "series",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 12,
+    "delta": 0,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "series",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-06",
+      "v": 1
+     },
+     {
+      "t": "2026-07-13",
+      "v": 1
+     },
+     {
+      "t": "2026-07-20",
+      "v": 1
+     },
+     {
+      "t": "2026-07-27",
+      "v": 1
+     },
+     {
+      "t": "2026-08-03",
+      "v": 1
+     },
+     {
+      "t": "2026-08-10",
+      "v": 1
+     },
+     {
+      "t": "2026-08-17",
+      "v": 1
+     },
+     {
+      "t": "2026-08-24",
+      "v": 1
+     },
+     {
+      "t": "2026-08-31",
+      "v": 1
+     },
+     {
+      "t": "2026-09-07",
+      "v": 1
+     },
+     {
+      "t": "2026-09-14",
+      "v": 1
+     },
+     {
+      "t": "2026-09-21",
+      "v": 1
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 12,
+    "dias_ventana": 84,
+    "dias_con_dato": 12,
+    "pct": 14.285714285714285,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "Las series de acarreo de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.carry.tonelaje",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Acarreo · tonelaje",
+   "estado": "medida",
+   "dato": {
+    "valor": 0,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 0,
+    "delta": null,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-06",
+      "v": 0
+     },
+     {
+      "t": "2026-07-13",
+      "v": 0
+     },
+     {
+      "t": "2026-07-20",
+      "v": 0
+     },
+     {
+      "t": "2026-07-27",
+      "v": 0
+     },
+     {
+      "t": "2026-08-03",
+      "v": 0
+     },
+     {
+      "t": "2026-08-10",
+      "v": 0
+     },
+     {
+      "t": "2026-08-17",
+      "v": 0
+     },
+     {
+      "t": "2026-08-24",
+      "v": 0
+     },
+     {
+      "t": "2026-08-31",
+      "v": 0
+     },
+     {
+      "t": "2026-09-07",
+      "v": 0
+     },
+     {
+      "t": "2026-09-14",
+      "v": 0
+     },
+     {
+      "t": "2026-09-21",
+      "v": 0
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 12,
+    "dias_ventana": 84,
+    "dias_con_dato": 12,
+    "pct": 14.285714285714285,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "El tonelaje de acarreo de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.hinge.series",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Bisagra de cadera · series",
+   "estado": "medida",
+   "dato": {
+    "valor": 48,
+    "unidad": "series",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 48,
+    "delta": 0,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "series",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-06",
+      "v": 4
+     },
+     {
+      "t": "2026-07-13",
+      "v": 4
+     },
+     {
+      "t": "2026-07-20",
+      "v": 4
+     },
+     {
+      "t": "2026-07-27",
+      "v": 4
+     },
+     {
+      "t": "2026-08-03",
+      "v": 4
+     },
+     {
+      "t": "2026-08-10",
+      "v": 4
+     },
+     {
+      "t": "2026-08-17",
+      "v": 4
+     },
+     {
+      "t": "2026-08-24",
+      "v": 4
+     },
+     {
+      "t": "2026-08-31",
+      "v": 4
+     },
+     {
+      "t": "2026-09-07",
+      "v": 4
+     },
+     {
+      "t": "2026-09-14",
+      "v": 4
+     },
+     {
+      "t": "2026-09-21",
+      "v": 4
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 48,
+    "dias_ventana": 84,
+    "dias_con_dato": 12,
+    "pct": 14.285714285714285,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "Las series de bisagra de cadera de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.hinge.tonelaje",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Bisagra de cadera · tonelaje",
+   "estado": "medida",
+   "dato": {
+    "valor": 18419,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 18020,
+    "delta": 2.214206437291898,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-06",
+      "v": 1518
+     },
+     {
+      "t": "2026-07-13",
+      "v": 1518
+     },
+     {
+      "t": "2026-07-20",
+      "v": 1524
+     },
+     {
+      "t": "2026-07-27",
+      "v": 1532
+     },
+     {
+      "t": "2026-08-03",
+      "v": 1530
+     },
+     {
+      "t": "2026-08-10",
+      "v": 1530
+     },
+     {
+      "t": "2026-08-17",
+      "v": 1544
+     },
+     {
+      "t": "2026-08-24",
+      "v": 1544
+     },
+     {
+      "t": "2026-08-31",
+      "v": 1542
+     },
+     {
+      "t": "2026-09-07",
+      "v": 1542
+     },
+     {
+      "t": "2026-09-14",
+      "v": 1548
+     },
+     {
+      "t": "2026-09-21",
+      "v": 1548
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 48,
+    "dias_ventana": 84,
+    "dias_con_dato": 12,
+    "pct": 14.285714285714285,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "El tonelaje de bisagra de cadera de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.horizontal_pull.series",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Tirón horizontal · series",
+   "estado": "medida",
+   "dato": {
+    "valor": 44,
+    "unidad": "series",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 48,
+    "delta": -8.333333333333332,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "series",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-13",
+      "v": 4
+     },
+     {
+      "t": "2026-07-20",
+      "v": 4
+     },
+     {
+      "t": "2026-07-27",
+      "v": 4
+     },
+     {
+      "t": "2026-08-03",
+      "v": 4
+     },
+     {
+      "t": "2026-08-10",
+      "v": 4
+     },
+     {
+      "t": "2026-08-17",
+      "v": 4
+     },
+     {
+      "t": "2026-08-24",
+      "v": 4
+     },
+     {
+      "t": "2026-08-31",
+      "v": 4
+     },
+     {
+      "t": "2026-09-07",
+      "v": 4
+     },
+     {
+      "t": "2026-09-14",
+      "v": 4
+     },
+     {
+      "t": "2026-09-21",
+      "v": 4
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 44,
+    "dias_ventana": 84,
+    "dias_con_dato": 11,
+    "pct": 13.095238095238097,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "Las series de tirón horizontal de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.horizontal_pull.tonelaje",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Tirón horizontal · tonelaje",
+   "estado": "medida",
+   "dato": {
+    "valor": 20352,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 21804,
+    "delta": -6.6593285635663175,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-13",
+      "v": 1844
+     },
+     {
+      "t": "2026-07-20",
+      "v": 1824
+     },
+     {
+      "t": "2026-07-27",
+      "v": 1840
+     },
+     {
+      "t": "2026-08-03",
+      "v": 1840
+     },
+     {
+      "t": "2026-08-10",
+      "v": 1840
+     },
+     {
+      "t": "2026-08-17",
+      "v": 1840
+     },
+     {
+      "t": "2026-08-24",
+      "v": 1860
+     },
+     {
+      "t": "2026-08-31",
+      "v": 1856
+     },
+     {
+      "t": "2026-09-07",
+      "v": 1856
+     },
+     {
+      "t": "2026-09-14",
+      "v": 1876
+     },
+     {
+      "t": "2026-09-21",
+      "v": 1876
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 44,
+    "dias_ventana": 84,
+    "dias_con_dato": 11,
+    "pct": 13.095238095238097,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "El tonelaje de tirón horizontal de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.horizontal_push.series",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Empuje horizontal · series",
+   "estado": "medida",
+   "dato": {
+    "valor": 44,
+    "unidad": "series",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 48,
+    "delta": -8.333333333333332,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "series",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-13",
+      "v": 4
+     },
+     {
+      "t": "2026-07-20",
+      "v": 4
+     },
+     {
+      "t": "2026-07-27",
+      "v": 4
+     },
+     {
+      "t": "2026-08-03",
+      "v": 4
+     },
+     {
+      "t": "2026-08-10",
+      "v": 4
+     },
+     {
+      "t": "2026-08-17",
+      "v": 4
+     },
+     {
+      "t": "2026-08-24",
+      "v": 4
+     },
+     {
+      "t": "2026-08-31",
+      "v": 4
+     },
+     {
+      "t": "2026-09-07",
+      "v": 4
+     },
+     {
+      "t": "2026-09-14",
+      "v": 4
+     },
+     {
+      "t": "2026-09-21",
+      "v": 4
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 44,
+    "dias_ventana": 84,
+    "dias_con_dato": 11,
+    "pct": 13.095238095238097,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "Las series de empuje horizontal de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.horizontal_push.tonelaje",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Empuje horizontal · tonelaje",
+   "estado": "medida",
+   "dato": {
+    "valor": 15490,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 16603,
+    "delta": -6.703607781726194,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-13",
+      "v": 1390
+     },
+     {
+      "t": "2026-07-20",
+      "v": 1390
+     },
+     {
+      "t": "2026-07-27",
+      "v": 1400
+     },
+     {
+      "t": "2026-08-03",
+      "v": 1400
+     },
+     {
+      "t": "2026-08-10",
+      "v": 1413
+     },
+     {
+      "t": "2026-08-17",
+      "v": 1400
+     },
+     {
+      "t": "2026-08-24",
+      "v": 1423
+     },
+     {
+      "t": "2026-08-31",
+      "v": 1410
+     },
+     {
+      "t": "2026-09-07",
+      "v": 1423
+     },
+     {
+      "t": "2026-09-14",
+      "v": 1410
+     },
+     {
+      "t": "2026-09-21",
+      "v": 1433
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 44,
+    "dias_ventana": 84,
+    "dias_con_dato": 11,
+    "pct": 13.095238095238097,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "El tonelaje de empuje horizontal de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.squat.series",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Sentadilla · series",
+   "estado": "medida",
+   "dato": {
+    "valor": 44,
+    "unidad": "series",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 48,
+    "delta": -8.333333333333332,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "series",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-13",
+      "v": 4
+     },
+     {
+      "t": "2026-07-20",
+      "v": 4
+     },
+     {
+      "t": "2026-07-27",
+      "v": 4
+     },
+     {
+      "t": "2026-08-03",
+      "v": 4
+     },
+     {
+      "t": "2026-08-10",
+      "v": 4
+     },
+     {
+      "t": "2026-08-17",
+      "v": 4
+     },
+     {
+      "t": "2026-08-24",
+      "v": 4
+     },
+     {
+      "t": "2026-08-31",
+      "v": 4
+     },
+     {
+      "t": "2026-09-07",
+      "v": 4
+     },
+     {
+      "t": "2026-09-14",
+      "v": 4
+     },
+     {
+      "t": "2026-09-21",
+      "v": 4
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 44,
+    "dias_ventana": 84,
+    "dias_con_dato": 11,
+    "pct": 13.095238095238097,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "Las series de sentadilla de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.squat.tonelaje",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Sentadilla · tonelaje",
+   "estado": "medida",
+   "dato": {
+    "valor": 22210,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 23700,
+    "delta": -6.28691983122363,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-13",
+      "v": 2013
+     },
+     {
+      "t": "2026-07-20",
+      "v": 2000
+     },
+     {
+      "t": "2026-07-27",
+      "v": 2013
+     },
+     {
+      "t": "2026-08-03",
+      "v": 2010
+     },
+     {
+      "t": "2026-08-10",
+      "v": 2010
+     },
+     {
+      "t": "2026-08-17",
+      "v": 2023
+     },
+     {
+      "t": "2026-08-24",
+      "v": 2020
+     },
+     {
+      "t": "2026-08-31",
+      "v": 2020
+     },
+     {
+      "t": "2026-09-07",
+      "v": 2030
+     },
+     {
+      "t": "2026-09-14",
+      "v": 2030
+     },
+     {
+      "t": "2026-09-21",
+      "v": 2043
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 44,
+    "dias_ventana": 84,
+    "dias_con_dato": 11,
+    "pct": 13.095238095238097,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "El tonelaje de sentadilla de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.vertical_push.series",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Empuje vertical · series",
+   "estado": "medida",
+   "dato": {
+    "valor": 48,
+    "unidad": "series",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 48,
+    "delta": 0,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "series",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-06",
+      "v": 4
+     },
+     {
+      "t": "2026-07-13",
+      "v": 4
+     },
+     {
+      "t": "2026-07-20",
+      "v": 4
+     },
+     {
+      "t": "2026-07-27",
+      "v": 4
+     },
+     {
+      "t": "2026-08-03",
+      "v": 4
+     },
+     {
+      "t": "2026-08-10",
+      "v": 4
+     },
+     {
+      "t": "2026-08-17",
+      "v": 4
+     },
+     {
+      "t": "2026-08-24",
+      "v": 4
+     },
+     {
+      "t": "2026-08-31",
+      "v": 4
+     },
+     {
+      "t": "2026-09-07",
+      "v": 4
+     },
+     {
+      "t": "2026-09-14",
+      "v": 4
+     },
+     {
+      "t": "2026-09-21",
+      "v": 4
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 48,
+    "dias_ventana": 84,
+    "dias_con_dato": 12,
+    "pct": 14.285714285714285,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "Las series de empuje vertical de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.vertical_push.tonelaje",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Empuje vertical · tonelaje",
+   "estado": "medida",
+   "dato": {
+    "valor": 16316,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": {
+    "anterior": 16004,
+    "delta": 1.9495126218445389,
+    "unidad": "pct",
+    "periodo": {
+     "desde": "2026-04-15",
+     "hasta": "2026-07-07",
+     "dias": 84
+    },
+    "cambio_minimo": null,
+    "significativo": null
+   },
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-07-06",
+      "v": 1328
+     },
+     {
+      "t": "2026-07-13",
+      "v": 1364
+     },
+     {
+      "t": "2026-07-20",
+      "v": 1344
+     },
+     {
+      "t": "2026-07-27",
+      "v": 1364
+     },
+     {
+      "t": "2026-08-03",
+      "v": 1364
+     },
+     {
+      "t": "2026-08-10",
+      "v": 1364
+     },
+     {
+      "t": "2026-08-17",
+      "v": 1344
+     },
+     {
+      "t": "2026-08-24",
+      "v": 1364
+     },
+     {
+      "t": "2026-08-31",
+      "v": 1360
+     },
+     {
+      "t": "2026-09-07",
+      "v": 1380
+     },
+     {
+      "t": "2026-09-14",
+      "v": 1360
+     },
+     {
+      "t": "2026-09-21",
+      "v": 1380
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 48,
+    "dias_ventana": 84,
+    "dias_con_dato": 12,
+    "pct": 14.285714285714285,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "El tonelaje de empuje vertical de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  }
+ ]
+}

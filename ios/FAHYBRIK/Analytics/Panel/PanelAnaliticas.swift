@@ -214,6 +214,10 @@ struct MetodoDelPanel: Codable, Equatable {
     /// Noches mínimas de basal para la recuperación.
     let hrvMinNightsBaseline: Int?
     let basalDias: Int?
+    /// La holgura con la que el coach juzga un tramo: el ritmo (s/km) y el RIR (repeticiones). Los lee la nota
+    /// de «lo que te piden» de los detalles; nulos hasta que el servidor los sirva.
+    var holguraRitmoSKm: Double? = nil
+    var holguraRir: Double? = nil
 }
 
 // MARK: - Las anclas: el umbral por modalidad, con su peldaño
@@ -281,6 +285,8 @@ enum IdsDelPanel {
     static let prefijoTramo = "carrera.tramo."
     /// `referencia.de` de un récord: el que había antes.
     static let referenciaRecordAnterior = "record_anterior"
+    /// `referencia.de` de una marca contra su récord de siempre: con delta cero, ES el récord.
+    static let referenciaRecord = "record"
     static let referenciaObjetivoCoach = "objetivo_coach"
     static let referenciaPresupuestoTramo = "presupuesto_objetivo"
     /// `veredicto.code` de un récord que se ha batido en la ventana.

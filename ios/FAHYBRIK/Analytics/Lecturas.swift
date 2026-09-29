@@ -1,57 +1,23 @@
 import Foundation
 
-// LAS ANALÍTICAS DEL ATLETA — el payload de `GET /api/athlete/analytics/lecturas`.
+// LAS LECTURAS DEL MOTOR — el contrato `Lectura` (`shared/domain/analytics/lectura.ts`) que sirven el panel, los detalles de familia
+// y la sesión (`PanelAnaliticas`, `DetalleAnaliticas`, `DetalleDeSesion`).
 //
 // POR QUÉ ESTE FICHERO NO TIENE UN CASO POR LECTURA
 // -------------------------------------------------
-// El servidor devuelve una LISTA (ver la cabecera de
-// `shared/domain/analytics/lectura.ts`). Cada elemento trae su grupo, su dato, su
-// cobertura y su procedencia, y el cliente dibuja por GRUPO + FORMA DEL DATO —
-// nunca por `id`. Esa es toda la arquitectura: una lectura nueva del servidor
-// aparece sola, sin tocar Swift, y una que este binario no sepa dibujar se ignora
-// sin romper la pantalla.
-//
-// Es exactamente lo contrario de lo que pasó con `running/progress`, donde cuatro
-// campos que el servidor calculaba y enviaba (`umbral`, `zonas_ritmo`, `cadencia`,
-// `por_tipo`) no se dibujaban porque sumar uno costaba tocar el tipo, el
-// ensamblador y el modelo Codable a la vez.
+// El servidor devuelve una LISTA. Cada elemento trae su bloque, su dato, su cobertura y su procedencia, y el cliente dibuja por
+// BLOQUE + FORMA DEL DATO — nunca por `id`. Esa es toda la arquitectura: una lectura nueva del servidor aparece sola, sin tocar
+// Swift, y una que este binario no sepa dibujar se ignora sin romper la pantalla.
 //
 // LA CONSECUENCIA EN EL TIPADO: **NADA DE AQUÍ LANZA POR UN VALOR NUEVO.**
-// Un grupo, una unidad, un estado o un paso que este binario no conozca decodifican
-// a su caso `desconocid…`, y la vista se calla esa lectura. Si lanzaran, un enum
-// ampliado en el servidor dejaría al atleta con la pantalla entera en blanco —
-// que es el fallo opuesto y peor: el contrato existe para que el servidor pueda
-// crecer sin desplegar la app.
+// Un grupo, una unidad, un estado o un paso que este binario no conozca decodifican a su caso `desconocid…`, y la vista se calla
+// esa lectura. Si lanzaran, un enum ampliado en el servidor dejaría al atleta con la pantalla entera en blanco — que es el fallo
+// opuesto y peor: el contrato existe para que el servidor pueda crecer sin desplegar la app.
 //
-// AQUÍ NO SE CALCULA NADA. Los motores (carga, capacidad, recuperación) viven en
-// `shared/domain/analytics`, puros y probados. Este fichero sabe LEER.
+// AQUÍ NO SE CALCULA NADA. Los motores (carga, capacidad, recuperación) viven en `shared/domain/analytics`, puros y probados.
+// Este fichero sabe LEER.
 
-// MARK: - La raíz
-
-struct AnaliticasAtleta: Codable, Equatable {
-    let athleteId: String
-    let generadoIso: String
-    let ventana: VentanaDeLectura
-    /// El método del coach REALMENTE usado. Viaja para que el cliente pueda
-    /// colorear el cociente por SUS bandas sin volver a resolverlo ni, mucho
-    /// peor, cablearlo — la Regla Nº0 lo prohíbe.
-    let metodo: MetodoAnalitico
-    /// Cuánta historia hay DE VERDAD. Sin esto, pedir 520 semanas a quien lleva
-    /// diez le enseñaría sus diez bajo el rótulo «dos años».
-    let historia: HistoriaDelAtleta
-    let lecturas: [LecturaAnalitica]
-    /// Lo que la pantalla puede AFIRMAR, con los ids de las lecturas de las que
-    /// sale cada frase. Puede venir VACÍO: no siempre hay algo que decirle.
-    let hechos: [Hecho]
-
-    struct VentanaDeLectura: Codable, Equatable {
-        let semanas: Int
-        let dias: Int
-        /// ISO `YYYY-MM-DD`, inclusive.
-        let desde: String
-        let hasta: String
-    }
-}
+// MARK: - La historia
 
 /// Cuánta historia tiene el atleta. `semanas` nulo = no ha ejecutado nada: no hay
 /// desde cuándo contar, que es distinto de llevar cero.
@@ -63,25 +29,11 @@ struct HistoriaDelAtleta: Codable, Equatable {
     let cubreTodo: Bool
 }
 
-extension AnaliticasAtleta {
-    /// SOBRE QUÉ VENTANA HABLA LA PANTALLA, en dos o tres palabras.
-    ///
-    /// Una curva sin su ventana miente por omisión: doce semanas de fondo y dos
-    /// años de fondo se dibujan igual de largas. Y «desde que empezaste» solo se
-    /// escribe cuando la ventana ABARCA su historia entera —para eso viaja
-    /// `historia.cubre_todo`—; si no, lo único cierto es cuántas semanas se están
-    /// mirando.
-    var ventanaEs: String {
-        if historia.cubreTodo, historia.semanas != nil { return "desde que empezaste" }
-        return "\(ventana.semanas) semanas"
-    }
-}
-
 /// EL MÉTODO DEL COACH, y solo los campos que esta pantalla LEE.
 ///
-/// Mismo criterio que `CoachRunningThresholds`: el resto de la fila viaja y no se
-/// nombra, porque un campo que aparece sin usarse invita a que alguien lo use
-/// mañana creyendo que estaba pensado para esto.
+/// Solo lo que se lee: el resto de la fila viaja y no se nombra, porque un campo que
+/// aparece sin usarse invita a que alguien lo use mañana creyendo que estaba pensado
+/// para esto.
 struct MetodoAnalitico: Codable, Equatable {
     /// Bandas del cociente reciente/fondo. El ÚNICO juicio que este cliente pinta
     /// por su cuenta, y solo porque el contrato manda estos dos números para eso.
@@ -143,29 +95,6 @@ enum GrupoLectura: String, Codable, Equatable, CaseIterable {
     init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = GrupoLectura(rawValue: raw) ?? .desconocido
-    }
-
-    /// LA PREGUNTA QUE CONTESTA EL BLOQUE, en palabras del atleta — nunca la clave
-    /// del cable. Nula para un grupo que este binario no conoce: sin título no hay
-    /// bloque, y un rótulo inventado sobre lecturas que no se entienden es peor
-    /// que no enseñarlas.
-    ///
-    /// La carga no tiene etiqueta aquí porque su bloque es otra cosa: lleva la
-    /// afirmación del servidor de sujeto (ver `BloqueDeCarga`).
-    var etiqueta: String? {
-        switch self {
-        case .carga:         return BloqueDeCarga.etiqueta
-        // No «Lo que sostienes»: la primera lectura del grupo se titula «Velocidad
-        // que sostienes» y las dos juntas decían lo mismo dos veces seguidas.
-        case .capacidad:     return "De qué eres capaz"
-        case .recuperacion:  return "Tu cuerpo"
-        case .ejecucion:     return "Dentro del entreno"
-        case .volumen:       return "Cuánto haces"
-        case .terreno:       return "Dónde corres"
-        case .estado, .forma, .semanas, .intensidad, .progreso, .records, .carrera:
-            return nil
-        case .desconocido:   return nil
-        }
     }
 }
 
@@ -411,8 +340,7 @@ struct CoberturaDeLectura: Codable, Equatable {
     /// Porcentaje 0-100 de días cubiertos. Nulo si la ventana es cero.
     let pct: Double?
     /// Por qué no alcanza, cuando no alcanza. Nulo cuando la lectura se sostiene.
-    /// Mismo vocabulario que `running/progress` a propósito: ya está probado y ya
-    /// sabe decidir con `seCalla` cuándo la app debe callarse.
+    /// El vocabulario de faltas es común a todo el producto (`Falta`); qué se dice y qué se calla lo decide `AnaliticasEstados`.
     let falta: Falta?
 }
 
@@ -456,79 +384,22 @@ struct LecturaAnalitica: Codable, Equatable, Identifiable {
     let procedencia: ProcedenciaDeLectura
 }
 
-// MARK: - La forma: cómo se dibuja una lectura, deducido del dato
+// MARK: - ¿Se pinta?
 
 extension LecturaAnalitica {
 
-    /// LAS CUATRO FORMAS, y ninguna más. Salen del DATO —hay serie, hay reparto,
-    /// hay cifra—, nunca del `id`: por eso una lectura nueva del servidor entra
-    /// dibujada sin tocar este binario.
-    enum Forma: Equatable {
-        /// Cifra y su curva. La serie manda: es lo que hace el bloque.
-        case cifraYSerie
-        /// Cifra y el reparto proporcional que la compone, en barra.
-        case cifraYBarra
-        /// Cifra y las contribuciones que la sostienen, en filas.
-        case cifraYFilas
-        /// Solo la cifra. Legítimo: un cociente no es una curva.
-        case cifra
-        /// No hay número, y la falta dice por qué. Se enseña apagada con su salida.
-        case apagada
-        /// Ni número ni motivo que enseñar: **la app se calla**.
-        case muda
-    }
-
-    /// Una serie solo dibuja con DOS puntos con valor: uno no es una tendencia, y
-    /// un hueco (`v` nulo) no cuenta como punto — no se interpola.
-    private var serieDibujable: Bool {
-        guard let serie, serie.paso != .desconocido else { return false }
-        return serie.puntos.filter { $0.v != nil }.count >= 2
-    }
-
-    var forma: Forma {
+    /// ¿HAY ALGO QUE ENSEÑAR? Una lectura muda no es un hueco: no existe. Lo es el estado que este binario no conoce, el `sin_dato` sin
+    /// falta declarada (un hueco mudo es justo lo que el contrato existe para no enseñar), el `sin_dato` con una falta de las que se
+    /// callan (`Falta.seCalla`) y la cifra cuya unidad este binario no sabe escribir: un número sin unidad miente por omisión.
+    var sePinta: Bool {
         switch estado {
-        case .desconocido:
-            return .muda
+        case .desconocido: return false
         case .sinDato:
-            // Sin falta declarada no hay nada que decirle, y un hueco mudo es
-            // justo lo que este contrato existe para no enseñar.
-            guard let falta = cobertura.falta, !ProgresoDeCarrera.seCalla(falta) else { return .muda }
-            return .apagada
+            guard let falta = cobertura.falta else { return false }
+            return !falta.seCalla
         case .medida:
-            // Sin dato o sin unidad escribible no hay cifra: el servidor promete
-            // que `medida` trae número, pero un binario viejo puede no saber
-            // escribir su unidad, y entonces callarse es lo honesto.
-            guard let dato, dato.unidad != .desconocida else { return .muda }
-            _ = dato
-            if serieDibujable { return .cifraYSerie }
-            if let reparto, !reparto.partes.isEmpty {
-                return reparto.esProporcional ? .cifraYBarra : .cifraYFilas
-            }
-            return .cifra
+            guard let dato else { return false }
+            return dato.unidad != .desconocida
         }
-    }
-}
-
-// MARK: - La lista
-
-extension Array where Element == LecturaAnalitica {
-
-    /// Las lecturas de un grupo, EN EL ORDEN EN QUE LLEGAN. El orden lo manda el
-    /// servidor (de más completa a más corta de muestras); reordenar aquí haría
-    /// que app y servidor discreparan sobre cuál es la primera.
-    func deGrupo(_ grupo: GrupoLectura) -> [LecturaAnalitica] {
-        filter { $0.grupo == grupo }
-    }
-
-    /// La lectura de un id concreto, para que un hecho pueda citar su evidencia.
-    func porId(_ id: String) -> LecturaAnalitica? {
-        first { $0.id == id }
-    }
-
-    /// LO QUE DE VERDAD SE VA A PINTAR. Un grupo entero de lecturas mudas no es un
-    /// bloque vacío: es un bloque que no existe, y llamarlo con su etiqueta sería
-    /// escribir un título sobre nada.
-    func pintables() -> [LecturaAnalitica] {
-        filter { $0.forma != .muda }
     }
 }

@@ -116,6 +116,10 @@ struct AnaliticasGraficoLineas: View {
     var alto: CGFloat = 190
     var desdeCero = false
     var leyenda = true
+    /// «Lo bueno arriba» para ritmos y tiempos: el número menor queda arriba (un ritmo que baja es un ritmo que mejora).
+    var invertido = false
+    /// El eje es un tiempo (un ritmo, un split, un tiempo de carrera): marcas a 15 s, 30 s, 1 min… y no a 2:30 · 3:20 · 4:10.
+    var escalaTiempo = false
 
     /// El aire que se reserva sobre el rango de los datos para rotular la carrera (arriba) y «hoy» (abajo).
     private static let franjaSuperior: CGFloat = 26
@@ -132,8 +136,12 @@ struct AnaliticasGraficoLineas: View {
 
     private var escala: EscalaEje {
         let vals = series.flatMap { ($0.puntos + ($0.proyeccion ?? [])).compactMap(\.v) }
-        return AnaliticasEscala.bonita(vals.min() ?? 0, vals.max() ?? 1, n: 4, desdeCero: desdeCero)
+        return AnaliticasEscala.bonita(vals.min() ?? 0, vals.max() ?? 1, n: 4, desdeCero: desdeCero, pasos: escalaTiempo ? AnaliticasEscala.pasosTiempo : nil)
     }
+
+    /// Lo que se le da a Charts: con la escala invertida el eje es el mismo y el número, su negativo (los rótulos
+    /// deshacen el signo). Así el menor va arriba sin escribir un segundo gráfico.
+    private func plano(_ v: Double) -> Double { invertido ? -v : v }
 
     private var hayProyeccion: Bool { series.contains { !($0.proyeccion ?? []).isEmpty } }
     private var hayEvento: Bool { marcas.contains { $0.tipo == .evento } }
@@ -174,7 +182,7 @@ struct AnaliticasGraficoLineas: View {
             // franja de fuera (la carrera arriba, «hoy» abajo), donde no hay serie ni línea que lo cruce.
             ForEach(marcas) { m in
                 if let fecha = AnaliticasFechas.fecha(m.t) {
-                    RuleMark(x: .value("marca", fecha), yStart: .value("mínimo", escala.min), yEnd: .value("máximo", escala.max))
+                    RuleMark(x: .value("marca", fecha), yStart: .value("mínimo", plano(escala.min)), yEnd: .value("máximo", plano(escala.max)))
                         .foregroundStyle(m.tipo == .evento ? Theme.Color.foreground : Theme.Color.muted)
                         .lineStyle(StrokeStyle(lineWidth: m.tipo == .evento ? Trazo.contorno : Trazo.rejilla, dash: m.tipo == .hoy ? Trazo.hoyDiscontinuo : []))
                         .annotation(position: m.tipo == .hoy ? .bottom : .top, alignment: .center, spacing: 4,
@@ -186,24 +194,24 @@ struct AnaliticasGraficoLineas: View {
             ForEach(series) { s in
                 let hecho = tramos(s.puntos, serie: s.id)
                 ForEach(hecho) { p in
-                    LineMark(x: .value("día", p.fecha), y: .value(s.etiqueta, p.v), series: .value("serie", p.serie))
+                    LineMark(x: .value("día", p.fecha), y: .value(s.etiqueta, plano(p.v)), series: .value("serie", p.serie))
                         .foregroundStyle(s.color)
                         .lineStyle(StrokeStyle(lineWidth: Trazo.linea, lineCap: .round, lineJoin: .round))
                         .interpolationMethod(.linear)
                 }
                 if let proyeccion = s.proyeccion, !proyeccion.isEmpty, let ultimo = s.puntos.last(where: { $0.v != nil }) {
                     ForEach(tramos([ultimo] + proyeccion, serie: "\(s.id)~proy")) { p in
-                        LineMark(x: .value("día", p.fecha), y: .value(s.etiqueta, p.v), series: .value("serie", p.serie))
+                        LineMark(x: .value("día", p.fecha), y: .value(s.etiqueta, plano(p.v)), series: .value("serie", p.serie))
                             .foregroundStyle(s.color)
                             .lineStyle(StrokeStyle(lineWidth: Trazo.linea, lineCap: .round, lineJoin: .round, dash: Trazo.discontinuo))
                             .interpolationMethod(.linear)
                     }
                 }
                 if let ultimo = hecho.last {
-                    PointMark(x: .value("día", ultimo.fecha), y: .value(s.etiqueta, ultimo.v))
+                    PointMark(x: .value("día", ultimo.fecha), y: .value(s.etiqueta, plano(ultimo.v)))
                         .symbolSize(140)
                         .foregroundStyle(Theme.Color.surface)
-                    PointMark(x: .value("día", ultimo.fecha), y: .value(s.etiqueta, ultimo.v))
+                    PointMark(x: .value("día", ultimo.fecha), y: .value(s.etiqueta, plano(ultimo.v)))
                         .symbolSize(64)
                         .foregroundStyle(s.color)
                         .annotation(position: lado(de: s, ultimo: ultimo), spacing: 6, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
@@ -218,9 +226,9 @@ struct AnaliticasGraficoLineas: View {
             }
         }
         .chartXScale(domain: t0...t1)
-        .chartYScale(domain: escala.min...escala.max, range: .plotDimension(startPadding: abajo, endPadding: arriba))
+        .chartYScale(domain: plano(invertido ? escala.max : escala.min)...plano(invertido ? escala.min : escala.max), range: .plotDimension(startPadding: abajo, endPadding: arriba))
         .chartLegend(.hidden)
-        .chartYAxis { ejeYDeAnaliticas(ticks: escala.ticks, formato: formatoY) }
+        .chartYAxis { ejeYDeAnaliticas(ticks: escala.ticks.map(plano), formato: { formatoY(plano($0)) }) }
         .chartXAxis {
             AxisMarks(values: rotulos.map(\.fecha)) { value in
                 if let d = value.as(Date.self), let r = rotulos.first(where: { abs($0.fecha.timeIntervalSince(d)) < 3600 }) {

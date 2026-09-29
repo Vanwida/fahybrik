@@ -117,3 +117,16 @@ struct AnaliticasFilaRecord: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+extension AnaliticasFilaRecord {
+    /// La fila de un récord del panel: su prueba, su día (el último punto de su progresión), lo que había antes y si es nuevo. Nula
+    /// si la lectura no tiene número.
+    init?(_ l: LecturaAnalitica, hoy: String) {
+        guard let dato = l.dato else { return nil }
+        self.init(
+            familia: l.familia, prueba: l.tituloEs, valor: dato.valor, unidad: dato.unidad,
+            fecha: AnaliticasDerivados.ultimoDeLaSerie(l), anterior: AnaliticasDerivados.recordAnterior(l), ancla: l.procedencia.ancla,
+            nuevo: l.veredicto?.code == IdsDelPanel.veredictoRecordNuevo, hoy: hoy
+        )
+    }
+}

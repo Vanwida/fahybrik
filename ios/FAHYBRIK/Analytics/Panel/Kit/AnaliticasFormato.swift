@@ -44,9 +44,9 @@ enum AnaliticasFormato {
     static func cifra(_ valor: Double, _ unidad: UnidadLectura) -> String {
         switch unidad {
         case .sKm, .s500m, .s1000m, .segundos: return Formato.clock(valor)
-        case .horas, .mlKgMin, .rondas: return Formato.esDecimal(valor)
+        case .horas, .mlKgMin, .rondas, .rpe, .rir: return Formato.esDecimal(valor)
         case .ratio, .mS: return Formato.esDecimal(valor, decimals: 2)
-        case .kg: return Formato.esDecimal(valor)
+        case .kg: return valor >= 10000 ? conMillar(valor) : Formato.esDecimal(valor)
         case .metros: return valor >= 1000 ? kilometros(valor) : "\(Int(valor.rounded()))"
         default: return conMillar(valor)
         }
@@ -85,6 +85,11 @@ enum AnaliticasFormato {
         }
     }
 
+    /// Pega cada unidad a su cifra con un espacio duro: «263 W» no se parte en «263» y «W» en la línea de abajo de una fila estrecha.
+    static func conUnidadesPegadas(_ frase: String) -> String {
+        frase.replacingOccurrences(of: #"(?<=\d) (?=\p{L})"#, with: "\u{00A0}", options: .regularExpression)
+    }
+
     /// ¿El delta es cero una vez escrito con la precisión de su unidad? Entonces se dice «igual», no «−0,0 h».
     static func esCero(_ delta: Double, _ unidad: UnidadLectura) -> Bool {
         let decimales: Double
@@ -112,7 +117,7 @@ enum AnaliticasFormato {
         case .bpm: return "\(signo)\(Int(a.rounded())) \(Vocab.ppm)"
         case .kg: return "\(signo)\(Formato.esDecimal(a)) kg"
         case .metros: return a >= 1000 ? "\(signo)\(Formato.esDecimal(a / 1000)) km" : "\(signo)\(Int(a.rounded())) m"
-        case .pct: return "\(signo)\(Int(a.rounded())) pt"
+        case .pct: return "\(signo)\(Int(a.rounded())) %"
         case .ratio: return "\(signo)\(Formato.esDecimal(a, decimals: 2))"
         case .mlKgMin: return "\(signo)\(Formato.esDecimal(a))"
         case .watts: return "\(signo)\(Int(a.rounded())) W"

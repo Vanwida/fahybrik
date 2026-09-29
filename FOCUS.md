@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-29** (reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin; analíticas rehechas en main)
+Última actualización: **2026-09-30** (analíticas del iPhone: detalle y cierre; reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin)
 
 ## Ahora
 

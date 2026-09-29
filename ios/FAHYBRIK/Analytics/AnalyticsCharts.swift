@@ -1,42 +1,26 @@
 import SwiftUI
 import Charts
 
-// The two series renderers for the Analíticas tab, both driven by the SAME wire
-// data (an array of CardSeriesPoint, height 0..1). A card routes to one via its
-// `chartKind` (server `series_kind`, id fallback):
+// LA LÍNEA DE VO₂MÁX — el único gráfico de la pestaña vieja que sigue vivo: lo pinta Perfil (`Vo2MaxView`) sobre `CardSeriesPoint`
+// (altura 0…1). PIEL VIEJA A PROPÓSITO, con su razón: Perfil se pasa a «El día» en su propia tanda y esta línea se va con
+// `Vo2MaxView`; moverla ahora sería tocar una pantalla que no es de esta pestaña. Cuando Perfil la sustituya, se borra con
+// `CardSeriesPoint` y `CardSeriesAxis` (docs/DECISIONS.md, «Analíticas del iPhone · el cierre»).
 //
-//   • LineSeriesChart — trends / progressions. A 2px accent line over a soft area
-//     gradient (accent 28% → clear), small dots on each point, the LAST point
-//     emphasized (halo ring + larger dot + a mono value callout above), 3 recessive
-//     hairline gridlines, muted mono axis labels (y = real min/max from series_axis
-//     when present; x = short date hints at first / mid / last).
-//
-//   • BarSeriesChart — volume-type cards. Thin rounded bars with clear gaps, the
-//     current period a solid accent and the rest accent at ~28%, a mono value
-//     callout over the current bar. (Rendered with RoundedRectangles rather than
-//     Swift Charts' BarMark, which can't produce rounded thin bars.)
-//
-// Colors are Theme tokens only (never a hardcoded hex); the tuned magnitudes live
-// in ChartMetric so there are no scattered magic numbers.
+// Los colores son tokens de `Theme` (el acento del club, nunca un hex); las magnitudes, en `ChartMetric`.
 
 private enum ChartMetric {
     static let plotHeight: CGFloat = 96
     static let lineWidth: CGFloat = 2
     static let areaTopOpacity: Double = 0.28
-    static let inactiveOpacity: Double = 0.28
     static let dotSize: CGFloat = 16          // small point symbol area
     static let lastDotSize: CGFloat = 42      // emphasized endpoint
     static let haloSize: CGFloat = 120        // halo ring behind the endpoint
     static let haloOpacity: Double = 0.16
     static let gridValues: [Double] = [0, 0.5, 1]  // 3 recessive gridlines
     static let xDomainPad: Double = 0.6
-    static let barCorner: CGFloat = 3
-    static let barSpacing: CGFloat = 5
     static let calloutSize: CGFloat = 11
     static let axisLabelSize: CGFloat = 10
 }
-
-// MARK: - Line series (trend / progression)
 
 struct LineSeriesChart: View {
     let points: [CardSeriesPoint]
@@ -132,40 +116,6 @@ struct LineSeriesChart: View {
         guard i >= 0, i < points.count, let raw = points[i].label else { return "" }
         if let d = StatsDateParser.parse(raw) { return StatsDateParser.dayMonth(d) }
         return raw
-    }
-}
-
-// MARK: - Bar series (volume)
-
-struct BarSeriesChart: View {
-    let points: [CardSeriesPoint]
-    let axLabel: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .bottom, spacing: ChartMetric.barSpacing) {
-                ForEach(points) { p in
-                    VStack(spacing: 3) {
-                        // Mono value callout sits above the CURRENT bar only.
-                        if p.current, let display = p.display {
-                            Text(display)
-                                .font(.system(size: ChartMetric.calloutSize, weight: .heavy, design: .monospaced))
-                                .foregroundStyle(Theme.Color.accentText)
-                                .lineLimit(1)
-                                .fixedSize()
-                        }
-                        RoundedRectangle(cornerRadius: ChartMetric.barCorner, style: .continuous)
-                            .fill(p.current ? Theme.Color.accent : Theme.Color.accent.opacity(ChartMetric.inactiveOpacity))
-                            .frame(height: max(3, ChartMetric.plotHeight * clamp(p.height)))
-                            .frame(maxWidth: .infinity)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .bottom)
-                }
-            }
-            .frame(height: ChartMetric.plotHeight + 18, alignment: .bottom)
-        }
-        .accessibilityElement()
-        .accessibilityLabel(axLabel)
     }
 }
 

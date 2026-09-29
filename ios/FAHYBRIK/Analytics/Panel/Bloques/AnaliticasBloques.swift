@@ -18,6 +18,9 @@ struct ContextoDeBloque {
     let ancho: CGFloat
     let onSalida: (DestinoDeSalida) -> Void
     let onAbrir: (AnaliticasDestino) -> Void
+    /// Las sesiones del plan de la ventana (el cumplimiento, que llega aparte del panel): la puerta a los días de «Semana a semana».
+    /// Vacía mientras no han llegado: el bloque pinta lo que el panel ya dijo.
+    var sesiones: [FilaDeSesionVista] = []
 
     var hoy: String { panel.hoy }
     var metodo: MetodoDelPanel { panel.metodo }
@@ -35,11 +38,16 @@ struct ContextoDeBloque {
     }
 }
 
-/// A dónde lleva un toque en la portada: al detalle de un bloque o de una
-/// familia (placeholders hasta la segunda tanda) o a Dispositivos y apps.
+/// A dónde lleva un toque en la portada.
 enum AnaliticasDestino: Hashable {
+    /// El detalle de un bloque que lo tiene: Semana a semana (todas las sesiones), Récords (todas las marcas) y Carrera (todos
+    /// los tramos). Forma y fatiga, Intensidad, Progreso y Recuperación ya se enseñan enteros en la portada.
     case bloque(BloqueDelPanel)
+    /// El «¿mejoro?» a fondo de una familia.
     case familia(FamiliaLectura)
+    /// Una sesión hecha, tramo a tramo.
+    case sesion(SesionDeDestino)
+    /// Dispositivos y apps: la salida de un hueco que pide conectar algo.
     case dispositivos
 }
 

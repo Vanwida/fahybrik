@@ -1,0 +1,583 @@
+{
+ "athlete_id": "105",
+ "generado_iso": "2026-09-29T08:00:00.000Z",
+ "ventana": {
+  "clave": "12s",
+  "desde": "2026-07-08",
+  "hasta": "2026-09-29",
+  "dias": 84,
+  "anterior": {
+   "desde": "2026-04-15",
+   "hasta": "2026-07-07",
+   "dias": 84
+  },
+  "cubre_todo": false
+ },
+ "historia": {
+  "semanas": null,
+  "desde": null,
+  "cubre_todo": false
+ },
+ "metodo": {
+  "ctl_days": 42,
+  "atl_days": 7,
+  "ramp_alert_tss_per_week": 5,
+  "acr_low": 0.8,
+  "acr_high": 1.3,
+  "fuentes_run": [
+   "ritmo",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_row": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_ski": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_bike": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_strength": [
+   "esfuerzo",
+   "pulso"
+  ],
+  "fuentes_other": [
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuerza_coeficiente": 1,
+  "cobertura_veredicto_min_pct": 90,
+  "frescura_sobrecarga_hasta": -30,
+  "frescura_optimo_hasta": -11,
+  "frescura_mantener_hasta": 4,
+  "frescura_fresco_hasta": 29,
+  "cumplimiento_base": "sesiones",
+  "cumplimiento_bien_pct": 90,
+  "cumplimiento_regular_pct": 70,
+  "cumplimiento_sesion_bases": [
+   "carga",
+   "duracion",
+   "distancia"
+  ],
+  "cumplimiento_verde_min_pct": 80,
+  "cumplimiento_verde_max_pct": 120,
+  "cumplimiento_ambar_min_pct": 50,
+  "cumplimiento_ambar_max_pct": 150,
+  "holgura_ritmo_s_km": 3,
+  "holgura_split_s_500m": 2,
+  "holgura_vatios_w": 10,
+  "holgura_pulso_ppm": 2,
+  "holgura_rpe": 1,
+  "holgura_rir": 1,
+  "holgura_carga_pct": 0,
+  "holgura_dosis_pct": 10,
+  "cambio_carga_pct": 10,
+  "cambio_horas_pct": 10,
+  "cambio_forma_tss": 5,
+  "cambio_frescura_tss": 5,
+  "cambio_variabilidad_pct": 5,
+  "cambio_pulso_reposo_bpm": 3,
+  "cambio_sueno_horas": 0.5,
+  "cambio_cumplimiento_pts": 10,
+  "cambio_polarizacion_pts": 5,
+  "polarizacion_familias": [
+   "correr",
+   "remo",
+   "ski",
+   "bici",
+   "estaciones",
+   "wod"
+  ],
+  "polarizacion_tolerancia_pts": 10,
+  "cambio_ergo_pct": 1,
+  "cambio_fuerza_pct": 2.5,
+  "cambio_estaciones_pct": 3,
+  "cambio_wod_pct": 3,
+  "cambio_test_pct": 2,
+  "fuerza_1rm_reps_max": 10,
+  "basal_dias": 60,
+  "basal_excluir_dias": 14,
+  "cs_min_efforts": 3,
+  "cs_min_duration_s": 120,
+  "cs_max_duration_s": 900,
+  "cs_min_spread_ratio": 3,
+  "cs_min_fit_r2_pct": 95,
+  "cs_max_drift_from_threshold_pct": 15,
+  "sleep_target_hours": 8,
+  "hrv_min_nights_baseline": 14,
+  "hrv_min_nights_recent": 3,
+  "subida_dias": 14,
+  "subida_minima_pct": 5,
+  "cobertura_ciega_alerta_pct": 25
+ },
+ "anclas": {
+  "pulso": null,
+  "ritmo": {
+   "run": null,
+   "row": null,
+   "ski": null,
+   "bike": null
+  },
+  "potencia": {
+   "row": null,
+   "ski": null,
+   "bike": null
+  }
+ },
+ "familia": "correr",
+ "lecturas": [
+  {
+   "id": "progreso.correr",
+   "grupo": "progreso",
+   "familia": "correr",
+   "titulo_es": "Correr",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": null,
+    "falta": {
+     "por": "historia",
+     "llevas": 0,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "progreso_correr",
+    "explica_es": "Tu Motor, tus mejores esfuerzos o tu ritmo por tipo de sesión, lo mejor que haya.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "correr.motor",
+   "grupo": "progreso",
+   "familia": "correr",
+   "titulo_es": "Motor",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": null,
+    "falta": {
+     "por": "historia",
+     "llevas": 0,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "motor_al_pulso",
+    "explica_es": "Tu ritmo corregido a un mismo pulso: la forma, sin el esfuerzo del día.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "correr.umbral",
+   "grupo": "progreso",
+   "familia": "correr",
+   "titulo_es": "Ritmo umbral",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 0,
+    "dias_con_dato": 0,
+    "pct": null,
+    "falta": {
+     "por": "ancla"
+    }
+   },
+   "procedencia": {
+    "de": "umbral_ritmo",
+    "explica_es": "Tu ritmo umbral: del que cuelgan tus zonas y la carga de correr.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "correr.mejor.400",
+   "grupo": "progreso",
+   "familia": "correr",
+   "titulo_es": "Mejor 400 m",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "historia",
+     "llevas": 0,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "mejor_esfuerzo_400",
+    "explica_es": "Tu mejor 400 m de cada periodo: un tramo, una sesión entera o el mejor tramo dentro de una sesión.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "correr.mejor.800",
+   "grupo": "progreso",
+   "familia": "correr",
+   "titulo_es": "Mejor 800 m",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "historia",
+     "llevas": 0,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "mejor_esfuerzo_800",
+    "explica_es": "Tu mejor 800 m de cada periodo: un tramo, una sesión entera o el mejor tramo dentro de una sesión.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "correr.mejor.1000",
+   "grupo": "progreso",
+   "familia": "correr",
+   "titulo_es": "Mejor 1 km",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "historia",
+     "llevas": 0,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "mejor_esfuerzo_1000",
+    "explica_es": "Tu mejor 1 km de cada periodo: un tramo, una sesión entera o el mejor tramo dentro de una sesión.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "correr.mejor.1600",
+   "grupo": "progreso",
+   "familia": "correr",
+   "titulo_es": "Mejor 1600 m",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "historia",
+     "llevas": 0,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "mejor_esfuerzo_1600",
+    "explica_es": "Tu mejor 1600 m de cada periodo: un tramo, una sesión entera o el mejor tramo dentro de una sesión.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "correr.mejor.3000",
+   "grupo": "progreso",
+   "familia": "correr",
+   "titulo_es": "Mejor 3 km",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "historia",
+     "llevas": 0,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "mejor_esfuerzo_3000",
+    "explica_es": "Tu mejor 3 km de cada periodo: un tramo, una sesión entera o el mejor tramo dentro de una sesión.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "correr.mejor.5000",
+   "grupo": "progreso",
+   "familia": "correr",
+   "titulo_es": "Mejor 5 km",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "historia",
+     "llevas": 0,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "mejor_esfuerzo_5000",
+    "explica_es": "Tu mejor 5 km de cada periodo: un tramo, una sesión entera o el mejor tramo dentro de una sesión.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "correr.mejor.10000",
+   "grupo": "progreso",
+   "familia": "correr",
+   "titulo_es": "Mejor 10 km",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "historia",
+     "llevas": 0,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "mejor_esfuerzo_10000",
+    "explica_es": "Tu mejor 10 km de cada periodo: un tramo, una sesión entera o el mejor tramo dentro de una sesión.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "correr.mejor.21097",
+   "grupo": "progreso",
+   "familia": "correr",
+   "titulo_es": "Mejor Media maratón",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "historia",
+     "llevas": 0,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "mejor_esfuerzo_21097",
+    "explica_es": "Tu mejor Media maratón de cada periodo: un tramo, una sesión entera o el mejor tramo dentro de una sesión.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "correr.vdot",
+   "grupo": "progreso",
+   "familia": "correr",
+   "titulo_es": "VDOT",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "historia",
+     "llevas": 0,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "vdot_mejor_esfuerzo",
+    "explica_es": "El VDOT de Daniels de tu mejor esfuerzo del periodo (de 1500 m en adelante). Sale de entrenos, no de carreras: es un suelo, no tu techo.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "capacidad.velocidad_critica",
+   "grupo": "capacidad",
+   "familia": "correr",
+   "titulo_es": "Velocidad que sostienes",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "historia",
+     "llevas": 0,
+     "hacen": 3
+    }
+   },
+   "procedencia": {
+    "de": "ajuste_cs_dprima",
+    "explica_es": "Recta ajustada sobre tus mejores esfuerzos: la pendiente es la velocidad que puedes sostener y la ordenada, el depósito que gastas por encima de ella.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "capacidad.deposito",
+   "grupo": "capacidad",
+   "familia": "correr",
+   "titulo_es": "Depósito por encima de ella",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "historia",
+     "llevas": 0,
+     "hacen": 3
+    }
+   },
+   "procedencia": {
+    "de": "ajuste_cs_dprima",
+    "explica_es": "Recta ajustada sobre tus mejores esfuerzos: la pendiente es la velocidad que puedes sostener y la ordenada, el depósito que gastas por encima de ella.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "correr.desacople",
+   "grupo": "progreso",
+   "familia": "correr",
+   "titulo_es": "Desacople",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 0,
+    "dias_ventana": 84,
+    "dias_con_dato": 0,
+    "pct": 0,
+    "falta": {
+     "por": "ocasion"
+    }
+   },
+   "procedencia": {
+    "de": "desacople_pa_hr",
+    "explica_es": "Cuánto se despega el pulso del ritmo en tus esfuerzos sostenidos de más de 20 minutos (Pa:HR), la mediana del periodo: cuanto menos, mejor base aeróbica.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  }
+ ]
+}

@@ -1,0 +1,602 @@
+{
+ "athlete_id": "101",
+ "execution_id": "9002",
+ "assignment_id": "7002",
+ "fuera_del_plan": null,
+ "dia": "2026-09-20",
+ "inicio_iso": "2026-09-20T17:30:00.000Z",
+ "fin_iso": "2026-09-20T18:01:00.000Z",
+ "titulo_es": "Remo 5 × 500 m",
+ "formato": "intervals",
+ "rpe": 7,
+ "fuente": null,
+ "registrado": null,
+ "lecturas": [
+  {
+   "id": "sesion.carga",
+   "grupo": "ejecucion",
+   "familia": null,
+   "titulo_es": "Carga",
+   "estado": "medida",
+   "dato": {
+    "valor": 35.79248933394346,
+    "unidad": "tss",
+    "referencia": {
+     "valor": 15.555555555555555,
+     "delta": 20.2369337783879,
+     "de": "plan"
+    }
+   },
+   "comparacion": null,
+   "serie": null,
+   "reparto": {
+    "unidad": "segundos",
+    "total": 1500,
+    "partes": [
+     {
+      "code": "potencia",
+      "etiqueta_es": "Potencia",
+      "valor": 561,
+      "pct": 37.4
+     },
+     {
+      "code": "pulso",
+      "etiqueta_es": "Pulso",
+      "valor": 939,
+      "pct": 62.6
+     }
+    ]
+   },
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 1,
+    "dias_ventana": 1,
+    "dias_con_dato": 1,
+    "pct": 100,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "carga_por_tramo",
+    "explica_es": "La suma de la carga de cada tramo por su mejor evidencia (potencia, ritmo, pulso o esfuerzo), más el resto de la sesión.",
+    "medida": true,
+    "ancla": "medida",
+    "proveedor": null
+   }
+  },
+  {
+   "id": "sesion.duracion",
+   "grupo": "ejecucion",
+   "familia": null,
+   "titulo_es": "Duración",
+   "estado": "medida",
+   "dato": {
+    "valor": 1500,
+    "unidad": "segundos",
+    "referencia": {
+     "valor": 1040,
+     "delta": 460,
+     "de": "plan"
+    }
+   },
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 1,
+    "dias_ventana": 1,
+    "dias_con_dato": 1,
+    "pct": 100,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "duracion_sesion",
+    "explica_es": "El tiempo de la sesión entera, frente al que escribe su plan.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "sesion.zonas",
+   "grupo": "ejecucion",
+   "familia": null,
+   "titulo_es": "Zonas",
+   "estado": "sin_dato",
+   "dato": null,
+   "comparacion": null,
+   "serie": null,
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 1,
+    "dias_ventana": 1,
+    "dias_con_dato": 1,
+    "pct": 100,
+    "falta": {
+     "por": "ancla"
+    }
+   },
+   "procedencia": {
+    "de": "segundos_por_zona",
+    "explica_es": "Los segundos por zona de cada tramo, con las bandas de tu coach.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  }
+ ],
+ "tramos": [
+  {
+   "id": "T12",
+   "posicion": 12,
+   "ronda": 1,
+   "familia": "remo",
+   "modalidad": "row",
+   "ejercicio_es": null,
+   "papel": null,
+   "fase": null,
+   "inicio_iso": null,
+   "segundos": 110,
+   "prescrito": {
+    "prescripcion": {
+     "scheme": "intervals",
+     "modality": "row",
+     "rounds": 5,
+     "rest_s": 120,
+     "target": {
+      "kind": "pace",
+      "unit": "per_500m",
+      "value_s": 112
+     },
+     "sets": [
+      {
+       "measure": {
+        "kind": "distance",
+        "meters": 500
+       }
+      }
+     ]
+    },
+    "texto_es": "5×500m @ 1:52/500m · r2'"
+   },
+   "hecho": {
+    "position": 12,
+    "item_uid": "segment-L11",
+    "modality": "row",
+    "exercise_name": null,
+    "started_at": null,
+    "duration_seconds": 110,
+    "reps_completed": null,
+    "weight_used_kg": null,
+    "distance_meters": 500,
+    "avg_pace_s_per_500m": 110,
+    "avg_pace_s_per_km": null,
+    "avg_power_w": 262.96018031555224,
+    "stroke_rate_spm": null,
+    "avg_hr": 156,
+    "max_hr": null,
+    "calories": null,
+    "emom_rounds_completed": null,
+    "emom_rounds_prescribed": null,
+    "incline_pct": null,
+    "avg_gradient_pct": null,
+    "run_cadence_spm": null,
+    "drag_factor": null,
+    "avg_calories_per_hour": null,
+    "peak_drive_force_lbs": null,
+    "avg_drive_force_lbs": null,
+    "erg_splits": null,
+    "run_splits": null,
+    "source": null,
+    "zone_seconds": null,
+    "leg_index": null,
+    "round_index": 1,
+    "leg_role": null,
+    "leg_phase": null,
+    "is_structural": false,
+    "sets": [],
+    "volume_kg": null
+   },
+   "zonas": null,
+   "carga": {
+    "tss": 3.4044127588017337,
+    "segundos": 110,
+    "partes": [
+     {
+      "segundos": 110,
+      "tss": 3.4044127588017337,
+      "peldano": "potencia",
+      "ancla": "medida"
+     }
+    ],
+    "sin_saber_s": 0,
+    "peldano": "potencia",
+    "ancla": "medida"
+   }
+  },
+  {
+   "id": "T13",
+   "posicion": 13,
+   "ronda": 2,
+   "familia": "remo",
+   "modalidad": "row",
+   "ejercicio_es": null,
+   "papel": null,
+   "fase": null,
+   "inicio_iso": null,
+   "segundos": 111,
+   "prescrito": {
+    "prescripcion": {
+     "scheme": "intervals",
+     "modality": "row",
+     "rounds": 5,
+     "rest_s": 120,
+     "target": {
+      "kind": "pace",
+      "unit": "per_500m",
+      "value_s": 112
+     },
+     "sets": [
+      {
+       "measure": {
+        "kind": "distance",
+        "meters": 500
+       }
+      }
+     ]
+    },
+    "texto_es": "5×500m @ 1:52/500m · r2'"
+   },
+   "hecho": {
+    "position": 13,
+    "item_uid": "segment-L11",
+    "modality": "row",
+    "exercise_name": null,
+    "started_at": null,
+    "duration_seconds": 111,
+    "reps_completed": null,
+    "weight_used_kg": null,
+    "distance_meters": 500,
+    "avg_pace_s_per_500m": 111,
+    "avg_pace_s_per_km": null,
+    "avg_power_w": 255.9169834553326,
+    "stroke_rate_spm": null,
+    "avg_hr": 157,
+    "max_hr": null,
+    "calories": null,
+    "emom_rounds_completed": null,
+    "emom_rounds_prescribed": null,
+    "incline_pct": null,
+    "avg_gradient_pct": null,
+    "run_cadence_spm": null,
+    "drag_factor": null,
+    "avg_calories_per_hour": null,
+    "peak_drive_force_lbs": null,
+    "avg_drive_force_lbs": null,
+    "erg_splits": null,
+    "run_splits": null,
+    "source": null,
+    "zone_seconds": null,
+    "leg_index": null,
+    "round_index": 2,
+    "leg_role": null,
+    "leg_phase": null,
+    "is_structural": false,
+    "sets": [],
+    "volume_kg": null
+   },
+   "zonas": null,
+   "carga": {
+    "tss": 3.2537991496515435,
+    "segundos": 111,
+    "partes": [
+     {
+      "segundos": 111,
+      "tss": 3.2537991496515435,
+      "peldano": "potencia",
+      "ancla": "medida"
+     }
+    ],
+    "sin_saber_s": 0,
+    "peldano": "potencia",
+    "ancla": "medida"
+   }
+  },
+  {
+   "id": "T14",
+   "posicion": 14,
+   "ronda": 3,
+   "familia": "remo",
+   "modalidad": "row",
+   "ejercicio_es": null,
+   "papel": null,
+   "fase": null,
+   "inicio_iso": null,
+   "segundos": 112,
+   "prescrito": {
+    "prescripcion": {
+     "scheme": "intervals",
+     "modality": "row",
+     "rounds": 5,
+     "rest_s": 120,
+     "target": {
+      "kind": "pace",
+      "unit": "per_500m",
+      "value_s": 112
+     },
+     "sets": [
+      {
+       "measure": {
+        "kind": "distance",
+        "meters": 500
+       }
+      }
+     ]
+    },
+    "texto_es": "5×500m @ 1:52/500m · r2'"
+   },
+   "hecho": {
+    "position": 14,
+    "item_uid": "segment-L11",
+    "modality": "row",
+    "exercise_name": null,
+    "started_at": null,
+    "duration_seconds": 112,
+    "reps_completed": null,
+    "weight_used_kg": null,
+    "distance_meters": 500,
+    "avg_pace_s_per_500m": 112,
+    "avg_pace_s_per_km": null,
+    "avg_power_w": 249.12308673469383,
+    "stroke_rate_spm": null,
+    "avg_hr": 158,
+    "max_hr": null,
+    "calories": null,
+    "emom_rounds_completed": null,
+    "emom_rounds_prescribed": null,
+    "incline_pct": null,
+    "avg_gradient_pct": null,
+    "run_cadence_spm": null,
+    "drag_factor": null,
+    "avg_calories_per_hour": null,
+    "peak_drive_force_lbs": null,
+    "avg_drive_force_lbs": null,
+    "erg_splits": null,
+    "run_splits": null,
+    "source": null,
+    "zone_seconds": null,
+    "leg_index": null,
+    "round_index": 3,
+    "leg_role": null,
+    "leg_phase": null,
+    "is_structural": false,
+    "sets": [],
+    "volume_kg": null
+   },
+   "zonas": null,
+   "carga": {
+    "tss": 3.111111111111111,
+    "segundos": 112,
+    "partes": [
+     {
+      "segundos": 112,
+      "tss": 3.111111111111111,
+      "peldano": "potencia",
+      "ancla": "medida"
+     }
+    ],
+    "sin_saber_s": 0,
+    "peldano": "potencia",
+    "ancla": "medida"
+   }
+  },
+  {
+   "id": "T15",
+   "posicion": 15,
+   "ronda": 4,
+   "familia": "remo",
+   "modalidad": "row",
+   "ejercicio_es": null,
+   "papel": null,
+   "fase": null,
+   "inicio_iso": null,
+   "segundos": 115,
+   "prescrito": {
+    "prescripcion": {
+     "scheme": "intervals",
+     "modality": "row",
+     "rounds": 5,
+     "rest_s": 120,
+     "target": {
+      "kind": "pace",
+      "unit": "per_500m",
+      "value_s": 112
+     },
+     "sets": [
+      {
+       "measure": {
+        "kind": "distance",
+        "meters": 500
+       }
+      }
+     ]
+    },
+    "texto_es": "5×500m @ 1:52/500m · r2'"
+   },
+   "hecho": {
+    "position": 15,
+    "item_uid": "segment-L11",
+    "modality": "row",
+    "exercise_name": null,
+    "started_at": null,
+    "duration_seconds": 115,
+    "reps_completed": null,
+    "weight_used_kg": null,
+    "distance_meters": 500,
+    "avg_pace_s_per_500m": 114.9,
+    "avg_pace_s_per_km": null,
+    "avg_power_w": 230.7320678453353,
+    "stroke_rate_spm": null,
+    "avg_hr": 159,
+    "max_hr": null,
+    "calories": null,
+    "emom_rounds_completed": null,
+    "emom_rounds_prescribed": null,
+    "incline_pct": null,
+    "avg_gradient_pct": null,
+    "run_cadence_spm": null,
+    "drag_factor": null,
+    "avg_calories_per_hour": null,
+    "peak_drive_force_lbs": null,
+    "avg_drive_force_lbs": null,
+    "erg_splits": null,
+    "run_splits": null,
+    "source": null,
+    "zone_seconds": null,
+    "leg_index": null,
+    "round_index": 4,
+    "leg_role": null,
+    "leg_phase": null,
+    "is_structural": false,
+    "sets": [],
+    "volume_kg": null
+   },
+   "zonas": null,
+   "carga": {
+    "tss": 2.740206571315961,
+    "segundos": 115,
+    "partes": [
+     {
+      "segundos": 115,
+      "tss": 2.740206571315961,
+      "peldano": "potencia",
+      "ancla": "medida"
+     }
+    ],
+    "sin_saber_s": 0,
+    "peldano": "potencia",
+    "ancla": "medida"
+   }
+  },
+  {
+   "id": "T16",
+   "posicion": 16,
+   "ronda": 5,
+   "familia": "remo",
+   "modalidad": "row",
+   "ejercicio_es": null,
+   "papel": null,
+   "fase": null,
+   "inicio_iso": null,
+   "segundos": 113,
+   "prescrito": {
+    "prescripcion": {
+     "scheme": "intervals",
+     "modality": "row",
+     "rounds": 5,
+     "rest_s": 120,
+     "target": {
+      "kind": "pace",
+      "unit": "per_500m",
+      "value_s": 112
+     },
+     "sets": [
+      {
+       "measure": {
+        "kind": "distance",
+        "meters": 500
+       }
+      }
+     ]
+    },
+    "texto_es": "5×500m @ 1:52/500m · r2'"
+   },
+   "hecho": {
+    "position": 16,
+    "item_uid": "segment-L11",
+    "modality": "row",
+    "exercise_name": null,
+    "started_at": null,
+    "duration_seconds": 113,
+    "reps_completed": null,
+    "weight_used_kg": null,
+    "distance_meters": 500,
+    "avg_pace_s_per_500m": 113,
+    "avg_pace_s_per_km": null,
+    "avg_power_w": 242.5675567971934,
+    "stroke_rate_spm": null,
+    "avg_hr": 160,
+    "max_hr": null,
+    "calories": null,
+    "emom_rounds_completed": null,
+    "emom_rounds_prescribed": null,
+    "incline_pct": null,
+    "avg_gradient_pct": null,
+    "run_cadence_spm": null,
+    "drag_factor": null,
+    "avg_calories_per_hour": null,
+    "peak_drive_force_lbs": null,
+    "avg_drive_force_lbs": null,
+    "erg_splits": null,
+    "run_splits": null,
+    "source": null,
+    "zone_seconds": null,
+    "leg_index": null,
+    "round_index": 5,
+    "leg_role": null,
+    "leg_phase": null,
+    "is_structural": false,
+    "sets": [],
+    "volume_kg": null
+   },
+   "zonas": null,
+   "carga": {
+    "tss": 2.9758663174575752,
+    "segundos": 113,
+    "partes": [
+     {
+      "segundos": 113,
+      "tss": 2.9758663174575752,
+      "peldano": "potencia",
+      "ancla": "medida"
+     }
+    ],
+    "sin_saber_s": 0,
+    "peldano": "potencia",
+    "ancla": "medida"
+   }
+  }
+ ],
+ "resto": {
+  "tss": 20.307093425605533,
+  "segundos": 939,
+  "partes": [
+   {
+    "segundos": 939,
+    "tss": 20.307093425605533,
+    "peldano": "pulso",
+    "ancla": "medida"
+   }
+  ],
+  "sin_saber_s": 0,
+  "peldano": "pulso",
+  "ancla": "medida"
+ },
+ "traza": {
+  "disponible": false,
+  "parciales_km": [],
+  "pulso": null,
+  "ritmo": null,
+  "ruta": {
+   "available": false,
+   "points": [],
+   "pace_zones": null
+  },
+  "referencias_pulso": null,
+  "zonas_ritmo": null
+ },
+ "pendientes": [
+  "cumplimiento"
+ ]
+}

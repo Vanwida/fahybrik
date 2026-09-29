@@ -1,0 +1,1718 @@
+{
+ "athlete_id": "101",
+ "generado_iso": "2026-09-29T08:00:00.000Z",
+ "ventana": {
+  "clave": "12s",
+  "desde": "2026-07-08",
+  "hasta": "2026-09-29",
+  "dias": 84,
+  "anterior": {
+   "desde": "2026-04-15",
+   "hasta": "2026-07-07",
+   "dias": 84
+  },
+  "cubre_todo": false
+ },
+ "metodo": {
+  "ctl_days": 42,
+  "atl_days": 7,
+  "ramp_alert_tss_per_week": 5,
+  "acr_low": 0.8,
+  "acr_high": 1.3,
+  "fuentes_run": [
+   "ritmo",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_row": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_ski": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_bike": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_strength": [
+   "esfuerzo",
+   "pulso"
+  ],
+  "fuentes_other": [
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuerza_coeficiente": 1,
+  "cobertura_veredicto_min_pct": 90,
+  "frescura_sobrecarga_hasta": -30,
+  "frescura_optimo_hasta": -11,
+  "frescura_mantener_hasta": 4,
+  "frescura_fresco_hasta": 29,
+  "cumplimiento_base": "sesiones",
+  "cumplimiento_bien_pct": 90,
+  "cumplimiento_regular_pct": 70,
+  "cumplimiento_sesion_bases": [
+   "carga",
+   "duracion",
+   "distancia"
+  ],
+  "cumplimiento_verde_min_pct": 80,
+  "cumplimiento_verde_max_pct": 120,
+  "cumplimiento_ambar_min_pct": 50,
+  "cumplimiento_ambar_max_pct": 150,
+  "holgura_ritmo_s_km": 3,
+  "holgura_split_s_500m": 2,
+  "holgura_vatios_w": 10,
+  "holgura_pulso_ppm": 2,
+  "holgura_rpe": 1,
+  "holgura_rir": 1,
+  "holgura_carga_pct": 0,
+  "holgura_dosis_pct": 10,
+  "cambio_carga_pct": 10,
+  "cambio_horas_pct": 10,
+  "cambio_forma_tss": 5,
+  "cambio_frescura_tss": 5,
+  "cambio_variabilidad_pct": 5,
+  "cambio_pulso_reposo_bpm": 3,
+  "cambio_sueno_horas": 0.5,
+  "cambio_cumplimiento_pts": 10,
+  "cambio_polarizacion_pts": 5,
+  "polarizacion_familias": [
+   "correr",
+   "remo",
+   "ski",
+   "bici",
+   "estaciones",
+   "wod"
+  ],
+  "polarizacion_tolerancia_pts": 10,
+  "cambio_ergo_pct": 1,
+  "cambio_fuerza_pct": 2.5,
+  "cambio_estaciones_pct": 3,
+  "cambio_wod_pct": 3,
+  "cambio_test_pct": 2,
+  "fuerza_1rm_reps_max": 10,
+  "basal_dias": 60,
+  "basal_excluir_dias": 14,
+  "cs_min_efforts": 3,
+  "cs_min_duration_s": 120,
+  "cs_max_duration_s": 900,
+  "cs_min_spread_ratio": 3,
+  "cs_min_fit_r2_pct": 95,
+  "cs_max_drift_from_threshold_pct": 15,
+  "sleep_target_hours": 8,
+  "hrv_min_nights_baseline": 14,
+  "hrv_min_nights_recent": 3,
+  "subida_dias": 14,
+  "subida_minima_pct": 5,
+  "cobertura_ciega_alerta_pct": 25
+ },
+ "lecturas": [],
+ "sesiones": [
+  {
+   "assignment_id": "7101",
+   "execution_id": null,
+   "dia": "2026-09-29",
+   "dia_hecha": null,
+   "semana": "2026-09-28",
+   "titulo": "Tempo 3 × 10′",
+   "estado": "pendiente",
+   "color": null,
+   "debida": false,
+   "hecha": false,
+   "saltada": false,
+   "base": null,
+   "unidad": null,
+   "plan": null,
+   "hecho": null,
+   "pct": null,
+   "plan_minimo": false,
+   "ancla": null,
+   "bases": [
+    {
+     "base": "carga",
+     "unidad": "tss",
+     "plan": null,
+     "hecho": null,
+     "plan_minimo": false,
+     "comparable": false,
+     "motivo": "sin_plan"
+    },
+    {
+     "base": "duracion",
+     "unidad": "segundos",
+     "plan": null,
+     "hecho": null,
+     "plan_minimo": false,
+     "comparable": false,
+     "motivo": "sin_plan"
+    },
+    {
+     "base": "distancia",
+     "unidad": "metros",
+     "plan": null,
+     "hecho": null,
+     "plan_minimo": false,
+     "comparable": false,
+     "motivo": "sin_plan"
+    }
+   ],
+   "tramos": {
+    "detalle": "sin_ejecucion",
+    "total": 0,
+    "evaluables": 0,
+    "dentro": 0,
+    "por_encima": 0,
+    "por_debajo": 0,
+    "sin_dato": 0,
+    "sin_ejecutar": 0,
+    "recuperaciones": {
+     "total": 0,
+     "evaluables": 0,
+     "dentro": 0,
+     "fuera": 0
+    }
+   },
+   "lineas": [],
+   "tramos_ajenos": 0
+  },
+  {
+   "assignment_id": "7100",
+   "execution_id": null,
+   "dia": "2026-09-25",
+   "dia_hecha": null,
+   "semana": "2026-09-21",
+   "titulo": "Rodaje suave",
+   "estado": "no_hecha",
+   "color": "rojo",
+   "debida": true,
+   "hecha": false,
+   "saltada": false,
+   "base": null,
+   "unidad": null,
+   "plan": null,
+   "hecho": null,
+   "pct": null,
+   "plan_minimo": false,
+   "ancla": null,
+   "bases": [
+    {
+     "base": "carga",
+     "unidad": "tss",
+     "plan": null,
+     "hecho": null,
+     "plan_minimo": false,
+     "comparable": false,
+     "motivo": "sin_plan"
+    },
+    {
+     "base": "duracion",
+     "unidad": "segundos",
+     "plan": null,
+     "hecho": null,
+     "plan_minimo": false,
+     "comparable": false,
+     "motivo": "sin_plan"
+    },
+    {
+     "base": "distancia",
+     "unidad": "metros",
+     "plan": null,
+     "hecho": null,
+     "plan_minimo": false,
+     "comparable": false,
+     "motivo": "sin_plan"
+    }
+   ],
+   "tramos": {
+    "detalle": "sin_ejecucion",
+    "total": 0,
+    "evaluables": 0,
+    "dentro": 0,
+    "por_encima": 0,
+    "por_debajo": 0,
+    "sin_dato": 0,
+    "sin_ejecutar": 0,
+    "recuperaciones": {
+     "total": 0,
+     "evaluables": 0,
+     "dentro": 0,
+     "fuera": 0
+    }
+   },
+   "lineas": [],
+   "tramos_ajenos": 0
+  },
+  {
+   "assignment_id": "7001",
+   "execution_id": "9001",
+   "dia": "2026-09-22",
+   "dia_hecha": "2026-09-22",
+   "semana": "2026-09-21",
+   "titulo": "Series 4 × 1000 m en cinta",
+   "estado": "cumplida",
+   "color": "verde",
+   "debida": true,
+   "hecha": true,
+   "saltada": false,
+   "base": "distancia",
+   "unidad": "metros",
+   "plan": 4000,
+   "hecho": 6400,
+   "pct": 160,
+   "plan_minimo": true,
+   "ancla": null,
+   "bases": [
+    {
+     "base": "carga",
+     "unidad": "tss",
+     "plan": null,
+     "hecho": null,
+     "plan_minimo": true,
+     "comparable": false,
+     "motivo": "plan_sin_saber"
+    },
+    {
+     "base": "duracion",
+     "unidad": "segundos",
+     "plan": null,
+     "hecho": 1860,
+     "plan_minimo": false,
+     "comparable": false,
+     "motivo": "plan_sin_saber"
+    },
+    {
+     "base": "distancia",
+     "unidad": "metros",
+     "plan": 4000,
+     "hecho": 6400,
+     "plan_minimo": true,
+     "comparable": true,
+     "motivo": null
+    }
+   ],
+   "tramos": {
+    "detalle": "tramos",
+    "total": 5,
+    "evaluables": 5,
+    "dentro": 1,
+    "por_encima": 3,
+    "por_debajo": 1,
+    "sin_dato": 0,
+    "sin_ejecutar": 0,
+    "recuperaciones": {
+     "total": 3,
+     "evaluables": 3,
+     "dentro": 3,
+     "fuera": 0
+    }
+   },
+   "lineas": [
+    {
+     "template_segment_id": "L1",
+     "bloque": 1,
+     "posicion": 1,
+     "ejercicio": null,
+     "familia": "correr",
+     "rol": "calentamiento",
+     "formato": "steady",
+     "estado": "ejecutada",
+     "tramos": [
+      {
+       "segment_execution_id": "T3",
+       "posicion": 3,
+       "pierna": null,
+       "papel": "trabajo",
+       "fase": "calentamiento",
+       "ordinal": 1,
+       "plegado": false,
+       "veredicto": "por_debajo",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "ritmo",
+         "pregunta": "intensidad",
+         "unidad": "s_km",
+         "objetivo": {
+          "min": 280,
+          "max": 294,
+          "zona": {
+           "desde": 2,
+           "hasta": 2
+          },
+          "ancla": "medida"
+         },
+         "hecho": 341,
+         "holgura": 3,
+         "delta": 47,
+         "veredicto": "por_debajo",
+         "motivo": null
+        },
+        {
+         "eje": "tiempo",
+         "pregunta": "dosis",
+         "unidad": "segundos",
+         "objetivo": {
+          "min": 600,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 604,
+         "holgura": 60,
+         "delta": 4,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      }
+     ]
+    },
+    {
+     "template_segment_id": "L2",
+     "bloque": 2,
+     "posicion": 2,
+     "ejercicio": null,
+     "familia": "correr",
+     "rol": "principal",
+     "formato": "intervals",
+     "estado": "ejecutada",
+     "tramos": [
+      {
+       "segment_execution_id": "T4",
+       "posicion": 4,
+       "pierna": 0,
+       "papel": "trabajo",
+       "fase": "principal",
+       "ordinal": 1,
+       "plegado": false,
+       "veredicto": "por_encima",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "ritmo",
+         "pregunta": "intensidad",
+         "unidad": "s_km",
+         "objetivo": {
+          "min": 246,
+          "max": 250,
+          "zona": {
+           "desde": 5,
+           "hasta": 5
+          },
+          "ancla": "medida"
+         },
+         "hecho": 235,
+         "holgura": 3,
+         "delta": -11,
+         "veredicto": "por_encima",
+         "motivo": null
+        },
+        {
+         "eje": "distancia",
+         "pregunta": "dosis",
+         "unidad": "metros",
+         "objetivo": {
+          "min": 1000,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 1000,
+         "holgura": 100,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      },
+      {
+       "segment_execution_id": "T5",
+       "posicion": 5,
+       "pierna": 1,
+       "papel": "recuperacion",
+       "fase": "principal",
+       "ordinal": null,
+       "plegado": false,
+       "veredicto": "dentro",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "tiempo",
+         "pregunta": "dosis",
+         "unidad": "segundos",
+         "objetivo": {
+          "min": 90,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 92,
+         "holgura": 9,
+         "delta": 2,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      },
+      {
+       "segment_execution_id": "T6",
+       "posicion": 6,
+       "pierna": 2,
+       "papel": "trabajo",
+       "fase": "principal",
+       "ordinal": 2,
+       "plegado": false,
+       "veredicto": "por_encima",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "ritmo",
+         "pregunta": "intensidad",
+         "unidad": "s_km",
+         "objetivo": {
+          "min": 246,
+          "max": 250,
+          "zona": {
+           "desde": 5,
+           "hasta": 5
+          },
+          "ancla": "medida"
+         },
+         "hecho": 237,
+         "holgura": 3,
+         "delta": -9,
+         "veredicto": "por_encima",
+         "motivo": null
+        },
+        {
+         "eje": "distancia",
+         "pregunta": "dosis",
+         "unidad": "metros",
+         "objetivo": {
+          "min": 1000,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 1000,
+         "holgura": 100,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      },
+      {
+       "segment_execution_id": "T7",
+       "posicion": 7,
+       "pierna": 3,
+       "papel": "recuperacion",
+       "fase": "principal",
+       "ordinal": null,
+       "plegado": false,
+       "veredicto": "dentro",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "tiempo",
+         "pregunta": "dosis",
+         "unidad": "segundos",
+         "objetivo": {
+          "min": 90,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 92,
+         "holgura": 9,
+         "delta": 2,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      },
+      {
+       "segment_execution_id": "T8",
+       "posicion": 8,
+       "pierna": 4,
+       "papel": "trabajo",
+       "fase": "principal",
+       "ordinal": 3,
+       "plegado": false,
+       "veredicto": "dentro",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "ritmo",
+         "pregunta": "intensidad",
+         "unidad": "s_km",
+         "objetivo": {
+          "min": 246,
+          "max": 250,
+          "zona": {
+           "desde": 5,
+           "hasta": 5
+          },
+          "ancla": "medida"
+         },
+         "hecho": 245,
+         "holgura": 3,
+         "delta": -1,
+         "veredicto": "dentro",
+         "motivo": null
+        },
+        {
+         "eje": "distancia",
+         "pregunta": "dosis",
+         "unidad": "metros",
+         "objetivo": {
+          "min": 1000,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 1000,
+         "holgura": 100,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      },
+      {
+       "segment_execution_id": "T9",
+       "posicion": 9,
+       "pierna": 5,
+       "papel": "recuperacion",
+       "fase": "principal",
+       "ordinal": null,
+       "plegado": false,
+       "veredicto": "dentro",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "tiempo",
+         "pregunta": "dosis",
+         "unidad": "segundos",
+         "objetivo": {
+          "min": 90,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 92,
+         "holgura": 9,
+         "delta": 2,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      },
+      {
+       "segment_execution_id": "T10",
+       "posicion": 10,
+       "pierna": 6,
+       "papel": "trabajo",
+       "fase": "principal",
+       "ordinal": 4,
+       "plegado": false,
+       "veredicto": "por_encima",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "ritmo",
+         "pregunta": "intensidad",
+         "unidad": "s_km",
+         "objetivo": {
+          "min": 246,
+          "max": 250,
+          "zona": {
+           "desde": 5,
+           "hasta": 5
+          },
+          "ancla": "medida"
+         },
+         "hecho": 236,
+         "holgura": 3,
+         "delta": -10,
+         "veredicto": "por_encima",
+         "motivo": null
+        },
+        {
+         "eje": "distancia",
+         "pregunta": "dosis",
+         "unidad": "metros",
+         "objetivo": {
+          "min": 1000,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 1000,
+         "holgura": 100,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      }
+     ]
+    }
+   ],
+   "tramos_ajenos": 0
+  },
+  {
+   "assignment_id": "7002",
+   "execution_id": "9002",
+   "dia": "2026-09-20",
+   "dia_hecha": "2026-09-20",
+   "semana": "2026-09-14",
+   "titulo": "Remo 5 × 500 m",
+   "estado": "fuera",
+   "color": "rojo",
+   "debida": true,
+   "hecha": true,
+   "saltada": false,
+   "base": "carga",
+   "unidad": "tss",
+   "plan": 15.555555555555555,
+   "hecho": 35.79248933394346,
+   "pct": 230.09457428963654,
+   "plan_minimo": false,
+   "ancla": "medida",
+   "bases": [
+    {
+     "base": "carga",
+     "unidad": "tss",
+     "plan": 15.555555555555555,
+     "hecho": 35.79248933394346,
+     "plan_minimo": false,
+     "comparable": true,
+     "motivo": null
+    },
+    {
+     "base": "duracion",
+     "unidad": "segundos",
+     "plan": 1040,
+     "hecho": 1500,
+     "plan_minimo": false,
+     "comparable": true,
+     "motivo": null
+    },
+    {
+     "base": "distancia",
+     "unidad": "metros",
+     "plan": 2500,
+     "hecho": 2500,
+     "plan_minimo": false,
+     "comparable": true,
+     "motivo": null
+    }
+   ],
+   "tramos": {
+    "detalle": "tramos",
+    "total": 5,
+    "evaluables": 5,
+    "dentro": 4,
+    "por_encima": 0,
+    "por_debajo": 1,
+    "sin_dato": 0,
+    "sin_ejecutar": 0,
+    "recuperaciones": {
+     "total": 0,
+     "evaluables": 0,
+     "dentro": 0,
+     "fuera": 0
+    }
+   },
+   "lineas": [
+    {
+     "template_segment_id": "L11",
+     "bloque": 11,
+     "posicion": 11,
+     "ejercicio": null,
+     "familia": "remo",
+     "rol": "principal",
+     "formato": "intervals",
+     "estado": "ejecutada",
+     "tramos": [
+      {
+       "segment_execution_id": "T12",
+       "posicion": 12,
+       "pierna": null,
+       "papel": "trabajo",
+       "fase": "principal",
+       "ordinal": 1,
+       "plegado": false,
+       "veredicto": "dentro",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "split",
+         "pregunta": "intensidad",
+         "unidad": "s_500m",
+         "objetivo": {
+          "min": 112,
+          "max": 112,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 110,
+         "holgura": 2,
+         "delta": -2,
+         "veredicto": "dentro",
+         "motivo": null
+        },
+        {
+         "eje": "distancia",
+         "pregunta": "dosis",
+         "unidad": "metros",
+         "objetivo": {
+          "min": 500,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 500,
+         "holgura": 50,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      },
+      {
+       "segment_execution_id": "T13",
+       "posicion": 13,
+       "pierna": null,
+       "papel": "trabajo",
+       "fase": "principal",
+       "ordinal": 2,
+       "plegado": false,
+       "veredicto": "dentro",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "split",
+         "pregunta": "intensidad",
+         "unidad": "s_500m",
+         "objetivo": {
+          "min": 112,
+          "max": 112,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 111,
+         "holgura": 2,
+         "delta": -1,
+         "veredicto": "dentro",
+         "motivo": null
+        },
+        {
+         "eje": "distancia",
+         "pregunta": "dosis",
+         "unidad": "metros",
+         "objetivo": {
+          "min": 500,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 500,
+         "holgura": 50,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      },
+      {
+       "segment_execution_id": "T14",
+       "posicion": 14,
+       "pierna": null,
+       "papel": "trabajo",
+       "fase": "principal",
+       "ordinal": 3,
+       "plegado": false,
+       "veredicto": "dentro",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "split",
+         "pregunta": "intensidad",
+         "unidad": "s_500m",
+         "objetivo": {
+          "min": 112,
+          "max": 112,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 112,
+         "holgura": 2,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        },
+        {
+         "eje": "distancia",
+         "pregunta": "dosis",
+         "unidad": "metros",
+         "objetivo": {
+          "min": 500,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 500,
+         "holgura": 50,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      },
+      {
+       "segment_execution_id": "T15",
+       "posicion": 15,
+       "pierna": null,
+       "papel": "trabajo",
+       "fase": "principal",
+       "ordinal": 4,
+       "plegado": false,
+       "veredicto": "por_debajo",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "split",
+         "pregunta": "intensidad",
+         "unidad": "s_500m",
+         "objetivo": {
+          "min": 112,
+          "max": 112,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 114.9,
+         "holgura": 2,
+         "delta": 2.9000000000000057,
+         "veredicto": "por_debajo",
+         "motivo": null
+        },
+        {
+         "eje": "distancia",
+         "pregunta": "dosis",
+         "unidad": "metros",
+         "objetivo": {
+          "min": 500,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 500,
+         "holgura": 50,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      },
+      {
+       "segment_execution_id": "T16",
+       "posicion": 16,
+       "pierna": null,
+       "papel": "trabajo",
+       "fase": "principal",
+       "ordinal": 5,
+       "plegado": false,
+       "veredicto": "dentro",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "split",
+         "pregunta": "intensidad",
+         "unidad": "s_500m",
+         "objetivo": {
+          "min": 112,
+          "max": 112,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 113,
+         "holgura": 2,
+         "delta": 1,
+         "veredicto": "dentro",
+         "motivo": null
+        },
+        {
+         "eje": "distancia",
+         "pregunta": "dosis",
+         "unidad": "metros",
+         "objetivo": {
+          "min": 500,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 500,
+         "holgura": 50,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      }
+     ]
+    }
+   ],
+   "tramos_ajenos": 0
+  },
+  {
+   "assignment_id": "7003",
+   "execution_id": "9003",
+   "dia": "2026-09-18",
+   "dia_hecha": "2026-09-18",
+   "semana": "2026-09-14",
+   "titulo": "Sentadilla 4 × 5",
+   "estado": "hecha_sin_medida",
+   "color": null,
+   "debida": true,
+   "hecha": true,
+   "saltada": false,
+   "base": null,
+   "unidad": null,
+   "plan": null,
+   "hecho": null,
+   "pct": null,
+   "plan_minimo": false,
+   "ancla": null,
+   "bases": [
+    {
+     "base": "carga",
+     "unidad": "tss",
+     "plan": null,
+     "hecho": null,
+     "plan_minimo": true,
+     "comparable": false,
+     "motivo": "plan_sin_saber"
+    },
+    {
+     "base": "duracion",
+     "unidad": "segundos",
+     "plan": null,
+     "hecho": 1500,
+     "plan_minimo": false,
+     "comparable": false,
+     "motivo": "plan_sin_saber"
+    },
+    {
+     "base": "distancia",
+     "unidad": "metros",
+     "plan": null,
+     "hecho": null,
+     "plan_minimo": false,
+     "comparable": false,
+     "motivo": "plan_sin_saber"
+    }
+   ],
+   "tramos": {
+    "detalle": "tramos",
+    "total": 1,
+    "evaluables": 1,
+    "dentro": 1,
+    "por_encima": 0,
+    "por_debajo": 0,
+    "sin_dato": 0,
+    "sin_ejecutar": 0,
+    "recuperaciones": {
+     "total": 0,
+     "evaluables": 0,
+     "dentro": 0,
+     "fuera": 0
+    }
+   },
+   "lineas": [
+    {
+     "template_segment_id": "L17",
+     "bloque": 17,
+     "posicion": 17,
+     "ejercicio": "Sentadilla",
+     "familia": "fuerza",
+     "rol": "principal",
+     "formato": "sets",
+     "estado": "ejecutada",
+     "tramos": [
+      {
+       "segment_execution_id": "T18",
+       "posicion": 18,
+       "pierna": null,
+       "papel": "trabajo",
+       "fase": "principal",
+       "ordinal": null,
+       "plegado": false,
+       "veredicto": "dentro",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "carga",
+         "pregunta": "intensidad",
+         "unidad": "kg",
+         "objetivo": {
+          "min": 100,
+          "max": 100,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 100,
+         "holgura": 0,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        },
+        {
+         "eje": "rir",
+         "pregunta": "intensidad",
+         "unidad": "rir",
+         "objetivo": {
+          "min": 2,
+          "max": 2,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 1.6666666666666667,
+         "holgura": 1,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        },
+        {
+         "eje": "series",
+         "pregunta": "dosis",
+         "unidad": "series",
+         "objetivo": {
+          "min": 4,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 4,
+         "holgura": 0.4,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        },
+        {
+         "eje": "reps",
+         "pregunta": "dosis",
+         "unidad": "reps",
+         "objetivo": {
+          "min": 20,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 20,
+         "holgura": 0.5,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": [
+        {
+         "indice": 0,
+         "aproximacion": false,
+         "veredicto": "dentro",
+         "comprobaciones": [
+          {
+           "eje": "carga",
+           "pregunta": "intensidad",
+           "unidad": "kg",
+           "objetivo": {
+            "min": 100,
+            "max": 100,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 100,
+           "holgura": 0,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          },
+          {
+           "eje": "reps",
+           "pregunta": "dosis",
+           "unidad": "reps",
+           "objetivo": {
+            "min": 5,
+            "max": null,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 5,
+           "holgura": 0.5,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          }
+         ]
+        },
+        {
+         "indice": 1,
+         "aproximacion": false,
+         "veredicto": "dentro",
+         "comprobaciones": [
+          {
+           "eje": "carga",
+           "pregunta": "intensidad",
+           "unidad": "kg",
+           "objetivo": {
+            "min": 100,
+            "max": 100,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 100,
+           "holgura": 0,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          },
+          {
+           "eje": "rir",
+           "pregunta": "intensidad",
+           "unidad": "rir",
+           "objetivo": {
+            "min": 2,
+            "max": 2,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 2,
+           "holgura": 1,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          },
+          {
+           "eje": "reps",
+           "pregunta": "dosis",
+           "unidad": "reps",
+           "objetivo": {
+            "min": 5,
+            "max": null,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 5,
+           "holgura": 0.5,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          }
+         ]
+        },
+        {
+         "indice": 2,
+         "aproximacion": false,
+         "veredicto": "dentro",
+         "comprobaciones": [
+          {
+           "eje": "carga",
+           "pregunta": "intensidad",
+           "unidad": "kg",
+           "objetivo": {
+            "min": 100,
+            "max": 100,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 100,
+           "holgura": 0,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          },
+          {
+           "eje": "rir",
+           "pregunta": "intensidad",
+           "unidad": "rir",
+           "objetivo": {
+            "min": 2,
+            "max": 2,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 2,
+           "holgura": 1,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          },
+          {
+           "eje": "reps",
+           "pregunta": "dosis",
+           "unidad": "reps",
+           "objetivo": {
+            "min": 5,
+            "max": null,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 5,
+           "holgura": 0.5,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          }
+         ]
+        },
+        {
+         "indice": 3,
+         "aproximacion": false,
+         "veredicto": "dentro",
+         "comprobaciones": [
+          {
+           "eje": "carga",
+           "pregunta": "intensidad",
+           "unidad": "kg",
+           "objetivo": {
+            "min": 100,
+            "max": 100,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 100,
+           "holgura": 0,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          },
+          {
+           "eje": "rir",
+           "pregunta": "intensidad",
+           "unidad": "rir",
+           "objetivo": {
+            "min": 2,
+            "max": 2,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 1,
+           "holgura": 1,
+           "delta": -1,
+           "veredicto": "dentro",
+           "motivo": null
+          },
+          {
+           "eje": "reps",
+           "pregunta": "dosis",
+           "unidad": "reps",
+           "objetivo": {
+            "min": 5,
+            "max": null,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 5,
+           "holgura": 0.5,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "tramos_ajenos": 0
+  },
+  {
+   "assignment_id": "7004",
+   "execution_id": "9004",
+   "dia": "2026-09-15",
+   "dia_hecha": "2026-09-15",
+   "semana": "2026-09-14",
+   "titulo": "Fuerza y trineos",
+   "estado": "hecha_sin_medida",
+   "color": null,
+   "debida": true,
+   "hecha": true,
+   "saltada": false,
+   "base": null,
+   "unidad": null,
+   "plan": null,
+   "hecho": null,
+   "pct": null,
+   "plan_minimo": false,
+   "ancla": null,
+   "bases": [
+    {
+     "base": "carga",
+     "unidad": "tss",
+     "plan": null,
+     "hecho": null,
+     "plan_minimo": true,
+     "comparable": false,
+     "motivo": "plan_sin_saber"
+    },
+    {
+     "base": "duracion",
+     "unidad": "segundos",
+     "plan": null,
+     "hecho": 2400,
+     "plan_minimo": false,
+     "comparable": false,
+     "motivo": "plan_sin_saber"
+    },
+    {
+     "base": "distancia",
+     "unidad": "metros",
+     "plan": null,
+     "hecho": null,
+     "plan_minimo": false,
+     "comparable": false,
+     "motivo": "plan_sin_saber"
+    }
+   ],
+   "tramos": {
+    "detalle": "tramos",
+    "total": 2,
+    "evaluables": 2,
+    "dentro": 2,
+    "por_encima": 0,
+    "por_debajo": 0,
+    "sin_dato": 0,
+    "sin_ejecutar": 0,
+    "recuperaciones": {
+     "total": 0,
+     "evaluables": 0,
+     "dentro": 0,
+     "fuera": 0
+    }
+   },
+   "lineas": [
+    {
+     "template_segment_id": "L19",
+     "bloque": 19,
+     "posicion": 19,
+     "ejercicio": "Peso muerto",
+     "familia": "fuerza",
+     "rol": "principal",
+     "formato": "sets",
+     "estado": "ejecutada",
+     "tramos": [
+      {
+       "segment_execution_id": "T21",
+       "posicion": 21,
+       "pierna": null,
+       "papel": "trabajo",
+       "fase": "principal",
+       "ordinal": null,
+       "plegado": false,
+       "veredicto": "dentro",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "carga",
+         "pregunta": "intensidad",
+         "unidad": "kg",
+         "objetivo": {
+          "min": 140,
+          "max": 140,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 140,
+         "holgura": 0,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        },
+        {
+         "eje": "rir",
+         "pregunta": "intensidad",
+         "unidad": "rir",
+         "objetivo": {
+          "min": 2,
+          "max": 2,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 1.5,
+         "holgura": 1,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        },
+        {
+         "eje": "series",
+         "pregunta": "dosis",
+         "unidad": "series",
+         "objetivo": {
+          "min": 3,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 3,
+         "holgura": 0.30000000000000004,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        },
+        {
+         "eje": "reps",
+         "pregunta": "dosis",
+         "unidad": "reps",
+         "objetivo": {
+          "min": 15,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 15,
+         "holgura": 0.5,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": [
+        {
+         "indice": 0,
+         "aproximacion": false,
+         "veredicto": "dentro",
+         "comprobaciones": [
+          {
+           "eje": "carga",
+           "pregunta": "intensidad",
+           "unidad": "kg",
+           "objetivo": {
+            "min": 140,
+            "max": 140,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 140,
+           "holgura": 0,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          },
+          {
+           "eje": "reps",
+           "pregunta": "dosis",
+           "unidad": "reps",
+           "objetivo": {
+            "min": 5,
+            "max": null,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 5,
+           "holgura": 0.5,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          }
+         ]
+        },
+        {
+         "indice": 1,
+         "aproximacion": false,
+         "veredicto": "dentro",
+         "comprobaciones": [
+          {
+           "eje": "carga",
+           "pregunta": "intensidad",
+           "unidad": "kg",
+           "objetivo": {
+            "min": 140,
+            "max": 140,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 140,
+           "holgura": 0,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          },
+          {
+           "eje": "rir",
+           "pregunta": "intensidad",
+           "unidad": "rir",
+           "objetivo": {
+            "min": 2,
+            "max": 2,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 2,
+           "holgura": 1,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          },
+          {
+           "eje": "reps",
+           "pregunta": "dosis",
+           "unidad": "reps",
+           "objetivo": {
+            "min": 5,
+            "max": null,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 5,
+           "holgura": 0.5,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          }
+         ]
+        },
+        {
+         "indice": 2,
+         "aproximacion": false,
+         "veredicto": "dentro",
+         "comprobaciones": [
+          {
+           "eje": "carga",
+           "pregunta": "intensidad",
+           "unidad": "kg",
+           "objetivo": {
+            "min": 140,
+            "max": 140,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 140,
+           "holgura": 0,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          },
+          {
+           "eje": "rir",
+           "pregunta": "intensidad",
+           "unidad": "rir",
+           "objetivo": {
+            "min": 2,
+            "max": 2,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 1,
+           "holgura": 1,
+           "delta": -1,
+           "veredicto": "dentro",
+           "motivo": null
+          },
+          {
+           "eje": "reps",
+           "pregunta": "dosis",
+           "unidad": "reps",
+           "objetivo": {
+            "min": 5,
+            "max": null,
+            "zona": null,
+            "ancla": null
+           },
+           "hecho": 5,
+           "holgura": 0.5,
+           "delta": 0,
+           "veredicto": "dentro",
+           "motivo": null
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "template_segment_id": "L20",
+     "bloque": 20,
+     "posicion": 20,
+     "ejercicio": "Sled push",
+     "familia": "estaciones",
+     "rol": "principal",
+     "formato": "rounds",
+     "estado": "ejecutada",
+     "tramos": [
+      {
+       "segment_execution_id": "T22",
+       "posicion": 22,
+       "pierna": null,
+       "papel": "trabajo",
+       "fase": "principal",
+       "ordinal": null,
+       "plegado": true,
+       "veredicto": "dentro",
+       "motivo": null,
+       "comprobaciones": [
+        {
+         "eje": "distancia",
+         "pregunta": "dosis",
+         "unidad": "metros",
+         "objetivo": {
+          "min": 100,
+          "max": null,
+          "zona": null,
+          "ancla": null
+         },
+         "hecho": 100,
+         "holgura": 10,
+         "delta": 0,
+         "veredicto": "dentro",
+         "motivo": null
+        },
+        {
+         "eje": "hecha",
+         "pregunta": "resultado",
+         "unidad": null,
+         "objetivo": null,
+         "hecho": 1,
+         "holgura": null,
+         "delta": null,
+         "veredicto": "dentro",
+         "motivo": null
+        }
+       ],
+       "series": []
+      }
+     ]
+    }
+   ],
+   "tramos_ajenos": 0
+  }
+ ],
+ "sin_plan": {
+  "sesiones": 1,
+  "segundos": 2640,
+  "tss": 47.1
+ }
+}

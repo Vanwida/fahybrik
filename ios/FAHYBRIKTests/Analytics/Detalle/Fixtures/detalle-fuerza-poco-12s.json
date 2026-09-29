@@ -1,0 +1,796 @@
+{
+ "athlete_id": "103",
+ "generado_iso": "2026-09-29T08:00:00.000Z",
+ "ventana": {
+  "clave": "12s",
+  "desde": "2026-07-08",
+  "hasta": "2026-09-29",
+  "dias": 84,
+  "anterior": {
+   "desde": "2026-04-15",
+   "hasta": "2026-07-07",
+   "dias": 84
+  },
+  "cubre_todo": true
+ },
+ "historia": {
+  "semanas": 3,
+  "desde": "2026-09-07",
+  "cubre_todo": true
+ },
+ "metodo": {
+  "ctl_days": 42,
+  "atl_days": 7,
+  "ramp_alert_tss_per_week": 5,
+  "acr_low": 0.8,
+  "acr_high": 1.3,
+  "fuentes_run": [
+   "ritmo",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_row": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_ski": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_bike": [
+   "potencia",
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuentes_strength": [
+   "esfuerzo",
+   "pulso"
+  ],
+  "fuentes_other": [
+   "pulso",
+   "esfuerzo"
+  ],
+  "fuerza_coeficiente": 1,
+  "cobertura_veredicto_min_pct": 90,
+  "frescura_sobrecarga_hasta": -30,
+  "frescura_optimo_hasta": -11,
+  "frescura_mantener_hasta": 4,
+  "frescura_fresco_hasta": 29,
+  "cumplimiento_base": "sesiones",
+  "cumplimiento_bien_pct": 90,
+  "cumplimiento_regular_pct": 70,
+  "cumplimiento_sesion_bases": [
+   "carga",
+   "duracion",
+   "distancia"
+  ],
+  "cumplimiento_verde_min_pct": 80,
+  "cumplimiento_verde_max_pct": 120,
+  "cumplimiento_ambar_min_pct": 50,
+  "cumplimiento_ambar_max_pct": 150,
+  "holgura_ritmo_s_km": 3,
+  "holgura_split_s_500m": 2,
+  "holgura_vatios_w": 10,
+  "holgura_pulso_ppm": 2,
+  "holgura_rpe": 1,
+  "holgura_rir": 1,
+  "holgura_carga_pct": 0,
+  "holgura_dosis_pct": 10,
+  "cambio_carga_pct": 10,
+  "cambio_horas_pct": 10,
+  "cambio_forma_tss": 5,
+  "cambio_frescura_tss": 5,
+  "cambio_variabilidad_pct": 5,
+  "cambio_pulso_reposo_bpm": 3,
+  "cambio_sueno_horas": 0.5,
+  "cambio_cumplimiento_pts": 10,
+  "cambio_polarizacion_pts": 5,
+  "polarizacion_familias": [
+   "correr",
+   "remo",
+   "ski",
+   "bici",
+   "estaciones",
+   "wod"
+  ],
+  "polarizacion_tolerancia_pts": 10,
+  "cambio_ergo_pct": 1,
+  "cambio_fuerza_pct": 2.5,
+  "cambio_estaciones_pct": 3,
+  "cambio_wod_pct": 3,
+  "cambio_test_pct": 2,
+  "fuerza_1rm_reps_max": 10,
+  "basal_dias": 60,
+  "basal_excluir_dias": 14,
+  "cs_min_efforts": 3,
+  "cs_min_duration_s": 120,
+  "cs_max_duration_s": 900,
+  "cs_min_spread_ratio": 3,
+  "cs_min_fit_r2_pct": 95,
+  "cs_max_drift_from_threshold_pct": 15,
+  "sleep_target_hours": 8,
+  "hrv_min_nights_baseline": 14,
+  "hrv_min_nights_recent": 3,
+  "subida_dias": 14,
+  "subida_minima_pct": 5,
+  "cobertura_ciega_alerta_pct": 25
+ },
+ "anclas": {
+  "pulso": {
+   "valor": 158,
+   "ancla": "estimada",
+   "fuente": "from_max_hr",
+   "explica_es": "Estimado desde tu pulso máximo declarado",
+   "desde_iso": null
+  },
+  "ritmo": {
+   "run": null,
+   "row": null,
+   "ski": null,
+   "bike": null
+  },
+  "potencia": {
+   "row": null,
+   "ski": null,
+   "bike": null
+  }
+ },
+ "familia": "fuerza",
+ "lecturas": [
+  {
+   "id": "progreso.fuerza",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Fuerza · Sentadilla · 1RM estimado",
+   "estado": "medida",
+   "dato": {
+    "valor": 121.9,
+    "unidad": "kg",
+    "referencia": {
+     "valor": 121.9,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": null,
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-09-07",
+      "v": 113.2
+     },
+     {
+      "t": "2026-09-14",
+      "v": 116.1
+     },
+     {
+      "t": "2026-09-21",
+      "v": 119
+     },
+     {
+      "t": "2026-09-28",
+      "v": 121.9
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 16,
+    "dias_ventana": 84,
+    "dias_con_dato": 4,
+    "pct": 4.761904761904762,
+    "falta": {
+     "por": "historia",
+     "llevas": 3,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "e1rm_epley",
+    "explica_es": "Estimado con la fórmula de Epley (la de tu coach) de tu mejor serie de hasta 10 reps.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.e1rm.sq",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Sentadilla · 1RM estimado",
+   "estado": "medida",
+   "dato": {
+    "valor": 121.9,
+    "unidad": "kg",
+    "referencia": {
+     "valor": 121.9,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": null,
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-09-07",
+      "v": 113.2
+     },
+     {
+      "t": "2026-09-14",
+      "v": 116.1
+     },
+     {
+      "t": "2026-09-21",
+      "v": 119
+     },
+     {
+      "t": "2026-09-28",
+      "v": 121.9
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 16,
+    "dias_ventana": 84,
+    "dias_con_dato": 4,
+    "pct": 4.761904761904762,
+    "falta": {
+     "por": "historia",
+     "llevas": 3,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "e1rm_epley",
+    "explica_es": "Estimado con la fórmula de Epley (la de tu coach) de tu mejor serie de hasta 10 reps.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.e1rm.bp",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Press banca · 1RM estimado",
+   "estado": "medida",
+   "dato": {
+    "valor": 84,
+    "unidad": "kg",
+    "referencia": {
+     "valor": 84,
+     "delta": 0,
+     "de": "record"
+    }
+   },
+   "comparacion": null,
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-09-07",
+      "v": 79.9
+     },
+     {
+      "t": "2026-09-14",
+      "v": 78.8
+     },
+     {
+      "t": "2026-09-21",
+      "v": 84
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 12,
+    "dias_ventana": 84,
+    "dias_con_dato": 3,
+    "pct": 3.571428571428571,
+    "falta": {
+     "por": "historia",
+     "llevas": 2,
+     "hacen": 13
+    }
+   },
+   "procedencia": {
+    "de": "e1rm_epley",
+    "explica_es": "Estimado con la fórmula de Epley (la de tu coach) de tu mejor serie de hasta 10 reps.",
+    "medida": false,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.rm.sq",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Sentadilla · mejores por reps",
+   "estado": "medida",
+   "dato": {
+    "valor": 104.5,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": null,
+   "reparto": {
+    "unidad": "kg",
+    "total": 104.5,
+    "partes": [
+     {
+      "code": "1",
+      "etiqueta_es": "1 rep",
+      "valor": 104.5,
+      "pct": null
+     },
+     {
+      "code": "2",
+      "etiqueta_es": "2 reps",
+      "valor": 104.5,
+      "pct": null
+     },
+     {
+      "code": "3",
+      "etiqueta_es": "3 reps",
+      "valor": 104.5,
+      "pct": null
+     },
+     {
+      "code": "5",
+      "etiqueta_es": "5 reps",
+      "valor": 104.5,
+      "pct": null
+     }
+    ]
+   },
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 16,
+    "dias_ventana": 84,
+    "dias_con_dato": 4,
+    "pct": 4.761904761904762,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "mejores_por_reps",
+    "explica_es": "Lo más pesado que has movido para cada número de repeticiones, de siempre (una serie de 5 cuenta también para 3). Levantado, no estimado.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.rm.bp",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Press banca · mejores por reps",
+   "estado": "medida",
+   "dato": {
+    "valor": 72,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": null,
+   "reparto": {
+    "unidad": "kg",
+    "total": 72,
+    "partes": [
+     {
+      "code": "1",
+      "etiqueta_es": "1 rep",
+      "valor": 72,
+      "pct": null
+     },
+     {
+      "code": "2",
+      "etiqueta_es": "2 reps",
+      "valor": 72,
+      "pct": null
+     },
+     {
+      "code": "3",
+      "etiqueta_es": "3 reps",
+      "valor": 72,
+      "pct": null
+     },
+     {
+      "code": "5",
+      "etiqueta_es": "5 reps",
+      "valor": 72,
+      "pct": null
+     }
+    ]
+   },
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 12,
+    "dias_ventana": 84,
+    "dias_con_dato": 3,
+    "pct": 3.571428571428571,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "mejores_por_reps",
+    "explica_es": "Lo más pesado que has movido para cada número de repeticiones, de siempre (una serie de 5 cuenta también para 3). Levantado, no estimado.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.series",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Series",
+   "estado": "medida",
+   "dato": {
+    "valor": 28,
+    "unidad": "series",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": {
+    "unidad": "series",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-09-07",
+      "v": 8
+     },
+     {
+      "t": "2026-09-14",
+      "v": 8
+     },
+     {
+      "t": "2026-09-21",
+      "v": 8
+     },
+     {
+      "t": "2026-09-28",
+      "v": 4
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": {
+    "unidad": "series",
+    "total": 28,
+    "partes": [
+     {
+      "code": "horizontal_push",
+      "etiqueta_es": "Empuje horizontal",
+      "valor": 12,
+      "pct": 42.857142857142854
+     },
+     {
+      "code": "squat",
+      "etiqueta_es": "Sentadilla",
+      "valor": 16,
+      "pct": 57.14285714285714
+     }
+    ]
+   },
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 28,
+    "dias_ventana": 84,
+    "dias_con_dato": 7,
+    "pct": 8.333333333333332,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "Las series hechas de cada periodo, repartidas por patrón de movimiento.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.tonelaje",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Tonelaje",
+   "estado": "medida",
+   "dato": {
+    "valor": 11995,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-09-07",
+      "v": 3235
+     },
+     {
+      "t": "2026-09-14",
+      "v": 3303
+     },
+     {
+      "t": "2026-09-21",
+      "v": 3405
+     },
+     {
+      "t": "2026-09-28",
+      "v": 2053
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": {
+    "unidad": "kg",
+    "total": 11995,
+    "partes": [
+     {
+      "code": "horizontal_push",
+      "etiqueta_es": "Empuje horizontal",
+      "valor": 4085,
+      "pct": 34.05585660691955
+     },
+     {
+      "code": "squat",
+      "etiqueta_es": "Sentadilla",
+      "valor": 7910,
+      "pct": 65.94414339308045
+     }
+    ]
+   },
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 28,
+    "dias_ventana": 84,
+    "dias_con_dato": 7,
+    "pct": 8.333333333333332,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "Carga × reps de cada serie hecha; a peso corporal suma reps, no kilos.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.horizontal_push.series",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Empuje horizontal · series",
+   "estado": "medida",
+   "dato": {
+    "valor": 12,
+    "unidad": "series",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": {
+    "unidad": "series",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-09-07",
+      "v": 4
+     },
+     {
+      "t": "2026-09-14",
+      "v": 4
+     },
+     {
+      "t": "2026-09-21",
+      "v": 4
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 12,
+    "dias_ventana": 84,
+    "dias_con_dato": 3,
+    "pct": 3.571428571428571,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "Las series de empuje horizontal de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.horizontal_push.tonelaje",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Empuje horizontal · tonelaje",
+   "estado": "medida",
+   "dato": {
+    "valor": 4085,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-09-07",
+      "v": 1333
+     },
+     {
+      "t": "2026-09-14",
+      "v": 1350
+     },
+     {
+      "t": "2026-09-21",
+      "v": 1403
+     },
+     {
+      "t": "2026-09-28",
+      "v": null
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 12,
+    "dias_ventana": 84,
+    "dias_con_dato": 3,
+    "pct": 3.571428571428571,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "El tonelaje de empuje horizontal de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.squat.series",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Sentadilla · series",
+   "estado": "medida",
+   "dato": {
+    "valor": 16,
+    "unidad": "series",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": {
+    "unidad": "series",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-09-07",
+      "v": 4
+     },
+     {
+      "t": "2026-09-14",
+      "v": 4
+     },
+     {
+      "t": "2026-09-21",
+      "v": 4
+     },
+     {
+      "t": "2026-09-28",
+      "v": 4
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 16,
+    "dias_ventana": 84,
+    "dias_con_dato": 4,
+    "pct": 4.761904761904762,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "Las series de sentadilla de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  },
+  {
+   "id": "fuerza.patron.squat.tonelaje",
+   "grupo": "progreso",
+   "familia": "fuerza",
+   "titulo_es": "Sentadilla · tonelaje",
+   "estado": "medida",
+   "dato": {
+    "valor": 7910,
+    "unidad": "kg",
+    "referencia": null
+   },
+   "comparacion": null,
+   "serie": {
+    "unidad": "kg",
+    "paso": "semana",
+    "puntos": [
+     {
+      "t": "2026-09-07",
+      "v": 1903
+     },
+     {
+      "t": "2026-09-14",
+      "v": 1953
+     },
+     {
+      "t": "2026-09-21",
+      "v": 2003
+     },
+     {
+      "t": "2026-09-28",
+      "v": 2053
+     }
+    ],
+    "plan": null,
+    "referencias": null
+   },
+   "reparto": null,
+   "veredicto": null,
+   "cobertura": {
+    "muestras": 16,
+    "dias_ventana": 84,
+    "dias_con_dato": 4,
+    "pct": 4.761904761904762,
+    "falta": null
+   },
+   "procedencia": {
+    "de": "volumen_fuerza",
+    "explica_es": "El tonelaje de sentadilla de cada semana.",
+    "medida": true,
+    "ancla": null,
+    "proveedor": null
+   }
+  }
+ ]
+}

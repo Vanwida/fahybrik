@@ -97,17 +97,17 @@ final class AppDataStore {
     var racesHub = Slice<RacesHubResponse>()                // /athlete/races        — Carreras (upcoming + past)
     var raceOverview = Slice<CarrerasOverview>()            // /athlete/race-context — Carreras (PASADAS analytics)
 
-    // ANALÍTICAS-tab cache. One slice per (section × period) — keyed by
-    // "section:periodKey:from-to" — so switching to a section/period you've
-    // already opened renders instantly (cache-first / SWR), and a cold launch
-    // (even offline) reopens the last-viewed analytics. The dictionary is small
-    // (the athlete views a handful of the 20 combos); only fetched keys are held.
-    var analyticsSections: [String: Slice<AnalyticsSection>] = [:]  // /athlete/analytics/sections/{section}
-
     // EL PANEL DE ANALÍTICAS (29-09): una porción por VENTANA (`7d · 4s · 12s ·
-    // 6m · 1a · todo`), misma máquina SWR + disco que las secciones: cambiar de
-    // ventana ya abierta pinta al instante, y la pestaña abre pintada en frío.
+    // 6m · 1a · todo`), con la máquina SWR + disco: cambiar de ventana ya abierta
+    // pinta al instante, y la pestaña abre pintada en frío.
     var panelesAnaliticas: [String: Slice<PanelAnaliticas>] = [:]  // /athlete/analytics/panel?ventana=
+
+    // LOS DETALLES de esa pestaña (29-09): el de una familia por (familia × ventana), el cumplimiento por
+    // ventana (la puerta a los días y «lo que te piden») y la sesión por ejecución. Misma máquina SWR, y en
+    // MEMORIA: un detalle no se persiste (el panel sí, y con él la pestaña abre pintada en frío).
+    var detallesAnaliticas: [String: Slice<DetalleAnaliticas>] = [:]        // …/analytics/familia/{f}?ventana=
+    var cumplimientosAnaliticos: [String: Slice<CumplimientoAnaliticas>] = [:]  // …/analytics/cumplimiento?ventana=
+    var sesionesAnaliticas: [String: Slice<DetalleDeSesion>] = [:]          // …/analytics/sesion/{executionId}
 
     /// Unread coach messages (0 when none / not loaded). Single source so every
     /// surface (bell dot, coach-note row) agrees.
@@ -192,7 +192,6 @@ final class AppDataStore {
             subscription = snapshot.subscription
             racesHub = snapshot.racesHub
             raceOverview = snapshot.raceOverview
-            analyticsSections = snapshot.analyticsSections
             panelesAnaliticas = snapshot.panelesAnaliticas
         } else {
             // Different (or no) prior session on disk — start clean.
@@ -216,8 +215,10 @@ final class AppDataStore {
         subscription = .init()
         racesHub = .init()
         raceOverview = .init()
-        analyticsSections = [:]
         panelesAnaliticas = [:]
+        detallesAnaliticas = [:]
+        cumplimientosAnaliticos = [:]
+        sesionesAnaliticas = [:]
     }
 
     // MARK: Grouped loads (cache-first render is automatic; these revalidate)
@@ -541,41 +542,6 @@ final class AppDataStore {
         }
     }
 
-    // MARK: ANALÍTICAS section cache (one slice per section × period)
-
-    /// Stable cache key for a (section, period[, erg]) tuple. The ergo section is
-    /// cached PER erg (Remo · SkiErg · BikeErg) so flipping the segmented control
-    /// never serves another erg's warm slice; every other section passes erg = nil.
-    private func analyticsKey(_ section: AnalyticsSectionKey, _ period: AnalyticsPeriod, _ erg: ErgScope? = nil) -> String {
-        let ergPart = erg.map { ":\($0.rawValue)" } ?? ""
-        return "\(section.rawValue):\(period.cacheSuffix)\(ergPart)"
-    }
-
-    /// The cache-first slice for a (section, period[, erg]). Returns an empty slice
-    /// the first time so the view renders a cold-load skeleton, not a stale value.
-    func analyticsSection(_ section: AnalyticsSectionKey, period: AnalyticsPeriod, erg: ErgScope? = nil) -> Slice<AnalyticsSection> {
-        analyticsSections[analyticsKey(section, period, erg)] ?? Slice<AnalyticsSection>()
-    }
-
-    /// Revalidate one section×period through the shared SWR engine: serve the warm
-    /// slice from memory, refresh in the background, keep the last-good on error
-    /// (offline-first), and persist. Throws-aware via AnalyticsService.fetchSection.
-    func refreshAnalyticsSection(
-        _ section: AnalyticsSectionKey,
-        period: AnalyticsPeriod,
-        erg: ErgScope? = nil,
-        force: Bool = false
-    ) async {
-        let key = analyticsKey(section, period, erg)
-        await revalidate(
-            get: { self.analyticsSections[key] ?? Slice<AnalyticsSection>() },
-            set: { self.analyticsSections[key] = $0 },
-            force: force
-        ) { bearer in
-            try await AnalyticsService.fetchSection(section, period: period, erg: erg, bearer: bearer)
-        }
-    }
-
     // MARK: EL PANEL de analíticas (una porción por ventana)
 
     /// La porción del panel de una ventana. Vacía la primera vez (arranque en frío).
@@ -594,6 +560,77 @@ final class AppDataStore {
         ) { bearer in
             try await AnalyticsService.fetchPanel(ventana: ventana, bearer: bearer)
         }
+    }
+
+    // MARK: Los detalles de analíticas (familia, cumplimiento, sesión)
+
+    private func claveDeDetalle(_ familia: FamiliaDeDetalle, _ ventana: VentanaClave) -> String { "\(familia.rawValue)|\(ventana.rawValue)" }
+
+    /// La porción del detalle de una familia en una ventana. Vacía la primera vez.
+    func detalleAnaliticas(_ familia: FamiliaDeDetalle, _ ventana: VentanaClave) -> Slice<DetalleAnaliticas> {
+        detallesAnaliticas[claveDeDetalle(familia, ventana)] ?? Slice<DetalleAnaliticas>()
+    }
+
+    func refreshDetalleAnaliticas(_ familia: FamiliaDeDetalle, _ ventana: VentanaClave, force: Bool = false) async {
+        let key = claveDeDetalle(familia, ventana)
+        await revalidate(
+            get: { self.detallesAnaliticas[key] ?? Slice<DetalleAnaliticas>() },
+            set: { self.detallesAnaliticas[key] = $0 },
+            force: force
+        ) { bearer in
+            try await AnalyticsService.fetchDetalleFamilia(familia, ventana: ventana, bearer: bearer)
+        }
+    }
+
+    /// El cumplimiento de una ventana: sus sesiones del plan, con líneas y tramos juzgados.
+    func cumplimientoAnalitico(_ ventana: VentanaClave) -> Slice<CumplimientoAnaliticas> {
+        cumplimientosAnaliticos[ventana.rawValue] ?? Slice<CumplimientoAnaliticas>()
+    }
+
+    func refreshCumplimientoAnalitico(_ ventana: VentanaClave, force: Bool = false) async {
+        let key = ventana.rawValue
+        await revalidate(
+            get: { self.cumplimientosAnaliticos[key] ?? Slice<CumplimientoAnaliticas>() },
+            set: { self.cumplimientosAnaliticos[key] = $0 },
+            force: force
+        ) { bearer in
+            try await AnalyticsService.fetchCumplimiento(ventana: ventana, bearer: bearer)
+        }
+    }
+
+    /// El detalle de una sesión hecha, por su ejecución.
+    func sesionAnalitica(_ executionId: String) -> Slice<DetalleDeSesion> {
+        sesionesAnaliticas[executionId] ?? Slice<DetalleDeSesion>()
+    }
+
+    func refreshSesionAnalitica(_ executionId: String, force: Bool = false) async {
+        await revalidate(
+            get: { self.sesionesAnaliticas[executionId] ?? Slice<DetalleDeSesion>() },
+            set: { self.sesionesAnaliticas[executionId] = $0 },
+            force: force
+        ) { bearer in
+            try await AnalyticsService.fetchSesion(executionId: executionId, bearer: bearer)
+        }
+    }
+
+    /// Ponen los detalles ya decodificados en sus porciones (el arnés de capturas monta la pantalla sobre JSON del contrato sin red, como el
+    /// panel). En memoria y sin tocar la red: no son del servidor.
+    func setDetalleAnaliticas(_ detalle: DetalleAnaliticas, _ familia: FamiliaDeDetalle, _ ventana: VentanaClave) {
+        var slice = detalleAnaliticas(familia, ventana)
+        slice.setLoaded(detalle)
+        detallesAnaliticas[claveDeDetalle(familia, ventana)] = slice
+    }
+
+    func setCumplimientoAnalitico(_ cumplimiento: CumplimientoAnaliticas, _ ventana: VentanaClave) {
+        var slice = cumplimientoAnalitico(ventana)
+        slice.setLoaded(cumplimiento)
+        cumplimientosAnaliticos[ventana.rawValue] = slice
+    }
+
+    func setSesionAnalitica(_ sesion: DetalleDeSesion) {
+        var slice = sesionAnalitica(sesion.executionId)
+        slice.setLoaded(sesion)
+        sesionesAnaliticas[sesion.executionId] = slice
     }
 
     /// Pone un panel ya decodificado en su porción (el arnés de capturas monta la
@@ -686,7 +723,6 @@ final class AppDataStore {
             subscription: subscription,
             racesHub: racesHub,
             raceOverview: raceOverview,
-            analyticsSections: analyticsSections,
             panelesAnaliticas: panelesAnaliticas
         )
         AppDataPersistence.save(snapshot)
@@ -719,7 +755,6 @@ enum AppDataPersistence {
         var subscription: Slice<SubscriptionInfo>
         var racesHub: Slice<RacesHubResponse>
         var raceOverview: Slice<CarrerasOverview>
-        var analyticsSections: [String: Slice<AnalyticsSection>]
         var panelesAnaliticas: [String: Slice<PanelAnaliticas>]
     }
 
@@ -728,9 +763,8 @@ enum AppDataPersistence {
     // breakdown; v3 the Chat message-history slice (v2 the Carreras slices). An
     // older blob has a different shape, so its decode simply fails (→ start clean,
     // refetch on launch) — no migration code, no stale-shape risk.
-    // v6 adds the ANALÍTICAS section cache (one slice per section × period). An
-    // older blob has a different shape, so its decode simply fails (→ start clean,
-    // refetch on launch) — no migration code, no stale-shape risk.
+    // v6 added the ANALÍTICAS section cache; la pestaña rehecha (v9) la retiró y un blob viejo con esa clave
+    // sigue decodificando (la clave sobrante se ignora) y se reescribe sin ella en el próximo guardado.
     // v7 adds the coach-communications inbox («Del coach»), cached so lo que el
     // atleta marcó sin cobertura siga ahí al reabrir la app.
     // v8 añade la porción del CICLO (/plan/ciclo), para que la vista del camino

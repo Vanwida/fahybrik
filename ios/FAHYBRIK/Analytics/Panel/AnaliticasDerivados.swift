@@ -19,17 +19,21 @@ enum AnaliticasDerivados {
     /// Contra el periodo anterior si la lectura se compara; si no, contra su
     /// referencia (el basal, el objetivo, el aviso del coach). Nulo cuando no hay
     /// contra qué: un número suelto se pinta solo.
-    static func delta(de l: LecturaAnalitica) -> DeltaVista? {
+    /// `bajaEsMejor`: lo que la unidad no sabe decir y la lectura sí (el desacople es un porcentaje que baja cuando mejora). Sin él, manda la unidad.
+    static func delta(de l: LecturaAnalitica, bajaEsMejor: Bool? = nil) -> DeltaVista? {
         guard let dato = l.dato else { return nil }
+        let baja = bajaEsMejor ?? AnaliticasFormato.menosEsMejor(dato.unidad)
         if let c = l.comparacion, let delta = c.delta {
             return DeltaVista(delta: delta, unidad: c.unidad, significativo: c.significativo,
                               etiqueta: AnaliticasFormato.etiquetaPeriodo(c.periodo),
-                              mejor: AnaliticasFormato.menosEsMejor(dato.unidad) ? delta < 0 : delta > 0)
+                              mejor: baja ? delta < 0 : delta > 0)
         }
-        if let r = dato.referencia {
+        // Una marca que ES su récord (delta cero contra él) no tiene nada que comparar: «igual que tu récord» no dice nada y, junto a un «aún no
+        // hay periodo anterior», se contradice.
+        if let r = dato.referencia, !(r.de == IdsDelPanel.referenciaRecord && abs(r.delta) < 1e-9) {
             return DeltaVista(delta: r.delta, unidad: dato.unidad, significativo: nil,
                               etiqueta: AnaliticasFormato.etiquetaReferencia(r, dato.unidad),
-                              mejor: AnaliticasFormato.menosEsMejor(dato.unidad) ? r.delta < 0 : r.delta > 0)
+                              mejor: baja ? r.delta < 0 : r.delta > 0)
         }
         return nil
     }
@@ -112,13 +116,20 @@ enum AnaliticasDerivados {
     /// Los cubos de HORAS: el servidor sirve las horas por semana en total (no por
     /// familia), así que la barra es una sola parte con el plan en contorno.
     static func cubosHoras(_ p: PanelAnaliticas, agrupar: Int) -> [CuboDeColumna] {
-        guard let l = lectura(p.bloques.semanas, "semanas.horas"), let s = l.serie, s.paso == .semana else { return [] }
+        guard let l = lectura(p.bloques.semanas, "semanas.horas"), let s = l.serie else { return [] }
+        return cubosDeSerie(s, color: Theme.Color.foreground, hoy: p.hoy, agrupar: agrupar)
+    }
+
+    /// Los cubos de UNA serie semanal (las horas de la semana, los metros de un ergo, el tonelaje de fuerza): una sola parte
+    /// «Hecho» y, si la serie trae plan, su contorno. Una semana sin dato es un hueco (no se pinta barra), nunca un cero.
+    static func cubosDeSerie(_ s: SerieDeLectura, color: Color, hoy: String, agrupar: Int) -> [CuboDeColumna] {
+        guard s.paso == .semana else { return [] }
         let puntos = AnaliticasEscala.agrupar(s.puntos, agrupar)
         let plan = s.plan.map { AnaliticasEscala.agrupar($0, agrupar) }
         return puntos.enumerated().map { i, q in
             CuboDeColumna(t: q.t, plan: plan.flatMap { i < $0.count ? $0[i].v : nil },
-                          partes: [ParteDeCubo(code: "hecho", etiqueta: "Hecho", valor: q.v ?? 0, color: Theme.Color.foreground)],
-                          enCurso: i == puntos.count - 1 && q.t <= p.hoy)
+                          partes: [ParteDeCubo(code: "hecho", etiqueta: "Hecho", valor: q.v ?? 0, color: color)],
+                          enCurso: i == puntos.count - 1 && q.t <= hoy)
         }
     }
 
@@ -189,6 +200,13 @@ enum AnaliticasDerivados {
         /// Las que quedaron dentro de lo pedido.
         let dentro: Int
         let sinPlan: Int
+
+        /// «3 de 4 sesiones hechas · 2 dentro de lo pedido · 1 sin plan».
+        var texto: String {
+            var t = "\(hechas) de \(total) \(total == 1 ? "sesión hecha" : "sesiones hechas") · \(dentro) dentro de lo pedido"
+            if sinPlan > 0 { t += " · \(sinPlan) sin plan" }
+            return t
+        }
     }
 
     /// «3 de 4 hechas · 2 dentro de lo pedido · 1 sin plan», del reparto servido.

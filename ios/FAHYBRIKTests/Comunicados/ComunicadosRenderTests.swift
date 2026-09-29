@@ -4,7 +4,7 @@ import SwiftUI
 
 // «DEL COACH», DIBUJADO — la bandeja y las piezas de los detalles.
 //
-// Hermana de `HubChatAnaliticasRenderTests`, y por lo mismo: no es una prueba de
+// Hermana de `HubChatRenderTests`, y por lo mismo: no es una prueba de
 // píxeles, es la prueba de que la pantalla se SOSTIENE en sus estados y el sitio
 // de donde salen las capturas para mirarla sin una sesión viva.
 //

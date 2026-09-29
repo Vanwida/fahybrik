@@ -58,6 +58,11 @@ enum AnaliticasFechas {
         return "\(d) \(meses[m - 1])"
     }
 
+    /// La fecha de un extremo del eje: «8 jul», o «8 jul 25» cuando el eje abarca casi un año o más.
+    static func deEje(_ iso: String, conAno: Bool) -> String {
+        conAno ? "\(corta(iso)) \(iso.dropFirst(2).prefix(2))" : corta(iso)
+    }
+
     /// «sep» — la marca de mes de un eje temporal.
     static func mesCorto(_ iso: String) -> String {
         let partes = iso.split(separator: "-")
@@ -125,6 +130,20 @@ enum AnaliticasEscala {
         return escala
     }
 
+    /// Las marcas de TIEMPO de un eje que cuenta segundos desde el inicio de una sesión: cada 3, 5, 10 o 15 min según cuánto
+    /// dura; el final siempre, y la marca anterior se quita si le pisa (`graficos/tiempo.tsx#marcasTiempo`).
+    static func marcasDeTiempo(_ duracion: Double) -> [Double] {
+        let paso: Double = duracion <= 900 ? 180 : duracion <= 1800 ? 300 : duracion <= 3600 ? 600 : 900
+        var marcas: [Double] = []
+        var t = 0.0
+        while t <= duracion { marcas.append(t); t += paso }
+        if marcas.last != duracion {
+            if let ultima = marcas.last, duracion - ultima < paso * 0.45 { marcas.removeLast() }
+            marcas.append(duracion)
+        }
+        return marcas
+    }
+
     /// Qué fechas rotular en X: la primera, la última y los cambios de mes que
     /// quepan. `ancho` en pt; `cuerpo` el del texto del eje.
     struct RotuloX: Equatable {
@@ -134,10 +153,13 @@ enum AnaliticasEscala {
 
     static func rotulosX(_ fechas: [String], ancho: CGFloat, cuerpo: CGFloat) -> [RotuloX] {
         guard let primera = fechas.first else { return [] }
+        // Un eje de casi un año o más lleva el año (dos cifras) en sus extremos: «8 jul 25» y «29 sep 26».
+        // Sin él, con «1 a» o «Todo», el mismo «8 jul» podría ser de dos años distintos.
+        let conAno = fechas.count > 1 && (AnaliticasFechas.diasEntre(primera, fechas[fechas.count - 1]) ?? 0) > diasDeUnAnoLargo
         let minSep = cuerpo * 4.2
         // El último rótulo («28 sep») se ancla a la derecha y crece hacia la izquierda: pide más sitio.
-        let minSepUltimo = cuerpo * 6.5
-        var out = [RotuloX(i: 0, texto: AnaliticasFechas.corta(primera))]
+        let minSepUltimo = cuerpo * (conAno ? 8 : 6.5)
+        var out = [RotuloX(i: 0, texto: AnaliticasFechas.deEje(primera, conAno: conAno))]
         let paso = ancho / CGFloat(Swift.max(1, fechas.count - 1))
         if fechas.count > 2 {
             for i in 1..<(fechas.count - 1) {
@@ -150,9 +172,12 @@ enum AnaliticasEscala {
                 out.append(RotuloX(i: i, texto: AnaliticasFechas.mesCorto(f)))
             }
         }
-        if fechas.count > 1 { out.append(RotuloX(i: fechas.count - 1, texto: AnaliticasFechas.corta(fechas[fechas.count - 1]))) }
+        if fechas.count > 1 { out.append(RotuloX(i: fechas.count - 1, texto: AnaliticasFechas.deEje(fechas[fechas.count - 1], conAno: conAno))) }
         return out
     }
+
+    /// Desde cuántos días un eje escribe el año (`comun.tsx#rotulosX`: más de 330).
+    private static let diasDeUnAnoLargo = 330
 
     /// Cuántos puntos por grupo para que cada columna tenga al menos `minAncho` pt:
     /// 1, 2 o 4 (un mes). 12 semanas caben una a una en el iPhone; 26 van de dos
