@@ -204,7 +204,7 @@ async function leerTramos(atleta: AtletaVerificado, ejecuciones: number[], clien
       se.incline_pct::float as inclinacion,
       se.avg_gradient_pct::float as pendiente,
       se.reps_completed as reps,
-    se.reps_prescribed as reps_prescritas,
+      se.reps_prescribed as reps_prescritas,
       se.weight_used_kg::float as kg,
       se.calories::float as calorias,
       se.emom_rounds_completed as rondas,

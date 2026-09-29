@@ -2,24 +2,23 @@
 -- §3 fila 3 y §5): el método del coach para juzgar cada sesión frente a su plan y
 -- cada tramo frente a su banda.
 --
--- (Numeración: 0278, 0279 y 0280 las ocupan las otras ramas de las analíticas
--- en vuelo — limpieza de datos, intensidad y progreso —, que también añaden
--- columnas a `coach_analytics_method`. Todas son `add column if not exists` y el
--- migrador registra por nombre de fichero: el orden de llegada no importa.)
+-- (Numeración: 0278 a 0280 ya están en main — limpieza de datos, intensidad y
+-- progreso — y también añaden columnas a `coach_analytics_method`. Todas son
+-- `add column if not exists` y el migrador registra por nombre de fichero.)
 --
 -- HARD RULE Nº0. Lo que un entrenador competente pondría distinto nace como dato:
 --   · contra qué se compara una sesión hecha con su plan, y en qué orden
---     (carga › duración › distancia, la escalera de TrainingPeaks);
+--     (carga › duración › distancia, la escalera de TrainingPeaks),
 --   · dónde cortan el verde, el ámbar y el rojo de una sesión (defecto de
---     mercado: verde 80-120 %, ámbar 50-79 % o 121-150 %, rojo fuera o no hecha);
+--     mercado: verde 80-120 %, ámbar 50-79 % o 121-150 %, rojo fuera o no hecha),
 --   · cuánto puede salirse un tramo de su banda sin dejar de estar dentro (la
---     holgura del vivo: ritmo, split, vatios, pulso; ±1 de RPE y de RIR; la
---     carga dentro de su rango; un 10 % de dosis);
+--     holgura del vivo: ritmo, split, vatios, pulso, ±1 de RPE y de RIR, la
+--     carga dentro de su rango, un 10 % de dosis),
 --   · qué cambio de un porcentaje de cumplimiento entre periodos es cambio.
 --
 -- Mismo patrón que 0277: columnas nullable sin `default`, NULL = el defecto del
 -- producto (shared/domain/analytics/metodo.ts). Un coach que no toca nada se
--- comporta igual que el defecto. Los CHECK repiten ANALYTICS_METHOD_BOUNDS; la
+-- comporta igual que el defecto. Los CHECK repiten ANALYTICS_METHOD_BOUNDS. La
 -- coherencia entre columnas (las bandas en orden, las bases sin repetir) la
 -- comprueba el PUT (`validarMetodoAnalitico`) sobre los valores efectivos.
 --
