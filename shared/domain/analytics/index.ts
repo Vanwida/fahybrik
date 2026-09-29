@@ -26,3 +26,9 @@ export * from './forma';
 export * from './semanas';
 export * from './estado';
 export * from './panel';
+// Intensidad, recuperación, carrera y el detalle de sesión (29-09-2026): la
+// basal única (P3/P16) y los bloques que la usan.
+export * from './basal';
+export * from './recuperacion-panel';
+export * from './intensidad';
+export * from './intensidad-ritmo';
