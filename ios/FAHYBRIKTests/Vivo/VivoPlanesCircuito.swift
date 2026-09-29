@@ -57,6 +57,21 @@ enum VivoPlanesCircuito {
         return try P.plan("Compromised", [calentamiento(), P.bloque("5 rondas · Race pace + station rotando", formato: "rounds", pos: 1, piezas)])
     }
 
+    /// 493 con un bloque DETRÁS del circuito (la vuelta a la calma): la Estructura
+    /// del circuito enseña la sesión entera, lo de antes y lo de después.
+    static func sesion493ConVueltaALaCalma() throws -> WorkoutPlan {
+        let calma = P.bloque("Vuelta a la calma", formato: "steady", pos: 2, [
+            P.item("v1", "Run", cat: "running", rx: "{ \"scheme\": \"steady\", \"modality\": \"run\", \"sets\": [\(P.set(P.segs(300), target: P.zona(1), mod: "run"))] }")])
+        let r = "rounds"
+        let piezas: [String] = [
+            run("c1", 1000, esquema: r, target: rpe(8)),
+            pieza("c2", "SkiErg", cat: "ski_erg", esquema: r, P.set(P.metros(500), target: rpe(8.5), rest: 90, mod: "ski")),
+            run("c3", 1000, esquema: r, target: rpe(8)),
+            pieza("c4", "Burpee Broad Jump", cat: "functional", esquema: r, P.set(P.metros(40), rest: 90)),
+        ]
+        return try P.plan("Compromised corto", [calentamiento(), P.bloque("2 rondas · Race pace", formato: "rounds", pos: 1, piezas), calma])
+    }
+
     /// 492 · Trineos y carries (cuentas distintas por ítem; el motor las pliega en 5).
     static func sesion492() throws -> WorkoutPlan {
         let r = "rounds"

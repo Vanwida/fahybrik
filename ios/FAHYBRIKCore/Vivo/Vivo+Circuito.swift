@@ -231,4 +231,50 @@ extension Vivo {
             k = fin + 1
         }
     }
+
+    // MARK: - La Estructura de la sesión con el circuito dentro
+
+    /// Una pieza de la página Estructura cuando el paso vivo es de un circuito: los
+    /// otros bloques como en las demás familias (una fila cada uno, con su salto) y,
+    /// en su sitio, la ruta del circuito desplegada (`rutaDe`).
+    enum PiezaEstructura: Equatable {
+        case fila(FilaEstructura)
+        case circuito
+    }
+
+    /// La sesión entera en el orden en que se hace. El circuito es el segmento del
+    /// paso vivo: sus pasos son la ruta; lo de antes y lo de después, las filas de
+    /// `estructuraDe` (la misma agrupación que la Estructura de cualquier familia).
+    static func estructuraConCircuito(_ pasos: [Paso], i: Int) -> [PiezaEstructura] {
+        guard pasos.indices.contains(i), let seg = pasos[i].origen?.segmento else {
+            return estructuraDe(pasos, i: i).map(PiezaEstructura.fila)
+        }
+        let delCircuito = pasos.indices.filter { pasos[$0].origen?.segmento == seg }
+        guard let primero = delCircuito.first else { return estructuraDe(pasos, i: i).map(PiezaEstructura.fila) }
+        let filas = estructuraDe(pasos, i: i).filter { $0.trabajo.origen?.segmento != seg }
+        let grupos = filasDePasos(pasos).filter { $0.paso.origen?.segmento != seg }
+        var piezas: [PiezaEstructura] = []
+        var circuitoPuesto = false
+        for (f, g) in zip(filas, grupos) {
+            if !circuitoPuesto, g.desde > primero { piezas.append(.circuito); circuitoPuesto = true }
+            piezas.append(.fila(f))
+        }
+        if !circuitoPuesto { piezas.append(.circuito) }
+        return piezas
+    }
+
+    /// Las filas de la ruta del circuito en curso: solo los pasos de SU segmento
+    /// (el calentamiento y los otros bloques van como filas de la Estructura).
+    static func rutaDelCircuito(_ pasos: [Paso], i: Int, parciales: [Parcial], terminado: Bool, hyrox: Bool) -> [FilaRuta] {
+        guard pasos.indices.contains(i) else { return [] }
+        let seg = pasos[i].origen?.segmento
+        let desde = pasos.firstIndex { $0.origen?.segmento == seg } ?? 0
+        let todas = rutaDe(pasos, i: i, parciales: parciales, terminado: terminado,
+                           OpcionesRuta(desde: desde, cabecerasDeRonda: !hyrox, sueltas: .pasadas))
+        return todas.filter { f in
+            if case let .paso(j, _, _, _, _) = f { return pasos[j].origen?.segmento == seg }
+            return true
+        }
+    }
 }
+

@@ -13,7 +13,7 @@
 import { useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { estructuraDe } from '../kit-reloj/estructura';
 import { juicioDe, textoFila } from '../kit-reloj/listas';
-import type { Vuelta } from '../kit-reloj/paso';
+import type { FilaEstructura, Vuelta } from '../kit-reloj/paso';
 import { fmtReloj, fmtRitmo } from '../kit-reloj/reglas';
 import type { EstadoSecuencia, PlanSesion } from '../kit-reloj/secuencia';
 import { Cuerpo, Etiqueta, Numeral } from './piezas';
@@ -80,6 +80,32 @@ function FilaVuelta({ v }: { v: Vuelta }) {
 }
 
 /**
+ * Una fila de la Estructura: el bloque del coach en dos líneas (qué · contra
+ * qué) y sus vueltas debajo. La MISMA fila en la Estructura de cualquier familia
+ * y en la del circuito (los bloques de antes de la ruta).
+ */
+export function FilaDeEstructura({ f, vueltas = [] }: { f: FilaEstructura; vueltas?: Vuelta[] }) {
+  const t = textoFila(f);
+  const esAhora = f.estado === 'ahora';
+  return (
+    <div style={{ background: esAhora ? CI.superficie : 'transparent', borderRadius: RADIO.superficie, padding: esAhora ? '12px 14px' : '8px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <span aria-hidden style={{ marginTop: 7, width: 9, height: 9, borderRadius: 5, flex: '0 0 auto', background: esAhora ? PUNTO_AHORA : f.estado === 'hecho' ? PUNTO_HECHO : 'transparent', boxShadow: f.estado === 'pendiente' ? `inset 0 0 0 1.5px ${CI.tinta2}` : undefined }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <Cuerpo tono={f.estado === 'pendiente' ? CI.tinta2 : CI.tinta} peso={600}>
+            {t.linea}
+          </Cuerpo>
+          {t.detalle ? <Etiqueta estilo={{ whiteSpace: 'normal' }}>{t.detalle}</Etiqueta> : null}
+        </div>
+      </div>
+      {vueltas.map((v, i) => (
+        <FilaVuelta key={i} v={v} />
+      ))}
+    </div>
+  );
+}
+
+/**
  * LA ESTRUCTURA: cada bloque del coach en dos líneas (qué · contra qué), lo
  * hecho con sus vueltas y su veredicto, lo de ahora en tinta, lo que viene en
  * tinta2. Scrollea (es una página, no un panel).
@@ -101,26 +127,8 @@ export function PaginaEstructura({ plan, estado }: { plan: PlanSesion; estado: E
     <div className="twin-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: `12px ${MARGEN}px calc(var(--twin-safe-bottom) + 24px)`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 6 }}>
       <span style={{ fontSize: TI.posicion.cuerpo, fontWeight: TI.posicion.peso, color: CI.tinta, marginBottom: 8 }}>Estructura</span>
       {filas.map((f, k) => {
-        const t = textoFila(f);
-        const esAhora = f.estado === 'ahora';
-        const propias = reparto[k] ?? [];
         const kms = f.trabajo.vueltaAutoM ? estado.vueltas.filter((v) => v.clase === 'km') : [];
-        return (
-          <div key={k} style={{ background: esAhora ? CI.superficie : 'transparent', borderRadius: RADIO.superficie, padding: esAhora ? '12px 14px' : '8px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-              <span aria-hidden style={{ marginTop: 7, width: 9, height: 9, borderRadius: 5, flex: '0 0 auto', background: esAhora ? PUNTO_AHORA : f.estado === 'hecho' ? PUNTO_HECHO : 'transparent', boxShadow: f.estado === 'pendiente' ? `inset 0 0 0 1.5px ${CI.tinta2}` : undefined }} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                <Cuerpo tono={f.estado === 'pendiente' ? CI.tinta2 : CI.tinta} peso={600}>
-                  {t.linea}
-                </Cuerpo>
-                {t.detalle ? <Etiqueta estilo={{ whiteSpace: 'normal' }}>{t.detalle}</Etiqueta> : null}
-              </div>
-            </div>
-            {[...propias, ...kms].map((v, i) => (
-              <FilaVuelta key={i} v={v} />
-            ))}
-          </div>
-        );
+        return <FilaDeEstructura key={k} f={f} vueltas={[...(reparto[k] ?? []), ...kms]} />;
       })}
     </div>
   );

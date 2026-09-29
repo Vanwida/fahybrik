@@ -61,48 +61,64 @@ struct VivoPaginaEstructura: View {
                 }
                 .padding(.bottom, 8)
                 ForEach(Array(filas.enumerated()), id: \.offset) { k, f in
-                    let t = Vivo.textoFila(f)
-                    let ahora = f.estado == .ahora
                     let kms = f.trabajo.vueltaAutoM != nil ? estado.vueltas.filter { $0.clase == .km } : []
-                    let salto = alSaltar != nil ? Vivo.segmentoDeSalto(f, segmentoActual: actual) : nil
-                    Button(action: { if let salto { alSaltar?(salto) } }) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(alignment: .top, spacing: 10) {
-                            Circle()
-                                .fill(ahora ? VivoColor.tinta : f.estado == .hecho ? VivoColor.tinta2 : .clear)
-                                .overlay(Circle().stroke(f.estado == .pendiente ? VivoColor.tinta2 : .clear, lineWidth: 1.5))
-                                .frame(width: 9, height: 9)
-                                .padding(.top, 7)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(t.linea).font(.system(size: VivoTokens.TI.cuerpo, weight: .semibold))
-                                    .foregroundStyle(f.estado == .pendiente ? VivoColor.tinta2 : VivoColor.tinta)
-                                if let d = t.detalle {
-                                    Text(d).font(.system(size: VivoTokens.TI.etiqueta, weight: .semibold)).foregroundStyle(VivoColor.tinta2)
-                                }
-                            }
-                            Spacer(minLength: 0)
-                            // Se puede ir ahí: un chevrón discreto, como una fila de Ajustes.
-                            if salto != nil {
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: VivoTokens.TI.etiqueta, weight: .semibold))
-                                    .foregroundStyle(VivoColor.tinta2)
-                                    .padding(.top, 5)
-                            }
-                        }
-                        ForEach(Array((reparto[k] + kms).enumerated()), id: \.offset) { _, v in VivoFilaVuelta(v: v) }
-                    }
-                    .padding(.horizontal, 14).padding(.vertical, ahora ? 12 : 8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(ahora ? VivoColor.superficie : .clear, in: RoundedRectangle(cornerRadius: VivoTokens.Radio.superficie, style: .continuous))
-                    .contentShape(Rectangle())
-                    }
-                    .buttonStyle(VivoPulsarStyle())
-                    .disabled(salto == nil)
-                    .accessibilityLabel(salto != nil ? "Saltar a \(t.linea)" : t.linea)
+                    VivoFilaDeEstructura(fila: f, vueltas: reparto[k] + kms, segmentoActual: actual, alSaltar: alSaltar)
                 }
             }
             .padding(.horizontal, VivoTokens.margen).padding(.top, 12).padding(.bottom, 24)
         }
+    }
+}
+
+/// Una fila de la Estructura: el bloque del coach en dos líneas (qué · contra
+/// qué), sus vueltas debajo, y —si es otro tramo— el salto a él con su chevrón.
+/// La MISMA fila en la Estructura de cualquier familia y en la del circuito.
+struct VivoFilaDeEstructura: View {
+    let fila: Vivo.FilaEstructura
+    var vueltas: [Vivo.Vuelta] = []
+    let segmentoActual: Int?
+    /// Tocar la fila salta a su tramo (el host confirma si se omite trabajo). nil = quieta.
+    var alSaltar: ((Int) -> Void)? = nil
+
+    var body: some View {
+        let f = fila
+        let t = Vivo.textoFila(f)
+        let ahora = f.estado == .ahora
+        let salto = alSaltar != nil ? Vivo.segmentoDeSalto(f, segmentoActual: segmentoActual) : nil
+        Button(action: { if let salto { alSaltar?(salto) } }) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .top, spacing: 10) {
+                    Circle()
+                        .fill(ahora ? VivoColor.tinta : f.estado == .hecho ? VivoColor.tinta2 : .clear)
+                        .overlay(Circle().stroke(f.estado == .pendiente ? VivoColor.tinta2 : .clear, lineWidth: 1.5))
+                        .frame(width: 9, height: 9)
+                        .padding(.top, 7)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(t.linea).font(.system(size: VivoTokens.TI.cuerpo, weight: .semibold))
+                            .foregroundStyle(f.estado == .pendiente ? VivoColor.tinta2 : VivoColor.tinta)
+                        if let d = t.detalle {
+                            Text(d).font(.system(size: VivoTokens.TI.etiqueta, weight: .semibold)).foregroundStyle(VivoColor.tinta2)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    // Se puede ir ahí: un chevrón discreto, como una fila de Ajustes.
+                    if salto != nil {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: VivoTokens.TI.etiqueta, weight: .semibold))
+                            .foregroundStyle(VivoColor.tinta2)
+                            .padding(.top, 5)
+                    }
+                }
+                ForEach(Array(vueltas.enumerated()), id: \.offset) { _, v in VivoFilaVuelta(v: v) }
+            }
+            .padding(.horizontal, 14).padding(.vertical, ahora ? 12 : 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(ahora ? VivoColor.superficie : .clear, in: RoundedRectangle(cornerRadius: VivoTokens.Radio.superficie, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(VivoPulsarStyle())
+        .disabled(salto == nil)
+        .accessibilityLabel(salto != nil ? "Saltar a \(t.linea)" : t.linea)
     }
 }
 
