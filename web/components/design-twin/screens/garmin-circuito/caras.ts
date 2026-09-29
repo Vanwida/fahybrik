@@ -19,8 +19,9 @@
 // cede ni un píxel. Si no cabe junto a la posición, va en dos líneas; jamás se
 // quita (la puntuación no se va de la pantalla) y jamás se trunca.
 //
-// Qué NO hacer: elegir aquí el número grande (es de `laminaDelPaso`); pintar
-// una zona en la estación o en la Roxzone; quitar el total para que quepa el resto.
+// Qué NO hacer: elegir aquí el número grande (es de `laminaDelPaso`); teñir el
+// fondo en la estación o en la Roxzone (no van a zona); quitar el total para que
+// quepa el resto.
 
 import { formatoDobles, heroeRelevo, NOTA_RELEVO, pactoDe, textoTurno } from '../../kit-reloj/dobles';
 import { laminaDelPaso, lineaPulso, type Lamina } from '../../kit-reloj/lamina';
@@ -39,7 +40,6 @@ import {
   cajaEnFila,
   chica,
   colocar,
-  cuerpoPx,
   cuerpoQueCabe,
   disponerDescanso,
   disponerPaso,
@@ -104,12 +104,13 @@ export function lineasContextoTotal(partes: readonly string[], total: number | n
     const r = cuerpoQueCabe(construir(partes.slice(0, k)), TG.contexto, D, ancho);
     if (r.cabe) return [colocar('contexto', r.piezas, una, D)];
   }
-  const suelo = cuerpoPx(TG.suelo, D);
   const abajo = caja(HASTA_DOS - ALTO_NOTA - AIRE.lineas, ALTO_NOTA);
   const arriba = caja(Math.max(DESDE_DOS, abajo.y - ALTO_NOTA), ALTO_NOTA);
-  const posicion = ajustarPartes(partes.slice(0, 1), 'texto', TG.suelo, D, Math.floor(abajo.ancho * D));
+  // Cada línea baja de cuerpo (del del contexto al suelo) hasta caber en SU cuerda: la de arriba es la más estrecha.
+  const tiempo = cuerpoQueCabe((cuerpo) => [{ texto: t, cara: 'cifras', cuerpo, tono: 'tinta' }], TG.contexto, D, Math.floor(arriba.ancho * D));
+  const posicion = ajustarPartes(partes.slice(0, 1), 'texto', TG.contexto, D, Math.floor(abajo.ancho * D));
   return [
-    colocar('contexto', [{ texto: t, cara: 'cifras', cuerpo: suelo, tono: 'tinta' }], arriba, D),
+    colocar('contexto', tiempo.piezas, arriba, D, 'centro', tiempo.cabe),
     colocar('contexto', [{ texto: posicion.texto, cara: 'texto', cuerpo: posicion.cuerpo, tono: 'tinta' }], abajo, D, 'centro', posicion.cabe),
   ];
 }
@@ -286,17 +287,20 @@ function disponerRelevo(x: DatosCara): Disposicion {
   const { paso, lecturas, total, D } = x;
   const d = paso.dobles!;
   const turno = textoTurno(d);
+  const cabeza = turno.charAt(0).toUpperCase() + turno.slice(1);
   const lam: Lamina = {
-    contexto: [turno.charAt(0).toUpperCase() + turno.slice(1)],
+    contexto: [cabeza],
     heroe: heroeRelevo(lecturas.t),
     banda: null,
     instruccion: paso.nombre ?? null,
     segundo: null,
     tercero: { ...lineaPulso(paso, lecturas, null), zona: undefined },
-    nota: NOTA_RELEVO,
+    nota: null,
     tinte: null,
   };
-  return conContexto(disponerPaso(lam, D), [turno.charAt(0).toUpperCase() + turno.slice(1), 'Dobles'], total, D);
+  // «el relevo lo dices tú» va debajo, donde iría la dosis: encima del héroe ya hay demasiado.
+  const quien = lineaDePartes('nota', [NOTA_RELEVO], TG.nota, cajaEnFila('secundaria', ALTO_NOTA), D, { cara: 'nota', tono: 'tinta2' });
+  return conContexto(conLineas(disponerPaso(lam, D), quien), [cabeza, 'Dobles'], total, D);
 }
 
 // ---------------------------------------------------------------------------

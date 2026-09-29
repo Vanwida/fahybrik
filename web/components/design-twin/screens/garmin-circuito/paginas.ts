@@ -111,8 +111,8 @@ function detalleDe(p: PasoBase, f: FilaPasoRuta, segundos: number, reps: RepsDe)
 
 /**
  * La ruta como vueltas: lo de ahora, con su crono, y lo último hecho, con su
- * parcial (el que deja el motor al cerrar cada paso). El título dice la
- * Roxzone sumada si el coach la activó, y si no, cuántos van.
+ * parcial (el que deja el motor al cerrar cada paso). El título dice cuántos
+ * van (la Roxzone sumada está en Datos).
  */
 export function filasVueltasC(c: Circuito, e: EstadoSecuencia, reps: RepsDe): { titulo: string[]; filas: FilaVuelta[] } {
   const ruta = rutaDe(c.plan.pasos, e, { desde: c.inicio, cabecerasDeRonda: false, sueltas: 'pasadas' });
@@ -131,15 +131,16 @@ export function filasVueltasC(c: Circuito, e: EstadoSecuencia, reps: RepsDe): { 
     .reverse();
   const listados = pasos.filter((f) => !f.suelta);
   const hechos = listados.filter((f) => f.estado === 'hecho').length;
-  const rox = c.roxzone ? roxzoneDe(c.plan.pasos, e) : null;
-  return { titulo: ['Vueltas', rox != null ? `Roxzone ${fmtReloj(rox)}` : `${hechos}/${listados.length}`], filas: vueltas.slice(0, VUELTAS_CIRCUITO) };
+  return { titulo: ['Vueltas', `${hechos}/${listados.length}`], filas: vueltas.slice(0, VUELTAS_CIRCUITO) };
 }
 
 /** Lo que pesa una vuelta: el nombre (con su punto de estado) y debajo su tiempo y su detalle. */
 function piezasVuelta(f: FilaVuelta, D: number, cuerpoTiempo: number): { nombre: Pieza[]; dato: Pieza[] } {
   const ahora = f.estado === 'ahora';
   const dato: Pieza[] = [{ texto: f.valor, cara: 'cifras', cuerpo: cuerpoTiempo, tono: ahora ? 'tinta2' : 'tinta' }];
-  if (f.detalle) dato.push(chica(f.detalle, D, 'tinta2', AIRE.piezas * D));
+  // Lo de ahora lo dice («ahora»), como en las Vueltas del kit: su tiempo aún corre.
+  const detalle = f.detalle ?? (ahora ? 'ahora' : null);
+  if (detalle) dato.push(chica(detalle, D, 'tinta2', AIRE.piezas * D));
   const punto: Pieza = { texto: '', cara: 'nota', cuerpo: cuerpoPx(TG.nota, D), tono: 'tinta', glifo: ahora ? 'ahora' : 'hecho' };
   return { nombre: [punto], dato };
 }
@@ -184,9 +185,10 @@ export function disponerVueltasC(titulo: string[], filas: FilaVuelta[], D: numbe
 const nombreDeRonda = (c: Circuito, n: number) => `${c.formato === 'hyrox' ? 'Estación' : 'Ronda'} ${n}`;
 
 /**
- * La estructura del circuito, una fila por ronda: qué estaciones (con la
- * ronda delante, para que no se pierda si hay que quitar por el final) y
- * debajo el tramo y las dosis con su carga. Sale de los pasos, no de un título.
+ * La estructura del circuito, una fila por ronda: qué estaciones (su nombre
+ * primero: si algo sobra por el final, que sea el número de la ronda, nunca
+ * el nombre) y debajo el tramo y las dosis con su carga. Sale de los pasos, no
+ * de un título.
  */
 export function filasEstructuraC(c: Circuito, i: number): FilaLista[] {
   return rondasDe(c.plan.pasos).map((r) => {
@@ -195,7 +197,7 @@ export function filasEstructuraC(c: Circuito, i: number): FilaLista[] {
     const nombres = [...new Set(otras.map((p) => p.nombre).filter((x): x is string => !!x))];
     const dosis = otras.flatMap((p) => (p.medida.prescrito != null ? dosisCompleta(p) : []));
     return {
-      linea: [nombreDeRonda(c, r.n), ...nombres].join(' · '),
+      linea: [...nombres, nombreDeRonda(c, r.n)].join(' · '),
       detalle: [...carreras, ...dosis].join(' · ') || null,
       estado: i > r.hasta ? 'hecho' : i >= r.desde ? 'ahora' : 'pendiente',
     };

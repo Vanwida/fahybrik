@@ -31,23 +31,24 @@ export interface AroDeRondas {
 interface Grupo {
   /** Índices, en el plan, de los pasos de este grupo. */
   idx: number[];
-  /** ¿Es una ronda (trabajo de la parte principal)? Lo demás (el calentamiento) va en gris. */
-  ronda: boolean;
+  /** ¿Lleva trabajo de la parte principal? Lo demás (el calentamiento) va en gris, como en el aro por pasos. */
+  trabajo: boolean;
   peso: number;
 }
 
-/** Los pasos seguidos que comparten ronda; lo que no tiene ronda (el calentamiento) es un grupo aparte. */
+/** Los pasos seguidos que comparten ronda. Un paso sin ronda (el calentamiento) es su propio grupo: un arco por paso. */
 function gruposDe(pasos: ReadonlyArray<PasoBase>, duracion: Estimador): Grupo[] {
   const grupos: Grupo[] = [];
-  let clave: number | null | undefined;
+  let clave: number | null = null;
   pasos.forEach((p, i) => {
     const n = p.posicion?.ronda?.n ?? null;
-    if (grupos.length === 0 || n !== clave) {
-      grupos.push({ idx: [], ronda: n != null, peso: 0 });
+    if (grupos.length === 0 || n == null || n !== clave) {
+      grupos.push({ idx: [], trabajo: false, peso: 0 });
       clave = n;
     }
     const g = grupos[grupos.length - 1]!;
     g.idx.push(i);
+    g.trabajo ||= p.rol === 'trabajo' && p.fase === 'principal';
     g.peso += Math.max(0, duracion(p));
   });
   return grupos;
@@ -57,8 +58,8 @@ function gruposDe(pasos: ReadonlyArray<PasoBase>, duracion: Estimador): Grupo[] 
 const pasoDeRonda = (g: Grupo, k: number): PasoBase => ({
   id: `ronda-${k}`,
   clase: 'carrera',
-  rol: g.ronda ? 'trabajo' : 'recuperacion',
-  fase: g.ronda ? 'principal' : 'calentamiento',
+  rol: g.trabajo ? 'trabajo' : 'recuperacion',
+  fase: g.trabajo ? 'principal' : 'calentamiento',
   medida: { tipo: 'tiempo', prescrito: g.peso, mide: 'reloj' },
   objetivos: [],
   cierre: 'medida',
