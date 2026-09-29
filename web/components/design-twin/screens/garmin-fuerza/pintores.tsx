@@ -18,7 +18,7 @@
 // ventana de Ejercicios sin pasar por `moverEjercicios`.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { PintaDisposicion, Tapa, disponerDatos, useGarmin } from '../../kit-garmin';
+import { PintaDisposicion, Tapa, disponerDatos, useGarmin, useRegistrarLista } from '../../kit-garmin';
 import type { FilaDatoVista, Lecturas, Paso, ZonasCoach } from '../../kit-reloj';
 import { disponerAnotar, disponerDescansoFuerza, disponerTrabajo, type ResumenDescanso, type VistaAnotar } from './caras';
 import type { FilaEjercicio, FilaSerie } from './filas';
@@ -82,19 +82,16 @@ export function PaginaSeries({ nombre, filas }: { nombre: string | null; filas: 
   return <PintaDisposicion d={disponerSeries(nombre, filas, D)} />;
 }
 
-/** Quién mueve la lista de Ejercicios: devuelve `false` si está en el borde (y entonces la tecla pasa de página). */
-export type MoverLista = (dir: 1 | -1) => boolean;
-
 /**
  * LOS EJERCICIOS — la lista con su ventana. Entra con «ahora» a la vista; UP y
- * DOWN mueven la ventana de uno en uno (`control` es lo que llama `alAccion` del
- * vivo) y, en el borde, la lista no se mueve y la tecla pasa de página. Al
+ * DOWN mueven la ventana de uno en uno y, en el borde, la lista no se mueve y la tecla pasa de página. Al
  * irse y volver, la ventana vuelve a «ahora»: no se pierde dónde estás.
- * `registrar` da al vivo la función que mueve la lista mientras la página está
+ * La página da al kit (`useRegistrarLista`) la función que mueve la lista mientras está
  * montada (es la página activa) y `null` al irse.
  */
-export function PaginaEjercicios({ filas, ahora, registrar }: { filas: FilaEjercicio[]; ahora: number; registrar: (mover: MoverLista | null) => void }) {
+export function PaginaEjercicios({ filas, ahora }: { filas: FilaEjercicio[]; ahora: number }) {
   const { D } = useGarmin();
+  const registrar = useRegistrarLista();
   const [desde, setDesde] = useState(() => arranqueEjercicios(filas, ahora, D));
   const ultimo = useRef({ filas, desde, D });
   useEffect(() => {

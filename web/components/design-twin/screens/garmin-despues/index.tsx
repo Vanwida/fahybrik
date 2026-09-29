@@ -35,12 +35,12 @@ export const meta: TwinMeta = {
   titulo: 'Garmin · al terminar',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
-  actualizado: '2026-09-29',
+  actualizado: '2026-09-30',
   descripcion:
-    'Al acabar en el reloj Garmin: la sesión completada (completa, parcial o libre, con su motivo), el RPE de 0 a 10 con su palabra (omitible: nunca inventado), el resumen de corredor, de fuerza o de circuito (con el coste de la carrera comprometida) y el estado de envío honesto, con la salida que propone Garmin cuando el servidor rechaza. Cinco botones; cada uno rotula solo lo que hace.',
+    'Al acabar en el reloj Garmin: la sesión completada (completa, parcial o libre, con su motivo), el RPE de 0 a 10 con su palabra (omitible: nunca inventado), el resumen de corredor, de fuerza o de circuito (con el coste de la carrera comprometida) y el estado de envío honesto (guardado en el reloj, enviando, enviado, sin cobertura, el servidor que no contesta y la sesión caducada: nunca un «rechazado»). Cinco botones; cada uno rotula solo lo que hace.',
   fuentes: [],
   enApp:
-    'Hoy `garmin-ciq/` es la app «mensajera» (baja el entreno como FIT y lanza el reproductor nativo; nunca se ha probado en un reloj), así que nada de esto existe todavía en un Garmin. Frente a «Muñeca · antes y después» NO se porta: «También a Salud · esfuerzo» (Salud es de Apple: el RPE va a nuestro servidor y de Garmin Connect no se promete nada, H11); la esfera con lo de hoy ya hecho tras «Listo» (la esfera del reloj no es nuestra: la app se cierra); «Guardado en tu móvil» y «En cola» del móvil (aquí no hay móvil nuestro: la sesión sale del reloj a nuestro servidor, y el estado dice lo que el reloj sabe); el doble toque, la corona y el botón Acción; y el paso automático a los 2,4 s tras «Terminar» (aquí nada avanza sin una tecla, G3). Cambia: la superserie A1/A2 en una página pasa a un ejercicio por página (un círculo no da para dos); «5 de 6 dentro» es «5/6 dentro» (la bitmap del reloj no lleva letras en un número grande); y el rechazo del servidor, que en el iPhone y el Apple Watch acaba en «Guardado en tu móvil» sin salida, aquí propone «Reintentar» y «Guardar en el reloj».',
+    'Hoy `garmin-ciq/` es la app «mensajera» (baja el entreno como FIT y lanza el reproductor nativo; nunca se ha probado en un reloj), así que nada de esto existe todavía en un Garmin. Frente a «Muñeca · antes y después» NO se porta: «También a Salud · esfuerzo» (Salud es de Apple: el RPE va a nuestro servidor y de Garmin Connect no se promete nada, H11); la esfera con lo de hoy ya hecho tras «Listo» (la esfera del reloj no es nuestra: la app se cierra); «Guardado en tu móvil» y «En cola» del móvil (aquí no hay móvil nuestro: la sesión sale del reloj a nuestro servidor, y el estado dice lo que el reloj sabe); el doble toque, la corona y el botón Acción; y el paso automático a los 2,4 s tras «Terminar» (aquí nada avanza sin una tecla, G3). Cambia: la superserie A1/A2 en una página pasa a un ejercicio por página (un círculo no da para dos); «5 de 6 dentro» es «5/6 dentro» (la bitmap del reloj no lleva letras en un número grande); y el fallo del envío, que en el iPhone y el Apple Watch acaba en «Guardado en tu móvil», aquí es «Sesión caducada» (vuelve a vincular; el entreno espera) o «El servidor no contesta» (lo reintento solo): sin «Reintentar», porque el servidor nunca rechaza un entreno con trabajo.',
   dispositivo: 'garmin',
   soportaHorizontal: false,
 };
@@ -138,13 +138,19 @@ export const escenarios: TwinEscenario[] = [
     id: 'reintentando',
     titulo: 'Reintentando · aún no ha subido',
     descripcion:
-      'Con móvil, el primer intento falla (sin cobertura, o el servidor no contesta): «Reintentando · Aún no ha subido. Lo sigue intentando». No hay nada que el atleta pueda hacer y la pantalla no le pide nada. A los 11 s vuelve a intentarlo y a los 12,5 s sube: «Enviado».',
+      'Con móvil, el primer intento falla (sin cobertura): «Reintentando · Aún no ha subido. Lo sigue intentando». No hay nada que el atleta pueda hacer y la pantalla no le pide nada. A los 11 s vuelve a intentarlo y a los 12,5 s sube: «Enviado».',
   },
   {
-    id: 'rechazado',
-    titulo: 'Rechazado por el servidor · propuesta de Garmin',
+    id: 'sesion-caducada',
+    titulo: 'Sesión caducada · vuelve a vincular',
     descripcion:
-      'PROPUESTA (no existe en ninguna app). El servidor contesta que no (4xx): la pantalla salta sola a esta página y dice «No se ha podido subir · El servidor no la ha aceptado. Sigue en tu reloj». START = «Reintentar» (sirve si lo que falló ya se arregló; probado: contesta lo mismo y lo dice); BACK = «Guardar en el reloj»: deja de intentar y queda «Guardado en el reloj · No se ha subido. Lo estamos revisando». En el iPhone y el Apple Watch un 4xx acaba en «Guardado en tu móvil» y se descartó ofrecer Reintentar (repetirlo da el mismo 4xx, DECISIONS 25-09); en un Garmin no hay móvil nuestro donde guardarlo, y el atleta es el único que puede decidir. Pendiente de decidir por el arquitecto.',
+      'El servidor contesta 401: la sesión del reloj caducó. La página de envío dice «Sesión caducada · Vuelve a vincular el reloj. Tu entreno espera»: el entreno no se tira, sigue en el reloj hasta el acuse y sube al volver a vincular (G06). No hay «Reintentar»: repetir un 4xx da el mismo 4xx, y el servidor nunca rechaza un entreno con trabajo (DECISIONS 28-09). START y BACK son los del resumen: Siguiente y Atrás.',
+  },
+  {
+    id: 'servidor-no-responde',
+    titulo: 'El servidor no contesta · lo reintento solo',
+    descripcion:
+      'El servidor no contesta (5xx o sin respuesta): «El servidor no contesta · Lo reintento solo». No hay nada que el atleta pueda hacer y la pantalla no le pide nada: sigue intentándolo sin caducidad. A los 11 s vuelve a intentarlo y a los 12,5 s sube: «Enviado».',
   },
   // ── LOS CUATRO TAMAÑOS ────────────────────────────────────────────────────
   {
@@ -168,9 +174,9 @@ export const escenarios: TwinEscenario[] = [
     descripcion: 'La primera página del resumen del 6 × 1000 m: «5/6 dentro» como héroe, la distancia con el tiempo y el ritmo de las series, a los cuatro tamaños.',
   },
   {
-    id: 'tamanos-rechazo',
-    titulo: 'Los cuatro tamaños · el rechazo',
-    descripcion: 'La página de envío con el rechazo: glifo, título en dos líneas, el detalle y el RPE, todo centrado y sin cortarse en ninguna esquina de los cuatro relojes.',
+    id: 'tamanos-envio',
+    titulo: 'Los cuatro tamaños · sesión caducada',
+    descripcion: 'La página de envío con la sesión caducada: glifo, título, el detalle en dos líneas y el RPE, todo centrado y sin cortarse en ninguna esquina de los cuatro relojes.',
   },
 ];
 
@@ -188,8 +194,8 @@ function hazDe(cara: CaraComparada): (D: number) => ReturnType<typeof disponerFi
       return (D) => disponerRpe(7, D);
     case 'resumen-correr':
       return (D) => disponerResumenCorrer(natural, completitud(natural), D);
-    case 'envio-rechazado':
-      return (D) => disponerEnvio('rechazado', 8, D);
+    case 'envio-caducada':
+      return (D) => disponerEnvio('sesion-caducada', 8, D);
   }
 }
 

@@ -3,7 +3,7 @@
 // EL FLUJO — del vivo al resumen, con cinco botones.
 //
 //   vivo ─(el motor cierra el último paso, o Terminar → «Guardar lo hecho»)─▶ fin
-//   fin ─START Guardar─▶ rpe ─START Confirmar / BACK Saltar─▶ resumen ─START Listo─▶ salida
+//   fin ─START Guardar─▶ rpe ─START Confirmar / BACK Omitir─▶ resumen ─START Listo─▶ salida
 //   fin ─BACK Seguir─▶ vivo (enfriamiento libre) ─BACK, o 10′ quieto─▶ fin
 //
 // El vivo es EL DE «Garmin · gramática» (`VistaGarmin`): el mismo motor, la misma

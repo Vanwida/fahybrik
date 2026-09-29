@@ -54,9 +54,6 @@ export const ASIENTO: Record<Fila, 'arriba' | 'centro' | 'abajo'> = {
   pie: 'arriba',
 };
 
-/** La franja del pie donde vive el aviso de deshacer: secundaria + pie, nunca el héroe. */
-export const FRANJA_DESHACER: Franja = [REJILLA.secundaria[0], REJILLA.pie[1]];
-
 /**
  * Un texto de una sola parte que no cabe ni al suelo (un nombre de clase
  * largo del coach, «Descanso entre tandas») va en dos líneas: el bloque se
@@ -70,6 +67,15 @@ export const CONTEXTO_EN_DOS: Franja = [REJILLA.contexto[0], REJILLA.heroe[0]];
  * marca y el aire sobre ella; y el grosor de la barra que drena el deshacer.
  */
 export const PISTA = { alto: 0.018, marca: 0.038, hueco: 0.006, drena: 0.009 } as const;
+
+/**
+ * La franja del deshacer: la FILA DEL PIE (donde va el pulso) y, encima, el hueco
+ * de la barra que drena. La cuerda ahí da para unas 8 letras: cabe «↶ UP», no
+ * «↶ UP · deshacer». Durante los 5 s el pulso se oculta: es la única excepción a
+ * «el pulso, siempre al pie». Lo de arriba (la segunda fila de una dosis,
+ * «Luego · …») no se toca jamás.
+ */
+export const FRANJA_DESHACER: Franja = [REJILLA.pie[0] - PISTA.drena, REJILLA.pie[1]];
 
 /** El sello ✓ de un final, en fracción de D: asentado al fondo de la franja del contexto. */
 export const SELLO = 0.077;

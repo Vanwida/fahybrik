@@ -22,7 +22,7 @@ export const meta: TwinMeta = {
   titulo: 'Garmin · circuito y HYROX',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
-  actualizado: '2026-09-29',
+  actualizado: '2026-09-30',
   descripcion:
     'La carrera comprometida en la muñeca Garmin: cada tramo de carrera usa la cara de correr con el crono total en el contexto, cada estación dice su dosis y su carga con su crono como héroe («lo dices tú · LAP»), la Roxzone es un paso propio que cierras tú, el aro se divide en rondas (8 en el simulacro) y cada paso deja su vuelta.',
   fuentes: [],

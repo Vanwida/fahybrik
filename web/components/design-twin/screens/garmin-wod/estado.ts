@@ -14,17 +14,19 @@
 //                MISMO marcador, así que lo contado en vivo ya es la
 //                puntuación: no hay que volver a decirla.
 //
-// Las tres cosas que tocan las teclas (§5, fila «AMRAP / puntuación»):
-//   BACK/LAP   ronda hecha (cierra una ronda, las reps de la nueva quedan sin declarar)
+// Las cosas que tocan las teclas (§5, filas «AMRAP con ≥ 2 movimientos», «Ventana
+// que no se salta» y «Campana de un AMRAP»):
+//   BACK/LAP   ronda hecha (cierra una ronda, las reps de la nueva quedan sin declarar);
+//              en la campana, solo si hay una en curso
 //   UP / DOWN  reps +1 / −1 de la ronda en curso, con el acarreo a la ronda
-//              (29 → 30 en una ronda de 30 es una ronda más: `girarDial`)
+//              (29 → 30 en una ronda de 30 es una ronda más: `girarDial`);
+//              mantenidos, repiten y aceleran (lo hace la carcasa)
 //
 // Qué NO hacer: contar aquí el tiempo o las rondas «por si acaso»; guardar un 0
 // que nadie dijo; escribir un número de reps por ronda (sale de las tareas).
 
-import type { IdControl } from '../../kit-garmin';
+import type { EstadoMandos, IdControl } from '../../kit-garmin';
 import {
-  esCarrera,
   girarDial,
   repsPorRonda,
   wodDe,
@@ -107,7 +109,7 @@ export const tiemposDeRonda = (m: Marcador): number[] => m.cierres.map((c, k) =>
 /**
  * Las rondas cerradas como «vueltas» para la página Vueltas del kit (Controles de
  * un AMRAP): una por ronda, con su tiempo y sin nada más (ni metros, ni pulso, ni
- * veredicto: nadie los midió). HUECO DEL KIT: esa página las titula «Series».
+ * veredicto: nadie los midió). El kit titula esa página «Rondas» en un AMRAP.
  */
 export const vueltasDeRondas = (m: Marcador): Vuelta[] =>
   tiemposDeRonda(m).map((segundos, k) => ({ n: k + 1, clase: 'serie', segundos, metros: null, ritmo: null, ppm: null, veredicto: null }));
@@ -127,14 +129,13 @@ export function textoPuntuacion(d: Dial, variasTareas: boolean): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Lo que un paso del WOD pide a los botones. Cada tipo elige una fila de §5
- * (`ESTADO_DE_MANDOS`) y dice qué hace BACK/LAP (`QUE_HACE_BACK`); UP/DOWN son
- * páginas (o reps, en las filas de AMRAP). Todo lo que no es de un formato de
- * reloj es `kit`: lo que dice §5, sin tocar.
+ * Lo que un paso del WOD pide a los botones. El kit deduce la fila de §5 de los
+ * AMRAP (rondas, ventana de UNO, campana) y de un Tabata (`estadoDelPaso`); aquí
+ * solo lo que depende de lo declarado: un EMOM con dosis marca la tarea con
+ * BACK/LAP (fila «Serie de fuerza», sin cerrar la ventana) y, marcada ya, o si
+ * es un minuto entero de máquina, es una ventana que no se salta.
  */
 export type TipoMando = 'emom-tarea' | 'emom-ventana' | 'amrap-rondas' | 'amrap-reps' | 'puntuacion' | 'pared' | 'kit';
-
-export type AccionBack = 'tarea-hecha' | 'ronda-hecha' | 'guardar' | 'nada' | 'kit';
 
 /** ¿Es esta ventana una tarea con dosis (la que se marca «hecha»)? Un minuto entero de remo o una ventana de correr, no. */
 export function esTareaMarcable(paso: PasoBase): boolean {
@@ -160,34 +161,10 @@ export function tipoDeMando(paso: PasoBase, wod: EstadoWod): TipoMando {
   }
 }
 
-/** La fila de §5 de cada tipo (`null` = la del kit según el paso: pared es «paso» en el trabajo y «recupera» en el descanso). */
-export const ESTADO_DE_MANDOS = {
+/** La fila de §5 que el WOD impone a un EMOM (`null` = la que deduce el kit). */
+export const ESTADO_DE_EMOM: Partial<Record<TipoMando, EstadoMandos>> = {
   'emom-tarea': 'fuerza',
-  'emom-ventana': 'paso',
-  'amrap-rondas': 'amrap',
-  'amrap-reps': 'amrap',
-  puntuacion: 'amrap',
-  pared: null,
-  kit: null,
-} as const;
-
-/**
- * Qué hace BACK/LAP en cada tipo:
- *   tarea-hecha  el EMOM con dosis: la marca, sin cerrar la ventana
- *   ronda-hecha  el AMRAP de varias tareas
- *   guardar      la campana: cierra la puntuación (el cierre del paso, como en todo el modelo)
- *   nada         una ventana que cierra el reloj (EMOM de minuto entero, tabata, AMRAP de un movimiento):
- *                un BACK sudado no debe saltarse una ventana; «Saltar paso» sigue en Controles
- *   kit          §5 tal cual (siguiente paso, empezar ya…)
- */
-export const QUE_HACE_BACK: Record<TipoMando, AccionBack> = {
-  'emom-tarea': 'tarea-hecha',
-  'emom-ventana': 'nada',
-  'amrap-rondas': 'ronda-hecha',
-  'amrap-reps': 'nada',
-  puntuacion: 'guardar',
-  pared: 'nada',
-  kit: 'kit',
+  'emom-ventana': 'ventana',
 };
 
 // ---------------------------------------------------------------------------
@@ -216,27 +193,12 @@ export function claveDeMarcador(v: Pick<VistaWod, 'paso' | 'anterior'>): string 
 
 export const marcadorDe = (v: VistaWod): Marcador => v.wod.marcadores[claveDeMarcador(v)] ?? MARCADOR_VACIO;
 
-/** ¿Se corre de verdad en este paso (GPS o cinta)? Un paso de WOD solo si su tarea es correr; el 5K For Time, sí. */
-export function seCorreDeVerdad(p: PasoBase): boolean {
-  const w = wodDe(p);
-  if (!w) return esCarrera(p);
-  if (w.formato === 'emom') return !!w.tarea.corre;
-  return w.formato === 'fortime' && !w.tarea;
-}
-
 /**
- * Los Controles de un paso de WOD: los del kit, con tres cambios que son del WOD:
- *   · un descanso de reloj de pared (Tabata) no lleva «+30 s»: el reloj no se estira (DECISIONS 28-09);
- *   · «Cambiar entorno» (calle, cinta, pista) solo si la sesión corre de verdad: el kit lo ofrece
- *     si algún paso «es de correr» y una ronda de Tabata cuenta como «serie»;
- *   · un AMRAP siempre lleva Datos, Vueltas y Estructura (§5).
+ * Los Controles de un paso de WOD: los del kit (`controlesPorDefecto`: incluye Datos,
+ * Rondas y Estructura en un AMRAP y «Cambiar entorno» solo si se corre de verdad), con
+ * un cambio que es del WOD: un descanso de reloj de pared (Tabata) no lleva «+30 s»: el
+ * reloj no se estira (DECISIONS 28-09).
  */
-export function controlesDeWod(paso: PasoBase, porDefecto: IdControl[], pasos: PasoBase[]): IdControl[] {
-  const w = wodDe(paso);
-  let c = w?.formato === 'pared' ? porDefecto.filter((id) => id !== 'mas30') : porDefecto;
-  if (!pasos.some(seCorreDeVerdad)) c = c.filter((id) => id !== 'entorno');
-  // En un AMRAP las tres páginas viven en Controles (UP/DOWN cuentan reps): también en los 5 s de un deshacer,
-  // cuando el kit, que decide la lista por la fila de §5 y esa es la del deshacer, no las ofrecería.
-  if ((w?.formato === 'amrap' || w?.formato === 'puntuacion') && !c.includes('datos')) c = [...c.slice(0, 1), 'datos', 'vueltas', 'estructura', ...c.slice(1)];
-  return c;
+export function controlesDeWod(paso: PasoBase, porDefecto: IdControl[]): IdControl[] {
+  return wodDe(paso)?.formato === 'pared' ? porDefecto.filter((id) => id !== 'mas30') : porDefecto;
 }

@@ -2,18 +2,22 @@
 //
 // G02: lo que se ve al abrir lo de hoy, con las manos ocupadas, de un vistazo:
 //
-//   arriba      «Hoy · 55′»: qué día y cuánto dura (estimado, de `duracionEstimada`).
+//   arriba      «Hoy · 55′»: qué día y cuánto dura (`duracionHumana`, UNA sola vez en
+//               todo el brief: si la sesión no cabe entera, la duración baja a la línea
+//               de los bloques y arriba queda «Hoy»).
 //   en medio    la estructura REAL del coach (`estructura.ts`): «6 × 1000 m a
-//               3:45–3:55 · r 90″ trote», no «N bloques».
+//               3:45–3:55 · r 90″ trote», no «N bloques»; y si no cabe entera, el bloque
+//               titular grande y «4 bloques · 45′ ↓» (DOWN abre la Estructura completa).
 //   abajo       lo que decide si se puede salir, de arriba abajo: dónde se corre y el
 //               GPS («↑↓ Calle · GPS listo»), lo que hay que saber del reloj («Plan de
 //               hace 3 días · acerca el móvil», «Se graba sin móvil»), la acción
 //               («START · Empezar», en naranja, con su tecla) y el pulso al pie.
 //
 // Se apila DE ABAJO ARRIBA: el pie y la acción no se mueven; la estructura se
-// aprieta hasta que cabe (`disponerEstructuraBrief`). UP/DOWN cambian el entorno
-// cuando la prescripción no lo fija (`entornoElegible`); si lo fija («Cinta al
-// 1 %», 535), esas teclas no hacen nada y no se pinta la flecha.
+// aprieta hasta que cabe (`disponerEstructuraEntera` o `disponerEstructuraResumen`).
+// UP cambia el entorno cuando la prescripción no lo fija (`entornoElegible`); si lo
+// fija («Cinta al 1 %», 535), UP no hace nada y no se pinta la flecha. DOWN abre la
+// Estructura completa (§5, fila «Brief»).
 //
 // Sin GPS que esperar (fuerza, cinta) no hay fila de GPS: en fuerza dice solo si
 // el pulso está fijado (lo único que se espera); en cinta, «sin GPS». Nunca se pinta
@@ -31,7 +35,7 @@ import { lineasContexto } from '../../kit-garmin/caras';
 import { REJILLA, caja } from '../../kit-garmin/geometria';
 import { anchoPiezas, ESPACIO_EM, type Pieza, type Tono } from '../../kit-garmin/medir';
 import { AIRE, TG, cuerpoPx } from '../../kit-garmin/tokens';
-import { hoyDe, type Entorno } from '../../kit-reloj';
+import type { Entorno } from '../../kit-reloj';
 import type { Sesion } from '../reloj-antes-despues/sesiones';
 import {
   NOMBRE_ENTORNO,
@@ -43,7 +47,7 @@ import {
   type Pulso,
   type Sistema,
 } from './estado';
-import { bloquesDelBrief, disponerEstructuraBrief, type EstructuraPuesta } from './estructura';
+import { bloquesDelBrief, disponerEstructuraEntera, disponerEstructuraResumen, duracionDelBrief, type EstructuraPuesta } from './estructura';
 import { ALTO_NOTA, HASTA_PIE, finDe, lineaAccion, lineaPulso, textoEn, textoHasta } from './filas';
 
 // ---------------------------------------------------------------------------
@@ -82,7 +86,7 @@ function lineaEstado(rol: string, s: Sesion, entorno: Entorno | null, elegible: 
     const gps = necesitaGps(s, entorno)
       ? [punto('·', 'tinta2'), punto(TEXTO_GPS[sistema.gps], sistema.gps === 'listo' ? 'tinta' : 'tinta2')]
       : [punto('·', 'tinta2'), punto(TEXTO_SIN_GPS, 'tinta2')];
-    const flecha = pieza('↑↓', D, 'tinta2');
+    const flecha = pieza('↑', D, 'tinta2');
     const base = [pieza(nombre, D, 'tinta'), ...gps];
     opciones = elegible ? [[flecha, { ...base[0]!, antes: sep }, ...base.slice(1)], base] : [base];
   }
@@ -106,11 +110,11 @@ export function avisoDelBrief(frescura: FrescuraPlan, movil: boolean): { texto: 
 
 export interface DatosBrief {
   sesion: Sesion;
-  /** «Hoy · 55′», «Tarde · 55′»: qué día o franja y cuánto dura. */
-  contexto: string[];
+  /** «Hoy», «Tarde»: qué día o franja (la duración la pone `disponerBrief`, de la sesión). */
+  dia: string;
   /** El entorno con el que se sale; `null` en fuerza. */
   entorno: Entorno | null;
-  /** ¿Cambia UP/DOWN el entorno? Solo si la prescripción no lo fija. */
+  /** ¿Cambia UP el entorno? Solo si la prescripción no lo fija. */
   elegible: boolean;
   sistema: Sistema;
   frescura: FrescuraPlan;
@@ -121,13 +125,9 @@ export interface BriefPuesto {
   estructura: EstructuraPuesta;
 }
 
-/** Lo que se lee arriba del brief: el día y lo que dura, con el resto de partes que la sesión trae. */
-export function contextoDelBrief(s: Sesion, dia = 'Hoy'): string[] {
-  return [dia, hoyDe(s.plan.pasos).dur];
-}
-
 export function disponerBrief(d: DatosBrief, D: number): BriefPuesto {
-  const lineas: LineaG[] = [...lineasContexto(d.contexto, D, 'tinta2')];
+  const duracion = duracionDelBrief(d.sesion.plan.pasos);
+  const bloques = bloquesDelBrief(d.sesion.plan.pasos);
 
   // De abajo arriba: el pulso al pie, la acción sobre él, el aviso, el estado.
   const yAccion = HASTA_PIE - ALTO_NOTA;
@@ -139,11 +139,21 @@ export function disponerBrief(d: DatosBrief, D: number): BriefPuesto {
   const yEstado = techo - ALTO_NOTA;
   const estado = lineaEstado('estado', d.sesion, d.entorno, d.elegible, d.sistema, yEstado, D);
 
-  // En medio, la estructura: desde debajo del contexto hasta el estado.
-  const y0 = Math.max(REJILLA.heroe[0] - AIRE.lineas * 2, finDe(lineas, D, REJILLA.contexto[1]));
-  const estructura = disponerEstructuraBrief(bloquesDelBrief(d.sesion.plan.pasos), y0, yEstado - AIRE.lineas * 2, D);
+  // En medio, la estructura: desde debajo del contexto hasta el estado. Primero entera, con la duración arriba;
+  // si no cabe, el resumen, con la duración en su línea y solo el día arriba.
+  const arriba = (partes: string[]) => {
+    const contexto = lineasContexto(partes, D, 'tinta2');
+    return { contexto, y0: Math.max(REJILLA.heroe[0] - AIRE.lineas * 2, finDe(contexto, D, REJILLA.contexto[1])) };
+  };
+  const hasta = yEstado - AIRE.lineas * 2;
+  let cabecera = arriba([d.dia, duracion]);
+  let estructura = disponerEstructuraEntera(bloques, cabecera.y0, hasta, D);
+  if (!estructura) {
+    cabecera = arriba([d.dia]);
+    estructura = disponerEstructuraResumen(bloques, duracion, cabecera.y0, hasta, D);
+  }
 
-  lineas.push(...estructura.lineas, estado, ...(aviso?.lineas ?? []), accion, lineaPulso(ppmDe(d.sistema.pulso), D));
+  const lineas: LineaG[] = [...cabecera.contexto, ...estructura.lineas, estado, ...(aviso?.lineas ?? []), accion, lineaPulso(ppmDe(d.sistema.pulso), D)];
   return { disposicion: { D, lineas, heroe: null, pista: null }, estructura };
 }
 

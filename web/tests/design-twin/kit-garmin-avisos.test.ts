@@ -33,7 +33,7 @@ describe('§6 — completitud', () => {
   });
 
   it('cada fila de §6 está en la tabla del código, y dice lo mismo (vibración y tono)', () => {
-    expect(TABLA.length).toBe(14);
+    expect(TABLA.length).toBe(16);
     const avisos = Object.values(AVISOS).filter(esAviso);
     for (const [evento, vibracion, tono] of TABLA) {
       const a = avisos.find((x) => normal(x.nombre) === normal(evento!));
@@ -50,6 +50,22 @@ describe('§6 — completitud', () => {
     expect(esAviso(f)).toBe(false);
   });
 
+  it('la campana de un AMRAP: 4 largas, melodía propia de 5 notas, por encima de todo lo que coincide con ella', () => {
+    const c = AVISOS.campana;
+    if (!esAviso(c) || !('melodia' in c.tono)) throw new Error('sin melodía');
+    expect(c.pulsos).toEqual(['larga', 'larga', 'larga', 'larga']);
+    expect(c.tono.melodia).toHaveLength(5);
+    expect(perfilesDe(c.pulsos).length).toBeLessThanOrEqual(MAX_PERFILES);
+    for (const e of ['bloque', 'sesion', 'enlace', 'go', 'recupera'] as const) expect(componerAvisos(1, [e, 'campana']).suena).toBe('campana');
+  });
+
+  it('un campo de anotación confirmado suena como una tecla: 1 muy corta + KEY', () => {
+    const k = AVISOS['campo-confirmado'];
+    if (!esAviso(k)) throw new Error('sin aviso');
+    expect(fmtPulsos(k)).toBe('1 muy corta');
+    expect(fmtTono(k)).toBe('KEY');
+  });
+
   it('las melodías de afloja y aprieta bajan y suben de verdad', () => {
     const afloja = AVISOS.afloja;
     const aprieta = AVISOS.aprieta;
@@ -61,7 +77,8 @@ describe('§6 — completitud', () => {
 
 describe('cómo suena un instante', () => {
   it('el acuse de la tecla va delante y todo cabe en una llamada (≤ 8 perfiles)', () => {
-    for (const e of Object.keys(AVISOS) as EventoGarmin[]) {
+    // La campana la da el reloj al agotarse el tiempo: nunca coincide con el acuse de una tecla, y sola ya llena la llamada.
+    for (const e of (Object.keys(AVISOS) as EventoGarmin[]).filter((k) => k !== 'campana')) {
       const x = componerAvisos(1, ['paso-a-mano', e]);
       expect(x.perfiles.length, e).toBeLessThanOrEqual(MAX_PERFILES);
       expect(x.acuse).toBe('paso-a-mano');
@@ -86,7 +103,7 @@ describe('de la transición del motor a los avisos de Garmin', () => {
   const lect = (x: Partial<LecturaSim>): LecturaSim => ({ ritmo: 300, ppm: 150, gps: 'listo', ...x });
   const est = (l: LecturaSim) => ({ lect: l }) as unknown as EstadoSecuencia;
   const t = (quien: 'motor' | 'atleta', eventos: Transicion['eventos'], antes = lect({}), despues = lect({})): Transicion =>
-    ({ plan: null, antes: est(antes), despues: est(despues), quien, eventos }) as unknown as Transicion;
+    ({ plan: { pasos: [] }, antes: est(antes), despues: est(despues), quien, eventos }) as unknown as Transicion;
 
   it('un cierre del atleta es el acuse de su tecla; uno del motor, no', () => {
     expect(eventosDeTransicion(t('atleta', [{ evento: 'accion' }, { evento: 'recupera' }]))).toEqual(['paso-a-mano', 'recupera']);

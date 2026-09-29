@@ -16,6 +16,8 @@ import {
   componerAvisos,
   esAviso,
   eventosDeTransicion,
+  fmtPulsos,
+  fmtTono,
   type EventoGarmin,
 } from '@/components/design-twin/kit-garmin';
 import { avanzar, cargaArrastrada, cerrar, estadoInicial, lecturasDe, pasoVivo, type PlanSesion } from '@/components/design-twin/kit-reloj';
@@ -54,14 +56,14 @@ describe('los botones de la familia son los de §5', () => {
     expect(accionDe('fuerza', 'upLargo')?.accion).toBe('controles');
   });
 
-  it('anotar: START confirma el campo, BACK/LAP vuelve al anterior, UP/DOWN cambian el valor y UP largo no hace nada', () => {
+  it('anotar: START confirma el campo, BACK/LAP vuelve al anterior, UP/DOWN cambian el valor y UP largo abre Controles', () => {
     expect(accionDe('anotar', 'start')?.accion).toBe('confirmar-campo');
     expect(accionDe('anotar', 'back')?.accion).toBe('campo-anterior');
     expect(accionDe('anotar', 'up')?.accion).toBe('valor-mas');
     expect(accionDe('anotar', 'down')?.accion).toBe('valor-menos');
-    expect(accionDe('anotar', 'upLargo')).toBeNull();
-    // La familia atiende exactamente esas cuatro acciones: ni una más, ni una menos.
-    const deLaFila = new Set(['start', 'back', 'up', 'down', 'upLargo'].map((b) => MANDOS.anotar[b as 'start']?.accion).filter(Boolean));
+    expect(accionDe('anotar', 'upLargo')?.accion).toBe('controles');
+    // La familia atiende exactamente esas cuatro acciones (Controles es del kit): ni una más, ni una menos.
+    const deLaFila = new Set(['start', 'back', 'up', 'down'].map((b) => MANDOS.anotar[b as 'start']?.accion).filter(Boolean));
     expect(new Set(ACCIONES_ANOTAR)).toEqual(deLaFila);
   });
 
@@ -207,10 +209,14 @@ describe('los avisos de la familia son los de §6', () => {
     expect(componerAvisos(1, eb).suena).toBe('bloque');
   });
 
-  it('anotar no vibra: confirmar un campo no es un evento de §6', () => {
-    // Las cuatro acciones de la anotación no emiten nada al motor (`aplicarTecla` es puro): §5 y §6 no le dan fila.
+  it('confirmar un campo suena como una tecla (§6): 1 muy corta + KEY; el resto de la anotación no vibra', () => {
+    // `aplicarTecla` es puro y no emite nada al motor: lo que suena lo emite el vivo con el evento del kit.
     expect(ACCIONES_ANOTAR.length).toBe(4);
-    expect(Object.keys(AVISOS).some((e) => e.includes('campo') || e.includes('anotar'))).toBe(false);
+    const k = AVISOS['campo-confirmado'];
+    if (!esAviso(k)) throw new Error('el campo confirmado no tiene aviso');
+    expect(fmtPulsos(k)).toBe('1 muy corta');
+    expect(fmtTono(k)).toBe('KEY');
+    expect(Object.keys(AVISOS).filter((e) => e.includes('anotar'))).toEqual([]);
   });
 });
 

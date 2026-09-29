@@ -31,30 +31,20 @@
 import {
   AIRE,
   REJILLA,
-  SELLO,
   TG,
-  altoLinea,
-  altoNota,
-  anchoPiezas,
-  ajustarPartes,
   caja,
   cajaEnFila,
-  chica,
   colocar,
   contextoSinPerder,
   cuerpoPx,
   disponerPaso,
-  ESPACIO_EM,
   heroeEn,
   lineaDeDato,
   lineaDePartes,
-  lineaDeTexto,
-  lineasContexto,
   vacia,
   type Disposicion,
   type LineaG,
   type Pieza,
-  type Tono,
 } from '../../kit-garmin';
 import {
   cargaTarea,
@@ -66,115 +56,19 @@ import {
   fmtReloj,
   heroeDeFamilia,
   laminaDelPaso,
-  lineaPulso,
   objetivoDe,
   posicionDe,
   principal,
   textoObjetivo,
   textoPasoCorto,
   textoTarea,
-  textoTareaCorto,
   wodDe,
   type Lamina,
-  type LineaVista,
   type PasoBase,
-  type Tarea,
 } from '../../kit-reloj';
 import { dialDe, marcadorDe, textoPuntuacion, tiemposDeRonda, type VistaWod } from './estado';
 
-const ALTO_NOTA = altoLinea(TG.nota, 'nota');
-const ALTO_TERCERO = altoLinea(TG.tercero, 'texto');
-
-/**
- * Cuánto sube la fila de la tarea sobre el borde de arriba de la banda: la barra
- * que drena el deshacer (kit) corre justo bajo la banda y, sin este aire, subraya
- * las letras con rabo («Wall Ball», «kg»). Nunca la sube al héroe (acaba en 0,60).
- */
-const SUBE_TAREA = 0.012;
-const Y_TAREA = REJILLA.banda[0] - SUBE_TAREA;
-
-/** Lo que cae por debajo de lo apilado (líneas en px) en fracción de D, con su aire. */
-const bajo = (lineas: LineaG[], D: number, desde: number) =>
-  lineas.length === 0 ? desde : Math.max(...lineas.map((l) => (l.y + l.alto) / D)) + AIRE.lineas;
-
-// ---------------------------------------------------------------------------
-// Las filas que se repiten
-// ---------------------------------------------------------------------------
-
-/** Contexto (por partes, sin perder la posición) y, si la hay, la palabra sobre el héroe. `y` = donde empieza el héroe. */
-function cabeza(contexto: string[], etiqueta: string | null | undefined, D: number, esencial?: (parte: string) => boolean) {
-  const lineas: LineaG[] = [...lineasContexto(contextoSinPerder(contexto, D, esencial), D)];
-  let y = Math.max(REJILLA.heroe[0], bajo(lineas, D, REJILLA.heroe[0]));
-  if (etiqueta) {
-    const l = colocar('etiqueta', [chica(etiqueta, D)], caja(y, ALTO_NOTA), D);
-    lineas.push(l);
-    y = bajo([l], D, y);
-  }
-  return { lineas, y };
-}
-
-/**
- * LA FILA DE LA TAREA (la banda, o donde se diga): «6 Bench Press · 60 kg»,
- * «20 Wall Ball · 9 kg». Una línea al cuerpo que quepa; si ni al suelo cabe, en
- * DOS líneas al suelo, cortando por « · » (la carga se queda entera en la segunda).
- * Nunca se quita la carga: es lo que hay que poner en la barra.
- */
-function filaTarea(rol: string, texto: string, D: number, tono: Tono = 'tinta', desde?: number): { lineas: LineaG[]; fin: number } {
-  const una = caja(desde ?? Y_TAREA, ALTO_TERCERO);
-  const a = ajustarPartes([texto], 'texto', TG.tercero, D, Math.floor(una.ancho * D));
-  if (a.cabe) return { lineas: [colocar(rol, [{ texto: a.texto, cara: 'texto', cuerpo: a.cuerpo, tono }], una, D)], fin: una.y + una.alto };
-  const y0 = desde ?? Y_TAREA;
-  const c = caja(y0, ALTO_NOTA);
-  const lineas = lineaDeTexto(rol, texto, TG.nota, D, { una: c, arriba: c, abajo: caja(y0 + altoNota, ALTO_NOTA) }, { tono });
-  return { lineas, fin: Math.max(...lineas.map((l) => (l.y + l.alto) / D)) };
-}
-
-/**
- * «Luego · …»: en UNA línea, la primera versión que quepa (la tarea entera, sin
- * carga, sólo el nombre). Es secundario: si ni el nombre cabe, no se pinta.
- * Va donde acaba lo de encima, sin bajar de la secundaria.
- */
-function filaLuego(candidatos: string[], D: number, desde: number): LineaG[] {
-  const c = caja(Math.max(REJILLA.secundaria[0], desde), ALTO_NOTA);
-  const cuerpo = cuerpoPx(TG.nota, D);
-  for (const t of [...new Set(candidatos.filter(Boolean))]) {
-    const piezas: Pieza[] = [
-      { texto: 'Luego ·', cara: 'nota', cuerpo, tono: 'tinta2' },
-      { texto: t, cara: 'nota', cuerpo, tono: 'tinta', antes: cuerpo * ESPACIO_EM },
-    ];
-    if (anchoPiezas(piezas) <= Math.floor(c.ancho * D)) return [colocar('luego', piezas, c, D)];
-  }
-  return [];
-}
-
-/** Una tarea en sus tres tallas, de la más completa a la que siempre cabe: con carga, sin carga, sólo el nombre. */
-const candidatosDeTarea = (t: Tarea, ventanaS?: number): string[] => [
-  textoTareaCorto(t, ventanaS),
-  textoTareaCorto({ ...t, carga: undefined }, ventanaS),
-  t.nombre,
-];
-
-/** Una línea de acción en naranja («BACK · guardar»): lo que el atleta tiene que hacer AHORA. */
-function lineaDeAccion(rol: string, texto: string, D: number, desde: number): LineaG[] {
-  const c = caja(Math.max(REJILLA.secundaria[0], desde), ALTO_NOTA);
-  return [colocar(rol, [{ texto, cara: 'texto', cuerpo: cuerpoPx(TG.nota, D), tono: 'accion' }], c, D)];
-}
-
-/** El pulso al pie, con su zona (o sin ella: recuperación, descanso y campana son monocromos, P6). */
-function piePulso(v: VistaWod, D: number, monocromo = false): LineaG {
-  return lineaDeDato('pie', lineaPulso(v.paso, v.lecturas, v.plan.zonas, v.plan.reglas), TG.tercero, 'pie', D, monocromo);
-}
-
-/**
- * «Lo otro» (la secundaria: lo que queda, las reps) en cifras. Va en su franja;
- * si la tarea de encima pasó a dos líneas y ya la ocupa, baja al cuerpo de la
- * tercera métrica justo debajo (nunca pisa, y nunca sube al héroe).
- */
-function filaSegundo(rol: string, dato: LineaVista, D: number, desde: number): LineaG {
-  return desde <= REJILLA.secundaria[0] + AIRE.lineas
-    ? lineaDeDato(rol, dato, TG.segundo, 'secundaria', D)
-    : lineaDeDato(rol, dato, TG.tercero, caja(desde, altoLinea(TG.tercero, 'cifras')), D);
-}
+import { ALTO_NOTA, ALTO_TERCERO, Y_TAREA, cabeza, candidatosDeTarea, filaLuego, filaSegundo, filaTarea, lineaDeAccion, piePulso } from './piezas';
 
 // ---------------------------------------------------------------------------
 // EMOM
@@ -227,7 +121,11 @@ export function disponerAmrap(v: VistaWod, D: number): Disposicion {
   if (multi) {
     const t = v.lecturas.t - (m.cierres.at(-1) ?? 0);
     const anterior = tiemposDeRonda(m).at(-1);
-    const partes = m.reps != null ? [`+${m.reps} reps`, desgloseReps(w.tareas, m.reps)] : [`ronda ${m.cierres.length + 1} · ${fmtReloj(t)}`, anterior != null ? `ant. ${fmtReloj(anterior)}` : ''];
+    // Las reps de la ronda en curso siempre a la vista: las que llevas, o «—» hasta que las cuentas con UP (nunca 0, G7).
+    const partes =
+      m.reps != null
+        ? [`+${m.reps} reps`, desgloseReps(w.tareas, m.reps)]
+        : ['reps —', `ronda ${m.cierres.length + 1} · ${fmtReloj(t)}`, anterior != null ? `ant. ${fmtReloj(anterior)}` : ''];
     lineas.push(...lineaDePartes('instruccion', partes, TG.tercero, caja(Y_TAREA, ALTO_TERCERO), D, { tono: m.reps != null ? 'tinta' : 'tinta2' }));
     lineas.push(lineaDeDato('secundaria', { etiqueta: 'quedan', valor: fmtReloj(falta) }, TG.segundo, 'secundaria', D));
   } else {
@@ -243,7 +141,7 @@ export function disponerAmrap(v: VistaWod, D: number): Disposicion {
 /**
  * LA CAMPANA: la puntuación es rondas + reps («7+18»), y lo no dicho es «—», nunca
  * 0. Es el MISMO marcador que se cuenta en vivo: si contaste, ya está dicha. UP y
- * DOWN mueven las reps; BACK/LAP la guarda. En un chipper el reloj sigue (unos
+ * DOWN mueven las reps; START la guarda (BACK/LAP, solo una ronda en curso). En un chipper el reloj sigue (unos
  * segundos) y lo que viene con su cuenta atrás ocupa la banda.
  */
 export function disponerPuntuacion(v: VistaWod, D: number): Disposicion {
@@ -266,7 +164,7 @@ export function disponerPuntuacion(v: VistaWod, D: number): Disposicion {
     lineas.push(...f.lineas);
     fin = f.fin;
   }
-  lineas.push(...lineaDeAccion('guardar', 'BACK · guardar', D, fin + AIRE.lineas));
+  lineas.push(...lineaDeAccion('guardar', 'START · guardar', D, fin + AIRE.lineas));
   lineas.push(piePulso(v, D, true));
   return { D, lineas, heroe, pista: null };
 }
@@ -394,11 +292,10 @@ export function disponerPared(v: VistaWod, D: number): Disposicion {
   if (w?.formato !== 'pared') return vacia(D);
   const trabajo = v.paso.rol === 'trabajo';
   const ronda = trabajo ? (v.paso.posicion?.ronda?.n ?? 1) : (v.anterior?.posicion?.ronda?.n ?? 0);
-  const quedan = w.rondas - ronda;
   const cadencia = `${fmtDuracion(w.trabajoS)}/${fmtDuracion(w.descansoS)}`;
   const h = heroeDeFamilia(v.paso, v.lecturas, v.plan.zonas);
-  // La palabra la dice el rol del paso: el kit trata el descanso del Tabata como un descanso común («quedan»).
-  const { lineas, y } = cabeza(trabajo ? [`Ronda ${ronda}/${w.rondas}`, cadencia] : [`Quedan ${quedan} ${quedan === 1 ? 'ronda' : 'rondas'}`, cadencia], trabajo ? 'trabajo' : 'descanso', D);
+  // La palabra la dice el rol del paso («trabajo» / «descanso», nunca «quedan»); el descanso es de su ronda, y las que faltan las dicen las marcas.
+  const { lineas, y } = cabeza([`Ronda ${ronda}/${w.rondas}`, cadencia], trabajo ? 'trabajo' : 'descanso', D);
   const heroe = heroeEn(h.texto, h.unidad, y, REJILLA.heroe[1], D);
   const o = trabajo ? principal(v.paso) : null;
   const sig = v.paso.siguiente;
@@ -441,119 +338,4 @@ export function disponerCaraWod(v: VistaWod, D: number): Disposicion | null {
   }
 }
 
-// ---------------------------------------------------------------------------
-// El 3-2-1 y el GO
-// ---------------------------------------------------------------------------
-
-/** ¿Tiene este paso su propia tarjeta de entrada (la tarea con su carga)? El resto usa la del kit. */
-export function tieneCuentaPropia(p: PasoBase): boolean {
-  const w = wodDe(p);
-  if (!w) return false;
-  return w.formato === 'emom' ? !w.tarea.corre : w.formato === 'amrap' || w.formato === 'pared' || (w.formato === 'fortime' && !!w.tarea);
-}
-
-/** El contexto de la tarjeta de entrada: dónde entras. */
-function contextoDeEntrada(p: PasoBase): string[] {
-  const w = wodDe(p);
-  const ronda = p.posicion?.ronda;
-  switch (w?.formato) {
-    case 'emom':
-      return posicionDe(p);
-    case 'amrap':
-      return [ronda ? `Ronda ${ronda.n}/${ronda.de}` : '', `AMRAP ${fmtDuracion(w.duracionS)}`].filter(Boolean);
-    case 'fortime':
-      return [ronda ? `Ronda ${ronda.n}/${ronda.de}` : 'For Time'];
-    case 'pared':
-      return [ronda ? `Ronda ${ronda.n}/${w.rondas}` : '', `${fmtDuracion(w.trabajoS)}/${fmtDuracion(w.descansoS)}`].filter(Boolean);
-    default:
-      return posicionDe(p);
-  }
-}
-
-/** Lo que vas a hacer, con su carga: la tarea del EMOM, del For Time, del Tabata. */
-function tareaDeEntrada(p: PasoBase): string | null {
-  const w = wodDe(p);
-  switch (w?.formato) {
-    case 'emom':
-      return textoTarea(w.tarea, w.ventanaS);
-    case 'amrap':
-      return w.tareas.length === 1 ? [w.tareas[0]!.nombre, cargaTarea(w.tareas[0]!)].filter(Boolean).join(' · ') : null;
-    case 'fortime':
-      return w.tarea ? textoTarea(w.tarea) : null;
-    case 'pared': {
-      const o = principal(p);
-      return [p.nombre, o ? fmtObjetivo(o) : null].filter(Boolean).join(' · ') || null;
-    }
-    default:
-      return null;
-  }
-}
-
-/** EL 3-2-1 (n > 0) o el GO (0) de un paso de WOD: dónde entras, qué haces y con qué carga, y el número. */
-export function disponerCuentaWod(n: number, paso: PasoBase, D: number): Disposicion {
-  const lineas: LineaG[] = [...lineasContexto(contextoSinPerder(contextoDeEntrada(paso), D), D)];
-  let y = bajo(lineas, D, REJILLA.heroe[0]);
-  const tarea = tareaDeEntrada(paso);
-  if (tarea) {
-    const f = filaTarea('tarea', tarea, D, 'tinta2', y);
-    lineas.push(...f.lineas);
-    y = f.fin + AIRE.lineas;
-  }
-  return { D, lineas, heroe: heroeEn(n > 0 ? String(n) : 'GO', undefined, y, REJILLA.heroe[1], D), pista: null };
-}
-
-// ---------------------------------------------------------------------------
-// El final: el crono congelado y la puntuación
-// ---------------------------------------------------------------------------
-
-/**
- * ¿Cerró el motor el último paso solo (o el atleta con BACK/LAP)? Terminar desde
- * Controles no lo cierra (no deja parcial del último paso): entonces no hay «tu
- * tiempo» que enseñar. Se mira el último parcial y no cuántos hay: un escenario
- * arranca a mitad del plan, sin los parciales de lo anterior.
- */
-export const acabadoDelTodo = (v: VistaWod): boolean => v.estado.terminado && v.estado.parciales.at(-1)?.i === v.plan.pasos.length - 1;
-
-/** ¿Tiene este final su propia cara? Un For Time (su crono) o un AMRAP suelto (su puntuación); el resto, la del kit. */
-export function tieneFinalPropio(v: VistaWod): boolean {
-  const ultimo = v.plan.pasos[v.plan.pasos.length - 1];
-  const w = wodDe(ultimo);
-  if (!acabadoDelTodo(v) || !ultimo) return false;
-  return (w?.formato === 'fortime' && !!w.tarea) || (w?.formato === 'puntuacion' && !ultimo.posicion?.ronda);
-}
-
-/** «Tu tiempo» (For Time) o «Tu puntuación» (AMRAP): el sello, el número que se guarda y lo que dice de él. */
-export function disponerFinalWod(v: VistaWod, D: number): Disposicion {
-  const ultimo = v.plan.pasos[v.plan.pasos.length - 1]!;
-  const w = wodDe(ultimo);
-  const [, hC] = REJILLA.contexto;
-  const sello = { y: (hC - SELLO / 2) * D, talla: SELLO * D };
-  const y0 = REJILLA.heroe[0];
-  const lineas: LineaG[] = [];
-  let texto = fmtReloj(v.estado.sesionT);
-  let unidad: string | undefined;
-  let titulo = 'Tu tiempo';
-  let dice = '';
-  if (w?.formato === 'fortime') {
-    const rondas = ultimo.posicion?.ronda?.de;
-    dice = [rondas ? `${rondas} rondas` : null, w.capS != null ? (v.estado.sesionT <= w.capS ? `dentro del cap ${fmtReloj(w.capS)}` : `pasó el cap ${fmtReloj(w.capS)}`) : null].filter(Boolean).join(' · ');
-  } else if (w?.formato === 'puntuacion') {
-    const multi = w.tareas.length > 1;
-    const d = dialDe(marcadorDe(v));
-    titulo = 'Tu puntuación';
-    texto = textoPuntuacion(d, multi);
-    unidad = multi ? undefined : 'reps';
-    dice = multi ? `AMRAP ${fmtDuracion(w.duracionS)}${d.reps == null ? ' · reps sin decir' : ''}` : `AMRAP ${fmtDuracion(w.duracionS)} · ${w.tareas[0]!.nombre}`;
-  }
-  lineas.push(...lineaDePartes('titulo', [titulo], TG.contexto, caja(y0, altoLinea(TG.contexto, 'texto')), D));
-  const heroe = heroeEn(texto, unidad, bajo(lineas, D, y0), REJILLA.heroe[1], D);
-  let fin: number = Y_TAREA;
-  if (dice) {
-    const f = filaTarea('resultado', dice, D);
-    lineas.push(...f.lineas);
-    fin = f.fin;
-  }
-  const yDetalle = Math.max(REJILLA.secundaria[0], fin + AIRE.lineas);
-  lineas.push(...lineaDeTexto('detalle', 'Guardado en el reloj', TG.nota, D, { una: caja(yDetalle, ALTO_NOTA), arriba: caja(yDetalle, ALTO_NOTA), abajo: caja(yDetalle + altoNota, ALTO_NOTA) }, { tono: 'tinta2' }));
-  return { D, lineas, heroe, pista: null, sello };
-}
+export * from './cuentaYFinal';

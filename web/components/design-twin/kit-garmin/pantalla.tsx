@@ -17,8 +17,10 @@
 import type { ReactNode } from 'react';
 import type { Completitud } from '../kit-reloj/despues';
 import { estructuraDe } from '../kit-reloj/estructura';
+import { esCarrera } from '../kit-reloj/reglas';
+import { wodDe } from '../kit-reloj/tarea';
 import type { Secuencia } from '../kit-reloj/gancho';
-import { filasDeDatos, filasDeVueltas, textoFila } from '../kit-reloj/listas';
+import { filasDeDatos, filasDeVueltas } from '../kit-reloj/listas';
 import type { FilaEstructura, Lecturas, Paso, PasoBase, ReglasAviso, ZonasCoach } from '../kit-reloj/paso';
 import { DESHACER_MS } from '../kit-reloj/tokens';
 import { sesionDe, vueltasDe } from '../kit-reloj/vivo';
@@ -35,7 +37,8 @@ import {
   disponerRecupera,
 } from './caras';
 import { PISTA } from './geometria';
-import { disponerDatos, disponerDescartada, disponerEstructura, disponerMenu, disponerVueltas, VUELTAS_VISIBLES, type OpcionMenu } from './paginas';
+import { ListaEstructura, filasDeEstructura } from './lista';
+import { disponerDatos, disponerDescartada, disponerMenu, disponerVueltas, VUELTAS_VISIBLES, type OpcionMenu } from './paginas';
 import { PintaDisposicion, Tapa, useGarmin } from './pintar';
 import { CG } from './tokens';
 
@@ -162,21 +165,36 @@ export function CaraMenu({ titulo, opciones, foco, onTocar }: { titulo: string[]
 
 export function PaginaDatos({ seq }: { seq: Secuencia }) {
   const { D } = useGarmin();
-  const filas = filasDeDatos(sesionDe(seq.estado), seq.lecturas, seq.paso.entorno === 'cinta' ? 'cinta' : undefined);
+  // filasDeDatos da [total, distancia, ritmo medio, pulso]: sin GPS ni cinta en toda la sesión (un WOD de fuerza) no se pintan «— km» ni «— /km medio».
+  const conDistancia = seq.plan.pasos.some(seCorreDeVerdad);
+  const filas = filasDeDatos(sesionDe(seq.estado), seq.lecturas, seq.paso.entorno === 'cinta' ? 'cinta' : undefined).filter((_, k) => conDistancia || (k !== 1 && k !== 2));
   return <PintaDisposicion d={disponerDatos(filas, seq.plan.zonas, D)} />;
+}
+
+/** ¿Un AMRAP (o su campana)? Sus «vueltas» son las rondas. */
+export const esAmrap = (paso: Paso): boolean => {
+  const f = wodDe(paso)?.formato;
+  return f === 'amrap' || f === 'puntuacion';
+};
+
+/** ¿Se corre de verdad en este paso (GPS o cinta)? Un paso de WOD solo si su tarea es correr; el 5K For Time, sí. */
+export function seCorreDeVerdad(p: PasoBase): boolean {
+  const w = wodDe(p);
+  if (!w) return esCarrera(p);
+  if (w.formato === 'emom') return !!w.tarea.corre;
+  return w.formato === 'fortime' && !w.tarea;
 }
 
 export function PaginaVueltas({ seq }: { seq: Secuencia }) {
   const { D } = useGarmin();
   const { objetivo, enCurso } = vueltasDe(seq);
   const { titulo, filas } = filasDeVueltas(seq.estado.vueltas, objetivo, enCurso ? VUELTAS_VISIBLES - 1 : VUELTAS_VISIBLES);
-  return <PintaDisposicion d={disponerVueltas(titulo, filas, enCurso, D)} />;
+  // En un AMRAP las vueltas son las rondas, y se llaman así.
+  return <PintaDisposicion d={disponerVueltas(esAmrap(seq.paso) ? ['Rondas'] : titulo, filas, enCurso, D)} />;
 }
 
 export function PaginaEstructura({ seq, estructura }: { seq: Secuencia; estructura?: (i: number) => FilaEstructura[] }) {
-  const { D } = useGarmin();
-  const filas = (estructura ?? estructuraDe(seq.plan.pasos))(seq.estado.i).map((f) => ({ ...textoFila(f), estado: f.estado }));
-  return <PintaDisposicion d={disponerEstructura(filas, D)} />;
+  return <ListaEstructura filas={filasDeEstructura((estructura ?? estructuraDe(seq.plan.pasos))(seq.estado.i))} />;
 }
 
 // ---------------------------------------------------------------------------

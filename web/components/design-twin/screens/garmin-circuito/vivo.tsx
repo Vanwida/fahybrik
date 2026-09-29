@@ -9,12 +9,13 @@
 //   · las cuatro páginas UP/DOWN con lo que un circuito pide: Datos (el total
 //     y los km CORRIDOS), Vueltas (cada paso, la suya) y Estructura por rondas;
 //   · el aro, dividido en sus rondas (`aro.ts`): 31 arcos de un simulacro serían migas;
-//   · los botones: la campana del AMRAP es `anotar` (UP/DOWN dicen las reps,
-//     START las guarda) y la ventana, un paso más (§5, `mandos.ts`);
+//   · los botones: el AMRAP de un movimiento es el MISMO que el de `garmin-wod`
+//     (§5): su ventana no se salta (BACK/LAP sin efecto) y UP/DOWN cuentan reps;
+//     su campana la guarda START, con 5 s de deshacer, y UP/DOWN dicen las reps;
 //   · el final: la puntuación es el crono TOTAL (sin el calentamiento).
 //
-// Qué NO hacer: resolver una tecla con un `if` propio (el estado lo decide
-// `estadoMandosC`; las acciones de la campana, `alAccion`); pintar el coste de
+// Qué NO hacer: resolver una tecla con un `if` propio (el estado lo deduce el
+// kit; las acciones de reps, `alAccion`); pintar el coste de
 // la carrera comprometida en vivo (va al resumen, P10).
 
 import { useState, type ReactNode } from 'react';
@@ -37,7 +38,7 @@ import { dibujoDe, esPuntuacion } from '../reloj-circuito/planes';
 import { totalDe } from '../reloj-circuito/vista';
 import { aroPorRondas } from './aro';
 import type { CasoGarmin } from './casos';
-import { estadoMandosC, avisoCierreC } from './mandos';
+import { avisoCierreC } from './mandos';
 import { CapaCuenta, CapaEntras, CaraCircuito, PaginaDatosC, PaginaEstructuraC, PaginaVueltasC, datosDe, entrasA } from './pantalla';
 
 const PUNTUACION_VACIA: Dial = { rondas: 0, reps: null };
@@ -48,25 +49,22 @@ export function VivoCircuito({ caso, onLog }: { caso: CasoGarmin; onLog: (linea:
   const [diales, setDiales] = useState<Record<number, Dial>>(caso.diales ?? {});
   const reps = (i: number) => diales[i]?.reps ?? null;
   const { seq, avisos } = useVivoGarmin(c.plan, sim, inicio, { onLog });
-  const { paso, estado } = seq;
-  const dial = esPuntuacion(paso) ? (diales[estado.i] ?? PUNTUACION_VACIA) : null;
+  // Las reps del AMRAP viven en su clave de campana: la que cuentas en la ventana (i) y la que dices en la campana (i + 1) son las mismas.
+  const claveDe = (s: Secuencia): number | null => (esPuntuacion(s.paso) ? s.estado.i : s.paso.wod?.formato === 'amrap' ? s.estado.i + 1 : null);
+  const clave = claveDe(seq);
+  const dial = clave != null ? (diales[clave] ?? PUNTUACION_VACIA) : null;
 
-  /** Las acciones de la campana (§5 `anotar`): UP/DOWN mueven las reps, START las guarda. El resto es del kit. */
+  /** Las reps del AMRAP (§5, filas `ventana` y `campana`): UP/DOWN las mueven. Guardar la campana es del kit (START, con su deshacer). */
   const alAccion = (a: IdAccion, s: Secuencia): boolean => {
-    if (!esPuntuacion(s.paso)) return false;
-    const i = s.estado.i;
-    if (a === 'valor-mas' || a === 'valor-menos') {
-      setDiales((d) => ({ ...d, [i]: girarDial(d[i] ?? PUNTUACION_VACIA, a === 'valor-mas' ? 1 : -1, 0) }));
-      onLog(`${a === 'valor-mas' ? 'UP → reps +1' : 'DOWN → reps −1'} (lo que no se diga queda sin declarar, nunca 0)`);
+    const k = claveDe(s);
+    if (k == null) return false;
+    if (a === 'reps-mas' || a === 'reps-menos') {
+      setDiales((d) => ({ ...d, [k]: girarDial(d[k] ?? PUNTUACION_VACIA, a === 'reps-mas' ? 1 : -1, 0) }));
+      onLog(`${a === 'reps-mas' ? 'UP → reps +1' : 'DOWN → reps −1'} (lo que no se diga queda sin declarar, nunca 0)`);
       return true;
     }
-    if (a === 'confirmar-campo') {
-      onLog(`START → reps guardadas: ${reps(i) ?? 'sin declarar'}`);
-      s.cerrar();
-      return true;
-    }
-    if (a === 'campo-anterior') {
-      onLog('BACK → solo hay un campo (las reps)');
+    if (a === 'ronda-hecha' && esPuntuacion(s.paso)) {
+      onLog('BACK/LAP → sin efecto: en un AMRAP de un movimiento no hay una ronda en curso (START guarda las reps)');
       return true;
     }
     return false;
@@ -92,7 +90,6 @@ export function VivoCircuito({ caso, onLog }: { caso: CasoGarmin; onLog: (linea:
       avisos={avisos}
       cara={(s) => <CaraCircuito {...datosDe(s, c, dial)} />}
       paginas={paginas}
-      estadoMandos={(s, base) => estadoMandosC(s.paso, base)}
       alAccion={alAccion}
       capa={capa}
       aro={(s) => <AroDeRondas seq={s} destello={destelloDe(avisos.ultimo)} />}

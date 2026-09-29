@@ -2,25 +2,31 @@
 // es un escenario. PURO (solo tipos y tablas).
 //
 //   glance ─START─▶ brief ─START─▶ (aviso previo) ─▶ (espera GPS) ─▶ 3-2-1 ─▶ vivo
-//      │              ▲ BACK                                         └─BACK/START─▶ brief
+//      │              ▲ BACK │ DOWN ▶ estructura completa (UP/DOWN, y en el borde BACK ▶ brief)
+//      │                                                             └─BACK/START─▶ brief
 //      ├─▶ lista (varias sesiones) ─START─▶ brief
 //      ├─▶ hoy no toca / sin plan ─START─▶ entreno libre ─▶ … ─▶ vivo
 //      └─▶ sin detalle (sin Empezar)
 //   brief ─UP largo─▶ ajustes ─▶ desvincular ─▶ vincular (código) ─▶ vinculado ─▶ glance
 //   arranque con la app muerta ─▶ sesión interrumpida ─▶ Seguir (3-2-1) | Guardar lo hecho
 //
-// LAS CINCO TECLAS. Todas las pantallas de antes de la sesión usan la fila «Brief»
-// de §5 del modelo (START Empezar · BACK Atrás · UP/DOWN anterior y siguiente · UP
-// largo Ajustes), salvo los MENÚS (Ajustes, sesión interrumpida), que usan la de
-// «Controles» (elegir · cerrar · anterior · siguiente), la 3-2-1 (Cancelar) y el
-// final de una sesión rescatada (la de «Resumen»). `ESTADO_DE_PANTALLA` lo dice, y el
-// examen lo comprueba contra la tabla del documento.
+// LAS CINCO TECLAS. Las pantallas de una sesión usan la fila «Brief (una sesión)» de
+// §5 (START Empezar · BACK Atrás · UP cambiar entorno, solo si el plan no lo fija ·
+// DOWN Estructura completa · UP largo Ajustes); las listas de elegir (varias sesiones,
+// entreno libre), la fila «Lista del día» (elegir · atrás · anterior · siguiente ·
+// Ajustes); los MENÚS (Ajustes, sesión interrumpida), la de «Controles»; la 3-2-1, la
+// de «Cancelar», y el final de una sesión rescatada, la de «Resumen». `ESTADO_DE_PANTALLA`
+// lo dice y el examen lo comprueba contra la tabla del documento.
+//
+// UNA TECLA QUE NO HACE NADA NO SE ROTULA: un glance no «Empieza», una espera de GPS
+// no «Cambia de entorno». `teclasDe` dice, pantalla a pantalla, qué celdas de la fila
+// se rotulan distinto (con la palabra de lo que hacen ahí) o «sin efecto».
 //
 // Qué NO hacer: resolver una tecla con un `if` propio en una vista (la decide
 // `flujo.tsx` según la pantalla, y solo hace lo que la fila de §5 dice); dar un
 // estado de mandos que no esté en `EstadoMandos`.
 
-import type { EstadoMandos } from '../../kit-garmin';
+import type { BotonGarmin, EstadoMandos, Mando } from '../../kit-garmin';
 import type { InicioSecuencia, PlanSesion, Simulador, Vuelta, Entorno } from '../../kit-reloj';
 import type { Sesion } from '../reloj-antes-despues/sesiones';
 import type { AvisoDeAntes } from './previo';
@@ -34,6 +40,7 @@ export type Pantalla =
   | { p: 'glance' }
   | { p: 'lista'; foco: number }
   | { p: 'brief'; k: number }
+  | { p: 'estructura'; k: number }
   | { p: 'previo'; k: number; cola: AvisoDeAntes[] }
   | { p: 'espera'; entorno: Entorno; plan: PlanSesion; inicio: InicioSecuencia; vuelve: Pantalla }
   | { p: 'cuenta'; n: number; plan: PlanSesion; inicio: InicioSecuencia; sinGps: boolean; vuelve: Pantalla }
@@ -52,8 +59,9 @@ export type IdPantalla = Pantalla['p'];
 /** El estado de §5 que rige las cinco teclas en cada pantalla. */
 export const ESTADO_DE_PANTALLA: Record<IdPantalla, EstadoMandos> = {
   glance: 'brief',
-  lista: 'brief',
+  lista: 'lista-del-dia',
   brief: 'brief',
+  estructura: 'brief',
   previo: 'brief',
   espera: 'brief',
   cuenta: 'cuenta',
@@ -62,11 +70,56 @@ export const ESTADO_DE_PANTALLA: Record<IdPantalla, EstadoMandos> = {
   'sin-plan': 'brief',
   'sin-detalle': 'brief',
   ajustes: 'controles',
-  libre: 'brief',
+  libre: 'lista-del-dia',
   vincular: 'brief',
   interrumpida: 'controles',
   guardada: 'resumen',
 };
+
+/** Lo que una pantalla rotula distinto de la fila de §5 que la rige: el rótulo de lo que hace ahí, o `null` = sin efecto. Lo que no aparece, lo dice la tabla. */
+export type Teclas = Partial<Record<BotonGarmin, string | null>>;
+
+/**
+ * Las celdas que esta pantalla afina. El estado (`ESTADO_DE_PANTALLA`) da la fila
+ * de §5; aquí solo lo que no es literalmente esa fila: donde una tecla hace otra
+ * cosa (el glance abre la app, la espera sale sin GPS) o no hace nada. `elegible` =
+ * el plan deja elegir el entorno (UP del brief).
+ */
+export function teclasDe(p: Pantalla, elegible: boolean): Teclas {
+  switch (p.p) {
+    case 'glance':
+      return { start: 'Abrir', back: 'Salir', up: null, down: null, upLargo: null };
+    case 'brief':
+      return elegible ? {} : { up: null };
+    case 'estructura':
+      return { up: 'Arriba', down: 'Abajo', upLargo: null };
+    case 'previo':
+      return { start: p.cola.length > 1 ? 'Seguir' : 'Empezar', up: null, down: null, upLargo: null };
+    case 'espera':
+      return { start: 'Sin GPS', up: null, down: null, upLargo: null };
+    case 'no-toca':
+    case 'sin-plan':
+      return { start: 'Libre', back: 'Salir', up: null, down: null };
+    case 'sin-detalle':
+      return { start: null, back: 'Salir', up: null, down: null, upLargo: null };
+    case 'vincular':
+      return { start: p.estado.tipo === 'vinculado' ? null : 'Otro código', back: 'Salir', up: null, down: null, upLargo: null };
+    case 'interrumpida':
+      return { back: 'Salir' };
+    case 'guardada':
+      return { start: 'Hecho', back: 'Hecho', up: null, down: null };
+    default:
+      return {};
+  }
+}
+
+/** La celda que ve la carcasa: la de la tabla con el rótulo de esta pantalla, o ninguna si aquí no hace nada. */
+export function mandoDePantalla(p: Pantalla, elegible: boolean, boton: BotonGarmin, porTabla: Mando | null): Mando | null {
+  const t = teclasDe(p, elegible)[boton];
+  if (t === undefined || boton === 'light') return porTabla;
+  if (t === null) return null;
+  return { accion: porTabla?.accion ?? 'elegir', dice: porTabla?.dice ?? t, rotulo: t };
+}
 
 /**
  * Los únicos avisos (§6) que emite esta familia: «GPS listo», el 3-2-1 y el GO. Las
