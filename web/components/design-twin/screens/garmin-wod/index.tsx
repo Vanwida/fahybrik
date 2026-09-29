@@ -24,7 +24,7 @@ export const meta: TwinMeta = {
   titulo: 'Garmin · WOD y ergo',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
-  actualizado: '2026-09-29',
+  actualizado: '2026-09-30',
   descripcion:
     'El EMOM con su tarea y su carga, el AMRAP contando rondas y reps con los botones y su campana, el For Time con el crono total a la vista, el Tabata y el ergo sin lectura de la máquina: cada formato con su pregunta, cinco botones, vibración y tono sin voz.',
   fuentes: [],
@@ -63,13 +63,13 @@ export const escenarios: TwinEscenario[] = [
     id: 'amrap-campana',
     titulo: 'AMRAP 15′ · la campana y la puntuación',
     descripcion:
-      'Quedan 11 s con 7 rondas: a 10 s el preaviso (1 corta + INTERVAL_ALERT) y a las 15:00 la CAMPANA: 3 largas y un tono propio de tres notas, en vez del «recupera» del motor (mira el lector de abajo). La cara pasa a «Puntuación · rondas + reps»: «7+—», con «reps de la ronda 8» (sin decir: nunca 0). ↑ mueve las reps («7+18», con el desglose «12 Wall Ball + 6 KB Swing»); de 29 a 30 lleva a una ronda; ↓ baja. BACK/LAP guarda (acuse, «Sesión hecha», 5 s para deshacer) y sale «Tu puntuación · Guardado en el reloj».',
+      'Quedan 11 s con 7 rondas: a 10 s el preaviso (1 corta + INTERVAL_ALERT) y a las 15:00 la CAMPANA: 4 largas y un tono propio de cinco notas, en vez del «recupera» del motor (mira el lector de abajo). La cara pasa a «Puntuación · rondas + reps»: «7+—», con «reps de la ronda 8» (sin decir: nunca 0). ↑ mueve las reps («7+18», con el desglose «12 Wall Ball + 6 KB Swing»); de 29 a 30 lleva a una ronda; ↓ baja. START guarda (acuse, «Sesión hecha», 5 s para deshacer con UP) y sale «Tu puntuación · Guardado en el reloj».',
   },
   {
     id: 'amrap-506',
     titulo: 'AMRAP 4′ de un movimiento, en un chipper (506)',
     descripcion:
-      '506: 4 × [Run 800 m @RPE 8 → AMRAP 4′ a peso corporal]. En un AMRAP de UN movimiento no hay rondas que contar: manda lo que queda y debajo «reps —» hasta que las cuentas con UP (o las dices en la campana). BACK/LAP no hace nada (la ventana la cierra el reloj). En la campana (a los 11 s) la puntuación son las reps, con «Luego · Run 800 m a RPE 8 en 0:19» contando atrás (BACK/LAP guarda antes); como el chipper no para, 20 s después de la campana vienen el 3-2-1 y el GO del Run, con la cara de correr del kit.',
+      '506: 4 × [Run 800 m @RPE 8 → AMRAP 4′ a peso corporal]. En un AMRAP de UN movimiento no hay rondas que contar: manda lo que queda y debajo «reps —» hasta que las cuentas con UP (o las dices en la campana). BACK/LAP no hace nada (la ventana la cierra el reloj). En la campana (a los 11 s) la puntuación son las reps, con «Luego · Run 800 m a RPE 8 en 0:19» contando atrás (START guarda antes); como el chipper no para, 20 s después de la campana vienen el 3-2-1 y el GO del Run, con la cara de correr del kit.',
   },
   {
     id: 'fortime',
@@ -141,7 +141,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'tamanos-campana',
     titulo: 'Los cuatro tamaños · la puntuación',
     descripcion:
-      'La campana con 7 rondas y 18 reps dichas: «7+18» de héroe, el desglose «12 Wall Ball + 6 KB Swing» y «BACK · guardar» en naranja, a 454, 390, 260 y 218. El pulso, monocromo (deja de trabajar).',
+      'La campana con 7 rondas y 18 reps dichas: «7+18» de héroe, el desglose «12 Wall Ball + 6 KB Swing» y «START · guardar» en naranja, a 454, 390, 260 y 218. El pulso, monocromo (deja de trabajar).',
   },
   {
     id: 'tamanos-fortime',

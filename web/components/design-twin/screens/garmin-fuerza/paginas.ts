@@ -15,7 +15,7 @@
 //                       «ahora» dentro (y, si cabe, el ejercicio de antes).
 //
 // «Dónde estoy» no se pierde: el punto de «ahora» es blanco y lleno, y con la
-// ventana movida el pie dice «▲ 3/7» o «▼ 3/7» (hacia dónde está y cuál es).
+// ventana movida el pie (`pieLista` del kit) dice «▲ 3/7» o «▼ 3/7».
 //
 // Qué NO hacer: truncar un nombre (se parte en dos líneas o el bloque no se
 // enseña en esa ventana); mover la ventana con «ahora» fuera sin decirlo.
@@ -38,6 +38,7 @@ import {
   lineaDePartes,
   lineasContexto,
   partirEnLineas,
+  pieLista,
   repartir,
   type Disposicion,
   type LineaG,
@@ -230,21 +231,11 @@ export function moverEjercicios(filas: FilaEjercicio[], desde: number, dir: 1 | 
   return desde <= 0 ? null : desde - 1;
 }
 
-/** EL PIE: hacia dónde está «ahora» y cuál es: «▲ 3/7», «3/7» si se ve. */
-export function pieEjercicios(ahora: number, primero: number, ultimo: number, total: number, D: number): LineaG {
-  const flecha = ahora < primero ? '▲' : ahora > ultimo ? '▼' : null;
-  const cuerpo = cuerpoPx(TG.nota, D);
-  const piezas: Pieza[] = [];
-  if (flecha) piezas.push({ texto: flecha, cara: 'cifras', cuerpo, tono: 'tinta' });
-  piezas.push({ texto: `${ahora + 1}/${total}`, cara: 'cifras', cuerpo, tono: flecha ? 'tinta' : 'tinta2', antes: flecha ? AIRE.unidad * D : 0 });
-  return colocar('posicion', piezas, caja(REJILLA.pie[0], altoLinea(TG.nota, 'cifras')), D);
-}
-
 /** LOS EJERCICIOS — la lista con su ventana en `desde`, «ahora» marcado y el pie que dice dónde estás. */
 export function disponerEjercicios(filas: FilaEjercicio[], desde: number, ahora: number, D: number): Disposicion {
   const lineas: LineaG[] = [...lineasContexto(['Ejercicios'], D, 'tinta2')];
   const bloques = centrarBloques(filas, desde, D);
   for (const b of bloques) lineas.push(...b.lineas);
-  if (bloques.length > 0) lineas.push(pieEjercicios(ahora, bloques[0]!.k, bloques[bloques.length - 1]!.k, filas.length, D));
+  if (bloques.length > 0) lineas.push(pieLista(ahora, bloques[0]!.k, bloques[bloques.length - 1]!.k, filas.length, D));
   return { D, lineas, heroe: null, pista: null };
 }

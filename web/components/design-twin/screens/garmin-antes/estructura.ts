@@ -14,20 +14,24 @@
 //                    forma mínima.
 //   mínimo           cada bloque en la forma más corta que lo dice entero: una línea si
 //                    cabe; si no, dos, cortadas por « · » (nunca a mitad de un dato).
-//   ventana          si ni así caben todos, los que caben, y «+ n más» dicho. Se van
-//                    primero el calentamiento y la vuelta a la calma (lo que el atleta
-//                    ya sabe), después lo del final.
+//   resumen          si ni así caben todos: el bloque que da nombre a la sesión, GRANDE
+//                    (entero, con su carga y su descanso), y una línea «4 bloques · 45′ ↓»
+//                    con la pista de la tecla: DOWN abre la Estructura completa, la
+//                    misma lista con ventana que la página Estructura del vivo.
 //
-// Nada se cae en silencio: o está pintado entero, o cuenta en el «+ n más». El resto
-// se ve en la página Estructura dentro de la sesión, y en el móvil. Solo si ni el
-// título entero cabe (no pasa en las sesiones reales) se pierden partes por el final,
-// y el examen lo dice.
+// Nada se cae en silencio ni se trunca con «+ n más»: o está pintado entero, o cuenta
+// en el «N bloques» y se ve entero con DOWN. Solo si ni el título entero cabe (no pasa
+// en las sesiones reales) se pierden partes por el final, y el examen lo dice.
+//
+// UNA SOLA DURACIÓN: sale de `duracionHumana` (por `hoyDe`). Con toda la estructura a la
+// vista va arriba, en «Hoy · 65′»; en el resumen va en la línea de los bloques y
+// arriba solo queda «Hoy»: jamás dos duraciones en el mismo brief.
 //
 // Qué NO hacer: escribir aquí un nombre de clase o un ritmo (salen de `lineaBrief`);
 // truncar con «…» (un dato a medias no se pinta); meter más filas de las que caben
-// por no llegar a «ventana».
+// por no llegar a «resumen».
 
-import { filasDePasos, grupoPrincipal, lineaBrief, type PasoBase } from '../../kit-reloj';
+import { duracionHumana, filasDePasos, grupoPrincipal, lineaBrief, type PasoBase } from '../../kit-reloj';
 import type { LineaG } from '../../kit-garmin/disponer';
 import type { Tono } from '../../kit-garmin/medir';
 import { AIRE, TG } from '../../kit-garmin/tokens';
@@ -66,11 +70,14 @@ export function bloquesDelBrief(pasos: PasoBase[]): Bloque[] {
   });
 }
 
-export type NivelEstructura = 'completo' | 'titulo-completo' | 'minimo' | 'ventana' | 'apretado';
+export type NivelEstructura = 'completo' | 'titulo-completo' | 'minimo' | 'resumen' | 'apretado';
+
+/** La duración de la sesión, como la dice todo el brief (una sola fuente). */
+export const duracionDelBrief = (pasos: PasoBase[]): string => duracionHumana(pasos);
 
 export interface EstructuraPuesta {
   lineas: LineaG[];
-  /** Bloques que no caben y se dicen con «+ n más». */
+  /** Bloques que no se pintan (los cuenta la línea del resumen y los enseña la Estructura completa). */
   ocultos: number;
   nivel: NivelEstructura;
   /** Los bloques que están pintados, en orden. */
@@ -87,8 +94,8 @@ const TONO: Record<Peso, Tono> = { titulo: 'tinta', normal: 'tinta', suave: 'tin
 /** El aire entre un bloque y el siguiente: un cuarto más que entre líneas, para que se lean como bloques. */
 const ENTRE_BLOQUES = AIRE.lineas * 1.25;
 
-/** El texto del «+ n más». */
-export const textoMas = (n: number) => `+ ${n} más`;
+/** La línea del resumen: cuántos bloques, cuánto dura y la tecla que los enseña. Son partes: si no cabe, se pierde primero la pista, nunca la duración. */
+export const partesDelResumen = (n: number, duracion: string): string[] => [`${n} bloques`, `${duracion} ↓`];
 
 /** Un bloque en su forma completa: qué (grande), contra qué (pequeño, una o dos líneas) y el cue del coach. */
 function bloqueCompleto(b: Bloque, y: number, D: number): Puesto {
@@ -167,42 +174,36 @@ function apilar(bloques: Bloque[], y0: number, D: number, forma: Forma): Intento
 }
 
 /**
- * Los índices por orden de importancia: el título, luego lo demás de la parte
- * principal, luego lo suave (calentamiento y vuelta a la calma, lo que el atleta
- * ya sabe). A igual importancia, por orden de aparición.
+ * La estructura ENTERA del brief, entre `y0` e `y1` (fracción de D): la forma más
+ * rica que cabe en este reloj sin perder nada de lo que se pinta. `null` si ni en
+ * su forma mínima caben todos los bloques (entonces, el resumen).
  */
-function prioridad(bloques: Bloque[]): number[] {
-  const orden = (p: Peso) => (p === 'titulo' ? 0 : p === 'normal' ? 1 : 2);
-  return bloques.map((b, k) => ({ k, o: orden(b.peso) })).sort((a, b) => a.o - b.o || a.k - b.k).map((x) => x.k);
+export function disponerEstructuraEntera(bloques: Bloque[], y0: number, y1: number, D: number): EstructuraPuesta | null {
+  const todos = bloques.map((_, k) => k);
+  for (const { nivel, forma } of FORMAS) {
+    const i = apilar(bloques, y0, D, forma);
+    if (i.cabe && i.enteros.every(Boolean) && i.fin - AIRE.lineas <= y1) return { lineas: i.lineas, ocultos: 0, nivel, visibles: todos, cabe: true };
+  }
+  return null;
 }
 
 /**
- * La estructura del brief, entre `y0` e `y1` (fracción de D): la forma más rica
- * que cabe en este reloj sin perder nada de lo que se pinta.
+ * El RESUMEN: el bloque titular, entero y grande, y debajo «4 bloques · 45′ ↓».
+ * Es lo que se pinta cuando la sesión no cabe entera. Si ni el titular en su
+ * forma mínima cabe con su línea (no pasa en las sesiones reales), cada bloque en
+ * una línea y perdiendo partes por el final (`apretado`), y el examen lo dice.
  */
-export function disponerEstructuraBrief(bloques: Bloque[], y0: number, y1: number, D: number): EstructuraPuesta {
-  const cabeEn = (i: Intento) => i.cabe && i.enteros.every(Boolean) && i.fin - AIRE.lineas <= y1;
-  const todos = bloques.map((_, k) => k);
-
-  for (const { nivel, forma } of FORMAS) {
-    const i = apilar(bloques, y0, D, forma);
-    if (cabeEn(i)) return { lineas: i.lineas, ocultos: 0, nivel, visibles: todos, cabe: true };
-  }
-
-  // Ventana: los que caben por orden de importancia, y «+ n más».
-  const orden = prioridad(bloques);
-  for (let k = orden.length - 1; k >= 1; k--) {
-    const quedan = orden.slice(0, k).sort((a, b) => a - b);
-    const ocultos = bloques.length - k;
-    for (const { forma } of FORMAS) {
-      const parte = apilar(quedan.map((i) => bloques[i]!), y0, D, forma);
-      const mas = textoEn('mas', textoMas(ocultos), parte.fin + ENTRE_BLOQUES - AIRE.lineas, D, { frac: TG.nota, tono: 'tinta2' });
-      const todo: Intento = { lineas: [...parte.lineas, ...mas.lineas], fin: mas.fin, cabe: parte.cabe && mas.entero, enteros: parte.enteros };
-      if (cabeEn(todo)) return { lineas: todo.lineas, ocultos, nivel: 'ventana', visibles: quedan, cabe: true };
+export function disponerEstructuraResumen(bloques: Bloque[], duracion: string, y0: number, y1: number, D: number): EstructuraPuesta {
+  const titular = Math.max(0, bloques.findIndex((b) => b.peso === 'titulo'));
+  const ocultos = bloques.length - 1;
+  for (const { forma } of FORMAS) {
+    const parte = apilar([bloques[titular]!], y0, D, forma);
+    const resumen = unaLinea('resumen', partesDelResumen(bloques.length, duracion), TG.nota, 'tinta2', parte.fin + ENTRE_BLOQUES - AIRE.lineas, D);
+    const fin = finDe([resumen.linea], D, parte.fin);
+    if (parte.cabe && parte.enteros.every(Boolean) && resumen.entera && fin - AIRE.lineas <= y1) {
+      return { lineas: [...parte.lineas, resumen.linea], ocultos, nivel: 'resumen', visibles: [titular], cabe: true };
     }
   }
-
-  // Ni el título entero cabe: cada bloque en una línea, perdiendo partes por el final (no pasa en las sesiones reales).
   const apretado = apilar(bloques, y0, D, () => 'minimo');
-  return { lineas: apretado.lineas, ocultos: 0, nivel: 'apretado', visibles: todos, cabe: apretado.cabe && apretado.fin - AIRE.lineas <= y1 };
+  return { lineas: apretado.lineas, ocultos: 0, nivel: 'apretado', visibles: bloques.map((_, k) => k), cabe: apretado.cabe && apretado.fin - AIRE.lineas <= y1 };
 }

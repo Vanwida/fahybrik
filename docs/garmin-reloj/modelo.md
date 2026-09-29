@@ -69,13 +69,14 @@ Hereda de `docs/reloj-muneca/modelo.md` el paso como unidad (P2), el objetivo qu
 
 | Estado | START/STOP | BACK/LAP | UP | DOWN | UP largo |
 |---|---|---|---|---|---|
-| Brief | **Empezar** (con GPS listo o «Empezar sin GPS») | Atrás (sale de la app) | sesión anterior del día | sesión siguiente | Ajustes |
+| Brief (una sesión) | **Empezar** (con GPS listo o «Empezar sin GPS») | Atrás | **cambiar entorno** solo si el plan no lo fija (calle/cinta/pista; si lo fija, sin efecto) | **Estructura completa** (la misma pieza que la página Estructura del vivo) | Ajustes |
+| Lista del día (varias sesiones, G03) | **elegir** (abre su brief) | atrás | sesión anterior | sesión siguiente | Ajustes |
 | Cuenta atrás 3-2-1 | Cancelar | Cancelar | — | — | — |
 | Paso en curso | **Pausa** | **Siguiente paso** (vuelta) + 5 s de deshacer | página anterior | página siguiente | **Controles** |
 | Durante los 5 s de deshacer | Pausa | siguiente paso otra vez | **Deshacer** | página siguiente | Controles |
 | Recuperación / descanso | Pausa | **Empezar ya** | página anterior | página siguiente | Controles (+30 s aquí) |
 | Serie de fuerza | Pausa | **Serie hecha** | página anterior | página siguiente | Controles |
-| Anotar la serie (en el descanso) | confirmar campo (reps → carga → RIR); en el último, cerrar | campo anterior; en el primero, salir de anotar | valor + | valor − | Controles (Pausa, saltar el descanso) |
+| Anotar la serie (en el descanso) | confirmar campo; en el último, cerrar (orden: reps → carga → RIR) | campo anterior; en el primero, salir de anotar | valor + | valor − | Controles (Pausa, saltar el descanso) |
 | AMRAP con ≥ 2 movimientos | Pausa | **Ronda hecha** | **reps +1** | **reps −1** | Controles (aquí están Datos/Vueltas/Estructura) |
 | Ventana que no se salta (minuto entero de máquina en un EMOM, Tabata, AMRAP de UN movimiento) | Pausa | **sin efecto** (un BACK con sudor no salta una ventana; «Saltar paso» está en Controles) | página anterior (en el AMRAP de un movimiento: **reps +1**) | página siguiente (**reps −1**) | Controles |
 | Campana de un AMRAP (puntuación) | **Guardar** (con 5 s de deshacer con UP) | **Ronda hecha** solo si hay una en curso; si no, sin efecto | **reps +1** (mantener acelera) | **reps −1** (mantener acelera) | Controles |
@@ -84,6 +85,8 @@ Hereda de `docs/reloj-muneca/modelo.md` el paso como unidad (P2), el objetivo qu
 | RPE | **confirmar** | omitir (RPE nulo) | valor + | valor − | — |
 | Resumen | siguiente página / Hecho | atrás / Seguir | página anterior | página siguiente | — |
 
+- **Páginas de lista** (Estructura, Vueltas, Ejercicios, y la Estructura completa del brief): UP/DOWN mueven la lista de uno en uno y, en el borde, pasan de página; en la Estructura completa del brief, pasar del borde vuelve al brief y BACK también. Una tecla que no hace nada en un estado se rotula sin acción: nunca un «Empezar» donde no empieza nada.
+- **Mantener UP o DOWN** en una fila de reps (AMRAP, campana) repite y acelera. Donde eso ocurre, el UP largo del reloj real chocaría con la repetición: en el doble, Controles se abre con ⇧↑.
 - **Anotar la serie** se abre en cada descanso con series por anotar y se reabre con UP mientras haya algo propuesto (con DOWN no: cambiaría un dato sin querer). Lo propuesto no cuenta como declarado hasta confirmarlo con START. Cada campo confirmado suena como una tecla (§6).
 - **Un cierre que no cierra paso** (guardar la campana, anotar una serie) también tiene su deshacer de 5 s con UP: es el deshacer de FAMILIA, una sola pieza del kit.
 - El táctil solo actúa fuera del vivo (brief, controles en pausa, RPE, resumen) y siempre tiene su tecla equivalente.

@@ -7,9 +7,11 @@
 //
 // El motor es el de `kit-reloj` y emite sus `EventoVivo`; aquí se traduce
 // cada uno a su fila de §6 (`AVISOS`), o a «ninguno» dicho explícitamente.
-// Garmin suma tres eventos que la muñeca no tiene: el acuse de una tecla
-// (`paso-a-mano`, G4), el sensor o GPS que vuelve (`recuperado`) y la batería
-// baja (`bateria`). El GPS o el pulso que se pierden los detecta `sistemaDe`
+// Garmin suma cinco eventos que la muñeca no tiene: el acuse de una tecla
+// (`paso-a-mano`, G4), el sensor o GPS que vuelve (`recuperado`), la batería
+// baja (`bateria`), la campana de un AMRAP (`campana`: la emite la familia en
+// vez del «recupera» del motor cuando se acaba el tiempo) y el campo de una
+// anotación que se confirma (`campo-confirmado`). El GPS o el pulso que se pierden los detecta `sistemaDe`
 // en las lecturas, no una pantalla.
 //
 // «Sin apilar» (la regla de la muñeca, `useLote`): en un instante suena UN
@@ -24,9 +26,10 @@
 import { useCallback, useState } from 'react';
 import { VOCABULARIO, useLote, type EventoVivo, type Eventos } from '../kit-reloj/eventos';
 import type { Transicion } from '../kit-reloj/gancho';
+import { wodDe } from '../kit-reloj/tarea';
 import type { LecturaSim } from '../kit-reloj/secuencia';
 
-export type EventoGarmin = EventoVivo | 'paso-a-mano' | 'recuperado' | 'bateria';
+export type EventoGarmin = EventoVivo | 'paso-a-mano' | 'recuperado' | 'bateria' | 'campana' | 'campo-confirmado';
 
 // ---------------------------------------------------------------------------
 // El vocabulario (mecanismo nuestro: la duración de cada pulso, las notas)
@@ -99,6 +102,18 @@ const SUBEN: Nota[] = [
   { hz: 1047, ms: 180 },
 ];
 
+/** Cinco notas: dos iguales, una que sube y una que baja a una larga, como una campana. Mecanismo (el sonido), no método del coach. */
+const CAMPANA: Nota[] = [
+  { hz: 1319, ms: 120 },
+  { hz: 1319, ms: 120 },
+  { hz: 1568, ms: 140 },
+  { hz: 1319, ms: 140 },
+  { hz: 988, ms: 480 },
+];
+
+/** Por encima de todo lo que puede coincidir con ella en el mismo segundo (bloque, sesión, enlace). */
+const PRIORIDAD_CAMPANA = 12;
+
 /** LA TABLA DE §6 — una fila por evento del motor y por evento propio de Garmin. */
 export const AVISOS: Record<EventoGarmin, AvisoGarmin | Ninguno> = {
   cuenta: { nombre: '3-2-1 antes de un paso de trabajo', pulsos: ['corta'], tono: { sistema: 'KEY' }, repite: 3, prioridad: pri('cuenta') },
@@ -109,6 +124,8 @@ export const AVISOS: Record<EventoGarmin, AvisoGarmin | Ninguno> = {
   aprieta: { nombre: 'Aprieta', pulsos: ['corta', 'corta', 'corta'], tono: { melodia: SUBEN }, prioridad: pri('aprieta') },
   vuelta: { nombre: 'Vuelta automática', pulsos: ['corta', 'corta'], tono: { sistema: 'LAP' }, prioridad: pri('vuelta') },
   'paso-a-mano': { nombre: 'Paso cerrado a mano', pulsos: ['muyCorta'], tono: { sistema: 'KEY' }, prioridad: 0 },
+  campana: { nombre: 'Campana de un AMRAP', pulsos: ['larga', 'larga', 'larga', 'larga'], tono: { melodia: CAMPANA }, prioridad: PRIORIDAD_CAMPANA },
+  'campo-confirmado': { nombre: 'Campo de anotación confirmado', pulsos: ['muyCorta'], tono: { sistema: 'KEY' }, prioridad: 0 },
   bloque: { nombre: 'Bloque hecho', pulsos: ['larga', 'corta'], tono: { sistema: 'SUCCESS' }, prioridad: pri('bloque') },
   sesion: { nombre: 'Sesión hecha', pulsos: ['larga', 'larga', 'larga'], tono: { sistema: 'SUCCESS', veces: 2 }, prioridad: pri('sesion') },
   gps: { nombre: 'GPS listo', pulsos: ['larga'], tono: { sistema: 'SUCCESS' }, prioridad: pri('gps') },
@@ -154,7 +171,7 @@ export function fmtPulsos(a: AvisoGarmin, instante = false): string {
   return a.repite && !instante ? `${texto} por segundo` : texto;
 }
 
-/** «START», «SUCCESS ×2», «KEY ×3», «dos notas que bajan». */
+/** «START», «SUCCESS ×2», «KEY ×3», «dos notas que bajan», «melodía propia». */
 export function fmtTono(a: AvisoGarmin, instante = false): string {
   const t = a.tono;
   if ('sistema' in t) {
@@ -163,7 +180,7 @@ export function fmtTono(a: AvisoGarmin, instante = false): string {
   }
   const [x, y] = t.melodia;
   if (t.melodia.length === 2 && x && y) return y.hz < x.hz ? 'dos notas que bajan' : 'dos notas que suben';
-  return `${t.melodia.length} notas`;
+  return 'melodía propia';
 }
 
 // ---------------------------------------------------------------------------
@@ -183,12 +200,28 @@ export function sistemaDe(antes: LecturaSim, despues: LecturaSim): EventoGarmin[
 }
 
 /**
+ * ¿Es esta transición la campana de un AMRAP? El motor pasa solo (`quien:
+ * 'motor'`) de la ventana de un AMRAP a su puntuación. Si el atleta salta el
+ * AMRAP desde Controles no ha acabado el tiempo y no suena.
+ */
+export function esCampana(t: Transicion): boolean {
+  const antes = wodDe(t.plan.pasos[t.antes.i]);
+  const despues = wodDe(t.plan.pasos[t.despues.i]);
+  return t.quien === 'motor' && t.antes.i !== t.despues.i && antes?.formato === 'amrap' && despues?.formato === 'puntuacion';
+}
+
+/**
  * Lo que avisa una transición del motor: sus eventos (el acuse de la tecla
- * en vez de «acción» si la cerró el atleta) y lo que dicen los sensores. Sin
- * repetidos. La voz de cada evento se ignora (H5).
+ * en vez de «acción» si la cerró el atleta; la campana en vez del «empieza
+ * recuperación» con el que el motor cierra un AMRAP) y lo que dicen los
+ * sensores. Sin repetidos. La voz de cada evento se ignora (H5).
  */
 export function eventosDeTransicion(t: Transicion): EventoGarmin[] {
-  const del = t.eventos.map((e): EventoGarmin => (e.evento === 'accion' && t.quien === 'atleta' ? 'paso-a-mano' : e.evento));
+  const campana = esCampana(t);
+  const del = t.eventos.flatMap((e): EventoGarmin[] => {
+    if (e.evento === 'recupera' && campana) return ['campana'];
+    return [e.evento === 'accion' && t.quien === 'atleta' ? 'paso-a-mano' : e.evento];
+  });
   return [...new Set([...del, ...sistemaDe(t.antes.lect, t.despues.lect)])];
 }
 

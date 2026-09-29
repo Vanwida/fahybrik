@@ -32,7 +32,7 @@ export const meta: TwinMeta = {
   titulo: 'Garmin · antes de la sesión',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
-  actualizado: '2026-09-29',
+  actualizado: '2026-09-30',
   descripcion:
     'Lo que pasa en el reloj Garmin antes de grabar y fuera de la sesión: el glance de hoy, el brief con la estructura real del coach y el GPS, varias sesiones el mismo día, el día que no toca, el plan viejo o sin plan, vincular el reloj con un código, la sesión que la app dejó a medias, el entreno libre y los avisos de antes de salir (pulso, batería, móvil). Cinco botones; al empezar entra el vivo.',
   fuentes: [],
@@ -67,12 +67,12 @@ export const escenarios: TwinEscenario[] = [
     id: 'brief-479',
     titulo: 'Brief · 479 con su estructura real',
     descripcion:
-      'Calentamiento 5′ · Z2 / 6 × 800 m Z5 con «r 2′30″ trote» / Wall Ball · 5 × 12 · 9 kg · r 1′ / Vuelta a la calma 3′ · Z1. El plan no dice dónde: «↑↓ Calle» avisa de que UP/DOWN cambian el entorno (por defecto, el de Ajustes). En un círculo de 218 px no cabe todo con dos líneas cada bloque: la estructura se aprieta hasta que cabe, midiéndolo en cada reloj, y lo que no entre se dice («+ n más»), nunca se pierde en silencio.',
+      'Calentamiento 5′ · Z2 / 6 × 800 m Z5 con «r 2′30″ trote» / Wall Ball · 5 × 12 · 9 kg · r 1′ / Vuelta a la calma 3′ · Z1. El plan no dice dónde: «↑ Calle» avisa de que UP cambia el entorno (por defecto, el de Ajustes) y DOWN abre la Estructura completa. En un círculo de 218 px no cabe todo con dos líneas cada bloque: la estructura se aprieta hasta que cabe, midiéndolo en cada reloj; y si ni así, se pinta el bloque que manda y «N bloques · duración ↓» (con la duración una sola vez), nunca un «+ n más» a medias.',
   },
   {
     id: 'brief-491',
     titulo: 'Brief · 491 rodaje + movilidad',
-    descripcion: 'Rodaje 50′ a Z2, y la Movilidad de 15′ en gris (no es la parte principal). Sin entorno en la prescripción: UP/DOWN lo cambian. «Hoy · 65′»: el rodaje y la movilidad juntos.',
+    descripcion: 'Rodaje 50′ a Z2, y la Movilidad de 15′ en gris (no es la parte principal). Sin entorno en la prescripción: UP lo cambia. «Hoy · 65′»: el rodaje y la movilidad juntos.',
   },
   {
     id: 'brief-494',
@@ -83,7 +83,7 @@ export const escenarios: TwinEscenario[] = [
     id: 'brief-529',
     titulo: 'Brief · 529 fuerza, sin GPS',
     descripcion:
-      'Cinco bloques de fuerza (A1 Back Squat, A2 Box Jump, B1 Deadlift, B2 Bulgarian Split Squat, Sled Push): más de los que caben con su dosis en un círculo, así que se cuentan sin perder el título ni la dosis del que manda y se dice cuántos quedan («+ n más»; se ven enteros en la página Estructura del vivo). No hay fila de GPS ni de entorno: lo único que se espera es el pulso («Fijando pulso» → «Listo»).',
+      'Cinco bloques de fuerza (A1 Back Squat, A2 Box Jump, B1 Deadlift, B2 Bulgarian Split Squat, Sled Push): más de los que caben con su dosis en un círculo, así que el brief enseña grande el que manda (con su dosis) y «5 bloques · 45′ ↓»: DOWN abre la Estructura completa, la misma lista que la página Estructura del vivo. No hay fila de GPS ni de entorno: lo único que se espera es el pulso («Fijando pulso» → «Listo»).',
   },
   {
     id: 'brief-cinta',
@@ -93,7 +93,13 @@ export const escenarios: TwinEscenario[] = [
   {
     id: 'brief-493',
     titulo: 'Brief · circuito 493, la estructura más larga',
-    descripcion: 'Un circuito de cinco rondas (carrera + estación): siete bloques, el peor caso para el brief. Se aprieta a una línea cada uno o a una ventana con «+ n más», según lo que dé cada reloj; el calentamiento y la vuelta a la calma, que el atleta ya sabe, son lo primero que se va.',
+    descripcion: 'Un circuito de cinco rondas (carrera + estación): siete bloques, el peor caso para el brief. Se aprieta a una línea cada uno o, si no cabe, se pinta el bloque que manda y «N bloques · duración ↓»; DOWN abre la Estructura completa. La duración sale una sola vez (arriba, o en esa línea).',
+  },
+  {
+    id: 'estructura-493',
+    titulo: 'Estructura completa · DOWN en el brief',
+    descripcion:
+      'El circuito 493 no cabe entero en el brief, así que DOWN abre la Estructura completa: la MISMA lista con ventana que la página Estructura del vivo, con su «3/7» de dónde estás. A 1,4 s DOWN la abre; DOWN y UP la mueven de uno en uno; en el borde la tecla pasa de página (vuelve al brief) y BACK también. START = Empezar en las dos.',
   },
   // ── Empezar ─────────────────────────────────────────────────────────────────
   {
@@ -110,9 +116,9 @@ export const escenarios: TwinEscenario[] = [
   },
   {
     id: 'entorno',
-    titulo: 'Entorno · calle, cinta o pista con UP/DOWN',
+    titulo: 'Entorno · calle, cinta o pista con UP',
     descripcion:
-      '479 no dice dónde se corre: el brief pone el de Ajustes (calle) y UP/DOWN lo cambian, con su efecto a la vista. A 1,5 s DOWN → Cinta (sin GPS: la fila de GPS desaparece y no hay nada que esperar), a 2,7 s DOWN → Pista, a 3,9 s UP → Cinta. Si la prescripción lo fija (494, 535), UP/DOWN no hacen nada. Es lo que en la muñeca de Apple era «¿Dónde corres?» al empezar.',
+      '479 no dice dónde se corre: el brief pone el de Ajustes (calle) y UP lo cambia, con su efecto a la vista. A 1,5 s UP → Cinta (sin GPS: la fila de GPS desaparece y no hay nada que esperar), a 2,7 s UP → Pista, a 3,9 s UP → Calle. Si la prescripción lo fija (494, 535), UP no hace nada y no se rotula. Es lo que en la muñeca de Apple era «¿Dónde corres?» al empezar.',
   },
   // ── G03 · varias sesiones ───────────────────────────────────────────────────
   {

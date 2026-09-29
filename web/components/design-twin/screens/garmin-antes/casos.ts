@@ -126,6 +126,15 @@ export function escenaDe(id: string): Escena {
     case 'brief-493':
       return escena({ hoy: hoy([del(sesion493())]), arranque: brief(), sistema: SISTEMA_BUSCANDO, gpsEn: GPS_FIJA_EN, pulsoEn: PULSO_FIJA_EN });
 
+    // ── La Estructura completa (DOWN en el brief) ──────────────────────────────
+    case 'estructura-493':
+      // DOWN abre la lista entera; DOWN la recorre de uno en uno; en el borde pasa de página (vuelve al brief).
+      return escena({
+        hoy: hoy([del(sesion493())]),
+        arranque: brief(),
+        guion: toques([1400, 'down'], [2800, 'down'], [4000, 'down'], [5200, 'up'], [6400, 'back']),
+      });
+
     // ── Empezar: el GPS, la espera y el 3-2-1 ──────────────────────────────────
     case 'empezar':
       return escena({ hoy: seisPorMil(), arranque: brief(), sistema: { ...SISTEMA_BUSCANDO, pulso: { tipo: 'ok', ppm: PPM_EN_REPOSO } }, gpsEn: 5200, guion: toques([1500, 'start']) });
@@ -138,14 +147,14 @@ export function escenaDe(id: string): Escena {
         guion: toques([1500, 'start'], [3200, 'start']),
       });
     case 'entorno':
-      // 479 no dice dónde: UP/DOWN recorren calle, cinta y pista (y en cinta desaparece el GPS).
+      // 479 no dice dónde: UP recorre calle, cinta y pista (y en cinta desaparece el GPS).
       return escena({
         hoy: hoy([del(sesion479Brief())]),
         arranque: brief(),
         sistema: SISTEMA_BUSCANDO,
         gpsEn: 7000,
         pulsoEn: PULSO_FIJA_EN,
-        guion: toques([1500, 'down'], [2700, 'down'], [3900, 'up']),
+        guion: toques([1500, 'up'], [2700, 'up'], [3900, 'up']),
       });
 
     // ── G03 · varias sesiones ──────────────────────────────────────────────────

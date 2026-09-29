@@ -10,9 +10,11 @@ import {
   FILA_MODELO,
   LUZ,
   MANDOS,
+  REPETIR,
   REPOSO,
   accionDe,
   botonDeTecla,
+  pasosDeRepeticion,
   type EstadoMandos,
 } from '@/components/design-twin/kit-garmin';
 import { normal, tablaDe } from './garmin-modelo';
@@ -21,7 +23,7 @@ const TABLA = tablaDe('## 5. Interacción');
 
 describe('§5 — la tabla de botones', () => {
   it('tiene una fila por estado del documento, y ninguna más', () => {
-    expect(TABLA.length).toBe(11);
+    expect(TABLA.length).toBe(15);
     expect(TABLA.map((f) => f[0]).sort()).toEqual(Object.values(FILA_MODELO).sort());
   });
 
@@ -50,7 +52,28 @@ describe('§5 — la tabla de botones', () => {
     expect(MANDOS.paso.up?.accion).toBe('pagina-anterior');
     expect(MANDOS.recupera.back?.accion).toBe('empezar-ya');
     expect(MANDOS.pausa.back?.accion).toBe('controles');
-    for (const e of ['paso', 'deshacer', 'recupera', 'fuerza', 'amrap'] as const) expect(MANDOS[e].upLargo?.accion).toBe('controles');
+    for (const e of ['paso', 'deshacer', 'recupera', 'fuerza', 'anotar', 'amrap', 'ventana', 'campana'] as const) expect(MANDOS[e].upLargo?.accion).toBe('controles');
+  });
+
+  it('una ventana que no se salta no tiene vuelta: BACK es «sin efecto», jamás cierra el paso', () => {
+    expect(MANDOS.ventana.back?.accion).toBe('sin-efecto');
+    expect(MANDOS.ventana.up?.accion).toBe('pagina-anterior');
+  });
+
+  it('la campana guarda con START (no con BACK); UP/DOWN cuentan reps y, mantenidos, aceleran', () => {
+    expect(MANDOS.campana.start?.accion).toBe('guardar');
+    expect(MANDOS.campana.back?.accion).toBe('ronda-hecha');
+    expect(MANDOS.campana.up?.repite).toBe(true);
+    expect(MANDOS.campana.down?.repite).toBe(true);
+    expect(MANDOS.amrap.up?.repite).toBe(true);
+  });
+
+  it('el brief: UP cambia el entorno, DOWN abre la estructura completa; la lista del día tiene sus flechas', () => {
+    expect(MANDOS.brief.up?.accion).toBe('cambiar-entorno');
+    expect(MANDOS.brief.down?.accion).toBe('estructura-completa');
+    expect(MANDOS['lista-del-dia'].up?.accion).toBe('sesion-anterior');
+    expect(MANDOS['lista-del-dia'].down?.accion).toBe('sesion-siguiente');
+    expect(MANDOS['lista-del-dia'].start?.accion).toBe('elegir');
   });
 
   it('LIGHT es la luz del sistema en todo estado', () => {
@@ -58,7 +81,16 @@ describe('§5 — la tabla de botones', () => {
   });
 
   it('los rótulos de tecla, solo en reposo (brief, pausa, controles, resumen)', () => {
-    expect([...REPOSO].sort()).toEqual(['brief', 'controles', 'pausa', 'resumen']);
+    expect([...REPOSO].sort()).toEqual(['brief', 'controles', 'lista-del-dia', 'pausa', 'resumen', 'rpe']);
+  });
+});
+
+describe('mantener UP o DOWN en una fila de reps', () => {
+  it('acelera por escalones: 1, 5 y 10 reps por golpe, y nunca menos que las de antes', () => {
+    const golpes = [0, 1000, 1500, 3000, 3500, 9000].map(pasosDeRepeticion);
+    expect(golpes).toEqual([1, 1, 5, 5, 10, 10]);
+    expect(golpes).toEqual([...golpes].sort((a, b) => a - b));
+    expect(REPETIR.arranqueMs).toBeGreaterThan(REPETIR.cadaMs);
   });
 });
 

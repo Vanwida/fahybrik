@@ -40,6 +40,8 @@ import {
   disponerRecupera,
   disponerVueltas,
   esAviso,
+  esCampana,
+  estadoDelPaso,
   eventosDeTransicion,
   fmtPulsos,
   fmtTono,
@@ -59,7 +61,6 @@ import { avanzar, cerrar, cuentaDe, estadoInicial, lecturasDe, pasoVivo, type Es
 import { wodDe } from '@/components/design-twin/kit-reloj/tarea';
 import { avisoDeCierre, sesionDe, vueltasDe } from '@/components/design-twin/kit-reloj/vivo';
 import { Screen, escenarios } from '@/components/design-twin/screens/garmin-wod';
-import { AVISO_CAMPANA, LINEA_CAMPANA, MELODIA_CAMPANA, emisionCampana, esCampana } from '@/components/design-twin/screens/garmin-wod/avisos';
 import {
   acabadoDelTodo,
   disponerCaraWod,
@@ -73,9 +74,8 @@ import {
 } from '@/components/design-twin/screens/garmin-wod/caras';
 import { casoGarminWod, type CasoGarminWod } from '@/components/design-twin/screens/garmin-wod/casos';
 import {
-  ESTADO_DE_MANDOS,
+  ESTADO_DE_EMOM,
   MARCADOR_VACIO,
-  QUE_HACE_BACK,
   controlesDeWod,
   dialDe,
   estadoWodInicial,
@@ -339,7 +339,7 @@ describe('el marcador del AMRAP: rondas y reps sin cero inventado', () => {
     for (const { D } of TAMANOS) {
       const d = disponerPuntuacion(v, D);
       expect(d.heroe?.texto).toBe('7+18');
-      expect(textoDe(d, 'guardar')).toBe('BACK · guardar');
+      expect(textoDe(d, 'guardar')).toBe('START · guardar');
       expect(textoDe(d, 'desglose')).toContain('12 Wall Ball + 6 KB Swing');
     }
     const sinDecir = vistaEn(c, s, { hechas: {}, marcadores: { [c.datos.plan.pasos[0]!.id]: { cierres: [1, 2, 3, 4, 5, 6, 7], reps: null } } });
@@ -490,16 +490,16 @@ describe('el Tabata: manda el reloj y no se estira', () => {
     expect(descanso.rol).toBe('descanso');
     const seq = { paso: { ...descanso, siguiente: null }, plan: c.datos.plan, pausado: false } as unknown as Parameters<typeof controlesPorDefecto>[0];
     expect(controlesPorDefecto(seq, 'recupera')).toContain('mas30');
-    expect(controlesDeWod(descanso, controlesPorDefecto(seq, 'recupera'), c.datos.plan.pasos)).not.toContain('mas30');
+    expect(controlesDeWod(descanso, controlesPorDefecto(seq, 'recupera'))).not.toContain('mas30');
     const ergo = casoGarminWod('ergo-505').datos.plan;
-    expect(controlesDeWod(ergo.pasos[5]!, ['pausa', 'mas30'], ergo.pasos)).toContain('mas30');
+    expect(controlesDeWod(ergo.pasos[5]!, ['pausa', 'mas30'])).toContain('mas30');
   });
 
   it('«Cambiar entorno» solo aparece si la sesión corre de verdad: no en un Tabata, un AMRAP, un For Time ni un ergo; sí en un EMOM con Run, un chipper con Run, el 5K y un calentamiento con Run', () => {
-    const controles = ['pausa', 'saltar', 'entorno', 'terminar'] as const;
     const ofrece = (id: string) => {
       const { plan } = casoGarminWod(id).datos;
-      return controlesDeWod(plan.pasos[0]!, [...controles], plan.pasos).includes('entorno');
+      const paso = plan.pasos[0]!;
+      return controlesPorDefecto({ paso, plan, pausado: false } as unknown as Parameters<typeof controlesPorDefecto>[0], estadoDelPaso(paso)).includes('entorno');
     };
     for (const id of ['tabata', 'amrap-15', 'fortime', 'ergo-505', 'ergo-escalera', 'emom-alterno']) expect(ofrece(id), id).toBe(false);
     for (const id of ['emom-75', 'amrap-506', 'carrera-5k', 'ergo-530']) expect(ofrece(id), id).toBe(true);
@@ -585,8 +585,9 @@ describe('los avisos de cada caso salen, y suenan como dice §6', () => {
     const campanas = tics.filter((x) => esCampana(x.transicion));
     expect(campanas, 'una campana').toHaveLength(1);
     expect(campanas[0]!.t).toBe(11);
-    // El motor la trata como «empieza recuperación»: es lo que la familia sustituye.
-    expect(campanas[0]!.eventos).toContain('recupera');
+    // El motor la trata como «empieza recuperación»: el kit la sustituye por la campana (§6).
+    expect(campanas[0]!.eventos).toContain('campana');
+    expect(campanas[0]!.eventos).not.toContain('recupera');
     // El preaviso de los últimos 10 s suena una vez, antes de la campana.
     expect(tics.filter((x) => x.eventos.includes('preaviso'))).toHaveLength(1);
     // Solo la del MOTOR: si el atleta salta el AMRAP desde Controles no ha acabado el tiempo.
@@ -596,21 +597,17 @@ describe('los avisos de cada caso salen, y suenan como dice §6', () => {
     expect(chipper.filter((x) => esCampana(x.transicion))).toHaveLength(1);
   });
 
-  it('la campana: 3 largas y un tono propio de 3 notas, distinta de «sesión hecha» y de «sensor perdido» por su tono, y cabe en una llamada', () => {
-    expect(fmtPulsos(AVISO_CAMPANA)).toBe('3 largas');
-    expect(AVISO_CAMPANA.tono).toEqual({ melodia: MELODIA_CAMPANA });
-    expect(MELODIA_CAMPANA).toHaveLength(3);
-    expect(perfilesDe(AVISO_CAMPANA.pulsos).map((p) => p.intensidad)).toEqual([100, 0, 100, 0, 100]);
-    expect(perfilesDe(AVISO_CAMPANA.pulsos).length).toBeLessThanOrEqual(MAX_PERFILES);
+  it('la campana es la del kit (§6): 4 largas y 5 notas, distinta de «sesión hecha» y «sensor perdido» por su vibración, y cabe en una llamada', () => {
+    const campana = AVISOS.campana;
+    if (!esAviso(campana)) throw new Error('la campana no tiene aviso');
+    expect(fmtPulsos(campana)).toBe('4 largas');
+    expect(perfilesDe(campana.pulsos).length).toBeLessThanOrEqual(MAX_PERFILES);
     for (const e of ['sesion', 'enlace'] as const) {
       const otra = AVISOS[e];
-      expect(esAviso(otra) && fmtPulsos(otra), 'HUECO DEL MODELO: la vibración de la campana es la de «sesión hecha» y «sensor perdido»').toBe('3 largas');
-      expect(esAviso(otra) && 'sistema' in otra.tono, 'pero su tono es de sistema, no una melodía').toBe(true);
+      expect(esAviso(otra) && fmtPulsos(otra), `«${e}» vibra distinto que la campana`).not.toBe(fmtPulsos(campana));
     }
     // La prioridad la pone por encima de lo que puede coincidir en el mismo segundo.
-    for (const a of Object.values(AVISOS).filter(esAviso)) expect(AVISO_CAMPANA.prioridad).toBeGreaterThan(a.prioridad);
-    expect(emisionCampana(3).linea).toBe(LINEA_CAMPANA);
-    expect(LINEA_CAMPANA).toContain('3 largas');
+    for (const a of Object.values(AVISOS).filter(esAviso)) if (a !== campana) expect(campana.prioridad).toBeGreaterThan(a.prioridad);
   });
 
   it('amrap-506: tras la campana, 3-2-1 al Run de 800 m y el GO (a pantalla entera del kit)', () => {
@@ -667,7 +664,7 @@ function botonesDe(html: string): Record<string, string> {
 describe('los botones de la familia son los de §5', () => {
   it('cada fila de §5 que usa la familia dice en el documento lo que dice la tabla del código', () => {
     const porNombre = new Map(Object.entries(FILA_MODELO).map(([e, n]) => [n, e as EstadoMandos]));
-    for (const estado of ['paso', 'deshacer', 'recupera', 'fuerza', 'amrap', 'pausa', 'controles'] as const) {
+    for (const estado of ['paso', 'deshacer', 'recupera', 'fuerza', 'amrap', 'ventana', 'campana', 'pausa', 'controles'] as const) {
       const fila = TABLA_MANDOS.find((f) => porNombre.get(f[0]!) === estado)!;
       BOTONES_TABLA.forEach((b, k) => {
         const celda = normal(fila[k + 1]!);
@@ -678,7 +675,7 @@ describe('los botones de la familia son los de §5', () => {
     }
   });
 
-  it('AMRAP / puntuación (§5): START pausa, BACK/LAP ronda hecha, UP reps +1, DOWN reps −1, UP largo Controles', () => {
+  it('AMRAP con ≥ 2 movimientos (§5): START pausa, BACK/LAP ronda hecha, UP reps +1, DOWN reps −1, UP largo Controles', () => {
     const f = MANDOS.amrap;
     expect(f.start?.accion).toBe('pausa');
     expect(f.back?.accion).toBe('ronda-hecha');
@@ -689,38 +686,40 @@ describe('los botones de la familia son los de §5', () => {
     expect(controlesPorDefecto({ paso: { rol: 'trabajo' }, plan: { pasos: [] } } as never, 'amrap').slice(1, 4)).toEqual(['datos', 'vueltas', 'estructura']);
   });
 
-  it('un AMRAP siempre lleva Datos, Vueltas y Estructura en Controles, también en los 5 s de un deshacer (cuando el kit no los daría)', () => {
+  it('un AMRAP siempre lleva Datos, Rondas y Estructura en Controles (UP/DOWN cuentan reps), también en los 5 s de un deshacer', () => {
     const { plan } = casoGarminWod('amrap-15').datos;
     for (const i of [0, 1]) {
-      const c = controlesDeWod(plan.pasos[i]!, ['pausa', 'saltar', 'terminar', 'descartar'], plan.pasos);
+      const paso = plan.pasos[i]!;
+      const c = controlesPorDefecto({ paso, plan, pausado: false } as unknown as Parameters<typeof controlesPorDefecto>[0], estadoDelPaso(paso));
       expect(c.slice(0, 4), `paso ${i}`).toEqual(['pausa', 'datos', 'vueltas', 'estructura']);
       expect(c).not.toContain('entorno');
     }
     // Y solo el AMRAP: un EMOM no los mete en Controles (sus páginas van por UP/DOWN).
     const emom = casoGarminWod('emom-alterno').datos.plan;
-    expect(controlesDeWod(emom.pasos[0]!, ['pausa', 'saltar'], emom.pasos)).toEqual(['pausa', 'saltar']);
+    const c = controlesPorDefecto({ paso: emom.pasos[0]!, plan: emom, pausado: false } as unknown as Parameters<typeof controlesPorDefecto>[0], estadoDelPaso(emom.pasos[0]!));
+    expect(c).not.toContain('datos');
   });
 
-  it('cada tipo de paso del WOD elige una fila de §5 y dice qué hace BACK/LAP', () => {
-    const esperado: Record<TipoMando, { fila: EstadoMandos | null; back: string; accion: string | null }> = {
-      'emom-tarea': { fila: 'fuerza', back: 'tarea-hecha', accion: 'serie-hecha' },
-      'emom-ventana': { fila: 'paso', back: 'nada', accion: 'siguiente-paso' },
-      'amrap-rondas': { fila: 'amrap', back: 'ronda-hecha', accion: 'ronda-hecha' },
-      'amrap-reps': { fila: 'amrap', back: 'nada', accion: 'ronda-hecha' },
-      puntuacion: { fila: 'amrap', back: 'guardar', accion: 'ronda-hecha' },
-      pared: { fila: null, back: 'nada', accion: null },
-      kit: { fila: null, back: 'kit', accion: null },
+  it('cada tipo de paso del WOD cae en una fila de §5: el EMOM la dice el WOD; el AMRAP y el Tabata, el kit', () => {
+    const esperado: Record<TipoMando, { emom: EstadoMandos | null; kit: EstadoMandos | null; back: string | null }> = {
+      'emom-tarea': { emom: 'fuerza', kit: null, back: 'serie-hecha' },
+      'emom-ventana': { emom: 'ventana', kit: null, back: 'sin-efecto' },
+      'amrap-rondas': { emom: null, kit: 'amrap', back: 'ronda-hecha' },
+      'amrap-reps': { emom: null, kit: 'ventana', back: 'sin-efecto' },
+      puntuacion: { emom: null, kit: 'campana', back: 'ronda-hecha' },
+      pared: { emom: null, kit: 'ventana', back: 'sin-efecto' },
+      kit: { emom: null, kit: null, back: null },
     };
     for (const [tipo, e] of Object.entries(esperado) as Array<[TipoMando, (typeof esperado)[TipoMando]]>) {
-      expect(ESTADO_DE_MANDOS[tipo], tipo).toBe(e.fila);
-      expect(QUE_HACE_BACK[tipo], tipo).toBe(e.back);
-      if (e.fila && e.accion) expect(MANDOS[e.fila].back?.accion, tipo).toBe(e.accion);
+      expect(ESTADO_DE_EMOM[tipo] ?? null, tipo).toBe(e.emom);
+      const fila = e.emom ?? e.kit;
+      if (fila && e.back) expect(MANDOS[fila].back?.accion, tipo).toBe(e.back);
     }
   });
 
   it('las «ventanas que cierra el reloj» son las únicas donde BACK/LAP no hace nada: un BACK sudado no se salta una ventana', () => {
-    const sinBack = (Object.keys(QUE_HACE_BACK) as TipoMando[]).filter((t) => QUE_HACE_BACK[t] === 'nada');
-    expect(sinBack.sort()).toEqual(['amrap-reps', 'emom-ventana', 'pared']);
+    const sinBack = (Object.keys(MANDOS) as EstadoMandos[]).filter((e) => MANDOS[e].back?.accion === 'sin-efecto');
+    expect(sinBack).toEqual(['ventana']);
   });
 
   it('el estado de cada escenario en el vivo es el de su primer paso, y así lo dice la carcasa', () => {
@@ -729,14 +728,16 @@ describe('los botones de la familia son los de §5', () => {
       const { plan } = c.datos;
       const wod = estadoWodInicial(plan, c.wod);
       const paso = plan.pasos[c.inicio.i]!;
-      const base: EstadoMandos = paso.rol === 'trabajo' ? 'paso' : 'recupera';
-      const esperado = ESTADO_DE_MANDOS[tipoDeMando(paso, wod)] ?? base;
+      const tipo = tipoDeMando(paso, wod);
+      const esperado = ESTADO_DE_EMOM[tipo] ?? estadoDelPaso(paso);
       const html = renderToStaticMarkup(createElement(Screen, { orientation: 'portrait', appearance: 'dark', escenario: id, vista: 'propuesta', onLog: () => {} }));
       const b = botonesDe(html);
       expect(b['START/STOP'], `${id} · START`).toBe(MANDOS[esperado].start!.rotulo);
       expect(b['BACK/LAP'], `${id} · BACK/LAP`).toBe(MANDOS[esperado].back!.rotulo);
-      expect(b['UP'], `${id} · UP`).toBe(MANDOS[esperado].up!.rotulo);
-      expect(b['DOWN'], `${id} · DOWN`).toBe(MANDOS[esperado].down!.rotulo);
+      // El AMRAP de UN movimiento cuenta reps en UP/DOWN aunque su fila sea la de la ventana.
+      const cuentaReps = esperado === 'ventana' && wodDe(paso)?.formato === 'amrap';
+      expect(b['UP'], `${id} · UP`).toBe(cuentaReps ? MANDOS.amrap.up!.rotulo : MANDOS[esperado].up!.rotulo);
+      expect(b['DOWN'], `${id} · DOWN`).toBe(cuentaReps ? MANDOS.amrap.down!.rotulo : MANDOS[esperado].down!.rotulo);
       expect(b['LIGHT'], `${id} · LIGHT`).toBe('Luz');
     }
   });

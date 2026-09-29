@@ -49,7 +49,7 @@
 //                 lineaDeDato (la `LineaVista` de la lámina en su fila), heroeEn.
 //   caras.ts      Las caras del vivo, PURAS: disponerPaso(lamina) (G09),
 //                 disponerRecupera, disponerDescanso, disponerCuenta (3-2-1/GO),
-//                 disponerKm, disponerPausa, disponerDeshacer, avisoQueCabe,
+//                 disponerKm, disponerPausa, disponerDeshacer,
 //                 disponerCompletada; lineasContexto, lineasApoyo, disponerBanda.
 //   paginas.ts    disponerDatos, disponerVueltas, disponerEstructura, disponerMenu
 //                 (Controles y sus confirmaciones), disponerDescartada.
@@ -65,6 +65,8 @@
 //                 Cifras (tabulares a mano), LineaPintada, HeroePintado, PistaPintada,
 //                 PintaDisposicion (pinta una disposición), Tapa, colorDe.
 //   aro.tsx       AroGarmin (la sesión en el borde; destella en un aviso fuera).
+//   lista.tsx     ListaEstructura (la lista con ventana: la página Estructura y la
+//                 Estructura completa del brief), ProveeLista, MoverLista, filasDeEstructura.
 //   pantalla.tsx  CaraPaso, CaraRecupera, CaraDescanso, CaraCuenta, CaraKm, CaraPausa,
 //                 CaraCompletada, CaraDescartada, FranjaDeshacer, CaraMenu,
 //                 PaginaDatos, PaginaVueltas, PaginaEstructura; caraPorDefecto,
@@ -73,8 +75,10 @@
 //                 reposo, táctil solo fuera del vivo, selector de tamaño, lector),
 //                 useEncaje.
 //   comparar.tsx  ComparaTamanos (los cuatro relojes a 1:1).
+//   controles.ts  IdControl, TEXTO_CONTROL, ENTORNOS, estadoDelPaso (la fila de §5
+//                 que dice el paso), controlesPorDefecto.
 //   vivo.tsx      useVivoGarmin, VistaGarmin, VivoGarminDePlan, hechoDe,
-//                 controlesPorDefecto/IdControl, PaginaGarmin.
+//                 ContextoAccion, PaginaGarmin.
 //
 // ── LO QUE NO SE NEGOCIA ────────────────────────────────────────────────────
 //
@@ -108,7 +112,9 @@ export * from './mandos';
 export * from './avisos';
 export * from './pintar';
 export * from './aro';
+export * from './lista';
 export * from './pantalla';
 export * from './carcasa';
 export * from './comparar';
+export * from './controles';
 export * from './vivo';

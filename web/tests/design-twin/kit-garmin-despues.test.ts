@@ -42,7 +42,7 @@ import { avanzar, cerrar, estadoInicial, lecturasDe, pasoVivo } from '@/componen
 import { Screen, escenarios } from '@/components/design-twin/screens/garmin-despues';
 import { IDS_DE_CASOS, casoDespues, resultadoLibre, resultadoRecuperado, resultadoTerminado } from '@/components/design-twin/screens/garmin-despues/casos';
 import { ALTO_NOTA, apilarTexto, type DisposicionFin } from '@/components/design-twin/screens/garmin-despues/comun';
-import { ESTADOS_ENVIO, TEXTO_ENVIO, disponerEnvio, notaDeRpe, pideDecidir, type EstadoEnvio } from '@/components/design-twin/screens/garmin-despues/envio';
+import { ESTADOS_ENVIO, TEXTO_ENVIO, disponerEnvio, notaDeRpe, type EstadoEnvio } from '@/components/design-twin/screens/garmin-despues/envio';
 import { disponerFin, motivoDe, tituloFin, type DatosFin } from '@/components/design-twin/screens/garmin-despues/fin';
 import { FILAS_POR_PAGINA, disponerLista, filasDePagina, repartoEnPaginas, type FilaLista } from '@/components/design-twin/screens/garmin-despues/lista';
 import { mandoDe, type PantallaFin } from '@/components/design-twin/screens/garmin-despues/mandosFin';
@@ -148,7 +148,7 @@ const SESIONES: Array<{ id: string; r: Resultado; familia: Familia }> = [
   { id: 'cortada', r: { ...R6, series: R6.series.map((s, k) => (k === 2 ? { ...s, metros: 620, segundos: 150, ritmo: 242, veredicto: null } : s)) }, familia: 'correr' },
 ];
 
-const ENVIOS: Array<{ estado: EstadoEnvio; intentos: number }> = [...ESTADOS_ENVIO.map((estado) => ({ estado, intentos: 1 })), { estado: 'rechazado', intentos: 2 }];
+const ENVIOS: Array<{ estado: EstadoEnvio }> = ESTADOS_ENVIO.map((estado) => ({ estado }));
 
 // ---------------------------------------------------------------------------
 // G27 · la sesión completada
@@ -261,7 +261,7 @@ describe('G28 · el RPE de 0 a 10 con su palabra', () => {
 describe('cada página del resumen de cada sesión cabe en los cuatro relojes', () => {
   for (const s of SESIONES) {
     for (const e of ENVIOS) {
-      it(`${s.id} · envío ${e.estado}${e.intentos > 1 ? ' (2.ª vez)' : ''}`, () => {
+      it(`${s.id} · envío ${e.estado}`, () => {
         const paginas = paginasDeResumen(s.r, s.familia, completitud(s.r), { metodo: METODO_RESUMEN_DEFECTO, envio: e });
         expect(paginas.length, 'una sesión siempre tiene al menos su resumen y su envío').toBeGreaterThanOrEqual(2);
         expect(paginas[paginas.length - 1]!.envio, 'la última página es SIEMPRE la del envío').toBe(true);
@@ -353,7 +353,7 @@ describe('cada ejercicio de fuerza cabe, con su carga, su RIR y lo que se quedó
 describe('las cuentas del resumen son las de la muñeca', () => {
   it('529: 22 de 22 series, 3 sin anotar; el volumen solo suma lo que lleva carga', () => {
     const r = resultado529();
-    const p = paginasDeResumen({ ...r, rpe: 7 }, 'fuerza', completitud(r), { metodo: METODO_RESUMEN_DEFECTO, envio: { estado: 'en-reloj', intentos: 0 } });
+    const p = paginasDeResumen({ ...r, rpe: 7 }, 'fuerza', completitud(r), { metodo: METODO_RESUMEN_DEFECTO, envio: { estado: 'en-reloj' } });
     const d = p[0]!.disponer(454);
     expect(d.heroe?.texto).toBe('22/22');
     expect(d.heroe?.unidad).toBe('series');
@@ -364,14 +364,14 @@ describe('las cuentas del resumen son las de la muñeca', () => {
   });
   it('493: el coste sale en s/km sobre el fresco (+14) con 4 pares; 482 no lo da con 3 y dice cuántos hay', () => {
     const coste = (r: Resultado, familia: Familia) => {
-      const p = paginasDeResumen(r, familia, completitud(r), { metodo: METODO_RESUMEN_DEFECTO, envio: { estado: 'en-reloj', intentos: 0 } });
+      const p = paginasDeResumen(r, familia, completitud(r), { metodo: METODO_RESUMEN_DEFECTO, envio: { estado: 'en-reloj' } });
       return p.find((x) => x.id === 'coste')!.disponer(454);
     };
     const hay = coste(resultado493(), 'circuito');
     expect([hay.heroe?.texto, hay.heroe?.unidad]).toEqual(['+14', 's/km']);
     // El cálculo sigue en prueba (Alex, 25-09): «En prueba» no se pierde en ningún reloj.
     for (const { D } of TAMANOS) {
-      const p = paginasDeResumen(resultado493(), 'circuito', completitud(resultado493()), { metodo: METODO_RESUMEN_DEFECTO, envio: { estado: 'en-reloj', intentos: 0 } });
+      const p = paginasDeResumen(resultado493(), 'circuito', completitud(resultado493()), { metodo: METODO_RESUMEN_DEFECTO, envio: { estado: 'en-reloj' } });
       const txt = p.find((x) => x.id === 'coste')!.disponer(D).lineas.map((l) => l.piezas.map((q) => q.texto).join('')).join(' | ');
       expect(txt, `a ${D}`).toContain('En prueba');
     }
@@ -382,10 +382,10 @@ describe('las cuentas del resumen son las de la muñeca', () => {
     expect(texto).toContain('Aún sin coste');
   });
   it('6 × 1000 m: «5/6 dentro» y el ritmo de las series, no la media; 494: la distancia manda', () => {
-    const p6 = paginasDeResumen(R6, 'correr', completitud(R6), { metodo: METODO_RESUMEN_DEFECTO, envio: { estado: 'en-reloj', intentos: 0 } });
+    const p6 = paginasDeResumen(R6, 'correr', completitud(R6), { metodo: METODO_RESUMEN_DEFECTO, envio: { estado: 'en-reloj' } });
     expect([p6[0]!.disponer(454).heroe?.texto, p6[0]!.disponer(454).heroe?.unidad]).toEqual(['5/6', 'dentro']);
     const r494 = { ...resultado494(), rpe: 5 };
-    const p494 = paginasDeResumen(r494, 'correr', completitud(r494), { metodo: METODO_RESUMEN_DEFECTO, envio: { estado: 'en-reloj', intentos: 0 } });
+    const p494 = paginasDeResumen(r494, 'correr', completitud(r494), { metodo: METODO_RESUMEN_DEFECTO, envio: { estado: 'en-reloj' } });
     expect([p494[0]!.disponer(454).heroe?.texto, p494[0]!.disponer(454).heroe?.unidad]).toEqual(['16,49', 'km']);
     // 17 km en tres páginas de 6, 6 y 5; no hay series.
     expect(p494.filter((x) => x.id.startsWith('km-')).length).toBe(3);
@@ -400,11 +400,22 @@ describe('las cuentas del resumen son las de la muñeca', () => {
 describe('G31 · el estado de envío dice lo que el reloj sabe', () => {
   it('cada estado, con y sin RPE y con el RPE 0 (que es «nada», no «sin RPE»), cabe en los cuatro relojes', () => {
     for (const estado of ESTADOS_ENVIO) for (const rpe of [null, 0, 7, 10]) enTodos((D) => disponerEnvio(estado, rpe, D), `envío ${estado} RPE ${rpe}`);
-    enTodos((D) => disponerEnvio('rechazado', 7, D, { intentos: 2 }), 'envío rechazado 2.ª vez');
   });
 
-  it('solo el rechazo pide una decisión al atleta; «reintentando» no le pide nada', () => {
-    expect(ESTADOS_ENVIO.filter(pideDecidir)).toEqual(['rechazado']);
+  it('no existe «rechazado con Reintentar»: ningún estado de envío pide un botón de reintento al atleta', () => {
+    for (const e of ESTADOS_ENVIO) {
+      const t = TEXTO_ENVIO[e];
+      expect(e, 'un 4xx no es un estado: el servidor nunca rechaza un entreno con trabajo').not.toMatch(/rechaz|sin-subir/);
+      expect(`${t.titulo} ${t.detalle}`, e).not.toMatch(/reintentar|rechaz|no la ha aceptado/i);
+    }
+  });
+
+  it('la sesión caducada dice qué hacer (vincular otra vez) y que el entreno espera; el servidor que no contesta, que lo reintenta solo', () => {
+    expect(TEXTO_ENVIO['sesion-caducada'].titulo).toBe('Sesión caducada');
+    expect(TEXTO_ENVIO['sesion-caducada'].detalle).toMatch(/vincular/i);
+    expect(TEXTO_ENVIO['sesion-caducada'].detalle).toMatch(/espera/i);
+    expect(TEXTO_ENVIO['servidor-no-responde'].titulo).toBe('El servidor no contesta');
+    expect(TEXTO_ENVIO['servidor-no-responde'].detalle).toMatch(/reintento solo/i);
   });
 
   it('nunca dice «Guardado en el iPhone», nunca promete Garmin Connect y solo «Enviado» es «enviado»', () => {
@@ -417,20 +428,15 @@ describe('G31 · el estado de envío dice lo que el reloj sabe', () => {
     expect(TEXTO_ENVIO['en-reloj'].detalle).toBe('Sube al tener el móvil');
   });
 
-  it('cada estado tiene su glifo, y por su forma se distinguen (los del reloj y el del sin-subir coinciden a propósito: ambos «en el reloj»)', () => {
+  it('cada estado tiene su glifo, y por su forma se distinguen (el servidor que no contesta y la falta de cobertura comparten el suyo a propósito: ambos «lo reintento solo»)', () => {
     const glifos = new Map(ESTADOS_ENVIO.map((e) => [e, TEXTO_ENVIO[e].glifo]));
     expect(glifos.get('enviado')).toBe('visto');
-    expect(glifos.get('rechazado')).toBe('aviso');
+    expect(glifos.get('sesion-caducada')).toBe('aviso');
     expect(glifos.get('reintentando')).toBe('reintento');
+    expect(glifos.get('servidor-no-responde')).toBe(glifos.get('reintentando'));
     expect(glifos.get('enviando')).toBe('nube');
-    expect(glifos.get('en-reloj')).toBe(glifos.get('sin-subir'));
+    expect(glifos.get('en-reloj')).toBe('reloj');
     expect(new Set([...glifos.values()]).size).toBe(5);
-  });
-
-  it('un rechazo repetido lo dice: repetirlo da lo mismo', () => {
-    const texto = (intentos: number) => disponerEnvio('rechazado', 7, 454, { intentos }).lineas.filter((l) => l.rol === 'detalle').map((l) => l.piezas.map((p) => p.texto).join('')).join(' ');
-    expect(texto(1)).toContain('El servidor no la ha aceptado');
-    expect(texto(2)).toContain('Sigue sin aceptarla');
   });
 });
 
@@ -456,7 +462,9 @@ describe('un texto apilado parte por partes y cada línea con SU cuerda', () => 
 // ---------------------------------------------------------------------------
 
 const TABLA_MANDOS = tablaDe('## 5. Interacción');
-const TABLA = (b: BotonGarmin) => accionDe('resumen', b);
+/** La celda de §5 que rige una pantalla: la fila «RPE» en el RPE, la fila «Resumen» en todo lo demás. */
+const FILA_DE = (p: PantallaFin) => (p.tipo === 'rpe' ? 'rpe' : 'resumen');
+const TABLA = (b: BotonGarmin, p: PantallaFin = { tipo: 'guardada' }) => accionDe(FILA_DE(p), b);
 
 /** Todas las pantallas de después, con lo que cada una tiene que decir en §5. */
 const PANTALLAS: Array<[string, PantallaFin]> = [
@@ -464,81 +472,84 @@ const PANTALLAS: Array<[string, PantallaFin]> = [
   ['G27 guardada', { tipo: 'guardada' }],
   ['G28 RPE sin valor', { tipo: 'rpe', conValor: false }],
   ['G28 RPE con valor', { tipo: 'rpe', conValor: true }],
-  ['resumen · primera', { tipo: 'pagina', n: 0, de: 5, rechazo: false }],
-  ['resumen · intermedia', { tipo: 'pagina', n: 2, de: 5, rechazo: false }],
-  ['resumen · última', { tipo: 'pagina', n: 4, de: 5, rechazo: false }],
-  ['resumen · envío rechazado', { tipo: 'pagina', n: 4, de: 5, rechazo: true }],
+  ['resumen · primera', { tipo: 'pagina', n: 0, de: 5 }],
+  ['resumen · intermedia', { tipo: 'pagina', n: 2, de: 5 }],
+  ['resumen · última', { tipo: 'pagina', n: 4, de: 5 }],
   ['salida', { tipo: 'salida' }],
 ];
 
 describe('los botones de después son los de §5, sin inventar ninguno', () => {
-  const filaResumen = TABLA_MANDOS.find((f) => normal(f[0]!) === 'RPE / Resumen')!;
+  const fila = (nombre: string) => TABLA_MANDOS.find((f) => normal(f[0]!) === nombre)!;
 
-  it('la fila de §5 que manda es «RPE / Resumen»: START confirmar / siguiente, BACK atrás, UP valor +, DOWN valor −', () => {
-    expect(filaResumen.slice(1, 5).map(normal)).toEqual(['confirmar / siguiente', 'atrás', 'valor +', 'valor −']);
+  it('§5 tiene DOS filas: «RPE» (START confirmar, BACK omitir, UP valor +, DOWN valor −) y «Resumen» (START siguiente página / Hecho, BACK atrás / Seguir, UP y DOWN página)', () => {
+    expect(fila('RPE').slice(1, 5).map(normal)).toEqual(['confirmar', 'omitir', 'valor +', 'valor −']);
+    expect(fila('Resumen').slice(1, 5).map(normal)).toEqual(['siguiente página / Hecho', 'atrás / Seguir', 'página anterior', 'página siguiente']);
+    expect(MANDOS.rpe.start?.accion).toBe('confirmar');
+    expect(MANDOS.rpe.back?.accion).toBe('omitir');
     expect(MANDOS.resumen.start?.accion).toBe('confirmar');
     expect(MANDOS.resumen.back?.accion).toBe('atras');
+    expect(MANDOS.resumen.up?.accion).toBe('pagina-anterior');
   });
 
   for (const [nombre, p] of PANTALLAS) {
     it(`${nombre}: toda tecla que responde lo hace con una acción de §5`, () => {
+      const fila = MANDOS[FILA_DE(p)];
       const permitidas: Record<string, Set<string>> = {
-        start: new Set(['confirmar']),
-        back: new Set(['atras']),
-        up: new Set([MANDOS.resumen.up!.accion, MANDOS.paso.up!.accion]),
-        down: new Set([MANDOS.resumen.down!.accion, MANDOS.paso.down!.accion]),
+        start: new Set([fila.start!.accion]),
+        back: new Set([fila.back!.accion]),
+        up: new Set([fila.up!.accion]),
+        down: new Set([fila.down!.accion]),
       };
       for (const b of ['start', 'back', 'up', 'down'] as const) {
-        const m = mandoDe(p, b, TABLA(b));
+        const m = mandoDe(p, b, TABLA(b, p));
         if (m) {
           expect(permitidas[b]!.has(m.accion), `${nombre} · ${b}: «${m.accion}»`).toBe(true);
           expect(m.rotulo.trim().length, `${nombre} · ${b}: sin rótulo`).toBeGreaterThan(0);
         }
       }
       // LIGHT es del sistema; UP largo no existe en el resumen: la tabla de §5, tal cual.
-      expect(mandoDe(p, 'light', TABLA('light'))).toEqual(TABLA('light'));
-      expect(mandoDe(p, 'upLargo', TABLA('upLargo'))).toEqual(TABLA('upLargo'));
-      expect(TABLA('upLargo')).toBeNull();
+      expect(mandoDe(p, 'light', TABLA('light', p))).toEqual(TABLA('light', p));
+      expect(mandoDe(p, 'upLargo', TABLA('upLargo', p))).toEqual(TABLA('upLargo', p));
+      expect(TABLA('upLargo', p)).toBeNull();
     });
   }
 
   it('el «+» y el «−» solo se rotulan donde hay un valor que mover (el RPE), y ahí sí', () => {
     for (const [nombre, p] of PANTALLAS) {
       for (const b of ['up', 'down'] as const) {
-        const m = mandoDe(p, b, TABLA(b));
+        const m = mandoDe(p, b, TABLA(b, p));
         const esValor = m?.rotulo === '+' || m?.rotulo === '−';
         expect(esValor, `${nombre} · ${b}`).toBe(p.tipo === 'rpe');
       }
     }
-    expect(mandoDe({ tipo: 'rpe', conValor: false }, 'up', TABLA('up'))?.rotulo).toBe('+');
-    expect(mandoDe({ tipo: 'rpe', conValor: false }, 'down', TABLA('down'))?.rotulo).toBe('−');
+    const rpe: PantallaFin = { tipo: 'rpe', conValor: false };
+    expect(mandoDe(rpe, 'up', TABLA('up', rpe))?.rotulo).toBe('+');
+    expect(mandoDe(rpe, 'down', TABLA('down', rpe))?.rotulo).toBe('−');
   });
 
   it('lo que rotula cada pantalla es lo que hace', () => {
-    const r = (p: PantallaFin, b: BotonGarmin) => mandoDe(p, b, TABLA(b))?.rotulo ?? null;
+    const r = (p: PantallaFin, b: BotonGarmin) => mandoDe(p, b, TABLA(b, p))?.rotulo ?? null;
     expect([r({ tipo: 'decide' }, 'start'), r({ tipo: 'decide' }, 'back'), r({ tipo: 'decide' }, 'up'), r({ tipo: 'decide' }, 'down')]).toEqual(['Guardar', 'Seguir', null, null]);
     expect([r({ tipo: 'guardada' }, 'start'), r({ tipo: 'guardada' }, 'back')]).toEqual(['Siguiente', null]);
-    // Sin valor no hay nada que confirmar; con valor, sí. Saltar siempre está.
+    // Sin valor no hay nada que confirmar; con valor, sí. Omitir siempre está.
     expect(r({ tipo: 'rpe', conValor: false }, 'start')).toBeNull();
     expect(r({ tipo: 'rpe', conValor: true }, 'start')).toBe('Confirmar');
-    expect(r({ tipo: 'rpe', conValor: false }, 'back')).toBe('Saltar');
+    expect(r({ tipo: 'rpe', conValor: false }, 'back')).toBe('Omitir');
     // En el resumen: UP y DOWN pasan página, START siguiente (Listo en la última), BACK atrás (nada en la primera).
-    expect(r({ tipo: 'pagina', n: 0, de: 5, rechazo: false }, 'back')).toBeNull();
-    expect(r({ tipo: 'pagina', n: 1, de: 5, rechazo: false }, 'back')).toBe('Atrás');
-    expect(r({ tipo: 'pagina', n: 3, de: 5, rechazo: false }, 'start')).toBe('Siguiente');
-    expect(r({ tipo: 'pagina', n: 4, de: 5, rechazo: false }, 'start')).toBe('Listo');
-    expect(mandoDe({ tipo: 'pagina', n: 1, de: 5, rechazo: false }, 'up', TABLA('up'))?.accion).toBe('pagina-anterior');
-    expect(mandoDe({ tipo: 'pagina', n: 1, de: 5, rechazo: false }, 'down', TABLA('down'))?.accion).toBe('pagina-siguiente');
-    // El rechazo decide: START reintenta, BACK deja la sesión en el reloj.
-    expect(r({ tipo: 'pagina', n: 4, de: 5, rechazo: true }, 'start')).toBe('Reintentar');
-    expect(r({ tipo: 'pagina', n: 4, de: 5, rechazo: true }, 'back')).toBe('Guardar en el reloj');
+    expect(r({ tipo: 'pagina', n: 0, de: 5 }, 'back')).toBeNull();
+    expect(r({ tipo: 'pagina', n: 1, de: 5 }, 'back')).toBe('Atrás');
+    expect(r({ tipo: 'pagina', n: 3, de: 5 }, 'start')).toBe('Siguiente');
+    expect(r({ tipo: 'pagina', n: 4, de: 5 }, 'start')).toBe('Listo');
+    const pag: PantallaFin = { tipo: 'pagina', n: 1, de: 5 };
+    expect(mandoDe(pag, 'up', TABLA('up', pag))?.accion).toBe('pagina-anterior');
+    expect(mandoDe(pag, 'down', TABLA('down', pag))?.accion).toBe('pagina-siguiente');
   });
 
   it('lo que dice §5 (`dice`) no se toca: solo cambia el rótulo', () => {
     for (const [, p] of PANTALLAS) {
       for (const b of ['start', 'back'] as const) {
-        const m = mandoDe(p, b, TABLA(b));
-        if (m) expect(m.dice).toBe(MANDOS.resumen[b]!.dice);
+        const m = mandoDe(p, b, TABLA(b, p));
+        if (m) expect(m.dice).toBe(MANDOS[FILA_DE(p)][b]!.dice);
       }
     }
   });
@@ -558,8 +569,8 @@ describe('la carcasa de cada escenario, renderizada de verdad, dice lo que dice 
     recuperada: { tipo: 'guardada' },
     rpe: { tipo: 'rpe', conValor: false },
     'rpe-omitido': { tipo: 'rpe', conValor: false },
-    'resumen-479': { tipo: 'pagina', n: 0, de: 0, rechazo: false },
-    'resumen-529': { tipo: 'pagina', n: 0, de: 0, rechazo: false },
+    'resumen-479': { tipo: 'pagina', n: 0, de: 0 },
+    'resumen-529': { tipo: 'pagina', n: 0, de: 0 },
     'final-natural': 'paso',
     'final-parcial': 'controles',
     'hueco-tirada': 'paso',
@@ -575,7 +586,8 @@ describe('la carcasa de cada escenario, renderizada de verdad, dice lo que dice 
         expect(b['BACK/LAP'], `${id} · BACK/LAP`).toBe(MANDOS[entrada].back!.rotulo);
         return;
       }
-      const de = (boton: BotonGarmin) => mandoDe(entrada.tipo === 'pagina' ? { ...entrada, de: 6 } : entrada, boton, TABLA(boton))?.rotulo ?? '';
+      const pantalla = entrada.tipo === 'pagina' ? { ...entrada, de: 6 } : entrada;
+      const de = (boton: BotonGarmin) => mandoDe(pantalla, boton, TABLA(boton, pantalla))?.rotulo ?? '';
       expect(b['START/STOP'], `${id} · START`).toBe(de('start'));
       expect(b['BACK/LAP'], `${id} · BACK/LAP`).toBe(de('back'));
       expect(b['UP'], `${id} · UP`).toBe(de('up'));

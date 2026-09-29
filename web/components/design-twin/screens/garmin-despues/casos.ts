@@ -19,7 +19,7 @@ import { ZONAS, correrLibre, sesion479Brief, sesion482, sesion493, sesion494Brie
 import type { AcuseEnvio, Escena } from './escena';
 
 /** Una cara que se enseña en los cuatro tamaños a la vez (la comparación). */
-export type CaraComparada = 'fin-natural' | 'fin-parcial' | 'rpe' | 'resumen-correr' | 'envio-rechazado';
+export type CaraComparada = 'fin-natural' | 'fin-parcial' | 'rpe' | 'resumen-correr' | 'envio-caducada';
 
 export interface CasoDespues {
   escena?: Escena;
@@ -181,11 +181,26 @@ const CASOS: Record<string, () => CasoDespues> = {
       inicialResumen: { pagina: 99 },
     },
   }),
-  rechazado: () => ({
+  'sesion-caducada': () => ({
     escena: {
       sesion: sesion479Brief(),
       arranque: { en: 'resumen', r: { ...resultado479(), rpe: 8 } },
-      envio: { inicial: 'enviando', acuses: [{ en: 1500, estado: 'rechazado' }] },
+      envio: { inicial: 'enviando', acuses: [{ en: 1500, estado: 'sesion-caducada' }] },
+      inicialResumen: { pagina: 99 },
+    },
+  }),
+  'servidor-no-responde': () => ({
+    escena: {
+      sesion: sesion479Brief(),
+      arranque: { en: 'resumen', r: { ...resultado479(), rpe: 8 } },
+      envio: {
+        inicial: 'enviando',
+        acuses: [
+          { en: 1500, estado: 'servidor-no-responde' },
+          { en: 11000, estado: 'enviando' },
+          { en: 12500, estado: 'enviado' },
+        ],
+      },
       inicialResumen: { pagina: 99 },
     },
   }),
@@ -193,7 +208,7 @@ const CASOS: Record<string, () => CasoDespues> = {
   'tamanos-parcial': () => ({ comparar: 'fin-parcial' }),
   'tamanos-rpe': () => ({ comparar: 'rpe' }),
   'tamanos-resumen': () => ({ comparar: 'resumen-correr' }),
-  'tamanos-rechazo': () => ({ comparar: 'envio-rechazado' }),
+  'tamanos-envio': () => ({ comparar: 'envio-caducada' }),
 };
 
 /** Los escenarios que tienen caso (los tests los cruzan con la lista de la pantalla). */

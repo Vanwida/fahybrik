@@ -38,8 +38,8 @@ export interface PaginaFin {
 
 export interface OpcionesPaginas {
   metodo: MetodoResumen;
-  /** El estado de envío ahora, y cuántos rechazos lleva. */
-  envio: { estado: EstadoEnvio; intentos: number };
+  /** El estado de envío ahora. */
+  envio: { estado: EstadoEnvio };
 }
 
 /** Las páginas del pulso de un resultado: una por cada tanda de zonas (casi siempre una). */
@@ -50,7 +50,7 @@ function paginasDePulso(r: Resultado): PaginaFin[] {
 
 /** La página del envío, la última de todas. */
 function paginaDeEnvio(r: Resultado, o: OpcionesPaginas): PaginaFin {
-  return { id: 'envio', titulo: TEXTO_ENVIO[o.envio.estado].titulo, envio: true, disponer: (D) => disponerEnvio(o.envio.estado, r.rpe, D, { intentos: o.envio.intentos }) };
+  return { id: 'envio', titulo: TEXTO_ENVIO[o.envio.estado].titulo, envio: true, disponer: (D) => disponerEnvio(o.envio.estado, r.rpe, D) };
 }
 
 /** Un ejercicio por página (fuerza, y las Wall Ball de un día de correr). */

@@ -35,7 +35,7 @@ import {
 } from '@/components/design-twin/kit-garmin';
 import { hoyDe } from '@/components/design-twin/kit-reloj';
 import { Screen, escenarios, meta } from '@/components/design-twin/screens/garmin-antes';
-import { avisoDelBrief, contextoDelBrief, disponerBrief } from '@/components/design-twin/screens/garmin-antes/brief';
+import { avisoDelBrief, disponerBrief } from '@/components/design-twin/screens/garmin-antes/brief';
 import { carasDeEscena } from '@/components/design-twin/screens/garmin-antes/caras';
 import { PPM_EN_REPOSO, SISTEMA_LISTO, escenaDe } from '@/components/design-twin/screens/garmin-antes/casos';
 import { completitudDelRescate, opcionesDeAjustes } from '@/components/design-twin/screens/garmin-antes/contenido';
@@ -51,9 +51,9 @@ import {
   usaPulso,
   vistaDeHoy,
 } from '@/components/design-twin/screens/garmin-antes/estado';
-import { bloquesDelBrief, textoMas } from '@/components/design-twin/screens/garmin-antes/estructura';
+import { bloquesDelBrief, duracionDelBrief, partesDelResumen } from '@/components/design-twin/screens/garmin-antes/estructura';
 import { disponerGlance, disponerLista, disponerSinDetalle, filasDeLista, glanceDe } from '@/components/design-twin/screens/garmin-antes/faces';
-import { ESTADO_DE_PANTALLA, EVENTOS_DE_ANTES } from '@/components/design-twin/screens/garmin-antes/pantallas';
+import { ESTADO_DE_PANTALLA, EVENTOS_DE_ANTES, mandoDePantalla, type Pantalla } from '@/components/design-twin/screens/garmin-antes/pantallas';
 import { disponerPrevio, textoDePrevio } from '@/components/design-twin/screens/garmin-antes/previo';
 import {
   OPCIONES_INTERRUMPIDA,
@@ -144,15 +144,19 @@ describe('los botones de la familia son los de §5', () => {
       const estado: EstadoMandos = ESTADO_DE_PANTALLA[escenaDe(id).arranque.p];
       const html = renderToStaticMarkup(createElement(Screen, { orientation: 'portrait', appearance: 'dark', escenario: id, vista: 'propuesta', onLog: () => {} }));
       const b = botonesDe(html);
-      expect(b['START/STOP'], `${id} · START`).toBe(MANDOS[estado].start!.rotulo);
-      expect(b['BACK/LAP'], `${id} · BACK/LAP`).toBe(MANDOS[estado].back!.rotulo);
-      expect(b['UP'], `${id} · UP`).toBe(MANDOS[estado].up!.rotulo);
-      expect(b['DOWN'], `${id} · DOWN`).toBe(MANDOS[estado].down!.rotulo);
+      // La fila de §5, con lo que la pantalla afina: una tecla que no hace nada ahí no se rotula (`teclasDe`).
+      const { arranque, hoy } = escenaDe(id);
+      const elegible = arranque.p === 'brief' && entornoElegible(hoy.sesiones[arranque.k]!.sesion);
+      const rotulo = (boton: 'start' | 'back' | 'up' | 'down') => mandoDePantalla(arranque, elegible, boton, MANDOS[estado][boton])?.rotulo ?? '';
+      expect(b['START/STOP'], `${id} · START`).toBe(rotulo('start'));
+      expect(b['BACK/LAP'], `${id} · BACK/LAP`).toBe(rotulo('back'));
+      expect(b['UP'], `${id} · UP`).toBe(rotulo('up'));
+      expect(b['DOWN'], `${id} · DOWN`).toBe(rotulo('down'));
       expect(b['LIGHT'], `${id} · LIGHT`).toBe('Luz');
     });
   }
 
-  it('las filas de §5 que usa la familia son las del documento: Brief, Controles, Cuenta atrás y Resumen', () => {
+  it('las filas de §5 que usa la familia son las del documento: Brief, Lista del día, Controles, Cuenta atrás y Resumen', () => {
     const porNombre = new Map(Object.entries(FILA_MODELO).map(([est, nombre]) => [nombre, est as EstadoMandos]));
     const usados = new Set(Object.values(ESTADO_DE_PANTALLA).filter((x) => x !== 'paso'));
     for (const estado of usados) {
@@ -167,18 +171,34 @@ describe('los botones de la familia son los de §5', () => {
     // La fila Brief, con lo que la familia hace con ella.
     expect(MANDOS.brief.start?.accion).toBe('empezar');
     expect(MANDOS.brief.back?.accion).toBe('salir');
-    expect(MANDOS.brief.up?.accion).toBe('sesion-anterior');
-    expect(MANDOS.brief.down?.accion).toBe('sesion-siguiente');
+    expect(MANDOS.brief.up?.accion).toBe('cambiar-entorno');
+    expect(MANDOS.brief.down?.accion).toBe('estructura-completa');
     expect(MANDOS.brief.upLargo?.accion).toBe('ajustes');
+    expect(MANDOS['lista-del-dia'].up?.accion).toBe('sesion-anterior');
+    expect(MANDOS['lista-del-dia'].down?.accion).toBe('sesion-siguiente');
     expect(MANDOS.cuenta.start?.accion).toBe('cancelar');
     expect(MANDOS.cuenta.back?.accion).toBe('cancelar');
   });
 
-  it('los menús (Ajustes, sesión interrumpida) usan «Controles»; la cuenta atrás, la suya; todo lo demás, «Brief»', () => {
+  it('los menús (Ajustes, sesión interrumpida) usan «Controles»; la cuenta atrás, la suya; las listas de elegir, «Lista del día»; todo lo demás, «Brief»', () => {
     expect(ESTADO_DE_PANTALLA.ajustes).toBe('controles');
     expect(ESTADO_DE_PANTALLA.interrumpida).toBe('controles');
     expect(ESTADO_DE_PANTALLA.cuenta).toBe('cuenta');
-    for (const p of ['glance', 'lista', 'brief', 'previo', 'espera', 'no-toca', 'sin-plan', 'sin-detalle', 'libre', 'vincular'] as const) expect(ESTADO_DE_PANTALLA[p], p).toBe('brief');
+    for (const p of ['lista', 'libre'] as const) expect(ESTADO_DE_PANTALLA[p], p).toBe('lista-del-dia');
+    for (const p of ['glance', 'brief', 'estructura', 'previo', 'espera', 'no-toca', 'sin-plan', 'sin-detalle', 'vincular'] as const) expect(ESTADO_DE_PANTALLA[p], p).toBe('brief');
+  });
+
+  it('una tecla que no hace nada no se rotula: un glance no «Empieza», una espera de GPS no cambia de entorno, y un plan que fija el entorno no ofrece UP', () => {
+    const rotulo = (p: Pantalla, b: 'start' | 'back' | 'up' | 'down' | 'upLargo', elegible = false) => mandoDePantalla(p, elegible, b, MANDOS[ESTADO_DE_PANTALLA[p.p]][b])?.rotulo ?? null;
+    const glance: Pantalla = { p: 'glance' };
+    expect([rotulo(glance, 'start'), rotulo(glance, 'back'), rotulo(glance, 'up'), rotulo(glance, 'down'), rotulo(glance, 'upLargo')]).toEqual(['Abrir', 'Salir', null, null, null]);
+    const brief: Pantalla = { p: 'brief', k: 0 };
+    expect(rotulo(brief, 'up', true)).toBe('Entorno');
+    expect(rotulo(brief, 'up', false)).toBeNull();
+    expect(rotulo(brief, 'down', false)).toBe('Estructura');
+    const espera = { p: 'espera' } as Pantalla;
+    expect([rotulo(espera, 'start'), rotulo(espera, 'up'), rotulo(espera, 'down')]).toEqual(['Sin GPS', null, null]);
+    expect(rotulo({ p: 'sin-detalle' }, 'start')).toBeNull();
   });
 });
 
@@ -243,7 +263,7 @@ type Clave = keyof typeof SESIONES;
 
 const datosBrief = (k: Clave, sis: Partial<typeof SISTEMA_LISTO> = {}, entorno = entornoEfectivo(SESIONES[k], null, 'calle')) => ({
   sesion: SESIONES[k],
-  contexto: contextoDelBrief(SESIONES[k]),
+  dia: 'Hoy',
   entorno,
   elegible: entornoElegible(SESIONES[k]),
   sistema: { ...SISTEMA_LISTO, ...sis },
@@ -254,7 +274,7 @@ const brief = (k: Clave, sis: Partial<typeof SISTEMA_LISTO>, D: number, entorno 
 
 describe('la estructura del brief es la del coach y no se pierde en silencio', () => {
   for (const [nombre, s] of Object.entries(SESIONES)) {
-    it(`${nombre}: en cada reloj, o está pintada entera o cuenta en el «+ n más»; el título siempre`, () => {
+    it(`${nombre}: en cada reloj, o está pintada entera o hay un resumen «N bloques · duración ↓»; el título siempre, y la duración UNA vez`, () => {
       const bloques = bloquesDelBrief(s.plan.pasos);
       for (const { D } of TAMANOS) {
         const b = disponerBrief(datosBrief(nombre as Clave), D);
@@ -263,14 +283,21 @@ describe('la estructura del brief es la del coach y no se pierde en silencio', (
         expect(e.cabe, `${nombre} a ${D}`).toBe(true);
         expect(e.visibles.length + e.ocultos, `${nombre} a ${D}: nada se cae en silencio`).toBe(bloques.length);
         expect(e.visibles, `${nombre} a ${D}: el título`).toContain(bloques.findIndex((x) => x.peso === 'titulo'));
-        const pintado = plano(b.disposicion.lineas.filter((l) => ['bloque', 'detalle', 'cue', 'mas'].includes(l.rol)).map((l) => l.piezas.map((p) => p.texto).join(' ')).join(' '));
+        const pintado = plano(b.disposicion.lineas.filter((l) => ['bloque', 'detalle', 'cue', 'resumen'].includes(l.rol)).map((l) => l.piezas.map((p) => p.texto).join(' ')).join(' '));
         // Cada bloque visible está entero: su línea y todo su detalle, tal como lo escribió el coach.
         for (const k of e.visibles) {
           expect(pintado, `${nombre} a ${D}: «${bloques[k]!.linea}»`).toContain(plano(bloques[k]!.linea));
           for (const parte of bloques[k]!.detalle?.split(' · ') ?? []) expect(pintado, `${nombre} a ${D}: «${parte}»`).toContain(plano(parte));
         }
-        if (e.ocultos > 0) expect(pintado, `${nombre} a ${D}`).toContain(plano(textoMas(e.ocultos)));
-        else expect(texto(b.disposicion, 'mas')).toBe('');
+        // La duración sale de `duracionHumana` y aparece UNA sola vez en el brief: arriba con todo a la vista, o en la línea del resumen.
+        const duracion = duracionDelBrief(s.plan.pasos);
+        const dicha = b.disposicion.lineas.filter((l) => ['contexto', 'resumen'].includes(l.rol)).map((l) => l.piezas.map((p) => p.texto).join(' ')).join(' ');
+        expect(dicha.split(duracion).length - 1, `${nombre} a ${D}: la duración «${duracion}» una sola vez`).toBe(1);
+        if (e.ocultos > 0) {
+          expect(e.nivel).toBe('resumen');
+          expect(plano(texto(b.disposicion, 'resumen')), `${nombre} a ${D}`).toBe(plano(partesDelResumen(bloques.length, duracion).join(' · ')));
+          expect(e.visibles, `${nombre} a ${D}: solo el que manda`).toHaveLength(1);
+        } else expect(texto(b.disposicion, 'resumen')).toBe('');
       }
     });
   }
@@ -334,12 +361,12 @@ describe('el brief dice solo lo que se sabe (G1, G7) y solo lo que hace falta', 
     for (const { D } of TAMANOS) expect(texto(brief('479', { gps: 'buscando' }, D, 'cinta'), 'estado')).toContain('Cinta');
   });
 
-  it('las flechas de entorno solo salen si UP/DOWN hacen algo: no si la prescripción lo fija (494, 535, 6 × 1000), ni en fuerza', () => {
+  it('la flecha de entorno solo sale si UP hace algo: no si la prescripción lo fija (494, 535, 6 × 1000), ni en fuerza', () => {
     expect(entornoElegible(SESIONES['479'])).toBe(true);
     expect(entornoElegible(SESIONES['491'])).toBe(true);
     for (const k of ['494', '535', '6x1000', '529'] as const) expect(entornoElegible(SESIONES[k]), k).toBe(false);
-    expect(texto(brief('479', {}, 454), 'estado')).toContain('↑↓');
-    for (const k of ['494', '535', '6x1000', '529'] as const) expect(texto(brief(k, {}, 454), 'estado'), k).not.toContain('↑↓');
+    expect(texto(brief('479', {}, 454), 'estado')).toContain('↑');
+    for (const k of ['494', '535', '6x1000', '529'] as const) expect(texto(brief(k, {}, 454), 'estado'), k).not.toContain('↑');
     // La prescripción manda sobre lo elegido y sobre Ajustes; lo elegido, sobre Ajustes.
     expect(entornoEfectivo(SESIONES['535'], 'calle', 'pista')).toBe('cinta');
     expect(entornoEfectivo(SESIONES['479'], 'cinta', 'pista')).toBe('cinta');

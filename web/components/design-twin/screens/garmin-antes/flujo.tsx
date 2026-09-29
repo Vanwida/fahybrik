@@ -3,6 +3,7 @@
 // EL FLUJO DE «ANTES» — del glance al primer paso, con las cinco teclas de §5.
 //
 //   glance ─START─▶ brief ─START─▶ (aviso previo) ─▶ (espera GPS) ─▶ 3-2-1 ─▶ vivo
+//                     └─DOWN─▶ estructura completa ─BACK─▶ brief
 //
 // Cada escenario entra por una pantalla y desde ahí se sigue con las teclas (o con
 // su guion). Lo asíncrono de verdad —el GPS que fija, el óptico que asienta el
@@ -20,14 +21,16 @@
 // Qué NO hacer: resolver una tecla fuera de `alBoton`; repintar el vivo; arrancar nada
 // contra una sesión sin detalle (DECISIONS 2026-09-28).
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   CarcasaGarmin,
   NOMBRE_BOTON,
+  ProveeLista,
   VivoGarminDePlan,
   useAvisos,
   type BotonGarmin,
   type Mando,
+  type MoverLista,
 } from '../../kit-garmin';
 import { useGuion, type Entorno, type InicioSecuencia, type PlanSesion } from '../../kit-reloj';
 import { cuerpo } from '../reloj-correr/casos';
@@ -44,7 +47,7 @@ import {
   type Ajustes,
   type Sistema,
 } from './estado';
-import { ESTADO_DE_PANTALLA, type Escena, type Pantalla } from './pantallas';
+import { ESTADO_DE_PANTALLA, mandoDePantalla, type Escena, type Pantalla } from './pantallas';
 
 // Tiempos de la pantalla (mecanismo del guion, no del producto).
 /** Del «GPS listo» a la cuenta atrás, ms: lo justo para leerlo. */
@@ -77,6 +80,11 @@ export function Flujo({ escena, onLog }: { escena: Escena; onLog: (linea: string
   useEffect(() => {
     reciente.current = { pantalla, sistema, elegido, ajustes };
   });
+  // La Estructura completa mueve su ventana con UP/DOWN: la lista registra aquí su `mover`; en el borde, la tecla pasa de página (vuelve al brief).
+  const lista = useRef<MoverLista | null>(null);
+  const registrarLista = useCallback((mover: MoverLista | null) => {
+    lista.current = mover;
+  }, []);
   const t0 = useRef(0);
   useEffect(() => {
     t0.current = Date.now();
@@ -253,11 +261,20 @@ export function Flujo({ escena, onLog }: { escena: Escena; onLog: (linea: string
         if (b === 'start') return empezarBrief(p.k);
         if (b === 'back') return ir(desdeBrief(p.k));
         if (b === 'upLargo') return ir(ajustesDesde(p), 'UP largo → Ajustes');
+        if (b === 'down') return ir({ p: 'estructura', k: p.k }, 'DOWN → la Estructura completa de la sesión (UP/DOWN la recorren; BACK vuelve al brief)');
         if (!d.elegible) return nada(b, 'la prescripción ya fija el entorno');
         const actual = ENTORNOS.indexOf(d.entorno ?? ajustes.entornoPorDefecto);
-        const nuevo = ENTORNOS[(actual + (b === 'down' ? 1 : ENTORNOS.length - 1)) % ENTORNOS.length]!;
+        const nuevo = ENTORNOS[(actual + 1) % ENTORNOS.length]!;
         setElegido(nuevo);
         return onLog(`${NOMBRE_BOTON[b]} → entorno: ${nuevo}${nuevo === 'cinta' ? ' (sin GPS: los metros los da la cinta)' : ' (hace falta GPS)'}`);
+      }
+
+      case 'estructura': {
+        if (b === 'start') return empezarBrief(p.k);
+        if (b === 'back') return ir({ p: 'brief', k: p.k }, 'BACK → vuelve al brief');
+        if (b === 'upLargo') return nada(b, 'primero se vuelve al brief');
+        if (lista.current?.(b === 'down' ? 1 : -1)) return onLog(`${NOMBRE_BOTON[b]} → la lista se mueve (en el borde, pasa de página)`);
+        return ir({ p: 'brief', k: p.k }, `${NOMBRE_BOTON[b]} → borde de la lista: pasa de página y vuelve al brief`);
       }
 
       case 'previo': {
@@ -388,9 +405,19 @@ export function Flujo({ escena, onLog }: { escena: Escena; onLog: (linea: string
   }
 
   const ctx: Contexto = { hoy, sistema, ajustes, elegido, rescate: escena.rescate, alTocar };
+  // ¿El plan deja elegir el entorno? Solo en el brief lo dice UP; en el resto de pantallas no hay qué elegir.
+  const elegible = pantalla.p === 'brief' && datosBrief({ hoy, sistema, ajustes, elegido }, pantalla.k).elegible;
   return (
-    <CarcasaGarmin estado={ESTADO_DE_PANTALLA[pantalla.p]} onBoton={ejecutar} ultimo={avisos.ultimo} onLog={onLog}>
-      <Contenido p={pantalla} ctx={ctx} />
-    </CarcasaGarmin>
+    <ProveeLista value={registrarLista}>
+      <CarcasaGarmin
+        estado={ESTADO_DE_PANTALLA[pantalla.p]}
+        mandos={(b, porTabla) => mandoDePantalla(pantalla, elegible, b, porTabla)}
+        onBoton={ejecutar}
+        ultimo={avisos.ultimo}
+        onLog={onLog}
+      >
+        <Contenido p={pantalla} ctx={ctx} />
+      </CarcasaGarmin>
+    </ProveeLista>
   );
 }

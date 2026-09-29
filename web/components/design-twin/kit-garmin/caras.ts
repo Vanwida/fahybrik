@@ -11,7 +11,7 @@
 //   disponerCuenta     G08  3-2-1 y GO antes de un paso de trabajo.
 //   disponerKm              la vuelta automática recién hecha.
 //   disponerPausa      G20  en pausa: el crono de la sesión quieto y dónde estabas.
-//   disponerDeshacer   G21  «Serie 3 cerrada · ↶ UP · deshacer», en la franja del pie.
+//   disponerDeshacer   G21  «Serie 3 cerrada · ↶ UP · deshacer», UNA línea que ocupa la fila del pie.
 //   disponerCompletada G27  sello, título, el tiempo total, completa/parcial.
 //
 // Qué NO hacer: elegir aquí el número grande (P3 vive en `laminaDelPaso`);
@@ -261,33 +261,37 @@ export function disponerPausa(sesionT: number, paso: PasoBase, D: number): Dispo
   return { D, lineas, heroe, pista: null };
 }
 
-/** La franja del deshacer (fracción de D): la ocupa entera, con su fondo, y nunca sube al héroe. */
+/** La franja del deshacer (fracción de D): la fila del pie, con su fondo; nunca sube más arriba (ni a la dosis, ni a «Luego»). */
 export const CAJA_DESHACER: Caja = caja(FRANJA_DESHACER[0], FRANJA_DESHACER[1] - FRANJA_DESHACER[0]);
 
-/** El texto de la acción de deshacer, con su tecla: lo que el atleta tiene que hacer, en naranja. */
+/** La acción de deshacer, con su tecla: lo que el atleta tiene que hacer, en naranja. */
 export const TEXTO_DESHACER = '↶ UP · deshacer';
+/** La misma acción sin la palabra, para el reloj de 218 cuando el aviso de cierre ocupa el sitio. */
+export const TEXTO_DESHACER_CORTO = '↶ UP';
+
+/** Una línea, en la fila del pie, bajo la barra que drena: abajo la cuerda se estrecha deprisa. */
+const Y_DESHACER = FRANJA_DESHACER[0] + PISTA.drena;
 
 /**
- * Las dos líneas del deshacer, pegadas al borde de arriba de la franja (bajo
- * la barra que drena): abajo la cuerda se estrecha deprisa, y «↶ UP ·
- * deshacer» tiene que caber entero a 218.
+ * LA LÍNEA DEL DESHACER: «Serie 3 cerrada · ↶ UP · deshacer», o, si no cabe,
+ * la que sí (el aviso genérico, luego la acción sin la palabra). Nunca a medias.
  */
-const Y_AVISO = FRANJA_DESHACER[0] + PISTA.drena;
-const Y_ACCION = Y_AVISO + ALTO_NOTA;
-
-/** ¿Cabe el aviso de cierre en la franja? Si no, se dice el genérico (nunca a medias). */
-export function avisoQueCabe(aviso: string, D: number, generico = 'Paso cerrado'): string {
-  const c = caja(Y_AVISO, ALTO_NOTA);
-  return anchoPiezas([chica(aviso, D, 'tinta')]) <= Math.floor(c.ancho * D) ? aviso : generico;
+function piezasDeshacer(aviso: string, D: number, generico: string): Pieza[] {
+  const accion = (texto: string, antes: number): Pieza => ({ texto, cara: 'texto', cuerpo: cuerpoPx(TG.nota, D), tono: 'accion', antes });
+  const aire = AIRE.piezas * D;
+  const anchoLinea = Math.floor(caja(Y_DESHACER, ALTO_NOTA).ancho * D);
+  const variantes = [
+    [chica(aviso, D, 'tinta'), accion(TEXTO_DESHACER, aire)],
+    [chica(generico, D, 'tinta'), accion(TEXTO_DESHACER, aire)],
+    [chica(aviso, D, 'tinta'), accion(TEXTO_DESHACER_CORTO, aire)],
+    [chica(generico, D, 'tinta'), accion(TEXTO_DESHACER_CORTO, aire)],
+  ];
+  return variantes.find((v) => anchoPiezas(v) <= anchoLinea) ?? [accion(TEXTO_DESHACER_CORTO, 0)];
 }
 
-/** EL DESHACER: qué se cerró y «↶ UP · deshacer», en la franja del pie (la barra que drena la pinta la vista). */
-export function disponerDeshacer(aviso: string, D: number): Disposicion {
-  const lineas = [
-    colocar('aviso', [chica(avisoQueCabe(aviso, D), D, 'tinta')], caja(Y_AVISO, ALTO_NOTA), D),
-    colocar('deshacer', [{ texto: TEXTO_DESHACER, cara: 'texto', cuerpo: cuerpoPx(TG.nota, D), tono: 'accion' }], caja(Y_ACCION, ALTO_NOTA), D),
-  ];
-  return { ...vacia(D), lineas };
+/** EL DESHACER: qué se cerró y «↶ UP · deshacer», en UNA línea que ocupa la fila del pie (la barra que drena la pinta la vista). */
+export function disponerDeshacer(aviso: string, D: number, generico = 'Paso cerrado'): Disposicion {
+  return { ...vacia(D), lineas: [colocar('deshacer', piezasDeshacer(aviso, D, generico), caja(Y_DESHACER, ALTO_NOTA), D)] };
 }
 
 /**

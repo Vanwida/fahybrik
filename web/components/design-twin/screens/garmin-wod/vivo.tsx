@@ -6,11 +6,14 @@
 //
 //   · las teclas de §5 en cada formato: en un EMOM con dosis, BACK/LAP marca la
 //     tarea (no cierra la ventana); en un AMRAP, BACK/LAP es ronda hecha y UP/DOWN
-//     son reps +1 / −1; en la campana, BACK/LAP guarda; en una ventana que cierra
-//     el reloj (minuto entero de remo, Tabata, AMRAP de un movimiento) BACK/LAP no
-//     cierra nada. Cada acción con su deshacer de 5 s (UP).
-//   · la campana del AMRAP: tres largas y un tono propio, en vez del «recupera»
-//     del motor (`avisos.ts`).
+//     son reps +1 / −1 (mantenidos, aceleran); en la campana, START guarda y
+//     BACK/LAP solo cierra una ronda en curso; en una ventana que cierra el reloj
+//     (minuto entero de remo, Tabata, AMRAP de un movimiento) BACK/LAP no cierra
+//     nada. Qué fila es cada paso lo deduce el kit (`estadoDelPaso`); esta familia
+//     solo atiende las acciones. Cada acción con su deshacer de 5 s (UP), que es
+//     el del kit (`ctx.avisar`).
+//   · la campana del AMRAP: el aviso `campana` del kit, en vez del «recupera» del
+//     motor (el kit sabe cuándo).
 //   · las caras de cada formato, las páginas de UP/DOWN y el aro sin la campana
 //     (no es un tramo del coach).
 //
@@ -21,32 +24,28 @@
 // Qué NO hacer: resolver una tecla con un `if` fuera de `alAccion`; estirar el
 // reloj (no hay +30 s en un Tabata: `controles`); guardar un cero que nadie dijo.
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   AroGarmin,
   ComparaTamanos,
-  FranjaDeshacer,
   PintaDisposicion,
   Tapa,
   VistaGarmin,
   caraPorDefecto,
-  eventosDeTransicion,
   useGarmin,
   useVivoGarmin,
-  type Avisos,
+  type ContextoAccion,
   type Disposicion,
   type EstadoMandos,
   type IdAccion,
 } from '../../kit-garmin';
-import { DESHACER_MS, avisoDeCierre, fmtReloj, tinteDelPaso, wodDe, type Secuencia } from '../../kit-reloj';
+import { fmtReloj, tinteDelPaso, wodDe, type Secuencia } from '../../kit-reloj';
 import { CapaSistema } from '../garmin-correr/vistaSistema';
-import { LINEA_CAMPANA, emisionCampana, esCampana } from './avisos';
 import { disponerCaraWod, disponerCuentaWod, disponerFinalWod, hayCaraPropia, tieneCuentaPropia, tieneFinalPropio } from './caras';
 import type { CasoGarminWod } from './casos';
 import {
-  ESTADO_DE_MANDOS,
+  ESTADO_DE_EMOM,
   MARCADOR_VACIO,
-  QUE_HACE_BACK,
   claveDeMarcador,
   controlesDeWod,
   dialDe,
@@ -58,7 +57,6 @@ import {
   textoPuntuacion,
   tipoDeMando,
   vistaDe,
-  type AccionBack,
   type EstadoWod,
   type Marcador,
   vueltasDeRondas,
@@ -66,17 +64,6 @@ import {
 } from './estado';
 import { estructuraDeWod } from './estructura';
 import { TITULO_DEL_PASO, paginasDe } from './paginas';
-
-/** Los ids de acción con los que §5 nombra a BACK/LAP según el estado: la familia atiende todos por igual. */
-const ATIENDE_BACK: ReadonlySet<IdAccion> = new Set<IdAccion>(['siguiente-paso', 'serie-hecha', 'empezar-ya', 'ronda-hecha']);
-
-/** El deshacer de una acción de la familia: vive `DESHACER_MS` y solo mientras sigue el paso (o el siguiente, si la acción lo cerró). */
-interface Toast {
-  id: number;
-  pasoId: string;
-  aviso: string;
-  deshacer: () => void;
-}
 
 /** Pinta una disposición que depende del reloj en el que está (D): la pieza mínima de una cara o de una página. */
 export function PintaDe({ f }: { f: (D: number) => Disposicion }) {
@@ -120,29 +107,9 @@ function AroWod({ seq, destello }: { seq: Secuencia; destello: number | null }) 
 export function VivoWod({ caso, onLog }: { caso: CasoGarminWod; onLog: (linea: string) => void }) {
   const { datos } = caso;
   const [wod, setWod] = useState<EstadoWod>(() => estadoWodInicial(datos.plan, caso.wod));
-  const [toast, setToast] = useState<Toast | null>(null);
-  const [campana, setCampana] = useState<{ baseN: number } | null>(null);
-  const ultimoN = useRef(0);
 
-  // La campana suena EN VEZ del «recupera» del motor, y solo si acaba el tiempo (no si el atleta salta el AMRAP).
-  const { seq, avisos } = useVivoGarmin(datos.plan, caso.sim, caso.inicio, {
-    onLog,
-    traducir: (t) => {
-      const eventos = eventosDeTransicion(t);
-      if (!esCampana(t)) return eventos;
-      setCampana({ baseN: ultimoN.current });
-      onLog(LINEA_CAMPANA);
-      return eventos.filter((e) => e !== 'recupera');
-    },
-  });
-  useEffect(() => {
-    ultimoN.current = avisos.ultimo?.n ?? 0;
-  });
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast((x) => (x?.id === toast.id ? null : x)), DESHACER_MS);
-    return () => clearTimeout(t);
-  }, [toast]);
+  // La campana suena EN VEZ del «recupera» del motor, y solo si acaba el tiempo: eso ya lo hace el kit (`eventosDeTransicion`).
+  const { seq, avisos } = useVivoGarmin(datos.plan, caso.sim, caso.inicio, { onLog });
 
   const v = vistaDe(seq, wod);
   const { paso } = seq;
@@ -152,64 +119,55 @@ export function VivoWod({ caso, onLog }: { caso: CasoGarminWod; onLog: (linea: s
   const marcador = marcadorDe(v);
   const w = wodDe(paso);
   const multi = (w?.formato === 'amrap' || w?.formato === 'puntuacion') && w.tareas.length > 1;
-  const toastVivo = toast && toast.pasoId === paso.id ? toast : null;
 
   // ── Las acciones de la familia ─────────────────────────────────────────────
 
   const poner = (id: string, m: Marcador) => setWod((x) => ({ ...x, marcadores: { ...x.marcadores, [id]: m } }));
-  const avisar = (aviso: string, deshacer: () => void, pasoId = paso.id) => setToast((x) => ({ id: (x?.id ?? 0) + 1, pasoId, aviso, deshacer }));
 
-  /** BACK/LAP: lo que hace en este tipo de paso. Devuelve lo que se escribe en la cronología. */
-  const back = (que: AccionBack): string => {
-    switch (que) {
-      case 'tarea-hecha': {
-        if (w?.formato !== 'emom') return '';
-        setWod((x) => ({ ...x, hechas: { ...x.hechas, [paso.id]: t } }));
-        avisos.emitir('paso-a-mano');
-        avisar(`${w.tarea.nombre} hecho`, () =>
-          setWod((x) => {
-            const hechas = { ...x.hechas };
-            delete hechas[paso.id];
-            return { ...x, hechas };
-          }),
-        );
-        return `Tarea hecha a los ${fmtReloj(t)}: la ventana sigue y lo que queda es respiro · 5 s para deshacer con UP`;
-      }
-      case 'ronda-hecha': {
-        const antes = marcador;
-        const n = antes.cierres.length + 1;
-        poner(clave, rondaHecha(antes, t));
-        avisos.emitir('paso-a-mano');
-        avisar(`Ronda ${n} anotada`, () => poner(clave, antes));
-        return `Ronda ${n} hecha en ${fmtReloj(t - (antes.cierres.at(-1) ?? 0))} · 5 s para deshacer con UP`;
-      }
-      case 'guardar': {
-        const aviso = avisoDeCierre(paso);
-        avisar(aviso, seq.deshacer, seq.plan.pasos[seq.estado.i + 1]?.id ?? paso.id);
-        seq.cerrar();
-        return `${aviso} · 5 s para deshacer con UP`;
-      }
-      default:
-        return 'nada aquí: esta ventana la cierra el reloj (Saltar paso, en Controles)';
-    }
+  /** BACK/LAP en un EMOM con dosis: marca la tarea, sin cerrar la ventana. */
+  const tareaHecha = (ctx: ContextoAccion) => {
+    if (w?.formato !== 'emom') return;
+    setWod((x) => ({ ...x, hechas: { ...x.hechas, [paso.id]: t } }));
+    avisos.emitir('paso-a-mano');
+    ctx.avisar(`${w.tarea.nombre} hecho`, () =>
+      setWod((x) => {
+        const hechas = { ...x.hechas };
+        delete hechas[paso.id];
+        return { ...x, hechas };
+      }),
+    );
+    onLog(`BACK/LAP → tarea hecha a los ${fmtReloj(t)}: la ventana sigue y lo que queda es respiro · 5 s para deshacer con UP`);
   };
 
-  const alAccion = (a: IdAccion): boolean => {
-    if (a === 'deshacer' && toastVivo) {
-      toastVivo.deshacer();
-      setToast(null);
-      onLog(`UP → Deshacer: ${toastVivo.aviso}, vuelve atrás`);
+  /** BACK/LAP en un AMRAP de varios movimientos, o en su campana si hay una ronda en curso: ronda hecha. */
+  const ronda = (ctx: ContextoAccion) => {
+    const antes = marcador;
+    const n = antes.cierres.length + 1;
+    poner(clave, rondaHecha(antes, t));
+    avisos.emitir('paso-a-mano');
+    ctx.avisar(`Ronda ${n} anotada`, () => poner(clave, antes));
+    onLog(`BACK/LAP → ronda ${n} hecha en ${fmtReloj(t - (antes.cierres.at(-1) ?? 0))} · 5 s para deshacer con UP`);
+  };
+
+  const alAccion = (a: IdAccion, _s: Secuencia, ctx: ContextoAccion): boolean => {
+    if (a === 'serie-hecha' && tipo === 'emom-tarea') {
+      tareaHecha(ctx);
       return true;
     }
-    if (ATIENDE_BACK.has(a)) {
-      const que = QUE_HACE_BACK[tipo];
-      if (que === 'kit') return false;
-      onLog(`BACK/LAP → ${back(que)}`);
-      return true;
+    if (a === 'ronda-hecha') {
+      // La campana: solo hay «ronda hecha» si hay una en curso (con reps contadas); si no, sin efecto (§5).
+      if (tipo === 'puntuacion' && !(multi && (marcador.reps ?? 0) > 0)) {
+        onLog('BACK/LAP → sin efecto: no hay una ronda en curso (START guarda la puntuación)');
+        return true;
+      }
+      if (tipo === 'amrap-rondas' || tipo === 'puntuacion') {
+        ronda(ctx);
+        return true;
+      }
+      return false;
     }
-    // UP y DOWN cuentan reps en las tres filas de AMRAP de §5. En los 5 s de un deshacer, DOWN es «página siguiente» de la fila del kit: aquí no hay páginas, y sigue siendo reps −1.
-    const deAmrap = tipo === 'amrap-rondas' || tipo === 'amrap-reps' || tipo === 'puntuacion';
-    if (deAmrap && (a === 'reps-mas' || a === 'reps-menos' || a === 'pagina-siguiente')) {
+    // UP y DOWN cuentan reps en el AMRAP (con su ventana de UNO y su campana): no hay páginas ahí, las lleva Controles.
+    if ((tipo === 'amrap-rondas' || tipo === 'amrap-reps' || tipo === 'puntuacion') && (a === 'reps-mas' || a === 'reps-menos')) {
       const mas = a === 'reps-mas' ? 1 : -1;
       const porRonda = porRondaDe(paso);
       setWod((x) => ({ ...x, marcadores: { ...x.marcadores, [clave]: moverReps(x.marcadores[clave] ?? MARCADOR_VACIO, mas, porRonda, t) } }));
@@ -219,23 +177,22 @@ export function VivoWod({ caso, onLog }: { caso: CasoGarminWod; onLog: (linea: s
     return false;
   };
 
-  const estadoMandos = (_s: Secuencia, base: EstadoMandos): EstadoMandos => (base === 'deshacer' || toastVivo ? 'deshacer' : (ESTADO_DE_MANDOS[tipo] ?? base));
+  /** La fila de §5 la deduce el kit; el WOD solo dice la de un EMOM (tarea que se marca, o ventana que no se salta). */
+  const estadoMandos = (_s: Secuencia, base: EstadoMandos): EstadoMandos => (base === 'deshacer' ? base : (ESTADO_DE_EMOM[tipo] ?? base));
 
   // ── Lo que se pinta ────────────────────────────────────────────────────────
 
   const u = avisos.ultimo;
   const destello = u && (u.suena === 'afloja' || u.suena === 'aprieta') ? u.n : null;
-  // El lector enseña la campana hasta que suena otro aviso.
-  const avisosVista: Avisos = campana && (u == null || u.n <= campana.baseN) ? { ...avisos, ultimo: emisionCampana(campana.baseN + 0.5) } : avisos;
   const paginasWod = paginasDe(datos);
 
-  // Las rondas de un AMRAP de varias tareas se ofrecen al kit como vueltas: su página Vueltas (en Controles) las lista con su tiempo.
+  // Las rondas de un AMRAP de varias tareas se ofrecen al kit como vueltas: su página Rondas (en Controles) las lista con su tiempo.
   const seqVista: Secuencia = multi ? { ...seq, estado: { ...seq.estado, vueltas: [...seq.estado.vueltas, ...vueltasDeRondas(marcador)] } } : seq;
 
   return (
     <VistaGarmin
       seq={seqVista}
-      avisos={avisosVista}
+      avisos={avisos}
       cara={(s) => caraDe(vistaDe(s, wod))}
       paginas={
         paginasWod.length > 0
@@ -247,10 +204,9 @@ export function VivoWod({ caso, onLog }: { caso: CasoGarminWod; onLog: (linea: s
       }
       estadoMandos={estadoMandos}
       alAccion={alAccion}
-      controles={(s, por) => controlesDeWod(s.paso, por, s.plan.pasos)}
+      controles={(s, por) => controlesDeWod(s.paso, por)}
       capa={(s, kit) => (
         <>
-          {toastVivo ? <FranjaDeshacer aviso={toastVivo.aviso} n={toastVivo.id} /> : null}
           <CapaSistema seq={s} />
           {cuentaDeWod(s) ?? kit}
         </>

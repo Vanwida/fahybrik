@@ -10,7 +10,10 @@
 // Lo que la carcasa hace cumplir, y por eso ninguna pantalla puede saltárselo:
 //   · Cada botón es clicable y tiene su tecla (Enter = START, ⌫/Esc = BACK/LAP,
 //     ↑ = UP, ↓ = DOWN, ⇧↑ o mantener UP = UP largo, L = LIGHT). La tecla
-//     repetida (mantener pulsado) se ignora: una pulsación, una acción (G4).
+//     repetida (mantener pulsado) se ignora: una pulsación, una acción (G4);
+//     salvo en una celda que `repite` (reps de un AMRAP): mantenerla repite y
+//     acelera (`REPETIR`), y ahí el UP largo del reloj no se genera con el
+//     puntero (Controles queda en ⇧↑).
 //   · Qué hace cada botón NO lo decide la carcasa: consulta `accionDe(estado,
 //     botón)` (la tabla de §5) y se lo pasa a quien la monta.
 //   · Los rótulos de tecla («Reanudar · Enter») solo en REPOSO (brief, pausa,
@@ -25,7 +28,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { EmisionGarmin } from './avisos';
-import { NOMBRE_BOTON, PULSACION_LARGA_MS, REPOSO, TECLA, accionDe, botonDeTecla, type BotonGarmin, type EstadoMandos, type Mando } from './mandos';
+import { NOMBRE_BOTON, PULSACION_LARGA_MS, REPETIR, REPOSO, TECLA, accionDe, botonDeTecla, pasosDeRepeticion, type BotonGarmin, type EstadoMandos, type Mando } from './mandos';
 import { PantallaGarmin, entornoDe } from './pintar';
 import { CARCASA, ESTUDIO, SUELO_D, TAMANOS, tinteDeFondo, tamanoDe, type Diametro } from './tokens';
 
@@ -38,8 +41,8 @@ const redondo = (n: number) => Math.round(n * 100) / 100;
 export interface CarcasaGarminProps {
   /** En qué estado de §5 está el reloj: decide qué hace cada botón y si se ven los rótulos. */
   estado: EstadoMandos;
-  /** Un botón pulsado, con lo que la tabla dice que hace en este estado (`null` = nada). */
-  onBoton: (boton: BotonGarmin, mando: Mando | null) => void;
+  /** Un botón pulsado, con lo que la tabla dice que hace en este estado (`null` = nada), `veces` reps de golpe (mantener acelera). */
+  onBoton: (boton: BotonGarmin, mando: Mando | null, veces?: number) => void;
   /** El color de zona del paso (sin tintar): la carcasa decide si tiñe (solo AMOLED). */
   tinte?: string | null;
   /** El último aviso, para el lector de debajo. */
@@ -97,13 +100,43 @@ export function CarcasaGarmin(p: CarcasaGarminProps) {
   useEffect(() => {
     ultimoEstado.current = { estado, onBoton, mandos: p.mandos };
   });
-  const pulsar = useCallback((b: BotonGarmin) => {
-    const { estado: e, onBoton: f, mandos: cambia } = ultimoEstado.current;
-    setPulsado(b === 'upLargo' ? 'up' : b);
-    setTimeout(() => setPulsado((x) => (x === (b === 'upLargo' ? 'up' : b) ? null : x)), CARCASA.pulsadoMs);
+  /** Lo que hace un botón ahora mismo: la tabla de §5, o lo que la pantalla dice en su lugar. */
+  const mandoAhora = useCallback((b: BotonGarmin): Mando | null => {
+    const { estado: e, mandos: cambia } = ultimoEstado.current;
     const tabla = accionDe(e, b);
-    f(b, cambia ? cambia(b, tabla) : tabla);
+    return cambia ? cambia(b, tabla) : tabla;
   }, []);
+  const pulsar = useCallback(
+    (b: BotonGarmin, veces = 1) => {
+      setPulsado(b === 'upLargo' ? 'up' : b);
+      setTimeout(() => setPulsado((x) => (x === (b === 'upLargo' ? 'up' : b) ? null : x)), CARCASA.pulsadoMs);
+      ultimoEstado.current.onBoton(b, mandoAhora(b), veces);
+    },
+    [mandoAhora],
+  );
+
+  // MANTENER una celda que repite: una pulsación al bajar, y tras `arranqueMs` un golpe cada `cadaMs`, cada vez más grande.
+  const repitiendo = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const soltar = useCallback(() => {
+    if (repitiendo.current) clearTimeout(repitiendo.current);
+    repitiendo.current = null;
+  }, []);
+  const bajar = useCallback(
+    (b: BotonGarmin): boolean => {
+      if (!mandoAhora(b)?.repite) return false;
+      soltar();
+      pulsar(b);
+      const t0 = Date.now();
+      const golpe = () => {
+        pulsar(b, pasosDeRepeticion(Date.now() - t0));
+        repitiendo.current = setTimeout(golpe, REPETIR.cadaMs);
+      };
+      repitiendo.current = setTimeout(golpe, REPETIR.arranqueMs);
+      return true;
+    },
+    [mandoAhora, pulsar, soltar],
+  );
+  useEffect(() => soltar, [soltar]);
   /** Lo que hace un botón aquí: la tabla de §5, o lo que la pantalla dice en su lugar. */
   const mando = (b: BotonGarmin): Mando | null => {
     const tabla = accionDe(estado, b);
@@ -119,15 +152,20 @@ export function CarcasaGarmin(p: CarcasaGarminProps) {
       if (!b) return;
       e.preventDefault();
       if (e.repeat) return;
-      pulsar(b);
+      if (!bajar(b)) pulsar(b);
     };
     window.addEventListener('keydown', alTeclear);
-    return () => window.removeEventListener('keydown', alTeclear);
-  }, [pulsar]);
+    window.addEventListener('keyup', soltar);
+    return () => {
+      window.removeEventListener('keydown', alTeclear);
+      window.removeEventListener('keyup', soltar);
+    };
+  }, [pulsar, bajar, soltar]);
 
   // UP: soltar antes de la pulsación larga = UP; mantener = UP largo (el menú de Garmin).
   const largo = useRef<{ t: ReturnType<typeof setTimeout>; hecho: boolean } | null>(null);
   const abajo = (b: (typeof FISICOS)[number]) => {
+    if (bajar(b)) return;
     if (b !== 'up') return pulsar(b);
     const x = { hecho: false, t: setTimeout(() => {
       x.hecho = true;
@@ -136,6 +174,7 @@ export function CarcasaGarmin(p: CarcasaGarminProps) {
     largo.current = x;
   };
   const arriba = (b: (typeof FISICOS)[number]) => {
+    soltar();
     if (b !== 'up' || !largo.current) return;
     clearTimeout(largo.current.t);
     if (!largo.current.hecho) pulsar('up');

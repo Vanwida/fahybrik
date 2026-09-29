@@ -13,10 +13,10 @@
 // sitio que `Sistema`; tocar el motor.
 
 import type { ReactNode } from 'react';
-import { AroGarmin, CaraCompletada, CaraCuenta, CaraMenu, PintaDisposicion, useGarmin, type Disposicion } from '../../kit-garmin';
-import { completitud, contextoDe, estadoInicial, hoyDe, lecturasDe, pasoVivo, type Entorno, type PlanSesion } from '../../kit-reloj';
+import { AroGarmin, CaraCompletada, CaraCuenta, CaraMenu, ListaEstructura, PintaDisposicion, filasDeEstructura, useGarmin, type Disposicion } from '../../kit-garmin';
+import { completitud, contextoDe, estadoInicial, estructuraDe, hoyDe, lecturasDe, pasoVivo, type Entorno, type PlanSesion } from '../../kit-reloj';
 import { cuerpo } from '../reloj-correr/casos';
-import { contextoDelBrief, disponerBrief, disponerEspera, type DatosBrief } from './brief';
+import { disponerBrief, disponerEspera, type DatosBrief } from './brief';
 import {
   ENTORNOS,
   NOMBRE_ENTORNO,
@@ -70,7 +70,7 @@ export function datosBrief(c: Base, k: number): DatosBrief {
   const varias = c.hoy.sesiones.length > 1;
   return {
     sesion: s,
-    contexto: contextoDelBrief(s, sd.franja && varias ? TEXTO_FRANJA[sd.franja] : 'Hoy'),
+    dia: sd.franja && varias ? TEXTO_FRANJA[sd.franja] : 'Hoy',
     entorno: entornoEfectivo(s, c.elegido, c.ajustes.entornoPorDefecto),
     elegible: entornoElegible(s),
     sistema: c.sistema,
@@ -128,6 +128,9 @@ export function Contenido({ p, ctx }: { p: Pantalla; ctx: Contexto }): ReactNode
         </>
       );
     }
+    case 'estructura':
+      // La MISMA lista con ventana que la página Estructura del vivo; en el brief nada ha empezado, y lo primero es lo siguiente.
+      return <ListaEstructura filas={filasDeEstructura(estructuraDe(hoy.sesiones[p.k]!.sesion.plan.pasos)(0))} />;
     case 'previo': {
       const s = hoy.sesiones[p.k]!.sesion;
       const datos: DatosPrevio = { bateriaPct: sistema.bateriaPct, duracion: hoyDe(s.plan.pasos).dur };

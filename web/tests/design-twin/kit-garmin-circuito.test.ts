@@ -28,6 +28,7 @@ import {
   disponerEstructura,
   disponerPausa,
   esAviso,
+  estadoDelPaso,
   eventosDeTransicion,
   fmtPulsos,
   fmtTono,
@@ -43,7 +44,7 @@ import { totalDe } from '@/components/design-twin/screens/reloj-circuito/vista';
 import { aroPorRondas } from '@/components/design-twin/screens/garmin-circuito/aro';
 import { disponerCaraCircuito, disponerCuentaC, disponerEntrasC, lineasContextoTotal } from '@/components/design-twin/screens/garmin-circuito/caras';
 import { casoDe } from '@/components/design-twin/screens/garmin-circuito/casos';
-import { estadoMandosC, avisoCierreC } from '@/components/design-twin/screens/garmin-circuito/mandos';
+import { avisoCierreC } from '@/components/design-twin/screens/garmin-circuito/mandos';
 import { disponerVueltasC, filasDatosC, filasEstructuraC, filasVueltasC } from '@/components/design-twin/screens/garmin-circuito/paginas';
 import { entrasA } from '@/components/design-twin/screens/garmin-circuito/pantalla';
 import { paraGarmin, rondasDe, simulacro, simulacroDobles } from '@/components/design-twin/screens/garmin-circuito/plan';
@@ -188,14 +189,9 @@ describe('§5 — los botones del circuito son los de la tabla', () => {
 
   it('cada paso del circuito cae en un estado, y ese estado dice lo mismo que §5', () => {
     const usados = new Set<EstadoMandos>();
-    for (const c of Object.values(CIRCUITOS)) {
-      for (const p of c.plan.pasos) {
-        const base: EstadoMandos = p.rol !== 'trabajo' ? 'recupera' : 'paso';
-        usados.add(estadoMandosC(p, base));
-      }
-    }
-    // Paso, recupera/descanso y la campana (anotar). Durante el deshacer, el del kit.
-    expect([...usados].sort()).toEqual(['anotar', 'paso', 'recupera']);
+    for (const c of Object.values(CIRCUITOS)) for (const p of c.plan.pasos) usados.add(estadoDelPaso(p));
+    // Paso, recupera/descanso, la ventana de un AMRAP de un movimiento y su campana. Durante el deshacer, el del kit.
+    expect([...usados].sort()).toEqual(['campana', 'paso', 'recupera', 'ventana']);
     for (const estado of [...usados, 'deshacer' as const]) {
       BOTONES_TABLA.forEach((b, k) => {
         const dice = celda(estado, k);
@@ -206,21 +202,20 @@ describe('§5 — los botones del circuito son los de la tabla', () => {
     }
   });
 
-  it('el AMRAP es un paso más (BACK/LAP lo cierra; ↑ ↓ pasan página) y su campana se anota', () => {
+  it('el AMRAP de un movimiento es el de garmin-wod: su ventana no se salta y cuenta reps, su campana la guarda START', () => {
     const c = CIRCUITOS['506']!;
     const ventana = c.plan.pasos.find((p) => p.wod?.formato === 'amrap')!;
     const campana = c.plan.pasos.find((p) => esPuntuacion(p))!;
-    expect(estadoMandosC(ventana, 'amrap')).toBe('paso');
-    expect(estadoMandosC(campana, 'recupera')).toBe('anotar');
+    expect(estadoDelPaso(ventana)).toBe('ventana');
+    expect(estadoDelPaso(campana)).toBe('campana');
+    expect(accionDe('ventana', 'back')?.accion).toBe('sin-efecto');
+    expect(accionDe('campana', 'start')?.accion).toBe('guardar');
+    expect(accionDe('campana', 'up')?.accion).toBe('reps-mas');
+    expect(accionDe('campana', 'down')?.accion).toBe('reps-menos');
     expect(accionDe('paso', 'back')?.accion).toBe('siguiente-paso');
-    expect(accionDe('paso', 'up')?.accion).toBe('pagina-anterior');
-    expect(accionDe('anotar', 'up')?.accion).toBe('valor-mas');
-    expect(accionDe('anotar', 'down')?.accion).toBe('valor-menos');
-    expect(accionDe('anotar', 'start')?.accion).toBe('confirmar-campo');
   });
 
   it('durante los 5 s de deshacer manda «deshacer», sea cual sea el paso', () => {
-    for (const p of CIRCUITOS['506']!.plan.pasos) expect(estadoMandosC(p, 'deshacer')).toBe('deshacer');
     expect(accionDe('deshacer', 'up')?.accion).toBe('deshacer');
   });
 });
@@ -275,10 +270,12 @@ describe('§6 — cada evento del motor en un circuito tiene su aviso', () => {
     expect(componerAvisos(1, alCerrar(c, c.plan.pasos.length - 1, 'atleta')).suena).toBe('sesion');
   });
 
-  it('la campana de un AMRAP suena a «deja de trabajar» (recupera), como el descanso', () => {
+  it('la campana de un AMRAP es la del kit (§6), en vez del «recupera» del motor', () => {
     const c = CIRCUITOS['506']!;
     const amrap = c.plan.pasos.findIndex((p) => p.wod?.formato === 'amrap');
-    expect(componerAvisos(1, alCerrar(c, amrap, 'medida')).suena).toBe('recupera');
+    expect(componerAvisos(1, alCerrar(c, amrap, 'medida')).suena).toBe('campana');
+    // Si lo salta el atleta, no ha acabado el tiempo: no suena.
+    expect(componerAvisos(1, alCerrar(c, amrap, 'atleta')).suena).not.toBe('campana');
   });
 });
 

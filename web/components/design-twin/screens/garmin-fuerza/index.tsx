@@ -27,7 +27,7 @@ export const meta: TwinMeta = {
   titulo: 'Garmin · fuerza',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
-  actualizado: '2026-09-29',
+  actualizado: '2026-09-30',
   descripcion:
     'La serie de fuerza en un Garmin de cinco botones: el ejercicio primero, la dosis con sus dos ejes, BACK/LAP = «Serie hecha» con 5 s para deshacer, y la serie que se anota en el descanso con UP, DOWN y START (reps, carga en cascada, esfuerzo; lo propuesto no cuenta hasta confirmarlo).',
   fuentes: [],

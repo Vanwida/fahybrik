@@ -8,7 +8,8 @@
 //     cambian el valor (fila «Anotar la serie» de §5);
 //   · sus caras (serie, colócate, descanso que anota) y su 3-2-1 con la carga;
 //   · sus páginas: Paso → Datos → Vueltas (series) → Estructura (ejercicios);
-//   · la lista de Ejercicios, que UP/DOWN recorren y en cuyo borde pasan de página.
+//   · la lista de Ejercicios, que UP/DOWN recorren y en cuyo borde pasan de página
+//     (el kit lo hace: `useRegistrarLista`).
 //
 // Qué botón hace qué NO se decide aquí: lo dice `MANDOS` (§5) según el estado, y
 // este vivo solo elige el ESTADO (`estadoMandos`): «anotar» en un descanso con
@@ -19,7 +20,7 @@
 // como declarado lo que solo se propuso; encoger el héroe (G2).
 
 import { useRef, useState, type ReactNode } from 'react';
-import { VistaGarmin, useVivoGarmin, type EstadoMandos, type IdAccion, type PaginaGarmin } from '../../kit-garmin';
+import { VistaGarmin, useVivoGarmin, type ContextoAccion, type EstadoMandos, type IdAccion, type PaginaGarmin } from '../../kit-garmin';
 import { cargaArrastrada, esFuerza, type Secuencia } from '../../kit-reloj';
 import { vistaColocate, vistaCuenta } from './caras';
 import type { CasoGarminFuerza } from './casos';
@@ -34,7 +35,7 @@ import {
   type Anotando,
   type ContextoAnotar,
 } from './modelo';
-import { AlEntrar, CapaCuenta, CaraAnotar, CaraDescansoFuerza, CaraTrabajo, PaginaDatosFuerza, PaginaEjercicios, PaginaSeries, type MoverLista } from './pintores';
+import { AlEntrar, CapaCuenta, CaraAnotar, CaraDescansoFuerza, CaraTrabajo, PaginaDatosFuerza, PaginaEjercicios, PaginaSeries } from './pintores';
 import { vieneDe, vistaTrabajo } from './textos';
 import { resumenDeDescanso, vistaAnotarDe } from './vistas';
 
@@ -49,10 +50,6 @@ export function VivoGarminFuerza({ caso, onLog }: { caso: CasoGarminFuerza; onLo
   const deshacerActivo = useRef(false);
   // Por dónde se llegó a la página del descanso: solo volver con UP (el viaje de ida y vuelta a Datos) reabre la anotación. Al llegar con DOWN, dando la vuelta a las páginas, no: el siguiente DOWN cambiaría un dato sin querer.
   const ultimaPagina = useRef<'pagina-anterior' | 'pagina-siguiente' | null>(null);
-  const lista = useRef<MoverLista | null>(null);
-  const registrarLista = (mover: MoverLista | null) => {
-    lista.current = mover;
-  };
 
   const contexto = (s: Secuencia): ContextoAnotar => ({ plan, estado: s.estado, sim, i: s.estado.i, pasoId: s.paso.id });
   const uiDe = (s: Secuencia, de: Anotando) => (de.ui.paso === s.paso.id ? de.ui : UI_VACIA);
@@ -71,20 +68,22 @@ export function VivoGarminFuerza({ caso, onLog }: { caso: CasoGarminFuerza; onLo
   };
 
   // ── Las acciones que no son del kit ─────────────────────────────────────
-  const alAccion = (accion: IdAccion, s: Secuencia): boolean => {
+  const alAccion = (accion: IdAccion, s: Secuencia, ctx: ContextoAccion): boolean => {
     if ((ACCIONES_ANOTAR as readonly string[]).includes(accion)) {
       if (!anotando(s, deshacerActivo.current, reciente.current)) return false;
-      const r = aplicarTecla(reciente.current, accion as AccionAnotar, contexto(s));
+      const antes = reciente.current;
+      const r = aplicarTecla(antes, accion as AccionAnotar, contexto(s));
       poner(r.siguiente);
       if (r.linea) onLog(r.linea);
+      if (accion === 'confirmar-campo' && r.siguiente !== antes) {
+        // Cada campo confirmado suena como una tecla (§6); cerrar la anotación es un cierre sin paso: deja 5 s para deshacer con UP.
+        avisos.emitir('campo-confirmado');
+        if (r.siguiente.ui.cerrada && !uiDe(s, antes).cerrada) ctx.avisar('Serie anotada', () => poner(antes), s.paso.id);
+      }
       return true;
     }
-    if (accion === 'pagina-anterior' || accion === 'pagina-siguiente') {
-      ultimaPagina.current = accion;
-      const movida = lista.current?.(accion === 'pagina-siguiente' ? 1 : -1) ?? false;
-      if (movida) onLog(`${accion === 'pagina-siguiente' ? 'DOWN' : 'UP'} → la lista de ejercicios se mueve (en el borde, pasa de página)`);
-      return movida;
-    }
+    // La lista de ejercicios la mueve el kit; aquí solo se anota por dónde se llegó a la página del descanso.
+    if (accion === 'pagina-anterior' || accion === 'pagina-siguiente') ultimaPagina.current = accion;
     return false;
   };
 
@@ -128,7 +127,7 @@ export function VivoGarminFuerza({ caso, onLog }: { caso: CasoGarminFuerza; onLo
       { id: 'paso', titulo: 'Paso', contenido: s.paso.rol === 'descanso' ? <AlEntrar alEntrar={reabrirAlVolver}>{contenido}</AlEntrar> : contenido },
       { id: 'datos', titulo: 'Datos', contenido: <PaginaDatosFuerza filas={filasDatos(plan, s.estado, a.registro, sim, s.lecturas.ppm)} zonas={plan.zonas} /> },
       { id: 'vueltas', titulo: 'Vueltas', contenido: <PaginaSeries nombre={series.nombre} filas={series.filas} /> },
-      { id: 'estructura', titulo: 'Estructura', contenido: <PaginaEjercicios filas={ej.filas} ahora={ej.ahora} registrar={registrarLista} /> },
+      { id: 'estructura', titulo: 'Estructura', contenido: <PaginaEjercicios filas={ej.filas} ahora={ej.ahora} /> },
     ];
   };
 

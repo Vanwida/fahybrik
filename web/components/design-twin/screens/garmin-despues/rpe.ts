@@ -3,7 +3,7 @@
 // Tras guardar. UP sube, DOWN baja, START confirma y BACK lo salta: un RPE
 // omitido viaja como NULO, nunca inventado (`perceived_exertion: null`). Empieza
 // en «—»: el número es del atleta, no una sugerencia que lo ancle; hasta que
-// elige uno no hay nada que confirmar (START no rotula) y solo se puede saltar.
+// elige uno no hay nada que confirmar (START no rotula) y solo se puede omitir.
 //
 //   contexto «¿Cómo de dura?» · EL NÚMERO (héroe, «—» hasta elegir) ·
 //   la escala 0–10 (una pista de 11 tramos: los llenos son lo elegido) ·
@@ -15,7 +15,7 @@
 // se promete nada (H11).
 //
 // Qué NO hacer: proponer un valor de partida; escribir una palabra del RPE en
-// la cara (salen de `palabras`); rellenar un RPE saltado.
+// la cara (salen de `palabras`); rellenar un RPE omitido.
 
 import type { BandaVista } from '../../kit-reloj/lamina';
 import { RPE_PALABRA_DEFECTO } from '../../kit-reloj/tokens';

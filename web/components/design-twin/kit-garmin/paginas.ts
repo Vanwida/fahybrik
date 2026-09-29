@@ -2,7 +2,12 @@
 //
 //   disponerDatos       G23  la sesión entera: tiempo, distancia, ritmo medio, pulso.
 //   disponerVueltas     G24  la última arriba (y la que se corre, encima de todas).
-//   disponerEstructura  G25  la sesión del coach, tres bloques alrededor de «ahora».
+//   disponerEstructura  G25  la sesión del coach, una ventana de hasta tres bloques
+//                            (menos si un nombre largo no cabe en la fila de abajo)
+//                            que UP/DOWN mueven de uno en uno (`moverEstructura`); en
+//                            el borde pasan de página. Es también la «Estructura
+//                            completa» del brief: una sola pieza.
+//   pieLista                 «▲ 3/7»: hacia dónde está «ahora» y cuál es.
 //   disponerMenu        G22  Controles (y sus confirmaciones, y el entorno): la
 //                            opción enfocada en el centro, en su marco naranja
 //                            (es la acción del momento); las vecinas, en tinta2.
@@ -99,23 +104,35 @@ export function disponerVueltas(titulo: string[], filas: FilaSplit[], enCurso: {
 /** Cuántos bloques caben (dos líneas cada uno). */
 export const BLOQUES_VISIBLES = 3;
 
-/** LA ESTRUCTURA — lo hecho y lo que viene en tinta2, lo de ahora en tinta; cada bloque, qué y contra qué. */
-export function disponerEstructura(filas: FilaLista[], D: number): Disposicion {
-  const lineas: LineaG[] = [...lineasContexto(['Estructura'], D, 'tinta2')];
-  const ahora = Math.max(0, filas.findIndex((f) => f.estado === 'ahora'));
-  const desde = Math.max(0, Math.min(ahora - 1, filas.length - BLOQUES_VISIBLES));
-  const ventana = filas.slice(desde, desde + BLOQUES_VISIBLES);
+/** El bloque de «ahora» (el primero si nada está en curso, como en el brief). */
+export const ahoraDe = (filas: FilaLista[]): number => Math.max(0, filas.findIndex((f) => f.estado === 'ahora'));
+
+/**
+ * Los bloques de la ventana, colocados: hasta `n` desde `desde`, con el aire que
+ * sobra repartido entre ellos. `cabe` = ninguno se sale de su cuerda; `enteros` =
+ * ninguno pierde una parte de lo que dice (una fila baja, con la cuerda más corta,
+ * se la quitaría). Un bloque cuya línea no cabe entera en UNA fila se parte en dos:
+ * el qué arriba y lo demás (contra qué, cuánto) debajo, como el brief.
+ */
+function colocarVentana(filas: FilaLista[], D: number, desde: number, n: number, dos: ReadonlySet<number> = new Set()): { lineas: LineaG[]; visibles: number; cabe: boolean; enteros: boolean } {
+  const ventana = filas.slice(desde, desde + n);
   const altoLineaCtx = altoLinea(TG.contexto, 'texto');
+  const partesDe = (f: FilaLista, k: number) => {
+    const linea = f.linea.split(' · ');
+    return dos.has(k) ? { que: linea.slice(0, 1), resto: [...linea.slice(1), ...(f.detalle ? f.detalle.split(' · ') : [])] } : { que: linea, resto: f.detalle ? f.detalle.split(' · ') : [] };
+  };
   // Cada bloque mide lo que lleva (con detalle o sin él), y el aire se reparte
   // igual entre ellos. Hasta la secundaria: más abajo la cuerda ya no deja
   // leer un detalle.
-  const altos = ventana.map((f) => altoLineaCtx + (f.detalle ? ALTO_NOTA : 0));
+  const altos = ventana.map((f, k) => altoLineaCtx + (partesDe(f, k).resto.length > 0 ? ALTO_NOTA : 0));
   const [desdeF, hastaF] = [REJILLA.heroe[0], REJILLA.secundaria[1]];
   const total = altos.reduce((a, x) => a + x, 0);
   // El aire, igual entre bloques y nunca más que una línea: el grupo se centra, no se desparrama.
   const aire = ventana.length > 1 ? Math.min(altoNota, Math.max(0, (hastaF - desdeF - total) / (ventana.length - 1))) : 0;
   const y0 = desdeF + Math.max(0, hastaF - desdeF - total - aire * (ventana.length - 1)) / 2;
   const ys = altos.reduce<number[]>((acc, a) => [...acc, acc[acc.length - 1]! + a + aire], [y0]);
+  const lineas: LineaG[] = [];
+  const partidos = new Set<number>();
   ventana.forEach((f, k) => {
     const c = caja(ys[k]!, altos[k]!);
     const enCurso = f.estado === 'ahora';
@@ -123,14 +140,70 @@ export function disponerEstructura(filas: FilaLista[], D: number): Disposicion {
     const glifo: Glifo = f.estado;
     const punto: Pieza = { texto: '', cara: 'nota', cuerpo: cuerpoPx(TG.nota, D), tono: 'tinta', glifo };
     const anchoTexto = Math.floor(arriba.ancho * D) - anchoPiezas([punto]) - AIRE.piezas * D;
-    const a = ajustarPartes(f.linea.split(' · '), 'texto', TG.contexto, D, anchoTexto);
+    const { que, resto } = partesDe(f, desde + k);
+    const a = ajustarPartes(que, 'texto', TG.contexto, D, anchoTexto);
+    if (a.partes.length < que.length) partidos.add(desde + k);
     lineas.push(colocar('bloque', [punto, { texto: a.texto, cara: 'texto', cuerpo: a.cuerpo, tono: enCurso ? 'tinta' : 'tinta2', antes: AIRE.piezas * D }], arriba, D, 'centro', a.cabe));
-    if (f.detalle) {
+    if (resto.length > 0) {
       const abajo = caja(c.y + altoLineaCtx, ALTO_NOTA);
-      const d = ajustarPartes(f.detalle.split(' · '), 'nota', TG.nota, D, Math.floor(abajo.ancho * D));
+      const d = ajustarPartes(resto, 'nota', TG.nota, D, Math.floor(abajo.ancho * D));
+      if (d.partes.length < resto.length) partidos.add(desde + k);
       lineas.push(colocar('detalle', [{ texto: d.texto, cara: 'nota', cuerpo: d.cuerpo, tono: 'tinta2' }], abajo, D, 'centro', d.cabe));
     }
   });
+  // Los que perdieron una parte pasan a dos líneas y se vuelve a colocar (los alturas cambian); si ya estaban en dos, no hay más que hacer.
+  const nuevos = [...partidos].filter((k) => !dos.has(k));
+  if (nuevos.length > 0) return colocarVentana(filas, D, desde, n, new Set([...dos, ...nuevos]));
+  return { lineas, visibles: ventana.length, cabe: lineas.every((l) => l.cabe), enteros: partidos.size === 0 };
+}
+
+/**
+ * La ventana que se pinta desde `desde`: la de `BLOQUES_VISIBLES` bloques, o la
+ * que más bloques deje ENTEROS (un nombre largo en la fila de abajo, donde la
+ * cuerda se estrecha, no cabe: se enseñan menos, y ese bloque se ve entero al
+ * subir la lista). El primero se enseña siempre.
+ */
+function ventanaDesde(filas: FilaLista[], D: number, desde: number) {
+  for (let n = Math.min(BLOQUES_VISIBLES, filas.length - desde); n > 1; n--) {
+    const r = colocarVentana(filas, D, desde, n);
+    if (r.cabe && r.enteros) return r;
+  }
+  return colocarVentana(filas, D, desde, Math.min(1, filas.length - desde));
+}
+
+/** La ventana con la que se entra: la que tiene «ahora» dentro, empezando un bloque antes si cabe. */
+export function arranqueEstructura(filas: FilaLista[], D: number): number {
+  const ahora = ahoraDe(filas);
+  let desde = Math.max(0, Math.min(ahora - 1, filas.length - BLOQUES_VISIBLES));
+  while (desde < ahora && desde + ventanaDesde(filas, D, desde).visibles - 1 < ahora) desde += 1;
+  return desde;
+}
+
+/**
+ * UP (`-1`) o DOWN (`1`) dentro de la lista: la ventana nueva, o `null` si ya
+ * está en el borde (y entonces la tecla pasa de página, como manda §5).
+ */
+export function moverEstructura(filas: FilaLista[], desde: number, dir: 1 | -1, D: number): number | null {
+  if (dir < 0) return desde <= 0 ? null : desde - 1;
+  return desde + ventanaDesde(filas, D, desde).visibles >= filas.length ? null : desde + 1;
+}
+
+/** EL PIE de una lista con ventana: hacia dónde está «ahora» y cuál es: «▲ 3/7», «3/7» si se ve. */
+export function pieLista(ahora: number, primero: number, ultimo: number, total: number, D: number): LineaG {
+  const flecha = ahora < primero ? '▲' : ahora > ultimo ? '▼' : null;
+  const cuerpo = cuerpoPx(TG.nota, D);
+  const piezas: Pieza[] = [];
+  if (flecha) piezas.push({ texto: flecha, cara: 'cifras', cuerpo, tono: 'tinta' });
+  piezas.push({ texto: `${ahora + 1}/${total}`, cara: 'cifras', cuerpo, tono: flecha ? 'tinta' : 'tinta2', antes: flecha ? AIRE.unidad * D : 0 });
+  return colocar('posicion', piezas, caja(REJILLA.pie[0], altoLinea(TG.nota, 'cifras')), D);
+}
+
+/** LA ESTRUCTURA — lo hecho y lo que viene en tinta2, lo de ahora en tinta; cada bloque, qué y contra qué. `desde` = la ventana (por defecto, la de entrada). */
+export function disponerEstructura(filas: FilaLista[], D: number, desde: number = arranqueEstructura(filas, D)): Disposicion {
+  const lineas: LineaG[] = [...lineasContexto(['Estructura'], D, 'tinta2')];
+  const v = ventanaDesde(filas, D, desde);
+  lineas.push(...v.lineas);
+  if (filas.length > v.visibles) lineas.push(pieLista(ahoraDe(filas), desde, desde + v.visibles - 1, filas.length, D));
   return { D, lineas, heroe: null, pista: null };
 }
 

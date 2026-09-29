@@ -10,8 +10,11 @@
 //                 como INSTRUCCIÓN, no como veredicto.
 //   Roxzone       paso propio, y también la cierra el atleta (sin detección por
 //                 movimiento en la v1): «entras a / sales a», con su destino.
-//   AMRAP         lo que queda de la ventana y la tarea; las reps, en la campana.
-//   campana       las reps se dicen con UP/DOWN y se guardan con START (`anotar`).
+//   AMRAP         lo que queda de la ventana y la tarea, con las reps que llevas
+//                 («—» hasta que las cuentas con UP): el MISMO AMRAP de un
+//                 movimiento que `garmin-wod`, en su fila `ventana` de §5.
+//   campana       las reps se dicen con UP/DOWN y se guardan con START (fila
+//                 `campana` de §5, la misma que la del WOD).
 //   descanso      el común del kit (P8), con «Viene:» del circuito.
 //   relevo        dobles: la estación de tu pareja es una espera que cierras tú.
 //
@@ -69,7 +72,7 @@ export interface DatosCara {
   c: Circuito;
   /** El crono total (la puntuación); `null` = aún en el calentamiento. */
   total: number | null;
-  /** Las reps dichas en la campana del AMRAP; `null` fuera de ella. */
+  /** Las reps dichas del AMRAP (las que cuentas en su ventana y las que dices en la campana); `null` fuera de él. */
   dial: Dial | null;
   D: number;
 }
@@ -215,14 +218,14 @@ function disponerRoxzone(x: DatosCara): Disposicion {
   return conContexto(d, ['Roxzone'], total, D);
 }
 
-/** EL AMRAP dentro de un circuito: lo que queda de la ventana y la tarea. Las reps se dicen en la campana. */
+/** EL AMRAP dentro de un circuito: lo que queda de la ventana, la tarea y las reps que llevas (`—` hasta que las cuentas con UP; nunca 0). */
 function disponerAmrap(x: DatosCara): Disposicion {
-  const { paso, lecturas, zonas, reglas, c, total, D } = x;
+  const { paso, lecturas, zonas, reglas, c, total, dial, D } = x;
   const partes = posicionDe(paso, c);
   const l = laminaDelPaso(paso, lecturas, zonas, reglas);
-  const lam: Lamina = { ...l, contexto: primera(partes), banda: null, instruccion: paso.nombre ?? null, segundo: null };
-  const aviso = lineaDePartes('dosis', ['reps al final'], TG.tercero, cajaEnFila('secundaria', altoLinea(TG.tercero, 'texto')), D, { tono: 'tinta2' });
-  return conContexto(conLineas(disponerPaso(lam, D), aviso), partes, total, D);
+  const reps = dial?.reps ?? null;
+  const lam: Lamina = { ...l, contexto: primera(partes), banda: null, instruccion: paso.nombre ?? null, segundo: { etiqueta: 'reps', valor: reps == null ? '—' : String(reps) } };
+  return conContexto(disponerPaso(lam, D), partes, total, D);
 }
 
 /**

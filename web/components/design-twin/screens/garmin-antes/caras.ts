@@ -10,9 +10,9 @@
 // Qué NO hacer: añadir aquí una cara que la pantalla no pueda mostrar; decidir aquí
 // nada de dominio (todo sale de `estado.ts`, `brief.ts` y compañía).
 
-import { disponerCuenta, disponerMenu, type Disposicion } from '../../kit-garmin';
-import { contextoDe, hoyDe } from '../../kit-reloj';
-import { disponerBrief, disponerEspera, contextoDelBrief, type DatosBrief } from './brief';
+import { BLOQUES_VISIBLES, disponerCuenta, disponerEstructura, disponerMenu, filasDeEstructura, type Disposicion } from '../../kit-garmin';
+import { contextoDe, estructuraDe, hoyDe } from '../../kit-reloj';
+import { disponerBrief, disponerEspera, type DatosBrief } from './brief';
 import { OPCIONES_LIBRES, TEXTO_FRANJA, disponerGlance, disponerLista, disponerNoToca, disponerSinDetalle, disponerSinPlan, filasDeLista, glanceDe } from './faces';
 import { ENTORNOS, entornoEfectivo, entornoElegible, necesitaGps, tituloDe, type Pulso, type Sistema } from './estado';
 import type { Bloque, EstructuraPuesta } from './estructura';
@@ -62,7 +62,7 @@ export function carasDeEscena(e: Escena, D: number): CaraDeEscena[] {
           for (const movil of [true, false]) {
             const datos: DatosBrief = {
               sesion: s,
-              contexto: contextoDelBrief(s, dia),
+              dia,
               entorno,
               elegible: entornoElegible(s),
               sistema: { gps, pulso, bateriaPct: 86, movil },
@@ -80,11 +80,14 @@ export function carasDeEscena(e: Escena, D: number): CaraDeEscena[] {
     // Los frescos del plan que la escena no trae, para ver el brief con cada aviso de plan.
     for (const frescura of [{ tipo: 'viejo', dias: 3 }, { tipo: 'viejo', dias: 12 }] as const) {
       const entorno = entornoEfectivo(s, null, ajustes.entornoPorDefecto);
-      const b = disponerBrief({ sesion: s, contexto: contextoDelBrief(s, dia), entorno, elegible: entornoElegible(s), sistema: { gps: 'listo', pulso: PULSOS[1]!, bateriaPct: 86, movil: false }, frescura }, D);
+      const b = disponerBrief({ sesion: s, dia, entorno, elegible: entornoElegible(s), sistema: { gps: 'listo', pulso: PULSOS[1]!, bateriaPct: 86, movil: false }, frescura }, D);
       out.push({ que: `brief ${k} plan viejo ${frescura.dias} días`, d: b.disposicion, estructura: b.estructura, bloques: bloquesDelBrief(s.plan.pasos) });
     }
     // Los avisos de antes, con esta sesión.
     for (const a of AVISOS_DE_ANTES) for (const bateriaPct of BATERIAS) out.push({ que: `previo ${a} ${bateriaPct} % con ${hoyDe(s.plan.pasos).dur}`, d: disponerPrevio(a, { bateriaPct, duracion: hoyDe(s.plan.pasos).dur }, D) });
+    // La Estructura completa (DOWN en el brief), con la ventana en cada posición.
+    const filasEstructura = filasDeEstructura(estructuraDe(s.plan.pasos)(0));
+    for (let desde = 0; desde <= Math.max(0, filasEstructura.length - BLOQUES_VISIBLES); desde++) out.push({ que: `estructura completa ${k} desde ${desde}`, d: disponerEstructura(filasEstructura, D, desde) });
     // La cuenta atrás al empezar, hasta el GO.
     for (const n of [3, 2, 1, 0]) out.push({ que: `cuenta ${n}`, d: disponerCuenta(n, s.plan.pasos[0]!, D) });
   });

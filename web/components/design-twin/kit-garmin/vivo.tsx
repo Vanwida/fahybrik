@@ -10,9 +10,17 @@
 //
 // Qué hace cada botón lo dice la tabla de §5 (`mandos.ts`) según el ESTADO de
 // mandos, que se deriva aquí: acabado → resumen; un menú abierto → controles;
-// en pausa → pausa; durante los 5 s de deshacer → deshacer; recuperación o
-// descanso → recupera; una serie de fuerza → fuerza; un AMRAP → amrap; si no,
-// paso. La familia puede afinarlo (`estadoMandos`: el anotar de fuerza).
+// en pausa → pausa; durante los 5 s de deshacer → deshacer; la campana de un
+// AMRAP → campana; un AMRAP de varios movimientos → amrap; un AMRAP de UNO y un
+// reloj de pared (Tabata) → ventana (que no se salta); recuperación o descanso →
+// recupera; una serie de fuerza → fuerza; si no, paso. La familia puede afinarlo
+// (`estadoMandos`: el anotar de fuerza, la tarea de un EMOM).
+//
+// El DESHACER DE FAMILIA es una sola pieza de este fichero: una acción de la
+// familia que no cierra un paso (anotar una ronda, marcar la tarea de un EMOM)
+// llama a `ctx.avisar(aviso, hacer)` desde `alAccion` y el kit pinta la franja,
+// pone la fila `deshacer` y ejecuta `hacer` con UP. Cerrar un paso (BACK/LAP,
+// guardar la campana, Saltar paso) ya lo hace el kit.
 //
 // Todo lo de por defecto se puede cambiar, y NADA más: la cara de cada paso
 // (`cara`, `null` = la del kit), las páginas UP/DOWN (`paginas`), el estado de
@@ -24,10 +32,11 @@
 // Qué NO hacer: resolver una tecla con un `if` propio (se añade su acción a
 // la tabla y se atiende en `alAccion`); cerrar la app con BACK grabando.
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Estimador } from '../kit-reloj/aro';
 import { completitud, type HechoSesion, type SerieHecha } from '../kit-reloj/despues';
-import { esFuerza } from '../kit-reloj/fuerza';
+import { wodDe } from '../kit-reloj';
+import {  } from '../kit-reloj/fuerza';
 import { useSecuencia, type Secuencia, type Transicion, type Traductor } from '../kit-reloj/gancho';
 import { useGuion } from '../kit-reloj/gestos';
 import type { Entorno, FilaEstructura, Paso } from '../kit-reloj/paso';
@@ -38,7 +47,9 @@ import { avisoDeCierre, type FinDeVivo } from '../kit-reloj/vivo';
 import { AroGarmin } from './aro';
 import { useAvisos, type Avisos, type EventoGarmin } from './avisos';
 import { CarcasaGarmin } from './carcasa';
-import { NOMBRE_BOTON, accionDe, type BotonGarmin, type EstadoMandos, type IdAccion, type Mando } from './mandos';
+import { ENTORNOS, TEXTO_CONTROL, controlesPorDefecto, estadoDelPaso, type IdControl } from './controles';
+import { ProveeLista, type MoverLista } from './lista';
+import { MANDO_REPS_MAS, MANDO_REPS_MENOS, NOMBRE_BOTON, accionDe, type BotonGarmin, type EstadoMandos, type IdAccion, type Mando } from './mandos';
 import {
   CaraCompletada,
   CaraDescartada,
@@ -49,6 +60,7 @@ import {
   PaginaEstructura,
   PaginaVueltas,
   capaPorDefecto,
+  esAmrap,
   caraPorDefecto,
 } from './pantalla';
 import { TIEMPO, type Diametro } from './tokens';
@@ -91,41 +103,6 @@ export function hechoDe(plan: PlanSesion, e: EstadoSecuencia, final: 'natural' |
   return { pasos: plan.pasos, i: e.i, final, series };
 }
 
-// ---------------------------------------------------------------------------
-// Controles
-// ---------------------------------------------------------------------------
-
-export type IdControl = 'pausa' | 'saltar' | 'mas30' | 'entorno' | 'terminar' | 'descartar' | 'datos' | 'vueltas' | 'estructura';
-
-const TEXTO_CONTROL: Record<IdControl, string> = {
-  pausa: 'Pausa',
-  saltar: 'Saltar paso',
-  mas30: '+30 s',
-  entorno: 'Cambiar entorno',
-  terminar: 'Terminar',
-  descartar: 'Descartar',
-  datos: 'Datos',
-  vueltas: 'Vueltas',
-  estructura: 'Estructura',
-};
-
-const ENTORNOS: Array<{ id: Entorno; texto: string }> = [
-  { id: 'calle', texto: 'Calle' },
-  { id: 'cinta', texto: 'Cinta' },
-  { id: 'pista', texto: 'Pista' },
-];
-
-/** Los Controles de §5: Pausa, Saltar paso, +30 s (solo en descanso), Cambiar entorno, Terminar, Descartar. */
-export function controlesPorDefecto(seq: Secuencia, base: EstadoMandos): IdControl[] {
-  const c: IdControl[] = ['pausa'];
-  if (base === 'amrap') c.push('datos', 'vueltas', 'estructura');
-  c.push('saltar');
-  if (seq.paso.rol === 'recuperacion' || seq.paso.rol === 'descanso') c.push('mas30');
-  if (seq.plan.pasos.some(esCarrera)) c.push('entorno');
-  c.push('terminar', 'descartar');
-  return c;
-}
-
 type Capa =
   | null
   | { tipo: 'controles'; foco: number }
@@ -150,8 +127,14 @@ export interface VistaGarminProps {
   cara?: (seq: Secuencia) => ReactNode | null;
   paginas?: (seq: Secuencia, cara: ReactNode) => PaginaGarmin[];
   estadoMandos?: (seq: Secuencia, porDefecto: EstadoMandos) => EstadoMandos;
-  /** Las acciones de la familia (ronda hecha, reps ±1, anotar, empezar…). `true` = atendida. */
-  alAccion?: (accion: IdAccion, seq: Secuencia) => boolean;
+  /** Lo que una pantalla dice en una celda en lugar de la tabla (ver `CarcasaGarmin.mandos`). */
+  mandos?: (boton: BotonGarmin, porTabla: Mando | null) => Mando | null;
+  /**
+   * Las acciones de la familia (ronda hecha, reps ±1, anotar, empezar…). `true` =
+   * atendida. `ctx.avisar` deja 5 s para deshacer lo que la acción hizo; `veces`
+   * = cuántas repeticiones entran de golpe (mantener UP/DOWN acelera).
+   */
+  alAccion?: (accion: IdAccion, seq: Secuencia, ctx: ContextoAccion) => boolean;
   controles?: (seq: Secuencia, porDefecto: IdControl[]) => IdControl[];
   capa?: (seq: Secuencia, porDefecto: ReactNode | null) => ReactNode | null;
   aro?: (seq: Secuencia) => ReactNode;
@@ -166,7 +149,13 @@ export interface VistaGarminProps {
   onLog: (linea: string) => void;
 }
 
-type Toast = { n: number; aviso: string; hacer: () => void };
+/** Lo que el kit da a la familia al atender una acción. */
+export interface ContextoAccion {
+  /** Deja `DESHACER_MS` para deshacer con UP (la franja del pie): `aviso` dice qué se hizo, `hacer` lo deshace. `pasoId`: solo mientras siga ese paso. */
+  avisar: (aviso: string, hacer: () => void, pasoId?: string) => void;
+}
+
+type Toast = { n: number; aviso: string; hacer: () => void; pasoId: string | null };
 
 export function VistaGarmin(p: VistaGarminProps) {
   const { seq, avisos, onLog } = p;
@@ -207,18 +196,18 @@ export function VistaGarmin(p: VistaGarminProps) {
   }, [final]);
 
   const visto: Paso = entorno && esCarrera(paso) ? { ...paso, entorno } : paso;
-  const base: EstadoMandos = toast
-    ? 'deshacer'
-    : paso.rol !== 'trabajo'
-      ? 'recupera'
-      : esFuerza(paso)
-        ? 'fuerza'
-        : paso.wod?.formato === 'amrap'
-          ? 'amrap'
-          : 'paso';
+  const toastVivo = toast && (toast.pasoId == null || toast.pasoId === paso.id) ? toast : null;
+  const delPaso = estadoDelPaso(paso);
+  const base: EstadoMandos = toastVivo ? 'deshacer' : delPaso;
   const vivo: EstadoMandos = p.estadoMandos ? p.estadoMandos(seq, base) : base;
   const estadoMandos: EstadoMandos = final ? 'resumen' : capa ? 'controles' : seq.pausado ? 'pausa' : vivo;
-  const controles = (p.controles ?? ((_, d) => d))(seq, controlesPorDefecto(seq, vivo));
+  const controles = (p.controles ?? ((_, d) => d))(seq, controlesPorDefecto(seq, delPaso));
+  // El AMRAP de UN movimiento cuenta reps en UP/DOWN aunque su fila sea la de la ventana que no se salta (§5).
+  const mandos = (b: BotonGarmin, porTabla: Mando | null): Mando | null => {
+    const propio = p.mandos ? p.mandos(b, porTabla) : porTabla;
+    if (estadoMandos !== 'ventana' || wodDe(paso)?.formato !== 'amrap') return propio;
+    return b === 'up' ? MANDO_REPS_MAS : b === 'down' ? MANDO_REPS_MENOS : propio;
+  };
 
   const propia = p.cara?.(seq) ?? null;
   const cara = propia ?? caraPorDefecto(seq, visto);
@@ -234,16 +223,27 @@ export function VistaGarmin(p: VistaGarminProps) {
 
   // ── Las acciones ───────────────────────────────────────────────────────────
 
+  const avisar: ContextoAccion['avisar'] = (aviso, hacer, pasoId) => setToast((t) => ({ n: (t?.n ?? 0) + 1, aviso, hacer, pasoId: pasoId ?? null }));
+  const ctx: ContextoAccion = { avisar };
+
   /** BACK/LAP (y «Saltar paso»): cierra el paso, avisa y deja 5 s para deshacer. */
   const cerrarAMano = (como: string) => {
     if (estado.terminado) return;
     const aviso = (p.avisoCierre ?? avisoDeCierre)(paso);
     seq.cerrar();
-    setToast((t) => ({ n: (t?.n ?? 0) + 1, aviso, hacer: seq.deshacer }));
+    avisar(aviso, seq.deshacer);
     onLog(`${como} → ${aviso} · 5 s para deshacer con UP`);
   };
 
+
+  // La página activa, si es una lista con ventana, da aquí su `mover`: UP/DOWN mueven la lista y, en el borde, pasan de página.
+  const lista = useRef<MoverLista | null>(null);
+  const registrarLista = useCallback((mover: MoverLista | null) => {
+    lista.current = mover;
+  }, []);
+
   const irPagina = (dir: 1 | -1) => {
+    if (lista.current?.(dir)) return onLog(`${dir > 0 ? 'DOWN' : 'UP'} → la lista se mueve (en el borde, pasa de página)`);
     const n = (activa + dir + paginas.length) % paginas.length;
     setPagina(n);
     onLog(`Página ${n + 1}/${paginas.length} · ${paginas[n]!.titulo}`);
@@ -314,7 +314,7 @@ export function VistaGarmin(p: VistaGarminProps) {
   };
 
   const ejecutar = (a: IdAccion): string | null => {
-    if (p.alAccion?.(a, seq)) return null;
+    if (p.alAccion?.(a, seq, ctx)) return null;
     switch (a) {
       case 'pausa':
         seq.pausar(true);
@@ -327,11 +327,16 @@ export function VistaGarmin(p: VistaGarminProps) {
       case 'serie-hecha':
         cerrarAMano(NOMBRE_BOTON.back);
         return null;
+      case 'guardar':
+        cerrarAMano(NOMBRE_BOTON.start);
+        return null;
+      case 'sin-efecto':
+        return 'sin efecto: esta ventana la cierra el reloj («Saltar paso», en Controles)';
       case 'deshacer':
-        if (toast) {
-          toast.hacer();
+        if (toastVivo) {
+          toastVivo.hacer();
           setToast(null);
-          return `${toast.aviso}: vuelve atrás`;
+          return `${toastVivo.aviso}: vuelve atrás`;
         }
         return null;
       case 'pagina-anterior':
@@ -362,13 +367,14 @@ export function VistaGarmin(p: VistaGarminProps) {
     }
   };
 
-  const alBoton = (b: BotonGarmin, m: Mando | null) => {
+  const alBoton = (b: BotonGarmin, m: Mando | null, veces = 1) => {
     if (!m) return onLog(`${NOMBRE_BOTON[b]} → nada aquí`);
-    const dice = ejecutar(m.accion);
-    if (dice) onLog(`${NOMBRE_BOTON[b]} → ${m.rotulo}: ${dice}`);
+    let dice: string | null = null;
+    for (let k = 0; k < veces; k++) dice = ejecutar(m.accion);
+    if (dice) onLog(`${NOMBRE_BOTON[b]} → ${m.rotulo}${veces > 1 ? ` ×${veces}` : ''}: ${dice}`);
   };
   // El guion pasa por la MISMA tabla que la tecla (useGuion llama siempre a la versión más reciente).
-  useGuion(p.guion?.map((g) => ({ en: g.en, gesto: g.boton })), (b: BotonGarmin) => alBoton(b, accionDe(estadoMandos, b)));
+  useGuion(p.guion?.map((g) => ({ en: g.en, gesto: g.boton })), (b: BotonGarmin) => alBoton(b, mandos(b, accionDe(estadoMandos, b))));
 
   // ── Lo que se pinta ────────────────────────────────────────────────────────
 
@@ -384,7 +390,7 @@ export function VistaGarmin(p: VistaGarminProps) {
   } else if (capa?.tipo === 'pagina') {
     pantalla = { datos: <PaginaDatos seq={seq} />, vueltas: <PaginaVueltas seq={seq} />, estructura: <PaginaEstructura seq={seq} estructura={p.estructura} /> }[capa.id];
   } else if (capa) {
-    const menu = menuDe(capa, controles, seq.pausado);
+    const menu = menuDe(capa, controles, seq.pausado, esAmrap(paso));
     pantalla = (
       <CaraMenu
         titulo={menu.titulo}
@@ -408,7 +414,7 @@ export function VistaGarmin(p: VistaGarminProps) {
     pantalla = (
       <>
         {paginas[activa]!.contenido}
-        {toast ? <FranjaDeshacer aviso={toast.aviso} n={toast.n} /> : null}
+        {toastVivo ? <FranjaDeshacer aviso={toastVivo.aviso} n={toastVivo.n} /> : null}
         {p.capa ? p.capa(seq, kit) : kit}
         {aro}
       </>
@@ -417,19 +423,21 @@ export function VistaGarmin(p: VistaGarminProps) {
 
   const tinte = !final && !capa && !seq.pausado && activa === 0 ? tinteDelPaso(visto, seq.lecturas, plan.zonas) : null;
   return (
-    <CarcasaGarmin estado={estadoMandos} onBoton={alBoton} tinte={tinte} ultimo={u} inicial={p.inicial?.tamano} onLog={onLog}>
-      {pantalla}
-    </CarcasaGarmin>
+    <ProveeLista value={registrarLista}>
+      <CarcasaGarmin estado={estadoMandos} onBoton={alBoton} mandos={mandos} tinte={tinte} ultimo={u} inicial={p.inicial?.tamano} onLog={onLog}>
+        {pantalla}
+      </CarcasaGarmin>
+    </ProveeLista>
   );
 }
 
 /** El menú que toca según la capa: Controles, el entorno o una confirmación. */
-function menuDe(capa: Exclude<Capa, null | { tipo: 'pagina' }>, controles: IdControl[], pausado: boolean) {
+function menuDe(capa: Exclude<Capa, null | { tipo: 'pagina' }>, controles: IdControl[], pausado: boolean, amrap: boolean) {
   switch (capa.tipo) {
     case 'controles':
       return {
         titulo: ['Controles'],
-        opciones: controles.map((id) => ({ id, texto: id === 'pausa' && pausado ? 'Reanudar' : TEXTO_CONTROL[id] })),
+        opciones: controles.map((id) => ({ id, texto: id === 'pausa' && pausado ? 'Reanudar' : id === 'vueltas' && amrap ? 'Rondas' : TEXTO_CONTROL[id] })),
         foco: capa.foco,
       };
     case 'entorno':

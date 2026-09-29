@@ -21,7 +21,7 @@ export const meta: TwinMeta = {
   titulo: 'Garmin · la gramática',
   zona: 'Entreno en vivo',
   estado: 'propuesta',
-  actualizado: '2026-09-29',
+  actualizado: '2026-09-30',
   descripcion:
     'El reloj Garmin sobre el mismo motor que la muñeca: la pantalla redonda en fracciones del diámetro (454, 390, 260 y 218), cinco botones con la gramática de Garmin, BACK/LAP con 5 s para deshacer, Controles con UP mantenido, y avisos de vibración y tono sin voz.',
   fuentes: [],
