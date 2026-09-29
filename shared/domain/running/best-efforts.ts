@@ -260,6 +260,9 @@ export const MARCAS_BANDS: Readonly<Record<number, RunPrBand>> = {
  * El tiempo más corto (s) en que la serie de distancia acumulada cubre
  * `metros`, o null si ningún tramo continuo de la serie los alcanza.
  */
+/** Ruido de coma flotante al acumular distancia: una micra no es un metro que falte. */
+const EPS_METROS = 1e-6;
+
 export function mejorTiempoDentro(offsets_s: readonly number[], values_m: readonly number[], metros: number): number | null {
   if (!Number.isFinite(metros) || metros <= 0) return null;
   const n = Math.min(offsets_s.length, values_m.length);
@@ -287,11 +290,11 @@ export function mejorTiempoDentro(offsets_s: readonly number[], values_m: readon
 
   let mejor: number | null = null;
   for (const s of tramos) {
-    if (s.length < 2 || s[s.length - 1]!.d - s[0]!.d < metros) continue;
+    if (s.length < 2 || s[s.length - 1]!.d - s[0]!.d < metros - EPS_METROS) continue;
     let i = 0;
     for (let j = 1; j < s.length; j++) {
-      const objetivo = s[j]!.d - metros;
-      if (objetivo < s[0]!.d) continue;
+      if (s[j]!.d - s[0]!.d < metros - EPS_METROS) continue;
+      const objetivo = Math.max(s[0]!.d, s[j]!.d - metros);
       // Avanza la salida mientras el siguiente punto siga dejando `metros` por delante.
       while (i + 1 < j && s[i + 1]!.d <= objetivo) i++;
       const a = s[i]!;
