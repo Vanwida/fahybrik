@@ -69,10 +69,11 @@ export const CONTEXTO_EN_DOS: Franja = [REJILLA.contexto[0], REJILLA.heroe[0]];
 export const PISTA = { alto: 0.018, marca: 0.038, hueco: 0.006, drena: 0.009 } as const;
 
 /**
- * La franja del deshacer: la FILA DEL PIE (donde va el pulso) y, encima, el
- * hueco de la barra que drena. Durante los 5 s el pulso se oculta: es la única
- * excepción a «el pulso, siempre al pie». Lo de arriba (la segunda fila de una
- * dosis, «Luego · …») no se toca jamás.
+ * La franja del deshacer: la FILA DEL PIE (donde va el pulso) y, encima, el hueco
+ * de la barra que drena. La cuerda ahí da para unas 8 letras: cabe «↶ UP», no
+ * «↶ UP · deshacer». Durante los 5 s el pulso se oculta: es la única excepción a
+ * «el pulso, siempre al pie». Lo de arriba (la segunda fila de una dosis,
+ * «Luego · …») no se toca jamás.
  */
 export const FRANJA_DESHACER: Franja = [REJILLA.pie[0] - PISTA.drena, REJILLA.pie[1]];
 

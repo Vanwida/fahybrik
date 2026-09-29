@@ -17,7 +17,8 @@
 // El círculo manda: un nombre largo del coach («Isometría en puente de glúteo»)
 // no cabe en la franja del contexto a 218; baja a dos líneas y el resto de la
 // cara se aparta lo justo. Si el héroe no puede quedarse en 0,20 D, se cae antes
-// la nota y luego la etiqueta: el número grande no se encoge (G2, G11).
+// la nota y luego la etiqueta: el número grande no se encoge (G2, G11). La etiqueta
+// («Serie 1/4 · llevas») va pegada al héroe, y el cue del coach en su línea, encima.
 //
 // Qué NO hacer: elegir aquí el héroe (`laminaDelPaso`); truncar un nombre con «…»
 // (un dato a medias no se pinta: se parte en dos líneas); un `fontSize`, un hex o
@@ -143,7 +144,7 @@ export function lineasNota(candidatos: readonly string[], y: number, D: number, 
 // El paso de trabajo
 // ---------------------------------------------------------------------------
 
-/** De arriba abajo: nombre · etiqueta · nota · HÉROE · dosis (o banda) · pulso. */
+/** De arriba abajo: nombre · nota del coach · etiqueta (pegada al héroe) · HÉROE · dosis (o banda) · pulso. */
 export function disponerTrabajo(v: VistaTrabajo, D: number): Disposicion {
   const nombre = lineasNombre(v.nombre, D);
   const lineas: LineaG[] = [...nombre.lineas];
@@ -151,17 +152,19 @@ export function disponerTrabajo(v: VistaTrabajo, D: number): Disposicion {
   const heroeMin = altoLinea(TG.heroe.min, 'cifras');
   const cabe = (coste: number) => REJILLA.heroe[1] - y - coste >= heroeMin;
 
-  // El héroe no se encoge: primero se cae la nota y, si aún no cabe, la etiqueta.
-  // La etiqueta va primero (arriba la cuerda es corta) y la nota justo encima del héroe.
+  // El héroe no se encoge: primero se cae la nota y, si aún no cabe, la etiqueta. La etiqueta
+  // («Serie 1/4 · llevas») nombra al número grande, así que va PEGADA a él; el cue del coach, en su
+  // propia línea encima (leído al revés, «llevas» parecía hablar del cue: 30-09).
   const usaEtiqueta = v.etiqueta.length > 0 && cabe(altoNota);
+  const nota = lineasNota(v.nota, y, D);
+  const usaNota = nota.length > 0 && cabe((usaEtiqueta ? altoNota : 0) + nota.length * altoNota);
+  if (usaNota) {
+    lineas.push(...nota);
+    y += nota.length * altoNota;
+  }
   if (usaEtiqueta) {
     lineas.push(...lineaDePartes('etiqueta', v.etiqueta, TG.nota, caja(y, ALTO_NOTA), D, { cara: 'nota', tono: 'tinta2' }));
     y += altoNota;
-  }
-  const nota = lineasNota(v.nota, y, D);
-  if (nota.length > 0 && cabe(nota.length * altoNota)) {
-    lineas.push(...nota);
-    y += nota.length * altoNota;
   }
 
   const h = v.lamina.heroe;

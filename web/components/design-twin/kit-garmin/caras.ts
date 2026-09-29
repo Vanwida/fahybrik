@@ -274,16 +274,18 @@ const Y_DESHACER = FRANJA_DESHACER[0] + PISTA.drena;
 
 /**
  * LA LÍNEA DEL DESHACER: «Serie 3 cerrada · ↶ UP · deshacer», o, si no cabe,
- * la que sí (el aviso genérico, luego la acción sin la palabra). Nunca a medias.
+ * la que sí (el aviso genérico, la acción sola, la acción sin la palabra). Nunca a medias.
  */
 function piezasDeshacer(aviso: string, D: number, generico: string): Pieza[] {
   const accion = (texto: string, antes: number): Pieza => ({ texto, cara: 'texto', cuerpo: cuerpoPx(TG.nota, D), tono: 'accion', antes });
   const aire = AIRE.piezas * D;
   const anchoLinea = Math.floor(caja(Y_DESHACER, ALTO_NOTA).ancho * D);
+  // La cuerda de la fila del pie da para unas 8 letras: casi siempre gana «↶ UP» (con la barra que drena encima); qué se cerró lo dicen el acuse y la cronología.
   const variantes = [
     [chica(aviso, D, 'tinta'), accion(TEXTO_DESHACER, aire)],
     [chica(generico, D, 'tinta'), accion(TEXTO_DESHACER, aire)],
     [chica(aviso, D, 'tinta'), accion(TEXTO_DESHACER_CORTO, aire)],
+    [accion(TEXTO_DESHACER, 0)],
     [chica(generico, D, 'tinta'), accion(TEXTO_DESHACER_CORTO, aire)],
   ];
   return variantes.find((v) => anchoPiezas(v) <= anchoLinea) ?? [accion(TEXTO_DESHACER_CORTO, 0)];
