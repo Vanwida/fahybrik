@@ -23,6 +23,8 @@ final class AnaliticasFormatoTests: XCTestCase {
         XCTAssertEqual(AnaliticasFormato.formatear(450, .metros), "450 m")
         XCTAssertEqual(AnaliticasFormato.formatear(10000, .metros), "10 km")
         XCTAssertEqual(AnaliticasFormato.formatear(12500, .metros), "13 km")
+        XCTAssertEqual(AnaliticasFormato.formatear(1250, .metros), "1,3 km", "el 5 sube también en un decimal")
+        XCTAssertEqual(AnaliticasFormato.formatear(2000, .metros), "2 km")
     }
 
     func testUnaUnidadQueLaAppNoConoceNoSeInventaUnaEscritura() {
@@ -94,7 +96,7 @@ final class AnaliticasFormatoTests: XCTestCase {
         XCTAssertEqual(e.min, 0)
         XCTAssertEqual(e.ticks, [0, 20, 40, 60, 80])
         let t = AnaliticasEscala.bonita(228, 275, n: 4, pasos: AnaliticasEscala.pasosTiempo)
-        XCTAssertEqual(t.ticks, [225, 240, 255, 270, 285])
+        XCTAssertEqual(t.ticks, [210, 240, 270, 300], "47 s entre cuatro marcas piden 15,7 s: el primer paso de tiempo que llega es 30 s")
         XCTAssertLessThanOrEqual(t.ticks.count, 6)
         let d = AnaliticasEscala.bonita(-22, 22, n: 3)
         XCTAssertEqual(d.ticks, [-40, -20, 0, 20, 40])
@@ -107,8 +109,10 @@ final class AnaliticasFormatoTests: XCTestCase {
         let r = AnaliticasEscala.rotulosX(dias, ancho: 300, cuerpo: 15)
         XCTAssertEqual(r.first?.texto, "8 jul")
         XCTAssertEqual(r.last?.texto, "29 sep")
-        XCTAssertTrue(r.map(\.texto).contains("ago"))
+        XCTAssertEqual(r.map(\.texto), ["8 jul", "sep", "29 sep"], "agosto cae a 88 pt de la primera y no cabe; septiembre sí")
         XCTAssertLessThanOrEqual(r.count, 4)
+        let ancho = AnaliticasEscala.rotulosX(dias, ancho: 600, cuerpo: 15)
+        XCTAssertTrue(ancho.map(\.texto).contains("ago"), "con sitio, cada cambio de mes se rotula")
         let estrecho = AnaliticasEscala.rotulosX(dias, ancho: 90, cuerpo: 15)
         XCTAssertEqual(estrecho.map(\.texto), ["8 jul", "29 sep"], "sin sitio, solo los extremos")
     }

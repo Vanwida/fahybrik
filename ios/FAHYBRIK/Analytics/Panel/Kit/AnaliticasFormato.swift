@@ -47,7 +47,7 @@ enum AnaliticasFormato {
         case .horas, .mlKgMin, .rondas: return Formato.esDecimal(valor)
         case .ratio, .mS: return Formato.esDecimal(valor, decimals: 2)
         case .kg: return Formato.esDecimal(valor)
-        case .metros: return valor >= 1000 ? Formato.esDecimal(valor / 1000, decimals: valor >= 10000 ? 0 : 1) : "\(Int(valor.rounded()))"
+        case .metros: return valor >= 1000 ? kilometros(valor) : "\(Int(valor.rounded()))"
         default: return conMillar(valor)
         }
     }
@@ -207,6 +207,12 @@ enum AnaliticasFormato {
     private static func metros(_ v: Double) -> String {
         guard v >= 1000 else { return "\(Int(v.rounded())) m" }
         if v.truncatingRemainder(dividingBy: 1000) == 0 { return "\(Int(v / 1000)) km" }
-        return "\(Formato.esDecimal(v / 1000, decimals: v >= 10000 ? 0 : 1)) km"
+        return "\(kilometros(v)) km"
+    }
+
+    /// Un decimal por debajo de 10 km y enteros desde ahí. El 5 sube (12,5 → 13):
+    /// `String(format:)` empata al par y escribiría 12.
+    private static func kilometros(_ metros: Double) -> String {
+        metros >= 10000 ? String(Int((metros / 1000).rounded())) : Formato.esDecimal((metros / 100).rounded() / 10)
     }
 }

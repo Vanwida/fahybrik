@@ -242,7 +242,7 @@ final class PanelAnaliticasDecodeTests: XCTestCase {
         XCTAssertEqual(try lectura(p, .forma, "carga.fondo").procedencia.ancla, .estimada)
         XCTAssertNil(try lectura(p, .forma, "carga.fondo").serie?.plan, "sin carrera no hay proyección")
         XCTAssertEqual(try lectura(p, .estado, "estado.fatiga").tituloEs, "Fatiga")
-        XCTAssertEqual(try lectura(p, .semanas, "semanas.carga").dato?.valor, 395)
+        XCTAssertEqual(try XCTUnwrap(try lectura(p, .semanas, "semanas.carga").dato?.valor), 395.26, accuracy: 0.01)
         XCTAssertEqual(try lectura(p, .semanas, "semanas.cumplimiento").dato?.valor, 75)
         XCTAssertEqual(try lectura(p, .semanas, "semanas.tramos").cobertura.falta, .ancla)
         XCTAssertEqual(try lectura(p, .intensidad, "intensidad.ritmo.correr").cobertura.falta, .ancla)
