@@ -47,6 +47,8 @@ export function VivoGarminFuerza({ caso, onLog }: { caso: CasoGarminFuerza; onLo
 
   // Lo que la vista del kit sabe de este instante: si viven los 5 s de deshacer (UP deshace, no anota).
   const deshacerActivo = useRef(false);
+  // Por dónde se llegó a la página del descanso: solo volver con UP (el viaje de ida y vuelta a Datos) reabre la anotación. Al llegar con DOWN, dando la vuelta a las páginas, no: el siguiente DOWN cambiaría un dato sin querer.
+  const ultimaPagina = useRef<'pagina-anterior' | 'pagina-siguiente' | null>(null);
   const lista = useRef<MoverLista | null>(null);
   const registrarLista = (mover: MoverLista | null) => {
     lista.current = mover;
@@ -78,6 +80,7 @@ export function VivoGarminFuerza({ caso, onLog }: { caso: CasoGarminFuerza; onLo
       return true;
     }
     if (accion === 'pagina-anterior' || accion === 'pagina-siguiente') {
+      ultimaPagina.current = accion;
       const movida = lista.current?.(accion === 'pagina-siguiente' ? 1 : -1) ?? false;
       if (movida) onLog(`${accion === 'pagina-siguiente' ? 'DOWN' : 'UP'} → la lista de ejercicios se mueve (en el borde, pasa de página)`);
       return movida;
@@ -114,10 +117,11 @@ export function VivoGarminFuerza({ caso, onLog }: { caso: CasoGarminFuerza; onLo
     const ej = filasEjercicios(plan, s.estado.i, a.registro);
     const series = filasSeries(plan, s.estado, a.registro, sim, s.paso, s.lecturas);
     const reabrirAlVolver = () => {
+      if (ultimaPagina.current !== 'pagina-anterior') return;
       const r = reabrir(reciente.current, contexto(s));
       if (r !== reciente.current) {
         poner(r);
-        onLog('Vuelve a la página del descanso: la anotación se reabre en lo que faltaba');
+        onLog('Vuelve con UP a la página del descanso: la anotación se reabre en lo que faltaba');
       }
     };
     return [

@@ -16,7 +16,9 @@
 //   · CÓMO se cierra: START en el último campo, o BACK en el primero. Cerrada, el
 //     descanso vuelve a su fila de §5 (BACK = Empezar ya, START = Pausa, UP/DOWN
 //     = páginas, UP largo = Controles). Lo que quede propuesto sigue propuesto.
-//   · CÓMO se reabre: al volver a la página del descanso con algo sin confirmar.
+//   · CÓMO se reabre: al volver con UP a la página del descanso (el viaje de ida y
+//     vuelta a Datos) con algo sin confirmar. Con DOWN, dando la vuelta a las
+//     páginas, no: el siguiente DOWN cambiaría un dato sin querer.
 //   · Tocar un valor (UP/DOWN) lo declara, como girar la corona; START confirma
 //     el valor que se ve, propuesto o tocado.
 //
@@ -151,7 +153,7 @@ export function aplicarTecla(a: Anotando, accion: AccionAnotar, c: ContextoAnota
   return { siguiente: { registro: a.registro, ui: { ...ui, k, cerrada: true } }, linea: 'BACK/LAP → cierra la anotación (lo propuesto sigue sin confirmar)' };
 }
 
-/** Volver a la página del descanso con algo sin confirmar reabre la anotación, en el primer campo pendiente. */
+/** Volver (con UP) a la página del descanso con algo sin confirmar reabre la anotación, en el primer campo pendiente. */
 export function reabrir(a: Anotando, c: ContextoAnotar): Anotando {
   const ui = a.ui.paso === c.pasoId ? a.ui : { ...UI_VACIA, paso: c.pasoId };
   if (!ui.cerrada) return a;
