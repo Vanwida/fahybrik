@@ -42,11 +42,14 @@ enum GuionEscaparate {
         /// El aro SEGMENTADO del doble — el on/off alrededor del cuadrado, una
         /// porción por serie. Si está, gana al continuo.
         var aroSeg: (total: Int, hechas: Int, fraccion: Double)? = nil
+        /// Una pantalla que NO es un guion de `WatchReloj` (la lámina de correr y
+        /// sus tres páginas). Si está, se pinta esta y no `paginas`.
+        var vista: (() -> AnyView)? = nil
     }
 
     // MARK: - El catálogo
 
-    static let casos: [Caso] = rodaje + series + fuerza + emom + ruta + ergo
+    static let casos: [Caso] = rodaje + series + fuerza + emom + ruta + ergo + espejoRodaje
 
     // ── Rodaje ──────────────────────────────────────────────────────────────
     private static var rodaje: [Caso] {
@@ -294,6 +297,14 @@ struct GuionEscaparateView: View {
     let caso: GuionEscaparate.Caso
 
     var body: some View {
+        if let vista = caso.vista {
+            vista()
+        } else {
+            reloj
+        }
+    }
+
+    private var reloj: some View {
         WatchReloj(
             paginas: caso.paginas,
             tinte: caso.tinte,

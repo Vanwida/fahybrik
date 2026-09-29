@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-29** (analíticas rehechas: cumplimiento y panel del coach fusionados en main, migraciones 0279–0281 en prod)
+Última actualización: **2026-09-29** (reloj: el espejo hereda las tres páginas de correr; analíticas rehechas en main)
 
 ## Ahora
 
@@ -26,6 +26,8 @@ para el iPhone y el panel del coach. Piezas, cada una con su entrada en DECISION
   ninguna regla cruzada cruza grupos (test), esquema y CHECK de la tabla alineados (test con base real). DECISIONS 29-09.
 - Migraciones 0277–0281 aplicadas en prod (0279–0281 el 29-09, 248 registradas, 0 pendientes). FALTA en analíticas: UI del atleta en Swift (rama del iPhone en curso); capa de voz de
   coach para `explica_es`; los campos del método que el motor aún no lee (DECISIONS); decisiones abiertas de Alex en esa entrada.
+
+**RELOJ · ESPEJO CON TRES PÁGINAS (29-09, worktree `agent-afdc843ecfbddfffc`, sin fusionar; DECISIONS 29-09).** Datos | Vivo | Controles al correr también en espejo; falta aparato.
 
 **iPhone · EL ENTRENO MINIMIZADO SE VE (29-09, main).** Barra de sistema sobre las pestañas con crono y paso; tocarla vuelve al mismo
 motor; la tarjeta del scroll queda para «guardado para luego». Falta probarlo en aparato (build siguiente).

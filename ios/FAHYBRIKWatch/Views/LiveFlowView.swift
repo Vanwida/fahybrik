@@ -12,6 +12,9 @@ struct LiveFlowView: View {
     // #68 — the structured-run driver lives on the coordinator (workout lifetime); the
     // tramo screen reads it. Pulled from the environment so paging never recreates it.
     @Environment(WatchWorkoutCoordinator.self) private var coordinator
+    /// La muñeca bajada: el sistema ignora los deslizamientos, así que corriendo
+    /// se vuelve sola a Vivo (la misma regla que el espejo y que `WatchReloj`).
+    @Environment(\.isLuminanceReduced) private var atenuado
 
     var body: some View {
         TabView(selection: $page) {
@@ -32,6 +35,9 @@ struct LiveFlowView: View {
         // Block gate yank: only for non-rodaje. Rodaje pager is sticky (FH-30).
         .onChange(of: session.isAwaitingBlockStart) { _, awaiting in
             if awaiting, !esRodaje { page = 1 }
+        }
+        .onChange(of: atenuado) { _, reducida in
+            if reducida, esRodaje { page = RodajePagina.vivo.punto }
         }
     }
 
