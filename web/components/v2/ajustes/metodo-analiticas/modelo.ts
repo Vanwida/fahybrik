@@ -9,9 +9,11 @@
 // solo se leen del borrador las claves que de verdad se están confirmando
 // (un grupo, o un único campo con «Usar X»); el resto sale de `vigente` — el
 // último método ya guardado, siempre válido. Las reglas que cruzan campos
-// (`validarMetodoAnalitico`) nunca cruzan dos grupos distintos (comprobado
-// campo a campo contra `catalogo.ts`; lo fija el test de `metodo-analiticas`),
-// así que este recorte nunca esconde un error real.
+// (`validarMetodoAnalitico`) nunca cruzan dos grupos distintos: lo fija, por
+// muestreo de extremos con semilla fija, el test «ninguna regla cruzada cruza
+// dos grupos» de `tests/ajustes/metodo-analiticas.test.ts` (y falla si alguien
+// añade una regla que junte campos de dos grupos), así que este recorte nunca
+// esconde un error real.
 
 import { analyticsMethodSchema } from '@fahybrid/shared/domain/methodology/method-editors';
 import {
@@ -27,7 +29,7 @@ import {
 import { FAMILIAS, type Familia } from '@fahybrid/shared/domain/analytics/lectura';
 import { ESTADOS_FRESCURA, ESTADO_FRESCURA_ES } from '@fahybrid/shared/domain/analytics/forma';
 import { DESCRIPTORES_METODO_ANALITICO } from './catalogo';
-import { CAMPOS_POR_GRUPO, type GrupoId } from './descriptores';
+import { CAMPOS_POR_GRUPO, GRUPOS, type GrupoId } from './descriptores';
 
 /** El borrador de los campos NUMÉRICOS: cada uno como texto, en su escala de PRESENTACIÓN. */
 export type BorradorMetodoAnalitico = Record<ClaveNumericaMetodo, string>;
@@ -43,6 +45,11 @@ export const CLAVES_NUMERICAS_POR_GRUPO: Record<GrupoId, ClaveNumericaMetodo[]> 
 /** ¿Algún campo de este grupo se sale de su defecto? Para abrir un grupo plegado que ya trae ajuste propio. */
 export function grupoDifiereDeDefecto(grupo: GrupoId, m: CoachAnalyticsMethod, defectos: CoachAnalyticsMethod): boolean {
   return CAMPOS_POR_GRUPO[grupo].some((clave) => JSON.stringify(m[clave]) !== JSON.stringify(defectos[clave]));
+}
+
+/** Los grupos plegados por defecto que ya traen ajuste propio arrancan abiertos, para que no se esconda lo que el coach tocó. */
+export function gruposAbiertosAlInicio(m: CoachAnalyticsMethod, defectos: CoachAnalyticsMethod): Set<GrupoId> {
+  return new Set(GRUPOS.filter((g) => g.plegadoPorDefecto && grupoDifiereDeDefecto(g.id, m, defectos)).map((g) => g.id));
 }
 
 export type Problema = { clave: string | null; mensaje: string };

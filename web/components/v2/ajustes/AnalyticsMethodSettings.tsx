@@ -44,7 +44,7 @@ import {
   draftOf,
   formatearBandasFrescura,
   formatearNumero,
-  grupoDifiereDeDefecto,
+  gruposAbiertosAlInicio,
   peldanosDisponibles,
   quitarPeldano,
   subirPeldano,
@@ -61,9 +61,7 @@ export function AnalyticsMethodSettings({ initial }: { initial: Setting }) {
   const [borrador, setBorrador] = useState<BorradorMetodoAnalitico>(() => draftOf(initial.method));
   const [problemas, setProblemas] = useState<Problema[]>([]);
   const [grupoActivo, setGrupoActivo] = useState<GrupoId | null>(null);
-  const [expandido, setExpandido] = useState<Set<GrupoId>>(
-    () => new Set(GRUPOS.filter((g) => g.plegadoPorDefecto && grupoDifiereDeDefecto(g.id, initial.method, initial.defaults)).map((g) => g.id)),
-  );
+  const [expandido, setExpandido] = useState<Set<GrupoId>>(() => gruposAbiertosAlInicio(initial.method, initial.defaults));
   const { state, error, run } = useSaveState();
   const m = setting.method;
   const d = setting.defaults;

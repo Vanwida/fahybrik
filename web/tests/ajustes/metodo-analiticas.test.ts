@@ -16,13 +16,19 @@ import {
   COACH_ANALYTICS_METHOD_NUMERIC_KEYS,
   COACH_ANALYTICS_METHOD_TEXT_KEYS,
   DEFAULT_COACH_ANALYTICS_METHOD,
+  FUENTES_ADMISIBLES,
   FUENTES_CARGA,
   MODALIDADES_CARGA,
   defaultCoachAnalyticsMethod,
+  validarMetodoAnalitico,
+  type ClaveNumericaMetodo,
+  type CoachAnalyticsMethod,
+  type ModalidadCarga,
 } from '@fahybrid/shared/domain/analytics/metodo';
 import { FAMILIAS } from '@fahybrid/shared/domain/analytics/lectura';
+import { ESTADO_FRESCURA_ES } from '@fahybrid/shared/domain/analytics/forma';
 import { DESCRIPTORES_METODO_ANALITICO } from '@/components/v2/ajustes/metodo-analiticas/catalogo';
-import { CAMPOS_POR_GRUPO, GRUPOS, PELDANO_ETIQUETA } from '@/components/v2/ajustes/metodo-analiticas/descriptores';
+import { CAMPOS_POR_GRUPO, GRUPOS, PELDANO_ETIQUETA, type GrupoId } from '@/components/v2/ajustes/metodo-analiticas/descriptores';
 import {
   alternarFamilia,
   anadirBase,
@@ -33,6 +39,7 @@ import {
   draftOf,
   CLAVES_NUMERICAS_POR_GRUPO,
   formatearBandasFrescura,
+  gruposAbiertosAlInicio,
   quitarPeldano,
   subirPeldano,
   validarCandidato,
@@ -170,6 +177,186 @@ describe('borrador ↔ método', () => {
     const resultado = candidatoDe({ cs_min_duration_s: '0,5' }, defaultCoachAnalyticsMethod());
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) expect(resultado.problemas).toContainEqual({ clave: 'cs_min_duration_s', mensaje: 'Entre 1 y 10.' });
+  });
+});
+
+// ── Por qué el commit por grupo no esconde ningún error real ────────────────
+// `candidatoDe` valida solo el grupo que se confirma y toma el resto del método
+// vigente. Eso es correcto si y solo si las reglas de `validarMetodoAnalitico`
+// nunca cruzan dos grupos: si cada grupo es válido con lo demás en su defecto,
+// cualquier mezcla de grupos válidos también lo es. Se comprueba muestreando
+// (semilla fija) valores en los extremos de cada rango, no leyendo las reglas a
+// ojo, y el detector se prueba a sí mismo con una regla cruzada inventada.
+
+type Validador = (m: CoachAnalyticsMethod) => string[];
+type Asignacion = Partial<Record<keyof CoachAnalyticsMethod, unknown>>;
+
+function mulberry32(semilla: number): () => number {
+  let a = semilla;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function valoresDe(clave: keyof CoachAnalyticsMethod, defectos: CoachAnalyticsMethod): unknown[] {
+  const tipo = DESCRIPTORES_METODO_ANALITICO[clave].tipo;
+  if (tipo === 'numero') {
+    const k = clave as ClaveNumericaMetodo;
+    const { min, max } = ANALYTICS_METHOD_BOUNDS[k];
+    const d = defectos[k];
+    const entero = COACH_ANALYTICS_METHOD_INTEGER_KEYS.has(k);
+    const crudos = [min, max, d, (min + max) / 2, (min + d) / 2, (max + d) / 2];
+    return [...new Set(crudos.map((v) => (entero ? Math.round(v) : v)))];
+  }
+  const porDefecto = defectos[clave] as string[];
+  const vocabulario: readonly string[] =
+    tipo === 'escalera'
+      ? FUENTES_ADMISIBLES[String(clave).replace('fuentes_', '') as ModalidadCarga]
+      : tipo === 'orden'
+        ? BASES_SESION
+        : FAMILIAS;
+  return [
+    porDefecto,
+    [...porDefecto].reverse(),
+    porDefecto.slice(0, 1),
+    [...vocabulario],
+    [], // inválido a propósito: el filtro de «válido solo» lo descarta
+    [porDefecto[0], porDefecto[0]], // duplicado, idem
+  ];
+}
+
+/** Las claves editables de un grupo (todo salvo el desplegable de base, que ninguna regla mira). */
+const clavesMuestreables = (grupo: GrupoId) => CAMPOS_POR_GRUPO[grupo].filter((c) => DESCRIPTORES_METODO_ANALITICO[c].tipo !== 'seleccion');
+
+/**
+ * Cuántas mezclas de asignaciones válidas-por-separado (cada grupo con lo demás
+ * en su defecto) resultan inválidas al juntarlas, y cuántas asignaciones de un
+ * grupo, solas, ya rompen alguna regla.
+ */
+function medirIndependencia(validar: Validador): { mezclasInvalidas: number; grupoConRegla: Set<GrupoId> } {
+  const defectos = defaultCoachAnalyticsMethod();
+  const azar = mulberry32(20260929);
+  const elegir = <T,>(xs: readonly T[]): T => xs[Math.floor(azar() * xs.length)]!;
+  const validas = new Map<GrupoId, Asignacion[]>();
+  const grupoConRegla = new Set<GrupoId>();
+
+  for (const { id } of GRUPOS) {
+    const claves = clavesMuestreables(id);
+    const buenas: Asignacion[] = [];
+    for (let i = 0; i < 600 && buenas.length < 60; i += 1) {
+      const asignacion: Asignacion = {};
+      for (const clave of claves) asignacion[clave] = elegir(valoresDe(clave, defectos));
+      if (validar({ ...defectos, ...asignacion } as CoachAnalyticsMethod).length === 0) buenas.push(asignacion);
+      else grupoConRegla.add(id);
+    }
+    validas.set(id, buenas);
+  }
+
+  let mezclasInvalidas = 0;
+  for (let i = 0; i < 3000; i += 1) {
+    let juntas: Asignacion = {};
+    for (const { id } of GRUPOS) {
+      const buenas = validas.get(id)!;
+      if (buenas.length > 0) juntas = { ...juntas, ...elegir(buenas) };
+    }
+    if (validar({ ...defectos, ...juntas } as CoachAnalyticsMethod).length > 0) mezclasInvalidas += 1;
+  }
+  return { mezclasInvalidas, grupoConRegla };
+}
+
+describe('el commit por grupo · ninguna regla cruzada cruza dos grupos', () => {
+  test('juntar grupos válidos por separado da siempre un método válido', () => {
+    expect(medirIndependencia(validarMetodoAnalitico).mezclasInvalidas).toBe(0);
+  });
+
+  test('las reglas viven donde se espera: forma, frescura, cumplimiento, recuperación y velocidad crítica', () => {
+    const { grupoConRegla } = medirIndependencia(validarMetodoAnalitico);
+    for (const grupo of ['forma', 'frescura', 'carga', 'cumplimiento', 'intensidad', 'recuperacion', 'capacidad'] as const) {
+      expect(grupoConRegla.has(grupo), grupo).toBe(true);
+    }
+    for (const grupo of ['cambio', 'holgura', 'progreso'] as const) expect(grupoConRegla.has(grupo), grupo).toBe(false);
+  });
+
+  test('el detector no es ciego: una regla que cruzara forma y velocidad crítica se cazaría', () => {
+    const conCruce: Validador = (m) => [
+      ...validarMetodoAnalitico(m),
+      ...(m.atl_days >= 15 && m.cs_min_duration_s >= 300 ? ['regla inventada entre dos grupos'] : []),
+    ];
+    expect(medirIndependencia(conCruce).mezclasInvalidas).toBeGreaterThan(0);
+  });
+
+  test('un cruce entre campos escalados del mismo grupo llega como mensaje del conjunto, no como rango en minutos', () => {
+    // 10 min y 5 min: mínimo por encima del máximo, los dos en rango.
+    const resultado = candidatoDe(
+      { cs_min_duration_s: '10', cs_max_duration_s: '5', cs_min_spread_ratio: '3' },
+      defaultCoachAnalyticsMethod(),
+    );
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) {
+      expect(resultado.problemas.length).toBeGreaterThan(0);
+      for (const p of resultado.problemas) {
+        expect(p.clave).toBeNull();
+        expect(p.mensaje).not.toMatch(/^Entre /);
+      }
+      expect(resultado.problemas.map((p) => p.mensaje)).toContain(
+        'El esfuerzo más corto admisible tiene que durar menos que el más largo.',
+      );
+    }
+  });
+
+  test('el máximo de un esfuerzo también se dice en minutos', () => {
+    // Bounds reales: 300-3600 s (5-60 min). 90 min = 5400 s, por encima.
+    const resultado = candidatoDe({ cs_max_duration_s: '90' }, defaultCoachAnalyticsMethod());
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.problemas).toContainEqual({ clave: 'cs_max_duration_s', mensaje: 'Entre 5 y 60.' });
+  });
+
+  test('un campo roto y abandonado en un grupo no bloquea confirmar otro', () => {
+    const vigente = defaultCoachAnalyticsMethod();
+    const soloForma = candidatoDe({ ctl_days: '50' }, vigente);
+    expect(soloForma.ok && soloForma.method.ctl_days).toBe(50);
+    expect(candidatoDe({ atl_days: 'roto' }, vigente).ok).toBe(false);
+    // El texto roto de «forma» no viaja con el commit de «capacidad»: solo se leen las claves que se confirman.
+    const soloCapacidad = candidatoDe({ cs_min_duration_s: '3' }, vigente);
+    expect(soloCapacidad.ok && soloCapacidad.method.cs_min_duration_s).toBe(180);
+  });
+});
+
+describe('grupos plegados · se abren solos si ya traen ajuste', () => {
+  test('con los defectos del producto, ninguno arranca abierto', () => {
+    expect(gruposAbiertosAlInicio(defaultCoachAnalyticsMethod(), defaultCoachAnalyticsMethod()).size).toBe(0);
+  });
+
+  test('Recuperación y Velocidad crítica se abren si un campo suyo se sale del defecto, y solo ellos', () => {
+    const defectos = defaultCoachAnalyticsMethod();
+    expect([...gruposAbiertosAlInicio({ ...defectos, basal_dias: defectos.basal_dias + 7 }, defectos)]).toEqual(['recuperacion']);
+    expect([...gruposAbiertosAlInicio({ ...defectos, cs_max_duration_s: 1200 }, defectos)]).toEqual(['capacidad']);
+  });
+
+  test('un grupo que no se pliega nunca figura como abierto por esta vía, aunque se ajuste', () => {
+    const defectos = defaultCoachAnalyticsMethod();
+    expect(gruposAbiertosAlInicio({ ...defectos, ctl_days: 60, fuentes_run: ['pulso'] }, defectos).size).toBe(0);
+  });
+});
+
+describe('frescura · los nombres de los cinco estados salen de una sola fuente', () => {
+  test('las etiquetas y las ayudas de las cuatro bandas nombran los estados tal como los ve el atleta', () => {
+    const porBanda = {
+      frescura_sobrecarga_hasta: ['sobrecarga'],
+      frescura_optimo_hasta: ['optimo'],
+      frescura_mantener_hasta: ['mantener'],
+      frescura_fresco_hasta: ['fresco', 'recargando'],
+    } as const;
+    for (const [clave, estados] of Object.entries(porBanda)) {
+      const d = DESCRIPTORES_METODO_ANALITICO[clave as keyof typeof porBanda];
+      const texto = `${d.etiqueta} ${d.ayuda}`;
+      for (const estado of estados) {
+        expect(texto, clave).toContain(ESTADO_FRESCURA_ES[estado].etiqueta_es);
+      }
+    }
   });
 });
 

@@ -172,7 +172,7 @@ export const DESCRIPTORES_RENDIMIENTO = {
     tipo: 'numero',
     grupo: 'capacidad',
     etiqueta: 'Separación mínima entre esfuerzos',
-    ayuda: 'El más largo tiene que durar, como mínimo, esta proporción veces el más corto. Si no, es un punto repetido.',
+    ayuda: 'El esfuerzo más largo tiene que durar, como mínimo, este número de veces lo que dura el más corto. Si no, es casi el mismo punto repetido.',
     unidad: '×',
     decimales: 1,
     paso: 0.5,
