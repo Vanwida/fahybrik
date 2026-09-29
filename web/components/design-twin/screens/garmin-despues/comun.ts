@@ -111,6 +111,19 @@ export function apilarTexto(rol: string, partes: string | readonly string[], y: 
     lineas.push(colocar(rol, [{ texto, cara, cuerpo, tono }], caja(yk, alto), D));
     yk += alto + aire;
   };
+  /** El corte de una parte en dos líneas que menos aprieta la más apretada (cada una con la cuerda de la suya): «Terminaste en» / «la serie 5 de 6», no «…en la serie 5» / «de 6». */
+  const partirEnDos = (palabras: string[]): [string, string] | null => {
+    const c1 = Math.floor(caja(yk, alto).ancho * D);
+    const c2 = Math.floor(caja(yk + alto + aire, alto).ancho * D);
+    let mejor: { corte: [string, string]; aprieto: number } | null = null;
+    for (let i = 1; i < palabras.length; i++) {
+      const a = palabras.slice(0, i).join(' ');
+      const b = palabras.slice(i).join(' ');
+      const aprieto = Math.max(anchoEn(cara, a, cuerpo) / c1, anchoEn(cara, b, cuerpo) / c2);
+      if (aprieto <= 1 && (!mejor || aprieto < mejor.aprieto)) mejor = { corte: [a, b], aprieto };
+    }
+    return mejor?.corte ?? null;
+  };
   let actual = '';
   for (const parte of (typeof partes === 'string' ? [partes] : [...partes]).filter(Boolean)) {
     const junto = actual ? `${actual} · ${parte}` : parte;
@@ -120,8 +133,18 @@ export function apilarTexto(rol: string, partes: string | readonly string[], y: 
     }
     if (actual) cerrar(actual);
     actual = '';
-    // La parte, sola en su línea; si tampoco cabe, palabra a palabra.
-    for (const palabra of cabeEn(parte) ? [parte] : parte.split(' ')) {
+    // La parte, sola en su línea; si tampoco cabe, en dos líneas equilibradas y, si ni así, palabra a palabra.
+    if (cabeEn(parte)) {
+      actual = parte;
+      continue;
+    }
+    const dos = partirEnDos(parte.split(' '));
+    if (dos) {
+      cerrar(dos[0]);
+      actual = dos[1];
+      continue;
+    }
+    for (const palabra of parte.split(' ')) {
       const prueba = actual ? `${actual} ${palabra}` : palabra;
       if (!actual || cabeEn(prueba)) actual = prueba;
       else {
@@ -143,17 +166,19 @@ export interface BloqueTexto {
 
 /**
  * Apila bloques de texto desde `y` POR PRIORIDAD (el primero manda) mientras
- * quepan ENTEROS antes de `hasta` (por defecto, el pie): un bloque que no cabe
- * no se pinta a medias, se pierde el siguiente menos importante. Sirve a las
- * caras que dicen más de lo que el círculo da de sí en el peor caso.
+ * quepan ENTEROS: cada línea dentro de la cuerda de su altura y todo antes de
+ * `hasta` (por defecto, el fondo del pie). Un bloque que no cabe no se pinta a
+ * medias: se pierde el siguiente menos importante. Una línea corta cabe más
+ * abajo que una larga, así que no hay un tope fijo. Sirve a las caras que
+ * dicen más de lo que el círculo da de sí en el peor caso.
  */
-export function apilarBloques(bloques: readonly BloqueTexto[], y: number, frac: number, D: number, hasta: number = CUERPO[1]): { lineas: LineaG[]; y1: number } {
+export function apilarBloques(bloques: readonly BloqueTexto[], y: number, frac: number, D: number, hasta: number = REJILLA.pie[1]): { lineas: LineaG[]; y1: number } {
   const lineas: LineaG[] = [];
   let yk = y;
   for (const b of bloques) {
     if (b.texto == null) continue;
     const bloque = apilarTexto(b.rol, b.texto, yk, frac, D, { tono: b.tono ?? 'tinta2' });
-    if (bloque.y1 - AIRE.lineas > hasta) continue;
+    if (bloque.y1 - AIRE.lineas > hasta || !bloque.lineas.every((l) => l.cabe)) continue;
     lineas.push(...bloque.lineas);
     yk = bloque.y1;
   }

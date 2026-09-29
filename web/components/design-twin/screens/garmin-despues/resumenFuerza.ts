@@ -12,15 +12,15 @@
 //
 // La superserie A1/A2 se lee junta en la muñeca de Apple (dos ejercicios en una
 // página); en un círculo cada ejercicio va en la suya, uno tras otro, con su
-// posición («A1 Back Squat») delante: nada se aprieta hasta el suelo.
+// posición arriba («Serie · A1») y su nombre debajo: nada se aprieta hasta el suelo.
 //
 // Qué NO hacer: sumar como volumen lo que no lleva carga; pintar una serie por
-// defecto como hecha; partir un nombre de catálogo.
+// defecto como hecha; partir un nombre de catálogo por donde no toca (se parte en dos líneas equilibradas).
 
 import { NOMBRE_CLASE_DEFECTO, fmtPrescrito, fmtReloj, num, type Completitud } from '../../kit-reloj';
 import { AIRE, REJILLA, TG, altoLinea, altoNota, caja, chica, colocar, heroeEn, lineasContexto, type LineaG, type Tono } from '../../kit-garmin';
 import { masPesada, miles, volumen, type EjercicioHecho, type Resultado } from '../reloj-antes-despues/calculo';
-import { cargaVaria, kgTexto, nombreDe, porDefecto, tieneRir } from '../reloj-antes-despues/resumen-fuerza';
+import { cargaVaria, kgTexto, porDefecto, tieneRir } from '../reloj-antes-despues/resumen-fuerza';
 import { ALTO_NOTA, apilarTexto, lineaDeTokens, partirFichas, repartirJunto, tokensDeTexto, type DisposicionFin, type Tok } from './comun';
 
 const ESTADO = { completa: 'completa', parcial: 'parcial', libre: 'libre' } as const;

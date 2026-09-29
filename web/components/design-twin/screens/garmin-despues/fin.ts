@@ -76,7 +76,7 @@ export function disponerFin(d: DatosFin, D: number): DisposicionFin {
   lineas.push(
     ...apilarBloques(
       [
-        { rol: 'sola', texto: d.solaTrasS != null ? `Guardada sola · ${fmtDuracion(d.solaTrasS)} sin moverte` : null },
+        { rol: 'sola', texto: d.solaTrasS != null ? ['Guardada sola', `${fmtDuracion(d.solaTrasS)} sin moverte`] : null },
         { rol: 'motivo', texto: motivoDe(d) },
         { rol: 'libre', texto: d.libreS > 0 ? `+ ${fmtReloj(d.libreS)} libre` : null },
       ],

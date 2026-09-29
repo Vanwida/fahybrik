@@ -29,7 +29,7 @@
 // para Garmin (H11); llamar «guardado» a lo que solo está en cola.
 
 import { RPE_PALABRA_DEFECTO } from '../../kit-reloj/tokens';
-import { REJILLA, SELLO, TG, type LineaG } from '../../kit-garmin';
+import { AIRE, REJILLA, TG } from '../../kit-garmin';
 import { apilarTexto, type DisposicionFin, type GlifoEnvio } from './comun';
 
 export type EstadoEnvio = 'en-reloj' | 'enviando' | 'enviado' | 'reintentando' | 'rechazado' | 'sin-subir';
@@ -69,16 +69,23 @@ export interface OpcionesEnvio {
   palabras?: Record<number, string>;
 }
 
+/** El glifo del estado, en fracción de D: mayor que el sello de un final, porque aquí es lo primero que se lee. */
+export const TALLA_GLIFO = 0.1;
+
 export function disponerEnvio(estado: EstadoEnvio, rpe: number | null, D: number, o: OpcionesEnvio = {}): DisposicionFin {
   const t = TEXTO_ENVIO[estado];
-  const lineas: LineaG[] = [];
-  // El glifo, asentado como el sello de un final (fondo de la franja del contexto).
-  const [, hC] = REJILLA.contexto;
-  const glifo = { glifo: t.glifo, y: (hC - SELLO / 2) * D, talla: SELLO * D };
-  const titulo = apilarTexto('titulo', [t.titulo], REJILLA.heroe[0], TG.segundo, D, { cara: 'texto' });
-  lineas.push(...titulo.lineas);
-  const detalle = apilarTexto('detalle', estado === 'rechazado' && (o.intentos ?? 1) > 1 ? DETALLE_RECHAZO_REPETIDO : t.detalle, titulo.y1, TG.nota, D, { tono: 'tinta2' });
-  lineas.push(...detalle.lineas);
-  lineas.push(...apilarTexto('rpe', notaDeRpe(rpe, o.palabras), detalle.y1, TG.nota, D, { tono: 'tinta2' }).lineas);
-  return { D, lineas, heroe: null, pista: null, glifo, barras: [] };
+  const detalle = estado === 'rechazado' && (o.intentos ?? 1) > 1 ? DETALLE_RECHAZO_REPETIDO : t.detalle;
+  // El texto, apilado desde `y0`: el título grande, el detalle y el RPE que viaja con la sesión.
+  const pila = (y0: number) => {
+    const titulo = apilarTexto('titulo', [t.titulo], y0, TG.segundo, D, { cara: 'texto' });
+    const cuerpo = apilarTexto('detalle', detalle, titulo.y1, TG.nota, D, { tono: 'tinta2' });
+    const nota = apilarTexto('rpe', notaDeRpe(rpe, o.palabras), cuerpo.y1, TG.nota, D, { tono: 'tinta2' });
+    return { lineas: [...titulo.lineas, ...cuerpo.lineas, ...nota.lineas], alto: nota.y1 - AIRE.lineas - y0 };
+  };
+  // El glifo y el texto son UN grupo y se centran juntos en el círculo, donde la cuerda es más ancha (dos pasadas:
+  // con el grupo más al centro el texto puede necesitar menos líneas).
+  let y0: number = REJILLA.heroe[0];
+  for (let k = 0; k < 2; k++) y0 = 0.5 - (TALLA_GLIFO + AIRE.piezas + pila(y0).alto) / 2 + TALLA_GLIFO + AIRE.piezas;
+  const glifo = { glifo: t.glifo, y: (y0 - AIRE.piezas - TALLA_GLIFO / 2) * D, talla: TALLA_GLIFO * D };
+  return { D, lineas: pila(y0).lineas, heroe: null, pista: null, glifo, barras: [] };
 }
