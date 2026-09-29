@@ -250,6 +250,7 @@ extension Vivo {
                 case .parado?: modo = .parado
                 default: modo = .trote
                 }
+                if nombres?[k]?.clase == .descansoTandas { clase = .descansoTandas }
             } else if faseLeg == .calentamiento {
                 clase = .calentamiento
             } else if faseLeg == .vuelta {
