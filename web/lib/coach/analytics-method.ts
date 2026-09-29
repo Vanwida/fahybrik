@@ -1,7 +1,7 @@
 import 'server-only';
 
 // El MÉTODO del coach para las analíticas del atleta — la capa de lectura y
-// escritura sobre `coach_analytics_method` (migs 0189, 0190, 0277, 0279).
+// escritura sobre `coach_analytics_method` (migs 0189, 0190, 0277, 0280).
 //
 // Lo leen las familias de lecturas: la carga única (escalera por modalidad,
 // coeficiente de fuerza, cobertura del veredicto), la forma (ventanas, bandas de

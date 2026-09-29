@@ -10,7 +10,7 @@
 //   1. la métrica en la ventana, contra la MISMA métrica en la ventana anterior
 //      de igual longitud (A3/A4);
 //   2. el delta en la unidad del umbral del coach que lo juzga — correr en s/km
-//      (`meaningful_gain_s_per_km`), el resto en % (`cambio_*_pct`, 0279). Es lo
+//      (`meaningful_gain_s_per_km`), el resto en % (`cambio_*_pct`, 0280). Es lo
 //      que arregla P1: un delta nunca se juzga contra un umbral de otra unidad;
 //   3. la palabra solo si hay evidencia en los DOS periodos (un mínimo por
 //      periodo que es mecanismo: 1 para un mejor, que es un hecho; 3 para una

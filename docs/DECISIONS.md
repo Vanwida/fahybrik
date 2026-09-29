@@ -24,9 +24,9 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
-## 2026-09-29 · Analíticas rehechas: el progreso y los récords — una regla para todas las familias (0279)
+## 2026-09-29 · Analíticas rehechas: el progreso y los récords — una regla para todas las familias (0280)
 
-**El encargo (modelo §3 filas 5-6, A9 y «Detalles por familia»):** el «¿mejoro?» de correr, remo, ski, bici, fuerza, estaciones, WOD y tests, y la lista única de récords, sobre el contrato de los cimientos. Todo en rama; 0279 probada solo en una rama Neon desechable.
+**El encargo (modelo §3 filas 5-6, A9 y «Detalles por familia»):** el «¿mejoro?» de correr, remo, ski, bici, fuerza, estaciones, WOD y tests, y la lista única de récords, sobre el contrato de los cimientos. Todo en rama; 0280 probada solo en una rama Neon desechable.
 
 **Decidido (mecanismo):**
 - **Una regla** (`shared/domain/analytics/progreso.ts`): la métrica clave en la ventana contra la misma en la anterior de igual longitud; el delta en la unidad del umbral del coach — correr en s/km con `meaningful_gain_s_per_km` (el suyo de siempre, `coach_running_thresholds`), el resto en % con `cambio_*_pct` —; la palabra (`Vas a más` / `Te mantienes` / `Vas a menos`) solo con evidencia en los DOS periodos (1 para un mejor, que es un hecho; 3 para una media, `MIN_TRAMOS_POR_MITAD`) y según el sentido de la métrica. En `todo` no hay anterior: número y serie, sin palabra.
@@ -39,7 +39,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 - **Estaciones**: la misma estación, a la misma dosis MEDIDA (metros o reps del tramo) y la misma carga (sin kilos = «sin carga»); fuera los formatos de reloj fijo (EMOM, tabata, death by, AMRAP). **WOD de referencia** = plantilla raíz repetida (≥ 2) o simulación HYROX; tiempo, o rondas + reps con la fracción de ronda por la regla del vivo (distancia/tiempo cuentan 1, calorías como reps); sin reps por ronda, solo rondas enteras.
 - **Tests**: evolución entera de cada test medido (`coach_test`/`athlete_test`), contra el anterior como referencia y con la regla común; el umbral de pulso se enseña, no se juzga. Los que son un peldaño o una pieza compiten como récord en su familia; el resto, como `test.<slug>`.
 - **Contrato**: siete unidades (`s_1000m`, `spm`, `rpm`, `pp`, `series`, `cm`, `rondas`) y la falta `viejo`. Bloques `progreso` (7 filas) y `records` en `cargarPanel` con una llamada; detalles `GET …/analytics/familia/{correr|remo|ski|bici|fuerza|estaciones}` (estaciones lleva los WOD) y `GET …/analytics/records` (récords + tests), atleta y coach, del MISMO `progresoAtleta`.
-- **Método (0279)**: `cambio_ergo_pct` 1, `cambio_fuerza_pct` 2,5, `cambio_estaciones_pct` 3, `cambio_wod_pct` 3, `cambio_test_pct` 2, `fuerza_1rm_reps_max` 10 — defectos razonados en `metodo.ts`, NULL = defecto, editables por el PUT.
+- **Método (0280)**: `cambio_ergo_pct` 1, `cambio_fuerza_pct` 2,5, `cambio_estaciones_pct` 3, `cambio_wod_pct` 3, `cambio_test_pct` 2, `fuerza_1rm_reps_max` 10 — defectos razonados en `metodo.ts`, NULL = defecto, editables por el PUT.
 - **P1 en la raíz**: el peldaño de esfuerzos de `veredictoDe` comparaba segundos de toda la distancia contra un umbral en s/km; ahora se lleva a s/km (`gananciaPorKm`).
 - **La tendencia semanal empieza en la primera semana con dato** (con `todo`, el 64 arrastraba 370 semanas vacías desde 2019 por métrica).
 
@@ -54,7 +54,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **NO hacer:** no juzgar un delta en otra unidad que la de su umbral; no emitir un récord por empate; no comparar la cinta con la calle; no estimar 1RM con otra fórmula que la del coach; no preciar una pieza de ergo con la sesión entera; no inventar la carga o la dosis de una estación; no cambiar los ids `progreso.<familia>`, `records.<prueba>`, `<familia>.mejor.<pieza>`, `test.<slug>`.
 
-**Queda:** el editor del método (diseño); la dosis y el tiempo de las estaciones dependen del vivo nuevo (hoy ningún tramo de estación los guarda juntos); las series continuas de calle (hoy solo la cinta manda distancia al segundo); `decoupling_pct` solo existe si la ingesta lo calculó (0 filas hoy); las carreras de Salud en cinta cuentan como calle (Salud no dice «indoor» aquí); los saltos imposibles del 64 (CMJ 720 cm) los limpia 0278 (otra rama); aplicar 0279 en producción (el orquestador, antes del deploy).
+**Queda:** el editor del método (diseño); la dosis y el tiempo de las estaciones dependen del vivo nuevo (hoy ningún tramo de estación los guarda juntos); las series continuas de calle (hoy solo la cinta manda distancia al segundo); `decoupling_pct` solo existe si la ingesta lo calculó (0 filas hoy); las carreras de Salud en cinta cuentan como calle (Salud no dice «indoor» aquí); los saltos imposibles del 64 (CMJ 720 cm) los limpia 0278 (otra rama); aplicar 0280 en producción (el orquestador, antes del deploy).
 
 ---
 

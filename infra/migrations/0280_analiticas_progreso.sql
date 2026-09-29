@@ -1,4 +1,4 @@
--- 0279 — El «¿mejoro?» por familia de las analíticas rehechas (docs/analiticas/modelo.md
+-- 0280 — El «¿mejoro?» por familia de las analíticas rehechas (docs/analiticas/modelo.md
 -- §3 filas 5-6, A6 y A9, 29-09-2026): el cambio que cuenta en cada familia y
 -- cuántas reps admite una serie para estimar su 1RM.
 --

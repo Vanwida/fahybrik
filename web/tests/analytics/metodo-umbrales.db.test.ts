@@ -55,7 +55,7 @@ describeWithDb('método ampliado y umbrales declarados (base real)', () => {
     expect(await resolveEffectiveAnalyticsMethod(fx.coachId, sql)).toEqual(defaultCoachAnalyticsMethod());
   });
 
-  test('el «¿mejoro?» por familia (0279) se guarda y se lee; fuera de rango la tabla lo rechaza', async () => {
+  test('el «¿mejoro?» por familia (0280) se guarda y se lee; fuera de rango la tabla lo rechaza', async () => {
     const propio = {
       ...defaultCoachAnalyticsMethod(),
       cambio_ergo_pct: 1.5,

@@ -146,7 +146,7 @@ export interface CoachAnalyticsMethod {
   /** Cambio de sueño que cuenta, en horas. */
   cambio_sueno_horas: number;
 
-  // ── ¿MEJORO? — el cambio que cuenta, por familia (0279) ────────────────────
+  // ── ¿MEJORO? — el cambio que cuenta, por familia (0280) ────────────────────
   // Correr NO está aquí: su «¿mejoro?» se juzga con `meaningful_gain_s_per_km`
   // de `coach_running_thresholds`, que ya era el método del coach para esa
   // pregunta. Dos umbrales para la misma pregunta darían dos veredictos.
