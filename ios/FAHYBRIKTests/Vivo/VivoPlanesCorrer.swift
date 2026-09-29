@@ -123,6 +123,53 @@ extension VivoPlanesDePrueba {
         let planos = "\"sets\": [\(set(segs(1200), target: ritmoKm(255, 265)))]"
         return try plan("Tempo en cinta", [bloque("Tempo 20′", formato: "steady", pos: 1, [carrera("k1", scheme: "steady", fases: fases, planos: planos)])])
     }
+
+    /// 573 · Tempo 3950 m a Z4: una sesión montada por el atleta, un solo paso sin gramática.
+    static func sesion573() throws -> WorkoutPlan {
+        let rx = "{ \"scheme\": \"steady\", \"modality\": \"run\", \"sets\": [\(set(metros(3950), target: zona(4)))] }"
+        return try plan("Tempo Z4 3950 m", [bloque("Carrera continua", formato: "steady", pos: 1, [item("t1", "Carrera", cat: "running", rx: rx)])])
+    }
+
+    /// 479 (la parte de correr) · Run 5′ a Z2 · 6 × (800 m a Z5 / 2′30″ trote) · … · Run 3′ a Z1. Los Wall Balls del medio
+    /// no son de correr y no están aquí; el calentamiento y la vuelta a la calma salen del título de su bloque.
+    static func sesion479Correr() throws -> WorkoutPlan {
+        let fases = [
+            fase("warmup", [Tramo.trabajo(segundos: 300, Tramo.zona(2))]),
+            fase("main", [Tramo.repetir(6, [Tramo.trabajo(metros: 800, Tramo.zona(5)), Tramo.recupera(segundos: 150, modo: "trote")])]),
+        ]
+        let planos = "\"rounds\": 6, \"rest_s\": 150, \"sets\": [\(set(metros(800), target: zona(5), rest: 150))]"
+        let calma = "{ \"scheme\": \"steady\", \"modality\": \"run\", \"sets\": [\(set(segs(180), target: zona(1)))] }"
+        return try plan("Run + series + Run", [
+            bloque("Calentamiento y series", formato: "intervals", pos: 1, [carrera("c1", scheme: "intervals", fases: fases, planos: planos)]),
+            bloque("Vuelta a la calma", formato: "steady", pos: 2, [item("v1", "Carrera", cat: "running", rx: calma)]),
+        ])
+    }
+
+    /// 509 · cinta: drills 8′ · 3 × (6 × (1′ / 1′ caminando)) con 5′ entre tandas. Sin objetivo.
+    /// El «repetir» repite su cuerpo entero: cada tanda cierra con su recuperación y la última con su descanso.
+    static func sesion509() throws -> WorkoutPlan {
+        let tanda = Tramo.repetir(6, [Tramo.trabajo(segundos: 60), Tramo.recupera(segundos: 60, modo: "caminar")])
+        let fases = [
+            fase("warmup", [Tramo.trabajo(segundos: 480)]),
+            fase("main", [Tramo.repetir(3, [tanda, Tramo.recupera(segundos: 300, modo: "parado")])]),
+        ]
+        let planos = "\"sets\": [\(set(segs(60)))]"
+        return try plan("Cinta 3 × (6 × 1′)", [bloque("Drills y tandas", formato: "intervals", pos: 1, [carrera("k1", scheme: "intervals", fases: fases, planos: planos)])])
+    }
+
+    /// 535 · cinta: 2 × (4 × (2′ a Z4 al 1 % / 2′ trote a Z2) / 5′ trote a Z1).
+    static func sesion535() throws -> WorkoutPlan {
+        let tanda = Tramo.repetir(4, [Tramo.trabajo(segundos: 120, Tramo.zona(4), cuesta: 1), Tramo.recupera(segundos: 120, modo: "trote", Tramo.zona(2))])
+        let fases = [fase("main", [Tramo.repetir(2, [tanda, Tramo.recupera(segundos: 300, modo: "trote", Tramo.zona(1))])])]
+        let planos = "\"sets\": [\(set(segs(120), target: zona(4)))]"
+        return try plan("Cinta 2 × (4 × 2′)", [bloque("Series en cinta", formato: "intervals", pos: 1, [carrera("k2", scheme: "intervals", fases: fases, planos: planos)])])
+    }
+
+    /// 552 · Cursa 5K For Time: «For Time · 5000 m». La nota del coach («ritmo de competición») es el cue del paso.
+    static func sesion552() throws -> WorkoutPlan {
+        let rx = "{ \"scheme\": \"for_time\", \"modality\": \"run\", \"sets\": [\(set(metros(5000)))] }"
+        return try plan("Cursa 5K", [bloque("Cursa Popular · 5K", formato: "for_time", pos: 1, [item("z1", "Carrera", cat: "running", rx: rx)])])
+    }
 }
 
 // MARK: - Los escenarios del contrato, con el motor de verdad
