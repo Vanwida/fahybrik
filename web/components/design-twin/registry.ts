@@ -163,6 +163,11 @@ import * as analiticasFamiliaFuerza from './screens/analiticas-familia-fuerza';
 import * as analiticasFamiliaEstaciones from './screens/analiticas-familia-estaciones';
 import * as analiticasSesion from './screens/analiticas-sesion';
 import * as analiticasPanelCoach from './screens/analiticas-panel-coach';
+// Hoy, rehecho (29-sep): la portada del atleta (InicioView) en dos direcciones
+// sobre UN modelo (`kit-hoy/contrato`): el pulso (sujeto: cómo llegas) y el día
+// (sujeto: el momento del día).
+import * as hoyPulso from './screens/hoy-pulso';
+import * as hoyDia from './screens/hoy-dia';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -275,6 +280,9 @@ export const SCREENS: TwinScreenModule[] = [
   analiticasSesion,
   // El panel del coach, como dispositivo «escritorio».
   analiticasPanelCoach,
+  // Hoy, rehecho (29-sep): dos direcciones para elegir.
+  hoyPulso,
+  hoyDia,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -294,7 +302,7 @@ export interface GrupoColeccion {
  * colección es la dirección canónica de un trabajo y se enseña sola.
  */
 export interface Coleccion {
-  id: 'entreno' | 'analiticas';
+  id: 'entreno' | 'analiticas' | 'hoy';
   zona: TwinZona;
   titulo: string;
   /** Lo que dice la card en el índice. */
@@ -377,7 +385,24 @@ export const TANDA_ANALITICAS: ReadonlyArray<GrupoColeccion> = [
   { grupo: 'El panel del coach', ids: ['analiticas-panel-coach'] },
 ];
 
+/** Hoy, rehecho (29-sep): dos direcciones para la portada del atleta, sobre el mismo modelo. */
+export const TANDA_HOY: ReadonlyArray<GrupoColeccion> = [
+  { grupo: 'Dos direcciones para elegir', ids: ['hoy-pulso', 'hoy-dia'] },
+];
+
 export const COLECCIONES: ReadonlyArray<Coleccion> = [
+  {
+    id: 'hoy',
+    zona: 'Plan y hoy',
+    titulo: 'Hoy, rehecho',
+    descripcion:
+      'La portada del atleta en dos direcciones sobre el mismo modelo: «El pulso» (sujeto: cómo llegas hoy) y «El día» (sujeto: el momento del día). Catorce casos, del atleta lleno al recién dado de alta y al que no tiene coach.',
+    intro: [
+      'Una portada PINTA, no decide: las dos pantallas reciben exactamente lo mismo (`kit-hoy/contrato`) y lo que cambia es qué es el sujeto y cómo se ve. El Plan sigue siendo la única puerta que empieza un entreno; Hoy dice el estado de la sesión y lleva al Plan. El progreso vive en Analíticas.',
+      'Catorce atletas de ejemplo (ninguno sale de la base de producción) recorren los cuatro estados de cada pieza: el lleno, la mañana con el check-in por hacer, el cuerpo cargado, el día ya entrenado, el doble, el descanso, la pausa, la carrera sin fijar, el recién dado de alta, el que no tiene coach, el entreno guardado a medias, todo reclamando a la vez, el arranque en frío y el error de carga.',
+    ],
+    grupos: TANDA_HOY,
+  },
   {
     id: 'analiticas',
     zona: 'Marcas y tests',
