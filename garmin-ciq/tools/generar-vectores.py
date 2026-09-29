@@ -59,6 +59,7 @@ def centi(v):
 
 def firma_de(meta, plan, T):
     f = Firma()
+    f.traza = []
     idx = lambda tabla, x: T[tabla].index(x)
     idxo = lambda tabla, x: 0 if x is None else T[tabla].index(x) + 1
 
@@ -69,6 +70,7 @@ def firma_de(meta, plan, T):
     f.n(idxo("ENTORNOS", meta.get("entorno")))
     f.n(meta["duracionEstS"])
 
+    f.traza.append(f.h)
     z = plan.get("zonas")
     if z is None:
         f.n(0)
@@ -82,6 +84,7 @@ def firma_de(meta, plan, T):
         for s in nombres or []:
             f.texto(s)
 
+    f.traza.append(f.h)
     bandas = plan.get("bandasRitmo", [])
     f.n(len(bandas))
     for b in bandas:
@@ -92,6 +95,7 @@ def firma_de(meta, plan, T):
             f.n(zz["rapidoS"])
             f.opc(zz["lentoS"])
 
+    f.traza.append(f.h)
     r = plan["reglas"]
     for k in ("ritmo", "ppm", "split500", "vatios", "cadencia"):
         f.n(r["holgura"][k])
@@ -100,9 +104,11 @@ def firma_de(meta, plan, T):
     f.n(1 if r["avisarEnCalentamiento"] else 0)
     f.n(1 if r["avisarEnRecuperacion"] else 0)
 
+    f.traza.append(f.h)
     v = plan["vocabulario"]
     f.n(len(v["clases"]))
-    for clase, nc in v["clases"].items():
+    # En el cable las clases van por orden de código; el JSON de referencia las trae en otro orden.
+    for clase, nc in sorted(v["clases"].items(), key=lambda kv: idx("CLASES", kv[0])):
         f.n(idx("CLASES", clase))
         f.texto(nc["nombre"])
         f.n(1 if nc["femenino"] else 0)
@@ -111,6 +117,7 @@ def firma_de(meta, plan, T):
     for s in v["rpe"]:
         f.texto(s)
 
+    f.traza.append(f.h)
     m = plan["metodo"]
     f.n(m["resumen"]["paresMinimos"])
     f.n(centi(m["resumen"]["umbralHecho"]))
@@ -121,10 +128,12 @@ def firma_de(meta, plan, T):
             f.n(deci(m["anotar"][eje][k]))
     f.n(centi(m["anotar"]["kgMax"]))
 
+    f.traza.append(f.h)
     f.texto_opc(plan.get("pareja"))
 
     pasos = plan["pasos"]
     f.n(len(pasos))
+    f.traza.append(f.h)
     for p in pasos:
         f.n(idx("CLASES", p["clase"]))
         f.n(idx("ROLES", p["rol"]))
@@ -187,6 +196,8 @@ def firma_de(meta, plan, T):
         f.n(idxo("FORMATOS_WOD", p["wod"]["formato"] if p.get("wod") else None))
         f.n(1 if p.get("fuerza") else 0)
         f.n(idxo("TURNOS_DOBLES", p["dobles"]["turno"] if p.get("dobles") else None))
+        f.traza.append(f.h)
+    firma_de.traza = f.traza
     return f.h
 
 
@@ -211,11 +222,16 @@ def main():
     casos = []
     for ruta in sorted(glob.glob(os.path.join(F.FIXTURES, "*.json"))):
         d = json.load(open(ruta, encoding="utf-8"))
-        if "base64" not in d:
+        if "base64" not in d or "meta" not in d or "plan" not in d:
+            print(f"salto {os.path.basename(ruta)}: no es un vector de plan")
             continue
-        casos.append((d["caso"], d["base64"], firma_de(d["meta"], d["plan"], T), len(d["plan"]["pasos"]), d["meta"]["asignacionId"], soportada(d["plan"])))
+        casos.append((os.path.basename(ruta)[:-5], d["base64"], firma_de(d["meta"], d["plan"], T), len(d["plan"]["pasos"]), d["meta"]["asignacionId"], soportada(d["plan"])))
     filas = ",\n".join(
         f'        ["{c}", "{b}", {h}, {n}, {a}, {"true" if s else "false"}]' for c, b, h, n, a, s in casos
+    )
+    pruebas = "\n".join(
+        f'(:test)\nfunction vector_{c.replace("-", "_")}(logger as Test.Logger) as Lang.Boolean {{\n    return ComprobarPlan.vector(Vectores.TODOS[{i}], logger);\n}}\n'
+        for i, (c, *_r) in enumerate(casos)
     )
     salida = f"""//
 // GENERADO por tools/generar-vectores.py. NO EDITAR A MANO.
@@ -223,6 +239,7 @@ def main():
 // Cada fila: [caso, base64, firma esperada, nº de pasos, asignacionId, ¿soportada en v1?].
 //
 using Toybox.Lang;
+using Toybox.Test;
 
 (:test)
 module Vectores {{
@@ -230,7 +247,8 @@ module Vectores {{
 {filas}
     ];
 }}
-"""
+
+{pruebas}"""
     ruta = os.path.join(F.RAIZ, "tests", "Vectores.mc")
     os.makedirs(os.path.dirname(ruta), exist_ok=True)
     open(ruta, "w", encoding="utf-8").write(salida)
