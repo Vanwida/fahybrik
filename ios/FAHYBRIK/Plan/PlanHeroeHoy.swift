@@ -103,7 +103,7 @@ struct HeroeSesion: View {
                 InfoPill(text: formato)
             }
             if let duracion = DuracionDeSesion.texto(sesion) {
-                InfoPill(text: duracion, acento: DuracionDeSesion.llevaNumero(sesion))
+                InfoPill(text: duracion, estilo: DuracionDeSesion.llevaNumero(sesion) ? .acento : .neutro)
             }
             Spacer(minLength: 0)
         }

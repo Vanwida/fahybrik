@@ -92,7 +92,7 @@ struct LibreBadge: View {
         .foregroundStyle(Theme.Color.accentText)
         .padding(.horizontal, compact ? 6 : 8)
         .padding(.vertical, compact ? 2 : 3)
-        .background(Theme.Color.accent.opacity(0.14))
+        .background(Theme.Color.accentTint)
         .clipShape(Capsule())
         .accessibilityLabel("Entreno libre")
     }
@@ -417,24 +417,29 @@ struct CoachAvatar: View {
     /// La foto de perfil, cuando la hay. Se pinta ENCIMA de las iniciales, así
     /// que sin foto el avatar es exactamente el de siempre.
     var photoURL: String? = nil
+    /// El avatar del atleta en «El día»: cara del color de la marca con las iniciales en su
+    /// tinta (cursiva de marca), en vez de la cara elevada con el color como glifo. Es el que
+    /// lleva el sujeto de Perfil; el pequeño de siempre (chat, avisos) no cambia.
+    var relleno: Bool = false
 
     /// The initials / person glyph are GLYPHS over the (white-in-light) elevated
     /// face, so a brand-orange tint must use the text-safe role split (orange
     /// only reaches ~3:1 on white). Non-orange tints pass through unchanged.
     private var glyphTint: Color {
-        tint == Theme.Color.accent ? Theme.Color.accentText : tint
+        if relleno { return tint == Theme.Color.accent ? Theme.Color.accentOn : Theme.Color.background }
+        return tint == Theme.Color.accent ? Theme.Color.accentText : tint
     }
 
     var body: some View {
         ZStack {
-            Circle().fill(Theme.Color.surfaceElevated)
+            Circle().fill(relleno ? tint : Theme.Color.surfaceElevated)
             if initials.isEmpty {
-                Image(systemName: "person.fill")
-                    .font(.system(size: size * 0.42, weight: .semibold))
+                Image(systemName: GlifoDia.silueta.simbolo)
+                    .font(.system(size: size * (relleno ? 0.46 : 0.42), weight: .semibold))
                     .foregroundStyle(glyphTint)
             } else {
                 Text(initials)
-                    .font(.system(size: size * 0.38, weight: .heavy))
+                    .font(ScaledFontModifier.fuente(size: size * 0.38, weight: .heavy, italic: relleno))
                     .foregroundStyle(glyphTint)
             }
         }
