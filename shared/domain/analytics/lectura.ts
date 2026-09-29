@@ -199,7 +199,12 @@ export type Unidad =
   | 'sesiones'
   | 'watts'
   | 'reps'
-  | 'dias';
+  | 'dias'
+  | 'rpe'          // esfuerzo percibido, escala 1-10 (una serie, un tramo)
+  | 'rir'          // repeticiones en reserva de una serie
+  | 'series'       // series de fuerza (hechas frente a prescritas)
+  | 'rondas'       // rondas de un WOD o minutos cumplidos de un EMOM
+  | 'tramos';      // tramos de sesión (el cumplimiento serie a serie)
 
 // ---------------------------------------------------------------------------
 // EL DATO
