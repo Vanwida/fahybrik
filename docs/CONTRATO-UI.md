@@ -38,6 +38,7 @@ necesitarlo (así nacieron las duplicaciones del kit de HUD).
 | Marcador de carga en frío | `SkeletonBar` | `Theme/Atoms.swift` |
 | Separador | `Hairline` | `Theme/` |
 | Punto de modalidad | `ModalityDot` | `Theme/RedesignComponents.swift` |
+| Sujeto, tesela, póster, regleta, aviso… de las pestañas rehechas | el kit del día — ver **§11** | `Theme/Dia/` |
 | Insignias de sesión | `LibreBadge` · `TestBadge` · `SlotBadge` | `Theme/RedesignComponents.swift` |
 
 `FillingScreen` es la estrategia `llena` del §6.1 hecha pieza, y es la que faltaba: un
@@ -366,3 +367,51 @@ Lo que falla en el AMRAP no es la caja: es que su caja **pesa lo mismo que las t
 ### 10.6 · Lo que de verdad haces no va en gris
 
 Corolario de §6.2: en un EMOM el sujeto es el minuto drenando, pero **el trabajo es «10 de 12 cal»** — y hoy está más pequeño que el reloj y metido en un panel gris aparte. Lo secundario se pliega (regla 4), pero **el trabajo no es secundario**: es lo segundo más importante de la pantalla y tiene que leerse como tal.
+
+---
+
+## 11 · El kit del día (iOS)
+
+Hoy, Plan, Carreras y Perfil se portan a Swift en paralelo con el diseño de «El día»; sin un kit común cada una montaba su propio sujeto, su propia tesela y su propia pastilla. Componentes en `Theme/Dia/`, tokens en `Theme/Theme+Dia.swift` y `Theme/Theme+Tipo.swift`. Espejo de `web/components/design-twin/kit-dia/`: si cambia allí, cambia aquí en el mismo lote. Cómo se ve: `GaleriaDia` (las `#Preview` y `FAHYBRIKTests/Theme/GaleriaDiaRenderTests`, que deja PNG en claro/oscuro con el acento de fábrica y con un club azul y uno amarillo en `FAHYBRIK_CAPTURAS`).
+
+### 11.1 · Qué usar para qué
+
+| Necesitas | Usa |
+|---|---|
+| El sujeto de la pantalla (UNO): bloque con el tinte de su momento | `SujetoDia(tono:)` con `KickerDia`, `TituloDia`, `ApoyoDia` dentro |
+| Su acción | `AccionDia` (dentro de un `SujetoDia` que es botón, o en un `Button` con `PressScaleStyle(escala: 0.96)`) |
+| La foto de una carrera con cuenta atrás | `PosterDia` + `CuentaAtrasDia` (+ `.panelSobreFoto()`) |
+| «N de M» | `RegletaDia` |
+| Una cifra con su rótulo | `TeselaDia`, SIEMPRE dentro de `TeselasDia` (las iguala en alto y pasa a una columna con texto accesible) |
+| Título de sección | `TituloSeccionDia` |
+| En qué instante del día estás | `LineaDelDia` |
+| Ficha de icono de una fila | `FichaDia` |
+| Botón redondo del cromo, su insignia, la chapita de la cámara | `BotonCromoDia`, `InsigniaDia`, `ChapitaDia` |
+| Aviso pasajero | `.avisoDia($aviso)` (o `AvisoDia`). Es el único: `ToastBanner` ya no existe |
+| Pastilla que enseña un dato | `InfoPill(text:estilo:)` |
+| Anillo de una cifra 0-100 | `RecoveryRing` |
+| Marcador de carga | `SkeletonBar` con la MISMA forma que tendrá lo que llegue |
+| Glifo / sello de estado de una sesión | `IconoDia(GlifoDia)` · `SelloEstadoDia` — todos SF Symbols, un símbolo por idea |
+| Repartir el sobrante ENTRE los hijos | `EntreLayout` |
+| Avatar del atleta con la marca de fondo | `CoachAvatar(relleno: true)` |
+
+### 11.2 · El acento es el del club
+
+Todo lo que en el diseño es «naranja» es el **acento del club**: `Theme.Color.accent`, `accentPress`, `accentOn` (tinta sobre el relleno), `accentText` (el acento como texto) y, nuevo, el tinte suave `accentTint` / `accentTintBorde` / `accentTint(sobre:)`, que consume el `softAlpha` que manda el servidor (0,14 si no hay club). Los colores de estado (ok, warning, danger, info) y de modalidad son semánticos y NO los toca el tenant.
+
+Tres reglas medidas (las afirma `DiaKitTests`):
+- **Sobre un tinte del acento, el texto es la tinta del tema**: ni `muted` (sobre el tinte de un acento claro mide 4,1-4,4:1 en oscuro) ni `accentText` (el servidor lo deriva contra el lienzo, no contra un tinte).
+- **Las tiras del sujeto de acción aclaran u oscurecen según la tinta del club**: tinta oscura (naranja, amarillo) → aclaran; tinta clara (azul, violeta) → oscurecen.
+- **Se prueba con otro acento, siempre.** Una preview o una captura sólo con el naranja no prueba nada: `EnAmbasDia(club: .pruebaAzul)`.
+
+### 11.3 · Tipografía: se pide el papel, no el número
+
+`Text(…).papel(.seccion)`. Papeles: `etiqueta`, `kicker`, `rotulo`, `nota`, `notaFuerte`, `notaPesada` (15 pt) · `cuerpo`, `cuerpoFuerte`, `accion` (17) · `seccion` (24) · `saludo` (30) · `dato` (32) · `sujeto` (44) · `cuentaHoy` (64) · `cuenta` (80). Escalan con Dynamic Type hacia arriba y **nunca por debajo de su base**; los de 24 pt en adelante llevan tope (×1,3) para que una palabra no se parta a mitad. Sigue en pie, y choca con el suelo de 15 pt, la escala antigua: `Theme.Typography.body/small/caption/dataLabel` (16/13/12/11), `LabelText`/`SectionLabel` (11), `SectionHeader` de Perfil (10). No se borran (hay pantallas que aún las leen); una pantalla rehecha no las usa.
+
+### 11.4 · Altura
+
+Una pantalla tiene UN sujeto y va en un `FillingScreen`: el sobrante entra en el propio sujeto, entre el título y la acción. `PosterDia(.portada)` no absorbe sobrante (el que lo absorbe es el sujeto); `PosterDia(.pantalla)`, el de Carreras, sí. Dos bloques que piden todo el alto en la misma pila se reparten el sobrante a partes iguales y ninguno cabe.
+
+### 11.5 · Prohibido
+
+Un naranja o un hex en un fichero del kit (lo vigila un test), otro cascarón de sujeto, texto por debajo de 15 pt, `Theme.Color.accent.opacity(0.12)` suelto (hay 75 en la app: se cambian por `accentTint` al rehacer cada pantalla), un `Layout` que se estire con toda propuesta, y un botón redondo sin nombre accesible.
