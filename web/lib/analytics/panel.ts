@@ -43,6 +43,7 @@ import {
   type VentanaClave,
 } from '@fahybrid/shared/domain/analytics';
 import { loadAnclasAtleta } from './anclas';
+import { cargarCumplimiento } from './cumplimiento';
 import type { AtletaVerificado } from './atleta-verificado';
 import { loadContexto, loadSesionesHechas, loadSesionesPlan } from './panel-datos';
 
@@ -115,6 +116,7 @@ export async function cargarPanel(args: {
     hoy: contexto.hoy,
   });
   bloques.semanas = lecturasSemanas({ diario, plan: planHastaHoy, ventana, metodo });
+  bloques.semanas.push(...(await cargarCumplimiento({ atleta, contexto, ventana, metodo, anclas, fracciones_hr, preciadas, planificadas, now, client })).lecturas);
   bloques.estado = lecturasEstado({
     readiness: readiness ? { score: readiness.score, recorded_for: readiness.recorded_for, delta_7d: readiness.delta_7d } : null,
     hoy: contexto.hoy,

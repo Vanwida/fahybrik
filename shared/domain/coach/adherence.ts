@@ -35,6 +35,8 @@ import { BOX_TIMEZONE, addDays, isoDateString, parseIsoDate } from '../dates';
 export type AdherenceAssignmentStatus = 'scheduled' | 'completed' | 'missed' | 'skipped' | 'partial';
 
 export interface AdherenceSession {
+  /** La sesión (`workout_assignments.id`), cuando la trae el lector: quien cruza con más datos la busca por aquí. */
+  assignment_id?: string;
   /** YYYY-MM-DD del día programado. */
   scheduled_for: string;
   status: AdherenceAssignmentStatus;
@@ -153,6 +155,7 @@ export async function loadAdherenceSessionsBatch(params: {
     Array<{
       athlete_id: string;
       as_of: string;
+      assignment_id: string | null;
       scheduled_for: string | null;
       status: AdherenceAssignmentStatus | null;
       origin: 'coach' | 'self' | null;
@@ -171,6 +174,7 @@ export async function loadAdherenceSessionsBatch(params: {
     select
       ath.id::text                               as athlete_id,
       to_char(ath.as_of, 'YYYY-MM-DD')           as as_of,
+      wa.id::text                                as assignment_id,
       to_char(wa.scheduled_for, 'YYYY-MM-DD')    as scheduled_for,
       wa.status::text                            as status,
       wa.origin::text                            as origin,
@@ -202,6 +206,7 @@ export async function loadAdherenceSessionsBatch(params: {
     if (!sessions.has(r.athlete_id)) sessions.set(r.athlete_id, []);
     if (r.scheduled_for == null || r.status == null) continue;
     sessions.get(r.athlete_id)!.push({
+      ...(r.assignment_id != null ? { assignment_id: r.assignment_id } : {}),
       scheduled_for: r.scheduled_for,
       status: r.status,
       origin: r.origin ?? 'coach',
