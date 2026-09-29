@@ -109,6 +109,13 @@ final class AppDataStore {
     // ventana ya abierta pinta al instante, y la pestaña abre pintada en frío.
     var panelesAnaliticas: [String: Slice<PanelAnaliticas>] = [:]  // /athlete/analytics/panel?ventana=
 
+    // LOS DETALLES de esa pestaña (29-09): el de una familia por (familia × ventana), el cumplimiento por
+    // ventana (la puerta a los días y «lo que te piden») y la sesión por ejecución. Misma máquina SWR, y en
+    // MEMORIA: un detalle no se persiste (el panel sí, y con él la pestaña abre pintada en frío).
+    var detallesAnaliticas: [String: Slice<DetalleAnaliticas>] = [:]        // …/analytics/familia/{f}?ventana=
+    var cumplimientosAnaliticos: [String: Slice<CumplimientoAnaliticas>] = [:]  // …/analytics/cumplimiento?ventana=
+    var sesionesAnaliticas: [String: Slice<DetalleDeSesion>] = [:]          // …/analytics/sesion/{executionId}
+
     /// Unread coach messages (0 when none / not loaded). Single source so every
     /// surface (bell dot, coach-note row) agrees.
     var unreadCount: Int { max(0, chatThread.value?.unreadForAthlete ?? 0) }
@@ -218,6 +225,9 @@ final class AppDataStore {
         raceOverview = .init()
         analyticsSections = [:]
         panelesAnaliticas = [:]
+        detallesAnaliticas = [:]
+        cumplimientosAnaliticos = [:]
+        sesionesAnaliticas = [:]
     }
 
     // MARK: Grouped loads (cache-first render is automatic; these revalidate)
@@ -593,6 +603,57 @@ final class AppDataStore {
             force: force
         ) { bearer in
             try await AnalyticsService.fetchPanel(ventana: ventana, bearer: bearer)
+        }
+    }
+
+    // MARK: Los detalles de analíticas (familia, cumplimiento, sesión)
+
+    private func claveDeDetalle(_ familia: FamiliaDeDetalle, _ ventana: VentanaClave) -> String { "\(familia.rawValue)|\(ventana.rawValue)" }
+
+    /// La porción del detalle de una familia en una ventana. Vacía la primera vez.
+    func detalleAnaliticas(_ familia: FamiliaDeDetalle, _ ventana: VentanaClave) -> Slice<DetalleAnaliticas> {
+        detallesAnaliticas[claveDeDetalle(familia, ventana)] ?? Slice<DetalleAnaliticas>()
+    }
+
+    func refreshDetalleAnaliticas(_ familia: FamiliaDeDetalle, _ ventana: VentanaClave, force: Bool = false) async {
+        let key = claveDeDetalle(familia, ventana)
+        await revalidate(
+            get: { self.detallesAnaliticas[key] ?? Slice<DetalleAnaliticas>() },
+            set: { self.detallesAnaliticas[key] = $0 },
+            force: force
+        ) { bearer in
+            try await AnalyticsService.fetchDetalleFamilia(familia, ventana: ventana, bearer: bearer)
+        }
+    }
+
+    /// El cumplimiento de una ventana: sus sesiones del plan, con líneas y tramos juzgados.
+    func cumplimientoAnalitico(_ ventana: VentanaClave) -> Slice<CumplimientoAnaliticas> {
+        cumplimientosAnaliticos[ventana.rawValue] ?? Slice<CumplimientoAnaliticas>()
+    }
+
+    func refreshCumplimientoAnalitico(_ ventana: VentanaClave, force: Bool = false) async {
+        let key = ventana.rawValue
+        await revalidate(
+            get: { self.cumplimientosAnaliticos[key] ?? Slice<CumplimientoAnaliticas>() },
+            set: { self.cumplimientosAnaliticos[key] = $0 },
+            force: force
+        ) { bearer in
+            try await AnalyticsService.fetchCumplimiento(ventana: ventana, bearer: bearer)
+        }
+    }
+
+    /// El detalle de una sesión hecha, por su ejecución.
+    func sesionAnalitica(_ executionId: String) -> Slice<DetalleDeSesion> {
+        sesionesAnaliticas[executionId] ?? Slice<DetalleDeSesion>()
+    }
+
+    func refreshSesionAnalitica(_ executionId: String, force: Bool = false) async {
+        await revalidate(
+            get: { self.sesionesAnaliticas[executionId] ?? Slice<DetalleDeSesion>() },
+            set: { self.sesionesAnaliticas[executionId] = $0 },
+            force: force
+        ) { bearer in
+            try await AnalyticsService.fetchSesion(executionId: executionId, bearer: bearer)
         }
     }
 
