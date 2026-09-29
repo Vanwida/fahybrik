@@ -24,6 +24,40 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-09-29 · Analíticas rehechas: el progreso y los récords — una regla para todas las familias (0279)
+
+**El encargo (modelo §3 filas 5-6, A9 y «Detalles por familia»):** el «¿mejoro?» de correr, remo, ski, bici, fuerza, estaciones, WOD y tests, y la lista única de récords, sobre el contrato de los cimientos. Todo en rama; 0279 probada solo en una rama Neon desechable.
+
+**Decidido (mecanismo):**
+- **Una regla** (`shared/domain/analytics/progreso.ts`): la métrica clave en la ventana contra la misma en la anterior de igual longitud; el delta en la unidad del umbral del coach — correr en s/km con `meaningful_gain_s_per_km` (el suyo de siempre, `coach_running_thresholds`), el resto en % con `cambio_*_pct` —; la palabra (`Vas a más` / `Te mantienes` / `Vas a menos`) solo con evidencia en los DOS periodos (1 para un mejor, que es un hecho; 3 para una media, `MIN_TRAMOS_POR_MITAD`) y según el sentido de la métrica. En `todo` no hay anterior: número y serie, sin palabra.
+- **Los cuatro estados de A10, una vez**: vacío (quien nunca hizo la familia → `ocasion`, se calla; quien aún no ha hecho nada → `historia` con su plazo), poco dato (número sin palabra: `historia` si la familia empezó dentro de la ventana, `ocasion` si le faltó evidencia en un periodo), lleno, y **dato viejo**: nada en la ventana y algo antes → el último número con la falta nueva `{ por: 'viejo', ultimo }` (no se calla, no tiene salida).
+- **La fila de cada familia** usa la mejor señal que se pueda COMPARAR: correr, Motor (ritmo al mismo pulso) > mejor esfuerzo del peldaño más largo > ritmo del mismo tipo de sesión; cada ergo, vatios al mismo pulso > la pieza más larga; fuerza, el 1RM estimado del levantamiento con más series; estaciones, la estación-dosis-carga más hecha; WOD, el WOD de referencia más repetido. La procedencia dice cuál salió.
+- **Récords = progresión estricta** (`records.ts`): por prueba, los que mejoraron a todos los anteriores (un empate no es récord); el récord contra el anterior; su serie ES la progresión; nuevo = conseguido en la ventana. No obedecen la ventana y lo dicen.
+- **Correr**: mejores de 400 m a la media (y maratón en récords) por actividad (Riegel, la regla de la curva), DENTRO de la actividad sobre la serie continua de distancia (`mejorTiempoDentro`) y marcas (test medido o carrera registrada; lo declarado al entrar no es una marca). **La cinta lleva su propio récord** (la regla de `isPersonalBest`); en la ventana, cada peldaño se lee en la calle si hay calle, y se compara en el mismo contexto. Un calentamiento no es un «tipo de sesión».
+- **Ergos, cada máquina la suya**: piezas de Concept2 desde tramos, parciales del PM5 y tests; **nunca la sesión entera** (en un ergo los descansos no son tramos: cuatro 500 no son un 2000). Vatios al mismo pulso con la puerta y la referencia del coach de correr (`same_hr_*`). La bici en /1000 m y rpm.
+- **Fuerza**: 1RM estimado con **la fórmula del coach, `coach_methodology.one_rm_estimation`** (la de sus tests de fuerza; arregla P18 también en las tarjetas viejas) y solo de series de hasta `fuerza_1rm_reps_max` reps. Tabla de mejores por nº de reps (100 × 5 cuenta para 3), levantado y de siempre. Reps por serie solo en ejercicios que el catálogo da a peso corporal Y que no admiten carga (unas dominadas con lastre sin kilos apuntados no progresan en reps). Series y tonelaje por patrón con `volume.ts`.
+- **Estaciones**: la misma estación, a la misma dosis MEDIDA (metros o reps del tramo) y la misma carga (sin kilos = «sin carga»); fuera los formatos de reloj fijo (EMOM, tabata, death by, AMRAP). **WOD de referencia** = plantilla raíz repetida (≥ 2) o simulación HYROX; tiempo, o rondas + reps con la fracción de ronda por la regla del vivo (distancia/tiempo cuentan 1, calorías como reps); sin reps por ronda, solo rondas enteras.
+- **Tests**: evolución entera de cada test medido (`coach_test`/`athlete_test`), contra el anterior como referencia y con la regla común; el umbral de pulso se enseña, no se juzga. Los que son un peldaño o una pieza compiten como récord en su familia; el resto, como `test.<slug>`.
+- **Contrato**: siete unidades (`s_1000m`, `spm`, `rpm`, `pp`, `series`, `cm`, `rondas`) y la falta `viejo`. Bloques `progreso` (7 filas) y `records` en `cargarPanel` con una llamada; detalles `GET …/analytics/familia/{correr|remo|ski|bici|fuerza|estaciones}` (estaciones lleva los WOD) y `GET …/analytics/records` (récords + tests), atleta y coach, del MISMO `progresoAtleta`.
+- **Método (0279)**: `cambio_ergo_pct` 1, `cambio_fuerza_pct` 2,5, `cambio_estaciones_pct` 3, `cambio_wod_pct` 3, `cambio_test_pct` 2, `fuerza_1rm_reps_max` 10 — defectos razonados en `metodo.ts`, NULL = defecto, editables por el PUT.
+- **P1 en la raíz**: el peldaño de esfuerzos de `veredictoDe` comparaba segundos de toda la distancia contra un umbral en s/km; ahora se lleva a s/km (`gananciaPorKm`).
+- **La tendencia semanal empieza en la primera semana con dato** (con `todo`, el 64 arrastraba 370 semanas vacías desde 2019 por métrica).
+
+**Medido en la rama (29-09, ventana 12 s):** atleta 64 — correr, Motor 6:20/km contra 7:08/km al mismo pulso → «Vas a más» (3 tramos por periodo, pulso ESTIMADO); ski, mejor 500 m 1:48 contra 2:47 → «Vas a más»; remo (Motor 216 W) y fuerza (sentadilla 116,7 kg estimados, Epley: su coach no tiene fórmula propia) con número y sin palabra (la familia empezó hace 9 semanas); bici, estaciones y WOD callados (ningún tramo de estación guarda dosis y tiempo; sus WOD puntuados son libres sueltos). 34 récords, 19 nuevos en la ventana (1 km en cinta 5:00 dentro de una sesión, sentadilla 186,7 kg en test…). En 4 s el Motor ya no se compara y la fila cae al mejor 1 km (6:41 contra 5:50 → «Vas a menos»); remo, ski y fuerza pasan a dato viejo. Atleta 63: solo correr, sin palabra (3 semanas de historia). Atleta 72: un «rodaje» a 21:25/km y sentadilla 110 kg. Atleta 65: todo sin dato con el plazo. El progreso añade ~1 s al panel en la rama (siete consultas en serie en test; en paralelo en producción).
+
+**Descartado:**
+- Duplicar la fórmula de 1RM en `coach_analytics_method`: habría dos fórmulas (la de los tests y la de las analíticas) para el mismo número.
+- Un umbral de cambio nuevo para correr: el coach ya tenía el suyo para esa pregunta.
+- Pasar reps + RIR a %1RM: es la tabla RPE/%RM del coach, sin editor (como en la carga planificada).
+- La sesión entera como pieza de ergo; la dosis de una estación sacada de la prescripción (sería suponer que hizo lo pautado); un metcon suelto como WOD de referencia; lo declarado al entrar como récord.
+- Filtrar «correr» por ritmo (un rodaje a 21:25/km sale tal cual): sería una quinta definición de correr (P17); correr es lo que dice `familiaDe`.
+
+**NO hacer:** no juzgar un delta en otra unidad que la de su umbral; no emitir un récord por empate; no comparar la cinta con la calle; no estimar 1RM con otra fórmula que la del coach; no preciar una pieza de ergo con la sesión entera; no inventar la carga o la dosis de una estación; no cambiar los ids `progreso.<familia>`, `records.<prueba>`, `<familia>.mejor.<pieza>`, `test.<slug>`.
+
+**Queda:** el editor del método (diseño); la dosis y el tiempo de las estaciones dependen del vivo nuevo (hoy ningún tramo de estación los guarda juntos); las series continuas de calle (hoy solo la cinta manda distancia al segundo); `decoupling_pct` solo existe si la ingesta lo calculó (0 filas hoy); las carreras de Salud en cinta cuentan como calle (Salud no dice «indoor» aquí); los saltos imposibles del 64 (CMJ 720 cm) los limpia 0278 (otra rama); aplicar 0279 en producción (el orquestador, antes del deploy).
+
+---
+
 ## 2026-09-29 · Analíticas rehechas: los cimientos del motor (contrato, ventana, carga única, forma, método 0277, umbrales declarados)
 
 **El encargo (docs/analiticas/modelo.md §10.1):** el motor objetivo, sin UI, sobre el que otras sesiones construyen cumplimiento, progreso/récords e intensidad/recuperación. Todo en rama; nada desplegado; la migración 0277 probada solo en una rama Neon desechable.
