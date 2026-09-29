@@ -2,9 +2,11 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-29** (vivo nuevo del iPhone encendido en Release, en rama)
+Última actualización: **2026-09-29** (analíticas rehechas: los cimientos del motor, en rama)
 
 ## Ahora
+
+**ANALÍTICAS REHECHAS · CIMIENTOS DEL MOTOR (29-09, rama `worktree-agent-a342e82f006cd9120`, sin fusionar; DECISIONS 29-09).** Modelo: `docs/analiticas/modelo.md`. Hecho, sin UI: contrato `Lectura` ampliado (ancla, comparación, plan/hecho, familia, veredicto) + sobre del panel; ventana única en el día local; anclas resueltas una vez (medida > declarada > estimada > poblacional); carga única por tramo con la escalera del coach; carga planificada desde la prescripción; forma/fatiga/frescura con proyección hasta la carrera; semanas y estado; método del coach ampliado (0277, `PUT /api/coach/analytics-method`, sin editor aún); umbrales declarados de un toque (tabla + `/api/athlete/thresholds` + `/api/coach/athletes/[id]/thresholds`); `GET …/analytics/panel` atleta y coach con el mismo cálculo. Atleta 64 en la rama: 2,6 % → 56,7 % del tiempo con carga (estimada). FALTA: bloques intensidad/progreso/récords/carrera/recuperación (otras sesiones), editor del método (diseño), 0277 en prod (orquestador), retirada de lo viejo (§9).
 
 **28-09 · UN SOLO ENTRENO EN PRODUCCIÓN + VIVO DEL IPHONE FIRMADO.** Libre ≡ coach al guardar, escribir y leer (0274–0276 aplicadas en prod + backfill de plantillas). Reloj sin atascos; motor del iPhone por formato; historial con series y parciales. Alex firmó el vivo nuevo del iPhone (galería https://claude.ai/artifact/YN3iFbkZYGHSn1S5hsgb8t, propuestas `iphone-vivo-*`). EN CURSO: el Swift del vivo (base primero, luego familias). PENDIENTE: build iOS en Xcode Cloud para TestFlight (lo instala Alex).
 
