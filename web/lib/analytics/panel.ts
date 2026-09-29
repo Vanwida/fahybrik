@@ -9,9 +9,9 @@ import 'server-only';
 // resuelven el método del coach y las anclas, y se llama a los motores puros
 // de `shared/domain/analytics`.
 //
-// LO QUE HOY SE SIRVE: estado, forma (con proyección) y semanas. Los otros
-// cinco bloques viajan como `pendientes` hasta que sus sesiones los construyan
-// sobre este mismo contrato.
+// LO QUE HOY SE SIRVE: estado, forma (con proyección), semanas, intensidad,
+// recuperación y carrera (./panel-bloques). Los bloques que faltan viajan como
+// `pendientes` hasta que sus sesiones los construyan sobre este mismo contrato.
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -45,9 +45,10 @@ import {
 import { loadAnclasAtleta } from './anclas';
 import type { AtletaVerificado } from './atleta-verificado';
 import { loadContexto, loadSesionesHechas, loadSesionesPlan } from './panel-datos';
+import { cargarIntensidadRecuperacionCarrera } from './panel-bloques';
 
 /** Los bloques que este cargador aún no construye. Se quitan de aquí al servirlos. */
-export const BLOQUES_PENDIENTES: readonly BloquePanel[] = ['intensidad', 'progreso', 'records', 'carrera', 'recuperacion'];
+export const BLOQUES_PENDIENTES: readonly BloquePanel[] = ['progreso', 'records'];
 
 export async function cargarPanel(args: {
   atleta: AtletaVerificado;
@@ -115,10 +116,18 @@ export async function cargarPanel(args: {
     hoy: contexto.hoy,
   });
   bloques.semanas = lecturasSemanas({ diario, plan: planHastaHoy, ventana, metodo });
+  const readinessHoy = readiness ? { score: readiness.score, recorded_for: readiness.recorded_for, delta_7d: readiness.delta_7d } : null;
+  const propios = await cargarIntensidadRecuperacionCarrera({
+    atleta, coach_id: coachId, tz: contexto.tz, hoy: contexto.hoy, now, ventana, metodo, hr: hrMethod, anclas, hechas, diario, carrera: carreraRow, readiness: readinessHoy, client,
+  });
+  bloques.intensidad = propios.intensidad;
+  bloques.recuperacion = propios.recuperacion;
+  bloques.carrera = propios.carrera;
   bloques.estado = lecturasEstado({
-    readiness: readiness ? { score: readiness.score, recorded_for: readiness.recorded_for, delta_7d: readiness.delta_7d } : null,
+    readiness: readinessHoy,
     hoy: contexto.hoy,
     forma: bloques.forma,
+    bandas_readiness: propios.bandas_readiness,
   });
 
   return {
