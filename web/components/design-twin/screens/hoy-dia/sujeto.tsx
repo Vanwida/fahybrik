@@ -15,8 +15,8 @@ import { useState, type CSSProperties, type ReactNode } from 'react';
 import { PuntoModalidad } from '../../kit-composicion/chrome';
 import type { LecturaHoy, SesionHoy } from '../../kit-hoy/contrato';
 import { Escala, PREGUNTAS_CHECKIN, useCheckin } from './checkin';
-import { Abajo, Accion, Apoyo, Arriba, Hero, Kicker, Titulo } from './hero';
-import { IcoChat, IcoMas, IcoPausa, IcoReintentar, SelloEstado } from './iconos';
+import { Abajo, Accion, Apoyo, Arriba, Hero, Kicker, Titulo } from '../../kit-dia/hero';
+import { IcoChat, IcoMas, IcoPausa, IcoReintentar, SelloEstado } from '../../kit-dia/iconos';
 import {
   ETIQUETA_ESTADO,
   NOMBRE_MODALIDAD,
@@ -24,8 +24,8 @@ import {
   type Manana,
   type Momento,
 } from './momento';
-import { Esqueleto, Pastilla } from './piezas';
-import { fuente, TAM, TOQUE } from './tokens';
+import { Esqueleto, Pastilla } from '../../kit-dia/piezas';
+import { fuente, TAM, TOQUE } from '../../kit-dia/tokens';
 
 interface Props {
   l: LecturaHoy;

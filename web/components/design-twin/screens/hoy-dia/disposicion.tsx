@@ -15,10 +15,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { LecturaHoy, Senal } from '../../kit-hoy/contrato';
 import { COLOR_ZONA, LECTURA_ZONA, zonaDe } from '../../kit-hoy/contrato';
-import { IcoBaja, IcoChevron, IcoSube } from './iconos';
+import { IcoBaja, IcoChevron, IcoSube } from '../../kit-dia/iconos';
 import type { Momento } from './momento';
-import { Esqueleto, Etiqueta } from './piezas';
-import { fuente, RADIO, TABULAR, TAM, TOQUE } from './tokens';
+import { Esqueleto, Etiqueta } from '../../kit-dia/piezas';
+import { fuente, RADIO, TABULAR, TAM, TOQUE } from '../../kit-dia/tokens';
 
 const SENAL_INACTIVA = 'Sin dato';
 

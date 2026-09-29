@@ -17,9 +17,9 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import type { CaminoEstado, Carrera, LecturaHoy, Simulacion } from '../../kit-hoy/contrato';
-import { IcoCalendario, IcoDiana, IcoLupa } from './iconos';
-import { Esqueleto } from './piezas';
-import { FOTO, fuente, RADIO, TABULAR, TAM, velo } from './tokens';
+import { IcoCalendario, IcoDiana, IcoLupa } from '../../kit-dia/iconos';
+import { Esqueleto } from '../../kit-dia/piezas';
+import { FOTO, fuente, RADIO, TABULAR, TAM, velo } from '../../kit-dia/tokens';
 
 /**
  * La capa entre la foto y el texto: el `--twin-bg` OSCURO en cuatro paradas.

@@ -12,7 +12,7 @@
 // «Saltar por hoy» existe, como en la app (`CheckinStore.markSkipped`).
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { fuente, TABULAR, TAM, TOQUE } from './tokens';
+import { fuente, TABULAR, TAM, TOQUE } from '../../kit-dia/tokens';
 
 export const PREGUNTAS_CHECKIN = [
   { titulo: 'Recuperación muscular', izquierda: '1 dolorido', derecha: '5 recuperado' },

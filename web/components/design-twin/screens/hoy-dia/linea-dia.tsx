@@ -10,8 +10,8 @@
 
 import type { LecturaHoy } from '../../kit-hoy/contrato';
 import { ETIQUETA_PASO, PASOS, saludo, type Instante, type Paso } from './momento';
-import { Esqueleto, Etiqueta, Pastilla } from './piezas';
-import { fuente, TAM } from './tokens';
+import { Esqueleto, Etiqueta, Pastilla } from '../../kit-dia/piezas';
+import { fuente, TAM } from '../../kit-dia/tokens';
 
 function Recorrido({ ahora, cerradas, total }: { ahora: Paso; cerradas: number; total: number }) {
   const actual = PASOS.indexOf(ahora);

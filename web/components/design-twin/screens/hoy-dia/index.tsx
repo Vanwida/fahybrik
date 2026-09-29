@@ -48,11 +48,11 @@ import { Camino } from './camino';
 import { Contigo } from './contigo';
 import { Cromo } from './cromo';
 import { Disposicion } from './disposicion';
-import { Estilos } from './estilos';
+import { Estilos } from '../../kit-dia/estilos';
 import { LineaDia } from './linea-dia';
 import { instanteDelDia, itemsContigo, momento, puedeUnirse, testsDelPrimerDia } from './momento';
-import { IcoCheck } from './iconos';
-import { fuente, MARGEN, RADIO, TAM } from './tokens';
+import { IcoCheck } from '../../kit-dia/iconos';
+import { fuente, MARGEN, RADIO, TAM } from '../../kit-dia/tokens';
 import { Sujeto } from './sujeto';
 import { EntrenoLibre, Teselas } from './teselas';
 

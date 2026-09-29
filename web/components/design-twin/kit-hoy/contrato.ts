@@ -6,8 +6,8 @@
 // guardado a medias). Nada de lo de aquí se calcula en la pantalla: una
 // portada PINTA, no decide (el mismo principio que `kit-analiticas/contrato`).
 //
-// Dos pintores, un modelo: `hoy-pulso` y `hoy-dia` reciben exactamente esto.
-// Lo que cambia entre ellas es qué es el SUJETO y cómo se pinta, no qué se sabe.
+// Un modelo, un pintor (`hoy-dia`). Hubo un segundo, `hoy-pulso` (el dial como sujeto),
+// que se descartó el 29-sep; vive en git (f7b353da).
 //
 // ── LÍMITES YA DECIDIDOS (docs/DECISIONS.md), que esta portada respeta ────────
 //  · 6-ago: el PLAN es la única puerta que EMPIEZA un entreno. Hoy dice el

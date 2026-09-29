@@ -16,10 +16,10 @@
 
 import { useId, useState, type CSSProperties, type ReactNode } from 'react';
 import type { LecturaHoy } from '../../kit-hoy/contrato';
-import { IcoBandeja, IcoChevron, IcoCronometro, IcoPausa, IcoVideo } from './iconos';
+import { IcoBandeja, IcoChevron, IcoCronometro, IcoPausa, IcoVideo } from '../../kit-dia/iconos';
 import type { ItemContigo } from './momento';
-import { Pastilla, TituloSeccion, mayuscula } from './piezas';
-import { fuente, RADIO, tinte, velo, TABULAR, TAM, TOQUE } from './tokens';
+import { Pastilla, TituloSeccion, mayuscula } from '../../kit-dia/piezas';
+import { fuente, RADIO, tinte, velo, TABULAR, TAM, TOQUE } from '../../kit-dia/tokens';
 
 /** Desde cuántas filas se pliega, y cuántas quedan a la vista al plegar. */
 const PLEGAR_DESDE = 3;

@@ -3,7 +3,7 @@
 // Los glifos de la portada. Todos decorativos (`aria-hidden`): el nombre
 // accesible lo lleva el botón que los contiene, nunca el dibujo.
 
-import type { EstadoSesion } from '../../kit-hoy/contrato';
+import type { EstadoSesion } from '../kit-hoy/contrato';
 
 interface P {
   tam?: number;

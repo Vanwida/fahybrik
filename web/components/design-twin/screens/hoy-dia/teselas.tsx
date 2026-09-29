@@ -12,9 +12,9 @@
 
 import type { ReactNode } from 'react';
 import type { LecturaHoy, MarcaReciente, Pasos } from '../../kit-hoy/contrato';
-import { IcoBaja, IcoChevron, IcoHuellas, IcoMas, IcoSube } from './iconos';
-import { Esqueleto, Rotulo } from './piezas';
-import { fuente, RADIO, TABULAR, TAM } from './tokens';
+import { IcoBaja, IcoChevron, IcoHuellas, IcoMas, IcoSube } from '../../kit-dia/iconos';
+import { Esqueleto, Rotulo } from '../../kit-dia/piezas';
+import { fuente, RADIO, TABULAR, TAM } from '../../kit-dia/tokens';
 
 const tarjeta = {
   borderRadius: RADIO.tarjeta,

@@ -5,7 +5,6 @@
 // un velo transparente del mismo token.
 
 import type { CSSProperties } from 'react';
-import type { Carrera } from '../../kit-hoy/contrato';
 
 /** Margen lateral de la portada. */
 export const MARGEN = 20;
@@ -72,7 +71,10 @@ export function velo(color: string, pct: number): string {
 }
 
 /** Las tres fotos del catálogo de la app (`RaceCardBackground*`), copiadas a public/twin/hoy. */
-export const FOTO: Record<Carrera['fondo'], { src: string; posicion: string }> = {
+/** Las tres fotos del catálogo de la app (`Carrera.fondo` en kit-hoy, `RaceCardBackground*` en iOS). */
+export type FondoCarrera = 'sled-push' | 'running' | 'wall-balls';
+
+export const FOTO: Record<FondoCarrera, { src: string; posicion: string }> = {
   'sled-push': { src: '/twin/hoy/race-sled-push.jpg', posicion: '50% 62%' },
   running: { src: '/twin/hoy/race-running.jpg', posicion: '50% 46%' },
   'wall-balls': { src: '/twin/hoy/race-wall-balls.jpg', posicion: '50% 58%' },

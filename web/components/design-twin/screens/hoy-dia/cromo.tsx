@@ -8,9 +8,9 @@
 import type { ReactNode } from 'react';
 import type { TwinAppearance } from '../../types';
 import type { LecturaHoy } from '../../kit-hoy/contrato';
-import { IcoBandeja, IcoChat } from './iconos';
-import { Esqueleto, Insignia } from './piezas';
-import { fuente, TAM, TOQUE } from './tokens';
+import { IcoBandeja, IcoChat } from '../../kit-dia/iconos';
+import { Esqueleto, Insignia } from '../../kit-dia/piezas';
+import { fuente, TAM, TOQUE } from '../../kit-dia/tokens';
 
 function BotonCromo({
   etiqueta,
