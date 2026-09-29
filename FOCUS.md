@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-29** (reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin; analíticas rehechas en main)
+Última actualización: **2026-09-30** (analíticas del iPhone: detalle y cierre; reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin)
 
 ## Ahora
 
@@ -31,7 +31,7 @@ para el iPhone y el panel del coach. Piezas, cada una con su entrada en DECISION
   editables); umbrales declarados de un toque. Retirado lo viejo que el panel cubre (DECISIONS). Verificado en navegador 390/768/1440
   contra rama Neon desechable; tsc limpio y 736 tests de ajustes/analíticas/ficha en verde. El editor heredado (`d4a303d7`) auditado:
   ninguna regla cruzada cruza grupos (test), esquema y CHECK de la tabla alineados (test con base real). DECISIONS 29-09.
-- Migraciones 0277–0281 aplicadas en prod (0279–0281 el 29-09, 248 registradas, 0 pendientes). iPhone (`claude/analiticas-ios-base`, sin fusionar; bandera encendida por defecto, la pestaña vieja sigue): modelos, kit y portada de los ocho bloques hechos; falta ver en aparato y las pantallas de detalle. FALTA: capa de voz de
+- Migraciones 0277–0281 aplicadas en prod (0279–0281 el 29-09, 248 registradas, 0 pendientes). **iPhone (30-09, `worktree-agent-ab66a2922a12498d9`, sin fusionar; DECISIONS 30-09):** portada + detalle de correr, ergo, fuerza y estaciones + la sesión + Semana a semana/Récords/Carrera, en «El día»; la pestaña vieja, el hub de correr y la bandera BORRADOS; sobrevive `LineSeriesChart` (Perfil VO₂máx). Falta ver en aparato. FALTA: capa de voz de
   coach para `explica_es`; los campos del método que el motor aún no lee (DECISIONS); decisiones abiertas de Alex en esa entrada.
 
 **RELOJ · ESPEJO CON TRES PÁGINAS (29-09, worktree `agent-afdc843ecfbddfffc`, sin fusionar; DECISIONS 29-09).** Datos | Vivo | Controles al correr también en espejo; falta aparato.
