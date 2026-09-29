@@ -35,7 +35,7 @@ import { checkColdStart } from '../training-load/load-verdict';
 import type { LoadCoverage } from '../training-load/coverage';
 import { salidaDe, type Falta } from '../running/progress';
 import { addDays, diffDays, isoDateString, parseIsoDate } from '../dates';
-import { frenteABasal, ventanaBasalDe, type MuestraDia } from './basal';
+import { comparaConBasal, type MuestraDia } from './basal';
 import type { DiaCarga } from './carga-tramo';
 import {
   comparacionDe,
@@ -110,7 +110,6 @@ export function disposicionPorDia(e: EntradaDisposicion): DisposicionDia[] {
   const serie = computeLoadSeries(e.diario, { ctl_tau: m.ctl_days, atl_tau: m.atl_days });
   const indice = new Map(e.diario.map((d, i) => [d.date, i]));
   const primera = e.diario.find((d) => d.sesiones > 0)?.date ?? null;
-  const basalV = ventanaBasalDe(m);
   const vfc = [...e.vfc].sort((a, b) => (a.dia < b.dia ? -1 : a.dia > b.dia ? 1 : 0));
 
   return e.dias.map((dia) => {
@@ -163,15 +162,14 @@ export function disposicionPorDia(e: EntradaDisposicion): DisposicionDia[] {
 
     // La variabilidad frente a la basal única, con las MISMAS puertas que el
     // bloque de recuperación: sin ellas, el delta no existe.
-    const ventanaVfc = vfc.slice(primerDesde(vfc, desplazar(dia, -Math.max(basalV.dias, DIAS_SEMANA))), primerDesde(vfc, desplazar(dia, 1)));
-    const fb = frenteABasal(ventanaVfc, dia, basalV);
-    const vale = fb.reciente.noches >= m.hrv_min_nights_recent && fb.basal.noches >= m.hrv_min_nights_baseline;
+    const ventanaVfc = vfc.slice(primerDesde(vfc, desplazar(dia, -Math.max(m.basal_dias, DIAS_SEMANA))), primerDesde(vfc, desplazar(dia, 1)));
+    const vfcDelDia = comparaConBasal(ventanaVfc, dia, m);
 
     const resultado = readRaceReadiness(
       {
         tsb: hoyCarga ? hoyCarga.tsb : null,
         compliance_pct: adherencePct(debido, hecho),
-        hrv_delta_ms: vale ? fb.delta : null,
+        hrv_delta_ms: vfcDelDia.delta_fiable,
         active_days_7d: activos,
         load_coverage: cobertura,
       },

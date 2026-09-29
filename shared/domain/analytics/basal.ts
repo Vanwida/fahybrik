@@ -137,6 +137,55 @@ export function frenteABasal(
   return { reciente, basal, delta };
 }
 
+/** Las noches mínimas del coach para fiarse de una comparación con la basal (0190). */
+export type PuertasBasal = Pick<CoachAnalyticsMethod, 'basal_dias' | 'basal_excluir_dias' | 'hrv_min_nights_recent' | 'hrv_min_nights_baseline'>;
+
+export interface ComparacionConBasal extends FrenteABasal {
+  /**
+   * La puerta que NO se pasa, o null. Lo reciente va primero: sin noches
+   * recientes nadie está midiendo, y esperar no lo arregla; con ellas, una basal
+   * corta es cuestión de tiempo.
+   */
+  falla: 'reciente' | 'basal' | null;
+  /** El delta, SOLO si pasa las dos puertas. Es el que puede sostener una palabra o un índice. */
+  delta_fiable: number | null;
+}
+
+/**
+ * Lo reciente frente a la basal CON las puertas del coach — la versión que
+ * leen todas las superficies (el panel, la disposición, el roster, el barrido de
+ * avisos, la ficha): la misma basal y la misma exigencia de noches en todas.
+ */
+export function comparaConBasal(muestras: readonly MuestraDia[], hoy: string, m: PuertasBasal): ComparacionConBasal {
+  const fb = frenteABasal(muestras, hoy, ventanaBasalDe(m));
+  const falla: ComparacionConBasal['falla'] =
+    fb.reciente.valor == null || fb.reciente.noches < m.hrv_min_nights_recent
+      ? 'reciente'
+      : fb.basal.valor == null || fb.basal.noches < m.hrv_min_nights_baseline
+        ? 'basal'
+        : null;
+  return { ...fb, falla, delta_fiable: falla == null ? fb.delta : null };
+}
+
+/**
+ * UNA NOCHE, UN NÚMERO. El iPhone sube el sueño de una noche en varios lotes
+ * (cada vez que Salud le da muestras nuevas: el reloj al despertar, otra app de
+ * sueño, un trozo de madrugada) y cada lote trae la duración de SUS muestras,
+ * no la de la noche. Medido en la rama el 29-09-2026: noches con 3 a 9 subidas
+ * (1,25 h a las 00:45, 8,53 h a las 07:15, 8,77 h a las 08:22…). Ni la media
+ * (4,8 h de una semana de noches de 7) ni la suma (36 h) son la noche: lo es
+ * el lote más completo, la mayor. Sin los intervalos no se puede unir mejor.
+ */
+export function nochesDeSueno(muestras: readonly MuestraDia[]): MuestraDia[] {
+  const mayor = new Map<string, number>();
+  for (const m of muestras) {
+    if (!Number.isFinite(m.valor) || m.valor <= 0) continue;
+    const antes = mayor.get(m.dia);
+    if (antes == null || m.valor > antes) mayor.set(m.dia, m.valor);
+  }
+  return [...mayor.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([dia, valor]) => ({ dia, valor }));
+}
+
 /**
  * Cuántos días hacia atrás hay que LEER para poder calcular la basal de todos
  * los días de un periodo que empieza en `desde`: la basal del primer día mira

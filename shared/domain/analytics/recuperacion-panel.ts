@@ -29,7 +29,7 @@
 
 import { readinessBandOf, type ReadinessBand } from '../coach/signal-thresholds';
 import { diffDays, parseIsoDate } from '../dates';
-import { frenteABasal, recienteDe, ventanaBasalDe, type MuestraDia } from './basal';
+import { comparaConBasal, recienteDe, type MuestraDia } from './basal';
 import {
   comparacionDe,
   lecturaMedida,
@@ -272,7 +272,6 @@ function veredictoSenal(s: Senal, diferencia: number | null, minimo: number): Ve
 function lecturaSenal(s: Senal, e: EntradaRecuperacionPanel): Lectura {
   const { ventana: v, metodo: m } = e;
   const muestras = s.muestras(e);
-  const basalV = ventanaBasalDe(m);
 
   // La serie: un punto por día de la ventana (la media de ese día), hueco sin dato.
   const porDia = new Map<string, number[]>();
@@ -291,14 +290,14 @@ function lecturaSenal(s: Senal, e: EntradaRecuperacionPanel): Lectura {
   const proveedor = s.proveedor(e);
   const procedencia: Procedencia = { de: s.de, explica_es: s.explica_es(m), medida: true, ancla: null, proveedor };
 
-  const fb = frenteABasal(muestras, e.hoy, basalV);
+  const fb = comparaConBasal(muestras, e.hoy, m);
   // LAS DOS PUERTAS, lo reciente primero: sin noches recientes nadie está
   // midiendo y esperar no acerca nada; con ellas, una basal corta es cuestión
   // de tiempo y se le dibuja el plazo.
-  if (fb.reciente.noches < m.hrv_min_nights_recent || fb.reciente.valor == null) {
+  if (fb.falla === 'reciente' || fb.reciente.valor == null) {
     return lecturaSinDato({ id: s.id, grupo: GRUPO, titulo_es: s.titulo_es, falta: { por: 'dispositivo' }, cobertura, procedencia: { ...procedencia, medida: false } });
   }
-  if (fb.basal.noches < m.hrv_min_nights_baseline || fb.basal.valor == null) {
+  if (fb.falla === 'basal' || fb.basal.valor == null) {
     return lecturaSinDato({
       id: s.id,
       grupo: GRUPO,

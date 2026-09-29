@@ -434,7 +434,8 @@ function lecturasPorFamilia(e: EntradaIntensidad, ag: Agregado, antes: Agregado 
         titulo_es: FAMILIA_ETIQUETA_ES[f],
         familia: f,
         a,
-        antes: antes?.familia.get(f) ?? null,
+        // Una familia que el periodo anterior no tocó cuenta allí cero, no «sin comparar».
+        antes: antes ? (antes.familia.get(f) ?? vacio()) : null,
         ag,
         e,
         explica: `Tu tiempo con pulso en ${FAMILIA_ETIQUETA_ES[f].toLowerCase()}, repartido en las cinco zonas de tu coach.`,

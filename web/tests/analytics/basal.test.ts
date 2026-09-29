@@ -4,12 +4,14 @@
 import { describe, expect, test } from 'vitest';
 import {
   basalDe,
+  comparaConBasal,
   diaDeSueno,
   diaLocal,
   diasBasal,
   diasRecientes,
   frenteABasal,
   mediaEn,
+  nochesDeSueno,
   primerDiaNecesario,
   recienteDe,
   ventanaBasalDe,
@@ -88,6 +90,47 @@ describe('frente a la basal', () => {
     const r = frenteABasal([{ dia: '2026-09-28', valor: 50 }], '2026-09-29', V);
     expect(r.delta).toBeNull();
     expect(recienteDe([{ dia: '2026-09-28', valor: 50 }], '2026-09-29').valor).toBe(50);
+  });
+});
+
+describe('las puertas del coach', () => {
+  const m = DEFAULT_COACH_ANALYTICS_METHOD;
+  const basal: MuestraDia[] = Array.from({ length: 20 }, (_, i) => ({ dia: `2026-08-${String(i + 1).padStart(2, '0')}`, valor: 60 }));
+
+  test('pasa las dos: delta fiable', () => {
+    const r = comparaConBasal([...basal, { dia: '2026-09-27', valor: 55 }, { dia: '2026-09-28', valor: 55 }, { dia: '2026-09-29', valor: 55 }], '2026-09-29', m);
+    expect(r.falla).toBeNull();
+    expect(r.delta_fiable).toBe(-5);
+  });
+
+  test('lo reciente va primero: sin tres noches recientes nadie está midiendo', () => {
+    const r = comparaConBasal([...basal, { dia: '2026-09-29', valor: 55 }], '2026-09-29', m);
+    expect(r.falla).toBe('reciente');
+    expect(r.delta).toBe(-5); // el número existe…
+    expect(r.delta_fiable).toBeNull(); // …pero no sostiene nada
+  });
+
+  test('con noches recientes y una basal corta, falta la basal', () => {
+    const r = comparaConBasal([...basal.slice(0, 5), { dia: '2026-09-27', valor: 55 }, { dia: '2026-09-28', valor: 55 }, { dia: '2026-09-29', valor: 55 }], '2026-09-29', m);
+    expect(r.falla).toBe('basal');
+    expect(r.delta_fiable).toBeNull();
+  });
+});
+
+describe('una noche, un número', () => {
+  test('de los lotes que subió el teléfono para una noche, el más completo', () => {
+    const lotes: MuestraDia[] = [
+      { dia: '2026-09-20', valor: 1.25 },
+      { dia: '2026-09-20', valor: 8.53 },
+      { dia: '2026-09-20', valor: 8.77 },
+      { dia: '2026-09-20', valor: 8.39 },
+      { dia: '2026-09-21', valor: 5.68 },
+      { dia: '2026-09-21', valor: 0 },
+    ];
+    expect(nochesDeSueno(lotes)).toEqual([
+      { dia: '2026-09-20', valor: 8.77 },
+      { dia: '2026-09-21', valor: 5.68 },
+    ]);
   });
 });
 
