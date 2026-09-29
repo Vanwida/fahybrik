@@ -2,11 +2,13 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-30** (analíticas del iPhone: detalle y cierre; reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin)
+Última actualización: **2026-09-30** (analíticas del iPhone: detalle y cierre; reloj: correr fase 1 pura, entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin)
 
 ## Ahora
 
 **FIX GUARDADO 500 (29-09, sin desplegar):** un tramo `run` de 0 m en el historial (atleta 64) partía por cero en `running-prs.ts` y tumbaba TODO guardado suyo; arreglado + savepoint en `detectPrs`. Tras deploy la cola de la app lo reintenta sola.
+
+**RELOJ · CORRER, FASE 1 (29-09, worktree `agent-ac72d9f51db3a2dcc`, sin fusionar; DECISIONS 29-09).** Hecha la parte pura: `Vivo.cuadroMuneca` (lo que pinta la muñeca, Always-On incluido), ritmo actual de 10 s con suelos de honestidad, `Vivo.Paso` Codable y vectores de oro kit→Swift. Siguen: vistas del reloj (`Muneca/`), cable (F2), hápticos (F3), voz (F4), método/M3/M8 en servidor (F5).
 
 **RELOJ · SE LANZA SOLO AL EMPEZAR (29-09, worktree `agent-a6bcbe816a50de313`, sin fusionar; DECISIONS 29-09).** «No conecta» = una carrera sin calle/cinta no lanzaba
 el reloj ni lo decía. Ahora siempre lanza sin preguntar (fuera «Preparar grabación» y «Continuar sin reloj»), deja rastro (`start_watch_app_skipped`), relanza 1 vez

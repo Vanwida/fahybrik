@@ -75,6 +75,12 @@ extension Vivo {
             aviso = AvisoDeVuelta(titulo: "Vuelta \(tramosN)", valor: fmtReloj(seg), pie: "\(fmtRitmo(ritmo)) /km", hasta: sesionT + Self.duracionS)
         }
 
+        /// El km que se está corriendo (para la página Vueltas): su número y lo que
+        /// lleva. `segundos` es `nil` si se empezó a mirar a mitad de km (no se sabe).
+        func kmEnCurso(sesionT: Double) -> (n: Int, segundos: Double?) {
+            (kmN + 1, kmDesdeT.map { sesionT - $0 })
+        }
+
         func avisoVigente(_ sesionT: Double) -> AvisoDeVuelta? {
             guard let a = aviso, a.hasta > sesionT else { return nil }
             return a
