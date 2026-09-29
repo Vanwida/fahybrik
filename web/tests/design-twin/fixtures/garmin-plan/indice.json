@@ -1,0 +1,269 @@
+{
+  "esquema": 1,
+  "casos": [
+    {
+      "caso": "491",
+      "sesion": "491",
+      "pasos": 2,
+      "bytes": 274
+    },
+    {
+      "caso": "494",
+      "sesion": "494",
+      "pasos": 1,
+      "bytes": 270
+    },
+    {
+      "caso": "573",
+      "sesion": "573",
+      "pasos": 1,
+      "bytes": 250
+    },
+    {
+      "caso": "479",
+      "sesion": "479",
+      "pasos": 22,
+      "bytes": 567
+    },
+    {
+      "caso": "551",
+      "sesion": "551",
+      "pasos": 12,
+      "bytes": 389
+    },
+    {
+      "caso": "509",
+      "sesion": "509",
+      "pasos": 36,
+      "bytes": 644
+    },
+    {
+      "caso": "535",
+      "sesion": "535",
+      "pasos": 18,
+      "bytes": 546
+    },
+    {
+      "caso": "538-correr",
+      "sesion": "538",
+      "pasos": 21,
+      "bytes": 565
+    },
+    {
+      "caso": "538-fuerza",
+      "sesion": "538",
+      "pasos": 33,
+      "bytes": 919
+    },
+    {
+      "caso": "488",
+      "sesion": "488",
+      "pasos": 54,
+      "bytes": 1160
+    },
+    {
+      "caso": "529-fuerza",
+      "sesion": "529",
+      "pasos": 44,
+      "bytes": 1034
+    },
+    {
+      "caso": "529-antes",
+      "sesion": "529",
+      "pasos": 35,
+      "bytes": 746
+    },
+    {
+      "caso": "492-fuerza",
+      "sesion": "492",
+      "pasos": 50,
+      "bytes": 1021
+    },
+    {
+      "caso": "492-circuito",
+      "sesion": "492",
+      "pasos": 27,
+      "bytes": 677
+    },
+    {
+      "caso": "498",
+      "sesion": "498",
+      "pasos": 12,
+      "bytes": 478
+    },
+    {
+      "caso": "572",
+      "sesion": "572",
+      "pasos": 15,
+      "bytes": 507
+    },
+    {
+      "caso": "506-circuito",
+      "sesion": "506",
+      "pasos": 12,
+      "bytes": 535
+    },
+    {
+      "caso": "506-wod",
+      "sesion": "506",
+      "pasos": 12,
+      "bytes": 496
+    },
+    {
+      "caso": "552",
+      "sesion": "552",
+      "pasos": 1,
+      "bytes": 270
+    },
+    {
+      "caso": "493-circuito",
+      "sesion": "493",
+      "pasos": 15,
+      "bytes": 591
+    },
+    {
+      "caso": "493-antes",
+      "sesion": "493",
+      "pasos": 20,
+      "bytes": 576
+    },
+    {
+      "caso": "482",
+      "sesion": "482",
+      "pasos": 12,
+      "bytes": 473
+    },
+    {
+      "caso": "505",
+      "sesion": "505",
+      "pasos": 15,
+      "bytes": 484
+    },
+    {
+      "caso": "530",
+      "sesion": "530",
+      "pasos": 10,
+      "bytes": 432
+    },
+    {
+      "caso": "536",
+      "sesion": "536",
+      "pasos": 4,
+      "bytes": 320
+    },
+    {
+      "caso": "514",
+      "sesion": "514",
+      "pasos": 1,
+      "bytes": 293
+    },
+    {
+      "caso": "modelo-6x1000",
+      "sesion": null,
+      "pasos": 13,
+      "bytes": 449
+    },
+    {
+      "caso": "modelo-6x1000-calle",
+      "sesion": null,
+      "pasos": 13,
+      "bytes": 457
+    },
+    {
+      "caso": "modelo-p11",
+      "sesion": null,
+      "pasos": 9,
+      "bytes": 478
+    },
+    {
+      "caso": "modelo-amrap15",
+      "sesion": null,
+      "pasos": 2,
+      "bytes": 296
+    },
+    {
+      "caso": "modelo-fortime",
+      "sesion": null,
+      "pasos": 9,
+      "bytes": 434
+    },
+    {
+      "caso": "modelo-tabata",
+      "sesion": null,
+      "pasos": 15,
+      "bytes": 498
+    },
+    {
+      "caso": "modelo-ergo-sin-pm5",
+      "sesion": null,
+      "pasos": 15,
+      "bytes": 486
+    },
+    {
+      "caso": "modelo-hyrox-completo",
+      "sesion": null,
+      "pasos": 31,
+      "bytes": 767
+    },
+    {
+      "caso": "modelo-hyrox-sin-pm5",
+      "sesion": null,
+      "pasos": 16,
+      "bytes": 608
+    },
+    {
+      "caso": "libre-correr",
+      "sesion": null,
+      "pasos": 1,
+      "bytes": 229
+    },
+    {
+      "caso": "libre-enfriamiento",
+      "sesion": null,
+      "pasos": 1,
+      "bytes": 240
+    },
+    {
+      "caso": "gramatica-series",
+      "sesion": null,
+      "pasos": 13,
+      "bytes": 449
+    },
+    {
+      "caso": "gramatica-fuerza",
+      "sesion": null,
+      "pasos": 11,
+      "bytes": 441
+    },
+    {
+      "caso": "gramatica-estacion",
+      "sesion": null,
+      "pasos": 2,
+      "bytes": 306
+    },
+    {
+      "caso": "gramatica-cinta",
+      "sesion": null,
+      "pasos": 2,
+      "bytes": 291
+    },
+    {
+      "caso": "sintetico-cada-valor",
+      "sesion": null,
+      "pasos": 121,
+      "bytes": 1562
+    },
+    {
+      "caso": "sintetico-wod-formatos",
+      "sesion": null,
+      "pasos": 8,
+      "bytes": 333
+    },
+    {
+      "caso": "sintetico-dobles",
+      "sesion": null,
+      "pasos": 3,
+      "bytes": 370
+    }
+  ]
+}
