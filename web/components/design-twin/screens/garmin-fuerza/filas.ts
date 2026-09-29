@@ -125,7 +125,7 @@ export function filasSeries(
   sim: Simulador,
   paso: Paso,
   lecturas: Lecturas,
-): { titulo: string[]; filas: FilaSerie[] } {
+): { nombre: string | null; filas: FilaSerie[] } {
   const i = estado.i;
   const ref = paso.rol === 'trabajo' ? i : (siguienteTrabajo(plan, i + 1) ?? anteriorTrabajo(plan, i) ?? i);
   const ej = ejercicioDe(plan, ref);
@@ -159,7 +159,8 @@ export function filasSeries(
       filas.push({ n: etiqueta(j), valor: fmtReloj(parcial?.segundos ?? m?.segundos ?? 0), estado: 'declarada' });
     }
   }
-  return { titulo: grupo.length === 1 && ej ? ['Series', ej.nombre] : ['Series'], filas };
+  // El ejercicio da nombre a la página; en una superserie (dos o más) las filas llevan su hueco: «A1·2».
+  return { nombre: grupo.length === 1 && ej ? conSlot(plan.pasos[ej.pasos[0]!]!) || ej.nombre : null, filas };
 }
 
 // ---------------------------------------------------------------------------

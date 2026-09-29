@@ -130,13 +130,13 @@ export function repartirDosis(partes: readonly string[], D: number): { arriba: s
  * ninguno, el primero en dos. Los candidatos van por orden de preferencia
  * («Coach · concéntrica explosiva», luego «concéntrica explosiva»).
  */
-export function lineasNota(candidatos: readonly string[], y: number, D: number): LineaG[] {
+export function lineasNota(candidatos: readonly string[], y: number, D: number, tono: 'tinta' | 'tinta2' = 'tinta2'): LineaG[] {
   if (candidatos.length === 0) return [];
   const una = caja(y, ALTO_NOTA);
   const cuerpo = cuerpoPx(TG.nota, D);
   const cabeEnUna = candidatos.find((t) => anchoEn('nota', t, cuerpo) <= Math.floor(una.ancho * D));
   const texto = cabeEnUna ?? candidatos[0]!;
-  return lineaDeTexto('nota', texto, TG.nota, D, { una, arriba: una, abajo: caja(y + altoNota, ALTO_NOTA) }, { tono: 'tinta2' });
+  return lineaDeTexto('nota', texto, TG.nota, D, { una, arriba: una, abajo: caja(y + altoNota, ALTO_NOTA) }, { tono });
 }
 
 // ---------------------------------------------------------------------------
@@ -235,14 +235,30 @@ export function lineasViene(que: string, dosis: string | null, D: number): Linea
   return lineasApoyo('viene', 'Viene:', que, D);
 }
 
+/** Lo anotado, dicho para el descanso ya cerrado: de más a menos largo (entra el primero que cabe en una línea). */
+export interface ResumenDescanso {
+  textos: string[];
+  /** «sin confirmar» pide atención: va en tinta, no en tinta2. */
+  atencion: boolean;
+}
+
 /**
- * El descanso: «Descanso · ✓ 8 × 125 kg» (lo anotado, si hay), la cuenta atrás
- * de héroe, «Viene: …» y el pulso (monocromo: aquí no se juzga nada).
+ * El descanso: «Descanso», lo anotado (si hay) sobre la cuenta atrás de héroe,
+ * «Viene: …» y el pulso (monocromo: aquí no se juzga nada). El resumen cede el
+ * sitio antes que encoger el héroe (G2).
  */
-export function disponerDescansoFuerza(p: Paso, l: Lecturas, D: number, viene: { que: string; dosis: string | null } | null, resumen: string | null): Disposicion {
+export function disponerDescansoFuerza(p: Paso, l: Lecturas, D: number, viene: { que: string; dosis: string | null } | null, resumen: ResumenDescanso | null): Disposicion {
   const h = heroeDelPaso(p, l, null);
-  const lineas: LineaG[] = [...lineasContexto(resumen ? ['Descanso', resumen] : ['Descanso'], D)];
-  const heroe = heroeEn(h.texto, h.unidad, Math.max(REJILLA.heroe[0], bajoDe(lineas, D)), REJILLA.heroe[1], D);
+  const lineas: LineaG[] = [...lineasContexto(['Descanso'], D)];
+  let y = Math.max(REJILLA.heroe[0], bajoDe(lineas, D));
+  if (resumen) {
+    const nota = lineasNota(resumen.textos, y, D, resumen.atencion ? 'tinta' : 'tinta2');
+    if (REJILLA.heroe[1] - y - nota.length * altoNota >= altoLinea(TG.heroe.min, 'cifras')) {
+      lineas.push(...nota);
+      y += nota.length * altoNota;
+    }
+  }
+  const heroe = heroeEn(h.texto, h.unidad, y, REJILLA.heroe[1], D);
   if (viene) lineas.push(...lineasViene(viene.que, viene.dosis, D));
   if (l.ppm != null) lineas.push(lineaDeDato('pie', { ...lineaPulso(p, l, null), zona: undefined }, TG.tercero, 'pie', D, true));
   return { D, lineas, heroe, pista: null };
@@ -269,6 +285,8 @@ export interface VistaAnotar {
   nombre: string;
   /** «Serie 2 · sin confirmar». */
   estado: string;
+  /** Lo mismo sin la serie («sin confirmar»): si la ayuda de teclas no cabe entera con la primera, se cambia por esta. */
+  estadoCorto: string;
   campos: CampoVista[];
   /** El campo enfocado; `null` mientras dura el deshacer (los botones aún no son de la anotación). */
   foco: number | null;
@@ -315,40 +333,63 @@ function celdaDe(c: CampoVista, enfocada: boolean, cx: number, y: number, ancho:
  * EL DESCANSO QUE ANOTA. Arriba el nombre de la serie y lo que queda de
  * descanso; en medio, los datos de la serie (reps, carga, esfuerzo) como
  * celdas, la enfocada en su marco naranja; debajo, en qué punto está lo anotado
- * (o hasta dónde llega la carga), la ayuda de teclas y el pulso.
+ * (o hasta dónde llega la carga), la ayuda de teclas y el pulso. El aire que
+ * sobra entre el contenido y el pie se reparte entre sus bloques: nada queda
+ * pegado arriba con un hueco al fondo.
  */
 export function disponerAnotar(v: VistaAnotar, D: number): DisposicionAnotar {
+  let ultimo: DisposicionAnotar | null = null;
+  // La ayuda de teclas manda sobre el número de serie: se prueba con el estado entero y, si la ayuda no cabe entera, con el corto.
+  for (const corto of [false, true]) {
+    const compacto = colocarAnotar(v, D, AIRE.lineas, corto);
+    const hueco = Math.min(HUECO_MAX_ANOTAR, AIRE.lineas + Math.max(0, compacto.sobra) / 3);
+    const holgado = colocarAnotar(v, D, hueco, corto);
+    // Con más aire una línea de texto puede pasar a dos (o no caber): entonces, el compacto.
+    const bien = holgado.d.base.lineas.every((l) => l.cabe) && holgado.d.base.lineas.length === compacto.d.base.lineas.length && holgado.sobra >= 0;
+    ultimo = bien ? holgado.d : compacto.d;
+    if (v.foco == null || ayudaCompleta(ultimo)) break;
+  }
+  return ultimo!;
+}
+
+/** ¿Se ven las teclas enteras («▲▼ cambia · START ok»)? */
+function ayudaCompleta(d: DisposicionAnotar): boolean {
+  const l = d.base.lineas.find((x) => x.rol === 'ayuda');
+  return !!l && l.piezas.map((p) => p.texto).join('') === AYUDA_ANOTAR.join(' · ');
+}
+
+/** El aire máximo entre bloques (fracción de D): más, y la cara se descuelga. */
+const HUECO_MAX_ANOTAR = 0.04;
+
+function colocarAnotar(v: VistaAnotar, D: number, hueco: number, corto: boolean): { d: DisposicionAnotar; sobra: number } {
   const nombre = lineasNombre(v.nombre, D);
   const lineas: LineaG[] = [...nombre.lineas];
   let y = Math.max(REJILLA.heroe[0], nombre.hasta + AIRE.lineas);
 
   const cuerpo = cuerpoPx(TG.contexto, D);
-  lineas.push(
-    colocar('cuenta', [chica('Descanso', D), { texto: v.cuenta, cara: 'cifras', cuerpo, tono: 'tinta', antes: AIRE.piezas * D }], caja(y, ALTO_CONTEXTO), D),
-  );
-  y += ALTO_CONTEXTO + AIRE.lineas;
+  lineas.push(colocar('cuenta', [chica('Descanso', D), { texto: v.cuenta, cara: 'cifras', cuerpo, tono: 'tinta', antes: AIRE.piezas * D }], caja(y, ALTO_CONTEXTO), D));
+  y += ALTO_CONTEXTO + hueco;
 
   const n = v.campos.length;
   const altoCelda = altoLinea(TG.segundo, 'cifras') + ALTO_NOTA + 2 * RELLENO_CELDA;
-  const yCelda = y + AIRE.lineas;
-  const fila = caja(yCelda, altoCelda);
+  const fila = caja(y, altoCelda);
   const ancho = Math.min(MAX_CELDA, (fila.ancho - AIRE.piezas * (n - 1)) / n);
-  const celdas = v.campos.map((c, k) => celdaDe(c, v.foco === k, D / 2 + (k - (n - 1) / 2) * (ancho + AIRE.piezas) * D, yCelda, ancho, D));
-  y = yCelda + altoCelda + AIRE.piezas;
+  const celdas = v.campos.map((c, k) => celdaDe(c, v.foco === k, D / 2 + (k - (n - 1) / 2) * (ancho + AIRE.piezas) * D, y, ancho, D));
+  y += altoCelda + hueco;
 
   // En qué punto está: la pista de la carga (si está enfocada) o el estado de la serie.
-  const texto = v.pista ?? v.estado;
   const tono = v.pista ? 'tinta' : 'tinta2';
-  const estado = lineaDeTexto('estado', texto, TG.nota, D, { una: caja(y, ALTO_NOTA), arriba: caja(y, ALTO_NOTA), abajo: caja(y + altoNota, ALTO_NOTA) }, { tono });
+  const estado = lineaDeTexto('estado', v.pista ?? (corto ? v.estadoCorto : v.estado), TG.nota, D, { una: caja(y, ALTO_NOTA), arriba: caja(y, ALTO_NOTA), abajo: caja(y + altoNota, ALTO_NOTA) }, { tono });
   lineas.push(...estado);
-  y += estado.length * altoNota;
+  y += estado.length * altoNota + hueco / 2;
 
   // La ayuda de teclas, solo si hay un campo enfocado y queda sitio antes del pie.
   if (v.foco != null && y + ALTO_NOTA <= REJILLA.pie[0] - AIRE.lineas) {
     lineas.push(...lineaDePartes('ayuda', [...AYUDA_ANOTAR], TG.nota, caja(y, ALTO_NOTA), D, { cara: 'nota', tono: 'tinta2' }));
+    y += ALTO_NOTA;
   }
   if (v.pulso) lineas.push(lineaDeDato('pie', { ...v.pulso, zona: undefined }, TG.tercero, 'pie', D, true));
-  return { base: { D, lineas, heroe: null, pista: null }, celdas };
+  return { d: { base: { D, lineas, heroe: null, pista: null }, celdas }, sobra: REJILLA.pie[0] - AIRE.lineas - y };
 }
 
 /** Caja de una celda en fracción de D (para medir el círculo en los tests). */

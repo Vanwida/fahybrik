@@ -21,7 +21,6 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { VistaGarmin, useVivoGarmin, type EstadoMandos, type IdAccion, type PaginaGarmin } from '../../kit-garmin';
 import { cargaArrastrada, esFuerza, type Secuencia } from '../../kit-reloj';
-import { textoViene } from '../reloj-fuerza/textos';
 import { vistaColocate, vistaCuenta } from './caras';
 import type { CasoGarminFuerza } from './casos';
 import { filasDatos, filasEjercicios, filasSeries } from './filas';
@@ -36,7 +35,7 @@ import {
   type ContextoAnotar,
 } from './modelo';
 import { AlEntrar, CapaCuenta, CaraAnotar, CaraDescansoFuerza, CaraTrabajo, PaginaDatosFuerza, PaginaEjercicios, PaginaSeries, type MoverLista } from './pintores';
-import { vistaTrabajo } from './textos';
+import { vieneDe, vistaTrabajo } from './textos';
 import { resumenDeDescanso, vistaAnotarDe } from './vistas';
 
 export function VivoGarminFuerza({ caso, onLog }: { caso: CasoGarminFuerza; onLog: (linea: string) => void }) {
@@ -97,7 +96,7 @@ export function VivoGarminFuerza({ caso, onLog }: { caso: CasoGarminFuerza; onLo
     if (paso.rol === 'transicion' && esFuerza(sig)) return <CaraTrabajo v={vistaColocate(paso, sig, lecturas, cargaArrastrada(plan, i + 1, a.registro))} />;
     if (paso.rol === 'descanso') {
       if (anotando(s, deshacerActivo.current, a)) return <CaraAnotar v={vistaAnotarDe(contexto(s), a.registro, a.ui, lecturas, paso, deshacerActivo.current)} />;
-      return <CaraDescansoFuerza paso={paso} lecturas={lecturas} viene={textoViene(plan, i, a.registro)} resumen={resumenDeDescanso(contexto(s), a.registro)} />;
+      return <CaraDescansoFuerza paso={paso} lecturas={lecturas} viene={vieneDe(plan, i, a.registro)} resumen={resumenDeDescanso(contexto(s), a.registro)} />;
     }
     return null;
   };
@@ -124,7 +123,7 @@ export function VivoGarminFuerza({ caso, onLog }: { caso: CasoGarminFuerza; onLo
     return [
       { id: 'paso', titulo: 'Paso', contenido: s.paso.rol === 'descanso' ? <AlEntrar alEntrar={reabrirAlVolver}>{contenido}</AlEntrar> : contenido },
       { id: 'datos', titulo: 'Datos', contenido: <PaginaDatosFuerza filas={filasDatos(plan, s.estado, a.registro, sim, s.lecturas.ppm)} zonas={plan.zonas} /> },
-      { id: 'vueltas', titulo: 'Vueltas', contenido: <PaginaSeries titulo={series.titulo} filas={series.filas} /> },
+      { id: 'vueltas', titulo: 'Vueltas', contenido: <PaginaSeries nombre={series.nombre} filas={series.filas} /> },
       { id: 'estructura', titulo: 'Estructura', contenido: <PaginaEjercicios filas={ej.filas} ahora={ej.ahora} registrar={registrarLista} /> },
     ];
   };

@@ -43,9 +43,11 @@ import {
   type PlanSesion,
   type Registro,
   type ReglasAviso,
+  type Viene,
   type ZonasCoach,
 } from '../../kit-reloj';
-import { conSlot, textoLuego } from '../reloj-fuerza/textos';
+import { abreEjercicio, ejercicioDe, siguienteTrabajo } from '../reloj-fuerza/modelo';
+import { conSlot, textoLuego, textoViene } from '../reloj-fuerza/textos';
 
 /**
  * La dosis de UNA serie, por partes y por prioridad. El orden es el de lectura
@@ -143,4 +145,29 @@ export function pistaCascada(plan: PlanSesion, j: number, registro: Registro): s
   const s = seriesQueHeredan(plan, j, registro);
   if (s.length === 0) return null;
   return s.length === 1 ? `también en la serie ${s[0]}` : `también en las series ${s[0]}–${s[s.length - 1]}`;
+}
+
+// ---------------------------------------------------------------------------
+// Lo que viene
+// ---------------------------------------------------------------------------
+
+/**
+ * «Viene: …» del descanso `i`. Las series de fuerza, como en la muñeca
+ * (`textoViene`: el ejercicio nuevo entero, o la serie con la carga que está en
+ * la barra). Lo que no es fuerza (una estación, un ergo) dice EN QUÉ SERIE
+ * estás si el ejercicio ya está en curso («Serie 8/8 · 250 m») y, si abre uno,
+ * su dosis entera con la carga del implemento («Sled Push · 5 × 25 m · 180 kg»).
+ */
+export function vieneDe(plan: PlanSesion, i: number, registro: Registro): Viene | null {
+  const j = siguienteTrabajo(plan, i + 1);
+  if (j == null) return null;
+  const q = plan.pasos[j]!;
+  if (esFuerza(q)) return textoViene(plan, i, registro);
+  const carga = textoCargaImplemento(q.carga);
+  const una = [fmtPrescrito(q.medida), carga].filter(Boolean).join(' · ');
+  const serie = q.posicion?.serie;
+  if (serie && !abreEjercicio(plan, j)) return { que: `${nombreCuenta(q).nombre} ${serie.n}/${serie.de}`, dosis: una || null };
+  const e = ejercicioDe(plan, j);
+  const dosis = [e && e.series > 1 ? `${e.series} × ${fmtPrescrito(q.medida)}` : fmtPrescrito(q.medida), carga].filter(Boolean).join(' · ');
+  return q.nombre ? { que: q.nombre, dosis: dosis || null } : { que: dosis || NOMBRE_CLASE_DEFECTO[q.clase], dosis: null };
 }

@@ -46,7 +46,6 @@ import {
 import type { Transicion } from '@/components/design-twin/kit-reloj/gancho';
 import { cuerpo } from '@/components/design-twin/screens/reloj-fuerza/casos';
 import { sesion488, sesion492, sesion529, sesion538 } from '@/components/design-twin/screens/reloj-fuerza/planes';
-import { textoViene } from '@/components/design-twin/screens/reloj-fuerza/textos';
 import { disponerAnotar, disponerDescansoFuerza, disponerTrabajo, vistaColocate, vistaCuenta, type DisposicionAnotar } from '@/components/design-twin/screens/garmin-fuerza/caras';
 import { ejemploDeclarado, PASOS_488 } from '@/components/design-twin/screens/garmin-fuerza/casos';
 import { filasDatos, filasEjercicios, filasSeries } from '@/components/design-twin/screens/garmin-fuerza/filas';
@@ -67,7 +66,7 @@ import {
   moverEjercicios,
   ultimoVisible,
 } from '@/components/design-twin/screens/garmin-fuerza/paginas';
-import { vistaTrabajo } from '@/components/design-twin/screens/garmin-fuerza/textos';
+import { vieneDe, vistaTrabajo } from '@/components/design-twin/screens/garmin-fuerza/textos';
 import { resumenDeDescanso, vistaAnotarDe } from '@/components/design-twin/screens/garmin-fuerza/vistas';
 import { disponerDatos } from '@/components/design-twin/kit-garmin';
 
@@ -213,10 +212,17 @@ describe('las caras de fuerza caben en los cuatro relojes (sesiones reales)', ()
                 expect(d.heroe?.texto).toBe(heroeDelPaso(p, l, null).texto);
               } else if (p.rol === 'descanso') {
                 const c = contextoDe(plan, s);
-                const viene = textoViene(plan, i, reg);
-                for (const resumen of [null, 'sin confirmar', resumenDeDescanso(c, declaradoHasta(plan, i + 1)), '✓ ronda 1 anotada', '✓ 8 × 127,5 kg · RPE 6,5']) {
+                const viene = vieneDe(plan, i, reg);
+                const resumenes = [
+                  null,
+                  { textos: ['sin confirmar'], atencion: true },
+                  resumenDeDescanso(c, declaradoHasta(plan, i + 1)),
+                  { textos: ['✓ ronda 1 anotada', '✓ anotada'], atencion: false },
+                  { textos: ['✓ 8 × 127,5 kg · RPE 6,5', '✓ 8 × 127,5 kg', '✓ anotada'], atencion: false },
+                ];
+                for (const resumen of resumenes) {
                   const d = disponerDescansoFuerza(p, l, D, viene, resumen);
-                  comprobar(d, `${que} · descanso «${resumen}»`);
+                  comprobar(d, `${que} · descanso «${resumen?.textos[0] ?? ''}»`);
                   expect(d.heroe?.texto).toBe(heroeDelPaso(p, l, null).texto);
                 }
                 // Y el que anota, con cada campo enfocado y durante los 5 s de deshacer (sin foco).
@@ -251,7 +257,7 @@ describe('las páginas caben en los cuatro relojes', () => {
           for (const { D } of TAMANOS) {
             const que = `${nombre} · paso ${i}`;
             comprobar(disponerDatos(filasDatos(plan, s, reg, cuerpo, l.ppm), plan.zonas, D), `${que} · Datos`);
-            const { titulo, filas } = filasSeries(plan, s, reg, cuerpo, p, l);
+            const { nombre: titulo, filas } = filasSeries(plan, s, reg, cuerpo, p, l);
             comprobar(disponerSeries(titulo, filas, D), `${que} · Series`);
           }
         }
@@ -305,6 +311,19 @@ describe('las páginas caben en los cuatro relojes', () => {
 
 describe('la sesión más larga (488): 54 pasos', () => {
   const plan = PLANES['488']!;
+
+  it('«Viene:» dice en qué serie estás si el ejercicio ya está en curso y su dosis entera si lo abre', () => {
+    // Descanso tras la 7.ª serie de SkiErg: viene la 8.ª, no «8 × 250 m» otra vez.
+    const j = plan.pasos.findIndex((p) => p.id === '488-ski-7') + 1;
+    expect(vieneDe(plan, j, {})).toEqual({ que: 'Serie 8/8', dosis: '250\u00A0m' });
+    // Descanso tras el último Ab Wheel: viene SkiErg, con sus 8 series.
+    const k = plan.pasos.findIndex((p) => p.id === '488-ab-s3') + 1;
+    expect(vieneDe(plan, k, {})).toEqual({ que: 'SkiErg', dosis: '8 × 250\u00A0m' });
+    // La carga del implemento va detrás: «Sled Push · 5 × 25 m · 180 kg» (492).
+    const p492 = PLANES['492']!;
+    const r = p492.pasos.findIndex((p) => p.id === '492-row-s4') + 1;
+    expect(vieneDe(p492, r, {})).toEqual({ que: 'Sled Push', dosis: '5 × 25\u00A0m · 180\u00A0kg' });
+  });
 
   it('son 54 pasos y 7 ejercicios', () => {
     expect(plan.pasos.length).toBe(PASOS_488);

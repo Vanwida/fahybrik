@@ -20,7 +20,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { PintaDisposicion, Tapa, disponerDatos, useGarmin } from '../../kit-garmin';
 import type { FilaDatoVista, Lecturas, Paso, ZonasCoach } from '../../kit-reloj';
-import { disponerAnotar, disponerDescansoFuerza, disponerTrabajo, type VistaAnotar } from './caras';
+import { disponerAnotar, disponerDescansoFuerza, disponerTrabajo, type ResumenDescanso, type VistaAnotar } from './caras';
 import type { FilaEjercicio, FilaSerie } from './filas';
 import { arranqueEjercicios, disponerEjercicios, disponerSeries, moverEjercicios } from './paginas';
 import type { VistaTrabajo } from './textos';
@@ -50,7 +50,7 @@ export function CaraDescansoFuerza({
   paso: Paso;
   lecturas: Lecturas;
   viene: { que: string; dosis: string | null } | null;
-  resumen: string | null;
+  resumen: ResumenDescanso | null;
 }) {
   const { D } = useGarmin();
   return <PintaDisposicion d={disponerDescansoFuerza(paso, lecturas, D, viene, resumen)} />;
@@ -77,9 +77,9 @@ export function PaginaDatosFuerza({ filas, zonas }: { filas: FilaDatoVista[]; zo
   return <PintaDisposicion d={disponerDatos(filas, zonas, D)} />;
 }
 
-export function PaginaSeries({ titulo, filas }: { titulo: string[]; filas: FilaSerie[] }) {
+export function PaginaSeries({ nombre, filas }: { nombre: string | null; filas: FilaSerie[] }) {
   const { D } = useGarmin();
-  return <PintaDisposicion d={disponerSeries(titulo, filas, D)} />;
+  return <PintaDisposicion d={disponerSeries(nombre, filas, D)} />;
 }
 
 /** Quién mueve la lista de Ejercicios: devuelve `false` si está en el borde (y entonces la tecla pasa de página). */

@@ -3,8 +3,8 @@
 //
 //   vistaAnotarDe      la serie que se anota: sus datos (con su estado: propuesto
 //                      o declarado), el foco, la pista de la cascada y el pulso.
-//   resumenDeDescanso  lo anotado en una línea para el descanso ya cerrado:
-//                      «✓ 8 × 125 kg · RIR 3», «✓ ronda 1 anotada» o «sin
+//   resumenDeDescanso  lo anotado para el descanso ya cerrado, de más a menos
+//                      largo: «✓ 8 × 125 kg · RIR 3», «✓ ronda 1 anotada» o «sin
 //                      confirmar» (la anotación se cerró con algo propuesto).
 //
 // Qué NO hacer: llamar «anotado» a lo propuesto; pintar el marco del foco
@@ -23,7 +23,7 @@ import {
   type PasoFuerza,
   type Registro,
 } from '../../kit-reloj';
-import type { CampoVista, VistaAnotar } from './caras';
+import type { CampoVista, ResumenDescanso, VistaAnotar } from './caras';
 import { UI_VACIA, anotacionDeSerie, camposDelDescanso, datoDe, focoDe, type ContextoAnotar, type UiAnotar } from './modelo';
 import { etiquetaCampo, pistaCascada } from './textos';
 
@@ -44,6 +44,7 @@ export function vistaAnotarDe(c: ContextoAnotar, registro: Registro, ui: UiAnota
     cuenta: fmtReloj(Math.ceil(faltaDe(paso, lecturas) ?? 0)),
     nombre: [serie.posicion?.slot, serie.nombre].filter(Boolean).join(' · '),
     estado: `Serie ${serie.posicion?.serie?.n ?? ''} · ${estado}`,
+    estadoCorto: estado,
     campos: vistos,
     foco: deshacer ? null : deSerie.findIndex((x) => x.campo === campo),
     pista: !deshacer && campo === 'kg' ? pistaCascada(c.plan, j, registro) : null,
@@ -51,12 +52,15 @@ export function vistaAnotarDe(c: ContextoAnotar, registro: Registro, ui: UiAnota
   };
 }
 
-export function resumenDeDescanso(c: ContextoAnotar, registro: Registro): string | null {
+export function resumenDeDescanso(c: ContextoAnotar, registro: Registro): ResumenDescanso | null {
   const series = seriesDelDescanso(c.plan, c.i);
   if (series.length === 0) return null;
   const anots = series.map((j) => anotacionDeSerie(c, registro, j));
-  if (anots.some(pendiente)) return 'sin confirmar';
+  if (anots.some(pendiente)) return { textos: ['sin confirmar'], atencion: true };
   const primera = c.plan.pasos[series[0]!] as PasoFuerza;
-  if (series.length > 1) return `✓ ronda ${primera.posicion?.serie?.n ?? ''} anotada`;
-  return `✓ ${textoAnotacion(anots[0]!, primera.fuerza)}`;
+  if (series.length > 1) return { textos: [`✓ ronda ${primera.posicion?.serie?.n ?? ''} anotada`, '✓ anotada'], atencion: false };
+  return {
+    textos: [`✓ ${textoAnotacion(anots[0]!, primera.fuerza)}`, `✓ ${textoAnotacion(anots[0]!, primera.fuerza, false)}`, '✓ anotada'],
+    atencion: false,
+  };
 }

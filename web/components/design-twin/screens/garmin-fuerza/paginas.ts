@@ -42,6 +42,7 @@ import {
   type LineaG,
   type Pieza,
 } from '../../kit-garmin';
+import { lineasNombre } from './caras';
 import type { FilaEjercicio, FilaSerie } from './filas';
 
 const ALTO_NOTA = altoLinea(TG.nota, 'nota');
@@ -51,17 +52,22 @@ const ALTO_CONTEXTO = altoLinea(TG.contexto, 'texto');
 // Series
 // ---------------------------------------------------------------------------
 
-/** Donde viven las filas de la página de series: bajo el título y por encima del pie. */
-const CUERPO_SERIES = [REJILLA.heroe[0], REJILLA.secundaria[1]] as const;
-
-/** LAS SERIES — la que se hace ahora, encima; luego las hechas, la última primero. */
-export function disponerSeries(titulo: string[], filas: FilaSerie[], D: number): Disposicion {
-  const lineas: LineaG[] = [...lineasContexto(titulo, D, 'tinta2')];
+/**
+ * LAS SERIES — la que se hace ahora, encima; luego las hechas, la última
+ * primero. El ejercicio da nombre a la página (en una o dos líneas, como en la
+ * serie: el nombre primero); si son dos o más (una superserie), «Series» y cada
+ * fila lleva su hueco («A1·2»).
+ */
+export function disponerSeries(nombre: string | null, filas: FilaSerie[], D: number): Disposicion {
+  const titulo = nombre ? lineasNombre(nombre, D) : { lineas: lineasContexto(['Series'], D, 'tinta2'), hasta: REJILLA.contexto[1] };
+  const lineas: LineaG[] = [...titulo.lineas];
+  // Las filas viven bajo el título y por encima del pie.
+  const cuerpo = [Math.max(REJILLA.heroe[0], titulo.hasta + AIRE.piezas), REJILLA.secundaria[1]] as const;
   if (filas.length === 0) {
     lineas.push(colocar('vacia', [chica('Aún ninguna', D)], caja(0.5 - ALTO_NOTA / 2, ALTO_NOTA), D));
     return { D, lineas, heroe: null, pista: null };
   }
-  const cajas = repartir(filas.length, altoLinea(TG.tercero, 'cifras'), CUERPO_SERIES);
+  const cajas = repartir(filas.length, altoLinea(TG.tercero, 'cifras'), cuerpo);
   filas.forEach((f, k) => {
     const c = cajas[k]!;
     const ancho = Math.floor(c.ancho * D);
@@ -158,9 +164,9 @@ export function colocarBloque(f: FilaEjercicio, y: number, D: number, forzar = f
 }
 
 /** Las filas que caben desde `desde`, colocadas de arriba abajo. La primera se enseña aunque no quepa (nunca una página vacía). */
-export function colocarEjercicios(filas: FilaEjercicio[], desde: number, D: number): BloqueColocado[] {
+export function colocarEjercicios(filas: FilaEjercicio[], desde: number, D: number, y0 = LISTA_DESDE): BloqueColocado[] {
   const out: BloqueColocado[] = [];
-  let y = LISTA_DESDE;
+  let y = y0;
   for (let k = desde; k < filas.length; k++) {
     const b = colocarBloque(filas[k]!, y, D, out.length === 0);
     if (!b || y + b.alto > LISTA_HASTA) {
@@ -171,6 +177,26 @@ export function colocarEjercicios(filas: FilaEjercicio[], desde: number, D: numb
     y += b.alto + AIRE_BLOQUES;
   }
   return out;
+}
+
+/**
+ * Los bloques de la ventana, con el aire que sobra repartido arriba y abajo (una
+ * ventana de dos bloques no se queda pegada al título con un hueco al fondo).
+ * Más abajo la cuerda es más corta: se baja lo que cabe SIN cambiar qué bloques
+ * se ven ni cómo se parten.
+ */
+function centrarBloques(filas: FilaEjercicio[], desde: number, D: number): BloqueColocado[] {
+  const base = colocarEjercicios(filas, desde, D);
+  const ultimo = base[base.length - 1];
+  if (!ultimo) return base;
+  const yFin = ultimo.lineas.reduce((m, l) => Math.max(m, l.y + l.alto), 0) / D;
+  const libre = LISTA_HASTA - yFin;
+  for (const fraccion of [0.5, 0.25]) {
+    const probado = colocarEjercicios(filas, desde, D, LISTA_DESDE + libre * fraccion);
+    const igual = probado.length === base.length && probado.every((b, i) => b.k === base[i]!.k && b.lineas.length === base[i]!.lineas.length);
+    if (igual && probado.every((b) => b.lineas.every((l) => l.cabe))) return probado;
+  }
+  return base;
 }
 
 /** La última fila que se ve con la ventana en `desde`. */
@@ -208,7 +234,7 @@ export function pieEjercicios(ahora: number, primero: number, ultimo: number, to
 /** LOS EJERCICIOS — la lista con su ventana en `desde`, «ahora» marcado y el pie que dice dónde estás. */
 export function disponerEjercicios(filas: FilaEjercicio[], desde: number, ahora: number, D: number): Disposicion {
   const lineas: LineaG[] = [...lineasContexto(['Ejercicios'], D, 'tinta2')];
-  const bloques = colocarEjercicios(filas, desde, D);
+  const bloques = centrarBloques(filas, desde, D);
   for (const b of bloques) lineas.push(...b.lineas);
   if (bloques.length > 0) lineas.push(pieEjercicios(ahora, bloques[0]!.k, bloques[bloques.length - 1]!.k, filas.length, D));
   return { D, lineas, heroe: null, pista: null };
