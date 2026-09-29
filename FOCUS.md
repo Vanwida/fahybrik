@@ -53,7 +53,7 @@ plantillas; ramas `fix/un-solo-entreno`, `fix/plantilla-escritor-unico`, `ios/mo
 **RELOJ GARMIN, MOTOR PROPIO EN CONNECT IQ (29-09; modelo `docs/garmin-reloj/modelo.md`, DECISIONS 29-09).** Ya no reproductor nativo: watch-app de
 actividad que guía pasos, graba FIT y envía el resultado a `workout-execution` (TrainingPeaks en Garmin = calendario nativo, sin fuerza ni
 RPE). Corrige DECISIONS 06-08: Connect IQ SÍ da acelerómetro a 100 Hz en lotes. NO prometer Training Status hasta la prueba T1 en reloj real.
-Diseño en el doble (`garmin-*`, kit `kit-garmin`) pendiente de firma; luego Monkey C. Alex debe decir qué Garmin físico hay para T1–T14.
+Diseño en el doble (30-09, main, ~2.300 pruebas): seis familias `garmin-*` (correr, circuito, fuerza, WOD/ergo, antes, después) sobre `kit-garmin`, plan compacto v2 (`docs/garmin-reloj/plan-compacto.md`). PENDIENTE: firma de Alex; Monkey C sin empezar; qué Garmin físico hay para T1–T14; OK a B1 (plan como contexto común, ~20 lecturas de `*_DEFECTO`), B7 (`PasoBase.id`) y G6 «estimada» (mini-mapa en la entrada de DECISIONS).
 
 **LA MUÑECA SE REHACE Y EL RELOJ ES EL PRODUCTO (24-25-09; listón TrainingPeaks).** Auditoría `docs/reloj-muneca/` y diseño firmado
 `docs/el-reloj-primero/` (SF nativo, el objetivo manda, voz al cambiar de paso y cada km). Hechas las fases 0+1 (CI macOS, registro
