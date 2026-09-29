@@ -5,6 +5,9 @@ struct PhoneMirrorFrameContext {
     var isTreadmillLive: () -> Bool
     var hapticCue: String?
     var hapticSeq: Int?
+    /// El plan que la muñeca tiene (o va a tener) de esta sesión. Con él la trama lleva cursor;
+    /// sin él (no cabe en el canal, o quien construye no lo pasa) la trama es la de siempre.
+    var plan: MirrorPlanVivo? = nil
 }
 
 enum PhoneMirrorFrameBuilder {
@@ -141,7 +144,9 @@ enum PhoneMirrorFrameBuilder {
                 return MirrorSensorWindow(key: w.key, modality: w.modality,
                                           name: w.name, resting: w.resting)
             }(),
-            runEnvironment: session.runEnvironment
+            runEnvironment: session.runEnvironment,
+            cursor: context.plan.map { cursor(from: session, plan: $0, context: context) },
+            capacidades: context.plan == nil ? nil : capacidades
         )
     }
 
@@ -456,6 +461,7 @@ enum PhoneMirrorFrameBuilder {
             beltBucketKey,
             hapticKey,
             tramoKey,
+            cursorKey(f.cursor),
         ]
         return parts.joined(separator: "|")
     }
