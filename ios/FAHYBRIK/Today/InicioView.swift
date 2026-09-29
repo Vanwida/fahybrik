@@ -11,7 +11,7 @@ import SwiftUI
 // UNA SOLA PESTAÑA para los dos tiers. Con coach es la portada del día; sin coach (`AuthState.hasCoach`
 // falso) es la MISMA con la lectura `conCoach: false`: el sujeto natural es «Monta tu entreno de hoy» y
 // ninguna pieza de coach se pinta, ni vacía. La semana navegable del atleta libre no se pierde: vive en
-// su pestaña Plan (`SemanaAtletaOperativa`).
+// su pestaña Plan (`PlanLibrePantalla`).
 //
 // Reglas que conserva (docs/DECISIONS.md):
 //  · 6-ago: el PLAN es la única puerta que EMPIEZA un entreno. Hoy dice el estado y lleva al Plan; nunca

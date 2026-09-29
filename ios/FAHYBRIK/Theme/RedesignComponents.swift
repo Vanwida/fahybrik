@@ -10,19 +10,6 @@ import SwiftUI
 // InstrumentReadout) it does so rather than duplicating. New components live
 // here; shared primitives stay in Atoms.swift.
 
-// MARK: - Session slot (AM / PM)
-
-/// A session's time-of-day slot. The handoff badges AM in the modality accent
-/// and PM in the partner/ergo blue — but slot color in our system follows the
-/// session's MODALITY, not a fixed AM=orange/PM=blue rule. `SessionSlot` only
-/// carries the label; callers pass the modality color separately.
-enum SessionSlot: String, CaseIterable, Hashable {
-    case am = "AM"
-    case pm = "PM"
-
-    var label: String { rawValue }
-}
-
 // MARK: - Modality dot
 
 /// Small filled dot colored by modality — used in Plan day rows and compact
@@ -54,151 +41,7 @@ struct ModalityDot: View {
     }
 }
 
-// MARK: - Slot badge
-
-/// The small rounded "AM" / "PM" badge from the handoff hero: a tinted chip
-/// with the slot letters in the modality color over a sunken face.
-struct SlotBadge: View {
-    let slot: SessionSlot
-    /// Modality color the badge tints to (defaults to brand accent).
-    var color: Color = Theme.Color.accent
-
-    /// The slot letters render as small TEXT, so a brand-orange modality color
-    /// must use the text-safe role split (orange fails AA on the light sunken
-    /// face). Other modality colors (info blue, foreground) are already AA. On
-    /// dark, accentText == the brand orange, so dark is unchanged.
-    private var textColor: Color {
-        color == Theme.Color.accent ? Theme.Color.accentText : color
-    }
-
-    var body: some View {
-        Text(slot.label)
-            .font(.system(size: 10, weight: .heavy, design: .monospaced))
-            .tracking(0.5)
-            .foregroundStyle(textColor)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Theme.Color.surfaceSunken)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-            .accessibilityLabel(slot == .am ? "Mañana" : "Tarde")
-    }
-}
-
-// MARK: - Libre chip
-
-/// Small accent chip marking an athlete-built "entreno libre" (no prescrito),
-/// with the brand-accent text role (AA on both the light + dark surfaces).
-/// Shown wherever a self-origin session is listed.
-struct LibreBadge: View {
-    var compact: Bool = false
-
-    var body: some View {
-        HStack(spacing: 4) {
-            // El glifo del kit para «esto es tuyo» (`GlifoDia.silueta`). Antes era un destello, que
-            // está prohibido en el proyecto: es el cliché de las apps de IA, y un entreno libre no es magia,
-            // es el que montó el propio atleta.
-            IconoDia(.silueta, tam: compact ? 9 : 10, peso: .semibold)
-            Text("Libre")
-                .font(.system(size: compact ? 10 : 11, weight: .semibold))
-                .lineLimit(1)
-        }
-        .foregroundStyle(Theme.Color.accentText)
-        .padding(.horizontal, compact ? 6 : 8)
-        .padding(.vertical, compact ? 2 : 3)
-        .background(Theme.Color.accentTint)
-        .clipShape(Capsule())
-        .accessibilityLabel("Entreno libre")
-    }
-}
-
-// MARK: - Session hero card
-
-/// The Inicio hero: an elevated card with an orange top-edge accent, an AM/PM
-/// badge + kicker, an italic-heavy title, a mono meta line, and a primary
-/// "▶ Empezar" CTA. Mirrors the handoff hero (`#141A22`, 5px top accent) using
-/// our layered surfaces and brand orange.
-struct SessionHeroCard: View {
-    let slot: SessionSlot
-    /// Eyebrow, e.g. "Carrera · sesión principal".
-    let kicker: String
-    /// Italic-heavy session title, e.g. "Intervalos de umbral".
-    let title: String
-    /// Mono meta, e.g. "≈ 55 min · 3 bloques · 5×1000m @ 3:45/km".
-    let meta: String
-    /// Modality, used to tint the slot badge + accent.
-    var modality: String? = nil
-    var ctaTitle: String = "▶ Empezar"
-    /// Marks an athlete-built "entreno libre" — adds the accent "Libre" chip.
-    var isFree: Bool = false
-    let onStart: () -> Void
-
-    private var modalityColor: Color { Theme.Modality.color(modality) }
-
-    var body: some View {
-        CardSurface(padding: 18, topAccent: true, elevated: true) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 8) {
-                    SlotBadge(slot: slot, color: modalityColor)
-                    LabelText(text: kicker)
-                    if isFree { LibreBadge(compact: true) }
-                    Spacer(minLength: 0)
-                }
-                Text(title)
-                    .scaledFont(24, weight: .heavy, relativeTo: .title2, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 10)
-                MonoText(text: meta, size: 13, weight: .medium, color: Theme.Color.muted)
-                    .padding(.top, 5)
-                ExpertPrimaryButton(title: ctaTitle, height: 50, action: onStart)
-                    .padding(.top, 15)
-            }
-        }
-        .accessibilityElement(children: .contain)
-    }
-}
-
-// MARK: - AM/PM switcher
-
-/// Discrete RPE picker 6–10 (the handoff's range). Selected value fills orange
-/// with `accentOn` text; mono digits. One value active at a time.
-struct RPESelector: View {
-    @Binding var value: Int?
-    var range: ClosedRange<Int> = 6...10
-
-    var body: some View {
-        HStack(spacing: 8) {
-            ForEach(Array(range), id: \.self) { n in
-                let selected = value == n
-                Button {
-                    Haptics.light()
-                    value = selected ? nil : n
-                } label: {
-                    Text("\(n)")
-                        .font(.system(size: 16, weight: .heavy, design: .monospaced).monospacedDigit())
-                        .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.foreground)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 46)
-                        .background(selected ? Theme.Color.accent : Theme.Color.surfaceElevated)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                                .stroke(selected ? Color.clear : Theme.Color.hairlineStrong, lineWidth: 1)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                }
-                .buttonStyle(PressScaleStyle())
-                .accessibilityLabel("RPE \(n)")
-                .accessibilityAddTraits(selected ? .isSelected : [])
-            }
-        }
-    }
-}
-
-// MARK: - Publish notice row
+// MARK: - Coach avatar
 
 /// A circular avatar showing an initial over the chip surface. Used by the
 /// publish notice, coach note row, and chat header. Falls back to a person
@@ -275,8 +118,6 @@ struct AvatarPhoto: View {
         }
     }
 }
-
-// MARK: - Chat bubble
 
 // MARK: - Dismissable sheet chrome
 //
