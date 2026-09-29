@@ -163,6 +163,14 @@ import * as analiticasFamiliaFuerza from './screens/analiticas-familia-fuerza';
 import * as analiticasFamiliaEstaciones from './screens/analiticas-familia-estaciones';
 import * as analiticasSesion from './screens/analiticas-sesion';
 import * as analiticasPanelCoach from './screens/analiticas-panel-coach';
+// Hoy, rehecho (29-sep): la portada del atleta (InicioView), «El día» — sujeto: el
+// momento del día — sobre UN modelo (`kit-hoy/contrato`). La otra dirección
+// («El pulso», sujeto: cómo llegas) se descartó; vive en git (f7b353da).
+import * as hoyDia from './screens/hoy-dia';
+// Las pestañas del atleta con el diseño de «Hoy · El día» (29-sep, firmado por Alex).
+import * as planRehecho from './screens/plan-rehecho';
+import * as carrerasRehecho from './screens/carreras-rehecho';
+import * as perfilRehecho from './screens/perfil-rehecho';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -275,6 +283,12 @@ export const SCREENS: TwinScreenModule[] = [
   analiticasSesion,
   // El panel del coach, como dispositivo «escritorio».
   analiticasPanelCoach,
+  // Las pestañas del atleta, rehechas (29-sep): Hoy, Plan, Carreras y Perfil.
+  // (Registradas en orden inverso: el índice pone primero lo último añadido, y Hoy va antes que Plan, Carreras y Perfil.)
+  perfilRehecho,
+  carrerasRehecho,
+  planRehecho,
+  hoyDia,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -294,7 +308,7 @@ export interface GrupoColeccion {
  * colección es la dirección canónica de un trabajo y se enseña sola.
  */
 export interface Coleccion {
-  id: 'entreno' | 'analiticas';
+  id: 'entreno' | 'analiticas' | 'pestanas';
   zona: TwinZona;
   titulo: string;
   /** Lo que dice la card en el índice. */
@@ -377,7 +391,27 @@ export const TANDA_ANALITICAS: ReadonlyArray<GrupoColeccion> = [
   { grupo: 'El panel del coach', ids: ['analiticas-panel-coach'] },
 ];
 
+/** Las pestañas del atleta con el diseño de «Hoy · El día» (29-sep). */
+export const TANDA_PESTANAS: ReadonlyArray<GrupoColeccion> = [
+  { grupo: 'Hoy', ids: ['hoy-dia'] },
+  { grupo: 'Plan', ids: ['plan-rehecho'] },
+  { grupo: 'Carreras', ids: ['carreras-rehecho'] },
+  { grupo: 'Perfil', ids: ['perfil-rehecho'] },
+];
+
 export const COLECCIONES: ReadonlyArray<Coleccion> = [
+  {
+    id: 'pestanas',
+    zona: 'Plan y hoy',
+    titulo: 'Las pestañas, rehechas',
+    descripcion:
+      'Hoy, Plan, Carreras y Perfil con un solo diseño: el sujeto de cada pantalla en bloque editorial de marca, tipografía itálica pesada, un póster de carrera y todos los estados resueltos.',
+    intro: [
+      'El diseño lo fijó «Hoy · El día» (firmado por Alex el 29-sep): cada pestaña tiene UN sujeto que se ve primero y por mucho más grande, tinte propio por momento, el naranja sólido solo para «haz esto ahora» y las piezas compartidas en `kit-dia`. Las cuatro pantallas comparten el vocabulario visual y el contrato de UI, no el contenido.',
+      'Cada pestaña se prueba con atletas de ejemplo (ninguno sale de la base de producción) que recorren los cuatro estados de cada pieza: el lleno, el recién dado de alta, el que no tiene coach, el cargando y el error. Las pantallas que cuelgan de cada pestaña (ciclo, sesión, detalle de carrera, ajustes) heredan este lenguaje cuando se construyan; aquí solo está la raíz de cada una.',
+    ],
+    grupos: TANDA_PESTANAS,
+  },
   {
     id: 'analiticas',
     zona: 'Marcas y tests',

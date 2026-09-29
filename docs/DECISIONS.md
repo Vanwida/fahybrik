@@ -11,6 +11,34 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-29 · Analíticas rehechas: el panel del coach (pestaña Rendimiento) y el editor del método
+
+**El encargo:** pintar el panel rehecho en la ficha del atleta con los componentes reales de `web/components/v2/analiticas/` (los ocho bloques y el detalle de sesión; el MISMO cálculo que el iPhone, `GET …/analytics/panel`), el editor del método de analíticas en Ajustes › Método y los umbrales declarados de un toque.
+
+**Decidido:**
+- **Rendimiento = el panel.** Ventana y «comparar» viven en la URL (el servidor recalcula el mismo panel, el cliente no calcula nada). Los estados de `Lectura` (pendiente, sin dato, dato viejo, falta) se pintan tal cual, nunca con una explicación inventada. Debajo: umbrales con su peldaño (declarables de un toque), zonas y tests, correr en detalle, tiempo en zonas, 1RM medidos, check-ins y VO₂, carreras.
+- **Editor del método = TODOS los campos que el motor lee** de `coach_analytics_method`, cada uno con su explicación y su límite, incluida la escalera de cumplimiento por sesión y la holgura por tramo (0281). Fuente única: `shared/domain/analytics/metodo.ts` (defectos, límites, `validarMetodoAnalitico`, también en el `PUT` con Zod). El catálogo del editor (`metodo-analiticas/catalogo-{carga,cumplimiento,rendimiento}.ts`) es exhaustivo por tipo: un campo nuevo del método sin descriptor no compila (test de compatibilidad de tipos). Se guarda por grupo; una regla cruzada rota se rechaza y se lee dentro de la tarjeta del grupo (`role="alert"`). NULL = defecto: un coach que no toca nada se comporta como hoy, y «Restaurar todo» vuelve a los defectos.
+- **Tabla del panel** elige su forma por el ancho del contenedor, no el de la pantalla. La lista de cumplimiento por tramo llega a sesiones antiguas (paginada), su 404 ya no promete una entrega, y la carga de cada tramo se lee como carga («según vatios»).
+
+**Retirado (§9 del modelo), con porqué:**
+- **El puente al legado** (`Legado`, `Hueco.enlace`, «llega en la siguiente entrega del panel»): con `BLOQUES_PENDIENTES` vacío estaba muerto. Se queda el mecanismo `pendientes` del contrato y el hueco genérico «Todavía no se calcula aquí».
+- **Fuerza:** la mitad de tests y su carga `benchmarks` (`loadBenchmarks`, `BenchmarkSeries`): los leen Progreso y Récords.
+- **Fisiología:** VFC, pulso en reposo y sueño (y la prop `soloLoQueNoEstaEnElPanel`): los sirve Recuperación con UNA basal (P3).
+- **NO retirado, y siempre visible en vez de escondido:** el tiempo en zonas con «Dar feedback» (anotación del coach que el panel no cubre) y los 1RM medidos (Progreso lee `athlete_benchmarks` y las series de `set_executions`, no `athlete_strength_maxes`). Enlaces viejos: `seccion=fuerza` lleva a Progreso, `vista=zonas` a Intensidad; el «Registrar» de tests apuntaba a esa vista vieja y ahora va a `seccion=zonas`.
+
+**Sin editor porque el motor aún no los lee** (no se pone un mando que no manda): tolerancias por eje, `formula_1rm`, `dato_viejo_dias`, muestras mínimas, `cobertura_poco_pct`, reparto de carrera, `bandas_disposicion`, `esfuerzo_tss_hora_rpe10`, bandas nombradas de frescura (están en `kit-analiticas/metodo.ts` del doble). El CTL/ATL del coach solo lo lee `lecturas.ts`.
+
+**Abierto (decisión de Alex):** (a) la voz: `explica_es` del motor habla al atleta en segunda persona y sale literal en el panel del coach; falta una capa de voz de coach en `voz.ts`. (b) «Dar feedback»: ¿lee la intensidad del motor o sigue como espacio de anotación aparte? (c) El motor de Progreso debería leer el 1RM medido; entonces la sección «1RM medidos» se retira. (d) Copy de Umbrales «un test siempre gana a lo declarado»: impreciso en vatios de bici (lo declarado gana a un «medido» convertido desde un ritmo). (e) Progreso a 1440 en tarjetas de media anchura: la columna Tendencia se cae y el Ancla puede quedar vacía (desvío de la propuesta).
+
+**Auditoría del editor heredado (`d4a303d7`, 29-09):** venía sin tsc, eslint ni vitest; ahora con los tres y con base real.
+- **Confirmado, y fijado por test:** ninguna regla cruzada de `validarMetodoAnalitico` cruza dos grupos (muestreo de extremos y listas, 3000 mezclas; el detector se comprueba con una regla inventada). Por eso `candidatoDe` puede validar SOLO el grupo que se confirma con el resto en defectos. Si alguien añade una regla que cruce grupos, ese test falla y obliga a decidirlo. Solo los grupos forma, frescura, carga, cumplimiento, intensidad, recuperación y capacidad tienen reglas; cambio, holgura y progreso no.
+- **Los grupos plegados por defecto son cuatro** (capacidad, holgura, progreso, recuperación), no dos, y se abren solos si ya difieren del defecto (`gruposAbiertosAlInicio`, con test).
+- **Unidades, minutos y estados:** los rangos de `cs_min/max_duration_s` se muestran en minutos; los cinco estados de frescura salen de `ESTADO_FRESCURA_ES` (una sola fuente); «puntos», «carga/semana» y «cociente» sin siglas. Corregido el texto de `cs_min_spread_ratio`.
+- **Base real** (`tests/ajustes/metodo-analiticas.db.test.ts`, la ruta `PUT` y una rama Neon desechable): lo que confirma el editor se guarda en las unidades del método y vuelve idéntico; orden de escaleras; Restaurar/Deshacer; regla cruzada rota = 422 con su frase y nada guardado; un coach no ve el de otro; y **el esquema Zod y los CHECK de la tabla dicen lo mismo de cada rango** (los dos extremos de las 55 claves numéricas entran, un paso fuera no; comprobado que un rango ensanchado en el esquema rompe el test).
+- **Hallazgo:** `upsertCoachAnalyticsMethod` decía validar con `validarMetodoAnalitico` y no lo hace: el único guardián de las reglas cruzadas es el esquema de la ruta. Se corrigió el comentario, no el código (los tests de la capa escriben a propósito valores que solo los CHECK deben frenar). Cualquier escritor nuevo (herramienta, MCP) tiene que pasar por `analyticsMethodSchema`.
+
+**No verificado:** veredictos por tramo con plan y hecho variados (los datos demo solo lo permiten en VO₂); en 390 las capturas de elemento enseñan la navegación inferior fija encima (existente, no investigada). Verificado en navegador a 390/768/1440 contra una rama Neon desechable (no producción): editor con persistencia real, panel con datos, parcial y vacío.
+
 ## 2026-09-29 · Analíticas rehechas: el cumplimiento — por tramo en todas las modalidades, por sesión y por semana (0281)
 
 **El encargo (docs/analiticas/modelo.md A7, A8, §3 fila 3, §5):** ¿hace lo que toca? Hecho frente a plan por sesión en la base del coach, prescrito frente a hecho POR TRAMO en todas las modalidades, y la adherencia de solo lo debido. En rama; 0281 probada solo en una rama Neon desechable.
@@ -110,6 +138,21 @@ Después de aplicarla, `pnpm --dir infra backfill:zonas` (sin `--force`) rehace 
 **Queda:** el diseño de los bloques y del detalle; que Swift lea `bands`/`band` y borre las suyas; el editor del método (0279 incluida); aplicar 0279 en producción (orquestador); los contratos viejos se retiran con §9.
 
 ---
+
+## 2026-09-29 · Hoy, rehecho: Alex firma «El día» y «El pulso» se descarta
+
+**Contexto.** Alex (29-09): la portada de Inicio «es aburrida, muy básica»; pidió dos direcciones. Se construyeron en el doble sobre un solo modelo (`kit-hoy/contrato` + 14 casos inventados): «El pulso» (sujeto: cómo llegas hoy, un dial instrumental) y «El día» (sujeto: el momento del día).
+
+**Firmado (Alex, 29-09: «me encanta, quiero llevarla a producción»): «El día».** `hoy-dia`: el sujeto lo decide `momento()` con una precedencia fija y probada (cargando, error, sin coach, pausa, retomar, check-in, sesión pendiente, hecho hoy, descanso/primer día); bloque editorial de marca con naranja sólido solo para «haz esto ahora»; «Cómo llegas» pasa a tira con anillo (el color de zona va en el arco, nunca en la cifra); póster de carrera como única foto; «Contigo» plegado; el check-in se hace dentro del sujeto (hoy es una hoja: cambio de flujo a decidir al portarlo).
+
+**Límites que conserva:** el Plan sigue siendo la única puerta de empezar (Hoy dice el estado y lleva al Plan); el progreso vive en Analíticas (Hoy deja una marca reciente); el entreno minimizado lo lleva la barra del sistema.
+
+**Descartado y por qué:** «El pulso». Dial enorme y bien resuelto, pero convierte la portada en un instrumento del cuerpo y deja la sesión y la carrera en filas; Alex prefirió que mande el momento. Vive en git (`f7b353da`, `screens/hoy-pulso/`) por si el dial se quiere para otra cosa (p. ej. el detalle de disposición).
+**Retirado del diseño de Hoy:** la tarjeta de progreso (ya en Analíticas), el texto de proximidad a la carrera («Afina y descansa», que cableaba 7 y 21 días: método del coach) y `PartnerTodayPanel` (el contrato no lo trae; decidir si sigue).
+
+**Después (mismo día):** Alex pide Plan, Carreras y Perfil con el mismo diseño antes de llevar las cuatro a iOS. El sistema visual sube a `kit-dia/`; colección `/design/pestanas`.
+
+**NO hacer:** volver a pintar en Hoy una tarjeta de progreso o un «Empezar» que lance el motor; escribir una constante de días de carrera en la vista.
 
 ## 2026-09-29 · El entreno minimizado se ve siempre: barra de sistema sobre las pestañas
 

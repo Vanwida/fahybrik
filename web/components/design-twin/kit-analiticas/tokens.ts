@@ -29,42 +29,14 @@
 
 import { espectroZonas } from '../kit-reloj/tokens';
 import { CI, NUMERAL, TI } from '../kit-iphone-vivo/tokens';
-import type { Familia, FamiliaGrande } from './contrato';
-import { FAMILIA_GRANDE } from './contrato';
+import type { FamiliaGrande } from './contrato';
+import type { Piel } from '@/components/v2/analiticas/piel';
 
-export interface Piel {
-  id: 'iphone' | 'panel';
-  fondo: string;
-  superficie: string;
-  superficie2: string;
-  /** El carril apagado, la pista de una barra. */
-  carril: string;
-  /** La rejilla y los ejes: una sola línea fina, sólida, un paso por encima de la superficie. */
-  rejilla: string;
-  tinta: string;
-  tinta2: string;
-  /** Solo acción. */
-  accion: string;
-  sobreAccion: string;
-  ok: string;
-  aviso: string;
-  familia: Record<FamiliaGrande, string>;
-  /** Z1…ZN del coach. */
-  zonas: string[];
-  /** Lo hecho (relleno) y el plan (contorno). */
-  hecho: string;
-  plan: string;
-  proyeccion: string;
-  fuente: string;
-  numeral: { familia: string; peso: number; variante: string };
-  /** Cuerpo del texto de eje y leyenda, y del rótulo directo. */
-  cuerpoEje: number;
-  cuerpoEtiqueta: number;
-  cuerpoDato: number;
-  radio: number;
-  /** Grosor de una línea de dato. */
-  trazo: number;
-}
+// La piel, el panel y los colores de familia y zona son del PRODUCTO
+// (`components/v2/analiticas/piel.ts`): el doble los importa de allí. Aquí se
+// queda solo lo del iPhone — su piel y su escala —, que no tiene hermano web.
+export { PIEL_PANEL, colorFamilia, colorZonaDe } from '@/components/v2/analiticas/piel';
+export type { Piel } from '@/components/v2/analiticas/piel';
 
 /** Validada con `validate_palette.js --mode dark --surface #141414` (y sobre #161618 en el panel). */
 export const FAMILIA_HEX: Record<FamiliaGrande, string> = {
@@ -73,6 +45,9 @@ export const FAMILIA_HEX: Record<FamiliaGrande, string> = {
   fuerza: '#764ec7',
   'estaciones-wod': '#9d466a',
 };
+
+/** «El resto» (calentar, core, movilidad): el gris neutro, que no compite con ninguna familia. */
+const RESTO_HEX = '#8a8a93';
 
 /** El orden de apilado: correr abajo (la espina del HYROX), luego ergo, fuerza y estaciones. */
 export const ORDEN_FAMILIAS: readonly FamiliaGrande[] = ['correr', 'ergo', 'fuerza', 'estaciones-wod'];
@@ -90,7 +65,7 @@ export const PIEL_IPHONE: Piel = {
   sobreAccion: CI.sobreAccion,
   ok: '#34C759',
   aviso: '#FFB340',
-  familia: FAMILIA_HEX,
+  familia: { ...FAMILIA_HEX, otro: RESTO_HEX },
   zonas: espectroZonas(5),
   hecho: CI.tinta,
   plan: CI.tinta2,
@@ -102,51 +77,8 @@ export const PIEL_IPHONE: Piel = {
   cuerpoDato: TI.dato.cuerpo,
   radio: 18,
   trazo: 2,
+  sombra: '0 6px 18px rgba(0,0,0,0.35)',
 };
-
-export const PIEL_PANEL: Piel = {
-  id: 'panel',
-  fondo: 'var(--v2-bg)',
-  superficie: 'var(--v2-surface)',
-  superficie2: 'var(--v2-surface-2)',
-  carril: 'var(--v2-surface-2)',
-  rejilla: 'var(--v2-border)',
-  tinta: 'var(--v2-fg)',
-  tinta2: 'var(--v2-muted)',
-  accion: 'var(--v2-accent)',
-  sobreAccion: 'var(--v2-accent-fg)',
-  ok: 'var(--v2-ok)',
-  aviso: 'var(--v2-warn)',
-  familia: {
-    correr: 'var(--v2-mod-carrera)',
-    ergo: 'var(--v2-mod-ergo)',
-    fuerza: 'var(--v2-mod-fuerza)',
-    'estaciones-wod': 'var(--v2-mod-circuito)',
-  },
-  zonas: ['var(--v2-z1)', 'var(--v2-z2)', 'var(--v2-z3)', 'var(--v2-z4)', 'var(--v2-z5)'],
-  hecho: 'var(--v2-fg)',
-  plan: 'var(--v2-muted)',
-  proyeccion: 'var(--v2-muted)',
-  fuente: 'var(--v2-font-sans)',
-  numeral: { familia: 'var(--v2-font-sans)', peso: 600, variante: 'tabular-nums' },
-  cuerpoEje: 12,
-  cuerpoEtiqueta: 12,
-  cuerpoDato: 28,
-  radio: 10,
-  trazo: 2,
-};
-
-/** El color de una familia fina es el de su familia grande: remo, ski y bici son «ergo». */
-export function colorFamilia(piel: Piel, f: Familia | FamiliaGrande): string {
-  const grande = (f in piel.familia ? f : FAMILIA_GRANDE[f as Familia]) as FamiliaGrande;
-  return piel.familia[grande];
-}
-
-/** Z1…ZN: fuera de rango cae al extremo (nunca al naranja, nunca a gris de tinta). */
-export function colorZonaDe(piel: Piel, zona: number): string {
-  const i = Math.min(piel.zonas.length, Math.max(1, Math.round(zona))) - 1;
-  return piel.zonas[i]!;
-}
 
 // ---------------------------------------------------------------------------
 // La escala del iPhone (por papel, suelo 15 pt)

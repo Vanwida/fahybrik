@@ -1,29 +1,20 @@
 'use client';
 
-// Índice del doble: LO ÚLTIMO primero. A este índice se viene casi siempre a
-// buscar «el mockup que hice ayer», así que la primera sección contesta eso —
-// los últimos días con sus pantallas, cards para lo más fresco y pastillas
-// para los lotes. Debajo, el inventario por zonas (ordenado por recencia, con
-// cada colección colapsada en su card: tienen dirección propia).
-// Las pendientes se pintan apagadas: el hueco es información, no vergüenza.
+// Índice del doble: TODO, del más nuevo al más viejo.
+//
+// A este índice se viene a buscar «lo que hice ayer» o «dónde está el Hoy», y
+// agrupar por zonas lo escondía (una pantalla nueva quedaba dentro de una
+// colección, dentro de una zona). Ahora es una sola lista cronológica: arriba
+// las colecciones (las direcciones canónicas de un trabajo), debajo TODAS las
+// pantallas por día de última modificación. Dentro de un día manda el orden de
+// registro al revés: lo último que se añadió sale primero.
+// Las pendientes (pantallas de la app sin doble) se pintan apagadas al final:
+// el hueco es información, no vergüenza.
 
 import Link from 'next/link';
 import { ARCHIVO, COLECCIONES, ESTADO_LABEL, PENDIENTES, SCREENS } from './registry';
 import { DISPOSITIVO_LABEL } from './TandaIndex';
-import type { TwinMeta, TwinZona } from './types';
-
-const ZONAS: TwinZona[] = [
-  'Entreno en vivo',
-  'Conexiones y relojes',
-  'Marcas y tests',
-  'Plan y hoy',
-  'Perfil y ajustes',
-];
-
-/** Cuántas fechas distintas enseña «Lo último». */
-const ULTIMAS_FECHAS = 3;
-/** A partir de aquí un día es un lote: pastillas en vez de cards. */
-const MAX_CARDS_POR_DIA = 4;
+import type { TwinMeta } from './types';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
@@ -49,54 +40,24 @@ function esReciente(iso: string): boolean {
   return rel === 'hoy' || rel === 'ayer';
 }
 
-function Card({ meta, localePrefix }: { meta: TwinMeta; localePrefix: string }) {
-  return (
-    <Link href={`${localePrefix}/design/${meta.id}`} className="studio-card">
-      <div className="studio-card-top">
-        <span className="studio-stamp" data-estado={meta.estado}>
-          {ESTADO_LABEL[meta.estado]}
-        </span>
-        <span className="studio-card-top-right">
-          <span className="studio-device">{DISPOSITIVO_LABEL[meta.dispositivo]}</span>
-          <span className="studio-fecha" data-reciente={esReciente(meta.actualizado)}>
-            {fechaRelativa(meta.actualizado)}
-          </span>
-        </span>
-      </div>
-      <h3>{meta.titulo}</h3>
-      <p>{meta.descripcion}</p>
-      {meta.enApp && (
-        <p className="studio-enapp">
-          <strong>En la app:</strong> {meta.enApp}
-        </p>
-      )}
-      <span className="studio-tags">
-        {meta.composicion && (
-          <span className="studio-tag studio-tag-estrategia">{meta.composicion.estrategia}</span>
-        )}
-        {meta.soportaHorizontal && <span className="studio-tag">gira ⟳</span>}
-      </span>
-    </Link>
-  );
-}
-
 export function TwinIndex({ localePrefix }: { localePrefix: string }) {
-  // Las pantallas de cada colección viven en su card, no sueltas en la zona.
-  const enColeccion = new Map<string, (typeof COLECCIONES)[number]>();
+  type Coleccion = (typeof COLECCIONES)[number];
+  const enColeccion = new Map<string, Coleccion>();
   for (const c of COLECCIONES) for (const g of c.grupos) for (const id of g.ids) enColeccion.set(id, c);
-  const pantallasDe = (c: (typeof COLECCIONES)[number]) => SCREENS.filter((s) => enColeccion.get(s.meta.id) === c);
-  const fechaDe = (c: (typeof COLECCIONES)[number]) => pantallasDe(c).reduce((max, s) => (s.meta.actualizado > max ? s.meta.actualizado : max), '');
+  const pantallasDe = (c: Coleccion) => SCREENS.filter((s) => enColeccion.get(s.meta.id) === c);
+  const fechaDe = (c: Coleccion) => pantallasDe(c).reduce((max, s) => (s.meta.actualizado > max ? s.meta.actualizado : max), '');
 
-  // Lo último: las N fechas más recientes con sus pantallas (empates en orden
-  // de registro). El día más fresco sale en cards; los lotes, en pastillas.
-  const ordenados = [...SCREENS].sort((a, b) => b.meta.actualizado.localeCompare(a.meta.actualizado));
+  // Colecciones: la más reciente primero.
+  const colecciones = [...COLECCIONES].sort((a, b) => fechaDe(b).localeCompare(fechaDe(a)));
+
+  // Todas las pantallas: por fecha desc; a igual fecha, la última registrada primero.
+  const ordenadas = [...SCREENS].reverse().sort((a, b) => b.meta.actualizado.localeCompare(a.meta.actualizado));
   const porFecha = new Map<string, TwinMeta[]>();
-  for (const s of ordenados) {
+  for (const s of ordenadas) {
     const lista = porFecha.get(s.meta.actualizado) ?? [];
     lista.push(s.meta);
     porFecha.set(s.meta.actualizado, lista);
   }
-  const ultimos = [...porFecha.entries()].slice(0, ULTIMAS_FECHAS);
 
   return (
     <div className="studio-index">
@@ -105,98 +66,87 @@ export function TwinIndex({ localePrefix }: { localePrefix: string }) {
         <h1>La app, en la web</h1>
         <p className="studio-desc">
           Réplica viva de la app del atleta: cada pantalla se toca, gira y simula sus conexiones.
-          «Espejo» = réplica del Swift <em>a la fecha que marca la card</em> — si el Swift cambió
-          después, el espejo está desfasado y la fecha lo delata. «Propuesta» = mockup de lo aún no
-          construido (si algo de ello ya existe, la card lo dice en «En la app»). «Construida» = la
-          propuesta ya se shipeó en Swift, falta re-verificarla como espejo. «Pendiente» = pantalla
-          de la app sin doble. Los mockups nuevos nacen aquí, no en ficheros sueltos.
+          Todo va por fecha, del más nuevo al más viejo. «Espejo» = réplica del Swift a la fecha
+          que marca la pantalla; «Propuesta» = mockup de lo aún no construido; «Construida» = ya
+          está en Swift, falta re-verificarla; «Pendiente» = pantalla de la app sin doble.
         </p>
       </header>
 
-      <section className="studio-ultimo">
-        <h2 className="studio-label">Lo último</h2>
-        {ultimos.map(([fecha, metas], idx) => {
-          const enCards = idx === 0 ? metas.slice(0, MAX_CARDS_POR_DIA) : [];
-          const enPills = idx === 0 ? metas.slice(MAX_CARDS_POR_DIA) : metas;
-          return (
-            <div key={fecha} className="studio-dia">
-              <span className="studio-dia-fecha" data-reciente={esReciente(fecha)}>
-                {fechaRelativa(fecha)} · {fechaCorta(fecha)}
-              </span>
-              {enCards.length > 0 && (
-                <div className="studio-grid">
-                  {enCards.map((meta) => (
-                    <Card key={meta.id} meta={meta} localePrefix={localePrefix} />
-                  ))}
-                </div>
-              )}
-              {enPills.length > 0 && (
-                <div className="studio-dia-pills">
-                  {enPills.slice(0, 8).map((meta) => (
-                    <Link key={meta.id} href={`${localePrefix}/design/${meta.id}`} className="studio-pill">
-                      {meta.titulo}
-                    </Link>
-                  ))}
-                  {enPills.length > 8 && (
-                    <span className="studio-pill studio-pill-resto">+{enPills.length - 8} más abajo</span>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <section className="studio-zona">
+        <h2 className="studio-label">Colecciones</h2>
+        <div className="studio-grid">
+          {colecciones.map((c) => (
+            <Link key={c.id} href={`${localePrefix}/design/${c.id}`} className="studio-card studio-card-coleccion">
+              <div className="studio-card-top">
+                <span className="studio-stamp" data-estado="coleccion">
+                  Colección
+                </span>
+                <span className="studio-card-top-right">
+                  <span className="studio-device">{pantallasDe(c).length} pantallas</span>
+                  <span className="studio-fecha" data-reciente={esReciente(fechaDe(c))}>
+                    {fechaRelativa(fechaDe(c))}
+                  </span>
+                </span>
+              </div>
+              <h3>{c.titulo} →</h3>
+              <p>{c.descripcion}</p>
+            </Link>
+          ))}
+        </div>
       </section>
 
-      {ZONAS.map((zona) => {
-        const activos = SCREENS.filter((s) => s.meta.zona === zona && !enColeccion.has(s.meta.id)).sort(
-          (a, b) => b.meta.actualizado.localeCompare(a.meta.actualizado)
-        );
-        const huecos = PENDIENTES.filter((p) => p.zona === zona);
-        const colecciones = COLECCIONES.filter((c) => c.zona === zona);
-        if (activos.length === 0 && huecos.length === 0 && colecciones.length === 0) return null;
-        const total = activos.length + colecciones.reduce((n, c) => n + pantallasDe(c).length, 0);
-        return (
-          <section key={zona} className="studio-zona">
-            <h2 className="studio-label">
-              {zona}
-              <span className="studio-zona-n"> · {total}</span>
-            </h2>
-            <div className="studio-grid">
-              {colecciones.map((c) => (
-                <Link key={c.id} href={`${localePrefix}/design/${c.id}`} className="studio-card studio-card-coleccion">
-                  <div className="studio-card-top">
-                    <span className="studio-stamp" data-estado="coleccion">
-                      Colección
-                    </span>
-                    <span className="studio-card-top-right">
-                      <span className="studio-device">{pantallasDe(c).length} pantallas</span>
-                      <span className="studio-fecha" data-reciente={esReciente(fechaDe(c))}>
-                        {fechaRelativa(fechaDe(c))}
-                      </span>
-                    </span>
-                  </div>
-                  <h3>{c.titulo} →</h3>
-                  <p>{c.descripcion}</p>
+      <section className="studio-zona">
+        <h2 className="studio-label">
+          Todas las pantallas
+          <span className="studio-zona-n"> · {SCREENS.length}</span>
+        </h2>
+        {[...porFecha.entries()].map(([fecha, metas]) => (
+          <div key={fecha} className="studio-dia">
+            <span className="studio-dia-fecha" data-reciente={esReciente(fecha)}>
+              {fechaRelativa(fecha)} · {fechaCorta(fecha)} · {metas.length}
+            </span>
+            <div className="studio-lista">
+              {metas.map((meta) => (
+                <Link key={meta.id} href={`${localePrefix}/design/${meta.id}`} className="studio-fila">
+                  <span className="studio-stamp" data-estado={meta.estado}>
+                    {ESTADO_LABEL[meta.estado]}
+                  </span>
+                  <span className="studio-fila-cuerpo">
+                    <span className="studio-fila-titulo">{meta.titulo}</span>
+                    <span className="studio-fila-desc">{meta.descripcion}</span>
+                  </span>
+                  <span className="studio-fila-lado">
+                    {enColeccion.get(meta.id) && <span className="studio-tag-estrategia">{enColeccion.get(meta.id)!.titulo}</span>}
+                    <span className="studio-device">{DISPOSITIVO_LABEL[meta.dispositivo]}</span>
+                  </span>
                 </Link>
               ))}
-              {activos.map(({ meta }) => (
-                <Card key={meta.id} meta={meta} localePrefix={localePrefix} />
-              ))}
-              {huecos.map((p) => (
-                <div key={p.titulo} className="studio-card studio-card-pendiente" aria-disabled>
-                  <div className="studio-card-top">
-                    <span className="studio-stamp" data-estado="pendiente">
-                      {ESTADO_LABEL.pendiente}
-                    </span>
-                  </div>
-                  <h3>{p.titulo}</h3>
-                  <p>{p.descripcion}</p>
-                </div>
-              ))}
             </div>
-          </section>
-        );
-      })}
+          </div>
+        ))}
+      </section>
+
+      {PENDIENTES.length > 0 && (
+        <section className="studio-zona">
+          <h2 className="studio-label">
+            Sin doble todavía
+            <span className="studio-zona-n"> · {PENDIENTES.length}</span>
+          </h2>
+          <div className="studio-lista studio-lista-apagada">
+            {PENDIENTES.map((p) => (
+              <div key={p.titulo} className="studio-fila" aria-disabled>
+                <span className="studio-stamp" data-estado="pendiente">
+                  {ESTADO_LABEL.pendiente}
+                </span>
+                <span className="studio-fila-cuerpo">
+                  <span className="studio-fila-titulo">{p.titulo}</span>
+                  <span className="studio-fila-desc">{p.descripcion}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <details className="studio-archivo">
         <summary className="studio-label">De dónde venimos — mockups históricos ({ARCHIVO.length})</summary>
