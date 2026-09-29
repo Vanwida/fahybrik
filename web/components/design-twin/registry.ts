@@ -177,6 +177,7 @@ import * as perfilRehecho from './screens/perfil-rehecho';
 import * as garminGramatica from './screens/garmin-gramatica';
 import * as garminCorrer from './screens/garmin-correr';
 import * as garminCircuito from './screens/garmin-circuito';
+import * as garminFuerza from './screens/garmin-fuerza';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -299,6 +300,8 @@ export const SCREENS: TwinScreenModule[] = [
   garminGramatica,
   garminCorrer,
   garminCircuito,
+  // El reloj Garmin (29-sep): la gramática y sus familias (registradas en orden inverso: el índice pone primero lo último añadido).
+  garminFuerza,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
