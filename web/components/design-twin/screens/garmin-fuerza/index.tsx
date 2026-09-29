@@ -42,31 +42,31 @@ export const escenarios: TwinEscenario[] = [
     id: 'superserie',
     titulo: 'Superserie A1 → A2 sin descanso (529)',
     descripcion:
-      'Sesión 529, bloque A. A1 Back Squat, serie 1/4: el nombre primero, «Serie 1/4 · llevas» y el crono de la serie de héroe (nadie cuenta las reps, así que no se pintan como medidas), la dosis «8 × 121–131 kg» con «65–70 % RM» debajo, y el pulso al pie. A los 4 s, BACK/LAP: A2 entra SIN descanso (1 muy corta de acuse, 2 largas y START) y abajo queda «A1 · serie 1 hecha · ↶ UP · deshacer» 5 s.',
+      'Sesión 529, bloque A. A1 Back Squat, serie 1/4: el nombre primero, «Serie 1/4 · llevas» y el crono de la serie de héroe (nadie cuenta las reps: no se pintan como medidas), el cue del coach, la dosis «8 × 121–131 kg» con «65–70 % RM» debajo y el pulso al pie. A los 4 s, BACK/LAP: A2 entra SIN descanso (1 muy corta de acuse, 2 largas y START) y abajo queda «A1 · serie 1 hecha · ↶ UP · deshacer» 5 s. Prueba las teclas: ⌫ cierra, ↑ ↓ pasan de página, ⇧↑ abre Controles, Enter pausa.',
   },
   {
     id: 'ronda',
     titulo: 'El descanso tras A2 · se anota la ronda (529)',
     descripcion:
-      'Descanso de 2′ tras A2, quedan 25 s. Manda anotar: A1 con reps 8 y carga 125 kg en gris (propuestos, anillo) y la celda enfocada en su marco naranja. START ×3 confirma A1 reps, A1 carga y A2 reps: pasan a blanco con punto, la anotación se cierra y el descanso vuelve a ser el común («✓ ronda 1 anotada», «Viene: Serie 2/4 · 8 × 125 kg»). BACK/LAP = Empezar ya: 3-2-1 no, GO directo a A1 serie 2 con los 125 kg declarados.',
+      'Descanso de 2′ tras A2, quedan 25 s. Manda anotar: A1 con reps 8 y carga 125 kg en gris con anillo (propuestos) y la celda enfocada en su marco naranja; con la carga enfocada, «también en las series 2–4». START ×3 confirma A1 reps, A1 carga y A2 reps (pasan a blanco con punto), la anotación se cierra y el descanso vuelve a ser el común: «✓ ronda 1 anotada» sobre la cuenta atrás y «Viene: A1 · Back Squat · 8 × 125 kg». BACK/LAP = Empezar ya: A1 serie 2 con los 125 kg declarados.',
   },
   {
     id: 'ultima',
     titulo: 'Última serie → Viene: Deadlift (529)',
     descripcion:
-      'A2 serie 4/4, la última del bloque A: «Luego · B1 Deadlift». BACK/LAP: suena «bloque hecho» (1 larga + 1 corta) y el descanso trae «Viene: B1 · Deadlift · 4 × 8 · RIR 3». Los primeros 5 s son del deshacer (UP deshace); después se anota la ronda 4 (A1 con los 127,5 kg de la cascada) con START ×3 y BACK/LAP la empieza ya: GO a B1 serie 1/4. Nunca un atasco.',
+      'A2 serie 4/4, la última del bloque A: «Luego · B1 Deadlift». BACK/LAP: suena «bloque hecho» (1 larga + 1 corta) y el descanso trae «Viene: B1 · Deadlift · 4 × 8 · RIR 3». Los primeros 5 s son del deshacer (UP deshace); pasados, se anota la ronda 4 (A1 con los 127,5 kg de la cascada) con START ×3, y BACK/LAP la empieza ya: GO a B1 serie 1/4. Nunca un atasco: la última serie del bloque lleva al siguiente ejercicio.',
   },
   {
     id: 'aproximacion',
     titulo: 'Aproximación y el % resuelto en kg (488)',
     descripcion:
-      'Sesión 488, Back Squat 4 × 6 @RPE 6,5 con «72 % 1RM» hecho dato. «Aproximación 2/2 · 5 × 100 kg» (las de aproximación son ilustrativas: 488 no las escribe) no se anota. Su descanso anuncia «Viene: Serie 1/4 · 6 × 134 kg» y, con BACK/LAP = Empezar ya, la serie 1 lleva «6 × 134 kg» y debajo «RPE 6,5 · 72 % RM».',
+      'Sesión 488, Back Squat 4 × 6 @RPE 6,5 con «72 % 1RM» hecho dato. «Aproximación 2/2 · 3 × 100 kg» (las de aproximación son ilustrativas: 488 no las escribe) se marca aparte y no se anota. Su descanso anuncia «Viene: Serie 1/4 · 6 × 134 kg» y, con BACK/LAP = Empezar ya (pasados los 5 s del deshacer), la serie 1 lleva «6 × 134 kg» y debajo «RPE 6,5 · 72 % RM».',
   },
   {
     id: 'anotar',
     titulo: 'Anotar de cerca · propuesto frente a declarado (488)',
     descripcion:
-      'Descanso tras la serie 2 de Back Squat: reps 6, 135 kg (arrastrados de la serie 1) y RPE 6,5, todo en gris y «sin confirmar». DOWN baja las reps a 5 (blanco: declarado) y START las confirma y pasa a la carga; START confirma los 135 tal cual; UP sube el RPE a 7 y START cierra: «anotada ✓». Mira la cronología: cada tecla dice qué hizo. BACK/LAP vuelve al campo anterior.',
+      'Descanso tras la serie 2 de Back Squat: reps 6, 135 kg (arrastrados de la serie 1) y RPE 6,5, todo en gris con anillo y «sin confirmar». DOWN baja las reps a 5 (blanco con punto: declarado) y START las confirma y pasa a la carga; START confirma los 135 tal cual; UP sube el RPE a 7 y START cierra: «✓ 5 × 135 kg · RPE 7». BACK/LAP vuelve al campo anterior (y, en el primero, cierra la anotación). La cronología dice qué hizo cada tecla.',
   },
   {
     id: 'cascada',
@@ -84,25 +84,25 @@ export const escenarios: TwinEscenario[] = [
     id: 'deshacer',
     titulo: 'Deshacer un BACK/LAP sin querer (529)',
     descripcion:
-      'A1 Back Squat serie 3/4, a los 4 s de empezar. A los 1,5 s, BACK/LAP cierra la serie y entra A2. Abajo, «A1 · serie 3 hecha · ↶ UP · deshacer» durante 5 s, sin tapar el héroe: a los 4,5 s, UP y vuelves a A1 serie 3 con el tiempo corriendo (el tiempo no se deshace). Repite tú con ⌫ y ↑.',
+      'A1 Back Squat serie 3/4, a los 4 s de empezar. A los 1,5 s, BACK/LAP cierra la serie y entra A2. Abajo, «A1 · serie 3 hecha · ↶ UP · deshacer» durante 5 s, sin tapar el héroe: a los 4,5 s, UP y vuelves a A1 serie 3 con el tiempo corriendo (el tiempo no se deshace) y los 127,5 kg de la cascada. Repite tú con ⌫ y ↑.',
   },
   {
     id: 'ejercicios',
     titulo: 'La lista de ejercicios · página Estructura (529)',
     descripcion:
-      'B1 Deadlift serie 2/4, en la página Estructura: la sesión por ejercicios, lo hecho apagado, «ahora» con su serie y su carga, lo que falta con su dosis. DOWN y UP mueven la lista de uno en uno; el pie dice hacia dónde queda «ahora» («▼ 4/7»); en el borde, la tecla pasa de página. Al salir y volver, la lista vuelve a «ahora».',
+      'B1 Deadlift serie 2/4, en la página Estructura: la sesión por ejercicios, lo hecho apagado, «ahora» con su serie y su carga, lo que falta con su dosis. DOWN y UP mueven la lista de uno en uno; el pie dice hacia dónde queda «ahora» («▲ 4/7»); en el borde de la lista, la tecla pasa de página (§5). Al salir y volver, la lista vuelve a «ahora».',
   },
   {
     id: 'declaras-tu',
     titulo: 'Las reps las declaras tú (P11)',
     descripcion:
-      'El ejemplo literal de P11, «5 × 100 kg · RIR 2 · 3-1-1», con la serie 3/5 en marcha. Nadie mide las reps (el conteo por movimiento es fase 2): el héroe es el crono y la dosis, una instrucción. BACK/LAP cierra; pasados los 5 s de deshacer, DOWN declara 4 reps y START las confirma: la carga (100 kg) y el RIR siguen en gris, sin confirmar. Lo que nadie dijo no se pinta como dicho.',
+      'El ejemplo literal de P11, «5 × 100 kg · RIR 2 · 3-1-1», con la serie 3/5 en marcha. Nadie mide las reps (el conteo por movimiento es fase 2): el héroe es el crono y la dosis, una instrucción. BACK/LAP cierra; pasados los 5 s de deshacer, DOWN declara 4 reps y START las confirma: la carga (100 kg, «también en las series 4–5») y el RIR siguen en gris, sin confirmar. Lo que nadie dijo no se pinta como dicho.',
   },
   {
     id: 'entera-488',
     titulo: 'La sesión más larga · 488 entera (54 pasos)',
     descripcion:
-      'Fuerza A + SkiErg: 54 pasos, 7 ejercicios, dos aproximaciones, un lastre y un ergo. Empieza en el paso 1: BACK/LAP avanza paso a paso (con la anotación, START); UP y DOWN pasan de página y, en Estructura, recorren la lista de ejercicios sin perder «ahora». El aro cuenta los 54 pasos. Los exámenes recorren los 54 en los cuatro tamaños.',
+      'Fuerza A + SkiErg: 54 pasos, 7 ejercicios, dos aproximaciones, un lastre, una pierna sola y un ergo. Empieza en el paso 1: BACK/LAP avanza paso a paso (con la anotación abierta, el primero la cierra); ↑ y ↓ pasan de página y, en Estructura, recorren la lista de ejercicios sin perder «ahora» (el pie dice «▲ 2/7»). El aro cuenta los 54 pasos. El examen recorre los 54 en los cuatro tamaños.',
   },
 ];
 

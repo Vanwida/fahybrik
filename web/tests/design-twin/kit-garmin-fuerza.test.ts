@@ -230,7 +230,12 @@ describe('las caras de fuerza caben en los cuatro relojes (sesiones reales)', ()
                 campos.forEach((_, k) => {
                   for (const deshacer of [false, true]) {
                     const v = vistaAnotarDe(c, reg, { paso: c.pasoId, k, cerrada: false }, l, p, deshacer);
-                    comprobarAnotar(disponerAnotar(v, D), `${que} · anotar campo ${k}${deshacer ? ' (deshacer)' : ''}`);
+                    const a = disponerAnotar(v, D);
+                    comprobarAnotar(a, `${que} · anotar campo ${k}${deshacer ? ' (deshacer)' : ''}`);
+                    // Con un campo enfocado las teclas se dicen ENTERAS (es un modo: si no se ven, nadie sabe qué hace cada botón).
+                    const ayuda = a.base.lineas.find((x) => x.rol === 'ayuda');
+                    if (deshacer) expect(ayuda, `${que} · sin foco, sin ayuda`).toBeUndefined();
+                    else expect(ayuda?.piezas.map((x) => x.texto).join(''), `${que} · campo ${k} a ${D}: ayuda de teclas`).toBe('▲▼ cambia · START ok');
                   }
                 });
               }

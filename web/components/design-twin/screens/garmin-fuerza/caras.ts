@@ -339,11 +339,11 @@ function celdaDe(c: CampoVista, enfocada: boolean, cx: number, y: number, ancho:
  */
 export function disponerAnotar(v: VistaAnotar, D: number): DisposicionAnotar {
   let ultimo: DisposicionAnotar | null = null;
-  // La ayuda de teclas manda sobre el número de serie: se prueba con el estado entero y, si la ayuda no cabe entera, con el corto.
-  for (const corto of [false, true]) {
-    const compacto = colocarAnotar(v, D, AIRE.lineas, corto);
+  // La ayuda de teclas manda sobre el estado: se prueba con el estado entero, con el corto y, si aun así la ayuda no cabe entera (un nombre de dos líneas se come el círculo), sin él (los puntos y anillos ya lo dicen).
+  for (const estado of ['entero', 'corto', 'sin'] as const) {
+    const compacto = colocarAnotar(v, D, AIRE.lineas, estado);
     const hueco = Math.min(HUECO_MAX_ANOTAR, AIRE.lineas + Math.max(0, compacto.sobra) / 3);
-    const holgado = colocarAnotar(v, D, hueco, corto);
+    const holgado = colocarAnotar(v, D, hueco, estado);
     // Con más aire una línea de texto puede pasar a dos (o no caber): entonces, el compacto.
     const bien = holgado.d.base.lineas.every((l) => l.cabe) && holgado.d.base.lineas.length === compacto.d.base.lineas.length && holgado.sobra >= 0;
     ultimo = bien ? holgado.d : compacto.d;
@@ -361,7 +361,7 @@ function ayudaCompleta(d: DisposicionAnotar): boolean {
 /** El aire máximo entre bloques (fracción de D): más, y la cara se descuelga. */
 const HUECO_MAX_ANOTAR = 0.04;
 
-function colocarAnotar(v: VistaAnotar, D: number, hueco: number, corto: boolean): { d: DisposicionAnotar; sobra: number } {
+function colocarAnotar(v: VistaAnotar, D: number, hueco: number, modo: 'entero' | 'corto' | 'sin'): { d: DisposicionAnotar; sobra: number } {
   const nombre = lineasNombre(v.nombre, D);
   const lineas: LineaG[] = [...nombre.lineas];
   let y = Math.max(REJILLA.heroe[0], nombre.hasta + AIRE.lineas);
@@ -378,10 +378,12 @@ function colocarAnotar(v: VistaAnotar, D: number, hueco: number, corto: boolean)
   y += altoCelda + hueco;
 
   // En qué punto está: la pista de la carga (si está enfocada) o el estado de la serie.
-  const tono = v.pista ? 'tinta' : 'tinta2';
-  const estado = lineaDeTexto('estado', v.pista ?? (corto ? v.estadoCorto : v.estado), TG.nota, D, { una: caja(y, ALTO_NOTA), arriba: caja(y, ALTO_NOTA), abajo: caja(y + altoNota, ALTO_NOTA) }, { tono });
-  lineas.push(...estado);
-  y += estado.length * altoNota + hueco / 2;
+  if (modo !== 'sin') {
+    const tono = v.pista ? 'tinta' : 'tinta2';
+    const estado = lineaDeTexto('estado', v.pista ?? (modo === 'corto' ? v.estadoCorto : v.estado), TG.nota, D, { una: caja(y, ALTO_NOTA), arriba: caja(y, ALTO_NOTA), abajo: caja(y + altoNota, ALTO_NOTA) }, { tono });
+    lineas.push(...estado);
+    y += estado.length * altoNota + hueco / 2;
+  }
 
   // La ayuda de teclas, solo si hay un campo enfocado y queda sitio antes del pie.
   if (v.foco != null && y + ALTO_NOTA <= REJILLA.pie[0] - AIRE.lineas) {
