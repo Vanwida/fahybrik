@@ -46,17 +46,6 @@ enum EstadoDiaPlan: Equatable {
     /// Todavía por hacer.
     case pendiente
 
-    /// La palabra para la voz de accesibilidad.
-    var etiqueta: String {
-        switch self {
-        case .descanso:  return "descanso"
-        case .hecha:     return "hecha"
-        case .parcial:   return "a medias"
-        case .saltada:   return "sin hacer"
-        case .pendiente: return "por hacer"
-        }
-    }
-
     /// True cuando el día ya no pide nada: se trabajó (entero o a medias).
     var trabajado: Bool { self == .hecha || self == .parcial }
 }
@@ -95,13 +84,6 @@ struct DiaDelPlan: Identifiable, Equatable {
             if salida.count == 2 { break }
         }
         return salida
-    }
-
-    /// Lo que la app puede decir de un día sin fabricar nada.
-    var resumen: String {
-        guard !sesiones.isEmpty else { return "descanso, nada en el plan" }
-        let titulos = sesiones.map(\.title).joined(separator: ", ")
-        return "\(titulos), \(estado.etiqueta)"
     }
 }
 
@@ -365,12 +347,12 @@ struct ParteDeSesion: Identifiable, Equatable {
     }
 }
 
-/// EL DESGLOSE DE UNA SESIÓN — lo que el héroe necesita y el resumen de fila no
+/// EL DESGLOSE DE UNA SESIÓN — lo que el sujeto necesita y el resumen de fila no
 /// da: sus partes, su cabecera de formato y la nota de hoy.
 ///
 /// Todo sale de `AssignmentDetail` (el desglose real que el servidor sirve) y se
 /// escribe con los formateadores canónicos. Cuando la sesión no trae ninguna
-/// parte, la lista sale vacía y el héroe no pinta nada: no se rellena por
+/// parte, la lista sale vacía y el sujeto no pinta nada: no se rellena por
 /// simetría (§7).
 struct DesgloseSesion: Equatable {
     let partes: [ParteDeSesion]
@@ -383,7 +365,7 @@ struct DesgloseSesion: Equatable {
     /// permanente del ejercicio. Es lo ÚNICO que ocupa el sitio bajo las
     /// partes: la dosis (series/carga/descanso) NUNCA vive aquí — el atleta ya
     /// la ve en cuanto toca la card y entra en el ejercicio; repetirla en el
-    /// héroe es ruido, no información (Alex, 7-ago, tras ver la dosis de un
+    /// sujeto es ruido, no información (Alex, 7-ago, tras ver la dosis de un
     /// bloque de un único trabajo confundida con la de la sesión entera). Sin
     /// nota, ese sitio se calla — nunca cae a números.
     let notaDelDia: String?
@@ -395,7 +377,7 @@ struct DesgloseSesion: Equatable {
 
     static let vacio = DesgloseSesion(partes: [], formato: nil, notaDelDia: nil, medidoMin: nil)
 
-    /// Cuántas partes caben en el héroe sin desbordar la tarjeta.
+    /// Cuántas partes caben en el sujeto sin desbordar la tarjeta.
     static let maxPartes = 4
 
     static func desde(_ detalle: AssignmentDetail) -> DesgloseSesion {
@@ -461,7 +443,7 @@ struct DesgloseSesion: Equatable {
 /// ESCRITO —un suelo, «desde 45 min»— o la razón por la que no lo deja. Nunca un
 /// hueco y nunca un guion.
 ///
-/// Es la misma pareja que ya usaba Inicio, extraída para que el plan y el héroe
+/// Es la misma pareja que ya usaba Inicio, extraída para que el plan y el sujeto
 /// no puedan escribirla de dos maneras (§2). El `acento` va con el número: una
 /// razón no es un dato y no se destaca como si lo fuera.
 enum DuracionDeSesion {
