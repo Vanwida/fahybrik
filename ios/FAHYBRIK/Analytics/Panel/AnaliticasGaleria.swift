@@ -103,6 +103,6 @@ private struct PortadaDeEjemplo: View {
     ScrollView { AnaliticasPortadaEsqueleto().padding(Theme.Spacing.pantalla) }.background(Theme.Color.background)
 }
 #Preview("Portada · error") {
-    ScrollView { AnaliticasPortadaError(onReintentar: {}).padding(Theme.Spacing.pantalla) }.background(Theme.Color.background)
+    ScrollView { AnaliticasErrorDeCarga(onReintentar: {}).padding(Theme.Spacing.pantalla) }.background(Theme.Color.background)
 }
 #endif

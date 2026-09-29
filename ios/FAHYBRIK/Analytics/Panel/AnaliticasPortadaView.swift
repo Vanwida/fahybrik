@@ -1,23 +1,22 @@
 import SwiftUI
 
-// LA PORTADA DE ANALÍTICAS — el panel único con los ocho bloques en el orden de
-// las preguntas (docs/analiticas/modelo.md §3), firmado por Alex el 29-09 y vestido con
-// el diseño de «El día» (la app entera lleva UNO): la ventana dicha en una frase y el
-// título de la pestaña arriba, el selector de ventana que se PEGA arriba al bajar (una
-// sola rige toda la pestaña y siempre se ve cuál), el Estado como sujeto y debajo Forma y
-// fatiga, Semana a semana, Intensidad, Progreso, Récords, Carrera y Recuperación.
+// LA PORTADA DE ANALÍTICAS — el panel único con los ocho bloques en el orden de las preguntas (docs/analiticas/modelo.md §3), firmado por
+// Alex el 29-09 y vestido con el diseño de «El día» (la app entera lleva UNO): la ventana dicha en una frase y el título de la pestaña
+// arriba, el selector de ventana que se PEGA arriba al bajar (una sola rige toda la pestaña y siempre se ve cuál), el Estado como sujeto
+// y debajo Forma y fatiga, Semana a semana, Intensidad, Progreso, Récords, Carrera y Recuperación.
 //
-// iOS PINTA, NO CALCULA. Todo sale de `PanelAnaliticas` (una llamada, una ventana); la
-// caché por ventana y el refresco son del `AppDataStore` (SWR + disco). Un toque en un
-// bloque empuja su detalle (placeholder hasta la segunda tanda); las salidas de los huecos
-// llevan a la pestaña o pantalla que resuelve la falta.
+// iOS PINTA, NO CALCULA. Todo sale de `PanelAnaliticas` (una llamada, una ventana); la caché por ventana y el refresco son del
+// `AppDataStore` (SWR + disco). Un toque en un bloque empuja su detalle (`AnaliticasDestino`): la familia de una fila del Progreso, la
+// sesión de una fila de Semana a semana, y el detalle de Semana a semana, Récords y Carrera. Las salidas de los huecos llevan a la
+// pestaña o pantalla que resuelve la falta.
 //
-// EL TEMA ES UNO Y LO ELIGE EL ATLETA (CONTRATO-UI §6.4): esta pantalla no fuerza su esquema;
-// claro u oscuro, sale de `Theme`. El acento es el del club.
+// LA VENTANA ES UNA PARA TODA LA PESTAÑA (A4): los detalles la comparten (un `Binding`), así que cambiarla en uno la cambia al volver.
 //
-// Cuatro estados: con datos (`AnaliticasPortadaCuerpo`), cargando (el esqueleto con la misma
-// forma), error con su reintento y, dentro de cada bloque, vacío / poco / viejo con su salida.
-// Detrás de `AnaliticasBandera` (encendida por defecto).
+// EL TEMA ES UNO Y LO ELIGE EL ATLETA (CONTRATO-UI §6.4): esta pantalla no fuerza su esquema; claro u oscuro, sale de `Theme`. El acento
+// es el del club.
+//
+// Cuatro estados: con datos (`AnaliticasPortadaCuerpo`), cargando (el esqueleto con la misma forma), error con su reintento y, dentro
+// de cada bloque, vacío / poco / viejo con su salida.
 
 struct AnaliticasPortadaView: View {
     var bearer: String? = nil
@@ -33,13 +32,9 @@ struct AnaliticasPortadaView: View {
     @State private var glosa = false
     @State private var verTests = false
     @State private var camino = NavigationPath()
-    /// El selector está pegado arriba (el contenido pasa por debajo): entonces lleva su raya.
-    @State private var pegado = false
-    /// Cuánto mide lo que se va con el scroll (sobretítulo y título): pasado ese punto el selector se pega.
-    @State private var alturaDeCabecera: CGFloat = 0
 
-    /// `ventanaInicial` fija la ventana con la que abre (el arnés de capturas la pide); después manda el
-    /// atleta: volver a la pestaña no la reinicia.
+    /// `ventanaInicial` fija la ventana con la que abre (el arnés de capturas la pide); después manda el atleta: volver a la pestaña no la
+    /// reinicia.
     init(bearer: String? = nil, hasCoach: Bool = true, onOpenTab: ((AppTab) -> Void)? = nil, ventanaInicial: VentanaClave = .porDefecto) {
         self.bearer = bearer
         self.hasCoach = hasCoach
@@ -54,46 +49,10 @@ struct AnaliticasPortadaView: View {
             raiz
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: AnaliticasDestino.self) { destino in
-                    switch destino {
-                    case .dispositivos: DeviceConnectionsView(bearer: bearer)
-                    default: AnaliticasDetalleView(destino: destino)
-                    }
+                    detalle(destino)
                 }
         }
-    }
-
-    private var raiz: some View {
-        GeometryReader { geo in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                    AnaliticasCabecera(sobretitulo: ventana.frase, titulo: AppTab.analiticas.title)
-                        .padding(.horizontal, Theme.Spacing.pantalla)
-                        .padding(.top, Theme.Spacing.xs + 2)
-                        .padding(.bottom, Theme.Spacing.m)
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { alturaDeCabecera = $0 }
-                    Section {
-                        cuerpo(ancho: geo.size.width - 2 * Theme.Spacing.pantalla)
-                            .padding(.horizontal, Theme.Spacing.pantalla)
-                            .padding(.top, Theme.Spacing.m)
-                            .padding(.bottom, Theme.Spacing.xxl)
-                    } header: {
-                        selector
-                    }
-                }
-            }
-            .scrollBounceBehavior(.always)
-            .onScrollGeometryChange(for: Bool.self) { g in
-                alturaDeCabecera > 0 && g.contentOffset.y + g.contentInsets.top >= alturaDeCabecera - 0.5
-            } action: { _, ahora in
-                pegado = ahora
-            }
-            .refreshable { await store.refreshPanelAnaliticas(ventana, force: true) }
-        }
-        .background(Theme.Color.background.ignoresSafeArea())
-        .task(id: "\(bearer ?? "")|\(ventana.rawValue)") {
-            store.activate(bearer: bearer)
-            await store.refreshPanelAnaliticas(ventana)
-        }
+        // Las hojas cuelgan de la pila y no de la raíz: un detalle empujado también pide la glosa o el test de zonas.
         .sheet(isPresented: $glosa) {
             AnaliticasGlosa(metodo: slice.value?.metodo ?? MetodoDelPanel.porDefecto, onCerrar: { glosa = false })
         }
@@ -102,22 +61,32 @@ struct AnaliticasPortadaView: View {
                 bearer: bearer,
                 hrZones: store.identity.value?.hrZones,
                 onClose: { verTests = false },
-                onSessionCompleted: { Task { await store.refreshPanelAnaliticas(ventana, force: true) } }
+                onSessionCompleted: { Task { await recargar(forzar: true) } }
             )
         }
     }
 
-    // MARK: - El selector, pegado arriba
+    private var raiz: some View {
+        AnaliticasPantalla(
+            sobretitulo: ventana.frase,
+            titulo: AppTab.analiticas.title,
+            ventana: $ventana,
+            alRefrescar: { await recargar(forzar: true) }
+        ) { ancho in
+            cuerpo(ancho: ancho)
+        }
+        .task(id: "\(bearer ?? "")|\(ventana.rawValue)") {
+            store.activate(bearer: bearer)
+            await recargar(forzar: false)
+        }
+    }
 
-    private var selector: some View {
-        AnaliticasSelectorVentana(ventana: $ventana)
-            .padding(.horizontal, Theme.Spacing.pantalla)
-            .padding(.vertical, Theme.Spacing.m - 2)
-            .frame(maxWidth: .infinity)
-            .background(Theme.Color.background)
-            .overlay(alignment: .bottom) {
-                if pegado { Rectangle().fill(Theme.Color.hairlineStrong).frame(height: 1) }
-            }
+    /// El panel y, aparte, el cumplimiento de la misma ventana (de él salen las sesiones de Semana a semana). Un fallo del segundo no
+    /// tumba la portada: la puerta a los días simplemente no sale.
+    private func recargar(forzar: Bool) async {
+        async let panel: Void = store.refreshPanelAnaliticas(ventana, force: forzar)
+        async let cumplimiento: Void = store.refreshCumplimientoAnalitico(ventana, force: forzar)
+        _ = await (panel, cumplimiento)
     }
 
     // MARK: - El cuerpo, en sus estados
@@ -125,23 +94,54 @@ struct AnaliticasPortadaView: View {
     @ViewBuilder
     private func cuerpo(ancho: CGFloat) -> some View {
         if let panel = slice.value {
-            AnaliticasPortadaCuerpo(panel: panel, ancho: ancho, onGlosa: { glosa = true }, onSalida: salida(_:), onAbrir: { camino.append($0) })
+            AnaliticasPortadaCuerpo(
+                panel: panel, ancho: ancho,
+                sesiones: store.cumplimientoAnalitico(ventana).value.map(PuertaDeSesiones.filas) ?? [],
+                onGlosa: { glosa = true }, onSalida: salida(_:), onAbrir: { camino.append($0) }
+            )
         } else if slice.loadFailed {
-            AnaliticasPortadaError(reintentando: slice.isRevalidating) {
-                Task { await store.refreshPanelAnaliticas(ventana, force: true) }
+            AnaliticasErrorDeCarga(reintentando: slice.isRevalidating) {
+                Task { await recargar(forzar: true) }
             }
         } else {
             AnaliticasPortadaEsqueleto()
         }
     }
 
+    // MARK: - Los detalles
+
+    @ViewBuilder
+    private func detalle(_ destino: AnaliticasDestino) -> some View {
+        switch destino {
+        case .dispositivos:
+            DeviceConnectionsView(bearer: bearer)
+        case .familia(let f):
+            if let familia = FamiliaDeDetalle(f) {
+                AnaliticasFamiliaView(familia: familia, ventana: $ventana, onSalida: salida(_:), onAtras: atras)
+            }
+        case .sesion(let s):
+            AnaliticasSesionView(destino: s, ventana: ventana, onAtras: atras)
+        case .bloque(let b):
+            AnaliticasBloqueDetalleView(bloque: b, ventana: $ventana, onSalida: salida(_:), onAbrir: { camino.append($0) }, onAtras: atras)
+        }
+    }
+
+    private func atras() {
+        if !camino.isEmpty { camino.removeLast() }
+    }
+
+    private func volverALaRaiz() {
+        if !camino.isEmpty { camino.removeLast(camino.count) }
+    }
+
     // MARK: - Las salidas de los huecos
 
     private func salida(_ destino: DestinoDeSalida) {
         switch destino {
-        case .inicio: onOpenTab?(.inicio)
-        case .plan: onOpenTab?(.plan)
-        case .carreras: onOpenTab?(.carreras)
+        // Cambiar de pestaña deja la pila en su raíz: al volver a Analíticas no espera un detalle abierto hace un rato.
+        case .inicio: volverALaRaiz(); onOpenTab?(.inicio)
+        case .plan: volverALaRaiz(); onOpenTab?(.plan)
+        case .carreras: volverALaRaiz(); onOpenTab?(.carreras)
         case .dispositivos: camino.append(AnaliticasDestino.dispositivos)
         case .chat: if hasCoach { openChat(nil) }
         case .tests: verTests = true

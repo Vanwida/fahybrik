@@ -20,7 +20,7 @@ struct AnaliticasBloqueForma: View {
         let subida = AnaliticasDerivados.lectura(lecturas, "carga.subida")
         let cobertura = AnaliticasDerivados.lectura(lecturas, "carga.cobertura")
 
-        AnaliticasSeccion(titulo: BloqueDelPanel.forma.titulo, pregunta: BloqueDelPanel.forma.pregunta, onAbrir: { ctx.onAbrir(.bloque(.forma)) }) {
+        AnaliticasSeccion(titulo: BloqueDelPanel.forma.titulo, pregunta: BloqueDelPanel.forma.pregunta) {
             AnaliticasHuecoDeBloque(ctx: ctx, bloque: .forma)
 
             if estado == .poco, enFrio, let fatiga, let d = fatiga.dato {

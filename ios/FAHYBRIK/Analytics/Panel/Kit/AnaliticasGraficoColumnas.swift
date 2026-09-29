@@ -71,7 +71,9 @@ struct AnaliticasGraficoColumnas: View {
     var body: some View {
         if !cubos.isEmpty, let t0 = AnaliticasFechas.fecha(cubos[0].t), let t1 = AnaliticasFechas.fecha(cubos[cubos.count - 1].t) {
             VStack(alignment: .leading, spacing: 8) {
-                AnaliticasLeyenda(items: (hayPlan ? [ItemDeLeyenda(etiqueta: etiquetaPlan, muestra: .contorno, color: Theme.Color.muted)] : []) + leyenda)
+                // Una leyenda con un solo elemento no dice nada: solo sale con dos o más (plan + hecho, o varias partes).
+                let items = (hayPlan ? [ItemDeLeyenda(etiqueta: etiquetaPlan, muestra: .contorno, color: Theme.Color.muted)] : []) + leyenda
+                if items.count > 1 { AnaliticasLeyenda(items: items) }
                 GeometryReader { geo in
                     let ancho = max(1, geo.size.width - 52)
                     let ranura = ancho / CGFloat(cubos.count)

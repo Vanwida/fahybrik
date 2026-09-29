@@ -10,27 +10,13 @@ import SwiftUI
 // su hueco y su salida—, así que el cuerpo nunca es más corto que la pantalla y el sujeto no tiene
 // sobrante que absorber; si lo hubiera, entraría en él, jamás en una cola muerta debajo.
 
-/// La cabecera de la pestaña: la ventana dicha en una frase (sobretítulo en el acento del club) y el
-/// título en cursiva de marca. Se va con el scroll; el selector se queda (`AnaliticasPortadaView`).
-struct AnaliticasCabecera: View {
-    let sobretitulo: String
-    let titulo: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Text(sobretitulo).papel(.etiqueta).foregroundStyle(Theme.Color.accentText)
-            Text(titulo).papel(.saludo).foregroundStyle(Theme.Color.foreground)
-                .accessibilityAddTraits(.isHeader)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
 /// El sujeto y los siete bloques, a partir de un panel ya servido.
 struct AnaliticasPortadaCuerpo: View {
     let panel: PanelAnaliticas
     /// Ancho útil del lienzo, para decidir cuántas columnas caben.
     let ancho: CGFloat
+    /// Las sesiones del plan de la ventana, si el cumplimiento ya llegó: la puerta a los días de Semana a semana.
+    var sesiones: [FilaDeSesionVista] = []
     /// El arco de la disposición se dibuja al entrar; una captura estática pide `false`.
     var animado = true
     let onGlosa: () -> Void
@@ -46,7 +32,7 @@ struct AnaliticasPortadaCuerpo: View {
 
     var body: some View {
         let estados = ContextoDeBloque.estados(de: panel)
-        let ctx = ContextoDeBloque(panel: panel, estados: estados, ancho: ancho, onSalida: onSalida, onAbrir: onAbrir)
+        let ctx = ContextoDeBloque(panel: panel, estados: estados, ancho: ancho, onSalida: onSalida, onAbrir: onAbrir, sesiones: sesiones)
         VStack(alignment: .leading, spacing: Self.entreSecciones) {
             if conSujeto {
                 AnaliticasSujeto(sujeto: SujetoEstado.desde(panel, bloque: estados[.estado] ?? .vacio), animado: animado,
@@ -89,16 +75,18 @@ struct AnaliticasPortadaEsqueleto: View {
 
 // MARK: - Error: con su salida
 
-/// El panel no ha llegado y no hay copia: se dice y se ofrece reintentar. Un sujeto de peligro que se
-/// anuncia solo a VoiceOver al aparecer.
-struct AnaliticasPortadaError: View {
+/// Lo pedido no ha llegado y no hay copia: se dice y se ofrece reintentar. Un sujeto de peligro que se anuncia solo a VoiceOver al
+/// aparecer. Lo usan la portada y todos los detalles: cambia el kicker (dónde estás) y el título (qué no llegó).
+struct AnaliticasErrorDeCarga: View {
+    var kicker = "Tu estado hoy"
+    var titulo = "No se han podido cargar tus analíticas"
     var reintentando = false
     let onReintentar: () -> Void
 
     var body: some View {
-        SujetoDia(tono: .peligro, etiqueta: "No se han podido cargar tus analíticas", anuncia: true) {
-            KickerDia("Tu estado hoy")
-            TituloDia("No se han podido cargar tus analíticas")
+        SujetoDia(tono: .peligro, etiqueta: titulo, anuncia: true) {
+            KickerDia(kicker)
+            TituloDia(titulo)
             ApoyoDia("Comprueba la conexión y vuelve a intentarlo.")
         } abajo: {
             Button(action: onReintentar) { AccionDia("Reintentar", glifo: .reintentar, enCurso: reintentando) }

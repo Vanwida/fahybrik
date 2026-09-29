@@ -40,7 +40,7 @@ struct AnaliticasBloqueIntensidad: View {
         let polarizacion = AnaliticasDerivados.lectura(lecturas, IdsDelPanel.polarizacion)
         let zonasEstimadas = lecturas.contains { $0.estado == .medida && $0.procedencia.ancla == .estimada }
 
-        AnaliticasSeccion(titulo: BloqueDelPanel.intensidad.titulo, pregunta: BloqueDelPanel.intensidad.pregunta, onAbrir: { ctx.onAbrir(.bloque(.intensidad)) }) {
+        AnaliticasSeccion(titulo: BloqueDelPanel.intensidad.titulo, pregunta: BloqueDelPanel.intensidad.pregunta) {
             AnaliticasHuecoDeBloque(ctx: ctx, bloque: .intensidad)
             if !cubos.isEmpty {
                 AnaliticasSuperficie {
@@ -139,13 +139,7 @@ struct AnaliticasBloqueRecords: View {
 
     @ViewBuilder
     private func fila(_ l: LecturaAnalitica) -> some View {
-        if let dato = l.dato {
-            AnaliticasFilaRecord(
-                familia: l.familia, prueba: l.tituloEs, valor: dato.valor, unidad: dato.unidad,
-                fecha: AnaliticasDerivados.ultimoDeLaSerie(l), anterior: AnaliticasDerivados.recordAnterior(l), ancla: l.procedencia.ancla,
-                nuevo: l.veredicto?.code == IdsDelPanel.veredictoRecordNuevo, hoy: ctx.hoy
-            )
-        }
+        if let fila = AnaliticasFilaRecord(l, hoy: ctx.hoy) { fila }
     }
 }
 
@@ -153,6 +147,8 @@ struct AnaliticasBloqueRecords: View {
 
 struct AnaliticasBloqueCarrera: View {
     let ctx: ContextoDeBloque
+    /// El detalle de estaciones enseña el hueco de TODOS los tramos, en el orden de la carrera; la portada, solo donde más falta.
+    var todosLosTramos = false
 
     var body: some View {
         let lecturas = ctx.lecturas(.carrera)
@@ -162,7 +158,7 @@ struct AnaliticasBloqueCarrera: View {
         let tramos = AnaliticasDerivados.lecturas(lecturas, prefijo: IdsDelPanel.prefijoTramo)
 
         AnaliticasSeccion(titulo: BloqueDelPanel.carrera.titulo, pregunta: pregunta(objetivo),
-                          onAbrir: objetivo != nil ? { ctx.onAbrir(.bloque(.carrera)) } : nil) {
+                          onAbrir: objetivo != nil && !todosLosTramos ? { ctx.onAbrir(.bloque(.carrera)) } : nil) {
             AnaliticasHuecoDeBloque(ctx: ctx, bloque: .carrera)
             if let prevision { previsionVista(prevision) }
             if prevision != nil || !tramos.conDato.isEmpty { huecoPorTramo(tramos) }
@@ -196,20 +192,34 @@ struct AnaliticasBloqueCarrera: View {
 
     @ViewBuilder
     private func huecoPorTramo(_ tramos: [LecturaAnalitica]) -> some View {
-        let conObjetivo = tramos.conDato.filter { $0.dato?.referencia?.de == IdsDelPanel.referenciaPresupuestoTramo }
-        let filas = conObjetivo.compactMap { l -> FilaDeHueco? in
-            l.dato?.referencia.map { FilaDeHueco(id: l.id, etiqueta: l.tituloEs, valor: $0.delta) }
-        }
-        .sorted { ($0.valor ?? 0) > ($1.valor ?? 0) }
+        let filas = filasDeHueco(tramos)
         VStack(alignment: .leading, spacing: 8) {
             if filas.isEmpty {
                 AnaliticasNota(texto: "Pon un objetivo de tiempo a tu carrera y verás cuánto te falta en cada tramo.")
             } else {
-                AnaliticasEtiqueta(texto: "Donde más te falta · frente a tu objetivo por tramo")
-                AnaliticasBarrasHueco(filas: Array(filas.prefix(Lienzo.tramosVisibles)), formato: { AnaliticasFormato.formatearDelta($0, .segundos) })
+                AnaliticasEtiqueta(texto: todosLosTramos ? "Hueco por tramo · positivo = te falta" : "Donde más te falta · frente a tu objetivo por tramo")
+                AnaliticasBarrasHueco(filas: filas, formato: { AnaliticasFormato.formatearDelta($0, .segundos) })
             }
             if let cobertura = coberturaDeMarcas(tramos) { AnaliticasNota(texto: cobertura) }
         }
+    }
+
+    /// Las filas del hueco por tramo. En la portada, los que más faltan; en el detalle, todos los tramos en el orden en que
+    /// llegan, y el que no tiene marca o no tiene objetivo lo dice (`valor` nulo) en vez de desaparecer.
+    private func filasDeHueco(_ tramos: [LecturaAnalitica]) -> [FilaDeHueco] {
+        func hueco(_ l: LecturaAnalitica) -> Double? {
+            guard l.estado == .medida, let r = l.dato?.referencia, r.de == IdsDelPanel.referenciaPresupuestoTramo else { return nil }
+            return r.delta
+        }
+        if todosLosTramos {
+            guard tramos.contains(where: { hueco($0) != nil }) else { return [] }
+            return tramos.map { l in
+                FilaDeHueco(id: l.id, etiqueta: l.tituloEs, valor: hueco(l), nota: l.estado == .medida ? "sin objetivo de tiempo" : "sin marca")
+            }
+        }
+        return tramos.compactMap { l in hueco(l).map { FilaDeHueco(id: l.id, etiqueta: l.tituloEs, valor: $0) } }
+            .sorted { ($0.valor ?? 0) > ($1.valor ?? 0) }
+            .prefix(Lienzo.tramosVisibles).map { $0 }
     }
 
     private func coberturaDeMarcas(_ tramos: [LecturaAnalitica]) -> String? {

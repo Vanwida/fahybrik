@@ -55,8 +55,31 @@ struct AnaliticasBloqueSemanas: View {
             if estado != .vacio, let cumplimiento = AnaliticasDerivados.lectura(lecturas, IdsDelPanel.semanasCumplimiento) {
                 cumplimientoVista(cumplimiento)
             }
+
+            if estado != .vacio, !ctx.sesiones.isEmpty { puertaALosDias }
         }
     }
+
+    /// LA PUERTA A LOS DÍAS: las últimas sesiones del plan, cada una con su marca; un toque en una hecha abre su detalle tramo a tramo.
+    /// El resto de la ventana está detrás del «›» de la sección.
+    private var puertaALosDias: some View {
+        let ultimas = Array(ctx.sesiones.prefix(Self.sesionesVisibles))
+        return VStack(alignment: .leading, spacing: 6) {
+            AnaliticasEtiqueta(texto: "Las últimas \(ultimas.count) · toca una hecha para verla tramo a tramo")
+            AnaliticasLista {
+                ForEach(ultimas) { fila in
+                    AnaliticasFilaSesion(fila: fila, hoy: ctx.hoy) { abrir in
+                        if let id = abrir.executionId {
+                            ctx.onAbrir(.sesion(SesionDeDestino(executionId: id, assignmentId: abrir.id, atras: BloqueDelPanel.semanas.titulo, hoy: ctx.hoy)))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Cuántas sesiones caben en la portada antes de mandar al detalle.
+    static let sesionesVisibles = 5
 
     @ViewBuilder
     private func cumplimientoVista(_ l: LecturaAnalitica) -> some View {
@@ -68,7 +91,7 @@ struct AnaliticasBloqueSemanas: View {
                 }
             }
             if let r = AnaliticasDerivados.resumenDeSesiones(l) {
-                AnaliticasCuerpo(texto: textoDelResumen(r), fuerte: true)
+                AnaliticasCuerpo(texto: r.texto, fuerte: true)
             }
             let partes = AnaliticasDerivados.partesDeCumplimiento(l)
             if !partes.isEmpty { AnaliticasBarraReparto(partes: partes) }
@@ -76,11 +99,5 @@ struct AnaliticasBloqueSemanas: View {
         } else {
             AnaliticasNotaDeFalta(ctx: ctx, bloque: .semanas, lectura: l)
         }
-    }
-
-    private func textoDelResumen(_ r: AnaliticasDerivados.ResumenDeSesiones) -> String {
-        var t = "\(r.hechas) de \(r.total) \(r.total == 1 ? "sesión hecha" : "sesiones hechas") · \(r.dentro) dentro de lo pedido"
-        if r.sinPlan > 0 { t += " · \(r.sinPlan) sin plan" }
-        return t
     }
 }
