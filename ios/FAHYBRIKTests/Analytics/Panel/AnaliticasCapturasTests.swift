@@ -109,17 +109,17 @@ final class AnaliticasCapturasTests: XCTestCase {
     // MARK: - Los cinco atletas del contrato, a 12 semanas
 
     @MainActor
-    func testLlenoMartaUnAnoDentroCarreraEn39Dias() throws {
+    func testLlenoDoceSemanasConCarreraEn39Dias() throws {
         try fotografiar(.lleno, nombre: "analiticas-portada-lleno", paginas: 7, glosa: true)
     }
 
     @MainActor
-    func testMixtoPauCorrerMedidoErgoDeclaradoSinReloj() throws {
+    func testMixtoCorrerMedidoErgoDeclaradoSinReloj() throws {
         try fotografiar(.mixto, nombre: "analiticas-portada-mixto")
     }
 
     @MainActor
-    func testPocoJordiTresSemanas() throws {
+    func testPocoTresSemanas() throws {
         try fotografiar(.poco, nombre: "analiticas-portada-poco")
     }
 
@@ -129,7 +129,7 @@ final class AnaliticasCapturasTests: XCTestCase {
     }
 
     @MainActor
-    func testViejoLuciaParada25Dias() throws {
+    func testViejoConLaDisposicionAtrasada() throws {
         try fotografiar(.viejo, nombre: "analiticas-portada-viejo")
     }
 

@@ -7,21 +7,26 @@ import XCTest
 final class AnaliticasFormatoTests: XCTestCase {
 
     func testCadaUnidadSeEscribeUnaVez() {
-        let esperado: [UnidadLectura: String] = [
-            .tss: "62", .tssSemana: "2", .ratio: "1,25", .ms: "62 ms", .bpm: "50 ppm", .horas: "7,1 h", .pct: "67 %",
-            .metros: "2,5 km", .mS: "3,64 m/s", .sKm: "4:12/km", .s500m: "1:56/500m", .segundos: "1:14:30", .kcal: "1.240 kcal",
-            .kg: "132,5 kg", .puntos: "63", .mlKgMin: "48,2", .sesiones: "12 sesiones", .watts: "182 W", .reps: "12 reps", .dias: "39 días",
-        ]
-        let valores: [UnidadLectura: Double] = [
-            .tss: 62.4, .tssSemana: 2.1, .ratio: 1.253, .ms: 62.4, .bpm: 50.3, .horas: 7.12, .pct: 66.6, .metros: 2500, .mS: 3.641,
-            .sKm: 252, .s500m: 116, .segundos: 4470, .kcal: 1240, .kg: 132.5, .puntos: 63, .mlKgMin: 48.17, .sesiones: 12, .watts: 182.4, .reps: 12, .dias: 39,
+        let casos: [UnidadLectura: (Double, String)] = [
+            .tss: (62.4, "62"), .tssSemana: (2.1, "2"), .ratio: (1.253, "1,25"), .ms: (62.4, "62 ms"), .bpm: (50.3, "50 ppm"),
+            .horas: (7.12, "7,1 h"), .pct: (66.6, "67 %"), .metros: (2500, "2,5 km"), .mS: (3.641, "3,64 m/s"),
+            .sKm: (252, "4:12/km"), .s500m: (116, "1:56/500m"), .segundos: (4470, "1:14:30"), .kcal: (1240, "1.240 kcal"),
+            .kg: (132.5, "132,5 kg"), .puntos: (63, "63"), .mlKgMin: (48.17, "48,2"), .sesiones: (12, "12 sesiones"),
+            .watts: (182.4, "182 W"), .reps: (12, "12 reps"), .dias: (39, "39 días"), .pp: (7, "7 pt"),
+            .rpe: (7.5, "RPE 7,5"), .rir: (2, "RIR 2"), .tramos: (6, "6 tramos"), .s1000m: (252, "4:12/1000m"),
+            .spm: (24, "24 pal/min"), .rpm: (90, "90 rpm"), .series: (4, "4 series"), .cm: (60, "60 cm"), .rondas: (12.5, "12,5 rondas"),
         ]
         for u in UnidadLectura.allCases where u != .desconocida {
-            XCTAssertEqual(AnaliticasFormato.formatear(valores[u]!, u), esperado[u], "\(u)")
+            guard let (valor, esperado) = casos[u] else { XCTFail("falta el caso de \(u)"); continue }
+            XCTAssertEqual(AnaliticasFormato.formatear(valor, u), esperado, "\(u)")
         }
         XCTAssertEqual(AnaliticasFormato.formatear(450, .metros), "450 m")
         XCTAssertEqual(AnaliticasFormato.formatear(10000, .metros), "10 km")
         XCTAssertEqual(AnaliticasFormato.formatear(12500, .metros), "13 km")
+    }
+
+    func testUnaUnidadQueLaAppNoConoceNoSeInventaUnaEscritura() {
+        XCTAssertEqual(AnaliticasFormato.unidadCorta(.desconocida), "")
     }
 
     func testLaCifraSinUnidadYLaUnidadCorta() {
@@ -34,6 +39,10 @@ final class AnaliticasFormatoTests: XCTestCase {
         XCTAssertEqual(AnaliticasFormato.unidadCorta(.tss), "")
         XCTAssertEqual(AnaliticasFormato.unidadCorta(.segundos), "")
         XCTAssertEqual(AnaliticasFormato.unidadCorta(.mlKgMin), "VO₂máx")
+        XCTAssertEqual(AnaliticasFormato.unidadCorta(.rpe), "RPE")
+        XCTAssertEqual(AnaliticasFormato.unidadCorta(.rir), "RIR")
+        XCTAssertEqual(AnaliticasFormato.unidadCorta(.spm), "pal/min")
+        XCTAssertEqual(AnaliticasFormato.unidadCorta(.pp), "pt")
     }
 
     func testElDeltaVaEnLaUnidadQueLoJuzgaYConElMenosTipografico() {
@@ -43,6 +52,9 @@ final class AnaliticasFormatoTests: XCTestCase {
         XCTAssertEqual(AnaliticasFormato.formatearDelta(-353, .segundos), "\u{2212}5:53")
         XCTAssertEqual(AnaliticasFormato.formatearDelta(7.4, .kg), "+7,4 kg")
         XCTAssertEqual(AnaliticasFormato.formatearDelta(12, .pct), "+12 pt")
+        XCTAssertEqual(AnaliticasFormato.formatearDelta(-7, .puntos), "\u{2212}7 pt")
+        XCTAssertEqual(AnaliticasFormato.formatearDelta(7, .pp), "+7 pt")
+        XCTAssertEqual(AnaliticasFormato.formatearDelta(2, .tramos), "+2 tramos")
         XCTAssertEqual(AnaliticasFormato.formatearDelta(0.3, .horas), "+0,3 h")
         XCTAssertEqual(AnaliticasFormato.formatearDelta(-3, .tssSemana), "\u{2212}3")
         XCTAssertEqual(AnaliticasFormato.formatearDelta(0, .tss), "±0")
