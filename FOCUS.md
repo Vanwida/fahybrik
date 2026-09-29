@@ -13,6 +13,11 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 ## Ahora
 
 **ANALÍTICAS · CINCO FALLOS DE DATOS (29-09, rama `claude/analiticas-datos`, sin fusionar; DECISIONS 29-09).** Readiness como texto JSON, zonas más largas que su tramo (motor del iPhone), saltos imposibles (techo físico 1 s de vuelo), 1.277 importaciones de Salud sin tipo y 13 copias de libres. Código + migración 0278 probada en rama (reejecutarla: 0 filas). NO en prod: aplicar 0278 ANTES del deploy y después `pnpm --dir infra backfill:zonas`.
+Última actualización: **2026-09-29** (analíticas rehechas: propuestas en el doble, pendientes de firma)
+
+## Ahora
+
+**ANALÍTICAS REHECHAS · PROPUESTAS EN EL DOBLE (29-09, rama `worktree-agent-af9303cea786f40b4`, sin fusionar; DECISIONS 29-09).** Sobre `docs/analiticas/modelo.md`: la portada del atleta (`analiticas-portada`: Estado fijo, una ventana, Forma y fatiga con proyección a la carrera, Semana a semana plan/hecho por familia, Intensidad, Progreso, Récords, Carrera, Recuperación), los detalles (`analiticas-familia-{correr,ergo,fuerza,estaciones}`, `analiticas-sesion` tramo a tramo) y la pestaña Rendimiento del coach (`analiticas-panel-coach`, dispositivo «escritorio» nuevo del doble, tokens v2 reales, 1440/1280, claro/oscuro). Colección: `/design/analiticas`. Kit: `web/components/design-twin/kit-analiticas/` (contrato §5 ampliado, método del coach con defectos, mecanismos con el Banister real, gráficos con ejes reales y dos pieles, cinco atletas por los cuatro estados). Test: `tests/design-twin/kit-analiticas.test.ts`. FALTA: la firma de Alex (§11: nombre de pestaña, portada única o pastillas, panel fijo o configurable) → luego fase 1 del modelo (motor + editor de método) y fase 3 (Swift + panel).
 
 **28-09 · UN SOLO ENTRENO EN PRODUCCIÓN + VIVO DEL IPHONE FIRMADO.** Libre ≡ coach al guardar, escribir y leer (0274–0276 aplicadas en prod + backfill de plantillas). Reloj sin atascos; motor del iPhone por formato; historial con series y parciales. Alex firmó el vivo nuevo del iPhone (galería https://claude.ai/artifact/YN3iFbkZYGHSn1S5hsgb8t, propuestas `iphone-vivo-*`). EN CURSO: el Swift del vivo (base primero, luego familias). PENDIENTE: build iOS en Xcode Cloud para TestFlight (lo instala Alex).
 

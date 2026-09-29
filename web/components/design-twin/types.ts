@@ -11,6 +11,8 @@ import type { ComponentType } from 'react';
 
 export type TwinOrientation = 'portrait' | 'landscape';
 export type TwinAppearance = 'light' | 'dark';
+/** Los dos anchos a los que se juzga el panel del coach (CONTRATO-UI §9.3 y el encargo: 1280 y 1440). */
+export type TwinAnchoEscritorio = 1440 | 1280;
 
 /** Estado de sincronía con la app real — el sello del índice. */
 export type TwinEstado =
@@ -103,7 +105,12 @@ export interface TwinMeta {
    * futuro puro. Evita que una propuesta parcial se lea como app inexistente.
    */
   enApp?: string;
-  dispositivo: 'iphone' | 'watch';
+  /**
+   * `escritorio` = el panel del coach (web) dibujado a 1440 o 1280 de ancho
+   * dentro de una ventana de navegador; sus pantallas pintan con los tokens
+   * `--v2-*` del panel, no con los del iPhone.
+   */
+  dispositivo: 'iphone' | 'watch' | 'escritorio';
   soportaHorizontal: boolean;
   /**
    * Declaración de composición (§6). Presente = el panel ofrece el

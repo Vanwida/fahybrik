@@ -10,6 +10,14 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+
+## 2026-09-29 · Alex firma las analíticas rehechas
+
+**Firmado (Alex, 29-09: «me parece genial, sigue adelante»)** sobre la galería https://claude.ai/artifact/R4DQH2cmr9dGir7JMGWoyP de las propuestas `analiticas-*` del doble (portada, familias, sesión y panel del coach). Modelo: `docs/analiticas/modelo.md`. Las tres decisiones del §11 quedan en la opción principal que vio: la pestaña se llama **Analíticas**; portada **única** con bloques (no pastillas por familia); panel del coach con **bloques fijos** (no gráficos arrastrables).
+
+**Siguiente:** se construyen las dos superficies sobre estas propuestas como contrato, elemento a elemento, sobre el motor único (`cargarPanel`); después se retiran los siete contratos viejos (§9 del modelo).
+
+---
 ## 2026-09-29 · Cinco fallos de datos de las analíticas, arreglados en la raíz (0278)
 
 **El hueco** (`docs/analiticas/modelo.md` §6, medido en producción el 29-09):
@@ -85,6 +93,34 @@ Después de aplicarla, `pnpm --dir infra backfill:zonas` (sin `--force`) rehace 
 **Queda:** el editor de Ajustes › Método (diseño); los bloques `intensidad`, `progreso`, `records`, `carrera`, `recuperacion` (otras sesiones, sobre este contrato); las capturas de §6 del modelo; la retirada de los siete contratos viejos cuando las dos superficies estén en producción (§9); aplicar 0277 en producción (la aplica el orquestador antes del deploy).
 
 ---
+
+## 2026-09-29 · Analíticas rehechas — las propuestas de diseño en el doble (iPhone y panel del coach), sobre el modelo del 29-09
+
+**Contexto.** `docs/analiticas/modelo.md` fija el modelo (un cálculo, dos pintores; carga única; contrato §5; A1–A10). Esta entrada recoge las decisiones de DISEÑO tomadas al construir las propuestas para la firma de Alex, en la rama `worktree-agent-af9303cea786f40b4` (sin fusionar). Pantallas: `analiticas-portada`, `analiticas-familia-{correr,ergo,fuerza,estaciones}`, `analiticas-sesion` (iPhone) y `analiticas-panel-coach` (escritorio), agrupadas en la colección `/design/analiticas`. Kit: `web/components/design-twin/kit-analiticas/`.
+
+**Decidido (objetivo, no espera firma):**
+1. **El contrato se amplía como propone el §5, y aquí está su forma** (`kit-analiticas/contrato.ts`): `procedencia.ancla` (medida · declarada · estimada · poblacional), `dato.comparacion` (contra periodo anterior, basal, objetivo o plan; delta en la MISMA unidad que el umbral que lo juzga; `significativo` lo decide el método; `menos_es_mejor` cuando la unidad no lo dice), `serie.{hecho, plan, proyeccion, banda}` en el mismo eje, `familia`, `bloque`, `cobertura.{estimada_pct, ultimo_dato}`, y lo que una lista de lecturas no puede llevar tipado: `SesionResumen` (cumplimiento por sesión), `RecordPanel`, `PrevisionCarrera` con 17 tramos, `VeredictoForma`. Cuando se construya el motor, esto pasa a `shared/domain/analytics/lectura.ts` tal cual.
+2. **Una previsión de carrera parcial no es un tiempo.** Sin los 17 tramos, `previsto_s` es null y el bloque dice qué tramos faltan (Pau: 11 de 17). Sumar once tramos y compararlos con el objetivo entero mentiría.
+3. **El objetivo de la carrera se reparte por tramo con un perfil de referencia** (`REPARTO_CARRERA_DEFECTO`, fracciones que suman 1), no en proporción a la previsión: repartir en proporción deja el mismo hueco relativo en todos los tramos y no dice dónde se pierde el tiempo. Es método del coach con defecto.
+4. **Los cuatro estados de un bloque se DERIVAN** (`estadoDeBloque`: vacío si nada tiene dato ni historia empezada; poco si espera historia, no llega a las muestras mínimas o cubre menos del `cobertura_poco_pct` de la ventana; viejo por edad del último dato; lleno si no), y los textos de cada hueco viven en UN sitio (`huecos.ts`) con su salida (la de `salidaDe`, el plazo dibujado o qué lo reanuda). Ninguna pantalla escribe prosa de hueco.
+5. **Lo que en las analíticas es método y hoy no tiene columna** queda enumerado como dato con defecto en `kit-analiticas/metodo.ts` (`MetodoAnaliticas` extiende `CoachAnalyticsMethod`): bandas de frescura CON nombre y glosa, tolerancias de «dentro» por eje, escalera de carga por familia, fórmula de 1RM, umbral de cambio por métrica, cobertura mínima del veredicto (90), basal de recuperación, reparto de la carrera, días de dato viejo, muestras mínimas, bandas de la disposición (hoy en Swift, P16). Es la lista del editor de Ajustes › Método.
+6. **Una paleta de familias para las dos superficies, elegida por medida.** Los tonos de modalidad de Theme.swift (azul/lavanda/rosa) FALLAN el validador de la skill dataviz (ΔE daltónico 2,3; visión normal 11,5); el juego del panel v2 (correr azul `#3f9dda`, ergo verde `#41ab77`, fuerza violeta `#764ec7`, estaciones y WOD magenta `#9d466a`) pasa las cinco comprobaciones sobre `#141414`. Se adopta en el iPhone (`FAMILIA_HEX`) y en el panel (`--v2-mod-*`). Las zonas siguen con la escala de cada superficie (espectro del coach en el iPhone; azul secuencial en el panel); el naranja sigue siendo SOLO acción; el plan es contorno, lo hecho relleno y la proyección discontinua (se distinguen sin color). Leyenda siempre con dos o más series.
+7. **Los gráficos tienen ejes reales y escala por unidad**: fuera las series 0..1 (P21); los ejes de tiempo (ritmo, split, tiempos de carrera) solo admiten pasos de reloj (15 s, 30 s, 1 min…); las horas se escalan en horas; nunca más de n + 2 marcas; el hover es de serie (crosshair) o de marca (columna); los rótulos directos solo en el último punto. Un solo componente por forma con dos pieles (`PIEL_IPHONE`, `PIEL_PANEL`): el mismo dibujo, dos tokens.
+8. **Suelo de 15 pt en TODO el iPhone, ejes incluidos**, y SF tabular (el numeral del vivo); en el panel, la escala v2 (12 px de suelo). Contraste AA medido en `tests/design-twin/kit-analiticas.test.ts` (tinta y tinta2 a 4,5:1; familias y zonas a 3:1 como marcas).
+9. **El doble gana el dispositivo «escritorio»** (`DeviceFrame`, 1440×900 y 1280×800 con barra de navegador; en pantalla completa llena la ventana): las propuestas del panel del coach pintan con los primitivos y tokens v2 REALES (`components/v2/ui`, `.v2-root`, Figtree) dentro del doble, con sus escenarios y su cronología. Se eligió frente a una ruta de propuesta en `(v2)` porque da la misma pantalla con sus tokens sin exponer una propuesta a los coaches, y comparte índice, estados y capturas con el iPhone.
+10. **Las colecciones dejan de ser un caso especial**: `COLECCIONES` en `registry.ts` (entreno, analíticas), `TandaIndex` genérico y una card por colección en su zona del índice.
+11. **El ancla de una marca es la del DATO del que sale** (revisión del orquestador, 29-09): un 1RM estimado desde series hechas (kg × reps anotados en la sesión) es `medida` — la estimación es mecanismo (la fórmula del coach), el dato es un entreno registrado; `declarada` es solo lo que el atleta o el coach escribieron directamente (un 1RM en el perfil, un umbral tecleado) y entonces la marca no lleva «est.». El «estimado» del título habla del cálculo; el chip de ancla, del dato. La carga por esfuerzo sigue anclada como `declarada` (el RPE o el RIR los declara el atleta).
+
+**Para la firma de Alex (subjetivo, §11 del modelo), cada una con su variante dentro de las pantallas:** el nombre de la pestaña («Analíticas», propuesto, o «Progreso»: escenario `variante-progreso`); la portada como panel único (propuesto) o como pastillas por familia (escenario `variante-pastillas`); el panel del coach con bloques fijos (propuesto) o con gráficos que arrastra y configura como TrainingPeaks (escenario `variante-configurable`). Y dos más que salieron al construir: si Forma y fatiga se enseñan en la MISMA gráfica que la frescura (ahora: la frescura debajo, como barras alrededor de cero) y si la disposición de hoy se une a las tres cifras del Estado (ahora: cuarta celda).
+
+**Fuera (y por qué):** `TandaEntrenoIndex.tsx` (sustituido por `TandaIndex` genérico); el tinte del lienzo por veredicto que usaba `analiticas-correr` (el veredicto no cambia de color, como en el vivo: cambia la marca y la palabra); el anillo/donut y las series normalizadas; el modo claro en las pantallas del iPhone (siguen el vivo firmado: negro; el panel sí tiene claro y oscuro).
+
+**NO hacer:** calcular estados o veredictos en la pantalla (iOS pinta, no calcula); escribir un hex, un `fontSize` o un texto de hueco en una pantalla de analíticas; usar el naranja como color de dato; comparar con un periodo anterior a la primera sesión del atleta (la comparación es null, no «+16 frente a nada»); pintar una lectura sin dato con guiones.
+
+**Verificación:** `pnpm typecheck` y `pnpm lint` sin errores; `vitest run tests/design-twin/` 24 ficheros, 1.154 tests; capturas Playwright de todos los escenarios (iPhone 390×844; panel 1440×900 y 1280×800, oscuro y claro) revisadas una a una en el scratchpad de la sesión (`analiticas-diseno/`).
+
+---
+
 
 ## 2026-09-29 · Tres huecos del vivo nuevo, cerrados: RX/Escalado al terminar, la pausa que sigue sola y la Estructura del circuito entera
 

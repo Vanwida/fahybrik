@@ -4,11 +4,12 @@
 // buscar «el mockup que hice ayer», así que la primera sección contesta eso —
 // los últimos días con sus pantallas, cards para lo más fresco y pastillas
 // para los lotes. Debajo, el inventario por zonas (ordenado por recencia, con
-// la tanda del entreno colapsada en su colección: tiene dirección propia).
+// cada colección colapsada en su card: tienen dirección propia).
 // Las pendientes se pintan apagadas: el hueco es información, no vergüenza.
 
 import Link from 'next/link';
-import { ARCHIVO, ESTADO_LABEL, PENDIENTES, SCREENS, TANDA_ENTRENO } from './registry';
+import { ARCHIVO, COLECCIONES, ESTADO_LABEL, PENDIENTES, SCREENS } from './registry';
+import { DISPOSITIVO_LABEL } from './TandaIndex';
 import type { TwinMeta, TwinZona } from './types';
 
 const ZONAS: TwinZona[] = [
@@ -56,7 +57,7 @@ function Card({ meta, localePrefix }: { meta: TwinMeta; localePrefix: string }) 
           {ESTADO_LABEL[meta.estado]}
         </span>
         <span className="studio-card-top-right">
-          <span className="studio-device">{meta.dispositivo === 'watch' ? 'Watch' : 'iPhone'}</span>
+          <span className="studio-device">{DISPOSITIVO_LABEL[meta.dispositivo]}</span>
           <span className="studio-fecha" data-reciente={esReciente(meta.actualizado)}>
             {fechaRelativa(meta.actualizado)}
           </span>
@@ -80,9 +81,11 @@ function Card({ meta, localePrefix }: { meta: TwinMeta; localePrefix: string }) 
 }
 
 export function TwinIndex({ localePrefix }: { localePrefix: string }) {
-  const tandaIds = new Set(TANDA_ENTRENO.flatMap((g) => g.ids));
-  const tanda = SCREENS.filter((s) => tandaIds.has(s.meta.id));
-  const tandaFecha = tanda.reduce((max, s) => (s.meta.actualizado > max ? s.meta.actualizado : max), '');
+  // Las pantallas de cada colección viven en su card, no sueltas en la zona.
+  const enColeccion = new Map<string, (typeof COLECCIONES)[number]>();
+  for (const c of COLECCIONES) for (const g of c.grupos) for (const id of g.ids) enColeccion.set(id, c);
+  const pantallasDe = (c: (typeof COLECCIONES)[number]) => SCREENS.filter((s) => enColeccion.get(s.meta.id) === c);
+  const fechaDe = (c: (typeof COLECCIONES)[number]) => pantallasDe(c).reduce((max, s) => (s.meta.actualizado > max ? s.meta.actualizado : max), '');
 
   // Lo último: las N fechas más recientes con sus pantallas (empates en orden
   // de registro). El día más fresco sale en cards; los lotes, en pastillas.
@@ -145,39 +148,37 @@ export function TwinIndex({ localePrefix }: { localePrefix: string }) {
       </section>
 
       {ZONAS.map((zona) => {
-        const activos = SCREENS.filter((s) => s.meta.zona === zona && !tandaIds.has(s.meta.id)).sort(
+        const activos = SCREENS.filter((s) => s.meta.zona === zona && !enColeccion.has(s.meta.id)).sort(
           (a, b) => b.meta.actualizado.localeCompare(a.meta.actualizado)
         );
         const huecos = PENDIENTES.filter((p) => p.zona === zona);
-        const conTanda = zona === 'Entreno en vivo';
-        if (activos.length === 0 && huecos.length === 0 && !conTanda) return null;
+        const colecciones = COLECCIONES.filter((c) => c.zona === zona);
+        if (activos.length === 0 && huecos.length === 0 && colecciones.length === 0) return null;
+        const total = activos.length + colecciones.reduce((n, c) => n + pantallasDe(c).length, 0);
         return (
           <section key={zona} className="studio-zona">
             <h2 className="studio-label">
               {zona}
-              <span className="studio-zona-n"> · {activos.length + (conTanda ? tanda.length : 0)}</span>
+              <span className="studio-zona-n"> · {total}</span>
             </h2>
             <div className="studio-grid">
-              {conTanda && (
-                <Link href={`${localePrefix}/design/entreno`} className="studio-card studio-card-coleccion">
+              {colecciones.map((c) => (
+                <Link key={c.id} href={`${localePrefix}/design/${c.id}`} className="studio-card studio-card-coleccion">
                   <div className="studio-card-top">
                     <span className="studio-stamp" data-estado="coleccion">
                       Colección
                     </span>
                     <span className="studio-card-top-right">
-                      <span className="studio-device">{tanda.length} pantallas</span>
-                      <span className="studio-fecha" data-reciente={esReciente(tandaFecha)}>
-                        {fechaRelativa(tandaFecha)}
+                      <span className="studio-device">{pantallasDe(c).length} pantallas</span>
+                      <span className="studio-fecha" data-reciente={esReciente(fechaDe(c))}>
+                        {fechaRelativa(fechaDe(c))}
                       </span>
                     </span>
                   </div>
-                  <h3>El entreno, en vivo →</h3>
-                  <p>
-                    La tanda inmersiva completa — antes / en vivo / al terminar / la muñeca — agrupada
-                    por su propia lógica en su dirección canónica.
-                  </p>
+                  <h3>{c.titulo} →</h3>
+                  <p>{c.descripcion}</p>
                 </Link>
-              )}
+              ))}
               {activos.map(({ meta }) => (
                 <Card key={meta.id} meta={meta} localePrefix={localePrefix} />
               ))}

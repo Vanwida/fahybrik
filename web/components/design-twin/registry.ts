@@ -8,7 +8,7 @@
 // mockup de lo aún no construido, y PENDIENTES enumera los huecos para que el
 // desfase se VEA en el índice en vez de sospecharse.
 
-import type { TwinEstado, TwinPendiente, TwinScreenModule } from './types';
+import type { TwinEstado, TwinPendiente, TwinScreenModule, TwinZona } from './types';
 
 import * as benchmarkErg from './screens/benchmark-erg';
 import * as runLive from './screens/run-live';
@@ -153,6 +153,16 @@ import * as correrPorTipo from './screens/correr-por-tipo';
 // graba el reloj, que se pide una vez al acabar el primer entreno de muñeca.
 import * as guardadoEnMovil from './screens/guardado-en-movil';
 import * as consentimientoSensores from './screens/consentimiento-sensores';
+// Las analíticas, rehechas (29-sep): un cálculo, dos pintores (docs/analiticas/
+// modelo.md). La portada del atleta y sus detalles sobre `kit-analiticas`, y la
+// pestaña Rendimiento del coach como dispositivo «escritorio» con tokens v2.
+import * as analiticasPortada from './screens/analiticas-portada';
+import * as analiticasFamiliaCorrer from './screens/analiticas-familia-correr';
+import * as analiticasFamiliaErgo from './screens/analiticas-familia-ergo';
+import * as analiticasFamiliaFuerza from './screens/analiticas-familia-fuerza';
+import * as analiticasFamiliaEstaciones from './screens/analiticas-familia-estaciones';
+import * as analiticasSesion from './screens/analiticas-sesion';
+import * as analiticasPanelCoach from './screens/analiticas-panel-coach';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -256,19 +266,49 @@ export const SCREENS: TwinScreenModule[] = [
   iphoneVivoFuerza,
   iphoneVivoWod,
   iphoneVivoCircuito,
+  // Las analíticas, rehechas (29-sep): la portada, los detalles por familia y la sesión.
+  analiticasPortada,
+  analiticasFamiliaCorrer,
+  analiticasFamiliaErgo,
+  analiticasFamiliaFuerza,
+  analiticasFamiliaEstaciones,
+  analiticasSesion,
+  // El panel del coach, como dispositivo «escritorio».
+  analiticasPanelCoach,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
   return SCREENS.find((s) => s.meta.id === id);
 }
 
+/** Un grupo de una colección: un título y las pantallas, en el orden en que se navegan. */
+export interface GrupoColeccion {
+  grupo: string;
+  ids: string[];
+}
+
+/**
+ * Una COLECCIÓN del doble: una tanda con dirección propia (`/design/<id>`),
+ * agrupada por su propia lógica y con una card en su zona del índice. Existe
+ * porque el índice general mezcla épocas y propuestas que se solapan; la
+ * colección es la dirección canónica de un trabajo y se enseña sola.
+ */
+export interface Coleccion {
+  id: 'entreno' | 'analiticas';
+  zona: TwinZona;
+  titulo: string;
+  /** Lo que dice la card en el índice. */
+  descripcion: string;
+  /** Los párrafos de la portada de la colección. */
+  intro: string[];
+  grupos: ReadonlyArray<GrupoColeccion>;
+}
+
 /**
  * La tanda inmersiva del entreno (29-jul) con dirección PROPIA:
- * `/design/entreno`. Existe porque el índice general mezcla épocas y
- * propuestas que se solapan; esta colección es la dirección canónica del
- * entreno en vivo y se enseña sola, agrupada por su propia lógica.
+ * `/design/entreno`.
  */
-export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
+export const TANDA_ENTRENO: ReadonlyArray<GrupoColeccion> = [
   // El vivo del iPhone, rehecho (28-sep): manda sobre «En vivo, por quién
   // gobierna», que queda como historia. La gramática primero; las familias,
   // cuando se construyan, detrás.
@@ -322,6 +362,51 @@ export const TANDA_ENTRENO: ReadonlyArray<{ grupo: string; ids: string[] }> = [
     ],
   },
 ];
+
+/**
+ * Las analíticas, rehechas (29-sep): un cálculo, dos pintores. La portada
+ * del atleta y sus detalles (iPhone) y la pestaña Rendimiento de la ficha del
+ * coach (escritorio), sobre el contrato de docs/analiticas/modelo.md §5.
+ */
+export const TANDA_ANALITICAS: ReadonlyArray<GrupoColeccion> = [
+  { grupo: 'La portada del atleta', ids: ['analiticas-portada'] },
+  {
+    grupo: 'Los detalles, por familia y por sesión',
+    ids: ['analiticas-familia-correr', 'analiticas-familia-ergo', 'analiticas-familia-fuerza', 'analiticas-familia-estaciones', 'analiticas-sesion'],
+  },
+  { grupo: 'El panel del coach', ids: ['analiticas-panel-coach'] },
+];
+
+export const COLECCIONES: ReadonlyArray<Coleccion> = [
+  {
+    id: 'analiticas',
+    zona: 'Marcas y tests',
+    titulo: 'Analíticas, rehechas',
+    descripcion:
+      'Una pestaña digna de TrainingPeaks: Estado, Forma y fatiga con proyección a la carrera, Semana a semana plan frente a hecho, Intensidad, Progreso por familia, Récords, Carrera y Recuperación — y el mismo contrato en la ficha del coach.',
+    intro: [
+      'Un cálculo, dos pintores (docs/analiticas/modelo.md): la portada del atleta en el iPhone y la pestaña Rendimiento del coach devuelven EXACTAMENTE lo mismo para el mismo atleta y ventana. Cada cifra dice de dónde sale (ancla), contra qué se lee (comparación) y sobre cuánto (cobertura). Toda sección obedece una sola ventana.',
+      'Cada bloque resuelve sus cuatro estados —vacío, poco dato, lleno y dato viejo— con cinco atletas de ejemplo que no salen de la base de producción. Las variantes para el dueño (§11 del modelo) van marcadas como tales dentro de cada pantalla.',
+    ],
+    grupos: TANDA_ANALITICAS,
+  },
+  {
+    id: 'entreno',
+    zona: 'Entreno en vivo',
+    titulo: 'El entreno, en vivo',
+    descripcion:
+      'La tanda inmersiva completa — antes / en vivo / al terminar / la muñeca — agrupada por su propia lógica en su dirección canónica.',
+    intro: [
+      'La regla que ordena el móvil: cada formato tiene una vista con sujeto propio según QUIÉN gobierna la transición (el reloj, el hito medido, el atleta, el suceso, el relevo). Girado con máquina delante sale la cara de monitor y el formato se queda en la franja.',
+      'En la muñeca la regla es OTRA, y por eso hay nueve vistas más (30-jul). Ahí no decide el formato: deciden qué mide el reloj de verdad en esa modalidad —en cinta y en ergo no ve la máquina, en fuerza no ve ni la carga ni las reps— y si el atleta puede mirar y puede tocar en ese momento. Lo segundo manda sobre lo primero. Donde esta colección choque con propuestas más viejas del índice general, manda esta.',
+    ],
+    grupos: TANDA_ENTRENO,
+  },
+];
+
+export function coleccionDe(id: Coleccion['id']): Coleccion {
+  return COLECCIONES.find((c) => c.id === id)!;
+}
 
 export const ESTADO_LABEL: Record<TwinEstado, string> = {
   espejo: 'Espejo',
