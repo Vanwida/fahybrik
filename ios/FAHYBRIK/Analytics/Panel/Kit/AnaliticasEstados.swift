@@ -190,9 +190,8 @@ enum AnaliticasEstados {
         }
     }
 
-    /// LA SALIDA DE UNA FALTA en esta pantalla. Igual que `ProgresoDeCarrera.salidaDe`
-    /// salvo en una cosa: aquí conectar el reloj SÍ tiene botón, porque la portada
-    /// puede empujar «Dispositivos y apps» (la pantalla de carrera no podía).
+    /// LA SALIDA DE UNA FALTA en esta pantalla. Conectar el reloj SÍ tiene botón,
+    /// porque la pestaña puede empujar «Dispositivos y apps».
     /// Puntuar el esfuerzo no abre nada: se dice, no se promete un botón mudo. Lo
     /// que resuelve el coach (plan, pareja) o solo el tiempo (historia, viejo) no
     /// lleva salida.

@@ -102,6 +102,16 @@ final class LecturaDeCorrerTests: XCTestCase {
         XCTAssertEqual(AnaliticasFormato.formatear(1000 / velocidad, .sKm), "4:17/km", "≈ el ritmo de la velocidad crítica, en la unidad del corredor")
     }
 
+    /// El desacople (Pa:HR) es un porcentaje que BAJA cuando mejora: la unidad sola no lo sabe y pintaba ▼ ámbar una mejora.
+    func testUnDesacopleQueBajaEsUnaMejoraAunqueSuUnidadNoLoDiga() throws {
+        let desacople = try XCTUnwrap(try DetalleFixtures.detalle(.correr, .lleno).lectura(LecturaDeCorrer.idDesacople))
+        let porUnidad = try XCTUnwrap(AnaliticasDerivados.delta(de: desacople))
+        let porLectura = try XCTUnwrap(AnaliticasDerivados.delta(de: desacople, bajaEsMejor: true))
+        XCTAssertLessThan(porLectura.delta, 0)
+        XCTAssertFalse(porUnidad.mejor, "sola, la unidad (un porcentaje) no sabe que aquí bajar es mejorar")
+        XCTAssertTrue(porLectura.mejor)
+    }
+
     // MARK: - Por tipo de sesión
 
     func testElRitmoPorTipoNombraElTipoSinElPrefijoDelServidor() throws {

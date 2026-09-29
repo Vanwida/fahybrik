@@ -100,6 +100,7 @@ final class LecturaDeSesionTests: XCTestCase {
         let l = try lectura(.cinta)
         XCTAssertEqual(l.tramos[0].pedido, "10' @ Z2")
         XCTAssertEqual(l.tramos[1].pedido, "4×1000m @ Z5 · r90''")
+        XCTAssertNil(l.tramos[2].pedido, "la frase de una recuperación es la de toda la serie: bajo «Recuperación» diría que se pidió correr a Z5")
         XCTAssertEqual(try lectura(.sentadilla).tramos[0].pedido, "4×5 @ RIR 2")
         XCTAssertNil(try lectura(.carreraDeSalud).tramos[0].pedido, "una importación no trae prescripción: no se inventa")
     }

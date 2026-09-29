@@ -194,14 +194,17 @@ struct LecturaDeSesion: Equatable {
     }
 
     private static func filaDeTramo(_ t: TramoDeSesion, ordinal: Int?, veredictos: VeredictosDeSesion, tienePlan: Bool) -> FilaDeTramoVista {
-        FilaDeTramoVista(
+        let esRecuperacion = t.papel == "recovery"
+        return FilaDeTramoVista(
             id: t.id,
             nombre: nombreDeTramo(t, ordinal: ordinal),
-            pedido: t.prescrito?.textoEs,
+            // La frase que sirve el motor para una recuperación es la de toda la serie («4×1000m @ Z5 · r90''»), no la del descanso: ponerla debajo
+            // de «Recuperación» diría que se pidió correr a Z5 en el descanso. Se calla; el sello dice si se hizo bien.
+            pedido: esRecuperacion ? nil : t.prescrito?.textoEs,
             hecho: t.hecho.flatMap { hechoEnPalabras($0, segundosDelTramo: t.segundos) },
             marca: veredictos.marca(de: t.id, tienePlan: tienePlan && t.prescrito != nil),
             carga: CargaDeTramoVista(t.carga),
-            esRecuperacion: t.papel == "recovery"
+            esRecuperacion: esRecuperacion
         )
     }
 

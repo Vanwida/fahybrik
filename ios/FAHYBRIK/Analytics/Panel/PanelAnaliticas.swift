@@ -285,6 +285,8 @@ enum IdsDelPanel {
     static let prefijoTramo = "carrera.tramo."
     /// `referencia.de` de un récord: el que había antes.
     static let referenciaRecordAnterior = "record_anterior"
+    /// `referencia.de` de una marca contra su récord de siempre: con delta cero, ES el récord.
+    static let referenciaRecord = "record"
     static let referenciaObjetivoCoach = "objetivo_coach"
     static let referenciaPresupuestoTramo = "presupuesto_objetivo"
     /// `veredicto.code` de un récord que se ha batido en la ventana.

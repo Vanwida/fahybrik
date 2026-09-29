@@ -62,7 +62,7 @@ extension LecturaAnalitica {
     /// La marca se ha conseguido en la ventana: contra su récord de siempre no le falta nada. La palabra «Nuevo»
     /// del servidor (`records`) sale de lo mismo: `referencia.de == record` con delta cero.
     var esRecordDeLaVentana: Bool {
-        guard let r = dato?.referencia, r.de == "record" else { return false }
+        guard let r = dato?.referencia, r.de == IdsDelPanel.referenciaRecord else { return false }
         return abs(r.delta) < 1e-9
     }
 

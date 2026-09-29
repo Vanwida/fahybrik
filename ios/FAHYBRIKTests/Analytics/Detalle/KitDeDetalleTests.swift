@@ -47,6 +47,15 @@ final class KitDeDetalleTests: XCTestCase {
         XCTAssertEqual(AnaliticasFormato.cifra(144.7, .kg), "144,7")
     }
 
+    func testCadaUnidadSePegaASuCifraYLosSeparadoresSiPuedenPartir() {
+        XCTAssertEqual(
+            AnaliticasFormato.conUnidadesPegadas("500 m · 1:50/500m · 263 W · 156 ppm"),
+            "500\u{00A0}m · 1:50/500m · 263\u{00A0}W · 156\u{00A0}ppm",
+            "la unidad no se parte de su número, pero entre dos cifras sí se puede saltar de línea"
+        )
+        XCTAssertEqual(AnaliticasFormato.conUnidadesPegadas("Sentadilla 4 × 5"), "Sentadilla 4 × 5", "solo se pega lo que va cifra + letra")
+    }
+
     // MARK: - Cubos de una serie semanal
 
     private func semanal(_ valores: [Double?], plan: [Double?]? = nil) -> SerieDeLectura {

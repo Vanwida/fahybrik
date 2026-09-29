@@ -116,6 +116,9 @@ struct AnaliticasLineaTiempo: View {
     /// Cuánto dura la sesión, en segundos: el eje X.
     let duracion: Double
     let formato: (Double) -> String
+    /// Cómo se rotula el eje Y, si ha de ser más corto que el valor con su unidad («5:20», no «5:20/km»): con la unidad, el rótulo se
+    /// come el ancho de la gráfica y los del eje X se pisan. La unidad sigue en lo que se lee al tocar.
+    var formatoDeEje: ((Double) -> String)? = nil
     /// «Lo bueno arriba»: un ritmo o un split, con el menor arriba.
     var invertido = false
     var color: Color = Theme.Color.foreground
@@ -156,7 +159,7 @@ struct AnaliticasLineaTiempo: View {
             .chartYScale(domain: plano(invertido ? escala.max : escala.min)...plano(invertido ? escala.min : escala.max))
             .chartXSelection(value: $seleccion)
             .chartLegend(.hidden)
-            .chartYAxis { ejeYDeAnaliticas(ticks: escala.ticks.map(plano), formato: { formato(plano($0)) }) }
+            .chartYAxis { ejeYDeAnaliticas(ticks: escala.ticks.map(plano), formato: { (formatoDeEje ?? formato)(plano($0)) }) }
             .chartXAxis {
                 AxisMarks(values: marcas) { value in
                     if let t = value.as(Double.self) {

@@ -3,94 +3,27 @@ import SwiftUI
 import UIKit
 @testable import FAHYBRIK
 
-// LA PORTADA, CAPTURADA EN EL SIMULADOR (el mismo arnés que el vivo:
-// `VivoArnesDeCapturas`). Monta `AnaliticasPortadaView` dentro de la barra de
-// pestañas real sobre un panel del contrato decodificado de JSON (sin red) y
-// vuelca la pantalla a 390 × 844 página a página, como las capturas del doble
-// (`analiticas-portada/*-390-pN.png`), en CLARO y en OSCURO: el tema lo elige el
-// atleta y la pantalla no fuerza el suyo. Es lo que enseña lo que la galería
-// plana no puede: el selector que se pega arriba y la barra de pestañas. Cada
-// imagen va como adjunto del test (se queda en el .xcresult que sube el CI) y, si
-// `FAHYBRIK_CAPTURAS` está en el entorno, a esa carpeta. Corre en CI (GitHub
-// Actions) y en simulador sin ventana, nunca en el Mac de Alex.
+// LA PORTADA, CAPTURADA EN EL SIMULADOR con el arnés de la pestaña (`ArnesDeCapturasDeAnaliticas`): la pantalla real dentro de la barra
+// de pestañas real sobre un panel del contrato decodificado de JSON (sin red), a 390 × 844, página a página, como las capturas del doble
+// (`analiticas-portada/*-390-pN.png`), en CLARO y en OSCURO: el tema lo elige el atleta y la pantalla no fuerza el suyo.
 final class AnaliticasCapturasTests: XCTestCase {
 
-    private static let lienzo = CGRect(x: 0, y: 0, width: 390, height: 844)
-
-    /// Monta la portada con `atleta` en `ventana` y toma la primera página y las
-    /// `paginas` siguientes (una por alto visible del scroll).
+    /// Monta la portada con `atleta` en `ventana` y toma la primera página y las `paginas` siguientes.
     @MainActor
     private func fotografiar(_ atleta: AnaliticasFixtures.Atleta, ventana: VentanaClave = .doceSemanas, nombre: String,
                              paginas: Int = 6, esquema: UIUserInterfaceStyle = .light) throws {
-        let nombre = "\(nombre)-\(esquema == .dark ? "oscuro" : "claro")"
-        let panel = try AnaliticasFixtures.panel(atleta, ventana)
         let store = AppDataStore()
         store.activate(bearer: "capturas")
-        store.setPanelAnaliticas(panel, ventana: ventana)
-
+        store.setPanelAnaliticas(try AnaliticasFixtures.panel(atleta, ventana), ventana: ventana)
+        // La pestaña pide también el cumplimiento de la ventana (las sesiones de Semana a semana): se siembra, y solo el atleta lleno tiene sesiones.
+        let cumplimiento = try DetalleFixtures.cumplimiento()
+        store.setCumplimientoAnalitico(
+            atleta == .lleno && ventana == .doceSemanas ? cumplimiento : CumplimientoAnaliticas(ventana: cumplimiento.ventana, sesiones: [], sinPlan: cumplimiento.sinPlan),
+            ventana
+        )
         let portada = AnaliticasPortadaView(bearer: "capturas", hasCoach: true, onOpenTab: { _ in }, ventanaInicial: ventana)
-        // La barra de pestañas de la app, para comparar con el contrato: la
-        // pestaña activa es Analíticas; las demás, vacías.
-        let vista = TabView(selection: .constant(AppTab.analiticas)) {
-            ForEach(AppTab.allCases, id: \.rawValue) { tab in
-                Group {
-                    if tab == .analiticas { portada } else { Theme.Color.background }
-                }
-                .tag(tab)
-                .tabItem { Label(tab.title, systemImage: tab.symbol) }
-            }
-        }
-        .tint(Theme.Color.accentText)
-        .environment(store)
-
-        let host = UIHostingController(rootView: AnyView(vista))
-        let bounds = Self.lienzo
-        let escena = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
-        let window = escena.map { UIWindow(windowScene: $0) } ?? UIWindow(frame: bounds)
-        window.frame = bounds
-        window.overrideUserInterfaceStyle = esquema
-        window.rootViewController = host
-        window.makeKeyAndVisible()
-        defer { window.isHidden = true; window.rootViewController = nil }
-        host.view.frame = bounds
-        host.view.layoutIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.8))
-
-        let destino = ProcessInfo.processInfo.environment["FAHYBRIK_CAPTURAS"].map { URL(fileURLWithPath: $0) }
-        func foto(_ sufijo: String) {
-            host.view.layoutIfNeeded()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
-            let fmt = UIGraphicsImageRendererFormat(); fmt.scale = 2
-            let img = UIGraphicsImageRenderer(bounds: bounds, format: fmt).image { _ in
-                if !host.view.drawHierarchy(in: bounds, afterScreenUpdates: true) {
-                    host.view.layer.render(in: UIGraphicsGetCurrentContext()!)
-                }
-            }
-            guard let png = img.pngData() else { XCTFail("sin png \(nombre)\(sufijo)"); return }
-            let a = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-            a.name = "\(nombre)\(sufijo)"; a.lifetime = .keepAlways; add(a)
-            if let destino {
-                try? FileManager.default.createDirectory(at: destino, withIntermediateDirectories: true)
-                try? png.write(to: destino.appendingPathComponent("\(nombre)\(sufijo).png"))
-            }
-        }
-
-        foto("")
-        guard let scroll = Self.scroll(en: host.view) else { XCTFail("la portada no tiene scroll"); return }
-        let alto = scroll.bounds.height - scroll.adjustedContentInset.top - scroll.adjustedContentInset.bottom
-        for i in 1...max(1, paginas) {
-            let maximo = max(0, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)
-            let y = min(maximo, CGFloat(i) * alto)
-            scroll.setContentOffset(CGPoint(x: 0, y: y), animated: false)
-            foto("-p\(i)")
-            if y >= maximo { break }
-        }
-    }
-
-    private static func scroll(en vista: UIView) -> UIScrollView? {
-        if let s = vista as? UIScrollView, s.bounds.height > 300 { return s }
-        for sub in vista.subviews { if let s = scroll(en: sub) { return s } }
-        return nil
+        let r = try fotografiarAnaliticas(portada, store: store, nombre: nombre, paginas: paginas, esquema: esquema)
+        XCTAssertTrue(r.barraDePestanasVisible, "la portada es la raíz de la pestaña: lleva su barra de pestañas")
     }
 
     // MARK: - Los cinco atletas del contrato, a 12 semanas, en claro y en oscuro

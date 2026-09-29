@@ -19,17 +19,21 @@ enum AnaliticasDerivados {
     /// Contra el periodo anterior si la lectura se compara; si no, contra su
     /// referencia (el basal, el objetivo, el aviso del coach). Nulo cuando no hay
     /// contra qué: un número suelto se pinta solo.
-    static func delta(de l: LecturaAnalitica) -> DeltaVista? {
+    /// `bajaEsMejor`: lo que la unidad no sabe decir y la lectura sí (el desacople es un porcentaje que baja cuando mejora). Sin él, manda la unidad.
+    static func delta(de l: LecturaAnalitica, bajaEsMejor: Bool? = nil) -> DeltaVista? {
         guard let dato = l.dato else { return nil }
+        let baja = bajaEsMejor ?? AnaliticasFormato.menosEsMejor(dato.unidad)
         if let c = l.comparacion, let delta = c.delta {
             return DeltaVista(delta: delta, unidad: c.unidad, significativo: c.significativo,
                               etiqueta: AnaliticasFormato.etiquetaPeriodo(c.periodo),
-                              mejor: AnaliticasFormato.menosEsMejor(dato.unidad) ? delta < 0 : delta > 0)
+                              mejor: baja ? delta < 0 : delta > 0)
         }
-        if let r = dato.referencia {
+        // Una marca que ES su récord (delta cero contra él) no tiene nada que comparar: «igual que tu récord» no dice nada y, junto a un «aún no
+        // hay periodo anterior», se contradice.
+        if let r = dato.referencia, !(r.de == IdsDelPanel.referenciaRecord && abs(r.delta) < 1e-9) {
             return DeltaVista(delta: r.delta, unidad: dato.unidad, significativo: nil,
                               etiqueta: AnaliticasFormato.etiquetaReferencia(r, dato.unidad),
-                              mejor: AnaliticasFormato.menosEsMejor(dato.unidad) ? r.delta < 0 : r.delta > 0)
+                              mejor: baja ? r.delta < 0 : r.delta > 0)
         }
         return nil
     }

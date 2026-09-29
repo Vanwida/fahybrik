@@ -91,7 +91,7 @@ struct AnaliticasCuerpoDeSesion: View {
                 AnaliticasSuperficie {
                     AnaliticasLineaTiempo(
                         etiqueta: "Ritmo a lo largo de la sesión", puntos: lectura.ritmo, duracion: lectura.duracionDeLasCurvas,
-                        formato: { AnaliticasFormato.formatear($0, .sKm) }, invertido: true
+                        formato: { AnaliticasFormato.formatear($0, .sKm) }, formatoDeEje: { Formato.clock($0) }, invertido: true
                     )
                 }
             }
@@ -105,7 +105,7 @@ struct AnaliticasCuerpoDeSesion: View {
                 AnaliticasSuperficie {
                     AnaliticasLineaTiempo(
                         etiqueta: "Pulso a lo largo de la sesión", puntos: lectura.pulso, duracion: lectura.duracionDeLasCurvas,
-                        formato: { AnaliticasFormato.formatear($0, .bpm) }
+                        formato: { AnaliticasFormato.formatear($0, .bpm) }, formatoDeEje: { String(Int($0.rounded())) }
                     )
                 }
             }
@@ -171,8 +171,8 @@ struct AnaliticasFilaDeTramo: View {
             AnaliticasMarcaCumplimiento(marca: tramo.marca).padding(.top, 2)
             VStack(alignment: .leading, spacing: 3) {
                 AnaliticasCuerpo(texto: tramo.nombre, fuerte: true)
-                if let p = tramo.pedido { AnaliticasEtiqueta(texto: "Pedido: \(p)") }
-                if let h = tramo.hecho { AnaliticasCuerpo(texto: h) }
+                if let p = tramo.pedido { AnaliticasEtiqueta(texto: AnaliticasFormato.conUnidadesPegadas("Pedido: \(p)")) }
+                if let h = tramo.hecho { AnaliticasCuerpo(texto: AnaliticasFormato.conUnidadesPegadas(h)) }
                 if tramo.marca == .masDeLoPedido || tramo.marca == .menosDeLoPedido { AnaliticasEtiqueta(texto: tramo.marca.palabra) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

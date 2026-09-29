@@ -95,6 +95,8 @@ struct AnaliticasPantalla<Cuerpo: View>: View {
             .refreshable { await alRefrescar() }
         }
         .background(Theme.Color.background.ignoresSafeArea())
+        // Un detalle no lleva la barra de pestañas (el contrato: «‹ Analíticas» fijo y la pantalla entera para el dato); la raíz sí.
+        .toolbar(atras == nil ? .automatic : .hidden, for: .tabBar)
         .safeAreaInset(edge: .top, spacing: 0) {
             if let atras {
                 HStack { AnaliticasAtras(texto: atras.texto, onTap: atras.accion); Spacer() }

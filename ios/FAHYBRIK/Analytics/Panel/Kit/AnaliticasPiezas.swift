@@ -301,10 +301,19 @@ struct AnaliticasCelda<Pie: View>: View {
             },
             contenido: {
                 VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                    HStack(alignment: .lastTextBaseline, spacing: Theme.Spacing.xs + 1) {
-                        AnaliticasNumeral(texto: AnaliticasFormato.cifra(valor, unidad))
-                        let u = AnaliticasFormato.unidadCorta(unidad, valor: valor)
-                        if !u.isEmpty { AnaliticasEtiqueta(texto: u) }
+                    let numeral = AnaliticasNumeral(texto: AnaliticasFormato.cifra(valor, unidad))
+                    let u = AnaliticasFormato.unidadCorta(unidad, valor: valor)
+                    // Una cifra ancha («98.171») no deja sitio a su unidad en media pantalla: «kg» se partía en «k» y «g». Si no caben en la
+                    // misma línea, la unidad baja debajo.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .lastTextBaseline, spacing: Theme.Spacing.xs + 1) {
+                            numeral
+                            if !u.isEmpty { AnaliticasEtiqueta(texto: u) }
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            numeral
+                            if !u.isEmpty { AnaliticasEtiqueta(texto: u) }
+                        }
                     }
                     if let delta { AnaliticasDelta(delta: delta) }
                     if let nota { AnaliticasEtiqueta(texto: nota) }

@@ -70,7 +70,7 @@ struct AnaliticasCuerpoDeCorrer: View {
                 AnaliticasTabla(
                     etiqueta: "Mejores esfuerzos por distancia",
                     columnas: [
-                        ColumnaDeTabla(cabecera: "Distancia"),
+                        ColumnaDeTabla(cabecera: "Distancia", ancho: 74),
                         ColumnaDeTabla(cabecera: "Tiempo", alinear: .trailing),
                         ColumnaDeTabla(cabecera: "Ritmo", alinear: .trailing),
                         ColumnaDeTabla.cuando,
@@ -81,7 +81,7 @@ struct AnaliticasCuerpoDeCorrer: View {
                     case 0: AnaliticasCeldaDoble(principal: e.nombre, apoyo: e.enCinta ? "en cinta" : nil)
                     case 1: Text(Formato.clock(e.segundos))
                     case 2: Text(AnaliticasFormato.formatear(e.ritmoSKm, .sKm))
-                    default: Text(e.cuando.texto(hoy: hoy) ?? "").foregroundStyle(e.viejo ? Theme.Color.muted : Theme.Color.foreground)
+                    default: if let d = e.cuando.texto(hoy: hoy) { AnaliticasEtiqueta(texto: d, tono: e.viejo ? Theme.Color.muted : Theme.Color.foreground) }
                     }
                 }
             }
@@ -104,7 +104,7 @@ struct AnaliticasCuerpoDeCorrer: View {
                             if let d = l.dato {
                                 AnaliticasCelda(
                                     etiqueta: l.id == LecturaDeCorrer.idMotor ? "Motor" : "Desacople", valor: d.valor, unidad: d.unidad,
-                                    delta: AnaliticasDerivados.delta(de: l), ancla: l.procedencia.ancla,
+                                    delta: AnaliticasDerivados.delta(de: l, bajaEsMejor: l.id == LecturaDeCorrer.idDesacople ? true : nil), ancla: l.procedencia.ancla,
                                     nota: l.id == LecturaDeCorrer.idMotor ? "ritmo al mismo pulso" : "en tiradas largas"
                                 )
                             }

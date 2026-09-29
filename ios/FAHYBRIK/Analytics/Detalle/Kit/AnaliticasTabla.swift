@@ -21,7 +21,7 @@ struct ColumnaDeTabla {
 extension ColumnaDeTabla {
     /// La columna «Cuándo» («sem. 24 ago», o «19 sep · estimado» en dos líneas, con su sello «Nuevo» encima): el mismo ancho en todas
     /// las tablas, para que una fecha no baile de una pantalla a otra ni parta «sem.» de su día.
-    static let cuando = ColumnaDeTabla(cabecera: "Cuándo", alinear: .trailing, ancho: 96)
+    static let cuando = ColumnaDeTabla(cabecera: "Cuándo", alinear: .trailing, ancho: 92)
 }
 
 struct AnaliticasTabla<Fila: Identifiable, Celda: View>: View {
@@ -32,17 +32,17 @@ struct AnaliticasTabla<Fila: Identifiable, Celda: View>: View {
     /// La celda de una fila en una columna (por su posición).
     @ViewBuilder let celda: (Fila, Int) -> Celda
 
-    private static var separacion: CGFloat { 10 }
+    private static var separacion: CGFloat { Theme.Spacing.s }
 
     var body: some View {
         AnaliticasSuperficie(padding: 0) {
             VStack(spacing: 0) {
                 cabecera
-                    .padding(.horizontal, Theme.Spacing.l)
+                    .padding(.horizontal, Theme.Spacing.m)
                     .padding(.vertical, 10)
                 Rectangle().fill(Theme.Color.hairlineStrong).frame(height: 1)
                 ForEach(Array(filas.enumerated()), id: \.element.id) { i, fila in
-                    if i > 0 { Rectangle().fill(Theme.Color.hairline).frame(height: 1).padding(.horizontal, Theme.Spacing.l) }
+                    if i > 0 { Rectangle().fill(Theme.Color.hairline).frame(height: 1).padding(.horizontal, Theme.Spacing.m) }
                     HStack(alignment: .firstTextBaseline, spacing: Self.separacion) {
                         ForEach(columnas.indices, id: \.self) { c in
                             hueco(columnas[c]) { celda(fila, c) }
@@ -51,7 +51,7 @@ struct AnaliticasTabla<Fila: Identifiable, Celda: View>: View {
                     .papel(.cuerpo)
                     .monospacedDigit()
                     .foregroundStyle(Theme.Color.foreground)
-                    .padding(.horizontal, Theme.Spacing.l)
+                    .padding(.horizontal, Theme.Spacing.m)
                     .padding(.vertical, 12)
                     .accessibilityElement(children: .combine)
                 }

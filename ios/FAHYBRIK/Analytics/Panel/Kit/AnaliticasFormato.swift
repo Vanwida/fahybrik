@@ -85,6 +85,11 @@ enum AnaliticasFormato {
         }
     }
 
+    /// Pega cada unidad a su cifra con un espacio duro: «263 W» no se parte en «263» y «W» en la línea de abajo de una fila estrecha.
+    static func conUnidadesPegadas(_ frase: String) -> String {
+        frase.replacingOccurrences(of: #"(?<=\d) (?=\p{L})"#, with: "\u{00A0}", options: .regularExpression)
+    }
+
     /// ¿El delta es cero una vez escrito con la precisión de su unidad? Entonces se dice «igual», no «−0,0 h».
     static func esCero(_ delta: Double, _ unidad: UnidadLectura) -> Bool {
         let decimales: Double

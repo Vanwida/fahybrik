@@ -67,9 +67,10 @@ struct AnaliticasFamiliaView: View {
     /// Lo que la pantalla necesita para pintarse: su detalle y, aparte, lo que cada familia lee de otro sitio (el cumplimiento de
     /// correr y de fuerza, el panel de estaciones). Un fallo de lo aparte no tumba la pantalla: esa sección simplemente no sale.
     private func cargar(forzar: Bool) async {
-        async let detalle: Void = store.refreshDetalleAnaliticas(activa, ventana, force: forzar)
-        async let cumplimiento: Void = activa == .correr || activa == .fuerza ? store.refreshCumplimientoAnalitico(ventana, force: forzar) : ()
-        async let panel: Void = activa == .estaciones ? store.refreshPanelAnaliticas(ventana, force: forzar) : ()
+        let familia = activa
+        async let detalle: Void = store.refreshDetalleAnaliticas(familia, ventana, force: forzar)
+        async let cumplimiento: Void = familia == .correr || familia == .fuerza ? store.refreshCumplimientoAnalitico(ventana, force: forzar) : ()
+        async let panel: Void = familia == .estaciones ? store.refreshPanelAnaliticas(ventana, force: forzar) : ()
         _ = await (detalle, cumplimiento, panel)
     }
 }

@@ -33,13 +33,17 @@ struct AnaliticasPortadaView: View {
     @State private var verTests = false
     @State private var camino = NavigationPath()
 
-    /// `ventanaInicial` fija la ventana con la que abre (el arnés de capturas la pide); después manda el atleta: volver a la pestaña no la
-    /// reinicia.
-    init(bearer: String? = nil, hasCoach: Bool = true, onOpenTab: ((AppTab) -> Void)? = nil, ventanaInicial: VentanaClave = .porDefecto) {
+    /// `ventanaInicial` fija la ventana con la que abre y `caminoInicial` los detalles ya empujados (el arnés de capturas los pide, para
+    /// fotografiar la navegación de verdad); después manda el atleta: volver a la pestaña no reinicia la ventana.
+    init(bearer: String? = nil, hasCoach: Bool = true, onOpenTab: ((AppTab) -> Void)? = nil, ventanaInicial: VentanaClave = .porDefecto,
+         caminoInicial: [AnaliticasDestino] = []) {
         self.bearer = bearer
         self.hasCoach = hasCoach
         self.onOpenTab = onOpenTab
         _ventana = State(initialValue: ventanaInicial)
+        var camino = NavigationPath()
+        caminoInicial.forEach { camino.append($0) }
+        _camino = State(initialValue: camino)
     }
 
     private var slice: Slice<PanelAnaliticas> { store.panelAnaliticas(ventana) }
