@@ -137,7 +137,7 @@ struct StationDetailView: View {
     @ViewBuilder
     private func lastVsBenchmark(_ d: StationDetail) -> some View {
         if let last = d.last_time {
-            let severity = BenchmarkBarRow.Severity(wire: d.severity)
+            let severity = SeveridadCarrera(wire: d.severity)
             CardSurface(padding: 15, leftAccent: true) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .top) {
@@ -234,7 +234,7 @@ struct StationDetailView: View {
                         let latest = p.id == points.last?.id
                         VStack(spacing: 5) {
                             RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(latest ? severityColor(BenchmarkBarRow.Severity(wire: p.severity)) : Theme.Color.surfaceElevated)
+                                .fill(latest ? severityColor(SeveridadCarrera(wire: p.severity)) : Theme.Color.surfaceElevated)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: max(8, 60 * CGFloat(max(0, min(1, p.height)))))
                             MonoText(
@@ -280,7 +280,7 @@ struct StationDetailView: View {
 
     // MARK: - Color helpers
 
-    private func severityColor(_ s: BenchmarkBarRow.Severity) -> Color {
+    private func severityColor(_ s: SeveridadCarrera) -> Color {
         switch s {
         case .better:        return Theme.Color.ok
         case .slightlyWorse: return Theme.Color.warning

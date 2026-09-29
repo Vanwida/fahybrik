@@ -109,6 +109,9 @@ struct ImportedRace: Codable, Hashable, Identifiable {
     let best_run_lap_seconds: Int?
     let overall_rank: Int?
     let age_group_rank: Int?
+    /// Cuántos corrieron (el campo). Junto con `overall_rank` es lo que hace un puesto legible:
+    /// «412 de 1180». Antes no se decodificaba, y el puesto se quedaba sin su «de cuántos».
+    let field_size: Int?
     /// Up to 8 run laps (seconds), ordered run 1..8. AUDIT-B3 — null/absent → [].
     @LossyArray var run_splits: [Int]
     /// Up to 8 station splits (canonical index).
@@ -133,6 +136,7 @@ struct ImportedRace: Codable, Hashable, Identifiable {
         case best_run_lap_seconds = "bestRunLapSeconds"
         case overall_rank = "overallRank"
         case age_group_rank = "ageGroupRank"
+        case field_size = "fieldSize"
         case run_splits = "runSplits"
         case station_splits = "stationSplits"
         case partners
@@ -163,6 +167,13 @@ struct UpcomingRace: Codable, Identifiable, Hashable {
     let daysUntil: Int?
     /// 'target' | 'secondary' | 'tune_up'.
     let priority: String?
+    // Lo que el atleta eligió al fijarla y el servidor ya devolvía: la variante de una carrera de
+    // monte, la división a texto libre (CrossFit, categoría de un running), la distancia y si es
+    // homologada. Hay que decodificarlo para no tirar a la basura lo que se preguntó al fijar.
+    let objectiveVariant: String?
+    let divisionLabel: String?
+    let distanceMeters: Int?
+    let homologada: Bool?
 
     var id: Int { raceId }
 }
