@@ -33,6 +33,30 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 - El doble usa un 15 % y un 10 % de tinte donde iOS tiene el `softAlpha` (14 %): diferencia de un punto, el doble no se toca.
 
 
+## 2026-09-29 · Hoy en Swift: «El día» es la pestaña Inicio, una sola con y sin coach
+
+**El encargo:** portar el diseño firmado de «Hoy · El día» (doble `hoy-dia`, kit `kit-hoy`) a la pestaña Inicio sobre el kit de `Theme/Dia/`.
+
+**Decidido:**
+- **La vista PINTA una lectura; la decisión vive en tipos puros.** `Today/Hoy/`: `LecturaHoy` (espejo campo a campo del contrato del doble), `MomentoHoy` (la precedencia del sujeto, línea del día, «Contigo»; los 36 casos de `hoy-dia-momento.test.ts` traducidos a `MomentoHoyTests` sobre los mismos catorce atletas), `LecturaHoy+Fuentes` (de lo que la app YA lee a la lectura, con pruebas) y las piezas con el kit. `InicioView.swift` pasa de 1.632 líneas a una raíz de ~370 que solo conoce el `AppDataStore` y dice adónde lleva cada toque.
+- **Una sola pestaña.** `FreeInicioView` se borra: sin coach es la MISMA pantalla con `conCoach: false` (sujeto «Monta tu entreno de hoy», ninguna pieza de coach, ni vacía). La semana navegable del atleta libre no se pierde: vive en su Plan (`SemanaAtletaOperativa`).
+- **El check-in vive en el sujeto**, cinco toques (mismas preguntas y anclas que `CheckinView`, fuente única `CheckinPregunta.todas`), y guarda y envía por el MISMO camino (`CheckinAnswers.registrar`: `CheckinStore` + `CheckinAPI` con la cola sin conexión). El campo de notas no se pierde: «Añadir nota» abre una hoja corta con el mismo borrador y la nota viaja en el envío. La hoja larga sigue para las salidas donde el check-in no es el sujeto (plan en pausa, sin coach, error) y para Analíticas.
+- **Las tarjetas autocargadas pasan a filas de «Contigo»** con las mismas fuentes y la misma lógica de carga (`HoyModelo`): batería de tests, revisión con el coach, pareja en vivo, entreno guardado. El entreno minimizado en marcha lo lleva la barra del sistema; solo en iOS 26.0 (que no puede esconderla) se pinta la misma barra dentro del scroll.
+- **Se le añade al contrato del doble lo que la app real necesita:** un dato que no ha llegado es esqueleto, no vacío (`Disposicion.cargando`, `MarcaHoy.cargando`, `Pasos.leyendo`); los tests sin batería publicada no inventan «de cuántos» (`total` opcional); un descanso al final de la semana con la siguiente ya publicada no dice «nada publicado» (`hayMasPublicado`); la marca tiene sus tres caras (mejora, empeora, igual, primera).
+- **Conservado FUERA del diseño firmado:** «Tu pareja» (`PartnerTodayPanel`), vestido con los tokens del kit, tras «Contigo». El contrato no traía el dato; no se decidió quitarlo.
+- **El reloj no cambia:** el empuje del entreno de hoy a la muñeca sale de la vista a `HoyRelojPush`, con la misma lógica y solo con coach (como hasta ahora).
+
+**Retirado, con porqué:**
+- «Tu progreso · carrera» (tarjeta entera): el progreso vive en Analíticas; Hoy deja UNA marca (el 5 km).
+- `raceProximityCopy` («Confía en el trabajo hecho», «Afina y descansa», «Construyendo motor»): cableaba 7 y 21 días, que es método del coach.
+- La tarjeta de proyección como tarjeta propia: su línea («Simulación HYROX el sábado» / «Una simulación afina tu predicho») vive en el póster.
+- `TestBatteryCard` y `TestBatteryInicioSection`, `ReviewTodayCard` (la hoja de reserva, `ReviewSlotPickerSheet`, sigue), `FreeInicioView`, `SignalChip`, `TrendSparkline`: sustituidos por filas y piezas del kit.
+- La auto-apertura de la hoja del check-in al abrir Inicio (`CheckinStore.hasAutoPresentedToday`/`markAutoPresented`): el sujeto ES el check-in mientras está por hacer; abrir una hoja encima de él sería duplicarlo.
+- La tarjeta «¿Te pruebas?» del libre (`MarksLibraryView` sigue): ahora es la tesela «¿Te pruebas?» cuando no hay marca.
+
+**NO hacer:** volver a pintar en Hoy una tarjeta de progreso, un «Empezar» que lance el motor de la sesión del coach, o un número de días de carrera en la vista; ni una segunda pestaña Inicio para el tier libre.
+
+
 ## 2026-09-29 · Analíticas rehechas: el panel del coach (pestaña Rendimiento) y el editor del método
 
 **El encargo:** pintar el panel rehecho en la ficha del atleta con los componentes reales de `web/components/v2/analiticas/` (los ocho bloques y el detalle de sesión; el MISMO cálculo que el iPhone, `GET …/analytics/panel`), el editor del método de analíticas en Ajustes › Método y los umbrales declarados de un toque.
