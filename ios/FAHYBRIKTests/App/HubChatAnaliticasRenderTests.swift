@@ -42,26 +42,6 @@ final class HubChatAnaliticasRenderTests: XCTestCase {
     }
 
     @MainActor
-    func testTarjetaDeInicioPintaElContadorEnCeroSinInventarDenominador() {
-        // §6.2 bis — un contador se pinta EN CERO, que es cuando más falta hace.
-        // Y sin batería publicada no hay «de cuántos»: el denominador no se
-        // inventa, así que no aparece.
-        let imagen = render(centrado { TestBatteryCard(status: .empty) },
-                            nombre: "tests-tarjeta-atleta-nuevo")
-        XCTAssertNotNil(imagen)
-        XCTAssertFalse(BatteryStatus.empty.isScheduled)
-    }
-
-    @MainActor
-    func testTarjetaDeInicioConBateriaAMedias() {
-        let imagen = render(centrado { TestBatteryCard(status: Self.bateriaAMedias) },
-                            nombre: "tests-tarjeta-con-datos")
-        XCTAssertNotNil(imagen)
-        XCTAssertEqual(Self.bateriaAMedias.completed, 2)
-        XCTAssertEqual(Self.bateriaAMedias.total, 4)
-    }
-
-    @MainActor
     func testElContadorSeSostieneEnLosDosExtremos() {
         XCTAssertNotNil(render(centrado { CalibrationCounter(done: 0, total: nil, hero: true) },
                                nombre: "tests-contador-cero"))
@@ -204,36 +184,6 @@ final class HubChatAnaliticasRenderTests: XCTestCase {
     }
 
     // MARK: - Datos de prueba
-
-    private static let bateriaAMedias = BatteryStatus(
-        total: 4,
-        completed: 2,
-        tests: [
-            test(slug: "control_5k", label: "Test de 5K", captured: true),
-            test(slug: "remo_2k", label: "Remo 2K", captured: true),
-            test(slug: "sentadilla_1rm", label: "Sentadilla 1RM", captured: false, pending: true),
-            test(slug: "cooper", label: "Cooper 12'", captured: false),
-        ],
-        athleteWeightKg: nil
-    )
-
-    private static func test(slug: String, label: String,
-                             captured: Bool, pending: Bool = false) -> CalibrationTestStatus {
-        CalibrationTestStatus(
-            calibrationSlug: slug,
-            label: label,
-            assignmentId: "assign-\(slug)",
-            scheduledFor: "2026-07-30",
-            sessionStatus: captured ? "completed" : "scheduled",
-            resultCaptured: captured,
-            resultPending: pending,
-            resultLabel: captured ? "22:14" : nil,
-            capture: nil,
-            brief: nil,
-            jumpProfile: nil,
-            jumpReport: nil
-        )
-    }
 
     private static let periodo = ResolvedPeriod(
         key: "month", start_iso: "2026-06-30", end_iso: "2026-07-30",

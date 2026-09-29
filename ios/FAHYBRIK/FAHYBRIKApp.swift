@@ -25,11 +25,11 @@ struct FAHYBRIKApp: App {
             }
         }
         // EL ENLACE CON EL RELOJ SE ABRE AL ARRANCAR, no al pintar Inicio. Solo lo
-        // abría `InicioView` al empujar el día: un atleta sin coach (FreeInicioView)
-        // no lo abría nunca, el móvil no sabía que había reloj («Sin Apple Watch»
-        // en el brief) y lo que mandaba la muñeca no se leía. Y un arranque en
-        // segundo plano (la muñeca pide la sesión, entrega un entreno) tampoco lo
-        // tenía abierto.
+        // abría `InicioView` al empujar el día: un atleta sin coach (que no empuja
+        // el día a la muñeca) no lo abría nunca, el móvil no sabía que había reloj
+        // («Sin Apple Watch» en el brief) y lo que mandaba la muñeca no se leía. Y un
+        // arranque en segundo plano (la muñeca pide la sesión, entrega un entreno)
+        // tampoco lo tenía abierto.
         WatchConnectivityiOSService.shared.activate()
     }
 

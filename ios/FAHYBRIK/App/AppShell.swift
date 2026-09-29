@@ -44,7 +44,7 @@ struct AppShell: View {
     @Environment(AuthState.self) private var auth
     private var bearer: String? { auth.bearer }
     /// FREE tier switch (athlete without coach). False flips the shell to the
-    /// free surface: FreeInicioView as home, no chat cover, no chat headers,
+    /// free surface: Inicio reads `conCoach: false`, no chat cover, no chat headers,
     /// and every coach-flavored row downstream hidden via the same flag.
     private var hasCoach: Bool { auth.hasCoach }
 
@@ -78,16 +78,12 @@ struct AppShell: View {
         TabView(selection: $selection) {
             // Inicio is the only root without its own canvas — it relied on the old
             // shell background — so paint the brand canvas behind it here.
-            // COACHED → the verdict home; FREE → the free home (pantalla 2 del
-            // mockup): construir entreno · probarme · tu semana, no coach copy.
-            Group {
-                if hasCoach {
-                    InicioView(bearer: bearer, onOpenTab: { selection = $0 })
-                } else {
-                    FreeInicioView(bearer: bearer, onOpenTab: { selection = $0 })
-                }
-            }
-            .background(Theme.Color.background.ignoresSafeArea())
+            // ONE home for both tiers («Hoy · El día»): with a coach it is the day's
+            // portada; without one (`AuthState.hasCoach`) it is the same screen reading
+            // `conCoach: false` — the subject is «Monta tu entreno de hoy» and no coach
+            // piece is drawn.
+            InicioView(bearer: bearer, onOpenTab: { selection = $0 })
+                .background(Theme.Color.background.ignoresSafeArea())
             .tag(AppTab.inicio)
             .tabItem { Label(AppTab.inicio.title, systemImage: AppTab.inicio.symbol) }
 
