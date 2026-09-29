@@ -5,7 +5,7 @@
 -- HARD RULE Nº0. Lo que un entrenador competente pondría distinto nace como dato:
 --   · qué cambio entre dos periodos cuenta como cambio en un ergo, en fuerza, en
 --     una estación, en un WOD repetido o en un test (correr ya lo tenía:
---     `coach_running_thresholds.meaningful_gain_s_per_km`, y se sigue usando);
+--     `coach_running_thresholds.meaningful_gain_s_per_km`, que se sigue usando)
 --   · hasta cuántas reps se fía de una serie para estimar un 1RM (la FÓRMULA ya
 --     es suya en `coach_methodology.one_rm_estimation`, la misma con la que se
 --     guardan sus tests de fuerza: no se duplica aquí).
