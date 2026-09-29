@@ -164,21 +164,42 @@ struct FilaDeParteDelPlan: View {
     private var nombres: [String] { parte.estructural ? [] : parte.nombresVisibles }
     private var deMas: Int { parte.estructural ? 0 : parte.nombresDeMas }
 
+    private var punto: some View {
+        ModalityDot(modality: parte.modalidad, size: parte.estructural ? 8 : 10, tinta: tono == .accion ? tinta : nil)
+    }
+
+    private var titulo: some View {
+        Text(parte.titulo).papel(parte.estructural ? .cuerpo : .cuerpoFuerte).foregroundStyle(tinta)
+    }
+
+    private var recuento: some View {
+        Text(parte.ejercicios == 1 ? "1 ejercicio" : "\(parte.ejercicios) ejercicios")
+            .papel(.nota).monospacedDigit().foregroundStyle(tinta)
+    }
+
+    /// El título y cuántos ejercicios lleva, en una línea; con el texto muy grande el recuento baja debajo en vez de
+    /// partir el título por la mitad de una palabra («Calenta/miento»).
+    private var cabecera: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                punto
+                titulo.lineLimit(1).fixedSize(horizontal: true, vertical: false)
+                Spacer(minLength: Theme.Spacing.s)
+                recuento.fixedSize(horizontal: true, vertical: false)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 10) {
+                    punto
+                    titulo.frame(maxWidth: .infinity, alignment: .leading)
+                }
+                recuento.padding(.leading, 20)
+            }
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            if mostrarTitulo {
-                HStack(spacing: 10) {
-                    ModalityDot(modality: parte.modalidad, size: parte.estructural ? 8 : 10, tinta: tono == .accion ? tinta : nil)
-                    Text(parte.titulo)
-                        .papel(parte.estructural ? .cuerpo : .cuerpoFuerte)
-                        .foregroundStyle(tinta)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(parte.ejercicios == 1 ? "1 ejercicio" : "\(parte.ejercicios) ejercicios")
-                        .papel(.nota)
-                        .monospacedDigit()
-                        .foregroundStyle(tinta)
-                }
-            }
+            if mostrarTitulo { cabecera }
             if !nombres.isEmpty || deMas > 0 {
                 VStack(alignment: .leading, spacing: 5) {
                     ForEach(nombres, id: \.self) { nombre in
