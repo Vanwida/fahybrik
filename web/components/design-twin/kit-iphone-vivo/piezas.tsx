@@ -282,7 +282,7 @@ export function Chip({ texto, estado, icono, onPulsa }: { texto: string; estado:
 // Iconos — trazos propios (el lienzo del vivo no carga librerías)
 // ---------------------------------------------------------------------------
 
-export type NombreIcono = 'pausa' | 'reanudar' | 'terminar' | 'parar' | 'reloj' | 'gps' | 'maquina' | 'pulso' | 'mapa' | 'mas' | 'menos' | 'check' | 'estructura';
+export type NombreIcono = 'pausa' | 'reanudar' | 'terminar' | 'parar' | 'reloj' | 'gps' | 'maquina' | 'pulso' | 'mapa' | 'mas' | 'menos' | 'check' | 'estructura' | 'voz' | 'sin-voz';
 
 export function Icono({ nombre, talla = 24, tono = 'currentColor' }: { nombre: NombreIcono; talla?: number; tono?: string }) {
   const p = { fill: 'none', stroke: tono, strokeWidth: 2.2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -322,6 +322,20 @@ export function Icono({ nombre, talla = 24, tono = 'currentColor' }: { nombre: N
       );
     case 'mapa':
       return svg(<path d="M3.5 6.5v13l5.5-2.5 6 2.5 5.5-2.5v-13L15 6.5 9 4Zm5.5-2.5v13M15 6.5v13" {...p} />);
+    case 'voz':
+      return svg(
+        <>
+          <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4Z" fill={tono} />
+          <path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" {...p} />
+        </>,
+      );
+    case 'sin-voz':
+      return svg(
+        <>
+          <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4Z" fill={tono} />
+          <path d="M16 9.5l5 5M21 9.5l-5 5" {...p} />
+        </>,
+      );
     case 'mas':
       return svg(<path d="M12 5v14M5 12h14" {...p} strokeWidth={2.8} />);
     case 'menos':

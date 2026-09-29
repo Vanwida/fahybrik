@@ -234,18 +234,49 @@ struct VivoHojaTerminar: View {
 
 // MARK: - Pausa y terminado
 
-/// El velo de la pausa: el vivo se atenúa y «EN PAUSA» sobre el sujeto.
+/// El velo de la pausa: el vivo se atenúa y «EN PAUSA» sobre el sujeto. Debajo,
+/// cuándo se reanuda sola (si la pidió el atleta: `Vivo.quedaParaReanudar`) y la
+/// voz de los avisos, que se silencia o se devuelve aquí (el mismo ajuste que la
+/// vista vieja, `AudioCoachSettings`). Reanudar sigue siendo la franja.
 struct VivoVeloPausa: View {
+    /// Cuándo pidió el atleta la pausa. nil = no se reanuda sola (no se cuenta nada).
+    var desde: Date? = nil
+    @AppStorage(AudioCoachSettings.enabledKey) private var vozActiva = true
+
     var body: some View {
-        Text("EN PAUSA")
-            .font(.system(size: VivoTokens.TI.posicion, weight: .bold))
-            .tracking(2.6)
-            .foregroundStyle(VivoColor.tinta)
-            .padding(.horizontal, 18).padding(.vertical, 10)
-            .background(VivoColor.velo, in: RoundedRectangle(cornerRadius: VivoTokens.Radio.chip, style: .continuous))
-            .offset(y: -80)
-            .allowsHitTesting(false)
-            .transition(.opacity)
+        VStack(spacing: 14) {
+            Text("EN PAUSA")
+                .font(.system(size: VivoTokens.TI.posicion, weight: .bold))
+                .tracking(2.6)
+                .foregroundStyle(VivoColor.tinta)
+                .padding(.horizontal, 18).padding(.vertical, 10)
+                .background(VivoColor.velo, in: RoundedRectangle(cornerRadius: VivoTokens.Radio.chip, style: .continuous))
+                .allowsHitTesting(false)
+            if desde != nil {
+                TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                    if let n = Vivo.quedaParaReanudar(desde: desde, ahora: ctx.date) {
+                        VivoEtiqueta(texto: "sigue sola en \(n) s", tono: VivoColor.tinta)
+                            .padding(.horizontal, 12).padding(.vertical, 6)
+                            .background(VivoColor.velo, in: Capsule())
+                    }
+                }
+                .allowsHitTesting(false)
+            }
+            VivoBotonRedondo(nombre: vozActiva ? "Silenciar la voz" : "Activar la voz",
+                             talla: VivoTokens.TI.botonMenor.alto,
+                             accion: alternarVoz) {
+                VivoIcono(sistema: vozActiva ? "speaker.wave.2.fill" : "speaker.slash.fill", talla: 18)
+            }
+            VivoEtiqueta(texto: vozActiva ? "voz" : "voz apagada").allowsHitTesting(false)
+        }
+        .offset(y: -80)
+        .transition(.opacity)
+    }
+
+    private func alternarVoz() {
+        vozActiva.toggle()
+        if !vozActiva { AudioCoach.shared.stopSpeaking() }
+        Haptics.light()
     }
 }
 

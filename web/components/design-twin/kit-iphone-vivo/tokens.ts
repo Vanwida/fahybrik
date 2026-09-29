@@ -176,4 +176,6 @@ export const DURACION = {
   destelloMs: 380,
   /** La tarjeta del km recién hecho. */
   vueltaMs: 4000,
+  /** La pausa que pide el atleta se reanuda sola (espejo de `Vivo.reanudaSolaS`: 10 s, el valor de la vista vieja). */
+  reanudaSolaMs: 10000,
 } as const;

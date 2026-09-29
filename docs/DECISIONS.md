@@ -11,6 +11,21 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-29 · Tres huecos del vivo nuevo, cerrados: RX/Escalado al terminar, la pausa que sigue sola y la Estructura del circuito entera
+
+**Contexto.** La entrada de abajo (29-09) dejaba fuera tres cosas de la vista vieja. Se cierran en `claude/vivo-swift-release-2`.
+
+**Decidido:**
+1. **RX / Escalado se declara en el resumen post-entreno**, junto a la puntuación, una fila por bloque de la familia metcon (`PrescriptionScheme.isMetconFamily`: For Time, AMRAP, EMOM, Tabata, Death by, chipper, escalera, rondas, HYROX), fuera de calentamiento y vuelta a la calma y solo si el bloque dejó tramos (sin tramos no hay dónde guardarlo: el «Ya lo hice» manual no lo lleva). Mismo campo que el conmutador viejo: `rx_scaled` + `scaled_note` de cada tramo del bloque (`DeclaracionesRx`, `ManualSegmentOverlay.rxPorSegmento`). Se siembra con lo que sellaron las vueltas (el `rx` del motor). Un selector (`SelectorRx`) para el resumen y el conmutador viejo.
+2. **La pausa que pide el atleta se reanuda sola a los 10 s** (el valor de `ActiveWorkoutView.pauseAutoResume`), con «sigue sola en N s» en el velo. Es **mecanismo, no método** (cuánto aguanta el móvil una pausa sin respuesta no lo decide un entrenador): constante `Vivo.reanudaSolaS`, no dato del coach. Solo se arma con el Pausa de la franja: una sesión que vuelve pausada, u otra pausa, no se reanuda sola; abrir la hoja de terminar la desarma. **La voz** se silencia o se devuelve en el velo de la pausa (el mismo ajuste `AudioCoachSettings` que el cromo viejo, que solo lo ofrecía al correr; aquí, en todas las familias, porque el preaviso habla en todas).
+3. **La Estructura del circuito es la sesión entera**: los otros bloques como filas de la Estructura (con su salto), la ruta del circuito en su sitio (`Vivo.estructuraConCircuito`). Dentro de la ruta no se salta: sus estaciones son un solo segmento del motor.
+
+**Fuera:** el doble no lleva los chevrones de salto (tampoco en las demás familias); sus circuitos no tienen bloques detrás, así que solo pinta el calentamiento sobre la ruta.
+
+**NO hacer:** volver a pintar RX/Escalado dentro del vivo; convertir los 10 s en dato del coach; listar en la Estructura del circuito solo su tramo.
+
+---
+
 ## 2026-09-29 · El vivo nuevo del iPhone, encendido en Release: dobles, salidas y salto de tramo con el negocio del shell viejo
 
 **Contexto.** La bandera `VivoIphoneBandera` seguía apagada en Release porque al vivo nuevo le faltaban tres cosas que el recorrido real usaba de `RunLiveShellView` (entrada del 28-09). Se cubren con el MISMO negocio que la vista vieja (el motor no cambia) y el lenguaje del kit nuevo; la bandera pasa a ENCENDIDA en Debug y Release (rama `claude/vivo-swift-release`).

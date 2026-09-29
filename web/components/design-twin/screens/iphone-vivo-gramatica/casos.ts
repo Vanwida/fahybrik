@@ -177,7 +177,8 @@ export function casoDe(escenario: string): CasoIphone {
     }
     case 'pausa': {
       const c = casoCorrer('serie-dentro');
-      return { plan: c.datos.plan, sim: c.sim, inicio: { ...c.inicio, pausado: true }, dispositivos: MOVIL, guion: [{ en: 4000, gesto: 'reanudar' }] };
+      // La pausa la pide el atleta (el gesto, no el inicio): así se arma y se reanuda sola a los 10 s.
+      return { plan: c.datos.plan, sim: c.sim, inicio: c.inicio, dispositivos: MOVIL, guion: [{ en: 600, gesto: 'pausa' }] };
     }
     case 'reloj': {
       const c = casoCorrer('serie-dentro');

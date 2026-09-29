@@ -33,6 +33,8 @@ struct VivoGestoGuion: Equatable {
         case puntuacion(Int)
         /// Mantener Parar: abre la hoja de terminar (con sus salidas).
         case parar
+        /// Pausa / Reanudar de la franja (la pausa del atleta, que se reanuda sola).
+        case pausa
     }
     var en: TimeInterval
     var gesto: Gesto

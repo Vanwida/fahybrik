@@ -54,7 +54,8 @@ extension XCTestCase {
     /// pintar tras el último layout antes de volcar.
     @MainActor
     func fotografiarVivo(_ s: WorkoutSession, _ m: VivoMontaje, fotos: [VivoFoto], antesDeEsperar: TimeInterval = 0.4,
-                         asentar: TimeInterval = 0.2, trasMontar: (WorkoutSession) -> Void = { _ in }) {
+                         asentar: TimeInterval = 0.2, trasMontar: (WorkoutSession) -> Void = { _ in },
+                         trasFoto: (String, WorkoutSession) -> Void = { _, _ in }) {
         let pm5 = PM5ConnectionStore.shared
         let antes = (pm5.connectionState, pm5.live)
         if let monitor = m.monitor {
@@ -108,6 +109,7 @@ extension XCTestCase {
                 try? FileManager.default.createDirectory(at: destino, withIntermediateDirectories: true)
                 try? png.write(to: destino.appendingPathComponent("\(f.nombre).png"))
             }
+            trasFoto(f.nombre, s)
         }
     }
 }

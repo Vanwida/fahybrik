@@ -339,10 +339,23 @@ export function HojaTerminar({ resumen, onTerminar, onSeguir, salidas = {} }: { 
 // ---------------------------------------------------------------------------
 
 /** El velo de la pausa: el vivo se atenúa (se sigue viendo dónde estabas) y «EN PAUSA» sobre el sujeto. */
-export function VeloPausa() {
+/**
+ * El velo de la pausa: «EN PAUSA» sobre el sujeto; debajo, cuándo se reanuda
+ * sola (si la pidió el atleta: `desde`) y la voz de los avisos, que se silencia
+ * o se devuelve aquí. Reanudar sigue siendo la franja.
+ */
+export function VeloPausa({ desde = null, voz = true, onVoz }: { desde?: number | null; voz?: boolean; onVoz?: () => void }) {
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => {
+    if (desde == null) return;
+    const id = setInterval(() => setAhora(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [desde]);
+  const quedan = desde == null ? null : Math.max(0, Math.ceil((DURACION.reanudaSolaMs - Math.max(0, ahora - desde)) / 1000));
   return (
-    <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
       <span
+        aria-hidden
         style={{
           marginTop: -80,
           fontSize: TI.posicion.cuerpo,
@@ -356,6 +369,15 @@ export function VeloPausa() {
         }}
       >
         EN PAUSA
+      </span>
+      {quedan != null ? (
+        <span style={{ background: CI.velo, padding: '6px 12px', borderRadius: 999 }}>
+          <Etiqueta tono={CI.tinta}>{`sigue sola en ${quedan} s`}</Etiqueta>
+        </span>
+      ) : null}
+      <span style={{ pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+        <BotonRedondo nombre={voz ? 'Silenciar la voz' : 'Activar la voz'} talla={TI.botonMenor.alto} icono={<Icono nombre={voz ? 'voz' : 'sin-voz'} talla={18} />} onPulsa={onVoz} />
+        <Etiqueta>{voz ? 'voz' : 'voz apagada'}</Etiqueta>
       </span>
     </div>
   );
