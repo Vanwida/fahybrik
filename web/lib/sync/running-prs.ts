@@ -61,6 +61,7 @@ export async function detectExecutionRunningPRs(args: {
   // gives per-segment 1k pace; `by_exec` gives per-execution total run distance +
   // time for 3k/5k. The final select reads session (current) + prior (others) for
   // each distance in a single pass.
+  // tenancy: verified-owner — el atleta y la ejecución los fija la ingesta que llama, y la lectura se ata a we.athlete_id.
   const rows = await sql<EffortRow[]>`
     with run_segs as (
       select

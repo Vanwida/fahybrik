@@ -890,7 +890,6 @@
     {"archivo":"lib/sync/record-workout-execution.ts","huella":"34ec5b2fe2a9","tablas":["workout_executions"],"veces":1},
     {"archivo":"lib/sync/record-workout-execution.ts","huella":"78bce10b7d99","tablas":["segment_executions"],"veces":1},
     {"archivo":"lib/sync/record-workout-execution.ts","huella":"d8300435beb0","tablas":["workout_executions"],"veces":1},
-    {"archivo":"lib/sync/running-prs.ts","huella":"80dd652e310b","tablas":["exercises","segment_executions","template_segments","workout_executions"],"veces":1},
     {"archivo":"lib/wearables/status.ts","huella":"73800d6a772c","tablas":["wearable_connections"],"veces":1},
     {"archivo":"lib/wearables/token-store.ts","huella":"11a92f871c9b","tablas":["wearable_connections"],"veces":1},
     {"archivo":"lib/wearables/token-store.ts","huella":"126b48c1c8f4","tablas":["wearable_connections"],"veces":1},
