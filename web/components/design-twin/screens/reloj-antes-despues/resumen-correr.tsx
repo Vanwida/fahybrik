@@ -69,7 +69,7 @@ function UnDato({ a, ua }: { a: string; ua: string }) {
 }
 
 /** Las series de carrera de la parte principal, por bloque (las estaciones van en su propio resumen). */
-function bloquesDeSeries(pasos: PasoBase[]): PasoBase[][] {
+export function bloquesDeSeries(pasos: PasoBase[]): PasoBase[][] {
   const porBloque = new Map<number, PasoBase[]>();
   pasos
     .filter((p) => p.rol === 'trabajo' && p.fase === 'principal' && (p.posicion?.serie || p.posicion?.tramo) && p.clase !== 'estacion' && p.clase !== 'fuerza')
@@ -78,7 +78,7 @@ function bloquesDeSeries(pasos: PasoBase[]): PasoBase[][] {
 }
 
 /** % del tiempo dentro de lo que pide el objetivo a zona del paso principal: «98 % hasta Z2», «74 % en Z4». */
-function enZona(r: Resultado): { pct: string; donde: string } | null {
+export function enZona(r: Resultado): { pct: string; donde: string } | null {
   const o = principal(grupoPrincipal(filasDePasos(r.pasos)).paso);
   if (!o || o.eje !== 'zona' || o.max == null) return null;
   const techo = o.papel === 'techo' || o.avisa === 'solo-arriba';
