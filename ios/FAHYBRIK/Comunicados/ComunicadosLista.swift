@@ -36,7 +36,7 @@ struct ListaComunicados: View {
 
             if !bandeja.paraHacer.isEmpty {
                 seccion("Para hacer", aparte: InfoPill(text: DetalleDeFila.pendientes(bandeja.pendientesParaHacer), estilo: .velo)) {
-                    ListaDeFilasComunicado {
+                    ListaDia {
                         ForEach(bandeja.paraHacer) { c in filaParaHacer(c) }
                     }
                 }
@@ -45,7 +45,7 @@ struct ListaComunicados: View {
 
             if !bandeja.focos.isEmpty {
                 seccion("El foco") {
-                    ListaDeFilasComunicado {
+                    ListaDia {
                         ForEach(bandeja.focos) { foco in
                             FilaComunicado(comunicado: foco, lineasDeDetalle: nil) { onAbrir(foco) }
                         }
@@ -56,7 +56,7 @@ struct ListaComunicados: View {
 
             if !bandeja.notas.isEmpty {
                 seccion("Notas") {
-                    ListaDeFilasComunicado {
+                    ListaDia {
                         ForEach(bandeja.notas) { nota in
                             FilaComunicado(comunicado: nota) { onAbrir(nota) }
                         }
@@ -113,11 +113,11 @@ struct ListaComunicados: View {
             onAbrir: { onAbrir(pregunta) },
             pie: {
                 if !respondida {
-                    BotonAccionComunicado(titulo: "Responder", relleno: .acento, completa: true) { onAbrir(pregunta) }
+                    BotonAccionDia("Responder", relleno: .acento, completa: true) { onAbrir(pregunta) }
                 }
             }
         )
-        .tarjetaComunicado(realce: !respondida, alAncho: true)
+        .tarjetaDia(realce: !respondida, alAncho: true)
     }
 
     @ViewBuilder

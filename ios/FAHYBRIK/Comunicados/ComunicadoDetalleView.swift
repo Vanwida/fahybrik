@@ -110,7 +110,7 @@ struct NotaFinalComunicado: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(Theme.Spacing.l)
-            .tarjetaComunicado(realce: true, alAncho: true)
+            .tarjetaDia(realce: true, alAncho: true)
             .accessibilityElement(children: .combine)
         }
     }
@@ -181,7 +181,7 @@ struct ComunicadoTareaContenido: View {
         .anchoredAction {
             VStack(spacing: Theme.Spacing.s) {
                 if comunicado.puedeMarcarseHecho {
-                    BotonAccionComunicado(titulo: "Marcar hecho", relleno: .acento, completa: true, impacto: .medio, accion: onMarcarHecho)
+                    BotonAccionDia("Marcar hecho", relleno: .acento, completa: true, impacto: .medio, accion: onMarcarHecho)
                 }
                 Text(PieDeDetalle.tarea(comunicado))
                     .papel(.nota)
@@ -224,7 +224,7 @@ struct ComunicadoFocoView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     SujetoDia(tono: .acento, etiqueta: [comunicado.title, comunicado.body].compactMap { $0 }.joined(separator: ". ")) {
                         KickerDia("Foco")
-                        TituloDeSujeto(comunicado.title)
+                        TituloDia(comunicado.title, ajuste: .escalones)
                         if let cuerpo = comunicado.body, !cuerpo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             ApoyoDia(cuerpo)
                         }

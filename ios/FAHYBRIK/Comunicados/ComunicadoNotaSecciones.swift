@@ -24,7 +24,7 @@ struct SeccionDeNota: View {
                 CifraDeNota(seccion: seccion)
             } else {
                 if let etiqueta = seccion.label, !etiqueta.isEmpty {
-                    SubtituloComunicado(etiqueta)
+                    SubtituloDia(etiqueta)
                 }
                 cuerpo
             }
@@ -246,7 +246,7 @@ struct EnlaceCruzadoComunicado: View {
                 IconoDia(.chevron, tam: 18).foregroundStyle(Theme.Color.muted)
             }
             .padding(Theme.Spacing.l)
-            .tarjetaComunicado(realce: !enlace.resuelto, alAncho: true)
+            .tarjetaDia(realce: !enlace.resuelto, alAncho: true)
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleStyle(escala: 0.985))

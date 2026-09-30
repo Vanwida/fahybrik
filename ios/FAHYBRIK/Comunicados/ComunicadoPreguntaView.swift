@@ -57,7 +57,7 @@ struct ComunicadoPreguntaContenido: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                     SujetoDia(tono: .info, etiqueta: [comunicado.title, comunicado.body].compactMap { $0 }.joined(separator: ". ")) {
                         KickerDia(comunicado.anchorKind.etiqueta ?? "Pregunta")
-                        TituloDeSujeto(comunicado.title)
+                        TituloDia(comunicado.title, ajuste: .escalones)
                         if let cuerpo = comunicado.body, !cuerpo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             ApoyoDia(cuerpo)
                         }
@@ -156,7 +156,7 @@ struct OpcionPreguntaCard: View {
             }
             .padding(Theme.Spacing.l)
             .frame(minHeight: Theme.Size.toque + Theme.Spacing.l)
-            .tarjetaComunicado(realce: elegida, alAncho: true)
+            .tarjetaDia(realce: elegida, alAncho: true)
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleStyle(escala: 0.985))

@@ -98,7 +98,7 @@ struct ComunicadoProtocoloContenido: View {
     }
 
     private var tarjetaPasos: some View {
-        ListaDeFilasComunicado {
+        ListaDia {
             ForEach(pasos) { paso in
                 FilaPasoProtocolo(
                     paso: paso,
@@ -120,11 +120,11 @@ struct ComunicadoProtocoloContenido: View {
     private var pie: some View {
         VStack(spacing: Theme.Spacing.s) {
             if !cerrado {
-                BotonAccionComunicado(
-                    titulo: "Protocolo hecho",
+                BotonAccionDia(
+                    "Protocolo hecho",
                     relleno: .acento,
                     completa: true,
-                    inactivo: !completo,
+                    estado: completo ? .normal : .inactivo,
                     impacto: .medio,
                     accion: onMarcarHecho
                 )

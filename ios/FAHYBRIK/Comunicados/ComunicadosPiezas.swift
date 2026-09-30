@@ -109,7 +109,7 @@ struct InsigniaComunicado: View {
         case .venceHoy:
             IconoDia(.cronometro, tam: 18, peso: .bold).foregroundStyle(Theme.Color.warning)
         case .vencida:
-            IconoSF("exclamationmark.triangle", tam: 18, peso: .bold).foregroundStyle(Theme.Color.danger)
+            IconoDia(.alerta, tam: 18, peso: .bold).foregroundStyle(Theme.Color.danger)
         }
     }
 }
@@ -161,7 +161,7 @@ struct CabeceraComunicado<Accesorio: View>: View {
 
     var body: some View {
         HStack(spacing: Theme.Spacing.m) {
-            BotonCromoDia(etiqueta: "Volver a Del coach", accion: onVolver) { IconoSF("chevron.left", tam: 20) }
+            BotonCromoDia(etiqueta: "Volver a Del coach", accion: onVolver) { IconoDia(.atras, tam: 20) }
             VStack(alignment: .leading, spacing: 2) {
                 Text(comunicado.kind.etiqueta)
                     .papel(.etiqueta)
@@ -192,7 +192,7 @@ struct AvisoComunicado: View {
     var body: some View {
         let forma = RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous)
         HStack(alignment: .top, spacing: Theme.Spacing.m - 2) {
-            IconoSF("exclamationmark.triangle", tam: 20)
+            IconoDia(.alerta, tam: 20)
                 .foregroundStyle(Theme.Color.warning)
                 .padding(.top, 1)
             Text(texto)
@@ -232,7 +232,7 @@ struct AvisoEnvioComunicado: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
         case .fallido(let mensaje):
-            AvisoEnLineaComunicado(texto: mensaje)
+            AvisoEnLineaDia(mensaje)
         }
     }
 }
