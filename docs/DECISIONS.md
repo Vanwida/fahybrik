@@ -11,6 +11,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-30 · Cada canal de aviso es de una superficie; APNS en producción por fin configurado
+
+**El hueco:** un usuario que es coach y atleta (el caso de Alex, usuario 6 = atleta 64 del club 60) recibía «Tu plan está listo» en el panel del coach y nada en el iPhone. Dos causas: (1) `dispatchNotification` mandaba todo por APNS y por Web Push a la vez, así que el aviso del atleta llegaba al panel del coach; (2) las variables `APNS_*` de producción existían desde hacía 145 días con valor VACÍO y `sendPush` devolvía vacío sin rastro: 0 de 11 dispositivos registrados recibieron jamás un aviso.
+
+**Decidido:** cada aviso lleva `audience`: `athlete` sale solo por APNS (app del atleta), `coach` solo por Web Push (panel instalado). Un push que no se entrega (o APNS sin configurar) deja error en los registros (`captureRouteError`). Apple emite claves de APNS limitadas a un entorno: una clave solo producción (`APNS_KEY_ID`) y otra solo sandbox (`APNS_SANDBOX_KEY_ID`/`APNS_SANDBOX_PRIVATE_KEY`), porque las compilaciones desde Xcode registran tokens sandbox. Bundle `com.fahybrid.app`. Un token de otro bundle (`DeviceTokenNotForTopic`) se da por muerto.
+
+**No hacer:** no volver a mandar un aviso por un canal que no sea el de su superficie; no dejar un envío que falla sin dejar rastro; no configurar `APNS_*` con valores vacíos.
+
+---
+
 ## 2026-09-30 · Un plan de grupo se materializa entero; el fin de cadena y el margen de renovación son del coach
 
 **El hueco:** el 23-09 se quitó el botón que hacía avanzar la cadena y nada lo sustituyó: entrar en un grupo solo materializaba el primer programa (`advanceSequenceForAthlete` sin llamador). Un macrociclo de varios programas se dibujaba y no se entrenaba.

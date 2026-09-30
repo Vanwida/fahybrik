@@ -6,6 +6,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**AVISOS AL IPHONE: FUNCIONANDO (30-09, main `f94e28a0`, desplegado).** APNS de producción estaba vacío desde hace 145 días; ahora con clave de producción y de sandbox. Los avisos salen solo por el canal de su superficie (atleta→iPhone, coach→panel). Falta: que Alex confirme que le llegó la «Prueba de avisos» y el próximo «Tu plan está listo» en el iPhone.
+
 **COACH · CICLOS ENCADENADOS: ARREGLADO Y DESPLEGADO (30-09, main `075b5eb1`, migración 0283 aplicada).** Entrar en un grupo materializa toda la cadena; cron `renew-group-plans` (03:30) renueva repetir/subir de nivel con H días de margen (dato del coach, Ajustes › Plan del atleta); fin de cadena editable en la página del grupo. Además: editor sin pérdidas (descanso, cerrar día, línea sin ejercicio), importador que no pierde texto, previa y creación con el mismo criterio, aviso con fechas, Plan completo rotulado. Falta: verlo en pantalla (lo prueba el QA de Alex), asignar un plan a un atleta sin grupo, editor de cadena y tramo personal en la ficha, y que editar la estructura de un programa asignado (semanas) llegue a los atletas (hoy solo llega el contenido de los días). Detalle: `docs/auditoria-ciclos-coach.html`.
 **RELOJ · PÁGINA FIJA, ARO SOBRE EL CRISTAL Y HORA LIBRE (30-09, rama `reloj-fix-pantalla` sobre `integracion-reloj-lote2`, sin fusionar; DECISIONS 30-09).** La página elegida ya no vuelve sola a Paso (derogado); el aro sigue la forma real del cristal por talla (máscaras de Xcode) y se corta donde pasa la hora del sistema; el núcleo mide contra la hora real y las páginas usan la pantalla entera. Visto en 40, 46 y Ultra 3 mm; falta aparato y las tallas 41/45 mm.
 
