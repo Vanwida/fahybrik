@@ -30,7 +30,7 @@ import WatchKit
 
 struct MunecaVivo: View {
     let cuadro: Vivo.CuadroMuneca
-    /// El id del paso vivo: un paso nuevo devuelve la muñeca al Vivo, página Paso.
+    /// El id del paso vivo: un paso nuevo retira la pregunta de cierre pendiente (la selección no se toca).
     let alPaso: String
     let mandos: MunecaMandos
 
@@ -65,10 +65,15 @@ struct MunecaVivo: View {
         .overlay(alignment: .bottom) { puntosDeAreas }
         .background(MunecaPaleta.fondo.ignoresSafeArea())
         .overlay { preguntaDeCierre }
-        .onChange(of: alPaso) { _, _ in volverAlVivo() }
-        // Con la muñeca bajada el sistema ignora los deslizamientos: se vuelve sola al Vivo,
-        // y al subirla se empieza por la página Paso.
-        .onChange(of: cuadro.alwaysOn) { _, _ in volverAlVivo() }
+        // LA PÁGINA SE QUEDA DONDE EL ATLETA LA PUSO (orden de Alex, 30-09). Ni un paso nuevo, ni la
+        // muñeca bajada, ni un cuadro nuevo cada segundo la mueven: `area` y `pagina` viven aquí y
+        // solo los cambia un gesto suyo. Con la muñeca baja el sistema ignora los deslizamientos pero
+        // no los toques, así que no hace falta volver a ningún sitio.
+        .onChange(of: alPaso) { _, _ in cierrePendiente = nil }
+        // Única excepción: la página abierta ya no existe en esta familia (cambió la modalidad).
+        .onChange(of: cuadro.paginas) { _, paginas in
+            if !paginas.contains(pagina) { pagina = .paso }
+        }
         // La ventana se cierra (deshecho, o pasaron los 5 s): el siguiente cierre vuelve a poder avisar.
         .onChange(of: cuadro.deshacerS == nil) { _, sinVentana in if sinVentana { deshecho = false } }
     }
@@ -89,12 +94,6 @@ struct MunecaVivo: View {
         case .estructura: MunecaEstructura(pagina: cuadro.estructura)
         case .ejercicios: if let e = cuadro.ejercicios { MunecaEjercicios(pagina: e) }
         }
-    }
-
-    private func volverAlVivo() {
-        area = .vivo
-        pagina = .paso
-        cierrePendiente = nil
     }
 
     // MARK: - Cerrar un paso: pregunta si guardaría la sesión
@@ -154,7 +153,9 @@ struct MunecaVivo: View {
             MunecaFondo(tinte: cuadro.tinte).ignoresSafeArea()
             // Las páginas las dice el cuadro (correr 4, fuerza 3, ergo 4, WOD y circuito las suyas; con un dato enfocado, una sola).
             TabView(selection: paginaVisible) {
-                ForEach(cuadro.paginas, id: \.self) { p in paginaVista(p).tag(p) }
+                // Cada página mide TODA la pantalla: el paginador vertical la metía dentro del safe area del
+                // sistema (40 pt arriba y 26 abajo en 40 mm), y el núcleo ya descuenta él las safe areas.
+                ForEach(cuadro.paginas, id: \.self) { p in paginaVista(p).ignoresSafeArea().tag(p) }
             }
             .tabViewStyle(.verticalPage)
             .munecaCorona(activa: cuadro.corona != nil || cuadro.coronaPuntuacion,

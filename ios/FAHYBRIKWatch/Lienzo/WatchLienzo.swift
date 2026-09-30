@@ -40,16 +40,13 @@ struct WatchReloj: View {
     /// que hace Apple en su propia app de entreno y copiamos:
     ///   · quitar lo que se mueve (centésimas, animaciones, destellos),
     ///   · esconder los puntos de página,
-    ///   · **volver solo a la primera página**, para que al levantar la muñeca no
-    ///     te encuentres en la de pulso sin haberla pedido,
     ///   · y apagar los rellenos grandes: el HIG pide cambiar áreas llenas por
     ///     trazos y bajar el brillo, no repintar la pantalla de otro color.
     ///
-    /// Y una regla dura que cambia el diseño, no sólo el brillo: **con la muñeca
-    /// baja el sistema ignora los deslizamientos, pero NO los toques**. Así que
-    /// pasar de página deja de existir en atenuado — de ahí la vuelta a la
-    /// primera — mientras que el toque de «serie hecha» sigue funcionando, que es
-    /// justo el que hace falta con el brazo abajo.
+    /// **Con la muñeca baja el sistema ignora los deslizamientos, pero NO los
+    /// toques**: el toque de «serie hecha» sigue funcionando, que es justo el que
+    /// hace falta con el brazo abajo. La página NO se mueve sola: se queda en la
+    /// que el atleta eligió (orden de Alex, 30-09; derogada la vuelta a la primera).
     @Environment(\.isLuminanceReduced) private var atenuado
 
     private var paginaActiva: WatchPagina {
@@ -97,12 +94,6 @@ struct WatchReloj: View {
         // las dos. Se ignora sólo para pintar el color hasta el borde.
         .onChange(of: paginas.count) { _, _ in
             if indice >= paginas.count { indice = max(0, paginas.count - 1) }
-        }
-        // Bajas la muñeca → vuelves al sujeto. Igual que la app de Apple, que
-        // regresa sola a métricas: al levantar el brazo no puedes encontrarte en
-        // una página que no pediste y que ya no puedes abandonar deslizando.
-        .onChange(of: atenuado) { _, reducida in
-            if reducida { indice = 0 }
         }
     }
 
