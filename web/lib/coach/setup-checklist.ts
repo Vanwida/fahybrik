@@ -129,7 +129,8 @@ export function buildSetupChecklist(f: SetupFacts): SetupChecklist {
       href: '/atletas',
       detail:
         f.athletes_with_visible_week > 0
-          ? `${n(f.athletes_with_visible_week, 'atleta ve', 'atletas ven')} su semana`
+          ? // Mide lo que hay: atletas con alguna semana suya ya visible (cualquiera, no la de hoy).
+            `${n(f.athletes_with_visible_week, 'atleta tiene', 'atletas tienen')} alguna semana visible en su app`
           : 'Hasta que la publiques, no la ve en su app',
     },
   ];
