@@ -138,17 +138,10 @@ struct HoyContigo: View {
                 TituloSeccionDia("Contigo") {
                     InfoPill(text: items.count == 1 ? "1 cosa" : "\(items.count) cosas", estilo: .velo)
                 }
-                VStack(spacing: 0) {
-                    ForEach(Array(visibles.enumerated()), id: \.element.id) { i, fila in
-                        if i > 0 { Hairline() }
-                        filaView(fila)
-                    }
-                    if plegable {
-                        Hairline()
-                        botonDePliegue(resto: filas.count - Self.visiblesAlPlegar)
-                    }
+                ListaDia {
+                    ForEach(visibles) { filaView($0) }
+                    if plegable { botonDePliegue(resto: filas.count - Self.visiblesAlPlegar) }
                 }
-                .tarjetaDia()
             }
         }
     }
@@ -256,24 +249,11 @@ struct HoyContigo: View {
     // MARK: - Ver más / ver menos
 
     private func botonDePliegue(resto: Int) -> some View {
-        Button {
-            Haptics.light()
-            withAnimation(reduceMotion ? nil : Theme.Motion.reveal) { abierto.toggle() }
-        } label: {
-            HStack {
-                Text(abierto ? "Ver menos" : "Ver \(resto) más")
-                    .papel(.cuerpoFuerte)
-                    .foregroundStyle(Theme.Color.accentText)
-                Spacer(minLength: Theme.Spacing.m)
-                IconoDia(.chevron, tam: 18)
-                    .foregroundStyle(Theme.Color.accentText)
-                    .rotationEffect(.degrees(abierto ? -90 : 90))
-            }
-            .padding(.horizontal, Theme.Spacing.l)
-            .frame(minHeight: Theme.Size.toque)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle(escala: 0.99))
-        .accessibilityValue(abierto ? "Desplegado" : "Plegado")
+        BotonTextoDia(
+            abierto ? "Ver menos" : "Ver \(resto) más",
+            expandido: abierto,
+            accion: { withAnimation(reduceMotion ? nil : Theme.Motion.reveal) { abierto.toggle() } },
+            icono: { EmptyView() }
+        ) { GiroDia(abierto: abierto) }
     }
 }
