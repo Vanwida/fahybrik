@@ -2,9 +2,11 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-30** (analíticas del iPhone: detalle y cierre; reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin)
+Última actualización: **2026-09-30** (editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin)
 
 ## Ahora
+
+**EDITOR DE CORRER · ENTORNO, AVISO Y FRASE PARA EL RELOJ (30-09, worktree `agent-a1e4bc45135113ff8`, sin fusionar; DECISIONS 30-09).** El coach ya edita por tramo dónde se corre (calle, cinta con inclinación, pista), hacia dónde avisa (defecto = su método) y una frase de 80 caracteres. Guardado probado contra rama Neon. Falta: firma de Alex del layout, y el reloj aplicando `alert`.
 
 **iPhone · CARRERA EN HOY Y FILAS DE ANALÍTICAS (30-09, main, pendiente de build).** Sin coach la carrera fijada no se pintaba en Hoy; y remo/ski sin historial completo no abrían su detalle desde Progreso. Arreglado (DECISIONS 30-09). Falta verlo en aparato.
 
@@ -66,6 +68,7 @@ prod (a 24-09 faltaban; comprobar con el runner antes de asumir). Auditoría de 
 cómo llegas y espera del iPhone en `Views/Entrada/` (DECISIONS 29-09). Sin dato en el reloj y omitido: «GPS listo»/pulso, calle/cinta.
 FH-56 (enlace muñeca↔móvil lo dice Apple, build 100, nota `docs/pr/fh56-apple-link.md`).
 
+**RELOJ · CORRER, F5 SERVIDOR (29-09, rama `worktree-agent-af00ecda6d4b2f6be`, sin fusionar; migración 0282 SIN aplicar en prod; DECISIONS 29-09).** El método del coach de la muñeca (26 `wrist_*` + palabras del RPE) es dato con defecto, editable en Ajustes › Método «Reloj…», y viaja como `wrist_method` en el detalle de asignación; gramática con `environment`/`cue`/`alert`; decoder Swift listo. Falta: que el director del reloj lo consuma y la UI del coach para el entorno, el cue y el aviso por tramo.
 **LA MUÑECA (APPLE) SE REHACE Y EL RELOJ ES EL PRODUCTO (24-25-09; listón TrainingPeaks).** Auditoría `docs/reloj-muneca/`, diseño firmado
 `docs/el-reloj-primero/`. Hechas fases 0+1 (CI macOS, registro técnico 0273, sesión 180 d, cola sin caducidad, acuses) y las 6 propuestas
 `reloj-*` sobre `kit-reloj`. Falta firma de Alex → Swift (correr primero); exige M1–M8. PR #192 abierto: no fusionar sin 0270–0273 en prod. App del atleta: `docs/auditoria-app-atleta/`.

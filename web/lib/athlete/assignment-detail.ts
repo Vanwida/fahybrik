@@ -53,6 +53,7 @@ import {
 import type { AthleteZoneProfile } from '@fahybrid/shared/schema/methodology-system';
 import type { CircuitConfig } from '@fahybrid/shared/schema/program-templates';
 import { FREE_WORKOUT_MODALITIES, type FreeWorkoutModality } from '@/lib/athlete/free-workout-validate';
+import type { WristMethod } from '@fahybrid/shared/domain/coach/wrist-method';
 
 // A benchmark-slug → current-1RM lookup, built once per request from the
 // athlete's strength maxes (+ onboarding-benchmark backfill). Empty when the
@@ -103,6 +104,14 @@ export interface AssignmentDetailParams {
    * quien no, lo omite y sale `null`, que ya significa «usa tu suelo».
    */
   gradient_retires_pace_pct?: number | null;
+  /**
+   * El método del COACH del atleta para la muñeca al correr, ya resuelto por el
+   * llamador (`resolveAthleteWristMethod`). Mismo criterio que el umbral de
+   * pendiente: se resuelve UNA vez fuera, porque este cargador también lo usan
+   * los agregados del coach, que no lo miran. Omitido → la respuesta no lleva
+   * `wrist_method` y el reloj usa el suyo de reserva (los mismos números).
+   */
+  wrist_method?: WristMethod | null;
 }
 
 export interface AssignmentDetailResponse {
@@ -158,6 +167,16 @@ export interface AssignmentDetailResponse {
   // de carrera, o sin ejecutar) sale con sus resúmenes a cero y sus arrays
   // vacíos — vacío y declarado, jamás un veredicto inventado.
   run_compliance: RunComplianceResult;
+  /**
+   * El método del coach para la muñeca al correr (`shared/domain/coach/wrist-method`),
+   * EFECTIVO y completo: holguras y cadencia de los avisos, vuelta automática,
+   * dónde empieza una tirada, la puerta del calentamiento, el cierre y las palabras
+   * del RPE. El reloj llega aquí por `detailJson` (el cuerpo verbatim de esta
+   * respuesta), así que no hay un segundo canal. Ausente en las respuestas que el
+   * llamador no resolvió (lecturas del coach) y en las cacheadas antes de esta
+   * tanda: el decoder lo trata como opcional y el reloj cae a su reserva.
+   */
+  wrist_method?: WristMethod | null;
 }
 
 // What the athlete ACTUALLY did — the executed reality for a finished session.
@@ -711,6 +730,7 @@ export async function loadAssignmentDetail(
     template,
     segments,
     gradientRetiresPacePct: params.gradient_retires_pace_pct ?? null,
+    wristMethod: params.wrist_method,
     zoneProfiles,
     oneRms,
     anchors,
@@ -934,6 +954,9 @@ export function buildAssignmentDetail(input: {
   // (necesita DB). El constructor puro solo lo transporta hasta
   // `run_compliance`. Default null → «usa tu suelo», el comportamiento de hoy.
   gradientRetiresPacePct?: number | null;
+  // El método de la muñeca del coach, pre-resuelto por el llamador. Omitido → la
+  // respuesta no lleva `wrist_method`; `null` → lo lleva explícitamente vacío.
+  wristMethod?: WristMethod | null;
 }): AssignmentDetailResponse {
   const { assignment, execution, template, segments } = input;
   const gradientOpts = { gradient_retires_pace_pct: input.gradientRetiresPacePct ?? null };
@@ -973,6 +996,8 @@ export function buildAssignmentDetail(input: {
     // resúmenes vacíos — nunca un veredicto inventado sobre una sesión sin
     // prescripción que enseñar.
     run_compliance: buildRunCompliance(null, executionBlock?.segments ?? [], gradientOpts),
+    // Solo si el llamador lo resolvió: sin la clave, las respuestas de siempre son idénticas.
+    ...(input.wristMethod !== undefined ? { wrist_method: input.wristMethod } : {}),
   };
 
   // The executed block is independent of the template (a "marcar como hecha" log

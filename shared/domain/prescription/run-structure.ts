@@ -58,6 +58,7 @@ const CADENCE_MAX = 220; // spm ceiling
 const DISTANCE_MAX_M = 100_000; // 100 km — sanity ceiling for one segment
 const DURATION_MAX_S = 86_400; // 24 h — sanity ceiling for one segment
 const PACE_MAX_S = 36_000; // 10 h/km — a sanity ceiling, not a real pace
+export const RUN_CUE_MAX_LENGTH = 80; // «coaching corto»: una línea que cabe en la muñeca
 
 // ── Segment measure — how the work is MEASURED (distance | duration) ──────────
 // Field names (`m`, `s`) match the closed grammar verbatim so the wire reads as
@@ -86,6 +87,22 @@ export type SegmentTarget =
 
 export type SegmentKind = 'work' | 'recovery';
 
+// ── M3 · Dónde se corre (entorno) ──────────────────────────────────────────────
+// Calle, cinta o pista: sale de la PRESCRIPCIÓN, nunca se pregunta a mitad de
+// carrera. Decide quién mide (GPS o cinta) y el brief («Cinta 1 %»). La pista es
+// calle con GPS y una nota, y no lleva inclinación. Vocabulario del kit del reloj
+// (`Entorno`) y de Swift (`Vivo.Entorno`).
+export const RUN_ENVIRONMENTS = ['calle', 'cinta', 'pista'] as const;
+export type RunEnvironment = (typeof RUN_ENVIRONMENTS)[number];
+
+// ── M8 · Hacia dónde avisa el tramo (alert) ────────────────────────────────────
+// Dirección del aviso fuera de objetivo, razonada en INTENSIDAD (arriba = más
+// rápido, más pulso). `ninguno` = este tramo no vibra. Si falta, manda el defecto
+// del coach (`wrist_alert_continuous_zone` en un rodaje a zona; ambos sentidos
+// en una serie a ritmo; un tope solo avisa por arriba).
+export const RUN_ALERT_DIRECTIONS = ['arriba', 'abajo', 'ambos', 'ninguno'] as const;
+export type RunAlertDirection = (typeof RUN_ALERT_DIRECTIONS)[number];
+
 // How a recovery is taken. `parado` (standing rest) is measured in TIME, so a
 // `parado` recovery must carry a duration measure (enforced below).
 export type RecoveryMode = 'trote' | 'caminar' | 'parado';
@@ -98,6 +115,14 @@ export interface Segment {
   incline_pct?: number; // 0..15 — cinta / cuesta
   cadence_spm?: number; // 120..220 — optional cadence guide
   recovery_mode?: RecoveryMode; // recovery only; `parado` ⇒ duration measure
+  // M3 — dónde se corre este tramo. Ausente = como hoy (la muñeca asume calle).
+  environment?: RunEnvironment;
+  // M8 — coaching corto que llega a la muñeca («mirar el pulso»). NO es
+  // prescripción: no lleva números que el atleta tenga que cumplir ni se mide.
+  cue?: string;
+  // Hacia dónde avisa este tramo. Solo tiene sentido con algo que medir en vivo
+  // (ritmo, zona de ritmo, zona de FC). Ausente = el defecto del coach.
+  alert?: RunAlertDirection;
   // WIRE-READ ENRICHMENT (never authored, never persisted): the athlete wire
   // (assignment-detail) attaches the ABSOLUTE pace band the backend resolved for a
   // `pace_zone`/`hr_zone` target from the athlete's zone profile — the SAME source
@@ -172,6 +197,16 @@ const segmentSchema = z
     incline_pct: z.number().min(INCLINE_MIN).max(INCLINE_MAX).optional(),
     cadence_spm: z.number().int().min(CADENCE_MIN).max(CADENCE_MAX).optional(),
     recovery_mode: z.enum(['trote', 'caminar', 'parado']).optional(),
+    environment: z.enum(RUN_ENVIRONMENTS).optional(),
+    // Una línea, recortada: el texto del coach sin espacios ni saltos de línea de más.
+    cue: z
+      .string()
+      .trim()
+      .min(1, 'La frase del reloj no puede quedar vacía.')
+      .max(RUN_CUE_MAX_LENGTH, `La frase del reloj admite hasta ${RUN_CUE_MAX_LENGTH} caracteres.`)
+      .regex(/^[^\r\n]+$/, 'La frase del reloj va en una sola línea.')
+      .optional(),
+    alert: z.enum(RUN_ALERT_DIRECTIONS).optional(),
   })
   .strict();
 
@@ -214,6 +249,22 @@ function validateSegment(seg: Segment, ctx: z.RefinementCtx, path: (string | num
       code: z.ZodIssueCode.custom,
       path: [...path, 'measure'],
       message: "una recuperación 'parado' se mide en tiempo (duration)",
+    });
+  }
+  // La pista es plana: una inclinación en ella es un dato contradictorio.
+  if (seg.environment === 'pista' && seg.incline_pct !== undefined && seg.incline_pct > 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [...path, 'incline_pct'],
+      message: 'La pista no tiene inclinación: usa cinta o calle para una cuesta.',
+    });
+  }
+  // Un aviso necesita algo que medir en vivo. Un RPE o un tramo sin objetivo no lo tienen.
+  if (seg.alert !== undefined && (!seg.target || seg.target.type === 'rpe')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [...path, 'alert'],
+      message: 'Un aviso necesita un objetivo de ritmo, zona o pulso que medir.',
     });
   }
   // pace target must carry a value or a band, and min_s<=max_s.
@@ -317,6 +368,28 @@ export function parseRunStructure(value: unknown): RunStructure {
 }
 export function safeParseRunStructure(value: unknown) {
   return runStructureSchema.safeParse(value);
+}
+
+// Los campos de un tramo cuyo fallo se le dice al coach con las palabras del propio
+// modelo (entorno, aviso, frase, inclinación de la pista). Cualquier otro fallo es
+// del validador y no se le enseña tal cual.
+const COACH_READABLE_FIELDS: ReadonlySet<PropertyKey> = new Set(['environment', 'cue', 'alert', 'incline_pct']);
+
+/**
+ * Los mensajes en castellano de un fallo de entorno, aviso o frase de un tramo, sin
+ * repetir. Una sola fuente para el editor (que avisa antes de guardar) y para el
+ * servidor (que lo devuelve al guardar): el coach lee lo mismo en los dos sitios.
+ * Vacío = ningún fallo de los suyos.
+ */
+export function coachReadableSegmentIssues(issues: readonly z.ZodIssue[]): string[] {
+  const messages = new Set<string>();
+  for (const issue of issues) {
+    const field = issue.path[issue.path.length - 1];
+    if (field === undefined || !COACH_READABLE_FIELDS.has(field)) continue;
+    // Un enum o un rango de estos campos sale del validador, no del modelo: no se enseña.
+    if (issue.code === z.ZodIssueCode.custom || field === 'cue') messages.add(issue.message);
+  }
+  return [...messages];
 }
 
 // ── Tree helpers (shared by conversion, resolution, summary, tests) ───────────

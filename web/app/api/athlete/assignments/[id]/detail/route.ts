@@ -16,6 +16,7 @@ import { jsonError, jsonOk } from '@/lib/api/responses';
 import { sql } from '@/lib/db';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { resolveAthleteRunningThresholds } from '@/lib/coach/running-thresholds';
+import { resolveAthleteWristMethod } from '@/lib/coach/signal-thresholds';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,10 +38,16 @@ export async function GET(
     return jsonError('invalid_request', 'Invalid assignment id', 400);
   }
 
-  // El umbral de pendiente del coach, resuelto UNA vez aquí y no dentro del
-  // cargador: viaja en `run_compliance` para que la app deje de tener su propia
-  // constante del 3 %. Ver `shared/domain/running/gradient.ts`.
-  const thresholds = await resolveAthleteRunningThresholds(auth.athlete_id, sql);
+  // Lo del COACH, resuelto UNA vez aquí y no dentro del cargador:
+  //   · el umbral de pendiente viaja en `run_compliance` para que la app deje de
+  //     tener su propia constante del 3 %. Ver `shared/domain/running/gradient.ts`.
+  //   · el método de la muñeca al correr (avisos, vuelta automática, cierre,
+  //     palabras del RPE): el reloj lo lee de este mismo cuerpo. Siempre efectivo y
+  //     completo; un atleta sin coach o un entorno sin migrar recibe el de fábrica.
+  const [thresholds, wrist_method] = await Promise.all([
+    resolveAthleteRunningThresholds(auth.athlete_id, sql),
+    resolveAthleteWristMethod(auth.athlete_id, sql),
+  ]);
 
   const detail = await loadAssignmentDetail({
     sql,
@@ -50,6 +57,7 @@ export async function GET(
     // athlete's perspective for HYROX-simulation sessions.
     self_user_id: auth.user_id,
     gradient_retires_pace_pct: thresholds.gradient_retires_pace_pct,
+    wrist_method,
   });
 
   if (!detail) {

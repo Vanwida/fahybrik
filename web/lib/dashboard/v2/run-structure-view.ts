@@ -18,7 +18,9 @@ import type {
   SegmentMeasure,
   SegmentTarget,
 } from '@fahybrid/shared/domain/prescription';
-import { isRepeat } from '@fahybrid/shared/domain/prescription';
+import { coachReadableSegmentIssues, isRepeat, safeParseRunStructure } from '@fahybrid/shared/domain/prescription';
+import type { RunAlertDirection, RunEnvironment } from '@fahybrid/shared/domain/prescription/run-structure';
+import type { WristAlertDirection } from '@fahybrid/shared/domain/coach/wrist-method';
 
 // ── Formatting atoms ──────────────────────────────────────────────────────────
 
@@ -76,7 +78,22 @@ export function targetText(t: SegmentTarget | null): string {
 
 // ── The sentence ──────────────────────────────────────────────────────────────
 
-/** One segment as a sentence: "1000 m @ 4:30/km · 5% · 180 spm" / "rec 2' parado". */
+/** «cinta», «pista»: dónde se corre, en la palabra del coach. Calle se dice como «calle». */
+export const ENVIRONMENT_WORD: Record<RunEnvironment, string> = {
+  calle: 'calle',
+  cinta: 'cinta',
+  pista: 'pista',
+};
+
+/** Hacia dónde avisa un tramo, dicho corto para la frase del tramo. */
+export const ALERT_SENTENCE: Record<RunAlertDirection, string> = {
+  arriba: 'aviso por arriba',
+  abajo: 'aviso por abajo',
+  ambos: 'aviso en ambos sentidos',
+  ninguno: 'sin aviso',
+};
+
+/** One segment as a sentence: "1000 m @ 4:30/km · cinta · 5% · 180 spm · «mirar el pulso»" / "rec 2' parado". */
 export function segmentSentence(seg: Segment): string {
   const parts: string[] = [];
   if (seg.kind === 'recovery') {
@@ -87,10 +104,63 @@ export function segmentSentence(seg: Segment): string {
   } else {
     parts.push(measureText(seg.measure));
     parts.push(targetText(seg.target));
-    if (seg.incline_pct !== undefined) parts.push(`${trimZeros(seg.incline_pct)}%`);
-    if (seg.cadence_spm !== undefined) parts.push(`${seg.cadence_spm} spm`);
   }
+  // Lo que el tramo añade (mismo orden para trabajo y recuperación): dónde se
+  // corre, la pendiente, la cadencia, el aviso y la frase del coach.
+  if (seg.environment !== undefined) parts.push(ENVIRONMENT_WORD[seg.environment]);
+  if (seg.incline_pct !== undefined) parts.push(`${trimZeros(seg.incline_pct)}%`);
+  if (seg.kind === 'work' && seg.cadence_spm !== undefined) parts.push(`${seg.cadence_spm} spm`);
+  if (seg.alert !== undefined) parts.push(ALERT_SENTENCE[seg.alert]);
+  if (seg.cue !== undefined) parts.push(`«${seg.cue}»`);
   return parts.join(' · ').replace(' · @', ' @');
+}
+
+/** ¿El aviso por defecto de este tramo lo manda el método del coach? Solo un objetivo a zona. */
+export function alertNeedsMethod(target: SegmentTarget | null): boolean {
+  return target?.type === 'pace_zone' || target?.type === 'hr_zone';
+}
+
+const ALERT_EXPLAIN: Record<RunAlertDirection, string> = {
+  arriba: 'Vibra si va más rápido o con más pulso de lo pedido.',
+  abajo: 'Vibra si va más lento o con menos pulso de lo pedido.',
+  ambos: 'Vibra por los dos lados.',
+  ninguno: 'Este tramo no vibra.',
+};
+
+/**
+ * La línea que acompaña al aviso de un tramo. Con un aviso elegido, dice qué
+ * hace; sin elegir (`undefined`), dice qué pasa si el coach no lo toca, y eso
+ * sale de SU método (`wrist_alert_continuous_zone`, Ajustes › Método), no de una
+ * cifra del editor: un ritmo (exacto o banda) avisa por los dos lados, como una
+ * serie a ritmo; una zona (de ritmo o de pulso) manda su método. `method` es lo
+ * que tiene guardado ahora (null = todavía no se sabe: se dice sin inventar la
+ * cifra). Devuelve null si el tramo no tiene nada que medir (RPE o libre).
+ */
+export function alertHintText(
+  alert: RunAlertDirection | undefined,
+  target: SegmentTarget | null,
+  method: WristAlertDirection | null,
+): string | null {
+  if (!target || target.type === 'rpe') return null;
+  if (alert !== undefined) return ALERT_EXPLAIN[alert];
+  if (target.type === 'pace') return 'Si no eliges, avisa por arriba y por abajo del ritmo.';
+  if (method === null) return 'Si no eliges, manda tu método (Ajustes › Método).';
+  const como = ' Así lo tienes en Ajustes › Método.';
+  if (method === 'ninguno') return `Si no eliges, no avisa.${como}`;
+  if (method === 'arriba') return `Si no eliges, avisa solo por arriba.${como}`;
+  return `Si no eliges, avisa por arriba y por abajo.${como}`;
+}
+
+/**
+ * Lo que el servidor rechazaría de un tramo por su entorno, su aviso o su frase,
+ * dicho al coach. El editor no deja componer estos casos con sus controles
+ * (elegir pista quita la inclinación, un RPE suelta el aviso, la frase tiene
+ * tope), así que solo salen con un tramo que ya venía así de antes. Es el MISMO
+ * Zod que valida al guardar: aquí solo se lee, con sus mensajes en castellano.
+ */
+export function runStructureIssues(structure: RunStructure): string[] {
+  const parsed = safeParseRunStructure(structure);
+  return parsed.success ? [] : coachReadableSegmentIssues(parsed.error.issues);
 }
 
 /** An element (segment or repeat) as one line: "6 × 1000 m @ 4:30/km · rec 2' parado". */

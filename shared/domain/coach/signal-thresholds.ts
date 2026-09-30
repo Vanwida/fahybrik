@@ -34,7 +34,19 @@ export type ThresholdUnit =
   | 'rpe'
   | 'pct'
   | 'peso'
-  | 'escala10';
+  | 'escala10'
+  // La muñeca (0282): lo que se mide y las dos formas de elegir.
+  | 'segundos'
+  | 'metros'
+  | 'minutos'
+  | 'km'
+  | 'latidos'
+  | 'vatios'
+  | 'pasos'
+  /** 0 = no, 1 = sí: un interruptor. */
+  | 'si_no'
+  /** Un valor de una lista corta: el número es la posición (las palabras, en la pantalla). */
+  | 'sentido';
 
 /** Para agrupar en la pantalla de Método sin repetir la lista a mano. */
 export type ThresholdGroup =
@@ -48,7 +60,11 @@ export type ThresholdGroup =
   | 'disposicion'
   | 'progresion'
   | 'pausas'
-  | 'alta';
+  | 'alta'
+  | 'muneca_avisos'
+  | 'muneca_pasos'
+  | 'muneca_correr'
+  | 'muneca_cierre';
 
 export interface ThresholdSpec {
   default: number;
@@ -108,6 +124,25 @@ export interface ThresholdSpec {
  *   - Alta: avisa si llega con sueño ≤ 4/10 o estrés ≥ 7/10.
  * Magnitudes siempre positivas (el TSB «−25» se guarda 25): la pantalla no pide
  * signos ni decimales.
+ *
+ * La muñeca al correr (0282, `wrist_*`) — método del coach, no mecanismo del reloj:
+ *   - Avisos: la holgura por eje antes de contar como «fuera» (ritmo 3 s/km, pulso
+ *     2 ppm, 2 s/500 m, 10 W, 3 pasos/min), cada cuánto puede volver a avisar (20 s),
+ *     cuántos segundos seguidos fuera antes del primero (4 s), la gracia al entrar
+ *     en un paso a zona (45 s: el pulso va con retraso), si avisa en el calentamiento
+ *     y en la recuperación (no), y hacia dónde avisa un rodaje a zona cuando el tramo
+ *     no lo dice (`wrist_alert_continuous_zone`: 0 nunca, 1 solo por arriba, 2 los dos
+ *     sentidos; defecto 1, «el tope solo avisa por encima»).
+ *   - Preaviso del final de un paso (10 s o 100 m) y el paso más corto que lo lleva (30 s).
+ *   - Vuelta automática cada N metros (1000; 0 = apagada) y en qué clases de sesión
+ *     (rodaje y tirada), dónde empieza una tirada (75′ o 16 km) y hasta dónde llega
+ *     un stride (30″), y si de calentar a las series se pasa solo o hasta pulsar.
+ *   - Al terminar: qué fracción de una serie cortada a mano cuenta como hecha (90 %) y
+ *     tras cuántos minutos quieto se guarda sola una sesión que ya acabó (10).
+ *   Lo que sigue siendo MECANISMO y no está aquí: el techo de 20:00/km, los 10 m
+ *   mínimos para dar ritmo, la ventana de 10 s, los 5 s para deshacer y el
+ *   Always-On. Las palabras del RPE (`wrist_rpe_words`, 11 textos) no caben en un
+ *   número: viven en `wrist-method.ts`.
  */
 export const COACH_THRESHOLD_SPEC = {
   readiness_ok_min: { default: 67, min: 1, max: 100, unit: 'puntos', group: 'readiness' },
@@ -167,9 +202,40 @@ export const COACH_THRESHOLD_SPEC = {
   pause_budget_days: { default: 28, min: 0, max: 365, unit: 'dias', group: 'pausas' },
   intake_low_sleep_max: { default: 4, min: 1, max: 10, unit: 'escala10', group: 'alta' },
   intake_high_stress_min: { default: 7, min: 1, max: 10, unit: 'escala10', group: 'alta' },
+  // ── La muñeca al correr (0282). Defectos = los números que hoy llevan el kit
+  // (`REGLAS_AVISO_DEFECTO`, `METODO_RESUMEN_DEFECTO`) y `Vivo` en Swift. ───────
+  wrist_slack_pace_s: { default: 3, min: 0, max: 30, unit: 'segundos', group: 'muneca_avisos' },
+  wrist_slack_hr_bpm: { default: 2, min: 0, max: 20, unit: 'latidos', group: 'muneca_avisos' },
+  wrist_slack_split500_s: { default: 2, min: 0, max: 30, unit: 'segundos', group: 'muneca_avisos' },
+  wrist_slack_watts: { default: 10, min: 0, max: 100, unit: 'vatios', group: 'muneca_avisos' },
+  wrist_slack_cadence_spm: { default: 3, min: 0, max: 30, unit: 'pasos', group: 'muneca_avisos' },
+  wrist_alert_gap_s: { default: 20, min: 5, max: 300, unit: 'segundos', group: 'muneca_avisos' },
+  wrist_alert_confirm_s: { default: 4, min: 0, max: 30, unit: 'segundos', group: 'muneca_avisos' },
+  wrist_alert_zone_grace_s: { default: 45, min: 0, max: 300, unit: 'segundos', group: 'muneca_avisos' },
+  wrist_alert_in_warmup: { default: 0, min: 0, max: 1, unit: 'si_no', group: 'muneca_avisos' },
+  wrist_alert_in_recovery: { default: 0, min: 0, max: 1, unit: 'si_no', group: 'muneca_avisos' },
+  wrist_alert_continuous_zone: { default: 1, min: 0, max: 2, unit: 'sentido', group: 'muneca_avisos' },
+  wrist_prewarn_s: { default: 10, min: 0, max: 60, unit: 'segundos', group: 'muneca_pasos' },
+  wrist_prewarn_m: { default: 100, min: 0, max: 500, unit: 'metros', group: 'muneca_pasos' },
+  wrist_prewarn_min_step_s: { default: 30, min: 0, max: 300, unit: 'segundos', group: 'muneca_pasos' },
+  wrist_auto_lap_m: { default: 1000, min: 0, max: 10000, unit: 'metros', group: 'muneca_correr' },
+  wrist_auto_lap_rodaje: { default: 1, min: 0, max: 1, unit: 'si_no', group: 'muneca_correr' },
+  wrist_auto_lap_tirada: { default: 1, min: 0, max: 1, unit: 'si_no', group: 'muneca_correr' },
+  wrist_auto_lap_tempo: { default: 0, min: 0, max: 1, unit: 'si_no', group: 'muneca_correr' },
+  wrist_auto_lap_progresivo: { default: 0, min: 0, max: 1, unit: 'si_no', group: 'muneca_correr' },
+  wrist_auto_lap_carrera: { default: 0, min: 0, max: 1, unit: 'si_no', group: 'muneca_correr' },
+  wrist_long_run_min: { default: 75, min: 20, max: 300, unit: 'minutos', group: 'muneca_correr' },
+  wrist_long_run_km: { default: 16, min: 5, max: 60, unit: 'km', group: 'muneca_correr' },
+  wrist_stride_max_s: { default: 30, min: 5, max: 120, unit: 'segundos', group: 'muneca_correr' },
+  wrist_gate_manual: { default: 0, min: 0, max: 1, unit: 'si_no', group: 'muneca_correr' },
+  wrist_short_rep_done_pct: { default: 90, min: 50, max: 100, unit: 'pct', group: 'muneca_cierre' },
+  wrist_idle_save_min: { default: 10, min: 1, max: 60, unit: 'minutos', group: 'muneca_cierre' },
 } as const satisfies Record<string, ThresholdSpec>;
 
 export type CoachThresholdKey = keyof typeof COACH_THRESHOLD_SPEC;
+
+/** La vuelta automática más corta que tiene sentido: por debajo, el GPS aún no ha dado un ritmo. */
+export const WRIST_AUTO_LAP_MIN_M = 100;
 
 /** Los valores efectivos, uno por clave. */
 export type CoachThresholds = Record<CoachThresholdKey, number>;
@@ -290,6 +356,19 @@ export function thresholdIssues(t: CoachThresholds): ThresholdIssue[] {
     issues.push({
       key: 'progress_acr_low_pct',
       message: 'El límite de infraentrenado tiene que estar por debajo del de sobrecarga.',
+    });
+  }
+  // Muñeca: dos reglas, cada una dentro de SU grupo (un test lo vigila).
+  if (t.wrist_auto_lap_m > 0 && t.wrist_auto_lap_m < WRIST_AUTO_LAP_MIN_M) {
+    issues.push({
+      key: 'wrist_auto_lap_m',
+      message: `La vuelta automática se apaga con 0 o es de ${WRIST_AUTO_LAP_MIN_M} m en adelante.`,
+    });
+  }
+  if (t.wrist_prewarn_s > 0 && t.wrist_prewarn_min_step_s < 2 * t.wrist_prewarn_s) {
+    issues.push({
+      key: 'wrist_prewarn_min_step_s',
+      message: 'El paso más corto con preaviso tiene que durar al menos el doble del preaviso: si no, el aviso sería la mitad del paso.',
     });
   }
   return issues;

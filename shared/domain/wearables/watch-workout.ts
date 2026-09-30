@@ -39,6 +39,8 @@ import {
   isRepeat,
   type Element,
   type Phase,
+  type RunAlertDirection,
+  type RunEnvironment,
   type RunStructure,
   type Segment,
 } from '../prescription/run-structure';
@@ -84,6 +86,15 @@ export interface WatchStep {
    * Los codificadores sin control de pendiente la vuelcan al nombre.
    */
   incline_pct?: number;
+  /**
+   * Dónde se corre el tramo (M3) y el coaching del coach (M8), tal como los
+   * escribió. NO entran en el nombre ni en el objetivo: los codificadores de
+   * fabricante los ignoran, y un motor propio (Connect IQ) los lee de aquí.
+   * `alert` es hacia dónde avisa el tramo; ausente = el defecto del coach.
+   */
+  environment?: RunEnvironment;
+  cue?: string;
+  alert?: RunAlertDirection;
   /**
    * Etiqueta para el atleta. YA lleva incorporado todo lo que el objetivo no
    * puede expresar (RPE, zona sin resolver, modo de recuperación, inclinación),
@@ -265,6 +276,9 @@ function toWatchStep(
   };
   if (cadence) step.cadence = cadence;
   if (segment.incline_pct !== undefined) step.incline_pct = segment.incline_pct;
+  if (segment.environment !== undefined) step.environment = segment.environment;
+  if (segment.cue !== undefined) step.cue = segment.cue;
+  if (segment.alert !== undefined) step.alert = segment.alert;
   return step;
 }
 
