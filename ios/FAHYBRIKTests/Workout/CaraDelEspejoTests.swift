@@ -1,14 +1,13 @@
 import XCTest
 @testable import FAHYBRIK
 
-// QUÉ CARA PINTA EL ESPEJO (F2b): la pila nueva de la muñeca o todo lo de siempre. La decisión es
+// QUÉ CARA PINTA EL ESPEJO: la pila nueva de la muñeca o lo que la pila no cubre. La decisión es
 // una función pura (`CaraDelEspejo.decide`), así que se prueba sin SwiftUI ni reloj:
 //
-//   · nueva SOLO con cuadro + correr de corrido + bandera + fase que la cara nueva cubre;
-//   · móvil viejo, plan aún sin llegar, otra huella, otra modalidad, dobles, puerta de bloque,
-//     guardando y bandera apagada → la de siempre;
-//   · las transiciones (HYROX: carrera → estación → carrera; fin del entreno) y que el pager
-//     de la cara de siempre no se quede en una página que ya no existe al volver a él;
+//   · pila SOLO con cuadro + un paso que la pila cubre + una fase que la pila cubre;
+//   · móvil viejo, plan aún sin llegar, otra huella, lista de movilidad, puerta de bloque y
+//     guardando → sin pila (la puerta, la lista o «Grabando en la muñeca»);
+//   · las transiciones (un paso cubierto, una lista, el fin del entreno);
 //   · que «hay cuadro» (`estado == .vivo`) y «el espejo da un cuadro» son lo mismo.
 @MainActor
 final class CaraDelEspejoTests: XCTestCase {
@@ -16,99 +15,67 @@ final class CaraDelEspejoTests: XCTestCase {
     private typealias P = VivoPlanesDePrueba
     private let base = Date(timeIntervalSinceReferenceDate: 800_000_000)
 
-    /// Una trama como la escribe el móvil: solo cambia la fase, el tramo (formato y modalidad) y los dobles.
-    private func trama(fase: String = MirrorWire.Phase.active, formato: String = "intervals", modalidad: String = "run",
-                       dobles: Bool = false) throws -> MirrorStateFrame {
-        let relevo = dobles ? #","dobles":{"role":"partner","station":"SkiErg","selfSharePct":50}"# : ""
+    /// Una trama como la escribe el móvil: solo cambia la fase.
+    private func trama(fase: String = MirrorWire.Phase.active) throws -> MirrorStateFrame {
         let json = #"""
         {"phase":"\#(fase)","blockTitle":"Series","lineTitle":"1000 m","detailLine":"3:45–3:55 /km","progressText":"SERIE 2/6",
-         "sessionElapsed":845.5,"lapElapsed":62,"countdownRemaining":null,"targetZone":4,"isFinalStep":false\#(relevo),
-         "tramo":{"formato":"\#(formato)","modalidad":"\#(modalidad)","etiqueta":"Series","dosis":"1000 m","rondaN":2,"rondaTotal":6,
-                  "enDescanso":false,"cierre":"machineGoal","objetivoMedida":1000,"hechoMedida":340,"objetivoEsCalorias":false,
-                  "enTramoS":62,"ritmoSecPorKm":231,"objetivoLabel":"3:45–3:55","objetivoEstado":"tooFast","zonaViva":4,
-                  "tareaEsErgo":false,"recuperacionEnMovimiento":false,
-                  "forma":[{"trabajo":true,"peso":1},{"trabajo":false,"peso":0.4}],"formaIndice":0,"parte":"main"}}
+         "sessionElapsed":845.5,"lapElapsed":62,"countdownRemaining":null,"targetZone":4,"isFinalStep":false}
         """#
         return try MirrorWire.decoder.decode(MirrorStateFrame.self, from: Data(json.utf8))
     }
 
-    private func decide(bandera: Bool = true, espejo: Vivo.EspejoMuneca.Estado = .vivo, frame: MirrorStateFrame?,
+    private func decide(espejo: Vivo.EspejoMuneca.Estado = .vivo, frame: MirrorStateFrame?, cubre: Bool = true,
                         terminando: Bool = false) -> CaraDelEspejo {
-        // `cubre` sale del plan en la muñeca; aquí, con tramas escritas a mano, se toma del tramo (correr de corrido).
-        CaraDelEspejo.decide(bandera: bandera, espejo: espejo, frame: frame, cubre: frame.map(GuionDelEspejo.esRodajeLamina) ?? false, terminando: terminando)
+        CaraDelEspejo.decide(espejo: espejo, frame: frame, cubre: cubre, terminando: terminando)
     }
 
-    // MARK: - Cuándo manda la cara nueva
+    // MARK: - Cuándo manda la pila
 
-    func testCorrerDeCorridoConCuadroYBanderaPintaLaCaraNueva() throws {
+    func testUnPasoQueLaPilaCubreConCuadroPintaLaPila() throws {
         XCTAssertEqual(decide(frame: try trama()), .muneca)
-        // La misma puerta que la lámina de siempre: series de calle y rodaje son ambos correr.
-        XCTAssertEqual(decide(frame: try trama(formato: "steady")), .muneca)
-        XCTAssertEqual(decide(frame: try trama(formato: "sets")), .muneca)
     }
 
-    func testLasFasesQueLaCaraNuevaCubreYLaPuertaDeBloqueQueNo() throws {
+    func testLasFasesQueLaPilaCubreYLaPuertaDeBloqueQueNo() throws {
         for fase in [MirrorWire.Phase.active, MirrorWire.Phase.paused, MirrorWire.Phase.countIn, MirrorWire.Phase.finished] {
             XCTAssertEqual(decide(frame: try trama(fase: fase)), .muneca, "\(fase): el cuadro trae la pausa, el 3-2-1 y el «completada»")
         }
-        XCTAssertEqual(decide(frame: try trama(fase: MirrorWire.Phase.gate)), .deSiempre, "la puerta de un bloque sigue siendo la de siempre")
-        XCTAssertEqual(decide(frame: try trama(fase: "faseDeUnFuturo")), .deSiempre, "una fase que no conoce no la pinta la cara nueva")
+        XCTAssertEqual(decide(frame: try trama(fase: MirrorWire.Phase.gate)), .sinPila, "la puerta de un bloque no es de la pila")
+        XCTAssertEqual(decide(frame: try trama(fase: "faseDeUnFuturo")), .sinPila, "una fase que no conoce no la pinta la pila")
     }
 
-    // MARK: - Cuándo cae a la de siempre (y no inventa)
+    // MARK: - Cuándo no hay pila (y no inventa)
 
-    func testSinBanderaTodoEsComoHoy() throws {
-        XCTAssertEqual(decide(bandera: false, frame: try trama()), .deSiempre)
-    }
-
-    func testSinCuadroCaeALaDeSiempre() throws {
+    func testSinCuadroNoHayPila() throws {
         let f = try trama()
-        XCTAssertEqual(decide(espejo: .sinPlan, frame: f), .deSiempre, "móvil viejo: ni plan ni cursor")
-        XCTAssertEqual(decide(espejo: .sinCursor, frame: f), .deSiempre, "plan sin cursor en las tramas")
-        XCTAssertEqual(decide(espejo: .planDesconocido(hash: "ffff"), frame: f), .deSiempre, "cursor de un plan que la muñeca no tiene")
-        XCTAssertEqual(decide(frame: nil), .deSiempre, "aún no ha llegado ninguna trama")
+        XCTAssertEqual(decide(espejo: .sinPlan, frame: f), .sinPila, "móvil viejo: ni plan ni cursor")
+        XCTAssertEqual(decide(espejo: .sinCursor, frame: f), .sinPila, "plan sin cursor en las tramas")
+        XCTAssertEqual(decide(espejo: .planDesconocido(hash: "ffff"), frame: f), .sinPila, "cursor de un plan que la muñeca no tiene")
+        XCTAssertEqual(decide(frame: nil), .sinPila, "aún no ha llegado ninguna trama")
     }
 
     func testGuardandoManda() throws {
-        XCTAssertEqual(decide(frame: try trama(), terminando: true), .deSiempre, "«Guardando…» es de la capa de siempre")
+        XCTAssertEqual(decide(frame: try trama(), terminando: true), .sinPila, "«Guardando…» no es de la pila")
     }
 
-    func testOtraModalidadOtroFormatoYDoblesSonDeLaCaraDeSiempre() throws {
-        for modalidad in ["strength", "row", "ski", "bike", "functional"] {
-            XCTAssertEqual(decide(frame: try trama(formato: "sets", modalidad: modalidad)), .deSiempre, modalidad)
-        }
-        XCTAssertEqual(decide(frame: try trama(formato: PrescriptionScheme.emom.rawValue)), .deSiempre, "un EMOM de correr es del reloj de pared")
-        for ruta in [PrescriptionScheme.hyroxSim, .forTime, .chipper, .rounds, .ladder] {
-            XCTAssertEqual(decide(frame: try trama(formato: ruta.rawValue)), .deSiempre, "\(ruta): una ruta por estaciones")
-        }
-        XCTAssertEqual(decide(frame: try trama(dobles: true)), .deSiempre, "el relevo de dobles tiene pantalla propia")
+    func testUnaListaDeMovilidadNoLaPintaLaPila() throws {
+        XCTAssertEqual(decide(frame: try trama(), cubre: false), .sinPila)
     }
 
     // MARK: - Transiciones
 
-    /// HYROX: carrera → estación → carrera → fin. La cara sigue al tramo que dice el móvil en cada trama.
-    func testUnHyroxVaYVieneEntreLaCaraNuevaYLaDeSiempre() throws {
-        let recorrido: [(String, String, String, CaraDelEspejo)] = [
-            (MirrorWire.Phase.active, "intervals", "run", .muneca),          // carrera 1
-            (MirrorWire.Phase.active, "hyrox_sim", "ski", .deSiempre),       // estación
-            (MirrorWire.Phase.active, "intervals", "run", .muneca),          // carrera 2
-            (MirrorWire.Phase.paused, "intervals", "run", .muneca),          // pausa: el cuadro la trae
-            (MirrorWire.Phase.gate, "intervals", "run", .deSiempre),         // puerta del siguiente bloque
-            (MirrorWire.Phase.finished, "intervals", "run", .muneca),
+    /// Un paso cubierto, una lista, otra vez un paso cubierto, la puerta del siguiente bloque y el fin.
+    func testElEntrenoVaYVieneEntreLaPilaYLoQueLaPilaNoCubre() throws {
+        let recorrido: [(String, Bool, CaraDelEspejo)] = [
+            (MirrorWire.Phase.active, true, .muneca),     // un paso de la pila
+            (MirrorWire.Phase.active, false, .sinPila),   // una lista de movilidad
+            (MirrorWire.Phase.active, true, .muneca),     // otro paso
+            (MirrorWire.Phase.paused, true, .muneca),     // pausa: el cuadro la trae
+            (MirrorWire.Phase.gate, true, .sinPila),      // puerta del siguiente bloque
+            (MirrorWire.Phase.finished, true, .muneca),
         ]
-        for (fase, formato, modalidad, esperada) in recorrido {
-            XCTAssertEqual(decide(frame: try trama(fase: fase, formato: formato, modalidad: modalidad)), esperada, "\(fase) \(formato) \(modalidad)")
+        for (fase, cubre, esperada) in recorrido {
+            XCTAssertEqual(decide(frame: try trama(fase: fase), cubre: cubre), esperada, "\(fase) cubre=\(cubre)")
         }
-    }
-
-    /// Al salir de la cara nueva el pager de siempre no puede quedarse en una página que no existe: la
-    /// selección vuelve a Vivo (`RodajePagina.valida`) sea cual sea la que quedó abierta.
-    func testElPagerDeSiempreNuncaQuedaEnUnaPaginaInexistente() {
-        // Corrió con Datos abierto, la modalidad pasó a una estación (ya no es lámina): Datos no existe.
-        XCTAssertEqual(RodajePagina.valida(.datos, esLamina: false, atenuado: false), .vivo)
-        // Y con la muñeca bajada corriendo se vuelve a Vivo aunque Datos exista.
-        XCTAssertEqual(RodajePagina.valida(.datos, esLamina: true, atenuado: true), .vivo)
-        XCTAssertEqual(RodajePagina.valida(.controles, esLamina: true, atenuado: false), .controles)
     }
 
     // MARK: - «Hay cuadro» = «el espejo da un cuadro»
@@ -147,16 +114,14 @@ final class CaraDelEspejoTests: XCTestCase {
         coherente("trama sin cursor")
     }
 
-    /// Con un espejo real, la decisión da la cara nueva en una sesión de correr y la de siempre sin plan.
+    /// Con un espejo real, la decisión da la pila en una sesión de correr y nada sin plan.
     func testConUnEspejoRealLaDecisionSigueAlCuadro() throws {
         let s = try sesion()
         let f = try viaje(PhoneLiveSession.shared.buildFrame(from: s))
-        XCTAssertTrue(GuionDelEspejo.esRodajeLamina(f), "la sesión de prueba es correr de corrido")
         var espejo = Vivo.EspejoMuneca()
-        XCTAssertEqual(decide(espejo: espejo.estado, frame: f), .deSiempre, "sin plan aún")
+        XCTAssertEqual(decide(espejo: espejo.estado, frame: f, cubre: espejo.cubreLaMuneca), .sinPila, "sin plan aún")
         espejo.recibirPlan(try viaje(MirrorPlanVivo(plan: Vivo.planDe(s), entorno: s.runEnvironment)))
         espejo.recibirTrama(f, en: base)
-        XCTAssertEqual(decide(espejo: espejo.estado, frame: f), .muneca)
-        XCTAssertEqual(decide(bandera: false, espejo: espejo.estado, frame: f), .deSiempre)
+        XCTAssertEqual(decide(espejo: espejo.estado, frame: f, cubre: espejo.cubreLaMuneca), .muneca)
     }
 }

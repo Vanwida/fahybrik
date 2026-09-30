@@ -12,16 +12,26 @@ import SwiftUI
 
 /// La columna de toda cara: safe areas del reloj (arriba la hora del sistema),
 /// centrada, sin scroll, con el aire entre filas del kit.
+///
+/// La columna cuelga del borde de arriba: si una cara pesa más de lo que mide el núcleo (un texto que
+/// envuelve en un reloj estrecho), lo que sobra se sale por ABAJO. Un marco flexible centraba el exceso y la
+/// primera fila subía hasta pisar la hora del sistema, arriba a la derecha.
 struct MunecaColumna<Contenido: View>: View {
     var alineacion: HorizontalAlignment = .center
     @ViewBuilder var contenido: () -> Contenido
 
+    @Environment(\.munecaMedidas) private var medidas
+
     var body: some View {
-        VStack(alignment: alineacion, spacing: CGFloat(Vivo.huecoFila), content: contenido)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, CGFloat(Vivo.MedidasMuneca.arribaSafe))
-            .padding(.bottom, CGFloat(Vivo.MedidasMuneca.abajoSafe))
-            .padding(.horizontal, CGFloat(Vivo.MedidasMuneca.ladoSafe))
+        Color.clear
+            .overlay(alignment: .top) {
+                VStack(alignment: alineacion, spacing: CGFloat(Vivo.huecoFila), content: contenido)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, CGFloat(medidas.arriba))
+                    .padding(.bottom, CGFloat(Vivo.MedidasMuneca.abajoSafe))
+                    .padding(.horizontal, CGFloat(Vivo.MedidasMuneca.ladoSafe))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

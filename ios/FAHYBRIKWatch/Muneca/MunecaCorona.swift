@@ -1,9 +1,10 @@
 import SwiftUI
 
-// LA CORONA DEL DATO — con un dato de la anotación encendido, la corona es SUYA: cada
-// muesca sube o baja el dato una vez (`Vivo.AnotarMuneca.girar`) y la pila se queda en una
-// página (el cuadro trae `paginas == [.paso]`), así que no compite con el paso de páginas.
-// Sin dato encendido, esta pieza no toca nada y la corona pasa página como siempre.
+// LA CORONA DEL DATO — con un dato de la anotación encendido (o en la campana de un AMRAP), la
+// corona es SUYA: cada muesca sube o baja el dato una vez (`Vivo.AnotarMuneca.girar`, las reps de
+// la puntuación) y la pila se queda en una página (el cuadro trae `paginas == [.paso]`), así que
+// no compite con el paso de páginas. Sin dato encendido, esta pieza no toca nada y la corona pasa
+// página como siempre.
 //
 // Solo con aparato: la corona anidada (la dirección de la muesca y su sensibilidad).
 
@@ -26,9 +27,9 @@ private struct MunecaCoronaDelDato: ViewModifier {
 }
 
 extension View {
-    /// Con `campo` encendido la corona gira ese dato; sin él, no hace nada (la corona pasa página).
+    /// Con un dato encendido (`activa`) la corona gira ese dato; sin él, no hace nada (la corona pasa página).
     @ViewBuilder
-    func munecaCorona(_ campo: Vivo.CampoAnotar?, alGirar: ((Int) -> Void)?) -> some View {
-        if campo != nil, let alGirar { modifier(MunecaCoronaDelDato(alGirar: alGirar)) } else { self }
+    func munecaCorona(activa: Bool, alGirar: ((Int) -> Void)?) -> some View {
+        if activa, let alGirar { modifier(MunecaCoronaDelDato(alGirar: alGirar)) } else { self }
     }
 }

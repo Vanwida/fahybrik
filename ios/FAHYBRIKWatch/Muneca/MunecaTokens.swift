@@ -122,6 +122,9 @@ enum MunecaForma {
     static let puntoAire: CGFloat = 8
     static let puntoBaja: CGFloat = 5
     static let huecoEstructura: CGFloat = 8
+    /// Una marca por ronda del Tabata: el punto y el aire entre puntos (la fila mide `Vivo.Fila.pista`).
+    static let marcaRonda: CGFloat = 8
+    static let marcaRondaAire: CGFloat = 6
     /// La interlínea de SF sobre el cuerpo, y el aire entre la línea de una fila de lista y su detalle.
     static let interlinea: Double = 1.2
     static let huecoLineasLista: Double = 2
@@ -141,6 +144,10 @@ enum MunecaForma {
     static let opacidadLuego: Double = 0.7
     /// El recorrido del contador de muescas de la corona del dato (solo cuenta muescas, no es un valor).
     static let recorridoCorona: Double = 1000
+
+    /// El aviso de deshacer: el aire entre lo que se cerró y «Deshacer», y el alto de su barra que se vacía.
+    static let huecoDeshacer: CGFloat = 3
+    static let altoBarraDeshacer: CGFloat = 2
 
     /// Lo que se apaga la página cuando hay pausa: el dato no desaparece, se apaga.
     static let opacidadPausa: Double = 0.32

@@ -172,11 +172,26 @@ extension Vivo {
     // MARK: - La acción del momento
 
     /// La acción primaria de la muñeca: «Confirmar» mientras el descanso anota (y «Listo» tras confirmar, que
-    /// vuelve al resumen), y después la de siempre. El doble toque, el botón y la mano llaman a la misma.
-    static func clavePrimariaMuneca(_ e: EstadoVivo, _ a: AnotarMuneca) -> ClavePrimaria? {
+    /// vuelve al resumen), después la del WOD y la del circuito (su vocabulario) y por último la de siempre. El doble
+    /// toque, el botón y la mano llaman a la misma.
+    static func clavePrimariaMuneca(_ e: EstadoVivo, _ a: AnotarMuneca, _ w: EstadoWod = EstadoWod()) -> ClavePrimaria? {
         if e.terminado { return nil }
         if let d = a.descansoQueAnota(e), d.vista != .resumen { return .confirmar }
-        return clavePorDefecto(e.paso)
+        let p = e.paso
+        if p.wod != nil { return clavePrimariaWod(p, w) }
+        if p.circuito != nil, let c = claveCircuito(p) { return c }
+        return clavePorDefecto(p)
+    }
+
+    /// ¿La acción solo MARCA algo y no cierra el paso? «Hecho» de una ventana que se marca (EMOM, death by) y «+1 ronda»:
+    /// no piden «¿Terminar y guardar?» aunque sea el último paso. «Vuelta», «Confirmar» y «Guardar» (la campana, que ya es
+    /// el cierre y se dice con su propia acción) tampoco.
+    static func marcaSinCerrar(_ clave: ClavePrimaria?, _ p: Paso) -> Bool {
+        clave == .rondaHecha || (clave == .hecho && seMarca(p))
+    }
+
+    static func noCierraNada(_ clave: ClavePrimaria?, _ p: Paso) -> Bool {
+        clave == .vuelta || clave == .confirmar || clave == .guardar || marcaSinCerrar(clave, p)
     }
 
     // MARK: - Lo que se pinta

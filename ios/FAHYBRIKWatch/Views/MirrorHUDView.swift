@@ -1,144 +1,55 @@
 import SwiftUI
 
-// The wrist HUD for MIRROR mode. Builder owns elapsed / HR / kcal / distance.
-// Phone frames decorate the coach script (title, next station, advance).
-// States = Apple's `session.state × link`: PRIMARY without a frame → Grabando
-// en la muñeca (with «Sin conexión» when Apple says the phone is gone). There
-// is no HUD without a session and no «Conectando…» (FH-56).
+// LA MUÑECA EN ESPEJO: el móvil lleva el motor y la muñeca pinta.
+//
+// Con plan y cursor del móvil, la muñeca pinta la MISMA pila que en solitario (`MunecaEspejo`, decidido por
+// `CaraDelEspejo`): correr, fuerza, ergo, WOD, circuito y dobles, con pausa, descanso, 3-2-1 y «sesión completada»
+// dentro del cuadro. Este fichero solo lleva lo que la pila no cubre:
+//
+//   · «Guardando…» mientras la muñeca cierra la grabación (`isEnding`);
+//   · «Grabando en la muñeca» antes de la primera trama (el móvil aún no ha dicho nada);
+//   · la puerta de un bloque, que espera «Empezar»;
+//   · la lista de un calentamiento o una vuelta a la calma: el título, el reloj y «Siguiente».
+//
+// Estados = `session.state × link` de Apple: PRIMARY sin trama → Grabando en la muñeca (con «Sin conexión» si Apple
+// dice que el móvil se fue). No hay HUD sin sesión ni «Conectando…» (FH-56).
 struct MirrorHUDView: View {
     let owner: WatchPrimaryOwner
 
-    // La página elegida, por ETIQUETA y no por índice: corriendo son tres
-    // (Datos | Vivo | Controles), el resto dos (Vivo | Controles). Arranca en Vivo.
-    @State private var pagina: RodajePagina = .vivo
-    @State private var lastZoneHapticAt: Date = .distantPast
-    /// Local 3-2-1 ceil last felt — the count-in re-bases between frames, so
-    /// ticks must fire here when the displayed second changes, not only when a
-    /// phone frame lands (phone timers die in background).
-    @State private var lastCountInCeil: Int? = nil
-    /// TIME Recupera already sent `advance` for this window. Not a rest clock.
-    @State private var firedTimedRest: MirrorTimedRest.Window? = nil
-    /// La muñeca bajada. El lienzo lo resuelve para el vivo; aquí se aplica a las
-    /// dos capas que lo tapan (pausa y descanso), que no pasan por él.
+    /// La muñeca bajada: se aplica a la capa de pausa, que no pasa por la pila.
     @Environment(\.isLuminanceReduced) private var atenuado
 
     var body: some View {
-        // F2b — con el cuadro del espejo y correr de corrido (y la bandera encendida), la pila NUEVA de la
-        // muñeca (la misma que en solitario). Si no, TODO lo de siempre, sin tocar: `CaraDelEspejo` decide.
-        // Con la cara nueva mandando no existe nada de lo de abajo, así que sus hápticos locales
-        // (`cueTick`, `cueGo`, el aviso de zona) no suenan: vibra el director de la muñeca (`MunecaDirector`), y
-        // `Vivo.PoliticaHaptica` calla lo heredado mientras la cara nueva está en pantalla.
-        if owner.caraDelEspejo == .muneca {
+        // SOLO `isEnding` enseña «Guardando…» — FH-97: deadline 5s NUNCA se cancela al empezar el save; la UI vuelve
+        // a idle aunque finishWorkout cuelgue. Con la cara nueva mandando, sus hápticos los toca el director de la
+        // muñeca (`MunecaDirector`) y `Vivo.PoliticaHaptica` calla lo heredado.
+        if owner.isEnding {
+            MirrorSavingOverlay()
+        } else if owner.caraDelEspejo == .muneca {
             MunecaEspejo(owner: owner)
         } else {
-            paginasDeSiempre
-        }
-    }
-
-    /// Lo de hoy: Datos | Vivo | Controles al correr, Vivo | Controles en el resto.
-    private var paginasDeSiempre: some View {
-        TabView(selection: seleccion) {
-            if esLamina, let f = frame {
-                datosPage(f).tag(RodajePagina.datos)
+            TabView {
+                sinPila
+                MirrorHUDControlsPage(owner: owner, phase: phase)
             }
-            livePage.tag(RodajePagina.vivo)
-            controlsPage.tag(RodajePagina.controles)
+            .tabViewStyle(.page)
         }
-        // Corriendo, los tres puntos son los de la lámina (`RodajePuntos`) y el
-        // índice del sistema se apaga para no duplicarlos — igual que
-        // `LiveFlowView`. El resto del espejo se queda con el del sistema.
-        .tabViewStyle(.page(indexDisplayMode: esLamina ? .never : .automatic))
-        // Cambia la modalidad con Datos abierto (HYROX: tramo de carrera →
-        // estación) o bajas la muñeca: se vuelve a Vivo, no se queda una página
-        // que ya no existe o que no se puede abandonar deslizando.
-        .onChange(of: esLamina) { _, _ in reconciliaPagina() }
-        .onChange(of: atenuado) { _, _ in reconciliaPagina() }
     }
 
-    /// Correr con trama: la lámina de tres páginas.
-    private var esLamina: Bool {
-        frame.map(GuionDelEspejo.esRodajeLamina) ?? false
-    }
+    // MARK: - Lo que la pila no cubre
 
-    /// La selección, ya validada: nunca una página que no existe ahora mismo.
-    private var seleccion: Binding<RodajePagina> {
-        Binding(
-            get: { RodajePagina.valida(pagina, esLamina: esLamina, atenuado: atenuado) },
-            set: { pagina = $0 }
-        )
-    }
-
-    private func reconciliaPagina() {
-        pagina = RodajePagina.valida(pagina, esLamina: esLamina, atenuado: atenuado)
-    }
-
-    // MARK: - Live page
-
-    private var livePage: some View {
+    private var sinPila: some View {
         ZStack {
-            // Fondo siempre — si no hay frame el `activeContent` devolvía
-            // EmptyView y el TabView pintaba NEGRO puro (el caso del libre de
-            // fuerza: el reloj ya está en espejo y el iPhone aún no ha empujado
-            // la primera trama, o la perdió).
+            // Fondo siempre: sin trama el contenido es vacío y el TabView pintaba NEGRO puro.
             WatchTheme.bg.ignoresSafeArea()
-
-            // SOLO `isEnding` enseña «Guardando…» — FH-97: deadline 5s NUNCA se
-            // cancela al empezar el save; la UI vuelve a idle aunque finishWorkout cuelgue.
-            // La fase `finished` del frame venía del MÓVIL y
-            // podía quedarse sin su `end` detrás (p.ej. la ventana de recuperación
-            // de un test retrasa el cierre 90 s): el reloj mostraba un spinner
-            // infinito que mentía, sin guardar nada y sin escape — los frames
-            // seguían llegando y el watchdog nunca ofrecía la salida local. Con la
-            // fase final y sin cierre, se sigue enseñando el último estado real.
-            if owner.isEnding {
-                MirrorSavingOverlay()
-            } else if frame == nil {
+            if frame == nil {
                 MirrorRecordingOnWristOverlay(owner: owner)
             } else if phase == MirrorWire.Phase.gate {
                 gateContent
-            } else if phase == MirrorWire.Phase.countIn {
-                countInContent
             } else {
-                // LA CINTA YA NO TIENE PANTALLA APARTE. El tramo del cable trae
-                // sus metros y su objetivo como los de cualquier carrera, así que
-                // la pinta el mismo guion — con la marca «del móvil», que es lo
-                // único que la distingue de correr fuera. Tener una rama propia
-                // la dejaba fuera del lienzo y, con él, fuera del estado atenuado:
-                // justo la pantalla que se mira con el brazo colgando en la cinta.
-                //
-                // Dobles conserva la suya hasta que su guion esté portado: quitarla
-                // ahora dejaría al relevo sin pantalla, que es peor.
-                if let dobles = frame?.dobles {
-                    doblesContent(dobles)
-                } else {
-                    activeContent
-                }
-                // Los dos tapan la pantalla entera, así que en atenuado bajan el
-                // brillo en vez de quedarse encendidos a plena luz: el descanso es
-                // POR DEFINICIÓN el momento en que la muñeca está abajo.
-                if phase == MirrorWire.Phase.paused {
-                    MirrorPausedOverlay().opacity(atenuado ? 0.65 : 1)
-                } else if let rest = frame?.restRemaining {
-                    MirrorRestOverlay(base: rest, sinceFrame: sinceFrame).opacity(atenuado ? 0.7 : 1)
-                }
+                listaContent
+                if phase == MirrorWire.Phase.paused { MirrorPausedOverlay().opacity(atenuado ? 0.65 : 1) }
             }
-        }
-        // Out-of-zone nudge — same throttle as the standalone continuous screen, and
-        // only while actually working (never on a gate / pause / rest).
-        .onChange(of: owner.liveZone) { _, zone in
-            guard phase == MirrorWire.Phase.active,
-                  let target = targetZone, let zone, zone != target,
-                  Date().timeIntervalSince(lastZoneHapticAt) >= WatchTheme.zoneExitHapticThrottle else { return }
-            lastZoneHapticAt = Date()
-            WatchHaptics.warning()
-        }
-        // #56 — "entras tú": the station flipped from the partner's relay back to the
-        // athlete (partner → mine/split). Fire the double handoff haptic so a resting
-        // athlete knows to go, even without looking at the wrist.
-        .onChange(of: frame?.dobles?.role) { old, new in
-            guard phase == MirrorWire.Phase.active,
-                  old == "partner", new == "mine" || new == "split" else { return }
-            WatchHaptics.relayHandoff()
         }
     }
 
@@ -158,246 +69,24 @@ struct MirrorHUDView: View {
         }
     }
 
-    // The structured-run 3-2-1 pre-roll, rendered like the standalone view
-    // (StructuredRunLiveView.countIn): "Prepárate" + a CEIL count-in re-based locally,
-    // with the first tramo (frame.lineTitle) as the "luego" preview. No bottom button —
-    // the count-in isn't skippable from the mirrored wrist (matches standalone).
-    private var countInContent: some View {
+    /// Una lista de movilidad: nada que medir, solo el título, lo que llevas y el avance.
+    private var listaContent: some View {
         LiveScaffold(status: frame?.blockTitle) {
-            TimelineView(.periodic(from: .now, by: 0.25)) { context in
-                let remaining = countInRemaining(context.date)
-                let ceil = max(0, Int(ceil(remaining)))
-                VStack(spacing: 6) {
-                    WatchLabel(text: "Prepárate")
-                    GiantNumber(text: CountdownFormat.standalone(remaining), size: 84, color: WatchTheme.orange)
-                    if let next = frame?.lineTitle {
-                        Text(next)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(WatchTheme.dim)
-                            .padding(.top, 1)
-                    }
-                }
-                // Local tick: fire when the CEIL second drops (3→2→1→0).
-                .onChange(of: ceil) { _, n in
-                    guard phase == MirrorWire.Phase.countIn else { return }
-                    if n > 0, lastCountInCeil == nil || n < (lastCountInCeil ?? n + 1) {
-                        Haptics.cueTick()
-                    } else if n == 0, (lastCountInCeil ?? 1) > 0 {
-                        Haptics.cueGo()
-                    }
-                    lastCountInCeil = n
-                }
-                .onAppear {
-                    if ceil > 0 { lastCountInCeil = ceil }
-                }
-            }
-        }
-        .onDisappear { lastCountInCeil = nil }
-    }
-
-    private func countInRemaining(_ now: Date) -> Double {
-        guard let cd = frame?.countdownRemaining else { return 0 }
-        return max(0, cd - sinceFrame(now))
-    }
-
-    /// EL VIVO DEL ESPEJO — ahora es el MISMO lienzo y los MISMOS guiones que sin
-    /// móvil (`GuionDelEspejo`). Rodaje uses the lámina face (FH-30: solo ≡ mirror).
-    @ViewBuilder
-    private var activeContent: some View {
-        if let f = frame {
-            if GuionDelEspejo.esRodajeLamina(f) {
-                mirrorRodajeContent(f)
-            } else {
-                mirrorGuionContent(f)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func mirrorRodajeContent(_ f: MirrorStateFrame) -> some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let since = sinceFrame(context.date)
-            let elapsed = heroElapsed(context.date)
-            MirrorRodajeFace(
-                frame: f,
-                zone: owner.liveZone,
-                elapsed: elapsed,
-                desdeTrama: since,
-                bisel: bisel,
-                // El motor está en el móvil: el toque de «empezar ya» / cerrar
-                // tramo VIAJA, exactamente igual que el de los demás guiones.
-                onAvanzar: { owner.sendCommand(MirrorWire.CommandKind.advance) }
-            )
-            .onChange(of: f.tramo?.enDescanso) { _, rest in
-                if rest != true { firedTimedRest = nil }
-            }
-            .onChange(of: MirrorTimedRest.quedaViva(tramo: f.tramo, sinceFrame: since)) { _, _ in
-                fireTimedRestAdvanceIfNeeded(frame: f, since: since)
-            }
-            .onAppear { fireTimedRestAdvanceIfNeeded(frame: f, since: since) }
-        }
-    }
-
-    @ViewBuilder
-    private func mirrorGuionContent(_ f: MirrorStateFrame) -> some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let since = sinceFrame(context.date)
-            WatchReloj(
-                paginas: GuionDelEspejo.paginas(
-                    f,
-                    bpm: owner.liveHR,
-                    elapsed: heroElapsed(context.date),
-                    avanzar: { owner.sendCommand(MirrorWire.CommandKind.advance) },
-                    rendirse: { owner.sendCommand(MirrorWire.CommandKind.deathByFail) }
-                ),
-                tinte: WatchTinte.color(for: owner.liveZone),
-                bisel: bisel
-            )
-            .onChange(of: f.tramo?.enDescanso) { _, rest in
-                if rest != true { firedTimedRest = nil }
-            }
-            .onChange(of: MirrorTimedRest.quedaViva(tramo: f.tramo, sinceFrame: since)) { _, _ in
-                fireTimedRestAdvanceIfNeeded(frame: f, since: since)
-            }
-            .onAppear { fireTimedRestAdvanceIfNeeded(frame: f, since: since) }
-        }
-    }
-
-    /// El aro lo DECIDE el guion (dato puro, testeado) y aquí sólo se dibuja:
-    /// segmentado en series/fuerza/ergo — el on/off alrededor del cuadrado —,
-    /// continuo para una sola cosa en marcha, y nada cuando nadie sabe el total.
-    private var bisel: AnyView? {
-        guard let f = frame else { return nil }
-        switch GuionDelEspejo.aro(f) {
-        case .ninguno:
-            return nil
-        case let .continuo(queda):
-            return WatchAroContinuo(remaining: queda).watchBisel()
-        case let .segmentado(total, hechas, fraccion):
-            return WatchAroSegmentado(total: total, hechas: hechas, fraccion: fraccion).watchBisel()
-        case let .estructura(arcos, enCurso, fraccion):
-            return WatchAroEstructura(arcos: arcos, enCurso: enCurso, fraccion: fraccion).watchBisel()
-        }
-    }
-
-    /// Los segundos DENTRO de la ventana, re-basados en local entre tramas (los
-    /// timers del iPhone mueren en segundo plano).
-    private func heroElapsed(_ now: Date) -> Double {
-        guard let f = frame else { return 0 }
-        let base = f.tramo?.enTramoS ?? f.lapElapsed
-        return phase == MirrorWire.Phase.active ? base + sinceFrame(now) : base
-    }
-
-    // MARK: - Dobles turn (#56)
-    //
-    // The wrist glance for a HYROX dobles station: whose turn it is (orange = you, blue
-    // = the partner), the station, the rep reparto and — for the partner's relay — a
-    // "Recupera" cue. Same clock + HR + advance idiom as activeContent so it never reads
-    // like a different mode. Every value is frame-pushed (MirrorDoblesTurn); nothing
-    // fabricated. The button reads "Relevo ▸" on the partner's relay.
-    private func doblesContent(_ d: MirrorDoblesTurn) -> some View {
-        let isPartner = d.role == "partner"
-        let accent = isPartner ? WatchTheme.zoneBlue : WatchTheme.orange
-        return LiveScaffold(status: frame?.blockTitle) {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 VStack(spacing: 5) {
-                    Text(doblesHeading(d))
-                        .font(.system(size: 12, weight: .heavy).italic())
-                        .tracking(1.2)
-                        .foregroundStyle(accent)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    Text(d.station)
+                    Text(frame?.lineTitle ?? frame?.progressText ?? "Lista")
                         .font(.system(size: 17, weight: .heavy))
                         .foregroundStyle(WatchTheme.ink)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .minimumScaleFactor(0.7)
-                    if let reps = doblesRepsLine(d) {
-                        Text(reps)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(isPartner ? WatchTheme.dim : accent)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    GiantNumber(text: heroClock(context.date), size: 44)
-                    hrZoneRow
+                    GiantNumber(text: WatchFormat.clock(heroElapsed(context.date)), size: 44)
+                    HRPill(bpm: owner.liveHR, zoneColor: owner.liveZone.map(WatchTheme.zoneColor) ?? WatchTheme.dim)
                 }
             }
         } bottom: {
             advanceButton
         }
-    }
-
-    private func doblesPartner(_ d: MirrorDoblesTurn) -> String {
-        let n = d.partnerName?.trimmingCharacters(in: .whitespaces)
-        return (n?.isEmpty == false) ? n! : "compañero"
-    }
-
-    private func doblesHeading(_ d: MirrorDoblesTurn) -> String {
-        switch d.role {
-        case "partner": return "AHORA · \(doblesPartner(d).uppercased())"
-        case "split":   return "RELEVO CON \(doblesPartner(d).uppercased())"
-        default:        return "TE TOCA A TI"
-        }
-    }
-
-    private func doblesRepsLine(_ d: MirrorDoblesTurn) -> String? {
-        switch d.role {
-        case "partner":
-            return "Recupera"
-        case "split":
-            if let mine = d.selfReps, let theirs = d.partnerReps {
-                return "Tú \(mine) · \(doblesPartner(d)) \(theirs)"
-            }
-            return "Tú \(d.selfSharePct)%"
-        default:   // mine
-            return d.selfReps.map { "Completa · \($0) reps" } ?? "Estación completa"
-        }
-    }
-
-    // MARK: - HR + zone bar (mirrors ContinuousLiveView)
-
-    var hrZoneRow: some View {
-        VStack(spacing: 5) {
-            HStack {
-                HRPill(bpm: owner.liveHR, zoneColor: owner.liveZone.map(WatchTheme.zoneColor) ?? WatchTheme.dim)
-                Spacer()
-                if let target = targetZone {
-                    WatchLabel(text: "Obj \(target.label)")
-                }
-            }
-            if targetZone != nil {
-                zoneBar
-            }
-        }
-    }
-
-    private var zoneBar: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                HStack(spacing: 0) {
-                    ForEach(HRZone.allCases, id: \.rawValue) { zone in
-                        Rectangle()
-                            .fill(WatchTheme.zoneColor(zone).opacity(owner.liveZone == zone ? 1 : 0.34))
-                    }
-                }
-                if let target = targetZone {
-                    Rectangle()
-                        .fill(WatchTheme.ink)
-                        .frame(width: 3)
-                        .offset(x: markerX(for: target, width: geo.size.width))
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        }
-        .frame(height: 12)
-    }
-
-    private func markerX(for zone: HRZone, width: CGFloat) -> CGFloat {
-        // Center the marker in the target zone's 1/5 slot.
-        let slot = width / CGFloat(HRZone.allCases.count)
-        return slot * (CGFloat(zone.rawValue) - 0.5) - 1.5
     }
 
     // MARK: - Advance button
@@ -407,7 +96,7 @@ struct MirrorHUDView: View {
     /// On the last step the button says what it does — "Terminar" — and asks.
     @State private var confirmingFinish = false
 
-    var advanceButton: some View {
+    private var advanceButton: some View {
         let final = isFinalStep
         return BigTapButton(title: advanceTitle) {
             if final {
@@ -436,60 +125,25 @@ struct MirrorHUDView: View {
 
     private var advanceTitle: String {
         if phase == MirrorWire.Phase.gate { return "Empezar ▸" }
-        // #56 — the partner's relay station advances the athlete's OWN next station.
-        if frame?.dobles?.role == "partner" { return "Relevo ▸" }
         if isFinalStep { return "Terminar" }
         return "Siguiente ▸"
-    }
-
-    // MARK: - Controls page
-
-    private func datosPage(_ f: MirrorStateFrame) -> some View {
-        MirrorRodajeDatosPage(owner: owner, frame: f, bisel: bisel, desdeTrama: sinceFrame)
-    }
-
-    @ViewBuilder
-    private var controlsPage: some View {
-        if esLamina, let f = frame {
-            MirrorRodajeControlesPage(owner: owner, frame: f, bisel: bisel, desdeTrama: sinceFrame)
-        } else {
-            MirrorHUDControlsPage(owner: owner, phase: phase)
-        }
     }
 
     // MARK: - Derived
 
     private var frame: MirrorStateFrame? { owner.frame }
     private var phase: String? { owner.frame?.phase }
-    private var targetZone: HRZone? { frame?.targetZone.flatMap { HRZone(rawValue: $0) } }
 
-    /// TIME Recupera aged to 0 → the same `advance` as «Toca · ya».
-    /// No Watch rest Timer. DISTANCE / open never pass `isTimedRunRest`.
-    private func fireTimedRestAdvanceIfNeeded(frame: MirrorStateFrame, since: TimeInterval) {
-        guard MirrorTimedRest.shouldAdvance(
-            tramo: frame.tramo, sinceFrame: since, alreadyFiredFor: firedTimedRest
-        ), let t = frame.tramo else { return }
-        firedTimedRest = MirrorTimedRest.window(of: t)
-        owner.sendCommand(MirrorWire.CommandKind.advance)
-    }
-
-    /// Seconds accrued since the last frame while the clock is running — the active
-    /// live clock AND the count-in count-down (both re-based locally between frames);
-    /// frozen on a gate / pause / rest-that-isn't-active.
-    func sinceFrame(_ now: Date) -> Double {
-        guard let at = owner.frameReceivedAt,
-              phase == MirrorWire.Phase.active || phase == MirrorWire.Phase.countIn else { return 0 }
+    /// Seconds accrued since the last frame while the clock is running; frozen on a gate / pause.
+    private func sinceFrame(_ now: Date) -> Double {
+        guard let at = owner.frameReceivedAt, phase == MirrorWire.Phase.active else { return 0 }
         return max(0, now.timeIntervalSince(at))
     }
 
-    /// The hero clock: a re-based countdown when the phone shows one, else a re-based
-    /// count-up of the current lap.
-    private func heroClock(_ now: Date) -> String {
-        guard let f = frame else { return WatchFormat.clock(0) }
-        if let countdown = f.countdownRemaining {
-            // MIRROR of the phone's countdown → round like the phone (#68).
-            return CountdownFormat.mirrored(max(0, countdown - sinceFrame(now)))
-        }
-        return WatchFormat.clock(f.lapElapsed + sinceFrame(now))
+    /// Los segundos DENTRO de la ventana, re-basados en local entre tramas (los timers del iPhone mueren en
+    /// segundo plano).
+    private func heroElapsed(_ now: Date) -> Double {
+        guard let f = frame else { return 0 }
+        return (f.tramo?.enTramoS ?? f.lapElapsed) + sinceFrame(now)
     }
 }

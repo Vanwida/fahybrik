@@ -7,7 +7,7 @@ import SwiftUI
 //   • payload, pending      → pre-workout flow (readiness glance ▸ today brief)
 //   (las pantallas de reposo viven en Views/Entrada/)
 //   • coordinator active    → live flow (the workout)
-//   • coordinator finished  → summary (▸ splits), then back to the done state
+//   • coordinator finished  → sello ▸ RPE ▸ summary (▸ splits), then back to the done state
 struct RootView: View {
     @EnvironmentObject private var plan: WatchPlanModel
     @Environment(WatchWorkoutCoordinator.self) private var coordinator
@@ -19,12 +19,6 @@ struct RootView: View {
     /// idle state then offers to resume it instead of starting fresh. Loaded off the
     /// WorkoutStateStore actor whenever the day changes; nil clears the offer.
     @State private var recoverable: PersistedWorkoutState? = nil
-
-    /// FH-30: pager index for the live flow. Lives on RootView (not coordinator,
-    /// not LiveFlowView) so the page survives view remounts (solo↔mirror) without
-    /// polluting the HK motor. Default Vivo (1) on mount; only the athlete's
-    /// finger or the TabView Binding set writes it.
-    @State private var livePage = 1
 
     /// La página de reposo que se ve (cómo llegas ▸ lo de hoy). La complicación de la esfera y
     /// el widget del Smart Stack abren la app con un enlace que la pone en lo de hoy: un toque,
@@ -80,12 +74,12 @@ struct RootView: View {
         switch coordinator.phase {
         case .active:
             if let session = coordinator.session {
-                LiveFlowView(session: session, page: $livePage)
+                LiveFlowView(session: session)
             }
         case .finished:
             if let session = coordinator.session {
-                // "Listo" commits the (possibly toggled) staged result, then resets.
-                PostFinishFlow(session: session, coordinator: coordinator) {
+                // sello ▸ RPE ▸ resumen. "Listo" commits the (possibly toggled) staged result, then resets.
+                FinalFlujo(session: session, coordinator: coordinator) {
                     coordinator.confirmAndReset()
                 }
             }
@@ -120,32 +114,12 @@ struct RootView: View {
                     payload: today,
                     sessionPlan: coordinator.sessionPlan(for: plan.assignmentDetail),
                     pagina: $paginaDeReposo
-                ) {
-                    coordinator.start(payload: today, detail: plan.assignmentDetail)
+                ) { entorno in
+                    coordinator.start(payload: today, detail: plan.assignmentDetail, entorno: entorno)
                 }
             }
         } else {
             EntradaSinPlanView()
-        }
-    }
-}
-
-// MARK: - Post-finish flow (summary ▸ splits)
-
-private struct PostFinishFlow: View {
-    let session: WorkoutSession
-    let coordinator: WatchWorkoutCoordinator
-    let onDone: () -> Void
-
-    var body: some View {
-        if SplitsView.hasSplits(session) {
-            TabView {
-                SummaryView(session: session, coordinator: coordinator, onDone: onDone)
-                SplitsView(session: session)
-            }
-            .tabViewStyle(.verticalPage)
-        } else {
-            SummaryView(session: session, coordinator: coordinator, onDone: onDone)
         }
     }
 }

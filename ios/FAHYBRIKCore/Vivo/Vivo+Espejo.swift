@@ -76,6 +76,12 @@ extension Vivo {
         /// Lo declarado en el descanso de fuerza y lo que la muñeca tiene abierto. La muñeca es su dueña; cada dato
         /// declarado además viaja al móvil (`MirrorWire.CommandKind.anotar`), que lo escribe en su motor.
         private(set) var anotar = AnotarMuneca()
+        /// Lo que el atleta marca en el WOD (las ventanas hechas, las rondas del AMRAP y la puntuación de la campana).
+        /// La muñeca es su dueña; lo que el motor del móvil necesita saber viaja como comando.
+        private(set) var wod = EstadoWod()
+        /// Los minutos completos de un death by que el reloj acaba de cazar (un minuto se cerró sin marcar); lo toma
+        /// quien manda a `deathByFail` al móvil, una vez.
+        private var cazadoCon: Int?
 
         private var ventana = VentanaDeRitmo()
         private var muestras: [MuestraDeDistancia] = []
@@ -103,9 +109,8 @@ extension Vivo {
             return plan.pasos.isEmpty ? .sinCursor : .vivo
         }
 
-        /// ¿El plan vivo manda? Con él, el director de la muñeca (hápticos, voz) sale de las
-        /// transiciones del estado y las señales del móvil (`hapticCue`) se ignoran: si no, vibraría dos veces.
-        var dirigeElPlan: Bool { estado == .vivo }
+        /// ¿Tiene el atleta encendidos los «Avisos de voz»? Lo dice el móvil en el cursor; sin él (un móvil viejo), sí.
+        var vozActiva: Bool { trama?.cursor.vozActiva ?? true }
 
         /// El paso vivo, o `nil` si no hay cuadro. La pila lo usa para volver a su primera página cuando
         /// cambia (`Paso.id`) y para saber qué acción del momento toca (`Vivo.clavePorDefecto`); sale del
@@ -122,9 +127,6 @@ extension Vivo {
             return CierreSeguro.esUltimoPaso(indice: t.cursor.i, de: plan.pasos.count, marcaDelMovil: t.finalSegunMovil)
         }
 
-        /// El `hapticCue` de una trama, o `nil` si el plan vivo ya lo dirige.
-        func hapticAplicable(_ f: MirrorStateFrame) -> String? { dirigeElPlan ? nil : f.hapticCue }
-
         /// La huella del plan que falta, una vez (y otra pasado `MirrorWire.planReenvioMinS` sin
         /// respuesta). Quien la reciba manda `sync` al móvil. `nil` = nada que pedir.
         mutating func planAPedir(en ahora: Date) -> String? {
@@ -139,7 +141,7 @@ extension Vivo {
         /// Otro plan (o el primero): reemplaza al anterior. Los pasos cerrados solo se conservan
         /// si el plan sigue siendo el mismo entreno (mismos pasos, otra zona o regla).
         mutating func recibirPlan(_ nuevo: MirrorPlanVivo) {
-            if let actual = plan, actual.pasos.map(\.id) != nuevo.pasos.map(\.id) { parciales = []; anotar = AnotarMuneca() }
+            if let actual = plan, actual.pasos.map(\.id) != nuevo.pasos.map(\.id) { parciales = []; anotar = AnotarMuneca(); wod = EstadoWod() }
             plan = nuevo
         }
 
@@ -195,13 +197,46 @@ extension Vivo {
         /// TODO lo que pinta la muñeca ahora, o `nil` si no hay con qué (la vista cae a la cara de siempre).
         func cuadro(ahora: Date, locales: Locales = Locales()) -> CuadroMuneca? {
             guard let e = estadoVivo(ahora: ahora, locales: locales) else { return nil }
-            return Vivo.cuadroMuneca(e, registro: registro, entorno: locales.entorno, anotar: anotar)
+            return Vivo.cuadroMuneca(e, registro: registro, entorno: locales.entorno, anotar: anotar, wod: wod)
         }
 
-        /// ¿Pinta la cara nueva el paso vivo (correr, fuerza o ergo)? Sin cuadro, no.
+        /// ¿Pinta la cara nueva el paso vivo? Sin cuadro, no.
         var cubreLaMuneca: Bool {
             guard estado == .vivo, let plan, let t = trama else { return false }
             return Vivo.cubreLaMuneca(plan.pasos, Swift.min(Swift.max(0, t.cursor.i), plan.pasos.count - 1))
+        }
+
+        // MARK: - El WOD: lo que marca la muñeca
+
+        /// «Hecho» (EMOM, death by): marca la ventana en la muñeca; el reloj la cierra solo.
+        mutating func marcarHecha(ahora: Date) {
+            guard let e = estadoVivo(ahora: ahora) else { return }
+            wod.marcar(e.paso, t: e.lecturas.t)
+        }
+
+        /// «Ronda hecha» (AMRAP): cuenta una ronda.
+        mutating func rondaHecha(ahora: Date) {
+            guard let e = estadoVivo(ahora: ahora) else { return }
+            wod.anotarRonda(e.paso, t: e.lecturas.t)
+        }
+
+        /// La corona en la campana: mueve las reps de la puntuación.
+        mutating func girarPuntuacion(_ dir: Int, ahora: Date) {
+            guard let e = estadoVivo(ahora: ahora) else { return }
+            wod.girarReps(dir, e)
+        }
+
+        /// La puntuación de la campana tal como se guardaría ahora.
+        func puntuacion(ahora: Date) -> MirrorPuntuacion? {
+            guard let e = estadoVivo(ahora: ahora), case .puntuacion? = e.paso.wod else { return nil }
+            let d = Vivo.dialDeCampana(e, wod)
+            return MirrorPuntuacion(rondas: d.rondas, reps: d.reps)
+        }
+
+        /// Si el reloj cazó un death by desde la última vez que se preguntó: los minutos que se marcaron.
+        mutating func tomarCazado() -> Int? {
+            defer { cazadoCon = nil }
+            return cazadoCon
         }
 
         // MARK: - La anotación (fuerza): cada gesto devuelve lo declarado, que el dueño manda al móvil
@@ -285,7 +320,9 @@ extension Vivo {
                 cuenta: cuenta,
                 go: go,
                 terminado: c.terminado,
-                maquinaEnlazada: enlazada
+                maquinaEnlazada: enlazada,
+                // La ventana de deshacer corre con el reloj del motor: entre tramas la cuenta la muñeca (y se para en pausa).
+                deshacerS: c.deshacerS.flatMap { $0 - corre > 0 ? $0 - corre : nil }
             )
         }
 
@@ -326,6 +363,10 @@ extension Vivo {
             // El instante del cambio: hace `enPasoS` activos; nunca antes de la trama anterior.
             let tauCambio = Swift.max(eje(previa.recibidoEn), tau - c.enPasoS)
             if c.i > previa.cursor.i, let paso = pasoDe(previa.cursor) {
+                // Un minuto de death by que el reloj cierra sin «hecho» es el último: te cazó.
+                if let plan, Vivo.cazadoEn(plan.pasos, iCerrado: previa.cursor.i, hechas: wod.hechas) {
+                    cazadoCon = Vivo.completosDeathBy(plan.pasos, wod.hechas)
+                }
                 let segundos = previa.cursor.enPasoS + (previa.cursor.quieto ? 0 : tauCambio - eje(previa.recibidoEn))
                 let metros: Double?
                 if Vivo.loMideElMovil(paso, entorno: plan?.entorno) {

@@ -10,6 +10,25 @@ import Foundation
 
 extension Vivo {
 
+    /// Metros de un kilómetro: la única vuelta automática que se llama por su nombre (la definición de la
+    /// unidad, no un método del coach). Espejo de `METROS_KM` del kit.
+    static let metrosKm: Double = 1000
+
+    /// «Kilómetro 5» o «Vuelta 7»: el título de la tarjeta y de la voz.
+    static func nombreVueltaAuto(_ n: Int, _ vueltaM: Double?) -> String {
+        vueltaM == metrosKm ? "Kilómetro \(n)" : "Vuelta \(n)"
+    }
+
+    /// «km 5» o «v 7»: el número de la vuelta en una lista (la columna estrecha).
+    static func rotuloVueltaAuto(_ n: Int, _ vueltaM: Double?) -> String {
+        vueltaM == metrosKm ? "km \(n)" : "v \(n)"
+    }
+
+    /// «Kilómetros» o «Vueltas»: el título de la lista de vueltas automáticas.
+    static func tituloVueltasAuto(_ vueltasM: [Double?]) -> String {
+        vueltasM.allSatisfy { $0 == metrosKm } ? "Kilómetros" : "Vueltas"
+    }
+
     struct AvisoDeVuelta: Equatable {
         var titulo: String
         var valor: String
@@ -64,11 +83,11 @@ extension Vivo {
             guard km > kmN else { return nil }
             guard let desde = kmDesdeT else { kmN = km; kmDesdeT = sesionT; return nil }
             let seg = sesionT - desde
-            let v = Vuelta(n: km, clase: .km, segundos: seg, metros: cada, ritmo: seg * 1000 / cada, ppm: ppm, veredicto: nil)
+            let v = Vuelta(n: km, clase: .auto, segundos: seg, metros: cada, vueltaM: cada, ritmo: seg * metrosKm / cada, ppm: ppm, veredicto: nil)
             kmN = km
             kmDesdeT = sesionT
             vueltas.append(v)
-            aviso = AvisoDeVuelta(titulo: "Kilómetro \(km)", valor: fmtReloj(seg), pie: "ritmo del km", hasta: sesionT + Self.duracionS)
+            aviso = AvisoDeVuelta(titulo: nombreVueltaAuto(km, cada), valor: fmtReloj(seg), pie: "ritmo del km", hasta: sesionT + Self.duracionS)
             return v
         }
 

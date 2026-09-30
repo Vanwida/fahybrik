@@ -83,7 +83,7 @@ struct MunecaControles: View {
                         alIrAlVivo()
                     }
                     if let control {
-                        boton(icono: control.icono == .vuelta ? "arrow.clockwise" : "forward.end", titulo: control.titulo) {
+                        boton(icono: Self.simbolo(control.icono), titulo: control.titulo) {
                             control.accion()
                             alIrAlVivo()
                         }
@@ -106,10 +106,18 @@ struct MunecaControles: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.top, CGFloat(Vivo.MedidasMuneca.arribaSafe))
+            .padding(.top, CGFloat(medidas.arriba))
             .padding(.bottom, CGFloat(Vivo.MedidasMuneca.abajoSafe))
         }
         .defaultScrollAnchor(.center)
+    }
+
+    private static func simbolo(_ icono: MunecaControl.Icono) -> String {
+        switch icono {
+        case .vuelta: return "arrow.clockwise"
+        case .siguiente: return "forward.end"
+        case .marcar: return "checkmark"
+        }
     }
 
     private func boton(icono: String, titulo: String, activo: Bool = false, accion: @escaping () -> Void) -> some View {
@@ -149,6 +157,8 @@ struct MunecaConfirmar: View {
     let alConfirmar: () -> Void
     let alSeguir: () -> Void
 
+    @Environment(\.munecaMedidas) private var medidas
+
     var body: some View {
         VStack(spacing: 10) {
             Spacer(minLength: 0)
@@ -162,7 +172,7 @@ struct MunecaConfirmar: View {
             MunecaBoton(titulo: "Seguir", variante: .superficie, accion: alSeguir)
             Spacer(minLength: 0)
         }
-        .padding(.top, CGFloat(Vivo.MedidasMuneca.arribaSafe))
+        .padding(.top, CGFloat(medidas.arriba))
         .padding(.bottom, CGFloat(Vivo.MedidasMuneca.abajoSafe))
         .padding(.horizontal, CGFloat(Vivo.MedidasMuneca.ladoSafe))
         .frame(maxWidth: .infinity, maxHeight: .infinity)

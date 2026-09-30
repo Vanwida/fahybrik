@@ -20,12 +20,17 @@ import WatchKit
 // y «Empezar ya» piden «¿Terminar y guardar?» antes (`MunecaMandos.pideConfirmarAlCerrar`, lo
 // decide `Vivo.CierreSeguro`). Un paso que cambia mientras se pregunta retira la pregunta.
 //
+// DESHACER (P4): al cerrar un tramo de correr a mano, el motor abre una ventana de 5 s
+// (`CuadroMuneca.deshacerS`) y la pila enseña «<lo cerrado> · Deshacer» en la franja del pie
+// (`MunecaAvisoDeshacer`). Que se pueda y cuánto queda lo dice el motor; aquí solo se recuerda QUÉ
+// se cerró (`cuadro.avisoCierre` en el instante del toque) para ponerle nombre.
+//
 // Las vibraciones no son de esta vista: cada acción del atleta avisa a `mandos.alActuar` y el
 // director de la muñeca toca el `.click` (P5).
 
 struct MunecaVivo: View {
     let cuadro: Vivo.CuadroMuneca
-    /// El id del paso vivo: un paso nuevo devuelve la muñeca al Vivo, página Paso.
+    /// El id del paso vivo: un paso nuevo retira la pregunta de cierre pendiente (la selección no se toca).
     let alPaso: String
     let mandos: MunecaMandos
 
@@ -36,6 +41,10 @@ struct MunecaVivo: View {
     @State private var puntosVisibles = false
     /// El cierre que espera un «¿Terminar y guardar?»; `nil` = nada que preguntar.
     @State private var cierrePendiente: (() -> Void)?
+    /// Lo que se cerró con el último toque y cuándo: le da nombre al aviso de deshacer mientras dura su ventana.
+    @State private var ultimoCierre: (aviso: String, en: Date)?
+    /// Se pulsó «Deshacer»: el aviso se retira ya, sin esperar a que el motor confirme.
+    @State private var deshecho = false
 
     /// `paginaInicial`: en qué página de la corona se abre (siempre Paso en el entreno; el
     /// escaparate de DEBUG abre las otras para poder mirarlas sin girar la corona).
@@ -56,10 +65,17 @@ struct MunecaVivo: View {
         .overlay(alignment: .bottom) { puntosDeAreas }
         .background(MunecaPaleta.fondo.ignoresSafeArea())
         .overlay { preguntaDeCierre }
-        .onChange(of: alPaso) { _, _ in volverAlVivo() }
-        // Con la muñeca bajada el sistema ignora los deslizamientos: se vuelve sola al Vivo,
-        // y al subirla se empieza por la página Paso.
-        .onChange(of: cuadro.alwaysOn) { _, _ in volverAlVivo() }
+        // LA PÁGINA SE QUEDA DONDE EL ATLETA LA PUSO (orden de Alex, 30-09). Ni un paso nuevo, ni la
+        // muñeca bajada, ni un cuadro nuevo cada segundo la mueven: `area` y `pagina` viven aquí y
+        // solo los cambia un gesto suyo. Con la muñeca baja el sistema ignora los deslizamientos pero
+        // no los toques, así que no hace falta volver a ningún sitio.
+        .onChange(of: alPaso) { _, _ in cierrePendiente = nil }
+        // Única excepción: la página abierta ya no existe en esta familia (cambió la modalidad).
+        .onChange(of: cuadro.paginas) { _, paginas in
+            if !paginas.contains(pagina) { pagina = .paso }
+        }
+        // La ventana se cierra (deshecho, o pasaron los 5 s): el siguiente cierre vuelve a poder avisar.
+        .onChange(of: cuadro.deshacerS == nil) { _, sinVentana in if sinVentana { deshecho = false } }
     }
 
     /// La página con la que se pinta: si la que estaba abierta ya no existe en esta familia, la de Paso.
@@ -80,17 +96,16 @@ struct MunecaVivo: View {
         }
     }
 
-    private func volverAlVivo() {
-        area = .vivo
-        pagina = .paso
-        cierrePendiente = nil
-    }
-
     // MARK: - Cerrar un paso: pregunta si guardaría la sesión
 
-    /// Cierra el paso, o pregunta antes si cerrarlo terminaría la sesión (o no se sabe que no).
+    /// Cierra el paso, o pregunta antes si cerrarlo terminaría la sesión (o no se sabe que no). Recuerda qué se cierra.
     private func cerrando(_ cierre: @escaping () -> Void) -> () -> Void {
-        { if mandos.pideConfirmarAlCerrar { cierrePendiente = cierre } else { cierre() } }
+        {
+            // El nombre se toma al tocar (el cuadro cambia al cerrar) y la hora, al cerrar de verdad: tras la pregunta.
+            let aviso = cuadro.avisoCierre
+            let cerrar = { ultimoCierre = (aviso, Date()); cierre() }
+            if mandos.pideConfirmarAlCerrar { cierrePendiente = cerrar } else { cerrar() }
+        }
     }
 
     /// El control contextual de Controles: «Siguiente paso» cierra el paso (pregunta), «Vuelta» no.
@@ -136,18 +151,22 @@ struct MunecaVivo: View {
     private var centro: some View {
         ZStack {
             MunecaFondo(tinte: cuadro.tinte).ignoresSafeArea()
-            // Las páginas las dice el cuadro (correr 4, fuerza 3, ergo 4; con un dato enfocado, una sola).
+            // Las páginas las dice el cuadro (correr 4, fuerza 3, ergo 4, WOD y circuito las suyas; con un dato enfocado, una sola).
             TabView(selection: paginaVisible) {
-                ForEach(cuadro.paginas, id: \.self) { p in paginaVista(p).tag(p) }
+                // Cada página mide TODA la pantalla: el paginador vertical la metía dentro del safe area del
+                // sistema (40 pt arriba y 26 abajo en 40 mm), y el núcleo ya descuenta él las safe areas.
+                ForEach(cuadro.paginas, id: \.self) { p in paginaVista(p).ignoresSafeArea().tag(p) }
             }
             .tabViewStyle(.verticalPage)
-            .munecaCorona(cuadro.corona, alGirar: mandos.anotar?.girar)
+            .munecaCorona(activa: cuadro.corona != nil || cuadro.coronaPuntuacion,
+                          alGirar: cuadro.coronaPuntuacion ? mandos.puntuar : mandos.anotar?.girar)
             .opacity(cuadro.pausado ? MunecaForma.opacidadPausa : cuadro.tinta)
             .accessibilityLabel(pagina.titulo)
 
             aro
             if let capa = cuadro.capa { MunecaCapa(capa: capa).opacity(cuadro.tinta) }
             if cuadro.pausado && !cuadro.alwaysOn { MunecaVeloPausa(alReanudar: pausando) }
+            avisoDeshacer
             gestoDeLaMano
         }
         .contentShape(Rectangle())
@@ -185,9 +204,31 @@ struct MunecaVivo: View {
         guard let primaria = mandos.primaria else { return }
         mandos.alActuar()
         cerrando(primaria)()
-        // F3: aquí engancha el aviso de deshacer (5 s, `Vivo.deshacerMs` con
-        // `cuadro.avisoCierre`). Necesita que el motor pueda volver atrás un cierre
-        // de tramo; hasta entonces el cierre a mano no se puede deshacer.
+    }
+
+    // MARK: - El aviso de deshacer
+
+    /// «<lo cerrado> · Deshacer» en la franja del pie, mientras el motor tenga la ventana abierta.
+    @ViewBuilder
+    private var avisoDeshacer: some View {
+        if area == .vivo, !cuadro.alwaysOn, !deshecho, cierrePendiente == nil, let resta = cuadro.deshacerS, let hacer = mandos.deshacer {
+            VStack {
+                Spacer(minLength: 0)
+                MunecaAvisoDeshacer(aviso: nombreDelCierre, restaS: resta) {
+                    mandos.alActuar()
+                    deshecho = true
+                    hacer()
+                }
+                .id(ultimoCierre?.en)
+            }
+            .padding(.bottom, CGFloat(Vivo.MedidasMuneca.abajoSafe))
+        }
+    }
+
+    /// Qué se cerró: lo que se recordó en el toque si es de hace poco; si el cierre vino de otro sitio (el móvil), el genérico.
+    private var nombreDelCierre: String {
+        guard let c = ultimoCierre, Date().timeIntervalSince(c.en) <= Vivo.deshacerMs / 1000 else { return Vivo.avisoCierreGenerico }
+        return c.aviso
     }
 
     // MARK: - Los puntos de las áreas

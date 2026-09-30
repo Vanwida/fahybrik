@@ -42,9 +42,9 @@ extension GuionEscaparate {
             muneca("muneca-pausa", "Muñeca · en pausa") { Escena.serieDentro(pausado: true) },
             muneca("muneca-completada", "Muñeca · sesión completada") { Escena.serieDentro(terminado: true) },
             // ── Las páginas de los lados ────────────────────────────────────
-            Caso(id: "muneca-controles", titulo: "Muñeca · Controles", paginas: [], vista: { controlesDeEscaparate(pausado: false) }),
-            Caso(id: "muneca-controles-pausa", titulo: "Muñeca · Controles en pausa", paginas: [], vista: { controlesDeEscaparate(pausado: true) }),
-            Caso(id: "muneca-controles-terminar", titulo: "Muñeca · ¿Terminar y guardar?", paginas: [], vista: { controlesDeEscaparate(pausado: false, confirmando: true) }),
+            Caso(id: "muneca-controles", titulo: "Muñeca · Controles", vista: { controlesDeEscaparate(pausado: false) }),
+            Caso(id: "muneca-controles-pausa", titulo: "Muñeca · Controles en pausa", vista: { controlesDeEscaparate(pausado: true) }),
+            Caso(id: "muneca-controles-terminar", titulo: "Muñeca · ¿Terminar y guardar?", vista: { controlesDeEscaparate(pausado: false, confirmando: true) }),
         ]
     }
 
@@ -52,7 +52,7 @@ extension GuionEscaparate {
 
     private static func muneca(_ id: String, _ titulo: String, pagina: Vivo.PaginaMuneca = .paso, atenuado: Bool = false,
                                registro: Vivo.RegistroVueltas = Vivo.RegistroVueltas(), _ escena: @escaping () -> Escena) -> Caso {
-        Caso(id: id, titulo: titulo, paginas: [], vista: {
+        Caso(id: id, titulo: titulo, vista: {
             AnyView(EscaparateMuneca(estado: escena().estado(), registro: registro, atenuado: atenuado, pagina: pagina))
         })
     }
@@ -197,7 +197,7 @@ extension GuionEscaparate {
         }
 
         private static func km(_ n: Int, _ s: Double, _ ppm: Double) -> Vivo.Vuelta {
-            Vivo.Vuelta(n: n, clase: .km, segundos: s, metros: 1000, ritmo: s, ppm: ppm, veredicto: nil)
+            Vivo.Vuelta(n: n, clase: .auto, segundos: s, metros: Vivo.metrosKm, vueltaM: Vivo.metrosKm, ritmo: s, ppm: ppm, veredicto: nil)
         }
 
         static func tirada() -> Escena {

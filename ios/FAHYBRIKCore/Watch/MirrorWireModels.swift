@@ -76,6 +76,13 @@ enum MirrorWire {
         /// Una persona descartó la grabación de la muñeca. Tirar lo de la muñeca
         /// nunca tira lo del teléfono — desde la muñeca no se borra su trabajo.
         static let discarded = "discarded"
+        /// La muñeca recuperó una sesión que Apple no dejó re-espejar (FH-56): la termina GUARDANDO lo que grabó
+        /// y empieza otra espejada. Guarda la grabación y calla: NO termina el entreno del teléfono, que sigue.
+        static let recoveredRestart = "recovered_restart"
+
+        /// Los cierres que se avisan además por la vía durable (`WCSession.transferUserInfo`): por el canal
+        /// espejo puede que ya no haya nadie que escuche (la sesión se acaba de soltar).
+        static let entregaDurable: Set<String> = [athlete, recoveredRestart]
     }
 
     /// `MirrorHaptic.cue` values — keep the string small and stable.
@@ -125,6 +132,12 @@ enum MirrorWire {
         /// Lo declarado en el descanso de fuerza: un dato de una serie (`MirrorCommand.declaracion`). ADITIVO: un móvil
         /// viejo no lo entiende y lo ignora (la muñeca solo lo ofrece si el móvil anuncia `Capacidad.anotar`).
         static let anotar = "anotar"
+        /// «Ronda hecha» de un AMRAP: la muñeca cuenta una ronda y el motor del móvil la suma. ADITIVO: un móvil viejo lo
+        /// ignora (la muñeca solo lo ofrece si el móvil anuncia `Capacidad.ronda`).
+        static let ronda = "ronda"
+        /// La puntuación de la campana de un AMRAP (`MirrorCommand.puntuacion`): el móvil la guarda y cierra la sesión.
+        /// ADITIVO, con `Capacidad.puntuacion`.
+        static let puntuacion = "puntuacion"
     }
 
     /// Frame phases (MirrorStateFrame.phase). ADDITIVE: a new phase is a new VALUE in
@@ -394,6 +407,18 @@ struct MirrorCommand: Codable {
     let kind: String
     /// Solo con `CommandKind.anotar`: el dato declarado. Un móvil que no lo conoce lo ignora.
     var declaracion: Vivo.Declaracion? = nil
+    /// Solo con `CommandKind.vozMuneca`: si la muñeca habla (`true`) o dejó de hablar (`false`). Ausente = habla.
+    var activa: Bool? = nil
+    /// Con `CommandKind.puntuacion` (la puntuación del AMRAP) y con `CommandKind.deathByFail` (los minutos que se
+    /// completaron): lo que la muñeca contó. Un móvil que no lo conoce lo ignora.
+    var puntuacion: MirrorPuntuacion? = nil
+}
+
+/// Lo que la muñeca contó de un WOD: las rondas (o los minutos completos de un death by) y las reps de la ronda a
+/// medias, si alguien las dijo (`nil` = sin decir, nunca 0).
+struct MirrorPuntuacion: Codable, Equatable {
+    var rondas: Int
+    var reps: Int?
 }
 
 /// Watch → phone: the recording is closed. `workoutUuid` is the finished

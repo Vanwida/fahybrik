@@ -92,6 +92,12 @@ final class WatchConnectivityService: NSObject, ObservableObject, WCSessionDeleg
         return named
     }
 
+    /// Lo que el buzón sabe ahora de un sobre (nil = ya no está: el servidor lo confirmó). Solo lectura: lo pinta el
+    /// resumen del reloj, con lenguaje honesto sobre dónde está la sesión.
+    func entradaDelBuzon(envelopeId: String) -> WatchSaveLedger.Entry? {
+        outboxQueue.sync { loadOutboxLocked() }.entries.first { $0.envelopeId == envelopeId }
+    }
+
     /// Transfer an already-staged entry (fired by "Listo"). It stays in the outbox
     /// until `didFinish` confirms delivery, so a failure still re-drains later.
     func transferStagedResult(_ data: Data) {

@@ -38,9 +38,7 @@ extension Vivo {
         for (s, seg) in plan.segments.enumerated() {
             let letra = letraDeSuperserie(superseries)
             if seg.usesMultiSetStrength, seg.supersetSlots != nil { superseries += 1 }
-            let propios = pasosDe(seg, indice: s, entorno: entorno, test: test, ultimo: s == plan.segments.count - 1, letra: letra)
-            // Dobles: la estación de la pareja es un relevo; la tuya o la repartida llevan su turno.
-            pasos.append(contentsOf: doblesDe(seg).map { conDobles(propios, $0, segmento: s) } ?? propios)
+            pasos.append(contentsOf: pasosDelPlan(seg, indice: s, entorno: entorno, test: test, ultimo: s == plan.segments.count - 1, letra: letra))
         }
         // Un bloque continuo remo → ski → bici son N tramos de una pieza (familia circuito).
         marcarTramosContinuos(&pasos) { s in plan.segments[s].formatScheme?.presentation == .continuous }
@@ -48,6 +46,14 @@ extension Vivo {
     }
 
     // MARK: - Un segmento → sus pasos
+
+    /// Los pasos de un segmento tal como entran al plan: con el turno de dobles si lo tiene (la estación de la
+    /// pareja es un relevo; la tuya o la repartida llevan su turno). Quien mira un solo segmento, como el reloj en
+    /// solitario para elegir cara, pregunta por aquí y no por `pasosDe`.
+    static func pasosDelPlan(_ seg: WorkoutSegment, indice s: Int, entorno: RunEnvironment?, test: Bool = false, ultimo: Bool = false, letra: String = "A") -> [Paso] {
+        let propios = pasosDe(seg, indice: s, entorno: entorno, test: test, ultimo: ultimo, letra: letra)
+        return doblesDe(seg).map { conDobles(propios, $0, segmento: s) } ?? propios
+    }
 
     /// «A», «B», … «Z», y después «AA»: la letra de la superserie número `n` (base 0).
     static func letraDeSuperserie(_ n: Int) -> String {
@@ -409,7 +415,13 @@ extension Vivo {
             return [pasoSuelto(seg, s: s, fase: fase, bloque: bloque, entorno: entorno)]
 
         case .forTime, .chipper, .ladder, .rounds, .hyroxSim:
-            return pasosDeRuta(scheme, seg: seg, s: s, fase: fase, bloque: bloque, entorno: entorno)
+            // Los pasos de un circuito (rondas, HYROX) llevan su formato: la muñeca no ve el segmento y lo necesita.
+            let formato = formatoCircuitoDe(scheme)
+            return pasosDeRuta(scheme, seg: seg, s: s, fase: fase, bloque: bloque, entorno: entorno).map { p in
+                var q = p
+                q.circuito = formato
+                return q
+            }
 
         default:
             return [pasoSuelto(seg, s: s, fase: fase, bloque: bloque, entorno: entorno)]

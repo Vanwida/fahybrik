@@ -25,7 +25,14 @@ extension Vivo {
         var dial: Dial? = nil
         /// El dato de la puntuación que mueven los ±.
         var foco: CampoPuntuacion = .reps
+        /// AMRAP en la muñeca: por id de paso, el segundo del paso en que se cerró cada ronda. La cuenta quien lleva
+        /// la muñeca; el iPhone la lleva en el motor.
+        var rondas: [String: [Double]] = [:]
     }
+
+    /// Lo que se le deja al descanso del Tabata para que el motor lo dé por acabado en su siguiente tic: cortarlo a
+    /// mano no lo salta, lo acaba (con su tono de trabajo). Mecanismo del motor, no método del coach.
+    static let cortaDescansoRotativoS: Double = 0.01
 
     // MARK: - La ventana que se marca (EMOM, death by)
 

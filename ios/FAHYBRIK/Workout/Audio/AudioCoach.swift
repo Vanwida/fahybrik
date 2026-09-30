@@ -35,6 +35,10 @@ final class AudioCoach {
     /// the synth's `isSpeaking` immediately after `speak`).
     private var isSpeaking = false
 
+    /// La muñeca habla ella (voz del reloj a los auriculares, `MirrorWire.CommandKind.vozMuneca`): el móvil calla
+    /// para no decir lo mismo dos veces. Lo enciende y apaga el reloj; `PhoneLiveSession` lo apaga si el enlace se va.
+    private(set) var wristSpeaks = false
+
     init(engine: RunCueEngine = RunCueEngine(),
          speaker: CoachSpeaker = TestEnvironment.isRunningUnitTests ? MuteCoachSpeaker() : SystemCoachSpeaker(),
          audioSession: VoiceAudioSession = WorkoutAudio.shared,
@@ -55,6 +59,13 @@ final class AudioCoach {
         isSpeaking = false
         speaker.stop()
         audioSession.setVoiceActive(false)
+    }
+
+    /// La muñeca dice que habla (o que ya no). Al pasar a hablar ella, lo que el móvil estaba diciendo se corta.
+    func setWristSpeaks(_ speaks: Bool) {
+        guard wristSpeaks != speaks else { return }
+        wristSpeaks = speaks
+        if speaks { stopSpeaking() }
     }
 
     /// Silence immediately — used when the athlete flips "Avisos de voz" OFF mid-run
@@ -117,7 +128,7 @@ final class AudioCoach {
     // MARK: - Queue drain
 
     private func enqueue(_ utterance: CoachUtterance) {
-        guard AudioCoachSettings.isEnabled else { return }
+        guard AudioCoachSettings.isEnabled, !wristSpeaks else { return }
         queue.enqueue(utterance)
         pumpIfIdle()
     }

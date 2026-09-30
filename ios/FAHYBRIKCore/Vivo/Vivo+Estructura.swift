@@ -237,6 +237,10 @@ extension Vivo {
 
     // MARK: - El aviso de deshacer (vivo.tsx)
 
+    /// El aviso de un cierre del que no se sabe más («Paso cerrado»): el de un paso sin serie ni nombre, y el de un cierre
+    /// hecho desde otro sitio (el móvil) cuya muñeca no vio el paso que se cerró.
+    static let avisoCierreGenerico = "Paso cerrado"
+
     /// «Serie 3 cerrada», «Recuperación cortada», «A1 · serie 3 hecha», «Sled Push hecho».
     static func avisoDeCierre(_ paso: Paso, cabe: (String) -> Bool = { anchoTexto($0, 15) <= 160 }) -> String {
         if esRelevo(paso) { return "Relevo · entras tú" }
@@ -258,8 +262,8 @@ extension Vivo {
         if let n = paso.nombre {
             let hecho = "\(n) hecho"
             if cabe(hecho) { return hecho }
-            return paso.clase == .estacion ? "Estación hecha" : "Paso cerrado"
+            return paso.clase == .estacion ? "Estación hecha" : avisoCierreGenerico
         }
-        return "Paso cerrado"
+        return avisoCierreGenerico
     }
 }

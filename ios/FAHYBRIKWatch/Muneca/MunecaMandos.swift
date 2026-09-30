@@ -11,7 +11,7 @@ import Foundation
 /// El control contextual de la página Controles: «Vuelta» en un rodaje, «Siguiente
 /// paso» en una sesión con pasos. El título es del vocabulario de `Vivo.ClavePrimaria`.
 struct MunecaControl {
-    enum Icono { case vuelta, siguiente }
+    enum Icono { case vuelta, siguiente, marcar }
 
     var titulo: String
     var icono: Icono
@@ -47,8 +47,13 @@ struct MunecaMandos {
     var primaria: (() -> Void)? = nil
     /// «+30 s» del descanso; `nil` = este motor no puede estirar ese descanso.
     var mas30: (() -> Void)? = nil
+    /// Reabrir el último tramo cerrado a mano (5 s, `Vivo.deshacerMs`); `nil` = este motor no lo atiende y no se
+    /// ofrece. Cuándo se puede lo dice el estado (`CuadroMuneca.deshacerS`), no la muñeca.
+    var deshacer: (() -> Void)? = nil
     /// El botón «Empezar ya» del descanso.
     var empezarYa: () -> Void = {}
     /// Anotar en el descanso (fuerza).
     var anotar: MunecaAnotar? = nil
+    /// La corona en la campana de un AMRAP: +1 sube las reps de la puntuación, −1 las baja. `nil` = no hay campana.
+    var puntuar: ((Int) -> Void)? = nil
 }

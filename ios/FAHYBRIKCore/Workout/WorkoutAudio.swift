@@ -120,13 +120,14 @@ final class WorkoutAudio {
         }
     }
 
-    /// Apply `.playback` + `.mixWithOthers`, adding `.duckOthers` only while a voice
-    /// cue is speaking so the athlete's music dips under the coach and restores after.
+    /// Apply `.playback` + `.mixWithOthers`, adding `.duckOthers` (and the `.voicePrompt` mode Apple
+    /// designed for spoken prompts) only while a voice cue is speaking so the athlete's music dips
+    /// under the coach and restores after.
     private func applySessionCategory() {
         let options: AVAudioSession.CategoryOptions = voiceActive
             ? [.mixWithOthers, .duckOthers]
             : [.mixWithOthers]
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: options)
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: voiceActive ? .voicePrompt : .default, options: options)
     }
 
     // MARK: Cues

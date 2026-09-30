@@ -7,16 +7,6 @@ import AVFoundation
 // in tests. The real implementation wraps a single `AVSpeechSynthesizer` and
 // reports completion so the coach can drain the next queued cue.
 
-/// Named voice parameters — tuned once, referenced everywhere (no magic literals).
-enum CoachVoice {
-    static let languageCode = "es-ES"
-    /// Slightly above the default: brisk but not clipped, over the noise of running.
-    static let rate: Float = 0.52
-    static let pitchMultiplier: Float = 1.0
-    /// A short tail so back-to-back cues don't run into each other.
-    static let postUtteranceDelay: TimeInterval = 0.05
-}
-
 protocol CoachSpeaker: AnyObject {
     /// Invoked (main thread) when the current utterance finishes OR is cancelled —
     /// the coach's signal to speak the next queued cue or release the session.

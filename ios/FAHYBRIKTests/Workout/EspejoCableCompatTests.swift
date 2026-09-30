@@ -41,21 +41,16 @@ final class EspejoCableCompatTests: XCTestCase {
 
     // MARK: - Móvil viejo + reloj nuevo
 
-    func testMovilViejoRelojNuevoNoHayCuadroYLaCaraDeSiempreSigueIgual() throws {
+    func testMovilViejoRelojNuevoNoHayCuadro() throws {
         let f = try MirrorWire.decoder.decode(MirrorStateFrame.self, from: tramaVieja)
         XCTAssertNil(f.cursor)
         XCTAssertNil(f.capacidades)
-        // La cara de hoy sigue funcionando con esa trama: la misma puerta y la misma lámina.
-        XCTAssertTrue(GuionDelEspejo.esRodajeLamina(f))
-        _ = RodajeLamina.lectura(RodajeLamina.Ventana(trama: f, elapsed: 0))
 
         var espejo = Vivo.EspejoMuneca()
         espejo.recibirTrama(f, en: base)
         XCTAssertEqual(espejo.estado, .sinPlan)
-        XCTAssertNil(espejo.cuadro(ahora: base), "sin plan ni cursor no se inventa un cuadro: la vista cae a la cara vieja")
-        XCTAssertFalse(espejo.dirigeElPlan)
+        XCTAssertNil(espejo.cuadro(ahora: base), "sin plan ni cursor no se inventa un cuadro: la vista cae a «Grabando en la muñeca»")
         XCTAssertNil(espejo.planAPedir(en: base), "un móvil viejo no tiene plan que pedirle")
-        XCTAssertEqual(espejo.hapticAplicable(f), "go", "sin plan vivo el háptico del móvil sigue valiendo")
     }
 
     func testUnPlanSinCursorTampocoPintaNada() throws {
@@ -178,19 +173,6 @@ final class EspejoCableCompatTests: XCTestCase {
         XCTAssertNil(espejo.planAPedir(en: base.addingTimeInterval(60)))
     }
 
-    func testConPlanVivoElRelojNuevoIgnoraElHapticDelMovil() throws {
-        let s = sesion(try P.seisPorMilCompleto())
-        var f = try tramaNueva(s)
-        f.hapticCue = MirrorWire.HapticCue.go
-        f.hapticSeq = 3
-        var espejo = Vivo.EspejoMuneca()
-        XCTAssertEqual(espejo.hapticAplicable(f), "go", "sin plan vivo, vale (un móvil viejo, o aún sin plan)")
-        espejo.recibirPlan(MirrorPlanVivo(plan: Vivo.planDe(s), entorno: .outdoor))
-        espejo.recibirTrama(f, en: base)
-        XCTAssertTrue(espejo.dirigeElPlan)
-        XCTAssertNil(espejo.hapticAplicable(f), "con plan vivo el director de la muñeca manda: si no, vibraría dos veces")
-    }
-
     // MARK: - El cursor y el plan, en bytes
 
     func testUnCursorAntiguoOIncompletoSeLeeConSusDefectos() throws {
@@ -292,12 +274,15 @@ final class EspejoCableCompatTests: XCTestCase {
         XCTAssertEqual(PhoneMirrorCommandRelay.aplicar(MirrorWire.CommandKind.newLap, a: s), .aplicado)
         XCTAssertEqual(s.laps.count, antes + 1, "la vuelta de la muñeca llegó al motor (deuda FH-30)")
 
-        for kind in [MirrorWire.CommandKind.undo, MirrorWire.CommandKind.vozMuneca] {
-            guard case .pendiente = PhoneMirrorCommandRelay.aplicar(kind, a: s) else { return XCTFail("\(kind) debería estar pendiente") }
-        }
+        guard case .pendiente = PhoneMirrorCommandRelay.aplicar(MirrorWire.CommandKind.undo, a: s) else { return XCTFail("undo sin tramo cerrado debería estar pendiente") }
+        XCTAssertEqual(PhoneMirrorCommandRelay.aplicar(MirrorWire.CommandKind.vozMuneca, activa: true, a: s), .aplicado)
+        XCTAssertTrue(AudioCoach.shared.wristSpeaks)
+        XCTAssertEqual(PhoneMirrorCommandRelay.aplicar(MirrorWire.CommandKind.vozMuneca, activa: false, a: s), .aplicado)
+        XCTAssertFalse(AudioCoach.shared.wristSpeaks, "el móvil recupera su voz cuando la muñeca deja de hablar")
         XCTAssertEqual(PhoneMirrorCommandRelay.aplicar("otraCosa", a: s), .ajeno)
         XCTAssertEqual(s.laps.count, antes + 1, "los pendientes no tocan el motor")
-        XCTAssertFalse(PhoneMirrorFrameBuilder.capacidades.contains(MirrorWire.Capacidad.deshacer))
+        XCTAssertTrue(PhoneMirrorFrameBuilder.capacidades.contains(MirrorWire.Capacidad.deshacer))
+        XCTAssertTrue(PhoneMirrorFrameBuilder.capacidades.contains(MirrorWire.Capacidad.vozCalla))
         XCTAssertTrue(PhoneMirrorFrameBuilder.capacidades.contains(MirrorWire.Capacidad.mas30), "«+30 s» y lo declarado en el descanso ya los atiende el motor")
     }
 }

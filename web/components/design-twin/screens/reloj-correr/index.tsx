@@ -19,13 +19,13 @@ export const meta: TwinMeta = {
   id: 'reloj-correr',
   titulo: 'Muñeca · correr, rehecho',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
-  actualizado: '2026-09-25',
+  estado: 'espejo',
+  actualizado: '2026-09-30',
   descripcion:
     'El paso de correr con el objetivo mandando: ritmo contra su banda en series y tempos, pulso contra su zona en rodajes y tiradas, lo que falta debajo, el pulso siempre en la principal y la sesión entera en el aro. Voz al cambiar de paso y cada km.',
   fuentes: [],
   enApp:
-    'Hoy el reloj corre con `RodajeLamina` (FH-30): una lámina donde manda lo que falta, con el ritmo MEDIO debajo, sin objetivo, sin pulso en la principal y cerrando la serie con un toque en cualquier sitio; el aro de estructura del bisel sí existe y aquí se reutiliza. Lo nuevo: el objetivo manda con su banda y su marca ▲▼, el pulso en la principal, la voz, la corona en vertical, el 3-2-1 y el descanso común.',
+    'Ya es la cara real del reloj, en solitario y en espejo (`Vivo.cuadroMuneca`, pila `MunecaVivo`): el objetivo manda con su banda y su marca ▲▼, el pulso en la principal, la corona en vertical, el 3-2-1 y el descanso común. La lámina vieja (`RodajeLamina`) y su bandera se retiraron el 30-09 (F8).',
   dispositivo: 'watch',
   soportaHorizontal: false,
 };

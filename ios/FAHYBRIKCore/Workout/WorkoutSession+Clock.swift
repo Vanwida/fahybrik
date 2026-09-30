@@ -59,6 +59,10 @@ extension WorkoutSession {
         // new work window, re-anchor its clock and its device counters (see
         // WorkoutSession+Tramo). One call covers all three engines.
         syncTramoIfNeeded()
+        // Correr es correr: el calentamiento cumplido pasa solo a las series, y el enfriamiento libre que
+        // lleva quieto lo que dice el coach se guarda solo (`WorkoutSession+PuertaSola`).
+        cerrarCalentamientoCumplido()
+        guardarSiQuieto(ahora: now)
 
         // Per-set rest countdown. The zero cue must SURVIVE a distracted athlete
         // (Alex, mid-workout: "es fácil distraerse") AND a phone lying on the floor:

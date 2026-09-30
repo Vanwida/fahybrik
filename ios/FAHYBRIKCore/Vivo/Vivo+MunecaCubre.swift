@@ -1,18 +1,19 @@
 import Foundation
 
-// QUÉ FAMILIAS PINTA LA CARA NUEVA DE LA MUÑECA — UNA regla, para el reloj en solitario y para el espejo.
+// QUÉ FAMILIAS PINTA LA CARA NUEVA DE LA MUÑECA: UNA regla, para el reloj en solitario y para el espejo.
 //
-// La cara nueva (`Vivo.cuadroMuneca`) cubre tres familias: CORRER (calle, cinta, pista, series, la carrera de un
-// circuito), FUERZA (series con su ficha, superserie, «Colócate», el descanso que anota) y ERGO (remo, ski y bici
-// sueltos, no una estación de ruta). Lo demás (EMOM, AMRAP, For Time, las estaciones y la Roxzone de un circuito,
-// dobles, movilidad, el reloj de pared) sigue con su cara de siempre hasta que le toque.
+// La cara nueva (`Vivo.cuadroMuneca`) cubre todo lo que se entrena con reloj: CORRER (calle, cinta, pista, series),
+// FUERZA (series con su ficha, superserie, «Colócate», el descanso que anota), ERGO (remo, ski y bici sueltos), WOD
+// (AMRAP, EMOM, For Time, Tabata, Death by), CIRCUITO (rondas y HYROX: estaciones, Roxzone y la carrera con el total
+// en el contexto) y el RELEVO de dobles. Lo único que no cubre es la lista de movilidad de un calentamiento o una
+// vuelta a la calma: ahí no hay nada que medir, solo una lista que se tacha.
 //
 // La pregunta se hace por PASO, con el bloque de contexto: un descanso o una recuperación son de la familia del
-// trabajo que los rodea (el descanso tras una serie de fuerza es de fuerza; el de tras una estación, no).
+// trabajo que los rodea (el descanso tras una serie de fuerza es de fuerza; el de tras una estación, de circuito).
 
 extension Vivo {
 
-    enum FamiliaMuneca: Equatable { case correr, fuerza, ergo }
+    enum FamiliaMuneca: Equatable { case correr, fuerza, ergo, wod, circuito, relevo }
 
     /// El paso de trabajo que dice de qué familia es el bloque de `pasos[i]`: él mismo si trabaja; si no, el de trabajo
     /// anterior del mismo segmento del motor (o el siguiente, al empezar el bloque).
@@ -24,14 +25,20 @@ extension Vivo {
         return pasos[..<i].last(where: delBloque) ?? pasos[(i + 1)...].first(where: delBloque)
     }
 
-    /// La familia que la cara nueva pinta en `pasos[i]`, o `nil` si sigue con la de siempre.
+    /// La familia que la cara nueva pinta en `pasos[i]`, o `nil` si es una lista de movilidad.
     static func familiaMuneca(_ pasos: [Paso], _ i: Int) -> FamiliaMuneca? {
-        guard pasos.indices.contains(i), let ref = pasoDeReferencia(pasos, i), ref.wod == nil, ref.dobles == nil, !esRelevo(pasos[i]) else { return nil }
+        guard pasos.indices.contains(i) else { return nil }
+        // La estación de la pareja es un paso propio, sin trabajo tuyo a su alrededor.
+        if esRelevo(pasos[i]) { return .relevo }
+        guard let ref = pasoDeReferencia(pasos, i) else { return nil }
+        if ref.wod != nil { return .wod }
+        if ref.circuito != nil { return .circuito }
         switch familiaDe(ref) {
         case .correr, .cinta: return .correr
         case .fuerza: return esFuerza(ref) ? .fuerza : nil
-        // Una máquina suelta; la estación de una ruta (HYROX, circuito) es de otra familia.
-        case .remo, .ski, .bici: return ref.clase == .estacion ? nil : .ergo
+        // Una máquina suelta es ergo; la de una ruta (HYROX, circuito) es una estación.
+        case .remo, .ski, .bici: return ref.clase == .estacion ? .circuito : .ergo
+        case .estacion, .roxzone: return .circuito
         default: return nil
         }
     }

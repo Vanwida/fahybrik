@@ -282,6 +282,9 @@ extension Vivo {
         /// De dónde sale este paso en el motor de hoy (el adaptador lo rellena; el
         /// pintor no lo mira). `nil` en un paso construido a mano o en el doble.
         var origen: Origen? = nil
+        /// La familia circuito a la que pertenece el paso (rondas o HYROX); `nil` = no es de un circuito. Lo dice el
+        /// formato del segmento, que el paso no puede adivinar (la cabecera, la ruta y el «Run 3» dependen de él).
+        var circuito: FormatoCircuito? = nil
     }
 
     /// El cursor del motor de hoy que produjo el paso: segmento + ventana + si es
@@ -383,12 +386,15 @@ extension Vivo {
     }
 
     struct Vuelta: Equatable {
-        enum Clase: String, Equatable { case serie, km, tramo, estacion }
+        /// `auto` = la vuelta automática del paso (`vueltaAutoM`): el km en calle, los 400 m en pista.
+        enum Clase: String, Equatable { case serie, auto, tramo, estacion }
         var n: Int
         var tanda: Int? = nil
         var clase: Clase
         var segundos: Double
         var metros: Double?
+        /// Solo en una vuelta `auto`: su longitud, la del paso. Decide si se llama «Kilómetro» o «Vuelta».
+        var vueltaM: Double? = nil
         /// Ritmo medio de la vuelta, s/km.
         var ritmo: Double?
         var ppm: Double?
@@ -461,6 +467,9 @@ extension Vivo {
         /// La máquina de ergo con monitor enlazado (lo lleva el móvil); `nil` = ninguna. Sin ella, los metros y el /500
         /// de un paso de máquina los dice el atleta (la cara de ergo de la muñeca lo dice).
         var maquinaEnlazada: Maquina.Tipo? = nil
+        /// Segundos que quedan para deshacer el último cierre a mano de un tramo de correr (`Vivo.deshacerMs`); `nil` =
+        /// nada que deshacer. Lo dice el motor: la pila no adivina si el cierre se puede reabrir.
+        var deshacerS: Double? = nil
 
         var paso: Paso { pasos[Swift.min(Swift.max(0, i), pasos.count - 1)] }
         var siguiente: Paso? { i + 1 < pasos.count ? pasos[i + 1] : nil }

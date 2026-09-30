@@ -32,6 +32,10 @@ extension MirrorWire {
         static let vozCalla = "voz-calla"
         /// `CommandKind.anotar`: lo que la muñeca declara de una serie en el descanso (reps, carga, RIR o RPE).
         static let anotar = "anotar"
+        /// `CommandKind.ronda`: sumar una ronda a un AMRAP.
+        static let ronda = "ronda"
+        /// `CommandKind.puntuacion` y los minutos de `CommandKind.deathByFail`: lo que la muñeca contó de un WOD.
+        static let puntuacion = "puntuacion"
     }
 
     /// Cuánto se aguanta sin trama antes de marcar «viejo» lo que depende del móvil
@@ -93,16 +97,23 @@ struct MirrorCursor: Codable, Equatable {
     /// El monitor de la máquina de ergo (remo, ski, bici) cuando el móvil lo tiene enlazado: sin él, la muñeca dice
     /// «lo dices tú». ADITIVO: un móvil viejo no lo manda y el ergo se pinta sin monitor (honesto).
     var maquina: MirrorMaquina? = nil
+    /// Segundos que quedan para deshacer el último cierre a mano de un tramo de correr, tal como los cuenta el motor del
+    /// móvil (`Vivo.EstadoVivo.deshacerS`); `nil` = nada que deshacer. ADITIVO: un móvil viejo no lo manda y la muñeca
+    /// no ofrece «Deshacer».
+    var deshacerS: Double? = nil
+    /// El atleta tiene encendidos los «Avisos de voz» del móvil. La voz de la muñeca lo respeta. ADITIVO: ausente = sí.
+    var vozActiva: Bool = true
 
     /// ¿Los relojes locales corren? No, en pausa, acabado o parado.
     var quieto: Bool { pausado || terminado || parado }
 
     private enum Clave: String, CodingKey {
-        case planHash, i, enPasoS, sesionS, pausado, terminado, parado, cuentaS, hecho, ritmo, sesionM, maquina
+        case planHash, i, enPasoS, sesionS, pausado, terminado, parado, cuentaS, hecho, ritmo, sesionM, maquina, deshacerS, vozActiva
     }
 
     init(planHash: String, i: Int, enPasoS: Double, sesionS: Double, pausado: Bool, terminado: Bool = false, parado: Bool = false,
-         cuentaS: Double? = nil, hecho: Double? = nil, ritmo: Double? = nil, sesionM: Double? = nil, maquina: MirrorMaquina? = nil) {
+         cuentaS: Double? = nil, hecho: Double? = nil, ritmo: Double? = nil, sesionM: Double? = nil, maquina: MirrorMaquina? = nil,
+         deshacerS: Double? = nil, vozActiva: Bool = true) {
         self.planHash = planHash
         self.i = i
         self.enPasoS = enPasoS
@@ -115,6 +126,8 @@ struct MirrorCursor: Codable, Equatable {
         self.ritmo = ritmo
         self.sesionM = sesionM
         self.maquina = maquina
+        self.deshacerS = deshacerS
+        self.vozActiva = vozActiva
     }
 
     /// Lo opcional que falta se lee como ausente y `terminado` como «no»: un móvil que
@@ -133,7 +146,9 @@ struct MirrorCursor: Codable, Equatable {
             hecho: try c.decodeIfPresent(Double.self, forKey: .hecho),
             ritmo: try c.decodeIfPresent(Double.self, forKey: .ritmo),
             sesionM: try c.decodeIfPresent(Double.self, forKey: .sesionM),
-            maquina: try? c.decodeIfPresent(MirrorMaquina.self, forKey: .maquina)
+            maquina: try? c.decodeIfPresent(MirrorMaquina.self, forKey: .maquina),
+            deshacerS: try c.decodeIfPresent(Double.self, forKey: .deshacerS),
+            vozActiva: try c.decodeIfPresent(Bool.self, forKey: .vozActiva) ?? true
         )
     }
 
@@ -152,6 +167,8 @@ struct MirrorCursor: Codable, Equatable {
         try c.encodeIfPresent(ritmo, forKey: .ritmo)
         try c.encodeIfPresent(sesionM, forKey: .sesionM)
         try c.encodeIfPresent(maquina, forKey: .maquina)
+        try c.encodeIfPresent(deshacerS, forKey: .deshacerS)
+        if !vozActiva { try c.encode(false, forKey: .vozActiva) }
     }
 }
 

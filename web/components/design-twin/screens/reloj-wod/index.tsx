@@ -27,13 +27,13 @@ export const meta: TwinMeta = {
   id: 'reloj-wod',
   titulo: 'Muñeca · EMOM, AMRAP, For Time y ergo',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
-  actualizado: '2026-09-25',
+  estado: 'espejo',
+  actualizado: '2026-09-30',
   descripcion:
     'Cada formato con su pregunta: la ventana del minuto con su tarea y su carga, las rondas con la tarea en la muñeca y la puntuación con la corona, el crono que puntúa con el cap a la vista, y en el ergo el /500 o la zona contra su banda.',
   fuentes: [],
   enApp:
-    'Hoy la tarea del AMRAP vive en el móvil y su puntuación puede salir como 0 (`score_reps` inventado), el EMOM no lleva carga ni duración total, las piezas de ergo por tiempo cuentan hacia arriba y el objetivo /500 se omite a propósito; esto lo sustituye.',
+    'Ya es la cara real del reloj (30-09): EMOM, AMRAP con la campana de la puntuación (rondas + reps con la corona), For Time con cap, Tabata, Death by y ergo, en solitario y en espejo (`Vivo.caraWod`). Las rondas, las ventanas hechas y la puntuación las lleva la muñeca (`EstadoWod`); las reps sin decir son «—», nunca 0. Los guiones viejos (`GuionEmom`, `GuionRelojDePared`, `GuionEstaciones`) se retiraron.',
   dispositivo: 'watch',
   soportaHorizontal: false,
 };
