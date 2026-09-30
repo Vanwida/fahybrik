@@ -11,6 +11,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-30 · El vivo del iPhone es UNO: se borra el shell antiguo, su bandera y los HUD que solo él montaba
+
+**El encargo:** desde el 29-09 `VivoIphoneView` era el vivo por defecto y el shell antiguo (`RunLiveShellView`) quedaba «de vuelta atrás» detrás de `VivoIphoneBandera`. Mantener dos vivos es la deuda que el vivo nuevo vino a quitar: cualquier arreglo de dobles, pausa o salida había que pensarlo dos veces.
+
+**Decidido:** fuera el shell, la bandera (y su clave de `UserDefaults`), `ActiveWorkoutView.superficieAntigua`, y todo lo que solo el shell montaba: `CromoVivoEntreno`, `AccionDelHost`, `SiguienteTramoChip`, `RestSubjectBand`, las bandas de correr al aire y de fuerza/EMOM, `EmomVivoView`, `FuerzaVivoView`, `EditorDeSerie`, `EsfuerzoDeLaSerie`, `ControlesAjusteVivo`, `BotonConectividad`, `ControlFuenteCarrera`, los HUD de formato (AMRAP, for time, rondas), de correr y de cinta/ergo (`TreadmillHUDView`, `ErgHUDContent`), `OutdoorRunHUDView` y `BotonChipPrevia`. Se quitaron también los tests que solo pintaban esas pantallas (`VivoHUDRenderTests`, `OutdoorRunHUDRenderTests`, `RondasContadorTests`, la sección de renders de `HierroVivoTests`, tres casos de `BloquesDelEntrenoWireTests`, el de la bandera).
+
+**Cómo se comprobó que estaba muerto:** barrido por tipos (nombre sin usos fuera de su propio cuerpo, ni en otros tipos vivos, ni en `FAHYBRIKCore`/reloj), repetido hasta que no salió nada nuevo; compilan la app y el target de tests. No se ha visto en aparato: lo único que el vivo nuevo tenía pendiente era esa prueba.
+
+**Se queda (declarado):** `DoblesTurnHero`, `WorkoutFinishPersist` y `EjemplosPrevia` no tienen usos en la app, pero tienen tests o son la galería de la sesión previa; decide quien los mantiene. `RunLiveChrome` se queda: el host lo usa para pedir GPS o cinta.
+
+**Qué NO hacer en consecuencia:** reintroducir una bandera para elegir entre dos vivos. Si el vivo no cubre un caso, se arregla en `VivoIphoneView`.
+
 ## 2026-09-30 · El kit del día en Swift: UNA pieza por idea (consolidación de Hoy, Plan, Carreras, Perfil y Analíticas)
 
 **El encargo:** las cinco pestañas se portaron a Swift en paralelo sobre `Theme/Dia/` y cada una dejó en su carpeta copias de las mismas piezas (cuatro tarjetas planas, tres familias de iconos, cuatro sujetos de error, cuatro flujos, tres títulos del sujeto, dos segmentados, tres botones de acción…). Alex pidió reutilización y cero deuda: una pieza en el kit y las cinco pestañas la usan.
