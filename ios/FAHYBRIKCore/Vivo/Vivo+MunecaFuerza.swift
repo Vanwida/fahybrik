@@ -11,13 +11,10 @@ import Foundation
 //                 declarada, en cascada): `caraCuentaFuerza`.
 //
 // Presupuesto vertical: el héroe se queda lo que sobra. Si una fila no cabe sin bajar el héroe
-// de `heroeMinimo`, se cae la de menos prioridad: primero el cue, luego se funden la carga y el
-// esfuerzo en una línea, y por último «Luego ·».
+// de `heroeMinimoSerie`, se cae la de menos prioridad: primero el cue, luego se funden la carga y el
+// esfuerzo en una línea, luego la pista de la acción y por último «Luego ·».
 
 extension Vivo {
-
-    /// El héroe de una serie no baja de aquí (alto de caja en pt: ≈ 45 pt de cuerpo).
-    static let heroeMinimo: Double = 38
 
     // MARK: - El nombre del ejercicio: una línea si cabe bajo las esquinas; si no, dos
 
@@ -29,11 +26,12 @@ extension Vivo {
         var alto: Double
     }
 
+    /// El héroe de una serie no baja de aquí (alto de caja en pt: ≈ 45 pt de cuerpo).
+    static let heroeMinimoSerie: Double = 38
+
     /// Los cuerpos a los que baja el nombre, del mayor al menor; el último recurso (17 pt) parte por donde sea.
     private static let cuerposNombre: [Double] = [22, 20, 18]
     private static let cuerpoNombreMinimo: Double = 17
-    /// El interlineado del nombre en dos líneas, sobre el cuerpo.
-    private static let interlineaNombre: Double = 1.1
 
     private static func partirNombre(_ texto: String, _ c: Double) -> (String, String)? {
         let w = texto.split(separator: " ").map(String.init)
@@ -58,7 +56,7 @@ extension Vivo {
         }
         for c in cuerposNombre {
             if let par = partirNombre(texto, c), anchoTexto(par.0, c) <= m.anchoCabeza, anchoTexto(par.1, c) <= m.anchoUtil {
-                return NombreMedido(lineas: [par.0, par.1], slot: slot, cuerpo: c, alto: 2 * (c * interlineaNombre).rounded())
+                return NombreMedido(lineas: [par.0, par.1], slot: slot, cuerpo: c, alto: 2 * (c * interlineaEnDos).rounded())
             }
         }
         let par = partirNombre(texto, cuerpoNombreMinimo)
@@ -77,7 +75,8 @@ extension Vivo {
         /// «RIR 3 · tempo 3-1-1».
         var esfuerzo: LineaTexto?
         var cue: NotaVista?
-        var pista: NotaVista
+        /// «doble toque · serie hecha»; en un reloj bajo cae, y con él «Luego ·», antes que el héroe.
+        var pista: NotaVista?
         var luego: NotaVista?
     }
 
@@ -126,29 +125,30 @@ extension Vivo {
         var esfuerzo: LineaTexto? = partesEsfuerzo.isEmpty ? nil : contextoQueCabe(partesEsfuerzo, m)
         // Espacios que no parten: si el cue va en dos líneas, «Coach ·» no se queda solo.
         var cue: NotaVista? = (esfuerzo == nil ? p.cue : nil).map { notaVista("Coach\u{00A0}·\u{00A0}\($0)", ancho: m.anchoUtil) }
-        let pista = notaVista("doble toque · serie hecha", ancho: m.anchoUtil)
+        var pista: NotaVista? = notaVista("doble toque · serie hecha", ancho: m.anchoUtil)
         var luego = textoLuego(e.pasos, e.i).map { notaVista($0, prefijo: "Luego ·", ancho: m.anchoPie) }
-        let pieDeAccion = accion == .pista ? filaDeNota(pista).alto : Fila.boton.alto
 
         func alto() -> Double {
             altoLibre([
                 nombre.alto,
                 Fila.contexto.alto,
-                carga != nil ? Fila.instruccion.alto : -huecoFila,
+                carga.map(altoDeInstruccion) ?? -huecoFila,
                 esfuerzo != nil ? Fila.contexto.alto : -huecoFila,
                 cue.map(altoDeNota) ?? -huecoFila,
-                pieDeAccion,
+                accion == .pista ? pista.map(altoDeNota) ?? -huecoFila : Fila.boton.alto,
                 luego.map(altoDeNota) ?? -huecoFila,
             ], m)
         }
-        if alto() < heroeMinimo { cue = nil }
+        if alto() < heroeMinimoSerie { cue = nil }
         // Con el nombre en dos líneas no caben los dos ejes en dos filas: van en una («carga tuya · RIR 3»).
-        if alto() < heroeMinimo, let c = carga, let ef = esfuerzo {
+        if alto() < heroeMinimoSerie, let c = carga, let ef = esfuerzo {
             carga = instruccionQueCabe([c.texto, ef.texto].joined(separator: " · "), m)
             esfuerzo = nil
         }
-        // «Luego ·» solo se cae si la acción es un botón (la pista de texto no puede ser la última fila: las esquinas se la comen).
-        if alto() < heroeMinimo, accion == .boton { luego = nil }
+        // Un reloj bajo: lo que cierra la cara cae antes que el héroe. Primero la pista de texto (la mano ya sabe cerrar la
+        // serie: no puede ser la última fila, las esquinas se la comen) y luego «Luego ·».
+        if alto() < heroeMinimoSerie, accion == .pista { pista = nil }
+        if alto() < heroeMinimoSerie { luego = nil }
 
         return CaraSerie(nombre: nombre, posicion: posicion, heroe: heroeConAlto(heroeDeSerie(p, l), alto: alto(), m),
                          carga: carga, esfuerzo: esfuerzo, cue: cue, pista: pista, luego: luego)
@@ -162,7 +162,8 @@ extension Vivo {
         /// «Serie 1/3 · 20″».
         var dosis: LineaTexto
         var heroe: HeroeMuneca
-        var pista: NotaVista
+        /// «doble toque · empezar ya»; en un reloj bajo cae, y con él el pulso, antes que el héroe.
+        var pista: NotaVista?
         /// El pulso, monocromo, en la fila de abajo (solo con la acción en pista).
         var pulso: LineaDeDato?
     }
@@ -178,19 +179,22 @@ extension Vivo {
         var pulso = lineaPulso(p, l, nil, e.reglas)
         pulso.zona = nil
         let conPulso = accion == .pista
-        let alto = altoLibre([
-            Fila.contexto.alto, nombre.alto, Fila.contexto.alto,
-            accion == .pista ? filaDeNota(pista).alto : Fila.boton.alto,
-            conPulso ? Fila.tercero.alto : -huecoFila,
-        ], m)
+        var filas = [
+            FilaAjustable(papel: .contexto, alto: Fila.contexto.alto),
+            FilaAjustable(papel: .titulo, alto: nombre.alto),
+            FilaAjustable(papel: .dosis, alto: Fila.contexto.alto),
+            FilaAjustable(papel: .pista, alto: accion == .pista ? filaDeNota(pista).alto : Fila.boton.alto, cede: 3),
+        ]
+        if conPulso { filas.append(FilaAjustable(papel: .pulso, alto: Fila.tercero.alto, cede: 2)) }
         let heroe = HeroeVista(clase: .falta, texto: falta.map { String(Int($0.rounded(.up))) } ?? "—", unidad: "s")
+        let (ajuste, heroeMedido) = ajustarConHeroe(filas, heroe: heroe, m)
         return CaraColocate(
             contexto: contextoQueCabe(["Colócate"], m),
             nombre: nombre,
             dosis: contextoQueCabe([quienSerie(s), dosisSerie(s, arrastrada: nil)], m),
-            heroe: heroeConAlto(heroe, alto: alto, m),
-            pista: pista,
-            pulso: conPulso ? lineaDeDato(pulso, cuerpo: TipoMuneca.tercero, ancho: m.anchoPie) : nil
+            heroe: heroeMedido,
+            pista: ajuste.queda(.pista) ? pista : nil,
+            pulso: conPulso && ajuste.queda(.pulso) ? lineaDeDato(pulso, cuerpo: TipoMuneca.tercero, ancho: m.anchoPie) : nil
         )
     }
 

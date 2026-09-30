@@ -111,19 +111,28 @@ extension Vivo {
     }
 
     /// Lo que viene, en dos partes: qué («B1 · Deadlift», «Serie 3/4») y su dosis. Va en una línea si cabe;
-    /// si no, en dos (qué arriba, la dosis debajo), nunca partida por la mitad.
+    /// si no, en dos (qué arriba, la dosis debajo), nunca partida por la mitad. Si ni el qué cabe con su «Viene:»,
+    /// el rótulo se cae antes que cortar el nombre del ejercicio.
     struct VieneMuneca: Equatable {
         var que: String
         var dosis: String?
         var enUna: Bool
+        var conRotulo: Bool = true
 
         var alto: Double { enUna ? Fila.nota.alto : Fila.nota2.alto }
     }
 
     static func vieneMuneca(que: String, dosis: String?, _ m: MedidasMuneca) -> VieneMuneca {
-        let texto = "Viene: \(que)\(dosis.map { " · \($0)" } ?? "")"
-        let cabe = anchoTexto(texto, TipoMuneca.nota, peso: TipoMuneca.pesoNota) <= m.anchoUtil * TipoMuneca.holguraEstima
-        return VieneMuneca(que: que, dosis: dosis, enUna: cabe)
+        func cabe(_ t: String) -> Bool { anchoTexto(t, TipoMuneca.nota, peso: TipoMuneca.pesoNota) <= m.anchoUtil * TipoMuneca.holguraEstima }
+        let enUna = cabe("Viene: \(que)\(dosis.map { " · \($0)" } ?? "")")
+        return VieneMuneca(que: que, dosis: dosis, enUna: enUna, conRotulo: enUna || cabe("Viene: \(que)"))
+    }
+
+    /// Lo que viene en UNA línea, sin la dosis: lo que se enseña en un reloj bajo.
+    static func apretarViene(_ v: VieneMuneca, _ m: MedidasMuneca) -> VieneMuneca {
+        var u = vieneMuneca(que: v.que, dosis: nil, m)
+        u.enUna = true
+        return u
     }
 
     /// «Viene:» en el descanso `i`. Un ejercicio nuevo se anuncia entero («B1 · Deadlift» + «4 × 8 · RIR 3»);

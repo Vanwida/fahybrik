@@ -118,9 +118,10 @@ struct MunecaInstruccion: View {
         Text(linea.texto)
             .font(MunecaTipo.fuente(linea.cuerpo, 600))
             .foregroundStyle(tono)
-            .lineLimit(1)
+            .lineLimit(linea.lineas)
+            .multilineTextAlignment(.center)
             .minimumScaleFactor(MunecaTipo.reduccionMaxima(linea.cuerpo))
-            .frame(height: CGFloat(Vivo.Fila.instruccion.alto))
+            .frame(height: CGFloat(Vivo.altoDeInstruccion(linea)))
     }
 }
 
@@ -263,7 +264,7 @@ struct MunecaBoton: View {
                 .font(MunecaTipo.boton)
                 .lineLimit(1)
                 .minimumScaleFactor(MunecaTipo.reduccionMaxima(17))
-                .padding(.horizontal, MunecaForma.aireBoton)
+                .padding(.horizontal, MunecaForma.aireRotuloBoton)
                 .frame(maxWidth: .infinity)
                 .frame(height: alto)
         }

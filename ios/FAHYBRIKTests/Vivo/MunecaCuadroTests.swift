@@ -113,11 +113,11 @@ final class MunecaCuadroTests: XCTestCase {
             return r
         }
         let ancho = try recupera(.mm46)
-        XCTAssertEqual(ancho.pista.texto, "doble toque · empezar ya")
-        XCTAssertEqual(ancho.pista.lineas, 1)
+        XCTAssertEqual(ancho.pista?.texto, "doble toque · empezar ya")
+        XCTAssertEqual(ancho.pista?.lineas, 1)
         XCTAssertEqual(ancho.luego?.lineas, 1)
         let estrecho = try recupera(Vivo.MedidasMuneca(ancho: 162, alto: 197))
-        XCTAssertEqual(estrecho.pista.lineas, 2)
+        XCTAssertEqual(estrecho.pista?.lineas, 2)
         XCTAssertEqual(estrecho.luego?.lineas, 2)
         // Cada nota de dos líneas roba 14 pt al héroe respecto de una de una línea.
         XCTAssertLessThan(estrecho.heroe.altoMax, ancho.heroe.altoMax - 28)
