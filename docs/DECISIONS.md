@@ -11,6 +11,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-30 · La muñeca: la página se queda donde la pones, el aro sigue el cristal real y la hora del sistema queda libre
+
+**Qué pasaba (foto de Alex, Series 11 46 mm, en pleno entreno).** (1) Deslizaba a Datos y «se volvía al main». (2) El aro estaba dibujado con un radio circular fijo (56/208 del ancho): más redondo que el cristal, que es de curvatura continua. (3) Arriba a la derecha el aro y la primera fila chocaban con la hora que pinta watchOS.
+
+**Decidido:**
+- **Derogada la regla «vuelve sola a la primera página».** Cambiaba la selección `MunecaVivo` en dos sitios: `onChange(of: cuadro.alwaysOn)` (muñeca bajada) y `onChange(of: alPaso)` (paso nuevo), y `WatchReloj` con `onChange(of: atenuado)`. Ya no. Con la muñeca baja el sistema ignora los deslizamientos pero no los toques, así que no hace falta volver. La selección (`area`, `pagina`) es `@State` de `MunecaVivo` y solo la cambia un gesto del atleta; el único reinicio es que la página abierta deje de existir en el cuadro (cambia la modalidad: vuelve a Paso). Un paso nuevo solo retira la pregunta de cierre pendiente.
+- **La forma del aro es la del cristal, una sola fuente** (`Lienzo/WatchPantalla.swift`, `WatchPantallaTrazado`). `ContainerRelativeShape` no da un `Path` (solo se resuelve al pintar) y el aro necesita `trim` a las 12 en sentido horario. La esquina es una superelipse (extensión `a`, exponente `n`) ajustada a la máscara oficial `framebufferMask` de cada simulador de Xcode (error 0,1 a 0,2 pt), tabla por ANCHO de pantalla (162, 176, 184, 187, 198, 205, 208, 211 pt). Ancho fuera de tabla: la talla más cercana con el alcance escalado.
+- **La hora del sistema queda libre.** Medida (caja de las cifras en captura del simulador de 40, 42, 44, 46 y Ultra 3 mm): la base baja de 21 a 34 pt con la talla; el 24 fijo del núcleo la pisaba en las grandes. `Vivo.MedidasMuneca` gana `horaAbajo` (0 = lienzo del kit, sin cambio para el doble ni los tests) y `arriba = max(arribaSafe, horaAbajo + aire)`; `MunecaMedidor` la pone por talla y todo mide contra `arriba`. El aro se interrumpe donde la esquina pasa por las cifras (`cajaDeLaHora`).
+- **Causa de fondo de las filas pisadas:** el paginador vertical metía cada página en el safe area del sistema (40 pt arriba y 26 abajo en 40 mm) mientras el núcleo medía la pantalla entera; el sobrante se repartía centrado y la primera fila subía a la hora. Cada página ahora es `ignoresSafeArea()` (pila del vivo y resumen de correr) y `MunecaColumna` cuelga del borde de arriba: si algo pesa más de lo medido, se sale por abajo, nunca hacia la hora.
+
+**En consecuencia, no hacer:** no devolver la selección a la primera página por ningún evento (muñeca, paso, trama); no pintar nada pegado al borde con un radio fijo; no dar por buena una safe area de 24 pt para la hora.
+
+**Sin comprobar en aparato:** las tallas sin simulador (41, 45 mm y Ultra 1 y 2: su hora está interpolada); el aro en un reloj real; la pila del final (sello, RPE, resumen), que no tiene caso de escaparate. Pendiente conocido y previo: en 40 mm la cara de descanso de fuerza (3 filas y texto que envuelve) pesa más de lo que mide el núcleo y corta el pie.
+
 ## 2026-09-30 · Correr es correr (F6): sin puertas a mitad de carrera, final natural con pantalla, RPE en la corona, GPS listo y ruta a Salud
 
 **El hueco.** Tras el calentamiento el reloj aparcaba en la puerta de bloque («Empezar bloque») en mitad de la carrera; al acabar solo (el último paso cumplido por su medida) el motor pedía una decisión que la muñeca no pintaba, así que la lámina se congelaba; terminar guardaba `.partial` por defecto (y el móvil `.full` por defecto), sin mirar lo hecho; el RPE no existía en el reloj; el GPS no se buscaba hasta empezar; y la ruta de la calle no llegaba a Salud.
