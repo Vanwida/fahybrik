@@ -27,6 +27,13 @@ import type {
   AssignPreviewAthlete,
 } from '@fahybrid/shared/schema/assign-many';
 import { parseWeekSlotsFromDb } from '@/lib/dashboard/coach/program-week-slots';
+import {
+  describeDrop,
+  resolveSessionsContent,
+  sessionLabel,
+  type DroppedSession,
+} from '@/lib/dashboard/coach/session-content';
+import type { WeekSession } from '@fahybrid/shared/schema/program-templates';
 import { boxToday } from './week-publishing';
 
 export class AssignManyError extends Error {
@@ -46,8 +53,10 @@ export interface ProgramInfo {
   id: number;
   name: string;
   weeks: number;
-  /** Entrenos por semana (índice 0 = semana 1). */
+  /** Entrenos que de verdad se crean por semana (índice 0 = semana 1). */
   sessions_by_week: number[];
+  /** Sesiones que se pierden (o se crean incompletas) al materializar, y por qué. */
+  dropped: DroppedSession[];
 }
 
 export interface RecipientInfo {
@@ -84,19 +93,6 @@ export interface GroupPlanContext {
 
 // ── Cargas ───────────────────────────────────────────────────────────────────
 
-function countSessions(slotsJson: unknown): number {
-  const slots = parseWeekSlotsFromDb(slotsJson);
-  let n = 0;
-  for (const day of slots.days) {
-    for (const s of day.sessions) {
-      if (s.kind !== 'workout') continue;
-      const hasBlocks = (s.blocks ?? []).some((b) => (b.items?.length ?? 0) > 0 || b.source_block_id != null);
-      if (s.template_id != null || hasBlocks) n += 1;
-    }
-  }
-  return n;
-}
-
 /** Programas de biblioteca del coach, con sus semanas y entrenos por semana. */
 export async function loadPrograms(client: Sql, coach_id: number, ids: number[]): Promise<Map<number, ProgramInfo>> {
   const uniq = [...new Set(ids)];
@@ -113,19 +109,49 @@ export async function loadPrograms(client: Sql, coach_id: number, ids: number[])
     where w.month_template_id = any(${uniq}::bigint[])
     order by w.month_template_id, w.position
   `;
-  const byMonth = new Map<string, number[]>();
+  // Todas las sesiones de entreno de todas las semanas, con su sitio, y UN veredicto
+  // para el lote: el mismo (`resolveSessionsContent`) que usa la materialización.
+  type Spot = { month_id: string; week_index: number; day_of_week: number; session: WeekSession };
+  const spots: Spot[] = [];
+  const weekCount = new Map<string, number>();
   for (const w of weeks) {
-    const list = byMonth.get(w.month_id) ?? [];
-    list.push(countSessions(w.slots_json));
-    byMonth.set(w.month_id, list);
+    const week_index = weekCount.get(w.month_id) ?? 0;
+    weekCount.set(w.month_id, week_index + 1);
+    for (const day of parseWeekSlotsFromDb(w.slots_json).days) {
+      for (const session of day.sessions) {
+        if (session.kind === 'workout') spots.push({ month_id: w.month_id, week_index, day_of_week: day.day_of_week, session });
+      }
+    }
   }
+  const verdicts = await resolveSessionsContent(client, coach_id, spots.map((s) => s.session));
+
   const out = new Map<number, ProgramInfo>();
   for (const h of heads) {
     if (h.owner != null) continue; // un plan personal no es un programa asignable
-    const sessions = byMonth.get(h.id) ?? [];
-    out.set(Number(h.id), { id: Number(h.id), name: h.name, weeks: sessions.length, sessions_by_week: sessions });
+    const sessions = Array.from({ length: weekCount.get(h.id) ?? 0 }, () => 0);
+    const dropped: DroppedSession[] = [];
+    spots.forEach((spot, i) => {
+      if (spot.month_id !== h.id) return;
+      const verdict = verdicts[i]!;
+      if (verdict.materializes) sessions[spot.week_index]! += 1;
+      if (verdict.drop) {
+        dropped.push({
+          ...verdict.drop,
+          week_number: spot.week_index + 1,
+          day_of_week: spot.day_of_week,
+          label: sessionLabel(spot.session),
+        });
+      }
+    });
+    out.set(Number(h.id), { id: Number(h.id), name: h.name, weeks: sessions.length, sessions_by_week: sessions, dropped });
   }
   return out;
+}
+
+/** Lo que se pierde al materializar desde `start_week`, en frases para el coach. */
+export function droppedFrom(program: ProgramInfo | null, start_week: number | null): DroppedSession[] {
+  if (!program || start_week == null) return [];
+  return program.dropped.filter((d) => d.week_number >= start_week);
 }
 
 export async function loadProgramOrThrow(client: Sql, coach_id: number, program_id: number): Promise<ProgramInfo> {
@@ -459,6 +485,11 @@ export function buildPreview(input: {
     end_date: weeks > 0 ? windowEnd(input.start, weeks) : isoDateString(addDays(parseIsoDate(input.start), 6)),
     weeks,
     sessions_per_athlete: sessionsFrom(input.program, input.program ? input.start_week : null),
+    dropped_sessions: droppedFrom(input.program, input.program ? input.start_week : null).map((d) => ({
+      week_number: d.week_number,
+      session_lost: d.session_lost,
+      message: describeDrop(d),
+    })),
     athletes,
     counts,
   };

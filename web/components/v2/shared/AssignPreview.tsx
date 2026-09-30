@@ -83,6 +83,20 @@ export function AssignPreviewSummary({ preview, className }: { preview: AssignPr
           este envío.
         </p>
       ) : null}
+      {preview.dropped_sessions.length > 0 ? (
+        <div className="flex flex-col gap-1 t-body-sm text-v2-warn">
+          <p className="font-medium">
+            {preview.dropped_sessions.some((d) => d.session_lost)
+              ? 'Algunos entrenos no se van a crear:'
+              : 'Algunos entrenos se crean incompletos:'}
+          </p>
+          <ul className="flex max-h-32 flex-col gap-0.5 overflow-y-auto">
+            {preview.dropped_sessions.map((d) => (
+              <li key={d.message}>{d.message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <p className="t-meta text-v2-faint">Nadie pierde lo que ya ha entrenado.</p>
     </div>
   );

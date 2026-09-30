@@ -4,7 +4,13 @@ import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
 import { addDays, isoDateString, parseIsoDate, mondayOfWeek } from '@fahybrid/shared/domain/dates';
 import { scheduleWeek1Calibration } from '@/lib/coach/schedule-calibration';
-import { blockExerciseToItem, type BlockExerciseRow } from './blocks';
+import {
+  resolveSessionsContent,
+  sessionLabel,
+  type DroppedSession,
+  type SessionContent,
+  type SessionDrop,
+} from './session-content';
 import { cloneTemplateAsInstance } from './template-instance';
 import { getMonthTemplate } from './program-months';
 import { getWeekTemplate } from './program-weeks';
@@ -12,14 +18,11 @@ import { parseWeekSlotsFromDb } from './program-week-slots';
 import type {
   WeekSlots,
   WeekSession,
-  WeekDayPart,
-  WeekDayPartItem,
 } from '@fahybrid/shared/schema/program-templates';
 import { templateFormat, type TemplateFormat } from '@fahybrid/shared/schema/_primitives';
 import {
   applyProgression,
   safeParsePrescription,
-  type Modality,
   type Prescription,
   type ProgressionSpec,
 } from '@fahybrid/shared/domain/prescription';
@@ -32,7 +35,10 @@ import {
   type Availability,
   type PreferredWeek,
 } from '@fahybrid/shared/domain/coach/intake-availability';
-import { joinCoachOverride, visibleToCoach } from '@/lib/exercises/coach-override';
+
+// El desglose de bloques de biblioteca vive con el veredicto de sesiones; se sigue
+// exportando desde aquí porque es donde lo importan los demás.
+export { hydrateBlockParts } from './session-content';
 
 /**
  * Validate an item's structured prescription for the `prescription_json` column.
@@ -74,6 +80,8 @@ export type InstantiateMonthResult = {
   start_date: string;
   end_date: string;
   microcycle_ids: string[];
+  /** Sesiones que no se han podido crear (o se han creado incompletas) y por qué. */
+  dropped_sessions: DroppedSession[];
 };
 
 export class InstantiateProgramError extends Error {
@@ -162,6 +170,7 @@ export async function instantiateMonthFromTemplate(params: {
 
   let assignmentCount = 0;
   const microcycleIds: string[] = [];
+  const droppedSessions: DroppedSession[] = [];
   let monthAssignmentId = '0';
 
   try {
@@ -184,6 +193,7 @@ export async function instantiateMonthFromTemplate(params: {
         });
         microcycleIds.push(weekRes.microcycle_id);
         assignmentCount += weekRes.assignment_count;
+        droppedSessions.push(...weekRes.dropped_sessions);
       }
 
       const assignRows = await tx<Array<{ id: string }>>`
@@ -252,6 +262,7 @@ export async function instantiateMonthFromTemplate(params: {
     start_date: startIso,
     end_date: endIso,
     microcycle_ids: microcycleIds,
+    dropped_sessions: droppedSessions,
   };
 }
 
@@ -275,7 +286,7 @@ export async function instantiateWeekIntoMicrocycle(params: {
   week_number: number;
   /** Per-loop progressive-overload to scale doses by (repeated sequence loops). */
   progression?: ProgressionSpec;
-}): Promise<{ microcycle_id: string; assignment_count: number }> {
+}): Promise<{ microcycle_id: string; assignment_count: number; dropped_sessions: DroppedSession[] }> {
   const weekStart = params.week_start;
   const weekEnd = addDays(weekStart, 6);
   const weekStartIso = isoDateString(weekStart);
@@ -324,7 +335,14 @@ export async function instantiateWeekIntoMicrocycle(params: {
     preferredWeek: prefs.preferredWeek,
   }).days;
 
+  // Qué sesiones de esta semana llegan de verdad al atleta: UN veredicto por
+  // semana, el mismo que enseña la previa de «Asignar» (session-content.ts).
+  const workoutSessions = placedDays.flatMap((day) => day.sessions).filter((session) => session.kind === 'workout');
+  const verdicts = await resolveSessionsContent(params.client, params.coach_id, workoutSessions);
+  const contentOf = new Map(workoutSessions.map((session, i) => [session, verdicts[i]!]));
+
   let assignmentCount = 0;
+  const droppedSessions: DroppedSession[] = [];
   const wantedByDate = new Map<string, string[]>();
   for (const day of placedDays) {
     const dayDate = addDays(weekStart, day.day_of_week - 1);
@@ -333,7 +351,7 @@ export async function instantiateWeekIntoMicrocycle(params: {
     for (let i = 0; i < day.sessions.length; i++) {
       const session = day.sessions[i]!;
       const slotLabel = slotLabelForSessionIndex(i);
-      assignmentCount += await insertSlotAssignment({
+      const placed = await insertSlotAssignment({
         client: params.client,
         coach_id: params.coach_id,
         athlete_id: params.athlete_id,
@@ -341,9 +359,19 @@ export async function instantiateWeekIntoMicrocycle(params: {
         scheduled_for: dayIso,
         slot: slotLabel,
         session,
+        content: contentOf.get(session),
         template_name_base: weekTpl.name,
         progression: params.progression,
       });
+      assignmentCount += placed.count;
+      if (placed.drop) {
+        droppedSessions.push({
+          ...placed.drop,
+          week_number: params.week_number,
+          day_of_week: day.day_of_week,
+          label: sessionLabel(session),
+        });
+      }
       if (session.kind === 'workout') wanted.push(`slot:${slotLabel}`);
     }
     wantedByDate.set(dayIso, wanted);
@@ -365,7 +393,7 @@ export async function instantiateWeekIntoMicrocycle(params: {
     });
   }
 
-  return { microcycle_id: microId, assignment_count: assignmentCount };
+  return { microcycle_id: microId, assignment_count: assignmentCount, dropped_sessions: droppedSessions };
 }
 
 export type ResyncWeekTemplateResult = {
@@ -526,10 +554,16 @@ async function insertSlotAssignment(params: {
   scheduled_for: string;
   slot: 'am' | 'pm' | `slot:${number}`;
   session: WeekSession;
+  /** Veredicto de la sesión (`resolveSessionsContent`); las que no son de entreno no lo llevan. */
+  content: SessionContent | undefined;
   template_name_base: string;
   progression?: ProgressionSpec;
-}): Promise<number> {
-  if (params.session.kind !== 'workout') return 0;
+}): Promise<{ count: number; drop: SessionDrop | null }> {
+  const content = params.content;
+  if (params.session.kind !== 'workout' || !content) return { count: 0, drop: null };
+  // Sin nada que asignar (plantilla de origen desaparecida o de otro coach; bloques
+  // sin ejercicios): no se crea entreno, y el motivo sube al resultado.
+  if (!content.materializes) return { count: 0, drop: content.drop };
 
   // Dos formas de definir el workout de una sesión — en AMBAS la asignación
   // recibe un INSTANCE per-atleta (fork), nunca una referencia compartida a la
@@ -552,8 +586,10 @@ async function insertSlotAssignment(params: {
       athlete_id: params.athlete_id,
       coach_id: params.coach_id,
     });
-    // Plantilla de origen desaparecida (o de otro coach) → nada que asignar.
-    if (instance == null) return 0;
+    // La plantilla desapareció entre el veredicto y el clonado → nada que asignar.
+    if (instance == null) {
+      return { count: 0, drop: { reason: 'template_missing', session_lost: true, missing_exercises: [], empty_blocks: [] } };
+    }
     templateId = instance.template_id;
     version = instance.version;
   } else {
@@ -562,11 +598,10 @@ async function insertSlotAssignment(params: {
       coach_id: params.coach_id,
       athlete_id: params.athlete_id,
       session: params.session,
+      content,
       name_base: params.template_name_base,
       progression: params.progression,
     });
-    // Sesión sin template_id y sin bloques con ejercicios → nada que asignar.
-    if (templateId == null) return 0;
   }
 
   // GUARDA DE DOBLE RESERVA. Materializar dos veces (dos clics del coach, o dos
@@ -601,13 +636,13 @@ async function insertSlotAssignment(params: {
     limit 1
   `;
   if (dup.length > 0) {
-    if (dup[0]!.status !== 'scheduled') return 0;
+    if (dup[0]!.status !== 'scheduled') return { count: 0, drop: null };
     await params.client`
       update workout_assignments
       set template_id = ${templateId}, template_version = ${version}, updated_at = now()
       where id = ${Number(dup[0]!.id)}
     `;
-    return 1;
+    return { count: 1, drop: content.drop };
   }
 
   await params.client`
@@ -630,7 +665,7 @@ async function insertSlotAssignment(params: {
       ${`slot:${params.slot}`}
     )
   `;
-  return 1;
+  return { count: 1, drop: content.drop };
 }
 
 async function pruneRemovedSlotAssignments(params: {
@@ -653,89 +688,17 @@ async function pruneRemovedSlotAssignments(params: {
 }
 
 /**
- * Hidrata los parts de Biblioteca de Bloques con sus `block_exercises`.
- *
- * Para cada part con `source_block_id` y sin `items` propios, carga las filas
- * estructuradas de `block_exercises` (0038) y las convierte en `WeekDayPartItem`
- * (exercise_id + params_json canónicos + block_position espejado). Los parts que
- * ya traen items (a medida o ya hidratados) o sin `source_block_id` se devuelven
- * intactos. Un único query batch para todos los block_ids de la sesión.
- *
- * ⚠️ NO ES CÓDIGO MUERTO — ES EL LECTOR DE LOS DATOS VIEJOS. NO LO BORRES.
- *
- * Ninguna vía NUEVA depende de esto: al insertar un bloque desde la Biblioteca en
- * el editor de día se COPIA la estructura (items ya vienen llenos, ver
- * `library-block-to-editor.ts`), así que aquí esos parts pasan de largo. Pero en
- * `slots_json` de las semanas YA ESCRITAS viven **39 parts** con `source_block_id`
- * y `items: []` (verificado contra prod, jul-2026: 39 de 379 parts, y los 39
- * tienen items vacío) — esos SIGUEN resolviéndose aquí, al asignar. Si esto se
- * "limpia" por no encontrarle llamadores nuevos, esas 39 piezas se materializan
- * VACÍAS y el atleta recibe un entreno sin ejercicios.
- *
- * Lo mismo aplica al `items: []` de `createPartFromLibraryBlock` (block-to-part.ts):
- * es la otra mitad de este contrato, no un olvido.
- *
- * `coachId` — el nombre de cada ejercicio hidratado es el MERGED (override del
- * coach si renombró la base, si no la base, 0132). El join de ejercicios es
- * solo para el nombre — NUNCA le añadas un filtro de visibilidad de ejercicio.
- *
- * Lo que SÍ lleva es la frontera de tenant sobre el BLOQUE: `source_block_id`
- * viaja dentro del JSON de la semana (no es una FK), así que un part puede
- * apuntar a un id cualquiera. Solo se hidratan bloques de `coachId`; uno ajeno
- * se queda sin items, exactamente como un bloque sin desglosar. Así ni un JSON
- * escrito antes de validar las referencias en la escritura puede traer el
- * contenido de otro club.
- */
-export async function hydrateBlockParts(
-  client: Sql,
-  coachId: number | bigint,
-  parts: WeekDayPart[],
-): Promise<WeekDayPart[]> {
-  const blockIds = Array.from(
-    new Set(
-      parts
-        .filter((p) => p.source_block_id != null && (p.items?.length ?? 0) === 0)
-        .map((p) => Number(p.source_block_id)),
-    ),
-  );
-  if (blockIds.length === 0) return parts;
-
-  const rows = await client<BlockExerciseRow[]>`
-    select be.block_id::text, be.position, be.block_position,
-           be.exercise_id::text, coalesce(ceo.name, e.name) as exercise_name,
-           be.params_json, be.prescription_json, be.notes
-    from block_exercises be
-    join blocks b on b.id = be.block_id and b.coach_id = ${Number(coachId)}
-    join exercises e on e.id = be.exercise_id
-    ${joinCoachOverride(client, coachId)}
-    where be.block_id = any(${blockIds}::bigint[])
-    order by be.block_id, be.position
-  `;
-
-  // group exercises by block_id, preserving position order. Mapeo compartido
-  // (blockExerciseToItem) con el endpoint GET /api/coach/blocks/[id] → mismo shape.
-  const byBlock = new Map<number, WeekDayPartItem[]>();
-  for (const r of rows) {
-    const bid = Number(r.block_id);
-    const list = byBlock.get(bid) ?? [];
-    list.push(blockExerciseToItem(r));
-    byBlock.set(bid, list);
-  }
-
-  return parts.map((p) => {
-    if (p.source_block_id == null || (p.items?.length ?? 0) > 0) return p;
-    const items = byBlock.get(Number(p.source_block_id));
-    if (!items || items.length === 0) return p; // needs_review block → keep verbatim
-    return { ...p, items };
-  });
-}
-
-/**
  * Materializa los `blocks[]` inline de una sesión de week-template como un
  * `templates` row + `template_segments`, espejando el shape que produce el
  * week-studio (block_position/block_format/block_title por bloque, position
- * global por ejercicio). Devuelve el id del template creado, o null si la
- * sesión no tiene ningún ejercicio (no hay nada que asignar).
+ * global por ejercicio). Devuelve el id del template creado.
+ *
+ * Qué entra lo decide `resolveSessionsContent` (session-content.ts) y llega en
+ * `content`: bloques de biblioteca ya desglosados (0037/0038; uno sin estructura,
+ * needs_review, se queda sin items) y solo los ejercicios que existen y ve el
+ * coach (template_segments.exercise_id es FK NOT NULL: un id fantasma reventaría
+ * toda la asignación). Es el mismo veredicto que enseña la previa, así que aquí
+ * solo se llama con una sesión que sí se materializa.
  */
 async function materializeInlineSessionTemplate(params: {
   client: Sql;
@@ -743,43 +706,12 @@ async function materializeInlineSessionTemplate(params: {
   /** Owner of the per-athlete instance this inline session materializes into. */
   athlete_id: number | bigint;
   session: WeekSession;
+  content: SessionContent;
   name_base: string;
   progression?: ProgressionSpec;
-}): Promise<number | null> {
-  const rawBlocks: WeekDayPart[] = params.session.blocks ?? [];
-  // Hidrata los parts insertados desde la Biblioteca de Bloques (0037/0038):
-  // un part con `source_block_id` y sin `items` propios materializa los
-  // `block_exercises` estructurados del bloque (ejercicios reales del catálogo +
-  // params canónicos). Si el bloque NO tiene estructura (needs_review), se queda
-  // sin items y degrada a nota verbatim vía coach_note (comportamiento previo).
-  const blocks = await hydrateBlockParts(params.client, params.coach_id, rawBlocks);
-  const totalItems = blocks.reduce((n, b) => n + (b.items?.length ?? 0), 0);
-  if (totalItems === 0) return null;
-
-  // template_segments.exercise_id es FK NOT NULL → un ejercicio fantasma
-  // (id de un seed antiguo que ya no existe) reventaría toda la asignación.
-  // Filtramos a los exercise_id que existen de verdad; si una sesión se queda
-  // sin ninguno, la saltamos (return null) en vez de crear un template vacío.
-  const referencedIds = Array.from(
-    new Set(
-      blocks.flatMap((b) => (b.items ?? []).map((it) => Number(it.exercise_id))),
-    ),
-  );
-  // Filters out both non-existent ids AND ids belonging to another coach — a
-  // referenced id here arrives verbatim from the session's own JSON blocks,
-  // not by FK from an already-scoped row, so it must be resolved through the
-  // same visibility every enumeration/resolver uses (mig 0132).
-  // La modalidad viaja en la misma consulta: el escritor la necesita (0053) y así
-  // no vuelve a pedir el catálogo por cada sesión materializada.
-  // tenancy: coach-fragment — visibleToCoach filtra por el coach de la sesión.
-  const existingRows = await params.client<Array<{ id: string; modality: string | null }>>`
-    select e.id::text, e.modality::text as modality from exercises e
-    where e.id = any(${referencedIds}::bigint[])
-      and ${visibleToCoach(params.client, params.coach_id)}
-  `;
-  const modalityById = new Map(existingRows.map((r) => [Number(r.id), (r.modality as Modality | null) ?? null]));
+}): Promise<number> {
+  const { blocks, modality_by_exercise: modalityById } = params.content;
   const existingExerciseIds = new Set(modalityById.keys());
-  if (existingExerciseIds.size === 0) return null;
 
   // format del template = primer block format válido, o fallback.
   const firstFormat = blocks.find((b) =>
