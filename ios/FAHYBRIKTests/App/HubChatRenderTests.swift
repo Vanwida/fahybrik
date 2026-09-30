@@ -43,9 +43,9 @@ final class HubChatRenderTests: XCTestCase {
 
     @MainActor
     func testElContadorSeSostieneEnLosDosExtremos() {
-        XCTAssertNotNil(render(centrado { CalibrationCounter(done: 0, total: nil, hero: true) },
+        XCTAssertNotNil(render(centrado { CalibrationCounter(done: 0, total: nil) },
                                nombre: "tests-contador-cero"))
-        XCTAssertNotNil(render(centrado { CalibrationCounter(done: 2, total: 4, hero: true) },
+        XCTAssertNotNil(render(centrado { CalibrationCounter(done: 2, total: 4) },
                                nombre: "tests-contador-con-datos"))
     }
 
