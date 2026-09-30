@@ -12,6 +12,10 @@ import SwiftUI
 /// cuelga del `CenteredScreen`, que es un `ScrollView`, e `ImageRenderer` no dibuja
 /// ScrollView) y porque es la parte de la pantalla que tiene estados: separarla
 /// hace que los cuatro se puedan mirar uno a uno.
+///
+/// Con el kit del día: la lista es una tarjeta con sus filas separadas por un filo
+/// (como los ajustes de Perfil), y el vacío y el error son el sujeto de la pantalla
+/// con su salida, como en el Plan.
 struct HistorialDelMes: View {
     let viewed: YearMonth
     let rows: [HistoryListRow]
@@ -32,27 +36,42 @@ struct HistorialDelMes: View {
     /// servidor (no la tiene). Con defecto por lo mismo que `onPreguntar`.
     var onAbrirSinSubir: ((LocalUnsyncedWorkout) -> Void)? = nil
 
+    /// Cuántas filas dibuja el esqueleto: las de un mes con poco, para que al llegar
+    /// una lista corta no se encoja todo de golpe.
+    private static let filasDelEsqueleto = 3
+
     var body: some View {
         if loading {
-            HStack { Spacer(); ProgressView().tint(Theme.Color.accent); Spacer() }
+            esqueleto
         } else if failed {
-            RedesignEmptyState(
-                symbol: "arrow.clockwise",
-                title: "No pudimos cargar \(HistoryCalendar.monthNameEs(viewed.month))",
-                message: "Revisa tu conexión e inténtalo de nuevo.",
-                exit: .action(title: "Reintentar", perform: onReintentar)
+            SujetoEstadoDeLoHecho.error(
+                kicker: viewed.displayLabel,
+                titulo: "No pudimos cargar \(HistoryCalendar.monthNameEs(viewed.month))",
+                apoyo: "Revisa tu conexión e inténtalo de nuevo.",
+                alReintentar: onReintentar
             )
         } else if rows.isEmpty {
             mesVacio
         } else {
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 if selectedDay != nil { focusedDayHeader }
-                ForEach(Array(rows.enumerated()), id: \.element.id) { idx, row in
-                    if idx > 0 { Divider().overlay(Theme.Color.hairline) }
-                    listRow(row)
+                VStack(spacing: 0) {
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { idx, row in
+                        if idx > 0 { filo }
+                        listRow(row)
+                    }
                 }
+                .tarjetaDia()
             }
         }
+    }
+
+    /// El filo entre dos filas: sangrado hasta el texto, como una lista del sistema.
+    private var filo: some View {
+        Rectangle()
+            .fill(Theme.Color.hairline)
+            .frame(height: 1)
+            .padding(.leading, Theme.Spacing.l)
     }
 
     /// Un mes sin entrenos. Lleva salida SIEMPRE (§5), y la salida es el acto que
@@ -62,17 +81,43 @@ struct HistorialDelMes: View {
     /// Un mes ya cerrado y otro en curso no dicen lo mismo: en el que corre todavía
     /// puede pasar algo, y eso es información; en el que pasó, ya no.
     private var mesVacio: some View {
-        RedesignEmptyState(
-            symbol: "calendar",
-            title: "Sin entrenos en \(HistoryCalendar.monthNameEs(viewed.month))",
-            message: HistoryCalendar.todayDay(in: viewed) != nil
+        SujetoEstadoDeLoHecho(
+            tono: .neutro,
+            kicker: viewed.displayLabel,
+            titulo: "Sin entrenos en \(HistoryCalendar.monthNameEs(viewed.month))",
+            apoyo: HistoryCalendar.todayDay(in: viewed) != nil
                 ? "Lo que entrenes este mes aparece aquí en cuanto lo cierres."
                 : "No hay ninguna sesión registrada en este mes.",
-            exit: .action(
-                title: "Ver \(HistoryCalendar.monthNameEs(viewed.previous().month))",
-                perform: onVerMesAnterior
-            )
+            accion: "Ver \(HistoryCalendar.monthNameEs(viewed.previous().month))",
+            alTocar: onVerMesAnterior
         )
+    }
+
+    /// Mientras llega el mes: la MISMA tarjeta con la silueta de sus filas (sello del
+    /// día, título, chips y resultado), no una rueda en medio de la nada.
+    private var esqueleto: some View {
+        VStack(spacing: 0) {
+            ForEach(0..<Self.filasDelEsqueleto, id: \.self) { i in
+                if i > 0 { filo }
+                HStack(spacing: Theme.Spacing.m) {
+                    VStack(spacing: Theme.Spacing.xs) {
+                        SkeletonBar(width: 30, height: 15, radius: 5)
+                        SkeletonBar(width: 30, height: 24, radius: 6)
+                    }
+                    .frame(width: SelloDelDia.ancho)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                        SkeletonBar(height: 17, radius: 5).padding(.trailing, i == 1 ? 60 : 30)
+                        SkeletonBar(width: 110, height: 15, radius: 5)
+                    }
+                    SkeletonBar(width: 56, height: 24, radius: 6)
+                }
+                .padding(.horizontal, Theme.Spacing.l)
+                .padding(.vertical, Theme.Spacing.l)
+            }
+        }
+        .tarjetaDia()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cargando \(HistoryCalendar.monthNameEs(viewed.month))")
     }
 
     /// Shown when a multi-session day is focused: says WHICH day is on screen and
@@ -81,18 +126,25 @@ struct HistorialDelMes: View {
     @ViewBuilder
     private var focusedDayHeader: some View {
         if let selectedDay {
-            HStack(spacing: 8) {
-                LabelText(text: focusedDayLabel(selectedDay), color: Theme.Color.accentText, size: 15)
-                Spacer(minLength: 0)
+            HStack(spacing: Theme.Spacing.s) {
+                Text(focusedDayLabel(selectedDay))
+                    .papel(.etiqueta)
+                    .foregroundStyle(Theme.Color.accentText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                // La misma pastilla de vuelta que «Volver a esta semana» del Plan.
                 Button(action: onVerElMes) {
                     Text("Ver el mes")
-                        .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.muted)
+                        .papel(.rotulo)
+                        .foregroundStyle(Theme.Color.accentText)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .overlay(Capsule().strokeBorder(Theme.Color.accentTintBorde, lineWidth: 1))
+                        .contentShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressScaleStyle(escala: 0.96))
                 .accessibilityLabel("Ver todo el mes")
             }
-            .padding(.vertical, Theme.Spacing.s)
         }
     }
 
@@ -154,50 +206,41 @@ struct HistorialDelMes: View {
     private func rowButton(_ row: HistoryListRow, action: @escaping () -> Void) -> some View {
         let s = row.session
         return Button(action: action) {
-            HStack(alignment: .center, spacing: 12) {
-                // Date stamp — DOW + day number.
-                VStack(spacing: 1) {
-                    Text(HistoryCalendar.dowAbbrev(row.date))
-                        .scaledFont(15, weight: .bold, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.muted)
-                    if let day = dayNumber(row.date) {
-                        Text(day)
-                            .scaledFont(20, weight: .heavy, relativeTo: .title3, monospaced: true)
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
-                }
-                .frame(minWidth: 40)
+            HStack(alignment: .center, spacing: Theme.Spacing.m) {
+                SelloDelDia(iso: row.date)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    HStack(spacing: Theme.Spacing.s) {
                         if s.modality != nil { ModalityDot(modality: s.modality, size: 10) }
                         Text(s.title)
-                            .scaledFont(17, weight: .semibold, relativeTo: .body)
+                            .papel(.cuerpoFuerte)
                             .foregroundStyle(Theme.Color.foreground)
-                            .lineLimit(1)
+                            .lineLimit(2)
                     }
                     subChips(s, sinSubir: row.sinSubir != nil)
                 }
-                Spacer(minLength: 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 if let resultado = s.resultado {
-                    VStack(alignment: .trailing, spacing: 1) {
+                    VStack(alignment: .trailing, spacing: 2) {
                         Text(resultado.valor)
-                            .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true, monospaced: true)
+                            .papel(.seccion)
+                            .monospacedDigit()
                             .foregroundStyle(Theme.Color.foreground)
                             .lineLimit(1)
                         Text(resultado.etiqueta)
-                            .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
+                            .papel(.nota)
                             .foregroundStyle(Theme.Color.muted)
                             .lineLimit(1)
                     }
+                    .layoutPriority(1)
                 }
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 15, weight: .semibold))
+                IconoDia(.chevron, tam: 18)
                     .foregroundStyle(Theme.Color.muted)
-                    .accessibilityHidden(true)
             }
-            .padding(.vertical, 12)
+            .padding(.horizontal, Theme.Spacing.l)
+            .padding(.vertical, Theme.Spacing.m + 2)
+            .frame(minHeight: Theme.Size.toque)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -206,7 +249,10 @@ struct HistorialDelMes: View {
 
     @ViewBuilder
     private func subChips(_ s: AthleteHistorySession, sinSubir: Bool) -> some View {
-        HStack(spacing: 10) {
+        // Varias marcas a la vez (RPE, en pareja, ruta, «Sin subir») no caben en una línea con
+        // el título a 17 pt: fluyen a la siguiente, nunca cortadas con «…». El flujo es el
+        // compartido de la app (`FlowLayout`), no uno más.
+        FlowLayout(spacing: Theme.Spacing.s + 2) {
             if let rpe = s.rpeLabel {
                 chip(text: rpe, tint: Theme.Color.muted)
             }
@@ -233,21 +279,40 @@ struct HistorialDelMes: View {
     }
 
     private func chip(icon: String? = nil, text: String, tint: Color) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Theme.Spacing.xs) {
             if let icon {
                 Image(systemName: icon)
-                    .scaledFont(13, weight: .bold, relativeTo: .footnote)
+                    .font(.system(size: 13, weight: .bold))
+                    .accessibilityHidden(true)
             }
-            Text(text).scaledFont(15, weight: .semibold, relativeTo: .subheadline)
+            Text(text).papel(.notaFuerte)
         }
         .foregroundStyle(tint)
-        .lineLimit(1)
+        .fixedSize()
     }
+}
 
-    /// El día del mes del sello. Nil cuando la fecha no se puede leer: entonces no
-    /// hay sello que pintar, igual que `dowAbbrev` ya devuelve vacío. La columna
-    /// sigue reservada para que la lista no se desalinee.
-    private func dayNumber(_ iso: String) -> String? {
-        HistoryCalendar.parseISO(iso).map { String($0.day) }
+// MARK: - El sello del día
+
+/// «MIÉ / 28» a la izquierda de la fila: de un vistazo, qué día fue. La columna tiene ancho
+/// fijo aunque la fecha no se pueda leer, para que la lista no se desalinee.
+private struct SelloDelDia: View {
+    let iso: String
+
+    static let ancho: CGFloat = 44
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text(HistoryCalendar.dowAbbrev(iso))
+                .papel(.etiqueta)
+                .foregroundStyle(Theme.Color.muted)
+            if let dia = HistoryCalendar.parseISO(iso).map({ String($0.day) }) {
+                Text(dia)
+                    .papel(.seccion)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.Color.foreground)
+            }
+        }
+        .frame(minWidth: Self.ancho)
     }
 }

@@ -13,7 +13,8 @@ import SwiftUI
 // ARQUETIPO **Lista** que degrada a **Vacío** (contrato §6.2). ESTRATEGIA `llena`,
 // montada sobre las TRES posiciones de `CenteredScreen`:
 //
-//   head     la barra con la ✕ — clavada, nunca se va con el scroll.
+//   head     la cabecera con el título y la ✕ (`CabeceraDeLoHecho`) — clavada, nunca
+//            se va con el scroll.
 //   lead     el mes, el calendario y la leyenda: el instrumento de la pantalla, que
 //            se queda arriba (si bailara, el atleta reencuadraría al cambiar de mes)
 //            pero scrollea con el contenido a tamaños de texto accesibles.
@@ -57,7 +58,6 @@ struct HistoryView: View {
     @State private var sinSubirTarget: LocalUnsyncedWorkout? = nil
 
     // Derived (pure)
-    private var grid: [CalendarGridCell] { HistoryCalendar.grid(viewed) }
     private var states: [Int: CalendarDayState] {
         HistoryCalendar.dayStates(month?.days ?? [], in: viewed, sinSubir: month == nil ? [] : sinSubir)
     }
@@ -72,24 +72,32 @@ struct HistoryView: View {
     }
     private var canForward: Bool { HistoryCalendar.canGoForward(from: viewed) }
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Cambiar de mes o de día enfocado: un fundido corto, o ninguno con Reducir movimiento.
+    private var cambio: Animation? { reduceMotion ? nil : .easeInOut(duration: 0.15) }
 
     var body: some View {
         CenteredScreen {
-            topBar
+            CabeceraDeLoHecho(titulo: "Historial", alCerrar: onClose)
         } lead: {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                monthNav
-                calendar
-                legend
-                Divider().overlay(Theme.Color.hairline)
+                CalendarioDelMes(
+                    viewed: viewed,
+                    estados: states,
+                    hoy: todayDay,
+                    enfocado: selectedDay,
+                    puedeAvanzar: canForward,
+                    alCambiarDeMes: { mes in withAnimation(cambio) { viewed = mes } },
+                    alTocarDia: openDay
+                )
+                Rectangle().fill(Theme.Color.hairline).frame(height: 1)
             }
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.top, Theme.Spacing.s)
+            .padding(.horizontal, Theme.Spacing.pantalla)
             .padding(.bottom, Theme.Spacing.l)
         } content: {
             monthList
-                .padding(.horizontal, Theme.Spacing.xl)
+                .padding(.horizontal, Theme.Spacing.pantalla)
                 .padding(.bottom, Theme.Spacing.xxl)
         }
         .background(Theme.Color.background.ignoresSafeArea())
@@ -173,145 +181,6 @@ struct HistoryView: View {
         loading = false
     }
 
-    // MARK: - Top bar
-
-    private var topBar: some View {
-        HStack {
-            Button(action: { Haptics.light(); onClose() }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(width: 40, height: 40)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Cerrar")
-            Spacer()
-            Text("Historial")
-                .scaledFont(15, weight: .heavy, relativeTo: .headline, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-            Spacer()
-            Color.clear.frame(width: 40, height: 40)   // balance the X
-        }
-        .padding(.horizontal, Theme.Spacing.m)
-        .padding(.top, Theme.Spacing.s)
-    }
-
-    // MARK: - Month navigation (‹ julio 2026 ›)
-
-    private var monthNav: some View {
-        HStack {
-            navButton(system: "chevron.left", enabled: true) {
-                withAnimation(.easeInOut(duration: 0.15)) { viewed = viewed.previous() }
-            }
-            .accessibilityLabel("Mes anterior")
-            Spacer()
-            Text(viewed.displayLabel.capitalizedFirst)
-                .scaledFont(18, weight: .heavy, relativeTo: .title3, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .contentTransition(.numericText())
-            Spacer()
-            navButton(system: "chevron.right", enabled: canForward) {
-                guard canForward else { return }
-                withAnimation(.easeInOut(duration: 0.15)) { viewed = viewed.next() }
-            }
-            .accessibilityLabel("Mes siguiente")
-        }
-    }
-
-    private func navButton(system: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: { if enabled { Haptics.light(); action() } }) {
-            Image(systemName: system)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(enabled ? Theme.Color.foreground : Theme.Color.faint.opacity(0.4))
-                .frame(width: 40, height: 36)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-    }
-
-    // MARK: - Calendar grid
-
-    private var calendar: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 4) {
-                ForEach(Array(HistoryCalendar.weekdayHeadersEs.enumerated()), id: \.offset) { _, d in
-                    Text(d)
-                        .font(.system(size: 11, weight: .heavy))
-                        .foregroundStyle(Theme.Color.faint)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            LazyVGrid(columns: columns, spacing: 4) {
-                ForEach(Array(grid.enumerated()), id: \.offset) { _, cell in
-                    dayCell(cell)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func dayCell(_ cell: CalendarGridCell) -> some View {
-        switch cell {
-        case .blank:
-            Color.clear.frame(height: 40)
-        case .day(let n):
-            let state = states[n] ?? .empty
-            let isToday = todayDay == n
-            let isFocused = selectedDay == isoDate(n)
-            Button(action: { openDay(n) }) {
-                VStack(spacing: 3) {
-                    Text("\(n)")
-                        .font(.system(size: 13, weight: isToday || isFocused ? .heavy : .medium).monospacedDigit())
-                        .foregroundStyle(isToday ? Theme.Color.accentText : Theme.Color.foreground)
-                    indicator(for: state)
-                        .frame(height: 12)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 40)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(isFocused ? Theme.Color.surfaceElevated : .clear)
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(isToday ? Theme.Color.accentText.opacity(0.7) : .clear, lineWidth: 1)
-                )
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!isTappable(state))
-            .accessibilityLabel(cellAccessibility(n, state, isToday))
-            .accessibilityAddTraits(isFocused ? .isSelected : [])
-        }
-    }
-
-    @ViewBuilder
-    private func indicator(for state: CalendarDayState) -> some View {
-        switch state {
-        case .empty:
-            Color.clear.frame(width: 7, height: 7)
-        case .rest:
-            // A short muted dash = a scheduled rest day.
-            RoundedRectangle(cornerRadius: 1, style: .continuous)
-                .fill(Theme.Color.faint)
-                .frame(width: 10, height: 2)
-        case .trained(let withPartner):
-            ZStack {
-                if withPartner {
-                    Circle().stroke(Theme.Color.partner, lineWidth: 1.5).frame(width: 12, height: 12)
-                }
-                Circle().fill(Theme.Color.accent).frame(width: 7, height: 7)
-            }
-        }
-    }
-
-    private func isTappable(_ state: CalendarDayState) -> Bool {
-        if case .trained = state { return true }
-        return false
-    }
-
     // Tap a day → open WHAT THE ATHLETE MEANT.
     //
     // This used to open `day.sessions.first` unconditionally. On any day with
@@ -323,7 +192,7 @@ struct HistoryView: View {
     // in the list below so the athlete picks the one they mean.
     /// "YYYY-MM-DD" for a day of the viewed month — the key the payload uses.
     private func isoDate(_ n: Int) -> String {
-        String(format: "%04d-%02d-%02d", viewed.year, viewed.month, n)
+        HistoryCalendar.isoDate(n, en: viewed)
     }
 
     private func openDay(_ n: Int) {
@@ -339,7 +208,7 @@ struct HistoryView: View {
         }
         // Tapping the focused day again clears the focus (a toggle, so the
         // athlete is never stuck inside one day with no way back to the month).
-        withAnimation(.easeInOut(duration: 0.15)) {
+        withAnimation(cambio) {
             selectedDay = (selectedDay == iso) ? nil : iso
         }
     }
@@ -367,35 +236,6 @@ struct HistoryView: View {
         }
     }
 
-    // MARK: - Legend
-
-    private var legend: some View {
-        HStack(spacing: 14) {
-            legendItem(label: "hecho") {
-                Circle().fill(Theme.Color.accent).frame(width: 7, height: 7)
-            }
-            legendItem(label: "en pareja") {
-                ZStack {
-                    Circle().stroke(Theme.Color.partner, lineWidth: 1.5).frame(width: 12, height: 12)
-                    Circle().fill(Theme.Color.accent).frame(width: 6, height: 6)
-                }
-            }
-            legendItem(label: "descanso") {
-                RoundedRectangle(cornerRadius: 1).fill(Theme.Color.faint).frame(width: 10, height: 2)
-            }
-            Spacer(minLength: 0)
-        }
-        .font(.system(size: 11, weight: .medium))
-        .foregroundStyle(Theme.Color.muted)
-    }
-
-    private func legendItem<Mark: View>(label: String, @ViewBuilder mark: () -> Mark) -> some View {
-        HStack(spacing: 5) {
-            mark().frame(width: 12)
-            Text(label)
-        }
-    }
-
     // MARK: - Month list (newest-first)
 
     private var monthList: some View {
@@ -408,11 +248,11 @@ struct HistoryView: View {
             onReintentar: { Task { await load() } },
             onVerMesAnterior: {
                 Haptics.light()
-                withAnimation(.easeInOut(duration: 0.15)) { viewed = viewed.previous() }
+                withAnimation(cambio) { viewed = viewed.previous() }
             },
             onVerElMes: {
                 Haptics.light()
-                withAnimation(.easeInOut(duration: 0.15)) { selectedDay = nil }
+                withAnimation(cambio) { selectedDay = nil }
             },
             onAbrir: { session in
                 Haptics.light()
@@ -428,17 +268,6 @@ struct HistoryView: View {
             }
         )
     }
-
-    private func cellAccessibility(_ n: Int, _ state: CalendarDayState, _ isToday: Bool) -> String {
-        var s = "\(n)"
-        if isToday { s += ", hoy" }
-        switch state {
-        case .empty: break
-        case .rest: s += ", descanso"
-        case .trained(let p): s += p ? ", entreno hecho en pareja" : ", entreno hecho"
-        }
-        return s
-    }
 }
 
 /// Un entreno hecho sin asignación, abierto por su ejecución.
@@ -446,12 +275,4 @@ struct EjecucionAbierta: Identifiable, Equatable {
     let executionId: String
     let title: String?
     var id: String { executionId }
-}
-
-private extension String {
-    /// "julio 2026" → "Julio 2026" (capitalize only the first letter, keep the rest).
-    var capitalizedFirst: String {
-        guard let first = first else { return self }
-        return first.uppercased() + dropFirst()
-    }
 }

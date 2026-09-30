@@ -284,6 +284,7 @@
 		36B2CB151B1C23F7542CC485 /* CarrerasService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1746871F83CAA0B2483927DB /* CarrerasService.swift */; };
 		36E1DC2605584E2D91B03522 /* AppLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24621B92CC17784D41A5DEB7 /* AppLinks.swift */; };
 		37208648AF74F8596FED8D3C /* FAHYBRIKWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 358DD401E436BB5C587153E9 /* FAHYBRIKWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		37326321AF4AF49BE11200D0 /* HechoPiezas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44C2D558D02DC5E388A1724D /* HechoPiezas.swift */; };
 		3772C5050B75F22383ED4AC8 /* ExecutionDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48D5CC5F8ED0B5C93910E675 /* ExecutionDetail.swift */; };
 		378976EA0FA3257DAF0AC5B8 /* WorkoutSession+Lifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FDBC70E3810E619004CA42E /* WorkoutSession+Lifecycle.swift */; };
 		37C08A9AE01862DA0C0C71CE /* Vivo+Correr.swift in Sources */ = {isa = PBXBuildFile; fileRef = 649468B3EDDFB5D9E2DD1FA4 /* Vivo+Correr.swift */; };
@@ -913,6 +914,7 @@
 		C7AE5A6084D1678C991120A8 /* MirrorHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBF1518D4C8078575B404A7 /* MirrorHUDView.swift */; };
 		C7B7C022784FDE9AAFD67935 /* RunTargetResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4CADF45330757D85B5D383A /* RunTargetResolverTests.swift */; };
 		C7CC4C4DDDBC68F0119AD11D /* GuionEscaparateEspejo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E7BC1901EA816AFBBB1FD8 /* GuionEscaparateEspejo.swift */; };
+		C7E17F2AE1F8C7BAB6C3CAF1 /* CalendarioDelMes.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8062DDD7159E15BB51BAA50 /* CalendarioDelMes.swift */; };
 		C8992DF78BA4BE1C3B3B118D /* EntradaBrief.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EAF5C95040EE326948B39AC /* EntradaBrief.swift */; };
 		C89BCC3EEE60993EF15206AE /* PerfilPendiente.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE21F526DF35F99649AEC147 /* PerfilPendiente.swift */; };
 		C9937F6F46A7D5E92837F1E0 /* PhoneLiveHandoffPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA6AA8154815012257DA018F /* PhoneLiveHandoffPolicy.swift */; };
@@ -1534,6 +1536,7 @@
 		43D0CFAFFC697A7A0094E1F1 /* ZoneColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneColors.swift; sourceTree = "<group>"; };
 		4489C8FDCC3D42D040059349 /* WorkoutTraceRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTraceRecorderTests.swift; sourceTree = "<group>"; };
 		44AEA23FC45DE304FDE5549E /* AppFeedbackSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFeedbackSheet.swift; sourceTree = "<group>"; };
+		44C2D558D02DC5E388A1724D /* HechoPiezas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HechoPiezas.swift; sourceTree = "<group>"; };
 		44FB98ED7471F434CC3D5E62 /* DeviceChannelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceChannelTests.swift; sourceTree = "<group>"; };
 		4536ACD9B240A6DDCDF325A8 /* RunStructureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunStructureTests.swift; sourceTree = "<group>"; };
 		45667455CF4B60E1F179236A /* PM5WorkoutCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5WorkoutCodecTests.swift; sourceTree = "<group>"; };
@@ -2244,6 +2247,7 @@
 		E70E67814EBB5F9A4A817C26 /* LecturaCarreras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LecturaCarreras.swift; sourceTree = "<group>"; };
 		E72E7448666C10232EE2F84A /* GoalGapService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalGapService.swift; sourceTree = "<group>"; };
 		E735E83EAD80B40BA53AE55F /* DecideCarrerasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecideCarrerasTests.swift; sourceTree = "<group>"; };
+		E8062DDD7159E15BB51BAA50 /* CalendarioDelMes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarioDelMes.swift; sourceTree = "<group>"; };
 		E859BD3EAD4566607AB67625 /* FuerzaMunecaSolaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuerzaMunecaSolaTests.swift; sourceTree = "<group>"; };
 		E862109FAF3FD8A809A3FEB6 /* LecturaDeSesion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LecturaDeSesion.swift; sourceTree = "<group>"; };
 		E8A6413131026A4EC11DF2F2 /* FreeSessionDelete.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeSessionDelete.swift; sourceTree = "<group>"; };
@@ -4291,7 +4295,9 @@
 		F601AC950052A53420A58ADD /* History */ = {
 			isa = PBXGroup;
 			children = (
+				E8062DDD7159E15BB51BAA50 /* CalendarioDelMes.swift */,
 				13D640774DDDFD7994F96D63 /* EntrenoSinSubir.swift */,
+				44C2D558D02DC5E388A1724D /* HechoPiezas.swift */,
 				67AC574349D2C08ED7C6D3F9 /* HistorialDelMes.swift */,
 				E8D1A0AA011BD2C262D94E4C /* HistoryModels.swift */,
 				D674AB748CF0731318E718C5 /* HistoryService.swift */,
@@ -4730,6 +4736,7 @@
 				D79E34937B4665E89218E91A /* BotonConectividad.swift in Sources */,
 				5B7AA06C5816CBC82B9D1BC2 /* BotonVerBloques.swift in Sources */,
 				5055813216E7AD42B5FA3A70 /* BuscarCarreraSheet.swift in Sources */,
+				C7E17F2AE1F8C7BAB6C3CAF1 /* CalendarioDelMes.swift in Sources */,
 				CF114C9C1CDCF4D15BA5AE60 /* CalibrationCounter.swift in Sources */,
 				99C3558C185BAB01F929B38A /* CaminoDelPlan.swift in Sources */,
 				0EC13F23AE4D1496EAEAE8AD /* CarreraDeLaSesion.swift in Sources */,
@@ -4935,6 +4942,7 @@
 				685766FC06F95014DF419D9E /* HealthKitSyncService.swift in Sources */,
 				32DE178336119DAEA95466F4 /* HealthKitWorkoutWriter.swift in Sources */,
 				81EBD8C816F64C036AAF62E4 /* HeartRateParser.swift in Sources */,
+				37326321AF4AF49BE11200D0 /* HechoPiezas.swift in Sources */,
 				979BE95A103C95CF21DE14BB /* HistorialDelMes.swift in Sources */,
 				C3D049B376C0CE832D341785 /* HistoryModels.swift in Sources */,
 				D1068185C51EE9ACA8D71A19 /* HistoryService.swift in Sources */,

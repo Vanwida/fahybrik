@@ -258,83 +258,89 @@ struct EntrenoSinSubirView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            barra
+            CabeceraDeLoHecho(etiqueta: "Sin subir", titulo: entreno.tituloDelDia, alCerrar: onClose)
             ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                    AvisoGuardadoEnElMovil()
-                    registro
-                }
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.top, Theme.Spacing.s)
-                .padding(.bottom, Theme.Spacing.xxl)
+                FichaSinSubir(entreno: entreno)
+                    .padding(.horizontal, Theme.Spacing.pantalla)
+                    .padding(.top, Theme.Spacing.s)
+                    .padding(.bottom, Theme.Spacing.xxl)
             }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .background(Theme.Color.background.ignoresSafeArea())
     }
+}
 
-    /// La ✕ y el día, como la barra del historial.
-    private var barra: some View {
-        HStack {
-            Button(action: { Haptics.light(); onClose() }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(width: 40, height: 40)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Cerrar")
-            Spacer()
-            Text(entreno.tituloDelDia)
-                .scaledFont(15, weight: .heavy, relativeTo: .headline, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-            Spacer()
-            Color.clear.frame(width: 40, height: 40)   // equilibra la ✕
-        }
-        .padding(.horizontal, Theme.Spacing.m)
-        .padding(.top, Theme.Spacing.s)
-    }
+/// El cuerpo de la ficha, fuera del `ScrollView` para poder mirarlo en una captura
+/// (`ImageRenderer` no dibuja ScrollView).
+///
+/// El sujeto es el ENTRENO (su nombre, su hora y cuánto duró) en el tono neutro: nada de
+/// esto es una alerta —el atleta no ha perdido nada ni tiene nada que hacer—, así que ni
+/// ámbar ni rojo (la regla de tono de `AvisoGuardadoEnElMovil`). Debajo, lo medido en
+/// teselas de dos en dos, como los números de Perfil, y las notas.
+struct FichaSinSubir: View {
+    let entreno: LocalUnsyncedWorkout
 
-    private var registro: some View {
-        CardSurface(padding: Theme.Spacing.l, elevated: true) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                if let segundos = entreno.totalDurationSeconds, segundos > 0 {
-                    VStack(alignment: .leading, spacing: 2) {
-                        LabelText(text: Vocab.tiempo, size: 11)
-                        HeroNumber(text: Formato.clock(segundos), size: 64)
-                    }
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entreno.title)
-                        .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let procedencia = entreno.procedencia {
-                        MonoText(text: procedencia, size: 11, color: Theme.Color.muted)
-                    }
-                }
-                if !celdas.isEmpty {
-                    Hairline()
-                    LazyVGrid(
-                        columns: [GridItem(.flexible(), alignment: .leading),
-                                  GridItem(.flexible(), alignment: .leading)],
-                        alignment: .leading,
-                        spacing: Theme.Spacing.m
-                    ) {
-                        ForEach(celdas) { celda in
-                            ExpertCell(label: celda.label, value: celda.value, unit: celda.unit)
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            AvisoGuardadoEnElMovil()
+            sujeto
+            if !celdas.isEmpty {
+                VStack(spacing: Theme.Spacing.m) {
+                    ForEach(Array(paresDeCeldas.enumerated()), id: \.offset) { _, par in
+                        TeselasDia {
+                            ForEach(par) { tesela($0) }
                         }
                     }
                 }
-                if let notas = entreno.notes, !notas.isEmpty {
-                    Hairline()
-                    VStack(alignment: .leading, spacing: 4) {
-                        LabelText(text: "Notas", size: 11)
-                        Text(notas)
-                            .scaledFont(13, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.foreground)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+            }
+            if let notas = entreno.notes, !notas.isEmpty {
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                    TituloSeccionDia("Notas")
+                    Text(notas)
+                        .papel(.cuerpo)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(Theme.Spacing.l)
+                        .tarjetaDia()
+                }
+            }
+        }
+    }
+
+    private var sujeto: some View {
+        SujetoDia(tono: .neutro, etiqueta: entreno.title) {
+            KickerDia(entreno.procedencia ?? "Entreno")
+            TituloDia(entreno.title)
+        } abajo: {
+            if let segundos = entreno.totalDurationSeconds, segundos > 0 {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    Text(Vocab.tiempo)
+                        .papel(.rotulo)
+                        .foregroundStyle(Theme.Color.foreground)
+                    Text(Formato.clock(segundos))
+                        .papel(.dato)
+                        .foregroundStyle(Theme.Color.foreground)
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func tesela(_ celda: Celda) -> some View {
+        TeselaDia(rotulo: celda.label, etiqueta: "\(celda.label): \(celda.value) \(celda.unit)") {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs) {
+                Text(celda.value)
+                    .papel(.dato)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1)
+                    .fixedSize()
+                if !celda.unit.isEmpty {
+                    Text(celda.unit)
+                        .papel(.nota)
+                        .foregroundStyle(Theme.Color.muted)
                 }
             }
         }
@@ -345,6 +351,12 @@ struct EntrenoSinSubirView: View {
         let value: String
         var unit: String = ""
         var id: String { label }
+    }
+
+    /// Las celdas de dos en dos: cada par es una fila de teselas de la misma altura; una impar
+    /// ocupa la fila entera (como la de Fuerza en Perfil).
+    private var paresDeCeldas: [[Celda]] {
+        stride(from: 0, to: celdas.count, by: 2).map { Array(celdas[$0..<min($0 + 2, celdas.count)]) }
     }
 
     /// Lo medido y lo anotado que viajó en el envío, en el orden del resumen:
