@@ -50,10 +50,14 @@ extension GuionEscaparate {
 
     // MARK: - Montaje
 
-    private static func muneca(_ id: String, _ titulo: String, pagina: Vivo.PaginaMuneca = .paso, atenuado: Bool = false,
-                               registro: Vivo.RegistroVueltas = Vivo.RegistroVueltas(), _ escena: @escaping () -> Escena) -> Caso {
+    /// `anotar`: lo abierto y lo declarado en el descanso de fuerza, dado el estado de la escena (el id del paso vivo).
+    static func muneca(_ id: String, _ titulo: String, pagina: Vivo.PaginaMuneca = .paso, atenuado: Bool = false,
+                       registro: Vivo.RegistroVueltas = Vivo.RegistroVueltas(),
+                       anotar: @escaping (Vivo.EstadoVivo) -> Vivo.AnotarMuneca = { _ in Vivo.AnotarMuneca() },
+                       _ escena: @escaping () -> Escena) -> Caso {
         Caso(id: id, titulo: titulo, vista: {
-            AnyView(EscaparateMuneca(estado: escena().estado(), registro: registro, atenuado: atenuado, pagina: pagina))
+            let estado = escena().estado()
+            return AnyView(EscaparateMuneca(estado: estado, registro: registro, anotar: anotar(estado), atenuado: atenuado, pagina: pagina))
         })
     }
 
@@ -68,6 +72,7 @@ extension GuionEscaparate {
     private struct EscaparateMuneca: View {
         let estado: Vivo.EstadoVivo
         let registro: Vivo.RegistroVueltas
+        let anotar: Vivo.AnotarMuneca
         let atenuado: Bool
         let pagina: Vivo.PaginaMuneca
 
@@ -75,7 +80,7 @@ extension GuionEscaparate {
             MunecaMedidor { medidas in
                 MunecaVivo(
                     cuadro: Vivo.cuadroMuneca(estado, registro: registro,
-                                              entorno: Vivo.EntornoMuneca(medidas: medidas, alwaysOn: atenuado, accion: .pista)),
+                                              entorno: Vivo.EntornoMuneca(medidas: medidas, alwaysOn: atenuado, accion: .pista), anotar: anotar),
                     alPaso: estado.paso.id,
                     mandos: MunecaMandos(pausa: {}, terminar: {},
                                          control: MunecaControl(titulo: "Siguiente paso", icono: .siguiente, accion: {}),
@@ -129,14 +134,14 @@ extension GuionEscaparate {
         /// Las zonas de un atleta de umbral 170 ppm, las del doble (`planes.ts#ZONAS`).
         private static let zonas = Vivo.ZonasCoach(techos: [138, 150, 160, 173, 192])
 
-        private static func plan(_ p: WorkoutPlan?, entorno: RunEnvironment = .outdoor) -> Vivo.PlanVivo {
+        static func plan(_ p: WorkoutPlan?, entorno: RunEnvironment = .outdoor) -> Vivo.PlanVivo {
             var v = Vivo.planDe(p ?? Planes.series!, zonas: nil, entorno: entorno)
             v.zonas = zonas
             return v
         }
 
         /// El primer paso que cumple `donde` (o el primero), para no cablear índices.
-        private static func indice(_ plan: Vivo.PlanVivo, ocurrencia: Int = 0, _ donde: (Vivo.Paso) -> Bool) -> Int {
+        static func indice(_ plan: Vivo.PlanVivo, ocurrencia: Int = 0, _ donde: (Vivo.Paso) -> Bool) -> Int {
             let todos = plan.pasos.indices.filter { donde(plan.pasos[$0]) }
             return todos.indices.contains(ocurrencia) ? todos[ocurrencia] : 0
         }
@@ -311,6 +316,184 @@ private enum PlanesMuneca {
         ]
         return Planes.plan("Tempo en cinta", [Planes.bloque("Tempo 20′", "steady", 1, [
             Planes.carrera("k1", fases: fases, planos: "\"sets\": [\(Planes.set(Planes.segs(1200), Planes.ritmoKm(255, 265)))]")])])
+    }
+}
+
+// MARK: - Las otras familias: fuerza, WOD, circuito y ergo
+// EL ESCAPARATE DE LAS OTRAS FAMILIAS EN LA MUÑECA: fuerza (la serie, «Colócate» y el descanso que anota), WOD, circuito
+// y ergo. Los mismos casos de `GuionEscaparateMuneca` para correr, pero de las caras que más filas juntan: las que se
+// recortan primero en un reloj de 40 mm. Cada caso monta el estado del motor de una situación y lo pinta con las MISMAS
+// vistas del entreno:
+//
+//     xcrun simctl launch <sim> com.fahybrid.app.watchkitapp -guion muneca-fuerza-columnas
+//
+// Solo en DEBUG.
+
+extension GuionEscaparate {
+
+    static var munecaFamilias: [Caso] {
+        [
+            // ── Fuerza ──────────────────────────────────────────────────────
+            muneca("muneca-fuerza-serie", "Muñeca · serie de fuerza") { Escena.fuerzaSerie() },
+            muneca("muneca-fuerza-plancha", "Muñeca · serie por tiempo") { Escena.fuerzaPlancha() },
+            muneca("muneca-fuerza-colocate", "Muñeca · Colócate") { Escena.fuerzaColocate() },
+            muneca("muneca-fuerza-lista", "Muñeca · descanso que anota, la ronda") { Escena.fuerzaDescanso() },
+            muneca("muneca-fuerza-columnas", "Muñeca · descanso que anota, una serie",
+                   anotar: { e in Vivo.AnotarMuneca(ui: Vivo.UiAnotar(paso: e.paso.id, abierta: 0)) }) { Escena.fuerzaDescanso() },
+            muneca("muneca-fuerza-foco", "Muñeca · descanso que anota, la carga encendida",
+                   anotar: { e in Vivo.AnotarMuneca(ui: Vivo.UiAnotar(paso: e.paso.id, abierta: 0, foco: .kg)) }) { Escena.fuerzaDescanso() },
+            muneca("muneca-fuerza-resumen", "Muñeca · descanso con la ronda anotada",
+                   anotar: { e in Vivo.AnotarMuneca(registro: Escena.todoDeclarado(e)) }) { Escena.fuerzaDescanso() },
+            // ── WOD ─────────────────────────────────────────────────────────
+            muneca("muneca-wod-amrap", "Muñeca · AMRAP de varias tareas") { Escena.wodAmrap() },
+            muneca("muneca-wod-emom", "Muñeca · EMOM") { Escena.wodEmom() },
+            muneca("muneca-wod-tabata", "Muñeca · Tabata") { Escena.wodTabata() },
+            muneca("muneca-wod-fortime", "Muñeca · For Time") { Escena.wodForTime() },
+            muneca("muneca-wod-deathby", "Muñeca · Death by") { Escena.wodDeathBy() },
+            // ── Circuito y ergo ─────────────────────────────────────────────
+            muneca("muneca-circuito-estacion", "Muñeca · estación de un circuito") { Escena.circuitoEstacion() },
+            muneca("muneca-circuito-carrera", "Muñeca · carrera de un circuito") { Escena.circuitoCarrera() },
+            muneca("muneca-ergo", "Muñeca · serie de remo") { Escena.ergo() },
+        ]
+    }
+}
+
+// MARK: - Las escenas
+
+extension GuionEscaparate.Escena {
+
+    private static func kg(_ v: Double) -> String { "{ \"kind\": \"kg\", \"value\": \(v) }" }
+    private static let rir3 = "{ \"kind\": \"rir\", \"value\": 3 }"
+
+    /// Una prescripción de fuerza por series, con su objetivo de esfuerzo de bloque.
+    private static func porSeries(_ scheme: String, _ sets: [String], target: String? = nil) -> String {
+        var partes = ["\"scheme\": \"\(scheme)\"", "\"modality\": \"strength\"", "\"sets\": [\(sets.joined(separator: ","))]"]
+        if let target { partes.append("\"target\": \(target)") }
+        return "{ " + partes.joined(separator: ", ") + " }"
+    }
+
+    /// B — Superserie: Deadlift 4 × 8 a 127,5 kg y Bulgarian Split Squat 4 × 6, los dos a RIR 3.
+    private static var superserie: WorkoutPlan? {
+        let b1 = porSeries("superset", Array(repeating: Planes.set(Planes.reps(8), kg(127.5), 0), count: 4), target: rir3)
+        let b2 = porSeries("superset", Array(repeating: Planes.set(Planes.reps(6), kg(24), 120), count: 4), target: rir3)
+        return Planes.plan("Fuerza · superserie", [Planes.bloque("B — Superserie", "superset", 1, [
+            Planes.item("B1", "Deadlift", "strength", b1), Planes.item("B2", "Bulgarian Split Squat", "strength", b2)])])
+    }
+
+    /// Movilidad y después una plancha 3 × 30″ sin descanso entre series: la serie por tiempo y el «Colócate» que la precede.
+    private static var plancha: WorkoutPlan? {
+        let mov = "{ \"scheme\": \"warmup\", \"sets\": [\(Planes.set(Planes.segs(300)))] }"
+        let rx = porSeries("straight_sets", Array(repeating: Planes.set(Planes.segs(30)), count: 3))
+        return Planes.plan("Core", [
+            Planes.bloque("Calentamiento", "warmup", 0, [Planes.item("mov", "Movilidad de cadera", "mobility", mov)]),
+            Planes.bloque("Core", "straight_sets", 1, [Planes.item("p1", "Plancha", "strength", rx)]),
+        ])
+    }
+
+    static func fuerzaSerie() -> GuionEscaparate.Escena {
+        let p = plan(superserie)
+        let i = indice(p) { $0.rol == .trabajo && $0.fuerza != nil }
+        return GuionEscaparate.Escena(plan: p, i: i, t: 21, hecho: 0, ppm: 128, sesionT: 640)
+    }
+
+    static func fuerzaPlancha() -> GuionEscaparate.Escena {
+        let p = plan(plancha)
+        let i = indice(p) { $0.rol == .trabajo && $0.fuerza != nil }
+        return GuionEscaparate.Escena(plan: p, i: i, t: 12, ppm: 118, sesionT: 420)
+    }
+
+    static func fuerzaColocate() -> GuionEscaparate.Escena {
+        let p = plan(plancha)
+        let i = indice(p) { $0.rol == .transicion }
+        return GuionEscaparate.Escena(plan: p, i: i, t: 3, ppm: 96, sesionT: 300)
+    }
+
+    static func fuerzaDescanso() -> GuionEscaparate.Escena {
+        let p = plan(superserie)
+        let i = indice(p) { $0.rol == .descanso }
+        return GuionEscaparate.Escena(plan: p, i: i, t: 54, ppm: 131, tendencia: .baja, gps: .noAplica, sesionT: 900)
+    }
+
+    /// Las series del descanso, todas declaradas: el descanso vuelve a ser el común con la serie anotada en una píldora.
+    static func todoDeclarado(_ e: Vivo.EstadoVivo) -> Vivo.Registro {
+        var r = Vivo.Registro()
+        for j in Vivo.seriesDelDescanso(e.pasos, e.i) { r[e.pasos[j].id] = Vivo.Declarado(reps: 8, kg: 127.5, esfuerzo: 3) }
+        return r
+    }
+
+    // MARK: WOD
+
+    private static func wod(_ nombre: String, _ formato: String, _ items: [String]) -> WorkoutPlan? {
+        Planes.plan(nombre, [Planes.bloque("Metcon — \(nombre)", formato, 1, items)])
+    }
+
+    static func wodAmrap() -> GuionEscaparate.Escena {
+        let p = plan(Planes.amrap)
+        return GuionEscaparate.Escena(plan: p, i: indice(p) { $0.rol == .trabajo }, t: 412, ppm: 168, sesionT: 412)
+    }
+
+    static func wodEmom() -> GuionEscaparate.Escena {
+        let bench = "{ \"scheme\": \"emom\", \"modality\": \"strength\", \"rounds\": 12, \"work_s\": 60, \"sets\": [\(Planes.set(Planes.reps(6), kg(60)))] }"
+        let row = "{ \"scheme\": \"emom\", \"modality\": \"row\", \"rounds\": 12, \"work_s\": 60, \"sets\": [\(Planes.set(Planes.segs(60)))] }"
+        let p = plan(wod("EMOM 12", "emom", [Planes.item("w1", "Bench Press", "strength", bench), Planes.item("w2", "Row", "rowing", row)]))
+        return GuionEscaparate.Escena(plan: p, i: indice(p, ocurrencia: 2) { $0.rol == .trabajo }, t: 38, ppm: 161, sesionT: 218)
+    }
+
+    static func wodTabata() -> GuionEscaparate.Escena {
+        let rx = "{ \"scheme\": \"tabata\", \"rounds\": 8, \"work_s\": 20, \"rest_s\": 10, \"target\": { \"kind\": \"rpe\", \"value\": 10 }, \"sets\": [\(Planes.set(Planes.reps(8), "{ \"kind\": \"rpe\", \"value\": 10 }"))] }"
+        let p = plan(wod("Tabata", "tabata", [Planes.item("t1", "Burpee", "functional", rx)]))
+        return GuionEscaparate.Escena(plan: p, i: indice(p, ocurrencia: 2) { $0.rol == .trabajo }, t: 9, ppm: 174, sesionT: 129)
+    }
+
+    static func wodForTime() -> GuionEscaparate.Escena {
+        let estaciones: [(String, String, String)] = [
+            ("Double Under", "functional", Planes.set(Planes.reps(50), "{ \"kind\": \"bodyweight\" }")),
+            ("Wall Ball", "functional", Planes.set(Planes.reps(40), kg(9))),
+            ("Burpee", "functional", Planes.set(Planes.reps(20), "{ \"kind\": \"bodyweight\" }")),
+        ]
+        let items = estaciones.enumerated().map { k, e in
+            Planes.item("t\(k)", e.0, e.1, "{ \"scheme\": \"chipper\", \"total_s\": 1500, \"sets\": [\(e.2)] }")
+        }
+        let p = plan(wod("Chipper 25′", "chipper", items))
+        return GuionEscaparate.Escena(plan: p, i: indice(p, ocurrencia: 1) { $0.rol == .trabajo }, t: 96, ppm: 165, sesionT: 341)
+    }
+
+    static func wodDeathBy() -> GuionEscaparate.Escena {
+        let rx = "{ \"scheme\": \"death_by\", \"start\": 1, \"increment\": 1, \"work_s\": 60, \"sets\": [\(Planes.set(Planes.reps(1), "{ \"kind\": \"bodyweight\" }"))] }"
+        let p = plan(wod("Death by Burpee", "death_by", [Planes.item("d1", "Burpee", "functional", rx)]))
+        return GuionEscaparate.Escena(plan: p, i: indice(p, ocurrencia: 4) { $0.rol == .trabajo }, t: 22, ppm: 170, sesionT: 262)
+    }
+
+    // MARK: Circuito y ergo
+
+    /// Un HYROX corto: Run 1 km, Roxzone, SkiErg 1000 m y Sled Push 50 m a 152 kg.
+    private static var hyrox: WorkoutPlan? {
+        func pieza(_ uid: String, _ nombre: String, _ cat: String, _ serie: String) -> String {
+            Planes.item(uid, nombre, cat, "{ \"scheme\": \"hyrox_sim\", \"sets\": [\(serie)] }")
+        }
+        let piezas = [
+            pieza("h0r", "Run", "running", Planes.set(Planes.metros(1000))),
+            pieza("h0e", "SkiErg", "ski_erg", Planes.set(Planes.metros(1000))),
+            pieza("h1r", "Run", "running", Planes.set(Planes.metros(1000))),
+            pieza("h1e", "Sled Push", "functional", Planes.set(Planes.metros(50), kg(152))),
+        ]
+        return Planes.plan("HYROX Sim", [Planes.bloque("HYROX Sim", "simulation", 1, piezas)])
+    }
+
+    static func circuitoEstacion() -> GuionEscaparate.Escena {
+        let p = plan(hyrox)
+        return GuionEscaparate.Escena(plan: p, i: indice(p, ocurrencia: 3) { $0.rol == .trabajo }, t: 95, hecho: 40, ppm: 164, sesionT: 1450, sesionM: 4100)
+    }
+
+    static func circuitoCarrera() -> GuionEscaparate.Escena {
+        let p = plan(hyrox)
+        return GuionEscaparate.Escena(plan: p, i: indice(p, ocurrencia: 2) { $0.rol == .trabajo }, t: 140, hecho: 480, ritmo: 289, ppm: 171, sesionT: 1680, sesionM: 4600)
+    }
+
+    static func ergo() -> GuionEscaparate.Escena {
+        let rx = "{ \"scheme\": \"intervals\", \"modality\": \"row\", \"rest_s\": 90, \"sets\": [\(Planes.set(Planes.metros(500), nil, 90)),\(Planes.set(Planes.metros(500), nil, 90)),\(Planes.set(Planes.metros(500), nil, 90))] }"
+        let p = plan(Planes.plan("Remo 3 × 500", [Planes.bloque("Remo", "intervals", 1, [Planes.item("e1", "Row", "rowing", rx)])]))
+        return GuionEscaparate.Escena(plan: p, i: indice(p, ocurrencia: 1) { $0.rol == .trabajo }, t: 61, hecho: 260, ppm: 172, sesionT: 900)
     }
 }
 #endif

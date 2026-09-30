@@ -37,7 +37,7 @@ enum GuionEscaparate {
 
     // MARK: - El catálogo
 
-    static let casos: [Caso] = munecaCorrer + munecaEspejo
+    static let casos: [Caso] = munecaCorrer + munecaFamilias + munecaEspejo
 
     static func caso(_ id: String) -> Caso? { casos.first { $0.id == id } }
 }
