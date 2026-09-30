@@ -15,6 +15,7 @@ class ActividadApp extends Application.AppBase {
     }
 
     function onStart(state as Lang.Dictionary or Null) as Void {
+        controller.iniciarReloj();
         controller.refresh();
     }
 
@@ -36,6 +37,6 @@ class ActividadApp extends Application.AppBase {
     // `Lang.Array` a secas no compila (el compilador lo lee como sobrescribir
     // con otro tipo de retorno). Tomada de los samples del SDK 9.2.0.
     function getInitialView() as [WatchUi.Views] or [WatchUi.Views, WatchUi.InputDelegates] {
-        return [new MainView(controller), new MainDelegate(controller)];
+        return [new Vista(controller), new Mandos(controller)];
     }
 }

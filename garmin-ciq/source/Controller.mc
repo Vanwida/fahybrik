@@ -6,6 +6,7 @@
 //
 using Toybox.Communications;
 using Toybox.Lang;
+using Toybox.Timer;
 using Toybox.WatchUi;
 
 class Controller {
@@ -24,6 +25,10 @@ class Controller {
     var sinConexion as Lang.Boolean;
     var edadPlanDias as Lang.Number;
 
+    // La sesión en vivo y el reloj de 1 Hz que la mueve.
+    var vivo as Vivo;
+    var reloj as Timer.Timer;
+
     // Ya hemos pedido un código en esta sesión de app. Sirve para no volver a
     // mandar otro cada vez que el atleta pulsa mientras espera al email.
     var codeRequested as Lang.Boolean;
@@ -40,6 +45,64 @@ class Controller {
         sesion = null;
         sinConexion = false;
         edadPlanDias = 0;
+        vivo = new Vivo(self);
+        reloj = new Timer.Timer();
+    }
+
+    // El reloj de 1 Hz (H3: un watch-app solo repinta con requestUpdate; el 1 Hz lo da un Timer).
+    function iniciarReloj() as Void {
+        reloj.start(method(:onTick), Config.TICK_MS, true);
+    }
+
+    function onTick() as Void {
+        if (state == AppState.STATE_BRIEF) {
+            WatchUi.requestUpdate();     // GPS y pulso del brief
+            return;
+        }
+        vivo.tick();
+    }
+
+    // ── teclas (la tabla de §5 vive en Vivo; aquí solo el brief y los estados de texto) ─
+
+    function onSelect() as Lang.Boolean {
+        if (vivo.alSelect()) {
+            return true;
+        }
+        primaryAction();
+        return true;
+    }
+
+    // BACK cierra la app SOLO fuera de la sesión (jamás grabando).
+    function onBack() as Lang.Boolean {
+        return vivo.alBack() ? true : false;
+    }
+
+    function onUp() as Lang.Boolean {
+        if (vivo.alUp()) {
+            return true;
+        }
+        return cambiarSesion(-1);
+    }
+
+    function onDown() as Lang.Boolean {
+        if (vivo.alDown()) {
+            return true;
+        }
+        return cambiarSesion(1);
+    }
+
+    function onMenu() as Lang.Boolean {
+        return vivo.alMenu();
+    }
+
+    // En el brief con varias sesiones el mismo día: UP/DOWN eligen (G03).
+    function cambiarSesion(delta as Lang.Number) as Lang.Boolean {
+        if (state != AppState.STATE_BRIEF || filas.size() < 2) {
+            return false;
+        }
+        sel = (sel + delta + filas.size()) % filas.size();
+        openSession();
+        return true;
     }
 
     // ── Entrada única ────────────────────────────────────────────────────────
@@ -253,6 +316,7 @@ class Controller {
         body = Estructura.lineaBrief(s);
         note = sinConexion && edadPlanDias > 0 ? resolve(Rez.Strings.BodyPlanViejoA) + edadPlanDias + resolve(Rez.Strings.BodyPlanViejoB) : "";
         action = resolve(Rez.Strings.ActionStart);
+        vivo.prepararBrief();
         WatchUi.requestUpdate();
     }
 
@@ -269,6 +333,11 @@ class Controller {
         }
         // El brief: empezar la sesión (llega con el motor).
         if (state == AppState.STATE_BRIEF) {
+            vivo.empezar();
+            return;
+        }
+        if (state == AppState.STATE_ENVIO) {
+            vivo.cerrarEnvio();
             return;
         }
         // Error, "hoy no toca", "esto va en la app", falta el email: en todos, lo

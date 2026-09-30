@@ -1,5 +1,7 @@
 //
-// La única pantalla. Pinta lo que diga el Controller y no decide nada.
+// La vista de la app. Dibuja lo que diga el Controller y no decide nada: la sesión
+// en vivo la pinta VistaVivo (sobre la lámina que deja el motor); esto son los
+// estados de texto.
 //
 // Se dibuja a mano con el Dc en vez de con layouts por dispositivo: son ~45
 // relojes entre redondos y rectangulares, de 208 a 454 px. Un bloque centrado y
@@ -9,7 +11,7 @@ using Toybox.Graphics;
 using Toybox.Lang;
 using Toybox.WatchUi;
 
-class MainView extends WatchUi.View {
+class Vista extends WatchUi.View {
 
     // Topes de líneas por bloque. Más que esto ya no cabe en un fr255s.
     const MAX_TITLE_LINES = 2;
@@ -29,6 +31,14 @@ class MainView extends WatchUi.View {
     }
 
     function onUpdate(dc as Graphics.Dc) as Void {
+        if (VistaVivo.pintar(dc, controller)) {
+            return;
+        }
+        pintarTexto(dc);
+    }
+
+    // Los estados de texto: vinculación, plan, errores. Título, cuerpo, nota y una píldora de acción.
+    function pintarTexto(dc as Graphics.Dc) as Void {
         var width = dc.getWidth();
         var height = dc.getHeight();
 

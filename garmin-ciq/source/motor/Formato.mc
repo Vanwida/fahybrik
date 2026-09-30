@@ -39,6 +39,14 @@ module Formato {
         return s > RITMO_TECHO_S ? SIN_DATO : reloj(s);
     }
 
+    // s/km × 10 = segundos × 10000 / metros. null si no hay distancia.
+    const RITMO_DECI_POR_S_M = 10000;
+
+    // Décimas de s/km de un tramo de `seg` segundos y `metros` metros; null si no se movió.
+    function ritmoDeTramo(seg as Lang.Number, metros as Lang.Number) as Lang.Number or Null {
+        return (seg > 0 && metros > 0) ? seg * RITMO_DECI_POR_S_M / metros : null;
+    }
+
     // Décimas → «8», «8,5».
     function num(deci as Lang.Number) as Lang.String {
         var entero = deci / DECI;
@@ -54,6 +62,18 @@ module Formato {
         var km = m / 1000;
         var cm = (m % 1000) / 10;
         return cm == 0 ? km + " km" : km + "," + dos(cm) + " km";
+    }
+
+    // El valor y la unidad de una distancia por separado (el héroe los pinta con cuerpos distintos).
+    function distanciaValor(m as Lang.Number) as Lang.String {
+        if (m < 1000) {
+            return (m < 0 ? 0 : m).toString();
+        }
+        return (m / 1000) + "," + dos((m % 1000) / 10);
+    }
+
+    function distanciaUnidad(m as Lang.Number) as Lang.String {
+        return m < 1000 ? "m" : "km";
     }
 
     // Duración prescrita: «20 s», «90 s», «2 min», «2:30 min».

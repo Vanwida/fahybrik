@@ -16,6 +16,9 @@ module Config {
 
     // Plan de los próximos días (docs/garmin-reloj/servidor.md).
     const PATH_PLAN = "/api/athlete/wearables/garmin/plan";
+    // El reloj de la sesión: 1 Hz.
+    const TICK_MS = 1000;
+
     // Cuántos días de plan se piden al abrir con móvil.
     const PLAN_DIAS = 7;
 
@@ -44,6 +47,9 @@ module Config {
     const STORE_PLAN_PREFIJO = "plan_";
     const STORE_PLAN_INDICE = "plan_ix";
     const STORE_PLAN_SYNC = "plan_sync";
+    // El checkpoint de la sesión en curso (G10) y la cola de resultados por enviar (G8).
+    const STORE_CHECKPOINT = "checkpoint";
+    const STORE_COLA = "cola";
     // Una clave de Storage admite 8 KB: un plan de más no se guarda (y se dice).
     const STORE_CLAVE_MAX_CARACTERES = 8192;
 

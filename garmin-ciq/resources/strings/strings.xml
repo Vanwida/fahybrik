@@ -31,6 +31,7 @@
     <!-- Estado -->
     <string id="TitleNoSession">Hoy no toca</string>
     <string id="BodyNoSession">No tienes sesión para hoy.</string>
+    <string id="ActivityName">Entreno</string>
     <string id="ActionStart">Empezar</string>
     <string id="TitlePlanViejo">Plan viejo</string>
     <string id="BodyPlanViejoA">Plan de hace </string>
@@ -44,6 +45,48 @@
     <string id="TitleStorageFull">Reloj lleno</string>
     <string id="BodyStorageFull">No queda sitio para el plan. Libera espacio en el reloj y vuelve a probar.</string>
 
+
+    <!-- La sesión -->
+    <string id="BriefHoy">Hoy</string>
+    <string id="GpsListo">GPS listo</string>
+    <string id="GpsBuscando">Buscando GPS…</string>
+    <string id="StartEmpezar">START · Empezar</string>
+    <string id="StartEmpezarSinGps">START · Empezar sin GPS</string>
+    <string id="CancelarUnaTecla">Pulsa una tecla para cancelar</string>
+    <string id="DeshacerAccion">UP · deshacer</string>
+    <string id="PagPaso">Paso</string>
+    <string id="PagDatos">Datos</string>
+    <string id="PagVueltas">Vueltas</string>
+    <string id="PagEstructura">Estructura</string>
+    <string id="EnPausa">En pausa</string>
+    <string id="PausaAyuda">START · seguir</string>
+    <string id="CtlTitulo">Controles</string>
+    <string id="CtlPausar">Pausar</string>
+    <string id="CtlSaltar">Saltar paso</string>
+    <string id="CtlMasTreinta">+30 s</string>
+    <string id="CtlTerminar">Terminar</string>
+    <string id="CtlDescartar">Descartar</string>
+    <string id="ConfTerminar">¿Terminar ya?</string>
+    <string id="ConfTerminarCuerpo">Se guarda lo hecho.</string>
+    <string id="ConfDescartar">¿Descartar?</string>
+    <string id="ConfDescartarCuerpo1">Se pierde la sesión.</string>
+    <string id="ConfDescartarCuerpo2">Última vez: ¿seguro?</string>
+    <string id="ConfAyuda">START sí · BACK no</string>
+    <string id="RpeTitulo">¿Cómo ha ido?</string>
+    <string id="RpeAyuda">UP y DOWN · START ok · BACK omitir</string>
+    <string id="SesionCompletada">Sesión completada</string>
+    <string id="SesionTerminada">Sesión terminada</string>
+    <string id="StartHecho">START · Hecho</string>
+    <string id="EnvioGuardado">Guardado en el reloj</string>
+    <string id="EnvioGuardadoCuerpo">Sube al tener el móvil.</string>
+    <string id="EnvioEnviado">Enviado</string>
+    <string id="EnvioEnviadoCuerpo">Tu coach ya lo tiene.</string>
+    <string id="EnvioCaducada">Sesión caducada</string>
+    <string id="EnvioCaducadaCuerpo">Guardado en el reloj. Entra de nuevo para enviarlo.</string>
+    <string id="EnvioServidor">El servidor no contesta</string>
+    <string id="EnvioServidorCuerpo">Guardado en el reloj. Se reintenta solo.</string>
+    <string id="EnvioSinGrabar">Sin grabación</string>
+    <string id="EnvioSinGrabarCuerpo">Este reloj no ha guardado la actividad. El resultado sí sube.</string>
 
     <!-- Fallos -->
     <string id="TitleNoConnection">Sin conexión</string>
