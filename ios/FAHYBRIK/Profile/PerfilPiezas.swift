@@ -47,8 +47,17 @@ enum GlifoPerfil: String, CaseIterable {
     case sinPareja  = "person.2.slash"
     /// El test de umbral (el `stopwatch` a secas es del kit).
     case test       = "timer"
-    /// Subir el movimiento de la muñeca.
-    case movimientoReloj = "watch.analog"
+    /// Subir el movimiento de la muñeca (el reloj transmitiendo).
+    case movimientoReloj = "applewatch.radiowaves.left.and.right"
+    // Los proveedores de «Dispositivos y apps»: un símbolo por marca.
+    case appleWatch = "applewatch.watchface"
+    case garmin     = "watch.analog"
+    case appleSalud = "heart.text.square"
+    case polar      = "heart.circle"
+    case coros      = "gauge.with.dots.needle.67percent"
+    case amazfit    = "figure.run.circle"
+    /// Concept2 PM5: el Bluetooth del erg.
+    case pm5        = "antenna.radiowaves.left.and.right"
     /// Exportar mis datos.
     case exportar   = "square.and.arrow.up.on.square"
 

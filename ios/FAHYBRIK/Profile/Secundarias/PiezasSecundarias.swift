@@ -42,6 +42,8 @@ struct TextoDeFilaPerfil: View {
     var detalle: String?
     /// El detalle es el dato que importa (una fecha, un estado) y no un apoyo: pasa a la tinta del tema.
     var detalleFuerte = false
+    /// Un punto de color de estado delante del detalle (conectado, fallo): el color va en la marca, el texto no cambia.
+    var marca: SwiftUI.Color?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -50,10 +52,15 @@ struct TextoDeFilaPerfil: View {
                 .foregroundStyle(Theme.Color.foreground)
                 .fixedSize(horizontal: false, vertical: true)
             if let detalle {
-                Text(detalle)
-                    .papel(detalleFuerte ? .notaFuerte : .nota)
-                    .foregroundStyle(detalleFuerte ? Theme.Color.foreground : Theme.Color.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+                    if let marca {
+                        Circle().fill(marca).frame(width: 10, height: 10).accessibilityHidden(true)
+                    }
+                    Text(detalle)
+                        .papel(detalleFuerte || marca != nil ? .notaFuerte : .nota)
+                        .foregroundStyle(detalleFuerte || marca != nil ? Theme.Color.foreground : Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -68,6 +75,7 @@ struct FilaPerfil<Final: View>: View {
     let titulo: String
     var detalle: String?
     var detalleFuerte = false
+    var marca: SwiftUI.Color?
     @ViewBuilder let final: () -> Final
 
     var body: some View {
@@ -75,7 +83,7 @@ struct FilaPerfil<Final: View>: View {
             if let glifo {
                 FichaDia(tono: tonoDeFicha) { IconoPerfil(glifo) }
             }
-            TextoDeFilaPerfil(titulo: titulo, detalle: detalle, detalleFuerte: detalleFuerte)
+            TextoDeFilaPerfil(titulo: titulo, detalle: detalle, detalleFuerte: detalleFuerte, marca: marca)
             final()
         }
         .padding(.horizontal, Theme.Spacing.l)
@@ -87,8 +95,8 @@ struct FilaPerfil<Final: View>: View {
 
 extension FilaPerfil where Final == ChevronDeFilaPerfil {
     /// La fila que lleva a otra pantalla o abre una hoja: su chevron.
-    init(glifo: GlifoPerfil? = nil, tonoDeFicha: FichaDia<IconoPerfil>.Tono = .normal, titulo: String, detalle: String? = nil, detalleFuerte: Bool = false) {
-        self.init(glifo: glifo, tonoDeFicha: tonoDeFicha, titulo: titulo, detalle: detalle, detalleFuerte: detalleFuerte) {
+    init(glifo: GlifoPerfil? = nil, tonoDeFicha: FichaDia<IconoPerfil>.Tono = .normal, titulo: String, detalle: String? = nil, detalleFuerte: Bool = false, marca: SwiftUI.Color? = nil) {
+        self.init(glifo: glifo, tonoDeFicha: tonoDeFicha, titulo: titulo, detalle: detalle, detalleFuerte: detalleFuerte, marca: marca) {
             ChevronDeFilaPerfil()
         }
     }
@@ -164,36 +172,66 @@ struct FilaValorPerfil: View {
     }
 }
 
-/// Una fila con su interruptor. Todo el bloque es el `Toggle`, así que VoiceOver lo lee como uno («Avisos de
-/// voz, activado») y el objetivo táctil no es solo el interruptor.
+/// Una fila con su interruptor. En reposo todo el bloque es el `Toggle`, así que VoiceOver lo lee como uno («Avisos
+/// de voz, activado») y el objetivo táctil no es solo el interruptor. Con algo en marcha (`enCurso`: pidiendo un
+/// permiso) el interruptor se cambia por un indicador y la fila no se puede tocar.
 struct FilaInterruptorPerfil: View {
     var glifo: GlifoPerfil?
     let titulo: String
     var detalle: String?
-    /// Una pastilla junto al título («Alfa»): lo que avisa de que la función se está probando.
+    /// Una pastilla junto al título («Alpha»): lo que avisa de que la función se está probando.
     var pastilla: String?
+    /// Un punto de estado delante del detalle.
+    var marca: SwiftUI.Color?
+    var enCurso = false
+    var deshabilitado = false
+    /// El nombre accesible cuando el título no dice qué se activa («Carreras en el Apple Watch»).
+    var nombreAccesible: String?
     @Binding var activo: Bool
 
     var body: some View {
-        Toggle(isOn: $activo) {
-            HStack(spacing: 14) {
-                if let glifo { FichaDia { IconoPerfil(glifo) } }
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
-                        Text(titulo).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
-                        if let pastilla { InfoPill(text: pastilla, estilo: .acento) }
-                    }
-                    if let detalle {
-                        Text(detalle).papel(.nota).foregroundStyle(Theme.Color.muted)
-                    }
+        Group {
+            if enCurso {
+                HStack(spacing: 14) {
+                    izquierda
+                    ProgressView()
                 }
-                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(nombreAccesible ?? titulo), en curso")
+            } else {
+                Toggle(isOn: $activo) { izquierda }
+                    .disabled(deshabilitado)
+                    .accessibilityLabel(nombreAccesible ?? titulo)
+                    .accessibilityHint(detalle ?? "")
             }
         }
         .tint(Theme.Color.accent)
         .padding(.horizontal, Theme.Spacing.l)
         .padding(.vertical, Theme.Spacing.m)
         .frame(minHeight: Theme.Size.toque + Theme.Spacing.l)
+    }
+
+    private var izquierda: some View {
+        HStack(spacing: 14) {
+            if let glifo { FichaDia { IconoPerfil(glifo) } }
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+                    Text(titulo).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+                    if let pastilla { InfoPill(text: pastilla, estilo: .acento) }
+                }
+                if let detalle {
+                    HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+                        if let marca {
+                            Circle().fill(marca).frame(width: 10, height: 10).accessibilityHidden(true)
+                        }
+                        Text(detalle)
+                            .papel(marca == nil ? .nota : .notaFuerte)
+                            .foregroundStyle(marca == nil ? Theme.Color.muted : Theme.Color.foreground)
+                    }
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
