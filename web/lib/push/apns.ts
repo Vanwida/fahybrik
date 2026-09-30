@@ -16,6 +16,12 @@
 //   * APNS_PRIVATE_KEY     — full .p8 file contents incl. BEGIN/END
 //                            PRIVATE KEY lines, '\n' literal allowed
 //   * APNS_BUNDLE_ID       — iOS app bundle id
+//   * APNS_SANDBOX_KEY_ID + APNS_SANDBOX_PRIVATE_KEY — OPCIONALES: Apple emite
+//                            claves de APNS limitadas a un entorno (solo
+//                            producción o solo sandbox; una clave de producción
+//                            contra el host sandbox da BadEnvironmentKeyInToken).
+//                            Las compilaciones desde Xcode registran tokens
+//                            sandbox: sin esta segunda clave no llegan.
 //   * APNS_USE_SANDBOX     — '1' / 'true' to hit sandbox (default: respect
 //                            per-token apns_env)
 //
@@ -85,6 +91,8 @@ type ApnsConfig = {
   key_id: string;
   private_key_pem: string;
   bundle_id: string;
+  /** Clave propia del entorno sandbox, si la de arriba es solo de producción. */
+  sandbox?: { key_id: string; private_key_pem: string };
 };
 
 export class ApnsConfigError extends Error {
@@ -94,8 +102,6 @@ export class ApnsConfigError extends Error {
     this.missing = missing;
   }
 }
-
-let cachedJwt: { token: string; expires_at: number } | null = null;
 
 export function loadApnsConfig(): { ok: true; config: ApnsConfig } | { ok: false; missing: string[] } {
   const team_id = process.env.APNS_TEAM_ID;
@@ -111,32 +117,39 @@ export function loadApnsConfig(): { ok: true; config: ApnsConfig } | { ok: false
   // Allow encoded newlines in the env var (Vercel env doesn't preserve raw
   // newlines well).
   const private_key_pem = private_key_pem_raw!.replace(/\\n/g, '\n');
-  return { ok: true, config: { team_id: team_id!, key_id: key_id!, private_key_pem, bundle_id: bundle_id! } };
+  const sandbox_key_id = process.env.APNS_SANDBOX_KEY_ID;
+  const sandbox_key_raw = process.env.APNS_SANDBOX_PRIVATE_KEY;
+  const sandbox =
+    sandbox_key_id && sandbox_key_raw
+      ? { key_id: sandbox_key_id, private_key_pem: sandbox_key_raw.replace(/\\n/g, '\n') }
+      : undefined;
+  return { ok: true, config: { team_id: team_id!, key_id: key_id!, private_key_pem, bundle_id: bundle_id!, sandbox } };
 }
 
-function buildJwt(config: ApnsConfig): string {
-  const now = cachedJwt?.expires_at && cachedJwt.expires_at > Date.now() ? null : cachedJwt;
-  if (cachedJwt && cachedJwt.expires_at > Date.now()) {
-    return cachedJwt.token;
-  }
-  const header = { alg: 'ES256', kid: config.key_id, typ: 'JWT' };
+// Un JWT por clave (producción y sandbox pueden firmar con claves distintas).
+const cachedJwts = new Map<string, { token: string; expires_at: number }>();
+
+function buildJwt(config: ApnsConfig, env: 'sandbox' | 'production'): string {
+  const key = env === 'sandbox' && config.sandbox ? config.sandbox : config;
+  const cached = cachedJwts.get(key.key_id);
+  if (cached && cached.expires_at > Date.now()) return cached.token;
+
+  const header = { alg: 'ES256', kid: key.key_id, typ: 'JWT' };
   const claims = { iss: config.team_id, iat: Math.floor(Date.now() / 1000) };
 
   const headerB64 = base64url(Buffer.from(JSON.stringify(header)));
   const claimsB64 = base64url(Buffer.from(JSON.stringify(claims)));
   const signingInput = `${headerB64}.${claimsB64}`;
 
-  const key = createPrivateKey(config.private_key_pem);
+  const privateKey = createPrivateKey(key.private_key_pem);
   const sign = createSign('SHA256');
   sign.update(signingInput);
   sign.end();
   // Convert DER ECDSA signature → JOSE r||s concatenation per RFC 7515 §3.
-  const der = sign.sign({ key, dsaEncoding: 'ieee-p1363' });
-  const sig = base64url(der);
-  const token = `${signingInput}.${sig}`;
+  const der = sign.sign({ key: privateKey, dsaEncoding: 'ieee-p1363' });
+  const token = `${signingInput}.${base64url(der)}`;
 
-  cachedJwt = { token, expires_at: Date.now() + JWT_TTL_MS };
-  void now;
+  cachedJwts.set(key.key_id, { token, expires_at: Date.now() + JWT_TTL_MS });
   return token;
 }
 
@@ -184,7 +197,6 @@ export async function sendPush(args: SendPushArgs): Promise<PushSendResult> {
   `;
   if (tokens.length === 0) return result;
 
-  const jwt = buildJwt(cfg.config);
   const aps: Record<string, unknown> = {
     alert: { title: args.title, body: args.body },
     sound: 'default',
@@ -213,6 +225,7 @@ export async function sendPush(args: SendPushArgs): Promise<PushSendResult> {
       result.attempted += 1;
       const env = args.forceEnv ?? (t.apns_env === 'sandbox' ? 'sandbox' : 'production');
       const host = env === 'sandbox' ? APNS_SANDBOX_HOST : APNS_PRODUCTION_HOST;
+      const jwt = buildJwt(cfg.config, env);
 
       try {
         const res = await apnsPost(
@@ -249,7 +262,13 @@ export async function sendPush(args: SendPushArgs): Promise<PushSendResult> {
         result.errors.push({ token_prefix: t.device_token.slice(0, 8), reason });
 
         // 410 Unregistered or 400 BadDeviceToken → mark dead.
-        if (res.status === 410 || reason === 'BadDeviceToken' || reason === 'Unregistered') {
+        if (
+          res.status === 410 ||
+          reason === 'BadDeviceToken' ||
+          reason === 'Unregistered' ||
+          // Token de una app con otro bundle id (la vieja): nunca va a valer para este topic.
+          reason === 'DeviceTokenNotForTopic'
+        ) {
           await args.sql`
             update apns_push_tokens
             set last_failure = ${reason}, failed_at = now(), updated_at = now()
