@@ -411,6 +411,7 @@
 		4F80850D02E4FD75BC1A66FB /* Lecturas.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2620D8F0AB7819EE83F2EA7 /* Lecturas.swift */; };
 		4FABE443B20EF50645C366E4 /* WorkoutCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0EC7E9941EEFC1AA744FFF8 /* WorkoutCaptureView.swift */; };
 		4FD8A52C3FDF22E0666DBFA7 /* AnaliticasCumplimientoPiezas.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2F01F17A571281BA63DD2C /* AnaliticasCumplimientoPiezas.swift */; };
+		4FDF0F54272B3A579680A8E9 /* Vivo+MetodoDelCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B54BDE75F2B8B52EA5533B9 /* Vivo+MetodoDelCoach.swift */; };
 		5003ECCF2FE0CDF73CE49810 /* WatchFormato.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2346317B6F3CA4FFA893C0F8 /* WatchFormato.swift */; };
 		5014370ED88051AFC4DD841C /* Theme+Tipo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36EB5AF4665DF0F45CF507D3 /* Theme+Tipo.swift */; };
 		5055813216E7AD42B5FA3A70 /* BuscarCarreraSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14779494CC1E809A107E26FB /* BuscarCarreraSheet.swift */; };
@@ -809,6 +810,7 @@
 		A68764BA54E6F06F78581784 /* EventsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C391DA1143E358902A37C7 /* EventsModels.swift */; };
 		A6CA09746FD70729616AE756 /* InjuryPiezas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5420734672332D9E8A571575 /* InjuryPiezas.swift */; };
 		A6D5D17BD432A7F3DFF3AE66 /* GuionEmomTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8981AEE1687A28AE700CC44D /* GuionEmomTests.swift */; };
+		A78075AA2F23D549415644D4 /* Vivo+MetodoDelCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B54BDE75F2B8B52EA5533B9 /* Vivo+MetodoDelCoach.swift */; };
 		A7AEA4FDD6A9AE93FCFC1075 /* WatchTestResultPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8869DF4C64FA560194316FA2 /* WatchTestResultPrompt.swift */; };
 		A7BB85C02DDB80D37C71D25A /* CurvaDeCarrera.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF529E969A9A8E362A9B7D39 /* CurvaDeCarrera.swift */; };
 		A85F8B5257FD0DB791CC4995 /* AnaliticasPantalla.swift in Sources */ = {isa = PBXBuildFile; fileRef = C103AF78440B560131DD955F /* AnaliticasPantalla.swift */; };
@@ -1867,6 +1869,7 @@
 		7AA4663D5F86DD5749A26B15 /* WorkoutSession+Accessors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WorkoutSession+Accessors.swift"; sourceTree = "<group>"; };
 		7AD2992C969F06E0B641C28B /* VivoReglasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VivoReglasTests.swift; sourceTree = "<group>"; };
 		7AD3C6A28FF61ABCFDB1B26C /* ZoneCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneCoverageTests.swift; sourceTree = "<group>"; };
+		7B54BDE75F2B8B52EA5533B9 /* Vivo+MetodoDelCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Vivo+MetodoDelCoach.swift"; sourceTree = "<group>"; };
 		7C04F0C0EFFEA6E91CEFFE59 /* ChatCompositor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatCompositor.swift; sourceTree = "<group>"; };
 		7C249A715D2DF2172BBBD7AB /* WatchRunLegDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRunLegDriver.swift; sourceTree = "<group>"; };
 		7C3D0E567A7CBA63A116A761 /* FreeDeclareMovementsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeDeclareMovementsSheet.swift; sourceTree = "<group>"; };
@@ -2556,6 +2559,7 @@
 				B4BAC14413D9FBA19192E899 /* Vivo+Familia.swift */,
 				00E69C8E991C1A9AB86AAB54 /* Vivo+Fuerza.swift */,
 				4F13A76F46F510F6E74FFFD1 /* Vivo+Lamina.swift */,
+				7B54BDE75F2B8B52EA5533B9 /* Vivo+MetodoDelCoach.swift */,
 				0E62A72CF3CC3DCA9CC8C99D /* Vivo+Metricas.swift */,
 				D12C93D4B03B475978822B30 /* Vivo+Paso.swift */,
 				1F982A3A930E06A4D79B9146 /* Vivo+PlanDeSesion.swift */,
@@ -5537,6 +5541,7 @@
 				14895F8EAEBF6A7BC9BE4714 /* Vivo+Familia.swift in Sources */,
 				AE20682254E85BC8BAB2144E /* Vivo+Fuerza.swift in Sources */,
 				F33EBFD0574C352E3723B150 /* Vivo+Lamina.swift in Sources */,
+				4FDF0F54272B3A579680A8E9 /* Vivo+MetodoDelCoach.swift in Sources */,
 				E9A7B00E2B978C5CFEF38566 /* Vivo+Metricas.swift in Sources */,
 				31CB81E3DAF37745C7FDC727 /* Vivo+Paso.swift in Sources */,
 				E93566DDE5C9A69D83B44F35 /* Vivo+PlanDeSesion.swift in Sources */,
@@ -5750,6 +5755,7 @@
 				258DAF6880E97FF0A5D70830 /* Vivo+Familia.swift in Sources */,
 				3D8C3884811000F0E5D3DEDF /* Vivo+Fuerza.swift in Sources */,
 				8E5DEE2B2B6D61978FFC19EC /* Vivo+Lamina.swift in Sources */,
+				A78075AA2F23D549415644D4 /* Vivo+MetodoDelCoach.swift in Sources */,
 				8CD24C1364BD014EAA59991A /* Vivo+Metricas.swift in Sources */,
 				C26EA7FB6F211F1D494B5E3F /* Vivo+Paso.swift in Sources */,
 				015B73EF8D49CB17B1E480E9 /* Vivo+PlanDeSesion.swift in Sources */,

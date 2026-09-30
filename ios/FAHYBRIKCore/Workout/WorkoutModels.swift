@@ -838,6 +838,8 @@ struct WorkoutPlan: Codable, Identifiable {
     let coachNote: String?
     let demoVideoUrl: String?
     let warmupChecklist: [String]
+    /// El método del coach para el vivo (holguras y avisos); nil = el defecto del producto.
+    var wristMethod: WristMethod? = nil
 }
 
 // One completed segment's measured execution. This is the on-device source of
@@ -1408,7 +1410,8 @@ extension WorkoutPlan {
                 segments: [segment],
                 coachNote: nil,
                 demoVideoUrl: nil,
-                warmupChecklist: []
+                warmupChecklist: [],
+                wristMethod: detail.wristMethod
             )
         }
         guard let workout = detail.workout else { return nil }
@@ -1527,7 +1530,8 @@ extension WorkoutPlan {
             segments: applyDoblesSplit(resolvedSegments, assignment: detail.assignment),
             coachNote: workout.coachNote,
             demoVideoUrl: nil,
-            warmupChecklist: []
+            warmupChecklist: [],
+            wristMethod: detail.wristMethod
         )
     }
 

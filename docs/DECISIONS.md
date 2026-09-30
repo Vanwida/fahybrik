@@ -21,6 +21,8 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Se queda (declarado):** `DoblesTurnHero`, `WorkoutFinishPersist` y `EjemplosPrevia` no tienen usos en la app, pero tienen tests o son la galería de la sesión previa; decide quien los mantiene. `RunLiveChrome` se queda: el host lo usa para pedir GPS o cinta.
 
+**Holgura y avisos del vivo = método del coach (mismo día):** `WorkoutPlan.wristMethod` lleva lo que el servidor ya mandaba (`AssignmentDetail.wristMethod`) hasta `Vivo.planDe`, que lo traduce con `Vivo.reglasDe` (nuevo `Vivo+MetodoDelCoach.swift`) a `ReglasAviso`. Antes el vivo juzgaba SIEMPRE con `reglasAvisoDefecto` (3 s/km, 2 ppm, 10 W…), aunque el coach hubiera editado sus holguras. Sin `wrist_method` (sesión cacheada, servidor anterior) el vivo usa el defecto, los mismos números. Sirve igual al reloj, que comparte `Vivo.planDe`.
+
 **Qué NO hacer en consecuencia:** reintroducir una bandera para elegir entre dos vivos. Si el vivo no cubre un caso, se arregla en `VivoIphoneView`.
 
 ## 2026-09-30 · El kit del día en Swift: UNA pieza por idea (consolidación de Hoy, Plan, Carreras, Perfil y Analíticas)
