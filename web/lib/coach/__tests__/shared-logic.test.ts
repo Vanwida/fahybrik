@@ -191,6 +191,8 @@ describe('asignar: textos de la previa', () => {
     action: 'assign',
     start_date: '2026-09-28',
     end_date: '2026-10-25',
+    plan_end: '2026-10-25',
+    programs: 1,
     program: { id: '2', name: 'Acumulación' },
     start_week: 1,
     blocked: null,

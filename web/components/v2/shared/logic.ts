@@ -20,6 +20,13 @@ export function weekStateLine(week: AthleteWeekState, today: string): string {
   return 'Oculta hasta que la publiques';
 }
 
+/** Del inicio al final de TODO lo que recibe (al entrar en un grupo, hasta el último programa). */
+function planSpan(a: AssignPreviewAthlete): string {
+  const end = a.plan_end ?? a.end_date ?? a.start_date ?? '';
+  const programs = a.programs > 1 ? ` · ${a.programs} programas` : '';
+  return `${dateRange(a.start_date ?? end, end)}${programs}`;
+}
+
 /** Lo que recibe un atleta, en una línea. */
 export function athleteLine(a: AssignPreviewAthlete): string {
   switch (a.action) {
@@ -30,18 +37,20 @@ export function athleteLine(a: AssignPreviewAthlete): string {
         ? `Sigue con «${a.conflict.program_name}» hasta el ${weekdayDate(a.conflict.end_date)}`
         : 'Se queda como está';
     case 'adopt':
-      return a.program ? `Ya hace «${a.program.name}»` : 'Ya hace un programa del grupo';
+      return a.program
+        ? `Ya hace «${a.program.name}»${a.programs > 1 ? ` · y ${a.programs - 1} más detrás, hasta el ${weekdayDate(a.plan_end ?? '')}` : ''}`
+        : 'Ya hace un programa del grupo';
     case 'chain':
       return a.start_date
-        ? `Tras «${a.conflict?.program_name ?? 'su programa'}» · ${dateRange(a.start_date, a.end_date ?? a.start_date)}`
+        ? `Tras «${a.conflict?.program_name ?? 'su programa'}» · ${planSpan(a)}`
         : 'Detrás de lo que tiene';
     case 'replace':
       return a.conflict
-        ? `Corta «${a.conflict.program_name}» · ${a.start_date ? dateRange(a.start_date, a.end_date ?? a.start_date) : ''}`
+        ? `Corta «${a.conflict.program_name}» · ${a.start_date ? planSpan(a) : ''}`
         : 'Sustituye lo que tiene';
     case 'assign':
     default:
-      return a.start_date ? dateRange(a.start_date, a.end_date ?? a.start_date) : 'Desde la fecha elegida';
+      return a.start_date ? planSpan(a) : 'Desde la fecha elegida';
   }
 }
 

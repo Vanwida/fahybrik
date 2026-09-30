@@ -71,6 +71,10 @@ export interface AssignPreviewAthlete {
   /** Ventana real para ESTE atleta (tras encadenar o alinear con el grupo). */
   start_date: string | null;
   end_date: string | null;
+  /** Fin de TODO lo que se le pone: al entrar en un grupo, el del último programa de la cadena. */
+  plan_end: string | null;
+  /** Cuántos programas recibe (o conserva) en este envío: 1 salvo al entrar en un grupo. */
+  programs: number;
   /** Programa que recibe y semana por la que entra. */
   program: { id: string; name: string } | null;
   start_week: number | null;
