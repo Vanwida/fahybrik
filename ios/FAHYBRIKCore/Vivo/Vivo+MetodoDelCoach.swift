@@ -26,4 +26,10 @@ extension Vivo {
             avisarEnRecuperacion: a.inRecovery
         )
     }
+
+    /// Hacia qué lado avisa un rodaje a zona, según el coach. `ninguno` (no avisar) y `abajo` no caben aún en
+    /// `MetodoAviso`: caen en su defecto (solo por arriba) hasta que el modelo los represente.
+    static func metodoAvisoDe(_ m: WristMethod) -> MetodoAviso {
+        MetodoAviso(zonaContinuaSoloArriba: m.alerts.continuousZone != .ambos)
+    }
 }
