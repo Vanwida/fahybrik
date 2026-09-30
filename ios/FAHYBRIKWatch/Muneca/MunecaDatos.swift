@@ -17,6 +17,7 @@ struct MunecaDatos: View {
             ForEach(Array(pagina.filas.enumerated()), id: \.offset) { _, fila in
                 self.fila(fila)
             }
+            if let pie = pagina.pie { MunecaNota(nota: pie).frame(maxWidth: .infinity) }
         }
         .padding(.leading, MunecaForma.sangriaDatos)
     }

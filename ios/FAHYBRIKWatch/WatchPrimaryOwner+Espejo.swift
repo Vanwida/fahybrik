@@ -50,7 +50,7 @@ extension WatchPrimaryOwner {
     /// Qué cara pinta el espejo ahora: la pila nueva o todo lo de siempre. La decisión es pura y vive
     /// en Core (`CaraDelEspejo`, probada); aquí solo se le dan las cuatro cosas que mira.
     var caraDelEspejo: CaraDelEspejo {
-        CaraDelEspejo.decide(bandera: MunecaBandera.encendida, espejo: espejo.estado, frame: frame, terminando: isEnding)
+        CaraDelEspejo.decide(bandera: MunecaBandera.encendida, espejo: espejo.estado, frame: frame, cubre: espejo.cubreLaMuneca, terminando: isEnding)
     }
 
     /// Lo que este móvil atiende de los comandos nuevos (`MirrorWire.Capacidad`): la muñeca solo ofrece esos botones.

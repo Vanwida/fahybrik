@@ -30,6 +30,8 @@ extension MirrorWire {
         static let mas30 = "mas30"
         /// El móvil calla su voz cuando la muñeca anuncia `CommandKind.vozMuneca`.
         static let vozCalla = "voz-calla"
+        /// `CommandKind.anotar`: lo que la muñeca declara de una serie en el descanso (reps, carga, RIR o RPE).
+        static let anotar = "anotar"
     }
 
     /// Cuánto se aguanta sin trama antes de marcar «viejo» lo que depende del móvil
@@ -88,16 +90,19 @@ struct MirrorCursor: Codable, Equatable {
     var ritmo: Double? = nil
     /// Metros de la sesión, SOLO si los mide el móvil.
     var sesionM: Double? = nil
+    /// El monitor de la máquina de ergo (remo, ski, bici) cuando el móvil lo tiene enlazado: sin él, la muñeca dice
+    /// «lo dices tú». ADITIVO: un móvil viejo no lo manda y el ergo se pinta sin monitor (honesto).
+    var maquina: MirrorMaquina? = nil
 
     /// ¿Los relojes locales corren? No, en pausa, acabado o parado.
     var quieto: Bool { pausado || terminado || parado }
 
     private enum Clave: String, CodingKey {
-        case planHash, i, enPasoS, sesionS, pausado, terminado, parado, cuentaS, hecho, ritmo, sesionM
+        case planHash, i, enPasoS, sesionS, pausado, terminado, parado, cuentaS, hecho, ritmo, sesionM, maquina
     }
 
     init(planHash: String, i: Int, enPasoS: Double, sesionS: Double, pausado: Bool, terminado: Bool = false, parado: Bool = false,
-         cuentaS: Double? = nil, hecho: Double? = nil, ritmo: Double? = nil, sesionM: Double? = nil) {
+         cuentaS: Double? = nil, hecho: Double? = nil, ritmo: Double? = nil, sesionM: Double? = nil, maquina: MirrorMaquina? = nil) {
         self.planHash = planHash
         self.i = i
         self.enPasoS = enPasoS
@@ -109,6 +114,7 @@ struct MirrorCursor: Codable, Equatable {
         self.hecho = hecho
         self.ritmo = ritmo
         self.sesionM = sesionM
+        self.maquina = maquina
     }
 
     /// Lo opcional que falta se lee como ausente y `terminado` como «no»: un móvil que
@@ -126,7 +132,8 @@ struct MirrorCursor: Codable, Equatable {
             cuentaS: try c.decodeIfPresent(Double.self, forKey: .cuentaS),
             hecho: try c.decodeIfPresent(Double.self, forKey: .hecho),
             ritmo: try c.decodeIfPresent(Double.self, forKey: .ritmo),
-            sesionM: try c.decodeIfPresent(Double.self, forKey: .sesionM)
+            sesionM: try c.decodeIfPresent(Double.self, forKey: .sesionM),
+            maquina: try? c.decodeIfPresent(MirrorMaquina.self, forKey: .maquina)
         )
     }
 
@@ -144,7 +151,20 @@ struct MirrorCursor: Codable, Equatable {
         try c.encodeIfPresent(hecho, forKey: .hecho)
         try c.encodeIfPresent(ritmo, forKey: .ritmo)
         try c.encodeIfPresent(sesionM, forKey: .sesionM)
+        try c.encodeIfPresent(maquina, forKey: .maquina)
     }
+}
+
+/// Lo que da el monitor de la máquina enlazada en el móvil: el /500, los vatios, las paladas y las calorías de ahora.
+/// Solo viaja mientras hay monitor; `tipo` es `Vivo.Maquina.Tipo.rawValue`.
+struct MirrorMaquina: Codable, Equatable {
+    var tipo: String
+    var split500: Double? = nil
+    var vatios: Double? = nil
+    var cadencia: Double? = nil
+    var cal: Double? = nil
+
+    var maquina: Vivo.Maquina.Tipo? { Vivo.Maquina.Tipo(rawValue: tipo) }
 }
 
 // MARK: - El plan

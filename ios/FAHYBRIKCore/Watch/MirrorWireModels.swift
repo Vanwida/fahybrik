@@ -122,6 +122,9 @@ enum MirrorWire {
         /// La muñeca anuncia que ELLA habla (voz en el reloj, F4): el móvil calla su
         /// entrenador de voz para no decirlo dos veces.
         static let vozMuneca = "vozMuneca"
+        /// Lo declarado en el descanso de fuerza: un dato de una serie (`MirrorCommand.declaracion`). ADITIVO: un móvil
+        /// viejo no lo entiende y lo ignora (la muñeca solo lo ofrece si el móvil anuncia `Capacidad.anotar`).
+        static let anotar = "anotar"
     }
 
     /// Frame phases (MirrorStateFrame.phase). ADDITIVE: a new phase is a new VALUE in
@@ -389,6 +392,8 @@ struct MirrorDistanceSample: Codable {
 /// engine is the only mutator — the wrist never advances state locally.
 struct MirrorCommand: Codable {
     let kind: String
+    /// Solo con `CommandKind.anotar`: el dato declarado. Un móvil que no lo conoce lo ignora.
+    var declaracion: Vivo.Declaracion? = nil
 }
 
 /// Watch → phone: the recording is closed. `workoutUuid` is the finished

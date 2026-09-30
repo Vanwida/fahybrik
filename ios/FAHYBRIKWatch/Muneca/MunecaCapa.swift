@@ -28,7 +28,9 @@ struct MunecaCuenta: View {
 
     var body: some View {
         MunecaColumna {
-            MunecaContexto(linea: cara.contexto)
+            // Una serie de fuerza entra con su nombre delante y su dosis debajo (en tinta2).
+            if let nombre = cara.nombre { MunecaNombre(nombre: nombre) }
+            MunecaContexto(linea: cara.contexto, tono: cara.nombre != nil ? MunecaPaleta.tinta2 : MunecaPaleta.tinta)
             if let que = cara.que { MunecaInstruccion(linea: que, tono: MunecaPaleta.tinta2) }
             MunecaCentro { MunecaHeroe(heroe: cara.numero) }
         }

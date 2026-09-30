@@ -51,6 +51,24 @@ struct MunecaVivo: View {
         .onChange(of: cuadro.alwaysOn) { _, _ in volverAlVivo() }
     }
 
+    /// La página con la que se pinta: si la que estaba abierta ya no existe en esta familia, la de Paso.
+    private var paginaVisible: Binding<Vivo.PaginaMuneca> {
+        Binding(get: { cuadro.paginas.contains(pagina) ? pagina : .paso }, set: { pagina = $0 })
+    }
+
+    @ViewBuilder
+    private func paginaVista(_ p: Vivo.PaginaMuneca) -> some View {
+        switch p {
+        case .paso:
+            MunecaPaso(cara: cuadro.cara, alMas30: mandos.mas30, alEmpezarYa: mandos.empezarYa,
+                       alPrimaria: { mandos.primaria?() }, anotar: mandos.anotar)
+        case .datos: MunecaDatos(pagina: cuadro.datos)
+        case .vueltas: MunecaVueltas(pagina: cuadro.vueltas)
+        case .estructura: MunecaEstructura(pagina: cuadro.estructura)
+        case .ejercicios: if let e = cuadro.ejercicios { MunecaEjercicios(pagina: e) }
+        }
+    }
+
     private func volverAlVivo() {
         area = .vivo
         pagina = .paso
@@ -74,14 +92,12 @@ struct MunecaVivo: View {
     private var centro: some View {
         ZStack {
             MunecaFondo(tinte: cuadro.tinte).ignoresSafeArea()
-            TabView(selection: $pagina) {
-                MunecaPaso(cara: cuadro.cara, alMas30: mandos.mas30, alEmpezarYa: mandos.empezarYa)
-                    .tag(Vivo.PaginaMuneca.paso)
-                MunecaDatos(pagina: cuadro.datos).tag(Vivo.PaginaMuneca.datos)
-                MunecaVueltas(pagina: cuadro.vueltas).tag(Vivo.PaginaMuneca.vueltas)
-                MunecaEstructura(pagina: cuadro.estructura).tag(Vivo.PaginaMuneca.estructura)
+            // Las páginas las dice el cuadro (correr 4, fuerza 3, ergo 4; con un dato enfocado, una sola).
+            TabView(selection: paginaVisible) {
+                ForEach(cuadro.paginas, id: \.self) { p in paginaVista(p).tag(p) }
             }
             .tabViewStyle(.verticalPage)
+            .munecaCorona(cuadro.corona, alGirar: mandos.anotar?.girar)
             .opacity(cuadro.pausado ? MunecaForma.opacidadPausa : cuadro.tinta)
             .accessibilityLabel(pagina.titulo)
 
