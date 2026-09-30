@@ -19,7 +19,7 @@ enum GuionEntrada {
     static func vista(_ id: String) -> AnyView? {
         let atenuado = id.hasSuffix("-atenuado")
         let base = atenuado ? String(id.dropLast("-atenuado".count)) : id
-        guard let contenido = caso(base) else { return nil }
+        guard let contenido = caso(base) ?? complicacion(base) else { return nil }
         return AnyView(contenido.environment(\.isLuminanceReduced, atenuado))
     }
 
@@ -78,14 +78,85 @@ enum GuionEntrada {
     }
 
     private static func payload(_ titulo: String?, minutos: Int?, readiness: Int? = nil,
-                                dobles: Bool = false, descanso: Bool = false) -> WatchTodayPayload {
+                                dobles: Bool = false, descanso: Bool = false,
+                                actividad: String? = nil, hecha: String? = nil) -> WatchTodayPayload {
         WatchTodayPayload(
             dayKind: descanso ? WatchDayKind.rest : WatchDayKind.session, assignmentId: "escaparate",
-            title: titulo, focus: nil, estDurationMinutes: minutos, intensityLabel: nil, activityKind: nil,
+            title: titulo, focus: nil, estDurationMinutes: minutos, intensityLabel: nil, activityKind: actividad,
             athleteHrZones: nil, readinessScore: readiness, readinessDelta7d: readiness == nil ? nil : 4,
-            readinessWorstDriver: readiness == nil ? nil : "Sueño 6 h 10", isDone: false, doneCompleteness: nil,
+            readinessWorstDriver: readiness == nil ? nil : "Sueño 6 h 10", isDone: hecha != nil, doneCompleteness: hecha,
             isDoubles: dobles, partnerFirstName: dobles ? "Guillem" : nil,
             partnerVisibility: dobles ? "shared" : nil, detailJson: nil, clubAccent: nil)
+    }
+}
+
+// MARK: - La complicación (esfera y Smart Stack)
+
+/// `-guion complicacion-<caso>`: las cuatro familias de la complicación con lo de hoy, leído
+/// por `ComplicacionLectura` con los mismos planes (así el escaparate no puede enseñar lo que
+/// la lectura no produce). Casos: `series`, `fuerza`, `rodaje`, `descanso`, `hecha`,
+/// `hecha-parcial`, `sin-plan`, `de-ayer`. Sufijo `-atenuado` = la muñeca bajada.
+private extension GuionEntrada {
+
+    static func complicacion(_ id: String) -> AnyView? {
+        guard id.hasPrefix("complicacion-"), let hoy = complicacionDe(String(id.dropFirst("complicacion-".count)))
+        else { return nil }
+        return AnyView(ComplicacionEscaparate(hoy: hoy))
+    }
+
+    private static func complicacionDe(_ caso: String) -> ComplicacionHoy? {
+        let dia = ComplicacionHoy.claveDeDia(Date())
+        switch caso {
+        case "series":
+            return ComplicacionLectura.leer(hoy: payload("Series 6×1000", minutos: 55, actividad: "running"),
+                                            plan: Planes.series, dia: dia)
+        case "rodaje":
+            return ComplicacionLectura.leer(hoy: payload("Rodaje Z2 50′", minutos: 65, actividad: "running"),
+                                            plan: Planes.rodaje, dia: dia)
+        case "fuerza":
+            return ComplicacionLectura.leer(hoy: payload("Fuerza tren inferior", minutos: 70, actividad: "strength"),
+                                            plan: Planes.fuerza, dia: dia)
+        case "descanso":
+            return ComplicacionLectura.leer(hoy: payload(nil, minutos: nil, descanso: true), plan: nil, dia: dia)
+        case "hecha":
+            return ComplicacionLectura.leer(hoy: payload("Series 6×1000", minutos: 55, actividad: "running", hecha: "full"),
+                                            plan: Planes.series, dia: dia)
+        case "hecha-parcial":
+            return ComplicacionLectura.leer(hoy: payload("Series 6×1000", minutos: 55, actividad: "running", hecha: "partial"),
+                                            plan: Planes.series, dia: dia)
+        case "sin-plan":
+            return ComplicacionLectura.leer(hoy: nil, plan: nil, dia: dia)
+        case "de-ayer":
+            // Lo que escribió la app ayer, leído hoy: no es «hoy».
+            let ayer = ComplicacionLectura.leer(hoy: payload("Series 6×1000", minutos: 55, actividad: "running"),
+                                                plan: Planes.series, dia: "1999-01-01")
+            return ayer.paraElDia(Date())
+        default:
+            return nil
+        }
+    }
+}
+
+/// Las cuatro familias juntas en un lienzo de reloj: la grande (Modular / Smart Stack) en su
+/// tarjeta, y debajo el círculo, la esquina (su icono; la etiqueta curva solo la pinta el
+/// sistema) y la línea inline.
+private struct ComplicacionEscaparate: View {
+    let hoy: ComplicacionHoy
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HoyRectangular(hoy: hoy)
+                .frame(width: 172, height: 76, alignment: .leading)
+            HStack(spacing: 12) {
+                HoyCirculo(hoy: hoy).frame(width: 52, height: 52).clipShape(Circle())
+                HoyEsquina(hoy: hoy).frame(width: 52, height: 52)
+            }
+            HoyInline(hoy: hoy)
+                .font(.system(size: 15))
+        }
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .background(WatchTheme.bg.ignoresSafeArea())
     }
 }
 

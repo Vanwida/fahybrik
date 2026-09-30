@@ -29,6 +29,7 @@ REQUIRED=(
   "FAHYBRIK/Generated-Info.plist"
   "FAHYBRIKWatch/Generated-Info.plist"
   "FAHYBRIKWidgets/Generated-Info.plist"
+  "FAHYBRIKWatchWidgets/Generated-Info.plist"
 )
 
 for plist in "${REQUIRED[@]}"; do

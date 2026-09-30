@@ -29,12 +29,25 @@ struct EntradaFila: Equatable {
     let cue: String?
     /// La parte principal: lleva la marca naranja. Calentar y enfriar, en gris.
     let esTrabajo: Bool
+    /// La línea SIN el objetivo que lleva pegado («6 × 1000 m»). Es `linea` cuando no
+    /// lleva ninguno: la complicación pone el titular grande y el objetivo debajo, y lo
+    /// hace con el dato, no partiendo el texto.
+    let titular: String
+    /// El objetivo pegado a la dosis en `linea` («a 3:45–3:55», «a Z2»), o nil.
+    let objetivo: String?
+    /// Series repetidas (`6 × 1000 m`, `4 × 8`, una escalera): la fila que da nombre a una sesión
+    /// antes que un rodaje o un ejercicio suelto.
+    let esSerie: Bool
 
-    init(linea: String, partes: [String] = [], cue: String? = nil, esTrabajo: Bool) {
+    init(linea: String, partes: [String] = [], cue: String? = nil, esTrabajo: Bool,
+         titular: String? = nil, objetivo: String? = nil, esSerie: Bool = false) {
         self.linea = linea
         self.partes = partes
         self.cue = cue
         self.esTrabajo = esTrabajo
+        self.titular = titular ?? linea
+        self.objetivo = objetivo
+        self.esSerie = esSerie
     }
 }
 
@@ -122,7 +135,8 @@ enum EntradaBrief {
             linea: tramo.title,
             partes: partesDeSeries(p.sets ?? [], dosis: dosis),
             cue: cue(tramo, series: nil),
-            esTrabajo: esTrabajo
+            esTrabajo: esTrabajo,
+            esSerie: (p.sets?.count ?? 0) > 1
         )
     }
 
@@ -158,7 +172,8 @@ enum EntradaBrief {
                 linea: movimiento,
                 partes: partesDeSeries(suyas, dosis: PrescriptionRenderer.rotationDose(sub)),
                 cue: cue(tramo, series: indices),
-                esTrabajo: esTrabajo
+                esTrabajo: esTrabajo,
+                esSerie: suyas.count > 1
             )
         }
     }
@@ -203,6 +218,8 @@ enum EntradaBrief {
         let dosis = medida.map { m in aRitmo.map { "\(m) \($0)" } ?? m }
 
         var linea = tramo.title
+        var titular = tramo.title
+        var objetivoPegado: String?
         var partes: [String] = []
         if repetido {
             if let dosis { partes.append("\(veces)\(EntradaNotacion.por)\(dosis)") }
@@ -211,11 +228,18 @@ enum EntradaBrief {
                 partes.append("r\(EntradaNotacion.duro)\(EntradaNotacion.duracion(s))")
             }
         } else {
-            if let dosis { linea = "\(tramo.title) \(dosis)" } else { partes += aRitmo.map { [$0] } ?? [] }
+            if let dosis {
+                linea = "\(tramo.title) \(dosis)"
+                titular = medida.map { "\(tramo.title) \($0)" } ?? linea
+                objetivoPegado = medida == nil ? nil : aRitmo
+            } else {
+                partes += aRitmo.map { [$0] } ?? []
+            }
             partes += otros
         }
         if let reparto = tramo.doblesSplit?.liveSplitLine { partes.append(reparto) }
-        return EntradaFila(linea: linea, partes: partes, esTrabajo: esTrabajo)
+        return EntradaFila(linea: linea, partes: partes, esTrabajo: esTrabajo,
+                           titular: titular, objetivo: objetivoPegado, esSerie: repetido)
     }
 
     /// Lo que escribe el ejercicio cuando el plan no trae `prescription` (o la trae sin
@@ -287,7 +311,9 @@ enum EntradaBrief {
                 let prefijo = b.esSerie || !b.esTrabajo || yaNombrada ? nil : (nombre ?? nombreDelTramo(tramo))
                 yaNombrada = yaNombrada || b.esTrabajo
                 let linea = prefijo.map { "\($0) \(b.texto)" } ?? b.texto
-                out.append(EntradaFila(linea: linea, partes: b.detalles, esTrabajo: principal))
+                let titular = prefijo.map { "\($0) \(b.titular)" } ?? b.titular
+                out.append(EntradaFila(linea: linea, partes: b.detalles, esTrabajo: principal,
+                                       titular: titular, objetivo: b.objetivo, esSerie: b.esSerie))
             }
         }
         return out
@@ -300,12 +326,19 @@ enum EntradaBrief {
 
     /// Un renglón de la estructura ya escrito.
     private struct Bloque {
-        var texto: String
+        /// El renglón sin su objetivo («6 × 1000 m»)…
+        var titular: String
+        /// …y el objetivo que se le pega detrás («a 3:45–3:55»), si lo hay. Un objetivo que
+        /// queda DENTRO de una repetición anidada («2 × (4 × 2′ a Z4)») ya va en el titular.
+        var objetivo: String? = nil
         var detalles: [String]
         /// Trabajo de verdad (no una recuperación suelta): decide si se nombra.
         var esTrabajo = true
         /// Una serie repetida o una escalera: ya dice qué es y un nombre delante sobra.
         var esSerie = false
+
+        /// Lo que se lee en la fila: el titular con su objetivo pegado.
+        var texto: String { objetivo.map { "\(titular) \($0)" } ?? titular }
     }
 
     private enum Elemento {
@@ -339,14 +372,17 @@ enum EntradaBrief {
                 let hijos = bloques(dentro)
                 i += 1
                 guard veces > 0, !hijos.isEmpty else { continue }
-                let cuerpo: String
                 if hijos.count == 1, !hijos[0].texto.contains(Formato.signoPor) {
-                    cuerpo = hijos[0].texto
+                    // El caso corriente («6 × 1000 m a 3:45–3:55»): el objetivo del tramo sigue
+                    // siendo el objetivo del renglón, no parte de su titular.
+                    items.append(.bloque(Bloque(titular: "\(veces)\(EntradaNotacion.por)\(hijos[0].titular)",
+                                                objetivo: hijos[0].objetivo,
+                                                detalles: hijos.flatMap(\.detalles), esSerie: true)))
                 } else {
-                    cuerpo = "(" + hijos.map(\.texto).joined(separator: " + ") + ")"
+                    let cuerpo = "(" + hijos.map(\.texto).joined(separator: " + ") + ")"
+                    items.append(.bloque(Bloque(titular: "\(veces)\(EntradaNotacion.por)\(cuerpo)",
+                                                detalles: hijos.flatMap(\.detalles), esSerie: true)))
                 }
-                items.append(.bloque(Bloque(texto: "\(veces)\(EntradaNotacion.por)\(cuerpo)",
-                                            detalles: hijos.flatMap(\.detalles), esSerie: true)))
             case let .segment(s) where s.kind == .recovery:
                 i += 1
                 if case .bloque(var previo)? = items.last, previo.esTrabajo, previo.esSerie,
@@ -355,7 +391,7 @@ enum EntradaBrief {
                     previo.detalles.append("\(entre) entre tandas")
                     items[items.count - 1] = .bloque(previo)
                 } else if let frase = EntradaNotacion.recuperacion(s, conR: false) {
-                    items.append(.bloque(Bloque(texto: "Recupera \(frase)", detalles: [], esTrabajo: false)))
+                    items.append(.bloque(Bloque(titular: "Recupera \(frase)", detalles: [], esTrabajo: false)))
                 }
             case let .segment(s):
                 var veces = 1
@@ -400,8 +436,8 @@ enum EntradaBrief {
                 j += 1
             }
             if medidas.count > 1, let secuencia = EntradaNotacion.secuencia(medidas) {
-                let objetivo = EntradaNotacion.objetivo(t0.target).map { " \($0)" } ?? ""
-                out.append(.bloque(Bloque(texto: secuencia + objetivo, detalles: detalles(t0, rec: r0), esSerie: true)))
+                out.append(.bloque(Bloque(titular: secuencia, objetivo: EntradaNotacion.objetivo(t0.target),
+                                          detalles: detalles(t0, rec: r0), esSerie: true)))
                 i = j
             } else {
                 out.append(items[i])
@@ -413,9 +449,13 @@ enum EntradaBrief {
 
     private static func bloque(trabajo: RunSegment, veces: Int, rec: RunSegment?) -> Bloque {
         // Un tramo sin medida que decir se nombra por lo que sí trae, nunca por una raya.
-        let dosis = EntradaNotacion.dosis(trabajo) ?? EntradaNotacion.objetivo(trabajo.target) ?? "Tramo"
-        let texto = veces > 1 ? "\(veces)\(EntradaNotacion.por)\(dosis)" : dosis
-        return Bloque(texto: texto, detalles: detalles(trabajo, rec: rec), esSerie: veces > 1)
+        let medida = EntradaNotacion.medida(trabajo.measure)
+        let objetivo = EntradaNotacion.objetivo(trabajo.target)
+        let dosis = medida ?? objetivo ?? "Tramo"
+        // Sin medida, el objetivo ES la dosis y no se separa de ella.
+        let titular = veces > 1 ? "\(veces)\(EntradaNotacion.por)\(dosis)" : dosis
+        return Bloque(titular: titular, objetivo: medida == nil ? nil : objetivo,
+                      detalles: detalles(trabajo, rec: rec), esSerie: veces > 1)
     }
 
     /// Lo que acompaña a un tramo: su inclinación, su cadencia y su recuperación.

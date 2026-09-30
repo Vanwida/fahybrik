@@ -421,12 +421,22 @@ targets:
       # (Workout/Trace/WorkoutTraceUploader.swift) y `GuionEscaparate` — el único guion
       # que instancia vistas del reloj. Ver docs/DECISIONS.md (2026-08-17).
       - path: FAHYBRIKCore
+      # Las vistas de la complicación, SOLO en Debug: el escaparate (`-guion complicacion-…`)
+      # las pinta en el simulador del reloj para verlas sin poner una esfera. En Release no
+      # entran (`EXCLUDED_SOURCE_FILE_NAMES`, más abajo): la app de verdad no las lleva, las
+      # lleva la extensión FAHYBRIKWatchWidgets.
+      - path: FAHYBRIKWatchWidgets/HoyVistas.swift
       - path: FAHYBRIKWatch/PrivacyInfo.xcprivacy
         type: file
         buildPhase: resources
     dependencies:
       - sdk: HealthKit.framework
       - sdk: WatchConnectivity.framework
+      # `WidgetCenter.reloadAllTimelines()`: al guardar el día, la complicación lo relee.
+      - sdk: WidgetKit.framework
+      # La extensión de widgets del reloj (esfera + Smart Stack) viaja DENTRO de la app del
+      # reloj (Embed PlugIns), igual que la del iPhone dentro de la del teléfono.
+      - target: FAHYBRIKWatchWidgets
       - sdk: CoreMotion.framework
       # Permission + horizontalAccuracy only. Apple's HKLiveWorkoutBuilder
       # emits distanceWalkingRunning outdoors after this; we never integrate fixes.
@@ -447,6 +457,10 @@ targets:
         # Mismo dominio de marca que la app del teléfono: `Marca` compila también
         # en el reloj (vive en FAHYBRIKCore) y lo lee de su propio bundle.
         BrandWebDomain: "$(BRAND_WEB_DOMAIN)"
+        # El App Group que comparte con su complicación (entitlement con el mismo valor) y el
+        # esquema con el que la complicación abre la app en lo de hoy. `Marca` los lee de aquí.
+        FahybrikAppGroup: "group.$(BRAND_BUNDLE_ID)"
+        BrandUrlScheme: "$(BRAND_URL_SCHEME)"
         WKApplication: true
         # ALWAYS-ON, DECLARADO. Sin esta clave el sistema nunca entrega el estado
         # atenuado: todo el trabajo de `isLuminanceReduced` del lienzo sería
@@ -473,6 +487,10 @@ targets:
           # DEBUG only in Debug (mirrors the app target); never in Release so the
           # archived watch build is a true production build.
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+        Release:
+          # Las vistas de la complicación son del escaparate (Debug); en Release las lleva
+          # solo la extensión.
+          EXCLUDED_SOURCE_FILE_NAMES: HoyVistas.swift
       base:
         PRODUCT_BUNDLE_IDENTIFIER: "$(BRAND_BUNDLE_ID).watchkitapp"
         CODE_SIGN_ENTITLEMENTS: FAHYBRIKWatch/FAHYBRIKWatch.entitlements
@@ -526,6 +544,52 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: "$(BRAND_BUNDLE_ID).widgets"
         PRODUCT_NAME: FAHYBRIKWidgets
         TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: NO
+        # CODE_SIGN_STYLE + DEVELOPMENT_TEAM se HEREDAN de settings.base.
+        CODE_SIGNING_ALLOWED: YES
+        CODE_SIGNING_REQUIRED: YES
+
+  # ----- La complicación del reloj: esfera Modular + Smart Stack con lo de hoy (P13) -----
+  # Extensión de WidgetKit de watchOS, embebida en la app del reloj (ver su `- target:`).
+  # Bundle id = el del reloj + ".widgets" (una extensión DEBE ir prefijada por su host).
+  # Comparte el día con la app por un App Group (`group.<BRAND_BUNDLE_ID>`): la app escribe
+  # el registro ya leído (`ComplicacionAlmacen`) y la extensión solo lo pinta.
+  #
+  # FUENTES EXPLÍCITAS y mínimas, a propósito: una extensión debe quedarse pequeña. NO se
+  # incluye `FAHYBRIKCore` entero (arrastraría el motor, HealthKit y el plan); solo la
+  # carpeta de la complicación SIN la lectura (`ComplicacionLectura` conoce el plan y vive
+  # solo en la app) y `Marca`, que da el nombre de la marca y el App Group.
+  FAHYBRIKWatchWidgets:
+    type: app-extension
+    platform: watchOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: FAHYBRIKWatchWidgets
+        excludes:
+          - "*.entitlements"
+      - path: FAHYBRIKCore/Watch/Complicacion
+        excludes:
+          - ComplicacionLectura.swift
+      - path: FAHYBRIKCore/Marca.swift
+    dependencies:
+      - sdk: WidgetKit.framework
+    info:
+      path: FAHYBRIKWatchWidgets/Generated-Info.plist
+      properties:
+        CFBundleDisplayName: "$(BRAND_DISPLAY_NAME)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        FahybrikAppGroup: "group.$(BRAND_BUNDLE_ID)"
+        BrandUrlScheme: "$(BRAND_URL_SCHEME)"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "$(BRAND_BUNDLE_ID).watchkitapp.widgets"
+        PRODUCT_NAME: FAHYBRIKWatchWidgets
+        CODE_SIGN_ENTITLEMENTS: FAHYBRIKWatchWidgets/FAHYBRIKWatchWidgets.entitlements
+        TARGETED_DEVICE_FAMILY: "4"
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: NO
         # CODE_SIGN_STYLE + DEVELOPMENT_TEAM se HEREDAN de settings.base.
