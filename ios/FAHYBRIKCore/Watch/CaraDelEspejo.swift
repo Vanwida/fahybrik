@@ -11,14 +11,14 @@ import Foundation
 //   · `.deSiempre` TODO lo de hoy: las tres páginas de `MirrorRodajePaginas`, el guion de
 //     cada modalidad y las capas de fase, sin tocar.
 //
-// La cara nueva es la de CORRER (la única del rediseño por ahora). Cae a la de siempre, y
-// nunca inventa, cuando:
+// La cara nueva es la de CORRER, FUERZA y ERGO (`Vivo.familiaMuneca`, una sola regla para el reloj en
+// solitario y para el espejo). Cae a la de siempre, y nunca inventa, cuando:
 //   · la bandera de TestFlight (`MunecaBandera`) está apagada;
 //   · el reloj está guardando (`isEnding`: «Guardando…» manda);
 //   · no hay cuadro: móvil viejo (sin cursor), plan aún sin llegar, o cursor de otro plan;
 //   · aún no hay trama;
-//   · el tramo no es de correr de corrido (una estación de HYROX, un EMOM, una ruta, la
-//     fuerza…: `GuionDelEspejo.esRodajeLamina`, la misma puerta que ya usaba la lámina);
+//   · el paso vivo no es de esas familias (una estación de HYROX, un EMOM, un AMRAP, una ruta,
+//     la movilidad…: `Vivo.EspejoMuneca.cubreLaMuneca`, decidido sobre el plan y no sobre el tramo);
 //   · es el relevo de una estación de dobles (su pantalla propia);
 //   · el móvil espera «Empezar» en la puerta de un bloque (`gate`: sigue la puerta de siempre).
 //
@@ -35,9 +35,10 @@ enum CaraDelEspejo: Equatable {
         MirrorWire.Phase.active, MirrorWire.Phase.paused, MirrorWire.Phase.countIn, MirrorWire.Phase.finished,
     ]
 
-    static func decide(bandera: Bool, espejo: Vivo.EspejoMuneca.Estado, frame: MirrorStateFrame?, terminando: Bool) -> CaraDelEspejo {
+    /// `cubre`: el paso vivo del plan es de una familia que la cara nueva pinta (`Vivo.EspejoMuneca.cubreLaMuneca`).
+    static func decide(bandera: Bool, espejo: Vivo.EspejoMuneca.Estado, frame: MirrorStateFrame?, cubre: Bool, terminando: Bool) -> CaraDelEspejo {
         guard bandera, !terminando, espejo == .vivo, let f = frame else { return .deSiempre }
-        guard f.dobles == nil, GuionDelEspejo.esRodajeLamina(f) else { return .deSiempre }
+        guard f.dobles == nil, cubre else { return .deSiempre }
         return fasesDeLaCaraNueva.contains(f.phase) ? .muneca : .deSiempre
     }
 

@@ -34,7 +34,8 @@ final class CaraDelEspejoTests: XCTestCase {
 
     private func decide(bandera: Bool = true, espejo: Vivo.EspejoMuneca.Estado = .vivo, frame: MirrorStateFrame?,
                         terminando: Bool = false) -> CaraDelEspejo {
-        CaraDelEspejo.decide(bandera: bandera, espejo: espejo, frame: frame, terminando: terminando)
+        // `cubre` sale del plan en la muñeca; aquí, con tramas escritas a mano, se toma del tramo (correr de corrido).
+        CaraDelEspejo.decide(bandera: bandera, espejo: espejo, frame: frame, cubre: frame.map(GuionDelEspejo.esRodajeLamina) ?? false, terminando: terminando)
     }
 
     // MARK: - Cuándo manda la cara nueva

@@ -73,6 +73,9 @@ extension Vivo {
         private(set) var parciales: [Parcial] = []
         /// Las vueltas por km y a mano (`RegistroVueltas`), las mismas que en solitario.
         private(set) var registro = RegistroVueltas()
+        /// Lo declarado en el descanso de fuerza y lo que la muñeca tiene abierto. La muñeca es su dueña; cada dato
+        /// declarado además viaja al móvil (`MirrorWire.CommandKind.anotar`), que lo escribe en su motor.
+        private(set) var anotar = AnotarMuneca()
 
         private var ventana = VentanaDeRitmo()
         private var muestras: [MuestraDeDistancia] = []
@@ -136,7 +139,7 @@ extension Vivo {
         /// Otro plan (o el primero): reemplaza al anterior. Los pasos cerrados solo se conservan
         /// si el plan sigue siendo el mismo entreno (mismos pasos, otra zona o regla).
         mutating func recibirPlan(_ nuevo: MirrorPlanVivo) {
-            if let actual = plan, actual.pasos.map(\.id) != nuevo.pasos.map(\.id) { parciales = [] }
+            if let actual = plan, actual.pasos.map(\.id) != nuevo.pasos.map(\.id) { parciales = []; anotar = AnotarMuneca() }
             plan = nuevo
         }
 
@@ -192,14 +195,49 @@ extension Vivo {
         /// TODO lo que pinta la muñeca ahora, o `nil` si no hay con qué (la vista cae a la cara de siempre).
         func cuadro(ahora: Date, locales: Locales = Locales()) -> CuadroMuneca? {
             guard let e = estadoVivo(ahora: ahora, locales: locales) else { return nil }
-            return Vivo.cuadroMuneca(e, registro: registro, entorno: locales.entorno)
+            return Vivo.cuadroMuneca(e, registro: registro, entorno: locales.entorno, anotar: anotar)
+        }
+
+        /// ¿Pinta la cara nueva el paso vivo (correr, fuerza o ergo)? Sin cuadro, no.
+        var cubreLaMuneca: Bool {
+            guard estado == .vivo, let plan, let t = trama else { return false }
+            return Vivo.cubreLaMuneca(plan.pasos, Swift.min(Swift.max(0, t.cursor.i), plan.pasos.count - 1))
+        }
+
+        // MARK: - La anotación (fuerza): cada gesto devuelve lo declarado, que el dueño manda al móvil
+
+        mutating func abrirSerie(_ k: Int, ahora: Date) {
+            guard let e = estadoVivo(ahora: ahora) else { return }
+            anotar.abrir(k, e)
+        }
+
+        mutating func enfocarDato(_ campo: CampoAnotar, ahora: Date) {
+            guard let e = estadoVivo(ahora: ahora) else { return }
+            anotar.enfocar(campo, e)
+        }
+
+        mutating func girarDato(_ dir: Int, ahora: Date) -> Declaracion? {
+            guard let e = estadoVivo(ahora: ahora) else { return nil }
+            return anotar.girar(dir, e)
+        }
+
+        mutating func confirmarAnotacion(ahora: Date) -> [Declaracion] {
+            guard let e = estadoVivo(ahora: ahora) else { return [] }
+            return anotar.confirmar(e)
+        }
+
+        mutating func reabrirAnotacion(ahora: Date) {
+            guard let e = estadoVivo(ahora: ahora) else { return }
+            anotar.reabrir(e)
         }
 
         /// El estado vivo del que sale el cuadro: el mismo tipo que produce el motor en solitario.
         func estadoVivo(ahora: Date, locales: Locales = Locales()) -> EstadoVivo? {
             guard estado == .vivo, let plan, let t = trama else { return nil }
             let c = t.cursor
-            let pasos = plan.pasos
+            let enlazada = c.maquina?.maquina
+            // Sin el monitor del móvil, los metros y el /500 de una máquina los dice el atleta.
+            let pasos = enlazada == nil && !plan.pasos.contains(where: { $0.maquina != nil }) ? plan.pasos : Vivo.segunEnlace(plan.plan, maquina: enlazada).pasos
             let i = Swift.min(Swift.max(0, c.i), pasos.count - 1)
             let p = pasos[i]
             let corre = c.quieto ? 0 : Swift.max(0, ahora.timeIntervalSince(t.recibidoEn))
@@ -223,7 +261,10 @@ extension Vivo {
                 ritmo: movil ? c.ritmo : ventana.ritmo(ahora: eje(ahora)),
                 ppm: pulso,
                 ppmTendencia: Vivo.tendenciaDe(muestras: pulsos),
-                cadencia: locales.cadencia,
+                split500: c.maquina?.split500,
+                vatios: c.maquina?.vatios,
+                cadencia: c.maquina?.cadencia ?? locales.cadencia,
+                cal: c.maquina?.cal,
                 gps: Vivo.usaGps(p) ? locales.gps : .noAplica
             )
             let motor: Int? = c.cuentaS.flatMap { $0 - corre > 0 ? Vivo.cuentaDelMotor(restanteS: $0 - corre) : nil }
@@ -243,7 +284,8 @@ extension Vivo {
                 parciales: parciales,
                 cuenta: cuenta,
                 go: go,
-                terminado: c.terminado
+                terminado: c.terminado,
+                maquinaEnlazada: enlazada
             )
         }
 

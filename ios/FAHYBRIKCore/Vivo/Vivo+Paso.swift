@@ -458,6 +458,9 @@ extension Vivo {
         /// El GO del primer segundo de un paso de trabajo.
         var go: Bool = false
         var terminado: Bool = false
+        /// La máquina de ergo con monitor enlazado (lo lleva el móvil); `nil` = ninguna. Sin ella, los metros y el /500
+        /// de un paso de máquina los dice el atleta (la cara de ergo de la muñeca lo dice).
+        var maquinaEnlazada: Maquina.Tipo? = nil
 
         var paso: Paso { pasos[Swift.min(Swift.max(0, i), pasos.count - 1)] }
         var siguiente: Paso? { i + 1 < pasos.count ? pasos[i + 1] : nil }
