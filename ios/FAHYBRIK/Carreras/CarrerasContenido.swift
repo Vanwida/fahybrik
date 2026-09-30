@@ -111,7 +111,9 @@ struct CarrerasContenido: View {
         case .cargando:
             PosterCargandoCarreras()
         case .error:
-            SujetoErrorCarreras(alReintentar: callbacks.alReintentarTodo)
+            SujetoErrorDia(
+                kicker: "Tus carreras", titulo: "No pudimos cargar tus carreras",
+                apoyo: "Revisa tu conexión e inténtalo de nuevo.", alReintentar: callbacks.alReintentarTodo)
         case .postcarrera(let carrera, let dias):
             PosterPostcarreraCarreras(carrera: carrera, dias: dias, hoy: lectura.hoy, alImportar: callbacks.alImportar)
         case .objetivo(let carrera, let principal):

@@ -9,7 +9,7 @@ struct ObjectiveWhenSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            CampoCarreras("Para cuándo es", izquierda: { IconoDia(.calendario, tam: 20) }, derecha: { EmptyView() }) {
+            CampoDia("Para cuándo es", izquierda: { IconoDia(.calendario, tam: 20) }, derecha: { EmptyView() }) {
                 HStack(spacing: 0) {
                     DatePicker("Fecha de la carrera", selection: $date, in: Date()..., displayedComponents: .date)
                         .datePickerStyle(.compact)

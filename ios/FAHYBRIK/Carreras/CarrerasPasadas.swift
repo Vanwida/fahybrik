@@ -40,7 +40,7 @@ private struct TarjetaUltima: View {
                     .minimumScaleFactor(0.6)
             }
             if equipo != nil {
-                CintaCarreras(icono: { IconoCarreras(.equipo, tam: 18) }) {
+                CintaCarreras(icono: { IconoDia(.equipo, tam: 18) }) {
                     Text("Tiempo del equipo\(conQuien.map { " · \($0)" } ?? "")")
                 }
             } else {
@@ -51,7 +51,7 @@ private struct TarjetaUltima: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .tarjetaCarreras()
+        .tarjetaDia()
         .accessibilityElement(children: .contain)
     }
 }
@@ -87,7 +87,7 @@ private struct ParcialesDeFila: View {
         VStack(alignment: .leading, spacing: 14) {
             if equipo {
                 HStack(alignment: .top, spacing: Theme.Spacing.m - 2) {
-                    IconoCarreras(.equipo, tam: 18).foregroundStyle(Theme.Color.info).padding(.top, 1)
+                    IconoDia(.equipo, tam: 18).foregroundStyle(Theme.Color.info).padding(.top, 1)
                     Text("Parciales del equipo: tiempos compartidos, no individuales.")
                         .papel(.notaFuerte)
                         .foregroundStyle(Theme.Color.foreground)
@@ -194,10 +194,10 @@ private struct FilaPasada: View {
                 ParcialesDeFila(carrera: carrera)
                     .padding(EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .overlay(alignment: .top) { Rectangle().fill(Theme.Color.hairline).frame(height: 1) }
+                    .overlay(alignment: .top) { Hairline() }
             }
         }
-        .tarjetaCarreras()
+        .tarjetaDia()
     }
 
     private var cabecera: some View {
@@ -210,8 +210,8 @@ private struct FilaPasada: View {
                 Text(linea).papel(.nota).foregroundStyle(Theme.Color.muted)
                 if equipo != nil || carrera.tipoEvento == .deka {
                     HStack(spacing: 6) {
-                        if let equipo { ChipCarreras(equipo, estilo: .acento) { IconoCarreras(.equipo, tam: 16) } }
-                        if carrera.tipoEvento == .deka { ChipCarreras("DEKA", estilo: .velo) }
+                        if let equipo { InfoPill(text: equipo, estilo: .acento, glifo: .equipo) }
+                        if carrera.tipoEvento == .deka { InfoPill(text: "DEKA", estilo: .velo) }
                         if let conQuien { Text(conQuien).papel(.notaFuerte).foregroundStyle(Theme.Color.muted) }
                     }
                 }
@@ -231,10 +231,10 @@ private struct FilaPasada: View {
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.trailing)
                 }
-                if abre || pendiente {
-                    IconoDia(.chevron, tam: 18)
-                        .foregroundStyle(Theme.Color.muted)
-                        .rotationEffect(.degrees(pendiente ? 0 : (abierta ? -90 : 90)))
+                if pendiente {
+                    IconoDia(.chevron, tam: 18).foregroundStyle(Theme.Color.muted)
+                } else if abre {
+                    GiroDia(abierto: abierta).foregroundStyle(Theme.Color.muted)
                 }
             }
         }
@@ -273,19 +273,19 @@ private struct HistorialCarreras: View {
                 ForEach(visibles) { c in FilaPasada(carrera: c, hoy: hoy, alImportar: alImportar) }
             }
             if plegable {
-                BotonTextoCarreras(
+                BotonTextoDia(
                     abierto ? "Ver menos" : "Ver \(orden.count - Self.visiblesPlegado) más",
                     expandido: abierto,
                     accion: { withAnimation(.easeOut(duration: 0.2)) { abierto.toggle() } },
                     icono: { EmptyView() },
-                    derecha: { GiroCarreras(abierto: abierto) }
+                    derecha: { GiroDia(abierto: abierto) }
                 )
-                .tarjetaCarreras()
+                .tarjetaDia()
             }
             // Importar el perfil equivocado trae el historial de un desconocido: la salida es clara y sobria.
             if hayImportadas {
-                BotonTextoCarreras("¿No eres tú? Eliminar carreras importadas", tono: .suave, accion: alQuitarImportacion) {
-                    IconoCarreras(.sinPersona, tam: 20)
+                BotonTextoDia("¿No eres tú? Eliminar carreras importadas", tono: .suave, accion: alQuitarImportacion) {
+                    IconoDia(.sinPersona, tam: 20)
                 }
             }
         }
@@ -326,7 +326,7 @@ struct PasadasCarreras: View {
             }
             .padding(Theme.Spacing.l)
             .frame(maxWidth: .infinity, minHeight: 168, alignment: .topLeading)
-            .tarjetaCarreras()
+            .tarjetaDia()
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Cargando tu historial")
@@ -339,8 +339,8 @@ struct PasadasCarreras: View {
             VacioCarreras(
                 titulo: "Aún no hay carreras pasadas",
                 mensaje: "Busca tu nombre e importa tu historial de HYROX, individuales y dobles, y verás aquí tus parciales, tus puntos débiles y tu evolución.",
-                icono: { IconoCarreras(.bandera, tam: 24) },
-                salida: { SalidaAccionCarreras("Importar historial", accion: alImportar) { IconoDia(.mas, tam: 20, peso: .bold) } }
+                icono: { IconoDia(.bandera, tam: 24) },
+                salida: { BotonAccionDia("Importar historial", glifo: .mas, relleno: .acento, glifoAlFinal: false, accion: alImportar) }
             )
         }
     }
@@ -351,7 +351,7 @@ struct PasadasCarreras: View {
         let esperaAnalisis = lectura.pasadas.contains { $0.formato == .individual && $0.resultadoS != nil }
         return VStack(alignment: .leading, spacing: 22) {
             TituloSeccionDia("Pasadas") {
-                PastillaSeccion("Importar", accion: alImportar) { IconoDia(.mas, tam: 18, peso: .bold) }
+                PastillaSeccionDia("Importar", glifo: .mas, accion: alImportar)
             }
             if sujeto.tipo != .ultima, let ultima { TarjetaUltima(carrera: ultima, lectura: lectura) }
             if let a = lectura.analisis, let predicho = a.predichoVsReal {

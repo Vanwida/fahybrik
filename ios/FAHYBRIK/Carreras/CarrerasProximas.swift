@@ -31,21 +31,9 @@ struct BotonesAccionesCarrera: View {
             Button { elige(.preguntar) } label: { Label("Preguntar al coach", systemImage: "message") }
         }
         if !esPrincipal {
-            Button { elige(.hacerPrincipal) } label: { Label("Hacer objetivo principal", systemImage: GlifoCarreras.estrella.rawValue) }
+            Button { elige(.hacerPrincipal) } label: { Label("Hacer objetivo principal", systemImage: GlifoDia.estrella.simbolo) }
         }
-        Button(role: .destructive) { elige(.quitar) } label: { Label("Eliminar carrera", systemImage: GlifoCarreras.papelera.rawValue) }
-    }
-}
-
-/// El chevron de un pliegue: apunta abajo cerrado y arriba abierto.
-struct GiroCarreras: View {
-    let abierto: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        IconoDia(.chevron, tam: 18)
-            .rotationEffect(.degrees(abierto ? -90 : 90))
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: abierto)
+        Button(role: .destructive) { elige(.quitar) } label: { Label("Eliminar carrera", systemImage: GlifoDia.papelera.simbolo) }
     }
 }
 
@@ -127,7 +115,7 @@ struct ProximasCarreras: View {
         let visibles = plegable && !abierto ? Array(items.prefix(Self.visiblesPlegado)) : items
         return VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             TituloSeccionDia("Próximas") {
-                PastillaSeccion("Buscar carrera", accion: alBuscar) { IconoDia(.lupa, tam: 18, peso: .bold) }
+                PastillaSeccionDia("Buscar carrera", glifo: .lupa, accion: alBuscar)
             }
             VStack(spacing: Theme.Spacing.m) {
                 ForEach(visibles) { c in
@@ -143,14 +131,14 @@ struct ProximasCarreras: View {
                 }
             }
             if plegable {
-                BotonTextoCarreras(
+                BotonTextoDia(
                     abierto ? "Ver menos" : "Ver \(items.count - Self.visiblesPlegado) más",
                     expandido: abierto,
                     accion: { withAnimation(.easeOut(duration: 0.2)) { abierto.toggle() } },
                     icono: { EmptyView() },
-                    derecha: { GiroCarreras(abierto: abierto) }
+                    derecha: { GiroDia(abierto: abierto) }
                 )
-                .tarjetaCarreras()
+                .tarjetaDia()
             }
         }
     }
@@ -198,16 +186,15 @@ private struct TarjetaProxima: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) {
                             if carrera.prioridad == .principal {
-                                ChipCarreras(carrera.prioridad.etiqueta, estilo: .acento) { IconoDia(.diana, tam: 14, peso: .bold) }
+                                InfoPill(text: carrera.prioridad.etiqueta, estilo: .acento, glifo: .diana, tamGlifo: 14)
                             } else {
-                                ChipCarreras(carrera.prioridad.etiqueta, estilo: .velo)
+                                InfoPill(text: carrera.prioridad.etiqueta, estilo: .velo)
                             }
                             if let equipo {
-                                ChipCarreras(equipo, estilo: .velo) { IconoCarreras(.equipo, tam: 16) }
+                                InfoPill(text: equipo, estilo: .velo, glifo: .equipo)
                             }
                         }
-                        Text(carrera.nombre)
-                            .subtituloCarreras()
+                        SubtituloDia(carrera.nombre)
                             .fixedSize(horizontal: false, vertical: true)
                         Text(donde).papel(.nota).foregroundStyle(Theme.Color.muted)
                             .fixedSize(horizontal: false, vertical: true)
@@ -246,7 +233,7 @@ private struct TarjetaProxima: View {
             .padding(.top, 3)
             .accessibilityLabel("Acciones de \(carrera.nombre)")
         }
-        .tarjetaCarreras(realce: carrera.prioridad == .principal)
+        .tarjetaDia(realce: carrera.prioridad == .principal)
         .contextMenu {
             BotonesAccionesCarrera(esPrincipal: esPrincipal, conCoach: conCoach, elige: alElegir)
         }
@@ -295,6 +282,6 @@ private struct EsqueletoTarjetaProxima: View {
         }
         .padding(Theme.Spacing.l)
         .frame(maxWidth: .infinity, minHeight: 136, alignment: .topLeading)
-        .tarjetaCarreras()
+        .tarjetaDia()
     }
 }
