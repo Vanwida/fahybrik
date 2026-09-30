@@ -113,13 +113,13 @@ struct FranjaGuardadoEnElMovil: View {
     let onCerrar: () -> Void
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Theme.Spacing.m) {
             AvisoGuardadoEnElMovil()
-            // La misma altura que GUARDAR: el botón no salta al asentarse la pantalla.
-            ExpertPrimaryButton(title: "CERRAR", height: 46, action: onCerrar)
+            // La misma pieza y la misma altura que GUARDAR: el botón no salta al asentarse la pantalla.
+            AccionAncladaResumen(titulo: "CERRAR", alTocar: onCerrar)
             Text("Lo tienes en tu historial, marcado «Sin subir».")
-                .scaledFont(11, weight: .medium, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.faint)
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
         }

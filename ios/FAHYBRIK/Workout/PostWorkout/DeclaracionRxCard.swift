@@ -5,49 +5,32 @@ import SwiftUI
 // (`DeclaracionesRx.bloques`); con un solo bloque, sin su título. El dato viaja
 // en `rx_scaled` / `scaled_note` de cada tramo del bloque (`ManualSegmentOverlay`).
 
-/// RX · ESCALADO, y cómo se escaló si se escaló. El MISMO selector en el resumen y
-/// en el conmutador de la vista vieja (`RxScaledToggle`).
+/// RX · ESCALADO, y cómo se escaló si se escaló. El MISMO selector en el resumen y en el
+/// conmutador que aún pintan dos vistas en vivo (`RxScaledToggle`): por eso su API no cambia, y
+/// con la piel del día también ellas pasan a 15 pt y a toques de 48 pt.
 struct SelectorRx: View {
     @Binding var nivel: NivelRx
     @Binding var nota: String
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(spacing: Theme.Spacing.s) {
+            HStack(spacing: Theme.Spacing.s) {
                 segmento("RX", .rx, accesible: "Como está escrito (RX)")
                 segmento("ESCALADO", .scaled, accesible: "Escalado")
             }
             if nivel == .scaled {
-                TextField("¿Cómo lo escalaste? (opcional)", text: $nota)
-                    .scaledFont(12, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
-                    .background(Theme.Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+                CampoTextoResumen(marcador: "¿Cómo lo escalaste? (opcional)",
+                                  etiquetaAccesible: "Cómo lo escalaste",
+                                  texto: $nota,
+                                  lineas: 1...3)
             }
         }
     }
 
     private func segmento(_ titulo: String, _ valor: NivelRx, accesible: String) -> some View {
-        let on = nivel == valor
-        return Button(action: { nivel = valor; Haptics.light() }) {
-            Text(titulo)
-                .font(.system(size: 12, weight: .heavy, design: .default).italic())
-                .tracking(1)
-                .foregroundStyle(on ? Theme.Color.accentOn : Theme.Color.muted)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 9)
-                .background(on ? Theme.Color.accent : Theme.Color.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-                        .stroke(on ? Color.clear : Theme.Color.hairlineStrong, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
+        OpcionResumen(titulo: titulo, elegida: nivel == valor, etiquetaAccesible: accesible) {
+            nivel = valor
         }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel(accesible)
-        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
 
@@ -57,18 +40,16 @@ struct DeclaracionRxCard: View {
     @Binding var declaradas: [Int: DeclaracionRx]
 
     var body: some View {
-        CardSurface(padding: 10) {
-            VStack(alignment: .leading, spacing: 10) {
-                LabelText(text: "¿Cómo lo hiciste?", size: 9)
-                ForEach(bloques) { b in
-                    VStack(alignment: .leading, spacing: 6) {
-                        if bloques.count > 1 {
-                            Text(b.titulo)
-                                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                                .foregroundStyle(Theme.Color.foreground)
-                        }
-                        SelectorRx(nivel: nivel(b.id), nota: nota(b.id))
+        TarjetaResumen(etiqueta: "¿Cómo lo hiciste?") {
+            ForEach(bloques) { b in
+                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                    if bloques.count > 1 {
+                        Text(b.titulo)
+                            .papel(.cuerpoFuerte)
+                            .foregroundStyle(Theme.Color.foreground)
+                            .accessibilityAddTraits(.isHeader)
                     }
+                    SelectorRx(nivel: nivel(b.id), nota: nota(b.id))
                 }
             }
         }

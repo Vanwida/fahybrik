@@ -1,296 +1,175 @@
 import SwiftUI
 
-// Pantalla C — "Predicho vs real". After a simulation or an imported race with a
-// PRIOR prediction snapshot, this compares what we predicted against what the
-// athlete actually did: the two totals, a precision read ("a 0,7% — afinando"),
-// the per-station table (Δ green when faster than predicted, orange when
-// slower), and the typed coach insight. That difference recalibrates the
-// prediction AND tells the coach where to press — the loop closing on itself.
+// PREDICHO CONTRA REAL — tras una simulación o una carrera importada con una predicción guardada
+// antes, lo que predijimos contra lo que hiciste: los dos totales, cuánto acertó la predicción
+// («a 99 %, clavado»), la tabla tramo a tramo y la lectura del coach. Esa diferencia recalibra la
+// predicción y le dice al coach dónde apretar: el círculo que se cierra.
 //
-// `PredichoVsRealView` is the PAGE the door on the Carreras tab opens (a back button
-// and the card). It does NOT fetch: the tab already read the review
-// (`GET /api/athlete/prediction-review?race_id=…`) to draw the door, and that door only
-// exists when a snapshot is there (availability == ok) — so the page is handed the
-// very review the door showed and cannot disagree with it.
-// `PredictionReviewCard` is the pure presentation (previewable in isolation).
+// Es la página que abre la puerta de la pestaña. NO pide nada: la pestaña ya leyó la revisión
+// (`GET /api/athlete/prediction-review?race_id=…`) para dibujar la puerta, y la puerta solo existe con
+// una predicción guardada; así que recibe la MISMA revisión y no puede contradecirla. Los totales y la
+// precisión se leen con la misma traducción que la puerta (`PredichoVsReal`): `accuracy_pct` es la
+// PRECISIÓN de 0 a 100 (99 = clavado), no el error.
 struct PredichoVsRealView: View {
     let review: PredictionReview
 
-    @Environment(\.dismiss) private var dismiss
+    private var resumen: PredichoVsReal { PredichoVsReal(review) }
 
     var body: some View {
-        ZStack {
-            Theme.Color.background
-                .ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    HStack {
-                        BackCircleButton { dismiss() }
-                        Spacer(minLength: 8)
-                    }
-                    .padding(.top, Theme.Spacing.s)
-                    PredictionReviewCard(review: review)
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.s)
-                .padding(.bottom, Theme.Spacing.xxl)
-            }
-        }
-        .navigationBarHidden(true)
-    }
-}
-
-// MARK: - Card (pure presentation)
-
-struct PredictionReviewCard: View {
-    let review: PredictionReview
-
-    private let numColumn: CGFloat = 52
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            VStack(alignment: .leading, spacing: 2) {
-                LabelText(text: "PREDICHO VS REAL", color: Theme.Color.accentText)
-                if let sub = subtitle {
-                    Text(sub)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Theme.Color.muted)
+        MarcoDeDetalleCarreras {
+            CabeceraDetalleCarreras(
+                etiqueta: "Predicho contra real",
+                titulo: review.raceName.flatMap { $0.isEmpty ? nil : $0 } ?? "Tu carrera",
+                lineas: [review.raceDate.flatMap { FechaES.corta($0, hoy: FechaES.iso(Date())) }].compactMap { $0 }
+            )
+            sujeto
+            if !review.segments.isEmpty {
+                SeccionDeDetalleCarreras(
+                    "Tramo a tramo",
+                    nota: "La diferencia es lo que hiciste menos lo que predijimos: con la flecha abajo, fuiste más rápido."
+                ) {
+                    tabla
                 }
             }
-            totals
-            table
-            if let insight = review.insightEs, !insight.isEmpty {
-                insightCard(insight)
+            if let lectura = review.insightEs, !lectura.isEmpty {
+                NotaDeDetalleCarreras("Lo que nos dice", texto: lectura) { IconoDia(.diana, tam: 18) }
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous))
-        .brandShadow(Theme.Shadow.cardTight)
     }
 
-    // Predijimos / Hiciste, side by side, with the precision read below.
-    private var totals: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: Theme.Spacing.xl) {
-                totalColumn(label: "PREDIJIMOS", value: durationText(review.predictedTotalS))
-                totalColumn(label: "HICISTE", value: durationText(review.actualTotalS))
-            }
-            if let acc = accuracyText {
-                Text(acc)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Theme.Color.ok)
-                    .multilineTextAlignment(.center)
+    // MARK: - El sujeto: los dos totales y la precisión
+
+    private var precision: String? {
+        PredichoVsRealView.precision(resumen)
+    }
+
+    /// «Predicción a 99 %, clavado». La MISMA frase que la puerta de la pestaña.
+    static func precision(_ r: PredichoVsReal) -> String? {
+        Formato.porcentaje(fraccion: r.precisionPct.map { $0 / 100 }).map { pct in
+            "Predicción a \(pct)\(r.precisionPalabra.map { ", \($0)" } ?? "")"
+        }
+    }
+
+    private var sujeto: some View {
+        SujetoDia(tono: .acento, etiqueta: vozDelSujeto) {
+            KickerDia(precision ?? "Predicho contra real")
+            // Con texto grande las dos cifras no caben lado a lado: pasan una encima de otra.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: Theme.Spacing.l) { totales }
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) { totales }
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(Theme.Color.surfaceElevated)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(totalsAccessibilityLabel)
     }
 
-    /// Una de las dos columnas del cabezal. Sin tiempo NO se pinta una cifra: se
-    /// dice que no lo hay, y en la voz de TEXTO — una nota de ausencia no es una
-    /// medida y monoespaciarla a 26 pt la disfrazaría de dato (§4, §7).
     @ViewBuilder
-    private func totalColumn(label: String, value: String?) -> some View {
-        VStack(spacing: 3) {
-            LabelText(text: label, size: 10)
-            if let value {
-                Text(value)
-                    .font(.system(size: 26, weight: .heavy, design: .default).italic().monospacedDigit())
+    private var totales: some View {
+        total("Predijimos", resumen.predijimosS)
+        total("Hiciste", resumen.hicisteS)
+    }
+
+    /// Una de las dos cifras. Sin tiempo NO hay cifra: se dice que no lo hay, en voz de texto (una nota de
+    /// ausencia no es una medida, y a 44 pt se disfrazaría de dato).
+    private func total(_ rotulo: String, _ segundos: Int?) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(rotulo).papel(.rotulo).foregroundStyle(Theme.Color.foreground)
+            if let segundos {
+                Text(Formato.clock(segundos, enHoras: false))
+                    .papel(.sujeto)
+                    .monospacedDigit()
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+                    .fixedSize()
             } else {
-                Text("sin tiempo")
-                    .font(.system(size: 13, weight: .medium).italic())
-                    .foregroundStyle(Theme.Color.faint)
+                Text("sin tiempo").papel(.cuerpo).italic().foregroundStyle(Theme.Color.foreground)
             }
         }
     }
 
-    // MARK: - Table
+    private var vozDelSujeto: String {
+        [
+            precision,
+            "predijimos \(resumen.predijimosS.map { Formato.clock($0, enHoras: false) } ?? "sin tiempo")",
+            "hiciste \(resumen.hicisteS.map { Formato.clock($0, enHoras: false) } ?? "sin tiempo")",
+        ].compactMap { $0 }.joined(separator: ", ")
+    }
 
-    private var table: some View {
-        VStack(spacing: 0) {
-            headerRow
-            ForEach(review.segments) { row in
-                Hairline()
-                dataRow(row)
+    // MARK: - La tabla
+
+    private var tabla: some View {
+        AnaliticasTabla(
+            etiqueta: "Predicho contra real, tramo a tramo",
+            columnas: [
+                ColumnaDeTabla(cabecera: "Tramo"),
+                ColumnaDeTabla(cabecera: "Predicho", alinear: .trailing, ancho: 76),
+                ColumnaDeTabla(cabecera: "Real", alinear: .trailing, ancho: 84),
+            ],
+            filas: review.segments
+        ) { fila, columna in
+            switch columna {
+            case 0:
+                Text(fila.labelEs).accessibilityLabel(fila.labelEs)
+            case 1:
+                // Sin valor, la celda se calla y guarda su ancho: la fila sigue alineada (§7).
+                Text(fila.predictedS.map { Formato.clock($0, enHoras: false) } ?? "")
+                    .accessibilityLabel(fila.predictedS.map { "predicho \(Formato.clock($0, enHoras: false))" } ?? "")
+            default:
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(fila.actualS.map { Formato.clock($0, enHoras: false) } ?? "")
+                    DiferenciaReal(deltaS: fila.deltaS)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(vozReal(fila))
             }
         }
     }
 
-    private var headerRow: some View {
-        HStack(spacing: 8) {
-            columnLabel("ESTACIÓN", alignment: .leading, flexible: true)
-            columnLabel("PRED.", alignment: .trailing)
-            columnLabel("REAL", alignment: .trailing)
-            columnLabel("Δ", alignment: .trailing)
+    private func vozReal(_ fila: PredictionReviewRow) -> String {
+        var partes: [String] = []
+        if let real = fila.actualS { partes.append("real \(Formato.clock(real, enHoras: false))") }
+        if let d = fila.deltaS, d != 0 {
+            partes.append(d < 0 ? "\(Formato.clock(-d)) más rápido" : "\(Formato.clock(d)) más lento")
         }
-        .padding(.vertical, 6)
-    }
-
-    private func columnLabel(_ text: String, alignment: Alignment, flexible: Bool = false) -> some View {
-        Text(text)
-            .font(.system(size: 9, weight: .semibold))
-            .tracking(0.6)
-            .textCase(.uppercase)
-            .foregroundStyle(Theme.Color.muted)
-            .frame(maxWidth: flexible ? .infinity : numColumn, alignment: alignment)
-    }
-
-    private func dataRow(_ row: PredictionReviewRow) -> some View {
-        HStack(spacing: 8) {
-            Text(row.labelEs)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            numCell(durationText(row.predictedS), color: Theme.Color.foreground)
-            numCell(durationText(row.actualS), color: Theme.Color.foreground)
-            deltaCell(row.deltaS)
-        }
-        .padding(.vertical, 8)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(rowAccessibilityLabel(row))
-    }
-
-    /// Una celda de la tabla. Sin valor la celda se queda VACÍA y conserva su
-    /// ancho: la fila sigue alineada y no se pinta un relleno que se lee como un
-    /// tiempo (§7). A 52 pt no cabe una nota, y la fila ya dice de qué estación
-    /// habla.
-    @ViewBuilder
-    private func numCell(_ text: String?, color: Color) -> some View {
-        if let text {
-            Text(text)
-                .font(.system(size: 13, weight: .medium, design: .monospaced).monospacedDigit())
-                .foregroundStyle(color)
-                .frame(width: numColumn, alignment: .trailing)
-        } else {
-            Color.clear.frame(width: numColumn, height: 1)
-        }
-    }
-
-    /// Δ = actual − predicted: green when faster than predicted, danger (red)
-    /// when slower — same semantics as the gap board's per-segment delta — muted
-    /// at zero. Sin delta la celda se calla, igual que las de tiempo.
-    @ViewBuilder
-    private func deltaCell(_ deltaS: Int?) -> some View {
-        if let deltaS {
-            let color: Color = {
-                if deltaS < 0 { return Theme.Color.ok }
-                if deltaS > 0 { return Theme.Color.danger }
-                return Theme.Color.muted
-            }()
-            Text(GoalGapFormat.signedDuration(deltaS))
-                .font(.system(size: 13, weight: .semibold, design: .monospaced).monospacedDigit())
-                .foregroundStyle(color)
-                .frame(width: numColumn, alignment: .trailing)
-        } else {
-            Color.clear.frame(width: numColumn, height: 1)
-        }
-    }
-
-    // MARK: - Insight
-
-    private func insightCard(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 12))
-            .foregroundStyle(Theme.Color.muted)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(Theme.Color.surfaceElevated)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            .accessibilityLabel(text)
-    }
-
-    // MARK: - Helpers
-
-    // Race-clock minutes ("63:45") — same scale as the sub-X goal frame. NIL
-    // cuando no hay tiempo: el formateador no inventa un relleno, y quien pinta
-    // decide si calla la celda o dice el porqué (§7).
-    private func durationText(_ seconds: Int?) -> String? {
-        seconds.map { GoalGapFormat.raceClock($0) }
-    }
-
-    private var accuracyText: String? {
-        guard let pct = review.accuracyPct else { return nil }
-        var text = "Predicción a \(GoalGapFormat.precisionPercent(pct))"
-        if let label = review.accuracyLabelEs, !label.isEmpty {
-            text += " — \(label)"
-        }
-        return text
-    }
-
-    private var subtitle: String? {
-        let date = review.raceDate
-            .flatMap { StatsDateParser.parse($0) }
-            .map { ImportedRaceDateFormat.medium.string(from: $0) }
-        let parts = [review.raceName, date].compactMap { $0 }.filter { !$0.isEmpty }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    // VoiceOver dice lo mismo que se ve: donde no hay tiempo, la frase lo dice
-    // con palabras. Leer «raya» sería la misma mentira con otra voz.
-    private var totalsAccessibilityLabel: String {
-        var parts = ["Predijimos \(durationText(review.predictedTotalS) ?? "sin tiempo")",
-                     "hiciste \(durationText(review.actualTotalS) ?? "sin tiempo")"]
-        if let acc = accuracyText { parts.append(acc) }
-        return parts.joined(separator: ", ")
-    }
-
-    private func rowAccessibilityLabel(_ row: PredictionReviewRow) -> String {
-        var parts = [row.labelEs]
-        if let predicho = durationText(row.predictedS) { parts.append("predicho \(predicho)") }
-        if let real = durationText(row.actualS) { parts.append("real \(real)") }
-        if let d = row.deltaS {
-            parts.append(d <= 0 ? "\(Formato.clock(Double(abs(d)))) más rápido" : "\(Formato.clock(Double(d))) más lento")
-        }
-        return parts.joined(separator: ", ")
+        return partes.joined(separator: ", ")
     }
 }
 
-// MARK: - Preview (contract-exact sample — mirrors mockup Pantalla C)
+/// La diferencia real − predicho de un tramo: la flecha con su color (baja y verde = más rápido de lo
+/// predicho; sube y roja = más lento) y la cifra con signo en tinta. A cero o sin dato, nada.
+private struct DiferenciaReal: View {
+    let deltaS: Int?
+
+    var body: some View {
+        if let deltaS, deltaS != 0 {
+            HStack(spacing: 2) {
+                IconoDia(deltaS < 0 ? .baja : .sube, tam: 13, peso: .bold)
+                    .foregroundStyle(deltaS < 0 ? Theme.Color.ok : Theme.Color.danger)
+                Text(GoalGapFormat.signedDuration(deltaS)).papel(.rotulo)
+            }
+        }
+    }
+}
+
+// MARK: - Ejemplo (el contrato exacto del cable)
 
 #if DEBUG
-#Preview("Predicho vs real") {
-    ScrollView {
-        PredictionReviewCard(review: PredictionReview.previewSample)
-            .padding(20)
-    }
-    .background(Theme.Color.background)
+#Preview("Predicho contra real") { NavigationStack { PredichoVsRealView(review: .previewSample) } }
+#Preview("Predicho contra real · club azul") {
+    let _ = ClubThemeStore.update(.pruebaAzul)
+    NavigationStack { PredichoVsRealView(review: .previewSample) }
 }
 
 extension PredictionReview {
-    /// The mockup's numbers, decoded through the REAL wire path so the preview
-    /// exercises the exact snake_case contract the endpoint ships.
+    /// Los números del ejemplo, decodificados por el MISMO camino que el cable. `accuracy_pct` es la
+    /// precisión 0-100 que calcula `shared/domain/goal-gap/review.ts` (antes el ejemplo decía 0,7 y lo
+    /// pintaba como «a 0,7 %», que con el dato de verdad —99— se leía al revés).
     static let previewSample: PredictionReview = {
         let json = """
         {
           "availability": "ok",
           "predicted_total_s": 3825,
           "actual_total_s": 3852,
-          "accuracy_pct": 0.7,
-          "accuracy_label_es": "afinando",
+          "accuracy_pct": 99,
+          "accuracy_label_es": "clavado",
           "race_name": "Simulación HYROX",
           "race_date": "2026-08-24",
           "segments": [

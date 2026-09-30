@@ -1,104 +1,14 @@
-import SwiftUI
+import Foundation
 
-// INFORME DE SESIÓN — totales + por máquina, encima de la tabla de tramos.
+// LOS TOTALES DE UNA SESIÓN — la agregación pura del pulso, la distancia, el ritmo y la potencia
+// de unos laps, y el desglose por máquina (remo · ski · correr…).
 //
-// Por qué: el atleta acaba un EMOM con PM5 y el resumen solo pedía RPE. El motor
-// ya mide ritmo / cal / potencia / metros por estación; esto los enseña de un
-// vistazo (totales de sesión + desglose remo vs ski vs run) sin exigir reabrir
-// el detalle. Solo se pinta cuando hay ALGO medido — si no, no hay card vacía.
+// Fue la tarjeta «Tu sesión» del resumen; la tarjeta dejó de pintarse en ninguna pantalla y se
+// borró al rehacer el resumen con la piel del día (30-sep). Lo que sigue vivo es la cuenta: el
+// resumen de carrera la usa para su FC (una sola forma de agregar el pulso de unos laps) y la fijan
+// `EmomSessionReportTests`.
 
-struct ResumenSesionCard: View {
-    let laps: [LapRecord]
-    let elapsedSeconds: Double
-
-    /// true when there is at least one measured number worth showing.
-    static func hayQuePintarla(laps: [LapRecord], elapsedSeconds: Double) -> Bool {
-        guard !laps.isEmpty else { return false }
-        return totales(from: laps, elapsed: elapsedSeconds).hasAny
-            || porMaquina(from: laps).count >= 1
-    }
-
-    var body: some View {
-        let t = Self.totales(from: laps, elapsed: elapsedSeconds)
-        let machines = Self.porMaquina(from: laps)
-        CardSurface(padding: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    LabelText(text: "Tu sesión", size: 9)
-                    Spacer()
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-
-                // Totals grid
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    if t.durationS > 0 {
-                        celda("Tiempo", Formato.clock(t.durationS))
-                    }
-                    if let d = t.distanceM, d >= 1 {
-                        celda("Distancia", Formato.distanciaCubierta(d) ?? "\(Int(d)) m")
-                    }
-                    if let c = t.calories, c >= 1 {
-                        celda("Calorías", "\(Int(c.rounded())) cal")
-                    }
-                    if let p = t.avgPace500, p > 0 {
-                        celda("Ritmo medio erg", Formato.ritmo(p, .por500m))
-                    }
-                    if let p = t.avgPaceKm, p > 0 {
-                        celda("Ritmo medio run", Formato.ritmo(p, .porKm))
-                    }
-                    if let w = t.avgPower, w >= 1 {
-                        celda("Potencia media", "\(Int(w.rounded())) W")
-                    }
-                    if let hr = t.avgHR {
-                        celda("FC media", "\(hr) ppm")
-                    }
-                    if let hr = t.maxHR {
-                        celda("FC máx", "\(hr) ppm")
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.bottom, machines.isEmpty ? 10 : 6)
-
-                // Per-machine roll-up (remo vs ski vs run…)
-                if machines.count >= 1 {
-                    Hairline()
-                    VStack(spacing: 0) {
-                        ForEach(machines) { m in
-                            HStack(spacing: 6) {
-                                Text(m.label)
-                                    .scaledFont(11, relativeTo: .caption2)
-                                    .foregroundStyle(Theme.Color.foreground)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .lineLimit(1)
-                                if let line = m.detail {
-                                    MonoText(text: line, size: 11, color: Theme.Color.muted,
-                                             escala: true, relativeTo: .caption2)
-                                }
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                        }
-                    }
-                    .padding(.bottom, 4)
-                }
-            }
-        }
-    }
-
-    private func celda(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label.uppercased())
-                .font(.system(size: 9, weight: .heavy, design: .default).italic())
-                .tracking(0.5)
-                .foregroundStyle(Theme.Color.muted)
-            MonoText(text: value, size: 15, weight: .semibold, color: Theme.Color.foreground)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 2)
-    }
-
-    // MARK: - Pure aggregation
+enum TotalesDeSesion {
 
     struct Totales {
         var durationS: Double = 0

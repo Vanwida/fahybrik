@@ -177,7 +177,7 @@ enum GoalGapService {
 // MARK: - Formatting (shared across B + C)
 
 /// Numeric formatters shared by the gap board and the prediction review, so a
-/// signed delta or a precision percent reads identically on both surfaces.
+/// signed delta or a race-clock total reads identically on both surfaces.
 enum GoalGapFormat {
     /// Signed m:ss / h:mm:ss delta — "+0:24" ahead-of-budget, "−0:18" under. Uses
     /// the real minus (U+2212), matching the app's other signed deltas. A zero
@@ -194,11 +194,5 @@ enum GoalGapFormat {
     /// totals read on that same scale (matches the approved mockup).
     static func raceClock(_ seconds: Int) -> String {
         Formato.clock(abs(seconds), enHoras: false)
-    }
-
-    /// Precision percent with a Spanish decimal comma and one fraction digit —
-    /// 0.7 → "0,7%". Non-negative magnitude (the sign of the error isn't shown).
-    static func precisionPercent(_ value: Double) -> String {
-        "\(Formato.esDecimal(abs(value)))%"
     }
 }
