@@ -318,6 +318,11 @@ const COUNTER_SHAPE_RE = /^\d+(?:\/\d+)?\s+sets?\s+\d+(?:\/\d+)?\s+exercises?\s*
 // METADATA_MARKER_RE, reproduced for the same reason as above.
 const METADATA_ONLY_RE = /^(?:video|notas?|fotos?|link|enlace|url)\s*\.{0,3}$/i;
 
+// A line that opens with a rest cue: «Descanso», «Descanso libre», «Rest», «Pausa».
+// With a clock («Descanso 90s») the grammar already types it as rest_s; without one
+// it lands here so it is kept as a note instead of vanishing.
+const REST_CUE_RE = /^(?:descanso|desc|rest|recuperaci[oó]n|recovery|pausa)\b/i;
+
 /**
  * A card's own text that `isNoiseLine` correctly keeps OUT of the exercise
  * grammar (it is not a movement, not a dose) but that then vanishes with
@@ -337,6 +342,9 @@ function cardLostProse(card: ImportedCard): string | undefined {
     if (looksLikeBareMovementName(trimmed)) return false; // becomes its own `incomplete` item
     if (!isNoiseLine(trimmed)) return false; // typed normally elsewhere — not lost
     if (COUNTER_SHAPE_RE.test(trimmed) || METADATA_ONLY_RE.test(trimmed)) return false;
+    // Un descanso escrito con pocas palabras («Descanso», «Descanso libre») es
+    // información del coach, no un fragmento suelto: se conserva aunque sea corto.
+    if (REST_CUE_RE.test(trimmed)) return true;
     return trimmed.split(/\s+/).filter(Boolean).length >= 3;
   });
   return lost.length > 0 ? lost.join('\n') : undefined;

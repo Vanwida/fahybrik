@@ -126,6 +126,8 @@ export function ImportReviewGrid({
   const [creatingMissing, setCreatingMissing] = useState(false);
   const [completingGaps, setCompletingGaps] = useState(false);
   const [gapError, setGapError] = useState<string | null>(null);
+  // Lo que «Completar huecos» pasó a nota del bloque por no ser un ejercicio.
+  const [gapNotice, setGapNotice] = useState<string[]>([]);
   // Cuántos NOMBRES distintos faltan, no cuántas líneas: 51 líneas de una semana
   // real son 30 nombres, y es por nombre por lo que se decide.
   const missingCount = realMissingCount(collectMissingExercises(reviewWeeks));
@@ -139,6 +141,7 @@ export function ImportReviewGrid({
     if (completingGaps || !canCompleteGaps) return;
     setCompletingGaps(true);
     setGapError(null);
+    setGapNotice([]);
     try {
       const missing = collectMissingExercises(reviewWeeks);
       const matchesByToken = new Map<string, ScoredCandidate[]>();
@@ -263,6 +266,7 @@ export function ImportReviewGrid({
         onChange(completeWeeksDoses(reviewWeeks));
       } else {
         onChange(applyGapPlan(reviewWeeks, plan, created));
+        setGapNotice(missing.filter((m) => plan.discardKeys.includes(m.key)).map((m) => m.token));
       }
     } catch {
       setGapError('No se pudo completar. Inténtalo de nuevo.');
@@ -469,6 +473,15 @@ export function ImportReviewGrid({
       </div>
 
       <footer className="space-y-2 border-t border-v2-border px-5 py-3">
+        {gapNotice.length > 0 ? (
+          <p role="status" className="flex items-start gap-1.5 t-body-sm text-v2-muted">
+            <Info aria-hidden strokeWidth={2} className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              No eran ejercicios y han pasado a nota del bloque: {gapNotice.slice(0, 6).map((t) => `«${t}»`).join(', ')}
+              {gapNotice.length > 6 ? ` y ${gapNotice.length - 6} más` : ''}.
+            </span>
+          </p>
+        ) : null}
         {error || gapError ? (
           <p role="alert" className="flex items-center gap-1.5 t-body-sm text-v2-danger">
             <CircleAlert aria-hidden strokeWidth={2} className="size-3.5 shrink-0" />
