@@ -33,7 +33,7 @@ extension Vivo {
         case gps, cinta, ergo, sensor, atleta, reloj
     }
 
-    struct Medida: Equatable {
+    struct Medida: Equatable, Codable {
         var tipo: TipoMedida
         /// En la unidad del tipo: m, s, reps, cal. `nil` en una medida abierta.
         var prescrito: Double?
@@ -69,7 +69,7 @@ extension Vivo {
         case soloAbajo = "solo-abajo"
     }
 
-    struct Objetivo: Equatable {
+    struct Objetivo: Equatable, Codable {
         var eje: EjeObjetivo
         /// En `ritmo` y `split500` `min` es el valor MÁS RÁPIDO (menos segundos).
         var min: Double?
@@ -90,13 +90,13 @@ extension Vivo {
         case calentamiento, principal, vuelta
     }
 
-    struct Contador: Equatable {
+    struct Contador: Equatable, Codable {
         var n: Int
         var de: Int
     }
 
     /// La posición anidada, sin aplanar (M4).
-    struct Posicion: Equatable {
+    struct Posicion: Equatable, Codable {
         var tanda: Contador? = nil
         var serie: Contador? = nil
         var tramo: Contador? = nil
@@ -155,14 +155,14 @@ extension Vivo {
     enum SentidoRoxzone: String, Equatable, Codable { case entrada, salida }
 
     /// La carga de un implemento (M7): 2 × 32 kg → kg 32, implementos 2.
-    struct Carga: Equatable {
+    struct Carga: Equatable, Codable {
         var kg: Double
         var implementos: Int? = nil
     }
 
     /// P12 · Un movimiento dentro de una ventana (EMOM), de una ronda (AMRAP) o
     /// de un For Time. `dosis: nil` = todo el intervalo.
-    struct Tarea: Equatable {
+    struct Tarea: Equatable, Codable {
         var nombre: String
         var dosis: Medida?
         var carga: Carga? = nil
@@ -193,7 +193,7 @@ extension Vivo {
             }
         }
 
-        enum Formato: String, Equatable { case emom, amrap, puntuacion, fortime, pared, deathby }
+        enum Formato: String, Equatable, Codable { case emom, amrap, puntuacion, fortime, pared, deathby }
     }
 
     /// P11 · El eje de la CARGA.
@@ -205,8 +205,8 @@ extension Vivo {
     }
 
     /// P11 · El eje del ESFUERZO: RIR o RPE, valor o rango.
-    struct EsfuerzoFuerza: Equatable {
-        enum Eje: String, Equatable { case rir, rpe }
+    struct EsfuerzoFuerza: Equatable, Codable {
+        enum Eje: String, Equatable, Codable { case rir, rpe }
         var eje: Eje
         var min: Double
         var max: Double
@@ -218,7 +218,7 @@ extension Vivo {
         var ejercicio: String
         var carga: CargaFuerza
         var esfuerzo: EsfuerzoFuerza?
-        enum PorLado: String, Equatable { case pierna, brazo, lado }
+        enum PorLado: String, Equatable, Codable { case pierna, brazo, lado }
         var porLado: PorLado? = nil
         var aproximacion: Bool = false
         /// Lo que mueve la carga un clic, en kg. Del gimnasio.
@@ -235,13 +235,13 @@ extension Vivo {
     enum ModoRecupera: String, Equatable, Codable { case trote, andar, parado }
     enum Entorno: String, Equatable, Codable { case calle, cinta, pista }
 
-    struct Maquina: Equatable {
+    struct Maquina: Equatable, Codable {
         enum Tipo: String, Equatable, Codable { case remo, ski, bici, cinta }
         var tipo: Tipo
         var damper: Int? = nil
     }
 
-    struct Tempo: Equatable {
+    struct Tempo: Equatable, Codable {
         var excentrica: Int
         var pausaAbajo: Int
         var concentrica: Int
@@ -338,13 +338,13 @@ extension Vivo {
     // MARK: - Zonas del coach y reglas de aviso — MÉTODO, dato con defecto
 
     /// `techos[i]` es el ppm más alto de la zona i+1; el último es la FC máxima.
-    struct ZonasCoach: Equatable {
+    struct ZonasCoach: Equatable, Codable {
         var techos: [Double]
         var nombres: [String]? = nil
     }
 
-    struct ReglasAviso: Equatable {
-        struct Holgura: Equatable {
+    struct ReglasAviso: Equatable, Codable {
+        struct Holgura: Equatable, Codable {
             var ritmo: Double
             var ppm: Double
             var split500: Double
@@ -458,6 +458,9 @@ extension Vivo {
         /// El GO del primer segundo de un paso de trabajo.
         var go: Bool = false
         var terminado: Bool = false
+        /// La máquina de ergo con monitor enlazado (lo lleva el móvil); `nil` = ninguna. Sin ella, los metros y el /500
+        /// de un paso de máquina los dice el atleta (la cara de ergo de la muñeca lo dice).
+        var maquinaEnlazada: Maquina.Tipo? = nil
 
         var paso: Paso { pasos[Swift.min(Swift.max(0, i), pasos.count - 1)] }
         var siguiente: Paso? { i + 1 < pasos.count ? pasos[i + 1] : nil }

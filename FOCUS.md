@@ -2,19 +2,27 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-30** (las cinco pestañas y sus secundarias en iPhone; vivo único; editor de correr; reloj; Garmin)
+Última actualización: **2026-09-30** (complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: fuerza, ergo y correr en la cara nueva, entrada nueva y lanzamiento automático; modelo del reloj Garmin)
 
 ## Ahora
 
 **EDITOR DE CORRER · ENTORNO, AVISO Y FRASE PARA EL RELOJ (30-09, worktree `agent-a1e4bc45135113ff8`, sin fusionar; DECISIONS 30-09).** El coach ya edita por tramo dónde se corre (calle, cinta con inclinación, pista), hacia dónde avisa (defecto = su método) y una frase de 80 caracteres. Guardado probado contra rama Neon. Falta: firma de Alex del layout, y el reloj aplicando `alert`.
 
+**RELOJ · LA ESFERA Y EL SMART STACK DICEN LO DE HOY (30-09, worktree `agent-a2aba4fd09a67fc18`, sin fusionar; DECISIONS 30-09).** Extensión
+`FAHYBRIKWatchWidgets` (rectangular, esquina, inline, circular) que lee lo de hoy del App Group `group.<bundle>`; un toque abre el brief. Estados: sesión,
+descanso, hecha, sin plan. Falta: aparato (`widgetURL`, ranking del Smart Stack) y que Xcode registre el App Group al firmar (ver informe).
+
 **FIX GUARDADO 500 (29-09, sin desplegar):** un tramo `run` de 0 m en el historial (atleta 64) partía por cero en `running-prs.ts` y tumbaba TODO guardado suyo; arreglado + savepoint en `detectPrs`. Tras deploy la cola de la app lo reintenta sola.
+
+**RELOJ · FUERZA Y ERGO EN LA CARA NUEVA (30-09, rama `worktree-agent-a08aa87d85a4f8e6b` = la de correr + fuerza + ergo, sin fusionar; DECISIONS 30-09).** Serie, colócate, anotar en el descanso (reps, carga, RIR con la corona), ejercicios y ergo con segundo objetivo (M1: `pace_cap`), por solitario y espejo con la misma cara. Falta aparato (corona en el dato, doble toque) y capturas; lo viejo se borra al final.
+
+**RELOJ · CORRER, LA CARA NUEVA EN SOLITARIO Y EN ESPEJO (30-09, rama `worktree-agent-a6f6e3920e890764a` = núcleo + vistas + cable + espejo, sin fusionar en main; DECISIONS 29-09 y 30-09).** Núcleo puro (`Vivo.cuadroMuneca`, ritmo actual, `Vivo.Paso` Codable), pila en `FAHYBRIKWatch/Muneca/` tras `MunecaBandera` (encendida), cable (`MirrorWirePlan`: plan + cursor) y espejo pintando la MISMA pila (`MunecaEspejo`, `CaraDelEspejo`): nueva solo al correr de corrido con cuadro; si no, todo lo de siempre. **F3 hecha (rama `worktree-agent-aa538ed5ab37a4c85`, sin fusionar; DECISIONS 30-09):** director de hápticos por evento (`Vivo+Director`, `MunecaHaptics`), `Vivo.PoliticaHaptica` que calla lo heredado con la cara nueva, `Objetivo.avisa` relleno (rodaje a zona solo por arriba) y cierre seguro (el último paso pregunta «¿Terminar y guardar?»; «Descartar» con el enlace roto). Falta aparato (plan por `sendToRemoteWorkoutSession`, doble toque, corona anidada, Always-On, distinguir los golpes corriendo) y: deshacer (F3b), voz (F4), método/M3/M8 en servidor (F5, incl. leer `wristMethod`), puertas y final natural (F6), complicación (F7), retirada de lo viejo (F8).
 
 **RELOJ · SE LANZA SOLO AL EMPEZAR (29-09, worktree `agent-a6bcbe816a50de313`, sin fusionar; DECISIONS 29-09).** «No conecta» = una carrera sin calle/cinta no lanzaba
 el reloj ni lo decía. Ahora siempre lanza sin preguntar (fuera «Preparar grabación» y «Continuar sin reloj»), deja rastro (`start_watch_app_skipped`), relanza 1 vez
 por alcance si Apple dio error y muestra el estado real (chip). Falta aparato con reloj.
 
-**iPhone · LAS CINCO PESTAÑAS Y SUS PANTALLAS SECUNDARIAS, EN «EL DÍA» (30-09, rama `integracion-30sep`, sin fusionar a main; DECISIONS 30-09).**
+**iPhone · LAS CINCO PESTAÑAS Y SUS PANTALLAS SECUNDARIAS, EN «EL DÍA» (30-09; en main hasta `8dab606a`, el lote 2 en `integracion-30sep`; DECISIONS 30-09).**
 Hoy, Plan, Carreras, Perfil y Analíticas en Swift sobre UN kit (`Theme/Dia/`, CONTRATO-UI §11) más todo lo que cuelga de ellas (hojas, detalles, post-entreno,
 sesión previa, dispositivos, bloques). Borrados el vivo antiguo (`RunLiveShellView`, bandera) y sus HUD; el vivo usa las holguras y avisos del coach
 (`WristMethod`→`ReglasAviso`). Faltan: diálogos del entreno en vivo y pantallas de dispositivos/captura (agente en curso), Onboarding/Auth/Nutrición/Day1 con la piel vieja,
@@ -75,4 +83,4 @@ Stripe Connect, alta por solicitud, RLS antes del coach 20. PR #191 fusionado: r
   crons a hora UTC fija y `resolvePeriod` sin el día local de la app (DECISIONS «Qué día es…»).
 - MCP del asistente: la búsqueda en la biblioteca falla con `column b.archived_at does not exist` (0236): su base no la tiene.
 - Seeds: `seed_demo.ts` desfasado (`chat_messages.sender_role`). Cadena personal: un mes de biblioteca en medio bloquea acortar/borrar (409).
-- FH-30: `PhoneLiveSession.applyCommand` no relaya `.newLap` al motor (latente); `GuionSeries` sin vía viva en el espejo.
+- FH-30: `GuionSeries` sin vía viva en el espejo (`newLap` ya se relaya al motor desde 30-09).

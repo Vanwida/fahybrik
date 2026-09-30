@@ -57,6 +57,19 @@ struct Prescription: Codable, Equatable {
     /// never a replacement). `var` + default for the same back-compat reason as
     /// `structure`: every existing call-site and cached snapshot keeps compiling.
     var restBetweenRoundsS: Int? = nil
+    /// M1 (dos objetivos por paso) · El TOPE de ritmo tipado que acompaña al objetivo
+    /// principal («corre en Z2 pero no más lento de 6:00/km»): espejo de `pace_cap` en
+    /// `shared/domain/prescription/types.ts`. ADITIVO: `var` con defecto, y se decodifica
+    /// con `try?` (un tope mal formado se pierde, el resto del ítem no).
+    var paceCap: PaceCap? = nil
+}
+
+/// El tope de ritmo de una línea cuyo objetivo principal es otro (`pace_cap`). `maxS` = lo más lento
+/// que se admite; `minS` = lo más rápido. En la unidad `unit` (s por km, por 500 m o por milla).
+struct PaceCap: Codable, Equatable {
+    let unit: PaceUnit
+    var maxS: Double? = nil
+    var minS: Double? = nil
 }
 
 // Custom decode kept in an EXTENSION so the compiler still synthesizes the
@@ -70,6 +83,7 @@ extension Prescription {
     enum CodingKeys: String, CodingKey {
         case scheme, modality, sets, rounds, workS, restS, totalS, target, note, start, increment, structure
         case restBetweenRoundsS
+        case paceCap
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -86,6 +100,7 @@ extension Prescription {
         increment = try c.decodeIfPresent(Int.self, forKey: .increment)
         structure = try? c.decodeIfPresent(RunStructure.self, forKey: .structure)
         restBetweenRoundsS = try c.decodeIfPresent(Int.self, forKey: .restBetweenRoundsS)
+        paceCap = try? c.decodeIfPresent(PaceCap.self, forKey: .paceCap)
     }
 }
 

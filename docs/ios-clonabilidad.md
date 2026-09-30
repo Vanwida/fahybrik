@@ -19,7 +19,7 @@ En `ios/project.yml`, bloque `settings.base`:
 | `BRAND_DISPLAY_NAME` | `FAHYBRID` | `CFBundleDisplayName` de app, reloj y widgets + las **10 descripciones de permisos** + `Marca.nombre` en Swift (una veintena de pantallas) |
 | `BRAND_BUNDLE_ID` | `com.fahybrid.app` | bundle id de los **5 targets** (app, reloj, widgets, tests, UITests), `CFBundleURLName` y `WKCompanionAppBundleIdentifier` |
 | `BRAND_WEB_DOMAIN` | `fahybrid.com` | `applinks:` de los dos entitlements, clave `BrandWebDomain` del Info.plist de app y reloj, y de ahí `Marca` en Swift (legales, cuenta, origen del reproductor, base del backend por defecto) |
-| `BRAND_URL_SCHEME` | `fahybrid` | `CFBundleURLSchemes` (enlace profundo de invitación de pareja) |
+| `BRAND_URL_SCHEME` | `fahybrid` | `CFBundleURLSchemes` (enlace profundo de invitación de pareja) y, en el reloj, el enlace con el que la complicación abre lo de hoy (`BrandUrlScheme` → `Marca.esquemaURL`) |
 | `DEVELOPMENT_TEAM` | `S6W4459DDG` | firma de los tres targets firmables (team de ESTE binario; un clon cambia esta línea) |
 
 Tras tocar cualquiera: `cd ios && xcodegen generate` y commit del `.pbxproj`.
@@ -70,6 +70,14 @@ Ordenado por lo que bloquea antes.
 6. **Dominio y `apple-app-site-association`.** Los `applinks:` solo funcionan si
    el dominio sirve el fichero de asociación firmado con el App ID del clon.
 
+7. **App Group de la complicación del reloj.** `group.<BRAND_BUNDLE_ID>` (hoy
+   `group.com.fahybrid.app`) lo comparten la app del reloj y su extensión
+   `FAHYBRIKWatchWidgets` (esfera + Smart Stack). El identificador SÍ se deriva
+   (entitlement e Info.plist de los dos targets), pero un clon con otro bundle
+   necesita que exista en developer.apple.com y esté activado en los App IDs
+   `<bundle>.watchkitapp` y `<bundle>.watchkitapp.widgets`. Con firma automática lo
+   registra Xcode al firmar; si no, a mano (Identifiers → App Groups).
+
 ### 2.2 Nombres internos de proyecto (renombrado, no parametrización)
 
 El proyecto, los targets, los esquemas y las carpetas se llaman `FAHYBRIK` —
@@ -97,6 +105,7 @@ edita a mano; están aquí para que se encuentren todos:
 | `zepp/setting/index.js`, `zepp/app-side/index.js`, `garmin-ciq/source/Config.mc` | `API_BASE` = `https://fahybrid.com` |
 | `zepp/page/index.js` | copy que nombra la marca en el reloj |
 | `ios/FAHYBRIKWidgets/RunLiveActivityWidget.swift` | `acentoMarca` — el hex `#F06A2A` del acento, **la única copia fuera de `Theme.swift` / `tokens.json`** |
+| `ios/FAHYBRIKWatchWidgets/HoyVistas.swift` | `acentoDeFabrica` — el mismo hex, para la complicación del reloj (con acento de club, el del club manda) |
 
 **Sobre el acento duplicado del widget:** la extensión no enlaza nada de la app a
 propósito (traer `Theme` le metería UIKit dentro), así que el hex está repetido y

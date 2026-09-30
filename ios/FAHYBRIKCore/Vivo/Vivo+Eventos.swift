@@ -12,6 +12,8 @@ extension Vivo {
         case cuenta, go, recupera, preaviso, afloja, aprieta, vuelta
         case finSerie = "fin-serie"
         case bloque, sesion, accion, enlace, gps
+        /// El enlace con el móvil vuelve (§4). Solo lo tiene Swift: el kit web aún no lo lleva.
+        case enlaceRecuperado = "enlace-recuperado"
     }
 
     enum HapticoWK: String, Equatable {
@@ -40,6 +42,7 @@ extension Vivo {
         .sesion: Vocablo(nombre: "Sesión hecha", haptico: .success, veces: 2, voz: true, prioridad: 11),
         .accion: Vocablo(nombre: "Acción del atleta", haptico: .click, veces: 1, voz: false, prioridad: 2),
         .enlace: Vocablo(nombre: "Enlace perdido", haptico: .failure, veces: 1, voz: false, prioridad: 7),
+        .enlaceRecuperado: Vocablo(nombre: "Enlace recuperado", haptico: .click, veces: 1, voz: false, prioridad: 2),
         .gps: Vocablo(nombre: "GPS listo", haptico: .success, veces: 1, voz: false, prioridad: 1),
     ]
 

@@ -11,6 +11,7 @@ import Foundation
 //   · los tramos de trabajo seguidos, sin recuperar entre ellos y fuera de un
 //     repetir, son UN correr que cambia de objetivo: «tramo 3/8». Si cada uno
 //     aprieta más que el anterior es un PROGRESIVO; si no, un FARTLEK;
+//   · la recuperación que cierra una tanda es el DESCANSO ENTRE TANDAS;
 //   · un tramo suelto es un RODAJE (a zona, a RPE o sin objetivo), un TEMPO (a
 //     ritmo) o una TIRADA (un rodaje largo);
 //   · una serie corta dentro de un repetir es un STRIDE.
@@ -31,6 +32,10 @@ extension Vivo {
         var tiradaDesdeM: Double = 16_000
         /// Una serie de como mucho esto, dentro de un repetir, es un stride (s).
         var strideHastaS: Double = 30
+        /// Un correr continuo a una zona de esta en adelante es un tempo, no un rodaje.
+        /// La zona donde empieza el umbral depende de cuántas zonas use el coach: `nil`
+        /// = nunca por zona (solo es tempo el que va a ritmo). Defecto: la 4.
+        var tempoDesdeZona: Double? = 4
     }
 
     static let umbralesCorrerDefecto = UmbralesCorrer()
@@ -72,10 +77,11 @@ extension Vivo {
         }
     }
 
-    /// La clase de un correr continuo (un tramo suelto): tempo si va a ritmo;
-    /// si no, rodaje, o tirada si es largo.
+    /// La clase de un correr continuo (un tramo suelto): tempo si va a ritmo o a una
+    /// zona de umbral; si no, rodaje, o tirada si es largo.
     static func claseContinua(_ medida: Medida, _ objetivos: [Objetivo], umbrales u: UmbralesCorrer = umbralesCorrerDefecto) -> Clase {
         if objetivos.contains(where: { $0.eje == .ritmo && $0.papel == .principal }) { return .tempo }
+        if let desde = u.tempoDesdeZona, objetivos.contains(where: { $0.eje == .zona && $0.papel == .principal && ($0.min ?? 0) >= desde }) { return .tempo }
         let pr = medida.prescrito ?? 0
         if (medida.tipo == .tiempo && pr >= u.tiradaDesdeS) || (medida.tipo == .distancia && pr >= u.tiradaDesdeM) { return .tirada }
         return .rodaje
@@ -119,6 +125,14 @@ extension Vivo {
             if r.count > 1 { pos.tanda = r[r.count - 2] }
             let corta = medidas[j].tipo == .tiempo && (medidas[j].prescrito ?? .infinity) <= u.strideHastaS
             out[j] = (corta ? .strides : .series, pos)
+        }
+
+        // Una recuperación que cierra una TANDA (la pierna de antes está más dentro que ella)
+        // es el descanso entre tandas: la Estructura la lee como «5′ entre tandas», no como
+        // una recuperación más de la serie.
+        for j in legs.indices where legs[j].isRecovery && j > 0 && !lugares[j].repetir.isEmpty
+            && lugares[j - 1].repetir.count > lugares[j].repetir.count {
+            out[j] = (.descansoTandas, nil)
         }
         return out
     }

@@ -29,8 +29,9 @@ extension Vivo {
     // MARK: - El plan entero
 
     /// `test`: la sesión es una prueba (una marca): un paso suelto de máquina o de
-    /// correr se marca como test, y la cabecera lo dice.
-    static func planDe(_ plan: WorkoutPlan, zonas: HRZoneProfile?, entorno: RunEnvironment?, test: Bool = false) -> PlanVivo {
+    /// correr se marca como test, y la cabecera lo dice. `metodo`: hacia qué lado avisa
+    /// un objetivo (`Vivo+SentidoAviso.swift`), dato del coach con defecto.
+    static func planDe(_ plan: WorkoutPlan, zonas: HRZoneProfile?, entorno: RunEnvironment?, test: Bool = false, metodo: MetodoAviso = .defecto) -> PlanVivo {
         var pasos: [Paso] = []
         // La letra de cada superserie, en orden de sesión: A1/A2, luego B1/B2 (529).
         var superseries = 0
@@ -43,7 +44,8 @@ extension Vivo {
         }
         // Un bloque continuo remo → ski → bici son N tramos de una pieza (familia circuito).
         marcarTramosContinuos(&pasos) { s in plan.segments[s].formatScheme?.presentation == .continuous }
-        return PlanVivo(pasos: pasos, zonas: zonasDe(zonas), reglas: reglasDe(plan.wristMethod))
+        let sentido = plan.wristMethod.map(metodoAvisoDe) ?? metodo
+        return PlanVivo(pasos: conSentidoDeAviso(pasos, sentido), zonas: zonasDe(zonas), reglas: reglasDe(plan.wristMethod))
     }
 
     // MARK: - Un segmento → sus pasos
@@ -143,12 +145,7 @@ extension Vivo {
             // En una máquina el dato viaja en s/500 m (la bici se ENSEÑA por 1000:
             // `fmtSplit`); el coach puede escribirlo por km o por milla.
             let enMaquina = maquina != nil
-            let factor: Double
-            switch unit {
-            case .per500m: factor = 1
-            case .perKm: factor = enMaquina ? 0.5 : 1
-            case .perMile: factor = enMaquina ? 500 / 1609.344 : 1 / 1.609344
-            }
+            let factor = factorDeRitmo(unit, enMaquina: enMaquina)
             let eje: EjeObjetivo = (unit == .per500m || enMaquina) ? .split500 : .ritmo
             let lo = (v ?? mn).map { Double($0) * factor }
             let hi = (v ?? mx ?? mn).map { Double($0) * factor }
@@ -178,6 +175,30 @@ extension Vivo {
         if out.isEmpty, let w = vatios, w > 0 { out.append(Objetivo(eje: .potencia, min: Double(w), max: Double(w), papel: .principal)) }
         if out.isEmpty, let rpe { out.append(Objetivo(eje: .rpe, min: rpe, max: rpe, papel: .principal)) }
         return out
+    }
+
+    /// Lo que multiplica un ritmo escrito en `unit` para llevarlo a la unidad del paso: s/km al correr, s/500 m en
+    /// una máquina (la bici se ENSEÑA por 1000, pero el dato viaja en 500).
+    private static func factorDeRitmo(_ unit: PaceUnit, enMaquina: Bool) -> Double {
+        switch unit {
+        case .per500m: return 1
+        case .perKm: return enMaquina ? 0.5 : 1
+        case .perMile: return enMaquina ? 500 / 1609.344 : 1 / 1.609344
+        }
+    }
+
+    /// M1 · El tope de ritmo tipado (`pace_cap`) como SEGUNDO objetivo del paso: «corre en Z2 pero no más
+    /// lento de 6:00/km». Solo acompaña a un principal que no es ya un ritmo (una zona, un RPE, unos vatios);
+    /// va como `secundario` con su sentido de aviso: un tope de lentitud avisa solo por abajo, uno de
+    /// rapidez solo por arriba. Sin `pace_cap` devuelve los objetivos tal cual (el comportamiento de siempre).
+    static func conTope(_ objetivos: [Objetivo], _ cap: PaceCap?, maquina: Maquina?) -> [Objetivo] {
+        guard let cap, cap.maxS != nil || cap.minS != nil, !objetivos.isEmpty,
+              !objetivos.contains(where: { $0.eje == .ritmo || $0.eje == .split500 }) else { return objetivos }
+        let factor = factorDeRitmo(cap.unit, enMaquina: maquina != nil)
+        let sentido: SentidoAviso = (cap.maxS != nil && cap.minS != nil) ? .ambos : (cap.maxS != nil ? .soloAbajo : .soloArriba)
+        let tope = Objetivo(eje: maquina != nil ? .split500 : .ritmo, min: cap.minS.map { $0 * factor }, max: cap.maxS.map { $0 * factor },
+                            papel: .secundario, avisa: sentido)
+        return objetivos + [tope]
     }
 
     private static func cargaDe(_ t: Target?) -> Carga? {
@@ -250,6 +271,7 @@ extension Vivo {
                 case .parado?: modo = .parado
                 default: modo = .trote
                 }
+                if nombres?[k]?.clase == .descansoTandas { clase = .descansoTandas }
             } else if faseLeg == .calentamiento {
                 clase = .calentamiento
             } else if faseLeg == .vuelta {
@@ -355,7 +377,8 @@ extension Vivo {
                 let wod: InfoWod? = esPared ? .pared(trabajoS: Double(trabajoS ?? 20), descansoS: Double(descansoS), rondas: rondas) : nil
                 out.append(Paso(id: "s\(s)-r\(r)", clase: mod == .run && !esPared ? .series : esPared ? .series : (maquina != nil ? .ergo : .series),
                                 rol: .trabajo, fase: fase, medida: medida,
-                                objetivos: objetivosDe(set?.target ?? seg.prescription?.target, zona: seg.targetZone, ritmoSKm: seg.targetPaceSecondsPerKm, vatios: seg.targetPowerWatts, maquina: maquina),
+                                objetivos: conTope(objetivosDe(set?.target ?? seg.prescription?.target, zona: seg.targetZone, ritmoSKm: seg.targetPaceSecondsPerKm, vatios: seg.targetPowerWatts, maquina: maquina),
+                                                   seg.prescription?.paceCap, maquina: maquina),
                                 posicion: esPared ? Posicion(ronda: Contador(n: r + 1, de: rondas)) : Posicion(serie: Contador(n: r + 1, de: rondas)),
                                 nombre: esPared ? nombre : (maquina != nil ? nombreDeBox(nombre, maquina) : (mod == .run ? nil : nombre)),
                                 entorno: mod == .run ? entornoDe(entorno) : nil, carga: cargaDe(set?.target), maquina: maquina,
@@ -610,9 +633,10 @@ extension Vivo {
             // Un calentamiento de lista lo cierra el atleta aunque tenga dosis.
             medida.mide = .atleta
         }
-        let objetivos = objetivosDe(seg.prescription?.target ?? set?.target, zona: seg.targetZone, ritmoSKm: seg.targetPaceSecondsPerKm,
-                                    vatios: seg.targetPowerWatts, rpe: clase == .fuerza ? nil : seg.targetRpe, maquina: maquina)
-            .filter { clase == .fuerza ? false : ($0.eje != .kg && $0.eje != .pctRM && $0.eje != .rir) }
+        let objetivos = conTope(objetivosDe(seg.prescription?.target ?? set?.target, zona: seg.targetZone, ritmoSKm: seg.targetPaceSecondsPerKm,
+                                            vatios: seg.targetPowerWatts, rpe: clase == .fuerza ? nil : seg.targetRpe, maquina: maquina)
+            .filter { clase == .fuerza ? false : ($0.eje != .kg && $0.eje != .pctRM && $0.eje != .rir) },
+                                seg.prescription?.paceCap, maquina: maquina)
         // Un rodaje largo es una tirada (umbral del coach, `UmbralesCorrer`).
         if clase == .rodaje { clase = claseContinua(medida, objetivos) }
         var ficha: FichaFuerza? = nil

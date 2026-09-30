@@ -37,9 +37,6 @@ enum GuionDelEspejo {
         // suma las cuatro series y sus descansos de corrido (f4c7f0e9).
         let enTramo = t.enTramoS ?? elapsed
         switch guionPara(t) {
-        case .fuerza:
-            return GuionFuerza.paginas(fuerza(t, bpm: bpm, elapsed: enTramo),
-                                       GuionFuerza.Gestos(serieHecha: avanzar))
         case .rodaje:
             return GuionRodaje.paginas(rodaje(t, f, bpm: bpm, elapsed: enTramo))
         case .series:
@@ -58,9 +55,6 @@ enum GuionDelEspejo {
                 pagina.append(pulso)
             }
             return pagina
-        case .ergo:
-            return GuionErgo.paginas(ergo(t, bpm: bpm, elapsed: enTramo),
-                                     GuionErgo.Gestos(cerrarSerie: avanzar, empezarYa: avanzar))
         case .relojDePared:
             return GuionRelojDePared.paginas(relojDePared(t, bpm: bpm),
                                              GuionRelojDePared.Gestos(rendirse: rendirse ?? avanzar))
@@ -94,7 +88,7 @@ enum GuionDelEspejo {
 
     // MARK: - Qué guion sirve este tramo
 
-    private enum Cual { case fuerza, rodaje, series, emom, ruta, ergo, relojDePared, ninguno }
+    private enum Cual { case rodaje, series, emom, ruta, relojDePared, ninguno }
 
     /// MANDA LA MODALIDAD, NO EL NOMBRE DEL FORMATO. Y esto no es una preferencia
     /// de estilo: es que las dos fuentes de entreno NO escriben el mismo formato
@@ -127,18 +121,11 @@ enum GuionDelEspejo {
             // Troceado si el motor cuenta rondas, o si la ventana la cierra algo
             // que no es el propio bout entero (un hito o un reloj por repetición).
             return (t.rondaTotal ?? 0) > 1 ? .series : .rodaje
-        case PrescriptionModality.strength.rawValue:
-            return .fuerza
-        case PrescriptionModality.row.rawValue,
-             PrescriptionModality.ski.rawValue,
-             PrescriptionModality.bike.rawValue:
-            return .ergo
         default:
             // EL RELOJ DE PARED: intervals/tabata/death_by/steady cuando nadie
             // mide la máquina y no hay GPS — burpees, planchas, un trineo.
-            // Ninguno de los tres casos anteriores los reclama (no son de
-            // correr, ni de fuerza, ni de ergo), y son justo la familia que se
-            // quedó sin pantalla al reordenar las superficies del entreno.
+            // La fuerza y el ergo con su ficha ya no pasan por aquí: los pinta
+            // la pila nueva (`Vivo.familiaMuneca`, `CaraDelEspejo`).
             return esRelojDePared(t.formato) ? .relojDePared : .ninguno
         }
     }
@@ -159,23 +146,6 @@ enum GuionDelEspejo {
     }
 
     // MARK: - Trama → Estado de cada guion
-
-    private static func fuerza(_ t: MirrorTramo, bpm: Int?, elapsed: Double) -> GuionFuerza.Estado {
-        GuionFuerza.Estado(
-            serie: t.rondaN ?? 1,
-            totalSeries: t.rondaTotal ?? 0,
-            cargaKg: t.cargaKg,
-            reps: t.reps,
-            // RIR y RPE no viajan sueltos: van dentro de la dosis que escribió el
-            // coach, y esa se pinta tal cual en vez de descomponerla aquí.
-            rir: nil,
-            rpe: nil,
-            esfuerzo: t.dosis,
-            segundosEnSerie: elapsed,
-            zonaViva: zona(t.zonaViva),
-            bpm: bpm
-        )
-    }
 
     private static func rodaje(_ t: MirrorTramo, _ f: MirrorStateFrame, bpm: Int?, elapsed: Double) -> GuionRodaje.Estado {
         GuionRodaje.Estado(
@@ -305,28 +275,6 @@ enum GuionDelEspejo {
         )
     }
 
-    /// El ergo. El reloj no ve la máquina: si el móvil no manda metros es que no
-    /// hay monitor emparejado, y el guion se cae a pulso y crono él solo.
-    private static func ergo(_ t: MirrorTramo, bpm: Int?, elapsed: Double) -> GuionErgo.Estado {
-        GuionErgo.Estado(
-            fase: t.enDescanso ? .descanso : .remando,
-            serie: t.rondaN ?? 1,
-            totalSeries: max(1, t.rondaTotal ?? 1),
-            tramoM: t.objetivoMedida ?? 0,
-            maquina: t.hechoMedida != nil,
-            hechosM: t.hechoMedida,
-            // El /500 del PM5 todavía no viaja: el cable lleva ritmo por km, que es
-            // de correr. Antes que traducir una cosa por otra, no se pinta.
-            ritmoSec500: nil,
-            segundosEnFase: elapsed,
-            quedaDescansoS: t.enDescanso ? t.ventanaQueda : nil,
-            zonaViva: zona(t.zonaViva),
-            bpm: bpm,
-            etiqueta: t.etiqueta ?? "Ergo",
-            esCalorias: t.objetivoEsCalorias
-        )
-    }
-
     /// El reloj de pared. `enTramoS` no entra aquí: el sujeto de los cuatro
     /// formatos es lo que QUEDA (`ventanaQueda`), nunca un crono que suba —eso
     /// es justo la degradación genérica que esta familia vino a sustituir.
@@ -402,7 +350,7 @@ enum GuionDelEspejo {
             )
         }
         switch guionPara(t) {
-        case .series, .fuerza, .ergo, .ruta:
+        case .series, .ruta:
             guard let total = t.rondaTotal, total > 1 else { return aroContinuo(t) }
             let hechas = max(0, (t.rondaN ?? 1) - 1)
             return .segmentado(total: total, hechas: hechas, fraccion: fraccionDelTramo(t))

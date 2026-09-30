@@ -12,6 +12,8 @@ import WatchKit
 // Always main-thread — see the 4-ago note on the engine shim.
 enum WatchHaptics {
     private static func play(_ type: WKHapticType) {
+        // Con la cara nueva de correr en pantalla el director es la única fuente (`Vivo.PoliticaHaptica`).
+        guard Vivo.PoliticaHaptica.compartida.permite(.heredado) else { return }
         let fire = { WKInterfaceDevice.current().play(type) }
         if Thread.isMainThread {
             fire()
@@ -35,6 +37,7 @@ enum WatchHaptics {
     static func relayHandoff() {
         play(.notification)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            guard Vivo.PoliticaHaptica.compartida.permite(.heredado) else { return }
             WKInterfaceDevice.current().play(.notification)
         }
     }

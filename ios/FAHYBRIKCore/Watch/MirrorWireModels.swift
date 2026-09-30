@@ -49,6 +49,12 @@ enum MirrorWire {
         /// Watch → phone: live sensor conclusions (fase 1–3). Bytes only — never
         /// the raw stream. Older phones ignore the type and keep running.
         static let sensor = "sensor"
+        /// Phone → watch: EL PLAN del entreno en pasos (`MirrorPlanVivo`), lo mismo que
+        /// lee el motor del móvil, para que la muñeca pinte el MISMO `Vivo.CuadroMuneca`
+        /// que en solitario. Se manda al atarse la sesión espejo, cuando cambia (otro
+        /// `planHash`) y cuando la muñeca lo pide (`sync`). ADDITIVE: un reloj viejo
+        /// ignora el tipo; un móvil viejo no lo manda y el reloj cae a la cara de siempre.
+        static let plan = "plan"
     }
 
     /// QUIÉN cerró la grabación de la muñeca (`MirrorEnded.reason`).
@@ -108,6 +114,17 @@ enum MirrorWire {
         /// starts a new one within the SAME segment. NOT advance (that would
         /// skip to the next segment — a lying control on a free run).
         static let newLap = "newLap"
+        /// Deshacer el último cierre a mano (5 s). ADDITIVE: un móvil viejo lo ignora
+        /// (la muñeca solo lo ofrece si el móvil anuncia `Capacidad.deshacer`).
+        static let undo = "undo"
+        /// «+30 s» en un descanso. Mismo trato que `undo` (`Capacidad.mas30`).
+        static let plus30 = "plus30"
+        /// La muñeca anuncia que ELLA habla (voz en el reloj, F4): el móvil calla su
+        /// entrenador de voz para no decirlo dos veces.
+        static let vozMuneca = "vozMuneca"
+        /// Lo declarado en el descanso de fuerza: un dato de una serie (`MirrorCommand.declaracion`). ADITIVO: un móvil
+        /// viejo no lo entiende y lo ignora (la muñeca solo lo ofrece si el móvil anuncia `Capacidad.anotar`).
+        static let anotar = "anotar"
     }
 
     /// Frame phases (MirrorStateFrame.phase). ADDITIVE: a new phase is a new VALUE in
@@ -220,6 +237,16 @@ struct MirrorStateFrame: Codable, Equatable {
     /// del DÍA (indoor) y sin esto `beginNewActivity` declararía calle y Apple
     /// esperaría GPS en una cinta. OPTIONAL + ADDITIVE.
     var runEnvironment: RunEnvironment? = nil
+    /// DÓNDE ESTÁ EL ENTRENO en el plan que la muñeca ya tiene (`MessageType.plan`):
+    /// el paso vivo y sus relojes de partida, no las frases redactadas. Con esto y
+    /// el plan, la muñeca produce el `Vivo.CuadroMuneca` con la MISMA función que en
+    /// solitario y calcula los relojes en local entre tramas (P1). OPTIONAL +
+    /// ADDITIVE: un móvil viejo lo omite → nil y el reloj pinta lo de siempre; un
+    /// reloj viejo lo ignora y sigue con `tramo`.
+    var cursor: MirrorCursor? = nil
+    /// Lo que este móvil SABE hacer con los comandos nuevos (`MirrorWire.Capacidad`),
+    /// para que la muñeca no ofrezca un botón que nadie atiende. Nil = ninguna.
+    var capacidades: [String]? = nil
 }
 
 /// Phone → watch: LA VENTANA DE TRABAJO ACTIVA, en dato.
@@ -365,6 +392,8 @@ struct MirrorDistanceSample: Codable {
 /// engine is the only mutator — the wrist never advances state locally.
 struct MirrorCommand: Codable {
     let kind: String
+    /// Solo con `CommandKind.anotar`: el dato declarado. Un móvil que no lo conoce lo ignora.
+    var declaracion: Vivo.Declaracion? = nil
 }
 
 /// Watch → phone: the recording is closed. `workoutUuid` is the finished

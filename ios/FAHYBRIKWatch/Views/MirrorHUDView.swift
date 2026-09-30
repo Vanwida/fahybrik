@@ -23,6 +23,20 @@ struct MirrorHUDView: View {
     @Environment(\.isLuminanceReduced) private var atenuado
 
     var body: some View {
+        // F2b — con el cuadro del espejo y correr de corrido (y la bandera encendida), la pila NUEVA de la
+        // muñeca (la misma que en solitario). Si no, TODO lo de siempre, sin tocar: `CaraDelEspejo` decide.
+        // Con la cara nueva mandando no existe nada de lo de abajo, así que sus hápticos locales
+        // (`cueTick`, `cueGo`, el aviso de zona) no suenan: vibra el director de la muñeca (`MunecaDirector`), y
+        // `Vivo.PoliticaHaptica` calla lo heredado mientras la cara nueva está en pantalla.
+        if owner.caraDelEspejo == .muneca {
+            MunecaEspejo(owner: owner)
+        } else {
+            paginasDeSiempre
+        }
+    }
+
+    /// Lo de hoy: Datos | Vivo | Controles al correr, Vivo | Controles en el resto.
+    private var paginasDeSiempre: some View {
         TabView(selection: seleccion) {
             if esLamina, let f = frame {
                 datosPage(f).tag(RodajePagina.datos)

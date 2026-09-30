@@ -14,7 +14,7 @@ import Foundation
 extension Vivo {
 
     enum EstadoDato: String, Equatable { case propuesto, medido, declarado }
-    enum CampoAnotar: String, Equatable { case reps, kg, esfuerzo }
+    enum CampoAnotar: String, Equatable, Codable { case reps, kg, esfuerzo }
 
     struct Dato: Equatable {
         var valor: Double?

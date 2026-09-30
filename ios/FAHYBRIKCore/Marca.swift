@@ -53,6 +53,25 @@ enum Marca {
         return "fahybrid.com"
     }()
 
+    /// El App Group que comparten la app del reloj y su complicación (`group.` + el bundle
+    /// id de la app del teléfono, de `BRAND_BUNDLE_ID`). Nil si el bundle no trae la clave:
+    /// sin grupo no hay almacén compartido y la complicación dice «sin plan» en vez de
+    /// escribir en un sitio que la otra mitad no lee.
+    static let grupoApp: String? = {
+        guard let g = Bundle.main.object(forInfoDictionaryKey: "FahybrikAppGroup") as? String,
+              !g.isEmpty else { return nil }
+        return g
+    }()
+
+    /// Esquema de los enlaces profundos de la marca (`BRAND_URL_SCHEME`), el mismo que
+    /// registra el teléfono. La complicación abre la app del reloj con uno.
+    static let esquemaURL: String = {
+        if let e = Bundle.main.object(forInfoDictionaryKey: "BrandUrlScheme") as? String, !e.isEmpty {
+            return e
+        }
+        return "fahybrid"
+    }()
+
     /// Portada pública. Con `www.` porque es el host que sirve la landing.
     static var web: URL { URL(string: "https://www.\(dominioWeb)")! }
 
