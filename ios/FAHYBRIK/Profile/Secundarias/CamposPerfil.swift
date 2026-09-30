@@ -170,25 +170,39 @@ struct CampoRitmoPerfil: View {
 // MARK: - Elegir una opción entre pocas
 
 /// Las opciones a la vista, una al lado de otra (con texto grande pasan a una por fila): el acento del club
-/// marca la elegida. Cada una es un objetivo de 48 pt.
+/// marca la elegida. Cada una es un objetivo de 48 pt. Con `elegidaOpcional` tocar la elegida la quita (una
+/// elección que se puede no hacer, como la transición de una molestia).
 struct SelectorDeOpcionesPerfil<Clave: Hashable>: View {
     let opciones: [(clave: Clave, titulo: String)]
-    @Binding var elegida: Clave
+    private let esActiva: (Clave) -> Bool
+    private let alElegir: (Clave) -> Void
 
     private let columnas = [GridItem(.adaptive(minimum: 140), spacing: Theme.Spacing.s)]
+
+    init(opciones: [(clave: Clave, titulo: String)], elegida: Binding<Clave>) {
+        self.opciones = opciones
+        esActiva = { $0 == elegida.wrappedValue }
+        alElegir = { elegida.wrappedValue = $0 }
+    }
+
+    init(opciones: [(clave: Clave, titulo: String)], elegidaOpcional: Binding<Clave?>) {
+        self.opciones = opciones
+        esActiva = { elegidaOpcional.wrappedValue == $0 }
+        alElegir = { elegidaOpcional.wrappedValue = elegidaOpcional.wrappedValue == $0 ? nil : $0 }
+    }
 
     var body: some View {
         LazyVGrid(columns: columnas, spacing: Theme.Spacing.s) {
             ForEach(Array(opciones.enumerated()), id: \.offset) { _, opcion in
-                let activa = opcion.clave == elegida
+                let activa = esActiva(opcion.clave)
                 Button {
-                    guard !activa else { return }
                     Haptics.light()
-                    elegida = opcion.clave
+                    alElegir(opcion.clave)
                 } label: {
                     Text(opcion.titulo)
                         .papel(.notaFuerte)
                         .foregroundStyle(activa ? Theme.Color.accentOn : Theme.Color.foreground)
+                        .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity, minHeight: Theme.Size.toque)
                         .background(
                             activa ? Theme.Color.accent : Theme.Color.surface,

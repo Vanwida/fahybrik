@@ -235,6 +235,23 @@ struct FilaInterruptorPerfil: View {
     }
 }
 
+// MARK: - Una pastilla con su marca
+
+/// Una pastilla de dato con el punto de color de su estado delante (gravedad, estado de una molestia): el color va
+/// en la marca y la palabra en la pastilla, así que nunca se lee solo por el color.
+struct PastillaConMarcaPerfil: View {
+    let texto: String
+    let marca: SwiftUI.Color
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.xs + 2) {
+            Circle().fill(marca).frame(width: 10, height: 10).accessibilityHidden(true)
+            InfoPill(text: texto, estilo: .velo)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 // MARK: - Notas y acciones de texto
 
 /// Una nota bajo un bloque: lo que el bloque no dice y hay que saber. Apoyo, 15 pt.
