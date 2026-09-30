@@ -503,7 +503,6 @@
     {"archivo":"lib/dashboard/coach/assign-sequence.ts","huella":"e280bb5338c5","tablas":["athlete_sequence_progress"],"veces":1},
     {"archivo":"lib/dashboard/coach/assign-sequence.ts","huella":"e2cac72b5fa9","tablas":["athlete_sequence_progress"],"veces":1},
     {"archivo":"lib/dashboard/coach/assign-sequence.ts","huella":"f2e4af5a9cbd","tablas":["workout_assignments"],"veces":1},
-    {"archivo":"lib/dashboard/coach/assign-sequence.ts","huella":"f955844a1221","tablas":["athlete_sequence_progress"],"veces":1},
     {"archivo":"lib/dashboard/coach/assign-sequence.ts","huella":"fdffa2237905","tablas":["athletes"],"veces":1},
     {"archivo":"lib/dashboard/coach/athlete-day-editor.ts","huella":"12be1248e87a","tablas":["templates","workout_assignments"],"veces":1},
     {"archivo":"lib/dashboard/coach/athlete-lifecycle-detail.ts","huella":"77c7bbd3879b","tablas":["athlete_pause_requests","athlete_pauses","athletes"],"veces":1},

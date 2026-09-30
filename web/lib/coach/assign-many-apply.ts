@@ -363,11 +363,13 @@ export async function applyTarget(client: Sql, ctx: ApplyContext, athlete: Recip
               },
             });
             visibleWeek ??= done.visible_week;
+            // tenancy: verified-owner — el ítem lo acaba de crear este lote, del coach.
             await tx`update coach_assign_batch_items set sessions_created = sessions_created + ${done.created} where id = ${itemId}`;
           }
           last = { position: step.position, end_date: step.end_date };
         }
         if (last.end_date !== target.end_date) {
+          // tenancy: verified-owner — el ítem lo acaba de crear este lote, del coach.
           await tx`update coach_assign_batch_items set end_date = ${last.end_date}::date where id = ${itemId}`;
         }
       }

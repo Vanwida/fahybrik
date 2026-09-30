@@ -9,6 +9,7 @@ import {
   parseIsoDate,
 } from '@fahybrid/shared/domain/dates';
 import { mondayOfWeekInTz } from '@fahybrid/shared/domain/coach/coach-timezone';
+import { chainFrontier, type ChainReceipt } from '@fahybrid/shared/domain/coach/plan-placement';
 import { loadCoachTimezone, loadCoachTimezoneOfAthlete, loadCoachTodayOfAthlete } from '@/lib/coach/coach-timezone';
 import type {
   ProgramSequence,
@@ -398,8 +399,19 @@ export async function assignSequenceToAthlete(
 // status: completed | missed | skipped — only `scheduled` is outstanding). Either
 // condition means the microciclo is done; we don't advance while sessions remain.
 //
+// A GROUP'S PLAN IS MATERIALIZED WHOLE (2026-09-30): joining a group already lays
+// down every program of the chain (assign-many-apply.ts), so what advancing does is
+// (a) fill in whatever is missing after the athlete's chain frontier — the whole
+// rest of the chain, never one item — and (b) at the end of the chain, the WHOLE
+// next lap. Where the athlete stands in the chain is read from their receipts
+// (`chainFrontier`), not from the cursor, which only knows where they entered.
+//
+// TWO CALLERS, TWO GATES: the manual endpoint advances once the program the athlete
+// is in has finished; the daily renewal job (`horizon_days`) acts when the plan's
+// last receipt ends within N days, without waiting for it to finish.
+//
 // END-POLICY at the last item (program_sequences.end_policy):
-//   · repeat   → re-materialize item[1] (a fresh loop), cursor back to 1, and bump
+//   · repeat   → re-materialize the WHOLE chain (a fresh loop), cursor back to 1, and bump
 //                loops_completed. The coach's per-loop progression (progression_pct
 //                scoped by progression_applies_to) is applied to the re-materialized
 //                doses — cumulative (factor ^ loops_completed), template never mutated.
@@ -409,7 +421,7 @@ export async function assignSequenceToAthlete(
 //                a sequence exists there: mark the current enrollment completed,
 //                promote the athlete (athletes.level_id := next level), create a
 //                NEW active enrollment on the next level's sequence and materialize
-//                ITS item[1]. If there's no next level OR no sequence there → fall
+//                ITS whole chain. If there's no next level OR no sequence there → fall
 //                back to `stop` with a clear reason (never silently dead-ends).
 //   · stop     → mark the enrollment completed, no further materialization.
 //
@@ -550,10 +562,21 @@ export function itemAtPosition(
   return sequence.items.find((it) => it.position === position) ?? null;
 }
 
+export interface AdvanceOptions {
+  /**
+   * Renewal mode (the daily job): act when the athlete's plan — the last day of
+   * their last receipt — ends within this many days, instead of waiting for the
+   * program they are in to finish. Without it, the athlete only advances once that
+   * program has finished (the manual endpoint).
+   */
+  horizon_days?: number;
+}
+
 export async function advanceSequenceForAthlete(
   athleteId: number,
   coachId: number | bigint,
   client: Sql = defaultSql,
+  options: AdvanceOptions = {},
 ): Promise<AdvanceSequenceResult> {
   // 1) The athlete's active enrollment cursor.
   const enrollments = await client<ActiveEnrollmentRow[]>`
@@ -602,28 +625,34 @@ export async function advanceSequenceForAthlete(
     };
   }
 
+  // A cursor past the items (the sequence shrank) counts as the last one.
   const currentItem = itemAtPosition(sequence, currentPosition);
-  if (!currentItem) {
-    // Cursor points past the sequence's items (sequence shrank). Treat as last-item
-    // and resolve the end-policy from where it stands.
-    return resolveEndPolicy({
-      athleteId,
-      coachId,
-      sequence,
-      progressId,
-      loopsCompleted,
-      currentMonthTemplateId: null,
-      client,
-    });
-  }
 
-  // 3) Gate: only advance once the current microciclo is finished.
-  const finished = await isCurrentMicrocicloFinished(
-    athleteId,
-    Number(currentItem.month_template_id),
-    client,
-  );
-  if (!finished) {
+  // 3) Where the athlete stands in the chain (from their plan, not the cursor) and
+  //    whether it is time to go on.
+  const ordered = [...sequence.items].sort((a, b) => a.position - b.position);
+  const lastPosition = ordered[ordered.length - 1]!.position;
+  const cursor = currentItem ? currentPosition : lastPosition;
+  const today = await loadCoachTodayOfAthlete(athleteId, { client });
+  const receipts = await loadChainReceipts(athleteId, client);
+  const frontier = chainFrontier({
+    receipts,
+    chain: ordered.map((it) => ({ position: it.position, template_id: String(it.month_template_id) })),
+    cursor,
+    today,
+    wrap: sequence.end_policy === 'repeat',
+  });
+  const planEnd = receipts.reduce((max, r) => (r.end_date > max ? r.end_date : max), '');
+  const renewing = options.horizon_days != null;
+  const running = renewing
+    ? planEnd === '' || planEnd > isoDateString(addDays(parseIsoDate(today), options.horizon_days!))
+    : !frontier ||
+      !(await isCurrentMicrocicloFinished(
+        athleteId,
+        Number(itemAtPosition(sequence, frontier.position)!.month_template_id),
+        client,
+      ));
+  if (!frontier || running) {
     return {
       outcome: 'not_yet_finished',
       sequence_id: Number(sequence.id),
@@ -634,109 +663,155 @@ export async function advanceSequenceForAthlete(
     };
   }
 
-  const lastPosition = sequence.items.reduce((max, it) => Math.max(max, it.position), 0);
-
-  // 4a) MID-SEQUENCE — a next item exists → materialize it, advance the cursor.
-  if (currentPosition < lastPosition) {
-    const nextItem = itemAtPosition(sequence, currentPosition + 1);
-    if (nextItem) {
-      const start = await nextMicrocicloStartDate(
-        athleteId,
-        Number(currentItem.month_template_id),
-        client,
-      );
-      const materialization = await materializeItem({
-        coachId,
-        athleteId,
-        monthTemplateId: Number(nextItem.month_template_id),
-        startDate: start,
-        progression: buildProgressionSpec(sequence, loopsCompleted),
-        client,
-      });
+  // 4a) MID-CHAIN — programs are missing after the frontier → materialize ALL of
+  //     them, each pegged to the previous one.
+  const missing = ordered.filter((it) => it.position > frontier.position);
+  if (missing.length > 0) {
+    const run = await materializeRun({
+      coachId,
+      athleteId,
+      items: missing,
+      progression: buildProgressionSpec(sequence, loopsCompleted),
+      client,
+    });
+    // The cursor is where the athlete IS: when the program in progress had finished,
+    // that is the first one just laid down; a renewal (still running) leaves it —
+    // the daily job syncs it with the calendar.
+    if (!renewing) {
       await client`
         update athlete_sequence_progress
-        set current_position = ${currentPosition + 1}, updated_at = now()
+        set current_position = ${missing[0]!.position}, updated_at = now()
         where id = ${progressId}
       `;
-      return {
-        outcome: 'advanced',
-        sequence_id: Number(sequence.id),
-        position: currentPosition + 1,
-        materialized_month_template_id: Number(nextItem.month_template_id),
-        materialization,
-        message: `Pasa al programa ${currentPosition + 1} del grupo.`,
-      };
     }
+    return {
+      outcome: 'advanced',
+      sequence_id: Number(sequence.id),
+      position: renewing ? currentPosition : missing[0]!.position,
+      materialized_month_template_id: Number(missing[0]!.month_template_id),
+      materialization: run[0]!,
+      message:
+        missing.length === 1
+          ? `Pasa al programa ${missing[0]!.position} del grupo.`
+          : `Pasa al programa ${missing[0]!.position} del grupo y se le ponen los ${missing.length - 1} siguientes.`,
+    };
   }
 
-  // 4b) LAST ITEM — resolve the end-policy.
+  // 4b) END OF THE CHAIN — resolve the end-policy.
   return resolveEndPolicy({
     athleteId,
     coachId,
     sequence,
+    ordered,
     progressId,
     loopsCompleted,
-    currentMonthTemplateId: Number(currentItem.month_template_id),
+    renewing,
+    planOver: planEnd < today,
     client,
   });
 }
 
+/** The athlete's receipts as the chain sees them (which program, which dates). */
+async function loadChainReceipts(athleteId: number, client: Sql): Promise<ChainReceipt[]> {
+  // tenancy: verified-owner — el atleta viene de la inscripción del coach (leída con su coach_id).
+  return client<ChainReceipt[]>`
+    select month_template_id::text as template_id,
+           to_char(start_date, 'YYYY-MM-DD') as start_date,
+           to_char(end_date, 'YYYY-MM-DD') as end_date
+    from athlete_month_assignments
+    where athlete_id = ${athleteId}
+    order by start_date
+  `;
+}
+
+/**
+ * Materialize `items` in order, each starting right after the athlete's plan tail
+ * (so consecutive programs are pegged and 0166 keeps refusing overlaps). Returns one
+ * result per program.
+ */
+async function materializeRun(params: {
+  coachId: number | bigint;
+  athleteId: number;
+  items: ProgramSequenceItem[];
+  progression?: ProgressionSpec;
+  client: Sql;
+}): Promise<InstantiateMonthResult[]> {
+  const out: InstantiateMonthResult[] = [];
+  for (const item of params.items) {
+    const startDate = await nextMicrocicloStartDate(params.athleteId, Number(item.month_template_id), params.client);
+    out.push(
+      await materializeItem({
+        coachId: params.coachId,
+        athleteId: params.athleteId,
+        monthTemplateId: Number(item.month_template_id),
+        startDate,
+        progression: params.progression,
+        client: params.client,
+      }),
+    );
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
-// End-policy resolution (last item reached).
+// End-policy resolution (end of the chain reached).
 // ---------------------------------------------------------------------------
 async function resolveEndPolicy(params: {
   athleteId: number;
   coachId: number | bigint;
   sequence: GroupSequence;
+  /** The chain's items in order. */
+  ordered: ProgramSequenceItem[];
   progressId: number;
   /** Loops completed BEFORE this resolution (the repeat branch increments it). */
   loopsCompleted: number;
-  /** The current item's microciclo (for start-date continuation); null if cursor drifted. */
-  currentMonthTemplateId: number | null;
+  /** Renewal mode: the athlete is still inside their last program. */
+  renewing: boolean;
+  /** Has the athlete's whole plan already ended (its last day is behind us)? */
+  planOver: boolean;
   client: Sql;
 }): Promise<AdvanceSequenceResult> {
-  const {
-    athleteId,
-    coachId,
-    sequence,
-    progressId,
-    loopsCompleted,
-    currentMonthTemplateId,
-    client,
-  } = params;
+  const { athleteId, coachId, sequence, ordered, progressId, loopsCompleted, renewing, planOver, client } = params;
   const policy: SequenceEndPolicy = sequence.end_policy;
 
-  const startDate = currentMonthTemplateId
-    ? await nextMicrocicloStartDate(athleteId, currentMonthTemplateId, client)
-    : isoDateString(addDays(mondayOfWeekInTz(new Date(), await loadCoachTimezone(coachId, client)), 7));
+  // Ending (stop, or level_up with nowhere to go) leaves the group: never while the
+  // athlete is still training the last program — only once the plan is over.
+  const notYetOver = (): AdvanceSequenceResult => ({
+    outcome: 'not_yet_finished',
+    sequence_id: Number(sequence.id),
+    position: null,
+    materialized_month_template_id: null,
+    materialization: null,
+    message: 'El programa actual aún no ha terminado.',
+  });
 
   if (policy === 'repeat') {
-    const firstItem = itemAtPosition(sequence, 1) ?? sequence.items[0]!;
     // A fresh loop begins → bump the loop counter and apply the coach's per-loop
     // progression to the re-materialized doses (scoped strictly by the coach's
     // progression_applies_to). The library microciclo template is NOT mutated — the
     // cumulative factor lives entirely in the materialized cycle. When no lever is
     // set (or pct 0) buildProgressionSpec is undefined ⇒ the loop repeats verbatim.
     const nextLoop = loopsCompleted + 1;
-    const materialization = await materializeItem({
+    const run = await materializeRun({
       coachId,
       athleteId,
-      monthTemplateId: Number(firstItem.month_template_id),
-      startDate,
+      items: ordered,
       progression: buildProgressionSpec(sequence, nextLoop),
       client,
     });
     await client`
       update athlete_sequence_progress
-      set current_position = 1, loops_completed = ${nextLoop}, updated_at = now()
-      where id = ${progressId}
+      set loops_completed = ${nextLoop},
+          current_position = case when ${renewing}::boolean then current_position else 1 end,
+          updated_at = now()
+      where id = ${progressId} and coach_id = ${String(coachId)}
     `;
     return {
       outcome: 'looped',
       sequence_id: Number(sequence.id),
       position: 1,
-      materialized_month_template_id: Number(firstItem.month_template_id),
-      materialization,
+      materialized_month_template_id: Number(ordered[0]!.month_template_id),
+      materialization: run[0]!,
       message: 'Plan del grupo terminado; vuelve a empezar por el primer programa.',
     };
   }
@@ -745,22 +820,17 @@ async function resolveEndPolicy(params: {
     const promotion = await resolveLevelUp(athleteId, coachId, sequence, client);
     if (promotion) {
       // Mark current enrollment completed, promote the athlete, create a NEW active
-      // enrollment on the next level's sequence + materialize ITS first microciclo.
+      // enrollment on the next level's sequence + materialize ITS whole chain. In a
+      // renewal the athlete changes group a few days before the end of the plan —
+      // that is the point: their next plan is already there when they need it.
       await markEnrollmentCompleted(progressId, client);
       await client`
         update athletes
         set level_id = ${promotion.nextLevelId}, level_source = 'algorithm'
         where id = ${athleteId}
       `;
-      const firstItem =
-        itemAtPosition(promotion.nextSequence, 1) ?? promotion.nextSequence.items[0]!;
-      const materialization = await materializeItem({
-        coachId,
-        athleteId,
-        monthTemplateId: Number(firstItem.month_template_id),
-        startDate,
-        client,
-      });
+      const nextItems = [...promotion.nextSequence.items].sort((a, b) => a.position - b.position);
+      const run = await materializeRun({ coachId, athleteId, items: nextItems, client });
       await enrollInSequence(client, {
         athlete_id: athleteId,
         coach_id: coachId,
@@ -772,12 +842,13 @@ async function resolveEndPolicy(params: {
         outcome: 'leveled_up',
         sequence_id: Number(promotion.nextSequence.id),
         position: 1,
-        materialized_month_template_id: Number(firstItem.month_template_id),
-        materialization,
+        materialized_month_template_id: Number(nextItems[0]!.month_template_id),
+        materialization: run[0]!,
         message: `Sube a ${promotion.nextLevelName}; empieza el primer programa de ese grupo.`,
       };
     }
     // Fall back to `stop` with a clear reason (no next level / no sequence there).
+    if (renewing && !planOver) return notYetOver();
     await markEnrollmentCompleted(progressId, client);
     return {
       outcome: 'stopped',
@@ -791,6 +862,7 @@ async function resolveEndPolicy(params: {
   }
 
   // policy === 'stop'
+  if (renewing && !planOver) return notYetOver();
   await markEnrollmentCompleted(progressId, client);
   return {
     outcome: 'stopped',
