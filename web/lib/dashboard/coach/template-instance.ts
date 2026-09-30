@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { z } from 'zod';
+import { coachReadableSegmentIssues } from '@fahybrid/shared/domain/prescription';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
@@ -208,7 +209,14 @@ export async function updateAthleteInstanceDay(params: {
 }): Promise<{ template_id: number }> {
   const parsed = athleteDayContentSchema.safeParse(params.payload);
   if (!parsed.success) {
-    throw new TemplateError('invalid_payload', parsed.error.message, 400);
+    // Un tramo de correr con el entorno, el aviso o la frase mal se dice con las
+    // palabras del modelo (lo que lee el coach en su toast), no con el volcado del
+    // validador. Cualquier otro fallo sigue como siempre.
+    const readable = coachReadableSegmentIssues(parsed.error.issues);
+    const allReadable =
+      readable.length > 0 && readable.length === new Set(parsed.error.issues.map((i) => i.message)).size;
+    const message = allReadable ? readable.join(' ') : parsed.error.message;
+    throw new TemplateError('invalid_payload', message, 400);
   }
   const body = parsed.data;
   const client = params.client ?? defaultSql;

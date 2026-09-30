@@ -370,6 +370,28 @@ export function safeParseRunStructure(value: unknown) {
   return runStructureSchema.safeParse(value);
 }
 
+// Los campos de un tramo cuyo fallo se le dice al coach con las palabras del propio
+// modelo (entorno, aviso, frase, inclinación de la pista). Cualquier otro fallo es
+// del validador y no se le enseña tal cual.
+const COACH_READABLE_FIELDS: ReadonlySet<PropertyKey> = new Set(['environment', 'cue', 'alert', 'incline_pct']);
+
+/**
+ * Los mensajes en castellano de un fallo de entorno, aviso o frase de un tramo, sin
+ * repetir. Una sola fuente para el editor (que avisa antes de guardar) y para el
+ * servidor (que lo devuelve al guardar): el coach lee lo mismo en los dos sitios.
+ * Vacío = ningún fallo de los suyos.
+ */
+export function coachReadableSegmentIssues(issues: readonly z.ZodIssue[]): string[] {
+  const messages = new Set<string>();
+  for (const issue of issues) {
+    const field = issue.path[issue.path.length - 1];
+    if (field === undefined || !COACH_READABLE_FIELDS.has(field)) continue;
+    // Un enum o un rango de estos campos sale del validador, no del modelo: no se enseña.
+    if (issue.code === z.ZodIssueCode.custom || field === 'cue') messages.add(issue.message);
+  }
+  return [...messages];
+}
+
 // ── Tree helpers (shared by conversion, resolution, summary, tests) ───────────
 /** The `main` phase (there is always exactly one in a valid structure). */
 export function mainPhase(s: RunStructure): Phase | undefined {

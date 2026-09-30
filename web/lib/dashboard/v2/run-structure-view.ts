@@ -18,7 +18,7 @@ import type {
   SegmentMeasure,
   SegmentTarget,
 } from '@fahybrid/shared/domain/prescription';
-import { isRepeat, safeParseRunStructure } from '@fahybrid/shared/domain/prescription';
+import { coachReadableSegmentIssues, isRepeat, safeParseRunStructure } from '@fahybrid/shared/domain/prescription';
 import type { RunAlertDirection, RunEnvironment } from '@fahybrid/shared/domain/prescription/run-structure';
 import type { WristAlertDirection } from '@fahybrid/shared/domain/coach/wrist-method';
 
@@ -151,10 +151,6 @@ export function alertHintText(
   return `Si no eliges, avisa por arriba y por abajo.${como}`;
 }
 
-// Los campos de un tramo sobre los que el editor avisa. El resto de reglas de la
-// secuencia ya las cumplen los controles desde siempre.
-const WATCHED_FIELDS = new Set<PropertyKey>(['environment', 'cue', 'alert', 'incline_pct']);
-
 /**
  * Lo que el servidor rechazaría de un tramo por su entorno, su aviso o su frase,
  * dicho al coach. El editor no deja componer estos casos con sus controles
@@ -164,13 +160,7 @@ const WATCHED_FIELDS = new Set<PropertyKey>(['environment', 'cue', 'alert', 'inc
  */
 export function runStructureIssues(structure: RunStructure): string[] {
   const parsed = safeParseRunStructure(structure);
-  if (parsed.success) return [];
-  const messages = new Set<string>();
-  for (const issue of parsed.error.issues) {
-    if (!WATCHED_FIELDS.has(issue.path[issue.path.length - 1]!)) continue;
-    messages.add(issue.message);
-  }
-  return [...messages];
+  return parsed.success ? [] : coachReadableSegmentIssues(parsed.error.issues);
 }
 
 /** An element (segment or repeat) as one line: "6 × 1000 m @ 4:30/km · rec 2' parado". */
