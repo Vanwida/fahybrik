@@ -7,7 +7,7 @@ import SwiftUI
 //   • payload, pending      → pre-workout flow (readiness glance ▸ today brief)
 //   (las pantallas de reposo viven en Views/Entrada/)
 //   • coordinator active    → live flow (the workout)
-//   • coordinator finished  → summary (▸ splits), then back to the done state
+//   • coordinator finished  → sello ▸ RPE ▸ summary (▸ splits), then back to the done state
 struct RootView: View {
     @EnvironmentObject private var plan: WatchPlanModel
     @Environment(WatchWorkoutCoordinator.self) private var coordinator
@@ -84,8 +84,8 @@ struct RootView: View {
             }
         case .finished:
             if let session = coordinator.session {
-                // "Listo" commits the (possibly toggled) staged result, then resets.
-                PostFinishFlow(session: session, coordinator: coordinator) {
+                // sello ▸ RPE ▸ resumen. "Listo" commits the (possibly toggled) staged result, then resets.
+                FinalFlujo(session: session, coordinator: coordinator) {
                     coordinator.confirmAndReset()
                 }
             }
@@ -120,32 +120,12 @@ struct RootView: View {
                     payload: today,
                     sessionPlan: coordinator.sessionPlan(for: plan.assignmentDetail),
                     pagina: $paginaDeReposo
-                ) {
-                    coordinator.start(payload: today, detail: plan.assignmentDetail)
+                ) { entorno in
+                    coordinator.start(payload: today, detail: plan.assignmentDetail, entorno: entorno)
                 }
             }
         } else {
             EntradaSinPlanView()
-        }
-    }
-}
-
-// MARK: - Post-finish flow (summary ▸ splits)
-
-private struct PostFinishFlow: View {
-    let session: WorkoutSession
-    let coordinator: WatchWorkoutCoordinator
-    let onDone: () -> Void
-
-    var body: some View {
-        if SplitsView.hasSplits(session) {
-            TabView {
-                SummaryView(session: session, coordinator: coordinator, onDone: onDone)
-                SplitsView(session: session)
-            }
-            .tabViewStyle(.verticalPage)
-        } else {
-            SummaryView(session: session, coordinator: coordinator, onDone: onDone)
         }
     }
 }

@@ -11,10 +11,13 @@ struct SummaryView: View {
     let onDone: () -> Void
 
     var body: some View {
-        WatchReloj(
-            paginas: paginas,
-            tinte: isPartial ? WatchTheme.zoneAmber : WatchTheme.zoneGreen
-        )
+        // Dónde está la sesión se relee cada poco: el acuse del móvil llega solo.
+        TimelineView(.periodic(from: .now, by: FinalForma.releerGuardadoS)) { _ in
+            WatchReloj(
+                paginas: paginas,
+                tinte: isPartial ? WatchTheme.zoneAmber : WatchTheme.zoneGreen
+            )
+        }
     }
 
     // MARK: - Páginas
@@ -111,7 +114,8 @@ struct SummaryView: View {
     }
 
     private var saveNote: String {
-        guard coordinator.isDoublesShareable else { return "Guardado en el iPhone" }
+        // Nunca «Guardado en el iPhone» mientras solo esté en su cola: lo dice el buzón de la muñeca.
+        guard coordinator.isDoublesShareable else { return coordinator.estadoDeGuardado().corto }
         return coordinator.shareWithPartner
             ? "Se comparte con \(partnerName)"
             : "Solo para ti"

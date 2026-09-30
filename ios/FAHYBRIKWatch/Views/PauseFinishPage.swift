@@ -40,7 +40,7 @@ struct PauseFinishPage: View {
                 pausado: session.isPaused,
                 onPausa: { coordinator.togglePause() },
                 extras: extras,
-                onTerminar: { coordinator.finishWorkout(completeness: .partial) }
+                onTerminar: { coordinator.finishWorkout() }
             )
         }
     }
@@ -104,7 +104,7 @@ struct PauseFinishPage: View {
             titleVisibility: .visible
         ) {
             Button("Terminar", role: .destructive) {
-                session.finish(completeness: .partial)
+                session.finish()
             }
             Button("Seguir", role: .cancel) { }
         }

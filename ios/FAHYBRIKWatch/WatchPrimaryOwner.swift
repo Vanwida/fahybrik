@@ -76,7 +76,8 @@ final class WatchPrimaryOwner: NSObject {
         let store = HKHealthStore()
         let asked = Date()
         do {
-            try await store.requestAuthorization(toShare: workoutDataTypes, read: workoutDataTypes)
+            // Se lee lo del entreno; se ESCRIBE eso y, además, la ruta y el esfuerzo (`WatchSaludExtra`).
+            try await store.requestAuthorization(toShare: workoutDataTypes.union(WatchSaludExtra.escrituraExtra), read: workoutDataTypes)
             // Rápido = ya estaba concedido; lento = la hoja estaba delante en la muñeca (T10).
             let ms = Int(Date().timeIntervalSince(asked) * 1000)
             DiagnosticsLog.shared.record(.session, .hkAuthorization, outcome: .ok, detail: "waited_ms=\(ms)")
@@ -101,6 +102,11 @@ final class WatchPrimaryOwner: NSObject {
     private var startedPlan: WatchHKActivityPlan?
     private var pendingPlan: WatchHKActivityPlan?
     private let locationGate = WatchRunLocationGate()
+    /// La ruta de la carrera en calle, para Salud: se llena con los puntos del GPS y se cierra con el entreno guardado.
+    @ObservationIgnored private lazy var ruta = WatchRutaSalud(store: store)
+    /// El entreno que acaba de guardarse en Salud: el esfuerzo que el atleta da después se liga a él.
+    /// Vive hasta que empieza otra sesión.
+    var ultimoEntreno: HKWorkout?
     private var teardownDeadlineTimer: Timer?
     private var pendingStartConfiguration: HKWorkoutConfiguration?
     private var pendingStartRole: Role = .mirror
@@ -111,6 +117,11 @@ final class WatchPrimaryOwner: NSObject {
 
     private override init() {
         super.init()
+        // Los puntos del GPS van a la ruta mientras se graba y no hay pausa: sin GPS no llega ninguno y no hay ruta.
+        locationGate.onLocations = { [weak self] locations in
+            guard let self, self.phase == .recording, !self.hkPaused else { return }
+            self.ruta.insertar(locations)
+        }
         // La muñeca habla o deja de hablar: el móvil calla o recupera su voz (una sola voz).
         WatchVoz.shared.alCambiarHabla = { [weak self] habla in self?.anunciarVozMuneca(habla) }
     }
@@ -317,6 +328,7 @@ final class WatchPrimaryOwner: NSObject {
     ) {
         self.role = role
         phase = .recording
+        ultimoEntreno = nil
         link = .unlinked(nil)
         frame = nil
         frameReceivedAt = nil
@@ -552,8 +564,11 @@ final class WatchPrimaryOwner: NSObject {
         if save, let builder {
             workoutUuid = await saveWorkout(builder: builder, at: now)
             lastSavedWorkoutUuid = workoutUuid
+            // La ruta se cierra con el entreno guardado; sin entreno (el guardado falló), no hay a qué ligarla.
+            await ruta.cerrar(con: ultimoEntreno)
         } else {
             builder?.discardWorkout()
+            ruta.descartar()
             lastSavedWorkoutUuid = nil
         }
 
@@ -578,6 +593,7 @@ final class WatchPrimaryOwner: NSObject {
         do {
             try await builder.endCollection(at: date)
             let workout = try await builder.finishWorkout()
+            ultimoEntreno = workout
             DiagnosticsLog.shared.record(.save, .hkWorkoutSaved, outcome: workout == nil ? DiagEvent.Outcome.failed : DiagEvent.Outcome.ok,
                                          detail: workout == nil ? "nil_workout" : nil)
             return workout?.uuid.uuidString
@@ -603,6 +619,9 @@ final class WatchPrimaryOwner: NSObject {
         pendingPlan = nil
         lastReportedDistance = 0
         locationGate.stop()
+        // Una sesión que se va sin pasar por el guardado no deja su ruta para la siguiente. Mientras el guardado
+        // sigue en curso (`finishing`) la ruta es suya: la cierra `performTeardown`.
+        if finishing == nil { ruta.descartar() }
         frame = nil
         frameReceivedAt = nil
         espejo = Vivo.EspejoMuneca()

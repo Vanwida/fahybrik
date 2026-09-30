@@ -99,9 +99,17 @@ final class MunecaAlimentador {
     /// uno del motor. Lo que decide el motor de la fuerza (la última serie lleva al siguiente ejercicio) va detrás.
     func mandos(_ e: Vivo.EstadoVivo) -> MunecaMandos {
         let clave = Vivo.clavePrimariaMuneca(e, anotar)
+        let esVuelta = clave == .vuelta
+        // Cerrar el ÚLTIMO paso guarda la sesión: se pregunta (`Vivo.CierreSeguro`). Sin certeza, también.
+        // «Vuelta» y «Confirmar» no cierran nada: no preguntan.
+        let ultimo = Vivo.CierreSeguro.esUltimoPaso(indice: e.i, de: e.pasos.count)
+        let pideConfirmar = Vivo.CierreSeguro.pideConfirmar(esVuelta: esVuelta || clave == .confirmar, ultimoPaso: ultimo)
         let cerrar = { [session] in
             if session.restRemainingSeconds > 0 { session.dismissRest(); session.vivoAlAcabarDescanso() }
             else { session.applyCommand(MirrorWire.CommandKind.advance); session.vivoTrasCerrarSerie() }
+            // Ya contestó «¿Terminar y guardar?»: el motor esperaba su decisión del final y esa fue. No se le
+            // pregunta otra vez con la pantalla de «Sesión completada» (esa es para cuando el reloj acaba solo).
+            if pideConfirmar, session.isAwaitingFinishDecision { session.finish() }
         }
         let vuelta = { [weak self] in
             guard let self, !self.session.isPaused else { return }
@@ -113,14 +121,10 @@ final class MunecaAlimentador {
             let x = self.estado()
             self.aplicar(self.anotar.confirmar(x), x)
         }
-        let esVuelta = clave == .vuelta
-        // Cerrar el ÚLTIMO paso guarda la sesión: se pregunta (`Vivo.CierreSeguro`). Sin certeza, también.
-        // «Vuelta» y «Confirmar» no cierran nada: no preguntan.
-        let ultimo = Vivo.CierreSeguro.esUltimoPaso(indice: e.i, de: e.pasos.count)
         return MunecaMandos(
             pausa: pausar,
             terminar: terminar,
-            pideConfirmarAlCerrar: Vivo.CierreSeguro.pideConfirmar(esVuelta: esVuelta || clave == .confirmar, ultimoPaso: ultimo),
+            pideConfirmarAlCerrar: pideConfirmar,
             alActuar: { [director] in director.accion() },
             control: MunecaControl(
                 titulo: (esVuelta ? Vivo.ClavePrimaria.vuelta : .siguientePaso).texto,

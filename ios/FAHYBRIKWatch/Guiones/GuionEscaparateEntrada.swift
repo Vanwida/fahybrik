@@ -46,9 +46,9 @@ enum GuionEntrada {
         case "brief-con-llegas":
             return AnyView(EntradaAntesFlow(
                 payload: payload("Series 6×1000", minutos: 55, readiness: 78),
-                sessionPlan: Planes.series.map(WatchSessionPlan.run) ?? .needsDetail, onStart: {}))
+                sessionPlan: Planes.series.map(WatchSessionPlan.run) ?? .needsDetail, onStart: { _ in }))
         case "descanso":
-            return AnyView(EntradaHoyView(payload: payload(nil, minutos: nil, descanso: true), sessionPlan: .needsDetail, onStart: {}))
+            return AnyView(EntradaHoyView(payload: payload(nil, minutos: nil, descanso: true), sessionPlan: .needsDetail, onStart: { _ in }))
         case "sin-plan":
             return AnyView(EntradaSinPlanView())
         case "hecho":
@@ -74,7 +74,7 @@ enum GuionEntrada {
     }
 
     private static func brief(_ titulo: String, minutos: Int?, sessionPlan: WatchSessionPlan, dobles: Bool = false) -> AnyView? {
-        AnyView(EntradaHoyView(payload: payload(titulo, minutos: minutos, dobles: dobles), sessionPlan: sessionPlan, onStart: {}))
+        AnyView(EntradaHoyView(payload: payload(titulo, minutos: minutos, dobles: dobles), sessionPlan: sessionPlan, onStart: { _ in }))
     }
 
     private static func payload(_ titulo: String?, minutos: Int?, readiness: Int? = nil,

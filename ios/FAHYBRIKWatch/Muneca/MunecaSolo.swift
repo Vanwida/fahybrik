@@ -13,6 +13,8 @@ import SwiftUI
 
 struct MunecaSolo: View {
     let session: WorkoutSession
+    /// A quien se le entregan las vueltas por km al acabar: el motor no las lleva y el resumen las pide.
+    private let coordinator: WatchWorkoutCoordinator
 
     @Environment(\.isLuminanceReduced) private var atenuado
     @State private var alimentador: MunecaAlimentador
@@ -20,12 +22,13 @@ struct MunecaSolo: View {
     @MainActor
     init(session: WorkoutSession, coordinator: WatchWorkoutCoordinator = .shared, owner: WatchPrimaryOwner = .shared) {
         self.session = session
+        self.coordinator = coordinator
         _alimentador = State(initialValue: MunecaAlimentador(
             session: session,
             ritmoActual: { coordinator.ventanaDeRitmo.ritmo(ahora: $0) },
             gps: { Vivo.estadoGps(precisionM: owner.gpsAccuracyM) },
             pausar: { coordinator.togglePause() },
-            terminar: { coordinator.finishWorkout(completeness: .partial) }
+            terminar: { coordinator.finishWorkout() }
         ))
     }
 
@@ -46,7 +49,11 @@ struct MunecaSolo: View {
         }
         .onAppear { Vivo.PoliticaHaptica.compartida.activar() }
         // La sesión acaba y la vista se va en el mismo instante: una mirada de más para que «sesión hecha» suene.
-        .onChange(of: session.isFinished) { _, terminada in if terminada { alimentador.observar() } }
+        .onChange(of: session.isFinished) { _, terminada in
+            guard terminada else { return }
+            alimentador.observar()
+            coordinator.guardarVueltasAuto(alimentador.registro.vueltas)
+        }
         .onDisappear {
             alimentador.observar()
             Vivo.PoliticaHaptica.compartida.soltar()

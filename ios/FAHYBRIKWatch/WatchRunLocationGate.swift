@@ -10,6 +10,8 @@ final class WatchRunLocationGate: NSObject, @preconcurrency CLLocationManagerDel
     nonisolated(unsafe) private let manager = CLLocationManager()
     private var wantsGPS = false
     private(set) var horizontalAccuracyM: Double?
+    /// Quien quiere los puntos (la ruta de Salud): recibe cada lote tal como lo da CoreLocation.
+    var onLocations: (([CLLocation]) -> Void)?
 
     override init() {
         super.init()
@@ -47,6 +49,7 @@ final class WatchRunLocationGate: NSObject, @preconcurrency CLLocationManagerDel
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         horizontalAccuracyM = locations.last?.horizontalAccuracy
+        onLocations?(locations)
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {

@@ -14,10 +14,10 @@ struct EntradaAntesFlow: View {
     let sessionPlan: WatchSessionPlan
     /// La página que se ve. La complicación abre la app en `.dia` (el brief).
     @Binding var pagina: EntradaHoja
-    let onStart: () -> Void
+    let onStart: (Vivo.Entorno?) -> Void
 
     init(payload: WatchTodayPayload, sessionPlan: WatchSessionPlan,
-         pagina: Binding<EntradaHoja> = .constant(.comoLlegas), onStart: @escaping () -> Void) {
+         pagina: Binding<EntradaHoja> = .constant(.comoLlegas), onStart: @escaping (Vivo.Entorno?) -> Void) {
         self.payload = payload
         self.sessionPlan = sessionPlan
         self._pagina = pagina

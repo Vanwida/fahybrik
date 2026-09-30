@@ -11,15 +11,22 @@ import SwiftUI
 // del móvil), el brief dice por qué en vez de ofrecer un plan de solo título contra
 // la asignación (28-sep). Un día de descanso es honesto: sin botón, solo la frase.
 //
-// Pendiente del diseño y sin dato en el plan (ver DECISIONS 2026-09-29): «GPS listo»
-// y el pulso antes de empezar (la muñeca no busca GPS ni pulso hasta que empieza),
-// «calle / cinta» en el contexto (el plan no lo trae) y el cue del coach salvo donde
-// el plan lo guarda por serie.
+// Antes de salir, una sesión de correr en la calle dice cómo va el GPS («Buscando GPS» ▸ «GPS listo», con su
+// háptico): la muñeca lo pide con el brief a la vista y lo suelta al empezar (`WatchGpsPrevio`). En cinta no hay GPS
+// que decir. Si el plan no dice dónde se corre (M3: calle, cinta o pista), «Empezar» pregunta UNA vez y la respuesta
+// vale para toda la sesión (`EntradaDondeView`). Sin pulso fijado antes de empezar (nadie lo mide todavía) ni cue del
+// coach salvo donde el plan lo guarda por serie (ver DECISIONS 2026-09-29 y 2026-09-30).
 struct EntradaHoyView: View {
     let payload: WatchTodayPayload
     /// Lo que la muñeca puede hacer con la sesión de hoy (`WatchSessionPlan`).
     let sessionPlan: WatchSessionPlan
-    let onStart: () -> Void
+    /// Empezar, con el entorno que el atleta eligió si el plan no lo decía (`nil` = lo dice el plan, o no es de correr).
+    let onStart: (Vivo.Entorno?) -> Void
+
+    /// Lo que el brief sabe de correr antes de salir; se recalcula si llega otro plan.
+    @State private var salida = Vivo.SalidaDeCorrer.ninguna
+    @State private var preguntando = false
+    private let gps = WatchGpsPrevio.shared
 
     private var plan: WorkoutPlan? { sessionPlan.runnable }
     private var esDescanso: Bool { payload.dayKind == WatchDayKind.rest }
@@ -27,9 +34,23 @@ struct EntradaHoyView: View {
     var body: some View {
         if esDescanso {
             EntradaDescansoView()
+        } else if preguntando {
+            EntradaDondeView(alElegir: { entorno in
+                preguntando = false
+                onStart(entorno)
+            }, alVolver: { preguntando = false })
         } else {
             sesion
+                .task(id: plan?.id) { salida = Vivo.salidaDe(plan) }
+                // El GPS se pide con el brief a la vista y solo para la calle; al salir, lo pide la sesión.
+                .task(id: salida.usaGps) { if salida.usaGps { gps.activar() } else { gps.soltar() } }
+                .onDisappear { gps.soltar() }
         }
+    }
+
+    /// «Empezar»: pregunta dónde se corre si el plan no lo dice; si no, sale.
+    private func empezar() {
+        if salida.preguntar { preguntando = true } else { onStart(nil) }
     }
 
     private var sesion: some View {
@@ -81,9 +102,13 @@ struct EntradaHoyView: View {
         }
     }
 
-    /// El botón fijo abajo (la barra de watchOS): las filas pasan por debajo con un fundido.
+    /// El botón fijo abajo (la barra de watchOS): las filas pasan por debajo con un fundido. Encima, cómo va el GPS
+    /// si la sesión sale a la calle.
     private var barra: some View {
-        EntradaBoton(titulo: "Empezar", dobleToque: true, etiquetaAccesible: "Empezar entreno", accion: onStart)
+        VStack(spacing: EntradaTipo.hueco) {
+            if salida.usaGps { EntradaGpsFila(estado: gps.estado) }
+            EntradaBoton(titulo: "Empezar", dobleToque: true, etiquetaAccesible: "Empezar entreno", accion: empezar)
+        }
             .padding(.horizontal, EntradaTipo.lado)
             .padding(.top, EntradaTipo.fundido)
             .padding(.bottom, EntradaTipo.safeAbajo)
@@ -97,6 +122,26 @@ struct EntradaHoyView: View {
                 }
                 .ignoresSafeArea()
             }
+    }
+}
+
+// MARK: - El GPS
+
+/// «Buscando GPS» / «GPS listo»: lo que dice la barra de abajo de una sesión que sale a la calle. Nada de un «listo»
+/// supuesto: lo dice CoreLocation (`WatchGpsPrevio`).
+struct EntradaGpsFila: View {
+    let estado: Vivo.EstadoGps
+
+    var body: some View {
+        let listo = estado == .listo
+        Label(listo ? "GPS listo" : "Buscando GPS", systemImage: listo ? "checkmark.circle" : "location")
+            .font(.entrada(EntradaTipo.nota, listo ? .semibold : .medium))
+            .foregroundStyle(listo ? WatchTheme.ink : WatchTheme.dim)
+            .lineLimit(1)
+            .minimumScaleFactor(EntradaTipo.escalaSuelo)
+            .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(listo ? "GPS listo" : "Buscando GPS")
     }
 }
 
