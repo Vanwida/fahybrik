@@ -29,6 +29,11 @@ class ActividadApp extends Application.AppBase {
     // Connect. Tarda unos segundos. Por eso la app deja además un gesto manual
     // para reintentar (ver MainDelegate.onNextPage) en vez de fiarlo todo a esta
     // llamada.
+    // Garmin cierra la app: si había una sesión grabando, se guarda (G10).
+    function onStop(state as Lang.Dictionary or Null) as Void {
+        controller.vivo.alSalir();
+    }
+
     function onSettingsChanged() as Void {
         controller.refresh();
     }

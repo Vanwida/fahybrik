@@ -46,6 +46,7 @@ class Controller {
         sinConexion = false;
         edadPlanDias = 0;
         vivo = new Vivo(self);
+        recuperacion = null;
         reloj = new Timer.Timer();
     }
 
@@ -108,7 +109,13 @@ class Controller {
     // ── Entrada única ────────────────────────────────────────────────────────
 
     // Se llama al arrancar y cada vez que cambian los ajustes desde el móvil.
+    // Una sesión interrumpida (checkpoint en Storage): se ofrece seguir o guardar lo hecho.
+    var recuperacion as Lang.Dictionary or Null;
+
     function refresh() as Void {
+        if (vivo.enSesion() || state == AppState.STATE_RECUPERAR) {
+            return;
+        }
         // Token de otro email = el atleta ha cambiado de cuenta en los ajustes.
         // Se tira: enseñarle el entreno del anterior sería peor que pedirle login.
         if (Store.hasToken() && !Store.tokenMatchesEmail()) {
@@ -119,7 +126,38 @@ class Controller {
             resumeLogin();
             return;
         }
+        if (offerRecovery()) {
+            return;
+        }
         syncPlan();
+    }
+
+    function offerRecovery() as Lang.Boolean {
+        var chk = Store.leer(Config.STORE_CHECKPOINT);
+        if (!(chk instanceof Lang.Dictionary) || Json.num(chk, "id", 0) == 0) {
+            return false;
+        }
+        recuperacion = chk;
+        state = AppState.STATE_RECUPERAR;
+        title = resolve(Rez.Strings.TitleRecuperar);
+        body = resolve(Rez.Strings.BodyRecuperarA) + (Json.num(chk, "sesS", 0) / 60) + resolve(Rez.Strings.BodyRecuperarB);
+        note = resolve(Rez.Strings.NoteRecuperar);
+        action = resolve(Rez.Strings.ActionSeguir);
+        WatchUi.requestUpdate();
+        return true;
+    }
+
+    // START en «sesión interrumpida»: seguir con una grabación nueva de la misma sesión.
+    function seguirInterrumpida() as Void {
+        var chk = recuperacion as Lang.Dictionary;
+        var b64 = PlanStore.base64De(Json.num(chk, "id", 0));
+        var s = b64 == null ? null : Decodificador.decodificar(b64);
+        if (s == null || s.huella != Json.num(chk, "huella", 0)) {
+            // El plan cambió o ya no está: no se puede seguir con el mismo plan (G9). Solo queda guardar lo hecho.
+            show(AppState.STATE_RECUPERAR, Rez.Strings.TitleSinDetalle, Rez.Strings.BodyRecuperarSinPlan, "");
+            return;
+        }
+        vivo.seguir(chk, s);
     }
 
     // ── Vinculación de la cuenta ─────────────────────────────────────────────
@@ -334,6 +372,12 @@ class Controller {
         // El brief: empezar la sesión (llega con el motor).
         if (state == AppState.STATE_BRIEF) {
             vivo.empezar();
+            return;
+        }
+        if (state == AppState.STATE_RECUPERAR) {
+            if (recuperacion != null && !action.equals("")) {
+                seguirInterrumpida();
+            }
             return;
         }
         if (state == AppState.STATE_ENVIO) {

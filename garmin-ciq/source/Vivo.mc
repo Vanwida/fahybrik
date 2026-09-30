@@ -94,11 +94,37 @@ class Vivo {
         Grabacion.apagarSensores();
     }
 
+    // Seguir una sesión interrumpida: sin cuenta atrás, en el paso donde iba.
+    function seguir(chk as Lang.Dictionary, s as Sesion) as Void {
+        ctl.sesion = s;
+        inicioEpoch = Json.num(chk, "inicio", Time.now().value());
+        prepararBrief();
+        var g = new Grabacion();
+        g.crear(s);
+        grabacion = g;
+        var m = new Motor(s, inicioEpoch, g);
+        motor = m;
+        ctl.state = AppState.STATE_VIVO;
+        m.restaurar(chk);
+        WatchUi.requestUpdate();
+    }
+
+    // La app se cierra con una sesión en curso: se guarda el FIT y el checkpoint (nada se pierde).
+    function alSalir() as Void {
+        if (motor != null && !(motor as Motor).terminado && grabacion != null) {
+            (motor as Motor).guardarCheckpoint();
+            (grabacion as Grabacion).terminar(true);
+        }
+    }
+
     // ── cuenta atrás 3-2-1 ───────────────────────────────────────────────────
 
     // START en el brief. `started_at` se fija y se guarda ANTES de grabar: el reintento manda el mismo.
     function empezar() as Void {
         inicioEpoch = Time.now().value();
+        // started_at se guarda ANTES de grabar: si la app muere, el reintento manda el mismo.
+        var s = ctl.sesion as Sesion;
+        Store.escribir(Config.STORE_CHECKPOINT, { "id" => s.asignacionId, "huella" => s.huella, "inicio" => inicioEpoch, "paso" => 0, "sesS" => 0, "dm" => 0, "ppmS" => 0, "ppmN" => 0, "ppmM" => 0, "tramos" => [], "vueltas" => [] });
         var g = new Grabacion();
         g.crear(ctl.sesion as Sesion);
         grabacion = g;
@@ -325,6 +351,7 @@ class Vivo {
     function finalizar() as Void {
         var m = motor as Motor;
         var ok = (grabacion as Grabacion).terminar(true);
+        Store.borrar(Config.STORE_CHECKPOINT);
         m.sinGrabar = m.sinGrabar || !ok;
         rpe = null;
         rpeElegido = RPE_INICIAL;

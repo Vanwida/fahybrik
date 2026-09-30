@@ -179,3 +179,13 @@ function terminarAntesDejaLoHechoComoParcial(logger as Test.Logger) as Lang.Bool
     m.terminarAntes();
     return m.terminado && !m.completa && m.tramos.size() == Motor.T_LARGO && m.tramos[Motor.T_CIERRE] == Motor.CIERRE_INCOMPLETO;
 }
+
+(:test)
+function seguirUnaSesionInterrumpidaRetomaEnSuPasoYSuTiempo(logger as Test.Logger) as Lang.Boolean {
+    var s = MotorTest.sesionDe("479");
+    var m = new Motor(s, 1000, new Grabacion());
+    var chk = { "id" => 479, "huella" => s.huella, "inicio" => 1000, "paso" => 3, "sesS" => 600, "dm" => 15000, "ppmS" => 1000, "ppmN" => 10, "ppmM" => 170, "tramos" => [0, 0, 300, 900, 0, 0, 0, 0, 0], "vueltas" => [0, 300, 900, 3330] };
+    m.restaurar(chk);
+    // Retoma en el paso 3 con los 10 min hechos, 1500 m y el tramo ya cerrado.
+    return m.i == 3 && m.sesionS() >= 600 && m.sesionS() <= 602 && m.totalM() >= 1500 && m.tramos.size() == Motor.T_LARGO && m.pasoS() <= 2;
+}

@@ -88,6 +88,13 @@
     <string id="EnvioSinGrabar">Sin grabación</string>
     <string id="EnvioSinGrabarCuerpo">Este reloj no ha guardado la actividad. El resultado sí sube.</string>
 
+    <string id="TitleRecuperar">Sesión interrumpida</string>
+    <string id="BodyRecuperarA">Llevabas </string>
+    <string id="BodyRecuperarB"> min. ¿Seguimos?</string>
+    <string id="NoteRecuperar">BACK · guardar lo hecho</string>
+    <string id="ActionSeguir">Seguir</string>
+    <string id="BodyRecuperarSinPlan">El plan ya no es el mismo. Pulsa BACK para guardar lo hecho.</string>
+
     <!-- Fallos -->
     <string id="TitleNoConnection">Sin conexión</string>
     <string id="BodyNoConnection">Acerca el móvil con Bluetooth encendido, o conéctate al WiFi.</string>

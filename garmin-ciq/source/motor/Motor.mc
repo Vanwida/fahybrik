@@ -92,6 +92,8 @@ class Motor {
 
     // La sesión entera.
     var sesDm as Lang.Number;
+    // Metros (en decímetros) de una grabación anterior de esta misma sesión (si se sigue tras una interrupción).
+    var dmBase as Lang.Number;
     var sesPpmSuma as Lang.Number;
     var sesPpmN as Lang.Number;
     var sesPpmMax as Lang.Number;
@@ -159,6 +161,7 @@ class Motor {
         pasoPpmN = 0;
         pasoPpmMax = 0;
         sesDm = 0;
+        dmBase = 0;
         sesPpmSuma = 0;
         sesPpmN = 0;
         sesPpmMax = 0;
@@ -234,6 +237,32 @@ class Motor {
         tick();
     }
 
+    // Sigue una sesión interrumpida (G10): NUEVA grabación, MISMA sesión (mismo started_at y assignment_id;
+    // el servidor las une). Retoma en el paso donde iba, con lo cerrado hasta el checkpoint.
+    function restaurar(chk as Lang.Dictionary) as Void {
+        var paso = Json.num(chk, "paso", 0);
+        i = paso < s.pasos.size() ? paso : s.pasos.size() - 1;
+        var t = chk.get("tramos");
+        tramos = t instanceof Lang.Array ? t : [] as Lang.Array<Lang.Number>;
+        var v = chk.get("vueltas");
+        vueltas = v instanceof Lang.Array ? v : [] as Lang.Array<Lang.Number>;
+        dmBase = Json.num(chk, "dm", 0);
+        sesDm = dmBase;
+        sesPpmSuma = Json.num(chk, "ppmS", 0);
+        sesPpmN = Json.num(chk, "ppmN", 0);
+        sesPpmMax = Json.num(chk, "ppmM", 0);
+        var ya = Json.num(chk, "sesS", 0) * MS;
+        relojInicioMs = System.getTimer() - ya;
+        vueltaDesdeMs = ya;
+        vueltaDesdeDm = dmBase;
+        for (var k = 0; k + V_LARGO <= vueltas.size(); k += V_LARGO) {
+            vueltaN += vueltas[k + V_TIPO] == 1 ? 1 : 0;
+        }
+        sinGrabar = !grabacion.iniciar();
+        iniciarPaso(sesionMs());
+        tick();
+    }
+
     function iniciarPaso(desdeMs as Lang.Number) as Void {
         pasoInicioSesMs = desdeMs;
         pasoInicioDm = sesDm;
@@ -249,6 +278,7 @@ class Motor {
         var o = pasoActual().principal();
         grabacion.fijarPaso(i, o == null ? null : o.min);
         armarFilas();
+        guardarCheckpoint();
     }
 
     // ── el segundo ───────────────────────────────────────────────────────────
@@ -261,7 +291,7 @@ class Motor {
         var nowMs = sesionMs();
         var info = Activity.getActivityInfo();
         if (info != null && info.elapsedDistance != null) {
-            sesDm = (info.elapsedDistance * DM_POR_M).toNumber();
+            sesDm = dmBase + (info.elapsedDistance * DM_POR_M).toNumber();
         }
         var hr = info != null ? info.currentHeartRate : null;
         lectura.ppm = hr == null ? null : hr * DECI;
