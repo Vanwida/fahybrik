@@ -17,6 +17,7 @@ import {
   addPersonalTramoToChain,
   updatePersonalTramoMeta,
 } from '@/lib/dashboard/coach/personal-plan-chain-mutations';
+import { programWeeksLimitMessage } from '@fahybrid/shared/domain/coach/program-months';
 import { loadCoachMaxMicrocicloWeeks } from '@/lib/coach/microcycle-limits';
 import { coachActor } from '@/lib/audit/record-edit';
 import { closeTestSql, describeWithDb, getTestSql } from '../utils/test-db';
@@ -69,7 +70,7 @@ describeWithDb('tope de semanas de un microciclo, por coach (DB real)', () => {
     } catch (e) {
       err = e as ProgramMonthError;
     }
-    expect(err!.message).toBe('Un bloque tuyo no pasa de 8 semanas.');
+    expect(err!.message).toBe(programWeeksLimitMessage(8));
 
     const created = await createMonthTemplateWithEmptyWeeks({
       coach_id: fx.coachId,

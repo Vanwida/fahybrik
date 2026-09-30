@@ -49,7 +49,7 @@ import { EntityPicker, type PickerItem } from './EntityPicker';
 import { useGroupOptions } from './GroupPicker';
 import { searchAthletes } from './pickers';
 import { localToday, mondayLabel, shortDate, upcomingMondays } from './format';
-import { deliveryLine } from './logic';
+import { assignedToast, deliveryLine } from './logic';
 import { CONFLICT_ITEMS, DELIVERY_ITEMS, MONDAYS_AHEAD, useProgramsAndSetting } from './assign-sheet-data';
 
 export interface AssignSheetProps {
@@ -223,15 +223,9 @@ export function AssignSheet({
       if (!applied) throw new Error('sin lote');
       onAssigned?.(applied);
       const name = selectedProgram?.name ?? res.preview.program?.name ?? 'Programa';
+      const summary = assignedToast(res, name);
       toast({
-        title: `«${name}» asignado a ${applied.assigned}`,
-        description:
-          applied.failed > 0
-            ? `${applied.failed} no se ${applied.failed === 1 ? 'pudo' : 'pudieron'} asignar`
-            : applied.skipped > 0
-              ? `${applied.skipped} saltados`
-              : undefined,
-        tone: applied.failed > 0 ? 'warn' : 'ok',
+        ...summary,
         undo: applied.assigned > 0 ? () => undo(applied.batch_id) : undefined,
       });
       if (applied.failed > 0) setFailed(applied);

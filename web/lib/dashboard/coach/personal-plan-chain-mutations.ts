@@ -36,6 +36,7 @@ import { insertEmptyPersonalMonthTemplate } from './personal-plans';
 import {
   MICROCICLO_MIN_WEEKS,
   MICROCICLO_ABSOLUTE_MAX_WEEKS,
+  programWeeksLimitMessage,
 } from '@fahybrid/shared/domain/coach/program-months';
 import { loadCoachMaxMicrocicloWeeks } from '@/lib/coach/microcycle-limits';
 import {
@@ -130,7 +131,7 @@ export async function addPersonalTramoToChain(params: {
     if (body.week_count > maxWeeks) {
       throw new PersonalChainError(
         'week_count_too_long',
-        `Un bloque tuyo no pasa de ${maxWeeks} ${maxWeeks === 1 ? 'semana' : 'semanas'}.`,
+        programWeeksLimitMessage(maxWeeks),
         400,
       );
     }
@@ -346,7 +347,7 @@ export async function updatePersonalTramoMeta(params: {
       if (targetWeekCount > maxWeeks) {
         throw new PersonalChainError(
           'week_count_too_long',
-          `Un bloque tuyo no pasa de ${maxWeeks} ${maxWeeks === 1 ? 'semana' : 'semanas'}.`,
+          programWeeksLimitMessage(maxWeeks),
           400,
         );
       }

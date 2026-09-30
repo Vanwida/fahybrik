@@ -5,10 +5,10 @@
 // ven (sin recortar el segundo de un día, R4). Arrastrar mueve (a hoy o después),
 // «+» añade, clic abre el panel que ES el editor.
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { CalWeek, FichaCalendar } from '@/lib/dashboard/v2/atleta-detalle-types';
-import { canDropOn, maxDayLoad } from '@/lib/dashboard/v2/ficha-calendar-model';
+import { canDropOn, maxDayLoad, startsProgram } from '@/lib/dashboard/v2/ficha-calendar-model';
 import { dayOfMonth, dayLabel } from '@/lib/dashboard/v2/ficha-dates';
 import { weekRowLabel } from '@/lib/dashboard/v2/ficha-format';
 import { useFicha } from '../FichaContext';
@@ -43,6 +43,11 @@ function WeekRow({
       <div role="rowheader" className="flex flex-col border-r border-v2-border px-2 py-2">
         <span className="t-meta font-semibold text-v2-muted t-tnum">{a}</span>
         <span className="t-meta text-v2-faint">{b}</span>
+        {week.program ? (
+          <span className="t-meta text-v2-faint t-tnum" title={`${week.program.name} · semana ${week.program.week} de ${week.program.weeks}`}>
+            S{week.program.week}
+          </span>
+        ) : null}
         {week.due > 0 ? (
           <span className="mt-auto pt-1 t-meta text-v2-faint t-tnum" title="Debidas hechas esa semana">
             {week.done}/{week.due}
@@ -147,16 +152,29 @@ export function Calendar({ cal, onMove }: { cal: FichaCalendar; onMove: (id: str
           Semana
         </div>
       </div>
-      {cal.weeks.map((w) => (
-        <WeekRow
-          key={w.week_start}
-          week={w}
-          today={cal.today}
-          max={max}
-          dragging={dragging}
-          setDragging={setDragging}
-          onMove={onMove}
-        />
+      {cal.weeks.map((w, i) => (
+        <Fragment key={w.week_start}>
+          {startsProgram(w, cal.weeks[i - 1]) ? (
+            // Dónde empieza cada programa: las semanas no llevan su nombre en las tarjetas.
+            <div role="row" className="border-b border-v2-border bg-v2-surface-2 px-3 py-1">
+              <span role="gridcell" className="t-label text-v2-muted">
+                {w.program!.name}
+                <span className="font-normal text-v2-faint t-tnum">
+                  {' '}
+                  · {w.program!.weeks} {w.program!.weeks === 1 ? 'semana' : 'semanas'}
+                </span>
+              </span>
+            </div>
+          ) : null}
+          <WeekRow
+            week={w}
+            today={cal.today}
+            max={max}
+            dragging={dragging}
+            setDragging={setDragging}
+            onMove={onMove}
+          />
+        </Fragment>
       ))}
     </div>
   );

@@ -23,6 +23,7 @@
 import { DEFAULT_LEVEL_AXIS_LABEL } from '@fahybrid/shared/domain/coach/level-axis';
 import type { PendingQuery, Row } from 'postgres';
 import { sql } from '@/lib/db';
+import { libraryEntrenoScope } from '@/lib/dashboard/coach/library-scope';
 
 /** A composable SQL fragment (what `sql`…`` returns before it is awaited). */
 type Fragment = PendingQuery<Row[]>;
@@ -169,8 +170,7 @@ async function searchLibrary(coach: number, tokens: string[], phrase: string): P
       select t.id::text as id, 'entreno'::text as kind, t.name,
              case when ${allTokensIn(tNorm, tokens)} then ${rankOf(tNorm, phrase)} else 3 end as rnk
       from templates t
-      where t.coach_id = ${coach} and t.archived_at is null and t.instance_athlete_id is null
-        and not exists (select 1 from coach_calibration_tests ct where ct.template_id = t.id)
+      where t.coach_id = ${coach} and t.archived_at is null and ${libraryEntrenoScope(sql)}
         and (
           ${allTokensIn(tNorm, tokens)}
           or exists (select 1 from template_segments sg join exercises e on e.id = sg.exercise_id

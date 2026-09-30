@@ -43,6 +43,14 @@ export const MICROCICLO_MIN_WEEKS = 1;
 export const MICROCICLO_DEFAULT_MAX_WEEKS = 8;
 export const MICROCICLO_ABSOLUTE_MAX_WEEKS = 26;
 
+/** Dónde cambia el coach el tope de semanas de un programa. */
+export const PROGRAM_WEEKS_LIMIT_WHERE = 'Ajustes › Plan del atleta';
+
+/** Lo que se le dice al coach cuando un programa pasa de SU tope: cuál es y dónde se cambia. */
+export function programWeeksLimitMessage(maxWeeks: number): string {
+  return `Tu tope es de ${maxWeeks} ${maxWeeks === 1 ? 'semana' : 'semanas'} por programa. Puedes cambiarlo en ${PROGRAM_WEEKS_LIMIT_WHERE}.`;
+}
+
 /**
  * Body validation for POST /api/coach/program-months/create — the AGNOSTIC
  * "create from scratch" flow. A microciclo's identity = name + level

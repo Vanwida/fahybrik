@@ -89,6 +89,11 @@ export interface AssignPreview {
   /** Semanas que se materializan por atleta desde `start_week`. */
   weeks: number;
   sessions_per_athlete: number;
+  /**
+   * Sesiones del programa (desde `start_week`) que NO llegan al atleta, o llegan
+   * incompletas, con el motivo ya redactado. Mismo criterio que la materialización.
+   */
+  dropped_sessions: Array<{ week_number: number; session_lost: boolean; message: string }>;
   athletes: AssignPreviewAthlete[];
   counts: Record<AssignAction, number> & { total: number };
 }

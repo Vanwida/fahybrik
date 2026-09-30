@@ -355,10 +355,20 @@ export interface CalDay {
   sessions: CalSession[];
 }
 
+/** El programa al que pertenece una semana del calendario (recibo del atleta). */
+export interface CalWeekProgram {
+  name: string;
+  /** Semana del programa (1 = la primera) y cuántas tiene. */
+  week: number;
+  weeks: number;
+}
+
 export interface CalWeek {
   week_start: string;
   days: CalDay[];
   state: AthleteWeekState;
+  /** De qué programa es la semana; null si no viene de uno de biblioteca (o no se sabe). */
+  program?: CalWeekProgram | null;
   /** Minutos escritos de la semana y si hay entrenos «abiertos». */
   planned_min: number;
   planned_open: number;

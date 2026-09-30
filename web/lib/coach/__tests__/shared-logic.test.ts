@@ -161,7 +161,7 @@ describe('buildSetupChecklist', () => {
     });
     expect(c.steps.find((x) => x.key === 'primer_entreno')?.detail).toBe('1 entreno en tu biblioteca');
     expect(c.steps.find((x) => x.key === 'primer_plan')?.detail).toBe('95 atletas con programa');
-    expect(c.steps.find((x) => x.key === 'primera_semana')?.detail).toBe('94 atletas ven su semana');
+    expect(c.steps.find((x) => x.key === 'primera_semana')?.detail).toBe('94 atletas tienen alguna semana visible en su app');
     expect(c.steps.find((x) => x.key === 'agenda')?.detail).toBe('3 franjas · cupo 40');
   });
 });
