@@ -9,11 +9,10 @@ import SwiftUI
 
 // MARK: - Slot picker sheet
 //
-// The athlete browses the offered slots (grouped by day) and reserves ONE. Mirrors
-// BuscarCarreraSheet's shape: own NavigationStack, cancel toolbar, loading / error /
-// empty / list states off Theme tokens. Booking is SELECT → CONFIRM (never a raw
-// single tap) — a review creates a real Meet + calendar event for the coach and the
-// athlete has no self-cancel flow, so a deliberate confirm prevents misfires.
+// El atleta ve los huecos ofrecidos (por día) y reserva UNO. Reservar es ELEGIR → CONFIRMAR (nunca un toque
+// suelto): una revisión crea un Meet y un evento de calendario reales para el coach y el atleta no tiene
+// cómo cancelarla, así que confirmar a propósito evita los toques sin querer. La hoja es `MarcoDeHojaDia`:
+// el cuerpo scrollea y la confirmación queda anclada abajo, siempre a la vista.
 struct ReviewSlotPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -31,112 +30,98 @@ struct ReviewSlotPickerSheet: View {
     @State private var booking = false
     @State private var bookError: String?
 
-    /// Adaptive time-pill grid — fills the row, wraps, no manual column math.
-    private let gridColumns = [GridItem(.adaptive(minimum: 74), spacing: 8)]
+    /// La rejilla de horas: rellena la fila, salta de línea y no hace cuentas de columnas a mano. 88 pt cabe
+    /// «18:30» en una pastilla de 44 de alto con el texto del sistema por defecto.
+    private let gridColumns = [GridItem(.adaptive(minimum: 88), spacing: Theme.Spacing.s)]
 
+    @ViewBuilder
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.Color.background.ignoresSafeArea()
-                VStack(spacing: 0) {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                            intro
-                            content
-                        }
-                        .padding(.horizontal, Theme.Spacing.xl)
-                        .padding(.top, Theme.Spacing.l)
-                        .padding(.bottom, Theme.Spacing.xxl)
-                    }
-                    if !slots.isEmpty {
-                        confirmBar
-                    }
-                }
-            }
-            .navigationTitle("Reserva tu revisión")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }
-                        .tint(Theme.Color.accentText)
-                }
+        Group {
+            if slots.isEmpty {
+                MarcoDeHojaDia("Reserva tu revisión", cerrar: { dismiss() }) { cuerpo }
+            } else {
+                MarcoDeHojaDia("Reserva tu revisión", cerrar: { dismiss() }) { cuerpo } accion: { confirmacion }
             }
         }
         .task { await reload() }
     }
 
-    // MARK: Sections
+    // MARK: Secciones
+
+    private var cuerpo: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            intro
+            contenido
+        }
+    }
 
     private var intro: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs + 2) {
             Text("\(CoachRef.start(coachFirstName)) te propone una revisión")
-                .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
+                .papel(.cuerpoFuerte)
                 .foregroundStyle(Theme.Color.foreground)
                 .fixedSize(horizontal: false, vertical: true)
             Text("Elige el hueco que mejor te venga. Son 30 minutos por videollamada.")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
+                .papel(.cuerpo)
+                .foregroundStyle(Theme.Color.foreground)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     @ViewBuilder
-    private var content: some View {
+    private var contenido: some View {
         if loading {
-            ProgressView()
-                .controlSize(.large)
-                .tint(Theme.Color.accentText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Spacing.xxl)
+            esqueleto
         } else if loadFailed {
-            errorState
-        } else if slots.isEmpty {
-            emptyState
-        } else {
-            slotList
-        }
-    }
-
-    private var errorState: some View {
-        VStack(spacing: Theme.Spacing.m) {
-            emptyBlock(
-                symbol: "wifi.exclamationmark",
-                title: "No pudimos cargar los huecos",
-                message: "Revisa tu conexión e inténtalo de nuevo."
-            )
-            Button {
-                Task { await reload() }
-            } label: {
-                Text("Reintentar")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
+            AvisoEnLineaDia("No pudimos cargar los huecos. Revisa tu conexión e inténtalo de nuevo.") {
+                BotonTextoDia("Reintentar", tono: .tinta) { Task { await reload() } }
             }
-            .buttonStyle(PressScaleStyle())
+        } else if slots.isEmpty {
+            vacio
+        } else {
+            listaDeHuecos
         }
-        .padding(.top, Theme.Spacing.l)
     }
 
-    private var emptyState: some View {
-        emptyBlock(
-            symbol: "calendar.badge.clock",
-            title: "Sin huecos ahora mismo",
-            message: "\(CoachRef.start(coachFirstName)) te escribirá para cuadrar la llamada."
-        )
-        .padding(.top, Theme.Spacing.l)
+    /// La misma forma que lo que llega: el rótulo de un día y dos filas de horas.
+    private var esqueleto: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            SkeletonBar(width: 140, height: 20)
+            LazyVGrid(columns: gridColumns, alignment: .leading, spacing: Theme.Spacing.s) {
+                ForEach(0..<6, id: \.self) { _ in SkeletonBar(height: 44, radius: 22) }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cargando huecos")
     }
 
-    private var slotList: some View {
+    /// Sin huecos no es un error: el coach cuadra la llamada por otro lado, y eso se dice.
+    private var vacio: some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.m) {
+            FichaDia(.calendario)
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                Text("Sin huecos ahora mismo")
+                    .papel(.cuerpoFuerte)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text("\(CoachRef.start(coachFirstName)) te escribirá para cuadrar la llamada.")
+                    .papel(.cuerpo)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(Theme.Spacing.l)
+        .tarjetaDia(alAncho: true)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var listaDeHuecos: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.l) {
             ForEach(slots) { day in
-                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                    SectionLabel(text: ReviewDateFormat.dayHeader(fromISODate: day.date))
-                    LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                    SubtituloDia(ReviewDateFormat.dayHeader(fromISODate: day.date))
+                    LazyVGrid(columns: gridColumns, alignment: .leading, spacing: Theme.Spacing.s) {
                         ForEach(day.slots) { slot in
-                            ReviewSlotPill(
-                                time: slot.time,
-                                selected: selected?.ms == slot.ms
-                            ) {
-                                Haptics.light()
+                            ChipFiltroDia(texto: slot.time, elegido: selected?.ms == slot.ms) {
                                 selected = slot
                                 bookError = nil
                             }
@@ -147,44 +132,18 @@ struct ReviewSlotPickerSheet: View {
         }
     }
 
-    // MARK: Confirm bar (pinned)
+    // MARK: Confirmación (anclada)
 
-    private var confirmBar: some View {
-        VStack(spacing: 8) {
-            if let bookError {
-                Text(bookError)
-                    .scaledFont(12, weight: .semibold, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.danger)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .multilineTextAlignment(.center)
-            }
-            Button {
-                confirm()
-            } label: {
-                Group {
-                    if booking {
-                        ProgressView().tint(Theme.Color.accentOn)
-                    } else {
-                        Text(confirmTitle)
-                            .font(.system(size: 16, weight: .heavy, design: .default).italic())
-                            .tracking(1)
-                    }
-                }
-                .foregroundStyle(Theme.Color.accentOn)
-                .frame(maxWidth: .infinity)
-                .frame(height: 54)
-            }
-            .buttonStyle(AccentFillButtonStyle(enabled: selected != nil && !booking, radius: Theme.Radius.l))
-            .disabled(selected == nil || booking)
-            .accessibilityLabel(confirmTitle)
-        }
-        .padding(.horizontal, Theme.Spacing.xl)
-        .padding(.top, Theme.Spacing.m)
-        .padding(.bottom, Theme.Spacing.l)
-        .background(
-            Theme.Color.background
-                .overlay(Hairline(), alignment: .top)
-                .ignoresSafeArea(edges: .bottom)
+    @ViewBuilder
+    private var confirmacion: some View {
+        if let bookError { AvisoEnLineaDia(bookError) }
+        BotonAccionDia(
+            hoja: confirmTitle,
+            activo: selected != nil,
+            ocupado: booking,
+            textoOcupado: "Reservando…",
+            voz: "Reservando la revisión",
+            accion: confirm
         )
     }
 
@@ -239,27 +198,6 @@ struct ReviewSlotPickerSheet: View {
             }
         }
     }
-
-    // MARK: Empty/error block
-
-    private func emptyBlock(symbol: String, title: String, message: String) -> some View {
-        VStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 30, weight: .regular))
-                .foregroundStyle(Theme.Color.faint)
-            Text(title)
-                .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .multilineTextAlignment(.center)
-            Text(message)
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, Theme.Spacing.xl)
-    }
 }
 
 // MARK: - Coach reference copy
@@ -270,34 +208,4 @@ struct ReviewSlotPickerSheet: View {
 private enum CoachRef {
     /// Sentence-start reference: "Pablo" / "Tu coach".
     static func start(_ firstName: String?) -> String { firstName ?? "Tu coach" }
-    /// Mid-sentence reference: "con Pablo" / "con tu coach".
-    static func mid(_ firstName: String?) -> String { firstName ?? "tu coach" }
-}
-
-// MARK: - Slot time pill
-
-private struct ReviewSlotPill: View {
-    let time: String
-    let selected: Bool
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            Text(time)
-                .font(.system(size: 14, weight: .semibold, design: .monospaced).monospacedDigit())
-                .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.foreground)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(selected ? Theme.Color.accent : Theme.Color.surfaceElevated)
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                        .stroke(selected ? Color.clear : Theme.Color.hairlineStrong, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("\(time)\(selected ? ", seleccionado" : "")")
-        .accessibilityAddTraits(selected ? .isSelected : [])
-    }
 }

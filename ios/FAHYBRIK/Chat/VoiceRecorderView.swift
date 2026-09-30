@@ -39,7 +39,7 @@ struct NotaDeVozHoja: View {
     let alAbrirAjustes: () -> Void
 
     var body: some View {
-        MarcoDeHojaChat("Nota de voz", cerrar: alCerrar) {
+        MarcoDeHojaDia("Nota de voz", cerrar: alCerrar) {
             contenido
                 .frame(maxWidth: .infinity, minHeight: Self.altoDelCuerpo)
         } accion: {
@@ -132,16 +132,16 @@ struct NotaDeVozHoja: View {
     private var accion: some View {
         switch lectura.fase {
         case .idle:
-            BotonAccionChat("Grabar nota de voz", completa: true, accion: alGrabar)
+            BotonAccionDia("Grabar nota de voz", relleno: .acento, completa: true, alto: Theme.Size.accionAnclada, impacto: .medio, accion: alGrabar)
         case .recording:
-            BotonAccionChat("Detener", completa: true, accion: alParar)
+            BotonAccionDia("Detener", relleno: .acento, completa: true, alto: Theme.Size.accionAnclada, impacto: .medio, accion: alParar)
         case .recorded:
-            BotonAccionChat("Enviar", completa: true, accion: alEnviar)
-            BotonTextoChat("Repetir", accion: alRepetir) {
+            BotonAccionDia("Enviar", relleno: .acento, completa: true, alto: Theme.Size.accionAnclada, impacto: .medio, accion: alEnviar)
+            BotonTextoDia("Repetir", centrado: true, accion: alRepetir, icono: {
                 IconoDia(.reintentar, tam: 18, peso: .bold)
-            }
+            })
         case .denied:
-            BotonAccionChat("Abrir Ajustes", completa: true, accion: alAbrirAjustes)
+            BotonAccionDia("Abrir Ajustes", relleno: .acento, completa: true, alto: Theme.Size.accionAnclada, impacto: .medio, accion: alAbrirAjustes)
         }
     }
 }

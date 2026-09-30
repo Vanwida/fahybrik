@@ -77,7 +77,7 @@ struct MarcasBibliotecaCuerpo: View {
             MarcasBiblioteca(grupos: grupos, bearer: bearer, hrZones: hrZones)
         case .error:
             sujeto {
-                ErrorDeMarcas(
+                SujetoErrorDia(
                     kicker: "Tus marcas",
                     titulo: "No pudimos cargar tus marcas",
                     apoyo: "Revisa tu conexión e inténtalo de nuevo.",

@@ -28,7 +28,7 @@ struct FilaZonaTests: View {
             if let umbral = fila.umbral {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(umbral)
-                        .papel(.cuerpoFuerte).monospacedDigit()
+                        .papel(.cifra)
                         .foregroundStyle(Theme.Color.foreground)
                     Text("umbral")
                         .papel(.nota)
@@ -56,7 +56,7 @@ struct ZonasDeTests: View {
                 Hairline()
                 filaEsqueleto
             }
-            .tarjetaDeTests(alAncho: true)
+            .tarjetaDia(alAncho: true)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Cargando tus zonas")
         case .sinZonas:
@@ -65,9 +65,9 @@ struct ZonasDeTests: View {
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(rellenoDeTarjeta)
-                .tarjetaDeTests(alAncho: true)
+                .tarjetaDia(alAncho: true)
         case .filas(let filas):
-            ListaDeTests {
+            ListaDia {
                 ForEach(filas) { FilaZonaTests(fila: $0) }
             }
         }
@@ -167,14 +167,14 @@ struct TarjetaTest: View {
                 }
                 marcas
                 if ficha.falloAlPreparar {
-                    AvisoEnLineaTests("No se pudo preparar el test. Inténtalo de nuevo.")
+                    AvisoEnLineaDia("No se pudo preparar el test. Inténtalo de nuevo.")
                 }
             }
             .padding(rellenoDeTarjeta)
             Hairline()
             boton
         }
-        .tarjetaDeTests(realce: ficha.estado.pideUnActo, alAncho: true)
+        .tarjetaDia(realce: ficha.estado.pideUnActo, alAncho: true)
         .accessibilityElement(children: .contain)
     }
 
@@ -212,7 +212,7 @@ struct TarjetaTest: View {
             }
         case .ultima(let texto):
             HStack(alignment: .lastTextBaseline, spacing: Theme.Spacing.s) {
-                Text(texto).papel(.cuerpoFuerte).monospacedDigit().foregroundStyle(Theme.Color.foreground)
+                Text(texto).papel(.cifra).foregroundStyle(Theme.Color.foreground)
                 Text("último resultado").papel(.nota).foregroundStyle(Theme.Color.muted)
             }
         case .primera:
@@ -231,7 +231,7 @@ struct TarjetaTest: View {
             if case .probarme(let preparando, _) = accion { return preparando }
             return false
         }()
-        return BotonTextoTests(
+        return BotonTextoDia(
             accion.titulo,
             tono: .acento,
             desactivado: !accion.habilitada,
@@ -304,6 +304,6 @@ struct TestsHubEsqueleto: View {
                 .padding(.horizontal, rellenoDeTarjeta)
                 .frame(minHeight: Theme.Size.toque)
         }
-        .tarjetaDeTests(alAncho: true)
+        .tarjetaDia(alAncho: true)
     }
 }

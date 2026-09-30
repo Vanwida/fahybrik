@@ -7,7 +7,7 @@ import SwiftUI
 // mismo sitio: la ficha del tipo (con el acento del club si la fila aún te reclama) o, en una tarea, el
 // círculo con que se cierra desde la propia lista.
 //
-// La fila no es una tarjeta: vive dentro de una (`ListaDeFilasComunicado`, o la de la pregunta). Sí lleva su padding y su
+// La fila no es una tarjeta: vive dentro de una (`ListaDia`, o la de la pregunta). Sí lleva su padding y su
 // área táctil entera.
 
 /// El círculo con que se cierra una tarea desde la lista. `onTap` nulo = ya está cerrada y es un sello.
@@ -65,7 +65,7 @@ struct FilaComunicado<Pie: View>: View {
             BotonMarcarComunicado(hecho: marca.hecho, etiqueta: marca.etiqueta, onTap: marca.onTap)
         } else {
             FichaDia(tono: comunicado.reclama && comunicado.kind.pideAccion ? .realce : .normal) {
-                IconoSF(comunicado.kind.simbolo, tam: 24)
+                Image(systemName: comunicado.kind.simbolo).font(.system(size: 24, weight: .semibold))
             }
                 // El área táctil de la columna es la de la fila; la ficha (44) se centra en los 48.
                 .frame(width: Theme.Size.toque, height: Theme.Size.toque)
