@@ -17,6 +17,7 @@ import { MIcon } from '@/components/ui/MIcon';
 import { Plus, TriangleAlert, X, Zap } from 'lucide-react';
 import { Button, IconButton, Input } from '@/components/v2/ui';
 import {
+  runStructureIssues,
   structureBars,
   structureTotals,
   totalsSentence,
@@ -153,6 +154,7 @@ export function RunStructureForm({
 
   const active = phaseFor(activeRole) ?? phaseFor('main')!;
   const totals = structureTotals(structure);
+  const issues = runStructureIssues(structure);
 
   return (
     <div className="space-y-3">
@@ -247,6 +249,9 @@ export function RunStructureForm({
       {/* Active phase editor */}
       <PhaseEditor elements={active.elements} onChange={(elements) => setPhaseElements(active.role, elements)} />
 
+      {/* Lo que el servidor no aceptaría, dicho antes de guardar (solo un tramo que ya venía así). */}
+      {issues.length > 0 ? <IssuesBar issues={issues} /> : null}
+
       {/* La sesión suma — the coach's mental math, done for him */}
       <p className="pt-1 t-meta font-semibold text-[color:var(--v2-faint)]">
         {totalsSentence(totals)}
@@ -282,6 +287,22 @@ function ConfirmBar({
       <Button size="sm" onClick={onCancel}>
         Cancelar
       </Button>
+    </div>
+  );
+}
+
+function IssuesBar({ issues }: { issues: string[] }) {
+  return (
+    <div role="alert" className="flex items-start gap-2 rounded-ctl bg-v2-warn-soft px-3 py-2">
+      <TriangleAlert aria-hidden strokeWidth={2} className="mt-0.5 size-4 shrink-0 text-v2-warn" />
+      <div className="min-w-0 flex-1 t-body-sm text-v2-fg">
+        <p className="font-semibold">Con esto no se podrá guardar:</p>
+        <ul className="list-inside list-disc">
+          {issues.map((message) => (
+            <li key={message}>{message}</li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

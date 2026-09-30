@@ -9,6 +9,7 @@
 // always-on chips the old drawer stacked twelve-high per segment.
 
 import type { RecoveryMode, Segment } from '@fahybrid/shared/domain/prescription';
+import type { RunAlertDirection, RunEnvironment } from '@fahybrid/shared/domain/prescription/run-structure';
 import { cn } from '@/lib/utils';
 import { MIcon } from '@/components/ui/MIcon';
 import { NumberCell } from '../../fields';
@@ -16,9 +17,10 @@ import { InlineToggle } from '../form-controls';
 import { segmentSentence } from '@/lib/dashboard/v2/run-structure-view';
 import { PaceRuler } from '../../run-zones-context';
 import { MeasureCell, ObjetivoCell } from './segment-controls';
-import { canWrapInRepeat } from './tree-ops';
-import { ArrowDown, ArrowUp, ChevronUp, ChevronsUpDown, Repeat, Trash2, X, type LucideIcon } from 'lucide-react';
-import { Button, IconButton } from '@/components/v2/ui';
+import { canWrapInRepeat, type OptionalSegmentField } from './tree-ops';
+import { Button } from '@/components/v2/ui';
+import { AddChip, IconBtn } from './row-atoms';
+import { SegmentWristFields } from './SegmentWristFields';
 
 const RECOVERY_MODES: { value: RecoveryMode; label: string }[] = [
   { value: 'trote', label: 'Trote' },
@@ -31,35 +33,17 @@ export interface RowHandlers {
   setMeasure: (path: number[], measure: Segment['measure']) => void;
   setTarget: (path: number[], target: Segment['target']) => void;
   patchSegment: (path: number[], patch: Partial<Segment>) => void;
-  removeField: (path: number[], field: 'incline_pct' | 'cadence_spm') => void;
+  removeField: (path: number[], field: OptionalSegmentField) => void;
+  /** Dónde se corre; null = sin decir. Elegir pista quita la inclinación. */
+  setEnvironment: (path: number[], environment: RunEnvironment | null) => void;
+  /** La frase para el reloj; null la quita. */
+  setCue: (path: number[], cue: string | null) => void;
+  /** Hacia dónde avisa el tramo; null = el defecto del método del coach. */
+  setAlert: (path: number[], alert: RunAlertDirection | null) => void;
   setRecoveryMode: (path: number[], mode: RecoveryMode) => void;
   remove: (path: number[]) => void;
   move: (path: number[], dir: -1 | 1) => void;
   wrap: (path: number[]) => void;
-}
-
-const ICONS: Record<string, LucideIcon> = {
-  arrow_upward: ArrowUp,
-  arrow_downward: ArrowDown,
-  delete: Trash2,
-  repeat: Repeat,
-  unfold_more: ChevronsUpDown,
-  expand_less: ChevronUp,
-  close: X,
-};
-
-export function IconBtn({
-  icon,
-  label,
-  onClick,
-  disabled,
-}: {
-  icon: keyof typeof ICONS;
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return <IconButton icon={ICONS[icon] ?? X} size="sm" label={label} disabled={disabled} onClick={onClick} className="size-6 w-6" />;
 }
 
 export function SegmentRow({
@@ -181,6 +165,9 @@ export function SegmentRow({
           />
         </div>
       )}
+
+      {/* Lo del reloj y del entorno: opcional siempre, detrás de sus chips. */}
+      <SegmentWristFields segment={segment} path={path} handlers={handlers} />
     </div>
   );
 }
@@ -193,13 +180,17 @@ function WorkExtras({
 }: {
   segment: Segment;
   onPatch: (patch: Partial<Segment>) => void;
-  onRemoveField: (field: 'incline_pct' | 'cadence_spm') => void;
+  onRemoveField: (field: OptionalSegmentField) => void;
 }) {
   const hasIncline = segment.incline_pct !== undefined;
   const hasCadence = segment.cadence_spm !== undefined;
+  // La pista es plana (no hay inclinación que poner; si un tramo antiguo la trae,
+  // se ve para poder quitarla) y en cinta la inclinación vive junto al entorno,
+  // en «Dónde se corre».
+  const inclineHere = segment.environment === 'pista' ? hasIncline : segment.environment !== 'cinta';
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
-      {hasIncline ? (
+      {!inclineHere ? null : hasIncline ? (
         <label className="flex items-center gap-1.5">
           <span className="t-meta text-v2-muted">Inclin.</span>
           <NumberCell value={segment.incline_pct ?? null} ariaLabel="Inclinación (%)" min={0} max={15} step={0.5} suffix="%" className="w-16" onChange={(v) => onPatch({ incline_pct: v ?? 0 })} />
@@ -218,14 +209,5 @@ function WorkExtras({
         <AddChip icon="footprint" label="Cadencia" onClick={() => onPatch({ cadence_spm: 180 })} />
       )}
     </div>
-  );
-}
-
-function AddChip({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
-  return (
-    <Button size="sm" variant="ghost" onClick={onClick}>
-      <MIcon name={icon} size={14} />
-      {label}
-    </Button>
   );
 }

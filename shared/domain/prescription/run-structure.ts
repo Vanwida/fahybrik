@@ -202,9 +202,9 @@ const segmentSchema = z
     cue: z
       .string()
       .trim()
-      .min(1)
-      .max(RUN_CUE_MAX_LENGTH)
-      .regex(/^[^\r\n]+$/, 'el cue va en una sola línea')
+      .min(1, 'La frase del reloj no puede quedar vacía.')
+      .max(RUN_CUE_MAX_LENGTH, `La frase del reloj admite hasta ${RUN_CUE_MAX_LENGTH} caracteres.`)
+      .regex(/^[^\r\n]+$/, 'La frase del reloj va en una sola línea.')
       .optional(),
     alert: z.enum(RUN_ALERT_DIRECTIONS).optional(),
   })
@@ -256,7 +256,7 @@ function validateSegment(seg: Segment, ctx: z.RefinementCtx, path: (string | num
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: [...path, 'incline_pct'],
-      message: 'la pista no tiene inclinación: usa cinta o calle para una cuesta',
+      message: 'La pista no tiene inclinación: usa cinta o calle para una cuesta.',
     });
   }
   // Un aviso necesita algo que medir en vivo. Un RPE o un tramo sin objetivo no lo tienen.
@@ -264,7 +264,7 @@ function validateSegment(seg: Segment, ctx: z.RefinementCtx, path: (string | num
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: [...path, 'alert'],
-      message: 'un aviso necesita un objetivo de ritmo, zona o pulso que medir',
+      message: 'Un aviso necesita un objetivo de ritmo, zona o pulso que medir.',
     });
   }
   // pace target must carry a value or a band, and min_s<=max_s.

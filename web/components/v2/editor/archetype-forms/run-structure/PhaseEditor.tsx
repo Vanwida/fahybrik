@@ -15,7 +15,8 @@ import { isRepeat } from '@fahybrid/shared/domain/prescription';
 import { MIcon } from '@/components/ui/MIcon';
 import { NumberCell } from '../../fields';
 import { elementSentence } from '@/lib/dashboard/v2/run-structure-view';
-import { SegmentRow, IconBtn, type RowHandlers } from './SegmentRow';
+import { SegmentRow, type RowHandlers } from './SegmentRow';
+import { IconBtn } from './row-atoms';
 import {
   appendInto,
   canAddRepeatInto,
@@ -26,12 +27,15 @@ import {
   elementAt,
   moveAt,
   removeAt,
+  mapSegmentAt,
   removeSegmentField,
   setRepeatTimes,
   toKind,
   unwrapRepeat,
   updateElement,
   updateSegment,
+  withEnvironment,
+  withTarget,
   wrapInRepeat,
 } from './tree-ops';
 import { Button } from '@/components/v2/ui';
@@ -70,9 +74,16 @@ export function PhaseEditor({ elements, onChange }: { elements: Element[]; onCha
       if (s) onChange(updateElement(elements, path, toKind(s, kind)));
     },
     setMeasure: (path, measure) => onChange(updateSegment(elements, path, { measure })),
-    setTarget: (path, target) => onChange(updateSegment(elements, path, { target })),
+    // Un objetivo que no se puede medir (RPE, libre) suelta el aviso del tramo.
+    setTarget: (path, target) => onChange(mapSegmentAt(elements, path, (s) => withTarget(s, target))),
     patchSegment: (path, patch) => onChange(updateSegment(elements, path, patch)),
     removeField: (path, field) => onChange(removeSegmentField(elements, path, field)),
+    setEnvironment: (path, environment) =>
+      onChange(mapSegmentAt(elements, path, (s) => withEnvironment(s, environment))),
+    setCue: (path, cue) =>
+      onChange(cue === null ? removeSegmentField(elements, path, 'cue') : updateSegment(elements, path, { cue })),
+    setAlert: (path, alert) =>
+      onChange(alert === null ? removeSegmentField(elements, path, 'alert') : updateSegment(elements, path, { alert })),
     setRecoveryMode: (path, mode: RecoveryMode) => {
       const s = elementAt(elements, path) as Segment | undefined;
       const patch: Partial<Segment> = { recovery_mode: mode };
