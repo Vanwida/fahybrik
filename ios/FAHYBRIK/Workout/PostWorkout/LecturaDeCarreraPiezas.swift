@@ -110,13 +110,14 @@ private struct FilaDeSerie: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.s) {
             Text("\(r.n)")
-                .font(.system(size: 13, weight: .bold, design: .monospaced).monospacedDigit())
+                .papel(.notaPesada)
+                .monospacedDigit()
                 .foregroundStyle(Theme.Color.faint)
-                .frame(width: 16, alignment: .leading)
+                .frame(minWidth: 22, alignment: .leading)
             Text(medida)
-                .scaledFont(12, weight: .medium, relativeTo: .caption)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
-                .lineLimit(1)
+                .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if let cifra {
                 MonoText(text: cifra, size: 17, weight: .bold, color: Theme.Color.foreground)
@@ -124,9 +125,9 @@ private struct FilaDeSerie: View {
             // El pulso de la repetición solo si se midió. Nunca un hueco con unidad.
             if let ppm = r.fcMediaPpm {
                 Text("\(Int(ppm.rounded()))")
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced).monospacedDigit())
+                    .papel(.notaFuerte).monospacedDigit()
                     .foregroundStyle(Theme.Color.faint)
-                    .frame(width: 42, alignment: .trailing)
+                    .frame(minWidth: 44, alignment: .trailing)
             }
             if let veredicto, veredicto != .sinDato {
                 PastillaDeVeredicto(veredicto: veredicto)
@@ -182,22 +183,22 @@ private struct FilaDeRecuperacion: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.s) {
             Text(detalle)
-                .scaledFont(11, weight: .medium, relativeTo: .caption2)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.faint)
-                .lineLimit(1)
+                .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
             // Parado no tiene ritmo, y no se le inventa uno. Trotando sí, y es
             // dato: es la diferencia entre respetar la recuperación y correrla.
             if let skm = r.ritmoSkm {
                 Text(Formato.ritmo(skm, .porKm))
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced).monospacedDigit())
+                    .papel(.notaFuerte).monospacedDigit()
                     .foregroundStyle(seFue ? Theme.Color.warning : Theme.Color.muted)
             }
             if let ppm = r.fcMediaPpm {
                 Text("\(Int(ppm.rounded()))")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced).monospacedDigit())
+                    .papel(.nota).monospacedDigit()
                     .foregroundStyle(Theme.Color.faint)
-                    .frame(width: 42, alignment: .trailing)
+                    .frame(minWidth: 44, alignment: .trailing)
             }
             if seFue {
                 Text("Te fuiste")
@@ -302,9 +303,9 @@ struct TablaDeKilometros: View {
                                  color: Theme.Color.foreground)
                         if let ppm = k.fcMediaPpm {
                             Text("\(Int(ppm.rounded()))")
-                                .font(.system(size: 12, weight: .semibold, design: .monospaced).monospacedDigit())
+                                .papel(.notaFuerte).monospacedDigit()
                                 .foregroundStyle(Theme.Color.faint)
-                                .frame(width: 42, alignment: .trailing)
+                                .frame(minWidth: 44, alignment: .trailing)
                         }
                     } else {
                         // Ni una casilla vacía ni un guion: el kilómetro existió, y
