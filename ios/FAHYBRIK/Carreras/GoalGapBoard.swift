@@ -1,42 +1,33 @@
 import SwiftUI
 
-// "Camino al objetivo" — the gap board (pure presentation). One row per race
-// segment: your level TODAY against what the objective asks, segment by segment.
+// «CAMINO AL OBJETIVO» — el tablero de tramos (solo presentación). Una fila por tramo de la carrera:
+// tu nivel de HOY contra lo que pide el objetivo, tramo a tramo.
 //
-// Visual language (rev. 2 — Alex: "está todo naranja, el objetivo de otro color"):
-//   • The bar is your PREDICTED time; the dashed INK tick is the objective's
-//     budget — deliberately NOT an accent color so it reads against any fill.
-//   • Fill color is SEMANTIC: green (ok) when the segment is at/under budget;
-//     over budget = accent up to the tick + a DANGER (red) tail for the excess,
-//     so an all-over day reads as "how much red", not a wall of orange.
-//   • Fill OPACITY still encodes the evidence tier — solid = `observado`,
-//     45% = `estimado`, empty + italic "sin datos" = nothing logged yet.
-//   • The signed delta matches the tail: danger when over, green when under.
+// Lenguaje visual (rev. 3, piel «El día»):
+//   · La barra es tu PREDICHO; la marca punteada en TINTA es lo que pide el objetivo (tinta, no un
+//     color: tiene que leerse sobre cualquier relleno).
+//   · El relleno es SEMÁNTICO: verde cuando el tramo está dentro de lo que pide; pasado, la parte que
+//     cubres va en un neutro fuerte y el EXCESO en rojo, así que «cuánto me paso» es literalmente
+//     cuánto rojo hay. El acento del club NO pinta datos (CONTRATO-UI §11.1): antes esa parte era
+//     naranja y el tablero entero se leía como una pared del color de la marca.
+//   · La OPACIDAD del relleno dice la evidencia: sólido = observado en esfuerzos reales, translúcido =
+//     estimado por tu ritmo umbral; «sin datos» = barra vacía y la frase.
+//   · La cifra con signo va en tinta; el sentido lo dicen la flecha (con su color) y el signo.
 //
-// The board renders ONLY the segments (legend · rows · footer). The hero total
-// ("Predicho hoy") lives in `RaceDetailView` above it, so the number the athlete
-// reads first isn't duplicated here. `GoalGap` decodes resiliently upstream
-// (GoalGapService) — an unknown tier degrades to a neutral, visible fill rather
-// than taking the payload down. Brand accent is orange as a STATE, never a row's
-// identity (the label carries that).
+// El total («Predicho hoy») NO se repite aquí: es el sujeto del detalle, encima. Espejo del gap
+// individual y del de la pareja (`DoblesRaceGapSection`), que usan esta misma barra y esta leyenda.
 
-// MARK: - Shared bar visual language (tier fills + geometry + legend)
-//
-// One source of truth for the gap-board bar look, shared by the individual goal
-// board (GoalGapBoard) AND the Dobles pair board (DoblesRaceGapView) so the two
-// surfaces can never drift: same per-tier fill opacity, same track height, same
-// green/red/ink legend, same `GapTrack`.
+// MARK: - El lenguaje de la barra (compartido con el tablero de la pareja)
 
-/// Per-tier fill opacities + the track geometry — one source of truth so the
-/// legend swatches and the bars can never drift apart.
+/// Opacidades por evidencia y la geometría de la pista: una sola fuente para que la leyenda y las
+/// barras no puedan separarse.
 enum GoalGapVis {
-    static let fillObservado: Double = 1.0   // real efforts → solid
-    static let fillEstimado: Double = 0.45   // threshold pace → translucent
-    static let fillUnknown: Double = 0.70     // a tier we haven't shipped copy for
+    static let fillObservado: Double = 1.0   // esfuerzos reales → sólido
+    static let fillEstimado: Double = 0.45   // ritmo umbral → translúcido
+    static let fillUnknown: Double = 0.70    // una evidencia que la app aún no conoce: visible, no desaparece
     static let trackHeight: CGFloat = 14
 
-    /// Evidence tier → bar fill opacity. Unknown tiers stay visible (0.70) rather
-    /// than vanishing — honest degradation.
+    /// Evidencia → opacidad del relleno.
     static func fillOpacity(tier: String) -> Double {
         switch tier.lowercased() {
         case "observado": return fillObservado
@@ -44,206 +35,192 @@ enum GoalGapVis {
         default:          return fillUnknown
         }
     }
+
+    /// La parte del tramo que cubres cuando te pasas: un neutro fuerte, no el acento del club.
+    static var cubierto: Color { Theme.Color.apoyoFuerte }
 }
 
-/// Green = at/under budget · red tail = the excess · ink dashed = objetivo. The
-/// board legend, shared so both gap surfaces read the bars the same way.
+/// Verde = dentro · rojo = lo que te pasas · punteado = el objetivo. La leyenda de los dos tableros.
 struct GoalGapLegend: View {
-    private enum LegendSwatch { case fill(Color), dashed }
+    private enum Muestra { case relleno(Color), punteado }
 
     var body: some View {
-        HStack(spacing: 14) {
-            legendKey(swatch: .fill(Theme.Color.ok), text: "dentro")
-            legendKey(swatch: .fill(Theme.Color.danger), text: "te pasas")
-            legendKey(swatch: .dashed, text: "objetivo")
+        // Con texto grande las tres claves no caben en una fila: pasan a columna, nunca se cortan.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Theme.Spacing.l) { claves }
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) { claves }
         }
         .accessibilityHidden(true)
     }
 
-    private func legendKey(swatch: LegendSwatch, text: String) -> some View {
-        HStack(spacing: 5) {
+    @ViewBuilder
+    private var claves: some View {
+        clave(.relleno(Theme.Color.ok), "dentro")
+        clave(.relleno(Theme.Color.danger), "te pasas")
+        clave(.punteado, "objetivo")
+    }
+
+    private func clave(_ muestra: Muestra, _ texto: String) -> some View {
+        HStack(spacing: 6) {
             Group {
-                switch swatch {
-                case let .fill(color):
-                    RoundedRectangle(cornerRadius: 2).fill(color)
-                case .dashed:
-                    RoundedRectangle(cornerRadius: 2)
+                switch muestra {
+                case .relleno(let color):
+                    RoundedRectangle(cornerRadius: 3).fill(color)
+                case .punteado:
+                    RoundedRectangle(cornerRadius: 3)
                         .stroke(Theme.Color.foreground, style: StrokeStyle(lineWidth: 1.5, dash: [2, 2]))
                 }
             }
-            .frame(width: 14, height: 8)
-            Text(text)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(Theme.Color.muted)
+            .frame(width: 16, height: 10)
+            Text(texto).papel(.nota).foregroundStyle(Theme.Color.muted)
         }
     }
 }
 
-// MARK: - Board (pure presentation)
+/// La diferencia de un tramo contra lo que pide: la flecha con su color (sube = te pasas, baja = vas
+/// dentro) y la cifra con signo en tinta. Nada a cero ni sin dato.
+struct DeltaDeTramo: View {
+    let deltaS: Int?
+
+    var body: some View {
+        if let deltaS, deltaS != 0 {
+            HStack(spacing: 2) {
+                IconoDia(deltaS > 0 ? .sube : .baja, tam: 13, peso: .bold)
+                    .foregroundStyle(deltaS > 0 ? Theme.Color.danger : Theme.Color.ok)
+                Text(GoalGapFormat.signedDuration(deltaS))
+                    .papel(.rotulo)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.Color.foreground)
+            }
+        }
+    }
+}
+
+// MARK: - El tablero
 
 struct GoalGapBoard: View {
     let gap: GoalGap
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            GoalGapLegend()
-            VStack(alignment: .leading, spacing: 13) {
-                ForEach(gap.segments) { segment in
-                    segmentRow(segment)
+        VStack(alignment: .leading, spacing: Theme.Spacing.m - 2) {
+            VStack(spacing: 0) {
+                GoalGapLegend()
+                    .padding(.horizontal, Theme.Spacing.l)
+                    .padding(.vertical, Theme.Spacing.m)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(gap.segments) { segmento in
+                    Rectangle().fill(Theme.Color.hairline).frame(height: 1)
+                    fila(segmento)
+                        .padding(.horizontal, Theme.Spacing.l)
+                        .padding(.vertical, Theme.Spacing.m - 2)
                 }
             }
-            footer
+            .tarjetaCarreras()
+            Text("La barra es tu predicho de hoy; la marca punteada, lo que pide tu objetivo, y el tramo rojo, lo que hoy te sobra. Sólido = observado en esfuerzos reales; translúcido = estimado por tu ritmo umbral.")
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    // MARK: - Segment rows
-
     @ViewBuilder
-    private func segmentRow(_ segment: GoalGapSegment) -> some View {
-        if segment.isSinDatos {
-            gatedRow(segment)
-        } else if segment.isRoxzone {
-            roxzoneRow(segment)
+    private func fila(_ segmento: GoalGapSegment) -> some View {
+        if segmento.isSinDatos {
+            filaSinDatos(segmento)
+        } else if segmento.isRoxzone {
+            filaRoxzone(segmento)
         } else {
-            standardRow(segment)
+            filaNormal(segmento)
         }
     }
 
-    /// Tier → bar fill opacity (shared with the Dobles board via GoalGapVis).
-    private func fillOpacity(_ segment: GoalGapSegment) -> Double {
-        GoalGapVis.fillOpacity(tier: segment.tier)
-    }
-
-    // A run leg / work station: name · (delta + predicted time) · the bar with a
-    // tier-opacity fill and the objective's dashed budget tick.
-    private func standardRow(_ segment: GoalGapSegment) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(segment.labelEs)
-                    .font(.system(size: 13, weight: .semibold))
+    // Un tramo de carrera o una estación: nombre · diferencia · predicho, y la barra con la marca.
+    private func filaNormal(_ segmento: GoalGapSegment) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m - 2) {
+                Text(segmento.labelEs)
+                    .papel(.cuerpoFuerte)
                     .foregroundStyle(Theme.Color.foreground)
-                Spacer(minLength: 8)
-                HStack(spacing: 8) {
-                    deltaText(segment.deltaS)
-                    // Sin predicho no hay cifra que pintar: la fila se queda con
-                    // su nombre y su barra, que ya dicen la verdad (§7).
-                    if let predicho = durationText(segment.predictedS) {
-                        Text(predicho)
-                            .font(.system(size: 13, weight: .medium, design: .monospaced).monospacedDigit())
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                DeltaDeTramo(deltaS: segmento.deltaS)
+                // Sin predicho no hay cifra: la fila se queda con su nombre y su barra, que ya dicen la verdad (§7).
+                if let predicho = segmento.predictedS {
+                    Text(Formato.clock(predicho, enHoras: false))
+                        .papel(.cuerpoFuerte)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.Color.foreground)
                 }
             }
-            GapTrack(
-                predicted: segment.predictedS,
-                budget: segment.budgetS,
-                fillOpacity: fillOpacity(segment)
-            )
-            .frame(height: GoalGapVis.trackHeight)
+            GapTrack(predicted: segmento.predictedS, budget: segmento.budgetS, fillOpacity: GoalGapVis.fillOpacity(tier: segmento.tier))
+                .frame(height: GoalGapVis.trackHeight)
+            if segmento.tier.lowercased() == "estimado" {
+                Text("estimado").papel(.nota).foregroundStyle(Theme.Color.muted)
+            }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(rowAccessibilityLabel(segment))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(voz(segmento))
     }
 
-    /// Signed segment delta: danger (red) when over budget — matching the bar's
-    /// excess tail — green when under, nothing at exactly on-budget (or absent).
-    /// Real minus (U+2212) via the shared formatter so it matches every other
-    /// signed delta in the app.
-    @ViewBuilder
-    private func deltaText(_ deltaS: Int?) -> some View {
-        if let deltaS, deltaS != 0 {
-            Text(GoalGapFormat.signedDuration(deltaS))
-                .font(.system(size: 11, weight: .semibold, design: .monospaced).monospacedDigit())
-                .foregroundStyle(deltaS > 0 ? Theme.Color.danger : Theme.Color.ok)
-        }
-    }
-
-    // RoxZone — the transitions. Muted + compact so the totals close without
-    // competing with the stations you actually train to beat.
-    private func roxzoneRow(_ segment: GoalGapSegment) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(segment.labelEs)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Theme.Color.faint)
-            Spacer(minLength: 8)
-            if let predicho = durationText(segment.predictedS) {
-                Text(predicho)
-                    .font(.system(size: 12, weight: .medium, design: .monospaced).monospacedDigit())
+    // La RoxZone (las transiciones): sin barra ni diferencia, para que los totales cierren sin competir
+    // con las estaciones que de verdad entrenas.
+    private func filaRoxzone(_ segmento: GoalGapSegment) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m - 2) {
+            Text(segmento.labelEs).papel(.cuerpo).foregroundStyle(Theme.Color.muted)
+            Spacer(minLength: Theme.Spacing.m)
+            if let predicho = segmento.predictedS {
+                Text(Formato.clock(predicho, enHoras: false))
+                    .papel(.cuerpo)
+                    .monospacedDigit()
                     .foregroundStyle(Theme.Color.muted)
             }
         }
-        .padding(.vertical, 2)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(segment.labelEs), \(durationText(segment.predictedS) ?? "sin tiempo")")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(segmento.labelEs), \(segmento.predictedS.map { Formato.clock($0, enHoras: false) } ?? "sin tiempo")")
     }
 
-    // No data yet — the row still holds its place: name, an italic "sin datos",
-    // and an EMPTY track (the objective's tick still shows if it has a budget).
-    private func gatedRow(_ segment: GoalGapSegment) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(segment.labelEs)
-                    .font(.system(size: 13, weight: .semibold))
+    // Aún sin datos: la fila guarda su sitio — nombre, «sin datos» y la pista VACÍA (con la marca del
+    // objetivo si la hay). Se llena con una práctica de estación, y eso se dice.
+    private func filaSinDatos(_ segmento: GoalGapSegment) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m - 2) {
+                Text(segmento.labelEs)
+                    .papel(.cuerpoFuerte)
                     .foregroundStyle(Theme.Color.foreground)
-                Spacer(minLength: 8)
-                Text("sin datos")
-                    .font(.system(size: 12, weight: .medium).italic())
-                    .foregroundStyle(Theme.Color.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("sin datos").papel(.nota).italic().foregroundStyle(Theme.Color.muted)
             }
-            GapTrack(predicted: nil, budget: segment.budgetS, fillOpacity: 0)
+            GapTrack(predicted: nil, budget: segmento.budgetS, fillOpacity: 0)
                 .frame(height: GoalGapVis.trackHeight)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(segment.labelEs), sin datos todavía. Registra una práctica de estación y aparece aquí.")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(segmento.labelEs), sin datos todavía. Registra una práctica de estación y aparece aquí.")
     }
 
-    // MARK: - Footer
-
-    private var footer: some View {
-        Text("La barra es tu predicho de hoy; la marca punteada, lo que pide tu objetivo, y el tramo rojo, lo que hoy te sobra. Sólido = observado en esfuerzos reales; translúcido = estimado por tu ritmo umbral.")
-            .font(.system(size: 11))
-            .foregroundStyle(Theme.Color.faint)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.top, Theme.Spacing.xs)
-    }
-
-    // MARK: - Helpers
-
-    /// El reloj de carrera en minutos corridos ("63:45") — el marco sub-X habla
-    /// en minutos. NIL cuando no hay tiempo: lo que no se sabe no se pinta (§7),
-    /// y decide qué decir en su lugar quien pinta, no el formateador.
-    private func durationText(_ seconds: Int?) -> String? {
-        seconds.map { GoalGapFormat.raceClock($0) }
-    }
-
-    private func rowAccessibilityLabel(_ segment: GoalGapSegment) -> String {
-        var parts = [segment.labelEs]
-        if let tier = segment.tierLabel { parts.append(tier) }
-        parts.append(durationText(segment.predictedS) ?? "sin tiempo")
-        if let d = segment.deltaS, d != 0 {
-            parts.append(d > 0
-                ? "faltan \(Formato.clock(Double(d)))"
-                : "\(Formato.clock(Double(abs(d)))) por delante")
+    private func voz(_ segmento: GoalGapSegment) -> String {
+        var partes = [segmento.labelEs]
+        if let evidencia = segmento.tierLabel { partes.append(evidencia) }
+        partes.append(segmento.predictedS.map { Formato.clock($0, enHoras: false) } ?? "sin tiempo")
+        if let d = segmento.deltaS, d != 0 {
+            partes.append(d > 0 ? "te pasas \(Formato.clock(d))" : "\(Formato.clock(-d)) por dentro")
         }
-        return parts.joined(separator: ", ")
+        return partes.joined(separator: ", ")
     }
 }
 
-// MARK: - Gap track (tier-opacity fill + dashed budget tick)
+// MARK: - La pista (relleno por evidencia + marca del objetivo)
 
-/// The per-segment bar, SEMANTIC by state (rev. 2): at/under budget → one green
-/// fill (you're inside the objective); over budget → accent fill up to the tick
-/// plus a DANGER tail for the excess, so "how over am I" is literally the amount
-/// of red. Fill OPACITY still encodes the evidence tier. The dashed tick is INK
-/// (foreground) — the objective must contrast against every fill. Scaled to the
-/// LARGER of predicted/budget so a 31-minute run and a 3-minute station each read
-/// within their own row. A `sin_datos` segment (predicted nil, opacity 0) draws
-/// no fill — just the empty track and, if it has a budget, the tick.
+/// La barra de un tramo, SEMÁNTICA por estado: dentro de lo que pide → un relleno verde; pasado → la
+/// parte que cubres (neutro fuerte) hasta la marca y una cola ROJA con el exceso, así que lo que te
+/// pasas es la cantidad de rojo. La opacidad dice la evidencia. La marca punteada es TINTA: el objetivo
+/// tiene que contrastar sobre cualquier relleno. Escala al MAYOR de predicho/objetivo, para que un tramo
+/// de 31 minutos y una estación de 3 se lean cada uno en su fila. Sin predicho (opacidad 0) no hay
+/// relleno: la pista vacía y, si hay objetivo, su marca.
 struct GapTrack: View {
-    /// Over budget must ALWAYS show some red: the accent "earned" stretch is clamped
-    /// to leave at least this much danger tail, so a slight overage (predicted only
-    /// just past the tick) never vanishes under the accent painted on top.
-    private static let minOverageTail: CGFloat = 6
+    /// Pasado de lo que pide SIEMPRE se ve algo de rojo: la parte cubierta se recorta para dejar al menos
+    /// esta cola, y un exceso pequeño no desaparece debajo.
+    private static let colaMinima: CGFloat = 6
 
     let predicted: Int?
     let budget: Int?
@@ -252,56 +229,42 @@ struct GapTrack: View {
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width
-            let maxVal = max(predicted ?? 0, budget ?? 0)
-            let targetFrac: Double? = (budget != nil && maxVal > 0)
-                ? Double(budget!) / Double(maxVal)
-                : nil
+            let maximo = max(predicted ?? 0, budget ?? 0)
+            let fraccionObjetivo: Double? = (budget != nil && maximo > 0) ? Double(budget!) / Double(maximo) : nil
 
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Theme.Color.surfaceSunken)
-                if let predicted, maxVal > 0, fillOpacity > 0 {
-                    let fillFrac = Double(predicted) / Double(maxVal)
-                    let fillWidth = max(6, w * CGFloat(fillFrac))
+                Capsule().fill(Theme.Color.superficieDeGrafico)
+                if let predicted, maximo > 0, fillOpacity > 0 {
+                    let ancho = max(6, w * CGFloat(Double(predicted) / Double(maximo)))
                     if let budget, predicted > budget {
-                        // Over budget: the excess tail first (full predicted width,
-                        // danger), then the earned stretch up to the tick (accent)
-                        // painted on top — the red that remains IS the overage. The
-                        // accent is clamped to leave at least `minOverageTail`, so a
-                        // slight overage keeps a visible red tail (never inverted /
-                        // never negative — `max(0,…)` guards a degenerate track).
-                        let earned = max(6, w * CGFloat(targetFrac ?? 0))
-                        let accentWidth = min(earned, max(0, fillWidth - Self.minOverageTail))
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        let cubierto = max(6, w * CGFloat(fraccionObjetivo ?? 0))
+                        Capsule()
                             .fill(Theme.Color.danger.opacity(fillOpacity))
-                            .frame(width: fillWidth)
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(Theme.Color.accent.opacity(fillOpacity))
-                            .frame(width: accentWidth)
+                            .frame(width: ancho)
+                        Capsule()
+                            .fill(GoalGapVis.cubierto.opacity(fillOpacity))
+                            .frame(width: min(cubierto, max(0, ancho - Self.colaMinima)))
                     } else {
-                        // At or under budget: the whole segment is inside the
-                        // objective → green, headroom stays sunken.
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        Capsule()
                             .fill(Theme.Color.ok.opacity(fillOpacity))
-                            .frame(width: fillWidth)
+                            .frame(width: ancho)
                     }
                 }
-                if let targetFrac {
-                    // 20pt tall over a 14pt track → the ZStack centers it with a
-                    // symmetric 3pt overhang top and bottom. Ink, not muted: the
-                    // objective mark must survive on top of any fill color.
-                    VLine()
+                if let fraccionObjetivo {
+                    // 20 pt sobre una pista de 14: asoma 3 pt por arriba y por abajo.
+                    MarcaDelObjetivo()
                         .stroke(Theme.Color.foreground, style: StrokeStyle(lineWidth: 2, dash: [3, 2]))
                         .frame(width: 2, height: 20)
-                        .offset(x: w * CGFloat(targetFrac) - 1)
+                        .offset(x: w * CGFloat(fraccionObjetivo) - 1)
                 }
             }
         }
+        .accessibilityHidden(true)
     }
 }
 
-/// A vertical line down the middle of its rect — the dashed budget tick.
-private struct VLine: Shape {
+/// Una línea vertical por el centro de su marco: la marca del objetivo.
+private struct MarcaDelObjetivo: Shape {
     func path(in rect: CGRect) -> Path {
         var p = Path()
         p.move(to: CGPoint(x: rect.midX, y: rect.minY))
@@ -310,21 +273,15 @@ private struct VLine: Shape {
     }
 }
 
-// MARK: - Preview (contract-exact sample — mirrors mockup Pantalla B)
+// MARK: - Ejemplo (el contrato exacto del cable)
 
 #if DEBUG
-#Preview("Camino al objetivo") {
-    ScrollView {
-        GoalGapBoard(gap: GoalGap.previewSample)
-            .padding(20)
-    }
-    .background(Theme.Color.background)
-}
+#Preview("Camino al objetivo · fábrica") { EnAmbasDia { GoalGapBoard(gap: GoalGap.previewSample) } }
+#Preview("Camino al objetivo · club azul") { EnAmbasDia(club: .pruebaAzul) { GoalGapBoard(gap: GoalGap.previewSample) } }
 
 extension GoalGap {
-    /// The mockup's numbers, decoded through the REAL wire path so the preview
-    /// exercises the exact snake_case contract the endpoint ships (incl. the
-    /// roxzone row and a sin_datos gated row).
+    /// Los números del ejemplo, decodificados por el MISMO camino que el cable (snake_case incluido):
+    /// con la RoxZone y un tramo sin datos.
     static let previewSample: GoalGap = {
         let json = """
         {
