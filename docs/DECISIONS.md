@@ -25,7 +25,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 - Que el reloj no deje activar las carreras es un aviso de FALLO (antes salía como un aviso de éxito con otro texto).
 - Copy: «weaknesses» y «CTL/ATL/TSB» salen de la hoja del coach (vocabulario, CONTRATO-UI §3).
 
-**No hacer:** una hoja o pantalla de Perfil con su propia cabecera, su propio botón anclado o texto por debajo de 15 pt; volver a dar a un estado el color del acento del club. Vigilado por `SecundariasPerfilDisenoTests`; se ve en `GaleriaSecPerfilRenderTests` y `GaleriaSecPerfilCifrasRenderTests`.
+**No hacer:** una hoja o pantalla de Perfil con su propia cabecera, su propio botón anclado o texto por debajo de 15 pt; volver a dar a un estado el color del acento del club. Por orden de Alex esta tanda NO lleva pruebas nuevas ni galerías: el suelo de 15 pt y la piel vieja los vigila `PerfilDisenoTests` solo en los ficheros `Perfil*`; ampliar su lista a las pantallas secundarias es lo primero que conviene añadir.
 
 ## 2026-09-30 · Analíticas del iPhone, segunda tanda y cierre: el detalle de las cuatro familias y de la sesión con «El día», y fuera la pestaña vieja
 
