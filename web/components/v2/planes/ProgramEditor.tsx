@@ -370,6 +370,7 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
       ) : null}
       {detail && detailDay ? (
         <CellDetailSheet
+          key={`${detail.row}:${detail.col}`}
           open
           onOpenChange={(o) => { if (!o) { setDetail(null); focusGrid(); } }}
           row={detail.row}
@@ -402,7 +403,7 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
         onOpenChange={(o) => { if (!o) setConfirmRest(null); }}
         size="sm"
         title="¿Marcar como descanso?"
-        description={confirmRest ? `El ${DAY_NAMES[confirmRest.col]} de la semana ${confirmRest.row + 1} tiene entreno. Pasa a ser día de descanso y el entreno se quita (puedes deshacerlo).` : undefined}
+        description={confirmRest ? `El ${DAY_NAMES[confirmRest.col]} de la semana ${confirmRest.row + 1} tiene contenido escrito (entreno, notas o sugerencias). Pasa a ser día de descanso y ese contenido se quita (puedes deshacerlo).` : undefined}
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirmRest(null)}>

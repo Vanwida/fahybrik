@@ -7,7 +7,7 @@ import type { WeekDay, WeekDayPart } from '@fahybrid/shared/schema/program-templ
 import type { V2Modality } from '@/components/v2/constants';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
 import { modalityForGroup } from '@/lib/dashboard/v2/planes-model';
-import { cellState, type CellState } from './grid-model';
+import { cellState, hasAuthoredContent, type CellState } from './grid-model';
 import { itemPrescription } from './progress-ops';
 
 export interface CellLine {
@@ -28,6 +28,17 @@ export interface CellSummary {
   entrenos: CellEntreno[];
   /** Modalidad que domina el día (color del filo de la celda). */
   modality: V2Modality | null;
+  /**
+   * Lo escrito en un día sin entreno ni descanso (solo foco o notas): la celda lo
+   * enseña en vez de pintarse «Vacío». null si el día no tiene nada escrito.
+   */
+  note: string | null;
+}
+
+/** Primer texto escrito de un día sin entreno (foco o notas, del día o de sus sesiones). */
+function writtenNote(day: WeekDay): string | null {
+  const texts = [day.focus, day.notes, ...day.sessions.flatMap((s) => [s.focus, s.notes])];
+  return texts.map((t) => t?.trim()).find((t): t is string => !!t) ?? null;
 }
 
 const LETTERS = 'ABCDEFGHIJKLMNOP';
@@ -70,7 +81,9 @@ export function blockLine(block: WeekDayPart, index: number): CellLine {
 
 export function summarizeCell(day: WeekDay | null | undefined): CellSummary {
   const state = cellState(day);
-  if (!day || state !== 'workout') return { state, entrenos: [], modality: null };
+  if (!day || state !== 'workout') {
+    return { state, entrenos: [], modality: null, note: state === 'empty' && day && hasAuthoredContent(day) ? (writtenNote(day) ?? 'Con contenido') : null };
+  }
   const counts = new Map<V2Modality, number>();
   const entrenos: CellEntreno[] = day.sessions
     .filter((s) => s.kind === 'workout')
@@ -90,14 +103,14 @@ export function summarizeCell(day: WeekDay | null | undefined): CellSummary {
       best = n;
     }
   }
-  return { state, entrenos, modality };
+  return { state, entrenos, modality, note: null };
 }
 
 /** Una línea de texto por celda para lectores de pantalla y avisos. */
 export function cellAriaText(day: WeekDay | null | undefined): string {
   const s = summarizeCell(day);
   if (s.state === 'rest') return 'Descanso';
-  if (s.state === 'empty') return 'Vacío';
+  if (s.state === 'empty') return s.note ? `Solo notas: ${s.note}` : 'Vacío';
   return s.entrenos
     .map((e) => [e.title, ...e.lines.map((l) => `${l.letter} ${l.text}`)].filter(Boolean).join(', '))
     .join('; ');
