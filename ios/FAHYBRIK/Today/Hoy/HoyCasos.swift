@@ -67,7 +67,7 @@ enum HoyCasos {
     static let base = LecturaHoy(
         nombre: "Nora", fecha: fecha, hora: "7:40", conCoach: true, coach: "Mar", iniciales: "NR", fotoURL: nil,
         noLeidosChat: 0, comunicados: 0, checkinPendiente: false, cargando: false,
-        disposicion: .medida(score: 84, delta7d: 6, senales: senales(checkin: true, hrv: "68 ms", sueno: "7,4 h", fc: "48 ppm")),
+        disposicion: .medida(score: 84, zona: ReadinessZone.of(score: 84), delta7d: 6, senales: senales(checkin: true, hrv: "68 ms", sueno: "7,4 h", fc: "48 ppm")),
         camino: carrera("HYROX Barcelona", dias: 39, meta: "Sub-65", fase: "Construcción · semana 4 de 12", semana: (4, 12), foto: 0),
         simulacion: .programada(dia: "el sábado", hoy: false),
         hoy: .sesiones([sesion("Series 6×800", .run)]),
@@ -91,7 +91,7 @@ enum HoyCasos {
         caso("manana", "② Iván · 6:55, check-in por hacer",
              "Hay número (lo dio el reloj) pero el check-in matinal sigue pendiente y su señal está apagada. El check-in ES el sujeto: cinco toques y pasa a lo siguiente.") {
             $0.nombre = "Iván"; $0.iniciales = "IV"; $0.hora = "6:55"; $0.checkinPendiente = true
-            $0.disposicion = .medida(score: 71, delta7d: 2, senales: senales(hrv: "55 ms", sueno: "6,8 h", fc: "52 ppm"))
+            $0.disposicion = .medida(score: 71, zona: ReadinessZone.of(score: 71), delta7d: 2, senales: senales(hrv: "55 ms", sueno: "6,8 h", fc: "52 ppm"))
             $0.hoy = .sesiones([sesion("Fuerza tren inferior", .strength)])
             $0.pasos = .cifra("812")
         },
@@ -99,7 +99,7 @@ enum HoyCasos {
         caso("cargado", "③ Carla · cuerpo cargado, sesión por delante",
              "Disposición BAJA (38, −14 en 7 días): la portada dice el estado del cuerpo, jamás una prescripción. El color de la zona no puede parecer una alarma ni un aplauso. Dos mensajes sin leer del coach.") {
             $0.nombre = "Carla"; $0.iniciales = "CA"; $0.noLeidosChat = 2
-            $0.disposicion = .medida(score: 38, delta7d: -14, senales: senales(checkin: true, hrv: "41 ms", sueno: "5,1 h", fc: "57 ppm"))
+            $0.disposicion = .medida(score: 38, zona: ReadinessZone.of(score: 38), delta7d: -14, senales: senales(checkin: true, hrv: "41 ms", sueno: "5,1 h", fc: "57 ppm"))
             $0.hoy = .sesiones([sesion("Fuerza tren inferior", .strength)])
             $0.camino = carrera("HYROX Madrid", dias: 12, meta: "Sub-75", fase: "Puesta a punto · semana 11 de 12", semana: (11, 12), foto: 2)
             $0.simulacion = .abierta
@@ -108,7 +108,7 @@ enum HoyCasos {
         caso("hecho", "④ Dídac · ya ha entrenado",
              "La sesión de hoy está HECHA: el bucle se cierra en la portada. Disposición media. El estado no relanza nada: tocar lleva al Plan.") {
             $0.nombre = "Dídac"; $0.iniciales = "DI"; $0.hora = "19:20"
-            $0.disposicion = .medida(score: 58, delta7d: -3, senales: senales(checkin: true, hrv: "49 ms", sueno: "7,0 h", fc: "51 ppm"))
+            $0.disposicion = .medida(score: 58, zona: ReadinessZone.of(score: 58), delta7d: -3, senales: senales(checkin: true, hrv: "49 ms", sueno: "7,0 h", fc: "51 ppm"))
             $0.hoy = .sesiones([sesion("Rodaje suave 8 km", .run, .hecha)])
             $0.pasos = .cifra("11.480")
         },
@@ -127,7 +127,7 @@ enum HoyCasos {
         caso("descanso", "⑥ Biel · día de descanso",
              "El plan cargó y hoy no hay nada: no se fabrica una sesión. Se dice qué toca mañana. El día de descanso tiene que sentirse como un día bueno, no como una pantalla vacía.") {
             $0.nombre = "Biel"; $0.iniciales = "BI"
-            $0.disposicion = .medida(score: 91, delta7d: 8, senales: senales(checkin: true, hrv: "74 ms", sueno: "8,1 h", fc: "46 ppm"))
+            $0.disposicion = .medida(score: 91, zona: ReadinessZone.of(score: 91), delta7d: 8, senales: senales(checkin: true, hrv: "74 ms", sueno: "8,1 h", fc: "46 ppm"))
             $0.hoy = .descanso(manana: Manana(titulo: "Series 8×400", modalidad: .run, dia: "mañana"), hayMasPublicado: true)
             $0.simulacion = .abierta
             $0.pasos = .cifra("2.140")
@@ -136,7 +136,7 @@ enum HoyCasos {
         caso("pausado", "⑦ Aina · plan en pausa",
              "El coach ha pausado su plan: una pausa tranquila, sin sesión vieja ni tests. Tiene que quedar claro que no es un fallo.") {
             $0.nombre = "Aina"; $0.iniciales = "AI"
-            $0.disposicion = .medida(score: 64, delta7d: 1, senales: senales(checkin: true, hrv: "52 ms", sueno: "7,2 h", fc: "50 ppm"))
+            $0.disposicion = .medida(score: 64, zona: ReadinessZone.of(score: 64), delta7d: 1, senales: senales(checkin: true, hrv: "52 ms", sueno: "7,2 h", fc: "50 ppm"))
             $0.hoy = .pausado
             $0.simulacion = .abierta
         },
@@ -168,7 +168,7 @@ enum HoyCasos {
              "EL TIER LIBRE: no hay plan, ni chat, ni «Del coach», ni carrera de plan, ni revisión, ni tests. NINGUNA pieza de coach se pinta. El sujeto natural es montar el entreno de hoy.") {
             $0.nombre = "Marc"; $0.iniciales = "MC"; $0.conCoach = false; $0.coach = nil
             $0.camino = nil; $0.simulacion = nil; $0.hoy = nil
-            $0.disposicion = .medida(score: 79, delta7d: 4, senales: senales(checkin: true, hrv: "61 ms", sueno: "7,6 h", fc: "49 ppm"))
+            $0.disposicion = .medida(score: 79, zona: ReadinessZone.of(score: 79), delta7d: 4, senales: senales(checkin: true, hrv: "61 ms", sueno: "7,6 h", fc: "49 ppm"))
             $0.pasos = .cifra("5.320")
         },
 

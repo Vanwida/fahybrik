@@ -140,6 +140,48 @@ final class ReadinessDetailDecodeTests: XCTestCase {
         XCTAssertEqual(ReadinessZone.of(score: 65).interpretation, "Recuperación parcial")
     }
 
+    // MARK: - Las bandas las fija el coach y las sirve el servidor
+
+    private let lecturaConBandas = """
+    {"readiness":{"athlete_id":"70","recorded_for":"2026-07-02","score":60,"delta_7d":null,
+     "breakdown":null,"trend":null},
+     "bands":{"ok_min":75,"caution_min":55,"max_age_days":3},"band":"caution"}
+    """
+
+    func test_bands_decodeDesdeElSobreYViajanConLaLectura() throws {
+        let lectura = try XCTUnwrap(try decode(lecturaConBandas).lectura)
+        XCTAssertEqual(lectura.bands, ReadinessBands(okMin: 75, cautionMin: 55, maxAgeDays: 3))
+    }
+
+    func test_bandasDelCoachDistintasDeFabricaCambianLaZona() throws {
+        let lectura = try XCTUnwrap(try decode(lecturaConBandas).lectura)
+        // 70 es «alta» con los cortes de fábrica (67) y «media» con los de este coach (75).
+        XCTAssertEqual(ReadinessZone.of(score: 70), .high)
+        XCTAssertEqual(ReadinessZone.of(score: 70, bands: lectura.bands), .medium)
+        // 50 es «media» con los de fábrica (45) y «baja» con los de este coach (55).
+        XCTAssertEqual(ReadinessZone.of(score: 50), .medium)
+        XCTAssertEqual(ReadinessZone.of(score: 50, bands: lectura.bands), .low)
+        // El score de la propia lectura (60) cae en «media» con sus bandas.
+        XCTAssertEqual(ReadinessZone.of(lectura), .medium)
+    }
+
+    func test_sinBandasRigenLasDeAntesDeQueLleguen() throws {
+        let sinBandas = """
+        {"readiness":{"recorded_for":"2026-07-02","score":60,"delta_7d":null,"breakdown":null,"trend":null}}
+        """
+        let lectura = try XCTUnwrap(try decode(sinBandas).lectura)
+        XCTAssertNil(lectura.bands)
+        XCTAssertEqual(ReadinessZone.of(lectura), .medium)
+        XCTAssertEqual(ReadinessZone.of(score: 67, bands: lectura.bands), .high)
+    }
+
+    func test_lasBandasSobrevivenALaCacheDeDisco() throws {
+        let lectura = try XCTUnwrap(try decode(lecturaConBandas).lectura)
+        let ida = try JSONEncoder().encode(lectura)
+        let vuelta = try APIClient.makeJSONDecoder().decode(DailyReadinessPayload.self, from: ida)
+        XCTAssertEqual(vuelta.bands, lectura.bands)
+    }
+
     // MARK: - Snapshot (render smoke test of the full sheet, light + dark)
     //
     // Smoke-tests that the detail sheet COMPOSES for a full new-shape payload (all

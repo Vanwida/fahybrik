@@ -27,7 +27,8 @@ import Foundation
 enum Disposicion: Equatable {
     /// Todavía no ha contestado el servidor: ni cifra ni invitación, un esqueleto con la misma forma.
     case cargando
-    case medida(score: Int, delta7d: Int?, senales: [Senal])
+    /// `zona` ya viene resuelta con las bandas del coach: la vista no corta ni compara contra ningún número.
+    case medida(score: Int, zona: ReadinessZone, delta7d: Int?, senales: [Senal])
     case sinDatos(MotivoSinDatos)
 
     /// Por qué no hay número, porque de ello depende la salida.
