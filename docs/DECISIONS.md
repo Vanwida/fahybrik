@@ -22,6 +22,14 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-30 · En el Plan, tocar la sesión la ABRE; «Empezar» empieza
+
+**Qué pasaba (Alex, probando en TestFlight):** tocar el entreno de hoy en el Plan no hacía nada. La única puerta era el botón «Empezar», que solo abría la ficha previa: para VER lo que dejó el coach (notas, descripción, bloques) había que «empezar», y el botón prometía lo que no hacía. El acceso a «Ver ejercicios y técnica» estaba escondido en el menú «···».
+
+**Decidido:** dos gestos distintos, como en cualquier app de entrenamiento. Tocar la tarjeta de la sesión abre su ficha (`PreWorkoutBriefView`: nota del coach, bloques, dosis, técnica a un toque) sin empezar nada; una sesión ya hecha abre lo que registraste. La tarjeta lo dice («Ver el entreno entero ›»). «Empezar» va derecho a la puerta de empezar (dispositivos si hacen falta y arrancar) sin pasar por la ficha (`WorkoutLaunch.empiezaDirecto`). No es tocable la tarjeta con «Lo siguiente» dentro (un botón dentro de otro).
+
+**No verificado:** a ojo en aparato; ni qué hace «Empezar» si la carga del plan falla (se queda en la ficha, como antes).
+
 ## 2026-09-30 · Minimizar y reabrir el entreno es un viaje (zoom barra ⇄ vivo), no un deslizamiento
 
 **Qué pasaba:** al minimizar, el vivo se deslizaba hacia abajo como cualquier cubierta y, a la vez, aparecía la barra del sistema: dos movimientos sin relación. Al reabrir, igual al revés.

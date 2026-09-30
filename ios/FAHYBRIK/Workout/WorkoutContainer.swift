@@ -15,6 +15,9 @@ struct WorkoutLaunch: Identifiable, Equatable {
     let assignmentId: String
     /// Session title from the plan-week summary, shown while the body loads.
     let title: String?
+    /// «Empezar» desde el Plan va derecho a la puerta de empezar (dispositivos y arrancar); tocar la sesión
+    /// abre su ficha para VER el entreno sin empezar nada.
+    var empiezaDirecto = false
     var id: String { assignmentId }
 }
 
@@ -57,6 +60,9 @@ struct WorkoutContainer: View {
     var hrZones: HRZoneProfile? = nil
     /// Live-resume cover already reconstructed the session (AppShell). Nil = load the plan.
     var recoveredSession: WorkoutSession? = nil
+    /// Salta la ficha y va a la puerta de empezar en cuanto el plan está cargado (`WorkoutLaunch.empiezaDirecto`).
+    var empiezaDirecto = false
+    @State private var yaSalto = false
 
     enum Phase: Equatable {
         case brief
@@ -714,6 +720,10 @@ struct WorkoutContainer: View {
     /// MISMO camino que una del coach, con sus `template_segment_id` reales.
     private func applyLoadedDetail(plan: WorkoutPlan, detail: AssignmentDetail) {
         loadState = .ready(plan, detail)
+        if empiezaDirecto, !yaSalto, phase == .brief {
+            yaSalto = true
+            advanceFromBrief(segments: plan.segments.sorted { $0.order < $1.order })
+        }
     }
 
     private func advanceFromBrief(segments: [WorkoutSegment]) {

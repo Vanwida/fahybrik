@@ -53,6 +53,7 @@ struct PlanDestinos: ViewModifier {
                     fallbackTitle: launch.title,
                     bearer: bearer,
                     hrZones: store.identity.value?.hrZones,
+                    empiezaDirecto: launch.empiezaDirecto,
                     onClose: {
                         workoutLaunch = nil
                         // «Salir y seguir luego» cierra por AQUÍ (igual que un descarte o un back de brief): la
