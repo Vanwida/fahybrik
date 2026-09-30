@@ -122,6 +122,9 @@ enum MunecaForma {
     static let puntoAire: CGFloat = 8
     static let puntoBaja: CGFloat = 5
     static let huecoEstructura: CGFloat = 8
+    /// Una marca por ronda del Tabata: el punto y el aire entre puntos (la fila mide `Vivo.Fila.pista`).
+    static let marcaRonda: CGFloat = 8
+    static let marcaRondaAire: CGFloat = 6
     /// La interlínea de SF sobre el cuerpo, y el aire entre la línea de una fila de lista y su detalle.
     static let interlinea: Double = 1.2
     static let huecoLineasLista: Double = 2

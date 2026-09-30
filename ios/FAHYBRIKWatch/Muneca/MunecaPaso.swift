@@ -8,6 +8,7 @@ import SwiftUI
 //   .recupera    monocromo: la cuenta atrás, «Luego · …», la pista de la acción
 //                y el pulso bajando.
 //   .descanso    la fase común (P8): cuenta atrás, «Viene: …», +30 s y Empezar ya.
+//   .puntuacion  la campana de un AMRAP: rondas + reps, con la corona.
 //   .completada  «Sesión completada».
 //
 // La vista NO decide nada: ni qué número manda, ni qué fila sobra, ni si hay
@@ -33,6 +34,7 @@ struct MunecaPaso: View {
         case let .serie(c): MunecaSerie(cara: c)
         case let .colocate(c): MunecaColocate(cara: c)
         case let .anotar(c): MunecaAnotarCara(cara: c, anotar: anotar, alMas30: alMas30, alPrimaria: alPrimaria)
+        case let .puntuacion(c): MunecaPuntuacion(cara: c)
         case .completada: MunecaCompletada()
         }
     }
@@ -45,11 +47,18 @@ struct MunecaPaso: View {
             // La nota va ARRIBA, bajo el contexto: abajo las esquinas dejan ~160 pt
             // y una nota de honestidad no puede quedarse a medias.
             if let nota = c.nota { MunecaNota(nota: nota) }
+            // La estación y su dosis, y el crono total (la puntuación): del circuito y del For Time.
+            if let titulo = c.titulo { MunecaInstruccion(linea: titulo) }
+            if let dosis = c.dosis { MunecaNota(nota: dosis) }
+            if let total = c.total { MunecaLinea(linea: total) }
             MunecaCentro { MunecaHeroe(heroe: c.heroe) }
             if let banda = c.banda { MunecaBandaObjetivo(banda: banda) }
             if let instruccion = c.instruccion { MunecaInstruccion(linea: instruccion) }
             if let tope = c.tope { MunecaNota(nota: tope) }
+            if let bajo = c.bajo { MunecaNota(nota: bajo) }
+            if let luego = c.luego { MunecaNota(nota: luego, tono: MunecaPaleta.tinta) }
             if let segundo = c.segundo { MunecaLinea(linea: segundo) }
+            if let marcas = c.marcas { MunecaMarcas(marcas: marcas) }
             if let pista = c.pista { MunecaNota(nota: pista) }
             if let tercero = c.tercero { MunecaLinea(linea: tercero) }
         }

@@ -11,7 +11,7 @@ import Foundation
 /// El control contextual de la página Controles: «Vuelta» en un rodaje, «Siguiente
 /// paso» en una sesión con pasos. El título es del vocabulario de `Vivo.ClavePrimaria`.
 struct MunecaControl {
-    enum Icono { case vuelta, siguiente }
+    enum Icono { case vuelta, siguiente, marcar }
 
     var titulo: String
     var icono: Icono
@@ -51,4 +51,6 @@ struct MunecaMandos {
     var empezarYa: () -> Void = {}
     /// Anotar en el descanso (fuerza).
     var anotar: MunecaAnotar? = nil
+    /// La corona en la campana de un AMRAP: +1 sube las reps de la puntuación, −1 las baja. `nil` = no hay campana.
+    var puntuar: ((Int) -> Void)? = nil
 }

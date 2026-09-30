@@ -30,11 +30,9 @@ struct LiveFlowView: View {
         }
     }
 
-    /// Correr, fuerza o ergo (`Vivo.familiaMuneca`), con la bandera encendida, sin puerta de bloque ni relevo de
-    /// dobles delante.
+    /// Todo lo que cubre `Vivo.familiaMuneca`, con la bandera encendida y sin puerta de bloque delante.
     private var usaMunecaNueva: Bool {
-        MunecaBandera.encendida && !session.isAwaitingBlockStart && !session.currentSegmentIsPartnerRelay
-            && (esRodaje || MunecaCubierta.cubre(session))
+        MunecaBandera.encendida && !session.isAwaitingBlockStart && (esRodaje || MunecaCubierta.cubre(session))
     }
 
     private var flujoDeSiempre: some View {

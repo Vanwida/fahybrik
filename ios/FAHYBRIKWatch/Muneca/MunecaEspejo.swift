@@ -122,9 +122,25 @@ extension WatchPrimaryOwner {
         let clave = cuadro.primaria
         let pausado = cuadro.pausado
         let cerrar = { self.sendCommand(MirrorWire.CommandKind.advance) }
+        // «Hecho» de una ventana y «+1 ronda» solo MARCAN: los cuenta la muñeca (y las rondas, además, el motor del móvil).
+        let marca = paso.map { Vivo.marcaSinCerrar(clave, $0) } ?? false
+        let marcar = {
+            if case .amrap? = paso?.wod {
+                self.espejo.rondaHecha(ahora: Date())
+                if self.movilAtiende(MirrorWire.Capacidad.ronda) { self.sendCommand(MirrorWire.CommandKind.ronda) }
+            } else {
+                self.espejo.marcarHecha(ahora: Date())
+            }
+        }
+        // La campana de un AMRAP: la puntuación dicha viaja al móvil, que la guarda y cierra la sesión.
+        let guardar = {
+            guard self.movilAtiende(MirrorWire.Capacidad.puntuacion), let p = self.espejo.puntuacion(ahora: Date()) else { cerrar(); return }
+            self.send(type: MirrorWire.MessageType.command, MirrorCommand(kind: MirrorWire.CommandKind.puntuacion, puntuacion: p))
+        }
         // Cerrar el ÚLTIMO paso guarda la sesión: se pregunta (`Vivo.CierreSeguro`). Sin plan vivo, también.
-        // «Vuelta» y «Confirmar» no cierran nada: no preguntan.
-        let pideConfirmar = Vivo.CierreSeguro.pideConfirmar(esVuelta: clave == .vuelta || clave == .confirmar, ultimoPaso: espejo.ultimoPaso)
+        // «Vuelta», «Confirmar», «Guardar» y lo que solo marca no cierran nada: no preguntan.
+        let noCierra = paso.map { Vivo.noCierraNada(clave, $0) } ?? (clave == .vuelta || clave == .confirmar)
+        let pideConfirmar = Vivo.CierreSeguro.pideConfirmar(esVuelta: noCierra, ultimoPaso: espejo.ultimoPaso)
         // «Vuelta» solo si el móvil la atiende (un móvil con cursor la anuncia) y no en pausa.
         let vuelta: (() -> Void)? = clave == .vuelta && movilAtiende(MirrorWire.Capacidad.vuelta)
             ? {
@@ -132,7 +148,7 @@ extension WatchPrimaryOwner {
                 self.vueltaAMano()
             } : nil
         let esVuelta = clave == .vuelta
-        let cierraElPaso = clave != nil && !esVuelta && clave != .confirmar
+        let cierraElPaso = clave != nil && !esVuelta && clave != .confirmar && clave != .guardar && !marca
         let confirmar = {
             for d in self.espejo.confirmarAnotacion(ahora: Date()) { self.enviarDeclaracion(d) }
         }
@@ -151,18 +167,23 @@ extension WatchPrimaryOwner {
             pideConfirmarAlCerrar: pideConfirmar,
             // «Descartar» solo con el enlace roto: con el móvil llevando el entreno, descartar es cosa suya.
             descartar: Vivo.CierreSeguro.ofreceDescartar(role: role, link: link) ? { self.discardByAthlete() } : nil,
-            control: control(esVuelta: esVuelta, cierraElPaso: clave != nil && !esVuelta, vuelta: vuelta, cerrar: cerrar),
-            primaria: clave == .confirmar ? confirmar : (esVuelta ? vuelta : (cierraElPaso ? cerrar : nil)),
+            control: control(clave: clave, marca: marca, esVuelta: esVuelta, cierraElPaso: clave != nil && !esVuelta, vuelta: vuelta, cerrar: cerrar, marcar: marcar),
+            primaria: clave == .confirmar ? confirmar : (esVuelta ? vuelta : (clave == .guardar ? guardar : (marca ? marcar : (cierraElPaso ? cerrar : nil)))),
             // Sin la capacidad `mas30` el móvil no estira un descanso: sin botón.
             mas30: movilAtiende(MirrorWire.Capacidad.mas30) ? { self.sendCommand(MirrorWire.CommandKind.plus30) } : nil,
             empezarYa: { cerrar() },
-            anotar: anotar
+            anotar: anotar,
+            puntuar: { dir in self.espejo.girarPuntuacion(dir, ahora: Date()) }
         )
     }
 
-    private func control(esVuelta: Bool, cierraElPaso: Bool, vuelta: (() -> Void)?, cerrar: @escaping () -> Void) -> MunecaControl? {
+    private func control(clave: Vivo.ClavePrimaria?, marca: Bool, esVuelta: Bool, cierraElPaso: Bool, vuelta: (() -> Void)?,
+                         cerrar: @escaping () -> Void, marcar: @escaping () -> Void) -> MunecaControl? {
         if esVuelta, let vuelta {
             return MunecaControl(titulo: Vivo.ClavePrimaria.vuelta.texto, icono: .vuelta, accion: vuelta)
+        }
+        if marca, let clave {
+            return MunecaControl(titulo: clave.texto, icono: .marcar, accion: marcar)
         }
         if cierraElPaso {
             return MunecaControl(titulo: Vivo.ClavePrimaria.siguientePaso.texto, icono: .siguiente, accion: cerrar)

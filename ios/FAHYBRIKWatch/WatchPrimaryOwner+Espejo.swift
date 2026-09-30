@@ -23,6 +23,11 @@ extension WatchPrimaryOwner {
         let ahora = Date()
         espejo.recibirTrama(f, en: ahora)
         if espejo.planAPedir(en: ahora) != nil { sendCommand(MirrorWire.CommandKind.sync) }
+        // El reloj cazó un death by (un minuto se cerró sin marcar): el móvil acaba el bloque con los minutos marcados.
+        if let completos = espejo.tomarCazado() {
+            send(type: MirrorWire.MessageType.command,
+                 MirrorCommand(kind: MirrorWire.CommandKind.deathByFail, puntuacion: MirrorPuntuacion(rondas: completos, reps: nil)))
+        }
     }
 
     /// Metros nuevos que entrega el builder (el mismo delta que ya se manda al móvil).
