@@ -111,3 +111,108 @@ struct AvisoEnLineaPerfil: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+// MARK: - Campos numéricos
+
+/// Una fila para un número con decimales opcionales («Peso levantado · kg»). Parte de un texto local y
+/// devuelve `nil` mientras lo escrito no sea un número: el campo nace VACÍO, no en un valor por defecto que
+/// se cuela si el atleta no lo toca.
+struct CampoNumeroPerfil: View {
+    let etiqueta: String
+    var unidad: String?
+    @Binding var valor: Double?
+    var placeholder = "—"
+
+    @State private var texto = ""
+
+    var body: some View {
+        CampoTextoPerfil(etiqueta: etiqueta, placeholder: placeholder, texto: $texto, teclado: .decimalPad, unidad: unidad)
+            .onChange(of: texto) { _, nuevo in
+                valor = Double(nuevo.replacingOccurrences(of: ",", with: "."))
+            }
+            .onAppear {
+                if let v = valor, texto.isEmpty {
+                    texto = v.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(v)) : Formato.esDecimal(v)
+                }
+            }
+    }
+}
+
+/// Lo mismo para un entero (repeticiones).
+struct CampoEnteroPerfil: View {
+    let etiqueta: String
+    var unidad: String?
+    @Binding var valor: Int?
+
+    @State private var texto = ""
+
+    var body: some View {
+        CampoTextoPerfil(etiqueta: etiqueta, placeholder: "—", texto: $texto, teclado: .numberPad, unidad: unidad)
+            .onChange(of: texto) { _, nuevo in valor = Int(nuevo) }
+            .onAppear { if let v = valor, texto.isEmpty { texto = String(v) } }
+    }
+}
+
+/// Una fila para un tiempo en `mm:ss` (un ritmo). Los atletas piensan en minutos, no en fechas.
+struct CampoRitmoPerfil: View {
+    let etiqueta: String
+    @Binding var segundos: Int?
+
+    @State private var texto = ""
+
+    var body: some View {
+        CampoTextoPerfil(etiqueta: etiqueta, placeholder: "mm:ss", texto: $texto, teclado: .numbersAndPunctuation)
+            .onChange(of: texto) { _, nuevo in segundos = TimeMinSecRow.parse(nuevo) }
+            .onAppear { if let s = segundos, texto.isEmpty { texto = Formato.clock(s) } }
+    }
+}
+
+// MARK: - Elegir una opción entre pocas
+
+/// Las opciones a la vista, una al lado de otra (con texto grande pasan a una por fila): el acento del club
+/// marca la elegida. Cada una es un objetivo de 48 pt.
+struct SelectorDeOpcionesPerfil<Clave: Hashable>: View {
+    let opciones: [(clave: Clave, titulo: String)]
+    @Binding var elegida: Clave
+
+    private let columnas = [GridItem(.adaptive(minimum: 140), spacing: Theme.Spacing.s)]
+
+    var body: some View {
+        LazyVGrid(columns: columnas, spacing: Theme.Spacing.s) {
+            ForEach(Array(opciones.enumerated()), id: \.offset) { _, opcion in
+                let activa = opcion.clave == elegida
+                Button {
+                    guard !activa else { return }
+                    Haptics.light()
+                    elegida = opcion.clave
+                } label: {
+                    Text(opcion.titulo)
+                        .papel(.notaFuerte)
+                        .foregroundStyle(activa ? Theme.Color.accentOn : Theme.Color.foreground)
+                        .frame(maxWidth: .infinity, minHeight: Theme.Size.toque)
+                        .background(
+                            activa ? Theme.Color.accent : Theme.Color.surface,
+                            in: RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                                .strokeBorder(activa ? Color.clear : Theme.Color.hairlineStrong, lineWidth: 1)
+                        )
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PressScaleStyle(escala: 0.97))
+                .accessibilityAddTraits(activa ? [.isSelected, .isButton] : .isButton)
+            }
+        }
+    }
+}
+
+// MARK: - El estado de una pantalla que carga
+
+/// Lo que una pantalla de datos tiene delante: todavía nada, un fallo SIN nada guardado que enseñar, o el dato.
+/// El fallo no es el vacío: un vacío es un dato (`datos` con lista vacía), un fallo es que no se supo.
+enum CargaDePantallaPerfil<Dato> {
+    case cargando
+    case error
+    case datos(Dato)
+}

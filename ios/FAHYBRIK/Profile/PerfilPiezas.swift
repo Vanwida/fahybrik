@@ -45,6 +45,8 @@ enum GlifoPerfil: String, CaseIterable {
     case documento  = "doc.text"
     /// Deshacer la pareja de Dobles.
     case sinPareja  = "person.2.slash"
+    /// El test de umbral (el `stopwatch` a secas es del kit).
+    case test       = "timer"
     /// Subir el movimiento de la muñeca.
     case movimientoReloj = "watch.analog"
     /// Exportar mis datos.

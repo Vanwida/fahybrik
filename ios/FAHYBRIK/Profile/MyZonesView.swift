@@ -1,34 +1,39 @@
 import SwiftUI
 
-// "Mis zonas" — the athlete sees their OWN absolute pace bands per modality,
-// the same way the coach's calculator shows them. Powered by GET
-// /api/athlete/zones (read-only). AGNOSTIC: zone codes, labels and colours all
-// come from the coach's stored snapshot, so this view renders whatever scheme
-// the coach uses — it never hardcodes a zone count or palette.
+// «MIS ZONAS» — el atleta ve sus PROPIAS bandas de ritmo por modalidad, igual que las enseña la calculadora
+// de su coach. Sale de GET /api/athlete/zones (solo lectura). AGNÓSTICO: los códigos, las etiquetas y los
+// colores de zona son los que guardó el coach, así que la pantalla pinta el esquema que use (nunca cablea
+// cuántas zonas hay ni su paleta).
 //
-// Honest states: a spinner while loading, a clear empty state when the athlete
-// hasn't tested yet (no zones to show, no fabricated bands), and an error state
-// with a retry when the fetch fails. The test that produced a profile is
-// surfaced (name + date) — a NOTE here because there is no dedicated athlete
-// test-history endpoint yet (see backend gap).
+// Estados honestos: esqueleto con la forma de la lista mientras carga, un vacío con su salida cuando aún no
+// hay test (ni bandas inventadas) y un error con su reintento cuando falla la carga. El test que produjo
+// un perfil se enseña (nombre + fecha) como una nota, porque aún no hay un endpoint de historial.
+//
+// La vista se parte en CONTENEDOR (pide los datos) y `MyZonesCuerpo` (pinta un estado ya resuelto).
+
+/// Lo que devuelve `GET /api/athlete/zones`, ya desempaquetado.
+struct ZonasDelAtleta {
+    var modalities: [ZoneModalityProfile]
+    /// The five HR bands the SERVER resolved. Nil = no anchor, so no zones — the screen says exactly that
+    /// instead of showing bands off an invented FCmáx.
+    var hr: HRZoneProfile?
+
+    var estaVacio: Bool { modalities.isEmpty && hr == nil }
+}
+
 struct MyZonesView: View {
     let bearer: String?
 
-    @State private var modalities: [ZoneModalityProfile] = []
-    /// The five HR bands the SERVER resolved. Nil = no anchor, so no zones — the
-    /// screen says exactly that instead of showing bands off an invented FCmáx.
-    @State private var hr: HRZoneProfile? = nil
-    @State private var loading = true
-    @State private var failed = false
+    @State private var carga: CargaDePantallaPerfil<ZonasDelAtleta> = .cargando
     @State private var showRegister = false
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            content
-        }
-        .navigationTitle("Mis zonas")
-        .navigationBarTitleDisplayMode(.inline)
+        MyZonesCuerpo(
+            carga: carga,
+            bearer: bearer,
+            alRegistrar: { showRegister = true },
+            alReintentar: { Task { await load() } }
+        )
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -46,194 +51,185 @@ struct MyZonesView: View {
         .task { await load() }
     }
 
-    @ViewBuilder
-    private var content: some View {
-        if loading {
-            ProgressView()
-                .tint(Theme.Color.accentText)
-        } else if failed {
-            errorState
-        } else if modalities.isEmpty && hr == nil {
-            emptyState
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    intro
-                    ForEach(modalities) { modality in
-                        modalityCard(modality)
-                    }
-                    pulseSection
+    private func load() async {
+        guard let bearer else { carga = .error; return }
+        if case .error = carga { carga = .cargando }
+        do {
+            let zones = try await ZonesService.fetch(bearer: bearer)
+            carga = .datos(ZonasDelAtleta(modalities: zones.modalities, hr: zones.hr))
+        } catch {
+            carga = .error
+        }
+    }
+}
+
+/// Lo que se pinta de «Mis zonas» con el estado ya resuelto.
+struct MyZonesCuerpo: View {
+    let carga: CargaDePantallaPerfil<ZonasDelAtleta>
+    var bearer: String?
+    var alRegistrar: () -> Void = {}
+    var alReintentar: () -> Void = {}
+
+    var body: some View {
+        switch carga {
+        case .cargando:
+            PantallaPerfil(titulo: "Mis zonas") { EsqueletoDeFilasPerfil(filas: 6, conFicha: false) }
+        case .error:
+            PantallaPerfil(titulo: "Mis zonas", alto: .llena) {
+                ErrorDePantallaPerfil(kicker: "Mis zonas", titulo: "No pudimos cargar tus zonas", alReintentar: alReintentar)
+            }
+        case let .datos(zonas) where zonas.estaVacio:
+            PantallaPerfil(titulo: "Mis zonas", alto: .llena) {
+                VacioDePantallaPerfil(
+                    kicker: "Mis zonas",
+                    titulo: "Aún no tienes zonas",
+                    apoyo: "Registra un test de ritmo (o pídeselo a tu coach) y calcularemos tus bandas al momento.",
+                    accion: ("Registrar test", .mas, alRegistrar)
+                )
+            }
+        case let .datos(zonas):
+            PantallaPerfil(titulo: "Mis zonas") {
+                Text("Tus bandas de ritmo por modalidad. Cuando un entreno te pide una zona, este es el ritmo real que te toca.")
+                    .papel(.cuerpo)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+                ForEach(zonas.modalities) { SeccionDeModalidad(modalidad: $0) }
+                SeccionDePulso(hr: zonas.hr, bearer: bearer)
+            }
+        }
+    }
+}
+
+// MARK: - Una modalidad
+
+private struct SeccionDeModalidad: View {
+    let modalidad: ZoneModalityProfile
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                TituloSeccionDia(modalidad.modalityLabel) { InfoPill(text: modalidad.paceUnitLabel, estilo: .velo) }
+                if let fuente { NotaPerfil(fuente) }
+            }
+            GrupoPerfil {
+                ForEach(modalidad.zones) { banda in
+                    FilaDeZona(
+                        codigo: banda.code, etiqueta: banda.label, rango: banda.rangeLabel,
+                        color: Color(zoneHex: banda.color)
+                    )
                 }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xxl)
             }
         }
     }
 
-    // MARK: - Intro
-
-    private var intro: some View {
-        Text("Tus bandas de ritmo por modalidad. Cuando un entreno te pide una zona, este es el ritmo real que te toca.")
-            .scaledFont(13, relativeTo: .footnote)
-            .foregroundStyle(Theme.Color.muted)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    // MARK: - Modality card
-
-    private func modalityCard(_ m: ZoneModalityProfile) -> some View {
-        CardSurface(padding: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                // Header: modality + pace unit, with the source test/date below.
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(m.modalityLabel)
-                            .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
-                            .foregroundStyle(Theme.Color.foreground)
-                        Spacer(minLength: 8)
-                        Text(m.paceUnitLabel)
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    if let sub = sourceSubtitle(m) {
-                        Text(sub)
-                            .scaledFont(11, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.faint)
-                    }
-                }
-                .padding(.horizontal, 14)
-                .padding(.top, 13)
-                .padding(.bottom, 11)
-
-                ForEach(Array(m.zones.enumerated()), id: \.element.id) { idx, band in
-                    if idx > 0 { Hairline() }
-                    zoneRow(band)
-                }
-            }
-        }
-    }
-
-    /// "Test umbral · 20 jun 2026" — only the parts genuinely present.
-    private func sourceSubtitle(_ m: ZoneModalityProfile) -> String? {
+    /// «umbral 4:30 · 20 jun 2026»: solo las partes que de verdad están.
+    private var fuente: String? {
         var parts: [String] = []
-        if let threshold = m.thresholdLabel { parts.append("umbral \(threshold)") }
-        if let date = m.recordedDateLabel { parts.append(date) }
+        if let threshold = modalidad.thresholdLabel { parts.append("umbral \(threshold)") }
+        if let date = modalidad.recordedDateLabel { parts.append(date) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
+}
 
-    /// The row is here for ONE number: the pace range you have to run. "Z4" is a
-    /// tag on it, not a peer — it used to render at the same 13pt as the range
-    /// (bold vs semibold, indistinguishable), so the row read as two equals and
-    /// the eye had nowhere to land. The range now leads at 22pt, the same size
-    /// and role its sibling MyStrengthView gives the 1RM.
-    private func zoneRow(_ band: ZoneBand) -> some View {
-        HStack(spacing: 12) {
-            // Colour swatch from the coach's stored zone hex (agnostic). Falls
-            // back to a neutral chip when no colour is stored.
+/// Una banda. La fila está aquí por UN número: el rango que tienes que correr. «Z4» es una etiqueta suya, no su
+/// par; el rango manda a 17 pt fuerte y con cifras de ancho fijo, para que los seis se lean en columna.
+private struct FilaDeZona: View {
+    let codigo: String
+    let etiqueta: String
+    let rango: String
+    /// El color que guardó el coach para esa zona (dato suyo, agnóstico). Sin color, un gris neutro.
+    let color: Color?
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.m) {
             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(Color(zoneHex: band.color) ?? Theme.Color.faint)
-                .frame(width: 4, height: 30)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(band.code)
-                    .scaledFont(11, weight: .bold, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.muted)
-                Text(band.label)
-                    .scaledFont(11, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.faint)
-                    .lineLimit(1)
+                .fill(color ?? Theme.Color.faint)
+                .frame(width: 4, height: 36)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(codigo).papel(.notaPesada).foregroundStyle(Theme.Color.foreground)
+                Text(etiqueta).papel(.nota).foregroundStyle(Theme.Color.muted)
             }
-            Spacer(minLength: 8)
-            Text(band.rangeLabel)
-                .font(Theme.Typography.readoutS)
+            .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: Theme.Spacing.s)
+            Text(rango)
+                .papel(.cuerpoFuerte)
+                .monospacedDigit()
                 .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .multilineTextAlignment(.trailing)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.vertical, Theme.Spacing.m)
+        .frame(minHeight: Theme.Size.toque + Theme.Spacing.s)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(band.code), \(band.label), \(band.rangeLabel)")
+        .accessibilityLabel("\(codigo), \(etiqueta), \(rango)")
     }
+}
 
-    // MARK: - Pulso
+// MARK: - Pulso
 
-    /// The HR bands, or an honest statement that there are none.
-    ///
-    /// This section is why the app stopped computing zones: it used to show bands
-    /// derived from a max HR that, for every athlete in the database, nobody had
-    /// ever measured. Now it shows what the server resolved from the athlete's
-    /// THRESHOLD — and when there is no threshold to anchor them, it says so and
-    /// points at the test, rather than inventing five plausible-looking numbers.
-    @ViewBuilder
-    private var pulseSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            SectionLabel(text: "Pulso")
+/// Las bandas de FC, o la frase honesta de que no hay.
+///
+/// Esta sección es la razón de que la app dejara de calcular zonas: enseñaba bandas derivadas de una FC máx
+/// que, para todos los atletas de la base, nadie había medido jamás. Ahora enseña lo que el servidor resolvió
+/// desde el UMBRAL, y cuando no hay umbral que las ancle, lo dice y señala el test, en vez de inventar cinco
+/// números verosímiles.
+private struct SeccionDePulso: View {
+    let hr: HRZoneProfile?
+    let bearer: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             if let hr {
-                CardSurface(padding: 0) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Text("Zonas de FC")
-                                    .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
-                                    .foregroundStyle(Theme.Color.foreground)
-                                Spacer(minLength: 8)
-                                Text(Vocab.ppm)
-                                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(Theme.Color.muted)
-                            }
-                            // The anchor, always. A band built on a measured test
-                            // and one inferred from a birthday are not the same
-                            // claim, and the athlete has to be able to tell.
-                            Text("umbral \(hr.lthrBpm) ppm · \(hr.sourceLabel.lowercased())")
-                                .scaledFont(11, relativeTo: .caption2)
-                                .foregroundStyle(hr.estimated ? Theme.Color.warning : Theme.Color.faint)
-                                .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    TituloSeccionDia("Zonas de FC") { InfoPill(text: Vocab.ppm, estilo: .velo) }
+                    // El ancla, siempre. Una banda sobre un test medido y una inferida de un cumpleaños no son la
+                    // misma afirmación, y el atleta tiene que poder distinguirlas. El aviso de «estimada» va en la
+                    // marca (el punto ámbar), no en el color del texto.
+                    HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+                        if hr.estimated {
+                            Circle().fill(Theme.Color.warning).frame(width: 10, height: 10).accessibilityHidden(true)
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.top, 13)
-                        .padding(.bottom, 11)
-
-                        ForEach(Array(hr.zones.enumerated()), id: \.element.zone) { idx, band in
-                            if idx > 0 { Hairline() }
-                            hrZoneRow(band)
-                        }
+                        NotaPerfil("umbral \(hr.lthrBpm) ppm · \(hr.sourceLabel.lowercased())")
                     }
                 }
-                // Three tiers, three sentences. A band off his own number and a band
-                // off his birthday are not the same claim, and lumping both under
-                // "estimadas" told the athlete we had guessed when he had told us.
-                if let note = pulseCaveat(hr) {
-                    Text(note)
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                    thresholdTestLink
+                GrupoPerfil {
+                    ForEach(hr.zones, id: \.zone) { banda in
+                        FilaDeZona(
+                            codigo: banda.code, etiqueta: banda.label, rango: banda.rangeLabel,
+                            color: banda.hrZone?.color
+                        )
+                    }
+                }
+                // Tres niveles, tres frases. Una banda sobre su propio número y una sobre su cumpleaños no son la
+                // misma afirmación, y agruparlas en «estimadas» decía que habíamos adivinado cuando nos lo había dicho.
+                if let note = Self.aviso(hr) {
+                    NotaPerfil(note)
+                    EnlaceAlTestDeUmbral(bearer: bearer, hr: hr)
                 }
             } else {
-                CardSurface(padding: Theme.Spacing.l) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Aún no tenemos tus zonas de pulso")
-                            .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
-                            .foregroundStyle(Theme.Color.foreground)
-                        Text("Se calculan desde tu umbral, y todavía no lo sabemos. Pon tu fecha de nacimiento o tu FC máxima en el perfil para una primera estimación, o haz el test de umbral para tenerlas de verdad.")
-                            .scaledFont(12, relativeTo: .caption)
-                            .foregroundStyle(Theme.Color.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                TituloSeccionDia("Zonas de FC")
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    Text("Aún no tenemos tus zonas de pulso").papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+                    Text("Se calculan desde tu umbral, y todavía no lo sabemos. Pon tu fecha de nacimiento o tu FC máxima en el perfil para una primera estimación, o haz el test de umbral para tenerlas de verdad.")
+                        .papel(.nota)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                thresholdTestLink
+                .padding(Theme.Spacing.l)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .tarjetaPerfil()
+                EnlaceAlTestDeUmbral(bearer: bearer, hr: nil)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// What to say under the bands, by how the threshold was obtained. Nil when it
-    /// was MEASURED — then there is nothing to caveat and nothing to offer, and the
-    /// section stops nagging an athlete who already did the test.
-    private func pulseCaveat(_ hr: HRZoneProfile) -> String? {
-        // `confidence` is absent on payloads from before the declared rung existed;
-        // `estimated` is the honest fallback for those.
+    /// Qué decir bajo las bandas, según cómo se obtuvo el umbral. Nil cuando se MIDIÓ: entonces no hay nada que
+    /// matizar ni que ofrecer, y la sección deja de insistir a quien ya hizo el test.
+    static func aviso(_ hr: HRZoneProfile) -> String? {
+        // `confidence` falta en payloads de antes de que existiera el escalón «declarado»; `estimated` es el
+        // respaldo honesto para ésos.
         switch hr.confidence ?? (hr.estimated ? "estimated" : "measured") {
         case "measured":
             return nil
@@ -243,233 +239,32 @@ struct MyZonesView: View {
             return "Son una estimación mientras no midas tu umbral. Un test de 30 min las ajusta a lo que aguantas de verdad."
         }
     }
-
-    /// The way OUT of an estimated threshold (docs/CONTRATO-UI.md §5: a state that
-    /// declares its limitation has to offer the exit). Both pulse states earn it —
-    /// "estimadas" and "todavía no las tenemos" have the SAME remedy, and until this
-    /// existed the screen named the 30-min test in prose and left the athlete with
-    /// nowhere to tap. It pushes the tests hub, where the threshold test is one
-    /// «Probarme» away, rather than starting a maximal effort from a settings screen.
-    private var thresholdTestLink: some View {
-        NavigationLink {
-            TestsHubView(bearer: bearer, hrZones: hr)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "stopwatch")
-                    .font(.system(size: 14, weight: .semibold))
-                Text("Haz el test de umbral")
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
-            }
-            .foregroundStyle(Theme.Color.accentText)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Haz el test de umbral para medir tus zonas de pulso")
-    }
-
-    /// Same anatomy as `zoneRow`: the NUMBER leads, the code is a tag on it.
-    private func hrZoneRow(_ band: HRZoneBand) -> some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(band.hrZone?.color ?? Theme.Color.faint)
-                .frame(width: 4, height: 30)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(band.code)
-                    .scaledFont(11, weight: .bold, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.muted)
-                Text(band.label)
-                    .scaledFont(11, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.faint)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 8)
-            Text(band.rangeLabel)
-                .font(Theme.Typography.readoutS)
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(band.code), \(band.label), \(band.rangeLabel)")
-    }
-
-    // MARK: - Empty / error states
-
-    private var emptyState: some View {
-        CenteredScreen {
-            RedesignEmptyState(
-                symbol: "speedometer",
-                title: "Aún no tienes zonas",
-                message: "Registra un test de ritmo (o pídeselo a tu coach) y calcularemos tus bandas al momento.",
-                exit: .action(title: "Registrar test") { showRegister = true }
-            )
-        }
-    }
-
-    private var errorState: some View {
-        CenteredScreen {
-            RedesignEmptyState(
-                symbol: "arrow.clockwise",
-                title: "No pudimos cargar tus zonas",
-                message: "Revisa tu conexión e inténtalo de nuevo.",
-                exit: .action(title: "Reintentar") { Task { await load() } }
-            )
-        }
-    }
-
-    // MARK: - Load
-
-    private func load() async {
-        guard let bearer else { loading = false; failed = true; return }
-        loading = true
-        failed = false
-        do {
-            let zones = try await ZonesService.fetch(bearer: bearer)
-            modalities = zones.modalities
-            hr = zones.hr
-        } catch {
-            failed = true
-        }
-        loading = false
-    }
 }
 
-// "Registrar test" — the athlete self-enters a test result, which the backend
-// resolves into zone bands through the SAME path the coach uses (source =
-// athlete_test). On success the parent re-fetches so "Mis zonas" reflects it.
-// The pace unit is intrinsic to the modality (run → /km, ergo → /500m), so the
-// athlete only picks the modality and types the umbral pace — never a unit.
-struct RegisterTestView: View {
+/// La SALIDA de un umbral estimado (CONTRATO-UI §5: un estado que declara su límite ofrece la salida). Los dos
+/// estados del pulso —«estimadas» y «todavía no las tenemos»— tienen el MISMO remedio, y hasta que esto existió
+/// la pantalla nombraba el test de 30 min en prosa y dejaba al atleta sin nada que tocar. Empuja el centro de
+/// tests, donde el test de umbral está a un «Probarme», en vez de lanzar un esfuerzo máximo desde unos ajustes.
+private struct EnlaceAlTestDeUmbral: View {
     let bearer: String?
-    /// Called after a successful save so the host can re-fetch the zones.
-    let onSaved: () async -> Void
-
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var modality: String = "run"
-    @State private var thresholdSeconds: Int? = nil
-    @State private var saving = false
-    @State private var errorText: String? = nil
-
-    // run → /km; row/ski/bike → /500m. Mirrors paceUnitForModality on the backend.
-    private static let modalities: [(key: String, label: String)] = [
-        ("run", "Carrera"), ("row", "Remo"), ("ski", "Ski-Erg"), ("bike", "Bike-Erg"),
-    ]
-    private var paceUnitLabel: String { modality == "run" ? Formato.UnidadRitmo.porKm.rawValue : Formato.UnidadRitmo.por500m.rawValue }
-    private var canSave: Bool { (thresholdSeconds ?? 0) > 0 && !saving }
+    let hr: HRZoneProfile?
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    // Modality
-                    VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                        Text("Modalidad")
-                            .font(Theme.Typography.dataLabel)
-                            .uppercaseTracked()
-                            .foregroundStyle(Theme.Color.muted)
-                        HStack(spacing: 6) {
-                            ForEach(Self.modalities, id: \.key) { m in
-                                Button {
-                                    modality = m.key
-                                    Haptics.light()
-                                } label: {
-                                    Text(m.label)
-                                        .scaledFont(12, weight: .semibold, relativeTo: .caption)
-                                        .foregroundStyle(modality == m.key ? Theme.Color.accentOn : Theme.Color.foreground)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 9)
-                                        .background(modality == m.key ? Theme.Color.accent : Theme.Color.surfaceElevated)
-                                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(m.label)
-                                .accessibilityAddTraits(modality == m.key ? .isSelected : [])
-                            }
-                        }
-                    }
-
-                    // Threshold pace
-                    VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                        Text("Resultado del test")
-                            .font(Theme.Typography.dataLabel)
-                            .uppercaseTracked()
-                            .foregroundStyle(Theme.Color.muted)
-                        VStack(spacing: 0) {
-                            TimeMinSecRow(label: "Ritmo umbral (\(paceUnitLabel))", seconds: $thresholdSeconds)
-                        }
-                        .brandSurface()
-                        Text("Tu ritmo medio sostenible en el test (umbral). Con él calculamos tus 6 bandas.")
-                            .scaledFont(12, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.faint)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    if let errorText {
-                        Text(errorText)
-                            .scaledFont(12, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.danger)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xxl)
+        GrupoPerfil {
+            NavigationLink {
+                TestsHubView(bearer: bearer, hrZones: hr)
+            } label: {
+                FilaPerfil(glifo: .test, titulo: "Haz el test de umbral")
             }
-            .background(Theme.Color.background.ignoresSafeArea())
-            .navigationTitle("Registrar test")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancelar") { dismiss() }
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-            .anchoredAction {
-                ExpertPrimaryButton(
-                    title: saving ? "GUARDANDO…" : "GUARDAR TEST",
-                    height: 46,
-                    enabled: canSave,
-                    action: save
-                )
-            }
-        }
-        .compactSheet()
-    }
-
-    private func save() {
-        guard let bearer, let seconds = thresholdSeconds, seconds > 0, !saving else { return }
-        saving = true
-        errorText = nil
-        Task {
-            do {
-                try await ZonesService.submitTest(modality: modality, thresholdS: seconds, bearer: bearer)
-                await onSaved()
-                dismiss()
-            } catch {
-                errorText = "No pudimos guardar el test. Revisa tu conexión e inténtalo de nuevo."
-                saving = false
-            }
+            .filaTocablePerfil()
+            .accessibilityLabel("Haz el test de umbral para medir tus zonas de pulso")
         }
     }
 }
 
-// Minimal hex → Color for backend-supplied zone colours (agnostic, coach data).
-// File-private so it never collides with a broader app-wide colour utility.
-// Accepts "#RRGGBB" / "RRGGBB" / "#RGB"; returns nil on anything else so callers
-// fall back to a neutral swatch rather than rendering a wrong colour.
+// Hex → Color mínimo para los colores de zona que manda el backend (agnóstico, dato del coach). Privado al
+// fichero para no chocar con una utilidad de color más amplia. Acepta «#RRGGBB» / «RRGGBB» / «#RGB»; devuelve
+// nil con cualquier otra cosa, de modo que quien llama cae en una muestra neutra en vez de pintar un color equivocado.
 private extension Color {
     init?(zoneHex: String?) {
         guard var hex = zoneHex?.trimmingCharacters(in: .whitespaces) else { return nil }
