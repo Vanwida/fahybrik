@@ -21,11 +21,16 @@ struct FinalResumenCorrer: View {
     var body: some View {
         MunecaMedidor { medidas in
             TabView {
-                primera(medidas)
-                ForEach(Array(resumen.series.enumerated()), id: \.offset) { _, p in MunecaVueltas(pagina: p) }
-                ForEach(Array(resumen.km.enumerated()), id: \.offset) { _, p in MunecaVueltas(pagina: p) }
-                pulso(medidas)
-                guardado
+                // Cada página mide TODA la pantalla (como en la pila del vivo): el paginador la metía dentro
+                // del safe area del sistema y el núcleo ya descuenta él las safe areas.
+                Group {
+                    primera(medidas)
+                    ForEach(Array(resumen.series.enumerated()), id: \.offset) { _, p in MunecaVueltas(pagina: p) }
+                    ForEach(Array(resumen.km.enumerated()), id: \.offset) { _, p in MunecaVueltas(pagina: p) }
+                    pulso(medidas)
+                    guardado
+                }
+                .ignoresSafeArea()
             }
             .tabViewStyle(.verticalPage)
         }

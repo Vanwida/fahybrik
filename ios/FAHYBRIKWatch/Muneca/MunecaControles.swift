@@ -106,7 +106,7 @@ struct MunecaControles: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.top, CGFloat(Vivo.MedidasMuneca.arribaSafe))
+            .padding(.top, CGFloat(medidas.arriba))
             .padding(.bottom, CGFloat(Vivo.MedidasMuneca.abajoSafe))
         }
         .defaultScrollAnchor(.center)
@@ -157,6 +157,8 @@ struct MunecaConfirmar: View {
     let alConfirmar: () -> Void
     let alSeguir: () -> Void
 
+    @Environment(\.munecaMedidas) private var medidas
+
     var body: some View {
         VStack(spacing: 10) {
             Spacer(minLength: 0)
@@ -170,7 +172,7 @@ struct MunecaConfirmar: View {
             MunecaBoton(titulo: "Seguir", variante: .superficie, accion: alSeguir)
             Spacer(minLength: 0)
         }
-        .padding(.top, CGFloat(Vivo.MedidasMuneca.arribaSafe))
+        .padding(.top, CGFloat(medidas.arriba))
         .padding(.bottom, CGFloat(Vivo.MedidasMuneca.abajoSafe))
         .padding(.horizontal, CGFloat(Vivo.MedidasMuneca.ladoSafe))
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -13,7 +13,8 @@ struct MunecaMedidor<Contenido: View>: View {
 
     var body: some View {
         GeometryReader { geo in
-            let medidas = Vivo.MedidasMuneca(ancho: Double(geo.size.width), alto: Double(geo.size.height))
+            let medidas = Vivo.MedidasMuneca(ancho: Double(geo.size.width), alto: Double(geo.size.height),
+                                             horaAbajo: Double(WatchPantalla.hora(ancho: geo.size.width).abajo))
             contenido(medidas)
                 .environment(\.munecaMedidas, medidas)
                 .frame(width: geo.size.width, height: geo.size.height)

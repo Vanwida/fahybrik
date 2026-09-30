@@ -17,14 +17,22 @@ extension Vivo {
     struct MedidasMuneca: Equatable {
         var ancho: Double
         var alto: Double
+        /// Hasta dónde llega la hora del sistema por arriba, en pt desde el borde de la pantalla. La pinta
+        /// watchOS arriba a la derecha, más baja cuanto más grande es el reloj, y nada suyo puede pisarla.
+        /// El lienzo del kit no la lleva (0: vale `arribaSafe`); el reloj real la MIDE por talla
+        /// (`WatchPantalla.horaAbajo`) y el núcleo mide todo contra `arriba`, no contra el 24 fijo.
+        var horaAbajo: Double = 0
 
         /// 42 mm, 46 mm y 49 mm (el ajuste por ancho los sirve a todos).
         static let mm42 = MedidasMuneca(ancho: 187, alto: 223)
         static let mm46 = MedidasMuneca(ancho: 208, alto: 248)
         static let mm49 = MedidasMuneca(ancho: 205, alto: 251)
 
-        /// Safe areas: arriba la hora del sistema, lados, abajo.
+        /// Safe areas: arriba la hora del sistema, lados, abajo. `arribaSafe` es el suelo del lienzo del kit;
+        /// el reloj real sube hasta `arriba` cuando su hora baja más.
         static let arribaSafe: Double = 24
+        /// Aire entre la base de la hora y la primera fila.
+        static let aireHora: Double = 2
         static let abajoSafe: Double = 12
         static let ladoSafe: Double = 10
         /// Aire del héroe: 1 pt por lado.
@@ -36,7 +44,9 @@ extension Vivo {
         static let pie46: Double = 160
 
         var anchoUtil: Double { ancho - 2 * Self.ladoSafe }
-        var altoUtil: Double { alto - Self.arribaSafe - Self.abajoSafe }
+        /// Lo que se reserva arriba: la hora del sistema y su aire, o el suelo del kit si la hora queda por encima.
+        var arriba: Double { max(Self.arribaSafe, horaAbajo + Self.aireHora) }
+        var altoUtil: Double { alto - arriba - Self.abajoSafe }
         var anchoHeroe: Double { anchoUtil - Self.aireHeroe }
         /// Las esquinas se comen lo mismo en proporción a cualquier tamaño.
         var anchoCabeza: Double { anchoUtil * Self.cabeza46 / Self.anchoUtil46 }

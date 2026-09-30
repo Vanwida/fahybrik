@@ -43,6 +43,8 @@ struct MunecaCuenta: View {
 struct MunecaAvisoVuelta: View {
     let aviso: Vivo.AvisoDeVuelta
 
+    @Environment(\.munecaMedidas) private var medidas
+
     var body: some View {
         VStack(spacing: 4) {
             Text(aviso.titulo)
@@ -63,7 +65,7 @@ struct MunecaAvisoVuelta: View {
         .background(RoundedRectangle(cornerRadius: MunecaForma.capaRadio, style: .continuous).fill(MunecaPaleta.superficie2))
         .shadow(color: .black.opacity(0.6), radius: 15, y: 8)
         .padding(.horizontal, CGFloat(Vivo.MedidasMuneca.ladoSafe) + MunecaForma.capaLados)
-        .padding(.top, CGFloat(Vivo.MedidasMuneca.arribaSafe) + MunecaForma.capaDesdeArriba)
+        .padding(.top, CGFloat(medidas.arriba) + MunecaForma.capaDesdeArriba)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .allowsHitTesting(false)
         .transition(.opacity.combined(with: .move(edge: .top)))
