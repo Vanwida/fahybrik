@@ -10,6 +10,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 **FIX GUARDADO 500 (29-09, sin desplegar):** un tramo `run` de 0 m en el historial (atleta 64) partía por cero en `running-prs.ts` y tumbaba TODO guardado suyo; arreglado + savepoint en `detectPrs`. Tras deploy la cola de la app lo reintenta sola.
 
+**RELOJ · FUERZA Y ERGO EN LA CARA NUEVA (30-09, rama `worktree-agent-a08aa87d85a4f8e6b` = la de correr + fuerza + ergo, sin fusionar; DECISIONS 30-09).** Serie, colócate, anotar en el descanso (reps, carga, RIR con la corona), ejercicios y ergo con segundo objetivo (M1: `pace_cap`), por solitario y espejo con la misma cara. Falta aparato (corona en el dato, doble toque) y capturas; lo viejo se borra al final.
+
 **RELOJ · CORRER, LA CARA NUEVA EN SOLITARIO Y EN ESPEJO (30-09, rama `worktree-agent-a6f6e3920e890764a` = núcleo + vistas + cable + espejo, sin fusionar en main; DECISIONS 29-09 y 30-09).** Núcleo puro (`Vivo.cuadroMuneca`, ritmo actual, `Vivo.Paso` Codable), pila en `FAHYBRIKWatch/Muneca/` tras `MunecaBandera` (encendida), cable (`MirrorWirePlan`: plan + cursor) y espejo pintando la MISMA pila (`MunecaEspejo`, `CaraDelEspejo`): nueva solo al correr de corrido con cuadro; si no, todo lo de siempre. Falta aparato (plan por `sendToRemoteWorkoutSession`, doble toque, corona anidada, Always-On) y: deshacer/hápticos por evento (F3), voz (F4), método/M3/M8 en servidor (F5), puertas y final natural (F6), complicación (F7), retirada de lo viejo (F8).
 
 **RELOJ · SE LANZA SOLO AL EMPEZAR (29-09, worktree `agent-a6bcbe816a50de313`, sin fusionar; DECISIONS 29-09).** «No conecta» = una carrera sin calle/cinta no lanzaba
