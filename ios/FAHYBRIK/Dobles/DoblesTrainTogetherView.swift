@@ -1,93 +1,58 @@
 import SwiftUI
 
-// Dobles · entrenar a la vez / opcional (screen 3). The SAME session with
-// per-athlete load — each column resolved over that athlete's own 1RM — plus
-// "do it together / on my own" actions. Both results stay visible to both
-// athletes and the coach.
+// Dobles · entrenar a la vez / opcional. LA MISMA sesión con la carga de cada uno — cada columna resuelta sobre
+// el 1RM de ese atleta — y las acciones «hacerla juntos» / «por mi cuenta». Los dos resultados quedan visibles
+// para los dos atletas y para el coach.
 //
-// Faithful to design_handoff_fhp/App Atleta - Dobles.dc.html screen 3, mapped to
-// our system: SELF = brand orange (Theme.Color.accent), PARTNER = blue
-// (Theme.Color.partner). The handoff's "Hacerla juntos" primary CTA was blue
-// (the partner color); in our system the primary action is brand orange and the
-// "Por mi cuenta" secondary stays neutral. Never red-as-brand.
+// Piel de «El día»: cabecera fija con su ‹ (la pantalla se empuja desde la semana conectada), tarjetas de
+// `caraDobles` y la acción anclada abajo, donde el pulgar la espera. El atleta es el acento del club y la
+// pareja el azul de `Theme.Color.partner`; la acción principal es la pastilla de tinta invertida, no un naranja.
 //
-// Composes the shared Dobles atoms from DoblesPlanView.swift (DoblesAthleteAvatar).
+// Se compone con los átomos de Dobles (`DoblesPiezas`: avatar, cara, nota, acción).
 //
-// Data: DoblesService.fetchTrainTogether hits GET /api/athlete/dobles/session/{id},
-// which resolves each "% RM" line over THAT athlete's own 1RM and returns the
-// per-athlete loads. When there's no session id, no linked partner, or the
-// assignment isn't found, the fetch returns nil and we show an honest empty
-// state — we NEVER fabricate either athlete's resolved loads. The dual-load
-// table renders only on real backend-resolved data.
+// Datos: `DoblesService.fetchTrainTogether` llama a GET /api/athlete/dobles/session/{id}, que resuelve cada
+// línea «% RM» sobre el 1RM de CADA atleta y devuelve las cargas de los dos. Sin id de sesión, sin pareja o sin
+// asignación el servicio devuelve nil y se enseña un vacío honesto: JAMÁS se inventan las cargas. La tabla
+// doble solo se pinta con datos resueltos por el servidor.
 struct DoblesTrainTogetherView: View {
-    /// The session to load (nil renders the empty state).
+    /// La sesión a cargar (nil pinta el vacío).
     var sessionId: String? = nil
     var bearer: String? = nil
+
+    @Environment(\.dismiss) private var dismiss
 
     @State private var session: DoblesTrainTogetherSession? = nil
     @State private var partner: PartnerInfo? = nil
     @State private var loading = true
-    @State private var appear = false
-    // Logging launchers — both run the SAME workout flow (brief → active →
-    // summary) via WorkoutContainer for THIS athlete's assignment (sessionId).
-    // "Hacerla juntos" logs against the joint endpoint (links partner + shares);
-    // "Por mi cuenta" against the standard solo path. No parallel logging UI.
+    // Los dos lanzadores del registro recorren el MISMO flujo de entreno (resumen → en curso → cierre) con
+    // `WorkoutContainer`, para la asignación de ESTE atleta (`sessionId`). «Hacerla juntos» registra contra el
+    // endpoint conjunto (enlaza a la pareja y comparte); «Por mi cuenta», por el camino normal en solitario.
+    // No hay una pantalla de registro paralela.
     @State private var showJointWorkout = false
     @State private var showSoloWorkout = false
-
-    private var effectiveBearer: String? {
-        bearer
-    }
 
     private var selfName: String { session?.selfName ?? "Yo" }
     private var partnerName: String { session?.partnerName ?? partner?.firstName ?? "Compañero" }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                header
-                    .staggerReveal(appear, index: 0)
-
-                if loading {
-                    ProgressView()
-                        .tint(Theme.Color.accent)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, Theme.Spacing.xxl)
-                } else if let session {
-                    content(session)
-                } else if partner == nil {
-                    DoblesNoPartnerState(
-                        message: "Con un compañero conectado veréis aquí la carga de cada uno en la misma sesión, resuelta sobre vuestro propio 1RM.",
-                        bearer: effectiveBearer,
-                        onInvited: { Task { await reload() } }
-                    )
-                    .padding(.top, Theme.Spacing.xl)
-                    .staggerReveal(appear, index: 1)
-                } else {
-                    RedesignEmptyState(
-                        symbol: "figure.strengthtraining.traditional",
-                        title: "Sin sesión conjunta",
-                        message: "Cuando tu coach programe una sesión que podéis hacer juntos verás aquí la carga de cada uno, resuelta sobre vuestro propio 1RM.",
-                        exit: .explained(note: "La programa tu coach. Aparece aquí en cuanto la publique.")
-                    )
-                    .padding(.top, Theme.Spacing.xl)
-                    .staggerReveal(appear, index: 1)
-                }
-            }
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.top, Theme.Spacing.m)
-            .padding(.bottom, Theme.Spacing.xxl)
+        VStack(spacing: 0) {
+            CabeceraDobles(
+                kicker: "Podéis hacerla juntos o cada uno",
+                titulo: session?.title ?? "Entrenar a la vez",
+                apoyo: session?.subtitle.flatMap { $0.isEmpty ? nil : $0 },
+                salida: .volver,
+                alSalir: { dismiss() }
+            )
+            contenido
         }
         .background(Theme.Color.background.ignoresSafeArea())
-        .instrumentCanvas()
-        .navigationTitle("Entrenar a la vez")
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .fullScreenCover(isPresented: $showJointWorkout) {
             if let sessionId {
                 WorkoutContainer(
                     assignmentId: sessionId,
                     fallbackTitle: session?.title,
-                    bearer: effectiveBearer,
+                    bearer: bearer,
                     logTarget: .doublesJoint,
                     onClose: { showJointWorkout = false },
                     onCompleted: { _ in showJointWorkout = false }
@@ -99,252 +64,281 @@ struct DoblesTrainTogetherView: View {
                 WorkoutContainer(
                     assignmentId: sessionId,
                     fallbackTitle: session?.title,
-                    bearer: effectiveBearer,
+                    bearer: bearer,
                     logTarget: .solo,
                     onClose: { showSoloWorkout = false },
                     onCompleted: { _ in showSoloWorkout = false }
                 )
             }
         }
-        .task(id: effectiveBearer) { await reload() }
+        .task(id: bearer) { await reload() }
     }
 
-    /// Partner link + the per-athlete resolved session. Re-run after an
-    /// invitation so a freshly paired athlete stops seeing the unpaired state.
-    private func reload() async {
-        loading = true
-        if let bearer = effectiveBearer {
-            partner = try? await PartnerService.fetchPartner(bearer: bearer)
-        }
-        session = await DoblesService.fetchTrainTogether(sessionId: sessionId, bearer: effectiveBearer)
-        loading = false
-        withAnimation { appear = true }
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: "person.2")
-                    .font(.system(size: 10, weight: .semibold))
-                Text("Podéis hacerla juntos o cada uno")
-                    .font(.system(size: 10, weight: .medium))
-                    .lineLimit(1)
-            }
-            .foregroundStyle(Theme.Color.muted)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 4)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-            )
-
-            Text(session?.title ?? "Entrenar a la vez")
-                .scaledFont(23, weight: .heavy, relativeTo: .title2, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 4)
-            if let subtitle = session?.subtitle, !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.Color.muted)
-            }
-        }
-    }
-
-    // MARK: - Content
+    // MARK: - Contenido por estado
 
     @ViewBuilder
-    private func content(_ s: DoblesTrainTogetherSession) -> some View {
-        // Per-athlete 1RM reference chips.
-        if s.selfOneRm != nil || s.partnerOneRm != nil {
-            HStack(spacing: Theme.Spacing.m) {
-                oneRmChip(name: selfName, ref: s.selfOneRm, color: Theme.Color.accent, initials: "Yo")
-                oneRmChip(name: partnerName, ref: s.partnerOneRm, color: Theme.Color.partner, initials: partner?.initials ?? "·")
+    private var contenido: some View {
+        if loading {
+            ScrollView {
+                DoblesTrainTogetherEsqueleto()
+                    .padding(.horizontal, Theme.Spacing.pantalla)
+                    .padding(.bottom, Theme.Spacing.xxl)
             }
-            .staggerReveal(appear, index: 1)
-        }
-
-        // Dual-load exercise table.
-        if !s.exercises.isEmpty {
-            loadTable(s.exercises)
-                .staggerReveal(appear, index: 2)
+            .scrollDisabled(true)
+        } else if let session {
+            ScrollView {
+                DoblesTrainTogetherCuerpo(
+                    session: session,
+                    selfName: selfName,
+                    partnerName: partnerName,
+                    partnerInitials: partner?.initials ?? "·"
+                )
+                .padding(.horizontal, Theme.Spacing.pantalla)
+                .padding(.top, Theme.Spacing.s)
+                .padding(.bottom, Theme.Spacing.l)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            // Las dos salidas son la puerta de la pantalla: siempre en el mismo sitio. Ambas lanzan el flujo
+            // real de entreno de ESTA asignación y solo cambia el envío final. Sin sesión resoluble, apagadas.
+            .anchoredAction {
+                DoblesTrainTogetherAcciones(
+                    puedeJuntos: !session.isSelfOnly,
+                    habilitadas: sessionId != nil,
+                    alJuntos: { showJointWorkout = true },
+                    alSolo: { showSoloWorkout = true }
+                )
+            }
         } else {
-            RedesignEmptyState(
-                symbol: "list.bullet.rectangle",
-                title: "Sin ejercicios",
-                message: "Esta sesión aún no tiene ejercicios prescritos.",
-                exit: .explained(note: "Los añade tu coach al detallar la sesión.")
-            )
-            .padding(.top, Theme.Spacing.l)
-            .staggerReveal(appear, index: 2)
-        }
-
-        // Results-shared note.
-        HStack(spacing: 8) {
-            Image(systemName: "chart.bar.xaxis")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.Color.partner)
-            Text("Cuando termináis, los dos resultados quedan visibles para ambos y para el coach")
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.Color.muted)
-        }
-        .padding(.horizontal, 13)
-        .padding(.vertical, 10)
-        .background(Theme.Color.partner.opacity(0.08))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                .stroke(Theme.Color.partner.opacity(0.30), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        .staggerReveal(appear, index: 3)
-
-        // Together / on-my-own actions. Primary = brand orange. Both launch the
-        // real workout flow for THIS athlete's assignment; only the final submit
-        // differs (joint endpoint vs solo). Disabled without a resolvable session.
-        VStack(spacing: Theme.Spacing.s) {
-            // "Hacerla juntos" only when the session is actually shareable. A
-            // self_only session is private → the joint option is hidden (and the
-            // backend would reject a joint log with 409 as the safety net).
-            if !s.isSelfOnly {
-                ExpertPrimaryButton(title: "▶ Hacerla juntos", height: 50, enabled: sessionId != nil) {
-                    guard sessionId != nil else { return }
-                    Haptics.medium()
-                    showJointWorkout = true
-                }
+            CenteredScreen {
+                EmptyView()
+            } lead: {
+                EmptyView()
+            } content: {
+                sinSesion
+                    .padding(.horizontal, Theme.Spacing.pantalla)
+                    .padding(.vertical, Theme.Spacing.l)
             }
-            Button {
-                guard sessionId != nil else { return }
-                Haptics.light()
-                showSoloWorkout = true
-            } label: {
-                Text("Por mi cuenta")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(Theme.Color.surfaceElevated)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                            .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            }
-            .buttonStyle(PressScaleStyle())
         }
-        .staggerReveal(appear, index: 4)
     }
 
-    // MARK: - 1RM reference chip
+    @ViewBuilder
+    private var sinSesion: some View {
+        if partner == nil {
+            DoblesNoPartnerState(
+                message: "Con un compañero conectado veréis aquí la carga de cada uno en la misma sesión, resuelta sobre vuestro propio 1RM.",
+                bearer: bearer,
+                onInvited: { Task { await reload() } }
+            )
+        } else {
+            RedesignEmptyState(
+                symbol: "figure.strengthtraining.traditional",
+                title: "Sin sesión conjunta",
+                message: "Cuando tu coach programe una sesión que podéis hacer juntos verás aquí la carga de cada uno, resuelta sobre vuestro propio 1RM.",
+                exit: .explained(note: "La programa tu coach. Aparece aquí en cuanto la publique.")
+            )
+        }
+    }
 
-    private func oneRmChip(name: String, ref: String?, color: Color, initials: String) -> some View {
-        HStack(spacing: 8) {
-            DoblesAthleteAvatar(initials: initials, color: color, size: 26)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(name)
-                    .font(.system(size: 13, weight: .bold))
+    /// El vínculo de pareja + la sesión resuelta por atleta. Se repite tras una invitación para que una pareja
+    /// recién emparejada deje de ver el estado sin pareja.
+    private func reload() async {
+        loading = true
+        if let bearer {
+            partner = try? await PartnerService.fetchPartner(bearer: bearer)
+        }
+        session = await DoblesService.fetchTrainTogether(sessionId: sessionId, bearer: bearer)
+        loading = false
+    }
+}
+
+// MARK: - El cuerpo con la sesión
+
+/// Lo que hay bajo la cabecera con la sesión resuelta: el 1RM de cada uno, la tabla de cargas y la nota de que
+/// los resultados se comparten. Solo dibuja.
+struct DoblesTrainTogetherCuerpo: View {
+    let session: DoblesTrainTogetherSession
+    let selfName: String
+    let partnerName: String
+    let partnerInitials: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            // La referencia 1RM de cada atleta.
+            if session.selfOneRm != nil || session.partnerOneRm != nil {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: Theme.Spacing.m) { chips }
+                    VStack(spacing: Theme.Spacing.m) { chips }
+                }
+            }
+
+            if session.exercises.isEmpty {
+                RedesignEmptyState(
+                    symbol: "list.bullet.rectangle",
+                    title: "Sin ejercicios",
+                    message: "Esta sesión aún no tiene ejercicios prescritos.",
+                    exit: .explained(note: "Los añade tu coach al detallar la sesión.")
+                )
+                .padding(.vertical, Theme.Spacing.l)
+            } else {
+                DoblesCargaTabla(rows: session.exercises, selfName: selfName, partnerName: partnerName)
+            }
+
+            DoblesNota(
+                simbolo: "chart.bar.xaxis",
+                texto: "Cuando termináis, los dos resultados quedan visibles para ambos y para el coach"
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var chips: some View {
+        chip(nombre: selfName, ref: session.selfOneRm, color: Theme.Color.accent, cara: .acento, iniciales: "Yo")
+        chip(nombre: partnerName, ref: session.partnerOneRm, color: Theme.Color.partner, cara: .pareja, iniciales: partnerInitials)
+    }
+
+    private func chip(nombre: String, ref: String?, color: SwiftUI.Color, cara: CaraDobles, iniciales: String) -> some View {
+        HStack(spacing: Theme.Spacing.m) {
+            DoblesAthleteAvatar(initials: iniciales, color: color, size: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(nombre)
+                    .papel(.cuerpoFuerte)
                     .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                // Sin 1RM registrado se dice, y así el chip explica por qué la
-                // columna de ese atleta viene sin carga.
+                    .fixedSize(horizontal: false, vertical: true)
+                // Sin 1RM registrado se dice, y así el chip explica por qué la columna de ese atleta viene sin
+                // carga.
                 if let ref {
                     Text(ref)
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Theme.Color.faint)
+                        .papel(.nota)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text("sin 1RM")
-                        .font(.system(size: 10, weight: .medium).italic())
-                        .foregroundStyle(Theme.Color.faint)
+                        .papel(.nota)
+                        .foregroundStyle(Theme.Color.foreground)
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 9)
+        .padding(Theme.Spacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(color.opacity(0.08))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                .stroke(color.opacity(0.30), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .caraDobles(cara, radio: Theme.Radius.fila)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(name), \(ref ?? "sin 1RM registrado")")
+        .accessibilityLabel("\(nombre), \(ref ?? "sin 1RM registrado")")
+    }
+}
+
+// MARK: - La tabla de cargas
+
+/// La tabla de dos cargas: cada ejercicio con su S×R y, en dos columnas, la carga de cada atleta resuelta sobre
+/// SU 1RM. Con el texto del sistema en tamaños de accesibilidad las columnas no caben: cada ejercicio pasa a una
+/// tarjeta con las dos cargas debajo, una por línea.
+struct DoblesCargaTabla: View {
+    let rows: [DoblesExerciseRow]
+    let selfName: String
+    let partnerName: String
+
+    @Environment(\.dynamicTypeSize) private var tamanoDeTexto
+
+    /// Ancho de cada columna de carga: cabe «80% · 100kg» sin partirlo en dos líneas a tamaño normal.
+    private static var columna: CGFloat { 92 }
+
+    var body: some View {
+        if tamanoDeTexto.isAccessibilitySize {
+            VStack(spacing: Theme.Spacing.m) {
+                ForEach(rows) { row in filaApilada(row) }
+            }
+        } else {
+            tabla
+        }
     }
 
-    // MARK: - Dual-load table
-
-    private func loadTable(_ rows: [DoblesExerciseRow]) -> some View {
+    private var tabla: some View {
         VStack(spacing: 0) {
-            // Header row.
-            HStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
                 Text("Ejercicio · S×R")
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .foregroundStyle(Theme.Color.faint)
+                    .foregroundStyle(Theme.Color.muted)
                 Text(selfName)
-                    .frame(width: 70, alignment: .leading)
+                    .frame(width: Self.columna, alignment: .leading)
                     .foregroundStyle(Theme.Color.accentText)
                 Text(partnerName)
-                    .frame(width: 70, alignment: .leading)
+                    .frame(width: Self.columna, alignment: .leading)
                     .foregroundStyle(Theme.Color.partner)
-                    .lineLimit(1)
             }
-            .font(.system(size: 11, weight: .semibold))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
+            .papel(.rotulo)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, Theme.Spacing.l)
+            .padding(.vertical, Theme.Spacing.m)
             .background(Theme.Color.surfaceSunken)
 
             ForEach(rows) { row in
                 Hairline()
-                HStack(spacing: 0) {
-                    HStack(spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(row.exercise)
-                            .font(.system(size: 13, weight: .semibold))
+                            .papel(.cuerpoFuerte)
                             .foregroundStyle(Theme.Color.foreground)
+                            .fixedSize(horizontal: false, vertical: true)
                         if let sr = row.setsReps, !sr.isEmpty {
                             Text(sr)
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                                .foregroundStyle(Theme.Color.faint)
+                                .papel(.nota)
+                                .foregroundStyle(Theme.Color.muted)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    // La carga se resuelve sobre el 1RM de cada uno: quien no lo
-                    // tiene registrado no tiene carga, y eso se DICE — nombra la
-                    // causa y con ella el acto que la arregla (§6.2 bis).
-                    cargaCelda(row.selfLoad)
-                    cargaCelda(row.partnerLoad)
+                    // La carga se resuelve sobre el 1RM de cada uno: quien no lo tiene registrado no tiene
+                    // carga, y eso se DICE — nombra la causa y con ella el acto que la arregla (§6.2 bis).
+                    celdaDeCarga(row.selfLoad).frame(width: Self.columna, alignment: .leading)
+                    celdaDeCarga(row.partnerLoad).frame(width: Self.columna, alignment: .leading)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 11)
+                .padding(.horizontal, Theme.Spacing.l)
+                .padding(.vertical, Theme.Spacing.m)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(filaAccesible(row))
             }
         }
-        .background(Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        .caraDobles(.neutra, radio: Theme.Radius.fila)
     }
 
-    /// Una celda de carga. Con carga, la cifra en la letra de instrumento; sin
-    /// ella, la razón en la voz de texto — una nota de ausencia no es una medida
-    /// y no se monoespacia (§4).
+    /// Un ejercicio como tarjeta: su nombre y S×R y debajo la carga de cada uno con su nombre delante.
+    private func filaApilada(_ row: DoblesExerciseRow) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            Text(row.exercise)
+                .papel(.cuerpoFuerte)
+                .foregroundStyle(Theme.Color.foreground)
+            if let sr = row.setsReps, !sr.isEmpty {
+                Text(sr).papel(.nota).foregroundStyle(Theme.Color.muted)
+            }
+            cargaConNombre(selfName, row.selfLoad, color: Theme.Color.accentText)
+            cargaConNombre(partnerName, row.partnerLoad, color: Theme.Color.partner)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.l)
+        .caraDobles(.neutra, radio: Theme.Radius.fila)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(filaAccesible(row))
+    }
+
+    private func cargaConNombre(_ nombre: String, _ carga: String?, color: SwiftUI.Color) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+            Text(nombre).papel(.rotulo).foregroundStyle(color)
+            celdaDeCarga(carga)
+        }
+    }
+
+    /// Una celda de carga. Con carga, la cifra; sin ella, la razón en voz de texto — una nota de ausencia no es
+    /// una medida.
     @ViewBuilder
-    private func cargaCelda(_ carga: String?) -> some View {
+    private func celdaDeCarga(_ carga: String?) -> some View {
         if let carga {
             Text(carga)
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .papel(.notaFuerte)
                 .foregroundStyle(Theme.Color.foreground)
-                .frame(width: 70, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
         } else {
             Text("sin 1RM")
-                .font(.system(size: 11, weight: .medium).italic())
-                .foregroundStyle(Theme.Color.faint)
-                .lineLimit(1)
-                .frame(width: 70, alignment: .leading)
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
         }
     }
 
@@ -355,5 +349,55 @@ struct DoblesTrainTogetherView: View {
         parts.append("\(selfName) \(row.selfLoad ?? "sin 1RM")")
         parts.append("\(partnerName) \(row.partnerLoad ?? "sin 1RM")")
         return parts.joined(separator: ", ")
+    }
+}
+
+// MARK: - Las dos salidas
+
+/// «Hacerla juntos» (principal) y «Por mi cuenta» (secundaria). «Hacerla juntos» solo existe cuando la sesión se
+/// puede compartir: una sesión `self_only` es privada, así que no se ofrece (y el servidor rechazaría un registro
+/// conjunto con 409: es la red de seguridad).
+struct DoblesTrainTogetherAcciones: View {
+    let puedeJuntos: Bool
+    let habilitadas: Bool
+    let alJuntos: () -> Void
+    let alSolo: () -> Void
+
+    var body: some View {
+        VStack(spacing: Theme.Spacing.s) {
+            if puedeJuntos {
+                AccionDobles(titulo: "Hacerla juntos", simbolo: "play.fill", habilitada: habilitadas, alTocar: alJuntos)
+            }
+            AccionDobles(
+                titulo: "Por mi cuenta",
+                estilo: puedeJuntos ? .secundaria : .principal,
+                habilitada: habilitadas,
+                alTocar: alSolo
+            )
+        }
+    }
+}
+
+// MARK: - El esqueleto
+
+/// La sesión conjunta mientras llega: la misma silueta que lo que la sustituye (los dos 1RM, la tabla y la nota).
+struct DoblesTrainTogetherEsqueleto: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            HStack(spacing: Theme.Spacing.m) {
+                SkeletonBar(height: 64, radius: Theme.Radius.fila)
+                SkeletonBar(height: 64, radius: Theme.Radius.fila)
+            }
+            VStack(spacing: Theme.Spacing.s) {
+                SkeletonBar(height: 40, radius: Theme.Radius.fila)
+                ForEach(0..<4, id: \.self) { _ in
+                    SkeletonBar(height: 56, radius: Theme.Radius.fila)
+                }
+            }
+            SkeletonBar(height: 64, radius: Theme.Radius.fila)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cargando la sesión conjunta")
     }
 }
