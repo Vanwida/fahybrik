@@ -13,6 +13,9 @@ module Formato {
     const HORA_S = 3600;
     const MINUTO_S = 60;
     const DECI = 10;
+    // Milisegundos por segundo y decímetros por metro: las escalas del motor.
+    const MS_POR_S = 1000;
+    const DM_POR_M = 10;
     // Por debajo de este tiempo en segundos, la duración se lee «90 s»; por encima, en minutos.
     const DURACION_EN_SEGUNDOS_HASTA_S = 90;
     const REPETICIONES_M = 5000;    // desde 5 km redondos, la distancia se dice en km

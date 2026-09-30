@@ -19,17 +19,8 @@ class Motor {
 
     // Cuánto dura la ventana en la que se puede deshacer un cierre a mano (G3/G4).
     const DESHACER_MS = 5000;
-    // Cada cuánto se guarda un checkpoint de la sesión aunque no cambie el paso (G10).
-    const CHECKPOINT_S = 30;
     const EXTRA_DESCANSO_S = 30;
-    const BATERIA_BAJA_PCT = 10;
-    // Segundos que una pérdida o vuelta de GPS o pulso ha de sostenerse antes de avisar (evita el parpadeo).
-    const DEBOUNCE_S = 3;
-    // Segundos que la tarjeta de la vuelta automática se queda sobre el paso.
-    const TARJETA_VUELTA_S = 5;
-    const MS = 1000;
     const DECI = 10;
-    const DM_POR_M = 10;
     const NO_PAUSA = -1;
 
     // Campos de un tramo cerrado (fila plana con paso `T_LARGO`).
@@ -109,16 +100,7 @@ class Motor {
     var deshacerHasta as Lang.Number;
     var deshacerTexto as Lang.String;
     var cerrandoUltimo as Lang.Boolean;
-    var uI as Lang.Number;
-    var uPasoInicioSesMs as Lang.Number;
-    var uPasoInicioDm as Lang.Number;
-    var uExtraS as Lang.Number;
-    var uPreavisado as Lang.Boolean;
-    var uFuera as Lang.Number;
-    var uDesde as Lang.Number;
-    var uUltimo as Lang.Number or Null;
-    var uTramos as Lang.Number;
-    var uVueltas as Lang.Number;
+    var instantanea as Instantanea;
 
     // La tarjeta de la vuelta automática y el estado de los sensores.
     var tarjetaHasta as Lang.Number;
@@ -175,16 +157,7 @@ class Motor {
         deshacerHasta = 0;
         deshacerTexto = "";
         cerrandoUltimo = false;
-        uI = 0;
-        uPasoInicioSesMs = 0;
-        uPasoInicioDm = 0;
-        uExtraS = 0;
-        uPreavisado = false;
-        uFuera = 0;
-        uDesde = 0;
-        uUltimo = null;
-        uTramos = 0;
-        uVueltas = 0;
+        instantanea = new Instantanea();
         tarjetaHasta = 0;
         tarjetaTitulo = "";
         tarjetaValor = "";
@@ -212,11 +185,11 @@ class Motor {
     }
 
     function sesionS() as Lang.Number {
-        return sesionMs() / MS;
+        return sesionMs() / Formato.MS_POR_S;
     }
 
     function pasoS() as Lang.Number {
-        return (sesionMs() - pasoInicioSesMs) / MS;
+        return (sesionMs() - pasoInicioSesMs) / Formato.MS_POR_S;
     }
 
     function pasoActual() as Paso {
@@ -224,7 +197,7 @@ class Motor {
     }
 
     function hechoM() as Lang.Number {
-        return (sesDm - pasoInicioDm) / DM_POR_M;
+        return (sesDm - pasoInicioDm) / Formato.DM_POR_M;
     }
 
     // ── arranque ─────────────────────────────────────────────────────────────
@@ -234,32 +207,6 @@ class Motor {
         sinGrabar = !grabacion.iniciar();
         relojInicioMs = System.getTimer();
         iniciarPaso(0);
-        tick();
-    }
-
-    // Sigue una sesión interrumpida (G10): NUEVA grabación, MISMA sesión (mismo started_at y assignment_id;
-    // el servidor las une). Retoma en el paso donde iba, con lo cerrado hasta el checkpoint.
-    function restaurar(chk as Lang.Dictionary) as Void {
-        var paso = Json.num(chk, "paso", 0);
-        i = paso < s.pasos.size() ? paso : s.pasos.size() - 1;
-        var t = chk.get("tramos");
-        tramos = t instanceof Lang.Array ? t : [] as Lang.Array<Lang.Number>;
-        var v = chk.get("vueltas");
-        vueltas = v instanceof Lang.Array ? v : [] as Lang.Array<Lang.Number>;
-        dmBase = Json.num(chk, "dm", 0);
-        sesDm = dmBase;
-        sesPpmSuma = Json.num(chk, "ppmS", 0);
-        sesPpmN = Json.num(chk, "ppmN", 0);
-        sesPpmMax = Json.num(chk, "ppmM", 0);
-        var ya = Json.num(chk, "sesS", 0) * MS;
-        relojInicioMs = System.getTimer() - ya;
-        vueltaDesdeMs = ya;
-        vueltaDesdeDm = dmBase;
-        for (var k = 0; k + V_LARGO <= vueltas.size(); k += V_LARGO) {
-            vueltaN += vueltas[k + V_TIPO] == 1 ? 1 : 0;
-        }
-        sinGrabar = !grabacion.iniciar();
-        iniciarPaso(sesionMs());
         tick();
     }
 
@@ -291,7 +238,7 @@ class Motor {
         var nowMs = sesionMs();
         var info = Activity.getActivityInfo();
         if (info != null && info.elapsedDistance != null) {
-            sesDm = dmBase + (info.elapsedDistance * DM_POR_M).toNumber();
+            sesDm = dmBase + (info.elapsedDistance * Formato.DM_POR_M).toNumber();
         }
         var hr = info != null ? info.currentHeartRate : null;
         lectura.ppm = hr == null ? null : hr * DECI;
@@ -309,7 +256,7 @@ class Motor {
         }
         lectura.ritmo = ritmo.deci();
 
-        vigilarSensores(hr);
+        Vigia.sensores(self, hr);
         if (!pausado()) {
             if (cerrandoUltimo) {
                 // El último paso se cerró a mano: si pasan 5 s sin deshacer, la sesión termina de verdad.
@@ -320,13 +267,13 @@ class Motor {
                     return;
                 }
             } else {
-                eventosDelSegundo(p, nowMs);
+                Vigia.eventos(self, p, nowMs);
             }
         }
         if (!terminado) {
             componer();
         }
-        checkpointSiToca();
+        Persistencia.siToca(self);
         Avisos.emitir(lote);
         lote.limpiar();
     }
@@ -343,135 +290,17 @@ class Motor {
         }
     }
 
-    // Vuelta automática, preaviso, 3-2-1, aviso fuera de objetivo y cierre por medida.
-    function eventosDelSegundo(p as Paso, nowMs as Lang.Number) as Void {
-        var t = pasoS();
-        var tEfectivo = p.medTipo == Cod.MEDIDA_TIEMPO ? t - extraS : t;
-        var r = s.reglas;
-
-        // Vuelta automática cada `vueltaAutoM` metros (dato del coach): el km, la vuelta de pista.
-        var vam = p.vueltaAutoM;
-        if (vam != null && vam > 0) {
-            var k = sesDm / (vam * DM_POR_M);
-            if (k > vueltaN) {
-                vueltaAutomatica(k, vam, nowMs);
-            }
-        }
-
-        var f = Laminar.falta(p, tEfectivo, hechoM());
-        var pr = p.medPrescrito == null ? 0 : p.medPrescrito;
-        // Preaviso: 10 s o 100 m, solo en pasos que no son cortos (dato del coach).
-        if (!preavisado && f != null && f > 0) {
-            var porTiempo = p.medTipo == Cod.MEDIDA_TIEMPO && f <= r.preavisoS && pr >= r.preavisoMinimoS;
-            var porMetros = p.medTipo == Cod.MEDIDA_DISTANCIA && f <= r.preavisoM && pr >= 4 * r.preavisoM;
-            if (porTiempo || porMetros) {
-                preavisado = true;
-                lote.meter(Avisos.EV_PREAVISO);
-            }
-        }
-        // 3-2-1: un tic por segundo antes de un paso de trabajo de la parte principal.
-        if (p.medTipo == Cod.MEDIDA_TIEMPO && entraConCuenta(p) && f != null && f > 0 && f <= 3) {
-            lote.meter(Avisos.EV_CUENTA);
-        }
-        // Fuera de objetivo, con holgura y cadencia. UN veredicto (el techo pasado manda).
-        var o = p.principal();
-        if (p.rol == Cod.ROL_TRABAJO && (o != null || p.objetivoDe(Cod.PAPEL_TECHO) != null)) {
-            var ver = Juez.veredictoDelPaso(p, lectura, s);
-            var ev = Juez.decidirAviso(aviso, ver, t, p, o != null && Juez.esPulso(o), r);
-            if (ev == Juez.AVISO_AFLOJA) {
-                lote.meter(Avisos.EV_AFLOJA);
-            } else if (ev == Juez.AVISO_APRIETA) {
-                lote.meter(Avisos.EV_APRIETA);
-            }
-        }
-        // El tiempo en zona de una serie a pulso, pasada la gracia (para el resumen «N de M dentro»).
-        if (o != null && p.rol == Cod.ROL_TRABAJO && Juez.esPulso(o) && t > r.graciaZonaS) {
-            var vp = Juez.veredictoPrincipal(p, lectura, s);
-            if (vp == Juez.VER_DENTRO) {
-                pasoDentroS++;
-            } else if (vp == Juez.VER_ENCIMA) {
-                pasoArribaS++;
-            } else if (vp == Juez.VER_DEBAJO) {
-                pasoAbajoS++;
-            }
-        }
-        // Cierre por medida.
-        if (!p.cierreAtleta && f != null && f <= 0) {
-            cerrar(CIERRE_MEDIDA);
-        }
-    }
-
-    function entraConCuenta(p as Paso) as Lang.Boolean {
-        if (i + 1 >= s.pasos.size()) {
-            return false;
-        }
-        var sig = s.pasos[i + 1];
-        return sig.rol == Cod.ROL_TRABAJO && sig.fase == Cod.FASE_PRINCIPAL && (p.rol != Cod.ROL_TRABAJO || p.fase != Cod.FASE_PRINCIPAL);
-    }
-
-    // ── sensores ─────────────────────────────────────────────────────────────
-
-    function vigilarSensores(hr as Lang.Number or Null) as Void {
-        var t = sesionS();
-        var gps = Position.getInfo().accuracy;
-        var listo = gps != null && gps >= Position.QUALITY_USABLE;
-        if (listo != gpsListo && t - gpsCambioS >= DEBOUNCE_S) {
-            gpsListo = listo;
-            gpsCambioS = t;
-            lote.meter(listo ? Avisos.EV_RECUPERADO : Avisos.EV_ENLACE);
-        } else if (listo == gpsListo) {
-            gpsCambioS = t;
-        }
-        if (hr != null && !pulsoTuvo) {
-            pulsoTuvo = true;
-            pulsoCambioS = t;
-        } else if (hr == null && pulsoTuvo && t - pulsoCambioS >= DEBOUNCE_S) {
-            pulsoTuvo = false;
-            lote.meter(Avisos.EV_ENLACE);
-        } else if (hr != null) {
-            pulsoCambioS = t;
-        }
-        if (!bateriaAvisada && System.getSystemStats().battery < BATERIA_BAJA_PCT) {
-            bateriaAvisada = true;
-            lote.meter(Avisos.EV_BATERIA);
-        }
-    }
-
     // ── cerrar un paso ───────────────────────────────────────────────────────
 
     // Guarda el tramo que acaba (para el resumen y el envío) y cierra la vuelta del FIT.
     function registrarTramo(cierre as Lang.Number, nowMs as Lang.Number) as Void {
         var p = pasoActual();
-        var dur = (nowMs - pasoInicioSesMs) / MS;
+        var dur = (nowMs - pasoInicioSesMs) / Formato.MS_POR_S;
         var dist = hechoM();
-        tramos.addAll([i, pasoInicioSesMs / MS, dur, dist, pasoPpmSuma, pasoPpmN, pasoPpmMax, cierre, veredictoDelTramo(p, dur, dist) + 1]);
+        tramos.addAll([i, pasoInicioSesMs / Formato.MS_POR_S, dur, dist, pasoPpmSuma, pasoPpmN, pasoPpmMax, cierre, Balance.veredictoDelTramo(self, p, dur, dist) + 1]);
         var rd = Formato.ritmoDeTramo(dur, dist);
         vueltas.addAll([0, dur, dist, rd == null ? 0 : rd]);
         grabacion.vuelta();
-    }
-
-    // El veredicto de un paso cerrado, con la holgura con la que juzgó el motor en vivo. A ritmo: su media.
-    // A pulso: donde pasó MÁS tiempo tras la gracia; si el paso fue más corto que la gracia, no se juzga.
-    function veredictoDelTramo(p as Paso, dur as Lang.Number, dist as Lang.Number) as Lang.Number {
-        var o = p.principal();
-        if (o == null || p.rol != Cod.ROL_TRABAJO) {
-            return Juez.VER_NINGUNO;
-        }
-        if (Juez.esPulso(o)) {
-            var total = pasoDentroS + pasoArribaS + pasoAbajoS;
-            if (total == 0) {
-                return Juez.VER_NINGUNO;
-            }
-            if (pasoDentroS >= pasoArribaS && pasoDentroS >= pasoAbajoS) {
-                return Juez.VER_DENTRO;
-            }
-            return pasoArribaS >= pasoAbajoS ? Juez.VER_ENCIMA : Juez.VER_DEBAJO;
-        }
-        var media = Formato.ritmoDeTramo(dur, dist);
-        if ((o.eje == Cod.EJE_RITMO || Juez.zonaDeRitmo(o)) && media != null) {
-            return Juez.veredicto(o, media, Juez.holguraDe(o, s.reglas), s);
-        }
-        return Juez.VER_NINGUNO;
     }
 
     // Cierra el paso en curso y pasa al siguiente (o termina).
@@ -517,16 +346,7 @@ class Motor {
         if (terminado || pausado() || cerrandoUltimo) {
             return;
         }
-        uI = i;
-        uPasoInicioSesMs = pasoInicioSesMs;
-        uPasoInicioDm = pasoInicioDm;
-        uExtraS = extraS;
-        uPreavisado = preavisado;
-        uFuera = aviso.fuera;
-        uDesde = aviso.desde;
-        uUltimo = aviso.ultimo;
-        uTramos = tramos.size();
-        uVueltas = vueltas.size();
+        instantanea.tomar(self);
         var antes = s.vocab.nombreClase(pasoActual().clase);
         cerrar(CIERRE_ATLETA);
         deshacerTexto = antes;
@@ -547,16 +367,7 @@ class Motor {
         if (!puedeDeshacer()) {
             return;
         }
-        i = uI;
-        pasoInicioSesMs = uPasoInicioSesMs;
-        pasoInicioDm = uPasoInicioDm;
-        extraS = uExtraS;
-        preavisado = uPreavisado;
-        aviso.fuera = uFuera;
-        aviso.desde = uDesde;
-        aviso.ultimo = uUltimo;
-        tramos = tramos.slice(0, uTramos);
-        vueltas = vueltas.slice(0, uVueltas);
+        instantanea.volver(self);
         cerrandoUltimo = false;
         deshacerHasta = 0;
         var o = pasoActual().principal();
@@ -638,89 +449,23 @@ class Motor {
         filas = Paginas.filas(self);
     }
 
-    // ── vuelta automática ────────────────────────────────────────────────────
+    // Checkpoint, seguir tras una interrupción y metros: la lógica vive en Persistencia y Formato.
+    function guardarCheckpoint() as Void {
+        Persistencia.guardar(self);
+    }
 
-    function vueltaAutomatica(k as Lang.Number, vueltaM as Lang.Number, nowMs as Lang.Number) as Void {
-        var seg = (nowMs - vueltaDesdeMs) / MS;
-        var dist = (sesDm - vueltaDesdeDm) / DM_POR_M;
-        var rr = Formato.ritmoDeTramo(seg, dist);
-        var rit = rr == null ? 0 : rr;
-        vueltaN = k;
-        vueltaDesdeMs = nowMs;
-        vueltaDesdeDm = sesDm;
-        vueltas.addAll([1, seg, vueltaM, rit]);
-        tarjetaTitulo = (vueltaM == 1000 ? "Kilómetro " : "Vuelta ") + k;
-        tarjetaValor = Formato.ritmo(rit > 0 ? rit : null);
-        tarjetaPie = "/km";
-        tarjetaHasta = System.getTimer() + TARJETA_VUELTA_S * MS;
-        grabacion.vuelta();
-        lote.meter(Avisos.EV_VUELTA);
+    function restaurar(chk as Lang.Dictionary) as Void {
+        Persistencia.restaurar(self, chk);
     }
 
     function tarjetaVisible() as Lang.Boolean {
         return tarjetaHasta > 0 && System.getTimer() < tarjetaHasta;
     }
 
-    // ── checkpoint (G10): si la app muere, el siguiente arranque ofrece seguir ─
-
-    function checkpointSiToca() as Void {
-        var t = sesionS();
-        if (t - ultimoCheckpointS >= CHECKPOINT_S) {
-            guardarCheckpoint();
-        }
-    }
-
-    function guardarCheckpoint() as Void {
-        ultimoCheckpointS = sesionS();
-        Store.escribir(Config.STORE_CHECKPOINT, {
-            "id" => s.asignacionId,
-            "huella" => s.huella,
-            "inicio" => inicioEpoch,
-            "paso" => i,
-            "sesS" => sesionS(),
-            "dm" => sesDm,
-            "ppmS" => sesPpmSuma,
-            "ppmN" => sesPpmN,
-            "ppmM" => sesPpmMax,
-            "tramos" => tramos,
-            "vueltas" => vueltas
-        });
-    }
-
-    // ── resumen ──────────────────────────────────────────────────────────────
+    // ── metros ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
     function totalM() as Lang.Number {
-        return sesDm / DM_POR_M;
+        return sesDm / Formato.DM_POR_M;
     }
 
-    // Suma, sobre los tramos de trabajo de la parte principal, de segundos y metros (para «ritmo de lo fuerte»).
-    // Devuelve [segundos, metros].
-    function fuerte() as Lang.Array<Lang.Number> {
-        var seg = 0;
-        var m = 0;
-        for (var k = 0; k + T_LARGO <= tramos.size(); k += T_LARGO) {
-            var p = s.pasos[tramos[k + T_PASO]];
-            if (p.rol == Cod.ROL_TRABAJO && p.fase == Cod.FASE_PRINCIPAL) {
-                seg += tramos[k + T_DUR_S];
-                m += tramos[k + T_DIST_M];
-            }
-        }
-        return [seg, m];
-    }
-
-    // «5 de 6 dentro»: [dentro, juzgados].
-    function dentro() as Lang.Array<Lang.Number> {
-        var d = 0;
-        var n = 0;
-        for (var k = 0; k + T_LARGO <= tramos.size(); k += T_LARGO) {
-            var v = tramos[k + T_VEREDICTO];
-            if (v != 0) {
-                n++;
-                if (v - 1 == Juez.VER_DENTRO) {
-                    d++;
-                }
-            }
-        }
-        return [d, n];
-    }
 }

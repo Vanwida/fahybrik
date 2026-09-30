@@ -373,8 +373,8 @@ class Vivo {
     // «Distancia · Tiempo · Ritmo de lo fuerte · N de M dentro»: [etiqueta, valor, …].
     function armarResumen() as Void {
         var m = motor as Motor;
-        var f = m.fuerte();
-        var d = m.dentro();
+        var f = Balance.fuerte(m);
+        var d = Balance.dentro(m);
         var out = ["Distancia", Formato.distancia(m.totalM()), "Tiempo", Formato.reloj(m.sesionS())] as Lang.Array<Lang.String>;
         if (f[1] > 0) {
             out.addAll(["Ritmo fuerte", Formato.ritmo(Formato.ritmoDeTramo(f[0], f[1]))]);
