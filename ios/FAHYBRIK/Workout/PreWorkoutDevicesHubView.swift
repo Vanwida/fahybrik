@@ -144,13 +144,9 @@ struct PreWorkoutDevicesHubView: View {
                 Text("¿Dónde corres hoy?")
                     .papel(.cuerpoFuerte)
                     .foregroundStyle(Theme.Color.foreground)
-                VStack(spacing: Theme.Spacing.s) {
-                    runEnvButton(.outdoor, icon: "location.fill", title: "Calle",
-                                 subtitle: SessionStartPolicy.meterAuthoritySubtitle(for: .outdoor))
-                    runEnvButton(.treadmill, icon: "figure.run", title: "Cinta con conexión",
-                                 subtitle: SessionStartPolicy.meterAuthoritySubtitle(for: .treadmill))
-                    runEnvButton(.indoor, icon: "applewatch", title: "Cinta sin conexión",
-                                 subtitle: SessionStartPolicy.meterAuthoritySubtitle(for: .indoor))
+                RunEnvironmentOptions(elegido: runChoice) { entorno in
+                    runChoice = entorno
+                    if entorno != .treadmill { treadmillPickerOpen = false }
                 }
                 if runChoice == .treadmill {
                     treadmillConnectBlock
@@ -159,54 +155,13 @@ struct PreWorkoutDevicesHubView: View {
         }
     }
 
-    private func runEnvButton(_ env: RunEnvironment, icon: String, title: String, subtitle: String) -> some View {
-        let selected = runChoice == env
-        return Button {
-            Haptics.light()
-            runChoice = env
-            if env != .treadmill { treadmillPickerOpen = false }
-        } label: {
-            HStack(spacing: Theme.Spacing.m) {
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
-                    .frame(width: 36)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .papel(.cuerpoFuerte)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text(subtitle)
-                        .papel(.nota)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-                if selected {
-                    SelloEstadoDia(estado: .hecha, tam: 22, tinta: Theme.Color.accentText)
-                }
-            }
-            .padding(Theme.Spacing.m)
-            .background(selected ? Theme.Color.accentTint(sobre: Theme.Color.surface) : Theme.Color.surfaceSunken,
-                        in: RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            .overlay {
-                if selected {
-                    RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                        .strokeBorder(Theme.Color.accentTintBorde, lineWidth: 1)
-                }
-            }
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityAddTraits(selected ? .isSelected : [])
-    }
-
     @ViewBuilder
     private var treadmillConnectBlock: some View {
         if treadmillPickerOpen {
             inlineTreadmillPicker
         } else {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                statusLine(for: hub.treadmill.link, deviceName: "Cinta")
+                statusLine(for: hub.treadmill.link)
                 FilaAdaptableDia(alineacion: .center) {
                     BotonAccionDia(hub.treadmill.link.isLive ? "Cambiar cinta" : "Conectar cinta",
                                    relleno: .apagado, alto: Theme.Size.toque) {
@@ -254,7 +209,6 @@ struct PreWorkoutDevicesHubView: View {
                         candidate: candidate,
                         isRemembered: candidate.id == hub.treadmill.rememberedID
                     ) {
-                        Haptics.light()
                         hub.treadmill.requestConnect(candidate)
                     }
                 }
@@ -280,7 +234,7 @@ struct PreWorkoutDevicesHubView: View {
         return tarjeta {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 rowHeader(icon: role.icon, title: role.titleES, link: ergLink(store, device: device))
-                statusLine(for: ergLink(store, device: device), deviceName: role.titleES)
+                statusLine(for: ergLink(store, device: device))
                 FilaAdaptableDia(alineacion: .center) {
                     BotonAccionDia(store.isConnected ? "Gestionar" : "Conectar",
                                    relleno: .apagado, alto: Theme.Size.toque) { openPM5(device) }
@@ -306,7 +260,7 @@ struct PreWorkoutDevicesHubView: View {
         return tarjeta {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 rowHeader(icon: device.icon, title: device.titleES, link: ergLink(store, device: device))
-                statusLine(for: ergLink(store, device: device), deviceName: device.titleES)
+                statusLine(for: ergLink(store, device: device))
                 FilaAdaptableDia(alineacion: .center) {
                     BotonAccionDia(store.isConnected ? "Gestionar" : "Conectar",
                                    relleno: .apagado, alto: Theme.Size.toque) { openPM5(device) }
@@ -336,7 +290,7 @@ struct PreWorkoutDevicesHubView: View {
                 } else {
                     rowHeader(icon: deviceIcon(.heartRate), title: "Banda de pulso",
                               link: hub.heartRate.link)
-                    statusLine(for: hub.heartRate.link, deviceName: "Banda")
+                    statusLine(for: hub.heartRate.link)
                 }
                 BotonAccionDia(hub.heartRate.link.isLive ? "Gestionar" : "Conectar",
                                relleno: .apagado, alto: Theme.Size.toque) {
@@ -359,8 +313,8 @@ struct PreWorkoutDevicesHubView: View {
         }
     }
 
-    private func statusLine(for link: DeviceLink, deviceName: String) -> some View {
-        Text(statusPhrase(link, deviceName: deviceName))
+    private func statusLine(for link: DeviceLink) -> some View {
+        Text(link.statePhrase)
             .papel(.nota)
             .foregroundStyle(Theme.Color.muted)
     }
@@ -421,18 +375,6 @@ struct PreWorkoutDevicesHubView: View {
             return .connected(name: store.connectedDeviceName ?? device.titleES)
         }
         return store.connectionState.deviceLink
-    }
-
-    private func statusPhrase(_ link: DeviceLink, deviceName: String) -> String {
-        switch link {
-        case .connected(let name): return "Listo · \(name)"
-        case .connecting:          return "Conectando…"
-        case .scanning:            return "Buscando…"
-        case .lost:                return "Se perdió · vuelve a conectar"
-        case .failed:              return "Reintentar"
-        case .unavailable:         return "Sin señal Bluetooth"
-        case .idle:                return "Sin conectar"
-        }
     }
 
     private func deviceIcon(_ device: PreWorkoutDevice) -> String { device.icon }

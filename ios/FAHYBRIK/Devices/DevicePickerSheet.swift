@@ -7,7 +7,7 @@ import SwiftUI
 // device's real name and a clear DESCONECTAR action. Mirrors the PM5 picker so all
 // three devices read as one instrument panel.
 //
-// USED BY: the heart-rate chip (`DeviceConnectCard`) and the treadmill HUD's in-run
+// USED BY: the heart-rate row (`PreWorkoutDevicesHubView`) and the treadmill HUD's in-run
 // "Elegir" — both presented from a plain screen, where a modal is safe. The run
 // PRE-START flow does NOT use this sheet: there the same list is an inline STEP
 // (`RunPreStartFlow`), because a sheet presented from inside a fullScreenCover and
@@ -27,52 +27,21 @@ struct DevicePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                header
-                Divider().background(Theme.Color.hairline)
-                // Esta hoja se abre también EN PLENO apaisado (el chip de la cinta
-                // del HUD en carrera) y en el detent medio de retrato: con dos o
-                // tres dispositivos + banner + ayuda persistente, la lista
-                // desbordaba sin scroll y se llevaba por delante los botones y la
-                // ayuda. El contenido se desplaza; la cabecera con la X, no.
-                ScrollView(showsIndicators: false) {
-                    content
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                }
-                .frame(maxHeight: .infinity)
+        // Esta hoja se abre también EN PLENO apaisado (el chip de la cinta del HUD en
+        // carrera) y en el detent medio de retrato: el marco hace scroll del contenido
+        // y deja clavados el título y su cierre.
+        MarcoDeHojaDia(channel.title, cerrar: { dismiss() }) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                Text(channel.isConnected ? "Conectado" : "Elige tu dispositivo")
+                    .papel(.cuerpo)
+                    .foregroundStyle(Theme.Color.muted)
+                content
             }
-            .padding(Theme.Spacing.l)
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
         // Dismissing without connecting stops the scan (battery); a live link stays.
         .onDisappear { channel.cancelConnect() }
         .deviceConnectConfirmation(channel)
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(channel.title)
-                    .font(Theme.Typography.headlineS)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text(channel.isConnected ? "Conectado" : "Elige tu dispositivo")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-            }
-            Spacer()
-            Button(action: { dismiss() }) {
-                Image(systemName: "xmark")
-                    .foregroundStyle(Theme.Color.muted)
-                    .frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Cerrar")
-        }
     }
 
     // MARK: - Content by state
@@ -93,26 +62,29 @@ struct DevicePickerSheet: View {
 
     private var connectedState: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            CardSurface(padding: Theme.Spacing.m) {
-                HStack(spacing: Theme.Spacing.s) {
-                    Circle().fill(Theme.Color.ok).frame(width: 8, height: 8)
+            HStack(spacing: Theme.Spacing.m) {
+                Circle().fill(Theme.Color.ok).frame(width: 10, height: 10)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
                     Text(channel.connectedName ?? channel.title)
-                        .font(Theme.Typography.bodyEmph)
+                        .papel(.cuerpoFuerte)
                         .foregroundStyle(Theme.Color.foreground)
                     if let batteryPercent {
-                        Text("· batería \(batteryPercent) %")
-                            .font(Theme.Typography.small)
+                        Text("Batería \(batteryPercent) %")
+                            .papel(.nota)
                             .foregroundStyle(Theme.Color.muted)
                     }
-                    Spacer()
                 }
+                Spacer(minLength: 0)
             }
-            ExpertPrimaryButton(title: "DESCONECTAR") {
-                Haptics.medium()
+            .padding(Theme.Spacing.m)
+            .tarjetaDia(alAncho: true)
+            .accessibilityElement(children: .combine)
+            BotonAccionDia("Desconectar", completa: true, impacto: .medio) {
                 channel.disconnect()
                 dismiss()
             }
-            SecondaryButton(title: "Olvidar este dispositivo") {
+            BotonTextoDia("Olvidar este dispositivo", tono: .suave, centrado: true) {
                 channel.forget()
                 dismiss()
             }
@@ -127,20 +99,20 @@ struct DevicePickerSheet: View {
             HStack(spacing: Theme.Spacing.s) {
                 ProgressView().tint(Theme.Color.accent).scaleEffect(0.85)
                 Text("Buscando dispositivos cercanos…")
-                    .font(Theme.Typography.small)
+                    .papel(.nota)
                     .foregroundStyle(Theme.Color.muted)
                 Spacer()
             }
             if channel.candidates.isEmpty {
                 Text(channel.scanHint)
-                    .font(Theme.Typography.small)
+                    .papel(.nota)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
                 // A LABEL, and the copy says what will happen: it appears in the list
                 // and he taps it. Nothing here reconnects to it on its own.
                 if channel.hasRemembered, let name = channel.rememberedName {
-                    Text("Último usado: \(name) — tócalo en la lista cuando aparezca.")
-                        .font(Theme.Typography.caption)
+                    Text("Último usado: \(name). Tócalo en la lista cuando aparezca.")
+                        .papel(.nota)
                         .foregroundStyle(Theme.Color.muted)
                 }
             } else {
@@ -151,7 +123,6 @@ struct DevicePickerSheet: View {
                         // the only thing that ever opens a link.
                         DeviceCandidateRow(candidate: candidate,
                                            isRemembered: candidate.id == channel.rememberedID) {
-                            Haptics.light()
                             channel.requestConnect(candidate)
                         }
                     }
@@ -164,7 +135,7 @@ struct DevicePickerSheet: View {
                 DevicePickHintNote(text: pickHint)
             }
             if channel.hasRemembered {
-                SecondaryButton(title: "Olvidar dispositivo recordado") {
+                BotonTextoDia("Olvidar dispositivo recordado", tono: .suave, centrado: true) {
                     channel.forget()
                 }
             }
@@ -175,20 +146,10 @@ struct DevicePickerSheet: View {
     @ViewBuilder
     private var watchHintBanner: some View {
         if watchHint {
-            HStack(alignment: .top, spacing: Theme.Spacing.s) {
-                Image(systemName: "applewatch")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
-                Text("Llevas Apple Watch: el pulso llega solo al empezar el entreno. Conecta una banda solo si prefieres el pecho.")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(Theme.Spacing.m)
-            .background(Theme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            DevicePickHintNote(
+                text: "Llevas Apple Watch: el pulso llega solo al empezar el entreno. Conecta una banda solo si prefieres el pecho.",
+                glifo: .reloj
+            )
         }
     }
-
 }

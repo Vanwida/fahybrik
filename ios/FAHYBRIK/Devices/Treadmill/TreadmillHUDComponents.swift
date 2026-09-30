@@ -93,60 +93,6 @@ struct OutdoorEntryButton: View {
     }
 }
 
-// MARK: - Connection chip
-
-/// A device chip with a live status dot — mirrors the existing ConnectionStrip
-/// chip so the treadmill screen reads as the same instrument panel.
-struct DeviceChip: View {
-    let icon: String
-    let text: String
-    let link: DeviceLink
-
-    private var on: Bool { link.isLive }
-    private var searching: Bool {
-        // `.lost` is NOT searching — nothing is looking for anything. A pulsing dot
-        // there would read as "recovering", which is exactly the lie we removed.
-        switch link { case .scanning, .connecting: return true; default: return false }
-    }
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(dotColor)
-                .frame(width: 6, height: 6)
-                .opacity(searching ? 0.6 : 1)
-            Image(systemName: icon)
-                .font(.system(size: 9, weight: .bold))
-            Text(text.uppercased())
-                .font(.system(size: 9, weight: .heavy, design: .default).italic())
-                .tracking(0.6)
-                .lineLimit(1)
-        }
-        .foregroundStyle(on ? Theme.Color.accentText : Theme.Color.muted)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(on ? Theme.Color.accent.opacity(0.14) : Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-                .stroke(on ? Theme.Color.accentText.opacity(0.5) : Theme.Color.outline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(text), \(accessibilityState)")
-    }
-
-    private var dotColor: Color {
-        if on { return Theme.Color.ok }
-        if searching { return Theme.Color.warning }
-        return Theme.Color.muted
-    }
-    private var accessibilityState: String {
-        if on { return "conectado" }
-        if searching { return "buscando" }
-        return "sin conexión"
-    }
-}
-
 // MARK: - Zone meter (5 segments)
 
 /// Five stacked segments Z1–Z5; the active zone is lit, the rest dimmed. The

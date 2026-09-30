@@ -10,7 +10,7 @@ import Observation
 //   · Live tramo modality → the store bound to that role (if connected).
 //   · Fallback: the unscoped `any` store when the session only offered "PM5"
 //     or the athlete connected a single monitor without a named role (mono-erg
-//     ErgConnectCard). Never another role's monitor — that is «2 PM5 as 1».
+//     PreWorkoutDevicesHubView). Never another role's monitor — that is «2 PM5 as 1».
 //   · Non-erg tramo (wallballs, rest, Run) → no active store; other links stay up.
 //
 // Counter policy stays in `ErgCounterPolicy` — the pool only picks WHICH

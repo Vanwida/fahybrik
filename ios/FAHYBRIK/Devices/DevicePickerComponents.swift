@@ -14,6 +14,8 @@ import SwiftUI
 //     reading the list ("veo el nombre de mi cinta y desaparece sola").
 // Extracting the pieces keeps ONE definition of the row and of the guidance copy, so
 // the two hosts can differ in chrome without ever drifting in substance.
+//
+// La piel es la del kit de «El día»: filas `FilaDia`, tarjetas `tarjetaDia`, fichas `FichaDia`.
 
 /// RSSI → the plain word a non-technical athlete understands. One definition: the
 /// row's label and any voice-over description read the same scale.
@@ -27,10 +29,25 @@ enum DeviceProximity {
     }
 }
 
+extension DeviceLink {
+    /// The plain sentence for a device's link state: one table for the pre-start screen and the live sheet.
+    var statePhrase: String {
+        switch self {
+        case .connected(let name): return "Listo · \(name)"
+        case .connecting:          return "Conectando…"
+        case .scanning:            return "Buscando…"
+        case .lost:                return "Se perdió · vuelve a conectar"
+        case .failed:              return "Reintentar"
+        case .unavailable:         return "Sin señal Bluetooth"
+        case .idle:                return "Sin conectar"
+        }
+    }
+}
+
 // MARK: - Signal strength bars
 
 /// Four rising bars filled by RSSI — how the athlete tells their own (close, strong)
-/// machine from a distant stranger's in the list.
+/// machine from a distant stranger's in the list. They live in the row's badge.
 struct SignalBars: View {
     let rssi: Int
 
@@ -47,8 +64,8 @@ struct SignalBars: View {
         HStack(alignment: .bottom, spacing: 2) {
             ForEach(1...4, id: \.self) { i in
                 RoundedRectangle(cornerRadius: 1, style: .continuous)
-                    .fill(i <= level ? Theme.Color.accent : Theme.Color.outline)
-                    .frame(width: 3, height: CGFloat(4 + i * 3))
+                    .fill(i <= level ? Theme.Color.foreground : Theme.Color.hairlineStrong)
+                    .frame(width: 4, height: CGFloat(5 + i * 3))
             }
         }
         .accessibilityHidden(true)
@@ -58,10 +75,10 @@ struct SignalBars: View {
 // MARK: - One found device
 
 /// A single discovered device: its advertised NAME (the only thing the athlete can
-/// recognise), an "ÚLTIMO USADO" badge when it's the remembered one, the proximity word
-/// and the signal bars. Tapping connects to THIS device — never "the first one found".
+/// recognise), an "Último usado" pill when it's the remembered one, the proximity word
+/// and, in the row's badge, the signal bars. Tapping connects to THIS device — never "the first one found".
 ///
-/// The badge is the ONLY thing "remembered" buys a device: it sorts to the top and says
+/// The pill is the ONLY thing "remembered" buys a device: it sorts to the top and says
 /// so, to be found in one glance. It never connects on its own. Machines rotate — the
 /// belt you used last is very likely somebody else's right now.
 struct DeviceCandidateRow: View {
@@ -72,38 +89,34 @@ struct DeviceCandidateRow: View {
     let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: Theme.Spacing.m) {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(candidate.name)
-                            .font(Theme.Typography.bodyEmph)
-                            .foregroundStyle(Theme.Color.foreground)
-                            .lineLimit(1)
-                        if isRemembered {
-                            Text("ÚLTIMO USADO")
-                                .font(.system(size: 8, weight: .heavy, design: .default).italic())
-                                .tracking(0.6)
-                                .foregroundStyle(Theme.Color.accentText)
-                        }
-                    }
-                    Text(DeviceProximity.label(candidate.rssi))
-                        .font(Theme.Typography.caption)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                Spacer()
-                SignalBars(rssi: candidate.rssi)
-                Image(systemName: "chevron.right").foregroundStyle(Theme.Color.muted)
-            }
-            .padding(Theme.Spacing.m)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            .contentShape(Rectangle())
+        FilaDia(
+            ficha: FichaDia { SignalBars(rssi: candidate.rssi) },
+            titulo: candidate.name,
+            etiqueta: "\(candidate.name)\(isRemembered ? ", último usado" : ""), \(DeviceProximity.label(candidate.rssi))",
+            pista: "Toca para conectar",
+            altoMinimo: 72,
+            enTarjeta: true,
+            alTocar: onTap
+        ) {
+            DeviceRowDetail(text: DeviceProximity.label(candidate.rssi), isRemembered: isRemembered)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(candidate.name)\(isRemembered ? ", último usado" : ""), \(DeviceProximity.label(candidate.rssi))")
-        .accessibilityHint("Toca para conectar")
+    }
+}
+
+/// What a found-device row says under its name: the «Último usado» pill (when it is) and one line of help.
+/// Shared by the belt / strap row and the erg row, so both lists read the same.
+struct DeviceRowDetail: View {
+    let text: String
+    let isRemembered: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if isRemembered { InfoPill(text: "Último usado", estilo: .acento) }
+            Text(text)
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
@@ -137,21 +150,19 @@ extension View {
 /// treadmill's). Never gate this on `candidates.isEmpty`.
 struct DevicePickHintNote: View {
     let text: String
+    var glifo: GlifoDia = .ayuda
 
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.s) {
-            Image(systemName: "info.circle")
-                .font(.system(size: 13, weight: .semibold))
+        HStack(alignment: .top, spacing: Theme.Spacing.m) {
+            IconoDia(glifo, tam: 20)
                 .foregroundStyle(Theme.Color.muted)
             Text(text)
-                .font(Theme.Typography.caption)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.m)
-        .background(Theme.Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .tarjetaDia(alAncho: true)
     }
 }
 
@@ -177,32 +188,31 @@ struct DeviceBluetoothGuidance: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            HStack(spacing: Theme.Spacing.m) {
-                Image(systemName: icon)
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
+            HStack(alignment: .top, spacing: Theme.Spacing.m) {
+                FichaDia(glifo, tono: .aviso)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(Theme.Typography.bodyEmph)
+                        .papel(.cuerpoFuerte)
                         .foregroundStyle(Theme.Color.foreground)
                     Text(detail)
-                        .font(Theme.Typography.small)
+                        .papel(.nota)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             if availability == .unauthorized, let url = URL(string: UIApplication.openSettingsURLString) {
-                SecondaryButton(title: "Abrir Ajustes") { UIApplication.shared.open(url) }
+                BotonAccionDia("Abrir Ajustes", alto: Theme.Size.toque) { UIApplication.shared.open(url) }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.m)
+        .tarjetaDia(alAncho: true)
     }
 
-    private var icon: String {
+    private var glifo: GlifoDia {
         switch availability {
-        case .poweredOff:   return "antenna.radiowaves.left.and.right.slash"
-        case .unauthorized: return "lock.shield"
-        default:            return "exclamationmark.triangle"
+        case .poweredOff:   return .sinSenal
+        case .unauthorized: return .escudo
+        default:            return .alerta
         }
     }
 
@@ -210,7 +220,7 @@ struct DeviceBluetoothGuidance: View {
         switch availability {
         case .poweredOff:   return "Bluetooth apagado"
         case .unauthorized: return "Bluetooth bloqueado"
-        default:            return "Sin Bluetooth LE"
+        default:            return "Sin Bluetooth compatible"
         }
     }
 
@@ -218,7 +228,7 @@ struct DeviceBluetoothGuidance: View {
         switch availability {
         case .poweredOff:   return "Actívalo desde el Centro de Control y vuelve aquí."
         case .unauthorized: return "Permite Bluetooth para \(Marca.nombre) en Ajustes para conectar tu \(deviceWord)."
-        default:            return "Este iPhone no soporta Bluetooth Low Energy."
+        default:            return "Este iPhone no tiene Bluetooth compatible."
         }
     }
 }

@@ -95,7 +95,7 @@ enum PreWorkoutDevice: Hashable, Identifiable {
         switch self {
         case .treadmill:     return "Cinta"
         case .erg(let r):    return r.titleES
-        case .ergAny:        return "PM5"
+        case .ergAny:        return "Erg"
         case .heartRate:     return "Banda de pulso"
         }
     }
@@ -201,7 +201,7 @@ enum PreWorkoutDeviceEligibility {
     /// Roles the gate still has to ask. A named Remo+Ski block does not close
     /// because one of them is up — each role is its own accept-or-sin-monitor.
     /// Mono-erg (one named role) treats the unscoped `any` store as that role so
-    /// the brief's ErgConnectCard (pool.any) is the same link Empezar respects.
+    /// the pre-start devices screen (pool.any) is the same link Empezar respects.
     static func missingErgRoles(
         in segments: [WorkoutSegment],
         roleConnected: Set<ErgMachineRole>,
@@ -321,7 +321,7 @@ enum HRChipPresentation: Equatable {
 
 extension PM5ConnectionState {
     /// Map the Concept2 erg's own state onto the same `DeviceLink` the treadmill /
-    /// HR chips use, so `DeviceChip` renders all three identically. The connected
+    /// HR rows use, so every screen renders all three identically. The connected
     /// name is filled by the caller (it holds `connectedDeviceName`).
     ///
     /// NOTE: `.disconnecting` maps to `.idle`, NOT `.reconnecting`. The athlete asked
