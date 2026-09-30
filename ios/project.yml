@@ -477,10 +477,10 @@ targets:
         WKBackgroundModes:
           - workout-processing
         NSHealthShareUsageDescription: "$(BRAND_DISPLAY_NAME) lee tu pulso, el consumo calórico y la distancia que recorres durante el entreno para registrar la sesión con precisión."
-        NSHealthUpdateUsageDescription: "$(BRAND_DISPLAY_NAME) guarda en Apple Health los entrenos que registras desde el reloj."
+        NSHealthUpdateUsageDescription: "$(BRAND_DISPLAY_NAME) guarda en Apple Health los entrenos que registras desde el reloj: si corres en la calle, con su recorrido, y el esfuerzo que indicas al terminar."
         # Same tone as the iPhone: without this string watchOS cannot ask for
         # location, and outdoor `distanceWalkingRunning` never arrives.
-        NSLocationWhenInUseUsageDescription: "$(BRAND_DISPLAY_NAME) usa el GPS durante tus carreras para medir distancia, ritmo y tu recorrido, incluso con la pantalla bloqueada. Si no lo activas, puedes introducir la distancia a mano."
+        NSLocationWhenInUseUsageDescription: "$(BRAND_DISPLAY_NAME) usa el GPS durante tus carreras en la calle para medir distancia, ritmo y guardar tu recorrido en Apple Health, incluso con la muñeca bajada. Si no lo activas, esas carreras se guardan sin distancia, ritmo ni recorrido."
     settings:
       configs:
         Debug:

@@ -661,7 +661,7 @@ struct ActiveWorkoutView: View {
                 isBenchmark: isBenchmark,
                 alAccionDelHost: { primaryAction() },
                 alConectividad: { mostrarConectividad = true },
-                alTerminarYGuardar: { session.finish(completeness: .partial) },
+                alTerminarYGuardar: { session.finish() },
                 alVerBloques: { mostrarBloques = true },
                 // Las mismas salidas que el shell viejo, con la misma semántica:
                 // chevrón = minimizar (FH-111, el motor sigue); «Guardar para luego»
@@ -1034,14 +1034,14 @@ struct ActiveWorkoutView: View {
         .accessibilityLabel("Guardar para luego. Pausa y guarda el progreso.")
     }
 
-    // "Terminar y guardar" — the honest partial save. finish(.partial) closes the
-    // in-flight segment, sets completeness, and routes to the summary; the recorder
-    // then marks the assignment 'partial' (never 'completed'). Green so it reads as
-    // a positive, distinct action next to the accent default.
+    // "Terminar y guardar" — the honest save. finish() closes the in-flight segment, sets the
+    // EARNED completeness (`Vivo.completitud`: partial only if prescribed work was left undone)
+    // and routes to the summary; the recorder then marks the assignment 'partial' or 'completed'.
+    // Green so it reads as a positive, distinct action next to the accent default.
     private var terminarYGuardarButton: some View {
         Button {
             exitStep = nil
-            session.finish(completeness: .partial)
+            session.finish()
         } label: {
             VStack(spacing: 2) {
                 Text("Terminar y guardar")

@@ -16,8 +16,9 @@ extension WatchWorkoutCoordinator {
         restageIfPossible()
     }
 
+    /// Vuelve a escenificar el resultado con lo último decidido (el conmutador de compartir de un dobles, o el RPE).
     func restageIfPossible() {
-        guard isDoublesResult, let pending = pendingResult,
+        guard let pending = pendingResult,
               let envelope = makeEnvelope(assignmentId: pending.assignmentId, payload: pending.payload)
         else { return }
         stagedEnvelopeData = WatchConnectivityService.shared.restageExecutionResult(
@@ -28,7 +29,8 @@ extension WatchWorkoutCoordinator {
     func buildExecutionPayload(
         assignmentId: String,
         session: WorkoutSession,
-        sourceWorkoutRef: String?
+        sourceWorkoutRef: String?,
+        rpe: Int?
     ) -> WorkoutExecutionPayload {
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime]
@@ -54,7 +56,7 @@ extension WatchWorkoutCoordinator {
 
         return WorkoutExecutionPayload(
             assignment_id: assignmentId,
-            perceived_exertion: nil,
+            perceived_exertion: rpe,
             total_duration_seconds: total,
             notes: nil,
             source: nil,
@@ -63,7 +65,8 @@ extension WatchWorkoutCoordinator {
             score_reps: scoreReps,
             completeness: session.completeness.rawValue,
             started_at: iso.string(from: session.startedAt),
-            ended_at: iso.string(from: Date()),
+            // El final de la sesión, no el de hoy: la ejecución se reconstruye cuando llega el RPE.
+            ended_at: iso.string(from: session.finishedAt ?? Date()),
             segments: segments.isEmpty ? nil : segments,
             source_workout_ref: sourceWorkoutRef
         )

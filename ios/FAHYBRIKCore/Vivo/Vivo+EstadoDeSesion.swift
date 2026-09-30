@@ -81,6 +81,11 @@ extension Vivo {
             // Lo que queda es lo que queda del descanso del motor, también tras «+30 s»
             // (que estira el total y no lo prescrito): falta = prescrito − t = lo que queda.
             if sesion.restRemainingSeconds > 0 { t = (p.medida.prescrito ?? sesion.restTotalSeconds) - sesion.restRemainingSeconds }
+            // Una recuperación por tiempo con su cuenta atrás viva (también tras «+30 s», que estira lo que queda y no lo
+            // prescrito): lo que queda es lo que dice el motor.
+            else if enPiernas, p.rol == .recuperacion, p.medida.tipo == .tiempo, let pr = p.medida.prescrito, sesion.runLegRemaining > 0 {
+                t = pr - sesion.runLegRemaining
+            }
             else if enPiernas { t = sesion.runLegElapsed }
             else if let pr = p.medida.prescrito { t = Swift.max(0, pr - sesion.tramoRestRemaining) }
             else { t = sesion.tramoElapsedSeconds }
@@ -247,7 +252,8 @@ extension Vivo {
             sesionErgoM: ergo,
             cuenta: cuenta,
             go: go,
-            terminado: sesion.isFinished
+            terminado: sesion.isFinished,
+            deshacerS: sesion.runLegUndoRemainingS
         )
     }
 }

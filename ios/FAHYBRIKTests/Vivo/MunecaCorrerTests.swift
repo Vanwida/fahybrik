@@ -71,11 +71,11 @@ final class MunecaCorrerTests: XCTestCase {
         let tanda: Int?
         let clase: String
         let segundos: Double
-        let metros, ritmo, ppm: Double?
+        let metros, vueltaM, ritmo, ppm: Double?
         let veredicto: String?
         let eje: String?
         var vuelta: Vivo.Vuelta {
-            Vivo.Vuelta(n: n, tanda: tanda, clase: Vivo.Vuelta.Clase(rawValue: clase) ?? .serie, segundos: segundos, metros: metros, ritmo: ritmo, ppm: ppm,
+            Vivo.Vuelta(n: n, tanda: tanda, clase: Vivo.Vuelta.Clase(rawValue: clase) ?? .serie, segundos: segundos, metros: metros, vueltaM: vueltaM, ritmo: ritmo, ppm: ppm,
                         veredicto: veredicto.flatMap(Vivo.Veredicto.init(rawValue:)), eje: eje.flatMap(Vivo.EjeObjetivo.init(rawValue:)))
         }
     }

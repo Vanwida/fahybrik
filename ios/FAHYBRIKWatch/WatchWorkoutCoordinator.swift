@@ -102,6 +102,17 @@ final class WatchWorkoutCoordinator {
     /// persistido pero sin transferir hasta la PRÓXIMA activación de WCSession —
     /// horas o días si el atleta no relanza la app del reloj.
     private var transferWhenStaged = false
+    /// El RPE de la sesión que acaba de terminar: lo da el atleta en la corona, tras el final. Nil = no lo dijo (o el
+    /// 0 de «nada», que el servidor y Salud no admiten: van de 1 a 10). Viaja en la ejecución que ya se guarda.
+    private(set) var rpe: Int?
+    /// El atleta ya contestó al RPE (o lo saltó): el resultado puede salir. Hasta entonces se escenifica y espera.
+    private(set) var rpeRespondido = false
+    /// El `HKWorkout` guardado en Salud (su uuid): para reconstruir la ejecución con el RPE sin volver a preguntar.
+    private var workoutRefGuardado: String?
+    /// El nombre del sobre escenificado: con él se sabe dónde está la sesión (`estadoDeGuardado`).
+    private var envelopeIdDelResultado: String?
+    /// Las vueltas automáticas (km) del vivo, que el motor no lleva: las entrega la pantalla del vivo al acabar.
+    private(set) var vueltasAuto: [Vivo.Vuelta] = []
     /// El cupón de la traza guardada para este final. Viaja DENTRO del sobre (y en la
     /// metadata del fichero) para que el teléfono pueda volver a juntarlos, y
     /// sobrevive a un re-staging del toggle de dobles: si cambiara con cada flip, el
@@ -156,7 +167,8 @@ final class WatchWorkoutCoordinator {
         Task { await WorkoutStateStore.shared.clear() }
     }
 
-    func start(payload: WatchTodayPayload, detail: AssignmentDetail?) {
+    /// `entorno`: dónde corre el atleta si el plan no lo decía y lo contestó en el brief (una vez, para la sesión).
+    func start(payload: WatchTodayPayload, detail: AssignmentDetail?, entorno: Vivo.Entorno? = nil) {
         repairStuckPhaseIfNeeded()
         guard phase == .idle, payload.dayKind == WatchDayKind.session else {
             Self.log.warning("start() declined — phase=\(String(describing: self.phase), privacy: .public)")
@@ -174,6 +186,9 @@ final class WatchWorkoutCoordinator {
             return
         }
         let engine = WorkoutSession(plan: plan, hrZones: Self.hrZones(from: payload))
+        // Dónde se corre: lo dice el plan (M3) o el atleta en el brief. Manda al motor (quién firma los metros) y a
+        // Salud (calle con GPS, o cinta).
+        if let dondeCorre = entorno ?? Vivo.entornoDelPlan(plan) { engine.runEnvironment = Vivo.runEnvironment(de: dondeCorre) }
         launch(engine: engine, payload: payload, reusePrimary: false)
     }
 
@@ -236,6 +251,13 @@ final class WatchWorkoutCoordinator {
         dayActivityKind = payload.activityKind
 
         engine.start()
+        // Correr es correr: el «Empezar» del brief YA fue el gesto de empezar. La puerta del primer bloque no se repite
+        // (sale con su 3-2-1); es «hasta pulsar» del coach (`WristMethod.run.gate`) lo que la mantiene. Una sesión
+        // recuperada sí la conserva: el atleta reconfirma con el reloj en el punto donde se quedó.
+        if !reusePrimary, engine.puertaCalentamientoAuto, engine.isAwaitingBlockStart,
+           Vivo.esSesionDeCorrer(Vivo.planDe(engine).pasos) {
+            engine.beginBlock()
+        }
         driver.start()
         WatchHaptics.start()
 
@@ -248,7 +270,7 @@ final class WatchWorkoutCoordinator {
             await primary.requestAuthorization()
             primary.startSolo(
                 activityType: payload.healthKitActivityType,
-                locationType: payload.healthKitLocationType,
+                locationType: payload.healthKitLocationType(environment: engine.runEnvironment),
                 reuseIfPresent: reusePrimary
             )
             self.syncAppleRunPipe()
@@ -345,17 +367,20 @@ final class WatchWorkoutCoordinator {
         stagedEnvelopeData = nil
         stagedTraceLocalId = nil
         transferWhenStaged = false
+        rpe = nil
+        rpeRespondido = false
+        workoutRefGuardado = nil
+        envelopeIdDelResultado = nil
 
         // End the HK session, get the saved HKWorkout's id, then assemble the execution
         // TAGGED with it (backend dedupes the HealthKit-synced copy). Captured locally so
         // a quick summary-dismiss can't drop the build.
         //
-        // SOLO ESPERA A «LISTO» UN DOBLES COMPARTIBLE: su conmutador aún puede cambiar
-        // cómo se registra. Todo lo demás sale al terminar, con su traza detrás. Antes
-        // se retenía siempre, y un entreno de la muñeca sola no salía hasta tocar
-        // «Listo» o volver a abrir la app (28-sep).
+        // EL RESULTADO ESPERA AL RPE. El atleta lo da en la corona justo después del final y viaja en la MISMA
+        // ejecución: no sale hasta que contesta (o lo salta), y `responderRpe` lo suelta. Un dobles compartible
+        // espera además a «Listo» (su conmutador aún puede cambiar cómo se registra). Si la app muere antes, el
+        // sobre escenificado sale solo en la próxima activación, sin RPE.
         let capturedAssignmentId = assignmentId
-        let holdsForListo = isDoublesShareable
         Task { [weak self, engine] in
             let workoutRef = await self?.primary.endPrimary(save: true)
             // Fase 0 — stop the inertial stream and hand the archive to the phone
@@ -380,46 +405,79 @@ final class WatchWorkoutCoordinator {
             }
             guard let self, let assignmentId = capturedAssignmentId, !assignmentId.isEmpty else { return }
             // EL ARCHIVO DE LA MUÑECA. La serie medida se deja en disco AHORA, con su
-            // cupón, y no sale hasta «Listo» — igual que el sobre de la ejecución, para
-            // que fichero y ejecución no puedan separarse. En la muñeca la serie es
-            // pulso y distancia de Salud: CoreLocation no archiva fixes.
+            // cupón, y no sale hasta que sale el sobre — para que fichero y ejecución
+            // no puedan separarse. En la muñeca la serie es pulso y distancia de Salud:
+            // CoreLocation no archiva fixes.
             self.stagedTraceLocalId = WatchTraceOutbox.shared.stage(
                 traces: engine.trace.traces(startedAt: engine.startedAt)
             )
+            self.workoutRefGuardado = workoutRef
             let payload = self.buildExecutionPayload(
                 assignmentId: assignmentId,
                 session: engine,
-                sourceWorkoutRef: workoutRef
+                sourceWorkoutRef: workoutRef,
+                rpe: self.rpe
             )
             self.pendingResult = (assignmentId, payload)
-            guard holdsForListo else {
-                // Al buzón y al teléfono ya: el sobre se queda en la muñeca hasta el
-                // acuse del servidor (`WatchSaveLedger`), y la traza sale detrás.
-                if let envelope = self.makeEnvelope(assignmentId: assignmentId, payload: payload) {
-                    WatchConnectivityService.shared.sendExecutionResult(envelope)
-                }
-                if let localId = self.stagedTraceLocalId {
-                    WatchTraceOutbox.shared.transfer(localId: localId)
-                }
-                return
-            }
-            // Stage with the CURRENT share decision (default, or a toggle flip the
-            // athlete already made while the async ran). Not transferred yet.
+            // Stage with the CURRENT share decision (default, or a toggle flip the athlete
+            // already made while the async ran). Not transferred yet.
             if let envelope = self.makeEnvelope(assignmentId: assignmentId, payload: payload) {
                 self.stagedEnvelopeData = WatchConnectivityService.shared.stageExecutionResult(envelope)
+                self.envelopeIdDelResultado = self.stagedEnvelopeData.flatMap(WatchSaveLedger.envelopeId(of:))
             }
             // «Listo» ya pasó por aquí sin sobre que mandar: se transfiere ahora,
             // con el fichero de la traza detrás — sobre y traza viajan juntos.
             if self.transferWhenStaged {
                 self.transferWhenStaged = false
-                if let data = self.stagedEnvelopeData {
-                    WatchConnectivityService.shared.transferStagedResult(data)
-                }
-                if let localId = self.stagedTraceLocalId {
-                    WatchTraceOutbox.shared.transfer(localId: localId)
-                }
+                self.transferirEscenificado()
             }
+            self.soltarSiToca()
         }
+    }
+
+    // MARK: - El RPE
+
+    /// El atleta contestó al RPE en la corona (0–10) o lo saltó (`nil`). El resultado sale con él, y a Salud va el
+    /// esfuerzo del entreno. El 0 («nada») se queda en la sesión como «sin RPE»: el servidor y Salud van de 1 a 10.
+    func responderRpe(_ valor: Int?) {
+        guard phase == .finished, !rpeRespondido else { return }
+        rpeRespondido = true
+        rpe = valor.flatMap { WatchSaludExtra.esfuerzoValido.contains($0) ? $0 : nil }
+        // Si el sobre ya estaba escenificado (sin RPE), se reconstruye con él: el mismo entreno, el mismo nombre.
+        if let pending = pendingResult, let engine = session {
+            let payload = buildExecutionPayload(assignmentId: pending.assignmentId, session: engine,
+                                                sourceWorkoutRef: workoutRefGuardado, rpe: rpe)
+            pendingResult = (pending.assignmentId, payload)
+            restageIfPossible()
+        }
+        soltarSiToca()
+        if let rpe { Task { await primary.registrarEsfuerzo(rpe) } }
+    }
+
+    /// Un resultado que no es un dobles compartible sale en cuanto está escenificado Y el RPE está contestado. Uno
+    /// compartible espera a «Listo».
+    private func soltarSiToca() {
+        guard rpeRespondido, !isDoublesShareable, stagedEnvelopeData != nil else { return }
+        transferirEscenificado()
+    }
+
+    /// Entrega el sobre escenificado y su traza detrás (viajan juntos). El buzón lo conserva hasta el acuse.
+    private func transferirEscenificado() {
+        guard let data = stagedEnvelopeData else { return }
+        WatchConnectivityService.shared.transferStagedResult(data)
+        if let localId = stagedTraceLocalId { WatchTraceOutbox.shared.transfer(localId: localId) }
+    }
+
+    /// Dónde está la sesión que acaba de terminar, con el lenguaje del móvil. Sin sobre (aún escenificándose, o sin
+    /// asignación) sigue en el reloj.
+    func estadoDeGuardado() -> Vivo.EstadoGuardado {
+        guard let id = envelopeIdDelResultado else { return .enReloj }
+        return Vivo.estadoDeGuardado(WatchConnectivityService.shared.entradaDelBuzon(envelopeId: id))
+    }
+
+    /// Las vueltas automáticas (km) que llevó la pantalla del vivo, para el resumen.
+    func guardarVueltasAuto(_ vueltas: [Vivo.Vuelta]) {
+        vueltasAuto = vueltas
     }
 
     /// EL TELÉFONO YA TERMINÓ ESTE ENTRENO. La muñeca cierra lo suyo y se aparta.
@@ -451,22 +509,21 @@ final class WatchWorkoutCoordinator {
     /// "Listo" — commit the (possibly toggled) staged result and return to the day's
     /// done state. If the async build hasn't staged yet (a very fast dismiss), the
     /// staged entry still drains on the next activation with the current decision, so
-    /// the result is never lost. A result that is not a shareable dobles already left
-    /// at finish: "Listo" only closes the summary.
+    /// the result is never lost. A result that is not a shareable dobles left when the
+    /// RPE was answered: "Listo" only closes the summary.
     func confirmAndReset() {
+        // «Listo» sin haber pasado por el RPE (no debería, pero un sobre no se queda esperando): sale sin él.
+        if !rpeRespondido { responderRpe(nil) }
         guard isDoublesShareable else {
             reset()
             return
         }
         restageIfPossible()
-        if let data = stagedEnvelopeData {
-            WatchConnectivityService.shared.transferStagedResult(data)
+        if stagedEnvelopeData != nil {
             // La traza sale CON el sobre, no antes: así no puede quedarse un archivo
             // colgando de una sesión que el atleta nunca confirmó. Si el teléfono no está
             // a tiro, el fichero se queda en su buzón y sale al reencontrarse.
-            if let localId = stagedTraceLocalId {
-                WatchTraceOutbox.shared.transfer(localId: localId)
-            }
+            transferirEscenificado()
         } else {
             // El staging async de finalize() aún no terminó (save de HK lento +
             // «Listo» rápido). Dejar dicho que transfiera al acabar: sin esto el
@@ -503,9 +560,10 @@ final class WatchWorkoutCoordinator {
     }
 
     /// Terminar desde la lámina de controles: cierra el motor; `RootView` llama
-    /// `finalize()` al ver `isFinished` y ahí se guarda el HKWorkout.
-    func finishWorkout(completeness: WorkoutCompleteness = .partial) {
-        session?.finish(completeness: completeness)
+    /// `finalize()` al ver `isFinished` y ahí se guarda el HKWorkout. Lo que se guarda como completado o parcial
+    /// lo decide LO HECHO (`Vivo.completitud`), no el gesto de terminar.
+    func finishWorkout() {
+        session?.finish()
     }
 
 }

@@ -14,11 +14,11 @@ private struct VivoFilaVuelta: View {
     let v: Vivo.Vuelta
     var body: some View {
         let j = Vivo.juicioDe(v)
-        let n = v.clase == .km ? "km \(v.n)" : v.tanda.map { "\($0)·\(v.n)" } ?? String(v.n)
+        let n = v.clase == .auto ? Vivo.rotuloVueltaAuto(v.n, v.vueltaM ?? v.metros) : v.tanda.map { "\($0)·\(v.n)" } ?? String(v.n)
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             VivoEtiqueta(texto: n).frame(minWidth: 34, alignment: .leading)
             VivoNumeral(texto: Vivo.fmtReloj(v.segundos), cuerpo: VivoTokens.TI.datoTexto)
-            if v.clase != .km, let m = v.metros, m != 1000 { VivoEtiqueta(texto: "\(Vivo.fmtRitmo(v.ritmo)) /km") }
+            if v.clase != .auto, let m = v.metros, m != Vivo.metrosKm { VivoEtiqueta(texto: "\(Vivo.fmtRitmo(v.ritmo)) /km") }
             if let ppm = v.ppm { VivoEtiqueta(texto: "\(Int(ppm.rounded())) ppm") }
             Spacer(minLength: 0)
             if let j {
@@ -42,7 +42,7 @@ struct VivoPaginaEstructura: View {
     var body: some View {
         let filas = Vivo.estructuraDe(estado.pasos, i: estado.i)
         let actual = estado.paso.origen?.segmento
-        let series = estado.vueltas.filter { $0.clase != .km }
+        let series = estado.vueltas.filter { $0.clase != .auto }
         // Las vueltas de cada bloque (las series, por orden), repartidas ANTES de pintar.
         var desde = 0
         let reparto: [[Vivo.Vuelta]] = filas.map { f in
@@ -61,7 +61,7 @@ struct VivoPaginaEstructura: View {
                 }
                 .padding(.bottom, 8)
                 ForEach(Array(filas.enumerated()), id: \.offset) { k, f in
-                    let kms = f.trabajo.vueltaAutoM != nil ? estado.vueltas.filter { $0.clase == .km } : []
+                    let kms = f.trabajo.vueltaAutoM != nil ? estado.vueltas.filter { $0.clase == .auto } : []
                     VivoFilaDeEstructura(fila: f, vueltas: reparto[k] + kms, segmentoActual: actual, alSaltar: alSaltar)
                 }
             }

@@ -23,7 +23,10 @@ struct LiveFlowView: View {
         // mientras la bandera esté encendida. La puerta de bloque sigue siendo del flujo de
         // siempre (sin puertas a mitad de carrera es de otra fase), y apagada la bandera
         // todo vuelve exactamente a lo de hoy.
-        if usaMunecaNueva {
+        if session.isAwaitingFinishDecision {
+            // El plan acabó solo: «Sesión completada» y la decisión (Guardar o Seguir), en cualquier cara.
+            FinalNaturalView(session: session)
+        } else if usaMunecaNueva {
             MunecaSolo(session: session)
         } else {
             flujoDeSiempre

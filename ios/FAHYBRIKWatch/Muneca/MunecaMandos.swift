@@ -47,6 +47,9 @@ struct MunecaMandos {
     var primaria: (() -> Void)? = nil
     /// «+30 s» del descanso; `nil` = este motor no puede estirar ese descanso.
     var mas30: (() -> Void)? = nil
+    /// Reabrir el último tramo cerrado a mano (5 s, `Vivo.deshacerMs`); `nil` = este motor no lo atiende y no se
+    /// ofrece. Cuándo se puede lo dice el estado (`CuadroMuneca.deshacerS`), no la muñeca.
+    var deshacer: (() -> Void)? = nil
     /// El botón «Empezar ya» del descanso.
     var empezarYa: () -> Void = {}
     /// Anotar en el descanso (fuerza).

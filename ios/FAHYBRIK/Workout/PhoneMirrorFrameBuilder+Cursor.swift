@@ -7,10 +7,11 @@ import Foundation
 
 extension PhoneMirrorFrameBuilder {
 
-    /// Lo que este móvil sabe hacer con los comandos de la muñeca. Solo lo que el motor
-    /// atiende de verdad: `undo`, `plus30` y la voz de la muñeca no se anuncian hasta que
-    /// el motor los tenga (ver `PhoneMirrorCommandRelay`).
-    static let capacidades: [String] = [MirrorWire.Capacidad.vuelta, MirrorWire.Capacidad.mas30, MirrorWire.Capacidad.anotar]
+    /// Lo que este móvil sabe hacer con los comandos de la muñeca. Solo lo que atiende de
+    /// verdad (ver `PhoneMirrorCommandRelay`): deshacer el cierre de un tramo de correr y
+    /// callar su voz cuando habla la muñeca.
+    static let capacidades: [String] = [MirrorWire.Capacidad.vuelta, MirrorWire.Capacidad.mas30, MirrorWire.Capacidad.anotar,
+                                        MirrorWire.Capacidad.deshacer, MirrorWire.Capacidad.vozCalla]
 
     static func cursor(from session: WorkoutSession, plan: MirrorPlanVivo, context: PhoneMirrorFrameContext) -> MirrorCursor {
         // El ritmo de un paso de cinta enchufada es el de la banda (lo que ya manda `beltPaceSecPerKm`);
@@ -26,7 +27,9 @@ extension PhoneMirrorFrameBuilder {
             parado: session.isAwaitingBlockStart || session.isAwaitingFinishDecision,
             cuentaRestanteS: session.isTramoCountIn ? session.tramoCountInRemaining : nil,
             // El monitor de la máquina de ergo, si el móvil lo tiene enlazado: la muñeca no lo ve.
-            maquinaEnlazada: session.ergConnected
+            maquinaEnlazada: session.ergConnected,
+            // La voz de la muñeca respeta el ajuste «Avisos de voz» del atleta.
+            vozActiva: AudioCoachSettings.isEnabled
         )
     }
 

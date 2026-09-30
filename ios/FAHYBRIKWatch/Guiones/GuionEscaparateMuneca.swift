@@ -197,7 +197,7 @@ extension GuionEscaparate {
         }
 
         private static func km(_ n: Int, _ s: Double, _ ppm: Double) -> Vivo.Vuelta {
-            Vivo.Vuelta(n: n, clase: .km, segundos: s, metros: 1000, ritmo: s, ppm: ppm, veredicto: nil)
+            Vivo.Vuelta(n: n, clase: .auto, segundos: s, metros: Vivo.metrosKm, vueltaM: Vivo.metrosKm, ritmo: s, ppm: ppm, veredicto: nil)
         }
 
         static func tirada() -> Escena {

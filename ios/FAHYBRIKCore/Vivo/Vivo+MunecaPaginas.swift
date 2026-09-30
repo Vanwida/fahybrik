@@ -58,17 +58,18 @@ extension Vivo {
     /// serie por tiempo se lee por sus metros).
     static func filasDeVueltas(_ vueltas: [Vuelta], objetivo: String?, visibles: Int) -> (titulo: [String], filas: [FilaSplit]) {
         let ultimas = Array(vueltas.reversed().prefix(visibles))
-        let series = vueltas.contains { $0.clase != .km } || (vueltas.isEmpty && objetivo != nil)
-        let nombre = series ? "Series" : "Kilómetros"
+        let series = vueltas.contains { $0.clase != .auto } || (vueltas.isEmpty && objetivo != nil)
+        let nombre = series ? "Series" : tituloVueltasAuto(vueltas.map { $0.vueltaM ?? $0.metros })
         let filas: [FilaSplit] = ultimas.map { v in
             // Una serie por TIEMPO siempre dura lo mismo: su resultado son los metros.
-            let porTiempo = v.clase != .km && ultimas.count > 1 && ultimas.allSatisfy { $0.segundos == v.segundos }
+            let auto = v.clase == .auto
+            let porTiempo = !auto && ultimas.count > 1 && ultimas.allSatisfy { $0.segundos == v.segundos }
             let detalle: String?
-            if v.clase != .km, let m = v.metros, m != 1000 { detalle = fmtRitmo(v.ritmo) }
-            else if v.clase == .km, let ppm = v.ppm { detalle = "\(num(ppm)) ppm" }
+            if !auto, let m = v.metros, m != metrosKm { detalle = fmtRitmo(v.ritmo) }
+            else if auto, let ppm = v.ppm { detalle = "\(num(ppm)) ppm" }
             else { detalle = nil }
             let n: String
-            if v.clase == .km { n = "km \(v.n)" } else if let t = v.tanda { n = "\(t)·\(v.n)" } else { n = String(v.n) }
+            if auto { n = rotuloVueltaAuto(v.n, v.vueltaM ?? v.metros) } else if let t = v.tanda { n = "\(t)·\(v.n)" } else { n = String(v.n) }
             let valor = (porTiempo && v.metros != nil) ? "\(num(v.metros!))\u{00A0}m" : fmtReloj(v.segundos)
             return FilaSplit(n: n, valor: valor, detalle: detalle, juicio: juicioDe(v).map { JuicioVuelta(texto: $0.texto, fuera: $0.fuera) })
         }
@@ -92,7 +93,7 @@ extension Vivo {
         }
         if p.vueltaAutoM != nil {
             let km = registro.kmEnCurso(sesionT: e.sesion.t)
-            return (objetivo, FilaSplit(n: "km \(km.n)", valor: km.segundos.map(fmtReloj) ?? "—", detalle: palabraAhora))
+            return (objetivo, FilaSplit(n: rotuloVueltaAuto(km.n, p.vueltaAutoM), valor: km.segundos.map(fmtReloj) ?? "—", detalle: palabraAhora))
         }
         return (objetivo, nil)
     }

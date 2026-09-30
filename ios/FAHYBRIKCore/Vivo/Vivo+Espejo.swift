@@ -107,6 +107,9 @@ extension Vivo {
         /// transiciones del estado y las señales del móvil (`hapticCue`) se ignoran: si no, vibraría dos veces.
         var dirigeElPlan: Bool { estado == .vivo }
 
+        /// ¿Tiene el atleta encendidos los «Avisos de voz»? Lo dice el móvil en el cursor; sin él (un móvil viejo), sí.
+        var vozActiva: Bool { trama?.cursor.vozActiva ?? true }
+
         /// El paso vivo, o `nil` si no hay cuadro. La pila lo usa para volver a su primera página cuando
         /// cambia (`Paso.id`) y para saber qué acción del momento toca (`Vivo.clavePorDefecto`); sale del
         /// mismo índice que el cuadro.
@@ -285,7 +288,9 @@ extension Vivo {
                 cuenta: cuenta,
                 go: go,
                 terminado: c.terminado,
-                maquinaEnlazada: enlazada
+                maquinaEnlazada: enlazada,
+                // La ventana de deshacer corre con el reloj del motor: entre tramas la cuenta la muñeca (y se para en pausa).
+                deshacerS: c.deshacerS.flatMap { $0 - corre > 0 ? $0 - corre : nil }
             )
         }
 
