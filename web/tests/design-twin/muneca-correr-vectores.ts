@@ -294,8 +294,8 @@ const VUELTAS_TANDAS: Vuelta[] = [
   { n: 1, tanda: 2, clase: 'serie', segundos: 60, metros: 298, ritmo: 201, ppm: 160, veredicto: 'por-debajo', eje: 'zona' },
 ];
 const VUELTAS_KM: Vuelta[] = [
-  { n: 1, clase: 'km', segundos: 331, metros: 1000, ritmo: 331, ppm: 148, veredicto: null },
-  { n: 2, clase: 'km', segundos: 328, metros: 1000, ritmo: 328, ppm: 151, veredicto: null },
+  { n: 1, clase: 'auto', vueltaM: 1000, segundos: 331, metros: 1000, ritmo: 331, ppm: 148, veredicto: null },
+  { n: 2, clase: 'auto', vueltaM: 1000, segundos: 328, metros: 1000, ritmo: 328, ppm: 151, veredicto: null },
 ];
 const VUELTAS_TRAMOS: Vuelta[] = [
   { n: 1, clase: 'tramo', segundos: 95, metros: 430, ritmo: 221, ppm: null, veredicto: null },
