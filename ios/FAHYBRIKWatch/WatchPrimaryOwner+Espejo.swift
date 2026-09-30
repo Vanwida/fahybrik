@@ -22,6 +22,8 @@ extension WatchPrimaryOwner {
     func recibirTramaEspejo(_ f: MirrorStateFrame) {
         let ahora = Date()
         espejo.recibirTrama(f, en: ahora)
+        // El ajuste «Avisos de voz» del atleta viaja en el cursor: la voz del reloj lo respeta.
+        WatchVoz.shared.atletaQuiereVoz = espejo.vozActiva
         if espejo.planAPedir(en: ahora) != nil { sendCommand(MirrorWire.CommandKind.sync) }
     }
 
@@ -65,6 +67,13 @@ extension WatchPrimaryOwner {
     /// Lo que este móvil atiende de los comandos nuevos (`MirrorWire.Capacidad`): la muñeca solo ofrece esos botones.
     func movilAtiende(_ capacidad: String) -> Bool {
         frame?.capacidades?.contains(capacidad) == true
+    }
+
+    /// La muñeca empieza o deja de hablar: se lo dice al móvil (`CommandKind.vozMuneca`), que calla o recupera su voz.
+    /// Solo con el enlace puesto: sin él no hay a quién decírselo (y el móvil ya recupera la suya al perderse).
+    func anunciarVozMuneca(_ habla: Bool) {
+        guard role == .mirror, link == .mirroring else { return }
+        send(type: MirrorWire.MessageType.command, MirrorCommand(kind: MirrorWire.CommandKind.vozMuneca, activa: habla))
     }
 
     /// Un dato declarado en el descanso de fuerza viaja al motor del móvil (`CommandKind.anotar`).

@@ -267,6 +267,9 @@ final class PhoneLiveSession {
         DiagnosticsLog.shared.record(.link, .liveEndReceived, workoutId: engine?.hkSessionUUID,
                                      detail: "reason=\(ended.reason) phase=\(phase)")
         if let uuid = ended.workoutUuid { endedWorkoutUuid = uuid }
+        // La muñeca guardó la sesión que recuperó y empieza otra (FH-56): el entreno sigue en el móvil, y la sesión nueva
+        // se espeja sola. Aquí solo se queda con el uuid.
+        if ended.reason == MirrorWire.EndReason.recoveredRestart { return }
         guard ended.reason == MirrorWire.EndReason.athlete else {
             enterIdle()
             return
@@ -428,7 +431,7 @@ final class PhoneLiveSession {
                     engine?.sampleRunDistance(deltaMeters: d.deltaMeters, source: .healthkit)
                 }
             case MirrorWire.MessageType.command:
-                if let cmd = env.body(as: MirrorCommand.self) { applyCommand(cmd.kind, declaracion: cmd.declaracion) }
+                if let cmd = env.body(as: MirrorCommand.self) { applyCommand(cmd.kind, declaracion: cmd.declaracion, activa: cmd.activa) }
             case MirrorWire.MessageType.ended:
                 if let ended = env.body(as: MirrorEnded.self) {
                     applyWristEnded(ended)
@@ -536,6 +539,8 @@ final class PhoneLiveSession {
                                      outcome: .failed, code: (error as NSError?)?.code,
                                      domain: (error as NSError?)?.domain, detail: error?.localizedDescription)
         link = .disconnected(error?.localizedDescription)
+        // Sin la muñeca no hay quien hable por ella: el móvil recupera su voz.
+        AudioCoach.shared.setWristSpeaks(false)
         stopFrameLoop()
         Self.log.warning("remote device disconnected: \(error?.localizedDescription ?? "sin error", privacy: .public)")
     }
@@ -563,6 +568,7 @@ final class PhoneLiveSession {
     private func releaseChannel() {
         cancelRelease()
         stopFrameLoop()
+        AudioCoach.shared.setWristSpeaks(false)
         hk.unbind()
         link = .none
         primaryRequested = false
@@ -678,7 +684,7 @@ final class PhoneLiveSession {
         lastSentAt = Date()
     }
 
-    private func applyCommand(_ kind: String, declaracion: Vivo.Declaracion? = nil) {
+    private func applyCommand(_ kind: String, declaracion: Vivo.Declaracion? = nil, activa: Bool? = nil) {
         guard let engine else { return }
         switch kind {
         case MirrorWire.CommandKind.advance:
@@ -688,9 +694,11 @@ final class PhoneLiveSession {
             engine.applyCommand(kind)
             if eraDescanso { engine.vivoAlAcabarDescanso() } else { engine.vivoTrasCerrarSerie() }
             pushFrameNow()
-        case MirrorWire.CommandKind.anotar, MirrorWire.CommandKind.plus30:
+        case MirrorWire.CommandKind.anotar, MirrorWire.CommandKind.plus30, MirrorWire.CommandKind.undo:
             _ = PhoneMirrorCommandRelay.aplicar(kind, declaracion: declaracion, a: engine)
             pushFrameNow()
+        case MirrorWire.CommandKind.vozMuneca:
+            _ = PhoneMirrorCommandRelay.aplicar(kind, activa: activa, a: engine)
         case MirrorWire.CommandKind.sync:
             // La muñeca pide el estado y, si no tiene el plan al que apunta, también el plan.
             planFeed.pedirReenvio()
@@ -705,7 +713,7 @@ final class PhoneLiveSession {
             _ = PhoneMirrorCommandRelay.aplicar(kind, a: engine)
             pushFrameNow()
         default:
-            // undo, plus30, vozMuneca: definidos en el cable, sin motor todavía (ver el relé).
+            // Un comando que este móvil no conoce (una muñeca más nueva): se registra, no se inventa.
             if case let .pendiente(porQue) = PhoneMirrorCommandRelay.aplicar(kind, a: engine) {
                 Self.log.info("comando de la muñeca sin atender: \(porQue, privacy: .public)")
             }

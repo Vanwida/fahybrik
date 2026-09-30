@@ -31,6 +31,12 @@ enum DiagName: String, CaseIterable, Sendable {
     case mirrorAdopted = "mirror_adopted"
     /// Móvil: `recoverActiveWorkoutSession` (iOS 26) al volver.
     case mirrorRecovered = "mirror_recovered"
+    /// Reloj: si la muñeca puede hablar (salida externa y el atleta quiere voz) y qué salida vio (`detail=`); el móvil
+    /// calla la suya mientras la muñeca habla. Es lo que se lee en la prueba de los auriculares.
+    case wristVoice = "wrist_voice"
+    /// Reloj: la sesión recuperada no dejó a Apple re-espejarla y se sigue por la ruta de respaldo (FH-56):
+    /// termina guardando lo grabado y empieza una sesión nueva espejada (`detail=`).
+    case recoveredRemirrorFallback = "recovered_remirror_fallback"
     /// Cualquiera de los dos: `didDisconnectFromRemoteDeviceWithError` (T6, T7).
     case remoteDisconnected = "remote_disconnected"
     /// `sendToRemoteWorkoutSession` falló (se cuenta el primero de cada racha).

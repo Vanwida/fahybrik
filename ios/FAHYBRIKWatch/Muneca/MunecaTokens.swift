@@ -142,6 +142,10 @@ enum MunecaForma {
     /// El recorrido del contador de muescas de la corona del dato (solo cuenta muescas, no es un valor).
     static let recorridoCorona: Double = 1000
 
+    /// El aviso de deshacer: el aire entre lo que se cerró y «Deshacer», y el alto de su barra que se vacía.
+    static let huecoDeshacer: CGFloat = 3
+    static let altoBarraDeshacer: CGFloat = 2
+
     /// Lo que se apaga la página cuando hay pausa: el dato no desaparece, se apaga.
     static let opacidadPausa: Double = 0.32
     static let trackingPausa: CGFloat = 1.2

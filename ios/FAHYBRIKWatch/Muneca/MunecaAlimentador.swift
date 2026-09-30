@@ -128,7 +128,9 @@ final class MunecaAlimentador {
                 accion: esVuelta ? vuelta : cerrar
             ),
             primaria: clave == nil ? nil : (clave == .confirmar ? confirmar : (esVuelta ? vuelta : cerrar)),
-            mas30: session.restRemainingSeconds > 0 ? { [session] in session.vivoSumar30() } : nil,
+            mas30: session.vivoPuedeSumar30 ? { [session] in session.vivoSumar30() } : nil,
+            // El motor local reabre el último tramo cerrado a mano; cuándo se puede lo dice `EstadoVivo.deshacerS`.
+            deshacer: { [session] in session.undoRunLegClose() },
             empezarYa: cerrar,
             anotar: MunecaAnotar(
                 abrir: { [weak self] k in guard let self else { return }; self.anotar.abrir(k, self.estado()) },

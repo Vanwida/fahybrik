@@ -10,8 +10,8 @@ import WatchKit
 // así que cada evento vibra una vez. Fuera de correr, o con la bandera apagada, nadie activa
 // nada y todo suena como hasta hoy.
 //
-// La voz es de F4: cada emisión lleva su frase (`Vivo.Emision.voz`) y el director la entrega a
-// `alVoz`, que hoy no está enganchado a nada. Aquí no se dice una palabra.
+// La voz: cada emisión lleva su frase (`Vivo.Emision.voz`) y el director la entrega a `alVoz`, que dice
+// `WatchVoz` (a los auriculares, nunca por el altavoz del reloj). Aquí no se dice una palabra.
 
 enum MunecaHaptics {
 
@@ -48,10 +48,12 @@ enum MunecaHaptics {
 final class MunecaDirector {
 
     private var memoria = Vivo.MemoriaDirector()
-    /// La voz (F4): recibe lo que hay que decir. `nil` = nadie la reproduce todavía.
+    /// La voz: recibe lo que hay que decir. Por defecto, la del reloj (`WatchVoz`); `nil` = nadie la reproduce.
     var alVoz: ((Vivo.Emision) -> Void)?
 
-    init() {}
+    init() {
+        alVoz = { WatchVoz.shared.decir($0) }
+    }
 
     /// Un vistazo al estado vivo (y a las vueltas por km): lo que produce, vibra.
     func observar(_ estado: Vivo.EstadoVivo, registro: Vivo.RegistroVueltas? = nil) {

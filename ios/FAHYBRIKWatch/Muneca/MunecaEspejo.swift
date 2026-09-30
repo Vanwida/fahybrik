@@ -155,6 +155,8 @@ extension WatchPrimaryOwner {
             primaria: clave == .confirmar ? confirmar : (esVuelta ? vuelta : (cierraElPaso ? cerrar : nil)),
             // Sin la capacidad `mas30` el móvil no estira un descanso: sin botón.
             mas30: movilAtiende(MirrorWire.Capacidad.mas30) ? { self.sendCommand(MirrorWire.CommandKind.plus30) } : nil,
+            // Sin la capacidad `deshacer` el móvil no reabre un tramo: sin aviso. Cuándo se puede lo dice el cursor.
+            deshacer: movilAtiende(MirrorWire.Capacidad.deshacer) ? { self.sendCommand(MirrorWire.CommandKind.undo) } : nil,
             empezarYa: { cerrar() },
             anotar: anotar
         )

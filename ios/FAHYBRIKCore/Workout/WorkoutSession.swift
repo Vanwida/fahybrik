@@ -346,6 +346,10 @@ final class WorkoutSession {
     var runLegInclineSumStart: Double = 0  // lapInclineSum at leg GO
     var runLegInclineCountStart: Int = 0   // lapInclineCount at leg GO
 
+    /// El último tramo cerrado a mano, reabrible durante `Vivo.deshacerMs` (`undoRunLegClose`,
+    /// WorkoutSession+RunLegUndo.swift). `nil` = nada que deshacer.
+    var runLegUndo: RunLegUndo? = nil
+
     /// Captured final score for the PRINCIPAL conditioning block, set on its close
     /// and read by the post-workout summary to PRE-FILL the result (the athlete
     /// never re-enters what the live timer already counted). Format-aware: time for

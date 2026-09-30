@@ -105,8 +105,15 @@ final class WatchPrimaryOwner: NSObject {
     private var pendingStartConfiguration: HKWorkoutConfiguration?
     private var pendingStartRole: Role = .mirror
     private var lastSavedWorkoutUuid: String?
+    /// FH-56: la sesión que `adopt` recuperó y de la que aún no se sabe si Apple deja re-espejar. Una sesión
+    /// creada por `begin` nunca entra: la ruta de respaldo es de la recuperada, y una sola vez.
+    private var recovered: HKWorkoutSession?
 
-    private override init() { super.init() }
+    private override init() {
+        super.init()
+        // La muñeca habla o deja de hablar: el móvil calla o recupera su voz (una sola voz).
+        WatchVoz.shared.alCambiarHabla = { [weak self] habla in self?.anunciarVozMuneca(habla) }
+    }
 
     // MARK: - Start (idempotent)
 
@@ -248,16 +255,39 @@ final class WatchPrimaryOwner: NSObject {
         do {
             try await target.startMirroringToCompanionDevice()
             guard target === session else { return }
+            if target === recovered { recovered = nil }
             link = .mirroring
             Self.log.info("mirroring to companion")
             DiagnosticsLog.shared.record(.link, .mirroringStarted, outcome: .ok)
             sendCommand(MirrorWire.CommandKind.sync)
+            WatchVoz.shared.reanunciar()
         } catch {
             guard target === session else { return }
             link = .unlinked(error.localizedDescription)
             Self.log.warning("startMirroringToCompanionDevice failed: \(error.localizedDescription, privacy: .public) — wrist keeps recording")
             DiagnosticsLog.shared.record(.link, .mirroringStarted, error: error)
+            if target === recovered {
+                recovered = nil
+                restartRecovered(target, because: error)
+            }
         }
+    }
+
+    /// FH-56: la ruta de respaldo, si Apple RECHAZA re-espejar la sesión recuperada (`startMirroringToCompanionDevice`
+    /// falla sobre ella). Es UN camino, sin bucles y solo con eventos de Apple:
+    ///   1. la sesión recuperada termina GUARDANDO (nunca se descarta lo que grabó el atleta) y su `HKWorkout` se avisa al
+    ///      móvil por la vía durable con su uuid, que el móvil lleva como `source_workout_ref` para que el backend no
+    ///      cuente dos veces lo mismo;
+    ///   2. una sesión NUEVA, con la misma configuración, empieza y se espeja, cuando Apple dice `.ended` de la vieja
+    ///      (la cola de arranque de siempre, `firePendingStartIfClean`). Si esa tampoco se espeja, queda sin enlace con el
+    ///      motivo de Apple y sigue grabando: no se reintenta.
+    private func restartRecovered(_ old: HKWorkoutSession, because error: Error) {
+        DiagnosticsLog.shared.record(.link, .recoveredRemirrorFallback, error: error,
+                                     detail: "step=finish_saving_then_begin activity=\(old.workoutConfiguration.activityType.rawValue)")
+        Self.log.warning("Apple rejected re-mirroring the recovered PRIMARY, finishing SAVING and starting a mirrored one")
+        pendingStartConfiguration = old.workoutConfiguration
+        pendingStartRole = .mirror
+        requestEnd(save: true, reason: MirrorWire.EndReason.recoveredRestart)
     }
 
     /// Recovered PRIMARY — adopted as `.mirror` and asked to mirror again. If
@@ -270,6 +300,7 @@ final class WatchPrimaryOwner: NSObject {
             WatchWorkoutCoordinator.shared.yieldForPhoneMirror()
         }
         bind(incoming, role: .mirror, configuration: incoming.workoutConfiguration)
+        recovered = incoming
         // Recuperada con el entreno ya andando: lo medido antes de este arranque no está.
         espejo = Vivo.EspejoMuneca(unidoATarde: true)
         DiagnosticsLog.shared.record(.session, .primaryBegin, outcome: .ok, detail: "role=mirror recovered state=\(incoming.state.rawValue)")
@@ -313,6 +344,8 @@ final class WatchPrimaryOwner: NSObject {
             collectDistance: configuration.activityType == .running
         )
         appliedPlan = startedPlan
+        // Mirar a dónde va el audio antes de la primera frase: así el móvil ya calla cuando llega el primer GO.
+        WatchVoz.shared.sondear()
     }
 
     // MARK: - Remote mirror (phone → watch)
@@ -535,7 +568,7 @@ final class WatchPrimaryOwner: NSObject {
         }
         session?.end()
         let ended = MirrorEnded(workoutUuid: workoutUuid, reason: reason)
-        if reason == MirrorWire.EndReason.athlete {
+        if MirrorWire.EndReason.entregaDurable.contains(reason) {
             WatchConnectivityService.shared.notifyPhoneLiveEnded(ended)
         }
         WatchHaptics.success()
@@ -563,6 +596,7 @@ final class WatchPrimaryOwner: NSObject {
         teardownDeadlineTimer = nil
         if let live = session, live !== finishing { live.end() }
         session = nil
+        recovered = nil
         builder = nil
         appliedPlan = nil
         startedPlan = nil
@@ -676,7 +710,10 @@ extension WatchPrimaryOwner: HKWorkoutSessionDelegate {
         Task { @MainActor [weak self] in
             guard let self, workoutSession === self.session else { return }
             // A packet from the phone is Apple's proof the link is up.
-            if self.link != .mirroring { self.link = .mirroring }
+            if self.link != .mirroring {
+                self.link = .mirroring
+                WatchVoz.shared.reanunciar()
+            }
             for packet in data { self.handleRemote(packet) }
         }
     }

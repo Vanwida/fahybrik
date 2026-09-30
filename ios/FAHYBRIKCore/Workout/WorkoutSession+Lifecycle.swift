@@ -260,7 +260,7 @@ extension WorkoutSession {
             lastPrimaryAdvanceAt = ahora
         }
         if seg.hasRunStructure {
-            runStructurePrimary()
+            runStructurePrimary(fromAthleteTap: fromAthleteTap)
         } else if seg.isEMOM {
             if emomCountInRemaining > 0 { skipCountIn(); return }
             guard let plan = seg.emomPlan else { return }

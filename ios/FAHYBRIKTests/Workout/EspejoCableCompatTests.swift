@@ -292,12 +292,15 @@ final class EspejoCableCompatTests: XCTestCase {
         XCTAssertEqual(PhoneMirrorCommandRelay.aplicar(MirrorWire.CommandKind.newLap, a: s), .aplicado)
         XCTAssertEqual(s.laps.count, antes + 1, "la vuelta de la muñeca llegó al motor (deuda FH-30)")
 
-        for kind in [MirrorWire.CommandKind.undo, MirrorWire.CommandKind.vozMuneca] {
-            guard case .pendiente = PhoneMirrorCommandRelay.aplicar(kind, a: s) else { return XCTFail("\(kind) debería estar pendiente") }
-        }
+        guard case .pendiente = PhoneMirrorCommandRelay.aplicar(MirrorWire.CommandKind.undo, a: s) else { return XCTFail("undo sin tramo cerrado debería estar pendiente") }
+        XCTAssertEqual(PhoneMirrorCommandRelay.aplicar(MirrorWire.CommandKind.vozMuneca, activa: true, a: s), .aplicado)
+        XCTAssertTrue(AudioCoach.shared.wristSpeaks)
+        XCTAssertEqual(PhoneMirrorCommandRelay.aplicar(MirrorWire.CommandKind.vozMuneca, activa: false, a: s), .aplicado)
+        XCTAssertFalse(AudioCoach.shared.wristSpeaks, "el móvil recupera su voz cuando la muñeca deja de hablar")
         XCTAssertEqual(PhoneMirrorCommandRelay.aplicar("otraCosa", a: s), .ajeno)
         XCTAssertEqual(s.laps.count, antes + 1, "los pendientes no tocan el motor")
-        XCTAssertFalse(PhoneMirrorFrameBuilder.capacidades.contains(MirrorWire.Capacidad.deshacer))
+        XCTAssertTrue(PhoneMirrorFrameBuilder.capacidades.contains(MirrorWire.Capacidad.deshacer))
+        XCTAssertTrue(PhoneMirrorFrameBuilder.capacidades.contains(MirrorWire.Capacidad.vozCalla))
         XCTAssertTrue(PhoneMirrorFrameBuilder.capacidades.contains(MirrorWire.Capacidad.mas30), "«+30 s» y lo declarado en el descanso ya los atiende el motor")
     }
 }

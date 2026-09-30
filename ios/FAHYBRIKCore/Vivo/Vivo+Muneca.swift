@@ -221,6 +221,8 @@ extension Vivo {
         var corona: CampoAnotar? = nil
         /// La acción del momento (doble toque, botón, mano): la misma para todo el que lleve el motor.
         var primaria: ClavePrimaria? = nil
+        /// Segundos que quedan para deshacer el último cierre a mano (`EstadoVivo.deshacerS`); `nil` = nada que deshacer.
+        var deshacerS: Double? = nil
     }
 
     // MARK: - Las lecturas que se pintan
@@ -289,7 +291,8 @@ extension Vivo {
             paginas: paginasDeLaCorona(e, familia: familia, corona: corona),
             ejercicios: familia == .fuerza ? paginaEjercicios(e, a, m) : nil,
             corona: corona,
-            primaria: clavePrimariaMuneca(e, a)
+            primaria: clavePrimariaMuneca(e, a),
+            deshacerS: e.deshacerS
         )
     }
 

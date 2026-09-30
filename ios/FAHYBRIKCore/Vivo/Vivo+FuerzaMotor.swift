@@ -21,14 +21,25 @@ import Foundation
 
 extension WorkoutSession {
 
-    /// «+30 s» del descanso, del que corra: el de la serie de fuerza, el de una lista fija, el de un rotativo o el de un
-    /// EMOM. Devuelve si había algún descanso al que sumar.
+    /// ¿Hay un descanso corriendo al que sumar «+30 s»? El de la serie de fuerza, el de una lista fija, el de un
+    /// rotativo, el de un EMOM o la recuperación POR TIEMPO de una carrera estructurada (con su cuenta atrás viva).
+    var vivoPuedeSumar30: Bool {
+        restRemainingSeconds > 0 || fixedRestRemaining > 0 || rotPhase == .rest || emomPhase == .rest || runRecoveryStretchable
+    }
+
+    /// La recuperación de una carrera estructurada que tiene cuenta atrás: la que se puede estirar.
+    private var runRecoveryStretchable: Bool {
+        isRunStructureActive && !isRunLegWork && !isRunCountIn && runLegRemaining > 0
+    }
+
+    /// «+30 s» del descanso, del que corra (`vivoPuedeSumar30`). Devuelve si había algún descanso al que sumar.
     @discardableResult
     func vivoSumar30() -> Bool {
         if restRemainingSeconds > 0 { restRemainingSeconds += 30; restTotalSeconds += 30 }
         else if fixedRestRemaining > 0 { fixedRestRemaining += 30; fixedRestTotal += 30 }
         else if rotPhase == .rest { rotPhaseRemaining += 30 }
         else if emomPhase == .rest { emomPhaseRemaining += 30 }
+        else if runRecoveryStretchable { runLegRemaining += 30 }
         else { return false }
         return true
     }

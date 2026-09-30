@@ -76,6 +76,13 @@ enum MirrorWire {
         /// Una persona descartó la grabación de la muñeca. Tirar lo de la muñeca
         /// nunca tira lo del teléfono — desde la muñeca no se borra su trabajo.
         static let discarded = "discarded"
+        /// La muñeca recuperó una sesión que Apple no dejó re-espejar (FH-56): la termina GUARDANDO lo que grabó
+        /// y empieza otra espejada. Guarda la grabación y calla: NO termina el entreno del teléfono, que sigue.
+        static let recoveredRestart = "recovered_restart"
+
+        /// Los cierres que se avisan además por la vía durable (`WCSession.transferUserInfo`): por el canal
+        /// espejo puede que ya no haya nadie que escuche (la sesión se acaba de soltar).
+        static let entregaDurable: Set<String> = [athlete, recoveredRestart]
     }
 
     /// `MirrorHaptic.cue` values — keep the string small and stable.
@@ -394,6 +401,8 @@ struct MirrorCommand: Codable {
     let kind: String
     /// Solo con `CommandKind.anotar`: el dato declarado. Un móvil que no lo conoce lo ignora.
     var declaracion: Vivo.Declaracion? = nil
+    /// Solo con `CommandKind.vozMuneca`: si la muñeca habla (`true`) o dejó de hablar (`false`). Ausente = habla.
+    var activa: Bool? = nil
 }
 
 /// Watch → phone: the recording is closed. `workoutUuid` is the finished

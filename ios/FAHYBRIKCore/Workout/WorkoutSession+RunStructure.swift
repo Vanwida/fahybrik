@@ -75,6 +75,7 @@ extension WorkoutSession {
         runLegIndex = 0
         runLegRemaining = 0
         runLegStartElapsed = 0
+        runLegUndo = nil
     }
 
     /// Snapshot the per-WORK-leg execution baselines at a leg's GO (#break-2). Each
@@ -123,15 +124,17 @@ extension WorkoutSession {
 
     // The bottom primary button for a structured run ("Tramo hecho" / "Saltar
     // descanso"): skip the count-in, else advance the current leg.
-    func runStructurePrimary() {
+    // `fromAthleteTap`: solo el cierre que hace una persona se puede deshacer (5 s); el que cierra la cinta
+    // o el reloj del tramo no.
+    func runStructurePrimary(fromAthleteTap: Bool = false) {
         if runCountInRemaining > 0 { skipRunCountIn(); return }
-        advanceRunLeg(auto: false)
+        advanceRunLeg(undoable: fromAthleteTap)
     }
 
-    // Advance to the next leg, or close the block on the last one. `auto` = the leg's
-    // own TIME countdown rolled over (or the belt auto-closed via primaryAdvance);
-    // otherwise the athlete tapped through.
-    private func advanceRunLeg(auto: Bool) {
+    // Advance to the next leg, or close the block on the last one. `undoable` = the athlete tapped it
+    // through (a leg whose own TIME countdown rolled over, or the belt auto-closed, is not undoable).
+    // Cerrar el ÚLTIMO tramo cierra el bloque y no se puede deshacer.
+    private func advanceRunLeg(undoable: Bool = false) {
         guard let legs = currentSegment?.runStructureLegs, !legs.isEmpty else { return }
         // #break-2: the just-finished leg's OWN measured split (covered distance /
         // duration / pace / HR) is available HERE at the boundary. Record a WORK leg as
@@ -146,8 +149,12 @@ extension WorkoutSession {
         // El rol viaja en la fila (`leg_role`), así que la analítica distingue una
         // cosa de la otra sin tener que adivinarlo por el ritmo.
         let finished = legs[runLegIndex]
-        recordRunLegLap(finished, at: runLegIndex)
         let next = runLegIndex + 1
+        // Lo que el cierre va a pisar (las bases del tramo, su ventana, su reloj) se guarda ANTES de cerrarlo.
+        let previo = undoable && next < legs.count ? captureRunLegState() : nil
+        let cierre = (leg: runLegIndex, remaining: runLegRemaining)
+        recordRunLegLap(finished, at: runLegIndex)
+        runLegUndo = nil
         if next >= legs.count {
             WorkoutAudio.shared.playFinish()
             Haptics.cueFinish()
@@ -157,6 +164,10 @@ extension WorkoutSession {
         let kindChanged = legs[next].kind != legs[runLegIndex].kind
         runLegIndex = next
         primeRunLeg()
+        if let previo, let lap = laps.last {
+            runLegUndo = RunLegUndo(segmentIndex: currentSegmentIndex, legIndex: cierre.leg, lapId: lap.id, legRemaining: cierre.remaining,
+                                    baselines: previo.baselines, tramo: previo.tramo, windowRemaining: Self.runLegUndoWindowS)
+        }
         if kindChanged {
             WorkoutAudio.shared.playMovementChange()   // work↔recovery transition tone
             Haptics.cueStop()
@@ -200,6 +211,7 @@ extension WorkoutSession {
     // waits for the belt (TreadmillHUDModel → primaryAdvance) or a manual "Tramo
     // hecho". Parallel to tickEMOM / tickConditioning.
     func tickRunStructure(dt: Double) {
+        tickRunLegUndo(dt: dt)
         // Count-in: 3-2-1 with a tick on each whole-second transition, "go" at 0.
         if runCountInRemaining > 0 {
             let before = runCountInRemaining
@@ -236,7 +248,7 @@ extension WorkoutSession {
         AudioCoach.shared.runLegTimeRemaining(after, in: self)   // once-per-leg "10 segundos" (#63, iOS-only)
         #endif
         if after <= 0 {
-            advanceRunLeg(auto: true)
+            advanceRunLeg()
         } else {
             runLegRemaining = after
         }

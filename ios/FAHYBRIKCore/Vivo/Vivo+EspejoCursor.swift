@@ -25,7 +25,7 @@ extension Vivo {
     /// ARRANQUE del motor (`isTramoCountIn`), si hay. `parado`: los relojes del motor
     /// no corren sin que el atleta haya pausado (la puerta de un bloque).
     static func cursorDe(_ e: EstadoVivo, planHash: String, entorno: RunEnvironment?, parado: Bool = false,
-                         cuentaRestanteS: Double? = nil, maquinaEnlazada: Bool = false) -> MirrorCursor {
+                         cuentaRestanteS: Double? = nil, maquinaEnlazada: Bool = false, vozActiva: Bool = true) -> MirrorCursor {
         let movil = loMideElMovil(e.paso, entorno: entorno)
         // El monitor de una máquina de ergo: solo si hay una enlazada Y este paso es de máquina. Sin ella, los
         // metros y el /500 los dice el atleta: el móvil no manda un «hecho» que nadie midió.
@@ -47,7 +47,9 @@ extension Vivo {
             hecho: movil && e.paso.medida.tipo != .tiempo && !sinMonitor ? e.lecturas.hecho : nil,
             ritmo: movil ? e.lecturas.ritmo : nil,
             sesionM: movil ? e.sesion.metros : nil,
-            maquina: monitor
+            maquina: monitor,
+            deshacerS: e.deshacerS,
+            vozActiva: vozActiva
         )
     }
 }
