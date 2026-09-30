@@ -91,7 +91,8 @@ enum GuionEntrada {
 
 // MARK: - Los planes (JSON del coach, como llega del servidor)
 
-private enum Planes {
+/// Los planes de las pantallas de reposo y de correr del escaparate (`GuionEscaparateMuneca` los reutiliza).
+enum Planes {
     static var series: WorkoutPlan? {
         let fases = [
             fase("warmup", [trabajoS(900)]),

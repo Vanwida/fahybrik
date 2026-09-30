@@ -128,9 +128,13 @@ extension Vivo {
         )
     }
 
-    /// El pulso sube o baja: las dos últimas muestras del tramo, sin inventar.
     private static func tendenciaDe(_ sesion: WorkoutSession) -> Tendencia? {
-        let m = sesion.lapHRSamples
+        tendenciaDe(muestras: sesion.lapHRSamples.map(Double.init))
+    }
+
+    /// El pulso sube o baja: las tres últimas muestras contra las tres de antes, sin
+    /// inventar (menos de seis no dicen nada). La comparten el motor y el espejo de la muñeca.
+    static func tendenciaDe(muestras m: [Double]) -> Tendencia? {
         guard m.count >= 6 else { return nil }
         let reciente = m.suffix(3).reduce(0, +) / 3
         let antes = m.suffix(6).prefix(3).reduce(0, +) / 3
@@ -186,6 +190,25 @@ extension Vivo {
         }
     }
 
+    // MARK: - Lo que comparten el motor y el espejo de la muñeca
+
+    /// La cuenta atrás de ARRANQUE del motor: 3, 2 o 1 según lo que queda (nunca fuera de 1…3).
+    static func cuentaDelMotor(restanteS: Double) -> Int {
+        Swift.max(1, Swift.min(3, Int(restanteS.rounded(.up))))
+    }
+
+    /// El 3-2-1 y el GO del estado. La cuenta del motor (`motor`) manda; entre pasos, la calcula el
+    /// plan. En pausa o acabada, ni cuenta ni GO.
+    static func cuentaYGo(_ pasos: [Paso], _ i: Int, _ l: Lecturas, motor: Int?, enPausa: Bool) -> (cuenta: Int?, go: Bool) {
+        let cuenta: Int? = motor ?? (enPausa ? nil : cuentaDe(pasos, i, l))
+        return (cuenta, cuenta == nil && !enPausa && goDe(pasos, i, l))
+    }
+
+    /// Lo de toda la sesión: el crono, los metros corridos y el ritmo medio (con su suelo de honestidad).
+    static func sesionDe(t: Double, corridos: Double) -> Sesion {
+        Sesion(t: t, metros: corridos > 0 ? corridos : nil, ritmoMedio: corridos > 50 ? t / (corridos / 1000) : nil, ppmMedio: nil)
+    }
+
     // MARK: - El estado entero
 
     static func estadoDe(_ sesion: WorkoutSession, plan: PlanVivo, externo: LecturaExterna = LecturaExterna()) -> EstadoVivo {
@@ -205,15 +228,14 @@ extension Vivo {
         if let m = sesion.tramoRunCoveredMeters { corridos += m }
         if let m = sesion.tramoErgDistanceMeters { ergo += m }
         // La del motor (el arranque) manda; si no, la de entrada a la parte principal (kit: `cuentaDe`).
-        let motor: Int? = sesion.isTramoCountIn ? Swift.max(1, Swift.min(3, Int(sesion.tramoCountInRemaining.rounded(.up)))) : nil
+        let motor: Int? = sesion.isTramoCountIn ? cuentaDelMotor(restanteS: sesion.tramoCountInRemaining) : nil
         let enPausa = sesion.isPaused || sesion.isFinished
-        let cuenta: Int? = motor ?? (enPausa ? nil : cuentaDe(pasos, i, lecturas))
+        let (cuenta, go) = cuentaYGo(pasos, i, lecturas, motor: motor, enPausa: enPausa)
         return EstadoVivo(
             pasos: pasos,
             i: i,
             lecturas: lecturas,
-            sesion: Sesion(t: sesion.elapsedSeconds, metros: corridos > 0 ? corridos : nil,
-                           ritmoMedio: corridos > 50 ? sesion.elapsedSeconds / (corridos / 1000) : nil, ppmMedio: nil),
+            sesion: sesionDe(t: sesion.elapsedSeconds, corridos: corridos),
             zonas: plan.zonas,
             reglas: plan.reglas,
             pausado: sesion.isPaused,
@@ -224,7 +246,7 @@ extension Vivo {
                 : ((paso.medida.mide == .ergo || (paso.maquina != nil && paso.maquina?.tipo != .cinta)) ? sesion.tramoErgDistanceMeters : sesion.tramoRunCoveredMeters),
             sesionErgoM: ergo,
             cuenta: cuenta,
-            go: cuenta == nil && !enPausa && goDe(pasos, i, lecturas),
+            go: go,
             terminado: sesion.isFinished
         )
     }

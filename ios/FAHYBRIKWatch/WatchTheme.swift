@@ -23,6 +23,9 @@ enum WatchHaptics {
     /// UI taps — `notification` so a button is actually felt mid-effort (`.click`
     /// is often lost under sweat / movement).
     static func tap()        { play(.notification) }
+    /// La acción del atleta en la cara nueva de correr (pausa, vuelta, cerrar paso): un
+    /// `.click` seco, el del vocabulario del modelo (§4).
+    static func click()      { play(.click) }
     static func success()    { play(.success) }
     static func transition() { play(.directionUp) }
     static func warning()    { play(.notification) }
