@@ -31,195 +31,142 @@ struct DeleteAccountConfirmView: View {
     }
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            if didDelete {
-                closingScreen
-            } else {
-                form
-            }
+        if didDelete {
+            closingScreen
+        } else {
+            form
         }
     }
 
     // MARK: - Form (pre-confirmation)
 
+    /// En una pantalla destructiva la salida tiene que verse SIN scrollear: el «Cancelar» vive en la barra de la
+    /// hoja, arriba, y la acción que destruye va anclada abajo; ni una ni otra es la cola de un scroll que exige
+    /// leer antes un aviso y dos campos.
     private var form: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                header
-                warningCard
-                reasonField
-                confirmationField
-                if let error {
-                    Text(error)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.Color.danger)
-                }
+        PantallaPerfil(titulo: "Eliminar mi cuenta", sobretitulo: "RGPD · Art. 17", cierre: .cancelar, cierreActivo: !loading) {
+            warningCard
+            reasonField
+            confirmationField
+            if let error {
+                AvisoEnLineaPerfil(tono: .peligro, texto: error)
             }
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.top, Theme.Spacing.l)
-            .padding(.bottom, Theme.Spacing.l)
+        } pie: {
+            confirmButton
         }
-        // On a destructive screen the way OUT has to be visible without
-        // scrolling. Both actions were the tail of the scroll, i.e. reachable
-        // only after reading past a warning card and two fields.
-        .anchoredAction {
-            VStack(spacing: Theme.Spacing.s) {
-                confirmButton
-                cancelButton
-            }
-        }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "RGPD · Art. 17", color: Theme.Color.danger)
-            Text("Eliminar mi cuenta")
-                .font(Theme.Typography.headlineM)
-                .foregroundStyle(Theme.Color.foreground)
-        }
+        .interactiveDismissDisabled(loading)
     }
 
     private var warningCard: some View {
-        CardSurface(padding: 14, leftAccent: true) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Esta acción es permanente.")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                bullet("Se eliminarán todos tus datos en 30 días.")
-                bullet("Tu suscripción se cancelará al final del periodo pagado.")
-                if let partnerName, !partnerName.isEmpty {
-                    bullet("Tu compañero/a \(partnerName) (Dobles) será notificado/a.")
-                }
-                bullet("Recibirás un email de confirmación tras esta acción.")
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            Text("Esta acción es permanente.")
+                .papel(.cuerpoFuerte)
+                .foregroundStyle(Theme.Color.foreground)
+            bullet("Se eliminarán todos tus datos en 30 días.")
+            bullet("Tu suscripción se cancelará al final del periodo pagado.")
+            if let partnerName, !partnerName.isEmpty {
+                bullet("Tu compañero/a \(partnerName) (Dobles) será notificado/a.")
             }
+            bullet("Recibirás un email de confirmación tras esta acción.")
         }
+        .padding(Theme.Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .tarjetaPerfil()
+        .overlay(alignment: .leading) {
+            // El peligro va en la marca: una barra del color de peligro en el borde de la tarjeta.
+            Rectangle().fill(Theme.Color.danger).frame(width: 4).accessibilityHidden(true)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
     }
 
     private func bullet(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text("·")
-                .font(.system(size: 14, weight: .heavy))
-                .foregroundStyle(Theme.Color.danger)
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m) {
+            Circle().fill(Theme.Color.danger).frame(width: 8, height: 8).accessibilityHidden(true)
             Text(text)
-                .font(.system(size: 13))
+                .papel(.cuerpo)
                 .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     private var reasonField: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "¿Por qué te vas? (opcional)")
-            TextField(
-                "",
-                text: $reason,
-                prompt: Text("Ayúdanos a mejorar")
-                    .foregroundStyle(Theme.Color.muted),
-                axis: .vertical
-            )
-            .lineLimit(3...5)
-            .textInputAutocapitalization(.sentences)
-            .font(.system(size: 14))
-            .foregroundStyle(Theme.Color.foreground)
-            .padding(12)
-            .background(Theme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            TituloSeccionDia("¿Por qué te vas? (opcional)")
+            GrupoPerfil {
+                TextField(
+                    "",
+                    text: $reason,
+                    prompt: Text("Ayúdanos a mejorar").foregroundStyle(Theme.Color.muted),
+                    axis: .vertical
+                )
+                .lineLimit(3...5)
+                .textInputAutocapitalization(.sentences)
+                .papel(.cuerpo)
+                .foregroundStyle(Theme.Color.foreground)
+                .accessibilityLabel("¿Por qué te vas? Opcional")
+                .padding(Theme.Spacing.l)
+                .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
+            }
         }
     }
 
     private var confirmationField: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "Para confirmar, escribe ELIMINAR MI CUENTA")
-            TextField(
-                "",
-                text: $confirmationInput,
-                prompt: Text("ELIMINAR MI CUENTA")
-                    .foregroundStyle(Theme.Color.muted)
-            )
-            .textInputAutocapitalization(.characters)
-            .disableAutocorrection(true)
-            .font(.system(size: 14, weight: .semibold, design: .monospaced))
-            .foregroundStyle(Theme.Color.foreground)
-            .padding(12)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(canSubmit ? Theme.Color.danger.opacity(0.6) : Color.clear, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            TituloSeccionDia("Para confirmar, escribe ELIMINAR MI CUENTA")
+            GrupoPerfil {
+                CampoTextoPerfil(
+                    etiqueta: "Confirmación", placeholder: "ELIMINAR MI CUENTA", texto: $confirmationInput,
+                    capitalizacion: .characters, nombreAccesible: "Escribe ELIMINAR MI CUENTA para confirmar"
+                )
+                .autocorrectionDisabled(true)
+            }
         }
     }
 
+    /// La acción que destruye: el peligro va en el TEXTO y en el borde, nunca en un fondo rojo; deshabilitada hasta
+    /// que la frase coincide.
     private var confirmButton: some View {
         Button(action: submit) {
-            HStack {
-                if loading {
-                    ProgressView()
-                        .tint(Color.white)
-                        .padding(.trailing, 6)
-                }
-                Text("Confirmar eliminación")
-                    .font(.system(size: 14, weight: .semibold))
+            HStack(spacing: Theme.Spacing.s) {
+                if loading { ProgressView() }
+                Text("Confirmar eliminación").papel(.accion)
             }
-            .foregroundStyle(Color.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 50)
-            .background(canSubmit ? Theme.Color.danger : Theme.Color.danger.opacity(0.35))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            .foregroundStyle(Theme.Color.danger)
+            .frame(maxWidth: .infinity, minHeight: Theme.Size.accion)
+            .padding(.horizontal, 22)
+            .overlay(Capsule().strokeBorder(Theme.Color.danger.opacity(0.6), lineWidth: 2))
+            .opacity(canSubmit ? 1 : 0.4)
+            .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressScaleStyle(escala: 0.98))
         .disabled(!canSubmit)
-        .padding(.top, Theme.Spacing.s)
-    }
-
-    private var cancelButton: some View {
-        Button {
-            Haptics.light()
-            dismiss()
-        } label: {
-            Text("Cancelar")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Theme.Color.muted)
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Closing state
 
     private var closingScreen: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            LabelText(text: "Cuenta marcada para eliminación", color: Theme.Color.accentText)
-            Text("Tu cuenta se eliminará en 30 días.")
-                .font(Theme.Typography.headlineS)
-                .foregroundStyle(Theme.Color.foreground)
-            Text("Te enviamos un email de confirmación. Puedes contactar \(Marca.soporteEmail) si necesitas cancelar la solicitud antes de 30 días.")
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.Color.muted)
-            Spacer().frame(height: Theme.Spacing.l)
-            Button {
-                Haptics.medium()
-                dismiss()
-                // Slight defer so the sheet dismiss animation completes
-                // before AppRoot swaps to AppleSignInView.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                    onCompleted()
+        FillingScreen {
+            SujetoDia(tono: .neutro, etiqueta: "Cuenta marcada para eliminación. Tu cuenta se eliminará en 30 días.") {
+                KickerDia("Cuenta marcada para eliminación")
+                TituloDia("Tu cuenta se eliminará en 30 días.")
+                ApoyoDia("Te enviamos un email de confirmación. Puedes contactar \(Marca.soporteEmail) si necesitas cancelar la solicitud antes de 30 días.")
+            } abajo: {
+                Button {
+                    Haptics.medium()
+                    dismiss()
+                    // Slight defer so the sheet dismiss animation completes
+                    // before AppRoot swaps to AppleSignInView.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        onCompleted()
+                    }
+                } label: {
+                    AccionDia("Cerrar sesión")
                 }
-            } label: {
-                Text("Cerrar sesión")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentOn)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(Theme.Color.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                .buttonStyle(PressScaleStyle(escala: 0.96))
             }
-            .buttonStyle(.plain)
+            .padding(EdgeInsets(top: Theme.Spacing.xl, leading: Theme.Spacing.pantalla, bottom: Theme.Spacing.xl, trailing: Theme.Spacing.pantalla))
         }
-        .padding(.horizontal, Theme.Spacing.xl)
-        .padding(.top, Theme.Spacing.xxl)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Theme.Color.background.ignoresSafeArea())
     }
 
     // MARK: - Submit
