@@ -84,237 +84,141 @@ struct EditProfileView: View {
 
     // MARK: - Body
 
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.Color.background.ignoresSafeArea()
-                ScrollView {
-                    editProfileForm
-                }
-            }
-            .navigationTitle("Editar perfil")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { editProfileToolbar }
-        }
+    /// Se puede guardar con nombre y sesión: lo demás es opcional.
+    private var puedeGuardar: Bool {
+        !fullName.trimmingCharacters(in: .whitespaces).isEmpty && bearer != nil
     }
 
-    private var editProfileForm: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+    var body: some View {
+        PantallaPerfil(titulo: "Editar perfil", cierre: .cancelar, cierreActivo: !saving) {
             editIdentidadSection
             editCuerpoSection
             editObjetivoSection
             editIdiomaSection
-            editSaveErrorSection
+            if let err = saveError {
+                AvisoEnLineaPerfil(tono: .peligro, texto: err)
+            }
+        } pie: {
+            AccionAncladaPerfil(titulo: "Guardar cambios", enCurso: saving, habilitada: puedeGuardar) {
+                Task { await save() }
+            }
         }
-        .padding(.horizontal, Theme.Spacing.xl)
-        .padding(.top, Theme.Spacing.l)
-        .padding(.bottom, Theme.Spacing.xxl)
-        .clampedToContainerWidth()
+        .interactiveDismissDisabled(saving)
+    }
+
+    private func seccion<Contenido: View>(_ titulo: String, @ViewBuilder _ contenido: () -> Contenido) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            TituloSeccionDia(titulo)
+            contenido()
+        }
     }
 
     private var editIdentidadSection: some View {
-        Group {
-            editSectionHeader("IDENTIDAD")
-            CardSurface(padding: 0) {
-                VStack(spacing: 0) {
-                    editTextRow(label: "Nombre", placeholder: "Tu nombre completo", text: $fullName)
-                        .accessibilityLabel("Nombre")
-                    Hairline()
-                    dobRow
-                    Hairline()
-                    sexRow
-                }
+        seccion("Identidad") {
+            GrupoPerfil {
+                CampoTextoPerfil(
+                    etiqueta: "Nombre",
+                    placeholder: "Tu nombre completo",
+                    texto: $fullName,
+                    capitalizacion: .words
+                )
+                dobRow
+                sexRow
             }
         }
     }
 
     private var editCuerpoSection: some View {
-        Group {
-            editSectionHeader("CUERPO")
-            CardSurface(padding: 0) {
-                VStack(spacing: 0) {
-                    editDecimalRow(label: "Altura (cm)", placeholder: "80–260", text: $heightCmText)
-                        .accessibilityLabel("Altura en centímetros")
-                    Hairline()
-                    editDecimalRow(label: "Peso (kg)", placeholder: "25–250", text: $weightKgText)
-                        .accessibilityLabel("Peso en kilogramos")
-                    Hairline()
-                    editDecimalRow(label: "Años entrenando", placeholder: "0–80", text: $experienceText)
-                        .accessibilityLabel("Años de experiencia entrenando")
-                    Hairline()
-                    editDecimalRow(label: "FC máx (ppm)", placeholder: "100–230", text: $maxHrText)
-                        .accessibilityLabel("Frecuencia cardiaca máxima en pulsaciones por minuto")
-                }
+        seccion("Cuerpo") {
+            GrupoPerfil {
+                CampoTextoPerfil(
+                    etiqueta: "Altura", placeholder: "80–260", texto: $heightCmText, teclado: .decimalPad,
+                    unidad: "cm", nombreAccesible: "Altura en centímetros"
+                )
+                CampoTextoPerfil(
+                    etiqueta: "Peso", placeholder: "25–250", texto: $weightKgText, teclado: .decimalPad,
+                    unidad: "kg", nombreAccesible: "Peso en kilogramos"
+                )
+                CampoTextoPerfil(
+                    etiqueta: "Años entrenando", placeholder: "0–80", texto: $experienceText, teclado: .decimalPad,
+                    nombreAccesible: "Años de experiencia entrenando"
+                )
+                CampoTextoPerfil(
+                    etiqueta: "FC máx", placeholder: "100–230", texto: $maxHrText, teclado: .decimalPad,
+                    unidad: "ppm", nombreAccesible: "Frecuencia cardiaca máxima en pulsaciones por minuto"
+                )
             }
-            Text("Tus zonas de pulso salen de tu umbral. Si nos das tu FC máxima lo estimamos desde ahí; si no, desde tu fecha de nacimiento. Sin ninguna de las dos no hay zonas, y el test de umbral es lo único que las fija de verdad.")
-                .scaledFont(11, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.muted)
-                .padding(.horizontal, 4)
+            NotaPerfil("Tus zonas de pulso salen de tu umbral. Si nos das tu FC máxima lo estimamos desde ahí; si no, desde tu fecha de nacimiento. Sin ninguna de las dos no hay zonas, y el test de umbral es lo único que las fija de verdad.")
             if hasBodyRangeWarning {
-                bodyRangeHint
+                AvisoEnLineaPerfil(tono: .info, texto: "Comprueba los rangos: 80–260 cm · 25–250 kg · 0–80 años · FC máx 100–230 ppm")
             }
         }
     }
 
     private var editObjetivoSection: some View {
-        Group {
-            editSectionHeader("OBJETIVO")
-            CardSurface(padding: 0) {
-                VStack(spacing: 0) {
-                    goalTypeRow
-                    if goalType == "other" {
-                        Hairline()
-                        editTextRow(
-                            label: "Descripción",
-                            placeholder: "Máx. 500 caracteres",
-                            text: $goalOtherText
-                        )
-                        .accessibilityLabel("Descripción del objetivo")
-                    }
+        seccion("Objetivo") {
+            GrupoPerfil {
+                goalTypeRow
+                if goalType == "other" {
+                    CampoTextoPerfil(
+                        etiqueta: "Descripción",
+                        placeholder: "Máx. 500 caracteres",
+                        texto: $goalOtherText
+                    )
                 }
             }
         }
     }
 
     private var editIdiomaSection: some View {
-        Group {
-            editSectionHeader("IDIOMA")
-            CardSurface(padding: 0) {
-                languageRow
-            }
-            Text("La app se está traduciendo; algunos textos seguirán en español por ahora. Se aplicará al reiniciar.")
-                .scaledFont(11, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.muted)
-                .padding(.horizontal, 4)
+        seccion("Idioma") {
+            GrupoPerfil { languageRow }
+            NotaPerfil("La app se está traduciendo; algunos textos seguirán en español por ahora. Se aplicará al reiniciar.")
         }
-    }
-
-    @ViewBuilder
-    private var editSaveErrorSection: some View {
-        if let err = saveError {
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.Color.danger)
-                Text(err)
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.danger)
-            }
-            .padding(.horizontal, 4)
-        }
-    }
-
-    @ToolbarContentBuilder
-    private var editProfileToolbar: some ToolbarContent {
-        ToolbarItem(placement: .cancellationAction) {
-            Button("Cancelar") { dismiss() }
-                .foregroundStyle(Theme.Color.muted)
-        }
-        ToolbarItem(placement: .confirmationAction) {
-            Group {
-                if saving {
-                    ProgressView().tint(Theme.Color.accentText)
-                } else {
-                    Button("Guardar") {
-                        Haptics.light()
-                        Task { await save() }
-                    }
-                    .foregroundStyle(Theme.Color.accentText)
-                    .fontWeight(.semibold)
-                    .disabled(fullName.trimmingCharacters(in: .whitespaces).isEmpty || bearer == nil)
-                }
-            }
-        }
-    }
-
-    // MARK: - Section header (local style)
-
-    private func editSectionHeader(_ title: String) -> some View {
-        Text(title)
-            .scaledFont(10, weight: .semibold, relativeTo: .caption2)
-            .tracking(1.6)
-            .foregroundStyle(Theme.Color.muted)
-            .padding(.horizontal, 4)
-            .padding(.top, 4)
-    }
-
-    // MARK: - Generic row helpers
-
-    private func editTextRow(label: String, placeholder: String, text: Binding<String>) -> some View {
-        HStack(spacing: 12) {
-            Text(label)
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .frame(minWidth: 110, alignment: .leading)
-            TextField(placeholder, text: text)
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.foreground)
-                .multilineTextAlignment(.trailing)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
-    }
-
-    private func editDecimalRow(label: String, placeholder: String, text: Binding<String>) -> some View {
-        HStack(spacing: 12) {
-            Text(label)
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .frame(minWidth: 110, alignment: .leading)
-            TextField(placeholder, text: text)
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.foreground)
-                .multilineTextAlignment(.trailing)
-                .keyboardType(.decimalPad)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
     }
 
     // MARK: - DOB row
 
     private var dobRow: some View {
-        HStack(spacing: 12) {
-            Text("Nacimiento")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .frame(minWidth: 110, alignment: .leading)
-            Spacer()
+        HStack(spacing: Theme.Spacing.m) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Nacimiento").papel(.rotulo).foregroundStyle(Theme.Color.muted)
+                if hasDob {
+                    DatePicker(
+                        "Fecha de nacimiento",
+                        selection: $dobDate,
+                        in: minDob...maxDob,
+                        displayedComponents: .date
+                    )
+                    .labelsHidden()
+                    .datePickerStyle(.compact)
+                    .tint(Theme.Color.accentText)
+                    .accessibilityLabel("Fecha de nacimiento")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text("Sin añadir").papel(.cuerpo).foregroundStyle(Theme.Color.muted)
+                }
+            }
+            Spacer(minLength: Theme.Spacing.m)
             if hasDob {
-                DatePicker(
-                    "",
-                    selection: $dobDate,
-                    in: minDob...maxDob,
-                    displayedComponents: .date
-                )
-                .labelsHidden()
-                .datePickerStyle(.compact)
-                .tint(Theme.Color.accentText)
-                .accessibilityLabel("Fecha de nacimiento")
                 Button {
                     hasDob = false
                 } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                    IconoDia(.cerrar, tam: 16, peso: .bold)
                         .foregroundStyle(Theme.Color.muted)
+                        .frame(width: Theme.Size.toque, height: Theme.Size.toque)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .padding(.leading, 6)
                 .accessibilityLabel("Quitar fecha de nacimiento")
             } else {
-                Button {
-                    hasDob = true
-                } label: {
-                    Text("Añadir")
-                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.accentText)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Añadir fecha de nacimiento")
+                AccionTextoPerfil(titulo: "Añadir", alineada: .trailing) { hasDob = true }
+                    .accessibilityLabel("Añadir fecha de nacimiento")
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
+        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.vertical, Theme.Spacing.s)
+        .frame(minHeight: Theme.Size.toque + Theme.Spacing.m)
     }
 
     private var minDob: Date {
@@ -327,24 +231,12 @@ struct EditProfileView: View {
     // MARK: - Sex row
 
     private var sexRow: some View {
-        HStack(spacing: 12) {
-            Text("Sexo")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .frame(minWidth: 110, alignment: .leading)
-            Spacer()
-            Menu {
-                Button("Sin especificar") { sex = nil }
-                Button("Hombre")          { sex = "male" }
-                Button("Mujer")           { sex = "female" }
-                Button("Otro")            { sex = "other" }
-            } label: {
-                editMenuLabel(sexLabel)
-            }
-            .accessibilityLabel("Sexo: \(sexLabel)")
+        FilaMenuPerfil(etiqueta: "Sexo", valor: sexLabel, vacio: sex == nil) {
+            Button("Sin especificar") { sex = nil }
+            Button("Hombre")          { sex = "male" }
+            Button("Mujer")           { sex = "female" }
+            Button("Otro")            { sex = "other" }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
     }
 
     private var sexLabel: String {
@@ -378,74 +270,25 @@ struct EditProfileView: View {
         return hBad || wBad || eBad || mBad
     }
 
-    private var bodyRangeHint: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "info.circle")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.Color.muted)
-            Text("Comprueba los rangos: 80–260 cm · 25–250 kg · 0–80 años · FC máx 100–230 ppm")
-                .scaledFont(11, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.muted)
-        }
-        .padding(.horizontal, 4)
-    }
-
     // MARK: - Goal type row
 
     private var goalTypeRow: some View {
-        HStack(spacing: 12) {
-            Text("Objetivo")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .frame(minWidth: 110, alignment: .leading)
-            Spacer()
-            Menu {
-                Button("Sin definir") { goalType = nil }
-                ForEach(GoalTypeOption.allCases, id: \.rawValue) { option in
-                    Button(option.label) { goalType = option.rawValue }
-                }
-            } label: {
-                editMenuLabel(goalTypeLabel(goalType), muted: goalType == nil)
+        FilaMenuPerfil(etiqueta: "Objetivo", valor: goalTypeLabel(goalType), vacio: goalType == nil) {
+            Button("Sin definir") { goalType = nil }
+            ForEach(GoalTypeOption.allCases, id: \.rawValue) { option in
+                Button(option.label) { goalType = option.rawValue }
             }
-            .accessibilityLabel("Objetivo: \(goalTypeLabel(goalType))")
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
     }
 
     // MARK: - Language row
 
     private var languageRow: some View {
-        HStack(spacing: 12) {
-            Text("Idioma")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .frame(minWidth: 110, alignment: .leading)
-            Spacer()
-            Menu {
-                Button("Sin definir") { preferredLanguage = nil }
-                Button("Español")     { preferredLanguage = "es" }
-                Button("English")     { preferredLanguage = "en" }
-            } label: {
-                let lbl = preferredLanguage.flatMap { languageLabel($0) } ?? "Sin definir"
-                editMenuLabel(lbl, muted: preferredLanguage == nil)
-            }
-            .accessibilityLabel("Idioma: \(preferredLanguage.flatMap { languageLabel($0) } ?? "Sin definir")")
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
-    }
-
-    // MARK: - Menu label component (shared by goal/sex/language menus)
-
-    private func editMenuLabel(_ text: String, muted: Bool = false) -> some View {
-        HStack(spacing: 4) {
-            Text(text)
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(muted ? Theme.Color.muted : Theme.Color.foreground)
-            Image(systemName: "chevron.up.chevron.down")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Theme.Color.muted)
+        let etiqueta = preferredLanguage.flatMap { languageLabel($0) } ?? "Sin definir"
+        return FilaMenuPerfil(etiqueta: "Idioma", valor: etiqueta, vacio: preferredLanguage == nil) {
+            Button("Sin definir") { preferredLanguage = nil }
+            Button("Español")     { preferredLanguage = "es" }
+            Button("English")     { preferredLanguage = "en" }
         }
     }
 

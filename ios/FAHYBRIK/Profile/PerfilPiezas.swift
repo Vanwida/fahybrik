@@ -28,6 +28,27 @@ enum GlifoPerfil: String, CaseIterable {
     case invitar    = "person.badge.plus"
     /// El pulso: una actividad nueva del reloj.
     case actividad  = "waveform.path.ecg"
+    // Las que piden las pantallas que cuelgan de las puertas.
+    /// Mis días de entreno: el calendario con su reloj (el `calendar` a secas es del kit).
+    case diasDeEntreno = "calendar.badge.clock"
+    /// Molestias y lesiones.
+    case molestia   = "bandage"
+    /// Avisos de voz en carrera.
+    case voz        = "speaker.wave.2"
+    /// Contar repeticiones con el reloj.
+    case repeticiones = "figure.strengthtraining.traditional"
+    /// Cómo se construye tu plan: bloques.
+    case plan       = "rectangle.3.group"
+    case coachFicha = "person.crop.rectangle"
+    /// Enviar una sugerencia o un error.
+    case sugerencia = "exclamationmark.bubble"
+    case documento  = "doc.text"
+    /// Deshacer la pareja de Dobles.
+    case sinPareja  = "person.2.slash"
+    /// Subir el movimiento de la muñeca.
+    case movimientoReloj = "watch.analog"
+    /// Exportar mis datos.
+    case exportar   = "square.and.arrow.up.on.square"
 
     var simbolo: String { rawValue }
 }
