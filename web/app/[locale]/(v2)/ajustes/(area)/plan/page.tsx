@@ -6,6 +6,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { getCoachSession } from '@/lib/auth/coach-session';
 import { getAutoPublishSetting } from '@/lib/coach/week-publishing';
 import { getCoachPlanWeekHorizon } from '@/lib/coach/plan-week-horizon';
+import { getPlanRenewalSetting } from '@/lib/coach/plan-renewal';
 import { getMaxProgramWeeksSetting } from '@/lib/coach/microcycle-limits';
 import { AjustesPanel } from '@/components/v2/ajustes/AjustesPanel';
 import { PlanAtletaSettings } from '@/components/v2/ajustes/PlanAtletaSettings';
@@ -22,15 +23,16 @@ export default async function PlanAtletaPage({ params }: { params: Promise<{ loc
   const session = await getCoachSession();
   if (!session) return null;
 
-  const [autoPublish, horizon, maxWeeks] = await Promise.all([
+  const [autoPublish, horizon, maxWeeks, renewal] = await Promise.all([
     getAutoPublishSetting(session.coach_id).catch(() => null),
     getCoachPlanWeekHorizon(session.coach_id).catch(() => null),
     getMaxProgramWeeksSetting(session.coach_id).catch(() => null),
+    getPlanRenewalSetting(session.coach_id).catch(() => null),
   ]);
 
   return (
     <AjustesPanel title="Plan del atleta" subtitle="Qué semanas ve cada atleta y cuándo.">
-      <PlanAtletaSettings autoPublish={autoPublish} horizon={horizon} />
+      <PlanAtletaSettings autoPublish={autoPublish} horizon={horizon} renewal={renewal} />
       {maxWeeks ? (
         <SettingsSection title="Programas">
           <MaxProgramWeeksSetting initial={maxWeeks} />
