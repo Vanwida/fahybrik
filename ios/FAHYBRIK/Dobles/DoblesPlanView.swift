@@ -1,22 +1,19 @@
 import SwiftUI
 
-// Dobles · plan conectado (the HUB). The self athlete's week + a read-only
-// toggle to the partner's week, marking optional-together vs the joint-mandatory
-// simulation, plus links to the other three Dobles screens.
+// Dobles · la semana conectada (el HUB). La semana del atleta, un selector que enseña la de su pareja en solo
+// lectura (marcando lo opcional juntos y la simulación conjunta, que es obligatoria) y las puertas a las otras
+// tres pantallas de la pareja.
 //
-// Faithful to design_handoff_fhp/App Atleta - Dobles.dc.html screen 1, mapped to
-// our system: the handoff colors Ana (self) RED and Marcos (partner) BLUE — we
-// keep SELF = brand orange (Theme.Color.accent) and PARTNER = blue
-// (Theme.Color.partner). Never red-as-brand.
+// LA PIEL ES LA DE «EL DÍA»: cabecera fija con los papeles de la escala (nada por debajo de 15 pt), tarjetas de
+// `caraDobles`, teselas del kit para el ritmo de la pareja. El atleta es el acento del club y la pareja el azul
+// de `Theme.Color.partner`; el tinte de una fila conjunta es el del acento, no un naranja.
 //
-// Presentation: opened as a `.fullScreenCover` from PlanView (no enclosing
-// NavigationStack), so this screen owns its OWN NavigationStack — it provides a
-// close affordance and pushes the other three screens via NavigationLink.
+// PRESENTACIÓN. Se abre a pantalla completa desde Plan y desde Perfil (sin `NavigationStack` alrededor), así
+// que esta pantalla lleva la SUYA: la cabecera es propia (con su ✕) y la barra del sistema se oculta; las otras
+// tres se empujan con `NavigationLink` y cada una trae su ‹.
 //
-// BACKEND GAP: DoblesService.fetchConnectedPlan returns nil (no endpoint). With
-// no data we show an honest empty state; the partner identity comes from the
-// already-shipped PartnerService. The rich week renders only once the backend
-// ships the connected-plan payload — we NEVER fabricate the partner's sessions.
+// HUECO DEL SERVIDOR. `DoblesService.fetchConnectedPlan` devuelve nil mientras no haya semana conectada; con
+// eso se cuenta honestamente quién la publica y cuándo aparece. JAMÁS se inventan las sesiones de la pareja.
 struct DoblesPlanView: View {
     var bearer: String? = nil
 
@@ -25,395 +22,365 @@ struct DoblesPlanView: View {
     @State private var plan: DoblesConnectedPlan? = nil
     @State private var partner: PartnerInfo? = nil
     @State private var loading = true
-    /// Which week the toggle shows: self vs partner (read-only).
+    /// Qué semana enseña el selector: la del atleta o la de su pareja (solo lectura).
     @State private var showingPartner = false
-    @State private var appear = false
-    // #56 — the partner's live presence (one fetch on appear) → the "únete en vivo"
-    // banner. Informational here (this read-only plan has no start-session flow).
+    // #56 — la presencia en vivo de la pareja (una lectura al aparecer) → el aviso «únete en vivo».
+    // Aquí es informativo: esta vista de solo lectura no tiene flujo de empezar sesión.
     @State private var partnerLive: PartnerLiveStatus? = nil
 
-    private var effectiveBearer: String? {
-        bearer
-    }
-
-    /// Partner first name, from the connected-plan payload or the partner link.
+    /// Nombre de pila de la pareja, del plan conectado o del vínculo.
     private var partnerFirstName: String {
         plan?.partnerName ?? partner?.firstName ?? "tu compañero"
     }
 
-    /// Whether we have enough to render the connected week. The partner LINK is
-    /// not enough — the connected-plan PAYLOAD (the days) must be present, else
-    /// we'd be inventing the partner's sessions.
-    private var hasPlan: Bool { plan != nil }
+    private var apoyo: String {
+        guard let plan else { return "Plan conectado" }
+        let semana = plan.weekLabel ?? ""
+        let conectada = "conectada con \(partnerFirstName)"
+        return semana.isEmpty ? conectada : "\(semana) · \(conectada)"
+    }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    header
-                        .staggerReveal(appear, index: 0)
-
-                    // #56 — the partner training right now. Informational here (no CTA):
-                    // the athlete starts their session from Inicio / Plan, not this view.
-                    DoblesLiveBanner(
-                        state: DoblesLiveBannerState.from(partnerLive, hasOwnSessionToday: false)
-                    )
-                    .staggerReveal(appear, index: 1)
-
-                    if loading {
-                        ProgressView()
-                            .tint(Theme.Color.accent)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, Theme.Spacing.xxl)
-                    } else if let plan {
-                        content(plan)
-                    } else if partner == nil {
-                        // No partner LINKED — the athlete can fix this themselves.
-                        DoblesNoPartnerState(
-                            message: "Cuando conectes con tu compañero veréis cada uno vuestro plan, lo que es opcional juntos y la simulación conjunta del sábado.",
-                            bearer: effectiveBearer,
-                            onInvited: { Task { await reload() } }
-                        )
-                        .padding(.top, Theme.Spacing.xl)
-                        .staggerReveal(appear, index: 1)
-                    } else {
-                        // Paired, but the connected week has not landed. Nothing to
-                        // press — say who has to publish it and when it shows up.
-                        RedesignEmptyState(
-                            symbol: "calendar",
-                            title: "Semana conectada sin publicar",
-                            message: "En cuanto haya semana publicada para los dos veréis aquí cada plan, lo que es opcional juntos y la simulación conjunta.",
-                            exit: .explained(note: "La publica tu coach. No tienes que hacer nada: aparece sola.")
-                        )
-                        .padding(.top, Theme.Spacing.xl)
-                        .staggerReveal(appear, index: 1)
-                    }
+            VStack(spacing: 0) {
+                CabeceraDobles(titulo: "Tu semana", apoyo: apoyo, salida: .cerrar, alSalir: { dismiss() }) {
+                    DoblesAvatarPair(selfInitials: "Yo", partnerInitials: partner?.initials ?? "·")
                 }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.m)
-                .padding(.bottom, Theme.Spacing.xxl)
+                contenido
             }
             .background(Theme.Color.background.ignoresSafeArea())
-            .instrumentCanvas()
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        Haptics.light()
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
-                    .accessibilityLabel("Cerrar")
-                }
-            }
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
         }
-        .task(id: effectiveBearer) { await reload() }
+        .task(id: bearer) { await reload() }
     }
 
-    /// Partner identity (already shipped) + connected-plan payload (gap) + the
-    /// partner's live presence. Re-run after an invitation so the screen stops
-    /// claiming there is no partner the moment there is one.
+    // MARK: - Contenido por estado
+
+    @ViewBuilder
+    private var contenido: some View {
+        if loading {
+            ScrollView {
+                DoblesPlanEsqueleto()
+                    .padding(.horizontal, Theme.Spacing.pantalla)
+                    .padding(.bottom, Theme.Spacing.xxl)
+            }
+            .scrollDisabled(true)
+        } else if let plan {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                    DoblesLiveBanner(state: DoblesLiveBannerState.from(partnerLive, hasOwnSessionToday: false))
+                    DoblesPlanCuerpo(
+                        plan: plan,
+                        partnerName: partnerFirstName,
+                        showingPartner: $showingPartner,
+                        bearer: bearer
+                    )
+                }
+                .padding(.horizontal, Theme.Spacing.pantalla)
+                .padding(.top, Theme.Spacing.s)
+                .padding(.bottom, Theme.Spacing.xxl)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        } else {
+            // Un vacío es UNA decisión: se centra en el alto que deja la cabecera.
+            CenteredScreen {
+                EmptyView()
+            } lead: {
+                DoblesLiveBanner(state: DoblesLiveBannerState.from(partnerLive, hasOwnSessionToday: false))
+                    .padding(.horizontal, Theme.Spacing.pantalla)
+            } content: {
+                sinPlan
+                    .padding(.horizontal, Theme.Spacing.pantalla)
+                    .padding(.vertical, Theme.Spacing.l)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var sinPlan: some View {
+        if partner == nil {
+            // Sin pareja VINCULADA: el atleta puede arreglarlo él mismo.
+            DoblesNoPartnerState(
+                message: "Cuando conectes con tu compañero veréis cada uno vuestro plan, lo que es opcional juntos y la simulación conjunta del sábado.",
+                bearer: bearer,
+                onInvited: { Task { await reload() } }
+            )
+        } else {
+            // Con pareja, pero sin semana conectada: nada que pulsar, y se dice quién la publica.
+            RedesignEmptyState(
+                symbol: "calendar",
+                title: "Semana conectada sin publicar",
+                message: "En cuanto haya semana publicada para los dos veréis aquí cada plan, lo que es opcional juntos y la simulación conjunta.",
+                exit: .explained(note: "La publica tu coach. No tienes que hacer nada: aparece sola.")
+            )
+        }
+    }
+
+    /// La identidad de la pareja (ya entregada) + la semana conectada (hueco del servidor) + la presencia en
+    /// vivo de la pareja. Se repite tras una invitación para que la pantalla deje de decir que no hay pareja
+    /// en cuanto la hay.
     private func reload() async {
         loading = true
-        if let bearer = effectiveBearer {
+        if let bearer {
             partner = try? await PartnerService.fetchPartner(bearer: bearer)
         }
-        plan = await DoblesService.fetchConnectedPlan(bearer: effectiveBearer)
+        plan = await DoblesService.fetchConnectedPlan(bearer: bearer)
         loading = false
-        withAnimation { appear = true }
-        // #56 — the partner's live presence (only when a partner link exists).
-        if partner != nil, case .ok(let p) = await DoblesLiveClient.fetch(bearer: effectiveBearer) {
+        // #56 — la presencia en vivo (solo con vínculo de pareja).
+        if partner != nil, case .ok(let p) = await DoblesLiveClient.fetch(bearer: bearer) {
             partnerLive = p
         }
     }
+}
 
-    // MARK: - Header (avatar pair + title)
+// MARK: - La semana conectada con datos
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: Theme.Spacing.s) {
-                Wordmark(size: 18)
-                Spacer(minLength: Theme.Spacing.s)
-                DoblesAvatarPair(
-                    selfInitials: "Yo",
-                    partnerInitials: partner?.initials ?? "·",
-                    size: 34
-                )
+/// Lo que hay debajo de la cabecera cuando hay semana: el ritmo de la pareja, el selector, los días y las
+/// puertas a las otras pantallas. Solo dibuja; la carga y los estados viven en `DoblesPlanView`.
+struct DoblesPlanCuerpo: View {
+    let plan: DoblesConnectedPlan
+    let partnerName: String
+    @Binding var showingPartner: Bool
+    var bearer: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            // #28 — el ritmo de la pareja arriba (solo con historia conjunta real).
+            if let streak = plan.streak, streak.hasHistory {
+                DoblesStreakSection(streak: streak, partnerName: partnerName)
             }
-            Text("Tu semana")
-                .scaledFont(26, weight: .heavy, relativeTo: .title, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .padding(.top, Theme.Spacing.l)
-            if hasPlan {
-                MonoText(
-                    text: planSubtitle,
-                    size: 12,
-                    weight: .medium,
-                    color: Theme.Color.faint
-                )
-                .padding(.top, 5)
-            } else {
-                Text("Plan conectado")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Theme.Color.faint)
-                    .padding(.top, 5)
-            }
+            DoblesPlanToggle(
+                showingPartner: $showingPartner,
+                partnerName: partnerName,
+                partnerVisible: plan.partnerPlanVisible
+            )
+            dias
+            enlaces
         }
     }
-
-    private var planSubtitle: String {
-        let week = plan?.weekLabel ?? ""
-        let conn = "conectada con \(partnerFirstName)"
-        return week.isEmpty ? conn : "\(week) · \(conn)"
-    }
-
-    // MARK: - Content (when the connected plan payload exists)
 
     @ViewBuilder
-    private func content(_ plan: DoblesConnectedPlan) -> some View {
-        // #28 — pair-rhythm streak up top (only when there's real joint history).
-        if let streak = plan.streak, streak.hasHistory {
-            DoblesStreakSection(streak: streak, partnerName: partnerFirstName)
-                .staggerReveal(appear, index: 1)
-        }
-        // Mi plan / Plan de {partner} 👁 toggle.
-        DoblesPlanToggle(
-            showingPartner: $showingPartner,
-            partnerName: partnerFirstName,
-            partnerVisible: plan.partnerPlanVisible
-        )
-        .staggerReveal(appear, index: 1)
-
+    private var dias: some View {
         let days = showingPartner ? plan.partnerDays : plan.selfDays
         if days.isEmpty {
             RedesignEmptyState(
                 symbol: "calendar",
-                title: showingPartner ? "Plan de \(partnerFirstName) no disponible" : "Semana sin publicar",
+                title: showingPartner ? "Plan de \(partnerName) no disponible" : "Semana sin publicar",
                 message: showingPartner
                     ? "Tu compañero aún no ha compartido su semana."
                     : "Tu coach aún no ha publicado esta semana.",
-                // Genuinely nothing to do from here: it depends on someone else.
+                // De verdad no hay nada que hacer desde aquí: depende de otra persona.
                 exit: .explained(note: showingPartner
                     ? "Cuando la comparta, aparece aquí sin que tengas que hacer nada."
                     : "Cuando la publique, aparece aquí sin que tengas que hacer nada.")
             )
-            .padding(.top, Theme.Spacing.l)
-            .staggerReveal(appear, index: 2)
+            .padding(.vertical, Theme.Spacing.l)
         } else {
             VStack(spacing: Theme.Spacing.s) {
                 ForEach(days) { day in
-                    DoblesPlanDayRow(
-                        day: day,
-                        // The joint simulation row links to the simulation screen.
-                        destination: day.togetherness == .jointMandatory
-                            ? AnyView(DoblesSimulationView(bearer: effectiveBearer))
-                            : nil
-                    )
+                    if day.togetherness == .jointMandatory {
+                        // La fila de la simulación conjunta lleva a su pantalla.
+                        NavigationLink {
+                            DoblesSimulationView(bearer: bearer)
+                        } label: {
+                            DoblesPlanDayRow(day: day, abre: true)
+                        }
+                        .buttonStyle(PressScaleStyle())
+                    } else {
+                        DoblesPlanDayRow(day: day, abre: false)
+                    }
                 }
             }
-            .staggerReveal(appear, index: 2)
         }
+    }
 
-        // Shared-analytics banner → links to screen 2.
-        NavigationLink {
-            DoblesSharedAnalyticsView(bearer: effectiveBearer)
-        } label: {
-            DoblesSharedBanner()
-        }
-        .buttonStyle(PressScaleStyle())
-        .staggerReveal(appear, index: 3)
-
-        // Quick links to the optional train-together and the joint simulation.
+    private var enlaces: some View {
         VStack(spacing: Theme.Spacing.s) {
+            // Las analíticas compartidas (pantalla 2).
             NavigationLink {
-                // The real optional-together assignment id from the plan payload
-                // (nil only when there's no optional-together session this week).
-                DoblesTrainTogetherView(
-                    sessionId: plan.trainTogetherSessionId,
-                    bearer: effectiveBearer
-                )
+                DoblesSharedAnalyticsView(bearer: bearer)
             } label: {
-                DoblesLinkRow(
-                    symbol: "figure.strengthtraining.traditional",
-                    tint: Theme.Color.foreground,
-                    title: "Entrenar a la vez",
-                    subtitle: "opcional · misma sesión, cada uno su carga"
+                DoblesFilaEnlace(
+                    simbolo: "chart.bar.xaxis",
+                    titulo: "Analíticas compartidas",
+                    apoyo: "Compartís analíticas y resultados de cada sesión",
+                    colorDelGlifo: Theme.Color.partner
                 )
             }
             .buttonStyle(PressScaleStyle())
 
             NavigationLink {
-                DoblesSimulationView(bearer: effectiveBearer)
+                // El id real de la asignación opcional-juntos del plan (nil solo cuando esta semana no
+                // hay ninguna).
+                DoblesTrainTogetherView(sessionId: plan.trainTogetherSessionId, bearer: bearer)
             } label: {
-                DoblesLinkRow(
-                    symbol: "flag.checkered",
-                    tint: Theme.Color.accentText,
-                    title: "Simulación conjunta",
-                    subtitle: "obligatoria juntos · reparto de estaciones"
+                DoblesFilaEnlace(
+                    simbolo: "figure.strengthtraining.traditional",
+                    titulo: "Entrenar a la vez",
+                    apoyo: "opcional · misma sesión, cada uno su carga"
+                )
+            }
+            .buttonStyle(PressScaleStyle())
+
+            NavigationLink {
+                DoblesSimulationView(bearer: bearer)
+            } label: {
+                DoblesFilaEnlace(
+                    simbolo: "flag.checkered",
+                    titulo: "Simulación conjunta",
+                    apoyo: "obligatoria juntos · reparto de estaciones",
+                    realce: true
                 )
             }
             .buttonStyle(PressScaleStyle())
         }
-        .staggerReveal(appear, index: 4)
     }
 }
 
-// MARK: - Mi plan / Plan de {partner} toggle
+// MARK: - Mi plan / Plan de {pareja}
 
-/// Two-pill segmented control: "Mi plan" (active orange) and
-/// "Plan de {partner} 👁" (read-only partner view). Disabled when the partner
-/// has not shared their plan.
-private struct DoblesPlanToggle: View {
+/// El selector de dos pastillas: «Mi plan» y «Plan de {pareja}» (solo lectura). Deshabilitado cuando la pareja
+/// no ha compartido su plan. La activa es el relleno del acento del club con su tinta encima.
+struct DoblesPlanToggle: View {
     @Binding var showingPartner: Bool
     let partnerName: String
     let partnerVisible: Bool
 
     var body: some View {
         HStack(spacing: Theme.Spacing.s) {
-            pill(title: "Mi plan", active: !showingPartner) {
-                withAnimation(.easeInOut(duration: 0.18)) { showingPartner = false }
+            pastilla(titulo: "Mi plan", solo: false, activa: !showingPartner, habilitada: true) {
+                showingPartner = false
             }
-            pill(
-                title: "Plan de \(partnerName) 👁",
-                active: showingPartner,
-                enabled: partnerVisible
-            ) {
+            pastilla(titulo: "Plan de \(partnerName)", solo: true, activa: showingPartner, habilitada: partnerVisible) {
                 guard partnerVisible else { return }
-                withAnimation(.easeInOut(duration: 0.18)) { showingPartner = true }
+                showingPartner = true
             }
         }
     }
 
-    private func pill(
-        title: String,
-        active: Bool,
-        enabled: Bool = true,
-        action: @escaping () -> Void
+    private func pastilla(
+        titulo: String,
+        solo: Bool,
+        activa: Bool,
+        habilitada: Bool,
+        alTocar: @escaping () -> Void
     ) -> some View {
         Button {
             Haptics.light()
-            action()
+            withAnimation(Theme.Motion.reveal) { alTocar() }
         } label: {
-            Text(title)
-                .font(.system(size: 12, weight: active ? .bold : .medium))
-                .foregroundStyle(
-                    active ? Theme.Color.accentOn
-                    : (enabled ? Theme.Color.muted : Theme.Color.faint)
-                )
-                .lineLimit(1)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(active ? Theme.Color.accent : Theme.Color.surfaceElevated)
-                .overlay(
-                    Capsule().stroke(active ? Color.clear : Theme.Color.hairlineStrong, lineWidth: 1)
-                )
-                .clipShape(Capsule())
+            HStack(spacing: Theme.Spacing.xs + 2) {
+                Text(titulo)
+                    .papel(.rotulo)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                // «Solo lectura»: el ojo sustituye al emoji de antes y se lee como glifo.
+                if solo {
+                    Image(systemName: "eye")
+                        .font(.system(size: 15, weight: .semibold))
+                        .accessibilityHidden(true)
+                }
+            }
+            .foregroundStyle(activa ? Theme.Color.accentOn : (habilitada ? Theme.Color.foreground : Theme.Color.muted))
+            .padding(.horizontal, Theme.Spacing.m)
+            .frame(maxWidth: .infinity, minHeight: Theme.Size.toque)
+            .background(activa ? Theme.Color.accent : Theme.Color.surfaceElevated, in: Capsule())
+            .overlay(Capsule().strokeBorder(activa ? SwiftUI.Color.clear : Theme.Color.hairlineStrong, lineWidth: 1))
+            .contentShape(Capsule())
         }
-        .buttonStyle(PressScaleStyle())
-        .disabled(!enabled)
-        .accessibilityAddTraits(active ? [.isSelected, .isButton] : .isButton)
+        .buttonStyle(PressScaleStyle(escala: 0.96))
+        .disabled(!habilitada)
+        .accessibilityLabel(solo ? "\(titulo), solo lectura" : titulo)
+        .accessibilityAddTraits(activa ? [.isSelected, .isButton] : .isButton)
     }
 }
 
-// MARK: - Plan day row
+// MARK: - Un día del plan
 
-/// One day of the connected plan: mono day label, modality dot, session title +
-/// detail, and a togetherness badge. The joint-mandatory simulation row reads
-/// as a highlighted orange card and pushes its destination.
-private struct DoblesPlanDayRow: View {
+/// Un día de la semana conectada: su código, el punto de la modalidad, la sesión con su detalle y la marca de
+/// cómo se comparte. La fila de la simulación conjunta (obligatoria juntos) es la única teñida del acento del
+/// club y lleva su chevron: es la única que abre otra pantalla.
+struct DoblesPlanDayRow: View {
     let day: DoblesPlanDay
-    /// When set (the joint simulation), the row becomes a navigation link.
-    let destination: AnyView?
+    /// La fila abre otra pantalla (la simulación conjunta): lleva chevron.
+    var abre = false
 
-    private var isJoint: Bool { day.togetherness == .jointMandatory }
-    private var isRest: Bool { day.togetherness == .rest }
+    @Environment(\.dynamicTypeSize) private var tamanoDeTexto
+
+    private var esConjunta: Bool { day.togetherness == .jointMandatory }
+    private var esDescanso: Bool { day.togetherness == .rest }
+    private var marcaVaDebajo: Bool { day.togetherness == .optionalTogether }
 
     var body: some View {
-        if let destination {
-            NavigationLink { destination } label: { rowBody }
-                .buttonStyle(PressScaleStyle())
-        } else {
-            rowBody
-        }
-    }
-
-    private var rowBody: some View {
-        HStack(spacing: 11) {
-            Text(day.dayLabel)
-                .font(.system(size: 11, weight: isJoint ? .heavy : .medium, design: .monospaced))
-                .foregroundStyle(isJoint ? Theme.Color.accentText : Theme.Color.faint)
-                .frame(width: 30, alignment: .leading)
-
-            if !isRest, day.sessionTitle != nil {
-                ModalityDot(modality: day.modality, size: 7)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(day.sessionTitle ?? "Descanso")
-                    .font(.system(size: 14, weight: isJoint ? .bold : .regular))
-                    .foregroundStyle(isRest ? Theme.Color.faint : Theme.Color.foreground)
-                if let detail = day.detail, !detail.isEmpty {
-                    Text(detail)
-                        .font(.system(size: 11))
-                        .foregroundStyle(isJoint ? Theme.Color.muted : Theme.Color.faint)
+        Group {
+            if tamanoDeTexto.isAccessibilitySize || marcaVaDebajo {
+                // La marca pasa debajo cuando junto al título lo aplastaría: con texto enorme, o si es una
+                // pastilla ancha («Opcional juntos»).
+                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                    principal
+                    marca
+                }
+            } else {
+                HStack(alignment: .center, spacing: Theme.Spacing.m) {
+                    principal
+                    Spacer(minLength: Theme.Spacing.s)
+                    marca
                 }
             }
-            Spacer(minLength: Theme.Spacing.s)
-
-            trailing
         }
-        .padding(.horizontal, 13)
-        .padding(.vertical, 11)
-        .background(isJoint ? Theme.Color.accent.opacity(0.10) : Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(isJoint ? Theme.Color.accentText : Theme.Color.hairline,
-                        lineWidth: isJoint ? 1.5 : 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.vertical, Theme.Spacing.m)
+        .frame(maxWidth: .infinity, minHeight: Theme.Size.toque + Theme.Spacing.l, alignment: .leading)
+        .caraDobles(esConjunta ? .acento : .neutra)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityAddTraits(destination != nil ? .isButton : [])
+        .accessibilityAddTraits(abre ? .isButton : [])
+    }
+
+    private var principal: some View {
+        HStack(alignment: .center, spacing: Theme.Spacing.m) {
+            Text(day.dayLabel)
+                .papel(.notaPesada)
+                .foregroundStyle(esConjunta ? Theme.Color.foreground : Theme.Color.muted)
+                .frame(minWidth: 44, alignment: .leading)
+                .fixedSize()
+            if !esDescanso, day.sessionTitle != nil {
+                ModalityDot(modality: day.modality, size: 8)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(day.sessionTitle ?? "Descanso")
+                    .papel(esConjunta ? .cuerpoFuerte : .cuerpo)
+                    .foregroundStyle(esDescanso ? Theme.Color.muted : Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let detail = day.detail, !detail.isEmpty {
+                    Text(detail)
+                        .papel(.nota)
+                        .foregroundStyle(esConjunta ? Theme.Color.foreground : Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
     }
 
     @ViewBuilder
-    private var trailing: some View {
+    private var marca: some View {
         switch day.togetherness {
         case .bothDone:
-            HStack(spacing: 3) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 9, weight: .bold))
-                Text("los 2")
-                    .font(.system(size: 10, weight: .medium))
+            HStack(spacing: Theme.Spacing.xs + 2) {
+                SelloEstadoDia(estado: .hecha, tam: 20)
+                Text("Los 2").papel(.notaFuerte).foregroundStyle(Theme.Color.foreground)
             }
-            .foregroundStyle(Theme.Color.ok)
         case .optionalTogether:
-            Text("opc. juntos")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(Theme.Color.muted)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 2)
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-                        .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-                )
+            InfoPill(text: "Opcional juntos", estilo: .neutro)
         case .eachOwn:
-            Text("cada uno")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(Theme.Color.muted)
+            Text("Cada uno").papel(.notaFuerte).foregroundStyle(Theme.Color.muted)
         case .jointMandatory:
-            HStack(spacing: 4) {
-                Text("👥")
-                    .font(.system(size: 11))
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
+            HStack(spacing: Theme.Spacing.s) {
+                InfoPill(text: "Juntos", estilo: .solido)
+                if abre { IconoDia(.chevron, tam: 18).foregroundStyle(Theme.Color.foreground) }
             }
         case .rest, .unknown:
-            EmptyView()   // AUDIT-B2 — an unknown togetherness shows no badge
+            EmptyView()   // AUDIT-B2 — una marca desconocida no pinta nada
         }
     }
 
@@ -431,146 +398,30 @@ private struct DoblesPlanDayRow: View {
     }
 }
 
-// MARK: - Shared-analytics banner
+// MARK: - El esqueleto
 
-/// The "Compartís analíticas y resultados · Ver ›" banner (partner-blue chart
-/// glyph) that links to the shared-analytics screen.
-private struct DoblesSharedBanner: View {
+/// La semana conectada mientras llega: la misma silueta que lo que la sustituye (selector, días y puertas),
+/// sin inventar ninguna sesión.
+struct DoblesPlanEsqueleto: View {
     var body: some View {
-        HStack(spacing: 9) {
-            Image(systemName: "chart.bar.xaxis")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Theme.Color.partner)
-            Text("Compartís analíticas y resultados de cada sesión")
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.Color.muted)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: 2) {
-                Text("Ver")
-                    .font(.system(size: 12, weight: .bold))
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .bold))
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            HStack(spacing: Theme.Spacing.s) {
+                SkeletonBar(height: Theme.Size.toque, radius: Theme.Size.toque / 2)
+                SkeletonBar(height: Theme.Size.toque, radius: Theme.Size.toque / 2)
             }
-            .foregroundStyle(Theme.Color.partner)
-        }
-        .padding(.horizontal, 13)
-        .padding(.vertical, 11)
-        .background(Theme.Color.partner.opacity(0.08))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.partner.opacity(0.30), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Compartís analíticas y resultados. Toca para ver.")
-        .accessibilityAddTraits(.isButton)
-    }
-}
-
-/// A tappable link row (icon + title + subtitle + chevron) used by the hub to
-/// reach the train-together and simulation screens.
-private struct DoblesLinkRow: View {
-    let symbol: String
-    let tint: Color
-    let title: String
-    let subtitle: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: symbol)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(tint)
-                .frame(width: 24)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                Text(subtitle)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.Color.faint)
+            VStack(spacing: Theme.Spacing.s) {
+                ForEach(0..<5, id: \.self) { _ in
+                    SkeletonBar(height: Theme.Size.toque + Theme.Spacing.l, radius: Theme.Radius.tarjeta)
+                }
             }
-            Spacer(minLength: Theme.Spacing.s)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.Color.faint)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 13)
-        .background(Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title), \(subtitle)")
-        .accessibilityAddTraits(.isButton)
-    }
-}
-
-// MARK: - Shared Dobles atoms (used across the four Dobles screens)
-
-/// Overlapping avatar pair — self (orange ring) over partner (blue ring) — the
-/// header marker from the handoff. SELF reads orange, PARTNER reads blue.
-struct DoblesAvatarPair: View {
-    let selfInitials: String
-    let partnerInitials: String
-    var size: CGFloat = 34
-
-    var body: some View {
-        HStack(spacing: -10) {
-            DoblesAthleteAvatar(initials: selfInitials, color: Theme.Color.accent, size: size)
-            DoblesAthleteAvatar(initials: partnerInitials, color: Theme.Color.partner, size: size)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Tú y tu compañero")
-    }
-}
-
-/// A single athlete avatar: initials over the chip surface, ringed in the
-/// athlete's identity color (orange = self, blue = partner).
-struct DoblesAthleteAvatar: View {
-    let initials: String
-    let color: Color
-    var size: CGFloat = 34
-
-    var body: some View {
-        ZStack {
-            Circle().fill(Theme.Color.surfaceElevated)
-            Text(initials)
-                .font(.system(size: size * 0.36, weight: .heavy))
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-        }
-        .frame(width: size, height: size)
-        .overlay(Circle().stroke(color, lineWidth: 2))
-        .accessibilityHidden(true)
-    }
-}
-
-/// A two-tone share bar: the self share (orange) and the partner share (blue),
-/// summing to the full width. `selfShare` 0…1; partner = 1 − selfShare.
-/// Decorative — the caller labels the row.
-struct DoblesSplitBar: View {
-    let selfShare: Double
-    var height: CGFloat = 6
-
-    private var clamped: Double { max(0, min(1, selfShare)) }
-
-    var body: some View {
-        GeometryReader { geo in
-            HStack(spacing: 0) {
-                Rectangle()
-                    .fill(Theme.Color.accent)
-                    .frame(width: geo.size.width * CGFloat(clamped))
-                Rectangle()
-                    .fill(Theme.Color.partner)
-                    .frame(width: geo.size.width * CGFloat(1 - clamped))
+            VStack(spacing: Theme.Spacing.s) {
+                ForEach(0..<3, id: \.self) { _ in
+                    SkeletonBar(height: Theme.Size.toque + Theme.Spacing.l + Theme.Spacing.s, radius: Theme.Radius.tarjeta)
+                }
             }
         }
-        .frame(height: height)
-        .clipShape(RoundedRectangle(cornerRadius: height / 2, style: .continuous))
-        .accessibilityHidden(true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cargando tu semana conectada")
     }
 }

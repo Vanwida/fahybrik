@@ -69,57 +69,69 @@ struct ExerciseDetailView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.Color.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 22) {
-                        header
+        ZStack {
+            Theme.Color.background.ignoresSafeArea()
+            VStack(spacing: 0) {
+                cromo
+                ScrollView { columna }
+            }
+        }
+        .presentationDragIndicator(.visible)
+    }
 
-                        if let video {
-                            VideoDeTecnicaPlayer(video: video)
-                                .accessibilityLabel("Vídeo demostración de \(item.exerciseName)")
-                        }
+    /// Lo que se scrollea: la ficha del ejercicio. Vive aparte del `ScrollView` para poder dibujarse tal cual
+    /// en una prueba (el `ImageRenderer` no pinta un `ScrollView`).
+    var columna: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+            header
 
-                        prescriptionSection
+            if let video {
+                VideoDeTecnicaPlayer(video: video)
+                    .accessibilityLabel("Vídeo demostración de \(item.exerciseName)")
+            }
 
-                        if let cues = item.cues, !cues.isEmpty {
-                            section(title: "CONSEJOS") {
-                                Text(cues)
-                                    .scaledFont(14, relativeTo: .subheadline)
-                                    .foregroundStyle(Theme.Color.foreground)
-                            }
-                        }
+            prescriptionSection
 
-                        if let description = item.exerciseDescription, !description.isEmpty {
-                            section(title: "DESCRIPCIÓN") {
-                                Text(description)
-                                    .scaledFont(14, relativeTo: .subheadline)
-                                    .foregroundStyle(Theme.Color.foreground)
-                            }
-                        }
-
-                        if let notes = item.notes, !notes.isEmpty {
-                            section(title: "NOTA DE TU COACH") {
-                                Text(notes)
-                                    .scaledFont(14, relativeTo: .subheadline)
-                                    .foregroundStyle(Theme.Color.muted)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.top, Theme.Spacing.l)
-                    .padding(.bottom, Theme.Spacing.xxl)
+            if let cues = item.cues, !cues.isEmpty {
+                section(title: "Consejos") {
+                    Text(cues)
+                        .papel(.cuerpo)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cerrar") { dismiss() }
-                        .foregroundStyle(Theme.Color.muted)
+
+            if let description = item.exerciseDescription, !description.isEmpty {
+                section(title: "Descripción") {
+                    Text(description)
+                        .papel(.cuerpo)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if let notes = item.notes, !notes.isEmpty {
+                section(title: "Nota de tu coach") {
+                    NotaDelCoachEjercicio(texto: notes)
                 }
             }
         }
+        .padding(.horizontal, Theme.Spacing.pantalla)
+        .padding(.top, Theme.Spacing.s)
+        .padding(.bottom, Theme.Spacing.xxl)
+    }
+
+    /// La línea de arriba de una hoja: qué clase de ejercicio es y la salida. Sin barra de navegación del
+    /// sistema: la hoja del día lleva el mismo cromo que las pestañas.
+    private var cromo: some View {
+        HStack(spacing: Theme.Spacing.s) {
+            EtiquetaDeModalidad(categoria: item.exerciseCategory)
+            Spacer(minLength: Theme.Spacing.s)
+            BotonCromoDia(.cerrar, etiqueta: "Cerrar") { Haptics.light(); dismiss() }
+        }
+        .padding(.leading, Theme.Spacing.pantalla)
+        .padding(.trailing, Theme.Spacing.s)
+        .frame(minHeight: 56)
     }
 
     // PRESCRIPCIÓN — prefers the structured per-set prescription:
@@ -130,10 +142,10 @@ struct ExerciseDetailView: View {
     @ViewBuilder
     private var prescriptionSection: some View {
         if let rows = setRows, !rows.isEmpty {
-            section(title: "PRESCRIPCIÓN") {
+            section(title: "Prescripción") {
                 VStack(alignment: .leading, spacing: 10) {
                     if let collapsed = collapsedSets {
-                        MonoText(text: collapsed, size: 15, color: Theme.Color.foreground)
+                        Text(collapsed).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
                     } else {
                         setTable(rows)
                     }
@@ -146,99 +158,94 @@ struct ExerciseDetailView: View {
                 }
             }
         } else if let line = structuredLine {
-            section(title: "PRESCRIPCIÓN") {
-                MonoText(text: line, size: 15, color: Theme.Color.foreground)
+            section(title: "Prescripción") {
+                Text(line).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         } else if let summary = paramsSummary {
-            section(title: "PRESCRIPCIÓN") {
-                MonoText(text: summary, size: 15, color: Theme.Color.foreground)
+            section(title: "Prescripción") {
+                Text(summary).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 
     // "Según tu 1RM · 52–64 kg" — the resolved absolute load beside the %.
     private func resolvedLoadChip(_ rl: ResolvedLoad) -> some View {
-        HStack(spacing: 8) {
-            Text("Según tu 1RM")
-                .scaledFont(12, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-            // «Según tu 1RM» escala; la carga tiene que escalar con ella, o a tamaño
-            // accesible la etiqueta adelanta al kilaje, que es el dato (contrato §4).
-            MonoText(text: rl.kgLabel, size: 14, weight: .semibold,
-                     color: Theme.Color.accentText, escala: true)
-            if rl.needsReview {
-                Text("sin confirmar")
-                    .scaledFont(10, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.faint)
-            }
-            Spacer(minLength: 0)
+        // Con texto grande la carga pasa DEBAJO de su etiqueta: a tamaño accesible una fila no cabe.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Theme.Spacing.s) { cargaResuelta(rl) }
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) { cargaResuelta(rl) }
         }
     }
 
+    @ViewBuilder
+    private func cargaResuelta(_ rl: ResolvedLoad) -> some View {
+        Text("Según tu 1RM")
+            .papel(.notaFuerte)
+            .foregroundStyle(Theme.Color.muted)
+        Text(rl.kgLabel)
+            .papel(.notaPesada)
+            .foregroundStyle(Theme.Color.accentText)
+        if rl.needsReview {
+            Text("sin confirmar")
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
+        }
+    }
+
+    /// La tabla de series. Una `Grid`, no columnas de ancho fijo: cada columna mide lo que su contenido pide y
+    /// el texto no se encoge por debajo del suelo (con texto grande, la celda se parte en dos líneas). `nil`
+    /// = ese set no declara ese campo, y entonces la celda se queda VACÍA: la columna sigue alineada, pero no
+    /// se pinta un guion que se lee como si fuera el valor (§7).
     private func setTable(_ rows: [PrescriptionRenderer.SetRow]) -> some View {
         let showTempo = rows.contains { $0.tempo != nil }
         let showRest = rows.contains { $0.rest != nil }
-        return CardSurface(padding: 0) {
-            VStack(spacing: 0) {
-                HStack(spacing: 0) {
-                    detailSetHeader("SET", width: 40)
-                    detailSetHeader("REPS", width: 56)
-                    detailSetHeader("CARGA")
-                    if showTempo { detailSetHeader("TEMPO", width: 64) }
-                    if showRest { detailSetHeader("DESC.", width: 52) }
-                }
-                .padding(.vertical, 8)
-                .background(Theme.Color.surfaceSunken)
-                .overlay(alignment: .bottom) { Hairline() }
-                ForEach(rows) { row in
-                    if row.id > 0 { Hairline() }
-                    HStack(spacing: 0) {
-                        detailSetCell("\(row.index)", width: 40, color: Theme.Color.faint)
-                        detailSetCell(row.work, width: 56)
-                        detailSetCell(row.load, color: Theme.Color.accentText)
-                        if showTempo { detailSetCell(row.tempo, width: 64, color: Theme.Color.muted) }
-                        if showRest { detailSetCell(row.rest, width: 52, color: Theme.Color.muted) }
-                    }
-                    .padding(.vertical, 10)
+        return Grid(alignment: .leading, horizontalSpacing: Theme.Spacing.l, verticalSpacing: Theme.Spacing.m) {
+            GridRow {
+                cabeceraDeSerie("Set")
+                cabeceraDeSerie("Reps")
+                cabeceraDeSerie("Carga")
+                if showTempo { cabeceraDeSerie("Tempo") }
+                if showRest { cabeceraDeSerie("Desc.") }
+            }
+            // Una vista suelta dentro de la `Grid` ocupa todas las columnas: el filete bajo la cabecera.
+            Rectangle().fill(Theme.Color.hairline).frame(height: 1)
+            ForEach(rows) { row in
+                GridRow {
+                    celdaDeSerie("\(row.index)", color: Theme.Color.muted)
+                    celdaDeSerie(row.work)
+                    celdaDeSerie(row.load, color: Theme.Color.accentText)
+                    if showTempo { celdaDeSerie(row.tempo, color: Theme.Color.muted) }
+                    if showRest { celdaDeSerie(row.rest, color: Theme.Color.muted) }
                 }
             }
         }
+        .padding(Theme.Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .tarjetaDia()
     }
 
-    @ViewBuilder
-    private func detailSetHeader(_ text: String, width: CGFloat? = nil) -> some View {
-        let label = Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .tracking(0.8)
+    private func cabeceraDeSerie(_ texto: String) -> some View {
+        Text(texto)
+            .papel(.rotulo)
             .foregroundStyle(Theme.Color.muted)
-            .padding(.horizontal, 10)
-        if let width { label.frame(width: width, alignment: .leading) }
-        else { label.frame(maxWidth: .infinity, alignment: .leading) }
     }
 
-    @ViewBuilder
-    /// Una celda de la tabla de series. `nil` = ese set no declara ese campo, y
-    /// entonces la celda se queda VACÍA: la columna sigue alineada, pero no se
-    /// pinta un guion que se lee como si fuera el valor (§7).
-    private func detailSetCell(_ text: String?, width: CGFloat? = nil, color: Color = Theme.Color.foreground) -> some View {
-        let cell = Text(text ?? "")
-            .font(.system(size: 13, weight: .medium, design: .monospaced))
+    private func celdaDeSerie(_ texto: String?, color: Color = Theme.Color.foreground) -> some View {
+        Text(texto ?? "")
+            .papel(.notaPesada)
             .foregroundStyle(color)
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-            .padding(.horizontal, 10)
-        if let width { cell.frame(width: width, alignment: .leading) }
-        else { cell.frame(maxWidth: .infinity, alignment: .leading) }
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            CategoryTag(category: item.exerciseCategory)
-            Text(item.exerciseName)
-                .scaledFont(28, weight: .heavy, relativeTo: .title, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        Text(item.exerciseName)
+            .papel(.saludo)
+            .foregroundStyle(Theme.Color.foreground)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
     }
 
     @ViewBuilder
@@ -246,9 +253,51 @@ struct ExerciseDetailView: View {
         title: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            LabelText(text: title, color: Theme.Color.accentText)
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            TituloSeccionDia(title)
             content()
         }
+    }
+}
+
+// MARK: - Las piezas de la hoja de técnica
+
+/// La modalidad del ejercicio dicha con palabras y con su color: el punto es el de la modalidad en todo el
+/// Plan (`Theme.Modality`), y la palabra sale del MISMO sitio, así que un punto no puede desviarse de la
+/// palabra que lo nombra. Sustituye a las siglas («STR», «FUNC») de una etiqueta que nadie del box lee.
+struct EtiquetaDeModalidad: View {
+    let categoria: String
+
+    var body: some View {
+        let clase = Theme.Modality.kind(categoria)
+        HStack(spacing: Theme.Spacing.s) {
+            Circle().fill(clase.color).frame(width: 10, height: 10)
+                .accessibilityHidden(true)
+            Text(clase.label.prefix(1).uppercased() + clase.label.dropFirst())
+                .papel(.rotulo)
+                .foregroundStyle(Theme.Color.muted)
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// La nota que el coach dejó en este ejercicio: su voz, marcada con su filo de acento (el mismo que la línea
+/// del coach en la cabecera de la semana; el sistema no escribe aquí).
+private struct NotaDelCoachEjercicio: View {
+    let texto: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.m) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(Theme.Color.accent)
+                .frame(width: 3)
+            Text(texto)
+                .papel(.cuerpo)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .fixedSize(horizontal: false, vertical: true)
     }
 }

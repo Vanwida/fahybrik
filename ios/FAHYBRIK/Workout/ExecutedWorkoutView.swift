@@ -40,9 +40,6 @@ struct ExecutedWorkoutView: View {
     @State private var failureReason: String?
     @State private var showCapture = false
 
-    private var execution: ExecutionSummary? { detail?.execution }
-    private var isPartial: Bool { execution?.isPartial ?? false }
-
     // Retry budget for the detail fetch. A serverless cold start (the demo's known
     // cause) or a brief network blip produces a one-off failure on this screen, so
     // we retry a couple of times with a short, growing backoff BEFORE ever showing
@@ -123,405 +120,93 @@ struct ExecutedWorkoutView: View {
         }
     }
 
-    /// La lectura de siempre, para todo lo que no es correr: barra superior con el
-    /// título y la salida, y debajo el detalle por modalidad. No se ha tocado.
+    /// LO QUE HAY MIENTRAS NO HAY LECTURA QUE PINTAR: cargando, error, o un día marcado como hecho al que
+    /// nunca llegó una ejecución (un hecho sin nada medido). Las lecturas traen su propio cromo y su propia
+    /// salida, así que este marco solo existe en estos tres estados. Antes era un detalle entero de tarjetas
+    /// (totales, zonas, mapa, desglose, registro) que, sin ejecución, no tenía nada que pintar: lo medido lo
+    /// lee `LecturaDeSesionView`, que sustituye a este marco en cuanto hay ejecución.
     private var generico: some View {
-        VStack(spacing: 0) {
-            topBar
-            if let detail {
-                content(detail)
+        MarcoDeLoHecho(titulo: titulo, etiqueta: detail == nil ? nil : "Entreno · hecho", alCerrar: onClose,
+                       centrado: detail == nil && loadFailed) {
+            if detail != nil {
+                sinEjecucion
             } else if loadFailed {
-                failed
+                SujetoEstadoDeLoHecho.error(
+                    kicker: "Entreno hecho", titulo: "No pudimos cargar tu entreno",
+                    apoyo: failureReason ?? "Revisa tu conexión e inténtalo de nuevo.",
+                    alReintentar: {
+                        loadFailed = false
+                        failureReason = nil
+                        Task { await load() }
+                    })
             } else {
-                loading
+                EsqueletoDeLoHecho()
             }
         }
     }
 
-    // MARK: - Top bar (title + close)
-    private var topBar: some View {
-        HStack(spacing: Theme.Spacing.s) {
-            VStack(alignment: .leading, spacing: 2) {
-                LabelText(text: isPartial ? "Entreno · parcial" : "Entreno · hecho",
-                          color: isPartial ? Theme.Color.warning : Theme.Color.ok,
-                          size: 10)
-                Text(detail?.workout?.name ?? fallbackTitle ?? "Entreno")
-                    .font(.system(size: 20, weight: .heavy, design: .default).italic())
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+    private var titulo: String { detail?.workout?.name ?? fallbackTitle ?? "Entreno" }
+
+    // MARK: - Un hecho sin nada medido
+
+    /// El sujeto es el hecho («Completado») y debajo lo que sí se puede hacer con él: repasar la técnica de
+    /// los ejercicios y completar el resultado con una captura de otra app.
+    private var sinEjecucion: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            SujetoDia(tono: .ok, etiqueta: "Completado") {
+                KickerDia("Hecho")
+                TituloDia("Completado")
             }
-            Spacer(minLength: Theme.Spacing.s)
-            Button {
-                Haptics.light()
-                onClose()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Theme.Color.muted)
-                    .frame(width: 36, height: 36)
-                    .background(Theme.Color.surfaceElevated)
-                    .clipShape(Circle())
+            .fixedSize(horizontal: false, vertical: true)
+            if hasExercises {
+                entrada(
+                    glifo: .video, titulo: "Ver la técnica de los ejercicios",
+                    apoyo: "Vídeo, consejos y la nota de tu coach.",
+                    pista: "Abre los ejercicios de la sesión para repasar cómo se hacen"
+                ) { showTechnique = true }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Cerrar")
-        }
-        .padding(.horizontal, Theme.Spacing.m)
-        .padding(.top, Theme.Spacing.m)
-        .padding(.bottom, Theme.Spacing.s)
-    }
-
-    // MARK: - Content
-    //
-    // The order is the order of the questions the athlete arrives with, not the
-    // order of the columns in the table:
-    //
-    //   1. ¿qué he hecho?      → the headline work + when
-    //   2. ¿qué tal?           → the numbers that judge it (pace, HR, power…)
-    //   3. ¿cómo lo repartí?   → zones, per-leg breakdown, splits
-    //   4. ¿cómo me sentí?     → RPE / difficulty / niggle — the athlete's own read
-    //   5. ¿qué anoté?         → notes
-    //   6. ¿de dónde sale?     → provenance, last: it's a trust stamp, not a stat
-    //
-    // Every section is gated on data that genuinely exists for THIS execution.
-    // Nothing is padded to fill the screen and nothing is invented — a session
-    // with no strap simply has no heart-rate block, and says so nowhere.
-    @ViewBuilder
-    private func content(_ detail: AssignmentDetail) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                headerCard
-                if !effortMetrics.isEmpty { effortTiles }
-                if let coverage = zoneCoverage { zonesCard(coverage) }
-                // #64 — the outdoor run's route, when this session was run outside.
-                if let route = execution?.routePolyline, PolylineCodec.pointCount(route) >= 2 {
-                    routeMapCard(route)
-                }
-                if let segments = perSegmentRows, !segments.isEmpty {
-                    segmentsTable(segments)
-                }
-                // #33 — the PM5 interval table (ErgData-style) for each erg segment
-                // whose monitor reported splits.
-                ForEach(ergIntervalSegments) { seg in
-                    ergIntervalsCard(seg)
-                }
-                feedbackCard
-                if let notes = execution?.notes, !notes.isEmpty {
-                    notesCard(notes)
-                }
-                provenanceCard
-                // Un entreno hecho es justo cuando el atleta se pregunta si lo
-                // hizo bien: la técnica de cada ejercicio se abre desde aquí, con
-                // la misma ficha del plan, en vez de obligarle a volver al día.
-                if hasExercises { techniqueEntry }
-                // Only offered when there's something it could actually add. On a
-                // session a PM5 already fed, inviting a screenshot of another app
-                // is noise next to better data we already hold.
-                if canEnrichWithScreenshot { screenshotEntry }
-            }
-            .padding(.horizontal, Theme.Spacing.m)
-            .padding(.bottom, Theme.Spacing.xxl)
+            entrada(
+                glifo: .camara, titulo: "Subir captura de otra app",
+                apoyo: "Garmin, Strava, Concept2… la leemos por ti.",
+                pista: "Sube una captura y la IA rellena el resultado"
+            ) { showCapture = true }
         }
     }
 
-    // #64 — the executed outdoor run's route, decoded from the stored polyline.
-    private func routeMapCard(_ polyline: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "Tu recorrido", size: 11)
-            RouteMiniMap(polyline: polyline)
-                .frame(height: 180)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: - Header — WHAT was done, then how long, then when
-    //
-    // The headline is the number that ANSWERS the session, which is not always
-    // the clock: an AMRAP is its rounds, a For Time its final time, an EMOM the
-    // rounds it survived, a row/ski/run the distance covered. Leading with the
-    // elapsed clock on a 5×500 hides the only figure the athlete cares about.
-    // Duration never disappears — it moves to the supporting line when something
-    // more meaningful takes the headline.
-    private var headerCard: some View {
-        CardSurface(padding: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Image(systemName: isPartial ? "circle.lefthalf.filled" : "checkmark")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(isPartial ? Theme.Color.warning : Theme.Color.ok)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HeroNumber(text: headline.value, size: headline.value.count > 8 ? 28 : 34)
-                        LabelText(text: headline.caption, size: 9)
-                    }
-                    Spacer(minLength: 0)
-                }
-                if let support = headlineSupport {
-                    MonoText(text: support, size: 12, color: Theme.Color.muted)
-                }
-                if let when = whenLabel {
-                    Text(when)
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-        }
-    }
-
-    /// The headline number + what it is. Falls all the way back to the honest
-    /// "Completado" when the session recorded no figure at all.
-    private var headline: (value: String, caption: String) {
-        if let score = execution?.scoreLabel, !score.isEmpty {
-            return (score, "resultado")
-        }
-        if let rounds = emomRounds {
-            return (rounds.prescribed.map { "\(rounds.completed)/\($0)" } ?? "\(rounds.completed)", "rondas")
-        }
-        if let d = totalDistanceMeters, d > 0 {
-            return (Self.formatDistance(d), "distancia")
-        }
-        if let total = execution?.totalDurationSeconds, total > 0 {
-            return (Formato.clock(Double(total)), "duración")
-        }
-        return (isPartial ? "Terminado antes" : "Completado", "estado")
-    }
-
-    /// The second line: whatever the headline did NOT already say. Duration is
-    /// kept whenever it isn't the headline, so it is never lost.
-    private var headlineSupport: String? {
-        var parts: [String] = []
-        if headline.caption != "duración", let total = execution?.totalDurationSeconds, total > 0 {
-            parts.append(Formato.clock(Double(total)))
-        }
-        if headline.caption != "distancia", let d = totalDistanceMeters, d > 0 {
-            parts.append(Self.formatDistance(d))
-        }
-        if let pace = headlinePace { parts.append(pace) }
-        return parts.isEmpty ? nil : parts.joined(separator: "  ·  ")
-    }
-
-    // MARK: - Per-segment table (prescrito → hecho)
-    private func segmentsTable(_ rows: [SegmentRowVM]) -> some View {
-        CardSurface(padding: 0) {
-            VStack(spacing: 0) {
-                HStack {
-                    LabelText(text: "Por segmento", size: 9)
-                    Spacer()
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                ForEach(Array(rows.enumerated()), id: \.element.id) { idx, row in
-                    if idx > 0 { Hairline().opacity(0.5) }
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(row.name)
-                                .scaledFont(12, relativeTo: .caption)
-                                .foregroundStyle(Theme.Color.foreground)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                            // Which kit measured THIS leg. Only when the session
-                            // used more than one, otherwise it repeats the footer
-                            // on every row for nothing.
-                            if let device = row.device, deviceLabels.count > 1 {
-                                LabelText(text: device, size: 8)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        MonoText(text: row.result, size: 11, color: Theme.Color.muted)
-                            .multilineTextAlignment(.trailing)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 9)
-                }
-            }
-        }
-    }
-
-    // MARK: - Erg interval table (#33 — ErgData-style)
-
-    // Erg segments (row / ski / bike) whose monitor reported a split table WITH at
-    // least one measured column. Un monitor que solo devolvió el índice de las
-    // series no tiene tabla que enseñar, y una rejilla de guiones no es una tabla.
-    // La tabla es la compartida (`TablaDeParciales`): la misma que pintan el resumen
-    // y la lectura de una sesión.
-    private var ergIntervalSegments: [SegmentActualDTO] {
-        (execution?.segments ?? []).filter { seg in
-            ["row", "ski", "bike"].contains(seg.modality)
-                && !ColumnaDeParcial.medidas((seg.ergSplits ?? []).map(ParcialDeErgo.init)).isEmpty
-        }
-    }
-
-    private func ergIntervalsCard(_ seg: SegmentActualDTO) -> some View {
-        CardSurface(padding: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("Parciales · \(ergTitle(seg))")
-                        .scaledFont(15, weight: .bold, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.muted)
-                    Spacer(minLength: 6)
-                }
-                TablaDeParciales(parciales: (seg.ergSplits ?? []).map(ParcialDeErgo.init))
-                if let footer = ergFooterText(seg) {
-                    Text(footer)
-                        .scaledFont(15, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.muted)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-            }
-        }
-    }
-
-    // "Remo · 2000 m" / "SkiErg" — the SPECIFIC machine, not `Theme.Modality.label`'s
-    // day-dot bucket. That bucket deliberately merges row/ski/bike into one
-    // "ergómetro" hue for the plan legend (see Theme.swift) — reused here it made a
-    // remo minute and a ski minute in the same EMOM read identically, so the athlete
-    // could no longer tell which round was which (26-jul: "aquí el 4 no sé qué era").
-    // The wire modality ("row"/"ski"/"bike") is preserved end to end; only the LABEL
-    // was collapsing it.
-    private static func machineLabel(_ modality: String) -> String {
-        ErgMachineRole(wire: modality)?.titleES ?? Theme.Modality.label(modality)
-    }
-
-    private func ergTitle(_ seg: SegmentActualDTO) -> String {
-        let label = Self.machineLabel(seg.modality)
-        if let d = seg.distanceMeters, d > 0 { return "\(label) · \(Int(d)) m" }
-        return label
-    }
-
-    // Footer summary: average burn rate + handle force when the monitor reported them.
-    private func ergFooterText(_ seg: SegmentActualDTO) -> String? {
-        var parts: [String] = []
-        if let df = seg.dragFactor, df > 0 { parts.append("resistencia \(df)") }
-        if let ch = seg.avgCaloriesPerHour, ch > 0 { parts.append("\(Int(ch)) cal/h") }
-        if let f = seg.avgDriveForceLbs, f > 0 { parts.append("fuerza \(Int(f)) lbs") }
-        if let p = seg.peakDriveForceLbs, p > 0 { parts.append("pico \(Int(p))") }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    // MARK: - Notes
-    private func notesCard(_ notes: String) -> some View {
-        CardSurface(padding: 10) {
-            VStack(alignment: .leading, spacing: 6) {
-                LabelText(text: "Notas", size: 9)
-                Text(notes)
-                    .scaledFont(13, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.foreground)
-            }
-        }
-    }
-
-    // MARK: - Technique index entry point
-    //
-    // El detalle ya trae los ejercicios de la sesión (bloques → ítems con vídeo,
-    // consejos, descripción y nota del coach) pero no había NINGUNA manera de
-    // llegar a ellos desde un entreno hecho: el atleta que quería repasar cómo se
-    // hacía un movimiento tenía que volver al plan. Abre el mismo índice de
-    // técnica que el plan (`SessionExercisesSheet`), no una pantalla nueva.
-
-    /// ¿Tiene esta sesión ejercicios que enseñar? Sin ellos (día de descanso,
-    /// sesión sin detalle) no se ofrece la entrada: llevaría a una ficha vacía.
+    /// ¿Tiene esta sesión ejercicios que enseñar? Sin ellos (día de descanso, sesión sin detalle) no se
+    /// ofrece la entrada: llevaría a una ficha vacía. La técnica abre el MISMO índice que el plan
+    /// (`SessionExercisesSheet`), no una pantalla nueva.
     private var hasExercises: Bool {
         (detail?.workout?.blocks ?? []).contains { !$0.items.isEmpty }
     }
 
-    private var techniqueEntry: some View {
+    /// Una fila de acción: ficha con glifo, qué hace y qué se obtiene. La captura se ofrece aquí porque es
+    /// donde se corrige o completa con los números reales del dispositivo un hecho ya registrado.
+    private func entrada(
+        glifo: GlifoDia, titulo: String, apoyo: String, pista: String, alTocar: @escaping () -> Void
+    ) -> some View {
         Button {
             Haptics.light()
-            showTechnique = true
+            alTocar()
         } label: {
-            CardSurface(padding: 12) {
-                HStack(spacing: 10) {
-                    Image(systemName: "play.rectangle")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Ver la técnica de los ejercicios")
-                            .font(.system(size: 14, weight: .heavy, design: .default).italic())
-                            .foregroundStyle(Theme.Color.foreground)
-                        Text("Vídeo, consejos y la nota de tu coach.")
-                            .scaledFont(11, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    Spacer(minLength: 4)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.Color.faint)
+            HStack(spacing: Theme.Spacing.m) {
+                FichaDia(glifo)
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    Text(titulo).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+                    Text(apoyo).papel(.nota).foregroundStyle(Theme.Color.muted)
                 }
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                IconoDia(.chevron, tam: 15, peso: .bold).foregroundStyle(Theme.Color.muted)
             }
+            .padding(Theme.Spacing.m)
+            .frame(maxWidth: .infinity, minHeight: Theme.Size.toque, alignment: .leading)
+            .tarjetaDia()
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
         }
         .buttonStyle(PressScaleStyle())
-        .accessibilityHint("Abre los ejercicios de la sesión para repasar cómo se hacen")
-    }
-
-    // MARK: - Screenshot entry point (LIVE — Idea 1)
-    //
-    // The ENTRY POINT lives where it belongs (inside the done-workout detail):
-    // tap → pick a screenshot of another app's summary → the IA reads it → the
-    // athlete reviews/corrects → confirm re-logs the result through the honest
-    // path. Useful here to CORRECT or enrich an already-logged session with the
-    // real device numbers.
-    private var screenshotEntry: some View {
-        Button {
-            Haptics.light()
-            showCapture = true
-        } label: {
-            CardSurface(padding: 12) {
-                HStack(spacing: 10) {
-                    Image(systemName: "camera.viewfinder")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Subir captura de otra app")
-                            .font(.system(size: 14, weight: .heavy, design: .default).italic())
-                            .foregroundStyle(Theme.Color.foreground)
-                        Text("Garmin, Strava, Concept2… la leemos por ti.")
-                            .scaledFont(11, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    Spacer(minLength: 4)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.Color.faint)
-                }
-            }
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityHint("Sube una captura y la IA rellena el resultado")
-    }
-
-    // MARK: - Loading / failed
-    private var loading: some View {
-        VStack { Spacer(); ProgressView().tint(Theme.Color.accent); Spacer() }
-            .frame(maxWidth: .infinity)
-    }
-
-    private var failed: some View {
-        VStack(spacing: Theme.Spacing.m) {
-            Spacer()
-            Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(Theme.Color.muted)
-            Text("No pudimos cargar tu entreno")
-                .font(Theme.Typography.headlineS)
-                .foregroundStyle(Theme.Color.foreground)
-            if let failureReason {
-                Text(failureReason)
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, Theme.Spacing.m)
-            }
-            PrimaryButton(title: "Reintentar") {
-                loadFailed = false
-                failureReason = nil
-                Task { await load() }
-            }
-            .frame(maxWidth: 280)
-            Spacer()
-        }
-        .padding(Theme.Spacing.xl)
+        .accessibilityHint(pista)
     }
 
     // MARK: - Data load (cache-first, then network)
@@ -648,449 +333,5 @@ struct ExecutedWorkoutView: View {
         case let .dataCorrupted(ctx):     return ctx.debugDescription
         @unknown default:                 return dec.localizedDescription
         }
-    }
-
-    // MARK: - Derived display
-
-    private var whenLabel: String? {
-        // `ended_at` llega como `timestamptz::text` de Postgres, no ISO: un
-        // `ISO8601DateFormatter` suelto no lo leía y la etiqueta no salía nunca.
-        guard let iso = execution?.endedAt,
-              let date = ISO8601DateFormatters.parse(iso) else { return nil }
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "es_ES")
-        f.dateFormat = "d MMM · HH:mm"
-        return f.string(from: date)
-    }
-
-    // MARK: - Provenance
-    //
-    // Two different questions, and conflating them is what made this screen lie.
-    // A session run live in the app with a PM5 attached was stored as
-    // source='manual' and shown as "Registro: A mano" — the opposite of what
-    // happened. `recordedVia` answers HOW the record was made; the device names
-    // answer WHERE the numbers came from. Both, or neither, but never one
-    // pretending to be the other.
-
-    /// "Hecho en la app" | "Añadido a mano" | "Importado". Nil on rows written
-    /// before the split, where the honest answer is to say nothing.
-    private var recordedViaLabel: String? {
-        switch execution?.recordedVia {
-        case "live":     return "Hecho en la app"
-        case "manual":   return "Añadido a mano"
-        case "imported": return "Importado"
-        default:         return nil
-        }
-    }
-
-    /// Human names for every device that fed this session, de-duplicated and in
-    /// a stable order. Empty when nothing was connected — which the card states
-    /// outright rather than leaving a blank row.
-    private var deviceLabels: [String] {
-        var seen = Set<String>()
-        var out: [String] = []
-        // Prefer the execution-level roll-up; fall back to the per-leg sources so
-        // an older payload (rolled up server-side only from mig 0144) still names
-        // the hardware it actually used.
-        let raw = execution?.contributingSources.isEmpty == false
-            ? (execution?.contributingSources ?? [])
-            : (execution?.segments ?? []).compactMap(\.source)
-        for value in raw {
-            guard let name = Self.deviceName(value), seen.insert(name).inserted else { continue }
-            out.append(name)
-        }
-        return out
-    }
-
-    /// One device token → the name the athlete calls it. Returns nil for tokens
-    /// that are NOT devices ("manual", "demo"): those must not appear as kit.
-    private static func deviceName(_ raw: String) -> String? {
-        switch raw {
-        case "concept2", "pm5": return "PM5"
-        case "treadmill":       return "Cinta"
-        case "gps":             return "GPS"
-        case "healthkit":       return "Apple Watch"
-        case "garmin":          return "Garmin"
-        case "polar":           return "Polar"
-        case "coros":           return "Coros"
-        case "wahoo":           return "Wahoo"
-        case "suunto":          return "Suunto"
-        case "whoop":           return "Whoop"
-        case "oura":            return "Oura"
-        case "amazfit":         return "Amazfit"
-        case "manual", "demo":  return nil
-        default:                return raw.capitalized
-        }
-    }
-
-    /// The trust stamp, at the FOOT of the screen: how this got recorded and what
-    /// measured it. Deliberately not a headline tile — provenance is what you
-    /// check when a number surprises you, not what you came to read.
-    @ViewBuilder
-    private var provenanceCard: some View {
-        if recordedViaLabel != nil || !deviceLabels.isEmpty {
-            CardSurface(padding: 10) {
-                VStack(alignment: .leading, spacing: 7) {
-                    LabelText(text: "Registro", size: 9)
-                    if let via = recordedViaLabel {
-                        Text(via)
-                            .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
-                    if deviceLabels.isEmpty {
-                        Text("Sin aparatos conectados: los números son los que anotaste tú.")
-                            .scaledFont(11, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    } else {
-                        HStack(spacing: 6) {
-                            ForEach(deviceLabels, id: \.self) { name in
-                                Text(name)
-                                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
-                                    .foregroundStyle(Theme.Color.accentText)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(
-                                        Capsule().fill(Theme.Color.surfaceElevated)
-                                    )
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("Aparatos: \(deviceLabels.joined(separator: ", "))")
-                    }
-                }
-            }
-        }
-    }
-
-    /// A screenshot can only ADD something when no device measured the session.
-    /// With a PM5 or a belt already feeding it, the offer is clutter.
-    private var canEnrichWithScreenshot: Bool { deviceLabels.isEmpty }
-
-    // MARK: - Derived metrics (aggregated across the logged legs)
-
-    /// Total metres covered across every leg that measured distance.
-    private var totalDistanceMeters: Double? {
-        let sum = (execution?.segments ?? []).compactMap(\.distanceMeters).reduce(0, +)
-        return sum > 0 ? sum : nil
-    }
-
-    /// The pace of the leg that dominates the session (the longest one), in that
-    /// leg's own convention — /500m for an erg, /km for a run.
-    private var headlinePace: String? {
-        let legs = (execution?.segments ?? [])
-            .sorted { ($0.durationSeconds ?? 0) > ($1.durationSeconds ?? 0) }
-        guard let leg = legs.first else { return nil }
-        if let p = leg.avgPaceSPer500m, p > 0 {
-            return "\(Formato.ritmoCifras(Double(Int(p.rounded()))))/500m"
-        }
-        if let p = leg.avgPaceSPerKm, p > 0 {
-            return "\(Formato.ritmoCifras(Double(Int(p.rounded()))))/km"
-        }
-        return nil
-    }
-
-    /// EMOM rounds actually completed vs prescribed, when this session ran one.
-    /// The single figure that says how an EMOM went, and it was invisible here.
-    private var emomRounds: (completed: Int, prescribed: Int?)? {
-        guard let leg = (execution?.segments ?? []).first(where: { $0.emomRoundsCompleted != nil }),
-              let done = leg.emomRoundsCompleted
-        else { return nil }
-        return (done, leg.emomRoundsPrescribed)
-    }
-
-    /// Session average of a per-leg metric, WEIGHTED BY EACH LEG'S DURATION.
-    ///
-    /// A mean of means says a 3′ calentamiento a 105 counts as much as 40′ de
-    /// principal a 168: 3+40+5 min gave 128 ppm where the session really averaged
-    /// ~157. Σ(valor × segundos) / Σ(segundos) is the only average that matches
-    /// what the athlete's heart did. A leg with no duration carries no weight we can
-    /// trust, so it is left out; if NO leg carries one, the plain mean is all the
-    /// data allows and we say so rather than dropping the metric.
-    private func weightedLegAverage(_ metric: (SegmentActualDTO) -> Double?) -> Double? {
-        let legs = (execution?.segments ?? []).compactMap { seg -> (value: Double, seconds: Double)? in
-            guard let v = metric(seg) else { return nil }
-            return (v, Double(max(0, seg.durationSeconds ?? 0)))
-        }
-        guard !legs.isEmpty else { return nil }
-        let totalSeconds = legs.reduce(0) { $0 + $1.seconds }
-        guard totalSeconds > 0 else {
-            return legs.reduce(0) { $0 + $1.value } / Double(legs.count)
-        }
-        return legs.reduce(0) { $0 + $1.value * $1.seconds } / totalSeconds
-    }
-
-    private var avgHrBpm: Int? {
-        weightedLegAverage { $0.avgHr.map(Double.init) }.map { Int($0.rounded()) }
-    }
-    private var maxHrBpm: Int? { (execution?.segments ?? []).compactMap(\.maxHr).max() }
-
-    private var totalCalories: Double? {
-        let sum = (execution?.segments ?? []).compactMap(\.calories).reduce(0, +)
-        return sum > 0 ? sum : nil
-    }
-
-    private var avgPowerW: Double? {
-        weightedLegAverage { ($0.avgPowerW ?? 0) > 0 ? $0.avgPowerW : nil }
-    }
-
-    private var avgStrokeRate: Double? {
-        weightedLegAverage { ($0.strokeRateSpm ?? 0) > 0 ? $0.strokeRateSpm : nil }
-    }
-
-    /// The "how did it go" numbers, built ONLY from what was measured. An empty
-    /// array means the block isn't drawn at all — never an empty grid.
-    private var effortMetrics: [(label: String, value: String, unit: String)] {
-        var out: [(String, String, String)] = []
-        if let hr = avgHrBpm { out.append((Vocab.fcMedia, "\(hr)", Vocab.ppm)) }
-        if let hr = maxHrBpm { out.append((Vocab.fcMax, "\(hr)", Vocab.ppm)) }
-        if let p = avgPowerW { out.append(("Potencia", "\(Int(p.rounded()))", "W")) }
-        if let s = avgStrokeRate { out.append(("Ritmo de palada", "\(Int(s.rounded()))", "s/m")) }
-        if let c = totalCalories { out.append(("Calorías", "\(Int(c.rounded()))", "kcal")) }
-        return out
-    }
-
-    private var effortTiles: some View {
-        let cols = [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)]
-        return LazyVGrid(columns: cols, spacing: 6) {
-            ForEach(effortMetrics, id: \.label) { m in
-                ExpertCell(label: m.label, value: m.value, unit: m.unit)
-            }
-        }
-    }
-
-    // MARK: - Heart-rate zones
-    //
-    // The live summary has shown this bar since day one; the log — the surface
-    // you actually revisit — threw it away. Same reading, same colours.
-
-    /// The zone reading over the time the logged segments actually took — the
-    /// same base the live summary uses, so the bar the athlete saw on finishing
-    /// and the bar they revisit a week later cannot say two different things.
-    /// Segments whose duration never arrived are left out of both sides of the
-    /// ratio: they can neither be measured nor counted as a hole.
-    private var zoneCoverage: ZoneCoverage? {
-        var totals: [String: Int] = [:]
-        var window = 0.0
-        for seg in execution?.segments ?? [] {
-            guard let duration = seg.durationSeconds, duration > 0 else { continue }
-            window += Double(duration)
-            for (key, seconds) in seg.zoneSeconds ?? [:] { totals[key, default: 0] += seconds }
-        }
-        return ZoneCoverage.read(zoneSecondsByKey: totals, windowSeconds: window)
-    }
-
-    private func zonesCard(_ coverage: ZoneCoverage) -> some View {
-        CardSurface(padding: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                LabelText(text: "Zonas", size: 9)
-                GeometryReader { geo in
-                    HStack(spacing: 0) {
-                        ForEach(coverage.bands) { band in
-                            Rectangle().fill(ZoneBandStyle.fill(band))
-                                .frame(width: max(0, geo.size.width * CGFloat(band.pct) / 100))
-                        }
-                    }
-                }
-                .frame(height: 16)
-                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                HStack(spacing: 0) {
-                    ForEach(coverage.bands) { band in
-                        MonoText(text: "\(band.label) \(band.pct)%", size: 9, color: ZoneBandStyle.text(band))
-                        if band.id != coverage.bands.last?.id { Spacer(minLength: 4) }
-                    }
-                }
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(ZoneBandStyle.spoken(coverage))
-        }
-    }
-
-    // MARK: - "Cómo fue" — the athlete's own read
-    //
-    // RPE, how hard it felt against the prescription, and any niggle. The last
-    // two are collected at save time (#58) and were stored and never shown back.
-    //
-    // Un RPE que nadie contestó NO se pinta. Esta pantalla es de solo lectura y no
-    // hay forma de contestarlo ahora, así que declarar el hueco sería ruido gris:
-    // se calla y la tarjeta enseña lo que sí se sabe (§6.2 bis). Si no hay ninguna
-    // de las tres cosas, la tarjeta no existe.
-
-    @ViewBuilder
-    private var feedbackCard: some View {
-        let rpe = execution?.perceivedExertion
-        let difficulty = difficultyLabel
-        let pain = painLabel
-        if rpe != nil || difficulty != nil || pain != nil {
-            CardSurface(padding: 10) {
-                VStack(alignment: .leading, spacing: 8) {
-                    LabelText(text: "Cómo fue", size: 9)
-                    // Con solo la molestia que apuntó el atleta, esta fila no existe:
-                    // no deja un renglón en blanco esperando datos que no hay.
-                    if rpe != nil || difficulty != nil {
-                        HStack(alignment: .top, spacing: 10) {
-                            if let rpe {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    HStack(alignment: .firstTextBaseline, spacing: 3) {
-                                        MonoText(text: "\(rpe)", size: 22, weight: .heavy)
-                                        MonoText(text: "/10", size: 11, color: Theme.Color.muted)
-                                    }
-                                    LabelText(text: Vocab.rpe, size: 9)
-                                }
-                                Spacer(minLength: 0)
-                            }
-                            if let difficulty {
-                                // Sola en la tarjeta se lee a la izquierda: una única
-                                // lectura colgando del borde derecho parece un resto.
-                                VStack(alignment: rpe == nil ? .leading : .trailing, spacing: 2) {
-                                    Text(difficulty)
-                                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                                        .foregroundStyle(Theme.Color.foreground)
-                                    LabelText(text: "Dificultad", size: 9)
-                                }
-                            }
-                            // Con las dos lecturas, el hueco de en medio las separa a
-                            // los dos bordes; con una sola, sobra a la derecha para
-                            // que no quede centrada en mitad de la tarjeta.
-                            if rpe == nil || difficulty == nil { Spacer(minLength: 0) }
-                        }
-                    }
-                    if let pain {
-                        // Sin nada encima, la molestia es lo único de la tarjeta y no
-                        // hace falta separarla de nada.
-                        if rpe != nil || difficulty != nil { Hairline() }
-                        HStack(alignment: .top, spacing: 6) {
-                            Image(systemName: "bandage")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(Theme.Color.warning)
-                            Text(pain)
-                                .scaledFont(12, relativeTo: .caption)
-                                .foregroundStyle(Theme.Color.muted)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /// #58 difficulty against what was prescribed — read through the SAME enum
-    /// the save form writes, so the wording can never drift between the two.
-    private var difficultyLabel: String? {
-        execution?.perceivedDifficulty.flatMap(PerceivedDifficulty.init(rawValue:))?.label
-    }
-
-    /// The niggle the athlete flagged: area, plus their note when they wrote one.
-    private var painLabel: String? {
-        let area = execution?.painArea?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let note = execution?.painNote?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !area.isEmpty || !note.isEmpty else { return nil }
-        let name = area.isEmpty ? "Molestia" : (PainArea(rawValue: area)?.label ?? area)
-        return note.isEmpty ? name : "\(name) · \(note)"
-    }
-
-    /// "1,01 km" past a kilometre, plain metres below it. Decía ser «el ÚNICO
-    /// formateador de distancia» — de esta PANTALLA, que es justo el alcance que
-    /// dejó que cada pantalla tuviera el suyo. Ahora es el de la app.
-    static func formatDistance(_ meters: Double) -> String {
-        Formato.distanciaCubierta(meters) ?? "0 m"
-    }
-
-    // Join the prescribed items (workout blocks) with the logged actuals by uid,
-    // so each row reads "ejercicio · lo que hizo". Falls back to listing unmatched
-    // actuals (a free workout / lap with no template item) so nothing is dropped.
-    //
-    // Un ejercicio prescrito SIN registro no da fila. Esta pantalla es un registro
-    // de lo hecho, y un nombre con una raya al lado no es un dato: es una etiqueta
-    // huérfana que además ya no se puede llenar (§6.2 bis). Distinto es el que SÍ
-    // se registró pero sin números — ese se hizo, y así se dice.
-    private var perSegmentRows: [SegmentRowVM]? {
-        guard let exec = execution else { return nil }
-        let actualsByUid: [String: SegmentActualDTO] = Dictionary(
-            exec.segments.compactMap { seg in seg.itemUid.map { ($0, seg) } },
-            uniquingKeysWith: { a, _ in a }
-        )
-
-        var rows: [SegmentRowVM] = []
-        var usedUids = Set<String>()
-        if let blocks = detail?.workout?.blocks {
-            for block in blocks {
-                for item in block.items {
-                    guard let actual = actualsByUid[item.uid] else { continue }
-                    usedUids.insert(item.uid)
-                    let tokens = Self.tokens(actual)
-                    rows.append(
-                        SegmentRowVM(
-                            id: item.uid,
-                            name: item.exerciseName,
-                            result: tokens.isEmpty ? "hecho" : tokens.joined(separator: " · "),
-                            device: actual.source.flatMap(Self.deviceName)
-                        )
-                    )
-                }
-            }
-        }
-
-        // Unmatched actuals (no prescription item — e.g. a free-workout lap) —
-        // surface them honestly rather than dropping the athlete's real data.
-        for seg in exec.segments {
-            if let uid = seg.itemUid, usedUids.contains(uid) { continue }
-            let tokens = Self.tokens(seg)
-            if tokens.isEmpty { continue }
-            rows.append(
-                SegmentRowVM(
-                    id: "seg-\(seg.position)",
-                    name: Self.machineLabel(seg.modality),
-                    result: tokens.joined(separator: " · "),
-                    device: seg.source.flatMap(Self.deviceName)
-                )
-            )
-        }
-        return rows.isEmpty ? nil : rows
-    }
-
-    // Build the human "hecho" tokens for one logged segment (mirrors the coach
-    // SessionDetailDrawer chips). Reps × weight, distance, pace, duration, HR.
-    private static func tokens(_ a: SegmentActualDTO) -> [String] {
-        var t: [String] = []
-        // La serie pasa por el canónico (§2.1): «5 × 100 kg» se escribía aquí, en
-        // el chip de tramo y en el HUD de fuerza, cada uno con su espaciado.
-        if let s = Formato.serie(reps: a.repsCompleted,
-                                 cargaKg: (a.weightUsedKg ?? 0) > 0 ? a.weightUsedKg : nil) {
-            t.append(s.linea)
-        }
-        if let d = a.distanceMeters, d > 0 {
-            t.append(formatDistance(d))
-        }
-        if let p = a.avgPaceSPer500m, p > 0 {
-            t.append("\(Formato.ritmoCifras(Double(Int(p))))/500m")
-        } else if let p = a.avgPaceSPerKm, p > 0 {
-            t.append("\(Formato.ritmoCifras(Double(Int(p))))/km")
-        }
-        // Average incline / cadence over the segment (#62). Shown only when the
-        // source (treadmill / wearable) actually reported them — never a fake 0.
-        if let inc = a.inclinePct, inc > 0 {
-            t.append("\(Formato.esDecimal(inc))% incl.")
-        }
-        if let cad = a.runCadenceSpm, cad > 0 {
-            t.append("cad. \(cad)")
-        }
-        if a.repsCompleted == nil, a.distanceMeters == nil, let dur = a.durationSeconds, dur > 0 {
-            t.append(Formato.clock(Double(dur)))
-        }
-        if let hr = a.avgHr { t.append("\(hr) ppm") }
-        return t
-    }
-
-    struct SegmentRowVM: Identifiable {
-        let id: String
-        let name: String
-        /// Lo que quedó registrado. Una fila SIEMPRE trae resultado: la que no
-        /// tenía ninguno no llega hasta aquí. Llevaba además un `hasResult` que
-        /// solo servía para saber si el resultado era el guion.
-        let result: String
-        /// Human name of the kit that measured this leg; nil when none did.
-        var device: String? = nil
     }
 }

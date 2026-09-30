@@ -109,56 +109,43 @@ struct PlanCicloView: View {
     private func pantalla(_ ciclo: CicloDelPlan) -> some View {
         FillingScreen {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                cromo(nivel: ciclo.nivelDeLoPublicado)
+                cromo
                 CuerpoDelCiclo(ciclo: ciclo)
+                    .padding(.horizontal, Theme.Spacing.pantalla)
             }
-            .padding(.horizontal, Theme.Spacing.l)
-            .padding(.top, Theme.Spacing.s)
             .padding(.bottom, Theme.Spacing.s)
         }
         .refreshable { await cargar(force: true) }
         .anchoredAction {
             // La acción NO pesa como el sujeto (§10.5): el sujeto es lo que
             // miras, la acción es lo que tocas. Volver a la semana es volver a la
-            // pestaña Plan, que es exactamente lo que hay detrás de esta.
-            SecondaryButton(title: "VER LA SEMANA") { onClose() }
+            // pestaña Plan, que es exactamente lo que hay detrás de esta: la
+            // misma pastilla de tinta invertida con que ese Plan ancla su acción.
+            AccionAncladaPlan(
+                texto: "Ver la semana", simbolo: GlifoDia.flecha.simbolo, glifoAlFinal: true,
+                enCurso: false, conMenu: false, alTocar: onClose
+            ) { EmptyView() }
         }
     }
 
     // MARK: - Cromo superior
 
-    /// La línea de arriba: dónde estás, el nivel que declara lo publicado y la
-    /// salida. El nivel sale UNA vez aquí en lugar de repetirse en cada parada.
-    private func cromo(nivel: String?) -> some View {
-        HStack(alignment: .center, spacing: Theme.Spacing.s) {
-            LabelText(text: "Tu plan", color: Theme.Color.muted, size: 12)
+    /// La línea de arriba: dónde estás y la salida. Fija en todos los estados
+    /// (también sin plan): la salida no puede desaparecer solo porque no haya
+    /// camino que enseñar. El nivel que declara lo publicado sale UNA vez, en el
+    /// sujeto, en lugar de repetirse en cada parada.
+    private var cromo: some View {
+        HStack(spacing: Theme.Spacing.s) {
+            Text("Tu plan")
+                .papel(.etiqueta)
+                .foregroundStyle(Theme.Color.accentText)
                 .lineLimit(1)
             Spacer(minLength: Theme.Spacing.s)
-            if let nivel, !nivel.isEmpty {
-                Text(nivel)
-                    .scaledFont(12, weight: .semibold, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.faint)
-                    .lineLimit(1)
-                    .accessibilityLabel("Nivel \(nivel)")
-            }
-            botonCerrar
+            BotonCromoDia(.cerrar, etiqueta: "Cerrar") { Haptics.light(); onClose() }
         }
-        .frame(minHeight: 36)
-    }
-
-    private var botonCerrar: some View {
-        Button {
-            Haptics.light()
-            onClose()
-        } label: {
-            Image(systemName: "xmark")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Theme.Color.foreground)
-                .frame(width: 36, height: 36)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Cerrar")
+        .padding(.leading, Theme.Spacing.pantalla)
+        .padding(.trailing, Theme.Spacing.s)
+        .frame(minHeight: 56)
     }
 
     // MARK: - Los estados sin datos
@@ -167,9 +154,7 @@ struct PlanCicloView: View {
     /// desaparecer solo porque no haya camino que enseñar.
     private func estadoCentrado<Content: View>(@ViewBuilder _ content: @escaping () -> Content) -> some View {
         CenteredScreen {
-            cromo(nivel: nil)
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.top, Theme.Spacing.s)
+            cromo
         } content: {
             content()
         }
@@ -181,28 +166,29 @@ struct PlanCicloView: View {
     /// de sitio. Nunca un vacío mientras todavía no se sabe si está vacío.
     private var esqueleto: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            cromo(nivel: nil)
-            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                SkeletonBar(width: 220, height: 30)
-                SkeletonBar(width: 160, height: 13)
-            }
-            .frame(minHeight: CuerpoDelCiclo.bandaSujeto, alignment: .center)
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                ForEach(0..<4, id: \.self) { _ in
-                    HStack(alignment: .top, spacing: Theme.Spacing.m) {
-                        SkeletonBar(width: 9, height: 9, radius: Theme.Radius.pill)
-                            .padding(.top, 8)
-                        VStack(alignment: .leading, spacing: 5) {
-                            SkeletonBar(width: 44, height: 10)
-                            SkeletonBar(width: 150, height: 14)
+            cromo
+            Group {
+                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                    SkeletonBar(width: 220, height: 32, radius: 8)
+                    SkeletonBar(width: 160, height: 15, radius: 5)
+                }
+                .frame(minHeight: CuerpoDelCiclo.bandaSujeto, alignment: .center)
+                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        HStack(alignment: .top, spacing: Theme.Spacing.m) {
+                            SkeletonBar(width: 9, height: 9, radius: Theme.Radius.pill)
+                                .padding(.top, 8)
+                            VStack(alignment: .leading, spacing: 5) {
+                                SkeletonBar(width: 44, height: 15, radius: 5)
+                                SkeletonBar(width: 150, height: 17, radius: 5)
+                            }
                         }
                     }
                 }
             }
+            .padding(.horizontal, Theme.Spacing.pantalla)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, Theme.Spacing.l)
-        .padding(.top, Theme.Spacing.s)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Cargando tu ciclo")
     }
@@ -247,7 +233,7 @@ struct CuerpoDelCiclo: View {
             // agujero, hay una regla, y se dice en una línea bajo el camino.
             if !ciclo.hayHueco, let politica = ciclo.politica {
                 Text(politica.frase)
-                    .scaledFont(12, weight: .medium, relativeTo: .caption)
+                    .papel(.nota)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     // Cae bajo el texto de las paradas, no bajo el raíl.
@@ -290,25 +276,33 @@ struct CuerpoDelCiclo: View {
         pie: String?,
         voz: String
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m) {
-                // Un título largo baja un escalón antes que partirse en tres
-                // líneas: el sujeto se lee de un vistazo o no es el sujeto.
-                Text(titulo)
-                    .scaledFont(titulo.count > 24 ? 28 : 38, weight: .heavy,
-                                relativeTo: .title, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                cifra
+        let nombre = Text(titulo)
+            .papel(.saludo)
+            .foregroundStyle(Theme.Color.foreground)
+            .lineLimit(3)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityAddTraits(.isHeader)
+        return VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            // Con texto grande la cifra pasa DEBAJO del nombre en vez de apretarlo
+            // hasta partirlo en cuatro líneas.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m) {
+                    nombre.frame(maxWidth: .infinity, alignment: .leading)
+                    cifra
+                }
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    nombre
+                    cifra
+                }
             }
             if let pie {
                 Text(pie)
-                    .scaledFont(13, weight: .medium, relativeTo: .footnote)
+                    .papel(.notaFuerte)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            if let nivel = ciclo.nivelDeLoPublicado, !nivel.isEmpty {
+                InfoPill(text: "Nivel \(nivel)")
             }
         }
         .frame(minHeight: Self.bandaSujeto, alignment: .center)
@@ -321,6 +315,7 @@ struct CuerpoDelCiclo: View {
         if ciclo.tramos.count > 1, let delCiclo = ciclo.semanaDelCiclo {
             partes.append("semana \(delCiclo) de \(ciclo.semanasTotales) del ciclo")
         }
+        if let nivel = ciclo.nivelDeLoPublicado, !nivel.isEmpty { partes.append("nivel \(nivel)") }
         return partes.joined(separator: ", ")
     }
 }

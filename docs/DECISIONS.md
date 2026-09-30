@@ -28,6 +28,20 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **No verificado / abierto.** El reloj (Swift) decodifica `alert` pero todavía no lo aplica: hoy el aviso queda guardado y viaja, y actuará cuando se cierre el lado del reloj de F5. El diseño es UI nueva sobre el patrón existente, sin firma de Alex sobre el layout. El editor de tramos es del dashboard del coach y no tiene pantalla espejo en el doble (que replica la app del atleta), así que no hay nada que estampar allí. Copiar el entorno a todos los tramos de golpe («toda la sesión en cinta») no está: hoy cada tramo nuevo copia el anterior de su tipo, que arrastra el entorno.
 
+## 2026-09-30 · Las pantallas que cuelgan del Plan pasan a «El día» (iPhone): ciclo, técnica, hecho, dobles, constructor libre y compartir
+
+**Decidido:** solo piel, jerarquía y estados; mismos servicios y destinos. Todo con los papeles y el kit de `Theme/Dia` (suelo 15 pt, acento del club, claro/oscuro).
+
+**Retirado, y por qué (no rehacer):**
+- **«Empezar simulación juntos» (Dobles):** el botón no lanzaba nada (no hay endpoint ni asignación detrás). Se retira en vez de prometer algo que no ocurre.
+- **El detalle de tarjetas de `ExecutedWorkoutView`** (totales, zonas, mapa, desglose, registro): sin ejecución no tenía nada que pintar, y con ejecución lo lee `LecturaDeSesionView`. Queda el marco (cargando/error) y el hecho sin nada medido con sus dos entradas (técnica y captura).
+- **Las siglas «STR/FUNC/MOB»** de la etiqueta del ejercicio: ahora dice la modalidad con palabras (`Theme.Modality`).
+- **El logo en la cabecera de Dobles** (vive en Hoy) y los emojis de la pareja.
+
+**Compartido:** `RedesignEmptyState` adopta los papeles del día (acción de tinta invertida, nota con reloj a 15 pt = `NotaConReloj`); lo heredan todas las pantallas que lo usan. La tarjeta de compartir fuerza el esquema oscuro: con la app en claro el acento llegaba en su variante para lienzo claro (3,3:1 sobre la tarjeta oscura).
+
+**Pendiente:** ver todo en aparato; `GoalGapLegend` (Carreras) sigue a 10 pt; el chat y `PreWorkoutBriefView` no entran aquí.
+
 ## 2026-09-30 · Analíticas del iPhone, segunda tanda y cierre: el detalle de las cuatro familias y de la sesión con «El día», y fuera la pestaña vieja
 
 **El encargo:** llevar a Swift el detalle firmado (correr, ergo, fuerza, estaciones y la sesión tramo a tramo), cablearlo desde la portada, y CERRAR la pestaña: borrar `AnaliticasBandera`, la `AnalyticsView` de los siete contratos y todo lo que solo ella usaba. Rama `worktree-agent-ab66a2922a12498d9` (sin fusionar). Continúa la entrada «primera tanda: la portada» del 29-09.

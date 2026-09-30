@@ -232,23 +232,27 @@ final class FreeStrengthDraft {
     }
 }
 
-// MARK: - Builder view
+// MARK: - El constructor
 
+/// El camino de FUERZA: una sola pantalla con la lista de ejercicios (y su calentamiento opcional). Las
+/// piezas son las del constructor libre (`ConstructorLibrePiezas.swift`): el mismo flujo que el medido y
+/// el funcional.
 struct FreeStrengthBuilderView: View {
     let bearer: String?
     @Binding var draft: FreeStrengthDraft
-    var editingAssignmentId: Int? = nil
-    /// Return to the modality grid (the athlete backs out of the fuerza track).
+    var editingAssignmentId: Int?
+    /// Vuelve a la rejilla de modalidad (el atleta sale del camino de fuerza).
     let onBack: () -> Void
-    /// Hand the built context up to the host, which runs it through the shared
-    /// engine (WorkoutContainer, free mode) exactly like the measured path.
+    /// Entrega el contexto montado a quien lo aloja, que lo corre por el motor compartido
+    /// (WorkoutContainer, modo libre) igual que el camino medido.
     let onStart: (FreeWorkoutContext) -> Void
-    var onSaved: () -> Void = {}
+    var onSaved: () -> Void
 
     @State private var showPicker = false
-    /// El picker abierto añade al calentamiento (true) o al principal (false).
+    /// El selector abierto añade al calentamiento (true) o al principal (false).
     @State private var pickingForWarmup = false
     @State private var isSavingPlan = false
+    @State private var aviso: AvisoDia.Contenido?
 
     init(
         bearer: String?,
@@ -267,33 +271,58 @@ struct FreeStrengthBuilderView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            navBar
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                    stepHeader
-                    warmupSection
-                    ForEach(draft.items) { item in
-                        FreeStrengthCard(
-                            item: bindingFor(item.id),
-                            canMoveUp: draft.items.first?.id != item.id,
-                            canMoveDown: draft.items.last?.id != item.id,
-                            onMoveUp: { draft.move(item.id, by: -1); Haptics.light() },
-                            onMoveDown: { draft.move(item.id, by: 1); Haptics.light() },
-                            onRemove: { withAnimation { draft.remove(item.id) }; Haptics.light() }
-                        )
+        // Se cuenta desde la modalidad, que es donde empezó el flujo: fuerza no tiene paso de formato.
+        PantallaConstructorLibre(salida: .atras, paso: (2, 2), alSalir: onBack) {
+            TituloPasoLibre(
+                etiqueta: "Entreno libre · Fuerza",
+                titulo: "Tus ejercicios",
+                apoyo: "Series, medida y carga. Registras cada serie en directo."
+            )
+            warmupSection
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                TituloSeccionDia("Principal") {
+                    if !draft.items.isEmpty {
+                        InfoPill(text: "\(draft.items.count) ejercicio\(draft.items.count == 1 ? "" : "s")")
                     }
-                    addButton
-                    if draft.canStart { titleField }
                 }
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.top, Theme.Spacing.m)
-                .padding(.bottom, Theme.Spacing.xxl)
+                ForEach(draft.items) { item in
+                    FreeStrengthCard(
+                        item: bindingFor(item.id),
+                        canMoveUp: draft.items.first?.id != item.id,
+                        canMoveDown: draft.items.last?.id != item.id,
+                        onMoveUp: { draft.move(item.id, by: -1) },
+                        onMoveDown: { draft.move(item.id, by: 1) },
+                        onRemove: { withAnimation { draft.remove(item.id) } }
+                    )
+                }
+                BotonAnadirLibre(
+                    titulo: draft.items.isEmpty ? "Añadir ejercicio" : "Añadir otro",
+                    habilitado: draft.canAddMore,
+                    etiquetaAlLimite: "Máximo de ejercicios alcanzado"
+                ) {
+                    pickingForWarmup = false
+                    showPicker = true
+                }
             }
-            if draft.canStart { footer }
+            if draft.canStart {
+                CampoNombreLibre(sugerido: draft.defaultTitle, texto: $draft.titleEdited,
+                                 maximo: FreeStrengthDraft.maxTitle)
+            }
+        } pie: {
+            if draft.canStart {
+                PieConstructorLibre(
+                    diaISO: $draft.scheduledDayISO,
+                    guardando: isSavingPlan,
+                    alGuardar: { Task { await savePlan() } },
+                    alContinuar: {
+                        guard let ctx = draft.buildContext() else { return }
+                        onStart(ctx)
+                    }
+                )
+            }
         }
-        .background(Theme.Color.background.ignoresSafeArea())
-        // Cover, not sheet: same nested-presentation rule as the functional builder.
+        .avisoDia($aviso)
+        // Cubierta, no hoja: la misma regla de presentaciones anidadas que el constructor funcional.
         .fullScreenCover(isPresented: $showPicker) {
             FreeExercisePickerView(
                 bearer: bearer,
@@ -308,27 +337,26 @@ struct FreeStrengthBuilderView: View {
         }
     }
 
-    // MARK: Calentamiento (opcional, rellenable o vacío — IMG del gym de Alex)
+    // MARK: Calentamiento (opcional: con ejercicios o vacío, solo la fase con su reloj)
 
-    @ViewBuilder
     private var warmupSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             Toggle(isOn: $draft.includeWarmup.animation()) {
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Calentamiento")
-                        .font(.system(size: 14, weight: .heavy, design: .default).italic())
+                        .papel(.cuerpoFuerte)
                         .foregroundStyle(Theme.Color.foreground)
-                    Text(draft.includeWarmup
-                         ? (draft.warmupItems.isEmpty ? "Sin ejercicios: solo la fase, con su reloj" : "\(draft.warmupItems.count) ejercicio\(draft.warmupItems.count == 1 ? "" : "s")")
-                         : "Opcional · la serie 1 será la serie 1")
-                        .font(Theme.Typography.caption)
+                    Text(resumenCalentamiento)
+                        .papel(.nota)
                         .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .tint(Theme.Color.accent)
-            .padding(Theme.Spacing.m)
-            .background(Theme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            .padding(.horizontal, Theme.Spacing.l)
+            .padding(.vertical, Theme.Spacing.m)
+            .frame(minHeight: Theme.Size.accion)
+            .tarjetaDia()
 
             if draft.includeWarmup {
                 ForEach(draft.warmupItems) { item in
@@ -336,30 +364,21 @@ struct FreeStrengthBuilderView: View {
                         item: bindingForWarmup(item.id),
                         canMoveUp: false, canMoveDown: false,
                         onMoveUp: {}, onMoveDown: {},
-                        onRemove: { withAnimation { draft.remove(item.id) }; Haptics.light() }
+                        onRemove: { withAnimation { draft.remove(item.id) } }
                     )
                 }
-                Button {
+                BotonAnadirLibre(titulo: "Ejercicio de calentamiento") {
                     pickingForWarmup = true
                     showPicker = true
-                    Haptics.light()
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "plus")
-                        Text("Ejercicio de calentamiento")
-                    }
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 40)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                            .strokeBorder(Theme.Color.outline, style: StrokeStyle(lineWidth: 1, dash: [5]))
-                    )
                 }
-                .buttonStyle(.plain)
             }
         }
+    }
+
+    private var resumenCalentamiento: String {
+        guard draft.includeWarmup else { return "Opcional · la serie 1 será la serie 1" }
+        let n = draft.warmupItems.count
+        return n == 0 ? "Sin ejercicios: solo la fase, con su reloj" : "\(n) ejercicio\(n == 1 ? "" : "s")"
     }
 
     private func bindingForWarmup(_ id: UUID) -> Binding<FreeStrengthItem> {
@@ -369,125 +388,6 @@ struct FreeStrengthBuilderView: View {
                 if let i = draft.warmupItems.firstIndex(where: { $0.id == id }) { draft.warmupItems[i] = new }
             }
         )
-    }
-
-    // MARK: Nav bar
-
-    private var navBar: some View {
-        HStack(spacing: Theme.Spacing.m) {
-            Button {
-                Haptics.light()
-                onBack()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.Color.surface)
-                    .clipShape(Circle())
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Atrás")
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Crear fuerza")
-                    .font(.system(size: 15, weight: .heavy, design: .default).italic())
-                    .foregroundStyle(Theme.Color.foreground)
-                Text(draft.items.isEmpty ? "Añade ejercicios" : "\(draft.items.count) ejercicio\(draft.items.count == 1 ? "" : "s")")
-                    .font(Theme.Typography.caption)
-                    .foregroundStyle(Theme.Color.muted)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, Theme.Spacing.l)
-        .padding(.vertical, Theme.Spacing.s)
-        .overlay(Rectangle().fill(Theme.Color.hairline).frame(height: 1), alignment: .bottom)
-    }
-
-    private var stepHeader: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text("Tus ejercicios")
-                .font(.system(size: 22, weight: .heavy, design: .default).italic())
-                .foregroundStyle(Theme.Color.foreground)
-            Text("Series, medida y carga. Registras cada serie en directo.")
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.muted)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var addButton: some View {
-        Button {
-            Haptics.light()
-            pickingForWarmup = false
-            showPicker = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .heavy))
-                Text(draft.items.isEmpty ? "Añadir ejercicio" : "Añadir otro")
-                    .font(.system(size: 14, weight: .heavy, design: .default).italic())
-            }
-            .foregroundStyle(draft.canAddMore ? Theme.Color.accentText : Theme.Color.faint)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.accent.opacity(draft.canAddMore ? 0.4 : 0.15),
-                            style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle())
-        .disabled(!draft.canAddMore)
-        .accessibilityLabel(draft.canAddMore ? "Añadir ejercicio" : "Máximo de ejercicios alcanzado")
-    }
-
-    private var titleField: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "Nombre", size: 11)
-            TextField(draft.defaultTitle, text: $draft.titleEdited)
-                .font(Theme.Typography.bodyEmph)
-                .foregroundStyle(Theme.Color.foreground)
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.vertical, 12)
-                .background(Theme.Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                .onChange(of: draft.titleEdited) { _, new in
-                    if new.count > FreeStrengthDraft.maxTitle {
-                        draft.titleEdited = String(new.prefix(FreeStrengthDraft.maxTitle))
-                    }
-                }
-                .accessibilityLabel("Nombre del entreno")
-        }
-    }
-
-    private var footer: some View {
-        VStack(spacing: 0) {
-            Rectangle().fill(Theme.Color.hairline).frame(height: 1)
-            ProgramarDiaPicker(selectedISO: $draft.scheduledDayISO)
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.top, Theme.Spacing.s)
-            HStack(spacing: Theme.Spacing.m) {
-                SecondaryButton(title: "Guardar") {
-                    Task { await savePlan() }
-                }
-                ExpertPrimaryButton(title: "Continuar", height: 52) {
-                    guard let ctx = draft.buildContext() else { return }
-                    Haptics.medium()
-                    onStart(ctx)
-                }
-            }
-            .padding(.horizontal, Theme.Spacing.l)
-            .padding(.top, Theme.Spacing.s)
-            .padding(.bottom, Theme.Spacing.m)
-            .opacity(isSavingPlan ? 0.6 : 1)
-            .disabled(isSavingPlan)
-        }
-        .background(Theme.Color.background)
     }
 
     private func savePlan() async {
@@ -500,10 +400,11 @@ struct FreeStrengthBuilderView: View {
             onSaved()
         } catch {
             Haptics.error()
+            aviso = AvisoConstructorLibre.noGuardado
         }
     }
 
-    // Index-safe binding into the draft's item array (ForEach over value copies).
+    // Enlace por id al array del borrador (el ForEach itera copias).
     private func bindingFor(_ id: UUID) -> Binding<FreeStrengthItem> {
         Binding(
             get: { draft.items.first(where: { $0.id == id }) ?? FreeStrengthItem(exercise: FreeExercise(id: 0, name: "", slug: "", category: "strength", modality: nil)) },
@@ -514,7 +415,7 @@ struct FreeStrengthBuilderView: View {
     }
 }
 
-// MARK: - Exercise card
+// MARK: - La tarjeta de un ejercicio
 
 private struct FreeStrengthCard: View {
     @Binding var item: FreeStrengthItem
@@ -525,8 +426,11 @@ private struct FreeStrengthCard: View {
     let onRemove: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            header
+        TarjetaMovimientoLibre(
+            nombre: item.exercise.name,
+            puedeSubir: canMoveUp, puedeBajar: canMoveDown,
+            alSubir: onMoveUp, alBajar: onMoveDown, alQuitar: onRemove
+        ) {
             FreeStepper(label: "Series", value: $item.series,
                         step: FreeStrengthStep.repsStep, minValue: 1, maxValue: FreeStrengthStep.maxSeries) { "\($0)" }
             FreeKindToggle(
@@ -550,43 +454,14 @@ private struct FreeStrengthCard: View {
                         step: FreeStrengthStep.restStep, minValue: 0) {
                 $0 == 0 ? "sin pausa" : Formato.clock($0, subMinuto: .segundos)
             }
-            previewLine
-        }
-        .padding(Theme.Spacing.m)
-        .background(Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-    }
-
-    private var header: some View {
-        HStack(spacing: 8) {
-            Text(item.exercise.name)
-                .font(.system(size: 16, weight: .heavy, design: .default).italic())
+            // El resumen de la tarjeta en una línea: lo que vas a hacer, leído como se dice.
+            Text(item.previewLine)
+                .papel(.notaFuerte)
                 .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            iconButton("chevron.up", enabled: canMoveUp, label: "Subir", action: onMoveUp)
-            iconButton("chevron.down", enabled: canMoveDown, label: "Bajar", action: onMoveDown)
-            iconButton("trash", enabled: true, label: "Quitar", action: onRemove)
+                .accessibilityLabel("Resumen: \(item.previewLine)")
         }
-    }
-
-    private func iconButton(_ name: String, enabled: Bool, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: { if enabled { action() } }) {
-            Image(systemName: name)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(enabled ? Theme.Color.muted : Theme.Color.faint)
-                .frame(width: 30, height: 30)
-                .background(Theme.Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-        .accessibilityLabel(label)
     }
 
     @ViewBuilder
@@ -606,20 +481,5 @@ private struct FreeStrengthCard: View {
                 Formato.distancia(Double($0)) ?? "\($0) m"
             }
         }
-    }
-
-    private var previewLine: some View {
-        Text(item.previewLine)
-            .font(Theme.Typography.small)
-            .foregroundStyle(Theme.Color.accentText)
-            .lineLimit(2)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 2)
-            .accessibilityLabel("Resumen: \(item.previewLine)")
-    }
-
-    private func kgString(_ v: Double) -> String {
-        Formato.esDecimal(v)
     }
 }

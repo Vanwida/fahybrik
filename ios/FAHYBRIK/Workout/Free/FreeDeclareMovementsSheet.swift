@@ -1,19 +1,17 @@
 import SwiftUI
 
-// MARK: - "¿Qué hiciste?" — declaring the movements AFTER a cronómetro session
+// «¿QUÉ HICISTE?» — declarar los movimientos DESPUÉS de una sesión de cronómetro.
 //
-// The athlete started a bare clock (EMOM 10 × 1:00) and trained. The work is already
-// measured — duration, format, heart rate, the rounds the engine counted. What the
-// app does NOT know is which movements filled the minutes, and that is the one thing
-// only the athlete can say.
+// El atleta arrancó un reloj pelado (EMOM 10 × 1:00) y entrenó. El trabajo ya está medido —duración,
+// formato, pulso, las rondas que contó el motor—; lo que la app NO sabe es qué movimientos llenaron los
+// minutos, y eso sólo lo puede decir él.
 //
-// So we ask here instead of at the start. Reuses the builder's exercise picker and
-// its dose card verbatim, and hands back movements that `FreeFunctionalItems` maps
-// with the SAME structure the session ran — a WOD declared afterwards is identical
-// on the wire to one declared before.
+// Por eso se pregunta aquí y no al empezar. Usa el selector de ejercicios y la tarjeta de dosis del
+// constructor tal cual, y devuelve movimientos que `FreeFunctionalItems` traduce con la MISMA estructura
+// con que corrió la sesión: un WOD declarado después es idéntico en el cable a uno declarado antes.
 //
-// Optional by construction: the sheet's only exits are "Guardar" and a close button,
-// and the summary's GUARDAR never waits for either.
+// Opcional por construcción: sus únicas salidas son «Guardar» y cerrar, y el GUARDAR del resumen no
+// espera a ninguna de las dos. Es de la misma familia que el constructor (sus piezas).
 struct FreeDeclareMovementsSheet: View {
     let bearer: String?
     /// The shape the session ran, shown as context so the athlete is naming
@@ -26,32 +24,32 @@ struct FreeDeclareMovementsSheet: View {
     @State private var showPicker = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            navBar
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                    header
-                    ForEach(movements) { m in
-                        FreeFunctionalCard(
-                            movement: bindingFor(m.id),
-                            canMoveUp: movements.first?.id != m.id,
-                            canMoveDown: movements.last?.id != m.id,
-                            onMoveUp: { move(m.id, by: -1); Haptics.light() },
-                            onMoveDown: { move(m.id, by: 1); Haptics.light() },
-                            onRemove: { withAnimation { movements.removeAll { $0.id == m.id } }; Haptics.light() }
-                        )
-                    }
-                    addButton
-                }
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.top, Theme.Spacing.m)
-                .padding(.bottom, Theme.Spacing.xxl)
+        PantallaConstructorLibre(salida: .cerrar, alSalir: onClose) {
+            TituloPasoLibre(
+                etiqueta: headerLine.flatMap { $0.isEmpty ? nil : $0 } ?? "Tu sesión",
+                titulo: "¿Qué hiciste?",
+                apoyo: "Añade los movimientos y su dosis. Ya está todo cronometrado."
+            )
+            ForEach(movements) { m in
+                FreeFunctionalCard(
+                    movement: bindingFor(m.id),
+                    canMoveUp: movements.first?.id != m.id,
+                    canMoveDown: movements.last?.id != m.id,
+                    onMoveUp: { move(m.id, by: -1) },
+                    onMoveDown: { move(m.id, by: 1) },
+                    onRemove: { withAnimation { movements.removeAll { $0.id == m.id } } }
+                )
             }
-            footer
+            BotonAnadirLibre(
+                titulo: movements.isEmpty ? "Añadir movimiento" : "Añadir otro",
+                habilitado: canAddMore,
+                etiquetaAlLimite: "Máximo de movimientos alcanzado"
+            ) { showPicker = true }
+        } pie: {
+            pie
         }
-        .background(Theme.Color.background.ignoresSafeArea())
-        // Cover, not nested sheet: a sheet over this sheet is the same
-        // "only one presentation" refusal as the builder picker.
+        // Cubierta, no hoja anidada: una hoja sobre esta hoja es el mismo «solo una presentación» que
+        // rechaza el selector del constructor.
         .fullScreenCover(isPresented: $showPicker) {
             FreeExercisePickerView(
                 bearer: bearer,
@@ -62,91 +60,31 @@ struct FreeDeclareMovementsSheet: View {
         }
     }
 
-    // MARK: Chrome
+    // MARK: El pie
 
-    private var navBar: some View {
-        HStack(spacing: Theme.Spacing.m) {
-            Button {
-                Haptics.light()
-                onClose()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.Color.surface)
-                    .clipShape(Circle())
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Cerrar")
-            Text("¿Qué hiciste?")
-                .font(.system(size: 15, weight: .heavy, design: .default).italic())
-                .foregroundStyle(Theme.Color.foreground)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, Theme.Spacing.l)
-        .padding(.vertical, Theme.Spacing.s)
-        .overlay(Rectangle().fill(Theme.Color.hairline).frame(height: 1), alignment: .bottom)
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            if let headerLine, !headerLine.isEmpty {
-                Text(headerLine)
-                    .font(.system(size: 22, weight: .heavy, design: .default).italic())
-                    .foregroundStyle(Theme.Color.foreground)
-            }
-            Text("Añade los movimientos y su dosis. Ya está todo cronometrado.")
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.muted)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var addButton: some View {
-        Button {
-            Haptics.light()
-            showPicker = true
+    /// Guardar sólo cuando hay algo que guardar: sin movimientos, la salida es cerrar (el resumen del
+    /// entreno ya está guardado; esto es un añadido opcional).
+    private var pie: some View {
+        let vacio = movements.isEmpty
+        return Button {
+            Haptics.medium()
+            onDone(movements)
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .heavy))
-                Text(movements.isEmpty ? "Añadir movimiento" : "Añadir otro")
-                    .font(.system(size: 14, weight: .heavy, design: .default).italic())
-            }
-            .foregroundStyle(canAddMore ? Theme.Color.accentText : Theme.Color.faint)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.accent.opacity(canAddMore ? 0.4 : 0.15),
-                            style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            .contentShape(Rectangle())
+            Text("Guardar")
+                .papel(.accion)
+                .foregroundStyle(Theme.Color.background)
+                .frame(maxWidth: .infinity, minHeight: Theme.Size.accion)
+                .background(Theme.Color.foreground, in: Capsule())
+                .contentShape(Capsule())
         }
-        .buttonStyle(PressScaleStyle())
-        .disabled(!canAddMore)
-        .accessibilityLabel(canAddMore ? "Añadir movimiento" : "Máximo de movimientos alcanzado")
-    }
-
-    private var footer: some View {
-        VStack(spacing: 0) {
-            Rectangle().fill(Theme.Color.hairline).frame(height: 1)
-            ExpertPrimaryButton(title: "GUARDAR", height: 52) {
-                Haptics.medium()
-                onDone(movements)
-            }
-            .disabled(movements.isEmpty)
-            .opacity(movements.isEmpty ? 0.4 : 1)
-            .padding(.horizontal, Theme.Spacing.l)
-            .padding(.top, Theme.Spacing.s)
-            .padding(.bottom, Theme.Spacing.m)
-        }
+        .buttonStyle(PressScaleStyle(escala: 0.98))
+        .disabled(vacio)
+        .opacity(vacio ? 0.4 : 1)
+        .accessibilityHint(vacio ? "Añade al menos un movimiento" : "")
+        .padding(.horizontal, Theme.Spacing.pantalla)
+        .padding(.vertical, Theme.Spacing.m)
         .background(Theme.Color.background)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.Color.hairline).frame(height: 1) }
     }
 
     // MARK: State

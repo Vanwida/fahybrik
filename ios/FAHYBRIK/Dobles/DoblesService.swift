@@ -198,7 +198,7 @@ struct DoblesSimulation: Codable, Hashable {
     // Edit provenance (mig 0099) — the reparto is pair-owned, so the app shows who
     // last touched it. Optional/tolerant: older cached payloads decode with nil.
     let lastEditedByKind: String?    // "coach" | "athlete" | nil
-    let lastEditedByName: String?    // "Pablo" / "Guillem" / nil
+    let lastEditedByName: String?    // nombre de quien tocó el reparto / nil
     let updatedAt: String?           // ISO8601 / nil
     /// Consejos del coach antes de la simulación (wire `coach_tips`). Optional →
     /// decodeIfPresent (default [] vía `coachTipsList`), así un payload viejo sin

@@ -217,6 +217,12 @@ enum HistoryCalendar {
         return c.day
     }
 
+    /// "YYYY-MM-DD" de un día del mes: la llave con que el servidor manda cada día (y la que
+    /// usan el calendario y la lista para saber qué día está enfocado).
+    static func isoDate(_ day: Int, en ym: YearMonth) -> String {
+        String(format: "%04d-%02d-%02d", ym.year, ym.month, day)
+    }
+
     /// The month grid, Monday-first: leading blanks to the weekday of day 1, then days
     /// 1…N, then trailing blanks so the count is a whole number of weeks (rows × 7).
     static func grid(_ ym: YearMonth) -> [CalendarGridCell] {

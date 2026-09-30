@@ -35,24 +35,21 @@ struct EntrenoHechoPorEjecucionView: View {
             case .sesion(let sesion):
                 LecturaDeSesionView(sesion: sesion, zonas: hrZones, onCerrar: onClose)
             case .cargando:
-                marco { ProgressView().tint(Theme.Color.accent) }
+                // La misma silueta que la lectura que llega: nada salta al llegar el dato.
+                MarcoDeLoHecho(titulo: titulo, alCerrar: onClose, centrado: false) { EsqueletoDeLoHecho() }
             case .vacio:
-                marco {
-                    RedesignEmptyState(
-                        symbol: "tray",
-                        title: "Sin datos de este entreno",
-                        message: "Se guardó, pero sin nada medido que enseñar.",
-                        exit: .action(title: "Cerrar", perform: onClose)
-                    )
+                MarcoDeLoHecho(titulo: titulo, alCerrar: onClose) {
+                    SujetoEstadoDeLoHecho(
+                        tono: .neutro, kicker: "Entreno guardado", titulo: "Sin datos de este entreno",
+                        apoyo: "Se guardó, pero sin nada medido que enseñar.",
+                        accion: "Cerrar", glifo: .cerrar, alTocar: onClose)
                 }
             case .error:
-                marco {
-                    RedesignEmptyState(
-                        symbol: "arrow.clockwise",
-                        title: "No pudimos cargar tu entreno",
-                        message: "Revisa tu conexión e inténtalo de nuevo.",
-                        exit: .action(title: "Reintentar") { Task { await cargar() } }
-                    )
+                MarcoDeLoHecho(titulo: titulo, alCerrar: onClose) {
+                    SujetoEstadoDeLoHecho.error(
+                        kicker: "Entreno hecho", titulo: "No pudimos cargar tu entreno",
+                        apoyo: "Revisa tu conexión e inténtalo de nuevo.",
+                        alReintentar: { Task { await cargar() } })
                 }
             }
         }
@@ -60,36 +57,7 @@ struct EntrenoHechoPorEjecucionView: View {
         .task { await cargar() }
     }
 
-    /// La barra con la ✕ y el estado centrado debajo — solo mientras no hay lectura
-    /// (las lecturas traen su propio cromo y su propia salida).
-    private func marco<Contenido: View>(@ViewBuilder _ contenido: () -> Contenido) -> some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(fallbackTitle ?? "Entreno")
-                    .scaledFont(20, weight: .heavy, relativeTo: .title3, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                Spacer(minLength: Theme.Spacing.s)
-                Button {
-                    Haptics.light()
-                    onClose()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(Theme.Color.muted)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Cerrar")
-            }
-            .padding(.horizontal, Theme.Spacing.m)
-            .padding(.top, Theme.Spacing.s)
-            Spacer(minLength: 0)
-            contenido().padding(.horizontal, Theme.Spacing.xl)
-            Spacer(minLength: 0)
-        }
-    }
+    private var titulo: String { fallbackTitle ?? "Entreno" }
 
     @MainActor
     private func cargar() async {
