@@ -639,91 +639,28 @@ struct ActiveWorkoutView: View {
         }
     }
 
-    // UN MARCO. El tramo decide la LECTURA; el cromo y la acción son siempre
-    // `MarcoVivo` + `BotonVivo`. El árbol que devolvía nil (y pintaba phaseRail
-    // PRINCIPAL naranja + ExpertActionButton 40 pt) ya no existe.
-    /// UN árbol live — `RunLiveShellView` para run, erg, EMOM, fuerza, descanso…
-    ///
-    /// EL VIVO REHECHO (28-09, docs/vivo-iphone/modelo.md): detrás de
-    /// `VivoIphoneBandera` (encendida en Debug y Release desde el 29-09; el shell
-    /// viejo queda de vuelta atrás hasta la prueba en aparato) monta `VivoIphoneView`,
-    /// que pinta el MISMO estado que la muñeca con el kit compartido `Vivo`. El motor no cambia.
-    @ViewBuilder
+    /// El vivo del iPhone: `VivoIphoneView` pinta el MISMO estado que la muñeca con el kit
+    /// compartido `Vivo` (docs/vivo-iphone/modelo.md). El motor no cambia.
     private var superficieMontada: some View {
-        if VivoIphoneBandera.activa {
-            VivoIphoneView(
-                session: session,
-                hrZones: hrZones,
-                pm5: livePM5 ?? pool.any,
-                hrLink: hub.heartRate.link,
-                treadmillLink: hub.treadmill.link,
-                gpsActive: gpsActive,
-                isBenchmark: isBenchmark,
-                alAccionDelHost: { primaryAction() },
-                alConectividad: { mostrarConectividad = true },
-                alTerminarYGuardar: { session.finish(completeness: .partial) },
-                alVerBloques: { mostrarBloques = true },
-                // Las mismas salidas que el shell viejo, con la misma semántica:
-                // chevrón = minimizar (FH-111, el motor sigue); «Guardar para luego»
-                // = pausa + instantánea (Card 142); «Descartar» = nada se guarda.
-                alMinimizar: onLeaveAndResume.map { _ in { requestExitOrLeave() } },
-                salidas: VivoSalidas(guardarParaLuego: onSoftLeave, descartar: { onExit() }),
-                alSaltarTramo: { requestJump(to: $0) },
-                pareja: DoblesLiveStripState.from(partnerLive)
-            )
-        } else {
-            superficieAntigua
-        }
-    }
-
-    private var superficieAntigua: some View {
-        RunLiveShellView(
+        VivoIphoneView(
             session: session,
             hrZones: hrZones,
-            accionTitulo: primaryTitle,
-            alTocarAccion: { primaryAction() },
-            alSalir: { requestExitOrLeave() },
-            alVerBloques: { mostrarBloques = true },
-            alConectividad: { mostrarConectividad = true },
-            alTapPM5: { openPM5Picker() },
-            alTapHR: { openHRPicker() },
-            alPausa: {
-                session.togglePause()
-                if session.isPaused { showPauseConfirm = true; pauseAutoResume = 10 }
-            },
             pm5: livePM5 ?? pool.any,
             hrLink: hub.heartRate.link,
+            treadmillLink: hub.treadmill.link,
             gpsActive: gpsActive,
-            muestraConectividad: muestraConectividadEnBanda,
-            partnerStrip: DoblesLiveStripState.from(partnerLive),
-            partnerStripCollapsed: $partnerStripCollapsed,
-            partnerFirstName: partnerFirstName,
-            accionDelHost: accionDelHostSiAplica,
-            alSaltarTramo: { requestJump(to: $0) }
+            isBenchmark: isBenchmark,
+            alAccionDelHost: { primaryAction() },
+            alConectividad: { mostrarConectividad = true },
+            alTerminarYGuardar: { session.finish(completeness: .partial) },
+            alVerBloques: { mostrarBloques = true },
+            // Las salidas: chevrón = minimizar (FH-111, el motor sigue); «Guardar para luego»
+            // = pausa + instantánea (Card 142); «Descartar» = nada se guarda.
+            alMinimizar: onLeaveAndResume.map { _ in { requestExitOrLeave() } },
+            salidas: VivoSalidas(guardarParaLuego: onSoftLeave, descartar: { onExit() }),
+            alSaltarTramo: { requestJump(to: $0) },
+            pareja: DoblesLiveStripState.from(partnerLive)
         )
-    }
-
-    /// Death By y relevo llevan acción dual o especial; el resto usa `primaryAction`.
-    private var accionDelHostSiAplica: AccionDelHost? {
-        switch SuperficieViva.de(session) {
-        case .relay, .structural, .conditioning:
-            return accionDelHost
-        default:
-            return nil
-        }
-    }
-
-    private var accionDelHost: AccionDelHost {
-        if session.currentSegmentIsPartnerRelay {
-            return .una(titulo: "Relevo ▸", unicaSalida: true, nota: nil, act: { session.advanceRelay() })
-        }
-        if session.currentSegment?.formatScheme == .deathBy && session.condCountInRemaining <= 0 {
-            return .deathBy(falle: { session.deathByFail() }, logre: { session.deathByLogged() })
-        }
-        return .una(titulo: primaryTitle,
-                    unicaSalida: session.currentBlockIsStructural,
-                    nota: nil,
-                    act: { primaryAction() })
     }
 
     // MARK: - Primary action
@@ -936,7 +873,7 @@ struct ActiveWorkoutView: View {
     @ViewBuilder
     private var finishDecisionOverlay: some View {
         // El vivo nuevo pide antes la puntuación del AMRAP (la campana) y guarda él: no se tapa.
-        if session.isAwaitingFinishDecision, !(VivoIphoneBandera.activa && Vivo.esperaPuntuacion(session)) {
+        if session.isAwaitingFinishDecision, !Vivo.esperaPuntuacion(session) {
             ZStack {
                 Theme.Color.scrim.ignoresSafeArea()
                 CardSurface(padding: Theme.Spacing.l, radius: Theme.Radius.xl) {

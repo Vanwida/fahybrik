@@ -102,40 +102,6 @@ struct BotonTextoPrevia: View {
     }
 }
 
-/// Un botón secundario con cara de chip (48 pt, superficie elevada): «Conectar», «Gestionar», «Saltar».
-struct BotonChipPrevia: View {
-    let titulo: String
-    var simbolo: String?
-    let accion: () -> Void
-
-    var body: some View {
-        Button {
-            Haptics.light()
-            accion()
-        } label: {
-            HStack(spacing: Theme.Spacing.xs + 2) {
-                if let simbolo {
-                    Image(systemName: simbolo)
-                        .font(.system(size: 15, weight: .bold))
-                        .accessibilityHidden(true)
-                }
-                Text(titulo)
-                    .papel(.notaPesada)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .foregroundStyle(Theme.Color.foreground)
-            .padding(.horizontal, Theme.Spacing.l)
-            .frame(maxWidth: .infinity, minHeight: Theme.Size.toque)
-            .background(Theme.Color.surfaceElevated, in: Capsule())
-            .overlay(Capsule().strokeBorder(Theme.Color.hairlineStrong, lineWidth: 1))
-            .contentShape(Capsule())
-        }
-        .buttonStyle(PressScaleStyle(escala: 0.96))
-        .accessibilityLabel(titulo)
-    }
-}
-
 /// La pastilla de una zona de pulso: el punto con el color SEMÁNTICO de la zona y la zona en la tinta del
 /// tema (el color de zona como texto no llega a AA sobre todas las superficies).
 struct PastillaZonaPrevia: View {
