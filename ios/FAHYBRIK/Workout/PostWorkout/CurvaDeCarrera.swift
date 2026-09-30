@@ -41,7 +41,9 @@ struct CurvaDeCarrera: View {
     let descripcion: String
 
     private static let alto: CGFloat = 158
-    private static let margen = (arriba: 10.0, abajo: 18.0, izquierda: 34.0, derecha: 6.0)
+    /// Los márgenes dejan sitio a la rotulación a 15 pt (el suelo): un tiempo «4:32» a 15 pt mono mide
+    /// unos 36 pt y una línea de texto unos 18.
+    private static let margen = (arriba: 12.0, abajo: 26.0, izquierda: 48.0, derecha: 8.0)
     /// Ventana de la media móvil, en muestras. Quita el temblor del reloj y deja
     /// intacto el escalón entre una serie y su recuperación.
     private static let ventana = 5
@@ -269,7 +271,7 @@ struct CurvaDeCarrera: View {
     ) {
         ctx.draw(
             Text(texto)
-                .font(.system(size: 9, weight: .semibold, design: .monospaced).monospacedDigit())
+                .font(.system(size: Theme.Typography.suelo, weight: .semibold, design: .monospaced).monospacedDigit())
                 .foregroundStyle(Theme.Color.faint),
             at: punto,
             anchor: anchor
