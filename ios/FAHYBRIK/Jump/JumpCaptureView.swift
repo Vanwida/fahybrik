@@ -1,7 +1,12 @@
 import SwiftUI
 
 // Tras el briefing: graba, confirma dos fotogramas, guarda.
-// No es WorkoutContainer.
+// No es WorkoutContainer (que lo monta, sin cambiarlo, cuando la sesión programada ES un salto).
+//
+// TRES FASES, una pantalla cada una:
+//   · grabar   — la cámara manda; el disparador es lo único que pesa.
+//   · revisar  — `JumpReviewView`: el vídeo, la altura y el ajuste de los dos fotogramas.
+//   · resumen  — lo conservado (`ResumenDeSalto`) y el guardado; al guardar, el informe.
 
 struct JumpLaunch: Identifiable {
     let id: String
@@ -36,8 +41,9 @@ struct JumpCaptureView: View {
     private var seriesAttempts: [JumpDraftAttempt] {
         attempts.filter { $0.kind == currentKind }
     }
-    private var keptCount: Int { seriesAttempts.filter(\.kept).count }
-    private var remaining: Int { max(0, launch.attemptsWanted - seriesAttempts.count) }
+    private var resumen: ResumenDeSalto {
+        .de(intentos: attempts, loadKg: launch.loadKg, bodyMassKg: launch.bodyMassKg)
+    }
 
     var body: some View {
         ZStack {
@@ -66,57 +72,80 @@ struct JumpCaptureView: View {
         .onDisappear { recorder.teardown() }
     }
 
+    // MARK: - Grabar
+
     private var recordPhase: some View {
         VStack(spacing: 0) {
-            HStack {
-                Button("Cerrar", action: onClose)
-                    .foregroundStyle(Theme.Color.foreground)
-                Spacer()
-                Text("\(series.title) · \(seriesAttempts.count + 1)/\(launch.attemptsWanted)")
-                    .font(Theme.Typography.caption)
-                    .foregroundStyle(Theme.Color.muted)
+            HStack(spacing: Theme.Spacing.s) {
+                InfoPill(text: "\(series.title) · \(seriesAttempts.count + 1)/\(launch.attemptsWanted)", estilo: .velo)
+                Spacer(minLength: 0)
+                BotonCromoDia(.cerrar, etiqueta: "Cerrar", accion: onClose)
             }
-            .padding(Theme.Spacing.m)
+            .padding(EdgeInsets(top: Theme.Spacing.s, leading: Theme.Spacing.pantalla, bottom: Theme.Spacing.s, trailing: Theme.Spacing.s))
 
             JumpCameraPreview(session: recorder.session)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-                .padding(.horizontal, Theme.Spacing.m)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
+                .padding(.horizontal, Theme.Spacing.pantalla)
+                .accessibilityHidden(true)
 
             VStack(spacing: Theme.Spacing.s) {
                 Text("Máxima intención hacia arriba. Teléfono quieto.")
-                    .font(Theme.Typography.caption)
+                    .papel(.cuerpo)
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
                 if recorder.authorizationDenied {
-                    Text("Sin cámara no se puede medir. Actívala en Ajustes.")
-                        .font(Theme.Typography.caption)
-                        .foregroundStyle(Theme.Color.danger)
+                    AvisoEnLineaTests("Sin cámara no se puede medir. Actívala en Ajustes.") {
+                        BotonTextoTests("Abrir Ajustes", tono: .tinta, accion: abreAjustes)
+                    }
                 }
                 if series == .loaded {
-                    Button("No tengo la carga — solo CMJ") {
+                    BotonTextoTests("No tengo la carga — solo CMJ", tono: .suave, centrado: true) {
                         skipLoaded = true
                         phase = .summary
                     }
-                    .font(Theme.Typography.caption)
-                    .foregroundStyle(Theme.Color.muted)
                 }
-                Button {
-                    Task { await toggleRecord() }
-                } label: {
-                    Circle()
-                        .fill(recorder.isRecording ? Theme.Color.danger : Theme.Color.accent)
-                        .frame(width: 72, height: 72)
-                        .overlay {
-                            Circle().stroke(Theme.Color.foreground.opacity(0.3), lineWidth: 3)
-                        }
-                }
-                .accessibilityLabel(recorder.isRecording ? "Parar" : "Grabar")
-                .disabled(recorder.authorizationDenied || proposing)
+                disparador
             }
-            .padding(Theme.Spacing.l)
+            .padding(EdgeInsets(top: Theme.Spacing.l, leading: Theme.Spacing.pantalla, bottom: Theme.Spacing.l, trailing: Theme.Spacing.pantalla))
         }
     }
+
+    /// El disparador. Grabando, el círculo pasa a un cuadrado —«parar»— además de a rojo: el estado no
+    /// depende del color (§4.2).
+    private var disparador: some View {
+        Button {
+            Task { await toggleRecord() }
+        } label: {
+            ZStack {
+                Circle()
+                    .strokeBorder(Theme.Color.foreground.opacity(0.3), lineWidth: 3)
+                    .frame(width: 76, height: 76)
+                if recorder.isRecording {
+                    RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                        .fill(Theme.Color.danger)
+                        .frame(width: 30, height: 30)
+                } else {
+                    Circle()
+                        .fill(Theme.Color.accent)
+                        .frame(width: 60, height: 60)
+                }
+            }
+            .frame(width: 84, height: 84)
+            .contentShape(Circle())
+        }
+        .buttonStyle(PressScaleStyle(escala: 0.92))
+        .accessibilityLabel(recorder.isRecording ? "Parar" : "Grabar")
+        .disabled(recorder.authorizationDenied || proposing)
+    }
+
+    /// Sin permiso de cámara la salida es Ajustes, donde se concede: un aviso sin salida es una pared.
+    private func abreAjustes() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+    }
+
+    // MARK: - Revisar
 
     private var reviewPhase: some View {
         Group {
@@ -144,53 +173,85 @@ struct JumpCaptureView: View {
         }
     }
 
+    // MARK: - Resumen
+
     private var summaryPhase: some View {
-        let free = best(of: "cmj")
-        let loaded = best(of: "loaded_cmj")
-        return VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            HStack {
-                Button("Cerrar", action: onClose).foregroundStyle(Theme.Color.foreground)
-                Spacer()
+        let r = resumen
+        return VStack(spacing: 0) {
+            HStack(spacing: Theme.Spacing.s) {
+                Text("Resultado")
+                    .papel(.saludo)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityAddTraits(.isHeader)
+                BotonCromoDia(.cerrar, etiqueta: "Cerrar", accion: onClose)
             }
-            Text("Resultado")
-                .font(Theme.Typography.headlineM)
-                .foregroundStyle(Theme.Color.foreground)
-            if let free {
-                readout("CMJ", JumpPhysics.displayCm(free))
+            .padding(EdgeInsets(top: Theme.Spacing.s, leading: Theme.Spacing.pantalla, bottom: Theme.Spacing.s, trailing: Theme.Spacing.s))
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                    // Sin ningún salto conservado no hay resultado que enseñar, y se dice.
+                    if r.libreCm == nil {
+                        Text("Aún no hay ningún salto conservado. Vuelve a grabar para tener resultado.")
+                            .papel(.cuerpo)
+                            .foregroundStyle(Theme.Color.muted)
+                    }
+                    lecturas(r)
+                    if saveFailed {
+                        AvisoEnLineaTests("No se pudo guardar. Inténtalo de nuevo.")
+                    }
+                }
+                .padding(EdgeInsets(top: 6, leading: Theme.Spacing.pantalla, bottom: Theme.Spacing.xxl, trailing: Theme.Spacing.pantalla))
             }
-            if let loaded {
-                readout("Con carga", JumpPhysics.displayCm(loaded))
-            }
-            if let free, let loaded, let bw = launch.bodyMassKg, launch.loadKg > 0 {
-                let drop = free - loaded
-                let lri = (drop / free) / (launch.loadKg / bw)
-                readout("LRI", String(format: "%.2f", lri).replacingOccurrences(of: ".", with: ","))
-            }
-            if saveFailed {
-                Text("No se pudo guardar. Inténtalo de nuevo.")
-                    .font(Theme.Typography.caption)
-                    .foregroundStyle(Theme.Color.danger)
-            }
-            Spacer()
-            ExpertPrimaryButton(
-                title: saving ? "GUARDANDO…" : "GUARDAR",
-                height: 52,
-                enabled: !saving && free != nil,
-                action: { Task { await save() } }
-            )
+            .scrollBounceBehavior(.basedOnSize)
         }
-        .padding(Theme.Spacing.l)
+        .anchoredAction {
+            BotonAccionTests(
+                "Guardar",
+                completa: true,
+                alto: Theme.Size.accion,
+                estado: saving ? .ocupado(texto: "Guardando…", voz: "Guardando el resultado") : (r.libreCm != nil ? .normal : .inactivo)
+            ) {
+                Task { await save() }
+            }
+            // El pie ancla con 16 y el margen de las pantallas del día es 20: los 4 restantes van dentro.
+            .padding(.horizontal, Theme.Spacing.pantalla - Theme.Spacing.l)
+        }
     }
 
-    private func readout(_ label: String, _ value: String) -> some View {
-        HStack {
-            Text(label).font(Theme.Typography.body).foregroundStyle(Theme.Color.muted)
-            Spacer()
-            Text(value)
-                .font(.system(size: 22, weight: .heavy, design: .monospaced))
-                .foregroundStyle(Theme.Color.foreground)
+    private struct Lectura: Identifiable {
+        let rotulo: String
+        let cifra: String
+        let unidad: String?
+        var id: String { rotulo }
+        var etiqueta: String { unidad.map { "\(rotulo): \(cifra) \($0)" } ?? "\(rotulo): \(cifra)" }
+    }
+
+    /// Las cifras del resumen: teselas de dos en dos, todas del mismo peso (son pruebas, no protagonistas).
+    @ViewBuilder
+    private func lecturas(_ r: ResumenDeSalto) -> some View {
+        let todas: [Lectura] = [
+            r.libreCm.map { Lectura(rotulo: "CMJ", cifra: "\(Int($0.rounded()))", unidad: "cm") },
+            r.cargadoCm.map { Lectura(rotulo: "Con carga", cifra: "\(Int($0.rounded()))", unidad: "cm") },
+            r.lri.map { Lectura(rotulo: "LRI", cifra: ResumenDeSalto.textoLri($0), unidad: nil) },
+        ].compactMap { $0 }
+        ForEach(Array(stride(from: 0, to: todas.count, by: 2)), id: \.self) { i in
+            TeselasDia {
+                ForEach(Array(todas[i..<min(i + 2, todas.count)])) { t in
+                    TeselaDia(rotulo: t.rotulo, etiqueta: t.etiqueta) {
+                        HStack(alignment: .lastTextBaseline, spacing: Theme.Spacing.xs + 2) {
+                            Text(t.cifra).papel(.dato).foregroundStyle(Theme.Color.foreground)
+                            if let unidad = t.unidad {
+                                Text(unidad).papel(.notaFuerte).foregroundStyle(Theme.Color.muted)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
+
+    // MARK: - Lógica (sin cambios)
 
     private func toggleRecord() async {
         if recorder.isRecording {
@@ -198,7 +259,7 @@ struct JumpCaptureView: View {
             defer { proposing = false }
             guard let url = await recorder.stopRecording() else { return }
             let proposal = await JumpFrameMarker.propose(url: url)
-            var draft = JumpDraftAttempt(
+            let draft = JumpDraftAttempt(
                 kind: currentKind,
                 takeoffFrame: proposal.takeoff,
                 landingFrame: proposal.landing,
@@ -237,16 +298,13 @@ struct JumpCaptureView: View {
         phase = .record
     }
 
-    private func best(of kind: String) -> Double? {
-        attempts.filter { $0.kind == kind && $0.kept }.compactMap(\.heightCm).max()
-    }
-
     private func save() async {
-        guard let bearer, let free = best(of: "cmj") else { return }
+        let r = resumen
+        guard let bearer, let free = r.libreCm else { return }
         saving = true
         saveFailed = false
         var entries = [TestResultEntry(slug: "cmj", value: free)]
-        if let loaded = best(of: "loaded_cmj") {
+        if let loaded = r.cargadoCm {
             entries.append(TestResultEntry(slug: "cmj_loaded", value: loaded))
         }
         let wire = attempts.map {
@@ -273,7 +331,7 @@ struct JumpCaptureView: View {
             )
             savedReport = JumpProfileDTO.from(
                 unloaded: free,
-                loaded: best(of: "loaded_cmj"),
+                loaded: r.cargadoCm,
                 loadKg: launch.includeLoaded ? launch.loadKg : nil,
                 bodyMassKg: launch.bodyMassKg
             )
