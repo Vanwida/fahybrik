@@ -94,6 +94,8 @@ final class PhoneLiveSession {
 
     @ObservationIgnored private weak var engine: WorkoutSession?
     @ObservationIgnored private let hk = PhoneMirrorHKChannel()
+    /// El plan del entreno en pasos que se le manda a la muñeca (F2): qué, cuándo y con qué huella.
+    @ObservationIgnored private let planFeed = PhoneMirrorPlanFeed()
     @ObservationIgnored private var activityKind: String = "mixed"
     /// FH-96 — one workout intent → one PRIMARY. A second `begin` on the same
     /// staging session (prep UI + ▶ EMPEZAR) must not re-request the wrist.
@@ -128,6 +130,9 @@ final class PhoneLiveSession {
 
     private static let frameInterval: TimeInterval = 1
     private static let heartbeatInterval: TimeInterval = 5
+    /// Con cursor la muñeca marca «viejo» lo que depende del móvil a los `MirrorWire.datoViejoTrasS`
+    /// (5 s) sin trama: el latido tiene que caer con margen (y aguantar una trama perdida).
+    private static let heartbeatConCursor: TimeInterval = 2
     private static let log = Logger(subsystem: Marca.subsistemaLog("primary"), category: "phone-live")
 
     private init() {
@@ -384,6 +389,7 @@ final class PhoneLiveSession {
             var frame = buildFrame(from: engine)
             frame.hapticCue = cue
             frame.hapticSeq = hapticSeq
+            sendPlanIfNeeded(for: engine)
             send(type: MirrorWire.MessageType.frame, frame)
             lastSentKey = PhoneMirrorFrameBuilder.structuralKey(frame)
             lastSentAt = Date()
@@ -393,7 +399,7 @@ final class PhoneLiveSession {
     }
 
     func buildFrame(from session: WorkoutSession) -> MirrorStateFrame {
-        PhoneMirrorFrameBuilder.buildFrame(from: session, context: frameContext)
+        PhoneMirrorFrameBuilder.buildFrame(from: session, context: frameContext(for: session))
     }
 
     func structuralKey(_ frame: MirrorStateFrame) -> String {
@@ -443,6 +449,7 @@ final class PhoneLiveSession {
                                      detail: "state=\(incoming.state.rawValue) phase=\(phase) engine=\(engine != nil)")
         hk.bind(incoming)
         link = .bound
+        planFeed.olvidarEnvio()   // otro canal: la muñeca no tiene aún el plan
         wristWasLinked = true
         cancelRelease()
         Self.log.info("adopted mirrored session state=\(incoming.state.rawValue, privacy: .public) type=\(incoming.type.rawValue, privacy: .public) phase=\(String(describing: self.phase), privacy: .public) engine=\(self.engine != nil, privacy: .public)")
@@ -533,12 +540,21 @@ final class PhoneLiveSession {
 
     // MARK: - Private
 
-    private var frameContext: PhoneMirrorFrameContext {
+    private func frameContext(for session: WorkoutSession) -> PhoneMirrorFrameContext {
         PhoneMirrorFrameContext(
             isTreadmillLive: isTreadmillLive,
             hapticCue: pendingHapticCue,
-            hapticSeq: pendingHapticSeq
+            hapticSeq: pendingHapticSeq,
+            plan: planFeed.plan(para: session)
         )
+    }
+
+    /// El plan, ANTES que la trama que lo usa: si toca mandarlo (canal nuevo, otra huella, la
+    /// muñeca lo pidió), sale ahora. Ver `PhoneMirrorPlanFeed`.
+    private func sendPlanIfNeeded(for session: WorkoutSession) {
+        guard let plan = planFeed.pendienteDeEnvio(para: session) else { return }
+        send(type: MirrorWire.MessageType.plan, plan)
+        planFeed.marcarEnviado(plan)
     }
 
     /// Drops the mirrored HK channel and PRIMARY latches — post-workout idle only.
@@ -636,8 +652,10 @@ final class PhoneLiveSession {
         let frame = buildFrame(from: engine)
         let key = PhoneMirrorFrameBuilder.structuralKey(frame)
         let now = Date()
+        let heartbeat = frame.cursor == nil ? Self.heartbeatInterval : Self.heartbeatConCursor
         if lastSentKey.isEmpty || key != lastSentKey
-            || now.timeIntervalSince(lastSentAt) >= Self.heartbeatInterval {
+            || now.timeIntervalSince(lastSentAt) >= heartbeat {
+            sendPlanIfNeeded(for: engine)
             send(type: MirrorWire.MessageType.frame, frame)
             lastSentKey = key
             lastSentAt = now
@@ -647,6 +665,7 @@ final class PhoneLiveSession {
     private func pushFrameNow() {
         guard let engine else { return }
         let frame = buildFrame(from: engine)
+        sendPlanIfNeeded(for: engine)
         send(type: MirrorWire.MessageType.frame, frame)
         lastSentKey = PhoneMirrorFrameBuilder.structuralKey(frame)
         lastSentAt = Date()
@@ -659,6 +678,8 @@ final class PhoneLiveSession {
             engine.applyCommand(kind)
             pushFrameNow()
         case MirrorWire.CommandKind.sync:
+            // La muñeca pide el estado y, si no tiene el plan al que apunta, también el plan.
+            planFeed.pedirReenvio()
             pushFrameNow()
         case MirrorWire.CommandKind.pause:
             if !engine.isPaused { engine.togglePause() }
@@ -666,7 +687,14 @@ final class PhoneLiveSession {
             if engine.isPaused { engine.togglePause() }
         case MirrorWire.CommandKind.deathByFail:
             engine.deathByFail()
-        default: break
+        case MirrorWire.CommandKind.newLap:
+            _ = PhoneMirrorCommandRelay.aplicar(kind, a: engine)
+            pushFrameNow()
+        default:
+            // undo, plus30, vozMuneca: definidos en el cable, sin motor todavía (ver el relé).
+            if case let .pendiente(porQue) = PhoneMirrorCommandRelay.aplicar(kind, a: engine) {
+                Self.log.info("comando de la muñeca sin atender: \(porQue, privacy: .public)")
+            }
         }
     }
 

@@ -42,6 +42,9 @@ final class WatchPrimaryOwner: NSObject {
 
     var frame: MirrorStateFrame?
     var frameReceivedAt: Date?
+    /// F2 — plan + cursor del móvil y lo que mide la muñeca, para pintar el mismo cuadro que en
+    /// solitario. Ver `WatchPrimaryOwner+Espejo.swift`.
+    var espejo = Vivo.EspejoMuneca()
     var liveHR: Int?
     var activeKcal: Double = 0
     var distanceMeters: Double = 0
@@ -49,6 +52,10 @@ final class WatchPrimaryOwner: NSObject {
 
     var onHeartRate: ((Int) -> Void)?
     var onDistanceDelta: ((Double) -> Void)?
+
+    /// La precisión del último fijado (m) cuando el GPS está pedido; `nil` = aún sin fijado. Solo
+    /// para decir «GPS buscando» / listo: los metros los da Apple, no esto.
+    var gpsAccuracyM: Double? { locationGate.horizontalAccuracyM }
 
     var liveZone: HRZone? {
         guard let zones = WatchPlanModel.shared.today?.athleteHrZones else { return nil }
@@ -263,6 +270,8 @@ final class WatchPrimaryOwner: NSObject {
             WatchWorkoutCoordinator.shared.yieldForPhoneMirror()
         }
         bind(incoming, role: .mirror, configuration: incoming.workoutConfiguration)
+        // Recuperada con el entreno ya andando: lo medido antes de este arranque no está.
+        espejo = Vivo.EspejoMuneca(unidoATarde: true)
         DiagnosticsLog.shared.record(.session, .primaryBegin, outcome: .ok, detail: "role=mirror recovered state=\(incoming.state.rawValue)")
         DiagnosticsLog.shared.markRunning(workoutId: nil, role: "watch-mirror-recovered")
         hkPaused = incoming.state == .paused
@@ -280,6 +289,7 @@ final class WatchPrimaryOwner: NSObject {
         link = .unlinked(nil)
         frame = nil
         frameReceivedAt = nil
+        espejo = Vivo.EspejoMuneca()
         liveHR = nil
         activeKcal = 0
         distanceMeters = 0
@@ -312,6 +322,8 @@ final class WatchPrimaryOwner: NSObject {
         switch envelope.type {
         case MirrorWire.MessageType.frame:
             if let f = envelope.body(as: MirrorStateFrame.self) { applyFrame(f) }
+        case MirrorWire.MessageType.plan:
+            if let p = envelope.body(as: MirrorPlanVivo.self) { recibirPlanEspejo(p) }
         case MirrorWire.MessageType.end:
             if let e = envelope.body(as: MirrorEnd.self) { requestEnd(save: e.save, reason: e.save ? MirrorWire.EndReason.phone : MirrorWire.EndReason.discarded) }
         default:
@@ -322,6 +334,7 @@ final class WatchPrimaryOwner: NSObject {
     private func applyFrame(_ f: MirrorStateFrame) {
         frame = f
         frameReceivedAt = Date()
+        recibirTramaEspejo(f)
         applyPhase(f.phase)
         syncRunActivity(from: f)
     }
@@ -558,6 +571,7 @@ final class WatchPrimaryOwner: NSObject {
         locationGate.stop()
         frame = nil
         frameReceivedAt = nil
+        espejo = Vivo.EspejoMuneca()
         liveHR = nil
         activeKcal = 0
         distanceMeters = 0
@@ -600,6 +614,7 @@ final class WatchPrimaryOwner: NSObject {
         ) else { return }
         lastReportedDistance = meters
         onDistanceDelta?(delta)
+        anotarDistanciaEspejo(delta)
         if role == .mirror {
             send(type: MirrorWire.MessageType.distance, MirrorDistanceSample(deltaMeters: delta))
         }
@@ -619,6 +634,7 @@ final class WatchPrimaryOwner: NSObject {
         let bpm = Int(q.doubleValue(for: .count().unitDivided(by: .minute())).rounded())
         guard bpm > 0 else { return }
         liveHR = bpm
+        espejo.anotarPulso(bpm, en: Date())
         relayHR(bpm)
     }
 
