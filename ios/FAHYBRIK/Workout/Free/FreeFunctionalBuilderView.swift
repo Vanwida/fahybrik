@@ -1,24 +1,25 @@
 import SwiftUI
 
-// MARK: - Entreno libre — FUNCIONAL builder view
+// EL CONSTRUCTOR FUNCIONAL (WOD) — dos pasos, Formato → Configura, sobre `FreeFunctionalDraft` (el modelo
+// está en FreeFunctionalBuilder.swift). El paso 1 es la rejilla de formatos; el 2, los contadores de
+// estructura del formato elegido y la lista de movimientos (que se añaden desde el catálogo). Continuar
+// entrega el `FreeWorkoutContext` montado a quien lo aloja, que lo corre por el mismo motor.
 //
-// The UI for the funcional (WOD) track: a 2-step flow (Formato → Configura) over
-// `FreeFunctionalDraft` (the model in FreeFunctionalBuilder.swift). Step 1 is the
-// format grid; step 2 exposes the structural steppers for the chosen format plus
-// the movement list (added via the shared picker). On Empezar it hands the built
-// `FreeWorkoutContext` up to the host, which runs it through the same engine.
+// Es el mismo flujo que el camino medido y el de fuerza: las piezas son las de
+// `ConstructorLibrePiezas.swift`, y aquí sólo vive lo que es propio del WOD.
 
 struct FreeFunctionalBuilderView: View {
     let bearer: String?
     @Binding var draft: FreeFunctionalDraft
-    var editingAssignmentId: Int? = nil
+    var editingAssignmentId: Int?
     let onBack: () -> Void
     let onStart: (FreeWorkoutContext) -> Void
-    var onSaved: () -> Void = {}
+    var onSaved: () -> Void
 
-    @State private var step: Step = .format
+    @State private var step: Step
     @State private var showPicker = false
     @State private var isSavingPlan = false
+    @State private var aviso: AvisoDia.Contenido?
 
     init(
         bearer: String?,
@@ -39,26 +40,40 @@ struct FreeFunctionalBuilderView: View {
 
     enum Step { case format, config }
 
+    /// «Entreno libre · Funcional · AMRAP»: dónde estás del flujo.
+    private var etiqueta: String {
+        var partes = ["Entreno libre", "Funcional"]
+        if step == .config, let f = draft.format { partes.append(f.labelES) }
+        return partes.joined(separator: " · ")
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
-            navBar
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                    switch step {
-                    case .format: formatStep
-                    case .config: configStep
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.top, Theme.Spacing.m)
-                .padding(.bottom, Theme.Spacing.xxl)
+        PantallaConstructorLibre(
+            salida: .atras,
+            // Se cuenta desde la modalidad, que es donde empezó el flujo: el atleta viene del paso 1.
+            paso: (step == .format ? 2 : 3, 3),
+            alSalir: back
+        ) {
+            switch step {
+            case .format: formatStep
+            case .config: configStep
             }
-            if step == .config { footer }
+        } pie: {
+            if step == .config {
+                PieConstructorLibre(
+                    diaISO: $draft.scheduledDayISO,
+                    guardando: isSavingPlan,
+                    alGuardar: { Task { await savePlan() } },
+                    alContinuar: {
+                        guard let ctx = draft.buildContext() else { return }
+                        onStart(ctx)
+                    }
+                )
+            }
         }
-        .background(Theme.Color.background.ignoresSafeArea())
-        // Cover, not sheet: this builder already sits inside Hoy's
-        // fullScreenCover. A sheet there is the gym-failure — GET 200 and
-        // the picker stays on "Cargando…". Calle/cinta stays on PreWorkoutDevicesHubView.
+        .avisoDia($aviso)
+        // Cubierta, no hoja: este constructor ya vive dentro de la cubierta de Hoy. Una hoja ahí es el
+        // fallo del gimnasio — GET 200 y el selector se queda en «Cargando…».
         .fullScreenCover(isPresented: $showPicker) {
             FreeExercisePickerView(
                 bearer: bearer,
@@ -69,54 +84,15 @@ struct FreeFunctionalBuilderView: View {
         }
     }
 
-    // MARK: Nav bar
-
-    private var navBar: some View {
-        HStack(spacing: Theme.Spacing.m) {
-            Button {
-                Haptics.light()
-                back()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.Color.surface)
-                    .clipShape(Circle())
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Atrás")
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Crear funcional")
-                    .font(.system(size: 15, weight: .heavy, design: .default).italic())
-                    .foregroundStyle(Theme.Color.foreground)
-                Text(draft.format?.labelES ?? "Elige un formato")
-                    .font(Theme.Typography.caption)
-                    .foregroundStyle(Theme.Color.muted)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, Theme.Spacing.l)
-        .padding(.vertical, Theme.Spacing.s)
-        .overlay(Rectangle().fill(Theme.Color.hairline).frame(height: 1), alignment: .bottom)
-    }
-
-    // MARK: Step 1 · Formato
+    // MARK: Paso 1 · Formato
 
     private var formatStep: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            stepHeader(title: "Formato", subtitle: "Cómo se estructura el trabajo.")
-            LazyVGrid(columns: twoCol, spacing: Theme.Spacing.m) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            TituloPasoLibre(etiqueta: etiqueta, titulo: "Formato", apoyo: "Cómo se estructura el trabajo.")
+            RejillaEleccionLibre {
                 ForEach(FreeFunctionalFormat.allCases) { f in
-                    FreeBuilderTile(
-                        icon: nil,
-                        title: f.labelES,
-                        subtitle: f.subtitleES,
-                        selected: draft.format == f,
-                        disabledNote: nil
-                    ) {
+                    FreeBuilderTile(icon: nil, title: f.labelES, subtitle: f.subtitleES,
+                                    selected: draft.format == f) {
                         draft.selectFormat(f)
                         advance(to: .config)
                     }
@@ -125,41 +101,39 @@ struct FreeFunctionalBuilderView: View {
         }
     }
 
-    // MARK: Step 2 · Configura
+    // MARK: Paso 2 · Configura
 
     @ViewBuilder
     private var configStep: some View {
         if let f = draft.format {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                stepHeader(title: "Configura", subtitle: nil)
+                TituloPasoLibre(etiqueta: etiqueta, titulo: "Configura")
+                    .padding(.bottom, Theme.Spacing.s)
                 structuralSteppers(f)
                 FreePreviewCard(line: draft.headerLine)
-                HStack(spacing: 6) {
-                    Text("Movimientos")
-                        .font(.system(size: 13, weight: .heavy, design: .default).italic())
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("opcional")
-                        .font(.system(size: 10, weight: .heavy))
-                        .tracking(0.6)
-                        .foregroundStyle(Theme.Color.muted)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Theme.Color.surfaceElevated)
-                        .clipShape(Capsule())
+
+                TituloSeccionDia("Movimientos") {
+                    InfoPill(text: "Opcional")
                 }
-                .padding(.top, Theme.Spacing.xs)
+                .padding(.top, Theme.Spacing.m)
                 ForEach(draft.movements) { m in
                     FreeFunctionalCard(
                         movement: bindingFor(m.id),
                         canMoveUp: draft.movements.first?.id != m.id,
                         canMoveDown: draft.movements.last?.id != m.id,
-                        onMoveUp: { draft.move(m.id, by: -1); Haptics.light() },
-                        onMoveDown: { draft.move(m.id, by: 1); Haptics.light() },
-                        onRemove: { withAnimation { draft.remove(m.id) }; Haptics.light() }
+                        onMoveUp: { draft.move(m.id, by: -1) },
+                        onMoveDown: { draft.move(m.id, by: 1) },
+                        onRemove: { withAnimation { draft.remove(m.id) } }
                     )
                 }
-                addButton
-                titleField
+                BotonAnadirLibre(
+                    titulo: draft.movements.isEmpty ? "Añadir movimiento" : "Añadir otro",
+                    habilitado: draft.canAddMore,
+                    etiquetaAlLimite: "Máximo de movimientos alcanzado"
+                ) { showPicker = true }
+                CampoNombreLibre(sugerido: draft.defaultTitle, texto: $draft.titleEdited,
+                                 maximo: FreeFunctionalDraft.maxTitle)
+                    .padding(.top, Theme.Spacing.s)
             }
         }
     }
@@ -182,18 +156,14 @@ struct FreeFunctionalBuilderView: View {
                         step: FreeFunctionalStep.cadenceStep, minValue: FreeFunctionalStep.cadenceStep) {
                 Formato.clock($0, subMinuto: .segundos)
             }
-            // The split only appears once there IS one. "Al minuto" — the default and
-            // the common case — never sees this row, so the simple EMOM keeps its
-            // exact two-stepper form.
+            // El reparto sólo aparece cuando LO HAY. «Al minuto» — el de fábrica y el caso común — no ve
+            // esta fila, así que el EMOM sencillo conserva su forma de dos contadores.
             if draft.transitionSeconds > 0 {
                 FreeStepper(label: "Cambio", value: $draft.transitionSeconds,
                             step: FreeFunctionalStep.transitionStep, minValue: 0) {
                     $0 == 0 ? "sin cambio" : "\($0) s"
                 }
-                Text("\(draft.workSeconds) s de trabajo y \(draft.transitionSeconds) s para cambiar. Suena al parar y al arrancar.")
-                    .font(Theme.Typography.caption)
-                    .foregroundStyle(Theme.Color.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                NotaLibre("\(draft.workSeconds) s de trabajo y \(draft.transitionSeconds) s para cambiar. Suena al parar y al arrancar.")
             }
         }
         if f.usesRest {
@@ -214,106 +184,21 @@ struct FreeFunctionalBuilderView: View {
         }
     }
 
-    // The three box-clock shapes, one tap each. Tabata is deliberately here and not
-    // in the format grid: 20/10 × 8 is this same work+change cycle with different
-    // numbers, so making it a separate format would fork the model for nothing.
+    // Las tres formas del reloj del box, de un toque cada una. Tabata está aquí A PROPÓSITO y no en la
+    // rejilla de formatos: 20/10 × 8 es este mismo ciclo de trabajo + cambio con otros números, y
+    // hacerlo otro formato partiría el modelo para nada.
     private var cadencePresets: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "Ritmo", size: 11)
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            RotuloControlLibre("Ritmo")
+            HStack(spacing: Theme.Spacing.s) {
                 ForEach(FreeEmomPreset.allCases) { p in
-                    let on = draft.emomPreset == p
-                    Button {
+                    OpcionLibre(texto: p.labelES, elegida: draft.emomPreset == p) {
                         Haptics.light()
                         draft.apply(p)
-                    } label: {
-                        Text(p.labelES)
-                            .font(.system(size: 13, weight: .heavy, design: .default).italic())
-                            .foregroundStyle(on ? Theme.Color.accentOn : Theme.Color.foreground)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(on ? Theme.Color.accent : Theme.Color.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(PressScaleStyle())
-                    .accessibilityLabel(p.labelES)
-                    .accessibilityAddTraits(on ? [.isSelected] : [])
-                }
-            }
-        }
-    }
-
-    private var addButton: some View {
-        Button {
-            Haptics.light()
-            showPicker = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .heavy))
-                Text(draft.movements.isEmpty ? "Añadir movimiento" : "Añadir otro")
-                    .font(.system(size: 14, weight: .heavy, design: .default).italic())
-            }
-            .foregroundStyle(draft.canAddMore ? Theme.Color.accentText : Theme.Color.faint)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.accent.opacity(draft.canAddMore ? 0.4 : 0.15),
-                            style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle())
-        .disabled(!draft.canAddMore)
-        .accessibilityLabel(draft.canAddMore ? "Añadir movimiento" : "Máximo de movimientos alcanzado")
-    }
-
-    private var titleField: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "Nombre", size: 11)
-            TextField(draft.defaultTitle, text: $draft.titleEdited)
-                .font(Theme.Typography.bodyEmph)
-                .foregroundStyle(Theme.Color.foreground)
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.vertical, 12)
-                .background(Theme.Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                .onChange(of: draft.titleEdited) { _, new in
-                    if new.count > FreeFunctionalDraft.maxTitle {
-                        draft.titleEdited = String(new.prefix(FreeFunctionalDraft.maxTitle))
                     }
                 }
-                .accessibilityLabel("Nombre del entreno")
-        }
-    }
-
-    private var footer: some View {
-        VStack(spacing: 0) {
-            Rectangle().fill(Theme.Color.hairline).frame(height: 1)
-            ProgramarDiaPicker(selectedISO: $draft.scheduledDayISO)
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.top, Theme.Spacing.s)
-            HStack(spacing: Theme.Spacing.m) {
-                SecondaryButton(title: "Guardar") {
-                    Task { await savePlan() }
-                }
-                ExpertPrimaryButton(title: "Continuar", height: 52) {
-                    guard let ctx = draft.buildContext() else { return }
-                    Haptics.medium()
-                    onStart(ctx)
-                }
             }
-            .padding(.horizontal, Theme.Spacing.l)
-            .padding(.top, Theme.Spacing.s)
-            .padding(.bottom, Theme.Spacing.m)
-            .opacity(isSavingPlan ? 0.6 : 1)
-            .disabled(isSavingPlan)
         }
-        .background(Theme.Color.background)
     }
 
     private func savePlan() async {
@@ -326,29 +211,11 @@ struct FreeFunctionalBuilderView: View {
             onSaved()
         } catch {
             Haptics.error()
+            aviso = AvisoConstructorLibre.noGuardado
         }
     }
 
-    // MARK: Shared bits
-
-    private var twoCol: [GridItem] {
-        [GridItem(.flexible(), spacing: Theme.Spacing.m),
-         GridItem(.flexible(), spacing: Theme.Spacing.m)]
-    }
-
-    private func stepHeader(title: String, subtitle: String?) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title)
-                .font(.system(size: 22, weight: .heavy, design: .default).italic())
-                .foregroundStyle(Theme.Color.foreground)
-            if let subtitle {
-                Text(subtitle)
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
+    // MARK: Navegación
 
     private func advance(to next: Step) {
         Haptics.light()
@@ -372,11 +239,11 @@ struct FreeFunctionalBuilderView: View {
     }
 }
 
-// MARK: - Movement card
+// MARK: - La tarjeta de un movimiento
 //
-// Shared with the post-workout declaration sheet: naming what you did AFTER a
-// cronómetro session must offer the exact same dose control as declaring it before,
-// or the two paths would disagree about what a movement is.
+// Compartida con la hoja de «¿Qué hiciste?»: nombrar lo que hiciste DESPUÉS de una sesión de cronómetro
+// tiene que ofrecer exactamente el mismo control de dosis que declararlo antes, o los dos caminos no
+// estarían de acuerdo en qué es un movimiento.
 
 struct FreeFunctionalCard: View {
     @Binding var movement: FreeFunctionalMovement
@@ -387,8 +254,11 @@ struct FreeFunctionalCard: View {
     let onRemove: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            header
+        TarjetaMovimientoLibre(
+            nombre: movement.exercise.name,
+            puedeSubir: canMoveUp, puedeBajar: canMoveDown,
+            alSubir: onMoveUp, alBajar: onMoveDown, alQuitar: onRemove
+        ) {
             FreeKindToggle(
                 title: "Medida",
                 options: FreeFunctionalDose.allCases,
@@ -397,41 +267,6 @@ struct FreeFunctionalCard: View {
             )
             doseStepper
         }
-        .padding(Theme.Spacing.m)
-        .background(Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-    }
-
-    private var header: some View {
-        HStack(spacing: 8) {
-            Text(movement.exercise.name)
-                .font(.system(size: 16, weight: .heavy, design: .default).italic())
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            iconButton("chevron.up", enabled: canMoveUp, label: "Subir", action: onMoveUp)
-            iconButton("chevron.down", enabled: canMoveDown, label: "Bajar", action: onMoveDown)
-            iconButton("trash", enabled: true, label: "Quitar", action: onRemove)
-        }
-    }
-
-    private func iconButton(_ name: String, enabled: Bool, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: { if enabled { action() } }) {
-            Image(systemName: name)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(enabled ? Theme.Color.muted : Theme.Color.faint)
-                .frame(width: 30, height: 30)
-                .background(Theme.Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-        .accessibilityLabel(label)
     }
 
     @ViewBuilder

@@ -1,45 +1,70 @@
 import SwiftUI
 
-// MARK: - Entreno libre — builder flow (P2 → P5)
+// EL CONSTRUCTOR DE ENTRENO LIBRE — el camino MEDIDO (remo, correr, ski, bici) y la puerta a los otros dos.
 //
-// Three steps: Modalidad → Formato → Configura. The athlete picks a measured
-// modality, a format from the real catalog, configures the bouts with STEPPERS
-// (no free text except the editable title), sees a live "Tu entreno" preview, and
-// taps Empezar — which hands the locally-built `WorkoutPlan` to the EXISTING
-// `WorkoutContainer` in free mode (same engine, HUDs, finish/RPE flow). On save it
-// routes to `FreeWorkoutAPI` instead of the prescribed sync.
+// Tres pasos: Modalidad → Formato → Configura. El atleta elige una modalidad medida, un formato del
+// catálogo real, configura el trabajo con CONTADORES (cero texto libre salvo el nombre), ve el resumen
+// vivo «Tu entreno» y pulsa Continuar, que entrega el `WorkoutPlan` montado en el móvil al MISMO
+// `WorkoutContainer` en modo libre (mismo motor, mismos HUD, mismo cierre). Correr se salta «Formato»:
+// su plan ya dice si es un rodaje, una serie o una pirámide.
+//
+// Fuerza y Funcional salen de la misma rejilla hacia sus constructores de lista, que devuelven un
+// `FreeWorkoutContext` que corre por el mismo motor, aquí abajo. Los tres caminos se montan con las
+// piezas de `ConstructorLibrePiezas.swift`: para el atleta son UN flujo.
 struct FreeWorkoutBuilderView: View {
     let bearer: String?
-    /// When set, opens the builder pre-filled to edit a scheduled self-origin plan.
-    var editingAssignmentId: Int? = nil
-    /// The athlete's resolved max-HR source — threaded into WorkoutContainer so a
-    /// FREE workout gets the same personal HR zones as a prescribed one (it was
-    /// dropped here, leaving every free session zone-less regardless of profile).
-    var hrZones: HRZoneProfile? = nil
+    /// Abre el constructor relleno para editar un plan libre ya programado.
+    var editingAssignmentId: Int?
+    /// La fuente de pulso máximo del atleta, que llega a `WorkoutContainer` para que un entreno LIBRE
+    /// tenga las mismas zonas personales que uno prescrito.
+    var hrZones: HRZoneProfile?
     let onClose: () -> Void
-    /// Fired after the free workout is saved, so the caller can refresh the plan
-    /// (the new self-origin session then appears as a "Libre" row).
-    var onCompleted: () -> Void = {}
+    /// Tras guardar el libre, para que quien llamó refresque el plan (la sesión aparece como «Libre»).
+    var onCompleted: () -> Void
 
-    @State private var draft = FreeWorkoutDraft()
-    @State private var step: Step = .modality
-    @State private var running: FreeWorkoutContext? = nil
+    @State private var draft: FreeWorkoutDraft
+    @State private var step: Step
+    @State private var running: FreeWorkoutContext?
     @State private var isSavingPlan = false
-    @State private var editLoadFailed = false
-    /// Which builder track the athlete is on. The MEASURED wizard (row/run/ski/bike)
-    /// lives here; FUERZA / FUNCIONAL hand off to their own list builders, which
-    /// return a `FreeWorkoutContext` that runs through the SAME engine below.
+    @State private var aviso: AvisoDia.Contenido?
+    /// Cómo va la carga del plan a editar. Mientras carga no se enseña la rejilla de modalidad (sería
+    /// otra pantalla que luego salta); si falla, se dice y se ofrece reintentar.
+    @State private var carga: CargaEdicion
+    @State private var intentoDeCarga = 0
+    /// En qué camino está el atleta. El MEDIDO vive aquí; FUERZA y FUNCIONAL pasan a sus constructores
+    /// de lista, que devuelven un `FreeWorkoutContext` que corre por el MISMO motor.
     @State private var track: Track = .measured
     @State private var strengthDraft = FreeStrengthDraft()
     @State private var functionalDraft = FreeFunctionalDraft()
 
     enum Step: Int, CaseIterable { case modality, format, bouts }
     enum Track { case measured, strength, functional }
+    enum CargaEdicion: Equatable { case lista, cargando, fallo }
+
+    init(
+        bearer: String?,
+        editingAssignmentId: Int? = nil,
+        hrZones: HRZoneProfile? = nil,
+        onClose: @escaping () -> Void,
+        onCompleted: @escaping () -> Void = {},
+        draftInicial: FreeWorkoutDraft = FreeWorkoutDraft(),
+        pasoInicial: Step = .modality,
+        cargaInicial: CargaEdicion? = nil
+    ) {
+        self.bearer = bearer
+        self.editingAssignmentId = editingAssignmentId
+        self.hrZones = hrZones
+        self.onClose = onClose
+        self.onCompleted = onCompleted
+        _draft = State(initialValue: draftInicial)
+        _step = State(initialValue: pasoInicial)
+        _carga = State(initialValue: cargaInicial ?? (editingAssignmentId == nil ? .lista : .cargando))
+    }
 
     var body: some View {
         if let ctx = running {
-            // P5 — run it through the existing engine; save via the free path. Shared
-            // by all three tracks, so there's ONE place that hosts WorkoutContainer.
+            // Correr lo montado por el motor de siempre y guardar por el camino libre. Lo comparten los
+            // tres caminos: hay UN sitio que aloja `WorkoutContainer`.
             WorkoutContainer(
                 assignmentId: nil,
                 fallbackTitle: ctx.title,
@@ -76,40 +101,51 @@ struct FreeWorkoutBuilderView: View {
     }
 
     private var builder: some View {
-        VStack(spacing: 0) {
-            navBar
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    switch step {
-                    case .modality: modalityStep
-                    case .format:   formatStep
-                    case .bouts:    boutsStep
-                    }
+        PantallaConstructorLibre(
+            salida: step == .modality || carga != .lista ? .cerrar : .atras,
+            paso: carga == .lista ? pasoActual : nil,
+            alSalir: back
+        ) {
+            switch carga {
+            case .cargando: EsqueletoConstructorLibre()
+            case .fallo: falloDeCarga
+            case .lista:
+                switch step {
+                case .modality: modalityStep
+                case .format:   formatStep
+                case .bouts:    boutsStep
                 }
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.top, Theme.Spacing.m)
-                .padding(.bottom, Theme.Spacing.xxl)
             }
-            if step == .bouts { footer }
+        } pie: {
+            if carga == .lista, step == .bouts {
+                PieConstructorLibre(
+                    diaISO: $draft.scheduledDayISO,
+                    guardando: isSavingPlan,
+                    alGuardar: { Task { await saveMeasuredPlan() } },
+                    alContinuar: startNow
+                )
+            }
         }
-        .background(Theme.Color.background.ignoresSafeArea())
-        // Leaving the measured builder WITHOUT starting → release devices.
-        // Fuerza/Funcional track) → release any belt/strap connected from the card.
-        // When Empezar sets `running`, WorkoutContainer owns teardown, so skip here.
+        .avisoDia($aviso)
+        // Salir del constructor medido SIN empezar suelta los dispositivos (la cinta o la banda
+        // conectadas desde la tarjeta). Si Continuar ya puso `running`, el desmontaje es de
+        // WorkoutContainer.
         .onDisappear { if running == nil { DeviceHub.shared.stopAll() } }
-        .task(id: editingAssignmentId) {
+        .task(id: intentoDeCarga) {
             await loadEditingPlanIfNeeded()
         }
     }
 
+    // MARK: - El plan a editar
+
     private func loadEditingPlanIfNeeded() async {
-        guard let id = editingAssignmentId, let bearer else { return }
-        guard let detail = try? await PlanService.fetchAssignmentDetail(String(id), bearer: bearer) else {
-            editLoadFailed = true
-            return
-        }
-        guard let hydrated = FreePlanHydration.editTrack(from: detail) else {
-            editLoadFailed = true
+        guard let id = editingAssignmentId, carga != .lista else { return }
+        carga = .cargando
+        guard let bearer,
+              let detail = try? await PlanService.fetchAssignmentDetail(String(id), bearer: bearer),
+              let hydrated = FreePlanHydration.editTrack(from: detail)
+        else {
+            carga = .fallo
             return
         }
         switch hydrated {
@@ -124,121 +160,95 @@ struct FreeWorkoutBuilderView: View {
             functionalDraft = d
             track = .functional
         }
+        carga = .lista
     }
 
-    // MARK: - Nav bar
-
-    private var navBar: some View {
-        HStack(spacing: Theme.Spacing.m) {
+    /// Antes el fallo de carga se guardaba en un estado que nadie pintaba: el atleta veía la rejilla de
+    /// modalidad vacía y creía que su entreno se había perdido.
+    private var falloDeCarga: some View {
+        SujetoDia(
+            tono: .peligro,
+            etiqueta: "No se ha podido abrir el entreno. Revisa la conexión y vuelve a intentarlo.",
+            anuncia: true
+        ) {
+            KickerDia("Editar entreno")
+            TituloDia("No se ha podido abrir")
+            ApoyoDia("Tu entreno sigue en el plan. Revisa la conexión y vuelve a intentarlo.")
+        } abajo: {
             Button {
                 Haptics.light()
-                back()
+                intentoDeCarga += 1
             } label: {
-                Image(systemName: step == .modality ? "xmark" : "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.Color.surface)
-                    .clipShape(Circle())
-                    .contentShape(Rectangle())
+                AccionDia("Reintentar", glifo: .reintentar)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(step == .modality ? "Cerrar" : "Atrás")
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Crear entreno libre")
-                    .font(.system(size: 15, weight: .heavy, design: .default).italic())
-                    .foregroundStyle(Theme.Color.foreground)
-                Text(stepBreadcrumb)
-                    .font(Theme.Typography.caption)
-                    .foregroundStyle(Theme.Color.muted)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-            stepDots
+            .buttonStyle(PressScaleStyle(escala: 0.96))
         }
-        .padding(.horizontal, Theme.Spacing.l)
-        .padding(.vertical, Theme.Spacing.s)
-        .overlay(Rectangle().fill(Theme.Color.hairline).frame(height: 1), alignment: .bottom)
     }
 
-    private var stepDots: some View {
-        // Correr tiene DOS pasos, no tres: se salta «Formato». Pintar tres puntos
-        // prometería una pantalla que no va a existir.
-        let pasos = draft.usaPlanDeCorrer ? [Step.modality, .bouts] : Step.allCases
-        return HStack(spacing: 5) {
-            ForEach(pasos, id: \.rawValue) { s in
-                Circle()
-                    .fill(s.rawValue <= step.rawValue ? Theme.Color.accent : Theme.Color.hairlineStrong)
-                    .frame(width: 6, height: 6)
-            }
-        }
-        .accessibilityHidden(true)
+    // MARK: - El paso en que estás
+
+    /// Correr tiene DOS pasos, no tres: se salta «Formato». Contar tres prometería una pantalla que no
+    /// va a existir.
+    private var pasoActual: (n: Int, de: Int) {
+        let pasos: [Step] = draft.usaPlanDeCorrer ? [.modality, .bouts] : Step.allCases
+        return ((pasos.firstIndex(of: step) ?? 0) + 1, pasos.count)
     }
 
-    private var stepBreadcrumb: String {
-        var parts: [String] = []
-        if let m = draft.modality { parts.append(m.labelES) }
-        // Corriendo, el «formato» lo dice el plan y no un paso del formulario:
-        // ponerlo aquí repetiría una etiqueta que el atleta nunca eligió.
-        if let f = draft.format, !draft.usaPlanDeCorrer { parts.append(f.labelES) }
-        if parts.isEmpty { return "Elige una modalidad" }
-        return parts.joined(separator: " · ")
+    /// «Entreno libre · Remo · Series»: dónde estás del flujo, en la etiqueta del título.
+    private var etiqueta: String {
+        var partes = ["Entreno libre"]
+        if let m = draft.modality, step != .modality { partes.append(m.labelES) }
+        // Corriendo, el «formato» lo dice el plan y no un paso del formulario: ponerlo aquí repetiría
+        // una etiqueta que el atleta nunca eligió.
+        if let f = draft.format, step == .bouts, !draft.usaPlanDeCorrer { partes.append(f.labelES) }
+        return partes.joined(separator: " · ")
     }
 
-    // MARK: - Step 1 · Modalidad
+    // MARK: - Paso 1 · Modalidad
 
     private var modalityStep: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            stepHeader(title: "¿Qué vas a hacer?",
-                       subtitle: "Disciplinas medidas. Suma al plan, no lo rompe.")
-            LazyVGrid(columns: twoCol, spacing: Theme.Spacing.m) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            TituloPasoLibre(etiqueta: etiqueta, titulo: "¿Qué vas a hacer?",
+                            apoyo: "Disciplinas medidas. Suma al plan, no lo rompe.")
+            RejillaEleccionLibre {
                 ForEach(FreeModality.allCases) { m in
                     FreeBuilderTile(
                         icon: m.icon,
                         title: m.labelES,
                         subtitle: m == .run ? "Ritmo /km" : "Ritmo /500m",
-                        selected: draft.modality == m,
-                        disabledNote: nil
+                        selected: draft.modality == m
                     ) {
                         draft.selectModality(m)
-                        // CORRER NO PASA POR «FORMATO». Su plan ya dice si es un
-                        // rodaje, una serie o una pirámide — elegir antes una
-                        // etiqueta que luego el plan puede desmentir es una
-                        // pregunta sin respuesta correcta. El esquema lo deduce
-                        // `buildRunPrescription`.
+                        // CORRER NO PASA POR «FORMATO». Su plan ya dice si es un rodaje, una serie o una
+                        // pirámide: elegir antes una etiqueta que luego el plan puede desmentir es una
+                        // pregunta sin respuesta correcta. El esquema lo deduce `buildRunPrescription`.
                         advance(to: draft.usaPlanDeCorrer ? .bouts : .format)
                     }
                 }
-                // Catalog-driven tracks: hand off to their own list builders (pick
-                // movements + configure), which run through the SAME engine on start.
+                // Los caminos de catálogo pasan a sus constructores de lista (elegir movimientos y
+                // configurarlos), que corren por el MISMO motor al empezar.
                 FreeBuilderTile(icon: "dumbbell.fill", title: "Fuerza",
-                                subtitle: "Series y carga", selected: false, disabledNote: nil) {
+                                subtitle: "Series y carga", selected: false) {
                     advanceTrack(.strength)
                 }
                 FreeBuilderTile(icon: "figure.cross.training", title: "Funcional",
-                                subtitle: "WOD · For Time, AMRAP…", selected: false, disabledNote: nil) {
+                                subtitle: "WOD · For Time, AMRAP…", selected: false) {
                     advanceTrack(.functional)
                 }
             }
         }
     }
 
-    // MARK: - Step 2 · Formato
+    // MARK: - Paso 2 · Formato
 
     private var formatStep: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            stepHeader(title: "Formato",
-                       subtitle: "Cómo se estructura el trabajo.")
-            LazyVGrid(columns: twoCol, spacing: Theme.Spacing.m) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            TituloPasoLibre(etiqueta: etiqueta, titulo: "Formato",
+                            apoyo: "Cómo se estructura el trabajo.")
+            RejillaEleccionLibre {
                 ForEach(FreeFormat.allCases) { f in
-                    FreeBuilderTile(
-                        icon: nil,
-                        title: f.labelES,
-                        subtitle: f.subtitleES,
-                        selected: draft.format == f,
-                        disabledNote: nil
-                    ) {
+                    FreeBuilderTile(icon: nil, title: f.labelES, subtitle: f.subtitleES,
+                                    selected: draft.format == f) {
                         draft.format = f
                         advance(to: .bouts)
                     }
@@ -247,7 +257,7 @@ struct FreeWorkoutBuilderView: View {
         }
     }
 
-    // MARK: - Step 3 · Configura (bouts)
+    // MARK: - Paso 3 · Configura
 
     @ViewBuilder
     private var boutsStep: some View {
@@ -258,15 +268,14 @@ struct FreeWorkoutBuilderView: View {
         }
     }
 
-    /// CORRER SE MONTA COMO ES: una lista de tramos, con su calentamiento, sus
-    /// repeticiones, sus recuperaciones (con medida, objetivo y modo propios) y
-    /// su vuelta a la calma. El formulario de bout de abajo no puede escribir
-    /// ninguna de esas cosas — ver `FreeRunPlan`.
+    /// CORRER SE MONTA COMO ES: una lista de tramos, con su calentamiento, sus repeticiones, sus
+    /// recuperaciones (con medida, objetivo y modo propios) y su vuelta a la calma. El formulario de
+    /// abajo no puede escribir ninguna de esas cosas — ver `FreeRunPlan`.
     private var runStep: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            stepHeader(title: "Monta tu entreno", subtitle: nil)
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            TituloPasoLibre(etiqueta: etiqueta, titulo: "Monta tu entreno")
             FreeRunBuilderView(plan: $draft.runPlan)
-            titleField
+            nameField
             FreePreviewCard(line: draft.previewLine)
         }
     }
@@ -275,7 +284,8 @@ struct FreeWorkoutBuilderView: View {
     private var boutsForm: some View {
         if let format = draft.format {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                stepHeader(title: "Configura", subtitle: nil)
+                TituloPasoLibre(etiqueta: etiqueta, titulo: "Configura")
+                    .padding(.bottom, Theme.Spacing.s)
 
                 if format.usesRounds {
                     FreeStepper(label: format.roundsLabel, value: $draft.rounds,
@@ -294,7 +304,7 @@ struct FreeWorkoutBuilderView: View {
                     }
                 }
 
-                // Work measure (how much) — kind toggle + the matching stepper.
+                // Cuánto trabajo: qué se mide y su contador.
                 FreeKindToggle(
                     title: "Medida",
                     options: measureOptions,
@@ -304,18 +314,17 @@ struct FreeWorkoutBuilderView: View {
                 measureStepper
 
                 if format.usesRest {
-                    // Descanso cero no es «no se sabe»: es que no hay descanso, y el
-                    // atleta acaba de elegirlo bajando el contador. Se dice (§7).
+                    // Descanso cero no es «no se sabe»: es que no hay descanso, y el atleta acaba de
+                    // elegirlo bajando el contador. Se dice (§7).
                     FreeStepper(label: Vocab.descanso, value: $draft.restSeconds,
                                 step: FreeStep.restSeconds, minValue: 0) {
                         $0 == 0 ? "Sin descanso" : Formato.clock($0, subMinuto: .segundos)
                     }
                 }
 
-                // Objetivo (how hard) — REQUIRED here: an athlete-built bout always
-                // carries one, so the toggle never surfaces the draft's "no
-                // objective" state (that one belongs to a benchmark with no record
-                // to beat, which never opens this builder).
+                // Contra qué objetivo — OBLIGATORIO aquí: un bout montado por el atleta siempre lleva
+                // uno, así que el selector nunca enseña el «sin objetivo» del borrador (ése es de una
+                // prueba sin marca que batir, que nunca abre este constructor).
                 FreeKindToggle(
                     title: "Objetivo",
                     options: FreeTargetKind.allCases,
@@ -324,7 +333,7 @@ struct FreeWorkoutBuilderView: View {
                 )
                 targetControl
 
-                titleField
+                nameField
                 FreePreviewCard(line: draft.previewLine)
             }
         }
@@ -360,57 +369,19 @@ struct FreeWorkoutBuilderView: View {
         case .hrZone:
             FreeZonePicker(zone: $draft.hrZone)
         case nil:
-            EmptyView()   // unreachable: the toggle above always leaves an objective
+            EmptyView()   // inalcanzable: el selector de arriba siempre deja un objetivo
         }
     }
 
-    private var titleField: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "Nombre", size: 11)
-            TextField(draft.defaultTitle, text: $draft.titleEdited)
-                .font(Theme.Typography.bodyEmph)
-                .foregroundStyle(Theme.Color.foreground)
-                .padding(.horizontal, Theme.Spacing.m)
-                .padding(.vertical, 12)
-                .background(Theme.Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                .onChange(of: draft.titleEdited) { _, new in
-                    if new.count > FreeWorkoutDraft.maxTitle {
-                        draft.titleEdited = String(new.prefix(FreeWorkoutDraft.maxTitle))
-                    }
-                }
-                .accessibilityLabel("Nombre del entreno")
-        }
+    private var nameField: some View {
+        CampoNombreLibre(sugerido: draft.defaultTitle, texto: $draft.titleEdited, maximo: FreeWorkoutDraft.maxTitle)
     }
 
-    // MARK: - Footer CTA
-
-    private var footer: some View {
-        VStack(spacing: 0) {
-            Rectangle().fill(Theme.Color.hairline).frame(height: 1)
-            scheduleDayPicker
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.top, Theme.Spacing.s)
-            HStack(spacing: Theme.Spacing.m) {
-                SecondaryButton(title: "Guardar") {
-                    Task { await saveMeasuredPlan() }
-                }
-                ExpertPrimaryButton(title: "Continuar", height: 52) {
-                    startNow()
-                }
-            }
-            .padding(.horizontal, Theme.Spacing.l)
-            .padding(.top, Theme.Spacing.s)
-            .padding(.bottom, Theme.Spacing.m)
-            .opacity(isSavingPlan ? 0.6 : 1)
-            .disabled(isSavingPlan)
-        }
-        .background(Theme.Color.background)
+    private var measureOptions: [FreeMeasureKind] {
+        (draft.modality?.supportsCalories ?? true) ? FreeMeasureKind.allCases : [.distance, .time]
     }
 
-    private var scheduleDayPicker: some View {
-        ProgramarDiaPicker(selectedISO: $draft.scheduledDayISO)
-    }
+    // MARK: - Guardar y empezar
 
     private func saveMeasuredPlan() async {
         guard !isSavingPlan, let payload = draft.buildPlanPayload(assignmentId: editingAssignmentId) else { return }
@@ -422,6 +393,7 @@ struct FreeWorkoutBuilderView: View {
             completePlanSave()
         } catch {
             Haptics.error()
+            aviso = AvisoConstructorLibre.noGuardado
         }
     }
 
@@ -430,39 +402,13 @@ struct FreeWorkoutBuilderView: View {
         onClose()
     }
 
-    /// Build + launch through WorkoutContainer → Devices hub → prepare (FH-95).
+    /// Montar y lanzar por WorkoutContainer → dispositivos → preparar (FH-95).
     private func startNow() {
         guard let ctx = draft.buildContext() else { return }
-        Haptics.medium()
         running = ctx
     }
 
-    // MARK: - Shared bits
-
-    private var twoCol: [GridItem] {
-        [GridItem(.flexible(), spacing: Theme.Spacing.m),
-         GridItem(.flexible(), spacing: Theme.Spacing.m)]
-    }
-
-    private var measureOptions: [FreeMeasureKind] {
-        (draft.modality?.supportsCalories ?? true)
-            ? FreeMeasureKind.allCases
-            : [.distance, .time]
-    }
-
-    private func stepHeader(title: String, subtitle: String?) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title)
-                .font(.system(size: 22, weight: .heavy, design: .default).italic())
-                .foregroundStyle(Theme.Color.foreground)
-            if let subtitle {
-                Text(subtitle)
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
+    // MARK: - Navegación entre pasos
 
     private func advance(to next: Step) {
         Haptics.light()
@@ -475,11 +421,12 @@ struct FreeWorkoutBuilderView: View {
     }
 
     private func back() {
+        guard carga == .lista else { return onClose() }
         switch step {
         case .modality: onClose()
         case .format:   withAnimation(.easeInOut(duration: 0.2)) { step = .modality }
-        // Correr se saltó «Formato» a la ida; atrás tiene que devolverle a la
-        // modalidad y no a un paso que nunca vio.
+        // Correr se saltó «Formato» a la ida; atrás tiene que devolverle a la modalidad y no a un paso
+        // que nunca vio.
         case .bouts:
             let destino: Step = draft.usaPlanDeCorrer ? .modality : .format
             withAnimation(.easeInOut(duration: 0.2)) { step = destino }
@@ -487,274 +434,26 @@ struct FreeWorkoutBuilderView: View {
     }
 }
 
-// MARK: - Builder tile (modality / format)
-
-struct FreeBuilderTile: View {
-    let icon: String?
-    let title: String
-    let subtitle: String?
-    let selected: Bool
-    /// When non-nil the tile is disabled and shows this note ("Próximamente").
-    let disabledNote: String?
-    let action: () -> Void
-
-    private var isDisabled: Bool { disabledNote != nil }
-
+/// Mientras llega el plan a editar: la MISMA forma que tendrá el paso «Configura» (título y tres
+/// contadores), para que nada salte al llegar.
+struct EsqueletoConstructorLibre: View {
     var body: some View {
-        Button {
-            guard !isDisabled else { return }
-            action()
-        } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    if let icon {
-                        Image(systemName: icon)
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(isDisabled ? Theme.Color.faint
-                                             : (selected ? Theme.Color.accentText : Theme.Color.foreground))
-                    }
-                    Spacer(minLength: 0)
-                    if let note = disabledNote {
-                        Text(note)
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(Theme.Color.muted)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Theme.Color.surfaceSunken)
-                            .clipShape(Capsule())
-                    } else if selected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Theme.Color.accent)
-                    }
-                }
-                Text(title)
-                    .font(.system(size: 16, weight: .heavy, design: .default).italic())
-                    .foregroundStyle(isDisabled ? Theme.Color.faint : Theme.Color.foreground)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(Theme.Typography.caption)
-                        .foregroundStyle(Theme.Color.muted)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                SkeletonBar(width: 150, height: 15, radius: 5)
+                SkeletonBar(width: 220, height: 30, radius: 8)
             }
-            .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
-            .padding(Theme.Spacing.m)
-            .background(selected ? Theme.Color.accent.opacity(0.10) : Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(selected ? Theme.Color.accent : Theme.Color.hairline,
-                            lineWidth: selected ? 1.5 : 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            .opacity(isDisabled ? 0.6 : 1)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle())
-        .disabled(isDisabled)
-        .accessibilityLabel(isDisabled ? "\(title), \(disabledNote ?? "")" : title)
-        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-    }
-}
-
-// MARK: - Stepper (−/value/+, mono readout) — the only way to set a number
-
-// KgWheel — la rueda de carga (Alex, entrenando: el −/+ "es súper lento").
-// Pasos de 2,5 kg, el patrón nativo que ya usamos en Registrar carrera: giras y
-// estás en 80 desde 20 en un gesto, no en 24 toques. `units` = kg / 2,5 (el mismo
-// entero que ya guarda el draft, así que el modelo no se entera).
-struct KgWheel: View {
-    let label: String
-    @Binding var units: Int
-    var minUnits: Int = 1          // 2,5 kg
-    var maxUnits: Int = 120        // 300 kg
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            LabelText(text: label, size: 11)
-            Picker(label, selection: $units) {
-                ForEach(minUnits...maxUnits, id: \.self) { u in
-                    Text(Self.kgLabel(Double(u) * 2.5))
-                        .font(.system(size: 17, weight: .bold, design: .monospaced))
-                        .tag(u)
+            .padding(.bottom, Theme.Spacing.s)
+            ForEach(0..<3, id: \.self) { _ in
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                    SkeletonBar(width: 90, height: 15, radius: 5)
+                    SkeletonBar(height: 44, radius: 12)
                 }
-            }
-            .pickerStyle(.wheel)
-            .frame(height: 96)
-            .clipped()
-        }
-    }
-
-    /// "82,5 kg" / "80 kg" — coma decimal y sin ,0 de relleno.
-    static func kgLabel(_ v: Double) -> String {
-        let whole = v.truncatingRemainder(dividingBy: 1) == 0
-        let num = whole ? String(Int(v)) : Formato.esDecimal(v)
-        return num + " kg"
-    }
-}
-
-struct FreeStepper: View {
-    let label: String
-    @Binding var value: Int
-    let step: Int
-    var minValue: Int = 0
-    var maxValue: Int = 100_000
-    let format: (Int) -> String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            LabelText(text: label, size: 11)
-            HStack(spacing: 10) {
-                button(systemName: "minus", delta: -step)
-                Text(format(value))
-                    .font(.system(size: 28, weight: .heavy, design: .default).italic().monospacedDigit())
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .frame(maxWidth: .infinity)
-                button(systemName: "plus", delta: step)
+                .padding(Theme.Spacing.l)
+                .tarjetaDia()
             }
         }
-        .padding(.horizontal, Theme.Spacing.m)
-        .padding(.vertical, Theme.Spacing.m)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(label)
-        .accessibilityValue(format(value))
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment: adjust(step)
-            case .decrement: adjust(-step)
-            @unknown default: break
-            }
-        }
-    }
-
-    private func button(systemName: String, delta: Int) -> some View {
-        Button { adjust(delta) } label: {
-            Image(systemName: systemName)
-                .font(.system(size: 14, weight: .heavy))
-                .foregroundStyle(Theme.Color.accentText)
-                .frame(width: 38, height: 38)
-                .background(Theme.Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(delta > 0 ? "Sumar" : "Restar")
-    }
-
-    private func adjust(_ delta: Int) {
-        Haptics.light()
-        value = min(maxValue, max(minValue, value + delta))
-    }
-}
-
-// MARK: - Kind toggle (segmented, no free text)
-
-struct FreeKindToggle<Option: Identifiable & Equatable>: View {
-    let title: String
-    let options: [Option]
-    @Binding var selection: Option
-    let label: (Option) -> String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            LabelText(text: title, size: 11)
-            HStack(spacing: 4) {
-                ForEach(options) { opt in
-                    let on = selection == opt
-                    Button {
-                        Haptics.light()
-                        selection = opt
-                    } label: {
-                        Text(label(opt))
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(on ? Theme.Color.accentOn : Theme.Color.foreground)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 9)
-                            .background(on ? Theme.Color.accent : Theme.Color.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(label(opt))
-                    .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
-                }
-            }
-        }
-    }
-}
-
-// MARK: - HR zone picker (Z1…Z5)
-
-struct FreeZonePicker: View {
-    @Binding var zone: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            LabelText(text: "Zona FC", size: 11)
-            HStack(spacing: 4) {
-                ForEach(HRZone.allCases, id: \.rawValue) { z in
-                    let on = zone == z.rawValue
-                    Button {
-                        Haptics.light()
-                        zone = z.rawValue
-                    } label: {
-                        Text(z.label)
-                            .font(.system(size: 14, weight: .heavy, design: .default).italic())
-                            .foregroundStyle(on ? Theme.Color.foreground : Theme.Color.muted)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(on ? z.tint : Theme.Color.surface)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous)
-                                    .stroke(on ? z.color : Theme.Color.hairline, lineWidth: on ? 1.5 : 1)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Zona \(z.rawValue)")
-                    .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Live preview card ("Tu entreno")
-
-struct FreePreviewCard: View {
-    /// El resumen de lo que el atleta lleva montado. Nunca llega vacía: las dos
-    /// pantallas que la pintan viven dentro de un `if let format`, así que aquí ya
-    /// hay formato y hay línea. La rama del guion no la alcanzaba nadie.
-    let line: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "Tu entreno", color: Theme.Color.accentText, size: 11)
-            Text(line)
-                .font(Theme.Typography.readoutS)
-                .foregroundStyle(Theme.Color.foreground)
-                .minimumScaleFactor(0.7)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Spacing.l)
-        .background(Theme.Color.surfaceElevated)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.accent.opacity(0.4), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Tu entreno: \(line)")
+        .accessibilityLabel("Cargando tu entreno")
     }
 }
