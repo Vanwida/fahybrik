@@ -1,23 +1,23 @@
 import SwiftUI
 
-// Modo DOBLES del detalle de carrera (embebido en RaceDetailView cuando
-// format=doubles). Es el hermano dobles del "Predicho hoy + Camino al objetivo"
-// individual, resuelto para la PAREJA:
+// Modo DOBLES del detalle de carrera (embebido en RaceDetailView cuando format=doubles). Es el hermano dobles
+// del «Predicho hoy + Camino al objetivo» individual, resuelto para la PAREJA:
 //
-//   • chip "DOBLES · CON {PAREJA}" (pill acento)
-//   • hero "Predicho hoy · pareja" + pill de gap contra el objetivo
-//   • board de tramos, reutilizando la barra (GapTrack) y la leyenda
-//     (GoalGapLegend) del goal-gap individual — verde=dentro, naranja+cola
-//     roja=exceso, marca punteada=objetivo; opacidad por tier de evidencia. Cada
-//     fila lleva un chip de quién la lleva (TÚ 60% / PAREJA / 50/50 / JUNTOS).
+//   • pastilla «Dobles · con {pareja}» (tinte del acento del club)
+//   • la tarjeta «Predicho hoy · pareja» + la pastilla de gap contra el objetivo
+//   • el tablero de tramos, reutilizando la barra (GapTrack) y la leyenda (GoalGapLegend) del goal-gap
+//     individual — verde = dentro, naranja + cola roja = exceso, marca punteada = objetivo; opacidad por tier
+//     de evidencia. Cada fila lleva una pastilla de quién la lleva (Tú 60 % / pareja / 50-50 / juntos).
 //   • tocar una estación con reparto abre el editor (DoblesRepartoEditorSheet)
-//   • nota "misma estrategia que la Simulación conjunta"
-//   • card de consejos del coach (DoblesCoachTipsCard)
+//   • la nota «misma estrategia que la Simulación conjunta»
+//   • la tarjeta de consejos del coach (DoblesCoachTipsCard)
 //
-// Estados honestos por `availability`: no_pair (vincula a tu pareja),
-// no_data (aún sin datos), partial (tramos estimados atenuados por opacidad).
-// Es una vista autocontenida (fetch + estados + editor + refetch), como
+// Estados honestos por `availability`: no_pair (vincula a tu pareja), no_data (aún sin datos), partial (tramos
+// estimados atenuados por opacidad). Es una vista autocontenida (lectura + estados + editor + relectura), como
 // PredichoVsRealView / DoblesSimulationView, así RaceDetailView queda fino.
+//
+// PIEL DE «EL DÍA»: papeles de la escala (nada por debajo de 15 pt), tarjeta de `caraDobles`, pastillas del kit.
+// La leyenda de la barra (`GoalGapLegend`) es de Carreras y se comparte con el tablero individual.
 struct DoblesRaceGapSection: View {
     let raceId: String
     var bearer: String?
@@ -31,10 +31,7 @@ struct DoblesRaceGapSection: View {
     var body: some View {
         Group {
             if loading {
-                ProgressView()
-                    .tint(Theme.Color.accentText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.xl)
+                DoblesRaceGapEsqueleto()
             } else if let gap {
                 content(gap)
             } else {
@@ -70,7 +67,7 @@ struct DoblesRaceGapSection: View {
     // MARK: - Content router (por availability)
 
     @ViewBuilder
-    private func content(_ gap: DoblesRaceGap) -> some View {
+    func content(_ gap: DoblesRaceGap) -> some View {
         switch gap.availability.lowercased() {
         case "no_pair":
             // Was "pídele a tu coach que vincule a tu pareja" — which was never
@@ -103,97 +100,65 @@ struct DoblesRaceGapSection: View {
     // MARK: - Doubles chip
 
     private func doublesChip(_ gap: DoblesRaceGap) -> some View {
-        let text = gap.partnerName.map { "DOBLES · CON \($0.uppercased())" } ?? "DOBLES"
-        return HStack(spacing: 5) {
-            Image(systemName: "person.2.fill")
-                .font(.system(size: 10, weight: .bold))
-            Text(text)
-                .font(.system(size: 11, weight: .bold))
-                .tracking(0.4)
-        }
-        .foregroundStyle(Theme.Color.accentText)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(Theme.Color.accent.opacity(0.12))
-        .clipShape(Capsule())
-        .accessibilityLabel(gap.partnerName.map { "Dobles, con \($0)" } ?? "Dobles")
+        InfoPill(text: gap.partnerName.map { "Dobles · con \($0)" } ?? "Dobles", estilo: .acento)
+            .accessibilityLabel(gap.partnerName.map { "Dobles, con \($0)" } ?? "Dobles")
     }
 
     // MARK: - Hero (predicho pareja vs objetivo)
 
     private func heroCard(_ gap: DoblesRaceGap) -> some View {
-        CardSurface(padding: 16, elevated: true) {
-            VStack(alignment: .leading, spacing: 10) {
-                LabelText(text: "PREDICHO HOY · PAREJA")
-                // El sujeto es el predicho de la pareja. Sin él se declara qué
-                // falta y cómo se llena — es un acto que los dos pueden hacer
-                // (§6.2 bis) — en vez de un número de 40 pt que no existe.
-                if let predicho = gap.predictedTotalS.map({ GoalGapFormat.raceClock($0) }) {
-                    Text(predicho)
-                        .font(.system(size: 40, weight: .heavy, design: .monospaced).italic().monospacedDigit())
-                        .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                } else {
-                    Text("Todavía no podemos predecir vuestro tiempo.")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.Color.foreground)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("Necesitamos tiempos de estación de los dos. En cuanto los tengáis aparece aquí.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let goal = gap.goalS {
-                    // El gap lo da el servidor, y sólo llega cuando hay predicho
-                    // de verdad contra el que comparar (nunca un "justo" engañoso
-                    // sobre un predicho que no existe).
-                    if let g = gap.gapS {
-                        gapPill(g)
-                    }
-                    if let label = gap.goalLabel {
-                        Text("Objetivo \(label) · \(GoalGapFormat.raceClock(goal))")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Theme.Color.faint)
-                    }
-                } else {
-                    Text("Sin objetivo fijado para esta carrera.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.Color.muted)
-                }
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            Text("Predicho hoy · pareja")
+                .papel(.etiqueta)
+                .foregroundStyle(Theme.Color.muted)
+            // El sujeto es el predicho de la pareja. Sin él se declara qué falta y cómo se llena — es un acto
+            // que los dos pueden hacer (§6.2 bis) — en vez de una cifra de 32 pt que no existe.
+            if let predicho = gap.predictedTotalS.map({ GoalGapFormat.raceClock($0) }) {
+                Text(predicho)
+                    .papel(.dato)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+            } else {
+                Text("Todavía no podemos predecir vuestro tiempo.")
+                    .papel(.cuerpoFuerte)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Necesitamos tiempos de estación de los dos. En cuanto los tengáis aparece aquí.")
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .accessibilityElement(children: .combine)
+            if let goal = gap.goalS {
+                // El gap lo da el servidor, y sólo llega cuando hay predicho de verdad contra el que comparar
+                // (nunca un «justo» engañoso sobre un predicho que no existe).
+                if let g = gap.gapS {
+                    PastillaDeGap(gapS: g)
+                }
+                if let label = gap.goalLabel {
+                    Text("Objetivo \(label) · \(GoalGapFormat.raceClock(goal))")
+                        .papel(.nota)
+                        .foregroundStyle(Theme.Color.muted)
+                }
+            } else {
+                Text("Sin objetivo fijado para esta carrera.")
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
+            }
         }
-    }
-
-    @ViewBuilder
-    private func gapPill(_ gapS: Int) -> some View {
-        if gapS > 0 {
-            pill("\(GoalGapFormat.signedDuration(gapS)) sobre el objetivo", fg: Theme.Color.warning, bg: Theme.Color.warningTint)
-        } else if gapS < 0 {
-            pill("\(GoalGapFormat.signedDuration(gapS)) bajo el objetivo", fg: Theme.Color.ok, bg: Theme.Color.okTint)
-        } else {
-            pill("Justo en tu objetivo", fg: Theme.Color.ok, bg: Theme.Color.okTint)
-        }
-    }
-
-    private func pill(_ text: String, fg: Color, bg: Color) -> some View {
-        Text(text)
-            .font(.system(size: 13, weight: .bold, design: .monospaced).monospacedDigit())
-            .foregroundStyle(fg)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 5)
-            .background(bg)
-            .clipShape(Capsule())
+        .padding(Theme.Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .caraDobles(.neutra)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Board
 
     private func boardSection(_ gap: DoblesRaceGap) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            SectionLabel(text: "REPARTO Y PREDICHO POR TRAMO")
+            TituloSeccionDia("Reparto y predicho por tramo")
             GoalGapLegend()
-            VStack(alignment: .leading, spacing: 13) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                 ForEach(gap.segments) { seg in
                     segmentRow(seg, partnerName: gap.partnerName ?? "Compañero")
                 }
@@ -219,29 +184,32 @@ struct DoblesRaceGapSection: View {
         }
     }
 
-    // Una carrera a pie / estación: nombre · chip de reparto · (delta + tiempo) ·
-    // barra con opacidad por tier y la marca del objetivo. Editable → chevron.
+    // Un tramo a pie / una estación: nombre y tiempo arriba, quién lo lleva y el delta debajo, y la barra con
+    // la opacidad por tier y la marca del objetivo. Editable → el glifo del reparto.
     private func stationRow(_ seg: DoblesRaceGapSegment, partnerName: String, editable: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
                 Text(seg.labelEs)
-                    .font(.system(size: 13, weight: .semibold))
+                    .papel(.cuerpoFuerte)
                     .foregroundStyle(Theme.Color.foreground)
-                carrierChip(seg, partnerName: partnerName)
-                Spacer(minLength: 8)
-                if let delta = seg.deltaS, delta != 0 {
-                    Text(GoalGapFormat.signedDuration(delta))
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced).monospacedDigit())
-                        .foregroundStyle(delta > 0 ? Theme.Color.danger : Theme.Color.ok)
-                }
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 Text(GoalGapFormat.raceClock(seg.pairPredictedS))
-                    .font(.system(size: 13, weight: .medium, design: .monospaced).monospacedDigit())
+                    .papel(.notaPesada)
                     .foregroundStyle(Theme.Color.foreground)
                 if editable {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Theme.Color.accentText)
                         .accessibilityHidden(true)
+                }
+            }
+            HStack(alignment: .center, spacing: Theme.Spacing.s) {
+                carrierChip(seg, partnerName: partnerName)
+                if let delta = seg.deltaS, delta != 0 {
+                    Text(GoalGapFormat.signedDuration(delta))
+                        .papel(.notaPesada)
+                        .foregroundStyle(delta > 0 ? Theme.Color.danger : Theme.Color.ok)
                 }
             }
             GapTrack(
@@ -252,50 +220,42 @@ struct DoblesRaceGapSection: View {
             .frame(height: GoalGapVis.trackHeight)
             if let caption = seg.tierCaption {
                 Text(caption)
-                    .font(.system(size: 10, weight: .medium).italic())
-                    .foregroundStyle(Theme.Color.faint)
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
             }
         }
+        .frame(minHeight: Theme.Size.toque, alignment: .top)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(rowAccessibilityLabel(seg, partnerName: partnerName, editable: editable))
     }
 
-    // RoxZone — las transiciones, la hacéis juntos. Muted + compacto como el board
-    // individual, para que cierren los totales sin competir con las estaciones.
+    // RoxZone — las transiciones, las hacéis juntos. Apagada y compacta como el tablero individual, para que
+    // cierren los totales sin competir con las estaciones.
     private func roxzoneRow(_ seg: DoblesRaceGapSegment) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
             Text(seg.labelEs)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Theme.Color.faint)
-            Spacer(minLength: 8)
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: Theme.Spacing.s)
             Text(GoalGapFormat.raceClock(seg.pairPredictedS))
-                .font(.system(size: 12, weight: .medium, design: .monospaced).monospacedDigit())
+                .papel(.notaFuerte)
                 .foregroundStyle(Theme.Color.muted)
         }
-        .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(seg.labelEs), juntos, \(GoalGapFormat.raceClock(seg.pairPredictedS))")
     }
 
-    // Chip de "quién lo lleva": self/split → acento, pareja → azul, juntos → neutro.
+    // La pastilla de «quién lo lleva»: el atleta o el reparto → acento; la pareja → azul; juntos → neutra.
+    @ViewBuilder
     private func carrierChip(_ seg: DoblesRaceGapSegment, partnerName: String) -> some View {
         let text = seg.carrierChipText(partnerName: partnerName)
-        let (fg, bg): (Color, Color)
         switch seg.carrier.lowercased() {
-        case "partner":  (fg, bg) = (Theme.Color.partner, Theme.Color.infoTint)
-        case "together": (fg, bg) = (Theme.Color.neutral, Theme.Color.neutralTint)
-        default:         (fg, bg) = (Theme.Color.accentText, Theme.Color.accent.opacity(0.12))
+        case "partner":  PastillaPareja(texto: text)
+        case "together": InfoPill(text: text, estilo: .neutro)
+        default:         InfoPill(text: text, estilo: .acento)
         }
-        return Text(text)
-            .font(.system(size: 10, weight: .bold))
-            .tracking(0.3)
-            .foregroundStyle(fg)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
-            .background(bg)
-            .clipShape(Capsule())
-            .accessibilityHidden(true)
     }
 
     private func boardFooter(_ gap: DoblesRaceGap) -> some View {
@@ -307,8 +267,8 @@ struct DoblesRaceGapSection: View {
             parts.append("Toca una estación para ajustar el reparto.")
         }
         return Text(parts.joined(separator: " "))
-            .font(.system(size: 11))
-            .foregroundStyle(Theme.Color.faint)
+            .papel(.nota)
+            .foregroundStyle(Theme.Color.muted)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, Theme.Spacing.xs)
     }
@@ -320,13 +280,14 @@ struct DoblesRaceGapSection: View {
         if let by = gap.strategyLastEditedBy, !by.isEmpty {
             text += " Último ajuste de \(by)."
         }
-        return HStack(alignment: .top, spacing: 8) {
+        return HStack(alignment: .top, spacing: Theme.Spacing.m) {
             Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.Color.faint)
-                .padding(.top, 1)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.Color.muted)
+                .padding(.top, 2)
+                .accessibilityHidden(true)
             Text(text)
-                .font(.system(size: 12))
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -374,5 +335,29 @@ struct DoblesRaceGapSection: View {
             return "tú \(pct) por ciento"
         default:         return seg.carrier
         }
+    }
+}
+
+// MARK: - El esqueleto
+
+/// El predicho de la pareja mientras llega: la silueta de la tarjeta y de unas filas del tablero, sin inventar
+/// ningún tramo.
+struct DoblesRaceGapEsqueleto: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            SkeletonBar(width: 170, height: 32, radius: 16)
+            SkeletonBar(height: 150, radius: Theme.Radius.tarjeta)
+            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                ForEach(0..<4, id: \.self) { _ in
+                    VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                        SkeletonBar(width: 140, height: 17, radius: 5)
+                        SkeletonBar(height: GoalGapVis.trackHeight, radius: 4)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cargando el predicho conjunto")
     }
 }
