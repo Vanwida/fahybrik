@@ -9,7 +9,11 @@
 // (arquetipos Series · Progresivo · Fartlek · Cuestas · Pirámide y sus hints). El
 // bloque antiguo se abre sin pérdida: `structure` es opcional dentro de
 // prescription_json (cero migración) y run-structure-convert.ts conserva los
-// campos planos que ya decodifica el iOS instalado.
+// campos planos que ya decodifica el iOS instalado. Entorno (calle|cinta|pista, sin
+// inclinación en pista), aviso (arriba|abajo|ambos|ninguno, solo con ritmo/zona/pulso)
+// y frase (≤ 80 caracteres, una línea) por tramo: ver RUN_ENVIRONMENTS,
+// RUN_ALERT_DIRECTIONS y RUN_CUE_MAX_LENGTH en el mismo fichero, y
+// SegmentWristFields.tsx en el editor.
 
 import {
   DocSection,
@@ -131,6 +135,18 @@ export default function Section({ meta }: { meta: GuiaSection }) {
         por sensaciones). En cinta o cuesta añades <b>inclinación</b> (0–15 %); y si trabajas técnica,
         una <b>cadencia</b> objetivo (120–220 spm). La recuperación además dice cómo se toma:{' '}
         <b>trote</b>, <b>caminar</b> o <b>parado</b> (esta última, medida en tiempo).
+      </p>
+
+      <h3>Dónde se corre, cuándo avisa el reloj y una frase</h3>
+      <p>
+        Tres cosas más, siempre <b>opcionales</b>, que abres desde el propio tramo. <b>Dónde se
+        corre</b>: calle, cinta o pista. La cinta te deja poner su inclinación; la pista es plana y
+        no la tiene. <b>Aviso en el reloj</b>: hacia dónde vibra si el ritmo o el pulso se salen del
+        objetivo (si se pasa, si no llega, los dos lados o nunca). Solo aparece cuando el tramo tiene
+        algo que medir, y si no eliges nada te dice qué pasa: lo marca tu método en{' '}
+        <b>Ajustes › Método</b>. <b>Frase para el reloj</b>: una línea corta de las tuyas, tipo
+        «mirar el pulso», que el atleta lee en la muñeca durante ese tramo. Es coaching, no
+        prescripción: sin cifras que cumplir. Caben hasta 80 caracteres.
       </p>
 
       <h3>«Repetir ×N», y repeticiones dentro de repeticiones</h3>

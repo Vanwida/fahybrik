@@ -13,6 +13,12 @@ struct DailyReadinessPayload: Codable {
     /// chart. Nil on payloads from before this shipped (and on the coach reader);
     /// the sheet hides the trend section when it has fewer than two points.
     let trend: [ReadinessTrendPoint]?
+    /// Los cortes de las zonas de ESTE atleta, tal como los fija su coach y sirve el servidor junto a la
+    /// lectura (`bands`, no dentro de ella: la lectura es la misma para todos y los cortes son método del
+    /// coach). Nil mientras no hayan llegado (una caché anterior a esto): ahí `ReadinessZone` usa
+    /// `ReadinessBands.hastaQueLleguen`. Va en el payload y no aparte para que la caché de disco y todo el que
+    /// recibe la lectura (Hoy, el detalle) lea las mismas bandas que la lectura que pinta.
+    var bands: ReadinessBands? = nil
 
     // The app decodes with a GLOBAL `.convertFromSnakeCase`, which maps the wire
     // key `delta_7d` → `delta7D` (a letter right after a digit gets capitalized).
@@ -26,7 +32,25 @@ struct DailyReadinessPayload: Codable {
         case delta7d = "delta7D"
         case breakdown
         case trend
+        case bands
     }
+}
+
+/// Los cortes de las zonas de disposición de un atleta: método de SU coach (`readiness_ok_min` /
+/// `readiness_caution_min` / `readiness_max_age_days` de sus umbrales), servido por
+/// `GET /api/athlete/readiness/today` en `bands`. Swift no decide dónde cortan: los lee.
+struct ReadinessBands: Codable, Equatable {
+    /// Desde aquí, «recuperado» (la zona alta).
+    let okMin: Int
+    /// Desde aquí y por debajo de `okMin`, «recuperación parcial»; por debajo, «cuerpo cargado».
+    let cautionMin: Int
+    /// Cuántos días de antigüedad da el coach por buena a una lectura.
+    let maxAgeDays: Int?
+
+    /// Los cortes que rigen SOLO mientras no ha llegado ninguno (la caché de antes de que el servidor los
+    /// mandara, o una respuesta que no los trae). Son los valores de fábrica de los umbrales del coach
+    /// (`signal-thresholds.ts`); no son una constante de vista: en cuanto llegan los del coach, mandan ellos.
+    static let hastaQueLleguen = ReadinessBands(okMin: 67, cautionMin: 45, maxAgeDays: nil)
 }
 
 /// One day of the readiness trend — the persisted score for a calendar day.
@@ -92,6 +116,15 @@ struct DailyReadinessResponse: Decodable {
     // wearable data). The backend never invents a score — Today shows an honest
     // empty state in that case.
     let readiness: DailyReadinessPayload?
+    /// Los cortes de zona del coach de este atleta (aditivo: un servidor anterior no los manda).
+    let bands: ReadinessBands?
+
+    /// La lectura con las bandas del coach puestas, para que viajen con ella a la caché y a las vistas.
+    var lectura: DailyReadinessPayload? {
+        guard var lectura = readiness else { return nil }
+        lectura.bands = bands ?? lectura.bands
+        return lectura
+    }
 }
 
 enum ReadinessService {
@@ -101,29 +134,32 @@ enum ReadinessService {
             path: "api/athlete/readiness/today",
             bearer: bearer
         )
-        return resp.readiness
+        return resp.lectura
     }
 }
 
-// MARK: - Readiness zone (single source of the athlete-side thresholds)
+// MARK: - Readiness zone
 //
 // The recovery bucket for a 0–100 readiness score — the ONE place the athlete
-// surfaces derive their thresholds, ring color and plain-language read, so the
-// Inicio card and the detail sheet can never drift. Buckets MIRROR
-// web/lib/dashboard/constants/readiness.ts (ok ≥ 67 · caution 45–66 · low < 45),
-// matching the coach's own bucketing.
-enum ReadinessZone {
+// surfaces derive their ring color and plain-language read, so the Inicio card and
+// the detail sheet can never drift. WHERE the buckets cut is the coach's method
+// (`ReadinessBands`, served by the endpoint next to the reading); this only turns a
+// score and its bands into a zone.
+enum ReadinessZone: Equatable {
     case high, medium, low
 
-    /// Lower bound of the "recovered" bucket (mirrors READINESS_OK_MIN).
-    static let okMin = 67
-    /// Lower bound of the "partial" bucket (mirrors READINESS_CAUTION_MIN).
-    static let cautionMin = 45
-
-    static func of(score: Int) -> ReadinessZone {
-        if score >= okMin { return .high }
-        if score >= cautionMin { return .medium }
+    /// La zona de un score con las bandas de su coach. Sin bandas (aún no han llegado) rigen
+    /// `ReadinessBands.hastaQueLleguen`.
+    static func of(score: Int, bands: ReadinessBands? = nil) -> ReadinessZone {
+        let cortes = bands ?? .hastaQueLleguen
+        if score >= cortes.okMin { return .high }
+        if score >= cortes.cautionMin { return .medium }
         return .low
+    }
+
+    /// La zona de una lectura, con las bandas que trae.
+    static func of(_ lectura: DailyReadinessPayload) -> ReadinessZone {
+        of(score: lectura.score, bands: lectura.bands)
     }
 
     /// Ring / accent color for the score (green · amber · red).

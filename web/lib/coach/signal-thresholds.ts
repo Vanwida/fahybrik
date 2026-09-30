@@ -24,6 +24,12 @@ import {
   type CoachThresholds,
 } from '@fahybrid/shared/domain/coach/signal-thresholds';
 import type { EffectiveThresholds } from '@fahybrid/shared/domain/coach/signals';
+import {
+  DEFAULT_WRIST_RPE_WORDS,
+  buildWristMethod,
+  effectiveWristRpeWords,
+  type WristMethod,
+} from '@fahybrid/shared/domain/coach/wrist-method';
 import type {
   CoachSignalThresholdsPutInput,
   CoachSignalThresholdsResponse,
@@ -31,7 +37,29 @@ import type {
 
 const TABLE = 'coach_signal_thresholds';
 
-type ThresholdRow = CoachThresholdOverrides & { updated_at: string };
+/**
+ * La fila del coach: cada umbral es su número o null (= el defecto), más las
+ * palabras del RPE de la muñeca (text[], no caben en el registro numérico).
+ */
+type ThresholdRow = CoachThresholdOverrides & {
+  wrist_rpe_words: string[] | null;
+  updated_at: string;
+};
+
+/** Una fila cruda de `coach_signal_thresholds` → la del coach. UNA lectura para el editor, el barrido y el reloj. */
+function parseRow(row: Record<string, unknown>): ThresholdRow {
+  const at = row.updated_at;
+  const words = row.wrist_rpe_words;
+  const out: ThresholdRow = {
+    wrist_rpe_words: Array.isArray(words) ? (words as string[]) : null,
+    updated_at: at instanceof Date ? at.toISOString() : String(at),
+  };
+  for (const k of COACH_THRESHOLD_KEYS) {
+    const v = row[k];
+    out[k] = v == null ? null : Number(v);
+  }
+  return out;
+}
 
 /**
  * La fila del coach, o null si no ha escrito ninguna. `select *` a propósito: la
@@ -45,14 +73,7 @@ async function loadRow(coach_id: bigint | number, client: Sql): Promise<Threshol
       select * from coach_signal_thresholds where coach_id = ${Number(coach_id)} limit 1
     `;
     const row = rows[0];
-    if (!row) return null;
-    const at = row.updated_at;
-    const out: ThresholdRow = { updated_at: at instanceof Date ? at.toISOString() : String(at) };
-    for (const k of COACH_THRESHOLD_KEYS) {
-      const v = row[k];
-      out[k] = v == null ? null : Number(v);
-    }
-    return out;
+    return row ? parseRow(row) : null;
   } catch (err) {
     // Entorno sin migrar: servir los defectos en vez de tumbar el barrido entero.
     if (isPgMissingRelation(err, TABLE)) return null;
@@ -85,14 +106,43 @@ export async function resolveEffectiveThresholds(
   return { ...SIGNAL_THRESHOLDS, ...coach, test_due_days: testDueDays(cadence.stored) };
 }
 
+/**
+ * El método de la muñeca de UN atleta: el de su coach, listo para el reloj. Sin
+ * coach, sin fila del coach o en un entorno sin la migración 0282, sale el de
+ * fábrica — nunca un hueco, nunca un fallo (un reloj que no recibe método no
+ * sabe avisar, y eso no puede depender de que el coach haya abierto Ajustes).
+ */
+export async function resolveAthleteWristMethod(
+  athlete_id: bigint | number,
+  client: Sql = defaultSql,
+): Promise<WristMethod> {
+  try {
+    const rows = await client<Array<Record<string, unknown>>>`
+      select t.* from athletes a
+      join coach_signal_thresholds t on t.coach_id = a.coach_id
+      where a.id = ${Number(athlete_id)}
+      limit 1
+    `;
+    const row = rows[0] ? parseRow(rows[0]) : null;
+    return buildWristMethod(mergeCoachThresholds(row), row?.wrist_rpe_words);
+  } catch (err) {
+    if (isPgMissingRelation(err, TABLE)) return buildWristMethod(mergeCoachThresholds(null), null);
+    throw err;
+  }
+}
+
 function toResponse(row: ThresholdRow | null): CoachSignalThresholdsResponse {
   const effective = mergeCoachThresholds(row);
   const custom_keys = row
     ? COACH_THRESHOLD_KEYS.filter((k) => row[k] != null)
     : ([] as CoachThresholdKey[]);
+  const wristWordsCustom = row?.wrist_rpe_words != null;
   return {
     ...effective,
-    is_custom: custom_keys.length > 0,
+    wrist_rpe_words: effectiveWristRpeWords(row?.wrist_rpe_words),
+    wrist_rpe_words_custom: wristWordsCustom,
+    default_wrist_rpe_words: [...DEFAULT_WRIST_RPE_WORDS],
+    is_custom: custom_keys.length > 0 || wristWordsCustom,
     custom_keys,
     defaults: { ...DEFAULT_COACH_THRESHOLDS },
     updated_at: row?.updated_at ?? null,
@@ -135,11 +185,16 @@ export async function upsertCoachSignalThresholds(
   client: Sql = defaultSql,
 ): Promise<CoachSignalThresholdsResponse> {
   const keys: string[] = COACH_THRESHOLD_KEYS.filter((k) => k in patch);
-  const values: Record<string, number | null> = {};
+  const values: Record<string, number | string[] | null> = {};
   for (const k of COACH_THRESHOLD_KEYS) if (k in patch) values[k] = patch[k] ?? null;
+  // Las palabras del RPE de la muñeca: las once del coach, o null = las de fábrica.
+  if ('wrist_rpe_words' in patch) {
+    keys.push('wrist_rpe_words');
+    values.wrist_rpe_words = patch.wrist_rpe_words ?? null;
+  }
 
   if (keys.length > 0) {
-    const insertRow: Record<string, number | null> = { coach_id: Number(coach_id), ...values };
+    const insertRow: Record<string, number | string[] | null> = { coach_id: Number(coach_id), ...values };
     const insertCols: string[] = ['coach_id', ...keys];
     await client`
       insert into coach_signal_thresholds ${client(insertRow, insertCols)}

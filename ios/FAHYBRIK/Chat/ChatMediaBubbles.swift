@@ -3,10 +3,9 @@ import UIKit
 import AVKit
 import QuickLook
 
-// Video + file attachment bubbles (both directions). Remote media resolves to a
-// local temp file through ChatMediaLoader (authenticated) on tap, then plays via
-// AVKit / previews via QuickLook. Local (just-sent) media plays straight from its
-// temp file.
+// Las burbujas de vídeo y de archivo (en las dos direcciones). El medio remoto se resuelve a un fichero temporal por
+// `ChatMediaLoader` (autenticado) al tocar, y luego suena por AVKit / se previsualiza con QuickLook. El medio local
+// (recién enviado) se reproduce directamente desde su temporal.
 
 // MARK: - Video bubble
 
@@ -23,6 +22,7 @@ struct ChatVideoBubble: View {
     @State private var failed = false
 
     private let size = CGSize(width: 232, height: 232 * 9 / 16)
+    private static let ladoDelPlay: CGFloat = 52
 
     var body: some View {
         Button { Task { await openPlayer() } } label: {
@@ -34,46 +34,46 @@ struct ChatVideoBubble: View {
                     Rectangle().fill(Theme.Color.surfaceSunken)
                         .frame(width: size.width, height: size.height)
                 }
-                // Scrim + play glyph.
+                // Velo + el glifo de reproducir.
                 Rectangle().fill(Theme.Color.scrim.opacity(0.28))
                     .frame(width: size.width, height: size.height)
                 Group {
-                    if isResolving { ProgressView().tint(.white) }
-                    else {
-                        Image(systemName: failed ? "exclamationmark.triangle.fill" : "play.fill")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 52, height: 52)
-                            .background(.black.opacity(0.42))
-                            .clipShape(Circle())
+                    if isResolving {
+                        ProgressView().tint(.white)
+                    } else if failed {
+                        IconoChat(.alertaRellena, tam: 22, peso: .bold)
+                    } else {
+                        IconoChat(.play, tam: 22, peso: .bold)
                     }
                 }
+                .foregroundStyle(.white)
+                .frame(width: Self.ladoDelPlay, height: Self.ladoDelPlay)
+                .background(Color.black.opacity(MedidasChat.opacidadDelDiscoSobreMedio), in: Circle())
                 if let label = durationLabel {
                     VStack {
                         Spacer()
                         HStack {
                             Spacer()
                             Text(label)
-                                .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                                .papel(.notaPesada)
                                 .foregroundStyle(.white)
-                                .padding(.horizontal, 6).padding(.vertical, 3)
-                                .background(.black.opacity(0.5))
-                                .clipShape(Capsule())
+                                .padding(.horizontal, Theme.Spacing.s).padding(.vertical, Theme.Spacing.xs)
+                                .background(Color.black.opacity(MedidasChat.opacidadDelDiscoSobreMedio), in: Capsule())
                         }
                     }
-                    .padding(8)
+                    .padding(Theme.Spacing.s)
                     .frame(width: size.width, height: size.height)
                 }
             }
-            .clipShape(BubbleShape(isMe: isMe))
-            .overlay { BubbleShape(isMe: isMe).stroke(Theme.Color.hairline, lineWidth: 1) }
+            .clipShape(FormaBurbujaChat(mia: isMe))
+            .overlay { FormaBurbujaChat(mia: isMe).stroke(Theme.Color.hairline, lineWidth: 1) }
         }
         .buttonStyle(.plain)
         .task(id: taskKey) { await loadPoster() }
         .sheet(isPresented: $showPlayer) {
             if let playerURL { VideoPlayerSheet(url: playerURL) }
         }
-        .accessibilityLabel("Vídeo. Toca para reproducir.")
+        .accessibilityLabel(failed ? "Vídeo. No se pudo abrir." : "Vídeo. Toca para reproducir.")
     }
 
     private var taskKey: String { source.remoteURL ?? source.localURL?.absoluteString ?? "" }
@@ -82,9 +82,8 @@ struct ChatVideoBubble: View {
         return Formato.clock(d)
     }
 
-    /// Only generate a poster from a LOCAL file (cheap). Remote videos stay a
-    /// styled placeholder until tapped — we don't download a 200 MB file just for
-    /// a thumbnail.
+    /// Sólo se genera el póster de un fichero LOCAL (barato). Un vídeo remoto sigue siendo un hueco con su glifo hasta
+    /// que se toca: no se descargan 200 MB sólo para una miniatura.
     @MainActor
     private func loadPoster() async {
         guard let local = source.localURL else { return }
@@ -112,13 +111,13 @@ struct ChatVideoBubble: View {
         gen.appliesPreferredTrackTransform = true
         gen.maximumSize = CGSize(width: 640, height: 640)
         let time = CMTime(seconds: 0.1, preferredTimescale: 600)
-        // iOS 16+ async image(at:) — no deprecated callback API.
+        // `image(at:)` asíncrono de iOS 16+ — sin la API de callback obsoleta.
         guard let cg = try? await gen.image(at: time).image else { return nil }
         return UIImage(cgImage: cg)
     }
 }
 
-/// AVKit player sheet — autoplays the resolved local file.
+/// Hoja con el reproductor de AVKit: reproduce solo el fichero local ya resuelto.
 struct VideoPlayerSheet: View {
     let url: URL
     @Environment(\.dismiss) private var dismiss
@@ -136,19 +135,11 @@ struct VideoPlayerSheet: View {
             VStack {
                 HStack {
                     Spacer()
-                    Button { Haptics.light(); dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 40, height: 40)
-                            .background(.black.opacity(0.4)).clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Cerrar")
+                    BotonCierreSobreMedio(alCerrar: { dismiss() })
                 }
                 Spacer()
             }
-            .padding(16)
+            .padding(Theme.Spacing.s)
         }
         .onAppear { player = AVPlayer(url: url) }
     }
@@ -168,8 +159,7 @@ struct ChatFileBubble: View {
     @State private var showPreview = false
     @State private var failed = false
 
-    private var fg: Color { isMe ? Theme.Color.accentOn : Theme.Color.foreground }
-    private var sub: Color { isMe ? Theme.Color.accentOn.opacity(0.8) : Theme.Color.muted }
+    private var tinta: Color { isMe ? Theme.Color.accentOn : Theme.Color.foreground }
 
     private var subtitle: String {
         if failed { return "No se pudo abrir" }
@@ -179,36 +169,39 @@ struct ChatFileBubble: View {
 
     var body: some View {
         Button { Task { await openPreview() } } label: {
-            HStack(spacing: 11) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(isMe ? Theme.Color.accentOn.opacity(0.16) : Theme.Color.surfaceElevated)
-                        .frame(width: 40, height: 40)
+            HStack(spacing: Theme.Spacing.m) {
+                // La ficha del archivo: la cara elevada del kit (con su filete) sobre cualquiera de las dos burbujas.
+                FichaDia(tono: .normal) {
                     if isResolving {
-                        ProgressView().tint(fg).scaleEffect(0.8)
+                        ProgressView().tint(Theme.Color.foreground)
                     } else {
-                        Image(systemName: "doc.fill")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(isMe ? Theme.Color.accentOn : Theme.Color.accentText)
+                        IconoChat(.documento, tam: 22)
                     }
                 }
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text(name)
-                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                        .foregroundStyle(fg)
+                        .papel(.rotulo)
+                        .foregroundStyle(tinta)
                         .lineLimit(1).truncationMode(.middle)
-                    Text(subtitle)
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(failed ? Theme.Color.danger : sub)
+                    HStack(spacing: Theme.Spacing.xs) {
+                        // El fallo va en la marca (el triángulo) y en la palabra; el texto conserva su tinta.
+                        if failed {
+                            IconoChat(.alerta, tam: 14)
+                                .foregroundStyle(isMe ? Theme.Color.accentOn : Theme.Color.danger)
+                        }
+                        Text(subtitle)
+                            .papel(.nota)
+                            .foregroundStyle(tinta)
+                    }
                 }
-                Image(systemName: "arrow.down.circle")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(sub)
+                Spacer(minLength: Theme.Spacing.xs)
+                IconoChat(.descarga, tam: 20)
+                    .foregroundStyle(tinta)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(minWidth: 180, maxWidth: 250, alignment: .leading)
-            .chatBubbleSurface(isMe: isMe)
+            .padding(.horizontal, Theme.Spacing.m)
+            .padding(.vertical, Theme.Spacing.s)
+            .frame(minWidth: 220, maxWidth: MedidasChat.anchoMaximoBurbuja, minHeight: Theme.Size.toque, alignment: .leading)
+            .burbujaChat(mia: isMe)
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showPreview) {
@@ -232,7 +225,7 @@ struct ChatFileBubble: View {
     }
 }
 
-/// QuickLook wrapper — inline preview for PDF / TXT / MD / DOCX from a local URL.
+/// Envoltorio de QuickLook — vista previa en la propia app de PDF / TXT / MD / DOCX desde una URL local.
 struct QuickLookPreview: UIViewControllerRepresentable {
     let url: URL
 

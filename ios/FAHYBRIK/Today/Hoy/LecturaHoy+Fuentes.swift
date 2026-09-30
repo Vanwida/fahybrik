@@ -109,7 +109,7 @@ enum LeerHoy {
 
     static func disposicion(_ f: FuentesHoy) -> Disposicion {
         if let p = f.disposicion {
-            return .medida(score: p.score, delta7d: p.delta7d, senales: p.breakdown.map(senales) ?? [])
+            return .medida(score: p.score, zona: ReadinessZone.of(p), delta7d: p.delta7d, senales: p.breakdown.map(senales) ?? [])
         }
         guard f.disposicionCargada else { return .cargando }
         // Cargó y no hay cifra: el camino más rápido a una es el check-in; si no, lo que falta es Salud.

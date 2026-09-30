@@ -26,6 +26,8 @@ import {
 import { buildAthleteWeekPlan, type AthleteWeekDaySession } from '@/lib/athlete/week-plan';
 import { loadAssignmentDetail } from '@/lib/athlete/assignment-detail';
 import { resolveCoachHrMethod } from '@/lib/coach/hr-method';
+import { resolveAthleteWristMethod } from '@/lib/coach/signal-thresholds';
+import type { WristMethod } from '@fahybrid/shared/domain/coach/wrist-method';
 import { defaultCoachHrMethod, hrZoneFractionsFrom } from '@fahybrid/shared/domain/coach/hr-method';
 import type { HrZoneFractions } from '@fahybrid/shared/domain/methodology/hr-zones';
 import { loadCoachZonesForUnit } from '@/lib/dashboard/v2/zone-derivation';
@@ -108,7 +110,15 @@ export async function loadAthleteZoneInputs(athlete_id: bigint): Promise<Athlete
 // ── Resolución de la sesión ──────────────────────────────────────────────────
 
 export type RunWatchWorkoutResult =
-  | { ok: true; workout: WatchWorkout; assignment_id: string; iso_date: string; title: string }
+  | {
+      ok: true;
+      workout: WatchWorkout;
+      assignment_id: string;
+      iso_date: string;
+      title: string;
+      /** El método del coach del atleta para la muñeca (efectivo y completo); los codificadores de fabricante lo ignoran. */
+      wrist_method: WristMethod;
+    }
   /** Hoy no hay ninguna sesión asignada (día de descanso o semana sin publicar). */
   | { ok: false; reason: 'no_session_today' }
   /** La asignación pedida no existe o no es de este atleta. */
@@ -167,7 +177,10 @@ export async function loadRunWatchWorkout(params: {
   const structure = runStructureForSession(detail.workout);
   if (!structure) return { ok: false, reason: 'not_a_run_session', assignment_id: id, title };
 
-  const { benchmarks, coachZones, hrZoneFractions } = await loadAthleteZoneInputs(params.athlete_id);
+  const [{ benchmarks, coachZones, hrZoneFractions }, wrist_method] = await Promise.all([
+    loadAthleteZoneInputs(params.athlete_id),
+    resolveAthleteWristMethod(params.athlete_id, sql),
+  ]);
   const workout = buildWatchWorkout(structure, benchmarks, { name: title, coachZones, hrZoneFractions });
 
   return {
@@ -176,6 +189,7 @@ export async function loadRunWatchWorkout(params: {
     assignment_id: id,
     iso_date: iso_date ?? detail.assignment.scheduled_for,
     title,
+    wrist_method,
   };
 }
 

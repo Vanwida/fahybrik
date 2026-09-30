@@ -9,17 +9,26 @@ import SwiftUI
 // · Race marks → "Registrar": candidates from the watch, or typed.
 // · Run marks keep a PR PER CONTEXT: the belt moves the floor for you, so a
 //   treadmill 5K never beats the street one — both bests show side by side.
+//
+// ARQUETIPO **Detalle** (CONTRATO-UI §6.2): el sujeto es la mejor marca, el hueco se gana con contra qué se
+// compara y de dónde sale (historial), y la acción va anclada. Qué se lee y qué se celebra vive en
+// `LecturaDeMarca`; lo que se pinta, en `MarcaDetalleCuerpo`. Aquí queda el servicio y lo que presenta:
+// el intento en vivo, la hoja de registrar y la confirmación de retirar.
 struct MarkDetailView: View {
     let slug: String
     let bearer: String?
     var hrZones: HRZoneProfile? = nil
 
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var mark: MarkView? = nil
-    @State private var loading = true
-    @State private var error: String? = nil
+    @State private var cargando = true
+    @State private var fallo = false
+    @State private var aviso: AvisoDeMarca? = nil
     /// Snapshot of the best BEFORE an attempt, so the return can celebrate honestly.
     @State private var bestBeforeAttempt: Double? = nil
-    @State private var newMarkBanner: (label: String, deltaLabel: String?, improved: Bool)? = nil
+    @State private var nueva: MarcaNueva? = nil
 
     @State private var liveContext: FreeWorkoutContext? = nil
     @State private var showRegister = false
@@ -28,43 +37,22 @@ struct MarkDetailView: View {
     /// confirme. Borrar una marca no se deshace, así que se pregunta.
     @State private var pendingDeletion: MarkResult? = nil
 
+    private var estado: EstadoDeMarca {
+        EstadoDeMarca.resolver(cargando: cargando, fallo: fallo, marca: mark)
+    }
+
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    if let mark {
-                        if let banner = newMarkBanner { newMarkCard(banner) }
-                        heroCard(mark)
-                        if mark.group == "run" { contextBests(mark) }
-                        if let twin = mark.raceTwin, let best = mark.best {
-                            twinCard(mark, twin: twin, best: best)
-                        }
-                        historyCard(mark)
-                    } else if loading {
-                        ProgressView()
-                            .tint(Theme.Color.accentText)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, Theme.Spacing.xl)
-                    }
-                    if let error {
-                        Text(error)
-                            .font(Theme.Typography.small)
-                            .foregroundStyle(Theme.Color.warning)
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.l)
-            }
-            // The one action, pinned where the thumb lives. Was a ZStack overlay
-            // that floated over the scroll and needed a guessed 120pt of bottom
-            // padding to stop covering the last card. The shared modifier reserves
-            // the exact inset, so the guess is gone.
-            .anchoredAction {
-                if let mark { ctaButton(mark) }
-            }
-        }
+        MarcaDetallePantalla(
+            estado: estado,
+            lectura: mark.map { LecturaDeMarca.desde($0) },
+            nueva: nueva,
+            aviso: aviso,
+            alReintentar: { await load() },
+            alRetirar: { pendingDeletion = $0 },
+            alVolver: { dismiss() },
+            alActuar: { actuar() }
+        )
+        .refreshable { await load() }
         .navigationTitle(mark?.label ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
@@ -130,239 +118,17 @@ struct MarkDetailView: View {
         )
     }
 
-    /// Retira una marca y recarga. El servidor vuelve a comprobar la propiedad y el
-    /// origen, así que un fallo aquí se cuenta tal cual y no se toca la lista.
-    @MainActor
-    private func remove(_ result: MarkResult) async {
-        pendingDeletion = nil
-        error = nil
-        do {
-            try await MarksService.remove(id: result.id, bearer: bearer)
-            Haptics.success()
-            await load()
-        } catch {
-            self.error = "No pudimos retirar la marca."
-        }
-    }
-
-    // MARK: - Cards
-
-    private func heroCard(_ mark: MarkView) -> some View {
-        CardSurface(padding: 18) {
-            VStack(spacing: 6) {
-                LabelText(text: mark.best == nil ? "Sin marca todavía" : "Tu mejor marca")
-                // Sin marca no hay cifra que enseñar. El sitio del número lo ocupa
-                // la referencia de abajo, y el botón anclado es el acto que la llena.
-                if let best = mark.best {
-                    Text(MarkFormat.value(mark, best.value))
-                        .font(Theme.Typography.readoutL)
-                        .foregroundStyle(Theme.Color.foreground)
-                    HStack(spacing: 6) {
-                        if let pace = MarkFormat.paceLine(mark, best.value) {
-                            Text(pace)
-                        }
-                        if let rel = MarkFormat.relative(best.recordedAt) {
-                            Text("·")
-                            Text(rel)
-                        }
-                    }
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-                } else {
-                    Text(mark.approxLabel)
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-            .frame(maxWidth: .infinity)
-        }
-    }
-
-    /// Run marks: street and belt keep separate records — show both, never mix.
-    @ViewBuilder
-    private func contextBests(_ mark: MarkView) -> some View {
-        if mark.bestOutdoor != nil || mark.bestTreadmill != nil {
-            HStack(spacing: 10) {
-                contextTile("Aire libre", result: mark.bestOutdoor, mark: mark)
-                contextTile("En cinta", result: mark.bestTreadmill, mark: mark)
-            }
-        }
-    }
-
-    /// Una de las dos mitades del récord por contexto. La que todavía no tienes se
-    /// declara (el botón anclado pregunta calle o cinta en cada intento, así que es
-    /// un hueco que llenas tú), pero se dice con palabras: donde va un tiempo no se
-    /// pinta un guion. Comparte la tipografía del valor para que las dos tarjetas
-    /// midan igual de alto.
-    private func contextTile(_ title: String, result: MarkResult?, mark: MarkView) -> some View {
-        CardSurface(padding: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                LabelText(text: title)
-                Text(result.map { MarkFormat.value(mark, $0.value) } ?? "Sin marca")
-                    .font(.system(size: 17, weight: .bold, design: .monospaced))
-                    .foregroundStyle(result == nil ? Theme.Color.faint : Theme.Color.foreground)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    /// The comparison nobody else can show: your fresh mark vs the SAME distance
-    /// inside your last race. The gap is what the plan trains.
-    private func twinCard(_ mark: MarkView, twin: RaceTwin, best: MarkResult) -> some View {
-        CardSurface(padding: 14) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 10) {
-                    twinHalf("En el box", Formato.clock(best.value), caption: "tu PR")
-                    Divider().overlay(Theme.Color.hairlineStrong).frame(height: 40)
-                    twinHalf("En carrera", Formato.clock(twin.seconds), caption: twin.raceName)
-                }
-                if let delta = twinDeltaLine(best: best.value, race: twin.seconds) {
-                    Text(delta)
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-    }
-
-    private func twinHalf(_ title: String, _ value: String, caption: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            LabelText(text: title)
-            Text(value)
-                .font(.system(size: 19, weight: .bold, design: .monospaced))
-                .foregroundStyle(Theme.Color.foreground)
-            Text(caption)
-                .font(Theme.Typography.caption)
-                .foregroundStyle(Theme.Color.faint)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func twinDeltaLine(best: Double, race: Double) -> String? {
-        let gap = Int((race - best).rounded())
-        guard gap > 0 else { return nil }
-        return "En carrera fuiste \(gap) s más lento que fresco. Normal: llegas con kilómetros en las piernas. Ese hueco es lo que entrena tu plan."
-    }
-
-    private func historyCard(_ mark: MarkView) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            LabelText(text: "Historial")
-            CardSurface(padding: 0) {
-                if mark.history.isEmpty {
-                    Text(mark.measuredBy == "registered"
-                        ? "Registra tu primera \(mark.label.lowercased()) y aquí verás la progresión."
-                        : "Pruébate y aquí verás la progresión.")
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
-                        .padding(14)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    VStack(spacing: 0) {
-                        ForEach(Array(mark.history.enumerated()), id: \.offset) { index, result in
-                            historyRow(mark, result: result, previous: mark.history[safe: index + 1])
-                            if index < mark.history.count - 1 {
-                                Divider().overlay(Theme.Color.hairline).padding(.leading, 14)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func historyRow(_ mark: MarkView, result: MarkResult, previous: MarkResult?) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(MarkFormat.relative(result.recordedAt) ?? "")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text(historyTag(result))
-                    .font(Theme.Typography.caption)
-                    .foregroundStyle(Theme.Color.faint)
-            }
-            Spacer()
-            if let previous, let delta = MarkFormat.delta(mark, from: previous.value, to: result.value) {
-                Text(delta.label)
-                    .font(Theme.Typography.caption)
-                    .foregroundStyle(delta.improved ? Theme.Color.ok : Theme.Color.danger)
-            }
-            Text(MarkFormat.value(mark, result.value))
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                .foregroundStyle(Theme.Color.foreground)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .contentShape(Rectangle())
-        // Lo que produjo el atleta lo puede retirar él — sobre todo lo que declaró
-        // al entrar. El test del coach no ofrece la acción (es su registro).
-        .contextMenu {
-            if result.isDeletableByAthlete {
-                Button(role: .destructive) {
-                    pendingDeletion = result
-                } label: {
-                    Label("Retirar esta marca", systemImage: "trash")
-                }
-            }
-        }
-    }
-
-    private func historyTag(_ result: MarkResult) -> String {
-        // Sello de origen compartido con la biblioteca (MarkFormat.originLabel):
-        // una sola grafía por concepto. Para una prueba propia manda el contexto
-        // de carrera, que es lo que de verdad distingue una fila de otra — un 5K
-        // en cinta no es el mismo bicho que uno en calle.
-        if result.source != DataOrigin.athleteTest,
-           let origin = DataOrigin.label(result.source, eventName: result.eventName) {
-            return origin
-        }
-        switch result.runContext {
-        case "treadmill": return "en cinta"
-        case "outdoor": return "aire libre"
-        default: return "te probaste"
-        }
-    }
-
-    /// The post-attempt celebration: the big number and what it beat. No confetti.
-    private func newMarkCard(_ banner: (label: String, deltaLabel: String?, improved: Bool)) -> some View {
-        CardSurface(padding: 16) {
-            HStack(spacing: 12) {
-                Image(systemName: banner.improved ? "trophy.fill" : "checkmark.circle.fill")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(banner.improved ? Theme.Color.accent : Theme.Color.ok)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(banner.improved ? "Marca nueva · PR" : "Marca guardada")
-                        .font(Theme.Typography.bodyEmph)
-                        .foregroundStyle(Theme.Color.foreground)
-                    // No delta to show → a neutral line that is true with or
-                    // without a coach (this screen serves both tiers).
-                    Text(banner.deltaLabel.map { "\(banner.label) · \($0)" }
-                         ?? "\(banner.label) · guardada en tu ficha")
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                Spacer()
-            }
-        }
-    }
-
     // MARK: - CTA + attempt
 
-    @ViewBuilder
-    private func ctaButton(_ mark: MarkView) -> some View {
+    /// ONE pre-start for everyone, inside the brief: a run mark asks calle/cinta there (belt connect included)
+    /// and an erg mark gates on the monitor connection. Asking here too would ask twice.
+    private func actuar() {
+        guard let mark else { return }
         if mark.measuredBy == "registered" {
-            PrimaryButton(title: "Registrar carrera", enabled: !loading) { showRegister = true }
+            showRegister = true
         } else {
-            // ONE pre-start for everyone, inside the brief: a run mark asks
-            // calle/cinta there (belt connect included) and an erg mark gates on
-            // the monitor connection. Asking here too would ask twice.
-            PrimaryButton(title: "Probarme ahora", enabled: !loading) {
-                bestBeforeAttempt = comparableBest(mark)?.value
-                startAttempt()
-            }
+            bestBeforeAttempt = comparableBest(mark)?.value
+            startAttempt(mark)
         }
     }
 
@@ -370,8 +136,8 @@ struct MarkDetailView: View {
         mark.group == "run" ? (mark.bestOutdoor ?? mark.bestTreadmill) : mark.best
     }
 
-    private func startAttempt() {
-        guard let mark, let context = BenchmarkLaunch.context(for: mark) else { return }
+    private func startAttempt(_ mark: MarkView) {
+        guard let context = BenchmarkLaunch.context(for: mark) else { return }
         liveContext = context
     }
 
@@ -379,44 +145,46 @@ struct MarkDetailView: View {
 
     @MainActor
     private func load() async {
-        error = nil
+        // Solo la primera carga en frío es «cargando»: reintentar desde el error deja el error a la vista (su
+        // botón gira) y revalidar con una marca delante no la tapa con un esqueleto.
+        cargando = mark == nil && !fallo
+        aviso = nil
         do {
             mark = try await MarksService.fetchMarks(bearer: bearer).marks.first { $0.slug == slug }
+            fallo = false
         } catch {
-            self.error = "No pudimos cargar la marca."
+            fallo = true
+            // Con una marca ya delante el fallo se dice SOBRE ella; sin marca es el estado de error.
+            if mark != nil { aviso = .noSeCargo }
         }
-        loading = false
+        cargando = false
+    }
+
+    /// Retira una marca y recarga. El servidor vuelve a comprobar la propiedad y el
+    /// origen, así que un fallo aquí se cuenta tal cual y no se toca la lista.
+    @MainActor
+    private func remove(_ result: MarkResult) async {
+        pendingDeletion = nil
+        aviso = nil
+        do {
+            try await MarksService.remove(id: result.id, bearer: bearer)
+            Haptics.success()
+            await load()
+        } catch {
+            aviso = .noSeRetiro
+        }
     }
 
     /// After an attempt or a registration: refetch and, if a new result landed,
-    /// celebrate it — but only for what it is.
-    ///
-    /// `verdict` is the server's own `is_pr` + previous best, which it computes over
-    /// the athlete's comparable history. When we have it, it decides. `nil` is the
-    /// "Probarme" path, where `bestBeforeAttempt` is a real snapshot taken a second
-    /// before starting: there, no previous best genuinely means first ever.
+    /// celebrate it — but only for what it is (`MarcaNueva.resolver`).
     @MainActor
     private func reloadAfterAttempt(verdict: MarkWriteResult? = nil) async {
         let before = mark?.latest
         await load()
-        guard let mark, let latest = mark.latest, latest != before else { return }
-        let previousBest = verdict?.previousBest ?? bestBeforeAttempt
-        let improved: Bool
-        if let verdict {
-            improved = verdict.isPr
-        } else {
-            improved = previousBest.flatMap { MarkFormat.delta(mark, from: $0, to: latest.value)?.improved }
-                ?? (previousBest == nil)   // first ever = a PR by definition
-        }
-        let deltaLabel = previousBest.flatMap { MarkFormat.delta(mark, from: $0, to: latest.value)?.label }
-        withAnimation(Theme.Motion.reveal) {
-            newMarkBanner = (MarkFormat.value(mark, latest.value), deltaLabel, improved)
-        }
-    }
-}
-
-private extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
+        guard let mark,
+              let celebracion = MarcaNueva.resolver(
+                marca: mark, ultimaDeAntes: before, veredicto: verdict, mejorAntes: bestBeforeAttempt
+              ) else { return }
+        withAnimation(reduceMotion ? nil : Theme.Motion.reveal) { nueva = celebracion }
     }
 }

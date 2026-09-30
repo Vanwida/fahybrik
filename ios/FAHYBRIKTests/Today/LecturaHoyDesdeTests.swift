@@ -338,7 +338,7 @@ final class LecturaHoyDesdeTests: XCTestCase {
         f.disposicion = payload(84, breakdown: """
         {"sub_score":80,"hrv_component":70,"hrv_ms":68.2,"sleep_hours":7.4,"rhr_component":60,"rhr_bpm":48.0}
         """)
-        guard case .medida(let score, let delta, let senales) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
+        guard case .medida(let score, _, let delta, let senales) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
         XCTAssertEqual(score, 84)
         XCTAssertEqual(delta, 6)
         XCTAssertEqual(senales.map(\.etiqueta), ["Check-in", "HRV", "Sueño", "FC reposo"])
@@ -349,7 +349,7 @@ final class LecturaHoyDesdeTests: XCTestCase {
     func testUnaSenalQueNoLlegoNoLlevaValorNiEstaEncendida() {
         var f = fuentes(plan: plan(dias: []))
         f.disposicion = payload(60, breakdown: #"{"sub_score":55}"#)
-        guard case .medida(_, _, let senales) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
+        guard case .medida(_, _, _, let senales) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
         XCTAssertEqual(senales.map(\.activa), [true, false, false, false])
         XCTAssertEqual(senales.map(\.valor), [nil, nil, nil, nil])
     }
@@ -357,7 +357,7 @@ final class LecturaHoyDesdeTests: XCTestCase {
     func testSinDesgloseNoSeInventanSenales() {
         var f = fuentes(plan: plan(dias: []))
         f.disposicion = payload(60)
-        guard case .medida(_, _, let senales) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
+        guard case .medida(_, _, _, let senales) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
         XCTAssertTrue(senales.isEmpty)
     }
 

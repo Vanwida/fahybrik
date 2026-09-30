@@ -2,9 +2,11 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-30** (analíticas del iPhone: detalle y cierre; reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin)
+Última actualización: **2026-09-30** (editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin)
 
 ## Ahora
+
+**EDITOR DE CORRER · ENTORNO, AVISO Y FRASE PARA EL RELOJ (30-09, worktree `agent-a1e4bc45135113ff8`, sin fusionar; DECISIONS 30-09).** El coach ya edita por tramo dónde se corre (calle, cinta con inclinación, pista), hacia dónde avisa (defecto = su método) y una frase de 80 caracteres. Guardado probado contra rama Neon. Falta: firma de Alex del layout, y el reloj aplicando `alert`.
 
 **iPhone · LO QUE CUELGA DE PERFIL, CON «EL DÍA» (30-09, rama `worktree-agent-a5bfe54dff1049a3f`, sin fusionar; DECISIONS 30-09).** Cascarón `PantallaPerfil` (`Profile/Secundarias/`) y todas las pantallas secundarias de Perfil rehechas (puertas, cifras, hojas, dispositivos, molestias, suscripción, pareja). Falta probarlo en aparato.
 
@@ -57,7 +59,7 @@ plantillas; ramas `fix/un-solo-entreno`, `fix/plantilla-escritor-unico`, `ios/mo
 **RELOJ GARMIN, MOTOR PROPIO EN CONNECT IQ (29-09; modelo `docs/garmin-reloj/modelo.md`, DECISIONS 29-09).** Ya no reproductor nativo: watch-app de
 actividad que guía pasos, graba FIT y envía el resultado a `workout-execution` (TrainingPeaks en Garmin = calendario nativo, sin fuerza ni
 RPE). Corrige DECISIONS 06-08: Connect IQ SÍ da acelerómetro a 100 Hz en lotes. NO prometer Training Status hasta la prueba T1 en reloj real.
-Diseño en el doble (30-09, main, ~2.300 pruebas): seis familias `garmin-*` (correr, circuito, fuerza, WOD/ergo, antes, después) sobre `kit-garmin`, plan compacto v2 (`docs/garmin-reloj/plan-compacto.md`). PENDIENTE: firma de Alex; Monkey C sin empezar; qué Garmin físico hay para T1–T14; OK a B1 (plan como contexto común, ~20 lecturas de `*_DEFECTO`), B7 (`PasoBase.id`) y G6 «estimada» (mini-mapa en la entrada de DECISIONS).
+App Monkey C de CORRER en `garmin-ciq/` (30-09, main 01e88373): 36 relojes compilan, 76/76 tests en simulador, login en el propio reloj, plan por `GET /api/athlete/wearables/garmin/plan` (shared/domain/watch-plan). `.prg` FR965/FR970 con `./build.sh`. SIN desplegar el endpoint (lo coordina la sesión-enlace) y SIN probar en reloj real (T1–T14, de Alex). Fuerza/circuito/WOD/ergo en el reloj = «va en la app» (fase 2). Diseño de todas las familias en el doble (`garmin-*`, kit `kit-garmin`, ~2.300 pruebas); contrato en `docs/garmin-reloj/`. PENDIENTE OK: B1/B7/G6 (DECISIONS 29-09).
 
 **LA MUÑECA SE REHACE Y EL RELOJ ES EL PRODUCTO (24-25-09; listón TrainingPeaks).** Auditoría `docs/reloj-muneca/` y diseño firmado
 `docs/el-reloj-primero/` (SF nativo, el objetivo manda, voz al cambiar de paso y cada km). Hechas las fases 0+1 (CI macOS, registro
@@ -68,6 +70,7 @@ prod (a 24-09 faltaban; comprobar con el runner antes de asumir). Auditoría de 
 cómo llegas y espera del iPhone en `Views/Entrada/` (DECISIONS 29-09). Sin dato en el reloj y omitido: «GPS listo»/pulso, calle/cinta.
 FH-56 (enlace muñeca↔móvil lo dice Apple, build 100, nota `docs/pr/fh56-apple-link.md`).
 
+**RELOJ · CORRER, F5 SERVIDOR (29-09, rama `worktree-agent-af00ecda6d4b2f6be`, sin fusionar; migración 0282 SIN aplicar en prod; DECISIONS 29-09).** El método del coach de la muñeca (26 `wrist_*` + palabras del RPE) es dato con defecto, editable en Ajustes › Método «Reloj…», y viaja como `wrist_method` en el detalle de asignación; gramática con `environment`/`cue`/`alert`; decoder Swift listo. Falta: que el director del reloj lo consuma y la UI del coach para el entorno, el cue y el aviso por tramo.
 **LA MUÑECA (APPLE) SE REHACE Y EL RELOJ ES EL PRODUCTO (24-25-09; listón TrainingPeaks).** Auditoría `docs/reloj-muneca/`, diseño firmado
 `docs/el-reloj-primero/`. Hechas fases 0+1 (CI macOS, registro técnico 0273, sesión 180 d, cola sin caducidad, acuses) y las 6 propuestas
 `reloj-*` sobre `kit-reloj`. Falta firma de Alex → Swift (correr primero); exige M1–M8. PR #192 abierto: no fusionar sin 0270–0273 en prod. App del atleta: `docs/auditoria-app-atleta/`.
