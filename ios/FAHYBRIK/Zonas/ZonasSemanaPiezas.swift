@@ -28,10 +28,11 @@ struct VacioDeZonas: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            MonoText(text: PalabrasDeZonas.ventana(grafica), size: 10, weight: .bold,
-                     color: Theme.Color.faint, escala: true, relativeTo: .caption2)
+            Text(PalabrasDeZonas.ventana(grafica))
+                .papel(.notaPesada)
+                .foregroundStyle(Theme.Color.muted)
             Text(PalabrasDeZonas.vacio(grafica))
-                .scaledFont(13, relativeTo: .footnote)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -73,8 +74,8 @@ struct BarraDeSemana: View {
         return VStack(spacing: 0) {
             if let rotulo {
                 Text(rotulo)
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Theme.Color.muted)
+                    .papel(.notaPesada)
+                    .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1)
                     .fixedSize()
                     .padding(.bottom, 3)
@@ -197,19 +198,23 @@ struct TramosDelCoach: View {
 
     private func fila(_ rango: RangoDibujado) -> some View {
         let color = TonoDeRango.color(rango.tono)
-        return HStack(alignment: .top, spacing: Theme.Spacing.s) {
+        // El tono lo lleva la marca de la izquierda (a toda la altura de la fila); las palabras son la
+        // tinta del tema: el color de estado no va en el texto.
+        return HStack(alignment: .top, spacing: Theme.Spacing.s + 2) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(color.opacity(0.9))
-                .frame(width: 3, height: 26)
+                .frame(width: 4)
             VStack(alignment: .leading, spacing: 2) {
-                MonoText(text: rango.semanas, size: 10, weight: .bold, color: color,
-                         escala: true, relativeTo: .caption2)
+                Text(rango.semanas)
+                    .papel(.notaPesada)
+                    .foregroundStyle(Theme.Color.muted)
                 Text(rango.etiqueta)
-                    .scaledFont(12.5, weight: .medium, relativeTo: .footnote)
+                    .papel(.notaFuerte)
                     .foregroundStyle(Theme.Color.foreground)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
@@ -240,7 +245,7 @@ struct LeyendaDeZonas: View {
                 HStack(spacing: 5) {
                     muestra(banda)
                     Text(banda.etiqueta)
-                        .scaledFont(11, weight: .medium, relativeTo: .caption2)
+                        .papel(.nota)
                         .foregroundStyle(Theme.Color.muted)
                 }
                 .fixedSize()
@@ -258,6 +263,6 @@ struct LeyendaDeZonas: View {
                         .stroke(Theme.Color.neutral.opacity(0.55), lineWidth: 1)
                 }
             }
-            .frame(width: 9, height: 9)
+            .frame(width: 12, height: 12)
     }
 }
