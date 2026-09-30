@@ -972,6 +972,7 @@
 		BA753FC017BE740279CCAD9E /* TreadmillLegTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60C0964B0D02FCA8F8C108F8 /* TreadmillLegTests.swift */; };
 		BA93B5DEE762F343B1D53162 /* DoblesTurnTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8860DEF4E97BC37728C70B7 /* DoblesTurnTests.swift */; };
 		BAA1306B678229C339E87CA0 /* ComunicadosBandejaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0140CF589D2DF45B13A401B3 /* ComunicadosBandejaView.swift */; };
+		BAA8F6387BB7E50190F69639 /* WatchPantalla.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76B149F5C37CFD59221430CE /* WatchPantalla.swift */; };
 		BAE3F60FF6D5404370B3211D /* ComunicadosAcciones.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06CE2185C1AC5CE6702AFCF5 /* ComunicadosAcciones.swift */; };
 		BB02C57142E776481FD449C5 /* PlanCicloAtoms.swift in Sources */ = {isa = PBXBuildFile; fileRef = 961F95F9E3BE585D7E0145FA /* PlanCicloAtoms.swift */; };
 		BBAA95CDADA087BDDAEC4F39 /* Day1Model.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED914E7FD12348A011B65D7E /* Day1Model.swift */; };
@@ -1983,6 +1984,7 @@
 		75E1C4F19B8E3109A92DB3A3 /* AnaliticasSujetoEstadoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnaliticasSujetoEstadoTests.swift; sourceTree = "<group>"; };
 		761CB7573BA0E60BEFB80578 /* MachineTramoLawTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineTramoLawTests.swift; sourceTree = "<group>"; };
 		767F15D6E0148DBD10944436 /* PhoneMirrorCommandRelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneMirrorCommandRelay.swift; sourceTree = "<group>"; };
+		76B149F5C37CFD59221430CE /* WatchPantalla.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchPantalla.swift; sourceTree = "<group>"; };
 		7703C3BFA1A32C922D58EB1A /* PastillaSeccionDia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PastillaSeccionDia.swift; sourceTree = "<group>"; };
 		772888F6C929C0B9D186BB8C /* detalle-ski-lleno-12s.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "detalle-ski-lleno-12s.json"; sourceTree = "<group>"; };
 		77B3A7DB3A97DDB17EC0E97A /* DoblesGaleriaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesGaleriaTests.swift; sourceTree = "<group>"; };
@@ -4622,6 +4624,7 @@
 			children = (
 				BA999BCB500F1C8B5B32EC1A /* WatchBisel.swift */,
 				87970F791D2B64727255C626 /* WatchLienzo.swift */,
+				76B149F5C37CFD59221430CE /* WatchPantalla.swift */,
 			);
 			path = Lienzo;
 			sourceTree = "<group>";
@@ -6149,6 +6152,7 @@
 				B8A5055AA3BE6574438BE735 /* WatchLienzo.swift in Sources */,
 				1B8465D0F6B87A04EBEADC1C /* WatchPaginaModelo.swift in Sources */,
 				834C3FAA47AF267ECAE4F5B7 /* WatchPaleta.swift in Sources */,
+				BAA8F6387BB7E50190F69639 /* WatchPantalla.swift in Sources */,
 				1DE3332AB4229A3A62DFC3AA /* WatchPlanModel.swift in Sources */,
 				7A72179FDD061B77B1253F1C /* WatchPrimaryLifecycle.swift in Sources */,
 				DDFF75384D5C460240903FE6 /* WatchPrimaryOwner+Espejo.swift in Sources */,

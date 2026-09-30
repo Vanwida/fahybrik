@@ -4,7 +4,9 @@ import SwiftUI
 //
 // En un reloj el sitio más barato son las esquinas redondeadas: trazar el
 // progreso ahí cuesta CERO altura de contenido y se ve de reojo. Espejo de
-// `kit-watch/bisel.tsx`.
+// `kit-watch/bisel.tsx`. La forma que recorre es la REAL del cristal de cada
+// reloj (`WatchPantallaTrazado`, ver `WatchPantalla.swift`): arranca a las 12 y va
+// en sentido horario.
 //
 // Regla de significado:
 //   · el ARO es la ESTRUCTURA (cuánto queda de esto), siempre naranja suave;
@@ -26,52 +28,6 @@ private enum Bisel {
     static let brilloHecho: Double = 1
     static let brilloEnCurso: Double = 0.40
     static let brilloPendiente: Double = 0.16
-}
-
-// MARK: - El trazado: la FORMA DE LA PANTALLA, no un círculo
-
-/// EL BISEL SIGUE EL BORDE DEL RELOJ, Y ESO NO ES UN DETALLE.
-///
-/// El port de agosto dibujó los dos aros con `Circle()`, que es el idioma de un
-/// reloj REDONDO (Garmin, Wear OS). En un Apple Watch la pantalla es un
-/// rectángulo redondeado, y un círculo inscrito en él hace justo lo contrario de
-/// lo que este kit persigue: se come las cuatro esquinas —el sitio más barato que
-/// hay, porque no cuesta ni un punto de contenido— y estrecha el ancho útil, que
-/// es EL recurso escaso de la muñeca (`kit-watch/modelo.ts`: aquí no limita el
-/// alto, limita el ancho). Encima el trazo curva hacia dentro por abajo y se
-/// mete por encima del segundo nivel.
-///
-/// Es el trazado de `kit-watch/bisel.tsx`, punto por punto: arranca en las 12 y
-/// va en sentido horario, como cualquier reloj, para que `trim` avance igual que
-/// el `strokeDashoffset` del doble.
-struct BiselTrazado: Shape {
-    var inset: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        let w = rect.width, h = rect.height
-        // La proporción del kit: 56 pt de radio sobre 208 de ancho. Se deriva del
-        // ancho y no se fija en puntos para que valga en las tres cajas de Apple
-        // Watch sin tocar nada (watchOS no expone el radio real de la pantalla).
-        let base = w * (56.0 / 208.0)
-        let r = max(0, min(base - inset, min(w, h) / 2 - inset))
-
-        var p = Path()
-        p.move(to: CGPoint(x: w / 2, y: inset))
-        p.addLine(to: CGPoint(x: w - inset - r, y: inset))
-        p.addArc(center: CGPoint(x: w - inset - r, y: inset + r), radius: r,
-                 startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
-        p.addLine(to: CGPoint(x: w - inset, y: h - inset - r))
-        p.addArc(center: CGPoint(x: w - inset - r, y: h - inset - r), radius: r,
-                 startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
-        p.addLine(to: CGPoint(x: inset + r, y: h - inset))
-        p.addArc(center: CGPoint(x: inset + r, y: h - inset - r), radius: r,
-                 startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
-        p.addLine(to: CGPoint(x: inset, y: inset + r))
-        p.addArc(center: CGPoint(x: inset + r, y: inset + r), radius: r,
-                 startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
-        p.closeSubpath()
-        return p
-    }
 }
 
 // MARK: - Aro de estructura
@@ -105,16 +61,30 @@ struct WatchAroEstructura: View {
                 let hasta = max(desde, inicio + ancho - hueco / 2)
                 let color = arco.trabajo ? Bisel.colorAro : Bisel.colorRecupera
 
-                BiselTrazado(inset: Bisel.inset)
+                WatchPantallaTrazado(inset: Bisel.inset)
                     .trim(from: desde, to: hasta)
                     .stroke(color.opacity(brillo(i)),
                             style: StrokeStyle(lineWidth: Bisel.grosor, lineCap: .butt))
 
                 if i == enCurso, avance > 0 {
-                    BiselTrazado(inset: Bisel.inset)
+                    WatchPantallaTrazado(inset: Bisel.inset)
                         .trim(from: desde, to: max(desde, desde + (hasta - desde) * avance))
                         .stroke(color, style: StrokeStyle(lineWidth: Bisel.grosor, lineCap: .butt))
                 }
+            }
+        }
+        // La hora del sistema se queda libre: el aro se interrumpe donde la esquina pasa por sus cifras.
+        .mask {
+            GeometryReader { g in
+                let hora = WatchPantalla.cajaDeLaHora(en: g.size)
+                Rectangle()
+                    .overlay {
+                        Rectangle()
+                            .frame(width: hora.width, height: hora.height)
+                            .position(x: hora.midX, y: hora.midY)
+                            .blendMode(.destinationOut)
+                    }
+                    .compositingGroup()
             }
         }
         .allowsHitTesting(false)
