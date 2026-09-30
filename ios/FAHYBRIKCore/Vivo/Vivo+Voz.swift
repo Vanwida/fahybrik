@@ -217,7 +217,7 @@ extension Vivo {
         return "\(nombre) \(v.n): \(fmtReloj(v.segundos))\(juicio.isEmpty ? "" : ", \(juicio)")."
     }
 
-    static func vozKm(_ n: Int, _ segundos: Double) -> String { "Kilómetro \(n): \(fmtReloj(segundos))." }
+    static func vozVueltaAuto(_ n: Int, _ vueltaM: Double?, _ segundos: Double) -> String { "\(nombreVueltaAuto(n, vueltaM)): \(fmtReloj(segundos))." }
 
     static func vozPreaviso(_ p: Paso, falta: Double) -> String {
         p.medida.tipo == .distancia ? "Quedan \(enLetras(falta))." : "Quedan \(enLetras(falta)) segundos."

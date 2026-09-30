@@ -138,8 +138,8 @@ extension Vivo {
 
         // La vuelta automática por km del correr continuo.
         if let registro {
-            let kms = registro.vueltas.filter { $0.clase == .km }
-            if !primera, kms.count > m.kmVistos, let k = kms.last { out.append(Emitido(evento: .vuelta, voz: vozKm(k.n, k.segundos))) }
+            let kms = registro.vueltas.filter { $0.clase == .auto }
+            if !primera, kms.count > m.kmVistos, let k = kms.last { out.append(Emitido(evento: .vuelta, voz: vozVueltaAuto(k.n, k.vueltaM, k.segundos))) }
             m.kmVistos = kms.count
         }
 
