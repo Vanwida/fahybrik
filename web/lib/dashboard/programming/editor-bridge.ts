@@ -13,6 +13,7 @@
 import type { WeekDay, WeekDayPart, EditorSessionInput } from '@fahybrid/shared/schema/program-templates';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
 import { serializeDay } from '@/lib/dashboard/v2/editor-serialize';
+import { itemHasExercise } from '@/lib/dashboard/v2/item-validity';
 import { itemPrescription } from './progress-ops';
 
 export function partToEditorBlock(part: WeekDayPart): EditorBlock {
@@ -68,7 +69,31 @@ export function editorBlocksToParts(blocks: EditorBlock[], originals: WeekDayPar
   return day.sessions[0]?.blocks ?? [];
 }
 
-/** ¿Todas las líneas tienen ejercicio? (el mismo listón que el guardado). */
-export function blocksAreSaveable(blocks: EditorBlock[]): boolean {
-  return blocks.every((b) => b.items.every((it) => it.exercise_id != null && Number(it.exercise_id) > 0));
+/**
+ * Lo que SÍ se puede guardar de unos bloques en edición, sin renunciar a la regla
+ * «nada sin ejercicio se persiste». Una línea sin ejercicio no se guarda (sigue en
+ * el editor con su aviso); si ya existía guardada, se conserva su última versión
+ * guardada en vez de borrarla. Un bloque nuevo cuyas líneas aún no tienen ejercicio
+ * espera entero. `unsaved` cuenta las líneas que quedan fuera del guardado.
+ */
+export function persistableBlocks(
+  blocks: EditorBlock[],
+  originals: WeekDayPart[] = [],
+): { blocks: EditorBlock[]; unsaved: number } {
+  const previous = new Map(originals.map((p) => [p.uid, partToEditorBlock(p)]));
+  const out: EditorBlock[] = [];
+  let unsaved = 0;
+  for (const block of blocks) {
+    const before = previous.get(block.uid);
+    const lastSaved = new Map((before?.items ?? []).map((it) => [it.uid, it]));
+    const items = block.items.flatMap((it) => {
+      if (itemHasExercise(it)) return [it];
+      unsaved += 1;
+      const old = lastSaved.get(it.uid);
+      return old ? [old] : [];
+    });
+    if (block.items.length > 0 && items.length === 0 && !before) continue;
+    out.push({ ...block, items });
+  }
+  return { blocks: out, unsaved };
 }

@@ -62,10 +62,16 @@ export function cellState(day: WeekDay | null | undefined): CellState {
   return day.kind === 'rest' ? 'rest' : 'empty';
 }
 
-/** ¿Tiene contenido que el coach escribió? (para pedir confirmación antes de pisarlo) */
+/**
+ * ¿Tiene contenido que el coach escribió? (para pedir confirmación antes de pisarlo).
+ * Cuenta TODO lo escrito, no solo bloques: foco y notas del día y de sus sesiones y
+ * las sugerencias de recuperación. Un día con solo una nota también es trabajo.
+ */
 export function hasAuthoredContent(day: WeekDay | null | undefined): boolean {
   if (!day) return false;
-  return workoutSessions(day).some((s) => (s.blocks ?? []).length > 0 || !!s.focus?.trim());
+  if (day.focus?.trim() || day.notes?.trim()) return true;
+  if ((day.recovery_suggestions ?? []).length > 0) return true;
+  return day.sessions.some((s) => (s.blocks ?? []).length > 0 || !!s.focus?.trim() || !!s.notes?.trim());
 }
 
 /**

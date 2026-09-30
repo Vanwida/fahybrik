@@ -6,7 +6,7 @@
 // no guarda nada: pinta y avisa (seleccionar, abrir, arrastrar, soltar).
 
 import { memo, type DragEvent, type MouseEvent } from 'react';
-import { Moon, Plus } from 'lucide-react';
+import { Moon, Plus, StickyNote } from 'lucide-react';
 import type { WeekDay } from '@fahybrid/shared/schema/program-templates';
 import { MODALITY_META } from '@/components/v2/constants';
 import { summarizeCell } from '@/lib/dashboard/programming/cell-summary';
@@ -84,6 +84,11 @@ export const GridCell = memo(function GridCell({
           <Moon aria-hidden className="size-3.5" strokeWidth={1.75} />
           Descanso
         </span>
+      ) : s.state === 'empty' && s.note ? (
+        <p className="flex min-w-0 gap-1.5 text-[12px] leading-4 text-v2-muted">
+          <StickyNote aria-hidden className="mt-px size-3.5 shrink-0 text-v2-faint" strokeWidth={1.75} />
+          <span className="line-clamp-3 min-w-0 break-words">{s.note}</span>
+        </p>
       ) : s.state === 'empty' ? (
         <Plus
           aria-hidden

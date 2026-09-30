@@ -25,7 +25,7 @@
 // elige el coach.
 
 import { modalityFrom } from '@fahybrid/shared/domain/import/label';
-import type { Modality } from '@fahybrid/shared/domain/prescription';
+import { hasAnyDose, prescriptionToText, type Modality, type Prescription } from '@fahybrid/shared/domain/prescription';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { defaultCategoryForModality } from '@/lib/dashboard/v2/pick-exercise';
 import type { EditorBlock, EditorItem } from '@/lib/dashboard/v2/editor-types';
@@ -222,21 +222,31 @@ export interface MissingExerciseDecisions {
   discardedKeys: readonly string[];
 }
 
+/** Un rótulo de parseo («A)», «1.», «3x») no aporta nada como nota. */
+function isParseLabel(name: string): boolean {
+  return name.replace(/[^a-z0-9]/gi, '').length <= 2;
+}
+
 /**
- * Texto que no debe perderse al quitar una línea basura: nota de la línea o
- * el token si solo era un rótulo legible. Vacío → no hay nada que conservar.
+ * Texto que no debe perderse al quitar una línea que no es un ejercicio: su nota,
+ * su nombre (salvo que sea un rótulo de parseo) y la dosis que llevaba. Vacío →
+ * no hay nada que conservar.
  */
 function itemTextToPreserve(item: {
   exercise_name: string;
   notes?: string;
-  prescription: { note?: string | null };
+  prescription: Prescription;
 }): string {
-  const note = (item.notes ?? item.prescription.note ?? '').trim();
-  if (note) return note;
+  const bits: string[] = [];
   const name = item.exercise_name.trim();
-  // Rótulos de parseo («A)», «OPCIONAL») no aportan al coach como nota.
-  if (!name || !hasRealWord(name)) return '';
-  return name;
+  if (name && !isParseLabel(name)) bits.push(name);
+  const note = (item.notes ?? item.prescription.note ?? '').trim();
+  if (note) bits.push(note);
+  if (hasAnyDose(item.prescription)) {
+    const dose = prescriptionToText(item.prescription).trim();
+    if (dose) bits.push(dose);
+  }
+  return bits.join(' · ');
 }
 
 /**

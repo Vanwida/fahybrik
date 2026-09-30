@@ -47,7 +47,7 @@
 
 import { sql } from '@/lib/db';
 import type { Sql, TransactionClient } from '@/lib/db';
-import { visibleToCoach, joinCoachOverride } from '@/lib/exercises/coach-override';
+import { visibleToCoach, joinCoachOverride, foldSeparators, type SqlFragment } from '@/lib/exercises/coach-override';
 
 type Client = Sql | TransactionClient;
 
@@ -389,6 +389,9 @@ export async function resolveExercise(
   }
 
   if (normalized) {
+    // «90-90», «90/90» y «90 90» son el mismo nombre: los separadores se pliegan a
+    // un espacio en el término y en cada nombre del catálogo (layers 3/4).
+    const fold = (expr: SqlFragment) => foldSeparators(client, expr);
     // Ownership tiebreak (layers 3/4): a coach can now match the SAME name via
     // two different rows — a base exercise they renamed to "X" via override, AND
     // an own exercise they separately created and called "X". `own` must win
@@ -411,14 +414,15 @@ export async function resolveExercise(
     // column) is belt-and-suspenders: `normalized` is a no-op under it today,
     // but it means the two sides can never silently drift onto different
     // folding rules again.
+    // tenancy: coach-fragment — visibleToCoach filtra por el coach.
     const exact = await client<Array<{ id: string }>>`
       select e.id::text as id
       from exercises e
       ${joinCoachOverride(client, coachId)}
-      where unaccent(${normalized}) in (
-          unaccent(lower(coalesce(ceo.name, e.name))),
-          unaccent(lower(coalesce(e.name_es, ''))),
-          unaccent(lower(coalesce(e.name_en, '')))
+      where ${fold(client`unaccent(${normalized})`)} in (
+          ${fold(client`unaccent(lower(coalesce(ceo.name, e.name)))`)},
+          ${fold(client`unaccent(lower(coalesce(e.name_es, '')))`)},
+          ${fold(client`unaccent(lower(coalesce(e.name_en, '')))`)}
         )
         and ${visibleToCoach(client, coachId)}
       order by (e.coach_id is null) asc, e.id asc
@@ -430,13 +434,14 @@ export async function resolveExercise(
     // same unaccent fix. The term is contained in the (merged) name OR the
     // name is contained in the term. Deterministic: own-before-base first,
     // then shortest name (most specific), then id.
+    // tenancy: coach-fragment — visibleToCoach filtra por el coach.
     const sub = await client<Array<{ id: string }>>`
       select e.id::text as id
       from exercises e
       ${joinCoachOverride(client, coachId)}
       where (
-          position(unaccent(${normalized}) in unaccent(lower(coalesce(ceo.name, e.name)))) > 0
-          or position(unaccent(lower(coalesce(ceo.name, e.name))) in unaccent(${normalized})) > 0
+          position(${fold(client`unaccent(${normalized})`)} in ${fold(client`unaccent(lower(coalesce(ceo.name, e.name)))`)}) > 0
+          or position(${fold(client`unaccent(lower(coalesce(ceo.name, e.name)))`)} in ${fold(client`unaccent(${normalized})`)}) > 0
         )
         and ${visibleToCoach(client, coachId)}
       order by (e.coach_id is null) asc, length(coalesce(ceo.name, e.name)) asc, e.id asc

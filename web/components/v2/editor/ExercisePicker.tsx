@@ -33,6 +33,7 @@ import type { Modality } from '@fahybrid/shared/domain/prescription';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
 import { MODALITY_LABELS } from '@/lib/dashboard/exercises/catalog-ui';
+import { searchWords } from '@/lib/dashboard/programming/search-key';
 import {
   CATEGORY_OPTIONS,
   FilterChip,
@@ -104,11 +105,12 @@ export function ExercisePicker({
   }, []);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    // Sin tildes ni mayúsculas, y «/», «-» y espacios cuentan igual: «90-90» encuentra «90/90 Hip Stretch».
+    const q = searchWords(query).join(' ');
     return catalog.filter((ex) => {
       if (categoryFilter !== 'all' && ex.category !== categoryFilter) return false;
       if (!q) return true;
-      return ex.name.toLowerCase().includes(q);
+      return searchWords(ex.name).join(' ').includes(q);
     });
   }, [catalog, query, categoryFilter]);
 
