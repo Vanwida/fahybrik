@@ -838,6 +838,11 @@ struct WorkoutPlan: Codable, Identifiable {
     let coachNote: String?
     let demoVideoUrl: String?
     let warmupChecklist: [String]
+    /// El método del coach para correr (puerta del calentamiento, cierre, palabras del RPE…), tal
+    /// como llegó con el detalle. Nil = el plan no lo trae (uno de un servidor anterior, uno libre):
+    /// quien lo lea usa los defectos. `var` con valor por defecto: los constructores no cambian y las
+    /// fotos guardadas antes de este campo se siguen leyendo.
+    var wristMethod: WristMethod? = nil
 }
 
 // One completed segment's measured execution. This is the on-device source of
@@ -1376,6 +1381,12 @@ extension WorkoutPlan {
     /// title-only shell. Every value comes from the coach's prescription; nothing
     /// is invented. Returns nil for rest days (no workout body).
     static func from(detail: AssignmentDetail) -> WorkoutPlan? {
+        guard var plan = build(detail: detail) else { return nil }
+        plan.wristMethod = detail.wristMethod
+        return plan
+    }
+
+    private static func build(detail: AssignmentDetail) -> WorkoutPlan? {
         if let rx = detail.clockPrescription {
             let name = detail.workout?.name ?? "Funcional"
             let format = workoutFormat(from: detail.clockFormat ?? rx.scheme.rawValue)

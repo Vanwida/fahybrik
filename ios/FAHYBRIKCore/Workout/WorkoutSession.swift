@@ -236,6 +236,18 @@ final class WorkoutSession {
     /// surfaces so they stop showing a series and a goal he has already completed —
     /// re-offering "SERIE 1/5 · 500 m" after all five is the app inventing work.
     var isExtraWork: Bool = false
+    /// Desde cuándo sigue entrenando tras el final prescrito. Con `lastMeasuredWorkAt` decide cuánto lleva
+    /// quieto (`guardarSiQuieto`). No se guarda en la foto: una sesión recuperada cuenta desde que se mira.
+    @ObservationIgnored var extraWorkSince: Date? = nil
+    /// Si la sesión se guardó SOLA por llevar quieta este rato (s), cuánto fue: el resumen lo dice.
+    /// Nil = la guardó el atleta.
+    var guardadaSolaTrasS: Double? = nil
+    /// Lo que el motor decidió al terminar (completa / parcial / libre y por qué): lo pinta el resumen del
+    /// reloj y el móvil. Nil hasta que `finish` lo calcula.
+    var completitudFinal: Vivo.Completitud? = nil
+    /// El final fue natural (el plan acabó, o ya seguía entrenando tras él) y no un «Terminar» a medias: el resumen
+    /// dice «Sesión completada» y no «Sesión terminada».
+    var terminoNatural = false
 
     // MARK: - EMOM interval state
     // Live ONLY while the current segment is an EMOM. `emomSegmentIndex` records

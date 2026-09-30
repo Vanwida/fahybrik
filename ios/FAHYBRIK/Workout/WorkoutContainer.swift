@@ -595,7 +595,7 @@ struct WorkoutContainer: View {
     private func cerrarPorqueTerminoLaMuneca(_ terminado: Bool) {
         guard terminado, phase == .active else { return }
         guard let session, !session.isFinished else { return }
-        session.finish(completeness: .partial)
+        session.finish()
     }
 
     private func trasElEsfuerzo(_ session: WorkoutSession) -> Phase {

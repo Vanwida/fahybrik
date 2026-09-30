@@ -433,6 +433,7 @@ extension WorkoutSession {
         guard isAwaitingFinishDecision else { return }
         isAwaitingFinishDecision = false
         isExtraWork = true
+        extraWorkSince = Date()
         isPaused = false
         lastTick = Date()
         resetTramoWindow()
@@ -440,13 +441,26 @@ extension WorkoutSession {
     }
 
     /// End the session and route to the post-workout summary. `completeness` is the
-    /// EARNED outcome: `.full` only when the protocol ran to its end (the default,
-    /// the happy path); `.partial` when the athlete terminated early ("Terminar y
-    /// guardar" / "Terminar bloque"). The summary reads it to mark the assignment
-    /// 'completed' vs 'partial' — never a fabricated completion. Discarding
-    /// (ABANDONAR) does NOT come through here: it saves nothing.
-    func finish(completeness: WorkoutCompleteness = .full) {
-        self.completeness = completeness
+    /// EARNED outcome. Sin argumento (`nil`) lo decide LO HECHO (`Vivo.completitud`, un solo
+    /// cálculo para el reloj y el móvil): parcial solo si quedó trabajo prescrito por hacer, sea
+    /// cual sea la forma de terminar; un final natural con todo hecho, completado. Un valor
+    /// explícito lo impone quien sabe algo que el plan no (`.partial` al terminar un bloque
+    /// antes). The summary reads it to mark the assignment 'completed' vs 'partial' — never a
+    /// fabricated completion. Discarding (ABANDONAR) does NOT come through here: it saves nothing.
+    func finish(completeness: WorkoutCompleteness? = nil) {
+        // Lo ganado se calcula ANTES de recoger nada: cerrar el bloque devuelve la carrera estructurada a su
+        // tramo 0 y el cursor deja de decir dónde estaba el atleta. Final natural = el motor esperaba la
+        // decisión del final o el atleta ya seguía entrenando tras él.
+        // El primer final gana: una segunda llamada (una carrera entre el cierre solo y el botón) no lo recalcula.
+        if !isFinished {
+            let natural = isAwaitingFinishDecision || isExtraWork
+            let ganada = Vivo.completitudDe(self, natural: natural)
+            completitudFinal = ganada
+            terminoNatural = natural
+            self.completeness = completeness ?? (ganada?.estado == .parcial ? .partial : .full)
+        } else if let completeness {
+            self.completeness = completeness
+        }
         isAwaitingFinishDecision = false
         Haptics.cueFinish()
         // Capture the in-flight conditioning score before the engine is torn down
@@ -534,7 +548,7 @@ extension WorkoutSession {
     /// destination is the single boundary test for forward, back AND jump moves.
     func enterOrArm(from origin: Int) {
         if blockKey(at: origin) != blockKey(at: currentSegmentIndex) {
-            armBlock()
+            if pasaSinPuerta(desde: origin) { entrarSinPuerta() } else { armBlock() }
         } else if cambiaDeEjercicioConMaterial(desde: origin) {
             armNextExercise()
         } else {
@@ -660,7 +674,7 @@ extension WorkoutSession {
     // Called whenever the current segment changes. Primes the manual load for
     // strength work and (re)starts the EMOM timer + audio when the new segment is
     // an EMOM; tears EMOM state down otherwise.
-    private func onEnterSegment() {
+    func onEnterSegment() {
         if reopenedLap?.segmentId != currentSegment?.id { reopenedLap = nil }
         primeManualLoadIfNeeded()
         primeRepsIfNeeded()
