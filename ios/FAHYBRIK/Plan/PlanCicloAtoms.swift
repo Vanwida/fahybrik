@@ -9,7 +9,7 @@ import SwiftUI
 // el calendario, la declaración del hueco y la cuenta atrás de la carrera.
 //
 // Espejo de `plan-ciclo/atoms.tsx`. Ninguna pieza inventa un color ni un tamaño:
-// todo sale de los tokens de `Theme`.
+// todo sale de los tokens y los papeles de `Theme`.
 
 // MARK: - De las paradas a los tramos que dibuja la espina
 
@@ -182,7 +182,9 @@ struct EnElCalendario: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            LabelText(text: "En el calendario", color: Theme.Color.faint, size: 10)
+            Text("En el calendario")
+                .papel(.rotulo)
+                .foregroundStyle(Theme.Color.muted)
             ForEach(Array(hitos.enumerated()), id: \.offset) { _, hito in
                 LineaDelHito(hito: hito, hoy: hoy, color: color)
             }
@@ -209,14 +211,12 @@ private struct LineaDelHito: View {
                 .rotationEffect(.degrees(45))
                 .accessibilityHidden(true)
             Text(hito.title)
-                .scaledFont(13, weight: .medium, relativeTo: .footnote)
+                .papel(.notaFuerte)
                 .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text(CicloDelPlan.cuandoElHito(hito, hoy: hoy))
-                .scaledFont(12, weight: .medium, relativeTo: .caption)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
-                .lineLimit(1)
         }
     }
 }
@@ -230,26 +230,9 @@ private struct LineaDelHito: View {
 /// desde dos sitios, y decirlo de dos maneras haría dudar de las dos.
 struct DeclaracionDelHueco: View {
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.s) {
-            Image(systemName: "clock")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.Color.faint)
-                .padding(.top, 1)
-            Text(LoPublicaElCoach.frase)
-                .scaledFont(12, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.faint)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.horizontal, Theme.Spacing.m)
-        .padding(.vertical, Theme.Spacing.s)
-        .background(Theme.Color.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        .padding(.top, Theme.Spacing.s)
-        .accessibilityHidden(true)
+        NotaConReloj(texto: LoPublicaElCoach.frase)
+            .padding(.top, Theme.Spacing.s)
+            .accessibilityHidden(true)
     }
 }
 
@@ -261,7 +244,7 @@ struct CuentaAtrasDeLaCarrera: View {
     let dias: Int
 
     var body: some View {
-        CifraDelPlan(cifra: "\(dias)", sufijo: dias == 1 ? "día" : "días", tamano: 34)
+        CifraDelPlan(cifra: "\(dias)", sufijo: dias == 1 ? "día" : "días")
             .padding(.top, Theme.Spacing.xs)
             .accessibilityHidden(true)
     }
@@ -272,9 +255,9 @@ struct CuentaAtrasDeLaCarrera: View {
 /// TODA CIFRA de esta pantalla pasa por aquí: la semana del tramo en el sujeto y
 /// los días que faltan para la carrera.
 ///
-/// La unidad y el resto del contador van en `sufijo`, en sans y apoyados en la
-/// línea base del número: una palabra dentro del monoespaciado sale con el
-/// espaciado de una columna de instrumento y deja de leerse.
+/// La cifra es el papel `dato` del kit (32 pt, cifras de ancho fijo) y la unidad
+/// va en `sufijo`, apoyada en la línea base del número: una palabra dentro del
+/// dato sale con el peso de un dato y deja de leerse como unidad.
 ///
 /// No reutiliza el `Numeral` de `LenguajeVivoUI`: aquél es el numeral de las
 /// vistas EN VIVO y escala su tamaño según el lienzo que le inyecta el marco —
@@ -282,17 +265,16 @@ struct CuentaAtrasDeLaCarrera: View {
 struct CifraDelPlan: View {
     let cifra: String
     var sufijo: String? = nil
-    var tamano: CGFloat = 34
-    var color: Color = Theme.Color.foreground
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
-            MonoText(text: cifra, size: tamano, weight: .bold, color: color,
-                     escala: true, relativeTo: .title)
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs) {
+            Text(cifra)
+                .papel(.dato)
+                .foregroundStyle(Theme.Color.foreground)
                 .lineLimit(1)
             if let sufijo {
                 Text(sufijo)
-                    .scaledFont(13, weight: .medium, relativeTo: .footnote)
+                    .papel(.notaFuerte)
                     .foregroundStyle(Theme.Color.muted)
             }
         }

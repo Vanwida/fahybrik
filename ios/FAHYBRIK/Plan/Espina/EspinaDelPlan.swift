@@ -184,8 +184,8 @@ private enum Trazo {
     /// El aire entre las líneas de un tramo, y lo que baja su primera línea.
     static let aireInterno: CGFloat = 3
     static let bajadaTexto: CGFloat = 4
-    /// 0.06em a 11 pt — el rótulo de semanas va tracked como una lectura.
-    static let trackingSemanas: CGFloat = 0.66
+    /// Aire entre letras del rótulo de semanas («S2-S5»): 0,04 em a 15 pt, como una lectura.
+    static let trackingSemanas: CGFloat = 0.6
     /// El raíl del hueco va discontinuo: el camino sigue, pero ya no hay nadie que
     /// diga por dónde. 3 pintados / 3 vacíos, los del doble.
     static let discontinuo: [CGFloat] = [3, 3]
@@ -397,24 +397,24 @@ private struct FilaEspina: View {
             // Una parada que no ocupa semanas (la meta, el hueco) no se rotula:
             // reservarle la línea dejaría un hueco que promete un dato.
             if !tramo.semanas.isEmpty {
-                MonoText(text: tramo.semanas, size: 11, weight: .bold, color: tintaTexto,
-                         escala: true, relativeTo: .caption2)
+                Text(tramo.semanas)
+                    .papel(.notaPesada)
+                    .foregroundStyle(tintaTexto)
                     .tracking(Trazo.trackingSemanas)
             }
             Text(tramo.titulo)
-                .scaledFont(14, weight: tramo.destacado || tramo.actual ? .semibold : .medium,
-                            relativeTo: .subheadline)
+                .papel(tramo.destacado || tramo.actual ? .cuerpoFuerte : .cuerpo)
                 .foregroundStyle(tramo.pasado ? Theme.Color.muted : Theme.Color.foreground)
                 .fixedSize(horizontal: false, vertical: true)
             if let detalle = tramo.detalle, !detalle.isEmpty {
                 Text(detalle)
-                    .scaledFont(12.5, relativeTo: .footnote)
+                    .papel(.nota)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if tramo.actual {
                 Text(tramo.aquiEstas)
-                    .scaledFont(12.5, weight: .semibold, relativeTo: .footnote)
+                    .papel(.notaFuerte)
                     .foregroundStyle(colorTexto)
                     .fixedSize(horizontal: false, vertical: true)
             }
