@@ -32,63 +32,51 @@ struct CompartirSheet: View {
                     .scaleEffect(escala, anchor: .top)
                     .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
             }
+            // La previa es una imagen: VoiceOver la cuenta una vez y no se mete en sus piezas.
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Vista previa de la tarjeta")
 
             botones(marca: marca)
         }
-        .padding(Theme.Spacing.xl)
+        .padding(.horizontal, Theme.Spacing.pantalla)
+        .padding(.vertical, Theme.Spacing.l)
         .background(Theme.Color.background.ignoresSafeArea())
+        .presentationDragIndicator(.visible)
         .sheet(item: $hojaDelSistema) { fichero in
             HojaDelSistema(items: [fichero.url])
         }
     }
 
     private var cabecera: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .top, spacing: Theme.Spacing.m) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text("Compartir")
-                    .font(.system(size: 22, weight: .heavy, design: .default).italic())
+                    .papel(.seccion)
                     .foregroundStyle(Theme.Color.foreground)
+                    .accessibilityAddTraits(.isHeader)
                 Text("Tu vídeo, con el entreno en una esquina")
-                    .font(.system(size: 13))
+                    .papel(.nota)
                     .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Theme.Color.muted)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.Color.surface, in: Circle())
-            }
-            .accessibilityLabel("Cerrar")
+            Spacer(minLength: 0)
+            BotonCromoDia(.cerrar, etiqueta: "Cerrar") { dismiss() }
         }
     }
 
+    /// Con el club o sin marca: la elección es del atleta. La opción activa lleva el acento del club, como
+    /// los selectores del constructor de entreno libre (misma pieza).
     private var selectorDeMarca: some View {
-        HStack(spacing: 2) {
-            opcion("Con el club", activa: conClub) { conClub = true }
-            opcion("Sin marca", activa: !conClub) { conClub = false }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Theme.Spacing.s) { opciones }
+            VStack(spacing: Theme.Spacing.s) { opciones }
         }
-        .padding(2)
-        .background(Theme.Color.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .frame(maxWidth: .infinity)
     }
 
-    private func opcion(_ texto: String, activa: Bool, accion: @escaping () -> Void) -> some View {
-        Button(action: accion) {
-            Text(texto)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(activa ? Theme.Color.foreground : Theme.Color.muted)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 7)
-                .background(
-                    activa ? Theme.Color.surfaceElevated : .clear,
-                    in: RoundedRectangle(cornerRadius: 7, style: .continuous)
-                )
-        }
-        .buttonStyle(.plain)
+    @ViewBuilder
+    private var opciones: some View {
+        OpcionLibre(texto: "Con el club", elegida: conClub) { Haptics.light(); conClub = true }
+        OpcionLibre(texto: "Sin marca", elegida: !conClub) { Haptics.light(); conClub = false }
     }
 
     @ViewBuilder
@@ -98,33 +86,17 @@ struct CompartirSheet: View {
             // (App ID configurado + app instalada). Nunca un botón que abre
             // Instagram para nada.
             if CompartirService.instagramDisponible {
-                Button {
-                    Haptics.light()
+                BotonPrincipalLibre(titulo: "Abrir Instagram", glifo: nil) {
                     CompartirService.abrirInstagram(con: tarjeta, marca: marca)
-                } label: {
-                    Text("Abrir Instagram")
-                        .font(.system(size: 16, weight: .heavy))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.Color.accent)
+                BotonSecundarioLibre(titulo: "Compartir de otra forma") {
+                    hojaDelSistema = CompartirService.pngURL(de: tarjeta, marca: marca).map(FicheroCompartible.init)
+                }
+            } else {
+                BotonPrincipalLibre(titulo: "Compartir", glifo: nil) {
+                    hojaDelSistema = CompartirService.pngURL(de: tarjeta, marca: marca).map(FicheroCompartible.init)
+                }
             }
-            Button {
-                Haptics.light()
-                hojaDelSistema = CompartirService.pngURL(de: tarjeta, marca: marca).map(FicheroCompartible.init)
-            } label: {
-                Text(CompartirService.instagramDisponible ? "Compartir de otra forma" : "Compartir")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(Theme.Color.hairlineStrong, lineWidth: 1)
-                    )
-            }
-            .buttonStyle(.plain)
         }
     }
 }

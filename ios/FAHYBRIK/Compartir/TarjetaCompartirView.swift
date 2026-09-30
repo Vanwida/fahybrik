@@ -444,9 +444,15 @@ struct TarjetaCompartibleView: View {
     let marca: MarcaCartel
 
     var body: some View {
-        switch tarjeta {
-        case .entreno(let datos): TarjetaEntrenoView(datos: datos, marca: marca)
-        case .semana(let datos): TarjetaSemanaView(datos: datos, marca: marca)
+        Group {
+            switch tarjeta {
+            case .entreno(let datos): TarjetaEntrenoView(datos: datos, marca: marca)
+            case .semana(let datos): TarjetaSemanaView(datos: datos, marca: marca)
+            }
         }
+        // La tarjeta vive SIEMPRE sobre su fondo oscuro, sea cual sea el tema de la app. Sin esto, con la
+        // app en claro el acento del club llegaba en su variante para texto sobre lienzo claro (en el
+        // naranja de fábrica, 3,3:1 frente a 6,0:1 sobre la tarjeta) tanto a la previa como al PNG que sale.
+        .environment(\.colorScheme, .dark)
     }
 }
