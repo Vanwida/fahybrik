@@ -88,6 +88,8 @@ extension GuionEscaparate {
         private(set) var espejo = Vivo.EspejoMuneca()
         private var ahora = Recorrido.base
         private let hash: String
+        /// Los metros que la muñeca lleva medidos en el recorrido (para no contarlos dos veces al saltar).
+        private var yaMedido = 0.0
 
         init(_ escena: Escena) {
             self.escena = escena
@@ -121,7 +123,7 @@ extension GuionEscaparate {
             let paso = escena.plan.pasos[escena.i]
             let metros = paso.medida.tipo == .distancia ? (escena.hecho ?? 0) : (escena.ritmo.map { escena.t * 1000 / $0 } ?? 0)
             let antes = Swift.max(0, (escena.sesionM ?? 0) - metros)
-            enviar(escena.i, enPasoS: 0, sesionS: escena.sesionT - escena.t, salto: antes)
+            enviar(escena.i, enPasoS: 0, sesionS: escena.sesionT - escena.t, salto: Swift.max(0, antes - yaMedido))
             mover(segundos: escena.t, metros: metros, ppm: escena.ppm, tendencia: escena.tendencia)
             // La trama final lleva el cursor tal como lo saca el móvil de la escena (con lo que mida él).
             espejo.recibirTrama(trama(cursor: Vivo.cursorDe(escena.estado(), planHash: hash, entorno: escena.entorno)), en: ahora)
@@ -129,7 +131,7 @@ extension GuionEscaparate {
 
         /// Tramo de la sesión que viene de una vuelta de la escena (su ritmo) o el ritmo actual.
         private func ritmoDe(_ paso: Vivo.Paso, trabajo: inout Int) -> Double {
-            guard paso.rol == .trabajo else { return Self.ritmoDeTrote }
+            guard paso.rol == .trabajo, paso.fase == .principal else { return Self.ritmoDeTrote }
             defer { trabajo += 1 }
             return escena.vueltas.indices.contains(trabajo) ? (escena.vueltas[trabajo].ritmo ?? escena.ritmo ?? 300) : (escena.ritmo ?? 300)
         }
@@ -161,7 +163,10 @@ extension GuionEscaparate {
         /// La trama con la que el móvil anuncia el paso `i` y, si la escena sabe cuánto llevaba la sesión, los
         /// metros que la muñeca ya había medido antes (un salto, no un ritmo).
         private mutating func enviar(_ i: Int, enPasoS: Double, sesionS: Double, salto: Double = 0) {
-            if salto > 0 { espejo.anotarDistancia(deltaM: salto, en: ahora) }
+            if salto > 0 {
+                espejo.anotarDistancia(deltaM: salto, en: ahora)
+                yaMedido += salto
+            }
             let f = trama(cursor: MirrorCursor(planHash: hash, i: i, enPasoS: enPasoS, sesionS: sesionS, pausado: false))
             espejo.recibirTrama(f, en: ahora)
         }
@@ -177,7 +182,10 @@ extension GuionEscaparate {
             while restante > 0 {
                 let dt = Swift.min(1, restante)
                 ahora = ahora.addingTimeInterval(dt)
-                if metros > 0, segundos > 0 { espejo.anotarDistancia(deltaM: metros * dt / segundos, en: ahora) }
+                if metros > 0, segundos > 0 {
+                    espejo.anotarDistancia(deltaM: metros * dt / segundos, en: ahora)
+                    yaMedido += metros * dt / segundos
+                }
                 if let ppm {
                     let hastaElFinal = Swift.min(restante - dt, Self.segundosDeTendencia)
                     let empuje = hastaElFinal * Self.latidosPorSegundo
