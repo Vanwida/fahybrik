@@ -52,7 +52,7 @@ struct MunecaSerie: View {
             if let carga = cara.carga { MunecaInstruccion(linea: carga) }
             if let esfuerzo = cara.esfuerzo { MunecaContexto(linea: esfuerzo) }
             if let cue = cara.cue { MunecaNota(nota: cue) }
-            MunecaNota(nota: cara.pista)
+            if let pista = cara.pista { MunecaNota(nota: pista) }
             if let luego = cara.luego { MunecaNota(nota: luego, tono: MunecaPaleta.tinta) }
         }
     }
@@ -69,7 +69,7 @@ struct MunecaColocate: View {
             MunecaNombre(nombre: cara.nombre)
             MunecaContexto(linea: cara.dosis, tono: MunecaPaleta.tinta2)
             MunecaCentro { MunecaHeroe(heroe: cara.heroe) }
-            MunecaNota(nota: cara.pista)
+            if let pista = cara.pista { MunecaNota(nota: pista) }
             if let pulso = cara.pulso { MunecaLinea(linea: pulso) }
         }
     }
@@ -94,7 +94,8 @@ struct MunecaViene: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var cabeza: Text { Text("Viene: ").foregroundStyle(MunecaPaleta.tinta2) }
+    /// «Viene: » en tinta2 y, si el reloj no lo deja caber junto al nombre, una flecha que dice lo mismo en menos.
+    private var cabeza: Text { Text(viene.conRotulo ? "Viene: " : "→ ").foregroundStyle(MunecaPaleta.tinta2) }
 
     private func linea(_ t: Text) -> some View {
         t.font(MunecaTipo.nota)
@@ -124,24 +125,24 @@ struct MunecaAnotarCara: View {
                 case let .lista(l): lista(l)
                 }
             }
-            MunecaBotonesDescanso(acciones: cara.acciones, alMas30: alMas30, alPrimaria: alPrimaria)
+            MunecaBotonesDescanso(acciones: cara.acciones, alto: cara.altoBotones, alMas30: alMas30, alPrimaria: alPrimaria)
         }
     }
 
     private func columnas(_ c: Vivo.ColumnasAnotar) -> some View {
-        VStack(spacing: 5) {
-            MunecaNota(nota: c.titulo)
-            HStack(spacing: 4) {
-                ForEach(c.columnas, id: \.campo) { col in columna(col) }
+        VStack(spacing: CGFloat(Vivo.huecoFila)) {
+            if let titulo = c.titulo { MunecaNota(nota: titulo) }
+            HStack(spacing: CGFloat(Vivo.huecoColumna)) {
+                ForEach(c.columnas, id: \.campo) { col in columna(col, alto: c.altoColumna) }
             }
             if let pista = c.pista { MunecaNota(nota: pista, tono: MunecaPaleta.tinta) }
             else if let viene = c.viene { MunecaViene(viene: viene) }
         }
     }
 
-    private func columna(_ c: Vivo.ColumnaAnotar) -> some View {
+    private func columna(_ c: Vivo.ColumnaAnotar, alto: Double) -> some View {
         Button { anotar?.enfocar(c.campo) } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: MunecaForma.huecoDatoColumna) {
                 Text(c.valor)
                     .font(MunecaTipo.fuente(c.cuerpo, 600))
                     .foregroundStyle(c.estado == .propuesto ? MunecaPaleta.tinta2 : MunecaPaleta.tinta)
@@ -151,7 +152,7 @@ struct MunecaAnotarCara: View {
                     .foregroundStyle(MunecaPaleta.tinta2)
                     .lineLimit(1)
             }
-            .frame(width: CGFloat(c.ancho), height: MunecaForma.altoColumna)
+            .frame(width: CGFloat(c.ancho), height: CGFloat(alto))
             .background(RoundedRectangle(cornerRadius: MunecaForma.radioColumna, style: .continuous).fill(WatchTheme.hex(Vivo.C.superficie)))
             .overlay(RoundedRectangle(cornerRadius: MunecaForma.radioColumna, style: .continuous)
                 .stroke(c.activa ? MunecaPaleta.accion : .clear, lineWidth: MunecaForma.bordeActivo))
@@ -162,8 +163,8 @@ struct MunecaAnotarCara: View {
     }
 
     private func lista(_ l: Vivo.ListaAnotar) -> some View {
-        VStack(spacing: 4) {
-            MunecaNota(nota: l.titulo)
+        VStack(spacing: CGFloat(Vivo.huecoFila)) {
+            if let titulo = l.titulo { MunecaNota(nota: titulo) }
             ForEach(Array(l.pildoras.enumerated()), id: \.offset) { _, p in
                 MunecaPildora(pildora: p) { anotar?.abrir(p.abre) }
             }
@@ -179,17 +180,17 @@ struct MunecaPildora: View {
 
     var body: some View {
         Button(action: alPulsar) {
-            HStack(spacing: 8) {
+            HStack(spacing: CGFloat(Vivo.MedidaPildora.hueco)) {
                 if let slot = pildora.slot { Text(slot).font(MunecaTipo.nota).foregroundStyle(MunecaPaleta.tinta2) }
                 Text(pildora.texto)
                     .font(MunecaTipo.boton)
                     .foregroundStyle(pildora.hecha ? MunecaPaleta.tinta : MunecaPaleta.tinta2)
                     .lineLimit(1)
-                    .minimumScaleFactor(MunecaTipo.reduccionMaxima(17))
+                    .minimumScaleFactor(MunecaTipo.reduccionMaxima(Vivo.MedidaPildora.cuerpo))
                 MunecaMarca(hecha: pildora.hecha)
             }
-            .padding(.horizontal, 12)
-            .frame(maxWidth: MunecaForma.anchoPildora, minHeight: CGFloat(Vivo.alturaDeHueco), maxHeight: CGFloat(Vivo.alturaDeHueco))
+            .padding(.horizontal, CGFloat(Vivo.MedidaPildora.aire))
+            .frame(maxWidth: MunecaForma.anchoPildora, minHeight: CGFloat(pildora.alto), maxHeight: CGFloat(pildora.alto))
             .background(Capsule().fill(MunecaPaleta.superficie2))
         }
         .buttonStyle(.plain)
@@ -216,28 +217,32 @@ struct MunecaMarca: View {
 
 // MARK: - «+30 s» y la acción del momento
 
-/// La fila de abajo de todo descanso: «+30 s» y la acción del momento en naranja.
+/// La fila de abajo de todo descanso: «+30 s» y la acción del momento en naranja. `alto`: el que dice el núcleo (el del
+/// botón si el reloj es bajo, o el de siempre).
 struct MunecaBotonesDescanso: View {
     let acciones: [Vivo.AccionDeCara]
+    var alto: Double = Vivo.Fila.boton.alto
     var alMas30: (() -> Void)?
-    var alPrimaria: () -> Void
+    /// «Empezar ya» del descanso común; las demás acciones del momento («Confirmar», «Listo») llaman a `alPrimaria`.
+    var alEmpezarYa: () -> Void = {}
+    var alPrimaria: () -> Void = {}
 
     var body: some View {
         HStack(spacing: MunecaForma.huecoBotones) {
             ForEach(acciones, id: \.rawValue) { accion in
-                if accion == .mas30s {
+                switch accion {
+                case .mas30s:
                     if let alMas30 {
                         MunecaBoton(titulo: accion.rawValue, variante: .superficie, accion: alMas30)
                             .frame(minWidth: MunecaForma.anchoMas30Minimo, maxWidth: MunecaForma.anchoMas30)
                     }
-                } else {
-                    MunecaBoton(titulo: accion.rawValue, accion: alPrimaria)
+                case .empezarYa, .confirmar, .listo:
+                    MunecaBoton(titulo: accion.rawValue, accion: accion == .empezarYa ? alEmpezarYa : alPrimaria)
                         .frame(maxWidth: MunecaForma.anchoEmpezarYa)
                         .layoutPriority(1)
                 }
             }
         }
-        .padding(.horizontal, 4)
-        .frame(height: CGFloat(Vivo.Fila.boton.alto))
+        .frame(height: CGFloat(alto))
     }
 }

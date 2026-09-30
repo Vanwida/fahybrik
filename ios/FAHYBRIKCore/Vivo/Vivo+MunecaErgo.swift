@@ -70,7 +70,7 @@ extension Vivo {
         let declarada = ergoSinMonitor(p, enlazada: e.maquinaEnlazada)
         // M7: el damper, si el coach lo dijo, cierra el contexto (es lo primero que se cae si no cabe).
         let contexto = contextoQueCabe([cabezaDeErgo(p), fmtPrescrito(p.medida)] + (p.maquina?.damper.map { ["damper \($0)"] } ?? []), m)
-        let nota = (declarada ? "sin \(nombreMaquina(p.maquina) ?? "la máquina") · lo dices tú" : lam.nota).map { notaVista($0, ancho: m.anchoUtil) }
+        let nota = declarada ? NotaLamina(texto: "sin \(nombreMaquina(p.maquina) ?? "la máquina") · lo dices tú", esencial: true) : lam.nota
         // Sin máquina que lo mida, el /500 es la instrucción (se lee en el monitor): una banda sin marca durante toda la serie sería un calibre roto.
         let banda = declarada ? nil : lam.banda
         let instruccion: String? = declarada ? principal(p).map { "a \(fmtObjetivo($0, p.maquina))" } : lam.instruccion
@@ -81,25 +81,17 @@ extension Vivo {
         let clave = clavePorDefecto(p)
         let pista = (p.cierre == .atleta ? clave : nil).map { notaVista("doble toque · \($0.rawValue)", ancho: m.anchoUtil) }
 
-        var filas: [Fila] = [.contexto]
-        if let nota { filas.append(filaDeNota(nota)) }
-        if banda != nil { filas.append(.banda) }
-        if instruccion != nil { filas.append(.instruccion) }
-        if let tope { filas.append(filaDeNota(tope)) }
-        if lam.segundo != nil { filas.append(.segundo) }
-        if let pista { filas.append(accion == .boton ? .boton : filaDeNota(pista)) }
-        if tercero != nil { filas.append(.tercero) }
-        return CaraPaso(
+        return caraPasoAjustada(CaraPaso(
             contexto: contexto,
-            nota: nota,
-            heroe: heroeMuneca(lam.heroe, filas: filas, m),
+            nota: nota.map { notaQueCabe($0, ancho: m.anchoUtil) },
+            heroe: heroeSinTalla(lam.heroe),
             banda: banda,
             instruccion: instruccion.map { instruccionQueCabe($0, m) },
             segundo: lam.segundo.map { lineaDeDato($0, cuerpo: TipoMuneca.segundo, ancho: (tercero != nil || pista != nil) ? m.anchoUtil : m.anchoPie) },
             tercero: tercero.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoPie) },
             tope: tope,
             pista: pista
-        )
+        ), m, accion: accion)
     }
 
     // MARK: - Las páginas: Paso → Series → Datos → Estructura

@@ -202,6 +202,8 @@ extension Vivo {
         var hecha: Bool
         /// Índice de la serie que abre al tocarla.
         var abre: Int
+        /// Su alto: el de siempre, o el apretado en un reloj bajo.
+        var alto: Double = Vivo.alturaDeHueco
     }
 
     struct ColumnaAnotar: Equatable {
@@ -216,9 +218,11 @@ extension Vivo {
     }
 
     struct ColumnasAnotar: Equatable {
-        /// «Serie 2 · sin confirmar», «A1 · serie 1 · kg sin confirmar».
-        var titulo: NotaVista
+        /// «Serie 2 · sin confirmar», «A1 · serie 1 · kg sin confirmar»; `nil` si en un reloj bajo no cabe con lo demás.
+        var titulo: NotaVista?
         var columnas: [ColumnaAnotar]
+        /// El alto de una columna: el de siempre, o el apretado en un reloj bajo.
+        var altoColumna: Double
         /// Con un dato encendido: «gira la corona · kg» o hasta dónde llega la cascada.
         var pista: NotaVista?
         /// Sin dato encendido: lo que viene.
@@ -226,8 +230,8 @@ extension Vivo {
     }
 
     struct ListaAnotar: Equatable {
-        /// «Ronda 1 · 2 sin confirmar».
-        var titulo: NotaVista
+        /// «Ronda 1 · 2 sin confirmar»; `nil` si en un reloj bajo no cabe con lo demás.
+        var titulo: NotaVista?
         var pildoras: [PildoraAnotar]
         var viene: VieneMuneca?
     }
@@ -242,11 +246,25 @@ extension Vivo {
         var contexto: LineaTexto
         var cuerpo: CuerpoAnotar
         var acciones: [AccionDeCara]
+        var altoBotones: Double = Fila.boton.alto
+    }
+
+    /// Lo que mide una columna de dato: su alto y el apretado de un reloj bajo (con el cuerpo de 22 pt o menos cabe).
+    static let altoColumna: Double = 58
+    static let altoColumnaApretada: Double = 52
+
+    /// La píldora de una serie: el aire a los lados, entre sus piezas, la marca y el cuerpo del texto (el del botón).
+    enum MedidaPildora {
+        static let aire: Double = 12
+        static let hueco: Double = 8
+        static let marca: Double = 15
+        static let cuerpo: Double = 17
     }
 
     private static let anchoColumnaMinimo: Double = 48
     private static let aireColumna: Double = 5
-    private static let huecoColumna: Double = 4
+    /// El aire entre columnas de dato (el mismo que pinta la muñeca).
+    static let huecoColumna: Double = 4
     /// Lo que se le resta al ancho útil para decidir si caben las tres columnas a 30 pt.
     private static let margenColumnas: Double = 6
 
@@ -290,56 +308,133 @@ extension Vivo {
         return pendientes == total ? "sin confirmar" : "\(pendientes) sin confirmar"
     }
 
+    /// Los cuerpos a los que baja el valor de una columna, del mayor al menor: el de 30 y el de 22 de la escala y el suelo.
+    private static let cuerposColumna: [Double] = [TipoMuneca.segundo, TipoMuneca.tercero, suelo]
+
     private static func columnasDe(_ s: SerieAnotableMuneca, foco: CampoAnotar?, _ m: MedidasMuneca) -> [ColumnaAnotar] {
         let campos = camposDe(s)
-        func ancho(_ c: (campo: CampoAnotar, dato: Dato), _ cuerpo: Double) -> Double {
-            Swift.max(anchoColumnaMinimo, Swift.max(anchoTexto(fmtValor(c.dato.valor), cuerpo),
-                                                    anchoTexto(etiquetaDeCampo(c.campo, s), TipoMuneca.nota, peso: TipoMuneca.pesoNota)) + 2 * aireColumna)
+        let disponible = m.anchoUtil - margenColumnas
+        let huecos = huecoColumna * Double(campos.count - 1)
+        // Cada columna mide lo que su texto pide, y a un reloj estrecho el mínimo se le achica para que quepan las tres.
+        let minimo = Swift.min(anchoColumnaMinimo, (disponible - huecos) / Double(campos.count))
+        func anchos(_ cuerpo: Double) -> [Double] {
+            campos.map {
+                Swift.max(minimo, Swift.max(anchoTexto(fmtValor($0.dato.valor), cuerpo),
+                                            anchoTexto(etiquetaDeCampo($0.campo, s), TipoMuneca.nota, peso: TipoMuneca.pesoNota)) + 2 * aireColumna)
+            }
         }
-        func total(_ cuerpo: Double) -> Double { campos.reduce(0) { $0 + ancho($1, cuerpo) } + huecoColumna * Double(campos.count - 1) }
-        let cuerpo = total(TipoMuneca.segundo) <= m.anchoUtil - margenColumnas ? TipoMuneca.segundo : TipoMuneca.tercero
-        return campos.map {
-            ColumnaAnotar(campo: $0.campo, valor: fmtValor($0.dato.valor), etiqueta: etiquetaDeCampo($0.campo, s), estado: $0.dato.estado,
-                          activa: foco == $0.campo, cuerpo: cuerpo, ancho: ancho($0, cuerpo))
+        let cuerpo = cuerposColumna.first { anchos($0).reduce(0, +) + huecos <= disponible } ?? suelo
+        return zip(campos, anchos(cuerpo)).map { c, ancho in
+            ColumnaAnotar(campo: c.campo, valor: fmtValor(c.dato.valor), etiqueta: etiquetaDeCampo(c.campo, s), estado: c.dato.estado,
+                          activa: foco == c.campo, cuerpo: cuerpo, ancho: ancho)
         }
     }
+
+    /// El texto de una píldora, la variante más completa que cabe a su ancho. Se mide a un punto sobre el suelo: el estimador
+    /// se queda corto con las letras anchas y una píldora cortada con «…» no dice qué anotaste.
+    private static let cuerpoPildoraHolgura: Double = 1
+
+    private static func textoQueCabeEnPildora(_ variantes: [String], slot: String?, _ m: MedidasMuneca) -> String {
+        let fijo = 2 * MedidaPildora.aire + MedidaPildora.marca + MedidaPildora.hueco
+            + (slot.map { anchoTexto($0, TipoMuneca.nota) + MedidaPildora.hueco } ?? 0)
+        return variantes.first { anchoTexto($0, suelo + cuerpoPildoraHolgura) <= m.anchoUtil - fijo } ?? variantes[variantes.count - 1]
+    }
+
+    /// La serie con su esfuerzo; sin él si no cabe y, si aun así no cabe, sin la unidad («8 × 127,5»).
+    private static func textoDePildora(_ a: Anotacion, _ f: FichaFuerza, slot: String?, _ m: MedidasMuneca) -> String {
+        textoQueCabeEnPildora([textoAnotacion(a, f), textoAnotacion(a, f, conEsfuerzo: false), textoAnotacion(a, f, conEsfuerzo: false, conUnidad: false)],
+                              slot: slot, m)
+    }
+
+    private static func pildoraDe(_ s: SerieAnotableMuneca, abre: Int, _ m: MedidasMuneca) -> PildoraAnotar {
+        let slot = s.paso.posicion?.slot
+        return PildoraAnotar(slot: slot, texto: textoDePildora(s.anot, s.paso.fuerza ?? fichaFuerzaVacia, slot: slot, m), hecha: !pendiente(s.anot), abre: abre)
+    }
+
+    /// Lo que cabe de un cuerpo de anotación: lo que ocupa cada fila con el contexto y los botones, con el aire entre filas.
+    private static func ajustarAnotar(_ filas: [FilaAjustable], _ m: MedidasMuneca) -> Ajuste {
+        ajustarFilas(filas) { $0.reduce(0, +) + huecoFila * Double($0.count - 1) <= m.altoUtil }
+    }
+
+    private static func filaBotones() -> FilaAjustable { FilaAjustable(papel: .botones, alto: Fila.boton.alto, apretada: Fila.botonReal) }
 
     /// Cuántas series se enseñan como píldora antes de plegar el resto en «+N series».
     private static let pildorasVisibles = 2
 
-    /// El descanso que anota, o `nil` si no hay nada que anotar (el descanso común lo pinta el cuadro).
+    /// El descanso que anota, o `nil` si no hay nada que anotar (el descanso común lo pinta el cuadro). Cada fila que
+    /// lleva se declara con su alto y lo que cede; en un reloj bajo se aprietan las píldoras, las columnas, «Viene» y los
+    /// botones y, si aun así no cabe, caen el título y «Viene» (lo que menos dice de lo que tienes delante).
     static func caraDeAnotar(_ e: EstadoVivo, _ l: Lecturas, _ a: AnotarMuneca, _ m: MedidasMuneca) -> CaraMuneca? {
         guard let d = a.descansoQueAnota(e) else { return nil }
         let viene = vieneDe(e.pasos, e.i, a.registro, m)
         if d.vista == .resumen {
-            let texto = d.series.count == 1 ? textoAnotacion(d.series[0].anot, d.series[0].paso.fuerza ?? fichaFuerzaVacia)
-                : "\(quienAnota(d.series, nil)) anotada"
+            let ficha = d.series[0].paso.fuerza ?? fichaFuerzaVacia
+            let texto = d.series.count == 1 ? textoDePildora(d.series[0].anot, ficha, slot: nil, m)
+                : textoQueCabeEnPildora(["\(quienAnota(d.series, nil)) anotada", quienAnota(d.series, nil)], slot: nil, m)
             return .descanso(caraDescanso(e, l, m, viene: viene, hueco: PildoraAnotar(slot: nil, texto: texto, hecha: true, abre: 0), conPulso: false))
         }
         let cuenta = fmtReloj((faltaDe(e.paso, l) ?? 0).rounded(.up))
         let contexto = contextoQueCabe(["Descanso", cuenta], m)
         let pendientes = d.series.filter { pendiente($0.anot) }.count
         let acciones: [AccionDeCara] = [.mas30s, pendientes > 0 ? .confirmar : .listo]
+        let contextoFila = FilaAjustable(papel: .contexto, alto: Fila.contexto.alto)
+        func vieneApretable(_ cede: Int) -> FilaAjustable? {
+            viene.map { FilaAjustable(papel: .viene, alto: $0.alto, cede: cede, apretada: apretarViene($0, m).alto) }
+        }
+        func vieneFinal(_ ajuste: Ajuste) -> VieneMuneca? {
+            ajuste.queda(.viene) ? viene.map { ajuste.apretadas.contains(.viene) ? apretarViene($0, m) : $0 } : nil
+        }
 
         if d.vista == .lista {
             let visibles = d.series.count <= pildorasVisibles ? d.series : Array(d.series.prefix(1))
-            var pildoras = visibles.enumerated().map { k, s in
-                PildoraAnotar(slot: s.paso.posicion?.slot, texto: textoAnotacion(s.anot, s.paso.fuerza ?? fichaFuerzaVacia), hecha: !pendiente(s.anot), abre: k)
-            }
+            var pildoras = visibles.enumerated().map { k, s in pildoraDe(s, abre: k, m) }
             let resto = d.series.count - visibles.count
             if resto > 0 { pildoras.append(PildoraAnotar(slot: nil, texto: "+\(resto) series", hecha: false, abre: 1)) }
             let titulo = notaVista("\(quienAnota(d.series, nil)) · \(estadoDeRonda(pendientes, d.series.count))", ancho: m.anchoUtil)
-            return .anotar(CaraAnotar(contexto: contexto, cuerpo: .lista(ListaAnotar(titulo: titulo, pildoras: pildoras, viene: viene)), acciones: acciones))
+            let n = Double(pildoras.count)
+            var filas = [
+                contextoFila,
+                FilaAjustable(papel: .tituloAnotar, alto: filaDeNota(titulo).alto, cede: 3),
+                FilaAjustable(papel: .pildoras, alto: n * alturaDeHueco + huecoFila * (n - 1), apretada: n * alturaDeHuecoApretada + huecoFila * (n - 1)),
+            ]
+            if let v = vieneApretable(2) { filas.append(v) }
+            filas.append(filaBotones())
+            let ajuste = ajustarAnotar(filas, m)
+            let alto = ajuste.apretadas.contains(.pildoras) ? alturaDeHuecoApretada : alturaDeHueco
+            let lista = ListaAnotar(titulo: ajuste.queda(.tituloAnotar) ? titulo : nil, pildoras: pildoras.map { var p = $0; p.alto = alto; return p },
+                                    viene: vieneFinal(ajuste))
+            return .anotar(CaraAnotar(contexto: contexto, cuerpo: .lista(lista), acciones: acciones, altoBotones: altoDeBotones(ajuste)))
         }
 
         guard let k = d.abierta else { return nil }
         let s = d.series[k]
         let titulo = notaVista("\(quienAnota(d.series, k)) · \(estadoDeSerie(s))", ancho: m.anchoUtil)
-        let pista = d.foco.flatMap { campo in d.pasoAbierto.map { textoPistaCorona(e.pasos, $0, campo, a.registro) } }
-        let cuerpo = ColumnasAnotar(titulo: titulo, columnas: columnasDe(s, foco: d.foco, m),
-                                    pista: pista.map { notaVista($0, ancho: m.anchoUtil) }, viene: d.foco == nil ? viene : nil)
-        return .anotar(CaraAnotar(contexto: contexto, cuerpo: .columnas(cuerpo), acciones: pendiente(s.anot) ? [.mas30s, .confirmar] : [.mas30s, .listo]))
+        // Apretado, el título dice solo qué serie es.
+        let tituloCorto = notaVista(quienAnota(d.series, k), ancho: m.anchoUtil)
+        let pista = d.foco.flatMap { campo in d.pasoAbierto.map { textoPistaCorona(e.pasos, $0, campo, a.registro) } }.map { notaVista($0, ancho: m.anchoUtil) }
+        let columnas = columnasDe(s, foco: d.foco, m)
+        let apretable = (columnas.first?.cuerpo ?? 0) < TipoMuneca.segundo
+        var filas = [
+            contextoFila,
+            FilaAjustable(papel: .tituloAnotar, alto: filaDeNota(titulo).alto, cede: 2, apretada: titulo.lineas > 1 ? filaDeNota(tituloCorto).alto : nil),
+            FilaAjustable(papel: .columnas, alto: altoColumna, apretada: apretable ? altoColumnaApretada : nil),
+        ]
+        if let p = pista { filas.append(FilaAjustable(papel: .pistaCorona, alto: filaDeNota(p).alto)) }
+        if d.foco == nil, let v = vieneApretable(3) { filas.append(v) }
+        filas.append(filaBotones())
+        let ajuste = ajustarAnotar(filas, m)
+        let cuerpo = ColumnasAnotar(
+            titulo: ajuste.queda(.tituloAnotar) ? (ajuste.apretadas.contains(.tituloAnotar) ? tituloCorto : titulo) : nil,
+            columnas: columnas,
+            altoColumna: ajuste.apretadas.contains(.columnas) ? altoColumnaApretada : altoColumna,
+            pista: pista,
+            viene: d.foco == nil ? vieneFinal(ajuste) : nil
+        )
+        return .anotar(CaraAnotar(contexto: contexto, cuerpo: .columnas(cuerpo),
+                                  acciones: pendiente(s.anot) ? [.mas30s, .confirmar] : [.mas30s, .listo], altoBotones: altoDeBotones(ajuste)))
     }
+
+    private static func altoDeBotones(_ a: Ajuste) -> Double { a.apretadas.contains(.botones) ? Fila.botonReal : Fila.boton.alto }
 
     /// Una ficha sin dosis, para dar texto a una serie sin ficha (no debería ocurrir: solo las de fuerza anotan).
     private static let fichaFuerzaVacia = FichaFuerza(ejercicio: "", carga: .corporal, esfuerzo: nil)

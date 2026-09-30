@@ -64,6 +64,14 @@ extension Vivo {
         var zonas: BandaZonas? = nil
     }
 
+    /// La nota de una lámina: lo que dice, una versión corta para el reloj estrecho (si la larga no cabe en dos líneas) y
+    /// si dice la verdad de lo que se ve (`esencial`: en un reloj bajo es lo último en caer).
+    struct NotaLamina: Equatable {
+        var texto: String
+        var corta: String? = nil
+        var esencial: Bool = false
+    }
+
     struct Lamina: Equatable {
         var contexto: [String]
         var heroe: HeroeVista
@@ -72,7 +80,7 @@ extension Vivo {
         var instruccion: String?
         var segundo: LineaVista?
         var tercero: LineaVista?
-        var nota: String?
+        var nota: NotaLamina?
         /// Zona de fondo (solo pasos a zona, P6). El pintor pone el color.
         var tinte: Int?
     }
@@ -190,16 +198,16 @@ extension Vivo {
         return LineaVista(etiqueta: "quedan", valor: v.texto, unidad: v.unidad)
     }
 
-    static func notaDe(_ p: Paso, _ l: Lecturas) -> String? {
-        if !l.viejos.isEmpty { return "sin enlace · la muñeca sigue grabando" }
-        if l.gps == .buscando, esCarrera(p) { return "GPS · buscando" }
-        if let cue = p.cue { return "Coach · \(cue)" }
+    static func notaDe(_ p: Paso, _ l: Lecturas) -> NotaLamina? {
+        if !l.viejos.isEmpty { return NotaLamina(texto: "sin enlace · la muñeca sigue grabando", corta: "sin enlace · sigue grabando", esencial: true) }
+        if l.gps == .buscando, esCarrera(p) { return NotaLamina(texto: "GPS · buscando", esencial: true) }
+        if let cue = p.cue { return NotaLamina(texto: "Coach · \(cue)") }
         if p.entorno == .cinta {
             let incl = objetivoDe(p, .secundario)
             let pct = incl?.eje == .inclinacion ? " · \(num(incl?.min ?? 0)) %" : ""
-            return "Cinta\(pct)"
+            return NotaLamina(texto: "Cinta\(pct)")
         }
-        if p.entorno == .pista { return "Pista" }
+        if p.entorno == .pista { return NotaLamina(texto: "Pista") }
         return nil
     }
 

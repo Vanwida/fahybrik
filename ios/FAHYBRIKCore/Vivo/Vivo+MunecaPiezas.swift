@@ -81,6 +81,9 @@ extension Vivo {
         case nota2
         case pista, boton
 
+        /// El botón en sí: la fila (`boton`) le deja 4 pt de aire, que un reloj bajo aprieta.
+        static let botonReal: Double = 44
+
         var alto: Double {
             switch self {
             case .contexto: return 20
@@ -107,12 +110,74 @@ extension Vivo {
 
     static func altoHeroe(_ filas: [Fila], _ m: MedidasMuneca) -> Double { altoLibre(filas.map(\.alto), m) }
 
+    // MARK: - Lo que cede cuando no cabe
+
+    /// El héroe de una cara no baja de aquí (alto de caja en pt: ≈ 33 pt de cuerpo, lo que un reloj de 40 mm da a una cara de
+    /// varias filas): antes de achicarlo más, cede una fila. La escala de la muñeca lo quiere mayor (44 pt de cuerpo) y en
+    /// cuanto hay sitio lo es; la serie de fuerza, que pesa más, lleva el suyo (`heroeMinimoSerie`).
+    static let heroeMinimo: Double = 28
+
+    /// El papel de cada fila que puede ceder. Una cara dice qué filas lleva y cuánto cuesta perder cada una;
+    /// `ajustarFilas` decide, con el alto que hay, cuáles se quedan.
+    enum PapelFila: Hashable {
+        case contexto, nota, titulo, dosis, total, banda, instruccion, tope, bajo, luego, segundo, marcas, pista, pulso
+        case viene, hueco, botones
+        /// El cuerpo de la anotación de fuerza.
+        case tituloAnotar, pildoras, columnas, pistaCorona
+    }
+
+    /// Una fila de una cara con su alto y lo que cede. `cede`: 0 = no cae nunca; a mayor `cede`, antes cae. `apretada`:
+    /// el alto que tiene si se aprieta (una píldora más baja, «Viene» en una línea) antes de dejarla caer.
+    struct FilaAjustable: Equatable {
+        var papel: PapelFila
+        var alto: Double
+        var cede: Int = 0
+        var apretada: Double? = nil
+    }
+
+    struct Ajuste: Equatable {
+        var caen: Set<PapelFila> = []
+        var apretadas: Set<PapelFila> = []
+
+        func queda(_ p: PapelFila) -> Bool { !caen.contains(p) }
+    }
+
+    /// Qué se aprieta y qué cae para que las filas quepan (`cabe` recibe los altos que quedan). Primero se aprieta lo que
+    /// se puede, y solo si aun así no cabe caen las filas que ceden, la de más `cede` antes y, a igual `cede`, la de más abajo.
+    static func ajustarFilas(_ filas: [FilaAjustable], cabe: ([Double]) -> Bool) -> Ajuste {
+        var a = Ajuste()
+        func altos() -> [Double] {
+            filas.filter { a.queda($0.papel) }.map { a.apretadas.contains($0.papel) ? ($0.apretada ?? $0.alto) : $0.alto }
+        }
+        for f in filas where f.apretada != nil {
+            if cabe(altos()) { return a }
+            a.apretadas.insert(f.papel)
+        }
+        let candidatas = filas.enumerated().filter { $0.element.cede > 0 }
+            .sorted { ($0.element.cede, $0.offset) > ($1.element.cede, $1.offset) }
+        for c in candidatas {
+            if cabe(altos()) { return a }
+            a.caen.insert(c.element.papel)
+        }
+        return a
+    }
+
+    /// El alto que le queda al héroe tras un ajuste, y qué filas se quedan: la cara de un héroe con filas.
+    static func ajustarConHeroe(_ filas: [FilaAjustable], heroe h: HeroeVista, _ m: MedidasMuneca) -> (ajuste: Ajuste, heroe: HeroeMuneca) {
+        let etiqueta = h.etiqueta != nil ? Fila.etiquetaHeroe.alto : 0
+        let a = ajustarFilas(filas) { altoLibre($0, m) - etiqueta >= heroeMinimo }
+        let altos = filas.filter { a.queda($0.papel) }.map { a.apretadas.contains($0.papel) ? ($0.apretada ?? $0.alto) : $0.alto }
+        return (a, heroeConAlto(h, alto: altoLibre(altos, m), m))
+    }
+
     // MARK: - Lo que se pinta, medido
 
     struct LineaTexto: Equatable {
         var texto: String
         /// El cuerpo al que cabe, nunca por debajo de 15 pt.
         var cuerpo: Double
+        /// En cuántas líneas va: una, o dos si ni a 15 pt cabe en el ancho (un nombre largo en un reloj estrecho).
+        var lineas: Int = 1
     }
 
     struct NotaVista: Equatable {
@@ -121,6 +186,8 @@ extension Vivo {
         var prefijo: String? = nil
         /// En cuántas líneas va: 1 o 2 (nunca se encoge por debajo de 15 pt).
         var lineas: Int
+        /// Una nota que dice la verdad de lo que ves («sin enlace», «GPS · buscando»): en un reloj bajo es lo último en caer.
+        var esencial: Bool = false
     }
 
     struct HeroeMuneca: Equatable {
@@ -158,17 +225,56 @@ extension Vivo {
         anchoTexto(texto, TipoMuneca.nota, peso: TipoMuneca.pesoNota) <= ancho * TipoMuneca.holguraEstima ? 1 : 2
     }
 
-    static func notaVista(_ texto: String, prefijo: String? = nil, ancho: Double) -> NotaVista {
+    static func notaVista(_ texto: String, prefijo: String? = nil, ancho: Double, esencial: Bool = false) -> NotaVista {
         let completo = prefijo.map { "\($0) \(texto)" } ?? texto
-        return NotaVista(texto: texto, prefijo: prefijo, lineas: lineasDeNota(completo, ancho: ancho))
+        return NotaVista(texto: texto, prefijo: prefijo, lineas: lineasDeNota(completo, ancho: ancho), esencial: esencial)
+    }
+
+    /// Cuántas líneas ocupa de verdad un texto partido por palabras (sin el tope de dos de `lineasDeNota`).
+    static func lineasQueOcupa(_ texto: String, cuerpo: Double = TipoMuneca.nota, peso: Int = TipoMuneca.pesoNota, ancho: Double) -> Int {
+        let limite = ancho * TipoMuneca.holguraEstima
+        var lineas = 1
+        var actual = ""
+        for palabra in texto.split(separator: " ") {
+            let prueba = actual.isEmpty ? String(palabra) : "\(actual) \(palabra)"
+            if actual.isEmpty || anchoTexto(prueba, cuerpo, peso: peso) <= limite {
+                actual = prueba
+            } else {
+                lineas += 1
+                actual = String(palabra)
+            }
+        }
+        return lineas
+    }
+
+    /// Una nota que se lee ENTERA: la versión larga si cabe en dos líneas y, si no (un reloj estrecho), la corta. Sin corta
+    /// que quepa, la larga, que se cortará con «…».
+    static func notaQueCabe(_ n: NotaLamina, ancho: Double) -> NotaVista {
+        let cabe = { (t: String) in lineasQueOcupa(t, ancho: ancho) <= 2 }
+        let texto = cabe(n.texto) ? n.texto : (n.corta.flatMap { cabe($0) ? $0 : nil } ?? n.texto)
+        return notaVista(texto, ancho: ancho, esencial: n.esencial)
     }
 
     /// La fila que ocupa una nota: 18 pt en una línea, 32 en dos.
     static func filaDeNota(_ n: NotaVista) -> Fila { n.lineas == 2 ? .nota2 : .nota }
 
-    /// Una instrucción («RPE 7 · fuerte»): 22 pt, al ancho útil.
+    /// El cuerpo de una instrucción que no cabe en una línea ni a 15 pt y va en dos.
+    static let cuerpoInstruccionEnDos: Double = 18
+    /// El interlineado de un texto en dos líneas, sobre el cuerpo.
+    static let interlineaEnDos: Double = 1.1
+
+    /// Una instrucción («RPE 7 · fuerte»): 22 pt, al ancho útil; si ni a 15 pt cabe en una línea («6 Bench Press · 60 kg» en
+    /// un reloj estrecho), en dos, antes que cortarla con «…».
     static func instruccionQueCabe(_ texto: String, _ m: MedidasMuneca) -> LineaTexto {
-        LineaTexto(texto: texto, cuerpo: cuerpoQueCabe(texto, TipoMuneca.instruccion, ancho: m.anchoUtil))
+        let cuerpo = cuerpoQueCabe(texto, TipoMuneca.instruccion, ancho: m.anchoUtil)
+        guard anchoTexto(texto, cuerpo) > m.anchoUtil * TipoMuneca.holguraEstima else { return LineaTexto(texto: texto, cuerpo: cuerpo) }
+        let enDos = lineasQueOcupa(texto, cuerpo: cuerpoInstruccionEnDos, peso: 600, ancho: m.anchoUtil) <= 2
+        return LineaTexto(texto: texto, cuerpo: enDos ? cuerpoInstruccionEnDos : suelo, lineas: 2)
+    }
+
+    /// Lo que ocupa una instrucción: una fila, o dos líneas de su cuerpo.
+    static func altoDeInstruccion(_ l: LineaTexto) -> Double {
+        l.lineas == 1 ? Fila.instruccion.alto : 2 * (l.cuerpo * interlineaEnDos).rounded()
     }
 
     /// El héroe con su talla: el mayor de la escala que cabe en el ancho y en lo que dejan las filas.

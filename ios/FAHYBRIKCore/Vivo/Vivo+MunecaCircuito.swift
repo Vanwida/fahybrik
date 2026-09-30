@@ -61,7 +61,7 @@ extension Vivo {
         // Lo que nadie mide se dice entero: sin el monitor de la máquina, el atleta esperaba que contara solo.
         if !medida { d.dosis = (dosisCompleta(p) + (p.maquina != nil ? ["sin monitor"] : [])).joined(separator: " · ") }
         // El pacto de un reparto de dobles manda sobre la nota del enlace; el cue del coach, si no hay otra.
-        d.nota = p.dobles.flatMap(pactoDe) ?? lam.nota
+        d.nota = p.dobles.flatMap(pactoDe).map { NotaLamina(texto: $0, esencial: true) } ?? lam.nota
         d.total = lineaTotal(totalDelBloque(e))
         if p.medida.mide == .ergo { d.segundo = LineaVista(valor: fmtSplit(l.split500, p.maquina), unidad: unidadSplit(p.maquina)) }
         d.accion = claveCircuito(p)?.rawValue

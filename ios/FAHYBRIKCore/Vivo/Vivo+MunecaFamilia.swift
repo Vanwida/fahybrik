@@ -9,7 +9,8 @@ import Foundation
 // del espacio a mano y el héroe nunca pisa una fila.
 //
 // El orden en que se pintan las filas es el de `CaraPaso`: contexto, nota, título, dosis, total, héroe, banda,
-// instrucción, bajo, «Luego», segundo, marcas, pista y el pulso, siempre la fila de abajo.
+// instrucción, bajo, «Luego», segundo, marcas, pista y el pulso, siempre la fila de abajo. Si en un reloj bajo no
+// caben todas, `caraPasoAjustada` deja caer las que menos dicen (ver `Vivo+Muneca`).
 
 extension Vivo {
 
@@ -18,7 +19,7 @@ extension Vivo {
         var contexto: [String]
         var heroe: HeroeVista
         /// Honestidad o procedencia bajo el contexto («sin monitor · lo dices tú»).
-        var nota: String? = nil
+        var nota: NotaLamina? = nil
         /// El movimiento o la estación (22 pt), bajo el contexto.
         var titulo: String? = nil
         var dosis: String? = nil
@@ -35,40 +36,21 @@ extension Vivo {
     }
 
     static func caraDeFamilia(_ d: PartesDeCara, _ m: MedidasMuneca, accion: FilaDeAccion) -> CaraPaso {
-        let nota = d.nota.map { notaVista($0, ancho: m.anchoUtil) }
-        let dosis = d.dosis.map { notaVista($0, ancho: m.anchoUtil) }
-        let bajo = d.bajo.map { notaVista($0, ancho: m.anchoUtil) }
-        let luego = d.luego.map { notaVista($0.texto, prefijo: $0.prefijo, ancho: m.anchoUtil) }
-        let pista = d.accion.map { notaVista("doble toque · \($0)", ancho: m.anchoUtil) }
-
-        var filas: [Fila] = [.contexto]
-        if let nota { filas.append(filaDeNota(nota)) }
-        if d.titulo != nil { filas.append(.instruccion) }
-        if let dosis { filas.append(filaDeNota(dosis)) }
-        if d.total != nil { filas.append(.tercero) }
-        if d.instruccion != nil { filas.append(.instruccion) }
-        if let bajo { filas.append(filaDeNota(bajo)) }
-        if let luego { filas.append(filaDeNota(luego)) }
-        if d.segundo != nil { filas.append(.tercero) }
-        if d.marcas != nil { filas.append(.pista) }
-        if let pista { filas.append(accion == .boton ? .boton : filaDeNota(pista)) }
-        if d.pulso != nil { filas.append(.tercero) }
-
-        return CaraPaso(
+        caraPasoAjustada(CaraPaso(
             contexto: contextoQueCabe(d.contexto, m),
-            nota: nota,
-            heroe: heroeMuneca(d.heroe, filas: filas, m),
+            nota: d.nota.map { notaQueCabe($0, ancho: m.anchoUtil) },
+            heroe: heroeSinTalla(d.heroe),
             instruccion: d.instruccion.map { instruccionQueCabe($0, m) },
             segundo: d.segundo.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoUtil) },
             tercero: d.pulso.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoPie) },
-            pista: pista,
+            pista: d.accion.map { notaVista("doble toque · \($0)", ancho: m.anchoUtil) },
             titulo: d.titulo.map { instruccionQueCabe($0, m) },
-            dosis: dosis,
+            dosis: d.dosis.map { notaVista($0, ancho: m.anchoUtil) },
             total: d.total.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoUtil) },
-            bajo: bajo,
-            luego: luego,
+            bajo: d.bajo.map { notaVista($0, ancho: m.anchoUtil) },
+            luego: d.luego.map { notaVista($0.texto, prefijo: $0.prefijo, ancho: m.anchoUtil) },
             marcas: d.marcas
-        )
+        ), m, accion: accion)
     }
 
     /// El pulso sin la marca de su zona: la recuperación, el descanso y la campana no se tiñen (P6).

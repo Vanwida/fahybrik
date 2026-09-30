@@ -91,9 +91,11 @@ enum MunecaForma {
     static let controlHueco: CGFloat = 12
     static let controlAireRotulo: CGFloat = 5
     /// Un botón tocable no baja de 44 pt.
-    static let tocableMin: CGFloat = 44
+    static let tocableMin = CGFloat(Vivo.Fila.botonReal)
     /// El aire lateral del rótulo dentro de un botón (poco: en 40 mm cada punto cuenta).
     static let aireBoton: CGFloat = 4
+    /// El de los botones de un descanso, que comparten fila y en 40 mm rozan lo que su rótulo mide.
+    static let aireRotuloBoton: CGFloat = 2
     static let huecoBotones: CGFloat = 4
     /// La tarjeta del km: radio, aire y sitio desde arriba.
     static let capaRadio: CGFloat = 26
@@ -131,11 +133,12 @@ enum MunecaForma {
 
     /// La anotación de fuerza: una columna de dato (alto y esquina), el borde del dato encendido, la píldora de una serie
     /// y la marca ✓ / aro.
-    static let altoColumna: CGFloat = 58
     static let radioColumna: CGFloat = 16
+    /// El hueco entre el valor de una columna y su etiqueta.
+    static let huecoDatoColumna: CGFloat = 4
     static let bordeActivo: CGFloat = 2
     static let anchoPildora: CGFloat = 178
-    static let marcaTalla: CGFloat = 15
+    static let marcaTalla = CGFloat(Vivo.MedidaPildora.marca)
     /// La página Ejercicios: la sangría del cuerpo y de las series, el punto del ejercicio, el número de serie y lo que se apaga lo que viene.
     static let sangriaEjercicios: CGFloat = 12
     static let sangriaSerie: CGFloat = 15

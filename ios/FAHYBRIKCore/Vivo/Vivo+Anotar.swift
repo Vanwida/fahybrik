@@ -212,10 +212,11 @@ extension Vivo {
 
     // MARK: - Textos
 
-    /// «8 × 125 kg · RIR 3», «6 reps», «8 × — kg».
-    static func textoAnotacion(_ a: Anotacion, _ f: FichaFuerza, conEsfuerzo: Bool = true) -> String {
+    /// «8 × 125 kg · RIR 3», «6 reps», «8 × — kg»; sin unidad, «8 × 125».
+    static func textoAnotacion(_ a: Anotacion, _ f: FichaFuerza, conEsfuerzo: Bool = true, conUnidad: Bool = true) -> String {
         let reps = a.reps.valor.map(num) ?? "—"
-        var partes = [a.kg != nil ? "\(reps) × \(a.kg?.valor.map(fmtKg) ?? "— kg")" : "\(reps) reps"]
+        let kg = a.kg.map { k in k.valor.map { conUnidad ? fmtKg($0) : num($0) } ?? (conUnidad ? "— kg" : "—") }
+        var partes = [kg.map { "\(reps) × \($0)" } ?? "\(reps) reps"]
         if conEsfuerzo, let e = a.esfuerzo, let fe = f.esfuerzo { partes.append("\(fe.eje == .rir ? "RIR" : "RPE") \(fmtValor(e.valor))") }
         return partes.joined(separator: " · ")
     }

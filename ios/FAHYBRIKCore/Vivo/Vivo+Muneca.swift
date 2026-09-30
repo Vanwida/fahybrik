@@ -132,8 +132,8 @@ extension Vivo {
         var luego: NotaVista?
         /// La acción del momento, dicha corta y en minúscula.
         var accion: String
-        /// «doble toque · empezar ya», medida: en un reloj estrecho va en dos líneas.
-        var pista: NotaVista
+        /// «doble toque · empezar ya», medida: en un reloj estrecho va en dos líneas y, en uno bajo, cae.
+        var pista: NotaVista?
         var pulso: LineaDeDato?
     }
 
@@ -150,6 +150,8 @@ extension Vivo {
         var pulso: LineaDeDato?
         var viene: NotaVista?
         var acciones: [AccionDeCara]
+        /// El alto de la fila de botones: el del botón (44) si el reloj es bajo, o el de siempre.
+        var altoBotones: Double = Fila.boton.alto
         /// El descanso de fuerza dice lo que viene en dos partes (qué y dosis) y lleva la serie ya anotada en una píldora.
         var vieneFuerza: VieneMuneca? = nil
         var hueco: PildoraAnotar? = nil
@@ -329,30 +331,60 @@ extension Vivo {
     /// `total`: el crono total bajo la nota, que la carrera de un circuito lleva y correr suelto no.
     static func caraPaso(_ lam: Lamina, _ e: EstadoVivo, _ l: Lecturas, _ m: MedidasMuneca,
                          contexto: [String]? = nil, total: LineaVista? = nil) -> CaraPaso {
-        let nota = lam.nota.map { notaVista($0, ancho: m.anchoUtil) }
-        // El tope de ritmo tipado (M1): un techo de pulso ya va en la línea del pulso («▲ alto»).
-        let tope = topeDe(e.paso, l, e.zonas, e.reglas, m, conTecho: false)
         // La nota va ARRIBA, bajo el contexto: abajo las esquinas dejan ~150 pt y una
         // nota de honestidad no puede quedarse a medias.
-        var filas: [Fila] = [.contexto]
-        if let nota { filas.append(filaDeNota(nota)) }
-        if total != nil { filas.append(.tercero) }
-        if lam.banda != nil { filas.append(.banda) }
-        if lam.instruccion != nil { filas.append(.instruccion) }
-        if let tope { filas.append(filaDeNota(tope)) }
-        if lam.segundo != nil { filas.append(.segundo) }
-        if lam.tercero != nil { filas.append(.tercero) }
-        return CaraPaso(
+        // El tope de ritmo tipado (M1): un techo de pulso ya va en la línea del pulso («▲ alto»).
+        caraPasoAjustada(CaraPaso(
             contexto: contextoQueCabe(contexto ?? lam.contexto, m),
-            nota: nota,
-            heroe: heroeMuneca(lam.heroe, filas: filas, m),
+            nota: lam.nota.map { notaQueCabe($0, ancho: m.anchoUtil) },
+            heroe: heroeSinTalla(lam.heroe),
             banda: lam.banda,
             instruccion: lam.instruccion.map { instruccionQueCabe($0, m) },
             segundo: lam.segundo.map { lineaDeDato($0, cuerpo: TipoMuneca.segundo, ancho: lam.tercero != nil ? m.anchoUtil : m.anchoPie) },
             tercero: lam.tercero.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoPie) },
-            tope: tope,
+            tope: topeDe(e.paso, l, e.zonas, e.reglas, m, conTecho: false),
             total: total.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoUtil) }
-        )
+        ), m)
+    }
+
+    /// El héroe de una cara que aún no ha medido sus filas: `caraPasoAjustada` le da su talla.
+    static func heroeSinTalla(_ h: HeroeVista) -> HeroeMuneca {
+        HeroeMuneca(vista: h, talla: TallaHeroe(cuerpo: 0, cuerpoUnidad: 0, ancho: 0), altoMax: 0)
+    }
+
+    /// La cara con las filas que caben. Cada fila que hay se declara UNA vez con su alto (los de `Vivo.Fila`); el héroe se
+    /// queda con lo que sobra y, si no llega a su mínimo (un reloj bajo), cae lo que menos importa: primero lo que dice
+    /// otra página o es un aviso (la pista de la acción, lo que viene, el tope), luego el pulso y lo que falta. Lo que
+    /// dice la verdad de lo que ves (una nota esencial), el objetivo (banda, instrucción) y la puntuación no caen nunca.
+    static func caraPasoAjustada(_ c: CaraPaso, _ m: MedidasMuneca, accion: FilaDeAccion = .pista) -> CaraPaso {
+        var filas = [FilaAjustable(papel: .contexto, alto: Fila.contexto.alto)]
+        if let n = c.nota { filas.append(FilaAjustable(papel: .nota, alto: filaDeNota(n).alto, cede: n.esencial ? 0 : 5)) }
+        if let t = c.titulo { filas.append(FilaAjustable(papel: .titulo, alto: altoDeInstruccion(t))) }
+        if let d = c.dosis { filas.append(FilaAjustable(papel: .dosis, alto: filaDeNota(d).alto, cede: 2)) }
+        if c.total != nil { filas.append(FilaAjustable(papel: .total, alto: Fila.tercero.alto)) }
+        if c.banda != nil { filas.append(FilaAjustable(papel: .banda, alto: Fila.banda.alto)) }
+        if let i = c.instruccion { filas.append(FilaAjustable(papel: .instruccion, alto: altoDeInstruccion(i))) }
+        if let t = c.tope { filas.append(FilaAjustable(papel: .tope, alto: filaDeNota(t).alto, cede: 3)) }
+        if let b = c.bajo { filas.append(FilaAjustable(papel: .bajo, alto: filaDeNota(b).alto, cede: 6)) }
+        if let l = c.luego { filas.append(FilaAjustable(papel: .luego, alto: filaDeNota(l).alto, cede: 4)) }
+        if let s = c.segundo { filas.append(FilaAjustable(papel: .segundo, alto: s.cuerpo >= TipoMuneca.segundo ? Fila.segundo.alto : Fila.tercero.alto, cede: 1)) }
+        if c.marcas != nil { filas.append(FilaAjustable(papel: .marcas, alto: Fila.pista.alto, cede: 2)) }
+        if let p = c.pista { filas.append(FilaAjustable(papel: .pista, alto: accion == .boton ? Fila.boton.alto : filaDeNota(p).alto, cede: 4)) }
+        if c.tercero != nil { filas.append(FilaAjustable(papel: .pulso, alto: Fila.tercero.alto, cede: 2)) }
+
+        let (ajuste, heroe) = ajustarConHeroe(filas, heroe: c.heroe.vista, m)
+        var r = c
+        r.heroe = heroe
+        if !ajuste.queda(.nota) { r.nota = nil }
+        if !ajuste.queda(.dosis) { r.dosis = nil }
+        if !ajuste.queda(.tope) { r.tope = nil }
+        if !ajuste.queda(.bajo) { r.bajo = nil }
+        if !ajuste.queda(.luego) { r.luego = nil }
+        if !ajuste.queda(.segundo) { r.segundo = nil }
+        if !ajuste.queda(.marcas) { r.marcas = nil }
+        if !ajuste.queda(.pista) { r.pista = nil }
+        if !ajuste.queda(.pulso) { r.tercero = nil }
+        return r
     }
 
     static func caraRecupera(_ e: EstadoVivo, _ l: Lecturas, _ lam: Lamina, _ x: EntornoMuneca) -> CaraRecupera {
@@ -367,20 +399,28 @@ extension Vivo {
         // ni «Luego» caben siempre en una línea: cada una reserva las que de verdad ocupa.
         let accion = "empezar ya"
         let pista = notaVista("doble toque · \(accion)", ancho: m.anchoUtil)
-        var filas: [Fila] = [.contexto, .tercero, x.accion == .boton ? .boton : filaDeNota(pista)]
-        if let luego { filas.append(filaDeNota(luego)) }
+        // El pulso reserva su fila aunque aún no haya lectura: no salta cuando llega.
+        var filas = [
+            FilaAjustable(papel: .contexto, alto: Fila.contexto.alto),
+            FilaAjustable(papel: .pulso, alto: Fila.tercero.alto, cede: 2),
+            FilaAjustable(papel: .pista, alto: x.accion == .boton ? Fila.boton.alto : filaDeNota(pista).alto, cede: 4),
+        ]
+        if let luego { filas.append(FilaAjustable(papel: .luego, alto: filaDeNota(luego).alto, cede: 3)) }
+        let (ajuste, heroeMedido) = ajustarConHeroe(filas, heroe: heroe, m)
         return CaraRecupera(
             contexto: contextoQueCabe(contextoDe(p), m),
-            heroe: heroeMuneca(heroe, filas: filas, m),
-            luego: luego,
+            heroe: heroeMedido,
+            luego: ajuste.queda(.luego) ? luego : nil,
             accion: accion,
-            pista: pista,
-            pulso: pulso.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoPie) }
+            pista: ajuste.queda(.pista) ? pista : nil,
+            pulso: ajuste.queda(.pulso) ? pulso.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoPie) } : nil
         )
     }
 
     /// El descanso común (P8). `viene`: en fuerza dice qué y dosis en dos partes; `hueco`: la serie ya anotada;
-    /// `conPulso`: el descanso que anota, ya todo declarado, no lo lleva (la serie anotada ocupa su sitio).
+    /// `conPulso`: el descanso que anota, ya todo declarado, no lo lleva (la serie anotada ocupa su sitio). En un reloj
+    /// bajo se aprieta (la serie anotada más baja, «Viene» en una línea, los botones a su alto real) y, si aun así el
+    /// héroe no llega a su mínimo, cae primero el pulso y luego «Viene».
     static func caraDescanso(_ e: EstadoVivo, _ l: Lecturas, _ m: MedidasMuneca, viene: VieneMuneca? = nil, hueco: PildoraAnotar? = nil,
                              conPulso: Bool = true) -> CaraDescanso {
         let p = e.paso
@@ -389,24 +429,28 @@ extension Vivo {
         // El pulso bajando, monocromo: el descanso tampoco se tiñe (P6).
         let pulso: LineaVista? = (conPulso && l.ppm != nil) ? { var s = lineaPulso(p, l, nil, e.reglas); s.zona = nil; return s }() : nil
         let vieneNota = viene == nil ? e.siguiente.map { notaVista(textoViene($0), prefijo: "Viene:", ancho: m.anchoUtil) } : nil
-        var alturas: [Double] = [Fila.contexto.alto, Fila.boton.alto]
-        if let vieneNota { alturas.append(filaDeNota(vieneNota).alto) }
-        if let viene { alturas.append(viene.alto) }
-        if pulso != nil { alturas.append(Fila.tercero.alto) }
-        if hueco != nil { alturas.append(alturaDeHueco) }
+        var filas = [FilaAjustable(papel: .contexto, alto: Fila.contexto.alto)]
+        if pulso != nil { filas.append(FilaAjustable(papel: .pulso, alto: Fila.tercero.alto, cede: 3)) }
+        if hueco != nil { filas.append(FilaAjustable(papel: .hueco, alto: alturaDeHueco, apretada: alturaDeHuecoApretada)) }
+        if let vieneNota { filas.append(FilaAjustable(papel: .viene, alto: filaDeNota(vieneNota).alto, cede: 2)) }
+        if let viene { filas.append(FilaAjustable(papel: .viene, alto: viene.alto, cede: 2, apretada: apretarViene(viene, m).alto)) }
+        filas.append(FilaAjustable(papel: .botones, alto: Fila.boton.alto, apretada: Fila.botonReal))
+        let (ajuste, heroeMedido) = ajustarConHeroe(filas, heroe: heroe, m)
         return CaraDescanso(
             contexto: contextoQueCabe(contextoDe(p), m),
-            heroe: heroeConAlto(heroe, alto: altoLibre(alturas, m), m),
-            pulso: pulso.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoUtil) },
-            viene: vieneNota,
+            heroe: heroeMedido,
+            pulso: ajuste.queda(.pulso) ? pulso.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoUtil) } : nil,
+            viene: ajuste.queda(.viene) ? vieneNota : nil,
             acciones: [.mas30s, .empezarYa],
-            vieneFuerza: viene,
-            hueco: hueco
+            altoBotones: ajuste.apretadas.contains(.botones) ? Fila.botonReal : Fila.boton.alto,
+            vieneFuerza: ajuste.queda(.viene) ? viene.map { ajuste.apretadas.contains(.viene) ? apretarViene($0, m) : $0 } : nil,
+            hueco: hueco.map { var h = $0; h.alto = ajuste.apretadas.contains(.hueco) ? alturaDeHuecoApretada : alturaDeHueco; return h }
         )
     }
 
-    /// Lo que ocupa la píldora de la serie anotada bajo el héroe del descanso.
+    /// Lo que ocupa la píldora de la serie anotada bajo el héroe del descanso, y a cuánto baja en un reloj bajo.
     static let alturaDeHueco: Double = 32
+    static let alturaDeHuecoApretada: Double = 28
 
     // MARK: - La capa
 

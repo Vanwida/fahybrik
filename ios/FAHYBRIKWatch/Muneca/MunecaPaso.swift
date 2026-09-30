@@ -72,7 +72,7 @@ struct MunecaPaso: View {
             MunecaCentro { MunecaHeroe(heroe: c.heroe) }
             if let luego = c.luego { MunecaNota(nota: luego, tono: MunecaPaleta.tinta) }
             // La pista va encima del pulso: la última fila es la más estrecha (esquinas).
-            MunecaNota(nota: c.pista)
+            if let pista = c.pista { MunecaNota(nota: pista) }
             if let pulso = c.pulso { MunecaLinea(linea: pulso) }
         }
     }
@@ -88,28 +88,8 @@ struct MunecaPaso: View {
             if let hueco = c.hueco { MunecaPildora(pildora: hueco) { anotar?.abrir(0) } }
             if let viene = c.viene { MunecaNota(nota: viene, tono: MunecaPaleta.tinta) }
             if let viene = c.vieneFuerza { MunecaViene(viene: viene) }
-            botones(c.acciones)
+            MunecaBotonesDescanso(acciones: c.acciones, alto: c.altoBotones, alMas30: alMas30, alEmpezarYa: alEmpezarYa, alPrimaria: alPrimaria)
         }
-    }
-
-    private func botones(_ acciones: [Vivo.AccionDeCara]) -> some View {
-        HStack(spacing: MunecaForma.huecoBotones) {
-            ForEach(acciones, id: \.rawValue) { accion in
-                switch accion {
-                case .mas30s:
-                    if let alMas30 {
-                        MunecaBoton(titulo: accion.rawValue, variante: .superficie, accion: alMas30)
-                            .frame(minWidth: MunecaForma.anchoMas30Minimo, maxWidth: MunecaForma.anchoMas30)
-                    }
-                case .empezarYa, .confirmar, .listo:
-                    MunecaBoton(titulo: accion.rawValue, accion: accion == .empezarYa ? alEmpezarYa : alPrimaria)
-                        .frame(maxWidth: MunecaForma.anchoEmpezarYa)
-                        .layoutPriority(1)
-                }
-            }
-        }
-        .padding(.horizontal, 4)
-        .frame(height: CGFloat(Vivo.Fila.boton.alto))
     }
 }
 
