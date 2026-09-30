@@ -4,18 +4,20 @@
 // adaptive flag, race countdown, HRV crash, workout edit, etc.). Two effects:
 //
 //   1. Insert a row into `notifications` so the in-app inbox shows it.
-//   2. Best-effort push to every live device of the user, over BOTH channels:
-//      APNS (iPhone del atleta) and Web Push (dashboard instalado como PWA).
-//      Push failure does NOT roll back the inbox row — the in-app inbox is the
-//      durable channel, push is a courtesy.
+//   2. Best-effort push. Push failure does NOT roll back the inbox row — the
+//      in-app inbox is the durable channel, push is a courtesy.
 //
-// Un solo embudo, dos canales: cada trigger existente y futuro gana el aviso en
-// el móvil del coach sin trabajo por-trigger. Quién tiene qué dispositivo lo
-// deciden las tablas (apns_push_tokens / web_push_subscriptions), no el caller.
+// Cada canal pertenece a UNA superficie: APNS es la app del ATLETA (iPhone) y
+// Web Push es el dashboard instalado del COACH (PWA). El aviso lleva su
+// `audience` y solo sale por el canal de esa superficie. Sin esto, una persona
+// que es coach y atleta con el MISMO usuario (el caso de quien prueba su propio
+// producto, y el de un entrenador que también se entrena) recibía «Tu plan está
+// listo» en el panel del coach y los avisos del coach en su app de atleta.
 
 import type postgres from 'postgres';
 import type { Sql } from '@/lib/db';
 import { after } from 'next/server';
+import { captureRouteError } from '@/lib/observability/capture';
 import { sendPush } from '@/lib/push/apns';
 import { sendWebPush } from '@/lib/push/webpush';
 
@@ -37,9 +39,13 @@ export type NotificationType =
   | 'monthly_block_pending'
   | 'intake_pending';
 
+/** A qué superficie va el aviso: la app del atleta o el panel del coach. */
+export type NotificationAudience = 'athlete' | 'coach';
+
 export type DispatchInput = {
   sql: Sql;
   user_id: bigint;
+  audience: NotificationAudience;
   type: NotificationType;
   payload: Record<string, unknown>;
   push?: {
@@ -92,7 +98,7 @@ function afterResponse(task: () => Promise<unknown>): void {
 }
 
 export async function dispatchNotification(input: DispatchInput): Promise<{ id: string }> {
-  const { sql, user_id, type, payload, push } = input;
+  const { sql, user_id, audience, type, payload, push } = input;
   // `sql.json(...)` y NO `JSON.stringify(...)::jsonb`: con la segunda forma
   // postgres.js tipa el parámetro como jsonb por el cast y vuelve a serializar
   // la cadena, así que la columna acaba guardando un jsonb de tipo *string*
@@ -107,13 +113,13 @@ export async function dispatchNotification(input: DispatchInput): Promise<{ id: 
   `;
   const id = rows[0]!.id;
 
-  if (push) {
+  if (push && audience === 'athlete') {
     // iOS routes a tapped notification on the top-level `type` key (it maps it
     // to PushNotificationKind → tab/sheet). Inject `type` alongside any deeplink
     // payload so the deep link actually fires. `type` already matches the iOS
     // enum raw values (chat_message, plan_published, week_adjustment_pending, …).
-    afterResponse(() =>
-      sendPush({
+    afterResponse(async () => {
+      const res = await sendPush({
         sql,
         user_id,
         title: push.title,
@@ -121,10 +127,20 @@ export async function dispatchNotification(input: DispatchInput): Promise<{ id: 
         deeplink: { type, ...(push.deeplink ?? {}) },
         badge: push.badge,
         category: type,
-      }),
-    );
+      });
+      // Un push que no llega no tumba nada (la bandeja ya lo tiene), pero JAMÁS
+      // en silencio: el APNS sin configurar pasó cuatro meses sin que nadie lo viera.
+      if (res.skipped || (res.attempted > 0 && res.sent === 0)) {
+        captureRouteError(new Error(`push a la app del atleta no entregado: ${res.skipped ?? 'todos los dispositivos fallaron'}`), {
+          route: 'notifications/dispatch',
+          meta: { type, skipped: res.skipped ?? null, attempted: res.attempted, errors: res.errors.map((e) => e.reason) },
+        });
+      }
+    });
+  }
 
-    // Mismo aviso al dashboard instalado (PWA). El tag agrupa por hilo: dos
+  if (push && audience === 'coach') {
+    // El aviso al dashboard instalado (PWA). El tag agrupa por hilo: dos
     // mensajes seguidos del mismo atleta sustituyen el aviso en vez de apilarse.
     const thread = push.deeplink?.thread_id;
     afterResponse(() =>
@@ -190,7 +206,7 @@ export async function notifyCoach(args: {
   if (recipients.length === 0) return null;
   const ids: string[] = [];
   for (const user_id of recipients) {
-    const { id } = await dispatchNotification({ sql, user_id, type, payload, push });
+    const { id } = await dispatchNotification({ sql, user_id, audience: 'coach', type, payload, push });
     ids.push(id);
   }
   return { ids };
@@ -214,6 +230,7 @@ export async function notifyAthlete(args: {
   return dispatchNotification({
     sql,
     user_id: BigInt(row.user_id),
+    audience: 'athlete',
     type,
     payload,
     push,

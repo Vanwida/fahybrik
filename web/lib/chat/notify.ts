@@ -67,6 +67,8 @@ export async function notifyOpposite(args: {
     await dispatchNotification({
       sql,
       user_id: recipient_user_id,
+      // El mensaje del coach va a la app del atleta; el del atleta, al panel.
+      audience: sender_role === 'coach' ? 'athlete' : 'coach',
       type: 'chat_message',
       payload: {
         thread_id: thread_id.toString(),

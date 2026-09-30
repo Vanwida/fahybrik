@@ -157,6 +157,8 @@ export type SendPushArgs = {
 };
 
 export type PushSendResult = {
+  /** Por qué no se intentó nada: faltan las claves de APNS en el entorno. */
+  skipped?: 'apns_not_provisioned';
   attempted: number;
   sent: number;
   failed: number;
@@ -167,7 +169,9 @@ export async function sendPush(args: SendPushArgs): Promise<PushSendResult> {
   const cfg = loadApnsConfig();
   const result: PushSendResult = { attempted: 0, sent: 0, failed: 0, errors: [] };
   if (!cfg.ok) {
-    return result; // silently no-op when APNS not provisioned (dev env)
+    // Sin claves no hay envío. Se DICE en el resultado: el llamador decide si
+    // es normal (desarrollo) o un fallo de producción que hay que ver.
+    return { ...result, skipped: 'apns_not_provisioned' };
   }
 
   const tokens = await args.sql<

@@ -41,6 +41,7 @@ describeWithDb('payload de un aviso (DB real)', () => {
     const { id } = await dispatchNotification({
       sql,
       user_id: BigInt(user_id),
+      audience: 'athlete',
       type: 'coach_communication',
       payload: { communication_id: '4242', kind: 'protocol' },
     });
