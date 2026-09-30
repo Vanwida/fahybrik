@@ -94,6 +94,15 @@ enum GlifoDia: String, CaseIterable {
     case exportar   = "square.and.arrow.up.on.square"
     /// Ver el entreno entero: la lista de sus bloques.
     case bloques    = "list.bullet.rectangle"
+    /// Dónde corres: la calle (ubicación), la cinta o el entreno de correr (`correr`).
+    case ubicacion  = "location.fill"
+    case correr     = "figure.run"
+    /// Una foto de la biblioteca (subir una captura).
+    case foto       = "photo"
+    /// El remo: el erg de Concept2.
+    case remo       = "figure.rower"
+    /// Bluetooth apagado: la antena tachada.
+    case sinSenal   = "antenna.radiowaves.left.and.right.slash"
 
     /// El nombre del SF Symbol.
     var simbolo: String { rawValue }

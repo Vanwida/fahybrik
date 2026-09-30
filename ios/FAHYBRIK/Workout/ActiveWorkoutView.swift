@@ -534,7 +534,7 @@ struct ActiveWorkoutView: View {
         hub.heartRate.reconnectSessionMachineOrOpenPicker()
     }
 
-    /// Same latch as DeviceConnectCard: a presenter that isn't on screen cannot
+    /// Same latch as PreWorkoutDevicesHubView: a presenter that isn't on screen cannot
     /// raise its sheet (cover vs host fight).
     private func livePickerBinding(_ channel: DeviceChannel, enabled: Bool) -> Binding<Bool> {
         Binding(get: { enabled && channel.isPresentingPicker },
@@ -874,32 +874,9 @@ struct ActiveWorkoutView: View {
     private var finishDecisionOverlay: some View {
         // El vivo nuevo pide antes la puntuación del AMRAP (la campana) y guarda él: no se tapa.
         if session.isAwaitingFinishDecision, !Vivo.esperaPuntuacion(session) {
-            ZStack {
-                Theme.Color.scrim.ignoresSafeArea()
-                CardSurface(padding: Theme.Spacing.l, radius: Theme.Radius.xl) {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                        Text("Has acabado el entreno")
-                            .font(Theme.Typography.headlineM)
-                            .foregroundStyle(Theme.Color.foreground)
-                        Text("Aún no está guardado. Si te apetece seguir, sigue: lo que añadas se suma.")
-                            .font(Theme.Typography.small)
-                            .foregroundStyle(Theme.Color.muted)
-                        ExpertPrimaryButton(title: "Terminar y guardar") { session.finish() }
-                        Button { session.continueAfterPrescribedWork() } label: {
-                            Text("Seguir entrenando")
-                                .font(.system(size: 15, weight: .heavy, design: .default).italic())
-                                .foregroundStyle(Theme.Color.foreground)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 48)
-                                .background(Theme.Color.surfaceElevated)
-                                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1))
-                                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                        }
-                        .buttonStyle(PressScaleStyle())
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.m)
+            DialogoDia("Has acabado el entreno", apoyo: "Aún no está guardado. Si te apetece seguir, sigue: lo que añadas se suma.") {
+                BotonAccionDia("Terminar y guardar", relleno: .acento, completa: true, impacto: .medio) { session.finish() }
+                BotonTextoDia("Seguir entrenando", tono: .tinta, centrado: true) { session.continueAfterPrescribedWork() }
             }
             .transition(.opacity)
         }
@@ -910,16 +887,11 @@ struct ActiveWorkoutView: View {
     @ViewBuilder
     private var exitOverlay: some View {
         if let step = exitStep {
-            ZStack {
-                Theme.Color.scrim.ignoresSafeArea()
-                    .onTapGesture { dismissExitAndResume() }
-                CardSurface(padding: Theme.Spacing.l, radius: Theme.Radius.xl) {
-                    switch step {
-                    case .choose:         exitChooseContent
-                    case .confirmDiscard: exitDiscardContent
-                    }
+            Group {
+                switch step {
+                case .choose:         exitChooseContent
+                case .confirmDiscard: exitDiscardContent
                 }
-                .padding(.horizontal, Theme.Spacing.m)
             }
             .transition(.opacity)
         }
@@ -928,16 +900,12 @@ struct ActiveWorkoutView: View {
     // Step 1 — the three honest options. "Seguir entrenando" is the accent default
     // (most prominent: ending a workout should never be the easy mis-tap).
     private var exitChooseContent: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            Text("¿Salir del entreno?")
-                .font(Theme.Typography.headlineM)
-                .foregroundStyle(Theme.Color.foreground)
-            Text(exitChooseMessage)
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.muted)
-            ExpertPrimaryButton(title: "Seguir entrenando") { dismissExitAndResume() }
-            if onSoftLeave != nil { guardarParaLuegoButton }
-            terminarYGuardarButton
+        DialogoDia("¿Salir del entreno?", apoyo: exitChooseMessage, alTocarFondo: dismissExitAndResume) {
+            BotonAccionDia("Seguir entrenando", relleno: .acento, completa: true, impacto: .medio) { dismissExitAndResume() }
+            ListaDia {
+                if onSoftLeave != nil { guardarParaLuegoButton }
+                terminarYGuardarButton
+            }
             descartarButton
         }
     }
@@ -945,104 +913,70 @@ struct ActiveWorkoutView: View {
     // Card 142 — pause + disk snapshot; session stops (≠ FH-111 ✕ minimize, which
     // keeps the engine ACTIVE in `parkedCover`).
     private var guardarParaLuegoButton: some View {
-        Button {
-            exitStep = nil
-            onSoftLeave?()
-        } label: {
-            VStack(spacing: 2) {
-                Text("Guardar para luego")
-                    .font(.system(size: 16, weight: .heavy, design: .default).italic())
-                    .tracking(0.5)
-                Text("Pausa y guarda el progreso. Retómalo cuando quieras.")
-                    .font(.system(size: 11, weight: .semibold))
-                    .multilineTextAlignment(.center)
+        FilaDia(
+            ficha: FichaDia(.pausa),
+            titulo: "Guardar para luego",
+            etiqueta: "Guardar para luego. Pausa y guarda el progreso.",
+            alTocar: {
+                exitStep = nil
+                onSoftLeave?()
             }
-            .foregroundStyle(Theme.Color.foreground)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(Theme.Color.surfaceElevated)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        ) {
+            Text("Pausa y guarda el progreso. Retómalo cuando quieras.")
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("Guardar para luego. Pausa y guarda el progreso.")
     }
 
     // "Terminar y guardar" — the honest partial save. finish(.partial) closes the
     // in-flight segment, sets completeness, and routes to the summary; the recorder
-    // then marks the assignment 'partial' (never 'completed'). Green so it reads as
-    // a positive, distinct action next to the accent default.
+    // then marks the assignment 'partial' (never 'completed'). Una fila más del
+    // diálogo, con la ficha del check: guardar es lo positivo, sin pintarlo de verde.
     private var terminarYGuardarButton: some View {
-        Button {
-            exitStep = nil
-            session.finish(completeness: .partial)
-        } label: {
-            VStack(spacing: 2) {
-                Text("Terminar y guardar")
-                    .font(.system(size: 16, weight: .heavy, design: .default).italic())
-                    .tracking(0.5)
-                Text(terminarSubcaption)
-                    .font(.system(size: 11, weight: .semibold))
-                    .multilineTextAlignment(.center)
+        FilaDia(
+            ficha: FichaDia(.check),
+            titulo: "Terminar y guardar",
+            etiqueta: "Terminar y guardar. \(terminarSubcaption)",
+            alTocar: {
+                exitStep = nil
+                session.finish(completeness: .partial)
             }
-            // `background` token = the high-contrast counterpart of `ok` in BOTH
-            // light and dark (near-black on bright green / white on dark green),
-            // so the label stays WCAG-AA on the green fill either way.
-            .foregroundStyle(Theme.Color.background)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(Theme.Color.ok)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+        ) {
+            Text(terminarSubcaption)
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("Terminar y guardar. \(terminarSubcaption)")
     }
 
-    // "Descartar entreno" — opens the destructive confirm (step 2). Low-emphasis
-    // red text so it can't be mistaken for the save action.
+    // "Descartar entreno" — opens the destructive confirm (step 2). Discreta y en
+    // peligro para que no se confunda con guardar.
     private var descartarButton: some View {
-        Button { exitStep = .confirmDiscard } label: {
-            Text("Descartar entreno")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(Theme.Color.danger)
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .contentShape(Rectangle())
+        BotonTextoDia("Descartar entreno", tono: .peligro, centrado: true, accion: { exitStep = .confirmDiscard }) {
+            IconoDia(.papelera, tam: 20)
         }
-        .buttonStyle(PressScaleStyle())
         .accessibilityLabel("Descartar entreno, no guarda nada")
     }
 
     // Step 2 — destructive, irreversible confirm (§C.3). ABANDONAR = scrap: no
-    // execution is written, the session returns to pending. "Seguir" is the safe
-    // way back; the red solid button is the deliberate confirm.
+    // execution is written, the session returns to pending. «Seguir» es la salida
+    // segura y la grande; abandonar, la palabra de peligro, deliberada.
     private var exitDiscardContent: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            Text("¿Abandonar el entreno?")
-                .font(Theme.Typography.headlineM)
-                .foregroundStyle(Theme.Color.danger)
-            Text("Se descartará lo que has registrado y el entreno volverá a quedar pendiente. Esto no se puede deshacer.")
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.muted)
-            Button {
+        DialogoDia(
+            "¿Abandonar el entreno?",
+            apoyo: "Se descartará lo que has registrado y el entreno volverá a quedar pendiente. Esto no se puede deshacer.",
+            peligro: true,
+            alTocarFondo: dismissExitAndResume
+        ) {
+            BotonAccionDia("Seguir entrenando", relleno: .acento, completa: true, impacto: .medio) { dismissExitAndResume() }
+            BotonTextoDia("Abandonar y descartar", tono: .peligro, centrado: true, accion: {
                 exitStep = nil
                 onExit()
-            } label: {
-                Text("Abandonar y descartar")
-                    .font(.system(size: 16, weight: .heavy, design: .default).italic())
-                    .tracking(0.5)
-                    .foregroundStyle(Theme.Color.background)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(Theme.Color.danger)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+            }) {
+                IconoDia(.papelera, tam: 20)
             }
-            .buttonStyle(PressScaleStyle())
             .accessibilityLabel("Abandonar y descartar el entreno, no se puede deshacer")
-            SecondaryButton(title: "Seguir") { dismissExitAndResume() }
         }
     }
 
@@ -1080,71 +1014,39 @@ struct ActiveWorkoutView: View {
     }
 
     private func confirmModal(_ nav: PendingNav) -> some View {
-        ZStack {
-            Theme.Color.scrim.ignoresSafeArea()
-                .onTapGesture { pendingNav = nil }
-            CardSurface(padding: Theme.Spacing.l, radius: Theme.Radius.xl) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                    Text(nav.title)
-                        .font(Theme.Typography.headlineM)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text(nav.message)
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
-                    ExpertPrimaryButton(title: nav.confirmTitle) {
-                        let act = nav.action
-                        pendingNav = nil
-                        act()
-                    }
-                    SecondaryButton(title: "Cancelar") { pendingNav = nil }
-                }
+        DialogoDia(nav.title, apoyo: nav.message, alTocarFondo: { pendingNav = nil }) {
+            BotonAccionDia(nav.confirmTitle, relleno: .acento, completa: true, impacto: .medio) {
+                let act = nav.action
+                pendingNav = nil
+                act()
             }
-            .padding(.horizontal, Theme.Spacing.m)
+            BotonTextoDia("Cancelar", tono: .suave, centrado: true) { pendingNav = nil }
         }
         .transition(.opacity)
     }
 
     private var pauseModal: some View {
-        ZStack {
-            Theme.Color.scrim.ignoresSafeArea()
-            CardSurface(padding: Theme.Spacing.l, radius: Theme.Radius.xl) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                    Text("Pausa")
-                        .font(Theme.Typography.headlineM)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("Auto-resume en \(pauseAutoResume)s si no confirmas.")
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
-                    ExpertPrimaryButton(title: "Reanudar") {
-                        session.togglePause()
-                        showPauseConfirm = false
-                    }
-                    // Discreet, lower-hierarchy: end THIS block early (e.g. an EMOM
-                    // you can't finish) — records the partial honestly and moves to
-                    // the next block's preview. Confirmed before it closes.
-                    if session.canEndBlockEarly {
-                        Button(action: {
-                            session.togglePause()       // leave the pause hold
-                            showPauseConfirm = false
-                            pendingNav = endBlockPendingNav()
-                        }) {
-                            Text("Terminar bloque")
-                                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                                .foregroundStyle(Theme.Color.muted)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 36)
-                        }
-                        .buttonStyle(PressScaleStyle())
-                        .accessibilityLabel("Terminar este bloque antes de tiempo")
-                    }
-                    // Intentional end: terminar y guardar or descartar (never the X).
-                    SecondaryButton(title: "Terminar o descartar…") {
-                        showPauseConfirm = false
-                        requestExit()
-                    }
-                }
+        DialogoDia("Pausa", apoyo: "Se reanuda solo en \(pauseAutoResume) s si no tocas nada.") {
+            BotonAccionDia("Reanudar", glifo: .play, relleno: .acento, completa: true, glifoAlFinal: false, impacto: .medio) {
+                session.togglePause()
+                showPauseConfirm = false
             }
-            .padding(.horizontal, Theme.Spacing.m)
+            // Discreet, lower-hierarchy: end THIS block early (e.g. an EMOM
+            // you can't finish) — records the partial honestly and moves to
+            // the next block's preview. Confirmed before it closes.
+            if session.canEndBlockEarly {
+                BotonTextoDia("Terminar bloque", tono: .suave, centrado: true) {
+                    session.togglePause()       // leave the pause hold
+                    showPauseConfirm = false
+                    pendingNav = endBlockPendingNav()
+                }
+                .accessibilityLabel("Terminar este bloque antes de tiempo")
+            }
+            // Intentional end: terminar y guardar or descartar (never the X).
+            BotonTextoDia("Terminar o descartar…", tono: .tinta, centrado: true) {
+                showPauseConfirm = false
+                requestExit()
+            }
         }
         .transition(.opacity)
         .onAppear {
