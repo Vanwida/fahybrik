@@ -129,9 +129,18 @@ final class LecturaHoyDesdeTests: XCTestCase {
         XCTAssertEqual(l.noLeidosChat, 0)
         XCTAssertEqual(l.comunicados, 0)
         XCTAssertNil(l.hoy)
-        XCTAssertNil(l.camino)
+        XCTAssertNil(l.camino, "sin coach y sin carrera fijada no hay camino ni invitación")
         XCTAssertNil(l.simulacion)
         XCTAssertEqual(l.momento.tipo, .libre)
+    }
+
+    func testSinCoachLaCarreraFijadaSeSigueViendo() {
+        let f = fuentes(conCoach: false, plan: plan(objetivo: objetivo, dias: []))
+        guard case .fijada(let c)? = LecturaHoy.desde(f).camino else { return XCTFail("la carrera es del atleta, no del coach") }
+        XCTAssertEqual(c.nombre, "HYROX Barcelona")
+        XCTAssertEqual(c.dias, 39)
+        XCTAssertEqual(c.meta, "Sub-65")
+        XCTAssertNil(c.fase, "la fase la escribe el coach: sin coach no se inventa")
     }
 
     // MARK: - Cargando y error

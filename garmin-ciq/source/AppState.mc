@@ -6,19 +6,29 @@
 module AppState {
     enum {
         // Vinculación de la cuenta
-        STATE_NEEDS_EMAIL,      // no hay email en los ajustes del móvil
-        STATE_NEEDS_CODE,       // hay email, falta el código de 6 dígitos
-        STATE_CODE_SENT,        // código pedido; toca escribirlo en el móvil
+        STATE_ENTRAR,           // pantalla «Entrar»: falta el email o pedir el código
+        STATE_CODIGO,           // código pedido; toca escribir los 6 dígitos
 
         // Trabajo en curso (lleva su propio texto)
         STATE_BUSY,
 
-        // Entreno del día
-        STATE_NEEDS_DOWNLOAD,   // hay entreno y aún no está en el reloj
-        STATE_READY,            // el entreno ya está en el reloj: se puede empezar
-        STATE_CONFIRM,          // avisamos de los dos toques del sistema
-        STATE_NO_SESSION,       // hoy no toca
-        STATE_NOT_EXPORTABLE,   // hay sesión pero no es de correr
+        // El plan
+        STATE_NO_PLAN,          // hoy no toca
+        STATE_PLAN_VIEJO,       // el plan guardado es de hace demasiado: no se empieza
+        STATE_SIN_DETALLE,      // hay sesión pero el reloj no tiene su detalle
+        STATE_SIN_SOPORTE,      // la sesión va en la app (no es de correr)
+        STATE_BRIEF,            // el brief del día: se puede empezar
+
+        // La sesión (los mueve Vivo)
+        STATE_CUENTA,           // 3-2-1
+        STATE_VIVO,             // el paso en curso
+        STATE_PAUSA,
+        STATE_CONTROLES,        // pausar, saltar, +30 s, terminar, descartar
+        STATE_CONFIRMA,         // terminar o descartar: pide confirmar
+        STATE_RPE,
+        STATE_RESUMEN,
+        STATE_ENVIO,            // el estado honesto del envío
+        STATE_RECUPERAR,        // una sesión interrumpida: seguir o guardar lo hecho
 
         // Fin de trayecto
         STATE_ERROR

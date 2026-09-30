@@ -252,6 +252,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **NO hacer:** volver a un título grande + pastillas en la entrada; contar el brief con «N bloques»; escribir el objetivo con «@» o con otra grafía en la muñeca; poner por debajo de 15 pt un texto de la entrada.
 
+## 2026-09-30 · Hoy: la carrera fijada es del atleta, no del coach; y toda fila de familia en Analíticas abre su detalle
+
+**Qué pasaba:** un atleta sin coach con carrera objetivo fijada no la veía en Hoy (`camino` solo se pintaba con `conCoach`), y en Analíticas las filas de Progreso (remo, ski...) solo eran pulsables si la lectura estaba `.medida`, así que con poco historial no había forma de entrar al seguimiento de la familia.
+
+**Decidido:**
+- La carrera fijada (`CaminoEstado.fijada`) se pinta con y sin coach; la fase sigue siendo del coach (sin coach no se inventa). La invitación a elegir carrera (`.sinObjetivo`) sigue siendo solo con coach y plan cargado: sin coach no hay «plan huérfano». Corrige la línea «ninguna pieza de coach» de la entrada de Hoy en Swift para el póster de carrera.
+- Toda fila de Progreso con familia soportada (`FamiliaDeDetalle`) abre su detalle, esté medida o no; el detalle ya sabe pintar su vacío.
+
+**No cambiado:** el copy «Todavía es pronto» (firmado, espejo en el doble).
+
 ## 2026-09-29 · Hoy en Swift: «El día» es la pestaña Inicio, una sola con y sin coach
 
 **El encargo:** portar el diseño firmado de «Hoy · El día» (doble `hoy-dia`, kit `kit-hoy`) a la pestaña Inicio sobre el kit de `Theme/Dia/`.
