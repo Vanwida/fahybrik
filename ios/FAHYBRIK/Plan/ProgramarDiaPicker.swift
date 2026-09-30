@@ -10,31 +10,41 @@ struct ProgramarDiaPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            LabelText(text: "Programar en", size: 10)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Theme.Spacing.s) {
-                    ForEach(dayOptions, id: \.iso) { day in
-                        Button {
-                            Haptics.light()
-                            selectedISO = day.iso
-                        } label: {
-                            VStack(spacing: 2) {
-                                Text(day.weekday)
-                                    .font(.system(size: 10, weight: .semibold))
-                                Text(day.dom)
-                                    .font(.system(size: 15, weight: .heavy, design: .default).italic())
-                            }
-                            .foregroundStyle(selectedISO == day.iso
-                                             ? Theme.Color.background : Theme.Color.foreground)
-                            .frame(width: 44, height: 44)
-                            .background(selectedISO == day.iso
-                                        ? Theme.Color.accentText : Theme.Color.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(day.accessibilityLabel)
+            Text("Programar en")
+                .papel(.rotulo)
+                .foregroundStyle(Theme.Color.muted)
+            // Los siete días caben en una fila a tamaño normal; con texto grande la fila desliza en vez de
+            // apretar los chips por debajo de su medida táctil.
+            ViewThatFits(in: .horizontal) {
+                dias
+                ScrollView(.horizontal, showsIndicators: false) { dias }
+            }
+        }
+    }
+
+    private var dias: some View {
+        HStack(spacing: Theme.Spacing.xs) {
+            ForEach(dayOptions, id: \.iso) { day in
+                let elegido = selectedISO == day.iso
+                let forma = RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
+                Button {
+                    Haptics.light()
+                    selectedISO = day.iso
+                } label: {
+                    VStack(spacing: 2) {
+                        Text(day.weekday).papel(.rotulo)
+                        Text(day.dom).papel(.cuerpoFuerte)
                     }
+                    .foregroundStyle(elegido ? Theme.Color.accentOn : Theme.Color.foreground)
+                    .frame(minWidth: 46, minHeight: 56)
+                    .padding(.horizontal, Theme.Spacing.xs)
+                    .background(elegido ? Theme.Color.accent : Theme.Color.surface, in: forma)
+                    .overlay(forma.strokeBorder(elegido ? SwiftUI.Color.clear : Theme.Color.hairlineStrong, lineWidth: 1))
+                    .contentShape(forma)
                 }
+                .buttonStyle(PressScaleStyle(escala: 0.94))
+                .accessibilityLabel(day.accessibilityLabel)
+                .accessibilityAddTraits(elegido ? [.isButton, .isSelected] : .isButton)
             }
         }
     }

@@ -431,10 +431,11 @@ struct VideoStreamPlayer: View {
                 .font(.system(size: 26))
                 .foregroundStyle(Theme.Color.muted)
             Text("No se pudo cargar el vídeo")
-                .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
+                .papel(.cuerpoFuerte)
                 .foregroundStyle(Theme.Color.foreground)
+                .multilineTextAlignment(.center)
             Text("Comprueba tu conexión y vuelve a intentarlo.")
-                .scaledFont(12, relativeTo: .footnote)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)
             Button {
@@ -442,8 +443,10 @@ struct VideoStreamPlayer: View {
                 Task { await cargar() }
             } label: {
                 Text("Reintentar")
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                    .papel(.notaFuerte)
                     .foregroundStyle(Theme.Color.accentText)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(PressScaleStyle())
         }
@@ -564,21 +567,21 @@ struct VideoDeTecnicaSheet: View {
                 .font(.system(size: 34))
                 .foregroundStyle(Theme.Color.muted)
             Text("No se pudo reproducir aquí")
-                .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
+                .papel(.cuerpoFuerte)
                 .foregroundStyle(Theme.Color.foreground)
+                .multilineTextAlignment(.center)
             Text("Este vídeo no permite reproducción integrada.")
-                .scaledFont(13, relativeTo: .footnote)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)
             if let watch = YouTubeLinkParser.watchURL(for: id) {
                 Link(destination: watch) {
                     Text("Ver en YouTube")
-                        .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
+                        .papel(.rotulo)
                         .foregroundStyle(Theme.Color.accentOn)
                         .padding(.horizontal, 20)
-                        .padding(.vertical, 11)
-                        .background(Theme.Color.accent)
-                        .clipShape(Capsule())
+                        .frame(minHeight: 44)
+                        .background(Theme.Color.accent, in: Capsule())
                 }
             }
         }

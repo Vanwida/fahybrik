@@ -37,34 +37,59 @@ struct SessionExercisesSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.Color.background.ignoresSafeArea()
+        ZStack {
+            Theme.Color.background.ignoresSafeArea()
+            VStack(spacing: 0) {
+                cromo
                 switch state {
                 case .loading:
-                    ProgressView().tint(Theme.Color.accentText)
+                    esqueleto
                 case .loaded(let workout):
                     content(workout)
                 case .rest:
-                    message(icon: "moon.zzz", title: "Día de descanso",
-                            detail: "No hay ejercicios programados para esta sesión.")
+                    estadoSinEjercicios(
+                        symbol: "moon.zzz", title: "Día de descanso",
+                        message: "No hay ejercicios programados para esta sesión.")
                 case .failed:
-                    failedState
+                    estadoSinEjercicios(
+                        symbol: "wifi.exclamationmark", title: "No pudimos cargar la sesión",
+                        message: "Revisa tu conexión e inténtalo de nuevo.",
+                        exit: .action(title: "Reintentar") {
+                            state = .loading
+                            Task { await load() }
+                        })
                 }
-            }
-            .navigationTitle(sessionTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cerrar") { dismiss() }
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-            .task { await load() }
-            .sheet(item: $selected) { item in
-                ExerciseDetailView(item: item)
             }
         }
+        .task { await load() }
+        .sheet(item: $selected) { item in
+            ExerciseDetailView(item: item)
+        }
+    }
+
+    /// La línea de arriba de la hoja: qué es y la salida. Sin barra de navegación del sistema: la hoja lleva el
+    /// mismo cromo que las pestañas, y «Cerrar» es un botón redondo con su nombre.
+    private var cromo: some View {
+        HStack(spacing: Theme.Spacing.s) {
+            Text("Técnica")
+                .papel(.etiqueta)
+                .foregroundStyle(Theme.Color.accentText)
+            Spacer(minLength: Theme.Spacing.s)
+            BotonCromoDia(.cerrar, etiqueta: "Cerrar") { Haptics.light(); dismiss() }
+        }
+        .padding(.leading, Theme.Spacing.pantalla)
+        .padding(.trailing, Theme.Spacing.s)
+        .frame(minHeight: 56)
+    }
+
+    private var titulo: some View {
+        Text(sessionTitle)
+            .papel(.saludo)
+            .foregroundStyle(Theme.Color.foreground)
+            .lineLimit(3)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
     }
 
     // MARK: - Loaded content
@@ -73,32 +98,39 @@ struct SessionExercisesSheet: View {
         let blocks = workout.blocks.filter { !$0.items.isEmpty }
         return Group {
             if blocks.isEmpty {
-                message(icon: "list.bullet.rectangle",
-                        title: "Sin ejercicios",
-                        detail: "Esta sesión todavía no tiene ejercicios detallados.")
+                estadoSinEjercicios(
+                    symbol: "list.bullet.rectangle", title: "Sin ejercicios",
+                    message: "Esta sesión todavía no tiene ejercicios detallados.")
             } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 22) {
-                        Text("Toca un ejercicio para ver la técnica")
-                            .scaledFont(13, relativeTo: .footnote)
-                            .foregroundStyle(Theme.Color.muted)
-                        ForEach(blocks) { block in
-                            VStack(alignment: .leading, spacing: 8) {
-                                LabelText(text: block.title.uppercased(), color: Theme.Color.accentText)
-                                VStack(spacing: 8) {
-                                    ForEach(block.items) { item in
-                                        exerciseRow(item)
-                                    }
-                                }
-                            }
+                ScrollView { indice(blocks) }
+            }
+        }
+    }
+
+    /// Lo que se scrollea: el título, el aviso y los ejercicios bloque a bloque. Vive aparte del `ScrollView`
+    /// para poder dibujarse tal cual en una prueba (el `ImageRenderer` no pinta un `ScrollView`).
+    func indice(_ blocks: [WorkoutBlock]) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                titulo
+                Text("Toca un ejercicio para ver la técnica")
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
+            }
+            ForEach(blocks) { block in
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                    TituloSeccionDia(block.title)
+                    VStack(spacing: Theme.Spacing.s) {
+                        ForEach(block.items) { item in
+                            exerciseRow(item)
                         }
                     }
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.top, Theme.Spacing.m)
-                    .padding(.bottom, Theme.Spacing.xxl)
                 }
             }
         }
+        .padding(.horizontal, Theme.Spacing.pantalla)
+        .padding(.top, Theme.Spacing.s)
+        .padding(.bottom, Theme.Spacing.xxl)
     }
 
     private func exerciseRow(_ item: WorkoutItem) -> some View {
@@ -107,32 +139,27 @@ struct SessionExercisesSheet: View {
             selected = item
         } label: {
             HStack(spacing: Theme.Spacing.m) {
-                CategoryTag(category: item.exerciseCategory)
-                Text(item.exerciseName)
-                    .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    Text(item.exerciseName)
+                        .papel(.cuerpoFuerte)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    EtiquetaDeModalidad(categoria: item.exerciseCategory)
+                }
                 Spacer(minLength: Theme.Spacing.s)
                 if hasVideo(item) {
-                    Image(systemName: "play.circle.fill")
-                        .font(.system(size: 16))
+                    IconoDia(.video, tam: 20)
                         .foregroundStyle(Theme.Color.accentText)
-                        .accessibilityHidden(true)
                 }
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.Color.faint)
+                IconoDia(.chevron, tam: 15, peso: .bold)
+                    .foregroundStyle(Theme.Color.muted)
             }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity)
-            .background(Theme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .padding(.horizontal, Theme.Spacing.l)
+            .padding(.vertical, Theme.Spacing.m)
+            .frame(maxWidth: .infinity, minHeight: Theme.Size.toque, alignment: .leading)
+            .tarjetaDia()
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
         }
         .buttonStyle(PressScaleStyle())
         // Pulsación larga: la fila no tenía menú, y uno no ocupa alto. Es un
@@ -165,7 +192,7 @@ struct SessionExercisesSheet: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            "\(item.exerciseName)\(hasVideo(item) ? ", con vídeo de técnica" : "")"
+            "\(item.exerciseName), \(Theme.Modality.label(item.exerciseCategory))\(hasVideo(item) ? ", con vídeo de técnica" : "")"
         )
         .accessibilityAddTraits(.isButton)
     }
@@ -176,42 +203,42 @@ struct SessionExercisesSheet: View {
 
     // MARK: - Non-content states
 
-    private var failedState: some View {
-        VStack(spacing: Theme.Spacing.m) {
-            message(icon: "wifi.exclamationmark",
-                    title: "No pudimos cargar la sesión",
-                    detail: "Revisa tu conexión e inténtalo de nuevo.")
-            Button {
-                Haptics.light()
-                state = .loading
-                Task { await load() }
-            } label: {
-                Text("Reintentar")
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.accentOn)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 10)
-                    .background(Theme.Color.accent)
-                    .clipShape(Capsule())
+    /// Cargando: la MISMA silueta que el índice (título, aviso y filas), no un círculo girando.
+    private var esqueleto: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+            // El título de la sesión ya se sabe: es lo único que no es esqueleto.
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                titulo
+                SkeletonBar(width: 240, height: 15, radius: 5)
             }
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                SkeletonBar(width: 140, height: 24, radius: 6)
+                ForEach(0..<4, id: \.self) { _ in
+                    SkeletonBar(height: 64, radius: Theme.Radius.tarjeta)
+                }
+            }
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, Theme.Spacing.pantalla)
+        .padding(.top, Theme.Spacing.s)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cargando \(sessionTitle)")
     }
 
-    private func message(icon: String, title: String, detail: String) -> some View {
-        VStack(spacing: Theme.Spacing.s) {
-            Image(systemName: icon)
-                .font(.system(size: 34))
-                .foregroundStyle(Theme.Color.muted)
-            Text(title)
-                .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .multilineTextAlignment(.center)
-            Text(detail)
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .multilineTextAlignment(.center)
-        }
-        .padding(Theme.Spacing.xl)
+    /// Sin ejercicios que enseñar (descanso, sin detalle, fallo de carga): el estado dice por qué y ofrece su
+    /// salida. Sin una acción propia, la salida es cerrar la hoja.
+    private func estadoSinEjercicios(
+        symbol: String, title: String, message: String, exit: EmptyStateExit? = nil
+    ) -> some View {
+        CenteredScreen(head: { EmptyView() }, lead: {
+            titulo
+                .padding(.horizontal, Theme.Spacing.pantalla)
+                .padding(.top, Theme.Spacing.s)
+        }, content: {
+            RedesignEmptyState(
+                symbol: symbol, title: title, message: message,
+                exit: exit ?? .action(title: "Cerrar", perform: { dismiss() }))
+        })
     }
 
     // MARK: - Load (cache-first, then authoritative fetch)
