@@ -130,11 +130,13 @@ struct FijarObjetivoView: View {
     private var participacion: some View {
         switch event.objectiveFamily {
         case .hybrid where esHunter:
-            SegmentadoCarreras(
-                etiqueta: "Formato",
-                opciones: HunterRaceVariant.allCases.map { (valor: $0, texto: $0.label) },
-                seleccion: $hunterVariant
-            )
+            // Chips y no el segmentado: «Sprinter · 3,5 km» en un tercio del ancho se encogía por debajo
+            // del suelo de 15 pt (el segmentado reduce la letra para caber). Los chips pasan en horizontal.
+            FilaChipsCarreras("Formato") {
+                ForEach(HunterRaceVariant.allCases) { v in
+                    ChipFiltroCarreras(texto: v.label, elegido: hunterVariant == v) { hunterVariant = v }
+                }
+            }
         case .hybrid:
             SegmentadoCarreras(
                 etiqueta: "Formato",

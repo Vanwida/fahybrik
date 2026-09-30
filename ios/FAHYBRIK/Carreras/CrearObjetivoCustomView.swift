@@ -1,12 +1,20 @@
 import SwiftUI
 
-// FH-77 — custom objective when the event isn't in the shared calendar.
-// Creates a private `events` row then navigates to FijarObjetivoView.
+// CREAR UN OBJETIVO QUE NO ESTÁ EN EL CALENDARIO — el paso que se empuja desde «Buscar carrera» con
+// «Crear objetivo personalizado». Crea una fila privada de `events` y pasa a «Fijar objetivo» con ella
+// (que es donde se pregunta cómo la corres y a qué tiempo vas). Misma piel que el resto de la hoja
+// (`MarcoDeHojaCarreras`, campos y chips de la familia) y el mismo envío de siempre.
+//
+// La variante de una Hunter Race ya no se pregunta aquí: esta pantalla nunca la mandaba (el cuerpo de
+// creación no la lleva) y «Fijar objetivo», el paso siguiente, la pregunta y la guarda. Preguntarla dos
+// veces, y la primera en balde, era un control que no hacía nada.
 
 struct CrearObjetivoCustomView: View {
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismiss) private var volver
 
     var bearer: String?
+    /// Cierra la hoja entera (la «✕»). Sin él, la «✕» vuelve al calendario, que es cerrar este paso.
+    var cerrar: (() -> Void)? = nil
     let onCreated: (RaceCalendarEvent) -> Void
 
     @State private var name = ""
@@ -18,142 +26,104 @@ struct CrearObjetivoCustomView: View {
     @State private var homologada = false
     @State private var distancePreset: RunningDistancePreset = .km10
     @State private var customMeters = ""
-    @State private var hunterVariant: HunterRaceVariant = .legend
 
     @State private var submitting = false
     @State private var errorText: String?
+
+    private enum Campo: Hashable { case nombre, ciudad, metros, division, url }
+    @FocusState private var enFoco: Campo?
+
+    init(bearer: String?, cerrar: (() -> Void)? = nil, onCreated: @escaping (RaceCalendarEvent) -> Void) {
+        self.bearer = bearer
+        self.cerrar = cerrar
+        self.onCreated = onCreated
+    }
 
     private var canSubmit: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !submitting
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-                intro
-                field(label: "NOMBRE", placeholder: "Nombre del evento", text: $name)
-                field(label: "CIUDAD (OPCIONAL)", placeholder: "Ciudad o sede", text: $city)
-                kindPicker
-                kindSpecificFields
-                dateSection
-                field(label: "URL (OPCIONAL)", placeholder: "https://…", text: $sourceUrl)
-                if let errorText { errorBanner(errorText) }
-            }
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.top, Theme.Spacing.l)
-            .padding(.bottom, Theme.Spacing.l)
-        }
-        .anchoredAction { submitButton }
-        .navigationTitle("Crear objetivo")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var intro: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Tu evento no está en el calendario")
-                .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-            Text("Créalo aquí, indica para cuándo es y fíjalo como objetivo.")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private var kindPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            LabelText(text: "TIPO")
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+        MarcoDeHojaCarreras("Crear objetivo", atras: { volver() }, cerrar: cerrar ?? { volver() }) {
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Tu evento no está en el calendario").subtituloCarreras()
+                    Text("Créalo aquí, indica para cuándo es y fíjalo como objetivo.")
+                        .papel(.nota)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                campo("Nombre", "Nombre del evento", $name, .nombre)
+                campo("Ciudad (opcional)", "Ciudad o sede", $city, .ciudad)
+                FilaChipsCarreras("Tipo") {
                     ForEach(ObjectiveEventKind.allCases) { k in
-                        PillChip(title: k.label, selected: kind == k) {
-                            kind = k
-                        }
+                        ChipFiltroCarreras(texto: k.label, elegido: kind == k) { kind = k }
                     }
                 }
+                porTipo
+                ObjectiveWhenSection(date: $date)
+                campo("Web (opcional)", "https://…", $sourceUrl, .url, teclado: .URL)
+                if let errorText { AvisoEnLinea(errorText) }
             }
+        } accion: {
+            BotonPrimarioCarreras(
+                titulo: "Crear y continuar",
+                activo: canSubmit,
+                ocupado: submitting,
+                textoOcupado: "Creando…",
+                voz: "Creando tu objetivo",
+                accion: submit
+            )
         }
+        .navigationBarHidden(true)
     }
 
+    // Lo que se pregunta según el tipo: la distancia en un running, la división en el resto.
     @ViewBuilder
-    private var kindSpecificFields: some View {
+    private var porTipo: some View {
         switch kind {
         case .running:
-            VStack(alignment: .leading, spacing: 10) {
-                LabelText(text: "DISTANCIA")
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(RunningDistancePreset.allCases) { p in
-                            PillChip(title: p.label, selected: distancePreset == p) {
-                                distancePreset = p
-                            }
-                        }
+            VStack(alignment: .leading, spacing: Theme.Spacing.m - 2) {
+                FilaChipsCarreras("Distancia") {
+                    ForEach(RunningDistancePreset.allCases) { p in
+                        ChipFiltroCarreras(texto: p.label, elegido: distancePreset == p) { distancePreset = p }
                     }
                 }
                 if distancePreset == .custom {
-                    field(label: "METROS", placeholder: "Ej. 15000", text: $customMeters)
-                }
-                Toggle(isOn: $homologada) {
-                    Text("Carrera homologada")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.foreground)
-                }
-                .tint(Theme.Color.accent)
-            }
-        case .hybrid:
-            if kind == .hybrid {
-                VStack(alignment: .leading, spacing: 8) {
-                    LabelText(text: "FORMATO HUNTER (SI APLICA)")
-                    ForEach(HunterRaceVariant.allCases) { v in
-                        PillChip(title: v.label, selected: hunterVariant == v) {
-                            hunterVariant = v
-                        }
+                    CampoCarreras("Metros", enFoco: enFoco == .metros) {
+                        TextField("Ej. 15000", text: $customMeters)
+                            .keyboardType(.numberPad)
+                            .focused($enFoco, equals: .metros)
+                            .onChange(of: customMeters) { _, nuevo in customMeters = nuevo.filter(\.isNumber) }
+                            .accessibilityLabel("Distancia en metros")
                     }
                 }
+                Toggle(isOn: $homologada) {
+                    Text("Carrera homologada").papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+                }
+                .tint(Theme.Color.accent)
+                .frame(minHeight: 52)
             }
+        case .hybrid:
+            EmptyView()
         case .crossfit:
-            field(label: "DIVISIÓN", placeholder: "Ej. RX · Scaled · Masters", text: $divisionLabel)
-        default:
-            field(label: "DIVISIÓN (OPCIONAL)", placeholder: "Categoría", text: $divisionLabel)
+            campo("División", "Ej. RX · Scaled · Masters", $divisionLabel, .division)
+        case .ocr, .other:
+            campo("División (opcional)", "Categoría", $divisionLabel, .division)
         }
     }
 
-    private var dateSection: some View {
-        ObjectiveWhenSection(date: $date)
-    }
-
-    private func field(label: String, placeholder: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            LabelText(text: label)
-            TextField(placeholder, text: text)
-                .font(.system(size: 15))
-                .foregroundStyle(Theme.Color.foreground)
-                .padding(.horizontal, 13)
-                .padding(.vertical, 12)
-                .background(Theme.Color.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                        .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+    private func campo(
+        _ etiqueta: String, _ ejemplo: String, _ texto: Binding<String>, _ id: Campo, teclado: UIKeyboardType = .default
+    ) -> some View {
+        CampoCarreras(etiqueta, enFoco: enFoco == id) {
+            TextField(ejemplo, text: texto)
+                .keyboardType(teclado)
+                .textInputAutocapitalization(teclado == .URL ? .never : .sentences)
+                .autocorrectionDisabled(teclado == .URL)
+                .focused($enFoco, equals: id)
+                .accessibilityLabel(etiqueta)
         }
-    }
-
-    @ViewBuilder
-    private var submitButton: some View {
-        if submitting {
-            ProgressView().frame(maxWidth: .infinity)
-        } else {
-            ExpertPrimaryButton(title: "CREAR Y CONTINUAR", enabled: canSubmit) {
-                submit()
-            }
-        }
-    }
-
-    private func errorBanner(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 13))
-            .foregroundStyle(Theme.Color.danger)
     }
 
     private func submit() {
