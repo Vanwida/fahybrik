@@ -68,6 +68,9 @@ enum MunecaPlano {
             return ["cara=descanso", contexto(c.contexto), heroe(c.heroe)] + nota("viene", c.viene) + linea("pulso", c.pulso)
         case .completada:
             return ["cara=completada"]
+        default:
+            // Serie, «colócate» y anotar (fuerza y ergo) no entran en los vectores de correr.
+            return ["cara=\(cara)"]
         }
     }
 
