@@ -180,27 +180,6 @@ export const AOD = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// El RPE en palabras — DATO del coach con valor por defecto (HARD RULE Nº0:
-// otro entrenador lo diría distinto). Un paso puede traer su propia palabra
-// en `Objetivo.palabra`; esto es solo lo que se dice si no la trae.
-// ---------------------------------------------------------------------------
-
-export const RPE_PALABRA_DEFECTO: Record<number, string> = {
-  // El RPE va de 0 a 10 (CR-10): el 0 también tiene palabra.
-  0: 'nada',
-  1: 'muy suave',
-  2: 'muy suave',
-  3: 'suave',
-  4: 'suave',
-  5: 'moderado',
-  6: 'moderado',
-  7: 'fuerte',
-  8: 'fuerte',
-  9: 'muy fuerte',
-  10: 'máximo',
-};
-
-// ---------------------------------------------------------------------------
 // Medir texto sin DOM — con métricas de SF Pro, no de una monoespaciada
 // ---------------------------------------------------------------------------
 
@@ -329,3 +308,5 @@ export function cuerpoQueCabe(texto: string, cuerpo: number, ancho: number, peso
   if (w <= ancho) return cuerpo;
   return Math.max(T.suelo, Math.floor(cuerpo * (ancho / w) * 10) / 10);
 }
+
+export { RPE_PALABRA_DEFECTO } from './metodo';

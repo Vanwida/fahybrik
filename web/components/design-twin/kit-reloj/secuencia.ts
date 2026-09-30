@@ -30,8 +30,8 @@
 //   · el tiempo en cada zona del coach y el pulso máximo (el resumen los pide).
 
 import { AVISO_INICIAL, decidirAviso, type EstadoAviso, type EventoVivo } from './eventos';
-import type { MetodoReloj, Vocabulario } from './metodo';
-import type { BandasRitmo, CampoVivo, EstadoGps, Lecturas, Parcial, Paso, PasoBase, ReglasAviso, Vuelta, ZonasCoach } from './paso';
+import type { PlanSesion } from '@fahybrid/shared/domain/watch-plan/plan';
+import type { CampoVivo, EstadoGps, Lecturas, Parcial, Paso, PasoBase, Vuelta, ZonasCoach } from './paso';
 import {
   RITMO_TECHO_S,
   faltaDe,
@@ -46,20 +46,7 @@ import {
 import { VOZ_SESION, vozDescanso, vozFinSerie, vozInicio, vozPreaviso, vozRecupera, vozTransicion, vozVuelta } from './voz';
 import { METROS_KM, TARJETA_VUELTA_S, inicioVueltaEstimado, tarjetaDeVuelta, vueltaAutomatica, vueltasDeSesion } from './vuelta';
 
-export interface PlanSesion {
-  /** Los pasos en orden, planos. El anidado vive en la `posicion` de cada uno (M4). */
-  pasos: PasoBase[];
-  zonas: ZonasCoach | null;
-  reglas: ReglasAviso;
-  /** Nombres de clase y de formato, palabras del RPE del coach. Sin él, los defectos (`vocabularioDe`). */
-  vocabulario?: Vocabulario;
-  /** El método del resumen y el rango de la corona del coach. Sin él, los defectos (`metodoDe`). */
-  metodo?: MetodoReloj;
-  /** Zonas de ritmo del atleta por modalidad (km, 500 m), con su procedencia. Sin ellas, solo las de pulso. */
-  bandasRitmo?: BandasRitmo[];
-  /** El nombre de pila de la pareja en dobles: uno por sesión, no por paso. Sin él, «tu pareja». */
-  pareja?: string;
-}
+export type { PlanSesion };
 
 /** Lo que dan el cuerpo y los sensores en un segundo. */
 export interface LecturaSim {

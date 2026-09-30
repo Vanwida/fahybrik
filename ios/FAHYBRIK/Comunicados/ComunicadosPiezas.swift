@@ -1,37 +1,25 @@
 import SwiftUI
 
-// El vocabulario visual de los comunicados — compartido por la bandeja y los
-// cuatro detalles.
+// El vocabulario visual de los comunicados — compartido por la bandeja y los cuatro detalles.
 //
-// Vive aquí y no dentro de la bandeja porque el chip de tipo y la insignia de
-// estado se pintan en la lista Y en los detalles: si cada pantalla se los
-// dibujara acabaríamos con tres grafías del mismo estado.
+// Vive aquí y no dentro de la bandeja porque la insignia de estado y el glifo de tipo se pintan en la
+// lista Y en los detalles: si cada pantalla se los dibujara acabaríamos con tres grafías del mismo estado.
 //
-// Ninguna pieza inventa un color ni un espaciado: todo sale de `Theme`.
+// Ninguna pieza inventa un color ni un espaciado: todo sale de `Theme` y del kit del día. El color de
+// estado va en la MARCA (un punto, un sello con forma) y jamás en el texto: el texto es la tinta del tema.
 
-// MARK: - Color de cada tipo y de cada insignia
+// MARK: - Cómo se dice cada tipo
 
 extension ComunicadoTipo {
-    /// Lo que pide acción se lleva el naranja de marca: en la bandeja el color
-    /// ES la cola de trabajo, no un adorno por familia. La nota informa y el
-    /// foco acompaña, así que ninguno de los dos compite con esa cola.
-    var color: Color {
+    /// El SF Symbol del tipo. Uno por idea (pasos que se marcan · decidir · cosa con fecha · entender ·
+    /// no olvidar) y de formas distintas: el tipo no se distingue solo por el color.
+    var simbolo: String {
         switch self {
-        case .protocolo, .pregunta, .tarea: return Theme.Color.accentText
-        case .nota: return Theme.Color.muted
-        case .foco: return Theme.Color.info
-        }
-    }
-}
-
-extension ComunicadoInsignia {
-    var color: Color {
-        switch self {
-        case .nuevo:                 return Theme.Color.accentText
-        case .visto:                 return Theme.Color.muted
-        case .hecho, .respondido:    return Theme.Color.ok
-        case .venceHoy:              return Theme.Color.warning
-        case .vencida:               return Theme.Color.danger
+        case .protocolo: return "checklist"
+        case .pregunta:  return "questionmark.circle"
+        case .tarea:     return "calendar"
+        case .nota:      return "pencil"
+        case .foco:      return "target"
         }
     }
 }
@@ -75,21 +63,15 @@ extension Comunicado {
     }
 }
 
-// MARK: - Chip de tipo
+// MARK: - El tipo, como pastilla
 
-/// El chip que dice QUÉ es esto. Es lo primero que se lee de un comunicado.
+/// El tipo dicho con palabra: lo primero que se lee de un comunicado cuando aparece FUERA de su fila (el
+/// pie de una nota que apunta a otro).
 struct ChipTipoComunicado: View {
     let tipo: ComunicadoTipo
 
     var body: some View {
-        Text(tipo.etiqueta)
-            .font(.system(size: 10, weight: .heavy))
-            .tracking(1.6)
-            .foregroundStyle(tipo.color)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 4)
-            .background(tipo.color.opacity(0.15))
-            .clipShape(Capsule())
+        InfoPill(text: tipo.etiqueta.localizedCapitalized, estilo: tipo.pideAccion ? .acento : .neutro)
             .accessibilityLabel(tipo.etiqueta.lowercased())
     }
 }
@@ -97,22 +79,38 @@ struct ChipTipoComunicado: View {
 // MARK: - Insignia de estado
 
 /// NUEVO · VISTO · HECHO · RESPONDIDO · VENCE HOY · VENCIDA.
+///
+/// La marca lleva el estado (y su FORMA lo repite: punto, sello, cronómetro, triángulo); la palabra es la
+/// tinta del tema. Una vencida en rojo y una hecha en verde no se distinguen para quien no ve esos colores.
 struct InsigniaComunicado: View {
     let insignia: ComunicadoInsignia
 
     var body: some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(insignia.color)
-                .frame(width: 5, height: 5)
+        HStack(spacing: Theme.Spacing.xs + 2) {
+            marca
             Text(insignia.etiqueta)
-                .font(.system(size: 9.5, weight: .heavy))
-                .tracking(1.3)
-                .foregroundStyle(insignia.color)
+                .papel(.etiqueta)
+                .foregroundStyle(Theme.Color.foreground)
         }
         .fixedSize()
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(insignia.etiqueta.lowercased())
+    }
+
+    @ViewBuilder
+    private var marca: some View {
+        switch insignia {
+        case .nuevo:
+            Circle().fill(Theme.Color.accentText).frame(width: 10, height: 10)
+        case .visto:
+            Circle().fill(Theme.Color.muted).frame(width: 10, height: 10)
+        case .hecho, .respondido:
+            SelloEstadoDia(estado: .hecha, tam: 18)
+        case .venceHoy:
+            IconoDia(.cronometro, tam: 18, peso: .bold).foregroundStyle(Theme.Color.warning)
+        case .vencida:
+            IconoSF("exclamationmark.triangle", tam: 18, peso: .bold).foregroundStyle(Theme.Color.danger)
+        }
     }
 }
 
@@ -134,127 +132,28 @@ struct BotonMarcarComunicado: View {
             Button {
                 Haptics.light()
                 onTap()
-            } label: { glifo }
-                .buttonStyle(PressScaleStyle())
+            } label: { sello }
+                .buttonStyle(PressScaleStyle(escala: 0.92))
                 .accessibilityLabel(etiqueta)
                 .accessibilityAddTraits(.isButton)
         } else {
-            glifo
+            sello
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel(etiqueta)
         }
     }
 
-    private var glifo: some View {
-        Image(systemName: hecho ? "checkmark.circle.fill" : "circle")
-            .font(.system(size: 22, weight: .regular))
-            .foregroundStyle(hecho ? Theme.Color.ok : Theme.Color.faint)
-            .frame(width: 44, height: 44)
+    private var sello: some View {
+        SelloEstadoDia(estado: hecho ? .hecha : .pendiente, tam: 28)
+            .frame(width: Theme.Size.toque, height: Theme.Size.toque)
             .contentShape(Rectangle())
-    }
-}
-
-// MARK: - La tarjeta de la bandeja
-
-/// Chip · estado · título · una línea · ancla. Ese orden y no otro: el atleta
-/// decide si abre por el tipo y por el estado, y lee el título por el medio.
-struct TarjetaComunicado<Pie: View>: View {
-    let comunicado: Comunicado
-    /// Se pinta a la izquierda cuando el comunicado se marca desde la lista.
-    /// `onTap` nulo = ya está cerrado y el círculo es un sello, no un control.
-    var marcar: (hecho: Bool, etiqueta: String, onTap: (() -> Void)?)?
-    /// Sustituye a la línea de resumen cuando el detalle manda (una tarea con
-    /// fecha, una pregunta ya contestada).
-    var detalle: String?
-    var onAbrir: () -> Void
-    @ViewBuilder var pie: () -> Pie
-
-    /// Tachar es «esto ya no hay que hacerlo», y solo lo cumple `hecho`. Una
-    /// pregunta respondida sigue siendo la pregunta: tacharla se lee como que se
-    /// anuló, y lo que pasó es lo contrario (se contestó y cambió el plan).
-    private var tachado: Bool { comunicado.state == .hecho }
-    private var apagado: Bool { tachado || comunicado.state == .respondido }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            HStack(alignment: .top, spacing: Theme.Spacing.s) {
-                if let marcar {
-                    BotonMarcarComunicado(
-                        hecho: marcar.hecho,
-                        etiqueta: marcar.etiqueta,
-                        onTap: marcar.onTap
-                    )
-                }
-                Button {
-                    Haptics.light()
-                    onAbrir()
-                } label: {
-                    cuerpo
-                }
-                .buttonStyle(PressScaleStyle())
-            }
-            pie()
-        }
-    }
-
-    private var cuerpo: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: Theme.Spacing.s) {
-                ChipTipoComunicado(tipo: comunicado.kind)
-                Spacer(minLength: Theme.Spacing.s)
-                InsigniaComunicado(insignia: comunicado.insignia())
-            }
-            Text(comunicado.title)
-                .scaledFont(16, weight: .bold, relativeTo: .headline)
-                .foregroundStyle(apagado ? Theme.Color.muted : Theme.Color.foreground)
-                .strikethrough(tachado, color: Theme.Color.faint)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-            if let linea = detalle ?? comunicado.body, !linea.isEmpty {
-                Text(linea)
-                    .scaledFont(13, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
-                    .lineLimit(3)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            HStack(spacing: Theme.Spacing.s) {
-                if let ancla = comunicado.anchorKind.etiqueta {
-                    LabelText(text: ancla, color: Theme.Color.faint, size: 9.5)
-                }
-                GlifoAudioComunicado(comunicado: comunicado)
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Theme.Color.faint)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-    }
-}
-
-extension TarjetaComunicado where Pie == EmptyView {
-    init(
-        comunicado: Comunicado,
-        marcar: (hecho: Bool, etiqueta: String, onTap: (() -> Void)?)? = nil,
-        detalle: String? = nil,
-        onAbrir: @escaping () -> Void
-    ) {
-        self.init(
-            comunicado: comunicado,
-            marcar: marcar,
-            detalle: detalle,
-            onAbrir: onAbrir,
-            pie: { EmptyView() }
-        )
     }
 }
 
 // MARK: - La cabecera de los detalles
 
-/// Atrás · chip · de quién y cuándo. Idéntica en los cuatro detalles a
-/// propósito: abrir una pregunta y abrir un protocolo tienen que sentirse la
-/// misma casa.
+/// Atrás · tipo · de quién y cuándo. Idéntica en los cinco detalles a propósito: abrir una pregunta y
+/// abrir un protocolo tienen que sentirse la misma casa.
 struct CabeceraComunicado<Accesorio: View>: View {
     let comunicado: Comunicado
     let onVolver: () -> Void
@@ -262,19 +161,23 @@ struct CabeceraComunicado<Accesorio: View>: View {
 
     var body: some View {
         HStack(spacing: Theme.Spacing.m) {
-            BackCircleButton(action: onVolver)
-            VStack(alignment: .leading, spacing: 5) {
-                ChipTipoComunicado(tipo: comunicado.kind)
+            BotonCromoDia(etiqueta: "Volver a Del coach", accion: onVolver) { IconoSF("chevron.left", tam: 20) }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(comunicado.kind.etiqueta)
+                    .papel(.etiqueta)
+                    .foregroundStyle(Theme.Color.foreground)
                 Text("De \(comunicado.nombreCoach) · \(comunicado.publicadoTexto())")
-                    .scaledFont(11.5, weight: .medium, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.faint)
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
             accesorio()
         }
-        .padding(.horizontal, Theme.Spacing.l)
-        .padding(.vertical, Theme.Spacing.m)
-        .background(alignment: .bottom) { Hairline() }
+        // El círculo del cromo mide 38 dentro de un área de 48: 5 pt de cada lado, así que el
+        // margen resta esos 5 para que el círculo (no el área) caiga en el margen de la pantalla.
+        .padding(EdgeInsets(top: 4, leading: Theme.Spacing.pantalla - 5, bottom: 4, trailing: Theme.Spacing.pantalla))
     }
 }
 
@@ -287,25 +190,20 @@ struct AvisoComunicado: View {
     let texto: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.s) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 12, weight: .semibold))
+        let forma = RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous)
+        HStack(alignment: .top, spacing: Theme.Spacing.m - 2) {
+            IconoSF("exclamationmark.triangle", tam: 20)
                 .foregroundStyle(Theme.Color.warning)
                 .padding(.top, 1)
             Text(texto)
-                .scaledFont(12.5, weight: .medium, relativeTo: .footnote)
+                .papel(.notaFuerte)
                 .foregroundStyle(Theme.Color.foreground)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16))
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, Theme.Spacing.m)
-        .padding(.vertical, Theme.Spacing.s)
-        .background(Theme.Color.warningTint)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                .stroke(Theme.Color.warning.opacity(0.35), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        .background(Theme.Color.warningTint, in: forma)
+        .overlay(forma.strokeBorder(Theme.Color.warning.opacity(0.35), lineWidth: 1))
         .accessibilityElement(children: .combine)
     }
 }
@@ -322,29 +220,20 @@ struct AvisoEnvioComunicado: View {
         case .ok:
             EmptyView()
         case .enCola:
-            fila(
-                simbolo: "arrow.triangle.2.circlepath",
-                color: Theme.Color.muted,
-                texto: "Sin conexión. Se guarda y se envía en cuanto vuelvas a tener señal."
-            )
+            HStack(alignment: .top, spacing: Theme.Spacing.s) {
+                IconoDia(.reintentar, tam: 16, peso: .semibold)
+                    .foregroundStyle(Theme.Color.muted)
+                    .padding(.top, 2)
+                Text("Sin conexión. Se guarda y se envía en cuanto vuelvas a tener señal.")
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
         case .fallido(let mensaje):
-            fila(simbolo: "exclamationmark.circle", color: Theme.Color.danger, texto: mensaje)
+            AvisoEnLineaComunicado(texto: mensaje)
         }
-    }
-
-    private func fila(simbolo: String, color: Color, texto: String) -> some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.s) {
-            Image(systemName: simbolo)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(color)
-                .padding(.top, 1)
-            Text(texto)
-                .scaledFont(12, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.muted)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
     }
 }
 

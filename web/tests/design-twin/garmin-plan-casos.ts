@@ -40,8 +40,8 @@ import {
 import { planCintaEspejo, planEstacion, planFuerza, planSeries } from '@/components/design-twin/screens/reloj-gramatica/planes';
 import type { PlanSesion } from '@/components/design-twin/kit-reloj/secuencia';
 import { hyroxDobles, pasosDeWod, pasosPorCadaValor, planDe } from './garmin-plan-sinteticos';
-import { completarPlan, metaPorDefecto } from '@/components/design-twin/kit-garmin/plan-compacto/meta';
-import type { BandasRitmo, MetaSesion } from '@/components/design-twin/kit-garmin/plan-compacto/tipos';
+import { completarPlan, metaPorDefecto } from '@fahybrid/shared/domain/watch-plan/plan-compacto/meta';
+import type { BandasRitmo, MetaSesion } from '@fahybrid/shared/domain/watch-plan/plan-compacto/tipos';
 
 export type FamiliaCaso = 'correr' | 'fuerza' | 'circuito' | 'wod' | 'ergo' | 'libre';
 

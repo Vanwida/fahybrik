@@ -16,31 +16,14 @@
 // a mano por debajo del umbral del coach.
 
 import { FEMENINO_DEFECTO, NOMBRE_CLASE_DEFECTO, type Objetivo, type Parcial, type PasoBase, type Vuelta } from './paso';
+import { METODO_RESUMEN_DEFECTO, type MetodoResumen } from './metodo';
 import { fmtDuracion, fmtPrescrito, principal } from './reglas';
+
+export { METODO_RESUMEN_DEFECTO, type MetodoResumen };
 
 // ---------------------------------------------------------------------------
 // Método del coach — dato con defecto
 // ---------------------------------------------------------------------------
-
-export interface MetodoResumen {
-  /** Pares (km tras estación ↔ km fresco a la misma banda) que hacen falta para dar el coste. */
-  paresMinimos: number;
-  /**
-   * Fracción de lo prescrito a partir de la cual una pieza cortada a mano
-   * cuenta como hecha: una serie (900 de 1000 m) o un paso continuo (72′ de
-   * una tirada de 80′). Es el mismo juicio —¿se hizo lo que pedía el coach?—
-   * sobre la medida del paso, sea cual sea su forma.
-   */
-  umbralHecho: number;
-  /**
-   * Tras «Seguir» (enfriamiento libre), segundos sin moverse y sin tocar nada
-   * antes de guardar la sesión sola (Alex, 25-09): nadie se queda con el
-   * reloj grabando un enfriamiento que ya acabó.
-   */
-  guardarQuietoS: number;
-}
-
-export const METODO_RESUMEN_DEFECTO: MetodoResumen = { paresMinimos: 4, umbralHecho: 0.9, guardarQuietoS: 600 };
 
 // ---------------------------------------------------------------------------
 // Lo hecho — lo mínimo que decide la completitud

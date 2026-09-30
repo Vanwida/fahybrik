@@ -6,8 +6,8 @@ import SwiftUI
 // el momento del día, y esto es el contexto con el que lo vives. El COLOR de la zona va en el arco y
 // nunca en la cifra: una de 38 en rojo grande se lee como alarma y una de 91 en verde como aplauso, y la
 // portada dice el estado del cuerpo, no un veredicto. La lectura es del ESTADO DEL CUERPO, jamás una
-// prescripción (eso es método del coach), y los cortes de las zonas son `ReadinessZone`: la vista no
-// escribe ni un 67 ni un 45.
+// prescripción (eso es método del coach), y los cortes de las zonas son las `ReadinessBands` del coach: la
+// vista no escribe ni un 67 ni un 45, recibe la zona ya resuelta.
 //
 // Estados: medida · sin datos (tres motivos, cada uno con su salida) · en frío (esqueleto con la misma
 // forma). Cuando el sujeto ES el check-in y no hay número, el sujeto ya lo dice todo y la tira se calla
@@ -38,17 +38,16 @@ struct HoyDisposicion: View {
                 esqueleto
             case .sinDatos(let motivo):
                 if momento.tipo != .checkin { sinDatos(motivo) }
-            case .medida(let score, let delta7d, let senales):
-                medida(score: score, delta7d: delta7d, senales: senales)
+            case .medida(let score, let zona, let delta7d, let senales):
+                medida(score: score, zona: zona, delta7d: delta7d, senales: senales)
             }
         }
     }
 
     // MARK: - Medida
 
-    private func medida(score: Int, delta7d: Int?, senales: [Senal]) -> some View {
-        let zona = ReadinessZone.of(score: score)
-        return VStack(alignment: .leading, spacing: 0) {
+    private func medida(score: Int, zona: ReadinessZone, delta7d: Int?, senales: [Senal]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
             Button(action: acciones.abrirDisposicion) {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {

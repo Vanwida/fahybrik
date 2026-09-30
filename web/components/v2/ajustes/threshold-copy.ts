@@ -6,10 +6,12 @@ import type { CoachThresholdKey } from '@fahybrid/shared/domain/coach/signal-thr
 
 export interface ThresholdCopy {
   label: string;
-  /** La unidad, ya en palabras, tras el número. */
+  /** La unidad, ya en palabras, tras el número. Vacía en un interruptor o una lista. */
   unit: string;
   /** Una línea: qué cambia si lo mueves. */
   hint: string;
+  /** Solo en una lista corta (`unit: 'sentido'`): las palabras de cada posición, en orden. */
+  options?: readonly string[];
 }
 
 export const THRESHOLD_COPY: Record<CoachThresholdKey, ThresholdCopy> = {
@@ -164,9 +166,123 @@ export const THRESHOLD_COPY: Record<CoachThresholdKey, ThresholdCopy> = {
     unit: 'de 10 o más',
     hint: 'Lo que contesta en el cuestionario de entrada.',
   },
+  wrist_slack_pace_s: {
+    label: 'Margen de ritmo',
+    unit: 's/km',
+    hint: 'Cuánto se puede salir de la banda de ritmo antes de contar como fuera.',
+  },
+  wrist_slack_hr_bpm: {
+    label: 'Margen de pulso',
+    unit: 'pulsaciones',
+    hint: 'Cuánto se puede salir de la zona o del pulso pedido antes de contar como fuera.',
+  },
+  wrist_slack_split500_s: {
+    label: 'Margen en remo y ski',
+    unit: 's/500 m',
+    hint: 'Cuánto se puede salir del ritmo pedido en la máquina antes de contar como fuera.',
+  },
+  wrist_slack_watts: { label: 'Margen de vatios', unit: 'W', hint: 'Cuánto se puede salir de la potencia pedida antes de contar como fuera.' },
+  wrist_slack_cadence_spm: {
+    label: 'Margen de cadencia',
+    unit: 'pasos/min',
+    hint: 'Cuánto se puede salir de la cadencia pedida antes de contar como fuera.',
+  },
+  wrist_alert_confirm_s: {
+    label: 'Fuera de banda antes del primer aviso',
+    unit: 'segundos',
+    hint: 'Segundos seguidos fuera hasta que el reloj vibra. Con 0, vibra al instante.',
+  },
+  wrist_alert_gap_s: {
+    label: 'Entre un aviso y el siguiente',
+    unit: 'segundos',
+    hint: 'Lo mínimo que espera el reloj antes de volver a avisar en el mismo paso.',
+  },
+  wrist_alert_zone_grace_s: {
+    label: 'Gracia al empezar un paso a zona',
+    unit: 'segundos',
+    hint: 'El pulso tarda en subir: en estos segundos no le dice «aprieta».',
+  },
+  wrist_alert_in_warmup: {
+    label: 'Avisar en el calentamiento',
+    unit: '',
+    hint: 'Apagado, el calentamiento no vibra aunque el ritmo o el pulso se salgan.',
+  },
+  wrist_alert_in_recovery: {
+    label: 'Avisar en la recuperación',
+    unit: '',
+    hint: 'Apagado, un trote entre series no vibra aunque el ritmo o el pulso se salgan.',
+  },
+  wrist_alert_continuous_zone: {
+    label: 'Rodaje a zona: cuándo avisar',
+    unit: '',
+    hint: 'Si el tramo no trae su propio aviso. Un tope de pulso avisa siempre solo por arriba.',
+    options: ['Nunca', 'Solo por arriba', 'Por arriba y por abajo'],
+  },
+  wrist_prewarn_s: {
+    label: 'Preaviso antes del final de un paso',
+    unit: 'segundos',
+    hint: 'En pasos medidos por tiempo. Con 0, sin preaviso.',
+  },
+  wrist_prewarn_m: {
+    label: 'Preaviso antes del final de un paso',
+    unit: 'metros',
+    hint: 'En pasos medidos por distancia. Con 0, sin preaviso.',
+  },
+  wrist_prewarn_min_step_s: {
+    label: 'Sin preaviso en pasos de menos de',
+    unit: 'segundos',
+    hint: 'Tiene que ser al menos el doble del preaviso: si no, el aviso sería la mitad del paso.',
+  },
+  wrist_auto_lap_m: {
+    label: 'Vuelta automática cada',
+    unit: 'metros',
+    hint: 'El reloj cierra una vuelta y dice el tiempo. Con 0, apagada; si no, desde 100 m.',
+  },
+  wrist_auto_lap_rodaje: { label: 'Vuelta automática en los rodajes', unit: '', hint: 'Correr continuo a ritmo suave.' },
+  wrist_auto_lap_tirada: { label: 'Vuelta automática en las tiradas', unit: '', hint: 'Rodajes largos.' },
+  wrist_auto_lap_tempo: { label: 'Vuelta automática en los tempos', unit: '', hint: 'Correr continuo a ritmo fuerte.' },
+  wrist_auto_lap_progresivo: { label: 'Vuelta automática en los progresivos', unit: '', hint: 'Tramos que suben de ritmo.' },
+  wrist_auto_lap_carrera: { label: 'Vuelta automática en las carreras', unit: '', hint: 'El parcial de cada kilómetro.' },
+  wrist_long_run_min: {
+    label: 'Una tirada empieza en',
+    unit: 'minutos',
+    hint: 'Un rodaje de esta duración o más se llama tirada.',
+  },
+  wrist_long_run_km: {
+    label: 'O una tirada empieza en',
+    unit: 'km',
+    hint: 'Un rodaje de esta distancia o más se llama tirada.',
+  },
+  wrist_stride_max_s: {
+    label: 'Un stride dura como mucho',
+    unit: 'segundos',
+    hint: 'Una serie más corta que esto, dentro de un repetir, se llama stride y no serie.',
+  },
+  wrist_gate_manual: {
+    label: 'Empezar las series solo cuando el atleta pulse',
+    unit: '',
+    hint: 'Apagado, del calentamiento a las series se pasa solo, con su preaviso.',
+  },
+  wrist_short_rep_done_pct: {
+    label: 'Una serie cortada a mano cuenta como hecha desde el',
+    unit: '% de lo pedido',
+    hint: 'Si el atleta la cierra antes, no cuenta como hecha.',
+  },
+  wrist_idle_save_min: {
+    label: 'Guardar sola una sesión ya acabada tras',
+    unit: 'minutos quieto',
+    hint: 'Para que nadie se deje el reloj grabando un enfriamiento que ya terminó.',
+  },
 };
 
-export const THRESHOLD_SECTIONS: ReadonlyArray<{ title: string; keys: CoachThresholdKey[] }> = [
+/** Lo que una sección lleva además de sus números: hoy, las palabras del RPE del reloj. */
+export type ThresholdSectionExtra = 'palabras_rpe';
+
+export const THRESHOLD_SECTIONS: ReadonlyArray<{
+  title: string;
+  keys: CoachThresholdKey[];
+  extra?: ThresholdSectionExtra;
+}> = [
   { title: 'Bandas de readiness', keys: ['readiness_ok_min', 'readiness_caution_min'] },
   {
     title: 'Avisos de readiness y check-in',
@@ -226,4 +342,41 @@ export const THRESHOLD_SECTIONS: ReadonlyArray<{ title: string; keys: CoachThres
   },
   { title: 'Pausas', keys: ['pause_budget_days'] },
   { title: 'Cuestionario de entrada', keys: ['intake_low_sleep_max', 'intake_high_stress_min'] },
+  {
+    title: 'Reloj al correr: cuándo avisa',
+    keys: [
+      'wrist_slack_pace_s',
+      'wrist_slack_hr_bpm',
+      'wrist_slack_split500_s',
+      'wrist_slack_watts',
+      'wrist_slack_cadence_spm',
+      'wrist_alert_confirm_s',
+      'wrist_alert_gap_s',
+      'wrist_alert_zone_grace_s',
+      'wrist_alert_in_warmup',
+      'wrist_alert_in_recovery',
+      'wrist_alert_continuous_zone',
+    ],
+  },
+  { title: 'Reloj: el final de cada paso', keys: ['wrist_prewarn_s', 'wrist_prewarn_m', 'wrist_prewarn_min_step_s'] },
+  {
+    title: 'Reloj: vueltas y nombres al correr',
+    keys: [
+      'wrist_auto_lap_m',
+      'wrist_auto_lap_rodaje',
+      'wrist_auto_lap_tirada',
+      'wrist_auto_lap_tempo',
+      'wrist_auto_lap_progresivo',
+      'wrist_auto_lap_carrera',
+      'wrist_long_run_min',
+      'wrist_long_run_km',
+      'wrist_stride_max_s',
+      'wrist_gate_manual',
+    ],
+  },
+  {
+    title: 'Reloj: al terminar',
+    keys: ['wrist_short_rep_done_pct', 'wrist_idle_save_min'],
+    extra: 'palabras_rpe',
+  },
 ];

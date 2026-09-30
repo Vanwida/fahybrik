@@ -41,12 +41,12 @@ struct ZonasSemanaView: View {
     private enum Trazo {
         /// Del borde de arriba a la línea base.
         static let alto: CGFloat = 132
-        /// Aire de arriba, donde cabe el rótulo del pico.
-        static let aireArriba: CGFloat = 20
-        /// La columna de las marcas del eje. Cabe «1 h 30», que es lo que
+        /// Aire de arriba, donde cabe el rótulo del pico (una línea de 15 pt).
+        static let aireArriba: CGFloat = 26
+        /// La columna de las marcas del eje. Cabe «1 h 30» a 15 pt (el suelo), que es lo que
         /// escribe la rejilla cuando la ventana es corta: partido en dos líneas
         /// deja de ser una marca y pasa a ser un párrafo.
-        static let eje: CGFloat = 46
+        static let eje: CGFloat = 58
         /// Lo que ocupa una semana como mucho: por encima, cuatro barras
         /// quedarían sueltas cada una en su descampado.
         static let semanaMax: CGFloat = 34
@@ -63,13 +63,13 @@ struct ZonasSemanaView: View {
         static let capitel: CGFloat = 3
         /// La marca de una semana sin dato, bajo la base.
         static let marcaHueco: CGFloat = 5
-        static let altoEtiquetaX: CGFloat = 14
+        static let altoEtiquetaX: CGFloat = 20
         /// La banda de los rangos del coach: fina, porque es un eje y no un
         /// resumen (lo que él escribió va debajo, en su lista).
         static let altoRango: CGFloat = 10
         static let aireRango: CGFloat = 5
-        /// Lo que necesita una fecha del eje para no pisar a la siguiente.
-        static let aireEtiquetaX: CGFloat = 46
+        /// Lo que necesita una fecha del eje («23 feb», a 15 pt) para no pisar a la siguiente.
+        static let aireEtiquetaX: CGFloat = 62
     }
 
     private var celdas: [CeldaDeSemana] { grafica.celdas }
@@ -102,8 +102,8 @@ struct ZonasSemanaView: View {
 
                 if let sinDato = PalabrasDeZonas.semanasSinDato(grafica.semanasSinDato) {
                     Text("\(sinDato). Ahí no sabemos qué hiciste, no es que no entrenaras.")
-                        .scaledFont(11.5, relativeTo: .caption2)
-                        .foregroundStyle(Theme.Color.faint)
+                        .papel(.nota)
+                        .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -156,12 +156,12 @@ struct ZonasSemanaView: View {
         ZStack(alignment: .topLeading) {
             ForEach(escala.marcas, id: \.self) { marca in
                 Text(PalabrasDeZonas.rato(marca))
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Theme.Color.faint)
+                    .papel(.nota)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.Color.muted)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
                     .frame(width: Trazo.eje - 6, alignment: .trailing)
-                    .offset(y: y(marca) - 6)
+                    .offset(y: y(marca) - 10)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -257,8 +257,8 @@ struct ZonasSemanaView: View {
                 Group {
                     if rotuladas.contains(i) {
                         Text(PalabrasDeZonas.semanaCorta(celda.weekStart))
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(Theme.Color.faint)
+                            .papel(.nota)
+                            .foregroundStyle(Theme.Color.muted)
                             .lineLimit(1)
                             .fixedSize()
                     } else {

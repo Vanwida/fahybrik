@@ -129,9 +129,18 @@ final class LecturaHoyDesdeTests: XCTestCase {
         XCTAssertEqual(l.noLeidosChat, 0)
         XCTAssertEqual(l.comunicados, 0)
         XCTAssertNil(l.hoy)
-        XCTAssertNil(l.camino)
+        XCTAssertNil(l.camino, "sin coach y sin carrera fijada no hay camino ni invitación")
         XCTAssertNil(l.simulacion)
         XCTAssertEqual(l.momento.tipo, .libre)
+    }
+
+    func testSinCoachLaCarreraFijadaSeSigueViendo() {
+        let f = fuentes(conCoach: false, plan: plan(objetivo: objetivo, dias: []))
+        guard case .fijada(let c)? = LecturaHoy.desde(f).camino else { return XCTFail("la carrera es del atleta, no del coach") }
+        XCTAssertEqual(c.nombre, "HYROX Barcelona")
+        XCTAssertEqual(c.dias, 39)
+        XCTAssertEqual(c.meta, "Sub-65")
+        XCTAssertNil(c.fase, "la fase la escribe el coach: sin coach no se inventa")
     }
 
     // MARK: - Cargando y error
@@ -329,7 +338,7 @@ final class LecturaHoyDesdeTests: XCTestCase {
         f.disposicion = payload(84, breakdown: """
         {"sub_score":80,"hrv_component":70,"hrv_ms":68.2,"sleep_hours":7.4,"rhr_component":60,"rhr_bpm":48.0}
         """)
-        guard case .medida(let score, let delta, let senales) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
+        guard case .medida(let score, _, let delta, let senales) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
         XCTAssertEqual(score, 84)
         XCTAssertEqual(delta, 6)
         XCTAssertEqual(senales.map(\.etiqueta), ["Check-in", "HRV", "Sueño", "FC reposo"])
@@ -340,7 +349,7 @@ final class LecturaHoyDesdeTests: XCTestCase {
     func testUnaSenalQueNoLlegoNoLlevaValorNiEstaEncendida() {
         var f = fuentes(plan: plan(dias: []))
         f.disposicion = payload(60, breakdown: #"{"sub_score":55}"#)
-        guard case .medida(_, _, let senales) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
+        guard case .medida(_, _, _, let senales) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
         XCTAssertEqual(senales.map(\.activa), [true, false, false, false])
         XCTAssertEqual(senales.map(\.valor), [nil, nil, nil, nil])
     }
@@ -348,7 +357,7 @@ final class LecturaHoyDesdeTests: XCTestCase {
     func testSinDesgloseNoSeInventanSenales() {
         var f = fuentes(plan: plan(dias: []))
         f.disposicion = payload(60)
-        guard case .medida(_, _, let senales) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
+        guard case .medida(_, _, _, let senales) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
         XCTAssertTrue(senales.isEmpty)
     }
 

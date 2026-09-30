@@ -1,14 +1,12 @@
 import SwiftUI
 
-// EL DETALLE de un comunicado — el reparto por tipo, y los dos detalles cortos.
+// EL DETALLE de un comunicado — el reparto por tipo, y los dos detalles cortos (tarea y foco).
 //
-// Abrir es un acto: al entrar se sella el «visto» (una vez, y solo si no lo
-// estaba). Eso es lo que hoy no existe — el coach no sabe si el mensaje llegó,
-// solo que lo mandó.
+// Abrir es un acto: al entrar se sella el «visto» (una vez, y solo si no lo estaba). Eso es lo que hoy no
+// existe — el coach no sabe si el mensaje llegó, solo que lo mandó.
 //
-// Los cinco tipos comparten cabecera a propósito: abrir una pregunta y abrir un
-// protocolo tienen que sentirse la misma casa. Lo que cambia es lo que cada uno
-// te PIDE, y por eso cada tipo tiene su cuerpo.
+// Los cinco tipos comparten cabecera a propósito: abrir una pregunta y abrir un protocolo tienen que
+// sentirse la misma casa. Lo que cambia es lo que cada uno te PIDE, y por eso cada tipo tiene su cuerpo.
 
 struct ComunicadoDetalleView: View {
     let comunicado: Comunicado
@@ -46,26 +44,26 @@ struct ComunicadoDetalleView: View {
 
 // MARK: - Título y ancla, comunes a los cinco cuerpos
 
-/// El titular del detalle. El ancla va DEBAJO y en micro: de dónde cuelga
-/// informa, pero no es lo que el atleta viene a leer.
+/// El titular del detalle. El ancla va DEBAJO y en apoyo: de dónde cuelga informa, pero no es lo que el
+/// atleta viene a leer.
 ///
-/// Y debajo, si lo lleva, la VOZ del coach. Vive en el titular —y no en cada uno
-/// de los cinco cuerpos— porque es de quién te habla y no de lo que te pide: así
-/// suena igual en una nota que en un protocolo, y un sexto tipo de comunicado no
-/// nacería mudo por olvido.
+/// Y debajo, si lo lleva, la VOZ del coach. Vive en el titular —y no en cada uno de los cinco cuerpos—
+/// porque es de quién te habla y no de lo que te pide: así suena igual en una nota que en un protocolo, y
+/// un sexto tipo de comunicado no nacería mudo por olvido.
 struct TituloComunicado: View {
     let comunicado: Comunicado
-    var tamano: CGFloat = 26
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 Text(comunicado.title)
-                    .scaledFont(tamano, weight: .heavy, relativeTo: .title2, italic: true)
+                    .papel(.saludo)
                     .foregroundStyle(Theme.Color.foreground)
                     .fixedSize(horizontal: false, vertical: true)
                 if let ancla = comunicado.anchorKind.etiqueta {
-                    LabelText(text: ancla, color: Theme.Color.faint, size: 9.5)
+                    Text(ancla)
+                        .papel(.nota)
+                        .foregroundStyle(Theme.Color.muted)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -78,20 +76,51 @@ struct TituloComunicado: View {
     }
 }
 
-/// El cuerpo que escribe el coach, tal cual. Es su método: aquí no se recorta,
-/// no se resume y no se le añade nada.
+/// El cuerpo que escribe el coach, tal cual. Es su método: aquí no se recorta, no se resume y no se le
+/// añade nada.
 struct CuerpoComunicado: View {
     let texto: String?
-    var tamano: CGFloat = 14.5
 
     var body: some View {
         if let texto, !texto.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Text(texto)
-                .scaledFont(tamano, relativeTo: .callout)
-                .foregroundStyle(Theme.Color.muted)
+                .papel(.cuerpo)
+                .foregroundStyle(Theme.Color.foreground)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+}
+
+/// «Nota de Pablo»: lo último que el coach quiso decir, aparte del cuerpo. Con el tinte del acento porque
+/// es SU voz; el texto, la tinta del tema.
+struct NotaFinalComunicado: View {
+    let comunicado: Comunicado
+
+    var body: some View {
+        if let cierre = comunicado.finalNote,
+           !cierre.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                Text("Nota de \(comunicado.nombreCoach)")
+                    .papel(.etiqueta)
+                    .foregroundStyle(Theme.Color.foreground)
+                Text(cierre)
+                    .papel(.cuerpo)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(Theme.Spacing.l)
+            .tarjetaComunicado(realce: true, alAncho: true)
+            .accessibilityElement(children: .combine)
+        }
+    }
+}
+
+/// El margen del cuerpo de un detalle.
+extension View {
+    func cuerpoDeDetalle() -> some View {
+        padding(EdgeInsets(top: Theme.Spacing.m, leading: Theme.Spacing.pantalla, bottom: 32, trailing: Theme.Spacing.pantalla))
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -99,14 +128,30 @@ struct CuerpoComunicado: View {
 
 /// LA TAREA — una acción con fecha, y el porqué que la separa de un recado.
 ///
-/// Acción anclada abajo (§ regla 3): cerrarla es lo único que se hace aquí, y el
-/// pulgar la tiene siempre a mano. Cuando ya está cerrada el botón desaparece:
-/// el servidor no deshace un «hecho», así que dejarlo activo prometería algo que
-/// no va a pasar.
+/// Acción anclada abajo (§ regla 3): cerrarla es lo único que se hace aquí, y el pulgar la tiene siempre
+/// a mano. Cuando ya está cerrada el botón desaparece: el servidor no deshace un «hecho», así que dejarlo
+/// activo prometería algo que no va a pasar.
 struct ComunicadoTareaView: View {
     let comunicado: Comunicado
     let acciones: ComunicadosAcciones
     let onVolver: () -> Void
+
+    var body: some View {
+        ComunicadoTareaContenido(
+            comunicado: comunicado,
+            envio: acciones.envio,
+            onVolver: onVolver,
+            onMarcarHecho: { Task { await acciones.marcarHecho(comunicado) } }
+        )
+    }
+}
+
+/// Lo que pinta la tarea, sin saber de actos ni de red.
+struct ComunicadoTareaContenido: View {
+    let comunicado: Comunicado
+    let envio: EnvioComunicado
+    let onVolver: () -> Void
+    let onMarcarHecho: () -> Void
 
     private var hecha: Bool { comunicado.state == .hecho }
 
@@ -120,41 +165,36 @@ struct ComunicadoTareaView: View {
                     TituloComunicado(comunicado: comunicado)
                     if let vence = comunicado.venceTexto() {
                         HStack(spacing: Theme.Spacing.s) {
-                            Image(systemName: "calendar")
-                                .font(.system(size: 13, weight: .semibold))
+                            IconoDia(.calendario, tam: 20).foregroundStyle(marcaDelVencimiento)
                             Text(vence)
-                                .scaledFont(14, weight: .bold, relativeTo: .subheadline)
+                                .papel(.cuerpoFuerte)
+                                .foregroundStyle(Theme.Color.foreground)
                         }
-                        .foregroundStyle(colorVencimiento)
                         .accessibilityElement(children: .combine)
                     }
                     CuerpoComunicado(texto: comunicado.body)
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xl)
+                .cuerpoDeDetalle()
             }
         }
         .anchoredAction {
             VStack(spacing: Theme.Spacing.s) {
                 if comunicado.puedeMarcarseHecho {
-                    ExpertPrimaryButton(title: "Marcar hecho") {
-                        Task { await acciones.marcarHecho(comunicado) }
-                    }
+                    BotonAccionComunicado(titulo: "Marcar hecho", relleno: .acento, completa: true, impacto: .medio, accion: onMarcarHecho)
                 }
-                Text(hecha
-                    ? "\(comunicado.nombreCoach) ya la ve cerrada."
-                    : "\(comunicado.nombreCoach) verá que la has hecho.")
-                    .scaledFont(11.5, weight: .medium, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.faint)
+                Text(PieDeDetalle.tarea(comunicado))
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
-                AvisoEnvioComunicado(estado: acciones.envio)
+                AvisoEnvioComunicado(estado: envio)
             }
+            .padding(.horizontal, Theme.Spacing.pantalla - Theme.Spacing.l)
         }
     }
 
-    private var colorVencimiento: Color {
+    /// El color de estado va en la marca del calendario, nunca en la frase.
+    private var marcaDelVencimiento: Color {
         guard !hecha else { return Theme.Color.muted }
         switch comunicado.vencimiento() {
         case .vencida: return Theme.Color.danger
@@ -166,10 +206,11 @@ struct ComunicadoTareaView: View {
 
 // MARK: - El foco
 
-/// EL FOCO — lo que no se te puede olvidar. No lleva acción anclada y no se
-/// cierra: leerlo no lo apaga, y por eso tampoco reclama en la bandeja. Si se
-/// cerrara dejaría de ser el foco; si reclamara, la bandeja no podría estar en
-/// calma jamás.
+/// EL FOCO — lo que no se te puede olvidar. No lleva acción anclada y no se cierra: leerlo no lo apaga, y
+/// por eso tampoco reclama en la bandeja. Si se cerrara dejaría de ser el foco; si reclamara, la bandeja
+/// no podría estar en calma jamás.
+///
+/// Es UN mensaje: el sujeto de la pantalla y se lleva todo el alto que sobre, con su voz debajo.
 struct ComunicadoFocoView: View {
     let comunicado: Comunicado
     let onVolver: () -> Void
@@ -179,17 +220,23 @@ struct ComunicadoFocoView: View {
             CabeceraComunicado(comunicado: comunicado, onVolver: onVolver) {
                 InsigniaComunicado(insignia: comunicado.insignia())
             }
-            CenteredScreen {
+            FillingScreen {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    TituloComunicado(comunicado: comunicado, tamano: 30)
-                    CuerpoComunicado(texto: comunicado.body, tamano: 15)
-                    Text("Esto no se marca: está aquí para que no se te olvide.")
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.faint)
-                        .fixedSize(horizontal: false, vertical: true)
+                    SujetoDia(tono: .acento, etiqueta: [comunicado.title, comunicado.body].compactMap { $0 }.joined(separator: ". ")) {
+                        KickerDia("Foco")
+                        TituloDeSujeto(comunicado.title)
+                        if let cuerpo = comunicado.body, !cuerpo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            ApoyoDia(cuerpo)
+                        }
+                    } abajo: {
+                        Text("Esto no se marca: está aquí para que no se te olvide.")
+                            .papel(.nota)
+                            .foregroundStyle(Theme.Color.foreground)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    AudioDelComunicado(comunicado: comunicado)
                 }
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.vertical, Theme.Spacing.xl)
+                .cuerpoDeDetalle()
             }
         }
     }

@@ -194,8 +194,9 @@ enum MarkFormat {
         return Formato.ritmo(value * 1000 / dist, .porKm)
     }
 
-    /// "hace 3 semanas" — relative age of a result. Coarse on purpose.
-    static func relative(_ iso: String) -> String? {
+    /// "hace 3 semanas" — relative age of a result. Coarse on purpose. `ahora` existe para que las
+    /// pruebas fijen el reloj; en la app siempre es el instante real.
+    static func relative(_ iso: String, ahora: Date = Date()) -> String? {
         let fmt = ISO8601DateFormatter()
         fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let date = fmt.date(from: iso) ?? {
@@ -203,7 +204,7 @@ enum MarkFormat {
             return plain.date(from: iso)
         }()
         guard let date else { return nil }
-        let days = max(0, Int(Date().timeIntervalSince(date) / 86_400))
+        let days = max(0, Int(ahora.timeIntervalSince(date) / 86_400))
         if days == 0 { return "hoy" }
         if days == 1 { return "ayer" }
         if days < 14 { return "hace \(days) días" }

@@ -34,6 +34,23 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Qué NO hacer en consecuencia:** volver a escribir por pestaña una pieza de la tabla de CONTRATO-UI §11.1 (§11.5 lo prohíbe con sus nombres). Si el kit no llega, se amplía el kit.
 
+## 2026-09-30 · El editor de tramos de correr edita el entorno, el aviso y la frase para el reloj (UI de la 0282)
+
+**Qué se decidió.** El servidor ya guardaba por tramo `environment` (calle | cinta | pista), `alert` (arriba | abajo | ambos | ninguno) y `cue` (una línea de coach, hasta 80 caracteres), pero el coach no podía tocarlos. Ahora se editan en la fila abierta del tramo, en `SegmentWristFields.tsx`, siguiendo el patrón de la fila: lo opcional es un chip «+» y lo usado es su campo con una ✕.
+
+**Reglas que el editor cumple por construcción** (el Zod de `shared/domain/prescription/run-structure.ts` es la única fuente, cliente y servidor):
+- Todo opcional. Nada se obliga; un tramo sin estos campos se comporta como hasta hoy.
+- Elegir **pista** quita la inclinación (la pista es plana); **cinta** enseña su inclinación junto al entorno; calle y sin decir conservan el chip de inclinación de las cuestas.
+- El **aviso** solo aparece con ritmo, zona de ritmo o zona de pulso; pasar a RPE o a libre lo suelta. Sin elegir, la propia fila dice qué pasa: un ritmo avisa por los dos lados, y una zona manda el método del coach (`wrist_alert_continuous_zone`, Ajustes › Método), leído de `GET /api/coach/signal-thresholds`. Los defectos NO están en el editor: son dato del coach.
+- La **frase** lleva contador (80), una sola línea, sin espacios de sangrado. No es prescripción: sin cifras que cumplir.
+- La frase del tramo (`segmentSentence`) los cuenta en el mismo orden para trabajo y recuperación: «1' · ritmo Z4 · cinta · 1% · aviso en ambos sentidos · «mirar el pulso»».
+
+**El fallo se lee en castellano.** Antes, guardar un tramo inválido devolvía el volcado JSON del validador. Ahora `coachReadableSegmentIssues` (shared) da el mensaje del modelo, el editor lo avisa antes de guardar (`IssuesBar`) y `updateAthleteInstanceDay` lo devuelve tal cual. Solo para estos campos; el resto de fallos sigue como estaba.
+
+**No hacer.** No poner la lista de defectos del aviso en el editor ni en el reloj: si cambia la regla, cambia el método del coach. No mostrar la inclinación en pista. No convertir la frase en un campo de prescripción (cifras, objetivos): eso es el objetivo del tramo.
+
+**No verificado / abierto.** El reloj (Swift) decodifica `alert` pero todavía no lo aplica: hoy el aviso queda guardado y viaja, y actuará cuando se cierre el lado del reloj de F5. El diseño es UI nueva sobre el patrón existente, sin firma de Alex sobre el layout. El editor de tramos es del dashboard del coach y no tiene pantalla espejo en el doble (que replica la app del atleta), así que no hay nada que estampar allí. Copiar el entorno a todos los tramos de golpe («toda la sesión en cinta») no está: hoy cada tramo nuevo copia el anterior de su tipo, que arrastra el entorno.
+
 ## 2026-09-30 · Analíticas del iPhone, segunda tanda y cierre: el detalle de las cuatro familias y de la sesión con «El día», y fuera la pestaña vieja
 
 **El encargo:** llevar a Swift el detalle firmado (correr, ergo, fuerza, estaciones y la sesión tramo a tramo), cablearlo desde la portada, y CERRAR la pestaña: borrar `AnaliticasBandera`, la `AnalyticsView` de los siete contratos y todo lo que solo ella usaba. Rama `worktree-agent-ab66a2922a12498d9` (sin fusionar). Continúa la entrada «primera tanda: la portada» del 29-09.
@@ -72,6 +89,31 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **No verificado:** en aparato (solo simulador y renders) ni con datos de producción (los fixtures son del motor real con entradas sintéticas); VoiceOver y Reducir movimiento no recorridos a mano; el selector horizontal de ejercicios de fuerza (una tira que se desliza) NO se ve en las capturas, porque `ImageRenderer` no dibuja un `ScrollView`; el gesto de volver con la barra de navegación oculta; las capturas están comparadas con las del doble a 402 pt (`hoy/analiticas/final/`), no a 390.
 
+## 2026-09-29 · Correr en la muñeca: el método del coach es dato (0282) y la gramática de correr gana entorno, cue y aviso
+
+**Qué se decidió.** El rediseño de correr en el reloj (F5 del plan, lado servidor) separa lo que es MECANISMO de la muñeca, que se queda en el código del reloj, de lo que es MÉTODO del coach, que pasa a dato editable con defecto (HARD RULE Nº0: «¿otro entrenador competente lo haría distinto?»).
+
+**MÉTODO → dato, con los números de hoy como defecto (migración 0282, 26 columnas `wrist_*` nullable en `coach_signal_thresholds`, sin `default` de columna, NULL = el defecto):**
+- Avisos: holgura por eje (ritmo 3 s/km, pulso 2 ppm, 2 s/500 m, 10 W, 3 pasos/min), cadencia entre avisos (20 s), confirmación (4 s), gracia al empezar un paso a zona (45 s), avisar en calentamiento y en recuperación (no), y hacia dónde avisa un rodaje a zona cuando el tramo no lo dice (`wrist_alert_continuous_zone`: 0 nunca, 1 solo por arriba, 2 los dos sentidos).
+- Final de paso: preaviso (10 s o 100 m) y el paso más corto que lo lleva (30 s).
+- Vuelta automática cada N metros (1000, 0 = apagada) y en qué clases (rodaje y tirada; también tempo, progresivo y carrera, apagadas), dónde empieza una tirada (75 min o 16 km), hasta dónde llega un stride (30″), y la puerta de calentar a series (solo, o hasta pulsar).
+- Al terminar: fracción de una serie cortada a mano que cuenta como hecha (90 %) y minutos quieto antes de guardar sola (10), y las once palabras del RPE (`wrist_rpe_words`, text[] de 11, las de fábrica son las del kit).
+
+**MECANISMO → se queda en el reloj:** el techo de ritmo de 20:00/km, los 10 m mínimos para dar ritmo, la detección a 8:00/km, la ventana de ritmo de 10 s, los 5 s de deshacer y el Always-On a 1 Hz con tinta al 60 %.
+
+**Dónde vive cada cosa y por qué.**
+- Los números y los sí/no van a `COACH_THRESHOLD_SPEC` como el resto del método (0256): un solo sitio para defecto, límites, CHECK de la tabla, esquema del PUT y pantalla. Un interruptor es 0/1 (`unit: 'si_no'`) y una lista corta es la posición (`unit: 'sentido'`); sin tipos nuevos en la tabla ni un segundo editor. Las palabras del RPE no caben en un número: `wrist_rpe_words` (text[], mismo criterio que `fuentes_*` en `coach_analytics_method`) con el PUT propio en el mismo endpoint.
+- La lectura hacia el reloj es `shared/domain/coach/wrist-method.ts` (`buildWristMethod`): snake_case en las unidades del reloj (segundos, metros, fracción). El reloj recibe SIEMPRE el valor efectivo y completo. No se creó tabla ni endpoint nuevos: el método viaja como `wrist_method` en el cuerpo de `GET /api/athlete/assignments/[id]/detail`, que es el que ya llega a la muñeca verbatim por `WatchTodayPayload.detailJson`. La carga de fabricante (`loadRunWatchWorkout`) también lo devuelve y sus codificadores lo ignoran.
+- Editor: Ajustes › Método, cuatro secciones «Reloj…» con el patrón de los campos existentes (guarda al salir, «Usar el defecto»). Dos reglas de coherencia, cada una dentro de su grupo, con un test que muestrea todos los pares de claves de grupos distintos y falla si una regla cruza (y se prueba a sí mismo con una regla inventada): la vuelta automática es 0 o de 100 m en adelante, y el paso más corto con preaviso dura al menos el doble del preaviso.
+- Paridad: un test compara los defectos con `REGLAS_AVISO_DEFECTO`, `METODO_RESUMEN_DEFECTO` y `RPE_PALABRA_DEFECTO` del kit y con los literales de Swift (`Vivo.reglasAvisoDefecto`, `UmbralesCorrer`, la vuelta de 1000 m); acepta que el literal desaparezca si lo sustituye el método (`WristMethod`), y falla si diverge. Otro compara el JSON de oro que decodifica Swift con lo que manda el servidor.
+
+**El único defecto que NO es el número de hoy:** `wrist_alert_continuous_zone = 1` (solo por arriba). Hoy `Objetivo.avisa` no se rellena nunca y un rodaje a Z2 avisaría «aprieta» al ir por debajo (agujero declarado en el plan). El tope de FC solo avisa por encima (P9). Como el reloj aún no lee el método, nada cambia hasta que el director lo consuma; un coach que quiera los dos sentidos pone «Por arriba y por abajo».
+
+**Gramática de correr (`shared/domain/prescription/run-structure.ts`), aditiva y opcional por tramo:** `environment` (calle | cinta | pista, M3; la inclinación de cinta sigue siendo `incline_pct`), `cue` (M8, una línea de hasta 80 caracteres, coaching y no prescripción) y `alert` (arriba | abajo | ambos | ninguno; ausente = el defecto del coach). Rechazado por construcción: entorno pista con inclinación, y un aviso en un tramo sin ritmo, zona o pulso que medir (RPE o sin objetivo). Lo que no trae el campo se comporta como hoy: el aplanado al modelo viejo y el fichero FIT salen idénticos. El decoder de Swift (`RunStructure.swift`) lee los tres como opcionales y degrada un valor desconocido a «sin decir»; `RunLeg` los arrastra. `WatchStep` (modelo neutro de fabricante) los copia sin tocar nombre ni objetivo.
+
+**Qué NO se hizo (a propósito).** Editar `environment`/`cue`/`alert` en el editor de tramos del coach (`SegmentRow`): es UI nueva y pide diseño firmado; el editor actual ya los conserva porque edita por parche. Convertir `WristMethod` a `Vivo.ReglasAviso`/`UmbralesCorrer` y consumirlo: es del director del reloj (`FAHYBRIKCore/Vivo`). `paresMinimos` del coste tras estación (circuito) y el avituallamiento. Aplicar 0282 en producción.
+
+**No hacer.** No volver a cablear estos números en el reloj ni en el kit: si el reloj necesita uno más, es una columna `wrist_*` + una entrada en el spec + su copy. Y no meter en el spec una regla que cruce grupos.
 
 ## 2026-09-29 · El reloj se lanza siempre y solo al empezar (adiós a la pregunta y al botón que no conectaba)
 
@@ -274,6 +316,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 **Pendiente:** el espejo `watch-live` del doble sigue pintando el brief viejo (ya estaba desfasado desde el 03-08); la propuesta `reloj-antes-despues` pasa a ser su espejo cuando Alex firme el resto de pantallas. Complicación de esfera y Smart Stack: necesitan un target WidgetKit que no existe. Fuera de alcance aquí: el resumen, el RPE y todo el vivo.
 
 **NO hacer:** volver a un título grande + pastillas en la entrada; contar el brief con «N bloques»; escribir el objetivo con «@» o con otra grafía en la muñeca; poner por debajo de 15 pt un texto de la entrada.
+
+## 2026-09-30 · Hoy: la carrera fijada es del atleta, no del coach; y toda fila de familia en Analíticas abre su detalle
+
+**Qué pasaba:** un atleta sin coach con carrera objetivo fijada no la veía en Hoy (`camino` solo se pintaba con `conCoach`), y en Analíticas las filas de Progreso (remo, ski...) solo eran pulsables si la lectura estaba `.medida`, así que con poco historial no había forma de entrar al seguimiento de la familia.
+
+**Decidido:**
+- La carrera fijada (`CaminoEstado.fijada`) se pinta con y sin coach; la fase sigue siendo del coach (sin coach no se inventa). La invitación a elegir carrera (`.sinObjetivo`) sigue siendo solo con coach y plan cargado: sin coach no hay «plan huérfano». Corrige la línea «ninguna pieza de coach» de la entrada de Hoy en Swift para el póster de carrera.
+- Toda fila de Progreso con familia soportada (`FamiliaDeDetalle`) abre su detalle, esté medida o no; el detalle ya sabe pintar su vacío.
+
+**No cambiado:** el copy «Todavía es pronto» (firmado, espejo en el doble).
 
 ## 2026-09-29 · Hoy en Swift: «El día» es la pestaña Inicio, una sola con y sin coach
 

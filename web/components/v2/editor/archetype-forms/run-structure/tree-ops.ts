@@ -12,6 +12,7 @@ import {
   type Segment,
   type SegmentTarget,
 } from '@fahybrid/shared/domain/prescription';
+import type { RunEnvironment } from '@fahybrid/shared/domain/prescription/run-structure';
 
 const MAX_REPEAT_DEPTH = 2;
 
@@ -86,11 +87,19 @@ export function setRepeatTimes(elements: Element[], path: number[], times: numbe
   return mapElementAt(elements, path, (el) => (isRepeat(el) ? { ...el, times } : el));
 }
 
-/** Remove an optional numeric field from a segment (clean omit, not `undefined`). */
+/** Los campos opcionales de un tramo que el coach puede quitar (se omiten, no quedan `undefined`). */
+export type OptionalSegmentField =
+  | 'incline_pct'
+  | 'cadence_spm'
+  | 'environment'
+  | 'cue'
+  | 'alert';
+
+/** Remove an optional field from a segment (clean omit, not `undefined`). */
 export function removeSegmentField(
   elements: Element[],
   path: number[],
-  field: 'incline_pct' | 'cadence_spm',
+  field: OptionalSegmentField,
 ): Element[] {
   return mapElementAt(elements, path, (el) => {
     if (isRepeat(el)) return el;
@@ -98,6 +107,47 @@ export function removeSegmentField(
     delete next[field];
     return next;
   });
+}
+
+// ── Campos del reloj de un tramo (entorno · aviso) ────────────────────────────
+// Reglas del modelo que el editor cumple POR CONSTRUCCIÓN, para que un toque
+// nunca componga un tramo que el servidor rechace (mismo Zod en shared):
+//   · la pista es plana → elegirla quita la inclinación;
+//   · un aviso necesita algo que medir en vivo → sin objetivo o con RPE se quita.
+
+/** ¿Tiene sentido un aviso con este objetivo? Ritmo, zona de ritmo o de pulso; no RPE ni libre. */
+export function alertApplies(target: SegmentTarget | null | undefined): boolean {
+  return !!target && target.type !== 'rpe';
+}
+
+/** Dónde se corre el tramo. `null` = sin decir (la muñeca asume calle). */
+export function withEnvironment(seg: Segment, environment: RunEnvironment | null): Segment {
+  const { environment: _prev, ...rest } = seg;
+  void _prev;
+  if (environment === null) return rest;
+  if (environment === 'pista') {
+    const { incline_pct: _incline, ...flat } = rest;
+    void _incline;
+    return { ...flat, environment };
+  }
+  return { ...rest, environment };
+}
+
+/** Cambia el objetivo del tramo y suelta el aviso si el objetivo nuevo ya no se puede medir. */
+export function withTarget(seg: Segment, target: SegmentTarget | null): Segment {
+  if (alertApplies(target)) return { ...seg, target };
+  const { alert: _alert, ...rest } = seg;
+  void _alert;
+  return { ...rest, target };
+}
+
+/** Aplica `fn` al tramo de `path` (un Repetir se deja tal cual). */
+export function mapSegmentAt(
+  elements: Element[],
+  path: number[],
+  fn: (seg: Segment) => Segment,
+): Element[] {
+  return mapElementAt(elements, path, (el) => (isRepeat(el) ? el : fn(el)));
 }
 
 export function removeAt(elements: Element[], path: number[]): Element[] {
@@ -167,7 +217,11 @@ export function toKind(seg: Segment, kind: Segment['kind']): Segment {
     // A recovery defaults to a standing rest (timed); keep the measure if it is a
     // duration, else switch to a 60″ rest so `parado` stays valid.
     const measure = seg.measure.type === 'duration' ? seg.measure : { type: 'duration' as const, s: 60 };
-    return { kind: 'recovery', measure, target: seg.target, recovery_mode: 'parado' };
+    const keep: Partial<Segment> = {};
+    if (seg.environment !== undefined) keep.environment = seg.environment;
+    if (seg.cue !== undefined) keep.cue = seg.cue;
+    if (seg.alert !== undefined) keep.alert = seg.alert;
+    return { kind: 'recovery', measure, target: seg.target, recovery_mode: 'parado', ...keep };
   }
   // → work: drop recovery_mode.
   const { recovery_mode: _rm, ...rest } = seg;

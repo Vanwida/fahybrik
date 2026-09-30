@@ -65,7 +65,7 @@ extension LecturaHoy {
             checkinPendiente: f.checkinPendiente,
             cargando: cargando,
             disposicion: LeerHoy.disposicion(f),
-            camino: f.conCoach ? LeerHoy.camino(f) : nil,
+            camino: LeerHoy.camino(f),
             simulacion: f.conCoach ? LeerHoy.simulacion(f) : nil,
             hoy: hoy,
             reclamos: LeerHoy.reclamos(f),
@@ -109,7 +109,7 @@ enum LeerHoy {
 
     static func disposicion(_ f: FuentesHoy) -> Disposicion {
         if let p = f.disposicion {
-            return .medida(score: p.score, delta7d: p.delta7d, senales: p.breakdown.map(senales) ?? [])
+            return .medida(score: p.score, zona: ReadinessZone.of(p), delta7d: p.delta7d, senales: p.breakdown.map(senales) ?? [])
         }
         guard f.disposicionCargada else { return .cargando }
         // Cargó y no hay cifra: el camino más rápido a una es el check-in; si no, lo que falta es Salud.
@@ -227,8 +227,9 @@ enum LeerHoy {
                 )
             ))
         }
-        // Plan cargado y sin objetivo fijado: el hueco es de quien puede llenarlo, se invita a elegir.
-        return f.planCargado ? .sinObjetivo : nil
+        // La carrera objetivo es del atleta, con o sin coach. La invitación a elegirla, en cambio, es del
+        // plan del coach: sin coach no hay «plan cargado» que la deje huérfana.
+        return f.planCargado && f.conCoach ? .sinObjetivo : nil
     }
 
     /// El objetivo de tiempo como techo, con la MISMA grafía que Carreras (`Formato.metaDeCarrera`):

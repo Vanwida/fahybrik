@@ -31,9 +31,9 @@ struct ReadinessDetailSheet: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showCheckin = false
 
-    private var zone: ReadinessZone { ReadinessZone.of(score: payload.score) }
+    private var zone: ReadinessZone { ReadinessZone.of(payload) }
     private var contributors: [Contributor] {
-        Contributor.all(from: payload.breakdown, checkinDone: checkinDone)
+        Contributor.all(from: payload.breakdown, bands: payload.bands, checkinDone: checkinDone)
     }
     private var trend: [ReadinessTrendPoint] { payload.trend ?? [] }
     private var ctaTitle: String {
@@ -535,13 +535,13 @@ private struct Contributor: Identifiable {
         }
     }
 
-    static func all(from breakdown: ReadinessBreakdown?, checkinDone: Bool) -> [Contributor] {
+    static func all(from breakdown: ReadinessBreakdown?, bands: ReadinessBands?, checkinDone: Bool) -> [Contributor] {
         let b = breakdown
         return [
             sleep(b),
             hrv(b),
             restingHR(b),
-            checkin(b, done: checkinDone),
+            checkin(b, bands: bands, done: checkinDone),
         ]
     }
 
@@ -635,7 +635,7 @@ private struct Contributor: Identifiable {
         )
     }
 
-    private static func checkin(_ b: ReadinessBreakdown?, done: Bool) -> Contributor {
+    private static func checkin(_ b: ReadinessBreakdown?, bands: ReadinessBands?, done: Bool) -> Contributor {
         let icon = "checklist", name = "Check-in"
         if done {
             let mood = moodLabel(b?.subScore)
@@ -644,7 +644,7 @@ private struct Contributor: Identifiable {
             // fracción ya era nil, así que la barra no se pintaba — pero el color sí
             // viajaba, y en cuanto alguien pinte la barra sin dato sale roja (§7).
             let barColor = b?.subScore
-                .map { ReadinessZone.of(score: Int($0.rounded())).color } ?? Theme.Color.muted
+                .map { ReadinessZone.of(score: Int($0.rounded()), bands: bands).color } ?? Theme.Color.muted
             return Contributor(
                 icon: icon, name: name, valueText: "\(mood) · hoy", referenceText: nil,
                 statusLabel: "Editar", statusColor: Theme.Color.muted,

@@ -69,7 +69,7 @@ export interface RunStructureSource {
  * (es responsabilidad de quien llama), así que sin esto un remo o una bici continuos
  * se convertirían en una "estructura de carrera" y viajarían al reloj como tal.
  */
-function isRunItem(item: { prescription_json?: Prescription | null; exercise_category?: string }): boolean {
+export function isRunItem(item: { prescription_json?: Prescription | null; exercise_category?: string }): boolean {
   const modality = item.prescription_json?.modality;
   if (modality) return modality === 'run';
   return item.exercise_category === 'running';

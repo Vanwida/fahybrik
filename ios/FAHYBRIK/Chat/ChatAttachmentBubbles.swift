@@ -1,71 +1,19 @@
 import SwiftUI
 import UIKit
 
-// Attachment bubbles rendered inside MessageRow, in BOTH directions (athlete =
-// Fabrik-orange fill, coach = card). Voice + image live here; video + file live
-// in ChatMediaBubbles.swift. `BubbleShape` (the asymmetric tail) is defined here
-// once and reused by the text bubble in ChatView.
-
-// MARK: - Shared bubble chrome
-
-/// Asymmetric bubble matching the handoff: the flattened (4pt) "tail" corner is
-/// the TOP corner on the speaker's side — received = top-leading, sent =
-/// top-trailing. All other corners 14pt. (Moved out of ChatView so every bubble
-/// kind shares one shape.)
-struct BubbleShape: Shape {
-    let isMe: Bool
-    func path(in rect: CGRect) -> Path {
-        let radius: CGFloat = 14
-        let small: CGFloat = 4
-        let topLeft     = isMe ? radius : small
-        let topRight    = isMe ? small  : radius
-        let bottomLeft  = radius
-        let bottomRight = radius
-        var p = Path()
-        p.move(to: CGPoint(x: rect.minX + topLeft, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.maxX - topRight, y: rect.minY))
-        p.addArc(center: CGPoint(x: rect.maxX - topRight, y: rect.minY + topRight),
-                 radius: topRight, startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - bottomRight))
-        p.addArc(center: CGPoint(x: rect.maxX - bottomRight, y: rect.maxY - bottomRight),
-                 radius: bottomRight, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
-        p.addLine(to: CGPoint(x: rect.minX + bottomLeft, y: rect.maxY))
-        p.addArc(center: CGPoint(x: rect.minX + bottomLeft, y: rect.maxY - bottomLeft),
-                 radius: bottomLeft, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.minY + topLeft))
-        p.addArc(center: CGPoint(x: rect.minX + topLeft, y: rect.minY + topLeft),
-                 radius: topLeft, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
-        p.closeSubpath()
-        return p
-    }
-}
-
-/// Applies the bubble fill (accent for me, surface + hairline for coach) and the
-/// asymmetric clip. Padded content kinds (voice / file) use this; media that
-/// fills edge-to-edge (image / video) clips the media itself instead.
-extension View {
-    func chatBubbleSurface(isMe: Bool) -> some View {
-        self
-            .background(isMe ? Theme.Color.accent : Theme.Color.surface)
-            .overlay {
-                if !isMe { BubbleShape(isMe: false).stroke(Theme.Color.hairlineStrong, lineWidth: 1) }
-            }
-            .clipShape(BubbleShape(isMe: isMe))
-    }
-}
+// Las burbujas de voz y de foto, en LAS DOS direcciones (atleta = acento del club, coach = superficie). El vídeo y el
+// archivo viven en `ChatMediaBubbles.swift`; la forma y la superficie que comparten todas, en `ChatBurbuja.swift`.
 
 // MARK: - Voice bubble (real playback)
 
 extension ChatAttachmentSource {
-    /// The same bytes, said in the words the shared player speaks. The chat
-    /// knows how to become a voice source; the player must not know about
-    /// attachments.
+    /// Los mismos bytes, dichos con las palabras del reproductor compartido. El chat sabe volverse una fuente de voz;
+    /// el reproductor no debe saber de adjuntos.
     var fuenteDeVoz: FuenteDeVoz { FuenteDeVoz(local: localURL, remota: remoteURL) }
 }
 
-/// The bubble is the chat's; the engine underneath (`ReproductorDeVoz`,
-/// `OndaDeVoz`, `OndaConProgreso`) is shared with any other surface that carries
-/// the coach's voice — today the published communication.
+/// La burbuja es del chat; el motor de debajo (`ReproductorDeVoz`, `OndaDeVoz`, `OndaConProgreso`) es compartido con
+/// cualquier otra pantalla que lleve la voz del coach — hoy, el comunicado publicado.
 struct ChatVoiceBubble: View {
     let isMe: Bool
     let source: ChatAttachmentSource
@@ -73,47 +21,53 @@ struct ChatVoiceBubble: View {
     let bearer: String?
     @StateObject private var player = ReproductorDeVoz()
 
-    private var glyphColor: Color { isMe ? Theme.Color.accentOn : Theme.Color.accentText }
-    private var barColor: Color { isMe ? Theme.Color.accentOn : Theme.Color.foreground }
-    private var mutedBar: Color { (isMe ? Theme.Color.accentOn : Theme.Color.muted).opacity(0.45) }
+    private var tintaDelGlifo: Color { isMe ? Theme.Color.accentOn : Theme.Color.accentText }
+    private var tintaDeLaOnda: Color { isMe ? Theme.Color.accentOn : Theme.Color.foreground }
+    /// Lo que aún no ha sonado, atenuado hacia el fondo de la burbuja.
+    private var tintaPorSonar: Color { (isMe ? Theme.Color.accentOn : Theme.Color.muted).opacity(0.45) }
 
-    private var durationLabel: String {
+    private var duracion: String {
         Formato.clock(player.duracionReal ?? metaDuration ?? 0)
     }
 
     var body: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: Theme.Spacing.s) {
             Button { player.alternar(fuente: source.fuenteDeVoz, bearer: bearer) } label: {
                 Group {
                     if player.cargando {
-                        ProgressView().tint(glyphColor).scaleEffect(0.8)
+                        ProgressView().tint(tintaDelGlifo)
+                    } else if player.fallo {
+                        IconoChat(.alertaRellena, tam: 20, peso: .bold)
+                    } else if player.sonando {
+                        IconoChat(.pausa, tam: 20, peso: .bold)
                     } else {
-                        Image(systemName: player.fallo ? "exclamationmark.triangle.fill"
-                                          : (player.sonando ? "pause.fill" : "play.fill"))
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(glyphColor)
+                        IconoChat(.play, tam: 20, peso: .bold)
                     }
                 }
-                .frame(width: 22, height: 22)
+                .foregroundStyle(tintaDelGlifo)
+                .frame(width: Theme.Size.toque, height: Theme.Size.toque)
+                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressScaleStyle(escala: 0.92))
             .accessibilityLabel(player.sonando ? "Pausar nota de voz" : "Reproducir nota de voz")
 
             OndaConProgreso(barras: OndaDeVoz.barras(semilla: source.fuenteDeVoz.semilla),
                             avance: player.avance,
-                            sonada: barColor, porSonar: mutedBar)
-                .frame(width: 108, height: 20)
+                            sonada: tintaDeLaOnda, porSonar: tintaPorSonar)
+                .frame(width: 108, height: 24)
 
-            Text(durationLabel)
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(isMe ? Theme.Color.accentOn : Theme.Color.muted)
+            Text(duracion)
+                .papel(.notaFuerte)
                 .monospacedDigit()
+                .foregroundStyle(isMe ? Theme.Color.accentOn : Theme.Color.muted)
         }
-        .padding(.horizontal, 13)
-        .padding(.vertical, 10)
-        .chatBubbleSurface(isMe: isMe)
+        .padding(.leading, Theme.Spacing.xs)
+        .padding(.trailing, MedidasChat.aireHorizontalBurbuja)
+        .burbujaChat(mia: isMe)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Nota de voz, \(durationLabel)")
+        .accessibilityLabel("Nota de voz, \(duracion)")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { player.alternar(fuente: source.fuenteDeVoz, bearer: bearer) }
     }
 }
 
@@ -122,27 +76,23 @@ struct ChatVoiceBubble: View {
 struct ChatImageBubble: View {
     let isMe: Bool
     let source: ChatAttachmentSource
-    let aspect: Double?          // w/h from meta, reserves space before load
+    let aspect: Double?          // ancho/alto de los metadatos: reserva el hueco antes de cargar
     let bearer: String?
 
     @State private var image: UIImage?
     @State private var failed = false
     @State private var showViewer = false
 
-    // Bubble sizing bounds.
-    private let maxW: CGFloat = 240
-    private let maxH: CGFloat = 320
-
     private var displaySize: CGSize {
         let ratio: CGFloat = image.map { $0.size.width / max(1, $0.size.height) }
             ?? aspect.map { CGFloat($0) } ?? 1
-        if ratio >= 1 {                        // landscape / square
-            let w = maxW
-            let h = min(maxH, w / ratio)
+        if ratio >= 1 {                        // apaisada / cuadrada
+            let w = MedidasChat.fotoMaxAncho
+            let h = min(MedidasChat.fotoMaxAlto, w / ratio)
             return CGSize(width: w, height: h)
-        } else {                               // portrait
-            let h = maxH
-            let w = min(maxW, h * ratio)
+        } else {                               // vertical
+            let h = MedidasChat.fotoMaxAlto
+            let w = min(MedidasChat.fotoMaxAncho, h * ratio)
             return CGSize(width: w, height: h)
         }
     }
@@ -156,35 +106,34 @@ struct ChatImageBubble: View {
                         .scaledToFill()
                         .frame(width: displaySize.width, height: displaySize.height)
                         .clipped()
-                } else {
+                } else if failed {
                     Rectangle()
                         .fill(Theme.Color.surfaceSunken)
                         .frame(width: displaySize.width, height: displaySize.height)
                         .overlay {
-                            if failed {
-                                Image(systemName: "photo.badge.exclamationmark")
-                                    .font(.system(size: 22)).foregroundStyle(Theme.Color.muted)
-                            } else {
-                                ProgressView().tint(Theme.Color.muted)
-                            }
+                            IconoChat(.fotoRota, tam: 28, peso: .regular)
+                                .foregroundStyle(Theme.Color.muted)
                         }
+                } else {
+                    // Cargando: el esqueleto con la MISMA forma que la foto que llega.
+                    SkeletonBar(width: displaySize.width, height: displaySize.height, radius: 0)
                 }
             }
-            .clipShape(BubbleShape(isMe: isMe))
-            .overlay { BubbleShape(isMe: isMe).stroke(Theme.Color.hairline, lineWidth: 1) }
+            .clipShape(FormaBurbujaChat(mia: isMe))
+            .overlay { FormaBurbujaChat(mia: isMe).stroke(Theme.Color.hairline, lineWidth: 1) }
         }
         .buttonStyle(.plain)
         .task(id: taskKey) { await load() }
         .fullScreenCover(isPresented: $showViewer) {
             if let image { ChatImageViewer(image: image) }
         }
-        .accessibilityLabel("Foto. Toca para ampliar.")
+        .accessibilityLabel(failed ? "Foto. No se pudo cargar." : "Foto. Toca para ampliar.")
     }
 
     private var taskKey: String { source.remoteURL ?? source.localURL?.absoluteString ?? "" }
 
-    // @MainActor: the heavy decode runs off-main (Task.detached / the loader
-    // actor), but the @State assignment resumes here on the main actor.
+    // @MainActor: la decodificación pesada corre fuera del hilo principal (Task.detached / el actor del loader), pero
+    // la asignación al @State se reanuda aquí.
     @MainActor
     private func load() async {
         failed = false
@@ -199,13 +148,18 @@ struct ChatImageBubble: View {
     }
 }
 
-/// Full-screen, zoomable image viewer (pinch + drag, double-tap to reset).
+/// Visor a pantalla completa con zoom (pellizco y arrastre; doble toque para restablecer).
 struct ChatImageViewer: View {
     let image: UIImage
     @Environment(\.dismiss) private var dismiss
     @State private var scale: CGFloat = 1
     @State private var offset: CGSize = .zero
     @GestureState private var pinch: CGFloat = 1
+
+    /// Lo más que se amplía una foto con el pellizco.
+    private static let zoomMaximo: CGFloat = 4
+    /// A cuánto salta el doble toque.
+    private static let zoomDelDobleToque: CGFloat = 2.5
 
     var body: some View {
         ZStack {
@@ -218,7 +172,7 @@ struct ChatImageViewer: View {
                 .gesture(
                     MagnificationGesture()
                         .updating($pinch) { v, s, _ in s = v }
-                        .onEnded { v in scale = max(1, min(4, scale * v)) }
+                        .onEnded { v in scale = max(1, min(Self.zoomMaximo, scale * v)) }
                 )
                 .gesture(
                     DragGesture()
@@ -226,26 +180,36 @@ struct ChatImageViewer: View {
                         .onEnded { _ in if scale <= 1 { withAnimation(.spring) { offset = .zero } } }
                 )
                 .onTapGesture(count: 2) {
-                    withAnimation(.spring) { scale = scale > 1 ? 1 : 2.5; offset = .zero }
+                    withAnimation(.spring) { scale = scale > 1 ? 1 : Self.zoomDelDobleToque; offset = .zero }
                 }
+                .accessibilityLabel("Foto ampliada")
             VStack {
                 HStack {
                     Spacer()
-                    Button { Haptics.light(); dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 40, height: 40)
-                            .background(.black.opacity(0.4))
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Cerrar")
+                    BotonCierreSobreMedio(alCerrar: { dismiss() })
                 }
                 Spacer()
             }
-            .padding(16)
+            .padding(Theme.Spacing.s)
         }
         .statusBarHidden()
+    }
+}
+
+/// El cierre de un visor de medios (foto, vídeo): una ✕ de 48 pt sobre un disco oscuro, que se lee sea cual sea la
+/// foto que hay debajo.
+struct BotonCierreSobreMedio: View {
+    let alCerrar: () -> Void
+
+    var body: some View {
+        Button { Haptics.light(); alCerrar() } label: {
+            IconoDia(.cerrar, tam: 18, peso: .bold)
+                .foregroundStyle(.white)
+                .frame(width: Theme.Size.toque, height: Theme.Size.toque)
+                .background(Color.black.opacity(MedidasChat.opacidadDelDiscoSobreMedio), in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(PressScaleStyle(escala: 0.92))
+        .accessibilityLabel("Cerrar")
     }
 }
