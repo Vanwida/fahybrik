@@ -31,6 +31,8 @@ extension Theme.Size {
     static let toque: CGFloat = 48
     /// Alto de la pastilla de acción del sujeto: se toca con una mano, sudando.
     static let accion: CGFloat = 52
+    /// Alto de la acción que ancla una pantalla o cierra una hoja, a todo el ancho: un punto más que la del sujeto.
+    static let accionAnclada: CGFloat = 56
     /// Alto mínimo de una tesela de dato: cabe el peor caso (un dato de 32, un pie de dos líneas y su cabecera).
     static let tesela: CGFloat = 128
 }
@@ -49,6 +51,13 @@ extension Theme.Typography {
 // MARK: - Color: el tinte del acento del club y la mezcla sobre superficie
 
 extension Theme.Color {
+
+    /// El color de un texto de acción destructiva. El rojo de estado sobre la superficie elevada da 4,5:1, justo por
+    /// debajo de AA; mezclado un poco con la tinta del tema (un token sobre un token, nunca un hex) pasa con holgura
+    /// en los dos temas y sigue leyéndose rojo.
+    static var peligroTexto: SwiftUI.Color {
+        tinte(danger, 0.72, sobre: foreground)
+    }
 
     /// Alfa del tinte suave cuando NO hay club: el que el servidor manda para el lienzo
     /// oscuro (`SOFT_ALPHA_DARK` en `shared/domain/coach/club-accent.ts`). Un atleta sin

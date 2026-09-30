@@ -33,6 +33,35 @@ enum GlifoDia: String, CaseIterable {
     case silueta    = "person.fill"
     case lapiz      = "pencil"
     case puntos     = "ellipsis"
+    case atras      = "chevron.left"
+    case play       = "play.fill"
+    case compartir  = "square.and.arrow.up"
+    case ciclo      = "square.stack.3d.up"
+    case candado    = "lock"
+    case bandera    = "flag"
+    case estrella   = "star"
+    case enlace     = "link"
+    case papelera   = "trash"
+    case alerta     = "exclamationmark.triangle"
+    /// Dos personas: un equipo, una pareja de Dobles.
+    case equipo     = "person.2"
+    case sinPersona = "person.crop.circle.badge.xmark"
+    /// «Con {coach}».
+    case coach      = "person.fill.checkmark"
+    /// La identidad del atleta: su perfil.
+    case perfil     = "person.crop.circle"
+    case invitar    = "person.badge.plus"
+    /// Entrenar: una mancuerna.
+    case mancuerna  = "dumbbell"
+    case reloj      = "applewatch"
+    /// Cuenta: tres controles deslizantes.
+    case ajustes    = "slider.horizontal.3"
+    /// Privacidad: un escudo con cerradura.
+    case escudo     = "lock.shield"
+    case ayuda      = "questionmark.circle"
+    case tarjeta    = "creditcard"
+    /// El pulso: una actividad nueva del reloj.
+    case pulso      = "waveform.path.ecg"
 
     /// El nombre del SF Symbol.
     var simbolo: String { rawValue }

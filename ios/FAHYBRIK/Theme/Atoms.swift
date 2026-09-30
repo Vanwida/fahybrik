@@ -393,14 +393,36 @@ struct InfoPill: View {
         case solido
         /// Sobre un sujeto del acento (`TonoDia.accion`): la tinta de la marca de fondo y el acento de texto.
         case sobreAccion
-        /// Un velo de la tinta del tema: un contador («3 cosas»).
+        /// Un velo de la tinta del tema: un contador («3 cosas»), un rol sin peso.
         case velo
+        /// Una etiqueta que se lee suelta o se elige (un grupo de entreno): cara elevada con contorno.
+        case superficie
+        /// Tinta invertida (fondo = la tinta del tema, texto = el fondo del tema): el dato que tiene que destacar
+        /// sobre un tinte («Faltan 4 días»).
+        case tinta
+        /// Un dato DENTRO de un sujeto (la franja, «Libre», «Test», la duración). Lee el tono del sujeto en que
+        /// está: sobre el bloque del acento va transparente con la tinta de la marca (un velo del color del tema
+        /// no se leería sobre el acento); en los demás tonos, un velo de la tinta con su contorno.
+        case dato
+        /// El estado de una sesión dentro de un sujeto que NO es de acción (sobre el de acción va `.sobreAccion`):
+        /// un velo de la tinta, sin contorno, con su sello delante.
+        case estado
     }
 
     let text: String
     var estilo: Estilo = .neutro
     /// Un glifo delante del texto.
     var glifo: GlifoDia? = nil
+    /// Cuánto mide el glifo. 16 pt es el de todas; la diana de «objetivo principal» es más pequeña (14).
+    var tamGlifo: CGFloat = 16
+    /// El sello de cómo va una sesión (hecha, a medias…), delante de todo.
+    var sello: SelloEstadoDia.Estado? = nil
+    /// Una cifra pesa más que una razón («Dura lo que tardes» no es un dato).
+    var enfasis = false
+
+    @Environment(\.tonoDia) private var tono
+
+    private var sobreAccion: Bool { tono == .accion }
 
     private var tinta: SwiftUI.Color {
         switch estilo {
@@ -410,7 +432,9 @@ struct InfoPill: View {
         case .acento:      return Theme.Color.foreground
         case .solido:      return Theme.Color.accentOn
         case .sobreAccion: return Theme.Color.accent
-        case .velo:        return Theme.Color.foreground
+        case .velo, .superficie, .estado: return Theme.Color.foreground
+        case .tinta:       return Theme.Color.background
+        case .dato:        return sobreAccion ? Theme.Color.accentOn : Theme.Color.foreground
         }
     }
 
@@ -421,22 +445,28 @@ struct InfoPill: View {
         case .solido:      return Theme.Color.accent
         case .sobreAccion: return Theme.Color.accentOn
         case .velo:        return Theme.Color.foreground.opacity(0.08)
+        case .superficie:  return Theme.Color.surfaceElevated
+        case .tinta:       return Theme.Color.foreground
+        case .dato:        return sobreAccion ? .clear : Theme.Color.foreground.opacity(0.07)
+        case .estado:      return Theme.Color.foreground.opacity(0.09)
         }
     }
 
     private var borde: SwiftUI.Color {
         switch estilo {
-        case .neutro:                     return Theme.Color.hairlineStrong
-        case .acento:                     return Theme.Color.accentTintBorde
-        case .solido, .sobreAccion, .velo: return .clear
+        case .neutro, .superficie:            return Theme.Color.hairlineStrong
+        case .acento:                         return Theme.Color.accentTintBorde
+        case .solido, .sobreAccion, .velo, .estado, .tinta: return .clear
+        case .dato:                           return sobreAccion ? Theme.Color.accentOn.opacity(0.55) : Theme.Color.foreground.opacity(0.18)
         }
     }
 
     var body: some View {
         HStack(spacing: Theme.Spacing.xs + 2) {
-            if let glifo { IconoDia(glifo, tam: 14, peso: .bold) }
+            if let sello { SelloEstadoDia(estado: sello, tam: 18) }
+            if let glifo { IconoDia(glifo, tam: tamGlifo, peso: .semibold) }
             Text(text)
-                .papel(.rotulo)
+                .papel(enfasis ? .notaPesada : .rotulo)
                 // Una pastilla ENSEÑA un dato: cortada con «…» ya no lo enseña. Si no cabe, baja de línea.
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -444,7 +474,7 @@ struct InfoPill: View {
         .padding(.horizontal, Theme.Spacing.m)
         .frame(minHeight: 32)
         .background(fondo, in: Capsule())
-        .overlay(Capsule().stroke(borde, lineWidth: 1))
+        .overlay(Capsule().strokeBorder(borde, lineWidth: 1))
     }
 }
 
@@ -611,8 +641,12 @@ struct SectionLabel: View {
 
 // MARK: - Hairline divider helper
 struct Hairline: View {
+    /// El filete que separa lo que va más en serio (la cabecera de una tabla, el borde de una superficie):
+    /// `hairlineStrong` en vez de `hairline`.
+    var fuerte = false
+
     var body: some View {
-        Rectangle().fill(Theme.Color.hairline).frame(height: 1)
+        Rectangle().fill(fuerte ? Theme.Color.hairlineStrong : Theme.Color.hairline).frame(height: 1)
     }
 }
 

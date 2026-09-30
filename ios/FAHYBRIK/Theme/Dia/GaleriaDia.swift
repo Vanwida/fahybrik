@@ -29,8 +29,10 @@ enum GaleriaDia {
             case .cuerpo:       return "Empieza por tus tests: así afina lo que viene."
             case .cuerpoFuerte: return "Tienes un entreno a medias"
             case .accion:       return "Ver en el Plan"
+            case .subtitulo:    return "Elige tu objetivo"
             case .seccion:      return "Contigo"
             case .saludo:       return "Buenos días, Nora"
+            case .cifra:        return "4:12"
             case .dato:         return "4:12/km"
             case .sujeto:       return "Series 6×800"
             case .cuentaHoy:    return "Hoy"
@@ -205,18 +207,13 @@ enum GaleriaDia {
                 }
                 VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                     TituloSeccionDia("Contigo") { InfoPill(text: "2 cosas", estilo: .velo) }
-                    VStack(spacing: 0) {
+                    ListaDia {
                         filaContigo(FichaDia(.pausa, tono: .realce), "Tienes un entreno a medias", "Series 6×800 · desde las 9:40",
                                     realce: true) { InfoPill(text: "Retomar", estilo: .solido) }
-                        Hairline()
                         filaContigo(FichaDia(.cronometro), "Tus tests", "2 de 4 hechos", realce: false) {
                             RegletaDia(n: 2, de: 4, anchoSegmento: 14)
                         }
                     }
-                    .background(Theme.Color.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous)
-                        .strokeBorder(Theme.Color.hairline, lineWidth: 1))
                 }
             }
         }
@@ -287,6 +284,37 @@ enum GaleriaDia {
                     RegletaDia(n: 3, de: 8)
                     RegletaDia(n: 0, de: 4)
                     RegletaDia(n: 9, de: 24)
+                }
+            }
+        }
+    }
+
+    // MARK: - La tarjeta y la lista
+
+    /// La cara plana en sus dos versiones (normal y con realce del acento) y la lista de filas dentro de una.
+    struct Tarjetas: View {
+        var body: some View {
+            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Tarjeta").papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+                    Text("Superficie, filete y radio 22.").papel(.nota).foregroundStyle(Theme.Color.muted)
+                }
+                .padding(18)
+                .tarjetaDia(alAncho: true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Tarjeta con realce").papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+                    Text("Lo que pide un acto: el tinte del club.").papel(.nota).foregroundStyle(Theme.Color.foreground)
+                }
+                .padding(18)
+                .tarjetaDia(realce: true, alAncho: true)
+                ListaDia {
+                    ForEach(["Primera fila", "Segunda fila", "Tercera fila"], id: \.self) { titulo in
+                        Text(titulo)
+                            .papel(.cuerpoFuerte)
+                            .foregroundStyle(Theme.Color.foreground)
+                            .padding(.horizontal, Theme.Spacing.l)
+                            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                    }
                 }
             }
         }

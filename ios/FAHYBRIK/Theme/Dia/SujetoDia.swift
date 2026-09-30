@@ -202,20 +202,72 @@ extension KickerDia where Aparte == EmptyView {
     }
 }
 
-/// El título del sujeto: display de marca, pesado e inclinado (herencia del logotipo).
-struct TituloDia: View {
-    let texto: String
-    @Environment(\.tonoDia) private var tono
+/// El título del sujeto baja un escalón en vez de partirse en cinco líneas: 44 · 36 · 30 según lo largo que es. El
+/// más pequeño sigue siendo el sujeto: manda sobre todo lo demás.
+enum EscalonDeTitulo: CGFloat {
+    case grande = 44
+    case medio = 36
+    case chico = 30
 
-    init(_ texto: String) { self.texto = texto }
+    init(titulo: String) {
+        switch titulo.count {
+        case ...24: self = .grande
+        case ...40: self = .medio
+        default:    self = .chico
+        }
+    }
+}
+
+/// El título del sujeto: display de marca, pesado e inclinado (herencia del logotipo). Un título largo no se
+/// parte en cinco líneas: cada pantalla dice CÓMO se ajusta (`Ajuste`), y en todos los casos crece con el texto
+/// del sistema, no baja de su medida base y no pasa de ×1,3 (los papeles grandes).
+struct TituloDia: View {
+    enum Ajuste: Equatable {
+        /// El título entero a 44 pt: el de una frase corta («Series 6×800»). Un título de VARIAS palabras se parte entre
+        /// palabras; una palabra SOLA («Construyendo», que la pone el coach y puede ser larga) no se parte por la
+        /// mitad: se encoge hasta caber en una línea, hasta la mitad de su tamaño.
+        case libre
+        /// Baja de escalón según lo largo que es (`EscalonDeTitulo`: 44 · 36 · 30) y llega a tres líneas.
+        case escalones
+        /// Un NOMBRE que no admite recortarse: dos líneas y, si no caben, más pequeño hasta `minimo` de su tamaño
+        /// (44 → ~31 pt: a partir de ahí ya no es el sujeto de la pantalla). Con el texto del sistema en tamaños de
+        /// accesibilidad pasa a lo que haga falta: cortado con «…» ya no es el nombre de nadie.
+        case reduce(minimo: CGFloat = 0.7)
+    }
+
+    let texto: String
+    var ajuste: Ajuste
+    @Environment(\.tonoDia) private var tono
+    @Environment(\.dynamicTypeSize) private var tamanoDeTexto
+
+    /// Hasta dónde se encoge una palabra sola: por debajo de la mitad del sujeto ya no manda sobre lo demás.
+    private static let escalaMinimaDeUnaPalabra: CGFloat = 0.5
+
+    init(_ texto: String, ajuste: Ajuste = .libre) {
+        self.texto = texto
+        self.ajuste = ajuste
+    }
 
     var body: some View {
-        Text(texto)
-            .papel(.sujeto)
-            .foregroundStyle(tono.papeles.tinta)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityAddTraits(.isHeader)
+        Group {
+            switch ajuste {
+            case .libre:
+                let unaPalabra = !texto.contains(" ")
+                Text(texto).papel(.sujeto)
+                    .lineLimit(unaPalabra ? 1 : nil)
+                    .minimumScaleFactor(unaPalabra ? Self.escalaMinimaDeUnaPalabra : 1)
+            case .escalones:
+                Text(texto).papel(.sujeto, tamano: EscalonDeTitulo(titulo: texto).rawValue).lineLimit(3)
+            case .reduce(let minimo):
+                Text(texto).papel(.sujeto)
+                    .lineLimit(tamanoDeTexto.isAccessibilitySize ? nil : 2)
+                    .minimumScaleFactor(minimo)
+            }
+        }
+        .foregroundStyle(tono.papeles.tinta)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 
