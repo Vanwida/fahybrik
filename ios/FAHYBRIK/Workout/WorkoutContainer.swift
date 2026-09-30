@@ -177,6 +177,7 @@ struct WorkoutContainer: View {
 
     var body: some View {
         conCubiertas
+        .viajeDelEntreno()
         .task {
             activeFreeContext = freeContext
             await arranque()

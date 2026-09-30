@@ -13,6 +13,9 @@ import SwiftUI
 // sesión aparcada en memoria, nunca el disco: la verdad es el motor vivo.
 struct LiveWorkoutMiniBar: View {
     let parked: RecoveredLiveCover
+    /// Qué pasa al tocarla. Sin él, reabre el vivo aparcado; `AppShell` lo pasa para abrirlo desde su propio
+    /// estado (la vista de origen del viaje tiene que ser quien cambia el estado de la presentación).
+    var alTocar: () -> Void = { LiveWorkoutResume.shared.presentParkedCoverIfNeeded() }
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
 
     var body: some View {
@@ -21,7 +24,7 @@ struct LiveWorkoutMiniBar: View {
         let detail = Self.detail(for: session)
         Button {
             Haptics.medium()
-            LiveWorkoutResume.shared.presentParkedCoverIfNeeded()
+            alTocar()
         } label: {
             HStack(spacing: 12) {
                 statusGlyph(paused: session.isPaused)
@@ -78,11 +81,17 @@ extension View {
     /// La barra del entreno minimizado sobre las pestañas. iOS 26.0 no puede
     /// esconder el accesorio (saldría una cápsula vacía): ahí la vuelta la da
     /// `WorkoutResumeBanner`, que pinta esta misma barra dentro de Inicio y Plan.
+    ///
+    /// Es el ORIGEN del viaje (`LiveWorkoutViaje`): el vivo se abre desde ella y se encoge hasta ella. Su
+    /// forma de origen es la cápsula de la barra.
     @ViewBuilder
-    func liveWorkoutAccessory(_ parked: RecoveredLiveCover?) -> some View {
+    func liveWorkoutAccessory(_ barra: RecoveredLiveCover?, espacio: Namespace.ID, alTocar: @escaping () -> Void) -> some View {
         if #available(iOS 26.1, *) {
-            tabViewBottomAccessory(isEnabled: parked != nil) {
-                if let parked { LiveWorkoutMiniBar(parked: parked) }
+            tabViewBottomAccessory(isEnabled: barra != nil) {
+                if let barra {
+                    LiveWorkoutMiniBar(parked: barra, alTocar: alTocar)
+                        .matchedTransitionSource(id: LiveWorkoutViaje.id, in: espacio) { $0.clipShape(RoundedRectangle(cornerRadius: LiveWorkoutViaje.radioDeLaBarra, style: .continuous)) }
+                }
             }
         } else {
             self

@@ -22,6 +22,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-30 · Minimizar y reabrir el entreno es un viaje (zoom barra ⇄ vivo), no un deslizamiento
+
+**Qué pasaba:** al minimizar, el vivo se deslizaba hacia abajo como cualquier cubierta y, a la vez, aparecía la barra del sistema: dos movimientos sin relación. Al reabrir, igual al revés.
+
+**Decidido:** el vivo se encoge hasta la cápsula de la barra y crece desde ella (`matchedTransitionSource` en la barra + `navigationTransition(.zoom)` en la raíz de `WorkoutContainer`; `LiveWorkoutViaje.swift`). El sistema lo cambia por un fundido con «Reducir movimiento». El cronómetro y el paso no «viajan» como piezas sueltas: el zoom hace crecer/encoger la pantalla, no casa sus subvistas. La barra sigue puesta mientras el vivo está delante (`LiveWorkoutResume.barra`), y el vivo reabierto o recuperado se presenta desde un `@State` de `AppShell` (`entrenoAbierto`) sincronizado con `liveResume.cover`.
+
+**Por qué ese diseño:** Apple documenta para iOS 26 fallos del zoom con `tabViewBottomAccessory` cuando el estado de la presentación lo cambia un objeto observable en vez de un `@State` de la vista de origen; de ahí el `@State` y que la barra sea quien lo cambia.
+
+**No verificado (hace falta aparato, iOS 26.1+):** que el zoom se vea limpio en los dos sentidos. Un vivo que se abre de cero no tiene barra de la que salir y el sistema lo abre con un zoom sin origen. En iOS 26.0 no hay barra de sistema: sin viaje. Si en aparato falla, se vuelve a la cubierta normal quitando `.viajeDelEntreno()`, no se apila otra animación encima.
+
 ## 2026-09-30 · El vivo del iPhone es UNO: se borra el shell antiguo, su bandera y los HUD que solo él montaba
 
 **El encargo:** desde el 29-09 `VivoIphoneView` era el vivo por defecto y el shell antiguo (`RunLiveShellView`) quedaba «de vuelta atrás» detrás de `VivoIphoneBandera`. Mantener dos vivos es la deuda que el vivo nuevo vino a quitar: cualquier arreglo de dobles, pausa o salida había que pensarlo dos veces.

@@ -237,6 +237,7 @@
 		25E676238E09D7D946E911D5 /* WorkoutTraceRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67D58C5224DD22B110BED47F /* WorkoutTraceRecorder.swift */; };
 		26479B87812877638C334B8C /* PreviewDia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C0081313AA3A68CE58574EA /* PreviewDia.swift */; };
 		265692D9C6031D4DD0D30A6D /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8A1308F2D64ED7272E7D7AD /* SubscriptionService.swift */; };
+		26EFE31F821F721F3C894B6B /* LiveWorkoutViaje.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB15989D985BB37048149AE9 /* LiveWorkoutViaje.swift */; };
 		2707BEC35A834E3AEC898CD9 /* WatchSessionPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C778C43318764D0EC68B6012 /* WatchSessionPlanTests.swift */; };
 		27657F8584B65F19BBB72F49 /* SegmentoDia.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF41882BE07C512137610808 /* SegmentoDia.swift */; };
 		27AA220AFE014799B02D7E80 /* AssignmentDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33FEA2FA921AC55E3FFFC89F /* AssignmentDetail.swift */; };
@@ -2389,6 +2390,7 @@
 		CAC848B6B8A9A0FA977AE3B3 /* AnaliticasCuerpoDeErgo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnaliticasCuerpoDeErgo.swift; sourceTree = "<group>"; };
 		CAD8AE716E7330D8587FAA76 /* LifecycleSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifecycleSheets.swift; sourceTree = "<group>"; };
 		CB0B8F4DC27F2075BCF54F07 /* TotalesDeSesion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TotalesDeSesion.swift; sourceTree = "<group>"; };
+		CB15989D985BB37048149AE9 /* LiveWorkoutViaje.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveWorkoutViaje.swift; sourceTree = "<group>"; };
 		CB2C2734A579C7C24E28E740 /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
 		CB522F595B39E265CEFDD82A /* EjemplosDeHojas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EjemplosDeHojas.swift; sourceTree = "<group>"; };
 		CB5B574D594B8F0F393D6599 /* AnaliticasRecorridoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnaliticasRecorridoTests.swift; sourceTree = "<group>"; };
@@ -2912,6 +2914,7 @@
 				668F65DE3E87F37EB2CB11A9 /* LiveWorkoutLaunchConflict.swift */,
 				524E7FBB143708F5152DDBAD /* LiveWorkoutMiniBar.swift */,
 				9CF68730D8E80FDDCD198170 /* LiveWorkoutResume.swift */,
+				CB15989D985BB37048149AE9 /* LiveWorkoutViaje.swift */,
 				3DD376C30CA30426DD0BCF6A /* PhoneLiveSession.swift */,
 				767F15D6E0148DBD10944436 /* PhoneMirrorCommandRelay.swift */,
 				204E4C31803A7F6A4C08364A /* PhoneMirrorFrameBuilder.swift */,
@@ -5592,6 +5595,7 @@
 				A943770486543CD372460D2D /* LiveWorkoutLaunchConflict.swift in Sources */,
 				FC3055CFFBA8C7EDE43059DA /* LiveWorkoutMiniBar.swift in Sources */,
 				A194F6A4F2F9CBAE489977ED /* LiveWorkoutResume.swift in Sources */,
+				26EFE31F821F721F3C894B6B /* LiveWorkoutViaje.swift in Sources */,
 				06CD37DABA93D8076B2137B5 /* MachineTramoLaw.swift in Sources */,
 				8D4F2F670EE3C60304B31C52 /* Marca.swift in Sources */,
 				E2276D5A21C33232EDD2320E /* MarcaDetalleCuerpo.swift in Sources */,
