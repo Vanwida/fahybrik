@@ -2,15 +2,11 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-30** (editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin)
+Última actualización: **2026-09-30** (las cinco pestañas y sus secundarias en iPhone; vivo único; editor de correr; reloj; Garmin)
 
 ## Ahora
 
 **EDITOR DE CORRER · ENTORNO, AVISO Y FRASE PARA EL RELOJ (30-09, worktree `agent-a1e4bc45135113ff8`, sin fusionar; DECISIONS 30-09).** El coach ya edita por tramo dónde se corre (calle, cinta con inclinación, pista), hacia dónde avisa (defecto = su método) y una frase de 80 caracteres. Guardado probado contra rama Neon. Falta: firma de Alex del layout, y el reloj aplicando `alert`.
-
-**iPhone · LO QUE CUELGA DE PERFIL, CON «EL DÍA» (30-09, rama `worktree-agent-a5bfe54dff1049a3f`, sin fusionar; DECISIONS 30-09).** Cascarón `PantallaPerfil` (`Profile/Secundarias/`) y todas las pantallas secundarias de Perfil rehechas (puertas, cifras, hojas, dispositivos, molestias, suscripción, pareja). Falta probarlo en aparato.
-
-**iPhone · CARRERA EN HOY Y FILAS DE ANALÍTICAS (30-09, main, pendiente de build).** Sin coach la carrera fijada no se pintaba en Hoy; y remo/ski sin historial completo no abrían su detalle desde Progreso. Arreglado (DECISIONS 30-09). Falta verlo en aparato.
 
 **FIX GUARDADO 500 (29-09, sin desplegar):** un tramo `run` de 0 m en el historial (atleta 64) partía por cero en `running-prs.ts` y tumbaba TODO guardado suyo; arreglado + savepoint en `detectPrs`. Tras deploy la cola de la app lo reintenta sola.
 
@@ -18,27 +14,16 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 el reloj ni lo decía. Ahora siempre lanza sin preguntar (fuera «Preparar grabación» y «Continuar sin reloj»), deja rastro (`start_watch_app_skipped`), relanza 1 vez
 por alcance si Apple dio error y muestra el estado real (chip). Falta aparato con reloj.
 
-**LAS PESTAÑAS, CON EL DISEÑO DE «HOY · EL DÍA» (29-09, doble, main).** Alex firmó «El día» para Hoy (DECISIONS 29-09; «El pulso» descartado). En curso: Plan, Carreras y Perfil en el mismo diseño (`/design/pestanas`, kit `kit-dia`); luego las cuatro a Swift (lo instala Alex). Analíticas sigue con su diseño firmado (¿unificar la piel? pendiente de Alex).
-  **Swift: cimientos del kit hechos** (`worktree-agent-abcdb3996c0f86677`, `Theme/Dia/` + CONTRATO-UI §11; DECISIONS 29-09). **Hoy portado** (`worktree-agent-a1d67169bd0090249`, DECISIONS 29-09 «Hoy en Swift»): una sola Inicio con y sin coach, `Today/Hoy/`; falta integrar y probar en aparato. **Consolidación del kit (30-09, rama `worktree-agent-aacc3b27d54945681`, sin fusionar; DECISIONS 30-09):** una pieza por idea en `Theme/Dia/` (tarjeta, glifos, pastilla, acción, botón de texto, campo, hoja, segmento, error, título, flujo…) y borradas las copias de Hoy, Plan, Carreras, Perfil y Analíticas; CONTRATO-UI §11.1/§11.5 al día.
+**iPhone · LAS CINCO PESTAÑAS Y SUS PANTALLAS SECUNDARIAS, EN «EL DÍA» (30-09, rama `integracion-30sep`, sin fusionar a main; DECISIONS 30-09).**
+Hoy, Plan, Carreras, Perfil y Analíticas en Swift sobre UN kit (`Theme/Dia/`, CONTRATO-UI §11) más todo lo que cuelga de ellas (hojas, detalles, post-entreno,
+sesión previa, dispositivos, bloques). Borrados el vivo antiguo (`RunLiveShellView`, bandera) y sus HUD; el vivo usa las holguras y avisos del coach
+(`WristMethod`→`ReglasAviso`). Faltan: diálogos del entreno en vivo y pantallas de dispositivos/captura (agente en curso), Onboarding/Auth/Nutrición/Day1 con la piel vieja,
+reloj 67/45 fijos, cortes por fila del detalle de disposición y `JumpProfileDTO` (piden servidor). Sin ver en aparato. Lo instala Alex.
 
-**ANALÍTICAS REHECHAS (29-09; modelo `docs/analiticas/modelo.md`; ya en main; DECISIONS 29-09).** Un solo cálculo (`cargarPanel`)
-para el iPhone y el panel del coach. Piezas, cada una con su entrada en DECISIONS:
-- Cimientos del motor (`worktree-agent-a342e82f006cd9120`, 0277): contrato `Lectura`, ventana única en el día local, anclas
-  resueltas una vez, carga única por tramo, forma/fatiga con proyección a la carrera, umbrales declarados de un toque, método del coach.
-- Cinco fallos de datos (`claude/analiticas-datos`, 0278): readiness como texto, zonas más largas que su tramo, saltos imposibles,
-  1.277 importaciones de Salud sin tipo, 13 copias de libres. Aplicar 0278 ANTES del deploy y luego `pnpm --dir infra backfill:zonas`.
-- Progreso y récords (`worktree-agent-a07fb545a296d59ca`, 0280): «¿mejoro?» de las siete familias + lista única de récords.
-- Intensidad, recuperación, carrera y detalle de sesión (`worktree-agent-a700671c0309eea89`, 0279): basal única (P3/P16) que ya leen
-  roster, barrido, ficha, disposición y readiness; las bandas del readiness las sirve la API (P14). Falta Swift leyendo `bands`.
-- Cumplimiento (`worktree-agent-aea0d21b345de9122`, 0281): por tramo, por sesión y adherencia de solo lo debido. Falta holgura en el vivo.
-- Propuestas en el doble (`worktree-agent-af9303cea786f40b4`): `/design/analiticas`, kit `kit-analiticas/`; FIRMADAS por Alex el 29-09.
-- **PANEL DEL COACH (fusionado en main, 29-09):** pestaña Rendimiento
-  con los ocho bloques y el detalle de sesión; editor del método en Ajustes › Método (todos los campos que el motor lee, defectos
-  editables); umbrales declarados de un toque. Retirado lo viejo que el panel cubre (DECISIONS). Verificado en navegador 390/768/1440
-  contra rama Neon desechable; tsc limpio y 736 tests de ajustes/analíticas/ficha en verde. El editor heredado (`d4a303d7`) auditado:
-  ninguna regla cruzada cruza grupos (test), esquema y CHECK de la tabla alineados (test con base real). DECISIONS 29-09.
-- Migraciones 0277–0281 aplicadas en prod (0279–0281 el 29-09, 248 registradas, 0 pendientes). iPhone (fusionado en main 30-09, CI en verde y build de iPhone+reloj+widgets limpio; bandera encendida por defecto, la pestaña vieja sigue): modelos, kit y portada de los ocho bloques; falta ver en aparato y las pantallas de detalle. FALTA: capa de voz de
-  coach para `explica_es`; los campos del método que el motor aún no lee (DECISIONS); decisiones abiertas de Alex en esa entrada.
+**ANALÍTICAS REHECHAS (29-09; modelo `docs/analiticas/modelo.md`; en main; DECISIONS 29-09).** Un solo cálculo (`cargarPanel`) para el iPhone y el panel del coach:
+motor (0277), datos (0278: aplicar ANTES del deploy y luego `pnpm --dir infra backfill:zonas`), progreso y récords (0280), intensidad/recuperación/carrera (0279, bandas del readiness
+servidas por API), cumplimiento (0281). Migraciones 0277–0281 en prod (0 pendientes). Panel del coach: pestaña Rendimiento + Ajustes › Método. iPhone: pestaña y detalles en Swift
+(la pestaña vieja ya no existe). FALTA: voz de coach para `explica_es`, los campos del método que el motor aún no lee, y las decisiones abiertas de Alex (DECISIONS 29-09).
 
 **RELOJ · ESPEJO CON TRES PÁGINAS (29-09, worktree `agent-afdc843ecfbddfffc`, sin fusionar; DECISIONS 29-09).** Datos | Vivo | Controles al correr también en espejo; falta aparato.
 
@@ -47,14 +32,11 @@ motor; la tarjeta del scroll queda para «guardado para luego». Falta probarlo 
 
 **iPhone · EL VIVO NUEVO (28-09, firmado por Alex; galería https://claude.ai/artifact/YN3iFbkZYGHSn1S5hsgb8t, propuestas `iphone-vivo-*`).**
 Swift en `claude/vivo-swift-release` y `-2` (sin fusionar): bandera encendida en release, dobles/relevo, salir sin terminar, saltar de
-tramo, RX/Escalado por bloque metcon, pausa sola a los 10 s, Estructura del circuito. CI verde. Falta prueba en aparato; el shell
-viejo se borra tras ella. Build iOS en Xcode Cloud para TestFlight: lo instala Alex. Reloj para la demo (28-09): 6 fallos de la muñeca
+tramo, RX/Escalado por bloque metcon, pausa sola a los 10 s, Estructura del circuito. CI verde. Falta prueba en aparato (el shell viejo ya está borrado, 30-09). Build iOS en Xcode Cloud para TestFlight: lo instala Alex. Reloj para la demo (28-09): 6 fallos de la muñeca
 arreglados; falta aparato.
 
-**UN SOLO ENTRENO (28-09).** Libre ≡ sesión del coach al guardar, escribir y leer: 0274–0276 aplicadas en prod + backfill de
-plantillas; ramas `fix/un-solo-entreno`, `fix/plantilla-escritor-unico`, `ios/motor-libre-un-objeto` (motor por formato) y
-`worktree-agent-acf4f0bae662f59a6` (coach ve libres solo lectura), sin fusionar. Contratos iOS: `docs/pr/un-solo-entreno.md`,
-`docs/pr/lectores-libre-coach.md`, `docs/pr/ios-motor-libre.md` (falta servidor: `round_index`, `workout.modality`, segmentos en /free/plan).
+**UN SOLO ENTRENO (28-09).** Libre ≡ sesión del coach al guardar, escribir y leer: 0274–0276 en prod + backfill; ramas `fix/un-solo-entreno`, `fix/plantilla-escritor-unico`,
+`ios/motor-libre-un-objeto` y `worktree-agent-acf4f0bae662f59a6`, sin fusionar. Contratos: `docs/pr/{un-solo-entreno,lectores-libre-coach,ios-motor-libre}.md` (falta servidor: `round_index`, `workout.modality`).
 
 **RELOJ GARMIN, MOTOR PROPIO EN CONNECT IQ (29-09; modelo `docs/garmin-reloj/modelo.md`, DECISIONS 29-09).** Ya no reproductor nativo: watch-app de
 actividad que guía pasos, graba FIT y envía el resultado a `workout-execution` (TrainingPeaks en Garmin = calendario nativo, sin fuerza ni
@@ -71,10 +53,6 @@ cómo llegas y espera del iPhone en `Views/Entrada/` (DECISIONS 29-09). Sin dato
 FH-56 (enlace muñeca↔móvil lo dice Apple, build 100, nota `docs/pr/fh56-apple-link.md`).
 
 **RELOJ · CORRER, F5 SERVIDOR (29-09, rama `worktree-agent-af00ecda6d4b2f6be`, sin fusionar; migración 0282 SIN aplicar en prod; DECISIONS 29-09).** El método del coach de la muñeca (26 `wrist_*` + palabras del RPE) es dato con defecto, editable en Ajustes › Método «Reloj…», y viaja como `wrist_method` en el detalle de asignación; gramática con `environment`/`cue`/`alert`; decoder Swift listo. Falta: que el director del reloj lo consuma y la UI del coach para el entorno, el cue y el aviso por tramo.
-**LA MUÑECA (APPLE) SE REHACE Y EL RELOJ ES EL PRODUCTO (24-25-09; listón TrainingPeaks).** Auditoría `docs/reloj-muneca/`, diseño firmado
-`docs/el-reloj-primero/`. Hechas fases 0+1 (CI macOS, registro técnico 0273, sesión 180 d, cola sin caducidad, acuses) y las 6 propuestas
-`reloj-*` sobre `kit-reloj`. Falta firma de Alex → Swift (correr primero); exige M1–M8. PR #192 abierto: no fusionar sin 0270–0273 en prod. App del atleta: `docs/auditoria-app-atleta/`.
-
 **Panel del coach (web `(v2)`) RECONSTRUIDO para FLEXR** (auditoría `docs/auditoria-panel-coach/`, revisión `docs/revision-flexr/index.html`):
 bandeja única, aislamiento entre coaches con tests en `web/tests/tenancy/`, método = dato del coach (0211–0260). DECIDIDO 24-09: app FLEXR,
 Stripe Connect, alta por solicitud, RLS antes del coach 20. PR #191 fusionado: reconectar Google Calendar por coach; pago apagado salvo FAHYBRIK.
@@ -83,12 +61,9 @@ Stripe Connect, alta por solicitud, RLS antes del coach 20. PR #191 fusionado: r
 
 - Analíticas: las cinco decisiones abiertas de DECISIONS 29-09 (voz de coach, «Dar feedback», 1RM medido en el motor, copy de
   Umbrales, Progreso a 1440) la firma de las pantallas del reloj (Apple y Garmin) y qué Garmin físico hay.
-- Panel coach: borrar código muerto sin importadores (el clasificador no deja a los agentes): `web/components/v2/orientacion/**`,
-  `web/lib/dashboard/v2/{orientacion,orientacion-types,periodizacion}.ts`, `v2/{SegmentedControl,InlineSave,OrderAlteredSignal,Rail,
-  SessionLine}.tsx`, `v2/periodizacion/SidePanel.tsx`, `v2/tests/chrome.tsx`, `v2/intake/IntakeBlockStructure.tsx`,
-  `v2/ajustes/LevelAxisSetting.tsx`, `web/lib/coach/{deep-dive-body,deep-dive-body-demo,demo-events,program-weeks}.ts`,
-  `infra/scripts/seed_exercises.ts`, `buildAthletePlan` de `coach/deep-dive-plan.ts`, `athlete-profile-shell.ts`; tabla
-  `google_oauth_tokens`. Luego quitar los `ignores` de eslint.config.mjs.
+- Panel coach: borrar código muerto sin importadores (el clasificador no deja a los agentes): `web/components/v2/orientacion/**`, `v2/{SegmentedControl,InlineSave,
+  OrderAlteredSignal,Rail,SessionLine}.tsx`, `v2/periodizacion/SidePanel.tsx`, `web/lib/dashboard/v2/{orientacion,orientacion-types,periodizacion}.ts`, `coach/{deep-dive-body,
+  deep-dive-body-demo,demo-events,program-weeks}.ts`, tabla `google_oauth_tokens`, y luego los `ignores` de eslint.config.mjs (lista completa en git: este fichero, 29-09).
 - FH-56 con aparato: ¿acepta Apple `startMirroringToCompanionDevice` sobre una sesión recuperada? Si no, hace falta Terminar+Empezar.
   Riesgo: `.endSaving` deja en Salud una grabación sin ejecución atada. Smoke TF build 100 (matriz §6: 7 casos + soak 2 h).
 
