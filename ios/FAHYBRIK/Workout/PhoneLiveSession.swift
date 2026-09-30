@@ -428,7 +428,7 @@ final class PhoneLiveSession {
                     engine?.sampleRunDistance(deltaMeters: d.deltaMeters, source: .healthkit)
                 }
             case MirrorWire.MessageType.command:
-                if let cmd = env.body(as: MirrorCommand.self) { applyCommand(cmd.kind, declaracion: cmd.declaracion) }
+                if let cmd = env.body(as: MirrorCommand.self) { applyCommand(cmd.kind, declaracion: cmd.declaracion, puntuacion: cmd.puntuacion) }
             case MirrorWire.MessageType.ended:
                 if let ended = env.body(as: MirrorEnded.self) {
                     applyWristEnded(ended)
@@ -678,7 +678,7 @@ final class PhoneLiveSession {
         lastSentAt = Date()
     }
 
-    private func applyCommand(_ kind: String, declaracion: Vivo.Declaracion? = nil) {
+    private func applyCommand(_ kind: String, declaracion: Vivo.Declaracion? = nil, puntuacion: MirrorPuntuacion? = nil) {
         guard let engine else { return }
         switch kind {
         case MirrorWire.CommandKind.advance:
@@ -699,8 +699,9 @@ final class PhoneLiveSession {
             if !engine.isPaused { engine.togglePause() }
         case MirrorWire.CommandKind.resume:
             if engine.isPaused { engine.togglePause() }
-        case MirrorWire.CommandKind.deathByFail:
-            engine.deathByFail()
+        case MirrorWire.CommandKind.ronda, MirrorWire.CommandKind.puntuacion, MirrorWire.CommandKind.deathByFail:
+            _ = PhoneMirrorCommandRelay.aplicar(kind, puntuacion: puntuacion, a: engine)
+            pushFrameNow()
         case MirrorWire.CommandKind.newLap:
             _ = PhoneMirrorCommandRelay.aplicar(kind, a: engine)
             pushFrameNow()
