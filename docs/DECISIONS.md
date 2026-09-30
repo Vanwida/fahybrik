@@ -11,6 +11,29 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-30 · El kit del día en Swift: UNA pieza por idea (consolidación de Hoy, Plan, Carreras, Perfil y Analíticas)
+
+**El encargo:** las cinco pestañas se portaron a Swift en paralelo sobre `Theme/Dia/` y cada una dejó en su carpeta copias de las mismas piezas (cuatro tarjetas planas, tres familias de iconos, cuatro sujetos de error, cuatro flujos, tres títulos del sujeto, dos segmentados, tres botones de acción…). Alex pidió reutilización y cero deuda: una pieza en el kit y las cinco pestañas la usan.
+
+**Decidido (qué copia manda cuando difieren, según el doble y el hallazgo de `DiaKitTests`; nunca un promedio):**
+- **Tarjeta:** `.tarjetaDia(realce:alAncho:)` + `ListaDia` (la lista con filete ENTRE las filas que se pintan, de Analíticas). Sustituye a `tarjetaDia` de Hoy, `tarjetaCarreras`, `tarjetaPlan` (que añadía el ancho: ahora es `alAncho`), `tarjetaPerfil`, `AnaliticasSuperficie`/`AnaliticasLista` y las caras a mano de la fila del Plan y de la galería.
+- **Glifos:** todo SF Symbol es un caso de `GlifoDia` (21 → 46). Fuera `GlifoCarreras`/`IconoCarreras`, `GlifoPerfil`/`IconoPerfil`, `GlifoPlan`/`SimboloPlan`. «Equipo» y «pareja de Dobles» comparten `person.2` (un símbolo por idea).
+- **Pastilla:** se AMPLÍA `InfoPill` (que ya era «la pastilla de El día») con `.superficie`, `.tinta`, `.dato` y `.estado` (los dos últimos leen el tono del sujeto en que están), glifo (16 pt; la diana del objetivo, 14) y sello. Fuera `ChipCarreras`, `PastillaPlan`, `PastillaFaltan`, `MarcaDePerfil`, `AnaliticasSello`. El borde pasa a `strokeBorder` (el de todo el kit).
+- **Acción:** `AccionDia` gana relleno (`.tinta`/`.acento`/`.apagado`), `completa`, alto y glifo delante o detrás; `BotonAccionDia` es el botón entero (háptico, escala, inactivo, ocupado, `hoja:`). Fuera `AccionAncladaPlan` (queda el dock, que solo pone el «···»), `SalidaAccionCarreras`, `BotonPrimarioCarreras` y el botón «Hablar con un coach» a mano. Se quita el `lineLimit(2)` del texto: una acción cortada con «…» no dice qué hace.
+- **Botón de texto** (`BotonTextoDia`: la palabra en la tinta del tema, el acento al glifo; tono peligro en `Theme.Color.peligroTexto`), **pastilla de cabecera** (`PastillaSeccionDia`), **chip de filtro** (`ChipFiltroDia`, `FilaChipsDia`), **campo** (`CampoDia`), **marco de hoja** (`MarcoDeHojaDia`), **aviso en línea** (`AvisoEnLineaDia`), **vuelta** (`AtrasDia`), **menú «···»** (`MenuDia`, con el `enCaptura` de las galerías), **chevron que gira** (`GiroDia`, que además respeta Reducir movimiento donde tres copias no lo hacían), **fila que se toca** (`FilaDia`: puertas de Perfil, lo pendiente, «Predicho contra real»), **filete** (`Hairline(fuerte:)`).
+- **Segmento:** `SegmentoDia` es el de Analíticas (nunca trunca ni encoge; si no caben, se desliza), con etiqueta visible opcional para el de Carreras (que encogía a 0,75 y truncaba).
+- **Sujeto de error:** `SujetoErrorDia(kicker:titulo:apoyo:alReintentar:)`; la etiqueta que lee VoiceOver es «título. apoyo» (la de Carreras) en las cuatro.
+- **Título del sujeto:** `TituloDia(_, ajuste:)` con `.libre` (una palabra sola se encoge hasta la mitad en vez de partirse por la mitad: era la regla de Analíticas), `.escalones` (44 · 36 · 30, `EscalonDeTitulo`, de Plan) y `.reduce()` (dos líneas y hasta 0,7, de Perfil). `.papel(_, tamano:)` pide un papel a otra medida base.
+- **Tipografía:** papeles nuevos `.subtitulo` (20) y `.cifra` (22, recta y tabular); `SubtituloDia`.
+- **Flujo:** un solo `FlowLayout(spacing:lineSpacing:)`, con la medida de Analíticas (sin el aire final y sin pasarse de lo propuesto). Fuera `AnaliticasFlujo`, `FlujoCarreras`, `FlowRow` de Perfil y el `FlowLayout` de Onboarding.
+- **`LineaDelDia` ya no corta con «…»:** con el texto en tamaños de accesibilidad los tres pasos pasan a una columna (trazo delante, nombre entero).
+
+**Retirado (declarado; grep en `ios/`, tests, reloj y `FAHYBRIKCore`: sin más usuarios):** todo lo listado como «fuera» arriba, `HoySuperficie.swift`, `GiroPerfil`/`GiroCarreras`, `TituloPlan`/`TituloDePerfil`, `SujetoError`/`SujetoErrorCarreras`/`SujetoErrorPerfil`, `AnaliticasFilaDeCeldas` (era `TeselasDia`), `AnaliticasAtras`, `CifraDeFila` y `FilaPendientePerfil`. Se borró `testTodoGlifoDePerfilEsUnSFSymbolQueExisteYNingunoSeRepite`: su enum ya no existe y lo mismo lo afirma `DiaKitTests` sobre `GlifoDia`.
+
+**Se queda distinto a propósito (no es la misma idea):** `MuescaPlan` (su geometría es la de los siete chips del carril), `ChipPlan` (es el chip de un DÍA, no una pastilla), `BotonRespuestaPerfil` (el trío Sí · No · Ahora no es una elección, no una acción), el plegador de ajustes de Perfil (dos líneas y un contador), el secundario de `AnaliticasBoton` (pastilla de contorno a 17 pt, salida de un hueco), `PiePerfil` («Cerrar sesión» en `danger` sobre el lienzo), `VacioCarreras`/`AnaliticasHueco`, las cintas y parciales de Carreras y `AnaliticasEtiqueta`/`AnaliticasCuerpo` (vocabulario de texto de Analíticas: `Text.papel` + no truncar).
+
+**Qué NO hacer en consecuencia:** volver a escribir por pestaña una pieza de la tabla de CONTRATO-UI §11.1 (§11.5 lo prohíbe con sus nombres). Si el kit no llega, se amplía el kit.
+
 ## 2026-09-30 · Analíticas del iPhone, segunda tanda y cierre: el detalle de las cuatro familias y de la sesión con «El día», y fuera la pestaña vieja
 
 **El encargo:** llevar a Swift el detalle firmado (correr, ergo, fuerza, estaciones y la sesión tramo a tramo), cablearlo desde la portada, y CERRAR la pestaña: borrar `AnaliticasBandera`, la `AnalyticsView` de los siete contratos y todo lo que solo ella usaba. Rama `worktree-agent-ab66a2922a12498d9` (sin fusionar). Continúa la entrada «primera tanda: la portada» del 29-09.
