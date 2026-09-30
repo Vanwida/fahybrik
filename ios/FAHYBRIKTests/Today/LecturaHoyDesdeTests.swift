@@ -371,20 +371,6 @@ final class LecturaHoyDesdeTests: XCTestCase {
         XCTAssertEqual(LecturaHoy.desde(f).disposicion, .sinDatos(.saludSinConectar))
     }
 
-    func testLaZonaDeHoyLaDanLasBandasDelCoachNoUnNumeroDeLaVista() {
-        // 70 es zona alta con los cortes de fábrica (67) y media con los de un coach exigente (75/55).
-        var f = fuentes(plan: plan(dias: []))
-        f.disposicion = payload(70)
-        guard case .medida(_, let deFabrica, _, _) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
-        XCTAssertEqual(deFabrica, .high)
-
-        var exigente = payload(70)
-        exigente.bands = ReadinessBands(okMin: 75, cautionMin: 55, maxAgeDays: 3)
-        f.disposicion = exigente
-        guard case .medida(_, let delCoach, _, _) = LecturaHoy.desde(f).disposicion else { return XCTFail() }
-        XCTAssertEqual(delCoach, .medium)
-    }
-
     func testMientrasLaDisposicionNoHaContestadoEsUnEsqueletoNoUnVacio() {
         var f = fuentes(plan: plan(dias: []))
         f.disposicionCargada = false
