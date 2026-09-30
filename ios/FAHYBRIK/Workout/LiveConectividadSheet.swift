@@ -1,6 +1,6 @@
 import SwiftUI
 
-// FH-94 — live device hub. Reuses `LiveRecipeDeviceBar` + existing pickers;
+// FH-94 — live device hub. Reuses the existing pickers;
 // run-environment change lives here, never as mid-HUD CORRER EN CINTA/FUERA walls.
 
 struct LiveConectividadSheet: View {
@@ -27,100 +27,143 @@ struct LiveConectividadSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    if involvesRun {
-                        runEnvironmentSection
-                    }
-                    if let frase = relojFrase {
-                        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                            LabelText(text: "Reloj", size: 10)
-                            Text(frase)
-                                .font(Theme.Typography.bodyEmph)
-                                .foregroundStyle(Theme.Color.foreground)
+        MarcoDeHojaDia("Conectividad", cerrar: onDismiss) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+                if involvesRun {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                        SubtituloDia("Dónde corres")
+                        RunEnvironmentOptions(elegido: session.runEnvironment) { entorno in
+                            session.switchRunEnvironment(to: entorno)
                         }
                     }
-                    if !devices.isEmpty {
-                        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                            LabelText(text: "Dispositivos del entreno", size: 10)
-                            LiveRecipeDeviceBar(
-                                devices: devices,
-                                pool: pool,
-                                treadmillLink: treadmillLink,
-                                hrLink: hrLink,
-                                onTapErg: onTapErg,
-                                onTapTreadmill: onTapTreadmill,
-                                onTapHR: onTapHR
-                            )
-                        }
+                }
+                if let frase = relojFrase {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                        SubtituloDia("Reloj")
+                        Text(frase)
+                            .papel(.cuerpo)
+                            .foregroundStyle(Theme.Color.muted)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    Text("Toca un chip para buscar o cambiar. La sesión sigue en marcha.")
-                        .font(Theme.Typography.caption)
-                        .foregroundStyle(Theme.Color.faint)
                 }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.vertical, Theme.Spacing.m)
-            }
-            .background(Theme.Color.background)
-            .navigationTitle("Conectividad")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Listo", action: onDismiss)
+                if !devices.isEmpty {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                        SubtituloDia("Dispositivos del entreno")
+                        LiveDeviceRows(
+                            devices: devices,
+                            pool: pool,
+                            treadmillLink: treadmillLink,
+                            hrLink: hrLink,
+                            onTapErg: onTapErg,
+                            onTapTreadmill: onTapTreadmill,
+                            onTapHR: onTapHR
+                        )
+                    }
                 }
+                Text("Toca un dispositivo para buscarlo o cambiarlo. El entreno sigue en marcha.")
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
+}
 
-    private var runEnvironmentSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            LabelText(text: "Dónde corres", size: 10)
-            ForEach(RunEnvironment.allCases, id: \.self) { env in
-                Button {
-                    Haptics.light()
-                    session.switchRunEnvironment(to: env)
-                } label: {
-                    HStack(spacing: Theme.Spacing.m) {
-                        Image(systemName: icon(for: env))
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(session.runEnvironment == env
-                                             ? Theme.Color.accentText : Theme.Color.muted)
-                        Text(label(for: env))
-                            .font(Theme.Typography.bodyEmph)
-                            .foregroundStyle(Theme.Color.foreground)
-                        Spacer(minLength: 0)
-                        if session.runEnvironment == env {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Theme.Color.accentText)
-                        }
-                    }
-                    .padding(.horizontal, Theme.Spacing.m)
-                    .padding(.vertical, 12)
-                    .background(session.runEnvironment == env
-                                ? Theme.Color.accent.opacity(0.10) : Theme.Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                            .stroke(session.runEnvironment == env
-                                    ? Theme.Color.accentText.opacity(0.5) : Theme.Color.outline,
-                                    lineWidth: 1)
-                    )
-                }
-                .buttonStyle(.plain)
+// MARK: - Live recipe device rows
+//
+// Every device the session recipe needs, one row each — not only the current tramo. Disconnect
+// mid-workout → the row stays tappable; reconnect must not reset block/set cursor (pickers
+// only, never `beginBlock`). The row says, in plain words, how each one is doing.
+
+struct LiveDeviceRows: View {
+    let devices: [PreWorkoutDevice]
+    let pool: PM5Pool
+    let treadmillLink: DeviceLink
+    let hrLink: DeviceLink
+    let onTapErg: (PM5ConnectionStore, String) -> Void
+    let onTapTreadmill: () -> Void
+    let onTapHR: () -> Void
+
+    @State private var watch = WatchPresence.shared
+
+    var body: some View {
+        ListaDia {
+            ForEach(devices) { device in
+                fila(for: device)
             }
         }
     }
 
-    private func icon(for env: RunEnvironment) -> String {
-        switch env {
-        case .outdoor:   return "location.fill"
-        case .treadmill: return "figure.run"
-        case .indoor:    return "figure.run.circle"
+    @ViewBuilder
+    private func fila(for device: PreWorkoutDevice) -> some View {
+        if device == .heartRate, hrPresentation == .appleWatch {
+            FilaDia(
+                ficha: FichaDia { icono("applewatch") },
+                titulo: "Pulso · Apple Watch",
+                etiqueta: "Pulso por Apple Watch, automático",
+                pista: "Toca para conectar una banda de pecho",
+                altoMinimo: 72,
+                alTocar: onTapHR
+            ) {
+                detalle("Listo · Apple Watch")
+            }
+        } else {
+            let link = link(for: device)
+            FilaDia(
+                ficha: FichaDia { icono(device.icon) },
+                titulo: device.titleES,
+                etiqueta: "\(device.titleES), \(link.statePhrase)",
+                pista: "Toca para conectar o cambiar",
+                altoMinimo: 72,
+                alTocar: { tap(device) }
+            ) {
+                detalle(link.statePhrase)
+            }
         }
     }
 
-    private func label(for env: RunEnvironment) -> String {
-        env.hudLabel
+    private func icono(_ simbolo: String) -> some View {
+        Image(systemName: simbolo).font(.system(size: 22, weight: .semibold))
+    }
+
+    private func detalle(_ texto: String) -> some View {
+        Text(texto)
+            .papel(.nota)
+            .foregroundStyle(Theme.Color.muted)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var hrPresentation: HRChipPresentation {
+        HRChipPresentation.resolve(bandLink: hrLink, watchAvailable: watch.appAvailable)
+    }
+
+    private func link(for device: PreWorkoutDevice) -> DeviceLink {
+        switch device {
+        case .treadmill: return treadmillLink
+        case .heartRate: return hrLink
+        case .erg, .ergAny:
+            guard let store = pool.store(for: device) else { return .idle }
+            if case .streaming = store.connectionState {
+                return .connected(name: store.connectedDeviceName ?? device.titleES)
+            }
+            var mapped = store.connectionState.deviceLink
+            if case .connected = mapped, store.connectedDeviceName == nil {
+                mapped = .connected(name: device.titleES)
+            }
+            if store.connectionLost, !store.isConnected {
+                return .lost
+            }
+            return mapped
+        }
+    }
+
+    private func tap(_ device: PreWorkoutDevice) {
+        switch device {
+        case .treadmill: onTapTreadmill()
+        case .heartRate: onTapHR()
+        case .erg, .ergAny:
+            guard let store = pool.store(for: device) else { return }
+            onTapErg(store, device.titleES)
+        }
     }
 }

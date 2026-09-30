@@ -42,7 +42,8 @@ extension Vivo {
         }
         // Un bloque continuo remo → ski → bici son N tramos de una pieza (familia circuito).
         marcarTramosContinuos(&pasos) { s in plan.segments[s].formatScheme?.presentation == .continuous }
-        return PlanVivo(pasos: conSentidoDeAviso(pasos, metodo), zonas: zonasDe(zonas))
+        let sentido = plan.wristMethod.map(metodoAvisoDe) ?? metodo
+        return PlanVivo(pasos: conSentidoDeAviso(pasos, sentido), zonas: zonasDe(zonas), reglas: reglasDe(plan.wristMethod))
     }
 
     // MARK: - Un segmento → sus pasos

@@ -9,10 +9,9 @@ struct BotonVerBloques: View {
 
     var body: some View {
         Button(action: accion) {
-            Image(systemName: "list.bullet.rectangle")
-                .font(.system(size: 13, weight: .semibold))
+            IconoDia(.bloques, tam: 18)
                 .foregroundStyle(Theme.Color.muted)
-                .frame(width: 28, height: 28)
+                .frame(width: Theme.Size.toque, height: Theme.Size.toque)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -31,6 +31,10 @@ struct SujetoSesionPlan: View {
     let alAbrir: (AthleteWeekDaySession) -> Void
 
     private var terminada: Bool { principal.estado.trabajada }
+    /// La tarjeta entera abre la sesión: la ficha con todo lo que dejó el coach, sin empezar nada (una hecha abre lo
+    /// que registraste). Con «lo siguiente» dentro no: dos botones anidados no se leen ni se tocan bien.
+    private var tocable: Bool { siguiente == nil && !principal.assignmentId.isEmpty }
+    private var pistaDeToque: String { terminada ? "Ver lo que hiciste" : "Ver el entreno entero" }
     private var fecha: String { FechasDelPlan.etiqueta(de: dia.isoDate, hoy: l.hoyIso) }
 
     /// Lo siguiente solo sitúa el día de HOY: hojeando otro día ese marco sería el de hoy colgado de otro.
@@ -39,7 +43,11 @@ struct SujetoSesionPlan: View {
     }
 
     var body: some View {
-        SujetoDia(tono: tono, etiqueta: "\(principal.title). \(fecha). \(estado.etiqueta)") {
+        SujetoDia(
+            tono: tono,
+            etiqueta: "\(principal.title). \(fecha). \(estado.etiqueta). \(pistaDeToque)",
+            alTocar: tocable ? { alAbrir(principal) } : nil
+        ) {
             KickerDia(fecha) { pastillaDeEstado }
             TituloDia(principal.title, ajuste: .escalones)
             PastillasDeSesionPlan(dia: dia, principal: principal, desglose: desglose)
@@ -48,6 +56,7 @@ struct SujetoSesionPlan: View {
             if let nota = desglose.listo?.notaDelDia {
                 NotaDelCoachPlan(texto: nota, coach: l.coach)
             }
+            if tocable { VerLaSesionPlan(texto: pistaDeToque) }
             if let siguiente {
                 FilaContextoPlan(
                     etiqueta: FechasDelPlan.rotulo(de: siguiente.dia.isoDate, hoy: l.hoyIso),
@@ -89,6 +98,22 @@ struct SujetoSesionPlan: View {
     @ViewBuilder
     private var muesca: some View {
         if let indice { MuescaPlan(indice: indice, tono: tono) }
+    }
+}
+
+/// La pista de que la tarjeta se abre: «Ver el entreno entero ›».
+struct VerLaSesionPlan: View {
+    let texto: String
+    @Environment(\.tonoDia) private var tono
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.xs) {
+            Text(texto).papel(.notaFuerte)
+            IconoDia(.chevron, tam: 14, peso: .bold)
+        }
+        .foregroundStyle(tono.papeles.tinta)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityHidden(true)
     }
 }
 

@@ -86,6 +86,42 @@ extension GaleriaDia {
         }
     }
 
+    // MARK: - El diálogo
+
+    struct Dialogos: View {
+        var body: some View {
+            VStack(spacing: Theme.Spacing.l) {
+                DialogoDia("¿Salir del entreno?", apoyo: "Llevas 2 de 5 bloques hechos. Puedes guardar lo que has hecho o descartarlo.", alTocarFondo: {}) {
+                    BotonAccionDia("Seguir entrenando", relleno: .acento, completa: true, accion: {})
+                    ListaDia {
+                        FilaDia(ficha: FichaDia(.pausa), titulo: "Guardar para luego", etiqueta: "Guardar para luego", alTocar: {}) {
+                            Text("Pausa y guarda el progreso.").papel(.nota).foregroundStyle(Theme.Color.muted)
+                        }
+                    }
+                    BotonTextoDia("Descartar entreno", tono: .peligro, centrado: true, accion: {}) { IconoDia(.papelera, tam: 20) }
+                }
+                .frame(height: 520)
+                DialogoDia("¿Abandonar el entreno?", apoyo: "Se descartará lo que has registrado. Esto no se puede deshacer.", peligro: true) {
+                    BotonAccionDia("Seguir entrenando", relleno: .acento, completa: true, accion: {})
+                    BotonTextoDia("Abandonar y descartar", tono: .peligro, centrado: true, accion: {})
+                }
+                .frame(height: 420)
+            }
+        }
+    }
+
+    // MARK: - La opción que se elige
+
+    struct Opciones: View {
+        var body: some View {
+            VStack(spacing: Theme.Spacing.s) {
+                OpcionDia(.ubicacion, titulo: "Calle", detalle: "Los metros los pone el GPS.", elegida: true, alTocar: {})
+                OpcionDia(.correr, titulo: "Cinta con conexión", detalle: "Los metros los pone la cinta.", elegida: false, alTocar: {})
+                OpcionDia(.reloj, titulo: "Cinta sin conexión", detalle: "Los metros los pone tu reloj.", elegida: false, alTocar: {})
+            }
+        }
+    }
+
     // MARK: - El chevron que gira
 
     struct Giros: View {

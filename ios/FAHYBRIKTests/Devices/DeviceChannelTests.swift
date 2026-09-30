@@ -271,7 +271,7 @@ final class DeviceChannelTests: XCTestCase {
     // MARK: - THE PRESENTATION CONTRACT (a separate field bug, still guarded)
     // ══════════════════════════════════════════════════════════════════════════
     //
-    // `isPresentingPicker` drives `.sheet(isPresented:)` in `DeviceConnectCard` and
+    // `isPresentingPicker` drives `.sheet(isPresented:)` in `PreWorkoutDevicesHubView` and
     // `TreadmillHUDView`. The channel must never raise it by itself: off a timer, with
     // no idea what is on screen, it once asked UIKit to present a sheet from a screen
     // buried under the run pre-start `.fullScreenCover` — UIKit refused ("only

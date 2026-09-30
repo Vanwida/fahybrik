@@ -40,7 +40,7 @@ struct TarjetaMarcaNueva: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.m) {
             FichaDia(tono: nueva.esRecord ? .realce : .normal) {
-                IconoMarcas(nueva.esRecord ? "star.fill" : "checkmark", tam: 22)
+                IconoDia(nueva.esRecord ? .estrella : .check, tam: 22).symbolVariant(nueva.esRecord ? .fill : .none)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(nueva.titulo)
@@ -54,7 +54,7 @@ struct TarjetaMarcaNueva: View {
             .fixedSize(horizontal: false, vertical: true)
         }
         .padding(Theme.Spacing.l)
-        .tarjetaMarcas(realce: true, alAncho: true)
+        .tarjetaDia(realce: true, alAncho: true)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.updatesFrequently)
     }
@@ -149,12 +149,12 @@ struct HistorialDeMarca: View {
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(Theme.Spacing.l)
-                    .tarjetaMarcas(alAncho: true)
+                    .tarjetaDia(alAncho: true)
             } else {
                 // Si alguna fila se puede retirar, TODAS reservan el sitio del «···»: las cifras caen en
                 // columna aunque unas filas (un test del coach) no ofrezcan la acción.
                 let conMenu = filas.contains(where: \.retirable)
-                ListaMarcas {
+                ListaDia {
                     ForEach(filas) { fila in
                         FilaDeHistorialView(fila: fila, reservaMenu: conMenu, alRetirar: { alRetirar(fila.resultado) })
                     }
@@ -242,7 +242,7 @@ struct EsqueletoDeMarca: View {
             }
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 SkeletonBar(width: 120, height: 24)
-                ListaMarcas {
+                ListaDia {
                     ForEach(0..<3, id: \.self) { _ in
                         HStack(spacing: Theme.Spacing.m) {
                             VStack(alignment: .leading, spacing: Theme.Spacing.s) {

@@ -37,7 +37,7 @@ struct JumpReportContenido: View {
                             .foregroundStyle(Theme.Color.foreground)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(Theme.Spacing.l + 2)
-                            .tarjetaDeTests(alAncho: true)
+                            .tarjetaDia(alAncho: true)
                     }
                     if lectura.escalaDeAltura != nil || lectura.escalaDeLri != nil {
                         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
@@ -169,7 +169,7 @@ struct EscalaPlegable: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            BotonTextoTests(
+            BotonTextoDia(
                 escala.titulo,
                 tono: .tinta,
                 expandido: abierta,
@@ -177,7 +177,7 @@ struct EscalaPlegable: View {
                 icono: { EmptyView() },
                 derecha: {
                     // El chevron apunta abajo cerrado y arriba abierto.
-                    IconoDia(.chevron, tam: 18, peso: .semibold).rotationEffect(.degrees(abierta ? -90 : 90))
+                    GiroDia(abierto: abierta)
                 }
             )
             if abierta {
@@ -185,7 +185,7 @@ struct EscalaPlegable: View {
                 ForEach(escala.bandas, id: \.level) { fila($0) }
             }
         }
-        .tarjetaDeTests(alAncho: true)
+        .tarjetaDia(alAncho: true)
     }
 
     private func fila(_ banda: CmjScaleBandDTO) -> some View {

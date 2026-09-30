@@ -58,6 +58,13 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 **«¿Dónde corres?» una vez.** El plan puede decirlo por tramo (M3, `RunLeg.environment`; `Vivo.entornoDelPlan`). Si no lo dice y la sesión es de correr, «Empezar» en el brief pregunta calle / cinta / pista UNA vez y el motor recuerda la respuesta (`runEnvironment`: calle y pista = fuera con GPS; cinta = dentro, distancia de Apple). Con el móvil se contesta allí. Un plan que sí lo dice ahora también fija el entorno de la sesión de Salud (antes siempre era calle).
 
 **No se hizo:** desnivel por km; `costeTrasEstacion` y el resumen de circuito/HYROX; esperar al GPS con la sesión arrancando sola al fijar (el brief dice cómo va y el atleta empieza cuando quiere); el estado «Guardando…» previo al escenificado; iPhone en espejo con pantalla de final propia (lo lleva el móvil). **Solo con aparato:** la corona del RPE (sentido y sensibilidad), `.success` del GPS listo, la ruta en Salud (permiso y `finishRoute`), `relateWorkoutEffortSample` y que Salud enseñe el esfuerzo, el preaviso de 10 s y el 3-2-1 al pasar del calentamiento a las series, y el guardado solo tras el enfriamiento libre.
+## 2026-09-30 · Diálogos del entreno en vivo, dispositivos y captura, con «El día»: fuera la piel vieja
+
+**Rehecho:** los diálogos de `ActiveWorkoutView` (terminar y guardar, salir, abandonar, confirmar, pausa) y de `WorkoutContainer` (reanudar, «no pudimos cargar») pasan a una sola pieza nueva del kit, `DialogoDia` (velo + `tarjetaDia` + una `BotonAccionDia` + salidas `BotonTextoDia`; el peligro va en la marca y en la palabra del botón, no en el título). En «¿Salir del entreno?» y «¿Abandonar?», «Seguir entrenando» es la acción grande y «Descartar/Abandonar» la discreta en peligro (antes el abandono era un botón rojo sólido). `LiveConectividadSheet`, `DevicePickerSheet`, `PM5LiveStreamView` y `WorkoutCaptureView` usan `MarcoDeHojaDia` (ganó `conAccion:` para la acción anclada que solo existe en ciertos estados); filas `FilaDia`, `OpcionDia` (nueva: una fila que se elige, con su `RunEnvironmentOptions` compartida con la pantalla de dispositivos), `InfoPill`, `CampoDia`, `ChipFiltroDia`, `SujetoErrorDia`. La revisión de la captura vive ya en `WorkoutCaptureReview.swift`; «Detectado/Revisar/Tú» se dicen con forma (✓, ½, lápiz), no solo con color. Copy sin jerga: «PM5», «BLE», «splits» y «chip» salen del texto del atleta.
+
+**Retirado (grep: sin más usuarios):** `DeviceConnectCard` y `ErgConnectCard` (los sustituyó `PreWorkoutDevicesHubView`), `DeviceChip` (9 pt), `LiveRecipeDeviceBar` (ahora `LiveDeviceRows`), `FieldStatus.color/tint`, `statusPhrase` del hub (una sola tabla: `DeviceLink.statePhrase`).
+
+**Fuera de este lote (no es de esta zona):** `TreadmillHUD*`, los HUD en vivo y `PreWorkoutDevicesHubView` (ya tenía el kit; quedan dos `.system(size:)` de icono), Onboarding, Auth, Nutrición y Day1. Los comentarios de `web/components/v2/guia/sections/*` siguen citando los ficheros borrados.
 
 ---
 
@@ -92,6 +99,37 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 **No hacer:** no reintroducir una bandera para volver a la cara vieja (no queda nada a lo que volver); no calcular en la vista qué número manda ni cuánto alto tiene el héroe; no meter en `Paso` nada que dependa del segmento sin que viaje en el plan.
 
 **Queda / solo con aparato:** `WatchReloj` y `WatchPagina` siguen porque `SummaryView` (el resumen, otro lote) los usa; `MirrorTramo` y `hapticCue` siguen en el cable (el móvil los construye y la muñeca ya no los lee, salvo `enTramoS` en la lista de movilidad); el deshacer de 5 s de los cierres nuevos (otro agente, F3b); la corona en la campana (sentido y sensibilidad), el doble toque, «Siguiente paso» como marca en la página de Controles, el reparto de ancho de las filas nuevas a 42 y 49 mm, y el espejo de un móvil con cursor pero sin `ronda`/`puntuacion`, que cae a cerrar el paso. No se corrieron tests ni suites (máquina colapsada, orden de Alex): solo dos `xcodebuild` del esquema `FAHYBRIK` (reloj y widgets incluidos). Los tests que tocaban código borrado se borraron o se recortaron sin reescribirlos y NO se compilaron.
+## 2026-09-30 · En el Plan, tocar la sesión la ABRE; «Empezar» empieza
+
+**Qué pasaba (Alex, probando en TestFlight):** tocar el entreno de hoy en el Plan no hacía nada. La única puerta era el botón «Empezar», que solo abría la ficha previa: para VER lo que dejó el coach (notas, descripción, bloques) había que «empezar», y el botón prometía lo que no hacía. El acceso a «Ver ejercicios y técnica» estaba escondido en el menú «···».
+
+**Decidido:** dos gestos distintos, como en cualquier app de entrenamiento. Tocar la tarjeta de la sesión abre su ficha (`PreWorkoutBriefView`: nota del coach, bloques, dosis, técnica a un toque) sin empezar nada; una sesión ya hecha abre lo que registraste. La tarjeta lo dice («Ver el entreno entero ›»). «Empezar» va derecho a la puerta de empezar (dispositivos si hacen falta y arrancar) sin pasar por la ficha (`WorkoutLaunch.empiezaDirecto`). No es tocable la tarjeta con «Lo siguiente» dentro (un botón dentro de otro).
+
+**No verificado:** a ojo en aparato; ni qué hace «Empezar» si la carga del plan falla (se queda en la ficha, como antes).
+
+## 2026-09-30 · Minimizar y reabrir el entreno es un viaje (zoom barra ⇄ vivo), no un deslizamiento
+
+**Qué pasaba:** al minimizar, el vivo se deslizaba hacia abajo como cualquier cubierta y, a la vez, aparecía la barra del sistema: dos movimientos sin relación. Al reabrir, igual al revés.
+
+**Decidido:** el vivo se encoge hasta la cápsula de la barra y crece desde ella (`matchedTransitionSource` en la barra + `navigationTransition(.zoom)` en la raíz de `WorkoutContainer`; `LiveWorkoutViaje.swift`). El sistema lo cambia por un fundido con «Reducir movimiento». El cronómetro y el paso no «viajan» como piezas sueltas: el zoom hace crecer/encoger la pantalla, no casa sus subvistas. La barra sigue puesta mientras el vivo está delante (`LiveWorkoutResume.barra`), y el vivo reabierto o recuperado se presenta desde un `@State` de `AppShell` (`entrenoAbierto`) sincronizado con `liveResume.cover`.
+
+**Por qué ese diseño:** Apple documenta para iOS 26 fallos del zoom con `tabViewBottomAccessory` cuando el estado de la presentación lo cambia un objeto observable en vez de un `@State` de la vista de origen; de ahí el `@State` y que la barra sea quien lo cambia.
+
+**No verificado (hace falta aparato, iOS 26.1+):** que el zoom se vea limpio en los dos sentidos. Un vivo que se abre de cero no tiene barra de la que salir y el sistema lo abre con un zoom sin origen. En iOS 26.0 no hay barra de sistema: sin viaje. Si en aparato falla, se vuelve a la cubierta normal quitando `.viajeDelEntreno()`, no se apila otra animación encima.
+
+## 2026-09-30 · El vivo del iPhone es UNO: se borra el shell antiguo, su bandera y los HUD que solo él montaba
+
+**El encargo:** desde el 29-09 `VivoIphoneView` era el vivo por defecto y el shell antiguo (`RunLiveShellView`) quedaba «de vuelta atrás» detrás de `VivoIphoneBandera`. Mantener dos vivos es la deuda que el vivo nuevo vino a quitar: cualquier arreglo de dobles, pausa o salida había que pensarlo dos veces.
+
+**Decidido:** fuera el shell, la bandera (y su clave de `UserDefaults`), `ActiveWorkoutView.superficieAntigua`, y todo lo que solo el shell montaba: `CromoVivoEntreno`, `AccionDelHost`, `SiguienteTramoChip`, `RestSubjectBand`, las bandas de correr al aire y de fuerza/EMOM, `EmomVivoView`, `FuerzaVivoView`, `EditorDeSerie`, `EsfuerzoDeLaSerie`, `ControlesAjusteVivo`, `BotonConectividad`, `ControlFuenteCarrera`, los HUD de formato (AMRAP, for time, rondas), de correr y de cinta/ergo (`TreadmillHUDView`, `ErgHUDContent`), `OutdoorRunHUDView` y `BotonChipPrevia`. Se quitaron también los tests que solo pintaban esas pantallas (`VivoHUDRenderTests`, `OutdoorRunHUDRenderTests`, `RondasContadorTests`, la sección de renders de `HierroVivoTests`, tres casos de `BloquesDelEntrenoWireTests`, el de la bandera).
+
+**Cómo se comprobó que estaba muerto:** barrido por tipos (nombre sin usos fuera de su propio cuerpo, ni en otros tipos vivos, ni en `FAHYBRIKCore`/reloj), repetido hasta que no salió nada nuevo; compilan la app y el target de tests. No se ha visto en aparato: lo único que el vivo nuevo tenía pendiente era esa prueba.
+
+**Se queda (declarado):** `DoblesTurnHero`, `WorkoutFinishPersist` y `EjemplosPrevia` no tienen usos en la app, pero tienen tests o son la galería de la sesión previa; decide quien los mantiene. `RunLiveChrome` se queda: el host lo usa para pedir GPS o cinta.
+
+**Holgura y avisos del vivo = método del coach (mismo día):** `WorkoutPlan.wristMethod` lleva lo que el servidor ya mandaba (`AssignmentDetail.wristMethod`) hasta `Vivo.planDe`, que lo traduce con `Vivo.reglasDe` (nuevo `Vivo+MetodoDelCoach.swift`) a `ReglasAviso`. Antes el vivo juzgaba SIEMPRE con `reglasAvisoDefecto` (3 s/km, 2 ppm, 10 W…), aunque el coach hubiera editado sus holguras. Sin `wrist_method` (sesión cacheada, servidor anterior) el vivo usa el defecto, los mismos números. Sirve igual al reloj, que comparte `Vivo.planDe`.
+
+**Qué NO hacer en consecuencia:** reintroducir una bandera para elegir entre dos vivos. Si el vivo no cubre un caso, se arregla en `VivoIphoneView`.
 
 ## 2026-09-30 · El kit del día en Swift: UNA pieza por idea (consolidación de Hoy, Plan, Carreras, Perfil y Analíticas)
 

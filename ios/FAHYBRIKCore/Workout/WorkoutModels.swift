@@ -1419,7 +1419,8 @@ extension WorkoutPlan {
                 segments: [segment],
                 coachNote: nil,
                 demoVideoUrl: nil,
-                warmupChecklist: []
+                warmupChecklist: [],
+                wristMethod: detail.wristMethod
             )
         }
         guard let workout = detail.workout else { return nil }
@@ -1538,7 +1539,8 @@ extension WorkoutPlan {
             segments: applyDoblesSplit(resolvedSegments, assignment: detail.assignment),
             coachNote: workout.coachNote,
             demoVideoUrl: nil,
-            warmupChecklist: []
+            warmupChecklist: [],
+            wristMethod: detail.wristMethod
         )
     }
 

@@ -102,12 +102,12 @@ struct PreWorkoutBriefView: View {
 
     private func cromo(_ l: LecturaSesionPrevia) -> some View {
         CromoPrevia {
-            BotonCromoPrevia(simbolo: "chevron.left", etiqueta: "Atrás") {
+            BotonCromoDia(.atras, etiqueta: "Atrás") {
                 if readyToStart { onBackFromReady?() } else { onClose() }
             }
         } derecha: {
             if l.compartible {
-                BotonCromoPrevia(simbolo: "square.and.arrow.up", etiqueta: "Compartir sesión") {
+                BotonCromoDia(.compartir, etiqueta: "Compartir sesión") {
                     tarjetaParaCompartir = .entreno(TarjetaCompartibleBuilder.antes(plan: plan))
                 }
             }
@@ -128,20 +128,26 @@ struct PreWorkoutBriefView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
             }
-            AccionAncladaPrevia(
-                titulo: l.accion.titulo,
-                simbolo: l.accion == .empezar ? "play.fill" : GlifoDia.flecha.simbolo,
-                simboloDelante: l.accion == .empezar,
+            BotonAccionDia(
+                l.accion.titulo,
+                glifo: l.accion == .empezar ? .play : .flecha,
+                completa: true,
+                alto: Theme.Size.accionAnclada,
+                glifoAlFinal: l.accion != .empezar,
+                impacto: .medio,
                 accion: { alTocar(l.accion) }
             )
             ForEach(l.secundarias, id: \.titulo) { secundaria in
-                BotonTextoPrevia(
-                    titulo: secundaria.titulo,
-                    simbolo: secundaria == .yaLoHice ? "checkmark.circle" : "camera.viewfinder",
-                    tono: secundaria == .yaLoHice ? .tinta : .suave,
-                    etiqueta: secundaria.etiquetaAccesible,
-                    accion: secundaria == .yaLoHice ? onManualLog : onCaptureLog
-                )
+                let yaLoHice = secundaria == .yaLoHice
+                BotonTextoDia(
+                    secundaria.titulo,
+                    tono: yaLoHice ? .tinta : .suave,
+                    centrado: true,
+                    accion: yaLoHice ? onManualLog : onCaptureLog
+                ) {
+                    IconoDia(yaLoHice ? .check : .camara, tam: 17)
+                }
+                .accessibilityLabel(secundaria.etiquetaAccesible)
             }
         }
         .padding(.horizontal, Theme.Spacing.pantalla - Theme.Spacing.l)

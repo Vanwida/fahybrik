@@ -9,7 +9,7 @@ import SwiftUI
 // Franja de acción. Las páginas laterales (Estructura, Mapa) se deslizan bajo la
 // cabecera y sobre la franja: la acción se alcanza siempre.
 //
-// Sustituye a `RunLiveShellView` detrás de `VivoIphoneBandera`. El motor sigue
+// Es el vivo del iPhone: el único. El motor sigue
 // siendo `WorkoutSession`: aquí no se decide nada del dominio, se pinta lo que
 // `VivoIphoneCuadro` calcula con el kit compartido.
 

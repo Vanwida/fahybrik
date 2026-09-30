@@ -119,7 +119,7 @@ struct RotacionPrevia: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // La cabecera va sobre el tinte del acento: el texto, en la tinta del tema (§11.2).
-            FilaAdaptablePrevia(alineacion: .center) {
+            FilaAdaptableDia(alineacion: .center) {
                 HStack(spacing: Theme.Spacing.s) {
                     Image(systemName: "repeat").font(.system(size: 17, weight: .bold)).accessibilityHidden(true)
                     Text(titulo).papel(.etiqueta)
@@ -136,7 +136,7 @@ struct RotacionPrevia: View {
             ForEach(turnos) { t in
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text(t.turno).papel(.etiqueta).foregroundStyle(Theme.Color.muted)
-                    FilaAdaptablePrevia {
+                    FilaAdaptableDia {
                         Text(t.movimiento)
                             .papel(.cuerpoFuerte)
                             .foregroundStyle(Theme.Color.foreground)
@@ -159,7 +159,7 @@ struct RotacionPrevia: View {
                 .overlay(alignment: .top) { Hairline() }
             }
         }
-        .tarjetaPrevia()
+        .tarjetaDia()
     }
 }
 
@@ -185,7 +185,7 @@ struct ListaPlegadaPrevia: View {
                         .overlay(alignment: .top) { if i > 0 { Hairline() } }
                 }
             }
-            .tarjetaPrevia()
+            .tarjetaDia()
         }
     }
 
@@ -209,7 +209,7 @@ struct ListaPlegadaPrevia: View {
 
     private func contenido(_ item: WorkoutItem) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m) {
-            FilaAdaptablePrevia {
+            FilaAdaptableDia {
                 Text(item.exerciseName)
                     .papel(.cuerpo)
                     .foregroundStyle(Theme.Color.foreground)

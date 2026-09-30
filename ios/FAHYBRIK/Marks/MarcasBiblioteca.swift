@@ -21,7 +21,7 @@ struct MarcasBiblioteca: View {
                     TituloSeccionDia(grupo.titulo) {
                         InfoPill(text: grupo.recuento, estilo: .velo)
                     }
-                    ListaMarcas {
+                    ListaDia {
                         ForEach(grupo.filas) { fila in
                             NavigationLink {
                                 MarkDetailView(slug: fila.slug, bearer: bearer, hrZones: hrZones)
@@ -112,7 +112,7 @@ struct EsqueletoDeMarcas: View {
             ForEach(Array(Self.filasPorGrupo.enumerated()), id: \.offset) { _, filas in
                 VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                     SkeletonBar(width: 140, height: 24)
-                    ListaMarcas {
+                    ListaDia {
                         ForEach(0..<filas, id: \.self) { _ in
                             HStack(spacing: Theme.Spacing.m) {
                                 VStack(alignment: .leading, spacing: Theme.Spacing.s) {

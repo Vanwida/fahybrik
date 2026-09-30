@@ -193,7 +193,7 @@ final class DeviceChannel {
     /// writable so the sheet's own dismiss gesture can lower it.
     ///
     /// THE FIELD BUG THIS CONTRACT FIXES: this flag is CHANNEL-owned but drives
-    /// `.sheet(isPresented:)` in `DeviceConnectCard` and `TreadmillHUDView`. While the
+    /// `.sheet(isPresented:)` in `PreWorkoutDevicesHubView` and `TreadmillHUDView`. While the
     /// device layer could raise it on its own (a scan settling on its own timer), a
     /// sheet tried to present from a screen buried UNDER the run pre-start
     /// `.fullScreenCover` — UIKit refused it ("Currently, only presenting a single
@@ -310,7 +310,7 @@ final class DeviceChannel {
         if link != .lost { link = .idle }
     }
 
-    /// The athlete tapped a device chip that shows the picker SHEET (`DeviceConnectCard`,
+    /// The athlete tapped a device row that shows the picker SHEET (`PreWorkoutDevicesHubView`,
     /// the treadmill HUD's header chip / "Buscar mi cinta"). Raises the sheet IMMEDIATELY
     /// — the tap is the intent, so the athlete watches the scan fill in instead of
     /// staring at a chip until a timer decides to pop something at them.

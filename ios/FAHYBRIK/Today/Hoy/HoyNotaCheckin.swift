@@ -16,52 +16,35 @@ struct HoyNotaCheckin: View {
     @State private var nota = CheckinStore.loadDraftNotes()
 
     var body: some View {
-        NavigationStack {
+        MarcoDeHojaDia("Nota del check-in", cerrar: { dismiss() }) {
             VStack(alignment: .leading, spacing: Theme.Spacing.l) {
                 Text("Cuéntale cómo estás si quieres: una molestia, una mala noche. Es opcional.")
                     .papel(.cuerpo)
-                    .foregroundStyle(Theme.Color.muted)
+                    .foregroundStyle(Theme.Color.foreground)
                     .fixedSize(horizontal: false, vertical: true)
-                ZStack(alignment: .topLeading) {
-                    if nota.isEmpty {
-                        Text("p. ej. molestia en la pierna izquierda desde ayer")
-                            .papel(.cuerpo)
-                            .foregroundStyle(Theme.Color.muted)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                            .accessibilityHidden(true)
+                CampoDia("Nota", enFoco: enfocada) {
+                    ZStack(alignment: .topLeading) {
+                        if nota.isEmpty {
+                            Text("p. ej. molestia en la pierna izquierda desde ayer")
+                                .foregroundStyle(Theme.Color.muted)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 8)
+                                .accessibilityHidden(true)
+                        }
+                        TextEditor(text: $nota)
+                            .focused($enfocada)
+                            .scrollContentBackground(.hidden)
+                            .frame(minHeight: 120)
+                            .accessibilityLabel("Nota del check-in")
                     }
-                    TextEditor(text: $nota)
-                        .focused($enfocada)
-                        .scrollContentBackground(.hidden)
-                        .papel(.cuerpo)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .accessibilityLabel("Nota del check-in")
-                }
-                .frame(minHeight: 120)
-                .background(Theme.Color.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous)
-                        .strokeBorder(Theme.Color.hairlineStrong, lineWidth: 1)
-                )
-                Spacer(minLength: 0)
-            }
-            .padding(Theme.Spacing.pantalla)
-            .background(Theme.Color.background.ignoresSafeArea())
-            .navigationTitle("Nota del check-in")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Hecho") { dismiss() }
-                        .tint(Theme.Color.accentText)
                 }
             }
-            // El borrador se guarda al teclear: cerrar sin pulsar «Hecho» no pierde nada.
-            .onChange(of: nota) { _, nueva in CheckinStore.saveDraftNotes(nueva) }
-            .onAppear { enfocada = true }
+        } accion: {
+            BotonAccionDia(hoja: "Hecho", ocupado: false, textoOcupado: "", voz: "") { dismiss() }
         }
+        // El borrador se guarda al teclear: cerrar sin pulsar «Hecho» no pierde nada.
+        .onChange(of: nota) { _, nueva in CheckinStore.saveDraftNotes(nueva) }
+        .onAppear { enfocada = true }
         .compactSheet()
     }
 }

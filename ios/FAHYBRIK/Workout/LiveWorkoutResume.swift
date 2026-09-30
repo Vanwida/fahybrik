@@ -30,6 +30,13 @@ final class LiveWorkoutResume {
         tracked = session
     }
 
+    /// Lo que pinta la barra de sistema: el entreno minimizado Y, mientras el vivo está delante, el mismo:
+    /// la barra tiene que seguir ahí para que el vivo vuelva a ella al minimizar (`LiveWorkoutViaje`).
+    var barra: RecoveredLiveCover? { parkedCover ?? cover }
+    /// El espacio de nombres del viaje entre la barra y el vivo. Lo pone `AppShell` al montarse: la barra
+    /// (origen) vive allí y el vivo (destino) se presenta desde cualquier pestaña.
+    @ObservationIgnored var espacioDelViaje: Namespace.ID?
+
     /// True when the athlete minimized live chrome (✕) — UI gone, session ACTIVE.
     var isUIMinimized: Bool { parkedCover != nil && cover == nil }
 

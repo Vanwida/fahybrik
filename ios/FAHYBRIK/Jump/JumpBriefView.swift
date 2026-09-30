@@ -25,7 +25,7 @@ struct JumpBriefView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                     sujeto
                     bloque("Qué vas a necesitar") {
-                        ListaDeTests {
+                        ListaDia {
                             ForEach(brief.needs) { need in
                                 FilaDeBriefing(titulo: need.title, detalle: need.detail) {
                                     FichaDia(.check)
@@ -34,7 +34,7 @@ struct JumpBriefView: View {
                         }
                     }
                     bloque("Cómo va a ir") {
-                        ListaDeTests {
+                        ListaDia {
                             ForEach(brief.sequence) { step in
                                 FilaDeBriefing(titulo: step.title, detalle: step.detail) {
                                     FichaDia(tono: .normal) {
@@ -52,7 +52,7 @@ struct JumpBriefView: View {
         }
         .background(Theme.Color.background.ignoresSafeArea())
         .anchoredAction {
-            BotonAccionTests("Estoy listo", glifo: .video, completa: true, alto: Theme.Size.accion, accion: onReady)
+            BotonAccionDia("Estoy listo", glifo: .video, completa: true, alto: Theme.Size.accion, accion: onReady)
                 // El pie ancla con 16 y el margen de las pantallas del día es 20: los 4 restantes van dentro.
                 .padding(.horizontal, Theme.Spacing.pantalla - Theme.Spacing.l)
         }
@@ -78,7 +78,7 @@ struct JumpBriefView: View {
 
     /// Líneas sueltas (cómo se salta, cómo va el teléfono): una marca y una frase por línea.
     private func lineas(_ textos: [String]) -> some View {
-        ListaDeTests {
+        ListaDia {
             ForEach(textos, id: \.self) { texto in
                 HStack(alignment: .top, spacing: Theme.Spacing.m) {
                     IconoDia(.check, tam: 18, peso: .bold)

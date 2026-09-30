@@ -13,7 +13,8 @@ import SwiftUI
 //         BotonAccionDia(hoja: "Importar", activo: hayEnlace, ocupado: importando, textoOcupado: "Importando…", voz: "Importando carrera", accion: importa)
 //     }
 
-/// El cuerpo de una hoja: título, cierre, contenido que scrollea y, si la hay, la acción anclada.
+/// El cuerpo de una hoja: título, cierre, contenido que scrollea y, si la hay, la acción anclada. `conAccion: false`
+/// quita la barra de abajo cuando la acción depende del estado (una hoja que solo ofrece «Usar este» al conectar).
 struct MarcoDeHojaDia<Contenido: View, Accion: View>: View {
     let titulo: String
     /// Volver un paso dentro de la hoja (en lugar de cerrarla).
@@ -27,13 +28,14 @@ struct MarcoDeHojaDia<Contenido: View, Accion: View>: View {
         _ titulo: String,
         atras: (() -> Void)? = nil,
         cerrar: @escaping () -> Void,
+        conAccion: Bool = true,
         @ViewBuilder contenido: () -> Contenido,
         @ViewBuilder accion: () -> Accion
     ) {
         self.titulo = titulo
         self.atras = atras
         self.cerrar = cerrar
-        self.conAccion = true
+        self.conAccion = conAccion
         self.contenido = contenido()
         self.accion = accion()
     }

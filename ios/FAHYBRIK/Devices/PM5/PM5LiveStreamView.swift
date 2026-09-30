@@ -7,116 +7,66 @@ import SwiftUI
 //   - scanning + empty → spinner + tip
 //   - scanning + list → tap to connect
 //   - connected → success summary + dismiss
+//
+// La piel es la del kit de «El día»: el marco de hoja, filas `FilaDia`, la acción anclada al conectar.
 struct PM5LiveStreamView: View {
     @Bindable var store: PM5ConnectionStore
     var onDone: () -> Void = {}
     /// When set (Remo / SkiErg / BikeErg), the sheet titles the role so binding
-    /// two PM5s in one session is unambiguous.
+    /// two monitors in one session is unambiguous.
     var roleTitle: String? = nil
     /// FH-95: hub calls `startScan()` before present — skip duplicate onAppear scan.
     var startsScanOnAppear: Bool = true
 
     @Environment(\.dismiss) private var dismiss
+    @State private var ayudaAbierta = false
+    @State private var diagnosticoAbierto = false
 
     private var useButtonTitle: String {
-        if let roleTitle { return "USAR ESTE · \(roleTitle.uppercased())" }
-        return "USAR ESTE PM5"
+        if let roleTitle { return "Usar este · \(roleTitle)" }
+        return "Usar este erg"
     }
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.l) {
-                header
-                Divider().background(Theme.Color.hairline)
-                // Alcanzable en apaisado (el CTA de conectar del entreno en vivo y
-                // el gate de ergo abren esta hoja con el landscape ya permitido) y
-                // sin scroll la guía + la lista desbordaban los ~380 pt: la lista
-                // se comía los botones de abajo y hasta la X de cerrar. El estado
-                // variable se desplaza; el cierre y las acciones quedan clavados.
-                ScrollView(showsIndicators: false) {
-                    content
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                }
-                .frame(maxHeight: .infinity)
-                if store.isConnected {
-                    ExpertPrimaryButton(title: useButtonTitle) {
-                        onDone()
-                        dismiss()
-                    }
-                    SecondaryButton(title: "Desconectar") {
-                        store.disconnect()
-                        dismiss()
-                    }
-                } else if store.hasRememberedDevice {
-                    SecondaryButton(title: "Olvidar dispositivo") {
-                        store.forgetPaired()
-                    }
-                }
+        // Alcanzable en apaisado (el CTA de conectar del entreno en vivo y el gate de
+        // ergo abren esta hoja con el landscape ya permitido): el marco hace scroll del
+        // estado variable y deja clavados el cierre y la acción.
+        MarcoDeHojaDia(roleTitle ?? "Tu erg", cerrar: { dismiss() }, conAccion: store.isConnected) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                Text(roleTitle.map { "Elige el monitor de \($0) en la sala" }
+                     ?? "Conecta tu erg para ver potencia y paladas en directo")
+                    .papel(.cuerpo)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                content
             }
-            .padding(Theme.Spacing.l)
+        } accion: {
+            BotonAccionDia(useButtonTitle, relleno: .acento, completa: true, alto: Theme.Size.accionAnclada, impacto: .medio) {
+                onDone()
+                dismiss()
+            }
+            BotonTextoDia("Desconectar", tono: .suave, centrado: true) {
+                store.disconnect()
+                dismiss()
+            }
         }
         .onAppear {
             if startsScanOnAppear { store.startScan() }
         }
         .onChange(of: store.isConnected) { _, connected in
             // Tras conectar, relanza el escaneo por debajo para que "Cambiar de erg"
-            // siga viendo los demás PM5 de la sala.
+            // siga viendo los demás monitores de la sala.
             if connected { store.startScan() }
         }
         .onDisappear { store.stopScan() }
     }
 
-    private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(roleTitle.map { "PM5 · \($0)" } ?? "Concept2 PM5")
-                    .font(Theme.Typography.headlineS)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text(roleTitle.map { "Elige el monitor de \($0) en la sala" }
-                     ?? "Conecta tu erg para potencia y SPM en directo")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-            }
-            Spacer()
-            Button(action: { dismiss() }) {
-                Image(systemName: "xmark")
-                    .foregroundStyle(Theme.Color.muted)
-                    .frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Cerrar")
-        }
-    }
-
     @ViewBuilder
     private var content: some View {
-        switch store.bluetoothState {
-        case .unauthorized:
-            stateMessage(
-                icon: "lock.shield",
-                title: "Bluetooth bloqueado",
-                detail: "Activa Bluetooth para \(Marca.nombre) en Ajustes para conectar tu PM5."
-            ) {
-                openSettingsButton
-            }
-        case .poweredOff:
-            stateMessage(
-                icon: "antenna.radiowaves.left.and.right.slash",
-                title: "Bluetooth apagado",
-                detail: "Activa Bluetooth desde el Centro de Control y vuelve aquí."
-            ) {
-                EmptyView()
-            }
-        case .unsupported:
-            stateMessage(
-                icon: "exclamationmark.triangle",
-                title: "Dispositivo sin Bluetooth LE",
-                detail: "Este iPhone no soporta Bluetooth Low Energy."
-            ) {
-                EmptyView()
-            }
-        case .unknown, .poweredOn:
+        let disponibilidad = store.bluetoothState.availability
+        if DeviceBluetoothGuidance.isBlocking(disponibilidad) {
+            DeviceBluetoothGuidance(availability: disponibilidad, deviceWord: "erg")
+        } else {
             scannerBody
         }
     }
@@ -130,11 +80,14 @@ struct PM5LiveStreamView: View {
             } else {
                 scanningHeader
                 deviceList
+                if store.hasRememberedDevice {
+                    BotonTextoDia("Olvidar dispositivo", tono: .suave, centrado: true) {
+                        store.forgetPaired()
+                    }
+                }
             }
             if let err = store.lastError {
-                Text(err)
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.danger)
+                AvisoEnLineaDia(err)
             }
             csafeDiagnosticsSection
         }
@@ -143,16 +96,14 @@ struct PM5LiveStreamView: View {
     /// The illustrated guide, folded away — the persistent "never vanishes" form
     /// used once ergs are listed or one is already connected.
     private var collapsedConnectHelp: some View {
-        DisclosureGroup {
-            PM5ConnectGuide()
-                .padding(.top, Theme.Spacing.s)
-        } label: {
-            Text("CÓMO CONECTAR")
-                .font(.system(size: 10, weight: .heavy))
-                .tracking(0.8)
-                .foregroundStyle(Theme.Color.muted)
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            BotonTextoDia("Cómo conectar", tono: .suave, expandido: ayudaAbierta, accion: { ayudaAbierta.toggle() },
+                          icono: { IconoDia(.ayuda, tam: 20) }, derecha: { GiroDia(abierto: ayudaAbierta) })
+            if ayudaAbierta {
+                PM5ConnectGuide()
+                    .padding(.horizontal, Theme.Spacing.l)
+            }
         }
-        .tint(Theme.Color.muted)
     }
 
     /// Hex TX/RX ring of the workout-programming exchange — collapsed by default,
@@ -160,33 +111,32 @@ struct PM5LiveStreamView: View {
     @ViewBuilder
     private var csafeDiagnosticsSection: some View {
         if !store.csafeDiagnostics.isEmpty {
-            DisclosureGroup {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(Array(store.csafeDiagnostics.enumerated()), id: \.offset) { _, line in
-                        Text(line)
-                            .font(.system(size: 9, weight: .regular, design: .monospaced))
-                            .foregroundStyle(Theme.Color.muted)
-                            .lineLimit(2)
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                BotonTextoDia("Diagnóstico del erg", tono: .suave, expandido: diagnosticoAbierto, accion: { diagnosticoAbierto.toggle() },
+                              icono: { EmptyView() }, derecha: { GiroDia(abierto: diagnosticoAbierto) })
+                if diagnosticoAbierto {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(Array(store.csafeDiagnostics.enumerated()), id: \.offset) { _, line in
+                            Text(line)
+                                .papel(.nota)
+                                .monospaced()
+                                .foregroundStyle(Theme.Color.muted)
+                                .lineLimit(2)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, Theme.Spacing.l)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 4)
-            } label: {
-                Text("DIAGNÓSTICO PM5")
-                    .font(.system(size: 10, weight: .heavy))
-                    .tracking(0.8)
-                    .foregroundStyle(Theme.Color.muted)
             }
-            .tint(Theme.Color.muted)
         }
     }
 
-    /// The OTHER discovered PM5s while one is connected — one tap swaps ergs
+    /// The OTHER discovered monitors while one is connected — one tap swaps ergs
     /// (drops the current, connects the tapped). Always present so the remembered
     /// erg can never hide the rest of the room; while empty it says it's looking.
     private var changeErgSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            LabelText(text: "CAMBIAR DE ERG", size: 11)
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            SubtituloDia("Cambiar de erg")
             let others = store.discoveredForDisplay.filter { $0.id != store.connectedIdentifier }
             if others.isEmpty {
                 HStack(spacing: Theme.Spacing.s) {
@@ -194,7 +144,7 @@ struct PM5LiveStreamView: View {
                         .tint(Theme.Color.accent)
                         .scaleEffect(0.85)
                     Text("Buscando otros ergs cercanos…")
-                        .font(Theme.Typography.small)
+                        .papel(.nota)
                         .foregroundStyle(Theme.Color.muted)
                 }
             } else {
@@ -213,7 +163,7 @@ struct PM5LiveStreamView: View {
                 .tint(Theme.Color.accent)
                 .scaleEffect(0.85)
             Text(scanningLabel)
-                .font(Theme.Typography.small)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
             Spacer()
         }
@@ -222,7 +172,7 @@ struct PM5LiveStreamView: View {
     private var scanningLabel: String {
         switch store.connectionState {
         case .connecting:           return "Conectando…"
-        case .discoveringServices:  return "Descubriendo servicios…"
+        case .discoveringServices:  return "Preparando la conexión…"
         case .scanning:             return "Buscando ergs cercanos…"
         case .streaming:            return "Conectado"
         case .disconnecting:        return "Desconectando…"
@@ -238,13 +188,14 @@ struct PM5LiveStreamView: View {
             // (ErgData's move): show WHAT to press on the monitor, not a spinner.
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 lostNote
-                Text("Asegúrate de que el PM5 está encendido y mostrando la pantalla principal.")
-                    .font(Theme.Typography.small)
+                Text("Asegúrate de que el erg está encendido y mostrando la pantalla principal del monitor.")
+                    .papel(.nota)
                     .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
                 PM5ConnectGuide()
                 if store.hasRememberedDevice, let name = store.rememberedDeviceName {
                     Text("Último usado: \(name). Tócalo en la lista cuando aparezca.")
-                        .font(Theme.Typography.caption)
+                        .papel(.nota)
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
@@ -269,30 +220,25 @@ struct PM5LiveStreamView: View {
     @ViewBuilder
     private var lostNote: some View {
         if store.connectionLost, !store.isConnected {
+            let frase = "Se perdió la conexión con el erg."
             if let id = store.sessionIdentifier {
-                Button { store.connect(id) } label: { lostNoteLabel }
-                    .buttonStyle(.plain)
+                FilaDia(
+                    ficha: FichaDia(.alerta, tono: .aviso),
+                    titulo: frase,
+                    etiqueta: "\(frase) Toca para volver a conectarlo.",
+                    altoMinimo: 72,
+                    enTarjeta: true,
+                    alTocar: { store.connect(id) }
+                ) {
+                    Text("Toca para volver a conectarlo, o elígelo abajo.")
+                        .papel(.nota)
+                        .foregroundStyle(Theme.Color.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             } else {
-                lostNoteLabel
+                DevicePickHintNote(text: "\(frase) Elígelo otra vez abajo para volver a conectarlo.", glifo: .alerta)
             }
         }
-    }
-
-    private var lostNoteLabel: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.s) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Theme.Color.warning)
-            Text("Se perdió la conexión con el erg. Elígelo otra vez abajo para volver a conectarlo.")
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.foreground)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Spacing.m)
-        .background(Theme.Color.warningTint)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        .accessibilityElement(children: .combine)
     }
 
     // ErgData-style discovered row: erg icon + "ID <serial>" (the number on the
@@ -301,41 +247,18 @@ struct PM5LiveStreamView: View {
     // more than "PM5 <serial>". RSSI dropped on purpose — it means nothing here.
     private func deviceRow(_ dev: PM5Discovered, isRemembered: Bool = false,
                            action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: Theme.Spacing.m) {
-                Image(systemName: "figure.rower")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
-                    .frame(width: 38, height: 38)
-                    .background(Theme.Color.surfaceSunken)
-                    .clipShape(Circle())
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(Self.pm5Serial(dev.name).map { "ID \($0)" } ?? dev.name)
-                            .font(Theme.Typography.bodyEmph)
-                            .foregroundStyle(Theme.Color.foreground)
-                        // A label, not an action — same contract as the belt/strap list.
-                        if isRemembered {
-                            Text("ÚLTIMO USADO")
-                                .font(.system(size: 8, weight: .heavy, design: .default).italic())
-                                .tracking(0.6)
-                                .foregroundStyle(Theme.Color.accentText)
-                        }
-                    }
-                    Text(deviceRowSubtitle(dev))
-                        .font(Theme.Typography.caption)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(Theme.Color.muted)
-            }
-            .padding(Theme.Spacing.m)
-            .background(Theme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+        let nombre = Self.pm5Serial(dev.name).map { "ID \($0)" } ?? dev.name
+        return FilaDia(
+            ficha: FichaDia(.remo),
+            titulo: nombre,
+            etiqueta: "Erg \(nombre), \(isRemembered ? "último usado, " : "")toca para conectar",
+            altoMinimo: 72,
+            enTarjeta: true,
+            alTocar: action
+        ) {
+            // A label, not an action — same contract as the belt/strap list.
+            DeviceRowDetail(text: deviceRowSubtitle(dev), isRemembered: isRemembered)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Erg \(Self.pm5Serial(dev.name).map { "ID \($0)" } ?? dev.name), toca para conectar")
     }
 
     /// The PM5 advertises "PM5 <serial>" (sometimes with extra tokens). The longest
@@ -359,86 +282,63 @@ struct PM5LiveStreamView: View {
     }
 
     private var connectedCard: some View {
-        CardSurface(padding: Theme.Spacing.m) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                HStack(spacing: Theme.Spacing.s) {
-                    Circle().fill(Theme.Color.ok).frame(width: 8, height: 8)
-                    Text(store.connectedDeviceName ?? "PM5")
-                        .font(Theme.Typography.bodyEmph)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Spacer()
-                }
-                HStack(spacing: 6) {
-                    livePill(label: "POTENCIA", valor: store.live.powerWatts.map { "\($0) W" })
-                    livePill(label: "PALADAS", valor: store.live.strokeRate.map { "\($0)" })
-                    livePill(label: "DISTANCIA", valor: store.live.distanceMeters.map { Formato.entero($0, "m") })
-                }
+        ListaDia {
+            HStack(spacing: Theme.Spacing.m) {
+                Circle().fill(Theme.Color.ok).frame(width: 10, height: 10)
+                    .accessibilityHidden(true)
+                Text(store.connectedDeviceName ?? "Erg")
+                    .papel(.cuerpoFuerte)
+                    .foregroundStyle(Theme.Color.foreground)
+                Spacer(minLength: 0)
             }
+            .padding(.horizontal, Theme.Spacing.l)
+            .padding(.vertical, Theme.Spacing.m)
+            lectura("Potencia", valor: store.live.powerWatts.map { "\($0) W" })
+            lectura("Paladas", valor: store.live.strokeRate.map { "\($0)" })
+            lectura("Distancia", valor: store.live.distanceMeters.map { Formato.entero($0, "m") })
         }
     }
 
     /// Acabas de conectar y el monitor todavía no ha dicho nada. Eso NO son tres
     /// guiones: es que falta la primera palada, y decirlo es lo que hace que el
     /// atleta la dé en vez de pensar que la conexión ha fallado (§7).
-    private static let sinLecturaMotivo = "esperando la primera palada"
+    private static let sinLecturaMotivo = "Esperando la primera palada"
 
     /// `valor` nil = no hay medida: se pinta el porqué. Mismo contrato que `ApoyoVivo`
     /// (Theme/LenguajeVivoUI.swift), en la voz de esta hoja.
-    private func livePill(label: String, valor: String?) -> some View {
-        VStack(spacing: 2) {
-            Text(label)
-                .font(.system(size: 9, weight: .semibold))
-                .uppercaseTracked()
+    private func lectura(_ rotulo: String, valor: String?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m) {
+            Text(rotulo)
+                .papel(.cuerpo)
                 .foregroundStyle(Theme.Color.muted)
+            Spacer(minLength: Theme.Spacing.s)
             if let valor {
                 Text(valor)
-                    .font(.system(size: 14, weight: .heavy, design: .default).italic().monospacedDigit())
+                    .papel(.cifra)
                     .foregroundStyle(Theme.Color.foreground)
             } else {
                 Text(Self.sinLecturaMotivo)
-                    .font(Theme.Typography.caption)
+                    .papel(.nota)
                     .foregroundStyle(Theme.Color.muted)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2).minimumScaleFactor(0.8)
+                    .multilineTextAlignment(.trailing)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(Theme.Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
+        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.vertical, Theme.Spacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
+}
 
-    private func stateMessage<CTA: View>(
-        icon: String,
-        title: String,
-        detail: String,
-        @ViewBuilder cta: () -> CTA
-    ) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            HStack(spacing: Theme.Spacing.m) {
-                Image(systemName: icon)
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(Theme.Typography.bodyEmph)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text(detail)
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-            cta()
-        }
-    }
-
-    @ViewBuilder
-    private var openSettingsButton: some View {
-        if let url = URL(string: UIApplication.openSettingsURLString) {
-            SecondaryButton(title: "Abrir Ajustes") {
-                UIApplication.shared.open(url)
-            }
+extension PM5BluetoothState {
+    /// El mismo estado de la radio, con el vocabulario que entiende la guía compartida de Bluetooth.
+    var availability: BluetoothAvailability {
+        switch self {
+        case .unknown:      return .unknown
+        case .unauthorized: return .unauthorized
+        case .poweredOff:   return .poweredOff
+        case .poweredOn:    return .poweredOn
+        case .unsupported:  return .unsupported
         }
     }
 }

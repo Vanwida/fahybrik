@@ -59,6 +59,10 @@ struct AppShell: View {
     // recreated on switch. See AppDataStore.
     @State private var store = AppDataStore()
     @State private var liveResume = LiveWorkoutResume.shared
+    /// El vivo que está delante por la vía de la barra o de la recuperación. `liveResume.cover` es el modelo;
+    /// esto es lo que presenta (ver `LiveWorkoutViaje`: el origen del zoom tiene que cambiar su propio `@State`).
+    @State private var entrenoAbierto: RecoveredLiveCover?
+    @Namespace private var viajeEntreno
     /// La hoja del movimiento del reloj cuando el primer entreno de muñeca no tuvo
     /// resumen en el móvil (`askSensorConsentIfDue`).
     @State private var askSensorConsent = false
@@ -116,7 +120,10 @@ struct AppShell: View {
         }
         .tint(Theme.Color.accentText)
         // FH-111 — el entreno minimizado se sigue viendo sobre las pestañas.
-        .liveWorkoutAccessory(liveResume.minimized)
+        .liveWorkoutAccessory(liveResume.barra, espacio: viajeEntreno) {
+            liveResume.presentParkedCoverIfNeeded()
+            entrenoAbierto = liveResume.cover
+        }
         .environment(store)
         // Persistent chat: any main-screen header opens it through this value;
         // it's raised as a full-screen cover that re-injects the store (a custom
@@ -157,10 +164,9 @@ struct AppShell: View {
                 .environment(store)
                 .environment(\.openChat) { _ in chatTrasBandeja = true }
         }
-        .fullScreenCover(item: Binding(
-            get: { liveResume.cover },
-            set: { liveResume.cover = $0 }
-        )) { cover in
+        // El vivo reabierto o recuperado. La presentación cuelga de un `@State` de ESTA vista (el origen del
+        // viaje desde la barra) y se sincroniza con `liveResume.cover`, que sigue siendo el modelo.
+        .fullScreenCover(item: $entrenoAbierto) { cover in
             WorkoutContainer(
                 assignmentId: cover.assignmentId,
                 fallbackTitle: cover.title,
@@ -175,6 +181,18 @@ struct AppShell: View {
                 }
             )
             .environment(store)
+        }
+        .onAppear {
+            liveResume.espacioDelViaje = viajeEntreno
+            entrenoAbierto = liveResume.cover
+        }
+        // El modelo manda: lo que abre o cierra el motor (recuperar, minimizar, terminar) llega a la presentación…
+        .onChange(of: liveResume.cover?.id) { _, _ in
+            if entrenoAbierto?.id != liveResume.cover?.id { entrenoAbierto = liveResume.cover }
+        }
+        // …y al revés: si la cubierta se va por su lado, el modelo no se queda con un vivo que ya no está.
+        .onChange(of: entrenoAbierto?.id) { _, nuevo in
+            if nuevo == nil, liveResume.cover != nil { liveResume.cover = nil }
         }
         .sensorConsentSheet(isPresented: $askSensorConsent)
         // Un test hecho en el reloj: la misma captura que tras guardar en el móvil,

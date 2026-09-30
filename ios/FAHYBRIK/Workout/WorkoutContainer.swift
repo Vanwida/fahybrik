@@ -15,6 +15,9 @@ struct WorkoutLaunch: Identifiable, Equatable {
     let assignmentId: String
     /// Session title from the plan-week summary, shown while the body loads.
     let title: String?
+    /// «Empezar» desde el Plan va derecho a la puerta de empezar (dispositivos y arrancar); tocar la sesión
+    /// abre su ficha para VER el entreno sin empezar nada.
+    var empiezaDirecto = false
     var id: String { assignmentId }
 }
 
@@ -57,6 +60,9 @@ struct WorkoutContainer: View {
     var hrZones: HRZoneProfile? = nil
     /// Live-resume cover already reconstructed the session (AppShell). Nil = load the plan.
     var recoveredSession: WorkoutSession? = nil
+    /// Salta la ficha y va a la puerta de empezar en cuanto el plan está cargado (`WorkoutLaunch.empiezaDirecto`).
+    var empiezaDirecto = false
+    @State private var yaSalto = false
 
     enum Phase: Equatable {
         case brief
@@ -177,6 +183,7 @@ struct WorkoutContainer: View {
 
     var body: some View {
         conCubiertas
+        .viajeDelEntreno()
         .task {
             activeFreeContext = freeContext
             await arranque()
@@ -526,7 +533,7 @@ struct WorkoutContainer: View {
                     .tint(Theme.Color.accent)
                 if let title = fallbackTitle, !title.isEmpty {
                     Text(title)
-                        .font(Theme.Typography.small)
+                        .papel(.nota)
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
@@ -538,38 +545,25 @@ struct WorkoutContainer: View {
     // fake "Sesión" the athlete could complete — we show the session name we know,
     // a retry, and a clean way out.
     private var failedView: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.l) {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(Theme.Color.muted)
-                VStack(spacing: Theme.Spacing.xs) {
-                    Text("No pudimos cargar tu entreno")
-                        .font(Theme.Typography.headlineS)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .multilineTextAlignment(.center)
-                    if let title = fallbackTitle, !title.isEmpty {
-                        Text(title)
-                            .font(Theme.Typography.small)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    Text("Revisa tu conexión e inténtalo de nuevo.")
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
-                        .multilineTextAlignment(.center)
-                }
-                VStack(spacing: Theme.Spacing.s) {
-                    PrimaryButton(title: "Reintentar") {
+        VStack(spacing: Theme.Spacing.s) {
+            FillingScreen {
+                SujetoErrorDia(
+                    kicker: fallbackTitle.flatMap { $0.isEmpty ? nil : $0 } ?? "Tu entreno",
+                    titulo: "No pudimos cargar tu entreno",
+                    apoyo: "Revisa tu conexión e inténtalo de nuevo.",
+                    alReintentar: {
                         loadState = .loading
-                        Task { await loadPlan() }
+                        await loadPlan()
                     }
-                    SecondaryButton(title: "Salir") { onClose() }
-                }
-                .frame(maxWidth: 320)
+                )
+                .padding(.horizontal, Theme.Spacing.pantalla)
+                .padding(.top, Theme.Spacing.l)
             }
-            .padding(Theme.Spacing.xl)
+            BotonTextoDia("Salir", tono: .suave, centrado: true) { onClose() }
+                .padding(.horizontal, Theme.Spacing.pantalla)
+                .padding(.bottom, Theme.Spacing.s)
         }
+        .background(Theme.Color.background.ignoresSafeArea())
     }
 
     // Tests guiados — this test's contract promises an HRR result (measure `hrr`,
@@ -726,6 +720,10 @@ struct WorkoutContainer: View {
     /// MISMO camino que una del coach, con sus `template_segment_id` reales.
     private func applyLoadedDetail(plan: WorkoutPlan, detail: AssignmentDetail) {
         loadState = .ready(plan, detail)
+        if empiezaDirecto, !yaSalto, phase == .brief {
+            yaSalto = true
+            advanceFromBrief(segments: plan.segments.sorted { $0.order < $1.order })
+        }
     }
 
     private func advanceFromBrief(segments: [WorkoutSegment]) {
@@ -756,47 +754,31 @@ struct WorkoutContainer: View {
     // instantánea igual que antes.
     @ViewBuilder
     private func recoveryModal(_ saved: PersistedWorkoutState) -> some View {
-        ZStack {
-            Theme.Color.scrim.ignoresSafeArea()
-            VStack(spacing: Theme.Spacing.m) {
-                Text("Tienes un entreno a medias")
-                    .font(Theme.Typography.headlineS)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Lo dejaste el \(formatted(saved.savedAt)). Puedes seguir justo donde lo dejaste.")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-                    .multilineTextAlignment(.center)
-                HStack(spacing: Theme.Spacing.m) {
-                    SecondaryButton(title: "Descartar") {
-                        Task { await WorkoutStateStore.shared.clear() }
-                        crashRecoveryPrompt = nil
-                    }
-                    PrimaryButton(title: "Seguir donde lo dejé") {
-                        let recovered = WorkoutSession(plan: saved.plan, hrZones: hrZones, startedAt: saved.startedAt)
-                        // ONE restore path, owned by the session (AUDIT-1: the gate
-                        // already ensured the assignment matches). Field-by-field
-                        // copying here left the honesty carriers behind — reps
-                        // confirmation, per-set detail, declared load — and the
-                        // segment re-primed itself with the PRESCRIPTION on entry.
-                        recovered.restore(from: saved)
-                        session = recovered
-                        // El espejo se levanta igualmente: si seguía vivo, `begin`
-                        // lo reengancha a la sesión recuperada, que es la que ahora
-                        // manda; y si la muñeca se había autocerrado por su cuenta,
-                        // esto vuelve a ponerla en marcha.
-                        PhoneLiveSession.shared.begin(
-                            session: recovered,
-                            activityKind: mirrorActivityKind(for: saved.plan)
-                        )
-                        crashRecoveryPrompt = nil
-                        phase = .active
-                    }
-                }
+        DialogoDia("Tienes un entreno a medias", apoyo: "Lo dejaste el \(formatted(saved.savedAt)). Puedes seguir justo donde lo dejaste.") {
+            BotonAccionDia("Seguir donde lo dejé", glifo: .play, relleno: .acento, completa: true, glifoAlFinal: false, impacto: .medio) {
+                let recovered = WorkoutSession(plan: saved.plan, hrZones: hrZones, startedAt: saved.startedAt)
+                // ONE restore path, owned by the session (AUDIT-1: the gate
+                // already ensured the assignment matches). Field-by-field
+                // copying here left the honesty carriers behind — reps
+                // confirmation, per-set detail, declared load — and the
+                // segment re-primed itself with the PRESCRIPTION on entry.
+                recovered.restore(from: saved)
+                session = recovered
+                // El espejo se levanta igualmente: si seguía vivo, `begin`
+                // lo reengancha a la sesión recuperada, que es la que ahora
+                // manda; y si la muñeca se había autocerrado por su cuenta,
+                // esto vuelve a ponerla en marcha.
+                PhoneLiveSession.shared.begin(
+                    session: recovered,
+                    activityKind: mirrorActivityKind(for: saved.plan)
+                )
+                crashRecoveryPrompt = nil
+                phase = .active
             }
-            .padding(Theme.Spacing.xl)
-            .frame(maxWidth: 320)
-            .brandSurface()
-            .padding(.horizontal, Theme.Spacing.xl)
+            BotonTextoDia("Descartar", tono: .suave, centrado: true) {
+                Task { await WorkoutStateStore.shared.clear() }
+                crashRecoveryPrompt = nil
+            }
         }
     }
 

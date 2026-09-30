@@ -215,7 +215,7 @@ struct PlanView: View {
             alDeslizar: { $0 > 0 ? irAdelante() : irAtras() },
             alAtras: irAtras, alAdelante: irAdelante, alVolver: volver,
             alAccion: { alAccion($0) },
-            alAbrir: abrir,
+            alAbrir: { abrir($0) },
             menuDeSesion: { sesion, semana in AnyView(menuDeSesion(sesion, semana)) },
             menuDelDia: { dia, semana in AnyView(menuDelDia(dia, semana)) }
         )
@@ -273,7 +273,9 @@ struct PlanView: View {
 
     private func alAccion(_ a: AccionAnclada) {
         switch a {
-        case let .empezar(sesion, _), let .verHecho(sesion, _), let .verSiguiente(sesion, _, _):
+        case let .empezar(sesion, _):
+            abrir(sesion, empezando: true)
+        case let .verHecho(sesion, _), let .verSiguiente(sesion, _, _):
             abrir(sesion)
         case .escribirAlCoach:
             Haptics.light()
@@ -301,9 +303,9 @@ struct PlanView: View {
     /// UNA puerta, con el aviso de lo que se pisaría. Tocar ROUTEA POR ESTADO: una sesión terminada (hecha o a
     /// medias) abre el detalle de lo que registraste; una pendiente abre la previa del entreno. Un solo punto de
     /// decisión, para que hecho y pendiente no se confundan.
-    private func abrir(_ session: AthleteWeekDaySession) {
+    private func abrir(_ session: AthleteWeekDaySession, empezando: Bool = false) {
         guard !session.assignmentId.isEmpty else { return }
-        let launch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title)
+        let launch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title, empiezaDirecto: empezando)
         if session.estado.trabajada {
             executedLaunch = launch
         } else {

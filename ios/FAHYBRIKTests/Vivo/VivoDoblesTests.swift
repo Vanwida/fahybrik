@@ -135,14 +135,4 @@ final class VivoDoblesTests: XCTestCase {
         XCTAssertEqual(DoblesLiveStripState.finished(name: "Marta", finalTimeS: 4210, finalRpe: nil).lineaVivo?.titular, "Marta ha terminado")
         XCTAssertEqual(DoblesLiveStripState.left(name: "Marta").lineaVivo?.detalle, "tu sesión sigue igual")
     }
-
-    // MARK: - La bandera
-
-    func testLaBanderaEstaEncendidaPorDefecto() {
-        let d = UserDefaults.standard
-        let antes = d.object(forKey: VivoIphoneBandera.clave)
-        d.removeObject(forKey: VivoIphoneBandera.clave)
-        defer { if let antes { d.set(antes, forKey: VivoIphoneBandera.clave) } }
-        XCTAssertTrue(VivoIphoneBandera.activa, "el vivo nuevo es el de la app (Debug y Release)")
-    }
 }
