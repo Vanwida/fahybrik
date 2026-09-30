@@ -143,22 +143,25 @@ extension DoblesRaceGapSegment {
         }
     }
 
-    /// Chip de "quién lo lleva": TÚ · {PAREJA} · 50/50 · TÚ 60% · JUNTOS.
+    /// Pastilla de "quién lo lleva": Tú · {pareja} · 50/50 · Tú 60% · Juntos. En caso de frase y no en
+    /// mayúsculas: el kit del día pinta el texto de una pastilla con el papel `rotulo` (15 pt), que
+    /// es minúscula a propósito — en mayúsculas a ese tamaño la fila gritaba. El nombre de la pareja
+    /// va tal cual llega (es un nombre propio: el dato decide cómo se escribe).
     func carrierChipText(partnerName: String) -> String {
         switch carrier.lowercased() {
-        case "self":     return "TÚ"
-        case "partner":  return partnerName.uppercased()
-        case "together": return "JUNTOS"
+        case "self":     return "Tú"
+        case "partner":  return partnerName
+        case "together": return "Juntos"
         case "split":
             // Sin reparto sabido NO se dice «50/50»: eso es una cifra concreta sobre
             // quién carga cuánto, y el 0,5 se la inventaba. Lo que sí se sabe es que
             // está repartida, y eso es lo que se dice (§7 y la entrada «"No se sabe"
             // es un valor de primera clase» de docs/DECISIONS.md, que retiró justo
             // este 0,5 en la comparación por estación).
-            guard let share = selfShare else { return "REPARTIDA" }
+            guard let share = selfShare else { return "Repartida" }
             let pct = Int((max(0, min(1, share)) * 100).rounded())
-            return pct == 50 ? "50/50" : "TÚ \(pct)%"
-        default:         return carrier.uppercased()
+            return pct == 50 ? "50/50" : "Tú \(pct)%"
+        default:         return carrier
         }
     }
 }
