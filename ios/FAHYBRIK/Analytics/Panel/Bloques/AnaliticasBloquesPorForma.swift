@@ -99,7 +99,7 @@ struct AnaliticasBloqueProgreso: View {
 
     private func fila(_ l: LecturaAnalitica) -> some View {
         let abrir: (() -> Void)? = {
-            guard l.estado == .medida, let f = l.familia else { return nil }
+            guard let f = l.familia, FamiliaDeDetalle(f) != nil else { return nil }
             return { ctx.onAbrir(.familia(f)) }
         }()
         return AnaliticasFilaProgreso(
