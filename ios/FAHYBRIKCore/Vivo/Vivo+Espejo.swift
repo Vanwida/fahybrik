@@ -102,6 +102,14 @@ extension Vivo {
         /// transiciones del estado y las señales del móvil (`hapticCue`) se ignoran: si no, vibraría dos veces.
         var dirigeElPlan: Bool { estado == .vivo }
 
+        /// El paso vivo, o `nil` si no hay cuadro. La pila lo usa para volver a su primera página cuando
+        /// cambia (`Paso.id`) y para saber qué acción del momento toca (`Vivo.clavePorDefecto`); sale del
+        /// mismo índice que el cuadro.
+        var pasoVivo: Paso? {
+            guard estado == .vivo, let plan, let t = trama else { return nil }
+            return plan.pasos[Swift.min(Swift.max(0, t.cursor.i), plan.pasos.count - 1)]
+        }
+
         /// El `hapticCue` de una trama, o `nil` si el plan vivo ya lo dirige.
         func hapticAplicable(_ f: MirrorStateFrame) -> String? { dirigeElPlan ? nil : f.hapticCue }
 
