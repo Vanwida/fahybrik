@@ -32,7 +32,7 @@ struct DoblesRepartoEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var share: Double
     @State private var saving = false
-    @State private var saveError: String? = nil
+    @State private var aviso: AvisoDia.Contenido? = nil
 
     private let selfName = "Tú"
 
@@ -99,162 +99,126 @@ struct DoblesRepartoEditorSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            CabeceraDobles(
+                kicker: "Ajusta el reparto",
+                titulo: segment.labelEs,
+                salida: .cerrar,
+                alSalir: { dismiss() }
+            )
             ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    header
-                    if canRecompute {
-                        sliderCard
-                        effectCard
-                    } else {
-                        missingDataNote
-                    }
-                    if let saveError {
-                        Text(saveError)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(Theme.Color.danger)
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.m)
-                .padding(.bottom, Theme.Spacing.m)
+                cuerpo
+                    .padding(.horizontal, Theme.Spacing.pantalla)
+                    .padding(.top, Theme.Spacing.s)
+                    .padding(.bottom, Theme.Spacing.l)
             }
-            .anchoredAction {
-                ExpertPrimaryButton(
-                    title: saving ? "Guardando…" : "Guardar reparto",
-                    height: 50,
-                    enabled: canRecompute && isDirty && !saving
-                ) {
-                    Task { await save() }
-                }
-            }
-            .background(Theme.Color.background.ignoresSafeArea())
-            .navigationTitle("Reparto")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cerrar") { dismiss() }
-                        .foregroundStyle(Theme.Color.accentText)
-                }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+        .anchoredAction {
+            AccionDobles(
+                titulo: saving ? "Guardando…" : "Guardar reparto",
+                habilitada: canRecompute && isDirty,
+                enCurso: saving
+            ) {
+                Task { await save() }
             }
         }
+        .background(Theme.Color.background.ignoresSafeArea())
+        .avisoDia($aviso)
         .compactSheet()
     }
 
     // MARK: - Pieces
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "AJUSTA EL REPARTO", color: Theme.Color.accentText)
-            Text(segment.labelEs)
-                .scaledFont(22, weight: .heavy, relativeTo: .title2, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .fixedSize(horizontal: false, vertical: true)
+    /// Lo que va dentro del scroll: el slider con su efecto en vivo, o el aviso de que faltan datos.
+    var cuerpo: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            if canRecompute {
+                sliderCard
+                effectCard
+            } else {
+                missingDataNote
+            }
         }
     }
 
     private var sliderCard: some View {
-        CardSurface(padding: 16) {
-            DoblesShareSlider(
-                selfName: selfName,
-                partnerName: partnerName,
-                selfShare: $share
-            )
-        }
+        DoblesShareSlider(selfName: selfName, partnerName: partnerName, selfShare: $share)
+            .padding(Theme.Spacing.l)
+            .caraDobles(.neutra)
     }
 
-    // El efecto en vivo: cuánto tarda la pareja en ESTE tramo y cómo queda el
-    // predicho conjunto contra el objetivo, ambos recomputados al mover el slider.
+    // El efecto en vivo: cuánto tarda la pareja en ESTE tramo y cómo queda el predicho conjunto contra el
+    // objetivo, ambos recomputados al mover el slider.
     private var effectCard: some View {
-        CardSurface(padding: 16, elevated: true) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                // La tarjeta sólo se pinta con `canRecompute`, así que el tramo
-                // SIEMPRE tiene número; se desenvuelve en vez de rellenarse.
-                if let tramo = newStationPredicted {
-                    effectRow(
-                        label: "ESTE TRAMO",
-                        value: GoalGapFormat.raceClock(tramo),
-                        delta: stationDelta
-                    )
-                }
-                // El total sí puede faltar (sin predicho conjunto del servidor).
-                // Entonces la fila NO existe: nada que la pareja pueda hacer aquí
-                // para llenarla, así que se calla, y su separador con ella (§6.2 bis).
-                if let total = newTotal {
-                    Rectangle().fill(Theme.Color.hairline).frame(height: 1)
-                    effectRow(
-                        label: "PREDICHO PAREJA",
-                        value: GoalGapFormat.raceClock(total),
-                        delta: nil
-                    )
-                }
-                if let g = newGap {
-                    gapPill(g)
-                } else if goalS == nil {
-                    Text("Sin objetivo fijado para esta carrera.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.Color.faint)
-                }
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            // La tarjeta sólo se pinta con `canRecompute`, así que el tramo SIEMPRE tiene número; se
+            // desenvuelve en vez de rellenarse.
+            if let tramo = newStationPredicted {
+                effectRow(label: "Este tramo", value: GoalGapFormat.raceClock(tramo), delta: stationDelta)
+            }
+            // El total sí puede faltar (sin predicho conjunto del servidor). Entonces la fila NO existe: nada
+            // que la pareja pueda hacer aquí para llenarla, así que se calla, y su separador con ella (§6.2 bis).
+            if let total = newTotal {
+                Hairline()
+                effectRow(label: "Predicho pareja", value: GoalGapFormat.raceClock(total), delta: nil)
+            }
+            if let g = newGap {
+                PastillaDeGap(gapS: g)
+            } else if goalS == nil {
+                Text("Sin objetivo fijado para esta carrera.")
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
             }
         }
+        .padding(Theme.Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .caraDobles(.neutra)
     }
 
     private func effectRow(label: String, value: String, delta: Int?) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            LabelText(text: label, size: 10)
-            Spacer(minLength: 8)
-            if let delta, delta != 0 {
-                Text(GoalGapFormat.signedDuration(delta))
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced).monospacedDigit())
-                    .foregroundStyle(delta > 0 ? Theme.Color.danger : Theme.Color.ok)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m) {
+                Text(label).papel(.rotulo).foregroundStyle(Theme.Color.muted)
+                Spacer(minLength: Theme.Spacing.s)
+                deltaText(delta)
+                Text(value).papel(.dato).foregroundStyle(Theme.Color.foreground)
             }
-            Text(value)
-                .font(.system(size: 20, weight: .heavy, design: .monospaced).monospacedDigit())
-                .foregroundStyle(Theme.Color.foreground)
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                Text(label).papel(.rotulo).foregroundStyle(Theme.Color.muted)
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m) {
+                    Text(value).papel(.dato).foregroundStyle(Theme.Color.foreground)
+                    deltaText(delta)
+                }
+            }
         }
+        .accessibilityElement(children: .combine)
     }
 
-    // Gap del predicho conjunto contra el objetivo — misma semántica que el resto
-    // de la app (rojo si te pasas, verde si estás dentro).
+    /// El cambio del tramo: rojo si suma, verde si resta (un delta con signo, el único sitio donde el color de
+    /// estado va en el texto).
     @ViewBuilder
-    private func gapPill(_ gapS: Int) -> some View {
-        if gapS > 0 {
-            pill("\(GoalGapFormat.signedDuration(gapS)) sobre el objetivo", fg: Theme.Color.warning, bg: Theme.Color.warningTint)
-        } else if gapS < 0 {
-            pill("\(GoalGapFormat.signedDuration(gapS)) bajo el objetivo", fg: Theme.Color.ok, bg: Theme.Color.okTint)
-        } else {
-            pill("Justo en tu objetivo", fg: Theme.Color.ok, bg: Theme.Color.okTint)
+    private func deltaText(_ delta: Int?) -> some View {
+        if let delta, delta != 0 {
+            Text(GoalGapFormat.signedDuration(delta))
+                .papel(.notaPesada)
+                .foregroundStyle(delta > 0 ? Theme.Color.danger : Theme.Color.ok)
         }
     }
 
-    private func pill(_ text: String, fg: Color, bg: Color) -> some View {
-        Text(text)
-            .font(.system(size: 12, weight: .bold, design: .monospaced).monospacedDigit())
-            .foregroundStyle(fg)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 5)
-            .background(bg)
-            .clipShape(Capsule())
-    }
-
-    // Sin uno de los tiempos individuales no se puede simular el reparto —
-    // honesto: slider deshabilitado y explicación de qué falta (nunca un número
-    // inventado).
+    // Sin uno de los tiempos individuales no se puede simular el reparto — honesto: slider deshabilitado y
+    // explicación de qué falta (nunca un número inventado).
     private var missingDataNote: some View {
-        CardSurface(padding: 16) {
-            VStack(alignment: .leading, spacing: 10) {
-                DoblesShareSlider(
-                    selfName: selfName,
-                    partnerName: partnerName,
-                    selfShare: $share,
-                    enabled: false
-                )
-                Text(missingDataMessage)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.Color.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            DoblesShareSlider(selfName: selfName, partnerName: partnerName, selfShare: $share, enabled: false)
+            Text(missingDataMessage)
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(Theme.Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .caraDobles(.neutra)
     }
 
     private var missingDataMessage: String {
@@ -282,7 +246,6 @@ struct DoblesRepartoEditorSheet: View {
     private func save() async {
         guard let idx = segment.stationIndex, canRecompute, !saving else { return }
         saving = true
-        saveError = nil
         let body = DoblesSimulationEditBody(stationSplits: [
             DoblesSimulationEditBody.Station(
                 stationIndex: idx,
@@ -297,7 +260,7 @@ struct DoblesRepartoEditorSheet: View {
             dismiss()
         } else {
             Haptics.error()
-            saveError = "No se pudo guardar. Inténtalo de nuevo."
+            aviso = .init(tono: .fallo, texto: "No se pudo guardar. Inténtalo de nuevo.")
         }
         saving = false
     }
