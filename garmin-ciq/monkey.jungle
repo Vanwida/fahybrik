@@ -1,13 +1,10 @@
 # Jungle del proyecto.
 #
-# Solo declara el manifiesto, y es a propósito: el compilador ya toma `source/`
-# y `resources/` por convención, y las carpetas `resources-<idioma>` las aplica
-# solas cuando el reloj está en ese idioma. Así que `resources/` es el español
-# por defecto (los atletas son de Barcelona) y `resources-eng/` pisa los textos
-# en un reloj en inglés, sin necesidad de una sola línea más.
+# `source/` es la app; `tests/` son los tests del simulador (todo lo de ahí lleva
+# (:test), así que el compilador lo deja fuera del .prg de producción y solo entra
+# con `monkeyc -t`, es decir `./build.sh test <reloj>`).
 #
-# Verificado contra el sample `Strings` del SDK 9.2.0, que trae diez idiomas y
-# cuyo jungle es exactamente esta línea. Un intento anterior de declarar el
-# idioma a mano no compilaba.
+# El español es el idioma único de `resources/` en esta fase.
 
 project.manifest = manifest.xml
+base.sourcePath = source;tests

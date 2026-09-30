@@ -4,8 +4,8 @@
 //   · Application.Properties  → lo que el atleta edita desde Garmin Connect
 //     Mobile. Viaja al móvil y se ve en pantalla. Aquí SOLO van email y código.
 //   · Application.Storage     → solo en el reloj, invisible y no editable. Aquí
-//     va el token de sesión (30 días de vida) y el rastro del último entreno
-//     descargado.
+//     va el token de sesión, el plan de los próximos días, el checkpoint de la
+//     sesión en curso y la cola de resultados por enviar.
 //
 // Guardar el token en Properties sería enseñar la credencial en una pantalla de
 // ajustes del móvil: no se hace.
@@ -80,6 +80,33 @@ module Store {
         }
     }
 
+    // Cualquier valor de Storage tal cual (número, texto, lista, diccionario), o null.
+    function leer(key as Lang.String) as Lang.Object or Null {
+        try {
+            return Application.Storage.getValue(key);
+        } catch (ex) {
+            return null;
+        }
+    }
+
+    // Guarda un valor. false = sin sitio (StorageFullException) u otro fallo: se dice, no se traga.
+    function escribir(key as Lang.String, value) as Lang.Boolean {
+        try {
+            Application.Storage.setValue(key, value);
+            return true;
+        } catch (ex) {
+            return false;
+        }
+    }
+
+    function borrar(key as Lang.String) as Void {
+        try {
+            Application.Storage.deleteValue(key);
+        } catch (ex) {
+            // Ya no estaba: da igual.
+        }
+    }
+
     function token() as Lang.String {
         return readStorage(Config.STORE_TOKEN);
     }
@@ -105,26 +132,6 @@ module Store {
     // entreno de otra persona. Se comprueba en cada arranque.
     function tokenMatchesEmail() as Lang.Boolean {
         return readStorage(Config.STORE_TOKEN_EMAIL).equals(email());
-    }
-
-    // ── Rastro del último entreno entregado ──────────────────────────────────
-    //
-    // La app NO puede leer el contenido del .FIT que descargó: de un entreno
-    // persistido solo tenemos getName() y getId(). El emparejamiento es por
-    // NOMBRE, así que guardamos el nombre exacto que pedimos y para qué día era.
-    // Ref: https://developer.garmin.com/connect-iq/api-docs/Toybox/PersistedContent.html
-
-    function lastWorkoutName() as Lang.String {
-        return readStorage(Config.STORE_WORKOUT_NAME);
-    }
-
-    function lastWorkoutDate() as Lang.String {
-        return readStorage(Config.STORE_WORKOUT_DATE);
-    }
-
-    function rememberWorkout(name as Lang.String, isoDate as Lang.String) as Void {
-        writeStorage(Config.STORE_WORKOUT_NAME, name);
-        writeStorage(Config.STORE_WORKOUT_DATE, isoDate);
     }
 
     // ── Utilidad ─────────────────────────────────────────────────────────────

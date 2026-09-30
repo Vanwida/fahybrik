@@ -14,9 +14,15 @@ module Config {
     const PATH_AUTH_REQUEST = "/api/auth/email/request";
     const PATH_AUTH_VERIFY = "/api/auth/email/verify";
 
-    // Entreno del día para reloj Garmin. CONTRATO ASUMIDO — lo construye otro
-    // Vive en web/app/api/athlete/wearables/garmin/today/. Ver CONTRATO en Api.mc.
-    const PATH_TODAY = "/api/athlete/wearables/garmin/today";
+    // Plan de los próximos días (docs/garmin-reloj/servidor.md).
+    // El resultado de la sesión: el MISMO endpoint que ya usa el móvil.
+    const PATH_EJECUCION = "/api/sync/workout-execution";
+    const PATH_PLAN = "/api/athlete/wearables/garmin/plan";
+    // El reloj de la sesión: 1 Hz.
+    const TICK_MS = 1000;
+
+    // Cuántos días de plan se piden al abrir con móvil.
+    const PLAN_DIAS = 7;
 
     const HEADER_AUTH = "Authorization";
     const HEADER_CONTENT_TYPE = "Content-Type";
@@ -38,8 +44,16 @@ module Config {
     // los ajustes seguiría viendo el entreno del anterior: el token viejo sigue
     // siendo válido 30 días y nadie se enteraría.
     const STORE_TOKEN_EMAIL = "session_email";
-    const STORE_WORKOUT_NAME = "last_workout_name";
-    const STORE_WORKOUT_DATE = "last_workout_date";
+
+    // Plan en Storage: una clave por sesión + el índice + la fecha de la última sincronía.
+    const STORE_PLAN_PREFIJO = "plan_";
+    const STORE_PLAN_INDICE = "plan_ix";
+    const STORE_PLAN_SYNC = "plan_sync";
+    // El checkpoint de la sesión en curso (G10) y la cola de resultados por enviar (G8).
+    const STORE_CHECKPOINT = "checkpoint";
+    const STORE_COLA = "cola";
+    // Una clave de Storage admite 8 KB: un plan de más no se guarda (y se dice).
+    const STORE_CLAVE_MAX_CARACTERES = 8192;
 
     // ── Reglas de negocio ────────────────────────────────────────────────────
     // El código de acceso caduca en 10 min en el servidor
@@ -48,7 +62,7 @@ module Config {
     const LOGIN_CODE_TTL_MINUTES = 10;
     const LOGIN_CODE_LENGTH = 6;
 
-    // Techo defensivo al limpiar entrenos viejos nuestros: si por lo que sea el
-    // iterador no terminase, no nos quedamos colgados dentro del bucle.
-    const MAX_APP_WORKOUTS_SCAN = 64;
+    // Un plan sincronizado hace más de estos días se dice viejo y no deja empezar:
+    // el coach pudo cambiar la sesión y el reloj no se enteró. Defecto de sistema.
+    const PLAN_EDAD_MAX_DIAS = 2;
 }

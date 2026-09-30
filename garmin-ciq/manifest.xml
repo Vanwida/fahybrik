@@ -1,36 +1,46 @@
 <?xml version="1.0"?>
 <!--
-  App Connect IQ del atleta.
+  App de actividad Connect IQ del atleta: guía la sesión con motor propio, graba
+  el FIT y envía el resultado al servidor (docs/garmin-reloj/modelo.md).
 
-  POR QUÉ ESTOS PERMISOS Y ESTE minSdkVersion
-
-  · Communications  → Communications.makeWebRequest(). Es la ÚNICA vía por la que
-    el reloj pide el .FIT; el sistema lo descarga y lo persiste solo.
-  · PersistedContent → PersistedContent.getAppWorkouts(), que es como
-    recuperamos lo que el sistema acaba de guardar (la app NO recibe los bytes).
-
-  minSdkVersion 3.1.0, no 2.2.0: `getAppWorkouts()` es API Level 3.0.0 (el 2.2.0
-  solo trae `getWorkouts()`, que devuelve TODOS los entrenos del reloj, también
-  los que no son nuestros). Subimos a 3.1.0 porque también usamos
-  Application.Storage / Application.Properties (2.4.0) y queremos margen.
-  Ref: https://developer.garmin.com/connect-iq/api-docs/Toybox/PersistedContent.html
-
-  type="watch-app": System.exitTo() está restringido a watch-apps y widgets, y
-  solo puede lanzar watch-apps y widgets. Un data field o un watch face NO puede
-  arrancar el reproductor nativo.
-  Ref: https://developer.garmin.com/connect-iq/api-docs/Toybox/System.html
-
-  DISPOSITIVOS: solo relojes de correr / multideporte. Los Edge quedan FUERA a
-  propósito — son ciclocomputadores y no ejecutan entrenos de carrera; publicar
-  ahí sería vender algo que no funciona. La lista de ids válidos la manda el SDK
-  instalado; ver README para ampliarla sin romper el build.
+  · type="watch-app": la única clase de app que graba una actividad (`Fit`).
+  · minSdkVersion 5.2.0: el suelo del nivel A (modelo.md §3).
+  · Permisos: Communications (plan y resultado por el móvil), Positioning (GPS),
+    Sensor (pulso), Fit (grabar la actividad), FitContributor (campos propios en
+    el FIT). Nada de Background: no hay trabajo con la app cerrada.
+  · La lista de relojes NO se escribe a mano: `python3 tools/generar-manifest.py`
+    la regenera desde el SDK instalado.
 -->
 <iq:manifest xmlns:iq="http://www.garmin.com/xml/connectiq" version="3">
-    <iq:application entry="FahybridApp" id="b15052d0-89db-4463-9ffb-8b579c1e2188" launcherIcon="@Drawables.LauncherIcon" minSdkVersion="3.1.0" name="@Strings.AppName" type="watch-app">
+    <iq:application entry="ActividadApp" id="b15052d0-89db-4463-9ffb-8b579c1e2188" launcherIcon="@Drawables.LauncherIcon" minSdkVersion="5.2.0" name="@Strings.AppName" type="watch-app">
         <iq:products>
+            <!-- Enduro -->
+            <iq:product id="enduro3"/>
+            <!-- epix -->
+            <iq:product id="epix2"/>
+            <iq:product id="epix2pro42mm"/>
+            <iq:product id="epix2pro47mm"/>
+            <iq:product id="epix2pro51mm"/>
+            <!-- fenix -->
+            <iq:product id="fenix7"/>
+            <iq:product id="fenix7pro"/>
+            <iq:product id="fenix7pronowifi"/>
+            <iq:product id="fenix7s"/>
+            <iq:product id="fenix7spro"/>
+            <iq:product id="fenix7x"/>
+            <iq:product id="fenix7xpro"/>
+            <iq:product id="fenix7xpronowifi"/>
+            <iq:product id="fenix843mm"/>
+            <iq:product id="fenix847mm"/>
+            <iq:product id="fenix8pro47mm"/>
+            <iq:product id="fenix8solar47mm"/>
+            <iq:product id="fenix8solar51mm"/>
+            <iq:product id="fenixe"/>
             <!-- Forerunner -->
             <iq:product id="fr165"/>
             <iq:product id="fr165m"/>
+            <iq:product id="fr170"/>
+            <iq:product id="fr170m"/>
             <iq:product id="fr255"/>
             <iq:product id="fr255m"/>
             <iq:product id="fr255s"/>
@@ -39,51 +49,22 @@
             <iq:product id="fr265s"/>
             <iq:product id="fr57042mm"/>
             <iq:product id="fr57047mm"/>
-            <iq:product id="fr745"/>
-            <iq:product id="fr945"/>
-            <iq:product id="fr945lte"/>
             <iq:product id="fr955"/>
             <iq:product id="fr965"/>
             <iq:product id="fr970"/>
-            <!-- fēnix -->
-            <iq:product id="fenix7"/>
-            <iq:product id="fenix7s"/>
-            <iq:product id="fenix7x"/>
-            <iq:product id="fenix7pro"/>
-            <iq:product id="fenix7pronowifi"/>
-            <iq:product id="fenix7spro"/>
-            <iq:product id="fenix7xpro"/>
-            <iq:product id="fenix7xpronowifi"/>
-            <iq:product id="fenix843mm"/>
-            <iq:product id="fenix847mm"/>
-            <iq:product id="fenix8solar47mm"/>
-            <iq:product id="fenix8solar51mm"/>
-            <iq:product id="fenix8pro47mm"/>
-            <iq:product id="fenixe"/>
-            <!-- epix / enduro / tactix / MARQ -->
-            <iq:product id="epix2"/>
-            <iq:product id="epix2pro42mm"/>
-            <iq:product id="epix2pro47mm"/>
-            <iq:product id="epix2pro51mm"/>
-            <iq:product id="enduro2"/>
-            <iq:product id="enduro3"/>
-            <iq:product id="tactix7"/>
-            <iq:product id="marq2"/>
-            <iq:product id="marq2aviator"/>
-            <!-- Venu / vívoactive (aceptan entrenos estructurados de Garmin Connect) -->
-            <iq:product id="venu3"/>
-            <iq:product id="venu3s"/>
-            <iq:product id="venux1"/>
-            <iq:product id="vivoactive5"/>
-            <iq:product id="vivoactive6"/>
+            <!-- Instinct 3 AMOLED -->
+            <iq:product id="instinct3amoled45mm"/>
+            <iq:product id="instinct3amoled50mm"/>
         </iq:products>
         <iq:permissions>
             <iq:uses-permission id="Communications"/>
-            <iq:uses-permission id="PersistedContent"/>
+            <iq:uses-permission id="Positioning"/>
+            <iq:uses-permission id="Sensor"/>
+            <iq:uses-permission id="Fit"/>
+            <iq:uses-permission id="FitContributor"/>
         </iq:permissions>
         <iq:languages>
             <iq:language>spa</iq:language>
-            <iq:language>eng</iq:language>
         </iq:languages>
     </iq:application>
 </iq:manifest>

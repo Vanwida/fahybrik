@@ -1,11 +1,11 @@
 //
-// Punto de entrada. Entra en el manifest como entry="FahybridApp".
+// Punto de entrada. Entra en el manifest como entry="ActividadApp".
 //
 using Toybox.Application;
 using Toybox.Lang;
 using Toybox.WatchUi;
 
-class FahybridApp extends Application.AppBase {
+class ActividadApp extends Application.AppBase {
 
     var controller as Controller;
 
@@ -15,6 +15,7 @@ class FahybridApp extends Application.AppBase {
     }
 
     function onStart(state as Lang.Dictionary or Null) as Void {
+        controller.iniciarReloj();
         controller.refresh();
     }
 
@@ -28,6 +29,11 @@ class FahybridApp extends Application.AppBase {
     // Connect. Tarda unos segundos. Por eso la app deja además un gesto manual
     // para reintentar (ver MainDelegate.onNextPage) en vez de fiarlo todo a esta
     // llamada.
+    // Garmin cierra la app: si había una sesión grabando, se guarda (G10).
+    function onStop(state as Lang.Dictionary or Null) as Void {
+        controller.vivo.alSalir();
+    }
+
     function onSettingsChanged() as Void {
         controller.refresh();
     }
@@ -36,6 +42,6 @@ class FahybridApp extends Application.AppBase {
     // `Lang.Array` a secas no compila (el compilador lo lee como sobrescribir
     // con otro tipo de retorno). Tomada de los samples del SDK 9.2.0.
     function getInitialView() as [WatchUi.Views] or [WatchUi.Views, WatchUi.InputDelegates] {
-        return [new MainView(controller), new MainDelegate(controller)];
+        return [new Vista(controller), new Mandos(controller)];
     }
 }
