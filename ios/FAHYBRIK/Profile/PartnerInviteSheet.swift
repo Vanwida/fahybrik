@@ -15,130 +15,92 @@ struct PartnerInviteSheet: View {
     @State private var sent: InvitationResult? = nil
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.Color.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        header
-                        if let result = sent {
-                            successCard(result)
-                        } else {
-                            formCard
-                        }
-                    }
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.top, Theme.Spacing.l)
-                    .padding(.bottom, Theme.Spacing.xxl)
-                }
+        PantallaPerfil(
+            titulo: "Invita a tu compañero/a", sobretitulo: "Dobles", alto: sent == nil ? .natural : .llena,
+            cierre: .cerrar, cierreActivo: !sending
+        ) {
+            if let result = sent {
+                successCard(result)
+            } else {
+                formulario
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cerrar") { dismiss() }
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-        }
-        .compactSheet()
-    }
-
-    // MARK: - UI
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "DOBLES", color: Theme.Color.accentText)
-            Text("Invita a tu compañero/a")
-                .font(Theme.Typography.headlineS)
-                .foregroundStyle(Theme.Color.foreground)
-            Text("Le mandamos un email con un link para que se cree su cuenta y entrene contigo. Tiene 14 días para aceptar.")
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.Color.muted)
-                .padding(.top, 2)
-        }
-    }
-
-    private var formCard: some View {
-        CardSurface(padding: 16) {
-            VStack(alignment: .leading, spacing: 14) {
-                LabelText(text: "EMAIL DE TU COMPAÑERO/A")
-                TextField("nombre@email.com", text: $email)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-                    .keyboardType(.emailAddress)
-                    .textContentType(.emailAddress)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 12)
-                    .background(Theme.Color.background)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                            .stroke(Theme.Color.outline, lineWidth: 1)
-                    )
-                if let error {
-                    Text(error)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.Color.danger)
-                }
-                ExpertPrimaryButton(
-                    title: sending ? "ENVIANDO…" : "ENVIAR INVITACIÓN",
-                    enabled: !sending && isValid(email)
+        } pie: {
+            if sent == nil {
+                AccionAncladaPerfil(
+                    titulo: sending ? "Enviando…" : "Enviar invitación",
+                    enCurso: sending,
+                    habilitada: isValid(email)
                 ) {
                     Task { await send() }
                 }
             }
         }
+        .interactiveDismissDisabled(sending)
+        .compactSheet()
     }
 
+    // MARK: - UI
+
+    private var formulario: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            Text("Le mandamos un email con un link para que se cree su cuenta y entrene contigo. Tiene 14 días para aceptar.")
+                .papel(.cuerpo)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+            GrupoPerfil {
+                CampoTextoPerfil(
+                    etiqueta: "Email de tu compañero/a", placeholder: "nombre@email.com", texto: $email,
+                    teclado: .emailAddress, capitalizacion: .never
+                )
+                .textContentType(.emailAddress)
+                .autocorrectionDisabled(true)
+            }
+            if let error {
+                AvisoEnLineaPerfil(tono: .peligro, texto: error)
+            }
+        }
+    }
+
+    /// El resultado: el sujeto dice qué pasó de verdad (enviado, o creada pero sin poder enviar) y su salida.
     private func successCard(_ result: InvitationResult) -> some View {
-        CardSurface(padding: 16, topAccent: true) {
-            VStack(alignment: .leading, spacing: 10) {
-                if result.sent {
-                    LabelText(text: "ENVIADO", color: Theme.Color.ok)
-                    Text("Email enviado a \(email)")
-                        .font(.system(size: 15, weight: .semibold))
+        SujetoDia(
+            tono: result.sent ? .ok : .aviso,
+            etiqueta: result.sent ? "Email enviado a \(email)" : "No pudimos enviar el email a \(email)"
+        ) {
+            if result.sent {
+                KickerDia("Enviado")
+                TituloDia("Email enviado a \(email)")
+                ApoyoDia("Tu compañero/a tiene 14 días para aceptar la invitación desde su email.")
+            } else {
+                // Part (b): the invitation row exists, but Resend did not send.
+                // Don't claim "enviado" — be honest and offer a retry.
+                KickerDia("Invitación creada")
+                TituloDia("No pudimos enviar el email a \(email)")
+                ApoyoDia("La invitación queda activa 14 días. Reintenta el envío en un momento.")
+            }
+        } abajo: {
+            Button {
+                Haptics.light()
+                dismiss()
+            } label: {
+                AccionDia("Hecho", glifo: .check)
+            }
+            .buttonStyle(PressScaleStyle(escala: 0.96))
+            if !result.sent {
+                // Sobre el tinte del sujeto el texto es la tinta del tema, no el acento (CONTRATO-UI §11.2).
+                Button {
+                    Haptics.light()
+                    Task { await send() }
+                } label: {
+                    Text(sending ? "Reenviando…" : "Reintentar envío")
+                        .papel(.cuerpoFuerte)
+                        .underline()
                         .foregroundStyle(Theme.Color.foreground)
-                    Text("Tu compañero/a tiene 14 días para aceptar la invitación desde su email.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.Color.muted)
-                } else {
-                    // Part (b): the invitation row exists, but Resend did not send.
-                    // Don't claim "enviado" — be honest and offer a retry.
-                    LabelText(text: "INVITACIÓN CREADA", color: Theme.Color.accentText)
-                    Text("No pudimos enviar el email a \(email)")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("La invitación queda activa 14 días. Reintenta el envío en un momento.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.Color.muted)
+                        .frame(maxWidth: .infinity, minHeight: Theme.Size.toque, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
-                HStack(spacing: 16) {
-                    if !result.sent {
-                        Button {
-                            Haptics.light()
-                            Task { await send() }
-                        } label: {
-                            Text(sending ? "REENVIANDO…" : "Reintentar envío")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(Theme.Color.foreground)
-                                .padding(.top, 4)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(sending)
-                    }
-                    Button {
-                        Haptics.light()
-                        dismiss()
-                    } label: {
-                        Text("Hecho")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Theme.Color.accentText)
-                            .padding(.top, 4)
-                    }
-                    .buttonStyle(.plain)
-                }
+                .buttonStyle(PressScaleStyle(escala: 0.96))
+                .disabled(sending)
             }
         }
     }
