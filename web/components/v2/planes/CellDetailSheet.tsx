@@ -3,19 +3,21 @@
 // El detalle de una celda: el compositor de siempre (RIR, descansos, %RM, series
 // iguales o por serie, «El atleta ve…») para afinar lo que la línea rápida no
 // dice, en un panel lateral NO modal — la rejilla sigue viva detrás. Se guarda
-// solo (≈0,7 s después del último cambio) cuando todas las líneas tienen
-// ejercicio; mientras falte alguno, lo dice y espera.
+// solo (≈0,7 s después del último cambio). Una línea sin ejercicio no se guarda
+// (regla del catálogo), pero no frena el resto del día: sigue en el editor con su
+// aviso y espera. Al cerrar se vuelca lo pendiente; si quedan líneas sin ejercicio,
+// se pregunta antes de descartarlas.
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { WeekDay, WeekSession } from '@fahybrid/shared/schema/program-templates';
 import type { Prescription } from '@fahybrid/shared/domain/prescription';
 import type { EditorBlock } from '@/lib/dashboard/v2/editor-types';
-import { Button, Field, IconButton, Input, SectionHeader, Sheet, Textarea } from '@/components/v2/ui';
+import { Button, Dialog, Field, IconButton, Input, SectionHeader, Sheet, Textarea } from '@/components/v2/ui';
 import { BlockEditor } from '@/components/v2/editor/BlockEditor';
 import { DAY_LABELS_FULL } from '@/lib/dashboard/v2/planes-model';
-import { blocksAreSaveable, editorBlocksToParts, partToEditorBlock } from '@/lib/dashboard/programming/editor-bridge';
-import { emptyDay, freshUid, workoutSessions } from '@/lib/dashboard/programming/grid-model';
+import { editorBlocksToParts, partToEditorBlock, persistableBlocks } from '@/lib/dashboard/programming/editor-bridge';
+import { emptyDay, freshUid, sameDay, workoutSessions } from '@/lib/dashboard/programming/grid-model';
 
 const EMPTY_LINE: Prescription = { scheme: 'sets', modality: 'strength', sets: [{ measure: { kind: 'reps', value: 8 } }] };
 const LETTERS = 'ABCDEFGHIJKLMNOP';
@@ -38,20 +40,30 @@ function toDraft(day: WeekDay): DraftEntreno[] {
   }));
 }
 
-function fromDraft(day: WeekDay, drafts: DraftEntreno[]): WeekDay {
+/** El día que se guarda a partir de los borradores, y cuántas líneas sin ejercicio se quedan fuera. */
+function fromDraft(day: WeekDay, drafts: DraftEntreno[]): { day: WeekDay; unsaved: number } {
+  let unsaved = 0;
   const sessions: WeekSession[] = drafts.map((d) => {
-    const s: WeekSession = { ...d.original, kind: 'workout', blocks: editorBlocksToParts(d.blocks, d.original.blocks ?? []) };
+    const persist = persistableBlocks(d.blocks, d.original.blocks ?? []);
+    unsaved += persist.unsaved;
+    const s: WeekSession = { ...d.original, kind: 'workout', blocks: editorBlocksToParts(persist.blocks, d.original.blocks ?? []) };
     if (d.focus.trim()) s.focus = d.focus.trim().slice(0, 120);
     else delete s.focus;
     if (d.notes.trim()) s.notes = d.notes.trim();
     else delete s.notes;
     return s;
   });
-  if (sessions.length === 0) return emptyDay(day.day_of_week);
+  if (sessions.length === 0) {
+    // Sin entrenos, lo escrito a nivel de día (foco, notas) se conserva.
+    const empty = emptyDay(day.day_of_week);
+    if (day.focus) empty.focus = day.focus;
+    if (day.notes) empty.notes = day.notes;
+    return { day: empty, unsaved };
+  }
   const next: WeekDay = { ...day, sessions };
   delete next.kind;
   delete next.recovery_suggestions;
-  return next;
+  return { day: next, unsaved };
 }
 
 export function CellDetailSheet({
@@ -88,15 +100,65 @@ export function CellDetailSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al cambiar de celda o de contenido
   }, [cellKey, day]);
 
-  const saveable = drafts.every((d) => blocksAreSaveable(d.blocks));
+  // Las refs dan a los manejadores (temporizador, cierre) siempre lo último.
+  const draftsRef = useRef(drafts);
+  const dirtyRef = useRef(dirty);
+  const onCommitRef = useRef(onCommit);
   useEffect(() => {
-    if (!dirty || !saveable) return;
+    draftsRef.current = drafts;
+    dirtyRef.current = dirty;
+    onCommitRef.current = onCommit;
+  }, [drafts, dirty, onCommit]);
+
+  /** Guarda ya lo guardable de los borradores; devuelve las líneas sin ejercicio que no entran. */
+  const saveNow = useCallback((): number => {
+    const { day: next, unsaved } = fromDraft(dayRef.current, draftsRef.current);
+    if (!sameDay(next, dayRef.current)) onCommitRef.current(next, 'Edición en detalle');
+    if (unsaved > 0) {
+      // Lo guardado pasa a ser la referencia de «última versión guardada» de cada
+      // entreno: si luego se vacía un ejercicio ya guardado, se restaura ése.
+      setDrafts((list) =>
+        list.length !== next.sessions.length || list.every((d, i) => JSON.stringify(d.original) === JSON.stringify(next.sessions[i]))
+          ? list
+          : list.map((d, i) => ({ ...d, original: next.sessions[i]! })),
+      );
+    }
+    return unsaved;
+  }, []);
+
+  const unsavedLines = fromDraft(day, drafts).unsaved;
+
+  useEffect(() => {
+    if (!dirty) return;
     const t = window.setTimeout(() => {
-      onCommit(fromDraft(dayRef.current, drafts), 'Edición en detalle');
-      setDirty(false);
+      // Con líneas sin ejercicio pendientes el borrador sigue «sucio»: lo guardado
+      // no debe repintar el editor y borrarlas.
+      if (saveNow() === 0) setDirty(false);
     }, 700);
     return () => window.clearTimeout(t);
-  }, [drafts, dirty, saveable, onCommit]);
+  }, [drafts, dirty, saveNow]);
+
+  // Si el panel desaparece (otra celda, cierre desde fuera) lo pendiente se vuelca.
+  useEffect(
+    () => () => {
+      if (dirtyRef.current) saveNow();
+    },
+    [saveNow],
+  );
+
+  const [confirmClose, setConfirmClose] = useState(false);
+  const requestClose = () => {
+    if (dirtyRef.current && saveNow() > 0) {
+      setConfirmClose(true);
+      return;
+    }
+    onOpenChange(false);
+  };
+  const discardAndClose = () => {
+    dirtyRef.current = false;
+    setConfirmClose(false);
+    onOpenChange(false);
+  };
 
   const update = (i: number, patch: Partial<DraftEntreno>) => {
     setDrafts((list) => list.map((d, j) => (j === i ? { ...d, ...patch } : d)));
@@ -119,13 +181,20 @@ export function CellDetailSheet({
   };
 
   return (
+    <>
     <Sheet
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(o) => (o ? onOpenChange(true) : requestClose())}
       modal={false}
       size="lg"
       title={`Semana ${row + 1} · ${DAY_LABELS_FULL[col]}`}
-      description={!saveable ? 'Hay una línea sin ejercicio: elígelo para que se guarde.' : dirty ? 'Guardando…' : 'Se guarda solo.'}
+      description={
+        unsavedLines > 0
+          ? `${unsavedLines === 1 ? 'Hay una línea sin ejercicio' : `Hay ${unsavedLines} líneas sin ejercicio`}: elige el ejercicio para que se guarde. El resto del día ya se guarda.`
+          : dirty
+            ? 'Guardando…'
+            : 'Se guarda solo.'
+      }
     >
       <div className="flex flex-col gap-8">
         {drafts.length === 0 ? <p className="t-body-sm text-v2-muted">Este día no tiene entreno.</p> : null}
@@ -175,5 +244,23 @@ export function CellDetailSheet({
         </Button>
       </div>
     </Sheet>
+    <Dialog
+      open={confirmClose}
+      onOpenChange={setConfirmClose}
+      size="sm"
+      title="¿Salir con líneas sin ejercicio?"
+      description={`${unsavedLines === 1 ? 'Hay una línea sin ejercicio' : `Hay ${unsavedLines} líneas sin ejercicio`} y no se guardan. El resto del día ya está guardado. Si sales, esa${unsavedLines === 1 ? '' : 's'} línea${unsavedLines === 1 ? '' : 's'} se pierde${unsavedLines === 1 ? '' : 'n'}.`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => setConfirmClose(false)}>
+            Seguir editando
+          </Button>
+          <Button variant="destructive" onClick={discardAndClose}>
+            Salir y descartar
+          </Button>
+        </>
+      }
+    />
+    </>
   );
 }
