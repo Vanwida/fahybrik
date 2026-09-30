@@ -1,6 +1,6 @@
 import Foundation
 
-// EL REPARTO DE LA MUÑECA POR FAMILIA — qué cara y qué páginas lleva cada familia (`Vivo.familiaMuneca`).
+// EL REPARTO DE LA MUÑECA POR FAMILIA: qué cara y qué páginas lleva cada familia (`Vivo.familiaMuneca`).
 // Es UNA función por pregunta y cada una decide con `familia`, en un sitio: `cuadroMuneca` no distingue
 // familias, solo junta lo que estas dicen. Lo que cada familia pone (sus caras, sus filas de Datos, su Ruta)
 // vive en su fichero: `Vivo+MunecaFuerza`, `+MunecaErgo`, `+MunecaWod`, `+MunecaCircuito`, `+MunecaDobles`.

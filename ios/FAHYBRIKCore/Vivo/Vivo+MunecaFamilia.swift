@@ -1,6 +1,6 @@
 import Foundation
 
-// LA CARA DE UNA FAMILIA CON RELOJ O DE CIRCUITO — el ensamblado común (P10, P12; espejo de las columnas de
+// LA CARA DE UNA FAMILIA CON RELOJ O DE CIRCUITO: el ensamblado común (P10, P12; espejo de las columnas de
 // `screens/reloj-wod/caras-*.tsx` y `screens/reloj-circuito/caras.tsx`).
 //
 // Cada familia decide QUÉ dice cada fila (el contexto, el héroe, la tarea, lo que viene, la acción). Esta función

@@ -109,10 +109,6 @@ extension Vivo {
             return plan.pasos.isEmpty ? .sinCursor : .vivo
         }
 
-        /// ¿El plan vivo manda? Con él, el director de la muñeca (hápticos, voz) sale de las
-        /// transiciones del estado y las señales del móvil (`hapticCue`) se ignoran: si no, vibraría dos veces.
-        var dirigeElPlan: Bool { estado == .vivo }
-
         /// El paso vivo, o `nil` si no hay cuadro. La pila lo usa para volver a su primera página cuando
         /// cambia (`Paso.id`) y para saber qué acción del momento toca (`Vivo.clavePorDefecto`); sale del
         /// mismo índice que el cuadro.
@@ -127,9 +123,6 @@ extension Vivo {
             guard estado == .vivo, let plan, let t = trama else { return nil }
             return CierreSeguro.esUltimoPaso(indice: t.cursor.i, de: plan.pasos.count, marcaDelMovil: t.finalSegunMovil)
         }
-
-        /// El `hapticCue` de una trama, o `nil` si el plan vivo ya lo dirige.
-        func hapticAplicable(_ f: MirrorStateFrame) -> String? { dirigeElPlan ? nil : f.hapticCue }
 
         /// La huella del plan que falta, una vez (y otra pasado `MirrorWire.planReenvioMinS` sin
         /// respuesta). Quien la reciba manda `sync` al móvil. `nil` = nada que pedir.

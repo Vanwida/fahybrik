@@ -14,7 +14,6 @@ private enum Bisel {
     static let grosor: CGFloat = 5
     static let inset: CGFloat = 4
     static let colorAro = WatchTheme.orangeSoft
-    static let colorVia = Color.white.opacity(0.12)
     /// Hueco entre segmentos del aro troceado (pt a lo largo del perímetro).
     static let huecoSegmento: CGFloat = 0.035
 
@@ -75,83 +74,13 @@ struct BiselTrazado: Shape {
     }
 }
 
-// MARK: - Aro continuo
-
-/// Una sola cosa en marcha (minuto EMOM, descanso, ventana AMRAP).
-/// `remaining` es lo que QUEDA, de 1 a 0: el trazo se retrae hacia las 12.
-struct WatchAroContinuo: View {
-    let remaining: Double
-
-    var body: some View {
-        let queda = min(1, max(0, remaining))
-        ZStack {
-            BiselTrazado(inset: Bisel.inset)
-                .stroke(Bisel.colorVia, lineWidth: Bisel.grosor)
-            BiselTrazado(inset: Bisel.inset)
-                .trim(from: 0, to: queda)
-                .stroke(
-                    Bisel.colorAro,
-                    style: StrokeStyle(lineWidth: Bisel.grosor, lineCap: .round)
-                )
-                .animation(.linear(duration: 0.9), value: queda)
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-// MARK: - Aro segmentado
-
-/// Una porción por repetición (serie 3 de 8). `hechas` cerradas; la en curso
-/// se rellena con `fraccion` (0…1).
-struct WatchAroSegmentado: View {
-    let total: Int
-    let hechas: Int
-    let fraccion: Double
-
-    var body: some View {
-        let n = max(1, total)
-        let paso = 1.0 / Double(n)
-        let hueco = Bisel.huecoSegmento
-        let avance = min(1, max(0, fraccion))
-
-        ZStack {
-            ForEach(0..<n, id: \.self) { i in
-                let start = Double(i) * paso + hueco / 2
-                let endBase = Double(i + 1) * paso - hueco / 2
-                let lleno: Double = {
-                    if i < hechas { return 1 }
-                    if i == hechas { return avance }
-                    return 0
-                }()
-                let end = start + max(0, (endBase - start) * lleno)
-
-                // Carril apagado del segmento.
-                BiselTrazado(inset: Bisel.inset)
-                    .trim(from: start, to: endBase)
-                    .stroke(Bisel.colorVia, style: StrokeStyle(lineWidth: Bisel.grosor, lineCap: .butt))
-
-                if lleno > 0 {
-                    BiselTrazado(inset: Bisel.inset)
-                        .trim(from: start, to: max(start + 0.001, end))
-                        .stroke(Bisel.colorAro, style: StrokeStyle(lineWidth: Bisel.grosor, lineCap: .butt))
-                }
-            }
-        }
-        .allowsHitTesting(false)
-        .animation(.easeOut(duration: 0.35), value: hechas)
-        .animation(.linear(duration: 0.6), value: fraccion)
-    }
-}
-
 // MARK: - Aro de estructura
 
 /// EL ON/OFF DE LA SERIE ENTERA — un arco por tramo de la fase, en orden.
 ///
 /// Dos ejes y ninguna excepción (ver `FormaDelAro`): el HUE dice qué es el tramo
 /// —trabajo naranja, recuperación gris— y el BRILLO dice dónde estás —hecho, en
-/// curso, por venir—. El aro segmentado de arriba sigue valiendo para lo que se
-/// cuenta por repeticiones iguales (fuerza, ergo); esto vale cuando los trozos
-/// no son iguales Y la mitad de ellos son recuperación.
+/// curso, por venir—.
 struct WatchAroEstructura: View {
     let arcos: [ArcoDeTramo]
     let enCurso: Int
@@ -198,11 +127,4 @@ struct WatchAroEstructura: View {
         if i == enCurso { return Bisel.brilloEnCurso }
         return Bisel.brilloPendiente
     }
-}
-
-// MARK: - Helper AnyView
-
-extension View {
-    /// Empaqueta un bisel para pasarlo a `WatchReloj.bisel`.
-    func watchBisel() -> AnyView { AnyView(self) }
 }

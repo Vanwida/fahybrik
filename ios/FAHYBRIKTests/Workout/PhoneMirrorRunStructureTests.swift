@@ -97,7 +97,6 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         XCTAssertEqual(f.tramo?.cierre, "sessionClock")
         XCTAssertEqual(f.tramo?.ventanaQueda, 60)
         XCTAssertEqual(f.tramo?.parte, "main")
-        XCTAssertTrue(MirrorTimedRest.isTimedRunRest(try XCTUnwrap(f.tramo)))
     }
 
     func testTrottingTimedRestStillClosesOnTheClock() {
@@ -109,7 +108,6 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         XCTAssertEqual(f.tramo?.cierre, "sessionClock")
         XCTAssertEqual(f.tramo?.ventanaQueda, 45)
         XCTAssertTrue(f.tramo?.recuperacionEnMovimiento == true)
-        XCTAssertTrue(MirrorTimedRest.isTimedRunRest(try XCTUnwrap(f.tramo)))
     }
 
     func testDistanceRecoveryDoesNotInventClockZero() {
@@ -121,10 +119,6 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         XCTAssertEqual(f.tramo?.cierre, "machineGoal")
         XCTAssertNil(f.tramo?.ventanaQueda, "DISTANCE rest must not invent a 0")
         XCTAssertEqual(f.tramo?.parte, "main")
-        XCTAssertFalse(MirrorTimedRest.isTimedRunRest(try XCTUnwrap(f.tramo)))
-        XCTAssertFalse(MirrorTimedRest.shouldAdvance(
-            tramo: f.tramo, sinceFrame: 999, alreadyFiredFor: nil
-        ))
     }
 
     func testOpenRecoveryDoesNotInventClockZero() {
@@ -135,9 +129,6 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         let f = mirror.buildFrame(from: s)
         XCTAssertEqual(f.tramo?.cierre, "athleteTap")
         XCTAssertNil(f.tramo?.ventanaQueda)
-        XCTAssertFalse(MirrorTimedRest.shouldAdvance(
-            tramo: f.tramo, sinceFrame: 999, alreadyFiredFor: nil
-        ))
     }
 
     func testEmpezarYaOnTimedRestPushesFrameAndReleasesNextRun() {
@@ -301,13 +292,6 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         XCTAssertEqual(f.tramo?.forma?.map(\.peso), [800, 400, 800, 400, 800])
         XCTAssertEqual(f.tramo?.formaIndice, 0)
         XCTAssertEqual(f.tramo?.parte, "main")
-
-        // Y la muñeca la lee como estructura, no como cuenta de series.
-        guard case let .estructura(arcos, enCurso, _) = GuionDelEspejo.aro(f) else {
-            return XCTFail("el aro del espejo tiene que ser la estructura")
-        }
-        XCTAssertEqual(arcos.count, 5)
-        XCTAssertEqual(enCurso, 0)
     }
 
     func testAlEntrarLaRecuperacionElAroAvanzaUnArcoEnVezDeDesaparecer() {
@@ -319,11 +303,7 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         let f = mirror.buildFrame(from: s)
         XCTAssertEqual(f.tramo?.enDescanso, true)
         XCTAssertEqual(f.tramo?.formaIndice, 1)
-        guard case let .estructura(arcos, enCurso, _) = GuionDelEspejo.aro(f) else {
-            return XCTFail("la recuperación también es un arco")
-        }
-        XCTAssertEqual(enCurso, 1)
-        XCTAssertEqual(arcos[1].trabajo, false)
+        XCTAssertEqual(f.tramo?.forma?[1].trabajo, false, "la recuperación también es un arco")
     }
 
     func testUnRodajeNoMandaFormaYElAroSigueSiendoElDeSiempre() {
@@ -331,7 +311,6 @@ final class PhoneMirrorRunStructureTests: XCTestCase {
         s.primaryAdvance()
         let f = mirror.buildFrame(from: s)
         XCTAssertNil(f.tramo?.forma, "un solo tramo no es una estructura")
-        if case .estructura = GuionDelEspejo.aro(f) { XCTFail("no hay estructura que dibujar") }
     }
 
     // MARK: - La parte manda sobre el rol

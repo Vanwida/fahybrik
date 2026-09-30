@@ -1,13 +1,11 @@
 import XCTest
 @testable import FAHYBRIK
 
-// LA ZONA COMO SUJETO — y lo que «Z3» no dice.
+// DÓNDE DE LA BANDA ESTÁS — y lo que «Z3» no dice.
 //
-// Idea de Alex (8-ago, tras salir a hacer series): la zona en grande, cada zona
-// con su color, y la pantalla llenándose de ese color en degradado hacia el de
-// la siguiente conforme te acercas. Lo que hace falta para pintarlo es un dato
-// que no existía: DÓNDE de la banda estás. A 152 y a 160 el reloj ponía «Z3» en
-// los dos casos, y uno de los dos está a un latido de Z4.
+// A 152 y a 160 el reloj ponía «Z3» en los dos casos, y uno de los dos está a un
+// latido de Z4. Lo que hace falta para distinguirlos es un dato que no existía:
+// DÓNDE de la banda estás.
 //
 // Mecanismo, no método: las bandas las pone el coach. Estos tests usan bandas
 // de servidor de verdad (umbral 170) y comprueban la posición DENTRO de ellas,
@@ -85,52 +83,8 @@ final class ZonaComoSujetoTests: XCTestCase {
         XCTAssertNil(zonas().posicion(forBpm: 0))
     }
 
-    // MARK: - La página
-
-    /// Sin zona NO SE PINTA: no se insinúa un estado sobre una banda que nadie
-    /// ha medido. Es la misma regla del tinte del lienzo, a pantalla completa.
-    func testSinBandasNoHayPaginaDeZona() {
-        XCTAssertNil(WatchPaginasComunes.zona(nil, bpm: 152))
-    }
-
-    func testLaPaginaLlevaLaZonaDeSujetoYElPulsoDebajo() throws {
-        let p = try XCTUnwrap(zonas().posicion(forBpm: 152))
-        let pagina = try XCTUnwrap(WatchPaginasComunes.zona(p, bpm: 152))
-        XCTAssertEqual(pagina.sujeto, "Z3")
-        XCTAssertEqual(pagina.segundoValor, "152 ppm",
-                       "un estado sin el número que lo sostiene invita a desconfiar de él")
-        XCTAssertEqual(pagina.contexto, "Zona")
-        XCTAssertNil(pagina.nota, "sin objetivo prescrito no hay veredicto")
-    }
-
-    func testConObjetivoLaPaginaDiceDeQueLadoTeFuiste() throws {
-        let p = try XCTUnwrap(zonas().posicion(forBpm: 152))
-        let arriba = try XCTUnwrap(WatchPaginasComunes.zona(p, bpm: 152, objetivo: .z2))
-        XCTAssertEqual(arriba.contexto, "Zona · objetivo Z2")
-        XCTAssertEqual(arriba.nota, "vas por encima")
-
-        let abajo = try XCTUnwrap(WatchPaginasComunes.zona(p, bpm: 152, objetivo: .z4))
-        XCTAssertEqual(abajo.nota, "vas por debajo")
-
-        let dentro = try XCTUnwrap(WatchPaginasComunes.zona(p, bpm: 152, objetivo: .z3))
-        XCTAssertNil(dentro.nota, "estar donde te pidieron no es un aviso")
-    }
-
-    // MARK: - La mezcla de hues
-
-    /// El borde del relleno tiene que leerse como el PASO hacia la siguiente
-    /// zona, no como si ya estuvieras en ella — y en los extremos la mezcla
-    /// devuelve exactamente cada color.
-    func testLaMezclaDevuelveLosExtremosSinTocarlos() {
-        XCTAssertEqual(WatchTheme.mezcla(0x2FD14F, 0xFFB340, 0).description,
-                       WatchTheme.hex(0x2FD14F).description)
-        XCTAssertEqual(WatchTheme.mezcla(0x2FD14F, 0xFFB340, 1).description,
-                       WatchTheme.hex(0xFFB340).description)
-    }
-
-    /// Los hues de la tabla de mezcla y los del color de zona son LA MISMA
-    /// tabla: dos copias acabarían discrepando y el lienzo pintaría un verde
-    /// distinto del punto de la página de pulso.
+    /// Los hues de la tabla y los del color de zona son LA MISMA tabla: dos copias
+    /// acabarían discrepando y el lienzo pintaría un verde distinto del punto del pulso.
     func testElHueDeCadaZonaEsElMismoQueSuColor() {
         for zona in HRZone.allCases {
             XCTAssertEqual(WatchTheme.hex(WatchTheme.zoneHex(zona)).description,

@@ -1,6 +1,6 @@
 import Foundation
 
-// EL RELEVO DE DOBLES EN LA MUÑECA — la estación de tu pareja (espejo de `watch-dobles`). Tú esperas y recuperas:
+// EL RELEVO DE DOBLES EN LA MUÑECA: la estación de tu pareja (espejo de `watch-dobles`). Tú esperas y recuperas:
 // el héroe es lo que llevas esperando y nada lo cuenta hacia atrás, porque nadie mide a tu pareja (ni el reloj ni el
 // móvil), así que no se promete una salida. El relevo lo declaras tú con la acción del momento.
 //

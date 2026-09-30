@@ -56,15 +56,10 @@ extension WatchPrimaryOwner {
         return (e, espejo.registro)
     }
 
-    /// ¿Hay plan vivo? OJO: el móvil manda plan y cursor en TODO entreno, no solo al correr, así que esto
-    /// no dice que la cara nueva esté pintando. Para «¿qué cara pinta el espejo?» (y por tanto qué
-    /// hápticos locales hay que callar para no duplicar el vocabulario) manda `caraDelEspejo`.
-    var planVivoDirige: Bool { espejo.dirigeElPlan }
-
-    /// Qué cara pinta el espejo ahora: la pila nueva o todo lo de siempre. La decisión es pura y vive
+    /// Qué cara pinta el espejo ahora: la pila nueva o lo que la pila no cubre. La decisión es pura y vive
     /// en Core (`CaraDelEspejo`, probada); aquí solo se le dan las cuatro cosas que mira.
     var caraDelEspejo: CaraDelEspejo {
-        CaraDelEspejo.decide(bandera: MunecaBandera.encendida, espejo: espejo.estado, frame: frame, cubre: espejo.cubreLaMuneca, terminando: isEnding)
+        CaraDelEspejo.decide(espejo: espejo.estado, frame: frame, cubre: espejo.cubreLaMuneca, terminando: isEnding)
     }
 
     /// Lo que este móvil atiende de los comandos nuevos (`MirrorWire.Capacidad`): la muñeca solo ofrece esos botones.

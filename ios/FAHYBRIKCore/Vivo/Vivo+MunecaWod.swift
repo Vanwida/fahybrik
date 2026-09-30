@@ -1,6 +1,6 @@
 import Foundation
 
-// EL WOD EN LA MUÑECA — AMRAP, EMOM, For Time, Tabata y Death by (P12; espejo de `screens/reloj-wod/`).
+// EL WOD EN LA MUÑECA: AMRAP, EMOM, For Time, Tabata y Death by (P12; espejo de `screens/reloj-wod/`).
 // Cada formato contesta UNA pregunta y su cara la pone en el héroe:
 //
 //   EMOM       ¿cuánto queda de este minuto y qué hago en él?  Héroe = lo que queda de la ventana; debajo, la

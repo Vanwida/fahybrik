@@ -1,6 +1,6 @@
 import Foundation
 
-// QUÉ FAMILIAS PINTA LA CARA NUEVA DE LA MUÑECA — UNA regla, para el reloj en solitario y para el espejo.
+// QUÉ FAMILIAS PINTA LA CARA NUEVA DE LA MUÑECA: UNA regla, para el reloj en solitario y para el espejo.
 //
 // La cara nueva (`Vivo.cuadroMuneca`) cubre todo lo que se entrena con reloj: CORRER (calle, cinta, pista, series),
 // FUERZA (series con su ficha, superserie, «Colócate», el descanso que anota), ERGO (remo, ski y bici sueltos), WOD

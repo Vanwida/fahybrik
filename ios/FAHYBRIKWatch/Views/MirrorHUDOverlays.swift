@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MirrorHUD chrome that is not the coach script. PRIMARY without a phone
+// El chrome del espejo que no es la pila. PRIMARY without a phone
 // frame = builder metrics, not a spinner; whether the phone is there is
 // Apple's link (`owner.phoneUnlinked`), never a missing-frames timer.
 
@@ -94,32 +94,6 @@ struct MirrorPausedOverlay: View {
                     .font(.system(size: 30, weight: .heavy))
                     .foregroundStyle(WatchTheme.orange)
                 WatchLabel(text: "En pausa", accent: true)
-            }
-        }
-    }
-}
-
-struct MirrorRestOverlay: View {
-    let base: Double
-    let sinceFrame: (Date) -> Double
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            ZStack {
-                WatchTheme.restBg.ignoresSafeArea()
-                VStack(spacing: 6) {
-                    StatusHeader(text: "Descanso", color: WatchTheme.zoneGreen)
-                    Spacer(minLength: 0)
-                    WatchLabel(text: "Vuelve en", color: WatchTheme.zoneGreen.opacity(0.85))
-                    GiantNumber(
-                        text: CountdownFormat.mirrored(max(0, base - sinceFrame(context.date))),
-                        size: 80,
-                        color: WatchTheme.zoneGreen
-                    )
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
             }
         }
     }

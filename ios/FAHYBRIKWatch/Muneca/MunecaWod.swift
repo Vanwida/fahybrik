@@ -1,6 +1,6 @@
 import SwiftUI
 
-// LO QUE EL WOD PINTA Y LA CARA COMÚN NO — la campana de un AMRAP y las marcas de ronda del Tabata
+// LO QUE EL WOD PINTA Y LA CARA COMÚN NO: la campana de un AMRAP y las marcas de ronda del Tabata
 // (`Vivo.CaraPuntuacion`, `Vivo.MarcasRonda`). Espejo de `screens/reloj-wod/piezas.tsx` y de `kit-reloj/puntuacion.tsx`.
 // Ninguna decide nada: el núcleo ya trae qué se dice, la talla del héroe y qué queda por decir.
 

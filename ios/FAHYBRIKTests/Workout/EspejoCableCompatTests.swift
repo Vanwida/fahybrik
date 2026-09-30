@@ -41,21 +41,16 @@ final class EspejoCableCompatTests: XCTestCase {
 
     // MARK: - Móvil viejo + reloj nuevo
 
-    func testMovilViejoRelojNuevoNoHayCuadroYLaCaraDeSiempreSigueIgual() throws {
+    func testMovilViejoRelojNuevoNoHayCuadro() throws {
         let f = try MirrorWire.decoder.decode(MirrorStateFrame.self, from: tramaVieja)
         XCTAssertNil(f.cursor)
         XCTAssertNil(f.capacidades)
-        // La cara de hoy sigue funcionando con esa trama: la misma puerta y la misma lámina.
-        XCTAssertTrue(GuionDelEspejo.esRodajeLamina(f))
-        _ = RodajeLamina.lectura(RodajeLamina.Ventana(trama: f, elapsed: 0))
 
         var espejo = Vivo.EspejoMuneca()
         espejo.recibirTrama(f, en: base)
         XCTAssertEqual(espejo.estado, .sinPlan)
-        XCTAssertNil(espejo.cuadro(ahora: base), "sin plan ni cursor no se inventa un cuadro: la vista cae a la cara vieja")
-        XCTAssertFalse(espejo.dirigeElPlan)
+        XCTAssertNil(espejo.cuadro(ahora: base), "sin plan ni cursor no se inventa un cuadro: la vista cae a «Grabando en la muñeca»")
         XCTAssertNil(espejo.planAPedir(en: base), "un móvil viejo no tiene plan que pedirle")
-        XCTAssertEqual(espejo.hapticAplicable(f), "go", "sin plan vivo el háptico del móvil sigue valiendo")
     }
 
     func testUnPlanSinCursorTampocoPintaNada() throws {
@@ -176,19 +171,6 @@ final class EspejoCableCompatTests: XCTestCase {
         espejo.recibirPlan(real)
         XCTAssertNotNil(espejo.cuadro(ahora: base))
         XCTAssertNil(espejo.planAPedir(en: base.addingTimeInterval(60)))
-    }
-
-    func testConPlanVivoElRelojNuevoIgnoraElHapticDelMovil() throws {
-        let s = sesion(try P.seisPorMilCompleto())
-        var f = try tramaNueva(s)
-        f.hapticCue = MirrorWire.HapticCue.go
-        f.hapticSeq = 3
-        var espejo = Vivo.EspejoMuneca()
-        XCTAssertEqual(espejo.hapticAplicable(f), "go", "sin plan vivo, vale (un móvil viejo, o aún sin plan)")
-        espejo.recibirPlan(MirrorPlanVivo(plan: Vivo.planDe(s), entorno: .outdoor))
-        espejo.recibirTrama(f, en: base)
-        XCTAssertTrue(espejo.dirigeElPlan)
-        XCTAssertNil(espejo.hapticAplicable(f), "con plan vivo el director de la muñeca manda: si no, vibraría dos veces")
     }
 
     // MARK: - El cursor y el plan, en bytes

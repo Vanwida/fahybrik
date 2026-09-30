@@ -46,8 +46,6 @@ enum WatchTheme {
     static let bg              = hex(0x000000)   // the watch face
     static let surface         = hex(0x141414)   // metric tile / card
     static let surfaceRaised    = hex(0x1F1F1F)  // pill background
-    static let transitionBg    = hex(0x140D07)   // dark-orange interstitial (phase / SIM)
-    static let restBg          = hex(0x0D1B0F)   // green-tinted rest banner
 
     // Text.
     static let ink   = hex(0xFFFFFF)             // primary
@@ -85,11 +83,10 @@ enum WatchTheme {
     }
 
     // Semantic zone hues (per the mockups). Green/amber/red double as the
-    // readiness score buckets and the high HR zones; blue is the low aerobic zone.
+    // readiness score buckets and the high HR zones.
     static let zoneGreen = hex(0x2FD14F)         // --z-run  (Z3 / "en zona" / readiness ok)
     static let zoneAmber = hex(0xFFB340)         // --z-thr  (Z4 / readiness caution)
     static let zoneRed   = hex(0xFF4D4D)         // --z-vo2  (Z5 / readiness low)
-    static let zoneBlue  = hex(0x2A6CFF)         // low aerobic band (Z2)
     static let greenOn   = hex(0x06280F)         // text/glyph on a green fill
 
     // MARK: - HR zone color
@@ -102,8 +99,7 @@ enum WatchTheme {
         hex(zoneHex(zone))
     }
 
-    /// El hue de cada zona como literal, para poder MEZCLARLOS. `zoneColor` sale
-    /// de aquí, así que no hay dos tablas que puedan divergir.
+    /// El hue de cada zona como literal. `zoneColor` sale de aquí, así que no hay dos tablas que puedan divergir.
     static func zoneHex(_ zone: HRZone) -> UInt32 {
         switch zone {
         case .z1: return 0x8A8A8E   // recovery — muted gray (== dim)
@@ -112,19 +108,6 @@ enum WatchTheme {
         case .z4: return 0xFFB340   // threshold
         case .z5: return 0xFF4D4D   // VO2 / red line
         }
-    }
-
-    /// Mezcla dos hues en sRGB. `k` = cuánto del segundo (0…1). Lo usa el lienzo
-    /// de zona para derivar del color de TU zona al de la siguiente conforme te
-    /// acercas — el degradado que hace que el estado se lea sin enfocar.
-    static func mezcla(_ a: UInt32, _ b: UInt32, _ k: Double) -> Color {
-        let t = min(1, max(0, k))
-        func canal(_ shift: UInt32) -> Double {
-            let ca = Double((a >> shift) & 0xFF)
-            let cb = Double((b >> shift) & 0xFF)
-            return (ca + (cb - ca) * t) / 255
-        }
-        return Color(.sRGB, red: canal(16), green: canal(8), blue: canal(0), opacity: 1)
     }
 
     // MARK: - Readiness zone
@@ -139,17 +122,4 @@ enum WatchTheme {
         if score >= readinessCautionMin { return zoneAmber }
         return zoneRed
     }
-
-    // MARK: - Tuning constants (no magic numbers in logic)
-
-    /// Crown load step for the strength set editor (matches mockup 4d "Crown ▸ ±carga").
-    static let loadStepKg: Double = 2.5
-    /// Minimum seconds between "out of zone" haptics so a steady bout near the
-    /// zone edge never buzzes continuously.
-    static let zoneExitHapticThrottle: TimeInterval = 15
-    /// How long the run↔station / phase-change interstitial lingers before it
-    /// auto-advances the local UI (the engine already advanced underneath).
-    static let transitionDwell: TimeInterval = 2.0
-    /// Countdown value (seconds) at/under which a timer reads as urgent (accent).
-    static let urgentThreshold: Double = 3
 }
