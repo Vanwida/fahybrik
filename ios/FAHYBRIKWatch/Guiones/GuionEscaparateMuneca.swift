@@ -107,6 +107,8 @@ extension GuionEscaparate {
         var go = false
         var pausado = false
         var terminado = false
+        /// Calle o cinta: cambia quién mide los metros (en cinta, el móvil) y el plan que sale de la sesión.
+        var entorno: RunEnvironment = .outdoor
 
         func estado() -> Vivo.EstadoVivo {
             let paso = plan.pasos[i]
@@ -222,7 +224,7 @@ extension GuionEscaparate {
         static func descansoTandas() -> Escena {
             let p = plan(PlanesMuneca.tandas, entorno: .treadmill)
             let i = indice(p, ocurrencia: 1) { $0.clase == .descansoTandas }
-            return Escena(plan: p, i: i, t: 54, ppm: 152, tendencia: .baja, gps: .noAplica, sesionT: 2094, sesionM: 5118)
+            return Escena(plan: p, i: i, t: 54, ppm: 152, tendencia: .baja, gps: .noAplica, sesionT: 2094, sesionM: 5118, entorno: .treadmill)
         }
 
         /// La cara común de descanso (P8), con un descanso de fuerza: la de correr con tandas usa hoy la de recuperación.
@@ -247,7 +249,7 @@ extension GuionEscaparate {
         static func cinta() -> Escena {
             let p = plan(PlanesMuneca.tempoCinta, entorno: .treadmill)
             let i = indice(p) { $0.rol == .trabajo && $0.fase == .principal }
-            return Escena(plan: p, i: i, t: 202, ritmo: 258, ppm: 172, gps: .noAplica, sesionT: 802, sesionM: 777)
+            return Escena(plan: p, i: i, t: 202, ritmo: 258, ppm: 172, gps: .noAplica, sesionT: 802, sesionM: 777, entorno: .treadmill)
         }
     }
 }
