@@ -1,4 +1,5 @@
 import Foundation
+import WidgetKit
 
 // Watch-side plan state. The iPhone pushes the day's session + readiness as an
 // encoded `WatchTodayPayload` (WatchConnectivity applicationContext); we persist it
@@ -25,6 +26,10 @@ final class WatchPlanModel: ObservableObject {
     private static let legacyKey = "fahybrik.watch.plan.today"
     /// El detalle que llegó por fichero: `StoredDetail` en JSON. Uno solo, el del día.
     private let fileDetailKey = "fahybrik.watch.detail-file.v1"
+    /// El día (`aaaa-mm-dd`) en que llegó el día actual. El payload no trae fecha propia:
+    /// «hoy» es el día en que el iPhone lo empujó, y la complicación lo necesita para no
+    /// enseñar la sesión de ayer como la de hoy (`ComplicacionHoy.paraElDia`).
+    private let arrivalDayKey = "fahybrik.watch.today.day.v1"
 
     private struct StoredDetail: Codable {
         let assignmentId: String
@@ -67,6 +72,9 @@ final class WatchPlanModel: ObservableObject {
         if let data = try? WatchWire.encoder.encode(done) {
             UserDefaults.standard.set(data, forKey: key)
         }
+        // Terminarla es algo de hoy, llegara el plan cuando llegara.
+        UserDefaults.standard.set(ComplicacionHoy.claveDeDia(Date()), forKey: arrivalDayKey)
+        publicarComplicacion()
     }
 
     // MARK: - El detalle por fichero
@@ -86,7 +94,12 @@ final class WatchPlanModel: ObservableObject {
         }
         // El del contexto manda; si hoy no vino en él, el fichero más reciente.
         let isToday = today?.assignmentId == assignmentId
-        if isToday, today?.detailJson == nil { assignmentDetail = detail }
+        if isToday, today?.detailJson == nil {
+            assignmentDetail = detail
+            // Ahora sí hay plan que leer: la forma y el bloque de la complicación. El día
+            // sigue siendo el de llegada del payload (el detalle se pidió al recibirlo).
+            publicarComplicacion()
+        }
         DiagnosticsLog.shared.record(.link, .sessionDetail, outcome: .ok,
                                      detail: "received bytes=\(data.count) today=\(isToday)")
     }
@@ -105,6 +118,8 @@ final class WatchPlanModel: ObservableObject {
         assignmentDetail = detail(for: payload)
         WatchClubAccentState.current = payload.clubAccent
         UserDefaults.standard.set(data, forKey: key)
+        UserDefaults.standard.set(ComplicacionHoy.claveDeDia(Date()), forKey: arrivalDayKey)
+        publicarComplicacion()
         requestDetailIfMissing()
     }
 
@@ -116,6 +131,32 @@ final class WatchPlanModel: ObservableObject {
         WatchClubAccentState.current = nil
         UserDefaults.standard.removeObject(forKey: key)
         UserDefaults.standard.removeObject(forKey: fileDetailKey)
+        UserDefaults.standard.removeObject(forKey: arrivalDayKey)
+        publicarComplicacion()
+    }
+
+    // MARK: - La complicación
+
+    /// Deja lo de hoy en el App Group para la esfera y el Smart Stack, y les dice que lo
+    /// relean SOLO si algo ha cambiado. Se llama en cada cambio del día (llega un push, se
+    /// limpia, se hace la sesión, llega el detalle) y al arrancar en frío.
+    ///
+    /// El día que lleva el registro es el de LLEGADA del payload (`arrivalDayKey`), no el de
+    /// ahora: releer un plan de ayer al arrancar no lo sella como de hoy. Un plan guardado
+    /// antes de que existiera esa marca no se publica: no se sabe de qué día es.
+    private func publicarComplicacion() {
+        let dia: String
+        if let guardado = UserDefaults.standard.string(forKey: arrivalDayKey) {
+            dia = guardado
+        } else if today == nil {
+            dia = ComplicacionHoy.claveDeDia(Date())
+        } else {
+            return
+        }
+        let hoy = ComplicacionLectura.leer(hoy: today, detalle: assignmentDetail, dia: dia)
+        if ComplicacionAlmacen.guardar(hoy) {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
     }
 
     private func load() {
@@ -124,6 +165,7 @@ final class WatchPlanModel: ObservableObject {
         today = decoded
         assignmentDetail = detail(for: decoded)
         WatchClubAccentState.current = decoded.clubAccent
+        publicarComplicacion()
     }
 
     /// El del contexto; si no vino, el del fichero guardado para esa asignación.

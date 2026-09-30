@@ -21,8 +21,14 @@ enum PhoneMirrorCommandRelay {
     }
 
     @MainActor
-    static func aplicar(_ kind: String, a engine: WorkoutSession) -> Resultado {
+    static func aplicar(_ kind: String, declaracion: Vivo.Declaracion? = nil, a engine: WorkoutSession) -> Resultado {
         switch kind {
+        case MirrorWire.CommandKind.anotar:
+            // Lo que la muñeca declara en el descanso de fuerza (reps, carga, RIR o RPE): entra por la MISMA puerta que
+            // el vivo del iPhone (`vivoDeclarar`), así que el motor no distingue quién lo dijo.
+            guard let d = declaracion else { return .pendiente("anotar: sin dato") }
+            engine.vivoDeclarar(d, pasos: Vivo.planDe(engine).pasos)
+            return .aplicado
         case MirrorWire.CommandKind.newLap:
             // La deuda FH-30: el motor YA cierra una vuelta libre (`WorkoutSession.applyCommand`),
             // pero el móvil no le pasaba el comando de la muñeca. Sus propias reglas (no en una
@@ -36,10 +42,8 @@ enum PhoneMirrorCommandRelay {
             // `MirrorWire.Capacidad.deshacer`.
             return .pendiente("undo: el motor no reabre un tramo de correr")
         case MirrorWire.CommandKind.plus30:
-            // TODO(motor): «+30 s» del descanso vive hoy dentro de `VivoIphoneView.sumar30` (privado, y
-            // reparte por cuatro descansos distintos). Cuando sea un método del motor se llama aquí y se
-            // anuncia `MirrorWire.Capacidad.mas30`.
-            return .pendiente("plus30: el descanso se estira solo desde la vista del iPhone")
+            // «+30 s»: `vivoSumar30` reparte por los cuatro descansos del motor (serie, lista fija, rotativo, EMOM).
+            return engine.vivoSumar30() ? .aplicado : .pendiente("plus30: no hay descanso que estirar")
         case MirrorWire.CommandKind.vozMuneca:
             // TODO(F4): la muñeca anuncia que habla ella; el móvil calla `AudioCoach` (correr) para no
             // decirlo dos veces y anuncia `MirrorWire.Capacidad.vozCalla`. Depende de la voz en el reloj.

@@ -20,12 +20,19 @@ struct MunecaPaso: View {
     var alMas30: (() -> Void)? = nil
     /// El botón de «Empezar ya» del descanso (la misma acción que el doble toque).
     var alEmpezarYa: () -> Void = {}
+    /// La acción del momento (la del doble toque): el botón «Confirmar» del descanso que anota.
+    var alPrimaria: () -> Void = {}
+    /// Lo que se puede hacer sobre la anotación; `nil` = nada.
+    var anotar: MunecaAnotar? = nil
 
     var body: some View {
         switch cara {
         case let .paso(c): paso(c)
         case let .recupera(c): recupera(c)
         case let .descanso(c): descanso(c)
+        case let .serie(c): MunecaSerie(cara: c)
+        case let .colocate(c): MunecaColocate(cara: c)
+        case let .anotar(c): MunecaAnotarCara(cara: c, anotar: anotar, alMas30: alMas30, alPrimaria: alPrimaria)
         case .completada: MunecaCompletada()
         }
     }
@@ -41,7 +48,9 @@ struct MunecaPaso: View {
             MunecaCentro { MunecaHeroe(heroe: c.heroe) }
             if let banda = c.banda { MunecaBandaObjetivo(banda: banda) }
             if let instruccion = c.instruccion { MunecaInstruccion(linea: instruccion) }
+            if let tope = c.tope { MunecaNota(nota: tope) }
             if let segundo = c.segundo { MunecaLinea(linea: segundo) }
+            if let pista = c.pista { MunecaNota(nota: pista) }
             if let tercero = c.tercero { MunecaLinea(linea: tercero) }
         }
     }
@@ -66,7 +75,10 @@ struct MunecaPaso: View {
             MunecaContexto(linea: c.contexto)
             MunecaCentro { MunecaHeroe(heroe: c.heroe) }
             if let pulso = c.pulso { MunecaLinea(linea: pulso) }
+            // Fuerza: la serie ya anotada en una píldora que se reabre, y lo que viene en dos partes (qué y dosis).
+            if let hueco = c.hueco { MunecaPildora(pildora: hueco) { anotar?.abrir(0) } }
             if let viene = c.viene { MunecaNota(nota: viene, tono: MunecaPaleta.tinta) }
+            if let viene = c.vieneFuerza { MunecaViene(viene: viene) }
             botones(c.acciones)
         }
     }
@@ -80,8 +92,8 @@ struct MunecaPaso: View {
                         MunecaBoton(titulo: accion.rawValue, variante: .superficie, accion: alMas30)
                             .frame(minWidth: MunecaForma.anchoMas30Minimo, maxWidth: MunecaForma.anchoMas30)
                     }
-                case .empezarYa:
-                    MunecaBoton(titulo: accion.rawValue, accion: alEmpezarYa)
+                case .empezarYa, .confirmar, .listo:
+                    MunecaBoton(titulo: accion.rawValue, accion: accion == .empezarYa ? alEmpezarYa : alPrimaria)
                         .frame(maxWidth: MunecaForma.anchoEmpezarYa)
                         .layoutPriority(1)
                 }

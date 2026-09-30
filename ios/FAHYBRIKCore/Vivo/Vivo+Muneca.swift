@@ -52,6 +52,8 @@ extension Vivo {
 
     enum PaginaMuneca: String, Equatable, CaseIterable {
         case paso, datos, vueltas, estructura
+        /// La hoja del coach por ejercicios: la de fuerza (en lugar de Vueltas y Estructura).
+        case ejercicios
 
         /// Para el lector de pantalla y la cronología.
         var titulo: String {
@@ -60,6 +62,7 @@ extension Vivo {
             case .datos: return "Datos"
             case .vueltas: return "Vueltas"
             case .estructura: return "Estructura"
+            case .ejercicios: return "Ejercicios"
             }
         }
     }
@@ -80,6 +83,10 @@ extension Vivo {
         var segundo: LineaDeDato?
         /// La fila de abajo, a ANCHO_PIE: el pulso (o el ritmo si el héroe es el pulso).
         var tercero: LineaDeDato?
+        /// M1 · El segundo objetivo a la vista: un techo de pulso o el tope de ritmo («no más lento de 6:00/km»).
+        var tope: NotaVista? = nil
+        /// «doble toque · serie hecha»: solo en un paso que cierra el atleta y no lleva su acción en otra fila (ergo).
+        var pista: NotaVista? = nil
     }
 
     /// Recuperación: monocromo (sin tinte, sin zona), «Luego · …» y la acción que la corta.
@@ -94,7 +101,11 @@ extension Vivo {
         var pulso: LineaDeDato?
     }
 
-    enum AccionDeCara: String, Equatable { case mas30s = "+30 s", empezarYa = "Empezar ya" }
+    enum AccionDeCara: String, Equatable {
+        case mas30s = "+30 s", empezarYa = "Empezar ya"
+        /// El descanso que anota: «Confirmar» mientras quede algo propuesto y «Listo» después.
+        case confirmar = "Confirmar", listo = "Listo"
+    }
 
     /// El descanso común (P8): cuenta atrás, «Viene: …», +30 s y Empezar ya.
     struct CaraDescanso: Equatable {
@@ -103,12 +114,19 @@ extension Vivo {
         var pulso: LineaDeDato?
         var viene: NotaVista?
         var acciones: [AccionDeCara]
+        /// El descanso de fuerza dice lo que viene en dos partes (qué y dosis) y lleva la serie ya anotada en una píldora.
+        var vieneFuerza: VieneMuneca? = nil
+        var hueco: PildoraAnotar? = nil
     }
 
     enum CaraMuneca: Equatable {
         case paso(CaraPaso)
         case recupera(CaraRecupera)
         case descanso(CaraDescanso)
+        /// Fuerza: la serie en curso, el «Colócate» de una isometría y el descanso que anota.
+        case serie(CaraSerie)
+        case colocate(CaraColocate)
+        case anotar(CaraAnotar)
         /// La sesión acabó sola: «Sesión completada».
         case completada
     }
@@ -122,6 +140,8 @@ extension Vivo {
         var que: LineaTexto?
         /// «3», «2», «1» o «GO».
         var numero: HeroeMuneca
+        /// Fuerza: el nombre del ejercicio (22 pt) va delante y el contexto es «Serie 2/4 · 8 × 125 kg».
+        var nombre: NombreMedido? = nil
     }
 
     enum CapaMuneca: Equatable {
@@ -135,6 +155,8 @@ extension Vivo {
     struct PaginaDatosMuneca: Equatable {
         var titulo: [String]
         var filas: [FilaDatoVista]
+        /// «2 series sin confirmar»: lo que la página avisa abajo.
+        var pie: NotaVista? = nil
     }
 
     struct PaginaVueltasMuneca: Equatable {
@@ -190,6 +212,15 @@ extension Vivo {
         var aro: AroMuneca
         /// Lo que dice el aviso de deshacer al cerrar a mano: «Serie 3 cerrada».
         var avisoCierre: String
+        /// Las páginas de la corona, en orden. La pila pinta estas y no otras: correr trae cuatro, fuerza tres
+        /// (con un dato enfocado, una sola: la corona es del dato).
+        var paginas: [PaginaMuneca] = PaginaMuneca.allCases.filter { $0 != .ejercicios }
+        /// La hoja de ejercicios de fuerza; `nil` fuera de fuerza.
+        var ejercicios: PaginaEjerciciosMuneca? = nil
+        /// El dato de la anotación al que la corona gira ahora; `nil` = la corona pasa página.
+        var corona: CampoAnotar? = nil
+        /// La acción del momento (doble toque, botón, mano): la misma para todo el que lleve el motor.
+        var primaria: ClavePrimaria? = nil
     }
 
     // MARK: - Las lecturas que se pintan
@@ -206,26 +237,37 @@ extension Vivo {
 
     // MARK: - El cuadro
 
-    static func cuadroMuneca(_ e: EstadoVivo, registro: RegistroVueltas = RegistroVueltas(), entorno x: EntornoMuneca = EntornoMuneca()) -> CuadroMuneca {
+    /// `anotar`: lo declarado en la anotación de fuerza y lo que hay abierto (la muñeca lo conserva; sin él, todo
+    /// propuesto y nada abierto). Sin fuerza en la sesión no se lee.
+    static func cuadroMuneca(_ e: EstadoVivo, registro: RegistroVueltas = RegistroVueltas(), entorno x: EntornoMuneca = EntornoMuneca(),
+                             anotar a: AnotarMuneca = AnotarMuneca()) -> CuadroMuneca {
         let m = x.medidas
         let l = lecturasParaPintar(e)
         let p = e.paso
         let lamina = laminaDelPaso(p, l, e.zonas, e.reglas)
+        let familia = familiaMuneca(e.pasos, e.i)
 
-        let cara: CaraMuneca
-        if e.terminado { cara = .completada }
-        else if p.rol == .recuperacion { cara = .recupera(caraRecupera(e, l, lamina, x)) }
-        else if p.rol == .descanso { cara = .descanso(caraDescanso(e, l, m)) }
-        else { cara = .paso(caraPaso(lamina, m)) }
+        let cara = caraDeMuneca(e, l, lamina, a, x, familia: familia)
+        let corona = a.coronaEnfocada(e)
 
         let (objetivo, enCurso) = vueltaEnCurso(e, registro: registro)
-        let vueltas = filasDeVueltas(e.vueltas + registro.vueltas, objetivo: objetivo, visibles: enCurso != nil ? 4 : 5)
+        let vueltas = familia == .ergo ? paginaVueltasErgo(e)
+            : { () -> PaginaVueltasMuneca in
+                let v = filasDeVueltas(e.vueltas + registro.vueltas, objetivo: objetivo, visibles: enCurso != nil ? 4 : 5)
+                return PaginaVueltasMuneca(titulo: v.titulo, enCurso: enCurso, filas: v.filas, vacia: (v.filas.isEmpty && enCurso == nil) ? "Aún ninguna" : nil)
+            }()
         let estructura = estructuraDe(e.pasos, i: e.i).map { f -> FilaLista in
             let t = textoFila(f)
             return FilaLista(linea: t.linea, detalle: t.detalle, estado: f.estado)
         }
         let tinte: TinteVista? = x.alwaysOn ? nil : tinteDelPaso(p, l, e.zonas).map {
             TinteVista(zona: $0, color: colorZona($0, e.zonas?.techos.count ?? 5), mezclaPct: tinteZonaPct)
+        }
+        let datos: PaginaDatosMuneca
+        switch familia {
+        case .fuerza: datos = paginaDatosFuerza(e, a, l, m)
+        case .ergo: datos = PaginaDatosMuneca(titulo: ["Sesión"], filas: filasDeDatosErgo(e, l))
+        default: datos = PaginaDatosMuneca(titulo: ["Sesión"], filas: filasDeDatos(e.sesion, l, zonas: e.zonas, fuente: p.entorno == .cinta ? "cinta" : nil))
         }
 
         return CuadroMuneca(
@@ -238,26 +280,60 @@ extension Vivo {
             gps: l.gps,
             tinte: tinte,
             cara: cara,
-            capa: capaDe(e, registro, m),
-            datos: PaginaDatosMuneca(titulo: ["Sesión"], filas: filasDeDatos(e.sesion, l, zonas: e.zonas, fuente: p.entorno == .cinta ? "cinta" : nil)),
-            vueltas: PaginaVueltasMuneca(titulo: vueltas.titulo, enCurso: enCurso, filas: vueltas.filas,
-                                         vacia: (vueltas.filas.isEmpty && enCurso == nil) ? "Aún ninguna" : nil),
+            capa: capaDe(e, registro, a, m),
+            datos: datos,
+            vueltas: vueltas,
             estructura: PaginaEstructuraMuneca(titulo: ["Estructura"], filas: ventanaDeLista(estructura)),
             aro: AroMuneca(arcos: arcosDePlan(e.pasos), indice: e.i, fraccion: fraccionDelPaso(p, l)),
-            avisoCierre: avisoDeCierre(p)
+            avisoCierre: avisoDeCierre(p),
+            paginas: paginasDeLaCorona(e, familia: familia, corona: corona),
+            ejercicios: familia == .fuerza ? paginaEjercicios(e, a, m) : nil,
+            corona: corona,
+            primaria: clavePrimariaMuneca(e, a)
         )
+    }
+
+    /// Las páginas que la corona recorre: correr, Paso → Datos → Vueltas → Estructura; fuerza, Serie → Ejercicios
+    /// → Datos; ergo, Paso → Series → Datos → Estructura. Con un dato enfocado, solo Paso.
+    private static func paginasDeLaCorona(_ e: EstadoVivo, familia: FamiliaMuneca?, corona: CampoAnotar?) -> [PaginaMuneca] {
+        if corona != nil { return [.paso] }
+        switch familia {
+        case .fuerza?: return [.paso, .ejercicios, .datos]
+        case .ergo?: return hayPaginaDeSeriesErgo(e) ? [.paso, .vueltas, .datos, .estructura] : [.paso, .datos, .estructura]
+        default: return [.paso, .datos, .vueltas, .estructura]
+        }
     }
 
     // MARK: - Las caras
 
-    private static func caraPaso(_ lam: Lamina, _ m: MedidasMuneca) -> CaraPaso {
+    /// Qué cara pinta el paso vivo. Cada familia trae las suyas; lo demás es la cara de siempre (el paso a su objetivo).
+    private static func caraDeMuneca(_ e: EstadoVivo, _ l: Lecturas, _ lam: Lamina, _ a: AnotarMuneca, _ x: EntornoMuneca, familia: FamiliaMuneca?) -> CaraMuneca {
+        let p = e.paso
+        let m = x.medidas
+        if e.terminado { return .completada }
+        if p.rol == .recuperacion { return .recupera(caraRecupera(e, l, lam, x)) }
+        if p.rol == .descanso {
+            if let anota = caraDeAnotar(e, l, a, m) { return anota }
+            let deFuerza = anteriorTrabajo(e.pasos, e.i).map { esFuerza(e.pasos[$0]) } ?? false
+            return .descanso(caraDescanso(e, l, m, viene: deFuerza ? vieneDe(e.pasos, e.i, a.registro, m) : nil))
+        }
+        if p.rol == .transicion, p.clase == .fuerza, let c = caraColocate(e, l, a, m, accion: x.accion) { return .colocate(c) }
+        if p.rol == .trabajo, esFuerza(p), let c = caraSerie(e, l, a, m, accion: x.accion) { return .serie(c) }
+        if esErgoMuneca(p) { return .paso(caraErgo(e, l, lam, m, accion: x.accion)) }
+        return .paso(caraPaso(lam, e, l, m))
+    }
+
+    private static func caraPaso(_ lam: Lamina, _ e: EstadoVivo, _ l: Lecturas, _ m: MedidasMuneca) -> CaraPaso {
         let nota = lam.nota.map { notaVista($0, ancho: m.anchoUtil) }
+        // El tope de ritmo tipado (M1): un techo de pulso ya va en la línea del pulso («▲ alto»).
+        let tope = topeDe(e.paso, l, e.zonas, e.reglas, m, conTecho: false)
         // La nota va ARRIBA, bajo el contexto: abajo las esquinas dejan ~150 pt y una
         // nota de honestidad no puede quedarse a medias.
         var filas: [Fila] = [.contexto]
         if let nota { filas.append(filaDeNota(nota)) }
         if lam.banda != nil { filas.append(.banda) }
         if lam.instruccion != nil { filas.append(.instruccion) }
+        if let tope { filas.append(filaDeNota(tope)) }
         if lam.segundo != nil { filas.append(.segundo) }
         if lam.tercero != nil { filas.append(.tercero) }
         return CaraPaso(
@@ -267,7 +343,8 @@ extension Vivo {
             banda: lam.banda,
             instruccion: lam.instruccion.map { instruccionQueCabe($0, m) },
             segundo: lam.segundo.map { lineaDeDato($0, cuerpo: TipoMuneca.segundo, ancho: lam.tercero != nil ? m.anchoUtil : m.anchoPie) },
-            tercero: lam.tercero.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoPie) }
+            tercero: lam.tercero.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoPie) },
+            tope: tope
         )
     }
 
@@ -295,24 +372,34 @@ extension Vivo {
         )
     }
 
-    private static func caraDescanso(_ e: EstadoVivo, _ l: Lecturas, _ m: MedidasMuneca) -> CaraDescanso {
+    /// El descanso común (P8). `viene`: en fuerza dice qué y dosis en dos partes; `hueco`: la serie ya anotada;
+    /// `conPulso`: el descanso que anota, ya todo declarado, no lo lleva (la serie anotada ocupa su sitio).
+    static func caraDescanso(_ e: EstadoVivo, _ l: Lecturas, _ m: MedidasMuneca, viene: VieneMuneca? = nil, hueco: PildoraAnotar? = nil,
+                             conPulso: Bool = true) -> CaraDescanso {
         let p = e.paso
         var heroe = heroeDelPaso(p, l, nil)
         heroe.etiqueta = nil
         // El pulso bajando, monocromo: el descanso tampoco se tiñe (P6).
-        let pulso: LineaVista? = l.ppm != nil ? { var s = lineaPulso(p, l, nil, e.reglas); s.zona = nil; return s }() : nil
-        let viene = e.siguiente.map { notaVista(textoViene($0), prefijo: "Viene:", ancho: m.anchoUtil) }
-        var filas: [Fila] = [.contexto, .boton]
-        if let viene { filas.append(filaDeNota(viene)) }
-        if pulso != nil { filas.append(.tercero) }
+        let pulso: LineaVista? = (conPulso && l.ppm != nil) ? { var s = lineaPulso(p, l, nil, e.reglas); s.zona = nil; return s }() : nil
+        let vieneNota = viene == nil ? e.siguiente.map { notaVista(textoViene($0), prefijo: "Viene:", ancho: m.anchoUtil) } : nil
+        var alturas: [Double] = [Fila.contexto.alto, Fila.boton.alto]
+        if let vieneNota { alturas.append(filaDeNota(vieneNota).alto) }
+        if let viene { alturas.append(viene.alto) }
+        if pulso != nil { alturas.append(Fila.tercero.alto) }
+        if hueco != nil { alturas.append(alturaDeHueco) }
         return CaraDescanso(
             contexto: contextoQueCabe(contextoDe(p), m),
-            heroe: heroeMuneca(heroe, filas: filas, m),
+            heroe: heroeConAlto(heroe, alto: altoLibre(alturas, m), m),
             pulso: pulso.map { lineaDeDato($0, cuerpo: TipoMuneca.tercero, ancho: m.anchoUtil) },
-            viene: viene,
-            acciones: [.mas30s, .empezarYa]
+            viene: vieneNota,
+            acciones: [.mas30s, .empezarYa],
+            vieneFuerza: viene,
+            hueco: hueco
         )
     }
+
+    /// Lo que ocupa la píldora de la serie anotada bajo el héroe del descanso.
+    static let alturaDeHueco: Double = 32
 
     // MARK: - La capa
 
@@ -324,7 +411,9 @@ extension Vivo {
         return p
     }
 
-    static func caraCuenta(_ n: Int, _ p: Paso, _ m: MedidasMuneca) -> CaraCuenta {
+    static func caraCuenta(_ n: Int, _ p: Paso, _ m: MedidasMuneca, arrastrada: Double? = nil) -> CaraCuenta {
+        // Una serie de fuerza entra con su nombre y la carga que está en la barra.
+        if esFuerza(p) { return caraCuentaFuerza(n, p, arrastrada: arrastrada, m) }
         let que = textoCuenta(p)
         let numero = HeroeVista(clase: .crono, texto: n > 0 ? String(n) : "GO")
         return CaraCuenta(
@@ -334,9 +423,17 @@ extension Vivo {
         )
     }
 
-    private static func capaDe(_ e: EstadoVivo, _ registro: RegistroVueltas, _ m: MedidasMuneca) -> CapaMuneca? {
-        if let n = e.cuenta { return .cuenta(caraCuenta(n, pasoDeLaCuenta(e), m)) }
-        if e.go { return .cuenta(caraCuenta(0, e.paso, m)) }
+    /// La carga que está en la barra cuando entra el paso `p` del plan: la declarada en una serie anterior (cascada).
+    private static func arrastradaAl(entrar p: Paso, _ e: EstadoVivo, _ a: AnotarMuneca) -> Double? {
+        e.pasos.firstIndex { $0.id == p.id }.flatMap { cargaArrastrada(e.pasos, $0, a.registro) }
+    }
+
+    private static func capaDe(_ e: EstadoVivo, _ registro: RegistroVueltas, _ a: AnotarMuneca, _ m: MedidasMuneca) -> CapaMuneca? {
+        if let n = e.cuenta {
+            let p = pasoDeLaCuenta(e)
+            return .cuenta(caraCuenta(n, p, m, arrastrada: arrastradaAl(entrar: p, e, a)))
+        }
+        if e.go { return .cuenta(caraCuenta(0, e.paso, m, arrastrada: arrastradaAl(entrar: e.paso, e, a))) }
         return registro.avisoVigente(e.sesion.t).map { .vuelta($0) }
     }
 }

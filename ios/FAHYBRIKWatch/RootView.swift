@@ -26,8 +26,16 @@ struct RootView: View {
     /// finger or the TabView Binding set writes it.
     @State private var livePage = 1
 
+    /// La página de reposo que se ve (cómo llegas ▸ lo de hoy). La complicación de la esfera y
+    /// el widget del Smart Stack abren la app con un enlace que la pone en lo de hoy: un toque,
+    /// el brief con su «Empezar». Sin enlace, la primera, como siempre.
+    @State private var paginaDeReposo = EntradaHoja.comoLlegas
+
     var body: some View {
         content
+            .onOpenURL { url in
+                if let pagina = ComplicacionEnlace.pagina(url) { paginaDeReposo = pagina }
+            }
             // The engine finishes itself when the last lap closes (or via Terminar);
             // catch that here (RootView is always mounted) and finalize once.
             .onChange(of: coordinator.session?.isFinished == true) { _, finished in
@@ -92,7 +100,7 @@ struct RootView: View {
     private var idleContent: some View {
         if let today = plan.today {
             if today.isDone {
-                EntradaHechoFlow(payload: today)
+                EntradaHechoFlow(payload: today, pagina: $paginaDeReposo)
             } else if let snapshot = recoverable {
                 // A fresh, matching crash snapshot exists → offer to resume the
                 // interrupted workout (its laps + elapsed) rather than start over.
@@ -110,7 +118,8 @@ struct RootView: View {
             } else {
                 EntradaAntesFlow(
                     payload: today,
-                    sessionPlan: coordinator.sessionPlan(for: plan.assignmentDetail)
+                    sessionPlan: coordinator.sessionPlan(for: plan.assignmentDetail),
+                    pagina: $paginaDeReposo
                 ) {
                     coordinator.start(payload: today, detail: plan.assignmentDetail)
                 }

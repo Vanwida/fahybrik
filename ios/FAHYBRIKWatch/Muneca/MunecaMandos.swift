@@ -18,6 +18,17 @@ struct MunecaControl {
     var accion: () -> Void
 }
 
+/// Lo que se puede hacer sobre la anotación del descanso de fuerza. `nil` = este descanso no anota nada (o quien
+/// lleva el motor no atiende lo declarado): la cara no lo enseña.
+struct MunecaAnotar {
+    /// Tocar una serie de la lista (índice en las series del descanso).
+    var abrir: (Int) -> Void
+    /// Tocar un dato de la serie abierta: lo enciende (o lo apaga).
+    var enfocar: (Vivo.CampoAnotar) -> Void
+    /// La corona con un dato encendido: +1 sube el dato, −1 lo baja.
+    var girar: (Int) -> Void
+}
+
 struct MunecaMandos {
     /// Pausa / Reanudar.
     var pausa: () -> Void
@@ -38,4 +49,6 @@ struct MunecaMandos {
     var mas30: (() -> Void)? = nil
     /// El botón «Empezar ya» del descanso.
     var empezarYa: () -> Void = {}
+    /// Anotar en el descanso (fuerza).
+    var anotar: MunecaAnotar? = nil
 }

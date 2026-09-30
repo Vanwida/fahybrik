@@ -59,12 +59,17 @@ extension WatchPrimaryOwner {
     /// Qué cara pinta el espejo ahora: la pila nueva o todo lo de siempre. La decisión es pura y vive
     /// en Core (`CaraDelEspejo`, probada); aquí solo se le dan las cuatro cosas que mira.
     var caraDelEspejo: CaraDelEspejo {
-        CaraDelEspejo.decide(bandera: MunecaBandera.encendida, espejo: espejo.estado, frame: frame, terminando: isEnding)
+        CaraDelEspejo.decide(bandera: MunecaBandera.encendida, espejo: espejo.estado, frame: frame, cubre: espejo.cubreLaMuneca, terminando: isEnding)
     }
 
     /// Lo que este móvil atiende de los comandos nuevos (`MirrorWire.Capacidad`): la muñeca solo ofrece esos botones.
     func movilAtiende(_ capacidad: String) -> Bool {
         frame?.capacidades?.contains(capacidad) == true
+    }
+
+    /// Un dato declarado en el descanso de fuerza viaja al motor del móvil (`CommandKind.anotar`).
+    func enviarDeclaracion(_ d: Vivo.Declaracion) {
+        send(type: MirrorWire.MessageType.command, MirrorCommand(kind: MirrorWire.CommandKind.anotar, declaracion: d))
     }
 
     /// «Vuelta» a mano: se anota en la muñeca (su página Vueltas) y se manda al motor del móvil.

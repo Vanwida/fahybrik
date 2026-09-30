@@ -32,6 +32,7 @@ Para publicar una **segunda marca** desde este mismo código, este runbook se re
    - [ ] **Push Notifications** (for #33 once APNs is wired)
    - [ ] **Associated Domains** (for #37 universal-link privacy/legal pages)
    - [ ] (Optional) **In-App Purchase** — only if Stripe is replaced by StoreKit. Currently NOT planned: subscriptions go through Stripe (#40), Apple's IAP rules require IAP for digital subscriptions, so this is a **decision flag** for Alex before submission.
+   - [ ] **App Groups** — SOLO en los App IDs del reloj: `com.fahybrid.app.watchkitapp` y `com.fahybrid.app.watchkitapp.widgets` (la complicación de la esfera y el Smart Stack), con el grupo `group.com.fahybrid.app` (Identifiers → App Groups → +, y luego Configure en cada App ID). Con firma automática Xcode los registra solo al firmar; si Xcode Cloud falla con «App group … not registered» / «profile doesn't include the application-groups entitlement», es esto. El App ID `…watchkitapp.widgets` también puede no existir aún (Xcode lo crea con prefijo «XC»).
    - **Bluetooth Always**: not a separate capability — Info.plist string is enough (already set in `project.yml`).
 
 ⚠ Apple Guideline 3.1.1 forces digital subscriptions to use Apple IAP unless they qualify as "physical goods" or "person-to-person services". Pablo's coaching may qualify under 3.1.3(d) "person-to-person experiences" — Alex must confirm with App Review before assuming Stripe is allowed in-app. Worst case: Stripe stays on the marketing site only, in-app purchases route through StoreKit.
@@ -68,8 +69,8 @@ We default to Path A — Path B only if multiple machines / CI later need to sig
 
 ## 4. First build upload — 🤖 agent-doable once signing is set
 
-- [x] **Xcode Cloud:** `ios/ci_scripts/ci_post_clone.sh` runs `xcodegen generate` after clone so the three gitignored `Generated-Info.plist` files exist (Apple requires `ci_scripts/` beside `FAHYBRIK.xcodeproj`, not at repo root). Without it, Archive fails with exit 65 on a clean clone.
-- [x] **Xcode Cloud — build number stamp:** `ios/ci_scripts/ci_pre_xcodebuild.sh` runs before Archive, reads `CURRENT_PROJECT_VERSION` from `project.yml`, syncs `project.pbxproj` + the three `Generated-Info.plist` files (app, watch, widgets), and optionally runs `agvtool new-version -all`. **Effective when Manage Version is OFF** (repo version lands in the IPA).
+- [x] **Xcode Cloud:** `ios/ci_scripts/ci_post_clone.sh` runs `xcodegen generate` after clone so the four gitignored `Generated-Info.plist` files exist (app, watch, iPhone widgets, watch widgets) (Apple requires `ci_scripts/` beside `FAHYBRIK.xcodeproj`, not at repo root). Without it, Archive fails with exit 65 on a clean clone.
+- [x] **Xcode Cloud — build number stamp:** `ios/ci_scripts/ci_pre_xcodebuild.sh` runs before Archive, reads `CURRENT_PROJECT_VERSION` from `project.yml`, syncs `project.pbxproj` + the four `Generated-Info.plist` files (app, watch, widgets, watch widgets), and optionally runs `agvtool new-version -all`. **Effective when Manage Version is OFF** (repo version lands in the IPA).
 - [ ] **Xcode Cloud — Manage Version and Build Number (🔒 Owner/Lingxi, one-time):** When **ON**, Apple **overwrites `CFBundleVersion` at export** with the Xcode Cloud build counter (`CI_BUILD_NUMBER`, e.g. 21–22), **not** `CURRENT_PROJECT_VERSION` from the repo. TestFlight keeps the **highest** `CFBundleVersion` per marketing version — upload at 22 stays invisible while ASC still has **62** for `1.0`. **`ci_pre_xcodebuild.sh` cannot override export** when this toggle is ON.
 
   **Click-path to turn OFF (preferred):**

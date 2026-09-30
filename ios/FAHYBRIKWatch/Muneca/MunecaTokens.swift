@@ -126,6 +126,22 @@ enum MunecaForma {
     static let interlinea: Double = 1.2
     static let huecoLineasLista: Double = 2
 
+    /// La anotación de fuerza: una columna de dato (alto y esquina), el borde del dato encendido, la píldora de una serie
+    /// y la marca ✓ / aro.
+    static let altoColumna: CGFloat = 58
+    static let radioColumna: CGFloat = 16
+    static let bordeActivo: CGFloat = 2
+    static let anchoPildora: CGFloat = 178
+    static let marcaTalla: CGFloat = 15
+    /// La página Ejercicios: la sangría del cuerpo y de las series, el punto del ejercicio, el número de serie y lo que se apaga lo que viene.
+    static let sangriaEjercicios: CGFloat = 12
+    static let sangriaSerie: CGFloat = 15
+    static let puntoEjercicio: CGFloat = 8
+    static let anchoNumeroSerie: CGFloat = 12
+    static let opacidadLuego: Double = 0.7
+    /// El recorrido del contador de muescas de la corona del dato (solo cuenta muescas, no es un valor).
+    static let recorridoCorona: Double = 1000
+
     /// Lo que se apaga la página cuando hay pausa: el dato no desaparece, se apaga.
     static let opacidadPausa: Double = 0.32
     static let trackingPausa: CGFloat = 1.2

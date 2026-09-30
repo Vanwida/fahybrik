@@ -26,6 +26,8 @@ extension Vivo {
         var viejos: [CampoVivo] = []
         /// Pasos por minuto del podómetro, si los hay.
         var cadencia: Double? = nil
+        /// La máquina de ergo con monitor enlazado. En solitario la muñeca no tiene ninguna; en espejo, la del móvil.
+        var maquina: Maquina.Tipo? = nil
     }
 
     /// El GPS de la muñeca desde la precisión del último fijado (m): con fijado suficiente,
@@ -48,12 +50,14 @@ extension Vivo {
         // El ritmo actual manda aunque sea nil: la media del tramo no es «ritmo».
         e.lecturas.ritmo = fuentes.ritmoActual
         e.enlace = fuentes.enlace
+        e.maquinaEnlazada = fuentes.maquina
         return e
     }
 
     /// Todo lo que pinta la muñeca ahora mismo, del motor.
     static func cuadroDeMuneca(_ sesion: WorkoutSession, plan: PlanVivo, fuentes: FuentesMuneca = FuentesMuneca(),
-                               registro: RegistroVueltas = RegistroVueltas(), entorno: EntornoMuneca = EntornoMuneca()) -> CuadroMuneca {
-        cuadroMuneca(estadoDeMuneca(sesion, plan: plan, fuentes: fuentes), registro: registro, entorno: entorno)
+                               registro: RegistroVueltas = RegistroVueltas(), entorno: EntornoMuneca = EntornoMuneca(),
+                               anotar: AnotarMuneca = AnotarMuneca()) -> CuadroMuneca {
+        cuadroMuneca(estadoDeMuneca(sesion, plan: plan, fuentes: fuentes), registro: registro, entorno: entorno, anotar: anotar)
     }
 }

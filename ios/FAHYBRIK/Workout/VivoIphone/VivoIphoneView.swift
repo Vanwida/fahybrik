@@ -538,10 +538,7 @@ struct VivoIphoneView: View {
     }
 
     private func sumar30() {
-        if session.restRemainingSeconds > 0 { session.restRemainingSeconds += 30; session.restTotalSeconds += 30 }
-        else if session.fixedRestRemaining > 0 { session.fixedRestRemaining += 30; session.fixedRestTotal += 30 }
-        else if session.rotPhase == .rest { session.rotPhaseRemaining += 30 }
-        else if session.emomPhase == .rest { session.emomPhaseRemaining += 30 }
+        session.vivoSumar30()
         Haptics.light()
     }
 

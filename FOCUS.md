@@ -2,8 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-30** (editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin)
-Última actualización: **2026-09-30** (analíticas del iPhone: detalle y cierre; reloj: la cara nueva de correr en solitario y en espejo, entrada nueva y lanzamiento automático; modelo del reloj Garmin)
+Última actualización: **2026-09-30** (complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: fuerza, ergo y correr en la cara nueva, entrada nueva y lanzamiento automático; modelo del reloj Garmin)
 
 ## Ahora
 
@@ -11,9 +10,15 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 **iPhone · LO QUE CUELGA DE PERFIL, CON «EL DÍA» (30-09, rama `worktree-agent-a5bfe54dff1049a3f`, sin fusionar; DECISIONS 30-09).** Cascarón `PantallaPerfil` (`Profile/Secundarias/`) y todas las pantallas secundarias de Perfil rehechas (puertas, cifras, hojas, dispositivos, molestias, suscripción, pareja). Falta probarlo en aparato.
 
+**RELOJ · LA ESFERA Y EL SMART STACK DICEN LO DE HOY (30-09, worktree `agent-a2aba4fd09a67fc18`, sin fusionar; DECISIONS 30-09).** Extensión
+`FAHYBRIKWatchWidgets` (rectangular, esquina, inline, circular) que lee lo de hoy del App Group `group.<bundle>`; un toque abre el brief. Estados: sesión,
+descanso, hecha, sin plan. Falta: aparato (`widgetURL`, ranking del Smart Stack) y que Xcode registre el App Group al firmar (ver informe).
+
 **iPhone · CARRERA EN HOY Y FILAS DE ANALÍTICAS (30-09, main, pendiente de build).** Sin coach la carrera fijada no se pintaba en Hoy; y remo/ski sin historial completo no abrían su detalle desde Progreso. Arreglado (DECISIONS 30-09). Falta verlo en aparato.
 
 **FIX GUARDADO 500 (29-09, sin desplegar):** un tramo `run` de 0 m en el historial (atleta 64) partía por cero en `running-prs.ts` y tumbaba TODO guardado suyo; arreglado + savepoint en `detectPrs`. Tras deploy la cola de la app lo reintenta sola.
+
+**RELOJ · FUERZA Y ERGO EN LA CARA NUEVA (30-09, rama `worktree-agent-a08aa87d85a4f8e6b` = la de correr + fuerza + ergo, sin fusionar; DECISIONS 30-09).** Serie, colócate, anotar en el descanso (reps, carga, RIR con la corona), ejercicios y ergo con segundo objetivo (M1: `pace_cap`), por solitario y espejo con la misma cara. Falta aparato (corona en el dato, doble toque) y capturas; lo viejo se borra al final.
 
 **RELOJ · CORRER, LA CARA NUEVA EN SOLITARIO Y EN ESPEJO (30-09, rama `worktree-agent-a6f6e3920e890764a` = núcleo + vistas + cable + espejo, sin fusionar en main; DECISIONS 29-09 y 30-09).** Núcleo puro (`Vivo.cuadroMuneca`, ritmo actual, `Vivo.Paso` Codable), pila en `FAHYBRIKWatch/Muneca/` tras `MunecaBandera` (encendida), cable (`MirrorWirePlan`: plan + cursor) y espejo pintando la MISMA pila (`MunecaEspejo`, `CaraDelEspejo`): nueva solo al correr de corrido con cuadro; si no, todo lo de siempre. **F3 hecha (rama `worktree-agent-aa538ed5ab37a4c85`, sin fusionar; DECISIONS 30-09):** director de hápticos por evento (`Vivo+Director`, `MunecaHaptics`), `Vivo.PoliticaHaptica` que calla lo heredado con la cara nueva, `Objetivo.avisa` relleno (rodaje a zona solo por arriba) y cierre seguro (el último paso pregunta «¿Terminar y guardar?»; «Descartar» con el enlace roto). Falta aparato (plan por `sendToRemoteWorkoutSession`, doble toque, corona anidada, Always-On, distinguir los golpes corriendo) y: deshacer (F3b), voz (F4), método/M3/M8 en servidor (F5, incl. leer `wristMethod`), puertas y final natural (F6), complicación (F7), retirada de lo viejo (F8).
 
