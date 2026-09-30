@@ -24,80 +24,49 @@ struct PartnerRedeemView: View {
     @State private var declined: Bool = false
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
+        FillingScreen {
             VStack(spacing: Theme.Spacing.xl) {
-                Spacer()
-
                 Wordmark(size: 28)
-
-                VStack(spacing: 12) {
-                    LabelText(text: "INVITACIÓN A DOBLES", color: Theme.Color.accentText)
-                    Text("Bienvenido/a")
-                        .font(Theme.Typography.headlineM)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("Tu compañero/a te ha invitado a entrenar juntos en \(Marca.nombre). Continúa con Apple para crear tu cuenta.")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.Color.muted)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, Theme.Spacing.xl)
-                }
-
-                Spacer()
-
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 if declined {
-                    VStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle")
-                            .font(.system(size: 30))
-                            .foregroundStyle(Theme.Color.muted)
-                        Text("Invitación rechazada")
-                            .font(Theme.Typography.headlineS)
-                            .foregroundStyle(Theme.Color.foreground)
-                        Text("Se lo haremos saber a tu compañero/a. Ya puedes cerrar esta pantalla.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Theme.Color.muted)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, Theme.Spacing.xl)
+                    SujetoDia(tono: .neutro, etiqueta: "Invitación rechazada. Se lo haremos saber a tu compañero/a.") {
+                        KickerDia("Invitación a Dobles")
+                        TituloDia("Invitación rechazada")
+                        ApoyoDia("Se lo haremos saber a tu compañero/a. Ya puedes cerrar esta pantalla.")
                     }
                 } else {
-                    SignInWithAppleButton(.continue) { request in
-                        request.requestedScopes = [.fullName, .email]
-                    } onCompletion: { result in
-                        handleApple(result)
-                    }
-                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                    .frame(height: 54)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .disabled(inProgress || declining)
-                    .opacity((inProgress || declining) ? 0.6 : 1)
+                    SujetoDia(tono: .acento, etiqueta: "Invitación a Dobles. Tu compañero/a te ha invitado a entrenar juntos.") {
+                        KickerDia("Invitación a Dobles")
+                        TituloDia("Bienvenido/a")
+                        ApoyoDia("Tu compañero/a te ha invitado a entrenar juntos en \(Marca.nombre). Continúa con Apple para crear tu cuenta.")
+                    } abajo: {
+                        SignInWithAppleButton(.continue) { request in
+                            request.requestedScopes = [.fullName, .email]
+                        } onCompletion: { result in
+                            handleApple(result)
+                        }
+                        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                        .frame(height: Theme.Size.accion)
+                        .clipShape(Capsule())
+                        .disabled(inProgress || declining)
+                        .opacity((inProgress || declining) ? 0.6 : 1)
 
-                    Button {
-                        Haptics.light()
-                        Task { await decline() }
-                    } label: {
-                        Text(declining ? "Rechazando…" : "Rechazar invitación")
-                            .font(Theme.Typography.small)
-                            .foregroundStyle(Theme.Color.muted)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(inProgress || declining)
-
-                    if let error {
-                        Text(error)
-                            .font(Theme.Typography.small)
-                            .foregroundStyle(Theme.Color.danger)
-                            .padding(.horizontal, Theme.Spacing.xl)
-                            .multilineTextAlignment(.center)
-                    }
-                    if inProgress {
-                        ProgressView().tint(Theme.Color.accentText)
+                        if inProgress {
+                            ProgressView().frame(maxWidth: .infinity)
+                        }
+                        if let error {
+                            AvisoEnLineaPerfil(tono: .peligro, texto: error)
+                        }
+                        AccionTextoPerfil(titulo: declining ? "Rechazando…" : "Rechazar invitación", peligro: true, enCurso: inProgress || declining) {
+                            Task { await decline() }
+                        }
+                        .disabled(inProgress || declining)
                     }
                 }
-
-                Spacer().frame(height: Theme.Spacing.xl)
             }
+            .padding(EdgeInsets(top: Theme.Spacing.xl, leading: Theme.Spacing.pantalla, bottom: Theme.Spacing.xl, trailing: Theme.Spacing.pantalla))
         }
+        .background(Theme.Color.background.ignoresSafeArea())
     }
 
     private func handleApple(_ result: Result<ASAuthorization, Error>) {

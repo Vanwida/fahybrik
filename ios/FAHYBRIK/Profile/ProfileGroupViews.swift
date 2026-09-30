@@ -1,5 +1,11 @@
 import SwiftUI
 
+// LAS CUATRO PUERTAS DE PERFIL QUE SON UNA LISTA — Entreno, Cuenta, Ayuda y legal e Identidad.
+//
+// Cada una es una `PantallaPerfil`: el título con el papel del día y debajo sus bloques, que son grupos
+// de filas (`GrupoPerfil`) con su título de sección. Lo que hace cada fila no ha cambiado: mismos
+// destinos, mismas hojas, mismos servicios. Dispositivos y Privacidad tienen su propio fichero.
+
 // MARK: - Entreno
 
 struct ProfileEntrenoView: View {
@@ -11,125 +17,60 @@ struct ProfileEntrenoView: View {
     @State private var contarRepesEnabled = SensorRepCounting.isEnabled
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                trainingDaysCard
-                injuriesCard
-                audioCoachCard
-                contarRepesCard
-            }
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.top, Theme.Spacing.l)
-            .padding(.bottom, Theme.Spacing.xxl)
-            .clampedToContainerWidth()
-        }
-        .background(Theme.Color.background.ignoresSafeArea())
-        .navigationTitle("Entreno")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var trainingDaysCard: some View {
-        CardSurface(padding: 0) {
-            NavigationLink {
-                TrainingDaysView(bearer: bearer)
-            } label: {
-                ProfileNavRow(
-                    icon: "calendar",
-                    title: "Mis días de entreno",
-                    subtitle: "Elige qué días entrenas y cómo se reparte tu semana"
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private var injuriesCard: some View {
-        CardSurface(padding: 0) {
-            NavigationLink {
-                InjuriesView(bearer: bearer, coachName: coachName, hasCoach: hasCoach)
-            } label: {
-                ProfileNavRow(
-                    icon: "bandage.fill",
-                    title: "Molestias y lesiones",
-                    subtitle: hasCoach
-                        ? "Reporta una molestia y sigue su evolución con tu coach"
-                        : "Registra una molestia y sigue cómo evoluciona"
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private var audioCoachCard: some View {
-        CardSurface(padding: 0) {
-            HStack(spacing: 12) {
-                Image(systemName: "speaker.wave.2.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
-                    .frame(width: 26)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Avisos de voz")
-                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("En carrera: cambios de tramo, ritmo y parciales por kilómetro.")
-                        .scaledFont(11, relativeTo: .caption2)
-                        .foregroundStyle(Theme.Color.muted)
-                        .lineLimit(2)
-                }
-                Spacer()
-                Toggle("", isOn: $voiceCoachEnabled)
-                    .labelsHidden()
-                    .tint(Theme.Color.accent)
-                    .accessibilityLabel("Avisos de voz")
-                    .accessibilityValue(voiceCoachEnabled ? "activados" : "desactivados")
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
-        }
-    }
-
-    private var contarRepesCard: some View {
-        CardSurface(padding: Theme.Spacing.m) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                HStack(spacing: 12) {
-                    Image(systemName: "figure.strengthtraining.traditional")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
-                        .frame(width: 26)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            Text("Contar repeticiones")
-                                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                                .foregroundStyle(Theme.Color.foreground)
-                            Text("ALPHA")
-                                .scaledFont(9, weight: .heavy, relativeTo: .caption2)
-                                .foregroundStyle(Theme.Color.accentText)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(Theme.Color.accent.opacity(0.16), in: Capsule())
-                        }
-                        Text(contarRepesEnabled
-                             ? "El reloj precarga las repeticiones y la velocidad. Puede equivocarse: corrige el número siempre que no cuadre."
-                             : "Apagado. Las repeticiones las pones tú.")
-                            .scaledFont(11, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.muted)
-                            .lineLimit(4)
+        PantallaPerfil(titulo: "Entreno") {
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                TituloSeccionDia("Tu semana")
+                GrupoPerfil {
+                    NavigationLink {
+                        TrainingDaysView(bearer: bearer)
+                    } label: {
+                        FilaPerfil(
+                            glifo: .diasDeEntreno,
+                            titulo: "Mis días de entreno",
+                            detalle: "Elige qué días entrenas y cómo se reparte tu semana"
+                        )
                     }
-                    Spacer()
-                    Toggle("", isOn: contarRepesToggle)
-                        .labelsHidden()
-                        .tint(Theme.Color.accent)
-                        .accessibilityLabel("Contar repeticiones con el reloj, en pruebas")
-                        .accessibilityValue(contarRepesEnabled ? "activado" : "desactivado")
+                    .filaTocablePerfil()
+                    NavigationLink {
+                        InjuriesView(bearer: bearer, coachName: coachName, hasCoach: hasCoach)
+                    } label: {
+                        FilaPerfil(
+                            glifo: .molestia,
+                            titulo: "Molestias y lesiones",
+                            detalle: hasCoach
+                                ? "Reporta una molestia y sigue su evolución con tu coach"
+                                : "Registra una molestia y sigue cómo evoluciona"
+                        )
+                    }
+                    .filaTocablePerfil()
                 }
-                Text("En pruebas: se está calibrando con movimientos reales. Necesita el Apple Watch puesto durante el entreno.")
-                    .scaledFont(11, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.muted)
+            }
+
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                TituloSeccionDia("Durante el entreno")
+                GrupoPerfil {
+                    FilaInterruptorPerfil(
+                        glifo: .voz,
+                        titulo: "Avisos de voz",
+                        detalle: "En carrera: cambios de tramo, ritmo y parciales por kilómetro.",
+                        activo: $voiceCoachEnabled
+                    )
+                    FilaInterruptorPerfil(
+                        glifo: .repeticiones,
+                        titulo: "Contar repeticiones",
+                        detalle: contarRepesEnabled
+                            ? "El reloj precarga las repeticiones y la velocidad. Puede equivocarse: corrige el número siempre que no cuadre."
+                            : "Apagado. Las repeticiones las pones tú.",
+                        pastilla: "Alpha",
+                        activo: contarRepesBinding
+                    )
+                }
+                NotaPerfil("En pruebas: se está calibrando con movimientos reales. Necesita el Apple Watch puesto durante el entreno.")
             }
         }
     }
 
-    private var contarRepesToggle: Binding<Bool> {
+    private var contarRepesBinding: Binding<Bool> {
         Binding(
             get: { contarRepesEnabled },
             set: { on in
@@ -161,27 +102,56 @@ struct ProfileCuentaView: View {
         var id: String { rawValue }
     }
 
-    // «Exportar mis datos» vive ahora en Perfil › Privacidad (Alex, 25-09), con su
-    // fila y su comportamiento de siempre (ProfilePrivacidadView.swift).
+    // «Exportar mis datos» vive en Perfil › Privacidad (Alex, 25-09), con su fila y su comportamiento
+    // de siempre (ProfilePrivacidadView.swift).
     var body: some View {
-        ZStack(alignment: .top) {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    appearanceCard
-                    if hasCoach {
-                        methodologyCard
-                    }
-                    deleteAccountRow
+        PantallaPerfil(titulo: "Cuenta") {
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                TituloSeccionDia("Apariencia")
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                    ThemeModePicker(selection: $themeMode)
+                    NotaPerfil("«Auto» sigue la apariencia de tu iPhone.")
                 }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xxl)
-                .clampedToContainerWidth()
+                .padding(Theme.Spacing.l)
+                .tarjetaPerfil()
             }
+
+            if hasCoach {
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                    TituloSeccionDia("Tu plan")
+                    GrupoPerfil {
+                        Button {
+                            Haptics.light()
+                            sheet = .methodology
+                        } label: {
+                            FilaPerfil(
+                                glifo: .plan,
+                                titulo: "Cómo se construye tu plan",
+                                detalle: "Microciclos diseñados por tu coach, semana a semana."
+                            )
+                        }
+                        .filaTocablePerfil()
+                        Button {
+                            Haptics.light()
+                            sheet = .coach
+                        } label: {
+                            FilaPerfil(
+                                glifo: .coachFicha,
+                                titulo: coachName.map { "Tu coach: \($0)" } ?? "Tu coach",
+                                detalle: "Diseña tu metodología y tu plan."
+                            )
+                        }
+                        .filaTocablePerfil()
+                    }
+                }
+            }
+
+            AccionTextoPerfil(titulo: "Eliminar mi cuenta", peligro: true) {
+                Haptics.medium()
+                showDeleteAccount = true
+            }
+            .disabled(bearer == nil)
         }
-        .navigationTitle("Cuenta")
-        .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $sheet) { kind in
             switch kind {
             case .methodology: MethodologySheet()
@@ -198,59 +168,6 @@ struct ProfileCuentaView: View {
             }
         }
     }
-
-    private var appearanceCard: some View {
-        CardSurface(padding: Theme.Spacing.m) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-                ThemeModePicker(selection: $themeMode)
-                Text("«Auto» sigue la apariencia de tu iPhone.")
-                    .scaledFont(11, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.muted)
-            }
-        }
-    }
-
-    private var methodologyCard: some View {
-        CardSurface(padding: 0) {
-            VStack(spacing: 0) {
-                profileActionRow(
-                    icon: "rectangle.3.group",
-                    title: "Cómo se construye tu plan",
-                    subtitle: "Microciclos diseñados por tu coach, semana a semana.",
-                    action: { sheet = .methodology }
-                )
-                Hairline()
-                profileActionRow(
-                    icon: "person.crop.rectangle",
-                    title: coachName.map { "Tu coach: \($0)" } ?? "Tu coach",
-                    subtitle: "Diseña tu metodología y tu plan.",
-                    action: { sheet = .coach }
-                )
-            }
-        }
-    }
-
-    private var deleteAccountRow: some View {
-        Button {
-            Haptics.medium()
-            showDeleteAccount = true
-        } label: {
-            Text("Eliminar mi cuenta")
-                .scaledFont(12, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.muted)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Spacing.s)
-        }
-        .buttonStyle(.plain)
-        .disabled(bearer == nil)
-    }
-
-    private func profileActionRow(icon: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
-        Button(action: { Haptics.light(); action() }) {
-            ProfileNavRow(icon: icon, title: title, subtitle: subtitle)
-        }
-        .buttonStyle(.plain)
-    }
 }
 
 // MARK: - Ayuda y legal
@@ -261,7 +178,7 @@ struct ProfileAyudaLegalView: View {
 
     @State private var sheet: AyudaSheetKind? = nil
 
-    // La política de privacidad vive ahora en Perfil › Privacidad (Alex, 25-09).
+    // La política de privacidad vive en Perfil › Privacidad (Alex, 25-09).
     private enum AyudaSheetKind: String, Identifiable {
         case terms
         case feedback
@@ -269,49 +186,42 @@ struct ProfileAyudaLegalView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                feedbackCard
-                legalCard
+        PantallaPerfil(titulo: "Ayuda y legal") {
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                TituloSeccionDia("Ayuda")
+                GrupoPerfil {
+                    Button {
+                        Haptics.light()
+                        sheet = .feedback
+                    } label: {
+                        FilaPerfil(
+                            glifo: .sugerencia,
+                            titulo: "Enviar sugerencia o error",
+                            detalle: hasCoach
+                                ? "Cuéntanos qué mejorar o reporta un fallo. Nos llega directamente al equipo, no a tu coach."
+                                : "Cuéntanos qué mejorar o reporta un fallo. Nos llega directamente al equipo."
+                        )
+                    }
+                    .filaTocablePerfil()
+                }
             }
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.top, Theme.Spacing.l)
-            .padding(.bottom, Theme.Spacing.xxl)
-            .clampedToContainerWidth()
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                TituloSeccionDia("Legal")
+                GrupoPerfil {
+                    Button {
+                        Haptics.light()
+                        sheet = .terms
+                    } label: {
+                        FilaPerfil(glifo: .documento, titulo: "Términos", detalle: Marca.terminosTexto)
+                    }
+                    .filaTocablePerfil()
+                }
+            }
         }
-        .background(Theme.Color.background.ignoresSafeArea())
-        .navigationTitle("Ayuda y legal")
-        .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $sheet) { kind in
             switch kind {
             case .terms:    LegalSheet(title: "Términos de uso", bodyText: LegalCopy.terms(hasCoach: hasCoach))
             case .feedback: AppFeedbackSheet(bearer: bearer)
-            }
-        }
-    }
-
-    private var feedbackCard: some View {
-        CardSurface(padding: 0) {
-            Button(action: { Haptics.light(); sheet = .feedback }) {
-                ProfileNavRow(
-                    icon: "exclamationmark.bubble",
-                    title: "Enviar sugerencia o error",
-                    subtitle: hasCoach
-                        ? "Cuéntanos qué mejorar o reporta un fallo. Nos llega directamente al equipo, no a tu coach."
-                        : "Cuéntanos qué mejorar o reporta un fallo. Nos llega directamente al equipo."
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private var legalCard: some View {
-        CardSurface(padding: 0) {
-            VStack(spacing: 0) {
-                Button(action: { Haptics.light(); sheet = .terms }) {
-                    ProfileNavRow(icon: "doc.text", title: "Términos", subtitle: Marca.terminosTexto)
-                }
-                .buttonStyle(.plain)
             }
         }
     }
@@ -340,23 +250,20 @@ struct ProfileIdentidadView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                settingsCard
-                if shouldShowPartnerSection, partner == nil {
+        PantallaPerfil(titulo: "Identidad") {
+            settingsCard
+            if shouldShowPartnerSection {
+                if partner == nil {
                     partnerInviteCard
-                } else if shouldShowPartnerSection, partner != nil {
-                    unpairRow
+                } else {
+                    AccionTextoPerfil(
+                        titulo: unpairInProgress ? "Deshaciendo…" : "Deshacer pareja de Dobles",
+                        peligro: true,
+                        enCurso: unpairInProgress
+                    ) { showUnpairConfirm = true }
                 }
             }
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.top, Theme.Spacing.l)
-            .padding(.bottom, Theme.Spacing.xxl)
-            .clampedToContainerWidth()
         }
-        .background(Theme.Color.background.ignoresSafeArea())
-        .navigationTitle("Identidad")
-        .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showPartnerInvite) {
             PartnerInviteSheet(bearer: bearer) { _ in
                 Task { await store.refreshPartner(force: true) }
@@ -371,39 +278,28 @@ struct ProfileIdentidadView: View {
     }
 
     private var settingsCard: some View {
-        CardSurface(padding: 0) {
-            VStack(spacing: 0) {
-                modalityRow
-                    .redacted(reason: initialLoadDone ? [] : .placeholder)
-                Hairline()
-                if hasCoach {
-                    NavigationLink {
-                        SubscriptionView(bearer: bearer)
-                    } label: {
-                        SettingValueRow(
-                            label: "Suscripción",
-                            value: subscriptionValue,
-                            valueColor: subscriptionValueColor,
-                            showsChevron: true
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    Hairline()
+        GrupoPerfil {
+            modalityRow
+                .redacted(reason: initialLoadDone ? [] : .placeholder)
+            if hasCoach {
+                NavigationLink {
+                    SubscriptionView(bearer: bearer)
+                } label: {
+                    FilaValorPerfil(
+                        etiqueta: "Suscripción",
+                        valor: subscriptionValue,
+                        marca: subscriptionMarca,
+                        chevron: true
+                    )
                 }
-                SettingValueRow(
-                    label: "Objetivo",
-                    value: ProfileIdentidadView.goalLabel(identity?.goalType),
-                    valueColor: identity?.goalType == nil ? Theme.Color.muted : Theme.Color.foreground,
-                    showsChevron: false
-                )
-                Hairline()
-                SettingValueRow(
-                    label: "Idioma",
-                    value: "Español",
-                    valueColor: Theme.Color.foreground,
-                    showsChevron: false
-                )
+                .filaTocablePerfil()
             }
+            FilaValorPerfil(
+                etiqueta: "Objetivo",
+                valor: goalTypeLabel(identity?.goalType),
+                vacio: identity?.goalType == nil
+            )
+            FilaValorPerfil(etiqueta: "Idioma", valor: "Español")
         }
     }
 
@@ -413,21 +309,11 @@ struct ProfileIdentidadView: View {
             NavigationLink {
                 DoblesPlanView(bearer: bearer)
             } label: {
-                SettingValueRow(
-                    label: "Modalidad",
-                    value: modalityValue,
-                    valueColor: partner == nil ? Theme.Color.foreground : Theme.Color.accentText,
-                    showsChevron: true
-                )
+                FilaValorPerfil(etiqueta: "Modalidad", valor: modalityValue, chevron: true)
             }
-            .buttonStyle(.plain)
+            .filaTocablePerfil()
         } else {
-            SettingValueRow(
-                label: "Modalidad",
-                value: modalityValue,
-                valueColor: Theme.Color.foreground,
-                showsChevron: false
-            )
+            FilaValorPerfil(etiqueta: "Modalidad", valor: modalityValue)
         }
     }
 
@@ -472,12 +358,14 @@ struct ProfileIdentidadView: View {
         }
     }
 
-    private var subscriptionValueColor: Color {
+    /// El punto de estado de la suscripción: verde si va bien, rojo si pide arreglo; sin punto si no hay
+    /// nada que decir (el color de estado va en la marca, nunca en el texto).
+    private var subscriptionMarca: SwiftUI.Color? {
         switch subscription?.status {
         case "active", "trialing": return Theme.Color.ok
         case "past_due", "unpaid", "incomplete", "canceled", "incomplete_expired":
             return Theme.Color.danger
-        default: return Theme.Color.muted
+        default: return nil
         }
     }
 
@@ -509,100 +397,61 @@ struct ProfileIdentidadView: View {
         }
     }
 
-    private var unpairRow: some View {
-        Button {
-            Haptics.light()
-            showUnpairConfirm = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "person.2.slash")
-                    .font(.system(size: 13, weight: .semibold))
-                Text(unpairInProgress ? "Deshaciendo…" : "Deshacer pareja de Dobles")
-                    .scaledFont(13, weight: .semibold, relativeTo: .subheadline)
-                Spacer()
-            }
-            .foregroundStyle(Theme.Color.danger)
-            .padding(.vertical, 4)
-        }
-        .disabled(unpairInProgress)
+    private var inviteCtaCard: some View {
+        terminalInvitationCard(
+            headline: "Aún no has añadido a tu compañero/a",
+            detail: "Invítale por email para entrenar juntos en Dobles. Tendrá 14 días para aceptar.",
+            cta: "Invitar a tu compañero/a"
+        )
     }
 
-    private var inviteCtaCard: some View {
-        CardSurface(padding: 14, leftAccent: true) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Aún no has añadido a tu compañero/a")
-                    .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Invítale por email para entrenar juntos en Dobles. Tendrá 14 días para aceptar.")
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-                invitePrimaryButton("Invitar a tu compañero/a")
-                    .padding(.top, 2)
+    /// El bloque de Dobles que invita: lo que pasa, lo que sigue y UNA acción. Realzado con el acento del
+    /// club, que es el color de «esto te espera».
+    private func terminalInvitationCard(headline: String, detail: String, cta: String) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            Text(headline)
+                .papel(.cuerpoFuerte)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(detail)
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                Haptics.light()
+                showPartnerInvite = true
+            } label: {
+                AccionDia(cta, glifo: .mas)
             }
+            .buttonStyle(PressScaleStyle(escala: 0.96))
         }
+        .padding(Theme.Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .tarjetaPerfil(realce: true)
     }
 
     private func pendingInvitationCard(_ inv: SentInvitation) -> some View {
-        CardSurface(padding: 14, leftAccent: true) {
-            VStack(alignment: .leading, spacing: 10) {
-                LabelText(text: "INVITACIÓN PENDIENTE", color: Theme.Color.accentText)
-                Text("Enviada a \(inv.inviteeEmail)")
-                    .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(inv.expiryText.map { "Esperando a que acepte · \($0)." }
-                        ?? "Esperando a que acepte desde su email.")
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-                Button {
-                    Haptics.light()
-                    Task { await cancelInvite() }
-                } label: {
-                    Text(cancellingInvite ? "Cancelando…" : "Cancelar invitación")
-                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.danger)
-                }
-                .buttonStyle(.plain)
-                .disabled(cancellingInvite)
-                .padding(.top, 2)
-            }
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            InfoPill(text: "Invitación pendiente", estilo: .acento)
+            Text("Enviada a \(inv.inviteeEmail)")
+                .papel(.cuerpoFuerte)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(inv.expiryText.map { "Esperando a que acepte · \($0)." }
+                    ?? "Esperando a que acepte desde su email.")
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            AccionTextoPerfil(
+                titulo: cancellingInvite ? "Cancelando…" : "Cancelar invitación",
+                peligro: true,
+                alineada: .leading,
+                enCurso: cancellingInvite
+            ) { Task { await cancelInvite() } }
         }
-    }
-
-    private func terminalInvitationCard(headline: String, detail: String, cta: String) -> some View {
-        CardSurface(padding: 14, leftAccent: true) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(headline)
-                    .scaledFont(14, weight: .semibold, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(detail)
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-                invitePrimaryButton(cta)
-                    .padding(.top, 2)
-            }
-        }
-    }
-
-    private func invitePrimaryButton(_ title: String) -> some View {
-        Button {
-            Haptics.light()
-            showPartnerInvite = true
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "person.crop.circle.badge.plus")
-                    .font(.system(size: 13, weight: .semibold))
-                Text(title)
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-            }
-            .foregroundStyle(Theme.Color.accentOn)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Theme.Color.accent)
-            .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
+        .padding(Theme.Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .tarjetaPerfil(realce: true)
     }
 
     private func performUnpair() async {
@@ -627,9 +476,5 @@ struct ProfileIdentidadView: View {
             Haptics.light()
         } catch {}
         await store.refreshPartner(force: true)
-    }
-
-    static func goalLabel(_ type: String?) -> String {
-        goalTypeLabel(type)
     }
 }

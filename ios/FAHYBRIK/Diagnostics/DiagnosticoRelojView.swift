@@ -29,7 +29,7 @@ struct DiagnosticoRelojView: View {
                 Section {
                     cabecera
                     Toggle("Solo fallos", isOn: $soloFallos)
-                        .scaledFont(14, relativeTo: .subheadline)
+                        .papel(.cuerpo)
                 }
                 Section("Últimos \(shown.count)") {
                     ForEach(shown, id: \.clave) { fila($0) }
@@ -52,14 +52,21 @@ struct DiagnosticoRelojView: View {
     private var cabecera: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.s) {
             Text("Este iPhone · \(String(DiagnosticsLog.shared.installId.uuidString.prefix(8))) · \(AppBundleMetadata.displayVersion ?? "—")")
-                .scaledFont(12, relativeTo: .caption, monospaced: true)
+                .papel(.nota)
+                .monospaced()
                 .foregroundStyle(Theme.Color.muted)
-            Text(pending == 0 ? "Todo enviado" : "\(pending) sin enviar")
-                .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
-                .foregroundStyle(pending == 0 ? Theme.Color.foreground : Theme.Color.warning)
+            // Lo pendiente se dice con una marca (el punto ámbar), no con el color del texto.
+            HStack(spacing: Theme.Spacing.s) {
+                if pending > 0 {
+                    Circle().fill(Theme.Color.warning).frame(width: 10, height: 10).accessibilityHidden(true)
+                }
+                Text(pending == 0 ? "Todo enviado" : "\(pending) sin enviar")
+                    .papel(.notaFuerte)
+                    .foregroundStyle(Theme.Color.foreground)
+            }
             if let lastResult {
                 Text("Último envío: \(lastResult)")
-                    .scaledFont(12, relativeTo: .caption)
+                    .papel(.nota)
                     .foregroundStyle(Theme.Color.muted)
             }
             Button(sending ? "Enviando…" : "Enviar ahora") {
@@ -79,20 +86,27 @@ struct DiagnosticoRelojView: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: Theme.Spacing.s) {
                 Text(DiagnosticoRelojView.hora(e.at))
-                    .scaledFont(11, relativeTo: .caption2, monospaced: true)
-                    .foregroundStyle(Theme.Color.faint)
-                Text(e.device == .watch ? "Reloj" : "iPhone")
-                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
+                    .papel(.nota)
+                    .monospaced()
                     .foregroundStyle(Theme.Color.muted)
+                Text(e.device == .watch ? "Reloj" : "iPhone")
+                    .papel(.notaFuerte)
+                    .foregroundStyle(Theme.Color.muted)
+                // Un fallo lleva su marca (un punto rojo); el nombre del evento es la tinta del tema.
+                if e.outcome == .failed {
+                    Circle().fill(Theme.Color.danger).frame(width: 10, height: 10).accessibilityHidden(true)
+                }
                 Text(e.name)
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote, monospaced: true)
-                    .foregroundStyle(e.outcome == .failed ? Theme.Color.danger : Theme.Color.foreground)
+                    .papel(.notaFuerte)
+                    .monospaced()
+                    .foregroundStyle(Theme.Color.foreground)
             }
             let error = [e.domain, e.code.map(String.init)].compactMap { $0 }.joined(separator: " ")
             let linea = [error.isEmpty ? nil : error, e.detail].compactMap { $0 }.joined(separator: " · ")
             if !linea.isEmpty {
                 Text(linea)
-                    .scaledFont(11, relativeTo: .caption2, monospaced: true)
+                    .papel(.nota)
+                    .monospaced()
                     .foregroundStyle(Theme.Color.muted)
                     .lineLimit(3)
             }

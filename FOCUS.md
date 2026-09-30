@@ -8,6 +8,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 **EDITOR DE CORRER · ENTORNO, AVISO Y FRASE PARA EL RELOJ (30-09, worktree `agent-a1e4bc45135113ff8`, sin fusionar; DECISIONS 30-09).** El coach ya edita por tramo dónde se corre (calle, cinta con inclinación, pista), hacia dónde avisa (defecto = su método) y una frase de 80 caracteres. Guardado probado contra rama Neon. Falta: firma de Alex del layout, y el reloj aplicando `alert`.
 
+**iPhone · LO QUE CUELGA DE PERFIL, CON «EL DÍA» (30-09, rama `worktree-agent-a5bfe54dff1049a3f`, sin fusionar; DECISIONS 30-09).** Cascarón `PantallaPerfil` (`Profile/Secundarias/`) y todas las pantallas secundarias de Perfil rehechas (puertas, cifras, hojas, dispositivos, molestias, suscripción, pareja). Falta probarlo en aparato.
+
 **iPhone · CARRERA EN HOY Y FILAS DE ANALÍTICAS (30-09, main, pendiente de build).** Sin coach la carrera fijada no se pintaba en Hoy; y remo/ski sin historial completo no abrían su detalle desde Progreso. Arreglado (DECISIONS 30-09). Falta verlo en aparato.
 
 **FIX GUARDADO 500 (29-09, sin desplegar):** un tramo `run` de 0 m en el historial (atleta 64) partía por cero en `running-prs.ts` y tumbaba TODO guardado suyo; arreglado + savepoint en `detectPrs`. Tras deploy la cola de la app lo reintenta sola.

@@ -105,27 +105,22 @@ struct SensorConsentSheet: View {
     private var cuerpo: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             // «El reloj ha notado algo»: el reloj con ondas, en la tinta del texto
-            // sobre un círculo en reposo. El naranja es de lo que se toca, y esto
+            // sobre un círculo en reposo. El acento es de lo que se toca, y esto
             // solo dice de qué va la hoja.
-            Image(systemName: "applewatch.radiowaves.left.and.right")
-                .font(.system(size: 19, weight: .medium))
-                .foregroundStyle(Theme.Color.foreground)
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(Theme.Color.surfaceElevated))
-                .overlay(Circle().stroke(Theme.Color.hairline, lineWidth: 1))
-                .padding(.bottom, Theme.Spacing.xs)
-                .accessibilityHidden(true)
+            ChapitaDia(tam: 44) {
+                Image(systemName: "applewatch.radiowaves.left.and.right")
+                    .font(.system(size: 19, weight: .medium))
+            }
+            .padding(.bottom, Theme.Spacing.xs)
             Text(SensorConsentCopy.titulo)
-                .scaledFont(24, weight: .heavy, relativeTo: .title2, italic: true)
-                .tracking(-0.24)
+                .papel(.seccion)
                 .foregroundStyle(Theme.Color.foreground)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             parrafo(SensorConsentCopy.queYParaQue)
             parrafo(SensorConsentCopy.queNoEs)
             Text(SensorConsentCopy.sinCoste)
-                .scaledFont(13, relativeTo: .footnote)
-                .lineSpacing(2)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -137,16 +132,15 @@ struct SensorConsentSheet: View {
 
     private func parrafo(_ texto: String) -> some View {
         Text(texto)
-            .scaledFont(15, relativeTo: .subheadline)
-            .lineSpacing(3)
+            .papel(.cuerpo)
             .foregroundStyle(Theme.Color.foreground)
             .fixedSize(horizontal: false, vertical: true)
     }
 
     private var botones: some View {
-        VStack(spacing: Theme.Spacing.s) {
-            PrimaryButton(title: SensorConsentCopy.subir) { responder(.subirlo) }
-            SecondaryButton(title: SensorConsentCopy.ahoraNo) { responder(.ahoraNo) }
+        VStack(spacing: Theme.Spacing.xs) {
+            AccionAncladaPerfil(titulo: SensorConsentCopy.subir) { responder(.subirlo) }
+            AccionTextoPerfil(titulo: SensorConsentCopy.ahoraNo) { responder(.ahoraNo) }
         }
         .padding(.horizontal, Theme.Spacing.l + 4)
         .padding(.top, Theme.Spacing.xl)

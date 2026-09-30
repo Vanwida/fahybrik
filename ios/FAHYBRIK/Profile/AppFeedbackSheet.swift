@@ -84,123 +84,77 @@ struct AppFeedbackSheet: View {
     private var canSend: Bool { !trimmed.isEmpty && !isSending && bearer != nil }
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            if didSucceed {
-                successState
-            } else {
-                formState
-            }
+        if didSucceed {
+            successState
+        } else {
+            formState
         }
-        .dismissableSheet()
     }
 
     // MARK: Form
 
     private var formState: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Cuéntanos")
-                    .font(Theme.Typography.headlineS)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Tu sugerencia o el fallo nos llega directamente al equipo, no a tu coach.")
-                    .scaledFont(13, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
-            }
+        PantallaPerfil(titulo: "Cuéntanos", cierre: .cerrar, cierreActivo: !isSending) {
+            Text("Tu sugerencia o el fallo nos llega directamente al equipo, no a tu coach.")
+                .papel(.cuerpo)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
 
-            kindPicker
+            SelectorDeOpcionesPerfil(
+                opciones: AppFeedbackKind.allCases.map { (clave: $0, titulo: $0.label) },
+                elegida: $kind
+            )
 
-            CardSurface(padding: 12) {
+            GrupoPerfil {
                 ZStack(alignment: .topLeading) {
                     if trimmed.isEmpty {
                         Text(kind.placeholder)
-                            .scaledFont(14, relativeTo: .body)
-                            .foregroundStyle(Theme.Color.faint)
+                            .papel(.cuerpo)
+                            .foregroundStyle(Theme.Color.muted)
                             .padding(.top, 8)
                             .padding(.leading, 5)
                             .allowsHitTesting(false)
+                            .accessibilityHidden(true)
                     }
                     TextEditor(text: $text)
-                        .scaledFont(14, relativeTo: .body)
+                        .papel(.cuerpo)
                         .foregroundStyle(Theme.Color.foreground)
                         .scrollContentBackground(.hidden)
-                        .frame(minHeight: 150)
+                        .frame(minHeight: 160)
                         .accessibilityLabel(kind == .bug ? "Describe el fallo" : "Describe tu sugerencia")
                 }
+                .padding(Theme.Spacing.m)
             }
 
             if let errorMessage {
-                Text(errorMessage)
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.danger)
+                AvisoEnLineaPerfil(tono: .peligro, texto: errorMessage)
             }
-
-            ExpertPrimaryButton(
-                title: isSending ? "ENVIANDO…" : "ENVIAR",
-                enabled: canSend,
-                action: send
-            )
-
-            Spacer(minLength: 0)
+        } pie: {
+            AccionAncladaPerfil(titulo: isSending ? "Enviando…" : "Enviar", enCurso: isSending, habilitada: canSend, accion: send)
         }
-        .padding(Theme.Spacing.xl)
-    }
-
-    // Two-segment control (Sugerencia / Algo falla) in the app's active-pill
-    // language — recessed track, active segment lifted on the Fabrik-orange pill.
-    private var kindPicker: some View {
-        HStack(spacing: 4) {
-            ForEach(AppFeedbackKind.allCases) { option in
-                let active = kind == option
-                Button {
-                    guard !active else { return }
-                    Haptics.light()
-                    withAnimation(.easeInOut(duration: 0.18)) { kind = option }
-                } label: {
-                    Text(option.label)
-                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                        .foregroundStyle(active ? Theme.Color.accentOn : Theme.Color.muted)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 34)
-                        .background { if active { Capsule().fill(Theme.Color.accent) } }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(option.label)
-                .accessibilityAddTraits(active ? [.isSelected, .isButton] : .isButton)
-            }
-        }
-        .padding(4)
-        .background(Theme.Color.surfaceSunken)
-        .clipShape(Capsule())
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Tipo de mensaje")
+        .interactiveDismissDisabled(isSending)
     }
 
     // MARK: Success
 
     private var successState: some View {
-        VStack(spacing: Theme.Spacing.l) {
-            Spacer()
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 44, weight: .semibold))
-                .foregroundStyle(Theme.Color.ok)
-            VStack(spacing: 6) {
-                Text("Gracias, lo hemos recibido")
-                    .font(Theme.Typography.headlineS)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .multilineTextAlignment(.center)
-                Text(kind == .bug
-                     ? "El equipo lo revisa cuanto antes. Gracias por avisar."
-                     : "Leemos cada sugerencia. Gracias por ayudarnos a mejorar.")
-                    .scaledFont(13, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
-                    .multilineTextAlignment(.center)
+        PantallaPerfil(titulo: "Cuéntanos", alto: .llena, cierre: .cerrar) {
+            SujetoDia(tono: .ok, etiqueta: "Gracias, lo hemos recibido") {
+                KickerDia("Enviado")
+                TituloDia("Gracias, lo hemos recibido")
+                ApoyoDia(kind == .bug
+                         ? "El equipo lo revisa cuanto antes. Gracias por avisar."
+                         : "Leemos cada sugerencia. Gracias por ayudarnos a mejorar.")
+            } abajo: {
+                Button {
+                    Haptics.light()
+                    dismiss()
+                } label: {
+                    AccionDia("Hecho", glifo: .check)
+                }
+                .buttonStyle(PressScaleStyle(escala: 0.96))
             }
-            Spacer()
-            ExpertPrimaryButton(title: "HECHO") { dismiss() }
         }
-        .padding(Theme.Spacing.xl)
     }
 
     // MARK: Send

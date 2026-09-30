@@ -1,20 +1,43 @@
 import SwiftUI
 
-// Subscription detail page (Profile → "Mi suscripción").
+// «MI SUSCRIPCIÓN» (Perfil → Mi suscripción).
 //
-// COMPLIANCE (Apple Guideline 3.1.3(b) "Multiplatform Services"):
-// The athlete pays on the WEB (Stripe Checkout, hosted) before installing the
-// app. This screen shows no prices and starts no checkout — ever.
+// CUMPLIMIENTO (Apple, Guideline 3.1.3(b) «Multiplatform Services»): el atleta paga en la WEB (Stripe
+// Checkout, alojado) antes de instalar la app. Esta pantalla no enseña precios ni empieza ningún cobro, jamás.
 //
-// Pausing and leaving DO live in-app, natively, against our own API (#13). That
-// is not a step away from the rule, it is a step toward it: managing an existing
-// subscription in-app is exactly what 3.1.3(b) contemplates, and it means the
-// athlete no longer has to be sent out to Stripe's portal for the one thing they
-// came here to do. The portal button stays for invoices and payment method,
-// demoted to a quiet link.
+// Pausar y darse de baja SÍ viven en la app, nativos, contra nuestra propia API (#13). No es un paso fuera de la
+// regla sino hacia ella: gestionar una suscripción que ya existe es justo lo que contempla la 3.1.3(b), y evita
+// mandar al atleta al portal de Stripe para lo único que venía a hacer. El portal se queda para facturas y
+// método de pago, como una fila discreta.
 //
-// HARD RULE, unchanged: zero in-app purchase surface — no prices,
-// no "Suscríbete", no "Comprar", no "Upgrade".
+// REGLA DURA, sin cambios: cero superficie de compra dentro de la app — ni precios, ni «Suscríbete», ni
+// «Comprar», ni «Mejorar plan».
+//
+// EL PLAN ES EL SUJETO: un bloque con el tono de su momento (en marcha, en pausa, baja programada, pago
+// pendiente) y, si hay una sola cosa que hacer ya («Volver ya», «Cancelar la baja»), esa es su acción. Debajo,
+// lo que dice el estado, la pausa disponible y las salidas de menos peso. El ciclo de vida manda sobre el estado
+// crudo de Stripe cuando no coinciden: una pausa sigue «activa» en Stripe (el cobro se anula, no se cancela) y
+// enseñar «Activa» contradiría las dos líneas de debajo.
+
+/// Lo que dice el sujeto de la suscripción: la palabra de estado y el tono del bloque. Puro, para probarlo.
+enum EstadoDeSuscripcion {
+    static func resumen(info: SubscriptionInfo, lifecycle: LifecycleState?) -> (texto: String, tono: TonoDia) {
+        if let lifecycle {
+            if lifecycle.isPaused { return ("En pausa", .aviso) }
+            if lifecycle.hasScheduledBaja { return ("Baja programada", .aviso) }
+        }
+        guard let raw = info.status else { return ("Sin suscripción", .neutro) }
+        switch raw {
+        case "active": return ("Activa", .ok)
+        case "trialing": return ("Prueba", .ok)
+        case "past_due", "unpaid", "incomplete": return ("Pago pendiente", .aviso)
+        case "canceled", "incomplete_expired": return ("Cancelada", .neutro)
+        case "paused": return ("Pausada", .neutro)
+        default: return (raw, .neutro)
+        }
+    }
+}
+
 struct SubscriptionView: View {
     let bearer: String?
 
@@ -32,37 +55,15 @@ struct SubscriptionView: View {
     }
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    header
-                    if loading {
-                        ProgressView()
-                            .tint(Theme.Color.accentText)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, Theme.Spacing.xl)
-                    } else if let info {
-                        statusCard(info)
-                        if info.isActiveAccess {
-                            activeBody(info)
-                        } else {
-                            inactiveNotice(info)
-                        }
-                    }
-                    if let error {
-                        Text(error)
-                            .font(Theme.Typography.small)
-                            .foregroundStyle(Theme.Color.warning)
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xl)
-            }
-        }
-        .navigationTitle("Mi suscripción")
-        .navigationBarTitleDisplayMode(.inline)
+        SubscriptionCuerpo(
+            info: info, lifecycle: lifecycle, cargando: loading, error: error, enCurso: actionInFlight,
+            alPausar: { sheet = .pause },
+            alDarseDeBaja: { sheet = .baja },
+            alVolver: { Task { await resume() } },
+            alCancelarBaja: { Task { await undoBaja() } },
+            alGestionarPago: { Task { await openPortal() } },
+            alReintentar: { Task { await load() } }
+        )
         .sheet(item: $safari) { item in
             SafariView(url: item.url).ignoresSafeArea()
         }
@@ -70,225 +71,6 @@ struct SubscriptionView: View {
             lifecycleSheet(kind)
         }
         .task { await load() }
-    }
-
-    // MARK: - Header + status
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            LabelText(text: "Plan")
-            Text(info?.displayPlanLabel ?? "HYROX Athlete")
-                .font(Theme.Typography.headlineM)
-                .foregroundStyle(Theme.Color.foreground)
-        }
-    }
-
-    @ViewBuilder
-    private func statusCard(_ info: SubscriptionInfo) -> some View {
-        CardSurface(padding: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    LabelText(text: "Estado")
-                    Spacer()
-                    statusPill(info)
-                }
-                Text(info.displayPlanLabel)
-                    .font(Theme.Typography.bodyEmph)
-                    .foregroundStyle(Theme.Color.foreground)
-
-                if let lifecycle, lifecycle.isPaused {
-                    row("Cobro", "Parado · no se te cobra")
-                    row("Tu plaza", "Reservada")
-                } else if let lifecycle, let dia = LifecycleDate.long(lifecycle.baja.scheduledFor) {
-                    row("Entrenas hasta", dia)
-                    row("Próximo cobro", "Ninguno")
-                } else if let date = info.formattedPeriodEnd {
-                    row(periodLabel(for: info), date)
-                }
-            }
-        }
-    }
-
-    private func row(_ label: String, _ value: String) -> some View {
-        HStack {
-            Text(label)
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.muted)
-            Spacer()
-            Text(value)
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.foreground)
-        }
-    }
-
-    private func periodLabel(for info: SubscriptionInfo) -> String {
-        info.cancelAtPeriodEnd ? "Acceso hasta" : "Próximo cobro"
-    }
-
-    private func statusPill(_ info: SubscriptionInfo) -> some View {
-        let (text, color): (String, Color) = {
-            // The LIFECYCLE wins over the raw Stripe status when they disagree: a
-            // paused athlete still has an "active" subscription in Stripe (collection
-            // is voided, not cancelled), and showing "Activa" there would contradict
-            // the two lines right underneath it.
-            if let lifecycle {
-                if lifecycle.isPaused { return ("En pausa", Theme.Color.warning) }
-                if lifecycle.hasScheduledBaja { return ("Baja programada", Theme.Color.neutral) }
-            }
-            guard let raw = info.status else {
-                return ("Sin suscripción", Theme.Color.muted)
-            }
-            switch raw {
-            case "active": return ("Activa", Theme.Color.ok)
-            case "trialing": return ("Prueba", Theme.Color.ok)
-            case "past_due", "unpaid", "incomplete": return ("Pago pendiente", Theme.Color.warning)
-            case "canceled", "incomplete_expired": return ("Cancelada", Theme.Color.muted)
-            case "paused": return ("Pausada", Theme.Color.muted)
-            default: return (raw, Theme.Color.muted)
-            }
-        }()
-        return Text(text)
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(color.opacity(0.12))
-            .clipShape(Capsule())
-    }
-
-    // MARK: - The three shapes an active athlete can be in
-
-    @ViewBuilder
-    private func activeBody(_ info: SubscriptionInfo) -> some View {
-        if let lifecycle {
-            if lifecycle.isPaused {
-                pausedBody(lifecycle)
-            } else if lifecycle.hasScheduledBaja {
-                leavingBody(lifecycle)
-            } else {
-                runningBody(lifecycle)
-            }
-        } else {
-            // Lifecycle unreadable (offline, older backend) — never hide the portal.
-            manageLink
-        }
-    }
-
-    /// Training normally: the budget in plain sight, and the two ways out.
-    @ViewBuilder
-    private func runningBody(_ lifecycle: LifecycleState) -> some View {
-        budgetCard(lifecycle)
-
-        Button("Pausar mi plan") { sheet = .pause }
-            .font(Theme.Typography.bodyEmph)
-            .foregroundStyle(Theme.Color.foreground)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Theme.Color.hairlineStrong, lineWidth: 1)
-            )
-
-        manageLink
-
-        Button("Darme de baja") { sheet = .baja }
-            .font(Theme.Typography.small)
-            .foregroundStyle(Theme.Color.danger)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-    }
-
-    /// Paused: what is (not) happening, and the way back in one tap.
-    @ViewBuilder
-    private func pausedBody(_ lifecycle: LifecycleState) -> some View {
-        if let vuelve = LifecycleDate.long(lifecycle.pause.returnsOn) {
-            CardSurface(padding: 14) {
-                Text("Vuelves solo el \(vuelve). Ese día tendrás tu semana publicada.")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        budgetCard(lifecycle)
-        PrimaryButton(title: "Volver ya", enabled: !actionInFlight) {
-            Task { await resume() }
-        }
-    }
-
-    /// Leaving, but not gone: everything still works until the day arrives.
-    @ViewBuilder
-    private func leavingBody(_ lifecycle: LifecycleState) -> some View {
-        CardSurface(padding: 14) {
-            VStack(alignment: .leading, spacing: 6) {
-                if let dia = LifecycleDate.long(lifecycle.baja.scheduledFor) {
-                    Text("Hasta el \(dia) todo sigue igual: tienes plan, chat y tu entrenador.")
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Text("Puedes cancelar la baja cuando quieras.")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.foreground)
-            }
-        }
-        PrimaryButton(title: "Cancelar la baja, sigo", enabled: !actionInFlight) {
-            Task { await undoBaja() }
-        }
-        manageLink
-    }
-
-    private func budgetCard(_ lifecycle: LifecycleState) -> some View {
-        CardSurface(padding: 14) {
-            VStack(alignment: .leading, spacing: 7) {
-                LabelText(text: "Pausa disponible")
-                Text("\(lifecycle.pause.availableDays) días de \(lifecycle.pause.budgetDays)")
-                    .font(Theme.Typography.bodyEmph)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text(budgetCaption(lifecycle))
-                    .font(Theme.Typography.caption)
-                    .foregroundStyle(Theme.Color.faint)
-            }
-        }
-    }
-
-    private func budgetCaption(_ lifecycle: LifecycleState) -> String {
-        if let renews = LifecycleDate.long(lifecycle.pause.renewsOn) {
-            return "Se te renuevan el \(renews)"
-        }
-        return "Se renuevan cada doce meses"
-    }
-
-    // Managing an EXISTING subscription (invoices, payment method) on Stripe's own
-    // UI. Demoted to a link now that pause + baja are native: this is no longer the
-    // way out, it is the paperwork.
-    private var manageLink: some View {
-        Button("Gestionar pago · facturas") {
-            Task { await openPortal() }
-        }
-        .font(Theme.Typography.small)
-        .foregroundStyle(Theme.Color.muted)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .disabled(actionInFlight)
-    }
-
-    // Inactive / no subscription → an HONEST plain notice. AUDIT-B8c (steering 3.1.1):
-    // NO external link, URL or CTA to an out-of-app purchase/management flow here. The
-    // Stripe Customer Portal stays available ONLY for an ACTIVE subscription
-    // (manageLink — managing an existing subscription, defensible under 3.1.3(b)).
-    @ViewBuilder
-    private func inactiveNotice(_ info: SubscriptionInfo) -> some View {
-        CardSurface(padding: 14) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Tu suscripción no está activa")
-                    .font(Theme.Typography.bodyEmph)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Tu plan se gestiona desde la web de \(Marca.nombre). Cuando esté activo, aquí verás tu acceso completo.")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
     }
 
     @ViewBuilder
@@ -300,7 +82,6 @@ struct SubscriptionView: View {
                     state: lifecycle,
                     bearer: bearer,
                     onDone: { sheet = nil; Task { await load() } },
-                    onClose: { sheet = nil },
                     onSwitchToBaja: { sheet = .baja }
                 )
             case .baja:
@@ -308,7 +89,6 @@ struct SubscriptionView: View {
                     state: lifecycle,
                     bearer: bearer,
                     onDone: { sheet = nil; Task { await load() } },
-                    onClose: { sheet = nil },
                     onSwitchToPause: { sheet = .pause }
                 )
             }
@@ -370,6 +150,163 @@ struct SubscriptionView: View {
             safari = SafariURL(url: SubscriptionService.accountWebURL)
         } catch {
             self.error = "No pudimos abrir la gestión. Reintenta en unos segundos."
+        }
+    }
+}
+
+// MARK: - El cuerpo
+
+/// Lo que se pinta de «Mi suscripción» con el estado ya resuelto (sin servicios ni hojas).
+struct SubscriptionCuerpo: View {
+    let info: SubscriptionInfo?
+    let lifecycle: LifecycleState?
+    var cargando = false
+    var error: String?
+    var enCurso = false
+    var alPausar: () -> Void = {}
+    var alDarseDeBaja: () -> Void = {}
+    var alVolver: () -> Void = {}
+    var alCancelarBaja: () -> Void = {}
+    var alGestionarPago: () -> Void = {}
+    var alReintentar: () -> Void = {}
+
+    var body: some View {
+        if cargando && info == nil {
+            PantallaPerfil(titulo: "Mi suscripción") { EsqueletoDeSuscripcion() }
+        } else if let info {
+            PantallaPerfil(titulo: "Mi suscripción") {
+                sujeto(info)
+                estado(info)
+                if info.isActiveAccess { resto }
+                if let error { AvisoEnLineaPerfil(tono: .peligro, texto: error) }
+            }
+        } else {
+            PantallaPerfil(titulo: "Mi suscripción", alto: .llena) {
+                ErrorDePantallaPerfil(
+                    kicker: "Plan", titulo: error ?? "No pudimos cargar la suscripción", alReintentar: alReintentar
+                )
+            }
+        }
+    }
+
+    // MARK: El sujeto: el plan
+
+    /// La acción única de un momento que tiene UNA: volver de una pausa, cancelar una baja.
+    private var accionDelMomento: (titulo: String, hace: () -> Void)? {
+        guard let lifecycle, info?.isActiveAccess == true else { return nil }
+        if lifecycle.isPaused { return ("Volver ya", alVolver) }
+        if lifecycle.hasScheduledBaja { return ("Cancelar la baja, sigo", alCancelarBaja) }
+        return nil
+    }
+
+    @ViewBuilder
+    private func sujeto(_ info: SubscriptionInfo) -> some View {
+        let resumen = EstadoDeSuscripcion.resumen(info: info, lifecycle: lifecycle)
+        SujetoDia(tono: resumen.tono, etiqueta: "\(info.displayPlanLabel). \(resumen.texto)") {
+            KickerDia("Plan") { InfoPill(text: resumen.texto, estilo: .velo) }
+            TituloDia(info.displayPlanLabel)
+            if let frase = frase(info) { ApoyoDia(frase) }
+        } abajo: {
+            if let accion = accionDelMomento {
+                Button(action: accion.hace) { AccionDia(accion.titulo, enCurso: enCurso) }
+                    .buttonStyle(PressScaleStyle(escala: 0.96))
+                    .disabled(enCurso)
+            }
+        }
+    }
+
+    /// La frase que sostiene al título: lo que va a pasar, dicho en claro.
+    private func frase(_ info: SubscriptionInfo) -> String? {
+        guard let lifecycle, info.isActiveAccess else {
+            return info.isActiveAccess ? nil : "Tu plan se gestiona desde la web de \(Marca.nombre). Cuando esté activo, aquí verás tu acceso completo."
+        }
+        if lifecycle.isPaused, let vuelve = LifecycleDate.long(lifecycle.pause.returnsOn) {
+            return "Vuelves solo el \(vuelve). Ese día tendrás tu semana publicada."
+        }
+        if lifecycle.hasScheduledBaja, let dia = LifecycleDate.long(lifecycle.baja.scheduledFor) {
+            return "Hasta el \(dia) todo sigue igual: tienes plan, chat y tu entrenador. Puedes cancelar la baja cuando quieras."
+        }
+        return nil
+    }
+
+    // MARK: Lo que dice el estado
+
+    @ViewBuilder
+    private func estado(_ info: SubscriptionInfo) -> some View {
+        if info.isActiveAccess {
+            if let lifecycle, lifecycle.isPaused {
+                GrupoPerfil {
+                    FilaValorPerfil(etiqueta: "Cobro", valor: "Parado · no se te cobra")
+                    FilaValorPerfil(etiqueta: "Tu plaza", valor: "Reservada")
+                }
+            } else if let lifecycle, let dia = LifecycleDate.long(lifecycle.baja.scheduledFor) {
+                GrupoPerfil {
+                    FilaValorPerfil(etiqueta: "Entrenas hasta", valor: dia)
+                    FilaValorPerfil(etiqueta: "Próximo cobro", valor: "Ninguno")
+                }
+            } else if let date = info.formattedPeriodEnd {
+                GrupoPerfil {
+                    FilaValorPerfil(etiqueta: info.cancelAtPeriodEnd ? "Acceso hasta" : "Próximo cobro", valor: date)
+                }
+            }
+        }
+    }
+
+    // MARK: Pausa disponible y salidas
+
+    /// La pausa, la gestión de pago y la baja: lo que está al alcance de quien está dentro. Con el ciclo de vida
+    /// ilegible (sin red, backend antiguo) nunca se esconde el portal.
+    @ViewBuilder
+    private var resto: some View {
+        if let lifecycle {
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                TituloSeccionDia("Pausa disponible")
+                GrupoPerfil {
+                    FilaValorPerfil(
+                        etiqueta: "Te quedan",
+                        valor: "\(lifecycle.pause.availableDays) días de \(lifecycle.pause.budgetDays)"
+                    )
+                }
+                NotaPerfil(presupuesto(lifecycle))
+            }
+            if !lifecycle.isPaused && !lifecycle.hasScheduledBaja {
+                GrupoPerfil {
+                    Button(action: alPausar) { FilaPerfil(titulo: "Pausar mi plan") }
+                        .filaTocablePerfil()
+                        .disabled(enCurso)
+                }
+            }
+        }
+        // Gestionar una suscripción que YA existe (facturas, método de pago) en la propia UI de Stripe: ya no es
+        // la salida, es el papeleo.
+        GrupoPerfil {
+            Button(action: alGestionarPago) { FilaPerfil(titulo: "Gestionar pago · facturas") }
+                .filaTocablePerfil()
+                .disabled(enCurso)
+        }
+        if let lifecycle, !lifecycle.isPaused, !lifecycle.hasScheduledBaja {
+            AccionTextoPerfil(titulo: "Darme de baja", peligro: true, accion: alDarseDeBaja)
+        }
+    }
+
+    private func presupuesto(_ lifecycle: LifecycleState) -> String {
+        if let renews = LifecycleDate.long(lifecycle.pause.renewsOn) {
+            return "Se te renuevan el \(renews)"
+        }
+        return "Se renuevan cada doce meses"
+    }
+}
+
+/// El esqueleto: el sujeto y, debajo, dos filas.
+private struct EsqueletoDeSuscripcion: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: PantallaPerfil<EmptyView, EmptyView>.entreBloques) {
+            SujetoDia(tono: .neutro, etiqueta: "Cargando tu suscripción") {
+                SkeletonBar(width: 96, height: 15, radius: 5).frame(minHeight: 32)
+                SkeletonBar(height: 44, radius: 10).frame(maxWidth: 230)
+                SkeletonBar(height: 17, radius: 6).frame(maxWidth: 300)
+            }
+            EsqueletoDeFilasPerfil(filas: 2, conFicha: false)
         }
     }
 }

@@ -129,6 +129,9 @@ struct ProfileView: View {
             }
             .background(Theme.Color.background.ignoresSafeArea())
             .navigationBarHidden(true)
+            // El título no se ve (la pestaña dibuja su propio sujeto), pero es lo que el sistema escribe en el
+            // «‹» de las pantallas que cuelgan: sin él dirían «Atrás».
+            .navigationTitle("Perfil")
             .navigationDestination(for: DestinoPerfil.self, destination: destino)
             .onAppear {
                 leerLocal()

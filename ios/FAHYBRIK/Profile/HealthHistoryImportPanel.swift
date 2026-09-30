@@ -40,72 +40,55 @@ struct HealthHistoryImportPanel: View {
     // MARK: - Estados visibles
 
     private var inProgress: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
             Text(importer.currentYear.map { "Importando histórico \($0)…" } ?? "Importando histórico…")
-                .scaledFont(11, weight: .semibold, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.accentText)
+                .papel(.notaFuerte)
+                .foregroundStyle(Theme.Color.foreground)
                 .monospacedDigit()
                 .accessibilityLabel(
                     "Importando tu histórico, \(Int((importer.progress * 100).rounded())) por ciento"
                 )
             progressBar(importer.progress)
-            Button {
-                Haptics.light()
-                importer.stop()
-            } label: {
-                Text("Detener")
-                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.muted)
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Para la importación. Podrás continuar donde se quedó.")
+            AccionTextoPerfil(titulo: "Detener", alineada: .leading) { importer.stop() }
+                .accessibilityHint("Para la importación. Podrás continuar donde se quedó.")
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.bottom, Theme.Spacing.s)
     }
 
     private var resumable: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            if let error = importer.lastError {
-                Text(error)
-                    .scaledFont(11, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.warning)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                Text(reachedLine ?? "El histórico se quedó a medias.")
-                    .scaledFont(11, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.muted)
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            // Un fallo se dice con su marca (punto ámbar); el texto es la tinta del tema.
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+                if importer.lastError != nil {
+                    Circle().fill(Theme.Color.warning).frame(width: 10, height: 10).accessibilityHidden(true)
+                }
+                Text(importer.lastError ?? reachedLine ?? "El histórico se quedó a medias.")
+                    .papel(importer.lastError == nil ? .nota : .notaFuerte)
+                    .foregroundStyle(importer.lastError == nil ? Theme.Color.muted : Theme.Color.foreground)
                     .fixedSize(horizontal: false, vertical: true)
             }
             progressBar(importer.progress)
-            Button {
-                Haptics.light()
-                importer.resumeIfConsented()
-            } label: {
-                Text("Continuar importación")
-                    .scaledFont(11, weight: .semibold, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.accentText)
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Retoma el histórico donde se quedó.")
+            AccionTextoPerfil(titulo: "Continuar importación", alineada: .leading) { importer.resumeIfConsented() }
+                .accessibilityHint("Retoma el histórico donde se quedó.")
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.bottom, Theme.Spacing.s)
     }
 
     private func done(_ state: HealthHistoryImportState) -> some View {
-        HStack(spacing: 6) {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(Theme.Color.ok)
                 .accessibilityHidden(true)
             Text(doneLine(state))
-                .scaledFont(11, relativeTo: .caption2)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.bottom, Theme.Spacing.m)
         .accessibilityElement(children: .combine)
     }
 
@@ -120,7 +103,7 @@ struct HealthHistoryImportPanel: View {
                     .frame(width: max(0, min(1, value)) * geo.size.width)
             }
         }
-        .frame(height: 3)
+        .frame(height: 6)
         .accessibilityHidden(true)
     }
 

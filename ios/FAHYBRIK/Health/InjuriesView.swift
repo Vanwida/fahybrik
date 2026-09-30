@@ -1,13 +1,14 @@
 import SwiftUI
 
-// "Molestias" — the athlete self-reports injuries and follows their evolution with
-// the coach (#16). Pushed from Perfil. Two sections: "Activas" (open episodes) and
-// "Historial" (resolved). A nav "＋ Reportar" opens the report sheet; tapping an
-// injury opens its evolution (status transition + note + the coach's timeline).
+// «MOLESTIAS» — el atleta registra por su cuenta lo que le molesta y sigue su evolución con su coach (#16).
+// Se empuja desde Perfil › Entreno. Dos secciones: «Activas» (episodios abiertos) e «Historial» (resueltos). Un
+// «+» abre la hoja de reporte (`ReportInjurySheet`); tocar una molestia abre su evolución (`InjuryDetailView`:
+// transición de estado + nota + la línea del tiempo con el coach).
 //
-// Reuses the app's Theme atoms (CardSurface / Hairline / SectionLabel / Chip /
-// SingleChipFlow / FlowLayout / ExpertPrimaryButton / Haptics) and invents no
-// colors — severity/status hues map onto the existing semantic tokens.
+// La gravedad y el estado se dicen con una marca de color del tema y su palabra (`InjuryPiezas`); el acento del
+// club no es un color de dato. La vista se parte en contenedor (carga) y `InjuriesCuerpo` (pinta un estado ya
+// resuelto), para montarla con datos de ejemplo en la galería.
+
 struct InjuriesView: View {
     let bearer: String?
     /// Agnostic coach display name (from the athlete's plan payload); nil → the
@@ -18,21 +19,21 @@ struct InjuriesView: View {
     /// registering and following the episode is the value in itself.
     var hasCoach: Bool = true
 
-    @State private var injuries: [AthleteInjury] = []
-    @State private var loading = true
-    @State private var failed = false
+    @State private var carga: CargaDePantallaPerfil<[AthleteInjury]> = .cargando
     @State private var showReport = false
 
-    private var active: [AthleteInjury] { injuries.filter { $0.isOpen } }
-    private var resolved: [AthleteInjury] { injuries.filter { !$0.isOpen } }
-
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            content
-        }
-        .navigationTitle("Molestias")
-        .navigationBarTitleDisplayMode(.inline)
+        InjuriesCuerpo(
+            carga: carga, coachName: coachName, hasCoach: hasCoach,
+            destino: { injury in
+                InjuryDetailView(
+                    injury: injury, bearer: bearer, coachName: coachName, hasCoach: hasCoach,
+                    onChanged: { await load() }
+                )
+            },
+            alReportar: { showReport = true },
+            alReintentar: { Task { await load() } }
+        )
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -52,757 +53,135 @@ struct InjuriesView: View {
         .task { await load() }
     }
 
-    @ViewBuilder
-    private var content: some View {
-        if loading {
-            ProgressView().tint(Theme.Color.accentText)
-        } else if failed {
-            errorState
-        } else if injuries.isEmpty {
-            emptyState
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    intro
-                    if !active.isEmpty {
-                        section(title: "Activas", injuries: active)
-                    }
-                    if !resolved.isEmpty {
-                        section(title: "Historial", injuries: resolved)
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xxl)
-            }
+    private func load() async {
+        guard let bearer else { carga = .error; return }
+        if case .error = carga { carga = .cargando }
+        do {
+            carga = .datos(try await InjuryService.fetch(bearer: bearer))
+        } catch {
+            carga = .error
         }
     }
+}
 
-    private var intro: some View {
-        Text(hasCoach
-             ? "Si algo te molesta, repórtalo. \(coachLabel.capitalizedFirst) ajusta tu carga para que entrenes sin arriesgar."
-             : "Si algo te molesta, regístralo. Ver cómo evoluciona te ayuda a ajustar tu carga y entrenar sin arriesgar.")
-            .scaledFont(13, relativeTo: .footnote)
-            .foregroundStyle(Theme.Color.muted)
-            .fixedSize(horizontal: false, vertical: true)
-    }
+/// Lo que se pinta de «Molestias» con el estado ya resuelto. `destino` construye la pantalla de una molestia.
+struct InjuriesCuerpo<Destino: View>: View {
+    let carga: CargaDePantallaPerfil<[AthleteInjury]>
+    let coachName: String?
+    var hasCoach = true
+    @ViewBuilder let destino: (AthleteInjury) -> Destino
+    var alReportar: () -> Void = {}
+    var alReintentar: () -> Void = {}
 
-    private var coachLabel: String { (coachName?.isEmpty == false) ? coachName! : "tu coach" }
+    private var coachLabel: String { etiquetaDeCoach(coachName) }
 
-    // MARK: - Section
-
-    private func section(title: String, injuries rows: [AthleteInjury]) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            SectionLabel(text: title)
-            CardSurface(padding: 0) {
-                VStack(spacing: 0) {
-                    ForEach(Array(rows.enumerated()), id: \.element.id) { idx, injury in
-                        if idx > 0 { Hairline() }
-                        NavigationLink {
-                            InjuryDetailView(
-                                injury: injury,
-                                bearer: bearer,
-                                coachName: coachName,
-                                hasCoach: hasCoach,
-                                onChanged: { await load() }
-                            )
-                        } label: {
-                            injuryRowContent(injury)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+    var body: some View {
+        switch carga {
+        case .cargando:
+            PantallaPerfil(titulo: "Molestias") { EsqueletoDeFilasPerfil(filas: 3, conFicha: false) }
+        case .error:
+            PantallaPerfil(titulo: "Molestias", alto: .llena) {
+                ErrorDePantallaPerfil(kicker: "Molestias", titulo: "No pudimos cargar tus molestias", alReintentar: alReintentar)
             }
-        }
-    }
-
-    // MARK: - Row
-
-    private func injuryRowContent(_ injury: AthleteInjury) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(injury.zone.label)
-                    .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
+        case let .datos(injuries) where injuries.isEmpty:
+            PantallaPerfil(titulo: "Molestias", alto: .llena) { vacio }
+        case let .datos(injuries):
+            PantallaPerfil(titulo: "Molestias") {
+                Text(hasCoach
+                     ? "Si algo te molesta, repórtalo. \(coachLabel.conMayusculaInicial) ajusta tu carga para que entrenes sin arriesgar."
+                     : "Si algo te molesta, regístralo. Ver cómo evoluciona te ayuda a ajustar tu carga y entrenar sin arriesgar.")
+                    .papel(.cuerpo)
                     .foregroundStyle(Theme.Color.foreground)
-                injurySubtitle(injury)
+                    .fixedSize(horizontal: false, vertical: true)
+                let activas = injuries.filter(\.isOpen)
+                let resueltas = injuries.filter { !$0.isOpen }
+                if !activas.isEmpty { seccion("Activas", activas) }
+                if !resueltas.isEmpty { seccion("Historial", resueltas) }
             }
-            Spacer(minLength: 8)
-            injuryTrailing(injury)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.Color.faint)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 13)
-        .contentShape(Rectangle())
+    }
+
+    /// Nada que reportar es BUENA noticia: el sujeto es el tono de «hecho», con la salida de reportar si algo se tuerce.
+    private var vacio: some View {
+        SujetoDia(tono: .ok, etiqueta: "Sin molestias registradas") {
+            KickerDia("Molestias")
+            TituloDia("Sin molestias registradas")
+            ApoyoDia(hasCoach
+                     ? "Cuando algo te moleste o te lesiones, repórtalo aquí. \(coachLabel.conMayusculaInicial) lo tendrá en cuenta al preparar tu semana."
+                     : "Cuando algo te moleste o te lesiones, regístralo aquí. Así sabes qué arrastras y cómo evoluciona.")
+        } abajo: {
+            Button {
+                Haptics.light()
+                alReportar()
+            } label: {
+                AccionDia("Reportar molestia", glifo: .mas)
+            }
+            .buttonStyle(PressScaleStyle(escala: 0.96))
+        }
+    }
+
+    private func seccion(_ titulo: String, _ filas: [AthleteInjury]) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            TituloSeccionDia(titulo)
+            GrupoPerfil {
+                ForEach(filas) { injury in
+                    NavigationLink {
+                        destino(injury)
+                    } label: {
+                        FilaDeMolestia(injury: injury)
+                    }
+                    .filaTocablePerfil()
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Una fila
+
+private struct FilaDeMolestia: View {
+    let injury: AthleteInjury
+
+    var body: some View {
+        FilaPerfil(
+            titulo: injury.zone.label,
+            detalle: detalle,
+            marca: injury.status == .resuelta ? nil : injury.status.marca
+        ) {
+            HStack(spacing: Theme.Spacing.s) {
+                if injury.status == .resuelta {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(Theme.Color.ok)
+                        .accessibilityHidden(true)
+                } else {
+                    PastillaConMarcaPerfil(texto: injury.severity.label, marca: injury.severity.marca)
+                }
+                ChevronDeFilaPerfil()
+            }
+        }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(injuryAccessibility(injury))
+        .accessibilityLabel(Self.accesible(injury))
         .accessibilityAddTraits(.isButton)
     }
 
-    @ViewBuilder
-    private func injurySubtitle(_ injury: AthleteInjury) -> some View {
-        if injury.status == .resuelta {
-            Text(historyResolvedText(injury))
-                .scaledFont(12, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.muted)
-                .lineLimit(1)
-        } else {
-            HStack(spacing: 6) {
-                Circle().fill(injury.status.uiColor).frame(width: 6, height: 6)
-                Text("\(injury.status.label) · \(InjuryDateText.since(injury.onsetDate))")
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-                    .lineLimit(1)
-            }
-        }
+    private var detalle: String {
+        injury.status == .resuelta
+            ? Self.resuelta(injury)
+            : "\(injury.status.label) · \(InjuryDateText.since(injury.onsetDate))"
     }
 
-    @ViewBuilder
-    private func injuryTrailing(_ injury: AthleteInjury) -> some View {
-        if injury.status == .resuelta {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Theme.Color.ok)
-                .accessibilityHidden(true)
-        } else {
-            InjurySeverityChip(severity: injury.severity)
-        }
-    }
-
-    private func historyResolvedText(_ injury: AthleteInjury) -> String {
+    static func resuelta(_ injury: AthleteInjury) -> String {
         if let d = InjuryDateText.shortDate(injury.resolvedDate) {
             return "\(injury.severity.label) · resuelta el \(d)"
         }
         return "\(injury.severity.label) · resuelta"
     }
 
-    private func injuryAccessibility(_ injury: AthleteInjury) -> String {
+    static func accesible(_ injury: AthleteInjury) -> String {
         if injury.status == .resuelta {
-            return "\(injury.zone.label), \(historyResolvedText(injury))"
+            return "\(injury.zone.label), \(resuelta(injury))"
         }
         return "\(injury.zone.label), \(injury.status.label), gravedad \(injury.severity.label), \(InjuryDateText.since(injury.onsetDate))"
-    }
-
-    // MARK: - Empty / error states
-
-    // The empty + error states used to be hand-rolled copies of the shared empty
-    // state whose only way out was a 13pt text link — the same size as the
-    // paragraph above it. They are the shared component now, so the exit is a
-    // real button and the block centres in (and scrolls within) the screen.
-    private var emptyState: some View {
-        CenteredScreen {
-            RedesignEmptyState(
-                symbol: "checkmark.shield",
-                title: "Sin molestias registradas",
-                message: hasCoach
-                    ? "Cuando algo te moleste o te lesiones, repórtalo aquí. \(coachLabel.capitalizedFirst) lo tendrá en cuenta al preparar tu semana."
-                    : "Cuando algo te moleste o te lesiones, regístralo aquí. Así sabes qué arrastras y cómo evoluciona.",
-                exit: .action(title: "Reportar molestia") {
-                    Haptics.light()
-                    showReport = true
-                },
-                // Nothing to report is GOOD news — the shield says so in green.
-                symbolColor: Theme.Color.ok
-            )
-        }
-    }
-
-    private var errorState: some View {
-        CenteredScreen {
-            RedesignEmptyState(
-                symbol: "arrow.clockwise",
-                title: "No pudimos cargar tus molestias",
-                message: "Revisa tu conexión e inténtalo de nuevo.",
-                exit: .action(title: "Reintentar") { Task { await load() } }
-            )
-        }
-    }
-
-    // MARK: - Load
-
-    private func load() async {
-        guard let bearer else { loading = false; failed = true; return }
-        loading = true
-        failed = false
-        do {
-            injuries = try await InjuryService.fetch(bearer: bearer)
-        } catch {
-            failed = true
-        }
-        loading = false
-    }
-}
-
-// MARK: - Report sheet
-
-// The athlete self-reports a new episode. Fields map 1:1 to the coach's register
-// dialog's athlete-facing subset: Zona (required) · Gravedad (required, default
-// Leve) · ¿Desde cuándo? (defaults to today) · una nota libre para el coach.
-private struct ReportInjurySheet: View {
-    let bearer: String?
-    let coachName: String?
-    /// FREE: the note is the athlete's own record, not a message to a coach.
-    var hasCoach: Bool = true
-    let onSaved: () async -> Void
-
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var zone: InjuryZone? = nil
-    @State private var severity: InjurySeverity = .leve
-    @State private var onsetDate: Date = Date()
-    @State private var note: String = ""
-    @State private var saving = false
-    @State private var errorText: String? = nil
-
-    private var canSave: Bool { zone != nil && !saving }
-    private var coachLabel: String { (coachName?.isEmpty == false) ? coachName! : "tu coach" }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-                    field(title: "Zona", required: true) {
-                        SingleChipFlow(
-                            options: InjuryZone.allCases,
-                            label: { $0.label },
-                            selection: $zone
-                        )
-                    }
-                    field(title: "Gravedad", required: true) {
-                        SeveritySegment(selection: $severity)
-                    }
-                    field(title: "¿Desde cuándo?", required: false) {
-                        onsetRow
-                    }
-                    field(title: hasCoach ? "Cuéntale a \(coachLabel)" : "Apunta lo que notas", required: false) {
-                        NoteEditor(text: $note, placeholder: "Cómo empezó, qué notas, qué lo empeora… (opcional)")
-                    }
-                    if let errorText { InjuryErrorLine(text: errorText) }
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xxl)
-            }
-            .background(Theme.Color.background.ignoresSafeArea())
-            .navigationTitle("Reportar molestia")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancelar") { dismiss() }
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-            .anchoredAction {
-                ExpertPrimaryButton(
-                    title: saving ? "ENVIANDO…" : "ENVIAR",
-                    height: 46,
-                    enabled: canSave,
-                    action: send
-                )
-            }
-        }
-    }
-
-    private var onsetRow: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            CardSurface(padding: 0) {
-                HStack(spacing: 12) {
-                    Text("Fecha")
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.muted)
-                    Spacer()
-                    DatePicker("", selection: $onsetDate, in: ...Date(), displayedComponents: .date)
-                        .labelsHidden()
-                        .datePickerStyle(.compact)
-                        .tint(Theme.Color.accentText)
-                        .accessibilityLabel("Fecha de inicio de la molestia")
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-            }
-            Text("Si no lo sabes exacto, déjalo en hoy.")
-                .scaledFont(11, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.faint)
-        }
-    }
-
-    @ViewBuilder
-    private func field<Content: View>(
-        title: String,
-        required: Bool,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            HStack(spacing: 6) {
-                SectionLabel(text: title)
-                if required { RequiredBadge() }
-            }
-            content()
-        }
-    }
-
-    private func send() {
-        guard let bearer, let zone, !saving else { return }
-        saving = true
-        errorText = nil
-        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
-        let body = InjuryCreateBody(
-            zone: zone,
-            severity: severity,
-            onsetDate: InjuryDateText.wireDate(onsetDate),
-            note: trimmed.isEmpty ? nil : trimmed
-        )
-        Task { @MainActor in
-            do {
-                _ = try await InjuryService.report(bearer: bearer, body: body)
-                Haptics.success()
-                await onSaved()
-                dismiss()
-            } catch {
-                Haptics.error()
-                errorText = "No pudimos enviar tu reporte. Revisa tu conexión e inténtalo de nuevo."
-                saving = false
-            }
-        }
-    }
-}
-
-// MARK: - Evolution detail
-
-// Tap an injury → its evolution. An OPEN episode shows the valid state-machine
-// transitions + a note (PATCH /athlete/injuries/[id]); a RESOLVED one is read-only
-// history. Both show the coach's estimated return (when set) and the full
-// injury_updates timeline (coach + athlete entries).
-struct InjuryDetailView: View {
-    let bearer: String?
-    let coachName: String?
-    /// FREE: updates are the athlete's own follow-up, never a note to a coach.
-    let hasCoach: Bool
-    let onChanged: () async -> Void
-
-    @State private var injury: AthleteInjury
-    @State private var selectedTransition: InjuryStatus? = nil
-    @State private var note: String = ""
-    @State private var saving = false
-    @State private var errorText: String? = nil
-
-    init(
-        injury: AthleteInjury,
-        bearer: String?,
-        coachName: String?,
-        hasCoach: Bool = true,
-        onChanged: @escaping () async -> Void
-    ) {
-        _injury = State(initialValue: injury)
-        self.bearer = bearer
-        self.coachName = coachName
-        self.hasCoach = hasCoach
-        self.onChanged = onChanged
-    }
-
-    private var coachLabel: String { (coachName?.isEmpty == false) ? coachName! : "tu coach" }
-
-    private var canSave: Bool {
-        guard injury.isOpen, !saving else { return false }
-        return selectedTransition != nil || !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    summaryCard
-                    if injury.isOpen { updateCard }
-                    timelineCard
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xxl)
-            }
-        }
-        .navigationTitle(injury.zone.label)
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    // MARK: Summary
-
-    private var summaryCard: some View {
-        CardSurface {
-            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                HStack(spacing: 8) {
-                    InjuryStatusChip(status: injury.status)
-                    InjurySeverityChip(severity: injury.severity)
-                    Spacer(minLength: 0)
-                }
-                Text(summaryTemporal)
-                    .scaledFont(13, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-                if injury.isOpen, let ret = InjuryDateText.shortDate(injury.expectedReturn) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "calendar.badge.clock")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Theme.Color.accentText)
-                        Text("\(coachLabel.capitalizedFirst) estima tu vuelta el \(ret)")
-                            .scaledFont(12, weight: .semibold, relativeTo: .caption)
-                            .foregroundStyle(Theme.Color.accentText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-        }
-    }
-
-    private var summaryTemporal: String {
-        if injury.status == .resuelta {
-            if let d = InjuryDateText.shortDate(injury.resolvedDate) { return "Resuelta el \(d)." }
-            return "Resuelta."
-        }
-        return "Registrada \(InjuryDateText.since(injury.onsetDate))."
-    }
-
-    // MARK: Update (open only)
-
-    private var updateCard: some View {
-        CardSurface {
-            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                Text("¿Cómo va?")
-                    .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text(hasCoach
-                     ? "Actualiza el estado o deja una nota para \(coachLabel)."
-                     : "Actualiza el estado o deja una nota.")
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-                FlowLayout(spacing: 8) {
-                    ForEach(injury.status.allowedTransitions) { st in
-                        Chip(title: transitionLabel(to: st), selected: selectedTransition == st) {
-                            selectedTransition = (selectedTransition == st) ? nil : st
-                        }
-                    }
-                }
-                NoteEditor(text: $note, placeholder: "Añade una nota (opcional)")
-                if let errorText { InjuryErrorLine(text: errorText) }
-                ExpertPrimaryButton(
-                    title: saving ? "GUARDANDO…" : "GUARDAR",
-                    height: 46,
-                    enabled: canSave,
-                    action: saveUpdate
-                )
-            }
-        }
-    }
-
-    /// Athlete-facing verb for a status transition (state-machine target → copy).
-    private func transitionLabel(to status: InjuryStatus) -> String {
-        switch status {
-        case .enRecuperacion: return "Voy mejor"
-        case .resuelta:       return "Ya está bien"
-        case .activa:         return "Ha vuelto a molestar"
-        }
-    }
-
-    private func saveUpdate() {
-        guard let bearer, canSave else { return }
-        saving = true
-        errorText = nil
-        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
-        let body = InjuryUpdateBody(status: selectedTransition, note: trimmed.isEmpty ? nil : trimmed)
-        Task { @MainActor in
-            do {
-                let updated = try await InjuryService.update(bearer: bearer, id: injury.id, body: body)
-                Haptics.success()
-                injury = updated
-                selectedTransition = nil
-                note = ""
-                saving = false
-                await onChanged()
-            } catch let APIError.http(status, _) {
-                Haptics.error()
-                // 409 = the state machine rejected the transition (e.g. someone
-                // else already resolved it). Surface it honestly.
-                errorText = status == 409
-                    ? "Ese cambio de estado ya no es válido. Vuelve atrás para ver el estado actual."
-                    : "No pudimos guardar el cambio. Inténtalo de nuevo."
-                saving = false
-            } catch {
-                Haptics.error()
-                errorText = "No pudimos guardar el cambio. Revisa tu conexión."
-                saving = false
-            }
-        }
-    }
-
-    // MARK: Timeline
-
-    private var timelineCard: some View {
-        CardSurface {
-            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                Text("Evolución")
-                    .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
-                    .foregroundStyle(Theme.Color.foreground)
-                VStack(alignment: .leading, spacing: 0) {
-                    // Synthetic first entry: the original report.
-                    timelineEntry(
-                        icon: "flag",
-                        title: "Molestia reportada",
-                        who: injury.registeredByCoach ? coachLabel.capitalizedFirst : "Tú",
-                        when: InjuryDateText.shortDate(injury.onsetDate),
-                        detail: injury.note,
-                        tint: Theme.Color.muted
-                    )
-                    ForEach(Array(injury.updates.enumerated()), id: \.element.id) { _, u in
-                        Hairline().padding(.vertical, Theme.Spacing.s)
-                        timelineEntry(
-                            icon: u.status != nil ? "arrow.triangle.turn.up.right.circle" : "text.bubble",
-                            title: u.status.map { "Pasó a \($0.label)" } ?? "Nota",
-                            who: u.recordedByCoach ? coachLabel.capitalizedFirst : "Tú",
-                            when: InjuryDateText.shortDate(u.recordedAt),
-                            detail: u.note,
-                            tint: u.status?.uiColor ?? Theme.Color.muted
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private func timelineEntry(
-        icon: String,
-        title: String,
-        who: String,
-        when: String?,
-        detail: String?,
-        tint: Color
-    ) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(tint)
-                .frame(width: 18)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(title)
-                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Spacer(minLength: 4)
-                    if let when {
-                        Text(when)
-                            .scaledFont(11, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.faint)
-                    }
-                }
-                Text(who)
-                    .scaledFont(11, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.muted)
-                if let detail, !detail.isEmpty {
-                    Text(detail)
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 1)
-                }
-            }
-        }
-        .padding(.vertical, Theme.Spacing.xs)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-// MARK: - Shared small components
-
-/// Severity pill (color + label — never color alone). leve → amber, moderada →
-/// orange, severa → red, on the existing semantic tokens.
-private struct InjurySeverityChip: View {
-    let severity: InjurySeverity
-    var body: some View {
-        Text(severity.label)
-            .font(.system(size: 10, weight: .semibold))
-            .tracking(1.2)
-            .foregroundStyle(severity.uiColor)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(severity.uiColor.opacity(0.15))
-            .clipShape(Capsule())
-            .accessibilityLabel("Gravedad \(severity.label)")
-    }
-}
-
-/// Status pill with a leading dot. activa → red, en recuperación → amber,
-/// resuelta → green.
-private struct InjuryStatusChip: View {
-    let status: InjuryStatus
-    var body: some View {
-        HStack(spacing: 5) {
-            Circle().fill(status.uiColor).frame(width: 6, height: 6)
-            Text(status.label)
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.2)
-                .foregroundStyle(status.uiColor)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(status.uiColor.opacity(0.15))
-        .clipShape(Capsule())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Estado \(status.label)")
-    }
-}
-
-/// Small "Obligatorio" marker next to a required field label.
-private struct RequiredBadge: View {
-    var body: some View {
-        Text("Obligatorio")
-            .font(.system(size: 9, weight: .semibold))
-            .tracking(0.8)
-            .foregroundStyle(Theme.Color.accentText)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(Theme.Color.accentText.opacity(0.12))
-            .clipShape(Capsule())
-    }
-}
-
-/// Inline error line (icon + red text). Shared by the report sheet and the
-/// evolution card.
-private struct InjuryErrorLine: View {
-    let text: String
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.Color.danger)
-            Text(text)
-                .scaledFont(12, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.danger)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-}
-
-/// On-brand segmented control for Gravedad — a recessed track with the active
-/// segment on the Fabrik-orange pill (accentOn text = the valid 4.57:1 pairing),
-/// inactive segments muted. Mirrors the Perfil "Apariencia" control.
-private struct SeveritySegment: View {
-    @Binding var selection: InjurySeverity
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(InjurySeverity.allCases) { sev in
-                segment(sev)
-            }
-        }
-        .padding(4)
-        .background(Theme.Color.surfaceSunken)
-        .clipShape(Capsule())
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Gravedad")
-    }
-
-    private func segment(_ sev: InjurySeverity) -> some View {
-        let active = selection == sev
-        return Button {
-            guard !active else { return }
-            Haptics.light()
-            withAnimation(.easeInOut(duration: 0.18)) { selection = sev }
-        } label: {
-            Text(sev.label)
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                .foregroundStyle(active ? Theme.Color.accentOn : Theme.Color.muted)
-                .frame(maxWidth: .infinity)
-                .frame(height: 34)
-                .background { if active { Capsule().fill(Theme.Color.accent) } }
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(sev.label)
-        .accessibilityAddTraits(active ? [.isSelected, .isButton] : .isButton)
-    }
-}
-
-/// Multi-line note field with a placeholder overlay and a character counter,
-/// capped at `maxChars` (server enforces ≤2000). Surface fill + hairline border,
-/// accent border while focused.
-private struct NoteEditor: View {
-    @Binding var text: String
-    var placeholder: String
-    var maxChars: Int = 2000
-
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ZStack(alignment: .topLeading) {
-                if text.isEmpty {
-                    Text(placeholder)
-                        .scaledFont(14, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.faint)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 14)
-                        .allowsHitTesting(false)
-                }
-                TextEditor(text: $text)
-                    .scaledFont(14, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .tint(Theme.Color.accentText)
-                    .scrollContentBackground(.hidden)
-                    .frame(minHeight: 96)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .focused($focused)
-                    .onChange(of: text) { _, new in
-                        if new.count > maxChars { text = String(new.prefix(maxChars)) }
-                    }
-            }
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(focused ? Theme.Color.accentText.opacity(0.5) : Theme.Color.hairlineStrong, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            HStack {
-                Spacer()
-                Text("\(text.count)/\(maxChars)")
-                    .scaledFont(11, relativeTo: .caption2)
-                    .foregroundStyle(Theme.Color.faint)
-                    .accessibilityHidden(true)
-            }
-        }
-    }
-}
-
-// MARK: - Semantic color mapping (UI concern — kept out of the Foundation model)
-
-private extension InjurySeverity {
-    /// leve → amber (warning), moderada → orange (accentText), severa → red (danger).
-    var uiColor: Color {
-        switch self {
-        case .leve:     return Theme.Color.warning
-        case .moderada: return Theme.Color.accentText
-        case .severa:   return Theme.Color.danger
-        }
-    }
-}
-
-private extension InjuryStatus {
-    /// activa → red (danger), en recuperación → amber (warning), resuelta → green (ok).
-    var uiColor: Color {
-        switch self {
-        case .activa:         return Theme.Color.danger
-        case .enRecuperacion: return Theme.Color.warning
-        case .resuelta:       return Theme.Color.ok
-        }
-    }
-}
-
-private extension String {
-    /// Capitalizes only the first character (keeps a real coach name intact,
-    /// turns the "tu coach" fallback into "Tu coach" at a sentence start).
-    var capitalizedFirst: String {
-        isEmpty ? self : prefix(1).uppercased() + dropFirst()
     }
 }

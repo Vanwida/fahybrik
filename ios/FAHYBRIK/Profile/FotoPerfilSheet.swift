@@ -70,29 +70,13 @@ struct FotoPerfilSheet: View {
     private var hayFoto: Bool { fotoActual != nil }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.Color.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(spacing: Theme.Spacing.l) {
-                        cabecera
-                        previsualizacion
-                        estadoActual
-                        acciones
-                    }
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.top, Theme.Spacing.l)
-                    .padding(.bottom, Theme.Spacing.xxl)
-                }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cerrar") { dismiss() }
-                        .foregroundStyle(Theme.Color.muted)
-                        .disabled(ocupado)
-                }
-            }
+        PantallaPerfil(titulo: "Ponle cara a tu perfil", sobretitulo: "Tu foto", cierre: .cerrar, cierreActivo: !ocupado) {
+            NotaPerfil("Se ve en tu perfil y en tu inicio. Puedes cambiarla o quitarla cuando quieras.")
+            previsualizacion
+                .frame(maxWidth: .infinity)
+            estadoActual
+        } pie: {
+            acciones
         }
         .interactiveDismissDisabled(ocupado)
         .photosPicker(
@@ -125,20 +109,6 @@ struct FotoPerfilSheet: View {
 
     // MARK: - Piezas
 
-    private var cabecera: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LabelText(text: "TU FOTO", color: Theme.Color.accentText)
-            Text("Ponle cara a tu perfil")
-                .font(Theme.Typography.headlineS)
-                .foregroundStyle(Theme.Color.foreground)
-            Text("Se ve en tu perfil y en tu inicio. Puedes cambiarla o quitarla cuando quieras.")
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.Color.muted)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     /// El círculo grande. Debajo siempre el avatar de siempre (iniciales o
     /// silueta), y encima la foto: la recién elegida si la hay, si no la que ya
     /// tiene guardada. Así nunca se ve un hueco.
@@ -146,8 +116,7 @@ struct FotoPerfilSheet: View {
         ZStack {
             Circle().fill(Theme.Color.accent)
             if iniciales.isEmpty {
-                Image(systemName: "person.fill")
-                    .font(.system(size: Self.diametroPrevia * 0.42, weight: .semibold))
+                IconoDia(.silueta, tam: Self.diametroPrevia * 0.42, peso: .semibold)
                     .foregroundStyle(Theme.Color.accentOn)
             } else {
                 Text(iniciales)
@@ -166,7 +135,7 @@ struct FotoPerfilSheet: View {
                 AvatarPhoto(url: fotoActual)
             }
         }
-        .overlay(Circle().stroke(Theme.Color.hairline, lineWidth: 1))
+        .overlay(Circle().strokeBorder(Theme.Color.hairlineStrong, lineWidth: 1))
         .accessibilityHidden(true)
     }
 
@@ -177,13 +146,14 @@ struct FotoPerfilSheet: View {
             EmptyView()
         case .elegida:
             Text("Así se va a ver. Guárdala para dejarla puesta.")
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.Color.muted)
+                .papel(.cuerpo)
+                .foregroundStyle(Theme.Color.foreground)
                 .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
         case .preparando:
             trabajando("Preparando la foto…")
         case .subiendo(let avance):
-            VStack(spacing: 8) {
+            VStack(spacing: Theme.Spacing.s) {
                 trabajando("Subiendo tu foto… \(Int((avance * 100).rounded()))%")
                 ProgressView(value: avance)
                     .tint(Theme.Color.accent)
@@ -193,88 +163,60 @@ struct FotoPerfilSheet: View {
         case .quitando:
             trabajando("Quitando la foto…")
         case .hecho(let texto):
-            HStack(spacing: 8) {
+            HStack(spacing: Theme.Spacing.s) {
                 Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(Theme.Color.ok)
-                Text(texto)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
+                    .accessibilityHidden(true)
+                Text(texto).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
             }
+            .frame(maxWidth: .infinity)
         case .error(let motivo):
-            VStack(spacing: 10) {
-                Text(motivo)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.Color.danger)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+            VStack(spacing: Theme.Spacing.s) {
+                AvisoEnLineaPerfil(tono: .peligro, texto: motivo)
                 // Reintentar NO obliga a volver a elegir la foto: los bytes ya
                 // preparados siguen aquí.
                 if jpeg != nil {
-                    Button("Reintentar") { Task { await guardar() } }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
+                    AccionTextoPerfil(titulo: "Reintentar") { Task { await guardar() } }
                 }
             }
         }
     }
 
     private func trabajando(_ texto: String) -> some View {
-        HStack(spacing: 10) {
-            ProgressView().controlSize(.small)
-            Text(texto)
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.Color.muted)
+        HStack(spacing: Theme.Spacing.m) {
+            ProgressView()
+            Text(texto).papel(.cuerpo).foregroundStyle(Theme.Color.muted)
         }
+        .frame(maxWidth: .infinity)
     }
 
+    /// Las acciones, ancladas abajo: UNA principal según dónde esté el atleta (elegir, guardar) y, debajo, lo que
+    /// pesa menos. Con algo en marcha nada se puede tocar.
     @ViewBuilder
     private var acciones: some View {
         // Ya guardada: no queda nada que ofrecer, la hoja se aparta sola.
         if case .hecho = estado {
             EmptyView()
         } else {
-            VStack(spacing: 12) {
+            VStack(spacing: Theme.Spacing.xs) {
                 if previa != nil {
-                    ExpertPrimaryButton(title: "GUARDAR FOTO", enabled: !ocupado) {
+                    AccionAncladaPerfil(titulo: "Guardar foto", habilitada: !ocupado) {
                         Task { await guardar() }
                     }
-                    Button("Elegir otra") { descartarElegida() }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.accentText)
+                    AccionTextoPerfil(titulo: "Elegir otra") { descartarElegida() }
                         .disabled(ocupado)
                 } else {
-                    ExpertPrimaryButton(title: "ELEGIR DE LA GALERÍA", enabled: !ocupado) {
+                    AccionAncladaPerfil(titulo: "Elegir de la galería", habilitada: !ocupado) {
                         mostrandoGaleria = true
                     }
                     if camaraDisponible {
-                        Button {
-                            Haptics.light()
-                            mostrarCamara = true
-                        } label: {
-                            Text("Hacer una foto")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(Theme.Color.foreground)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 50)
-                                .background(Theme.Color.surface)
-                                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                                        .stroke(Theme.Color.outline, lineWidth: 1)
-                                )
-                        }
-                        .buttonStyle(PressScaleStyle())
-                        .disabled(ocupado)
+                        AccionTextoPerfil(titulo: "Hacer una foto") { mostrarCamara = true }
+                            .disabled(ocupado)
                     }
                     if hayFoto {
-                        Button("Quitar foto") {
-                            Haptics.light()
-                            confirmarQuitar = true
-                        }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.danger)
-                        .disabled(ocupado)
-                        .padding(.top, Theme.Spacing.xs)
+                        AccionTextoPerfil(titulo: "Quitar foto", peligro: true) { confirmarQuitar = true }
+                            .disabled(ocupado)
                     }
                 }
             }

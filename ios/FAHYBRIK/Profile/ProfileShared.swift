@@ -18,19 +18,18 @@ extension View {
 
 // MARK: - Theme mode segmented control
 //
-// On-brand segmented control for the appearance override — a recessed track with
-// the active segment lifted on the Fabrik-orange pill (accentOn text = the valid
-// 4.57:1 brown-on-orange pairing), inactive segments muted.
+// El selector de apariencia: un carril hundido con el segmento activo levantado en el acento del club
+// (con su tinta encima) y los demás en apoyo. Cada segmento es un objetivo de 44 pt.
 struct ThemeModePicker: View {
     @Binding var selection: ThemeMode
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Theme.Spacing.xs) {
             ForEach(ThemeMode.allCases) { mode in
                 segment(mode)
             }
         }
-        .padding(4)
+        .padding(Theme.Spacing.xs)
         .background(Theme.Color.surfaceSunken)
         .clipShape(Capsule())
         .accessibilityElement(children: .contain)
@@ -45,10 +44,10 @@ struct ThemeModePicker: View {
             withAnimation(.easeInOut(duration: 0.18)) { selection = mode }
         } label: {
             Text(mode.label)
-                .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                .papel(.notaFuerte)
                 .foregroundStyle(active ? Theme.Color.accentOn : Theme.Color.muted)
                 .frame(maxWidth: .infinity)
-                .frame(height: 34)
+                .frame(minHeight: 44)
                 .background {
                     if active {
                         Capsule().fill(Theme.Color.accent)
@@ -62,57 +61,48 @@ struct ThemeModePicker: View {
     }
 }
 
-// MARK: - Sheet content
+// MARK: - Hojas de lectura
 
+/// «Cómo se construye tu plan»: lo que hace el coach, en tres ideas.
 struct MethodologySheet: View {
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Cómo se construye tu plan")
-                        .font(Theme.Typography.headlineS)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("Tu coach diseña tu entrenamiento en microciclos: bloques de varias semanas, cada uno con un objetivo. El nombre y el foco de cada microciclo los decide tu coach según tu nivel y tu carrera.")
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.foreground)
-                    principleCard(
-                        title: "Microciclos",
-                        text: "Bloques de varias semanas con un foco concreto. Avanzas de uno al siguiente conforme te acercas a tu carrera."
-                    )
-                    principleCard(
-                        title: "Semana a semana",
-                        text: "Cada semana se publica cuando le toca. Te centras en lo que tienes delante, no en el plan entero de golpe."
-                    )
-                    principleCard(
-                        title: "Se adapta a ti",
-                        text: "Tu coach revisa cómo respondes —carga, recuperación, resultados— y ajusta lo que viene."
-                    )
-                    Text("El nombre de tu microciclo actual y la semana en la que estás los fija tu coach, y los ves en la pestaña Plan.")
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                .padding(20)
-                .clampedToContainerWidth()
+        PantallaPerfil(titulo: "Cómo se construye tu plan", cierre: .cerrar) {
+            Text("Tu coach diseña tu entrenamiento en microciclos: bloques de varias semanas, cada uno con un objetivo. El nombre y el foco de cada microciclo los decide tu coach según tu nivel y tu carrera.")
+                .papel(.cuerpo)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+            GrupoPerfil {
+                principio(
+                    titulo: "Microciclos",
+                    texto: "Bloques de varias semanas con un foco concreto. Avanzas de uno al siguiente conforme te acercas a tu carrera."
+                )
+                principio(
+                    titulo: "Semana a semana",
+                    texto: "Cada semana se publica cuando le toca. Te centras en lo que tienes delante, no en el plan entero de golpe."
+                )
+                principio(
+                    titulo: "Se adapta a ti",
+                    texto: "Tu coach revisa cómo respondes —carga, recuperación, resultados— y ajusta lo que viene."
+                )
             }
+            NotaPerfil("El nombre de tu microciclo actual y la semana en la que estás los fija tu coach, y los ves en la pestaña Plan.")
         }
-        .dismissableSheet()
     }
 
-    private func principleCard(title: String, text: String) -> some View {
-        CardSurface(padding: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .scaledFont(14, weight: .heavy, relativeTo: .subheadline)
-                    .foregroundStyle(Theme.Color.accentText)
-                Text(text)
-                    .scaledFont(12, relativeTo: .caption)
-                    .foregroundStyle(Theme.Color.muted)
-            }
+    private func principio(titulo: String, texto: String) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Text(titulo).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+            Text(texto)
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.l)
     }
 }
 
+/// Quién es tu coach y qué hace por tu plan.
 struct CoachSheet: View {
     let coachName: String?
 
@@ -124,67 +114,40 @@ struct CoachSheet: View {
     }
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack(spacing: 14) {
-                        ZStack {
-                            Circle().fill(Theme.Color.surface).frame(width: 64, height: 64)
-                            if let initial {
-                                Text(initial)
-                                    .font(.system(size: 20, weight: .heavy, design: .default).italic())
-                                    .foregroundStyle(Theme.Color.foreground)
-                            } else {
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 22, weight: .semibold))
-                                    .foregroundStyle(Theme.Color.muted)
-                            }
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(displayName)
-                                .font(Theme.Typography.headlineS)
-                                .foregroundStyle(Theme.Color.foreground)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Text("Coach")
-                                .scaledFont(12, relativeTo: .caption)
-                                .foregroundStyle(Theme.Color.muted)
-                        }
-                    }
-                    Text("\(displayName) escribe la metodología detrás de tu plan. Cada workout que ves se basa en una plantilla validada por tu coach, ajustada a tu CTL/ATL/TSB y a tus weaknesses por estación.")
-                        .scaledFont(12, relativeTo: .caption)
-                        .foregroundStyle(Theme.Color.foreground)
-                }
-                .padding(20)
-                .clampedToContainerWidth()
+        PantallaPerfil(titulo: displayName, sobretitulo: "Coach", cierre: .cerrar) {
+            avatar
+            Text("\(displayName) escribe la metodología detrás de tu plan. Cada entreno que ves se basa en una plantilla validada por tu coach, ajustada a tu carga de entrenamiento, a cómo llegas cada día y a tus puntos débiles en cada estación.")
+                .papel(.cuerpo)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// La inicial de tu coach en un círculo (sin nombre, la silueta).
+    private var avatar: some View {
+        ChapitaDia(tam: 64) {
+            if let initial {
+                Text(initial).papel(.dato)
+            } else {
+                IconoDia(.silueta, tam: 26)
             }
         }
-        .dismissableSheet()
     }
 }
 
+/// Un texto legal a pantalla entera: términos, política.
 struct LegalSheet: View {
     let title: String
     let bodyText: String
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(title)
-                        .font(Theme.Typography.headlineS)
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text(bodyText)
-                        .scaledFont(13, relativeTo: .footnote)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(20)
-                .clampedToContainerWidth()
-            }
+        PantallaPerfil(titulo: title, cierre: .cerrar) {
+            Text(bodyText)
+                .papel(.cuerpo)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .dismissableSheet()
     }
 }
 

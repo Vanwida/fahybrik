@@ -1,39 +1,35 @@
 import SwiftUI
 
-// "Mi fuerza" — the athlete sees their OWN strength maxes (1RM per lift), the
-// same way the coach reads them. Powered by GET /api/athlete/benchmarks
-// (read-only) + POST /api/athlete/strength-test (self-enter a rep test).
+// «MI FUERZA» — el atleta ve sus PROPIOS máximos (el 1RM de cada levantamiento), igual que los lee su coach.
+// Sale de GET /api/athlete/benchmarks (solo lectura) + POST /api/athlete/strength-test (registrar un test).
 //
-// Honest states (mirrors MyZonesView): a spinner while loading, a clear empty
-// state when the athlete hasn't tested yet (no fabricated maxes), and an error
-// state with a retry when the fetch fails. The 1RM shown is always the SERVER's
-// stored value — the register sheet shows an instant Epley preview, but the
-// authoritative number comes back from the backend.
+// Estados honestos (los de «Mis zonas»): esqueleto con la forma de la lista mientras carga, un vacío con
+// su salida cuando aún no hay test (ni un máximo inventado) y un error con su reintento cuando falla la
+// carga. El 1RM que se enseña es SIEMPRE el guardado por el servidor: la hoja de registrar enseña una
+// estimación Epley al instante, pero el número de verdad vuelve del backend.
 //
-// AQUÍ SE QUEDA QUIÉN ERES, NO CÓMO HAS CAMBIADO. La evolución de cada 1RM
-// (curva + delta) vivía en esta pantalla, tres toques por debajo de Perfil, que
-// es donde nadie va a preguntarse si está progresando. Se ha ido a Analíticas ›
-// Fuerza, que es la pestaña que existe para esa pregunta — la misma regla que
-// puso el VO₂máx en Analíticas dejando su número en Perfil. Lo que queda aquí es
-// el peso de hoy, que es el que gobierna los porcentajes del próximo entreno.
+// AQUÍ SE QUEDA QUIÉN ERES, NO CÓMO HAS CAMBIADO. La evolución de cada 1RM (curva + delta) vive en
+// Analíticas › Fuerza, que es la pestaña que existe para esa pregunta: lo que queda aquí es el peso de hoy,
+// que es el que gobierna los porcentajes del próximo entreno.
+//
+// La vista se parte en CONTENEDOR (pide los datos) y `MyStrengthCuerpo` (pinta un estado ya resuelto), para
+// poder montarla con datos de ejemplo en las `#Preview` y en la galería.
+
 struct MyStrengthView: View {
     let bearer: String?
     /// FREE tier switch (athlete without coach) — the register-test note must
     /// not name a coach that does not exist.
     var hasCoach: Bool = true
 
-    @State private var maxes: [StrengthMaxProfile] = []
-    @State private var loading = true
-    @State private var failed = false
+    @State private var carga: CargaDePantallaPerfil<[StrengthMaxProfile]> = .cargando
     @State private var showRegister = false
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            content
-        }
-        .navigationTitle("Mi fuerza")
-        .navigationBarTitleDisplayMode(.inline)
+        MyStrengthCuerpo(
+            carga: carga,
+            alRegistrar: { showRegister = true },
+            alReintentar: { Task { await load() } }
+        )
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -51,323 +47,131 @@ struct MyStrengthView: View {
         .task { await load() }
     }
 
-    @ViewBuilder
-    private var content: some View {
-        if loading {
-            ProgressView()
-                .tint(Theme.Color.accentText)
-        } else if failed {
-            errorState
-        } else if maxes.isEmpty {
-            emptyState
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    intro
-                    ForEach(maxes) { lift in
-                        liftCard(lift)
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xxl)
+    private func load() async {
+        guard let bearer else { carga = .error; return }
+        // Un reintento vuelve a esqueleto; un refresco con datos ya pintados no los tapa.
+        if case .error = carga { carga = .cargando }
+        do {
+            carga = .datos(try await StrengthService.fetch(bearer: bearer))
+        } catch {
+            carga = .error
+        }
+    }
+}
+
+/// Lo que se pinta de «Mi fuerza» con el estado ya resuelto.
+struct MyStrengthCuerpo: View {
+    let carga: CargaDePantallaPerfil<[StrengthMaxProfile]>
+    var alRegistrar: () -> Void = {}
+    var alReintentar: () -> Void = {}
+
+    var body: some View {
+        switch carga {
+        case .cargando:
+            PantallaPerfil(titulo: "Mi fuerza") { EsqueletoDeFilasPerfil(filas: 4, conFicha: false) }
+        case .error:
+            PantallaPerfil(titulo: "Mi fuerza", alto: .llena) {
+                ErrorDePantallaPerfil(kicker: "Mi fuerza", titulo: "No pudimos cargar tu fuerza", alReintentar: alReintentar)
             }
-        }
-    }
-
-    // MARK: - Intro
-
-    private var intro: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Tu fuerza máxima por levantamiento. Cuando un entreno te pide un % de tu 1RM, este es el peso real que te toca.")
-                .scaledFont(13, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
-                .fixedSize(horizontal: false, vertical: true)
-            // Lo que se llevó Analíticas se dice, y se dice dónde: una pantalla
-            // que pierde una lectura sin decir a dónde fue la deja huérfana.
-            Text("Cómo ha ido subiendo cada uno, en Analíticas · Fuerza.")
-                .scaledFont(12, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.faint)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    // MARK: - Lift card
-
-    private func liftCard(_ m: StrengthMaxProfile) -> some View {
-        CardSurface(padding: 0) {
-            // El levantamiento y su peso de hoy, con el origen del número debajo.
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(m.exerciseLabel)
-                        .scaledFont(16, weight: .heavy, relativeTo: .headline, italic: true)
+        case let .datos(maxes) where maxes.isEmpty:
+            PantallaPerfil(titulo: "Mi fuerza", alto: .llena) {
+                VacioDePantallaPerfil(
+                    kicker: "Mi fuerza",
+                    titulo: "Aún no has registrado tu fuerza",
+                    apoyo: "Registra un test (peso × repeticiones) y calcularemos tu 1RM al momento.",
+                    accion: ("Registrar test", .mas, alRegistrar)
+                )
+            }
+        case let .datos(maxes):
+            PantallaPerfil(titulo: "Mi fuerza") {
+                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                    Text("Tu fuerza máxima por levantamiento. Cuando un entreno te pide un % de tu 1RM, este es el peso real que te toca.")
+                        .papel(.cuerpo)
                         .foregroundStyle(Theme.Color.foreground)
-                    if let sub = sourceSubtitle(m) {
-                        Text(sub)
-                            .scaledFont(11, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.faint)
-                    }
+                        .fixedSize(horizontal: false, vertical: true)
+                    // Lo que se llevó Analíticas se dice, y se dice dónde: una pantalla que pierde una
+                    // lectura sin decir a dónde fue la deja huérfana.
+                    NotaPerfil("Cómo ha ido subiendo cada uno, en Analíticas · Fuerza.")
                 }
-                Spacer(minLength: 8)
-                Text(m.oneRmLabel)
-                    .font(.system(size: 22, weight: .heavy, design: .default).italic().monospacedDigit())
-                    .foregroundStyle(Theme.Color.accentText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                GrupoPerfil {
+                    ForEach(maxes) { FilaDeLevantamiento(max: $0) }
+                }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 13)
         }
     }
+}
 
-    /// "130 kg × 3 · 20 jun 2026" — only the parts genuinely present.
+/// Un levantamiento y su peso de hoy (el dato, a 32 pt), con el origen del número debajo.
+private struct FilaDeLevantamiento: View {
+    let max: StrengthMaxProfile
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: Theme.Spacing.m) { texto; Spacer(minLength: Theme.Spacing.s); dato }
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) { texto; dato }
+        }
+        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.vertical, Theme.Spacing.m)
+        .frame(minHeight: Theme.Size.toque + Theme.Spacing.l, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(max.exerciseLabel), \(max.oneRmLabel). \(origen ?? "")")
+    }
+
+    private var texto: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(max.exerciseLabel).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+            if let origen {
+                Text(origen).papel(.nota).foregroundStyle(Theme.Color.muted)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var dato: some View {
+        Text(max.oneRmLabel).papel(.dato).foregroundStyle(Theme.Color.foreground)
+    }
+
+    /// «130 kg × 3 · 20 jun 2026»: solo las partes que de verdad están.
     ///
-    /// El sello de origen sale cuando el número NO lo midió el propio atleta. Un
-    /// 1RM declarado al entrar llega sin peso ni repeticiones (no hubo test), así
-    /// que sin sello se pintaba con la fecha a secas — idéntico a uno que sí se
-    /// levantó. Misma grafía que en Marcas (`DataOrigin`).
-    private func sourceSubtitle(_ m: StrengthMaxProfile) -> String? {
+    /// El sello de origen sale cuando el número NO lo midió el propio atleta. Un 1RM declarado al entrar llega
+    /// sin peso ni repeticiones (no hubo test), así que sin sello se pintaba con la fecha a secas, idéntico a
+    /// uno que sí se levantó. Misma grafía que en Marcas (`DataOrigin`).
+    private var origen: String? {
         var parts: [String] = []
-        if let w = m.testWeightKg, let r = m.testReps, w > 0, r > 0 {
+        if let w = max.testWeightKg, let r = max.testReps, w > 0, r > 0 {
             parts.append("\(Int(w.rounded())) kg × \(r)")
         }
-        if let date = m.recordedDateLabel { parts.append(date) }
-        if m.source != DataOrigin.athleteTest, let origin = DataOrigin.label(m.source) {
+        if let date = max.recordedDateLabel { parts.append(date) }
+        if max.source != DataOrigin.athleteTest, let origin = DataOrigin.label(max.source) {
             parts.append(origin)
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
+}
 
-    // MARK: - Empty / error states
-
-    private var emptyState: some View {
-        CenteredScreen {
-            RedesignEmptyState(
-                symbol: "dumbbell",
-                title: "Aún no has registrado tu fuerza",
-                message: "Registra un test (peso × repeticiones) y calcularemos tu 1RM al momento.",
-                exit: .action(title: "Registrar test") { showRegister = true }
-            )
-        }
-    }
-
-    private var errorState: some View {
-        CenteredScreen {
-            RedesignEmptyState(
-                symbol: "arrow.clockwise",
-                title: "No pudimos cargar tu fuerza",
-                message: "Revisa tu conexión e inténtalo de nuevo.",
-                exit: .action(title: "Reintentar") { Task { await load() } }
-            )
-        }
-    }
-
-    // MARK: - Load
-
-    private func load() async {
-        guard let bearer else { loading = false; failed = true; return }
-        loading = true
-        failed = false
-        do {
-            maxes = try await StrengthService.fetch(bearer: bearer)
-        } catch {
-            failed = true
-        }
-        loading = false
+#if DEBUG
+extension StrengthMaxProfile {
+    /// Un máximo de ejemplo para las `#Preview` y la galería (no es un dato de producción).
+    static func ejemplo(_ slug: String, _ etiqueta: String, kg: Double, origen: String = "athlete_test", pesoTest: Double? = nil, reps: Int? = nil) -> StrengthMaxProfile {
+        var json: [String: Any] = [
+            "exercise_slug": slug, "exercise_label": etiqueta, "one_rm_kg": kg,
+            "unit": "kg", "source": origen, "history": [Any](),
+        ]
+        if let pesoTest { json["test_weight_kg"] = pesoTest }
+        if let reps { json["test_reps"] = reps }
+        // swiftlint:disable:next force_try
+        let datos = try! JSONSerialization.data(withJSONObject: json)
+        // swiftlint:disable:next force_try
+        return try! APIClient.makeJSONDecoder().decode(StrengthMaxProfile.self, from: datos)
     }
 }
 
-// "Registrar test de fuerza" — the athlete self-enters a lift + weight × reps.
-// The backend computes & stores the 1RM (the coach's formula is authoritative);
-// the live "1RM estimado" here is an instant Epley preview only. On success the
-// parent re-fetches so "Mi fuerza" reflects it.
-struct RegisterStrengthTestView: View {
-    let bearer: String?
-    /// FREE: the definitive value is stored by the app, not "tu coach".
-    var hasCoach: Bool = true
-    /// Called after a successful save so the host can re-fetch the maxes.
-    let onSaved: () async -> Void
-
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var exerciseSlug: String = StrengthService.STRENGTH_LIFTS[0].slug
-    @State private var weightKg: Double? = nil
-    /// Starts EMPTY, like the weight beside it. A stepper parked on 5 turned a real
-    /// 100×3 into 100×5 the moment the athlete didn't touch it — 116,7 kg estimated
-    /// instead of 110, and that number governs the strength % of the next plan.
-    @State private var reps: Int? = nil
-    @State private var saving = false
-    @State private var errorText: String? = nil
-
-    private let repsRange = 1...20
-    private var canSave: Bool {
-        (weightKg ?? 0) > 0 && reps.map(repsRange.contains) == true && !saving
-    }
-
-    /// "≈ 117 kg" instant Epley preview, or nil until the inputs are valid.
-    private var estimatePreview: String? {
-        guard let w = weightKg, w > 0, let reps, repsRange.contains(reps) else { return nil }
-        let est = StrengthService.estimatedOneRm(weightKg: w, reps: reps)
-        let value = Formato.esDecimal(est)
-        return "≈ \(value) kg"
-    }
-
-    /// Lo que falta para que haya estimación, dicho como el acto que lo llena
-    /// (§6.2 bis). Nil cuando ya se puede estimar.
-    private var estimateMissing: String? {
-        if let reps, !repsRange.contains(reps) {
-            return "Las repeticiones van de \(repsRange.lowerBound) a \(repsRange.upperBound)"
-        }
-        switch ((weightKg ?? 0) <= 0, reps == nil) {
-        case (true, true):   return "Escribe el peso y las repeticiones"
-        case (true, false):  return "Escribe el peso que moviste"
-        case (false, true):  return "Escribe cuántas repeticiones hiciste"
-        case (false, false): return nil
-        }
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    liftPicker
-                    testInputs
-                    estimateBlock
-
-                    if let errorText {
-                        Text(errorText)
-                            .scaledFont(12, relativeTo: .caption2)
-                            .foregroundStyle(Theme.Color.danger)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.l)
-                .padding(.bottom, Theme.Spacing.xxl)
-            }
-            .background(Theme.Color.background.ignoresSafeArea())
-            .navigationTitle("Registrar fuerza")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancelar") { dismiss() }
-                        .foregroundStyle(Theme.Color.muted)
-                }
-            }
-            .anchoredAction {
-                ExpertPrimaryButton(
-                    title: saving ? "GUARDANDO…" : "GUARDAR TEST",
-                    height: 46,
-                    enabled: canSave,
-                    action: save
-                )
-            }
-        }
-        .compactSheet()
-    }
-
-    // MARK: - Sections
-
-    private var liftPicker: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            Text("Levantamiento")
-                .font(Theme.Typography.dataLabel)
-                .uppercaseTracked()
-                .foregroundStyle(Theme.Color.muted)
-            LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)],
-                spacing: 6
-            ) {
-                ForEach(StrengthService.STRENGTH_LIFTS) { lift in
-                    Button {
-                        exerciseSlug = lift.slug
-                        Haptics.light()
-                    } label: {
-                        Text(lift.label)
-                            .scaledFont(12, weight: .semibold, relativeTo: .caption)
-                            .foregroundStyle(exerciseSlug == lift.slug ? Theme.Color.accentOn : Theme.Color.foreground)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 9)
-                            .background(exerciseSlug == lift.slug ? Theme.Color.accent : Theme.Color.surfaceElevated)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(lift.label)
-                    .accessibilityAddTraits(exerciseSlug == lift.slug ? .isSelected : [])
-                }
-            }
-        }
-    }
-
-    private var testInputs: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            Text("Resultado del test")
-                .font(Theme.Typography.dataLabel)
-                .uppercaseTracked()
-                .foregroundStyle(Theme.Color.muted)
-            VStack(spacing: 0) {
-                NumberRow(label: "Peso levantado", unit: "kg", value: $weightKg)
-                // The shared row both fields deserve: it starts EMPTY (its text
-                // field shows the placeholder until you type), which a stepper
-                // parked on a number does not.
-                IntRow(label: "Repeticiones", unit: "", value: $reps)
-            }
-            .brandSurface()
-            Text("El peso máximo que moviste y cuántas repeticiones limpias hiciste. Con eso estimamos tu 1RM.")
-                .scaledFont(12, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.faint)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private var estimateBlock: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("1RM estimado")
-                .font(Theme.Typography.dataLabel)
-                .uppercaseTracked()
-                .foregroundStyle(Theme.Color.muted)
-            // Hasta que no están los dos datos no hay 1RM que estimar. En vez de
-            // una raya de 28 puntos, la línea dice qué falta por escribir.
-            if let preview = estimatePreview {
-                Text(preview)
-                    .font(.system(size: 28, weight: .heavy, design: .default).italic().monospacedDigit())
-                    .foregroundStyle(Theme.Color.accentText)
-            } else if let missing = estimateMissing {
-                Text(missing)
-                    .scaledFont(13, weight: .semibold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Text(hasCoach
-                 ? "Estimación Epley al momento. Tu coach guarda el valor definitivo (puede usar otra fórmula)."
-                 : "Estimación al momento. El valor definitivo se calcula al guardar.")
-                .scaledFont(12, relativeTo: .caption2)
-                .foregroundStyle(Theme.Color.faint)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    // MARK: - Save
-
-    private func save() {
-        guard let bearer, let w = weightKg, w > 0,
-              let reps, repsRange.contains(reps), !saving else { return }
-        saving = true
-        errorText = nil
-        Task {
-            do {
-                _ = try await StrengthService.submitTest(
-                    exerciseSlug: exerciseSlug,
-                    weightKg: w,
-                    reps: reps,
-                    bearer: bearer
-                )
-                await onSaved()
-                dismiss()
-            } catch {
-                errorText = "No pudimos guardar el test. Revisa tu conexión e inténtalo de nuevo."
-                saving = false
-            }
-        }
+#Preview("Mi fuerza · datos") {
+    EnAmbasDia {
+        MyStrengthCuerpo(carga: .datos([
+            .ejemplo("dl", "Peso muerto", kg: 165, pesoTest: 150, reps: 3),
+            .ejemplo("sq", "Sentadilla", kg: 140, origen: "declared"),
+        ]))
     }
 }
+#endif
