@@ -11,6 +11,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-30 · La muñeca en 40 mm: el núcleo decide qué cede cuando una cara no cabe
+
+**Qué pasaba (SE 3 40 mm, 162 × 197 pt).** El descanso de fuerza que anota (título, dos píldoras, «Viene» en dos líneas, dos botones) sumaba más de lo que mide el lienzo y cortaba «+30 s» y «Confirmar»; la nota «sin enlace · la muñeca sigue grabando» no cabía en dos líneas y se cortaba con «…»; en cinta el héroe se quedaba en 15 pt porque cada fila se reservaba su alto sin mirar si al héroe le quedaba algo. El cuerpo de la anotación no tenía presupuesto alguno, y las caras de WOD, circuito y ergo repetían cada una su lista de filas.
+
+**Decidido (mecanismo del núcleo, no números sueltos por cara):**
+- **Una regla, `Vivo.ajustarFilas`** (`Vivo+MunecaPiezas`): cada cara declara sus filas con su alto, cuánto ceden (`cede`, 0 = no cae nunca) y, si la hay, una versión apretada. Si no caben, primero se aprieta (píldora de 32 a 28, «Viene» a una línea, fila de botones a 44) y solo después caen filas, la de más `cede` antes. El héroe conserva `heroeMinimo` (28 pt de caja, ≈ 33 de cuerpo); la serie de fuerza mantiene el suyo (`heroeMinimoSerie`, 38). Con sitio no cambia nada: 46 mm queda igual.
+- **Orden en la cara de paso** (`caraPasoAjustada`, la usan correr, ergo, WOD, circuito y relevo): cae antes lo que otra página ya dice o es un aviso (nota decorativa, pista de la acción, «Luego», tope), luego el pulso y lo que falta. No caen nunca: la nota que dice la verdad (`NotaVista.esencial`: sin enlace, GPS buscando, «sin monitor»), banda, instrucción, título y total.
+- **La nota se lee entera:** `NotaLamina` lleva una versión corta que se usa solo si la larga no cabe en dos líneas («sin enlace · sigue grabando»). Una instrucción que ni a 15 pt cabe en una línea («6 Bench Press · 60 kg») va en dos (`LineaTexto.lineas`), no con «…».
+- **Anotar en el descanso** (`caraDeAnotar`): las columnas de dato eligen cuerpo 30, 22 o 15 y su ancho mínimo se achica para que quepan las tres; la píldora elige la variante que cabe (con esfuerzo, sin él, sin la unidad, «Ronda 1» sin «anotada»); en un reloj bajo cae el título y «Viene» (en columnas con un dato encendido manda «gira la corona»). «Viene» suelta el rótulo por una flecha antes que cortar el nombre del ejercicio.
+- Los botones del descanso comparten una sola vista (`MunecaBotonesDescanso`, antes duplicada) y menos aire lateral: en 40 mm «+30 s» y «Confirmar» rozaban lo que mide su rótulo.
+- **Escaparate de DEBUG ampliado** (`GuionEscaparateMuneca`): fuerza (serie, plancha, «Colócate», descanso en lista, columnas, con la carga encendida y con todo anotado), WOD (AMRAP, EMOM, Tabata, For Time, Death by), circuito, carrera de circuito y ergo. Antes solo había casos de correr y no se podía mirar el resto en ninguna talla.
+
+**Visto** en 40, 42, 44, 46 y Ultra 3 (49) mm: nada cortado ni pisando la hora. **Sin tocar, a propósito:** el velo de EN PAUSA deja ver el dato atenuado bajo su rótulo (diseño del doble), y las páginas del brief de entrada son listas que se desplazan bajo el botón (el corte es el pliegue del scroll).
+
+**Sin comprobar:** 41 y 45 mm (sin simulador); aparato real; los tests de `FAHYBRIKTests` no se han ejecutado (`CaraRecupera.pista` y `CaraColocate.pista` pasan a opcionales, `Lamina.nota` a `NotaLamina`); en Ultra 3 «doble toque · estación hecha» del circuito roza el aro (estimador de ancho un punto corto, previo).
+
 ## 2026-09-30 · La muñeca: la página se queda donde la pones, el aro sigue el cristal real y la hora del sistema queda libre
 
 **Qué pasaba (foto de Alex, Series 11 46 mm, en pleno entreno).** (1) Deslizaba a Datos y «se volvía al main». (2) El aro estaba dibujado con un radio circular fijo (56/208 del ancho): más redondo que el cristal, que es de curvatura continua. (3) Arriba a la derecha el aro y la primera fila chocaban con la hora que pinta watchOS.

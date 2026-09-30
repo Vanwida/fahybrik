@@ -6,6 +6,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**RELOJ · 40 MM: EL NÚCLEO DECIDE QUÉ CEDE (30-09, rama `reloj-fix-40mm` sobre `reloj-fix-pantalla`, sin fusionar; DECISIONS 30-09).** Descanso de fuerza, nota «sin enlace» y héroe aplastado en cinta arreglados con una regla común (`Vivo.ajustarFilas`): se aprieta y luego caen las filas que menos dicen, sin bajar de 15 pt. Escaparate ampliado (fuerza, WOD, circuito, ergo). Visto en 40, 42, 44, 46 y 49 mm; falta aparato, 41/45 mm y ejecutar los tests.
+
 **RELOJ · PÁGINA FIJA, ARO SOBRE EL CRISTAL Y HORA LIBRE (30-09, rama `reloj-fix-pantalla` sobre `integracion-reloj-lote2`, sin fusionar; DECISIONS 30-09).** La página elegida ya no vuelve sola a Paso (derogado); el aro sigue la forma real del cristal por talla (máscaras de Xcode) y se corta donde pasa la hora del sistema; el núcleo mide contra la hora real y las páginas usan la pantalla entera. Visto en 40, 46 y Ultra 3 mm; falta aparato y las tallas 41/45 mm.
 
 **RELOJ · CORRER ES CORRER, F6 (30-09, rama `reloj-lote2-f6` sobre `reloj-lote2-voz`, sin fusionar; DECISIONS 30-09).** Sin puerta del calentamiento a las series (dato del coach `gate`, ya dentro del plan), final natural con pantalla («Sesión completada», Guardar / Seguir) y completitud por lo hecho (`Vivo+Completitud`, también en el móvil), RPE en la corona que viaja en la ejecución y va a Salud como esfuerzo, resumen de corredor con guardado honesto, «GPS listo» en el brief, ruta a Salud y «¿Dónde corres?» una vez. Build limpio; falta aparato (corona, GPS listo, ruta y esfuerzo en Salud, preaviso y 3-2-1 al pasar a las series). Fuera: desnivel por km, resumen de circuito, arrancar solo al fijar el GPS.
