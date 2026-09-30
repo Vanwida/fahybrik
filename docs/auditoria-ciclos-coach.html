@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAHYBRID · Auditoría de ciclos del coach</title>
+<style>
+:root{
+  --bg:#060606; --ink:#f4f1ea; --mu:#9a958c; --panel:#101010; --card:#161616; --line:rgba(255,255,255,.09);
+  --or:#f06a2a; --gn:#3fc773; --gn-s:rgba(63,199,115,.12); --am:#f2a52e; --am-s:rgba(242,165,46,.14);
+  --rd:#f2504f; --rd-s:rgba(242,80,79,.12); --bl:#5aa7e8; --bl-s:rgba(90,167,232,.12);
+  --disp:"Archivo Narrow","Archivo",system-ui,sans-serif; --sans:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--ink);font:400 15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+body{padding:0 0 80px}
+.wrap{max-width:980px;margin:0 auto;padding:0 20px}
+header{padding:44px 0 26px;border-bottom:1px solid var(--line)}
+.kicker{font:800 11px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--or)}
+h1{font:800 italic 40px/1.05 var(--disp);text-transform:uppercase;margin:12px 0 10px}
+h2{font:800 italic 24px/1.1 var(--disp);text-transform:uppercase;margin:44px 0 14px}
+h3{font:700 15px/1.3 var(--sans);margin:18px 0 6px}
+p{color:var(--ink);margin:0 0 10px;max-width:74ch}
+.mu{color:var(--mu)}
+.lead{font-size:17px;max-width:70ch}
+.box{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--or);border-radius:8px;padding:16px 18px;margin:18px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:14px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.card b{display:block;margin-bottom:4px}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:9px 10px;border-bottom:1px solid var(--line)}
+th{font:800 10.5px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--mu)}
+.tag{display:inline-block;font:800 10px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;padding:4px 7px;border-radius:4px;white-space:nowrap}
+.bug{background:var(--rd-s);color:var(--rd)} .qa{background:var(--gn-s);color:var(--gn)}
+.gap{background:var(--am-s);color:var(--am)} .dis{background:var(--bl-s);color:var(--bl)}
+code{font:12.5px var(--mono);color:var(--mu)}
+ol,ul{margin:6px 0 12px 20px;max-width:74ch} li{margin:4px 0}
+.tl{display:grid;grid-template-columns:110px 1fr;gap:8px 14px;margin:12px 0;font-size:13.5px}
+.tl div:nth-child(odd){font:600 12px var(--mono);color:var(--or)}
+.wk{display:flex;gap:3px;margin:8px 0 2px;flex-wrap:wrap}
+.wk i{display:block;width:36px;height:22px;border-radius:3px;font:600 9.5px/22px var(--mono);text-align:center;color:#000;font-style:normal}
+.a{background:#f06a2a}.t{background:#5aa7e8}.r{background:#3fc773}
+@media(max-width:640px){h1{font-size:30px}.tl{grid-template-columns:1fr}table{font-size:12.5px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="kicker">Auditoría · dashboard del coach · 30 sep 2026</div>
+  <h1>Ciclos, macrociclos y el plan del atleta</h1>
+  <p class="lead">Tenías razón: la secuencia de ciclos <b>se rompió</b>, pero no como dice el informe del QA. El modelo aguanta un macrociclo y hasta un año; lo que se perdió el 23 de septiembre es la pieza que <b>hace avanzar</b> la cadena y la pantalla donde se construía.</p>
+</header>
+
+<h2>El veredicto en cuatro líneas</h2>
+<div class="grid">
+  <div class="card"><b>Los tres programas NO se solaparon</b><span class="mu">En la base de datos están encadenados: 5 oct a 8 nov, 9 nov a 6 dic, 7 a 27 dic. Doce semanas seguidas. El informe se equivoca.</span></div>
+  <div class="card"><b>El tope de 8 semanas no es estructural</b><span class="mu">Es un ajuste del coach (defecto 8, techo 26) en Ajustes › Plan del atleta. El error del editor no se lo dice.</span></div>
+  <div class="card"><b>Un Grupo es una cadena, pero solo entra el primer programa</b><span class="mu">Nadie materializa el segundo ni el tercero. El macrociclo se dibuja en el grupo y no se entrena.</span></div>
+  <div class="card"><b>Hay bugs reales de edición</b><span class="mu">Marcar descanso borra notas sin avisar; cerrar el día pierde lo último escrito; el editor de un día bloquea todo el guardado con una línea vacía.</span></div>
+</div>
+
+<h2>Qué pasó con los ciclos (tu sospecha, verificada)</h2>
+<div class="tl">
+  <div>v1 · junio</div><div>Nivel×días → secuencia de microciclos. Editor con espina, arrastrar, «duplicar cadena», panel de fin de cadena (repetir, subir nivel, parar) y un botón en Hoy, «siguiente microciclo, 1 clic», que materializaba el tramo n+1.</div>
+  <div>23 sep</div><div>Rehacer Hoy (<code>486d7709</code>) quita el botón de avance. La limpieza de pantallas viejas (<code>661d8ad7</code>) borra el editor de secuencias. <code>220276ed</code> quita de la ficha del atleta el panel de tramos personales. El grupo con su cadena se conserva y mejora.</div>
+  <div>Hoy</div><div>El único código que materializa el programa siguiente (<code>advanceSequenceForAthlete</code>) solo lo llama un endpoint que <b>ninguna pantalla usa</b>, y <code>vercel.json</code> no tiene ningún cron que lo llame. Igual con <code>plan-chain</code> (añadir un tramo a un atleta): backend vivo, cero pantalla.</div>
+</div>
+<div class="box"><b>Lo que hoy sí funciona para tu caso de 12 semanas:</b> asignar los tres programas uno detrás de otro al mismo atleta. El diálogo ya encadena solo (modo «Encadenar», por defecto) y la base de datos impide solapes (<code>0166</code>). Es lo que hizo el QA sin darse cuenta. Lo que no existe es hacerlo <i>de una vez</i> y que sea un plan reutilizable.</div>
+
+<h2>El informe del QA, punto por punto</h2>
+<table>
+<tr><th>Lo que dice</th><th>Veredicto</th><th>Qué hay de verdad</th></tr>
+<tr><td>Se solapan y no avisa</td><td><span class="tag qa">Error del QA</span></td><td>Encadenados sin hueco (medido en base de datos). La previa sí avisa de conflictos. Lo flojo: el toast dice «asignado a 1» sin fechas ni «encadenado».</td></tr>
+<tr><td>Máximo 8 semanas, estructural</td><td><span class="tag qa">Error del QA</span> <span class="tag gap">copy</span></td><td>Ajuste del coach. El mensaje «Entre 1 y 8 semanas» debería decir dónde se cambia.</td></tr>
+<tr><td>No hay macrociclo encadenado</td><td><span class="tag gap">Falta</span></td><td>Cierto en ejecución. Ver «Qué falta» abajo.</td></tr>
+<tr><td>Plan completo enseña semanas sueltas</td><td><span class="tag dis">Parcial</span></td><td>Semanas 3 y 4 de Acumulación no tienen entrenos guardados (0 en base de datos): vacías con razón. Pero Transformación semana 1 y Realización semana 1 <b>sí tienen 5 entrenos cada una</b> y el informe dice que no salen. No lo he reproducido en pantalla.</td></tr>
+<tr><td>«Oculta» contradice «ven su semana»</td><td><span class="tag dis">Copy</span></td><td>Tres cifras miden cosas distintas (semana calendario de hoy, cualquier semana, una semana futura). Ajustes promete más de lo que cuenta.</td></tr>
+<tr><td>Asignar bloquea si «no tiene entrenos»</td><td><span class="tag dis">Intencionado</span></td><td>Pero la previa cuenta sesiones con un criterio más laxo que la materialización: un programa puede pasar la previa y materializar cero sesiones sin aviso.</td></tr>
+<tr><td>El catálogo tira lo que no reconoce</td><td><span class="tag dis">Intencionado + huecos</span></td><td>Regla deliberada (nada se guarda sin ejercicio). El importador conserva las líneas sin ejercicio y pide elegir. Pérdidas reales: «Completar huecos» descarta tokens en un clic y «Descanso 90s» se pierde. «90-90» está en el catálogo como «90/90», el buscador no lo une. Skip, skipping y acceleration no están sembrados.</td></tr>
+<tr><td>Marcar descanso borra un entreno</td><td><span class="tag bug">Bug</span></td><td>Solo confirma si hay bloques o título. Un día con notas se pinta «Vacío» y se borra sin preguntar. Hay Deshacer, solo en memoria.</td></tr>
+<tr><td>Pegar y arrastrar pisan el día</td><td><span class="tag dis">Riesgo</span></td><td>Semántica de hoja de cálculo con Deshacer. Choca con el espíritu de «un toque nunca borra trabajo escrito».</td></tr>
+<tr><td>Cerrar el día no confirma</td><td><span class="tag bug">Bug</span></td><td>Cerrar cancela el temporizador de 0,7 s: se pierde lo último, y todo el día si hay una línea sin ejercicio.</td></tr>
+<tr><td>Ctrl+C no avisa</td><td><span class="tag qa">Error del QA</span></td><td>Sí muestra «Día copiado» cuando la rejilla tiene el foco.</td></tr>
+<tr><td>Excel «usa la plantilla de ejemplo»</td><td><span class="tag bug">Copy</span></td><td>Sin archivo el servidor rechaza a propósito. El texto miente.</td></tr>
+<tr><td>Sin Calendario (404)</td><td><span class="tag qa">Error del QA</span></td><td>La navegación son 5 destinos por decisión del 23 sep.</td></tr>
+<tr><td>Entrenos 0 en Biblioteca, «9» en Ajustes</td><td><span class="tag bug">Bug probable</span></td><td>Ajustes cuenta también las plantillas de tests; Biblioteca no. Sin confirmar en datos.</td></tr>
+</table>
+
+<h2>Cómo debería funcionar</h2>
+<p>Sin inventar entidades: <b>0064 y 0068 mandan que el orden de los programas ES la periodización</b>. No hay «macrociclo» como tabla ni fases cableadas. Un plan es una cadena de programas; el coach pone el nombre y la duración a cada tramo. Un año son 13 programas de 4 semanas, o los que quiera.</p>
+<div class="wk"><i class="a">A1</i><i class="a">A2</i><i class="a">A3</i><i class="a">A4</i><i class="a">A5</i><i class="t">T1</i><i class="t">T2</i><i class="t">T3</i><i class="t">T4</i><i class="r">R1</i><i class="r">R2</i><i class="r">R3</i></div>
+<p class="mu">Tu HYROX de 12 semanas: tres programas (5+4+3) en una cadena.</p>
+
+<ol>
+<li><b>Asignar un plan entero materializa todo de golpe.</b> Una fecha de inicio, y cada programa de la cadena cae detrás del anterior. Es lo que espera el coach y lo que enseña Plan completo. La publicación sigue siendo semana a semana, N días antes (decisión del 23 sep). <code>0166</code> garantiza cero solapes.</li>
+<li><b>Solo lo que se sale de la cadena necesita avance automático.</b> Si el plan termina en «repetir» o «subir de nivel», un cron diario materializa la vuelta siguiente. Con «parar» no se hace nada. <code>advanceSequenceForAthlete</code> ya existe.</li>
+<li><b>Fin de cadena editable.</b> Repetir, subir nivel o parar, y la progresión por vuelta, como dato del coach. Hoy solo se muestra como texto.</li>
+<li><b>Asignar un plan a UN atleta sin meterlo en un grupo.</b> El diálogo hoy acepta un programa; debe aceptar un plan (lista encadenada).</li>
+<li><b>Editor de cadena</b> con la espina, el total de semanas, duplicar y el aviso de cuándo termina.</li>
+<li><b>Tramo personal en la ficha</b>: el backend existe, falta la pantalla.</li>
+<li><b>Un año</b> no pide modelo nuevo: cadena larga (el grupo admite 52 programas) más agrupar visualmente por nombre de tramo si el coach quiere ver «bloques».</li>
+</ol>
+<p><b>Cómo lo rompí antes de proponerlo</b> (casos contra el modelo, todos entran sin texto libre): HYROX 5+4+3; año de 13×4; plan con descarga entre tramos; atleta que entra en la semana 3; atleta con pausa por lesión; carrera objetivo que cierra la cadena; mismo plan, dos atletas con fechas distintas; plan que repite; plan que sube de nivel; plan de un solo atleta; retraso de un atleta; copiar el plan al año siguiente. No entra bien uno: <b>editar un programa después de asignado</b>. No he verificado si esa edición llega a los atletas que ya lo tienen. Hay que mirarlo antes de construir.</p>
+
+<h2>Qué arreglaría, en orden</h2>
+<table>
+<tr><th>#</th><th>Cambio</th><th>Por qué primero</th></tr>
+<tr><td>1</td><td>Asignar plan entero (una fecha, cadena materializada) + cron para repetir o subir nivel</td><td>Es tu caso y el hueco que abrimos el 23 sep</td></tr>
+<tr><td>2</td><td>Marcar descanso, cerrar el día y «Añadir bloque»: que nada escrito se pierda</td><td>Pérdida de trabajo del coach</td></tr>
+<tr><td>3</td><td>Previa y materialización con el mismo criterio; avisar cuando un programa materializa cero sesiones</td><td>Falla en silencio</td></tr>
+<tr><td>4</td><td>Editor de cadena con fin editable, duplicar y espina; tramo personal en la ficha</td><td>Recupera lo de la v1</td></tr>
+<tr><td>5</td><td>Copy: tope de semanas con su enlace a Ajustes; toast con fechas; Excel; «ven su semana»; Entrenos 0 frente a 9</td><td>Barato y quita confusión</td></tr>
+<tr><td>6</td><td>Catálogo: unir «90-90» con «90/90»; conservar «Descanso 90s»; que «Completar huecos» no descarte sin avisar</td><td>Fricción del importador</td></tr>
+</table>
+
+<h2>Lo que no sé y lo que no hice</h2>
+<ul>
+<li><b>No reproducido:</b> por qué Plan completo no enseña Transformación semana 1 ni Realización semana 1, que están en base de datos con origen coach. La consulta de la vista los incluiría, así que el fallo puede estar en la pantalla o el informe describe un instante anterior. Hay que verla abierta.</li>
+<li><b>No verificado:</b> si editar un programa ya asignado se propaga a los atletas.</li>
+<li><b>No verificado:</b> «Back squat» en pegado de texto (el código resuelve sin distinguir mayúsculas; sospecho el catálogo de ese coach) y «Entrenos 0 frente a 9».</li>
+<li><b>No hecho:</b> no he tocado código ni datos. Solo lectura del repositorio y consultas SELECT a la base de datos. Nada publicado ni asignado.</li>
+</ul>
+<p class="mu">Fuentes: informe QA (<code>docs/FAHYBRID-UX-coach.pdf</code>), <code>docs/DECISIONS.md</code>, migración <code>0166</code>, tablas <code>athlete_month_assignments</code>, <code>microcycles</code>, <code>workout_assignments</code> del atleta 64, y lectura de <code>web/lib/coach/</code>, <code>web/components/v2/</code>.</p>
+</div>
+</body>
+</html>

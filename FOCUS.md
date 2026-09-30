@@ -6,6 +6,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**COACH · CICLOS ENCADENADOS: AUDITADO, SIN CONSTRUIR (30-09, main, solo docs).** La cadena de programas (Grupo) no avanza desde el 23-09: `advanceSequenceForAthlete` y `plan-chain` no tienen pantalla ni cron; al entrar en un grupo solo se materializa el primer programa. Asignar programa a programa sí encadena (0166). Propuesta y bugs de edición en `docs/auditoria-ciclos-coach.html`. Falta: aprobación del diseño (asignar plan entero + cron de repetir/subir nivel) y ver en pantalla por qué Plan completo omite semanas con entrenos.
+
 **EDITOR DE CORRER · ENTORNO, AVISO Y FRASE PARA EL RELOJ (30-09, worktree `agent-a1e4bc45135113ff8`, sin fusionar; DECISIONS 30-09).** El coach ya edita por tramo dónde se corre (calle, cinta con inclinación, pista), hacia dónde avisa (defecto = su método) y una frase de 80 caracteres. Guardado probado contra rama Neon. Falta: firma de Alex del layout, y el reloj aplicando `alert`.
 
 **iPhone · LO QUE CUELGA DE PERFIL, CON «EL DÍA» (30-09, rama `worktree-agent-a5bfe54dff1049a3f`, sin fusionar; DECISIONS 30-09).** Cascarón `PantallaPerfil` (`Profile/Secundarias/`) y todas las pantallas secundarias de Perfil rehechas (puertas, cifras, hojas, dispositivos, molestias, suscripción, pareja). Falta probarlo en aparato.
