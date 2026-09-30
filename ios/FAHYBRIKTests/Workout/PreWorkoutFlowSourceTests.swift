@@ -2,7 +2,7 @@ import XCTest
 import SwiftUI
 @testable import FAHYBRIK
 
-// FH-95 — the pre-live athlete path must expose exactly ONE ▶ EMPEZAR (Brief readyToStart).
+// FH-95 — the pre-live athlete path must expose exactly ONE «Empezar» (Brief, acción `.empezar`).
 final class PreWorkoutFlowSourceTests: XCTestCase {
 
     private var iosRoot: URL {
@@ -25,13 +25,16 @@ final class PreWorkoutFlowSourceTests: XCTestCase {
 
     func testBriefReadyToStartIsSoleEmpezarOnPreLivePath() throws {
         let brief = try code("FAHYBRIK/Workout/PreWorkoutBriefView.swift")
-        XCTAssertEqual(brief.components(separatedBy: "▶ EMPEZAR").count - 1, 1)
+        // La sesión previa decide su acción en `LecturaSesionPrevia` y la pinta con `AccionAncladaPrevia`:
+        // «Empezar» es UN solo `case .empezar` (el que suelta el vivo).
+        XCTAssertEqual(brief.components(separatedBy: "case .empezar:").count - 1, 1)
         let hub = try code("FAHYBRIK/Workout/PreWorkoutDevicesHubView.swift")
         XCTAssertFalse(hub.contains("▶ EMPEZAR"))
         XCTAssertFalse(hub.contains("▶ Empezar"))
         let blockGate = try code("FAHYBRIK/Workout/BlockPreviewGate.swift")
         XCTAssertFalse(blockGate.contains("▶ EMPEZAR"))
-        XCTAssertTrue(blockGate.contains("ARRANCAR BLOQUE"))
+        XCTAssertFalse(blockGate.contains(".empezar"))
+        XCTAssertTrue(blockGate.contains("Arrancar bloque"))
     }
 
     func testSequentialStartStepMachineRemoved() throws {

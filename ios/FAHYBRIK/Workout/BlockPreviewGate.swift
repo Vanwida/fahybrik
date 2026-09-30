@@ -1,18 +1,17 @@
 import SwiftUI
 
-// MARK: - BlockPreviewGate
+// LA PUERTA DEL BLOQUE — «empieza cuando estés listo» (el doble: `gate-bloque`).
 //
-// The "ready" screen shown BEFORE each coach block runs (and at the very first
-// block). Every block starts with the athlete's approval: they SEE what's coming
-// — the block name, its format, and the movements + targets — set up (load a bar,
-// read the WOD), and tap "Arrancar bloque" WHEN READY. Only then does that block's clock
-// start (an EMOM's 3-2-1 count-in fires AFTER this tap, never as an automatic
-// between-blocks transition). The session engine (`WorkoutSession`) holds the
-// clock frozen while this is on screen via `isAwaitingBlockStart`.
+// La pantalla que sale ANTES de cada bloque del coach (y del primero): el atleta VE lo que viene —el
+// nombre del bloque, su formato y los movimientos con su dosis—, se prepara (carga la barra, lee el WOD)
+// y toca «Arrancar bloque» CUANDO QUIERE. Solo entonces corre el reloj de ese bloque (la cuenta 3-2-1 de
+// un EMOM sale DESPUÉS de este toque): el motor lo congela mientras esto está en pantalla
+// (`isAwaitingBlockStart`). Se presenta en exclusiva con el vivo (`PresentadorVivo`), como en el reloj.
 //
-// Presented XOR the live (`PresentadorVivo`) — same exclusive gate as Watch
-// `LiveFlowView`. Reuses Theme atoms + `WorkoutSegment.previewWorkLine`, so
-// the work reads exactly like the pre-workout brief and the live HUD.
+// Arquetipo Configurar, altura `previsualiza` (CONTRATO-UI §6): el sujeto es el bloque que vas a hacer y
+// se queda el sobrante. Con un ítem, su dosis es el número grande de la pantalla; con dieciséis, las
+// filas se cierran y aparece el scroll. La acción, anclada abajo.
+//
 // Card 114 — Alex, sesión del 20-ago: «Al entrar en estaciones no estaba claro
 // si eran 3 seguidas de cada ejercicio o 1 y 1 y 1. El atleta lo hizo mal».
 // CIRCUITO = una ruta de estaciones distintas, una vuelta (`fixedListIsStations`
@@ -31,11 +30,12 @@ enum BlockPacing: Equatable {
     /// suena a certeza.
     case alternando
 
+    /// La palabra de la pastilla. Dice el QUÉ; `caption` dice el CÓMO.
     var label: String {
         switch self {
-        case .circuito:   return "CIRCUITO"
-        case .seguido:    return "SEGUIDO"
-        case .alternando: return "ALTERNANDO"
+        case .circuito:   return "Circuito"
+        case .seguido:    return "Seguido"
+        case .alternando: return "Alternando"
         }
     }
 
@@ -46,24 +46,6 @@ enum BlockPacing: Equatable {
         // de rondas con un solo movimiento (donde no hay «siguiente» que confundir).
         case .seguido:    return "todas las series de un ejercicio antes del siguiente"
         case .alternando: return "una serie de cada, y vuelta a empezar"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .circuito:   return "arrow.triangle.2.circlepath"
-        case .seguido:    return "repeat"
-        case .alternando: return "arrow.left.arrow.right"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        // Acento: la lectura que más le cuesta a un atleta nuevo — el orden
-        // de estación es justo lo que se le olvida.
-        case .circuito:   return Theme.Color.accentText
-        case .alternando: return Theme.Color.accentText
-        case .seguido:    return Theme.Color.muted
         }
     }
 
@@ -103,254 +85,173 @@ enum BlockPacing: Equatable {
     }
 }
 
-struct BlockPreviewGate: View {
-    /// Block name — coach title (e.g. "Metcon") or the phase name.
-    let title: String
-    /// Pedagogical phase tag above the title ("CALENTAMIENTO" / "PRINCIPAL" /
-    /// "VUELTA A LA CALMA"). Nil for a freeform session with no block context.
-    let phaseTag: String?
-    /// 1-based block position + total, shown as "BLOQUE N DE M" when M > 1.
-    let blockNumber: Int
-    let blockCount: Int
-    /// Format/scheme line — "EMOM · 15 rondas · cada 1:00", "AMRAP · 20:00",
-    /// "For Time · cap 15:00". Nil for plain strength / warmup blocks (the title
-    /// already conveys those).
-    let formatLabel: String?
-    /// Card 114 — circuito vs seguido, cuando se puede saber con certeza. Nil
-    /// cuando el bloque no es un formato de estaciones/rondas (hierro, warmup) O
-    /// cuando es ambiguo (varios movimientos con rondas declaradas) — ver arriba.
-    var pacing: BlockPacing? = nil
-    /// The block's segments, in session order — the "what's coming" body.
-    let segments: [WorkoutSegment]
-    /// Whether stepping back to the previous block's preview is possible.
-    let canGoBack: Bool
-    let onStartBlock: () -> Void
-    let onBack: () -> Void
-    /// Leave the workout from the gate WITHOUT recording anything (clean discard).
-    /// The athlete is never trapped on the "ready" screen.
-    let onExit: () -> Void
-    /// Abre la hoja de bloques del padre. Sin esto no se puede saltar el
-    /// calentamiento desde la puerta.
-    let alVerBloques: () -> Void
+// MARK: - Lo que viene
 
-    // One displayable work line. An alternating EMOM expands to one row per
-    // distinct movement in the rotation; everything else is one row per segment.
-    private struct WorkRow: Identifiable {
+/// Las filas de «lo que viene», puras. Un EMOM que alterna se abre en una fila por movimiento DISTINTO de
+/// su rotación; un bloque de acondicionamiento plegado (AMRAP, For Time, Chipper…) en una por movimiento
+/// de la ronda, como las pinta el vivo; el resto, una por segmento con su línea de trabajo
+/// (`previewWorkLine`, la misma de la ficha previa y del vivo).
+enum LoQueVieneEnLaPuerta {
+    struct Fila: Identifiable, Equatable {
         let id: Int
-        let name: String
-        let work: String?
+        let nombre: String
+        let trabajo: String?
     }
 
-    private var workRows: [WorkRow] {
-        var out: [WorkRow] = []
-        for seg in segments {
+    static func filas(_ segmentos: [WorkoutSegment]) -> [Fila] {
+        var out: [Fila] = []
+        func anade(_ nombre: String, _ partes: [String?]) {
+            let trabajo = partes.compactMap { $0 }.joined(separator: " · ")
+            out.append(Fila(id: out.count, nombre: nombre, trabajo: trabajo.isEmpty ? nil : trabajo))
+        }
+        for seg in segmentos {
             if seg.isEMOM, let plan = seg.emomPlan, plan.isAlternating {
-                var seen = Set<String>()
-                for itv in plan.intervals where !seen.contains(itv.movement) {
-                    seen.insert(itv.movement)
-                    let detail = [itv.work, itv.detail]
-                        .compactMap { $0 }
-                        .joined(separator: " · ")
-                    out.append(WorkRow(id: out.count, name: itv.movement, work: detail.isEmpty ? nil : detail))
+                var vistos = Set<String>()
+                for itv in plan.intervals where vistos.insert(itv.movement).inserted {
+                    anade(itv.movement, [itv.work, itv.detail])
                 }
             } else if seg.isConditioningTimer, seg.components.count > 1 {
-                // A FOLDED multi-movement conditioning block (AMRAP / For Time /
-                // Chipper / …): list each movement of the round, exactly as the
-                // live FIXED HUD shows it.
-                for comp in seg.components {
-                    let detail = [comp.work, comp.detail]
-                        .compactMap { $0 }
-                        .joined(separator: " · ")
-                    out.append(WorkRow(id: out.count, name: comp.name, work: detail.isEmpty ? nil : detail))
-                }
+                for comp in seg.components { anade(comp.name, [comp.work, comp.detail]) }
             } else {
-                out.append(WorkRow(id: out.count, name: seg.title, work: seg.previewWorkLine))
+                anade(seg.title, [seg.previewWorkLine])
             }
         }
         return out
     }
+}
+
+// MARK: - La pantalla
+
+struct BlockPreviewGate: View {
+    /// El nombre del bloque: el título del coach («Metcon») o el de la fase.
+    let title: String
+    /// La fase pedagógica («Calentamiento», «Principal», «Vuelta a la calma»). Nil en un libre sin bloques.
+    let phaseTag: String?
+    /// Posición del bloque (desde 1) y total: «Bloque 2 de 3» cuando hay más de uno.
+    let blockNumber: Int
+    let blockCount: Int
+    /// El formato («EMOM · 15 rondas · cada 1:00», «AMRAP · 20:00»). Nil en fuerza y calentamiento.
+    let formatLabel: String?
+    /// Card 114 — circuito, seguido o alternando, cuando se puede saber con certeza.
+    var pacing: BlockPacing? = nil
+    /// Los segmentos del bloque, en orden: lo que viene.
+    let segments: [WorkoutSegment]
+    /// Se puede volver a la puerta del bloque anterior.
+    let canGoBack: Bool
+    let onStartBlock: () -> Void
+    let onBack: () -> Void
+    /// Salir del entreno desde la puerta SIN registrar nada: el atleta nunca queda atrapado aquí.
+    let onExit: () -> Void
+    /// Abre la hoja de bloques del padre: sin ella no se puede saltar el calentamiento desde la puerta.
+    let alVerBloques: () -> Void
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                topRow
-                header
-                if formatLabel != nil || pacing != nil {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: Theme.Spacing.s) {
-                            if let formatLabel {
-                                Text(formatLabel)
-                                    .font(.system(size: 13, weight: .heavy, design: .monospaced))
-                                    .foregroundStyle(Theme.Color.accentText)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(Theme.Color.accentText.opacity(0.12))
-                                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-                            }
-                            if let pacing { pacingBadge(pacing) }
-                        }
-                        // La palabra ya dice el qué; la frase dice el cómo, para
-                        // que no haga falta deducirlo — es justo la deducción que
-                        // le salió mal a Alex.
-                        if let pacing {
-                            Text(pacing.caption)
-                                .scaledFont(15, weight: .medium, relativeTo: .subheadline)
-                                .foregroundStyle(Theme.Color.muted)
-                        }
-                    }
-                }
-                ScrollView { workList }
-                    .layoutPriority(1)
-                footer
+        VStack(spacing: 0) {
+            cromo
+            FillingScreen {
+                sujeto
+                    .padding(.horizontal, Theme.Spacing.pantalla)
+                    .padding(.top, Theme.Spacing.m)
+                    .padding(.bottom, Theme.Spacing.xl)
             }
-            .padding(.horizontal, Theme.Spacing.xl)
-            .padding(.top, Theme.Spacing.l)
-            .padding(.bottom, Theme.Spacing.l)
         }
+        .anchoredAction {
+            VStack(spacing: Theme.Spacing.s) {
+                Text("Arranca el bloque cuando estés listo")
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
+                    .multilineTextAlignment(.center)
+                AccionAncladaPrevia(titulo: "Arrancar bloque", simbolo: "play.fill", simboloDelante: true, accion: onStartBlock)
+            }
+            .padding(.horizontal, Theme.Spacing.pantalla - Theme.Spacing.l)
+        }
+        .background(Theme.Color.background.ignoresSafeArea())
         .transition(.opacity)
     }
 
-    // Card 114 — el badge de circuito/seguido. Mismo idioma de pill que
-    // `formatLabel` pero con su propio color, para que se distingan de un
-    // vistazo aunque vayan pegados en la misma fila.
-    private func pacingBadge(_ pacing: BlockPacing) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: pacing.icon)
-                .font(.system(size: 11, weight: .heavy))
-            Text(pacing.label)
-                .font(.system(size: 13, weight: .heavy, design: .default).italic())
-                .tracking(0.6)
-        }
-        .foregroundStyle(pacing.color)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(pacing.color.opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(pacing.label): \(pacing.caption)")
-    }
-
-    // MARK: Top row — back to previous block + position
-
-    private var topRow: some View {
-        HStack(spacing: Theme.Spacing.m) {
-            // Exit (top-left): leave the workout without starting / recording
-            // anything. Clean discard — the session stays pending.
-            Button(action: { Haptics.light(); onExit() }) {
-                ZStack {
-                    Circle().fill(Theme.Color.surfaceElevated)
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Color.muted)
-                }
-                .frame(width: 34, height: 34)
-                .overlay(Circle().stroke(Theme.Color.hairline, lineWidth: 1))
-            }
-            .buttonStyle(PressScaleStyle())
-            .accessibilityLabel("Salir del entreno")
-            BotonVerBloques(accion: alVerBloques)
+    private var cromo: some View {
+        CromoPrevia {
+            // Salir sin empezar ni registrar nada: la sesión queda pendiente.
+            BotonCromoPrevia(simbolo: "xmark", etiqueta: "Salir del entreno", accion: onExit)
+            BotonCromoPrevia(simbolo: "list.bullet.rectangle", etiqueta: "Ver el entreno entero", accion: alVerBloques)
             if canGoBack {
-                Button(action: { Haptics.light(); onBack() }) {
-                    ZStack {
-                        Circle().fill(Theme.Color.surfaceElevated)
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
-                    .frame(width: 34, height: 34)
-                    .overlay(Circle().stroke(Theme.Color.hairline, lineWidth: 1))
-                }
-                .buttonStyle(PressScaleStyle())
-                .accessibilityLabel("Bloque anterior")
+                BotonCromoPrevia(simbolo: "chevron.left", etiqueta: "Bloque anterior", accion: onBack)
             }
+        } derecha: {
             if blockCount > 1 {
-                Text("BLOQUE \(blockNumber) DE \(blockCount)")
-                    .font(.system(size: 11, weight: .heavy, design: .default).italic())
-                    .tracking(0.8)
-                    .foregroundStyle(Theme.Color.muted)
+                InfoPill(text: "Bloque \(blockNumber) de \(blockCount)", estilo: .velo)
             }
-            Spacer(minLength: 0)
         }
     }
 
-    // MARK: Header — phase tag + block title
+    private var filas: [LoQueVieneEnLaPuerta.Fila] { LoQueVieneEnLaPuerta.filas(segments) }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if let phaseTag {
-                Text(phaseTag.uppercased())
-                    .font(.system(size: 11, weight: .heavy, design: .default).italic())
-                    .tracking(1.0)
-                    .foregroundStyle(Theme.Color.accentText)
-            }
-            Text(title)
-                .font(.system(size: 30, weight: .heavy, design: .default).italic())
-                .tracking(Theme.Tracking.headline)
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(3)
-                .minimumScaleFactor(0.7)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: Work — the movements + targets coming up
-
-    private var workList: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            LabelText(text: "Lo que viene")
-            CardSurface(padding: 0, leftAccent: true) {
-                VStack(spacing: 0) {
-                    if workRows.isEmpty {
-                        emptyRow
-                    } else {
-                        ForEach(workRows) { row in
-                            if row.id > 0 { Hairline() }
-                            workRow(row)
-                        }
-                    }
+    private var sujeto: some View {
+        SujetoDia(tono: .accion, etiqueta: etiquetaAccesible) {
+            if let phaseTag { KickerDia(phaseTag) }
+            TituloDia(title)
+            if formatLabel != nil || pacing != nil {
+                FlowLayout(spacing: Theme.Spacing.s) {
+                    if let formatLabel { InfoPill(text: formatLabel, estilo: .sobreAccion) }
+                    if let pacing { InfoPill(text: pacing.label, estilo: .sobreAccion) }
                 }
             }
+            // La palabra dice el qué; la frase, el cómo, para que no haya que deducirlo: es justo la
+            // deducción que salió mal (card 114).
+            if let pacing { ApoyoDia(pacing.caption) }
+        } abajo: {
+            LoQueVienePuerta(filas: filas)
         }
     }
 
-    @ViewBuilder
-    private func workRow(_ row: WorkRow) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Circle().fill(Theme.Color.accent.opacity(0.7)).frame(width: 6, height: 6)
-                .alignmentGuide(.firstTextBaseline) { d in d[.bottom] - 3 }
-            Text(row.name)
-                .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: Theme.Spacing.s)
-            if let work = row.work {
-                MonoText(text: work, size: 13, weight: .medium, color: Theme.Color.muted)
-                    .multilineTextAlignment(.trailing)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-    }
-
-    private var emptyRow: some View {
-        Text("Sin detalle — empieza cuando estés listo.")
-            .scaledFont(13, relativeTo: .footnote)
-            .foregroundStyle(Theme.Color.muted)
-            .padding(14)
-    }
-
-    // MARK: Footer — block clock gate (not pre-live ▶ EMPEZAR)
-
-    private var footer: some View {
-        VStack(spacing: Theme.Spacing.s) {
-            Text("Arranca el bloque cuando estés listo")
-                .scaledFont(12, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.faint)
-            ExpertPrimaryButton(title: "▶ ARRANCAR BLOQUE", height: 64, action: onStartBlock)
-        }
-        .frame(maxWidth: .infinity)
+    private var etiquetaAccesible: String {
+        var partes = [phaseTag, title, formatLabel].compactMap { $0 }
+        if let pacing { partes.append("\(pacing.label): \(pacing.caption)") }
+        return partes.joined(separator: ". ")
     }
 }
+
+/// «Lo que viene», dentro del sujeto. Con UN movimiento su dosis es el número grande; con más, una fila
+/// por movimiento separada por una línea fina de la tinta del sujeto.
+private struct LoQueVienePuerta: View {
+    let filas: [LoQueVieneEnLaPuerta.Fila]
+    @Environment(\.tonoDia) private var tono
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Lo que viene")
+                .papel(.etiqueta)
+                .padding(.bottom, Theme.Spacing.s)
+                .accessibilityAddTraits(.isHeader)
+            if filas.isEmpty {
+                ApoyoDia("Sin detalle. Empieza cuando estés listo.")
+            } else if filas.count == 1, let fila = filas.first {
+                Text(fila.nombre).papel(.cuerpoFuerte).fixedSize(horizontal: false, vertical: true)
+                if let trabajo = fila.trabajo {
+                    Text(trabajo)
+                        .papel(.dato)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, Theme.Spacing.xs)
+                }
+            } else {
+                ForEach(filas) { fila in
+                    FilaAdaptablePrevia {
+                        Text(fila.nombre).papel(.cuerpoFuerte).fixedSize(horizontal: false, vertical: true)
+                    } derecha: {
+                        if let trabajo = fila.trabajo {
+                            Text(trabajo).papel(.notaPesada).multilineTextAlignment(.trailing)
+                        }
+                    }
+                    .padding(.vertical, Theme.Spacing.s + 2)
+                    .overlay(alignment: .top) {
+                        Rectangle().fill(tono.papeles.tinta.opacity(0.28)).frame(height: 1)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        }
+        .foregroundStyle(tono.papeles.tinta)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
