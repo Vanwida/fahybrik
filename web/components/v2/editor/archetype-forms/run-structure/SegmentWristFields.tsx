@@ -217,8 +217,9 @@ function CueField({
           autoFocus={autoFocus}
           aria-describedby={`${hintId} ${counterId}`}
           onChange={(e) => {
-            // Una sola línea: un salto pegado desde otro sitio se vuelve un espacio.
-            const next = e.target.value.replace(/[\r\n]+/g, ' ');
+            // Una sola línea sin sangrado: un salto pegado desde otro sitio se vuelve
+            // un espacio y los de delante no cuentan (los de detrás sí, al teclear).
+            const next = e.target.value.replace(/[\r\n]+/g, ' ').replace(/^\s+/, '');
             setDraft(next);
             const trimmed = next.trim();
             onChange(trimmed === '' ? null : trimmed);

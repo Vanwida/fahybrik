@@ -2,9 +2,11 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-30** (analíticas del iPhone: detalle y cierre; reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin)
+Última actualización: **2026-09-30** (editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin)
 
 ## Ahora
+
+**EDITOR DE CORRER · ENTORNO, AVISO Y FRASE PARA EL RELOJ (30-09, worktree `agent-a1e4bc45135113ff8`, sin fusionar; DECISIONS 30-09).** El coach ya edita por tramo dónde se corre (calle, cinta con inclinación, pista), hacia dónde avisa (defecto = su método) y una frase de 80 caracteres. Guardado probado contra rama Neon. Falta: firma de Alex del layout, y el reloj aplicando `alert`.
 
 **iPhone · CARRERA EN HOY Y FILAS DE ANALÍTICAS (30-09, main, pendiente de build).** Sin coach la carrera fijada no se pintaba en Hoy; y remo/ski sin historial completo no abrían su detalle desde Progreso. Arreglado (DECISIONS 30-09). Falta verlo en aparato.
 

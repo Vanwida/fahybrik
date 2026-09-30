@@ -11,6 +11,23 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-30 · El editor de tramos de correr edita el entorno, el aviso y la frase para el reloj (UI de la 0282)
+
+**Qué se decidió.** El servidor ya guardaba por tramo `environment` (calle | cinta | pista), `alert` (arriba | abajo | ambos | ninguno) y `cue` (una línea de coach, hasta 80 caracteres), pero el coach no podía tocarlos. Ahora se editan en la fila abierta del tramo, en `SegmentWristFields.tsx`, siguiendo el patrón de la fila: lo opcional es un chip «+» y lo usado es su campo con una ✕.
+
+**Reglas que el editor cumple por construcción** (el Zod de `shared/domain/prescription/run-structure.ts` es la única fuente, cliente y servidor):
+- Todo opcional. Nada se obliga; un tramo sin estos campos se comporta como hasta hoy.
+- Elegir **pista** quita la inclinación (la pista es plana); **cinta** enseña su inclinación junto al entorno; calle y sin decir conservan el chip de inclinación de las cuestas.
+- El **aviso** solo aparece con ritmo, zona de ritmo o zona de pulso; pasar a RPE o a libre lo suelta. Sin elegir, la propia fila dice qué pasa: un ritmo avisa por los dos lados, y una zona manda el método del coach (`wrist_alert_continuous_zone`, Ajustes › Método), leído de `GET /api/coach/signal-thresholds`. Los defectos NO están en el editor: son dato del coach.
+- La **frase** lleva contador (80), una sola línea, sin espacios de sangrado. No es prescripción: sin cifras que cumplir.
+- La frase del tramo (`segmentSentence`) los cuenta en el mismo orden para trabajo y recuperación: «1' · ritmo Z4 · cinta · 1% · aviso en ambos sentidos · «mirar el pulso»».
+
+**El fallo se lee en castellano.** Antes, guardar un tramo inválido devolvía el volcado JSON del validador. Ahora `coachReadableSegmentIssues` (shared) da el mensaje del modelo, el editor lo avisa antes de guardar (`IssuesBar`) y `updateAthleteInstanceDay` lo devuelve tal cual. Solo para estos campos; el resto de fallos sigue como estaba.
+
+**No hacer.** No poner la lista de defectos del aviso en el editor ni en el reloj: si cambia la regla, cambia el método del coach. No mostrar la inclinación en pista. No convertir la frase en un campo de prescripción (cifras, objetivos): eso es el objetivo del tramo.
+
+**No verificado / abierto.** El reloj (Swift) decodifica `alert` pero todavía no lo aplica: hoy el aviso queda guardado y viaja, y actuará cuando se cierre el lado del reloj de F5. El diseño es UI nueva sobre el patrón existente, sin firma de Alex sobre el layout. El editor de tramos es del dashboard del coach y no tiene pantalla espejo en el doble (que replica la app del atleta), así que no hay nada que estampar allí. Copiar el entorno a todos los tramos de golpe («toda la sesión en cinta») no está: hoy cada tramo nuevo copia el anterior de su tipo, que arrastra el entorno.
+
 ## 2026-09-30 · Analíticas del iPhone, segunda tanda y cierre: el detalle de las cuatro familias y de la sesión con «El día», y fuera la pestaña vieja
 
 **El encargo:** llevar a Swift el detalle firmado (correr, ergo, fuerza, estaciones y la sesión tramo a tramo), cablearlo desde la portada, y CERRAR la pestaña: borrar `AnaliticasBandera`, la `AnalyticsView` de los siete contratos y todo lo que solo ella usaba. Rama `worktree-agent-ab66a2922a12498d9` (sin fusionar). Continúa la entrada «primera tanda: la portada» del 29-09.
