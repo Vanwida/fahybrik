@@ -23,23 +23,19 @@ struct AjustesPerfilSeccion: View {
         let grupos = DecidePerfil.agruparPuertas(puertas)
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
             TituloSeccionDia("Ajustes")
-            VStack(spacing: 0) {
-                ForEach(Array(grupos.visibles.enumerated()), id: \.element.id) { i, puerta in
-                    if i > 0 { Hairline() }
+            ListaDia {
+                ForEach(grupos.visibles) { puerta in
                     FilaDePuertaPerfil(puerta: puerta) { alAbrir(puerta.clave) }
                 }
                 if !grupos.plegadas.isEmpty {
                     if abierto {
                         ForEach(grupos.plegadas) { puerta in
-                            Hairline()
                             FilaDePuertaPerfil(puerta: puerta) { alAbrir(puerta.clave) }
                         }
                     }
-                    Hairline()
                     plegador(grupos.plegadas)
                 }
             }
-            .tarjetaPerfil()
         }
     }
 
@@ -67,7 +63,7 @@ struct AjustesPerfilSeccion: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if !abierto { InfoPill(text: "\(plegadas.count)", estilo: .velo) }
-                GiroPerfil(abierto: abierto).foregroundStyle(Theme.Color.accentText)
+                GiroDia(abierto: abierto).foregroundStyle(Theme.Color.accentText)
             }
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.vertical, Theme.Spacing.m)
@@ -94,54 +90,36 @@ private struct FilaDePuertaPerfil: View {
 
     var body: some View {
         let estado = puerta.estado
-        Button {
-            Haptics.light()
-            alTocar()
-        } label: {
-            HStack(spacing: 14) {
-                FichaDia(tono: estado?.tono.ficha ?? .normal) { IconoPerfil(puerta.clave.glifo) }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(puerta.titulo)
-                        .papel(.cuerpoFuerte)
+        FilaDia(
+            ficha: FichaDia(puerta.clave.glifo, tono: estado?.tono.ficha ?? .normal),
+            titulo: puerta.titulo,
+            etiqueta: "\(puerta.titulo). \(estado?.texto ?? puerta.descripcion)",
+            fondo: realce,
+            alTocar: alTocar
+        ) {
+            if let estado {
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+                    MarcaDeEstadoPerfil(tono: estado.tono)
+                    Text(estado.texto)
+                        .papel(.notaFuerte)
                         .foregroundStyle(Theme.Color.foreground)
-                    if let estado {
-                        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
-                            MarcaDeEstadoPerfil(tono: estado.tono)
-                            Text(estado.texto)
-                                .papel(.notaFuerte)
-                                .foregroundStyle(Theme.Color.foreground)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    } else {
-                        Text(puerta.descripcion)
-                            .papel(.nota)
-                            .foregroundStyle(Theme.Color.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                IconoDia(.chevron, tam: 18).foregroundStyle(Theme.Color.muted)
+            } else {
+                Text(puerta.descripcion)
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, Theme.Spacing.l)
-            .padding(.vertical, Theme.Spacing.m)
-            .frame(minHeight: 76)
-            .background(realce)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(PressScaleStyle(escala: 0.985))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(puerta.titulo). \(estado?.texto ?? puerta.descripcion)")
-        .accessibilityAddTraits(.isButton)
     }
 
     /// Lo que pide al atleta (aviso o peligro) tiñe la fila con el color de su marca.
-    @ViewBuilder
-    private var realce: some View {
+    private var realce: SwiftUI.Color {
         if puerta.atencion, let color = puerta.estado?.tono.color {
-            Theme.Color.tinte(color, Self.tinteDeAtencion, sobre: Theme.Color.surface)
-        } else {
-            Color.clear
+            return Theme.Color.tinte(color, Self.tinteDeAtencion, sobre: Theme.Color.surface)
         }
+        return .clear
     }
 
     private static let tinteDeAtencion: Double = 0.09

@@ -26,7 +26,9 @@ struct SujetoDePerfil: View {
         case .cargando:
             SujetoCargandoPerfil()
         case .error:
-            SujetoErrorPerfil(alReintentar: alReintentar)
+            SujetoErrorDia(
+                kicker: "Tu perfil", titulo: "No pudimos cargar tu perfil",
+                apoyo: "Revisa tu conexión e inténtalo de nuevo.", alReintentar: alReintentar)
         case .completo, .porCompletar:
             SujetoCompletoPerfil(lectura: lectura, alEditar: alEditar, alFoto: alFoto)
         }
@@ -54,7 +56,7 @@ private struct SujetoCompletoPerfil: View {
         let texto = DecidePerfil.subtituloIdentidad(id) ?? DecidePerfil.apoyoDeIdentidad(lectura)
         SujetoDia(tono: .acento, etiqueta: "Tu perfil") {
             cabecera(id)
-            TituloDePerfil(DecidePerfil.tituloIdentidad(id))
+            TituloDia(DecidePerfil.tituloIdentidad(id), ajuste: .reduce())
             if let texto { ApoyoDia(texto) }
         } abajo: {
             Button(action: alEditar) {
@@ -72,8 +74,8 @@ private struct SujetoCompletoPerfil: View {
         let avatar = AvatarDePerfil(iniciales: DecidePerfil.iniciales(id.nombre), fotoURL: id.fotoURL, alTocar: alFoto)
         let quien = VStack(alignment: .leading, spacing: 6) {
             KickerDia("Tu perfil")
-            if let coach { MarcaDePerfil(.coach, "Con \(coach)") }
-            if let pareja { MarcaDePerfil(.pareja, TextosPerfil.unir("Dobles", "con \(pareja)")) }
+            if let coach { InfoPill(text: "Con \(coach)", estilo: .velo, glifo: .coach) }
+            if let pareja { InfoPill(text: TextosPerfil.unir("Dobles", "con \(pareja)"), estilo: .velo, glifo: .equipo) }
         }
         if tamanoDeTexto.isAccessibilitySize {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
@@ -111,94 +113,7 @@ private struct SujetoCargandoPerfil: View {
     }
 }
 
-private struct SujetoErrorPerfil: View {
-    let alReintentar: () async -> Void
-    @State private var reintentando = false
-
-    var body: some View {
-        SujetoDia(tono: .peligro, etiqueta: "No pudimos cargar tu perfil", anuncia: true) {
-            KickerDia("Tu perfil")
-            TituloDePerfil("No pudimos cargar tu perfil")
-            ApoyoDia("Revisa tu conexión e inténtalo de nuevo.")
-        } abajo: {
-            Button {
-                guard !reintentando else { return }
-                Haptics.light()
-                reintentando = true
-                Task {
-                    await alReintentar()
-                    reintentando = false
-                }
-            } label: {
-                AccionDia(reintentando ? "Reintentando" : "Reintentar", glifo: .reintentar, enCurso: reintentando)
-            }
-            .buttonStyle(PressScaleStyle(escala: 0.96))
-            .disabled(reintentando)
-        }
-    }
-}
-
 // MARK: - Las piezas del sujeto
-
-/// El nombre: display de marca, pesado e inclinado. Un nombre largo baja de tamaño en vez de ganar una
-/// tercera línea: dos líneas como mucho y, si aun así no cabe, hasta `escalaMinima` de su tamaño. Es
-/// mecanismo de maquetación, no método: no depende de ningún coach.
-struct TituloDePerfil: View {
-    let texto: String
-    @Environment(\.tonoDia) private var tono
-    @Environment(\.dynamicTypeSize) private var tamanoDeTexto
-
-    /// Hasta dónde baja el nombre (44 → ~31 pt): a partir de ahí ya no es el sujeto de la pantalla.
-    static let escalaMinima: CGFloat = 0.7
-
-    init(_ texto: String) { self.texto = texto }
-
-    var body: some View {
-        Text(texto)
-            .papel(.sujeto)
-            // Dos líneas y, si no caben, más pequeño. Con el texto del sistema en tamaños de accesibilidad el
-            // nombre pasa a lo que haga falta: cortado con «…» ya no es el nombre de nadie.
-            .lineLimit(tamanoDeTexto.isAccessibilitySize ? nil : 2)
-            .minimumScaleFactor(Self.escalaMinima)
-            .foregroundStyle(tono.papeles.tinta)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityAddTraits(.isHeader)
-    }
-}
-
-/// Una marca de quién eres: tu coach, tu pareja de Dobles. Si el nombre es largo, parte en dos líneas:
-/// nunca se corta.
-struct MarcaDePerfil: View {
-    let glifo: GlifoPerfil
-    let texto: String
-
-    /// El velo de la tinta del tema que ya usa `InfoPill(.velo)`.
-    private static let velo: Double = 0.08
-
-    init(_ glifo: GlifoPerfil, _ texto: String) {
-        self.glifo = glifo
-        self.texto = texto
-    }
-
-    var body: some View {
-        HStack(spacing: 6) {
-            IconoPerfil(glifo, tam: 16, peso: .bold)
-            Text(texto)
-                .papel(.rotulo)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .foregroundStyle(Theme.Color.foreground)
-        .padding(.horizontal, Theme.Spacing.m)
-        .padding(.vertical, Theme.Spacing.xs)
-        .frame(minHeight: 32)
-        .background(
-            Theme.Color.foreground.opacity(Self.velo),
-            in: RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous)
-        )
-        .accessibilityElement(children: .combine)
-    }
-}
 
 /// El avatar del atleta y la puerta a su foto: la cara del color de la marca con sus iniciales (o la
 /// silueta si aún no hay nombre) y, encima, la foto cuando la hay. La chapita de cámara es lo que

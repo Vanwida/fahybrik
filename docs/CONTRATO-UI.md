@@ -379,7 +379,7 @@ Corolario de §6.2: en un EMOM el sujeto es el minuto drenando, pero **el trabaj
 
 ## 11 · El kit del día (iOS)
 
-Hoy, Plan, Carreras y Perfil se portan a Swift en paralelo con el diseño de «El día»; sin un kit común cada una montaba su propio sujeto, su propia tesela y su propia pastilla. Componentes en `Theme/Dia/`, tokens en `Theme/Theme+Dia.swift` y `Theme/Theme+Tipo.swift`. Espejo de `web/components/design-twin/kit-dia/`: si cambia allí, cambia aquí en el mismo lote. Cómo se ve: `GaleriaDia` (las `#Preview` y `FAHYBRIKTests/Theme/GaleriaDiaRenderTests`, que deja PNG en claro/oscuro con el acento de fábrica y con un club azul y uno amarillo en `FAHYBRIK_CAPTURAS`).
+Hoy, Plan, Carreras, Perfil y Analíticas se portaron a Swift en paralelo con el diseño de «El día»; sin un kit común cada una montaba su propio sujeto, su propia tesela y su propia pastilla, y aun con el kit cada una escribió por su cuenta su tarjeta, su chip, su botón, su campo, su glifo, su chevron, su título y su flujo (el 30-sep se consolidó todo en una pieza por idea: DECISIONS 30-09). Componentes en `Theme/Dia/`, tokens en `Theme/Theme+Dia.swift` y `Theme/Theme+Tipo.swift`. Espejo de `web/components/design-twin/kit-dia/`: si cambia allí, cambia aquí en el mismo lote. Cómo se ve: `GaleriaDia` (las `#Preview` y `FAHYBRIKTests/Theme/GaleriaDiaRenderTests`, que deja PNG en claro/oscuro con el acento de fábrica y con un club azul y uno amarillo en `FAHYBRIK_CAPTURAS`).
 
 ### 11.1 · Qué usar para qué
 
@@ -401,6 +401,21 @@ Hoy, Plan, Carreras y Perfil se portan a Swift en paralelo con el diseño de «E
 | Marcador de carga | `SkeletonBar` con la MISMA forma que tendrá lo que llegue |
 | Glifo / sello de estado de una sesión | `IconoDia(GlifoDia)` · `SelloEstadoDia` — todos SF Symbols, un símbolo por idea |
 | Repartir el sobrante ENTRE los hijos | `EntreLayout` |
+| Tarjeta plana de una sección (superficie, filete, radio 22) · lista de filas con filete entre ellas | `.tarjetaDia(realce:alAncho:)` · `ListaDia` (pone el filete ENTRE las filas que se pintan) |
+| Una fila que se toca: ficha, título, detalle, chevron | `FilaDia` (dentro de una `ListaDia`, o suelta con `enTarjeta`) |
+| Pastilla que enseña un dato, un estado, un rol, una etiqueta con glifo o sello | `InfoPill(text:estilo:glifo:sello:)`: `.neutro .acento .solido .sobreAccion .velo .superficie .tinta .dato .estado` (el `.dato` y el `.estado` leen el tono del sujeto en que están) |
+| Chevron de un pliegue («Ver 3 más», «Más ajustes») | `GiroDia(abierto:)` |
+| Acción: la del sujeto, la que ancla una pantalla, la que cierra una hoja, la salida de un vacío | `AccionDia` (el dibujo) y `BotonAccionDia` (el botón: háptico, escala, `estado` normal · inactivo · ocupado, `BotonAccionDia(hoja:)`); relleno `.tinta` · `.acento` · `.apagado`, `completa` |
+| Salida discreta de 48 pt («Ver 3 más», «No soy yo», «Cancelar») | `BotonTextoDia` (tono `.acento` · `.tinta` · `.suave` · `.peligro`; la palabra en la tinta del tema, el acento al glifo) |
+| Acción de la cabecera de una sección («Buscar carrera», «Importar») | `PastillaSeccionDia` |
+| Chip que se elige · su fila con etiqueta · conmutador de contorno (periodo, formato) | `ChipFiltroDia` · `FilaChipsDia` · `SegmentoDia` (nunca trunca ni encoge: si no caben, se desliza) |
+| Campo de texto · marco de una hoja (título, cierre, acción anclada) · error dentro de una hoja o sección | `CampoDia` · `MarcoDeHojaDia` · `AvisoEnLineaDia` |
+| «No pudimos cargar X», con su «Reintentar» | `SujetoErrorDia(kicker:titulo:apoyo:alReintentar:)` |
+| Título del sujeto que no se parte en cinco líneas | `TituloDia(_, ajuste: .libre · .escalones · .reduce())` (una palabra sola se encoge, no se parte) |
+| Subtítulo de un bloque o de una pregunta (20 pt) · cifra de una fila que se lee en columna (22 pt) | `SubtituloDia` (`.papel(.subtitulo)`) · `.papel(.cifra)` |
+| Elementos que se parten en filas (flex-wrap) | `FlowLayout(spacing:lineSpacing:)` |
+| «‹ Volver» de una pantalla empujada · menú «···» de una fila o de la acción anclada | `AtrasDia` · `MenuDia` |
+| Filete de un punto | `Hairline()` · `Hairline(fuerte: true)` |
 | Avatar del atleta con la marca de fondo | `CoachAvatar(relleno: true)` |
 | El color de una SERIE de una gráfica (familia de entreno, zona del coach), la banda basal, la chispa | `Theme.Color.familiaCorrer/Ergo/Fuerza/Estaciones` · `Theme.Color.zona(_:de:)` · `superficieDeGrafico` · `apoyoFuerte` · `chispa(_:)` (`Theme/Theme+Datos.swift`, claro y oscuro, medidos por `AnaliticasPielTests`) y los trazos en `Theme.Chart`. El acento del club NUNCA es color de dato |
 | Un dato con su delta, un gráfico de líneas/columnas/reparto, una fila de progreso o de récord, la glosa | Las piezas de `Analytics/Panel/Kit` (`AnaliticasCelda`, `AnaliticasGraficoLineas`…, ver su README) y, para una tabla densa, la tendencia de una lectura, las celdas en rejilla, el sujeto de una familia o las curvas de una sesión y de los mejores esfuerzos, las de `Analytics/Detalle/Kit` (`AnaliticasTabla`, `AnaliticasTendencia`, `AnaliticasRejilla`, `AnaliticasSujetoFamilia`, `AnaliticasGraficosDeDetalle`) |
@@ -416,7 +431,7 @@ Tres reglas medidas (las afirma `DiaKitTests`):
 
 ### 11.3 · Tipografía: se pide el papel, no el número
 
-`Text(…).papel(.seccion)`. Papeles: `etiqueta`, `kicker`, `rotulo`, `nota`, `notaFuerte`, `notaPesada` (15 pt) · `cuerpo`, `cuerpoFuerte`, `accion` (17) · `seccion` (24) · `saludo` (30) · `dato` (32) · `sujeto` (44) · `cuentaHoy` (64) · `cuenta` (80). Escalan con Dynamic Type hacia arriba y **nunca por debajo de su base**; los de 24 pt en adelante llevan tope (×1,3) para que una palabra no se parta a mitad. Sigue en pie, y choca con el suelo de 15 pt, la escala antigua: `Theme.Typography.body/small/caption/dataLabel` (16/13/12/11), `LabelText`/`SectionLabel` (11). (El `SectionHeader` de Perfil, de 10 pt, se borró al rehacer la pestaña.) No se borran (hay pantallas que aún las leen); una pantalla rehecha no las usa.
+`Text(…).papel(.seccion)`. Papeles: `etiqueta`, `kicker`, `rotulo`, `nota`, `notaFuerte`, `notaPesada` (15 pt) · `cuerpo`, `cuerpoFuerte`, `accion` (17) · `subtitulo` (20) · `cifra` (22) · `seccion` (24) · `saludo` (30) · `dato` (32) · `sujeto` (44) · `cuentaHoy` (64) · `cuenta` (80). Escalan con Dynamic Type hacia arriba y **nunca por debajo de su base**; los de 24 pt en adelante llevan tope (×1,3) para que una palabra no se parta a mitad. Sigue en pie, y choca con el suelo de 15 pt, la escala antigua: `Theme.Typography.body/small/caption/dataLabel` (16/13/12/11), `LabelText`/`SectionLabel` (11). (El `SectionHeader` de Perfil, de 10 pt, se borró al rehacer la pestaña.) No se borran (hay pantallas que aún las leen); una pantalla rehecha no las usa.
 
 ### 11.4 · Altura
 
@@ -425,3 +440,9 @@ Una pantalla tiene UN sujeto y va en un `FillingScreen`: el sobrante entra en el
 ### 11.5 · Prohibido
 
 Un naranja o un hex en un fichero del kit (lo vigila un test), otro cascarón de sujeto, texto por debajo de 15 pt, `Theme.Color.accent.opacity(0.12)` suelto (hay 75 en la app: se cambian por `accentTint` al rehacer cada pantalla), un `Layout` que se estire con toda propuesta, y un botón redondo sin nombre accesible.
+
+**Y no se vuelve a copiar por pestaña lo que ya es del kit** (así nacieron, el 29-sep, cuatro tarjetas planas, tres familias de iconos, cuatro sujetos de error, cuatro flujos y tres títulos del sujeto, cada uno con su nombre de pestaña):
+- Nada con el nombre de una pestaña que haga lo que ya hace una pieza de la tabla de arriba: `tarjeta<Pestaña>`, `Icono<Pestaña>`/`Glifo<Pestaña>` (un SF Symbol nuevo es UN caso más de `GlifoDia`), `Chip<Pestaña>`/`Pastilla<Pestaña>` (es un estilo de `InfoPill`), `Giro<Pestaña>`, `Boton…<Pestaña>`, `Campo<Pestaña>`, `MarcoDeHoja<Pestaña>`, `Titulo<Pestaña>`, `Flujo<Pestaña>`, `SujetoError<Pestaña>`, `Menu<Pestaña>`. Si la pieza del kit no llega, se AMPLÍA en el kit (con su `#Preview`, su sección en `GaleriaDia` y su prueba de captura), no se copia.
+- `Rectangle().fill(Theme.Color.hairline)` suelto (es `Hairline()`), un SF Symbol escrito a mano para una idea que ya tiene su `GlifoDia`, un `RoundedRectangle(cornerRadius: Theme.Radius.tarjeta)` con `surface` y `hairline` (es `.tarjetaDia()`).
+- El texto de un botón en `accentText`: con un acento claro en tema claro no se lee (hallazgo fijado en `DiaKitTests`). La palabra va en la tinta del tema; el acento, al glifo.
+- Un `lineLimit(1)` sobre un dato o un nombre: baja de línea; a tamaño de accesibilidad la pieza se reorganiza (una columna), no se corta con «…» (`LineaDelDia`, `TeselasDia`, `SegmentoDia`).

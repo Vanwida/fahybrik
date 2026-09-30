@@ -46,9 +46,9 @@ struct PlanCromo: View {
             Spacer(minLength: Theme.Spacing.s)
             HStack(spacing: 0) {
                 if conSemana {
-                    BotonCromoDia(etiqueta: "Compartir la semana", accion: alCompartir) { SimboloPlan(glifo: .compartir) }
+                    BotonCromoDia(etiqueta: "Compartir la semana", accion: alCompartir) { IconoDia(.compartir) }
                 }
-                BotonCromoDia(etiqueta: "Ver el ciclo entero", accion: alCiclo) { SimboloPlan(glifo: .ciclo) }
+                BotonCromoDia(etiqueta: "Ver el ciclo entero", accion: alCiclo) { IconoDia(.ciclo) }
                 BotonCromoDia(.calendario, etiqueta: "Historial de entrenos", accion: alHistorial)
                 if conChat {
                     BotonCromoDia(.chat, etiqueta: "Chat con tu coach", accion: alChat)

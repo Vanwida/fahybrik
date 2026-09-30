@@ -39,10 +39,15 @@ extension Theme.Typography {
         case cuerpoFuerte
         /// La voz de la acción: la pastilla de tinta invertida.
         case accion
+        /// El título de un bloque dentro de una sección («Estaciones», «Ritmo por km») o de una pregunta de una hoja:
+        /// un escalón por debajo del título de sección (24).
+        case subtitulo
         /// Título de sección.
         case seccion
         /// El saludo y el título de una pantalla.
         case saludo
+        /// La cifra de una fila que se lee en columna (un ritmo, un récord): recta y más pequeña que el dato de una tesela.
+        case cifra
         /// Un dato del día: una marca, unos pasos.
         case dato
         /// El sujeto de la pantalla: display de marca, cursiva pesada.
@@ -79,10 +84,14 @@ extension Theme.Typography {
         /// El tamaño con que se pinta ya escalado por Dynamic Type: hacia arriba con el texto del sistema,
         /// NUNCA por debajo de la medida base del papel (el suelo, §4.1) y, si es un papel grande, sin
         /// pasar de su tope.
-        func tamanoEfectivo(escalado: CGFloat) -> CGFloat {
+        ///
+        /// `base` sustituye a la medida del papel cuando un mismo papel se pide a otro tamaño (el título del
+        /// sujeto que baja de escalón): el suelo y el tope se miden contra ella.
+        func tamanoEfectivo(escalado: CGFloat, base: CGFloat? = nil) -> CGFloat {
             let m = medidas
-            let subido = max(escalado, m.tamano)
-            return m.tope.map { min(subido, m.tamano * $0) } ?? subido
+            let suelo = base ?? m.tamano
+            let subido = max(escalado, suelo)
+            return m.tope.map { min(subido, suelo * $0) } ?? subido
         }
 
         var medidas: Medidas {
@@ -105,10 +114,14 @@ extension Theme.Typography {
                 return Medidas(tamano: 17, peso: .bold, interlineado: 1.25, estilo: .body)
             case .accion:
                 return Medidas(tamano: 17, peso: .heavy, cursiva: true, interlineado: 1, tracking: 0.01, estilo: .body)
+            case .subtitulo:
+                return Medidas(tamano: 20, peso: .heavy, cursiva: true, interlineado: 1.2, estilo: .title3)
             case .seccion:
                 return Medidas(tamano: 24, peso: .heavy, cursiva: true, interlineado: 1.15, tracking: -0.01, estilo: .title2, tope: Self.topeDeLosGrandes)
             case .saludo:
                 return Medidas(tamano: 30, peso: .heavy, cursiva: true, interlineado: 1.1, tracking: -0.015, estilo: .title, tope: Self.topeDeLosGrandes)
+            case .cifra:
+                return Medidas(tamano: 22, peso: .bold, interlineado: 1.2, tabular: true, estilo: .title3, tope: Self.topeDeLosGrandes)
             case .dato:
                 return Medidas(tamano: 32, peso: .heavy, cursiva: true, interlineado: 1, tracking: -0.02, tabular: true, estilo: .title, tope: Self.topeDeLosGrandes)
             case .sujeto:
@@ -126,24 +139,27 @@ extension View {
     /// Pone al texto un papel de la escala del día: tamaño, peso, cursiva, interlineado, aire
     /// entre letras y mayúsculas, todo junto y escalando con el texto del sistema (sin bajar
     /// nunca del suelo de su papel). El color NO va aquí: es del sitio donde se pone.
-    func papel(_ papel: Theme.Typography.Papel) -> some View {
-        modifier(PapelModifier(papel: papel))
+    /// `tamano` pide el papel a otra medida base (el sujeto a 36 pt): escala, suelo y tope se miden contra ella.
+    func papel(_ papel: Theme.Typography.Papel, tamano: CGFloat? = nil) -> some View {
+        modifier(PapelModifier(papel: papel, base: tamano))
     }
 }
 
 /// Backs `.papel(_:)`. El `@ScaledMetric` recalcula el tamaño efectivo cuando cambia Dynamic Type.
 private struct PapelModifier: ViewModifier {
     let papel: Theme.Typography.Papel
+    let base: CGFloat?
     @ScaledMetric private var escalado: CGFloat
 
-    init(papel: Theme.Typography.Papel) {
+    init(papel: Theme.Typography.Papel, base: CGFloat?) {
         self.papel = papel
-        _escalado = ScaledMetric(wrappedValue: papel.medidas.tamano, relativeTo: papel.medidas.estilo)
+        self.base = base
+        _escalado = ScaledMetric(wrappedValue: base ?? papel.medidas.tamano, relativeTo: papel.medidas.estilo)
     }
 
     func body(content: Content) -> some View {
         let m = papel.medidas
-        let tamano = papel.tamanoEfectivo(escalado: escalado)
+        let tamano = papel.tamanoEfectivo(escalado: escalado, base: base)
         // `lineSpacing` es EXTRA sobre el alto natural de la línea (≈1,2 del cuerpo en SF); el
         // interlineado del diseño es un múltiplo del tamaño, así que el extra puede ser negativo
         // (un título de 44 pt a 1,02 va más apretado que el natural).

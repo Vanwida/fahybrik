@@ -75,8 +75,8 @@ struct AnaliticasPortadaEsqueleto: View {
 
 // MARK: - Error: con su salida
 
-/// Lo pedido no ha llegado y no hay copia: se dice y se ofrece reintentar. Un sujeto de peligro que se anuncia solo a VoiceOver al
-/// aparecer. Lo usan la portada y todos los detalles: cambia el kicker (dónde estás) y el título (qué no llegó).
+/// Lo pedido no ha llegado y no hay copia: `SujetoErrorDia` con el texto de la pestaña. Lo usan la portada y todos los detalles:
+/// cambia el kicker (dónde estás) y el título (qué no llegó).
 struct AnaliticasErrorDeCarga: View {
     var kicker = "Tu estado hoy"
     var titulo = "No se han podido cargar tus analíticas"
@@ -84,14 +84,9 @@ struct AnaliticasErrorDeCarga: View {
     let onReintentar: () -> Void
 
     var body: some View {
-        SujetoDia(tono: .peligro, etiqueta: titulo, anuncia: true) {
-            KickerDia(kicker)
-            TituloDia(titulo)
-            ApoyoDia("Comprueba la conexión y vuelve a intentarlo.")
-        } abajo: {
-            Button(action: onReintentar) { AccionDia("Reintentar", glifo: .reintentar, enCurso: reintentando) }
-                .buttonStyle(PressScaleStyle(escala: 0.96))
-                .disabled(reintentando)
-        }
+        SujetoErrorDia(
+            kicker: kicker, titulo: titulo, apoyo: "Comprueba la conexión y vuelve a intentarlo.",
+            reintentando: reintentando, alReintentar: onReintentar
+        )
     }
 }

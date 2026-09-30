@@ -71,7 +71,7 @@ struct DeleteAccountConfirmView: View {
         }
         .padding(Theme.Spacing.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .tarjetaPerfil()
+        .tarjetaDia()
         .overlay(alignment: .leading) {
             // El peligro va en la marca: una barra del color de peligro en el borde de la tarjeta.
             Rectangle().fill(Theme.Color.danger).frame(width: 4).accessibilityHidden(true)

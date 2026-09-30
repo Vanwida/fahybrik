@@ -19,7 +19,7 @@ el reloj ni lo decía. Ahora siempre lanza sin preguntar (fuera «Preparar graba
 por alcance si Apple dio error y muestra el estado real (chip). Falta aparato con reloj.
 
 **LAS PESTAÑAS, CON EL DISEÑO DE «HOY · EL DÍA» (29-09, doble, main).** Alex firmó «El día» para Hoy (DECISIONS 29-09; «El pulso» descartado). En curso: Plan, Carreras y Perfil en el mismo diseño (`/design/pestanas`, kit `kit-dia`); luego las cuatro a Swift (lo instala Alex). Analíticas sigue con su diseño firmado (¿unificar la piel? pendiente de Alex).
-  **Swift: cimientos del kit hechos** (`worktree-agent-abcdb3996c0f86677`, `Theme/Dia/` + CONTRATO-UI §11; DECISIONS 29-09). **Hoy portado** (`worktree-agent-a1d67169bd0090249`, DECISIONS 29-09 «Hoy en Swift»): una sola Inicio con y sin coach, `Today/Hoy/`; falta integrar y probar en aparato. Faltan Plan, Carreras y Perfil.
+  **Swift: cimientos del kit hechos** (`worktree-agent-abcdb3996c0f86677`, `Theme/Dia/` + CONTRATO-UI §11; DECISIONS 29-09). **Hoy portado** (`worktree-agent-a1d67169bd0090249`, DECISIONS 29-09 «Hoy en Swift»): una sola Inicio con y sin coach, `Today/Hoy/`; falta integrar y probar en aparato. **Consolidación del kit (30-09, rama `worktree-agent-aacc3b27d54945681`, sin fusionar; DECISIONS 30-09):** una pieza por idea en `Theme/Dia/` (tarjeta, glifos, pastilla, acción, botón de texto, campo, hoja, segmento, error, título, flujo…) y borradas las copias de Hoy, Plan, Carreras, Perfil y Analíticas; CONTRATO-UI §11.1/§11.5 al día.
 
 **ANALÍTICAS REHECHAS (29-09; modelo `docs/analiticas/modelo.md`; ya en main; DECISIONS 29-09).** Un solo cálculo (`cargarPanel`)
 para el iPhone y el panel del coach. Piezas, cada una con su entrada en DECISIONS:

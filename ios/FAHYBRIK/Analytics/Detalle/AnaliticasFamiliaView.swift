@@ -77,7 +77,7 @@ struct AnaliticasFamiliaView: View {
 
 /// El conmutador de máquina del ergo: Remo · SkiErg · BikeErg.
 func selectorDeMaquina(_ maquina: Binding<FamiliaDeDetalle>) -> some View {
-    AnaliticasSegmento(
+    SegmentoDia(
         items: [FamiliaDeDetalle.remo, .ski, .bici].map { ($0, $0.lectura.nombre) },
         valor: maquina, etiqueta: "Máquina", completo: true
     )

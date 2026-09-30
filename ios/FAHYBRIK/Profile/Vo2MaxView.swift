@@ -146,7 +146,7 @@ private struct CurvaDelNumero: View {
             )
             .padding(Theme.Spacing.l)
             .frame(maxWidth: .infinity)
-            .tarjetaPerfil()
+            .tarjetaDia()
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Vo2Texto.resumenDeLaCurva(series))
         }

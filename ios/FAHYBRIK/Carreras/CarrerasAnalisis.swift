@@ -32,7 +32,7 @@ struct SubTituloCarreras: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(titulo).subtituloCarreras()
+            SubtituloDia(titulo)
             if let nota {
                 Text(nota)
                     .papel(.nota)
@@ -117,7 +117,7 @@ private struct FilaEstacion: View {
         }
         .buttonStyle(PressScaleStyle(escala: 0.99))
         .overlay(alignment: .top) {
-            if i > 0 { Rectangle().fill(Theme.Color.hairline).frame(height: 1) }
+            if i > 0 { Hairline() }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(voz)
@@ -148,7 +148,7 @@ struct EstacionesCarreras: View {
                         FilaEstacion(e: e, i: i, alAbrir: alAbrir)
                     }
                 }
-                .tarjetaCarreras()
+                .tarjetaDia()
             }
         }
     }
@@ -212,7 +212,7 @@ struct RitmoPorKmCarreras: View {
                 }
                 .padding(EdgeInsets(top: 16, leading: 14, bottom: 14, trailing: 14))
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .tarjetaCarreras()
+                .tarjetaDia()
             }
         }
     }
@@ -290,7 +290,7 @@ struct EvolucionCarreras: View {
                 }
                 .padding(EdgeInsets(top: 16, leading: 14, bottom: 14, trailing: 14))
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .tarjetaCarreras()
+                .tarjetaDia()
             }
         }
     }
@@ -338,35 +338,6 @@ struct EvolucionCarreras: View {
 
 // MARK: - Informe de la IA
 
-/// Un texto que se parte en filas: las etiquetas de un informe caben las que quepan y el resto baja.
-struct FlujoCarreras: Layout {
-    var espacio: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let ancho = proposal.width ?? .infinity
-        var x: CGFloat = 0, y: CGFloat = 0, fila: CGFloat = 0, maxX: CGFloat = 0
-        for v in subviews {
-            let t = v.sizeThatFits(.unspecified)
-            if x > 0, x + t.width > ancho { y += fila + espacio; x = 0; fila = 0 }
-            x += t.width + espacio
-            fila = max(fila, t.height)
-            maxX = max(maxX, x - espacio)
-        }
-        return CGSize(width: maxX, height: y + fila)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX, y = bounds.minY, fila: CGFloat = 0
-        for v in subviews {
-            let t = v.sizeThatFits(.unspecified)
-            if x > bounds.minX, x + t.width > bounds.maxX { y += fila + espacio; x = bounds.minX; fila = 0 }
-            v.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(t))
-            x += t.width + espacio
-            fila = max(fila, t.height)
-        }
-    }
-}
-
 struct InformeCarreras: View {
     let analisis: AnalisisCarrera
 
@@ -383,14 +354,14 @@ struct InformeCarreras: View {
                     .foregroundStyle(Theme.Color.foreground)
                     .fixedSize(horizontal: false, vertical: true)
                 if !informe.grupos.isEmpty {
-                    FlujoCarreras {
-                        ForEach(informe.grupos, id: \.self) { ChipCarreras($0, estilo: .superficie) }
+                    FlowLayout {
+                        ForEach(informe.grupos, id: \.self) { InfoPill(text: $0, estilo: .superficie) }
                     }
                 }
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .tarjetaCarreras(realce: true)
+            .tarjetaDia(realce: true)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Informe de la IA, a priorizar. \(informe.resumen)")
         }
@@ -412,35 +383,22 @@ struct PuertaPredichoVsRealCarreras: View {
         let precision = Formato.porcentaje(fraccion: predicho.precisionPct.map { $0 / 100 }).map { pct in
             "Predicción a \(pct)\(predicho.precisionPalabra.map { ", \($0)" } ?? "")"
         }
-        Button {
-            Haptics.light()
-            alAbrir()
-        } label: {
-            HStack(spacing: 14) {
-                FichaDia(.diana)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Predicho contra real").papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
-                    if !detalle.isEmpty {
-                        Text(detalle).papel(.nota).monospacedDigit().foregroundStyle(Theme.Color.muted)
-                    }
-                    if let precision {
-                        Text(precision).papel(.notaFuerte).monospacedDigit().foregroundStyle(Theme.Color.foreground)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                IconoDia(.chevron, tam: 18).foregroundStyle(Theme.Color.muted)
+        FilaDia(
+            ficha: FichaDia(.diana),
+            titulo: "Predicho contra real",
+            etiqueta: ["Predicho contra real", nombre, detalle, precision].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ". "),
+            pista: "Abre la comparación",
+            aireVertical: Theme.Spacing.m + 2,
+            enTarjeta: true,
+            alTocar: alAbrir
+        ) {
+            if !detalle.isEmpty {
+                Text(detalle).papel(.nota).monospacedDigit().foregroundStyle(Theme.Color.muted)
             }
-            .padding(.horizontal, Theme.Spacing.l)
-            .padding(.vertical, Theme.Spacing.m + 2)
-            .frame(minHeight: 76)
-            .tarjetaCarreras()
-            .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
+            if let precision {
+                Text(precision).papel(.notaFuerte).monospacedDigit().foregroundStyle(Theme.Color.foreground)
+            }
         }
-        .buttonStyle(PressScaleStyle(escala: 0.985))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(["Predicho contra real", nombre, detalle, precision].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ". "))
-        .accessibilityHint("Abre la comparación")
-        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -466,11 +424,11 @@ struct EsqueletoAnalisisCarreras: View {
                         .padding(.vertical, Theme.Spacing.m - 2)
                         .frame(minHeight: 56)
                         .overlay(alignment: .top) {
-                            if i > 0 { Rectangle().fill(Theme.Color.hairline).frame(height: 1) }
+                            if i > 0 { Hairline() }
                         }
                     }
                 }
-                .tarjetaCarreras()
+                .tarjetaDia()
             }
             VStack(alignment: .leading, spacing: Theme.Spacing.m - 2) {
                 SkeletonBar(width: 120, height: 22, radius: 7)
@@ -481,7 +439,7 @@ struct EsqueletoAnalisisCarreras: View {
                 }
                 .padding(EdgeInsets(top: 16, leading: 14, bottom: 16, trailing: 14))
                 .frame(height: 168, alignment: .bottom)
-                .tarjetaCarreras()
+                .tarjetaDia()
             }
         }
         .accessibilityElement(children: .ignore)
@@ -495,8 +453,8 @@ struct AnalisisConErrorCarreras: View {
     let alReintentar: () -> Void
 
     var body: some View {
-        AvisoEnLinea("No pudimos cargar el análisis de tu carrera. El historial de abajo sí está.") {
-            BotonTextoCarreras("Reintentar", tono: .tinta, accion: alReintentar)
+        AvisoEnLineaDia("No pudimos cargar el análisis de tu carrera. El historial de abajo sí está.") {
+            BotonTextoDia("Reintentar", tono: .tinta, accion: alReintentar)
         }
     }
 }

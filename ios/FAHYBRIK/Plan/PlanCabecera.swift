@@ -69,7 +69,7 @@ struct CabeceraPlan: View {
     private var flechas: some View {
         HStack(spacing: 0) {
             if hojeando {
-                BotonCromoDia(etiqueta: "Semana anterior", accion: alAtras) { SimboloPlan(glifo: .atras, tam: 18, peso: .bold) }
+                BotonCromoDia(etiqueta: "Semana anterior", accion: alAtras) { IconoDia(.atras, tam: 18, peso: .bold) }
             } else {
                 Color.clear.frame(width: Theme.Size.toque, height: Theme.Size.toque)
             }
@@ -77,7 +77,7 @@ struct CabeceraPlan: View {
                 BotonCromoDia(
                     etiqueta: adelanteBloqueado ? "Semana siguiente, bloqueada por tu club" : "Semana siguiente",
                     accion: alAdelante
-                ) { SimboloPlan(glifo: adelanteBloqueado ? .candado : .adelante, tam: 18, peso: .bold) }
+                ) { IconoDia(adelanteBloqueado ? .candado : .chevron, tam: 18, peso: .bold) }
             } else {
                 Color.clear.frame(width: Theme.Size.toque, height: Theme.Size.toque)
             }
@@ -156,8 +156,7 @@ private struct IntencionPlan: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .background(alignment: .topLeading) { medidor }
             if desborda || abierta {
-                IconoDia(.chevron, tam: 16, peso: .bold)
-                    .rotationEffect(.degrees(abierta ? -90 : 90))
+                GiroDia(abierto: abierta, tam: 16, peso: .bold)
                     .foregroundStyle(Theme.Color.muted)
                     .frame(maxHeight: .infinity, alignment: .bottom)
             }

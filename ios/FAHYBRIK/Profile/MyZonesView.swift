@@ -219,7 +219,7 @@ private struct SeccionDePulso: View {
                 }
                 .padding(Theme.Spacing.l)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .tarjetaPerfil()
+                .tarjetaDia()
                 EnlaceAlTestDeUmbral(bearer: bearer, hr: nil)
             }
         }

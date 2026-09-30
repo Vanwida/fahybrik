@@ -93,7 +93,7 @@ final class GaleriaPerfilRenderTests: XCTestCase {
     func testUnNombreLargoNoGanaUnaTerceraLinea() {
         func alto(_ texto: String) -> CGFloat {
             let anfitrion = UIHostingController(
-                rootView: TituloDePerfil(texto).environment(\.tonoDia, .acento).frame(width: 318)
+                rootView: TituloDia(texto, ajuste: .reduce()).environment(\.tonoDia, .acento).frame(width: 318)
             )
             return anfitrion.sizeThatFits(in: CGSize(width: 318, height: 10_000)).height
         }

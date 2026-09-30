@@ -71,10 +71,10 @@ struct ImportRaceSheet: View {
     // MARK: - Paso 1: buscar tu nombre
 
     private var buscar: some View {
-        MarcoDeHojaCarreras("Importar carrera", cerrar: { dismiss() }) {
+        MarcoDeHojaDia("Importar carrera", cerrar: { dismiss() }) {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Busca tu nombre").subtituloCarreras()
+                    SubtituloDia("Busca tu nombre")
                     Text("Importaremos todo tu historial de HYROX, individuales y dobles, desde tus resultados oficiales. Elige tu perfil de la lista.")
                         .papel(.cuerpo)
                         .foregroundStyle(Theme.Color.muted)
@@ -84,8 +84,8 @@ struct ImportRaceSheet: View {
                 resultados
                 if candidates.isEmpty && searchError == nil && !searching && !(searched && trimmedQuery.count >= minQueryLength) {
                     comoFunciona
-                    BotonTextoCarreras("¿Prefieres pegar el enlace de una carrera?", centrado: true, accion: irAlEnlace) {
-                        IconoCarreras(.enlace, tam: 20)
+                    BotonTextoDia("¿Prefieres pegar el enlace de una carrera?", centrado: true, accion: irAlEnlace) {
+                        IconoDia(.enlace, tam: 20)
                     }
                 }
             }
@@ -93,7 +93,7 @@ struct ImportRaceSheet: View {
     }
 
     private var campoNombre: some View {
-        CampoCarreras(
+        CampoDia(
             "Tu nombre",
             enFoco: foco == .nombre,
             izquierda: { IconoDia(.lupa, tam: 20) },
@@ -131,7 +131,7 @@ struct ImportRaceSheet: View {
     @ViewBuilder
     private var resultados: some View {
         if let searchError {
-            AvisoEnLinea(searchError)
+            AvisoEnLineaDia(searchError)
         } else if !candidates.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("¿Cuál eres tú?").papel(.etiqueta).foregroundStyle(Theme.Color.muted)
@@ -140,17 +140,17 @@ struct ImportRaceSheet: View {
             }
         } else if searched && !searching && trimmedQuery.count >= minQueryLength {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Sin resultados").subtituloCarreras()
+                SubtituloDia("Sin resultados")
                 Text("No encontramos ese nombre. Revisa que esté bien escrito y prueba con tu nombre completo, tal y como aparece en tus resultados de HYROX.")
                     .papel(.cuerpo)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
                 // The other way in: paste the link of one official result page.
-                SalidaAccionCarreras("Pegar el enlace de una carrera", accion: irAlEnlace) { IconoCarreras(.enlace, tam: 20) }
+                BotonAccionDia("Pegar el enlace de una carrera", glifo: .enlace, relleno: .acento, glifoAlFinal: false, accion: irAlEnlace)
             }
             .padding(EdgeInsets(top: 18, leading: 18, bottom: 14, trailing: 18))
             .frame(maxWidth: .infinity, alignment: .leading)
-            .tarjetaCarreras()
+            .tarjetaDia()
         }
     }
 
@@ -180,7 +180,7 @@ struct ImportRaceSheet: View {
         }
         .padding(Theme.Spacing.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .tarjetaCarreras()
+        .tarjetaDia()
     }
 
     private func elige(_ c: HyresultCandidate) {
@@ -199,7 +199,7 @@ struct ImportRaceSheet: View {
     // MARK: - Paso 2: «¿Eres tú?»
 
     private var confirmar: some View {
-        MarcoDeHojaCarreras(
+        MarcoDeHojaDia(
             "Importar carrera",
             atras: importando ? nil : { volverABuscar(limpiando: false) },
             cerrar: { dismiss() }
@@ -212,34 +212,34 @@ struct ImportRaceSheet: View {
                         HStack(spacing: 10) {
                             Text(c.name).papel(.seccion).foregroundStyle(Theme.Color.foreground)
                                 .fixedSize(horizontal: false, vertical: true)
-                            if let nivel = c.level, !nivel.isEmpty { ChipCarreras(nivel.uppercased(), estilo: .acento) }
+                            if let nivel = c.level, !nivel.isEmpty { InfoPill(text: nivel.uppercased(), estilo: .acento) }
                         }
                         Text(metaCandidato(c)).papel(.nota).foregroundStyle(Theme.Color.muted)
                     }
                     .padding(18)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .tarjetaCarreras(realce: true)
+                    .tarjetaDia(realce: true)
                     .accessibilityElement(children: .combine)
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("¿Eres tú?").subtituloCarreras()
+                        SubtituloDia("¿Eres tú?")
                         Text("Importaremos \(carreras), individuales y dobles, a tu historial. Si vuelves a importar, se actualizan sin duplicarse.")
                             .papel(.cuerpo)
                             .foregroundStyle(Theme.Color.muted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    if let errorAlImportar { AvisoEnLinea(errorAlImportar) }
+                    if let errorAlImportar { AvisoEnLineaDia(errorAlImportar) }
                 }
             }
         } accion: {
-            BotonPrimarioCarreras(
-                titulo: "Sí, importar mi historial",
+            BotonAccionDia(
+                hoja: "Sí, importar mi historial",
                 ocupado: importando,
                 textoOcupado: "Importando…",
                 voz: "Importando historial",
                 accion: importaPerfil
             )
-            BotonTextoCarreras("No soy yo", tono: .suave, centrado: true, desactivado: importando, accion: { volverABuscar(limpiando: true) }) {
-                IconoCarreras(.sinPersona, tam: 20)
+            BotonTextoDia("No soy yo", tono: .suave, centrado: true, desactivado: importando, accion: { volverABuscar(limpiando: true) }) {
+                IconoDia(.sinPersona, tam: 20)
             }
         }
     }
@@ -278,7 +278,7 @@ struct ImportRaceSheet: View {
 
     private var pegarEnlace: some View {
         let desajuste = !enlace.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !enlaceValido
-        return MarcoDeHojaCarreras(
+        return MarcoDeHojaDia(
             "Pegar enlace",
             atras: importando ? nil : {
                 errorDelEnlace = nil
@@ -288,13 +288,13 @@ struct ImportRaceSheet: View {
         ) {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Pega el enlace de tu resultado").subtituloCarreras()
+                    SubtituloDia("Pega el enlace de tu resultado")
                     Text("Copia el enlace de tu página de atleta en \(HyroxImport.resultsHost) e importamos esa carrera.")
                         .papel(.cuerpo)
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                CampoCarreras("Enlace HYROX", enFoco: foco == .enlace, aviso: desajuste, izquierda: { IconoCarreras(.enlace, tam: 20) }, derecha: { EmptyView() }) {
+                CampoDia("Enlace HYROX", enFoco: foco == .enlace, aviso: desajuste, izquierda: { IconoDia(.enlace, tam: 20) }, derecha: { EmptyView() }) {
                     TextField("https://\(HyroxImport.resultsHost)/…", text: $enlace)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled(true)
@@ -313,11 +313,11 @@ struct ImportRaceSheet: View {
                         .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if let errorDelEnlace { AvisoEnLinea(errorDelEnlace) }
+                if let errorDelEnlace { AvisoEnLineaDia(errorDelEnlace) }
             }
         } accion: {
-            BotonPrimarioCarreras(
-                titulo: "Importar",
+            BotonAccionDia(
+                hoja: "Importar",
                 activo: enlaceValido,
                 ocupado: importando,
                 textoOcupado: "Importando…",
@@ -485,7 +485,7 @@ private struct FilaCandidato: View {
                     HStack(spacing: Theme.Spacing.s) {
                         Text(candidato.name).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
                             .multilineTextAlignment(.leading)
-                        if let nivel = candidato.level, !nivel.isEmpty { ChipCarreras(nivel.uppercased(), estilo: .acento) }
+                        if let nivel = candidato.level, !nivel.isEmpty { InfoPill(text: nivel.uppercased(), estilo: .acento) }
                     }
                     Text(metaCandidato(candidato)).papel(.nota).foregroundStyle(Theme.Color.muted)
                 }
@@ -495,7 +495,7 @@ private struct FilaCandidato: View {
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.vertical, Theme.Spacing.m)
             .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-            .tarjetaCarreras()
+            .tarjetaDia()
             .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
         }
         .buttonStyle(PressScaleStyle(escala: 0.985))

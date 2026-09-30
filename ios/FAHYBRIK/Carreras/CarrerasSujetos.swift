@@ -194,7 +194,7 @@ struct PosterObjetivoCarreras: View {
         PosterDia(foto: carrera.foto, densidad: .pantalla) {
             VStack(alignment: .leading, spacing: 10) {
                 KickerPoster(kicker) {
-                    if principal { IconoDia(.diana, tam: 18) } else { IconoCarreras(.bandera, tam: 18) }
+                    if principal { IconoDia(.diana, tam: 18) } else { IconoDia(.bandera, tam: 18) }
                 }
                 .padding(.trailing, Theme.Size.toque + 4)
                 NombrePoster(nombre: carrera.nombre)
@@ -207,7 +207,7 @@ struct PosterObjetivoCarreras: View {
                         HStack(spacing: Theme.Spacing.m - 2) {
                             if let equipo {
                                 HStack(spacing: 6) {
-                                    IconoCarreras(.equipo, tam: 18)
+                                    IconoDia(.equipo, tam: 18)
                                     Text(equipo).sobrePoster(.notaPesada)
                                 }
                             }
@@ -313,7 +313,7 @@ struct PosterPostcarreraCarreras: View {
             alImportar()
         }) {
             VStack(alignment: .leading, spacing: 10) {
-                KickerPoster(cuando) { IconoCarreras(.bandera, tam: 18) }
+                KickerPoster(cuando) { IconoDia(.bandera, tam: 18) }
                 NombrePoster(nombre: carrera.nombre)
                 HStack(spacing: Theme.Spacing.m - 2) {
                     Text(fecha).sobrePoster(.cuerpoFuerte)
@@ -357,7 +357,7 @@ struct PosterUltimaCarreras: View {
             alBuscar()
         }) {
             VStack(alignment: .leading, spacing: 10) {
-                KickerPoster("Tu última carrera") { IconoCarreras(.bandera, tam: 18) }
+                KickerPoster("Tu última carrera") { IconoDia(.bandera, tam: 18) }
                 NombrePoster(nombre: carrera.nombre)
                 HStack(spacing: Theme.Spacing.m - 2) {
                     Text(fecha).sobrePoster(.cuerpoFuerte)
@@ -374,7 +374,7 @@ struct PosterUltimaCarreras: View {
                 }
                 VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                     if equipo != nil {
-                        CintaCarreras(sobreFoto: true, icono: { IconoCarreras(.equipo, tam: 18) }) {
+                        CintaCarreras(sobreFoto: true, icono: { IconoDia(.equipo, tam: 18) }) {
                             Text("Tiempo del equipo\(conQuien.map { " · \($0)" } ?? "")")
                         }
                     } else {
@@ -402,7 +402,7 @@ struct PosterVacioCarreras: View {
             etiqueta: "Tus carreras. Todavía no tienes ninguna: busca una carrera o importa tu historial de HYROX"
         ) {
             VStack(alignment: .leading, spacing: 10) {
-                KickerPoster("Tus carreras") { IconoCarreras(.bandera, tam: 18) }
+                KickerPoster("Tus carreras") { IconoDia(.bandera, tam: 18) }
                 NombrePoster(nombre: "¿A qué carrera vas?")
                 Text("Fíjala y tendrás cuenta atrás, el predicho de tu tiempo y un plan que apunta a ese día.")
                     .sobrePoster(.cuerpo)
@@ -484,32 +484,3 @@ struct PosterCargandoCarreras: View {
     }
 }
 
-// MARK: - Error de carga, con su salida
-
-struct SujetoErrorCarreras: View {
-    /// Vuelve a pedir la pestaña. Mientras dura, el botón no admite otro toque y el glifo gira.
-    let alReintentar: () async -> Void
-    @State private var reintentando = false
-
-    var body: some View {
-        SujetoDia(tono: .peligro, etiqueta: "No pudimos cargar tus carreras. Revisa tu conexión e inténtalo de nuevo.", anuncia: true) {
-            KickerDia("Tus carreras")
-            TituloDia("No pudimos cargar tus carreras")
-            ApoyoDia("Revisa tu conexión e inténtalo de nuevo.")
-        } abajo: {
-            Button {
-                guard !reintentando else { return }
-                Haptics.light()
-                reintentando = true
-                Task {
-                    await alReintentar()
-                    reintentando = false
-                }
-            } label: {
-                AccionDia(reintentando ? "Reintentando" : "Reintentar", glifo: .reintentar, enCurso: reintentando)
-            }
-            .buttonStyle(PressScaleStyle(escala: 0.96))
-            .disabled(reintentando)
-        }
-    }
-}

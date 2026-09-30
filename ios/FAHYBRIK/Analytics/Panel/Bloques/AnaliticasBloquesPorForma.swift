@@ -92,7 +92,7 @@ struct AnaliticasBloqueProgreso: View {
         AnaliticasSeccion(titulo: BloqueDelPanel.progreso.titulo, pregunta: BloqueDelPanel.progreso.pregunta) {
             if hayHueco { AnaliticasHuecoDeBloque(ctx: ctx, bloque: .progreso) }
             if !sinFilas && !lecturas.isEmpty {
-                AnaliticasLista { ForEach(lecturas) { fila($0) } }
+                ListaDia { ForEach(lecturas) { fila($0) } }
             }
         }
     }
@@ -132,7 +132,7 @@ struct AnaliticasBloqueRecords: View {
                           onAbrir: lecturas.count > Lienzo.recordsVisibles ? { ctx.onAbrir(.bloque(.records)) } : nil) {
             AnaliticasHuecoDeBloque(ctx: ctx, bloque: .records)
             if !lecturas.isEmpty {
-                AnaliticasLista { ForEach(lecturas.prefix(Lienzo.recordsVisibles)) { fila($0) } }
+                ListaDia { ForEach(lecturas.prefix(Lienzo.recordsVisibles)) { fila($0) } }
             }
         }
     }
@@ -260,7 +260,7 @@ struct AnaliticasBloqueRecuperacion: View {
                 VStack(spacing: Theme.Spacing.m) {
                     ForEach(Array(stride(from: 0, to: conDato.count, by: porFila)), id: \.self) { i in
                         let fila = Array(conDato[i..<min(i + porFila, conDato.count)])
-                        AnaliticasFilaDeCeldas {
+                        TeselasDia {
                             ForEach(fila) { celda($0, enColumna: fila.count > 1) }
                         }
                     }

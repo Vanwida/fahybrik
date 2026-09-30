@@ -123,6 +123,13 @@ final class GaleriaDiaRenderTests: XCTestCase {
     @MainActor func testSujetosATamanosDeTextoExtremos() {
         renderizaATamanos("10-sujetos-tamanos") { GaleriaDia.SujetosActivos() }
         renderizaATamanos("11-teselas-tamanos") { GaleriaDia.Teselas() }
+        renderizaATamanos("17-linea-tamanos") { GaleriaDia.Cabecera() }
     }
     @MainActor func testPantallaCorta() { renderiza("09-pantalla-corta") { GaleriaDia.PantallaCorta() } }
+    @MainActor func testTarjetasYListas() { renderiza("12-tarjetas") { GaleriaDia.Tarjetas() } }
+    @MainActor func testPastillas() { renderiza("13-pastillas") { GaleriaDia.Pastillas() } }
+    @MainActor func testAcciones() { renderiza("14-acciones") { GaleriaDia.Acciones() } }
+    @MainActor func testFormulario() { renderiza("15-formulario") { GaleriaDia.Formulario() } }
+    @MainActor func testGiros() { renderiza("16-giros") { GaleriaDia.Giros() } }
+    @MainActor func testFilas() { renderiza("18-filas") { GaleriaDia.Filas() } }
 }

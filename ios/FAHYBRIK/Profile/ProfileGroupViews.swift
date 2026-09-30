@@ -113,7 +113,7 @@ struct ProfileCuentaView: View {
                     NotaPerfil("«Auto» sigue la apariencia de tu iPhone.")
                 }
                 .padding(Theme.Spacing.l)
-                .tarjetaPerfil()
+                .tarjetaDia()
             }
 
             if hasCoach {
@@ -427,7 +427,7 @@ struct ProfileIdentidadView: View {
         }
         .padding(Theme.Spacing.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .tarjetaPerfil(realce: true)
+        .tarjetaDia(realce: true)
     }
 
     private func pendingInvitationCard(_ inv: SentInvitation) -> some View {
@@ -451,7 +451,7 @@ struct ProfileIdentidadView: View {
         }
         .padding(Theme.Spacing.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .tarjetaPerfil(realce: true)
+        .tarjetaDia(realce: true)
     }
 
     private func performUnpair() async {

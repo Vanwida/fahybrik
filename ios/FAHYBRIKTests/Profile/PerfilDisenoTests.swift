@@ -126,11 +126,4 @@ final class PerfilDisenoTests: XCTestCase {
             XCTAssertNil(codigo.range(of: "pablo|fabrik|fahybrik", options: [.regularExpression, .caseInsensitive]), fichero.lastPathComponent)
         }
     }
-
-    func testTodoGlifoDePerfilEsUnSFSymbolQueExisteYNingunoSeRepite() {
-        for g in GlifoPerfil.allCases { XCTAssertNotNil(UIImage(systemName: g.simbolo), "«\(g.simbolo)» no existe") }
-        XCTAssertEqual(Set(GlifoPerfil.allCases.map(\.simbolo)).count, GlifoPerfil.allCases.count, "dos ideas con el mismo símbolo")
-        // Ni uno de los del kit, para que la misma idea no tenga dos símbolos.
-        XCTAssertTrue(Set(GlifoPerfil.allCases.map(\.simbolo)).isDisjoint(with: GlifoDia.allCases.map(\.simbolo)))
-    }
 }

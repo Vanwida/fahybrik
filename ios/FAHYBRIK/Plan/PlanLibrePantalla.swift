@@ -194,12 +194,12 @@ struct PlanLibreAnclaje: View {
             switch accion {
             case let .medir(marca):
                 AccionAncladaPlan(
-                    texto: "Empezar por \(PlanLibreCopy.nombreEnBoton(marca.etiqueta))", simbolo: GlifoPlan.empezar.rawValue,
+                    texto: "Empezar por \(PlanLibreCopy.nombreEnBoton(marca.etiqueta))", glifo: .play,
                     glifoAlFinal: false, enCurso: false, conMenu: false,
                     alTocar: { acciones.alAbrirMarca(marca) }, menu: { EmptyView() })
             case .programar:
                 AccionAncladaPlan(
-                    texto: "Programar entreno", simbolo: GlifoDia.mas.simbolo,
+                    texto: "Programar entreno", glifo: .mas,
                     glifoAlFinal: false, enCurso: false, conMenu: false,
                     alTocar: acciones.alProgramar, menu: { EmptyView() })
             }

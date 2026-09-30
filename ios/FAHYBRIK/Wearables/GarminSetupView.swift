@@ -178,7 +178,7 @@ private struct NotaConTitulo: View {
         }
         .padding(Theme.Spacing.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .tarjetaPerfil(realce: realce)
+        .tarjetaDia(realce: realce)
         .accessibilityElement(children: .combine)
     }
 }

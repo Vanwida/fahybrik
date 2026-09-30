@@ -105,7 +105,7 @@ struct AnaliticasBloqueDetalleCuerpo: View {
                     AnaliticasCuerpo(texto: r.texto, fuerte: true)
                 }
                 AnaliticasEtiqueta(texto: "Toca una hecha para verla tramo a tramo")
-                AnaliticasLista {
+                ListaDia {
                     ForEach(filas) { fila in
                         AnaliticasFilaSesion(fila: fila, hoy: ctx.hoy) { abrir in
                             if let id = abrir.executionId {
@@ -132,7 +132,7 @@ struct AnaliticasBloqueDetalleCuerpo: View {
                     texto: "\(lecturas.count) marcas" + (nuevos > 0 ? " · \(nuevos) nueva\(nuevos > 1 ? "s" : "") en esta ventana" : ""),
                     fuerte: true
                 )
-                AnaliticasLista {
+                ListaDia {
                     ForEach(lecturas) { l in
                         if let fila = AnaliticasFilaRecord(l, hoy: ctx.hoy) { fila }
                     }

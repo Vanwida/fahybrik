@@ -33,6 +33,65 @@ enum GlifoDia: String, CaseIterable {
     case silueta    = "person.fill"
     case lapiz      = "pencil"
     case puntos     = "ellipsis"
+    case atras      = "chevron.left"
+    case play       = "play.fill"
+    case compartir  = "square.and.arrow.up"
+    case ciclo      = "square.stack.3d.up"
+    case candado    = "lock"
+    case bandera    = "flag"
+    case estrella   = "star"
+    case enlace     = "link"
+    case papelera   = "trash"
+    case alerta     = "exclamationmark.triangle"
+    /// Dos personas: un equipo, una pareja de Dobles.
+    case equipo     = "person.2"
+    case sinPersona = "person.crop.circle.badge.xmark"
+    /// «Con {coach}».
+    case coach      = "person.fill.checkmark"
+    /// La identidad del atleta: su perfil.
+    case perfil     = "person.crop.circle"
+    case invitar    = "person.badge.plus"
+    /// Entrenar: una mancuerna.
+    case mancuerna  = "dumbbell"
+    case reloj      = "applewatch"
+    /// Cuenta: tres controles deslizantes.
+    case ajustes    = "slider.horizontal.3"
+    /// Privacidad: un escudo con cerradura.
+    case escudo     = "lock.shield"
+    case ayuda      = "questionmark.circle"
+    case tarjeta    = "creditcard"
+    /// El pulso: una actividad nueva del reloj.
+    case pulso      = "waveform.path.ecg"
+    // Las pantallas que cuelgan de Perfil: ajustes, lesiones y cada proveedor de «Dispositivos y apps».
+    /// Mis días de entreno: el calendario con su reloj (`calendario` a secas es del kit).
+    case diasDeEntreno = "calendar.badge.clock"
+    case molestia   = "bandage"
+    /// Avisos de voz en carrera.
+    case voz        = "speaker.wave.2"
+    /// Contar repeticiones con el reloj.
+    case repeticiones = "figure.strengthtraining.traditional"
+    /// Cómo se construye tu plan: bloques.
+    case plan       = "rectangle.3.group"
+    case coachFicha = "person.crop.rectangle"
+    /// Enviar una sugerencia o un error.
+    case sugerencia = "exclamationmark.bubble"
+    case documento  = "doc.text"
+    /// Deshacer la pareja de Dobles.
+    case sinPareja  = "person.2.slash"
+    /// El test de umbral (`cronometro` a secas es el stopwatch).
+    case test       = "timer"
+    /// Subir el movimiento de la muñeca (el reloj transmitiendo).
+    case movimientoReloj = "applewatch.radiowaves.left.and.right"
+    case appleWatch = "applewatch.watchface"
+    case garmin     = "watch.analog"
+    case appleSalud = "heart.text.square"
+    case polar      = "heart.circle"
+    case coros      = "gauge.with.dots.needle.67percent"
+    case amazfit    = "figure.run.circle"
+    /// Concept2 PM5: el Bluetooth del erg.
+    case pm5        = "antenna.radiowaves.left.and.right"
+    /// Exportar mis datos.
+    case exportar   = "square.and.arrow.up.on.square"
 
     /// El nombre del SF Symbol.
     var simbolo: String { rawValue }

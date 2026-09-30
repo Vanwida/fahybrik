@@ -227,7 +227,7 @@ private struct SinCifrasPerfil: View {
         }
         .padding(EdgeInsets(top: 18, leading: 16, bottom: errorDeIdentidad ? 18 : 6, trailing: 16))
         .frame(maxWidth: .infinity, alignment: .leading)
-        .tarjetaPerfil()
+        .tarjetaDia()
         .accessibilityElement(children: errorDeIdentidad ? .combine : .contain)
     }
 }

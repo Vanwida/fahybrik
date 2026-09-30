@@ -29,7 +29,7 @@ struct GrupoPerfil<Contenido: View>: View {
                 }
             }
         }
-        .tarjetaPerfil(realce: realce)
+        .tarjetaDia(realce: realce)
     }
 }
 
@@ -70,8 +70,8 @@ struct TextoDeFilaPerfil: View {
 /// Una fila de una lista: ficha de icono (si lleva), texto y, a la derecha, lo suyo (un chevron, un valor,
 /// un interruptor). Es solo el dibujo: la envuelve un `Button` o un `NavigationLink`.
 struct FilaPerfil<Final: View>: View {
-    var glifo: GlifoPerfil?
-    var tonoDeFicha: FichaDia<IconoPerfil>.Tono = .normal
+    var glifo: GlifoDia?
+    var tonoDeFicha: FichaDia<IconoDia>.Tono = .normal
     let titulo: String
     var detalle: String?
     var detalleFuerte = false
@@ -81,7 +81,7 @@ struct FilaPerfil<Final: View>: View {
     var body: some View {
         HStack(spacing: 14) {
             if let glifo {
-                FichaDia(tono: tonoDeFicha) { IconoPerfil(glifo) }
+                FichaDia(tono: tonoDeFicha) { IconoDia(glifo) }
             }
             TextoDeFilaPerfil(titulo: titulo, detalle: detalle, detalleFuerte: detalleFuerte, marca: marca)
             final()
@@ -95,7 +95,7 @@ struct FilaPerfil<Final: View>: View {
 
 extension FilaPerfil where Final == ChevronDeFilaPerfil {
     /// La fila que lleva a otra pantalla o abre una hoja: su chevron.
-    init(glifo: GlifoPerfil? = nil, tonoDeFicha: FichaDia<IconoPerfil>.Tono = .normal, titulo: String, detalle: String? = nil, detalleFuerte: Bool = false, marca: SwiftUI.Color? = nil) {
+    init(glifo: GlifoDia? = nil, tonoDeFicha: FichaDia<IconoDia>.Tono = .normal, titulo: String, detalle: String? = nil, detalleFuerte: Bool = false, marca: SwiftUI.Color? = nil) {
         self.init(glifo: glifo, tonoDeFicha: tonoDeFicha, titulo: titulo, detalle: detalle, detalleFuerte: detalleFuerte, marca: marca) {
             ChevronDeFilaPerfil()
         }
@@ -176,7 +176,7 @@ struct FilaValorPerfil: View {
 /// de voz, activado») y el objetivo táctil no es solo el interruptor. Con algo en marcha (`enCurso`: pidiendo un
 /// permiso) el interruptor se cambia por un indicador y la fila no se puede tocar.
 struct FilaInterruptorPerfil: View {
-    var glifo: GlifoPerfil?
+    var glifo: GlifoDia?
     let titulo: String
     var detalle: String?
     /// Una pastilla junto al título («Alpha»): lo que avisa de que la función se está probando.
@@ -213,7 +213,7 @@ struct FilaInterruptorPerfil: View {
 
     private var izquierda: some View {
         HStack(spacing: 14) {
-            if let glifo { FichaDia { IconoPerfil(glifo) } }
+            if let glifo { FichaDia { IconoDia(glifo) } }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
                     Text(titulo).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
@@ -396,7 +396,7 @@ struct EsqueletoDeFilasPerfil: View {
                 .frame(minHeight: Theme.Size.toque + Theme.Spacing.l, alignment: .leading)
             }
         }
-        .tarjetaPerfil()
+        .tarjetaDia()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Cargando")
     }

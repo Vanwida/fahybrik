@@ -41,7 +41,7 @@ struct SujetoSesionPlan: View {
     var body: some View {
         SujetoDia(tono: tono, etiqueta: "\(principal.title). \(fecha). \(estado.etiqueta)") {
             KickerDia(fecha) { pastillaDeEstado }
-            TituloPlan(texto: principal.title, escalon: EscalonDeTitulo(titulo: principal.title))
+            TituloDia(principal.title, ajuste: .escalones)
             PastillasDeSesionPlan(dia: dia, principal: principal, desglose: desglose)
         } abajo: {
             cuerpo
@@ -65,7 +65,7 @@ struct SujetoSesionPlan: View {
         if tono == .accion {
             InfoPill(text: estado.etiqueta, estilo: .sobreAccion)
         } else {
-            PastillaPlan(texto: estado.etiqueta, papel: .estado, sello: estado.sello)
+            InfoPill(text: estado.etiqueta, estilo: .estado, sello: estado.sello)
         }
     }
 
@@ -106,15 +106,15 @@ struct PastillasDeSesionPlan: View {
         let escrita = terminada ? nil : DuracionDeSesion.texto(principal)
         if dia.sesiones.count > 1 || principal.isSelfOrigin || principal.isTestSession || listo?.formato != nil || medido != nil || escrita != nil {
             FlowLayout(spacing: Theme.Spacing.s) {
-                if dia.sesiones.count > 1 { PastillaPlan(texto: principal.franja) }
-                if principal.isSelfOrigin { PastillaPlan(texto: "Libre") }
-                if principal.isTestSession { PastillaPlan(texto: "Test", glifo: .cronometro) }
-                if let formato = listo?.formato { PastillaPlan(texto: formato) }
+                if dia.sesiones.count > 1 { InfoPill(text: principal.franja, estilo: .dato) }
+                if principal.isSelfOrigin { InfoPill(text: "Libre", estilo: .dato) }
+                if principal.isTestSession { InfoPill(text: "Test", estilo: .dato, glifo: .cronometro) }
+                if let formato = listo?.formato { InfoPill(text: formato, estilo: .dato) }
                 if let medido {
-                    PastillaPlan(texto: "Duró \(medido)", glifo: .cronometro)
+                    InfoPill(text: "Duró \(medido)", estilo: .dato, glifo: .cronometro)
                 } else if let escrita {
                     // Solo lleva peso cuando lleva NÚMERO: una razón («Dura lo que tardes») no es un dato.
-                    PastillaPlan(texto: escrita, glifo: .cronometro, enfasis: DuracionDeSesion.llevaNumero(principal))
+                    InfoPill(text: escrita, estilo: .dato, glifo: .cronometro, enfasis: DuracionDeSesion.llevaNumero(principal))
                 }
             }
         }
@@ -234,7 +234,7 @@ struct PartesEsqueletoPlan: View {
                 }
                 .padding(.vertical, Theme.Spacing.m)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .overlay(alignment: .top) { Rectangle().fill(Theme.Color.hairlineStrong).frame(height: 1) }
+                .overlay(alignment: .top) { Hairline(fuerte: true) }
             }
         }
         .accessibilityElement(children: .ignore)
@@ -351,9 +351,9 @@ struct SujetoDescansoPlan: View {
             etiqueta: "\(PlanTextos.Descanso.titulo(esHoy: dia.esHoy)). \(FechasDelPlan.etiqueta(de: dia.isoDate, hoy: l.hoyIso))"
         ) {
             KickerDia(FechasDelPlan.etiqueta(de: dia.isoDate, hoy: l.hoyIso)) {
-                PastillaPlan(texto: PlanTextos.Descanso.kicker, papel: .estado, sello: .pendiente)
+                InfoPill(text: PlanTextos.Descanso.kicker, estilo: .estado, sello: .pendiente)
             }
-            TituloPlan(texto: PlanTextos.Descanso.titulo(esHoy: dia.esHoy))
+            TituloDia(PlanTextos.Descanso.titulo(esHoy: dia.esHoy), ajuste: .escalones)
             ApoyoDia(PlanTextos.Descanso.apoyo(esHoy: dia.esHoy))
         } abajo: {
             if conContexto {

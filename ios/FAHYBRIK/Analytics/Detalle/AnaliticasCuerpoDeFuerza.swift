@@ -39,7 +39,7 @@ struct AnaliticasCuerpoDeFuerza: View {
     private var ejercicios: some View {
         if !lectura.ejercicios.isEmpty {
             AnaliticasSeccion(titulo: "1RM estimado", pregunta: "Por ejercicio · con la fórmula de tu coach") {
-                AnaliticasLista {
+                ListaDia {
                     ForEach(lectura.ejercicios) { e in
                         AnaliticasFilaProgreso(
                             familia: .fuerza, metrica: e.metrica, valor: e.lectura.dato?.valor, unidad: e.lectura.dato?.unidad ?? .kg,
@@ -70,7 +70,7 @@ struct AnaliticasCuerpoDeFuerza: View {
         if let e = ejercicioDeLaTabla {
             AnaliticasSeccion(titulo: "Mejores por repeticiones", pregunta: e.nombre) {
                 if conTabla.count > 1 {
-                    AnaliticasSegmento(items: conTabla.map { ($0.id, $0.nombre) }, valor: Binding(get: { e.id }, set: { elegido = $0 }), etiqueta: "Ejercicio")
+                    SegmentoDia(items: conTabla.map { ($0.id, $0.nombre) }, valor: Binding(get: { e.id }, set: { elegido = $0 }), etiqueta: "Ejercicio")
                 }
                 AnaliticasTabla(
                     etiqueta: "Mejores por repeticiones · \(e.nombre)",

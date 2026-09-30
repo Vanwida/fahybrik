@@ -68,13 +68,13 @@ struct FijarObjetivoView: View {
     private var goalTotalSeconds: Int? { GoalChoice.metaS(goalChoice, tiempo: tiempo) }
 
     var body: some View {
-        MarcoDeHojaCarreras("Fijar objetivo", atras: { volver() }, cerrar: cerrar) {
+        MarcoDeHojaDia("Fijar objetivo", atras: { volver() }, cerrar: cerrar) {
             VStack(alignment: .leading, spacing: 22) {
                 cabeceraDelEvento
                 ObjectiveWhenSection(date: $eventDate, showUndatedCatalogHint: catalogUndated)
                 participacion
                 pregunta
-                if let errorText { AvisoEnLinea(errorText) }
+                if let errorText { AvisoEnLineaDia(errorText) }
                 if let pasaASecundaria {
                     Text(pasaASecundaria)
                         .papel(.notaFuerte)
@@ -87,8 +87,8 @@ struct FijarObjetivoView: View {
                 }
             }
         } accion: {
-            BotonPrimarioCarreras(
-                titulo: "Fijar como mi carrera objetivo",
+            BotonAccionDia(
+                hoja: "Fijar como mi carrera objetivo",
                 ocupado: submitting,
                 textoOcupado: "Guardando…",
                 voz: "Guardando tu carrera objetivo",
@@ -113,7 +113,7 @@ struct FijarObjetivoView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .tarjetaCarreras(realce: true)
+        .tarjetaDia(realce: true)
         .accessibilityElement(children: .combine)
     }
 
@@ -130,36 +130,16 @@ struct FijarObjetivoView: View {
     private var participacion: some View {
         switch event.objectiveFamily {
         case .hybrid where esHunter:
-            SegmentadoCarreras(
-                etiqueta: "Formato",
-                opciones: HunterRaceVariant.allCases.map { (valor: $0, texto: $0.label) },
-                seleccion: $hunterVariant
-            )
+            SegmentoDia(items: HunterRaceVariant.allCases.map { ($0, $0.label) }, valor: $hunterVariant, etiqueta: "Formato", completo: true, conEtiqueta: true)
         case .hybrid:
-            SegmentadoCarreras(
-                etiqueta: "Formato",
-                opciones: [FormatoCarrera.individual, .dobles, .relevos].map { (valor: $0.rawValue, texto: $0.etiqueta) },
-                seleccion: $format
-            )
-            SegmentadoCarreras(
-                etiqueta: "División",
-                opciones: [DivisionCarrera.open, .pro, .elite].map { (valor: $0.rawValue, texto: $0.etiqueta) },
-                seleccion: $division
-            )
-            SegmentadoCarreras(
-                etiqueta: "Categoría",
-                opciones: [CategoriaCarrera.hombres, .mujeres, .mixto].map { (valor: $0.rawValue, texto: $0.etiqueta) },
-                seleccion: $gender
-            )
+            SegmentoDia(items: [FormatoCarrera.individual, .dobles, .relevos].map { ($0.rawValue, $0.etiqueta) }, valor: $format, etiqueta: "Formato", completo: true, conEtiqueta: true)
+            SegmentoDia(items: [DivisionCarrera.open, .pro, .elite].map { ($0.rawValue, $0.etiqueta) }, valor: $division, etiqueta: "División", completo: true, conEtiqueta: true)
+            SegmentoDia(items: [CategoriaCarrera.hombres, .mujeres, .mixto].map { ($0.rawValue, $0.etiqueta) }, valor: $gender, etiqueta: "Categoría", completo: true, conEtiqueta: true)
         case .running:
             VStack(alignment: .leading, spacing: Theme.Spacing.m - 2) {
-                SegmentadoCarreras(
-                    etiqueta: "Distancia",
-                    opciones: RunningDistancePreset.allCases.map { (valor: $0, texto: $0.label) },
-                    seleccion: $distancePreset
-                )
+                SegmentoDia(items: RunningDistancePreset.allCases.map { ($0, $0.label) }, valor: $distancePreset, etiqueta: "Distancia", completo: true, conEtiqueta: true)
                 if distancePreset == .custom {
-                    CampoCarreras("Metros", enFoco: metrosEnFoco) {
+                    CampoDia("Metros", enFoco: metrosEnFoco) {
                         TextField("Metros", text: $customMeters)
                             .keyboardType(.numberPad)
                             .focused($metrosEnFoco)
@@ -174,7 +154,7 @@ struct FijarObjetivoView: View {
                 .frame(minHeight: 52)
             }
         case .crossfit, .other, .ocr:
-            CampoCarreras("División", enFoco: divisionEnFoco) {
+            CampoDia("División", enFoco: divisionEnFoco) {
                 TextField("Ej. RX · Scaled · Masters", text: $divisionLabel)
                     .autocorrectionDisabled(true)
                     .focused($divisionEnFoco)
@@ -188,7 +168,7 @@ struct FijarObjetivoView: View {
     private var pregunta: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("¿A qué vas?").subtituloCarreras()
+                SubtituloDia("¿A qué vas?")
                 Text("Tu plan y tu analítica se enfocan en esto.").papel(.nota).foregroundStyle(Theme.Color.muted)
             }
             MetaSelectorCarreras(esHyrox: event.isHyroxGoalGapEligible, eleccion: $goalChoice, tiempo: $tiempo)
@@ -307,26 +287,26 @@ struct FijarTiempoObjetivoSheet: View {
     }
 
     var body: some View {
-        MarcoDeHojaCarreras("Tu tiempo objetivo", cerrar: { dismiss() }) {
+        MarcoDeHojaDia("Tu tiempo objetivo", cerrar: { dismiss() }) {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(race.name).subtituloCarreras().fixedSize(horizontal: false, vertical: true)
+                    SubtituloDia(race.name).fixedSize(horizontal: false, vertical: true)
                     Text(lineaDeLaCarrera).papel(.nota).foregroundStyle(Theme.Color.muted)
                 }
                 .padding(EdgeInsets(top: 14, leading: 16, bottom: 14, trailing: 16))
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .tarjetaCarreras()
+                .tarjetaDia()
                 .accessibilityElement(children: .combine)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("¿A qué vas?").subtituloCarreras()
+                    SubtituloDia("¿A qué vas?")
                     Text("Tu plan y tu analítica se enfocan en esto.").papel(.nota).foregroundStyle(Theme.Color.muted)
                 }
                 MetaSelectorCarreras(esHyrox: esHyrox, eleccion: $goalChoice, tiempo: $tiempo)
-                if let errorText { AvisoEnLinea(errorText) }
+                if let errorText { AvisoEnLineaDia(errorText) }
             }
         } accion: {
-            BotonPrimarioCarreras(
-                titulo: "Guardar",
+            BotonAccionDia(
+                hoja: "Guardar",
                 activo: puedeGuardar,
                 ocupado: submitting,
                 textoOcupado: "Guardando…",

@@ -122,7 +122,7 @@ struct PlanCicloView: View {
             // pestaña Plan, que es exactamente lo que hay detrás de esta: la
             // misma pastilla de tinta invertida con que ese Plan ancla su acción.
             AccionAncladaPlan(
-                texto: "Ver la semana", simbolo: GlifoDia.flecha.simbolo, glifoAlFinal: true,
+                texto: "Ver la semana", glifo: .flecha, glifoAlFinal: true,
                 enCurso: false, conMenu: false, alTocar: onClose
             ) { EmptyView() }
         }

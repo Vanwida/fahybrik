@@ -30,13 +30,9 @@ struct PendientePerfilSeccion: View {
                 TituloSeccionDia("Pendiente") {
                     InfoPill(text: items.count == 1 ? "1 cosa" : "\(items.count) cosas", estilo: .velo)
                 }
-                VStack(spacing: 0) {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
-                        if i > 0 { Hairline() }
-                        fila(item)
-                    }
+                ListaDia {
+                    ForEach(items) { fila($0) }
                 }
-                .tarjetaPerfil()
             }
         }
     }
@@ -47,19 +43,19 @@ struct PendientePerfilSeccion: View {
         case let .coros(inicio):
             FilaCorosPerfil(inicio: inicio, enCurso: respondiendoCoros, alResponder: alResponderCoros)
         case .suscripcion:
-            let texto = TextosPerfil.pendiente(item)
-            FilaPendientePerfil(
-                ficha: FichaDia(tono: .peligro) { IconoPerfil(.tarjeta) },
-                texto: texto,
-                alTocar: alAbrirSuscripcion
-            )
+            filaTocable(FichaDia(.tarjeta, tono: .peligro), TextosPerfil.pendiente(item), alTocar: alAbrirSuscripcion)
         case .pareja:
-            let texto = TextosPerfil.pendiente(item)
-            FilaPendientePerfil(
-                ficha: FichaDia(tono: .normal) { IconoPerfil(.invitar) },
-                texto: texto,
-                alTocar: alInvitarPareja
-            )
+            filaTocable(FichaDia(.invitar, tono: .normal), TextosPerfil.pendiente(item), alTocar: alInvitarPareja)
+        }
+    }
+
+    /// Una fila que se toca: ficha, título, detalle y chevron.
+    private func filaTocable(_ ficha: FichaDia<IconoDia>, _ texto: (titulo: String, detalle: String), alTocar: @escaping () -> Void) -> some View {
+        FilaDia(ficha: ficha, titulo: texto.titulo, etiqueta: "\(texto.titulo). \(texto.detalle)", altoMinimo: 72, alTocar: alTocar) {
+            Text(texto.detalle)
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -75,7 +71,7 @@ private struct FilaCorosPerfil: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 14) {
-                FichaDia(tono: .realce) { IconoPerfil(.actividad) }
+                FichaDia(.pulso, tono: .realce)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(TextosPerfil.preguntaCoros)
                         .papel(.cuerpoFuerte)
@@ -156,42 +152,3 @@ private struct BotonRespuestaPerfil: View {
     }
 }
 
-// MARK: - El resto de filas
-
-/// Una fila que se toca: ficha, título, detalle y chevron.
-private struct FilaPendientePerfil<Ficha: View>: View {
-    let ficha: Ficha
-    let texto: (titulo: String, detalle: String)
-    let alTocar: () -> Void
-
-    var body: some View {
-        Button {
-            Haptics.light()
-            alTocar()
-        } label: {
-            HStack(spacing: 14) {
-                ficha
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(texto.titulo)
-                        .papel(.cuerpoFuerte)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(texto.detalle)
-                        .papel(.nota)
-                        .foregroundStyle(Theme.Color.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                IconoDia(.chevron, tam: 18).foregroundStyle(Theme.Color.muted)
-            }
-            .padding(.horizontal, Theme.Spacing.l)
-            .padding(.vertical, Theme.Spacing.m)
-            .frame(minHeight: 72)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle(escala: 0.985))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(texto.titulo). \(texto.detalle)")
-        .accessibilityAddTraits(.isButton)
-    }
-}

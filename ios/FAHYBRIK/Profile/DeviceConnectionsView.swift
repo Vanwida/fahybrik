@@ -288,7 +288,7 @@ struct EstadoDeProveedor: Equatable {
 /// Una fila de «Dispositivos y apps»: su ficha, su nombre, lo que hace y su estado. Es solo el dibujo: la envuelve un
 /// `NavigationLink` o un `Button`.
 struct FilaDeDispositivo: View {
-    let glifo: GlifoPerfil
+    let glifo: GlifoDia
     let titulo: String
     let detalle: String
     var estado: EstadoDeProveedor?

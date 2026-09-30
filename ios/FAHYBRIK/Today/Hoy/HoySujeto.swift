@@ -22,7 +22,9 @@ struct HoySujeto: View {
         case .cargando:
             SujetoCargando()
         case .error:
-            SujetoError(acciones: acciones)
+            SujetoErrorDia(
+                kicker: "Tu plan", titulo: "No pudimos cargar tu plan",
+                apoyo: "Revisa tu conexión e inténtalo de nuevo.", alReintentar: acciones.reintentarCarga)
         case .libre:
             SujetoLibre(acciones: acciones)
         case .pausa:
@@ -265,36 +267,6 @@ private struct SujetoPrimerDia: View {
             } else {
                 AccionDia("Empezar por mis tests")
             }
-        }
-    }
-}
-
-// MARK: - Error de carga
-
-private struct SujetoError: View {
-    let acciones: HoyAcciones
-    @State private var reintentando = false
-
-    var body: some View {
-        SujetoDia(tono: .peligro, etiqueta: "No pudimos cargar tu plan", anuncia: true) {
-            KickerDia("Tu plan")
-            TituloDia("No pudimos cargar tu plan")
-            ApoyoDia("Revisa tu conexión e inténtalo de nuevo.")
-        } abajo: {
-            Button {
-                guard !reintentando else { return }
-                Haptics.light()
-                reintentando = true
-                Task {
-                    await acciones.reintentarCarga()
-                    reintentando = false
-                }
-            } label: {
-                AccionDia(reintentando ? "Reintentando" : "Reintentar", glifo: .reintentar, enCurso: reintentando)
-            }
-            .buttonStyle(PressScaleStyle(escala: 0.96))
-            .disabled(reintentando)
-            .accessibilityAddTraits(reintentando ? .updatesFrequently : [])
         }
     }
 }

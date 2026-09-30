@@ -127,7 +127,7 @@ struct PredictionReviewCard: View {
         VStack(spacing: 0) {
             headerRow
             ForEach(review.segments) { row in
-                Rectangle().fill(Theme.Color.hairline).frame(height: 1)
+                Hairline()
                 dataRow(row)
             }
         }

@@ -41,7 +41,7 @@ struct AnaliticasBloqueForma: View {
             }
 
             if estado == .lleno, (subida?.dato != nil || cobertura?.dato != nil) {
-                AnaliticasFilaDeCeldas {
+                TeselasDia {
                     if let subida, let d = subida.dato {
                         AnaliticasCelda(etiqueta: "Subida de forma", valor: d.valor, unidad: d.unidad, delta: AnaliticasDerivados.delta(de: subida), nota: "por semana")
                     }

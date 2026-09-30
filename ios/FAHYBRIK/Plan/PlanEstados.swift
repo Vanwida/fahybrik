@@ -36,7 +36,7 @@ struct SujetoEstadoPlan: View {
                     apoyo: PlanTextos.EmpiezaDespues.apoyo,
                     // Sin semana que ver, la frase dice por qué no hay salida.
                     nota: l.actual?.hasNextWeek == true ? nil : PlanTextos.EmpiezaDespues.nota,
-                    aparte: FechasDelPlan.faltanParaEmpezar(hoy: l.hoyIso, inicio: inicio).map { AnyView(PastillaFaltan(texto: $0)) })
+                    aparte: FechasDelPlan.faltanParaEmpezar(hoy: l.hoyIso, inicio: inicio).map { AnyView(InfoPill(text: $0, estilo: .tinta)) })
             } else {
                 bloque(kicker: PlanTextos.Preparando.kicker, titulo: PlanTextos.Preparando.titulo, apoyo: PlanTextos.Preparando.apoyo(coach: l.coach))
             }
@@ -59,27 +59,13 @@ struct SujetoEstadoPlan: View {
     ) -> some View {
         SujetoDia(tono: tono, etiqueta: titulo, anuncia: anuncia) {
             KickerDia(kicker) { aparte }
-            TituloPlan(texto: titulo, escalon: EscalonDeTitulo(titulo: titulo))
+            TituloDia(titulo, ajuste: .escalones)
             ApoyoDia(apoyo)
         } abajo: {
             if let nota { ApoyoDia(nota) }
         }
         // Una decisión, no una lista: la card mide lo suyo y el aire sobrante es simétrico (`centra`).
         .fixedSize(horizontal: false, vertical: true)
-    }
-}
-
-/// «Faltan 4 días»: el dato que acompaña al vacío con inicio futuro. Tinta invertida para destacar sobre el tinte.
-private struct PastillaFaltan: View {
-    let texto: String
-
-    var body: some View {
-        Text(texto)
-            .papel(.rotulo)
-            .foregroundStyle(Theme.Color.background)
-            .padding(.horizontal, Theme.Spacing.m)
-            .frame(minHeight: 32)
-            .background(Theme.Color.foreground, in: Capsule())
     }
 }
 
@@ -102,7 +88,7 @@ struct SujetoPlanEsqueleto: View {
                 }
                 .padding(.top, Theme.Spacing.m)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .overlay(alignment: .top) { Rectangle().fill(Theme.Color.hairlineStrong).frame(height: 1) }
+                .overlay(alignment: .top) { Hairline(fuerte: true) }
             }
         }
     }

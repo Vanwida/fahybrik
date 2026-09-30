@@ -70,7 +70,7 @@ struct InjuryDetailView: View {
                 .fixedSize(horizontal: false, vertical: true)
             if injury.isOpen, let ret = InjuryDateText.shortDate(injury.expectedReturn) {
                 HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
-                    IconoPerfil(.diasDeEntreno, tam: 18)
+                    IconoDia(.diasDeEntreno, tam: 18)
                         .foregroundStyle(Theme.Color.foreground)
                     Text("\(coachLabel.conMayusculaInicial) estima tu vuelta el \(ret)")
                         .papel(.notaFuerte)
@@ -81,7 +81,7 @@ struct InjuryDetailView: View {
         }
         .padding(Theme.Spacing.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .tarjetaPerfil(realce: injury.isOpen && injury.expectedReturn != nil)
+        .tarjetaDia(realce: injury.isOpen && injury.expectedReturn != nil)
         .accessibilityElement(children: .combine)
     }
 

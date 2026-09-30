@@ -11,28 +11,6 @@ import SwiftUI
 //
 // EL TEMA ES UNO Y LO ELIGE EL ATLETA (CONTRATO-UI §6.4): la pantalla no fuerza su esquema; claro u oscuro sale de `Theme`.
 
-/// «‹ Analíticas»: la vuelta de un detalle, a la izquierda y fija. Un detalle no lleva la barra de pestañas propia.
-struct AnaliticasAtras: View {
-    let texto: String
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 2) {
-                Image(systemName: "chevron.left").font(.system(size: 20, weight: .bold)).accessibilityHidden(true)
-                Text(texto).papel(.cuerpoFuerte)
-            }
-            .foregroundStyle(Theme.Color.accentText)
-            .padding(.leading, Theme.Spacing.xs)
-            .padding(.trailing, Theme.Spacing.m + 2)
-            .frame(minHeight: Theme.Size.toque)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleStyle(escala: 0.96))
-        .accessibilityLabel("Volver a \(texto)")
-    }
-}
-
 /// La cabecera de la pestaña: la ventana dicha en una frase (sobretítulo en el acento del club) y el título en cursiva de marca. Se va
 /// con el scroll; el selector se queda.
 struct AnaliticasCabecera: View {
@@ -99,7 +77,7 @@ struct AnaliticasPantalla<Cuerpo: View>: View {
         .toolbar(atras == nil ? .automatic : .hidden, for: .tabBar)
         .safeAreaInset(edge: .top, spacing: 0) {
             if let atras {
-                HStack { AnaliticasAtras(texto: atras.texto, onTap: atras.accion); Spacer() }
+                HStack { AtrasDia(texto: atras.texto, accion: atras.accion); Spacer() }
                     .padding(.horizontal, Theme.Spacing.s)
                     .frame(maxWidth: .infinity)
                     .background(Theme.Color.background)
@@ -122,7 +100,7 @@ struct AnaliticasPantalla<Cuerpo: View>: View {
             .frame(maxWidth: .infinity)
             .background(Theme.Color.background)
             .overlay(alignment: .bottom) {
-                if pegado { Rectangle().fill(Theme.Color.hairlineStrong).frame(height: 1) }
+                if pegado { Hairline(fuerte: true) }
             }
     }
 }

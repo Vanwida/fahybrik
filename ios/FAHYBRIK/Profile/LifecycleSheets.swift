@@ -72,7 +72,7 @@ private struct BloqueDeNota<Contenido: View>: View {
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Theme.Spacing.l)
-            .tarjetaPerfil(realce: realce)
+            .tarjetaDia(realce: realce)
     }
 }
 
@@ -178,7 +178,7 @@ struct PauseSheet: View {
             }
             .padding(Theme.Spacing.l)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .tarjetaPerfil()
+            .tarjetaDia()
         }
 
         BloqueDeNota {
@@ -211,7 +211,7 @@ struct PauseSheet: View {
             }
             .padding(Theme.Spacing.l)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .tarjetaPerfil()
+            .tarjetaDia()
         }
 
         BloqueDeNota(realce: false) {

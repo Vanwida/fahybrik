@@ -8,15 +8,18 @@ import SwiftUI
 //
 //   AnaliticasEtiqueta / Cuerpo / Numeral   texto
 //   AnaliticasSeccion       título de sección + pregunta + «›» al detalle
-//   AnaliticasSuperficie    una tarjeta; AnaliticasLista una tarjeta con filas
+//   AnaliticasSuperficie    una tarjeta con su filete de «dato viejo» (`tarjetaDia`); `ListaDia`, una tarjeta con filas
 //   AnaliticasCelda         una tesela de dato: etiqueta, cifra, unidad, delta y ancla
 //   AnaliticasDelta         ▲ / ▼ / ≈ con el texto en la unidad que lo juzga
 //   AnaliticasChipAncla     «medido», «declarado», «estimado», «por edad»
-//   AnaliticasPuntoFamilia · AnaliticasSello
-//   AnaliticasBoton         la salida de un hueco (acento del club) o la acción de tinta
+//   AnaliticasPuntoFamilia
+//   AnaliticasBoton         la salida de un hueco (acento del club) o la acción de tinta (`BotonAccionDia`)
 //   AnaliticasPlazo         «llevas 3 de 6 semanas», dibujado
 //   AnaliticasHueco         vacío / poco / viejo, con salida obligatoria
 //   AnaliticasLeyenda       la leyenda de un gráfico (siempre con ≥ 2 series)
+//
+// Lo genérico ya no vive aquí: el conmutador es `SegmentoDia`, el flujo `FlowLayout`, el «Nuevo» un
+// `InfoPill(.velo)`, la vuelta `AtrasDia` y la cifra de una fila `.papel(.cifra)`.
 //
 // EL COLOR. El acento del club es marca y acción (el conmutador elegido, la
 // salida de un hueco): NUNCA el color de una familia ni de un dato. El veredicto
@@ -67,24 +70,12 @@ struct AnaliticasNumeral: View {
         Group {
             switch talla {
             case .dato: Text(texto).papel(.dato)
-            case .fila: Text(texto).modifier(CifraDeFila())
+            case .fila: Text(texto).papel(.cifra)
             }
         }
         .foregroundStyle(tono)
         .lineLimit(1)
         .fixedSize(horizontal: true, vertical: false)
-    }
-}
-
-/// La cifra de una fila: 22 pt, negrita, tabular y recta. Escala con el texto del sistema hacia
-/// arriba y nunca por debajo de su base (el mismo contrato que los papeles del kit), con tope.
-private struct CifraDeFila: ViewModifier {
-    private static let base: CGFloat = 22
-    @ScaledMetric(relativeTo: .title3) private var escalado: CGFloat = CifraDeFila.base
-
-    func body(content: Content) -> some View {
-        let tamano = min(max(escalado, Self.base), Self.base * Theme.Typography.Papel.topeDeLosGrandes)
-        content.font(ScaledFontModifier.fuente(size: tamano, weight: .bold, italic: false, tabular: true))
     }
 }
 
@@ -158,37 +149,13 @@ struct AnaliticasSuperficie<Contenido: View>: View {
     @ViewBuilder let contenido: () -> Contenido
 
     var body: some View {
-        let forma = RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous)
         contenido()
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.Color.surface, in: forma)
             .overlay(alignment: .leading) {
                 if filete { Rectangle().fill(Theme.Color.muted).frame(width: 4) }
             }
-            .clipShape(forma)
-            .overlay(forma.strokeBorder(Theme.Color.hairline, lineWidth: 1))
-    }
-}
-
-/// Una tarjeta con filas separadas por una raya fina. El toque de cada fila es suyo.
-struct AnaliticasLista<Contenido: View>: View {
-    @ViewBuilder let contenido: () -> Contenido
-
-    var body: some View {
-        let forma = RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous)
-        VStack(spacing: 0) {
-            Group(subviews: contenido()) { filas in
-                ForEach(Array(filas.enumerated()), id: \.offset) { i, fila in
-                    if i > 0 { Rectangle().fill(Theme.Color.hairline).frame(height: 1) }
-                    fila
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.surface, in: forma)
-        .clipShape(forma)
-        .overlay(forma.strokeBorder(Theme.Color.hairline, lineWidth: 1))
+            .tarjetaDia()
     }
 }
 
@@ -220,7 +187,7 @@ struct AnaliticasDelta: View {
     var corto = false
 
     var body: some View {
-        AnaliticasFlujo(espacioH: 6, espacioV: 2) {
+        FlowLayout(spacing: 6, lineSpacing: 2) {
             HStack(spacing: Theme.Spacing.xs) {
                 Text(delta.marca).foregroundStyle(delta.colorDeLaMarca)
                 Text(delta.texto).foregroundStyle(delta.igual ? Theme.Color.muted : Theme.Color.foreground)
@@ -257,7 +224,7 @@ struct AnaliticasChipAncla: View {
 }
 
 /// Un dato: etiqueta arriba, cifra a 32 pt con la unidad a 15 pt, y debajo el delta en la unidad que
-/// lo juzga y el ancla. Es una `TeselaDia`: dentro de `AnaliticasFilaDeCeldas` se iguala en alto con
+/// lo juzga y el ancla. Es una `TeselaDia`: dentro de `TeselasDia` se iguala en alto con
 /// su vecina. Sin dato no hay celda: la ausencia se dice en el hueco del bloque, no con guiones.
 struct AnaliticasCelda<Pie: View>: View {
     let etiqueta: String
@@ -330,13 +297,6 @@ extension AnaliticasCelda where Pie == EmptyView {
     }
 }
 
-/// Dos celdas a lo ancho, a partes iguales y del mismo alto (una sola, a todo el ancho). Con el texto
-/// del sistema en tamaños de accesibilidad pasan a una columna: lo hace `TeselasDia`.
-struct AnaliticasFilaDeCeldas<Contenido: View>: View {
-    @ViewBuilder let contenido: () -> Contenido
-    var body: some View { TeselasDia { contenido() } }
-}
-
 // MARK: - Marcas pequeñas
 
 struct AnaliticasPuntoFamilia: View {
@@ -345,13 +305,6 @@ struct AnaliticasPuntoFamilia: View {
     var body: some View {
         Circle().fill(FamiliaGrande(familia).color).frame(width: talla, height: talla).accessibilityHidden(true)
     }
-}
-
-/// «Nuevo»: una pastilla tenue de la tinta del tema. Ni el acento del club (es marca y acción) ni la
-/// tinta invertida (eso es una acción): en una tabla con seis marcas nuevas no puede gritar.
-struct AnaliticasSello: View {
-    let texto: String
-    var body: some View { InfoPill(text: texto, estilo: .velo) }
 }
 
 // MARK: - Botón y hueco
@@ -366,8 +319,8 @@ struct AnaliticasBoton: View {
     let accion: () -> Void
 
     var body: some View {
-        Button(action: accion) {
-            if secundario {
+        if secundario {
+            Button(action: accion) {
                 Text(texto)
                     .papel(.cuerpoFuerte)
                     .foregroundStyle(Theme.Color.foreground)
@@ -378,12 +331,12 @@ struct AnaliticasBoton: View {
                     .background(Theme.Color.accentTint(sobre: Theme.Color.surface), in: Capsule())
                     .overlay(Capsule().strokeBorder(Theme.Color.accentTintBorde, lineWidth: 1))
                     .contentShape(Capsule())
-            } else {
-                AccionDia(texto)
             }
+            .buttonStyle(PressScaleStyle(escala: 0.96))
+            .accessibilityLabel(texto)
+        } else {
+            BotonAccionDia(texto, glifo: .flecha, accion: accion)
         }
-        .buttonStyle(PressScaleStyle(escala: 0.96))
-        .accessibilityLabel(texto)
     }
 }
 
@@ -441,7 +394,7 @@ struct ItemDeLeyenda: Identifiable {
 struct AnaliticasLeyenda: View {
     let items: [ItemDeLeyenda]
     var body: some View {
-        AnaliticasFlujo(espacioH: 16, espacioV: 6) {
+        FlowLayout(spacing: 16, lineSpacing: 6) {
             ForEach(items) { it in
                 HStack(spacing: 6) {
                     clave(it)
@@ -476,40 +429,3 @@ struct AnaliticasLeyenda: View {
     }
 }
 
-// MARK: - Un flujo (los ítems se parten en filas cuando no caben)
-
-/// Lo que en el doble es `flex-wrap`. Los hijos conservan su tamaño ideal.
-struct AnaliticasFlujo: Layout {
-    var espacioH: CGFloat = 8
-    var espacioV: CGFloat = 4
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let ancho = proposal.width ?? .infinity
-        return colocar(ancho: ancho, subviews: subviews).size
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let r = colocar(ancho: bounds.width, subviews: subviews)
-        for (i, origen) in r.origenes.enumerated() {
-            subviews[i].place(at: CGPoint(x: bounds.minX + origen.x, y: bounds.minY + origen.y), proposal: .unspecified)
-        }
-    }
-
-    private func colocar(ancho: CGFloat, subviews: Subviews) -> (size: CGSize, origenes: [CGPoint]) {
-        var origenes: [CGPoint] = []
-        var x: CGFloat = 0, y: CGFloat = 0, altoFila: CGFloat = 0, anchoMax: CGFloat = 0
-        for s in subviews {
-            let t = s.sizeThatFits(.unspecified)
-            if x > 0, x + t.width > ancho {
-                x = 0
-                y += altoFila + espacioV
-                altoFila = 0
-            }
-            origenes.append(CGPoint(x: x, y: y))
-            x += t.width + espacioH
-            altoFila = max(altoFila, t.height)
-            anchoMax = max(anchoMax, x - espacioH)
-        }
-        return (CGSize(width: ancho.isFinite ? min(ancho, anchoMax) : anchoMax, height: y + altoFila), origenes)
-    }
-}

@@ -99,7 +99,7 @@ struct AnaliticasPuntosCumplimiento: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            AnaliticasFlujo(espacioH: 6, espacioV: 6) {
+            FlowLayout(spacing: 6, lineSpacing: 6) {
                 ForEach(0..<pedido.dentro, id: \.self) { _ in Circle().fill(Theme.Color.foreground).frame(width: talla, height: talla) }
                 ForEach(0..<pedido.menos, id: \.self) { _ in Circle().strokeBorder(Theme.Color.muted, lineWidth: 2).frame(width: talla, height: talla) }
                 ForEach(0..<pedido.mas, id: \.self) { _ in Circle().fill(Theme.Color.muted).frame(width: talla, height: talla) }

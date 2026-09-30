@@ -253,7 +253,7 @@ struct PlanAnclaje: View {
             AccionAncladaPlanEsqueleto()
         } else if let accion = v.accion(en: l) {
             AccionAncladaPlan(
-                texto: accion.texto(coach: l.coach), simbolo: accion.simbolo, glifoAlFinal: accion.simboloAlFinal,
+                texto: accion.texto(coach: l.coach), glifo: accion.glifo, glifoAlFinal: accion.glifoAlFinal,
                 enCurso: enCurso && accion == .reintentar, conMenu: accion.conMenu,
                 alTocar: { acciones.alAccion(accion) },
                 menu: {

@@ -52,13 +52,13 @@ struct BuscarCarreraSheet: View {
 
     var body: some View {
         NavigationStack {
-            MarcoDeHojaCarreras("Buscar carrera", cerrar: { dismiss() }) {
+            MarcoDeHojaDia("Buscar carrera", cerrar: { dismiss() }) {
                 VStack(alignment: .leading, spacing: 18) {
                     intro
                     campoBusqueda
                     filtros
                     contenido
-                    BotonTextoCarreras("Crear objetivo personalizado", centrado: true, accion: { showCustom = true }) {
+                    BotonTextoDia("Crear objetivo personalizado", centrado: true, accion: { showCustom = true }) {
                         IconoDia(.mas, tam: 20, peso: .bold)
                     }
                 }
@@ -96,7 +96,7 @@ struct BuscarCarreraSheet: View {
 
     private var intro: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Elige tu objetivo").subtituloCarreras()
+            SubtituloDia("Elige tu objetivo")
             Text("Running, híbrida, CrossFit u OCR: elige del calendario o créalo si no está.")
                 .papel(.cuerpo)
                 .foregroundStyle(Theme.Color.muted)
@@ -105,7 +105,7 @@ struct BuscarCarreraSheet: View {
     }
 
     private var campoBusqueda: some View {
-        CampoCarreras(
+        CampoDia(
             "Buscar",
             enFoco: campoEnFoco,
             izquierda: { IconoDia(.lupa, tam: 20) },
@@ -144,41 +144,41 @@ struct BuscarCarreraSheet: View {
 
     private var filtros: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            FilaChipsCarreras("Familia") {
-                ChipFiltroCarreras(texto: "Todas", elegido: selectedFamily == nil) {
+            FilaChipsDia("Familia") {
+                ChipFiltroDia(texto: "Todas", elegido: selectedFamily == nil) {
                     selectedFamily = nil
                     scheduleReload(immediate: true)
                 }
                 ForEach(ObjectiveFamily.allCases) { fam in
-                    ChipFiltroCarreras(texto: fam.label, elegido: selectedFamily == fam) {
+                    ChipFiltroDia(texto: fam.label, elegido: selectedFamily == fam) {
                         selectedFamily = (selectedFamily == fam) ? nil : fam
                         scheduleReload(immediate: true)
                     }
                 }
             }
             if availableSeries.count > 1 {
-                FilaChipsCarreras("Serie") {
-                    ChipFiltroCarreras(texto: "Todas", elegido: selectedSeries == nil) { selectedSeries = nil }
+                FilaChipsDia("Serie") {
+                    ChipFiltroDia(texto: "Todas", elegido: selectedSeries == nil) { selectedSeries = nil }
                     ForEach(availableSeries, id: \.self) { s in
-                        ChipFiltroCarreras(texto: RaceCalendarEvent.seriesLabel(s), elegido: selectedSeries == s) {
+                        ChipFiltroDia(texto: RaceCalendarEvent.seriesLabel(s), elegido: selectedSeries == s) {
                             selectedSeries = (selectedSeries == s) ? nil : s
                         }
                     }
                 }
             }
             if availableCountries.count > 1 {
-                FilaChipsCarreras("País") {
-                    ChipFiltroCarreras(texto: "Todos", elegido: selectedCountry == nil) { selectedCountry = nil }
+                FilaChipsDia("País") {
+                    ChipFiltroDia(texto: "Todos", elegido: selectedCountry == nil) { selectedCountry = nil }
                     ForEach(availableCountries, id: \.self) { c in
-                        ChipFiltroCarreras(texto: countryChipLabel(c), elegido: selectedCountry == c) {
+                        ChipFiltroDia(texto: countryChipLabel(c), elegido: selectedCountry == c) {
                             selectedCountry = (selectedCountry == c) ? nil : c
                         }
                     }
                 }
             }
-            FilaChipsCarreras("Fecha") {
+            FilaChipsDia("Fecha") {
                 ForEach(RaceDateFilter.allCases) { f in
-                    ChipFiltroCarreras(texto: f.label, elegido: dateFilter == f) {
+                    ChipFiltroDia(texto: f.label, elegido: dateFilter == f) {
                         guard dateFilter != f else { return }
                         dateFilter = f
                         scheduleReload(immediate: true)
@@ -195,21 +195,21 @@ struct BuscarCarreraSheet: View {
         if loading && !hasLoadedOnce {
             EsqueletoLista()
         } else if loadFailed {
-            AvisoEnLinea("No pudimos cargar el calendario. Revisa tu conexión e inténtalo de nuevo.") {
-                BotonTextoCarreras("Reintentar", tono: .tinta) { scheduleReload(immediate: true) }
+            AvisoEnLineaDia("No pudimos cargar el calendario. Revisa tu conexión e inténtalo de nuevo.") {
+                BotonTextoDia("Reintentar", tono: .tinta) { scheduleReload(immediate: true) }
             }
         } else if sections.isEmpty {
             VStack(alignment: .leading, spacing: Theme.Spacing.m - 2) {
-                Text("Sin carreras").subtituloCarreras()
+                SubtituloDia("Sin carreras")
                 Text("No encontramos carreras con estos filtros. Prueba con otra búsqueda o amplía el rango de fechas.")
                     .papel(.cuerpo)
                     .foregroundStyle(Theme.Color.muted)
                     .fixedSize(horizontal: false, vertical: true)
-                SalidaAccionCarreras("Quitar los filtros", accion: clearFilters) { EmptyView() }
+                BotonAccionDia("Quitar los filtros", relleno: .acento, accion: clearFilters)
             }
             .padding(EdgeInsets(top: 18, leading: 18, bottom: 16, trailing: 18))
             .frame(maxWidth: .infinity, alignment: .leading)
-            .tarjetaCarreras()
+            .tarjetaDia()
         } else {
             calendarList
         }
@@ -404,7 +404,7 @@ private struct FilaEvento: View {
         } label: {
             HStack(spacing: Theme.Spacing.m) {
                 VStack(alignment: .leading, spacing: 4) {
-                    if let serie = evento.seriesLabel { ChipCarreras(serie, estilo: .acento) }
+                    if let serie = evento.seriesLabel { InfoPill(text: serie, estilo: .acento) }
                     Text(evento.name).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
@@ -429,7 +429,7 @@ private struct FilaEvento: View {
             .padding(.horizontal, Theme.Spacing.l)
             .padding(.vertical, Theme.Spacing.m)
             .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
-            .tarjetaCarreras(realce: esObjetivo)
+            .tarjetaDia(realce: esObjetivo)
             .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
         }
         .buttonStyle(PressScaleStyle(escala: 0.985))
@@ -453,7 +453,7 @@ private struct EsqueletoLista: View {
                 .padding(.horizontal, Theme.Spacing.l)
                 .padding(.vertical, Theme.Spacing.m)
                 .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
-                .tarjetaCarreras()
+                .tarjetaDia()
             }
         }
         .accessibilityElement(children: .ignore)

@@ -178,7 +178,7 @@ struct GoalExactLink: View {
     let action: () -> Void
 
     var body: some View {
-        BotonTextoCarreras("Prefiero un tiempo exacto…", centrado: true, accion: action)
+        BotonTextoDia("Prefiero un tiempo exacto…", centrado: true, accion: action)
     }
 }
 
@@ -225,7 +225,7 @@ private struct MetaSelectorPreview: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            Text("¿A qué vas?").subtituloCarreras()
+            SubtituloDia("¿A qué vas?")
             MetaSelectorCarreras(esHyrox: esHyrox, eleccion: $eleccion, tiempo: $tiempo)
         }
         .padding(Theme.Spacing.pantalla)
