@@ -205,8 +205,9 @@ enum WorkoutVisionAPI {
 
 // MARK: - Editable review state
 
-// Per-field honesty, carried into the UI: green = the IA read it, amber = the IA
-// flagged it for review (value empty), accent = the athlete edited it.
+// Per-field honesty, carried into the UI: detected = the IA read it, review = the IA
+// flagged it for review (value empty), edited = the athlete edited it. The review screen
+// draws each with its own shape (✓, ½, pencil) — colour alone never carries it.
 enum FieldStatus {
     case detected, review, edited
 
@@ -217,14 +218,6 @@ enum FieldStatus {
         case .edited:   return "Tú"
         }
     }
-    var color: Color {
-        switch self {
-        case .detected: return Theme.Color.ok
-        case .review:   return Theme.Color.warning
-        case .edited:   return Theme.Color.accentText
-        }
-    }
-    var tint: Color { color.opacity(0.16) }
 }
 
 // One editable numeric field: the live value + the IA's original confidence +

@@ -11,6 +11,17 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-30 · Diálogos del entreno en vivo, dispositivos y captura, con «El día»: fuera la piel vieja
+
+**Rehecho:** los diálogos de `ActiveWorkoutView` (terminar y guardar, salir, abandonar, confirmar, pausa) y de `WorkoutContainer` (reanudar, «no pudimos cargar») pasan a una sola pieza nueva del kit, `DialogoDia` (velo + `tarjetaDia` + una `BotonAccionDia` + salidas `BotonTextoDia`; el peligro va en la marca y en la palabra del botón, no en el título). En «¿Salir del entreno?» y «¿Abandonar?», «Seguir entrenando» es la acción grande y «Descartar/Abandonar» la discreta en peligro (antes el abandono era un botón rojo sólido). `LiveConectividadSheet`, `DevicePickerSheet`, `PM5LiveStreamView` y `WorkoutCaptureView` usan `MarcoDeHojaDia` (ganó `conAccion:` para la acción anclada que solo existe en ciertos estados); filas `FilaDia`, `OpcionDia` (nueva: una fila que se elige, con su `RunEnvironmentOptions` compartida con la pantalla de dispositivos), `InfoPill`, `CampoDia`, `ChipFiltroDia`, `SujetoErrorDia`. La revisión de la captura vive ya en `WorkoutCaptureReview.swift`; «Detectado/Revisar/Tú» se dicen con forma (✓, ½, lápiz), no solo con color. Copy sin jerga: «PM5», «BLE», «splits» y «chip» salen del texto del atleta.
+
+**Retirado (grep: sin más usuarios):** `DeviceConnectCard` y `ErgConnectCard` (los sustituyó `PreWorkoutDevicesHubView`), `DeviceChip` (9 pt), `LiveRecipeDeviceBar` (ahora `LiveDeviceRows`), `FieldStatus.color/tint`, `statusPhrase` del hub (una sola tabla: `DeviceLink.statePhrase`).
+
+**Fuera de este lote (no es de esta zona):** `TreadmillHUD*`, los HUD en vivo y `PreWorkoutDevicesHubView` (ya tenía el kit; quedan dos `.system(size:)` de icono), Onboarding, Auth, Nutrición y Day1. Los comentarios de `web/components/v2/guia/sections/*` siguen citando los ficheros borrados.
+
+---
+
+
 ## 2026-09-30 · El vivo del iPhone es UNO: se borra el shell antiguo, su bandera y los HUD que solo él montaba
 
 **El encargo:** desde el 29-09 `VivoIphoneView` era el vivo por defecto y el shell antiguo (`RunLiveShellView`) quedaba «de vuelta atrás» detrás de `VivoIphoneBandera`. Mantener dos vivos es la deuda que el vivo nuevo vino a quitar: cualquier arreglo de dobles, pausa o salida había que pensarlo dos veces.
