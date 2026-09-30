@@ -301,6 +301,19 @@ function searchTermsAgg(client: Client, coachId: bigint | number | null) {
 }
 
 /**
+ * Pliega separadores para COMPARAR nombres: `/`, `-`, `_` y los espacios cuentan
+ * como lo mismo, así que «90-90» encuentra «90/90 Hip Stretch» y «push up» encuentra
+ * «push-up». Se aplica a AMBOS lados de la comparación (el término y la columna) y
+ * encima de la normalización que ya lleve cada uno; no toca lo guardado ni los
+ * índices (la función `fahybrid_normalize_term` no cambia).
+ */
+export type SqlFragment = ReturnType<Client>;
+
+export function foldSeparators(client: Client, expr: SqlFragment) {
+  return client`btrim(regexp_replace(${expr}, '[[:space:]/_-]+', ' ', 'g'))`;
+}
+
+/**
  * EL predicado de búsqueda del catálogo, uno para todos los lectores.
  *
  * Busca en todo lo que un humano puede escribir para nombrar el movimiento: el
@@ -322,23 +335,26 @@ export function exerciseSearchFilter(
 ) {
   const raw = term?.trim() ? term.trim() : null;
   if (!raw) return client`true`;
-  const like = client`'%' || fahybrid_normalize_term(${raw}) || '%'`;
+  // Separadores plegados en el término Y en cada columna: «90-90» = «90/90» = «90 90».
+  const fold = (expr: SqlFragment) => foldSeparators(client, expr);
+  const like = client`'%' || ${fold(client`fahybrid_normalize_term(${raw})`)} || '%'`;
   const synonyms =
     coachId === null
       ? client`false`
       : client`exists (
           select 1 from coach_exercise_synonyms s
            where s.exercise_id = e.id and s.coach_id = ${coachId}
-             and s.term_normalized like ${like}
+             and ${fold(client`s.term_normalized`)} like ${like}
         )`;
+  // tenancy: shared-catalog — los alias base son comunes; el llamador acota qué ejercicios ve el coach.
   return client`(
-    fahybrid_normalize_term(coalesce(ceo.name, e.name)) like ${like}
-    or fahybrid_normalize_term(coalesce(ceo.name_es, e.name_es, '')) like ${like}
-    or fahybrid_normalize_term(coalesce(ceo.name_en, e.name_en, '')) like ${like}
-    or fahybrid_normalize_term(e.slug) like ${like}
+    ${fold(client`fahybrid_normalize_term(coalesce(ceo.name, e.name))`)} like ${like}
+    or ${fold(client`fahybrid_normalize_term(coalesce(ceo.name_es, e.name_es, ''))`)} like ${like}
+    or ${fold(client`fahybrid_normalize_term(coalesce(ceo.name_en, e.name_en, ''))`)} like ${like}
+    or ${fold(client`fahybrid_normalize_term(e.slug)`)} like ${like}
     or exists (
       select 1 from exercise_aliases a
-       where a.exercise_id = e.id and a.term_normalized like ${like}
+       where a.exercise_id = e.id and ${fold(client`a.term_normalized`)} like ${like}
     )
     or ${synonyms}
   )`;
