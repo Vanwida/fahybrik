@@ -10,18 +10,24 @@
 <strings>
     <string id="AppName">FAHYBRID</string>
 
-    <!-- Vinculación de la cuenta -->
-    <string id="TitleLogin">Entra con tu email</string>
-    <string id="BodyNeedsEmail">Escribe tu email en los ajustes de esta app en Garmin Connect.</string>
+    <!-- Entrar (en el reloj: no hay ajustes en Garmin Connect) -->
+    <string id="TitleEntrar">Entrar</string>
+    <string id="BodyEntrarSinEmail">Escribe el email de tu cuenta.</string>
+    <string id="ActionEscribirEmail">Escribir email</string>
+    <string id="NoteOtroEmail">UP · otro email</string>
+    <string id="ErrBadEmail">Ese email no parece correcto. Vuelve a escribirlo.</string>
+    <string id="ErrSinTeclado">Este reloj no tiene teclado para escribir el email.</string>
     <string id="TitleCode">Código de acceso</string>
-    <string id="BodyNeedsCode">Te mandamos un código de 6 dígitos al email.</string>
-    <string id="BodyCodeLength">El código son 6 dígitos. Revísalo en los ajustes del móvil.</string>
-    <string id="BodyCodeSent">Mira tu email y escribe el código en los ajustes de esta app en Garmin Connect. Caduca en 10 minutos.</string>
-    <string id="ErrBadCode">El código no vale o ha caducado. Pide uno nuevo.</string>
+    <string id="BodyCodeSentA">Mira el correo de </string>
+    <string id="BodyCodeSentB">. El código de 6 dígitos caduca en 10 minutos.</string>
+    <string id="ActionEscribirCodigo">Escribir código</string>
+    <string id="NoteOtroCodigo">UP · pedir otro código</string>
+    <string id="PickerCodigo">Código</string>
+    <string id="ErrBadCode">El código no vale o ha caducado. Escríbelo otra vez o pide uno nuevo.</string>
+    <string id="ErrTooMany">Demasiados intentos. Espera unos minutos y vuelve a probar.</string>
     <string id="ActionSendCode">Pedir código</string>
-    <string id="ActionCheckCode">Ya lo he escrito</string>
     <string id="TitleExpired">Sesión caducada</string>
-    <string id="BodyExpired">Vuelve a entrar con tu email.</string>
+    <string id="BodyExpired">Pide un código para volver a entrar.</string>
 
     <!-- En curso -->
     <string id="BusySendingCode">Enviando el código…</string>
@@ -105,10 +111,4 @@
     <string id="TitleError">Algo ha fallado</string>
     <string id="BodyErrorCode">No se ha podido cargar. Código</string>
     <string id="ActionRetry">Reintentar</string>
-
-    <!-- Ajustes (se ven en Garmin Connect Mobile, no en el reloj) -->
-    <string id="SettingsEmailTitle">Tu email</string>
-    <string id="SettingsEmailPrompt">El email de tu cuenta.</string>
-    <string id="SettingsCodeTitle">Código de acceso</string>
-    <string id="SettingsCodePrompt">Los 6 dígitos que te hemos enviado por email. Se borra solo al usarlo.</string>
 </strings>

@@ -19,23 +19,9 @@ class ActividadApp extends Application.AppBase {
         controller.refresh();
     }
 
-    // Garmin llama aquí cuando el atleta guarda los ajustes desde Garmin Connect
-    // Mobile. Es la bisagra del login: es el momento en que llegan al reloj el
-    // email y el código de 6 dígitos recién tecleados, y por tanto cuando se
-    // puede canjear el código por el token.
-    //
-    // LIMITACIÓN CONOCIDA: los ajustes solo bajan al reloj con el móvil
-    // emparejado y cuando el atleta SALE de la pantalla de ajustes en Garmin
-    // Connect. Tarda unos segundos. Por eso la app deja además un gesto manual
-    // para reintentar (ver MainDelegate.onNextPage) en vez de fiarlo todo a esta
-    // llamada.
     // Garmin cierra la app: si había una sesión grabando, se guarda (G10).
     function onStop(state as Lang.Dictionary or Null) as Void {
         controller.vivo.alSalir();
-    }
-
-    function onSettingsChanged() as Void {
-        controller.refresh();
     }
 
     // La firma la fija AppBase y hay que copiarla EXACTA: declararla como

@@ -1,62 +1,14 @@
 //
-// Acceso a los dos almacenes del reloj. La diferencia NO es cosmética:
-//
-//   · Application.Properties  → lo que el atleta edita desde Garmin Connect
-//     Mobile. Viaja al móvil y se ve en pantalla. Aquí SOLO van email y código.
-//   · Application.Storage     → solo en el reloj, invisible y no editable. Aquí
-//     va el token de sesión, el plan de los próximos días, el checkpoint de la
-//     sesión en curso y la cola de resultados por enviar.
-//
-// Guardar el token en Properties sería enseñar la credencial en una pantalla de
-// ajustes del móvil: no se hace.
+// Acceso al almacén del reloj (Application.Storage): solo en el reloj, invisible
+// y no editable. Aquí va el token de sesión, el último email, el plan de los
+// próximos días, el checkpoint de la sesión en curso y la cola de resultados por
+// enviar. No hay ajustes de Garmin Connect: una app copiada por USB no los tiene.
 //
 using Toybox.Application;
 using Toybox.Lang;
+using Toybox.Time;
 
 module Store {
-
-    // ── Properties (editables por el atleta) ─────────────────────────────────
-
-    // getValue lanza si la propiedad no está declarada o el almacén aún no está
-    // listo; devolvemos "" en vez de propagar, porque para la UI "no hay email"
-    // y "no se pudo leer el email" son el mismo estado.
-    function readProperty(key as Lang.String) as Lang.String {
-        var value = null;
-        try {
-            value = Application.Properties.getValue(key);
-        } catch (ex) {
-            value = null;
-        }
-        if (value == null) {
-            return "";
-        }
-        return trim(value.toString());
-    }
-
-    function writeProperty(key as Lang.String, value as Lang.String) as Lang.Boolean {
-        try {
-            Application.Properties.setValue(key, value);
-            return true;
-        } catch (ex) {
-            return false;
-        }
-    }
-
-    function email() as Lang.String {
-        return readProperty(Config.PROP_EMAIL).toLower();
-    }
-
-    function loginCode() as Lang.String {
-        return readProperty(Config.PROP_LOGIN_CODE);
-    }
-
-    // Se llama en cuanto el código se canjea (bien o mal): un código de un solo
-    // uso no se queda escrito en los ajustes del móvil.
-    function clearLoginCode() as Lang.Boolean {
-        return writeProperty(Config.PROP_LOGIN_CODE, "");
-    }
-
-    // ── Storage (privado del reloj) ──────────────────────────────────────────
 
     function readStorage(key as Lang.String) as Lang.String {
         var value = null;
@@ -115,29 +67,71 @@ module Store {
         return !token().equals("");
     }
 
-    function saveToken(value as Lang.String, forEmail as Lang.String) as Void {
+    // Número de Storage (epoch en segundos), 0 si no hay.
+    function numero(key as Lang.String) as Lang.Number {
+        var v = leer(key);
+        return v instanceof Lang.Number ? v : 0;
+    }
+
+    // Guarda el token con su caducidad (epoch; 0 = el servidor no la dijo) y marca
+    // que se acaba de renovar.
+    function saveToken(value as Lang.String, expEpoch as Lang.Number) as Void {
         writeStorage(Config.STORE_TOKEN, value);
-        writeStorage(Config.STORE_TOKEN_EMAIL, forEmail);
+        escribir(Config.STORE_TOKEN_RENOVADO, Time.now().value());
+        if (expEpoch > 0) {
+            escribir(Config.STORE_TOKEN_EXP, expEpoch);
+        } else {
+            borrar(Config.STORE_TOKEN_EXP);
+        }
     }
 
-    // El servidor ha dicho 401: el token ya no vale. Se borra para que la app
-    // pida login otra vez en vez de reintentar en bucle contra un 401.
+    // El servidor ha dicho 401 (o la caducidad ya pasó): el token no vale. Se
+    // borra para que la app pida login otra vez en vez de reintentar en bucle.
+    // El email recordado se queda: es justo lo que ahorra teclear.
     function clearToken() as Void {
-        writeStorage(Config.STORE_TOKEN, "");
-        writeStorage(Config.STORE_TOKEN_EMAIL, "");
+        borrar(Config.STORE_TOKEN);
+        borrar(Config.STORE_TOKEN_EXP);
+        borrar(Config.STORE_TOKEN_RENOVADO);
     }
 
-    // ¿El token que tenemos es del email que hay AHORA en los ajustes? Si el
-    // atleta cambia de email, el token viejo sigue vivo 30 días y le enseñaría el
-    // entreno de otra persona. Se comprueba en cada arranque.
-    function tokenMatchesEmail() as Lang.Boolean {
-        return readStorage(Config.STORE_TOKEN_EMAIL).equals(email());
+    // ¿Toca renovar? Nunca renovado (o sesión de antes de existir la renovación) o hace más de un día.
+    function renovacionPendiente() as Lang.Boolean {
+        return Time.now().value() - numero(Config.STORE_TOKEN_RENOVADO) >= Config.RENOVAR_CADA_S;
+    }
+
+    // ¿La caducidad que dijo el servidor ya pasó? Sin caducidad conocida, no se sabe: false.
+    function tokenCaducado() as Lang.Boolean {
+        var exp = numero(Config.STORE_TOKEN_EXP);
+        return exp > 0 && Time.now().value() >= exp;
+    }
+
+    // ── Login: lo que se recuerda entre aperturas ────────────────────────────
+
+    function email() as Lang.String {
+        return readStorage(Config.STORE_EMAIL);
+    }
+
+    function saveEmail(value as Lang.String) as Void {
+        writeStorage(Config.STORE_EMAIL, value);
+    }
+
+    // Segundos desde 1970 en que se pidió el código; 0 = ninguno.
+    function codigoPedido() as Lang.Number {
+        return numero(Config.STORE_CODIGO_PEDIDO);
+    }
+
+    function marcarCodigoPedido() as Void {
+        escribir(Config.STORE_CODIGO_PEDIDO, Time.now().value());
+    }
+
+    function borrarCodigoPedido() as Void {
+        borrar(Config.STORE_CODIGO_PEDIDO);
     }
 
     // ── Utilidad ─────────────────────────────────────────────────────────────
 
-    // Monkey C no trae trim() en String. Los ajustes se teclean en el móvil y un
-    // espacio de más al final del email rompería el login sin que se vea.
+    // Monkey C no trae trim() en String. Un espacio de más al final del email
+    // rompería el login sin que se vea.
     function trim(raw as Lang.String) as Lang.String {
         var chars = raw.toCharArray();
         var start = 0;
