@@ -4,7 +4,9 @@
 // DECISIONS 2026-08-23 — antes se colaba el primero de la lista en silencio).
 // Crea las semanas vacías y abre la rejilla.
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { PROGRAM_WEEKS_LIMIT_WHERE, programWeeksLimitMessage } from '@fahybrid/shared/domain/coach/program-months';
+import { Link } from '@/i18n/navigation';
 import { Button, Dialog, Field, Input, Select } from '@/components/v2/ui';
 import { useLevelAxisLabel } from '@/components/v2/controls/useLevelAxisLabel';
 
@@ -26,12 +28,28 @@ export function NewProgramDialog({
   const [weeks, setWeeks] = useState('4');
   const [level, setLevel] = useState(NO_LEVEL);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<{ field: 'name' | 'weeks' | 'form'; message: string } | null>(null);
+  const [error, setError] = useState<{ field: 'name' | 'weeks' | 'form'; message: ReactNode } | null>(null);
 
   const create = async () => {
     const n = Number(weeks);
     if (!name.trim()) return setError({ field: 'name', message: 'Ponle un nombre.' });
-    if (!Number.isInteger(n) || n < 1 || n > maxWeeks) return setError({ field: 'weeks', message: `Entre 1 y ${maxWeeks} semanas.` });
+    if (Number.isInteger(n) && n > maxWeeks) {
+      // El tope es ajuste del coach: se le dice cuál es y dónde se cambia.
+      const [before, after] = programWeeksLimitMessage(maxWeeks).split(PROGRAM_WEEKS_LIMIT_WHERE);
+      return setError({
+        field: 'weeks',
+        message: (
+          <>
+            {before}
+            <Link href="/ajustes/plan" className="underline underline-offset-2">
+              {PROGRAM_WEEKS_LIMIT_WHERE}
+            </Link>
+            {after}
+          </>
+        ),
+      });
+    }
+    if (!Number.isInteger(n) || n < 1) return setError({ field: 'weeks', message: `Entre 1 y ${maxWeeks} semanas.` });
     setSaving(true);
     const res = await fetch('/api/coach/program-months/create', {
       method: 'POST',

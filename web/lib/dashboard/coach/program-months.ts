@@ -20,6 +20,7 @@ import {
   type ProgramMonthScratch,
   type MonthTemplateWeekFull,
   type MonthTemplateWithWeeks,
+  programWeeksLimitMessage,
 } from '@fahybrid/shared/domain/coach/program-months';
 import {
   emptyWeekSlots,
@@ -200,7 +201,7 @@ export async function createMonthTemplateWithEmptyWeeks(params: {
     if (body.week_count > maxWeeks) {
       throw new ProgramMonthError(
         'week_count_too_long',
-        `Un bloque tuyo no pasa de ${maxWeeks} ${maxWeeks === 1 ? 'semana' : 'semanas'}.`,
+        programWeeksLimitMessage(maxWeeks),
         400,
       );
     }
