@@ -1,7 +1,7 @@
 //
 // La máquina de estados. Único sitio donde se decide qué ve el atleta.
 //
-//   ajustes del móvil (email + código)  →  token de sesión
+//   login en el reloj (Acceso)  →  token de sesión
 //        →  plan de los próximos días  →  brief  →  sesión en curso
 //
 using Toybox.Communications;
@@ -29,9 +29,8 @@ class Controller {
     var vivo as Vivo;
     var reloj as Timer.Timer;
 
-    // Ya hemos pedido un código en esta sesión de app. Sirve para no volver a
-    // mandar otro cada vez que el atleta pulsa mientras espera al email.
-    var codeRequested as Lang.Boolean;
+    // El login y la renovación de la sesión.
+    var acceso as Acceso;
 
     function initialize() {
         state = AppState.STATE_BUSY;
@@ -39,7 +38,7 @@ class Controller {
         body = "";
         note = "";
         action = "";
-        codeRequested = false;
+        acceso = new Acceso(self);
         filas = [];
         sel = 0;
         sesion = null;
@@ -83,14 +82,14 @@ class Controller {
     }
 
     function onUp() as Lang.Boolean {
-        if (vivo.alUp()) {
+        if (vivo.alUp() || acceso.alCambiar()) {
             return true;
         }
         return cambiarSesion(-1);
     }
 
     function onDown() as Lang.Boolean {
-        if (vivo.alDown()) {
+        if (vivo.alDown() || acceso.alCambiar()) {
             return true;
         }
         return cambiarSesion(1);
@@ -112,7 +111,8 @@ class Controller {
 
     // ── Entrada única ────────────────────────────────────────────────────────
 
-    // Se llama al arrancar y cada vez que cambian los ajustes desde el móvil.
+    // Se llama al arrancar y al reintentar. Sin token: login en el reloj. Con token:
+    // se renueva la sesión si toca y se sigue con `continuar`.
     // Una sesión interrumpida (checkpoint en Storage): se ofrece seguir o guardar lo hecho.
     var recuperacion as Lang.Dictionary or Null;
 
@@ -120,16 +120,15 @@ class Controller {
         if (vivo.enSesion() || state == AppState.STATE_RECUPERAR) {
             return;
         }
-        // Token de otro email = el atleta ha cambiado de cuenta en los ajustes.
-        // Se tira: enseñarle el entreno del anterior sería peor que pedirle login.
-        if (Store.hasToken() && !Store.tokenMatchesEmail()) {
-            Store.clearToken();
-            codeRequested = false;
-        }
         if (!Store.hasToken()) {
-            resumeLogin();
+            acceso.entrar();
             return;
         }
+        acceso.renovar();
+    }
+
+    // Con la sesión en regla: lo que quedó sin enviar, la sesión interrumpida y el plan.
+    function continuar() as Void {
         // Lo que quedó sin enviar de otras veces se reintenta en cada arranque (sin caducidad).
         Cola.drenar(Store.token(), 0);
         if (offerRecovery()) {
@@ -182,98 +181,6 @@ class Controller {
             return;
         }
         vivo.seguir(chk, s);
-    }
-
-    // ── Vinculación de la cuenta ─────────────────────────────────────────────
-    //
-    // Los ajustes de Garmin son XML declarativo: no hay botones que llamen a una
-    // API desde el móvil (a diferencia de Zepp, donde la pantalla de ajustes es
-    // JavaScript). Así que las dos llamadas HTTP las hace el RELOJ, y el móvil
-    // solo aporta el teclado: el atleta escribe el email, el reloj pide el
-    // código, el atleta escribe el código, el reloj lo canjea.
-
-    function resumeLogin() as Void {
-        var email = Store.email();
-        if (email.equals("")) {
-            show(AppState.STATE_NEEDS_EMAIL, Rez.Strings.TitleLogin, Rez.Strings.BodyNeedsEmail, "");
-            return;
-        }
-        var code = Store.loginCode();
-        if (code.length() == Config.LOGIN_CODE_LENGTH) {
-            verifyCode(email, code);
-            return;
-        }
-        // Hay un código escrito pero no tiene 6 dígitos: mejor decirlo que
-        // mandarlo y comerse un 400 sin explicación.
-        if (!code.equals("")) {
-            show(AppState.STATE_NEEDS_CODE, Rez.Strings.TitleCode, Rez.Strings.BodyCodeLength, Rez.Strings.ActionSendCode);
-            return;
-        }
-        // Ya pedimos código y aún no ha bajado del móvil: se queda esperando en
-        // vez de retroceder a "Pedir código", que mandaría un segundo email e
-        // invalidaría el primero justo cuando el atleta lo está tecleando.
-        if (codeRequested) {
-            show(AppState.STATE_CODE_SENT, Rez.Strings.TitleCode, Rez.Strings.BodyCodeSent, Rez.Strings.ActionCheckCode);
-            return;
-        }
-        show(AppState.STATE_NEEDS_CODE, Rez.Strings.TitleCode, Rez.Strings.BodyNeedsCode, Rez.Strings.ActionSendCode);
-    }
-
-    function sendLoginCode() as Void {
-        var email = Store.email();
-        if (email.equals("")) {
-            resumeLogin();
-            return;
-        }
-        busy(Rez.Strings.BusySendingCode);
-        Api.requestLoginCode(email, method(:onLoginCodeSent));
-    }
-
-    function onLoginCodeSent(responseCode as Lang.Number, data as Lang.Object or Null) as Void {
-        if (responseCode != 200) {
-            failure(responseCode);
-            return;
-        }
-        // El endpoint responde 200 { ok: true } exista el atleta o no (es a
-        // prueba de enumeración a propósito): un 200 aquí NO prueba que el email
-        // sea de un atleta nuestro, solo que la petición se cursó.
-        codeRequested = true;
-        show(AppState.STATE_CODE_SENT, Rez.Strings.TitleCode, Rez.Strings.BodyCodeSent, Rez.Strings.ActionCheckCode);
-    }
-
-    function verifyCode(email as Lang.String, code as Lang.String) as Void {
-        busy(Rez.Strings.BusyVerifying);
-        Api.verifyLoginCode(email, code, method(:onCodeVerified));
-    }
-
-    function onCodeVerified(responseCode as Lang.Number, data as Lang.Object or Null) as Void {
-        // El código es de un solo uso: se limpia SIEMPRE, salga bien o mal, para
-        // que no quede escrito en los ajustes del móvil ni se reintente en bucle.
-        Store.clearLoginCode();
-
-        if (responseCode == 400 || responseCode == 429) {
-            // 400 = código malo o caducado; 429 = demasiados intentos. En los dos
-            // casos el camino es el mismo: pedir uno nuevo.
-            codeRequested = false;
-            show(AppState.STATE_NEEDS_CODE, Rez.Strings.TitleCode, Rez.Strings.ErrBadCode, Rez.Strings.ActionSendCode);
-            return;
-        }
-        if (responseCode != 200) {
-            failure(responseCode);
-            return;
-        }
-
-        // /api/auth/email/verify devuelve `session_token` en el NIVEL SUPERIOR
-        // (jsonOk no envuelve en { data }). Mismo bearer que Sign in with Apple.
-        var token = Json.str(Json.dict(data), "session_token");
-        if (token.equals("")) {
-            codeRequested = false;
-            show(AppState.STATE_NEEDS_CODE, Rez.Strings.TitleCode, Rez.Strings.ErrBadCode, Rez.Strings.ActionSendCode);
-            return;
-        }
-        Store.saveToken(token, Store.email());
-        codeRequested = false;
-        syncPlan();
     }
 
     // ── El plan ──────────────────────────────────────────────────────────────
@@ -385,12 +292,8 @@ class Controller {
     // ── Acción del botón, según estado ───────────────────────────────────────
 
     function primaryAction() as Void {
-        if (state == AppState.STATE_NEEDS_CODE || state == AppState.STATE_CODE_SENT) {
-            if (state == AppState.STATE_CODE_SENT) {
-                refresh();      // el atleta dice que ya lo ha escrito en el móvil
-            } else {
-                sendLoginCode();
-            }
+        if (acceso.enPantalla()) {
+            acceso.alSelect();
             return;
         }
         // El brief: empezar la sesión (llega con el motor).
@@ -431,16 +334,13 @@ class Controller {
                responseCode == Communications.NETWORK_REQUEST_TIMED_OUT;
     }
 
-    // 401 = el token ya no vale (caducado a los 30 días, o revocado). Se borra:
+    // 401 = el token ya no vale (caducado o revocado). Se borra:
     // reintentar con él solo daría 401 en bucle.
     function expireSession() as Void {
         Store.clearToken();
-        codeRequested = false;
-        if (Store.email().equals("")) {
-            show(AppState.STATE_NEEDS_EMAIL, Rez.Strings.TitleExpired, Rez.Strings.BodyNeedsEmail, "");
-            return;
-        }
-        show(AppState.STATE_NEEDS_CODE, Rez.Strings.TitleExpired, Rez.Strings.BodyExpired, Rez.Strings.ActionSendCode);
+        acceso.email = Store.email();
+        acceso.mostrarEntrar(Rez.Strings.BodyExpired);
+        title = resolve(Rez.Strings.TitleExpired);
     }
 
     function failure(responseCode as Lang.Number) as Void {

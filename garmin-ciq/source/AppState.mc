@@ -6,9 +6,8 @@
 module AppState {
     enum {
         // Vinculación de la cuenta
-        STATE_NEEDS_EMAIL,      // no hay email en los ajustes del móvil
-        STATE_NEEDS_CODE,       // hay email, falta el código de 6 dígitos
-        STATE_CODE_SENT,        // código pedido; toca escribirlo en el móvil
+        STATE_ENTRAR,           // pantalla «Entrar»: falta el email o pedir el código
+        STATE_CODIGO,           // código pedido; toca escribir los 6 dígitos
 
         // Trabajo en curso (lleva su propio texto)
         STATE_BUSY,

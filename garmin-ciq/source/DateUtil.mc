@@ -37,4 +37,25 @@ module DateUtil {
         }
         return epochDays(b) - epochDays(a);
     }
+
+    // Instante UTC de un ISO 8601 del servidor («2026-10-30T12:34:56.789Z») en
+    // segundos desde 1970. Roto o vacío: null.
+    function isoUtcToEpoch(iso as Lang.String) as Lang.Number or Null {
+        if (iso.length() < 19) {
+            return null;
+        }
+        var year = iso.substring(0, 4).toNumber();
+        var month = iso.substring(5, 7).toNumber();
+        var day = iso.substring(8, 10).toNumber();
+        var hour = iso.substring(11, 13).toNumber();
+        var minute = iso.substring(14, 16).toNumber();
+        var second = iso.substring(17, 19).toNumber();
+        if (year == null || month == null || day == null || hour == null || minute == null || second == null) {
+            return null;
+        }
+        return Gregorian.moment({
+            :year => year, :month => month, :day => day,
+            :hour => hour, :minute => minute, :second => second
+        }).value();
+    }
 }
