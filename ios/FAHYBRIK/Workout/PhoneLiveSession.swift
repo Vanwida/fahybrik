@@ -97,6 +97,8 @@ final class PhoneLiveSession {
     /// El plan del entreno en pasos que se le manda a la muñeca (F2): qué, cuándo y con qué huella.
     @ObservationIgnored private let planFeed = PhoneMirrorPlanFeed()
     @ObservationIgnored private var activityKind: String = "mixed"
+    /// Lo que quedaba del descanso de la serie en el latido anterior: al pasar de >0 a 0 el descanso acabó solo.
+    @ObservationIgnored private var restAntes: Double = 0
     /// FH-96 — one workout intent → one PRIMARY. A second `begin` on the same
     /// staging session (prep UI + ▶ EMPEZAR) must not re-request the wrist.
     @ObservationIgnored private var primaryRequested = false
@@ -426,7 +428,7 @@ final class PhoneLiveSession {
                     engine?.sampleRunDistance(deltaMeters: d.deltaMeters, source: .healthkit)
                 }
             case MirrorWire.MessageType.command:
-                if let cmd = env.body(as: MirrorCommand.self) { applyCommand(cmd.kind) }
+                if let cmd = env.body(as: MirrorCommand.self) { applyCommand(cmd.kind, declaracion: cmd.declaracion) }
             case MirrorWire.MessageType.ended:
                 if let ended = env.body(as: MirrorEnded.self) {
                     applyWristEnded(ended)
@@ -649,6 +651,11 @@ final class PhoneLiveSession {
 
     private func tickFrame() {
         guard let engine, hk.session != nil, link == .bound else { return }
+        // La fuerza que lleva el motor sin que el vivo del iPhone esté a la vista: la serie por tiempo se cierra sola y al
+        // acabar un descanso se sigue (serie por tiempo desde cero, o el siguiente ejercicio).
+        engine.vivoCerrarSerieCumplida()
+        if restAntes > 0, engine.restRemainingSeconds <= 0 { engine.vivoAlAcabarDescanso() }
+        restAntes = engine.restRemainingSeconds
         let frame = buildFrame(from: engine)
         let key = PhoneMirrorFrameBuilder.structuralKey(frame)
         let now = Date()
@@ -671,11 +678,18 @@ final class PhoneLiveSession {
         lastSentAt = Date()
     }
 
-    private func applyCommand(_ kind: String) {
+    private func applyCommand(_ kind: String, declaracion: Vivo.Declaracion? = nil) {
         guard let engine else { return }
         switch kind {
         case MirrorWire.CommandKind.advance:
+            // Cortar un descanso o cerrar una serie de fuerza lleva, además, lo que decide el motor de la fuerza: la
+            // última serie sigue al siguiente ejercicio, «Colócate» abre antes de una isometría (nunca un atasco).
+            let eraDescanso = engine.restRemainingSeconds > 0
             engine.applyCommand(kind)
+            if eraDescanso { engine.vivoAlAcabarDescanso() } else { engine.vivoTrasCerrarSerie() }
+            pushFrameNow()
+        case MirrorWire.CommandKind.anotar, MirrorWire.CommandKind.plus30:
+            _ = PhoneMirrorCommandRelay.aplicar(kind, declaracion: declaracion, a: engine)
             pushFrameNow()
         case MirrorWire.CommandKind.sync:
             // La muñeca pide el estado y, si no tiene el plan al que apunta, también el plan.

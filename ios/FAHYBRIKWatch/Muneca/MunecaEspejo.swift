@@ -78,11 +78,12 @@ struct MunecaEspejo: View {
 
 extension WatchPrimaryOwner {
 
-    /// Lo que la pila puede hacer con el móvil llevando el motor. La acción del momento sale del
-    /// mismo vocabulario cerrado que en solitario (`Vivo.clavePorDefecto`): «Vuelta» parte el rodaje
-    /// sin cerrarlo, lo demás cierra el paso con el `advance` de siempre.
+    /// Lo que la pila puede hacer con el móvil llevando el motor. La acción del momento sale del cuadro (el mismo
+    /// vocabulario cerrado que en solitario, `Vivo.clavePrimariaMuneca`): «Vuelta» parte el rodaje sin cerrarlo,
+    /// «Confirmar» declara lo anotado en el descanso de fuerza y lo manda al motor del móvil, y lo demás cierra el
+    /// paso con el `advance` de siempre (también cortar un descanso: el móvil decide qué sigue).
     func mandosMuneca(cuadro: Vivo.CuadroMuneca, paso: Vivo.Paso?) -> MunecaMandos {
-        let clave = paso.flatMap(Vivo.clavePorDefecto)
+        let clave = cuadro.primaria
         let pausado = cuadro.pausado
         let cerrar = { self.sendCommand(MirrorWire.CommandKind.advance) }
         // «Vuelta» solo si el móvil la atiende (un móvil con cursor la anuncia) y no en pausa.
@@ -92,16 +93,28 @@ extension WatchPrimaryOwner {
                 self.vueltaAMano()
             } : nil
         let esVuelta = clave == .vuelta
-        let cierraElPaso = clave != nil && !esVuelta
+        let cierraElPaso = clave != nil && !esVuelta && clave != .confirmar
+        let confirmar = {
+            for d in self.espejo.confirmarAnotacion(ahora: Date()) { self.enviarDeclaracion(d) }
+        }
+        // Lo declarado solo se ofrece si el móvil lo atiende: prometer un dato que nadie guarda es mentir.
+        let anotar: MunecaAnotar? = movilAtiende(MirrorWire.Capacidad.anotar) ? MunecaAnotar(
+            abrir: { k in self.espejo.abrirSerie(k, ahora: Date()) },
+            enfocar: { campo in self.espejo.enfocarDato(campo, ahora: Date()) },
+            girar: { dir in
+                if let d = self.espejo.girarDato(dir, ahora: Date()) { self.enviarDeclaracion(d) }
+            }
+        ) : nil
 
         return MunecaMandos(
             pausa: { self.alternarPausaDelEspejo(estaPausado: pausado) },
             terminar: { self.finishByAthlete() },
-            control: control(esVuelta: esVuelta, cierraElPaso: cierraElPaso, vuelta: vuelta, cerrar: cerrar),
-            primaria: esVuelta ? vuelta : (cierraElPaso ? cerrar : nil),
-            // El móvil no atiende `plus30` (el motor no puede estirar un descanso): sin botón.
+            control: control(esVuelta: esVuelta, cierraElPaso: clave != nil && !esVuelta, vuelta: vuelta, cerrar: cerrar),
+            primaria: clave == .confirmar ? confirmar : (esVuelta ? vuelta : (cierraElPaso ? cerrar : nil)),
+            // Sin la capacidad `mas30` el móvil no estira un descanso: sin botón.
             mas30: movilAtiende(MirrorWire.Capacidad.mas30) ? { self.sendCommand(MirrorWire.CommandKind.plus30) } : nil,
-            empezarYa: { cerrar() }
+            empezarYa: { cerrar() },
+            anotar: anotar
         )
     }
 

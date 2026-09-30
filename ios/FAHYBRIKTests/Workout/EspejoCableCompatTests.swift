@@ -128,7 +128,7 @@ final class EspejoCableCompatTests: XCTestCase {
         let f = try tramaNueva(s)
         XCTAssertEqual(f.cursor?.planHash, plan.planHash, "la huella es determinista: el mismo plan, la misma huella")
         XCTAssertEqual(f.cursor?.i, 1)
-        XCTAssertEqual(f.capacidades, [MirrorWire.Capacidad.vuelta], "solo se anuncia lo que el motor atiende")
+        XCTAssertEqual(f.capacidades, PhoneMirrorFrameBuilder.capacidades, "solo se anuncia lo que el motor atiende")
         var espejo = Vivo.EspejoMuneca()
         espejo.recibirPlan(try viaje(plan))
         espejo.recibirTrama(f, en: base)
@@ -292,12 +292,12 @@ final class EspejoCableCompatTests: XCTestCase {
         XCTAssertEqual(PhoneMirrorCommandRelay.aplicar(MirrorWire.CommandKind.newLap, a: s), .aplicado)
         XCTAssertEqual(s.laps.count, antes + 1, "la vuelta de la muñeca llegó al motor (deuda FH-30)")
 
-        for kind in [MirrorWire.CommandKind.undo, MirrorWire.CommandKind.plus30, MirrorWire.CommandKind.vozMuneca] {
+        for kind in [MirrorWire.CommandKind.undo, MirrorWire.CommandKind.vozMuneca] {
             guard case .pendiente = PhoneMirrorCommandRelay.aplicar(kind, a: s) else { return XCTFail("\(kind) debería estar pendiente") }
         }
         XCTAssertEqual(PhoneMirrorCommandRelay.aplicar("otraCosa", a: s), .ajeno)
         XCTAssertEqual(s.laps.count, antes + 1, "los pendientes no tocan el motor")
         XCTAssertFalse(PhoneMirrorFrameBuilder.capacidades.contains(MirrorWire.Capacidad.deshacer))
-        XCTAssertFalse(PhoneMirrorFrameBuilder.capacidades.contains(MirrorWire.Capacidad.mas30))
+        XCTAssertTrue(PhoneMirrorFrameBuilder.capacidades.contains(MirrorWire.Capacidad.mas30), "«+30 s» y lo declarado en el descanso ya los atiende el motor")
     }
 }

@@ -31,6 +31,10 @@ final class MunecaAlimentador {
     @ObservationIgnored private let terminar: () -> Void
 
     private(set) var registro = Vivo.RegistroVueltas()
+    /// Lo declarado en el descanso de fuerza y lo que hay abierto: la muñeca lo conserva y cada dato va al motor.
+    private(set) var anotar = Vivo.AnotarMuneca()
+    /// Lo que quedaba del descanso de la serie en la mirada anterior: al pasar de >0 a 0 el descanso acabó solo.
+    @ObservationIgnored private var restAntes: Double = 0
     /// El plan en pasos, calculado una vez por sesión y entorno (no en cada tic).
     @ObservationIgnored private var planGuardado: (clave: String, plan: Vivo.PlanVivo)?
 
@@ -51,7 +55,8 @@ final class MunecaAlimentador {
     private var plan: Vivo.PlanVivo {
         let clave = "\(session.plan.id)|\(session.runEnvironment?.rawValue ?? "-")|\(session.hrZones?.lthrBpm ?? 0)"
         if let g = planGuardado, g.clave == clave { return g.plan }
-        let nuevo = Vivo.planDe(session)
+        // La muñeca sola no tiene monitor de máquina (lo lleva el móvil): en un ergo, los metros y el /500 los dices tú.
+        let nuevo = Vivo.segunEnlace(Vivo.planDe(session), maquina: nil)
         planGuardado = (clave, nuevo)
         return nuevo
     }
@@ -62,30 +67,47 @@ final class MunecaAlimentador {
     }
 
     func cuadro(_ e: Vivo.EstadoVivo, medidas: Vivo.MedidasMuneca, alwaysOn: Bool) -> Vivo.CuadroMuneca {
-        Vivo.cuadroMuneca(e, registro: registro, entorno: Vivo.EntornoMuneca(medidas: medidas, alwaysOn: alwaysOn, accion: .pista))
+        Vivo.cuadroMuneca(e, registro: registro, entorno: Vivo.EntornoMuneca(medidas: medidas, alwaysOn: alwaysOn, accion: .pista), anotar: anotar)
     }
 
-    /// Un vistazo a la sesión: si el rodaje ha cruzado otro km, su vuelta y su tarjeta.
+    /// Un vistazo a la sesión: si el rodaje ha cruzado otro km, su vuelta y su tarjeta; y lo que decide el motor de
+    /// la fuerza (la serie por tiempo se cierra sola; al acabar un descanso se sigue).
     func observar() {
         let e = estado()
         registro.observar(e.paso, sesionT: e.sesion.t, sesionM: e.sesion.metros, ppm: e.lecturas.ppm)
+        session.vivoCerrarSerieCumplida()
+        if restAntes > 0, session.restRemainingSeconds <= 0 { session.vivoAlAcabarDescanso() }
+        restAntes = session.restRemainingSeconds
+        let medidas = session.vivoMedidasDeSensor(e.pasos)
+        if medidas != anotar.medidas { anotar.medidas = medidas }
     }
 
     // MARK: - Lo que se puede hacer
 
-    /// Los mandos de la pila con el motor local. La acción del momento sale del
-    /// vocabulario cerrado del núcleo (`Vivo.clavePorDefecto`): «Vuelta» parte el
-    /// rodaje SIN cerrarlo; lo demás cierra el paso por el mismo camino que ya usa el
-    /// reloj (`applyCommand(advance)`), o salta el descanso si corre uno del motor.
+    /// Cada dato declarado entra al motor por la puerta de siempre (`vivoDeclarar`).
+    private func aplicar(_ declaraciones: [Vivo.Declaracion], _ e: Vivo.EstadoVivo) {
+        for d in declaraciones { session.vivoDeclarar(d, pasos: e.pasos) }
+    }
+
+    /// Los mandos de la pila con el motor local. La acción del momento sale del vocabulario cerrado del núcleo
+    /// (`Vivo.clavePrimariaMuneca`): «Vuelta» parte el rodaje SIN cerrarlo; «Confirmar» declara lo anotado; lo demás
+    /// cierra el paso por el mismo camino que ya usa el reloj (`applyCommand(advance)`), o salta el descanso si corre
+    /// uno del motor. Lo que decide el motor de la fuerza (la última serie lleva al siguiente ejercicio) va detrás.
     func mandos(_ e: Vivo.EstadoVivo) -> MunecaMandos {
-        let clave = Vivo.clavePorDefecto(e.paso)
+        let clave = Vivo.clavePrimariaMuneca(e, anotar)
         let cerrar = { [session] in
-            if session.restRemainingSeconds > 0 { session.dismissRest() } else { session.applyCommand(MirrorWire.CommandKind.advance) }
+            if session.restRemainingSeconds > 0 { session.dismissRest(); session.vivoAlAcabarDescanso() }
+            else { session.applyCommand(MirrorWire.CommandKind.advance); session.vivoTrasCerrarSerie() }
         }
         let vuelta = { [weak self] in
             guard let self, !self.session.isPaused else { return }
             let x = self.estado()
             self.registro.aMano(sesionT: x.sesion.t, sesionM: x.sesion.metros, ppm: x.lecturas.ppm)
+        }
+        let confirmar = { [weak self] in
+            guard let self else { return }
+            let x = self.estado()
+            self.aplicar(self.anotar.confirmar(x), x)
         }
         let esVuelta = clave == .vuelta
         return MunecaMandos(
@@ -96,12 +118,18 @@ final class MunecaAlimentador {
                 icono: esVuelta ? .vuelta : .siguiente,
                 accion: esVuelta ? vuelta : cerrar
             ),
-            primaria: clave == nil ? nil : (esVuelta ? vuelta : cerrar),
-            mas30: session.restRemainingSeconds > 0 ? { [session] in
-                session.restRemainingSeconds += 30
-                session.restTotalSeconds += 30
-            } : nil,
-            empezarYa: cerrar
+            primaria: clave == nil ? nil : (clave == .confirmar ? confirmar : (esVuelta ? vuelta : cerrar)),
+            mas30: session.restRemainingSeconds > 0 ? { [session] in session.vivoSumar30() } : nil,
+            empezarYa: cerrar,
+            anotar: MunecaAnotar(
+                abrir: { [weak self] k in guard let self else { return }; self.anotar.abrir(k, self.estado()) },
+                enfocar: { [weak self] campo in guard let self else { return }; self.anotar.enfocar(campo, self.estado()) },
+                girar: { [weak self] dir in
+                    guard let self else { return }
+                    let x = self.estado()
+                    if let d = self.anotar.girar(dir, x) { self.aplicar([d], x) }
+                }
+            )
         )
     }
 }

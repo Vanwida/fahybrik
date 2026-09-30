@@ -58,6 +58,11 @@ extension WatchPrimaryOwner {
         frame?.capacidades?.contains(capacidad) == true
     }
 
+    /// Un dato declarado en el descanso de fuerza viaja al motor del móvil (`CommandKind.anotar`).
+    func enviarDeclaracion(_ d: Vivo.Declaracion) {
+        send(type: MirrorWire.MessageType.command, MirrorCommand(kind: MirrorWire.CommandKind.anotar, declaracion: d))
+    }
+
     /// «Vuelta» a mano: se anota en la muñeca (su página Vueltas) y se manda al motor del móvil.
     func vueltaAMano() {
         espejo.vueltaAMano(en: Date())

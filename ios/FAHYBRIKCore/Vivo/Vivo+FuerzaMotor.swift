@@ -14,8 +14,24 @@ import Foundation
 //   3. «COLÓCATE» (`Vivo.necesitaColocate`) delante de una serie por tiempo que no
 //      viene de un descanso: corre como el descanso del motor, con su 3-2-1, y al
 //      acabar el reloj de la serie arranca de cero.
+//
+// Viven en Core (no en la vista del iPhone) porque los usan los tres que llevan o
+// alimentan el motor: el vivo del iPhone, el reloj en solitario (`MunecaAlimentador`)
+// y el móvil cuando lo lleva la muñeca en espejo (`PhoneMirrorCommandRelay`).
 
 extension WorkoutSession {
+
+    /// «+30 s» del descanso, del que corra: el de la serie de fuerza, el de una lista fija, el de un rotativo o el de un
+    /// EMOM. Devuelve si había algún descanso al que sumar.
+    @discardableResult
+    func vivoSumar30() -> Bool {
+        if restRemainingSeconds > 0 { restRemainingSeconds += 30; restTotalSeconds += 30 }
+        else if fixedRestRemaining > 0 { fixedRestRemaining += 30; fixedRestTotal += 30 }
+        else if rotPhase == .rest { rotPhaseRemaining += 30 }
+        else if emomPhase == .rest { emomPhaseRemaining += 30 }
+        else { return false }
+        return true
+    }
 
     /// Tras cerrar una serie a mano o sola: sigue al siguiente ejercicio si era la
     /// última, o abre «Colócate» si la que viene es por tiempo y no hay descanso.

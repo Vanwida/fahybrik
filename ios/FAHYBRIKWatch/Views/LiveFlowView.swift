@@ -6,8 +6,8 @@ import SwiftUI
 //
 // RODAJE (FH-30): Datos | Vivo | Controles, vivo al centro. No SessionMapView.
 // El resto de modalidades se quedan mapa / familia / pause.
-// CORRER, con la bandera `MunecaBandera` encendida: la pila nueva de la muñeca
-// (`Muneca/MunecaSolo`), que se pinta desde `Vivo.CuadroMuneca`.
+// CORRER, FUERZA y ERGO, con la bandera `MunecaBandera` encendida: la pila nueva de la
+// muñeca (`Muneca/MunecaSolo`), que se pinta desde `Vivo.CuadroMuneca`.
 struct LiveFlowView: View {
     let session: WorkoutSession
     @Binding var page: Int
@@ -30,9 +30,11 @@ struct LiveFlowView: View {
         }
     }
 
-    /// Correr, con la bandera encendida, sin puerta de bloque ni relevo de dobles delante.
+    /// Correr, fuerza o ergo (`Vivo.familiaMuneca`), con la bandera encendida, sin puerta de bloque ni relevo de
+    /// dobles delante.
     private var usaMunecaNueva: Bool {
-        MunecaBandera.encendida && esRodaje && !session.isAwaitingBlockStart && !session.currentSegmentIsPartnerRelay
+        MunecaBandera.encendida && !session.isAwaitingBlockStart && !session.currentSegmentIsPartnerRelay
+            && (esRodaje || MunecaCubierta.cubre(session))
     }
 
     private var flujoDeSiempre: some View {
