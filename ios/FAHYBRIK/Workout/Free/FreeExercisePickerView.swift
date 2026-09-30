@@ -6,30 +6,28 @@ private let catalogLog = Logger(
     category: "catalog"
 )
 
-// MARK: - Entreno libre — exercise picker
+// EL SELECTOR DE EJERCICIOS del constructor libre (fuerza, funcional y la hoja de «¿Qué hiciste?»).
 //
-// Reusable movement picker for the fuerza + funcional builders. A debounced
-// search field over GET /api/athlete/exercises, results grouped by ES category,
-// tap-to-select. `preferredCategory` only BIASES the ordering (the section for it
-// floats to the top) — never a hard filter, so an athlete logging swings as fuerza
-// still finds them under Funcional. Honest loading / error / empty states, all in
-// natural Spanish. No free text anywhere — the search only queries the catalog.
+// Un buscador sobre GET /api/athlete/exercises, con espera entre teclas, los resultados agrupados por su
+// categoría en español y un toque para elegir. `preferredCategory` sólo ORDENA (su sección sube arriba),
+// nunca filtra: quien apunta unos swings como fuerza los sigue encontrando en Funcional. Estados honestos
+// (cargando con la forma de la lista, fallo con reintento, vacío con salida), en español natural. Cero
+// texto libre: la búsqueda sólo consulta el catálogo.
 struct FreeExercisePickerView: View {
     let bearer: String?
-    /// The builder that opened the picker ("strength" | "functional") — biases the
-    /// section order, does NOT restrict the catalog.
+    /// El constructor que abrió el selector ("strength" | "functional"): ordena, NO restringe.
     let preferredCategory: String
     let onPick: (FreeExercise) -> Void
     let onClose: () -> Void
 
     @State private var searchText: String = ""
-    @State private var all: [FreeExercise] = []
-    @State private var phase: LoadPhase = .loading
+    @State private var all: [FreeExercise]
+    @State private var phase: LoadPhase
     @State private var searchTask: Task<Void, Never>? = nil
     @State private var didStartLoad = false
 
-    /// Debounce window before a keystroke fires a fetch — long enough to coalesce a
-    /// fast typist, short enough to feel live.
+    /// Espera antes de que una tecla lance la búsqueda: junta a quien escribe rápido y sigue sintiéndose
+    /// en vivo.
     private static let searchDebounceNanos: UInt64 = 300_000_000
 
     enum LoadPhase: Equatable {
@@ -38,17 +36,41 @@ struct FreeExercisePickerView: View {
         case failed
     }
 
+    init(
+        bearer: String?,
+        preferredCategory: String,
+        onPick: @escaping (FreeExercise) -> Void,
+        onClose: @escaping () -> Void,
+        catalogoInicial: [FreeExercise]? = nil,
+        faseInicial: LoadPhase? = nil
+    ) {
+        self.bearer = bearer
+        self.preferredCategory = preferredCategory
+        self.onPick = onPick
+        self.onClose = onClose
+        _all = State(initialValue: catalogoInicial ?? [])
+        _phase = State(initialValue: faseInicial ?? (catalogoInicial == nil ? .loading : .loaded))
+        // Con un catálogo ya dado (las previas y la galería) no se pide nada a la red.
+        _didStartLoad = State(initialValue: catalogoInicial != nil || faseInicial != nil)
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            searchField
+        VStack(alignment: .leading, spacing: 0) {
+            CromoConstructorLibre(salida: .cerrar, alSalir: onClose)
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                TituloPasoLibre(etiqueta: "Catálogo", titulo: "Añade un ejercicio",
+                                apoyo: "Busca por nombre y toca para añadirlo.")
+                searchField
+            }
+            .padding(.horizontal, Theme.Spacing.pantalla)
+            .padding(.top, Theme.Spacing.s)
+            .padding(.bottom, Theme.Spacing.m)
             content
         }
         .background(Theme.Color.background.ignoresSafeArea())
-        // Unstructured Task, not `.task`: this picker lives inside Hoy's
-        // full-screen builder. SwiftUI cancels `.task` when that cover
-        // reshuffles, the GET still returns 200, and the spinner never
-        // leaves "Cargando…".
+        // Tarea suelta, no `.task`: este selector vive dentro de la cubierta a pantalla completa del
+        // constructor. SwiftUI cancela `.task` cuando esa cubierta se reordena, el GET vuelve con 200 y
+        // el indicador no sale nunca de «Cargando…».
         .onAppear {
             guard !didStartLoad else { return }
             didStartLoad = true
@@ -56,48 +78,14 @@ struct FreeExercisePickerView: View {
         }
     }
 
-    // MARK: - Header
-
-    private var header: some View {
-        HStack(spacing: Theme.Spacing.m) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Añade un ejercicio")
-                    .font(.system(size: 17, weight: .heavy, design: .default).italic())
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Del catálogo — busca por nombre")
-                    .font(Theme.Typography.caption)
-                    .foregroundStyle(Theme.Color.muted)
-            }
-            Spacer(minLength: 0)
-            Button {
-                Haptics.light()
-                onClose()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.Color.surface)
-                    .clipShape(Circle())
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Cerrar")
-        }
-        .padding(.horizontal, Theme.Spacing.l)
-        .padding(.top, Theme.Spacing.m)
-        .padding(.bottom, Theme.Spacing.s)
-    }
-
-    // MARK: - Search field (the ONLY text input — a catalog query, not free dosage)
+    // MARK: - El buscador (la ÚNICA entrada de texto: consulta el catálogo, no escribe dosis)
 
     private var searchField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 14, weight: .semibold))
+        HStack(spacing: Theme.Spacing.m) {
+            IconoDia(.lupa, tam: 18)
                 .foregroundStyle(Theme.Color.muted)
             TextField("Buscar ejercicio", text: $searchText)
-                .font(Theme.Typography.body)
+                .papel(.cuerpo)
                 .foregroundStyle(Theme.Color.foreground)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
@@ -109,140 +97,92 @@ struct FreeExercisePickerView: View {
                     searchText = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 15))
+                        .font(.system(size: 20))
                         .foregroundStyle(Theme.Color.muted)
+                        .frame(width: Theme.Size.toque, height: Theme.Size.toque)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Borrar búsqueda")
             }
         }
-        .padding(.horizontal, Theme.Spacing.m)
-        .padding(.vertical, 11)
-        .background(Theme.Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        .padding(.horizontal, Theme.Spacing.l)
-        .padding(.bottom, Theme.Spacing.s)
+        .padding(.leading, Theme.Spacing.l)
+        .padding(.trailing, searchText.isEmpty ? Theme.Spacing.l : 0)
+        .frame(minHeight: Theme.Size.accion)
+        .background(Theme.Color.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous).strokeBorder(Theme.Color.hairline, lineWidth: 1))
         .onChange(of: searchText) { _, new in scheduleSearch(new) }
     }
 
-    // MARK: - Content states
+    // MARK: - Los estados
 
     @ViewBuilder
     private var content: some View {
         switch phase {
         case .loading:
-            stateBox {
-                ProgressView().tint(Theme.Color.accent)
-                Text("Cargando ejercicios…")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-            }
+            EsqueletoCatalogoLibre()
         case .failed:
-            stateBox {
-                Image(systemName: "wifi.slash")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(Theme.Color.muted)
-                Text("No pudimos cargar los ejercicios")
-                    .font(Theme.Typography.bodyEmph)
-                    .foregroundStyle(Theme.Color.foreground)
-                Text("Revisa tu conexión e inténtalo de nuevo.")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.muted)
-                    .multilineTextAlignment(.center)
-                Button {
-                    Haptics.light()
-                    let q = searchText
-                    Task { await load(search: q) }
-                } label: {
-                    Text("Reintentar")
-                        .font(.system(size: 14, weight: .heavy, design: .default).italic())
-                        .foregroundStyle(Theme.Color.accentOn)
-                        .padding(.horizontal, 20).padding(.vertical, 10)
-                        .background(Theme.Color.accent)
-                        .clipShape(Capsule())
+            ScrollView {
+                SujetoDia(
+                    tono: .peligro,
+                    etiqueta: "No se han podido cargar los ejercicios. Revisa tu conexión y vuelve a intentarlo.",
+                    anuncia: true
+                ) {
+                    KickerDia("Catálogo")
+                    TituloDia("No se han podido cargar")
+                    ApoyoDia("Revisa tu conexión e inténtalo de nuevo.")
+                } abajo: {
+                    Button {
+                        Haptics.light()
+                        let q = searchText
+                        Task { await load(search: q) }
+                    } label: {
+                        AccionDia("Reintentar", glifo: .reintentar)
+                    }
+                    .buttonStyle(PressScaleStyle(escala: 0.96))
                 }
-                .buttonStyle(PressScaleStyle())
+                .padding(.horizontal, Theme.Spacing.pantalla)
             }
         case .loaded:
             if sections.isEmpty {
-                stateBox {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 26, weight: .semibold))
-                        .foregroundStyle(Theme.Color.muted)
-                    Text(emptyMessage)
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
-                        .multilineTextAlignment(.center)
-                }
+                vacio
             } else {
                 list
             }
         }
     }
 
-    private var list: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                ForEach(sections, id: \.category) { section in
-                    Section {
-                        ForEach(section.exercises) { ex in
-                            row(ex)
-                            Hairline().opacity(0.5)
-                        }
-                    } header: {
-                        sectionHeader(section.label)
-                    }
+    /// Sin resultados: se dice qué se buscó y la salida es buscar otra cosa (o borrar la búsqueda).
+    private var vacio: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            Text(emptyMessage)
+                .papel(.cuerpo)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+            if !searchText.isEmpty {
+                Button {
+                    Haptics.light()
+                    searchText = ""
+                } label: {
+                    AccionDia("Ver todo el catálogo", glifo: nil)
                 }
+                .buttonStyle(PressScaleStyle(escala: 0.96))
             }
-            .padding(.bottom, Theme.Spacing.xxl)
-        }
-    }
-
-    private func sectionHeader(_ title: String) -> some View {
-        HStack {
-            Text(title.uppercased())
-                .font(.system(size: 11, weight: .heavy, design: .default).italic())
-                .tracking(0.6)
-                .foregroundStyle(Theme.Color.accentText)
-            Spacer()
-        }
-        .padding(.horizontal, Theme.Spacing.l)
-        .padding(.top, Theme.Spacing.m)
-        .padding(.bottom, Theme.Spacing.xs)
-        .background(Theme.Color.background)
-    }
-
-    private func row(_ ex: FreeExercise) -> some View {
-        Button {
-            Haptics.medium()
-            onPick(ex)
-        } label: {
-            HStack(spacing: 10) {
-                Text(ex.name)
-                    .font(Theme.Typography.body)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(Theme.Color.accent)
-            }
-            .padding(.horizontal, Theme.Spacing.l)
-            .padding(.vertical, 13)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Añadir \(ex.name)")
-    }
-
-    private func stateBox<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        VStack(spacing: Theme.Spacing.m) {
-            Spacer(minLength: Theme.Spacing.xxl)
-            content()
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, Theme.Spacing.xl)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.horizontal, Theme.Spacing.pantalla)
+        .padding(.top, Theme.Spacing.m)
+    }
+
+    private var list: some View {
+        ScrollView {
+            ListaCatalogoLibre(secciones: sections.map { ($0.label, $0.exercises) }, alElegir: { ex in
+                Haptics.medium()
+                onPick(ex)
+            })
+            .padding(.bottom, Theme.Spacing.xxl)
+        }
     }
 
     private var emptyMessage: String {
@@ -258,9 +198,8 @@ struct FreeExercisePickerView: View {
         let exercises: [FreeExercise]
     }
 
-    /// The loaded catalog grouped into ES sections. The preferred category floats to
-    /// the top (bias), then the rest by weight, alphabetical within a tier — every
-    /// row stays present, only the ORDER changes.
+    /// El catálogo agrupado en secciones en español. La categoría preferida sube arriba, luego el resto
+    /// por peso y, dentro de cada nivel, por orden alfabético: están todas las filas, sólo cambia el ORDEN.
     private var sections: [PickerSection] {
         let groups = Dictionary(grouping: all, by: { $0.category })
         return groups.keys
@@ -291,10 +230,9 @@ struct FreeExercisePickerView: View {
         if all.isEmpty { phase = .loading }
         do {
             let rows = try await FreeExerciseCatalogAPI.fetch(search: search, bearer: bearer)
-            // A cancelled *search* must not paint a stale query. The first
-            // load is unstructured (onAppear) so it is not cancelled by the
-            // cover. Never drop a successful first payload: that is the
-            // infinite "Cargando…" (GET 200, spinner stays).
+            // Una BÚSQUEDA cancelada no pinta una consulta vieja. La primera carga va suelta (onAppear)
+            // y la cubierta no la cancela. Nunca se tira una primera respuesta buena: eso es el
+            // «Cargando…» infinito (GET 200 y el indicador se queda).
             if Task.isCancelled && !all.isEmpty { return }
             all = rows
             phase = .loaded
@@ -308,5 +246,78 @@ struct FreeExercisePickerView: View {
             catalogLog.error("GET \(FreeExerciseCatalogAPI.path, privacy: .public) failed: \(String(describing: error), privacy: .public)")
             if all.isEmpty { phase = .failed }
         }
+    }
+}
+
+// MARK: - La lista del catálogo
+
+/// Las secciones del catálogo con su cabecera fija y una fila por ejercicio. Es la cara que tiene el
+/// selector con datos, y su esqueleto la imita.
+struct ListaCatalogoLibre: View {
+    let secciones: [(titulo: String, ejercicios: [FreeExercise])]
+    let alElegir: (FreeExercise) -> Void
+
+    var body: some View {
+        LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+            ForEach(secciones, id: \.titulo) { seccion in
+                Section {
+                    ForEach(seccion.ejercicios) { ex in
+                        fila(ex)
+                        Rectangle().fill(Theme.Color.hairline).frame(height: 1)
+                            .padding(.leading, Theme.Spacing.pantalla)
+                    }
+                } header: {
+                    Text(seccion.titulo)
+                        .papel(.etiqueta)
+                        .foregroundStyle(Theme.Color.accentText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, Theme.Spacing.pantalla)
+                        .padding(.top, Theme.Spacing.l)
+                        .padding(.bottom, Theme.Spacing.s)
+                        .background(Theme.Color.background)
+                        .accessibilityAddTraits(.isHeader)
+                }
+            }
+        }
+    }
+
+    private func fila(_ ex: FreeExercise) -> some View {
+        Button { alElegir(ex) } label: {
+            HStack(spacing: Theme.Spacing.m) {
+                Text(ex.name)
+                    .papel(.cuerpo)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                IconoDia(.mas, tam: 18, peso: .bold)
+                    .foregroundStyle(Theme.Color.accentText)
+            }
+            .padding(.horizontal, Theme.Spacing.pantalla)
+            .frame(minHeight: Theme.Size.accion)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel("Añadir \(ex.name)")
+    }
+}
+
+/// Mientras llega el catálogo: una cabecera de sección y filas, con la misma forma que la lista.
+struct EsqueletoCatalogoLibre: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SkeletonBar(width: 110, height: 15, radius: 5)
+                .padding(.top, Theme.Spacing.l)
+                .padding(.bottom, Theme.Spacing.m)
+            ForEach(0..<7, id: \.self) { i in
+                SkeletonBar(width: [180, 140, 210, 160, 190, 130, 170][i], height: 17, radius: 5)
+                    .frame(minHeight: Theme.Size.accion, alignment: .leading)
+                Rectangle().fill(Theme.Color.hairline).frame(height: 1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, Theme.Spacing.pantalla)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cargando ejercicios")
     }
 }
