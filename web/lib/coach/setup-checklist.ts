@@ -21,6 +21,7 @@ import 'server-only';
 
 import type { Sql } from '@/lib/db';
 import { sql as defaultSql } from '@/lib/db';
+import { libraryEntrenoScope } from '@/lib/dashboard/coach/library-scope';
 
 export type SetupStepKey =
   | 'primer_atleta'
@@ -259,8 +260,7 @@ export async function loadSetupFacts(coach_id: bigint | number, client: Sql = de
       (select count(*)::int from athlete_levels l where l.coach_id = c.id and l.archived_at is null) as levels,
       (
         select count(*)::int from templates t
-        where t.coach_id = c.id and t.archived_at is null
-          and t.instance_athlete_id is null and t.is_draft = false
+        where t.coach_id = c.id and t.archived_at is null and ${libraryEntrenoScope(client)}
       )                                                                    as library_entrenos,
       (
         select count(*)::int from program_month_templates p

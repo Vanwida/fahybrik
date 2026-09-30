@@ -15,6 +15,7 @@ import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
 import { modalityForGroup } from '@/lib/dashboard/v2/planes-model';
 import { loadBlockEditorModel, loadSessionEditorModel } from '@/lib/dashboard/v2/editor-data';
 import { isInsertableBlockModel, libraryBlockToEditorBlocks } from '@/lib/dashboard/v2/library-block-to-editor';
+import { libraryEntrenoScope } from '@/lib/dashboard/coach/library-scope';
 import { compactDose } from './cell-summary';
 import { editorBlocksToParts } from './editor-bridge';
 import { freshUid } from './grid-model';
@@ -132,8 +133,7 @@ export async function listLibrary(params: { coach_id: number | bigint; client?: 
       from templates t
       left join template_segments s on s.template_id = t.id
       left join exercises e on e.id = s.exercise_id
-      where t.coach_id = ${coachId} and t.instance_athlete_id is null
-        and not exists (select 1 from coach_calibration_tests ct where ct.template_id = t.id)
+      where t.coach_id = ${coachId} and ${libraryEntrenoScope(client)}
       group by t.id
     `,
     // Dónde se usa: bloques por su procedencia (`source_block_id`) y entrenos
