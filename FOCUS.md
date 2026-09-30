@@ -2,7 +2,7 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-30** (complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: fuerza, ergo y correr en la cara nueva, entrada nueva y lanzamiento automático; modelo del reloj Garmin)
+Última actualización: **2026-09-30** (complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: WOD, circuito, HYROX, relevo, fuerza, ergo y correr en la cara nueva (cara vieja retirada), entrada nueva y lanzamiento automático; modelo del reloj Garmin)
 
 ## Ahora
 
@@ -17,6 +17,8 @@ descanso, hecha, sin plan. Falta: aparato (`widgetURL`, ranking del Smart Stack)
 **iPhone · CARRERA EN HOY Y FILAS DE ANALÍTICAS (30-09, main, pendiente de build).** Sin coach la carrera fijada no se pintaba en Hoy; y remo/ski sin historial completo no abrían su detalle desde Progreso. Arreglado (DECISIONS 30-09). Falta verlo en aparato.
 
 **FIX GUARDADO 500 (29-09, sin desplegar):** un tramo `run` de 0 m en el historial (atleta 64) partía por cero en `running-prs.ts` y tumbaba TODO guardado suyo; arreglado + savepoint en `detectPrs`. Tras deploy la cola de la app lo reintenta sola.
+
+**RELOJ · WOD, CIRCUITO, HYROX Y RELEVO EN LA CARA NUEVA, Y FUERA LA CARA VIEJA (30-09, rama `reloj-lote2-familias`, sin fusionar; DECISIONS 30-09).** AMRAP con campana y corona, EMOM, For Time con cap, Tabata, Death by, circuito y HYROX (estaciones, Roxzone, carrera con el total, Ruta) y relevo de dobles, en solitario y espejo con el mismo cuadro; cable aditivo (`ronda`, `puntuacion`, `Paso.circuito`). F8 hecha: fuera la bandera, la lámina de correr, los guiones y las pantallas por familia. Falta aparato (corona en la campana, doble toque, 42/49 mm), el deshacer (F3b) y que `SummaryView` deje `WatchReloj`; tests sin compilar.
 
 **RELOJ · FUERZA Y ERGO EN LA CARA NUEVA (30-09, rama `worktree-agent-a08aa87d85a4f8e6b` = la de correr + fuerza + ergo, sin fusionar; DECISIONS 30-09).** Serie, colócate, anotar en el descanso (reps, carga, RIR con la corona), ejercicios y ergo con segundo objetivo (M1: `pace_cap`), por solitario y espejo con la misma cara. Falta aparato (corona en el dato, doble toque) y capturas; lo viejo se borra al final.
 

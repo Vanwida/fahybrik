@@ -21,13 +21,13 @@ export const meta: TwinMeta = {
   id: 'reloj-circuito',
   titulo: 'Muñeca · circuito y HYROX',
   zona: 'Entreno en vivo',
-  estado: 'propuesta',
-  actualizado: '2026-09-25',
+  estado: 'espejo',
+  actualizado: '2026-09-30',
   descripcion:
     'La carrera comprometida con sentido: cada tramo usa la pantalla de correr con el crono total a la vista, cada estación dice su dosis y su carga, lo que nada mide lo dices tú, la Roxzone es un paso propio y cada tramo y estación deja su parcial.',
   fuentes: [],
   enApp:
-    'Hoy el circuito se pliega en un solo segmento que se guarda como UNA vuelta con un ritmo mezclado (9:30/km cuando se corrió a 4:50), las estaciones medidas en metros enseñan una cuenta atrás congelada («te faltan 50 m» que nunca baja), el descanso entre estaciones no se ve y se pisa con un toque, y la Roxzone no existe.',
+    'Ya es la cara real del reloj (30-09): la carrera usa la cara de correr con el total bajo el contexto, la estación dice su dosis y su carga («lo dices tú» si nada la mide), la Roxzone es un paso propio y las páginas son Paso → Ruta → Datos (`Vivo.caraCircuito`), con el relevo de dobles como pantalla propia. El formato (rondas o HYROX) viaja en el paso (`Paso.circuito`).',
   dispositivo: 'watch',
   soportaHorizontal: false,
 };
