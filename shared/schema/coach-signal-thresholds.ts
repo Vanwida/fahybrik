@@ -5,6 +5,7 @@ import {
   type CoachThresholdKey,
   type CoachThresholds,
 } from '../domain/coach/signal-thresholds';
+import { wristRpeWordsSchema } from '../domain/coach/wrist-method';
 
 // Contrato de cable de los umbrales de señal (y bandas de readiness) del coach.
 //   GET /api/coach/signal-thresholds  → CoachSignalThresholdsResponse
@@ -26,12 +27,14 @@ function keySchema(key: CoachThresholdKey) {
  * servidor sobre los valores efectivos resultantes (`thresholdIssues`).
  */
 export const coachSignalThresholdsPutSchema = z
-  .object(
-    Object.fromEntries(COACH_THRESHOLD_KEYS.map((k) => [k, keySchema(k)])) as Record<
+  .object({
+    ...(Object.fromEntries(COACH_THRESHOLD_KEYS.map((k) => [k, keySchema(k)])) as Record<
       CoachThresholdKey,
       ReturnType<typeof keySchema>
-    >,
-  )
+    >),
+    /** Las once palabras del RPE de la muñeca (0–10), o null para volver a las de fábrica. */
+    wrist_rpe_words: wristRpeWordsSchema.nullable().optional(),
+  })
   .strict()
   .refine((body) => Object.keys(body).length > 0, {
     message: 'Nada que guardar',
@@ -45,6 +48,12 @@ export type CoachSignalThresholdsPutInput = z.infer<typeof coachSignalThresholds
  * pantalla pueda decir «defecto: 3».
  */
 export interface CoachSignalThresholdsResponse extends CoachThresholds {
+  /** Las palabras del RPE de la muñeca, las efectivas (siempre once). */
+  wrist_rpe_words: string[];
+  /** true = son las del coach; false = las de fábrica. */
+  wrist_rpe_words_custom: boolean;
+  /** Las de fábrica, para pintar «por defecto» y «restaurar». */
+  default_wrist_rpe_words: string[];
   /** true = el coach ha fijado al menos uno; false = todo son los del sistema. */
   is_custom: boolean;
   /** Las claves que ha fijado el coach (el resto sirve el defecto). */

@@ -8,6 +8,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Decoder, Stream } from '@garmin/fitsdk';
 import type { WatchWorkout } from '@fahybrid/shared/domain/wearables/watch-workout';
+import { DEFAULT_COACH_THRESHOLDS } from '@fahybrid/shared/domain/coach/signal-thresholds';
+import { buildWristMethod } from '@fahybrid/shared/domain/coach/wrist-method';
 
 vi.mock('@/lib/auth/athlete-session', () => ({ getAthleteSessionFromBearer: vi.fn() }));
 vi.mock('@/lib/wearables/watch-workout-source', () => ({
@@ -97,6 +99,7 @@ describe('GET /api/athlete/wearables/garmin/workout', () => {
       assignment_id: '3457',
       iso_date: '2026-07-25',
       title: 'Rodaje suave',
+      wrist_method: buildWristMethod(DEFAULT_COACH_THRESHOLDS),
     });
 
     const res = await GET(req());

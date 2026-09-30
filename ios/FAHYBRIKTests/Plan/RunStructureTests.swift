@@ -261,4 +261,95 @@ final class RunStructureTests: XCTestCase {
         let back = try makeDecoder().decode(Prescription.self, from: data)
         XCTAssertEqual(back.runStructureLegs, p.runStructureLegs)
     }
+
+    // MARK: - M3 entorno · M8 cue · aviso por tramo (aditivos)
+
+    private func decodePrescription(_ structureJSON: String) throws -> Prescription {
+        let json = """
+        { "scheme": "intervals", "modality": "run", "rounds": 3, "work_s": null, "rest_s": 60, "structure": \(structureJSON) }
+        """
+        return try makeDecoder().decode(Prescription.self, from: Data(json.utf8))
+    }
+
+    /// 509 y 535: cinta al 1 %, y el reloj asumía calle. 494 y 552: «mirar el pulso».
+    func testWire_environmentCueAlert_decodeAndProjectOntoTheLegs() throws {
+        let p = try decodePrescription("""
+        [
+          { "role": "warmup", "elements": [
+            { "kind": "work", "measure": { "type": "duration", "s": 600 }, "target": { "type": "hr_zone", "zone": 1 },
+              "environment": "cinta", "incline_pct": 1, "cue": "Mirar el pulso, no el ritmo" } ] },
+          { "role": "main", "elements": [
+            { "times": 3, "elements": [
+              { "kind": "work", "measure": { "type": "distance", "m": 1000 }, "target": { "type": "pace_zone", "zone": 4 },
+                "environment": "cinta", "alert": "ambos" },
+              { "kind": "recovery", "measure": { "type": "duration", "s": 90 }, "target": null, "recovery_mode": "trote",
+                "alert": "ninguno" } ] } ] }
+        ]
+        """)
+        let legs = try XCTUnwrap(p.runStructureLegs)
+        XCTAssertEqual(legs.count, 1 + 6)
+        XCTAssertEqual(legs[0].environment, .cinta)
+        XCTAssertEqual(legs[0].inclinePct, 1)
+        XCTAssertEqual(legs[0].cue, "Mirar el pulso, no el ritmo")
+        XCTAssertNil(legs[0].alert)
+        XCTAssertEqual(legs[1].environment, .cinta)
+        XCTAssertEqual(legs[1].alert, .ambos)
+        XCTAssertNil(legs[1].cue)
+        XCTAssertEqual(legs[2].alert, RunAlertDirection.ninguno)
+        XCTAssertNil(legs[2].environment)
+    }
+
+    /// Lo que no trae el campo se comporta como hoy: nil, nunca un valor inventado.
+    func testWire_legacySegmentsHaveNoEnvironmentCueOrAlert() throws {
+        let p = try decodePrescription("""
+        [ { "role": "main", "elements": [
+            { "kind": "work", "measure": { "type": "distance", "m": 1000 }, "target": { "type": "pace_zone", "zone": 4 } } ] } ]
+        """)
+        let leg = try XCTUnwrap(p.runStructureLegs?.first)
+        XCTAssertNil(leg.environment)
+        XCTAssertNil(leg.cue)
+        XCTAssertNil(leg.alert)
+    }
+
+    /// Un valor que esta versión no conoce (un servidor posterior) se lee como «sin decir»:
+    /// la estructura entera y su recuento siguen decodificando.
+    func testWire_unknownEnvironmentAndAlertDegradeToNil() throws {
+        let p = try decodePrescription("""
+        [ { "role": "main", "elements": [
+            { "kind": "work", "measure": { "type": "distance", "m": 1000 }, "target": { "type": "pace_zone", "zone": 4 },
+              "environment": "gimnasio", "alert": "solo-arriba", "cue": "Suave" } ] } ]
+        """)
+        let leg = try XCTUnwrap(p.runStructureLegs?.first)
+        XCTAssertNil(leg.environment)
+        XCTAssertNil(leg.alert)
+        XCTAssertEqual(leg.cue, "Suave", "el cue no depende de los otros dos")
+        XCTAssertEqual(leg.distanceMeters, 1000)
+    }
+
+    func testWire_blankCueIsNil_andCueIsTrimmed() throws {
+        let p = try decodePrescription("""
+        [ { "role": "main", "elements": [
+            { "kind": "work", "measure": { "type": "duration", "s": 60 }, "target": null, "cue": "   " },
+            { "kind": "work", "measure": { "type": "duration", "s": 60 }, "target": null, "cue": "  Relaja los hombros  " } ] } ]
+        """)
+        let legs = try XCTUnwrap(p.runStructureLegs)
+        XCTAssertNil(legs[0].cue)
+        XCTAssertEqual(legs[1].cue, "Relaja los hombros")
+    }
+
+    func testEnvironmentCueAlertSurviveEncodeDecodeRoundTrip() throws {
+        let seg = RunSegment(kind: .work, measure: dist(1000), target: paceZone(4), resolved: nil,
+                             inclinePct: 1, cadenceSpm: nil, recoveryMode: nil,
+                             environment: .cinta, cue: "Mirar el pulso", alert: .abajo)
+        let s: RunStructure = [main([.segment(seg)])]
+        let p = Prescription(scheme: .intervals, modality: .run, sets: nil, rounds: 1, workS: nil,
+                             restS: nil, totalS: nil, target: nil, note: nil, start: nil, increment: nil,
+                             structure: s)
+        let back = try makeDecoder().decode(Prescription.self, from: try JSONEncoder().encode(p))
+        XCTAssertEqual(back.runStructureLegs, p.runStructureLegs)
+        let leg = try XCTUnwrap(back.runStructureLegs?.first)
+        XCTAssertEqual(leg.environment, .cinta)
+        XCTAssertEqual(leg.cue, "Mirar el pulso")
+        XCTAssertEqual(leg.alert, .abajo)
+    }
 }

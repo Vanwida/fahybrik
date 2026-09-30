@@ -4,25 +4,31 @@
 // la vista. Cada número se guarda al salir (PUT de UNA clave; null = volver al
 // defecto). El servidor rechaza combinaciones incoherentes (cautela por encima
 // de «bien») y la fila dice por qué. «Restaurar valores por defecto» deja todo
-// como el producto, con deshacer.
+// como el producto, con deshacer. Las secciones «Reloj…» son el método de la
+// muñeca al correr (0282): números, interruptores, una lista corta y las once
+// palabras del RPE, todo con su defecto.
 
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import {
   COACH_THRESHOLD_KEYS,
-  COACH_THRESHOLD_SPEC,
   normalizedWeights,
   weightGroupOf,
   type CoachThresholdKey,
   type CoachThresholds,
 } from '@fahybrid/shared/domain/coach/signal-thresholds';
 import type { CoachSignalThresholdsResponse } from '@fahybrid/shared/schema/coach-signal-thresholds';
-import { Button, Input, useToast } from '@/components/v2/ui';
-import { SettingRow, SettingsSection } from './SettingsKit';
-import { sendJson, useSaveState } from './autosave';
-import { THRESHOLD_COPY, THRESHOLD_SECTIONS } from './threshold-copy';
+import { Button, useToast } from '@/components/v2/ui';
+import { SettingsSection } from './SettingsKit';
+import { sendJson } from './autosave';
+import { THRESHOLD_SECTIONS } from './threshold-copy';
+import { ThresholdRow } from './ThresholdRows';
+import { WristRpeWords } from './WristRpeWords';
 
 const ENDPOINT = '/api/coach/signal-thresholds';
+
+/** Lo que se manda en un PUT: números por clave y, aparte, las once palabras del RPE. */
+type PutBody = Partial<Record<CoachThresholdKey, number | null>> & { wrist_rpe_words?: string[] | null };
 
 function pick(res: CoachSignalThresholdsResponse): CoachThresholds {
   return Object.fromEntries(COACH_THRESHOLD_KEYS.map((k) => [k, res[k]])) as CoachThresholds;
@@ -40,6 +46,8 @@ export function ThresholdsSettings({ initial }: { initial: CoachSignalThresholds
   const toast = useToast();
   const [values, setValues] = useState<CoachThresholds>(() => pick(initial));
   const [custom, setCustom] = useState<Set<CoachThresholdKey>>(() => new Set(initial.custom_keys));
+  const [words, setWords] = useState<string[]>(initial.wrist_rpe_words);
+  const [wordsCustom, setWordsCustom] = useState(initial.wrist_rpe_words_custom);
   const [version, setVersion] = useState(0);
   const [restoring, setRestoring] = useState(false);
   const defaults = initial.defaults;
@@ -47,9 +55,11 @@ export function ThresholdsSettings({ initial }: { initial: CoachSignalThresholds
   const apply = (res: CoachSignalThresholdsResponse) => {
     setValues(pick(res));
     setCustom(new Set(res.custom_keys));
+    setWords(res.wrist_rpe_words);
+    setWordsCustom(res.wrist_rpe_words_custom);
   };
 
-  const put = async (body: Partial<Record<CoachThresholdKey, number | null>>) => {
+  const put = async (body: PutBody) => {
     const res = await sendJson<CoachSignalThresholdsResponse>(ENDPOINT, 'PUT', body);
     if (res.ok) apply(res.data);
     return res;
@@ -57,10 +67,13 @@ export function ThresholdsSettings({ initial }: { initial: CoachSignalThresholds
 
   const restoreAll = async () => {
     const before = [...custom];
-    if (before.length === 0) return;
-    const previous = Object.fromEntries(before.map((k) => [k, values[k]])) as Partial<Record<CoachThresholdKey, number>>;
+    if (before.length === 0 && !wordsCustom) return;
+    const previous: PutBody = Object.fromEntries(before.map((k) => [k, values[k]]));
+    if (wordsCustom) previous.wrist_rpe_words = words;
+    const reset: PutBody = Object.fromEntries(before.map((k) => [k, null]));
+    if (wordsCustom) reset.wrist_rpe_words = null;
     setRestoring(true);
-    const res = await put(Object.fromEntries(before.map((k) => [k, null])));
+    const res = await put(reset);
     setRestoring(false);
     setVersion((v) => v + 1);
     if (!res.ok) {
@@ -84,7 +97,7 @@ export function ThresholdsSettings({ initial }: { initial: CoachSignalThresholds
           key={section.title}
           title={section.title}
           action={
-            i === 0 && custom.size > 0 ? (
+            i === 0 && (custom.size > 0 || wordsCustom) ? (
               <Button size="sm" variant="ghost" icon={RotateCcw} loading={restoring} onClick={() => void restoreAll()}>
                 Restaurar valores por defecto
               </Button>
@@ -102,95 +115,17 @@ export function ThresholdsSettings({ initial }: { initial: CoachSignalThresholds
               save={(v) => put({ [key]: v })}
             />
           ))}
+          {section.extra === 'palabras_rpe' ? (
+            <WristRpeWords
+              key={`rpe-${version}`}
+              words={words}
+              defaults={initial.default_wrist_rpe_words}
+              isCustom={wordsCustom}
+              save={(v) => put({ wrist_rpe_words: v })}
+            />
+          ) : null}
         </SettingsSection>
       ))}
     </div>
-  );
-}
-
-function ThresholdRow({
-  k,
-  value,
-  fallback,
-  isCustom,
-  share,
-  save,
-}: {
-  k: CoachThresholdKey;
-  value: number;
-  fallback: number;
-  isCustom: boolean;
-  /** Para un peso: su parte del total ahora mismo, en %. */
-  share: number | null;
-  save: (v: number | null) => Promise<{ ok: true } | { ok: false; message: string }>;
-}) {
-  const id = useId();
-  const spec = COACH_THRESHOLD_SPEC[k];
-  const copy = THRESHOLD_COPY[k];
-  const [draft, setDraft] = useState(String(value));
-  const [saved, setSaved] = useState(String(value));
-  const [localError, setLocalError] = useState<string | null>(null);
-  const { state, error, run } = useSaveState();
-
-  const commit = async (raw: string, reset = false) => {
-    if (!reset && raw.trim() === saved) return;
-    let next: number | null = null;
-    if (!reset) {
-      const n = Number(raw.replace(',', '.'));
-      if (raw.trim() === '' || !Number.isInteger(n) || n < spec.min || n > spec.max) {
-        setLocalError(`Entre ${spec.min} y ${spec.max}.`);
-        return;
-      }
-      next = n;
-    }
-    setLocalError(null);
-    const ok = await run(() => save(next));
-    if (ok) {
-      const shown = String(next ?? fallback);
-      setDraft(shown);
-      setSaved(shown);
-    }
-  };
-
-  return (
-    <SettingRow
-      layout="inline"
-      label={copy.label}
-      htmlFor={id}
-      hintId={`${id}-hint`}
-      status={localError ? 'error' : state}
-      error={localError ?? error}
-      hint={
-        <>
-          {copy.hint}{' '}
-          {share != null ? <span className="t-tnum">Ahora cuenta el {share} % del total. </span> : null}
-          <span className="text-v2-faint t-tnum">Por defecto: {fallback}.</span>
-        </>
-      }
-    >
-      {isCustom ? (
-        <Button size="sm" variant="ghost" onClick={() => void commit('', true)}>
-          Usar {fallback}
-        </Button>
-      ) : null}
-      <Input
-        id={id}
-        inputMode="numeric"
-        value={draft}
-        invalid={Boolean(localError) || state === 'error'}
-        aria-describedby={`${id}-hint`}
-        onChange={(e) => {
-          setDraft(e.target.value);
-          if (localError) setLocalError(null);
-        }}
-        onBlur={() => void commit(draft)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
-          if (e.key === 'Escape') setDraft(saved);
-        }}
-        className="w-16 text-right t-tnum"
-      />
-      <span className="w-24 t-body-sm text-v2-muted">{copy.unit}</span>
-    </SettingRow>
   );
 }
