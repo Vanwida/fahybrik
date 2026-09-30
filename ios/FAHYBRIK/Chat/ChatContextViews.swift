@@ -138,7 +138,7 @@ struct SelectorDeEntreno: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        MarcoDeHojaChat("¿Sobre qué entreno?", cerrar: { dismiss() }) {
+        MarcoDeHojaDia("¿Sobre qué entreno?", cerrar: { dismiss() }) {
             SelectorDeEntrenoCuerpo(secciones: secciones, cargando: cargando, elegido: elegido, onElegir: onElegir, onVolver: { dismiss() })
         }
         .presentationDetents([.medium, .large])
@@ -162,7 +162,7 @@ struct SelectorDeEntrenoCuerpo: View {
                 ForEach(secciones, id: \.titulo) { seccion in
                     VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                         TituloSeccionDia(seccion.titulo)
-                        ListaChat {
+                        ListaDia {
                             ForEach(seccion.entrenos) { entreno in fila(entreno) }
                         }
                     }
@@ -254,7 +254,7 @@ struct SelectorDeEntrenoCuerpo: View {
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
             }
-            BotonAccionChat("Volver al chat", relleno: .tinta, completa: true, accion: onVolver)
+            BotonAccionDia("Volver al chat", relleno: .tinta, completa: true, alto: Theme.Size.accionAnclada, impacto: .medio, accion: onVolver)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, Theme.Spacing.xl)

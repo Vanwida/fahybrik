@@ -162,7 +162,6 @@
 		1AC6B5DAA510AEDD3FA3F751 /* FreeRunBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B23EB7636AE0FD7035F849 /* FreeRunBuilderView.swift */; };
 		1AF0FB50DD64E10F76FAD391 /* PostWorkoutFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB5F4CB42B4E4B39DA7C94CA /* PostWorkoutFeedbackTests.swift */; };
 		1B14B1D787328B1F381CD271 /* DeviceChannelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44FB98ED7471F434CC3D5E62 /* DeviceChannelTests.swift */; };
-		1B40024F5553155AC361C388 /* ChatHoja.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5EE856D05B7B8D3038F7AD /* ChatHoja.swift */; };
 		1B8465D0F6B87A04EBEADC1C /* WatchPaginaModelo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FAB3010E312E5962AD2B09E /* WatchPaginaModelo.swift */; };
 		1B8CAD8B37A922EC646387B8 /* RequestQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E68E01FF6A98B96974A052 /* RequestQueue.swift */; };
 		1B8D9D281ADA38D8BD5BDF50 /* Vivo+Anotar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7A12E94172A123DC375C37D /* Vivo+Anotar.swift */; };
@@ -1900,7 +1899,6 @@
 		7EE3332E7671E6940E9F6439 /* detalle-correr-lleno-12s.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "detalle-correr-lleno-12s.json"; sourceTree = "<group>"; };
 		7EFCECFBF4526F26EE32B40C /* NutritionSearchSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NutritionSearchSheet.swift; sourceTree = "<group>"; };
 		7F27428D86F504409F13B526 /* WorkoutSession+Calorias.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WorkoutSession+Calorias.swift"; sourceTree = "<group>"; };
-		7F5EE856D05B7B8D3038F7AD /* ChatHoja.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHoja.swift; sourceTree = "<group>"; };
 		7F7388DEA38285E98E239125 /* EditorDeSerie.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorDeSerie.swift; sourceTree = "<group>"; };
 		7F8209CAB87971E0D747166C /* LecturaHoyDesdeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LecturaHoyDesdeTests.swift; sourceTree = "<group>"; };
 		7F92EC40296381DCE345A93B /* LecturaPerfil+Cable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LecturaPerfil+Cable.swift"; sourceTree = "<group>"; };
@@ -4506,7 +4504,6 @@
 				8636ABF44455B43B89FBAF8C /* ChatConversacion.swift */,
 				2CF546007A307EFDC4DCD447 /* ChatEstados.swift */,
 				EA84395FF7FFEC183399569B /* ChatGlifos.swift */,
-				7F5EE856D05B7B8D3038F7AD /* ChatHoja.swift */,
 				A44AB261F51840D952C4509D /* ChatLectura.swift */,
 				F29FB80937D5CF9D42FDE1CA /* ChatMediaBubbles.swift */,
 				E1AB5EED26A53BC1E11EE437 /* ChatMediaLoader.swift */,
@@ -4994,7 +4991,6 @@
 				FFC698C5A39CE7D7B49A6FAF /* ChatConversacion.swift in Sources */,
 				FDF3BDF3EEA469BD794303BB /* ChatEstados.swift in Sources */,
 				1F9729D9B00A4A7706EE515A /* ChatGlifos.swift in Sources */,
-				1B40024F5553155AC361C388 /* ChatHoja.swift in Sources */,
 				C7DCDA1B45CADD022F11784A /* ChatLectura.swift in Sources */,
 				D460715CCB08E141B9E5D365 /* ChatMediaBubbles.swift in Sources */,
 				B13708083ED2EE6ECF62A8B5 /* ChatMediaLoader.swift in Sources */,
