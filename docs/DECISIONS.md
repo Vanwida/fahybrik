@@ -11,6 +11,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-30 · Un plan de grupo se materializa entero; el fin de cadena y el margen de renovación son del coach
+
+**El hueco:** el 23-09 se quitó el botón que hacía avanzar la cadena y nada lo sustituyó: entrar en un grupo solo materializaba el primer programa (`advanceSequenceForAthlete` sin llamador). Un macrociclo de varios programas se dibujaba y no se entrenaba.
+
+**Decidido:** (1) entrar en un grupo materializa toda la cadena desde la posición de entrada, fechas contiguas derivadas, una transacción, un lote deshacible; (2) el cron `renew-group-plans` prepara la vuelta siguiente cuando al plan le quedan H días (`coaches.plan_renewal_days_before`, migración 0283, NULL = 14, nunca menos que los días de auto-publicación) según `end_policy` (repetir / subir de nivel / parar, editable en la página del grupo); (3) la previa y la creación usan el mismo criterio de qué sesión llega al atleta (`session-content.ts`) y avisan de lo que se pierde.
+
+**Se mantiene:** no hay entidad macrociclo ni catálogo de fases (0064/0068): un año es una cadena larga de programas. Editar un programa ya asignado propaga solo el CONTENIDO de los días (`resyncWeekTemplateAssignments`), no la estructura de semanas; pendiente.
+
+**No hacer:** no volver a quitar de una pantalla el único disparador de un mecanismo sin dejar el sustituto; no exigir una definición distinta de «entreno» en Biblioteca y en Ajustes (`library-scope.ts`).
+
+---
+
 ## 2026-09-30 · El kit del día en Swift: UNA pieza por idea (consolidación de Hoy, Plan, Carreras, Perfil y Analíticas)
 
 **El encargo:** las cinco pestañas se portaron a Swift en paralelo sobre `Theme/Dia/` y cada una dejó en su carpeta copias de las mismas piezas (cuatro tarjetas planas, tres familias de iconos, cuatro sujetos de error, cuatro flujos, tres títulos del sujeto, dos segmentados, tres botones de acción…). Alex pidió reutilización y cero deuda: una pieza en el kit y las cinco pestañas la usan.
