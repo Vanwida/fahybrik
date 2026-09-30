@@ -2,43 +2,70 @@ import SwiftUI
 
 // LA PREGUNTA — una decisión, con lo que le pasa al plan según lo que elijas.
 //
-// Centrada (§6.1): esto es UNA SOLA decisión, así que el bloque se reparte el
-// aire en vez de apilarse arriba. No lleva acción anclada a propósito: las
-// opciones SON la acción, y un botón «Enviar» debajo solo añadiría un segundo
-// toque a algo que se contesta con uno.
+// El sujeto es la propia pregunta (un bloque `info`: el momento que espera tu respuesta) y las opciones
+// van debajo. No lleva acción anclada a propósito: las opciones SON la acción, y un botón «Enviar» debajo
+// solo añadiría un segundo toque a algo que se contesta con uno.
 //
-// La pieza que hace que esto no sea una encuesta es la CONSECUENCIA: cada opción
-// dice qué le pasa a tu plan si la eliges. Sin eso el atleta contesta a ciegas y
-// el coach recibe un dato que no sabe si está informado.
+// La pieza que hace que esto no sea una encuesta es la CONSECUENCIA: cada opción dice qué le pasa a tu
+// plan si la eliges. Sin eso el atleta contesta a ciegas y el coach recibe un dato que no sabe si está
+// informado.
 
 struct ComunicadoPreguntaView: View {
     let comunicado: Comunicado
     let acciones: ComunicadosAcciones
     let onVolver: () -> Void
 
-    /// Volver a abrirla tras responder. El servidor guarda SIEMPRE la última
-    /// elección, así que cambiar de idea es elegir otra vez — no hay un estado
-    /// intermedio «sin respuesta» que se pueda pedir, y por eso esto es local:
-    /// mientras no toques otra opción, la que le dijiste sigue siendo la buena.
+    var body: some View {
+        ComunicadoPreguntaContenido(
+            comunicado: comunicado,
+            envio: acciones.envio,
+            onVolver: onVolver,
+            onResponder: { opcion in Task { await acciones.responder(comunicado, itemId: opcion.id) } }
+        )
+    }
+}
+
+/// Lo que pinta la pregunta, sin saber de actos ni de red.
+struct ComunicadoPreguntaContenido: View {
+    let comunicado: Comunicado
+    let envio: EnvioComunicado
+    let onVolver: () -> Void
+    let onResponder: (ComunicadoItem) -> Void
+
+    /// Volver a abrirla tras responder. El servidor guarda SIEMPRE la última elección, así que cambiar de
+    /// idea es elegir otra vez — no hay un estado intermedio «sin respuesta» que se pueda pedir, y por eso
+    /// esto es local: mientras no toques otra opción, la que le dijiste sigue siendo la buena.
     @State private var reeligiendo = false
 
+    /// `reeligiendo` inicial: solo para que una captura pueda enseñar la pregunta reabierta.
+    init(comunicado: Comunicado, envio: EnvioComunicado, onVolver: @escaping () -> Void, onResponder: @escaping (ComunicadoItem) -> Void, reeligiendo: Bool = false) {
+        self.comunicado = comunicado
+        self.envio = envio
+        self.onVolver = onVolver
+        self.onResponder = onResponder
+        _reeligiendo = State(initialValue: reeligiendo)
+    }
+
     private var respondida: Bool { comunicado.state == .respondido && !reeligiendo }
-    private var elegida: ComunicadoItem? { comunicado.opcionElegida }
 
     var body: some View {
         VStack(spacing: 0) {
             CabeceraComunicado(comunicado: comunicado, onVolver: onVolver) {
                 InsigniaComunicado(insignia: comunicado.insignia())
             }
-            CenteredScreen {
+            FillingScreen {
                 VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    TituloComunicado(comunicado: comunicado)
-                    CuerpoComunicado(texto: comunicado.body)
+                    SujetoDia(tono: .info, etiqueta: [comunicado.title, comunicado.body].compactMap { $0 }.joined(separator: ". ")) {
+                        KickerDia(comunicado.anchorKind.etiqueta ?? "Pregunta")
+                        TituloDeSujeto(comunicado.title)
+                        if let cuerpo = comunicado.body, !cuerpo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            ApoyoDia(cuerpo)
+                        }
+                    }
+                    AudioDelComunicado(comunicado: comunicado)
 
                     if comunicado.blocks && comunicado.state != .respondido {
-                        AvisoComunicado(
-                            texto: "Mientras no lo digas, \(comunicado.nombreCoach) deja esta parte del plan a la espera."
-                        )
+                        AvisoComunicado(texto: PieDeDetalle.preguntaBloquea(comunicado))
                     }
 
                     VStack(spacing: Theme.Spacing.m) {
@@ -49,43 +76,42 @@ struct ComunicadoPreguntaView: View {
                                 apagada: respondida && opcion.id != comunicado.answeredItemId,
                                 onTap: {
                                     reeligiendo = false
-                                    Task { await acciones.responder(comunicado, itemId: opcion.id) }
+                                    onResponder(opcion)
                                 }
                             )
                         }
                     }
 
-                    if respondida, elegida != nil {
+                    if respondida, comunicado.opcionElegida != nil {
                         confirmacion
                     }
-                    AvisoEnvioComunicado(estado: acciones.envio)
+                    AvisoEnvioComunicado(estado: envio)
                 }
-                .padding(.horizontal, Theme.Spacing.l)
-                .padding(.vertical, Theme.Spacing.xl)
+                .cuerpoDeDetalle()
             }
         }
     }
 
     private var confirmacion: some View {
         HStack(spacing: Theme.Spacing.s) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Theme.Color.ok)
-            Text("Respondido. \(comunicado.nombreCoach) lo verá.")
-                .scaledFont(13, weight: .medium, relativeTo: .footnote)
-                .foregroundStyle(Theme.Color.muted)
+            SelloEstadoDia(estado: .hecha, tam: 20)
+            Text(PieDeDetalle.preguntaRespondida(comunicado))
+                .papel(.notaFuerte)
+                .foregroundStyle(Theme.Color.foreground)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button {
                 Haptics.light()
                 reeligiendo = true
             } label: {
                 Text("Cambiar")
-                    .scaledFont(13, weight: .bold, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.accentText)
-                    .frame(minHeight: 44)
+                    .papel(.rotulo)
+                    .underline()
+                    .foregroundStyle(Theme.Color.foreground)
+                    .padding(.horizontal, Theme.Spacing.m)
+                    .frame(minHeight: Theme.Size.toque)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressScaleStyle(escala: 0.96))
             .accessibilityLabel("Cambiar de respuesta")
         }
     }
@@ -93,9 +119,11 @@ struct ComunicadoPreguntaView: View {
 
 // MARK: - Una opción
 
-/// Una opción es una tarjeta tocable, no una fila de radio: lo que decide no es
-/// el texto de la opción sino su consecuencia, y una consecuencia de dos líneas
-/// no cabe al lado de un círculo.
+/// Una opción es una tarjeta tocable, no una fila de radio: lo que decide no es el texto de la opción sino
+/// su consecuencia, y una consecuencia de dos líneas no cabe al lado de un círculo.
+///
+/// La elegida lleva el tinte del acento y su sello; las demás, ya respondida, se quedan en gris de apoyo
+/// (cambian de tinta, no de opacidad: un texto a media opacidad deja de leerse).
 struct OpcionPreguntaCard: View {
     let opcion: ComunicadoItem
     let elegida: Bool
@@ -107,32 +135,32 @@ struct OpcionPreguntaCard: View {
             Haptics.light()
             onTap()
         } label: {
-            CardSurface(leftAccent: elegida, elevated: elegida) {
-                HStack(alignment: .top, spacing: Theme.Spacing.m) {
-                    Image(systemName: elegida ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 19, weight: .regular))
-                        .foregroundStyle(elegida ? Theme.Color.ok : Theme.Color.faint)
-                        .padding(.top, 1)
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(opcion.content)
-                            .scaledFont(16, weight: .bold, relativeTo: .headline)
-                            .foregroundStyle(Theme.Color.foreground)
+            HStack(alignment: .top, spacing: Theme.Spacing.m) {
+                SelloEstadoDia(estado: elegida ? .hecha : .pendiente, tam: 24)
+                    .padding(.top, 1)
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs + 1) {
+                    Text(opcion.content)
+                        .papel(.cuerpoFuerte)
+                        .foregroundStyle(apagada ? Theme.Color.muted : Theme.Color.foreground)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let consecuencia = opcion.consequence, !consecuencia.isEmpty {
+                        Text(consecuencia)
+                            .papel(.nota)
+                            .foregroundStyle(elegida ? Theme.Color.foreground : Theme.Color.muted)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
-                        if let consecuencia = opcion.consequence, !consecuencia.isEmpty {
-                            Text(consecuencia)
-                                .scaledFont(13, relativeTo: .footnote)
-                                .foregroundStyle(Theme.Color.muted)
-                                .multilineTextAlignment(.leading)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .opacity(apagada ? 0.5 : 1)
+            .padding(Theme.Spacing.l)
+            .frame(minHeight: Theme.Size.toque + Theme.Spacing.l)
+            .tarjetaComunicado(realce: elegida, alAncho: true)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(PressScaleStyle())
+        .buttonStyle(PressScaleStyle(escala: 0.985))
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             [opcion.content, opcion.consequence].compactMap { $0 }.joined(separator: ". ")
         )
