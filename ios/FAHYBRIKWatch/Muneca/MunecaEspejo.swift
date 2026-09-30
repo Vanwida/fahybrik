@@ -9,6 +9,10 @@ import SwiftUI
 // se lo da a la pila y le cablea los mandos a las órdenes del espejo. No decide nada de
 // lo que se pinta ni de cuándo se pinta (eso lo decide `CaraDelEspejo`).
 //
+// Mientras está en pantalla es la ÚNICA fuente de vibraciones (P5): activa `Vivo.PoliticaHaptica`
+// (calla lo heredado) y su director las toca desde el estado que sale del mismo espejo, en la muñeca,
+// igual con el móvil que sin él.
+//
 // Los mandos son los del espejo: pausar/reanudar paran o arrancan la grabación de la
 // muñeca y lo avisan al móvil (como `MirrorHUDControlsPage`), cerrar paso y «Vuelta»
 // viajan al motor del móvil, y Terminar (ya confirmado por la pila) guarda desde aquí.
@@ -19,6 +23,8 @@ import SwiftUI
 struct MunecaEspejoFuente {
     /// El cuadro a `ahora` con la talla y el Always-On del reloj, o `nil` si no hay con qué.
     var cuadro: (_ ahora: Date, _ entorno: Vivo.EntornoMuneca) -> Vivo.CuadroMuneca?
+    /// El estado vivo y las vueltas por km a `ahora`, para que el director vibe desde lo que cambia; `nil` = no hay.
+    var estadoDelDirector: ((_ ahora: Date) -> (estado: Vivo.EstadoVivo, registro: Vivo.RegistroVueltas)?)? = nil
     /// El paso vivo (su id devuelve la pila al Paso; su clave dice la acción del momento).
     var paso: () -> Vivo.Paso?
     var mandos: (_ cuadro: Vivo.CuadroMuneca, _ paso: Vivo.Paso?) -> MunecaMandos
@@ -30,6 +36,7 @@ struct MunecaEspejoFuente {
             cuadro: { ahora, entorno in
                 owner.cuadroMuneca(ahora: ahora, gps: Vivo.estadoGps(precisionM: owner.gpsAccuracyM), entorno: entorno)
             },
+            estadoDelDirector: { ahora in owner.estadoDelDirector(ahora: ahora, gps: Vivo.estadoGps(precisionM: owner.gpsAccuracyM)) },
             paso: { owner.espejo.pasoVivo },
             mandos: { cuadro, paso in owner.mandosMuneca(cuadro: cuadro, paso: paso) }
         )
@@ -42,6 +49,10 @@ struct MunecaEspejo: View {
     var paginaInicial: Vivo.PaginaMuneca = .paso
 
     @Environment(\.isLuminanceReduced) private var atenuado
+    @State private var director = MunecaDirector()
+
+    /// Cada cuánto mira el director el estado (el mismo ritmo que en solitario).
+    private static let miradaMs = MunecaAlimentador.miradaMs
 
     init(owner: WatchPrimaryOwner) {
         self.fuente = .delOwner(owner)
@@ -62,7 +73,7 @@ struct MunecaEspejo: View {
                     MunecaVivo(
                         cuadro: cuadro,
                         alPaso: paso?.id ?? "",
-                        mandos: fuente.mandos(cuadro, paso),
+                        mandos: conAccion(fuente.mandos(cuadro, paso)),
                         paginaInicial: paginaInicial
                     )
                 } else {
@@ -71,6 +82,31 @@ struct MunecaEspejo: View {
                 }
             }
         }
+        .task {
+            while !Task.isCancelled {
+                mirar()
+                try? await Task.sleep(for: .milliseconds(Self.miradaMs))
+            }
+        }
+        .onAppear { Vivo.PoliticaHaptica.compartida.activar() }
+        // La cara se va (la sesión acaba, el enlace cambia de cara): una mirada de más para que «sesión hecha» suene.
+        .onDisappear {
+            mirar()
+            Vivo.PoliticaHaptica.compartida.soltar()
+        }
+    }
+
+    /// Un vistazo al estado del espejo: lo que cambia desde la última mirada, el director lo vibra.
+    private func mirar() {
+        guard let x = fuente.estadoDelDirector?(Date()) else { return }
+        director.observar(x.estado, registro: x.registro)
+    }
+
+    /// Lo que el atleta hace con los mandos, el director lo toca como `.click`.
+    private func conAccion(_ mandos: MunecaMandos) -> MunecaMandos {
+        var m = mandos
+        m.alActuar = { director.accion() }
+        return m
     }
 }
 
@@ -85,6 +121,8 @@ extension WatchPrimaryOwner {
         let clave = paso.flatMap(Vivo.clavePorDefecto)
         let pausado = cuadro.pausado
         let cerrar = { self.sendCommand(MirrorWire.CommandKind.advance) }
+        // Cerrar el ÚLTIMO paso guarda la sesión: se pregunta (`Vivo.CierreSeguro`). Sin plan vivo, también.
+        let pideConfirmar = Vivo.CierreSeguro.pideConfirmar(esVuelta: clave == .vuelta, ultimoPaso: espejo.ultimoPaso)
         // «Vuelta» solo si el móvil la atiende (un móvil con cursor la anuncia) y no en pausa.
         let vuelta: (() -> Void)? = clave == .vuelta && movilAtiende(MirrorWire.Capacidad.vuelta)
             ? {
@@ -97,6 +135,9 @@ extension WatchPrimaryOwner {
         return MunecaMandos(
             pausa: { self.alternarPausaDelEspejo(estaPausado: pausado) },
             terminar: { self.finishByAthlete() },
+            pideConfirmarAlCerrar: pideConfirmar,
+            // «Descartar» solo con el enlace roto: con el móvil llevando el entreno, descartar es cosa suya.
+            descartar: Vivo.CierreSeguro.ofreceDescartar(role: role, link: link) ? { self.discardByAthlete() } : nil,
             control: control(esVuelta: esVuelta, cierraElPaso: cierraElPaso, vuelta: vuelta, cerrar: cerrar),
             primaria: esVuelta ? vuelta : (cierraElPaso ? cerrar : nil),
             // El móvil no atiende `plus30` (el motor no puede estirar un descanso): sin botón.

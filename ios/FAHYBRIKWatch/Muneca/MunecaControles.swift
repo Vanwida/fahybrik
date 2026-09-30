@@ -6,6 +6,9 @@ import WatchKit
 // Bloqueo (Water Lock) y Terminar, que siempre pregunta «¿Terminar y guardar?».
 // Espejo de `kit-reloj/paginas.tsx#PaginaControles` y `ConfirmarTerminar`.
 //
+// «Descartar» (perder lo grabado) solo aparece con el enlace con el iPhone roto, y pregunta como
+// Terminar. La pregunta es de `MunecaConfirmar`, la misma que sale al cerrar el último paso.
+//
 // Botones de ≥ 44 pt con su rótulo a 15 pt. El naranja es la acción: el icono
 // de cada control, y el fondo del que está activo (Reanudar mientras haya pausa).
 // No sabe de la sesión: recibe qué hacer en `MunecaMandos`.
@@ -15,6 +18,8 @@ struct MunecaControles: View {
     let control: MunecaControl?
     let alPausar: () -> Void
     let alTerminar: () -> Void
+    /// Perder lo grabado; `nil` = no se ofrece (solo con el enlace con el iPhone roto).
+    let alDescartar: (() -> Void)?
     /// El Water Lock es del sistema: la esfera deja de responder al dedo hasta girar
     /// la corona. No hay estado de vuelta: quien lo quita es watchOS.
     let alBloquear: () -> Void
@@ -22,25 +27,34 @@ struct MunecaControles: View {
     let alIrAlVivo: () -> Void
 
     @Environment(\.munecaMedidas) private var medidas
-    @State private var confirmando: Bool
+
+    private enum Pregunta { case terminar, descartar }
+    @State private var confirmando: Pregunta?
 
     /// `confirmando`: abre ya en «¿Terminar y guardar?» (el escaparate de DEBUG; en el entreno, siempre falso).
     init(pausado: Bool, control: MunecaControl?, alPausar: @escaping () -> Void, alTerminar: @escaping () -> Void,
+         alDescartar: (() -> Void)? = nil,
          alBloquear: @escaping () -> Void = { WKInterfaceDevice.current().enableWaterLock() },
          alIrAlVivo: @escaping () -> Void = {}, confirmando: Bool = false) {
         self.pausado = pausado
         self.control = control
         self.alPausar = alPausar
         self.alTerminar = alTerminar
+        self.alDescartar = alDescartar
         self.alBloquear = alBloquear
         self.alIrAlVivo = alIrAlVivo
-        _confirmando = State(initialValue: confirmando)
+        _confirmando = State(initialValue: confirmando ? .terminar : nil)
     }
 
     var body: some View {
-        if confirmando {
-            confirmar
-        } else {
+        switch confirmando {
+        case .terminar:
+            MunecaConfirmar(pregunta: "¿Terminar y guardar?", accion: "Terminar",
+                            alConfirmar: { confirmando = nil; alTerminar() }, alSeguir: { confirmando = nil })
+        case .descartar:
+            MunecaConfirmar(pregunta: "¿Descartar el entreno?", accion: "Descartar",
+                            alConfirmar: { confirmando = nil; alDescartar?() }, alSeguir: { confirmando = nil })
+        case nil:
             controles
         }
     }
@@ -82,7 +96,13 @@ struct MunecaControles: View {
                         alBloquear()
                         alIrAlVivo()
                     }
-                    boton(icono: "xmark", titulo: "Terminar") { confirmando = true }
+                    boton(icono: "xmark", titulo: "Terminar") { confirmando = .terminar }
+                }
+                if alDescartar != nil {
+                    GridRow {
+                        boton(icono: "trash", titulo: "Descartar") { confirmando = .descartar }
+                        Color.clear.frame(width: ancho, height: alto)
+                    }
                 }
             }
             .frame(maxWidth: .infinity)
@@ -116,26 +136,30 @@ struct MunecaControles: View {
         .buttonStyle(.plain)
         .accessibilityLabel(titulo)
     }
+}
 
-    // MARK: - «¿Terminar y guardar?»
+// MARK: - La pregunta antes de lo que no se deshace
 
-    /// Terminar (la acción, naranja) o Seguir. Nunca un tercer botón.
-    private var confirmar: some View {
+/// «¿Terminar y guardar?» / «¿Descartar el entreno?»: la acción (naranja) o Seguir. Nunca un tercer botón.
+/// La usan la página Controles y el cierre del último paso.
+struct MunecaConfirmar: View {
+    let pregunta: String
+    /// El rótulo del botón que confirma.
+    let accion: String
+    let alConfirmar: () -> Void
+    let alSeguir: () -> Void
+
+    var body: some View {
         VStack(spacing: 10) {
             Spacer(minLength: 0)
-            Text("¿Terminar y guardar?")
+            Text(pregunta)
                 .font(MunecaTipo.fuente(Vivo.TipoMuneca.tercero, 600))
                 .foregroundStyle(MunecaPaleta.tinta)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.bottom, 8)
-            MunecaBoton(titulo: "Terminar") {
-                confirmando = false
-                alTerminar()
-            }
-            MunecaBoton(titulo: "Seguir", variante: .superficie) {
-                confirmando = false
-            }
+            MunecaBoton(titulo: accion, accion: alConfirmar)
+            MunecaBoton(titulo: "Seguir", variante: .superficie, accion: alSeguir)
             Spacer(minLength: 0)
         }
         .padding(.top, CGFloat(Vivo.MedidasMuneca.arribaSafe))

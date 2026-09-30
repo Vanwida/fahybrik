@@ -7,6 +7,9 @@ import SwiftUI
 // `onDistanceDelta`, lo que entrega el builder de Salud) y el GPS sale de la
 // precisión del último fijado. Esta vista solo junta esas fuentes, pide el cuadro
 // y se lo da a `MunecaVivo`. No decide nada de lo que se pinta.
+//
+// Mientras está en pantalla es la ÚNICA fuente de vibraciones: activa `Vivo.PoliticaHaptica`
+// (calla los `Haptics.*` del motor) y el director del alimentador las toca desde el mismo estado.
 
 struct MunecaSolo: View {
     let session: WorkoutSession
@@ -40,6 +43,13 @@ struct MunecaSolo: View {
                 alimentador.observar()
                 try? await Task.sleep(for: .milliseconds(MunecaAlimentador.miradaMs))
             }
+        }
+        .onAppear { Vivo.PoliticaHaptica.compartida.activar() }
+        // La sesión acaba y la vista se va en el mismo instante: una mirada de más para que «sesión hecha» suene.
+        .onChange(of: session.isFinished) { _, terminada in if terminada { alimentador.observar() } }
+        .onDisappear {
+            alimentador.observar()
+            Vivo.PoliticaHaptica.compartida.soltar()
         }
     }
 }

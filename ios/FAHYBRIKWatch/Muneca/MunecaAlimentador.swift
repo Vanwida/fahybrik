@@ -31,6 +31,8 @@ final class MunecaAlimentador {
     @ObservationIgnored private let terminar: () -> Void
 
     private(set) var registro = Vivo.RegistroVueltas()
+    /// Quien vibra: el director mira este mismo estado y es la única fuente de hápticos de la cara nueva.
+    @ObservationIgnored let director = MunecaDirector()
     /// El plan en pasos, calculado una vez por sesión y entorno (no en cada tic).
     @ObservationIgnored private var planGuardado: (clave: String, plan: Vivo.PlanVivo)?
 
@@ -65,10 +67,12 @@ final class MunecaAlimentador {
         Vivo.cuadroMuneca(e, registro: registro, entorno: Vivo.EntornoMuneca(medidas: medidas, alwaysOn: alwaysOn, accion: .pista))
     }
 
-    /// Un vistazo a la sesión: si el rodaje ha cruzado otro km, su vuelta y su tarjeta.
+    /// Un vistazo a la sesión: si el rodaje ha cruzado otro km, su vuelta y su tarjeta; y lo que el
+    /// director saca de lo que ha cambiado desde la última mirada (GO, avisos, km…).
     func observar() {
         let e = estado()
         registro.observar(e.paso, sesionT: e.sesion.t, sesionM: e.sesion.metros, ppm: e.lecturas.ppm)
+        director.observar(e, registro: registro)
     }
 
     // MARK: - Lo que se puede hacer
@@ -88,9 +92,13 @@ final class MunecaAlimentador {
             self.registro.aMano(sesionT: x.sesion.t, sesionM: x.sesion.metros, ppm: x.lecturas.ppm)
         }
         let esVuelta = clave == .vuelta
+        // Cerrar el ÚLTIMO paso guarda la sesión: se pregunta (`Vivo.CierreSeguro`). Sin certeza, también.
+        let ultimo = Vivo.CierreSeguro.esUltimoPaso(indice: e.i, de: e.pasos.count)
         return MunecaMandos(
             pausa: pausar,
             terminar: terminar,
+            pideConfirmarAlCerrar: Vivo.CierreSeguro.pideConfirmar(esVuelta: esVuelta, ultimoPaso: ultimo),
+            alActuar: { [director] in director.accion() },
             control: MunecaControl(
                 titulo: (esVuelta ? Vivo.ClavePrimaria.vuelta : .siguientePaso).texto,
                 icono: esVuelta ? .vuelta : .siguiente,

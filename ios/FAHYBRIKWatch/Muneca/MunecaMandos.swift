@@ -23,6 +23,13 @@ struct MunecaMandos {
     var pausa: () -> Void
     /// «¿Terminar y guardar?» ya confirmado.
     var terminar: () -> Void
+    /// ¿Cerrar el paso a mano pide «¿Terminar y guardar?»? Sí en el último paso (cerrarlo guarda la
+    /// sesión) y sin certeza de que no lo sea. El defecto pregunta: quien lo sabe, lo dice (`Vivo.CierreSeguro`).
+    var pideConfirmarAlCerrar: Bool = true
+    /// Perder lo grabado. Solo existe con el enlace con el iPhone roto; `nil` = no se ofrece.
+    var descartar: (() -> Void)? = nil
+    /// El atleta ha hecho algo (pausa, cerrar paso, vuelta): el director toca su `.click`.
+    var alActuar: () -> Void = {}
     var control: MunecaControl? = nil
     /// La acción del momento: doble toque (S9 / Ultra 2 y dos toques en la pantalla en
     /// cualquier reloj) y, en un Ultra, botón Acción. `nil` = ahora no hay nada que cerrar.

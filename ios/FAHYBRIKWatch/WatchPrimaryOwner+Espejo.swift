@@ -42,6 +42,15 @@ extension WatchPrimaryOwner {
         )
     }
 
+    /// El estado vivo del espejo y sus vueltas por km, para el director de hápticos: el MISMO estado del que
+    /// sale el cuadro (`estadoVivo`), con el enlace que dice Apple. `nil` = no hay con qué.
+    func estadoDelDirector(ahora: Date, gps: Vivo.EstadoGps) -> (estado: Vivo.EstadoVivo, registro: Vivo.RegistroVueltas)? {
+        guard role == .mirror,
+              let e = espejo.estadoVivo(ahora: ahora, locales: Vivo.EspejoMuneca.Locales(gps: gps, enlaceApplePerdido: phoneUnlinked))
+        else { return nil }
+        return (e, espejo.registro)
+    }
+
     /// ¿Hay plan vivo? OJO: el móvil manda plan y cursor en TODO entreno, no solo al correr, así que esto
     /// no dice que la cara nueva esté pintando. Para «¿qué cara pinta el espejo?» (y por tanto qué
     /// hápticos locales hay que callar para no duplicar el vocabulario) manda `caraDelEspejo`.

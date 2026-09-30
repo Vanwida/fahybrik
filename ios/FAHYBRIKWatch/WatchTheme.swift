@@ -12,6 +12,8 @@ import WatchKit
 // Always main-thread — see the 4-ago note on the engine shim.
 enum WatchHaptics {
     private static func play(_ type: WKHapticType) {
+        // Con la cara nueva de correr en pantalla el director es la única fuente (`Vivo.PoliticaHaptica`).
+        guard Vivo.PoliticaHaptica.compartida.permite(.heredado) else { return }
         let fire = { WKInterfaceDevice.current().play(type) }
         if Thread.isMainThread {
             fire()
@@ -23,9 +25,6 @@ enum WatchHaptics {
     /// UI taps — `notification` so a button is actually felt mid-effort (`.click`
     /// is often lost under sweat / movement).
     static func tap()        { play(.notification) }
-    /// La acción del atleta en la cara nueva de correr (pausa, vuelta, cerrar paso): un
-    /// `.click` seco, el del vocabulario del modelo (§4).
-    static func click()      { play(.click) }
     static func success()    { play(.success) }
     static func transition() { play(.directionUp) }
     static func warning()    { play(.notification) }
@@ -38,6 +37,7 @@ enum WatchHaptics {
     static func relayHandoff() {
         play(.notification)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            guard Vivo.PoliticaHaptica.compartida.permite(.heredado) else { return }
             WKInterfaceDevice.current().play(.notification)
         }
     }
