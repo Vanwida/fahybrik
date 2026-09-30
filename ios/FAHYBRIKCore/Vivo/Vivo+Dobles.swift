@@ -17,7 +17,7 @@ import Foundation
 extension Vivo {
 
     struct Dobles: Equatable {
-        enum Turno: String, Equatable { case tuyo, pareja, reparto }
+        enum Turno: String, Equatable, Codable { case tuyo, pareja, reparto }
         var turno: Turno
         /// El nombre de pila de la pareja. `nil` → «tu pareja» (nunca se inventa).
         var pareja: String?

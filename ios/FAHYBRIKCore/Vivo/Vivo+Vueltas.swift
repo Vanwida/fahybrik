@@ -30,6 +30,9 @@ extension Vivo {
         private var tramoDesdeT: Double = 0
         private var tramoDesdeM: Double = 0
         private var arrancado = false
+        /// El paso de vuelta automática que se está mirando. Otro distinto (el rodaje que llega tras un
+        /// calentamiento) re-ancla la cuenta: sin ello, su primer km mediría desde el arranque de la sesión.
+        private var pasoAuto: String? = nil
 
         init() {}
 
@@ -47,9 +50,16 @@ extension Vivo {
                 kmDesdeT = (cada > 0 && m - Double(kmN) * cada >= 1) ? nil : sesionT
                 tramoDesdeT = sesionT
                 tramoDesdeM = m
+                pasoAuto = p.vueltaAutoM != nil ? p.id : nil
                 return nil
             }
             guard let cada = p.vueltaAutoM, cada > 0 else { return nil }
+            if pasoAuto != p.id {
+                pasoAuto = p.id
+                kmN = Int(m / cada)
+                kmDesdeT = (m - Double(kmN) * cada >= 1) ? nil : sesionT
+                return nil
+            }
             let km = Int(m / cada)
             guard km > kmN else { return nil }
             guard let desde = kmDesdeT else { kmN = km; kmDesdeT = sesionT; return nil }
@@ -73,6 +83,12 @@ extension Vivo {
             tramoDesdeT = sesionT
             tramoDesdeM = m
             aviso = AvisoDeVuelta(titulo: "Vuelta \(tramosN)", valor: fmtReloj(seg), pie: "\(fmtRitmo(ritmo)) /km", hasta: sesionT + Self.duracionS)
+        }
+
+        /// El km que se está corriendo (para la página Vueltas): su número y lo que
+        /// lleva. `segundos` es `nil` si se empezó a mirar a mitad de km (no se sabe).
+        func kmEnCurso(sesionT: Double) -> (n: Int, segundos: Double?) {
+            (kmN + 1, kmDesdeT.map { sesionT - $0 })
         }
 
         func avisoVigente(_ sesionT: Double) -> AvisoDeVuelta? {

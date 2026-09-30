@@ -3,6 +3,7 @@
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 Última actualización: **2026-09-30** (editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: entrada nueva, espejo con tres páginas y lanzamiento automático; modelo del reloj Garmin)
+Última actualización: **2026-09-30** (analíticas del iPhone: detalle y cierre; reloj: la cara nueva de correr en solitario y en espejo, entrada nueva y lanzamiento automático; modelo del reloj Garmin)
 
 ## Ahora
 
@@ -13,6 +14,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 **iPhone · CARRERA EN HOY Y FILAS DE ANALÍTICAS (30-09, main, pendiente de build).** Sin coach la carrera fijada no se pintaba en Hoy; y remo/ski sin historial completo no abrían su detalle desde Progreso. Arreglado (DECISIONS 30-09). Falta verlo en aparato.
 
 **FIX GUARDADO 500 (29-09, sin desplegar):** un tramo `run` de 0 m en el historial (atleta 64) partía por cero en `running-prs.ts` y tumbaba TODO guardado suyo; arreglado + savepoint en `detectPrs`. Tras deploy la cola de la app lo reintenta sola.
+
+**RELOJ · CORRER, LA CARA NUEVA EN SOLITARIO Y EN ESPEJO (30-09, rama `worktree-agent-a6f6e3920e890764a` = núcleo + vistas + cable + espejo, sin fusionar en main; DECISIONS 29-09 y 30-09).** Núcleo puro (`Vivo.cuadroMuneca`, ritmo actual, `Vivo.Paso` Codable), pila en `FAHYBRIKWatch/Muneca/` tras `MunecaBandera` (encendida), cable (`MirrorWirePlan`: plan + cursor) y espejo pintando la MISMA pila (`MunecaEspejo`, `CaraDelEspejo`): nueva solo al correr de corrido con cuadro; si no, todo lo de siempre. **F3 hecha (rama `worktree-agent-aa538ed5ab37a4c85`, sin fusionar; DECISIONS 30-09):** director de hápticos por evento (`Vivo+Director`, `MunecaHaptics`), `Vivo.PoliticaHaptica` que calla lo heredado con la cara nueva, `Objetivo.avisa` relleno (rodaje a zona solo por arriba) y cierre seguro (el último paso pregunta «¿Terminar y guardar?»; «Descartar» con el enlace roto). Falta aparato (plan por `sendToRemoteWorkoutSession`, doble toque, corona anidada, Always-On, distinguir los golpes corriendo) y: deshacer (F3b), voz (F4), método/M3/M8 en servidor (F5, incl. leer `wristMethod`), puertas y final natural (F6), complicación (F7), retirada de lo viejo (F8).
 
 **RELOJ · SE LANZA SOLO AL EMPEZAR (29-09, worktree `agent-a6bcbe816a50de313`, sin fusionar; DECISIONS 29-09).** «No conecta» = una carrera sin calle/cinta no lanzaba
 el reloj ni lo decía. Ahora siempre lanza sin preguntar (fuera «Preparar grabación» y «Continuar sin reloj»), deja rastro (`start_watch_app_skipped`), relanza 1 vez
@@ -100,4 +103,4 @@ Stripe Connect, alta por solicitud, RLS antes del coach 20. PR #191 fusionado: r
   crons a hora UTC fija y `resolvePeriod` sin el día local de la app (DECISIONS «Qué día es…»).
 - MCP del asistente: la búsqueda en la biblioteca falla con `column b.archived_at does not exist` (0236): su base no la tiene.
 - Seeds: `seed_demo.ts` desfasado (`chat_messages.sender_role`). Cadena personal: un mes de biblioteca en medio bloquea acortar/borrar (409).
-- FH-30: `PhoneLiveSession.applyCommand` no relaya `.newLap` al motor (latente); `GuionSeries` sin vía viva en el espejo.
+- FH-30: `GuionSeries` sin vía viva en el espejo (`newLap` ya se relaya al motor desde 30-09).

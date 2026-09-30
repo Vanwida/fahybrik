@@ -12,8 +12,14 @@ import WatchKit
 //    played 3-2-1 / GO / rest. Fixed by MirrorWire.MessageType.haptic.
 // 2. `play` off-main is dropped by WatchKit → always hop to main.
 // 3. `.click` is too light under effort → cues use start/stop/notification.
+//
+// LA CARA NUEVA DE CORRER MANDA. Con ella en pantalla el director de la muñeca
+// (`Muneca/MunecaHaptics.swift`) es la única fuente de vibraciones y todo lo del motor
+// calla: `Vivo.PoliticaHaptica` lo decide, aquí solo se consulta. Con otra cara (fuerza,
+// WOD, ergo, la de siempre) nadie la activa y esto suena exactamente como antes.
 enum Haptics {
     private static func play(_ type: WKHapticType) {
+        guard Vivo.PoliticaHaptica.compartida.permite(.heredado) else { return }
         let fire = { WKInterfaceDevice.current().play(type) }
         if Thread.isMainThread {
             fire()
@@ -23,11 +29,12 @@ enum Haptics {
     }
 
     private static func playSequence(_ types: [WKHapticType], gap: TimeInterval) {
-        guard !types.isEmpty else { return }
+        guard !types.isEmpty, Vivo.PoliticaHaptica.compartida.permite(.heredado) else { return }
         play(types[0])
         for (i, type) in types.dropFirst().enumerated() {
             let delay = gap * Double(i + 1)
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                guard Vivo.PoliticaHaptica.compartida.permite(.heredado) else { return }
                 WKInterfaceDevice.current().play(type)
             }
         }
