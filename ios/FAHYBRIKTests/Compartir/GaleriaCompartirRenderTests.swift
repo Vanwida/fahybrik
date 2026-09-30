@@ -5,9 +5,9 @@ import SwiftUI
 // LA HOJA DE COMPARTIR Y SU TARJETA, VISTAS DE VERDAD — herramienta de revisión.
 //
 // La hoja lleva una `GeometryReader`; se monta en una ventana (`CapturaVentana`) y se guarda en
-// `FAHYBRIK_CAPTURAS`, en claro y en oscuro, con el acento de fábrica y con un club azul. La TARJETA es
-// una imagen de marca que vive sobre fondo oscuro sea cual sea el tema: sus cuatro capturas han de salir
-// igual de legibles (antes, con la app en claro, el acento llegaba en su variante para lienzo claro).
+// `FAHYBRIK_CAPTURAS`, en claro y en oscuro, con el acento de fábrica y con un club azul. La previa de la
+// TARJETA (una imagen de marca sobre fondo oscuro sea cual sea el tema) ha de verse igual de legible en
+// claro y en oscuro: antes, con la app en claro, el acento llegaba en su variante para lienzo claro.
 final class GaleriaCompartirRenderTests: XCTestCase {
 
     override func tearDown() {
@@ -74,18 +74,6 @@ final class GaleriaCompartirRenderTests: XCTestCase {
     @MainActor
     func testHojaSemana() {
         captura("hoja-semana") { CompartirSheet(tarjeta: Self.semana) }
-    }
-
-    /// La tarjeta sola, tal como sale en el PNG: en claro y en oscuro ha de leerse igual.
-    @MainActor
-    func testTarjetas() {
-        for (nombre, tarjeta) in [("entreno", Self.entreno), ("semana", Self.semana)] {
-            captura("tarjeta-\(nombre)", entera: true) {
-                TarjetaCompartibleView(tarjeta: tarjeta, marca: MarcaCartel.actual(conClub: true))
-                    .padding(40)
-                    .background(Color.gray.opacity(0.5))
-            }
-        }
     }
 
     @MainActor

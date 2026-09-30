@@ -240,6 +240,7 @@
 		2B5490DCD23EEFB9EFCD1814 /* LecturaErgo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E274ED778815B323D0494A6 /* LecturaErgo.swift */; };
 		2BDC4DF090C494632017B3E4 /* PlanPantalla.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC9915FE6E81FA98E266F5D0 /* PlanPantalla.swift */; };
 		2C05F20FE66521E65A4B4C30 /* DiagnosticsForwarder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F2EE26F7B466D7997B23C3B /* DiagnosticsForwarder.swift */; };
+		2C1ABA0A207DBEFA5748DDCA /* GaleriaCompartirRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CB59CAF82795674C3FF06BF /* GaleriaCompartirRenderTests.swift */; };
 		2C2775C730EDFA3BBC25D124 /* Prescription.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAD19613B47FAFD72C02B4F9 /* Prescription.swift */; };
 		2C796A0FC75C8FE72E61EE03 /* HoySuperficie.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C422C3FC047892AF3FBD6F6 /* HoySuperficie.swift */; };
 		2CA78AF286F7B748A5746DF8 /* SessionMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAF9B84A8FC35C78460E38E5 /* SessionMapView.swift */; };
@@ -1380,6 +1381,7 @@
 		1C74A7836106423C0FF50731 /* RunPiernasDerivadas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunPiernasDerivadas.swift; sourceTree = "<group>"; };
 		1C8F6B52F67A52F3A1A9D71A /* DetalleDeFamiliaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetalleDeFamiliaTests.swift; sourceTree = "<group>"; };
 		1CADB989C7748CD0D6815463 /* ZonaComoSujetoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZonaComoSujetoTests.swift; sourceTree = "<group>"; };
+		1CB59CAF82795674C3FF06BF /* GaleriaCompartirRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaleriaCompartirRenderTests.swift; sourceTree = "<group>"; };
 		1CFDED792A7591918E4D4DA2 /* FreeFunctionalBuilderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeFunctionalBuilderView.swift; sourceTree = "<group>"; };
 		1D68388A51BB12F5A37F852A /* Atoms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atoms.swift; sourceTree = "<group>"; };
 		1D6AA016579606E615FC44AF /* detalle-remo-lleno-12s.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "detalle-remo-lleno-12s.json"; sourceTree = "<group>"; };
@@ -3944,6 +3946,7 @@
 		C3EAA33FA6E7A092711F292E /* Compartir */ = {
 			isa = PBXGroup;
 			children = (
+				1CB59CAF82795674C3FF06BF /* GaleriaCompartirRenderTests.swift */,
 				B2404A0CCA5058230CA4B7C5 /* TarjetaCompartibleTests.swift */,
 			);
 			path = Compartir;
@@ -5658,6 +5661,7 @@
 				4105125F4F96DE49B4A679B8 /* FuerzaMunecaSolaTests.swift in Sources */,
 				A506BB0D3EC5A682286E3C5E /* GPSSignalQualityTests.swift in Sources */,
 				F205575F10F8E9AECE3E8C5A /* GaleriaCarrerasRenderTests.swift in Sources */,
+				2C1ABA0A207DBEFA5748DDCA /* GaleriaCompartirRenderTests.swift in Sources */,
 				9F82AC4C8DA3916C8DAD02F3 /* GaleriaDiaRenderTests.swift in Sources */,
 				52DF4D9B6A210F36E80921B1 /* GaleriaPerfilRenderTests.swift in Sources */,
 				3D0DEECEF1FAEE533B2C3FBC /* GaleriaRender.swift in Sources */,
