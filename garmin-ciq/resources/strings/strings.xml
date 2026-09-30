@@ -79,6 +79,10 @@
     <string id="StartHecho">START · Hecho</string>
     <string id="EnvioGuardado">Guardado en el reloj</string>
     <string id="EnvioGuardadoCuerpo">Sube al tener el móvil.</string>
+    <string id="EnvioEnviando">Enviando…</string>
+    <string id="EnvioEnviandoCuerpo">Guardado en el reloj.</string>
+    <string id="EnvioSinSitio">Sin sitio</string>
+    <string id="EnvioSinSitioCuerpo">No se ha podido guardar el resultado. Libera espacio en el reloj.</string>
     <string id="EnvioEnviado">Enviado</string>
     <string id="EnvioEnviadoCuerpo">Tu coach ya lo tiene.</string>
     <string id="EnvioCaducada">Sesión caducada</string>

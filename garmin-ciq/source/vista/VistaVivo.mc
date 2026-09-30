@@ -418,10 +418,30 @@ module VistaVivo {
     function envio(dc as Graphics.Dc, ctl as Controller) as Void {
         fondo(dc);
         Lienzo.aro(dc, MILESIMAS, Theme.ACCENT);
-        Lienzo.linea(dc, ctl.title, Lienzo.T_SEGUNDO, true, 0.36, Theme.FG);
-        Lienzo.linea(dc, ctl.body, Lienzo.T_TERCERO, false, 0.52, Theme.MUTED);
-        if (!ctl.note.equals("")) {
-            Lienzo.linea(dc, ctl.note, Lienzo.T_NOTA, false, 0.64, Theme.MUTED);
+        var e = Cola.estado;
+        var titulo = Rez.Strings.EnvioGuardado;
+        var cuerpo = Rez.Strings.EnvioGuardadoCuerpo;
+        if (e == Cola.ESTADO_ENVIANDO) {
+            titulo = Rez.Strings.EnvioEnviando;
+            cuerpo = Rez.Strings.EnvioEnviandoCuerpo;
+        } else if (e == Cola.ESTADO_ENVIADO) {
+            titulo = Rez.Strings.EnvioEnviado;
+            cuerpo = Rez.Strings.EnvioEnviadoCuerpo;
+        } else if (e == Cola.ESTADO_CADUCADA) {
+            titulo = Rez.Strings.EnvioCaducada;
+            cuerpo = Rez.Strings.EnvioCaducadaCuerpo;
+        } else if (e == Cola.ESTADO_SERVIDOR) {
+            titulo = Rez.Strings.EnvioServidor;
+            cuerpo = Rez.Strings.EnvioServidorCuerpo;
+        } else if (e == Cola.ESTADO_SIN_SITIO) {
+            titulo = Rez.Strings.EnvioSinSitio;
+            cuerpo = Rez.Strings.EnvioSinSitioCuerpo;
+        }
+        Lienzo.linea(dc, texto(titulo), Lienzo.T_SEGUNDO, true, 0.36, Theme.FG);
+        Lienzo.linea(dc, texto(cuerpo), Lienzo.T_TERCERO, false, 0.52, Theme.MUTED);
+        var m = ctl.vivo.motor;
+        if (m != null && m.sinGrabar) {
+            Lienzo.linea(dc, texto(Rez.Strings.EnvioSinGrabarCuerpo), Lienzo.T_NOTA, false, 0.66, Theme.MUTED);
         }
         Lienzo.linea(dc, texto(Rez.Strings.StartHecho), Lienzo.T_NOTA, true, Lienzo.PIE_Y, Theme.ACCENT);
     }

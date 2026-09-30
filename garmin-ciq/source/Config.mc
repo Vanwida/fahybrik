@@ -15,6 +15,8 @@ module Config {
     const PATH_AUTH_VERIFY = "/api/auth/email/verify";
 
     // Plan de los próximos días (docs/garmin-reloj/servidor.md).
+    // El resultado de la sesión: el MISMO endpoint que ya usa el móvil.
+    const PATH_EJECUCION = "/api/sync/workout-execution";
     const PATH_PLAN = "/api/athlete/wearables/garmin/plan";
     // El reloj de la sesión: 1 Hz.
     const TICK_MS = 1000;

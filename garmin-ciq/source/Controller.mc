@@ -75,6 +75,10 @@ class Controller {
 
     // BACK cierra la app SOLO fuera de la sesión (jamás grabando).
     function onBack() as Lang.Boolean {
+        if (state == AppState.STATE_RECUPERAR && recuperacion != null) {
+            guardarInterrumpida();
+            return true;
+        }
         return vivo.alBack() ? true : false;
     }
 
@@ -126,6 +130,8 @@ class Controller {
             resumeLogin();
             return;
         }
+        // Lo que quedó sin enviar de otras veces se reintenta en cada arranque (sin caducidad).
+        Cola.drenar(Store.token(), 0);
         if (offerRecovery()) {
             return;
         }
@@ -145,6 +151,24 @@ class Controller {
         action = resolve(Rez.Strings.ActionSeguir);
         WatchUi.requestUpdate();
         return true;
+    }
+
+    // BACK en «sesión interrumpida»: lo hecho hasta el checkpoint se guarda como parcial y sube.
+    function guardarInterrumpida() as Void {
+        var chk = recuperacion as Lang.Dictionary;
+        var id = Json.num(chk, "id", 0);
+        var b64 = PlanStore.base64De(id);
+        var s = b64 == null ? null : Decodificador.decodificar(b64);
+        var t = chk.get("tramos");
+        var inicio = Json.num(chk, "inicio", 0);
+        var it = Resultado.item(s, id, Json.num(chk, "huella", 0), inicio, Json.num(chk, "sesS", 0), false, t instanceof Lang.Array ? t : [] as Lang.Array<Lang.Number>);
+        Cola.encolar(it);
+        Cola.fijarRpe(inicio, null);
+        Store.borrar(Config.STORE_CHECKPOINT);
+        recuperacion = null;
+        Cola.drenar(Store.token(), 0);
+        state = AppState.STATE_ENVIO;
+        WatchUi.requestUpdate();
     }
 
     // START en «sesión interrumpida»: seguir con una grabación nueva de la misma sesión.

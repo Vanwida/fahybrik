@@ -64,4 +64,23 @@ module Api {
             callback
         );
     }
+
+    // ── Resultado ────────────────────────────────────────────────────────────
+
+    // POST /api/sync/workout-execution con el cuerpo de Resultado.cuerpo. Un 2xx es el acuse.
+    function enviarResultado(token as Lang.String, cuerpo as Lang.Dictionary, callback as Lang.Method) as Void {
+        Communications.makeWebRequest(
+            Config.API_BASE + Config.PATH_EJECUCION,
+            cuerpo,
+            {
+                :method => Communications.HTTP_REQUEST_METHOD_POST,
+                :headers => {
+                    Config.HEADER_AUTH => Config.BEARER_PREFIX + token,
+                    Config.HEADER_CONTENT_TYPE => Config.CONTENT_TYPE_JSON
+                },
+                :responseType => Communications.HTTP_RESPONSE_CONTENT_TYPE_JSON
+            },
+            callback
+        );
+    }
 }

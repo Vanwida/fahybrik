@@ -353,6 +353,9 @@ class Vivo {
         var ok = (grabacion as Grabacion).terminar(true);
         Store.borrar(Config.STORE_CHECKPOINT);
         m.sinGrabar = m.sinGrabar || !ok;
+        // Escribir primero, enviar después (G8): el resultado queda en la cola ANTES de pedir el RPE.
+        var s = ctl.sesion as Sesion;
+        Cola.encolar(Resultado.item(s, s.asignacionId, s.huella, inicioEpoch, m.sesionS(), m.completa, m.tramos));
         rpe = null;
         rpeElegido = RPE_INICIAL;
         armarResumen();
@@ -360,6 +363,9 @@ class Vivo {
     }
 
     function irAlResumen() as Void {
+        // El RPE (o su omisión) se anota en el resultado ya guardado y este queda listo para irse.
+        Cola.fijarRpe(inicioEpoch, rpe);
+        Cola.drenar(Store.token(), 0);
         armarResumen();
         ctl.state = AppState.STATE_RESUMEN;
     }
@@ -386,6 +392,7 @@ class Vivo {
 
     // START en el estado del envío: vuelve a hoy.
     function cerrarEnvio() as Void {
+        Cola.drenar(Store.token(), 0);
         motor = null;
         grabacion = null;
         ctl.showToday(ctl.sinConexion, 0);
