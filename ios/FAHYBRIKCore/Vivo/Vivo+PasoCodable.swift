@@ -22,7 +22,7 @@ extension Vivo.Paso: Codable {
 
     private enum Clave: String, CodingKey {
         case id, clase, rol, fase, medida, objetivos, posicion, nombre, modoRecupera, entorno
-        case carga, maquina, tempo, cue, cierre, vueltaAutoM, bloque, roxzone, wod, fuerza, dobles, origen
+        case carga, maquina, tempo, cue, cierre, vueltaAutoM, bloque, roxzone, wod, fuerza, dobles, origen, circuito
     }
 
     init(from decoder: Decoder) throws {
@@ -49,7 +49,8 @@ extension Vivo.Paso: Codable {
             wod: try c.decodeIfPresent(Vivo.InfoWod.self, forKey: .wod),
             fuerza: try c.decodeIfPresent(Vivo.FichaFuerza.self, forKey: .fuerza),
             dobles: try c.decodeIfPresent(Vivo.Dobles.self, forKey: .dobles),
-            origen: try c.decodeIfPresent(Vivo.Origen.self, forKey: .origen)
+            origen: try c.decodeIfPresent(Vivo.Origen.self, forKey: .origen),
+            circuito: try c.decodeIfPresent(Vivo.FormatoCircuito.self, forKey: .circuito)
         )
     }
 
@@ -77,6 +78,7 @@ extension Vivo.Paso: Codable {
         try c.encodeIfPresent(fuerza, forKey: .fuerza)
         try c.encodeIfPresent(dobles, forKey: .dobles)
         try c.encodeIfPresent(origen, forKey: .origen)
+        try c.encodeIfPresent(circuito, forKey: .circuito)
     }
 }
 

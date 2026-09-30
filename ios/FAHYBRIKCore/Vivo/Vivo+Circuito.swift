@@ -22,7 +22,7 @@ import Foundation
 
 extension Vivo {
 
-    enum FormatoCircuito: String, Equatable { case rondas, hyrox }
+    enum FormatoCircuito: String, Equatable, Codable { case rondas, hyrox }
 
     /// Cómo se llama en pantalla una simulación de HYROX.
     static let nombreHyrox = "HYROX"
