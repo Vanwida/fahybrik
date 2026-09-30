@@ -22,7 +22,7 @@ import { sessionModalityFromExercises } from '@/lib/dashboard/v2/editor-axes';
 import { decodeCoachAssignmentNotes } from '@/lib/dashboard/coach/day-sessions';
 import { listAthleteWeeks } from '@/lib/coach/week-publishing';
 import { COACH_SEES_ASSIGNMENT } from '@/lib/coach/libre-visible';
-import type { CalSession, CalZoom, FichaCalendar } from './atleta-detalle-types';
+import type { CalSession, CalWeekProgram, CalZoom, FichaCalendar } from './atleta-detalle-types';
 import { buildCalendarWeeks, calendarRange, mondayOfIso, sessionModality } from './ficha-calendar-model';
 
 interface SessionRow {
@@ -45,6 +45,43 @@ interface SegmentRow {
   params_json: Record<string, unknown> | null;
   prescription_json: Prescription | null;
   notes: string | null;
+}
+
+/**
+ * De qué programa es cada semana del rango (por su lunes): el recibo del atleta
+ * que la materializó (`athlete_month_assignments.microcycle_ids`). Sin esto la
+ * rejilla solo rotula fechas y las semanas que no llevan el nombre del programa
+ * en sus tarjetas parecen sueltas.
+ *
+ * La semana del programa sale de la POSICIÓN del microciclo en el recibo (no de
+ * `microcycles.week_number`, que es un contador corrido del atleta: 6..15 en un
+ * plan de 12), sumando las semanas que el atleta se saltó al entrar a mitad.
+ */
+async function loadWeekPrograms(
+  client: Sql,
+  athlete_id: number,
+  from: string,
+  to: string,
+): Promise<Map<string, CalWeekProgram>> {
+  // tenancy: verified-owner — loadSpan (con coach_id) ya comprobó que el atleta es del coach.
+  const rows = await client<Array<{ week_start: string; week: number; name: string; weeks: number }>>`
+    select to_char(mc.start_date, 'YYYY-MM-DD') as week_start, m.name, pw.weeks,
+           array_position(ama.microcycle_ids, mc.id)
+             + greatest(0, pw.weeks - coalesce(array_length(ama.microcycle_ids, 1), 0)) as week
+    from microcycles mc
+    join athlete_month_assignments ama on ama.athlete_id = mc.athlete_id and mc.id = any(ama.microcycle_ids)
+    join program_month_templates m on m.id = ama.month_template_id
+    cross join lateral (
+      select count(*)::int as weeks from program_month_weeks where month_template_id = m.id
+    ) pw
+    where mc.athlete_id = ${athlete_id} and mc.start_date between ${from}::date and ${to}::date
+    order by ama.created_at
+  `;
+  const out = new Map<string, CalWeekProgram>();
+  for (const r of rows) {
+    out.set(mondayOfIso(r.week_start), { name: r.name, week: r.week, weeks: Math.max(r.weeks, r.week) });
+  }
+  return out;
 }
 
 /** El «hoy» del atleta en su huso y el primer/último entreno que ve el coach (desde 8 semanas atrás). */
@@ -82,7 +119,7 @@ export async function loadFichaCalendar(params: {
     span.first && span.last ? { first: span.first, last: span.last } : null,
   );
 
-  const [rows, weekStates] = await Promise.all([
+  const [rows, weekStates, programs] = await Promise.all([
     // tenancy: verified-owner — loadSpan (con coach_id) ya comprobó que el atleta es del coach.
     client<SessionRow[]>`
       select
@@ -124,6 +161,7 @@ export async function loadFichaCalendar(params: {
       order by wa.scheduled_for, wa.planned_sequence nulls last, wa.id
     `,
     listAthleteWeeks({ coach_id: coachId, athlete_id: params.athlete_id, from, to: mondayOfIso(to), client }),
+    loadWeekPrograms(client, params.athlete_id, from, to),
   ]);
 
   const templateIds = [...new Set(rows.map((r) => Number(r.template_id)))];
@@ -191,6 +229,7 @@ export async function loadFichaCalendar(params: {
     weeks: buildCalendarWeeks({
       sessions,
       weekStates: new Map(weekStates.map((w) => [w.week_start, w])),
+      programs,
       from,
       to,
       today,

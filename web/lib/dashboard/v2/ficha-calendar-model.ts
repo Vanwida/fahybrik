@@ -10,6 +10,7 @@ import type {
   CalModality,
   CalSession,
   CalWeek,
+  CalWeekProgram,
   CalZoom,
   FichaCalendar,
 } from './atleta-detalle-types';
@@ -111,6 +112,8 @@ export function weekHasPlanSessions(w: Pick<CalWeek, 'days'>): boolean {
 export function buildCalendarWeeks(params: {
   sessions: ReadonlyArray<CalSession>;
   weekStates: ReadonlyMap<string, AthleteWeekState>;
+  /** Programa de cada semana (por su lunes), si se conoce. */
+  programs?: ReadonlyMap<string, CalWeekProgram>;
   from: string;
   to: string;
   today: string;
@@ -137,13 +140,19 @@ export function buildCalendarWeeks(params: {
         opens_on: null,
         sessions: all.filter(isPlanSession).length,
       } satisfies AthleteWeekState);
-    return summarizeWeek({ week_start: monday, days, state }, params.today);
+    return summarizeWeek({ week_start: monday, days, state, program: params.programs?.get(monday) ?? null }, params.today);
   });
+}
+
+/** ¿Esta semana abre un programa distinto al de la semana anterior? (rotula el cambio en la rejilla) */
+export function startsProgram(week: Pick<CalWeek, 'program'>, prev: Pick<CalWeek, 'program'> | undefined): boolean {
+  if (!week.program) return false;
+  return !prev?.program || prev.program.name !== week.program.name || week.program.week === 1;
 }
 
 /** Recalcula las sumas de una semana (tras un cambio optimista). */
 export function summarizeWeek(
-  w: Pick<CalWeek, 'week_start' | 'days' | 'state'>,
+  w: Pick<CalWeek, 'week_start' | 'days' | 'state' | 'program'>,
   today: string,
 ): CalWeek {
   let planned_min = 0;
@@ -216,9 +225,10 @@ function mapSessions(
     const n = all.filter((s) => isPlanSession(s) && mondayOfIso(s.date) === ws).length;
     states.set(ws, { ...st, sessions: n });
   }
+  const programs = new Map(cal.weeks.flatMap((w) => (w.program ? [[w.week_start, w.program] as const] : [])));
   return {
     ...cal,
-    weeks: buildCalendarWeeks({ sessions: all, weekStates: states, from: cal.from, to: cal.to, today: cal.today }),
+    weeks: buildCalendarWeeks({ sessions: all, weekStates: states, programs, from: cal.from, to: cal.to, today: cal.today }),
   };
 }
 
