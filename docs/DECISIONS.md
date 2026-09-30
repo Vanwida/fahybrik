@@ -11,6 +11,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
+## 2026-09-30 · Las pantallas que cuelgan de Perfil, con «El día»: un cascarón, los cuatro estados y fuera la piel vieja
+
+**Decidido:** todo lo que se abre desde Perfil (las seis puertas, las cifras, las hojas de cuenta, dispositivos, molestias, suscripción y pareja de Dobles) habla el mismo lenguaje que la pestaña. Una sola pieza lo monta, `PantallaPerfil` (`Profile/Secundarias/`): título con papel `.saludo`, la barra de navegación del SISTEMA sin título (el «‹ Perfil» y el gesto de borde son de UIKit y funcionan solos), hojas con «Cerrar»/«Cancelar» y una acción anclada abajo. Las filas son `GrupoPerfil`/`FilaPerfil`; los campos, `CamposPerfil`. Cada pantalla de datos se parte en contenedor (carga) y cuerpo puro sobre un `CargaDePantallaPerfil` (cargando con esqueleto · error con reintento · vacío con salida · datos): un fallo nunca se disfraza de vacío.
+
+**Por qué así:** la pestaña ya estaba rehecha y lo de detrás seguía con la piel de 11-13 pt; la app se sentía dos. Un cascarón único evita que cada hoja invente su cabecera, su acción y su cierre.
+
+**Retirado (grep en `ios/`, tests y reloj: sin más usuarios):** `ProfileNavRow` y `SettingValueRow`; `LineSeriesChart`, `CardSeriesPoint`, `CardSeriesAxis` (`AnalyticsCharts`/`AnalyticsModels`: CIERRA la deuda que dejó Analíticas el 30-09, el VO₂ pinta ya con `AnaliticasGraficoLineas`); `ReasonPicker`, `FlowRow`, `NoteBlock` y `SheetChrome` de pausa/baja y el `onClose` sin uso de las dos hojas; `NoteEditor`, `SeveritySegment`, las pastillas de 10 pt y el `Chip` local de Molestias; `PM5SettingsView` sale de `PM5LiveStreamView` (que es del directo).
+
+**Decisiones que conviene no revertir:**
+- El color de una gravedad o de un estado de molestia va en una MARCA con los colores de estado del tema (leve=info, moderada=warning, severa=danger); antes la moderada era `accentText`, o sea el acento del club, que no es color de dato.
+- `HealthHistoryImportPanel` no colgaba de ninguna pantalla (solo de sus tests): vuelve bajo la fila de Apple Health, donde su propio diseño lo pone.
+- Que el reloj no deje activar las carreras es un aviso de FALLO (antes salía como un aviso de éxito con otro texto).
+- Copy: «weaknesses» y «CTL/ATL/TSB» salen de la hoja del coach (vocabulario, CONTRATO-UI §3).
+
+**No hacer:** una hoja o pantalla de Perfil con su propia cabecera, su propio botón anclado o texto por debajo de 15 pt; volver a dar a un estado el color del acento del club. Vigilado por `SecundariasPerfilDisenoTests`; se ve en `GaleriaSecPerfilRenderTests` y `GaleriaSecPerfilCifrasRenderTests`.
+
 ## 2026-09-30 · Analíticas del iPhone, segunda tanda y cierre: el detalle de las cuatro familias y de la sesión con «El día», y fuera la pestaña vieja
 
 **El encargo:** llevar a Swift el detalle firmado (correr, ergo, fuerza, estaciones y la sesión tramo a tramo), cablearlo desde la portada, y CERRAR la pestaña: borrar `AnaliticasBandera`, la `AnalyticsView` de los siete contratos y todo lo que solo ella usaba. Rama `worktree-agent-ab66a2922a12498d9` (sin fusionar). Continúa la entrada «primera tanda: la portada» del 29-09.

@@ -10,81 +10,11 @@ import SwiftUI
 //
 // Las pantallas se montan como las monta la app: dentro de una `NavigationStack` (la barra con su «‹»), o
 // como hoja con su propio «Cerrar».
-final class GaleriaSecPerfilRenderTests: XCTestCase {
-
-    private static let altoDelTelefono: CGFloat = 874
-
-    private struct Variante {
-        let nombre: String
-        let oscuro: Bool
-        let club: ClubTheme?
-    }
-
-    private static let variantes: [Variante] = [
-        Variante(nombre: "claro", oscuro: false, club: nil),
-        Variante(nombre: "oscuro", oscuro: true, club: nil),
-        Variante(nombre: "claro-azul", oscuro: false, club: .pruebaAzul),
-    ]
-
-    override func tearDown() {
-        ClubThemeStore.clear()
-        super.tearDown()
-    }
-
-    // MARK: Datos de ejemplo
-
-    private func decodifica<T: Decodable>(_ json: String) -> T {
-        // swiftlint:disable:next force_try
-        try! APIClient.makeJSONDecoder().decode(T.self, from: Data(json.utf8))
-    }
-
-    private var nora: AthleteIdentity {
-        decodifica(
-            #"{"id":"a1","full_name":"Nora Ramos","dob":"1992-01-01","sex":"female","height_cm":172,"weight_kg":64.5,"training_experience_years":6,"goal_type":"improve_hyrox_mark","preferred_language":"es","max_hr_bpm":188}"#
-        )
-    }
-
-    /// Un store como lo dejaría la caché: identidad, suscripción y pareja ya leídas.
-    @MainActor
-    private func store(
-        suscripcion: SubscriptionInfo? = SubscriptionInfo(subscribed: true, status: "active", tier: "coached", currentPeriodEnd: nil, cancelAtPeriodEnd: false),
-        pareja: PartnerEnvelope? = PartnerEnvelope(source: nil, partner: nil, athleteModality: nil, sentInvitation: nil)
-    ) -> AppDataStore {
-        let store = AppDataStore()
-        store.setIdentity(nora)
-        if let suscripcion {
-            var s = Slice<SubscriptionInfo>()
-            s.setLoaded(suscripcion)
-            store.subscription = s
-        }
-        if let pareja {
-            var p = Slice<PartnerEnvelope>()
-            p.setLoaded(pareja)
-            store.partner = p
-        }
-        return store
-    }
+final class GaleriaSecPerfilRenderTests: GaleriaSecPerfilBase {
 
     private func invitacion(_ estado: String, dias: Int) -> SentInvitation {
         let caduca = ISO8601DateFormatter().string(from: Date().addingTimeInterval(TimeInterval(dias) * 86_400 + 3_600))
         return SentInvitation(status: estado, inviteeEmail: "biel@correo.com", expiresAt: caduca)
-    }
-
-    // MARK: Cómo se monta
-
-    private func empujada<V: View>(_ vista: V) -> some View {
-        NavigationStack { vista }
-            .background(Theme.Color.background)
-    }
-
-    @MainActor
-    private func captura<V: View>(
-        _ vista: V, nombre: String, todas: Bool = true, tamano: DynamicTypeSize = .large, entera: Bool = true
-    ) {
-        for v in Self.variantes where todas || v.nombre == "claro" {
-            let png = CapturaVentana.png(vista, alto: Self.altoDelTelefono, oscuro: v.oscuro, tamano: tamano, club: v.club, entera: entera)
-            CapturaVentana.guarda(png, nombre: "\(nombre)-\(v.nombre)", en: self)
-        }
     }
 
     // MARK: Las puertas

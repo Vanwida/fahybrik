@@ -6,6 +6,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**iPhone · LO QUE CUELGA DE PERFIL, CON «EL DÍA» (30-09, rama `worktree-agent-a5bfe54dff1049a3f`, sin fusionar; DECISIONS 30-09).** Cascarón `PantallaPerfil` (`Profile/Secundarias/`) y todas las pantallas secundarias de Perfil rehechas (puertas, cifras, hojas, dispositivos, molestias, suscripción, pareja). Falta probarlo en aparato.
+
 **iPhone · CARRERA EN HOY Y FILAS DE ANALÍTICAS (30-09, main, pendiente de build).** Sin coach la carrera fijada no se pintaba en Hoy; y remo/ski sin historial completo no abrían su detalle desde Progreso. Arreglado (DECISIONS 30-09). Falta verlo en aparato.
 
 **FIX GUARDADO 500 (29-09, sin desplegar):** un tramo `run` de 0 m en el historial (atleta 64) partía por cero en `running-prs.ts` y tumbaba TODO guardado suyo; arreglado + savepoint en `detectPrs`. Tras deploy la cola de la app lo reintenta sola.
