@@ -12,17 +12,29 @@ import SwiftUI
 struct EntradaAntesFlow: View {
     let payload: WatchTodayPayload
     let sessionPlan: WatchSessionPlan
+    /// La página que se ve. La complicación abre la app en `.dia` (el brief).
+    @Binding var pagina: EntradaHoja
     let onStart: () -> Void
+
+    init(payload: WatchTodayPayload, sessionPlan: WatchSessionPlan,
+         pagina: Binding<EntradaHoja> = .constant(.comoLlegas), onStart: @escaping () -> Void) {
+        self.payload = payload
+        self.sessionPlan = sessionPlan
+        self._pagina = pagina
+        self.onStart = onStart
+    }
 
     var body: some View {
         if let score = payload.readinessScore {
-            TabView {
+            TabView(selection: $pagina) {
                 EntradaComoLlegasView(
                     score: score,
                     delta7d: payload.readinessDelta7d,
                     worstDriver: payload.readinessWorstDriver
                 )
+                .tag(EntradaHoja.comoLlegas)
                 EntradaHoyView(payload: payload, sessionPlan: sessionPlan, onStart: onStart)
+                    .tag(EntradaHoja.dia)
             }
             .tabViewStyle(.verticalPage)
         } else {
@@ -38,16 +50,25 @@ struct EntradaAntesFlow: View {
 /// corona del sistema.
 struct EntradaHechoFlow: View {
     let payload: WatchTodayPayload
+    /// La página que se ve. La complicación abre la app en `.dia` (el «hecho hoy»).
+    @Binding var pagina: EntradaHoja
+
+    init(payload: WatchTodayPayload, pagina: Binding<EntradaHoja> = .constant(.comoLlegas)) {
+        self.payload = payload
+        self._pagina = pagina
+    }
 
     var body: some View {
         if let score = payload.readinessScore {
-            TabView {
+            TabView(selection: $pagina) {
                 EntradaComoLlegasView(
                     score: score,
                     delta7d: payload.readinessDelta7d,
                     worstDriver: payload.readinessWorstDriver
                 )
+                .tag(EntradaHoja.comoLlegas)
                 hecho
+                    .tag(EntradaHoja.dia)
             }
             .tabViewStyle(.verticalPage)
         } else {
