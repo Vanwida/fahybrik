@@ -71,7 +71,7 @@ struct AnaliticasCuerpoDeSesion: View {
                 AnaliticasSuperficie(padding: 0) {
                     VStack(spacing: 0) {
                         ForEach(Array(lectura.tramos.enumerated()), id: \.element.id) { i, t in
-                            if i > 0 { Rectangle().fill(Theme.Color.hairline).frame(height: 1) }
+                            if i > 0 { Hairline() }
                             AnaliticasFilaDeTramo(tramo: t)
                         }
                     }

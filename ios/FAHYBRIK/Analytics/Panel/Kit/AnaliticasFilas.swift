@@ -2,7 +2,7 @@ import SwiftUI
 
 // LAS FILAS — una familia en Progreso, una marca en Récords (espejo de
 // `kit-analiticas/piezas.tsx#FilaProgreso` y `#FilaRecord`). Viven dentro de una
-// `AnaliticasLista`, que pone las rayas; las usan la portada y, en la segunda
+// `ListaDia`, que pone las rayas; las usan la portada y, en la segunda
 // tanda, los detalles por familia.
 
 /// Una familia en Progreso: punto, nombre + métrica clave · cifra · delta · chispa · «›».
@@ -46,7 +46,7 @@ struct AnaliticasFilaProgreso: View {
         HStack(alignment: .center, spacing: 14) {
             AnaliticasPuntoFamilia(familia: familia)
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                AnaliticasFlujo(espacioH: 8, espacioV: 0) {
+                FlowLayout(spacing: 8, lineSpacing: 0) {
                     AnaliticasCuerpo(texto: nombreVisible, fuerte: true)
                     AnaliticasEtiqueta(texto: metrica)
                 }
@@ -108,7 +108,7 @@ struct AnaliticasFilaRecord: View {
             // entre el punto y un valor con su sello al lado, y se partía en tres líneas.
             VStack(alignment: .trailing, spacing: Theme.Spacing.xs) {
                 AnaliticasNumeral(texto: AnaliticasFormato.formatear(valor, unidad), talla: .fila)
-                if nuevo { AnaliticasSello(texto: "Nuevo") }
+                if nuevo { InfoPill(text: "Nuevo", estilo: .velo) }
             }
         }
         .padding(.horizontal, Theme.Spacing.l)

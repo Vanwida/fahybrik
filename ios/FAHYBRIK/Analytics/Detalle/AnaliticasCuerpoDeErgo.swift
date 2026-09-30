@@ -101,7 +101,7 @@ struct AnaliticasCuerpoDeErgo: View {
         default:
             if let m = p.marca {
                 VStack(alignment: .trailing, spacing: 4) {
-                    if m.nuevo { AnaliticasSello(texto: "Nuevo") }
+                    if m.nuevo { InfoPill(text: "Nuevo", estilo: .velo) }
                     if let d = m.cuando.texto(hoy: hoy) { AnaliticasEtiqueta(texto: d, tono: m.viejo ? Theme.Color.muted : Theme.Color.foreground) }
                 }
             }

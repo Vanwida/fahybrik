@@ -52,7 +52,7 @@ private struct MarcoDeGaleria<Cuerpo: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack { AnaliticasAtras(texto: AppTab.analiticas.title, onTap: {}); Spacer() }
+            HStack { AtrasDia(texto: AppTab.analiticas.title, accion: {}); Spacer() }
                 .padding(.horizontal, Theme.Spacing.s)
             AnaliticasCabecera(sobretitulo: sobretitulo, titulo: titulo)
                 .padding(.horizontal, Theme.Spacing.pantalla)

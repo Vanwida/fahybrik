@@ -22,19 +22,12 @@ struct AnaliticasSujeto: View {
 
     @Environment(\.dynamicTypeSize) private var tamanoDeTexto
 
-    private var unaPalabra: Bool { !sujeto.titulo.contains(" ") }
-    /// Hasta dónde se encoge una palabra sola: por debajo de la mitad del sujeto ya no manda sobre lo demás.
-    private static let escalaMinimaDeUnaPalabra: CGFloat = 0.5
-
     var body: some View {
         SujetoDia(tono: sujeto.tono) {
             KickerEstado(marca: sujeto.marca, onGlosa: onGlosa)
-            // La palabra de hoy la pone el coach y puede ser larga («Construyendo»): con el texto del sistema muy
-            // grande una sola palabra no cabe en una línea y el sistema la partiría por la mitad. Una palabra
-            // sola se encoge hasta caber; un título de varias palabras se parte entre palabras, como siempre.
+            // La palabra de hoy la pone el coach y puede ser larga («Construyendo»): `TituloDia` no parte una palabra
+            // sola por la mitad, la encoge hasta caber.
             TituloDia(sujeto.titulo)
-                .lineLimit(unaPalabra ? 1 : nil)
-                .minimumScaleFactor(unaPalabra ? Self.escalaMinimaDeUnaPalabra : 1)
             if let apoyo = sujeto.apoyo { ApoyoDia(apoyo) }
         } abajo: {
             if let plazo = sujeto.plazo { AnaliticasPlazo(plazo: plazo, tono: Theme.Color.foreground) }

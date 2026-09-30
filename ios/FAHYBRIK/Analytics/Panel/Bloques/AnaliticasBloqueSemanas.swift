@@ -24,7 +24,7 @@ struct AnaliticasBloqueSemanas: View {
 
         AnaliticasSeccion(titulo: BloqueDelPanel.semanas.titulo, pregunta: BloqueDelPanel.semanas.pregunta, onAbrir: { ctx.onAbrir(.bloque(.semanas)) }) {
             if estado != .vacio, !ctx.pendiente(.semanas) {
-                AnaliticasSegmento(items: [(Modo.carga, "Carga"), (Modo.horas, "Horas")], valor: $modo, etiqueta: "Carga u horas")
+                SegmentoDia(items: [(Modo.carga, "Carga"), (Modo.horas, "Horas")], valor: $modo, etiqueta: "Carga u horas")
             }
         } contenido: {
             AnaliticasHuecoDeBloque(ctx: ctx, bloque: .semanas)
@@ -46,7 +46,7 @@ struct AnaliticasBloqueSemanas: View {
             }
 
             if estado != .vacio, let carga, let horas, let dc = carga.dato, let dh = horas.dato {
-                AnaliticasFilaDeCeldas {
+                TeselasDia {
                     AnaliticasCelda(etiqueta: "Carga", valor: dc.valor, unidad: dc.unidad, delta: AnaliticasDerivados.delta(de: carga))
                     AnaliticasCelda(etiqueta: "Horas", valor: dh.valor, unidad: dh.unidad, delta: AnaliticasDerivados.delta(de: horas))
                 }
@@ -66,7 +66,7 @@ struct AnaliticasBloqueSemanas: View {
         let ultimas = Array(ctx.sesiones.prefix(Self.sesionesVisibles))
         return VStack(alignment: .leading, spacing: 6) {
             AnaliticasEtiqueta(texto: "Las últimas \(ultimas.count) · toca una hecha para verla tramo a tramo")
-            AnaliticasLista {
+            ListaDia {
                 ForEach(ultimas) { fila in
                     AnaliticasFilaSesion(fila: fila, hoy: ctx.hoy) { abrir in
                         if let id = abrir.executionId {

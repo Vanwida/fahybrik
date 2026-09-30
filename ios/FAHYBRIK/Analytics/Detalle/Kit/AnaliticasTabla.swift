@@ -40,9 +40,9 @@ struct AnaliticasTabla<Fila: Identifiable, Celda: View>: View {
                 cabecera
                     .padding(.horizontal, Theme.Spacing.m)
                     .padding(.vertical, 10)
-                Rectangle().fill(Theme.Color.hairlineStrong).frame(height: 1)
+                Hairline(fuerte: true)
                 ForEach(Array(filas.enumerated()), id: \.element.id) { i, fila in
-                    if i > 0 { Rectangle().fill(Theme.Color.hairline).frame(height: 1).padding(.horizontal, Theme.Spacing.m) }
+                    if i > 0 { Hairline().padding(.horizontal, Theme.Spacing.m) }
                     HStack(alignment: .firstTextBaseline, spacing: Self.separacion) {
                         ForEach(columnas.indices, id: \.self) { c in
                             hueco(columnas[c]) { celda(fila, c) }

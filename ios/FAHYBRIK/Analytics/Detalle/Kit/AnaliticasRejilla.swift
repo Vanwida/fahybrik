@@ -4,7 +4,7 @@ import SwiftUI
 // pasan a la fila siguiente; una impar ocupa todo el ancho (`aLoAncho`). Cada fila es una `TeselasDia`, que las iguala en alto y
 // pasa a una columna con el texto del sistema en tamaños de accesibilidad.
 //
-// `AnaliticasFilaDeCeldas` pone TODAS las que le pasen en una sola fila: a 390 pt tres cifras de 32 pt no caben. Esto es lo que
+// `TeselasDia` pone TODAS las que le pasen en una sola fila: a 390 pt tres cifras de 32 pt no caben. Esto es lo que
 // usa un detalle, donde el número de celdas depende del dato.
 
 struct AnaliticasRejilla<Contenido: View>: View {

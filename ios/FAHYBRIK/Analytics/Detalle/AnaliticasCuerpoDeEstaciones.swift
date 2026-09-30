@@ -50,7 +50,7 @@ struct AnaliticasCuerpoDeEstaciones: View {
                         )
                     default:
                         VStack(alignment: .trailing, spacing: 4) {
-                            if e.nuevo { AnaliticasSello(texto: "Nuevo") }
+                            if e.nuevo { InfoPill(text: "Nuevo", estilo: .velo) }
                             if let d = e.cuando.texto(hoy: hoy) { AnaliticasEtiqueta(texto: d, tono: e.viejo ? Theme.Color.muted : Theme.Color.foreground) }
                         }
                     }

@@ -43,7 +43,7 @@ struct AnaliticasGlosa: View {
                     Spacer(minLength: Theme.Spacing.s)
                     BotonCromoDia(.cerrar, etiqueta: "Cerrar", accion: onCerrar)
                 }
-                AnaliticasLista {
+                ListaDia {
                     ForEach(AnaliticasGlosario.terminos(metodo: metodo)) { g in
                         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                             HStack(spacing: Theme.Spacing.s) {

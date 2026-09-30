@@ -159,7 +159,7 @@ struct AnaliticasCuerpoDeCorrer: View {
     private var porTipo: some View {
         if !lectura.porTipo.isEmpty {
             AnaliticasSeccion(titulo: "Por tipo de sesión", pregunta: "Tu ritmo medio en cada tipo, contra sí mismo") {
-                AnaliticasLista {
+                ListaDia {
                     ForEach(lectura.porTipo) { l in
                         AnaliticasFilaProgreso(
                             familia: .correr, metrica: "ritmo medio", valor: l.dato?.valor, unidad: l.dato?.unidad ?? .sKm,
