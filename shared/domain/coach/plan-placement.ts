@@ -158,6 +158,161 @@ export function projectGroup(
   return null;
 }
 
+/** Un programa de la cadena tal como lo necesita quien coloca el resto del plan. */
+export interface ChainProgramItem extends ChainItem {
+  /** El programa de biblioteca de esa posición (para reconocer un recibo ya puesto). */
+  template_id: string;
+}
+
+/** Un programa que sigue al de entrada, con sus fechas ya decididas. */
+export interface ChainStep {
+  position: number;
+  weeks: number;
+  /** adopt = el atleta ya tiene ese programa en esas fechas: no se materializa. */
+  action: 'assign' | 'chain' | 'replace' | 'adopt';
+  start_date: string;
+  end_date: string;
+  conflicts: ExistingReceipt[];
+}
+
+/**
+ * El resto del plan de un grupo tras el programa por el que se entra: cada
+ * programa de la cadena con posición mayor, entero (semana 1), pegado al anterior.
+ * No da la vuelta: lo que viene tras el último programa (repetir, subir de nivel)
+ * lo decide el fin de cadena del grupo, no esta función.
+ *
+ * Con lo que el atleta ya tiene: si ese mismo programa ya está puesto en esas
+ * fechas se respeta (`adopt`, no se duplica); si estorba otra cosa manda la
+ * política — encadenar desplaza el programa y los que le siguen, sustituir corta
+ * lo que estorba, saltar deja el plan ahí (no se coloca nada más allá del
+ * conflicto).
+ */
+export function placeChainRest(input: {
+  receipts: ExistingReceipt[];
+  /** Domingo en que acaba el programa por el que entra (o el que ya tenía). */
+  after_end: string;
+  after_position: number;
+  chain: ChainProgramItem[];
+  policy: OnConflict;
+}): ChainStep[] {
+  const rest = [...input.chain]
+    .filter((c) => c.position > input.after_position && c.weeks >= 1)
+    .sort((a, b) => a.position - b.position);
+  const steps: ChainStep[] = [];
+  let end = input.after_end;
+  for (const item of rest) {
+    const start = mondayAfter(end);
+    const window = windowEnd(start, item.weeks);
+    const already = overlapping(input.receipts, start, window).find((r) => r.month_template_id === item.template_id);
+    if (already) {
+      steps.push({
+        position: item.position,
+        weeks: item.weeks,
+        action: 'adopt',
+        start_date: already.start_date,
+        end_date: already.end_date,
+        conflicts: [],
+      });
+      end = already.end_date;
+      continue;
+    }
+    const placed = placeProgram({ receipts: input.receipts, start, weeks: item.weeks, policy: input.policy });
+    if (placed.action === 'skip') break;
+    steps.push({
+      position: item.position,
+      weeks: item.weeks,
+      action: placed.action,
+      start_date: placed.start_date,
+      end_date: placed.end_date,
+      conflicts: placed.conflicts,
+    });
+    end = placed.end_date;
+  }
+  return steps;
+}
+
+/** Un recibo del atleta visto desde la cadena: qué programa y en qué fechas. */
+export interface ChainReceipt {
+  template_id: string;
+  start_date: string;
+  end_date: string;
+}
+
+type ChainSlot = { position: number; template_id: string };
+
+function inOrder(chain: ChainSlot[]): ChainSlot[] {
+  return [...chain].sort((a, b) => a.position - b.position);
+}
+
+function byStart(receipts: ChainReceipt[]): ChainReceipt[] {
+  return [...receipts].sort((a, b) => (a.start_date < b.start_date ? -1 : a.start_date > b.start_date ? 1 : 0));
+}
+
+/** El recibo que el atleta lleva hoy: el último ya empezado; si ninguno, el primero. */
+function currentReceiptIndex(sorted: ChainReceipt[], today: string): number {
+  let idx = 0;
+  for (let i = 0; i < sorted.length; i++) if (sorted[i]!.start_date <= today) idx = i;
+  return idx;
+}
+
+/** Posición de la cadena que corresponde a un programa, la más cercana por delante del cursor. */
+function positionOf(chain: ChainSlot[], template_id: string, cursor: number): number | null {
+  const same = inOrder(chain).filter((c) => c.template_id === template_id);
+  if (same.length === 0) return null;
+  return (same.find((c) => c.position >= cursor) ?? same[0]!).position;
+}
+
+/**
+ * En qué programa de la cadena está el atleta HOY según su plan (sus recibos), no
+ * según el cursor guardado: el cursor solo sabe por dónde entró. Sin recibos o con
+ * un programa que no es de la cadena, se queda el cursor.
+ */
+export function currentChainPosition(input: {
+  receipts: ChainReceipt[];
+  chain: ChainSlot[];
+  cursor: number;
+  today: string;
+}): number {
+  const sorted = byStart(input.receipts);
+  if (sorted.length === 0) return input.cursor;
+  const current = sorted[currentReceiptIndex(sorted, input.today)]!;
+  return positionOf(input.chain, current.template_id, input.cursor) ?? input.cursor;
+}
+
+/**
+ * Hasta dónde llega ya el plan del grupo en el calendario del atleta: desde el
+ * programa que lleva hoy, cada recibo posterior que es justo el siguiente de la
+ * cadena alarga el tramo; el primero que no lo es (algo suelto, otro programa) lo
+ * corta. Con `wrap`, tras el último programa la cadena vuelve al primero (una
+ * vuelta ya materializada). Null = el atleta no tiene plan.
+ */
+export function chainFrontier(input: {
+  receipts: ChainReceipt[];
+  chain: ChainSlot[];
+  cursor: number;
+  today: string;
+  wrap: boolean;
+}): { position: number; end_date: string } | null {
+  const sorted = byStart(input.receipts);
+  if (sorted.length === 0) return null;
+  const ordered = inOrder(input.chain);
+  const i0 = currentReceiptIndex(sorted, input.today);
+  const current = sorted[i0]!;
+  const start = positionOf(input.chain, current.template_id, input.cursor);
+  if (start == null) return null;
+  let pos = start;
+  let end = current.end_date;
+  for (let j = i0 + 1; j < sorted.length; j++) {
+    const r = sorted[j]!;
+    const at = ordered.findIndex((c) => c.position === pos);
+    const next = ordered[at + 1] ?? (input.wrap ? ordered[0] : undefined);
+    if (!next || next.template_id !== r.template_id || r.start_date <= end) break;
+    pos = next.position;
+    end = r.end_date;
+  }
+  return { position: pos, end_date: end };
+}
+
 /** Lo que dice de sí un miembro activo para votar el ancla del grupo. */
 export interface MemberAnchorVote {
   position: number;

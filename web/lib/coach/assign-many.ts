@@ -38,6 +38,8 @@ import {
   loadProgramOrThrow,
   loadReceipts,
   planAssignTarget,
+  nextChainStep,
+  restOfChain,
   planGroupJoinTarget,
   requestHash,
   resolveRecipients,
@@ -141,6 +143,7 @@ async function executeBatch(
   client: Sql,
   spec: BatchSpec,
   replan: ApplyContext['replan'],
+  nextStep?: ApplyContext['nextStep'],
 ): Promise<AssignApplied> {
   const hash = hashOf(spec);
   const created = await client.begin(async (raw) => {
@@ -173,6 +176,7 @@ async function executeBatch(
     today: boxToday(new Date(), await loadCoachTimezone(spec.coach_id, client)),
     days_before: (await getAutoPublishSetting(spec.coach_id, client)).effective_days,
     replan,
+    nextStep,
   };
   const toNotify: Array<{ id: number; week: string }> = [];
   await runWorkers(spec.recipients, async (athlete) => {
@@ -333,6 +337,9 @@ export async function runGroupJoin(params: {
   const replan = (athlete: RecipientInfo, receipts: ExistingReceipt[]): PlanTarget =>
     planGroupJoinTarget({ athlete, receipts, group, anchor, start, policy: params.on_conflict });
 
+  const nextStep: ApplyContext['nextStep'] = (athleteReceipts, after) =>
+    nextChainStep(group, athleteReceipts, after, params.on_conflict);
+
   const targets = recipients.map((r) => replan(r, receipts.get(r.id) ?? []));
   // La cabecera de la previa dice lo que recibe quien entra SIN plan: el programa y
   // la semana en que está el grupo ese lunes (los que adoptan o encadenan lo
@@ -342,6 +349,11 @@ export async function runGroupJoin(params: {
       ? null
       : placeInGroup({ receipts: [], start, policy: params.on_conflict, chain: group.chain, endPolicy: group.end_policy, anchor });
   const entryItem = entry ? group.chain.find((c) => c.position === entry.position) ?? null : null;
+  // Y el resto de la cadena tras ese programa, para que la cabecera diga el plan entero.
+  const entryRest =
+    entry && entryItem
+      ? restOfChain(group, [], { position: entry.position, end_date: entry.placement.end_date }, params.on_conflict)
+      : [];
   const preview = buildPreview({
     targets,
     recipients,
@@ -349,10 +361,11 @@ export async function runGroupJoin(params: {
     group: { id: group.id, name: group.name },
     start: entry?.placement.start_date ?? start,
     start_week: entry?.week ?? 1,
+    rest: entryRest,
   });
   if (params.dry_run) return { preview };
 
   const recent = await findRecentBatch(client, coachId, hashOf(spec));
   if (recent) return replayResponse(client, recent, preview);
-  return { preview, applied: await executeBatch(client, spec, replan) };
+  return { preview, applied: await executeBatch(client, spec, replan, nextStep) };
 }

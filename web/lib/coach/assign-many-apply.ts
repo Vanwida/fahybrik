@@ -30,7 +30,7 @@ import {
 import { enrollInSequence } from '@/lib/dashboard/coach/assign-sequence';
 import { captureRouteError } from '@/lib/observability/capture';
 import { applyDeliveryToWeeks } from './week-publishing';
-import { loadReceipts, type PlanTarget, type RecipientInfo } from './assign-many-plan';
+import { loadReceipts, type PlanStep, type PlanTarget, type RecipientInfo } from './assign-many-plan';
 
 /**
  * `instantiateMonthFromTemplate` abre su propia transacción con `client.begin`, y
@@ -241,6 +241,11 @@ export interface ApplyContext {
   days_before: number;
   /** Vuelve a decidir con el plan del atleta recién leído (dentro del candado). */
   replan: (athlete: RecipientInfo, receipts: ExistingReceipt[]) => PlanTarget;
+  /**
+   * Solo al entrar en un grupo: el programa que sigue a `after` en la cadena, con
+   * el plan del atleta recién leído. Se encadena hasta que no queda ninguno.
+   */
+  nextStep?: (receipts: ExistingReceipt[], after: { position: number; end_date: string }) => PlanStep | null;
 }
 
 export interface ApplyOutcome {
@@ -272,6 +277,36 @@ function skipReason(t: PlanTarget): string {
   return last ? `Ya tiene «${last.program_name}» hasta el ${last.end_date}; se ha saltado.` : 'Se ha saltado.';
 }
 
+/**
+ * Materializa UN programa en su ventana, le aplica la entrega a sus semanas y apunta
+ * lo que cambia (sesiones, microciclos, recibo, visibilidad) en el ítem del lote.
+ */
+async function placeOne(
+  tx: Sql,
+  ctx: ApplyContext,
+  params: { itemId: number; athleteId: number; target: PlanTarget },
+): Promise<{ month_assignment_id: number; created: number; visible_week: string | null }> {
+  const { itemId, athleteId, target } = params;
+  const mat = await materializeWithLog(tx, { itemId, coachId: ctx.coach_id, athleteId, target });
+  const outcome = await applyDeliveryToWeeks(tx, {
+    coach_id: ctx.coach_id,
+    athlete_id: athleteId,
+    week_starts: weekStarts(target.start_date!, target.end_date!),
+    delivery: ctx.delivery,
+    today: ctx.today,
+    days_before: ctx.days_before,
+  });
+  for (const [week, before] of outcome.before) {
+    if (sameRow(before, outcome.after.get(week) ?? null)) continue;
+    await tx`
+      insert into coach_assign_batch_week_changes (batch_item_id, week_start, prior_status, prior_delivery_mode)
+      values (${itemId}, ${week}::date, ${before?.status ?? null}, ${before?.delivery_mode ?? null})
+    `;
+  }
+  const visible_week = [...outcome.after].find(([, row]) => athleteSeesWeek(row))?.[0] ?? null;
+  return { ...mat, visible_week };
+}
+
 export async function applyTarget(client: Sql, ctx: ApplyContext, athlete: RecipientInfo): Promise<ApplyOutcome> {
   try {
     return await client.begin(async (raw) => {
@@ -290,28 +325,53 @@ export async function applyTarget(client: Sql, ctx: ApplyContext, athlete: Recip
       let visibleWeek: string | null = null;
       // 'adopt': ya está haciendo este programa del grupo → nada que materializar.
       if (target.program && target.action !== 'adopt') {
-        const mat = await materializeWithLog(tx, { itemId, coachId: ctx.coach_id, athleteId: athlete.id, target });
-        const outcome = await applyDeliveryToWeeks(tx, {
-          coach_id: ctx.coach_id,
-          athlete_id: athlete.id,
-          week_starts: weekStarts(target.start_date!, target.end_date!),
-          delivery: ctx.delivery,
-          today: ctx.today,
-          days_before: ctx.days_before,
-        });
-        for (const [week, before] of outcome.before) {
-          if (sameRow(before, outcome.after.get(week) ?? null)) continue;
-          await tx`
-            insert into coach_assign_batch_week_changes (batch_item_id, week_start, prior_status, prior_delivery_mode)
-            values (${itemId}, ${week}::date, ${before?.status ?? null}, ${before?.delivery_mode ?? null})
-          `;
-        }
-        visibleWeek = [...outcome.after].find(([, row]) => athleteSeesWeek(row))?.[0] ?? null;
+        const done = await placeOne(tx, ctx, { itemId, athleteId: athlete.id, target });
+        visibleWeek = done.visible_week;
         await tx`
           update coach_assign_batch_items
-          set month_assignment_id = ${mat.month_assignment_id}, sessions_created = ${mat.created}
+          set month_assignment_id = ${done.month_assignment_id}, sessions_created = ${done.created}
           where id = ${itemId}
         `;
+      }
+
+      // Entrar en un grupo es entrar en TODO su plan: tras el programa de entrada
+      // (o el que ya hacía), los que le siguen hasta el final de la cadena, cada uno
+      // pegado al anterior. Todo en esta transacción y con este candado; cada
+      // recibo queda apuntado en el mismo ítem, así que «Deshacer» los quita todos.
+      if (ctx.nextStep && target.program && target.position != null && target.end_date) {
+        let last = { position: target.position, end_date: target.end_date };
+        for (;;) {
+          const fresh = (await loadReceipts(tx, [athlete.id], ctx.start)).get(athlete.id) ?? [];
+          const step = ctx.nextStep(fresh, last);
+          if (!step) break;
+          if (step.action === 'replace') await cutReceipts(tx, itemId, athlete.id, step.conflicts, step.start_date);
+          if (step.action !== 'adopt') {
+            const done = await placeOne(tx, ctx, {
+              itemId,
+              athleteId: athlete.id,
+              target: {
+                athlete_id: athlete.id,
+                action: step.action,
+                blocked: null,
+                program: step.program,
+                position: step.position,
+                start_week: 1,
+                start_date: step.start_date,
+                end_date: step.end_date,
+                conflicts: step.conflicts,
+                rest: [],
+              },
+            });
+            visibleWeek ??= done.visible_week;
+            // tenancy: verified-owner — el ítem lo acaba de crear este lote, del coach.
+            await tx`update coach_assign_batch_items set sessions_created = sessions_created + ${done.created} where id = ${itemId}`;
+          }
+          last = { position: step.position, end_date: step.end_date };
+        }
+        if (last.end_date !== target.end_date) {
+          // tenancy: verified-owner — el ítem lo acaba de crear este lote, del coach.
+          await tx`update coach_assign_batch_items set end_date = ${last.end_date}::date where id = ${itemId}`;
+        }
       }
 
       if (ctx.kind === 'group_join' && ctx.sequence_id != null) {

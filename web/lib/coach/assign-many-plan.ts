@@ -10,10 +10,12 @@ import { createHash } from 'node:crypto';
 import type { Sql } from '@/lib/db';
 import { addDays, isoDateString, mondayOfWeek, parseIsoDate } from '@fahybrid/shared/domain/dates';
 import {
+  placeChainRest,
   placeInGroup,
   placeProgram,
   windowEnd,
   type ChainItem,
+  type ChainStep,
   type MemberAnchorVote,
   type ExistingReceipt,
   type GroupAnchor,
@@ -78,7 +80,15 @@ export interface PlanTarget {
   start_date: string | null;
   end_date: string | null;
   conflicts: ExistingReceipt[];
+  /**
+   * Al entrar en un grupo: los programas que siguen al de entrada hasta el final de
+   * la cadena, pegados uno tras otro (vacío = no hay más o el atleta no recibe nada).
+   */
+  rest: PlanStep[];
 }
+
+/** Un programa de la cadena que sigue al de entrada, con sus fechas decididas. */
+export type PlanStep = ChainStep & { program: ProgramInfo };
 
 export interface GroupPlanContext {
   id: number;
@@ -296,6 +306,7 @@ function blocked(athlete_id: number, b: { code: string; message: string }): Plan
     start_date: null,
     end_date: null,
     conflicts: [],
+    rest: [],
   };
 }
 
@@ -320,7 +331,40 @@ export function planAssignTarget(input: {
     start_date: placed.start_date,
     end_date: placed.end_date,
     conflicts: placed.conflicts,
+    rest: [],
   };
+}
+
+/** Los programas que siguen a `after_position` en la cadena del grupo, con lo que el atleta ya tiene. */
+export function restOfChain(
+  group: GroupPlanContext,
+  receipts: ExistingReceipt[],
+  after: { position: number; end_date: string },
+  policy: OnConflict,
+): PlanStep[] {
+  const byPosition = new Map(group.chain.map((c) => [c.position, c.program]));
+  return placeChainRest({
+    receipts,
+    after_end: after.end_date,
+    after_position: after.position,
+    chain: group.chain.map((c) => ({ position: c.position, weeks: c.weeks, template_id: String(c.program.id) })),
+    policy,
+  }).map((step) => ({ ...step, program: byPosition.get(step.position)! }));
+}
+
+/**
+ * El siguiente programa de la cadena tras `after`, decidido con el plan del atleta
+ * tal como está AHORA. La aplicación lo pide de uno en uno, dentro de su
+ * transacción y con los recibos recién leídos: lo que se corte o coloque para un
+ * programa cuenta ya para el siguiente.
+ */
+export function nextChainStep(
+  group: GroupPlanContext,
+  receipts: ExistingReceipt[],
+  after: { position: number; end_date: string },
+  policy: OnConflict,
+): PlanStep | null {
+  return restOfChain(group, receipts, after, policy)[0] ?? null;
 }
 
 /**
@@ -385,6 +429,7 @@ export function planGroupJoinTarget(input: {
       start_date: null,
       end_date: null,
       conflicts: [],
+      rest: [],
     };
   }
   const adopt = adoptableReceipt(group, input.receipts, input.start, input.policy);
@@ -402,6 +447,8 @@ export function planGroupJoinTarget(input: {
       start_date: adopt.receipt.start_date,
       end_date: adopt.receipt.end_date,
       conflicts: [],
+      // Lo que ya hace se queda; lo que le falta detrás hasta el final de la cadena se le pone.
+      rest: restOfChain(group, input.receipts, { position: adopt.position, end_date: adopt.receipt.end_date }, input.policy),
     };
   }
   const placed = placeInGroup({
@@ -430,6 +477,10 @@ export function planGroupJoinTarget(input: {
     start_date: placed.placement.start_date,
     end_date: placed.placement.end_date,
     conflicts: placed.placement.conflicts,
+    rest:
+      placed.placement.action === 'skip'
+        ? []
+        : restOfChain(group, input.receipts, { position: placed.position, end_date: placed.placement.end_date }, input.policy),
   };
 }
 
@@ -449,6 +500,8 @@ function previewAthlete(target: PlanTarget, athlete: RecipientInfo, included: Se
     action: target.action,
     start_date: target.start_date,
     end_date: target.end_date,
+    plan_end: target.rest.at(-1)?.end_date ?? target.end_date,
+    programs: target.program ? 1 + target.rest.length : 0,
     program: target.program ? { id: String(target.program.id), name: target.program.name } : null,
     start_week: target.start_week,
     blocked: target.blocked,
@@ -471,21 +524,31 @@ export function buildPreview(input: {
   group: { id: number; name: string } | null;
   start: string;
   start_week: number;
+  /** Los programas que siguen al de entrada (al entrar en un grupo). */
+  rest?: PlanStep[];
 }): AssignPreview {
   const byId = new Map(input.recipients.map((r) => [r.id, r]));
   const included = new Set(input.recipients.map((r) => r.id));
   const athletes = input.targets.map((t) => previewAthlete(t, byId.get(t.athlete_id)!, included));
   const counts = { total: athletes.length, assign: 0, chain: 0, replace: 0, skip: 0, blocked: 0, adopt: 0 };
   for (const a of athletes) counts[a.action] += 1;
-  const weeks = input.program ? input.program.weeks - input.start_week + 1 : 0;
+  const rest = input.rest ?? [];
+  const entryWeeks = input.program ? input.program.weeks - input.start_week + 1 : 0;
+  const weeks = entryWeeks + rest.reduce((n, r) => n + r.weeks, 0);
+  const sessions =
+    sessionsFrom(input.program, input.program ? input.start_week : null) +
+    rest.reduce((n, r) => n + sessionsFrom(r.program, 1), 0);
   return {
     program: input.program ? { id: String(input.program.id), name: input.program.name, weeks: input.program.weeks } : null,
     group: input.group ? { id: String(input.group.id), name: input.group.name } : null,
     start_date: input.start,
     end_date: weeks > 0 ? windowEnd(input.start, weeks) : isoDateString(addDays(parseIsoDate(input.start), 6)),
     weeks,
-    sessions_per_athlete: sessionsFrom(input.program, input.program ? input.start_week : null),
-    dropped_sessions: droppedFrom(input.program, input.program ? input.start_week : null).map((d) => ({
+    sessions_per_athlete: sessions,
+    dropped_sessions: [
+      ...droppedFrom(input.program, input.program ? input.start_week : null),
+      ...rest.flatMap((r) => droppedFrom(r.program, 1)),
+    ].map((d) => ({
       week_number: d.week_number,
       session_lost: d.session_lost,
       message: describeDrop(d),

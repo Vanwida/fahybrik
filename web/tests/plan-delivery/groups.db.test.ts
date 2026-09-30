@@ -136,11 +136,17 @@ describeWithDb('grupos (DB real)', () => {
       const row = res.preview.athletes[0]!;
       expect(row).toMatchObject({ action: 'assign', start_date: nextMonday, start_week: 4, program: { name: 'Acumulación' } });
       expect(res.applied).toMatchObject({ assigned: 1 });
-      // Solo la semana 4 (la que le queda al grupo): del lunes que viene a su domingo.
-      const sunday = new Date(`${nextMonday}T00:00:00Z`);
-      sunday.setUTCDate(sunday.getUTCDate() + 6);
+      // Entra en TODO el plan: la semana 4 de «Acumulación» (la que le queda al grupo, del
+      // lunes que viene a su domingo) y, pegado detrás, «Build» entero (3 semanas).
+      const dayBefore = (monday: string) => {
+        const d = new Date(`${monday}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() - 1);
+        return d.toISOString().slice(0, 10);
+      };
+      expect(row).toMatchObject({ programs: 2, plan_end: dayBefore(mondayPlus(today, 5)) });
       expect(await receiptsOf(newbie)).toEqual([
-        { month_template_id: String(A), start_date: nextMonday, end_date: sunday.toISOString().slice(0, 10) },
+        { month_template_id: String(A), start_date: nextMonday, end_date: dayBefore(mondayPlus(today, 2)) },
+        { month_template_id: String(B), start_date: mondayPlus(today, 2), end_date: dayBefore(mondayPlus(today, 5)) },
       ]);
       const cur = await cursorOf(newbie);
       expect(cur).toEqual([{ sequence_id: String(groupId), current_position: 1, status: 'active' }]);

@@ -2,7 +2,7 @@
 
 // La página de un grupo: su plan de un vistazo (programas sobre el calendario,
 // volumen planificado por semana y carreras), los programas en orden, la gente y
-// la regla automática (opcional). «Asignar…» abre el panel de siempre con el
+// qué pasa al acabar el plan y la regla automática (opcional). «Asignar…» abre el panel de siempre con el
 // grupo ya puesto; «Asignar a nuevos (n)» mete a quien cumple la regla y aún no
 // está.
 
@@ -20,6 +20,8 @@ import { GroupTimeline } from './GroupTimeline';
 import { GroupPrograms } from './GroupPrograms';
 import { GroupMembers } from './GroupMembers';
 import { GroupRule } from './GroupRule';
+import { GroupEnd } from './GroupEnd';
+import { END_POLICY_VIEW } from './group-end-policy';
 import { groupApi } from './group-api';
 import { groupPaceLine } from './group-pace';
 
@@ -68,7 +70,7 @@ export function GroupPage({
   const subtitle = [
     `${group.member_count} ${group.member_count === 1 ? 'atleta' : 'atletas'}`,
     group.total_weeks ? `plan de ${group.total_weeks} semanas` : 'sin plan',
-    group.programs.length > 0 ? (group.end_policy === 'repeat' ? 'se repite' : group.end_policy === 'stop' ? 'termina al acabar' : 'sube de nivel al acabar') : null,
+    group.programs.length > 0 ? END_POLICY_VIEW[group.end_policy].subtitle : null,
     groupPaceLine(group.members),
   ]
     .filter(Boolean)
@@ -111,6 +113,7 @@ export function GroupPage({
       <div className="grid gap-5 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div className="flex flex-col gap-5">
           <GroupPrograms group={group} programs={programs} onChanged={() => router.refresh()} />
+          <GroupEnd group={group} onChanged={() => router.refresh()} />
           <GroupRule group={group} levels={levels} onChanged={() => router.refresh()} />
         </div>
         <GroupMembers group={group} onChanged={() => router.refresh()} onAdd={() => setAdding([])} />
@@ -122,7 +125,7 @@ export function GroupPage({
         open={adding != null}
         onOpenChange={(o) => { if (!o) setAdding(null); }}
         title={`Añadir atletas a «${group.display_name}»`}
-        description="Reciben el programa y la semana en que está el grupo el lunes que viene. Quien ya hace un programa de este plan lo conserva."
+        description="Reciben el plan entero, desde el programa y la semana en que está el grupo el lunes que viene hasta el último programa. Quien ya hace un programa de este plan lo conserva."
         footer={
           <>
             <Button variant="ghost" onClick={() => setAdding(null)}>
