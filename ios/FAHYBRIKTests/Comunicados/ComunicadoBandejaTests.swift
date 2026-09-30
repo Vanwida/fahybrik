@@ -312,14 +312,14 @@ final class ComunicadoBandejaTests: XCTestCase {
             items: [paso("a"), paso("b"), paso("c", checkable: false)]
         )
         p.aplicarMarca(itemId: "a", hecho: true)
-        XCTAssertEqual(ListaComunicados.detalleProtocolo(p), "Llevas 1 de 2 pasos.")
+        XCTAssertEqual(DetalleDeFila.protocolo(p), "Llevas 1 de 2 pasos.")
 
         // Sin casillas no hay avance que enseñar: se queda con su propia línea.
         let lectura = comunicado(
             id: "2", kind: .protocolo, body: "Cena pronto y sin fibra.",
             items: [paso("x", checkable: false)]
         )
-        XCTAssertEqual(ListaComunicados.detalleProtocolo(lectura), "Cena pronto y sin fibra.")
+        XCTAssertEqual(DetalleDeFila.protocolo(lectura), "Cena pronto y sin fibra.")
     }
 
     // MARK: - Los demás actos
