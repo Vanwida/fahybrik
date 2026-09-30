@@ -311,22 +311,29 @@ struct RedesignEmptyState<Figure: View>: View {
     var body: some View {
         VStack(spacing: Theme.Spacing.m) {
             if let eyebrow {
-                LabelText(text: eyebrow, color: Theme.Color.accentText)
+                Text(eyebrow)
+                    .papel(.etiqueta)
+                    .foregroundStyle(Theme.Color.accentText)
+                    .multilineTextAlignment(.center)
             }
             if let symbol {
                 Image(systemName: symbol)
                     .font(.system(size: 34, weight: .regular))
                     .foregroundStyle(symbolColor)
+                    .accessibilityHidden(true)
             }
             figure
             Text(title)
-                .scaledFont(17, weight: .heavy, relativeTo: .headline, italic: true)
+                .papel(.seccion)
                 .foregroundStyle(Theme.Color.foreground)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
             Text(message)
-                .scaledFont(13, relativeTo: .footnote)
+                .papel(.cuerpo)
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
             exitView
             // Only alongside an action: with `.explained` the exit already IS
             // this box, and printing it twice is how a scaffold starts lying.
@@ -335,7 +342,7 @@ struct RedesignEmptyState<Figure: View>: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.horizontal, Theme.Spacing.pantalla)
     }
 
     private var exitIsExplained: Bool {
@@ -347,38 +354,50 @@ struct RedesignEmptyState<Figure: View>: View {
     private var exitView: some View {
         switch exit {
         case let .action(title, perform):
-            ExpertPrimaryButton(title: title.uppercased(), height: 50, action: perform)
+            // La acción del kit: pastilla de tinta invertida. Sola y centrada, que es lo que
+            // una salida de un estado sin datos es (no ancla la pantalla, la cierra).
+            Button(action: { Haptics.light(); perform() }) { AccionDia(title, glifo: nil) }
+                .buttonStyle(PressScaleStyle(escala: 0.96))
                 .padding(.top, Theme.Spacing.xs)
-                .padding(.horizontal, Theme.Spacing.m)
         case let .explained(note):
             noteBox(note)
         }
     }
 
     /// The quiet "this is what has to happen, and who does it" box. ONE
-    /// implementation, used both as the exit itself (`.explained`) and as the
-    /// footnote under an action (`note`).
+    /// implementation (`NotaConReloj`), used both as the exit itself
+    /// (`.explained`) and as the footnote under an action (`note`).
     private func noteBox(_ note: String) -> some View {
+        NotaConReloj(texto: note).padding(.top, Theme.Spacing.xs)
+    }
+}
+
+/// La nota callada de «esto es lo que tiene que pasar, y quién lo hace»: un reloj, una frase de 15 pt en una
+/// fila con contorno. Es la salida de un estado que no depende del atleta (`.explained`), la nota bajo una
+/// acción y la declaración del hueco del ciclo: la misma frase dicha desde tres sitios se dice con la misma pieza.
+struct NotaConReloj: View {
+    let texto: String
+
+    var body: some View {
         HStack(alignment: .top, spacing: Theme.Spacing.s) {
             Image(systemName: "clock")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.Color.faint)
-                .padding(.top, 1)
-            Text(note)
-                .scaledFont(12, relativeTo: .caption)
-                .foregroundStyle(Theme.Color.faint)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.Color.muted)
+                .padding(.top, 2)
+                .accessibilityHidden(true)
+            Text(texto)
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.leading)
         }
         .padding(.horizontal, Theme.Spacing.m)
-        .padding(.vertical, Theme.Spacing.s)
-        .background(Theme.Color.surface)
+        .padding(.vertical, Theme.Spacing.m)
+        .background(Theme.Color.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
+            RoundedRectangle(cornerRadius: Theme.Radius.fila, style: .continuous)
+                .strokeBorder(Theme.Color.hairline, lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-        .padding(.top, Theme.Spacing.xs)
         .accessibilityElement(children: .combine)
     }
 }
