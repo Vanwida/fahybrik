@@ -1,181 +1,105 @@
 import SwiftUI
 
-// The two ways out: pause, or leave (#13).
+// LAS DOS SALIDAS: PAUSAR, O IRSE (#13).
 //
-// DESIGN INTENT, so nobody "improves" this later into a retention funnel:
-// there is no discount offer, no "are you sure" three times, no guilt copy. The
-// only thing either sheet tells the athlete is the thing they don't already know
-// — how much pause they have left, and that leaving does not forfeit what they
-// already paid for. If the exit is made sticky, the athlete stops trusting the
-// app with the entrance too.
+// INTENCIÓN DE DISEÑO, para que nadie lo «mejore» después hasta convertirlo en un embudo de retención: no hay
+// oferta de descuento, ni «¿seguro?» tres veces, ni copy que culpabilice. Lo único que dice cualquiera de las
+// dos hojas es lo que el atleta aún no sabe: cuánta pausa le queda y que irse no pierde lo que ya pagó. Si la
+// salida se hace pegajosa, el atleta deja de fiarse de la app también en la entrada.
+//
+// Las dos son hojas con el cascarón de Perfil (`PantallaPerfil`): el título con su papel, el contenido y UNA
+// acción anclada abajo. Antes colgaban su botón destructivo del final del scroll, detrás de un selector y una nota.
 
-// MARK: - Shared bits
+// MARK: - Piezas compartidas
 
-/// The closed set of reasons, as chips. Same four codes everywhere (0104).
-private struct ReasonPicker: View {
-    let title: String
-    @Binding var selection: PauseReason
+/// El selector de motivo: el conjunto cerrado de razones, a la vista. Los mismos cuatro códigos en todas partes (0104).
+private struct SelectorDeMotivo: View {
+    let titulo: String
+    @Binding var motivo: PauseReason
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            LabelText(text: title)
-            // Wraps to a second line on the narrow phones without clipping.
-            FlowRow(spacing: Theme.Spacing.s) {
-                ForEach(PauseReason.allCases) { reason in
-                    let on = reason == selection
-                    Button {
-                        selection = reason
-                    } label: {
-                        Text(reason.label)
-                            .font(Theme.Typography.small)
-                            .foregroundStyle(on ? Theme.Color.accentText : Theme.Color.muted)
-                            .padding(.horizontal, 13)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                                    .fill(on ? Theme.Color.accent.opacity(0.14) : Theme.Color.surfaceElevated)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                                    .stroke(on ? Theme.Color.accent.opacity(0.4) : .clear, lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(on ? [.isSelected] : [])
-                }
-            }
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            TituloSeccionDia(titulo)
+            SelectorDeOpcionesPerfil(
+                opciones: PauseReason.allCases.map { (clave: $0, titulo: $0.label) },
+                elegida: $motivo
+            )
         }
     }
 }
 
-/// A minimal wrapping HStack — chips must never clip on a 4.7" screen.
-private struct FlowRow: Layout {
-    var spacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxWidth = proposal.width ?? .infinity
-        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0
-        for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
-            if x > 0, x + size.width > maxWidth {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
-        return CGSize(width: maxWidth == .infinity ? x : maxWidth, height: y + rowHeight)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
-        for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
-            if x > bounds.minX, x + size.width > bounds.maxX {
-                x = bounds.minX
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
-    }
-}
-
-/// How much of the pause budget is spent, and how much this choice would spend.
-private struct BudgetMeter: View {
-    /// Days already gone.
-    let consumed: Int
-    /// Days the current choice would add. 0 when just reporting.
-    let pending: Int
+/// Cuánto del presupuesto de pausa está gastado y cuánto gastaría esta elección.
+private struct MedidorDePausa: View {
+    /// Días ya idos.
+    let consumidos: Int
+    /// Días que sumaría la elección actual. 0 cuando solo se informa.
+    let pendientes: Int
     let total: Int
+
+    /// El tramo que aún no es de verdad (lo que gastaría esta pausa) es el mismo acento, más suave.
+    private static let suavidadDelPendiente: Double = 0.45
 
     var body: some View {
         GeometryReader { geo in
-            let unit = total > 0 ? geo.size.width / CGFloat(total) : 0
+            let unidad = total > 0 ? geo.size.width / CGFloat(total) : 0
             HStack(spacing: 0) {
                 Rectangle()
                     .fill(Theme.Color.accent)
-                    .frame(width: min(geo.size.width, unit * CGFloat(consumed)))
+                    .frame(width: min(geo.size.width, unidad * CGFloat(consumidos)))
                 Rectangle()
-                    .fill(Theme.Color.accent.opacity(0.45))
-                    .frame(width: min(max(0, geo.size.width - unit * CGFloat(consumed)), unit * CGFloat(pending)))
+                    .fill(Theme.Color.tinte(Theme.Color.accent, Self.suavidadDelPendiente, sobre: Theme.Color.surfaceSunken))
+                    .frame(width: min(max(0, geo.size.width - unidad * CGFloat(consumidos)), unidad * CGFloat(pendientes)))
                 Spacer(minLength: 0)
             }
         }
-        .frame(height: 7)
+        .frame(height: 10)
         .background(Theme.Color.surfaceSunken)
         .clipShape(Capsule())
+        .accessibilityHidden(true)
     }
 }
 
-/// The soft orange explainer block both sheets use for "what happens next".
-private struct NoteBlock<Content: View>: View {
-    var tone: Color = Theme.Color.accent
-    @ViewBuilder let content: Content
+/// El bloque que explica «qué pasa después»: una tarjeta tintada del acento del club (lo que te espera) o
+/// neutra (un aviso sin apremio). El texto es la tinta del tema.
+private struct BloqueDeNota<Contenido: View>: View {
+    var realce = true
+    @ViewBuilder let contenido: Contenido
 
     var body: some View {
-        content
-            .font(Theme.Typography.small)
+        contenido
+            .papel(.cuerpo)
             .foregroundStyle(Theme.Color.foreground)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(13)
-            .background(
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(tone.opacity(0.08))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .stroke(tone.opacity(0.22), lineWidth: 1)
-            )
+            .padding(Theme.Spacing.l)
+            .tarjetaPerfil(realce: realce)
     }
 }
 
-/// Shared shell for the lifecycle sheets (pausar, darse de baja): scrolling
-/// content plus ONE anchored action. Both sheets used to hang their destructive
-/// CTA off the tail of the scroll, behind a reason picker and a note.
-private struct SheetChrome<Content: View, Action: View>: View {
-    let title: String
-    let onClose: () -> Void
-    @ViewBuilder let content: Content
-    @ViewBuilder let action: Action
+/// Una línea con su viñeta: lo que conviene saber antes de decidir.
+private struct Vineta: View {
+    let texto: String
+
+    init(_ texto: String) { self.texto = texto }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.Color.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                        content
-                    }
-                    .padding(.horizontal, Theme.Spacing.l)
-                    .padding(.vertical, Theme.Spacing.l)
-                }
-                .anchoredAction { action }
-            }
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cerrar", action: onClose)
-                        .foregroundStyle(Theme.Color.accentText)
-                }
-            }
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m) {
+            Circle().fill(Theme.Color.accent).frame(width: 8, height: 8).accessibilityHidden(true)
+            Text(texto)
+                .papel(.cuerpo)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
 
-// MARK: - Pause
+// MARK: - Pausa
 
 struct PauseSheet: View {
     let state: LifecycleState
     let bearer: String?
     /// Called after a successful pause so the caller can reload.
     let onDone: () -> Void
-    let onClose: () -> Void
     /// The athlete ran out of budget and chose to leave instead.
     let onSwitchToBaja: () -> Void
 
@@ -195,74 +119,74 @@ struct PauseSheet: View {
     private var exhausted: Bool { state.pause.availableDays <= 0 }
 
     var body: some View {
-        SheetChrome(title: "Pausar mi plan", onClose: onClose) {
+        PantallaPerfil(titulo: "Pausar mi plan", cierre: .cerrar, cierreActivo: !inFlight) {
             if exhausted {
                 exhaustedBody
             } else {
                 pauseBody
             }
             if let error {
-                Text(error)
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.danger)
+                AvisoEnLineaPerfil(tono: .peligro, texto: error)
             }
-        } action: {
+        } pie: {
             if exhausted {
-                Button("Darme de baja", action: onSwitchToBaja)
-                    .font(Theme.Typography.bodyEmph)
-                    .foregroundStyle(Theme.Color.danger)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                AccionTextoPerfil(titulo: "Darme de baja", peligro: true, accion: onSwitchToBaja)
             } else {
-                PrimaryButton(
-                    title: buttonTitle,
-                    enabled: !inFlight && !exceedsBudget && cost > 0
+                AccionAncladaPerfil(
+                    titulo: buttonTitle,
+                    enCurso: inFlight,
+                    habilitada: !exceedsBudget && cost > 0
                 ) {
                     Task { await submit() }
                 }
             }
         }
+        .interactiveDismissDisabled(inFlight)
     }
 
     @ViewBuilder
     private var pauseBody: some View {
-        ReasonPicker(title: "Motivo", selection: $reason)
+        SelectorDeMotivo(titulo: "Motivo", motivo: $reason)
 
-        DatePicker(
-            selection: $returnDate,
-            in: (Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date())...,
-            displayedComponents: .date
-        ) {
-            LabelText(text: "Vuelvo el")
-        }
-        .datePickerStyle(.compact)
-        .tint(Theme.Color.accentText)
-        .padding(13)
-        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Theme.Color.surfaceElevated))
-
-        CardSurface(padding: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                LabelText(text: "Vas a usar")
-                BudgetMeter(consumed: state.pause.consumedDays, pending: cost, total: state.pause.budgetDays)
-                Text("\(cost) de tus \(state.pause.availableDays) días disponibles")
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(exceedsBudget ? Theme.Color.danger : Theme.Color.muted)
+        GrupoPerfil {
+            DatePicker(
+                selection: $returnDate,
+                in: (Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date())...,
+                displayedComponents: .date
+            ) {
+                Text("Vuelvo el").papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
             }
+            .datePickerStyle(.compact)
+            .tint(Theme.Color.accentText)
+            .padding(.horizontal, Theme.Spacing.l)
+            .padding(.vertical, Theme.Spacing.s)
+            .frame(minHeight: Theme.Size.toque + Theme.Spacing.m)
         }
 
-        NoteBlock {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            TituloSeccionDia("Vas a usar")
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                MedidorDePausa(consumidos: state.pause.consumedDays, pendientes: cost, total: state.pause.budgetDays)
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
+                    if exceedsBudget {
+                        Circle().fill(Theme.Color.danger).frame(width: 10, height: 10).accessibilityHidden(true)
+                    }
+                    Text("\(cost) de tus \(state.pause.availableDays) días disponibles")
+                        .papel(exceedsBudget ? .notaFuerte : .nota)
+                        .foregroundStyle(exceedsBudget ? Theme.Color.foreground : Theme.Color.muted)
+                }
+            }
+            .padding(Theme.Spacing.l)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .tarjetaPerfil()
+        }
+
+        BloqueDeNota {
             if let vuelve = LifecycleDate.long(LifecycleDate.iso(returnDate)) {
                 Text("No se te cobra mientras dure. Tu plaza queda reservada y el plan vuelve solo el \(vuelve).")
             } else {
                 Text("No se te cobra mientras dure. Tu plaza queda reservada y el plan vuelve solo.")
             }
-        }
-
-        PrimaryButton(
-            title: buttonTitle,
-            enabled: !inFlight && !exceedsBudget && cost > 0
-        ) {
-            Task { await submit() }
         }
     }
 
@@ -274,38 +198,29 @@ struct PauseSheet: View {
     // Budget spent. NOT a wall — a wall makes them cancel. Two honest ways out.
     @ViewBuilder
     private var exhaustedBody: some View {
-        CardSurface(padding: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                LabelText(text: "Pausa disponible")
-                BudgetMeter(consumed: state.pause.budgetDays, pending: 0, total: state.pause.budgetDays)
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            TituloSeccionDia("Pausa disponible")
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+                MedidorDePausa(consumidos: state.pause.budgetDays, pendientes: 0, total: state.pause.budgetDays)
                 Text("0 días · has usado tus \(state.pause.budgetDays)")
-                    .font(Theme.Typography.small)
+                    .papel(.cuerpoFuerte)
                     .foregroundStyle(Theme.Color.foreground)
                 if let renews = LifecycleDate.long(state.pause.renewsOn) {
-                    Text("Se te renuevan el \(renews)")
-                        .font(Theme.Typography.caption)
-                        .foregroundStyle(Theme.Color.faint)
+                    Text("Se te renuevan el \(renews)").papel(.nota).foregroundStyle(Theme.Color.muted)
                 }
             }
+            .padding(Theme.Spacing.l)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .tarjetaPerfil()
         }
 
-        NoteBlock(tone: Theme.Color.neutral) {
+        BloqueDeNota(realce: false) {
             Text("Ya has pausado \(state.pause.budgetDays) días en los últimos doce meses. Puedes seguir parado, pero el cobro no se para.")
         }
 
-        VStack(alignment: .leading, spacing: 7) {
-            bullet("Habla con tu entrenador para congelar el plan y no perder la plaza")
-            bullet("O date de baja y vuelve cuando quieras, si hay hueco")
-        }
-    }
-
-    private func bullet(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 9) {
-            Circle().fill(Theme.Color.accent).frame(width: 5, height: 5).padding(.top, 7)
-            Text(text)
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.muted)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            Vineta("Habla con tu entrenador para congelar el plan y no perder la plaza")
+            Vineta("O date de baja y vuelve cuando quieras, si hay hueco")
         }
     }
 
@@ -334,7 +249,6 @@ struct BajaSheet: View {
     let state: LifecycleState
     let bearer: String?
     let onDone: () -> Void
-    let onClose: () -> Void
     /// The athlete took the "mejor pausar" way out.
     let onSwitchToPause: () -> Void
 
@@ -346,10 +260,10 @@ struct BajaSheet: View {
     private var lastPaidDay: String? { state.billing.currentPeriodEnd }
 
     var body: some View {
-        SheetChrome(title: "Darme de baja", onClose: onClose) {
-            ReasonPicker(title: "¿Por qué te vas?", selection: $reason)
+        PantallaPerfil(titulo: "Darme de baja", cierre: .cerrar, cierreActivo: !inFlight) {
+            SelectorDeMotivo(titulo: "¿Por qué te vas?", motivo: $reason)
 
-            NoteBlock {
+            BloqueDeNota {
                 if let dia = LifecycleDate.long(lastPaidDay) {
                     Text("Entrenas hasta el \(dia), el último día que tienes pagado. Ese día se cierra tu plaza y no se te vuelve a cobrar.")
                 } else {
@@ -357,62 +271,49 @@ struct BajaSheet: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 if let dia = LifecycleDate.long(lastPaidDay) {
-                    bullet("Puedes echarte atrás hasta el \(dia)")
+                    Vineta("Puedes echarte atrás hasta el \(dia)")
                 }
-                bullet("Tu historial, tus marcas y tus carreras se quedan")
-                bullet("Si quieres borrar tus datos, eso es aparte, en Cuenta")
+                Vineta("Tu historial, tus marcas y tus carreras se quedan")
+                Vineta("Si quieres borrar tus datos, eso es aparte, en Cuenta")
             }
 
             if let error {
-                Text(error)
-                    .font(Theme.Typography.small)
-                    .foregroundStyle(Theme.Color.danger)
+                AvisoEnLineaPerfil(tono: .peligro, texto: error)
             }
-        } action: {
-            VStack(spacing: 0) {
+        } pie: {
+            VStack(spacing: Theme.Spacing.xs) {
+                // Destructiva: el peligro va en el TEXTO y en el borde de la acción, nunca en un fondo rojo.
                 Button {
+                    Haptics.medium()
                     Task { await submit() }
                 } label: {
-                    Text(confirmTitle)
-                        .font(Theme.Typography.bodyEmph)
-                        .foregroundStyle(Theme.Color.danger)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(Theme.Color.danger.opacity(0.35), lineWidth: 1)
-                        )
+                    HStack(spacing: Theme.Spacing.s) {
+                        if inFlight { ProgressView() }
+                        Text(confirmTitle).papel(.accion).multilineTextAlignment(.center)
+                    }
+                    .foregroundStyle(Theme.Color.danger)
+                    .frame(maxWidth: .infinity, minHeight: Theme.Size.accion)
+                    .padding(.horizontal, 22)
+                    .overlay(Capsule().strokeBorder(Theme.Color.danger.opacity(0.6), lineWidth: 2))
+                    .contentShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressScaleStyle(escala: 0.98))
                 .disabled(inFlight)
 
                 // Offered ONCE, quietly, and only when they actually have days left.
                 if state.pause.availableDays >= 7 {
-                    Button("Mejor pausar \(state.availableWeeks) semanas", action: onSwitchToPause)
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                    AccionTextoPerfil(titulo: "Mejor pausar \(state.availableWeeks) semanas", accion: onSwitchToPause)
                 }
             }
         }
+        .interactiveDismissDisabled(inFlight)
     }
 
     private var confirmTitle: String {
         guard let dia = LifecycleDate.long(lastPaidDay) else { return "Confirmar baja" }
         return "Confirmar baja el \(dia)"
-    }
-
-    private func bullet(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 9) {
-            Circle().fill(Theme.Color.accent).frame(width: 5, height: 5).padding(.top, 7)
-            Text(text)
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.muted)
-                .fixedSize(horizontal: false, vertical: true)
-        }
     }
 
     @MainActor
