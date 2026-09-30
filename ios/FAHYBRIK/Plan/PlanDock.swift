@@ -9,12 +9,12 @@ import SwiftUI
 // El «···» que la acompaña abre las acciones de la sesión mostrada (mover · técnica · corregir · borrar
 // libre) sin necesitar una pulsación larga.
 
-/// La pastilla de la acción, a todo el ancho del dock y a 56 pt: es la de `AccionDia` (tinta invertida,
-/// cursiva de marca) pero llenando el ancho, que `AccionDia` no hace (cierra un sujeto, no ancla una pantalla).
+/// La acción del dock: `AccionDia` a todo el ancho y 56 pt (la pastilla de tinta invertida del sujeto, pero
+/// anclando la pantalla en vez de cerrar un sujeto), con el «···» de la sesión mostrada a su lado.
 struct AccionAncladaPlan<Opciones: View>: View {
     let texto: String
-    /// El SF Symbol de la acción (`AccionAnclada.simbolo`).
-    let simbolo: String?
+    /// El glifo de la acción (`AccionAnclada.glifo`).
+    let glifo: GlifoDia
     /// El glifo va detrás («Ver lo de mañana →») salvo el play, que va delante («▶ Empezar»).
     let glifoAlFinal: Bool
     /// Mientras se reintenta: el glifo gira y no se puede pulsar dos veces.
@@ -24,67 +24,37 @@ struct AccionAncladaPlan<Opciones: View>: View {
     let alTocar: () -> Void
     @ViewBuilder let menu: () -> Opciones
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private static var alto: CGFloat { 56 }
-
     var body: some View {
         HStack(spacing: Theme.Spacing.m) {
-            Button(action: { Haptics.medium(); alTocar() }) {
-                HStack(spacing: Theme.Spacing.m - 2) {
-                    if !glifoAlFinal { glifo }
-                    Text(enCurso ? "Reintentando" : texto)
-                        .papel(.accion)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-                    if glifoAlFinal { glifo }
-                }
-                .foregroundStyle(Theme.Color.background)
-                .padding(.horizontal, 22)
-                .frame(maxWidth: .infinity, minHeight: Self.alto)
-                .background(Theme.Color.foreground, in: Capsule())
-                .contentShape(Capsule())
-            }
-            .buttonStyle(PressScaleStyle(escala: 0.98))
-            .disabled(enCurso)
-            .accessibilityLabel(enCurso ? "Reintentando" : texto)
+            BotonAccionDia(
+                enCurso ? "Reintentando" : texto,
+                glifo: glifo, completa: true, alto: Theme.Size.accionAnclada,
+                glifoAlFinal: glifoAlFinal, enCurso: enCurso, impacto: .medio, accion: alTocar
+            )
             if conMenu {
-                MenuPlan(etiqueta: "Más acciones de esta sesión", opciones: menu) {
-                    ChapitaDia(.puntos, tam: Self.alto)
+                MenuDia(etiqueta: "Más acciones de esta sesión", opciones: menu) {
+                    ChapitaDia(.puntos, tam: Theme.Size.accionAnclada)
                         .contentShape(Circle())
                 }
             }
-        }
-    }
-
-    @ViewBuilder
-    private var glifo: some View {
-        if let simbolo {
-            Image(systemName: simbolo)
-                .font(.system(size: 20, weight: .bold))
-                .accessibilityHidden(true)
-                .rotationEffect(.degrees(enCurso ? 360 : 0))
-                .animation(
-                    enCurso && !reduceMotion ? .linear(duration: 0.78).repeatForever(autoreverses: false) : .default,
-                    value: enCurso)
         }
     }
 }
 
 extension AccionAnclada {
     /// El glifo de cada acción: el play va delante de «Empezar»; el resto, una flecha que sigue (o lo que la
-    /// idea pide: reintentar, escribir). Los del kit, con el nombre que el kit les da.
-    var simbolo: String {
+    /// idea pide: reintentar, escribir).
+    var glifo: GlifoDia {
         switch self {
-        case .empezar:         return GlifoPlan.empezar.rawValue
-        case .reintentar:      return GlifoDia.reintentar.simbolo
-        case .escribirAlCoach: return GlifoDia.chat.simbolo
-        default:               return GlifoDia.flecha.simbolo
+        case .empezar:         return .play
+        case .reintentar:      return .reintentar
+        case .escribirAlCoach: return .chat
+        default:               return .flecha
         }
     }
 
     /// El glifo va detrás salvo el play, que va delante («▶ Empezar»).
-    var simboloAlFinal: Bool {
+    var glifoAlFinal: Bool {
         if case .empezar = self { return false }
         return true
     }
@@ -141,7 +111,7 @@ struct FilaSesionPlan<Opciones: View>: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(sesion.franja), \(sesion.title), \(estado.etiqueta). \(meta)")
             .accessibilityAddTraits(.isButton)
-            MenuPlan(etiqueta: "Acciones de \(sesion.title)", opciones: menu) {
+            MenuDia(etiqueta: "Acciones de \(sesion.title)", opciones: menu) {
                 IconoDia(.puntos, tam: 22, peso: .bold)
                     .foregroundStyle(Theme.Color.muted)
                     .frame(width: Theme.Size.toque)
@@ -149,9 +119,7 @@ struct FilaSesionPlan<Opciones: View>: View {
                     .contentShape(Rectangle())
             }
         }
-        .background(Theme.Color.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous).strokeBorder(Theme.Color.hairline, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
+        .tarjetaDia()
     }
 }
 
@@ -161,8 +129,8 @@ struct AccionAncladaPlanEsqueleto: View {
 
     var body: some View {
         HStack(spacing: Theme.Spacing.m) {
-            SkeletonBar(height: 56, radius: 28)
-            if conMenu { SkeletonBar(width: 56, height: 56, radius: 28) }
+            SkeletonBar(height: Theme.Size.accionAnclada, radius: Theme.Size.accionAnclada / 2)
+            if conMenu { SkeletonBar(width: Theme.Size.accionAnclada, height: Theme.Size.accionAnclada, radius: Theme.Size.accionAnclada / 2) }
         }
         .accessibilityHidden(true)
     }

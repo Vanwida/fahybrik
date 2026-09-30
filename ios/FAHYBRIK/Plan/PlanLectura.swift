@@ -298,18 +298,3 @@ func tituloDeSemana(_ posicion: PosicionEnBloque?, offset: Int) -> String {
     return "En \(offset) semanas"
 }
 
-/// El título del sujeto baja un escalón en vez de partirse en cinco líneas. El más pequeño sigue
-/// siendo el sujeto: manda sobre todo lo demás.
-enum EscalonDeTitulo: CGFloat {
-    case grande = 44
-    case medio = 36
-    case chico = 30
-
-    init(titulo: String) {
-        switch titulo.count {
-        case ...24: self = .grande
-        case ...40: self = .medio
-        default:    self = .chico
-        }
-    }
-}

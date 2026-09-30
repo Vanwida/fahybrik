@@ -40,7 +40,7 @@ struct TarjetaCarreraPlan: View {
                 }
             }
             .padding(18)
-            .tarjetaPlan()
+            .tarjetaDia(alAncho: true)
         }
     }
 
@@ -81,7 +81,7 @@ struct TarjetaSinCarreraPlan: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
             .frame(minHeight: 84)
-            .tarjetaPlan()
+            .tarjetaDia(alAncho: true)
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleStyle())
@@ -113,7 +113,7 @@ struct TarjetaVo2Plan: View {
                     .papel(.nota).foregroundStyle(Theme.Color.muted)
             }
             .padding(18)
-            .tarjetaPlan()
+            .tarjetaDia(alAncho: true)
             .accessibilityElement(children: .combine)
         }
     }
@@ -136,7 +136,7 @@ struct TarjetaImportarPlan: View {
                 IconoDia(.flecha, tam: 20, peso: .bold).foregroundStyle(Theme.Color.accentText)
             }
             .padding(EdgeInsets(top: 16, leading: 20, bottom: 16, trailing: 18))
-            .tarjetaPlan()
+            .tarjetaDia(alAncho: true)
             .overlay(alignment: .leading) { Rectangle().fill(Theme.Color.accent).frame(width: 4) }
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
             .contentShape(Rectangle())
@@ -189,7 +189,7 @@ struct TarjetaArranquePlan: View {
                     .accessibilityAddTraits(.isButton)
                 }
             }
-            .tarjetaPlan()
+            .tarjetaDia(alAncho: true)
         }
     }
 }
@@ -216,7 +216,7 @@ struct TarjetaCatalogoCaidoPlan: View {
             .disabled(reintentando)
         }
         .padding(18)
-        .tarjetaPlan()
+        .tarjetaDia(alAncho: true)
     }
 }
 
@@ -293,7 +293,7 @@ struct TarjetaSemanaBloqueadaPlan: View {
                     .accessibilityHidden(bloqueada)
                 }
                 HStack(spacing: Theme.Spacing.s) {
-                    SimboloPlan(glifo: .candado, tam: 16, peso: .semibold)
+                    IconoDia(.candado, tam: 16, peso: .semibold)
                     Text(semana.base).papel(.notaFuerte).multilineTextAlignment(.center)
                 }
                 .foregroundStyle(Theme.Color.muted)
@@ -301,7 +301,7 @@ struct TarjetaSemanaBloqueadaPlan: View {
                 .padding(.top, 10)
             }
             .padding(EdgeInsets(top: 6, leading: 18, bottom: 14, trailing: 18))
-            .tarjetaPlan()
+            .tarjetaDia(alAncho: true)
         }
     }
 }
@@ -382,7 +382,7 @@ struct TarjetaMarcasPlan: View {
                     }
                 }
             }
-            .tarjetaPlan()
+            .tarjetaDia(alAncho: true)
         }
     }
 }
@@ -408,19 +408,12 @@ struct TarjetaConversionPlan: View {
             }
             Text("Estos números son tuyos y son gratis. Lo que cuesta es decidir qué hacer con ellos cada semana: eso lo hace un coach.")
                 .papel(.cuerpo).foregroundStyle(Theme.Color.foreground)
-            Button(action: { Haptics.medium(); alHablar() }) {
-                Text("Hablar con un coach")
-                    .papel(.accion)
-                    .foregroundStyle(Theme.Color.background)
-                    .frame(maxWidth: .infinity, minHeight: 52)
-                    .background(Theme.Color.foreground, in: Capsule())
-            }
-            .buttonStyle(PressScaleStyle(escala: 0.98))
+            BotonAccionDia("Hablar con un coach", completa: true, impacto: .medio, accion: alHablar)
             Text("Sin compromiso · eliges tú el hueco")
                 .papel(.nota).foregroundStyle(Theme.Color.muted).frame(maxWidth: .infinity)
         }
         .padding(18)
-        .tarjetaPlan()
+        .tarjetaDia(alAncho: true)
     }
 }
 

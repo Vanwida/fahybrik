@@ -53,7 +53,7 @@ struct SemanaPropiaPlan<OpcionesSesion: View, OpcionesDia: View>: View {
                 if let dia { panel(dia) }
             }
             .padding(EdgeInsets(top: 12, leading: 12, bottom: 6, trailing: 12))
-            .tarjetaPlan()
+            .tarjetaDia(alAncho: true)
             if conBoton {
                 Button(action: { Haptics.medium(); alProgramar() }) {
                     HStack(spacing: 10) {
@@ -126,7 +126,7 @@ private struct FilaDelDiaPlan<Opciones: View>: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(sesion.title), \(estado == .saltada ? "sin hacer" : estado.trabajada ? "hecha" : "por hacer")")
             .accessibilityAddTraits(.isButton)
-            MenuPlan(etiqueta: "Acciones de \(sesion.title)", opciones: menu) {
+            MenuDia(etiqueta: "Acciones de \(sesion.title)", opciones: menu) {
                 IconoDia(.puntos, tam: 22, peso: .bold)
                     .foregroundStyle(Theme.Color.muted)
                     .frame(width: Theme.Size.toque)
