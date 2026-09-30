@@ -2,9 +2,11 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-30** (reloj: voz, deshacer y respaldo FH-56; complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: fuerza, ergo y correr en la cara nueva, entrada nueva y lanzamiento automático; modelo del reloj Garmin)
+Última actualización: **2026-09-30** (reloj: correr es correr, F6; reloj: voz, deshacer y respaldo FH-56; complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: fuerza, ergo y correr en la cara nueva, entrada nueva y lanzamiento automático; modelo del reloj Garmin)
 
 ## Ahora
+
+**RELOJ · CORRER ES CORRER, F6 (30-09, rama `reloj-lote2-f6` sobre `reloj-lote2-voz`, sin fusionar; DECISIONS 30-09).** Sin puerta del calentamiento a las series (dato del coach `gate`, ya dentro del plan), final natural con pantalla («Sesión completada», Guardar / Seguir) y completitud por lo hecho (`Vivo+Completitud`, también en el móvil), RPE en la corona que viaja en la ejecución y va a Salud como esfuerzo, resumen de corredor con guardado honesto, «GPS listo» en el brief, ruta a Salud y «¿Dónde corres?» una vez. Build limpio; falta aparato (corona, GPS listo, ruta y esfuerzo en Salud, preaviso y 3-2-1 al pasar a las series). Fuera: desnivel por km, resumen de circuito, arrancar solo al fijar el GPS.
 
 **RELOJ · LOTE 2: VOZ, DESHACER 5 s, RESPALDO FH-56 (30-09, rama `reloj-lote2-voz`, sin fusionar; DECISIONS 30-09).** La muñeca habla a los auriculares (`WatchVoz`, solo con salida externa; el móvil calla la suya con `vozMuneca`), deshacer el cierre de un tramo de correr en el motor y en la pila (píldora en el pie), y si Apple rechaza re-espejar la sesión recuperada, termina guardando y empieza una espejada. La vuelta automática pasa a clase `auto` (contrato shared). Falta aparato: audio a AirPods y ducking, latencia del `undo`, rechazo real de Apple, y `Objetivo.escala` / `Zonas.procedencia` sin modelar en Swift.
 
