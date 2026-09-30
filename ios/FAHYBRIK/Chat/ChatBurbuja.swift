@@ -122,32 +122,52 @@ struct FilaMensajeChat: View {
     private var pie: some View {
         let pie = PieMensajeChat.de(mensaje, coach: coach)
         if pie.fallido {
-            HStack(spacing: Theme.Spacing.s) {
-                // El peligro va en la marca (el triángulo), jamás en el texto.
-                IconoChat(.alerta, tam: 16)
-                    .foregroundStyle(Theme.Color.danger)
-                Text(pie.texto)
-                    .papel(.nota)
-                    .foregroundStyle(Theme.Color.muted)
-                Button {
-                    Haptics.light()
-                    onRetry?()
-                } label: {
-                    Text("Reintentar")
-                        .papel(.rotulo)
-                        .foregroundStyle(Theme.Color.foreground)
-                        .underline()
-                        .padding(.horizontal, Theme.Spacing.s)
-                        .frame(minHeight: Theme.Size.toque)
-                        .contentShape(Rectangle())
+            // Con el texto del sistema muy grande la marca + la palabra + el botón no caben en una línea: el botón
+            // baja debajo en vez de truncarse.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Theme.Spacing.s) {
+                    avisoDeCaida(pie.texto)
+                    botonReintentar
                 }
-                .buttonStyle(PressScaleStyle(escala: 0.96))
+                VStack(alignment: .trailing, spacing: 0) {
+                    avisoDeCaida(pie.texto)
+                    botonReintentar
+                }
             }
         } else {
             Text(pie.texto)
                 .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
         }
+    }
+
+    /// El peligro va en la marca (el triángulo), jamás en el texto.
+    private func avisoDeCaida(_ texto: String) -> some View {
+        HStack(spacing: Theme.Spacing.s) {
+            IconoChat(.alerta, tam: 16)
+                .foregroundStyle(Theme.Color.danger)
+            Text(texto)
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+    }
+
+    private var botonReintentar: some View {
+        Button {
+            Haptics.light()
+            onRetry?()
+        } label: {
+            Text("Reintentar")
+                .papel(.rotulo)
+                .foregroundStyle(Theme.Color.foreground)
+                .underline()
+                .fixedSize(horizontal: true, vertical: false)
+                .padding(.horizontal, Theme.Spacing.s)
+                .frame(minHeight: Theme.Size.toque)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle(escala: 0.96))
     }
 
     // MARK: Burbuja

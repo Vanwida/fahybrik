@@ -93,6 +93,7 @@ struct TarjetaDeContexto: View {
                     .papel(.notaFuerte)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
                 // El dato de ahora. Es lo que se está discutiendo («4×5 · 80% · descanso 90 s»), así que va en la
                 // tarjeta y no detrás de un toque.
                 if let preview = ref.preview, !preview.isEmpty {
@@ -100,6 +101,7 @@ struct TarjetaDeContexto: View {
                         .papel(.nota)
                         .lineLimit(3)
                         .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
