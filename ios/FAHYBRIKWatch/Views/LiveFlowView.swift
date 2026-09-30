@@ -67,21 +67,14 @@ struct LiveFlowView: View {
         session.isRunStructureActive || session.currentSegment?.kind == .running
     }
 
-    // MARK: - Live area (gate · family · rest overlay)
+    // MARK: - Live area (gate · family)
 
     @ViewBuilder
     private var liveArea: some View {
-        Group {
-            if session.isAwaitingBlockStart {
-                BlockGateView(session: session)
-            } else {
-                familyView
-            }
-        }
-        .overlay {
-            if session.restRemainingSeconds > 0 {
-                RestBannerView(session: session)
-            }
+        if session.isAwaitingBlockStart {
+            BlockGateView(session: session)
+        } else {
+            familyView
         }
     }
 
@@ -121,13 +114,9 @@ struct LiveFlowView: View {
             EmomLiveView(session: session)
         } else if session.currentSegment?.fixedListIsStations == true {
             // Ruta / HYROX: el formato manda sobre la modalidad — un ski de
-            // estación es `GuionEstaciones`, no `GuionErgo`. Misma regla que
+            // estación es `GuionEstaciones`, no un ergo suelto. Misma regla que
             // `GuionDelEspejo.guionPara`.
             FixedLiveView(session: session)
-        } else if session.currentTramo.isErg {
-            // Ski / remo / bici: el sujeto son los metros (o cal) de la
-            // máquina, no el crono de pared ni `liveRunDistanceMeters`.
-            ErgoLiveView(session: session)
         } else if let presentation {
             switch presentation {
             // EMOM y las estaciones ya salieron arriba. Lo que queda de la
@@ -136,7 +125,9 @@ struct LiveFlowView: View {
             case .rotating:   RelojDeParedLiveView(session: session)
             case .fixed:      FixedLiveView(session: session)
             case .continuous: ContinuousLiveView(session: session)
-            case .setTable:   SetTableLiveView(session: session)
+            // La fuerza y el ergo con su ficha son de la pila nueva (`MunecaSolo`); lo que llega aquí
+            // no tiene ficha que pintar.
+            case .setTable:   GenericLiveView(session: session)
             case .list:       ChecklistLiveView(session: session)
             }
         } else {
@@ -201,52 +192,6 @@ private struct RelayLiveView: View {
                 return list
             }(),
             tinte: WatchTheme.orange
-        )
-    }
-}
-
-// MARK: - Ergo (standalone wrist)
-
-// El mismo `GuionErgo` que ya alimenta el espejo. El reloj no ve el PM5:
-// `estadoSolitario` lee el motor; sin samples de iPhone no hay metros.
-private struct ErgoLiveView: View {
-    let session: WorkoutSession
-
-    var body: some View {
-        WatchReloj(
-            paginas: paginas,
-            tinte: session.isCondCountIn
-                ? WatchTheme.orange
-                : WatchTinte.color(for: session.liveZone)
-        )
-    }
-
-    /// El 3-2-1 es del motor de condicionamiento (`isCondCountIn`), el mismo
-    /// que ya pinta `RelojDeParedLiveView`. Sin esto un intervals de ski
-    /// arrancaba el guion a medio resolver.
-    private var paginas: [WatchPagina] {
-        if session.isCondCountIn {
-            var list: [WatchPagina] = [
-                WatchPagina(
-                    id: "countin",
-                    contexto: session.currentTramo.label,
-                    modo: .ojeada,
-                    sujeto: WatchFormat.countdown(session.condCountInRemaining),
-                    tono: WatchTheme.orange
-                ),
-            ]
-            if let pulso = WatchPaginasComunes.pulso(
-                bpm: session.liveHRBpm,
-                zone: session.liveZone,
-                modo: .ojeada
-            ) {
-                list.append(pulso)
-            }
-            return list
-        }
-        return GuionErgo.paginas(
-            GuionErgo.estadoSolitario(session),
-            GuionErgo.gestosSolitario(session)
         )
     }
 }

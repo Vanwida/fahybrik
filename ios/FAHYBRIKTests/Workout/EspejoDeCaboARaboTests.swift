@@ -138,31 +138,4 @@ final class EspejoDeCaboARaboTests: XCTestCase {
         XCTAssertTrue(coach.first?.contexto.hasPrefix("Serie 1 / 3") == true,
                       "la serie del coach tiene que contar sus tres repeticiones")
     }
-
-    // MARK: - Fuerza
-
-    func testLaFuerzaEnseñaLaCargaDeLaSerieEnCursoYNoPideNadaDuranteLaSerie() throws {
-        let sets = (0..<4).map { _ in
-            PrescriptionSet(measure: .reps(10), target: .kg(value: 60, min: nil, max: nil),
-                            modality: .strength, restS: 90, tempo: nil, note: nil)
-        }
-        let rx = Prescription(scheme: .sets, modality: .strength, sets: sets, rounds: nil,
-                              workS: nil, restS: 90, totalS: nil, target: nil, note: nil,
-                              start: nil, increment: nil, structure: nil)
-        let seg = WorkoutSegment(order: 1, title: "Press banca", kind: .strength,
-                                 blockTitle: "Fuerza", blockPosition: 1, prescription: rx)
-        let s = WorkoutSession(plan: WorkoutPlan(
-            id: UUID(), name: "Fuerza", format: .sets, estimatedDurationSeconds: 900,
-            blockContext: "Fuerza", zoneTargets: [], equipment: [], segments: [seg],
-            coachNote: nil, demoVideoUrl: nil, warmupChecklist: []))
-        s.start(); s.beginBlock(); s.stop()
-
-        let primera = try XCTUnwrap(try paginasEnLaMuneca(s).first)
-        XCTAssertEqual(primera.sujeto, "60")
-        XCTAssertEqual(primera.unidad, "kg")
-        // Las dos manos en la barra: el reloj enuncia y espera. La oferta existe
-        // pero el lienzo la pinta atenuada porque el modo es ciego.
-        XCTAssertEqual(primera.modo, .ciego)
-        XCTAssertEqual(primera.nota, WatchNota.loDicesTu)
-    }
 }

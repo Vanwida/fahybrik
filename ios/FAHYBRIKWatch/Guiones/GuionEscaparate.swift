@@ -49,7 +49,7 @@ enum GuionEscaparate {
 
     // MARK: - El catálogo
 
-    static let casos: [Caso] = rodaje + series + fuerza + emom + ruta + ergo + espejoRodaje + munecaCorrer + munecaEspejo
+    static let casos: [Caso] = rodaje + series + emom + ruta + espejoRodaje + munecaCorrer + munecaEspejo
 
     // ── Rodaje ──────────────────────────────────────────────────────────────
     private static var rodaje: [Caso] {
@@ -152,29 +152,6 @@ enum GuionEscaparate {
         ]
     }
 
-    // ── Fuerza ──────────────────────────────────────────────────────────────
-    private static var fuerza: [Caso] {
-        [
-            Caso(
-                id: "fuerza-serie",
-                titulo: "Fuerza · 4×5 a 100 kg",
-                paginas: GuionFuerza.paginas(.init(
-                    serie: 3, totalSeries: 4, cargaKg: 100, reps: 5, rir: 2, rpe: nil,
-                    esfuerzo: nil, segundosEnSerie: 24, zonaViva: nil, bpm: 132)),
-                aroSeg: (total: 4, hechas: 2, fraccion: 0)
-            ),
-            // Ejecución 171: el coach no escribió carga. El sujeto pasa a ser las reps
-            // y no se pinta «— kg».
-            Caso(
-                id: "fuerza-sin-carga",
-                titulo: "Fuerza · sin carga escrita",
-                paginas: GuionFuerza.paginas(.init(
-                    serie: 2, totalSeries: 4, cargaKg: nil, reps: 10, rir: nil, rpe: nil,
-                    esfuerzo: nil, segundosEnSerie: 18, zonaViva: nil, bpm: 128))
-            ),
-        ]
-    }
-
     // ── EMOM ────────────────────────────────────────────────────────────────
     private static var emom: [Caso] {
         // Ejecución 177: ski y bici alternos, 45 s de trabajo y 15 de parada.
@@ -249,41 +226,6 @@ enum GuionEscaparate {
                     ruta: [run, sled, run, wall], estacion: 3,
                     cronoS: 4_200, enEstacionS: 90)),
                 aroSeg: (total: 4, hechas: 3, fraccion: 0)
-            ),
-        ]
-    }
-
-    // ── Ergo ────────────────────────────────────────────────────────────────
-    private static var ergo: [Caso] {
-        [
-            // Hoy es el 100 % de los casos: ningún PM5 llega a la app. Sin monitor
-            // no hay metros ni /500 — quedan el pulso y el crono, y cierras tú.
-            Caso(
-                id: "ergo-sin-maquina",
-                titulo: "Ergo · sin monitor emparejado",
-                paginas: GuionErgo.paginas(.init(
-                    fase: .remando, serie: 2, totalSeries: 8, tramoM: 500,
-                    maquina: false, hechosM: nil, ritmoSec500: nil,
-                    segundosEnFase: 74, quedaDescansoS: nil, zonaViva: nil, bpm: 164)),
-                aroSeg: (total: 8, hechas: 1, fraccion: 0)
-            ),
-            Caso(
-                id: "ergo-con-maquina",
-                titulo: "Ergo · 8×500 con el PM5 emparejado",
-                paginas: GuionErgo.paginas(.init(
-                    fase: .remando, serie: 3, totalSeries: 8, tramoM: 500,
-                    maquina: true, hechosM: 318, ritmoSec500: 115,
-                    segundosEnFase: 73, quedaDescansoS: nil, zonaViva: .z4, bpm: 169)),
-                tinte: WatchTinte.color(for: .z4), aroSeg: (total: 8, hechas: 2, fraccion: 0.64)
-            ),
-            Caso(
-                id: "ergo-descanso",
-                titulo: "Ergo · descanso entre series",
-                paginas: GuionErgo.paginas(.init(
-                    fase: .descanso, serie: 4, totalSeries: 8, tramoM: 500,
-                    maquina: true, hechosM: 500, ritmoSec500: 114,
-                    segundosEnFase: 46, quedaDescansoS: 74, zonaViva: nil, bpm: 142)),
-                tinte: WatchTheme.zoneGreen, aro: 0.62
             ),
         ]
     }
