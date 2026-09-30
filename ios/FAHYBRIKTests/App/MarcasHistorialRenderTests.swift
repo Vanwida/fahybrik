@@ -30,24 +30,28 @@ final class MarcasHistorialRenderTests: XCTestCase {
     func testMarcasReciénDadoDeAltaEsUnaInvitacionPorFilaYNingunGuion() {
         let marcas = catalogo(conRecord: 0)
         XCTAssertEqual(
-            MarcasGrupos.estado(marcas[0]),
-            .vacio(invitacion: "Aún sin marca · ~4:00"),
+            FilaDeMarca.desde(marcas[0]).estado,
+            .sinMarca(invitacion: "Aún sin marca · ~4:00"),
             "sin marca la prueba es el sujeto de su fila; el guion se fue (§7)"
         )
-        let imagen = render(MarcasGrupos(marks: marcas, bearer: nil),
-                            nombre: "marcas-alta", alto: 1020)
+        let imagen = render(
+            MarcasBibliotecaCuerpo(estado: .datos, grupos: GrupoDeMarcas.desde(marcas), bearer: nil, alReintentar: {}),
+            nombre: "marcas-alta", alto: 1020
+        )
         XCTAssertNotNil(imagen, "la biblioteca tiene que renderizar sin una sola marca")
     }
 
     @MainActor
     func testMarcasConRecordsPintaElTiempoMasGrandeQueSuEtiqueta() {
         let marcas = catalogo(conRecord: 3)
-        guard case let .valor(cifra, _, _) = MarcasGrupos.estado(marcas[0]) else {
+        guard case let .marca(cifra, _) = FilaDeMarca.desde(marcas[0]).estado else {
             return XCTFail("la marca con récord tiene que traer cifra")
         }
         XCTAssertEqual(cifra, "3:52")
-        let imagen = render(MarcasGrupos(marks: marcas, bearer: nil),
-                            nombre: "marcas-con-datos", alto: 1020)
+        let imagen = render(
+            MarcasBibliotecaCuerpo(estado: .datos, grupos: GrupoDeMarcas.desde(marcas), bearer: nil, alReintentar: {}),
+            nombre: "marcas-con-datos", alto: 1020
+        )
         XCTAssertNotNil(imagen)
     }
 
