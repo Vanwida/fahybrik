@@ -449,6 +449,7 @@
 		5C5A4C3460A5EC99107620B6 /* JumpPhysicsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90C672BA83CF76E3045D74F6 /* JumpPhysicsTests.swift */; };
 		5CE417C8FEC34AA39B41F187 /* AppleWatchWorkoutScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C4B6224AB36A77D17B8DC9B /* AppleWatchWorkoutScheduler.swift */; };
 		5D4101AA7F659FA1AC07C97A /* WorkoutSessionAutoPauseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2A08F21330D14F046C8981 /* WorkoutSessionAutoPauseTests.swift */; };
+		5D79C30A88C3064C78EF076B /* DoblesGaleriaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77B3A7DB3A97DDB17EC0E97A /* DoblesGaleriaTests.swift */; };
 		5DA60C5DC3CE4CFF6A27384B /* VivoFuerzaMotor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D1F60D095CDD920BBD614EB /* VivoFuerzaMotor.swift */; };
 		5DBFFF82BFD3ED04BE481161 /* PhoneMirrorDoubleBeginTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13A860664538B75DD8F5A5CC /* PhoneMirrorDoubleBeginTests.swift */; };
 		5DC678E45B8C4CF4FF029307 /* TextosCarreras.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01EA80A68CA3C40DDEF33833 /* TextosCarreras.swift */; };
@@ -1759,6 +1760,7 @@
 		75E1C4F19B8E3109A92DB3A3 /* AnaliticasSujetoEstadoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnaliticasSujetoEstadoTests.swift; sourceTree = "<group>"; };
 		761CB7573BA0E60BEFB80578 /* MachineTramoLawTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineTramoLawTests.swift; sourceTree = "<group>"; };
 		772888F6C929C0B9D186BB8C /* detalle-ski-lleno-12s.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "detalle-ski-lleno-12s.json"; sourceTree = "<group>"; };
+		77B3A7DB3A97DDB17EC0E97A /* DoblesGaleriaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoblesGaleriaTests.swift; sourceTree = "<group>"; };
 		7809BD3606162F2767E3FD3C /* CoreMotion.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMotion.framework; path = System/Library/Frameworks/CoreMotion.framework; sourceTree = SDKROOT; };
 		7831A459ACF982E946D9C459 /* AppleAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAuthService.swift; sourceTree = "<group>"; };
 		785016334244E8DFD29E3C35 /* ErgCounterPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErgCounterPolicy.swift; sourceTree = "<group>"; };
@@ -3653,6 +3655,7 @@
 		A2AE9E7BA0D8A63B0FD07273 /* Dobles */ = {
 			isa = PBXGroup;
 			children = (
+				77B3A7DB3A97DDB17EC0E97A /* DoblesGaleriaTests.swift */,
 				F9089B8E40B6C70E41A6050B /* DoblesJointTests.swift */,
 				D34C2FEC792DD508749F2A0A /* DoblesLiveTests.swift */,
 				A12A56769ECDC19E3A27146E /* DoblesRaceGapTests.swift */,
@@ -5609,6 +5612,7 @@
 				240C193EF3EEB66D09361536 /* DiaKitTests.swift in Sources */,
 				CDF22E184CADCF6BC556C2D4 /* DiagnosticsLogTests.swift in Sources */,
 				169C54EAA4018A2F1D6A4C99 /* DiagnosticsUploaderTests.swift in Sources */,
+				5D79C30A88C3064C78EF076B /* DoblesGaleriaTests.swift in Sources */,
 				94A61F86D7A0AB68E781446C /* DoblesJointTests.swift in Sources */,
 				0A47012186ECD797C9984FED /* DoblesLiveTests.swift in Sources */,
 				C65CF4FAD6FA954D539828A9 /* DoblesRaceGapTests.swift in Sources */,
