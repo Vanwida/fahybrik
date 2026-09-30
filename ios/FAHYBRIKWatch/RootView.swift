@@ -20,12 +20,6 @@ struct RootView: View {
     /// WorkoutStateStore actor whenever the day changes; nil clears the offer.
     @State private var recoverable: PersistedWorkoutState? = nil
 
-    /// FH-30: pager index for the live flow. Lives on RootView (not coordinator,
-    /// not LiveFlowView) so the page survives view remounts (solo↔mirror) without
-    /// polluting the HK motor. Default Vivo (1) on mount; only the athlete's
-    /// finger or the TabView Binding set writes it.
-    @State private var livePage = 1
-
     /// La página de reposo que se ve (cómo llegas ▸ lo de hoy). La complicación de la esfera y
     /// el widget del Smart Stack abren la app con un enlace que la pone en lo de hoy: un toque,
     /// el brief con su «Empezar». Sin enlace, la primera, como siempre.
@@ -80,7 +74,7 @@ struct RootView: View {
         switch coordinator.phase {
         case .active:
             if let session = coordinator.session {
-                LiveFlowView(session: session, page: $livePage)
+                LiveFlowView(session: session)
             }
         case .finished:
             if let session = coordinator.session {

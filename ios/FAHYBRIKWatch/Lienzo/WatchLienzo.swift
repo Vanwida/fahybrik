@@ -14,8 +14,9 @@ import SwiftUI
 //     un botón de 52 pt que robe altura al numeral.
 //
 // Aquí queda sólo lo que PINTA. El MODELO (`WatchModo`, `WatchPagina`,
-// `WatchTinte`, `WatchSujeto`…) vive en `FAHYBRIK/Watch/Lienzo/`, compilado
-// también en iOS para que los guiones se puedan testear desde FAHYBRIKTests.
+// `WatchTinte`, `WatchSujeto`…) vive en `FAHYBRIKCore/Watch/Lienzo/`. Hoy lo pinta
+// la pantalla de resumen (`SummaryView`); el entreno en vivo es de la pila de la
+// muñeca (`Muneca/`).
 
 // MARK: - Lienzo Reloj
 
@@ -24,16 +25,8 @@ struct WatchReloj: View {
     let paginas: [WatchPagina]
     /// Color de zona o de estado (recuperación). Nil = fondo negro, sin tinte.
     let tinte: Color?
-    /// Un lienzo PROPIO en vez del tinte plano. Lo usa la página de zona, cuyo
-    /// fondo no es un color sino un dato: la pantalla se llena del color de tu
-    /// zona conforme te acercas a la siguiente. Cuando viene, `tinte` se ignora —
-    /// los dos pintan lo mismo y superponerlos ensuciaría el hue.
-    var fondo: AnyView? = nil
-    var bisel: AnyView? = nil
-    var destello: WatchDestello = WatchDestello()
 
     @State private var indice = 0
-    @State private var destelloOpacity: Double = 0
     @State private var dragOffset: CGFloat = 0
 
     /// LA MUÑECA BAJADA — el estado que decide si esta app sirve para entrenar.
@@ -58,7 +51,6 @@ struct WatchReloj: View {
     /// primera — mientras que el toque de «serie hecha» sigue funcionando, que es
     /// justo el que hace falta con el brazo abajo.
     @Environment(\.isLuminanceReduced) private var atenuado
-    @State private var golpe: CGFloat = 1
 
     private var paginaActiva: WatchPagina {
         guard !paginas.isEmpty else {
@@ -73,18 +65,12 @@ struct WatchReloj: View {
         GeometryReader { geo in
             ZStack {
                 WatchTheme.bg.ignoresSafeArea()
-                if let fondo, !atenuado {
-                    // El lienzo de zona sustituye al tinte, no se suma: los dos
-                    // pintan lo mismo y superponerlos ensuciaría el hue.
-                    fondo.ignoresSafeArea()
-                } else if let tinte, !atenuado {
+                if let tinte, !atenuado {
                     tinte.opacity(WatchTinte.maxOpacity)
                         .ignoresSafeArea()
                         .animation(.easeInOut(duration: 0.7), value: tinte.description)
                 }
                 // Degradado OLED: aire arriba/abajo, sujeto legible en el centro.
-                // Rodaje (FH-30) pinta su viñeta plana en RodajeMarco, no aquí:
-                // EMOM / fuerza / ergo no son la lámina de correr.
                 LinearGradient(
                     colors: [
                         Color.black,
@@ -101,15 +87,7 @@ struct WatchReloj: View {
                 .opacity(atenuado ? 0.75 : 0.55)
                 .ignoresSafeArea()
 
-                if let bisel { bisel.ignoresSafeArea() }
-
                 contenido(size: geo.size)
-
-                // Destello de transición.
-                destello.color
-                    .opacity(destelloOpacity)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
             }
         }
         // EL FONDO va a sangre; EL CONTENIDO no. En watchOS la franja superior no
@@ -117,12 +95,6 @@ struct WatchReloj: View {
         // puede quitar. El safe area superior existe justo para eso, y al ignorarlo
         // la banda de contexto se metía DEBAJO de «10:59» y no se leía ninguna de
         // las dos. Se ignora sólo para pintar el color hasta el borde.
-        .onChange(of: destello.n) { _, _ in
-            guard destello.n > 0, !atenuado else { return }
-            destelloOpacity = 0.55
-            withAnimation(.easeOut(duration: 0.45)) { destelloOpacity = 0 }
-            WatchHaptics.transition()
-        }
         .onChange(of: paginas.count) { _, _ in
             if indice >= paginas.count { indice = max(0, paginas.count - 1) }
         }
@@ -166,16 +138,6 @@ struct WatchReloj: View {
                         .foregroundStyle(p.tono)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
-                        // EL LATIDO. Un golpe de escala de 340 ms cuando `p.latido`
-                        // cambia — nunca al montar la página, sólo al CAMBIAR: si
-                        // disparara con el primer valor puesto, la ronda 1 de un
-                        // tabata pulsaría sin que hubiera pasado nada todavía.
-                        .scaleEffect(golpe)
-                        .onChange(of: p.latido) { _, _ in
-                            golpe = 1
-                            withAnimation(.easeOut(duration: 0.18)) { golpe = 1.14 }
-                            withAnimation(.easeOut(duration: 0.16).delay(0.18)) { golpe = 1 }
-                        }
                     if let u = p.unidad {
                         Text(u)
                             .font(.system(size: alto * 0.30, weight: .heavy).monospacedDigit())
@@ -374,53 +336,6 @@ private extension View {
                 }
         } else {
             self
-        }
-    }
-}
-
-// MARK: - El lienzo de ZONA
-//
-// EL COLOR COMO DATO, no como decoración. Idea de Alex (8-ago, tras salir a
-// hacer series): la zona en grande, cada zona con su color, y la pantalla
-// llenándose de ese color en degradado hacia el de la siguiente conforme te
-// acercas.
-//
-// Por qué funciona corriendo: «Z3» a 145 y a 158 pone lo mismo, y uno de los
-// dos está a un latido de irse a Z4. La ALTURA del relleno es esa diferencia, y
-// su borde superior deriva hacia el hue de la zona siguiente — así que el
-// atleta sabe si está entrando o saliendo sin enfocar la vista en una cifra. Al
-// cruzar, el lienzo cambia de color y el relleno vuelve abajo: el salto ES el
-// aviso, y no cuesta ni una línea de texto.
-//
-// En la ÚLTIMA zona no hay hacia dónde derivar y el degradado se queda en su
-// propio color: inventar un sexto hue prometería una zona que no existe.
-struct WatchLienzoZona: View {
-    let posicion: HRZoneProfile.Posicion
-
-    /// El relleno nunca desaparece del todo: al entrar en una zona por abajo hay
-    /// que poder ver QUÉ zona es, no un lienzo negro.
-    private static let altoMinimo: Double = 0.12
-    /// A sangre pura el numeral blanco se pierde sobre el ámbar; a este tope
-    /// el hue se lee y el texto se mantiene por encima de 4.5:1.
-    private static let opacidad: Double = 0.55
-    /// No se mezcla al 100 %: el borde tiene que leerse como el PASO hacia la
-    /// siguiente zona, no como si ya estuvieras en ella.
-    private static let derivaMax: Double = 0.85
-
-    var body: some View {
-        let mio = WatchTheme.zoneHex(posicion.zona)
-        let desde = WatchTheme.hex(mio)
-        let hasta = posicion.siguiente.map { WatchTheme.mezcla(mio, WatchTheme.zoneHex($0), Self.derivaMax) }
-            ?? desde
-        GeometryReader { geo in
-            ZStack(alignment: .bottom) {
-                WatchTheme.bg
-                LinearGradient(colors: [desde, hasta], startPoint: .bottom, endPoint: .top)
-                    .frame(height: geo.size.height * max(Self.altoMinimo, posicion.fraccion))
-                    .opacity(Self.opacidad)
-                    .animation(.easeInOut(duration: 0.7), value: posicion.fraccion)
-                    .animation(.easeInOut(duration: 0.7), value: posicion.zona)
-            }
         }
     }
 }

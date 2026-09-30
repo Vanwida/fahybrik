@@ -469,7 +469,7 @@ struct VivoIphoneView: View {
             return
         case .empezarYa where session.rotPhase == .rest && session.rotPhaseRemaining > 0 && session.currentSegment?.formatScheme == .tabata:
             // El descanso del tabata se corta en el siguiente tic del motor, con su tono de trabajo.
-            session.rotPhaseRemaining = Swift.min(session.rotPhaseRemaining, 0.01)
+            session.rotPhaseRemaining = Swift.min(session.rotPhaseRemaining, Vivo.cortaDescansoRotativoS)
             return
         default:
             break

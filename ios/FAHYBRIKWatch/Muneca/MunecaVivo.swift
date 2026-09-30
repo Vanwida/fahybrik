@@ -152,12 +152,13 @@ struct MunecaVivo: View {
     private var centro: some View {
         ZStack {
             MunecaFondo(tinte: cuadro.tinte).ignoresSafeArea()
-            // Las páginas las dice el cuadro (correr 4, fuerza 3, ergo 4; con un dato enfocado, una sola).
+            // Las páginas las dice el cuadro (correr 4, fuerza 3, ergo 4, WOD y circuito las suyas; con un dato enfocado, una sola).
             TabView(selection: paginaVisible) {
                 ForEach(cuadro.paginas, id: \.self) { p in paginaVista(p).tag(p) }
             }
             .tabViewStyle(.verticalPage)
-            .munecaCorona(cuadro.corona, alGirar: mandos.anotar?.girar)
+            .munecaCorona(activa: cuadro.corona != nil || cuadro.coronaPuntuacion,
+                          alGirar: cuadro.coronaPuntuacion ? mandos.puntuar : mandos.anotar?.girar)
             .opacity(cuadro.pausado ? MunecaForma.opacidadPausa : cuadro.tinta)
             .accessibilityLabel(pagina.titulo)
 

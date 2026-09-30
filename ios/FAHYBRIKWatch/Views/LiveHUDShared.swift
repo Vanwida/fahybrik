@@ -1,10 +1,8 @@
 import SwiftUI
 
-// Shared display atoms for the live workout HUDs — the giant numeral, the tracked
-// label, the status header, the big-tap primary button, the HR pill, the small
-// metric tile, and the full-bleed transition interstitial. Every live screen is
-// composed from these so hierarchy, sizing and color stay identical across the 5
-// format families (design: CLARO · GRANDE · ≤4 métricas · pantalla = botón).
+// Shared display atoms for the wrist screens the new stack does not paint — the block gate, the
+// warm-up checklist and the mirror's gate / list / saving overlays: the giant numeral, the tracked
+// label, the status header, the big-tap primary button, the HR pill and the scaffold.
 
 // MARK: - Giant numeral
 
@@ -139,132 +137,6 @@ struct HRPill: View {
         // VoiceOver leyendo «raya» es la misma mentira que pintarla.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(bpm.map { "\(Vocab.fc), \($0) \(Vocab.ppm)" } ?? "\(Vocab.fc), \(ausente)")
-    }
-}
-
-// MARK: - Metric tile
-
-/// One small secondary metric (DIST / FC / KCAL / CARGA …). Up to three sit in a
-/// row under the hero; the hero always dominates.
-///
-/// `ausente` es el §7 hecho pieza, igual que `ApoyoVivo` y `ExpertCell` en el
-/// teléfono: sin medida no se pinta el hueco, se pinta la RAZÓN. La celda nació sin
-/// estado ausente y por eso cada llamante se inventaba su propio `?? "—"`.
-struct MetricTile: View {
-    let label: String
-    /// Nil = no hay medida. No se pinta el hueco: se pinta el porqué.
-    let value: String?
-    var unit: String? = nil
-    /// Lo que se dice cuando el valor no existe («buscando pulso»).
-    var ausente: String? = nil
-
-    var body: some View {
-        VStack(spacing: 1) {
-            WatchLabel(text: label)
-                .font(.system(size: 8.5, weight: .heavy))
-            if let value {
-                HStack(alignment: .lastTextBaseline, spacing: 1) {
-                    Text(value)
-                        .font(.system(size: 16, weight: .heavy).monospacedDigit())
-                        .foregroundStyle(WatchTheme.ink)
-                    if let unit {
-                        Text(unit)
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(WatchTheme.dim)
-                    }
-                }
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            } else {
-                Text(ausente ?? "sin medir")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(WatchTheme.dim)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
-        .background(WatchTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-        // VoiceOver leyendo «raya» es la misma mentira que pintarla.
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(textoAccesible)
-    }
-
-    private var textoAccesible: String {
-        guard let value else { return "\(label), \(ausente ?? "sin medir")" }
-        guard let unit else { return "\(label), \(value)" }
-        return "\(label), \(value) \(unit)"
-    }
-}
-
-// MARK: - Set progress dots
-
-/// The 5×5 set-progress row: done (green) · current (orange) · pending (gray).
-struct SetDots: View {
-    let total: Int
-    let currentIndex: Int
-    /// Set indices already confirmed as done.
-    let doneIndices: Set<Int>
-
-    var body: some View {
-        HStack(spacing: 5) {
-            ForEach(0..<max(0, total), id: \.self) { i in
-                Circle()
-                    .fill(color(for: i))
-                    .frame(width: 9, height: 9)
-            }
-        }
-    }
-
-    private func color(for i: Int) -> Color {
-        if doneIndices.contains(i) { return WatchTheme.zoneGreen }
-        if i == currentIndex { return WatchTheme.orange }
-        return WatchTheme.surfaceRaised
-    }
-}
-
-// MARK: - Transition interstitial
-
-/// The full-bleed dark-orange transition screen shown between blocks / phases and
-/// on a HYROX run↔station hand-off ("Entras a — SKIERG / 1000 m"). Big italic
-/// name, small subline, optional footer. Tap anywhere to skip its dwell.
-struct TransitionScreen: View {
-    let eyebrow: String
-    let title: String
-    var subtitle: String? = nil
-    var footer: String? = nil
-    var onTap: (() -> Void)? = nil
-
-    var body: some View {
-        ZStack {
-            WatchTheme.transitionBg.ignoresSafeArea()
-            VStack(spacing: 4) {
-                Spacer()
-                WatchLabel(text: eyebrow, accent: true)
-                Text(title)
-                    .font(.system(size: 30, weight: .heavy, design: .default).italic())
-                    .foregroundStyle(WatchTheme.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(WatchTheme.dim)
-                        .lineLimit(1)
-                }
-                Spacer()
-                if let footer {
-                    WatchLabel(text: footer)
-                        .padding(.bottom, 6)
-                }
-            }
-            .padding(.horizontal, 12)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture { onTap?() }
     }
 }
 

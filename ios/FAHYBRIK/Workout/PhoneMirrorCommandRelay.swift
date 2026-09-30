@@ -18,8 +18,24 @@ enum PhoneMirrorCommandRelay {
     }
 
     @MainActor
-    static func aplicar(_ kind: String, declaracion: Vivo.Declaracion? = nil, activa: Bool? = nil, a engine: WorkoutSession) -> Resultado {
+    static func aplicar(_ kind: String, declaracion: Vivo.Declaracion? = nil, activa: Bool? = nil, puntuacion: MirrorPuntuacion? = nil, a engine: WorkoutSession) -> Resultado {
         switch kind {
+        case MirrorWire.CommandKind.ronda:
+            // «Ronda hecha» de un AMRAP: el motor la suma por la misma puerta que el iPhone (`bumpAmrapRound`).
+            engine.bumpAmrapRound()
+            return .aplicado
+        case MirrorWire.CommandKind.puntuacion:
+            // La campana: la puntuación dicha es la del bloque, y el trabajo prescrito ya acabó (como en el iPhone).
+            guard let p = puntuacion else { return .pendiente("puntuacion: sin dato") }
+            engine.capturedScoreRounds = p.rondas
+            engine.capturedScoreReps = p.reps
+            engine.finish()
+            return .aplicado
+        case MirrorWire.CommandKind.deathByFail:
+            // El reloj te cazó: la puntuación son los minutos que la muñeca vio marcados, no los que el motor dejó pasar.
+            if let p = puntuacion { engine.rotRoundIndex = p.rondas }
+            engine.deathByFail()
+            return .aplicado
         case MirrorWire.CommandKind.anotar:
             // Lo que la muñeca declara en el descanso de fuerza (reps, carga, RIR o RPE): entra por la MISMA puerta que
             // el vivo del iPhone (`vivoDeclarar`), así que el motor no distingue quién lo dijo.

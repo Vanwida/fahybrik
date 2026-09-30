@@ -32,6 +32,10 @@ extension MirrorWire {
         static let vozCalla = "voz-calla"
         /// `CommandKind.anotar`: lo que la muñeca declara de una serie en el descanso (reps, carga, RIR o RPE).
         static let anotar = "anotar"
+        /// `CommandKind.ronda`: sumar una ronda a un AMRAP.
+        static let ronda = "ronda"
+        /// `CommandKind.puntuacion` y los minutos de `CommandKind.deathByFail`: lo que la muñeca contó de un WOD.
+        static let puntuacion = "puntuacion"
     }
 
     /// Cuánto se aguanta sin trama antes de marcar «viejo» lo que depende del móvil

@@ -156,9 +156,7 @@ extension Vivo {
             let medio = conMetros.reduce(0) { $0 + $1.segundos } * 500 / metrosMedios
             filas.append(FilaDatoVista(valor: fmtSplit(medio, maquina), unidad: "\(unidadSplit(maquina)) medio"))
         }
-        let ppm = l.viejo(.ppm) ? nil : l.ppm
-        filas.append(FilaDatoVista(valor: ppm.map { String(Int($0.rounded())) } ?? "—", unidad: "ppm", ppm: ppm,
-                                   zona: (ppm != nil && e.zonas != nil) ? zonaVista(ppm!, e.zonas!) : nil, glifo: true))
+        filas.append(filaDePulso(e, l))
         return filas
     }
 }

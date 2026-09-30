@@ -83,7 +83,7 @@ struct MunecaControles: View {
                         alIrAlVivo()
                     }
                     if let control {
-                        boton(icono: control.icono == .vuelta ? "arrow.clockwise" : "forward.end", titulo: control.titulo) {
+                        boton(icono: Self.simbolo(control.icono), titulo: control.titulo) {
                             control.accion()
                             alIrAlVivo()
                         }
@@ -110,6 +110,14 @@ struct MunecaControles: View {
             .padding(.bottom, CGFloat(Vivo.MedidasMuneca.abajoSafe))
         }
         .defaultScrollAnchor(.center)
+    }
+
+    private static func simbolo(_ icono: MunecaControl.Icono) -> String {
+        switch icono {
+        case .vuelta: return "arrow.clockwise"
+        case .siguiente: return "forward.end"
+        case .marcar: return "checkmark"
+        }
     }
 
     private func boton(icono: String, titulo: String, activo: Bool = false, accion: @escaping () -> Void) -> some View {

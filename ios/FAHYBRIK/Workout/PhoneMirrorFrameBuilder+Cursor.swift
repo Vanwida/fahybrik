@@ -8,10 +8,13 @@ import Foundation
 extension PhoneMirrorFrameBuilder {
 
     /// Lo que este móvil sabe hacer con los comandos de la muñeca. Solo lo que atiende de
-    /// verdad (ver `PhoneMirrorCommandRelay`): deshacer el cierre de un tramo de correr y
-    /// callar su voz cuando habla la muñeca.
-    static let capacidades: [String] = [MirrorWire.Capacidad.vuelta, MirrorWire.Capacidad.mas30, MirrorWire.Capacidad.anotar,
-                                        MirrorWire.Capacidad.deshacer, MirrorWire.Capacidad.vozCalla]
+    /// verdad (ver `PhoneMirrorCommandRelay`): vuelta, +30 s, anotar, deshacer el cierre de un
+    /// tramo de correr, callar su voz cuando habla la muñeca, y la ronda y la puntuación de un WOD.
+    static let capacidades: [String] = [
+        MirrorWire.Capacidad.vuelta, MirrorWire.Capacidad.mas30, MirrorWire.Capacidad.anotar,
+        MirrorWire.Capacidad.deshacer, MirrorWire.Capacidad.vozCalla,
+        MirrorWire.Capacidad.ronda, MirrorWire.Capacidad.puntuacion,
+    ]
 
     static func cursor(from session: WorkoutSession, plan: MirrorPlanVivo, context: PhoneMirrorFrameContext) -> MirrorCursor {
         // El ritmo de un paso de cinta enchufada es el de la banda (lo que ya manda `beltPaceSecPerKm`);

@@ -282,6 +282,9 @@ extension Vivo {
         /// De dónde sale este paso en el motor de hoy (el adaptador lo rellena; el
         /// pintor no lo mira). `nil` en un paso construido a mano o en el doble.
         var origen: Origen? = nil
+        /// La familia circuito a la que pertenece el paso (rondas o HYROX); `nil` = no es de un circuito. Lo dice el
+        /// formato del segmento, que el paso no puede adivinar (la cabecera, la ruta y el «Run 3» dependen de él).
+        var circuito: FormatoCircuito? = nil
     }
 
     /// El cursor del motor de hoy que produjo el paso: segmento + ventana + si es

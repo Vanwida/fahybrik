@@ -47,7 +47,7 @@ extension GuionEscaparate {
 
     private static func espejo(_ id: String, _ titulo: String, pagina: Vivo.PaginaMuneca = .paso, atenuado: Bool = false,
                                _ escena: @escaping () -> Escena) -> Caso {
-        Caso(id: id, titulo: titulo, paginas: [], vista: {
+        Caso(id: id, titulo: titulo, vista: {
             AnyView(EscaparateMunecaEspejo(recorrido: Recorrido(escena()), atenuado: atenuado, pagina: pagina))
         })
     }

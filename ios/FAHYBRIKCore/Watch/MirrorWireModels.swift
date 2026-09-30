@@ -132,6 +132,12 @@ enum MirrorWire {
         /// Lo declarado en el descanso de fuerza: un dato de una serie (`MirrorCommand.declaracion`). ADITIVO: un móvil
         /// viejo no lo entiende y lo ignora (la muñeca solo lo ofrece si el móvil anuncia `Capacidad.anotar`).
         static let anotar = "anotar"
+        /// «Ronda hecha» de un AMRAP: la muñeca cuenta una ronda y el motor del móvil la suma. ADITIVO: un móvil viejo lo
+        /// ignora (la muñeca solo lo ofrece si el móvil anuncia `Capacidad.ronda`).
+        static let ronda = "ronda"
+        /// La puntuación de la campana de un AMRAP (`MirrorCommand.puntuacion`): el móvil la guarda y cierra la sesión.
+        /// ADITIVO, con `Capacidad.puntuacion`.
+        static let puntuacion = "puntuacion"
     }
 
     /// Frame phases (MirrorStateFrame.phase). ADDITIVE: a new phase is a new VALUE in
@@ -403,6 +409,16 @@ struct MirrorCommand: Codable {
     var declaracion: Vivo.Declaracion? = nil
     /// Solo con `CommandKind.vozMuneca`: si la muñeca habla (`true`) o dejó de hablar (`false`). Ausente = habla.
     var activa: Bool? = nil
+    /// Con `CommandKind.puntuacion` (la puntuación del AMRAP) y con `CommandKind.deathByFail` (los minutos que se
+    /// completaron): lo que la muñeca contó. Un móvil que no lo conoce lo ignora.
+    var puntuacion: MirrorPuntuacion? = nil
+}
+
+/// Lo que la muñeca contó de un WOD: las rondas (o los minutos completos de un death by) y las reps de la ronda a
+/// medias, si alguien las dijo (`nil` = sin decir, nunca 0).
+struct MirrorPuntuacion: Codable, Equatable {
+    var rondas: Int
+    var reps: Int?
 }
 
 /// Watch → phone: the recording is closed. `workoutUuid` is the finished
