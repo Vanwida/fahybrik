@@ -1,15 +1,14 @@
 import SwiftUI
 
-// #56 — the "ÚNETE EN VIVO" banner (Peloton nudge): the partner is training right now,
-// shown on Inicio and the Dobles plan. Orange (the brand accent — a call to action, vs
-// the strip's blue "how the partner is going"). Pure presentation over
-// `DoblesLiveBannerState`; the host fetches once on appear and owns `onJoin`. The CTA
-// shows only when the athlete has a startable session today AND the host provides an
-// action — otherwise the banner is informational.
+// #56 — el aviso «ÚNETE EN VIVO» (el empujón de Peloton): la pareja está entrenando ahora, en Inicio y en la
+// semana conectada. Lleva el tinte del acento del club (es una invitación a actuar; la tira azul es «cómo va
+// tu pareja») y el avatar de la pareja en SU azul. Solo presenta `DoblesLiveBannerState`; quien la pone lee la
+// presencia una vez al aparecer y es dueño de `onJoin`. El botón solo sale cuando el atleta tiene sesión que
+// empezar hoy Y quien la pone da una acción: si no, es informativo.
 struct DoblesLiveBanner: View {
     let state: DoblesLiveBannerState
-    /// The host's "start my session" action. Nil (e.g. the read-only Dobles plan) →
-    /// no CTA even when the athlete could join.
+    /// La acción «empezar mi sesión» de quien la pone. Nil (la semana conectada, de solo lectura) → sin botón
+    /// aunque el atleta pudiera unirse.
     var onJoin: (() -> Void)? = nil
 
     var body: some View {
@@ -17,68 +16,51 @@ struct DoblesLiveBanner: View {
         case .hidden:
             EmptyView()
         case let .visible(name, subtitle, canJoin):
-            card(name: name, subtitle: subtitle, showCTA: canJoin && onJoin != nil)
+            tarjeta(name: name, subtitle: subtitle, conBoton: canJoin && onJoin != nil)
         }
     }
 
-    private func card(name: String, subtitle: String, showCTA: Bool) -> some View {
-        VStack(alignment: .leading, spacing: showCTA ? 12 : 0) {
-            HStack(spacing: 10) {
-                DoblesAthleteAvatar(initials: initials(name), color: Theme.Color.accent, size: 34)
+    private func tarjeta(name: String, subtitle: String, conBoton: Bool) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+            HStack(alignment: .center, spacing: Theme.Spacing.m) {
+                DoblesAthleteAvatar(initials: initials(name), color: Theme.Color.partner, size: 44)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(name) está entrenando ahora")
-                        .font(.system(size: 14, weight: .heavy))
+                        .papel(.cuerpoFuerte)
                         .foregroundStyle(Theme.Color.foreground)
-                        .lineLimit(1).minimumScaleFactor(0.7)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text(subtitle)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Theme.Color.muted)
-                        .lineLimit(1).minimumScaleFactor(0.8)
+                        .papel(.nota)
+                        .foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 6)
-                liveChip
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            if showCTA {
-                Button {
-                    Haptics.medium()
-                    onJoin?()
-                } label: {
-                    Text("Únete en vivo")
-                        .font(.system(size: 14, weight: .heavy))
-                        .foregroundStyle(Theme.Color.accentOn)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(Theme.Color.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Únete en vivo con \(name)")
+            .accessibilityElement(children: .combine)
+            enVivo
+            if conBoton {
+                AccionDobles(titulo: "Únete en vivo") { onJoin?() }
+                    .accessibilityLabel("Únete en vivo con \(name)")
             }
         }
-        .padding(14)
+        .padding(Theme.Spacing.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.accent.opacity(0.10))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.accent.opacity(0.35), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(name) está entrenando ahora. \(subtitle)")
+        .caraDobles(.acento)
+        .accessibilityElement(children: .contain)
     }
 
-    private var liveChip: some View {
-        HStack(spacing: 5) {
-            LivePulseDot(color: Theme.Color.accent, size: 6)
-            Text("EN VIVO")
-                .font(.system(size: 10, weight: .heavy).italic())
-                .tracking(0.8)
-                .foregroundStyle(Theme.Color.accentText)
+    /// La marca «en vivo»: el relleno del acento con su tinta y el punto que late.
+    private var enVivo: some View {
+        HStack(spacing: Theme.Spacing.xs + 2) {
+            LivePulseDot(color: Theme.Color.accentOn, size: 8)
+            Text("En vivo")
+                .papel(.kicker)
+                .foregroundStyle(Theme.Color.accentOn)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Theme.Color.accent.opacity(0.14))
-        .clipShape(Capsule())
+        .padding(.horizontal, Theme.Spacing.m)
+        .frame(minHeight: 32)
+        .background(Theme.Color.accent, in: Capsule())
+        .accessibilityHidden(true)
     }
 
     private func initials(_ name: String) -> String {
