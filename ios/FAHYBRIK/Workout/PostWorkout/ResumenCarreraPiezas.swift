@@ -140,8 +140,7 @@ struct PeineDeTramos: View {
                     .foregroundStyle(Theme.Color.faint)
                     .frame(height: 1)
                 Text("media \(Formato.ritmo(mediaSkm, .porKm))")
-                    .font(.system(size: 10, weight: .semibold))
-                    .uppercaseTracked(1)
+                    .papel(.etiqueta)
                     .foregroundStyle(Theme.Color.muted)
                     .lineLimit(1)
                     // La etiqueta cae por definición sobre las barras: sin fondo
@@ -191,11 +190,11 @@ struct AguanteDeLaCarrera: View {
     var body: some View {
         LineaDeclarada {
             Text(frase)
-                .scaledFont(15, weight: .heavy, relativeTo: .subheadline, italic: true)
+                .papel(.notaPesada).italic()
                 .foregroundStyle(tono)
             Text("la primera a \(Formato.ritmo(aguante.primeraSkm, .porKm)), "
                  + "la última a \(Formato.ritmo(aguante.ultimaSkm, .porKm))")
-                .scaledFont(12, weight: .medium, relativeTo: .caption)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
         }
     }
@@ -215,8 +214,8 @@ struct NotaDeCerteza: View {
 
     var body: some View {
         Text(texto)
-            .scaledFont(11, weight: .medium, relativeTo: .caption2)
-            .foregroundStyle(Theme.Color.faint)
+            .papel(.nota)
+            .foregroundStyle(Theme.Color.muted)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
     }
@@ -232,12 +231,12 @@ struct SinTramosQueSeparar: View {
     var body: some View {
         LineaDeclarada {
             Text(prescrito ? "No se guardaron los tramos" : "Una sola lectura de toda la sesión")
-                .scaledFont(15, weight: .heavy, relativeTo: .subheadline, italic: true)
+                .papel(.notaPesada).italic()
                 .foregroundStyle(Theme.Color.foreground)
             Text(prescrito
                  ? "Se guardó un ritmo para toda la sesión. Con el reloj conectado llegan las vueltas y sus ritmos."
                  : "Sin marcas ni serie de ritmo no hay tramos que separar.")
-                .scaledFont(12, weight: .medium, relativeTo: .caption)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
         }
     }
