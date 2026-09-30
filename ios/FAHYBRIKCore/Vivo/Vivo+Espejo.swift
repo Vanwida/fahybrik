@@ -42,6 +42,8 @@ extension Vivo {
         struct Trama: Equatable {
             var cursor: MirrorCursor
             var recibidoEn: Date
+            /// Lo que el móvil dice de «último paso» (`MirrorStateFrame.isFinalStep`), si lo dice.
+            var finalSegunMovil: Bool? = nil
         }
 
         /// Lo que solo sabe el reloj en el momento de pintar y no es una muestra continua.
@@ -110,6 +112,13 @@ extension Vivo {
             return plan.pasos[Swift.min(Swift.max(0, t.cursor.i), plan.pasos.count - 1)]
         }
 
+        /// ¿El paso vivo es el último del plan? `nil` = no se sabe (sin cuadro): quien cierra pregunta
+        /// (`Vivo.CierreSeguro`, falla hacia preguntar). Lo dice el cursor del plan y, si lo dice, el móvil.
+        var ultimoPaso: Bool? {
+            guard estado == .vivo, let plan, let t = trama else { return nil }
+            return CierreSeguro.esUltimoPaso(indice: t.cursor.i, de: plan.pasos.count, marcaDelMovil: t.finalSegunMovil)
+        }
+
         /// El `hapticCue` de una trama, o `nil` si el plan vivo ya lo dirige.
         func hapticAplicable(_ f: MirrorStateFrame) -> String? { dirigeElPlan ? nil : f.hapticCue }
 
@@ -144,7 +153,7 @@ extension Vivo {
                 anclaM = (!unidoATarde && c.i == 0) ? 0 : nil
                 reiniciarPulsoDelPaso()
             }
-            trama = Trama(cursor: c, recibidoEn: ahora)
+            trama = Trama(cursor: c, recibidoEn: ahora, finalSegunMovil: f.isFinalStep)
             observarVueltas(en: ahora)
         }
 

@@ -29,8 +29,9 @@ extension Vivo {
     // MARK: - El plan entero
 
     /// `test`: la sesión es una prueba (una marca): un paso suelto de máquina o de
-    /// correr se marca como test, y la cabecera lo dice.
-    static func planDe(_ plan: WorkoutPlan, zonas: HRZoneProfile?, entorno: RunEnvironment?, test: Bool = false) -> PlanVivo {
+    /// correr se marca como test, y la cabecera lo dice. `metodo`: hacia qué lado avisa
+    /// un objetivo (`Vivo+SentidoAviso.swift`), dato del coach con defecto.
+    static func planDe(_ plan: WorkoutPlan, zonas: HRZoneProfile?, entorno: RunEnvironment?, test: Bool = false, metodo: MetodoAviso = .defecto) -> PlanVivo {
         var pasos: [Paso] = []
         // La letra de cada superserie, en orden de sesión: A1/A2, luego B1/B2 (529).
         var superseries = 0
@@ -43,7 +44,7 @@ extension Vivo {
         }
         // Un bloque continuo remo → ski → bici son N tramos de una pieza (familia circuito).
         marcarTramosContinuos(&pasos) { s in plan.segments[s].formatScheme?.presentation == .continuous }
-        return PlanVivo(pasos: pasos, zonas: zonasDe(zonas))
+        return PlanVivo(pasos: conSentidoDeAviso(pasos, metodo), zonas: zonasDe(zonas))
     }
 
     // MARK: - Un segmento → sus pasos

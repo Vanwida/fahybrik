@@ -30,6 +30,9 @@ extension Vivo {
         private var tramoDesdeT: Double = 0
         private var tramoDesdeM: Double = 0
         private var arrancado = false
+        /// El paso de vuelta automática que se está mirando. Otro distinto (el rodaje que llega tras un
+        /// calentamiento) re-ancla la cuenta: sin ello, su primer km mediría desde el arranque de la sesión.
+        private var pasoAuto: String? = nil
 
         init() {}
 
@@ -47,9 +50,16 @@ extension Vivo {
                 kmDesdeT = (cada > 0 && m - Double(kmN) * cada >= 1) ? nil : sesionT
                 tramoDesdeT = sesionT
                 tramoDesdeM = m
+                pasoAuto = p.vueltaAutoM != nil ? p.id : nil
                 return nil
             }
             guard let cada = p.vueltaAutoM, cada > 0 else { return nil }
+            if pasoAuto != p.id {
+                pasoAuto = p.id
+                kmN = Int(m / cada)
+                kmDesdeT = (m - Double(kmN) * cada >= 1) ? nil : sesionT
+                return nil
+            }
             let km = Int(m / cada)
             guard km > kmN else { return nil }
             guard let desde = kmDesdeT else { kmN = km; kmDesdeT = sesionT; return nil }
