@@ -1,16 +1,19 @@
 import SwiftUI
 
-// Tests guiados — the «Récord del test» moment (mockup C). Shown over the
-// capture sheet's done state when the bridge reports at least one entry that
-// BEAT the previous mark (server-side `improved`). Deliberately the same
-// night-coded, gold-accented voice as the run-PR overlay (PRCelebrationView /
-// CelebrationGold): a record is a record. Copy is test-specific and every
-// number is real — value + delta come straight from the response.
+// Tests guiados — el momento «Récord del test». Sale sobre el paso final de la hoja de captura cuando el
+// puente reporta al menos una marca que BATIÓ la anterior (`improved`, calculado en el servidor). A
+// propósito con la misma voz nocturna y dorada que la superposición del récord de carrera
+// (`PRCelebrationView` / `CelebrationGold`): un récord es un récord. El texto es propio del test y cada
+// número es real — valor y cambio salen tal cual de la respuesta.
+//
+// LA EXCEPCIÓN AL TEMA ÚNICO (CONTRATO-UI §6.4). Es un momento nocturno: fuerza el oscuro para que el
+// dorado se lea también con el tema claro, igual que el récord de carrera. Es un momento, no una pantalla,
+// y el dorado es el color del logro, no el del club: no lo toca el tenant.
 struct TestRecordCelebrationView: View {
     struct Item: Identifiable {
-        let id: String        // benchmark slug
-        let label: String     // coach-facing result label ("5K", "Sentadilla")
-        let valueText: String // "22:14" / "142.5 kg"
+        let id: String        // slug del benchmark
+        let label: String     // etiqueta del resultado que puso el coach («5K», «Sentadilla»)
+        let valueText: String // «22:14» / «142,5 kg»
         let deltaText: String?
     }
 
@@ -18,9 +21,15 @@ struct TestRecordCelebrationView: View {
     let onDone: () -> Void
 
     @State private var appear = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// Map the response's improved entries onto displayable items through the
-    /// test's own contract (label + unit per slug). Pure — unit-tested.
+    /// El velo que apaga lo de debajo para que el logro sea lo único que brilla.
+    private static let opacidadDelVelo: Double = 0.94
+    /// La tinta sobre el dorado: negro suave, que sobre el degradado mide más de 7:1.
+    private static let opacidadDeLaTintaSobreOro: Double = 0.78
+
+    /// Las marcas mejoradas de la respuesta, como elementos que se pueden pintar, a través del contrato del
+    /// propio test (etiqueta y unidad por slug). Pura — con su prueba.
     static func items(
         from entries: [RecordBatteryResult.EntryDelta],
         specs: [StoreResultSpec]
@@ -42,62 +51,67 @@ struct TestRecordCelebrationView: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.94)
+            SwiftUI.Color.black.opacity(Self.opacidadDelVelo)
                 .ignoresSafeArea()
                 .onTapGesture { onDone() }
+                .accessibilityHidden(true)
 
-            VStack(spacing: Theme.Spacing.l) {
-                medal
-                VStack(spacing: 4) {
-                    Text(items.count > 1 ? "¡Récords del test!" : "¡Récord del test!")
-                        .font(.system(size: 26, weight: .heavy, design: .default).italic())
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("Marca personal")
-                        .font(.system(size: 11, weight: .semibold))
-                        .tracking(Theme.Tracking.dataLabel)
-                        .textCase(.uppercase)
-                        .foregroundStyle(CelebrationGold.bright)
-                }
-
-                VStack(spacing: 12) {
-                    ForEach(items) { item in
-                        recordRow(item)
+            ScrollView {
+                VStack(spacing: Theme.Spacing.l) {
+                    medal
+                    VStack(spacing: Theme.Spacing.xs) {
+                        Text(items.count > 1 ? "¡Récords del test!" : "¡Récord del test!")
+                            .papel(.seccion)
+                            .foregroundStyle(Theme.Color.foreground)
+                            .multilineTextAlignment(.center)
+                            .accessibilityAddTraits(.isHeader)
+                        Text("Marca personal")
+                            .papel(.etiqueta)
+                            .foregroundStyle(CelebrationGold.bright)
                     }
-                }
 
-                Button(action: { Haptics.light(); onDone() }) {
-                    Text("Seguir")
-                        .font(.system(size: 15, weight: .heavy, design: .default).italic())
-                        .tracking(0.5)
-                        .foregroundStyle(Color.black.opacity(0.78))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(CelebrationGold.gradient)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                    VStack(spacing: Theme.Spacing.m) {
+                        ForEach(items) { item in
+                            recordRow(item)
+                        }
+                    }
+
+                    Button(action: { Haptics.light(); onDone() }) {
+                        Text("Seguir")
+                            .papel(.accion)
+                            .foregroundStyle(SwiftUI.Color.black.opacity(Self.opacidadDeLaTintaSobreOro))
+                            .frame(maxWidth: .infinity, minHeight: Theme.Size.accion)
+                            .background(CelebrationGold.gradient, in: Capsule())
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(PressScaleStyle(escala: 0.96))
                 }
-                .buttonStyle(.plain)
+                .padding(Theme.Spacing.xl)
+                .frame(maxWidth: 360)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.sujeto, style: .continuous)
+                        .fill(Theme.Color.surface)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.Radius.sujeto, style: .continuous)
+                                .strokeBorder(CelebrationGold.deep.opacity(0.5), lineWidth: 1)
+                        )
+                )
+                .padding(.horizontal, Theme.Spacing.pantalla)
+                .padding(.vertical, Theme.Spacing.xl)
+                .frame(maxWidth: .infinity)
+                .scaleEffect(appear || reduceMotion ? 1 : 0.92)
+                .opacity(appear ? 1 : 0)
             }
-            .padding(Theme.Spacing.xl)
-            .frame(maxWidth: 360)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous)
-                    .fill(Theme.Color.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous)
-                            .stroke(CelebrationGold.deep.opacity(0.5), lineWidth: 1)
-                    )
-            )
-            .padding(.horizontal, Theme.Spacing.xl)
-            .scaleEffect(appear ? 1 : 0.92)
-            .opacity(appear ? 1 : 0)
+            // Un récord con varias marcas o con texto grande scrollea en vez de recortarse; con una sola
+            // se queda centrado, sin inercia sobre nada.
+            .scrollBounceBehavior(.basedOnSize)
         }
-        // A celebration is a night-coded moment (same rule as the run PR): force
-        // dark so the gold reads in light mode too.
         .environment(\.colorScheme, .dark)
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { appear = true }
+            withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8)) { appear = true }
             Haptics.success()
         }
+        .accessibilityAddTraits(.isModal)
     }
 
     private var medal: some View {
@@ -105,27 +119,25 @@ struct TestRecordCelebrationView: View {
             Circle().fill(CelebrationGold.gradient)
                 .frame(width: 76, height: 76)
                 .shadow(color: CelebrationGold.deep.opacity(0.5), radius: 16, y: 6)
-            Image(systemName: "stopwatch.fill")
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(Color.black.opacity(0.72))
+            IconoDia(.cronometro, tam: 32, peso: .bold)
+                .foregroundStyle(SwiftUI.Color.black.opacity(Self.opacidadDeLaTintaSobreOro))
         }
         .accessibilityHidden(true)
     }
 
     private func recordRow(_ item: Item) -> some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Theme.Spacing.xs) {
             Text(item.label)
-                .font(.system(size: 13, weight: .semibold))
+                .papel(.notaFuerte)
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)
             Text(item.valueText)
-                .font(.system(size: 44, weight: .heavy, design: .monospaced).monospacedDigit())
+                .papel(.sujeto)
                 .foregroundStyle(Theme.Color.foreground)
-                .minimumScaleFactor(0.6)
-                .lineLimit(1)
+                .multilineTextAlignment(.center)
             if let delta = item.deltaText {
                 Text(delta)
-                    .font(.system(size: 12))
+                    .papel(.notaFuerte)
                     .foregroundStyle(CelebrationGold.bright)
                     .multilineTextAlignment(.center)
             }

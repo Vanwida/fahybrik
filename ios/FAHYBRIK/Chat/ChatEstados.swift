@@ -54,7 +54,7 @@ struct EstadoCentradoChat<Figura: View>: View {
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
             }
-            BotonAccionChat(salida, glifo: glifoDeSalida, relleno: .acento, accion: alSalir)
+            BotonAccionDia(salida, glifo: glifoDeSalida, relleno: .acento, impacto: .medio, accion: alSalir)
             if let nota {
                 Text(nota)
                     .papel(.nota)

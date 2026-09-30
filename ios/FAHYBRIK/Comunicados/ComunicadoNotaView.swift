@@ -53,7 +53,7 @@ struct CuerpoDeLaNota: View {
             ForEach(comunicado.seccionesVisibles) { seccion in
                 SeccionDeNota(seccion: seccion)
                     .padding(Theme.Spacing.l)
-                    .tarjetaComunicado(alAncho: true)
+                    .tarjetaDia(alAncho: true)
                     .modifier(VozDeLaSeccion(forma: seccion.forma))
             }
 

@@ -86,47 +86,8 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
                       "sin el botón en la puerta no se puede saltar el calentamiento")
     }
 
-    @MainActor
-    func testLaCalleLlevaElBoton() {
-        let s = sesionDeRodaje()
-        s.runEnvironment = .outdoor
-        s.start(); s.beginBlock(); s.stop()
-        XCTAssertEqual(RunLiveChrome.de(s), .outdoor)
-        let vista = ShellDePrueba(session: s)
-        XCTAssertTrue(etiquetas(de: vista).contains(etiqueta),
-                      "calle monta RunLiveShellView — el botón va en CromoVivoEntreno")
-    }
-
-    @MainActor
-    func testLaCintaLlevaElBoton() {
-        let s = sesionDeRodaje()
-        s.runEnvironment = .treadmill
-        s.start(); s.beginBlock(); s.stop()
-        XCTAssertEqual(RunLiveChrome.de(s), .treadmill(empiezaSinCinta: false))
-        let vista = ShellDePrueba(session: s)
-        XCTAssertTrue(etiquetas(de: vista).contains(etiqueta),
-                      "cinta monta RunLiveShellView — el botón va en CromoVivoEntreno, no en TreadmillHUDView")
-    }
-
-    /// El vivo VIEJO (lo que monta el host con `VivoIphoneBandera` apagada):
-    /// fuerza / EMOM usan el mismo `CromoVivoEntreno` que calle y cinta.
-    @MainActor
-    func testElTopStripDelLiveLlevaElBoton() {
-        let s = sesionDosBloques()
-        s.start()
-        s.irAlBloque(s.bloques[1])
-        s.beginBlock()
-        s.stop()
-        XCTAssertEqual(PresentadorVivo.de(s), .live(.fuerza))
-        let vista = ShellDePrueba(session: s)
-        XCTAssertTrue(etiquetas(de: vista).contains(etiqueta),
-                      "fuerza / EMOM usan CromoVivoEntreno compartido")
-        UIApplication.shared.isIdleTimerDisabled = false
-    }
-
-    /// El vivo NUEVO (`VivoIphoneView`, lo que monta el host con la bandera
-    /// encendida): el botón vive en la Estructura, que es la sesión entera, y abre
-    /// la MISMA hoja de bloques del host. Sin él, con la bandera encendida no se
+    /// El vivo (`VivoIphoneView`, lo que monta el host): el botón vive en la Estructura, que es la sesión entera, y abre
+    /// la MISMA hoja de bloques del host. Sin él no se
     /// podría saltar de bloque desde el live.
     @MainActor
     func testElVivoNuevoLlevaElBotonEnSuEstructura() {
@@ -153,30 +114,6 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
 
     // MARK: - Andamio
 
-    /// El único árbol live — misma forma que `ActiveWorkoutView.superficieMontada`.
-    private struct ShellDePrueba: View {
-        let session: WorkoutSession
-        @State private var partnerStripCollapsed = false
-
-        var body: some View {
-            RunLiveShellView(
-                session: session,
-                hrZones: nil,
-                accionTitulo: "HECHO",
-                alTocarAccion: {},
-                alSalir: {},
-                alVerBloques: {},
-                alConectividad: {},
-                alTapPM5: {},
-                alTapHR: {},
-                alPausa: {},
-                pm5: PM5Pool.shared.any,
-                hrLink: .idle,
-                partnerStripCollapsed: $partnerStripCollapsed
-            )
-        }
-    }
-
     private func sesionDosBloques() -> WorkoutSession {
         let wu = WorkoutSegment(order: 1, title: "Movilidad", kind: .reps,
                                 blockTitle: "Calentamiento", blockPosition: 1)
@@ -193,17 +130,6 @@ final class BloquesDelEntrenoWireTests: XCTestCase {
         let plan = WorkoutPlan(id: UUID(), name: "Calentamiento + fuerza", format: .sets,
                                estimatedDurationSeconds: 2400, blockContext: "Fuerza",
                                zoneTargets: [], equipment: [], segments: [wu, fuerza],
-                               coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
-        return WorkoutSession(plan: plan)
-    }
-
-    private func sesionDeRodaje() -> WorkoutSession {
-        let tramo = WorkoutSegment(order: 1, title: "Rodaje 40:00", kind: .running,
-                                   targetDurationSeconds: 2400, targetZone: .z2,
-                                   blockTitle: "Carrera", blockPosition: 1)
-        let plan = WorkoutPlan(id: UUID(), name: "Rodaje", format: .steady,
-                               estimatedDurationSeconds: 2400, blockContext: "Carrera",
-                               zoneTargets: [], equipment: [], segments: [tramo],
                                coachNote: nil, demoVideoUrl: nil, warmupChecklist: [])
         return WorkoutSession(plan: plan)
     }

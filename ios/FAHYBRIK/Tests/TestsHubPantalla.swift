@@ -46,7 +46,7 @@ struct TestsHubPantalla: View {
             }
         case .error:
             CenteredScreen {
-                SujetoErrorTests(
+                SujetoErrorDia(
                     kicker: "Calibración",
                     titulo: "No pudimos cargar tus tests",
                     apoyo: "Revisa tu conexión e inténtalo de nuevo.",
@@ -129,7 +129,7 @@ struct TestsHubLista: View {
                         .papel(.nota)
                         .foregroundStyle(Theme.Color.muted)
                         .multilineTextAlignment(.center)
-                    BotonAccionTests(
+                    BotonAccionDia(
                         siguiente.accion.titulo,
                         relleno: .tinta,
                         completa: true,
@@ -169,7 +169,7 @@ struct TestsHubLista: View {
 extension AccionTest {
     /// El estado del botón anclado: preparando gira y no admite otro toque; sin sesión o sin nada que abrir,
     /// inactivo (cambia de superficie y de tinta, no de opacidad).
-    var estadoDelBoton: BotonAccionTests.Estado {
+    var estadoDelBoton: BotonAccionDia.Estado {
         if case .probarme(let preparando, _) = self, preparando {
             return .ocupado(texto: "Preparando…", voz: "Preparando el test")
         }
@@ -215,7 +215,7 @@ struct TestsSinBateriaState: View {
             // lo que se sabe — cero calibrados.
             CalibrationCounter(done: 0, total: nil, papelDeLaCifra: .dato)
         } abajo: {
-            BotonAccionTests("Pruébate por tu cuenta", glifo: .flecha, completa: true, accion: onProbarme)
+            BotonAccionDia("Pruébate por tu cuenta", glifo: .flecha, completa: true, accion: onProbarme)
             Text("Tu coach programa los tests de calibración, normalmente en tu primera semana. Cuando lo haga aparecen aquí.")
                 .papel(.nota)
                 .foregroundStyle(Theme.Color.foreground)

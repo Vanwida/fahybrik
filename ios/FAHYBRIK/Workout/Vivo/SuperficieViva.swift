@@ -73,8 +73,7 @@ enum SuperficieViva: Equatable, Hashable {
     }
 }
 
-/// Qué bandas outdoor/cinta inyecta `RunLiveShellView` cuando el tramo mide run.
-/// No es un entry point — solo elige sujeto/apoyos dentro del shell único.
+/// Si el tramo de run es al aire libre o en cinta (lo que decide si el host pide GPS o cinta).
 enum RunLiveChrome: Equatable {
     case outdoor
     case treadmill(empiezaSinCinta: Bool)

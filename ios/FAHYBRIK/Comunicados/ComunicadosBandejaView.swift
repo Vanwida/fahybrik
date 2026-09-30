@@ -185,10 +185,10 @@ struct VacioBandeja: View {
             etiqueta: "Aquí no hay nada todavía. Cuando \(nombreCoach) te publique algo, vivirá aquí."
         ) {
             KickerDia("Del coach")
-            TituloDeSujeto("Aquí no hay nada todavía")
+            TituloDia("Aquí no hay nada todavía", ajuste: .escalones)
             ApoyoDia("Cuando \(nombreCoach) te publique un protocolo, una tarea o el porqué de tu plan, vivirá aquí. El día a día sigue en el chat.")
         } abajo: {
-            BotonAccionComunicado(titulo: "Abrir el chat", simbolo: "bubble.left", accion: alAbrirChat)
+            BotonAccionDia("Abrir el chat", glifo: .chat, accion: alAbrirChat)
             Text("Lo que se publica aquí lleva estado: \(nombreCoach) ve si lo has hecho, no solo si lo has abierto.")
                 .papel(.nota)
                 .foregroundStyle(Theme.Color.foreground)
@@ -210,7 +210,7 @@ struct EsqueletoBandeja: View {
                 SkeletonBar(height: Theme.Size.accion)
             }
             .padding(Theme.Spacing.l)
-            .tarjetaComunicado(alAncho: true)
+            .tarjetaDia(alAncho: true)
 
             SkeletonBar(width: 150, height: 24)
             VStack(spacing: 0) {
@@ -227,7 +227,7 @@ struct EsqueletoBandeja: View {
                     .padding(EdgeInsets(top: 14, leading: Theme.Spacing.l, bottom: 14, trailing: Theme.Spacing.l))
                 }
             }
-            .tarjetaComunicado(alAncho: true)
+            .tarjetaDia(alAncho: true)
         }
         .padding(EdgeInsets(top: 12, leading: Theme.Spacing.pantalla, bottom: 32, trailing: Theme.Spacing.pantalla))
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -247,40 +247,24 @@ struct ComunicadoRetirado: View {
                 etiqueta: "Esto ya no está. Tu coach lo ha retirado."
             ) {
                 KickerDia("Del coach")
-                TituloDeSujeto("Esto ya no está")
+                TituloDia("Esto ya no está", ajuste: .escalones)
                 ApoyoDia("Tu coach lo ha retirado. Si te queda alguna duda, el chat sigue abierto.")
             } abajo: {
-                BotonAccionComunicado(titulo: "Volver", simbolo: "chevron.left", accion: alVolver)
+                BotonAccionDia("Volver", glifo: .atras, glifoAlFinal: false, accion: alVolver)
             }
             .padding(EdgeInsets(top: Theme.Spacing.l, leading: Theme.Spacing.pantalla, bottom: 32, trailing: Theme.Spacing.pantalla))
         }
     }
 }
 
-/// La bandeja no cargó y no hay copia guardada: se dice qué, dónde estás y qué hacer, con su reintento. Es
-/// un sujeto de peligro que se anuncia solo a VoiceOver; el peligro va en el tinte, nunca en el texto.
+/// La bandeja no cargó y no hay copia guardada: el sujeto de error del kit, con su reintento.
 struct ErrorDeBandeja: View {
     let alReintentar: () async -> Void
 
-    @State private var enMarcha = false
-
     var body: some View {
-        SujetoDia(
-            tono: .peligro,
-            etiqueta: "No pudimos cargar tu bandeja. Revisa tu conexión e inténtalo de nuevo.",
-            anuncia: true
-        ) {
-            KickerDia("Del coach")
-            TituloDeSujeto("No pudimos cargar tu bandeja")
-            ApoyoDia("Revisa tu conexión e inténtalo de nuevo.")
-        } abajo: {
-            BotonAccionComunicado(titulo: enMarcha ? "Reintentando" : "Reintentar", simbolo: "arrow.clockwise", enCurso: enMarcha) {
-                enMarcha = true
-                Task {
-                    await alReintentar()
-                    enMarcha = false
-                }
-            }
-        }
+        SujetoErrorDia(
+            kicker: "Del coach", titulo: "No pudimos cargar tu bandeja",
+            apoyo: "Revisa tu conexión e inténtalo de nuevo.", alReintentar: alReintentar
+        )
     }
 }

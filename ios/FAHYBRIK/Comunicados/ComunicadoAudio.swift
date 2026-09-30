@@ -78,7 +78,7 @@ struct AudioDelComunicado: View {
                 }
             }
             .padding(Theme.Spacing.m)
-            .tarjetaComunicado(alAncho: true)
+            .tarjetaDia(alAncho: true)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(pie)
             .accessibilityAddTraits(.isButton)

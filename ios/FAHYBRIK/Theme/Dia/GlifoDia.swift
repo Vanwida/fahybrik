@@ -92,6 +92,8 @@ enum GlifoDia: String, CaseIterable {
     case pm5        = "antenna.radiowaves.left.and.right"
     /// Exportar mis datos.
     case exportar   = "square.and.arrow.up.on.square"
+    /// Ver el entreno entero: la lista de sus bloques.
+    case bloques    = "list.bullet.rectangle"
 
     /// El nombre del SF Symbol.
     var simbolo: String { rawValue }

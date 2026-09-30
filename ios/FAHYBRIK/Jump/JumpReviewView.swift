@@ -44,11 +44,10 @@ struct JumpReviewView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                     lectura
-                    Picker("Fotograma que estás ajustando", selection: $mark) {
-                        Text("Despegue").tag(Mark.takeoff)
-                        Text("Aterrizaje").tag(Mark.landing)
-                    }
-                    .pickerStyle(.segmented)
+                    SegmentoDia(
+                        items: [(Mark.takeoff, "Despegue"), (Mark.landing, "Aterrizaje")],
+                        valor: $mark, etiqueta: "Fotograma que estás ajustando", completo: true
+                    )
                     Text(mark == .takeoff
                          ? "Último frame con un pie en el suelo."
                          : "Primer frame que vuelve a tocar.")
@@ -56,7 +55,7 @@ struct JumpReviewView: View {
                         .foregroundStyle(Theme.Color.muted)
 
                     if !isPlausible {
-                        AvisoEnLineaTests("Más de 1 s en el aire no es un salto. Revisa el aterrizaje.")
+                        AvisoEnLineaDia("Más de 1 s en el aire no es un salto. Revisa el aterrizaje.")
                     }
 
                     paso
@@ -126,8 +125,8 @@ struct JumpReviewView: View {
     /// Conservar es la acción; descartar, la salida discreta. Anclados abajo, siempre a la vista.
     private var acciones: some View {
         HStack(spacing: Theme.Spacing.s) {
-            BotonTextoTests("Descartar", tono: .suave, centrado: true, accion: onDiscard)
-            BotonAccionTests(
+            BotonTextoDia("Descartar", tono: .suave, centrado: true, accion: onDiscard)
+            BotonAccionDia(
                 "Conservar",
                 completa: true,
                 estado: isPlausible ? .normal : .inactivo,

@@ -95,12 +95,12 @@ struct JumpCaptureView: View {
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
                 if recorder.authorizationDenied {
-                    AvisoEnLineaTests("Sin cámara no se puede medir. Actívala en Ajustes.") {
-                        BotonTextoTests("Abrir Ajustes", tono: .tinta, accion: abreAjustes)
+                    AvisoEnLineaDia("Sin cámara no se puede medir. Actívala en Ajustes.") {
+                        BotonTextoDia("Abrir Ajustes", tono: .tinta, accion: abreAjustes)
                     }
                 }
                 if series == .loaded {
-                    BotonTextoTests("No tengo la carga — solo CMJ", tono: .suave, centrado: true) {
+                    BotonTextoDia("No tengo la carga — solo CMJ", tono: .suave, centrado: true) {
                         skipLoaded = true
                         phase = .summary
                     }
@@ -198,7 +198,7 @@ struct JumpCaptureView: View {
                     }
                     lecturas(r)
                     if saveFailed {
-                        AvisoEnLineaTests("No se pudo guardar. Inténtalo de nuevo.")
+                        AvisoEnLineaDia("No se pudo guardar. Inténtalo de nuevo.")
                     }
                 }
                 .padding(EdgeInsets(top: 6, leading: Theme.Spacing.pantalla, bottom: Theme.Spacing.xxl, trailing: Theme.Spacing.pantalla))
@@ -206,7 +206,7 @@ struct JumpCaptureView: View {
             .scrollBounceBehavior(.basedOnSize)
         }
         .anchoredAction {
-            BotonAccionTests(
+            BotonAccionDia(
                 "Guardar",
                 completa: true,
                 alto: Theme.Size.accion,

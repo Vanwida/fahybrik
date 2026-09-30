@@ -1,11 +1,16 @@
 import SwiftUI
 
-// Daily Morning Check-in per docs/ux/07-daily-morning-checkin.md.
-// Full-screen, 5 segmented 1-5 questions + notes + CTA. "Saltar" link is
-// muted (soft-required). Notes draft auto-saves on every change.
+// EL CHECK-IN EN HOJA LARGA (docs/ux/07-daily-morning-checkin.md): las cinco preguntas de 1 a 5, la nota y
+// su acción, todo en una hoja.
+//
+// Es la salida cuando el check-in NO es el sujeto de Hoy (plan en pausa, sin coach, error de carga…) y lo que
+// abre el detalle de la disposición. Contesta por el MISMO camino que el paso a paso de la portada
+// (`CheckinAnswers.registrar`) y con la misma escala (`EscalaCheckin`): contestar «Ánimo» se siente igual en
+// las dos. Saltar es un acto aparte de cerrar: cerrar deja el aviso pendiente, saltar lo apaga por hoy.
 struct CheckinView: View {
     @State private var answers = CheckinAnswers()
     @FocusState private var notesFocused: Bool
+    @Environment(\.dismiss) private var dismiss
 
     let bearer: String?
     let onSubmitted: (Int, CheckinSnapshot) -> Void
@@ -18,127 +23,92 @@ struct CheckinView: View {
     var onServerSynced: () async -> Void = {}
 
     var body: some View {
-        ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
-                    headline
-                    // Every row reads the same way: 1 = peor, 5 = mejor. Soreness and fatigue are
-                    // negatively keyed in the model (5 = worst), so they bind inverted and are
-                    // reframed positive (recuperación / energía) — the athlete never has to flip the
-                    // scale's meaning between questions. The questions themselves live in
-                    // `CheckinPregunta.todas`, shared with the paso a paso of the Hoy portada.
-                    ForEach(CheckinPregunta.todas) { pregunta in
-                        questionRow(pregunta)
-                    }
-                    notesField
-                    submitArea
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.xxl)
-                .padding(.bottom, Theme.Spacing.xxl)
+        MarcoDeHojaDia("Check-in de hoy", cerrar: { dismiss() }) {
+            cuerpo
+        } accion: {
+            BotonAccionDia(hoja: "Continuar", activo: answers.allAnswered, ocupado: false, textoOcupado: "", voz: "") {
+                let (score, snap) = answers.registrar(bearer: bearer, onServerSynced: onServerSynced)
+                onSubmitted(score, snap)
+            }
+            BotonTextoDia("Saltar por hoy", tono: .suave, centrado: true) {
+                CheckinStore.markSkipped()
+                onSkipped()
             }
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Hecho") { notesFocused = false }
-                    .foregroundStyle(Theme.Color.accentText)
+                    .tint(Theme.Color.accentText)
             }
         }
         .onAppear {
             answers.notes = CheckinStore.loadDraftNotes()
         }
-        // Explicit, findable escape (top-leading "Cerrar") for the auto-presented
-        // morning check-in — a MANUAL dismiss that leaves the pending banner up,
-        // distinct from the bottom "Saltar" (which clears it for the day).
-        .dismissableSheet()
     }
 
-    // MARK: - Sections
+    // MARK: - El cuerpo
 
-    private var headline: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Text("Buenos días.")
-                .font(Theme.Typography.headlineL)
+    private var cuerpo: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+            Text("Buenos días. ¿Cómo te sientes hoy?")
+                .papel(.cuerpo)
                 .foregroundStyle(Theme.Color.foreground)
-            Text("¿Cómo te sientes hoy?")
-                .font(Theme.Typography.body)
+                .fixedSize(horizontal: false, vertical: true)
+            // Every row reads the same way: 1 = peor, 5 = mejor. Soreness and fatigue are
+            // negatively keyed in the model (5 = worst), so they bind inverted and are
+            // reframed positive (recuperación / energía) — the athlete never has to flip the
+            // scale's meaning between questions. The questions themselves live in
+            // `CheckinPregunta.todas`, shared with the paso a paso of the Hoy portada.
+            ForEach(CheckinPregunta.todas) { pregunta in
+                fila(pregunta)
+            }
+            notas
+        }
+    }
+
+    private func fila(_ pregunta: CheckinPregunta) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+            Text(pregunta.titulo)
+                .papel(.cuerpoFuerte)
+                .foregroundStyle(Theme.Color.foreground)
+                .accessibilityAddTraits(.isHeader)
+            EscalaCheckin(
+                titulo: pregunta.titulo,
+                extremos: "\(pregunta.izquierda), \(pregunta.derecha)",
+                valor: binding(pregunta).wrappedValue,
+                alElegir: { binding(pregunta).wrappedValue = $0 }
+            )
+            ExtremosDeEscala(izquierda: pregunta.izquierda, derecha: pregunta.derecha)
+                .papel(.notaFuerte)
                 .foregroundStyle(Theme.Color.muted)
         }
     }
 
-    private func questionRow(_ pregunta: CheckinPregunta) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(pregunta.titulo)
-                .scaledFont(15, weight: .semibold, relativeTo: .subheadline)
-                .foregroundStyle(Theme.Color.foreground)
-            Scale1to5Picker(
-                value: binding(pregunta),
-                leftHint: pregunta.izquierda,
-                rightHint: pregunta.derecha
-            )
-        }
-    }
-
-    private var notesField: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            LabelText(text: "Notas (opc)")
+    /// El borrador de la nota se guarda al teclear: cerrar la hoja sin enviar no lo pierde.
+    private var notas: some View {
+        CampoDia("Notas (opcional)", enFoco: notesFocused) {
             ZStack(alignment: .topLeading) {
                 if answers.notes.isEmpty {
-                    Text("p.ej. quemado pierna izq desde ayer")
-                        .scaledFont(14, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.muted.opacity(0.7))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
+                    Text("p. ej. molestia en la pierna izquierda desde ayer")
+                        .foregroundStyle(Theme.Color.muted)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 8)
+                        .accessibilityHidden(true)
                 }
                 TextEditor(text: Binding(
                     get: { answers.notes },
-                    set: { newValue in
-                        answers.notes = newValue
-                        CheckinStore.saveDraftNotes(newValue)
+                    set: { nueva in
+                        answers.notes = nueva
+                        CheckinStore.saveDraftNotes(nueva)
                     }
                 ))
                 .focused($notesFocused)
                 .scrollContentBackground(.hidden)
-                .scaledFont(14, relativeTo: .subheadline)
-                .foregroundStyle(Theme.Color.foreground)
-                .frame(minHeight: 84)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .frame(minHeight: 96)
+                .accessibilityLabel("Notas del check-in, opcional")
             }
-            .background(Theme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
-                    .stroke(Theme.Color.outline, lineWidth: 1)
-            )
         }
-    }
-
-    private var submitArea: some View {
-        VStack(spacing: Theme.Spacing.m) {
-            ExpertPrimaryButton(
-                title: "CONTINUAR",
-                enabled: answers.allAnswered
-            ) {
-                let (score, snap) = answers.registrar(bearer: bearer, onServerSynced: onServerSynced)
-                onSubmitted(score, snap)
-            }
-
-            Button(action: {
-                Haptics.light()
-                CheckinStore.markSkipped()
-                onSkipped()
-            }) {
-                Text("Saltar")
-                    .scaledFont(13, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
-                    .underline()
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.top, Theme.Spacing.l)
     }
 
     /// The 1–5 binding for one question, in SCREEN terms (5 = best). For the negatively-keyed fields

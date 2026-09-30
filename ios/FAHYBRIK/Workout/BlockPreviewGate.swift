@@ -161,7 +161,7 @@ struct BlockPreviewGate: View {
                     .papel(.nota)
                     .foregroundStyle(Theme.Color.muted)
                     .multilineTextAlignment(.center)
-                AccionAncladaPrevia(titulo: "Arrancar bloque", simbolo: "play.fill", simboloDelante: true, accion: onStartBlock)
+                BotonAccionDia("Arrancar bloque", glifo: .play, completa: true, alto: Theme.Size.accionAnclada, glifoAlFinal: false, impacto: .medio, accion: onStartBlock)
             }
             .padding(.horizontal, Theme.Spacing.pantalla - Theme.Spacing.l)
         }
@@ -172,10 +172,10 @@ struct BlockPreviewGate: View {
     private var cromo: some View {
         CromoPrevia {
             // Salir sin empezar ni registrar nada: la sesión queda pendiente.
-            BotonCromoPrevia(simbolo: "xmark", etiqueta: "Salir del entreno", accion: onExit)
-            BotonCromoPrevia(simbolo: "list.bullet.rectangle", etiqueta: "Ver el entreno entero", accion: alVerBloques)
+            BotonCromoDia(.cerrar, etiqueta: "Salir del entreno", accion: onExit)
+            BotonCromoDia(.bloques, etiqueta: "Ver el entreno entero", accion: alVerBloques)
             if canGoBack {
-                BotonCromoPrevia(simbolo: "chevron.left", etiqueta: "Bloque anterior", accion: onBack)
+                BotonCromoDia(.atras, etiqueta: "Bloque anterior", accion: onBack)
             }
         } derecha: {
             if blockCount > 1 {
@@ -235,7 +235,7 @@ private struct LoQueVienePuerta: View {
                 }
             } else {
                 ForEach(filas) { fila in
-                    FilaAdaptablePrevia {
+                    FilaAdaptableDia {
                         Text(fila.nombre).papel(.cuerpoFuerte).fixedSize(horizontal: false, vertical: true)
                     } derecha: {
                         if let trabajo = fila.trabajo {

@@ -58,8 +58,6 @@ enum MedidasChat {
     static let radioCola: CGFloat = 5
     static let aireHorizontalBurbuja: CGFloat = 14
     static let aireVerticalBurbuja: CGFloat = 10
-    /// Alto de la acción anclada de una hoja, a todo el ancho.
-    static let altoAccionAnclada: CGFloat = 56
     /// Lo más grande que sale una foto en la conversación.
     static let fotoMaxAncho: CGFloat = 240
     static let fotoMaxAlto: CGFloat = 320

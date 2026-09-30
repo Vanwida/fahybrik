@@ -279,7 +279,7 @@ final class ComunicadosRenderTests: XCTestCase {
         ScrollView {
             ZonasSemanaView(grafica: g)
                 .padding(Theme.Spacing.l)
-                .tarjetaComunicado(alAncho: true)
+                .tarjetaDia(alAncho: true)
                 .padding(Theme.Spacing.pantalla)
         }
     }

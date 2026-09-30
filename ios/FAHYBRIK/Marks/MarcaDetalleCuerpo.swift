@@ -24,7 +24,7 @@ struct MarcaDetalleCuerpo: View {
             if let lectura { datos(lectura) }
         case .error:
             sujeto {
-                ErrorDeMarcas(
+                SujetoErrorDia(
                     kicker: "Tus marcas",
                     titulo: "No pudimos cargar la marca",
                     apoyo: "Revisa tu conexión e inténtalo de nuevo.",
@@ -52,9 +52,9 @@ struct MarcaDetalleCuerpo: View {
     private func datos(_ lectura: LecturaDeMarca) -> some View {
         VStack(alignment: .leading, spacing: 22) {
             if let aviso {
-                AvisoEnLineaMarcas(aviso.texto) {
+                AvisoEnLineaDia(aviso.texto) {
                     if aviso.reintentable {
-                        BotonTextoMarcas("Reintentar") { Task { await alReintentar() } }
+                        BotonTextoDia("Reintentar", tono: .tinta) { Task { await alReintentar() } }
                     }
                 }
             }
@@ -101,14 +101,31 @@ struct MarcaDetallePantalla: View {
             )
         }
         .background(Theme.Color.background.ignoresSafeArea())
-        .anclandoMarcas(si: estado == .datos && lectura != nil) {
+        .anclandoAccion(si: estado == .datos && lectura != nil) {
             if let lectura {
-                AccionAncladaMarcas(
-                    titulo: lectura.accion,
-                    simbolo: lectura.registra ? "plus" : "play.fill",
-                    alTocar: alActuar
+                BotonAccionDia(
+                    lectura.accion,
+                    glifo: lectura.registra ? .mas : .play,
+                    completa: true,
+                    alto: Theme.Size.accionAnclada,
+                    glifoAlFinal: false,
+                    impacto: .medio,
+                    accion: alActuar
                 )
             }
+        }
+    }
+}
+
+private extension View {
+    /// `.anchoredAction` con el margen de las pantallas del día: el pie ancla con 16 y el margen es 20, los 4
+    /// restantes van dentro. Sin acción no hay pie: una barra muerta con su filete no dice nada.
+    @ViewBuilder
+    func anclandoAccion<Contenido: View>(si hay: Bool, @ViewBuilder _ contenido: () -> Contenido) -> some View {
+        if hay {
+            anchoredAction { contenido().padding(.horizontal, Theme.Spacing.pantalla - Theme.Spacing.l) }
+        } else {
+            self
         }
     }
 }

@@ -1,164 +1,172 @@
 import SwiftUI
 
-// Tests guiados — the result step's DONE surface (mockup C), extracted from
-// TestResultCaptureSheet. Honest feedback only: every recorded entry with its
-// server-computed delta vs the previous mark, the "Tus zonas se han
-// actualizado" card with the RE-FETCHED new umbral (never a client-side
-// computation) + its delta vs the pre-save snapshot, and the remaining
-// non-zone effects (1RM / nivel) exactly as the bridge reported them.
+// Tests guiados — lo que se lee tras GUARDAR un resultado, dentro de la hoja de captura. Feedback
+// honesto y nada más: cada marca guardada con su cambio contra la anterior (lo calcula el servidor), la
+// tarjeta «Tus zonas se han actualizado» con el umbral NUEVO releído (jamás calculado en el cliente) y su
+// cambio contra el de antes de guardar, y los demás efectos (1RM, nivel) tal como los reportó el puente.
+//
+// El título de la hoja («Resultado guardado» / «Récord del test») y el botón «Hecho» son del marco de la
+// hoja: aquí solo va el contenido.
 struct TestResultDoneView: View {
     let result: RecordBatteryResult?
     let specs: [StoreResultSpec]
-    /// Post-save re-fetch of api/athlete/zones (the new umbral, server truth).
+    /// Relectura de api/athlete/zones tras guardar (el umbral nuevo, verdad del servidor).
     let newZoneProfiles: [ZoneModalityProfile]?
-    /// Umbral per modality as it stood BEFORE the save — powers the delta.
+    /// El umbral por modalidad tal como estaba ANTES de guardar: alimenta el cambio.
     let preThresholds: [String: Double]
-    let onDone: () -> Void
+
+    /// El título que la hoja lleva sobre este contenido: récord si el puente reporta una marca batida.
+    static func titulo(result: RecordBatteryResult?) -> String {
+        result?.improvedEntries.isEmpty == false ? "Récord del test" : "Resultado guardado"
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-            HStack(spacing: 10) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(Theme.Color.ok)
-                Text(result?.improvedEntries.isEmpty == false ? "Récord del test" : "Resultado guardado")
-                    .font(Theme.Typography.headlineS)
-                    .foregroundStyle(Theme.Color.foreground)
-            }
-
-            // Every recorded entry with its delta vs the previous mark (server
-            // truth) — the honest per-number readback.
+        VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
+            // Cada marca guardada con su cambio contra la anterior (verdad del servidor).
             if let entries = result?.entries, !entries.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(Array(entries.enumerated()), id: \.element.slug) { idx, entry in
-                        if idx > 0 { Hairline() }
-                        entryRow(entry)
-                    }
+                ListaDia {
+                    ForEach(entries, id: \.slug) { entryRow($0) }
                 }
             }
 
-            // "Tus zonas se han actualizado" — the rich card, with the NEW umbral
-            // (re-fetched, server-resolved) and its delta vs the pre-save one.
+            // «Tus zonas se han actualizado»: el umbral NUEVO (releído, resuelto por el servidor) y su
+            // cambio contra el de antes de guardar.
             if let result, !result.zonesDerived.isEmpty {
-                zonesUpdatedCard(result.zonesDerived)
+                zonesUpdated(result.zonesDerived)
             }
 
             let effects = result?.secondaryEffects ?? []
             if effects.isEmpty, result?.entries?.isEmpty != false, result?.zonesDerived.isEmpty != false {
                 Text("Tu marca queda registrada en tu perfil.")
-                    .font(Theme.Typography.small)
+                    .papel(.cuerpo)
                     .foregroundStyle(Theme.Color.muted)
             } else if !effects.isEmpty {
-                VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                     ForEach(effects, id: \.self) { effect in
-                        HStack(spacing: 9) {
-                            Image(systemName: "arrow.up.right.circle.fill")
-                                .font(.system(size: 14, weight: .semibold))
+                        HStack(spacing: Theme.Spacing.m) {
+                            IconoDia(.sube, tam: 20, peso: .bold)
                                 .foregroundStyle(Theme.Color.accentText)
                             Text(effect)
-                                .font(Theme.Typography.bodyEmph)
+                                .papel(.cuerpoFuerte)
                                 .foregroundStyle(Theme.Color.foreground)
                         }
                     }
                 }
-                .padding(Theme.Spacing.l)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.Color.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                        .stroke(Theme.Color.hairline, lineWidth: 1)
-                )
+                .padding(Theme.Spacing.l + 2)
+                .tarjetaDia(realce: true, alAncho: true)
             }
-
-            PrimaryButton(title: "Hecho") {
-                Haptics.light()
-                onDone()
-            }
-            .padding(.top, Theme.Spacing.s)
         }
     }
 
-    /// One saved entry: label · value · delta chip (green/red by the unit's
-    /// better-direction; "primera marca" when there was nothing to beat).
+    /// Una marca guardada: nombre · valor · cambio (verde o rojo según la dirección de mejora de su unidad;
+    /// «primera marca» cuando no había nada que batir). Con texto grande baja de línea en vez de apretarse.
     private func entryRow(_ entry: RecordBatteryResult.EntryDelta) -> some View {
         let spec = specs.first { $0.slug == entry.slug }
         let unit = spec?.unit ?? ""
-        return HStack(spacing: Theme.Spacing.m) {
-            Text(spec?.label ?? entry.slug)
-                .font(Theme.Typography.bodyEmph)
-                .foregroundStyle(Theme.Color.foreground)
-                .lineLimit(1)
-            Spacer(minLength: Theme.Spacing.s)
-            Text(BenchmarkDelta.valueLabel(unit: unit, value: entry.value))
-                .font(.system(size: 15, weight: .bold, design: .monospaced).monospacedDigit())
-                .foregroundStyle(Theme.Color.foreground)
-            if let prev = entry.prevValue {
-                BenchmarkDeltaChip(unit: unit, delta: entry.value - prev)
-            } else {
-                Text("primera marca")
-                    .font(Theme.Typography.caption)
-                    .foregroundStyle(Theme.Color.muted)
+        let nombre = Text(spec?.label ?? entry.slug)
+            .papel(.cuerpoFuerte)
+            .foregroundStyle(Theme.Color.foreground)
+        let valor = Text(BenchmarkDelta.valueLabel(unit: unit, value: entry.value))
+            .papel(.cifra)
+            .foregroundStyle(Theme.Color.foreground)
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: Theme.Spacing.m) {
+                nombre
+                Spacer(minLength: Theme.Spacing.s)
+                valor
+                cambio(entry, unit: unit)
+            }
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                nombre
+                HStack(spacing: Theme.Spacing.m) {
+                    valor
+                    cambio(entry, unit: unit)
+                }
             }
         }
-        .padding(.vertical, Theme.Spacing.s)
+        .padding(.horizontal, Theme.Spacing.l + 2)
+        .padding(.vertical, Theme.Spacing.m)
+        .frame(minHeight: Theme.Size.toque, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 
-    /// The updated zones, per derived modality: the server-resolved NEW umbral
-    /// (re-fetched — never computed client-side) + delta vs the pre-save umbral
-    /// when it actually changed.
-    private func zonesUpdatedCard(_ derived: [RecordBatteryResult.ZoneDerived]) -> some View {
+    @ViewBuilder
+    private func cambio(_ entry: RecordBatteryResult.EntryDelta, unit: String) -> some View {
+        if let prev = entry.prevValue {
+            BenchmarkDeltaChip(unit: unit, delta: entry.value - prev)
+        } else {
+            Text("primera marca")
+                .papel(.nota)
+                .foregroundStyle(Theme.Color.muted)
+        }
+    }
+
+    /// Las zonas actualizadas, por modalidad derivada.
+    private func zonesUpdated(_ derived: [RecordBatteryResult.ZoneDerived]) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            HStack(spacing: 9) {
-                Image(systemName: "speedometer")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
-                Text("Tus zonas se han actualizado")
-                    .font(Theme.Typography.bodyEmph)
-                    .foregroundStyle(Theme.Color.foreground)
-            }
-            VStack(spacing: 0) {
-                ForEach(derived, id: \.modality) { zone in
-                    zoneUpdateRow(zone)
-                }
+            SubtituloDia("Tus zonas se han actualizado")
+            ListaDia {
+                ForEach(derived, id: \.modality) { zoneUpdateRow($0) }
             }
             Text("El umbral nuevo ya marca los ritmos de tus próximos entrenos.")
-                .font(Theme.Typography.caption)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(Theme.Spacing.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Color.surfaceElevated)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                .stroke(Theme.Color.hairline, lineWidth: 1)
-        )
     }
 
     private func zoneUpdateRow(_ zone: RecordBatteryResult.ZoneDerived) -> some View {
-        // Prefer the re-fetched profile (label + unit as the server renders
-        // them); fall back to the response's threshold with the modality's
-        // intrinsic unit (run → /km, ergo → /500m) while the re-fetch lands.
+        // Se prefiere el perfil releído (etiqueta y unidad tal como las pinta el servidor); mientras la
+        // relectura llega, el umbral de la respuesta con la unidad intrínseca de la modalidad (correr →
+        // /km, remo → /500m).
         let profile = newZoneProfiles?.first { $0.modality == zone.modality }
         let thresholdText = profile?.thresholdLabel
             ?? "\(Formato.ritmoCifras(Double(Int(zone.thresholdS.rounded()))))\(zone.modality == "run" ? Formato.UnidadRitmo.porKm.rawValue : Formato.UnidadRitmo.por500m.rawValue)"
         let delta = preThresholds[zone.modality].map { zone.thresholdS - $0 }
-        return HStack(spacing: Theme.Spacing.m) {
-            Text(profile?.modalityLabel ?? RecordBatteryResult.modalityLabel(zone.modality).capitalized)
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.foreground)
-            Spacer(minLength: Theme.Spacing.s)
-            Text("umbral \(thresholdText)")
-                .font(.system(size: 13, weight: .bold, design: .monospaced).monospacedDigit())
-                .foregroundStyle(Theme.Color.foreground)
-            if let delta, delta != 0 {
-                BenchmarkDeltaChip(unit: "seconds", delta: delta)
+        let nombre = Text(profile?.modalityLabel ?? RecordBatteryResult.modalityLabel(zone.modality).capitalized)
+            .papel(.cuerpoFuerte)
+            .foregroundStyle(Theme.Color.foreground)
+        let umbral = Text("umbral \(thresholdText)")
+            .papel(.cifra)
+            .foregroundStyle(Theme.Color.foreground)
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: Theme.Spacing.m) {
+                nombre
+                Spacer(minLength: Theme.Spacing.s)
+                umbral
+                if let delta, delta != 0 { BenchmarkDeltaChip(unit: "seconds", delta: delta) }
+            }
+            VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                nombre
+                HStack(spacing: Theme.Spacing.m) {
+                    umbral
+                    if let delta, delta != 0 { BenchmarkDeltaChip(unit: "seconds", delta: delta) }
+                }
             }
         }
-        .padding(.vertical, 6)
+        .padding(.horizontal, Theme.Spacing.l + 2)
+        .padding(.vertical, Theme.Spacing.m)
+        .frame(minHeight: Theme.Size.toque, alignment: .leading)
         .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - El paso final de la hoja
+
+/// El paso final de la hoja de captura: el marco con el título que toca («Resultado guardado» o «Récord
+/// del test»), lo que se guardó y «Hecho» anclado. Pieza propia para poder mirarla sin pasar por el guardado.
+struct TestResultPasoFinal: View {
+    let result: RecordBatteryResult?
+    let specs: [StoreResultSpec]
+    let newZoneProfiles: [ZoneModalityProfile]?
+    let preThresholds: [String: Double]
+    let onDone: () -> Void
+
+    var body: some View {
+        MarcoDeHojaDia(TestResultDoneView.titulo(result: result), cerrar: onDone) {
+            TestResultDoneView(result: result, specs: specs, newZoneProfiles: newZoneProfiles, preThresholds: preThresholds)
+        } accion: {
+            BotonAccionDia("Hecho", relleno: .acento, completa: true, alto: Theme.Size.accionAnclada, impacto: .medio, accion: onDone)
+        }
     }
 }

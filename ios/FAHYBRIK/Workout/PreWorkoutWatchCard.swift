@@ -47,7 +47,7 @@ struct PreWorkoutWatchCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(Theme.Spacing.l)
-        .tarjetaPrevia()
+        .tarjetaDia()
         .accessibilityElement(children: .combine)
     }
 }

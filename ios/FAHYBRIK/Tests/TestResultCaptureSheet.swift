@@ -1,256 +1,46 @@
 import SwiftUI
 
-// #34 — the capture step shown when the athlete FINISHES a calibration test (or
-// taps a "resultado pendiente" test from the battery card). It PRE-FILLS the
-// measured number(s) from the execution — the live time for a time-trial, the
-// heaviest logged set for a 1RM — so the athlete only confirms/edits, then it
-// posts to the ejecución→benchmark BRIDGE (TestBatteryService.recordResults),
-// which calibrates zones / 1RM and re-runs the level. The feedback is HONEST:
-// it claims only what actually changed ("Zonas actualizadas", and "Nivel
-// recalculado" ONLY when the bridge reports it).
+// #34 — el paso de captura que sale cuando el atleta TERMINA un test de calibración (o toca un test con
+// «resultado pendiente» en la batería). PRECARGA los números medidos en la ejecución —el tiempo en vivo de
+// una contrarreloj, la serie más pesada de un 1RM— para que el atleta solo confirme o edite, y después
+// los envía al PUENTE ejecución→benchmark (`TestBatteryService.recordResults`), que calibra zonas y 1RM y
+// recalcula el nivel. El feedback es HONESTO: afirma solo lo que de verdad cambió («Zonas actualizadas», y
+// «Nivel recalculado» SOLO cuando el puente lo reporta).
 //
-// One test can promise several results (a 1RM battery → squat + deadlift +
-// bench), so it renders one input per `StoreResultSpec`, each with the input
-// shape its `measure` needs (time → mm:ss; load → kg; the rest → a number).
-
-// MARK: - Measure → typed input
-
-enum TestMeasure {
-    case time      // seconds, entered as mm:ss
-    case load      // kg
-    case distance  // meters
-    case reps
-    case calories
-    case hrr       // pulse DROP — MEASURED by the app's recovery window, never typed
-    case hr        // an absolute pulse (threshold FC) — typed by the athlete
-    case height    // jump height, cm — never typed on the happy path
-    case other     // unknown future measure → plain number, no unit assumptions
-
-    init(_ raw: String) {
-        switch raw {
-        case "time":     self = .time
-        case "load":     self = .load
-        case "distance": self = .distance
-        case "reps":     self = .reps
-        case "calories": self = .calories
-        case "hrr":      self = .hrr
-        case "hr":       self = .hr
-        case "height":   self = .height
-        default:         self = .other
-        }
-    }
-
-    /// Adjustment step for the ± buttons, in the measure's own unit.
-    var step: Double {
-        switch self {
-        case .time:     return 5     // seconds
-        case .load:     return 3     // kg (matches the coach 1RM cadence)
-        case .distance: return 50    // meters
-        case .reps:     return 1
-        case .calories: return 5
-        case .hrr:      return 1     // ppm (display only — the row is read-only)
-        case .hr:       return 1     // ppm
-        case .height:   return 0.5
-        case .other:    return 1
-        }
-    }
-
-    /// Short unit shown next to a numeric field (time uses mm:ss, no unit chip).
-    /// Both pulse measures read in **ppm** — the athlete-facing unit for a heart
-    /// rate (docs/CONTRATO-UI.md §3: never "bpm", never "HR").
-    var unitLabel: String {
-        switch self {
-        case .load:     return "kg"
-        case .distance: return "m"
-        case .reps:     return "reps"
-        case .calories: return "cal"
-        case .hrr, .hr: return Vocab.ppm
-        case .height:   return "cm"
-        case .time, .other: return ""
-        }
-    }
-
-    var usesDecimals: Bool { self == .load || self == .height }
-}
-
-// MARK: - Pre-fill from the live execution
-
-/// Maps a finished session's measured work onto the test's result slugs, so the
-/// capture sheet opens with the real number already in place. Reads only the
-/// session's public accessors — never fabricates: a measure with no captured
-/// value simply starts empty (the athlete enters it).
-enum TestBatteryPrefill {
-    static func map(session: WorkoutSession, specs: [StoreResultSpec]) -> [String: Double] {
-        var out: [String: Double] = [:]
-        for spec in specs {
-            if let v = value(session: session, measure: TestMeasure(spec.measure)) {
-                out[spec.slug] = v
-            }
-        }
-        return out
-    }
-
-    /// Lo mismo desde la ejecución que manda el reloj cuando el test se hizo con la
-    /// muñeca sola: el móvil no tuvo la sesión viva, tiene lo que midió el reloj.
-    /// Misma regla que desde la sesión; la carga mira también las series declaradas,
-    /// que es donde vive el peso de un 1RM hecho serie a serie.
-    static func map(payload: WorkoutExecutionPayload, specs: [StoreResultSpec]) -> [String: Double] {
-        var out: [String: Double] = [:]
-        for spec in specs {
-            if let v = value(payload: payload, measure: TestMeasure(spec.measure)) {
-                out[spec.slug] = v
-            }
-        }
-        return out
-    }
-
-    private static func value(payload: WorkoutExecutionPayload, measure: TestMeasure) -> Double? {
-        let segments = payload.segments ?? []
-        switch measure {
-        case .time:
-            if let t = payload.score_time_s, t > 0 { return Double(t) }
-            if let t = payload.total_duration_seconds, t > 0 { return Double(t) }
-            return nil
-        case .load:
-            let series = segments.flatMap { $0.sets ?? [] }
-                .filter { $0.status != "skipped" }
-                .compactMap(\.load_actual_kg)
-            return (segments.compactMap(\.weight_used_kg) + series).max()
-        case .distance:
-            let d = segments.compactMap(\.distance_meters).reduce(0, +)
-            return d > 0 ? d : nil
-        case .reps:
-            let r = segments.compactMap(\.reps_completed).reduce(0, +)
-            return r > 0 ? Double(r) : nil
-        case .calories:
-            let c = segments.compactMap(\.calories).reduce(0, +)
-            return c > 0 ? c : nil
-        case .hrr, .hr, .height, .other:
-            // Lo mismo que desde la sesión: ni la recuperación (la mide la ventana
-            // del móvil), ni el umbral, ni un salto salen de aquí.
-            return nil
-        }
-    }
-
-    private static func value(session: WorkoutSession, measure: TestMeasure) -> Double? {
-        switch measure {
-        case .time:
-            // The conditioning engine's captured headline time (For Time / HYROX
-            // sim), else the total elapsed clock.
-            if let t = session.capturedScoreTimeSeconds, t > 0 { return Double(t) }
-            let e = Int(session.elapsedSeconds.rounded())
-            return e > 0 ? Double(e) : nil
-        case .load:
-            // Heaviest load actually logged (the 1RM proxy): the max across every
-            // segment's recorded weight.
-            return session.laps.compactMap { $0.weightUsedKg }.max()
-        case .distance:
-            let d = session.laps.compactMap { $0.distanceCoveredMeters }.reduce(0, +)
-            return d > 0 ? d : nil
-        case .reps:
-            let r = session.laps.compactMap { $0.repsCompleted }.reduce(0, +)
-            return r > 0 ? Double(r) : nil
-        case .calories:
-            let c = session.laps.compactMap { $0.calories }.reduce(0, +)
-            return c > 0 ? c : nil
-        case .hrr:
-            // Measured by the post-effort recovery window (tests guiados). Nil
-            // when the window never ran / had no signal — the row then reads as
-            // omitted; the athlete NEVER types a recovery value by hand.
-            return session.hrRecovery?.hrr60.map(Double.init)
-        case .hr:
-            // The threshold is the AVERAGE pulse over the last 20 min of the
-            // effort, and the session keeps no per-window HR average to compute it
-            // from — only the recovery capture. Pre-filling anything else here (the
-            // last reading, the session mean) would put a number that is not the
-            // threshold in the field that defines the athlete's zones. So: nil, and
-            // the athlete copies the lap average their watch already shows.
-            return nil
-        case .height:
-            // Height is produced by the jump capture, never by a live workout
-            // session. An empty prefill here is honest: this sheet is the
-            // fallback when someone opens «Añadir resultado» without video.
-            return nil
-        case .other:
-            return nil
-        }
-    }
-}
-
-// MARK: - Save gating (pure)
-
-/// When can the capture be saved? Every REQUIRED entry has its value, and at
-/// least one value exists overall (an optional-only capture with nothing
-/// measured has nothing to send). Optional entries — contract `optional: true`
-/// or an app-measured `hrr` — never block: measured → sent; missing → omitted
-/// without error, the test still counts. Pure so the rule is unit-tested.
-enum TestResultGating {
-    static func canSave(entries: [(value: Double?, isOptional: Bool)]) -> Bool {
-        entries.contains { $0.value != nil }
-            && entries.filter { !$0.isOptional }.allSatisfy { $0.value != nil }
-    }
-}
-
-// MARK: - Sheet
+// Un test puede prometer varios resultados (una batería de 1RM → sentadilla + peso muerto + press banca),
+// así que pinta una entrada por `StoreResultSpec`, cada una con la forma que su `measure` necesita
+// (tiempo → mm:ss; carga → kg; el resto → un número).
+//
+// ES UNA HOJA del día (`MarcoDeHojaDia`): título, cierre de 48 pt, el cuerpo que scrollea y la acción
+// anclada abajo siempre visible. La usan tres sitios —el hub (`.sheet`), el reloj (`AppShell`) y el final
+// de una sesión en vivo (`WorkoutContainer`, en línea, sin hoja)— y en los tres es la misma pieza.
 
 struct TestResultCaptureSheet: View {
     let assignmentId: String
     let specs: [StoreResultSpec]
-    /// slug → measured value from the live execution (empty for a standalone
-    /// "resultado pendiente" nudge opened from the card).
+    /// slug → valor medido en la ejecución en vivo (vacío para el aviso de «resultado pendiente» que se
+    /// abre desde la tarjeta).
     var prefill: [String: Double] = [:]
     let bearer: String?
-    /// Fired when the athlete is done with this step — after a successful save OR
-    /// a skip. The caller closes the flow / refreshes the battery.
+    /// Se dispara cuando el atleta termina este paso — tras guardar con éxito O tras omitirlo. Quien llama
+    /// cierra el flujo y refresca la batería.
     let onDone: () -> Void
 
     private enum Stage: Equatable { case editing, submitting, done }
 
-    @State private var rows: [Row] = []
+    @State private var rows: [FilaDeResultado] = []
     @State private var stage: Stage = .editing
     @State private var result: RecordBatteryResult? = nil
     @State private var errorText: String? = nil
-    @Environment(\.colorScheme) private var scheme
 
-    // Mockup C — the result step's zone truth. `preThresholds` snapshots the
-    // CURRENT umbral per modality on open (best effort) so the updated card can
-    // show the real delta; `newZoneProfiles` is the post-save re-fetch (the new
-    // umbral as the server resolved it, not a client guess).
+    // La verdad de las zonas en el paso de resultado. `preThresholds` fotografía el umbral ACTUAL por
+    // modalidad al abrir (lo mejor posible) para poder enseñar el cambio real; `newZoneProfiles` es la
+    // relectura tras guardar (el umbral nuevo tal como lo resolvió el servidor, no una cuenta del cliente).
     @State private var preThresholds: [String: Double] = [:]
     @State private var newZoneProfiles: [ZoneModalityProfile]? = nil
-    /// «Récord del test» overlay — raised when the bridge reports improved entries.
+    /// La superposición de «Récord del test»: sube cuando el puente reporta marcas mejoradas.
     @State private var showCelebration = false
-
-    // One editable result. Text-backed (not Double-backed) so numeric entry never
-    // fights a formatter; the value is parsed on save.
-    private struct Row: Identifiable {
-        var id: String { spec.slug }
-        let spec: StoreResultSpec
-        var measure: TestMeasure
-        var minText: String   // time
-        var secText: String   // time
-        var amountText: String // load/distance/reps/calories/other
-
-        /// An OPTIONAL row never blocks the save: the contract can flag any
-        /// result `optional`, and an `hrr` row is intrinsically optional (it's
-        /// app-measured — with no signal it's omitted, never typed).
-        var isOptional: Bool { spec.isOptional || measure == .hrr }
-
-        var value: Double? {
-            switch measure {
-            case .time:
-                let m = Int(minText.trimmingCharacters(in: .whitespaces)) ?? 0
-                let s = Int(secText.trimmingCharacters(in: .whitespaces)) ?? 0
-                let total = m * 60 + s
-                return total > 0 ? Double(total) : nil
-            default:
-                let cleaned = amountText.replacingOccurrences(of: ",", with: ".")
-                    .trimmingCharacters(in: .whitespaces)
-                guard let v = Double(cleaned), v > 0 else { return nil }
-                return v
-            }
-        }
-    }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var canSave: Bool {
         bearer != nil && TestResultGating.canSave(
@@ -260,20 +50,28 @@ struct TestResultCaptureSheet: View {
 
     var body: some View {
         ZStack {
-            Theme.Color.background.ignoresSafeArea()
-            VStack(spacing: 0) {
-                topBar
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                        if stage == .done {
-                            doneContent
-                        } else {
-                            editingContent
-                        }
+            if stage == .done {
+                TestResultPasoFinal(
+                    result: result,
+                    specs: specs,
+                    newZoneProfiles: newZoneProfiles,
+                    preThresholds: preThresholds,
+                    onDone: onDone
+                )
+            } else {
+                MarcoDeHojaDia("Registra tu resultado", cerrar: cierra) {
+                    editingContent
+                } accion: {
+                    BotonAccionDia(
+                        hoja: "Guardar resultado",
+                        activo: canSave,
+                        ocupado: stage == .submitting,
+                        textoOcupado: "Guardando…",
+                        voz: "Guardando resultado"
+                    ) {
+                        Task { await save() }
                     }
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.top, Theme.Spacing.l)
-                    .padding(.bottom, Theme.Spacing.xxl)
+                    BotonTextoDia("Ahora no", tono: .suave, centrado: true, desactivado: stage == .submitting, accion: onDone)
                 }
             }
 
@@ -285,180 +83,106 @@ struct TestResultCaptureSheet: View {
                 .transition(.opacity)
             }
         }
+        // Guardando no se cierra: ni con la ✕ ni con el gesto de bajar la hoja.
+        .interactiveDismissDisabled(stage == .submitting)
         .onAppear(perform: seedRows)
         .task { await snapshotCurrentThresholds() }
     }
 
-    // MARK: Top bar
-
-    private var topBar: some View {
-        HStack {
-            LabelText(text: "Test · Calibración", color: Theme.Color.accentText)
-            Spacer()
-            if stage != .submitting {
-                Button {
-                    Haptics.light()
-                    onDone()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.Color.muted)
-                        .frame(width: 34, height: 34)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Cerrar")
-            }
-        }
-        .padding(.horizontal, Theme.Spacing.xl)
-        .padding(.top, Theme.Spacing.l)
-        .padding(.bottom, Theme.Spacing.s)
+    /// La ✕ de la hoja: mientras se guarda no hace nada (cerrar a medias dejaría el envío en el aire).
+    private func cierra() {
+        guard stage != .submitting else { return }
+        onDone()
     }
 
-    // MARK: Editing
+    // MARK: Editando
 
     @ViewBuilder
     private var editingContent: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Registra tu resultado")
-                .font(Theme.Typography.headlineM)
-                .foregroundStyle(Theme.Color.foreground)
+        VStack(alignment: .leading, spacing: Theme.Spacing.l) {
             Text("Confirma tu marca real. Fija tus zonas y tu 1RM y calibra tu plan con datos, no estimaciones.")
-                .font(Theme.Typography.small)
+                .papel(.cuerpo)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
-        }
 
-        ForEach($rows) { $row in
-            resultCard($row)
-        }
-
-        if let errorText {
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                Text(errorText)
-                    .font(Theme.Typography.small)
+            ForEach($rows) { $row in
+                resultCard($row)
             }
-            .foregroundStyle(Theme.Color.danger)
-        }
 
-        VStack(spacing: Theme.Spacing.s) {
-            PrimaryButton(
-                title: stage == .submitting ? "Guardando…" : "Guardar resultado",
-                enabled: canSave && stage != .submitting
-            ) {
-                Task { await save() }
+            if let errorText {
+                AvisoEnLineaDia(errorText)
             }
-            SecondaryButton(title: "Ahora no") {
-                Haptics.light()
-                onDone()
-            }
-            .disabled(stage == .submitting)
-        }
-        .padding(.top, Theme.Spacing.s)
 
-        if bearer == nil {
-            Text("Inicia sesión para guardar tu resultado.")
-                .font(Theme.Typography.caption)
-                .foregroundStyle(Theme.Color.muted)
+            if bearer == nil {
+                Text("Inicia sesión para guardar tu resultado.")
+                    .papel(.nota)
+                    .foregroundStyle(Theme.Color.muted)
+            }
         }
     }
 
-    private func resultCard(_ row: Binding<Row>) -> some View {
+    private func resultCard(_ row: Binding<FilaDeResultado>) -> some View {
         let measure = row.wrappedValue.measure
-        return CardSurface(padding: Theme.Spacing.l) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-                HStack(alignment: .firstTextBaseline) {
-                    LabelText(text: row.wrappedValue.spec.label)
-                    if row.wrappedValue.isOptional, measure != .hrr {
-                        Spacer(minLength: Theme.Spacing.s)
-                        Text("OPCIONAL")
-                            .font(.system(size: 9, weight: .semibold))
-                            .tracking(Theme.Tracking.dataLabel)
-                            .foregroundStyle(Theme.Color.faint)
-                    }
-                }
-                if measure == .hrr {
-                    hrrReadout(row.wrappedValue)
-                } else if measure == .time {
-                    TimeEntry(minText: row.minText, secText: row.secText, step: measure.step)
-                } else {
-                    AmountEntry(
-                        text: row.amountText,
-                        unit: measure.unitLabel,
-                        step: measure.step,
-                        decimals: measure.usesDecimals
-                    )
+        let etiqueta = row.wrappedValue.spec.label
+        return VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            HStack(alignment: .center) {
+                Text(etiqueta)
+                    .papel(.rotulo)
+                    .foregroundStyle(Theme.Color.foreground)
+                if row.wrappedValue.isOptional, measure != .hrr {
+                    Spacer(minLength: Theme.Spacing.s)
+                    InfoPill(text: "Opcional", estilo: .neutro)
                 }
             }
+            if measure == .hrr {
+                hrrReadout(row.wrappedValue)
+            } else if measure == .time {
+                TimeEntry(minText: row.minText, secText: row.secText, step: measure.step, etiqueta: etiqueta)
+            } else {
+                AmountEntry(
+                    text: row.amountText,
+                    unit: measure.unitLabel,
+                    step: measure.step,
+                    decimals: measure.usesDecimals,
+                    etiqueta: etiqueta
+                )
+            }
         }
+        .padding(Theme.Spacing.l + 2)
+        .tarjetaDia(alAncho: true)
     }
 
-    // The recovery result is MEASURED (post-effort window), never typed: with a
-    // value it renders as a read-only readout; without signal it announces the
-    // honest omission — the save simply skips it.
+    // La recuperación se MIDE (ventana posterior al esfuerzo), jamás se teclea: con valor sale como una
+    // lectura de solo lectura; sin señal anuncia la omisión honesta — el guardado simplemente la salta.
     @ViewBuilder
-    private func hrrReadout(_ row: Row) -> some View {
+    private func hrrReadout(_ row: FilaDeResultado) -> some View {
         if let value = row.value {
-            HStack(alignment: .lastTextBaseline, spacing: 6) {
+            HStack(alignment: .lastTextBaseline, spacing: Theme.Spacing.s) {
                 Text("−\(Int(value))")
-                    .font(Theme.Typography.readoutL)
+                    .papel(.dato)
                     .foregroundStyle(Theme.Color.foreground)
                 Text(Vocab.ppm)
-                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                    .papel(.notaFuerte)
                     .foregroundStyle(Theme.Color.muted)
             }
             .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .combine)
             Text("Medido automáticamente al terminar el esfuerzo.")
-                .font(Theme.Typography.caption)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
         } else {
             Text("Sin medición esta vez — se guarda el resto del test sin este dato.")
-                .font(Theme.Typography.caption)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    // MARK: Done (honest feedback — mockup C, extracted view)
-
-    private var doneContent: some View {
-        TestResultDoneView(
-            result: result,
-            specs: specs,
-            newZoneProfiles: newZoneProfiles,
-            preThresholds: preThresholds,
-            onDone: onDone
-        )
-    }
-
-    // MARK: Actions
+    // MARK: Acciones
 
     private func seedRows() {
         guard rows.isEmpty else { return }
-        rows = specs.map { spec in
-            let measure = TestMeasure(spec.measure)
-            let pre = prefill[spec.slug]
-            if measure == .time {
-                let secs = Int((pre ?? 0).rounded())
-                return Row(
-                    spec: spec, measure: measure,
-                    minText: secs > 0 ? String(secs / 60) : "",
-                    secText: secs > 0 ? String(format: "%02d", secs % 60) : "",
-                    amountText: ""
-                )
-            } else {
-                let text: String
-                if let pre {
-                    text = measure.usesDecimals
-                        ? trimmedDecimal(pre)
-                        : String(Int(pre.rounded()))
-                } else {
-                    text = ""
-                }
-                return Row(spec: spec, measure: measure, minText: "", secText: "", amountText: text)
-            }
-        }
+        rows = specs.map { FilaDeResultado.sembrada(spec: $0, precarga: prefill[$0.slug]) }
     }
 
     private func save() async {
@@ -479,12 +203,12 @@ struct TestResultCaptureSheet: View {
             result = res
             Haptics.success()
             stage = .done
-            // Récord del test (mockup C): the bridge says a mark was BEATEN.
+            // Récord del test: el puente dice que se BATIÓ una marca.
             if !res.improvedEntries.isEmpty {
-                withAnimation(.easeOut(duration: 0.2)) { showCelebration = true }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { showCelebration = true }
             }
-            // Zones changed → re-fetch the server-resolved profiles so the card
-            // shows the REAL new umbral (never a client-side computation).
+            // Las zonas cambiaron → se relee el perfil resuelto por el servidor, para que la tarjeta
+            // enseñe el umbral nuevo REAL (jamás una cuenta del cliente).
             if !res.zonesDerived.isEmpty {
                 newZoneProfiles = try? await ZonesService.fetch(bearer: bearer).modalities
             }
@@ -494,9 +218,9 @@ struct TestResultCaptureSheet: View {
         }
     }
 
-    /// Snapshot the CURRENT umbral per modality before saving, so the updated-
-    /// zones card can show an honest delta. Best effort — with no snapshot the
-    /// card simply shows the new umbral without a delta.
+    /// Fotografía el umbral ACTUAL por modalidad antes de guardar, para que la tarjeta de zonas
+    /// actualizadas enseñe un cambio honesto. Lo mejor posible — sin foto, la tarjeta enseña el umbral
+    /// nuevo sin cambio.
     private func snapshotCurrentThresholds() async {
         guard let bearer, preThresholds.isEmpty else { return }
         guard let profiles = try? await ZonesService.fetch(bearer: bearer).modalities else { return }
@@ -504,13 +228,5 @@ struct TestResultCaptureSheet: View {
             profiles.compactMap { p in p.thresholdS.map { (p.modality, $0) } },
             uniquingKeysWith: { _, latest in latest }
         )
-    }
-
-    /// "142.5" without a trailing ".0" — kg display for the prefill seed.
-    private func trimmedDecimal(_ v: Double) -> String {
-        let rounded = (v * 10).rounded() / 10
-        return rounded == rounded.rounded()
-            ? String(Int(rounded))
-            : Formato.esDecimal(rounded)
     }
 }
