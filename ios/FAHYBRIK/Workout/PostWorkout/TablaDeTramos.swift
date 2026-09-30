@@ -47,35 +47,40 @@ struct TablaDeTramos: View {
     }
 
     var body: some View {
-        CardSurface(padding: 0) {
-            VStack(spacing: 0) {
-                HStack {
-                    Text("Por segmento")
-                        .scaledFont(15, weight: .bold, relativeTo: .subheadline)
-                        .foregroundStyle(Theme.Color.muted)
-                    Spacer()
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                ForEach(grupos) { group in
-                    Hairline()
-                    cabeceraDeBloque(group)
-                    ForEach(Array(group.segments.enumerated()), id: \.element.id) { idx, seg in
-                        if idx > 0 { Hairline().opacity(0.4) }
-                        filaDeSegmento(seg)
-                    }
+        // La cara plana de tarjeta del día (la misma que las demás secciones del resumen), no la
+        // `CardSurface` con sombra de la piel anterior.
+        let forma = RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous)
+        VStack(spacing: 0) {
+            HStack {
+                Text("Por segmento")
+                    .papel(.etiqueta)
+                    .foregroundStyle(Theme.Color.muted)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, Theme.Spacing.m)
+            ForEach(grupos) { group in
+                Hairline()
+                cabeceraDeBloque(group)
+                ForEach(Array(group.segments.enumerated()), id: \.element.id) { idx, seg in
+                    if idx > 0 { Hairline().opacity(0.4) }
+                    filaDeSegmento(seg)
                 }
             }
         }
+        .padding(.bottom, Theme.Spacing.xs)
+        .background(Theme.Color.surface, in: forma)
+        .clipShape(forma)
+        .overlay(forma.strokeBorder(Theme.Color.hairline, lineWidth: 1))
     }
 
     // Cabecera de bloque. El trabajo principal va acentuado y el calentamiento /
     // vuelta a la calma apagados, para que el ojo caiga en el esfuerzo de verdad.
     private func cabeceraDeBloque(_ group: WorkoutSegmentGroup) -> some View {
         HStack(spacing: 6) {
-            Text(group.title.uppercased())
-                .scaledFont(15, weight: .heavy, relativeTo: .subheadline, italic: true)
-                .tracking(0.6)
+            Text(group.title)
+                .papel(.kicker)
                 .foregroundStyle(group.phase.isMainWork ? Theme.Color.accentText : Theme.Color.muted)
                 .lineLimit(1)
             Spacer()

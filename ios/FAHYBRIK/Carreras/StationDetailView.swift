@@ -1,308 +1,359 @@
 import SwiftUI
 
-// Detail for a single HYROX station (e.g. Sled Push): technique video, your
-// last time vs benchmark + percentile, trend between races, sub-metrics, the
-// training that improves it, and the IA recommendation. Data is LIVE from
-// CarrerasService.fetchStationDetail (GET /api/athlete/stations/{station}); it
-// renders an honest empty state when the athlete has no imported race recording
-// this station. Replicable for all 8 stations via `init(station:bearer:)`.
+// EL DETALLE DE UNA ESTACIÓN (p. ej. Sled Push) — se abre desde las estaciones de tu última carrera.
+// Arquetipo «Detalle» (CONTRATO-UI §6.2): el sujeto es tu última marca en esa estación contra la
+// referencia (y tu puesto), y el hueco se gana con lo que la explica: el vídeo de técnica que puso tu
+// coach, tu tendencia entre carreras, las submarcas medidas, los entrenos que la trabajan y la
+// recomendación. Datos EN VIVO de `CarrerasService.fetchStationDetail` (`GET /api/athlete/stations/…`);
+// sin ninguna carrera importada con esta estación, el sujeto invita a importar (que es justo lo que el
+// atleta puede hacer aquí). Sirve para las ocho estaciones.
 //
-// Brand accent is orange; the worse/slightly-worse/better delta uses the
-// semantic danger/warning/ok axis, never red-as-brand.
+// Honestidad (§7): cada pieza se pinta SOLO si existe. Sin tu tiempo no hay cifra (hay invitación); sin
+// referencia no hay barra (una barra sin contra qué compararse insinúa un veredicto); una submarca sin
+// medida no ocupa celda. El color de estado va en la barra y en la marca; las cifras, en tinta.
 struct StationDetailView: View {
     let station: String
     var bearer: String? = nil
 
-    @Environment(\.dismiss) private var dismiss
+    @State private var detalle: StationDetail?
+    @State private var cargando = true
+    /// «Importar mis carreras»: los números de una estación salen de tus carreras HYROX importadas.
+    @State private var hojaImportar = false
+    private var fijo = false
 
-    @State private var detail: StationDetail? = nil
-    @State private var loading = true
-    /// "Importar mis carreras" from the no-data state — the station's numbers are
-    /// derived from imported HYROX results, so that is the way out of here.
-    @State private var showImport = false
-
-    private var effectiveBearer: String? {
-        bearer
+    init(station: String, bearer: String? = nil) {
+        self.station = station
+        self.bearer = bearer
     }
 
-    /// El vídeo de técnica que el coach tiene puesto para esta estación, ya
-    /// parseado. Nil mientras carga, cuando el coach no ha puesto ninguno, o
-    /// cuando el enlace no es reproducible: en los tres casos la pantalla no
-    /// promete un vídeo que no existe.
-    private var tecnica: VideoDeTecnica? {
-        VideoDeTecnica(detail?.technique_video_url)
-    }
+    /// El vídeo de técnica que el coach tiene puesto para esta estación, ya parseado. nil mientras
+    /// carga, sin vídeo o con un enlace que no se reproduce: la pantalla no promete lo que no hay.
+    private var tecnica: VideoDeTecnica? { VideoDeTecnica(detalle?.technique_video_url) }
 
     var body: some View {
-        ZStack {
-            Theme.Color.background
-                .ignoresSafeArea()
-                .instrumentCanvas()
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.l) {
-                    headerRow
-
-                    // El vídeo de técnica de la estación, reproducible aquí
-                    // mismo con el reproductor que ya usa la ficha del ejercicio
-                    // (nunca se sale a Safari). Sin vídeo no se pinta nada: un
-                    // reclamo que no lleva a ninguna parte es peor que el hueco.
-                    if let tecnica {
-                        VideoDeTecnicaPlayer(video: tecnica)
-                            .accessibilityLabel("Vídeo de técnica de \(station)")
-                    }
-
-                    if loading {
-                        ProgressView()
-                            .tint(Theme.Color.accentText)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, Theme.Spacing.xl)
-                    } else if let detail {
-                        loadedContent(detail)
-                    } else {
-                        RedesignEmptyState(
-                            symbol: "chart.bar",
-                            title: "Sin datos de esta estación",
-                            message: "Cuando registres una carrera con esta estación verás aquí tu tiempo vs benchmark, tu tendencia y la recomendación de tu coach.",
-                            // The data comes from an imported race — and importing
-                            // is exactly what the athlete can do from here.
-                            exit: .action(title: "Importar mis carreras") { showImport = true }
-                        )
-                        .padding(.top, Theme.Spacing.m)
-                    }
-                }
-                .padding(.horizontal, Theme.Spacing.xl)
-                .padding(.top, Theme.Spacing.s)
-                .padding(.bottom, Theme.Spacing.xxl)
+        MarcoDeDetalleCarreras {
+            CabeceraDetalleCarreras(etiqueta: "Estación", titulo: station)
+            if let tecnica {
+                // Se reproduce aquí mismo, con el reproductor de la ficha del ejercicio (nunca a Safari).
+                VideoDeTecnicaPlayer(video: tecnica)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous))
+                    .accessibilityLabel("Vídeo de técnica de \(station)")
+            }
+            if cargando {
+                EsqueletoSujetoCarreras(voz: "Cargando tu estación")
+            } else if let detalle {
+                contenido(detalle)
+            } else {
+                sujetoSinDatos
             }
         }
-        .navigationBarHidden(true)
-        .sheet(isPresented: $showImport) {
-            ImportRaceSheet(bearer: effectiveBearer) { _ in
-                Task {
-                    loading = true
-                    detail = await CarrerasService.fetchStationDetail(station: station, bearer: effectiveBearer)
-                    loading = false
-                }
-            }
+        .sheet(isPresented: $hojaImportar) {
+            ImportRaceSheet(bearer: bearer) { _ in Task { await cargar() } }
         }
-        .task(id: effectiveBearer) {
-            loading = true
-            detail = await CarrerasService.fetchStationDetail(station: station, bearer: effectiveBearer)
-            loading = false
+        .task(id: bearer) {
+            guard !fijo else { return }
+            await cargar()
         }
     }
 
-    // MARK: - Header
-
-    private var headerRow: some View {
-        HStack(spacing: 12) {
-            BackCircleButton { dismiss() }
-            Text(station)
-                .scaledFont(23, weight: .heavy, relativeTo: .title2, italic: true)
-                .foregroundStyle(Theme.Color.foreground)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 8)
-        }
-        .padding(.top, Theme.Spacing.s)
+    private func cargar() async {
+        cargando = detalle == nil
+        detalle = await CarrerasService.fetchStationDetail(station: station, bearer: bearer)
+        cargando = false
     }
 
-    // MARK: - Loaded content
+    // MARK: - Con datos
 
     @ViewBuilder
-    private func loadedContent(_ d: StationDetail) -> some View {
-        lastVsBenchmark(d)
-        if !d.trend.isEmpty {
-            trendSection(d.trend)
-        }
-        // La rejilla existe sólo si queda alguna sub-métrica MEDIDA: una rejilla
-        // de celdas huecas es peor que no tenerla (§7).
-        let medidas = measuredSubMetrics(d)
-        if !medidas.isEmpty {
-            subMetrics(medidas)
-        }
+    private func contenido(_ d: StationDetail) -> some View {
+        sujeto(d)
+        if !d.trend.isEmpty { tendencia(Array(d.trend.suffix(Self.puntosDeTendencia))) }
+        let medidas = Self.submarcasMedidas(d)
+        if !medidas.isEmpty { submarcas(medidas) }
         if !d.training.isEmpty {
-            TrainingLinksList(title: "ENTRENOS QUE LA TRABAJAN", links: d.training)
+            SeccionDeDetalleCarreras("Entrenos que la trabajan") { EntrenosQueLaTrabajan(entrenos: d.training) }
         }
-        if let reco = d.ia_recommendation {
-            IARecommendationCard(text: reco, objective: d.ia_objective)
+        if let reco = d.ia_recommendation, !reco.isEmpty {
+            RecomendacionEstacion(texto: reco, objetivo: d.ia_objective)
         }
     }
 
-    // Tu última vs benchmark + delta + percentile, in a left-accented card.
-    //
-    // Cada pieza se pinta SOLO si existe (§7): sin tu tiempo la tarjeta se
-    // convierte en la invitación a conseguirlo — que es un acto concreto y está
-    // aquí mismo (§6.2 bis) —; sin benchmark no hay columna ni barra, porque una
-    // barra sin contra qué compararse insinúa un veredicto que nadie ha medido.
+    /// Cuántas carreras caben en la tendencia con su cifra a 15 pt sin encogerla (a 390 pt de ancho).
+    static let puntosDeTendencia = 6
+
+    /// Solo las submarcas con un valor MEDIDO: una rejilla de celdas huecas es peor que no tenerla.
+    static func submarcasMedidas(_ d: StationDetail) -> [StationSubMetric] {
+        d.sub_metrics.filter { !($0.value ?? "").isEmpty }
+    }
+
+    // El sujeto: tu última contra la referencia, con la barra de tu puesto y la diferencia.
     @ViewBuilder
-    private func lastVsBenchmark(_ d: StationDetail) -> some View {
-        if let last = d.last_time {
-            let severity = SeveridadCarrera(wire: d.severity)
-            CardSurface(padding: 15, leftAccent: true) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            LabelText(text: "TU ÚLTIMA", size: 10)
-                            Text(last)
-                                .font(Theme.Typography.readoutM)
-                                .foregroundStyle(Theme.Color.foreground)
-                        }
-                        Spacer(minLength: 12)
-                        if let benchmark = d.benchmark_time {
-                            VStack(alignment: .trailing, spacing: 3) {
-                                LabelText(text: "BENCHMARK", size: 10)
-                                MonoText(text: benchmark, size: 18, weight: .bold, color: Theme.Color.muted)
-                            }
-                        }
-                    }
-                    // La barra mide TU tiempo contra el benchmark: sin benchmark
-                    // no hay fracción que sea verdad, así que no se dibuja.
-                    if d.benchmark_time != nil {
-                        HStack(spacing: 10) {
-                            if let delta = d.delta {
-                                MonoText(text: delta, size: 13, weight: .bold, color: severityColor(severity))
-                                    .frame(width: 48, alignment: .leading)
-                            }
-                            GeometryReader { geo in
-                                ZStack(alignment: .leading) {
-                                    Capsule().fill(Theme.Color.surfaceElevated)
-                                    Capsule()
-                                        .fill(severityColor(severity))
-                                        .frame(width: geo.size.width * CGFloat(max(0, min(1, d.fraction))))
+    private func sujeto(_ d: StationDetail) -> some View {
+        if let ultima = d.last_time {
+            let severidad = SeveridadCarrera(wire: d.severity)
+            SujetoDia(tono: .acento, etiqueta: voz(d, ultima: ultima)) {
+                KickerDia("Tu última")
+                TituloDia(ultima).monospacedDigit()
+                if let referencia = d.benchmark_time {
+                    Text("Referencia \(referencia)")
+                        .papel(.cuerpoFuerte)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.Color.foreground)
+                }
+            } abajo: {
+                // La barra mide TU tiempo contra la referencia: sin referencia no hay fracción que sea verdad.
+                if d.benchmark_time != nil {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.s) {
+                        Capsule()
+                            .fill(Theme.Color.foreground.opacity(0.12))
+                            .frame(height: 8)
+                            .overlay(alignment: .leading) {
+                                GeometryReader { g in
+                                    Capsule().fill(severidad.color).frame(width: g.size.width * CGFloat(max(0, min(1, d.fraction))))
                                 }
                             }
-                            .frame(height: 6)
-                            if let pct = d.percentile_label {
-                                Text(pct)
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(Theme.Color.muted)
+                        HStack(spacing: Theme.Spacing.m) {
+                            Text(severidad.puestoEnCampo).papel(.rotulo).foregroundStyle(Theme.Color.foreground)
+                            if let delta = d.delta {
+                                Text(delta).papel(.rotulo).monospacedDigit().foregroundStyle(Theme.Color.foreground)
+                            }
+                            Spacer(minLength: 0)
+                            if let puesto = d.percentile_label {
+                                Text(puesto).papel(.rotulo).foregroundStyle(Theme.Color.foreground)
                             }
                         }
-                    } else if let pct = d.percentile_label {
-                        Text(pct)
-                            .font(.system(size: 11))
-                            .foregroundStyle(Theme.Color.muted)
                     }
+                } else if let puesto = d.percentile_label {
+                    Text(puesto).papel(.rotulo).foregroundStyle(Theme.Color.foreground)
                 }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(benchmarkA11y(d, last: last))
             }
         } else {
-            noTimeYetCard
-        }
-    }
-
-    // Sin tiempo en esta estación: se declara qué falta y se da la salida, que
-    // es la MISMA de la pantalla vacía (importar). Nunca un hueco con relleno.
-    private var noTimeYetCard: some View {
-        CardSurface(padding: 15, leftAccent: true) {
-            VStack(alignment: .leading, spacing: 8) {
-                LabelText(text: "TU ÚLTIMA", size: 10)
-                Text("Todavía no tienes un tiempo en esta estación.")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button {
-                    Haptics.light()
-                    showImport = true
-                } label: {
-                    Text("Importar mis carreras")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Theme.Color.accentText)
-                }
-                .buttonStyle(PressScaleStyle())
+            // Sin tiempo en esta estación: se declara qué falta y se da la salida (importar).
+            SujetoDia(
+                tono: .acento,
+                etiqueta: "Tu última. Todavía no tienes un tiempo en esta estación. Importar mis carreras.",
+                alTocar: { hojaImportar = true }
+            ) {
+                KickerDia("Tu última")
+                Text("Todavía no tienes un tiempo en esta estación").papel(.seccion).foregroundStyle(Theme.Color.foreground)
+            } abajo: {
+                AccionDia("Importar mis carreras")
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    private func benchmarkA11y(_ d: StationDetail, last: String) -> String {
-        var s = "\(station). Tu última \(last)"
-        if let benchmark = d.benchmark_time { s += ", benchmark \(benchmark)" }
+    // Sin ninguna carrera con esta estación (o sin respuesta): la invitación a importar.
+    private var sujetoSinDatos: some View {
+        SujetoDia(
+            tono: .acento,
+            etiqueta: "Sin datos de esta estación. Cuando registres una carrera con esta estación verás aquí tu tiempo contra la referencia, tu tendencia y la recomendación de tu coach.",
+            alTocar: { hojaImportar = true }
+        ) {
+            KickerDia("Sin datos de esta estación")
+            Text("Importa tus carreras").papel(.seccion).foregroundStyle(Theme.Color.foreground)
+            ApoyoDia("Cuando registres una carrera con esta estación verás aquí tu tiempo contra la referencia, tu tendencia y la recomendación de tu coach.")
+        } abajo: {
+            AccionDia("Importar mis carreras")
+        }
+    }
+
+    private func voz(_ d: StationDetail, ultima: String) -> String {
+        var s = "\(station). Tu última \(ultima)"
+        if let referencia = d.benchmark_time { s += ", referencia \(referencia)" }
+        if d.benchmark_time != nil { s += ", puesto en el campo: \(SeveridadCarrera(wire: d.severity).puestoEnCampo.lowercased())" }
         if let delta = d.delta { s += ", diferencia \(delta)" }
-        if let pct = d.percentile_label { s += ", \(pct)" }
+        if let puesto = d.percentile_label { s += ", \(puesto)" }
         return s
     }
 
-    // Between-races trend — descending bars, latest colored by severity.
-    private func trendSection(_ points: [StationTrendPoint]) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            SectionLabel(text: "TENDENCIA · ÚLTIMAS CARRERAS")
-            CardSurface(padding: 14) {
-                HStack(alignment: .bottom, spacing: 14) {
-                    ForEach(points) { p in
-                        let latest = p.id == points.last?.id
-                        VStack(spacing: 5) {
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(latest ? severityColor(SeveridadCarrera(wire: p.severity)) : Theme.Color.surfaceElevated)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: max(8, 60 * CGFloat(max(0, min(1, p.height)))))
-                            MonoText(
-                                text: p.time ?? p.label,
-                                size: 9,
-                                weight: .medium,
-                                color: latest ? Theme.Color.accentText : Theme.Color.faint
-                            )
+    // MARK: - Tendencia entre carreras
+
+    // Una columna por carrera (más alta = más lenta); la última, del color de su resultado.
+    private func tendencia(_ puntos: [StationTrendPoint]) -> some View {
+        SeccionDeDetalleCarreras("Tendencia", nota: "Tus últimas carreras. Más alta, más lenta.") {
+            HStack(alignment: .bottom, spacing: Theme.Spacing.m) {
+                ForEach(puntos) { p in
+                    let ultima = p.id == puntos.last?.id
+                    VStack(spacing: Theme.Spacing.xs) {
+                        if let t = p.time {
+                            Text(t)
+                                .papel(ultima ? .notaPesada : .nota)
+                                .monospacedDigit()
+                                .foregroundStyle(Theme.Color.foreground)
+                                .fixedSize()
+                        }
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(ultima ? SeveridadCarrera(wire: p.severity).color : Theme.Color.superficieDeGrafico)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: max(10, 72 * CGFloat(max(0, min(1, p.height)))))
+                        Text(p.label)
+                            .papel(.nota)
+                            .foregroundStyle(Theme.Color.muted)
+                            .fixedSize()
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(EdgeInsets(top: 16, leading: 14, bottom: 14, trailing: 14))
+            .frame(maxWidth: .infinity)
+            .tarjetaDia()
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Tendencia entre carreras: " + puntos.map { [$0.label, $0.time].compactMap { $0 }.joined(separator: " ") }.joined(separator: ", "))
+        }
+    }
+
+    // MARK: - Submarcas
+
+    // De dos en dos, iguales en alto. El énfasis (bien / a vigilar / por mejorar) va en una MARCA junto
+    // al rótulo y en palabras para VoiceOver; la cifra, en tinta (el color de estado no va en el dato).
+    private func submarcas(_ medidas: [StationSubMetric]) -> some View {
+        let pares = stride(from: 0, to: medidas.count, by: 2).map { Array(medidas[$0..<min($0 + 2, medidas.count)]) }
+        return VStack(spacing: Theme.Spacing.m) {
+            ForEach(pares.indices, id: \.self) { i in
+                TeselasDia {
+                    ForEach(pares[i]) { m in
+                        TeselaDia(etiqueta: vozSubmarca(m)) {
+                            HStack(spacing: Theme.Spacing.s) {
+                                Text(m.label)
+                                    .papel(.rotulo)
+                                    .foregroundStyle(Theme.Color.muted)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 0)
+                                if let color = Self.colorDeEnfasis(m.emphasis) {
+                                    Circle().fill(color).frame(width: 10, height: 10)
+                                }
+                            }
+                        } contenido: {
+                            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs) {
+                                Text(m.value ?? "").papel(.dato).foregroundStyle(Theme.Color.foreground)
+                                if let unidad = m.unit, !unidad.isEmpty {
+                                    Text(unidad).papel(.nota).foregroundStyle(Theme.Color.muted)
+                                }
+                            }
                         }
                     }
                 }
-                .frame(height: 84, alignment: .bottom)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Tendencia entre carreras: " + points.map { $0.time ?? $0.label }.joined(separator: ", "))
             }
         }
     }
 
-    // Sub-metrics grid (best / avg / sled weight / stops).
-    //
-    // Una celda sin medida NO se pinta: se omite de la rejilla (§7). Si no queda
-    // ninguna, la rejilla entera desaparece — el llamante filtra antes de
-    // decidir si hay sección, así que aquí nunca llega una lista vacía.
-    private func subMetrics(_ metrics: [StationSubMetric]) -> some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-            ForEach(metrics) { m in
-                if let value = m.value, !value.isEmpty {
-                    ExpertCell(
-                        label: m.label,
-                        value: value,
-                        unit: m.unit ?? "",
-                        color: emphasisColor(m.emphasis)
-                    )
+    static func colorDeEnfasis(_ crudo: String?) -> Color? {
+        switch (crudo ?? "").lowercased() {
+        case "ok": return Theme.Color.ok
+        case "warning": return Theme.Color.warning
+        case "danger": return Theme.Color.danger
+        default: return nil
+        }
+    }
+
+    private func vozSubmarca(_ m: StationSubMetric) -> String {
+        let enfasis: String? = {
+            switch (m.emphasis ?? "").lowercased() {
+            case "ok": return "bien"
+            case "warning": return "a vigilar"
+            case "danger": return "por mejorar"
+            default: return nil
+            }
+        }()
+        return [m.label, [m.value, m.unit].compactMap { $0 }.joined(separator: " "), enfasis].compactMap { $0 }.joined(separator: ", ")
+    }
+}
+
+// MARK: - Entrenos que la trabajan
+
+/// Las sesiones o grupos que trabajan la estación: el punto de modalidad, el nombre, el grupo y cuántas
+/// veces. La fila del PRÓXIMO («→ hoy PM») va teñida del acento: es lo que viene y se puede hacer.
+private struct EntrenosQueLaTrabajan: View {
+    let entrenos: [TrainingLink]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(entrenos.enumerated()), id: \.element.id) { i, e in
+                fila(e)
+                    .overlay(alignment: .top) {
+                        if i > 0 { Rectangle().fill(Theme.Color.hairline).frame(height: 1) }
+                    }
+            }
+        }
+        .tarjetaDia()
+    }
+
+    @ViewBuilder
+    private func fila(_ e: TrainingLink) -> some View {
+        if let proximo = e.next_label {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.m - 2) {
+                IconoDia(.flecha, tam: 16, peso: .bold).foregroundStyle(Theme.Color.accentText)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Próximo · \(proximo)").papel(.kicker).foregroundStyle(Theme.Color.foreground)
+                    Text(e.title).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, Theme.Spacing.l)
+            .padding(.vertical, Theme.Spacing.m)
+            .background(Theme.Color.accentTint)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Próximo, \(proximo), \(e.title)")
+        } else {
+            HStack(spacing: Theme.Spacing.m - 2) {
+                ModalityDot(modality: e.modality, size: 10)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(e.title).papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let grupo = e.group {
+                        Text(grupo).papel(.nota).foregroundStyle(Theme.Color.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if let veces = e.count {
+                    Text(veces).papel(.notaPesada).foregroundStyle(Theme.Color.foreground)
                 }
             }
-        }
-    }
-
-    /// Sólo las sub-métricas que de verdad tienen un valor medido.
-    private func measuredSubMetrics(_ d: StationDetail) -> [StationSubMetric] {
-        d.sub_metrics.filter { $0.value?.isEmpty == false }
-    }
-
-    // MARK: - Color helpers
-
-    private func severityColor(_ s: SeveridadCarrera) -> Color {
-        switch s {
-        case .better:        return Theme.Color.ok
-        case .slightlyWorse: return Theme.Color.warning
-        case .worse:         return Theme.Color.danger
-        }
-    }
-
-    private func emphasisColor(_ raw: String?) -> Color {
-        switch (raw ?? "").lowercased() {
-        case "ok":      return Theme.Color.ok
-        case "warning": return Theme.Color.warning
-        case "danger":  return Theme.Color.danger
-        default:        return Theme.Color.foreground
+            .padding(.horizontal, Theme.Spacing.l)
+            .padding(.vertical, Theme.Spacing.m)
+            .frame(minHeight: 56)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel([e.title, e.group, e.count].compactMap { $0 }.joined(separator: ", "))
         }
     }
 }
 
-// MARK: - Back circle button
+// MARK: - La recomendación
+
+/// La recomendación de la IA del método para esta estación, con su objetivo si lo hay («sub 2:20»).
+/// Tarjeta teñida del acento, como el informe de la pestaña: es lo que hay que priorizar.
+private struct RecomendacionEstacion: View {
+    let texto: String
+    let objetivo: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.m - 2) {
+            HStack(spacing: Theme.Spacing.s) {
+                IconoDia(.diana, tam: 18)
+                Text("Recomendación IA").papel(.kicker)
+            }
+            .foregroundStyle(Theme.Color.foreground)
+            Text(texto)
+                .papel(.cuerpo)
+                .foregroundStyle(Theme.Color.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+            if let objetivo, !objetivo.isEmpty {
+                Text("Objetivo: \(objetivo)").papel(.cuerpoFuerte).foregroundStyle(Theme.Color.foreground)
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .tarjetaDia(realce: true)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - La vuelta redonda (la usa Comunicados)
 //
-// The handoff's circular "‹" back affordance, reused by the station + running
-// deep-dives (the parent NavigationStack hides its bar, so the screen draws
-// its own back control).
+// El «‹» circular de las pantallas que dibujan su propia vuelta. Las de Carreras ya usan `AtrasCarreras`;
+// esta sigue aquí porque Comunicados la lee, y no es de esta zona moverla.
 struct BackCircleButton: View {
     let action: () -> Void
 
@@ -324,108 +375,26 @@ struct BackCircleButton: View {
     }
 }
 
-// MARK: - Training links list
-//
-// "Entrenos que la trabajan / lo trabajan" — a labeled list of TrainingLink
-// rows. A normal row shows a modality dot, title, group and ×count; the "next"
-// row is the orange-tint highlight ("→ próximo · viernes").
-struct TrainingLinksList: View {
-    let title: String
-    let links: [TrainingLink]
+// MARK: - Estados de ejemplo
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            SectionLabel(text: title)
-            VStack(spacing: 8) {
-                ForEach(links) { link in
-                    row(link)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func row(_ link: TrainingLink) -> some View {
-        if let next = link.next_label {
-            HStack(spacing: 10) {
-                Text("→ \(next)")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.Color.accentText)
-                Text(link.title)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 11)
-            .background(Theme.Color.accent.opacity(0.08))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.accent.opacity(0.30), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Próximo, \(next), \(link.title)")
-        } else {
-            HStack(spacing: 11) {
-                ModalityDot(modality: link.modality, size: 7)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(link.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.Color.foreground)
-                    if let group = link.group {
-                        Text(group)
-                            .font(.system(size: 11))
-                            .foregroundStyle(Theme.Color.faint)
-                    }
-                }
-                Spacer(minLength: 8)
-                if let count = link.count {
-                    MonoText(text: count, size: 12, weight: .medium, color: Theme.Color.muted)
-                }
-            }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 11)
-            .background(Theme.Color.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
-                    .stroke(Theme.Color.hairline, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel([link.title, link.group, link.count].compactMap { $0 }.joined(separator: ", "))
-        }
+#if DEBUG
+extension StationDetailView {
+    /// La estación ya resuelta: `detalle` nil = sin datos; `cargando` = esqueleto. Sin red.
+    init(station: String, detalle: StationDetail?, cargando: Bool = false) {
+        self.init(station: station)
+        _detalle = State(initialValue: detalle)
+        _cargando = State(initialValue: cargando)
+        fijo = true
     }
 }
 
-// MARK: - IA recommendation card
-//
-// Left-accent (orange) card with a tracked accent eyebrow, the recommendation
-// prose, and an optional bold objective ("Objetivo: sub 2:20").
-struct IARecommendationCard: View {
-    let text: String
-    var objective: String? = nil
-
-    var body: some View {
-        CardSurface(padding: 13, leftAccent: true) {
-            VStack(alignment: .leading, spacing: 7) {
-                LabelText(text: "RECOMENDACIÓN IA", color: Theme.Color.accentText)
-                Text(text)
-                    .scaledFont(12, relativeTo: .footnote)
-                    .foregroundStyle(Theme.Color.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let objective {
-                    HStack(spacing: 5) {
-                        Text("Objetivo:")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Theme.Color.muted)
-                        Text(objective)
-                            .font(.system(size: 12, weight: .heavy))
-                            .foregroundStyle(Theme.Color.foreground)
-                    }
-                }
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
+#Preview("Estación · con datos") {
+    NavigationStack { StationDetailView(station: "Sled Push", detalle: CasosDetalleCarreras.estacion) }
 }
+#Preview("Estación · sin tiempo") {
+    NavigationStack { StationDetailView(station: "Sled Push", detalle: CasosDetalleCarreras.estacionSinTiempo) }
+}
+#Preview("Estación · sin datos") {
+    NavigationStack { StationDetailView(station: "Sled Push", detalle: nil) }
+}
+#endif

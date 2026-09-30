@@ -95,27 +95,29 @@ struct LecturaDeSesionView: View {
     }
 }
 
-/// La tarjeta de sección — título grande (24 pt, fuerte, cursiva) y debajo el
-/// contenido en una `CardSurface`. Es el «tarjeta por sección» del doble: o
-/// todas las capas son secciones, o ninguna lo es.
+/// La tarjeta de sección — el título de sección del día (24 pt, fuerte, cursiva) y debajo el
+/// contenido en la cara plana de tarjeta del día. Es el «tarjeta por sección» del doble: o todas
+/// las capas son secciones, o ninguna lo es.
 private struct TarjetaDeSeccion<Content: View>: View {
     let titulo: String
     var nota: String? = nil
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .lastTextBaseline, spacing: 8) {
-                Text(titulo)
-                    .font(.system(size: 24, weight: .heavy, design: .default).italic())
-                    .foregroundStyle(Theme.Color.foreground)
+        let forma = RoundedRectangle(cornerRadius: Theme.Radius.tarjeta, style: .continuous)
+        VStack(alignment: .leading, spacing: Theme.Spacing.m) {
+            TituloSeccionDia(titulo) {
                 if let nota {
                     Text(nota)
-                        .scaledFont(15, weight: .medium, relativeTo: .subheadline)
+                        .papel(.nota)
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
-            CardSurface(padding: 14) { content() }
+            content()
+                .padding(Theme.Spacing.l)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.Color.surface, in: forma)
+                .overlay(forma.strokeBorder(Theme.Color.hairline, lineWidth: 1))
         }
     }
 }

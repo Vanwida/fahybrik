@@ -23,6 +23,10 @@ struct RecoveryCaptureView: View {
     /// whose watch still writes HR samples). Started only when no wrist mirror
     /// is active, exactly like ActiveWorkoutView.
     @State private var liveHR = LiveHeartRateProvider()
+    /// El dial crece con el texto del sistema: la cuenta de 80 pt tiene que caber dentro del aro.
+    @ScaledMetric(relativeTo: .largeTitle) private var ladoDelDial: CGFloat = 200
+    /// Hasta aquí: la cuenta ya tiene tope (×1,3) y un aro más ancho que la pantalla no se ve entero.
+    private static let ladoMaximoDelDial: CGFloat = 280
     @State private var finished = false
 
     private var anchor: Date { session.finishedAt ?? Date() }
@@ -34,10 +38,12 @@ struct RecoveryCaptureView: View {
                 let elapsed = context.date.timeIntervalSince(anchor)
                 VStack(spacing: 0) {
                     HStack {
-                        LabelText(text: "Test · Recuperación", color: Theme.Color.accentText)
+                        Text("Test · Recuperación")
+                            .papel(.kicker)
+                            .foregroundStyle(Theme.Color.accentText)
                         Spacer()
                     }
-                    .padding(.horizontal, Theme.Spacing.xl)
+                    .padding(.horizontal, Theme.Spacing.pantalla)
                     .padding(.top, Theme.Spacing.l)
 
                     Spacer()
@@ -47,12 +53,12 @@ struct RecoveryCaptureView: View {
                         dial(elapsed: elapsed)
                         pulseReadout
                     }
-                    .padding(.horizontal, Theme.Spacing.xl)
+                    .padding(.horizontal, Theme.Spacing.pantalla)
 
                     Spacer()
 
                     actionButton(elapsed: elapsed)
-                        .padding(.horizontal, Theme.Spacing.xl)
+                        .padding(.horizontal, Theme.Spacing.pantalla)
                         .padding(.bottom, Theme.Spacing.xl)
                 }
             }
@@ -91,11 +97,12 @@ struct RecoveryCaptureView: View {
     private func header(elapsed: Double) -> some View {
         VStack(spacing: Theme.Spacing.s) {
             Text("Midiendo tu recuperación")
-                .font(Theme.Typography.headlineM)
+                .papel(.saludo)
                 .foregroundStyle(Theme.Color.foreground)
                 .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
             Text(subtitle(elapsed: elapsed))
-                .font(Theme.Typography.small)
+                .papel(.cuerpo)
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -132,22 +139,21 @@ struct RecoveryCaptureView: View {
             if elapsed < mark {
                 VStack(spacing: 2) {
                     Text("\(Int((mark - elapsed).rounded(.up)))")
-                        .font(Theme.Typography.readoutL)
+                        .papel(.cuenta)
                         .foregroundStyle(Theme.Color.foreground)
                         .contentTransition(.numericText(countsDown: true))
-                    Text("SEGUNDOS")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(Theme.Tracking.dataLabel)
+                    Text("Segundos")
+                        .papel(.etiqueta)
                         .foregroundStyle(Theme.Color.muted)
                 }
             } else if let drop = session.hrRecovery?.hrr60 {
                 VStack(spacing: 2) {
                     Text("−\(drop)")
-                        .font(Theme.Typography.readoutL)
+                        .papel(.cuenta)
                         .foregroundStyle(Theme.Color.ok)
-                    Text("BPM EN 60 S")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(Theme.Tracking.dataLabel)
+                    // El pulso se escribe en ppm (CONTRATO-UI §3): aquí ponía «BPM».
+                    Text("\(Vocab.ppm) en 60 s")
+                        .papel(.etiqueta)
                         .foregroundStyle(Theme.Color.muted)
                 }
             } else {
@@ -156,7 +162,7 @@ struct RecoveryCaptureView: View {
                     .foregroundStyle(Theme.Color.muted)
             }
         }
-        .frame(width: 190, height: 190)
+        .frame(width: min(ladoDelDial, Self.ladoMaximoDelDial), height: min(ladoDelDial, Self.ladoMaximoDelDial))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(subtitle(elapsed: elapsed))
     }
@@ -172,16 +178,16 @@ struct RecoveryCaptureView: View {
             if let bpm = session.liveHRBpm {
                 HStack(alignment: .lastTextBaseline, spacing: 5) {
                     Text("\(bpm)")
-                        .font(Theme.Typography.readoutM)
+                        .papel(.dato)
                         .foregroundStyle(Theme.Color.foreground)
                         .contentTransition(.numericText())
                     Text(Vocab.ppm)
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .papel(.nota)
                         .foregroundStyle(Theme.Color.muted)
                 }
             } else {
                 Text("Sin señal de pulso")
-                    .font(Theme.Typography.small)
+                    .papel(.nota)
                     .foregroundStyle(Theme.Color.muted)
             }
         }
@@ -194,11 +200,11 @@ struct RecoveryCaptureView: View {
     @ViewBuilder
     private func actionButton(elapsed: Double) -> some View {
         if elapsed >= Self.bandCompleteSeconds {
-            PrimaryButton(title: "Continuar") { complete() }
+            AccionAncladaResumen(titulo: "Continuar") { complete() }
         } else {
-            // Skipping abandons the measurement (omitted, never an error) — the
-            // execution itself is already saved by the normal flow afterwards.
-            SecondaryButton(title: "Saltar") { complete() }
+            // Saltar abandona la medida (se omite, nunca es un error): la ejecución se guarda
+            // igual por el flujo normal justo después.
+            BotonContornoResumen(titulo: "Saltar") { complete() }
         }
     }
 

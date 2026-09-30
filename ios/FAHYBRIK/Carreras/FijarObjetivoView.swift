@@ -130,7 +130,13 @@ struct FijarObjetivoView: View {
     private var participacion: some View {
         switch event.objectiveFamily {
         case .hybrid where esHunter:
-            SegmentoDia(items: HunterRaceVariant.allCases.map { ($0, $0.label) }, valor: $hunterVariant, etiqueta: "Formato", completo: true, conEtiqueta: true)
+            // Chips y no el segmentado: «Sprinter · 3,5 km» en un tercio del ancho se encogía por debajo
+            // del suelo de 15 pt (el segmentado reduce la letra para caber). Los chips pasan en horizontal.
+            FilaChipsDia("Formato") {
+                ForEach(HunterRaceVariant.allCases) { v in
+                    ChipFiltroDia(texto: v.label, elegido: hunterVariant == v) { hunterVariant = v }
+                }
+            }
         case .hybrid:
             SegmentoDia(items: [FormatoCarrera.individual, .dobles, .relevos].map { ($0.rawValue, $0.etiqueta) }, valor: $format, etiqueta: "Formato", completo: true, conEtiqueta: true)
             SegmentoDia(items: [DivisionCarrera.open, .pro, .elite].map { ($0.rawValue, $0.etiqueta) }, valor: $division, etiqueta: "División", completo: true, conEtiqueta: true)

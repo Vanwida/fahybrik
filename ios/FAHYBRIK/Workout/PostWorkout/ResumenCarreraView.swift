@@ -68,9 +68,9 @@ struct ResumenCarreraView: View {
         let onContinuar: () -> Void
 
         /// Las dos FC de la carrera, con la misma regla que el resumen genérico
-        /// (`ResumenSesionCard`): una sola forma de agregar el pulso de unos laps.
-        private var totales: ResumenSesionCard.Totales {
-            ResumenSesionCard.totales(
+        /// (`TotalesDeSesion`): una sola forma de agregar el pulso de unos laps.
+        private var totales: TotalesDeSesion.Totales {
+            TotalesDeSesion.totales(
                 from: session.laps.filter { $0.modality == SegmentKind.running.modality },
                 elapsed: 0
             )
@@ -114,15 +114,13 @@ struct ResumenCarreraView: View {
         private var cromo: some View {
             HStack(spacing: Theme.Spacing.s) {
                 Text(session.plan.name)
-                    .font(Theme.Typography.readoutLabel)
-                    .uppercaseTracked(1.32)
+                    .papel(.etiqueta)
                     .foregroundStyle(Theme.Color.foreground)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: Theme.Spacing.s)
                 Text("Hoy")
-                    .font(Theme.Typography.readoutLabel)
-                    .uppercaseTracked(1.32)
+                    .papel(.etiqueta)
                     .foregroundStyle(Theme.Color.muted)
             }
         }
@@ -186,7 +184,7 @@ struct ResumenCarreraView: View {
                                 tono: Theme.Color.muted,
                                 unidad: Formato.UnidadRitmo.porKm.rawValue)
                         Text("suave · contraste \(Formato.clock(contraste))")
-                            .scaledFont(12, weight: .semibold, relativeTo: .caption)
+                            .papel(.notaFuerte)
                             .foregroundStyle(Theme.Color.muted)
                     }
                     .padding(.top, 10)
@@ -195,7 +193,7 @@ struct ResumenCarreraView: View {
                     // recuperación: hubo contraste, pero no hay contra qué. Se
                     // dice; no se rellena con la media.
                     Text("No se guardó lo suave: no hay contra qué comparar")
-                        .scaledFont(13, weight: .semibold, relativeTo: .footnote)
+                        .papel(.notaFuerte)
                         .foregroundStyle(Theme.Color.muted)
                         .multilineTextAlignment(.center)
                         .padding(.top, Theme.Spacing.m)
@@ -216,7 +214,7 @@ struct ResumenCarreraView: View {
             Text(vueltas > 1
                  ? "Todas las vueltas fueron al mismo esfuerzo: esta media sí las describe"
                  : "Corriste a una sola intensidad: esta media describe cada kilómetro")
-                .scaledFont(12, weight: .semibold, relativeTo: .caption)
+                .papel(.notaFuerte)
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 280)
@@ -247,7 +245,7 @@ struct ResumenCarreraView: View {
                     Text(lectura.mediaEsMezcla
                          ? "Media de los fuertes y los suaves — no es el ritmo de ningún tramo"
                          : "Ritmo medio de toda la sesión")
-                        .scaledFont(12, weight: .semibold, relativeTo: .caption)
+                        .papel(.notaFuerte)
                         .foregroundStyle(Theme.Color.muted)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: 290)

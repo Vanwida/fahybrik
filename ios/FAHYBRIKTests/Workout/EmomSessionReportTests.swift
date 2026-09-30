@@ -29,12 +29,12 @@ final class EmomSessionReportTests: XCTestCase {
             lap(mod: "ski", idx: 1, dur: 60, meters: 200, cal: 10, pace500: 130, power: 180, segId: sid),
             lap(mod: "row", idx: 2, dur: 60, meters: 250, cal: 12, pace500: 118, power: 210, segId: sid),
         ]
-        let t = ResumenSesionCard.totales(from: laps, elapsed: 180)
+        let t = TotalesDeSesion.totales(from: laps, elapsed: 180)
         XCTAssertEqual(t.calories ?? 0, 34, accuracy: 0.1)
         XCTAssertEqual(t.distanceM ?? 0, 700, accuracy: 0.1)
         XCTAssertNotNil(t.avgPace500)
         XCTAssertNotNil(t.avgPower)
-        let machines = ResumenSesionCard.porMaquina(from: laps)
+        let machines = TotalesDeSesion.porMaquina(from: laps)
         XCTAssertEqual(machines.map(\.id), ["row", "ski"])
         XCTAssertTrue(machines[0].detail?.contains("cal") == true)
     }

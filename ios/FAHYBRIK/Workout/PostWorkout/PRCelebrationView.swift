@@ -109,6 +109,11 @@ enum CelebrationGold {
 
 // MARK: - Celebration overlay
 
+/// El récord, en foco. La voz de la celebración es UNA para todo récord (esta y la de los tests,
+/// `TestRecordCelebrationView`): foco oscuro con acentos dorados, que por eso se queda en oscuro
+/// aunque la app esté en claro (el dorado no se lee sobre un lienzo claro, y el velo que tapa el
+/// resumen es negro en los dos temas). Lo demás es la piel del día: papeles de 15 pt en adelante,
+/// radio del sujeto y toques de 48 pt.
 struct PRCelebrationView: View {
     let records: [PersonalRecord]
     let shareData: WorkoutShareData
@@ -116,85 +121,91 @@ struct PRCelebrationView: View {
 
     @State private var shareURL: URL? = nil
     @State private var appear = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isPlural: Bool { records.count > 1 }
+    private static let ladoMedalla: CGFloat = 76
+    private static let altoBoton: CGFloat = 52
 
     var body: some View {
         ZStack {
-            // Dark spotlight scrim — dismiss on tap outside the panel.
+            // Velo del foco: tocar fuera del panel también cierra.
             Color.black.opacity(0.94)
                 .ignoresSafeArea()
                 .onTapGesture { onDone() }
+                .accessibilityHidden(true)
 
-            VStack(spacing: Theme.Spacing.l) {
-                medal
-                VStack(spacing: 4) {
-                    Text(isPlural ? "¡Nuevos récords!" : "¡Nuevo récord!")
-                        .font(.system(size: 26, weight: .heavy, design: .default).italic())
-                        .foregroundStyle(Theme.Color.foreground)
-                    Text("Récord personal")
-                        .font(.system(size: 11, weight: .semibold))
-                        .tracking(Theme.Tracking.dataLabel)
-                        .textCase(.uppercase)
-                        .foregroundStyle(CelebrationGold.bright)
-                }
-
-                VStack(spacing: 10) {
-                    ForEach(Array(records.enumerated()), id: \.offset) { _, record in
-                        recordRow(record)
-                    }
-                }
-
-                actions
+            // Con el texto muy grande (o tres récords) el panel no cabe: entonces scrollea.
+            ViewThatFits(in: .vertical) {
+                panel
+                ScrollView { panel.padding(.vertical, Theme.Spacing.xl) }
             }
-            .padding(Theme.Spacing.xl)
-            .frame(maxWidth: 360)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous)
-                    .fill(Theme.Color.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous)
-                            .stroke(CelebrationGold.deep.opacity(0.5), lineWidth: 1)
-                    )
-            )
-            .padding(.horizontal, Theme.Spacing.xl)
-            .scaleEffect(appear ? 1 : 0.92)
+            .scaleEffect(appear || reduceMotion ? 1 : 0.92)
             .opacity(appear ? 1 : 0)
         }
-        // A celebration is a night-coded moment: force the dark palette so the gold
-        // reads even when the app is in light mode.
         .environment(\.colorScheme, .dark)
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { appear = true }
+            withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.5, dampingFraction: 0.8)) { appear = true }
             Haptics.success()
         }
         .task { shareURL = WorkoutShareRenderer.pngURL(for: shareData) }
     }
 
+    private var panel: some View {
+        let forma = RoundedRectangle(cornerRadius: Theme.Radius.sujeto, style: .continuous)
+        return VStack(spacing: Theme.Spacing.l) {
+            medal
+            VStack(spacing: Theme.Spacing.xs) {
+                Text(isPlural ? "¡Nuevos récords!" : "¡Nuevo récord!")
+                    .papel(.saludo)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
+                Text("Récord personal")
+                    .papel(.etiqueta)
+                    .foregroundStyle(CelebrationGold.bright)
+            }
+
+            VStack(spacing: Theme.Spacing.m) {
+                ForEach(Array(records.enumerated()), id: \.offset) { _, record in
+                    recordRow(record)
+                }
+            }
+
+            actions
+        }
+        .padding(Theme.Spacing.xl)
+        .frame(maxWidth: 380)
+        .background(Theme.Color.surface, in: forma)
+        .overlay(forma.strokeBorder(CelebrationGold.deep.opacity(0.5), lineWidth: 1))
+        .padding(.horizontal, Theme.Spacing.pantalla)
+    }
+
     private var medal: some View {
         ZStack {
             Circle().fill(CelebrationGold.gradient)
-                .frame(width: 76, height: 76)
+                .frame(width: Self.ladoMedalla, height: Self.ladoMedalla)
                 .shadow(color: CelebrationGold.deep.opacity(0.5), radius: 16, y: 6)
             Text("PR")
-                .font(.system(size: 26, weight: .heavy, design: .default).italic())
+                .papel(.seccion)
                 .foregroundStyle(Color.black.opacity(0.72))
         }
         .accessibilityHidden(true)
     }
 
     private func recordRow(_ record: PersonalRecord) -> some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Theme.Spacing.xs) {
             Text(record.headline)
-                .font(.system(size: 13, weight: .semibold))
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
                 .multilineTextAlignment(.center)
             Text(record.formattedValue)
-                .font(.system(size: 44, weight: .heavy, design: .monospaced).monospacedDigit())
+                .papel(.sujeto)
+                .monospacedDigit()
                 .foregroundStyle(Theme.Color.foreground)
             if let delta = record.deltaLine {
                 Text(delta)
-                    .font(.system(size: 12))
+                    .papel(.nota)
                     .foregroundStyle(record.isFirstMark ? Theme.Color.muted : CelebrationGold.bright)
                     .multilineTextAlignment(.center)
             }
@@ -207,26 +218,26 @@ struct PRCelebrationView: View {
         VStack(spacing: Theme.Spacing.s) {
             if let shareURL {
                 ShareLink(item: shareURL) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: Theme.Spacing.s) {
                         Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 18, weight: .bold))
+                            .accessibilityHidden(true)
                         Text("Compartir")
+                            .papel(.accion)
                     }
-                    .font(.system(size: 15, weight: .heavy, design: .default).italic())
-                    .tracking(0.5)
                     .foregroundStyle(Color.black.opacity(0.78))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(CelebrationGold.gradient)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous))
+                    .frame(maxWidth: .infinity, minHeight: Self.altoBoton)
+                    .background(CelebrationGold.gradient, in: Capsule())
+                    .contentShape(Capsule())
                 }
                 .simultaneousGesture(TapGesture().onEnded { Haptics.light() })
             }
             Button(action: { Haptics.light(); onDone() }) {
                 Text("Seguir")
-                    .font(.system(size: 15, weight: .semibold))
+                    .papel(.cuerpoFuerte)
                     .foregroundStyle(Theme.Color.muted)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
+                    .frame(maxWidth: .infinity, minHeight: Theme.Size.toque)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
