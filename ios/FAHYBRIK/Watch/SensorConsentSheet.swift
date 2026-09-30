@@ -116,16 +116,14 @@ struct SensorConsentSheet: View {
                 .padding(.bottom, Theme.Spacing.xs)
                 .accessibilityHidden(true)
             Text(SensorConsentCopy.titulo)
-                .scaledFont(24, weight: .heavy, relativeTo: .title2, italic: true)
-                .tracking(-0.24)
+                .papel(.seccion)
                 .foregroundStyle(Theme.Color.foreground)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             parrafo(SensorConsentCopy.queYParaQue)
             parrafo(SensorConsentCopy.queNoEs)
             Text(SensorConsentCopy.sinCoste)
-                .scaledFont(13, relativeTo: .footnote)
-                .lineSpacing(2)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -137,8 +135,7 @@ struct SensorConsentSheet: View {
 
     private func parrafo(_ texto: String) -> some View {
         Text(texto)
-            .scaledFont(15, relativeTo: .subheadline)
-            .lineSpacing(3)
+            .papel(.cuerpo)
             .foregroundStyle(Theme.Color.foreground)
             .fixedSize(horizontal: false, vertical: true)
     }
