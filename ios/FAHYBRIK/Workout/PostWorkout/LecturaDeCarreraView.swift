@@ -98,6 +98,13 @@ struct LecturaDeCarreraView: View {
         // Solo cuando el sujeto ES la zona. En cualquier otra lectura sería una
         // barra más que nadie vino a buscar.
 
+        private func etiquetaDeZona(_ banda: ZoneCoverage.Band) -> some View {
+            Text("\(banda.label) \(banda.pct)%")
+                .papel(.nota)
+                .monospacedDigit()
+                .foregroundStyle(ZoneBandStyle.text(banda))
+        }
+
         @ViewBuilder
         private var repartoDeZonas: some View {
             if case .tiempoEnZona = lectura.sujeto,
@@ -115,11 +122,16 @@ struct LecturaDeCarreraView: View {
                         }
                         .frame(height: 16)
                         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                        HStack(spacing: 0) {
-                            ForEach(cobertura.bands) { banda in
-                                MonoText(text: "\(banda.label) \(banda.pct)%", size: 9,
-                                         color: ZoneBandStyle.text(banda))
-                                if banda.id != cobertura.bands.last?.id { Spacer(minLength: 4) }
+                        // Las etiquetas de las zonas a 15 pt: en una fila si caben; si no (texto grande), una bajo otra.
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 0) {
+                                ForEach(cobertura.bands) { banda in
+                                    etiquetaDeZona(banda)
+                                    if banda.id != cobertura.bands.last?.id { Spacer(minLength: 4) }
+                                }
+                            }
+                            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                                ForEach(cobertura.bands) { banda in etiquetaDeZona(banda) }
                             }
                         }
                     }
