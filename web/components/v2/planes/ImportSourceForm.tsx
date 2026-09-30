@@ -270,7 +270,7 @@ export function ImportSourceForm({
             <span className="min-w-0 flex-1 truncate text-left">{fileName ?? 'Elige la hoja (.xlsx)'}</span>
             {fileName ? <CircleCheck aria-hidden strokeWidth={2} className="text-v2-ok" /> : null}
           </Button>
-          {hint('Sin archivo se usa la plantilla de ejemplo.')}
+          {hint('Hace falta tu hoja de Excel para importar estas semanas.')}
         </div>
       ) : sourceMode === 'photo' ? (
         <div className="space-y-3">
