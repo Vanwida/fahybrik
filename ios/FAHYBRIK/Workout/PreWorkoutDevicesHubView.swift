@@ -82,18 +82,9 @@ struct PreWorkoutDevicesHubView: View {
 
     private var topBar: some View {
         HStack(spacing: Theme.Spacing.m) {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.Color.surface)
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Atrás")
+            BotonCromoDia(.atras, etiqueta: "Atrás", accion: onBack)
             Text(sessionTitle)
-                .font(Theme.Typography.caption)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
                 .lineLimit(1)
             Spacer(minLength: 0)
@@ -105,17 +96,17 @@ struct PreWorkoutDevicesHubView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Dispositivos")
-                .scaledFont(22, weight: .heavy, relativeTo: .title2, italic: true)
+                .papel(.seccion)
                 .foregroundStyle(Theme.Color.foreground)
             Text("Conecta lo que quieras — en cualquier orden — o sigue sin monitor.")
-                .scaledFont(13, relativeTo: .footnote)
+                .papel(.nota)
                 .foregroundStyle(Theme.Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     private var footer: some View {
-        ExpertPrimaryButton(title: "Continuar") {
+        BotonAccionDia("Continuar", completa: true, alto: Theme.Size.accionAnclada, impacto: .medio) {
             commitRunChoice()
             onContinue()
         }
@@ -125,6 +116,12 @@ struct PreWorkoutDevicesHubView: View {
     }
 
     // MARK: - Rows
+
+    private func tarjeta<Contenido: View>(@ViewBuilder _ contenido: () -> Contenido) -> some View {
+        contenido()
+            .padding(Theme.Spacing.m)
+            .tarjetaDia(alAncho: true)
+    }
 
     @ViewBuilder
     private func deviceRow(_ device: PreWorkoutDevice) -> some View {
@@ -141,11 +138,11 @@ struct PreWorkoutDevicesHubView: View {
     }
 
     private var runRow: some View {
-        CardSurface(padding: Theme.Spacing.m) {
+        tarjeta {
             VStack(alignment: .leading, spacing: Theme.Spacing.m) {
                 rowHeader(icon: "figure.run", title: "Correr", link: hub.treadmill.link)
                 Text("¿Dónde corres hoy?")
-                    .font(Theme.Typography.bodyEmph)
+                    .papel(.cuerpoFuerte)
                     .foregroundStyle(Theme.Color.foreground)
                 VStack(spacing: Theme.Spacing.s) {
                     runEnvButton(.outdoor, icon: "location.fill", title: "Calle",
@@ -172,28 +169,35 @@ struct PreWorkoutDevicesHubView: View {
             HStack(spacing: Theme.Spacing.m) {
                 Image(systemName: icon)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.accentText)
+                    .foregroundStyle(Theme.Color.accentText)
                     .frame(width: 36)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(Theme.Typography.bodyEmph)
-                        .foregroundStyle(selected ? Theme.Color.accentOn : Theme.Color.foreground)
+                        .papel(.cuerpoFuerte)
+                        .foregroundStyle(Theme.Color.foreground)
                     Text(subtitle)
-                        .font(Theme.Typography.caption)
-                        .foregroundStyle(selected ? Theme.Color.accentOn.opacity(0.85) : Theme.Color.muted)
+                        .papel(.nota)
+                        .foregroundStyle(Theme.Color.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
                 if selected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Theme.Color.accentOn)
+                    SelloEstadoDia(estado: .hecha, tam: 22, tinta: Theme.Color.accentText)
                 }
             }
             .padding(Theme.Spacing.m)
-            .background(selected ? Theme.Color.accent : Theme.Color.surfaceSunken)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .background(selected ? Theme.Color.accentTint(sobre: Theme.Color.surface) : Theme.Color.surfaceSunken,
+                        in: RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .overlay {
+                if selected {
+                    RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+                        .strokeBorder(Theme.Color.accentTintBorde, lineWidth: 1)
+                }
+            }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressScaleStyle())
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     @ViewBuilder
@@ -203,9 +207,9 @@ struct PreWorkoutDevicesHubView: View {
         } else {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 statusLine(for: hub.treadmill.link, deviceName: "Cinta")
-                HStack(spacing: Theme.Spacing.s) {
-                    SecondaryButton(title: hub.treadmill.link.isLive ? "Cambiar cinta" : "Conectar cinta") {
-                        Haptics.light()
+                FilaAdaptableDia(alineacion: .center) {
+                    BotonAccionDia(hub.treadmill.link.isLive ? "Cambiar cinta" : "Conectar cinta",
+                                   relleno: .apagado, alto: Theme.Size.toque) {
                         if hub.treadmill.link.isLive {
                             hub.treadmill.openPicker()
                         } else {
@@ -213,13 +217,9 @@ struct PreWorkoutDevicesHubView: View {
                             treadmillPickerOpen = true
                         }
                     }
+                } derecha: {
                     if !hub.treadmill.link.isLive {
-                        Button("Sin cinta") {
-                            Haptics.light()
-                            runChoice = .indoor
-                        }
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
+                        BotonTextoDia("Sin cinta", tono: .suave) { runChoice = .indoor }
                     }
                 }
             }
@@ -230,15 +230,13 @@ struct PreWorkoutDevicesHubView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.s) {
             HStack {
                 Text("Cintas cerca")
-                    .font(Theme.Typography.bodyEmph)
+                    .papel(.cuerpoFuerte)
                     .foregroundStyle(Theme.Color.foreground)
                 Spacer()
-                Button("Cerrar") {
+                BotonTextoDia("Cerrar", tono: .suave) {
                     hub.treadmill.endInlineSelection()
                     treadmillPickerOpen = false
                 }
-                .font(Theme.Typography.small)
-                .foregroundStyle(Theme.Color.muted)
             }
             if DeviceBluetoothGuidance.isBlocking(hub.treadmill.bluetooth) {
                 DeviceBluetoothGuidance(availability: hub.treadmill.bluetooth,
@@ -247,7 +245,7 @@ struct PreWorkoutDevicesHubView: View {
                 HStack(spacing: Theme.Spacing.s) {
                     ProgressView().tint(Theme.Color.accent).scaleEffect(0.85)
                     Text(hub.treadmill.scanHint)
-                        .font(Theme.Typography.small)
+                        .papel(.nota)
                         .foregroundStyle(Theme.Color.muted)
                 }
             } else {
@@ -279,26 +277,23 @@ struct PreWorkoutDevicesHubView: View {
         let store = pool.store(for: role)
         let device = PreWorkoutDevice.erg(role)
         let skipped = answers.skippedErgRoleWires.contains(role.rawValue)
-        return CardSurface(padding: Theme.Spacing.m) {
+        return tarjeta {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 rowHeader(icon: role.icon, title: role.titleES, link: ergLink(store, device: device))
                 statusLine(for: ergLink(store, device: device), deviceName: role.titleES)
-                HStack(spacing: Theme.Spacing.s) {
-                    SecondaryButton(title: store.isConnected ? "Gestionar" : "Conectar") {
-                        openPM5(device)
-                    }
+                FilaAdaptableDia(alineacion: .center) {
+                    BotonAccionDia(store.isConnected ? "Gestionar" : "Conectar",
+                                   relleno: .apagado, alto: Theme.Size.toque) { openPM5(device) }
+                } derecha: {
                     if !isBenchmark, !store.isConnected {
-                        Button("Continuar sin monitor") {
-                            Haptics.light()
+                        BotonTextoDia("Continuar sin monitor", tono: .suave) {
                             answers.skippedErgRoleWires.insert(role.rawValue)
                         }
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
                     }
                 }
                 if skipped && !store.isConnected {
                     Text("Lo apuntarás tú en este \(role.machineWord)")
-                        .font(Theme.Typography.caption)
+                        .papel(.nota)
                         .foregroundStyle(Theme.Color.muted)
                 }
             }
@@ -308,21 +303,18 @@ struct PreWorkoutDevicesHubView: View {
     private var ergAnyRow: some View {
         let store = pool.any
         let device = PreWorkoutDevice.ergAny
-        return CardSurface(padding: Theme.Spacing.m) {
+        return tarjeta {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 rowHeader(icon: device.icon, title: device.titleES, link: ergLink(store, device: device))
                 statusLine(for: ergLink(store, device: device), deviceName: device.titleES)
-                HStack(spacing: Theme.Spacing.s) {
-                    SecondaryButton(title: store.isConnected ? "Gestionar" : "Conectar") {
-                        openPM5(device)
-                    }
+                FilaAdaptableDia(alineacion: .center) {
+                    BotonAccionDia(store.isConnected ? "Gestionar" : "Conectar",
+                                   relleno: .apagado, alto: Theme.Size.toque) { openPM5(device) }
+                } derecha: {
                     if !isBenchmark, !store.isConnected {
-                        Button("Continuar sin monitor") {
-                            Haptics.light()
+                        BotonTextoDia("Continuar sin monitor", tono: .suave) {
                             answers.skippedUnscopedErg = true
                         }
-                        .font(Theme.Typography.small)
-                        .foregroundStyle(Theme.Color.muted)
                     }
                 }
             }
@@ -333,21 +325,21 @@ struct PreWorkoutDevicesHubView: View {
         let presentation = HRChipPresentation.resolve(
             bandLink: hub.heartRate.link, watchAvailable: watch.appAvailable
         )
-        return CardSurface(padding: Theme.Spacing.m) {
+        return tarjeta {
             VStack(alignment: .leading, spacing: Theme.Spacing.s) {
                 if presentation == .appleWatch {
                     rowHeader(icon: "applewatch", title: "Pulso · Apple Watch",
                               link: .connected(name: "Apple Watch"))
                     Text("El reloj firmará pulso al empezar. Puedes añadir banda de pecho.")
-                        .font(Theme.Typography.caption)
+                        .papel(.nota)
                         .foregroundStyle(Theme.Color.muted)
                 } else {
                     rowHeader(icon: deviceIcon(.heartRate), title: "Banda de pulso",
                               link: hub.heartRate.link)
                     statusLine(for: hub.heartRate.link, deviceName: "Banda")
                 }
-                SecondaryButton(title: hub.heartRate.link.isLive ? "Gestionar" : "Conectar") {
-                    Haptics.light()
+                BotonAccionDia(hub.heartRate.link.isLive ? "Gestionar" : "Conectar",
+                               relleno: .apagado, alto: Theme.Size.toque) {
                     hub.heartRate.reconnectSessionMachineOrOpenPicker()
                 }
             }
@@ -360,7 +352,7 @@ struct PreWorkoutDevicesHubView: View {
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(Theme.Color.accentText)
             Text(title)
-                .font(Theme.Typography.bodyEmph)
+                .papel(.cuerpoFuerte)
                 .foregroundStyle(Theme.Color.foreground)
             Spacer(minLength: 0)
             linkDot(link)
@@ -369,7 +361,7 @@ struct PreWorkoutDevicesHubView: View {
 
     private func statusLine(for link: DeviceLink, deviceName: String) -> some View {
         Text(statusPhrase(link, deviceName: deviceName))
-            .font(Theme.Typography.caption)
+            .papel(.nota)
             .foregroundStyle(Theme.Color.muted)
     }
 

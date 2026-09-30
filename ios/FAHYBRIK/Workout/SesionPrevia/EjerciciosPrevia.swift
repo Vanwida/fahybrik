@@ -35,7 +35,7 @@ struct TablaDeSeriesPrevia: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.m) {
-            FilaAdaptablePrevia {
+            FilaAdaptableDia {
                 Text(item.exerciseName)
                     .papel(.cuerpoFuerte)
                     .foregroundStyle(Theme.Color.foreground)
@@ -58,7 +58,7 @@ struct TablaDeSeriesPrevia: View {
             }
             // La carga en kg según TU 1RM (el %RM de la línea por tu marca). Solo si el servidor la resolvió.
             if let carga = item.resolvedLoad {
-                FilaAdaptablePrevia {
+                FilaAdaptableDia {
                     Text("Según tu 1RM").papel(.rotulo).foregroundStyle(Theme.Color.muted)
                 } derecha: {
                     HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.s) {
@@ -74,7 +74,7 @@ struct TablaDeSeriesPrevia: View {
         }
         .padding(Theme.Spacing.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .tarjetaPrevia()
+        .tarjetaDia()
     }
 
     private var conTempo: Bool { filas.contains { $0.tempo != nil } }
@@ -144,7 +144,7 @@ struct TarjetaDeEjercicioPrevia: View {
     var body: some View {
         let t = LecturaEjercicioPrevia.tarjeta(de: item)
         VStack(alignment: .leading, spacing: Theme.Spacing.s) {
-            FilaAdaptablePrevia {
+            FilaAdaptableDia {
                 Text(item.exerciseName)
                     .papel(.cuerpoFuerte)
                     .foregroundStyle(Theme.Color.foreground)
@@ -153,7 +153,7 @@ struct TarjetaDeEjercicioPrevia: View {
                 if let zona = t.zona { PastillaZonaPrevia(zona: zona) }
             }
             if t.cabeza != nil || t.ritmo != nil {
-                FilaAdaptablePrevia(alineacion: .lastTextBaseline) {
+                FilaAdaptableDia(alineacion: .lastTextBaseline) {
                     if let cabeza = t.cabeza {
                         Text(cabeza)
                             .papel(.dato)
@@ -176,7 +176,7 @@ struct TarjetaDeEjercicioPrevia: View {
         }
         .padding(Theme.Spacing.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .tarjetaPrevia()
+        .tarjetaDia()
     }
 }
 
