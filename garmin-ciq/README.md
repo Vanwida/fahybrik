@@ -11,7 +11,7 @@ Un `watch-app` con **motor propio**: guía la sesión de correr paso a paso cont
 3. Expulsa el volumen y desconecta: el reloj procesa el fichero al desconectarse (unos segundos).
 4. La clave de desarrollador NO se instala en el reloj: el `.prg` ya va firmado con ella. Guarda `developer_key.der` (está en `.gitignore`, nunca al repo): con OTRA clave el reloj lo trata como otra app.
 5. Ábrela desde la lista de apps o actividades del reloj (sin verificar en reloj real). Necesita el móvil emparejado para bajar el plan y enviar el resultado; grabar, no.
-6. **Riesgo abierto:** el login pide el email y el código en los *ajustes de la app en Garmin Connect*, y una app copiada por USB puede NO mostrar esos ajustes. Si no aparecen, hace falta el flujo de código de dispositivo (modelo.md §8, A5) o instalar por beta de la Store.
+6. **Entrar, en el propio reloj** (una app copiada por USB no sale en Garmin Connect Mobile y no tiene ajustes; aquí no se usan): «Entrar» → START escribe el email con el teclado del reloj → «Pedir código» → llega un código de 6 dígitos al correo (caduca en 10 minutos) → START abre las 6 columnas: UP/DOWN cambian el dígito, START confirma y pasa a la siguiente, BACK vuelve. El email se recuerda: la próxima vez solo «Pedir código». UP/DOWN cambia de email o pide otro código. Necesita el móvil emparejado (o WiFi). El token vive solo en el reloj y se renueva solo al abrir con móvil (una vez al día); si el servidor lo rechaza, vuelve a «Entrar».
 
 ## Estructura
 
@@ -20,11 +20,12 @@ manifest.xml        36 relojes de nivel A, generados por tools/generar-manifest.
 monkey.jungle       source/ + tests/ (tests/ solo entra con monkeyc -t)
 source/
   ActividadApp.mc   entrada; onStop guarda la sesión en curso
-  Controller.mc     el estado único: login → plan → brief; delega la sesión en Vivo
+  Controller.mc     el estado único: login → plan → brief; delega la sesión en Vivo y el login en Acceso
+  Acceso.mc         entrar (email, código) y renovar la sesión, todo en el reloj; AccesoMandos.mc: los teclados
   Vivo.mc           cuenta 3-2-1, botones §5, Controles, RPE, resumen, checkpoint
   Mandos.mc         teclas (START, BACK/LAP, UP, DOWN, UP largo); táctil apagado en la sesión
   Vista.mc          estados de texto (login, plan, errores)
-  Store, Api, Json, DateUtil, Config, Theme   login y utilidades (de la mensajera)
+  Store, Api, Json, DateUtil, Config, Theme   Storage, peticiones y utilidades
   plan/             Codigos (GENERADO), Lector, Modelo, Decodificador, DecodificadorPaso, PlanStore, Clases
   motor/            Motor (la sesión), Juez (veredicto, aviso), Lamina (lo que se pinta), Ritmo,
                     Avisos (§6), Grabacion (FIT), Resultado + Cola (envío), Formato, Estructura, Paginas
@@ -71,4 +72,4 @@ Con un FR965/970 y un FR255. Nada de esto se puede simular.
 - **T13** Volver a la esfera con la sesión grabando.
 - **T14** Correa de pulso ANT+/BLE.
 
-Y además, propio de esta fase: ritmo actual contra un reloj de referencia en una recta conocida; BACK como vuelta 20 veces seguidas; «Seguir» tras matar la app; login desde una app copiada por USB (punto 6 de arriba).
+Y además, propio de esta fase: ritmo actual contra un reloj de referencia en una recta conocida; BACK como vuelta 20 veces seguidas; «Seguir» tras matar la app; el login entero en el reloj (punto 6 de arriba: el teclado del email en el FR965 táctil y en el FR255 de botones, las 6 columnas de dígitos en 218 px, y la renovación al día siguiente).
