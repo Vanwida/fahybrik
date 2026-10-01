@@ -181,6 +181,11 @@ import * as garminFuerza from './screens/garmin-fuerza';
 import * as garminWod from './screens/garmin-wod';
 import * as garminDespues from './screens/garmin-despues';
 import * as garminAntes from './screens/garmin-antes';
+// La ficha de la sesión, dos propuestas (2-oct): lo que se lee ANTES de empezar, sobre un
+// solo contrato (`kit-ficha/contrato`). A organiza por la hoja (una línea por movimiento),
+// B por la ruta (el mapa de bloques y un bloque cada vez).
+import * as fichaGuion from './screens/ficha-guion';
+import * as fichaRuta from './screens/ficha-ruta';
 
 export const SCREENS: TwinScreenModule[] = [
   benchmarkErg,
@@ -310,6 +315,9 @@ export const SCREENS: TwinScreenModule[] = [
   garminCorrer,
   garminAntes,
   garminGramatica,
+  // La ficha de la sesión (2-oct). Orden inverso: A se lee primero.
+  fichaRuta,
+  fichaGuion,
 ];
 
 export function getScreen(id: string): TwinScreenModule | undefined {
@@ -418,6 +426,8 @@ export const TANDA_PESTANAS: ReadonlyArray<GrupoColeccion> = [
   { grupo: 'Plan', ids: ['plan-rehecho'] },
   { grupo: 'Carreras', ids: ['carreras-rehecho'] },
   { grupo: 'Perfil', ids: ['perfil-rehecho'] },
+  // Lo que cuelga del Plan: la ficha que se abre al tocar una sesión (propuestas, 2-oct).
+  { grupo: 'Lo que cuelga del Plan', ids: ['ficha-guion', 'ficha-ruta'] },
 ];
 
 export const COLECCIONES: ReadonlyArray<Coleccion> = [

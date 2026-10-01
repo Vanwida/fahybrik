@@ -6,6 +6,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**FICHA DE LA SESIÓN · DOS PROPUESTAS (02-10, doble `/design/ficha-guion` y `/design/ficha-ruta`; DECISIONS 02-10).** Alex: la ficha previa «se ve mal». A = la hoja (una línea por movimiento), B = la ruta (mapa de bloques y uno cada vez), sobre un contrato (`kit-ficha`) y 16 sesiones. Sin firmar; nada en Swift. Siguiente: que Alex elija o mezcle y construirlo sobre `LecturaSesionPrevia`.
+
 **EDITOR DE CORRER · ENTORNO, AVISO Y FRASE PARA EL RELOJ (30-09, worktree `agent-a1e4bc45135113ff8`, sin fusionar; DECISIONS 30-09).** El coach ya edita por tramo dónde se corre (calle, cinta con inclinación, pista), hacia dónde avisa (defecto = su método) y una frase de 80 caracteres. Guardado probado contra rama Neon. Falta: firma de Alex del layout, y el reloj aplicando `alert`.
 
 **RELOJ · LA ESFERA Y EL SMART STACK DICEN LO DE HOY (30-09, worktree `agent-a2aba4fd09a67fc18`, sin fusionar; DECISIONS 30-09).** Extensión
