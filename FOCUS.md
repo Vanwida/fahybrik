@@ -2,13 +2,13 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-10-01** (biblioteca: auditoría de ejercicios para lanzamiento; reloj: correr es correr, F6; reloj: voz, deshacer y respaldo FH-56; reloj: WOD, circuito, HYROX, relevo, fuerza, ergo y correr en la cara nueva, cara vieja retirada, entrada nueva y lanzamiento automático; complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; modelo del reloj Garmin)
+Última actualización: **2026-10-01** (biblioteca: catálogo ampliado y corrección de selección preparados; reloj: correr es correr, F6; reloj: voz, deshacer y respaldo FH-56; reloj: WOD, circuito, HYROX, relevo, fuerza, ergo y correr en la cara nueva, cara vieja retirada, entrada nueva y lanzamiento automático; complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; modelo del reloj Garmin)
 
 ## Ahora
 
 **RELOJ · TESTS ROJOS CERRADOS (01-10, rama `fix-tests-reloj`, sin fusionar; DECISIONS 01-10).** 6 fallos en 4 grupos: 3 eran del test (cuenta atrás de la recuperación sin tick; vectores de correr con pasos de circuito y For Time) y 1 bug real (la complicación comparaba bytes de JSON y recargaba la esfera para nada). Pendiente: decidir la cara del For Time (552) entre el doble y el Swift, sin vector que la mida hoy.
 
-**BIBLIOTECA · AUDITORÍA DE EJERCICIOS CERRADA (01-10, solo lectura de producción).** 146 base activos, 28 movilidad; 82 sin descripción, 133 sin claves y 0 vídeos base. Selector pierde ES/EN/alias y ofrece retirados; dosis no incorpora lado/implementos. Informe e inventario: `docs/auditoria-biblioteca-ejercicios-2026-10-01.html` (+ evidencia JSON). 26 candidatos prioritarios, 14 posteriores; pendiente implementar búsqueda/fichas/dosis y ampliar catálogo. No se modificaron ejercicios ni producción.
+**BIBLIOTECA · CONTENIDO DE LANZAMIENTO VALIDADO (01-10, `codex/biblioteca-lanzamiento`; producción sin modificar).** Migraciones 0284–0286: 146 fichas completadas en español, 25 movimientos nuevos (calentamiento/técnica/movilidad/accesorios) y dos equivalentes públicos sin publicar sus originales privados; total 173. Medidas canónicas, material y músculos completos, sin dosis fija HYROX. Copia desechable: 155 identidades, nueve privados/archivados y cinco personalizaciones conservados; repetición sin duplicados. Corrección de búsqueda, selección e importación implementada y verificada, pendiente de commit; 266 pruebas pasan. Falta publicar código y autorizar carga en producción según AGENTS; vídeos requieren material real.
 
 **AVISOS AL IPHONE: FUNCIONANDO (30-09, main `f94e28a0`, desplegado).** APNS de producción estaba vacío desde hace 145 días; ahora con clave de producción y de sandbox. Los avisos salen solo por el canal de su superficie (atleta→iPhone, coach→panel). Falta: que Alex confirme que le llegó la «Prueba de avisos» y el próximo «Tu plan está listo» en el iPhone.
 

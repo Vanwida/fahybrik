@@ -10,6 +10,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-10-01 · Biblioteca lista para seleccionar: vocabulario común, fichas completas y archivo solo histórico
+
+**Decidido al corregir la auditoría de lanzamiento:** las 146 fichas globales activas reciben descripción y claves de ejecución en español; se añaden 25 movimientos habituales, especialmente calentamiento, técnica de carrera y movilidad. El catálogo define identidad, material, lados y medidas disponibles; la cantidad, intensidad, variante y método siguen siendo del coach. La rodilla flexionada en gemelos se busca dentro de la misma identidad, siguiendo 0205, en vez de multiplicar fichas por una variante.
+
+**Mecanismo:** selector, Biblioteca y búsqueda de API usan todas las palabras, sin tildes, en ambos idiomas y con los alias del coach. Importador y editor comparten resolución: los calificadores de identidad («con mancuerna») se conservan y los alias ambiguos requieren elección. Toda enumeración excluye archivados; la lectura de sesiones históricas conserva sus identificadores. Los flags canónicos de medidas se añaden a los históricos, sin convertirlos en una dosis. Dos slugs canónicos ocupados por fichas privadas reciben una ficha pública equivalente con otro slug disponible; no se publica el contenido privado ni se cambia su propietario. En instalaciones nuevas se completan los originales globales de 0247 sin duplicarlos, y 17 etiquetas recuperan la taxonomía pública auditada, evitando enviar drills al GPS.
+
+**No hacer:** no reactivar bloques archivados ni reasignar sesiones; no poner pesos o dosis de una temporada HYROX en instrucciones de un movimiento; no fabricar vídeos ni sobrescribir personalizaciones del coach. Las migraciones 0284–0286 se validan primero en una rama Neon desechable. La instrucción de AGENTS de esta sesión limita su ejecución a esa rama; la carga en producción requiere autorización explícita posterior.
+
+---
+
 
 ## 2026-09-30 · Cada canal de aviso es de una superficie; APNS en producción por fin configurado
 
