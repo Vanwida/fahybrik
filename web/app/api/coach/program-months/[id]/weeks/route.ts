@@ -6,6 +6,7 @@
 
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { requireCoach } from '@/lib/auth/require-coach';
+import { assertProgramStructureEditable } from '@/lib/dashboard/programming/program-structure';
 import {
   appendEmptyWeekToMonth,
   ProgramMonthError,
@@ -25,6 +26,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   }
 
   try {
+    await assertProgramStructureEditable({ coach_id: auth.session.coach_id, program_id: monthId });
     const result = await appendEmptyWeekToMonth({
       coach_id: auth.session.coach_id,
       month_id: monthId,

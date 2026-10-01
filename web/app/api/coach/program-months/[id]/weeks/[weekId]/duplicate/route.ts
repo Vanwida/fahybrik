@@ -5,6 +5,7 @@
 
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { requireCoach } from '@/lib/auth/require-coach';
+import { assertProgramStructureEditable } from '@/lib/dashboard/programming/program-structure';
 import {
   duplicateWeekIntoMonth,
   ProgramMonthError,
@@ -28,6 +29,7 @@ export async function POST(
   }
 
   try {
+    await assertProgramStructureEditable({ coach_id: auth.session.coach_id, program_id: monthId });
     const result = await duplicateWeekIntoMonth({
       coach_id: auth.session.coach_id,
       month_id: monthId,

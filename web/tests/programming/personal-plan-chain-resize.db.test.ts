@@ -28,7 +28,7 @@ describeWithDb('updatePersonalTramoMeta — duración (DB real)', () => {
   afterAll(async () => {
     while (fixtures.length) await fixtures.pop()!.cleanup();
     await closeTestSql();
-  });
+  }, 60_000);
 
   async function trackForCleanup(fx: Fixture, monthId: number) {
     const rows = await sql<Array<{ id: string }>>`
