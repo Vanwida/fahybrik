@@ -1,5 +1,7 @@
 {
-  "status":"validado_en_rama_desechable_pendiente_de_produccion",
+  "status":"publicado_en_produccion",
+  "verified_at":"2026-10-01T21:28:28.686Z",
+  "deployment_commit":"d77c96934167d41667d60c9da9a79b8fb0ec9af2",
   "date":"2026-10-01",
   "active_global":173,
   "exercises":[
