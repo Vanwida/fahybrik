@@ -6,6 +6,8 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
+**COACH · AUDITORÍA UX DEL DASHBOARD (01-10, código e historial; sin mutaciones ni DB).** 14 hallazgos: editor personal acaba en 404, alta individual sin camino al primer entreno, evaluación pierde la semana elegida y seguimiento de comunicados sin detalle; además cadena personal y lectura móvil sin acceso normal, búsqueda filtrada, exceso de paneles y relaciones sin enlace. Informe: `docs/auditoria-dashboard-coach-2026-10-01.html`, con prioridades, referencias Harbiz/TrainingPeaks y 14 recorridos de QA. 8 suites/144 pruebas existentes pasan; falta recorrido autenticado y verificación del despliegue. Recomendación pendiente de diseño: restaurar recorridos, conectar superficies y plegar detalle avanzado. No se cambió UI ni dominio.
+
 **RELOJ · TESTS ROJOS CERRADOS (01-10, rama `fix-tests-reloj`, sin fusionar; DECISIONS 01-10).** 6 fallos en 4 grupos: 3 eran del test (cuenta atrás de la recuperación sin tick; vectores de correr con pasos de circuito y For Time) y 1 bug real (la complicación comparaba bytes de JSON y recargaba la esfera para nada). Pendiente: decidir la cara del For Time (552) entre el doble y el Swift, sin vector que la mida hoy.
 
 **BIBLIOTECA · AUDITORÍA DE EJERCICIOS CERRADA (01-10, solo lectura de producción).** 146 base activos, 28 movilidad; 82 sin descripción, 133 sin claves y 0 vídeos base. Selector pierde ES/EN/alias y ofrece retirados; dosis no incorpora lado/implementos. Informe e inventario: `docs/auditoria-biblioteca-ejercicios-2026-10-01.html` (+ evidencia JSON). 26 candidatos prioritarios, 14 posteriores; pendiente implementar búsqueda/fichas/dosis y ampliar catálogo. No se modificaron ejercicios ni producción.
