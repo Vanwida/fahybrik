@@ -172,6 +172,17 @@ extension VivoPlanesDePrueba {
     }
 }
 
+extension WorkoutSession {
+    /// Los ensayos fijan el reloj de la pierna a mano y el timer está muerto, así que la cuenta atrás
+    /// de una pierna por tiempo (`runLegRemaining`, la que la recuperación lee desde que «+30 s» la
+    /// estira) no baja sola. Esto hace lo que haría el tick del motor: lo prescrito menos lo corrido.
+    @MainActor
+    func sincronizarCuentaAtrasDeLaPierna() {
+        guard runLegRemaining > 0, let d = currentRunLeg?.durationSeconds else { return }
+        runLegRemaining = Swift.max(0.001, Double(d) - runLegElapsed)
+    }
+}
+
 // MARK: - Los escenarios del contrato, con el motor de verdad
 
 /// Un escenario de `iphone-vivo-correr` montado sobre `WorkoutSession`: el plan
@@ -207,6 +218,7 @@ struct EscenarioCorrer {
     func ajustarReloj(masT: Double = 0) {
         sesion.lapElapsedSeconds = sesion.runLegStartElapsed + t + masT
         sesion.elapsedSeconds = sesionT + masT
+        sesion.sincronizarCuentaAtrasDeLaPierna()
     }
 
     typealias P = VivoPlanesDePrueba
@@ -230,6 +242,7 @@ struct EscenarioCorrer {
             if cinta { s.sampleTreadmillDistance(deltaMeters: metros) } else { s.sampleRunDistance(deltaMeters: metros, source: .healthkit) }
         }
         s.lapElapsedSeconds = s.runLegStartElapsed + t
+        s.sincronizarCuentaAtrasDeLaPierna()
         s.elapsedSeconds = sesionT
         for b in ppm { s.injectLiveHR(b, source: .strap) }
         if let cadencia { s.sampleRunCadence(stepsPerMinute: cadencia) }

@@ -55,6 +55,7 @@ final class EspejoCuadroMismoTests: XCTestCase {
             t = x
             s.elapsedSeconds = x
             s.lapElapsedSeconds = s.runLegStartElapsed + (x - legDesde)
+            s.sincronizarCuentaAtrasDeLaPierna()    // el timer está muerto: la cuenta atrás de la pierna la bajamos nosotros
         }
 
         private func fuentes(_ x: Double, enlace: Vivo.Enlace = .solo) -> Vivo.FuentesMuneca {
