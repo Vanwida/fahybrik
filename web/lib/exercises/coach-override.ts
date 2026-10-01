@@ -1,5 +1,6 @@
 import type { Sql, TransactionClient } from '@/lib/db';
 import type { CatalogExercise } from '@/lib/dashboard/exercises/types';
+import { catalogSearchFilter } from './catalog-search';
 
 /**
  * The exercise catalog's OWNERSHIP + FORK model — the single source for both.
@@ -333,31 +334,7 @@ export function exerciseSearchFilter(
   term: string | null,
   coachId: bigint | number | null,
 ) {
-  const raw = term?.trim() ? term.trim() : null;
-  if (!raw) return client`true`;
-  // Separadores plegados en el término Y en cada columna: «90-90» = «90/90» = «90 90».
-  const fold = (expr: SqlFragment) => foldSeparators(client, expr);
-  const like = client`'%' || ${fold(client`fahybrid_normalize_term(${raw})`)} || '%'`;
-  const synonyms =
-    coachId === null
-      ? client`false`
-      : client`exists (
-          select 1 from coach_exercise_synonyms s
-           where s.exercise_id = e.id and s.coach_id = ${coachId}
-             and ${fold(client`s.term_normalized`)} like ${like}
-        )`;
-  // tenancy: shared-catalog — los alias base son comunes; el llamador acota qué ejercicios ve el coach.
-  return client`(
-    ${fold(client`fahybrid_normalize_term(coalesce(ceo.name, e.name))`)} like ${like}
-    or ${fold(client`fahybrid_normalize_term(coalesce(ceo.name_es, e.name_es, ''))`)} like ${like}
-    or ${fold(client`fahybrid_normalize_term(coalesce(ceo.name_en, e.name_en, ''))`)} like ${like}
-    or ${fold(client`fahybrid_normalize_term(e.slug)`)} like ${like}
-    or exists (
-      select 1 from exercise_aliases a
-       where a.exercise_id = e.id and ${fold(client`a.term_normalized`)} like ${like}
-    )
-    or ${synonyms}
-  )`;
+  return catalogSearchFilter(client, term, coachId);
 }
 
 /** The full coach-facing SELECT list (merged + base + raw override + origin). */

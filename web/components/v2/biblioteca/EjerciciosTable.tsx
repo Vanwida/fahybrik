@@ -5,6 +5,7 @@
 // sinónimos. Abrir una fila edita el ejercicio; «Nuevo ejercicio» crea uno suyo.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocale } from 'next-intl';
 import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import type { CoachExerciseRow } from '@/lib/exercises/coach-override';
 import {
@@ -16,23 +17,28 @@ import {
   IconButton,
   Input,
   Menu,
+  Select,
   SkeletonRows,
   Tag,
   type DataTableColumn,
 } from '@/components/v2/ui';
-import { EXERCISE_ORIGIN_META, MODALITY_LABELS, type OriginFacet } from '@/lib/dashboard/exercises/catalog-ui';
-import { matchesQuery, searchIndex } from '@/lib/dashboard/programming/search-key';
+import { equipmentLabel, EXERCISE_CATEGORY_OPTIONS, EXERCISE_ORIGIN_META, MODALITY_LABELS, type OriginFacet } from '@/lib/dashboard/exercises/catalog-ui';
+import { exerciseDisplayName, exerciseEquipmentTokens, filterExerciseCatalog } from '@/lib/dashboard/exercises/catalog-search';
+import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { EjercicioEditor, type ExerciseSeed } from './EjercicioEditor';
 import { BorrarEjercicioDialog } from './BorrarEjercicioDialog';
 
 type EditorState = { mode: 'edit'; ex: CoachExerciseRow } | { mode: 'create'; seed: ExerciseSeed | null } | null;
 
 export function EjerciciosTable({ createSignal }: { createSignal: number }) {
+  const locale = useLocale();
   const [rows, setRows] = useState<CoachExerciseRow[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [reload, setReload] = useState(0);
   const [q, setQ] = useState('');
   const [facet, setFacet] = useState<OriginFacet>('todos');
+  const [category, setCategory] = useState<ExerciseCategory | 'all'>('all');
+  const [equipment, setEquipment] = useState('all');
   const [editor, setEditor] = useState<EditorState>(null);
   const [deleting, setDeleting] = useState<CoachExerciseRow | null>(null);
 
@@ -58,16 +64,26 @@ export function EjerciciosTable({ createSignal }: { createSignal: number }) {
     setEditor({ mode: 'create', seed: null });
   }
 
-  const indexed = useMemo(
-    () => (rows ?? []).filter((r) => !r.archived_at).map((r) => ({ r, idx: searchIndex([r.name, r.name_es ?? '', r.name_en ?? '', r.search_terms].join(' ')) })),
+  const active = useMemo(
+    () => filterExerciseCatalog(rows ?? []),
     [rows],
   );
+  const equipmentOptions = useMemo(() => [
+    { value: 'all', label: 'Todo el material' },
+    ...[...new Set(active.flatMap((r) => exerciseEquipmentTokens(r.equipment)))]
+      .map((value) => ({ value, label: equipmentLabel(value) }))
+      .sort((a, b) => a.label.localeCompare(b.label, locale)),
+  ], [active, locale]);
   const counts = useMemo(() => {
-    const c = { todos: indexed.length, base: 0, customized: 0, own: 0 };
-    for (const { r } of indexed) c[r.origin] += 1;
+    const c = { todos: active.length, base: 0, customized: 0, own: 0 };
+    for (const r of active) c[r.origin] += 1;
     return c;
-  }, [indexed]);
-  const visible = indexed.filter((x) => (facet === 'todos' || x.r.origin === facet) && matchesQuery(x.idx, q)).map((x) => x.r);
+  }, [active]);
+  const visible = useMemo(
+    () => filterExerciseCatalog(active, { query: q, category, equipment })
+      .filter((r) => facet === 'todos' || r.origin === facet),
+    [active, q, category, equipment, facet],
+  );
 
   const onSaved = useCallback((row: CoachExerciseRow) => {
     setRows((prev) => (prev ? prev.map((r) => (r.id === row.id ? row : r)) : prev));
@@ -79,17 +95,17 @@ export function EjerciciosTable({ createSignal }: { createSignal: number }) {
   }, []);
 
   const columns: DataTableColumn<CoachExerciseRow>[] = [
-    { id: 'name', header: 'Ejercicio', sortValue: (r) => r.name.toLowerCase(), cell: (r) => <span className="truncate font-medium text-v2-fg">{r.name}</span> },
+    { id: 'name', header: 'Ejercicio', sortValue: (r) => exerciseDisplayName(r, locale).toLowerCase(), cell: (r) => <span className="block whitespace-normal font-medium text-v2-fg sm:truncate">{exerciseDisplayName(r, locale)}</span> },
     { id: 'en', header: 'En inglés', width: '24%', hideBelow: 'md', sortValue: (r) => (r.name_en ?? '').toLowerCase(), cell: (r) => <span className="truncate text-v2-muted">{r.name_en ?? '—'}</span> },
     { id: 'mod', header: 'Modalidad', width: '140px', hideBelow: 'sm', sortValue: (r) => r.modality ?? '', cell: (r) => <span className="text-v2-muted">{r.modality ? MODALITY_LABELS[r.modality] : '—'}</span> },
-    { id: 'origin', header: 'Origen', width: '140px', sortValue: (r) => r.origin, cell: (r) => <Tag>{EXERCISE_ORIGIN_META[r.origin].label}</Tag> },
+    { id: 'origin', header: 'Origen', width: '140px', hideBelow: 'sm', sortValue: (r) => r.origin, cell: (r) => <Tag>{EXERCISE_ORIGIN_META[r.origin].label}</Tag> },
     {
       id: 'actions',
       header: <span className="sr-only">Acciones</span>,
       width: '56px',
       cell: (r) => (
         <Menu
-          trigger={<IconButton icon={MoreHorizontal} label={`Acciones de ${r.name}`} size="sm" />}
+          trigger={<IconButton icon={MoreHorizontal} label={`Acciones de ${exerciseDisplayName(r, locale)}`} size="sm" />}
           items={[
             { label: 'Editar', icon: Pencil, onSelect: () => setEditor({ mode: 'edit', ex: r }) },
             ...(r.origin === 'own' ? [{ label: 'Borrar…', icon: Trash2, danger: true, onSelect: () => setDeleting(r) }] : []),
@@ -111,6 +127,18 @@ export function EjerciciosTable({ createSignal }: { createSignal: number }) {
             {f === 'todos' ? 'Todos' : EXERCISE_ORIGIN_META[f].label}
           </FilterChip>
         ))}
+        <Select<ExerciseCategory | 'all'>
+          value={category}
+          onValueChange={setCategory}
+          options={[{ value: 'all', label: 'Todas las categorías' }, ...EXERCISE_CATEGORY_OPTIONS]}
+          aria-label="Filtrar ejercicios por categoría"
+        />
+        <Select
+          value={equipment}
+          onValueChange={setEquipment}
+          options={equipmentOptions}
+          aria-label="Filtrar ejercicios por material"
+        />
         <Button size="sm" icon={Plus} className="ml-auto" onClick={() => setEditor({ mode: 'create', seed: null })}>
           Nuevo ejercicio
         </Button>

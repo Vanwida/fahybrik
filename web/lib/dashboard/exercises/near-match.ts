@@ -26,6 +26,8 @@ export interface NearMatchCandidate {
   name: string;
   modality: string;
   category: string;
+  /** All bilingual names and scoped aliases of this same identity. */
+  search_names?: readonly string[];
 }
 
 /** Un candidato con su parecido, ya ordenado. */
@@ -161,7 +163,8 @@ export function findNearMatches(
   const limit = opts.limit ?? NEAR_MATCH_LIMIT;
   const scored: ScoredCandidate[] = [];
   for (const candidate of catalog) {
-    const score = nameSimilarity(name, candidate.name);
+    const score = Math.max(...[candidate.name, ...(candidate.search_names ?? [])]
+      .map((term) => nameSimilarity(name, term)));
     if (score >= floor) scored.push({ ...candidate, score });
   }
   scored.sort((a, b) => b.score - a.score || a.name.length - b.name.length);

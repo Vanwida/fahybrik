@@ -40,11 +40,13 @@ export async function loadAthleteExerciseCatalog(
 ): Promise<AthleteExercise[]> {
   const category = q.category ?? null;
 
+  // tenancy: coach-fragment — visibleToCoach uses the athlete's coach (null means base only).
   const rows = await sql<CoachExerciseRow[]>`
     select ${coachExerciseColumns(sql, q.coachId)}
     from exercises e
     ${joinCoachOverride(sql, q.coachId)}
     where ${visibleToCoach(sql, q.coachId)}
+      and e.archived_at is null
       and (${category}::exercise_category is null or e.category = ${category}::exercise_category)
       and ${exerciseSearchFilter(sql, q.search ?? null, q.coachId)}
     order by ${exerciseCatalogOrder(sql)}
