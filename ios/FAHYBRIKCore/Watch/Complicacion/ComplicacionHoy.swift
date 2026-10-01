@@ -120,14 +120,18 @@ enum ComplicacionAlmacen {
     }
 
     /// Escribe el registro. Devuelve si HA CAMBIADO algo: quien llama solo recarga las
-    /// líneas de tiempo cuando lo que se ve puede ser distinto.
+    /// líneas de tiempo cuando lo que se ve puede ser distinto. Se compara el VALOR ya leído, no
+    /// los bytes: `JSONEncoder` no fija el orden de las claves, y dos escrituras del mismo día
+    /// salían distintas y recargaban las líneas de tiempo para nada.
     @discardableResult
     static func guardar(_ hoy: ComplicacionHoy, en defaults: UserDefaults? = compartido) -> Bool {
-        guard let defaults, let data = try? JSONEncoder().encode(hoy) else { return false }
-        if defaults.data(forKey: clave) == data { return false }
+        guard let defaults else { return false }
+        if leer(de: defaults) == hoy { return false }
+        guard let data = try? JSONEncoder().encode(hoy) else { return false }
         defaults.set(data, forKey: clave)
         return true
     }
+
 
     /// Borra el registro (cierre de sesión): lo que se ve pasa a «sin plan».
     @discardableResult
