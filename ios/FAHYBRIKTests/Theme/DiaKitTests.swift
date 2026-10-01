@@ -110,8 +110,9 @@ final class DiaKitTests: XCTestCase {
     func testSoloLosPapelesGrandesLlevanTopeYElTextoDeLecturaNo() {
         typealias P = Theme.Typography.Papel
         for p in P.allCases {
-            let grande = p.medidas.tamano >= 24
-            XCTAssertEqual(p.medidas.tope != nil, grande, "\(p): el tope es de los papeles grandes (≥ 24 pt), no del texto que se lee")
+            // 22 pt: la cifra de una fila en columna (`.cifra`) también lleva tope; el texto de lectura (≤ 20 pt) no.
+            let grande = p.medidas.tamano >= 22
+            XCTAssertEqual(p.medidas.tope != nil, grande, "\(p): el tope es de los papeles grandes (≥ 22 pt), no del texto que se lee")
         }
     }
 
