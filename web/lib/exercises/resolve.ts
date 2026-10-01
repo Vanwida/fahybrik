@@ -15,8 +15,8 @@
 //   • el vocabulario compartido (`exercise_aliases`, 0172/0178) y el mapa de alias del
 //     importador (`GLOBAL_ALIASES`) — el mismo conocimiento, sin divergir.
 //
-// CÓMO COMPARA — sin tildes, sin mayúsculas, sin ruido de cantidad/implemento/carga
-// («8r», «db», «24kg»: `normalizeTerm`) y en SINGULAR («wall balls» = «wall ball»,
+// CÓMO COMPARA — sin tildes, sin mayúsculas, sin cantidades ni carga, conservando
+// calificadores de identidad («db snatch»: `identityTerm`) y en SINGULAR («wall balls» = «wall ball»,
 // «sentadillas» = «sentadilla»). Puntuación 0–1:
 //   1     igual a un nombre o alias (sinónimo del coach por delante en el desempate)
 //   ~0.9  el nombre está dentro de lo tecleado o al revés, según cuánto cubre
@@ -28,8 +28,8 @@
 // Es MECANISMO (nuestro): los nombres, alias y sinónimos son dato; aquí no hay nombres de
 // ningún método.
 
-import { sql, type Sql } from '@/lib/db';
-import { GLOBAL_ALIASES, normalizeTerm } from '@/lib/import/exercise-resolve';
+import { sql, type Sql, type TransactionClient } from '@/lib/db';
+import { GLOBAL_ALIASES, identityTerm, normalizeTerm } from '@/lib/exercises/exercise-terms';
 import { joinCoachOverride, visibleToCoach } from '@/lib/exercises/coach-override';
 
 /** Por debajo de esto no se enlaza solo: se pregunta. */
@@ -133,7 +133,9 @@ export function scoreName(q: string, name: string): { score: number; kind: 'exac
   const queryInName = qw.every((w) => ns.has(w));
   let partial = 0;
   if (nameInQuery) partial = 0.5 + 0.4 * (nw.length / qw.length);
-  else if (queryInName) partial = 0.5 + 0.4 * (qw.length / nw.length);
+  // A complete distinctive word can identify a longer name. Nearby alternatives
+  // still require a choice via TIE_MARGIN; this is never a substring of a word.
+  else if (queryInName) partial = 0.72 + 0.18 * (qw.length / nw.length);
   const fuzzy = dice(q, name) * 0.85;
   return partial >= fuzzy ? { score: partial, kind: 'partial' } : { score: fuzzy, kind: 'fuzzy' };
 }
@@ -151,7 +153,7 @@ interface CatalogEntry {
 }
 
 /** Todo lo que el coach puede enlazar, con todos sus nombres. Tres consultas en paralelo. */
-async function loadCatalog(coach_id: bigint | number, client: Sql = sql): Promise<CatalogEntry[]> {
+async function loadCatalog(coach_id: bigint | number, client: Sql | TransactionClient = sql): Promise<CatalogEntry[]> {
   const coach = Number(coach_id);
   const [rows, aliases, synonyms] = await Promise.all([
     client<
@@ -203,9 +205,10 @@ const SOURCE_RANK: Record<CatalogName['source'], number> = { synonym: 0, name: 1
 
 function resolveAgainst(catalog: CatalogEntry[], token: string): ExerciseResolution {
   const normalized = normalizeTerm(token);
-  // Dos lecturas de lo tecleado: la limpia de ruido («8r db snatch 24kg» → «snatch») y la
-  // entera sin tildes (hay alias que llevan el implemento dentro: «db snatch»).
-  const queries = [...new Set([matchKey(normalized), matchKey(token)].filter(Boolean))];
+  // Primero la identidad sin dosis («8r db snatch 24kg» → «db snatch»); el
+  // normalizador histórico de sinónimos y el texto completo son fallbacks.
+  const identity = matchKey(identityTerm(token));
+  const queries = [...new Set([identity, matchKey(normalized), matchKey(token)].filter(Boolean))];
   if (queries.length === 0) return { normalized, best: null, confidence: 0, candidates: [] };
 
   const scored: (ExerciseCandidate & { rank: number; own: boolean })[] = [];
@@ -213,7 +216,10 @@ function resolveAgainst(catalog: CatalogEntry[], token: string): ExerciseResolut
     let top: (ExerciseCandidate & { rank: number }) | null = null;
     for (const n of entry.names) {
       for (const q of queries) {
-        const { score, kind } = scoreName(q, n.key);
+        const scoredName = scoreName(q, n.key);
+        const { kind } = scoredName;
+        // A cleanup which erased "DB"/"high" cannot outrank the qualified name.
+        const score = scoredName.score * (q === identity || n.source === 'synonym' ? 1 : 0.95);
         if (score <= 0) continue;
         const via: MatchVia = kind === 'exact' ? (n.source === 'synonym' ? 'synonym' : n.source) : kind;
         const rank = kind === 'exact' ? SOURCE_RANK[n.source] : 3;
@@ -270,7 +276,7 @@ export async function resolveExercise(params: {
 export async function resolveExercises(params: {
   coach_id: bigint | number;
   tokens: string[];
-  client?: Sql;
+  client?: Sql | TransactionClient;
 }): Promise<ExerciseResolution[]> {
   if (params.tokens.length === 0) return [];
   const catalog = await loadCatalog(params.coach_id, params.client);

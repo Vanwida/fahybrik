@@ -19,6 +19,9 @@ export interface CoachCatalogExercise {
   name: string;
   modality: string;
   category: string;
+  name_es: string | null;
+  name_en: string | null;
+  search_names: string[];
 }
 
 /**
@@ -52,10 +55,16 @@ export async function loadCoachExerciseCatalog(
       e.id::text            as id,
       coalesce(ceo.name, e.name) as name,
       e.modality::text      as modality,
-      e.category::text      as category
+      e.category::text      as category,
+      coalesce(ceo.name_es, e.name_es) as name_es,
+      coalesce(ceo.name_en, e.name_en) as name_en,
+      array(select a.term from exercise_aliases a where a.exercise_id = e.id)
+        || array(select s.term_normalized from coach_exercise_synonyms s
+          where s.exercise_id = e.id and s.coach_id = ${coachId}) as search_names
     from exercises e
     ${joinCoachOverride(client, coachId)}
     where ${visibleToCoach(client, coachId)}
+      and e.archived_at is null
     order by ${orderBy}
     ${limitClause}
   `;

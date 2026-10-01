@@ -68,6 +68,7 @@ export async function POST(request: Request) {
       name: r.name,
       modality: r.modality,
       category: r.category,
+      search_names: [r.name_es, r.name_en, ...r.search_names].filter((name): name is string => !!name),
     }));
 
     const matches = parsed.data.tokens.map((token) => ({

@@ -25,15 +25,16 @@
 // shared with the server: a YouTube link or a file the coach uploaded. No new schema.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocale } from 'next-intl';
 import { Pencil, Plus, PlayCircle, Search } from 'lucide-react';
-import { Button, Dialog, IconButton, Input } from '@/components/v2/ui';
+import { Button, Dialog, ErrorState, IconButton, Input } from '@/components/v2/ui';
 import { EditExerciseForm } from './ExerciseEditForm';
 import { CreateExerciseForm } from './ExerciseCreateForm';
 import type { Modality } from '@fahybrid/shared/domain/prescription';
 import type { ExerciseCategory } from '@fahybrid/shared/schema/_primitives';
 import { modalityColorSlug } from '@/lib/dashboard/v2/editor-axes';
-import { MODALITY_LABELS } from '@/lib/dashboard/exercises/catalog-ui';
-import { searchWords } from '@/lib/dashboard/programming/search-key';
+import { equipmentLabel, MODALITY_LABELS, muscleLabel } from '@/lib/dashboard/exercises/catalog-ui';
+import { exerciseDisplayName, exerciseMeasureLabels, filterExerciseCatalog } from '@/lib/dashboard/exercises/catalog-search';
 import {
   CATEGORY_OPTIONS,
   FilterChip,
@@ -50,6 +51,17 @@ export interface PickedExercise {
   category: ExerciseCategory;
   modality: Modality;
   video_url: string | null;
+  slug?: string;
+  name_es?: string | null;
+  name_en?: string | null;
+  search_terms?: string;
+  movement_pattern?: string | null;
+  is_unilateral?: boolean;
+  implement_count?: number | null;
+  default_metrics_json?: Record<string, boolean>;
+  archived_at?: string | null;
+  equipment?: string[];
+  primary_muscle_groups?: string[];
 }
 
 type Mode = 'search' | 'create' | 'edit';
@@ -67,6 +79,7 @@ export function ExercisePicker({
   onPick: (exercise: PickedExercise) => void;
   onClose: () => void;
 }) {
+  const locale = useLocale();
   const searchRef = useRef<HTMLInputElement>(null);
 
   const [mode, setMode] = useState<Mode>('search');
@@ -74,6 +87,8 @@ export function ExercisePicker({
   const [categoryFilter, setCategoryFilter] = useState<ExerciseCategory | 'all'>('all');
   const [catalog, setCatalog] = useState<CatalogRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [reload, setReload] = useState(0);
   // The exercise being edited (✎) — drives the edit sheet.
   const [editing, setEditing] = useState<CatalogRow | null>(null);
 
@@ -85,11 +100,17 @@ export function ExercisePicker({
   useEffect(() => {
     let alive = true;
     fetch('/api/exercises?limit=2000', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { exercises: ApiExercise[] } | null) => {
-        if (alive && data?.exercises) setCatalog(data.exercises.map(toCatalogRow));
+      .then((r) => {
+        if (!r.ok) throw new Error('catalog_load_failed');
+        return r.json();
       })
-      .catch(() => undefined)
+      .then((data: { exercises: ApiExercise[] } | null) => {
+        if (!Array.isArray(data?.exercises)) throw new Error('invalid_catalog');
+        if (alive) setCatalog(data.exercises.map(toCatalogRow));
+      })
+      .catch(() => {
+        if (alive) setFailed(true);
+      })
       .finally(() => {
         if (alive) {
           setLoading(false);
@@ -102,41 +123,54 @@ export function ExercisePicker({
     return () => {
       alive = false;
     };
-  }, []);
+  }, [reload]);
 
-  const filtered = useMemo(() => {
-    // Sin tildes ni mayúsculas, y «/», «-» y espacios cuentan igual: «90-90» encuentra «90/90 Hip Stretch».
-    const q = searchWords(query).join(' ');
-    return catalog.filter((ex) => {
-      if (categoryFilter !== 'all' && ex.category !== categoryFilter) return false;
-      if (!q) return true;
-      return searchWords(ex.name).join(' ').includes(q);
-    });
-  }, [catalog, query, categoryFilter]);
+  const filtered = useMemo(
+    () => filterExerciseCatalog(catalog, { query, category: categoryFilter }),
+    [catalog, query, categoryFilter],
+  );
 
   const recents = useMemo(() => {
     if (recentIds.length === 0 || query.trim()) return [];
-    const byId = new Map(catalog.map((ex) => [Number(ex.id), ex]));
+    const byId = new Map(filtered.map((ex) => [Number(ex.id), ex]));
     return recentIds
       .map((id) => byId.get(id))
       .filter((ex): ex is CatalogRow => ex != null)
       .slice(0, 5);
-  }, [recentIds, catalog, query]);
+  }, [recentIds, filtered, query]);
+
+  const retry = () => {
+    setFailed(false);
+    setLoading(true);
+    setReload((n) => n + 1);
+  };
 
   const select = useCallback(
     (ex: CatalogRow) => {
+      if (ex.archived_at) return;
       rememberRecent(Number(ex.id));
       onPick({
         id: Number(ex.id),
-        name: ex.name,
+        name: exerciseDisplayName(ex, locale),
         category: ex.category,
         modality: ex.modality,
         // video_url arrives already MERGED (coalesce(override, base) server-side)
         // — read it directly, don't re-apply the precedence client-side.
         video_url: ex.video_url,
+        slug: ex.slug,
+        name_es: ex.name_es,
+        name_en: ex.name_en,
+        search_terms: ex.search_terms,
+        movement_pattern: ex.movement_pattern,
+        is_unilateral: ex.is_unilateral,
+        implement_count: ex.implement_count,
+        default_metrics_json: ex.default_metrics_json,
+        archived_at: ex.archived_at,
+        equipment: ex.equipment,
+        primary_muscle_groups: ex.primary_muscle_groups,
       });
     },
-    [onPick],
+    [onPick, locale],
   );
 
   const onCreated = useCallback(
@@ -164,7 +198,7 @@ export function ExercisePicker({
       title={title}
       description={destinationLabel}
       footer={
-        mode === 'search' ? (
+        mode === 'search' && !loading && !failed ? (
           <Button variant="ghost" icon={Plus} onClick={() => setMode('create')} className="mr-auto max-w-full">
             <span className="truncate">
               Crear {query.trim() ? <span className="text-v2-fg">«{query.trim()}»</span> : null} como ejercicio nuevo
@@ -197,6 +231,9 @@ export function ExercisePicker({
           categoryFilter={categoryFilter}
           onCategory={setCategoryFilter}
           loading={loading}
+          failed={failed}
+          onRetry={retry}
+          locale={locale}
           recents={recents}
           filtered={filtered}
           onSelect={select}
@@ -218,6 +255,9 @@ function SearchBody({
   categoryFilter,
   onCategory,
   loading,
+  failed,
+  onRetry,
+  locale,
   recents,
   filtered,
   onSelect,
@@ -229,6 +269,9 @@ function SearchBody({
   categoryFilter: ExerciseCategory | 'all';
   onCategory: (v: ExerciseCategory | 'all') => void;
   loading: boolean;
+  failed: boolean;
+  onRetry: () => void;
+  locale: string;
   recents: CatalogRow[];
   filtered: CatalogRow[];
   onSelect: (ex: CatalogRow) => void;
@@ -243,7 +286,7 @@ function SearchBody({
           icon={Search}
           value={query}
           onChange={(e) => onQuery(e.target.value)}
-          placeholder="Buscar ejercicio…"
+          placeholder="Buscar (castellano o inglés)…"
           aria-label="Buscar ejercicio"
         />
         <div className="flex flex-wrap gap-1.5">
@@ -262,13 +305,15 @@ function SearchBody({
       <div className="-mx-2 pt-2">
         {loading ? (
           <p className="px-2 py-3 t-body-sm text-v2-muted">Cargando catálogo…</p>
+        ) : failed ? (
+          <ErrorState title="El catálogo de ejercicios no ha cargado" onRetry={onRetry} className="mx-2 my-3" />
         ) : (
           <>
             {recents.length > 0 ? (
               <>
                 <p className="px-2 pb-1 pt-1 t-label text-v2-faint">Recientes</p>
                 {recents.map((ex) => (
-                  <ExerciseRow key={`r-${ex.id}`} ex={ex} onSelect={onSelect} onEdit={onEdit} />
+                  <ExerciseRow key={`r-${ex.id}`} ex={ex} locale={locale} onSelect={onSelect} onEdit={onEdit} />
                 ))}
                 <p className="px-2 pb-1 pt-2.5 t-label text-v2-faint">Catálogo</p>
               </>
@@ -278,7 +323,7 @@ function SearchBody({
                 Sin resultados{query.trim() ? ` para «${query.trim()}»` : ''}.
               </p>
             ) : (
-              filtered.map((ex) => <ExerciseRow key={ex.id} ex={ex} onSelect={onSelect} onEdit={onEdit} />)
+              filtered.map((ex) => <ExerciseRow key={ex.id} ex={ex} locale={locale} onSelect={onSelect} onEdit={onEdit} />)
             )}
           </>
         )}
@@ -289,20 +334,30 @@ function SearchBody({
 
 function ExerciseRow({
   ex,
+  locale,
   onSelect,
   onEdit,
 }: {
   ex: CatalogRow;
+  locale: string;
   onSelect: (ex: CatalogRow) => void;
   onEdit: (ex: CatalogRow) => void;
 }) {
   const slug = modalityColorSlug(ex.modality);
-  const muscles = ex.primary_muscle_groups.slice(0, 2).join(', ');
+  const name = exerciseDisplayName(ex, locale);
+  const muscles = ex.primary_muscle_groups.slice(0, 2).map(muscleLabel).join(', ');
   // Origin woven into the existing caption, restrained on purpose (task D4: this
   // is a dense in-editor picker, not the catalog screen) — no badge/icon for
   // 'base' (the unmarked majority), just a word for the other two.
   const originLabel = ORIGIN_LABEL[ex.origin];
-  const sub = [originLabel, ex.equipment[0], muscles].filter(Boolean).join(' · ');
+  const sub = [
+    originLabel,
+    ex.is_unilateral ? 'Unilateral' : null,
+    ex.implement_count != null && ex.implement_count > 1 ? `${ex.implement_count} implementos` : null,
+    ...exerciseMeasureLabels(ex.default_metrics_json),
+    ex.equipment[0] ? equipmentLabel(ex.equipment[0]) : null,
+    muscles,
+  ].filter(Boolean).join(' · ');
   // video_url arrives already MERGED — read it directly.
   const hasVideo = ex.video_url != null;
   return (
@@ -314,8 +369,8 @@ function ExerciseRow({
       >
         <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `var(--v2-mod-${slug})` }} />
         <span className="min-w-0">
-          <span className="block truncate t-body font-medium text-v2-fg">{ex.name}</span>
-          {sub ? <span className="block truncate t-meta text-v2-faint">{sub}</span> : null}
+          <span className="block whitespace-normal t-body font-medium text-v2-fg sm:truncate">{name}</span>
+          {sub ? <span className="block whitespace-normal t-meta text-v2-faint sm:truncate">{sub}</span> : null}
         </span>
       </Button>
       {/* El COLOR sale del cubo (remo/ski/bici comparten el color de "ergo"), pero
@@ -332,7 +387,7 @@ function ExerciseRow({
         icon={hasVideo ? PlayCircle : Pencil}
         size="sm"
         onClick={() => onEdit(ex)}
-        label={hasVideo ? `Editar ${ex.name} (tiene vídeo)` : `Editar ${ex.name}`}
+        label={hasVideo ? `Editar ${name} (tiene vídeo)` : `Editar ${name}`}
         className={hasVideo ? 'text-v2-fg' : undefined}
       />
     </div>
