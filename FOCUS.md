@@ -2,9 +2,11 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-30** (reloj: correr es correr, F6; reloj: voz, deshacer y respaldo FH-56; reloj: WOD, circuito, HYROX, relevo, fuerza, ergo y correr en la cara nueva, cara vieja retirada, entrada nueva y lanzamiento automático; complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; modelo del reloj Garmin)
+Última actualización: **2026-10-01** (biblioteca: auditoría de ejercicios para lanzamiento; reloj: correr es correr, F6; reloj: voz, deshacer y respaldo FH-56; reloj: WOD, circuito, HYROX, relevo, fuerza, ergo y correr en la cara nueva, cara vieja retirada, entrada nueva y lanzamiento automático; complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; modelo del reloj Garmin)
 
 ## Ahora
+
+**BIBLIOTECA · AUDITORÍA DE EJERCICIOS CERRADA (01-10, solo lectura de producción).** 146 base activos, 28 movilidad; 82 sin descripción, 133 sin claves y 0 vídeos base. Selector pierde ES/EN/alias y ofrece retirados; dosis no incorpora lado/implementos. Informe e inventario: `docs/auditoria-biblioteca-ejercicios-2026-10-01.html` (+ evidencia JSON). 26 candidatos prioritarios, 14 posteriores; pendiente implementar búsqueda/fichas/dosis y ampliar catálogo. No se modificaron ejercicios ni producción.
 
 **AVISOS AL IPHONE: FUNCIONANDO (30-09, main `f94e28a0`, desplegado).** APNS de producción estaba vacío desde hace 145 días; ahora con clave de producción y de sandbox. Los avisos salen solo por el canal de su superficie (atleta→iPhone, coach→panel). Falta: que Alex confirme que le llegó la «Prueba de avisos» y el próximo «Tu plan está listo» en el iPhone.
 
