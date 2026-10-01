@@ -13,6 +13,8 @@ import { IconButton, Menu, useToast } from '@/components/v2/ui';
 import { ProgramMetaDialog } from './ProgramMetaDialog';
 import { ImportWorkoutsDialog } from './ImportWorkoutsDialog';
 import type { MicroWeekRef } from '@/lib/dashboard/v2/import-review';
+import type { ProgramCopyAction } from './use-program-copy';
+import { athleteStructureHref } from './program-context-link';
 
 async function call(url: string, method: string, body?: unknown): Promise<{ ok: boolean; data: Record<string, unknown> | null }> {
   const res = await fetch(url, {
@@ -37,6 +39,9 @@ export function ProgramMenu({
   hasPending,
   onChanged,
   importWeeks,
+  copy,
+  prepare,
+  returnHref,
 }: {
   program: ProgramRow;
   levels: Array<{ id: string; name: string; label: string; archived?: boolean }>;
@@ -46,12 +51,16 @@ export function ProgramMenu({
   onChanged: () => void;
   /** Semanas para «Importar…» (Excel, texto, foto o IA → celdas). */
   importWeeks: MicroWeekRef[];
+  copy: ProgramCopyAction;
+  prepare: () => Promise<boolean>;
+  returnHref: string | null;
 }) {
   const locale = useLocale();
   const router = useRouter();
   const { toast } = useToast();
   const [meta, setMeta] = useState(false);
   const [importing, setImporting] = useState(false);
+  const structureLocked = Boolean(program.personal) || Boolean(program.structure_locked);
 
   const guard = () => {
     if (!hasPending()) return true;
@@ -62,17 +71,14 @@ export function ProgramMenu({
   const addWeek = async () => {
     if (!guard()) return;
     const r = await call(`/api/coach/program-months/${program.id}/weeks`, 'POST');
-    if (!r.ok) return toast({ title: errorOf(r.data) ?? 'No se pudo añadir la semana', tone: 'danger' });
+    if (!r.ok) {
+      const assigned = (r.data?.error as { code?: string } | undefined)?.code === 'assigned_structure';
+      if (assigned) onChanged();
+      return toast({ title: errorOf(r.data) ?? 'No se pudo añadir la semana', tone: 'danger',
+        ...(assigned ? { action: { label: 'Crear copia', onClick: () => void copy.create() } } : {}) });
+    }
     toast({ title: `Semana ${weekCount + 1} añadida` });
     onChanged();
-  };
-
-  const duplicate = async () => {
-    if (!guard()) return;
-    const r = await call(`/api/coach/program-months/${program.id}/duplicate`, 'POST');
-    if (!r.ok || !r.data?.id) return toast({ title: errorOf(r.data) ?? 'No se pudo duplicar', tone: 'danger' });
-    toast({ title: `«${program.name} (copia)» creado` });
-    router.push(`/${locale}/programar/programas/${String(r.data.id)}`);
   };
 
   const archive = async () => {
@@ -101,13 +107,13 @@ export function ProgramMenu({
       <Menu
         trigger={<IconButton icon={MoreHorizontal} label="Más acciones del programa" variant="secondary" />}
         items={[
-          { label: 'Nombre, nivel y etiquetas…', icon: Pencil, onSelect: () => setMeta(true) },
+          ...(program.personal ? [{ label: 'Estructura y nombre del plan…', icon: Pencil, onSelect: () => { void prepare().then((ready) => { if (ready) router.push(`/${locale}${athleteStructureHref(program.personal!.athlete_id, returnHref, locale)}`); }); } }] : [{ label: 'Nombre, nivel y etiquetas…', icon: Pencil, onSelect: () => setMeta(true) }]),
           { type: 'separator' },
           { label: 'Importar…', icon: FileUp, onSelect: () => { if (guard()) setImporting(true); } },
-          { label: 'Añadir semana', icon: Plus, disabled: weekCount >= maxWeeks, onSelect: () => void addWeek() },
+          { label: 'Añadir semana', icon: Plus, disabled: structureLocked || weekCount >= maxWeeks, onSelect: () => void addWeek() },
           { type: 'separator' },
-          { label: 'Duplicar programa', icon: Copy, onSelect: () => void duplicate() },
-          { label: program.archived ? 'Recuperar' : 'Archivar', icon: Archive, onSelect: () => void archive() },
+          ...(!program.personal ? [{ label: 'Duplicar programa', icon: Copy, disabled: copy.busy, onSelect: () => void copy.create() }] : []),
+          ...(!program.personal ? [{ label: program.archived ? 'Recuperar' : 'Archivar', icon: Archive, onSelect: () => void archive() }] : []),
         ]}
       />
       {importing ? (

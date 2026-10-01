@@ -119,12 +119,13 @@ export function IntakeReview({
     try {
       const res = await apiJson<CommitResult>(`/api/coach/intake/${athleteId}`, { method: 'POST', body });
       toast({
-        title: `${athlete.full_name}: plan asignado`,
+        title: `${athlete.full_name}: ${plan.kind === 'personal' ? 'alta revisada' : 'plan asignado'}`,
         // «Seguir con lo que tiene» no materializa nada: la línea es la de su plan actual.
         description: intakePlanLine(res.plan.kind === 'keep' && summary ? summary : res.plan, today),
         undo,
       });
-      if (embedded) router.refresh();
+      if (plan.kind === 'personal') router.push(`/atletas/${athleteId}?crear_programa=1`);
+      else if (embedded) router.refresh();
       else if (queue.length > 0) router.push(nextHref(queue));
       else router.push(`/atletas/${athleteId}`);
     } catch (err) {

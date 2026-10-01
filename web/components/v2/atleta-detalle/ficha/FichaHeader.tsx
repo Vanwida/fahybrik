@@ -17,6 +17,8 @@ import { useFicha } from '../FichaContext';
 import { useLifecycleMenu } from '../lifecycle/LifecycleControl';
 import { PersonalizarPlanModal } from '../PersonalizarPlanModal';
 import { VolverPeriodizacionModal } from '../VolverPeriodizacionModal';
+import { useRouter } from '@/i18n/navigation';
+import { withCoachReturn } from '@/components/v2/shared/context-link';
 
 function UnreadCount({ n, className }: { n: number; className?: string }) {
   if (n <= 0) return null;
@@ -75,6 +77,7 @@ function PublishButton() {
 
 export function FichaHeader({ nav }: { nav: ReactNode }) {
   const { shell, openChat, openComposer } = useFicha();
+  const router = useRouter();
   const lifecycle = useLifecycleMenu(shell.athlete_id, shell.lifecycle);
   const [planDialog, setPlanDialog] = useState<null | 'personalizar' | 'volver'>(null);
   const pp = shell.personal_plan;
@@ -86,6 +89,11 @@ export function FichaHeader({ nav }: { nav: ReactNode }) {
 
   const menu: MenuEntry[] = [
     { label: 'Comunicado…', icon: Megaphone, onSelect: openComposer },
+    ...(pp?.is_personal && shell.program ? [{ label: 'Editar su programa personal…', icon: GitBranch, onSelect: () => router.push(withCoachReturn(`/programar/programas/${shell.program!.id}`, `${window.location.pathname}${window.location.search}`)) }] : []),
+    { label: 'Estructura de su plan…', icon: GitBranch, onSelect: () => {
+      const params = new URLSearchParams(window.location.search); params.set('plan_estructura', '1');
+      router.push(`/atletas/${shell.athlete_id}?${params.toString()}`);
+    } },
     ...(pp && !pp.is_personal
       ? [{ label: 'Personalizar su plan…', icon: GitBranch, onSelect: () => setPlanDialog('personalizar') }]
       : []),

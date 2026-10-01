@@ -9,7 +9,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import { useLocale } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { coachReturn } from '@/components/v2/shared/context-link';
 import { BookOpen, Eye, TrendingUp, UserPlus } from 'lucide-react';
 import type { WeekDay } from '@fahybrid/shared/schema/program-templates';
 import type { ProgressionSteps } from '@fahybrid/shared/domain/coach/progression-steps';
@@ -50,6 +51,9 @@ import { LIB_DRAG_TYPE, LibraryPanel } from './LibraryPanel';
 import { SaveIndicator } from './SaveIndicator';
 import { ProgramMenu } from './ProgramMenu';
 import { ShortcutBar } from './ShortcutBar';
+import { ProgramContextBar } from './ProgramContextBar';
+import { useProgramCopy } from './use-program-copy';
+import { useProgramNavigation } from './use-program-navigation';
 
 const CELL_DRAG_TYPE = 'application/x-programar-celda';
 const DAY_NAMES = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
@@ -66,9 +70,13 @@ export interface ProgramEditorProps {
 export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks }: ProgramEditorProps) {
   const locale = useLocale();
   const router = useRouter();
+  const query = useSearchParams();
+  const back = coachReturn(query.get('volver'), locale);
   const { toast, dismiss } = useToast();
   const mod = useModKey();
   const g = useProgramGrid(program.id, weeks);
+  const prepareNavigation = useProgramNavigation(g.hasPending, g.settle);
+  const copyProgram = useProgramCopy(program.id, prepareNavigation);
   const bounds = useMemo(() => ({ rows: g.grid.length, cols: 7 }), [g.grid.length]);
   const [focusById, setFocusById] = useState<Record<string, string | null>>({});
   const weekMeta = weeks.map((w) => ({ id: w.id, focus: w.id in focusById ? focusById[w.id]! : w.focus }));
@@ -282,9 +290,9 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
       { label: 'Descarga…', onSelect: () => { setAnchor({ row, col: 0 }); setCursor({ row, col: 6 }); setProgress('deload'); } },
       { type: 'separator' },
       { label: 'Vaciar semana', danger: true, onSelect: () => commitWithUndo(clearRange(rowRange(row, bounds), bounds), 'Vaciado', `Semana ${row + 1} vaciada`) },
-      { label: 'Quitar semana…', danger: true, disabled: bounds.rows <= 1, onSelect: () => setRemoveWeek(row) },
+      { label: 'Quitar semana…', danger: true, disabled: bounds.rows <= 1 || Boolean(program.personal) || Boolean(program.structure_locked), onSelect: () => setRemoveWeek(row) },
     ],
-    [g.grid, bounds, toast, commitWithUndo, mod],
+    [g.grid, bounds, toast, commitWithUndo, mod, program.personal, program.structure_locked],
   );
 
   const cursorDay = cellAt(g.grid, cursor.row, cursor.col);
@@ -295,9 +303,10 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        back={{ href: `/${locale}/programar/programas`, label: 'Programas' }}
+        back={back ?? { href: program.personal ? `/${locale}/atletas/${program.personal.athlete_id}` : `/${locale}/programar/programas`, label: program.personal?.athlete_name ?? 'Programas' }}
         title={program.name}
         subtitle={[
+          program.personal ? `Plan personal de ${program.personal.athlete_name}` : null,
           `${g.grid.length} ${g.grid.length === 1 ? 'semana' : 'semanas'}`,
           program.level ? program.level.name : null,
           ...program.tags,
@@ -307,7 +316,7 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
           .join(' · ')}
         actions={
           <>
-            <SaveIndicator status={g.status} error={g.error} onRetry={() => void g.retry()} />
+            <SaveIndicator status={g.status} error={g.error} delivery={g.delivery} onRetry={() => void g.retry()} />
             <Button icon={Eye} onClick={() => setPreview(true)}>
               Vista atleta
             </Button>
@@ -317,13 +326,15 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
             <Button icon={BookOpen} className="max-sm:hidden min-[1600px]:hidden" onClick={() => setLibOpen(true)}>
               Biblioteca
             </Button>
-            <Button variant="primary" icon={UserPlus} onClick={() => setAssign(true)}>
+            {!program.personal ? <Button variant="primary" icon={UserPlus} onClick={() => { void prepareNavigation().then((ready) => { if (ready) setAssign(true); }); }}>
               Asignar…
-            </Button>
-            <ProgramMenu program={program} levels={levels} weekCount={g.grid.length} maxWeeks={maxWeeks} hasPending={g.hasPending} onChanged={() => router.refresh()} importWeeks={weekMeta.map((w, i) => ({ id: w.id, index: i, label: w.focus ?? `Semana ${i + 1}`, session_count: weekVolume(g.grid[i] ?? []).sessions }))} />
+            </Button> : null}
+            <ProgramMenu program={program} returnHref={back?.href ?? null} prepare={prepareNavigation} copy={copyProgram} levels={levels} weekCount={g.grid.length} maxWeeks={maxWeeks} hasPending={g.hasPending} onChanged={() => router.refresh()} importWeeks={weekMeta.map((w, i) => ({ id: w.id, index: i, label: w.focus ?? `Semana ${i + 1}`, session_count: weekVolume(g.grid[i] ?? []).sessions }))} />
           </>
         }
       />
+
+      <ProgramContextBar program={program} returnHref={back?.href ?? null} copy={copyProgram} />
 
       <div className="flex min-h-0 gap-4">
         <div className="max-h-[calc(100dvh-var(--v2-topbar-h,48px)-196px)] min-h-[320px] min-w-0 flex-1 overflow-auto rounded-panel border border-v2-border bg-v2-surface">
@@ -420,7 +431,7 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
         onOpenChange={(o) => { if (!o) setRemoveWeek(null); }}
         size="sm"
         title={removeWeek != null ? `¿Quitar la semana ${removeWeek + 1}?` : ''}
-        description="Se borra con lo que tenga y las siguientes suben un puesto. A quien ya la tiene asignada no le cambia nada."
+        description="Se borra con lo que tenga y las siguientes suben un puesto. Si el programa ya está asignado, primero tendrás que crear una copia y reasignarla."
         footer={
           <>
             <Button variant="ghost" onClick={() => setRemoveWeek(null)}>
@@ -437,7 +448,13 @@ export function ProgramEditor({ program, weeks, steps, library, levels, maxWeeks
                 setRemoving(false);
                 const n = removeWeek + 1;
                 setRemoveWeek(null);
-                if (!res?.ok) return toast({ title: 'No se pudo quitar la semana', tone: 'danger' });
+                if (!res?.ok) {
+                  const body = res ? await res.json().catch(() => null) as { error?: { code?: string; message?: string } } | null : null;
+                  const assigned = body?.error?.code === 'assigned_structure';
+                  if (assigned) router.refresh();
+                  return toast({ title: body?.error?.message ?? 'No se pudo quitar la semana', tone: 'danger',
+                    ...(assigned ? { action: { label: 'Crear copia', onClick: () => void copyProgram.create() } } : {}) });
+                }
                 setCursor({ row: 0, col: 0 });
                 setAnchor({ row: 0, col: 0 });
                 toast({ title: `Semana ${n} quitada` });

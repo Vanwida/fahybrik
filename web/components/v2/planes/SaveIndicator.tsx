@@ -6,9 +6,17 @@
 import { Check, LoaderCircle } from 'lucide-react';
 import { Button, StatusBadge } from '@/components/v2/ui';
 import type { SaveStatus } from './use-program-grid';
+import type { ProgramDelivery } from '@/lib/dashboard/programming/program-delivery';
 
-export function SaveIndicator({ status, error, onRetry }: { status: SaveStatus; error: string | null; onRetry: () => void }) {
+export function SaveIndicator({ status, error, delivery, onRetry }: { status: SaveStatus; error: string | null; delivery: ProgramDelivery | null; onRetry: () => void }) {
   if (status === 'idle') return null;
+  if (status === 'delivery') {
+    return <span className="flex flex-wrap items-center gap-2" role="alert">
+      <StatusBadge tone="warn" label="Programa guardado · entrega pendiente" />
+      <span className="t-meta text-v2-muted">{error ?? (delivery?.incomplete_week_ids.length ? 'Falta contenido en los entrenos. Corrígelo para actualizar el plan del atleta; su plan anterior se conserva.' : `${delivery?.pending_week_ids.length ?? 0} semanas por actualizar en los atletas`)}</span>
+      <Button size="sm" onClick={onRetry}>Reintentar entrega</Button>
+    </span>;
+  }
   if (status === 'error') {
     return (
       <span className="flex items-center gap-2" role="alert">
@@ -27,7 +35,7 @@ export function SaveIndicator({ status, error, onRetry }: { status: SaveStatus; 
       ) : (
         <Check aria-hidden className="size-3.5 text-v2-ok" strokeWidth={2} />
       )}
-      {status === 'saving' ? 'Guardando…' : 'Guardado'}
+      {status === 'saving' ? 'Guardando…' : delivery && delivery.updated_athletes > 0 ? `Guardado · ${delivery.updated_athletes} atletas actualizados` : 'Programa guardado'}
     </span>
   );
 }

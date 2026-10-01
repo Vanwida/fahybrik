@@ -25,6 +25,7 @@ export default async function ProgramaPage({ params }: { params: Promise<{ local
   if (!grid) notFound();
   return (
     <ProgramEditor
+      key={grid.program.id}
       program={grid.program}
       weeks={grid.weeks.map((w) => ({ id: w.id, focus: w.focus, days: w.days }))}
       steps={grid.steps}
