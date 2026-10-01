@@ -30,6 +30,16 @@ export interface CatalogRow {
   name: string;
   category: ExerciseCategory;
   modality: Modality;
+  slug: string;
+  name_es: string | null;
+  name_en: string | null;
+  search_terms: string;
+  movement_pattern: string | null;
+  is_unilateral: boolean;
+  implement_count: number | null;
+  default_metrics_json: Record<string, boolean>;
+  hyrox_station_position: number | null;
+  archived_at: string | null;
   primary_muscle_groups: string[];
   equipment: string[];
   coach_id: string | null;
@@ -66,6 +76,16 @@ export type ApiExercise = {
   name: string;
   category: ExerciseCategory;
   modality: Modality;
+  slug?: string;
+  name_es?: string | null;
+  name_en?: string | null;
+  search_terms?: string;
+  movement_pattern?: string | null;
+  is_unilateral?: boolean;
+  implement_count?: number | null;
+  default_metrics_json?: Record<string, boolean>;
+  hyrox_station_position?: number | null;
+  archived_at?: string | null;
   primary_muscle_groups?: string[];
   equipment?: string[];
   coach_id?: string | null;
@@ -85,10 +105,21 @@ export type ApiExercise = {
 
 export function toCatalogRow(ex: ApiExercise): CatalogRow {
   return {
+    ...ex,
     id: ex.id,
     name: ex.name,
     category: ex.category,
     modality: ex.modality,
+    slug: ex.slug ?? '',
+    name_es: ex.name_es ?? null,
+    name_en: ex.name_en ?? null,
+    search_terms: ex.search_terms ?? '',
+    movement_pattern: ex.movement_pattern ?? null,
+    is_unilateral: ex.is_unilateral ?? false,
+    implement_count: ex.implement_count ?? null,
+    default_metrics_json: ex.default_metrics_json ?? {},
+    hyrox_station_position: ex.hyrox_station_position ?? null,
+    archived_at: ex.archived_at ?? null,
     primary_muscle_groups: ex.primary_muscle_groups ?? [],
     equipment: ex.equipment ?? [],
     // Unknown on a POST-create response (the coach's own numeric id isn't echoed

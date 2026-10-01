@@ -40,11 +40,13 @@ export async function loadCoachCatalog(
   // Search matches the MERGED name — a coach who renamed an exercise must find it
   // under the name THEY use, not the base one they never see. Slug stays
   // searchable as the machine handle.
+  // tenancy: coach-fragment — visibleToCoach includes only base rows and this coach's own rows.
   return client<CoachExerciseRow[]>`
     select ${coachExerciseColumns(client, coachId)}
     from exercises e
     ${joinCoachOverride(client, coachId)}
     where ${visibleToCoach(client, coachId)}
+      and e.archived_at is null
       and (${category}::exercise_category is null or e.category = ${category}::exercise_category)
       and ${exerciseOriginFilter(client, q.origin ?? null)}
       and ${exerciseSearchFilter(client, q.search ?? null, coachId)}

@@ -377,7 +377,11 @@ describeWithDb('resolveExercise + learnSynonym (real DB)', () => {
       `;
       const res = await resolveExercise(fx.coachId, term, sql);
       if (propio!.ajeno) {
-        expect(res.exercise_id, `"${term}" es PROPIO de otro coach: invisible, nunca resuelve`).toBeNull();
+        expect(res.exercise_id, `"${term}" no enlaza la ficha privada ajena`).not.toBe(Number(propio!.id));
+        if (res.exercise_id !== null) {
+          const visible = await sql<{ coach_id: string | null }[]>`select coach_id::text as coach_id from exercises where id = ${res.exercise_id}`;
+          expect(visible[0]?.coach_id, `"${term}" puede enlazar su nueva ficha pública`).toBeNull();
+        }
         continue;
       }
       expect(res.exercise_id, `"${term}" debe resolver a SU ejercicio`).toBe(Number(propio!.id));
@@ -425,10 +429,6 @@ describeWithDb('resolveExercise + learnSynonym (real DB)', () => {
       const res = await resolveExercise(fx.coachId, term, sql);
       if (res.exercise_id !== null) resolved += 1;
     }
-    // eslint-disable-next-line no-console
-    console.log(
-      `[translation sweep] ${resolved}/${corpus.length} of the real unresolved corpus now resolve via alias.`,
-    );
     // 3 → 21 de 25 (card 129). El salto NO es que se hayan añadido 18 alias a
     // mano: es que el importador **ya lee `exercise_aliases`**, los 197
     // términos bilingües que hasta ahora sólo alimentaban el buscador de la
@@ -444,7 +444,10 @@ describeWithDb('resolveExercise + learnSynonym (real DB)', () => {
     // exacto mira también `name_es`/`name_en` («Bici libre» es el name_es de
     // `bici-libre`). Donde esas dos filas son PROPIAS de otro coach siguen sin
     // resolver para los demás, como debe ser.
-    expect(resolved).toBe(23);
+    // Launch correction: public Push Jerk/Cycling exist independently of private
+    // slugs. 24 movement names resolve; "Incremental ergómetros" is a block label.
+    expect(resolved).toBe(24);
+    expect((await resolveExercise(fx.coachId, 'Incremental ergómetros', sql)).exercise_id).toBeNull();
   });
 
   test('an unknown term resolves to null with the normalized key (caller escalates)', async () => {
