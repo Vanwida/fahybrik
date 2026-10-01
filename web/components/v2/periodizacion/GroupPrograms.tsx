@@ -4,12 +4,18 @@
 // guarda al momento (el cursor de cada atleta sigue en el programa que hace).
 
 import { useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { Link } from '@/i18n/navigation';
+import { withCoachReturn } from '@/components/v2/shared/context-link';
 import { ArrowDown, ArrowUp, X } from 'lucide-react';
 import type { GroupDetail } from '@fahybrid/shared/schema/groups';
 import { Card, CardHeader, Combobox, IconButton, useToast } from '@/components/v2/ui';
 import { groupApi } from './group-api';
 
 export function GroupPrograms({ group, programs, onChanged }: { group: GroupDetail; programs: Array<{ id: string; name: string; weeks: number }>; onChanged: () => void }) {
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const origin = `${pathname}${search.size ? `?${search.toString()}` : ''}`;
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const refs: Array<{ program_id: string; item_id?: string }> = group.programs.map((p) => ({ program_id: p.program_id, item_id: p.item_id }));
@@ -37,7 +43,7 @@ export function GroupPrograms({ group, programs, onChanged }: { group: GroupDeta
         {group.programs.map((p, i) => (
           <li key={p.item_id} className="flex items-center gap-2 py-1.5 pr-1 pl-3">
             <span className="w-4 shrink-0 t-meta text-v2-faint t-tnum">{i + 1}</span>
-            <span className="min-w-0 flex-1 truncate t-body-sm font-medium text-v2-fg">{p.name}</span>
+            <Link href={withCoachReturn(`/programar/programas/${p.program_id}`, origin)} className="min-w-0 flex-1 truncate t-body-sm font-medium text-v2-fg underline underline-offset-2 hover:text-v2-accent">{p.name}</Link>
             <span className="shrink-0 t-meta text-v2-faint t-tnum">{p.weeks} sem</span>
             <IconButton icon={ArrowUp} label="Subir" size="sm" disabled={busy || i === 0} onClick={() => move(i, -1)} />
             <IconButton icon={ArrowDown} label="Bajar" size="sm" disabled={busy || i === group.programs.length - 1} onClick={() => move(i, 1)} />

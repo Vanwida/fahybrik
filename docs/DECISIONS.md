@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-10-01 · Dashboard del coach: resumen con detalle, contexto y entrega comprobable
+
+**Aprobado por Alex:** implementar todas las recomendaciones de `docs/auditoria-dashboard-coach-2026-10-01.html`. Se conserva el mapa principal. Rendimiento abre un resumen y separa carga, progreso, sesiones, carreras, salud y calibración; Método agrupa por propósito y muestra valores actuales antes de abrir parámetros. No se elimina capacidad para reducir densidad. Los enlaces anteriores abren su capa y los enlaces atleta → grupo → programa conservan un regreso interno con periodo y vista.
+
+**Capacidades recuperadas:** el editor acepta programas personales con propiedad de coach y atleta; un plan individual vacío crea su primer tramo desde la ficha, anclado al lunes local del atleta y oculto hasta publicar. La cadena vuelve a poder gestionarse, preservando el trabajo realizado. El calendario se lee y abre sesiones también en móvil. Comunicados vuelve a tener detalle de respuestas/pasos/retirada y biblioteca de plantillas y borradores, con previa para varios destinatarios. Atletas abre Todos; Hoy muestra la causa del filtro y cerrar esa causa conserva otras prioridades. El check-in conserva las cinco respuestas y su fecha; abrir chat no equivale a responder. Evaluar recibe explícitamente la semana elegida y distingue la semana siguiente de su propuesta.
+
+**Entrega:** guardar una plantilla y actualizar a sus atletas son resultados distintos. La entrega parcial identifica afectados y admite reintento sin volver a guardar. Una sesión descartada al materializar cuenta como fallo, no como éxito. Cambiar la cantidad de semanas de una biblioteca ya asignada se bloquea antes de mutar y explica cómo crear otra versión; la duración personal usa el reflujo existente. Se descarta un reflujo masivo implícito de planes de grupo porque podría recolocar trabajo de atletas sin una previa de sus consecuencias.
+
+**Verificación:** fixtures y mutaciones solo en una rama Neon desechable; revisión visual en una copia local conectada a esa rama. No migraciones ni modificaciones en producción.
+
+---
+
 ## 2026-10-01 · Biblioteca lista para seleccionar: vocabulario común, fichas completas y archivo solo histórico
 
 **Decidido al corregir la auditoría de lanzamiento:** las 146 fichas globales activas reciben descripción y claves de ejecución en español; se añaden 25 movimientos habituales, especialmente calentamiento, técnica de carrera y movilidad. El catálogo define identidad, material, lados y medidas disponibles; la cantidad, intensidad, variante y método siguen siendo del coach. La rodilla flexionada en gemelos se busca dentro de la misma identidad, siguiendo 0205, en vez de multiplicar fichas por una variante.

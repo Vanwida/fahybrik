@@ -8,7 +8,8 @@
 
 import { useState } from 'react';
 import { useLocale } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { coachReturn } from '@/components/v2/shared/context-link';
 import { MoreHorizontal, UserPlus } from 'lucide-react';
 import type { GroupDetail } from '@fahybrid/shared/schema/groups';
 import type { AssignResponse } from '@fahybrid/shared/schema/assign-many';
@@ -40,6 +41,8 @@ export function GroupPage({
 }) {
   const locale = useLocale();
   const router = useRouter();
+  const search = useSearchParams();
+  const back = coachReturn(search.get('volver'), locale);
   const { toast } = useToast();
   const [assign, setAssign] = useState(false);
   const [adding, setAdding] = useState<PickedAthlete[] | null>(null);
@@ -79,7 +82,7 @@ export function GroupPage({
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        back={{ href: `/${locale}/programar/grupos`, label: 'Grupos' }}
+        back={back ?? { href: `/${locale}/programar/grupos`, label: 'Grupos' }}
         title={group.display_name}
         subtitle={subtitle}
         actions={

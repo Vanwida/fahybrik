@@ -5,7 +5,9 @@
 // Una parte que no carga es un error con «Reintentar», no un hueco.
 
 import { useEffect } from 'react';
-import { useRouter } from '@/i18n/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
+import { withCoachReturn } from '@/components/v2/shared/context-link';
 import { Card, ErrorState, FilterChip, SectionHeader } from '@/components/v2/ui';
 import { shortDate } from '@/components/v2/shared/format';
 import type { FichaPerfil, PerfilSeccion, TimelineKind } from '@/lib/dashboard/v2/atleta-detalle-types';
@@ -55,6 +57,9 @@ export function PerfilView({
   historial: TimelineKind | null;
 }) {
   const { shell } = useFicha();
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const origin = `${pathname}${search.size ? `?${search.toString()}` : ''}`;
   const router = useRouter();
   const retry = () => router.refresh();
   const failed = (k: FichaPerfil['errors'][number]) => perfil.errors.includes(k);
@@ -78,8 +83,14 @@ export function PerfilView({
           <Card>
             <Dato label="Correo">{perfil.email ?? '—'}</Dato>
             <Dato label="Alta">{perfil.onboarded_at ? shortDate(perfil.onboarded_at) : 'aún sin cuestionario'}</Dato>
-            <Dato label="Plan">{perfil.plan_mode === 'personal' ? 'Personal (solo para él)' : 'El de su grupo'}</Dato>
-            <Dato label="Grupo">{shell.group?.name ?? 'sin grupo'}</Dato>
+            <Dato label="Plan">
+              <Link href={`/atletas/${shell.athlete_id}?${new URLSearchParams({ ...Object.fromEntries(search), tab: 'plan' })}`} className="underline underline-offset-2 hover:text-v2-accent">
+                {perfil.plan_mode === 'personal' ? 'Personal (solo para él)' : 'El de su grupo'}
+              </Link>
+            </Dato>
+            <Dato label="Grupo">
+              {shell.group ? <Link href={withCoachReturn(`/programar/grupos/${shell.group.id}`, origin)} className="underline underline-offset-2 hover:text-v2-accent">{shell.group.name}</Link> : 'sin grupo'}
+            </Dato>
             <Dato label="Modalidad">{shell.division_label ?? '—'}</Dato>
           </Card>
           {failed('clasificacion') ? (

@@ -48,15 +48,15 @@ const rows: RosterRow[] = [
 ];
 
 describe('parseRosterQuery', () => {
-  test('sin filtros → la vista por defecto (Necesitan algo)', () => {
+  test('sin filtros → Todos, incluyendo atletas al día', () => {
     const q = parseRosterQuery('');
-    expect(q.atencion).toBe(true);
+    expect(q.atencion).toBe(false);
     expect(q.estado).toBeNull();
-    expect(applyRosterQuery(rows, q).map((r) => r.athlete_id)).toEqual(['1', '2']);
+    expect(applyRosterQuery(rows, q).map((r) => r.athlete_id)).toEqual(['1', '2', '3', '4', '5']);
   });
 
-  test('la búsqueda sola no quita la vista por defecto', () => {
-    expect(parseRosterQuery('q=marta').atencion).toBe(true);
+  test('la búsqueda sola encuentra también a quien está al día', () => {
+    expect(applyRosterQuery(rows, parseRosterQuery('q=berta')).map((r) => r.athlete_id)).toEqual(['4']);
   });
 
   test('con un filtro, lo que falta no filtra', () => {
@@ -120,13 +120,13 @@ describe('serializar y vistas', () => {
 
   test('la vista por defecto se serializa vacía', () => {
     expect(serializeRosterQuery(parseRosterQuery(''))).toBe('');
-    expect(serializeRosterQuery(parseRosterQuery('atencion=si'))).toBe('');
+    expect(serializeRosterQuery(parseRosterQuery('atencion=si'))).toBe('atencion=si');
     // Una vista vieja por estados sigue siendo válida, pero ya no es la de serie.
     expect(serializeRosterQuery(parseRosterQuery('estado=vigilar,accion'))).toBe('estado=accion,vigilar');
   });
 
-  test('«Todos» se distingue de la vista por defecto', () => {
-    expect(serializeRosterQuery(parseRosterQuery('estado=todos'))).toBe('estado=todos');
+  test('«Todos» es la vista por defecto', () => {
+    expect(serializeRosterQuery(parseRosterQuery('estado=todos'))).toBe('');
   });
 
   test('cada vista de serie se reconoce a sí misma y no a las demás', () => {
@@ -158,12 +158,12 @@ describe('serializar y vistas', () => {
 describe('ficha: K/J con ?desde=', () => {
   test('vecinos dentro del filtro y del orden de la lista', () => {
     expect(neighbours(rows, 'estado=todos', '3')).toEqual({ prev: '2', next: '4', position: 3, total: 5 });
-    expect(neighbours(rows, '', '1')).toEqual({ prev: null, next: '2', position: 1, total: 2 });
-    expect(neighbours(rows, '', '4').position).toBeNull();
+    expect(neighbours(rows, '', '1')).toEqual({ prev: null, next: '2', position: 1, total: 5 });
+    expect(neighbours(rows, 'atencion=si', '4').position).toBeNull();
   });
 
   test('el enlace nunca lleva un desde vacío', () => {
-    expect(fichaHref('9', parseRosterQuery(''))).toBe('/atletas/9?desde=atencion%3Dsi');
+    expect(fichaHref('9', parseRosterQuery(''))).toBe('/atletas/9?desde=estado%3Dtodos');
     expect(fichaHref('9', parseRosterQuery('estado=todos&densidad=tarjetas'))).toBe('/atletas/9?desde=estado%3Dtodos');
   });
 });
