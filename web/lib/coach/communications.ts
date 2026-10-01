@@ -170,6 +170,8 @@ function enlaceDe(
 export async function listCommunicationsForAthlete(args: {
   coach_id: number | bigint;
   athlete_id: number | bigint;
+  /** Detalle de una entrega concreta; conserva el ámbito del atleta. */
+  communication_id?: string;
   sql?: Sql;
 }): Promise<CoachAthleteCommunicationDTO[]> {
   const client = args.sql ?? defaultSql;
@@ -203,6 +205,7 @@ export async function listCommunicationsForAthlete(args: {
     left join lateral (${trackingColumns(client)}) t on true
     where r.athlete_id = ${args.athlete_id as number}
       and c.coach_id = ${args.coach_id as number}
+      and ${args.communication_id ? client`c.id = ${args.communication_id}` : client`true`}
     order by c.published_at desc, c.id desc
   `;
 

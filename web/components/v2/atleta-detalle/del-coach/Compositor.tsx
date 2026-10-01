@@ -52,7 +52,7 @@ import { FormularioDelTipo } from './formularios';
 import { PieCompositor } from './pie-compositor';
 import { ColumnaPrevia } from './previa';
 import { Library, X } from 'lucide-react';
-import { Button, IconButton } from '@/components/v2/ui';
+import { Button, IconButton, Select } from '@/components/v2/ui';
 
 /** Los dos tipos que dicen «esto sale de aquello». Un protocolo, una pregunta y
  *  un foco se sostienen solos: enlazarlos sería decorar. */
@@ -155,6 +155,7 @@ export function Compositor({
   const [confirmarCierre, setConfirmarCierre] = useState(false);
   /** La fila que el coach está tocando: la previa se coloca sola en ella. */
   const [foco, setFoco] = useState<string | null>(null);
+  const [previewAthlete, setPreviewAthlete] = useState(destinatarios[0]?.athlete_id ?? null);
 
   // Escribiendo para UN atleta, lo enlazable es lo que se le ha publicado a ÉL.
   // Para varios (o para la biblioteca) no hay «él», así que es lo del coach.
@@ -275,7 +276,7 @@ export function Compositor({
     }
     setEnviando(null);
     // Si veníamos de un borrador, acaba de dejar de estarlo.
-    onHecho(aviso, { guardado: molde, publicadoId: id });
+    onHecho(aviso, { guardado: molde, publicadoId: escrito.data.id });
   };
 
   const ocupado = enviando !== null;
@@ -287,7 +288,7 @@ export function Compositor({
   const principal = esPlantilla
     ? { texto: 'Guardar plantilla', hacer: guardarPlantilla, clave: 'plantilla' as const }
     : nombres.length > 0
-      ? { texto: 'Publicar', hacer: publicarAhora, clave: 'publicar' as const }
+      ? { texto: nombres.length > 1 ? `Publicar a ${nombres.length} atletas` : 'Publicar', hacer: publicarAhora, clave: 'publicar' as const }
       : { texto: 'Guardar sin publicar', hacer: guardarBorrador, clave: 'borrador' as const };
 
   const subtitulo = esPlantilla
@@ -429,7 +430,14 @@ export function Compositor({
             </div>
 
             {/* Escritorio: pegada mientras escribes. Móvil: plegada. */}
-            <ColumnaPrevia b={b} coachName={coachName} foco={foco} athleteId={unico} />
+            <div className="flex min-w-0 flex-col gap-3">
+              {destinatarios.length > 1 ? <div className="flex flex-col gap-2">
+                <p className="t-body-sm text-v2-muted">Se publica a: {nombres.join(', ')}.</p>
+                <Select value={previewAthlete} onValueChange={setPreviewAthlete} options={destinatarios.map((d) => ({ value: d.athlete_id, label: `Previa de ${d.full_name}` }))} aria-label="Atleta de la previa" />
+                <p className="t-meta text-v2-muted">El contenido es común; las secciones de plan y datos se resuelven para cada atleta.</p>
+              </div> : null}
+              <ColumnaPrevia b={b} coachName={coachName} foco={foco} athleteId={previewAthlete} />
+            </div>
           </div>
         </div>
 
