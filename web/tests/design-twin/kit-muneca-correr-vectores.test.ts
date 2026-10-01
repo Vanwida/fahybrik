@@ -9,7 +9,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { AYUDA, RUTA_VECTORES, esDeCorrer, generarVectoresMuneca, indicesClave, n3 } from './muneca-correr-vectores';
+import type { PasoBase } from '@/components/design-twin/kit-reloj/paso';
+import { AYUDA, RUTA_VECTORES, esDeCorrer, esPasoDeCorrer, generarVectoresMuneca, indicesClave, n3 } from './muneca-correr-vectores';
 import { casosConVector } from './garmin-plan-casos';
 
 const DISCO = resolve(dirname(fileURLToPath(import.meta.url)), '../..', RUTA_VECTORES);
@@ -35,8 +36,14 @@ describe('vectores de oro de la muñeca de correr', () => {
     const doc = JSON.parse(readFileSync(DISCO, 'utf8')) as Doc;
     for (const c of doc.casos) {
       const idx = c.pasos.map((p) => p.paso.i);
-      expect(idx, c.clave).toContain(0);
-      expect(idx, c.clave).toContain(c.plan.pasos.length - 1);
+      // Los cuadros son los de los pasos que pinta la cara de correr; una sesión de otra familia (la 552, un For Time)
+      // trae su plan y ningún cuadro.
+      const pinta = (i: number) => esPasoDeCorrer(c.plan.pasos as PasoBase[], i);
+      const ultimo = c.plan.pasos.length - 1;
+      if (pinta(0)) expect(idx, c.clave).toContain(0);
+      if (pinta(ultimo)) expect(idx, c.clave).toContain(ultimo);
+      expect(idx.every(pinta), c.clave).toBe(true);
+      if (!c.plan.pasos.some((_, i) => pinta(i))) expect(idx, c.clave).toEqual([]);
       for (const p of c.pasos) {
         expect(p.situaciones.map((s) => s.n), `${c.clave} paso ${p.paso.i}`).toEqual(['arranque', 'dentro', 'rapido', 'lento', 'sin-enlace']);
         for (const s of p.situaciones) expect(s.plano[0], `${c.clave} paso ${p.paso.i}`).toMatch(/^cara=(paso|recupera|descanso)$/);

@@ -5,7 +5,7 @@ import XCTest
 //
 // `Vectores/muneca-correr.json` lo escribe `web/scripts/muneca-correr-vectores.ts`
 // desde las sesiones de correr del doble (491, 494, 573, 479, 551, 509, 535,
-// 538, 552, las del modelo, el correr libre…). Trae los PASOS con las claves del
+// 538, 552, las del modelo, el correr libre…; de cada una solo los pasos que pinta la cara de correr). Trae los PASOS con las claves del
 // kit (aquí se decodifican con la codificación estable de `Vivo.Paso`) y, por
 // cada paso y situación de lecturas, lo que pinta el kit en líneas de texto. El
 // Swift monta el mismo estado, saca su `CuadroMuneca` y las líneas tienen que
@@ -130,7 +130,12 @@ final class MunecaCorrerTests: XCTestCase {
     func testLosVectoresTraenLasSesionesQueSeExaminan() {
         let claves = doc.casos.map(\.clave)
         for c in ["573", "509", "535", "552", "479", "491", "494", "551", "538-correr"] { XCTAssertTrue(claves.contains(c), c) }
-        XCTAssertTrue(doc.casos.allSatisfy { !$0.plan.pasos.isEmpty && $0.pasos.count >= 1 })
+        XCTAssertTrue(doc.casos.allSatisfy { !$0.plan.pasos.isEmpty })
+        // Cuadros hay en cada sesión con algún paso que pinte la cara de correr; la 552 (For Time) trae solo su plan.
+        for c in doc.casos {
+            let pintaCorrer = c.plan.pasos.indices.contains { Vivo.familiaMuneca(c.plan.pasos, $0) == .correr }
+            XCTAssertEqual(!c.pasos.isEmpty, pintaCorrer, c.clave)
+        }
     }
 
     /// El plan del kit, decodificado con la codificación estable, vuelve a ser el mismo al escribirlo y leerlo.

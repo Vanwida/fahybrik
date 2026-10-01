@@ -25,6 +25,7 @@
 // mismas funciones del kit. Si un componente cambia sus filas, este espejo se
 // actualiza en el mismo commit.
 
+import { familiaDe, type Familia } from '@/components/design-twin/kit-reloj/familia';
 import { estructuraDe } from '@/components/design-twin/kit-reloj/estructura';
 import { heroeDelPaso, laminaDelPaso, lineaPulso, type Lamina, type LineaVista } from '@/components/design-twin/kit-reloj/lamina';
 import { filasDeDatos, filasDeVueltas, textoFila } from '@/components/design-twin/kit-reloj/listas';
@@ -53,8 +54,27 @@ import { casosConVector, type CasoPlan } from './garmin-plan-casos';
 export const RUTA_VECTORES = '../ios/FAHYBRIKTests/Vivo/Vectores/muneca-correr.json';
 export const AYUDA = 'Regenera los vectores: cd web && ../infra/node_modules/.bin/tsx --tsconfig ./tsconfig.json scripts/muneca-correr-vectores.ts';
 
-/** Las sesiones que se examinan: todo lo de correr, el correr libre y la Cursa 5K (552). */
+/**
+ * Las sesiones que se examinan: todo lo de correr, el correr libre y la Cursa 5K (552). De la 552 viaja el PLAN (el
+ * adaptador del Swift lo lee como el doble), pero no sus cuadros: es un For Time y su cara es la de la familia WOD
+ * (el total del bloque, sus páginas), no la de correr (ver `esPasoDeCorrer`).
+ */
 export const esDeCorrer = (c: CasoPlan) => c.familia === 'correr' || c.familia === 'libre' || c.clave === '552';
+
+/** Las familias cuyo bloque pinta la cara de correr (la movilidad de un calentamiento la acompaña). */
+const FAMILIAS_DE_LA_CARA_DE_CORRER: ReadonlySet<Familia> = new Set<Familia>(['correr', 'cinta', 'movilidad']);
+
+/**
+ * ¿Pinta la cara de correr este paso? Espejo de `Vivo.familiaMuneca` (el Swift): la familia la dice el paso de trabajo
+ * de su bloque (él mismo si trabaja; si no, el de trabajo anterior, o el siguiente al empezar). Una sesión mixta
+ * (479: series y luego estaciones de Wall Ball) tiene pasos que NO son de correr: se pintan con la cara de circuito y
+ * sus páginas, y examinarlos con la de correr compararía dos caras distintas.
+ */
+export function esPasoDeCorrer(pasos: PasoBase[], i: number): boolean {
+  const p = pasos[i]!;
+  const ref = p.rol === 'trabajo' ? p : (pasos.slice(0, i).reverse().find((x) => x.rol === 'trabajo') ?? pasos.slice(i + 1).find((x) => x.rol === 'trabajo'));
+  return ref == null || FAMILIAS_DE_LA_CARA_DE_CORRER.has(familiaDe(ref));
+}
 
 // ---------------------------------------------------------------------------
 // El plano: el cuadro en líneas de texto, igual en los dos lados
@@ -334,7 +354,7 @@ export function generarVectoresMuneca(): string {
   const casos = casosConVector().map((x) => x.caso).filter(esDeCorrer);
   const salida = casos.map((c) => {
     const { pasos, zonas, reglas } = c.plan;
-    const pasosVectores = indicesClave(pasos).map((i) => {
+    const pasosVectores = indicesClave(pasos).filter((i) => esPasoDeCorrer(pasos, i)).map((i) => {
       const p = pasos[i]!;
       const sig = pasos[i + 1] ?? null;
       const luego = luegoDe(pasos, i);
