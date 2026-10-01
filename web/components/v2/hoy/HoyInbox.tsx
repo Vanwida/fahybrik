@@ -31,7 +31,7 @@ import {
   nextAfterRemoval,
   needsYouLabel,
   rangeIds,
-  rowInVista,
+  rowForVista,
   snoozedTargets,
   step,
   visibleInbox,
@@ -92,21 +92,25 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
   const today = boxToday(now, view.timezone);
   const weekStart = mondayOf(today);
 
-  const inbox = useMemo(() => visibleInbox(view, pending, hiddenGroups), [view, pending, hiddenGroups]);
+  const inbox = useMemo(() => visibleInbox(view, pending, hiddenGroups, now), [view, pending, hiddenGroups, now]);
   const counts = useMemo(() => vistaCounts(inbox), [inbox]);
-  const critico = inbox.critico.filter((r) => rowInVista(r, vista));
-  const vigilar = inbox.vigilar.filter((r) => rowInVista(r, vista));
+  const critico = inbox.critico.flatMap((r) => rowForVista(r, vista, now) ?? []);
+  const vigilar = inbox.vigilar.flatMap((r) => rowForVista(r, vista, now) ?? []);
   const systemic = vista === 'altas' ? [] : inbox.systemic.filter((g) => groupInVista(g, vista));
   // Las esperas que aún no son fila solo salen en «Por responder» (como en Mensajes).
-  const replies = vista === 'responder' ? inbox.replies : [];
+  const replies = vista === 'responder' ? inbox.replies.flatMap((r) => rowForVista(r, vista, now) ?? []) : [];
   const order = [...navOrder(critico, vigilar, vigilarOpen), ...replies.map((r) => r.athlete_id)];
   const fullOrder = () => [...navOrder(critico, vigilar, true), ...replies.map((r) => r.athlete_id)];
 
   const rowsById = useMemo(() => {
     const m = new Map<string, HoyRow>();
-    for (const r of [...view.critico, ...view.vigilar, ...view.snoozed_rows, ...view.replies]) m.set(r.athlete_id, r);
+    for (const r of view.snoozed_rows) m.set(r.athlete_id, r);
+    for (const r of [...inbox.critico, ...inbox.vigilar, ...inbox.replies]) {
+      const focused = rowForVista(r, vista, now);
+      if (focused) m.set(r.athlete_id, focused);
+    }
     return m;
-  }, [view]);
+  }, [view.snoozed_rows, inbox, vista, now]);
   const peopleById = useMemo(() => new Map(extras.people.map((p) => [p.athlete_id, p])), [extras.people]);
   const peopleOf = useCallback(
     (g: SystemicGroup) => g.athlete_ids.map((id) => peopleById.get(id)).filter((p): p is HoyPerson => p != null),
@@ -250,7 +254,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
     else resolvedEntries.push({ ...entry, detail: `${p.row.primary.label} · ahora` });
   }
   for (const r of view.snoozed_rows) {
-    if (pending.has(r.athlete_id)) continue;
+    if ([...pending.values()].some((p) => p.row.athlete_id === r.athlete_id)) continue;
     snoozedEntries.push({
       athlete_id: r.athlete_id,
       name: r.name,
@@ -260,7 +264,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
     });
   }
   for (const r of extras.resolved) {
-    if (pending.has(r.athlete_id)) continue;
+    if ([...pending.values()].some((p) => p.row.athlete_id === r.athlete_id)) continue;
     resolvedEntries.push({
       athlete_id: r.athlete_id,
       name: r.name,

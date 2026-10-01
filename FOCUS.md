@@ -6,7 +6,7 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**COACH · CORRECCIÓN DE LOS 14 HALLAZGOS UX (01-10, en pruebas; sin producción).** Alex aprobó todas las recomendaciones del informe `docs/auditoria-dashboard-coach-2026-10-01.html`. Cerrados búsqueda Todos/coincidencias fuera de filtro y enlaces atleta → grupo → programa con regreso al periodo; en verificación planes personales, comunicados, check-in, evaluación, móvil, tareas y entrega recuperable. Rendimiento separado por pregunta; Método resumido y parámetros plegados. Pruebas con fixtures en rama Neon desechable y copia local de UI; no migraciones ni mutaciones de producción.
+**COACH · CORRECCIÓN DE LOS 14 HALLAZGOS UX (01-10, en pruebas; sin producción).** Alex aprobó todas las recomendaciones del informe `docs/auditoria-dashboard-coach-2026-10-01.html`. Cerrados búsqueda Todos, contexto de regreso, comunicados con respuestas/pasos/retirada, cinco respuestas del check-in, semana explícita al evaluar, agenda móvil y tareas sin truncado. Comunicación: 23 pruebas DB reales; ficha: 38 unitarias y 6 DB. En verificación final planes personales y entrega recuperable. Rendimiento separado por pregunta; Método resumido y parámetros plegados. Fixtures en Neon desechable y copia local de UI; no migraciones ni mutaciones de producción.
 
 **RELOJ · TESTS ROJOS CERRADOS (01-10, rama `fix-tests-reloj`, sin fusionar; DECISIONS 01-10).** 6 fallos en 4 grupos: 3 eran del test (cuenta atrás de la recuperación sin tick; vectores de correr con pasos de circuito y For Time) y 1 bug real (la complicación comparaba bytes de JSON y recargaba la esfera para nada). Pendiente: decidir la cara del For Time (552) entre el doble y el Swift, sin vector que la mida hoy.
 

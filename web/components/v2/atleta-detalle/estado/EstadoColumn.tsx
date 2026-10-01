@@ -6,11 +6,8 @@
 // carrera objetivo, la nota privada (editable, R9) y los marcadores que el coach
 // elige (R7). Lo que falta es UNA línea que dice qué falta.
 
-import { useState } from 'react';
-import { MessageCircle } from 'lucide-react';
-import { Button, ErrorState } from '@/components/v2/ui';
+import { ErrorState } from '@/components/v2/ui';
 import { ReadinessMini } from '@/components/v2/shared';
-import { relativeDayLabel } from '@/components/v2/shared/format';
 import type { CalSession, FichaEstado } from '@/lib/dashboard/v2/atleta-detalle-types';
 import { formatClock, formatHours, formatHoursDelta, raceCountdown } from '@/lib/dashboard/v2/ficha-format';
 import { cn } from '@/lib/utils';
@@ -18,6 +15,7 @@ import { useFicha } from '../FichaContext';
 import { InjuryBlock } from './InjuryBlock';
 import { KeyMarkersBlock } from './KeyMarkersBlock';
 import { NoteBlock } from './NoteBlock';
+import { CheckinBlock } from './CheckinBlock';
 
 function Row({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
@@ -40,8 +38,7 @@ export function EstadoColumn({
   upcoming: CalSession[];
   onRetry: () => void;
 }) {
-  const { shell, openChat } = useFicha();
-  const [ackReply, setAckReply] = useState(false);
+  const { shell } = useFicha();
   if (!estado) {
     return (
       <aside aria-label="Estado" className="flex flex-col gap-3">
@@ -49,7 +46,6 @@ export function EstadoColumn({
       </aside>
     );
   }
-  const ck = estado.last_checkin;
   const sleep = estado.sleep;
   const race = shell.race;
 
@@ -84,40 +80,9 @@ export function EstadoColumn({
             <Missing>sin datos</Missing>
           )}
         </Row>
-        <Row label="Agujetas">
-          {ck?.soreness != null ? `${ck.soreness} / 5` : <Missing>sin datos</Missing>}
-        </Row>
-        <Row label="Fatiga">{ck?.fatigue != null ? `${ck.fatigue} / 5` : <Missing>sin datos</Missing>}</Row>
       </div>
 
-      <div className="flex flex-col gap-2 border-t border-v2-border pt-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="t-label text-v2-faint">Check-in</span>
-          {ck ? <span className="t-meta text-v2-faint">{relativeDayLabel(ck.on, shell.today)} · {ck.score}</span> : null}
-        </div>
-        {ck ? (
-          <>
-            {ck.notes ? <p className="t-body text-v2-fg">«{ck.notes}»</p> : <Missing>Sin comentario</Missing>}
-            {!ck.answered && !ackReply ? (
-              <Button
-                size="sm"
-                icon={MessageCircle}
-                className="self-start"
-                onClick={() => {
-                  setAckReply(true);
-                  openChat();
-                }}
-              >
-                Responder
-              </Button>
-            ) : ck.answered ? (
-              <span className="t-meta text-v2-faint">Ya le escribiste después</span>
-            ) : null}
-          </>
-        ) : (
-          <Missing>No ha hecho ningún check-in</Missing>
-        )}
-      </div>
+      <CheckinBlock checkin={estado.last_checkin} week={estado.checkin_week} />
 
       <InjuryBlock injury={estado.injury} upcoming={upcoming} />
 

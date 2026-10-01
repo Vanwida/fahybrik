@@ -35,7 +35,7 @@ function EntryList({
       <List aria-label={title}>
         {entries.map((e) => (
           <ListRow
-            key={e.athlete_id}
+            key={`${e.athlete_id}:${e.targets.map((t) => t.signal_kind).join(',')}`}
             density="compact"
             leading={<Avatar name={e.name} src={e.avatar_url} size="sm" />}
             title={e.name}

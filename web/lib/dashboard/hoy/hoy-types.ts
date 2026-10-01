@@ -2,6 +2,7 @@
 // pantalla de la ola 2; los campos marcados «extra» son añadidos del dueño que no
 // rompen el contrato.
 
+import type { SignalKind } from '@fahybrid/shared/domain/coach/signals';
 import type { AthleteSignal } from '@fahybrid/shared/domain/coach/athlete-state';
 
 export type SystemicKind =
@@ -45,6 +46,10 @@ export interface HoyRow {
   avatar_url: string | null;
   level_label: string | null;
   primary: AthleteSignal;
+  /** Señal elegida por el filtro; las acciones cierran solo esta causa. */
+  scope_kind?: SignalKind;
+  /** La urgencia principal del atleta cuando el filtro muestra otra causa. */
+  priority_signal?: AthleteSignal;
   other_count: number;
   /** «2 h», «3 d» — desde que el motor ve la señal principal. */
   age_label: string;

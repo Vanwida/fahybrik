@@ -29,8 +29,8 @@ export interface HacerAhoraChip {
   session_id?: string;
 }
 
-/** Como mucho, para que siga siendo un vistazo. */
-export const HACER_AHORA_MAX = 4;
+/** Una acción a primera vista; las demás siguen accesibles en el pliegue. */
+export const HACER_AHORA_MAX = 1;
 
 /**
  * Hasta dónde atrás un entreno sin hacer sigue siendo una ACCIÓN («Ajustar …»):
@@ -117,7 +117,7 @@ export function buildHacerAhora(shell: FichaShell): HacerAhoraChip[] {
     push({ key: 'descarga', kind: 'descarga', label: 'Proponer descarga', week_start: mondayOf(shell.today) });
   }
   if (kinds.has('week_adjustment_pending')) {
-    push({ key: 'evaluar', kind: 'evaluar', label: 'Revisar ajuste propuesto', week_start: mondayOf(shell.today) });
+    push({ key: 'evaluar', kind: 'evaluar', label: 'Revisar ajuste propuesto' });
   }
   if (kinds.has('billing_at_risk')) push({ key: 'pago', kind: 'pago', label: 'Recordar pago' });
   if ([...kinds].some((k) => COMUNICADO_KINDS.has(k)) || shell.pending_comunicados > 0) {
@@ -128,7 +128,7 @@ export function buildHacerAhora(shell: FichaShell): HacerAhoraChip[] {
       label: n > 1 ? `${n} comunicados pendientes` : 'Comunicado pendiente',
     });
   }
-  return out.slice(0, HACER_AHORA_MAX);
+  return out;
 }
 
 /**

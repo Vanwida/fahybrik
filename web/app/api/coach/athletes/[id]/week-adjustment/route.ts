@@ -2,10 +2,12 @@ import { getCoachSession } from '@/lib/auth/coach-session';
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { AthleteIdParamSchema } from '@/lib/dashboard/coach/deep-dive-types';
 import {
-  getPendingProposalForAthlete,
+  listPendingWeekAdjustments,
   loadProposalTemplateNames,
 } from '@/lib/dashboard/coach/week-adjustments';
 import { firedTriggersFromContext } from '@fahybrid/shared/domain/coach/weekly-evaluation';
+import { weekAdjustmentProposeInputSchema } from '@fahybrid/shared/schema/week-adjustment';
+import { pendingForEvaluation } from '@/lib/dashboard/v2/week-adjustment-period';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,7 +23,7 @@ export const dynamic = 'force-dynamic';
  * Mismo guard coach-auth que el hermano propose/route.ts.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
   const session = await getCoachSession();
@@ -31,13 +33,18 @@ export async function GET(
   const parsedId = AthleteIdParamSchema.safeParse({ id });
   if (!parsedId.success) return jsonError('bad_request', 'ID inválido', 400);
 
-  const proposal = await getPendingProposalForAthlete({
-    coach_id: session.coach_id,
-    athlete_id: Number(parsedId.data.id),
+  const query = weekAdjustmentProposeInputSchema.safeParse({
+    week_start: new URL(request.url).searchParams.get('week_start') ?? undefined,
   });
+  if (!query.success) return jsonError('bad_request', 'Semana inválida', 400);
+  const pending = (await listPendingWeekAdjustments({ coach_id: session.coach_id }))
+    .filter((p) => p.athlete_id === String(parsedId.data.id));
+  const proposal = pendingForEvaluation(pending, query.data.week_start);
+  const other = pending.find((p) => p.id !== proposal?.id) ?? null;
+  const other_pending = other ? { id: other.id, week_start: other.week_start } : null;
 
   if (!proposal) {
-    return jsonOk({ proposal: null, template_names: {}, fired_triggers: [] });
+    return jsonOk({ proposal: null, template_names: {}, fired_triggers: [], other_pending });
   }
 
   const template_names =
@@ -49,5 +56,5 @@ export async function GET(
     ? firedTriggersFromContext(proposal.context_pack)
     : [];
 
-  return jsonOk({ proposal, template_names, fired_triggers });
+  return jsonOk({ proposal, template_names, fired_triggers, other_pending });
 }

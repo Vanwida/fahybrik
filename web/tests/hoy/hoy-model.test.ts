@@ -22,6 +22,8 @@ import {
   rangeIds,
   reopenPayload,
   rowInVista,
+  rowForVista,
+  pendingKey,
   snoozedTargets,
   step,
   toTheN,
@@ -301,3 +303,52 @@ describe('una cifra por concepto', () => {
   });
 });
 
+
+
+describe('una causa por filtro, conservando las otras urgencias', () => {
+  const now = new Date('2026-09-23T10:00:00Z');
+  const multi = row('multi', {}, [
+    { ...msg, label: 'Lleva 1 hora esperando', first_seen_at: '2026-09-23T09:00:00Z' },
+    { ...missed, label: 'Entreno sin hacer' },
+  ]);
+
+  it('Por responder muestra el mensaje y su acción, conservando la alerta principal', () => {
+    const focused = rowForVista(multi, 'responder', now)!;
+    expect(focused.primary.kind).toBe('message_unanswered');
+    expect(focused.primary.action).toBe('responder');
+    expect(focused.age_label).toBe('1 h');
+    expect(focused.priority_signal).toBe(multi.primary);
+    expect(focused.others.map((s) => s.kind)).toEqual(['readiness_low', 'missed_sessions']);
+    expect(overrideTargets([focused])).toEqual([{ athlete_id: 'multi', signal_kind: 'message_unanswered' }]);
+    expect(snoozedTargets(focused)).toEqual([{ athlete_id: 'multi', signal_kind: 'message_unanswered' }]);
+    expect(rowForVista(multi, 'todo', now)).toBe(multi);
+    expect(rowForVista(multi, 'plan', now)).toBeNull();
+  });
+
+  it('Sesiones actúa solo sobre la sesión y al cerrarla aún se ve su readiness bajo', () => {
+    const focused = rowForVista(multi, 'sesiones', now)!;
+    expect(overrideTargets([focused])).toEqual([{ athlete_id: 'multi', signal_kind: 'missed_sessions' }]);
+    const pending = new Map<string, PendingRow>([[pendingKey(focused), { kind: 'done', row: focused, until: null, settled_at: null }]]);
+    const inbox = visibleInbox(view({ systemic: [], critico: [multi], vigilar: [] }), pending, new Set(), now);
+    expect(inbox.critico).toHaveLength(1);
+    expect(inbox.critico[0]!.primary.kind).toBe('readiness_low');
+    expect(inbox.critico[0]!.others.map((s) => s.kind)).toEqual(['message_unanswered']);
+    expect(inbox.needs_you).toBe(1);
+    expect(vistaCounts(inbox).sesiones).toBe(0);
+    expect(vistaCounts(inbox).responder).toBe(1);
+  });
+
+  it('dos causas del mismo atleta en vuelo no se pisan y cuentan un atleta resuelto', () => {
+    const pending = new Map<string, PendingRow>();
+    for (const vista of ['sesiones', 'responder'] as const) {
+      const focused = rowForVista(multi, vista, now)!;
+      pending.set(pendingKey(focused), { kind: 'done', row: focused, until: null, settled_at: null });
+    }
+    expect(pending.size).toBe(2);
+    const inbox = visibleInbox(view({ systemic: [], critico: [multi], vigilar: [] }), pending, new Set(), now);
+    expect(inbox.critico[0]!.primary.kind).toBe('readiness_low');
+    expect(inbox.critico[0]!.others).toEqual([]);
+    expect(inbox.resolved_today).toBe(3);
+    expect(vistaCounts(inbox).responder).toBe(0);
+  });
+});

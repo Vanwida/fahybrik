@@ -114,13 +114,19 @@ describe('Hacer ahora', () => {
     expect(missedIsActionable('2026-09-19', '2026-09-27')).toBe(false);
     expect(missedIsActionable('2026-09-24', '2026-09-23')).toBe(false);
   });
+  it('una propuesta pendiente abre su revisión sin inventar qué semana ajusta', () => {
+    const chips = buildHacerAhora(shell({
+      status: { key: 'accion', tone: 'danger', label: 'Acción', reason: null, signals: [signal({ kind: 'week_adjustment_pending' })], snoozed_until: null, needs_you: true },
+    }));
+    expect(chips).toEqual([{ key: 'evaluar', kind: 'evaluar', label: 'Revisar ajuste propuesto' }]);
+  });
   it('sin plan de hoy en adelante → asignar; en pausa no', () => {
     expect(buildHacerAhora(shell({ has_upcoming_plan: false }))[0]!.kind).toBe('asignar');
     const paused = shell({ has_upcoming_plan: false });
     paused.lifecycle = { ...paused.lifecycle, status: 'pausado' };
     expect(buildHacerAhora(paused)).toEqual([]);
   });
-  it('como mucho cuatro', () => {
+  it('conserva todas las tareas en orden para el despliegue', () => {
     const chips = buildHacerAhora(
       shell({
         intake_pending: true,
@@ -139,7 +145,7 @@ describe('Hacer ahora', () => {
         },
       }),
     );
-    expect(chips).toHaveLength(4);
+    expect(chips.map((c) => c.kind)).toEqual(['alta', 'publicar', 'responder', 'ajustar', 'descarga', 'pago', 'comunicado']);
   });
 });
 

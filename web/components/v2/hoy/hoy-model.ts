@@ -3,7 +3,7 @@
 // del servidor (optimista), el orden que recorren J/K y los rangos de Shift.
 // Se prueba en node: web/tests/hoy/hoy-model.test.ts.
 
-import type { AthleteSignal, SignalLens } from '@fahybrid/shared/domain/coach/athlete-state';
+import { ageLabel, type AthleteSignal, type SignalLens } from '@fahybrid/shared/domain/coach/athlete-state';
 import type { SignalKind } from '@fahybrid/shared/domain/coach/signals';
 import type { SignalAction } from '@fahybrid/shared/domain/coach/athlete-state';
 import type { HoyRow, HoySnoozedRow, HoyView, SystemicGroup } from '@/lib/dashboard/hoy/hoy-types';
@@ -46,6 +46,30 @@ export function rowInVista(row: Pick<HoyRow, 'primary' | 'others'>, vista: HoyVi
   if (vista === 'todo') return true;
   const lens = VISTA_LENS[vista];
   return rowSignals(row).some((s) => s.lens === lens);
+}
+
+/** El filtro enfoca su causa sin perder el aviso de la mayor urgencia. */
+export function rowForVista(row: HoyRow, vista: HoyVista, now: Date): HoyRow | null {
+  if (vista === 'todo') return row;
+  const signals = rowSignals(row);
+  const primary = signals.find((s) => s.lens === VISTA_LENS[vista]);
+  if (!primary) return null;
+  const others = signals.filter((s) => s !== primary);
+  return {
+    ...row, primary, others, other_count: others.length,
+    age_label: ageLabel(primary.first_seen_at ?? now.toISOString(), now), scope_kind: primary.kind,
+    ...(primary !== row.primary ? { priority_signal: row.primary } : {}),
+  };
+}
+
+/** Identidad optimista de una acción: puede haber dos causas del mismo atleta. */
+export function pendingKey(row: Pick<HoyRow, 'athlete_id' | 'primary' | 'scope_kind'>): string {
+  const kind = rowScope(row);
+  return kind ? `${row.athlete_id}:${kind}` : row.athlete_id;
+}
+
+function rowScope(row: Pick<HoyRow, 'primary' | 'scope_kind'>): SignalKind | undefined {
+  return row.scope_kind ?? (row.primary.severity === 'info' || row.primary.kind === 'message_unanswered' ? row.primary.kind : undefined);
 }
 
 /**
@@ -99,11 +123,12 @@ export function visibleInbox(
   view: Pick<HoyView, 'systemic' | 'critico' | 'vigilar' | 'counts'> & { replies?: HoyRow[] },
   pending: ReadonlyMap<string, PendingRow>,
   hiddenGroups: ReadonlySet<string>,
+  now: Date = new Date(),
 ): VisibleInbox {
   // Una espera cerrada desde su fila (Hecho/Posponer en «Por responder») sale ya
   // del grupo «N por responder»: la cifra baja al actuar, como el resto.
   const repliedIds = new Set(
-    [...pending.values()].filter((p) => p.row.primary.kind === 'message_unanswered').map((p) => p.row.athlete_id),
+    [...pending.values()].filter((p) => rowScope(p.row) === 'message_unanswered').map((p) => p.row.athlete_id),
   );
   const systemic = view.systemic
     .filter((g) => !hiddenGroups.has(groupKey(g)))
@@ -113,16 +138,27 @@ export function visibleInbox(
       return { ...g, athlete_ids, count: athlete_ids.length, title: `${athlete_ids.length} por responder` };
     })
     .filter((g) => g.kind !== 'awaiting_reply' || g.count > 0);
-  const critico = view.critico.filter((r) => !pending.has(r.athlete_id));
-  const vigilar = view.vigilar.filter((r) => !pending.has(r.athlete_id));
-  const replies = (view.replies ?? []).filter((r) => !pending.has(r.athlete_id));
+  const withoutPending = (row: HoyRow): HoyRow[] => {
+    const changes = [...pending.values()].filter((p) => p.row.athlete_id === row.athlete_id);
+    if (changes.some((p) => !rowScope(p.row))) return [];
+    const closed = new Set(changes.map((p) => rowScope(p.row)));
+    const signals = rowSignals(row).filter((s) => !closed.has(s.kind));
+    const primary = signals[0];
+    if (!primary) return [];
+    if (signals.length === row.other_count + 1) return [row];
+    return [{ ...row, primary, others: signals.slice(1), other_count: signals.length - 1, age_label: ageLabel(primary.first_seen_at ?? now.toISOString(), now) }];
+  };
+  const critico = view.critico.flatMap(withoutPending);
+  const vigilar = view.vigilar.flatMap(withoutPending);
+  const replies = (view.replies ?? []).flatMap(withoutPending);
   const onServer = new Set([...view.critico, ...view.vigilar, ...(view.replies ?? [])].map((r) => r.athlete_id));
-  let done = 0;
-  let snoozed = 0;
-  for (const [id, p] of pending) {
+  const done = new Set<string>();
+  const snoozed = new Set<string>();
+  for (const p of pending.values()) {
+    const id = p.row.athlete_id;
     if (!onServer.has(id)) continue; // el servidor ya lo cuenta
-    if (p.kind === 'done') done += 1;
-    else snoozed += 1;
+    if (p.kind === 'done') done.add(id);
+    else snoozed.add(id);
   }
   return {
     systemic,
@@ -130,8 +166,8 @@ export function visibleInbox(
     vigilar,
     replies,
     needs_you: athletesIn(systemic, [...critico, ...vigilar]).size,
-    resolved_today: view.counts.resolved_today + done,
-    snoozed: view.counts.snoozed + snoozed,
+    resolved_today: view.counts.resolved_today + done.size,
+    snoozed: view.counts.snoozed + snoozed.size,
   };
 }
 
@@ -198,11 +234,11 @@ export function vistaCounts(
  * su insignia): cerrar la espera no cierra lo demás del atleta, ni al revés.
  */
 export function overrideTargets(
-  rows: ReadonlyArray<Pick<HoyRow, 'athlete_id' | 'primary'>>,
+  rows: ReadonlyArray<Pick<HoyRow, 'athlete_id' | 'primary' | 'scope_kind'>>,
 ): Array<{ athlete_id: string; signal_kind?: SignalKind }> {
   return rows.map((r) =>
-    r.primary.severity === 'info' || r.primary.kind === 'message_unanswered'
-      ? { athlete_id: r.athlete_id, signal_kind: r.primary.kind }
+    rowScope(r)
+      ? { athlete_id: r.athlete_id, signal_kind: rowScope(r) }
       : { athlete_id: r.athlete_id },
   );
 }
@@ -267,8 +303,9 @@ export function reopenPayload(targets: ReadonlyArray<ReopenTarget>): {
   return { action: 'undo', restore };
 }
 
-export function snoozedTargets(row: Pick<HoySnoozedRow, 'athlete_id' | 'primary' | 'others'>): ReopenTarget[] {
-  return rowSignals(row).map((s) => ({ athlete_id: row.athlete_id, signal_kind: s.kind }));
+export function snoozedTargets(row: Pick<HoySnoozedRow, 'athlete_id' | 'primary' | 'others' | 'scope_kind'>): ReopenTarget[] {
+  const kind = rowScope(row);
+  return (kind ? rowSignals(row).filter((s) => s.kind === kind) : rowSignals(row)).map((s) => ({ athlete_id: row.athlete_id, signal_kind: s.kind }));
 }
 
 // ── Textos ───────────────────────────────────────────────────────────────────

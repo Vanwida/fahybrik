@@ -158,6 +158,11 @@ export function InboxRow({
           ) : (
             <SignalBadge signal={primary} withEvidence size="sm" className="min-w-0" />
           )}
+          {row.priority_signal ? (
+            <span className={`t-meta ${row.priority_signal.severity === 'critical' ? 'text-v2-danger' : 'text-v2-warn'}`} title={row.priority_signal.evidence ?? undefined}>
+              También: {row.priority_signal.label}
+            </span>
+          ) : null}
           {others ? (
             <span className="shrink-0 t-meta text-v2-faint" title={othersTitle}>
               {others}

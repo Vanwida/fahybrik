@@ -8,7 +8,7 @@
 import { createContext, useContext } from 'react';
 import type { FichaShell } from '@/lib/dashboard/v2/atleta-detalle-types';
 
-export type WeekTool = 'copy' | 'shift' | 'scale' | 'deload' | 'evaluar';
+export type WeekTool = 'copy' | 'shift' | 'scale' | 'deload' | 'evaluar' | 'revisar_ajuste';
 
 export interface FichaActions {
   shell: FichaShell;
