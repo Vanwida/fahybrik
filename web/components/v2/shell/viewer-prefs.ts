@@ -32,6 +32,16 @@ function subscribe(onChange: () => void): () => void {
   return () => window.removeEventListener('storage', onChange);
 }
 
+/** Una elección de presentación por workspace. La URL sigue teniendo prioridad. */
+export function useViewerChoice<V extends string>(key: string, allowed: readonly V[], fallback: V): [V, (value: V) => void] {
+  const value = useSyncExternalStore(subscribe, () => {
+    const stored = read(key);
+    return allowed.includes(stored as V) ? stored as V : fallback;
+  }, () => fallback);
+  const change = useCallback((next: V) => write(key, next), [key]);
+  return [value, change];
+}
+
 /** Menú lateral plegado a la tira de iconos. En servidor, desplegado. */
 export function useRailCollapsed(): [boolean, () => void] {
   const collapsed = useSyncExternalStore(

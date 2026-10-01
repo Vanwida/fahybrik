@@ -12,22 +12,28 @@ import { Button, ErrorState, Menu, PageHeader, SegmentedControl } from '@/compon
 import { LibraryTable } from './LibraryTable';
 import { parseLibFilter, type LibFilter } from './library-filter';
 import { EjerciciosTable } from './EjerciciosTable';
+import { ComunicadosLibrary } from './ComunicadosLibrary';
+import { LIBRARY_VIEWS, libraryView, type LibraryView } from './library-view';
+import { useViewerChoice } from '../shell/viewer-prefs';
 
-type Ver = 'entrenos' | 'bloques' | 'ejercicios';
+type Ver = LibraryView;
 
-export function BibliotecaView({ data }: { data: { entrenos: LibraryRow[]; bloques: LibraryRow[] } | null }) {
+export function BibliotecaView({ data, coachId, coachName }: { data: { entrenos: LibraryRow[]; bloques: LibraryRow[] } | null; coachId: string; coachName: string }) {
   const locale = useLocale();
   const router = useRouter();
   const path = usePathname() ?? '';
   const params = useSearchParams();
-  const ver: Ver = params?.get('ver') === 'entrenos' ? 'entrenos' : params?.get('ver') === 'ejercicios' ? 'ejercicios' : 'bloques';
+  const [remembered, remember] = useViewerChoice(`fahybrid:library:${coachId}`, LIBRARY_VIEWS, 'entrenos');
+  const ver = libraryView(new URLSearchParams(params?.toString()), remembered);
   const filter = parseLibFilter(params?.get('filtro'));
   const [createExercise, setCreateExercise] = useState(0);
 
   const go = (next: { ver?: Ver; filtro?: LibFilter }) => {
     const sp = new URLSearchParams(params?.toString() ?? '');
     if (next.ver) {
+      remember(next.ver);
       sp.set('ver', next.ver);
+      sp.delete('tab');
       sp.delete('filtro');
     }
     if (next.filtro) sp.set('filtro', next.filtro);
@@ -40,7 +46,7 @@ export function BibliotecaView({ data }: { data: { entrenos: LibraryRow[]; bloqu
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Biblioteca"
-        actions={
+        actions={ver === 'comunicados' ? undefined :
           <Menu
             trigger={
               <Button variant="primary" icon={Plus} iconEnd={ChevronDown}>
@@ -63,11 +69,14 @@ export function BibliotecaView({ data }: { data: { entrenos: LibraryRow[]; bloqu
             { value: 'entrenos', label: data ? `Entrenos · ${live(data.entrenos)}` : 'Entrenos' },
             { value: 'bloques', label: data ? `Bloques · ${live(data.bloques)}` : 'Bloques' },
             { value: 'ejercicios', label: 'Ejercicios' },
+            { value: 'comunicados', label: 'Comunicados' },
           ]}
-          className="self-start"
+          className="max-w-full flex-wrap self-start"
         />
       </PageHeader>
-      {ver === 'ejercicios' ? (
+      {ver === 'comunicados' ? (
+        <ComunicadosLibrary coachName={coachName} />
+      ) : ver === 'ejercicios' ? (
         <EjerciciosTable createSignal={createExercise} />
       ) : data === null ? (
         <ErrorState variant="page" description="La biblioteca no ha cargado." onRetry={() => router.refresh()} />

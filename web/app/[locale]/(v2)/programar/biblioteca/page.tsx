@@ -15,5 +15,5 @@ export default async function BibliotecaPage({ params }: { params: Promise<{ loc
   const session = await getCoachSession();
   if (!session) return null;
   const data = await listLibrary({ coach_id: session.coach_id }).catch(() => null);
-  return <BibliotecaView data={data} />;
+  return <BibliotecaView data={data} coachId={session.coach_id.toString()} coachName={session.club_name} />;
 }
