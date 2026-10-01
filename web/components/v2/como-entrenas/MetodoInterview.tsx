@@ -7,6 +7,7 @@
 // último toque).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { CircleCheck, RotateCcw } from 'lucide-react';
 import {
   CHAPTER_IDS,
@@ -42,6 +43,7 @@ function chapterDone(id: ChapterId, answers: CoachMethodAnswers): { done: number
 }
 
 export function MetodoInterview({ initial }: { initial: CoachMethodInterviewResponse }) {
+  const router = useRouter();
   const [answers, setAnswers] = useState<CoachMethodAnswers>(initial.answers);
   const [mirrorText, setMirrorText] = useState(initial.mirror_text);
   const [mirrorEdited, setMirrorEdited] = useState(initial.mirror_is_edited);
@@ -88,11 +90,12 @@ export function MetodoInterview({ initial }: { initial: CoachMethodInterviewResp
       setGenerated(data.generated_mirror);
       setMirrorEdited(data.mirror_is_edited);
       setStatus('saved');
+      router.refresh();
     } catch {
       setStatus('error');
       setSaveError('Sin conexión. No se ha guardado.');
     }
-  }, []);
+  }, [router]);
 
   const schedule = useCallback(
     (nextAnswers: CoachMethodAnswers, nextMirror?: string) => {

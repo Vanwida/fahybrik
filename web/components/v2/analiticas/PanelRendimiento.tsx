@@ -58,9 +58,13 @@ export interface PanelRendimientoProps {
   /** Dónde sigue el cálculo anterior de cada bloque que aún no se sirve. */
   /** Solo en el doble: sustituye al pie que enlaza al método. */
   pie?: React.ReactNode;
+  /** Sin valor conserva el panel completo del doble. La ficha abre una capa cada vez. */
+  vista?: 'resumen' | 'carga' | 'progreso' | 'carreras' | 'sesiones';
+  onSesiones?: () => void;
+  onSesionSinEjecucion?: (assignmentId: string) => void;
 }
 
-export function PanelRendimiento({ panel, atleta, onVentana, cargandoVentana = false, compararInicial = false, onComparar, metodoHref, manejar, fuente, pie }: PanelRendimientoProps) {
+export function PanelRendimiento({ panel, atleta, onVentana, cargandoVentana = false, compararInicial = false, onComparar, metodoHref, manejar, fuente, pie, vista, onSesiones, onSesionSinEjecucion }: PanelRendimientoProps) {
   const [comparar, setComparar] = useState(compararInicial);
   const [cumplimiento, setCumplimiento] = useState<{ ventana: VentanaClave; res: Resultado<DetalleCumplimientoConsumo> } | null>(null);
   const [seleccion, setSeleccion] = useState<string | null>(null);
@@ -68,8 +72,11 @@ export function PanelRendimiento({ panel, atleta, onVentana, cargandoVentana = f
   const ventana = panel.ventana;
   const hoy = ventana.hasta;
   const b = panel.bloques;
+  const show = (layer: NonNullable<PanelRendimientoProps['vista']>) => !vista || vista === layer;
+  const needsCompliance = !vista || vista === 'carga' || vista === 'sesiones';
 
   useEffect(() => {
+    if (!needsCompliance) return;
     let vivo = true;
     void fuente.cumplimiento(ventana.clave).then((res) => {
       if (vivo) setCumplimiento({ ventana: ventana.clave, res });
@@ -77,7 +84,7 @@ export function PanelRendimiento({ panel, atleta, onVentana, cargandoVentana = f
     return () => {
       vivo = false;
     };
-  }, [fuente, ventana.clave]);
+  }, [fuente, ventana.clave, needsCompliance]);
   const detalle = cumplimiento?.ventana === ventana.clave ? cumplimiento.res : null;
 
   const cambiarComparar = useCallback(
@@ -89,9 +96,14 @@ export function PanelRendimiento({ panel, atleta, onVentana, cargandoVentana = f
   );
 
   const abrirSesion = useCallback((s: FilaSesionConsumo) => {
+    if ((!s.hecha || !s.execution_id) && onSesionSinEjecucion) {
+      onSesionSinEjecucion(s.assignment_id);
+      return;
+    }
     setSeleccion(s.assignment_id);
+    onSesiones?.();
     document.getElementById('tramos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
+  }, [onSesiones, onSesionSinEjecucion]);
 
   // El ancho de una columna de la rejilla, para el primer pintado de los gráficos (luego se miden solos) y para agrupar semanas.
   const dos = ancho >= DOS_COLUMNAS_PX;
@@ -100,11 +112,11 @@ export function PanelRendimiento({ panel, atleta, onVentana, cargandoVentana = f
 
   return (
     <div ref={ref} className="@container flex min-w-0 flex-col gap-4">
-      <EstadoHoy estado={b.estado} metodo={panel.metodo} />
+      {show('resumen') ? <EstadoHoy estado={b.estado} metodo={panel.metodo} /> : null}
       <Filtros ventana={ventana} onVentana={onVentana} comparar={compararEfectivo} onComparar={cambiarComparar} metodo={panel.metodo} metodoHref={metodoHref} cargando={cargandoVentana} />
 
       <div aria-busy={cargandoVentana || undefined} className={`grid min-w-0 grid-cols-1 gap-4 transition-opacity duration-[var(--v2-dur)] @4xl:grid-cols-12 ${cargandoVentana ? 'opacity-60' : ''}`}>
-        <Forma
+        {show('resumen') ? <><Forma
           forma={b.forma}
           semanas={b.semanas}
           metodo={panel.metodo}
@@ -115,8 +127,8 @@ export function PanelRendimiento({ panel, atleta, onVentana, cargandoVentana = f
           className="@4xl:col-span-8"
           anchoInicial={anchoCol(8)}
         />
-        <Recuperacion recuperacion={b.recuperacion} metodo={panel.metodo} comparar={compararEfectivo} pendiente={pendiente(panel, 'recuperacion')} manejar={manejar} className="@4xl:col-span-4" />
-        <Semanas
+        <Recuperacion recuperacion={b.recuperacion} metodo={panel.metodo} comparar={compararEfectivo} pendiente={pendiente(panel, 'recuperacion')} manejar={manejar} className="@4xl:col-span-4" /></> : null}
+        {show('carga') ? <><Semanas
           semanas={b.semanas}
           ventana={ventana}
           comparar={compararEfectivo}
@@ -127,11 +139,11 @@ export function PanelRendimiento({ panel, atleta, onVentana, cargandoVentana = f
           className="@4xl:col-span-7"
           anchoInicial={anchoCol(7)}
         />
-        <Intensidad intensidad={b.intensidad} hoy={hoy} pendiente={pendiente(panel, 'intensidad')} manejar={manejar} className="@4xl:col-span-5" anchoInicial={anchoCol(5)} />
-        <Progreso progreso={b.progreso} hoy={hoy} comparar={compararEfectivo} pendiente={pendiente(panel, 'progreso')} manejar={manejar} className="@4xl:col-span-7" />
-        <Records records={b.records} hoy={hoy} pendiente={pendiente(panel, 'records')} manejar={manejar} className="@4xl:col-span-5" />
-        <Carrera carrera={b.carrera} hoy={hoy} fechaCarrera={atleta.carrera?.fecha ?? null} pendiente={pendiente(panel, 'carrera')} manejar={manejar} className="@4xl:col-span-12" anchoInicial={dos ? anchoCol(7) : anchoCol(12)} />
-        <Tramos
+        <Intensidad intensidad={b.intensidad} hoy={hoy} pendiente={pendiente(panel, 'intensidad')} manejar={manejar} className="@4xl:col-span-5" anchoInicial={anchoCol(5)} /></> : null}
+        {show('progreso') ? <><Progreso progreso={b.progreso} hoy={hoy} comparar={compararEfectivo} pendiente={pendiente(panel, 'progreso')} manejar={manejar} className="@4xl:col-span-7" />
+        <Records records={b.records} hoy={hoy} pendiente={pendiente(panel, 'records')} manejar={manejar} className="@4xl:col-span-5" /></> : null}
+        {show('carreras') ? <Carrera carrera={b.carrera} hoy={hoy} fechaCarrera={atleta.carrera?.fecha ?? null} pendiente={pendiente(panel, 'carrera')} manejar={manejar} className="@4xl:col-span-12" anchoInicial={dos ? anchoCol(7) : anchoCol(12)} /> : null}
+        {show('sesiones') ? <Tramos
           cumplimiento={detalle}
           fuente={fuente}
           seleccion={seleccion}
@@ -140,7 +152,7 @@ export function PanelRendimiento({ panel, atleta, onVentana, cargandoVentana = f
           manejar={manejar}
           className="@4xl:col-span-12"
           anchoInicial={dos ? anchoCol(8) : anchoCol(12)}
-        />
+        /> : null}
       </div>
 
       {pie ?? (

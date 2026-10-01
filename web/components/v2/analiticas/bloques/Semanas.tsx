@@ -95,7 +95,7 @@ function TablaSesiones({ sesiones, hoy, onSesion }: { sesiones: FilaSesionConsum
         onFila={(s) => onSesion(s)}
       />
       <p className="mt-2 t-meta text-v2-faint">
-        {hechas} de {sesiones.length} sesiones del plan hechas en la ventana · {dentro} dentro de lo pedido · las {ultimas.length} últimas arriba; una fila abre el tramo a tramo.
+        {hechas} de {sesiones.length} sesiones del plan hechas en la ventana · {dentro} dentro de lo pedido · las {ultimas.length} últimas arriba; abre una sesión para ver su entreno y, cuando esté hecha, el tramo a tramo.
       </p>
     </div>
   );

@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, CircleAlert, LoaderCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -52,6 +53,7 @@ export async function sendJson<T>(
  * mientras hay otro en vuelo espera su turno (nunca dos PATCH cruzados).
  */
 export function useSaveState() {
+  const router = useRouter();
   const [state, setState] = useState<SaveState>('idle');
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,6 +74,7 @@ export function useSaveState() {
       const result = await fn();
       if (result.ok) {
         setState('saved');
+        router.refresh();
         timer.current = setTimeout(() => setState('idle'), 2400);
         return true;
       }
@@ -81,7 +84,7 @@ export function useSaveState() {
     });
     chain.current = next.catch(() => undefined);
     return next;
-  }, []);
+  }, [router]);
 
   return { state, error, run };
 }

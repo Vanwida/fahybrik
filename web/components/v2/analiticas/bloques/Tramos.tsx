@@ -75,7 +75,7 @@ export function Tramos({
   const [comparada, setComparada] = useState<string | null>(null);
   const [visibles, setVisibles] = useState(LISTA_PASO);
   const sesiones = useMemo(() => (cumplimiento?.estado === 'ok' ? cumplimiento.datos.sesiones.filter((s) => s.hecha && s.execution_id) : []), [cumplimiento]);
-  const a = sesiones.find((s) => s.assignment_id === seleccion) ?? sesiones[0] ?? null;
+  const a = seleccion ? sesiones.find((s) => s.assignment_id === seleccion) ?? null : sesiones[0] ?? null;
   const b = comparada && comparada !== a?.assignment_id ? (sesiones.find((s) => s.assignment_id === comparada) ?? null) : null;
   const detA = useSesion(fuente, a?.execution_id ?? null);
   const detB = useSesion(fuente, b?.execution_id ?? null);
@@ -84,6 +84,7 @@ export function Tramos({
   if (cumplimiento == null) hueco = { tipo: 'poco', titulo: 'Cargando', cuerpo: 'Leyendo las sesiones del plan de esta ventana…' };
   else if (cumplimiento.estado !== 'ok') hueco = { tipo: 'vacio', titulo: 'No se ha podido leer', cuerpo: 'El cumplimiento de esta ventana no ha cargado. Prueba a recargar la página.' };
   else if (sesiones.length === 0) hueco = { tipo: 'vacio', titulo: 'Sin sesiones del plan hechas en esta ventana', cuerpo: 'Cuando haga sesiones de su plan, aquí verás cada tramo frente a lo que pedías.', accion: 'plan' };
+  else if (seleccion && !a) hueco = { tipo: 'vacio', titulo: 'Esta sesión no tiene una ejecución en la ventana', cuerpo: 'Puedes abrir su entreno en Plan o elegir otra sesión realizada.', accion: 'plan' };
 
   const sesA = detA?.estado === 'ok' ? detA.datos : null;
   const sesB = detB?.estado === 'ok' ? detB.datos : null;
@@ -95,6 +96,7 @@ export function Tramos({
 
   return (
     <Tarjeta id="tramos" titulo="Cumplimiento por tramo" pregunta={PREGUNTA} hueco={hueco} manejar={manejar} className={className}>
+      {seleccion && !a && sesiones.length ? <Button size="sm" variant="ghost" onClick={() => onSeleccion(sesiones[0]!.assignment_id)}>Ver otras sesiones realizadas</Button> : null}
       {a ? (
         <div className="mt-1 grid gap-6 @4xl:grid-cols-12">
           <div className="min-w-0 @4xl:col-span-4">

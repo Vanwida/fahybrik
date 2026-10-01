@@ -21,6 +21,7 @@ import type { CoachSignalThresholdsResponse } from '@fahybrid/shared/schema/coac
 import { Button, useToast } from '@/components/v2/ui';
 import { SettingsSection } from './SettingsKit';
 import { sendJson } from './autosave';
+import { useRouter } from 'next/navigation';
 import { THRESHOLD_SECTIONS } from './threshold-copy';
 import { ThresholdRow } from './ThresholdRows';
 import { WristRpeWords } from './WristRpeWords';
@@ -43,6 +44,7 @@ function shareOf(values: CoachThresholds, k: CoachThresholdKey): number | null {
 }
 
 export function ThresholdsSettings({ initial }: { initial: CoachSignalThresholdsResponse }) {
+  const router = useRouter();
   const toast = useToast();
   const [values, setValues] = useState<CoachThresholds>(() => pick(initial));
   const [custom, setCustom] = useState<Set<CoachThresholdKey>>(() => new Set(initial.custom_keys));
@@ -57,6 +59,7 @@ export function ThresholdsSettings({ initial }: { initial: CoachSignalThresholds
     setCustom(new Set(res.custom_keys));
     setWords(res.wrist_rpe_words);
     setWordsCustom(res.wrist_rpe_words_custom);
+    router.refresh();
   };
 
   const put = async (body: PutBody) => {
