@@ -32,6 +32,19 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 **No hacer:** no volver a quitar de una pantalla el único disparador de un mecanismo sin dejar el sustituto; no exigir una definición distinta de «entreno» en Biblioteca y en Ajustes (`library-scope.ts`).
 
 ---
+## 2026-10-01 · Cuatro tests rojos del reloj tras el lote 2: tres eran del test, uno era un bug real
+
+**Qué pasaba.** La suite completa sobre `de838ded` daba 6 fallos en 4 grupos. Cada uno se investigó hasta la causa antes de tocar nada.
+
+- **Recuperación de correr (`VivoCorrerTests`, `EspejoCuadroMismoTests`): del test.** Desde 30-09 la recuperación por tiempo lee lo que queda de `runLegRemaining` (para que «+30 s» estire la cuenta atrás sin tocar lo prescrito). Los ensayos fijan a mano el reloj de la pierna y el timer está muerto, así que esa cuenta atrás no bajaba: el solitario pintaba «1:30» parado mientras el espejo contaba. En producción la baja el tick. Arreglo: un helper de test (`sincronizarCuentaAtrasDeLaPierna`) hace lo que haría el tick. No se tocó código.
+- **Complicación (`ComplicacionLecturaTests`): bug real de código.** `ComplicacionAlmacen.guardar` decidía «no ha cambiado» comparando los bytes del JSON, y `JSONEncoder` no fija el orden de las claves (medido: 50 codificaciones del mismo valor dan 4 o 5 secuencias de bytes distintas). Resultado: escribir lo mismo recargaba las líneas de tiempo del reloj para nada, a veces. Arreglo en código: se compara el valor ya leído (`ComplicacionHoy` es `Equatable`). El test ya existía; era el rojo.
+- **Vectores de oro de correr (`MunecaCorrerTests`, 125 diferencias): vectores viejos tras un cambio deliberado.** Todas salían de dos sesiones mixtas: en la 479 (series + Wall Ball) las estaciones y sus descansos son circuito (Datos: «km corridos» y «/km al correr», solo los tramos de carrera, DECISIONS F8), y la 552 (Cursa 5K) es un For Time, cara y páginas de WOD. El generador examinaba todos sus pasos con la cara de correr del kit. Ahora examina solo los pasos que pinta esa cara (`esPasoDeCorrer`, espejo de `Vivo.familiaMuneca`); la 552 viaja con su plan (el adaptador se sigue comprobando contra el doble) y sin cuadros. Vectores regenerados; el Swift no se desvió del kit.
+
+**Pendiente, no resuelto aquí:** el doble tiene una cara propia para la 552 (`CaraCarreraForTime`: el crono como héroe, «quedan», ritmo, «llegas», pulso) y el Swift pinta la carrera de un For Time como la cara de correr con el total bajo el contexto (DECISIONS F8). Ya no hay vectores que las comparen: decidir cuál manda y, si es la del doble, medirla con un vector de WOD.
+
+**No hacer:** no volver a adaptar un vector o un test para tapar una diferencia sin saber de quién es; no comparar bytes de un JSON para decidir igualdad; no examinar con la cara de correr un paso que el Swift reparte a otra familia.
+
+---
 ## 2026-09-30 · La muñeca en 40 mm: el núcleo decide qué cede cuando una cara no cabe
 
 **Qué pasaba (SE 3 40 mm, 162 × 197 pt).** El descanso de fuerza que anota (título, dos píldoras, «Viene» en dos líneas, dos botones) sumaba más de lo que mide el lienzo y cortaba «+30 s» y «Confirmar»; la nota «sin enlace · la muñeca sigue grabando» no cabía en dos líneas y se cortaba con «…»; en cinta el héroe se quedaba en 15 pt porque cada fila se reservaba su alto sin mirar si al héroe le quedaba algo. El cuerpo de la anotación no tenía presupuesto alguno, y las caras de WOD, circuito y ergo repetían cada una su lista de filas.
