@@ -22,6 +22,8 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Remate tras el recorrido publicado:** la fecha de detección de un aviso no es el tiempo real de espera o desde la última revisión. En una fila individual de Hoy, la evidencia de la tarea se lee primero; «Aviso detectado hace…» queda en su menú, con su significado explícito. En Atletas móvil, Semana comparte la línea del nombre para que el motivo disponga de todo el ancho del cuerpo. Ambos mantienen los datos y controles existentes.
 
+**Cierre:** PR #196 fusionada; remate `8cf68641d` en main. Ambos con CI verde; Vercel READY en el dominio de la app. Recorrido autenticado en escritorio, 1024 y 390 px: datos y acciones conservados, siete capítulos sin contestar y cero explicado, vacíos con salida y dos causas en una persona. Sin migraciones, fixtures en producción ni mensajes enviados. Evidencia: `docs/dashboard-segunda-pasada-2026-10-02.html`.
+
 ---
 
 ## 2026-10-02 · Negocio recupera el acceso del club fundador antes de publicar el dashboard

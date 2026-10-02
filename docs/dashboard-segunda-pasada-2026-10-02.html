@@ -18,8 +18,8 @@
 <main class="wrap">
 <section id="publicacion" class="callout">
 <h2>Estado de la publicación</h2>
-<p>Segunda pasada publicada en <a href="https://app.fahybrid.com/es/hoy">app.fahybrid.com</a> mediante <a href="https://github.com/Vanwida/fahybrik/pull/196">PR #196</a>, main <code>3f8ae74e8</code>. Despliegue de producción READY y comprobaciones de PR y main en verde.</p>
-<p>El recorrido autenticado está comprobado en escritorio, a 1024 px y a 390 px. Dos remates de lectura detectados en ese recorrido están en publicación: fecha de detección en el menú de Hoy y más ancho para el motivo en Atletas móvil.</p>
+<p>Segunda pasada publicada en <a href="https://app.fahybrid.com/es/hoy">app.fahybrid.com</a> mediante <a href="https://github.com/Vanwida/fahybrik/pull/196">PR #196</a>, main <code>3f8ae74e8</code>, con el remate de lectura <code>8cf68641d</code> también publicado. Despliegue de producción READY y comprobaciones de PR y de ambos commits de código en main en verde.</p>
+<p>El recorrido autenticado está comprobado en escritorio, a 1024 px y a 390 px. Los dos remates están publicados y revisados: fecha de detección en el menú de Hoy y más ancho para el motivo en Atletas móvil.</p>
 </section>
 <section aria-labelledby="cambios">
 <h2 id="cambios">Las ocho observaciones</h2>
@@ -58,14 +58,14 @@
 <p>Las piezas revisadas incluyen 62 casos de Hoy y su render, 45 de Plan/Estado/roster, 50 de Biblioteca y 29 de Método. Cubren salidas del vacío y que las acciones de una tarea no silencien otra.</p>
 <ul class="checks">
 <li>Negocio: clics Leads → Cobros → Embudo y periodo Todo; cinco abiertos y ocho personas del histórico.</li>
-<li>Hoy: una fila con respuesta y revisión, filtros Por responder y Plan; «Revisar 1:1» abre la sección correcta.</li>
+<li>Hoy: una fila con respuesta y revisión, filtros Por responder y Plan; «Revisar 1:1» abre la sección correcta y «Responder» carga la conversación. El menú conserva la detección con su significado explícito. A 390 px siguen visibles ambas acciones y el grupo de dos altas se despliega.</li>
 <li>Plan: tres semanas y Plan completo; títulos completos, Estado y cinco respuestas del check-in. A 1024 px se alcanza el domingo y Semana con desplazamiento interno; el ancho de página sigue siendo 1024 px.</li>
-<li>Atletas: motivos completos en tabla de escritorio, tabla a 1024 px, tarjetas y lista a 390 px.</li>
+<li>Atletas: motivos completos en tabla de escritorio, tabla a 1024 px, tarjetas y lista a 390 px. La revisión final confirma Semana junto al nombre y motivos completos, sin desbordamiento horizontal.</li>
 <li>Biblioteca: Entrenos cero ofrece crear y Ver 99 bloques; el enlace abre 43 listos, con 29 incompletos y 27 por revisar. Una búsqueda sin coincidencias ofrece Limpiar y recupera la lista; el vacío también se comprueba a 390 px.</li>
 <li>Umbrales: seis filas compactas, detalles que se abren y formulario Declarar que se abre y cancela. Vista móvil comprobada.</li>
 <li>Método: cinco grupos plegados, siete capítulos que cambian correctamente conservando 0/34 y párrafo editable disponible bajo demanda. A 390 px cabe sin desbordamiento horizontal.</li>
 </ul>
-<p class="note">La comprobación de Método fue de solo lectura. Los formularios se revisaron sin guardar; no se han creado datos de prueba ni enviado mensajes a atletas. Los dos remates finales se comprobarán al terminar su despliegue.</p>
+<p class="note">La comprobación de Método fue de solo lectura. Los formularios se revisaron sin guardar; no se han creado datos de prueba ni enviado mensajes a atletas. Sin errores registrados en la consola al cierre. Los dos remates finales también tienen tipos, lint y 62 pruebas de Hoy correctos, además de la batería remota completa.</p>
 </section>
 <section><h2>Alcance</h2>
 <p>Esta pasada cambia la presentación y las causas visibles de Hoy. No necesita migraciones, semillas ni nuevos datos de prueba en producción. El método del coach continúa siendo editable.</p>
