@@ -33,7 +33,7 @@ import { Estilos } from '../../kit-dia/estilos';
 import { Pastilla } from '../../kit-dia/piezas';
 import { CASOS, casoDeFicha } from '../../kit-ficha/casos';
 import type { Bloque, Movimiento } from '../../kit-ficha/contrato';
-import { esDeUnaPieza, etiquetaFormato, minutosDelBloque } from '../../kit-ficha/modelo';
+import { esDeUnaPieza, etiquetaFormato } from '../../kit-ficha/modelo';
 import {
   CabeceraFicha,
   CromoFicha,
@@ -126,19 +126,20 @@ export function Screen({ escenario, onLog }: TwinScreenProps) {
   );
 }
 
-/** Lo único que el bloque dice de sí mismo encima de su contenido: su formato y, si se sabe, cuánto dura. */
+/**
+ * Lo único que el bloque dice de sí mismo encima de su contenido, y solo cuando el panel no lo dice ya: un reloj, una
+ * pista de minutos o una pareja llevan su formato DENTRO, y repetirlo en una chapa es decir lo mismo dos veces. La
+ * simulación sí la necesita («For Time · 8 estaciones»): lo que la define no está en ninguna de sus filas.
+ */
 function CabeceraDelBloque({ b }: { b: Bloque }) {
+  if (b.formato.tipo !== 'estaciones') return null;
   const formato = etiquetaFormato(b);
-  const min = minutosDelBloque(b);
-  const textos = [formato, formato === null && min !== null ? `${min} min` : null].filter(Boolean) as string[];
-  if (textos.length === 0) return null;
+  if (formato === null) return null;
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      {textos.map((t) => (
-        <Pastilla key={t} fondo="var(--twin-surface-elevated)" tinta="var(--twin-fg)" borde="var(--twin-hairline-strong)">
-          {t}
-        </Pastilla>
-      ))}
+      <Pastilla fondo="var(--twin-surface-elevated)" tinta="var(--twin-fg)" borde="var(--twin-hairline-strong)">
+        {formato}
+      </Pastilla>
     </div>
   );
 }

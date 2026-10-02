@@ -3,7 +3,7 @@
 // «cuál es la dosis» no se escribe dos veces ni de dos maneras (CONTRATO-UI §2).
 
 import { SIGNO_POR } from '../datos-reales';
-import { fichaDe, ultimaVezDe } from '../screens/sesion-previa/data';
+import { fichaDe } from '../screens/sesion-previa/data';
 import type { Bloque, LecturaFicha, Movimiento, PerfilTramos, SerieEscrita } from './contrato';
 
 // ---------------------------------------------------------------------------
@@ -85,21 +85,8 @@ export function explicacionDeFormato(b: Bloque): string | null {
   }
 }
 
-/**
- * ¿El título del bloque repite lo que ya dice la sesión (o el formato)? Entonces no se pinta dos veces: el coach
- * suele llamar al bloque como a la sesión, y «Simulación HYROX» debajo de «Simulación HYROX» no informa.
- * Solo por IGUALDAD: «Peso muerto» bajo «Híbrido · peso muerto y metcon» sí es la etiqueta que separa dos bloques.
- */
-export function tituloRedundante(b: Bloque, l: LecturaFicha): boolean {
-  const norm = (t: string) => t.trim().toLowerCase();
-  if (l.bloques.length <= 1) return true;
-  if (norm(b.titulo) === norm(l.titulo)) return true;
-  const formato = etiquetaFormato(b);
-  return formato !== null && norm(formato).startsWith(norm(b.titulo));
-}
-
 /** Los minutos del bloque SOLO si se saben: los escritos o los que el formato dicta. */
-export function minutosDelBloque(b: Bloque): number | null {
+function minutosDelBloque(b: Bloque): number | null {
   if (b.minutos !== undefined) return b.minutos;
   const f = b.formato;
   if (f.tipo === 'emom' || f.tipo === 'amrap') return f.minutos;
@@ -107,7 +94,7 @@ export function minutosDelBloque(b: Bloque): number | null {
 }
 
 /** «4 ejercicios» / «1 ejercicio». */
-export function cuantosEjercicios(n: number): string {
+function cuantosEjercicios(n: number): string {
   return `${n} ${n === 1 ? 'ejercicio' : 'ejercicios'}`;
 }
 
@@ -193,23 +180,14 @@ export function rangoDeCarga(m: Movimiento): string | null {
   return `${String(min).replace('.', ',')} → ${String(max).replace('.', ',')} kg`;
 }
 
-/** ¿Tiene algo que enseñar al abrirlo (series, claves, nota, última vez)? */
-export function tieneDetalle(m: Movimiento): boolean {
-  return tieneSeriesDistintas(m) || Boolean(m.nota) || Boolean(m.segunTuRm) || fichaDe(m.nombre).claves.length > 0 || ultimaVezDe(m.nombre) !== null;
-}
-
 // ---------------------------------------------------------------------------
 // El material
 // ---------------------------------------------------------------------------
 
 /**
- * El material de los bloques de TRABAJO, sin repetir y en el orden en que aparece. El calentamiento y la vuelta a la
- * calma no cuentan: la bici y la esterilla están donde entrenas, y una lista con ellas esconde lo que sí hay que traer.
+ * El material de un bloque, sin repetir y en el orden en que aparece. Solo se enseña el de los bloques de TRABAJO:
+ * la bici y la esterilla del calentamiento están donde entrenas, y una lista con ellas esconde lo que sí hay que traer.
  */
-export function materialDeFicha(l: LecturaFicha): string[] {
-  return materialDeBloques(l.bloques.filter((b) => b.rol === 'principal'));
-}
-
 export function materialDeBloques(bloques: Bloque[]): string[] {
   const visto = new Set<string>();
   for (const b of bloques) {

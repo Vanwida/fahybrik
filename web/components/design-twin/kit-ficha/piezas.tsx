@@ -87,13 +87,7 @@ const IcoAtras = ({ tam = 20 }: { tam?: number }) => (
   </svg>
 );
 
-export const IcoDespliega = ({ tam = 16 }: { tam?: number }) => (
-  <svg {...base(tam)} strokeWidth={2.6}>
-    <path d="m9 5 7 7-7 7" />
-  </svg>
-);
-
-export const IcoPlay = ({ tam = 16 }: { tam?: number }) => (
+const IcoPlay = ({ tam = 16 }: { tam?: number }) => (
   <svg width={tam} height={tam} viewBox="0 0 24 24" fill="currentColor" aria-hidden style={{ flex: '0 0 auto' }}>
     <path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5Z" />
   </svg>
