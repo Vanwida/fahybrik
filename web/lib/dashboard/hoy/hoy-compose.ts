@@ -15,11 +15,12 @@
 //      definición que el estado del roster y la vista «Necesitan algo»), no
 //      filas: un grupo de 47 son 47 personas que te necesitan.
 //   5. «Por responder» es el conjunto de Mensajes (`loadReplyStates`) y está en
-//      «Todo» como UN grupo («15 por responder → Responder en fila»), la espera
+//      «Todo» como grupo cuando son varios («15 por responder → Responder en fila»), la espera
 //      más antigua primero. Quien espera respuesta te necesita desde el primer
 //      minuto (la cifra de Hoy, su insignia y «Necesitan algo» lo cuentan). El
 //      umbral de horas del coach solo decide cuándo la espera pasa a «Vigilar»
 //      en su estado; en su filtro sale cada espera como fila, con Hecho/Posponer.
+//      Una espera única se reúne con las otras tareas de esa persona al pintar.
 //   6. Las secciones son el ESTADO del atleta (el mismo de Atletas): «Acción» =
 //      estado acción, «Vigilar» = el resto con algo que mirar. Quien está en
 //      acción solo por algo que ya cubre un grupo (un pago vencido) no tiene
@@ -41,6 +42,7 @@ import { BOX_TIMEZONE } from '@fahybrid/shared/domain/dates';
 import type { AthletePlanFacts } from '@/lib/dashboard/athletes/plan-facts';
 import type { AthleteSignalsRead } from '@/lib/coach/attention/signals-read';
 import type { HoyProposal, HoyRow, HoySnoozedRow, HoyView, SystemicGroup } from './hoy-types';
+import { withGroupRows } from './hoy-group-rows';
 
 /** La última respuesta del motor de ajuste a «Proponer descarga» de un atleta. */
 export interface ProposalFact {
@@ -269,12 +271,8 @@ export function composeHoy(input: HoyComposeInput): HoyView {
     const actionable = (liveOf.get(f.athlete_id) ?? [])
       .filter((s) => isActionable(s) && !covered(s))
       .sort(compareSignals);
-    // Un alta pendiente o un «sin plan» ya tiene su grupo (y ese es su estado en
-    // Atletas): sus demás avisos se ven al revisarlo, no como otra fila en
-    // «Vigilar» — así Vigilar de Hoy = Vigilar de Atletas. El invitado sin
-    // cuestionario no tiene grupo: si algo suyo pide mirar, conserva su fila.
-    const inGroupByState = (status.key === 'nuevo' && f.intake_pending) || status.key === 'sin_plan';
-    if (actionable.length > 0 && !inGroupByState) {
+    // Una tarea distinta conserva su fila aunque el alta o el plan estén en un grupo.
+    if (actionable.length > 0) {
       const row = toRow(f, actionable, now);
       row.proposal = proposalFor(row.primary, input.proposals?.get(f.athlete_id));
       // La sección es su ESTADO (el de Atletas), no la severidad de la fila.
@@ -282,7 +280,6 @@ export function composeHoy(input: HoyComposeInput): HoyView {
       continue;
     }
     if (status.key === 'accion') accionInGroups += 1;
-    if (inGroupByState) continue;
     const silenced = (read?.silenced ?? []).filter(
       (x) => x.by === 'snooze' && isActionable(x.signal) && !covered(x.signal),
     );
@@ -300,7 +297,8 @@ export function composeHoy(input: HoyComposeInput): HoyView {
   // que el grupo de «Todo» y que Mensajes, con Hecho/Posponer por hilo.
   for (const f of waiting) {
     const signal = replySignal(f.athlete_id);
-    if (signal) replies.push({ ...toRow(f, [signal], now), snoozable: true });
+    if (signal) replies.push({ ...toRow(f, [signal], now), snoozable: true,
+      awaiting_since: input.awaiting!.get(f.athlete_id)!.since!.toISOString() });
   }
 
   const byWorst = (a: HoyRow, b: HoyRow) =>
@@ -331,7 +329,7 @@ export function composeHoy(input: HoyComposeInput): HoyView {
       snoozed: snoozedRows.length,
     },
     week_visibility: { visible, total: active.length, programmed },
-    systemic,
+    systemic: withGroupRows(systemic, input.facts, liveOf, replies, now, statusOf),
     critico,
     vigilar,
     snoozed_rows: snoozedRows,

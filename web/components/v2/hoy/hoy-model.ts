@@ -8,6 +8,7 @@ import type { SignalKind } from '@fahybrid/shared/domain/coach/signals';
 import type { SignalAction } from '@fahybrid/shared/domain/coach/athlete-state';
 import type { HoyRow, HoySnoozedRow, HoyView, SystemicGroup } from '@/lib/dashboard/hoy/hoy-types';
 import type { HoyPerson } from '@/app/[locale]/(v2)/hoy/_data/hoy-extras';
+import { individualizeGroups, repliesWithContext } from './hoy-individuals';
 
 // ── Vistas (?vista=) ──────────────────────────────────────────────────────────
 
@@ -57,6 +58,8 @@ export function rowForVista(row: HoyRow, vista: HoyVista, now: Date): HoyRow | n
   const others = signals.filter((s) => s !== primary);
   return {
     ...row, primary, others, other_count: others.length,
+    ...(row.causes ? { causes: row.causes.filter((c) => c.signal.lens === primary.lens) } : {}),
+    snoozable: row.causes ? !row.causes.find((c) => c.signal === primary)?.group : row.snoozable,
     age_label: ageLabel(primary.first_seen_at ?? now.toISOString(), now), scope_kind: primary.kind,
     ...(primary !== row.primary ? { priority_signal: row.primary } : {}),
   };
@@ -112,6 +115,7 @@ export interface VisibleInbox {
   needs_you: number;
   resolved_today: number;
   snoozed: number;
+  accion_in_groups: number;
 }
 
 /**
@@ -135,7 +139,10 @@ export function visibleInbox(
     .map((g) => {
       if (g.kind !== 'awaiting_reply' || repliedIds.size === 0) return g;
       const athlete_ids = g.athlete_ids.filter((id) => !repliedIds.has(id));
-      return { ...g, athlete_ids, count: athlete_ids.length, title: `${athlete_ids.length} por responder` };
+      const oldest = g.rows?.filter((r) => athlete_ids.includes(r.athlete_id))
+        .map((r) => r.awaiting_since).filter((at): at is string => at != null).sort()[0];
+      return { ...g, athlete_ids, count: athlete_ids.length, title: `${athlete_ids.length} por responder`,
+        detail: oldest ? `la más antigua espera ${ageLabel(oldest, now)}` : g.detail };
     })
     .filter((g) => g.kind !== 'awaiting_reply' || g.count > 0);
   const withoutPending = (row: HoyRow): HoyRow[] => {
@@ -146,11 +153,17 @@ export function visibleInbox(
     const primary = signals[0];
     if (!primary) return [];
     if (signals.length === row.other_count + 1) return [row];
-    return [{ ...row, primary, others: signals.slice(1), other_count: signals.length - 1, age_label: ageLabel(primary.first_seen_at ?? now.toISOString(), now) }];
+    const causes = row.causes?.filter((c) => signals.includes(c.signal));
+    return [{ ...row, primary, others: signals.slice(1), other_count: signals.length - 1,
+      age_label: ageLabel(primary.first_seen_at ?? now.toISOString(), now),
+      ...(causes ? { causes, scope_kind: primary.kind, snoozable: !causes.find((c) => c.signal === primary)?.group } : {}),
+      ...(row.priority_signal && closed.has(row.priority_signal.kind) ? { priority_signal: undefined } : {}),
+    }];
   };
-  const critico = view.critico.flatMap(withoutPending);
-  const vigilar = view.vigilar.flatMap(withoutPending);
-  const replies = (view.replies ?? []).flatMap(withoutPending);
+  const personal = individualizeGroups(systemic, view.critico.flatMap(withoutPending),
+    view.vigilar.flatMap(withoutPending), (view.replies ?? []).flatMap(withoutPending), now);
+  const { critico, vigilar } = personal;
+  const replies = repliesWithContext((view.replies ?? []).flatMap(withoutPending), [...critico, ...vigilar], now);
   const onServer = new Set([...view.critico, ...view.vigilar, ...(view.replies ?? [])].map((r) => r.athlete_id));
   const done = new Set<string>();
   const snoozed = new Set<string>();
@@ -161,13 +174,15 @@ export function visibleInbox(
     else snoozed.add(id);
   }
   return {
-    systemic,
+    systemic: personal.systemic,
     critico,
     vigilar,
     replies,
-    needs_you: athletesIn(systemic, [...critico, ...vigilar]).size,
+    needs_you: athletesIn(personal.systemic, [...critico, ...vigilar]).size,
     resolved_today: view.counts.resolved_today + done.size,
     snoozed: view.counts.snoozed + snoozed.size,
+    accion_in_groups: Math.max(0, view.counts.accion_in_groups - critico.filter((r) =>
+      !view.critico.some((before) => before.athlete_id === r.athlete_id)).length),
   };
 }
 
@@ -216,22 +231,23 @@ export function vistaCounts(
       inbox.systemic.filter((g) => groupInVista(g, v)),
       rows.filter((r) => rowInVista(r, v)),
     ).size;
-  const altas = inbox.systemic.find((g) => g.kind === 'intake_pending')?.count ?? 0;
+  const replyIds = athletesIn([], [...rows.filter((r) => rowInVista(r, 'responder')), ...(inbox.replies ?? [])]);
   return {
     todo: inbox.needs_you,
-    responder: count('responder') + (inbox.replies?.length ?? 0),
+    responder: replyIds.size,
     sesiones: count('sesiones'),
     fisiologia: count('fisiologia'),
     plan: count('plan'),
-    altas,
+    altas: count('altas'),
   };
 }
 
 /**
- * A qué señales va «Hecho/Posponer» de cada fila. Una fila normal = el atleta
- * entero (el servidor elige sus señales accionables que no cubre un grupo). Una
- * espera por responder se nombra (`message_unanswered`, lo que leen Mensajes y
- * su insignia): cerrar la espera no cierra lo demás del atleta, ni al revés.
+ * A qué señales va «Hecho/Posponer». La fila compuesta y el filtro nombran su
+ * causa (`scope_kind`): cerrar la espera no cierra la revisión, ni al revés.
+ * La fila sin scope conserva el contrato anterior: el servidor elige sus
+ * señales accionables que no cubre un grupo. Los hechos de plan/alta se resuelven
+ * con su acción y no ofrecen Hecho/Posponer.
  */
 export function overrideTargets(
   rows: ReadonlyArray<Pick<HoyRow, 'athlete_id' | 'primary' | 'scope_kind'>>,
@@ -386,13 +402,14 @@ export function kindsLabel(kinds: ReadonlyArray<SignalKind>): string {
 // ── Navegación ──────────────────────────────────────────────────────────────
 
 /** Adónde lleva una acción que es navegación (null = la hace la pantalla). */
-export function actionHref(action: SignalAction, athleteId: string, negocio: boolean): string | null {
+export function actionHref(action: SignalAction, athleteId: string, negocio: boolean, kind?: SignalKind): string | null {
   switch (action) {
     case 'revisar_alta':
       return `/atletas/${athleteId}/intake`;
     case 'recordar_pago':
       return negocio ? '/negocio/cobros' : `/atletas/${athleteId}`;
     case 'abrir_ficha':
+      if (kind === 'review_1on1_due') return `/atletas/${athleteId}?tab=perfil&seccion=revisiones`;
       return `/atletas/${athleteId}`;
     default:
       return null;
@@ -410,4 +427,3 @@ export function intakeQueueHref(ids: ReadonlyArray<string>): string | null {
 export function sortIntakes(people: ReadonlyArray<HoyPerson>): HoyPerson[] {
   return [...people].sort((a, b) => (a.onboarded_at ?? '').localeCompare(b.onboarded_at ?? ''));
 }
-
