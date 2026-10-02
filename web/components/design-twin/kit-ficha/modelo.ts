@@ -79,7 +79,7 @@ export function explicacionDeFormato(b: Bloque): string | null {
     case 'fortime':
       return f.rondas ? 'Haz todas las rondas lo más rápido que puedas.' : 'Hazlo lo más rápido que puedas.';
     case 'superserie':
-      return 'Una detrás de otra, sin descanso entre las dos.';
+      return f.conDescansoEntre ? null : 'Una detrás de otra, sin descanso entre ellas.';
     default:
       return null;
   }

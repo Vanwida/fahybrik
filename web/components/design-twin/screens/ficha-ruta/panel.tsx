@@ -214,12 +214,8 @@ function TarjetaEjercicio({ m, onAbrir }: { m: Movimiento; onAbrir: (m: Movimien
       ) : rampa && rangoDeCarga(m) ? (
         <p style={{ margin: 0, ...fuente(500, TAM.suelo, 1.3), color: 'var(--twin-muted)' }}>Sube de {rangoDeCarga(m)}</p>
       ) : null}
-      {m.segunTuRm ? (
-        <p style={{ margin: 0, ...fuente(400, TAM.suelo, 1.4), color: 'var(--twin-muted)' }}>
-          Según tu 1RM <b style={{ color: 'var(--twin-fg)', ...TABULAR }}>{m.segunTuRm.kg}</b>
-          {rampa ? null : ' · '}
-          {rampa ? '' : (m.objetivo ?? '')}
-        </p>
+      {m.segunTuRm?.sinConfirmar ? (
+        <p style={{ margin: 0, ...fuente(400, TAM.suelo, 1.4), color: 'var(--twin-muted)' }}>Según tu 1RM · sin confirmar</p>
       ) : null}
       {m.nota ? (
         <p
