@@ -61,8 +61,10 @@ struct FichaPanelEmom: View {
     /// El cuadradito de color de la leyenda.
     private static let ladoDeLaLeyenda: CGFloat = 14
     private static let radioDeLaLeyenda: CGFloat = 5
-    /// Hasta cuántos minutos caben en seis columnas; con más, diez, para que la pista no crezca a lo alto.
-    private static let minutosEnSeisColumnas = 12
+    /// Las columnas de la pista: seis hasta doce minutos (dos filas); con más, diez, para que no crezca a lo alto.
+    private static let columnasHabituales = 6
+    private static let columnasDeUnaPistaLarga = 10
+    private static let minutosEnLasColumnasHabituales = 12
 
     var body: some View {
         VStack(alignment: .leading, spacing: FichaMedidas.dentroDelPanel) {
@@ -88,7 +90,8 @@ struct FichaPanelEmom: View {
     private var pista: some View {
         let movimientoDeCada = bloque.movimientoDeCadaMinuto
         if !movimientoDeCada.isEmpty {
-            let columnas = movimientoDeCada.count <= Self.minutosEnSeisColumnas ? 6 : 10
+            let columnas = movimientoDeCada.count <= Self.minutosEnLasColumnasHabituales
+                ? Self.columnasHabituales : Self.columnasDeUnaPistaLarga
             LazyVGrid(
                 columns: Array(repeating: GridItem(.flexible(), spacing: Self.aireDeLaPista), count: columnas),
                 spacing: Self.aireDeLaPista

@@ -76,11 +76,13 @@ struct FichaPerfilDeTramos: View {
     private static let radioDeBarra: CGFloat = 3
     /// Con muchas series las barras se aprietan para que el dibujo quepa a lo ancho.
     private static let muchasBarras = 20
+    private static let aireEntreBarras: CGFloat = 3
+    private static let aireEntreMuchasBarras: CGFloat = 2
     private static let opacidadDeLaRecuperacion = 0.5
 
     var body: some View {
         let barras = perfil.barras
-        HStack(alignment: .bottom, spacing: barras.count > Self.muchasBarras ? 2 : 3) {
+        HStack(alignment: .bottom, spacing: barras.count > Self.muchasBarras ? Self.aireEntreMuchasBarras : Self.aireEntreBarras) {
             ForEach(Array(barras.enumerated()), id: \.offset) { _, barra in
                 RoundedRectangle(cornerRadius: Self.radioDeBarra, style: .continuous)
                     .fill(color(de: barra))

@@ -63,8 +63,8 @@ struct FichaMiniatura: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            IconoDia(movimiento.modalidad.glifoDeLoseta, tam: (tamano.alto * 0.5).rounded(), peso: .semibold)
-                .foregroundStyle(Theme.Color.foreground.opacity(0.7))
+            IconoDia(movimiento.modalidad.glifoDeLoseta, tam: (tamano.alto * Self.proporcionDelGlifo).rounded(), peso: .semibold)
+                .foregroundStyle(Theme.Color.foreground.opacity(Self.opacidadDelGlifo))
         }
     }
 
@@ -90,6 +90,9 @@ struct FichaMiniatura: View {
     /// Cuánto tiñe la modalidad el arranque de la loseta, y dónde acaba el degradado.
     private static let tinteDeLaLoseta = 0.26
     private static let finDelDegradado = 0.8
+    /// El gesto de la loseta: su tamaño respecto al alto de la miniatura y lo apagado que va.
+    private static let proporcionDelGlifo = 0.5
+    private static let opacidadDelGlifo = 0.7
 }
 
 private extension PrescriptionModality {
