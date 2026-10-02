@@ -63,9 +63,26 @@ struct LecturaFicha: Equatable {
         let bloquesDeTrabajo: Int
     }
 
+    /// Por qué no hay bloques que enseñar. «No se sabe» es un valor de primera clase, pero ESTO sí se sabe, y la ficha
+    /// no puede decir que falló la conexión cuando lo que pasa es que el coach solo escribió la nota.
+    enum SinDetalle: Equatable {
+        /// El detalle de la asignación no llegó (primera apertura sin red).
+        case noLlego
+        /// Llegó, y la sesión no lleva ejercicios.
+        case sinEjercicios
+    }
+
     let cabecera: Cabecera
     /// Vacío = «sin detalle»: se dice, no se inventa una lista.
     let bloques: [BloqueFicha]
+    /// El detalle de la asignación llegó (aunque no traiga ejercicios).
+    let detalleCargado: Bool
+
+    /// Nil cuando hay bloques.
+    var sinDetalle: SinDetalle? {
+        guard bloques.isEmpty else { return nil }
+        return detalleCargado ? .sinEjercicios : .noLlego
+    }
 
     /// La ruta (un nodo por bloque) solo existe cuando hay un orden que enseñar: con UN bloque la ficha se lee directa.
     var llevaRuta: Bool { bloques.count > 1 }
@@ -88,8 +105,9 @@ struct BloqueFicha: Identifiable, Equatable {
     enum Forma: Equatable {
         /// Fuerza y accesorios: cada movimiento con sus series.
         case series
-        /// Los ejercicios ROTAN (A1 serie 1 → A2 serie 1 → descanso → A1 serie 2…).
-        case superserie(rondas: Int?)
+        /// Los ejercicios ROTAN (A1 serie 1 → A2 serie 1 → descanso → A1 serie 2…). `descanso`: el de al acabar cada
+        /// ronda, cuando es el mismo en todas («1:30»); nil si cambia de una ronda a otra o el coach no lo escribió.
+        case superserie(rondas: Int?, descanso: String?)
         /// Cada minuto toca un movimiento. `alterna`: más de uno (impar / par…).
         case emom(minutos: Int?, alterna: Bool)
         /// Un reloj que manda (AMRAP, For Time, circuito, Tabata, Death By): lo grande y su pie.

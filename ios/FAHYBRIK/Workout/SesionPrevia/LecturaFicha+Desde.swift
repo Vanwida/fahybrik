@@ -23,8 +23,11 @@ extension LecturaFicha {
 
     static func desde(plan: WorkoutPlan, detalle: AssignmentDetail?, contexto: ContextoFicha = ContextoFicha()) -> LecturaFicha {
         let ordenados = (detalle?.workout?.blocks ?? []).sorted { $0.blockPosition < $1.blockPosition }
+        // Una simulación escrita bloque a bloque (dieciséis bloques `hyrox_sim` de un ejercicio) es UNA ruta, como la corre el
+        // motor. Aquí también en Dobles: el reparto se busca por ejercicio (`templateSegmentId`), no por bloque.
+        let unidos = WorkoutBlock.joiningRouteLegs(ordenados, keepApart: false)
         let reparto = RepartoDeDobles(plan: plan)
-        let bloques = ordenados.map { BloqueFicha.desde($0, reparto: reparto) }
+        let bloques = unidos.map { BloqueFicha.desde($0, reparto: reparto) }
         let estaciones = detalle?.assignment.stationAssignment
         let enPareja = estaciones.map { !$0.stations.isEmpty } ?? false
         let nota = plan.coachNote
@@ -40,7 +43,7 @@ extension LecturaFicha {
             pareja: enPareja ? Pareja(nombre: estaciones?.partnerFirstName) : nil,
             bloquesDeTrabajo: bloques.filter { $0.rol == .principal }.count
         )
-        return LecturaFicha(cabecera: cabecera, bloques: bloques)
+        return LecturaFicha(cabecera: cabecera, bloques: bloques, detalleCargado: detalle != nil)
     }
 }
 
@@ -96,10 +99,12 @@ extension BloqueFicha {
                 let dosis = LecturaEjercicioPrevia.dosisDeSuperserie(item)
                 return MovimientoFicha.desde(item, reparto: reparto, dosis: dosis.trabajo, contra: dosis.carga, rol: "\(i + 1)º")
             }
+            let descansos = DescansosDeSuperserie(pliegue)
             return Resultado(
-                forma: .superserie(rondas: pliegue.prescription.rounds),
+                forma: .superserie(rondas: pliegue.prescription.rounds, descanso: descansos.alAcabarLaRonda),
                 etiqueta: nil,
-                explicacion: "Una detrás de otra, sin descanso entre ellas.",
+                // Con descanso escrito ENTRE los ejercicios, «sin descanso entre ellas» sería mentira: no se dice.
+                explicacion: descansos.hayEntreEjercicios ? nil : "Una detrás de otra, sin descanso entre ellas.",
                 resumen: cuantosEjercicios(movs.count),
                 movimientos: movs
             )
@@ -238,6 +243,23 @@ extension BloqueFicha {
             guard movs[i].nombre != carrera.nombre else { return nil }
         }
         return (dosis, movs.enumerated().filter { $0.offset % 2 == 1 }.map(\.element))
+    }
+}
+
+/// Dónde cae el descanso de una superserie, leído de la rotación que ejecuta el motor (`supersetFold`): el de al acabar
+/// cada ronda (tras su último ejercicio) y si hay alguno ENTRE los ejercicios de una ronda.
+private struct DescansosDeSuperserie {
+    /// «1:30» cuando es el mismo al acabar todas las rondas; nil si cambia de una a otra o no hay.
+    let alAcabarLaRonda: String?
+    let hayEntreEjercicios: Bool
+
+    init(_ pliegue: (prescription: Prescription, slots: [SupersetSlot])) {
+        let turnos = Array(zip(pliegue.prescription.sets ?? [], pliegue.slots))
+        let rondas = Dictionary(grouping: turnos) { $0.1.round }.values
+        let alAcabar = rondas.compactMap(\.last).map { $0.0.restS ?? 0 }
+        let descanso = Set(alAcabar).count == 1 ? alAcabar[0] : 0
+        alAcabarLaRonda = descanso > 0 ? Formato.clock(descanso, subMinuto: .segundos) : nil
+        hayEntreEjercicios = rondas.contains { ronda in ronda.dropLast().contains { ($0.0.restS ?? 0) > 0 } }
     }
 }
 

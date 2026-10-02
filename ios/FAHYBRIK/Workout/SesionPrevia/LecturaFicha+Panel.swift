@@ -32,6 +32,25 @@ extension LecturaFicha.Pareja {
     var rotulo: String { nombre.map { "Dobles con \($0)" } ?? "Dobles" }
 }
 
+extension LecturaFicha.SinDetalle {
+    var titular: String {
+        switch self {
+        case .noLlego:       return "Sin detalle de la sesión"
+        case .sinEjercicios: return "Sin ejercicios todavía"
+        }
+    }
+
+    /// Lo que pasa y la salida: con red se vuelve a abrir; sin ejercicios se empieza igualmente.
+    var frase: String {
+        switch self {
+        case .noLlego:
+            return "No pudimos cargar los ejercicios de esta sesión. Revisa tu conexión y vuelve a abrirla, o regístrala manualmente."
+        case .sinEjercicios:
+            return "Tu coach aún no ha detallado qué hacer. Puedes empezar igualmente y apuntar lo que hagas."
+        }
+    }
+}
+
 // MARK: - Un bloque
 
 extension BloqueFicha {
@@ -52,8 +71,14 @@ extension BloqueFicha {
 
     /// El titular de una superserie: «4 rondas de la pareja». Nil si el coach no escribió las rondas.
     var titularDeLaPareja: String? {
-        guard case .superserie(let rondas?) = forma else { return nil }
+        guard case .superserie(let rondas?, _) = forma else { return nil }
         return "\(LecturaEjercicioPrevia.rondas(rondas)) de la pareja"
+    }
+
+    /// El descanso de al acabar cada ronda de la pareja: «desc. 1:30». Nil si no se sabe o cambia de una ronda a otra.
+    var descansoDeLaPareja: String? {
+        guard case .superserie(_, let descanso?) = forma else { return nil }
+        return "desc. \(descanso)"
     }
 
     /// La cifra grande de un bloque con reloj: la de su formato (AMRAP, For Time, Tabata…) o los minutos de un EMOM.

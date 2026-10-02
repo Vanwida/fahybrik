@@ -4,8 +4,9 @@ import SwiftUI
 //
 // Arriba, lo que se lee una vez (cabecera y nota del coach); debajo, la ruta, FIJA al hacer scroll (es la cabecera de
 // la sección del panel: `LazyVStack(pinnedViews:)`), y el panel del bloque elegido; al final, lo que le toque a la
-// pasada (los caminos a mano o la tarjeta del reloj). Sin bloques no hay ruta: «sin detalle», con la nota encima. Con
-// UN solo bloque tampoco: no hay orden que enseñar y la ficha se lee directa.
+// pasada (los caminos a mano o la tarjeta del reloj). Sin bloques no hay ruta: «sin detalle» —y se dice por qué: no
+// llegó o no lleva ejercicios—, con la nota encima. Con UN solo bloque tampoco: no hay orden que enseñar y la ficha se
+// lee directa.
 //
 // Va sin `ScrollView` para que se pueda montar tal cual en una prueba (patrón de `SessionExercisesSheet.indice`): la
 // pantalla (`PreWorkoutBriefView`) pone el scroll, el cromo y la acción anclada.
@@ -29,23 +30,23 @@ struct FichaContenido<Cierre: View>: View {
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
             encabezado
-            if let bloque {
-                if lectura.llevaRuta {
-                    Section {
-                        contenidoDelBloque(bloque)
-                    } header: {
-                        FichaRuta(bloques: lectura.bloques, elegido: bloque.id, alElegir: elegir)
-                    }
-                } else {
-                    contenidoDelBloque(bloque)
-                }
-            } else {
+            if let motivo = lectura.sinDetalle {
                 VStack(alignment: .leading, spacing: FichaMedidas.entrePiezas) {
-                    SinDetallePrevia()
+                    SinDetallePrevia(motivo: motivo)
                     cierre()
                 }
                 .padding(.horizontal, Theme.Spacing.pantalla)
                 .padding(.bottom, Theme.Spacing.xxl)
+            } else if let bloque {
+                if lectura.llevaRuta {
+                    Section {
+                        contenidoDelBloque(bloque, conRuta: true)
+                    } header: {
+                        FichaRuta(bloques: lectura.bloques, elegido: bloque.id, alElegir: elegir)
+                    }
+                } else {
+                    contenidoDelBloque(bloque, conRuta: false)
+                }
             }
         }
     }
@@ -61,7 +62,8 @@ struct FichaContenido<Cierre: View>: View {
         .padding(.bottom, FichaMedidas.entrePiezas)
     }
 
-    private func contenidoDelBloque(_ bloque: BloqueFicha) -> some View {
+    /// Con ruta, el aire de arriba separa el panel del filete de la ruta; sin ella ya lo da el encabezado.
+    private func contenidoDelBloque(_ bloque: BloqueFicha, conRuta: Bool) -> some View {
         VStack(alignment: .leading, spacing: FichaMedidas.entrePiezas) {
             FichaPanel(bloque: bloque, alAbrirTecnica: alAbrirTecnica)
                 .id(bloque.id)
@@ -69,7 +71,7 @@ struct FichaContenido<Cierre: View>: View {
             cierre()
         }
         .padding(.horizontal, Theme.Spacing.pantalla)
-        .padding(.top, FichaMedidas.entrePiezas)
+        .padding(.top, conRuta ? FichaMedidas.entrePiezas : 0)
         .padding(.bottom, Theme.Spacing.xxl)
     }
 

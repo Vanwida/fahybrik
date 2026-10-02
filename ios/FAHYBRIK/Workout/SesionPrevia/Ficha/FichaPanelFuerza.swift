@@ -5,7 +5,8 @@ import SwiftUI
 // Una tarjeta de ejercicio enseña lo que hace falta para hacerlo: su miniatura y su nombre, la dosis en grande, contra
 // qué (kilos, RPE) y, cuando las series NO son todas iguales (una rampa, una pirámide), cada una en su ficha. Si solo
 // cambia la carga, las repeticiones se dicen UNA vez y las fichas llevan solo los kilos. Con tu 1RM resuelto, los
-// kilos que salen del %RM; y la nota que el coach escribió para ese ejercicio hoy, con su filo.
+// kilos que salen del %RM (y un aviso si esa marca está sin confirmar); y la nota que el coach escribió para ese
+// ejercicio hoy, con su filo.
 
 struct FichaPanelSeries: View {
     let movimientos: [MovimientoFicha]
@@ -35,7 +36,7 @@ struct FichaTarjetaDeEjercicio: View {
                 if let nota = movimiento.notaDeSeries {
                     Text(nota).papel(.nota).foregroundStyle(Theme.Color.muted).fixedSize(horizontal: false, vertical: true)
                 }
-                if let rm = movimiento.segunTuRm { segunTuRm(rm) }
+                if movimiento.segunTuRm?.sinConfirmar == true { rmSinConfirmar }
                 if let nota = movimiento.nota { NotaConFiloDia(nota, papel: .nota) }
             }
             .padding(FichaMedidas.rellenoDeTarjeta)
@@ -119,21 +120,13 @@ struct FichaTarjetaDeEjercicio: View {
         }
     }
 
-    /// «Según tu 1RM 56 kg»: el %RM resuelto con TU marca (y si esa marca aún no la confirmó el coach, se dice).
-    private func segunTuRm(_ rm: MovimientoFicha.SegunTuRm) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: Theme.Spacing.xs + 2) { lineaDelRm(rm) }
-            VStack(alignment: .leading, spacing: 2) { lineaDelRm(rm) }
-        }
-    }
-
-    @ViewBuilder
-    private func lineaDelRm(_ rm: MovimientoFicha.SegunTuRm) -> some View {
-        Text("Según tu 1RM").papel(.nota).foregroundStyle(Theme.Color.muted)
-        Text(rm.kg).papel(.notaPesada).foregroundStyle(Theme.Color.foreground)
-        if rm.sinConfirmar {
-            Text("sin confirmar").papel(.nota).foregroundStyle(Theme.Color.muted)
-        }
+    /// Los kilos grandes salen del %RM de TU 1RM, y si esa marca aún no la confirmó el coach se dice: puede no ser la de hoy.
+    /// Con la marca confirmada no hay línea: los kilos ya están en grande y el porcentaje en la segunda línea del nombre.
+    private var rmSinConfirmar: some View {
+        Text("Según tu 1RM · sin confirmar")
+            .papel(.nota)
+            .foregroundStyle(Theme.Color.muted)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -177,13 +170,8 @@ struct FichaPanelSuperserie: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let titular = bloque.titularDeLaPareja {
-                Text(titular)
-                    .papel(.notaPesada)
-                    .foregroundStyle(Theme.Color.foreground)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, Theme.Spacing.l)
-                    .padding(.vertical, Theme.Spacing.m)
+            if bloque.titularDeLaPareja != nil || bloque.descansoDeLaPareja != nil {
+                cabezaDeLaPareja
                 Hairline()
             }
             VStack(spacing: 0) {
@@ -197,6 +185,27 @@ struct FichaPanelSuperserie: View {
             .padding(.horizontal, Theme.Spacing.l)
         }
         .tarjetaDia(alAncho: true)
+    }
+
+    /// «4 rondas de la pareja» y, a la derecha, el descanso de al acabar cada ronda.
+    private var cabezaDeLaPareja: some View {
+        FilaAdaptableDia(alineacion: .firstTextBaseline) {
+            if let titular = bloque.titularDeLaPareja {
+                Text(titular)
+                    .papel(.notaPesada)
+                    .foregroundStyle(Theme.Color.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } derecha: {
+            if let descanso = bloque.descansoDeLaPareja {
+                Text(descanso)
+                    .papel(.nota)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.Color.muted)
+            }
+        }
+        .padding(.horizontal, Theme.Spacing.l)
+        .padding(.vertical, Theme.Spacing.m)
     }
 
     private func fila(_ m: MovimientoFicha) -> some View {
