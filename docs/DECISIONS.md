@@ -11,26 +11,31 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 ---
 
 
-## 2026-10-02 · La ficha de la sesión: dos propuestas para sustituir la pila de tarjetas (sin firmar)
+## 2026-10-02 · La ficha de la sesión: la ruta (B), firmada por Alex; la hoja (A) se descarta
 
 **Qué pasaba (Alex, abriendo el entreno de hoy):** la ficha previa «se ve mal, no se entiende, solo bloques de cosas». Medido sobre el Swift: un sujeto de 244 pt y una tarjeta por ejercicio de ~120 a 190 pt (con su tabla y su botón de técnica); con cuatro movimientos ya no ves la sesión, ves tres, y nada distingue lo que importa (qué toca, qué dejó escrito el coach, cuánto y con qué) de lo que no.
 
-**Qué se hizo:** dos propuestas en el doble (`/design/ficha-guion` y `/design/ficha-ruta`, colección «Plan», grupo «Lo que cuelga del Plan»), sobre UN contrato (`kit-ficha/contrato.ts`: lo que se LEE antes de empezar) y dieciséis sesiones para romperlo (cinco reales de la base, once de diseño). Las dos responden a las mismas preguntas en el mismo orden: qué es y cuánto lleva, qué quiere el coach (su nota ENTERA, con firma, antes de la lista), qué hago en cada parte, qué preparo, y «Empezar» anclado.
-- **A · La hoja:** una página, una línea de 64 pt por movimiento con la dosis y los kilos alineados a la derecha; el formato (EMOM, AMRAP, superserie…) se dice en la cabecera del bloque y organiza el bloque; calentamiento y vuelta a la calma plegados; series una a una, claves y vídeo detrás de un toque.
-- **B · La ruta:** un nodo por bloque, en orden y fijo arriba (mapa y control a la vez), y debajo UN bloque con la forma de su formato: tarjeta de fuerza con series una a una, EMOM como pista de minutos que alternan, simulación como recorrido de estaciones con la carrera entre una y otra, series de pista como su forma. Tocar un movimiento abre la técnica en una hoja.
+**Qué se hizo:** dos propuestas en el doble sobre UN contrato (`kit-ficha/contrato.ts`: lo que se LEE antes de empezar) y dieciséis sesiones para romperlo (cinco reales de la base, once de diseño). Las dos respondían a las mismas preguntas en el mismo orden: qué es y cuánto lleva, qué quiere el coach (su nota ENTERA, con firma, antes de la lista), qué hago en cada parte, y «Empezar» anclado. **Alex eligió B.** La A (una página con una línea de 64 pt por movimiento) se borró; vive en git (`d53a6ba87`).
 
-**Lo que el modelo tuvo que decir (hallazgos, valen para cualquiera de las dos):**
-- **La duración no se inventa:** o la escribe el coach, o se dice POR QUÉ no hay («Dura lo que tardes»…), igual que en el Plan. Por eso no hay línea de tiempo proporcional: prometería una precisión que nadie ha escrito.
+**B · La ruta (lo que se construye):** un nodo por bloque, en orden y fijo arriba (mapa y control a la vez), y debajo UN bloque con la forma de su formato: tarjeta de fuerza con las series una a una, EMOM como pista de minutos que alternan (un color por movimiento, no el de su modalidad), simulación como recorrido de estaciones con la carrera entre una y otra, series de pista como su forma. Tocar un movimiento abre su técnica. Se abre en el primer bloque de TRABAJO. Con un solo bloque no hay ruta. La chapa de formato solo sale en las simulaciones: un reloj, una pista o una pareja ya llevan su formato dentro.
+
+**Lo que el modelo tuvo que decir (valen para cualquier ficha):**
+- **La duración no se inventa:** o la escribe el coach, o se dice POR QUÉ no hay («Dura lo que tardes»…), con el mismo texto que el Plan. Por eso no hay línea de tiempo proporcional: prometería una precisión que nadie ha escrito.
 - **Los minutos de un bloque solo se enseñan si se saben** (los escritos o los que dicta el formato: un AMRAP de 12 son 12).
-- **El material es un atributo del ejercicio** (campo nuevo, como la modalidad en la 0053) y la lista solo cuenta los bloques de trabajo: la bici del calentamiento no es lo que hay que traer.
 - **Una simulación de 16 filas son 8 estaciones** precedidas de la misma carrera: se pliega solo cuando la alternancia es exacta.
-- **Dobles:** cada estación enseña TU parte y el total debajo.
-- **«Sin dosis» se ve como lo que es** (el nombre solo, y una línea que dice que el coach aún no lo ha escrito), nunca un 0.
-- **Sin vídeo no hay gesto dibujado:** un ejercicio sin clip lleva una loseta de su modalidad.
+- **Dobles:** cada estación enseña TU parte y el total debajo; la que hace tu pareja se atenúa.
+- **«Sin dosis» se ve como lo que es** (el nombre solo y una línea que dice que el coach aún no lo ha escrito), nunca un 0.
+- **Sin vídeo no hay gesto dibujado:** un ejercicio sin clip lleva una loseta de su modalidad; con clip, su póster.
+- **La nota del coach se lee ENTERA** si cabe en tres líneas; «Leer entera» solo aparece si de verdad se recorta.
 
-**Descartado:** la nota del coach recortada a una línea o escondida; un «Leer entera» sobre una nota que ya cabe; «Ya lo hice» dentro de la acción anclada (queda al final de la página: es un camino honesto pero no es la acción de la pantalla).
+**Descartado:** la hoja (A); la nota recortada a una línea; «Ya lo hice» dentro de la acción anclada (queda al final de la página); el kicker de modalidad («Fuerza · ≈ 55 min»), la pastilla «Objetivo Z4» y la fase del plan en la cabecera de la ficha (el Plan ya dice dónde estás en el bloque, y cada movimiento lleva su zona).
 
-**No hecho:** nada en Swift. Falta que Alex elija (o mezcle: la organización de A con la pista de EMOM y el recorrido de B), y después construirlo sobre `LecturaSesionPrevia` con tres campos más (material por ejercicio, minutos de bloque si se saben, reparto de Dobles).
+**En el doble y NO en la app todavía (declarado):**
+- **El material «Prepara · barra · discos»:** no existe como dato del ejercicio en la base (haría falta el campo en el catálogo y que el coach lo rellene).
+- **«La última vez»** de la sesión y de cada ejercicio: no hay endpoint que lo sirva a la ficha.
+Hasta que existan, el doble los enseña y la app no; el campo `enApp` del doble lo dice.
+
+**Swift:** la lectura (`LecturaFicha`, espejo del contrato) y las vistas sobre el kit «El día»; sustituyen a `BloquesPrevia`, `EjerciciosPrevia` y `SujetoPrevia`. «Continuar» pasa a «Empezar» (el flujo no cambia: sigue yendo a dispositivos y a preparar).
 
 ## 2026-09-30 · Diálogos del entreno en vivo, dispositivos y captura, con «El día»: fuera la piel vieja
 
