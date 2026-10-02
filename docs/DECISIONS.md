@@ -27,6 +27,10 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 - **«Sin dosis» se ve como lo que es** (el nombre solo y una línea que dice que el coach aún no lo ha escrito), nunca un 0.
 - **Sin vídeo no hay gesto dibujado:** un ejercicio sin clip lleva una loseta de su modalidad; con clip, su póster.
 - **La nota del coach se lee ENTERA** si cabe en tres líneas; «Leer entera» solo aparece si de verdad se recorta.
+- **Una simulación escrita bloque a bloque es UNA ruta también en la ficha:** dieciséis bloques `hyrox_sim` de un ejercicio se leen como las ocho estaciones, igual que los corre el motor (`joiningRouteLegs`). En Dobles el reparto se busca por ejercicio (`templateSegmentId`), no por bloque.
+- **Una superserie dice dónde cae el descanso:** al acabar cada ronda («desc. 1:30») cuando es el mismo en todas; y «sin descanso entre ellas» solo se afirma si el coach no escribió descanso entre los ejercicios.
+- **«Sin detalle» dice su motivo real:** el detalle no llegó (primera apertura sin red: «revisa tu conexión») o llegó sin ejercicios (el coach solo escribió la nota: «aún no ha detallado qué hacer, puedes empezar igualmente»). No se dice que falló la conexión cuando lo que falta es el detalle del coach.
+- **Los kilos de un %RM resuelto van en grande** y el porcentaje en la segunda línea del nombre; «Según tu 1RM · sin confirmar» solo sale cuando esa marca es una estimación pendiente (antes repetía los kilos y el porcentaje tres veces).
 
 **Descartado:** la hoja (A); la nota recortada a una línea; «Ya lo hice» dentro de la acción anclada (queda al final de la página); el kicker de modalidad («Fuerza · ≈ 55 min»), la pastilla «Objetivo Z4» y la fase del plan en la cabecera de la ficha (el Plan ya dice dónde estás en el bloque, y cada movimiento lleva su zona).
 

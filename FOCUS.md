@@ -2,11 +2,11 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-09-30** (complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: fuerza, ergo y correr en la cara nueva, entrada nueva y lanzamiento automático; modelo del reloj Garmin)
+Última actualización: **2026-10-02** (ficha de la sesión, la ruta, en Swift; complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: fuerza, ergo y correr en la cara nueva, entrada nueva y lanzamiento automático; modelo del reloj Garmin)
 
 ## Ahora
 
-**FICHA DE LA SESIÓN · LA RUTA (02-10, rama `ficha-ruta-swift`, worktree `ficha-b`; doble `/design/ficha-ruta`; DECISIONS 02-10).** Alex firmó la B (mapa de bloques fijo arriba y un bloque cada vez); la hoja A se borró. Lectura y vistas Swift hechas (`LecturaFicha`, `Workout/SesionPrevia/Ficha/`); borradas `BloquesPrevia`, `EjerciciosPrevia` y `SujetoPrevia`; compila (app y tests) y se vio en simulador en claro y oscuro; falta verla en aparato. Declarado fuera por falta de dato: material y «última vez». Sin fusionar.
+**FICHA DE LA SESIÓN · LA RUTA (02-10, rama `ficha-ruta-swift`, worktree `ficha-b`; doble `/design/ficha-ruta`; DECISIONS 02-10).** Alex firmó la B (mapa de bloques fijo arriba y un bloque cada vez); la hoja A se borró. Hecha en Swift (`LecturaFicha`, `Workout/SesionPrevia/Ficha/`; borradas `BloquesPrevia`, `EjerciciosPrevia` y `SujetoPrevia`), compila (app y tests) y se vio en simulador con 14 casos en claro, oscuro y texto muy grande (fuerza, superserie, Dobles, AMRAP y For Time, EMOM, simulación, series de pista, rodaje, prueba, libre, sin detalle de dos maneras, segunda pasada). Al verla se arreglaron: el descanso de la superserie, las simulaciones escritas bloque a bloque (una ruta, también en Dobles), el 1RM sin repetir kilos y «sin detalle» con su motivo real. Falta verla en aparato y con un vídeo de verdad. Declarado fuera por falta de dato: material y «última vez». Sin fusionar.
 
 **EDITOR DE CORRER · ENTORNO, AVISO Y FRASE PARA EL RELOJ (30-09, worktree `agent-a1e4bc45135113ff8`, sin fusionar; DECISIONS 30-09).** El coach ya edita por tramo dónde se corre (calle, cinta con inclinación, pista), hacia dónde avisa (defecto = su método) y una frase de 80 caracteres. Guardado probado contra rama Neon. Falta: firma de Alex del layout, y el reloj aplicando `alert`.
 
