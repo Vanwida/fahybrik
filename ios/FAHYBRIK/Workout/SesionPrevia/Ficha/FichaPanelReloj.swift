@@ -54,6 +54,13 @@ struct FichaPanelEmom: View {
     @ScaledMetric(relativeTo: .subheadline) private var altoDeLaCelda: CGFloat = 40
 
     private static let aireDeLaPista: CGFloat = 6
+    /// Cuánto tiñe su color el minuto de la pista, su contorno y el grosor de éste.
+    private static let tinteDeLaCelda = 0.24
+    private static let bordeDeLaCelda = 0.7
+    private static let grosorDelBorde: CGFloat = 1.5
+    /// El cuadradito de color de la leyenda.
+    private static let ladoDeLaLeyenda: CGFloat = 14
+    private static let radioDeLaLeyenda: CGFloat = 5
     /// Hasta cuántos minutos caben en seis columnas; con más, diez, para que la pista no crezca a lo alto.
     private static let minutosEnSeisColumnas = 12
 
@@ -101,8 +108,8 @@ struct FichaPanelEmom: View {
             .papel(.notaPesada)
             .foregroundStyle(Theme.Color.foreground)
             .frame(maxWidth: .infinity, minHeight: altoDeLaCelda)
-            .background(Theme.Color.tinte(color, 0.24, sobre: Theme.Color.surface), in: forma)
-            .overlay(forma.strokeBorder(color.opacity(0.7), lineWidth: 1.5))
+            .background(Theme.Color.tinte(color, Self.tinteDeLaCelda, sobre: Theme.Color.surface), in: forma)
+            .overlay(forma.strokeBorder(color.opacity(Self.bordeDeLaCelda), lineWidth: Self.grosorDelBorde))
     }
 
     /// La leyenda de la pista: cada movimiento con su color, su papel («Min impar») y su dosis.
@@ -119,9 +126,9 @@ struct FichaPanelEmom: View {
 
     private func fila(_ m: MovimientoFicha, color: SwiftUI.Color) -> some View {
         HStack(spacing: Theme.Spacing.m) {
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
+            RoundedRectangle(cornerRadius: Self.radioDeLaLeyenda, style: .continuous)
                 .fill(color)
-                .frame(width: 14, height: 14)
+                .frame(width: Self.ladoDeLaLeyenda, height: Self.ladoDeLaLeyenda)
                 .accessibilityHidden(true)
             FilaAdaptableDia(alineacion: .center) {
                 VStack(alignment: .leading, spacing: 2) {

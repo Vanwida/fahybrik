@@ -72,15 +72,19 @@ struct FichaMiniatura: View {
     @ViewBuilder
     private var marcaDeVideo: some View {
         if video != nil {
-            let lado = (tamano.alto * 0.4).rounded()
-            IconoDia(.play, tam: (lado * 0.5).rounded(), peso: .bold)
+            let lado = (tamano.alto * Self.proporcionDeLaMarca).rounded()
+            IconoDia(.play, tam: (lado * Self.proporcionDelTriangulo).rounded(), peso: .bold)
                 .foregroundStyle(Theme.Color.foreground)
                 .frame(width: lado, height: lado)
-                .background(Theme.Color.background.opacity(0.62), in: Circle())
+                .background(Theme.Color.background.opacity(Self.opacidadDelFondoDeLaMarca), in: Circle())
                 .padding(Theme.Spacing.xs)
         }
     }
 
+    /// La marca de vídeo: su lado respecto al alto de la miniatura, el triángulo respecto a la marca y la opacidad del fondo.
+    private static let proporcionDeLaMarca = 0.4
+    private static let proporcionDelTriangulo = 0.5
+    private static let opacidadDelFondoDeLaMarca = 0.62
     /// Una estación que hace tu pareja se enseña apagada: decorativa, así que aquí sí vale bajar la opacidad.
     private static let opacidadSiNoEsTuyo = 0.5
     /// Cuánto tiñe la modalidad el arranque de la loseta, y dónde acaba el degradado.

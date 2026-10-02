@@ -74,11 +74,13 @@ struct FichaDosis: View {
 struct FichaNombreConPunto: View {
     let movimiento: MovimientoFicha
 
+    private static let punto: CGFloat = 10
+
     var body: some View {
         HStack(spacing: Theme.Spacing.m - 2) {
             Circle()
                 .fill(Theme.Modality.color(movimiento.modalidad.rawValue))
-                .frame(width: 10, height: 10)
+                .frame(width: Self.punto, height: Self.punto)
                 .accessibilityHidden(true)
             Text(movimiento.nombre)
                 .papel(.cuerpoFuerte)

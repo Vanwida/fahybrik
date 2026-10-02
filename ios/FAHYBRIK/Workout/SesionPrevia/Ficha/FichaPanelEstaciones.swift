@@ -15,6 +15,9 @@ struct FichaPanelEstaciones: View {
     @ScaledMetric(relativeTo: .subheadline) private var nodo: CGFloat = 36
 
     private static let grosorDelRiel: CGFloat = 2
+    /// Cuánto tiñe su modalidad el nodo de una estación y el grosor de su borde.
+    private static let tinteDelNodo = 0.28
+    private static let grosorDelBordeDelNodo: CGFloat = 2
     /// Lo que el raíl se queda corto por arriba y por abajo: nace en el primer punto y acaba en el último nodo.
     private static let recorteDelRiel: CGFloat = 18
     private static let altoDeLaCarrera: CGFloat = 34
@@ -82,7 +85,7 @@ struct FichaPanelEstaciones: View {
             .papel(.notaPesada)
             .foregroundStyle(Theme.Color.foreground)
             .frame(width: nodo, height: nodo)
-            .background(Theme.Color.tinte(color, 0.28, sobre: Theme.Color.background), in: Circle())
-            .overlay(Circle().strokeBorder(color, lineWidth: 2))
+            .background(Theme.Color.tinte(color, Self.tinteDelNodo, sobre: Theme.Color.background), in: Circle())
+            .overlay(Circle().strokeBorder(color, lineWidth: Self.grosorDelBordeDelNodo))
     }
 }

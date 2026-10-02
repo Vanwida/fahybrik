@@ -144,6 +144,9 @@ private struct FichaSerieEscrita: View {
     let color: SwiftUI.Color
 
     private static let alto: CGFloat = 36
+    /// Cuánto tiñe la modalidad la ficha y su contorno.
+    private static let tinte = 0.14
+    private static let borde = 0.30
 
     var body: some View {
         let forma = RoundedRectangle(cornerRadius: Theme.Radius.l, style: .continuous)
@@ -154,8 +157,8 @@ private struct FichaSerieEscrita: View {
         .monospacedDigit()
         .padding(.horizontal, Theme.Spacing.m)
         .frame(minHeight: Self.alto)
-        .background(Theme.Color.tinte(color, 0.14, sobre: Theme.Color.surface), in: forma)
-        .overlay(forma.strokeBorder(color.opacity(0.30), lineWidth: 1))
+        .background(Theme.Color.tinte(color, Self.tinte, sobre: Theme.Color.surface), in: forma)
+        .overlay(forma.strokeBorder(color.opacity(Self.borde), lineWidth: 1))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Serie \(numero), \(texto)")
     }
@@ -169,6 +172,8 @@ struct FichaPanelSuperserie: View {
     let alAbrirTecnica: (WorkoutItem) -> Void
 
     @ScaledMetric(relativeTo: .subheadline) private var ficha: CGFloat = 34
+    /// Cuánto tiñe la modalidad la ficha del orden.
+    private static let tinteDelOrden = 0.20
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -217,6 +222,6 @@ struct FichaPanelSuperserie: View {
             .papel(.notaPesada)
             .foregroundStyle(Theme.Color.foreground)
             .frame(width: ficha, height: ficha)
-            .background(Theme.Color.tinte(color, 0.20, sobre: Theme.Color.surface), in: RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
+            .background(Theme.Color.tinte(color, Self.tinteDelOrden, sobre: Theme.Color.surface), in: RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
     }
 }
