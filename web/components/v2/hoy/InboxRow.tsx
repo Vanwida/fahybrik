@@ -9,8 +9,8 @@
 import { useRef } from 'react';
 import { Check, ChevronDown, Clock, MoreHorizontal } from 'lucide-react';
 import { Link, useRouter } from '@/i18n/navigation';
-import type { SignalAction } from '@fahybrid/shared/domain/coach/athlete-state';
-import type { HoyProposal, HoyRow } from '@/lib/dashboard/hoy/hoy-types';
+import type { AthleteSignal, SignalAction } from '@fahybrid/shared/domain/coach/athlete-state';
+import type { HoyGroupAction, HoyProposal, HoyRow, SystemicGroup } from '@/lib/dashboard/hoy/hoy-types';
 import {
   Avatar,
   Button,
@@ -25,6 +25,7 @@ import {
 import { PublishWeekControl, SIGNAL_ACTION_LABEL, SignalBadge } from '@/components/v2/shared';
 import type { SnoozeUntil } from '@/components/v2/shared/SnoozeMenu';
 import { actionHref, otherSignalsLabel } from './hoy-model';
+import { IndividualInboxRow } from './IndividualInboxRow';
 
 export const SNOOZE_OPTIONS: ReadonlyArray<{ until: SnoozeUntil; label: string }> = [
   { until: 'signal', label: 'Hasta nueva señal' },
@@ -34,6 +35,7 @@ export const SNOOZE_OPTIONS: ReadonlyArray<{ until: SnoozeUntil; label: string }
 
 export interface InboxRowProps {
   row: HoyRow;
+  now: Date;
   selected: boolean;
   active: boolean;
   negocio: boolean;
@@ -46,13 +48,19 @@ export interface InboxRowProps {
   proposal: HoyProposal | 'enviando' | null;
   onOpen: () => void;
   onToggle: (checked: boolean, shift: boolean) => void;
-  onAction: (action: SignalAction) => void;
-  onSnooze: (until: SnoozeUntil) => void;
-  onDone: () => void;
+  onAction: (action: SignalAction, signal?: AthleteSignal) => void;
+  onSnooze: (until: SnoozeUntil, signal?: AthleteSignal) => void;
+  onDone: (signal?: AthleteSignal) => void;
+  onGroupAction: (group: SystemicGroup, action: HoyGroupAction) => void;
   onChange: () => void;
 }
 
-export function InboxRow({
+export function InboxRow(props: InboxRowProps) {
+  if (props.row.causes?.length) return <IndividualInboxRow {...props} />;
+  return <SignalInboxRow {...props} />;
+}
+
+function SignalInboxRow({
   row,
   selected,
   active,
@@ -75,14 +83,14 @@ export function InboxRow({
   const kept = descarga != null && descarga !== 'enviando' && descarga.outcome === 'mantener' ? descarga : null;
   // Hay una descarga pendiente de aprobar: se revisa en su ficha.
   const proposedChange = descarga != null && descarga !== 'enviando' && descarga.outcome === 'propuesta';
-  const href = proposedChange ? `/atletas/${row.athlete_id}` : actionHref(action, row.athlete_id, negocio);
-  const label = proposedChange ? 'Ver propuesta' : SIGNAL_ACTION_LABEL[action];
+  const href = proposedChange ? `/atletas/${row.athlete_id}` : actionHref(action, row.athlete_id, negocio, primary.kind);
+  const label = proposedChange ? 'Ver propuesta' : primary.kind === 'review_1on1_due' ? 'Revisar 1:1' : SIGNAL_ACTION_LABEL[action];
   const busy = descarga === 'enviando';
   const others = otherSignalsLabel(row.other_count);
   const othersTitle = row.others.map((s) => s.label).join(' · ');
 
   const primaryEl = kept ? (
-    <Button size="sm" variant="secondary" icon={Check} onClick={onDone}>
+    <Button size="sm" variant="secondary" icon={Check} onClick={() => onDone()}>
       Hecho
     </Button>
   ) : action === 'publicar_semana' ? (
@@ -118,7 +126,7 @@ export function InboxRow({
     { type: 'label', label: 'Posponer' } as MenuEntry,
     ...SNOOZE_OPTIONS.map((o) => ({ label: o.label, onSelect: () => onSnooze(o.until) })),
     { type: 'separator' } as MenuEntry,
-    { label: 'Hecho', icon: Check, shortcut: 'E', onSelect: onDone },
+    { label: 'Hecho', icon: Check, shortcut: 'E', onSelect: () => onDone() },
   ];
 
   return (
@@ -185,7 +193,7 @@ export function InboxRow({
               }
               items={snoozeItems}
             />
-            {kept ? null : <IconButton icon={Check} label="Hecho" shortcut="E" size="sm" onClick={onDone} />}
+            {kept ? null : <IconButton icon={Check} label="Hecho" shortcut="E" size="sm" onClick={() => onDone()} />}
           </span>
           <span className="inline-flex @min-[800px]:hidden">
             <Menu

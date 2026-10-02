@@ -1,6 +1,6 @@
 'use client';
 
-// La tabla del roster: filas de 40 px, cabeceras que ordenan (aria-sort),
+// La tabla del roster: filas que crecen con el motivo, cabeceras que ordenan (aria-sort),
 // casillas con ⇧-rango, teclado J/K · X · Enter (DataTable). El nombre es un
 // enlace real a la ficha: clic normal abre el vistazo; ⌘/Ctrl-clic o botón
 // central abren la ficha en otra pestaña con la lista en `?desde=`.
@@ -32,7 +32,8 @@ export interface AthletesTableProps {
 /**
  * «Próximo» solo cuando cabe sin estrujar el motivo (≈ 1400 px con la barra
  * lateral). El ancho sobrante es para «Estado · motivo»: es la columna que
- * decide qué hacer; las demás van a su medida.
+ * decide qué hacer; las demás van a su medida. Entre 768 y 1279 px se conservan
+ * las señales de triaje; último entreno, carrera y respuesta se suman desde xl.
  */
 const WIDE_MIN = 1400;
 
@@ -72,7 +73,7 @@ export function AthletesTable({
       {
         id: 'atleta',
         header: 'Atleta',
-        width: '184px',
+        width: '164px',
         sortValue: SORT_VALUES.atleta,
         cell: (r) => (
           <Link
@@ -93,20 +94,21 @@ export function AthletesTable({
       {
         id: 'estado',
         header: 'Estado · motivo',
+        className: 'whitespace-normal py-2',
         sortValue: SORT_VALUES.estado,
         cell: (r) => <StatusCell row={r} />,
       },
       {
         id: 'semana',
         header: 'Semana',
-        width: '116px',
+        width: '112px',
         sortValue: SORT_VALUES.semana,
         cell: (r) => <WeekChip week={r.week_visibility} nextStart={r.next_start} />,
       },
       {
         id: 'readiness',
         header: 'Readiness 14 d',
-        width: '116px',
+        width: '112px',
         sortValue: SORT_VALUES.readiness,
         hideBelow: 'md',
         cell: (r) => <ReadinessMini readiness={r.readiness} today={today} />,
@@ -114,7 +116,7 @@ export function AthletesTable({
       {
         id: 'adherencia',
         header: 'Adh. 14 d',
-        width: '108px',
+        width: '96px',
         sortValue: SORT_VALUES.adherencia,
         hideBelow: 'md',
         cell: (r) => <AdherenceMini adherence={r.adherence_14d} windowDays={14} width={32} />,
@@ -122,10 +124,10 @@ export function AthletesTable({
       {
         id: 'ultimo_entreno',
         header: 'Últ. entreno',
-        width: '104px',
+        width: '100px',
         sortValue: SORT_VALUES.ultimo_entreno,
         defaultDir: DEFAULT_DIR.ultimo_entreno,
-        hideBelow: 'lg',
+        hideBelow: 'xl',
         cell: (r) => <LastSessionCell row={r} today={today} />,
       },
       ...(wide
@@ -142,9 +144,9 @@ export function AthletesTable({
       {
         id: 'carrera',
         header: 'Carrera',
-        width: '108px',
+        width: '100px',
         sortValue: SORT_VALUES.carrera,
-        hideBelow: 'lg',
+        hideBelow: 'xl',
         cell: (r) => <RaceCell row={r} />,
       },
       {
@@ -158,7 +160,7 @@ export function AthletesTable({
         width: '60px',
         sortValue: SORT_VALUES.responder,
         defaultDir: DEFAULT_DIR.responder,
-        hideBelow: 'lg',
+        hideBelow: 'xl',
         cell: (r) => <ReplyCell row={r} now={now} />,
       },
     ],

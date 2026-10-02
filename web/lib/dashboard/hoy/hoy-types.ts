@@ -3,7 +3,7 @@
 // rompen el contrato.
 
 import type { SignalKind } from '@fahybrid/shared/domain/coach/signals';
-import type { AthleteSignal } from '@fahybrid/shared/domain/coach/athlete-state';
+import type { AthleteSignal, AthleteStatusKey } from '@fahybrid/shared/domain/coach/athlete-state';
 
 export type SystemicKind =
   | 'awaiting_reply'
@@ -25,6 +25,15 @@ export interface SystemicGroup {
   week_start?: string | null;
   /** extra — leads y llamadas: sus ids, para la acción en bloque. */
   item_ids?: string[];
+  /** Identidad y causa individuales para cuando solo queda un afectado. */
+  rows?: HoyRow[];
+}
+
+export type HoyGroupAction = 'publish' | 'assign' | 'remind';
+export interface HoyCause {
+  signal: AthleteSignal;
+  /** Las causas basadas en hechos conservan la acción de su grupo. */
+  group?: Omit<SystemicGroup, 'rows'>;
 }
 
 /**
@@ -45,6 +54,8 @@ export interface HoyRow {
   name: string;
   avatar_url: string | null;
   level_label: string | null;
+  /** Estado del atleta; convertir un grupo en fila no cambia su estado. */
+  status_key?: AthleteStatusKey;
   primary: AthleteSignal;
   /** Señal elegida por el filtro; las acciones cierran solo esta causa. */
   scope_kind?: SignalKind;
@@ -58,6 +69,10 @@ export interface HoyRow {
   others: AthleteSignal[];
   /** extra — la respuesta del motor a «Proponer descarga» (ver `HoyProposal`). */
   proposal?: HoyProposal | null;
+  /** Causas reunidas en una fila personal, cada una con su propia acción. */
+  causes?: HoyCause[];
+  /** Inicio real de la espera (la edad del motor puede empezar después). */
+  awaiting_since?: string;
 }
 
 /** extra — una fila pospuesta (para «Pospuesto (n)» y deshacer). */

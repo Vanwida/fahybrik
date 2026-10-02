@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-10-02 · Segunda lectura del dashboard: un sujeto por vista y datos completos
+
+**Autorizado por Alex:** corregir la segunda pasada de `QA-coach-que-mirar.pdf` y publicarla. El contraste confirma los recortes de calendario/roster, la competencia entre calendario y estado, el vacío sin salida en Biblioteca y la repetición de explicaciones en Umbrales. Los clics reales de Leads → Cobros → Embudo sí funcionan en producción. En Hoy el mensaje pendiente y la revisión 1:1 son tareas distintas: agrupar su presentación no debe silenciar ninguna.
+
+**Modelo de lectura:** Plan da el ancho al calendario y recoge Estado del atleta en un detalle plegado con resumen; mantiene las alertas, el check-in completo, la lesión y sus acciones. Los títulos de sesión y motivos del roster se leen completos, con salto de línea. Hoy distingue las causas y sus acciones y evita presentar una tarea individual como «Afecta a varios». Biblioteca conserva enlaces explícitos y la categoría elegida; una categoría vacía ofrece creación y acceso a contenido existente. Umbrales muestra valor, unidad y procedencia; su explicación sigue disponible al abrir el detalle de la fila.
+
+**Método:** lectura de producción con sesión DB de solo lectura: la tabla existe, club 60 tiene cero filas de entrevista, cero respuestas y ningún párrafo generado/manual; tampoco documentos de método por club. El cero no es un contador sin actualizar. Niveles/zonas y entrevista son datos distintos; no se inventan respuestas ni se convierten valores de partida en entrevista contestada. «Entrevista sin empezar» explica el vacío, los capítulos van primero y el editor del párrafo se abre bajo demanda. Un párrafo manual existente se distingue de las preguntas contestadas.
+
+**Casos de diseño:** fuentes dadas por Alex (PDF y auditoría anterior): Leads con cinco abiertos; Cobros con renovaciones; Embudo vacío en 30 días y ocho en Todo; Plan de tres semanas y plan completo; títulos de correr/fuerza/remo/metcon; dos atletas con alta pendiente; mensaje y revisión distintos de un atleta; Entrenos cero con 99 bloques; seis umbrales con uno estimado; entrevista cero con cuatro grupos que muestran sus valores actuales; móvil a 390 px. Se conservan datos y mecanismos de dominio, con validación de navegación y lectura en la app publicada.
+
+---
+
 ## 2026-10-02 · Negocio recupera el acceso del club fundador antes de publicar el dashboard
 
 **El hueco:** el rediseño del 23-09 agrupó Leads, Pagos y Métricas en Negocio y movió Disponibilidad a Ajustes › Agenda y cupo. El portón exigía `coach_entitlements.feature='negocio'`, pero producción tenía cero filas de esa capacidad y ocho leads del club 60. Menú, búsqueda y enlaces directos quedaban cerrados. El cierre UX del 01-10 se había subido a una rama; todavía no estaba publicado en el dominio.

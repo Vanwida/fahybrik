@@ -1,6 +1,6 @@
 'use client';
 
-// Un entreno en el calendario: barra de modalidad, título entero (dos líneas) y su
+// Un entreno en el calendario: barra de modalidad, título entero con salto de línea y su
 // marca — ✓ hecho, ✕ debido sin hacer. Clic = abrirlo en el panel-editor;
 // arrastrar = moverlo (solo lo pendiente, a hoy o después). Es un dato del
 // calendario, no un botón de acción: por eso no es el primitivo Button.
@@ -76,7 +76,7 @@ export function SessionChip({
         style={{ background: s.modality ? MOD_VAR[s.modality] : 'var(--v2-border-strong)' }}
       />
       <span className="flex min-w-0 flex-1 flex-col">
-        <span lang="es" className="line-clamp-2 t-meta leading-4 font-medium text-v2-fg hyphens-auto">
+        <span lang="es" className="whitespace-normal t-body-sm leading-snug font-medium text-v2-fg [overflow-wrap:anywhere]">
           {s.title}
         </span>
         {s.libre ? <span className="t-meta leading-4 text-v2-faint">Libre</span> : null}

@@ -94,8 +94,8 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
 
   const inbox = useMemo(() => visibleInbox(view, pending, hiddenGroups, now), [view, pending, hiddenGroups, now]);
   const counts = useMemo(() => vistaCounts(inbox), [inbox]);
-  const critico = inbox.critico.flatMap((r) => rowForVista(r, vista, now) ?? []);
-  const vigilar = inbox.vigilar.flatMap((r) => rowForVista(r, vista, now) ?? []);
+  const critico = vista === 'responder' ? [] : inbox.critico.flatMap((r) => rowForVista(r, vista, now) ?? []);
+  const vigilar = vista === 'responder' ? [] : inbox.vigilar.flatMap((r) => rowForVista(r, vista, now) ?? []);
   const systemic = vista === 'altas' ? [] : inbox.systemic.filter((g) => groupInVista(g, vista));
   // Las esperas que aún no son fila solo salen en «Por responder» (como en Mensajes).
   const replies = vista === 'responder' ? inbox.replies.flatMap((r) => rowForVista(r, vista, now) ?? []) : [];
@@ -105,7 +105,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
   const rowsById = useMemo(() => {
     const m = new Map<string, HoyRow>();
     for (const r of view.snoozed_rows) m.set(r.athlete_id, r);
-    for (const r of [...inbox.critico, ...inbox.vigilar, ...inbox.replies]) {
+    for (const r of [...inbox.critico, ...inbox.vigilar, ...(vista === 'responder' ? inbox.replies : [])]) {
       const focused = rowForVista(r, vista, now);
       if (focused) m.set(r.athlete_id, focused);
     }
@@ -151,6 +151,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
   };
 
   const act = async (rows: HoyRow[], kind: 'done' | 'snooze', until: SnoozeUntil = 'signal') => {
+    rows = rows.filter((r) => r.snoozable);
     if (rows.length === 0) return;
     const removed = new Set(rows.map((r) => r.athlete_id));
     const next = nextAfterRemoval(order, removed, activeId);
@@ -161,7 +162,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
   };
 
   const keyTargets = (): HoyRow[] => {
-    if (selectionRows.length > 0) return selectionRows;
+    if (selectionRows.length > 0) return selectionRows.filter((r) => r.snoozable);
     const row = activeId ? rowsById.get(activeId) : null;
     return row && visibleIds.has(row.athlete_id) ? [row] : [];
   };
@@ -330,7 +331,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
                 title: 'Acción',
                 rows: critico,
                 fold: null,
-                note: vista === 'todo' ? accionInGroupsLabel(view.counts.accion_in_groups) : null,
+                note: vista === 'todo' ? accionInGroupsLabel(inbox.accion_in_groups) : null,
               },
               { id: 'hoy-vigilar', title: 'Vigilar', rows: vigilar, fold: VIGILAR_FOLD, note: null },
               { id: 'hoy-responder', title: 'Por responder', rows: replies, fold: null, note: null },
@@ -338,6 +339,7 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
               <RowSection
                 key={s.id}
                 {...s}
+                now={now}
                 expanded={vigilarOpen}
                 onExpand={setVigilarOpen}
                 activeId={activeId}
@@ -351,6 +353,11 @@ export function HoyInbox({ view, extras, negocio, setup, noAthletes, initialVist
                 onSnooze={(row, until) => void act([row], 'snooze', until)}
                 onDone={(row) => void act([row], 'done')}
                 onChange={refresh}
+                onGroupAction={(g, action) => {
+                  if (action === 'publish') setConfirmGroup(g);
+                  else if (action === 'remind') setRemindGroup(g);
+                  else setAssign({ ids: g.athlete_ids, people: peopleOf(g).map((p) => ({ id: p.athlete_id, name: p.name, avatar_url: p.avatar_url })) });
+                }}
               />
             ))}
 

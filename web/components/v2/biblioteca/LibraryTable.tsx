@@ -7,6 +7,7 @@
 // agrupa por título. Selección en bloque: etiquetar y archivar, con deshacer.
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { Archive, ArchiveRestore, Search, Tag as TagIcon } from 'lucide-react';
@@ -14,6 +15,7 @@ import type { LibraryRow, LibraryStatus } from '@/lib/dashboard/programming/libr
 import {
   BulkBar,
   Button,
+  buttonVariants,
   DataTable,
   EmptyState,
   FilterChip,
@@ -29,7 +31,11 @@ import { localToday, relativeDayLabel } from '@/components/v2/shared/format';
 import { matchesQuery, searchIndex } from '@/lib/dashboard/programming/search-key';
 import { TagDialog } from './TagDialog';
 import { LibraryPreview } from './LibraryPreview';
-import { defaultLibFilter, type LibFilter } from './library-filter';
+import { defaultLibFilter, libraryRecoveryFilter, type LibFilter } from './library-filter';
+
+const FILTER_LABEL: Record<LibFilter, string> = {
+  listos: 'listos', sin_dosis: 'incompletos', revisar: 'por revisar', duplicados: 'con títulos repetidos', archivados: 'archivados',
+};
 
 const STATUS: Record<LibraryStatus, { tone: StatusTone; label: string }> = {
   listo: { tone: 'ok', label: 'Listo' },
@@ -56,12 +62,14 @@ export function LibraryTable({
   noun,
   filter: asked,
   onFilter,
+  relatedCategory,
 }: {
   rows: LibraryRow[];
   noun: 'entreno' | 'bloque';
   /** null = la URL no pide ninguno: se abre en el de por defecto (defaultLibFilter). */
   filter: LibFilter | null;
   onFilter: (f: LibFilter) => void;
+  relatedCategory: { count: number; label: string; href: string; onOpen: () => void };
 }) {
   const locale = useLocale();
   const router = useRouter();
@@ -93,6 +101,7 @@ export function LibraryTable({
     archivados: indexed.length - live.length,
   };
   const filter = asked ?? defaultLibFilter(counts);
+  const recoveryFilter = libraryRecoveryFilter(counts, filter);
   const visible = indexed
     .filter(({ r }) => {
       if (filter === 'archivados') return r.archived;
@@ -155,8 +164,10 @@ export function LibraryTable({
   ];
 
   const empty =
-    q !== ''
+    q.trim() !== ''
       ? `Nada con «${q}»`
+      : rows.length === 0
+        ? `Todavía no has guardado ${noun === 'entreno' ? 'entrenos' : 'bloques'}`
       : filter === 'revisar'
         ? 'Nada por revisar'
         : filter === 'duplicados'
@@ -218,7 +229,25 @@ export function LibraryTable({
             onActiveChange={setActive}
             onRowOpen={(r) => router.push(hrefOf(r))}
             stickyTop={48}
-            empty={<EmptyState title={empty} />}
+            empty={<EmptyState
+              variant="page"
+              title={empty}
+              description={q.trim() ? 'Prueba otra búsqueda o quítala para ver el contenido de esta vista.' : rows.length === 0
+                ? `Crea un ${noun} para reutilizarlo en tus programas.${relatedCategory.count > 0 ? ` Ya tienes ${relatedCategory.count} ${relatedCategory.label} en tu biblioteca.` : ''}`
+                : recoveryFilter ? 'Hay contenido guardado en otra vista de esta categoría.' : 'Puedes crear contenido nuevo y volver a esta vista cuando lo necesites.'}
+              action={<>
+                {q.trim() ? <Button variant="primary" onClick={() => setQ('')}>Limpiar búsqueda</Button> : null}
+                {recoveryFilter ? <Button variant={q.trim() ? 'secondary' : 'primary'} onClick={() => { setQ(''); onFilter(recoveryFilter); }}>
+                  Ver {counts[recoveryFilter]} {FILTER_LABEL[recoveryFilter]}
+                </Button> : null}
+                <Link href={`/${locale}/programar/biblioteca/${noun}/nuevo`} className={buttonVariants({ variant: q.trim() || recoveryFilter ? 'secondary' : 'primary' })}>
+                  Crear {noun}
+                </Link>
+                {live.length === 0 && relatedCategory.count > 0 ? <Link href={relatedCategory.href} onClick={relatedCategory.onOpen} className={buttonVariants({ variant: 'secondary' })}>
+                  Ver {relatedCategory.count} {relatedCategory.label}
+                </Link> : null}
+              </>}
+            />}
           />
         </div>
         {activeRow ? <LibraryPreview row={activeRow} className="sticky top-16 hidden w-80 shrink-0 self-start xl:flex" /> : null}

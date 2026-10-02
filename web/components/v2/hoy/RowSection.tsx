@@ -5,17 +5,19 @@
 // con un «Ver N más» que SÍ despliega (el viejo «+ 38 más» no hacía nada).
 
 import type { SignalAction } from '@fahybrid/shared/domain/coach/athlete-state';
-import type { HoyProposal, HoyRow } from '@/lib/dashboard/hoy/hoy-types';
+import type { HoyGroupAction, HoyProposal, HoyRow, SystemicGroup } from '@/lib/dashboard/hoy/hoy-types';
 import { Button, List, SectionHeader } from '@/components/v2/ui';
 import type { SnoozeUntil } from '@/components/v2/shared/SnoozeMenu';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { InboxRow } from './InboxRow';
+import { causeRow } from './hoy-individuals';
 
 export function RowSection({
   id,
   title,
   note,
   rows,
+  now,
   fold,
   expanded,
   onExpand,
@@ -30,12 +32,14 @@ export function RowSection({
   onSnooze,
   onDone,
   onChange,
+  onGroupAction,
 }: {
   id: string;
   title: string;
   /** Una nota corta tras la cifra («+6 con el pago vencido»). */
   note?: string | null;
   rows: ReadonlyArray<HoyRow>;
+  now: Date;
   /** Plegar a partir de N (null = nunca). */
   fold: number | null;
   expanded: boolean;
@@ -52,6 +56,7 @@ export function RowSection({
   onSnooze: (row: HoyRow, until: SnoozeUntil) => void;
   onDone: (row: HoyRow) => void;
   onChange: () => void;
+  onGroupAction: (group: SystemicGroup, action: HoyGroupAction) => void;
 }) {
   if (rows.length === 0) return null;
   const folded = fold != null && !expanded && rows.length > fold;
@@ -72,6 +77,7 @@ export function RowSection({
             <InboxRow
               key={row.athlete_id}
               row={row}
+              now={now}
               active={activeId === row.athlete_id}
               selected={selected.has(row.athlete_id)}
               proposal={proposals.get(row.athlete_id) ?? row.proposal ?? null}
@@ -79,10 +85,11 @@ export function RowSection({
               weekStart={weekStart}
               onOpen={() => onOpen(row)}
               onToggle={(checked, shift) => onToggle(row, checked, shift)}
-              onAction={(action) => onAction(row, action)}
-              onSnooze={(until) => onSnooze(row, until)}
-              onDone={() => onDone(row)}
+              onAction={(action, signal) => onAction(signal ? causeRow(row, signal) : row, action)}
+              onSnooze={(until, signal) => onSnooze(signal ? causeRow(row, signal) : row, until)}
+              onDone={(signal) => onDone(signal ? causeRow(row, signal) : row)}
               onChange={onChange}
+              onGroupAction={onGroupAction}
             />
           ))}
         </div>

@@ -25,7 +25,7 @@ export interface SystemicRowProps {
   queueHref: string | null;
 }
 
-function GroupAction({ group, onPublish, onAssign, onRemind, queueHref }: Omit<SystemicRowProps, 'people' | 'onOpenAthlete'>) {
+export function GroupAction({ group, onPublish, onAssign, onRemind, queueHref }: Omit<SystemicRowProps, 'people' | 'onOpenAthlete'>) {
   switch (group.kind) {
     case 'awaiting_reply':
       // Mensajes abre por defecto en «Por responder», la más antigua primero.
@@ -38,13 +38,13 @@ function GroupAction({ group, onPublish, onAssign, onRemind, queueHref }: Omit<S
     case 'week_hidden':
       return (
         <Button size="sm" variant="secondary" icon={Send} onClick={onPublish}>
-          {toTheN('Publicar', group.count)}
+          {group.count === 1 ? 'Publicar semana' : toTheN('Publicar', group.count)}
         </Button>
       );
     case 'no_program':
       return (
         <Button size="sm" variant="secondary" icon={UserPlus} onClick={onAssign}>
-          {`${toTheN('Asignar', group.count)}…`}
+          {group.count === 1 ? 'Asignar programa…' : `${toTheN('Asignar', group.count)}…`}
         </Button>
       );
     case 'intake_pending':

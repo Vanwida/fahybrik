@@ -184,7 +184,7 @@ describe('composeHoy — filas', () => {
     expect(view.critico[0]!.age_label).toBe('2 h');
   });
 
-  it('Vigilar de Hoy = Vigilar de Atletas: un alta pendiente con avisos va en su grupo, no en otra fila', () => {
+  it('un alta pendiente conserva los avisos de otra causa, sin repetir el alta', () => {
     const view = composeHoy(
       input({
         facts: [facts('1', { intake_pending: true, onboarded_at: '2026-09-20T10:00:00Z' })],
@@ -192,7 +192,7 @@ describe('composeHoy — filas', () => {
       }),
     );
     expect(view.systemic.map((g) => g.kind)).toEqual(['intake_pending']);
-    expect(view.vigilar).toEqual([]);
+    expect(view.vigilar.map((r) => r.primary.kind)).toEqual(['missed_sessions']);
     expect(view.counts.needs_you).toBe(1);
   });
 
@@ -211,9 +211,9 @@ describe('composeHoy — filas', () => {
         ]),
       }),
     );
-    // «Sin plan» es su estado y su grupo: el RPE se ve al asignarle (no es otra fila).
+    // El grupo cubre el hueco de plan; el RPE es otra tarea y conserva su fila.
     expect(view.systemic.map((g) => g.kind)).toEqual(['no_program']);
-    expect(view.vigilar).toEqual([]);
+    expect(view.vigilar.map((r) => r.primary.kind)).toEqual(['rpe_high']);
   });
 
   it('una semana vacía con programa SÍ es fila (no la cubre ningún grupo)', () => {
@@ -381,4 +381,3 @@ describe('composeHoy — secciones = estado del atleta; la descarga dice lo que 
     expect(composeHoy(input({ facts: [facts('1')], signals: new Map([['1', live(descarga)]]), proposals: blind })).critico[0]!.proposal).toBeNull();
   });
 });
-

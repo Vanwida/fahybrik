@@ -11,6 +11,7 @@
 // que no manda.
 
 import { useId, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import type { AnclaResuelta, AnclasAtleta, ClaveDeclaracion } from '@fahybrid/shared/domain/analytics/anclas';
 import { LIMITES_DECLARACION } from '@fahybrid/shared/domain/analytics/anclas';
 import { Button, Input } from '@/components/v2/ui';
@@ -68,6 +69,7 @@ function FilaUmbral({ f, datos, athleteId, hoy, onDatos }: { f: Fila; datos: Umb
   const [borrador, setBorrador] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [detalle, setDetalle] = useState(false);
   // Lo declarado no manda cuando el peldaño que gana es otro (un test): se dice, no se esconde.
   const declaradaNoManda = declarada != null && resuelta != null && resuelta.ancla !== 'declarada';
 
@@ -98,28 +100,23 @@ function FilaUmbral({ f, datos, athleteId, hoy, onDatos }: { f: Fila; datos: Umb
   };
 
   return (
-    <div className="flex flex-col gap-2 border-b border-v2-border px-4 py-3 last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="t-body font-medium text-v2-fg">{f.etiqueta}</span>
-          {resuelta ? (
-            <>
-              <span className="t-body t-tnum text-v2-fg">{escribir(f, resuelta.valor)}</span>
-              <AnclaChip ancla={resuelta.ancla} />
-            </>
-          ) : (
-            <span className="t-body-sm text-v2-faint">sin umbral</span>
-          )}
+    <div className="flex min-w-0 flex-col gap-2 border-b border-v2-border px-4 py-3 last:border-b-0">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="t-body font-medium text-v2-fg">{f.etiqueta}</span>
+        {resuelta ? <>
+          <span className="t-title-sm t-tnum font-semibold text-v2-fg">{escribir(f, resuelta.valor)}</span>
+          <AnclaChip ancla={resuelta.ancla} />
+          {resuelta.desde_iso ? <span className="t-meta text-v2-muted">Desde el {fechaLegible(resuelta.desde_iso.slice(0, 10), hoy)}</span> : null}
+        </> : <span className="t-body font-medium text-v2-fg">Sin umbral</span>}
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          {!editando ? <Button size="sm" variant="secondary" disabled={guardando} onClick={abrir} aria-label={`${declarada ? 'Editar' : 'Declarar'} ${f.etiqueta}`}>
+            {declarada ? 'Editar' : 'Declarar'}
+          </Button> : null}
+          <Button size="sm" variant="ghost" iconEnd={ChevronDown} className={cn(detalle && '[&_svg]:rotate-180')} aria-label={`Detalles de ${f.etiqueta}`} aria-expanded={detalle} aria-controls={`${id}-detalle`} onClick={() => setDetalle((open) => !open)}>
+            Detalles
+          </Button>
         </div>
-        <p className="t-meta text-v2-muted">
-          {resuelta ? `${resuelta.explica_es}${resuelta.desde_iso ? ` · desde el ${fechaLegible(resuelta.desde_iso.slice(0, 10), hoy)}` : ''}.` : 'Sin test ni declaración: esa carga no se calcula.'}{' '}
-          <span className="text-v2-faint">{f.para}</span>
-        </p>
-        {declaradaNoManda && declarada ? (
-          <p className="t-meta text-v2-faint">
-            Declarado por {declarada.declared_by === 'coach' ? 'el coach' : 'el atleta'}: {escribir(f, declarada.value)}. No manda: {resuelta?.ancla === 'medida' ? 'hay un test' : 'hay un dato de más peso'}.
-          </p>
-        ) : null}
+      </div>
         {editando ? (
           <form
             className="mt-1 flex flex-wrap items-center gap-2"
@@ -169,19 +166,17 @@ function FilaUmbral({ f, datos, athleteId, hoy, onDatos }: { f: Fila; datos: Umb
             {error}
           </p>
         ) : null}
-      </div>
-      {!editando ? (
-        <div className="flex shrink-0 items-center gap-1.5">
-          {declarada ? (
-            <Button size="sm" variant="ghost" loading={guardando} onClick={() => void guardar(null)}>
-              Quitar lo declarado
-            </Button>
-          ) : null}
-          <Button size="sm" variant={resuelta == null || resuelta.ancla === 'poblacional' ? 'secondary' : 'ghost'} onClick={abrir}>
-            {declarada ? 'Cambiar' : 'Declarar'}
-          </Button>
+      <div id={`${id}-detalle`} hidden={!detalle}>
+        <div className="flex flex-col items-start gap-2 border-l border-v2-border pl-3">
+          <p className="t-body-sm text-v2-muted">{f.para}</p>
+          {resuelta ? <p className="t-body-sm text-v2-muted">{resuelta.explica_es}.</p> : null}
+          {declarada ? <p className="t-body-sm text-v2-muted">
+            Declarado por {declarada.declared_by === 'coach' ? 'el coach' : 'el atleta'}: {escribir(f, declarada.value)} · {fechaLegible(declarada.declared_at_iso.slice(0, 10), hoy)}.
+            {declaradaNoManda ? ` No manda: ${resuelta?.ancla === 'medida' ? 'hay un test' : 'hay un dato de más peso'}.` : ''}
+          </p> : null}
+          {declarada && !editando ? <Button size="sm" variant="ghost" loading={guardando} onClick={() => void guardar(null)}>Quitar lo declarado</Button> : null}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
@@ -192,7 +187,7 @@ export function Umbrales({ athleteId, inicial, hoy, onGuardado }: { athleteId: s
   return (
     <div className="flex flex-col gap-2">
       <p className="t-body-sm text-v2-muted">
-        Con un umbral medido o declarado, la carga de sus entrenos se calcula; uno estimado se usa y se marca; uno por edad no cuenta. Un test siempre gana a lo declarado.
+        Un umbral medido o declarado permite calcular carga; uno estimado se usa y se marca; uno por edad no cuenta. Si falta un umbral, esa carga no se calcula. El test del umbral tiene prioridad sobre lo declarado.
       </p>
       <div className="rounded-panel border border-v2-border bg-v2-surface">
         {FILAS.map((f) => (

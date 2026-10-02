@@ -9,6 +9,14 @@ export type LibFilter = 'listos' | 'sin_dosis' | 'revisar' | 'duplicados' | 'arc
 
 export const LIB_FILTERS: LibFilter[] = ['listos', 'sin_dosis', 'revisar', 'duplicados', 'archivados'];
 
+export type LibFilterCounts = Record<LibFilter, number>;
+
+/** Una salida explícita para un filtro vacío; no cambia el filtro elegido al entrar. */
+export function libraryRecoveryFilter(counts: LibFilterCounts, current: LibFilter): LibFilter | null {
+  if (counts[current] > 0) return null;
+  return (['listos', 'sin_dosis', 'revisar', 'archivados'] as const).find((filter) => counts[filter] > 0) ?? null;
+}
+
 export function defaultLibFilter(counts: { listos: number; revisar: number }): LibFilter {
   return counts.listos === 0 && counts.revisar > 0 ? 'revisar' : 'listos';
 }

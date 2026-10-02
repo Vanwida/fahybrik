@@ -1,7 +1,7 @@
 'use client';
 
 // Pestaña Plan del cockpit: el calendario editable (Semana / 3 semanas / Plan
-// completo) y la columna Estado. Un atleta con alta pendiente ve su checklist de
+// completo) y el detalle plegado de Estado. Un atleta con alta pendiente ve su checklist de
 // alta en su lugar; uno sin nada programado, «Asignar programa» aquí mismo (P12).
 // En móvil, agenda por días con las mismas sesiones y herramientas de semana.
 
@@ -132,7 +132,7 @@ export function PlanTab({
   }
 
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_328px]">
+    <div className="flex min-w-0 flex-col gap-4">
       <div className="flex min-w-0 flex-col gap-3">
         {shell.program || shell.group ? (
           <div aria-label="Origen del plan" className="flex flex-wrap items-baseline gap-x-4 gap-y-1 t-body-sm text-v2-muted">
@@ -141,13 +141,13 @@ export function PlanTab({
           </div>
         ) : null}
         {toolbar}
+        <EstadoColumn estado={estado} upcoming={upcoming} onRetry={() => router.refresh()} />
         <div className="md:hidden">
           {noPlan && !hasLibre && c.zoom !== 'plan' ? body : <MobileAgenda calendar={cal} error={c.error} loading={c.loading} onRetry={c.retry} />}
         </div>
         <div className="hidden md:block">{body}</div>
         <PersonalPlanChain />
       </div>
-      <EstadoColumn estado={estado} upcoming={upcoming} onRetry={() => router.refresh()} />
     </div>
   );
 }
