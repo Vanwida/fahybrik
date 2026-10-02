@@ -6,11 +6,17 @@ import SwiftUI
 // Son casos, no datos de producción: cada uno cubre una forma del dominio que la ficha tiene que saber pintar, y
 // pasa por el mismo camino que la app (`PreWorkoutBriefView` → `LecturaSesionPrevia` → `LecturaFicha.desde`).
 //
-//   · fuerza: una rampa de cargas con tempo y descanso, un %RM resuelto a kilos con tu 1RM y la nota del coach;
+//   · fuerza: una rampa de cargas con tempo y descanso, un %RM resuelto a kilos con tu 1RM (uno confirmado y otro no)
+//     y la nota del coach;
 //   · simulación: ocho estaciones precedidas de la misma carrera;
 //   · EMOM: dos movimientos que se alternan minuto a minuto;
 //   · series: una carrera por tramos con su estructura (seis veces fuerte, trote en medio);
-//   · sin detalle: la asignación llega sin ejercicios.
+//   · superserie: dos ejercicios que rotan sin pausa, en UNA tarjeta;
+//   · dobles: estaciones tuyas, de tu pareja y a medias;
+//   · metcon: un AMRAP y, después, unas rondas For Time, cada uno con su reloj;
+//   · rodaje: un solo bloque y una sola cosa, sin ruta;
+//   · prueba: una marca, que se mide con la app y no tiene camino a mano;
+//   · sin detalle: la asignación llega sin ejercicios, o no llega.
 
 enum EjemplosPrevia {
 
@@ -35,6 +41,9 @@ enum EjemplosPrevia {
                 item(4, "Bench Press", "strength",
                      rx(.sets, .strength, Array(repeating: serie(.reps(8), .percentRM(value: 70, min: nil, max: nil), descanso: 120, tempo: "2-0-1"), count: 4)),
                      carga: ResolvedLoad(pctLabel: "70 %", kgLabel: "56 kg", minKg: 56, maxKg: nil, oneRmKg: 80, needsReview: false)),
+                item(7, "Overhead Press", "strength",
+                     rx(.sets, .strength, Array(repeating: serie(.reps(6), .percentRM(value: 65, min: nil, max: nil), descanso: 120), count: 3)),
+                     carga: ResolvedLoad(pctLabel: "65 %", kgLabel: "39 kg", minKg: 39, maxKg: nil, oneRmKg: 60, needsReview: true)),
                 item(5, "Pull-Up", "strength",
                      rx(.sets, .strength, Array(repeating: serie(.reps(6), .rpe(value: 8, min: nil, max: nil), descanso: 90), count: 3))),
             ]),
@@ -105,7 +114,92 @@ enum EjemplosPrevia {
         ])
     }
 
-    /// La asignación sin detalle (primera apertura sin red): el plan conserva el título.
+    /// Dos ejercicios que rotan: press y dominadas, cuatro rondas. Un bloque `superset` los pliega en una sola tarjeta.
+    /// El descanso (90 s) lo escribe el coach en el ÚLTIMO ejercicio: es el de al acabar la ronda.
+    static var superserie: AssignmentDetail {
+        func cuatroSeries(_ medida: Measure, _ objetivo: Target, descanso: Int? = nil) -> Prescription {
+            rx(.sets, .strength, Array(repeating: serie(medida, objetivo, descanso: descanso), count: 4))
+        }
+        return detalle("Empuje y tirón", nota: nil, minutos: 45, bloques: [
+            bloque(1, "Calentamiento", "straight_sets", [
+                item(1, "Band Pull-Apart", "mobility", rx(.sets, .mobility, [serie(.reps(15)), serie(.reps(15))])),
+            ]),
+            bloque(2, "Empuje y tirón", "superset", [
+                item(2, "Strict Press", "strength", cuatroSeries(.reps(6), .kg(value: 40, min: nil, max: nil))),
+                item(3, "Pull-Up", "strength", cuatroSeries(.reps(6), .rpe(value: 8, min: nil, max: nil), descanso: 90)),
+            ], nota: "El press, sin trampa: si se te va la espalda, baja el peso."),
+        ])
+    }
+
+    /// Dobles con Marta, como lo escribe el coach: un bloque `hyrox_sim` de un ejercicio por tramo (carrera, estación, carrera…),
+    /// que la ficha une en UNA ruta y el motor corre estación a estación. El SkiErg es tuyo, el remo lo hace ella y las otras
+    /// dos se reparten a medias.
+    static var dobles: AssignmentDetail {
+        let paradas: [Parada] = [
+            Parada("SkiErg", "ski_erg", .ski, .distance(meters: 1000)),
+            Parada("Sled Push", "functional", .functional, .distance(meters: 50), kg: 152),
+            Parada("Rowing", "rowing", .row, .distance(meters: 1000)),
+            Parada("Wall Balls", "functional", .functional, .reps(100), kg: 9),
+        ]
+        let tramos = paradas.enumerated().flatMap { i, parada in
+            [bloque(2 + 2 * i, "Run \(i + 1)", "hyrox_sim", [
+                item(2 * i + 1, "Run", "running", rx(.forTime, .run, [serie(.distance(meters: 1000))])),
+             ]),
+             bloque(3 + 2 * i, parada.nombre, "hyrox_sim", [
+                item(2 * i + 2, parada.nombre, parada.categoria, rx(.forTime, parada.modalidad, [serie(parada.medida, parada.carga)])),
+             ])]
+        }
+        let estaciones = StationAssignment(stations: [
+            reparto(2, "SkiErg", a: "a"),
+            reparto(4, "Sled Push", a: "split", tuParte: 0.5, nota: "alterna 25 m"),
+            reparto(6, "Rowing", a: "b"),
+            reparto(8, "Wall Balls", a: "split", tuParte: 0.5),
+        ], partnerFirstName: "Marta")
+        let calentamiento = bloque(1, "Calentamiento", "straight_sets", [
+            item(100, "BikeErg", "bike_erg", rx(.sets, .bike, [serie(.duration(seconds: 300), .rpe(value: 3, min: nil, max: nil))])),
+        ])
+        return detalle("Dobles · cuatro estaciones", nota: nil, minutos: nil, bloques: [calentamiento] + tramos,
+                       estaciones: estaciones, miRol: "a")
+    }
+
+    /// Dos bloques con reloj: un AMRAP de doce minutos y tres rondas For Time con tope de catorce.
+    static var metcon: AssignmentDetail {
+        detalle("Metcon doble", nota: "El AMRAP a ritmo constante; el For Time, a tope.", minutos: 40, bloques: [
+            bloque(1, "Calentamiento", "straight_sets", [
+                item(1, "BikeErg", "bike_erg", rx(.sets, .bike, [serie(.duration(seconds: 300), .rpe(value: 3, min: nil, max: nil))])),
+            ]),
+            bloque(2, "AMRAP 12", "amrap", [
+                item(2, "Wall Balls", "functional", rx(.amrap, .functional, [serie(.reps(15), .kg(value: 9, min: nil, max: nil))], tope: 720)),
+                item(3, "Box Jump", "functional", rx(.amrap, .functional, [serie(.reps(10))], tope: 720)),
+                item(4, "Burpees", "functional", rx(.amrap, .functional, [serie(.reps(5))], tope: 720)),
+            ]),
+            bloque(3, "For Time", "for_time", [
+                item(5, "Rowing", "rowing", rx(.forTime, .row, [serie(.distance(meters: 500))], rondas: 3, tope: 840)),
+                item(6, "Thrusters", "functional", rx(.forTime, .functional, [serie(.reps(15), .kg(value: 30, min: nil, max: nil))], rondas: 3, tope: 840)),
+                item(7, "Pull-Up", "strength", rx(.forTime, .functional, [serie(.reps(15))], rondas: 3, tope: 840)),
+            ]),
+        ])
+    }
+
+    /// Un rodaje: un solo bloque con una sola cosa, así que la ficha se lee directa, sin ruta.
+    static var rodaje: AssignmentDetail {
+        detalle("Rodaje suave", nota: "Que puedas hablar todo el rato.", minutos: 45, bloques: [
+            bloque(1, "Rodaje", "steady", [
+                item(1, "Carrera", "running", rx(.steady, .run, [serie(.duration(seconds: 2700), .hrZone(value: 2, min: nil, max: nil))])),
+            ]),
+        ])
+    }
+
+    /// Una prueba de 5 km: se mide con la app (el contexto la marca como prueba) y no tiene camino a mano.
+    static var prueba: AssignmentDetail {
+        detalle("Test de 5 km", nota: "Sal a tu ritmo de carrera y aguanta. Quiero ver tu marca real.", minutos: nil, bloques: [
+            bloque(1, "Test", "for_time", [
+                item(1, "Carrera", "running", rx(.forTime, .run, [serie(.distance(meters: 5000))])),
+            ]),
+        ])
+    }
+
+    /// La asignación llegó, pero el coach solo escribió la nota: el plan conserva el título.
     static var sinDetalle: AssignmentDetail {
         detalle("Series en cuesta", nota: "Hoy sal a rodar por sensaciones. Te escribo el detalle por el chat.", minutos: nil, bloques: [])
     }
@@ -162,9 +256,15 @@ enum EjemplosPrevia {
     }
 
     private static func rx(_ esquema: PrescriptionScheme, _ modalidad: PrescriptionModality, _ series: [PrescriptionSet]?,
-                           rondas: Int? = nil, structure: RunStructure? = nil) -> Prescription {
+                           rondas: Int? = nil, tope: Int? = nil, structure: RunStructure? = nil) -> Prescription {
         Prescription(scheme: esquema, modality: modalidad, sets: series, rounds: rondas, workS: nil, restS: nil,
-                     totalS: nil, target: nil, note: nil, start: nil, increment: nil, structure: structure)
+                     totalS: tope, target: nil, note: nil, start: nil, increment: nil, structure: structure)
+    }
+
+    /// Lo que el coach repartió de una estación de Dobles (`a`/`b`: de quién es; `split`: a medias, con tu parte).
+    private static func reparto(_ id: Int, _ nombre: String, a quien: String, tuParte: Double? = nil, nota: String? = nil) -> StationAssignmentEntry {
+        StationAssignmentEntry(name: nombre, assignedTo: quien, templateSegmentId: id, stationIndex: id / 2, label: nombre,
+                               selfShare: tuParte, note: nota)
     }
 
     private static func item(_ id: Int, _ nombre: String, _ categoria: String, _ rx: Prescription,
@@ -180,11 +280,12 @@ enum EjemplosPrevia {
                      coachNote: nota, configJson: nil, items: items)
     }
 
-    private static func detalle(_ nombre: String, nota: String?, minutos: Int?, bloques: [WorkoutBlock]) -> AssignmentDetail {
+    private static func detalle(_ nombre: String, nota: String?, minutos: Int?, bloques: [WorkoutBlock],
+                                estaciones: StationAssignment? = nil, miRol: String? = nil) -> AssignmentDetail {
         AssignmentDetail(
             assignment: AssignmentInfo(id: "1", athleteId: "a", scheduledFor: "2026-09-30", status: "scheduled",
                                        slot: nil, templateId: nil, templateVersion: nil, completedAt: nil,
-                                       perceivedExertion: nil, stationAssignment: nil, myRole: nil, storeResults: nil),
+                                       perceivedExertion: nil, stationAssignment: estaciones, myRole: miRol, storeResults: nil),
             workout: WorkoutDetail(name: nombre, focus: nil, coachNote: nota, estimatedDurationMinutes: minutos,
                                    blocks: bloques, storeResults: nil),
             execution: nil, runCompliance: nil, clockPrescription: nil, clockFormat: nil
@@ -194,10 +295,11 @@ enum EjemplosPrevia {
 
 // MARK: - Previews
 
-/// La ficha de un caso, con el contexto que le daría el Plan.
-private func ficha(_ detalle: AssignmentDetail, listo: Bool = false) -> some View {
-    PreWorkoutBriefView(plan: EjemplosPrevia.plan(de: detalle), detail: detalle, onStart: {}, onManualLog: {},
-                        showCaptureLog: true, contexto: EjemplosPrevia.contexto, onClose: {}, readyToStart: listo)
+/// La ficha de un caso, con el contexto que le daría el Plan. `llega: false` es la apertura sin red: el plan existe y su detalle no.
+private func ficha(_ detalle: AssignmentDetail, llega: Bool = true, listo: Bool = false,
+                   contexto: ContextoFicha = EjemplosPrevia.contexto) -> some View {
+    PreWorkoutBriefView(plan: EjemplosPrevia.plan(de: detalle), detail: llega ? detalle : nil, onStart: {}, onManualLog: {},
+                        showCaptureLog: true, contexto: contexto, onClose: {}, readyToStart: listo)
 }
 
 #Preview("Ficha · fuerza con rampa") { ficha(EjemplosPrevia.fuerza) }
@@ -211,7 +313,21 @@ private func ficha(_ detalle: AssignmentDetail, listo: Bool = false) -> some Vie
 
 #Preview("Ficha · series · lista para empezar") { ficha(EjemplosPrevia.series, listo: true) }
 
-#Preview("Ficha · sin detalle") { ficha(EjemplosPrevia.sinDetalle) }
+#Preview("Ficha · superserie") { ficha(EjemplosPrevia.superserie) }
+
+#Preview("Ficha · dobles") { ficha(EjemplosPrevia.dobles) }
+
+#Preview("Ficha · metcon") { ficha(EjemplosPrevia.metcon) }
+
+#Preview("Ficha · rodaje · un solo bloque") { ficha(EjemplosPrevia.rodaje) }
+
+#Preview("Ficha · prueba") {
+    ficha(EjemplosPrevia.prueba, contexto: ContextoFicha(cuando: "Hoy", coach: "Pablo", esMarca: true))
+}
+
+#Preview("Ficha · sin ejercicios") { ficha(EjemplosPrevia.sinDetalle) }
+
+#Preview("Ficha · sin detalle · sin red") { ficha(EjemplosPrevia.sinDetalle, llega: false) }
 
 #Preview("Puerta · un ítem") {
     let p = EjemplosPrevia.puertaUnaCosa
