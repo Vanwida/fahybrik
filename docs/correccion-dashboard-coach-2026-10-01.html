@@ -21,7 +21,13 @@
 <section id="estado" class="callout" aria-labelledby="estado-title">
 <h2 id="estado-title">Pruebas y recorridos locales cerrados</h2>
 <p>Los 14 hallazgos tienen su corrección implementada. Las 269 pruebas unitarias y los 57 casos distintos con base de datos pasan. También pasan la comprobación de tipos y el análisis de código del paquete web. Los recorridos locales comprobados incluyen el detalle de un comunicado publicado y la previa para varios destinatarios.</p>
-<p class="note">Esta revisión no incluye publicación en producción. Los límites de dispositivo, notificaciones y comprensión humana se precisan al final.</p>
+<p class="note">Las pruebas de este apartado corresponden al cierre local del 1 de octubre. La activación y publicación del 2 de octubre se registran a continuación; los límites de dispositivo, notificaciones y comprensión humana se precisan al final.</p>
+</section>
+<section id="negocio" class="callout" aria-labelledby="negocio-title">
+<h2 id="negocio-title">2 de octubre: Negocio activado y publicación en curso</h2>
+<p>Existían cuatro accesos: Leads, Pagos, Métricas y Disponibilidad. Los tres primeros se agruparon en <strong>Negocio → Leads, Cobros y Embudo</strong>; Disponibilidad pasó a <strong>Ajustes → Agenda y cupo</strong>. Las llamadas, fichas, formularios y lista de espera siguen dentro de Leads.</p>
+<p>El rediseño exigía una activación por club que no se había dado de alta. Se ha recuperado el permiso de Negocio del club fundador en producción: activo, ocho leads conservados y segunda ejecución sin cambios. La cabecera de Negocio recupera el acceso a Agenda y cupo. Se mantiene el aislamiento entre coaches.</p>
+<p class="note">Alex ha autorizado publicar todas las correcciones y comprobarlas sobre producción. La integración conserva la biblioteca ya publicada y las propuestas posteriores del doble. El recorrido visual autenticado requiere iniciar sesión en el navegador.</p>
 </section>
 <section id="cambio">
 <h2>Cómo queda el trabajo del coach</h2>
@@ -156,7 +162,7 @@
 <section id="limites">
 <h2>Límites y siguiente comprobación</h2>
 <ul class="limits">
-<li>No se ha desplegado esta corrección ni se ha modificado producción.</li>
+<li>El cierre del 1 de octubre era local. El 2 de octubre se ha activado Negocio en producción y está en curso la publicación de las correcciones.</li>
 <li>No se ha probado la recepción de notificaciones APNS, la reproducción de un audio real ni la experiencia en un dispositivo físico.</li>
 <li>La vista móvil se ha comprobado a 390 px en el navegador; no demuestra el resultado en todos los teléfonos o tamaños.</li>
 <li>Las pruebas automáticas comprueban comportamientos concretos. No se ha realizado una prueba humana que confirme que el dashboard resulte fácil de entender durante el trabajo diario.</li>

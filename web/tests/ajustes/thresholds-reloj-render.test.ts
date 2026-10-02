@@ -5,13 +5,16 @@
 
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '@/components/v2/ui';
 import { ThresholdsSettings } from '@/components/v2/ajustes/ThresholdsSettings';
 import { THRESHOLD_COPY, THRESHOLD_SECTIONS } from '@/components/v2/ajustes/threshold-copy';
 import { COACH_THRESHOLD_KEYS, DEFAULT_COACH_THRESHOLDS, mergeCoachThresholds } from '@fahybrid/shared/domain/coach/signal-thresholds';
 import { DEFAULT_WRIST_RPE_WORDS } from '@fahybrid/shared/domain/coach/wrist-method';
 import type { CoachSignalThresholdsResponse } from '@fahybrid/shared/schema/coach-signal-thresholds';
+
+// La pantalla refresca los resúmenes del servidor tras guardar; este render no navega.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 function response(over: Partial<CoachSignalThresholdsResponse> = {}, overrides = {}): CoachSignalThresholdsResponse {
   const effective = mergeCoachThresholds(overrides);

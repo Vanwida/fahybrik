@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-10-02 · Negocio recupera el acceso del club fundador antes de publicar el dashboard
+
+**El hueco:** el rediseño del 23-09 agrupó Leads, Pagos y Métricas en Negocio y movió Disponibilidad a Ajustes › Agenda y cupo. El portón exigía `coach_entitlements.feature='negocio'`, pero producción tenía cero filas de esa capacidad y ocho leads del club 60. Menú, búsqueda y enlaces directos quedaban cerrados. El cierre UX del 01-10 se había subido a una rama; todavía no estaba publicado en el dominio.
+
+**Autorizado por Alex (02-10):** resolver la activación y llevar todas las correcciones del dashboard a producción. Se activa únicamente Negocio del club 60 como alta manual `source='founder'`; no se cambia el modelo comercial por club ni el aislamiento. Alta idempotente por el módulo de entitlements, validada con Zod, transaccional y auditada. Un permiso gestionado por Stripe no se reactiva desde la operación manual. `infra/scripts/activate_coach_addon.ts` comprueba sin escribir por defecto y exige `--apply` para el alta; nunca imprime credenciales.
+
+**Conexión recuperada:** Leads, Cobros y Embudo mantienen sus tres pestañas; Agenda y cupo vuelve a estar accesible desde esa cabecera como configuración secundaria. La integración conserva la biblioteca ya publicada y las propuestas del doble añadidas después. La validación final se hace también sobre producción, como pide Alex; el recorrido autenticado depende de una sesión de navegador disponible, sin desactivar la autenticación.
+
+**Comprobado en producción:** permiso antes ausente, después activo; repetir el alta no modifica nada; ocho leads conservados. Sin migración ni alta global por defecto. No ejecutar suites de fixtures contra producción ni modificar su cortafuegos de Vitest: las comprobaciones de producción son el permiso real, los lectores y la app desplegada.
+
+---
+
 ## 2026-10-01 · Dashboard del coach: resumen con detalle, contexto y entrega comprobable
 
 **Aprobado por Alex:** implementar todas las recomendaciones de `docs/auditoria-dashboard-coach-2026-10-01.html`. Se conserva el mapa principal. Rendimiento abre un resumen y separa carga, progreso, sesiones, carreras, salud y calibración; Método agrupa por propósito y muestra valores actuales antes de abrir parámetros. No se elimina capacidad para reducir densidad. Los enlaces anteriores abren su capa y los enlaces atleta → grupo → programa conservan un regreso interno con periodo y vista.

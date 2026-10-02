@@ -116,23 +116,28 @@ export async function insertSlotAssignment(params: {
   // 'missed') el atleta ya actuó sobre esa fila: se deja intacta, siempre — la
   // misma guarda que usa `markAssignmentDoneFromDevice` (lib/sync/assignment-status.ts).
   const dup = await params.client<Array<{ id: string; status: string }>>`
-    select id::text, status::text from workout_assignments
-    where athlete_id = ${params.athlete_id as number}
-      and scheduled_for = ${params.scheduled_for}::date
-      and notes = ${`slot:${params.slot}`}
+    select wa.id::text, wa.status::text from workout_assignments wa
+    join athletes a on a.id = wa.athlete_id and a.coach_id = ${Number(params.coach_id)}
+    where wa.athlete_id = ${params.athlete_id as number}
+      and wa.scheduled_for = ${params.scheduled_for}::date
+      and wa.notes = ${`slot:${params.slot}`}
     limit 1
   `;
   if (dup.length > 0) {
     if (dup[0]!.status !== 'scheduled') return { count: 0, drop: null };
-    await params.client`
-      update workout_assignments
+    const updated = await params.client<Array<{ id: string }>>`
+      update workout_assignments wa
       set template_id = ${templateId}, template_version = ${version}, updated_at = now()
-      where id = ${Number(dup[0]!.id)}
+      from athletes a
+      where wa.id = ${Number(dup[0]!.id)} and wa.athlete_id = a.id
+        and a.id = ${Number(params.athlete_id)} and a.coach_id = ${Number(params.coach_id)}
+      returning wa.id::text
     `;
+    if (!updated[0]) throw new Error('No se ha podido actualizar el entreno de este atleta.');
     return { count: 1, drop: content.drop };
   }
 
-  await params.client`
+  const inserted = await params.client<Array<{ id: string }>>`
     insert into workout_assignments (
       athlete_id,
       microcycle_id,
@@ -142,16 +147,20 @@ export async function insertSlotAssignment(params: {
       status,
       notes
     )
-    values (
-      ${params.athlete_id as number},
-      ${Number(params.microcycle_id)},
+    select
+      a.id,
+      mc.id,
       ${params.scheduled_for}::date,
       ${templateId},
       ${version},
-      'scheduled',
+      'scheduled'::assignment_status,
       ${`slot:${params.slot}`}
-    )
+    from athletes a join microcycles mc on mc.athlete_id = a.id
+    where a.id = ${Number(params.athlete_id)} and a.coach_id = ${Number(params.coach_id)}
+      and mc.id = ${Number(params.microcycle_id)}
+    returning id::text
   `;
+  if (!inserted[0]) throw new Error('No se ha podido crear el entreno de este atleta.');
   return { count: 1, drop: content.drop };
 }
 
@@ -163,14 +172,18 @@ export async function pruneRemovedSlotAssignments(params: {
   keep_notes: string[];
 }): Promise<void> {
   await params.client`
-    delete from workout_assignments
-    where athlete_id = ${params.athlete_id as number}
-      and microcycle_id = ${Number(params.microcycle_id)}
-      and scheduled_for = ${params.scheduled_for}::date
-      and status = 'scheduled'
-      and notes like 'slot:%'
-      and coalesce(origin, 'coach') <> 'self'
-      and not (notes = any(${params.keep_notes}::text[]))
+    delete from workout_assignments wa
+    using microcycles mc, athletes a, program_week_templates w
+    where wa.athlete_id = ${params.athlete_id as number}
+      and wa.microcycle_id = ${Number(params.microcycle_id)}
+      and mc.id = wa.microcycle_id and mc.athlete_id = wa.athlete_id
+      and a.id = wa.athlete_id and w.id = mc.source_week_template_id
+      and w.coach_id = a.coach_id
+      and wa.scheduled_for = ${params.scheduled_for}::date
+      and wa.status = 'scheduled'
+      and wa.notes like 'slot:%'
+      and coalesce(wa.origin, 'coach') <> 'self'
+      and not (wa.notes = any(${params.keep_notes}::text[]))
   `;
 }
 
