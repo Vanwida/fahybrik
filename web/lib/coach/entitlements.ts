@@ -12,6 +12,8 @@
 // por este módulo.
 
 import { sql as defaultSql, type Sql, type TransactionClient } from '@/lib/db';
+import { z } from 'zod';
+import { recordAudit } from '@/lib/audit/record-edit';
 
 /**
  * Las capacidades que se contratan aparte de la cuenta. Hoy una.
@@ -69,4 +71,47 @@ export async function hasEntitlement(params: {
     limit 1
   `;
   return rows.length > 0;
+}
+
+const founderGrantSchema = z.object({
+  coach_id: z.number().int().positive().safe(),
+  feature: z.enum(['mcp_connector', 'negocio']),
+});
+
+/** Alta manual autorizada: idempotente, auditada y sin cambiar permisos de Stripe. */
+export async function activateFounderEntitlement(params: {
+  coach_id: number;
+  feature: EntitlementFeature;
+  client?: Sql;
+}): Promise<{ changed: boolean; status: string; source: string }> {
+  const { coach_id, feature } = founderGrantSchema.parse(params);
+  return (params.client ?? defaultSql).begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(hashtextextended(${`coach_entitlement:${coach_id}:${feature}`}, 0))`;
+    const [previous] = await tx<Array<{ id: bigint; status: string; source: string }>>`
+      select id, status, source from coach_entitlements
+      where coach_id = ${coach_id} and feature = ${feature} for update
+    `;
+    if (previous?.status === 'active') {
+      return { changed: false, status: previous.status, source: previous.source };
+    }
+    if (previous && previous.source !== 'founder') {
+      throw new Error('El permiso existente debe gestionarse desde su suscripción.');
+    }
+    const [grant] = await tx<Array<{ id: bigint; status: string; source: string }>>`
+      insert into coach_entitlements (coach_id, feature, status, source)
+      values (${coach_id}, ${feature}, 'active', 'founder')
+      on conflict (coach_id, feature) do update
+      set status = 'active', updated_at = now()
+      where coach_entitlements.source = 'founder'
+      returning id, status, source
+    `;
+    if (!grant) throw new Error('No se ha podido activar el permiso.');
+    await recordAudit(tx, {
+      entity_type: 'coach_entitlements', entity_id: grant.id,
+      action: previous ? 'update' : 'create',
+      actor: { kind: 'system', user_id: null },
+      diff: { coach_id, feature, status: 'active', source: 'founder', previous_status: previous?.status ?? null },
+    });
+    return { changed: true, status: grant.status, source: grant.source };
+  });
 }

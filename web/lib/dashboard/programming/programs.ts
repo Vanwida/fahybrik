@@ -5,8 +5,8 @@ import 'server-only';
 // (orden) → `program_week_templates.slots_json` (los días). Los identificadores
 // técnicos no se renombran (DECISIONS 2026-09-23, decisión 3).
 //
-// Solo programas de BIBLIOTECA (`athlete_id is null`): un plan personal de un
-// atleta se edita desde su ficha, no aquí.
+// La lista muestra BIBLIOTECA (`athlete_id is null`). El mismo editor admite
+// programas personales, abiertos desde su ficha y con dueño/contexto explícitos.
 
 import { groupRuleName } from '@fahybrid/shared/domain/coach/level-axis';
 import { sql as defaultSql, type Sql } from '@/lib/db';
@@ -16,13 +16,13 @@ import {
 } from '@fahybrid/shared/schema/program-templates';
 import { resolveProgressionSteps, type ProgressionSteps } from '@fahybrid/shared/domain/coach/progression-steps';
 import { loadMonthTemplateWithWeeks } from '@/lib/dashboard/coach/program-months';
-import { upsertWeekTemplate } from '@/lib/dashboard/coach/program-weeks';
-import { resyncWeekTemplateAssignments } from '@/lib/dashboard/coach/instantiate-program';
+import { ProgramWeekError, upsertWeekTemplate } from '@/lib/dashboard/coach/program-weeks';
 import { invisibleExerciseIds } from '@/lib/exercises/coach-override';
 import { loadCoachMaxMicrocicloWeeks } from '@/lib/coach/microcycle-limits';
 import { loadCoachToday } from '@/lib/coach/coach-timezone';
 import { checkAssignableLevel, listLevelOptions, type LevelOption } from '@/lib/coach/level-options';
 import { mergeDayIntoDays } from '@/lib/dashboard/v2/editor-serialize';
+import { deliverProgramWeeks, type ProgramDelivery } from './program-delivery';
 
 export class ProgramError extends Error {
   constructor(
@@ -50,6 +50,9 @@ export interface ProgramRow {
   groups: Array<{ id: string; name: string }>;
   updated_at: string;
   archived: boolean;
+  /** Contexto exclusivo de un programa personal; nunca figura en la biblioteca. */
+  personal?: { athlete_id: string; athlete_name: string };
+  structure_locked?: boolean;
 }
 
 export async function listPrograms(params: {
@@ -75,6 +78,7 @@ export async function listPrograms(params: {
       groups: Array<{ id: string; name: string | null; level: string | null; days: number | null }> | null;
       updated_at: string;
       archived: boolean;
+      structure_locked: boolean;
       axis_label: string | null;
     }>
   >`
@@ -123,6 +127,7 @@ export async function listPrograms(params: {
            grp.groups,
            coalesce(wk.last_edit, p.updated_at)::text as updated_at,
            (p.archived_at is not null) as archived,
+           exists (select 1 from athlete_month_assignments a where a.month_template_id = p.id) as structure_locked,
            (select c.level_axis_label from coaches c where c.id = ${coachId}) as axis_label
     from progs p
     left join athlete_levels al on al.id = p.level_id
@@ -148,6 +153,7 @@ export async function listPrograms(params: {
     })),
     updated_at: r.updated_at,
     archived: r.archived,
+    structure_locked: r.structure_locked,
   }));
 }
 
@@ -221,7 +227,14 @@ export async function loadProgramGrid(params: {
   const client = params.client ?? defaultSql;
   const coachId = Number(params.coach_id);
   const full = await loadMonthTemplateWithWeeks({ coach_id: coachId, month_id: params.program_id, client });
-  if (!full || full.month.athlete_id != null) return null;
+  if (!full) return null;
+  const personalId = full.month.athlete_id;
+  if (personalId != null) {
+    const owned = await client<Array<{ id: string }>>`
+      select id::text from athletes where id = ${Number(personalId)} and coach_id = ${coachId}
+    `;
+    if (!owned[0]) return null;
+  }
 
   const [list, coachRows, maxWeeks] = await Promise.all([
     listPrograms({ coach_id: coachId, client }),
@@ -231,7 +244,12 @@ export async function loadProgramGrid(params: {
     `,
     loadCoachMaxMicrocicloWeeks({ coach_id: coachId, client }),
   ]);
-  const program = list.find((p) => p.id === String(params.program_id));
+  const program: ProgramRow | undefined = personalId != null
+    ? { id: full.month.id, name: full.month.name, level: null, tags: [], weeks: full.weeks.length,
+        sessions: full.weeks.reduce((n, w) => n + w.slots_json.days.reduce((d, day) => d + day.sessions.length, 0), 0),
+        used_by: 1, groups: [], updated_at: '', archived: false,
+        personal: { athlete_id: personalId, athlete_name: full.month.athlete_name ?? 'Atleta' }, structure_locked: true }
+    : list.find((p) => p.id === String(params.program_id));
   if (!program) return null;
   // Activos, más el del programa aunque esté retirado: el selector no lo pierde.
   const levels = await listLevelOptions(coachId, { keep: [program.level?.id], client });
@@ -288,7 +306,7 @@ export async function writeCells(params: {
   program_id: number;
   cells: CellInput[];
   client?: Sql;
-}): Promise<{ weeks: string[]; synced: number }> {
+}): Promise<{ weeks: string[]; synced: number; delivery: ProgramDelivery }> {
   const client = params.client ?? defaultSql;
   const coachId = Number(params.coach_id);
 
@@ -308,6 +326,7 @@ export async function writeCells(params: {
       join program_week_templates w on w.id = mw.week_template_id
       where mw.month_template_id = ${params.program_id}
         and m.coach_id = ${coachId} and w.coach_id = ${coachId}
+        and (m.athlete_id is null or exists (select 1 from athletes a where a.id = m.athlete_id and a.coach_id = ${coachId}))
       for update of w
     `;
     if (weeks.length === 0) throw new ProgramError('not_found', 'Ese programa no existe.', 404);
@@ -329,27 +348,22 @@ export async function writeCells(params: {
       const w = byId.get(weekId)!;
       let next = (((w.slots_json as { days?: WeekDay[] } | null)?.days ?? []) as WeekDay[]).slice();
       for (const d of days) next = mergeDayIntoDays(next, d);
-      await upsertWeekTemplate({
-        coach_id: coachId,
-        id: Number(weekId),
-        payload: { name: w.name, focus: w.focus, coach_notes: w.coach_notes, slots_json: { days: next } },
-        client: t,
-      });
+      try {
+        await upsertWeekTemplate({
+          coach_id: coachId, id: Number(weekId),
+          payload: { name: w.name, focus: w.focus, coach_notes: w.coach_notes, slots_json: { days: next } }, client: t,
+        });
+      } catch (err) {
+        if (err instanceof ProgramWeekError) throw new ProgramError(err.code, err.message, err.status);
+        throw err;
+      }
     }
     await t`update program_month_templates set updated_at = now() where id = ${params.program_id}`;
     return [...grouped.keys()];
   });
 
-  let synced = 0;
-  for (const weekId of touched) {
-    try {
-      const r = await resyncWeekTemplateAssignments({ coach_id: coachId, week_template_id: Number(weekId), client });
-      synced += r.microcycles_checked;
-    } catch {
-      // best-effort: el guardado de la plantilla ya es firme (ver la ruta del día).
-    }
-  }
-  return { weeks: touched, synced };
+  const delivery = await deliverProgramWeeks({ coach_id: coachId, program_id: params.program_id, week_ids: touched, client });
+  return { weeks: touched, synced: delivery.updated_athletes, delivery };
 }
 
 export async function loadProgressionSteps(coach_id: number | bigint, client: Sql = defaultSql): Promise<ProgressionSteps> {

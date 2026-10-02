@@ -67,7 +67,7 @@ export function AvisoUmbral({
             : `Sus zonas salen de un umbral estimado de ${anchor.lthr_bpm} ppm, no de uno medido. Vale para entrenar, pero un test lo clava.`}
         </span>
         <Link
-          href={`/atletas/${athleteId}?tab=rendimiento&vista=fuerza`}
+          href={`/atletas/${athleteId}?tab=rendimiento&seccion=zonas`}
           className="v2-focus inline-flex w-fit items-center gap-1 text-xs font-semibold text-[color:var(--v2-fg)] underline underline-offset-2"
         >
           <MIcon name="event_available" size={14} />

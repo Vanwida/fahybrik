@@ -60,6 +60,13 @@ export async function listarDeAtleta(
   return r.ok ? { ok: true, data: r.data.communications } : r;
 }
 
+/** Contenido y seguimiento de la entrega a ese atleta, incluidos los archivados. */
+export function detalleDeAtleta(id: string, athlete_id: string) {
+  return pedir<CoachAthleteCommunicationDTO>(
+    `/api/coach/communications/${encodeURIComponent(id)}?${new URLSearchParams({ athlete_id })}`,
+  );
+}
+
 /** Lo que el coach ya tiene publicado. Los candidatos a enlazar cuando se
  *  escribe sin un solo destinatario delante (biblioteca, varios atletas). */
 export async function listarPublicados(): Promise<Resultado<CoachCommunicationDTO[]>> {

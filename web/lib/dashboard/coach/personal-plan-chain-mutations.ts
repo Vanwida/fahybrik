@@ -29,7 +29,7 @@ import {
   InstantiateProgramError,
   type InstantiateMonthResult,
 } from './instantiate-program';
-import { markFutureWeeksDraft } from '@/lib/coach/publish-week';
+import { applyDeliveryToWeeks } from '@/lib/coach/week-publishing';
 import { appendEmptyWeekToMonth, removeWeekFromMonth } from './program-months';
 import { resizeInPlaceAndReflow } from './personal-plan-chain-resize';
 import { insertEmptyPersonalMonthTemplate } from './personal-plans';
@@ -211,12 +211,9 @@ export async function addPersonalTramoToChain(params: {
     }
     throw err;
   }
-  await markFutureWeeksDraft({
-    coach_id,
-    athlete_id,
-    start_date: materialization.start_date,
-    week_count: materialization.microcycle_ids.length,
-    client,
+  await applyDeliveryToWeeks(client, {
+    coach_id, athlete_id, delivery: 'draft',
+    week_starts: materialization.microcycle_ids.map((_, i) => isoDateString(addDays(parseIsoDate(materialization.start_date), i * 7))),
   });
 
   return {

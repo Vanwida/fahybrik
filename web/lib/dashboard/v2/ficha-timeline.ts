@@ -65,9 +65,9 @@ export async function loadFichaTimeline(params: {
       limit ${PER_SOURCE}
     `,
     client<
-      Array<{ id: string; at: Date; kind: string; title: string | null; seen: boolean; done: boolean; answered: boolean }>
+      Array<{ id: string; communication_id: string; status: string; at: Date; kind: string; title: string | null; seen: boolean; done: boolean; answered: boolean }>
     >`
-      select r.id::text, coalesce(c.published_at, r.created_at) as at, c.kind, c.title,
+      select r.id::text, c.id::text as communication_id, c.status, coalesce(c.published_at, r.created_at) as at, c.kind, c.title,
              r.seen_at is not null as seen, r.done_at is not null as done, r.answered_at is not null as answered
       from coach_communication_recipients r
       join coach_communications c on c.id = r.communication_id and c.coach_id = ${coachId}
@@ -139,8 +139,9 @@ export async function loadFichaTimeline(params: {
       kind: 'comunicado',
       at: c.at.toISOString(),
       title: `${COMM_KIND_ES[c.kind] ?? 'Comunicado'}${c.title ? ` · ${c.title}` : ''}`,
-      detail: state,
+      detail: c.status === 'archived' ? `Retirado · ${state}` : state,
       who: 'coach',
+      communication_id: c.communication_id,
     });
   }
   for (const c of checkins) {

@@ -29,7 +29,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
 
   try {
     const out = await writeCells({ coach_id: auth.session.coach_id, program_id: programId, cells: parsed.data.cells });
-    return jsonOk({ saved: parsed.data.cells.length, weeks: out.weeks, synced_athletes: out.synced });
+    return jsonOk({ saved: parsed.data.cells.length, weeks: out.weeks, synced_athletes: out.synced, delivery: out.delivery });
   } catch (err) {
     if (err instanceof ProgramError) return jsonError(err.code, err.message, err.status);
     return jsonError('internal_error', 'No se pudo guardar.', 500);

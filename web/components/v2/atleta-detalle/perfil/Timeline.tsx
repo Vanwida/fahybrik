@@ -15,7 +15,9 @@ import {
   Timer,
   type LucideIcon,
 } from 'lucide-react';
-import { EmptyState, FilterChip } from '@/components/v2/ui';
+import { Button, EmptyState, FilterChip } from '@/components/v2/ui';
+import { useFicha } from '../FichaContext';
+import { ComunicadoDetalle } from '../del-coach/ComunicadoDetalle';
 import { relativeDayLabel } from '@/components/v2/shared/format';
 import type { TimelineEntry, TimelineKind } from '@/lib/dashboard/v2/atleta-detalle-types';
 import { cn } from '@/lib/utils';
@@ -43,6 +45,8 @@ export function Timeline({
   today: string;
   initial: TimelineKind | null;
 }) {
+  const { shell, refresh } = useFicha();
+  const [comunicado, setComunicado] = useState<string | null>(null);
   const [kind, setKind] = useState<TimelineKind | null>(initial);
   const [shown, setShown] = useState(PAGE);
   const counts = useMemo(() => {
@@ -90,7 +94,7 @@ export function Timeline({
                   </span>
                 </span>
                 <div className="min-w-0 flex-1 border-b border-v2-border py-2">
-                  <p className="t-body text-v2-fg">{e.title}</p>
+                  {e.communication_id ? <Button variant="ghost" size="sm" className="h-auto min-h-7 max-w-full justify-start whitespace-normal px-0 text-left text-v2-fg" onClick={() => setComunicado(e.communication_id!)}>{e.title}</Button> : <p className="t-body text-v2-fg">{e.title}</p>}
                   {e.detail ? <p className="t-body-sm text-v2-muted">{e.detail}</p> : null}
                 </div>
               </li>
@@ -103,6 +107,7 @@ export function Timeline({
           Ver {Math.min(PAGE, list.length - shown)} más
         </FilterChip>
       ) : null}
+      {comunicado ? <ComunicadoDetalle key={comunicado} id={comunicado} athleteId={shell.athlete_id} athleteName={shell.name} today={today} onCerrar={() => setComunicado(null)} onRetirado={refresh} /> : null}
     </div>
   );
 }

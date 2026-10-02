@@ -65,9 +65,9 @@ describe('descriptores · cobertura del catálogo', () => {
     for (const clave of COACH_ANALYTICS_METHOD_NUMERIC_KEYS) expect(DESCRIPTORES_METODO_ANALITICO[clave].tipo).toBe('numero');
   });
 
-  test('solo ¿Mejoro?, la holgura de cada tramo, Recuperación y Velocidad crítica empiezan plegados', () => {
+  test('todos los parámetros empiezan plegados y siguen accesibles por grupo', () => {
     expect(GRUPOS.filter((g) => g.plegadoPorDefecto).map((g) => g.id).sort()).toEqual(
-      ['capacidad', 'holgura', 'progreso', 'recuperacion'].sort(),
+      GRUPOS.map((g) => g.id).sort(),
     );
   });
 
@@ -336,9 +336,9 @@ describe('grupos plegados · se abren solos si ya traen ajuste', () => {
     expect([...gruposAbiertosAlInicio({ ...defectos, cs_max_duration_s: 1200 }, defectos)]).toEqual(['capacidad']);
   });
 
-  test('un grupo que no se pliega nunca figura como abierto por esta vía, aunque se ajuste', () => {
+  test('forma y carga también se pliegan, pero sus ajustes propios siguen visibles', () => {
     const defectos = defaultCoachAnalyticsMethod();
-    expect(gruposAbiertosAlInicio({ ...defectos, ctl_days: 60, fuentes_run: ['pulso'] }, defectos).size).toBe(0);
+    expect([...gruposAbiertosAlInicio({ ...defectos, ctl_days: 60, fuentes_run: ['pulso'] }, defectos)]).toEqual(['forma', 'carga']);
   });
 });
 

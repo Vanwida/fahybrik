@@ -61,6 +61,10 @@ describe('redirecciones del panel (PLAN §5)', () => {
     expect(resolve('/es/leads?estado=nuevo')).toContain('estado=nuevo');
   });
 
+  it.each([['sesiones', 'entrenos'], ['bloques', 'bloques'], ['ejercicios', 'ejercicios'], ['comunicados', 'comunicados']])('Biblioteca antigua %s mantiene la categoría %s', (tab, view) => {
+    expect(resolve(`/es/biblioteca?tab=${tab}`)).toContain(`ver=${view}`);
+  });
+
   it.each([
     '/es/hoy',
     '/es/atletas',

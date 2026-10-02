@@ -7,6 +7,12 @@ import {
   addPersonalTramoToChain,
 } from '@/lib/dashboard/coach/personal-plan-chain-mutations';
 import { coachActor } from '@/lib/audit/record-edit';
+import { sql } from '@/lib/db';
+import { z } from 'zod';
+import { loadCoachToday } from '@/lib/coach/coach-timezone';
+import { loadCoachMaxMicrocicloWeeks } from '@/lib/coach/microcycle-limits';
+
+const startInput = z.object({ start_date: z.string().date().optional() });
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,11 +30,13 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
   const parsedId = AthleteIdParamSchema.safeParse({ id });
   if (!parsedId.success) return jsonError('bad_request', 'ID de atleta inválido', 400);
 
-  const chain = await resolvePersonalPlanChain({
+  const owned = await sql<Array<{ id: string }>>`select id::text from athletes where id = ${Number(parsedId.data.id)} and coach_id = ${Number(session.coach_id)}`;
+  if (!owned[0]) return jsonError('not_found', 'Atleta no encontrado', 404);
+  const [chain, max_weeks, today] = await Promise.all([resolvePersonalPlanChain({
     coach_id: session.coach_id,
     athlete_id: Number(parsedId.data.id),
-  });
-  return jsonOk({ chain });
+  }), loadCoachMaxMicrocicloWeeks({ coach_id: session.coach_id }), loadCoachToday(session.coach_id)]);
+  return jsonOk({ chain, max_weeks, today });
 }
 
 // POST /api/coach/athletes/[id]/plan-chain
@@ -53,11 +61,14 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   }
 
   try {
+    const start = startInput.safeParse(body);
+    if (!start.success) return jsonError('invalid_payload', 'La fecha de inicio no es válida.', 400);
     const result = await addPersonalTramoToChain({
       coach_id: session.coach_id,
       athlete_id: Number(parsedId.data.id),
       payload: body,
       actor: coachActor(session),
+      start_date_when_empty: start.data.start_date ?? await loadCoachToday(session.coach_id),
     });
     return jsonOk({ tramo: result }, 201);
   } catch (err) {

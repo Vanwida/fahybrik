@@ -30,6 +30,9 @@ import { coachActor, type Actor } from '@/lib/audit/record-edit';
 
 type Tramo = { month_template_id: string; name: string; start_date: string; end_date: string };
 
+// Reflow real = decenas de round-trips; 30s quedaba justo en Neon.
+const DB_TIMEOUT = 60_000;
+
 const shift = (iso: string, days: number) => isoDateString(addDays(parseIsoDate(iso), days));
 
 describeWithDb('cadena personal — el orden al recolocar (DB real)', () => {
@@ -39,7 +42,7 @@ describeWithDb('cadena personal — el orden al recolocar (DB real)', () => {
   afterAll(async () => {
     while (fixtures.length) await fixtures.pop()!.cleanup();
     await closeTestSql();
-  });
+  }, DB_TIMEOUT);
 
   async function trackForCleanup(fx: Fixture, monthId: number) {
     const rows = await sql<Array<{ id: string }>>`
@@ -198,7 +201,7 @@ describeWithDb('cadena personal — el orden al recolocar (DB real)', () => {
     `;
     expect(orphans[0]!.n).toBe(2); // las dos que viajaron; ninguna olvidada en su fecha vieja.
     await expectCleanChain(fx);
-  }, 30000);
+  }, DB_TIMEOUT);
 
   test('en una cadena de tres, bajar "Build" sólo toca el par: "Base" ni se re-materializa', async () => {
     const { fx, actor, tramos } = await seed([
@@ -226,7 +229,7 @@ describeWithDb('cadena personal — el orden al recolocar (DB real)', () => {
     expect(buildNow.start_date).toBe(shift(peakNow.end_date, 1));
     expect(buildNow.end_date).toBe(peak.end_date);
     await expectCleanChain(fx);
-  }, 30000);
+  }, DB_TIMEOUT);
 
   test('alargar el primero de tres empuja a los dos de detrás, que se llevan su contenido', async () => {
     const { fx, actor, workoutTemplateId, tramos } = await seed([
@@ -262,7 +265,7 @@ describeWithDb('cadena personal — el orden al recolocar (DB real)', () => {
     expect(await sessionsOf(build)).toEqual([shift(build.start_date, 14)]);
     expect(await sessionsOf(peak)).toEqual([shift(peak.start_date, 14)]);
     await expectCleanChain(fx);
-  }, 30000);
+  }, DB_TIMEOUT);
 
   test('alargar el ÚLTIMO no recoloca nada y el de delante ni se toca', async () => {
     const { fx, actor, tramos } = await seed([
@@ -286,7 +289,7 @@ describeWithDb('cadena personal — el orden al recolocar (DB real)', () => {
     expect((await receiptOf(build))!.microcycle_ids).toHaveLength(3);
     expect(await receiptOf(base)).toEqual(baseBefore);
     await expectCleanChain(fx);
-  }, 30000);
+  }, DB_TIMEOUT);
 
   test('acortar el primero de tres adelanta a los dos de detrás, con su contenido', async () => {
     const { fx, actor, workoutTemplateId, tramos } = await seed([
@@ -312,7 +315,7 @@ describeWithDb('cadena personal — el orden al recolocar (DB real)', () => {
     ]);
     expect(await sessionsOf(peak)).toEqual([shift(peak.start_date, -14)]);
     await expectCleanChain(fx);
-  }, 30000);
+  }, DB_TIMEOUT);
 
   test('alargar con una sesión hecha en el de detrás se niega ANTES de tocar nada — ni la plantilla', async () => {
     const { fx, actor, workoutTemplateId, tramos } = await seed([
@@ -344,7 +347,7 @@ describeWithDb('cadena personal — el orden al recolocar (DB real)', () => {
     expect(await receiptOf(base)).toEqual(baseBefore);
     expect(await receiptOf(build)).toEqual(buildBefore);
     expect(await templateWeekCount(base)).toBe(2);
-  }, 30000);
+  }, DB_TIMEOUT);
 
   test('alargar el último encima de un mes de biblioteca asignado detrás se niega limpio y no cambia nada', async () => {
     const { fx, actor, workoutTemplateId, tramos } = await seed([['Base', 2]]);
@@ -370,7 +373,7 @@ describeWithDb('cadena personal — el orden al recolocar (DB real)', () => {
     expect(await receiptOf(base)).toEqual(baseBefore);
     expect(await templateWeekCount(base)).toBe(2);
     await expectCleanChain(fx);
-  }, 30000);
+  }, DB_TIMEOUT);
 
   test('subir un tramo por encima de un mes de biblioteca se niega limpio: ningún recibo se retira', async () => {
     const { fx, actor, workoutTemplateId, tramos } = await seed([['Base', 2]]);
@@ -392,5 +395,5 @@ describeWithDb('cadena personal — el orden al recolocar (DB real)', () => {
 
     expect([await receiptOf(base), await receiptOf(build)]).toEqual(before);
     await expectCleanChain(fx);
-  }, 30000);
+  }, DB_TIMEOUT);
 });

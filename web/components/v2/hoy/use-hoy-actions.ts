@@ -28,8 +28,10 @@ import type { SnoozeUntil } from '@/components/v2/shared/SnoozeMenu';
 import {
   groupKey,
   overrideTargets,
+  pendingKey,
   prunePending,
   reopenPayload,
+  snoozedTargets,
   type PendingKind,
   type PendingRow,
   type ReopenTarget,
@@ -84,7 +86,7 @@ export function useHoyActions({ generatedAt }: { generatedAt: string }) {
   const mark = useCallback((rows: ReadonlyArray<HoyRow>, kind: PendingKind) => {
     setPending((prev) => {
       const next = new Map(prev);
-      for (const row of rows) next.set(row.athlete_id, { kind, row, until: null, settled_at: null });
+      for (const row of rows) next.set(pendingKey(row), { kind, row, until: null, settled_at: null });
       return next;
     });
   }, []);
@@ -127,7 +129,7 @@ export function useHoyActions({ generatedAt }: { generatedAt: string }) {
   const override = useCallback(
     async (rows: ReadonlyArray<HoyRow>, kind: PendingKind, until: SnoozeUntil = 'signal'): Promise<boolean> => {
       if (rows.length === 0) return false;
-      const ids = rows.map((r) => r.athlete_id);
+      const ids = rows.map(pendingKey);
       mark(rows, kind);
       try {
         const res = await apiJson<OverrideResult>('/api/coach/inbox/bulk', {
@@ -167,9 +169,9 @@ export function useHoyActions({ generatedAt }: { generatedAt: string }) {
   const reopen = useCallback(
     async (targets: ReadonlyArray<ReopenTarget>, name: string): Promise<void> => {
       if (targets.length === 0) return;
-      const ids = [...new Set(targets.map((t) => t.athlete_id))];
-      unmark(ids);
-      for (const id of ids) {
+      const keys = [...pending].filter(([, p]) => snoozedTargets(p.row).some((s) => targets.some((t) => t.athlete_id === s.athlete_id && t.signal_kind === s.signal_kind))).map(([key]) => key);
+      unmark(keys);
+      for (const id of keys) {
         const t = undoToasts.current.get(id);
         if (t) dismiss(t);
         undoToasts.current.delete(id);
@@ -182,7 +184,7 @@ export function useHoyActions({ generatedAt }: { generatedAt: string }) {
         toast({ title: 'No se ha podido reabrir', description: errorMessage(err), tone: 'danger' });
       }
     },
-    [dismiss, refresh, toast, unmark],
+    [dismiss, refresh, toast, unmark, pending],
   );
 
   /**

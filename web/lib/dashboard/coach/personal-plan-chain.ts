@@ -58,6 +58,11 @@ export async function resolvePersonalPlanChain(params: {
   const coach_id = Number(params.coach_id);
   const athlete_id = Number(params.athlete_id);
 
+  const owned = await client<Array<{ id: string }>>`
+    select id::text from athletes where id = ${athlete_id} and coach_id = ${coach_id}
+  `;
+  if (!owned[0]) return [];
+
   const path = await resolvePlanPath({ athlete_id, sql: client });
   if (!path || path.segments.length === 0) return [];
 

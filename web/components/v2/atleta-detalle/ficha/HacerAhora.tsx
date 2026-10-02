@@ -8,7 +8,7 @@ import { Link } from '@/i18n/navigation';
 import { Button, buttonVariants, useToast } from '@/components/v2/ui';
 import { apiJson, errorMessage } from '@/components/v2/shared/api';
 import type { WeekPublishResult } from '@fahybrid/shared/schema/week-publishing';
-import { buildHacerAhora, type HacerAhoraChip } from '@/lib/dashboard/v2/ficha-actions';
+import { buildHacerAhora, HACER_AHORA_MAX, type HacerAhoraChip } from '@/lib/dashboard/v2/ficha-actions';
 import { weekRangeLabel } from '@/lib/dashboard/v2/ficha-format';
 import { useFicha } from '../FichaContext';
 
@@ -44,7 +44,7 @@ function Chip({ chip }: { chip: HacerAhoraChip }) {
     if (chip.kind === 'responder') return openChat();
     if (chip.kind === 'ajustar' && chip.session_id) return openSession(chip.session_id);
     if (chip.kind === 'descarga' && chip.week_start) return openWeekTool('deload', chip.week_start);
-    if (chip.kind === 'evaluar' && chip.week_start) return openWeekTool('evaluar', chip.week_start);
+    if (chip.kind === 'evaluar') return openWeekTool('revisar_ajuste', shell.today);
     if (chip.kind === 'asignar') return openAssign();
     if (chip.kind === 'publicar' && chip.week_start) {
       setBusy(true);
@@ -73,12 +73,23 @@ export function HacerAhora() {
   const { shell } = useFicha();
   const chips = buildHacerAhora(shell);
   if (chips.length === 0) return null;
+  const remaining = chips.slice(HACER_AHORA_MAX);
   return (
     <section aria-label="Hacer ahora" className="flex min-w-0 flex-wrap items-center gap-2">
       <h2 className="mr-1 t-label text-v2-faint">Hacer ahora</h2>
-      {chips.map((c) => (
+      {chips.slice(0, HACER_AHORA_MAX).map((c) => (
         <Chip key={c.key} chip={c} />
       ))}
+      {remaining.length > 0 ? (
+        <details className="basis-full">
+          <summary className="cursor-pointer rounded-ctl py-2 t-body-sm text-v2-muted outline-none focus-visible:ring-2 focus-visible:ring-v2-accent">
+            Ver {remaining.length} {remaining.length === 1 ? 'tarea más' : 'tareas más'}
+          </summary>
+          <div className="flex flex-wrap gap-2 pb-1">
+            {remaining.map((c) => <Chip key={c.key} chip={c} />)}
+          </div>
+        </details>
+      ) : null}
     </section>
   );
 }

@@ -22,6 +22,8 @@ import {
 import { FAMILIA_ETIQUETA_ES, FAMILIAS, type Familia } from '@fahybrid/shared/domain/analytics/lectura';
 import { Button, Checkbox, IconButton, Input, Select, useToast } from '@/components/v2/ui';
 import { SettingRow, SettingsSection } from './SettingsKit';
+import { resumenGrupo } from './metodo-analiticas/resumen';
+import { useMethodGroups } from './metodo-analiticas/use-method-groups';
 import { SaveStatus, sendJson, useSaveState } from './autosave';
 import { DESCRIPTORES_METODO_ANALITICO } from './metodo-analiticas/catalogo';
 import {
@@ -44,7 +46,6 @@ import {
   draftOf,
   formatearBandasFrescura,
   formatearNumero,
-  gruposAbiertosAlInicio,
   peldanosDisponibles,
   quitarPeldano,
   subirPeldano,
@@ -61,7 +62,7 @@ export function AnalyticsMethodSettings({ initial }: { initial: Setting }) {
   const [borrador, setBorrador] = useState<BorradorMetodoAnalitico>(() => draftOf(initial.method));
   const [problemas, setProblemas] = useState<Problema[]>([]);
   const [grupoActivo, setGrupoActivo] = useState<GrupoId | null>(null);
-  const [expandido, setExpandido] = useState<Set<GrupoId>>(() => gruposAbiertosAlInicio(initial.method, initial.defaults));
+  const [expandido, setExpandido] = useMethodGroups(initial.method, initial.defaults);
   const { state, error, run } = useSaveState();
   const m = setting.method;
   const d = setting.defaults;
@@ -168,6 +169,7 @@ export function AnalyticsMethodSettings({ initial }: { initial: Setting }) {
               </span>
             }
           >
+            <p className="px-4 py-3 t-body-sm text-v2-muted">{resumenGrupo(grupo.id, m, d)}</p>
             {!plegado && problemaConjunto ? (
               <div role="alert" className="flex items-start gap-2 px-4 py-3 t-body-sm text-v2-danger">
                 <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2} />

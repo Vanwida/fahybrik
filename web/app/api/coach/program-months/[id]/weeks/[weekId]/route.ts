@@ -6,6 +6,7 @@
 
 import { jsonError, jsonOk } from '@/lib/api/responses';
 import { requireCoach } from '@/lib/auth/require-coach';
+import { assertProgramStructureEditable } from '@/lib/dashboard/programming/program-structure';
 import {
   removeWeekFromMonth,
   ProgramMonthError,
@@ -29,6 +30,7 @@ export async function DELETE(
   }
 
   try {
+    await assertProgramStructureEditable({ coach_id: auth.session.coach_id, program_id: monthId });
     await removeWeekFromMonth({
       coach_id: auth.session.coach_id,
       month_id: monthId,

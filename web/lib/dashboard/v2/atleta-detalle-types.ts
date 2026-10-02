@@ -23,6 +23,7 @@ import type { SessionReportView } from '@/lib/coach/session-reports';
 import type { IntakePlanMode } from '@fahybrid/shared/schema/coach-intake';
 import type { AthleteKeyMarker } from '@/lib/coach/key-markers';
 import type { PeekDay } from '@/lib/coach/athlete-peek';
+import type { CheckinContent, CheckinWeekSlot } from '@/lib/dashboard/coach/checkin-presentation';
 import { VENTANA_PANEL_POR_DEFECTO, ventanaClaveAdmisible, type VentanaClave } from '@fahybrid/shared/domain/analytics/ventana';
 
 export type { AthleteReviewState, MessageDTO, AthleteKeyMarker, AthleteWeekState };
@@ -46,6 +47,12 @@ export const DEFAULT_CAL_ZOOM: CalZoom = '3sem';
  * umbrales, zonas y tests, el detalle de correr, su cuerpo y sus carreras.
  */
 export const RENDIMIENTO_SECCIONES = [
+  'resumen',
+  'carga',
+  'sesiones',
+  'umbrales',
+  'tiempo-en-zonas',
+  'un-rm-medido',
   'forma',
   'recuperacion',
   'semanas',
@@ -398,15 +405,11 @@ export interface FichaEstado {
     band: 'ok' | 'caution' | 'low';
   } | null;
   sleep: { avg_7d_hours: number; baseline_hours: number | null; nights: number } | null;
-  last_checkin: {
-    on: string;
-    score: number;
-    notes: string | null;
-    soreness: number | null;
-    fatigue: number | null;
+  last_checkin: (CheckinContent & {
     /** El coach ya escribió después del check-in. */
     answered: boolean;
-  } | null;
+  }) | null;
+  checkin_week: CheckinWeekSlot[];
   injury: {
     id: string;
     zone_label: string;
@@ -472,6 +475,8 @@ export interface TimelineEntry {
   who: 'atleta' | 'coach' | 'sistema';
   /** Para abrir algo relacionado (un entreno). */
   sesion_id?: string | null;
+  /** Abre el contenido y la respuesta del comunicado de este atleta. */
+  communication_id?: string;
 }
 
 export interface FichaPerfil {

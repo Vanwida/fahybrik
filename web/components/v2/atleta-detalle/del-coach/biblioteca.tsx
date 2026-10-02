@@ -37,15 +37,11 @@ function sin(id: string) {
   return (prev: CoachCommunicationDTO[] | null) => prev?.filter((c) => c.id !== id) ?? prev;
 }
 
-/** Meterlo delante, o reemplazarlo si ya estaba (una edición no lo duplica). */
+/** Lo recién guardado va delante, igual que el orden por updated_at del servidor. */
 function con(c: CoachCommunicationDTO) {
   return (prev: CoachCommunicationDTO[] | null) => {
     if (prev === null) return prev;
-    const i = prev.findIndex((x) => x.id === c.id);
-    if (i === -1) return [c, ...prev];
-    const next = [...prev];
-    next[i] = c;
-    return next;
+    return [c, ...prev.filter((x) => x.id !== c.id)];
   };
 }
 
@@ -94,7 +90,7 @@ export function useBiblioteca() {
     setBorrando(null);
     if (!r.ok) {
       setError(r.mensaje);
-      return;
+      return false;
     }
     // Sale de las dos: desde la pestaña también se borran plantillas, y el
     // servidor ya dijo que no existe — volver a pedir la lista sólo la haría
@@ -102,6 +98,7 @@ export function useBiblioteca() {
     setError(null);
     setPlantillas(sin(id));
     setBorradores(sin(id));
+    return true;
   }, []);
 
   /** Un comunicado recién escrito entra en la lista que le toca por lo que ES. */
@@ -193,8 +190,7 @@ export function PanelBiblioteca({
               c={c}
               onUsar={() => onElegir(c, c.id)}
               onBorrar={() => {
-                onBorrado(c.id);
-                void borrar(c.id);
+                void borrar(c.id).then((borrado) => { if (borrado) onBorrado(c.id); });
               }}
               borrando={borrando === c.id}
             />

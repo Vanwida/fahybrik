@@ -17,7 +17,7 @@
 //                                              entreno = el más reciente primero)
 //   densidad=tarjetas                          presentación (no forma parte de la vista)
 //
-// Sin NINGÚN filtro en la URL se aplica la vista por defecto (Necesitan algo).
+// Sin NINGÚN filtro en la URL se aplica Todos; Hoy reúne los pendientes.
 // Con algún filtro, lo que falta no filtra: `semana=oculta` son todos los que no
 // ven su semana, estén como estén. Las vistas de serie viven en
 // shared/schema/saved-views.ts con esta misma gramática.
@@ -75,7 +75,7 @@ const FILTER_KEYS = ['atencion', 'estado', 'nivel', 'grupo', 'semana', 'carrera'
 /** Sentido de cada columna cuando la URL no lo dice (el mismo que su primer clic). */
 export const DEFAULT_DIR: Record<string, 'asc' | 'desc'> = { ultimo_entreno: 'desc', responder: 'desc' };
 
-const DEFAULT_QUERY = BUILTIN_SAVED_VIEWS.find((v) => v.key === 'necesitan')?.query ?? 'atencion=si';
+const DEFAULT_QUERY = BUILTIN_SAVED_VIEWS.find((v) => v.key === 'todos')?.query ?? 'estado=todos';
 
 function list<T extends string>(raw: string | null, allowed?: readonly T[]): T[] | null {
   if (raw == null) return null;

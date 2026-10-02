@@ -3,12 +3,13 @@
 // Pestaña Plan del cockpit: el calendario editable (Semana / 3 semanas / Plan
 // completo) y la columna Estado. Un atleta con alta pendiente ve su checklist de
 // alta en su lugar; uno sin nada programado, «Asignar programa» aquí mismo (P12).
-// En el móvil: la semana en 7 puntos y el estado — editar es de escritorio.
+// En móvil, agenda por días con las mismas sesiones y herramientas de semana.
 
-import { useRouter } from '@/i18n/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { withCoachReturn } from '@/components/v2/shared/context-link';
+import { Link, useRouter } from '@/i18n/navigation';
 import { CalendarPlus } from 'lucide-react';
 import { Button, EmptyState, ErrorState, SegmentedControl, Skeleton } from '@/components/v2/ui';
-import { WeekDots } from '@/components/v2/shared';
 import { IntakeReview } from '@/components/v2/intake/IntakeReview';
 import type { IntakeReviewPayload } from '@/lib/dashboard/v2/intake-review';
 import type { CalZoom, FichaCalendar, FichaEstado } from '@/lib/dashboard/v2/atleta-detalle-types';
@@ -18,6 +19,8 @@ import { useFicha } from '../FichaContext';
 import { Calendar } from './Calendar';
 import { useCalendar } from './use-calendar';
 import { isPlanSession } from '@/lib/dashboard/v2/ficha-calendar-model';
+import { MobileAgenda } from './MobileAgenda';
+import { PersonalPlanChain } from '../plan-chain/PersonalPlanChain';
 
 const ZOOMS: { value: CalZoom; label: string }[] = [
   { value: 'semana', label: 'Semana' },
@@ -46,6 +49,9 @@ export function PlanTab({
 }) {
   const { shell, openAssign } = useFicha();
   const router = useRouter();
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const origin = `${pathname}${search.size ? `?${search.toString()}` : ''}`;
   const c = useCalendar(calendar);
 
   // Alta pendiente SIN plan: la lista de lo que falta para asignar ocupa el sitio del
@@ -78,12 +84,6 @@ export function PlanTab({
         ) : (
           'Adherencia (14 d): nada debido todavía'
         )}
-        {shell.program ? (
-          <span className="text-v2-faint">
-            {' '}
-            · {shell.program.name} · sem {shell.program.week} de {shell.program.weeks}
-          </span>
-        ) : null}
       </p>
     </div>
   );
@@ -133,27 +133,19 @@ export function PlanTab({
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_328px]">
-      {/* Móvil: la semana en 7 puntos. */}
-      <section aria-label="Esta semana" className="flex flex-col gap-2 rounded-panel border border-v2-border bg-v2-surface p-3 md:hidden">
-        <div className="flex items-baseline justify-between">
-          <span className="t-label text-v2-faint">Esta semana</span>
-          {adh && adh.due > 0 ? (
-            <span className="t-meta text-v2-muted t-tnum">
-              Adh. {adh.window_days} d: {adh.done} de {adh.due}
-            </span>
-          ) : null}
-        </div>
-        <WeekDots days={shell.week_days} className="justify-between" />
-        {!shell.has_upcoming_plan ? (
-          <Button variant="primary" onClick={openAssign}>
-            Asignar programa
-          </Button>
+      <div className="flex min-w-0 flex-col gap-3">
+        {shell.program || shell.group ? (
+          <div aria-label="Origen del plan" className="flex flex-wrap items-baseline gap-x-4 gap-y-1 t-body-sm text-v2-muted">
+            {shell.program ? <span>Programa: <Link className="font-medium text-v2-fg underline underline-offset-4" href={withCoachReturn(`/programar/programas/${shell.program.id}`, origin)}>{shell.program.name}</Link> · sem {shell.program.week} de {shell.program.weeks}</span> : null}
+            {shell.group ? <span>Grupo: <Link className="font-medium text-v2-fg underline underline-offset-4" href={withCoachReturn(`/programar/grupos/${shell.group.id}`, origin)}>{shell.group.name}</Link></span> : null}
+          </div>
         ) : null}
-      </section>
-
-      <div className="hidden min-w-0 flex-col gap-3 md:flex">
         {toolbar}
-        {body}
+        <div className="md:hidden">
+          {noPlan && !hasLibre && c.zoom !== 'plan' ? body : <MobileAgenda calendar={cal} error={c.error} loading={c.loading} onRetry={c.retry} />}
+        </div>
+        <div className="hidden md:block">{body}</div>
+        <PersonalPlanChain />
       </div>
       <EstadoColumn estado={estado} upcoming={upcoming} onRetry={() => router.refresh()} />
     </div>

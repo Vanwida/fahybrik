@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
 import { VENTANA_PANEL_POR_DEFECTO, type VentanaClave } from '@fahybrid/shared/domain/analytics/ventana';
-import { Button, EmptyState, ErrorState, SectionHeader } from '@/components/v2/ui';
+import { Button, EmptyState, ErrorState, FilterChip, SectionHeader } from '@/components/v2/ui';
 import { PanelRendimiento } from '@/components/v2/analiticas/PanelRendimiento';
 import { Umbrales } from '@/components/v2/analiticas/Umbrales';
 import { fuenteHttp } from '@/components/v2/analiticas/detalle';
@@ -29,6 +29,7 @@ import { ZonasPanel } from './ZonasPanel';
 import { CarrerasTab } from '../CarrerasTab';
 import { FuerzaBlock } from './FuerzaBlock';
 import { FisiologiaBlock } from './FisiologiaBlock';
+import { RENDIMIENTO_VISTAS, rendimientoVista } from './rendimiento-navigation';
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
@@ -39,18 +40,22 @@ function Section({ id, title, children }: { id: string; title: string; children:
   );
 }
 
-function irA(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 export function RendimientoView({ data, seccion, comparar }: { data: FichaRendimiento; seccion: string | null; comparar: boolean }) {
-  const { shell, openChat, refresh } = useFicha();
+  const { shell, openChat, openSession, refresh } = useFicha();
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
   const [cargando, startTransition] = useTransition();
   const [recording, setRecording] = useState(false);
   const retry = () => router.refresh();
+  const vista = rendimientoVista(seccion);
+  const irA = useCallback((id: string) => {
+    const p = new URLSearchParams(window.location.search);
+    p.set('tab', 'rendimiento');
+    if (id === 'resumen') p.delete('seccion');
+    else p.set('seccion', id);
+    startTransition(() => router.replace(`${pathname}?${p.toString()}`, { scroll: false }));
+  }, [pathname, router]);
 
   useEffect(() => {
     if (seccion) document.getElementById(seccion)?.scrollIntoView({ block: 'start' });
@@ -61,7 +66,6 @@ export function RendimientoView({ data, seccion, comparar }: { data: FichaRendim
     (v: VentanaClave) => {
       const p = new URLSearchParams(search.toString());
       p.set('tab', 'rendimiento');
-      p.delete('seccion');
       if (v === VENTANA_PANEL_POR_DEFECTO) p.delete('ventana');
       else p.set('ventana', v);
       startTransition(() => router.replace(`${pathname}?${p.toString()}`, { scroll: false }));
@@ -95,7 +99,7 @@ export function RendimientoView({ data, seccion, comparar }: { data: FichaRendim
           return null;
       }
     },
-    [openChat, shell.athlete_id],
+    [openChat, shell.athlete_id, irA],
   );
 
   const panel = data.panel.ok ? data.panel.data : null;
@@ -104,7 +108,13 @@ export function RendimientoView({ data, seccion, comparar }: { data: FichaRendim
 
   return (
     <div className="flex min-w-0 flex-col gap-10">
-      {panel ? (
+      <div className="flex flex-col gap-2">
+        <nav aria-label="Qué analizar" className="flex flex-wrap gap-1.5">
+          {RENDIMIENTO_VISTAS.map((v) => <FilterChip key={v.id} active={vista === v.id} onClick={() => irA(v.id)}>{v.label}</FilterChip>)}
+        </nav>
+        <p className="t-body-sm text-v2-muted">{RENDIMIENTO_VISTAS.find((v) => v.id === vista)?.description}</p>
+      </div>
+      {vista !== 'fisiologia' && vista !== 'zonas' ? panel ? (
         <PanelRendimiento
           panel={panel}
           atleta={{ nombre: shell.name, carrera }}
@@ -115,12 +125,15 @@ export function RendimientoView({ data, seccion, comparar }: { data: FichaRendim
           metodoHref="/ajustes/metodo#analiticas"
           manejar={manejar}
           fuente={fuente}
+          vista={vista}
+          onSesiones={() => irA('tramos')}
+          onSesionSinEjecucion={openSession}
         />
       ) : (
         <ErrorState title="No se han podido calcular sus analíticas" onRetry={retry} />
-      )}
+      ) : null}
 
-      <Section id="zonas" title="Umbrales, zonas y tests">
+      {vista === 'zonas' ? <Section id="zonas" title="Umbrales, zonas y tests">
         <div id="umbrales" className="scroll-mt-24">
           {data.umbrales.ok ? (
             <Umbrales athleteId={shell.athlete_id} inicial={data.umbrales.data} hoy={shell.today} onGuardado={refresh} />
@@ -157,27 +170,27 @@ export function RendimientoView({ data, seccion, comparar }: { data: FichaRendim
         ) : (
           <ErrorState title="No se han podido cargar sus tests" onRetry={retry} />
         )}
-      </Section>
+      </Section> : null}
 
-      <Section id="correr" title="Correr en detalle">
+      {vista === 'carreras' ? <Section id="correr" title="Correr en detalle">
         <CorrerTab athleteId={shell.athlete_id} />
-      </Section>
+      </Section> : null}
 
-      <Section id="tiempo-en-zonas" title="Tiempo en zonas">
+      {vista === 'carga' ? <Section id="tiempo-en-zonas" title="Tiempo en zonas">
         <ZonasPanel athleteId={shell.athlete_id} athleteName={shell.name} coachName={shell.club_name} athleteToday={shell.today} />
-      </Section>
+      </Section> : null}
 
-      <Section id="un-rm-medido" title="1RM medidos">
+      {vista === 'progreso' ? <Section id="un-rm-medido" title="1RM medidos">
         {data.strength.ok ? <FuerzaBlock maxes={data.strength.data} /> : <ErrorState title="No se han podido cargar sus 1RM" onRetry={retry} />}
-      </Section>
+      </Section> : null}
 
-      <Section id="fisiologia" title="Check-ins y VO₂">
+      {vista === 'fisiologia' ? <Section id="fisiologia" title="Check-ins y VO₂">
         {data.body.ok ? <FisiologiaBlock body={data.body.data} /> : <ErrorState title="No se han podido cargar sus datos de salud" onRetry={retry} />}
-      </Section>
+      </Section> : null}
 
-      <Section id="carreras" title="Carreras">
+      {vista === 'carreras' ? <Section id="carreras" title="Carreras">
         <CarrerasTab athleteId={shell.athlete_id} />
-      </Section>
+      </Section> : null}
     </div>
   );
 }

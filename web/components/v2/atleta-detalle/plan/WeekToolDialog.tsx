@@ -9,12 +9,13 @@ import { useMemo, useState } from 'react';
 import { Button, Dialog, Field, Input, SegmentedControl, Select, Sheet, useToast } from '@/components/v2/ui';
 import { apiJson, errorMessage } from '@/components/v2/shared/api';
 import type { WeekOpResult } from '@/lib/dashboard/v2/ficha-week-ops';
+import { evaluatedWeekFor } from '@/lib/dashboard/v2/week-adjustment-period';
 import { addDaysIso } from '@/lib/dashboard/v2/ficha-dates';
 import { weekRangeLabel } from '@/lib/dashboard/v2/ficha-format';
 import { EvaluarSemanaPanel } from '../rendimiento/EvaluarSemanaPanel';
 import { useFicha, type WeekTool } from '../FichaContext';
 
-const TITLE: Record<Exclude<WeekTool, 'evaluar'>, string> = {
+const TITLE: Record<Exclude<WeekTool, 'evaluar' | 'revisar_ajuste'>, string> = {
   copy: 'Copiar semana',
   shift: 'Desplazar días',
   scale: 'Escalar volumen',
@@ -39,7 +40,7 @@ function skippedLine(res: WeekOpResult): string | undefined {
 }
 
 export function WeekToolDialog({ tool, weekStart, onClose }: { tool: WeekTool; weekStart: string; onClose: () => void }) {
-  const { shell, bumpCalendar } = useFicha();
+  const { shell, bumpCalendar, openWeekTool } = useFicha();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,10 +65,16 @@ export function WeekToolDialog({ tool, weekStart, onClose }: { tool: WeekTool; w
     [thisMonday, weekStart],
   );
 
-  if (tool === 'evaluar') {
+  if (tool === 'evaluar' || tool === 'revisar_ajuste') {
     return (
-      <Sheet open onOpenChange={(o) => !o && onClose()} title="Evaluar semana" description={shell.name} size="lg">
-        <EvaluarSemanaPanel athleteId={shell.athlete_id} />
+      <Sheet open onOpenChange={(o) => !o && onClose()} title={tool === 'evaluar' ? `Evaluar ${range}` : 'Revisar ajuste pendiente'} description={shell.name} size="lg">
+        <EvaluarSemanaPanel
+          key={tool === 'evaluar' ? weekStart : 'pendiente'}
+          athleteId={shell.athlete_id}
+          weekStart={tool === 'evaluar' ? weekStart : undefined}
+          onReviewOther={(adjustmentWeek) => openWeekTool('evaluar', evaluatedWeekFor(adjustmentWeek))}
+          onChanged={bumpCalendar}
+        />
       </Sheet>
     );
   }

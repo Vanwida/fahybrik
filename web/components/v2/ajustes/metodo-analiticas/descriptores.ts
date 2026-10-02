@@ -24,22 +24,22 @@ export interface GrupoInfo {
 
 /** El orden de aparición en la pantalla. */
 export const GRUPOS: readonly GrupoInfo[] = [
-  { id: 'forma', titulo: 'Forma y fatiga', plegadoPorDefecto: false },
-  { id: 'frescura', titulo: 'Frescura: los cinco estados', plegadoPorDefecto: false },
-  { id: 'carga', titulo: 'Cómo se calcula la carga', plegadoPorDefecto: false },
-  { id: 'cumplimiento', titulo: 'Cumplimiento', plegadoPorDefecto: false },
+  { id: 'forma', titulo: 'Forma y fatiga', plegadoPorDefecto: true },
+  { id: 'frescura', titulo: 'Frescura: los cinco estados', plegadoPorDefecto: true },
+  { id: 'carga', titulo: 'Cómo se calcula la carga', plegadoPorDefecto: true },
+  { id: 'cumplimiento', titulo: 'Cumplimiento', plegadoPorDefecto: true },
   {
     id: 'holgura',
     titulo: 'Cumplimiento: la holgura de cada tramo',
     nota: 'Cuánto puede salirse un tramo de su banda y seguir contando como dentro. Es la holgura del reloj en vivo, para que reloj y analíticas no digan cosas distintas.',
     plegadoPorDefecto: true,
   },
-  { id: 'cambio', titulo: 'Qué cuenta como cambio', plegadoPorDefecto: false },
+  { id: 'cambio', titulo: 'Qué cuenta como cambio', plegadoPorDefecto: true },
   {
     id: 'intensidad',
     titulo: 'Intensidad: el reparto',
     nota: 'El objetivo del reparto (cuánto fácil, medio y duro) es el de tus zonas de FC, más arriba.',
-    plegadoPorDefecto: false,
+    plegadoPorDefecto: true,
   },
   {
     id: 'progreso',

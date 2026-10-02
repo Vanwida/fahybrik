@@ -29,6 +29,9 @@ export const PANEL_REDIRECTS: PanelRedirect[] = [
 
   // Biblioteca → Programar. Las pestañas viejas que ahora son otra sección, primero.
   r('/biblioteca', '/programar/programas', [{ type: 'query', key: 'tab', value: 'microciclos' }]),
+  ...(['sesiones', 'entrenos', 'bloques', 'ejercicios', 'comunicados'] as const).map((tab) =>
+    r('/biblioteca', `/programar/biblioteca?ver=${tab === 'sesiones' ? 'entrenos' : tab}`, [{ type: 'query', key: 'tab', value: tab }]),
+  ),
   r('/biblioteca/sesion/nueva', '/programar/biblioteca/entreno/nuevo'),
   r('/biblioteca/sesion/:id', '/programar/biblioteca/entreno/:id'),
   r('/biblioteca/:path*', '/programar/biblioteca/:path*'),

@@ -34,3 +34,4 @@ export type { ToastOptions, ToastTone } from './Toast';
 export { Kbd } from './Kbd';
 export { EmptyState, ErrorState, Skeleton, SkeletonRows } from './States';
 export { PanelProviders } from './PanelProviders';
+export { Disclosure } from './Disclosure';

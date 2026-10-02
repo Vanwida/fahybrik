@@ -24,6 +24,8 @@ import type {
 } from '@/lib/dashboard/coach/weekly-evaluation';
 import { Check, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/v2/ui';
+import { evaluatedWeekFor } from '@/lib/dashboard/v2/week-adjustment-period';
+import { weekRangeLabel } from '@/lib/dashboard/v2/ficha-format';
 
 // ── Normalised view shape (the GET pending + the POST propose response both map
 //    into this, so the panel has ONE render path) ────────────────────────────────
@@ -47,12 +49,14 @@ interface ShownProposal {
   fired_triggers: FiredTrigger[];
   week_feed: WeekFeedSummary | null;
   week_start: string;
+  evaluated_week_start: string;
 }
 
 interface GetResp {
   proposal: PendingAdjustment | null;
   template_names: Record<string, string>;
   fired_triggers: FiredTrigger[];
+  other_pending: { id: string; week_start: string } | null;
 }
 
 const RECOMMENDATION_LABEL: Record<Recommendation, string> = {
@@ -92,6 +96,7 @@ function fromGet(r: GetResp): ShownProposal | null {
     fired_triggers: r.fired_triggers,
     week_feed: null,
     week_start: p.week_start,
+    evaluated_week_start: evaluatedWeekFor(p.week_start),
   };
 }
 
@@ -108,6 +113,7 @@ function fromPost(rec: WeekAdjustmentProposalRecord): ShownProposal {
     fired_triggers: rec.fired_triggers,
     week_feed: rec.week_feed,
     week_start: rec.week_start,
+    evaluated_week_start: rec.evaluated_week_start,
   };
 }
 
@@ -116,27 +122,35 @@ function templateName(names: Record<string, string>, id: string | number | null)
   return names[String(id)] ?? `Plantilla #${id}`;
 }
 
-export function EvaluarSemanaPanel({ athleteId }: { athleteId: string }) {
+export function EvaluarSemanaPanel({ athleteId, weekStart, onReviewOther, onChanged }: {
+  athleteId: string;
+  /** Semana N seleccionada; la propuesta modifica N+1. */
+  weekStart?: string;
+  onReviewOther?: (adjustmentWeek: string) => void;
+  onChanged?: () => void;
+}) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [shown, setShown] = useState<ShownProposal | null>(null);
+  const [otherPending, setOtherPending] = useState<GetResp['other_pending']>(null);
   const [busy, setBusy] = useState<'propose' | 'approve' | 'reject' | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const loadPending = useCallback(async (): Promise<GetResp | null> => {
-    const res = await fetch(`/api/coach/athletes/${athleteId}/week-adjustment`);
+    const res = await fetch(`/api/coach/athletes/${athleteId}/week-adjustment${weekStart ? `?week_start=${weekStart}` : ''}`);
     const body = (await res.json().catch(() => null)) as (GetResp & { error?: { message?: string } }) | null;
     if (!res.ok || !body) {
       throw new Error(body?.error?.message ?? 'No se pudo cargar la evaluación de la semana.');
     }
     return body;
-  }, [athleteId]);
+  }, [athleteId, weekStart]);
 
   const reloadPending = useCallback(async () => {
     setLoadError(null);
     try {
       const r = await loadPending();
       setShown(r ? fromGet(r) : null);
+      setOtherPending(r?.other_pending ?? null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'No se pudo cargar la evaluación.');
     } finally {
@@ -158,7 +172,7 @@ export function EvaluarSemanaPanel({ athleteId }: { athleteId: string }) {
       const res = await fetch(`/api/coach/athletes/${athleteId}/week-adjustment/propose`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify(weekStart ? { week_start: weekStart } : {}),
       });
       const body = (await res.json().catch(() => null)) as
         | { proposal?: WeekAdjustmentProposalRecord; error?: { message?: string } }
@@ -179,12 +193,13 @@ export function EvaluarSemanaPanel({ athleteId }: { athleteId: string }) {
         }
       }
       setShown(next);
+      onChanged?.();
     } catch {
       setActionError('No se pudo evaluar la semana. Inténtalo de nuevo.');
     } finally {
       setBusy(null);
     }
-  }, [athleteId, loadPending]);
+  }, [athleteId, loadPending, weekStart, onChanged]);
 
   const review = useCallback(
     async (action: 'approve' | 'reject', proposalId: string) => {
@@ -206,23 +221,31 @@ export function EvaluarSemanaPanel({ athleteId }: { athleteId: string }) {
         // Refetch: la propuesta ya no está pending → vuelve al estado "evaluar".
         const g = await loadPending().catch(() => null);
         setShown(g ? fromGet(g) : null);
+        setOtherPending(g?.other_pending ?? null);
+        onChanged?.();
       } catch {
         setActionError('No se pudo completar la acción. Inténtalo de nuevo.');
       } finally {
         setBusy(null);
       }
     },
-    [athleteId, loadPending],
+    [athleteId, loadPending, onChanged],
   );
 
   return (
     <section className="flex flex-col gap-2.5">
-      <SectionHeading>Evaluar semana</SectionHeading>
+      <SectionHeading>{weekStart ? `Evaluar ${weekRangeLabel(weekStart)}` : 'Evaluar semana'}</SectionHeading>
       <div className="rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)]">
+        {otherPending && weekStart ? (
+          <div className="mb-3 flex flex-col items-start gap-2 t-body-sm text-v2-muted">
+            <p>Hay otro ajuste pendiente para {weekRangeLabel(otherPending.week_start)}, a partir de la semana {weekRangeLabel(evaluatedWeekFor(otherPending.week_start))}.</p>
+            {onReviewOther ? <Button size="sm" onClick={() => onReviewOther(otherPending.week_start)}>Revisar ese ajuste</Button> : null}
+          </div>
+        ) : null}
         {loading ? (
           <LoadingRow />
         ) : loadError ? (
-          <ErrorRow message={loadError} />
+          <ErrorRow message={loadError} onRetry={() => void reloadPending()} />
         ) : shown ? (
           <ProposalView
             p={shown}
@@ -233,7 +256,7 @@ export function EvaluarSemanaPanel({ athleteId }: { athleteId: string }) {
             onDismiss={() => setShown(null)}
           />
         ) : (
-          <EvaluateCta busy={busy === 'propose'} error={actionError} onEvaluate={() => void handlePropose()} />
+          <EvaluateCta weekStart={weekStart} busy={busy === 'propose'} error={actionError} onEvaluate={() => void handlePropose()} />
         )}
       </div>
     </section>
@@ -242,10 +265,12 @@ export function EvaluarSemanaPanel({ athleteId }: { athleteId: string }) {
 
 // ── No pending proposal → on-demand evaluation CTA ──────────────────────────────
 function EvaluateCta({
+  weekStart,
   busy,
   error,
   onEvaluate,
 }: {
+  weekStart?: string;
   busy: boolean;
   error: string | null;
   onEvaluate: () => void;
@@ -259,8 +284,7 @@ function EvaluateCta({
             Sin ajuste pendiente
           </span>
           <span className="text-xs leading-relaxed text-[color:var(--v2-muted)]">
-            Evalúa la semana anterior para ver si el plan necesita ajuste y, si procede, revisar la
-            propuesta.
+            {weekStart ? `Evalúa ${weekRangeLabel(weekStart)}` : 'Evalúa la semana anterior'} para ver si el plan necesita ajuste y, si procede, revisar la propuesta para la siguiente semana.
           </span>
         </div>
       </div>
@@ -304,7 +328,7 @@ function ProposalView({
         </span>
         <Chip label="Recomendación" value={RECOMMENDATION_LABEL[p.recommendation]} tone="accent" />
         <span className="t-tnum ml-auto t-meta text-[color:var(--v2-faint)]">
-          Semana del {WEEK_FMT.format(new Date(p.week_start))}
+          Evaluada: {weekRangeLabel(p.evaluated_week_start)} · Ajuste para: {weekRangeLabel(p.week_start)}
         </span>
       </div>
 
@@ -395,11 +419,12 @@ function LoadingRow() {
   );
 }
 
-function ErrorRow({ message }: { message: string }) {
+function ErrorRow({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="flex items-center gap-2 text-xs font-medium text-[color:var(--v2-danger)]">
       <MIcon name="error" size={16} />
       {message}
+      <Button size="sm" onClick={onRetry}>Reintentar</Button>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { Check, TriangleAlert, WandSparkles } from 'lucide-react';
 import { Button, Dialog, SegmentedControl } from '@/components/v2/ui';
+import { withCoachReturn } from '@/components/v2/shared/context-link';
 
 type StartChoice = 'current_week' | 'next_week';
 
@@ -57,7 +58,7 @@ export function PersonalizarPlanModal({
         setSubmitting(false);
         return;
       }
-      router.push(`/programar/programas/${body.personalize.month_template_id}`);
+      router.push(withCoachReturn(`/programar/programas/${body.personalize.month_template_id}`, `${window.location.pathname}${window.location.search}`));
     } catch {
       setError('No se pudo personalizar el plan. Inténtalo de nuevo.');
       setSubmitting(false);

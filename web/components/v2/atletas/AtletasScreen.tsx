@@ -31,6 +31,7 @@ import type { AtletasData } from './load-atletas';
 import {
   applyRosterQuery,
   fichaHref,
+  sameView,
   parseRosterQuery,
   serializeRosterQuery,
   viewQueryString,
@@ -209,8 +210,12 @@ export function AtletasScreen({ data }: { data: AtletasData }) {
     </>
   );
 
-  const isTodos = serializeRosterQuery({ ...query, orden: null, densidad: 'tabla' }) === 'estado=todos';
-  const isDefault = serializeRosterQuery({ ...query, orden: null, densidad: 'tabla' }) === '';
+  const isTodos = sameView(query, 'estado=todos');
+  const isAttention = sameView(query, 'atencion=si');
+  const outsideMatches = query.q && !isTodos
+    ? applyRosterQuery(rows, { ...parseRosterQuery('estado=todos'), q: query.q }).length - visible.length
+    : 0;
+  const searchAll = () => go({ ...parseRosterQuery('estado=todos'), q: query.q, densidad: query.densidad });
   const empty =
     rows.length === 0 ? (
       <EmptyState
@@ -223,12 +228,12 @@ export function AtletasScreen({ data }: { data: AtletasData }) {
       />
     ) : (
       <EmptyState
-        title={isDefault ? 'Nadie necesita nada ahora' : 'Nadie en esta vista'}
+        title={isAttention && !query.q ? 'Nadie necesita nada ahora' : 'Nadie en esta vista'}
         description={query.q ? `ninguno coincide con «${query.q}»` : undefined}
         action={
           isTodos && !query.q ? undefined : (
-            <Button size="sm" variant="ghost" onClick={() => pickView('estado=todos')}>
-              Ver todos
+            <Button size="sm" variant="ghost" onClick={query.q ? searchAll : () => pickView('estado=todos')}>
+              {query.q ? 'Buscar en todos' : 'Ver todos'}
             </Button>
           )
         }
@@ -286,7 +291,7 @@ export function AtletasScreen({ data }: { data: AtletasData }) {
                 resultCount={visible.length}
               />
               <FilterBar facets={facets} onFacetChange={(k, v) => setFilter(withFacet(query, k, v))} onClear={clear} />
-              <span className="ml-auto hidden t-body-sm text-v2-muted t-tnum md:inline">
+              <span className="ml-auto t-body-sm text-v2-muted t-tnum">
                 {visible.length} de {rows.length}
               </span>
               <SegmentedControl<Density>
@@ -300,6 +305,13 @@ export function AtletasScreen({ data }: { data: AtletasData }) {
                   { value: 'tarjetas', label: 'Tarjetas' },
                 ]}
               />
+            </div>
+          ) : null}
+
+          {outsideMatches > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 t-body-sm text-v2-muted" role="status">
+              <span>{outsideMatches} {outsideMatches === 1 ? 'coincidencia fuera' : 'coincidencias fuera'} de estos filtros.</span>
+              <Button size="sm" variant="ghost" onClick={searchAll}>Buscar en todos</Button>
             </div>
           ) : null}
 
