@@ -413,6 +413,7 @@ Hoy, Plan, Carreras, Perfil y Analíticas se portaron a Swift en paralelo con el
 | «No pudimos cargar X», con su «Reintentar» | `SujetoErrorDia(kicker:titulo:apoyo:alReintentar:)` |
 | Título del sujeto que no se parte en cinco líneas | `TituloDia(_, ajuste: .libre · .escalones · .reduce())` (una palabra sola se encoge, no se parte) |
 | Subtítulo de un bloque o de una pregunta (20 pt) · cifra de una fila que se lee en columna (22 pt) | `SubtituloDia` (`.papel(.subtitulo)`) · `.papel(.cifra)` |
+| Lo que el coach escribió PARA un bloque o un movimiento: su voz, con el filo del acento | `NotaConFiloDia(_, papel:)` (`.cuerpo` la de un bloque, `.nota` la de un movimiento) |
 | Elementos que se parten en filas (flex-wrap) | `FlowLayout(spacing:lineSpacing:)` |
 | «‹ Volver» de una pantalla empujada · menú «···» de una fila o de la acción anclada | `AtrasDia` · `MenuDia` |
 | Filete de un punto | `Hairline()` · `Hairline(fuerte: true)` |

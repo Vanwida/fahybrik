@@ -6,7 +6,7 @@ Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
 
 ## Ahora
 
-**FICHA DE LA SESIÓN · LA RUTA (02-10, rama `ficha-ruta-swift`, worktree `ficha-b`; doble `/design/ficha-ruta`; DECISIONS 02-10).** Alex firmó la B (mapa de bloques fijo arriba y un bloque cada vez); la hoja A se borró. Lectura Swift hecha (`LecturaFicha`); vistas y borrado de las viejas en curso con un agente. Declarado fuera por falta de dato: material y «última vez». Sin fusionar.
+**FICHA DE LA SESIÓN · LA RUTA (02-10, rama `ficha-ruta-swift`, worktree `ficha-b`; doble `/design/ficha-ruta`; DECISIONS 02-10).** Alex firmó la B (mapa de bloques fijo arriba y un bloque cada vez); la hoja A se borró. Lectura y vistas Swift hechas (`LecturaFicha`, `Workout/SesionPrevia/Ficha/`); borradas `BloquesPrevia`, `EjerciciosPrevia` y `SujetoPrevia`; compila (app y tests) y se vio en simulador en claro y oscuro; falta verla en aparato. Declarado fuera por falta de dato: material y «última vez». Sin fusionar.
 
 **EDITOR DE CORRER · ENTORNO, AVISO Y FRASE PARA EL RELOJ (30-09, worktree `agent-a1e4bc45135113ff8`, sin fusionar; DECISIONS 30-09).** El coach ya edita por tramo dónde se corre (calle, cinta con inclinación, pista), hacia dónde avisa (defecto = su método) y una frase de 80 caracteres. Guardado probado contra rama Neon. Falta: firma de Alex del layout, y el reloj aplicando `alert`.
 
