@@ -544,6 +544,7 @@
 		664FC516FCAAD0415EB41617 /* ComunicadoDetalleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C44CCD25F985F90FAD9BF5 /* ComunicadoDetalleView.swift */; };
 		6653F6314632D1944010CC6F /* AnaliticasGaleriaRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A8CE83D7C8F07DCF3695D4C /* AnaliticasGaleriaRenderTests.swift */; };
 		665618BF004DF57F2A39EF39 /* AvailabilityStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1596D438158E78B847D69D4 /* AvailabilityStep.swift */; };
+		66565B44DDE8268329A9E7C4 /* LecturaFicha.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE96780180A22F587D6A89A3 /* LecturaFicha.swift */; };
 		66784178976A060D8608ACDE /* SensorConclusions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B304514B23779942BC0D1EFA /* SensorConclusions.swift */; };
 		6689B92E77A241C1A352CC02 /* RodajeControles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5386AE10F7DCD2E7BAAA4E19 /* RodajeControles.swift */; };
 		66EAB0160F4AAF940A9550CE /* DescansoDelBloqueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08BD141FF6BAFD9D5F2718A5 /* DescansoDelBloqueTests.swift */; };
@@ -1254,7 +1255,6 @@
 		EDFB41836752DF2762099150 /* FreePlanHydration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A1BBCB35D6F990406AC023 /* FreePlanHydration.swift */; };
 		EE1E6DEB94DB8D5E617D754E /* PrescriptionParams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FBB20C41B28B2E9956A2525 /* PrescriptionParams.swift */; };
 		EE30CB0FC03A9AA28BC5BF60 /* 2026-08-11-2304-brazo-6reps.fhsc in Resources */ = {isa = PBXBuildFile; fileRef = F865E12A222D0C0B74B7A2AC /* 2026-08-11-2304-brazo-6reps.fhsc */; };
-		EE4485BD55BDA88E82E9C332 /* pre_compact.json in Resources */ = {isa = PBXBuildFile; fileRef = 91F7ECC5D5AB46C9DF087D2A /* pre_compact.json */; };
 		EE9581D18518C2C057912E0C /* ObjectiveStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1D4062C5F3F6CF199EABAB2 /* ObjectiveStep.swift */; };
 		EEBC99BA15D17BB81E7AC277 /* LiveHUDShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2AE2572F37333FE254CDC1A /* LiveHUDShared.swift */; };
 		EF04D46203ED3F7813E924CD /* AccountService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D8FE0DB8D8F91CF0A5D7893 /* AccountService.swift */; };
@@ -1289,6 +1289,7 @@
 		F4714DD418D2406F5557B142 /* EntradaBriefTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C1BBFDCC80833C3417A486B /* EntradaBriefTests.swift */; };
 		F50319142B038EC52F83DBBC /* RunStructure.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED9FFF40DCB381C74304F1F3 /* RunStructure.swift */; };
 		F55162CA65C55FCE78505F7C /* PhoneMirrorEndPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 154CBCB122955CC194E0E8F4 /* PhoneMirrorEndPolicyTests.swift */; };
+		F568EF9862F3B862A86057C7 /* LecturaFicha+Desde.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEFA01702D780405303AB9ED /* LecturaFicha+Desde.swift */; };
 		F5BF63A241B86FBED8C8A126 /* RegletaDia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 295C82B1132EA03ADE7AE48D /* RegletaDia.swift */; };
 		F619DCF68F13294DF79215C8 /* FormaDelAro.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10DE0983BB5934AEF0640102 /* FormaDelAro.swift */; };
 		F6619CC6398666107F23280E /* StationDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B796CAF804634A3E6D8CD4A2 /* StationDetailView.swift */; };
@@ -2124,7 +2125,6 @@
 		917218A14BE979E4BE986C88 /* WatchPrimaryOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchPrimaryOwner.swift; sourceTree = "<group>"; };
 		91CD3C49D3E4BA38B510874A /* AnaliticasFormatoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnaliticasFormatoTests.swift; sourceTree = "<group>"; };
 		91D20F18EBF557768C0A5BB1 /* JumpReportLectura.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpReportLectura.swift; sourceTree = "<group>"; };
-		91F7ECC5D5AB46C9DF087D2A /* pre_compact.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = pre_compact.json; sourceTree = "<group>"; };
 		9226579B8D1344AA829A4B5E /* HealthHistoryImportPanelRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthHistoryImportPanelRenderTests.swift; sourceTree = "<group>"; };
 		92301D3099895B625F52E562 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		924AF04A6DEAA100D07D3EE9 /* HealthKitStepsReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitStepsReader.swift; sourceTree = "<group>"; };
@@ -2632,7 +2632,9 @@
 		FE05036AFC1412D3D08FCAE2 /* Theme+Datos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Theme+Datos.swift"; sourceTree = "<group>"; };
 		FE13B397DF82D43B2E179E6D /* PM5WorkoutProgrammerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5WorkoutProgrammerTests.swift; sourceTree = "<group>"; };
 		FE1CD3E376A531B39FEC386F /* ComunicadoBandejaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComunicadoBandejaTests.swift; sourceTree = "<group>"; };
+		FE96780180A22F587D6A89A3 /* LecturaFicha.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LecturaFicha.swift; sourceTree = "<group>"; };
 		FEB313E33B83EC23E35ECC4F /* WatchWorkoutCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWorkoutCoordinator.swift; sourceTree = "<group>"; };
+		FEFA01702D780405303AB9ED /* LecturaFicha+Desde.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LecturaFicha+Desde.swift"; sourceTree = "<group>"; };
 		FF3F03099530BDA35E286A92 /* MunecaVivo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MunecaVivo.swift; sourceTree = "<group>"; };
 		FF6AA3E67BA4750EAEAE195C /* CicloDelPlanLecturasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CicloDelPlanLecturasTests.swift; sourceTree = "<group>"; };
 		FFC19FB61E8B15898E0E67F1 /* PM5WorkoutCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PM5WorkoutCodec.swift; sourceTree = "<group>"; };
@@ -3211,6 +3213,8 @@
 				C5533E9300339C4F8669CC0A /* EjemplosPrevia.swift */,
 				5D9434AF7FFAC087F8085CAF /* EjerciciosPrevia.swift */,
 				B6FC8DFD2BA9D1A9656460BD /* LecturaEjercicioPrevia.swift */,
+				FE96780180A22F587D6A89A3 /* LecturaFicha.swift */,
+				FEFA01702D780405303AB9ED /* LecturaFicha+Desde.swift */,
 				8AE4CDEA0D8F48F5B013DFCF /* LecturaSesionPrevia.swift */,
 				3FE77CD25C5880D1D2723302 /* PielPrevia.swift */,
 				286E90FDE5F84EEE3F5ADC63 /* SujetoPrevia.swift */,
@@ -3707,14 +3711,6 @@
 				527B6B20D42AB64D4F086227 /* VelocityBand.swift */,
 			);
 			path = Sensor;
-			sourceTree = "<group>";
-		};
-		6BE7B44C359EA24F55B2D202 /* logs */ = {
-			isa = PBXGroup;
-			children = (
-				91F7ECC5D5AB46C9DF087D2A /* pre_compact.json */,
-			);
-			path = logs;
 			sourceTree = "<group>";
 		};
 		6F7DAA30934857301B561C6C /* Zonas */ = {
@@ -4703,7 +4699,6 @@
 				9A052546EBC042909966659E /* HealthKit */,
 				F601AC950052A53420A58ADD /* History */,
 				D9A304487F9FA9DF5C59B58D /* Jump */,
-				6BE7B44C359EA24F55B2D202 /* logs */,
 				E4DB507F7D2592C0D0673A9E /* Marks */,
 				87A9DC8E9144292DBBBE3EF7 /* Media */,
 				F8A77B901C4E7B4A7F43C501 /* Networking */,
@@ -5115,7 +5110,6 @@
 				E23D573788732D8862FD4B33 /* Assets.xcassets in Resources */,
 				F973DC2581E6210245922558 /* Preview Assets.xcassets in Resources */,
 				D95136979989BCA5580D646B /* PrivacyInfo.xcprivacy in Resources */,
-				EE4485BD55BDA88E82E9C332 /* pre_compact.json in Resources */,
 				32BAF189A5EB1C7DCD137E6A /* splash-fahybrid.mp4 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5576,6 +5570,8 @@
 				AFDD08BDC0CBB4A9872FE13F /* LecturaDeSesionView.swift in Sources */,
 				44E1424F0BED4900C59744B1 /* LecturaEjercicioPrevia.swift in Sources */,
 				74B7AF64692899ADE695BCAE /* LecturaErgo.swift in Sources */,
+				F568EF9862F3B862A86057C7 /* LecturaFicha+Desde.swift in Sources */,
+				66565B44DDE8268329A9E7C4 /* LecturaFicha.swift in Sources */,
 				94E54978408D7BD65803BC1F /* LecturaHoy+Fuentes.swift in Sources */,
 				638179A8F436CD274039132E /* LecturaHoy.swift in Sources */,
 				898C402B510DC525502759BA /* LecturaPerfil+Cable.swift in Sources */,

@@ -97,6 +97,8 @@ struct LecturaSesionPrevia {
     let muestraReloj: Bool
     /// La frase sobre la acción en la segunda pasada. Nil en la primera.
     let lineaDeArranque: String?
+    /// La sesión tal como la enseña la ficha: cabecera y bloques con su forma (`LecturaFicha`).
+    let ficha: LecturaFicha
 
     /// La etiqueta que abre el sujeto: la modalidad y, si la hay, la duración.
     var kicker: String {
@@ -110,7 +112,8 @@ struct LecturaSesionPrevia {
         listo: Bool,
         esMarca: Bool,
         conCaptura: Bool,
-        relojDisponible: Bool
+        relojDisponible: Bool,
+        contexto: ContextoFicha = ContextoFicha()
     ) -> LecturaSesionPrevia {
         let segmentos = plan.segments.sorted { $0.order < $1.order }
         let bloques = detalle?.workout?.blocks ?? []
@@ -150,7 +153,8 @@ struct LecturaSesionPrevia {
             muestraReloj: listo,
             lineaDeArranque: listo
                 ? (relojDisponible ? "Empieza cuando estés listo. El reloj se abre solo." : "Empieza cuando estés listo.")
-                : nil
+                : nil,
+            ficha: LecturaFicha.desde(plan: plan, detalle: detalle, contexto: contexto)
         )
     }
 

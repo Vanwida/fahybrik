@@ -18,6 +18,8 @@ struct WorkoutLaunch: Identifiable, Equatable {
     /// «Empezar» desde el Plan va derecho a la puerta de empezar (dispositivos y arrancar); tocar la sesión
     /// abre su ficha para VER el entreno sin empezar nada.
     var empiezaDirecto = false
+    /// Lo que la ficha dice de la sesión y no está en su detalle: el coach, cuándo toca, cuánto dura.
+    var contexto = ContextoFicha()
     var id: String { assignmentId }
 }
 
@@ -62,6 +64,8 @@ struct WorkoutContainer: View {
     var recoveredSession: WorkoutSession? = nil
     /// Salta la ficha y va a la puerta de empezar en cuanto el plan está cargado (`WorkoutLaunch.empiezaDirecto`).
     var empiezaDirecto = false
+    /// Lo que la ficha necesita de FUERA del detalle (`WorkoutLaunch.contexto`).
+    var contextoFicha = ContextoFicha()
     @State private var yaSalto = false
 
     enum Phase: Equatable {
@@ -309,6 +313,7 @@ struct WorkoutContainer: View {
                     // (The erg connect is enforced later, at the engine's pre-block
                     // gate — this brief never even shows for free/benchmark paths.)
                     isBenchmark: activeFreeContext?.benchmark != nil,
+                    contexto: contextoFicha,
                     onClose: onClose
                 )
             case .devices:
@@ -336,6 +341,7 @@ struct WorkoutContainer: View {
                     onStart: {},
                     onManualLog: {},
                     isBenchmark: activeFreeContext?.benchmark != nil,
+                    contexto: contextoFicha,
                     onClose: onClose,
                     readyToStart: true,
                     segments: plan.segments.sorted { $0.order < $1.order },

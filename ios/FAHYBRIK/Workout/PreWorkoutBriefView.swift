@@ -30,6 +30,8 @@ struct PreWorkoutBriefView: View {
     var showCaptureLog: Bool = false
     /// #Marcas — un intento de marca: sin caminos a mano (una marca que la app no midió no existe).
     var isBenchmark: Bool = false
+    /// Lo que la ficha necesita de FUERA del detalle (el coach, cuándo toca, cuánto dura).
+    var contexto: ContextoFicha = ContextoFicha()
     let onClose: () -> Void
 
     // MARK: FH-95 · segunda pasada (después de Dispositivos — UNA sola puerta de empezar)
@@ -58,7 +60,11 @@ struct PreWorkoutBriefView: View {
             listo: readyToStart,
             esMarca: isBenchmark,
             conCaptura: showCaptureLog,
-            relojDisponible: WatchPresence.shared.appAvailable
+            relojDisponible: WatchPresence.shared.appAvailable,
+            contexto: ContextoFicha(
+                cuando: contexto.cuando, coach: contexto.coach, esLibre: contexto.esLibre,
+                duracion: contexto.duracion, esMarca: contexto.esMarca || isBenchmark
+            )
         )
     }
 

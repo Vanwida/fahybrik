@@ -54,6 +54,7 @@ struct PlanDestinos: ViewModifier {
                     bearer: bearer,
                     hrZones: store.identity.value?.hrZones,
                     empiezaDirecto: launch.empiezaDirecto,
+                    contextoFicha: launch.contexto,
                     onClose: {
                         workoutLaunch = nil
                         // «Salir y seguir luego» cierra por AQUÍ (igual que un descarte o un back de brief): la
