@@ -135,6 +135,18 @@ extension GaleriaDia {
         }
     }
 
+    // MARK: - La nota del coach
+
+    /// La nota con filo, a los dos tamaños con que la usa la ficha: la de un bloque (cuerpo) y la de un movimiento (nota).
+    struct Notas: View {
+        var body: some View {
+            VStack(alignment: .leading, spacing: Theme.Spacing.l) {
+                NotaConFiloDia("Si acabas antes del minuto, descansa lo que sobre. Si no llegas, para y espera al siguiente.")
+                NotaConFiloDia("Baja hasta que el muslo pase la paralela. Pausa de un segundo abajo.", papel: .nota)
+            }
+        }
+    }
+
     // MARK: - Filas y vuelta
 
     /// La fila que se toca (con estado, con detalle, con tinte, con su propia tarjeta) y el «‹ Volver».

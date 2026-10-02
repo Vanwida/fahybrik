@@ -261,7 +261,7 @@ extension MovimientoFicha {
         let contra = contraImpuesta ?? (lectura.uniforme ? (segunTuRm?.kg ?? lectura.contra) : lectura.contra)
         let pctRm = (segunTuRm != nil && lectura.uniforme) ? lectura.contra : nil
 
-        let secundaria = [rol, pctRm, lectura.tempo.map { "tempo \($0)" }, lectura.descanso.map { "desc. \($0)" }]
+        let secundaria = [pctRm, lectura.tempo.map { "tempo \($0)" }, lectura.descanso.map { "desc. \($0)" }]
             .compactMap { $0 }
             .map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }
             .joined(separator: " · ")
@@ -273,6 +273,7 @@ extension MovimientoFicha {
             dosis: dosisImpuesta ?? lectura.dosis,
             contra: contra,
             zona: lectura.zona,
+            rol: rol,
             secundaria: secundaria.isEmpty ? nil : secundaria,
             series: lectura.series,
             rangoDeCarga: lectura.rangoDeCarga,

@@ -170,6 +170,7 @@
 		1AC6B5DAA510AEDD3FA3F751 /* FreeRunBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B23EB7636AE0FD7035F849 /* FreeRunBuilderView.swift */; };
 		1AF0FB50DD64E10F76FAD391 /* PostWorkoutFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB5F4CB42B4E4B39DA7C94CA /* PostWorkoutFeedbackTests.swift */; };
 		1AF6404E4CD5645E01F2C32A /* Vivo+MunecaAnotar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA081DC8FDE69F1F11ECB12C /* Vivo+MunecaAnotar.swift */; };
+		1B07D732A010369015952660 /* NotaConFiloDia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0AC20830D3261225861002 /* NotaConFiloDia.swift */; };
 		1B14B1D787328B1F381CD271 /* DeviceChannelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44FB98ED7471F434CC3D5E62 /* DeviceChannelTests.swift */; };
 		1B5E3084ECDCCBB96CCAF9F4 /* WorkoutCaptureReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB05D65870455F60AEF7115B /* WorkoutCaptureReview.swift */; };
 		1B8465D0F6B87A04EBEADC1C /* WatchPaginaModelo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FAB3010E312E5962AD2B09E /* WatchPaginaModelo.swift */; };
@@ -1001,6 +1002,7 @@
 		C15F1CDE8468895EDEBB1448 /* AnaliticasEstados.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1479F69147BA7AFB526558F1 /* AnaliticasEstados.swift */; };
 		C16975E7E380BE475052DC7C /* LecturaDeCorrerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A012B899ECF84BC8B947B6F9 /* LecturaDeCorrerTests.swift */; };
 		C17DD06A3868B1A2D5B5BD8E /* BlockPreviewGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D30DD108695370C84CD8FFAB /* BlockPreviewGate.swift */; };
+		C1A513F6EA4CE05FC40DAF7A /* LecturaFicha+Panel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AB82B8834E31AA9B7BE1B8E /* LecturaFicha+Panel.swift */; };
 		C1DCC98F74283E63D6F62D53 /* HistoryCalendarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883BD3BAFDC4853754FC7DD0 /* HistoryCalendarTests.swift */; };
 		C24168F20A9E3784EF0518BF /* VivoPlanesDePrueba.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC8D0DD80B7760B811221281 /* VivoPlanesDePrueba.swift */; };
 		C26EA7FB6F211F1D494B5E3F /* Vivo+Paso.swift in Sources */ = {isa = PBXBuildFile; fileRef = D12C93D4B03B475978822B30 /* Vivo+Paso.swift */; };
@@ -1014,6 +1016,7 @@
 		C3D049B376C0CE832D341785 /* HistoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8D1A0AA011BD2C262D94E4C /* HistoryModels.swift */; };
 		C4486E82DA2A2192FAFE4B5F /* WorkoutSession+BoutRecords.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37146DEACD9D1D5451B0C5D0 /* WorkoutSession+BoutRecords.swift */; };
 		C483A521A5439C1009F28520 /* LecturaResumen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3E04FB3D7596C6904F9F337 /* LecturaResumen.swift */; };
+		C4AEF404A4F83A52B5DEB0F3 /* VideoDeTecnica+Poster.swift in Sources */ = {isa = PBXBuildFile; fileRef = 505A8B9861DDF923BD85283F /* VideoDeTecnica+Poster.swift */; };
 		C4B11E9FBF0E182B5288EB18 /* WatchTestResultPromptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F59C78A813F79333FDF94F4B /* WatchTestResultPromptTests.swift */; };
 		C4C4BCC7862FF32848F22615 /* GuionEscaparateMuneca.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C8962DD609468FEDD86F1E /* GuionEscaparateMuneca.swift */; };
 		C4E7ED84888ABA261E43DC00 /* CarrerasPiezas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AEF23D94C2508F8B369C662 /* CarrerasPiezas.swift */; };
@@ -1487,6 +1490,7 @@
 		0A64775F2F313FB7EF028739 /* MomentoHoyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MomentoHoyTests.swift; sourceTree = "<group>"; };
 		0A8A8EC873824DDB5E986596 /* RaceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaceDetailView.swift; sourceTree = "<group>"; };
 		0AA77EA9C472F2A1E2276FBB /* GuionSeriesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuionSeriesTests.swift; sourceTree = "<group>"; };
+		0AB82B8834E31AA9B7BE1B8E /* LecturaFicha+Panel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LecturaFicha+Panel.swift"; sourceTree = "<group>"; };
 		0AF5F9ED1777F3F18A0A4056 /* EspinaDelPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EspinaDelPlan.swift; sourceTree = "<group>"; };
 		0B01B98B7C00C8D44E7B0231 /* Vivo+RitmoActual.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Vivo+RitmoActual.swift"; sourceTree = "<group>"; };
 		0B9DE2B3AC282A1BFCEED54C /* MarcoDeHojaDia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarcoDeHojaDia.swift; sourceTree = "<group>"; };
@@ -1695,6 +1699,7 @@
 		39B9A10A6383A075FBF58B4B /* AtrasDia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtrasDia.swift; sourceTree = "<group>"; };
 		39EF7B3C71957791C43C44FF /* InviteLandingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteLandingView.swift; sourceTree = "<group>"; };
 		3A07618BFBE2D893F8EC219B /* DeleteAccountConfirmView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountConfirmView.swift; sourceTree = "<group>"; };
+		3A0AC20830D3261225861002 /* NotaConFiloDia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotaConFiloDia.swift; sourceTree = "<group>"; };
 		3A41F5613C9243E39320A098 /* RequestQueueNoExpiryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestQueueNoExpiryTests.swift; sourceTree = "<group>"; };
 		3A453B3F0D01F7E8E7E5732A /* AnaliticasEstadosTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnaliticasEstadosTests.swift; sourceTree = "<group>"; };
 		3A4A28B6C7BF0354844E21A5 /* EspejoLaminaMismaCaraTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EspejoLaminaMismaCaraTests.swift; sourceTree = "<group>"; };
@@ -1811,6 +1816,7 @@
 		501A2C5FF2D062C282BC2C95 /* AvisoDia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvisoDia.swift; sourceTree = "<group>"; };
 		50409549C35F59BD5625C62C /* detalle-bici-viejo-12s.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "detalle-bici-viejo-12s.json"; sourceTree = "<group>"; };
 		504987A0FDEC7B2DAF8A6B82 /* VivoAdaptadorFuerzaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VivoAdaptadorFuerzaTests.swift; sourceTree = "<group>"; };
+		505A8B9861DDF923BD85283F /* VideoDeTecnica+Poster.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VideoDeTecnica+Poster.swift"; sourceTree = "<group>"; };
 		507990931B3A77E5786C8A7C /* PreWorkoutDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreWorkoutDevices.swift; sourceTree = "<group>"; };
 		5094E79EEB649414D6982B78 /* MunecaMandos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MunecaMandos.swift; sourceTree = "<group>"; };
 		50AD818A32719179D634D1A3 /* LecturaDeErgo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LecturaDeErgo.swift; sourceTree = "<group>"; };
@@ -3215,6 +3221,7 @@
 				B6FC8DFD2BA9D1A9656460BD /* LecturaEjercicioPrevia.swift */,
 				FE96780180A22F587D6A89A3 /* LecturaFicha.swift */,
 				FEFA01702D780405303AB9ED /* LecturaFicha+Desde.swift */,
+				0AB82B8834E31AA9B7BE1B8E /* LecturaFicha+Panel.swift */,
 				8AE4CDEA0D8F48F5B013DFCF /* LecturaSesionPrevia.swift */,
 				3FE77CD25C5880D1D2723302 /* PielPrevia.swift */,
 				286E90FDE5F84EEE3F5ADC63 /* SujetoPrevia.swift */,
@@ -3606,6 +3613,7 @@
 				B2672B55C22DD2D243300353 /* LineaDelDia.swift */,
 				0B9DE2B3AC282A1BFCEED54C /* MarcoDeHojaDia.swift */,
 				B49F1EC8003832005EC262FE /* MenuDia.swift */,
+				3A0AC20830D3261225861002 /* NotaConFiloDia.swift */,
 				43121788CAC80DE6FDAEE51F /* OpcionDia.swift */,
 				7703C3BFA1A32C922D58EB1A /* PastillaSeccionDia.swift */,
 				75B79116AE0BB655169CAFCD /* PosterDia.swift */,
@@ -3808,6 +3816,7 @@
 		87A9DC8E9144292DBBBE3EF7 /* Media */ = {
 			isa = PBXGroup;
 			children = (
+				505A8B9861DDF923BD85283F /* VideoDeTecnica+Poster.swift */,
 				3ECB10E750AEF2622E5CA05B /* YouTubeEmbedView.swift */,
 			);
 			path = Media;
@@ -5571,6 +5580,7 @@
 				44E1424F0BED4900C59744B1 /* LecturaEjercicioPrevia.swift in Sources */,
 				74B7AF64692899ADE695BCAE /* LecturaErgo.swift in Sources */,
 				F568EF9862F3B862A86057C7 /* LecturaFicha+Desde.swift in Sources */,
+				C1A513F6EA4CE05FC40DAF7A /* LecturaFicha+Panel.swift in Sources */,
 				66565B44DDE8268329A9E7C4 /* LecturaFicha.swift in Sources */,
 				94E54978408D7BD65803BC1F /* LecturaHoy+Fuentes.swift in Sources */,
 				638179A8F436CD274039132E /* LecturaHoy.swift in Sources */,
@@ -5612,6 +5622,7 @@
 				0BA2DA4940FF379C4DD410BE /* MomentoHoy.swift in Sources */,
 				6740ACDEAC1B3B3B84556722 /* MyStrengthView.swift in Sources */,
 				6AAF20CF8B6E2553501825C0 /* MyZonesView.swift in Sources */,
+				1B07D732A010369015952660 /* NotaConFiloDia.swift in Sources */,
 				84678253754780257E4FC060 /* NotaDeVoz.swift in Sources */,
 				E13516289BE04F618147CA7C /* NutritionModels.swift in Sources */,
 				8E3D2CF3B6841E05350960D2 /* NutritionSearchSheet.swift in Sources */,
@@ -5837,6 +5848,7 @@
 				E3A309BFED5DB024FA9B4217 /* TreadmillSources.swift in Sources */,
 				712A964C322E29F0D169FD8B /* TreadmillSpeedResolver.swift in Sources */,
 				8D47A791EFC15AAB5892C044 /* VelocityBand.swift in Sources */,
+				C4AEF404A4F83A52B5DEB0F3 /* VideoDeTecnica+Poster.swift in Sources */,
 				7919AD34B060416AEE7BCC67 /* Vivo+Accion.swift in Sources */,
 				1B8D9D281ADA38D8BD5BDF50 /* Vivo+Anotar.swift in Sources */,
 				E909DEE1D7DAFCC4FEA95FD5 /* Vivo+AnotarMotor.swift in Sources */,

@@ -179,7 +179,9 @@ struct MovimientoFicha: Identifiable, Equatable {
     /// Contra qué: kilos, ritmo, RPE, %RM («100 kg», «@ 4:35/km»). Con %RM resuelto, los KILOS.
     let contra: String?
     let zona: HRZone?
-    /// La segunda línea del nombre: su papel en el bloque, el %RM, el tempo y el descanso, ya compuestos.
+    /// Su papel dentro del bloque cuando el bloque los reparte: «1º» en una superserie, «Min impar» en un EMOM que alterna.
+    let rol: String?
+    /// La segunda línea del nombre: el %RM, el tempo y el descanso, ya compuestos.
     let secundaria: String?
     /// Series una a una, solo cuando difieren (la dosis resume: «5 × 5»).
     let series: [Serie]
