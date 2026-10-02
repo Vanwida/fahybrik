@@ -1,6 +1,6 @@
 'use client';
 
-// LA FICHA DE LA SESIÓN · B · LA RUTA — primero el mapa, luego lo que te toca.
+// LA FICHA DE LA SESIÓN · LA RUTA — primero el mapa, luego lo que te toca (firmada por Alex, 2-oct).
 //
 // POR QUÉ OTRA FICHA. Una sesión de verdad tiene PARTES (calentar, un bloque de
 // fuerza, un metcon, soltar) y la primera pregunta de quien la abre no es «qué
@@ -51,15 +51,15 @@ import { Ruta } from './ruta';
 
 export const meta: TwinMeta = {
   id: 'ficha-ruta',
-  titulo: 'La ficha de la sesión · B · La ruta',
+  titulo: 'La ficha de la sesión · La ruta',
   zona: 'Plan y hoy',
   estado: 'propuesta',
   actualizado: '2026-10-02',
   descripcion:
-    'Antes de empezar, primero el mapa: un nodo por bloque, en orden y fijo arriba, y debajo solo UN bloque cada vez con la forma de su formato (la tarjeta de fuerza con las series una a una, el EMOM como pista de minutos, la simulación como recorrido de estaciones, las series de pista como su forma). Misma cabecera y misma nota del coach que la hoja. Dieciséis sesiones para romperla, cinco reales.',
+    'Firmada por Alex el 2-oct. Antes de empezar, primero el mapa: un nodo por bloque, en orden y fijo arriba, y debajo solo UN bloque cada vez con la forma de su formato (la tarjeta de fuerza con las series una a una, el EMOM como pista de minutos, la simulación como recorrido de estaciones, las series de pista como su forma). Arriba, título y una línea y la nota del coach entera. «Empezar» anclado. Dieciséis sesiones para romperla, cinco reales.',
   fuentes: [],
   enApp:
-    'La ficha de hoy es PreWorkoutBriefView.swift (+ SesionPrevia/*): un sujeto de 244 pt y una tarjeta por ejercicio. Esta propuesta usa la misma LecturaSesionPrevia con los mismos tres campos nuevos que la hoja (material por ejercicio, minutos de un bloque solo si se saben, el reparto de Dobles) y añade el bloque elegido como estado de la pantalla.',
+    'La ficha de hoy es PreWorkoutBriefView.swift (+ SesionPrevia/*): un sujeto de 244 pt y una tarjeta por ejercicio. Se está construyendo sobre LecturaFicha (espejo de kit-ficha/contrato). Lo que este doble enseña y la app TODAVÍA no: el material («Para este bloque» / «Prepara») y «La última vez», porque no existen como dato (el catálogo no guarda el material y no hay endpoint de última vez). La miniatura es el póster real del vídeo (aquí, un gesto dibujado) y una loseta de la modalidad cuando no hay vídeo.',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };
