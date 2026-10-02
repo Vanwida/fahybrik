@@ -270,7 +270,7 @@ extension MovimientoFicha {
             id: item.uid,
             item: item,
             modalidad: modalidad,
-            dosis: dosisImpuesta ?? lectura.dosis,
+            dosis: (dosisImpuesta ?? lectura.dosis).map { conLaUnidadDeLasReps($0, medida: medida) },
             contra: contra,
             zona: lectura.zona,
             rol: rol,
@@ -283,6 +283,13 @@ extension MovimientoFicha {
             nota: item.notes.flatMap { $0.isEmpty ? nil : $0 }
         )
     }
+}
+
+/// «100» a secas no dice qué se repite 100 veces: cuando la dosis es SOLO la medida de unas repeticiones, se deletrea
+/// («100 reps»). Con multiplicador («4 × 10»), con otra unidad («800 m») o con una banda de otra medida ya se lee entera.
+private func conLaUnidadDeLasReps(_ dosis: String, medida: Measure?) -> String {
+    guard case .reps? = medida, dosis == PrescriptionRenderer.measureWork(medida) else { return dosis }
+    return PrescriptionRenderer.measureWork(medida, deletreandoReps: true) ?? dosis
 }
 
 /// Lo que se lee de la prescripción de UN ítem, antes de componer el movimiento.
@@ -321,7 +328,14 @@ private struct LecturaDeItem {
         l.dosis = rotacion.work
         l.contra = rotacion.load
         l.uniforme = false
-        l.series = filas.map { MovimientoFicha.Serie(trabajo: $0.work, carga: $0.load, descanso: $0.rest) }
+        let medidas = p.sets?.map(\.measure) ?? []
+        l.series = filas.enumerated().map { i, fila in
+            MovimientoFicha.Serie(
+                trabajo: fila.work.map { conLaUnidadDeLasReps($0, medida: medidas[i]) },
+                carga: fila.load,
+                descanso: fila.rest
+            )
+        }
         l.rangoDeCarga = rotacion.load.flatMap { $0.contains("→") ? $0 : nil }
         let tempos = Set(filas.map { $0.tempo })
         if tempos.count == 1 { l.tempo = filas[0].tempo }
