@@ -38,7 +38,6 @@ export function IndividualInboxRow(props: InboxRowProps) {
           <div className="flex min-w-0 flex-1 basis-48 flex-col gap-0.5">
             <div className="flex flex-wrap items-center gap-2">
               <SignalBadge signal={signal} size="sm" />
-              {signal.first_seen_at ? <span className="t-meta text-v2-faint t-tnum">{ageLabel(signal.first_seen_at, now)}</span> : null}
             </div>
             {(kept?.summary || signal.evidence) ? <span className="t-meta break-words text-v2-muted">{kept?.summary || signal.evidence}</span> : null}
           </div>
@@ -53,6 +52,7 @@ export function IndividualInboxRow(props: InboxRowProps) {
               trigger={<IconButton icon={MoreHorizontal} label={`Acciones: ${signal.label}`} size="sm" />}
               items={[
                 { type: 'label', label: signal.label },
+                ...(signal.first_seen_at ? [{ type: 'label' as const, label: `Aviso detectado hace ${ageLabel(signal.first_seen_at, now)}` }] : []),
                 { label: 'Hecho', icon: Check, onSelect: () => onDone(signal) },
                 { type: 'separator' }, { type: 'label', label: 'Posponer' },
                 { label: 'Hasta nueva señal', icon: Clock, onSelect: () => onSnooze('signal', signal) },

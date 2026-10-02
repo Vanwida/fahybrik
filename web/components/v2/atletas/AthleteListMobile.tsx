@@ -16,13 +16,15 @@ export function AthleteListMobile({ rows, onOpen }: { rows: RosterRow[]; onOpen:
           className="min-h-14 py-2"
           leading={<Avatar name={r.name} src={r.avatar_url} size="md" />}
           title={
-            <span className="flex min-w-0 items-center gap-2">
-              <span className="truncate">{r.name}</span>
-              {r.level ? <Tag>{r.level.label}</Tag> : null}
+            <span className="flex min-w-0 items-center justify-between gap-2">
+              <span className="flex min-w-0 flex-1 items-center gap-2">
+                <span className="truncate">{r.name}</span>
+                {r.level ? <Tag>{r.level.label}</Tag> : null}
+              </span>
+              <WeekChip week={r.week_visibility} nextStart={r.next_start} />
             </span>
           }
           detail={<StatusCell row={r} />}
-          trailing={<WeekChip week={r.week_visibility} nextStart={r.next_start} />}
           onClick={() => onOpen(r)}
         />
       ))}

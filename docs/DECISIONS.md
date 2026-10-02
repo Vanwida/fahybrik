@@ -20,6 +20,8 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **Casos de diseño:** fuentes dadas por Alex (PDF y auditoría anterior): Leads con cinco abiertos; Cobros con renovaciones; Embudo vacío en 30 días y ocho en Todo; Plan de tres semanas y plan completo; títulos de correr/fuerza/remo/metcon; dos atletas con alta pendiente; mensaje y revisión distintos de un atleta; Entrenos cero con 99 bloques; seis umbrales con uno estimado; entrevista cero con cuatro grupos que muestran sus valores actuales; móvil a 390 px. Se conservan datos y mecanismos de dominio, con validación de navegación y lectura en la app publicada.
 
+**Remate tras el recorrido publicado:** la fecha de detección de un aviso no es el tiempo real de espera o desde la última revisión. En una fila individual de Hoy, la evidencia de la tarea se lee primero; «Aviso detectado hace…» queda en su menú, con su significado explícito. En Atletas móvil, Semana comparte la línea del nombre para que el motivo disponga de todo el ancho del cuerpo. Ambos mantienen los datos y controles existentes.
+
 ---
 
 ## 2026-10-02 · Negocio recupera el acceso del club fundador antes de publicar el dashboard
