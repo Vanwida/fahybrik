@@ -8,3 +8,12 @@ export function libraryView(params: URLSearchParams, remembered: LibraryView = '
   const legacy: Record<string, LibraryView> = { sesiones: 'entrenos', entrenos: 'entrenos', bloques: 'bloques', ejercicios: 'ejercicios', comunicados: 'comunicados' };
   return legacy[params.get('tab') ?? ''] ?? remembered;
 }
+
+/** Cambiar de categoría conserva el contexto de la URL y retira su filtro anterior. */
+export function libraryViewParams(params: URLSearchParams, view: LibraryView): URLSearchParams {
+  const next = new URLSearchParams(params);
+  next.set('ver', view);
+  next.delete('tab');
+  next.delete('filtro');
+  return next;
+}

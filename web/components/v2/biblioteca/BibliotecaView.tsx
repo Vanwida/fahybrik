@@ -13,7 +13,7 @@ import { LibraryTable } from './LibraryTable';
 import { parseLibFilter, type LibFilter } from './library-filter';
 import { EjerciciosTable } from './EjerciciosTable';
 import { ComunicadosLibrary } from './ComunicadosLibrary';
-import { LIBRARY_VIEWS, libraryView, type LibraryView } from './library-view';
+import { LIBRARY_VIEWS, libraryView, libraryViewParams, type LibraryView } from './library-view';
 import { useViewerChoice } from '../shell/viewer-prefs';
 
 type Ver = LibraryView;
@@ -29,12 +29,10 @@ export function BibliotecaView({ data, coachId, coachName }: { data: { entrenos:
   const [createExercise, setCreateExercise] = useState(0);
 
   const go = (next: { ver?: Ver; filtro?: LibFilter }) => {
-    const sp = new URLSearchParams(params?.toString() ?? '');
+    const current = new URLSearchParams(params?.toString() ?? '');
+    const sp = next.ver ? libraryViewParams(current, next.ver) : current;
     if (next.ver) {
       remember(next.ver);
-      sp.set('ver', next.ver);
-      sp.delete('tab');
-      sp.delete('filtro');
     }
     if (next.filtro) sp.set('filtro', next.filtro);
     router.replace(`${path}?${sp.toString()}`, { scroll: false });
@@ -87,6 +85,12 @@ export function BibliotecaView({ data, coachId, coachName }: { data: { entrenos:
           noun={ver === 'entrenos' ? 'entreno' : 'bloque'}
           filter={filter}
           onFilter={(f) => go({ filtro: f })}
+          relatedCategory={{
+            count: live(ver === 'entrenos' ? data.bloques : data.entrenos),
+            label: ver === 'entrenos' ? 'bloques' : 'entrenos',
+            href: `${path}?${libraryViewParams(new URLSearchParams(params?.toString()), ver === 'entrenos' ? 'bloques' : 'entrenos')}`,
+            onOpen: () => remember(ver === 'entrenos' ? 'bloques' : 'entrenos'),
+          }}
         />
       )}
     </div>
