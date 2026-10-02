@@ -53,6 +53,13 @@ enum GlifoDia: String, CaseIterable {
     case invitar    = "person.badge.plus"
     /// Entrenar: una mancuerna.
     case mancuerna  = "dumbbell"
+    /// Un ergómetro (remo, SkiErg, bici): la onda de lo que tira de ti. Con `mancuerna`, `correr`, `funcional` y
+    /// `movilidad` son los cinco gestos de una familia de entreno (la loseta de un ejercicio sin vídeo).
+    case ergo       = "waveform.path"
+    /// Un movimiento funcional: wall balls, kettlebell, cajón.
+    case funcional  = "figure.strengthtraining.functional"
+    /// Movilidad y calentamiento: el cuerpo que se suelta.
+    case movilidad  = "figure.flexibility"
     case reloj      = "applewatch"
     /// Cuenta: tres controles deslizantes.
     case ajustes    = "slider.horizontal.3"

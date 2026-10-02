@@ -305,12 +305,33 @@ struct PlanView: View {
     /// decisión, para que hecho y pendiente no se confundan.
     private func abrir(_ session: AthleteWeekDaySession, empezando: Bool = false) {
         guard !session.assignmentId.isEmpty else { return }
-        let launch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title, empiezaDirecto: empezando)
+        let launch = WorkoutLaunch(assignmentId: session.assignmentId, title: session.title,
+                                   empiezaDirecto: empezando, contexto: contextoDeLaFicha(session))
         if session.estado.trabajada {
             executedLaunch = launch
         } else {
             Task { await attemptWorkoutLaunch(launch) }
         }
+    }
+
+    /// Lo que la ficha dice de la sesión y su detalle no trae: quién la montó, cuándo toca y cuánto dura. El
+    /// nombre del coach, la fecha y la duración salen de la MISMA lectura del Plan (un solo sitio por dato).
+    private func contextoDeLaFicha(_ session: AthleteWeekDaySession) -> ContextoFicha {
+        let l = lecturaBase
+        let semanas = [l.actual].compactMap { $0 } + l.hojeadas.values.compactMap { h -> SemanaDelPlan? in
+            if case let .llego(semana) = h { return semana }
+            return nil
+        }
+        let dia = semanas.flatMap(\.dias).first { d in d.sesiones.contains { $0.assignmentId == session.assignmentId } }
+        return ContextoFicha(
+            cuando: dia.map { FechasDelPlan.rotulo(de: $0.isoDate, hoy: l.hoyIso) },
+            coach: l.coach,
+            esLibre: session.isSelfOrigin,
+            duracion: DuracionDeSesion.texto(session).map {
+                LecturaFicha.Duracion(texto: $0, llevaNumero: DuracionDeSesion.llevaNumero(session))
+            },
+            esMarca: session.isTestSession
+        )
     }
 
     @MainActor

@@ -6,6 +6,8 @@ import Foundation
 // `block.alternatingEmom`, `block.supersetFold`): la ficha no puede contar una sesión y el entreno
 // otra. Cuando un ítem no trae prescripción estructurada se lee de sus escalares heredados, y lo que
 // no declara no se pinta (§7): ni un guion, ni un valor por defecto que parezca del atleta.
+//
+// Es la materia prima de `LecturaFicha+Desde.swift`, que compone con ella lo que enseña cada movimiento.
 
 enum LecturaEjercicioPrevia {
 
@@ -38,12 +40,6 @@ enum LecturaEjercicioPrevia {
         case "mobility":   return .mobility
         default:           return .other
         }
-    }
-
-    /// La modalidad dominante de un bloque: la de su primer ítem (o su formato si viene vacío).
-    static func modalidad(de bloque: WorkoutBlock) -> String {
-        guard let primero = bloque.items.first else { return bloque.format }
-        return modalidad(de: primero).rawValue
     }
 
     // MARK: La línea de un ítem
@@ -86,55 +82,6 @@ enum LecturaEjercicioPrevia {
         )
     }
 
-    /// La línea corta de una fila plegada (calentamiento, vuelta a la calma): la medida dominante y su
-    /// ritmo o zona. Nil si el ítem no declara nada: la fila se queda con el nombre.
-    static func resumenCorto(_ item: WorkoutItem) -> String? {
-        let l = linea(de: item)
-        let partes = [l.headline, l.pace, l.zone?.label].compactMap { $0 }
-        return partes.isEmpty ? nil : partes.joined(separator: " · ")
-    }
-
-    /// La tarjeta de una línea: medida, ritmo (el prescrito o, si pide una zona, la banda resuelta por el
-    /// servidor), zona y el pie (el detalle, la carga resuelta del %RM y si está sin confirmar).
-    struct Tarjeta: Equatable {
-        let cabeza: String?
-        let ritmo: String?
-        let zona: HRZone?
-        let pie: String?
-    }
-
-    static func tarjeta(de item: WorkoutItem) -> Tarjeta {
-        let l = linea(de: item)
-        let sinConfirmar = item.resolvedIntensity?.needsReview == true
-        let pie = [l.detail, item.resolvedLoad?.kgLabel, sinConfirmar ? "sin confirmar" : nil]
-            .compactMap { $0 }
-            .joined(separator: " · ")
-        return Tarjeta(
-            cabeza: l.headline,
-            ritmo: l.pace ?? item.resolvedIntensity?.paceChip,
-            zona: l.zone,
-            pie: pie.isEmpty ? nil : pie
-        )
-    }
-
-    // MARK: La cabecera del bloque
-
-    /// La chapa de formato del bloque («EMOM · 12 min», «AMRAP 20:00», «Circuito»…). Sale del formateador
-    /// compartido, que conoce todos los esquemas con reloj. Nil para fuerza, calentamiento y calma, donde
-    /// el título basta, y para la superserie (su tarjeta ya la anuncia, y si degradó a series rectas la
-    /// chapa prometería una rotación que no va a pasar).
-    static func formato(de bloque: WorkoutBlock) -> String? {
-        if let p = bloque.items.first?.prescription, let cabecera = PrescriptionRenderer.wodHeader(p) {
-            return cabecera
-        }
-        // Sin prescripción estructurada solo se sabe el formato del bloque: se dice el nombre y nada más.
-        guard let esquema = PrescriptionScheme(canonicalizing: bloque.format.lowercased()) else { return nil }
-        switch esquema {
-        case .sets, .warmup, .cooldown, .superset: return nil
-        default:                                   return esquema.displayName
-        }
-    }
-
     // MARK: Las rotaciones
 
     /// Qué turno ocupa cada fila de un EMOM que alterna: con dos movimientos, minutos impares y pares;
@@ -165,15 +112,8 @@ enum LecturaEjercicioPrevia {
         tieneVideo(item) || [item.exerciseDescription, item.cues, item.notes].contains { $0?.isEmpty == false }
     }
 
-    /// Solo con vídeo REPRODUCIBLE: decide si el acceso se anuncia con el play o con la «i».
+    /// Solo con vídeo REPRODUCIBLE: lo que decide si el acceso se anuncia como vídeo o solo como técnica.
     static func tieneVideo(_ item: WorkoutItem) -> Bool {
         VideoDeTecnica.hay(en: item.exerciseVideoUrl)
-    }
-
-    /// Lo que anuncia el acceso. Sin vídeo no se dice «vídeo»: prometerlo sería la misma mentira en voz alta.
-    static func etiquetaDeTecnica(_ item: WorkoutItem) -> String {
-        tieneVideo(item)
-            ? "Ver vídeo de técnica de \(item.exerciseName)"
-            : "Ver la técnica de \(item.exerciseName)"
     }
 }

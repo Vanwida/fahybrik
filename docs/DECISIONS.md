@@ -167,6 +167,36 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **No hecho:** nada en Swift. Falta que Alex elija (o mezcle: la organización de A con la pista de EMOM y el recorrido de B), y después construirlo sobre `LecturaSesionPrevia` con tres campos más (material por ejercicio, minutos de bloque si se saben, reparto de Dobles).
 
+## 2026-10-02 · La ficha de la sesión: la ruta (B), firmada por Alex; la hoja (A) se descarta
+
+**Qué pasaba (Alex, abriendo el entreno de hoy):** la ficha previa «se ve mal, no se entiende, solo bloques de cosas». Medido sobre el Swift: un sujeto de 244 pt y una tarjeta por ejercicio de ~120 a 190 pt (con su tabla y su botón de técnica); con cuatro movimientos ya no ves la sesión, ves tres, y nada distingue lo que importa (qué toca, qué dejó escrito el coach, cuánto y con qué) de lo que no.
+
+**Qué se hizo:** dos propuestas en el doble sobre UN contrato (`kit-ficha/contrato.ts`: lo que se LEE antes de empezar) y dieciséis sesiones para romperlo (cinco reales de la base, once de diseño). Las dos respondían a las mismas preguntas en el mismo orden: qué es y cuánto lleva, qué quiere el coach (su nota ENTERA, con firma, antes de la lista), qué hago en cada parte, y «Empezar» anclado. **Alex eligió B.** La A (una página con una línea de 64 pt por movimiento) se borró; vive en git (`d53a6ba87`).
+
+**B · La ruta (lo que se construye):** un nodo por bloque, en orden y fijo arriba (mapa y control a la vez), y debajo UN bloque con la forma de su formato: tarjeta de fuerza con las series una a una, EMOM como pista de minutos que alternan (un color por movimiento, no el de su modalidad), simulación como recorrido de estaciones con la carrera entre una y otra, series de pista como su forma. Tocar un movimiento abre su técnica. Se abre en el primer bloque de TRABAJO. Con un solo bloque no hay ruta. La chapa de formato solo sale en las simulaciones: un reloj, una pista o una pareja ya llevan su formato dentro.
+
+**Lo que el modelo tuvo que decir (valen para cualquier ficha):**
+- **La duración no se inventa:** o la escribe el coach, o se dice POR QUÉ no hay («Dura lo que tardes»…), con el mismo texto que el Plan. Por eso no hay línea de tiempo proporcional: prometería una precisión que nadie ha escrito.
+- **Los minutos de un bloque solo se enseñan si se saben** (los escritos o los que dicta el formato: un AMRAP de 12 son 12).
+- **Una simulación de 16 filas son 8 estaciones** precedidas de la misma carrera: se pliega solo cuando la alternancia es exacta.
+- **Dobles:** cada estación enseña TU parte y el total debajo; la que hace tu pareja se atenúa.
+- **«Sin dosis» se ve como lo que es** (el nombre solo y una línea que dice que el coach aún no lo ha escrito), nunca un 0.
+- **Sin vídeo no hay gesto dibujado:** un ejercicio sin clip lleva una loseta de su modalidad; con clip, su póster.
+- **La nota del coach se lee ENTERA** si cabe en tres líneas; «Leer entera» solo aparece si de verdad se recorta.
+- **Una simulación escrita bloque a bloque es UNA ruta también en la ficha:** dieciséis bloques `hyrox_sim` de un ejercicio se leen como las ocho estaciones, igual que los corre el motor (`joiningRouteLegs`). En Dobles el reparto se busca por ejercicio (`templateSegmentId`), no por bloque.
+- **Una superserie dice dónde cae el descanso:** al acabar cada ronda («desc. 1:30») cuando es el mismo en todas; y «sin descanso entre ellas» solo se afirma si el coach no escribió descanso entre los ejercicios.
+- **«Sin detalle» dice su motivo real:** el detalle no llegó (primera apertura sin red: «revisa tu conexión») o llegó sin ejercicios (el coach solo escribió la nota: «aún no ha detallado qué hacer, puedes empezar igualmente»). No se dice que falló la conexión cuando lo que falta es el detalle del coach.
+- **Los kilos de un %RM resuelto van en grande** y el porcentaje en la segunda línea del nombre; «Según tu 1RM · sin confirmar» solo sale cuando esa marca es una estimación pendiente (antes repetía los kilos y el porcentaje tres veces).
+
+**Descartado:** la hoja (A); la nota recortada a una línea; «Ya lo hice» dentro de la acción anclada (queda al final de la página); el kicker de modalidad («Fuerza · ≈ 55 min»), la pastilla «Objetivo Z4» y la fase del plan en la cabecera de la ficha (el Plan ya dice dónde estás en el bloque, y cada movimiento lleva su zona).
+
+**En el doble y NO en la app todavía (declarado):**
+- **El material «Prepara · barra · discos»:** no existe como dato del ejercicio en la base (haría falta el campo en el catálogo y que el coach lo rellene).
+- **«La última vez»** de la sesión y de cada ejercicio: no hay endpoint que lo sirva a la ficha.
+Hasta que existan, el doble los enseña y la app no; el campo `enApp` del doble lo dice.
+
+**Swift:** la lectura (`LecturaFicha`, espejo del contrato) y las vistas sobre el kit «El día»; sustituyen a `BloquesPrevia`, `EjerciciosPrevia` y `SujetoPrevia`. «Continuar» pasa a «Empezar» (el flujo no cambia: sigue yendo a dispositivos y a preparar).
+
 ## 2026-09-30 · Diálogos del entreno en vivo, dispositivos y captura, con «El día»: fuera la piel vieja
 
 **Rehecho:** los diálogos de `ActiveWorkoutView` (terminar y guardar, salir, abandonar, confirmar, pausa) y de `WorkoutContainer` (reanudar, «no pudimos cargar») pasan a una sola pieza nueva del kit, `DialogoDia` (velo + `tarjetaDia` + una `BotonAccionDia` + salidas `BotonTextoDia`; el peligro va en la marca y en la palabra del botón, no en el título). En «¿Salir del entreno?» y «¿Abandonar?», «Seguir entrenando» es la acción grande y «Descartar/Abandonar» la discreta en peligro (antes el abandono era un botón rojo sólido). `LiveConectividadSheet`, `DevicePickerSheet`, `PM5LiveStreamView` y `WorkoutCaptureView` usan `MarcoDeHojaDia` (ganó `conAccion:` para la acción anclada que solo existe en ciertos estados); filas `FilaDia`, `OpcionDia` (nueva: una fila que se elige, con su `RunEnvironmentOptions` compartida con la pantalla de dispositivos), `InfoPill`, `CampoDia`, `ChipFiltroDia`, `SujetoErrorDia`. La revisión de la captura vive ya en `WorkoutCaptureReview.swift`; «Detectado/Revisar/Tú» se dicen con forma (✓, ½, lápiz), no solo con color. Copy sin jerga: «PM5», «BLE», «splits» y «chip» salen del texto del atleta.

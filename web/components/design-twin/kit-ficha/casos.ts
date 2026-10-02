@@ -1,11 +1,11 @@
 // Los casos con los que se rompe el modelo de la ficha ANTES de pintarlo.
 //
-// Dieciséis sesiones, cinco de ellas REALES (las del doble de hace un mes, con su
+// Diecisiete sesiones, cinco de ellas REALES (las del doble de hace un mes, con su
 // procedencia: salen de `datos-reales.ts` y pasan por el adaptador de abajo, así
-// que si el modelo no las aguantara se vería aquí) y once de DISEÑO, escritas para
+// que si el modelo no las aguantara se vería aquí) y doce de DISEÑO, escritas para
 // cubrir lo que las reales no traen: la rampa de cargas con %RM y tempo, la
 // superserie, el EMOM que alterna, el AMRAP, el metcon de rondas, las series de
-// pista, el ergo por tramos, la prueba, el Dobles y la sesión sin detalle.
+// pista, el ergo por tramos, la prueba, el Dobles y la sesión sin detalle (que llegó sin ejercicios o que no llegó).
 //
 // Ninguna lleva texto libre más allá de lo que escribe el coach (su nota, la nota
 // de un bloque): todo lo demás son campos del contrato. Los datos de un atleta
@@ -185,7 +185,7 @@ const marco = (id: string, titulo: string, rol: RolDeBloque, movimientos: Movimi
 });
 
 // ---------------------------------------------------------------------------
-// Los dieciséis casos
+// Los diecisiete casos
 // ---------------------------------------------------------------------------
 
 const FUERZA_COMPLETA: LecturaFicha = conIds({
@@ -215,7 +215,7 @@ const FUERZA_COMPLETA: LecturaFicha = conIds({
           nota: 'Baja hasta que el muslo pase la paralela. Pausa de un segundo abajo.',
         }),
         mov('Bench Press', 'strength', '4×8', {
-          objetivo: '70 % RM',
+          objetivo: '70% 1RM',
           segunTuRm: { kg: '56 kg' },
           tempo: '2-0-1',
           descanso: '2:00',
@@ -276,8 +276,8 @@ const HIBRIDO: LecturaFicha = conIds({
       formato: { tipo: 'series' },
       movimientos: [
         mov('Deadlift', 'strength', '5×3', {
-          objetivo: '85 % RM',
-          segunTuRm: { kg: '102 kg' },
+          objetivo: '85% 1RM',
+          segunTuRm: { kg: '102 kg', sinConfirmar: true },
           descanso: '3:00',
           tempo: '1-0-X',
           material: ['barra', 'discos'],
@@ -492,6 +492,9 @@ const SIN_DETALLE: LecturaFicha = {
   bloques: [],
 };
 
+/** La misma sesión, pero el detalle no llegó (primera apertura sin red): el motivo cambia lo que se dice y qué se puede hacer. */
+const SIN_DETALLE_RED: LecturaFicha = { ...SIN_DETALLE, motivoSinDetalle: 'no-llego' };
+
 export const CASOS: CasoFicha[] = [
   {
     id: 'fuerza-completa',
@@ -605,10 +608,17 @@ export const CASOS: CasoFicha[] = [
   },
   {
     id: 'sin-detalle',
-    titulo: 'Sin detalle',
-    mira: 'La sesión no trae ejercicios: se dice, con la nota del coach, y no se inventa una lista.',
+    titulo: 'Sin ejercicios',
+    mira: 'La sesión llegó pero no trae ejercicios (el coach solo escribió la nota): se dice, y no se inventa una lista.',
     origen: 'diseño',
     lectura: SIN_DETALLE,
+  },
+  {
+    id: 'sin-detalle-red',
+    titulo: 'Sin detalle · sin red',
+    mira: 'El detalle no llegó (primera apertura sin red): no se dice que el coach no escribió nada, se dice que no se pudo cargar.',
+    origen: 'diseño',
+    lectura: SIN_DETALLE_RED,
   },
 ];
 

@@ -77,7 +77,7 @@ export interface Movimiento {
    * escribió: se pinta el nombre solo, jamás un «— reps» ni un 0.
    */
   dosis: string | null;
-  /** Contra qué: kilos, ritmo, RPE, %RM («100 kg», «@ 4:35/km», «RPE 8», «70 % RM»). */
+  /** Contra qué: kilos, ritmo, RPE, %RM («100 kg», «@ 4:35/km», «RPE 8», «70% 1RM»). */
   objetivo?: string;
   zona?: Zona;
   /** Series una a una, solo cuando difieren (la dosis resume: «5 × 5»). */
@@ -87,8 +87,11 @@ export interface Movimiento {
   tempo?: string;
   /** Lo que el coach escribió PARA ESTE movimiento. */
   nota?: string;
-  /** El %RM resuelto a kilos con TU 1RM («Según tu 1RM»). Solo si el servidor lo resolvió. */
-  segunTuRm?: { kg: string };
+  /**
+   * El %RM resuelto a kilos con TU 1RM: esos kilos son la carga en grande. Solo si el servidor lo resolvió.
+   * `sinConfirmar`: ese 1RM es una estimación que el coach aún no confirmó, y se dice («Según tu 1RM · sin confirmar»).
+   */
+  segunTuRm?: { kg: string; sinConfirmar?: boolean };
   perfil?: PerfilTramos;
   reparto?: Reparto;
   /** Su papel dentro del bloque: «A1», «A2», «Min. impar». */
@@ -103,7 +106,11 @@ export interface Movimiento {
 export type FormatoBloque =
   /** Fuerza y accesorios: cada movimiento con sus series. */
   | { tipo: 'series' }
-  | { tipo: 'superserie'; rondas: number; descanso?: string }
+  /**
+   * `descanso`: el de al acabar cada ronda (si es el mismo en todas). `conDescansoEntre`: el coach escribió descanso ENTRE
+   * los ejercicios de la ronda, y entonces la ficha no dice «sin descanso entre ellas».
+   */
+  | { tipo: 'superserie'; rondas: number; descanso?: string; conDescansoEntre?: boolean }
   /** `alterna`: cada movimiento ocupa un minuto distinto (impar / par). */
   | { tipo: 'emom'; minutos: number; alterna: boolean }
   | { tipo: 'amrap'; minutos: number }
@@ -141,6 +148,8 @@ export interface UltimaVez {
   cuando: string;
 }
 
+export type MotivoSinDetalle = 'no-llego' | 'sin-ejercicios';
+
 export interface LecturaFicha {
   titulo: string;
   origen: 'coach' | 'libre';
@@ -159,6 +168,11 @@ export interface LecturaFicha {
   ultima?: UltimaVez;
   /** Vacío = «sin detalle»: se dice, no se inventa una sesión. */
   bloques: Bloque[];
+  /**
+   * Por qué no hay bloques, que no es lo mismo: `no-llego` (el detalle no se cargó: primera apertura sin red) o
+   * `sin-ejercicios` (llegó y la sesión no lleva ejercicios: el coach solo escribió la nota). Ausente = `sin-ejercicios`.
+   */
+  motivoSinDetalle?: MotivoSinDetalle;
 }
 
 /** Un escenario del doble: una lectura y lo que hay que mirar en ella. */

@@ -13,7 +13,7 @@ import { COLOR_MODALIDAD } from '../datos-reales';
 import { IcoCronometro, IcoDiana } from '../kit-dia/iconos';
 import { Etiqueta, Pastilla } from '../kit-dia/piezas';
 import { fuente, RADIO, TABULAR, TAM, TOQUE, tinte, velo } from '../kit-dia/tokens';
-import type { LecturaFicha, Modalidad, Movimiento, PerfilTramos } from './contrato';
+import type { LecturaFicha, Modalidad, MotivoSinDetalle, Movimiento, PerfilTramos } from './contrato';
 import { barrasDePerfil, fraseDePerfil, metaDeSesion } from './modelo';
 
 /** Margen lateral de la ficha: el de las pestañas. */
@@ -87,13 +87,7 @@ const IcoAtras = ({ tam = 20 }: { tam?: number }) => (
   </svg>
 );
 
-export const IcoDespliega = ({ tam = 16 }: { tam?: number }) => (
-  <svg {...base(tam)} strokeWidth={2.6}>
-    <path d="m9 5 7 7-7 7" />
-  </svg>
-);
-
-export const IcoPlay = ({ tam = 16 }: { tam?: number }) => (
+const IcoPlay = ({ tam = 16 }: { tam?: number }) => (
   <svg width={tam} height={tam} viewBox="0 0 24 24" fill="currentColor" aria-hidden style={{ flex: '0 0 auto' }}>
     <path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5Z" />
   </svg>
@@ -502,7 +496,19 @@ export function PastillaZona({ zona }: { zona: number }) {
 // Sin detalle
 // ---------------------------------------------------------------------------
 
-export function SinDetalle() {
+const TEXTO_SIN_DETALLE: Record<MotivoSinDetalle, { titular: string; frase: string }> = {
+  'no-llego': {
+    titular: 'Sin detalle de la sesión',
+    frase: 'No pudimos cargar los ejercicios de esta sesión. Revisa tu conexión y vuelve a abrirla, o regístrala manualmente.',
+  },
+  'sin-ejercicios': {
+    titular: 'Sin ejercicios todavía',
+    frase: 'Tu coach aún no ha detallado qué hacer. Puedes empezar igualmente y apuntar lo que hagas.',
+  },
+};
+
+export function SinDetalle({ motivo }: { motivo: MotivoSinDetalle }) {
+  const { titular, frase } = TEXTO_SIN_DETALLE[motivo];
   return (
     <div
       style={{
@@ -515,10 +521,8 @@ export function SinDetalle() {
         gap: 6,
       }}
     >
-      <span style={{ ...fuente(800, 20, 1.2, true), color: 'var(--twin-fg)' }}>Sin ejercicios todavía</span>
-      <p style={{ margin: 0, ...fuente(400, TAM.cuerpo, 1.45), color: 'var(--twin-muted)' }}>
-        Tu coach aún no ha detallado qué hacer. Puedes empezar igualmente y apuntar lo que hagas.
-      </p>
+      <span style={{ ...fuente(800, 20, 1.2, true), color: 'var(--twin-fg)' }}>{titular}</span>
+      <p style={{ margin: 0, ...fuente(400, TAM.cuerpo, 1.45), color: 'var(--twin-muted)' }}>{frase}</p>
     </div>
   );
 }
