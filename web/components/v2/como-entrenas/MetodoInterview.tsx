@@ -25,7 +25,7 @@ import {
   type SingleField,
 } from '@fahybrid/shared/domain/coach/method-interview';
 import type { CoachMethodInterviewResponse } from '@fahybrid/shared/schema/coach-method-interview';
-import { Button, Card, Checkbox, SectionHeader, Tabs, Textarea, type TabItem } from '@/components/v2/ui';
+import { Button, Card, Checkbox, Disclosure, SectionHeader, Tabs, Textarea, type TabItem } from '@/components/v2/ui';
 import { SaveStatus, readApiError, type SaveState } from '@/components/v2/ajustes/autosave';
 import { ChoiceList } from './ChoiceList';
 
@@ -161,34 +161,14 @@ export function MetodoInterview({ initial }: { initial: CoachMethodInterviewResp
         action={<SaveStatus state={status} error={saveError} />}
       />
 
-      <Card padding="none" className="divide-y divide-v2-border">
-        <div className="flex flex-col gap-2 px-4 py-3.5">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <label htmlFor="metodo-espejo" className="t-body font-medium text-v2-fg">
-              Tu sistema, en un párrafo
-            </label>
-            {mirrorEdited ? (
-              <Button size="sm" variant="ghost" icon={RotateCcw} onClick={resetMirror}>
-                Volver al generado
-              </Button>
-            ) : null}
-          </div>
-          <Textarea
-            id="metodo-espejo"
-            value={mirrorText}
-            maxLength={INTERVIEW_MIRROR_MAX}
-            rows={5}
-            placeholder="Responde las preguntas de abajo y aquí se escribe tu sistema."
-            onChange={(e) => editMirror(e.target.value)}
-            aria-describedby="metodo-espejo-hint"
-          />
-          <p id="metodo-espejo-hint" className="t-meta text-v2-faint">
-            {mirrorEdited
-              ? 'Corregido por ti. El plan, el chat y el conector leen este texto.'
-              : 'Sale de tus respuestas. Corrige lo que no suene a ti.'}
-          </p>
-        </div>
+      {answered === 0 ? (
+        <p className="t-body-sm text-v2-muted">
+          {mirrorText.trim() ? 'Tu párrafo está guardado; la entrevista aún no tiene respuestas.' : 'La entrevista aún no tiene respuestas. Empieza por el primer capítulo; se guarda al elegir cada opción.'}{' '}
+          Los niveles y las zonas se ajustan en los otros grupos.
+        </p>
+      ) : null}
 
+      <Card padding="none">
         <div className="flex flex-col gap-4 px-4 py-3.5">
           <Tabs items={tabs} value={chapter} onValueChange={setChapter} aria-label="Capítulos de la entrevista" />
           <p className="t-body-sm text-v2-muted">{chapterDef.scene}</p>
@@ -245,6 +225,29 @@ export function MetodoInterview({ initial }: { initial: CoachMethodInterviewResp
           ) : null}
         </div>
       </Card>
+
+      <Disclosure id="metodo-parrafo" title="Tu sistema, en un párrafo" summary={mirrorText.trim() || 'Se construye con tus respuestas. También puedes escribirlo o corregirlo aquí.'}>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <label htmlFor="metodo-espejo" className="t-body font-medium text-v2-fg">Tu sistema</label>
+            {mirrorEdited ? (
+              <Button size="sm" variant="ghost" icon={RotateCcw} onClick={resetMirror}>Volver al generado</Button>
+            ) : null}
+          </div>
+          <Textarea
+            id="metodo-espejo"
+            value={mirrorText}
+            maxLength={INTERVIEW_MIRROR_MAX}
+            rows={5}
+            placeholder="Responde las preguntas y aquí se escribe tu sistema. También puedes escribirlo directamente."
+            onChange={(e) => editMirror(e.target.value)}
+            aria-describedby="metodo-espejo-hint"
+          />
+          <p id="metodo-espejo-hint" className="t-meta text-v2-faint">
+            {mirrorEdited ? 'Corregido por ti. El plan, el chat y el conector leen este texto.' : 'Sale de tus respuestas. Corrige lo que no suene a ti.'}
+          </p>
+        </div>
+      </Disclosure>
     </section>
   );
 }

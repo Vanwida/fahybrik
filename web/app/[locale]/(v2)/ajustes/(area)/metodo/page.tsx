@@ -61,9 +61,17 @@ export default async function MetodoPage({ params }: { params: Promise<{ locale:
     loadCoachKeyMarkers(cid).catch(() => null),
   ]);
 
+  const interviewSummary = interview == null
+    ? 'No se ha podido cargar tu entrevista'
+    : interview.answered_count > 0
+      ? `${interview.answered_count} de ${interview.question_count} respuestas · ${interview.mirror_text || 'Continúa describiendo tu forma de trabajar'}`
+      : interview.mirror_text.trim()
+        ? 'Sistema escrito por ti · Entrevista sin respuestas'
+        : 'Entrevista sin empezar · Describe tu forma de trabajar por capítulos';
+
   return (
     <AjustesPanel title="Método" subtitle="Cómo trabajas. La IA programa con esto y los avisos lo usan.">
-      <Disclosure id="metodo-entrenar" title="Cómo entrenas" summary={interview ? `${interview.answered_count} de ${interview.question_count} respuestas · ${interview.mirror_text || 'Describe tu forma de trabajar'}` : 'No se ha podido cargar tu entrevista'}>
+      <Disclosure id="metodo-entrenar" title="Cómo entrenas" summary={interviewSummary}>
       {interview ? <MetodoInterview initial={interview} /> : <AjustesLoadError what="tu entrevista" />}
       </Disclosure>
       <Disclosure id="metodo-organizar" title="Organizar atletas y progresar" summary={axis && levels && steps ? `${axis.effective_label} · ${levels.filter((l) => l.archived_at == null).length} niveles · Carga +${formatearNumero(steps.load_step_pct, 1)} % · Descarga ${steps.deload_volume_pct} %` : 'Parte de esta configuración no ha cargado'}>
