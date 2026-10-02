@@ -15,6 +15,7 @@ import { useFicha } from '../FichaContext';
 import { AddSession } from './AddSession';
 import { DRAG_MIME, SessionChip } from './SessionChip';
 import { WeekColumn } from './WeekColumn';
+import { Rail } from '@/components/v2/Rail';
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const GRID = 'grid grid-cols-[64px_repeat(7,minmax(0,1fr))_128px]';
@@ -133,49 +134,51 @@ export function Calendar({ cal, onMove }: { cal: FichaCalendar; onMove: (id: str
     return w ? w.days.findIndex((d) => d.date === cal.today) : -1;
   })();
   return (
-    <div role="grid" aria-label="Calendario del plan" className="overflow-hidden rounded-panel border border-v2-border bg-v2-surface">
-      <div role="row" className={cn(GRID, 'border-b border-v2-border')}>
-        <div role="columnheader" className="border-r border-v2-border" />
-        {DAY_NAMES.map((n, i) => (
-          <div
-            key={n}
-            role="columnheader"
-            className={cn(
-              'border-r border-v2-border px-2 py-1.5 t-label text-v2-faint',
-              i === todayIdx && 'bg-v2-surface-2 text-v2-fg',
-            )}
-          >
-            {n}
-          </div>
-        ))}
-        <div role="columnheader" className="px-2 py-1.5 t-label text-v2-faint">
-          Semana
-        </div>
-      </div>
-      {cal.weeks.map((w, i) => (
-        <Fragment key={w.week_start}>
-          {startsProgram(w, cal.weeks[i - 1]) ? (
-            // Dónde empieza cada programa: las semanas no llevan su nombre en las tarjetas.
-            <div role="row" className="border-b border-v2-border bg-v2-surface-2 px-3 py-1">
-              <span role="gridcell" className="t-label text-v2-muted">
-                {w.program!.name}
-                <span className="font-normal text-v2-faint t-tnum">
-                  {' '}
-                  · {w.program!.weeks} {w.program!.weeks === 1 ? 'semana' : 'semanas'}
-                </span>
-              </span>
+    <Rail className="pb-0">
+      <div role="grid" aria-label="Calendario del plan" className="w-full min-w-[960px] shrink-0 overflow-hidden rounded-panel border border-v2-border bg-v2-surface">
+        <div role="row" className={cn(GRID, 'border-b border-v2-border')}>
+          <div role="columnheader" className="border-r border-v2-border" />
+          {DAY_NAMES.map((n, i) => (
+            <div
+              key={n}
+              role="columnheader"
+              className={cn(
+                'border-r border-v2-border px-2 py-1.5 t-label text-v2-faint',
+                i === todayIdx && 'bg-v2-surface-2 text-v2-fg',
+              )}
+            >
+              {n}
             </div>
-          ) : null}
-          <WeekRow
-            week={w}
-            today={cal.today}
-            max={max}
-            dragging={dragging}
-            setDragging={setDragging}
-            onMove={onMove}
-          />
-        </Fragment>
-      ))}
-    </div>
+          ))}
+          <div role="columnheader" className="px-2 py-1.5 t-label text-v2-faint">
+            Semana
+          </div>
+        </div>
+        {cal.weeks.map((w, i) => (
+          <Fragment key={w.week_start}>
+            {startsProgram(w, cal.weeks[i - 1]) ? (
+              // Dónde empieza cada programa: las semanas no llevan su nombre en las tarjetas.
+              <div role="row" className="border-b border-v2-border bg-v2-surface-2 px-3 py-1">
+                <span role="gridcell" className="t-label text-v2-muted">
+                  {w.program!.name}
+                  <span className="font-normal text-v2-faint t-tnum">
+                    {' '}
+                    · {w.program!.weeks} {w.program!.weeks === 1 ? 'semana' : 'semanas'}
+                  </span>
+                </span>
+              </div>
+            ) : null}
+            <WeekRow
+              week={w}
+              today={cal.today}
+              max={max}
+              dragging={dragging}
+              setDragging={setDragging}
+              onMove={onMove}
+            />
+          </Fragment>
+        ))}
+      </div>
+    </Rail>
   );
 }

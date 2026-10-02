@@ -2,9 +2,10 @@
 
 import { useEffect, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 /** Detalle progresivo accesible; un enlace a un campo abre sus grupos contenedores. */
-export function Disclosure({ id, title, summary, children }: { id: string; title: string; summary: ReactNode; children: ReactNode }) {
+export function Disclosure({ id, title, summary, summaryClassName, children }: { id: string; title: string; summary: ReactNode; summaryClassName?: string; children: ReactNode }) {
   useEffect(() => {
     const reveal = () => {
       let target: HTMLElement | null;
@@ -30,7 +31,7 @@ export function Disclosure({ id, title, summary, children }: { id: string; title
       <summary className="flex cursor-pointer list-none items-start gap-3 px-4 py-4 outline-none focus-visible:ring-2 focus-visible:ring-v2-accent [&::-webkit-details-marker]:hidden">
         <div className="min-w-0 flex-1">
           <span className="t-body font-semibold text-v2-fg">{title}</span>
-          <div className="mt-1 line-clamp-2 t-body-sm text-v2-muted">{summary}</div>
+          <div className={cn('mt-1 line-clamp-2 t-body-sm text-v2-muted', summaryClassName)}>{summary}</div>
         </div>
         <ChevronDown aria-hidden className="mt-1 size-4 shrink-0 text-v2-muted transition-transform group-open/disclosure:rotate-180" />
       </summary>

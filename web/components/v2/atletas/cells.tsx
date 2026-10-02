@@ -60,7 +60,7 @@ export function AthleteCell({ row }: { row: RosterRow }) {
 }
 
 export function StatusCell({ row }: { row: RosterRow }) {
-  return <StatusBadgeFor status={row.status} withReason size="sm" className="max-w-full" />;
+  return <StatusBadgeFor status={row.status} withReason wrapReason size="sm" className="max-w-full" />;
 }
 
 /** «hoy», «ayer», «hace 3 d», «22 sept». */

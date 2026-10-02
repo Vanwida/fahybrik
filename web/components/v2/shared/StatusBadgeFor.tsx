@@ -54,12 +54,15 @@ export function signalTone(signal: Pick<AthleteSignal, 'severity' | 'kind'>): St
 export function StatusBadgeFor({
   status,
   withReason = false,
+  wrapReason = false,
   variant = 'text',
   size = 'md',
   className,
 }: {
   status: Pick<AthleteStatus, 'key' | 'tone' | 'label' | 'reason'>;
   withReason?: boolean;
+  /** Lectura completa en el roster; las otras superficies conservan su densidad. */
+  wrapReason?: boolean;
   variant?: 'text' | 'soft';
   size?: 'sm' | 'md';
   className?: string;
@@ -75,9 +78,9 @@ export function StatusBadgeFor({
   );
   if (!withReason || !status.reason) return <span className={cn('inline-flex min-w-0', className)}>{badge}</span>;
   return (
-    <span className={cn('inline-flex min-w-0 items-center gap-2', className)} title={status.reason}>
+    <span className={cn('inline-flex min-w-0', wrapReason ? 'flex-col items-start gap-1 whitespace-normal' : 'items-center gap-2', className)} title={wrapReason ? undefined : status.reason}>
       {badge}
-      <span className={cn('min-w-0 truncate text-v2-muted', size === 'sm' ? 't-meta' : 't-body-sm')}>
+      <span className={cn('min-w-0 text-v2-muted', wrapReason ? 'whitespace-normal [overflow-wrap:anywhere]' : 'truncate', size === 'sm' ? 't-meta' : 't-body-sm')}>
         {status.reason}
       </span>
     </span>
