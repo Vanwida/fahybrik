@@ -109,11 +109,22 @@ enum LecturaEjercicioPrevia {
     /// ¿Hay ficha que enseñar? La ficha pinta vídeo, consejos, descripción del catálogo y la nota del
     /// coach para hoy: cualquiera de las cuatro basta para ofrecer el acceso.
     static func tieneTecnica(_ item: WorkoutItem) -> Bool {
-        tieneVideo(item) || [item.exerciseDescription, item.cues, item.notes].contains { $0?.isEmpty == false }
+        tieneVideo(item) || [item.exerciseDescription, item.cues, item.notaDelCoach].contains { $0?.isEmpty == false }
     }
 
     /// Solo con vídeo REPRODUCIBLE: lo que decide si el acceso se anuncia como vídeo o solo como técnica.
     static func tieneVideo(_ item: WorkoutItem) -> Bool {
         VideoDeTecnica.hay(en: item.exerciseVideoUrl)
+    }
+}
+
+extension WorkoutItem {
+    /// Lo que el coach escribió PARA ESTE ejercicio hoy: su nota o, si no la puso, el texto de la línea de la prescripción (lo que el
+    /// importador guarda de la fila original: «90-90 2x6 por lado», «3' RPE 10, marcar lap»). Sin ese texto el atleta no sabe que
+    /// es «por lado» ni cómo se corre el test. Nunca el propio nombre del ejercicio repetido.
+    var notaDelCoach: String? {
+        [notes, prescription?.note]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty && $0.caseInsensitiveCompare(exerciseName) != .orderedSame }
     }
 }

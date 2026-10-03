@@ -11,13 +11,26 @@ struct FichaPanelIntervalos: View {
     let movimientos: [MovimientoFicha]
     let alAbrirTecnica: (WorkoutItem) -> Void
 
+    /// Los movimientos en orden, agrupando los que van seguidos y no tienen perfil: esos van juntos, en filas.
+    private var tandas: [[MovimientoFicha]] {
+        movimientos.reduce(into: []) { tandas, m in
+            if m.perfil == nil, let ultima = tandas.last, ultima.last?.perfil == nil {
+                tandas[tandas.count - 1].append(m)
+            } else {
+                tandas.append([m])
+            }
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: FichaMedidas.dentroDelPanel) {
-            ForEach(movimientos) { movimiento in
-                if let perfil = movimiento.perfil {
+            ForEach(tandas, id: \.first?.id) { tanda in
+                if let movimiento = tanda.first, let perfil = movimiento.perfil {
                     FichaTarjetaDeTramos(movimiento: movimiento, perfil: perfil, alAbrirTecnica: alAbrirTecnica)
+                } else if movimientos.count == 1, let unico = tanda.first {
+                    FichaTarjetaDeEjercicio(movimiento: unico, alAbrirTecnica: alAbrirTecnica)
                 } else {
-                    FichaTarjetaDeEjercicio(movimiento: movimiento, alAbrirTecnica: alAbrirTecnica)
+                    FichaLista(movimientos: tanda, alAbrirTecnica: alAbrirTecnica)
                 }
             }
         }

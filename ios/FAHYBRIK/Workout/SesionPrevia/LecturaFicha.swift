@@ -114,8 +114,11 @@ struct BloqueFicha: Identifiable, Equatable {
         case reloj(Reloj)
         /// Una carrera o un ergo por tramos: el perfil manda.
         case intervalos
-        /// Rodaje, tirada, ergo continuo.
+        /// Rodaje, tirada, ergo continuo: UNA cosa, enorme.
         case continuo
+        /// Piezas una detrás de otra, cada una con su dosis (un test: correr 15′, correr 3′ fuerte, caminar 10′…). No son
+        /// series de una misma cosa ni un reloj que manda: se hacen en este orden, y por eso van numeradas.
+        case secuencia
         /// Simulación tipo HYROX: N estaciones precedidas de la misma carrera. `carrera` = «1 km».
         case estaciones(carrera: String)
         /// Calentamiento y vuelta a la calma: se leen de una vez, ítem a ítem sin ceremonia.
@@ -157,13 +160,6 @@ struct MovimientoFicha: Identifiable, Equatable {
         let descanso: String?
     }
 
-    /// El %RM resuelto a kilos con TU 1RM («Según tu 1RM»). Solo si el servidor lo resolvió.
-    struct SegunTuRm: Equatable {
-        let kg: String
-        /// El 1RM es una estimación pendiente de confirmar por el coach.
-        let sinConfirmar: Bool
-    }
-
     /// La forma de una carrera o un ergo por tramos: «repite N veces esto».
     struct Perfil: Equatable {
         let repeticiones: Int
@@ -199,16 +195,17 @@ struct MovimientoFicha: Identifiable, Equatable {
     let zona: HRZone?
     /// Su papel dentro del bloque cuando el bloque los reparte: «1º» en una superserie, «Min impar» en un EMOM que alterna.
     let rol: String?
-    /// La segunda línea del nombre: el %RM, el tempo y el descanso, ya compuestos.
+    /// La segunda línea del nombre: el %RM (y «sin confirmar» si el 1RM que lo resolvió es una estimación pendiente), el
+    /// tempo y el descanso, ya compuestos.
     let secundaria: String?
     /// Series una a una, solo cuando difieren (la dosis resume: «5 × 5»).
     let series: [Serie]
     /// «60 → 80 kg» cuando la carga sube (o baja) de serie a serie.
     let rangoDeCarga: String?
-    let segunTuRm: SegunTuRm?
     let perfil: Perfil?
     let reparto: Reparto?
-    /// Lo que el coach escribió PARA ESTE movimiento hoy.
+    /// Lo que el coach escribió PARA ESTE movimiento hoy: su nota o, si no la puso, el texto de la línea que guardó el
+    /// importador («2×6 por lado», «marcar lap») — `WorkoutItem.notaDelCoach`.
     let nota: String?
 
     var nombre: String { item.exerciseName }

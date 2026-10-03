@@ -1,22 +1,25 @@
 import SwiftUI
 
-// LOS PANELES DE FUERZA — series (una tarjeta por ejercicio) y superserie (UNA tarjeta para la pareja).
+// LOS PANELES DE FUERZA — series (un ejercicio en grande, o varios en filas) y superserie (UNA tarjeta para la pareja).
 //
-// Una tarjeta de ejercicio enseña lo que hace falta para hacerlo: su miniatura y su nombre, la dosis en grande, contra
-// qué (kilos, RPE) y, cuando las series NO son todas iguales (una rampa, una pirámide), cada una en su ficha. Si solo
-// cambia la carga, las repeticiones se dicen UNA vez y las fichas llevan solo los kilos. Con tu 1RM resuelto, los
-// kilos que salen del %RM (y un aviso si esa marca está sin confirmar); y la nota que el coach escribió para ese
-// ejercicio hoy, con su filo.
+// Cuando el bloque lleva UN ejercicio, ese ejercicio es toda la pantalla y cabe en grande: su miniatura y su nombre, la dosis en
+// grande, contra qué (kilos, RPE) y, cuando las series NO son todas iguales (una rampa, una pirámide), cada una en su ficha. Si solo
+// cambia la carga, las repeticiones se dicen UNA vez y las fichas llevan solo los kilos. Con tu 1RM resuelto, los kilos que salen
+// del %RM (la marca sin confirmar se dice en la segunda línea del nombre); y la nota que el coach escribió para ese ejercicio hoy,
+// con su filo.
+//
+// Cuando lleva VARIOS, van en filas (`FichaLista`): una tarjeta grande por ejercicio hacía scrollear una pantalla entera para ver
+// cinco y se perdía el hilo de qué había que hacer.
 
 struct FichaPanelSeries: View {
     let movimientos: [MovimientoFicha]
     let alAbrirTecnica: (WorkoutItem) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: FichaMedidas.dentroDelPanel) {
-            ForEach(movimientos) { movimiento in
-                FichaTarjetaDeEjercicio(movimiento: movimiento, alAbrirTecnica: alAbrirTecnica)
-            }
+        if let unico = movimientos.first, movimientos.count == 1 {
+            FichaTarjetaDeEjercicio(movimiento: unico, alAbrirTecnica: alAbrirTecnica)
+        } else {
+            FichaLista(movimientos: movimientos, alAbrirTecnica: alAbrirTecnica)
         }
     }
 }
@@ -36,7 +39,6 @@ struct FichaTarjetaDeEjercicio: View {
                 if let nota = movimiento.notaDeSeries {
                     Text(nota).papel(.nota).foregroundStyle(Theme.Color.muted).fixedSize(horizontal: false, vertical: true)
                 }
-                if movimiento.segunTuRm?.sinConfirmar == true { rmSinConfirmar }
                 if let nota = movimiento.nota { NotaConFiloDia(nota, papel: .nota) }
             }
             .padding(FichaMedidas.rellenoDeTarjeta)
@@ -118,15 +120,6 @@ struct FichaTarjetaDeEjercicio: View {
                 }
             }
         }
-    }
-
-    /// Los kilos grandes salen del %RM de TU 1RM, y si esa marca aún no la confirmó el coach se dice: puede no ser la de hoy.
-    /// Con la marca confirmada no hay línea: los kilos ya están en grande y el porcentaje en la segunda línea del nombre.
-    private var rmSinConfirmar: some View {
-        Text("Según tu 1RM · sin confirmar")
-            .papel(.nota)
-            .foregroundStyle(Theme.Color.muted)
-            .fixedSize(horizontal: false, vertical: true)
     }
 }
 

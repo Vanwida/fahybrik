@@ -34,7 +34,7 @@ struct FichaRuta: View {
     private static let anchoDelDesvanecido: CGFloat = 36
     /// Hasta qué punto del final se da por llegado.
     private static let margenDelFinal: CGFloat = 4
-    private static let lineasDelNombre = 2
+    private static let lineasDelNombre = 3
 
     /// Cada celda se reparte el ancho de la tira (menos los márgenes) o, si no llegan al mínimo, lo mide ella.
     private var anchoDeLaCelda: CGFloat {

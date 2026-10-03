@@ -54,8 +54,10 @@ struct FichaPanel: View {
             FichaPanelIntervalos(movimientos: bloque.movimientos, alAbrirTecnica: alAbrirTecnica)
         case .continuo:
             FichaPanelContinuo(movimientos: bloque.movimientos, alAbrirTecnica: alAbrirTecnica)
+        case .secuencia:
+            FichaLista(movimientos: bloque.movimientos, estilo: .numerada, alAbrirTecnica: alAbrirTecnica)
         case .marco:
-            FichaLista(movimientos: bloque.movimientos, compacta: true, alAbrirTecnica: alAbrirTecnica)
+            FichaLista(movimientos: bloque.movimientos, estilo: .compacta, alAbrirTecnica: alAbrirTecnica)
         }
     }
 }
