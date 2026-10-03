@@ -11,10 +11,29 @@ import { TIMELINE_KINDS, type FichaPerfil, type TimelineEntry } from '@/lib/dash
 import { shell } from './fixtures';
 
 let currentUrl = new URL('https://example.test/es/atletas/11?tab=perfil&seccion=revisiones');
+let readerUrl = new URL(currentUrl);
+type NextHistoryState = { __NA?: boolean; _N?: boolean; __PRIVATE_NEXTJS_INTERNALS_TREE?: unknown };
+let historyState: NextHistoryState = { __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: ['fixture-tree'] };
 let captured: ComponentProps<typeof Timeline> | null = null;
-const replaceState = vi.fn((_state: unknown, _title: string, href: string) => { currentUrl = new URL(href, currentUrl); });
+const restoreReader = vi.fn((url: URL) => { readerUrl = new URL(url); });
+// Contrato del Next instalado (app-router.js): un state marcado cambia la URL
+// nativa, pero omite ACTION_RESTORE. El lector Next conserva su snapshot anterior.
+// Esta simulación prueba el contrato; el render SSR solo comprueba su presentación.
+const replaceState = vi.fn((data: NextHistoryState | null, _title: string, href: string) => {
+  const nextUrl = new URL(href, currentUrl);
+  if (data?.__NA || data?._N) historyState = data;
+  else {
+    restoreReader(nextUrl);
+    historyState = { ...data, __NA: historyState.__NA, __PRIVATE_NEXTJS_INTERNALS_TREE: historyState.__PRIVATE_NEXTJS_INTERNALS_TREE };
+  }
+  currentUrl = nextUrl;
+});
+function navigateNext(href: string | URL) {
+  currentUrl = new URL(href, currentUrl);
+  readerUrl = new URL(currentUrl);
+}
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }),
-  usePathname: () => currentUrl.pathname, useSearchParams: () => currentUrl.searchParams }));
+  usePathname: () => readerUrl.pathname, useSearchParams: () => readerUrl.searchParams }));
 vi.mock('@/i18n/navigation', () => ({ Link: (props: ComponentProps<'a'>) => createElement('a', props),
   useRouter: () => ({ refresh: vi.fn() }) }));
 // Observa el controlador de Perfil, conservando el Timeline y todo el kit real.
@@ -48,17 +67,19 @@ function render(athleteId = '11', timeline = entries) {
 const pressed = (html: ReturnType<typeof render>) => html('#historial button[aria-pressed="true"]').text();
 
 beforeEach(() => {
-  currentUrl = new URL('https://example.test/es/atletas/11?tab=perfil&seccion=revisiones');
+  navigateNext('https://example.test/es/atletas/11?tab=perfil&seccion=revisiones');
+  historyState = { __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: ['fixture-tree'] };
   captured = null;
   replaceState.mockClear();
-  vi.stubGlobal('window', { get location() { return currentUrl; }, history: { state: { fixture: true }, replaceState } });
+  restoreReader.mockClear();
+  vi.stubGlobal('window', { get location() { return currentUrl; }, history: { get state() { return historyState; }, replaceState } });
 });
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Historial — la URL controla la selección y los enlaces dentro de Perfil', () => {
   it('revisión → comunicados cambia Todo 46 a Comunicados 3 y solo muestra esas filas', () => {
     expect(pressed(render())).toBe('Todo46');
-    currentUrl = new URL('/es/atletas/11?tab=perfil&seccion=historial&historial=comunicado', currentUrl);
+    navigateNext('/es/atletas/11?tab=perfil&seccion=historial&historial=comunicado');
     const html = render();
     expect(pressed(html)).toBe('Comunicados3');
     expect(html('#historial ol > li')).toHaveLength(3);
@@ -67,13 +88,15 @@ describe('Historial — la URL controla la selección y los enlaces dentro de Pe
 
   it('Comunicados → Todo manual → el mismo enlace de comunicados reaplica su destino', () => {
     const href = '/es/atletas/11?tab=perfil&seccion=historial&historial=comunicado';
-    currentUrl = new URL(href, currentUrl);
+    navigateNext(href);
     expect(pressed(render())).toBe('Comunicados3');
     captured!.selection!.onChange(null);
     expect(currentUrl.searchParams.has('historial')).toBe(false);
+    expect(readerUrl.searchParams.has('historial')).toBe(false);
+    expect(replaceState).toHaveBeenLastCalledWith(null, '', '/es/atletas/11?tab=perfil&seccion=historial');
     expect(pressed(render())).toBe('Todo46');
     expect(currentUrl.pathname + currentUrl.search).not.toBe(href);
-    currentUrl = new URL(href, currentUrl);
+    navigateNext(href);
     expect(pressed(render())).toBe('Comunicados3');
   });
 
@@ -82,14 +105,14 @@ describe('Historial — la URL controla la selección y los enlaces dentro de Pe
     captured!.selection!.onChange('test');
     const manualUrl = new URL(currentUrl);
     expect(pressed(render())).toBe('Tests42');
-    currentUrl = new URL('/es/atletas/11?tab=perfil&seccion=historial&historial=comunicado', currentUrl);
+    navigateNext('/es/atletas/11?tab=perfil&seccion=historial&historial=comunicado');
     expect(pressed(render())).toBe('Comunicados3');
-    currentUrl = manualUrl;
+    navigateNext(manualUrl);
     expect(pressed(render())).toBe('Tests42');
   });
 
   it('refrescar y cambiar sección conservan el filtro manual y su contexto', () => {
-    currentUrl = new URL('/es/atletas/11?tab=perfil&seccion=historial&semana=2026-09-28&desde=estado%3Dvigilar#historial', currentUrl);
+    navigateNext('/es/atletas/11?tab=perfil&seccion=historial&semana=2026-09-28&desde=estado%3Dvigilar#historial');
     render();
     captured!.selection!.onChange('comunicado');
     expect(replaceState).toHaveBeenCalledOnce();
@@ -99,14 +122,17 @@ describe('Historial — la URL controla la selección y los enlaces dentro de Pe
     expect(currentUrl.hash).toBe('#historial');
     expect(pressed(render())).toBe('Comunicados3');
     currentUrl.searchParams.set('seccion', 'revisiones');
+    navigateNext(currentUrl);
     expect(pressed(render())).toBe('Comunicados3');
   });
 
   it.each(['', 'inventado', 'COMUNICADO', 'todo'])('valor inválido/ausente %j → Todo sin excepción', (value) => {
     currentUrl.searchParams.set('historial', value);
+    navigateNext(currentUrl);
     expect(historialKind(currentUrl.searchParams)).toBeNull();
     expect(pressed(render())).toBe('Todo46');
     currentUrl.searchParams.delete('historial');
+    navigateNext(currentUrl);
     expect(pressed(render())).toBe('Todo46');
   });
 
@@ -114,11 +140,32 @@ describe('Historial — la URL controla la selección y los enlaces dentro de Pe
     render();
     captured!.selection!.onChange('comunicado');
     expect(pressed(render())).toBe('Comunicados3');
-    currentUrl = new URL('/es/atletas/22?tab=perfil', currentUrl);
+    navigateNext('/es/atletas/22?tab=perfil');
     const html = render('22', [{ ...entries[3]!, id: 'new-athlete-review', title: 'Revisión del nuevo atleta' }]);
     expect(pressed(html)).toBe('Todo1');
     expect(html('#historial').text()).toContain('Revisión del nuevo atleta');
     expect(html('#historial').text()).not.toContain('Comunicado 1');
+  });
+
+  it('state __NA real reproduce el bypass; Todo con null actualiza el lector y conserva el árbol de Next', () => {
+    const href = '/es/atletas/11?tab=perfil&seccion=historial&historial=comunicado';
+    navigateNext(href);
+    const tree = historyState.__PRIVATE_NEXTJS_INTERNALS_TREE;
+    const todoHref = historialFilterHref(currentUrl.pathname, currentUrl.search, null);
+    replaceState(historyState, '', todoHref);
+    expect(currentUrl.searchParams.has('historial')).toBe(false);
+    expect(readerUrl.searchParams.get('historial')).toBe('comunicado');
+    expect(restoreReader).not.toHaveBeenCalled();
+    expect(pressed(render())).toBe('Comunicados3');
+
+    navigateNext(href);
+    render();
+    captured!.selection!.onChange(null);
+    expect(restoreReader).toHaveBeenCalledOnce();
+    expect(readerUrl.searchParams.has('historial')).toBe(false);
+    expect(historyState.__NA).toBe(true);
+    expect(historyState.__PRIVATE_NEXTJS_INTERNALS_TREE).toBe(tree);
+    expect(pressed(render())).toBe('Todo46');
   });
 
   it.each(TIMELINE_KINDS)('la elección manual de %s queda enlazable y usa el resolutor común', (kind) => {

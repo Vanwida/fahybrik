@@ -66,9 +66,9 @@ export function PerfilView({
   const failed = (k: FichaPerfil['errors'][number]) => perfil.errors.includes(k);
   const selectHistorial = (kind: TimelineKind | null) => {
     const href = historialFilterHref(window.location.pathname, window.location.search, kind, window.location.hash);
-    // Next integra el historial nativo con useSearchParams. Todo el historial
-    // ya está cargado: filtrar no necesita otra petición del perfil.
-    window.history.replaceState(window.history.state, '', href);
+    // null entra en la integración de Next; pasar su state (__NA) la omite.
+    // Next copia su árbol interno y actualiza useSearchParams sin otra petición.
+    window.history.replaceState(null, '', href);
   };
 
   useEffect(() => {

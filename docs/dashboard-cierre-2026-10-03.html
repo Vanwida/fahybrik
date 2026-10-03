@@ -18,7 +18,7 @@
 <main class="wrap">
 <section id="publicacion" class="callout">
 <h2>Estado</h2>
-<p id="estado-publicacion">Correcciones publicadas en app.fahybrid.com mediante PR #197. Recorrido autenticado de escritorio y móvil completado para nombres, biblioteca, acciones y cuotas; un último ajuste del filtro de Historial está validado y pendiente de publicación.</p>
+<p id="estado-publicacion">Correcciones publicadas en app.fahybrid.com mediante PR #197. Recorrido autenticado de escritorio y móvil completado para nombres, biblioteca, acciones y cuotas; la comprobación detectó además un detalle del filtro manual Todo. Su corrección está validada y pendiente de publicación final.</p>
 <p><strong>El alta independiente está auditada y sigue incompleta.</strong> El acceso ya activado para el equipo actual no equivale a poder dar de alta correctamente a otro coach con su propio club.</p>
 </section>
 <section aria-labelledby="cambios"><h2 id="cambios">Cambios del dashboard</h2><div class="grid">
@@ -83,7 +83,7 @@
 <li><code>web/lib/landing/cta.ts</code> y <code>web/app/auth/verify/route.ts</code>: entrada del atleta y callback anterior.</li>
 <li>Pruebas DB a ejecutar en rama desechable: <code>coach-team-provisioning</code>, <code>clerk-coach-adoption</code>, <code>coach-session-order</code>, <code>setup-checklist</code>. Añadir aprobación independiente, concurrencia, rollback, reaprobación y aislamiento.</li>
 </ul></details></section>
-<section id="validacion"><h2>Comprobaciones de las correcciones</h2><p id="estado-validacion">Suite completa de la versión publicada: 7.469 pruebas pasan y 1.278 se omiten explícitamente sin DB; tipos web/shared pasan. Lint sin errores y 30 avisos previos. CI de PR #197 y main verde; Vercel READY en el dominio de la app. 116 pruebas de ficha/selector/render y 69 de navegación del historial, incluidas 17 nuevas del remate. Comprobación autenticada a 1280 y 390 px: nombres y foco/error, 99 bloques, lectura de título/series originales, revisión 1:1, chat sin envío y Cuotas mensuales 120 €. El filtro corregido queda pendiente de publicación y comprobación final. Sin creación de piezas, mensajes, migraciones ni pruebas de alta en producción.</p></section>
+<section id="validacion"><h2>Comprobaciones de las correcciones</h2><p id="estado-validacion">Suite completa de la versión publicada: 7.469 pruebas pasan y 1.278 se omiten explícitamente sin DB; tipos web/shared pasan. Lint sin errores y 30 avisos previos. CI de PR #197 y main verde; Vercel READY en el dominio de la app. 116 pruebas de ficha/selector/render y 70 de navegación del historial, incluidas 18 del remate y el caso del lector de navegación. Comprobación autenticada a 1280 y 390 px: nombres y foco/error, 99 bloques, lectura de título/series originales, revisión 1:1, chat sin envío y Cuotas mensuales 120 €. El enlace corregido selecciona sus tres comunicados. El filtro manual Todo queda pendiente de publicación y comprobación final. Alta pendiente mantiene Estado, datos ausentes explícitos y su tarea crítica visible. Cobros y ficha caben a 390 px; los enlaces anteriores de Negocio y Método llegan a sus destinos. Sin creación de piezas, mensajes, migraciones ni pruebas de alta en producción.</p></section>
 </main>
 <footer><div class="wrap note">FAHYBRID · Correcciones del coach y auditoría de su alta · 3 octubre 2026</div></footer>
 </body></html>
