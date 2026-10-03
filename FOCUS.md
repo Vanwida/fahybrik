@@ -2,11 +2,13 @@
 
 Estado para agentes. Tope: 80 líneas. Diario viejo: `docs/archivo/FOCUS-2026-08-13.md`.
 Alex no lee este fichero. El mapa que abre él: `docs/tablero.html`.
-Última actualización: **2026-10-03** (cabecera del Plan al hojear; ficha de la sesión, la ruta, en Swift; complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: fuerza, ergo y correr en la cara nueva, entrada nueva y lanzamiento automático; modelo del reloj Garmin)
+Última actualización: **2026-10-04** (ficha: filas en vez de tarjetas; cabecera del Plan al hojear; ficha de la sesión, la ruta, en Swift; complicación de reloj con lo de hoy; editor de correr: entorno, aviso y frase; analíticas del iPhone: detalle y cierre; reloj: fuerza, ergo y correr en la cara nueva, entrada nueva y lanzamiento automático; modelo del reloj Garmin)
 
 ## Ahora
 
 **PLAN · CABECERA AL HOJEAR (03-10, rama `plan-cabecera-semana`, encima de `ficha-ruta-swift`; DECISIONS 03-10).** Alex vio en la semana que viene una «‹» suelta y una pastilla «Volver a esta semana» que repetía la flecha: fuera la pastilla y el «›» sin más semanas queda apagado en su sitio. Doble `plan-rehecho` al día. Sin fusionar.
+
+**FICHA · FILAS EN VEZ DE TARJETAS (04-10, rama `plan-cabecera-semana`, encima de `ficha-ruta-swift`; DECISIONS 04-10).** Alex, con «Test running» en TestFlight: las tarjetas eran demasiado grandes y se perdía. Un movimiento solo va en grande; varios, en filas (el test de siete piezas es una secuencia numerada, con su suma de minutos). Con la sesión real salieron seis fallos de lectura, ya arreglados (calentamiento por formato, nota del coach, vueltas, «RPE 5–5»…). Doble `ficha-ruta` al día con el caso nuevo. Vista en simulador; sin fusionar ni probar en aparato.
 
 **FICHA DE LA SESIÓN · LA RUTA (02-10, rama `ficha-ruta-swift`, worktree `ficha-b`; doble `/design/ficha-ruta`; DECISIONS 02-10).** Alex firmó la B (mapa de bloques fijo arriba y un bloque cada vez); la hoja A se borró. Hecha en Swift (`LecturaFicha`, `Workout/SesionPrevia/Ficha/`; borradas `BloquesPrevia`, `EjerciciosPrevia` y `SujetoPrevia`), compila (app y tests) y se vio en simulador con 14 casos en claro, oscuro y texto muy grande (fuerza, superserie, Dobles, AMRAP y For Time, EMOM, simulación, series de pista, rodaje, prueba, libre, sin detalle de dos maneras, segunda pasada). Al verla se arreglaron: el descanso de la superserie, las simulaciones escritas bloque a bloque (una ruta, también en Dobles), el 1RM sin repetir kilos y «sin detalle» con su motivo real. Falta verla en aparato y con un vídeo de verdad. Declarado fuera por falta de dato: material y «última vez». Sin fusionar.
 
