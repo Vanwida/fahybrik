@@ -5,8 +5,10 @@ import SwiftUI
 // no escribe ahí) y se corta a dos líneas; si se extiende, un toque la abre entera.
 //
 // Aquí vive lo que el Swift resolvía con el gesto de deslizar y no enseñaba: las flechas de semana. «›» lleva
-// un candado cuando el club bloquea la semana que viene (y al tocarlo dice por qué): no es un botón muerto.
-// «‹» solo existe hojeando. Los dos huecos de 48 pt se reservan siempre: el título no baila al hojear.
+// un candado cuando el club bloquea la semana que viene (y al tocarlo dice por qué). «‹» solo existe hojeando, y
+// es también la vuelta: no hay una pastilla «Volver a esta semana» que repita lo que ya hace la flecha. Los dos
+// huecos de 48 pt se reservan siempre —el título no baila al hojear— y, hojeando, las dos flechas están siempre:
+// sin más semanas por delante el «›» se queda en su sitio, apagado, para que el «‹» no flote lejos del margen.
 
 struct CabeceraPlan: View {
     /// Lo que el coach le puso al bloque. Sin él, «Tu plan».
@@ -15,7 +17,7 @@ struct CabeceraPlan: View {
     /// «Del 28 sep al 4 oct».
     let rango: String?
     let intencion: String?
-    /// Hojeando otra semana: hay «‹» y el atajo de volver.
+    /// Hojeando otra semana: hay «‹», que también es la vuelta a esta semana.
     let hojeando: Bool
     /// Hay una semana más adelante que ver.
     let puedeAdelante: Bool
@@ -25,7 +27,9 @@ struct CabeceraPlan: View {
     var cargando = false
     let alAtras: () -> Void
     let alAdelante: () -> Void
-    let alVolver: () -> Void
+
+    /// Lo apagado que va el «›» cuando no hay más semanas: se ve que está, y que no lleva a ningún sitio.
+    private static let opacidadSinMasSemanas = 0.35
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
@@ -78,6 +82,10 @@ struct CabeceraPlan: View {
                     etiqueta: adelanteBloqueado ? "Semana siguiente, bloqueada por tu club" : "Semana siguiente",
                     accion: alAdelante
                 ) { IconoDia(adelanteBloqueado ? .candado : .chevron, tam: 18, peso: .bold) }
+            } else if hojeando {
+                BotonCromoDia(etiqueta: "Semana siguiente: no hay más semanas", accion: {}) { IconoDia(.chevron, tam: 18, peso: .bold) }
+                    .disabled(true)
+                    .opacity(Self.opacidadSinMasSemanas)
             } else {
                 Color.clear.frame(width: Theme.Size.toque, height: Theme.Size.toque)
             }
@@ -85,7 +93,7 @@ struct CabeceraPlan: View {
     }
 
     private var filaDelRango: some View {
-        HStack(spacing: Theme.Spacing.m) {
+        Group {
             if cargando {
                 SkeletonBar(width: 130, height: 15, radius: 5)
             } else if let rango {
@@ -93,20 +101,8 @@ struct CabeceraPlan: View {
                     .papel(.notaFuerte)
                     .foregroundStyle(Theme.Color.muted)
             }
-            Spacer(minLength: 0)
-            if hojeando {
-                Button(action: { Haptics.light(); alVolver() }) {
-                    Text("Volver a esta semana")
-                        .papel(.rotulo)
-                        .foregroundStyle(Theme.Color.accentText)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 44)
-                        .overlay(Capsule().strokeBorder(Theme.Color.accentText.opacity(0.45), lineWidth: 1))
-                }
-                .buttonStyle(PressScaleStyle(escala: 0.96))
-            }
         }
-        .frame(minHeight: 24)
+        .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
     }
 }
 
@@ -217,7 +213,7 @@ struct CabeceraPlanEsqueleto: View {
             nombreBloque: "Bloque 2 · fuerza y ritmo", titulo: "Semana 3 de 6", rango: "Del 28 sep al 4 oct",
             intencion: "Semana fuerte: acumulamos volumen y cerramos con la simulación entera.",
             hojeando: false, puedeAdelante: true, adelanteBloqueado: false,
-            alAtras: {}, alAdelante: {}, alVolver: {})
+            alAtras: {}, alAdelante: {})
     }
 }
 
@@ -227,7 +223,17 @@ struct CabeceraPlanEsqueleto: View {
             nombreBloque: "Bloque 2 · fuerza, ritmo y un test en medio del bloque", titulo: "Semana que viene", rango: "Del 5 oct al 11 oct",
             intencion: "Esta semana quiero que te fíes del ritmo y no del reloj. El lunes y el martes son para asimilar la carga del bloque anterior; el jueves toca test y volumen.",
             hojeando: true, puedeAdelante: false, adelanteBloqueado: true,
-            alAtras: {}, alAdelante: {}, alVolver: {})
+            alAtras: {}, alAdelante: {})
+    }
+}
+
+#Preview("Cabecera · hojeando, sin más semanas") {
+    EnAmbasDia {
+        CabeceraPlan(
+            nombreBloque: "HYROX acumulación", titulo: "Semana 2", rango: "Del 5 oct al 11 oct",
+            intencion: nil,
+            hojeando: true, puedeAdelante: false, adelanteBloqueado: false,
+            alAtras: {}, alAdelante: {})
     }
 }
 
@@ -237,7 +243,7 @@ struct CabeceraPlanEsqueleto: View {
             CabeceraPlan(
                 nombreBloque: nil, titulo: "Semana que viene", rango: nil, intencion: nil,
                 hojeando: true, puedeAdelante: false, adelanteBloqueado: false, cargando: true,
-                alAtras: {}, alAdelante: {}, alVolver: {})
+                alAtras: {}, alAdelante: {})
             CabeceraPlanEsqueleto()
         }
     }

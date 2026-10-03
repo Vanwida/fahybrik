@@ -269,7 +269,7 @@ export const CASOS_PLAN: CasoPlan[] = [
     return caso(
       'empieza-despues',
       '⑨ Nuria · su plan empieza el lunes',
-      'Esta semana no tiene sesiones pero el plan YA está programado: se dice la fecha exacta («empieza el lunes 5 de octubre»), no «tu coach no ha publicado» (falso, y se leía como negligencia). La salida lleva a la semana que viene: tócala y llegas a ella con su carril; «Volver a esta semana» te trae de vuelta.',
+      'Esta semana no tiene sesiones pero el plan YA está programado: se dice la fecha exacta («empieza el lunes 5 de octubre»), no «tu coach no ha publicado» (falso, y se leía como negligencia). La salida lleva a la semana que viene: tócala y llegas a ella con su carril; el «‹» te trae de vuelta.',
       lectura(vacia, que_viene),
     );
   })(),

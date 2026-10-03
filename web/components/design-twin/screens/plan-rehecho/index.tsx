@@ -84,7 +84,7 @@ export const meta: TwinMeta = {
   titulo: 'Plan · rehecho',
   zona: 'Plan y hoy',
   estado: 'propuesta',
-  actualizado: '2026-09-29',
+  actualizado: '2026-10-03',
   descripcion:
     'La pestaña donde se decide y se empieza el entreno, con el diseño de «Hoy · El día»: la semana como cabecera (bloque, «Semana N de M», línea del coach), un carril de siete días con su sello y, debajo, UN día mostrado en grande con el tinte de su momento (naranja sólido solo si es hoy y está por hacer) y sus partes con los ejercicios reales. Tocar un día cambia la card; la única acción va anclada abajo y es la misma puerta en todos los estados. Incluye la versión sin coach. Prueba: marcar hoy como hecho (la card pasa a verde), hojear la semana que viene, mantener pulsado un día.',
   fuentes: [],
@@ -331,7 +331,6 @@ function PlanConCoach({ caso, onLog }: { caso: CasoPlan; onLog: (linea: string) 
         cargando={cuerpo?.tipo === 'semana-cargando'}
         onAtras={volver}
         onAdelante={irSiguiente}
-        onVolver={volver}
       />
     ) : null;
 

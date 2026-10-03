@@ -189,6 +189,16 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **No hecho:** nada en Swift. Falta que Alex elija (o mezcle: la organización de A con la pista de EMOM y el recorrido de B), y después construirlo sobre `LecturaSesionPrevia` con tres campos más (material por ejercicio, minutos de bloque si se saben, reparto de Dobles).
 
+## 2026-10-03 · Plan: la cabecera de otra semana no lleva «Volver a esta semana»; el «›» sin más semanas se queda apagado
+
+**Qué pasaba (Alex, mirando la semana que viene):** la cabecera enseñaba una «‹» suelta, lejos del margen derecho (el hueco del «›» ausente se reservaba y quedaba vacío), y debajo una pastilla «Volver a esta semana» que, a una semana de distancia, hace lo mismo que la flecha.
+
+**Qué se hizo:** fuera la pastilla. La «‹» ya es la vuelta; `volverAEstaSemana` sigue siendo la acción anclada de una semana que llega vacía. Hojeando, las dos flechas están siempre: sin más semanas por delante el «›» se queda en su sitio, apagado y sin acción, así que la «‹» no flota ni cambia de sitio al hojear. En la semana actual no hay «‹» (desde el Plan no se hojea hacia atrás) y su hueco se sigue reservando para que el título no baile. El doble (`plan-rehecho`) lo sigue en el mismo lote.
+
+**Lo que cuesta:** a dos o más semanas de distancia volver son dos o más toques. Es el caso raro (el club suele dejar ver una semana por delante); si alguna vez hace falta un salto, que sea una pieza del cromo y no otra pastilla en la cabecera.
+
+**No hacer:** volver a poner un atajo que repita lo que ya hace una flecha; quitar el «›» apagado (dejaría la «‹» suelta otra vez).
+
 ## 2026-10-02 · La ficha de la sesión: la ruta (B), firmada por Alex; la hoja (A) se descarta
 
 **Qué pasaba (Alex, abriendo el entreno de hoy):** la ficha previa «se ve mal, no se entiende, solo bloques de cosas». Medido sobre el Swift: un sujeto de 244 pt y una tarjeta por ejercicio de ~120 a 190 pt (con su tabla y su botón de técnica); con cuatro movimientos ya no ves la sesión, ves tres, y nada distingue lo que importa (qué toca, qué dejó escrito el coach, cuánto y con qué) de lo que no.
