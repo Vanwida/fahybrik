@@ -25,7 +25,7 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 - «RPE 5–5» es «RPE 5» (una banda con los dos extremos iguales no es banda; el vivo ya lo decía así) y una carrera de un solo tramo sin recuperación no es «1 × 15:00».
 - «Sin confirmar» (el 1RM que resolvió los kilos) va en la segunda línea del nombre, no en una línea aparte. El nombre de un nodo de la ruta admite tres líneas: «Movilidad general de cadera» salía cortado.
 
-**Pendiente, no de la ficha:** el motor (`BlockPhase.classify(title:)`) clasifica solo por título; en el entreno en vivo «Movilidad general de cadera» sigue siendo «Principal». Queda para quien toque el motor.
+**El motor, también (mismo día, por orden de Alex: «no quiero luego»):** `BlockPhase.classify(title:)` clasificaba solo por título, así que en el entreno en vivo «Movilidad general de cadera» (formato `warmup`) era «Principal». Ahora hay UN criterio, `BlockPhase.classify(title:format:)` (el título manda; si no dice nada, el formato que declaró el coach), y lo usan el vivo, el plegado de bloques, el libre hidratado y la ficha. Para eso cada tramo recuerda el formato de su bloque (`WorkoutSegment.blockFormat`, opcional: los snapshots viejos siguen decodificando). Un test del caso real: `FasePorFormatoTests`.
 
 ## 2026-10-03 · Plan: la cabecera de otra semana no lleva «Volver a esta semana»; el «›» sin más semanas se queda apagado
 
