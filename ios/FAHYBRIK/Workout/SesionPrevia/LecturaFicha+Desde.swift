@@ -67,12 +67,20 @@ extension BloqueFicha {
         )
     }
 
-    /// El rol sale del TÍTULO, con la misma clasificación que usa el motor (`BlockPhase`).
+    /// El rol sale del TÍTULO, con la misma clasificación que usa el motor (`BlockPhase`). Cuando el título no lo dice
+    /// («Movilidad general de cadera») lo dice el FORMATO que declaró el coach: un bloque `warmup` es calentamiento aunque no
+    /// se llame así, y no es trabajo (ni abre la ficha, ni cuenta como bloque en la cabecera).
     static func rolDe(_ b: WorkoutBlock) -> Rol {
         switch BlockPhase.classify(title: b.title) {
-        case .warmup:             return .calentamiento
-        case .cooldown:           return .vuelta
-        case .principal, .main:   return .principal
+        case .warmup:    return .calentamiento
+        case .cooldown:  return .vuelta
+        case .principal: return .principal
+        case .main:
+            switch PrescriptionScheme(canonicalizing: b.format) {
+            case .warmup?:   return .calentamiento
+            case .cooldown?: return .vuelta
+            default:         return .principal
+            }
         }
     }
 
@@ -163,11 +171,13 @@ extension BloqueFicha {
                 movimientos: movs
             )
         case .intervals?:
+            if movs.count > 1, movs.allSatisfy({ $0.perfil == nil }) { return secuencia(b, movs) }
             return Resultado(forma: .intervalos, etiqueta: nil, explicacion: nil,
                          resumen: movs.first?.perfil.map { "\($0.repeticiones) \(Formato.signoPor) \($0.medida)" }
                              ?? movs.first?.dosis ?? cuantosEjercicios(movs.count),
                          movimientos: movs)
         case .steady?:
+            if movs.count > 1 { return secuencia(b, movs) }
             return Resultado(forma: .continuo, etiqueta: nil, explicacion: nil,
                          resumen: movs.first?.dosis ?? cuantosEjercicios(movs.count), movimientos: movs)
         default:
@@ -185,6 +195,18 @@ extension BloqueFicha {
             return Resultado(forma: .series, etiqueta: nil, explicacion: nil,
                          resumen: cuantosEjercicios(movs.count), movimientos: movs)
         }
+    }
+
+    /// VARIAS piezas una detrás de otra (el motor tampoco las pliega: «una SUCESIÓN de piezas»). Lo que se sabe del bloque es la
+    /// suma de lo que dura cada una, y solo si TODAS son de tiempo; si no, cuántas son. Nunca la duración de la primera.
+    private static func secuencia(_ b: WorkoutBlock, _ movs: [MovimientoFicha]) -> Resultado {
+        let segundos = b.items.compactMap { item -> Int? in
+            guard case let .duration(s, _)? = item.prescription?.sets?.first?.measure ?? item.scalarMeasure else { return nil }
+            return s
+        }
+        let total = segundos.count == b.items.count ? segundos.reduce(0, +) : nil
+        return Resultado(forma: .secuencia, etiqueta: nil, explicacion: nil,
+                         resumen: total.map(minutosCortos) ?? cuantosEjercicios(movs.count), movimientos: movs)
     }
 
     private static func tieneVariasSeries(_ item: WorkoutItem) -> Bool {
@@ -277,13 +299,15 @@ extension MovimientoFicha {
         let lectura = impuesta ? LecturaDeItem() : LecturaDeItem.de(item, modalidad: modalidad)
 
         let medida = item.prescription?.sets?.first?.measure ?? item.scalarMeasure
-        let segunTuRm = item.resolvedLoad.map { SegunTuRm(kg: $0.kgLabel, sinConfirmar: $0.needsReview) }
+        let resuelto = lectura.uniforme ? item.resolvedLoad : nil
 
-        // Con el %RM resuelto, lo que se carga son los KILOS: el porcentaje baja a la segunda línea.
-        let contra = contraImpuesta ?? (lectura.uniforme ? (segunTuRm?.kg ?? lectura.contra) : lectura.contra)
-        let pctRm = (segunTuRm != nil && lectura.uniforme) ? lectura.contra : nil
+        // Con el %RM resuelto, lo que se carga son los KILOS: el porcentaje baja a la segunda línea, y si el 1RM que lo resolvió
+        // es una estimación pendiente de confirmar, se dice ahí mismo.
+        let contra = contraImpuesta ?? (resuelto?.kgLabel ?? lectura.contra)
+        let pctRm = resuelto != nil ? lectura.contra : nil
+        let sinConfirmar = resuelto?.needsReview == true ? "sin confirmar" : nil
 
-        let secundaria = [pctRm, lectura.tempo.map { "tempo \($0)" }, lectura.descanso.map { "desc. \($0)" }]
+        let secundaria = [pctRm, sinConfirmar, lectura.tempo.map { "tempo \($0)" }, lectura.descanso.map { "desc. \($0)" }]
             .compactMap { $0 }
             .map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }
             .joined(separator: " · ")
@@ -292,19 +316,26 @@ extension MovimientoFicha {
             id: item.uid,
             item: item,
             modalidad: modalidad,
-            dosis: (dosisImpuesta ?? lectura.dosis).map { conLaUnidadDeLasReps($0, medida: medida) },
+            dosis: (dosisImpuesta ?? lectura.dosis.map { conLasVueltas($0, de: item) }).map { conLaUnidadDeLasReps($0, medida: medida) },
             contra: contra,
             zona: lectura.zona,
             rol: rol,
             secundaria: secundaria.isEmpty ? nil : secundaria,
             series: lectura.series,
             rangoDeCarga: lectura.rangoDeCarga,
-            segunTuRm: segunTuRm,
             perfil: lectura.perfil,
             reparto: reparto.de(item, medida: medida),
-            nota: item.notes.flatMap { $0.isEmpty ? nil : $0 }
+            nota: item.notaDelCoach
         )
     }
+}
+
+/// Las veces que el coach pide repetir un ejercicio de calentamiento o de vuelta a la calma («Cat Cow 2×10»): ahí `rounds` es del
+/// EJERCICIO. En cualquier otro esquema las rondas son del formato del bloque y la dosis es la de UNA ronda.
+private func conLasVueltas(_ dosis: String, de item: WorkoutItem) -> String {
+    guard let p = item.prescription, p.scheme == .warmup || p.scheme == .cooldown,
+          let vueltas = p.rounds, vueltas > 1, (p.sets?.count ?? 0) <= 1 else { return dosis }
+    return "\(vueltas) \(Formato.signoPor) \(dosis)"
 }
 
 /// «100» a secas no dice qué se repite 100 veces: cuando la dosis es SOLO la medida de unas repeticiones, se deletrea
@@ -400,6 +431,8 @@ private struct LecturaDeItem {
         let iguales = trabajos.allSatisfy { $0.target == primero.target }
         let linea = PrescriptionRenderer.structuredRunLine(p)
         let recuperaciones = cuentan.filter(\.isRecovery)
+        // Un solo tramo sin recuperación no es una forma que dibujar: es una carrera continua y se lee como tal.
+        guard trabajos.count > 1 || !recuperaciones.isEmpty else { return nil }
         let primeraRec = recuperaciones.first
         let recuperacionIgual = primeraRec.map { r in
             recuperaciones.allSatisfy { $0.measure == r.measure && $0.recoveryMode == r.recoveryMode && $0.target == r.target }

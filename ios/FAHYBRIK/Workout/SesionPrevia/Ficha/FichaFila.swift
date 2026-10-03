@@ -45,15 +45,17 @@ struct FichaDosis: View {
     let columna: MovimientoFicha.Columna
     /// El apoyo con peso (en la tinta del texto) en vez de apagado: donde el kilo o el total importan tanto como la dosis.
     var apoyoFuerte = false
+    /// A la derecha de la fila va alineada a la derecha; debajo del nombre (con el texto muy grande), a la izquierda.
+    var alineacion: HorizontalAlignment = .trailing
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 1) {
+        VStack(alignment: alineacion, spacing: 1) {
             if let principal = columna.principal {
                 Text(principal)
                     .papel(.cuerpoFuerte)
                     .monospacedDigit()
                     .foregroundStyle(Theme.Color.foreground)
-                    .multilineTextAlignment(.trailing)
+                    .multilineTextAlignment(alineacion == .leading ? .leading : .trailing)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let segunda = columna.segundaLinea {
@@ -61,10 +63,32 @@ struct FichaDosis: View {
                     .papel(apoyoFuerte ? .notaPesada : .nota)
                     .monospacedDigit()
                     .foregroundStyle(apoyoFuerte ? Theme.Color.foreground : Theme.Color.muted)
-                    .multilineTextAlignment(.trailing)
+                    .multilineTextAlignment(alineacion == .leading ? .leading : .trailing)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+}
+
+// MARK: - El nodo numerado de un recorrido
+
+/// El número de una estación o de una pieza de una secuencia, en un círculo con el borde del color de su modalidad.
+struct FichaNodoNumerado: View {
+    let numero: Int
+    let color: SwiftUI.Color
+    let lado: CGFloat
+
+    /// Cuánto tiñe su modalidad el nodo y el grosor de su borde.
+    private static let tinte = 0.28
+    private static let grosorDelBorde: CGFloat = 2
+
+    var body: some View {
+        Text("\(numero)")
+            .papel(.notaPesada)
+            .foregroundStyle(Theme.Color.foreground)
+            .frame(width: lado, height: lado)
+            .background(Theme.Color.tinte(color, Self.tinte, sobre: Theme.Color.background), in: Circle())
+            .overlay(Circle().strokeBorder(color, lineWidth: Self.grosorDelBorde))
     }
 }
 

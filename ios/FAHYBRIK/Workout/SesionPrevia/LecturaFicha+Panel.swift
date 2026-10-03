@@ -135,7 +135,8 @@ extension MovimientoFicha {
     /// inventa: sin dosis la fila enseña el nombre solo.
     var columna: Columna {
         if let perfil {
-            return Columna(principal: "\(perfil.repeticiones) \(Formato.signoPor) \(perfil.medida)", zona: perfil.zona, contra: perfil.ritmo)
+            let trabajo = perfil.repeticiones > 1 ? "\(perfil.repeticiones) \(Formato.signoPor) \(perfil.medida)" : perfil.medida
+            return Columna(principal: trabajo, zona: perfil.zona, contra: perfil.ritmo)
         }
         switch reparto {
         case let .mitad(tuParte, total)?:
@@ -145,6 +146,13 @@ extension MovimientoFicha {
         case .tuya?, nil:
             return Columna(principal: dosis, zona: zona, contra: contra)
         }
+    }
+
+    /// La columna de una FILA. Con las cargas de una rampa en su propia línea (`lineaDeSeries`) la derecha dice solo la dosis: no
+    /// repite «60 → 80 kg» encima de «60 · 70 · 80 · 80 · 80 kg».
+    var columnaDeFila: Columna {
+        let c = columna
+        return series.isEmpty ? c : Columna(principal: c.principal, zona: c.zona, contra: nil)
     }
 
     /// La hace tu pareja: la fila se enseña apagada, porque no te toca.
@@ -170,6 +178,18 @@ extension MovimientoFicha {
                 ? (serie.carga ?? serie.trabajo ?? "")
                 : [serie.trabajo, serie.carga].compactMap { $0 }.joined(separator: " · ")
         }
+    }
+
+    /// Las series de una rampa en UNA línea, con la unidad una sola vez cuando es la misma: «60 · 70 · 80 · 80 · 80 kg». Es lo que
+    /// enseña una fila (una tarjeta las enseña una a una). Nil si las series son todas iguales.
+    var lineaDeSeries: String? {
+        let textos = fichasDeSeries
+        guard textos.count > 1 else { return nil }
+        let partes = textos.map { $0.split(separator: " ").map(String.init) }
+        if partes.allSatisfy({ $0.count == 2 }), let unidad = partes.first?.last, partes.allSatisfy({ $0.last == unidad }) {
+            return partes.map { $0[0] }.joined(separator: " · ") + " " + unidad
+        }
+        return textos.joined(separator: " · ")
     }
 
     /// La frase que explica por qué las fichas llevan solo kilos: «Cada serie, 5 reps».

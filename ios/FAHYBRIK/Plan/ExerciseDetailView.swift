@@ -110,7 +110,7 @@ struct ExerciseDetailView: View {
                 }
             }
 
-            if let notes = item.notes, !notes.isEmpty {
+            if let notes = item.notaDelCoach {
                 section(title: "Nota de tu coach") {
                     NotaDelCoachEjercicio(texto: notes)
                 }

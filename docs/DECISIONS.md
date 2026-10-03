@@ -189,6 +189,22 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **No hecho:** nada en Swift. Falta que Alex elija (o mezcle: la organización de A con la pista de EMOM y el recorrido de B), y después construirlo sobre `LecturaSesionPrevia` con tres campos más (material por ejercicio, minutos de bloque si se saben, reparto de Dobles).
 
+## 2026-10-04 · La ficha: un movimiento solo va en grande, varios van en filas (Alex, con «Test running» en el móvil)
+
+**Qué pasaba (Alex, probando la ficha en TestFlight):** «los rows son demasiado grandes, hay que hacer scroll para ver todo, me pierdo yo solo». Medido sobre su sesión real (plantilla 851, «Test running 3' + 9'»): cinco ejercicios de movilidad a ~130 pt cada uno y un test de siete piezas a ~190 pt cada una, o sea tres piezas a la vista de siete; y el test se rotulaba «15:00» en la ruta (la duración de su primera pieza).
+
+**Qué se hizo:** la regla de densidad. Un movimiento que es TODO el bloque se enseña en grande (tarjeta); varios van en filas, para verlos de una vez: el nombre, debajo y apagado lo que se hace distinto (%RM, tempo, descanso), las cargas de una rampa en una línea y dos líneas de lo que escribió el coach; a la derecha, la dosis y contra qué. Las piezas continuas del test son una SECUENCIA numerada sobre un raíl. La movilidad cabe en ~270 pt (antes ~650) y el test entero en ~480 (antes ~1.330).
+
+**Lo que los datos reales obligaron a arreglar (valen para cualquier sesión):**
+- Un bloque `warmup` es calentamiento aunque no se llame «Calentamiento» (el título manda y, si no dice nada, el formato que declaró el coach): ya no abre la ficha ni cuenta como bloque de trabajo.
+- Varias piezas continuas o por tiempos son una secuencia, y lo que se sabe del bloque es la SUMA de lo que dura cada una (62 min), solo si todas son de tiempo; nunca la duración de la primera.
+- El texto que el coach escribió de cada línea (`prescription.note`: «por lado», «marcar lap», cómo se corre el test) no se enseñaba en ningún sitio. Ahora es la nota del movimiento y se lee entera en la hoja de técnica (`WorkoutItem.notaDelCoach`).
+- Las vueltas de un ejercicio de calentamiento cuentan en la dosis («Cat Cow 2 × 10», no «10 reps»).
+- «RPE 5–5» es «RPE 5» (una banda con los dos extremos iguales no es banda; el vivo ya lo decía así) y una carrera de un solo tramo sin recuperación no es «1 × 15:00».
+- «Sin confirmar» (el 1RM que resolvió los kilos) va en la segunda línea del nombre, no en una línea aparte. El nombre de un nodo de la ruta admite tres líneas: «Movilidad general de cadera» salía cortado.
+
+**Pendiente, no de la ficha:** el motor (`BlockPhase.classify(title:)`) clasifica solo por título; en el entreno en vivo «Movilidad general de cadera» sigue siendo «Principal». Queda para quien toque el motor.
+
 ## 2026-10-03 · Plan: la cabecera de otra semana no lleva «Volver a esta semana»; el «›» sin más semanas se queda apagado
 
 **Qué pasaba (Alex, mirando la semana que viene):** la cabecera enseñaba una «‹» suelta, lejos del margen derecho (el hueco del «›» ausente se reservaba y quedaba vacío), y debajo una pastilla «Volver a esta semana» que, a una semana de distancia, hace lo mismo que la flecha.

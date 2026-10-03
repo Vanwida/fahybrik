@@ -27,6 +27,8 @@ enum FichaMedidas {
     /// además la ficha del orden.
     static let altoDeFila: CGFloat = 64
     static let altoDeFilaDeLaPareja: CGFloat = 72
+    /// El alto mínimo de una pieza numerada de una secuencia (sin miniatura: el nodo ocupa menos).
+    static let altoDeFilaNumerada: CGFloat = 56
 
     // MARK: Miniaturas
 

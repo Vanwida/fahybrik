@@ -199,6 +199,39 @@ enum EjemplosPrevia {
         ])
     }
 
+    /// «Test running 3' + 9'», como está en la base (plantilla 851): un bloque de movilidad que el coach declara `warmup` aunque no se
+    /// llame «Calentamiento», otro de calentamiento de carrera y un test de SIETE piezas continuas, cada una con el texto que el
+    /// importador guardó de su línea («por lado», «marcar lap»).
+    static var testRunning: AssignmentDetail {
+        func rpe(_ n: Double) -> Target { .rpe(value: nil, min: n, max: n) }
+        func carrera(_ id: Int, _ segundos: Int, _ esquema: PrescriptionScheme, _ esfuerzo: Double?, _ nota: String) -> WorkoutItem {
+            item(id, "Run", "running", rx(esquema, .run, [serie(.duration(seconds: segundos))], tope: esquema == .steady ? segundos : nil,
+                                          objetivo: esfuerzo.map(rpe), nota: nota))
+        }
+        return detalle("Test running 3' + 9'", nota: nil, minutos: nil, bloques: [
+            bloque(1, "Movilidad general de cadera", "warmup", [
+                item(1, "Cat Cow", "mobility", rx(.warmup, .mobility, [serie(.reps(10))], rondas: 2, nota: "10': Cat cow 2x10")),
+                item(2, "90/90 Hip Stretch", "mobility", rx(.warmup, .mobility, [serie(.reps(6))], rondas: 2, nota: "90-90 2x6 por lado")),
+                item(3, "Cossack Squat", "mobility", rx(.warmup, .mobility, [serie(.reps(5))], rondas: 2, nota: "Cossack squat 2x5 por lado")),
+                item(4, "Leg Swings", "mobility", rx(.warmup, .mobility, [serie(.duration(seconds: 10))], nota: "Forward leg swing 10\" por lado")),
+                item(5, "Hip Flexor Stretch", "mobility", rx(.warmup, .mobility, [serie(.reps(10))], nota: "Hip flexor stretch 10 por lado")),
+            ]),
+            bloque(2, "Calentamiento carrera", "warmup", [
+                item(6, "Pogo Jump", "functional", rx(.warmup, .functional, [serie(.distance(meters: 10))], rondas: 2, nota: "Bilateral pogo jumps 2x10m")),
+                item(7, "Jump Lunge", "functional", rx(.warmup, .functional, [serie(.distance(meters: 15))], rondas: 2, nota: "Zancadas pliométricas horizontales 2x15m")),
+            ]),
+            bloque(3, "Test", "intervals", [
+                carrera(8, 900, .steady, 5, "15' easy run RPE 5"),
+                carrera(9, 180, .intervals, 10, "3' RPE 10 (marcar lap). En el de 3' se sale fuerte desde el principio. En el de 9' se empieza conservador y se aprieta en los últimos 3'."),
+                item(10, "Walk", "other", rx(.steady, .other, [serie(.duration(seconds: 600))], tope: 600, nota: "10' caminando")),
+                carrera(11, 300, .steady, 5, "5' trote RPE 5"),
+                item(12, "Walk", "other", rx(.steady, .other, [serie(.duration(seconds: 300))], tope: 300, nota: "5' caminando")),
+                carrera(13, 540, .intervals, 10, "9' RPE 10 (marcar lap). En el de 9' se empieza conservador y se aprieta en los últimos 3'."),
+                carrera(14, 900, .cooldown, nil, "15' cool down easy run"),
+            ]),
+        ])
+    }
+
     /// La asignación llegó, pero el coach solo escribió la nota: el plan conserva el título.
     static var sinDetalle: AssignmentDetail {
         detalle("Series en cuesta", nota: "Hoy sal a rodar por sensaciones. Te escribo el detalle por el chat.", minutos: nil, bloques: [])
@@ -256,9 +289,10 @@ enum EjemplosPrevia {
     }
 
     private static func rx(_ esquema: PrescriptionScheme, _ modalidad: PrescriptionModality, _ series: [PrescriptionSet]?,
-                           rondas: Int? = nil, tope: Int? = nil, structure: RunStructure? = nil) -> Prescription {
+                           rondas: Int? = nil, tope: Int? = nil, objetivo: Target? = nil, nota: String? = nil,
+                           structure: RunStructure? = nil) -> Prescription {
         Prescription(scheme: esquema, modality: modalidad, sets: series, rounds: rondas, workS: nil, restS: nil,
-                     totalS: tope, target: nil, note: nil, start: nil, increment: nil, structure: structure)
+                     totalS: tope, target: objetivo, note: nota, start: nil, increment: nil, structure: structure)
     }
 
     /// Lo que el coach repartió de una estación de Dobles (`a`/`b`: de quién es; `split`: a medias, con tu parte).
@@ -312,6 +346,10 @@ private func ficha(_ detalle: AssignmentDetail, llega: Bool = true, listo: Bool 
 }
 
 #Preview("Ficha · series · lista para empezar") { ficha(EjemplosPrevia.series, listo: true) }
+
+#Preview("Ficha · test running · siete piezas") {
+    ficha(EjemplosPrevia.testRunning, contexto: ContextoFicha(cuando: "Lunes 5", coach: "Pablo Amigo"))
+}
 
 #Preview("Ficha · superserie") { ficha(EjemplosPrevia.superserie) }
 

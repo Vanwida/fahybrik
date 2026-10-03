@@ -2,9 +2,9 @@
 // Las dos propuestas las comparten: así «cuánto dura», «qué lleva el bloque» o
 // «cuál es la dosis» no se escribe dos veces ni de dos maneras (CONTRATO-UI §2).
 
-import { SIGNO_POR } from '../datos-reales';
+import { COLOR_MODALIDAD, SIGNO_POR } from '../datos-reales';
 import { fichaDe } from '../screens/sesion-previa/data';
-import type { Bloque, LecturaFicha, Movimiento, PerfilTramos, SerieEscrita } from './contrato';
+import type { Bloque, LecturaFicha, ModalidadFicha, Movimiento, PerfilTramos, SerieEscrita } from './contrato';
 
 // ---------------------------------------------------------------------------
 // La cabecera
@@ -61,6 +61,7 @@ export function etiquetaFormato(b: Bloque): string | null {
     case 'series':
     case 'intervalos':
     case 'continuo':
+    case 'secuencia':
     case 'marco':
       return null;
   }
@@ -90,6 +91,7 @@ function minutosDelBloque(b: Bloque): number | null {
   if (b.minutos !== undefined) return b.minutos;
   const f = b.formato;
   if (f.tipo === 'emom' || f.tipo === 'amrap') return f.minutos;
+  if (f.tipo === 'secuencia') return f.minutos ?? null;
   return null;
 }
 
@@ -134,7 +136,7 @@ export function sinDosis(b: Bloque): number {
 export function dosisDeMovimiento(m: Movimiento): { principal: string | null; contra: string | null } {
   if (m.perfil) {
     return {
-      principal: `${m.perfil.repeticiones} ${SIGNO_POR} ${m.perfil.trabajo.medida}`,
+      principal: m.perfil.repeticiones > 1 ? `${m.perfil.repeticiones} ${SIGNO_POR} ${m.perfil.trabajo.medida}` : m.perfil.trabajo.medida,
       contra: m.perfil.trabajo.zona ? `Z${m.perfil.trabajo.zona}` : (m.perfil.trabajo.objetivo ?? null),
     };
   }
@@ -153,10 +155,51 @@ export function lineaSecundaria(m: Movimiento): string | null {
   const partes: string[] = [];
   if (m.rol) partes.push(m.rol);
   if (m.segunTuRm && m.objetivo) partes.push(m.objetivo);
+  // El 1RM que resolvió los kilos es una estimación que el coach aún no confirmó: se dice aquí, en la segunda línea del nombre.
+  if (m.segunTuRm?.sinConfirmar) partes.push('sin confirmar');
   if (m.tempo) partes.push(`tempo ${m.tempo}`);
   if (m.descanso) partes.push(`desc. ${m.descanso}`);
   // Cada parte con espacios duros: «desc. 3:00» no se parte en dos líneas por el medio.
   return partes.length > 0 ? partes.map((t) => t.replace(/ /g, '\u00A0')).join(' · ') : null;
+}
+
+/** Las repeticiones que comparten TODAS las series de una rampa cuando solo cambia la carga («5 reps»); nulo si difieren también en el trabajo. */
+export function trabajoComunDeSeries(m: Movimiento): string | null {
+  const series = m.series ?? [];
+  return series.length > 1 && series.every((s) => s.trabajo === series[0].trabajo) ? (series[0].trabajo ?? null) : null;
+}
+
+/**
+ * Las series de una rampa en UNA línea, con la unidad una sola vez cuando es la misma: «60 · 70 · 80 · 80 · 80 kg». Es lo que enseña una
+ * fila (una tarjeta las enseña una a una). Nulo si las series son todas iguales.
+ */
+export function lineaDeSeries(m: Movimiento): string | null {
+  const series = m.series ?? [];
+  if (series.length < 2) return null;
+  const comun = trabajoComunDeSeries(m) !== null;
+  const textos = series.map((s) => (comun ? (s.carga ?? s.trabajo ?? '') : textoSerie(s)));
+  const partes = textos.map((t) => t.split(' '));
+  const unidad = partes[0]?.[1];
+  if (unidad && partes.every((p) => p.length === 2 && p[1] === unidad)) return `${partes.map((p) => p[0]).join(' · ')} ${unidad}`;
+  return textos.join(' · ');
+}
+
+/** La columna de una FILA: con las cargas de una rampa en su propia línea, la derecha dice solo la dosis (no repite «60 → 80 kg»). */
+export function columnaDeFila(m: Movimiento): { principal: string | null; contra: string | null } {
+  const c = dosisDeMovimiento(m);
+  return tieneSeriesDistintas(m) ? { principal: c.principal, contra: null } : c;
+}
+
+/** El color de una modalidad; «otra» (caminar) va en el gris de lo secundario. */
+export function colorDeModalidad(m: ModalidadFicha): string {
+  return m === 'otra' ? 'var(--twin-muted)' : COLOR_MODALIDAD[m];
+}
+
+/** Todo en una sola línea, apagada: lo que enseña una fila de calentamiento («5:00 · RPE 3»). Nulo si no hay nada que decir. */
+export function columnaEnUnaLinea(m: Movimiento): string | null {
+  const { principal, contra } = dosisDeMovimiento(m);
+  const partes = [principal, contra].filter((t): t is string => Boolean(t));
+  return partes.length > 0 ? partes.join(' · ') : null;
 }
 
 /** ¿Las series difieren entre sí (rampa, pirámide)? Solo entonces se enseñan una a una. */

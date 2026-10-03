@@ -1,8 +1,8 @@
 // Los casos con los que se rompe el modelo de la ficha ANTES de pintarlo.
 //
-// Diecisiete sesiones, cinco de ellas REALES (las del doble de hace un mes, con su
+// Dieciocho sesiones, cinco de ellas REALES (las del doble de hace un mes, con su
 // procedencia: salen de `datos-reales.ts` y pasan por el adaptador de abajo, así
-// que si el modelo no las aguantara se vería aquí) y doce de DISEÑO, escritas para
+// que si el modelo no las aguantara se vería aquí) y trece de DISEÑO, escritas para
 // cubrir lo que las reales no traen: la rampa de cargas con %RM y tempo, la
 // superserie, el EMOM que alterna, el AMRAP, el metcon de rondas, las series de
 // pista, el ergo por tramos, la prueba, el Dobles y la sesión sin detalle (que llegó sin ejercicios o que no llegó).
@@ -30,7 +30,7 @@ import type {
   Bloque,
   CasoFicha,
   LecturaFicha,
-  Modalidad,
+  ModalidadFicha,
   Movimiento,
   PerfilTramos,
   RolDeBloque,
@@ -159,7 +159,7 @@ function desdeReal(sesion: SesionReal, resto: Partial<LecturaFicha> = {}): Lectu
 // Constructores de los casos de diseño
 // ---------------------------------------------------------------------------
 
-function mov(nombre: string, modalidad: Modalidad, dosis: string | null, extra: Partial<Movimiento> = {}): Movimiento {
+function mov(nombre: string, modalidad: ModalidadFicha, dosis: string | null, extra: Partial<Movimiento> = {}): Movimiento {
   return { id: '', nombre, modalidad, dosis, ...extra };
 }
 
@@ -185,7 +185,7 @@ const marco = (id: string, titulo: string, rol: RolDeBloque, movimientos: Movimi
 });
 
 // ---------------------------------------------------------------------------
-// Los diecisiete casos
+// Los dieciocho casos
 // ---------------------------------------------------------------------------
 
 const FUERZA_COMPLETA: LecturaFicha = conIds({
@@ -482,6 +482,53 @@ const PRUEBA: LecturaFicha = conIds({
   ],
 });
 
+/**
+ * Calcada de la plantilla 851 de la base («Test running 3' + 9'», Pablo Amigo), que es lo que Alex vio en el móvil: un bloque de movilidad
+ * que el coach declara calentamiento aunque no se llame así, otro de calentamiento de carrera, y un test de SIETE piezas continuas cada
+ * una con el texto que el coach escribió de ella («por lado», «marcar lap»). Con una tarjeta grande por pieza eran dos pantallas.
+ */
+const TEST_RUNNING: LecturaFicha = conIds({
+  titulo: "Test running 3' + 9'",
+  origen: 'coach',
+  cuando: 'Lunes 5',
+  coach: 'Pablo Amigo',
+  sinDuracion: 'Según tu ritmo y tus descansos',
+  bloques: [
+    marco('movilidad', 'Movilidad general de cadera', 'calentamiento', [
+      mov('Cat Cow', 'mobility', '2 × 10', { nota: "10': Cat cow 2x10" }),
+      mov('90/90 Hip Stretch', 'mobility', '2 × 6', { nota: '90-90 2x6 por lado' }),
+      mov('Cossack Squat', 'mobility', '2 × 5', { nota: 'Cossack squat 2x5 por lado' }),
+      mov('Leg Swings', 'mobility', '10s', { nota: 'Forward leg swing 10" por lado' }),
+      mov('Hip Flexor Stretch', 'mobility', '10 reps', { nota: 'Hip flexor stretch 10 por lado' }),
+    ]),
+    marco('calentamiento-carrera', 'Calentamiento carrera', 'calentamiento', [
+      mov('Pogo Jump', 'functional', '2 × 10 m', { nota: 'Bilateral pogo jumps 2x10m' }),
+      mov('Jump Lunge', 'functional', '2 × 15 m', { nota: 'Zancadas pliométricas horizontales 2x15m' }),
+    ]),
+    {
+      id: 'test',
+      titulo: 'Test',
+      rol: 'principal',
+      formato: { tipo: 'secuencia', minutos: 62 },
+      movimientos: [
+        mov('Run', 'run', '15:00', { objetivo: 'RPE 5', nota: "15' easy run RPE 5" }),
+        mov('Run', 'run', '3:00', {
+          objetivo: 'RPE 10',
+          nota: "3' RPE 10 (marcar lap). En el de 3' se sale fuerte desde el principio. En el de 9' se empieza conservador y se aprieta en los últimos 3'.",
+        }),
+        mov('Walk', 'otra', '10:00', { nota: "10' caminando" }),
+        mov('Run', 'run', '5:00', { objetivo: 'RPE 5', nota: "5' trote RPE 5" }),
+        mov('Walk', 'otra', '5:00', { nota: "5' caminando" }),
+        mov('Run', 'run', '9:00', {
+          objetivo: 'RPE 10',
+          nota: "9' RPE 10 (marcar lap). En el de 9' se empieza conservador y se aprieta en los últimos 3'.",
+        }),
+        mov('Run', 'run', '15:00', { nota: "15' cool down easy run" }),
+      ],
+    },
+  ],
+});
+
 const SIN_DETALLE: LecturaFicha = {
   titulo: 'Sesión de Pablo',
   origen: 'coach',
@@ -605,6 +652,13 @@ export const CASOS: CasoFicha[] = [
     mira: 'Real (plantilla 500): un movimiento, una distancia, un ritmo.',
     origen: 'real',
     lectura: desdeReal(REMO_500, { sinDuracion: 'Según tu ritmo y tus descansos' }),
+  },
+  {
+    id: 'test-running',
+    titulo: "Test running 3' + 9'",
+    mira: 'Calcada de la plantilla 851 de la base: movilidad declarada como calentamiento, y un test de siete piezas continuas con el texto del coach. Se ve entera de un vistazo.',
+    origen: 'diseño',
+    lectura: TEST_RUNNING,
   },
   {
     id: 'sin-detalle',

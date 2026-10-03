@@ -100,7 +100,7 @@ export function Ruta({ bloques, activo, onElegir }: { bloques: Bloque[]; activo:
                   ...fuente(seleccionado ? 800 : 600, TAM.suelo, 1.2),
                   color: seleccionado ? 'var(--twin-fg)' : 'var(--twin-muted)',
                   display: '-webkit-box',
-                  WebkitLineClamp: 2,
+                  WebkitLineClamp: 3,
                   WebkitBoxOrient: 'vertical',
                   overflow: 'hidden',
                   padding: '0 4px',
