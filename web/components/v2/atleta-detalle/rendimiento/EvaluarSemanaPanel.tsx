@@ -23,7 +23,7 @@ import type {
   WeekFeedSummary,
 } from '@/lib/dashboard/coach/weekly-evaluation';
 import { Check, SlidersHorizontal, X } from 'lucide-react';
-import { Button } from '@/components/v2/ui';
+import { Button, EmptyState } from '@/components/v2/ui';
 import { evaluatedWeekFor } from '@/lib/dashboard/v2/week-adjustment-period';
 import { weekRangeLabel } from '@/lib/dashboard/v2/ficha-format';
 
@@ -122,10 +122,12 @@ function templateName(names: Record<string, string>, id: string | number | null)
   return names[String(id)] ?? `Plantilla #${id}`;
 }
 
-export function EvaluarSemanaPanel({ athleteId, weekStart, onReviewOther, onChanged }: {
+export function EvaluarSemanaPanel({ athleteId, weekStart, proposalId, onReviewOther, onChanged }: {
   athleteId: string;
   /** Semana N seleccionada; la propuesta modifica N+1. */
   weekStart?: string;
+  /** Destino exacto desde una señal; no se sustituye por otra propuesta. */
+  proposalId?: string;
   onReviewOther?: (adjustmentWeek: string) => void;
   onChanged?: () => void;
 }) {
@@ -137,13 +139,14 @@ export function EvaluarSemanaPanel({ athleteId, weekStart, onReviewOther, onChan
   const [actionError, setActionError] = useState<string | null>(null);
 
   const loadPending = useCallback(async (): Promise<GetResp | null> => {
-    const res = await fetch(`/api/coach/athletes/${athleteId}/week-adjustment${weekStart ? `?week_start=${weekStart}` : ''}`);
+    const query = proposalId ? `?proposal_id=${encodeURIComponent(proposalId)}` : weekStart ? `?week_start=${weekStart}` : '';
+    const res = await fetch(`/api/coach/athletes/${athleteId}/week-adjustment${query}`);
     const body = (await res.json().catch(() => null)) as (GetResp & { error?: { message?: string } }) | null;
     if (!res.ok || !body) {
       throw new Error(body?.error?.message ?? 'No se pudo cargar la evaluación de la semana.');
     }
     return body;
-  }, [athleteId, weekStart]);
+  }, [athleteId, weekStart, proposalId]);
 
   const reloadPending = useCallback(async () => {
     setLoadError(null);
@@ -234,7 +237,7 @@ export function EvaluarSemanaPanel({ athleteId, weekStart, onReviewOther, onChan
 
   return (
     <section className="flex flex-col gap-2.5">
-      <SectionHeading>{weekStart ? `Evaluar ${weekRangeLabel(weekStart)}` : 'Evaluar semana'}</SectionHeading>
+      <SectionHeading>{proposalId ? 'Revisar ajuste pendiente' : weekStart ? `Evaluar ${weekRangeLabel(weekStart)}` : 'Evaluar semana'}</SectionHeading>
       <div className="rounded-[var(--v2-r-card)] border border-[color:var(--v2-border)] bg-[color:var(--v2-surface)] p-4 shadow-[var(--v2-shadow-card)]">
         {otherPending && weekStart ? (
           <div className="mb-3 flex flex-col items-start gap-2 t-body-sm text-v2-muted">
@@ -255,12 +258,20 @@ export function EvaluarSemanaPanel({ athleteId, weekStart, onReviewOther, onChan
             onReject={() => void review('reject', shown.id)}
             onDismiss={() => setShown(null)}
           />
+        ) : proposalId ? (
+          <MissingPendingAdjustment onRetry={() => { void reloadPending(); onChanged?.(); }} />
         ) : (
           <EvaluateCta weekStart={weekStart} busy={busy === 'propose'} error={actionError} onEvaluate={() => void handlePropose()} />
         )}
       </div>
     </section>
   );
+}
+
+/** Una señal ya resuelta/ajena no invita a evaluar una propuesta diferente. */
+export function MissingPendingAdjustment({ onRetry }: { onRetry: () => void }) {
+  return <EmptyState title="Este ajuste no está disponible" description="Actualiza la ficha para consultar sus avisos vigentes."
+    action={<Button size="sm" variant="secondary" onClick={onRetry}>Actualizar ficha</Button>} />;
 }
 
 // ── No pending proposal → on-demand evaluation CTA ──────────────────────────────

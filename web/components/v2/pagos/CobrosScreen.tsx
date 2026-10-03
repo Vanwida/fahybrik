@@ -1,6 +1,6 @@
 'use client';
 
-// Negocio › Cobros — cuánto entra al mes y, debajo, SOLO a quién hay que
+// Negocio › Cobros — cuotas mensuales configuradas y, debajo, SOLO a quién hay que
 // atender: vencidos, pendientes de pagar, bajas a fin de periodo y quien
 // renueva esta semana. Cada fila con su acción: recordar el pago (un mensaje
 // que ves y editas antes de enviarlo), abrir el cliente en Stripe o marcarlo
@@ -120,9 +120,9 @@ export function CobrosScreen({
     <div className="flex flex-col gap-6">
       <KPIRow>
         <KPI
-          label="Ingresos al mes"
+          label="Cuotas mensuales"
           value={formatCents(view.mrr_cents)}
-          caption={view.counts.sin_precio > 0 ? `${view.counts.sin_precio} al día sin precio puesto` : 'suscripciones al día'}
+          caption={view.counts.sin_precio > 0 ? `Precios acordados · ${view.counts.sin_precio} al día sin precio` : 'precios acordados · no facturas cobradas'}
         />
         <KPI label="Vencidos" value={view.counts.vencidos} caption={view.counts.vencidos ? 'Stripe no pudo cobrar' : 'ninguno'} />
         <KPI label="Sin pagar aún" value={view.counts.pendientes} caption="invitación sin pagar" />
@@ -388,4 +388,3 @@ function MarkPaidDialog({ r, amountCents, onClose }: { r: CobroRow; amountCents:
     </Dialog>
   );
 }
-

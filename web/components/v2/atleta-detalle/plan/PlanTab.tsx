@@ -53,6 +53,9 @@ export function PlanTab({
   const search = useSearchParams();
   const origin = `${pathname}${search.size ? `?${search.toString()}` : ''}`;
   const c = useCalendar(calendar);
+  const cal = c.cal;
+  const all = cal ? cal.weeks.flatMap((w) => w.days.flatMap((d) => d.sessions)) : [];
+  const upcoming = cal ? all.filter((s) => s.editable && s.date >= cal.today) : [];
 
   // Alta pendiente SIN plan: la lista de lo que falta para asignar ocupa el sitio del
   // calendario. Si ya tiene plan (p. ej. entró por un grupo), manda el calendario y
@@ -60,16 +63,16 @@ export function PlanTab({
   // Un atleta «Nuevo» (alta pendiente) enseña su alta en vez del calendario, tenga
   // o no ya semanas (entró en su grupo al invitarle): el plan aún no está firmado.
   if (shell.intake_pending && intake) {
-    return <IntakeReview review={intake} athleteId={shell.athlete_id} embedded />;
+    return <div className="flex min-w-0 flex-col gap-4">
+      <EstadoColumn estado={estado} upcoming={upcoming} onRetry={() => router.refresh()} />
+      <IntakeReview review={intake} athleteId={shell.athlete_id} embedded />
+    </div>;
   }
 
-  const cal = c.cal;
   // «Sin plan» se decide con lo del PLAN; los libres hechos del atleta no son
   // plan, pero si los hay en el rango se enseña el calendario para verlos.
-  const all = cal ? cal.weeks.flatMap((w) => w.days.flatMap((d) => d.sessions)) : [];
   const inRange = all.filter(isPlanSession).length;
   const hasLibre = all.some((s) => !isPlanSession(s));
-  const upcoming = cal ? all.filter((s) => s.editable && s.date >= cal.today) : [];
   const noPlan = !shell.has_upcoming_plan && inRange === 0;
   const adh = shell.adherence;
 

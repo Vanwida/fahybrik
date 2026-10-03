@@ -1,70 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildHacerAhora, missedIsActionable, statusReasonParts } from '@/lib/dashboard/v2/ficha-actions';
-import type { FichaShell } from '@/lib/dashboard/v2/atleta-detalle-types';
-import type { AthleteSignal } from '@fahybrid/shared/domain/coach/athlete-state';
-
-function signal(over: Partial<AthleteSignal>): AthleteSignal {
-  return {
-    kind: 'readiness_low',
-    severity: 'critical',
-    label: 'Readiness 31',
-    evidence: '−24 vs su base 55 · 3 días',
-    value: 31,
-    baseline: 55,
-    window_label: null,
-    observed_at: null,
-    action: 'proponer_descarga',
-    lens: 'fisiologia',
-    first_seen_at: null,
-    dedupe_key: 'x',
-    ...over,
-  };
-}
-
-function shell(over: Partial<FichaShell> = {}): FichaShell {
-  return {
-    athlete_id: '11',
-    name: 'Marc Vidal',
-    avatar_url: null,
-    email: null,
-    level: null,
-    division_label: null,
-    race: null,
-    program: null,
-    group: null,
-    status: { key: 'al_dia', tone: 'ok', label: 'Al día', reason: null, signals: [], snoozed_until: null, needs_you: false },
-    lifecycle: {
-      status: 'activo',
-      pause_reason: null,
-      paused_since: null,
-      planned_return: null,
-      paused_by_name: null,
-      paused_by_kind: null,
-      baja_at: null,
-      baja_reason: null,
-      baja_by_name: null,
-      pending_request: null,
-      baja_scheduled_for: null,
-      baja_scheduled_in_days: null,
-      pause_days_available: null,
-    },
-    unread: 0,
-    awaiting_reply: false,
-    today: '2026-09-23',
-    readiness: null,
-    week_days: [],
-    adherence: null,
-    intake_pending: false,
-    has_upcoming_plan: true,
-    publish_target: null,
-    pending_comunicados: 0,
-    last_missed: null,
-    last_checkin: null,
-    personal_plan: null,
-    club_name: 'Club',
-    ...over,
-  };
-}
+import { shell, signal } from './fixtures';
 
 describe('Hacer ahora', () => {
   it('al día y con plan: nada que hacer', () => {
@@ -86,7 +22,8 @@ describe('Hacer ahora', () => {
     const chips = buildHacerAhora(
       shell({ last_checkin: { on: '2026-09-22', notes: 'Bien, la última me costó', score: 42, answered: false } }),
     );
-    expect(chips[0]!.label).toBe('Responder check-in «Bien, la última me costó»');
+    expect(chips[0]).toMatchObject({ kind: 'responder', label: 'Responder', cause: 'Por responder' });
+    expect(chips[0]!.evidence).toContain('Check-in del 22 sept: «Bien, la última me costó»');
   });
   it('debida sin hacer → ajustar ese día, y readiness bajo → descarga de esta semana', () => {
     const chips = buildHacerAhora(
@@ -95,9 +32,9 @@ describe('Hacer ahora', () => {
         status: { key: 'accion', tone: 'danger', label: 'Acción', reason: null, signals: [signal({})], snoozed_until: null, needs_you: false },
       }),
     );
-    expect(chips.map((c) => c.kind)).toEqual(['ajustar', 'descarga']);
-    expect(chips[0]).toMatchObject({ session_id: '183', label: 'Ajustar miércoles 23 (sin hacer)' });
-    expect(chips[1]!.week_start).toBe('2026-09-21');
+    expect(chips.map((c) => c.kind)).toEqual(['descarga', 'ajustar']);
+    expect(chips[1]).toMatchObject({ session_id: '183', label: 'Ajustar miércoles 23 (sin hacer)' });
+    expect(chips[0]!.week_start).toBe('2026-09-21');
   });
   it('un sin hacer viejo es historia: solo se ofrece de esta semana o de los 7 días anteriores', () => {
     const at = (date: string) =>
@@ -118,7 +55,8 @@ describe('Hacer ahora', () => {
     const chips = buildHacerAhora(shell({
       status: { key: 'accion', tone: 'danger', label: 'Acción', reason: null, signals: [signal({ kind: 'week_adjustment_pending' })], snoozed_until: null, needs_you: true },
     }));
-    expect(chips).toEqual([{ key: 'evaluar', kind: 'evaluar', label: 'Revisar ajuste propuesto' }]);
+    expect(chips).toMatchObject([{ kind: 'evaluar', label: 'Revisar ajuste propuesto' }]);
+    expect(chips[0]!.week_start).toBeUndefined();
   });
   it('sin plan de hoy en adelante → asignar; en pausa no', () => {
     expect(buildHacerAhora(shell({ has_upcoming_plan: false }))[0]!.kind).toBe('asignar');
@@ -145,7 +83,7 @@ describe('Hacer ahora', () => {
         },
       }),
     );
-    expect(chips.map((c) => c.kind)).toEqual(['alta', 'publicar', 'responder', 'ajustar', 'descarga', 'pago', 'comunicado']);
+    expect(chips.map((c) => c.kind)).toEqual(['descarga', 'pago', 'alta', 'publicar', 'responder', 'ajustar', 'comunicado']);
   });
 });
 
