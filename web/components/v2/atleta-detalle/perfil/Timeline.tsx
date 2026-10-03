@@ -40,15 +40,25 @@ export function Timeline({
   entries,
   today,
   initial,
+  selection,
 }: {
   entries: TimelineEntry[];
   today: string;
   initial: TimelineKind | null;
+  /** Perfil controla el filtro desde su URL; otros usos pueden mantenerlo local. */
+  selection?: { kind: TimelineKind | null; onChange: (kind: TimelineKind | null) => void };
 }) {
   const { shell, refresh } = useFicha();
   const [comunicado, setComunicado] = useState<string | null>(null);
-  const [kind, setKind] = useState<TimelineKind | null>(initial);
+  const [localKind, setKind] = useState<TimelineKind | null>(initial);
+  const kind = selection ? selection.kind : localKind;
   const [shown, setShown] = useState(PAGE);
+  const changeKind = (next: TimelineKind | null) => {
+    setShown(PAGE);
+    setComunicado(null);
+    if (selection) selection.onChange(next);
+    else setKind(next);
+  };
   const counts = useMemo(() => {
     const m = new Map<TimelineKind, number>();
     for (const e of entries) m.set(e.kind, (m.get(e.kind) ?? 0) + 1);
@@ -59,11 +69,11 @@ export function Timeline({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-1.5" role="toolbar" aria-label="Filtrar historial">
-        <FilterChip active={kind == null} onClick={() => setKind(null)} count={entries.length}>
+        <FilterChip active={kind == null} onClick={() => changeKind(null)} count={entries.length}>
           Todo
         </FilterChip>
-        {ORDER.filter((k) => (counts.get(k) ?? 0) > 0 || k === initial).map((k) => (
-          <FilterChip key={k} active={kind === k} onClick={() => setKind(k)} count={counts.get(k) ?? 0}>
+        {ORDER.filter((k) => (counts.get(k) ?? 0) > 0 || k === kind).map((k) => (
+          <FilterChip key={k} active={kind === k} onClick={() => changeKind(k)} count={counts.get(k) ?? 0}>
             {KIND[k].label}
           </FilterChip>
         ))}

@@ -19,6 +19,7 @@ import { ReviewPanel } from '../reviews/ReviewPanel';
 import { SessionReportsBlock } from '@/components/v2/sessions/SessionReportsBlock';
 import { PagosTab } from '../PagosTab';
 import { Timeline } from './Timeline';
+import { historialFilterHref, historialKind } from './timeline-navigation';
 
 const SECTIONS: { id: PerfilSeccion; label: string }[] = [
   { id: 'datos', label: 'Datos' },
@@ -50,7 +51,6 @@ function Dato({ label, children }: { label: string; children: React.ReactNode })
 export function PerfilView({
   perfil,
   seccion,
-  historial,
 }: {
   perfil: FichaPerfil;
   seccion: string | null;
@@ -59,10 +59,17 @@ export function PerfilView({
   const { shell } = useFicha();
   const pathname = usePathname();
   const search = useSearchParams();
+  const historial = historialKind(search);
   const origin = `${pathname}${search.size ? `?${search.toString()}` : ''}`;
   const router = useRouter();
   const retry = () => router.refresh();
   const failed = (k: FichaPerfil['errors'][number]) => perfil.errors.includes(k);
+  const selectHistorial = (kind: TimelineKind | null) => {
+    const href = historialFilterHref(window.location.pathname, window.location.search, kind, window.location.hash);
+    // Next integra el historial nativo con useSearchParams. Todo el historial
+    // ya está cargado: filtrar no necesita otra petición del perfil.
+    window.history.replaceState(window.history.state, '', href);
+  };
 
   useEffect(() => {
     if (seccion) document.getElementById(seccion)?.scrollIntoView({ block: 'start' });
@@ -133,7 +140,8 @@ export function PerfilView({
         {failed('historial') ? (
           <ErrorState title="No se ha podido cargar su historial" onRetry={retry} />
         ) : (
-          <Timeline entries={perfil.timeline} today={shell.today} initial={historial} />
+          <Timeline key={`${shell.athlete_id}:${historial ?? 'todo'}`} entries={perfil.timeline} today={shell.today} initial={historial}
+            selection={{ kind: historial, onChange: selectHistorial }} />
         )}
       </Section>
     </div>

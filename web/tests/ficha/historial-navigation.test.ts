@@ -1,0 +1,139 @@
+import { createElement, type ComponentProps } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { load } from 'cheerio';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ToastProvider } from '@/components/v2/ui';
+import { FichaContext, type FichaActions } from '@/components/v2/atleta-detalle/FichaContext';
+import { PerfilView } from '@/components/v2/atleta-detalle/perfil/PerfilView';
+import { Timeline } from '@/components/v2/atleta-detalle/perfil/Timeline';
+import { historialFilterHref, historialKind } from '@/components/v2/atleta-detalle/perfil/timeline-navigation';
+import { TIMELINE_KINDS, type FichaPerfil, type TimelineEntry } from '@/lib/dashboard/v2/atleta-detalle-types';
+import { shell } from './fixtures';
+
+let currentUrl = new URL('https://example.test/es/atletas/11?tab=perfil&seccion=revisiones');
+let captured: ComponentProps<typeof Timeline> | null = null;
+const replaceState = vi.fn((_state: unknown, _title: string, href: string) => { currentUrl = new URL(href, currentUrl); });
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }),
+  usePathname: () => currentUrl.pathname, useSearchParams: () => currentUrl.searchParams }));
+vi.mock('@/i18n/navigation', () => ({ Link: (props: ComponentProps<'a'>) => createElement('a', props),
+  useRouter: () => ({ refresh: vi.fn() }) }));
+// Observa el controlador de Perfil, conservando el Timeline y todo el kit real.
+vi.mock('@/components/v2/atleta-detalle/perfil/Timeline', async (importOriginal) => {
+  const actual = await importOriginal<{ Timeline: typeof Timeline }>();
+  return { Timeline: (props: ComponentProps<typeof Timeline>) => {
+    captured = props;
+    return createElement(actual.Timeline, props);
+  } };
+});
+
+const entries: TimelineEntry[] = Array.from({ length: 46 }, (_, i) => ({ id: String(i),
+  kind: i < 3 ? 'comunicado' : i === 3 ? 'revision' : 'test', at: '2026-10-03T10:00:00Z',
+  title: i < 3 ? `Comunicado ${i + 1}` : i === 3 ? 'Revisión 1:1 realizada' : `Test ${i}`,
+  detail: null, who: 'coach' as const }));
+const perfil: FichaPerfil = { email: null, plan_mode: 'personal', onboarded_at: null,
+  classification: { level_id: null, level_name: null, suggested_level_id: null, suggested_level_name: null,
+    suggested_level_reason: null, training_days_per_week: null, levels: [], suggestion_gap: null,
+    days_band: { min: 1, max: 7 }, level_axis_label: 'Nivel' },
+  training_days: { days: [], training_days_per_week: null, has_availability: false }, review: null,
+  sessions: [], billing: null, invoices: [], timeline: entries, upcoming: [],
+  errors: ['clasificacion', 'dias', 'revisiones', 'pagos'] };
+
+function render(athleteId = '11', timeline = entries) {
+  const value: FichaActions = { shell: shell({ athlete_id: athleteId }), openChat: vi.fn(), openComposer: vi.fn(),
+    openAssign: vi.fn(), openSession: vi.fn(), openWeekTool: vi.fn(), calendarVersion: 0, bumpCalendar: vi.fn(), refresh: vi.fn() };
+  return load(renderToStaticMarkup(createElement(ToastProvider, null,
+    createElement(FichaContext.Provider, { value }, createElement(PerfilView,
+      { perfil: { ...perfil, timeline }, seccion: currentUrl.searchParams.get('seccion'), historial: null })))));
+}
+const pressed = (html: ReturnType<typeof render>) => html('#historial button[aria-pressed="true"]').text();
+
+beforeEach(() => {
+  currentUrl = new URL('https://example.test/es/atletas/11?tab=perfil&seccion=revisiones');
+  captured = null;
+  replaceState.mockClear();
+  vi.stubGlobal('window', { get location() { return currentUrl; }, history: { state: { fixture: true }, replaceState } });
+});
+afterEach(() => vi.unstubAllGlobals());
+
+describe('Historial — la URL controla la selección y los enlaces dentro de Perfil', () => {
+  it('revisión → comunicados cambia Todo 46 a Comunicados 3 y solo muestra esas filas', () => {
+    expect(pressed(render())).toBe('Todo46');
+    currentUrl = new URL('/es/atletas/11?tab=perfil&seccion=historial&historial=comunicado', currentUrl);
+    const html = render();
+    expect(pressed(html)).toBe('Comunicados3');
+    expect(html('#historial ol > li')).toHaveLength(3);
+    expect(html('#historial').text()).not.toContain('Revisión 1:1 realizada');
+  });
+
+  it('Comunicados → Todo manual → el mismo enlace de comunicados reaplica su destino', () => {
+    const href = '/es/atletas/11?tab=perfil&seccion=historial&historial=comunicado';
+    currentUrl = new URL(href, currentUrl);
+    expect(pressed(render())).toBe('Comunicados3');
+    captured!.selection!.onChange(null);
+    expect(currentUrl.searchParams.has('historial')).toBe(false);
+    expect(pressed(render())).toBe('Todo46');
+    expect(currentUrl.pathname + currentUrl.search).not.toBe(href);
+    currentUrl = new URL(href, currentUrl);
+    expect(pressed(render())).toBe('Comunicados3');
+  });
+
+  it('selección manual → nuevo enlace → atrás recupera el filtro representado por su URL', () => {
+    render();
+    captured!.selection!.onChange('test');
+    const manualUrl = new URL(currentUrl);
+    expect(pressed(render())).toBe('Tests42');
+    currentUrl = new URL('/es/atletas/11?tab=perfil&seccion=historial&historial=comunicado', currentUrl);
+    expect(pressed(render())).toBe('Comunicados3');
+    currentUrl = manualUrl;
+    expect(pressed(render())).toBe('Tests42');
+  });
+
+  it('refrescar y cambiar sección conservan el filtro manual y su contexto', () => {
+    currentUrl = new URL('/es/atletas/11?tab=perfil&seccion=historial&semana=2026-09-28&desde=estado%3Dvigilar#historial', currentUrl);
+    render();
+    captured!.selection!.onChange('comunicado');
+    expect(replaceState).toHaveBeenCalledOnce();
+    expect(currentUrl.searchParams.get('seccion')).toBe('historial');
+    expect(currentUrl.searchParams.get('desde')).toBe('estado=vigilar');
+    expect(currentUrl.searchParams.get('semana')).toBe('2026-09-28');
+    expect(currentUrl.hash).toBe('#historial');
+    expect(pressed(render())).toBe('Comunicados3');
+    currentUrl.searchParams.set('seccion', 'revisiones');
+    expect(pressed(render())).toBe('Comunicados3');
+  });
+
+  it.each(['', 'inventado', 'COMUNICADO', 'todo'])('valor inválido/ausente %j → Todo sin excepción', (value) => {
+    currentUrl.searchParams.set('historial', value);
+    expect(historialKind(currentUrl.searchParams)).toBeNull();
+    expect(pressed(render())).toBe('Todo46');
+    currentUrl.searchParams.delete('historial');
+    expect(pressed(render())).toBe('Todo46');
+  });
+
+  it('cambiar de atleta usa su URL y sus filas, sin heredar el filtro anterior', () => {
+    render();
+    captured!.selection!.onChange('comunicado');
+    expect(pressed(render())).toBe('Comunicados3');
+    currentUrl = new URL('/es/atletas/22?tab=perfil', currentUrl);
+    const html = render('22', [{ ...entries[3]!, id: 'new-athlete-review', title: 'Revisión del nuevo atleta' }]);
+    expect(pressed(html)).toBe('Todo1');
+    expect(html('#historial').text()).toContain('Revisión del nuevo atleta');
+    expect(html('#historial').text()).not.toContain('Comunicado 1');
+  });
+
+  it.each(TIMELINE_KINDS)('la elección manual de %s queda enlazable y usa el resolutor común', (kind) => {
+    const href = historialFilterHref('/es/atletas/11', '?tab=perfil&seccion=historial', kind);
+    expect(historialKind(new URL(href, currentUrl).searchParams)).toBe(kind);
+  });
+
+  it('el Timeline controlado atiende el destino actual sobre un initial antiguo; el modo local sigue disponible', () => {
+    const value: FichaActions = { shell: shell(), openChat: vi.fn(), openComposer: vi.fn(), openAssign: vi.fn(),
+      openSession: vi.fn(), openWeekTool: vi.fn(), calendarVersion: 0, bumpCalendar: vi.fn(), refresh: vi.fn() };
+    const timeline = (selection?: ComponentProps<typeof Timeline>['selection']) => load(renderToStaticMarkup(
+      createElement(ToastProvider, null, createElement(FichaContext.Provider, { value },
+        createElement(Timeline, { entries, today: '2026-10-03', initial: 'revision', selection })))));
+    expect(timeline({ kind: 'comunicado', onChange: vi.fn() })('button[aria-pressed="true"]').text()).toBe('Comunicados3');
+    expect(timeline({ kind: null, onChange: vi.fn() })('button[aria-pressed="true"]').text()).toBe('Todo46');
+    expect(timeline()('button[aria-pressed="true"]').text()).toBe('1:11');
+  });
+});

@@ -18,7 +18,7 @@
 <main class="wrap">
 <section id="publicacion" class="callout">
 <h2>Estado</h2>
-<p id="estado-publicacion">Correcciones en verificación, pendientes de publicación y comprobación visual final.</p>
+<p id="estado-publicacion">Correcciones publicadas en app.fahybrid.com mediante PR #197. Recorrido autenticado de escritorio y móvil completado para nombres, biblioteca, acciones y cuotas; un último ajuste del filtro de Historial está validado y pendiente de publicación.</p>
 <p><strong>El alta independiente está auditada y sigue incompleta.</strong> El acceso ya activado para el equipo actual no equivale a poder dar de alta correctamente a otro coach con su propio club.</p>
 </section>
 <section aria-labelledby="cambios"><h2 id="cambios">Cambios del dashboard</h2><div class="grid">
@@ -31,6 +31,7 @@
 <article class="card"><span class="number">03 · Ficha del atleta</span><h3>Las tareas conservan sus causas y acciones</h3>
 <p>La respuesta pendiente, la revisión 1:1 y los comunicados son tareas distintas. Cada una presenta su evidencia y abre su destino. La revisión conduce a Perfil › Revisiones.</p>
 <p>«Revisar ajuste» transporta la identidad de la propuesta que originó el aviso; con varias pendientes no abre otra por su orden de semana. Un aviso ya resuelto explica el vacío.</p>
+<p>El filtro de Historial sigue la URL actual. Abrir Comunicados desde otra sección selecciona sus filas; volver a Todo y repetir el enlace vuelve a aplicar ese destino.</p>
 <p>La acción prioritaria aparece abierta y las demás se despliegan. Los avisos críticos permanecen visibles; pausa y baja conservan sus controles.</p>
 <p class="qa">El estado del atleta añade datos ausentes y adherencia sin repetir una segunda lista de motivos desconectada.</p></article>
 <article class="card"><span class="number">04 · Negocio</span><h3>120 € significa cuotas mensuales</h3>
@@ -82,7 +83,7 @@
 <li><code>web/lib/landing/cta.ts</code> y <code>web/app/auth/verify/route.ts</code>: entrada del atleta y callback anterior.</li>
 <li>Pruebas DB a ejecutar en rama desechable: <code>coach-team-provisioning</code>, <code>clerk-coach-adoption</code>, <code>coach-session-order</code>, <code>setup-checklist</code>. Añadir aprobación independiente, concurrencia, rollback, reaprobación y aislamiento.</li>
 </ul></details></section>
-<section id="validacion"><h2>Comprobaciones de las correcciones</h2><p id="estado-validacion">Validación automática de Biblioteca, navegación y Cobros completada. Ficha, batería general y recorrido visual pendientes de cierre.</p></section>
+<section id="validacion"><h2>Comprobaciones de las correcciones</h2><p id="estado-validacion">Suite completa de la versión publicada: 7.469 pruebas pasan y 1.278 se omiten explícitamente sin DB; tipos web/shared pasan. Lint sin errores y 30 avisos previos. CI de PR #197 y main verde; Vercel READY en el dominio de la app. 116 pruebas de ficha/selector/render y 69 de navegación del historial, incluidas 17 nuevas del remate. Comprobación autenticada a 1280 y 390 px: nombres y foco/error, 99 bloques, lectura de título/series originales, revisión 1:1, chat sin envío y Cuotas mensuales 120 €. El filtro corregido queda pendiente de publicación y comprobación final. Sin creación de piezas, mensajes, migraciones ni pruebas de alta en producción.</p></section>
 </main>
 <footer><div class="wrap note">FAHYBRID · Correcciones del coach y auditoría de su alta · 3 octubre 2026</div></footer>
 </body></html>
