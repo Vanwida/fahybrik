@@ -47,6 +47,7 @@ import { loadFichaTimeline } from './ficha-timeline';
 import { getCurrentMicrociclo } from '@fahybrid/shared/domain/coach/current-microciclo';
 import { canRevertToSequence } from '@/lib/dashboard/coach/revert-personal-plan';
 import { loadCoachToday } from '@/lib/coach/coach-timezone';
+import { loadPendingCommunicationCount } from './ficha-communications';
 
 export { resolveAtletaUrl, canonicalFichaQuery } from './atleta-detalle-types';
 
@@ -81,7 +82,9 @@ interface ShellExtras {
 }
 
 async function loadShellExtras(client: Sql, coach_id: number, athlete_id: number, today: string) {
-  const rows = await client<ShellExtras[]>`
+  const [pending_comms, rows] = await Promise.all([
+    loadPendingCommunicationCount({ coach_id, athlete_id, client }),
+    client<Omit<ShellExtras, 'pending_comms'>[]>`
     select
       u.email,
       sub.plan_type as modality,
@@ -89,13 +92,6 @@ async function loadShellExtras(client: Sql, coach_id: number, athlete_id: number
         select 1 from workout_assignments wa
         where wa.athlete_id = a.id and wa.origin = 'coach' and wa.scheduled_for >= ${today}::date
       ) as has_upcoming,
-      (
-        select count(*)::int
-        from coach_communication_recipients r
-        join coach_communications c on c.id = r.communication_id
-        where r.athlete_id = a.id and c.coach_id = a.coach_id and c.status = 'published'
-          and r.done_at is null and r.answered_at is null
-      ) as pending_comms,
       ms.id as missed_id, ms.date as missed_date, ms.title as missed_title, ms.notes as missed_notes,
       coalesce(ck.answered, false) as checkin_answered
     from athletes a
@@ -137,8 +133,9 @@ async function loadShellExtras(client: Sql, coach_id: number, athlete_id: number
       limit 1
     ) sub on true
     where a.id = ${athlete_id} and a.coach_id = ${coach_id}
-  `;
-  return rows[0] ?? null;
+    `,
+  ]);
+  return rows[0] ? { ...rows[0], pending_comms } : null;
 }
 
 /** Cabecera, estado y lo que decide «Hacer ahora». null si el atleta no es del coach. */
