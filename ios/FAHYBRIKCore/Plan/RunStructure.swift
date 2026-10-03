@@ -396,7 +396,7 @@ extension RunLeg {
     var rpeLabel: String? {
         guard case let .rpe(value, min, max) = target else { return nil }
         func fmt(_ d: Double) -> String { Formato.esDecimal(d) }
-        if let lo = min, let hi = max { return "RPE \(fmt(lo))-\(fmt(hi))" }
+        if let lo = min, let hi = max { return lo == hi ? "RPE \(fmt(lo))" : "RPE \(fmt(lo))-\(fmt(hi))" }
         if let v = value ?? min ?? max { return "RPE \(fmt(v))" }
         return nil
     }

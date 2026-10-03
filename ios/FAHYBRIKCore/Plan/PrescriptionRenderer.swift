@@ -692,7 +692,8 @@ enum PrescriptionRenderer {
     ) -> String? {
         func n(_ d: Double) -> String { Formato.esDecimal(d) }
         if let v = value { return "\(prefix)\(n(v))\(suffix)" }
-        if let lo = min, let hi = max { return "\(prefix)\(n(lo))–\(n(hi))\(suffix)" }
+        // Una banda con los dos extremos iguales no es una banda: «RPE 5», no «RPE 5–5» (el vivo ya lo dice así).
+        if let lo = min, let hi = max { return lo == hi ? "\(prefix)\(n(lo))\(suffix)" : "\(prefix)\(n(lo))–\(n(hi))\(suffix)" }
         if let lo = min { return "\(prefix)\(n(lo))+\(suffix)" }
         if let hi = max { return "\(prefix)≤\(n(hi))\(suffix)" }
         return nil
