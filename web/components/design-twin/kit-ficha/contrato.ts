@@ -24,6 +24,9 @@ import type { Modalidad } from '../datos-reales';
 
 export type { Modalidad };
 
+/** La modalidad de un movimiento: las del catálogo y «otra» (caminar, por ejemplo), que no tiene ni color ni gesto propios. */
+export type ModalidadFicha = Modalidad | 'otra';
+
 /** Zona de frecuencia cardiaca 1–5 (`HRZone`). */
 export type Zona = 1 | 2 | 3 | 4 | 5;
 
@@ -71,7 +74,7 @@ export interface Movimiento {
   id: string;
   /** `exercises.name` tal cual está guardado (en inglés): el hueco de traducción es del modelo, no se tapa. */
   nombre: string;
-  modalidad: Modalidad;
+  modalidad: ModalidadFicha;
   /**
    * La dosis escrita («4 × 5», «45:00», «500 m», «100 reps»). `null` = el coach no la
    * escribió: se pinta el nombre solo, jamás un «— reps» ni un 0.
@@ -114,6 +117,12 @@ export type FormatoBloque =
   /** `alterna`: cada movimiento ocupa un minuto distinto (impar / par). */
   | { tipo: 'emom'; minutos: number; alterna: boolean }
   | { tipo: 'amrap'; minutos: number }
+  /**
+   * Varias piezas una detrás de otra, cada una con su dosis (un test: correr 15′, correr 3′ fuerte, caminar 10′…). No son series de una
+   * misma cosa ni un reloj que manda: se hacen en este orden y por eso van numeradas. `minutos`: la suma de lo que dura cada una, SOLO si
+   * todas son de tiempo; si no, el bloque dice cuántas son. Nunca la duración de la primera.
+   */
+  | { tipo: 'secuencia'; minutos?: number }
   | { tipo: 'fortime'; rondas?: number; topeMin?: number }
   /** Carrera o ergo por tramos: el perfil manda. */
   | { tipo: 'intervalos' }

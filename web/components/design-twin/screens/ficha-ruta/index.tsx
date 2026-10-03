@@ -54,9 +54,9 @@ export const meta: TwinMeta = {
   titulo: 'La ficha de la sesión · La ruta',
   zona: 'Plan y hoy',
   estado: 'construida',
-  actualizado: '2026-10-02',
+  actualizado: '2026-10-04',
   descripcion:
-    'Firmada por Alex el 2-oct. Antes de empezar, primero el mapa: un nodo por bloque, en orden y fijo arriba, y debajo solo UN bloque cada vez con la forma de su formato (la tarjeta de fuerza con las series una a una, el EMOM como pista de minutos, la simulación como recorrido de estaciones, las series de pista como su forma). Arriba, título y una línea y la nota del coach entera. «Empezar» anclado. Diecisiete sesiones para romperla, cinco reales.',
+    'Firmada por Alex el 2-oct. Antes de empezar, primero el mapa: un nodo por bloque, en orden y fijo arriba, y debajo solo UN bloque cada vez con la forma de su formato (la tarjeta de fuerza con las series una a una, el EMOM como pista de minutos, la simulación como recorrido de estaciones, las series de pista como su forma). Un movimiento que es todo el bloque va en grande; varios, en filas para verlos de una vez, y las piezas continuas de un test, numeradas. Arriba, título y una línea y la nota del coach entera. «Empezar» anclado. Dieciocho sesiones para romperla, cinco reales.',
   fuentes: [
     'ios/FAHYBRIK/Workout/PreWorkoutBriefView.swift',
     'ios/FAHYBRIK/Workout/SesionPrevia/LecturaFicha.swift',
@@ -65,7 +65,7 @@ export const meta: TwinMeta = {
     'ios/FAHYBRIK/Workout/SesionPrevia/Ficha',
   ],
   enApp:
-    'Construida en Swift (PreWorkoutBriefView + SesionPrevia/Ficha), vista en simulador en claro, oscuro y con el texto muy grande. Lo que este doble enseña y la app TODAVÍA no: el material («Para este bloque» / «Prepara») y «La última vez», porque no existen como dato (el catálogo no guarda el material y no hay endpoint de última vez). Un ejercicio sin vídeo lleva en la app una loseta de su modalidad con el glifo de su familia (aquí, un gesto dibujado); con vídeo, su póster real, que aún no se ha visto con un vídeo de verdad.',
+    'Construida en Swift (PreWorkoutBriefView + SesionPrevia/Ficha), vista en simulador en claro, oscuro y con el texto muy grande. Lo que este doble enseña y la app TODAVÍA no: el material («Para este bloque» / «Prepara») y «La última vez», porque no existen como dato (el catálogo no guarda el material y no hay endpoint de última vez). Un ejercicio sin vídeo lleva en la app una loseta de su modalidad con el glifo de su familia (aquí, un gesto dibujado); con vídeo, su póster real, que aún no se ha visto con un vídeo de verdad. El color de correr es el del tema del club en la app (aquí, magenta).',
   dispositivo: 'iphone',
   soportaHorizontal: false,
 };

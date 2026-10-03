@@ -9,12 +9,11 @@ import { BotonCromo } from '../screens/hoy-dia/cromo';
 import { IcoCompartir } from '../screens/plan-rehecho/iconos';
 import { FrameVideo } from '../screens/sesion-previa/siluetas';
 import { fichaDe, ultimaVezDe } from '../screens/sesion-previa/data';
-import { COLOR_MODALIDAD } from '../datos-reales';
 import { IcoCronometro, IcoDiana } from '../kit-dia/iconos';
 import { Etiqueta, Pastilla } from '../kit-dia/piezas';
 import { fuente, RADIO, TABULAR, TAM, TOQUE, tinte, velo } from '../kit-dia/tokens';
-import type { LecturaFicha, Modalidad, MotivoSinDetalle, Movimiento, PerfilTramos } from './contrato';
-import { barrasDePerfil, fraseDePerfil, metaDeSesion } from './modelo';
+import type { LecturaFicha, ModalidadFicha, MotivoSinDetalle, Movimiento, PerfilTramos } from './contrato';
+import { barrasDePerfil, colorDeModalidad, fraseDePerfil, metaDeSesion } from './modelo';
 
 /** Margen lateral de la ficha: el de las pestañas. */
 export const LATERAL = 20;
@@ -369,7 +368,7 @@ export function Miniatura({ m, ancho = 72 }: { m: Movimiento; ancho?: number }) 
       <FrameVideo
         pose={ficha.pose}
         videoS={ficha.videoS}
-        tinte={COLOR_MODALIDAD[m.modalidad]}
+        tinte={colorDeModalidad(m.modalidad)}
         ancho={ancho}
         style={{ borderRadius: 10, height: alto }}
       />
@@ -386,7 +385,7 @@ export function Miniatura({ m, ancho = 72 }: { m: Movimiento; ancho?: number }) 
         display: 'grid',
         placeItems: 'center',
         border: '1px solid var(--twin-hairline)',
-        background: `linear-gradient(150deg, ${tinte(COLOR_MODALIDAD[m.modalidad], 26, 'var(--twin-surface-sunken)')}, var(--twin-surface-sunken) 80%)`,
+        background: `linear-gradient(150deg, ${tinte(colorDeModalidad(m.modalidad), 26, 'var(--twin-surface-sunken)')}, var(--twin-surface-sunken) 80%)`,
         color: 'color-mix(in srgb, var(--twin-fg) 70%, transparent)',
       }}
     >
@@ -395,7 +394,7 @@ export function Miniatura({ m, ancho = 72 }: { m: Movimiento; ancho?: number }) 
   );
 }
 
-function GlifoModalidad({ modalidad, tam }: { modalidad: Modalidad; tam: number }) {
+function GlifoModalidad({ modalidad, tam }: { modalidad: ModalidadFicha; tam: number }) {
   switch (modalidad) {
     case 'strength':
       return (
@@ -572,7 +571,7 @@ export function HojaTecnica({ m, onCerrar }: { m: Movimiento; onCerrar: () => vo
           </BotonCromo>
         </div>
         {ficha.pose !== 'generico' ? (
-          <FrameVideo pose={ficha.pose} videoS={ficha.videoS} tinte={COLOR_MODALIDAD[m.modalidad]} grande />
+          <FrameVideo pose={ficha.pose} videoS={ficha.videoS} tinte={colorDeModalidad(m.modalidad)} grande />
         ) : (
           <p style={{ margin: 0, ...fuente(400, TAM.suelo, 1.4), color: 'var(--twin-muted)' }}>Este movimiento aún no tiene vídeo de técnica.</p>
         )}
