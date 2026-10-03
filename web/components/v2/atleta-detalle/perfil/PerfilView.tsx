@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Link, useRouter } from '@/i18n/navigation';
 import { withCoachReturn } from '@/components/v2/shared/context-link';
+import { scrollExistingLinkAnchor } from '@/components/v2/shared/anchor-link';
 import { Card, ErrorState, FilterChip, SectionHeader } from '@/components/v2/ui';
 import { shortDate } from '@/components/v2/shared/format';
 import type { FichaPerfil, PerfilSeccion, TimelineKind } from '@/lib/dashboard/v2/atleta-detalle-types';
@@ -70,16 +71,19 @@ export function PerfilView({
     // Next copia su árbol interno y actualiza useSearchParams sin otra petición.
     window.history.replaceState(null, '', href);
   };
+  // Solo la selección del destino Historial pide volver a su cabecera. Cambiar
+  // su filtro desde otra sección no desplaza al coach fuera de donde está.
+  const historialTarget = seccion === 'historial' ? historial : null;
 
   useEffect(() => {
     if (seccion) document.getElementById(seccion)?.scrollIntoView({ block: 'start' });
-  }, [seccion]);
+  }, [seccion, historialTarget]);
 
   return (
     <div className="flex min-w-0 flex-col gap-8">
       <nav aria-label="Secciones del perfil" className="flex flex-wrap gap-1.5">
         {SECTIONS.map((s) => (
-          <FilterChip key={s.id} href={`#${s.id}`}>
+          <FilterChip key={s.id} href={`#${s.id}`} onClick={(event) => scrollExistingLinkAnchor(event, `#${s.id}`)}>
             {s.label}
           </FilterChip>
         ))}

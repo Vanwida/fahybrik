@@ -1,4 +1,4 @@
-import { createElement, type ComponentProps } from 'react';
+import { createElement, type ComponentProps, type DependencyList, type EffectCallback } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { load } from 'cheerio';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,6 +15,14 @@ let readerUrl = new URL(currentUrl);
 type NextHistoryState = { __NA?: boolean; _N?: boolean; __PRIVATE_NEXTJS_INTERNALS_TREE?: unknown };
 let historyState: NextHistoryState = { __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: ['fixture-tree'] };
 let captured: ComponentProps<typeof Timeline> | null = null;
+let observedEffects: Array<{ effect: EffectCallback; deps: DependencyList | undefined }> = [];
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>();
+  return { ...actual, useEffect: (effect: EffectCallback, deps?: DependencyList) => {
+    observedEffects.push({ effect, deps });
+    return actual.useEffect(effect, deps);
+  } };
+});
 const restoreReader = vi.fn((url: URL) => { readerUrl = new URL(url); });
 // Contrato del Next instalado (app-router.js): un state marcado cambia la URL
 // nativa, pero omite ACTION_RESTORE. El lector Next conserva su snapshot anterior.
@@ -70,6 +78,7 @@ beforeEach(() => {
   navigateNext('https://example.test/es/atletas/11?tab=perfil&seccion=revisiones');
   historyState = { __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: ['fixture-tree'] };
   captured = null;
+  observedEffects = [];
   replaceState.mockClear();
   restoreReader.mockClear();
   vi.stubGlobal('window', { get location() { return currentUrl; }, history: { get state() { return historyState; }, replaceState } });
@@ -77,6 +86,33 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Historial — la URL controla la selección y los enlaces dentro de Perfil', () => {
+  it('la navegación Todo → Comunicados vuelve a enfocar Historial tras el render, aunque seccion no cambie', () => {
+    const scrollIntoView = vi.fn();
+    const getElementById = vi.fn(() => ({ scrollIntoView }));
+    vi.stubGlobal('document', { getElementById });
+    navigateNext('/es/atletas/11?tab=perfil&seccion=historial');
+    render();
+    const before = observedEffects.find((e) => e.deps?.[0] === 'historial')!;
+    observedEffects = [];
+    navigateNext('/es/atletas/11?tab=perfil&seccion=historial&historial=comunicado');
+    render();
+    const after = observedEffects.find((e) => e.deps?.[0] === 'historial')!;
+    expect(after.deps).not.toEqual(before.deps);
+    after.effect();
+    expect(getElementById).toHaveBeenCalledWith('historial');
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+  });
+
+  it('filtrar manualmente desde otra sección conserva la identidad de scroll de esa sección', () => {
+    render();
+    const before = observedEffects.find((e) => e.deps?.[0] === 'revisiones')!;
+    observedEffects = [];
+    captured!.selection!.onChange('comunicado');
+    render();
+    const after = observedEffects.find((e) => e.deps?.[0] === 'revisiones')!;
+    expect(after.deps).toEqual(before.deps);
+  });
+
   it('revisión → comunicados cambia Todo 46 a Comunicados 3 y solo muestra esas filas', () => {
     expect(pressed(render())).toBe('Todo46');
     navigateNext('/es/atletas/11?tab=perfil&seccion=historial&historial=comunicado');

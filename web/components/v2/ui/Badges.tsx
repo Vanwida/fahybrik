@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import type { MouseEventHandler, ReactNode } from 'react';
 import {
   CircleAlert,
   CircleCheck,
@@ -112,7 +112,7 @@ export function FilterChip({
   icon?: LucideIcon;
   /** Con href es un enlace (vistas en la URL); si no, un botón. */
   href?: string;
-  onClick?: () => void;
+  onClick?: MouseEventHandler<HTMLAnchorElement | HTMLButtonElement>;
   variant?: 'default' | 'add';
   className?: string;
 }) {
@@ -137,7 +137,7 @@ export function FilterChip({
   );
   if (href) {
     return (
-      <Link href={href} aria-current={active ? 'true' : undefined} className={cls}>
+      <Link href={href} onClick={onClick} aria-current={active ? 'true' : undefined} className={cls}>
         {inner}
       </Link>
     );

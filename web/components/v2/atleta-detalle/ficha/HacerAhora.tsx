@@ -7,6 +7,7 @@ import { useState, type ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import { Button, StatusBadge, buttonVariants, useToast } from '@/components/v2/ui';
 import { apiJson, errorMessage } from '@/components/v2/shared/api';
+import { scrollExistingLinkAnchor } from '@/components/v2/shared/anchor-link';
 import type { WeekPublishResult } from '@fahybrid/shared/schema/week-publishing';
 import { buildHacerAhora, hacerAhoraCommand, partitionHacerAhora, type HacerAhoraChip } from '@/lib/dashboard/v2/ficha-actions';
 import { weekRangeLabel } from '@/lib/dashboard/v2/ficha-format';
@@ -21,7 +22,7 @@ function Chip({ chip, primary = false }: { chip: HacerAhoraChip; primary?: boole
   const command = hacerAhoraCommand(chip);
   if (command?.kind === 'link') {
     return (
-      <Link href={command.href} className={buttonVariants({ variant, size: 'sm' })}>
+      <Link href={command.href} onClick={(event) => scrollExistingLinkAnchor(event, command.href)} className={buttonVariants({ variant, size: 'sm' })}>
         {chip.label}
       </Link>
     );

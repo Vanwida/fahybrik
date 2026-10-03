@@ -1,17 +1,20 @@
-import { createElement, type ComponentProps, type ReactNode } from 'react';
+import { createElement, type ComponentProps, type MouseEvent, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { load } from 'cheerio';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '@/components/v2/ui';
 import { FichaContext, type FichaActions } from '@/components/v2/atleta-detalle/FichaContext';
 import { StatusBanner } from '@/components/v2/atleta-detalle/ficha/StatusBanner';
 import type { FichaShell } from '@/lib/dashboard/v2/atleta-detalle-types';
 import { shell, signal } from './fixtures';
 
-vi.mock('@/i18n/navigation', () => ({ Link: (props: ComponentProps<'a'>) => createElement('a', props) }));
+let readLinks: ComponentProps<'a'>[] = [];
+vi.mock('@/i18n/navigation', () => ({ Link: (props: ComponentProps<'a'>) => { readLinks.push(props); return createElement('a', props); } }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+afterEach(() => vi.unstubAllGlobals());
 
 function render(data: FichaShell, children: ReactNode = createElement(StatusBanner)) {
+  readLinks = [];
   const value: FichaActions = { shell: data, openChat: vi.fn(), openComposer: vi.fn(), openAssign: vi.fn(),
     openSession: vi.fn(), openWeekTool: vi.fn(), calendarVersion: 0, bumpCalendar: vi.fn(), refresh: vi.fn() };
   return load(renderToStaticMarkup(createElement(ToastProvider, null,
@@ -31,6 +34,20 @@ function pending(over: Partial<FichaShell> = {}) {
 }
 
 describe('Ficha — estado compacto y avisos con controles propios', () => {
+  it('el pendiente de comunicados conserva href y enfoca Historial al repetirlo', () => {
+    const scrollIntoView = vi.fn();
+    vi.stubGlobal('document', { getElementById: vi.fn(() => ({ scrollIntoView })) });
+    render(pending({ pending_comunicados: 3 }));
+    const href = '/atletas/11?tab=perfil&seccion=historial&historial=comunicado';
+    const link = readLinks.find((p) => p.href === href)!;
+    expect(link).toBeDefined();
+    const click = { button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, defaultPrevented: false } as MouseEvent<HTMLAnchorElement>;
+    link.onClick!(click);
+    link.onClick!(click);
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    expect(link.href).toBe(href);
+  });
+
   it('una sola superficie integra respuesta, revisión y comunicados con evidencia completa y un control principal', () => {
     const $ = render(pending({ awaiting_reply: true, pending_comunicados: 3 }));
     expect($('section[aria-label="Estado y pendientes"]')).toHaveLength(1);
