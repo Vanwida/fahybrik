@@ -20,6 +20,8 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 **No hacer:** borrar los 99 bloques para que otro club empiece vacío, convertir miembros del equipo en clubs nuevos, abrir acceso libre ni probar altas/aprobaciones con cuentas reales en producción. La separación por club se verifica con fixtures en una rama de base desechable si hacen falta escrituras.
 
+**Auditoría del alta cerrada (baseline `0e4ae156e`):** añadir/aprobar desde Administración no asigna `coach_allowlist.coach_id`, pero el primer acceso lo exige. `requestCoachAccess` no tiene consumidor real; landing entra al embudo del atleta. Administración no expresa independiente/equipo, «Ha entrado» mide propiedad y no membresía, el texto promete enlace mágico y el callback legacy aún puede crear un club accesorio. Rechazar la solicitud no retira la membresía existente; reaprobación no limpia `removed_at`. La aprobación independiente requiere una operación transaccional con identidad, destino y membresía, reintentos idempotentes y aislamiento del club actual. Se documenta como trabajo pendiente, sin afirmar que el alta independiente esté activada. Hoy ya tiene los pasos de orientación para un club nuevo vacío. Evidencia y 15 casos: `docs/dashboard-cierre-2026-10-03.html`; 23 pruebas puras pasan, sin DB ni cuentas de prueba de producción.
+
 ---
 
 ## 2026-10-02 · Segunda lectura del dashboard: un sujeto por vista y datos completos
