@@ -10,6 +10,18 @@ Registro de decisiones estructurales del dominio y de la arquitectura.
 
 ---
 
+## 2026-10-03 · Pendientes del coach: la causa y su acción se leen juntas
+
+**Autorizado por Alex:** «dale» tras valorar la nueva revisión `FAHYBRID-informe.pdf`. Se corrigen nombre invisible del entreno, primera entrada vacía de Biblioteca, desconexión entre motivos y acciones de la ficha, etiqueta ambigua del importe mensual y enlaces anteriores. Se comprueba por separado el recorrido completo de solicitud, aprobación y acceso del coach independiente, sin crear cuentas ni cambiar permisos del equipo de producción durante la auditoría.
+
+**Modelo:** cada pendiente de la ficha reúne identidad de causa, evidencia y acción; respuesta, revisión 1:1 y comunicado no se deduplican entre sí. El estado queda resumido; la información crítica y los controles de pausa/baja/solicitud siguen visibles. El nombre de bloque/entreno es un campo etiquetado con error asociado, no una cabecera transparente. Biblioteca resuelve URL explícita > elección recordada > primera vista con contenido activo (Entrenos, luego Bloques); la decisión automática no se guarda como elección. Los archivados no convierten una categoría en entrada disponible. El importe de Cobros se llama «Cuotas mensuales»: suma los precios configurados de suscripciones activas o de prueba, no prueba cobros de facturas. Los enlaces anteriores redirigen conservando locale y consulta.
+
+**Casos de contraste:** fuentes proporcionadas por Alex y revisión autenticada previa: nombre vacío en escritorio/móvil y al enfocar; Entrenos cero con 99 bloques; categorías elegidas por enlace y por coach; respuesta con espera, revisión 1:1 y tres comunicados distintos; alta pendiente, pausa/baja, lesión y señal crítica; cuotas cero y cuota de 120 €; enlaces `/es/ajustes/negocio` y `/es/metodo`; equipo del club existente frente a coach independiente pendiente, aprobado y rechazado.
+
+**No hacer:** borrar los 99 bloques para que otro club empiece vacío, convertir miembros del equipo en clubs nuevos, abrir acceso libre ni probar altas/aprobaciones con cuentas reales en producción. La separación por club se verifica con fixtures en una rama de base desechable si hacen falta escrituras.
+
+---
+
 ## 2026-10-02 · Segunda lectura del dashboard: un sujeto por vista y datos completos
 
 **Autorizado por Alex:** corregir la segunda pasada de `QA-coach-que-mirar.pdf` y publicarla. El contraste confirma los recortes de calendario/roster, la competencia entre calendario y estado, el vacío sin salida en Biblioteca y la repetición de explicaciones en Umbrales. Los clics reales de Leads → Cobros → Embudo sí funcionan en producción. En Hoy el mensaje pendiente y la revisión 1:1 son tareas distintas: agrupar su presentación no debe silenciar ninguna.
