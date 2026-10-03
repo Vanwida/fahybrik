@@ -9,6 +9,7 @@ import { createContext, useContext } from 'react';
 import type { FichaShell } from '@/lib/dashboard/v2/atleta-detalle-types';
 
 export type WeekTool = 'copy' | 'shift' | 'scale' | 'deload' | 'evaluar' | 'revisar_ajuste';
+export interface WeekToolOptions { proposal_id?: string }
 
 export interface FichaActions {
   shell: FichaShell;
@@ -17,7 +18,7 @@ export interface FichaActions {
   openAssign: () => void;
   /** Abre un entreno en el panel-editor; `ai` abre además «Redactar con IA». */
   openSession: (id: string, opts?: { ai?: boolean }) => void;
-  openWeekTool: (tool: WeekTool, weekStart: string) => void;
+  openWeekTool: (tool: WeekTool, weekStart: string, options?: WeekToolOptions) => void;
   /** Contador que sube tras cada cambio del plan: el calendario se recarga. */
   calendarVersion: number;
   bumpCalendar: () => void;

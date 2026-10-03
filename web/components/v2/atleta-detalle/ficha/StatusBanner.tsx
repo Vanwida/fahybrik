@@ -9,10 +9,11 @@ import { PAUSE_REASON_LABELS } from '@fahybrid/shared/domain/coach/athlete-lifec
 import { Button, StatusBadge, type StatusTone } from '@/components/v2/ui';
 import { StatusBadgeFor } from '@/components/v2/shared';
 import { shortDate } from '@/components/v2/shared/format';
-import { statusReasonParts } from '@/lib/dashboard/v2/ficha-actions';
+import { fichaStatusSummary } from '@/lib/dashboard/v2/ficha-actions';
 import { cn } from '@/lib/utils';
 import { useFicha } from '../FichaContext';
 import { useLifecycleMutation } from '../lifecycle/lifecycle-mutations';
+import { HacerAhora } from './HacerAhora';
 
 const SOFT: Record<StatusTone, string> = {
   danger: 'bg-v2-danger-soft',
@@ -71,9 +72,7 @@ export function StatusBanner() {
   const { shell } = useFicha();
   const lc = shell.lifecycle;
 
-  if (lc.pending_request) return <PendingPause />;
-  if (lc.status === 'pausado') {
-    return (
+  const paused = lc.status === 'pausado' ? (
       <Row tone="neutral" badge={<StatusBadgeFor status={shell.status} />}>
         <span className="text-v2-muted">
           {join([
@@ -84,10 +83,8 @@ export function StatusBanner() {
           ])}
         </span>
       </Row>
-    );
-  }
-  if (lc.status === 'baja') {
-    return (
+    ) : null;
+  const baja = lc.status === 'baja' ? (
       <Row tone="neutral" badge={<StatusBadge tone="neutral" label="De baja" />}>
         <span className="text-v2-muted">
           {join([
@@ -97,22 +94,23 @@ export function StatusBanner() {
           ])}
         </span>
       </Row>
-    );
-  }
-
-  const parts = statusReasonParts(shell);
+    ) : null;
   const bajaProgramada = lc.baja_scheduled_for
     ? `Se da de baja el ${shortDate(lc.baja_scheduled_for)}${lc.baja_scheduled_in_days != null && lc.baja_scheduled_in_days > 0 ? ` (en ${lc.baja_scheduled_in_days} d)` : ''}`
     : null;
-  const adh = shell.adherence;
-  const calm =
-    parts.length === 0 && adh && adh.due > 0 ? `${adh.done} de ${adh.due} debidas hechas en ${adh.window_days} d` : null;
-  const text = join([bajaProgramada, ...parts, calm]);
-  const tone: StatusTone = bajaProgramada && shell.status.tone === 'ok' ? 'warn' : shell.status.tone;
+  const badge = lc.status === 'activo'
+    ? shell.status.key === 'al_dia' && !shell.readiness
+      ? <StatusBadge tone="neutral" label="Sin avisos pendientes" />
+      : <StatusBadgeFor status={shell.status} />
+    : undefined;
 
   return (
-    <Row tone={tone} badge={<StatusBadgeFor status={shell.status} />}>
-      {text ? <span className={tone === 'ok' || tone === 'neutral' ? 'text-v2-muted' : undefined}>{text}</span> : null}
-    </Row>
+    <section aria-label="Estado y pendientes" className="flex min-w-0 flex-col gap-3 rounded-panel border border-v2-border bg-v2-surface px-3 py-2.5 sm:px-4">
+      {lc.pending_request ? <PendingPause /> : null}
+      {paused}
+      {baja}
+      {bajaProgramada ? <Row tone="warn" badge={<StatusBadge tone="warn" label="Baja programada" variant="text" />}>{bajaProgramada}</Row> : null}
+      <HacerAhora badge={badge} summary={fichaStatusSummary(shell)} />
+    </section>
   );
 }

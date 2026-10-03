@@ -39,7 +39,7 @@ function skippedLine(res: WeekOpResult): string | undefined {
   return `${res.skipped.length} sin tocar: ${reasons}.`;
 }
 
-export function WeekToolDialog({ tool, weekStart, onClose }: { tool: WeekTool; weekStart: string; onClose: () => void }) {
+export function WeekToolDialog({ tool, weekStart, proposalId, onClose }: { tool: WeekTool; weekStart: string; proposalId?: string; onClose: () => void }) {
   const { shell, bumpCalendar, openWeekTool } = useFicha();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
@@ -69,9 +69,10 @@ export function WeekToolDialog({ tool, weekStart, onClose }: { tool: WeekTool; w
     return (
       <Sheet open onOpenChange={(o) => !o && onClose()} title={tool === 'evaluar' ? `Evaluar ${range}` : 'Revisar ajuste pendiente'} description={shell.name} size="lg">
         <EvaluarSemanaPanel
-          key={tool === 'evaluar' ? weekStart : 'pendiente'}
+          key={tool === 'evaluar' ? weekStart : proposalId ?? 'pendiente'}
           athleteId={shell.athlete_id}
           weekStart={tool === 'evaluar' ? weekStart : undefined}
+          proposalId={tool === 'revisar_ajuste' ? proposalId : undefined}
           onReviewOther={(adjustmentWeek) => openWeekTool('evaluar', evaluatedWeekFor(adjustmentWeek))}
           onChanged={bumpCalendar}
         />

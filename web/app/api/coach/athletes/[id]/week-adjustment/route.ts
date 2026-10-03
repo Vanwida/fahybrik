@@ -6,8 +6,7 @@ import {
   loadProposalTemplateNames,
 } from '@/lib/dashboard/coach/week-adjustments';
 import { firedTriggersFromContext } from '@fahybrid/shared/domain/coach/weekly-evaluation';
-import { weekAdjustmentProposeInputSchema } from '@fahybrid/shared/schema/week-adjustment';
-import { pendingForEvaluation } from '@/lib/dashboard/v2/week-adjustment-period';
+import { parseWeekAdjustmentReadQuery, pendingForAthlete } from '@/lib/dashboard/v2/week-adjustment-period';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,13 +32,11 @@ export async function GET(
   const parsedId = AthleteIdParamSchema.safeParse({ id });
   if (!parsedId.success) return jsonError('bad_request', 'ID inválido', 400);
 
-  const query = weekAdjustmentProposeInputSchema.safeParse({
-    week_start: new URL(request.url).searchParams.get('week_start') ?? undefined,
-  });
-  if (!query.success) return jsonError('bad_request', 'Semana inválida', 400);
+  const query = parseWeekAdjustmentReadQuery(new URL(request.url).searchParams);
+  if (!query.success) return jsonError('bad_request', 'Semana o propuesta inválida', 400);
   const pending = (await listPendingWeekAdjustments({ coach_id: session.coach_id }))
     .filter((p) => p.athlete_id === String(parsedId.data.id));
-  const proposal = pendingForEvaluation(pending, query.data.week_start);
+  const proposal = pendingForAthlete(pending, String(parsedId.data.id), query.data.week_start, query.data.proposal_id);
   const other = pending.find((p) => p.id !== proposal?.id) ?? null;
   const other_pending = other ? { id: other.id, week_start: other.week_start } : null;
 

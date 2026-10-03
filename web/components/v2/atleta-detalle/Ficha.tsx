@@ -19,7 +19,6 @@ import { Compositor } from './del-coach/Compositor';
 import { FichaContext, type FichaActions, type WeekTool } from './FichaContext';
 import { FichaHeader } from './ficha/FichaHeader';
 import { StatusBanner } from './ficha/StatusBanner';
-import { HacerAhora } from './ficha/HacerAhora';
 import { SessionSheet } from './sheet/SessionSheet';
 import { WeekToolDialog } from './plan/WeekToolDialog';
 
@@ -51,7 +50,7 @@ export function Ficha({
   const [assign, setAssign] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(url.sesion);
   const [sessionAi, setSessionAi] = useState(false);
-  const [weekTool, setWeekTool] = useState<{ tool: WeekTool; weekStart: string } | null>(null);
+  const [weekTool, setWeekTool] = useState<{ tool: WeekTool; weekStart: string; proposal_id?: string } | null>(null);
   const [calendarVersion, setCalendarVersion] = useState(0);
 
   const replaceQuery = useCallback(
@@ -116,7 +115,7 @@ export function Ficha({
       openComposer,
       openAssign: () => setAssign(true),
       openSession,
-      openWeekTool: (tool, weekStart) => setWeekTool({ tool, weekStart }),
+      openWeekTool: (tool, weekStart, options) => setWeekTool({ tool, weekStart, ...options }),
       calendarVersion,
       bumpCalendar,
       refresh,
@@ -140,7 +139,6 @@ export function Ficha({
       <div className="mx-auto flex w-full min-w-0 max-w-[var(--v2-container)] flex-col gap-3 sm:gap-4">
         <FichaHeader nav={nav} />
         <StatusBanner />
-        <HacerAhora />
         <Tabs
           items={TAB_ITEMS}
           value={url.tab}
@@ -183,7 +181,7 @@ export function Ficha({
       ) : null}
 
       {weekTool ? (
-        <WeekToolDialog tool={weekTool.tool} weekStart={weekTool.weekStart} onClose={() => setWeekTool(null)} />
+        <WeekToolDialog tool={weekTool.tool} weekStart={weekTool.weekStart} proposalId={weekTool.proposal_id} onClose={() => setWeekTool(null)} />
       ) : null}
     </FichaContext.Provider>
   );
