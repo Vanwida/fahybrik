@@ -33,6 +33,20 @@ enum BlockPhase: String, Codable {
         return .main
     }
 
+    /// LA FASE DE UN BLOQUE, con TODO lo que sabe de él: el título y el formato que declaró el coach. El título manda («Calentamiento»,
+    /// «Vuelta a la calma», «Principal»); cuando no dice nada («Movilidad general de cadera»), manda el formato: un bloque `warmup` es
+    /// calentamiento y uno `cooldown`, vuelta a la calma, se llame como se llame. Es EL criterio: la ficha previa (`LecturaFicha`), el
+    /// plegado de bloques y el entreno en vivo lo usan los tres, para que el mismo bloque no sea «Calentamiento» en uno y «Principal» en otro.
+    static func classify(title: String?, format: String?) -> BlockPhase {
+        let porTitulo = classify(title: title)
+        guard porTitulo == .main, let format else { return porTitulo }
+        switch PrescriptionScheme(canonicalizing: format) {
+        case .warmup?:   return .warmup
+        case .cooldown?: return .cooldown
+        default:         return porTitulo
+        }
+    }
+
     /// Athlete-facing phase name shown in the active workout for context
     /// ("Calentamiento" / "Principal" / "Vuelta a la calma"). `main` work and the
     /// explicit `principal` block both read as the session's "Principal" phase.
@@ -200,6 +214,10 @@ struct WorkoutSegment: Codable, Identifiable {
     /// Position of the owning block within the session — the stable key that
     /// groups consecutive segments back into their block. Optional as above.
     let blockPosition: Int?
+    /// El formato que declaró el coach para el bloque de este tramo («warmup», «intervals»…). Con el título decide la fase
+    /// (`BlockPhase.classify(title:format:)`): sin él, «Movilidad general de cadera» —un bloque `warmup`— salía «Principal» en el vivo.
+    /// Optional como el título: los tramos libres y los snapshots viejos no lo traen.
+    let blockFormat: String?
     /// YouTube watch URL — embedded in-app during brief / active workout.
     let videoUrl: String?
     /// The STRUCTURED per-set prescription this segment was built from (the rich
@@ -323,6 +341,7 @@ struct WorkoutSegment: Codable, Identifiable {
         targetRpe: Double? = nil,
         blockTitle: String? = nil,
         blockPosition: Int? = nil,
+        blockFormat: String? = nil,
         videoUrl: String? = nil,
         prescription: Prescription? = nil,
         ergKind: String? = nil,
@@ -343,6 +362,7 @@ struct WorkoutSegment: Codable, Identifiable {
         self.loadKg = loadKg
         self.targetRpe = targetRpe
         self.blockTitle = blockTitle
+        self.blockFormat = blockFormat
         self.blockPosition = blockPosition
         self.videoUrl = videoUrl
         self.prescription = prescription
@@ -546,7 +566,7 @@ extension WorkoutSegment {
 
 extension WorkoutSegment {
     /// Pedagogical phase of this segment's block (warmup / principal / cooldown).
-    var blockPhase: BlockPhase { BlockPhase.classify(title: blockTitle) }
+    var blockPhase: BlockPhase { BlockPhase.classify(title: blockTitle, format: blockFormat) }
 
     /// Stable key that groups CONSECUTIVE segments into their coach block — the
     /// authored block position, else its title, else a single freeform bucket.
@@ -1465,7 +1485,7 @@ extension WorkoutPlan {
                 // los tres pliegues, es la única forma de que ninguno futuro repita el
                 // mismo fallo. (Se perdió en el unify del 1-sep, que se quedó con el
                 // WorkoutModels de un main viejo; el padre de feat d90fc597 lo tenía.)
-                let phase = BlockPhase.classify(title: block.title)
+                let phase = BlockPhase.classify(title: block.title, format: block.format)
                 if phase == .warmup || phase == .cooldown {
                     return block.items.map { item in
                         order += 1
@@ -1627,6 +1647,7 @@ extension WorkoutPlan {
             targetRpe: p.rpe,
             blockTitle: block.title,
             blockPosition: block.blockPosition,
+            blockFormat: block.format,
             videoUrl: item.exerciseVideoUrl,
             // The rich structured prescription drives the live EMOM/interval timer
             // (scheme + per-interval sets); scalar params above still feed the
@@ -1670,6 +1691,7 @@ extension WorkoutPlan {
             // source of truth for a merged EMOM, and `emomPlan` reads it directly.
             blockTitle: block.title,
             blockPosition: block.blockPosition,
+            blockFormat: block.format,
             // No single technique video for a multi-movement EMOM (the model carries
             // one per segment, not per minute) — omit rather than show a misleading one.
             videoUrl: nil,
@@ -1732,6 +1754,7 @@ extension WorkoutPlan {
             targetRpe: p?.rpe,
             blockTitle: block.title,
             blockPosition: block.blockPosition,
+            blockFormat: block.format,
             // One technique video only when the block is a single movement — and a
             // ski+remo block is two, however much they share a monitor.
             videoUrl: block.isSingleModality ? block.items.first?.exerciseVideoUrl : nil,
@@ -1776,6 +1799,7 @@ extension WorkoutPlan {
             // y un objetivo de bloque sería el del primer ejercicio sobre todos.
             blockTitle: block.title,
             blockPosition: block.blockPosition,
+            blockFormat: block.format,
             // Varios movimientos → ningún vídeo de técnica que no engañe.
             videoUrl: nil,
             prescription: merged,
@@ -1808,7 +1832,7 @@ extension WorkoutPlan {
     static func principalBlock(_ blocks: [WorkoutBlock]) -> WorkoutBlock? {
         guard !blocks.isEmpty else { return nil }
         let ordered = blocks.sorted { $0.blockPosition < $1.blockPosition }
-        let roles = ordered.map { BlockPhase.classify(title: $0.title) }
+        let roles = ordered.map { BlockPhase.classify(title: $0.title, format: $0.format) }
 
         let principal = zip(ordered, roles).filter { $0.1 == .principal }.map(\.0)
         let mains = zip(ordered, roles).filter { $0.1 == .principal || $0.1 == .main }.map(\.0)
@@ -2296,7 +2320,7 @@ extension WorkoutBlock {
               blockScheme.presentation == .fixed,
               p.scheme == .steady, p.totalS == nil, p.structure == nil
         else { return p }
-        let phase = BlockPhase.classify(title: title)
+        let phase = BlockPhase.classify(title: title, format: format)
         guard phase != .warmup, phase != .cooldown else { return p }
         return p.regida(por: blockScheme,
                         rounds: configJson?.int("rounds"),
@@ -2326,7 +2350,7 @@ extension WorkoutBlock {
         func isLeg(_ b: WorkoutBlock) -> Bool {
             guard b.items.count == 1,
                   PrescriptionScheme(canonicalizing: b.format) == .hyroxSim else { return false }
-            let phase = BlockPhase.classify(title: b.title)
+            let phase = BlockPhase.classify(title: b.title, format: b.format)
             return phase != .warmup && phase != .cooldown
         }
         var out: [WorkoutBlock] = []

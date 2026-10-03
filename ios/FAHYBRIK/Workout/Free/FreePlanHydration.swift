@@ -279,7 +279,7 @@ enum FreePlanHydration {
         var main: [FreeStrengthItem] = []
         var warm: [FreeStrengthItem] = []
         for block in blocks {
-            let isWarm = BlockPhase.classify(title: block.title) == .warmup
+            let isWarm = BlockPhase.classify(title: block.title, format: block.format) == .warmup
             for item in block.items {
                 guard let rx = item.prescription else { continue }
                 var row = FreeStrengthItem(exercise: exercise(of: item))

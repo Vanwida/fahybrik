@@ -67,20 +67,14 @@ extension BloqueFicha {
         )
     }
 
-    /// El rol sale del TÍTULO, con la misma clasificación que usa el motor (`BlockPhase`). Cuando el título no lo dice
-    /// («Movilidad general de cadera») lo dice el FORMATO que declaró el coach: un bloque `warmup` es calentamiento aunque no
-    /// se llame así, y no es trabajo (ni abre la ficha, ni cuenta como bloque en la cabecera).
+    /// El rol sale de la MISMA clasificación que usa el motor (`BlockPhase.classify(title:format:)`): el título manda y, cuando no
+    /// dice nada («Movilidad general de cadera»), el formato que declaró el coach. Un bloque `warmup` es calentamiento aunque no se
+    /// llame así, y no es trabajo (ni abre la ficha, ni cuenta como bloque en la cabecera).
     static func rolDe(_ b: WorkoutBlock) -> Rol {
-        switch BlockPhase.classify(title: b.title) {
-        case .warmup:    return .calentamiento
-        case .cooldown:  return .vuelta
-        case .principal: return .principal
-        case .main:
-            switch PrescriptionScheme(canonicalizing: b.format) {
-            case .warmup?:   return .calentamiento
-            case .cooldown?: return .vuelta
-            default:         return .principal
-            }
+        switch BlockPhase.classify(title: b.title, format: b.format) {
+        case .warmup:             return .calentamiento
+        case .cooldown:           return .vuelta
+        case .principal, .main:   return .principal
         }
     }
 
