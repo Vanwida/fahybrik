@@ -213,7 +213,7 @@ struct PlanView: View {
             alChat: { showChat = true },
             alPulsarDia: { seleccion = $0.isoDate },
             alDeslizar: { $0 > 0 ? irAdelante() : irAtras() },
-            alAtras: irAtras, alAdelante: irAdelante, alVolver: volver,
+            alAtras: irAtras, alAdelante: irAdelante,
             alAccion: { alAccion($0) },
             alAbrir: { abrir($0) },
             menuDeSesion: { sesion, semana in AnyView(menuDeSesion(sesion, semana)) },

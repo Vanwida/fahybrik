@@ -21,7 +21,6 @@ struct AccionesDePlan {
     var alDeslizar: (Int) -> Void = { _ in }
     var alAtras: () -> Void = {}
     var alAdelante: () -> Void = {}
-    var alVolver: () -> Void = {}
     var alAccion: (AccionAnclada) -> Void = { _ in }
     var alAbrir: (AthleteWeekDaySession) -> Void = { _ in }
     var menuDeSesion: (AthleteWeekDaySession, SemanaDelPlan?) -> AnyView = { _, _ in AnyView(EmptyView()) }
@@ -133,7 +132,7 @@ struct PlanColumna<Arriba: View>: View {
                 puedeAdelante: puede,
                 adelanteBloqueado: !puede && l.bloqueadaPorElClub(offset: offset),
                 cargando: cuerpo == .semanaCargando,
-                alAtras: acciones.alAtras, alAdelante: acciones.alAdelante, alVolver: acciones.alVolver
+                alAtras: acciones.alAtras, alAdelante: acciones.alAdelante
             )
         default:
             EmptyView()
