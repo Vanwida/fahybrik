@@ -6,7 +6,7 @@
 // editor para escribirla deprisa; al guardarla el texto se conserva.
 // «Revisar en fila» (?cola=1) ofrece la siguiente pieza por revisar al guardar.
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Plus, Trash2 } from 'lucide-react';
@@ -45,6 +45,8 @@ export function LibraryItemEditor({ model, cola, nextReviewId }: { model: Librar
   const { toast } = useToast();
   const [id, setId] = useState(model.id);
   const [title, setTitle] = useState(model.title);
+  const titleInput = useRef<HTMLInputElement>(null);
+  const [titleError, setTitleError] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<EditorBlock[]>(model.blocks);
   const [tags, setTags] = useState(model.tags.join(', '));
   const [saving, setSaving] = useState(false);
@@ -61,7 +63,13 @@ export function LibraryItemEditor({ model, cola, nextReviewId }: { model: Librar
 
   const save = async () => {
     const lines = blocks.flatMap((b) => b.items);
-    if (!title.trim()) return setError('Ponle un nombre.');
+    if (!title.trim()) {
+      setTitleError(`Escribe el nombre del ${noun}.`);
+      setError(null);
+      titleInput.current?.focus();
+      return;
+    }
+    setTitleError(null);
     if (lines.length === 0) return setError('Añade al menos una línea con su ejercicio para guardar.');
     if (lines.some((l) => l.exercise_id == null)) return setError('Hay una línea sin ejercicio: elígelo o quítala.');
     setSaving(true);
@@ -156,16 +164,7 @@ export function LibraryItemEditor({ model, cola, nextReviewId }: { model: Librar
     <div className="flex flex-col gap-5">
       <PageHeader
         back={{ href: back, label: 'Biblioteca' }}
-        title={
-          <Input
-            value={title}
-            onChange={(e) => { setTitle(e.target.value); setSaved(false); }}
-            aria-label={`Nombre del ${noun}`}
-            maxLength={160}
-            size="lg"
-            className="h-10 w-[min(560px,80vw)] border-transparent bg-transparent px-1 text-[20px] font-semibold hover:border-v2-border"
-          />
-        }
+        title={`${id ? 'Editar' : 'Nuevo'} ${noun}`}
         actions={
           <>
             {error ? <p role="alert" className="t-body-sm text-v2-danger">{error}</p> : saved ? <p className="t-meta text-v2-faint">Guardado</p> : null}
@@ -180,6 +179,20 @@ export function LibraryItemEditor({ model, cola, nextReviewId }: { model: Librar
           </>
         }
       />
+      <Field label={`Nombre del ${noun}`} hint="Obligatorio. Así lo encontrarás en la biblioteca y en tus programas." error={titleError} className="max-w-[880px]">
+        {({ id: fid, describedBy, invalid }) => <Input
+          ref={titleInput}
+          id={fid}
+          aria-describedby={describedBy}
+          invalid={invalid}
+          required
+          maxLength={160}
+          size="lg"
+          placeholder={noun === 'bloque' ? 'Ej.: Fuerza de piernas' : 'Ej.: Correr y fuerza'}
+          value={title}
+          onChange={(e) => { setTitle(e.target.value); setTitleError(null); setSaved(false); }}
+        />}
+      </Field>
       {model.prose ? (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <Card className="self-start lg:sticky lg:top-16">
@@ -194,4 +207,3 @@ export function LibraryItemEditor({ model, cola, nextReviewId }: { model: Librar
     </div>
   );
 }
-

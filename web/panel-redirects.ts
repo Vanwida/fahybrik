@@ -48,6 +48,7 @@ export const PANEL_REDIRECTS: PanelRedirect[] = [
   r('/tests', '/programar/tests'),
 
   // Negocio.
+  r('/ajustes/negocio/:path*', '/negocio/:path*'),
   r('/leads/:path*', '/negocio/leads/:path*'),
   r('/pagos', '/negocio/cobros'),
   r('/metricas', '/negocio/embudo'),
@@ -56,6 +57,7 @@ export const PANEL_REDIRECTS: PanelRedirect[] = [
   r('/disponibilidad', '/ajustes/agenda'),
   r('/club', '/ajustes/club'),
   r('/como-entrenas', '/ajustes/metodo'),
+  r('/metodo', '/ajustes/metodo'),
   // Oculto hasta que algo lea el cuestionario (DECISIONS 2026-09-23).
   r('/cuestionarios', '/ajustes/perfil'),
 ];

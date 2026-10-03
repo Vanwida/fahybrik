@@ -39,9 +39,14 @@ describe('redirecciones del panel (PLAN §5)', () => {
     ['/es/leads/15', '/es/negocio/leads/15'],
     ['/es/pagos', '/es/negocio/cobros'],
     ['/es/metricas', '/es/negocio/embudo'],
+    ['/es/ajustes/negocio', '/es/negocio'],
+    ['/es/ajustes/negocio/cobros', '/es/negocio/cobros'],
+    ['/en/ajustes/negocio/embudo', '/en/negocio/embudo'],
     ['/es/disponibilidad', '/es/ajustes/agenda'],
     ['/es/club', '/es/ajustes/club'],
     ['/es/como-entrenas', '/es/ajustes/metodo'],
+    ['/es/metodo', '/es/ajustes/metodo'],
+    ['/en/metodo', '/en/ajustes/metodo'],
     ['/es/cuestionarios', '/es/ajustes/perfil'],
     ['/en/pagos', '/en/negocio/cobros'],
   ])('%s → %s', (from, to) => {
@@ -59,6 +64,8 @@ describe('redirecciones del panel (PLAN §5)', () => {
 
   it('la consulta pasa al destino', () => {
     expect(resolve('/es/leads?estado=nuevo')).toContain('estado=nuevo');
+    expect(resolve('/es/ajustes/negocio/cobros?periodo=todo')).toBe('/es/negocio/cobros?periodo=todo');
+    expect(resolve('/es/metodo?seccion=zonas')).toBe('/es/ajustes/metodo?seccion=zonas');
   });
 
   it.each([['sesiones', 'entrenos'], ['bloques', 'bloques'], ['ejercicios', 'ejercicios'], ['comunicados', 'comunicados']])('Biblioteca antigua %s mantiene la categoría %s', (tab, view) => {

@@ -13,7 +13,7 @@ import { LibraryTable } from './LibraryTable';
 import { parseLibFilter, type LibFilter } from './library-filter';
 import { EjerciciosTable } from './EjerciciosTable';
 import { ComunicadosLibrary } from './ComunicadosLibrary';
-import { LIBRARY_VIEWS, libraryView, libraryViewParams, type LibraryView } from './library-view';
+import { LIBRARY_VIEWS, firstLibraryView, libraryView, libraryViewParams, type LibraryView } from './library-view';
 import { useViewerChoice } from '../shell/viewer-prefs';
 
 type Ver = LibraryView;
@@ -23,7 +23,8 @@ export function BibliotecaView({ data, coachId, coachName }: { data: { entrenos:
   const router = useRouter();
   const path = usePathname() ?? '';
   const params = useSearchParams();
-  const [remembered, remember] = useViewerChoice(`fahybrid:library:${coachId}`, LIBRARY_VIEWS, 'entrenos');
+  // El fallback no se guarda: solo una elección hecha por la persona llama a remember.
+  const [remembered, remember] = useViewerChoice(`fahybrid:library:${coachId}`, LIBRARY_VIEWS, firstLibraryView(data));
   const ver = libraryView(new URLSearchParams(params?.toString()), remembered);
   const filter = parseLibFilter(params?.get('filtro'));
   const [createExercise, setCreateExercise] = useState(0);
