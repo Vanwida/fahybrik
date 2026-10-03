@@ -13,7 +13,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { BotonCromo } from '../hoy-dia/cromo';
 import { Esqueleto, Etiqueta } from '../../kit-dia/piezas';
-import { fuente, TAM, velo } from '../../kit-dia/tokens';
+import { fuente, TAM } from '../../kit-dia/tokens';
 import { IcoCandado, IcoChevronDer, IcoChevronIzq } from './iconos';
 
 const LINEAS_CERRADA = 2;
@@ -84,7 +84,7 @@ export interface CabeceraProps {
   /** «Del 28 sep al 4 oct». */
   rango: string | null;
   intencion: string | null;
-  /** Hojeando otra semana: hay «‹» y el atajo de volver. */
+  /** Hojeando otra semana: hay «‹», que también es la vuelta a esta semana (no hay pastilla que lo repita). */
   hojeando: boolean;
   /** Hay una semana más adelante que ver. */
   puedeAdelante: boolean;
@@ -92,7 +92,6 @@ export interface CabeceraProps {
   adelanteBloqueado: boolean;
   onAtras: () => void;
   onAdelante: () => void;
-  onVolver: () => void;
   /** Mientras la semana que se mira carga: el título es real y el resto, esqueleto. */
   cargando?: boolean;
 }
@@ -131,6 +130,11 @@ export function Cabecera(p: CabeceraProps) {
             >
               {p.adelanteBloqueado ? <IcoCandado tam={18} /> : <IcoChevronDer tam={18} />}
             </BotonCromo>
+          ) : p.hojeando ? (
+            // Sin más semanas por delante el «›» se queda en su sitio, apagado: el «‹» no flota lejos del margen.
+            <BotonCromo etiqueta="Semana siguiente: no hay más semanas" onClick={() => undefined} apagado>
+              <IcoChevronDer tam={18} />
+            </BotonCromo>
           ) : (
             <span style={{ width: 48 }} />
           )}
@@ -144,26 +148,6 @@ export function Cabecera(p: CabeceraProps) {
         ) : (
           <span />
         )}
-        {p.hojeando ? (
-          <button
-            type="button"
-            className="pl-btn"
-            onClick={p.onVolver}
-            style={{
-              minHeight: 44,
-              padding: '0 14px',
-              marginRight: 4,
-              borderRadius: 9999,
-              display: 'inline-flex',
-              alignItems: 'center',
-              border: `1px solid ${velo('var(--twin-accent-text)', 45)}`,
-              color: 'var(--twin-accent-text)',
-              ...fuente(700, TAM.suelo, 1),
-            }}
-          >
-            Volver a esta semana
-          </button>
-        ) : null}
       </div>
       {p.cargando ? (
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>

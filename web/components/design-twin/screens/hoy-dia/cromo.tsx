@@ -17,19 +17,30 @@ export function BotonCromo({
   onClick,
   children,
   n = 0,
+  apagado = false,
 }: {
   etiqueta: string;
   onClick: () => void;
   children: ReactNode;
   n?: number;
+  /** Sin acción y atenuado: se ve que está y que no lleva a ningún sitio (el «›» sin más semanas). */
+  apagado?: boolean;
 }) {
   return (
     <button
       type="button"
       className="hd-toque"
       aria-label={etiqueta}
+      disabled={apagado}
       onClick={onClick}
-      style={{ width: TOQUE, height: TOQUE, position: 'relative', display: 'grid', placeItems: 'center' }}
+      style={{
+        width: TOQUE,
+        height: TOQUE,
+        position: 'relative',
+        display: 'grid',
+        placeItems: 'center',
+        opacity: apagado ? 0.35 : 1,
+      }}
     >
       <span
         style={{
